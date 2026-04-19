@@ -140,19 +140,35 @@
 
 ---
 
-## Sprint 5 — Products ⬜
+## Sprint 5 — Products + Role-Aware Dashboard ⬜
 
-> Objetivo: catálogo de productos con pricing y ciclos de facturación.
+> Objetivo: catálogo de productos con pricing + dashboard estricto por rol.
+> Cada rol ve SOLO los módulos a los que tiene acceso. Cero ambigüedad.
 
 | # | Paso | Estado |
 |---|------|--------|
+| 5.0a | **Sidebar role-aware estricto** — definir mapa de permisos por rol y filtrar NAV_ITEMS | ⬜ |
+| 5.0b | **Manejo de 403 en frontend** — componente "Sin permisos" + redirect si el rol no tiene acceso a la ruta | ⬜ |
+| 5.0c | **Sidebar responsive mobile** — drawer overlay con hamburguesa en <768px | ⬜ |
 | 5.1 | ProductsService: CRUD + activar/desactivar | ⬜ |
 | 5.2 | ProductsController: endpoints | ⬜ |
-| 5.3 | Lógica de pricing: setup + recurrente + ciclos | ⬜ |
+| 5.3 | Lógica de pricing: setup + recurrente + ciclos (con campo `currency` preparado) | ⬜ |
 | 5.4 | Frontend: catálogo de productos (admin) | ⬜ |
 | 5.5 | Frontend: crear/editar producto con pricing | ⬜ |
-| 5.6 | **Sidebar responsive mobile** — drawer overlay con hamburguesa en <768px | ⬜ |
-| 5.7 | docs/features/products/admin.md | ⬜ |
+| 5.6 | docs/features/products/admin.md | ⬜ |
+
+**Mapa de permisos por rol (referencia para 5.0a):**
+
+| Módulo | superadmin | agent_full | agent_billing | agent_support | client | partner |
+|--------|-----------|-----------|--------------|--------------|--------|--------|
+| Dashboard | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Clientes | ✅ | ✅ | ✅ | ✅ (solo lectura) | ❌ | ❌ |
+| Productos | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Facturación | ✅ | ✅ | ✅ | ❌ | ✅ (propio) | ❌ |
+| Soporte | ✅ | ✅ | ❌ | ✅ | ✅ (propio) | ❌ |
+| Tareas | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Settings | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Mi perfil | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ---
 
@@ -288,13 +304,11 @@
 | 13.12 | **Audit trail global** — interceptor que registre cambios (old vs new) + actor en `audit_change_log` | Edge S4 | ⬜ |
 | 13.13 | **Notas internas como tabla** — migrar de texto plano a `client_notes(user_id, author_id, content, created_at)` | Edge S4 | ⬜ |
 | 13.14 | **XSS: sanitizar notas internas** — `escapeHtml` en inputs de texto libre del CRM | Edge S4 | ⬜ |
-| 13.15 | **Sidebar role-aware** — filtrar nav items según `user.role.slug` | Edge S4 | ⬜ |
-| 13.16 | **Manejo de 403 en frontend** — componente "Sin permisos" cuando el backend rechaza por rol | Edge S4 | ⬜ |
-| 13.17 | **Cache de roles en ClientsService** — cachear `clientRole.id` en memoria | Edge S4 | ⬜ |
-| 13.18 | **Escapar wildcards en búsqueda** — sanitizar `%` y `_` en strings de search antes de Prisma ILIKE | Edge S4 | ⬜ |
-| 13.19 | **Validación de NIF/CIF/NIE** — regex de formato español en billing profiles | Edge S4 | ⬜ |
-| 13.20 | **Client self-service billing** — endpoints para que el cliente gestione sus propios perfiles | Edge S4 | ⬜ |
-| 13.21 | **Loading screen global** — eliminar el flash del login al redirigir a dashboard | Edge S3.5 | ⬜ |
+| 13.15 | **Cache de roles en ClientsService** — cachear `clientRole.id` en memoria | Edge S4 | ⬜ |
+| 13.16 | **Escapar wildcards en búsqueda** — sanitizar `%` y `_` en strings de search antes de Prisma ILIKE | Edge S4 | ⬜ |
+| 13.17 | **Validación de NIF/CIF/NIE** — regex de formato español en billing profiles | Edge S4 | ⬜ |
+| 13.18 | **Client self-service billing** — endpoints para que el cliente gestione sus propios perfiles | Edge S4 | ⬜ |
+| 13.19 | **Loading screen global** — eliminar el flash del login al redirigir a dashboard | Edge S3.5 | ⬜ |
 
 ---
 
@@ -320,3 +334,27 @@
 - **Antes de cada sprint**: leer DECISIONS.md para la lógica de negocio del módulo.
 - **Al cerrar cada sprint**: commit, actualizar este roadmap, escribir admin.md.
 - **Si hay ambigüedad en la lógica de negocio**: PREGUNTAR, no inventar.
+
+---
+
+## Sprint 15 — i18n + Multi-Currency ⬜
+
+> Objetivo: internacionalización del dashboard y soporte multi-moneda.
+> La base de datos ya almacena `language` y `timezone` por usuario.
+> Los campos `currency` se irán preparando desde Sprint 5 (productos) y Sprint 6 (facturas).
+
+| # | Paso | Estado |
+|---|------|--------|
+| 15.1 | Integrar `next-intl` — estructura de mensajes ES/EN | ⬜ |
+| 15.2 | Extraer todos los strings hardcodeados del frontend a archivos de traducción | ⬜ |
+| 15.3 | Selector de idioma en Settings del usuario | ⬜ |
+| 15.4 | Backend: respuestas de error en idioma del usuario (`Accept-Language` o campo `language`) | ⬜ |
+| 15.5 | Multi-currency: helper de formateo (`formatCurrency(amount, currency)`) | ⬜ |
+| 15.6 | Ajustar billing/invoices para respetar `currency` del perfil de facturación | ⬜ |
+| 15.7 | docs/features/i18n/admin.md | ⬜ |
+
+**Notas de compatibilidad base (preparar en sprints previos):**
+- Sprint 5: campo `currency` en tabla `products` (default `EUR`)
+- Sprint 6: campo `currency` en tabla `invoices` y `invoice_items`
+- Sprint 12: selector de idioma en la página de Settings
+- NO hardcodear `€` ni `EUR` — usar siempre el helper de formateo
