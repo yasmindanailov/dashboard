@@ -13,6 +13,13 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../core/database/prisma.service';
 import { SettingsService } from '../../core/settings/settings.service';
+import { EmailService } from '../../core/email/email.service';
+import {
+  verifyEmailTemplate,
+  twoFactorCodeTemplate,
+  passwordResetTemplate,
+  welcomeTemplate,
+} from '../../core/email/templates/auth.templates';
 import { RegisterDto, LoginDto, Verify2faDto, ResetPasswordDto } from './dto/auth.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { RoleSlug } from '@prisma/client';
@@ -35,6 +42,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly settings: SettingsService,
     private readonly events: EventEmitter2,
+    private readonly email: EmailService,
   ) {}
 
   /* ═══════════════════════════════════════
@@ -153,8 +161,9 @@ export class AuthService {
         },
       });
 
-      // TODO: Send code by email (Sprint: Notifications)
-      this.logger.log(`[2FA] Code for ${user.email}: ${code} (expires in ${expiresMinutes} min)`);
+      // Send 2FA code by email
+      const tpl = twoFactorCodeTemplate(user.first_name, code);
+      await this.email.send({ to: user.email, subject: tpl.subject, html: tpl.html });
 
       // Generate temporary token for 2FA step
       const tempToken = this.jwt.sign(
@@ -367,8 +376,11 @@ export class AuthService {
       },
     });
 
-    // TODO: Send email with reset link (Sprint: Notifications)
-    this.logger.log(`[Password Reset] Token for ${email}: ${token}`);
+    // Send password reset email
+    const appUrl = this.config.get<string>('NEXT_PUBLIC_APP_URL', 'http://localhost:3002');
+    const resetUrl = `${appUrl}/reset-password?token=${token}`;
+    const tpl = passwordResetTemplate(user.first_name, resetUrl);
+    await this.email.send({ to: user.email, subject: tpl.subject, html: tpl.html });
 
     return response;
   }
@@ -601,8 +613,14 @@ export class AuthService {
       },
     });
 
-    // TODO: Send email with verification link (Sprint: Notifications)
-    this.logger.log(`[Email Verification] Token for user ${userId}: ${token}`);
+    // Send verification email
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (user) {
+      const appUrl = this.config.get<string>('NEXT_PUBLIC_APP_URL', 'http://localhost:3002');
+      const verifyUrl = `${appUrl}/verify-email?token=${token}`;
+      const tpl = verifyEmailTemplate(user.first_name, verifyUrl);
+      await this.email.send({ to: user.email, subject: tpl.subject, html: tpl.html });
+    }
     return token;
   }
 
