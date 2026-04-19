@@ -151,7 +151,8 @@
 | 5.3 | Lógica de pricing: setup + recurrente + ciclos | ⬜ |
 | 5.4 | Frontend: catálogo de productos (admin) | ⬜ |
 | 5.5 | Frontend: crear/editar producto con pricing | ⬜ |
-| 5.6 | docs/features/products/admin.md | ⬜ |
+| 5.6 | **Sidebar responsive mobile** — drawer overlay con hamburguesa en <768px | ⬜ |
+| 5.7 | docs/features/products/admin.md | ⬜ |
 
 ---
 
@@ -284,6 +285,16 @@
 | 13.9 | Health checks completos | Operaciones | ⬜ |
 | 13.10 | Graceful shutdown | Operaciones | ⬜ |
 | 13.11 | Tests unitarios para lógica crítica (billing, auth) | Calidad | ⬜ |
+| 13.12 | **Audit trail global** — interceptor que registre cambios (old vs new) + actor en `audit_change_log` | Edge S4 | ⬜ |
+| 13.13 | **Notas internas como tabla** — migrar de texto plano a `client_notes(user_id, author_id, content, created_at)` | Edge S4 | ⬜ |
+| 13.14 | **XSS: sanitizar notas internas** — `escapeHtml` en inputs de texto libre del CRM | Edge S4 | ⬜ |
+| 13.15 | **Sidebar role-aware** — filtrar nav items según `user.role.slug` | Edge S4 | ⬜ |
+| 13.16 | **Manejo de 403 en frontend** — componente "Sin permisos" cuando el backend rechaza por rol | Edge S4 | ⬜ |
+| 13.17 | **Cache de roles en ClientsService** — cachear `clientRole.id` en memoria | Edge S4 | ⬜ |
+| 13.18 | **Escapar wildcards en búsqueda** — sanitizar `%` y `_` en strings de search antes de Prisma ILIKE | Edge S4 | ⬜ |
+| 13.19 | **Validación de NIF/CIF/NIE** — regex de formato español en billing profiles | Edge S4 | ⬜ |
+| 13.20 | **Client self-service billing** — endpoints para que el cliente gestione sus propios perfiles | Edge S4 | ⬜ |
+| 13.21 | **Loading screen global** — eliminar el flash del login al redirigir a dashboard | Edge S3.5 | ⬜ |
 
 ---
 

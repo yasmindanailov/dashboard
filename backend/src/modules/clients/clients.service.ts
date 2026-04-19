@@ -93,6 +93,12 @@ export class ClientsService {
     });
 
     if (!user) throw new NotFoundException('Cliente no encontrado');
+
+    // EC-4.3: Only allow viewing clients, not agents/admins
+    if (user.role.slug !== RoleSlug.client) {
+      throw new NotFoundException('Cliente no encontrado');
+    }
+
     return user;
   }
 
@@ -100,8 +106,13 @@ export class ClientsService {
      UPDATE CLIENT PROFILE
      ═══════════════════════════════════════ */
   async updateProfile(userId: string, dto: UpdateClientProfileDto) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    // EC-4.4: Use select to avoid loading password_hash
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: { select: { slug: true } } },
+    });
     if (!user) throw new NotFoundException('Cliente no encontrado');
+    if (user.role.slug !== RoleSlug.client) throw new NotFoundException('Cliente no encontrado');
 
     // Upsert profile (create if doesn't exist — safety net)
     const profile = await this.prisma.clientProfile.upsert({
@@ -149,7 +160,10 @@ export class ClientsService {
   }
 
   async createBillingProfile(userId: string, dto: CreateBillingProfileDto) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
     if (!user) throw new NotFoundException('Cliente no encontrado');
 
     // Validate business rules per type
@@ -165,45 +179,49 @@ export class ClientsService {
       );
     }
 
-    // If this is the first billing profile, make it default
-    const existing = await this.prisma.billingProfile.count({
-      where: { user_id: userId },
-    });
-
-    const isDefault = dto.is_default ?? existing === 0;
-
-    // If setting as default, unset others
-    if (isDefault) {
-      await this.prisma.billingProfile.updateMany({
-        where: { user_id: userId, is_default: true },
-        data: { is_default: false },
+    // EC-4.5: Use $transaction to prevent race condition on is_default
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.billingProfile.count({
+        where: { user_id: userId },
       });
-    }
 
-    return this.prisma.billingProfile.create({
-      data: {
-        user_id: userId,
-        type: dto.type,
-        label: dto.label,
-        first_name: dto.first_name,
-        last_name: dto.last_name,
-        company_name: dto.company_name,
-        nif_cif: dto.nif_cif,
-        address_line1: dto.address_line1,
-        address_line2: dto.address_line2,
-        city: dto.city,
-        postal_code: dto.postal_code,
-        country: dto.country ?? 'ES',
-        is_default: isDefault,
-      },
+      const isDefault = dto.is_default ?? existing === 0;
+
+      if (isDefault) {
+        await tx.billingProfile.updateMany({
+          where: { user_id: userId, is_default: true },
+          data: { is_default: false },
+        });
+      }
+
+      return tx.billingProfile.create({
+        data: {
+          user_id: userId,
+          type: dto.type,
+          label: dto.label,
+          first_name: dto.first_name,
+          last_name: dto.last_name,
+          company_name: dto.company_name,
+          nif_cif: dto.nif_cif,
+          address_line1: dto.address_line1,
+          address_line2: dto.address_line2,
+          city: dto.city,
+          postal_code: dto.postal_code,
+          country: dto.country ?? 'ES',
+          is_default: isDefault,
+        },
+      });
     });
   }
 
-  async updateBillingProfile(profileId: string, dto: UpdateBillingProfileDto) {
+  // EC-4.1: Added userId param to verify ownership
+  async updateBillingProfile(userId: string, profileId: string, dto: UpdateBillingProfileDto) {
     const profile = await this.prisma.billingProfile.findUnique({
       where: { id: profileId },
     });
-    if (!profile) throw new NotFoundException('Perfil de facturación no encontrado');
+    if (!profile || profile.user_id !== userId) {
+      throw new NotFoundException('Perfil de facturación no encontrado');
+    }
 
     // Validate business rules if type changes
     const newType = dto.type ?? profile.type;
@@ -221,25 +239,30 @@ export class ClientsService {
       );
     }
 
-    // Handle default toggle
-    if (dto.is_default === true) {
-      await this.prisma.billingProfile.updateMany({
-        where: { user_id: profile.user_id, is_default: true },
-        data: { is_default: false },
-      });
-    }
+    // EC-4.5: Use $transaction for default toggle
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.is_default === true) {
+        await tx.billingProfile.updateMany({
+          where: { user_id: profile.user_id, is_default: true },
+          data: { is_default: false },
+        });
+      }
 
-    return this.prisma.billingProfile.update({
-      where: { id: profileId },
-      data: dto,
+      return tx.billingProfile.update({
+        where: { id: profileId },
+        data: dto,
+      });
     });
   }
 
-  async deleteBillingProfile(profileId: string) {
+  // EC-4.1: Added userId param to verify ownership
+  async deleteBillingProfile(userId: string, profileId: string) {
     const profile = await this.prisma.billingProfile.findUnique({
       where: { id: profileId },
     });
-    if (!profile) throw new NotFoundException('Perfil de facturación no encontrado');
+    if (!profile || profile.user_id !== userId) {
+      throw new NotFoundException('Perfil de facturación no encontrado');
+    }
 
     if (profile.is_default) {
       throw new BadRequestException(
@@ -261,16 +284,17 @@ export class ClientsService {
       throw new NotFoundException('Perfil de facturación no encontrado');
     }
 
-    // Unset all defaults for this user
-    await this.prisma.billingProfile.updateMany({
-      where: { user_id: userId, is_default: true },
-      data: { is_default: false },
-    });
+    // EC-4.5: Use $transaction for default swap
+    return this.prisma.$transaction(async (tx) => {
+      await tx.billingProfile.updateMany({
+        where: { user_id: userId, is_default: true },
+        data: { is_default: false },
+      });
 
-    // Set the new default
-    return this.prisma.billingProfile.update({
-      where: { id: profileId },
-      data: { is_default: true },
+      return tx.billingProfile.update({
+        where: { id: profileId },
+        data: { is_default: true },
+      });
     });
   }
 }

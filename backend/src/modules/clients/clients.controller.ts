@@ -78,19 +78,23 @@ export class ClientsController {
     return this.clientsService.createBillingProfile(id, dto);
   }
 
-  @Patch('billing-profiles/:profileId')
+  @Patch(':id/billing-profiles/:profileId')
   @Roles(RoleSlug.superadmin, RoleSlug.agent_full, RoleSlug.agent_billing)
   updateBillingProfile(
+    @Param('id', ParseUUIDPipe) id: string,
     @Param('profileId', ParseUUIDPipe) profileId: string,
     @Body() dto: UpdateBillingProfileDto,
   ) {
-    return this.clientsService.updateBillingProfile(profileId, dto);
+    return this.clientsService.updateBillingProfile(id, profileId, dto);
   }
 
-  @Delete('billing-profiles/:profileId')
+  @Delete(':id/billing-profiles/:profileId')
   @Roles(RoleSlug.superadmin, RoleSlug.agent_full, RoleSlug.agent_billing)
-  deleteBillingProfile(@Param('profileId', ParseUUIDPipe) profileId: string) {
-    return this.clientsService.deleteBillingProfile(profileId);
+  deleteBillingProfile(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('profileId', ParseUUIDPipe) profileId: string,
+  ) {
+    return this.clientsService.deleteBillingProfile(id, profileId);
   }
 
   @Patch(':id/billing-profiles/:profileId/default')

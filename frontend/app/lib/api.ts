@@ -121,11 +121,11 @@ export const clientsApi = {
   createBillingProfile: (token: string, id: string, data: Record<string, unknown>) =>
     api(`/clients/${id}/billing-profiles`, { method: 'POST', token, body: data }),
 
-  updateBillingProfile: (token: string, profileId: string, data: Record<string, unknown>) =>
-    api(`/clients/billing-profiles/${profileId}`, { method: 'PATCH', token, body: data }),
+  updateBillingProfile: (token: string, userId: string, profileId: string, data: Record<string, unknown>) =>
+    api(`/clients/${userId}/billing-profiles/${profileId}`, { method: 'PATCH', token, body: data }),
 
-  deleteBillingProfile: (token: string, profileId: string) =>
-    api(`/clients/billing-profiles/${profileId}`, { method: 'DELETE', token }),
+  deleteBillingProfile: (token: string, userId: string, profileId: string) =>
+    api(`/clients/${userId}/billing-profiles/${profileId}`, { method: 'DELETE', token }),
 
   setDefaultBillingProfile: (token: string, userId: string, profileId: string) =>
     api(`/clients/${userId}/billing-profiles/${profileId}/default`, { method: 'PATCH', token }),
