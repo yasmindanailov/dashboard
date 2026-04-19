@@ -149,6 +149,27 @@ Cuando un job de BullMQ agota todos sus reintentos, queda en estado `failed` en 
 Se genera una notificación al superadmin. El admin puede reintentar manualmente desde
 el dashboard. Los jobs fallidos nunca se eliminan automáticamente.
 
+### Regla 14 — Error handling visible en el frontend
+El frontend NUNCA traga errores silenciosamente.
+Todo `catch` muestra feedback visual al usuario:
+- Errores de negocio → toast/banner con el mensaje del backend.
+- Errores de red → "Error de conexión. Inténtalo de nuevo."
+- HTTP 403 → Componente "Sin permisos".
+- HTTP 401 → Redirect a login.
+Nunca `catch {}` vacío. Nunca `console.log` como único handling.
+
+```typescript
+// ❌ INCORRECTO — error silenciado
+try { await api.save(data); }
+catch { /* handled */ }
+
+// ✅ CORRECTO — feedback visible
+try { await api.save(data); }
+catch (err) {
+  setError(err instanceof Error ? err.message : 'Error inesperado');
+}
+```
+
 ---
 
 ## ESTRUCTURA DE CARPETAS

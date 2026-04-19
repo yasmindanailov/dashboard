@@ -278,9 +278,24 @@
 |---|------|--------|
 | 12.1 | Frontend: página de settings con categorías | ⬜ |
 | 12.2 | SettingsController: CRUD settings | ⬜ |
-| 12.3 | KnowledgeBaseService: artículos con categorías | ⬜ |
-| 12.4 | Frontend: knowledge base (admin + cliente) | ⬜ |
-| 12.5 | docs/features/settings/admin.md | ⬜ |
+| 12.3 | **Mi perfil** — el usuario edita sus propios datos (nombre, teléfono, idioma, timezone, contraseña) | ⬜ |
+| 12.4 | KnowledgeBaseService: artículos con categorías | ⬜ |
+| 12.5 | Frontend: knowledge base (admin + cliente) | ⬜ |
+| 12.6 | docs/features/settings/admin.md | ⬜ |
+
+---
+
+## Sprint 12.5 — Portal de Transparencia RGPD ⬜
+
+> Objetivo: cumplimiento RGPD. Portal de transparencia para el cliente.
+> Referencia: DECISIONS.md §13 — Portal de transparencia del cliente.
+
+| # | Paso | Estado |
+|---|------|--------|
+| 12.5.1 | Frontend: zona de transparencia del cliente (historial accesos, cambios, integraciones) | ⬜ |
+| 12.5.2 | Exportación de datos del cliente (portabilidad RGPD) | ⬜ |
+| 12.5.3 | Solicitud de eliminación de cuenta (genera tarea interna → anonimización) | ⬜ |
+| 12.5.4 | docs/features/transparency/admin.md | ⬜ |
 
 ---
 
