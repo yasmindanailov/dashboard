@@ -1,0 +1,45 @@
+# ═══════════════════════════════════════════════
+# Aelium Dashboard — Development Services
+# Solo PostgreSQL + Redis para desarrollo local
+# Levantar con: docker compose -f docker/docker-compose.dev.yml up -d
+# ═══════════════════════════════════════════════
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aelium-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aelium_dashboard
+      POSTGRES_USER: aelium
+      POSTGRES_PASSWORD: aelium_dev_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aelium -d aelium_dashboard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: aelium-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
