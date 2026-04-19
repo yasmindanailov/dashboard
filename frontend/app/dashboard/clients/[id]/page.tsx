@@ -66,6 +66,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [tab, setTab] = useState<Tab>('resumen');
   const [noteText, setNoteText] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [noteSuccess, setNoteSuccess] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -83,14 +85,23 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     if (!token) return;
 
     setSavingNote(true);
+    setError(null);
+    setNoteSuccess(false);
     try {
       await clientsApi.addNote(token, id, noteText);
       // Reload client data
       const data = await clientsApi.get(token, id) as ClientDetail;
       setClient(data);
       setNoteText('');
-    } catch { /* handled */ }
-    finally { setSavingNote(false); }
+      setNoteSuccess(true);
+      setTimeout(() => setNoteSuccess(false), 3000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al guardar la nota';
+      setError(message);
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setSavingNote(false);
+    }
   };
 
   if (loading) {
@@ -141,7 +152,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-semibold text-white shrink-0"
             style={{ background: 'var(--brand)' }}
           >
-            {client.first_name[0]}{client.last_name[0]}
+            {client.first_name?.[0]}{client.last_name?.[0]}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
@@ -165,7 +176,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 overflow-x-auto" style={{ borderBottom: '1px solid var(--border)' }}>
+      <div className="flex gap-1 mb-6" style={{ borderBottom: '1px solid var(--border)' }}>
         {TABS.map(({ key, label }) => (
           <button
             key={key}
@@ -299,6 +310,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             >
               {savingNote ? 'Guardando...' : 'Añadir nota'}
             </button>
+
+            {/* Feedback messages */}
+            {noteSuccess && (
+              <span className="ml-3 text-sm font-medium" style={{ color: '#16A34A' }}>✓ Nota guardada</span>
+            )}
+            {error && (
+              <div className="mt-2 px-3 py-2 rounded-lg text-sm" style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
+                {error}
+              </div>
+            )}
           </div>
 
           {/* Notes display */}
