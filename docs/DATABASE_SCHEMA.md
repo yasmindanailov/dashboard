@@ -1,7 +1,9 @@
 # DATABASE_SCHEMA.md — Aelium Dashboard
-> Schema completo de PostgreSQL en formato Markdown.
-> El SQL y las migraciones se generan en Antigravity a partir de este documento.
-> Versión 1.0 | Abril 2026
+> Schema de la base de datos.
+> Versión 1.1 | Abril 2026
+>
+> **Fuente de verdad implementada:** `backend/prisma/schema.prisma`
+> **Este documento:** diseño de referencia. Se actualiza al implementar cada sprint.
 >
 > **Schema principal:** `public`
 > **Schema de audit:** `audit` (solo INSERT, nunca UPDATE ni DELETE)
@@ -12,178 +14,177 @@
 > - `created_at` y `updated_at` en todas las tablas mutables
 > - Los campos desnormalizados intencionalmente están marcados con ⚠️ desnormalizado
 > - FK = Foreign Key · PK = Primary Key · UQ = Unique
+> - ✅ = Implementado en Prisma · ⬜ = Pendiente de implementar en su sprint
 
 ---
 
-## BLOQUE 1 — USUARIOS Y AUTENTICACIÓN
+## BLOQUE 1 — USUARIOS Y AUTENTICACIÓN ✅
+
+> Implementado en Sprint 0 y Sprint 1. Todo este bloque está en Prisma.
 
 ---
 
-### `users`
-Todos los usuarios del sistema — clientes, agentes, y superadmin.
-El rol determina qué puede hacer cada usuario.
+### `roles` ✅
+Definición de roles del sistema. Usa enum `RoleSlug` como identificador único.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | |
+| id | uuid | PK | |
+| slug | enum RoleSlug | NOT NULL, UQ | superadmin · agent_full · agent_billing · agent_support · client · partner_pending · partner |
+| name | varchar(100) | NOT NULL | Nombre visible: "Superadmin", "Cliente", etc. |
+| description | text | NULLABLE | |
+| permissions | json | DEFAULT '[]' | Permisos granulares (futuro) |
+| is_system | boolean | DEFAULT false | true = no editable desde UI |
+| created_at | timestamptz | NOT NULL, DEFAULT now() | |
+
+**Datos iniciales (seed):** 7 roles — ver `backend/prisma/seed.ts`
+
+---
+
+### `users` ✅
+Todos los usuarios del sistema — clientes, agentes, partners, y superadmin.
+Relación directa con `roles` via FK (un usuario = un rol).
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| id | uuid | PK | |
 | email | varchar(255) | NOT NULL, UQ | |
-| password_hash | varchar(500) | NOT NULL | Bcrypt. Nunca en claro. |
+| password_hash | varchar(500) | NOT NULL | Bcrypt 12 rounds. Nunca en claro. |
 | first_name | varchar(100) | NOT NULL | |
 | last_name | varchar(100) | NOT NULL | |
-| status | enum | NOT NULL, DEFAULT 'pending_verification' | pending_verification · active · blocked · inactive |
+| status | enum UserStatus | NOT NULL, DEFAULT 'pending_verification' | pending_verification · active · blocked · inactive |
 | email_verified_at | timestamptz | NULLABLE | null = no verificado |
-| login_attempts | integer | NOT NULL, DEFAULT 0 | Se resetea al cambiar contraseña |
-| blocked_at | timestamptz | NULLABLE | Se activa tras 5 intentos fallidos |
+| login_attempts | integer | NOT NULL, DEFAULT 0 | Se resetea al hacer login exitoso |
+| blocked_until | timestamptz | NULLABLE | Bloqueo temporal tras N intentos fallidos (configurable) |
+| last_login_at | timestamptz | NULLABLE | Se actualiza en cada login exitoso |
+| last_login_ip | varchar(45) | NULLABLE | IPv4 o IPv6 |
+| two_factor_enabled | boolean | DEFAULT false | |
+| two_factor_secret | varchar(500) | NULLABLE | Hash SHA-256 del código 2FA activo (single-use) |
+| avatar_url | varchar(1000) | NULLABLE | URL de la imagen de perfil (MinIO) |
+| language | varchar(5) | DEFAULT 'es' | Idioma del dashboard |
+| timezone | varchar(50) | DEFAULT 'Europe/Madrid' | Zona horaria para mostrar fechas |
+| role_id | uuid | NOT NULL, FK → roles(id) | Relación directa, sin tabla pivote |
+| partner_id | uuid | NULLABLE | Si el usuario fue creado por un partner |
 | created_at | timestamptz | NOT NULL, DEFAULT now() | |
-| updated_at | timestamptz | NOT NULL, DEFAULT now() | |
+| updated_at | timestamptz | NOT NULL, DEFAULT now() | Auto-update |
 
 **Índices:**
 - `idx_users_email` — UNIQUE en email
-- `idx_users_status` — en status (para listar clientes activos)
+- `idx_users_role_id` — en role_id
+- `idx_users_status` — en status
 
 **Notas de decisión:**
-- El superadmin solo se crea directamente en la base de datos. Nunca desde la UI.
-- `blocked_at` se activa tras 5 intentos fallidos. El bloqueo dura hasta que el usuario cambia su contraseña.
-- `status = inactive` es para cuentas desactivadas por el admin sin eliminar datos.
+- El superadmin solo se crea via seed. Nunca desde la UI.
+- `blocked_until` usa bloqueo temporal (15 min por defecto, configurable en settings).
+- 2FA obligatorio para superadmin y agentes (código por email, single-use).
+- El código 2FA se guarda hasheado en `two_factor_secret` y se borra tras uso.
 
 ---
 
-### `roles`
-Definición de los roles del sistema.
-
-| Campo | Tipo | Restricciones | Notas |
-|-------|------|---------------|-------|
-| id | uuid | PK | |
-| name | varchar(50) | NOT NULL, UQ | superadmin · agent_full · agent_billing · agent_support · client |
-| description | text | NULLABLE | |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | |
-
-**Datos iniciales (seed):**
-```
-superadmin    — Acceso total al sistema
-agent_full    — Soporte + billing. Sin configuración del sistema
-agent_billing — Facturas, pagos, clientes. Sin soporte
-agent_support — Chat, conversaciones, historial. Sin billing
-client        — Solo su propio contexto
-```
-
----
-
-### `user_roles`
-Relación entre usuarios y roles. Un usuario puede tener un solo rol activo.
+### `sessions` ✅
+Sesiones activas. No se eliminan, se marcan como `is_active = false`.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
 | id | uuid | PK | |
 | user_id | uuid | NOT NULL, FK → users(id) ON DELETE CASCADE | |
-| role_id | uuid | NOT NULL, FK → roles(id) | |
-| assigned_by | uuid | NULLABLE, FK → users(id) | null = asignado desde la base de datos directamente |
-| assigned_at | timestamptz | NOT NULL, DEFAULT now() | |
-
-**Índices:**
-- `idx_user_roles_user_id` — en user_id
-- UNIQUE(user_id, role_id)
-
----
-
-### `sessions`
-Sesiones activas únicamente. Al cerrar sesión o expirar, el registro se elimina.
-
-| Campo | Tipo | Restricciones | Notas |
-|-------|------|---------------|-------|
-| id | uuid | PK | |
-| user_id | uuid | NOT NULL, FK → users(id) ON DELETE CASCADE | |
-| token_hash | varchar(500) | NOT NULL, UQ | Hash del token. El token real solo vive en el cliente. |
-| ip_address | inet | NULLABLE | |
-| user_agent | text | NULLABLE | |
-| last_activity_at | timestamptz | NOT NULL, DEFAULT now() | Se actualiza en cada request |
-| expires_at | timestamptz | NOT NULL | Clientes: 30 días. Agentes/admin: 8 horas. Configurable en settings. |
+| token_hash | varchar(500) | NOT NULL, UQ | Hash SHA-256 del access token |
+| refresh_hash | varchar(500) | NOT NULL, UQ | Hash SHA-256 del refresh token |
+| ip_address | varchar(45) | NOT NULL | |
+| user_agent | varchar(1000) | NULLABLE | |
+| device_label | varchar(200) | NULLABLE | "Windows", "Mobile", "Mac" (parseado) |
+| is_active | boolean | DEFAULT true | false = sesión cerrada o revocada |
+| last_used_at | timestamptz | NOT NULL, DEFAULT now() | Se actualiza en cada refresh |
+| expires_at | timestamptz | NOT NULL | Configurable en settings |
 | created_at | timestamptz | NOT NULL, DEFAULT now() | |
 
 **Índices:**
 - `idx_sessions_user_id` — en user_id
-- `idx_sessions_expires_at` — para job de limpieza de sesiones expiradas
-- `idx_sessions_token_hash` — UNIQUE para lookup rápido
+- `idx_sessions_is_active` — en is_active
 
 **Notas de decisión:**
-- No hay historial de sesiones pasadas. Solo las activas.
-- El superadmin y el cliente pueden cerrar sesiones activas de un usuario desde el dashboard.
+- Las sesiones no se eliminan para mantener historial de accesos.
+- El superadmin y el cliente pueden cerrar sesiones activas desde el dashboard.
+- Access token: 15 min (configurable). Refresh token: 7 días (configurable).
 
 ---
 
-### `two_factor_codes`
-Códigos 2FA enviados por email. Se invalidan al usarse o al expirar.
-
-| Campo | Tipo | Restricciones | Notas |
-|-------|------|---------------|-------|
-| id | uuid | PK | |
-| user_id | uuid | NOT NULL, FK → users(id) ON DELETE CASCADE | |
-| code_hash | varchar(500) | NOT NULL | Hash del código de 6 dígitos |
-| expires_at | timestamptz | NOT NULL | Corta duración: 10 minutos |
-| used_at | timestamptz | NULLABLE | null = no usado aún |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | |
-
-**Índices:**
-- `idx_2fa_user_id` — en user_id
-- `idx_2fa_expires_at` — para limpieza de códigos expirados
-
----
-
-### `password_reset_tokens`
-Tokens para recuperación de contraseña.
-
-| Campo | Tipo | Restricciones | Notas |
-|-------|------|---------------|-------|
-| id | uuid | PK | |
-| user_id | uuid | NOT NULL, FK → users(id) ON DELETE CASCADE | |
-| token_hash | varchar(500) | NOT NULL, UQ | |
-| expires_at | timestamptz | NOT NULL | 24 horas |
-| used_at | timestamptz | NULLABLE | |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | |
-
----
-
-### `email_verification_tokens`
+### `email_verifications` ✅
 Tokens para verificación de email al registrarse.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
 | id | uuid | PK | |
 | user_id | uuid | NOT NULL, FK → users(id) ON DELETE CASCADE | |
-| token_hash | varchar(500) | NOT NULL, UQ | |
-| expires_at | timestamptz | NOT NULL | Configurable en settings |
-| used_at | timestamptz | NULLABLE | |
+| token_hash | varchar(500) | NOT NULL, UQ | Hash SHA-256 del token (el token real va en el email) |
+| expires_at | timestamptz | NOT NULL | 24 horas (configurable en settings) |
+| used_at | timestamptz | NULLABLE | null = no usado aún |
 | created_at | timestamptz | NOT NULL, DEFAULT now() | |
+
+**Índices:**
+- `idx_email_verifications_user_id` — en user_id
+
+---
+
+### `password_resets` ✅
+Tokens para recuperación de contraseña.
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| id | uuid | PK | |
+| user_id | uuid | NOT NULL, FK → users(id) ON DELETE CASCADE | |
+| token_hash | varchar(500) | NOT NULL, UQ | Hash SHA-256 |
+| expires_at | timestamptz | NOT NULL | 1 hora (configurable en settings) |
+| used_at | timestamptz | NULLABLE | |
+| ip_address | varchar(45) | NOT NULL | IP desde donde se solicitó |
+| created_at | timestamptz | NOT NULL, DEFAULT now() | |
+
+**Índices:**
+- `idx_password_resets_user_id` — en user_id
 
 ---
 
 ## BLOQUE 2 — CLIENTES Y PERFIL
 
+> `client_profiles` ✅ implementado (Sprint 0).
+> `billing_profiles` ⬜ se expandirá en Sprint 4 (Clients) — requisito de negocio crítico.
+> Tablas de organización (folders, tags, consents) ⬜ se implementan en sprints futuros.
+
 ---
 
-### `user_profiles`
-Datos extendidos del cliente. Contexto del negocio y notas internas del equipo.
-Cada usuario tiene exactamente un perfil.
+### `client_profiles` ✅
+Perfil del cliente. Datos de facturación, contacto y notas internas.
+Cada cliente tiene exactamente un perfil (1:1 con `users`).
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
 | id | uuid | PK | |
 | user_id | uuid | NOT NULL, FK → users(id) ON DELETE CASCADE, UQ | |
-| business_context | text | NULLABLE | Qué hace su negocio. Campo libre editable por el equipo. |
-| internal_notes | text | NULLABLE | Notas internas del equipo. No las ve el cliente. |
-| onboarding_wow_completed_at | timestamptz | NULLABLE | null = tarea WOW pendiente |
-| preferred_contact_channel | varchar(50) | NULLABLE | webchat · email · phone · whatsapp |
-| assigned_agent_id | uuid | NULLABLE, FK → users(id) | Agente responsable del cliente |
+| client_type | enum ClientType | DEFAULT 'individual' | individual · company |
+| company_name | varchar(300) | NULLABLE | Solo si company |
+| tax_id | varchar(20) | NULLABLE | NIF/CIF. Obligatorio para company. |
+| phone | varchar(20) | NULLABLE | |
+| address_line1 | varchar(500) | NULLABLE | |
+| address_line2 | varchar(500) | NULLABLE | |
+| city | varchar(100) | NULLABLE | |
+| state | varchar(100) | NULLABLE | |
+| postal_code | varchar(10) | NULLABLE | |
+| country | varchar(2) | DEFAULT 'ES' | ISO 3166-1 alpha-2 |
+| billing_email | varchar(255) | NULLABLE | Email alternativo para facturas |
+| notes_internal | text | NULLABLE | Notas internas del equipo. No las ve el cliente. |
+| stripe_customer_id | varchar(200) | NULLABLE | ID en Stripe |
+| credit_balance | decimal(10,2) | DEFAULT 0 | Saldo a favor del cliente |
+| metadata | json | NULLABLE | |
 | created_at | timestamptz | NOT NULL, DEFAULT now() | |
 | updated_at | timestamptz | NOT NULL, DEFAULT now() | |
 
-**Índices:**
-- `idx_user_profiles_user_id` — UNIQUE en user_id
-- `idx_user_profiles_assigned_agent` — en assigned_agent_id
+> **⚠️ Limitación actual:** Un solo perfil de facturación por cliente.
+> En Sprint 4 se creará la tabla `billing_profiles` (múltiples por cliente)
+> según DECISIONS.md: "El cliente puede tener perfil personal, autónomo y empresa simultáneamente."
 
 ---
 
-### `billing_profiles`
+### `billing_profiles` ⬜ Sprint 4 (Clients)
 Perfiles de facturación del cliente. Un cliente puede tener varios.
 
 | Campo | Tipo | Restricciones | Notas |
@@ -215,7 +216,7 @@ Perfiles de facturación del cliente. Un cliente puede tener varios.
 
 ---
 
-### `client_consents`
+### `client_consents` ⬜ Sprint 4 (Clients)
 Consentimientos de analíticas y privacidad por cliente.
 
 | Campo | Tipo | Restricciones | Notas |
@@ -239,21 +240,21 @@ Consentimientos de analíticas y privacidad por cliente.
 
 ---
 
-### `client_folders`
+### `client_folders` ⬜ Sprint 4 (Clients)
 Carpetas opcionales creadas por el cliente para organizar sus servicios.
 
 | Campo | Tipo | Restricciones | Notas |
-|-------|------|---------------|-------|
+|-------|------|---------------| ------|
 | id | uuid | PK | |
 | user_id | uuid | NOT NULL, FK → users(id) ON DELETE CASCADE | |
 | name | varchar(100) | NOT NULL | |
-| color | varchar(7) | NULLABLE | Color hex: #4b77bb |
+| color | varchar(7) | NULLABLE | Color hex: #3B82F6 |
 | order_index | integer | NOT NULL, DEFAULT 0 | |
 | created_at | timestamptz | NOT NULL, DEFAULT now() | |
 
 ---
 
-### `client_service_folders`
+### `client_service_folders` ⬜ Sprint 4 (Clients)
 Relación entre servicios y carpetas del cliente.
 
 | Campo | Tipo | Restricciones | Notas |
@@ -265,7 +266,7 @@ Relación entre servicios y carpetas del cliente.
 
 ---
 
-### `client_service_tags`
+### `client_service_tags` ⬜ Sprint 4 (Clients)
 Etiquetas opcionales del cliente sobre sus servicios.
 
 | Campo | Tipo | Restricciones | Notas |
@@ -281,7 +282,9 @@ Etiquetas opcionales del cliente sobre sus servicios.
 
 ---
 
-## BLOQUE 3 — PRODUCTOS Y CATÁLOGO
+## BLOQUE 3 — PRODUCTOS Y CATÁLOGO ⬜ Sprint 5 (Products)
+
+> Tablas en Prisma como stub. Se expanderán con `product_pricing` (múltiples ciclos) en su sprint.
 
 ---
 
@@ -463,7 +466,7 @@ Configuración específica de productos tipo Support Inside.
 
 ---
 
-## BLOQUE 4 — SERVICIOS Y PROVISIONING
+## BLOQUE 4 — SERVICIOS Y PROVISIONING ⬜ Sprint 11 (Provisioning)
 
 ---
 
@@ -591,7 +594,7 @@ Créditos generados por prorrateo al cambiar de plan.
 
 ---
 
-## BLOQUE 5 — FACTURACIÓN
+## BLOQUE 5 — FACTURACIÓN ⬜ Sprint 6 (Billing)
 
 ---
 
@@ -674,7 +677,7 @@ Intentos de cobro y su resultado.
 
 ---
 
-## BLOQUE 6 — SUPPORT INSIDE Y TAREAS
+## BLOQUE 6 — SUPPORT INSIDE Y TAREAS ⬜ Sprint 7-8 (Support + Tasks)
 
 ---
 
@@ -794,7 +797,7 @@ Registro de mantenimientos completados. Se crea al completar una tarea de manten
 
 ---
 
-## BLOQUE 7 — COMUNICACIÓN Y SOPORTE
+## BLOQUE 7 — COMUNICACIÓN Y SOPORTE ⬜ Sprint 7 (Support)
 
 ---
 
@@ -857,7 +860,7 @@ Mensajes dentro de una conversación.
 
 ---
 
-## BLOQUE 8 — INFRAESTRUCTURA Y SERVIDORES
+## BLOQUE 8 — INFRAESTRUCTURA Y SERVIDORES ⬜ Sprint 10 (Infrastructure)
 
 ---
 
@@ -933,7 +936,7 @@ Métricas periódicas de cada servidor.
 
 ---
 
-## BLOQUE 9 — PROMOCIONES Y DESCUENTOS
+## BLOQUE 9 — PROMOCIONES Y DESCUENTOS ⬜ Sprint futuro
 
 ---
 
@@ -1059,7 +1062,9 @@ Registro de usos de códigos de descuento.
 
 ---
 
-## BLOQUE 10 — NOTIFICACIONES Y CONFIGURACIÓN
+## BLOQUE 10 — NOTIFICACIONES Y CONFIGURACIÓN ✅/⬜
+
+> `settings` ✅ implementado (Sprint 0). `notifications` ✅ stub en Prisma. Plantillas y canales ⬜ Sprint 9.
 
 ---
 
@@ -1245,7 +1250,9 @@ Un worker lee esta tabla y despacha los eventos pendientes. Si el proceso muere,
 
 ---
 
-## BLOQUE 11 — SCHEMA AUDIT (solo INSERT)
+## BLOQUE 11 — SCHEMA AUDIT (solo INSERT) ✅/⬜
+
+> `audit_access_log` y `audit_change_log` ✅ stubs en Prisma. Escritura completa ⬜ Sprint 9.
 
 > ⚠️ Todas las tablas de este schema son de solo escritura.
 > Ningún rol tiene permisos de UPDATE ni DELETE sobre ninguna tabla de este schema.
@@ -1407,7 +1414,7 @@ promotions
 
 ---
 
-## BLOQUE 12 — MÓDULO PARTNER (estructura base para fase 2)
+## BLOQUE 12 — MÓDULO PARTNER (estructura base para fase 2) ⬜ Sprint futuro
 
 > Los campos nullable en tablas existentes se añaden desde el inicio.
 > Las tablas nuevas se crean en fase 2 al construir el módulo partner.
@@ -1584,7 +1591,7 @@ invoices
 
 ---
 
-## BLOQUE 13 — SISTEMA DE REFERIDOS
+## BLOQUE 13 — SISTEMA DE REFERIDOS ⬜ Sprint futuro
 
 > Solo para clientes normales. Los partners no tienen sistema de referidos.
 
