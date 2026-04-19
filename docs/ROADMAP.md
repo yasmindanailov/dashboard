@@ -71,17 +71,17 @@
 
 ---
 
-## Sprint 3 — Auth Frontend Polish ⬜
+## Sprint 3 — Auth Frontend Polish ✅
 
 > Objetivo: completar todas las páginas frontend de auth para que sean testables end-to-end.
 
 | # | Paso | Estado |
 |---|------|--------|
-| 3.1 | Página de registro (/register) | ⬜ |
-| 3.2 | Página de verificación email (/verify-email?token=) | ⬜ |
-| 3.3 | Página de forgot password (/forgot-password) | ⬜ |
-| 3.4 | Página de reset password (/reset-password?token=) | ⬜ |
-| 3.5 | Navegación entre login ↔ register ↔ forgot | ⬜ |
+| 3.1 | Página de registro (/register) | ✅ |
+| 3.2 | Página de verificación email (/verify-email?token=) | ✅ |
+| 3.3 | Página de forgot password (/forgot-password) | ✅ |
+| 3.4 | Página de reset password (/reset-password?token=) | ✅ |
+| 3.5 | Navegación entre login ↔ register ↔ forgot | ✅ |
 | 3.6 | Test end-to-end: register → email → verify → login | ⬜ |
 | 3.7 | Actualizar docs/features/auth/admin.md | ⬜ |
 

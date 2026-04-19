@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 import GradientMesh from './components/ui/GradientMesh';
 import { authApi } from './lib/api';
 
@@ -165,13 +166,13 @@ export default function LoginPage() {
                       <label htmlFor="login-password" className="block text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         Contraseña
                       </label>
-                      <button
-                        type="button"
+                      <Link
+                        href="/forgot-password"
                         className="text-sm font-medium transition-colors duration-200"
                         style={{ color: 'var(--brand)' }}
                       >
                         ¿Olvidaste tu contraseña?
-                      </button>
+                      </Link>
                     </div>
                     <div className="relative">
                       <input
@@ -200,6 +201,13 @@ export default function LoginPage() {
 
                   <SubmitButton loading={isLoading} text="Iniciar sesión" loadingText="Iniciando sesión..." />
                 </form>
+
+                <p className="mt-6 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  ¿No tienes cuenta?{' '}
+                  <Link href="/register" className="font-medium transition-colors duration-200" style={{ color: 'var(--brand)' }}>
+                    Crear cuenta
+                  </Link>
+                </p>
               </motion.div>
             )}
 

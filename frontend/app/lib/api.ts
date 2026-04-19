@@ -57,6 +57,10 @@ export interface RegisterResponse {
   user_id: string;
 }
 
+export interface GenericResponse {
+  message: string;
+}
+
 export const authApi = {
   login: (email: string, password: string) =>
     api<LoginResponse>('/auth/login', { method: 'POST', body: { email, password } }),
@@ -66,6 +70,18 @@ export const authApi = {
 
   register: (data: { first_name: string; last_name: string; email: string; password: string }) =>
     api<RegisterResponse>('/auth/register', { method: 'POST', body: data }),
+
+  verifyEmail: (token: string) =>
+    api<GenericResponse>('/auth/verify-email', { method: 'POST', body: { token } }),
+
+  resendVerification: (email: string) =>
+    api<GenericResponse>('/auth/resend-verification', { method: 'POST', body: { email } }),
+
+  forgotPassword: (email: string) =>
+    api<GenericResponse>('/auth/forgot-password', { method: 'POST', body: { email } }),
+
+  resetPassword: (token: string, password: string) =>
+    api<GenericResponse>('/auth/reset-password', { method: 'POST', body: { token, password } }),
 
   me: (token: string) =>
     api('/auth/me', { token }),
