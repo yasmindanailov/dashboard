@@ -184,7 +184,7 @@ Cada cliente tiene exactamente un perfil (1:1 con `users`).
 
 ---
 
-### `billing_profiles` ⬜ Sprint 4 (Clients)
+### `billing_profiles` ✅ Sprint 4 (Clients)
 Perfiles de facturación del cliente. Un cliente puede tener varios.
 
 | Campo | Tipo | Restricciones | Notas |

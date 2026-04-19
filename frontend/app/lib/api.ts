@@ -92,3 +92,41 @@ export const authApi = {
   refresh: (refresh_token: string) =>
     api<LoginResponse>('/auth/refresh', { method: 'POST', body: { refresh_token } }),
 };
+
+// ── Clients API ──
+
+export const clientsApi = {
+  list: (token: string, params?: { page?: number; limit?: number; search?: string; status?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.search) query.set('search', params.search);
+    if (params?.status) query.set('status', params.status);
+    const qs = query.toString();
+    return api(`/clients${qs ? `?${qs}` : ''}`, { token });
+  },
+
+  get: (token: string, id: string) =>
+    api(`/clients/${id}`, { token }),
+
+  update: (token: string, id: string, data: Record<string, unknown>) =>
+    api(`/clients/${id}`, { method: 'PATCH', token, body: data }),
+
+  addNote: (token: string, id: string, note: string) =>
+    api(`/clients/${id}/notes`, { method: 'POST', token, body: { note } }),
+
+  getBillingProfiles: (token: string, id: string) =>
+    api(`/clients/${id}/billing-profiles`, { token }),
+
+  createBillingProfile: (token: string, id: string, data: Record<string, unknown>) =>
+    api(`/clients/${id}/billing-profiles`, { method: 'POST', token, body: data }),
+
+  updateBillingProfile: (token: string, profileId: string, data: Record<string, unknown>) =>
+    api(`/clients/billing-profiles/${profileId}`, { method: 'PATCH', token, body: data }),
+
+  deleteBillingProfile: (token: string, profileId: string) =>
+    api(`/clients/billing-profiles/${profileId}`, { method: 'DELETE', token }),
+
+  setDefaultBillingProfile: (token: string, userId: string, profileId: string) =>
+    api(`/clients/${userId}/billing-profiles/${profileId}/default`, { method: 'PATCH', token }),
+};

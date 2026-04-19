@@ -77,6 +77,11 @@ export class AuthService {
       },
     });
 
+    // Create empty client profile (CRM ficha)
+    await this.prisma.clientProfile.create({
+      data: { user_id: user.id },
+    });
+
     // Generate verification token
     await this.createEmailVerification(user.id);
 

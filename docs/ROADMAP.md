@@ -118,20 +118,25 @@
 
 ---
 
-## Sprint 4 — Clients ⬜
+## Sprint 4 — Clients ✅
 
 > Objetivo: CRM de clientes. Ficha completa, notas internas, datos de facturación.
+> Incluye fundamentos reutilizables: RolesGuard, paginación, auto-creación de perfil.
 
 | # | Paso | Estado |
 |---|------|--------|
-| 4.1 | ClientsService: CRUD completo | ⬜ |
-| 4.2 | ClientsController: endpoints (list, get, update, notes) | ⬜ |
-| 4.3 | DTOs con validación | ⬜ |
-| 4.4 | Frontend: tabla de clientes (admin/agente) | ⬜ |
-| 4.5 | Frontend: ficha de cliente con tabs | ⬜ |
-| 4.6 | Frontend: sidebar/layout del dashboard | ⬜ |
-| 4.7 | Notificación interna (campana) — base | ⬜ |
-| 4.8 | docs/features/clients/admin.md | ⬜ |
+| 4.0a | RolesGuard: autorización por rol en endpoints | ✅ |
+| 4.0b | Auto-creación de ClientProfile al registrar usuario | ✅ |
+| 4.0c | Utilidad de paginación reutilizable (PaginatedResult, PaginationDto) | ✅ |
+| 4.1 | Prisma: modelo BillingProfile + migración | ✅ |
+| 4.2 | ClientsService: CRUD completo + billing profiles | ✅ |
+| 4.3 | ClientsController: endpoints (list, get, update, notes, billing) | ✅ |
+| 4.4 | DTOs con validación (client, billing profile, paginación) | ✅ |
+| 4.5 | Frontend: sidebar/layout del dashboard | ✅ |
+| 4.6 | Frontend: tabla de clientes (admin/agente) | ✅ |
+| 4.7 | Frontend: ficha de cliente con tabs | ✅ |
+| 4.8 | Notificación interna (campana) — placeholder visual | ✅ |
+| 4.9 | docs/features/clients/admin.md | ✅ |
 
 ---
 
