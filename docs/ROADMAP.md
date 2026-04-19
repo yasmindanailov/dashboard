@@ -147,7 +147,8 @@
 
 | # | Paso | Estado |
 |---|------|--------|
-| 5.0a | **Sidebar role-aware estricto** — definir mapa de permisos por rol y filtrar NAV_ITEMS | ⬜ |
+| 5.0 | **Sistema PBAC centralizado** — mapa `PERMISSIONS` con permisos granulares por rol, guard `@RequirePermission()`, reemplaza todos los `@Roles()` | ⬜ |
+| 5.0a | **Sidebar role-aware estricto** — consume PERMISSIONS para filtrar NAV_ITEMS por rol | ⬜ |
 | 5.0b | **Manejo de 403 en frontend** — componente "Sin permisos" + redirect si el rol no tiene acceso a la ruta | ⬜ |
 | 5.0c | **Sidebar responsive mobile** — drawer overlay con hamburguesa en <768px | ⬜ |
 | 5.1 | ProductsService: CRUD + activar/desactivar | ⬜ |
