@@ -87,6 +87,37 @@
 
 **Commit:** `59f5a21`
 
+---
+
+## Sprint 3.5 — Auth Hardening ⬜
+
+> Objetivo: corregir edge cases críticos de Sprints 1-3 antes de construir sobre la base de auth.
+> Sin esto, Clients y Billing se construyen sobre cimientos frágiles.
+
+### Backend fixes
+
+| # | Paso | Origen | Estado |
+|---|------|--------|--------|
+| 3.5.1 | **Email lowercase** — normalizar `dto.email.toLowerCase()` en register, login, forgot, resend | Bug S1 | ⬜ |
+| 3.5.2 | **Invalidar tokens antiguos** — al generar nuevo token de verificación, marcar los anteriores como `used_at = now()` | Bug S1 | ⬜ |
+| 3.5.3 | **Invalidar reset tokens antiguos** — al solicitar nuevo reset, invalidar los pendientes del mismo usuario | Bug S1 | ⬜ |
+| 3.5.4 | **Enviar welcome email** — `verifyEmail()` debe enviar `welcomeTemplate` tras activar al usuario | Bug S2 | ⬜ |
+| 3.5.5 | **Sanitizar inputs en templates** — escapar `first_name` en plantillas HTML para prevenir inyección | Bug S2 | ⬜ |
+
+### Frontend fixes
+
+| # | Paso | Origen | Estado |
+|---|------|--------|--------|
+| 3.5.6 | **Protección de rutas** — middleware/layout que redirige a `/` si no hay token válido en `/dashboard` y rutas internas | Edge S3 | ⬜ |
+| 3.5.7 | **Auto-refresh del token** — interceptor en API client que llame a `/auth/refresh` cuando el access token expire (antes de los 15 min) | Edge S3 | ⬜ |
+| 3.5.8 | **Login "email no verificado"** — mostrar botón "Reenviar verificación" cuando el backend devuelve `pending_verification` | Edge S3 | ⬜ |
+| 3.5.9 | **Confirmar contraseña en registro** — añadir campo de confirmación con validación visual | Edge S3 | ⬜ |
+| 3.5.10 | **Fix double-fire verify-email** — evitar que useEffect ejecute la verificación dos veces en React Strict Mode | Edge S3 | ⬜ |
+| 3.5.11 | **Auto-redirect si ya logueado** — si hay token válido en localStorage y el usuario va a `/`, redirigir a `/dashboard` | Edge S3 | ⬜ |
+| 3.5.12 | Actualizar docs/features/auth/admin.md con los cambios | DoD | ⬜ |
+
+---
+
 ## Sprint 4 — Clients ⬜
 
 > Objetivo: CRM de clientes. Ficha completa, notas internas, datos de facturación.
@@ -172,6 +203,7 @@
 ## Sprint 9 — Audit + Notifications Full ⬜
 
 > Objetivo: portal de transparencia + sistema de notificaciones completo.
+> Incluye deuda técnica de emails (Regla 2: BullMQ).
 
 | # | Paso | Estado |
 |---|------|--------|
@@ -181,7 +213,9 @@
 | 9.4 | Notificaciones internas: campana con contador | ⬜ |
 | 9.5 | Plantillas editables desde dashboard (admin) | ⬜ |
 | 9.6 | Centro de notificaciones (admin + cliente) | ⬜ |
-| 9.7 | docs/features/audit/admin.md + client.md | ⬜ |
+| 9.7 | **Migrar envío de emails a BullMQ** — cumplir Regla 2 (>200ms → cola) | ⬜ |
+| 9.8 | **Retry para emails fallidos** — DLQ para emails que no se enviaron | ⬜ |
+| 9.9 | docs/features/audit/admin.md + client.md | ⬜ |
 
 ---
 
@@ -230,15 +264,21 @@
 ## Sprint 13 — Hardening ⬜
 
 > Objetivo: seguridad y rendimiento de producción.
+> Incluye edge cases de seguridad diferidos de Sprints anteriores.
 
-| # | Paso | Estado |
-|---|------|--------|
-| 13.1 | Refresh token en httpOnly cookie | ⬜ |
-| 13.2 | Rate limiting fino por endpoint | ⬜ |
-| 13.3 | CORS restrictivo para producción | ⬜ |
-| 13.4 | Health checks completos | ⬜ |
-| 13.5 | Graceful shutdown | ⬜ |
-| 13.6 | Tests unitarios para lógica crítica (billing, auth) | ⬜ |
+| # | Paso | Origen | Estado |
+|---|------|--------|--------|
+| 13.1 | **Refresh token en httpOnly cookie** — eliminar tokens de localStorage | Edge S3 | ⬜ |
+| 13.2 | **Refresh token rotation** — invalidar refresh anterior al emitir nuevo | Edge S1 | ⬜ |
+| 13.3 | **Session cleanup job** — cron que desactive sesiones expiradas (`is_active` + `expires_at < now()`) | Edge S1 | ⬜ |
+| 13.4 | **Límite de sesiones activas** — max N sesiones por usuario, revocar la más antigua | Edge S1 | ⬜ |
+| 13.5 | **RGPD: checkbox en registro** — consentimiento explícito + `client_consents` | Legal | ⬜ |
+| 13.6 | **Verificar NEXT_PUBLIC_APP_URL en producción** — validar que no sea localhost en URLs de emails | Edge S2 | ⬜ |
+| 13.7 | Rate limiting fino por endpoint | Seguridad | ⬜ |
+| 13.8 | CORS restrictivo para producción | Seguridad | ⬜ |
+| 13.9 | Health checks completos | Operaciones | ⬜ |
+| 13.10 | Graceful shutdown | Operaciones | ⬜ |
+| 13.11 | Tests unitarios para lógica crítica (billing, auth) | Calidad | ⬜ |
 
 ---
 
