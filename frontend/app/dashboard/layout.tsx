@@ -161,14 +161,14 @@ function Topbar({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
                 {user.first_name} {user.last_name}
               </div>
               <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                {user.role.name}
+                {user.role?.name || user.role?.slug || ''}
               </div>
             </div>
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white"
               style={{ background: 'var(--brand)' }}
             >
-              {user.first_name[0]}{user.last_name[0]}
+              {user.first_name?.[0] || ''}{user.last_name?.[0] || ''}
             </div>
             <button
               onClick={logout}
