@@ -48,7 +48,11 @@ export interface LoginResponse {
   user?: {
     id: string;
     email: string;
-    role: string;
+    first_name: string;
+    last_name: string;
+    status: string;
+    role: { slug: string; name: string };
+    last_login_at: string | null;
   };
 }
 

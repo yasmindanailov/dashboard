@@ -65,12 +65,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, refreshMs);
   }, [router]);
 
-  // Store tokens after login
+  // Store tokens after login and set user immediately
   const login = useCallback((res: LoginResponse) => {
     if (res.access_token) {
       localStorage.setItem('access_token', res.access_token);
       if (res.refresh_token) {
         localStorage.setItem('refresh_token', res.refresh_token);
+      }
+      if (res.user) {
+        setUser(res.user as User);
       }
       scheduleRefresh(res.expires_in || 900);
     }

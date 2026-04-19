@@ -594,7 +594,14 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
-        role: user.role.slug,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        status: user.status,
+        role: {
+          slug: user.role.slug,
+          name: user.role.name,
+        },
+        last_login_at: user.last_login_at,
       },
     };
   }
