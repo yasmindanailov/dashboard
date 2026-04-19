@@ -5,6 +5,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 
 // Core
 import { PrismaModule } from './core/database/prisma.module';
+import { SettingsModule } from './core/settings/settings.module';
 import { CorrelationIdMiddleware } from './core/common/middleware/correlation-id.middleware';
 
 // Health
@@ -50,6 +51,7 @@ import { ErrorLogModule } from './modules/error-log/error-log.module';
 
     // ── Core ──
     PrismaModule,
+    SettingsModule,
     HealthModule,
 
     // ── Business modules ──

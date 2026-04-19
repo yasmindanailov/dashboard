@@ -41,7 +41,7 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email },
-    update: {},
+    update: { password_hash: hash },
     create: {
       email,
       password_hash: hash,
@@ -66,6 +66,18 @@ async function main() {
     { category: 'support', key: 'ai_filter_enabled', value: 'true', description: 'Filtro IA activo' },
     { category: 'referrals', key: 'monthly_credit_amount', value: '3', description: 'Crédito mensual por referido (€)' },
     { category: 'referrals', key: 'system_active', value: 'true', description: 'Sistema de referidos activo' },
+    // Auth settings (configurable desde el dashboard)
+    { category: 'auth', key: 'max_login_attempts', value: '5', description: 'Intentos máximos de login antes de bloqueo' },
+    { category: 'auth', key: 'block_duration_minutes', value: '15', description: 'Duración del bloqueo por intentos fallidos (minutos)' },
+    { category: 'auth', key: 'password_min_length', value: '8', description: 'Longitud mínima de contraseña' },
+    { category: 'auth', key: 'require_uppercase', value: 'true', description: 'Requerir al menos una mayúscula' },
+    { category: 'auth', key: 'require_lowercase', value: 'true', description: 'Requerir al menos una minúscula' },
+    { category: 'auth', key: 'require_number', value: 'true', description: 'Requerir al menos un número' },
+    { category: 'auth', key: 'access_token_expires_minutes', value: '15', description: 'Expiración del access token (minutos)' },
+    { category: 'auth', key: 'refresh_token_expires_days', value: '7', description: 'Expiración del refresh token (días)' },
+    { category: 'auth', key: 'email_verification_expires_hours', value: '24', description: 'Expiración del token de verificación email (horas)' },
+    { category: 'auth', key: 'password_reset_expires_hours', value: '1', description: 'Expiración del token de reset contraseña (horas)' },
+    { category: 'auth', key: 'two_factor_code_expires_minutes', value: '5', description: 'Expiración del código 2FA (minutos)' },
   ];
 
   for (const s of settings) {
