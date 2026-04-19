@@ -82,10 +82,10 @@
 | 3.3 | Página de forgot password (/forgot-password) | ✅ |
 | 3.4 | Página de reset password (/reset-password?token=) | ✅ |
 | 3.5 | Navegación entre login ↔ register ↔ forgot | ✅ |
-| 3.6 | Test end-to-end: register → email → verify → login | ⬜ |
-| 3.7 | Actualizar docs/features/auth/admin.md | ⬜ |
+| 3.6 | Test end-to-end: register → email → verify → login | ✅ |
+| 3.7 | Actualizar docs/features/auth/admin.md | ✅ |
 
----
+**Commit:** `59f5a21`
 
 ## Sprint 4 — Clients ⬜
 

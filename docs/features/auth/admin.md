@@ -1,140 +1,136 @@
-# Auth — Documentación Admin
+# Auth Module — Documentación de administración
 
-> Sprint 1 | Abril 2026
-> Audiencia: Superadmin
-
----
-
-## Flujos de registro
-
-### 1. Registro directo (sin compra)
-1. El cliente introduce: nombre, email, contraseña
-2. Se crea la cuenta con status `pending_verification`
-3. Se envía email con link de verificación (token válido 24h)
-4. **El cliente NO puede acceder al dashboard hasta verificar su email**
-5. Tras verificar → status cambia a `active` → acceso completo al dashboard
-
-### 2. Registro via compra de producto
-1. El cliente introduce: nombre, email, contraseña durante el checkout
-2. Se crea la cuenta con status `active` (acceso inmediato)
-3. Se envía email con link de verificación
-4. **El cliente PUEDE acceder al dashboard sin verificar**, pero ve notificación persistente para verificar email
-5. **No puede comprar más productos** hasta verificar email
-
-### 3. Registro de partner (futuro — Sprint Partners)
-1. El partner se registra con rol `partner_pending`
-2. Puede acceder al dashboard pero todo está limitado
-3. Notificación persistente para verificar email
-4. Incluso tras verificar email, sigue limitado hasta que un superadmin o agente apruebe su cuenta
-5. Tras aprobación → rol cambia a `partner` → acceso completo a su panel
+> Módulo: `auth`
+> Sprint: 1 (Backend) + 2 (Emails) + 3 (Frontend)
+> Estado: ✅ Completo
 
 ---
 
-## Login
+## Resumen
 
-- Auth unificado: un solo formulario para todos los roles
-- JWT con access token (15 min) + refresh token (7 días)
-- El access token se envía en header `Authorization: Bearer <token>`
-- El refresh token se almacena en httpOnly cookie (más seguro que localStorage)
-- Al hacer login exitoso se crea un registro en la tabla `sessions`
-- Cada sesión registra: IP, user agent, device label, última actividad
-
----
-
-## Bloqueo por intentos fallidos
-
-| Parámetro | Valor por defecto | Configurable |
-|-----------|-------------------|--------------|
-| Intentos máximos antes de bloqueo | 5 | Sí (settings: auth.max_login_attempts) |
-| Duración del bloqueo | 15 minutos | Sí (settings: auth.block_duration_minutes) |
-
-- Tras X intentos fallidos → campo `blocked_until` se setea a `now() + duración`
-- El contador se resetea al desbloqueo automático (no al login exitoso intermedio)
-- Los intentos fallidos se registran en `audit_access_log` con action `login_failed`
-
----
-
-## Política de contraseñas
-
-| Requisito | Valor |
-|-----------|-------|
-| Longitud mínima | 8 caracteres |
-| Mayúscula | Al menos 1 |
-| Minúscula | Al menos 1 |
-| Número | Al menos 1 |
-| Carácter especial | No requerido |
-| Hash algorithm | bcrypt (12 rounds) |
-
----
-
-## 2FA por email (superadmin + agentes)
-
-- **Obligatorio** para roles: superadmin, agent_full, agent_billing, agent_support
-- **No disponible** para clientes (por ahora)
-- Método: código de 6 dígitos enviado por email
-- Validez del código: 5 minutos
-- El código se hashea antes de almacenar (no plaintext)
-- Flujo:
-  1. Login con email + contraseña exitoso
-  2. Si el usuario requiere 2FA → respuesta con `requires_2fa: true`
-  3. Se envía código al email del usuario
-  4. El frontend muestra input para el código
-  5. El usuario envía el código → si válido, se emiten los tokens JWT
-
----
-
-## Tokens de seguridad
-
-| Token | Expiración | Almacenamiento |
-|-------|-----------|----------------|
-| Access JWT | 15 minutos | Header Authorization |
-| Refresh JWT | 7 días | httpOnly cookie |
-| Verificación email | 24 horas | Link en email |
-| Reset contraseña | 1 hora | Link en email |
-| Código 2FA | 5 minutos | Email |
-
-- Todos los tokens se hashean (SHA-256) antes de almacenar en la base de datos
-- Los tokens expirados se limpian periódicamente (job programado)
-
----
-
-## Gestión de sesiones
-
-- El usuario puede ver sus sesiones activas (device, IP, última actividad)
-- El usuario puede cerrar sesiones individuales o todas excepto la actual
-- El superadmin puede ver y cerrar sesiones de cualquier usuario
-- Las sesiones expiradas se limpian automáticamente
+El módulo Auth gestiona todo el ciclo de autenticación: registro, verificación de email, login con 2FA, sesiones JWT, recuperación de contraseña, y gestión de sesiones activas.
 
 ---
 
 ## Endpoints de la API
 
-```
-POST   /api/v1/auth/register          → Registro de cliente
-POST   /api/v1/auth/login             → Login (paso 1)
-POST   /api/v1/auth/verify-2fa        → Verificar código 2FA (paso 2)
-POST   /api/v1/auth/refresh           → Renovar access token
-POST   /api/v1/auth/logout            → Cerrar sesión actual
-POST   /api/v1/auth/verify-email      → Verificar email con token
-POST   /api/v1/auth/resend-verification → Reenviar email de verificación
-POST   /api/v1/auth/forgot-password   → Solicitar reset de contraseña
-POST   /api/v1/auth/reset-password    → Resetear contraseña con token
-GET    /api/v1/auth/sessions          → Listar sesiones del usuario
-DELETE /api/v1/auth/sessions/:id      → Cerrar una sesión específica
-GET    /api/v1/auth/me                → Perfil del usuario autenticado
-```
+| Método | Ruta | Autenticado | Descripción |
+|--------|------|-------------|-------------|
+| POST | `/auth/register` | No | Crear cuenta de cliente |
+| POST | `/auth/login` | No | Login — devuelve tokens o challenge 2FA |
+| POST | `/auth/verify-2fa` | No | Verificar código 2FA (paso 2 del login) |
+| POST | `/auth/refresh` | No | Renovar access token con refresh token |
+| POST | `/auth/logout` | Sí | Cerrar sesión actual |
+| POST | `/auth/verify-email` | No | Verificar email con token del enlace |
+| POST | `/auth/resend-verification` | No | Reenviar email de verificación |
+| POST | `/auth/forgot-password` | No | Solicitar email de recuperación |
+| POST | `/auth/reset-password` | No | Restablecer contraseña con token |
+| GET | `/auth/sessions` | Sí | Listar sesiones activas |
+| DELETE | `/auth/sessions/:id` | Sí | Revocar una sesión específica |
+| GET | `/auth/me` | Sí | Obtener perfil del usuario actual |
 
 ---
 
-## Eventos emitidos
+## Páginas del frontend
+
+| Ruta | Función |
+|------|---------|
+| `/` | Login (credenciales + 2FA) |
+| `/register` | Registro de nuevo cliente |
+| `/verify-email?token=` | Verificación de email (automática) |
+| `/forgot-password` | Solicitar recuperación de contraseña |
+| `/reset-password?token=` | Restablecer contraseña |
+| `/dashboard` | Dashboard post-login |
+
+---
+
+## Flujos de usuario
+
+### Registro
+1. Usuario rellena nombre, apellido, email, contraseña
+2. Backend crea usuario con `status: pending_verification`
+3. Se envía email de verificación (plantilla HTML con branding Aelium)
+4. Frontend muestra mensaje "Revisa tu email"
+
+### Verificación de email
+1. Usuario hace clic en el enlace del email
+2. Frontend navega a `/verify-email?token=xxx`
+3. Token se valida automáticamente al cargar
+4. Éxito → muestra botón "Iniciar sesión"
+
+### Login
+1. Usuario introduce email y contraseña
+2. Si 2FA está habilitado → se envía código por email → paso 2FA
+3. Si no tiene 2FA → devuelve access + refresh tokens directamente
+4. Tokens se guardan en localStorage
+5. Redirect a `/dashboard`
+
+### Recuperación de contraseña
+1. Usuario introduce email en `/forgot-password`
+2. Backend envía email con enlace (siempre responde OK para prevenir enumeración)
+3. Usuario hace clic en enlace → `/reset-password?token=xxx`
+4. Introduce nueva contraseña con confirmación
+5. Éxito → botón "Iniciar sesión"
+
+---
+
+## Seguridad
+
+| Concepto | Implementación |
+|----------|---------------|
+| Hashing de contraseñas | bcrypt (12 rounds) |
+| Tokens de verificación/reset | SHA-256 (solo hash en DB, token real en email) |
+| Bloqueo por intentos | `blocked_until` configurable (15 min por defecto) |
+| 2FA | Código 6 dígitos por email, single-use, 5 min expiración |
+| Rate limiting | `@nestjs/throttler` en todos los endpoints |
+| Prevención enumeración | Forgot password siempre responde 200 OK |
+
+---
+
+## Plantillas de email
+
+| Plantilla | Asunto | Uso |
+|-----------|--------|-----|
+| `verificationEmail` | Verifica tu email — Aelium | Registro |
+| `twoFactorEmail` | Código de verificación Aelium | Login con 2FA |
+| `welcomeEmail` | Bienvenido a Aelium | Post-verificación |
+| `passwordResetEmail` | Recupera tu contraseña — Aelium | Forgot password |
+
+Todas las plantillas usan branding Aelium (color #3B82F6, DM Sans).
+
+---
+
+## Validación de contraseña (frontend)
+
+- Mínimo 8 caracteres
+- Al menos una mayúscula
+- Al menos una minúscula
+- Al menos un número
+- Indicador visual en tiempo real (verde ✓ / gris ○)
+
+---
+
+## Archivos clave
 
 ```
-auth.registered       → Trigger: registro completado
-auth.login_success    → Trigger: login exitoso
-auth.login_failed     → Trigger: intento fallido
-auth.account_blocked  → Trigger: cuenta bloqueada por intentos
-auth.email_verified   → Trigger: email verificado
-auth.password_reset   → Trigger: contraseña cambiada via reset
-auth.session_closed   → Trigger: sesión cerrada
-auth.2fa_required     → Trigger: se requiere 2FA
+backend/
+  src/modules/auth/
+    auth.module.ts          ← Módulo NestJS
+    auth.service.ts         ← Lógica de negocio (12 métodos)
+    auth.controller.ts      ← 12 endpoints
+    dto/auth.dto.ts         ← DTOs con class-validator
+    guards/jwt-auth.guard.ts
+    strategies/jwt.strategy.ts
+
+  src/core/email/
+    email.service.ts        ← Servicio de envío (nodemailer)
+    templates/auth.templates.ts ← 4 plantillas HTML
+
+frontend/
+  app/page.tsx              ← Login
+  app/register/page.tsx     ← Registro
+  app/verify-email/page.tsx ← Verificación
+  app/forgot-password/page.tsx ← Recuperación
+  app/reset-password/page.tsx  ← Reset
+  app/lib/api.ts            ← API client (authApi)
 ```
