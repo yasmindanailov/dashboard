@@ -1,49 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { authApi } from '../lib/api';
-
-interface UserProfile {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: { slug: string; name: string };
-  last_login_at: string;
-}
+import { useAuth } from '../lib/auth-context';
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading, logout } = useAuth();
 
-  useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      window.location.href = '/';
-      return;
-    }
-
-    authApi.me(token)
-      .then((data) => setUser(data as UserProfile))
-      .catch(() => {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        window.location.href = '/';
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  const handleLogout = async () => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      try { await authApi.logout(token); } catch { /* ignore */ }
-    }
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    window.location.href = '/';
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--surface-secondary)' }}>
         <div className="flex items-center gap-3">
@@ -57,7 +19,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (!user) return null;
+  if (!user) return null; // AuthProvider will redirect to login
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--surface-secondary)' }}>
@@ -80,7 +42,7 @@ export default function DashboardPage() {
             {user.role.name}
           </span>
           <button
-            onClick={handleLogout}
+            onClick={logout}
             className="text-sm font-medium transition-colors duration-200 cursor-pointer"
             style={{ color: 'var(--text-secondary)' }}
           >

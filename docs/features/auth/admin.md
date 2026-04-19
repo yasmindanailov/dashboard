@@ -1,7 +1,7 @@
 # Auth Module — Documentación de administración
 
 > Módulo: `auth`
-> Sprint: 1 (Backend) + 2 (Emails) + 3 (Frontend)
+> Sprint: 1 (Backend) + 2 (Emails) + 3 (Frontend) + 3.5 (Hardening)
 > Estado: ✅ Completo
 
 ---
@@ -47,7 +47,7 @@ El módulo Auth gestiona todo el ciclo de autenticación: registro, verificació
 ## Flujos de usuario
 
 ### Registro
-1. Usuario rellena nombre, apellido, email, contraseña
+1. Usuario rellena nombre, apellido, email, contraseña + confirmación
 2. Backend crea usuario con `status: pending_verification`
 3. Se envía email de verificación (plantilla HTML con branding Aelium)
 4. Frontend muestra mensaje "Revisa tu email"
@@ -106,7 +106,22 @@ Todas las plantillas usan branding Aelium (color #3B82F6, DM Sans).
 - Al menos una mayúscula
 - Al menos una minúscula
 - Al menos un número
+- Confirmación de contraseña (debe coincidir)
 - Indicador visual en tiempo real (verde ✓ / gris ○)
+
+---
+
+## Hardening (Sprint 3.5)
+
+| Fix | Descripción |
+|-----|-------------|
+| Email lowercase | Todos los emails se normalizan a minúsculas en register, login, forgot, resend |
+| Token invalidation | Al generar nuevo token de verificación/reset, los anteriores se invalidan |
+| Welcome email | Se envía email de bienvenida tras verificar el email |
+| HTML sanitization | `escapeHtml()` en todos los inputs de usuario en plantillas de email |
+| AuthProvider | Contexto centralizado: protección de rutas, auto-refresh, auto-redirect |
+| Resend verification | Login con email no verificado muestra botón "Reenviar verificación" |
+| Strict mode fix | `useRef` guard en verify-email para evitar double-fire |
 
 ---
 
@@ -124,13 +139,14 @@ backend/
 
   src/core/email/
     email.service.ts        ← Servicio de envío (nodemailer)
-    templates/auth.templates.ts ← 4 plantillas HTML
+    templates/auth.templates.ts ← 4 plantillas HTML + escapeHtml
 
 frontend/
   app/page.tsx              ← Login
-  app/register/page.tsx     ← Registro
-  app/verify-email/page.tsx ← Verificación
+  app/register/page.tsx     ← Registro (con confirmación de contraseña)
+  app/verify-email/page.tsx ← Verificación (con strict mode guard)
   app/forgot-password/page.tsx ← Recuperación
   app/reset-password/page.tsx  ← Reset
   app/lib/api.ts            ← API client (authApi)
+  app/lib/auth-context.tsx  ← AuthProvider (route guard + auto-refresh)
 ```

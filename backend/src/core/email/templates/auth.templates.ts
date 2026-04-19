@@ -7,6 +7,16 @@
 const BRAND_COLOR = '#3B82F6';
 const BRAND_NAME = 'Aelium';
 
+/** Escape user-supplied strings to prevent HTML injection in email templates */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function layout(content: string): string {
   return `
 <!DOCTYPE html>
@@ -51,7 +61,7 @@ export function verifyEmailTemplate(name: string, url: string): { subject: strin
   return {
     subject: 'Verifica tu email — Aelium',
     html: layout(`
-      <h2 style="margin:0 0 8px;font-size:20px;color:#0a0a0b;">Hola, ${name} 👋</h2>
+      <h2 style="margin:0 0 8px;font-size:20px;color:#0a0a0b;">Hola, ${escapeHtml(name)} 👋</h2>
       <p style="margin:0 0 4px;font-size:15px;color:#6b7280;line-height:1.6;">
         Bienvenido a Aelium. Para activar tu cuenta, confirma tu dirección de email:
       </p>
@@ -71,11 +81,11 @@ export function twoFactorCodeTemplate(name: string, code: string): { subject: st
     html: layout(`
       <h2 style="margin:0 0 8px;font-size:20px;color:#0a0a0b;">Código de verificación</h2>
       <p style="margin:0 0 20px;font-size:15px;color:#6b7280;line-height:1.6;">
-        Hola ${name}, usa este código para completar tu inicio de sesión:
+        Hola ${escapeHtml(name)}, usa este código para completar tu inicio de sesión:
       </p>
       <div style="text-align:center;margin:24px 0;">
         <span style="display:inline-block;padding:16px 40px;background:#f0f4ff;border:2px solid ${BRAND_COLOR};border-radius:12px;font-size:32px;font-weight:700;letter-spacing:8px;color:#0a0a0b;">
-          ${code}
+          ${escapeHtml(code)}
         </span>
       </div>
       <p style="margin:0;font-size:13px;color:#9ca3af;text-align:center;">
@@ -93,7 +103,7 @@ export function passwordResetTemplate(name: string, url: string): { subject: str
     html: layout(`
       <h2 style="margin:0 0 8px;font-size:20px;color:#0a0a0b;">Resetear contraseña</h2>
       <p style="margin:0 0 4px;font-size:15px;color:#6b7280;line-height:1.6;">
-        Hola ${name}, hemos recibido una solicitud para resetear tu contraseña:
+        Hola ${escapeHtml(name)}, hemos recibido una solicitud para resetear tu contraseña:
       </p>
       ${button('Crear nueva contraseña', url)}
       <p style="margin:0;font-size:13px;color:#9ca3af;">
@@ -109,7 +119,7 @@ export function welcomeTemplate(name: string, dashboardUrl: string): { subject: 
   return {
     subject: 'Bienvenido a Aelium 🎉',
     html: layout(`
-      <h2 style="margin:0 0 8px;font-size:20px;color:#0a0a0b;">¡Bienvenido, ${name}! 🎉</h2>
+      <h2 style="margin:0 0 8px;font-size:20px;color:#0a0a0b;">¡Bienvenido, ${escapeHtml(name)}! 🎉</h2>
       <p style="margin:0 0 4px;font-size:15px;color:#6b7280;line-height:1.6;">
         Tu cuenta está verificada y lista. Ya puedes acceder a tu panel de gestión.
       </p>

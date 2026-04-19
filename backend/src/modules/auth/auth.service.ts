@@ -49,6 +49,9 @@ export class AuthService {
      REGISTER
      ═══════════════════════════════════════ */
   async register(dto: RegisterDto, ip: string, userAgent?: string) {
+    // Normalize email to lowercase
+    dto.email = dto.email.toLowerCase().trim();
+
     // Check if email already exists
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) {
@@ -100,6 +103,9 @@ export class AuthService {
      LOGIN — Step 1
      ═══════════════════════════════════════ */
   async login(dto: LoginDto, ip: string, userAgent?: string) {
+    // Normalize email to lowercase
+    dto.email = dto.email.toLowerCase().trim();
+
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
       include: { role: true },
@@ -333,10 +339,21 @@ export class AuthService {
 
     this.events.emit('auth.email_verified', { userId: verification.user_id });
 
+    // Send welcome email
+    const user = await this.prisma.user.findUnique({ where: { id: verification.user_id } });
+    if (user) {
+      const appUrl = this.config.get<string>('NEXT_PUBLIC_APP_URL', 'http://localhost:3002');
+      const tpl = welcomeTemplate(user.first_name, appUrl);
+      await this.email.send({ to: user.email, subject: tpl.subject, html: tpl.html });
+    }
+
     return { message: 'Email verificado correctamente. Ya puedes iniciar sesión.' };
   }
 
   async resendVerification(email: string) {
+    // Normalize email to lowercase
+    email = email.toLowerCase().trim();
+
     const user = await this.prisma.user.findUnique({ where: { email } });
 
     if (!user) {
@@ -356,6 +373,9 @@ export class AuthService {
      PASSWORD RESET
      ═══════════════════════════════════════ */
   async forgotPassword(email: string, ip: string) {
+    // Normalize email to lowercase
+    email = email.toLowerCase().trim();
+
     const user = await this.prisma.user.findUnique({ where: { email } });
 
     // Always return same message (don't reveal if email exists)
@@ -366,6 +386,12 @@ export class AuthService {
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = this.hashToken(token);
     const expiresHours = await this.settings.getNumber('auth', 'password_reset_expires_hours', 1);
+
+    // Invalidate any pending reset tokens for this user
+    await this.prisma.passwordReset.updateMany({
+      where: { user_id: user.id, used_at: null },
+      data: { used_at: new Date() },
+    });
 
     await this.prisma.passwordReset.create({
       data: {
@@ -604,6 +630,12 @@ export class AuthService {
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = this.hashToken(token);
     const expiresHours = await this.settings.getNumber('auth', 'email_verification_expires_hours', 24);
+
+    // Invalidate any pending verification tokens for this user
+    await this.prisma.emailVerification.updateMany({
+      where: { user_id: userId, used_at: null },
+      data: { used_at: new Date() },
+    });
 
     await this.prisma.emailVerification.create({
       data: {

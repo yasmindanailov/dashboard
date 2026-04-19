@@ -3,17 +3,23 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import GradientMesh from './components/ui/GradientMesh';
 import { authApi } from './lib/api';
+import { useAuth } from './lib/auth-context';
 
 type LoginStep = 'credentials' | '2fa' | 'success';
 
 export default function LoginPage() {
+  const { login } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showResendVerification, setShowResendVerification] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState('');
 
   // 2FA state
   const [step, setStep] = useState<LoginStep>('credentials');
@@ -23,6 +29,8 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setShowResendVerification(false);
+    setResendSuccess('');
     setIsLoading(true);
 
     try {
@@ -32,19 +40,29 @@ export default function LoginPage() {
         setTempToken(res.temp_token);
         setStep('2fa');
       } else if (res.access_token) {
-        // Store tokens (httpOnly cookie for refresh would be better in production)
-        localStorage.setItem('access_token', res.access_token);
-        if (res.refresh_token) {
-          localStorage.setItem('refresh_token', res.refresh_token);
-        }
+        login(res);
         setStep('success');
-        // TODO: redirect to dashboard
-        window.location.href = '/dashboard';
+        router.push('/dashboard');
       }
     } catch (err: any) {
-      setError(err.message || 'Error al iniciar sesión');
+      const msg = err.message || 'Error al iniciar sesión';
+      // Detect "pending_verification" to show resend button
+      if (msg.includes('verificar tu email') || msg.includes('pending_verification')) {
+        setShowResendVerification(true);
+      }
+      setError(msg);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    try {
+      await authApi.resendVerification(email);
+      setResendSuccess('Email de verificación reenviado. Revisa tu bandeja de entrada.');
+      setShowResendVerification(false);
+    } catch {
+      setResendSuccess('Si el email existe, recibirás un nuevo enlace.');
     }
   };
 
@@ -57,12 +75,9 @@ export default function LoginPage() {
       const res = await authApi.verify2fa(code2fa, tempToken);
 
       if (res.access_token) {
-        localStorage.setItem('access_token', res.access_token);
-        if (res.refresh_token) {
-          localStorage.setItem('refresh_token', res.refresh_token);
-        }
+        login(res);
         setStep('success');
-        window.location.href = '/dashboard';
+        router.push('/dashboard');
       }
     } catch (err: any) {
       setError(err.message || 'Código incorrecto');
@@ -147,6 +162,26 @@ export default function LoginPage() {
                     style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}
                   >
                     {error}
+                    {showResendVerification && (
+                      <button
+                        type="button"
+                        onClick={handleResendVerification}
+                        className="block mt-2 font-medium underline cursor-pointer"
+                        style={{ color: 'var(--brand)' }}
+                      >
+                        Reenviar email de verificación
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+                {resendSuccess && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-4 px-4 py-3 rounded-lg text-sm"
+                    style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}
+                  >
+                    {resendSuccess}
                   </motion.div>
                 )}
 

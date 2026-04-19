@@ -11,6 +11,7 @@ export default function RegisterPage() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,8 +22,9 @@ export default function RegisterPage() {
     upper: /[A-Z]/.test(password),
     lower: /[a-z]/.test(password),
     number: /[0-9]/.test(password),
+    match: password.length > 0 && password === confirmPassword,
   };
-  const passwordValid = Object.values(passwordChecks).every(Boolean);
+  const passwordValid = passwordChecks.length && passwordChecks.upper && passwordChecks.lower && passwordChecks.number && passwordChecks.match;
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,6 +168,30 @@ export default function RegisterPage() {
                       <PasswordCheck passed={passwordChecks.lower} text="Una minúscula" />
                       <PasswordCheck passed={passwordChecks.number} text="Un número" />
                     </motion.div>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="reg-confirm" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                    Confirmar contraseña
+                  </label>
+                  <input
+                    id="reg-confirm"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-4 py-3 text-base rounded-lg transition-all duration-200 outline-none"
+                    style={{ border: '1px solid var(--border-hover)', background: 'var(--surface-primary)', color: 'var(--text-primary)' }}
+                    onFocus={(e) => { e.target.style.borderColor = 'var(--brand)'; e.target.style.boxShadow = '0 0 0 3px var(--brand-subtle)'; }}
+                    onBlur={(e) => { e.target.style.borderColor = 'var(--border-hover)'; e.target.style.boxShadow = 'none'; }}
+                  />
+                  {confirmPassword.length > 0 && (
+                    <div className="mt-2">
+                      <PasswordCheck passed={passwordChecks.match} text={passwordChecks.match ? 'Las contraseñas coinciden' : 'Las contraseñas no coinciden'} />
+                    </div>
                   )}
                 </div>
 

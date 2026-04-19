@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -11,6 +11,7 @@ function VerifyEmailContent() {
   const token = searchParams.get('token');
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [message, setMessage] = useState('');
+  const calledRef = useRef(false);
 
   useEffect(() => {
     if (!token) {
@@ -18,6 +19,10 @@ function VerifyEmailContent() {
       setMessage('Token de verificación no proporcionado');
       return;
     }
+
+    // Prevent double-fire in React Strict Mode
+    if (calledRef.current) return;
+    calledRef.current = true;
 
     authApi.verifyEmail(token)
       .then((res) => {
