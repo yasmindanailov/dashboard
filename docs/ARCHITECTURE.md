@@ -17,13 +17,14 @@ Reemplaza WHMCS. No es un SaaS.
 ## STACK TECNOLÓGICO
 
 ```
-Frontend:    Next.js 14+ (App Router) · TypeScript · Tailwind CSS · shadcn/ui
-Backend:     NestJS · TypeScript
+Frontend:    Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · shadcn/ui
+Backend:     NestJS 11 · TypeScript · Prisma 7 (driver adapter PrismaPg)
 Base datos:  PostgreSQL 16 (self-hosted en Docker)
 Cache:       Redis 7 (self-hosted en Docker)
 Colas:       BullMQ (sobre Redis)
 Tiempo real: Socket.io
 Storage:     MinIO (S3-compatible, self-hosted en Docker)
+Email:       nodemailer (MailPit en dev, SMTP configurable en prod)
 Deploy:      Docker Compose en servidor propio · Traefik (reverse proxy + SSL)
 Monitoring:  Grafana + Prometheus + Loki (self-hosted en Docker)
 Logging:     pino (JSON estructurado)
@@ -184,13 +185,15 @@ el dashboard. Los jobs fallidos nunca se eliminan automáticamente.
 │   │   │   └── /ai-providers
 │   │   │       └── /claude
 │   │   │
-│   │   └── /core                     ← nunca se toca, nunca se modifica
-│   │       ├── /events               ← bus de eventos
-│   │       ├── /interfaces           ← contratos de plugins
-│   │       ├── /config               ← configuración global
-│   │       ├── /database             ← conexión PostgreSQL
-│   │       ├── /queue                ← BullMQ setup
-│   │       └── /common               ← utilidades compartidas
+│   │   └── /core                     ← servicios compartidos del backend
+│   │       ├── /database              ← PrismaService (PrismaPg driver adapter)
+│   │       ├── /settings              ← SettingsService (config dinámica con cache)
+│   │       ├── /email                 ← EmailService (nodemailer + plantillas)
+│   │       ├── /events                ← bus de eventos
+│   │       ├── /interfaces            ← contratos de plugins
+│   │       ├── /config                ← configuración global
+│   │       ├── /queue                 ← BullMQ setup
+│   │       └── /common                ← middleware, filtros, utilidades
 │   │
 │   └── /templates                    ← plantillas Docker .yaml
 │       ├── nextcloud-basic.yaml
@@ -353,9 +356,10 @@ Schema: queue           ← tablas de BullMQ (gestionadas automáticamente)
 
 ```
 users                   ← todos los usuarios del sistema (clientes + agentes + admin)
-user_profiles           ← datos extendidos del cliente (negocio, notas, contexto)
-roles                   ← definición de roles
-user_roles              ← relación usuarios-roles
+roles                   ← definición de roles (slug enum)
+sessions                ← sesiones activas (token_hash, refresh_hash, device)
+email_verifications     ← tokens de verificación de email (hasheados SHA-256)
+password_resets         ← tokens de reset de contraseña (hasheados SHA-256)
 
 products                ← catálogo de productos
 product_categories      ← categorías y subcategorías
@@ -589,11 +593,12 @@ El frontend nunca es la única barrera de seguridad.
 ## CÓMO TRABAJAR CON ESTE PROYECTO EN ANTIGRAVITY
 
 ### Al inicio de cada sesión
-1. Leer este archivo (ARCHITECTURE.md).
-2. Leer DECISIONS.md si la tarea requiere contexto de producto.
-3. Leer el MODULE_NAME.md del módulo que se va a construir.
+1. Leer ROADMAP.md — saber qué sprint/paso toca.
+2. Leer SESSION_RULES.md — reglas operativas.
+3. Leer DECISIONS.md — secciones relevantes al módulo en curso.
+4. Leer este archivo si hay duda sobre arquitectura o reglas.
 
-### Una sesión = un módulo o un plugin
+### Una sesión = un sprint o menos
 No mezclar trabajo de módulos distintos en la misma sesión.
 
 ### Si algo no está en los documentos
@@ -613,6 +618,12 @@ La lógica de negocio está en DECISIONS.md.
 - Modificar tablas del schema audit.
 - Cambiar las interfaces de plugins.
 - Añadir dependencias entre módulos que no estén en este documento.
+
+### Al cerrar cada sprint
+1. Commit con mensaje descriptivo.
+2. Actualizar ROADMAP.md (marcar pasos como ✅, añadir hash del commit).
+3. Escribir docs/features/[módulo]/admin.md.
+4. Verificar coherencia entre ROADMAP.md, ARCHITECTURE.md y DECISIONS.md.
 
 ---
 

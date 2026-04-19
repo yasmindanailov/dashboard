@@ -43,6 +43,21 @@ No inventar lógica de negocio. No asumir flujos que no estén documentados.
 
 ---
 
+## Regla 4 — Validar el roadmap al cerrar un sprint
+
+Al completar cada sprint, el agente DEBE:
+
+1. **Commit** con mensaje descriptivo del sprint.
+2. **Actualizar ROADMAP.md**: marcar pasos como ✅, añadir hash del commit.
+3. **Escribir admin.md** en `docs/features/[módulo]/`.
+4. **Verificar coherencia** entre ROADMAP.md, ARCHITECTURE.md y DECISIONS.md.
+5. **Notificar al usuario** qué se completó y qué sigue.
+
+Si algún documento tiene información contradictoria con la implementación actual,
+corregirlo ANTES de avanzar al siguiente sprint.
+
+---
+
 ## Limitaciones conocidas y mitigaciones
 
 | Limitación | Mitigación |
