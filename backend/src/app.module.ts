@@ -2,12 +2,14 @@ import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 
 // Core
 import { PrismaModule } from './core/database/prisma.module';
 import { SettingsModule } from './core/settings/settings.module';
 import { EmailModule } from './core/email/email.module';
 import { CorrelationIdMiddleware } from './core/common/middleware/correlation-id.middleware';
+import { CaslModule } from './core/casl/casl.module';
 
 // Health
 import { HealthModule } from './health/health.module';
@@ -50,10 +52,14 @@ import { ErrorLogModule } from './modules/error-log/error-log.module';
       ],
     }),
 
+    // ── Scheduled tasks (cron) ──
+    ScheduleModule.forRoot(),
+
     // ── Core ──
     PrismaModule,
     SettingsModule,
     EmailModule,
+    CaslModule,
     HealthModule,
 
     // ── Business modules ──

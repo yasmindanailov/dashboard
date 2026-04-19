@@ -233,53 +233,122 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       )}
 
       {tab === 'facturacion' && (
-        <div
-          className="rounded-xl p-6"
-          style={{ background: 'var(--surface-primary)', border: '1px solid var(--border)' }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-              Perfiles de facturación
-            </h2>
+        <div className="space-y-6">
+          {/* Billing profiles */}
+          <div
+            className="rounded-xl p-6"
+            style={{ background: 'var(--surface-primary)', border: '1px solid var(--border)' }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                Perfiles de facturación
+              </h2>
+            </div>
+
+            {/* Default implicit profile (always shown) */}
+            <div
+              className="p-4 rounded-lg mb-3"
+              style={{
+                background: 'var(--surface-secondary)',
+                border: client.billing_profiles.length === 0 ? '1px solid var(--brand)' : '1px solid var(--border)',
+              }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                  {client.first_name} {client.last_name}
+                </span>
+                {client.billing_profiles.length === 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#DCFCE7', color: '#16A34A' }}>
+                    Predeterminado
+                  </span>
+                )}
+              </div>
+              <div className="text-xs space-y-0.5" style={{ color: 'var(--text-secondary)' }}>
+                <p>{client.email}</p>
+                {client.client_profile?.address_line1 && (
+                  <p>{client.client_profile.address_line1}, {client.client_profile.postal_code} {client.client_profile.city}</p>
+                )}
+                <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', marginTop: 4 }}>
+                  Factura simplificada (sin NIF)
+                </p>
+              </div>
+            </div>
+
+            {/* Created billing profiles */}
+            {client.billing_profiles.length > 0 && (
+              <div className="space-y-3">
+                {client.billing_profiles.map((bp) => (
+                  <div
+                    key={bp.id}
+                    className="p-4 rounded-lg"
+                    style={{ background: 'var(--surface-secondary)', border: bp.is_default ? '1px solid var(--brand)' : '1px solid var(--border)' }}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{bp.label}</span>
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full"
+                        style={{ background: 'var(--brand-light)', color: 'var(--brand)' }}
+                      >
+                        {bp.type}
+                      </span>
+                      {bp.is_default && (
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#DCFCE7', color: '#16A34A' }}>
+                          Predeterminado
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs space-y-0.5" style={{ color: 'var(--text-secondary)' }}>
+                      {(bp.first_name || bp.company_name) && (
+                        <p>{bp.company_name || `${bp.first_name} ${bp.last_name}`}</p>
+                      )}
+                      {bp.nif_cif && <p>NIF/CIF: {bp.nif_cif}</p>}
+                      <p>{bp.address_line1}, {bp.postal_code} {bp.city}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {client.billing_profiles.length === 0 ? (
-            <p className="text-sm py-8 text-center" style={{ color: 'var(--text-tertiary)' }}>
-              No hay perfiles de facturación. Se crearán cuando el cliente vaya a pagar.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {client.billing_profiles.map((bp) => (
-                <div
-                  key={bp.id}
-                  className="p-4 rounded-lg"
-                  style={{ background: 'var(--surface-secondary)', border: bp.is_default ? '1px solid var(--brand)' : '1px solid var(--border)' }}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{bp.label}</span>
-                    <span
-                      className="text-xs px-2 py-0.5 rounded-full"
-                      style={{ background: 'var(--brand-light)', color: 'var(--brand)' }}
-                    >
-                      {bp.type}
-                    </span>
-                    {bp.is_default && (
-                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#DCFCE7', color: '#16A34A' }}>
-                        Predeterminado
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs space-y-0.5" style={{ color: 'var(--text-secondary)' }}>
-                    {(bp.first_name || bp.company_name) && (
-                      <p>{bp.company_name || `${bp.first_name} ${bp.last_name}`}</p>
-                    )}
-                    {bp.nif_cif && <p>NIF/CIF: {bp.nif_cif}</p>}
-                    <p>{bp.address_line1}, {bp.postal_code} {bp.city}</p>
-                  </div>
-                </div>
-              ))}
+          {/* Quick link to client invoices */}
+          <div
+            className="rounded-xl p-6"
+            style={{ background: 'var(--surface-primary)', border: '1px solid var(--border)' }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Facturas</h2>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                  Ver todas las facturas de este cliente
+                </p>
+              </div>
+              <Link
+                href={`/dashboard/billing?userId=${client.id}`}
+                className="px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200"
+                style={{ background: 'var(--brand-light)', color: 'var(--brand)' }}
+              >
+                Ver facturas →
+              </Link>
             </div>
-          )}
+          </div>
+
+          {/* Quick link to client services (placeholder for Sprint 11+) */}
+          <div
+            className="rounded-xl p-6"
+            style={{ background: 'var(--surface-primary)', border: '1px solid var(--border)' }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Servicios activos</h2>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                  Servicios contratados por este cliente
+                </p>
+              </div>
+              <span className="text-xs px-3 py-1.5 rounded-full" style={{ background: 'var(--surface-secondary)', color: 'var(--text-tertiary)' }}>
+                Disponible en Sprint 11
+              </span>
+            </div>
+          </div>
         </div>
       )}
 

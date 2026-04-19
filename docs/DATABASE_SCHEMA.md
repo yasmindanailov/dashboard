@@ -1420,15 +1420,17 @@ promotions
 > Las tablas nuevas se crean en fase 2 al construir el módulo partner.
 > Añadir los campos nullable ahora garantiza que el schema no necesite
 > rediseño cuando llegue la fase 2.
+> **Schema completo y detallado:** ver PARTNER_SCHEMA.md.
 
 ---
 
 ### Campos añadidos en tablas existentes
 
-**`users`** — campo nuevo:
+**`users`** — campos nuevos:
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
 | partner_id | uuid | NULLABLE, FK → partners(id) | null = cliente directo de Aelium |
+| linked_partner_account_id | uuid | NULLABLE, FK → partners(id) | Si el usuario tiene cuenta de cliente vinculada a su cuenta partner |
 
 **`services`** — campo nuevo:
 | Campo | Tipo | Restricciones | Notas |
@@ -1439,7 +1441,7 @@ promotions
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
 | partner_id | uuid | NULLABLE, FK → partners(id) | null = factura de cliente directo |
-| partner_label | varchar(200) | NULLABLE | "Partner: Agencia X" en la factura |
+| partner_label | varchar(200) | NULLABLE | "Aelium · Partner con Agencia X" en la factura |
 
 **`products`** — campo nuevo:
 | Campo | Tipo | Restricciones | Notas |
@@ -1459,48 +1461,110 @@ Datos de cada agencia partner. Se crea al aprobar la solicitud.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
-| id | uuid | PK | |
-| user_id | uuid | NOT NULL, FK → users(id), UQ | El usuario propietario de la cuenta partner |
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
+| user_id | uuid | NOT NULL, FK → users(id), UQ | Usuario propietario de la cuenta partner |
 | agency_name | varchar(200) | NOT NULL | |
 | cif | varchar(20) | NOT NULL | |
 | website | varchar(500) | NULLABLE | |
-| estimated_clients | integer | NULLABLE | Informativo. Del formulario de registro. |
+| estimated_clients | integer | NULLABLE | Informativo · del formulario de registro |
 | status | enum | NOT NULL, DEFAULT 'pending' | pending · active · rejected · suspended |
-| referral_code | varchar(100) | UNIQUE | Código único para el enlace de registro |
-| referral_link | varchar(500) | NULLABLE | URL completa generada al aprobar |
+| referral_code | varchar(100) | NULLABLE, UQ | Generado al aprobar · null mientras está pending |
+| referral_link | varchar(500) | NULLABLE | URL completa · generada al aprobar |
 | approved_by | uuid | NULLABLE, FK → users(id) | Admin que aprobó |
 | approved_at | timestamptz | NULLABLE | |
 | rejected_at | timestamptz | NULLABLE | |
-| rejection_reason | text | NULLABLE | |
+| rejection_reason | text | NULLABLE | Visible para el partner en el email de rechazo |
 | payout_method | enum | NULLABLE | sepa · stripe_connect · both |
-| payout_iban | varchar(50) | NULLABLE | Encriptado |
+| payout_iban | varchar(50) | NULLABLE | Encriptado en reposo |
 | payout_stripe_account_id | varchar(200) | NULLABLE | ID de cuenta Stripe Connect |
-| payout_cycle | enum | NOT NULL, DEFAULT 'monthly' | monthly · (futuro: weekly) |
-| notes_internal | text | NULLABLE | Notas del admin sobre el partner |
+| payout_cycle | enum | NOT NULL, DEFAULT 'monthly' | monthly |
+| client_discount_pct | decimal(5,2) | NULLABLE | Descuento si vincula cuenta de cliente · configurable por admin |
+| notes_internal | text | NULLABLE | Notas del admin sobre el partner · no visibles para el partner |
 | created_at | timestamptz | NOT NULL, DEFAULT now() | |
 | updated_at | timestamptz | NOT NULL, DEFAULT now() | |
 
 **Índices:**
 - `idx_partners_user_id` — UNIQUE en user_id
 - `idx_partners_status` — en status
-- `idx_partners_referral_code` — UNIQUE en referral_code
+- `idx_partners_referral_code` — UNIQUE en referral_code WHERE referral_code IS NOT NULL
+
+---
+
+### `partner_client_notes`
+Notas del partner sobre sus clientes. Inmutables (solo INSERT).
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
+| partner_id | uuid | NOT NULL, FK → partners(id) | |
+| client_id | uuid | NOT NULL, FK → users(id) | Cliente final sobre el que se añade la nota |
+| content | text | NOT NULL | Texto libre |
+| created_by | uuid | NOT NULL, FK → users(id) | Usuario del partner que añadió la nota |
+| created_at | timestamptz | NOT NULL, DEFAULT now() | |
+
+**Índices:**
+- `idx_partner_notes_partner` — en partner_id
+- `idx_partner_notes_client` — en client_id
+
+**Notas de decisión:**
+- Tabla de solo INSERT. Nunca UPDATE ni DELETE.
+- El cliente final ve en su portal de transparencia que existe una nota pero no ve su contenido.
+- El agente de Aelium ve el contenido completo en la ficha del cliente.
+
+---
+
+### `partner_tickets`
+Tickets del partner a sus clientes finales. El cliente puede responder. Aelium siempre tiene visibilidad.
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
+| partner_id | uuid | NOT NULL, FK → partners(id) | |
+| client_id | uuid | NOT NULL, FK → users(id) | Cliente destinatario |
+| subject | varchar(300) | NOT NULL | |
+| status | enum | NOT NULL, DEFAULT 'open' | open · replied · closed |
+| created_at | timestamptz | NOT NULL, DEFAULT now() | |
+| updated_at | timestamptz | NOT NULL, DEFAULT now() | |
+
+**Índices:**
+- `idx_partner_tickets_partner` — en partner_id
+- `idx_partner_tickets_client` — en client_id
+- `idx_partner_tickets_status` — en status
+
+---
+
+### `partner_ticket_messages`
+Mensajes dentro de un ticket partner-cliente.
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
+| ticket_id | uuid | NOT NULL, FK → partner_tickets(id) ON DELETE CASCADE | |
+| sender_id | uuid | NOT NULL, FK → users(id) | |
+| sender_type | enum | NOT NULL | partner · client |
+| content | text | NOT NULL | |
+| read_at | timestamptz | NULLABLE | |
+| created_at | timestamptz | NOT NULL, DEFAULT now() | |
+
+**Índices:**
+- `idx_partner_ticket_messages_ticket` — en ticket_id
 
 ---
 
 ### `partner_commissions`
-Comisión acumulada por cada factura pagada de un cliente del partner.
-Se genera automáticamente cuando se cobra una factura de un cliente del partner.
+Comisión generada por cada factura pagada de un cliente del partner.
+Se genera automáticamente al cobrar una factura de un cliente vinculado.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
-| id | uuid | PK | |
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
 | partner_id | uuid | NOT NULL, FK → partners(id) | |
-| client_id | uuid | NOT NULL, FK → users(id) | Cliente final del partner |
-| invoice_id | uuid | NOT NULL, FK → invoices(id) | Factura que generó la comisión |
+| client_id | uuid | NOT NULL, FK → users(id) | Cliente final que generó la comisión |
+| invoice_id | uuid | NOT NULL, FK → invoices(id) | Factura que originó la comisión |
 | service_id | uuid | NULLABLE, FK → services(id) | |
 | product_id | uuid | NOT NULL, FK → products(id) | |
-| invoice_total | decimal(10,2) | NOT NULL | Total de la factura |
-| commission_pct | decimal(5,2) | NOT NULL | ⚠️ desnormalizado — % en el momento del cobro |
+| invoice_total | decimal(10,2) | NOT NULL | Total de la factura en el momento del cobro |
+| commission_pct | decimal(5,2) | NOT NULL | ⚠️ desnormalizado · % en el momento del cobro |
 | commission_amount | decimal(10,2) | NOT NULL | Importe exacto de la comisión |
 | currency | varchar(3) | NOT NULL, DEFAULT 'EUR' | |
 | status | enum | NOT NULL, DEFAULT 'pending' | pending · included_in_payout · paid |
@@ -1511,20 +1575,21 @@ Se genera automáticamente cuando se cobra una factura de un cliente del partner
 - `idx_partner_commissions_partner` — en partner_id
 - `idx_partner_commissions_status` — en status
 - `idx_partner_commissions_payout` — en payout_id
+- `idx_partner_commissions_invoice` — en invoice_id
 
 **Notas de decisión:**
-- El `commission_pct` se desnormaliza intencionalmente. Si el margen del producto
-  cambia en el futuro, el historial de comisiones anteriores debe preservar
-  el porcentaje que aplicaba en el momento del cobro.
+- `commission_pct` se desnormaliza intencionalmente.
+  Si el margen del producto cambia, el historial preserva el % que aplicaba en ese momento.
+- Incluye comisiones de Support Inside y slots adicionales.
 
 ---
 
 ### `partner_payouts`
-Liquidaciones realizadas al partner.
+Liquidaciones al partner. Completamente automáticas a fin de mes.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
-| id | uuid | PK | |
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
 | partner_id | uuid | NOT NULL, FK → partners(id) | |
 | period_start | timestamptz | NOT NULL | Inicio del período liquidado |
 | period_end | timestamptz | NOT NULL | Fin del período liquidado |
@@ -1541,17 +1606,17 @@ Liquidaciones realizadas al partner.
 **Índices:**
 - `idx_partner_payouts_partner` — en partner_id
 - `idx_partner_payouts_status` — en status
-- `idx_partner_payouts_period` — en (partner_id, period_start, period_end)
+- UNIQUE(partner_id, period_start, period_end)
 
 ---
 
 ### `partner_notifications`
 Notificaciones unidireccionales del partner a sus clientes finales.
-No son chats. No esperan respuesta. Son comunicados o avisos.
+No son tickets. No esperan respuesta. Son comunicados o avisos.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
-| id | uuid | PK | |
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
 | partner_id | uuid | NOT NULL, FK → partners(id) | |
 | client_id | uuid | NOT NULL, FK → users(id) | Cliente destinatario |
 | title | varchar(300) | NOT NULL | |
@@ -1563,10 +1628,52 @@ No son chats. No esperan respuesta. Son comunicados o avisos.
 - `idx_partner_notif_partner` — en partner_id
 - `idx_partner_notif_client` — en client_id
 
-**Notas de decisión:**
-- El agente de Aelium también ve estas notificaciones en la ficha del cliente.
-- El partner no puede eliminar notificaciones ya enviadas.
-- No hay respuesta posible del cliente a estas notificaciones.
+---
+
+### `partner_client_links`
+Vinculación entre cuenta partner y cuenta de cliente del mismo usuario.
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
+| partner_id | uuid | NOT NULL, FK → partners(id), UQ | |
+| client_user_id | uuid | NOT NULL, FK → users(id), UQ | La cuenta de cliente normal |
+| partner_email | varchar(255) | NOT NULL | Email de la cuenta partner |
+| client_email | varchar(255) | NOT NULL | Email de la cuenta cliente |
+| status | enum | NOT NULL, DEFAULT 'pending' | pending · active · rejected |
+| requested_at | timestamptz | NOT NULL, DEFAULT now() | |
+| approved_by | uuid | NULLABLE, FK → users(id) | Admin que aprobó |
+| approved_at | timestamptz | NULLABLE | |
+| rejected_at | timestamptz | NULLABLE | |
+| discount_pct | decimal(5,2) | NULLABLE | ⚠️ desnormalizado · descuento en el momento de la vinculación |
+| created_at | timestamptz | NOT NULL, DEFAULT now() | |
+| updated_at | timestamptz | NOT NULL, DEFAULT now() | |
+
+---
+
+### `partner_unlink_requests`
+Solicitudes de desvinculación cliente-partner.
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
+| partner_id | uuid | NOT NULL, FK → partners(id) | |
+| client_id | uuid | NOT NULL, FK → users(id) | Cliente que solicita la desvinculación |
+| requested_by | enum | NOT NULL | client · partner |
+| client_reason | text | NULLABLE | Motivo del cliente |
+| partner_response | enum | NULLABLE | accepted · rejected |
+| partner_rejection_reason | text | NULLABLE | |
+| status | enum | NOT NULL, DEFAULT 'pending' | pending · accepted · rejected · forced · escalated |
+| escalated_to_agent | uuid | NULLABLE, FK → users(id) | Agente asignado si se escala |
+| resolved_by | uuid | NULLABLE, FK → users(id) | Admin/agente que resolvió |
+| resolved_at | timestamptz | NULLABLE | |
+| created_at | timestamptz | NOT NULL, DEFAULT now() | |
+| updated_at | timestamptz | NOT NULL, DEFAULT now() | |
+
+**Índices:**
+- `idx_unlink_partner` — en partner_id
+- `idx_unlink_client` — en client_id
+- `idx_unlink_status` — en status
 
 ---
 
@@ -1574,19 +1681,25 @@ No son chats. No esperan respuesta. Son comunicados o avisos.
 
 ```
 partners
-  ├── partner_commissions (1:N)
-  ├── partner_payouts (1:N)
-  └── partner_notifications (1:N)
+  ├── partner_client_notes (1:N)      ← notas sobre clientes
+  ├── partner_tickets (1:N)           ← tickets a clientes
+  │     └── partner_ticket_messages (1:N)
+  ├── partner_notifications (1:N)     ← avisos a clientes
+  ├── partner_commissions (1:N)       ← comisiones generadas
+  ├── partner_payouts (1:N)           ← liquidaciones
+  ├── partner_client_links (1:1)      ← vinculación cuenta cliente
+  └── partner_unlink_requests (1:N)   ← solicitudes de desvinculación
 
-users
-  └── partner_id (nullable) → partners
-
-services
-  └── partner_id (nullable) → partners
-
-invoices
+users (cliente del partner)
   ├── partner_id (nullable) → partners
-  └── partner_label (nullable) → texto de la factura
+  └── linked_partner_account_id (nullable) → partners
+
+services (del cliente del partner)
+  └── partner_id (nullable) → partners
+
+invoices (del cliente del partner)
+  ├── partner_id (nullable) → partners
+  └── partner_label (nullable) → texto visible en la factura
 ```
 
 ---

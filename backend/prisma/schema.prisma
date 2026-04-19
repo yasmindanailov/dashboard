@@ -73,6 +73,7 @@ model User {
   password_resets       PasswordReset[]
   client_profile        ClientProfile?
   billing_profiles      BillingProfile[]
+  invoices              Invoice[]
   notifications_received Notification[] @relation("notification_recipient")
 
   @@index([email])
@@ -188,6 +189,8 @@ model BillingProfile {
   updated_at   DateTime           @default(now()) @updatedAt @db.Timestamptz()
 
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  services Service[]
+  invoices Invoice[]
 
   @@index([user_id])
   @@map("billing_profiles")
@@ -226,50 +229,148 @@ enum ProductStatus {
   deprecated
 }
 
-enum ProductCategory {
-  hosting_web
-  hosting_agency
-  domain
-  cloud_office
-  docker_service
-  support_inside
-  we_do_it
-  development
+enum ProductType {
+  hosting_web       // Plans: Web Inicio, Web Pro, Web Business
+  domain            // Independent product, free first year with annual hosting
+  docker_service    // Nextcloud, OpenClaw, etc. — template .yaml
+  support_inside    // Addon global de cuenta (Básico, Medium, Pro) — §7 DECISIONS.md
+  we_do_it          // Addon por producto (hosting, docker) — §8 DECISIONS.md
+  custom_service    // Proyectos manuales a escala (ERP, CRM) — §27 DECISIONS.md
+}
+
+// ProvisionerType: dinámico via plugin system (Sprint 8).
+// Valores conocidos: enhance_cp, resellerclub, docker_engine, internal, manual.
+// Se almacena como String para permitir registrar nuevos provisioners sin migraciones.
+
+enum ExtraType {
+  free_period
+  discount
+  included_product
+}
+
+enum ExtraApplicableCycle {
+  monthly
+  annual
+  both
+}
+
+model ProductCategory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @db.VarChar(100)
+  slug        String   @unique @db.VarChar(100)
+  parent_id   String?  @db.Uuid
+  order_index Int      @default(0)
+  active      Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz()
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  parent   ProductCategory?  @relation("category_tree", fields: [parent_id], references: [id])
+  children ProductCategory[] @relation("category_tree")
+  products Product[]
+
+  @@index([parent_id])
+  @@map("product_categories")
 }
 
 model Product {
-  id                     String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                   String          @db.VarChar(300)
-  slug                   String          @unique @db.VarChar(300)
-  category               ProductCategory
-  description            String?
-  short_description      String?         @db.VarChar(500)
-  status                 ProductStatus   @default(active)
-  is_addon               Boolean         @default(false)
-  requires_product_id    String?         @db.Uuid
-  billing_cycle          BillingCycle    @default(monthly)
-  price                  Decimal         @db.Decimal(10, 2)
-  setup_fee              Decimal         @default(0) @db.Decimal(10, 2)
-  renewal_price          Decimal?        @db.Decimal(10, 2)
-  cost_price             Decimal?        @db.Decimal(10, 2)
-  currency               String          @default("EUR") @db.VarChar(3)
-  trial_days             Int             @default(0)
-  provisioner_plugin     String?         @db.VarChar(100)
-  provisioner_config     Json?
-  sort_order             Int             @default(0)
-  features               Json?
-  metadata               Json?
-  partner_commission_pct Decimal?        @db.Decimal(5, 2)
-  created_at             DateTime        @default(now()) @db.Timestamptz()
-  updated_at             DateTime        @default(now()) @updatedAt @db.Timestamptz()
+  id                       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category_id              String?         @db.Uuid
+  name                     String          @db.VarChar(200)
+  slug                     String          @unique @db.VarChar(200)
+  description              String?
+  short_description        String?         @db.VarChar(500)
+  type                     ProductType
+  provisioner              String          @default("manual") @db.VarChar(100)
+  image_url                String?         @db.VarChar(500)
+  badge_text               String?         @db.VarChar(50)
+  order_index              Int             @default(0)
+  status                   ProductStatus   @default(active)
+  is_addon                 Boolean         @default(false)
+  is_global_addon          Boolean         @default(false)
+  requires_existing_product Boolean        @default(false)
+  required_product_type    String?         @db.VarChar(50)
+  max_quantity_per_client  Int?
+  grace_period_days        Int             @default(0)
+  suspension_days          Int             @default(7)
+  cancellation_days        Int             @default(30)
+  data_retention_days      Int             @default(30)
+  client_can_pause         Boolean         @default(false)
+  pause_max_days           Int?
+  provisioner_config       Json?
+  audit_event_types        Json?
+  features                 Json?
+  metadata                 Json?
+  partner_commission_pct   Decimal?        @db.Decimal(5, 2)
+  created_at               DateTime        @default(now()) @db.Timestamptz()
+  updated_at               DateTime        @default(now()) @updatedAt @db.Timestamptz()
 
-  requires_product Product?  @relation("product_addon", fields: [requires_product_id], references: [id])
-  dependent_addons Product[] @relation("product_addon")
+  category         ProductCategory?       @relation(fields: [category_id], references: [id])
+  pricing          ProductPricing[]
+  extras           ProductExtra[]
+  checklist_items  ProductChecklistItem[]
   services         Service[]
 
-  @@index([category])
+  @@index([category_id])
+  @@index([type])
   @@index([status])
   @@map("products")
+}
+
+model ProductPricing {
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id          String       @db.Uuid
+  billing_cycle       BillingCycle
+  price               Decimal      @db.Decimal(10, 2)
+  setup_fee           Decimal      @default(0) @db.Decimal(10, 2)
+  currency            String       @default("EUR") @db.VarChar(3)
+  discount_percentage Decimal?     @db.Decimal(5, 2)
+  active              Boolean      @default(true)
+  created_at          DateTime     @default(now()) @db.Timestamptz()
+  updated_at          DateTime     @default(now()) @updatedAt @db.Timestamptz()
+
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@unique([product_id, billing_cycle, currency])
+  @@map("product_pricing")
+}
+
+model ProductExtra {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id          String             @db.Uuid
+  extra_product_id    String?            @db.Uuid
+  type                ExtraType
+  is_mandatory        Boolean            @default(false)
+  label               String             @db.VarChar(200)
+  discount_percentage Decimal?           @db.Decimal(5, 2)
+  free_months         Int?
+  max_value_eur       Decimal?           @db.Decimal(10, 2)
+  applicable_cycles   ExtraApplicableCycle @default(annual)
+  tld_restrictions    Json?
+  valid_until         DateTime?          @db.Timestamptz()
+  max_uses            Int?
+  uses_count          Int                @default(0)
+  active              Boolean            @default(true)
+  created_at          DateTime           @default(now()) @db.Timestamptz()
+  updated_at          DateTime           @default(now()) @updatedAt @db.Timestamptz()
+
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([product_id])
+  @@map("product_extras")
+}
+
+model ProductChecklistItem {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id  String   @db.Uuid
+  label       String   @db.VarChar(200)
+  order_index Int      @default(0)
+  is_required Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz()
+
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([product_id])
+  @@map("product_checklist_items")
 }
 
 // ─── BLOQUE 5: SERVICIOS ───
@@ -284,32 +385,37 @@ enum ServiceStatus {
 }
 
 model Service {
-  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id             String        @db.Uuid
-  product_id          String        @db.Uuid
-  partner_id          String?       @db.Uuid
-  status              ServiceStatus @default(pending)
-  label               String?       @db.VarChar(300)
-  domain              String?       @db.VarChar(300)
-  server_id           String?       @db.Uuid
-  billing_cycle       BillingCycle  @default(monthly)
-  amount              Decimal       @db.Decimal(10, 2)
-  currency            String        @default("EUR") @db.VarChar(3)
-  next_due_date       DateTime?     @db.Timestamptz()
-  next_invoice_date   DateTime?     @db.Timestamptz()
-  cancelled_at        DateTime?     @db.Timestamptz()
-  cancellation_reason String?
-  suspended_at        DateTime?     @db.Timestamptz()
-  suspension_reason   String?
-  provisioner_data    Json?
-  metadata            Json?
-  created_at          DateTime      @default(now()) @db.Timestamptz()
-  updated_at          DateTime      @default(now()) @updatedAt @db.Timestamptz()
+  id                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id               String        @db.Uuid
+  product_id            String        @db.Uuid
+  billing_profile_id    String?       @db.Uuid
+  partner_id            String?       @db.Uuid
+  status                ServiceStatus @default(pending)
+  label                 String?       @db.VarChar(300)
+  domain                String?       @db.VarChar(300)
+  server_id             String?       @db.Uuid
+  billing_cycle         BillingCycle  @default(monthly)
+  amount                Decimal       @db.Decimal(10, 2)
+  currency              String        @default("EUR") @db.VarChar(3)
+  next_due_date         DateTime?     @db.Timestamptz()
+  next_invoice_date     DateTime?     @db.Timestamptz()
+  cancelled_at          DateTime?     @db.Timestamptz()
+  cancellation_reason   String?
+  suspended_at          DateTime?     @db.Timestamptz()
+  suspension_reason     String?
+  paused_at             DateTime?     @db.Timestamptz()
+  pause_max_date        DateTime?     @db.Timestamptz()
+  provisioner_data      Json?
+  metadata              Json?
+  created_at            DateTime      @default(now()) @db.Timestamptz()
+  updated_at            DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
-  product Product @relation(fields: [product_id], references: [id])
+  product         Product         @relation(fields: [product_id], references: [id])
+  billing_profile BillingProfile? @relation(fields: [billing_profile_id], references: [id])
 
   @@index([user_id])
   @@index([product_id])
+  @@index([billing_profile_id])
   @@index([status])
   @@index([next_due_date])
   @@map("services")
@@ -327,47 +433,59 @@ enum InvoiceStatus {
 }
 
 model Invoice {
-  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  invoice_number   String        @unique @db.VarChar(50)
-  user_id          String        @db.Uuid
-  partner_id       String?       @db.Uuid
-  partner_label    String?       @db.VarChar(200)
-  status           InvoiceStatus @default(draft)
-  subtotal         Decimal       @db.Decimal(10, 2)
-  tax_rate         Decimal       @default(21) @db.Decimal(5, 2)
-  tax_amount       Decimal       @db.Decimal(10, 2)
-  discount_amount  Decimal       @default(0) @db.Decimal(10, 2)
-  total            Decimal       @db.Decimal(10, 2)
-  currency         String        @default("EUR") @db.VarChar(3)
-  due_date         DateTime      @db.Timestamptz()
-  paid_at          DateTime?     @db.Timestamptz()
-  payment_method   String?       @db.VarChar(100)
-  payment_ref      String?       @db.VarChar(500)
-  notes            String?
-  pdf_url          String?       @db.VarChar(1000)
-  metadata         Json?
-  created_at       DateTime      @default(now()) @db.Timestamptz()
-  updated_at       DateTime      @default(now()) @updatedAt @db.Timestamptz()
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_number       String        @unique @db.VarChar(50)
+  user_id              String        @db.Uuid
+  billing_profile_id   String?       @db.Uuid
+  partner_id           String?       @db.Uuid
+  partner_label        String?       @db.VarChar(200)
+  status               InvoiceStatus @default(draft)
+  subtotal             Decimal       @db.Decimal(10, 2)
+  tax_rate             Decimal       @default(21) @db.Decimal(5, 2)
+  tax_amount           Decimal       @db.Decimal(10, 2)
+  discount_amount      Decimal       @default(0) @db.Decimal(10, 2)
+  total                Decimal       @db.Decimal(10, 2)
+  currency             String        @default("EUR") @db.VarChar(3)
+  due_date             DateTime      @db.Timestamptz()
+  paid_at              DateTime?     @db.Timestamptz()
+  payment_provider     String?       @db.VarChar(100)  // Plugin: "stripe", "manual", etc.
+  payment_method       String?       @db.VarChar(100)  // "card", "sepa", "transfer"
+  payment_ref          String?       @db.VarChar(500)  // External ID from payment provider
+  retry_count          Int           @default(0)
+  max_retries          Int           @default(3)
+  next_retry_at        DateTime?     @db.Timestamptz()
+  is_manual            Boolean       @default(false)
+  notes                String?
+  pdf_url              String?       @db.VarChar(1000)
+  metadata             Json?
+  created_at           DateTime      @default(now()) @db.Timestamptz()
+  updated_at           DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
-  items InvoiceItem[]
+  items            InvoiceItem[]
+  billing_profile  BillingProfile? @relation(fields: [billing_profile_id], references: [id])
+  user             User            @relation(fields: [user_id], references: [id])
 
   @@index([user_id])
+  @@index([billing_profile_id])
   @@index([status])
   @@index([due_date])
+  @@index([next_retry_at])
   @@map("invoices")
 }
 
 model InvoiceItem {
-  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  invoice_id  String  @db.Uuid
-  service_id  String? @db.Uuid
-  product_id  String? @db.Uuid
-  description String  @db.VarChar(500)
-  quantity    Int     @default(1)
-  unit_price  Decimal @db.Decimal(10, 2)
-  total       Decimal @db.Decimal(10, 2)
-  period_start DateTime? @db.Timestamptz()
-  period_end   DateTime? @db.Timestamptz()
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_id    String    @db.Uuid
+  service_id    String?   @db.Uuid
+  product_id    String?   @db.Uuid
+  description   String    @db.VarChar(500)
+  quantity      Int       @default(1)
+  unit_price    Decimal   @db.Decimal(10, 2)
+  setup_fee     Decimal   @default(0) @db.Decimal(10, 2)
+  discount_pct  Decimal?  @db.Decimal(5, 2)
+  total         Decimal   @db.Decimal(10, 2)
+  period_start  DateTime? @db.Timestamptz()
+  period_end    DateTime? @db.Timestamptz()
 
   invoice Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
 

@@ -189,7 +189,8 @@ catch (err) {
 │   │   │   ├── /tasks
 │   │   │   ├── /notifications
 │   │   │   ├── /audit
-│   │   │   └── /infrastructure
+│   │   │   ├── /infrastructure
+│   │   │   └── /partner              ← módulo partner (Fase 2)
 │   │   │
 │   │   ├── /plugins                  ← integraciones intercambiables
 │   │   │   ├── /payment
@@ -311,6 +312,14 @@ Solo el superadmin puede crear y editar contenido.
 **Emite:** nada
 **Escucha:** nada (es fuente de datos de solo lectura)
 
+### partner
+**Responsabilidad:** orquestar el ciclo de vida de la relación partner-cliente.
+Gestionar comisiones, liquidaciones, comunicación partner↔cliente, y desvinculaciones.
+Se construye en Fase 2 — después de que el core del dashboard esté funcional.
+Ver documentación completa en PARTNER_ARCHITECTURE.md, PARTNER_DECISIONS.md, PARTNER_SCHEMA.md.
+**Emite:** `partner.approved` · `partner.commission_generated` · `partner.payout_completed` · `partner.payout_failed` · `partner.client_unlinked` · `partner.unlink_escalated`
+**Escucha:** `invoice.paid` (genera comisión si el cliente tiene partner_id) · `service.cancelled` (verifica si el cliente del partner se queda sin servicios)
+
 ### error_log
 **Responsabilidad:** capturar, almacenar y notificar todos los errores del sistema.
 Recibe excepciones de todos los módulos via el bus de eventos.
@@ -420,13 +429,22 @@ promotions              ← reglas de promoción (upsell/crossell)
 promotion_views         ← registro de qué cliente ha visto qué promoción y cuántas veces
 discount_codes          ← códigos de descuento configurables
 discount_code_uses      ← registro de usos de códigos de descuento
-product_extras          ← extras vinculados a productos (obligatorios u opcionales)
 
 knowledge_base_articles ← artículos de la base de conocimiento interna
 knowledge_base_tags     ← etiquetas para organizar artículos
 
 error_log               ← registro de todos los errores del sistema (todos los niveles)
 event_outbox            ← eventos pendientes de despacho (Outbox Pattern)
+
+partners                ← datos de agencias partner
+partner_client_notes    ← notas inmutables del partner sobre sus clientes
+partner_tickets         ← tickets del partner a sus clientes (bidireccional)
+partner_ticket_messages ← mensajes dentro de tickets partner-cliente
+partner_notifications   ← notificaciones unidireccionales del partner a clientes
+partner_commissions     ← comisiones generadas al cobrar facturas de clientes del partner
+partner_payouts         ← liquidaciones automáticas mensuales al partner
+partner_client_links    ← vinculación cuenta partner + cuenta cliente del mismo usuario
+partner_unlink_requests ← solicitudes de desvinculación cliente-partner
 ```
 
 ### Tablas de audit (schema audit — solo INSERT)
@@ -466,6 +484,9 @@ COLA: outbox
 
 COLA: referrals
   jobs: generate-monthly-credits · apply-referral-discount · check-referral-status
+
+COLA: partner
+  jobs: generate-monthly-payouts · process-payout-sepa · process-payout-stripe · retry-failed-payout · generate-commission · check-partner-client-status
 ```
 
 Cada job es idempotente — si se ejecuta dos veces, el resultado es el mismo.
@@ -576,11 +597,13 @@ Para referencia rápida, ver SESSION_RULES.md > Paleta.
 ## ROLES Y PERMISOS — RESUMEN TÉCNICO
 
 ```
-superadmin    → acceso total · solo asignable desde la base de datos
-agent_full    → soporte + billing · sin configuración del sistema
-agent_billing → facturas · pagos · clientes · sin soporte
-agent_support → chat · conversaciones · historial cliente · sin billing
-client        → su propio contexto únicamente
+superadmin      → acceso total · solo asignable desde la base de datos
+agent_full      → soporte + billing · sin configuración del sistema
+agent_billing   → facturas · pagos · clientes · sin soporte
+agent_support   → chat · conversaciones · historial cliente · sin billing
+client          → su propio contexto únicamente
+partner_pending → registrado y email verificado · pendiente de aprobación manual
+partner         → aprobado · acceso completo al dashboard partner (solo sus clientes)
 ```
 
 Guards de NestJS por rol en cada endpoint.

@@ -11,17 +11,17 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { RoleSlug } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PoliciesGuard } from '../../core/casl/policies.guard';
+import { CheckPolicies } from '../../core/casl/check-policies.decorator';
+import { Action, Subject } from '../../core/casl/permissions';
 import { ClientsService } from './clients.service';
 import { ClientListQueryDto, UpdateClientProfileDto, AddNoteDto } from './dto/client.dto';
 import { CreateBillingProfileDto, UpdateBillingProfileDto } from './dto/billing-profile.dto';
 
 @ApiTags('Clients')
 @Controller('clients')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PoliciesGuard)
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
@@ -30,19 +30,19 @@ export class ClientsController {
      ═══════════════════════════════════════ */
 
   @Get()
-  @Roles(RoleSlug.superadmin, RoleSlug.agent_full, RoleSlug.agent_billing, RoleSlug.agent_support)
+  @CheckPolicies((ability) => ability.can(Action.List, Subject.Client))
   findAll(@Query() query: ClientListQueryDto) {
     return this.clientsService.findAll(query);
   }
 
   @Get(':id')
-  @Roles(RoleSlug.superadmin, RoleSlug.agent_full, RoleSlug.agent_billing, RoleSlug.agent_support)
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Client))
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.clientsService.findOne(id);
   }
 
   @Patch(':id')
-  @Roles(RoleSlug.superadmin, RoleSlug.agent_full, RoleSlug.agent_billing)
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Client))
   updateProfile(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateClientProfileDto,
@@ -51,7 +51,7 @@ export class ClientsController {
   }
 
   @Post(':id/notes')
-  @Roles(RoleSlug.superadmin, RoleSlug.agent_full, RoleSlug.agent_billing, RoleSlug.agent_support)
+  @CheckPolicies((ability) => ability.can(Action.Create, Subject.ClientNote))
   addNote(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AddNoteDto,
@@ -64,13 +64,13 @@ export class ClientsController {
      ═══════════════════════════════════════ */
 
   @Get(':id/billing-profiles')
-  @Roles(RoleSlug.superadmin, RoleSlug.agent_full, RoleSlug.agent_billing)
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.BillingProfile))
   getBillingProfiles(@Param('id', ParseUUIDPipe) id: string) {
     return this.clientsService.getBillingProfiles(id);
   }
 
   @Post(':id/billing-profiles')
-  @Roles(RoleSlug.superadmin, RoleSlug.agent_full, RoleSlug.agent_billing)
+  @CheckPolicies((ability) => ability.can(Action.Create, Subject.BillingProfile))
   createBillingProfile(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateBillingProfileDto,
@@ -79,7 +79,7 @@ export class ClientsController {
   }
 
   @Patch(':id/billing-profiles/:profileId')
-  @Roles(RoleSlug.superadmin, RoleSlug.agent_full, RoleSlug.agent_billing)
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.BillingProfile))
   updateBillingProfile(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('profileId', ParseUUIDPipe) profileId: string,
@@ -89,7 +89,7 @@ export class ClientsController {
   }
 
   @Delete(':id/billing-profiles/:profileId')
-  @Roles(RoleSlug.superadmin, RoleSlug.agent_full, RoleSlug.agent_billing)
+  @CheckPolicies((ability) => ability.can(Action.Delete, Subject.BillingProfile))
   deleteBillingProfile(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('profileId', ParseUUIDPipe) profileId: string,
@@ -98,7 +98,7 @@ export class ClientsController {
   }
 
   @Patch(':id/billing-profiles/:profileId/default')
-  @Roles(RoleSlug.superadmin, RoleSlug.agent_full, RoleSlug.agent_billing)
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.BillingProfile))
   setDefaultBillingProfile(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('profileId', ParseUUIDPipe) profileId: string,

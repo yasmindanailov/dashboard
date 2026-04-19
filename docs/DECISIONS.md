@@ -1463,6 +1463,11 @@ PERFIL EMPRESA
 
 ## 35. MÓDULO PARTNER (FASE 2)
 
+> Documentación completa del módulo:
+> - PARTNER_ARCHITECTURE.md — guía técnica, endpoints, guards, workers
+> - PARTNER_DECISIONS.md — lógica de negocio completa
+> - PARTNER_SCHEMA.md — schema de base de datos (9 tablas)
+
 ### Concepto
 El partner es una agencia que revende productos de Aelium a sus clientes finales.
 No es un cliente normal ni un agente. Es una capa intermedia con su propio dashboard,
@@ -1477,12 +1482,13 @@ FLUJO DE DINERO
 
 MARGEN
   Se define por producto al crearlo (campo en products)
+  El partner recibe comisión sobre TODOS los productos incluyendo Support Inside y slots
   El partner no puede cambiar los precios al cliente final (por ahora · abierto al futuro)
 
 FACTURA AL CLIENTE FINAL DEL PARTNER
   Emitida por Aelium
-  Formato: "Aelium · Partner: Nombre de la agencia"
-  El cliente sabe que el servicio es de Aelium
+  Formato: "Aelium · Partner con [Nombre de la agencia]"
+  El cliente sabe que contrata con Aelium como proveedor
 ```
 
 ### Auth y roles
@@ -1522,26 +1528,63 @@ PUEDE:
   Ver su comisión acumulada por producto y cliente
   Ver historial de soporte de sus clientes (solo lectura)
   Enviar notificaciones unidireccionales a sus clientes
+  Abrir tickets a sus clientes (el cliente puede responder)
+  Añadir notas sobre sus clientes (inmutables)
+  Desvincular clientes desde su dashboard
   Registrar clientes via su enlace personalizado
   Ver y gestionar su propia facturación con Aelium
   Ver el historial de liquidaciones recibidas
+  Ver métricas de su panel de inicio
 
 NO PUEDE:
   Ver clientes de otros partners
   Cambiar precios de productos
-  Suspender o cancelar servicios
+  Suspender o cancelar servicios de sus clientes
   Crear facturas manuales
-  Intervenir en conversaciones de soporte
+  Intervenir en conversaciones de soporte cliente-Aelium
   Tocar configuración del sistema
   Ver márgenes internos de Aelium
-  Contactar con sus clientes via chat desde el dashboard
+  Chatear en tiempo real con sus clientes (solo tickets)
+  Aprobar o rechazar liquidaciones (son automáticas)
 ```
 
-### Comunicación del partner con sus clientes
-- Solo lectura del historial de soporte de sus clientes.
-- Puede enviar notificaciones unidireccionales (avisos, comunicados).
-  No son chats — no esperan respuesta. Quedan registradas en el historial del cliente.
-- El equipo de Aelium también ve estas notificaciones en la ficha del cliente.
+### Comunicación del partner con sus clientes (3 canales)
+- **Tickets bidireccionales:** el partner abre ticket al cliente, el cliente puede responder.
+  Aelium siempre tiene visibilidad. Cualquier agente puede ver estos tickets.
+- **Notificaciones unidireccionales:** avisos y comunicados. No esperan respuesta.
+  Quedan registradas en el historial del cliente.
+- **Notas inmutables:** texto libre sobre el cliente. Solo INSERT, nunca UPDATE ni DELETE.
+  El cliente ve en su portal de transparencia que existe la nota pero no su contenido.
+  El agente de Aelium ve el contenido completo en la ficha del cliente.
+
+### Desvinculación cliente-partner
+```
+EL CLIENTE SOLICITA DESVINCULARSE:
+  1. Solicita desde su dashboard
+  2. Notificación al partner
+  3. Partner acepta → desvinculación inmediata
+     Partner rechaza → se abre ticket a agente de Aelium
+  4. El agente puede forzar la desvinculación
+  5. El cliente siempre puede desvincularse con razones válidas
+
+EL PARTNER DESVINCULA A UN CLIENTE:
+  Desvinculación directa · el cliente recibe notificación
+
+DESPUÉS DE LA DESVINCULACIÓN:
+  El cliente queda como cliente directo de Aelium
+  Sus servicios siguen funcionando · facturas sin label del partner
+```
+
+### El partner como cliente de Aelium
+- El partner NO tiene servicios contratados en su cuenta de partner.
+- Si quiere servicios → crea una cuenta de cliente normal separada.
+- Puede vincular ambas cuentas (partner + cliente normal).
+- Proceso: introduce emails → confirmación → aprobación manual por admin → descuento.
+- Descuento configurable por el admin (porcentaje o importe fijo).
+
+### Cliente del partner sin servicios
+- Si cancela todos sus servicios → la cuenta queda activa sin servicios.
+- Después de X tiempo sin servicios → cuenta suspendida. X configurable en settings.
 
 ### Soporte al cliente final del partner
 - Aelium da soporte directamente al cliente final del partner.
@@ -1549,41 +1592,48 @@ NO PUEDE:
 - El agente ve en la ficha del cliente:
   - Nombre del partner al que pertenece.
   - Notas del partner sobre ese cliente.
+  - Historial de tickets entre el partner y ese cliente.
   - Historial de notificaciones del partner al cliente.
 
 ### Liquidaciones al partner
-- Transferencia automática a fin de mes.
+- Completamente automáticas a fin de mes. Sin aprobación manual.
 - El partner elige su método de cobro:
   - IBAN · transferencia SEPA automática.
   - Stripe Connect · transferencia automática via Stripe.
 - El partner ve en su dashboard su comisión acumulada en tiempo real.
-- El sistema genera un resumen de liquidación antes de ejecutarla.
+- Si falla → notificación al superadmin · reintento automático.
 
 ### Dashboard del partner — estructura
 ```
-Inicio             → métricas: clientes · comisión del mes · próxima liquidación
-Mis clientes       → lista · ficha (solo lectura) · historial de soporte · notificaciones
-Mis comisiones     → por producto y cliente · historial de liquidaciones
-Mi enlace          → enlace personalizado · estadísticas de registro
-Mi facturación     → sus facturas con Aelium · sus servicios
-Mi perfil          → datos de agencia · método de payout · facturación
+🏠 Inicio          → métricas: comisión mes · próxima liquidación · clientes activos · nuevos · vencidas · renovaciones · soporte
+👥 Mis clientes    → lista · ficha (lectura) · soporte (lectura) · notas (inmutables) · tickets · notificaciones · desvincular
+💰 Mis comisiones  → por producto y cliente · historial de liquidaciones · próxima estimada
+🔗 Mi enlace       → enlace personalizado · estadísticas: registrados · han comprado · activos
+🧾 Mi facturación  → sus facturas con Aelium · sus servicios
+👤 Mi perfil       → datos agencia · método payout · facturación · vinculación cuenta cliente
 ```
 
 ### Campos añadidos en tablas existentes (se añaden en fase 1 como nullable)
 ```
 users.partner_id                    → nullable FK a partners
+users.linked_partner_account_id     → nullable FK a partners (vinculación cuenta cliente)
 services.partner_id                 → nullable FK a partners
 invoices.partner_id                 → nullable FK a partners
-invoices.partner_label              → nullable varchar "Partner: Agencia X"
+invoices.partner_label              → nullable varchar "Aelium · Partner con Agencia X"
 products.partner_commission_pct     → decimal nullable · margen por producto
 ```
 
-### Tablas nuevas (se crean en fase 2)
+### Tablas nuevas (se crean en fase 2 · ver PARTNER_SCHEMA.md para detalle)
 ```
-partners              → datos de la agencia · estado · enlace único · método de payout
-partner_commissions   → comisión acumulada por servicio y factura del cliente final
-partner_payouts       → liquidaciones realizadas · importe · fecha · método · estado
-partner_notifications → notificaciones unidireccionales del partner a sus clientes
+partners                → datos de la agencia · estado · enlace único · método de payout · descuento cliente vinculado
+partner_client_notes    → notas inmutables del partner sobre sus clientes (solo INSERT)
+partner_tickets         → tickets del partner a sus clientes (bidireccional)
+partner_ticket_messages → mensajes dentro de tickets partner-cliente
+partner_notifications   → notificaciones unidireccionales del partner a clientes
+partner_commissions     → comisión generada por factura cobrada del cliente del partner
+partner_payouts         → liquidaciones automáticas mensuales al partner
+partner_client_links    → vinculación cuenta partner + cuenta cliente del mismo usuario
+partner_unlink_requests → solicitudes de desvinculación cliente-partner
 ```
 
 ---
