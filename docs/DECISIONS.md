@@ -117,6 +117,7 @@ Escalable horizontalmente cuando se necesite — no antes.
 | `agent_billing` | Facturas, pagos, clientes. Sin soporte ni configuración |
 | `agent_support` | Chat, conversaciones, historial cliente. Sin facturación |
 | `client` | Su propio dashboard: servicios, facturas, conversaciones |
+| `partner` | Reseller/agencia de marketing. Ve sus clientes referidos, facturación propia. Registro separado (formulario de agencia). Mismo dashboard, funcionalidades acotadas. Detalle a definir |
 
 ### Reglas de autenticación
 - Auth unificado. Un solo sistema de login para todos los roles.
@@ -125,6 +126,15 @@ Escalable horizontalmente cuando se necesite — no antes.
 - El rol `superadmin` solo se asigna desde la base de datos directamente — nunca desde la UI.
 - **2FA obligatorio** para superadmin y todos los agentes. Método: código por email.
 - Los agentes no pueden escalar sus propios permisos.
+
+### Sistema de autorización — CASL (PBAC)
+- La autorización usa **CASL** (`@casl/ability` + `@casl/prisma`), un sistema **isomórfico** de permisos.
+- Un único archivo `ability.factory.ts` define **todas** las reglas de cada rol.
+- Backend: guard universal `@CheckPolicies()` que consulta la ability del usuario.
+- Frontend: la misma ability filtra sidebar, rutas y acciones visibles.
+- Soporta **condiciones**: "el cliente puede gestionar SUS propios billing profiles" → `can('manage', 'BillingProfile', { userId: user.id })`.
+- Reemplaza todos los `@Roles()` hardcodeados por permisos granulares.
+- En el futuro, el mapa de permisos puede migrarse a base de datos para gestión dinámica.
 
 ---
 

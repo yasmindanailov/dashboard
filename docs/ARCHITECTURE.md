@@ -19,6 +19,7 @@ Reemplaza WHMCS. No es un SaaS.
 ```
 Frontend:    Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · shadcn/ui
 Backend:     NestJS 11 · TypeScript · Prisma 7 (driver adapter PrismaPg)
+Auth:        CASL (@casl/ability + @casl/prisma) · PBAC isomórfico
 Base datos:  PostgreSQL 16 (self-hosted en Docker)
 Cache:       Redis 7 (self-hosted en Docker)
 Colas:       BullMQ (sobre Redis)
