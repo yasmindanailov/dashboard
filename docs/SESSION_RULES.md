@@ -102,14 +102,7 @@ Border:           rgba(0, 0, 0, 0.06)
 ### Tipografía
 DM Sans — pesos: 400 (body) · 500 (botones) · 600 (headings)
 
----
-
-## Stack y versiones
-
-```
-Node.js 24.14.1 · pnpm 10.33 · Docker 29.4 · Git 2.53
-NestJS 11 · Next.js 16 · Prisma 7 · Tailwind 4
-```
+> Stack completo y versiones exactas: ver ARCHITECTURE.md.
 
 ---
 

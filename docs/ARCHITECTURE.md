@@ -546,31 +546,8 @@ El frontend los lee para renderizar texto legible al cliente.
 ## IDENTIDAD VISUAL
 
 El frontend debe ser coherente con la identidad visual de Aelium en todo momento.
-
-```
-Color principal:     #3B82F6 (heredado de la landing · fuente de verdad)
-Hover:               #2563EB
-Activo:              #1D4ED8
-Brand light:         #DBEAFE
-Brand subtle:        rgba(59, 130, 246, 0.06)
-Fondo base:          #FFFFFF
-Superficie:          #F7F7F8
-Texto principal:     #0A0A0B
-Texto secundario:    #6B7280
-Texto terciario:     #9CA3AF
-Borde:               rgba(0, 0, 0, 0.06)
-Borde hover:         rgba(0, 0, 0, 0.1)
-
-Tipografía:          DM Sans (Google Fonts)
-Pesos:               400 (cuerpo) · 500 (botones, títulos) · 600 (headings)
-
-Border radius:       8px (sm) · 12px (md) · 16px (lg) · 24px (xl) · 9999px (full/pills)
-
-Componentes UI:      shadcn/ui como base
-                     Personalizar con los colores de Aelium
-                     No usar estilos genéricos de shadcn sin personalizar
-                     El dashboard usa botones radius 8px (no pill como la landing)
-```
+La fuente de verdad de tokens de diseño está en `frontend/app/globals.css`.
+Para referencia rápida, ver SESSION_RULES.md > Paleta.
 
 ---
 
@@ -590,43 +567,16 @@ El frontend nunca es la única barrera de seguridad.
 
 ---
 
-## CÓMO TRABAJAR CON ESTE PROYECTO EN ANTIGRAVITY
+## REGLAS OPERATIVAS DEL AGENTE
 
-### Al inicio de cada sesión
-1. Leer ROADMAP.md — saber qué sprint/paso toca.
-2. Leer SESSION_RULES.md — reglas operativas.
-3. Leer DECISIONS.md — secciones relevantes al módulo en curso.
-4. Leer este archivo si hay duda sobre arquitectura o reglas.
-
-### Una sesión = un sprint o menos
-No mezclar trabajo de módulos distintos en la misma sesión.
-
-### Si algo no está en los documentos
-Preguntar antes de asumir. No inventar lógica de negocio.
-La lógica de negocio está en DECISIONS.md.
-
-### Lo que el agente puede decidir solo
-- Qué librería usar internamente dentro de un módulo.
-- Nombres de variables y funciones.
-- Estructura interna de clases y servicios.
-- Cómo hacer las consultas SQL.
-- Tests unitarios.
-
-### Lo que el agente nunca decide solo
-- Lógica de negocio no documentada.
-- Comunicación directa entre módulos (usar siempre eventos).
-- Modificar tablas del schema audit.
-- Cambiar las interfaces de plugins.
-- Añadir dependencias entre módulos que no estén en este documento.
-
-### Al cerrar cada sprint
-1. Commit con mensaje descriptivo.
-2. Actualizar ROADMAP.md (marcar pasos como ✅, añadir hash del commit).
-3. Escribir docs/features/[módulo]/admin.md.
-4. Verificar coherencia entre ROADMAP.md, ARCHITECTURE.md y DECISIONS.md.
+> Para todas las reglas operativas (workflow, sesiones, limitaciones, commits,
+> checklist de cierre de sprint), ver **SESSION_RULES.md**.
+>
+> Para el plan de ejecución y estado de cada sprint, ver **ROADMAP.md**.
 
 ---
 
-*Actualizar este documento ante cualquier cambio arquitectónico antes de continuar.*
 *La fuente de verdad de producto es DECISIONS.md.*
 *La fuente de verdad técnica es este archivo.*
+*La fuente de verdad operativa es SESSION_RULES.md.*
+*El plan de ejecución es ROADMAP.md.*

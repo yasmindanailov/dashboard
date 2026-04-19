@@ -1,8 +1,8 @@
 # DECISIONS.md — Aelium Dashboard
-> Documento de decisiones arquitectónicas y de producto.
-> Versión 1.0 | Abril 2026
-> Este documento es la fuente de verdad del proyecto.
-> Toda sesión con Antigravity comienza leyendo este archivo.
+> Documento de decisiones de producto y lógica de negocio.
+> Versión 1.1 | Abril 2026
+> Este documento es la fuente de verdad del **modelo de negocio**.
+> Para arquitectura técnica, ver ARCHITECTURE.md.
 
 ---
 
@@ -16,54 +16,42 @@ Operación en España. Un solo negocio. Un solo dashboard.
 
 **Documento de marca:** Aelium Brand Identity v1.6 (ver documento adjunto)
 **Eslogan:** "Tu socio digital, a tu lado."
-**Color principal:** #4b77bb · **Tipografía:** DM Sans 400/500
+**Color principal:** #3B82F6 · **Tipografía:** DM Sans 400/500/600
 
 ---
 
 ## 2. STACK TECNOLÓGICO
 
+> El stack completo con versiones exactas está en ARCHITECTURE.md.
+> Esta sección solo lista las decisiones de producto sobre tecnología.
+
 ```
-Frontend:    Next.js 14+ · Tailwind CSS · shadcn/ui
-Backend:     NestJS · TypeScript
+Frontend:    Next.js 16 (App Router) · Tailwind CSS 4 · shadcn/ui
+Backend:     NestJS 11 · TypeScript · Prisma 7
 Base datos:  PostgreSQL 16 (self-hosted en Docker)
 Cache:       Redis 7 (self-hosted en Docker)
 Colas:       BullMQ (sobre Redis)
 Pagos:       Stripe (plugin base)
-Email:       PHP mail base · SMTP configurable desde settings
+Email:       nodemailer (SMTP configurable · MailPit en dev)
 IA:          Claude API (plugin base · arquitectura swappable)
 Tiempo real: Socket.io (WebSockets)
-Deploy:      Docker Compose en servidor propio · Traefik (reverse proxy + SSL)
+Deploy:      Docker Compose en servidor propio · Traefik
 Storage:     MinIO (S3-compatible, self-hosted en Docker)
-Monitoring:  Grafana + Prometheus + Loki (self-hosted en Docker)
-Logging:     pino (JSON estructurado)
 ```
 
 ---
 
-## 3. REGLAS DE ARQUITECTURA — NUNCA SE ROMPEN
+## 3. REGLAS DE ARQUITECTURA
 
-1. **Los módulos no se llaman directamente entre sí.**
-   Toda comunicación entre módulos es via eventos (bus de eventos interno).
-   Si el módulo de notificaciones falla, billing y provisioning siguen funcionando.
+> Las 13 reglas técnicas detalladas con ejemplos de código están en ARCHITECTURE.md.
+> Esta sección resume los principios de negocio que las originan.
 
-2. **Todo proceso de más de 200ms va a la cola de BullMQ.**
-   Nunca en el hilo principal. El dashboard responde siempre en menos de 200ms.
-   Va a la cola: provisioning · emails · PDFs · llamadas a APIs externas · mantenimientos.
-
-3. **El audit log es inmutable.**
-   Solo INSERT. Nunca UPDATE ni DELETE. Ni el superadmin puede borrar registros.
-   Los registros se conservan durante 2 años. Borrado automático al cumplirse.
-
-4. **Cada plugin implementa su interfaz definida.**
-   El core no sabe qué plugin está activo. Solo llama a la interfaz.
-   Cambiar de Stripe a Redsys = activar un plugin distinto. Sin tocar el core.
-
-5. **Ninguna lógica de negocio en el frontend.**
-   El frontend solo muestra datos y llama a la API. Nunca procesa.
-
-6. **El schema soporta el futuro desde el día uno.**
-   Multi-moneda · multi-servidor · multi-país.
-   Aunque ahora solo usemos EUR y España.
+1. **Los módulos son independientes.** Si uno falla, los demás siguen.
+2. **Nada lento en el hilo principal.** El dashboard responde siempre en <200ms.
+3. **El audit log es inmutable.** Solo INSERT. Retención 2 años.
+4. **Los plugins son intercambiables.** Cambiar Stripe por Redsys = activar otro plugin.
+5. **Ninguna lógica de negocio en el frontend.** Solo muestra datos y llama a la API.
+6. **El schema soporta el futuro.** Multi-moneda · multi-servidor · multi-país.
 
 ---
 
@@ -110,7 +98,7 @@ Escalable horizontalmente cuando se necesite — no antes.
     /docker-engine  ← contenedores (Nextcloud, OpenClaw, etc.)
     /manual         ← productos sin provisioning automático
   /notification-channels
-    /email          ← activo (PHP mail + SMTP configurable)
+    /email          ← activo (nodemailer + SMTP configurable)
     /whatsapp       ← futuro (proveedor por definir)
     /sms            ← futuro
   /ai-providers
