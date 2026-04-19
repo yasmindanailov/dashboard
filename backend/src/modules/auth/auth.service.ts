@@ -526,7 +526,15 @@ export class AuthService {
      PRIVATE HELPERS
      ═══════════════════════════════════════ */
   private async issueTokens(
-    user: { id: string; email: string; role: { slug: RoleSlug } },
+    user: {
+      id: string;
+      email: string;
+      first_name: string;
+      last_name: string;
+      status: string;
+      last_login_at: Date | null;
+      role: { slug: RoleSlug; name: string };
+    },
     ip: string,
     userAgent?: string,
   ) {
