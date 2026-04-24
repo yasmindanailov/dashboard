@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BillingService } from './billing.service';
+import { BillingCalculatorService } from './billing-calculator.service';
 
 /**
  * BillingLifecycleWorker — Scheduled jobs for the billing engine.
@@ -25,6 +26,7 @@ export class BillingLifecycleWorker {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly billingService: BillingService,
+    private readonly calculator: BillingCalculatorService,
   ) {}
 
   /* ═══════════════════════════════════════
@@ -35,7 +37,7 @@ export class BillingLifecycleWorker {
 
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async generatePendingInvoices(): Promise<void> {
-    const generationDays = await this.billingService.getSettingValue<number>(
+    const generationDays = await this.calculator.getSettingValue<number>(
       'billing', 'invoice_generation_days', 7,
     );
 
@@ -138,7 +140,7 @@ export class BillingLifecycleWorker {
 
     this.logger.log(`Retrying payment for ${toRetry.length} overdue invoices`);
 
-    const retryIntervalDays = await this.billingService.getSettingValue<number>(
+    const retryIntervalDays = await this.calculator.getSettingValue<number>(
       'billing', 'retry_interval_days', 3,
     );
 
@@ -202,7 +204,7 @@ export class BillingLifecycleWorker {
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async autoSuspendServices(): Promise<void> {
-    const suspensionDays = await this.billingService.getSettingValue<number>(
+    const suspensionDays = await this.calculator.getSettingValue<number>(
       'billing', 'suspension_days', 7,
     );
 
@@ -259,7 +261,7 @@ export class BillingLifecycleWorker {
 
   @Cron(CronExpression.EVERY_DAY_AT_4AM)
   async autoCancelServices(): Promise<void> {
-    const cancellationDays = await this.billingService.getSettingValue<number>(
+    const cancellationDays = await this.calculator.getSettingValue<number>(
       'billing', 'cancellation_days', 30,
     );
 

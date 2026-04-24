@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BillingService } from './billing.service';
+import { BillingCalculatorService } from './billing-calculator.service';
 import { BillingController } from './billing.controller';
 import { BillingLifecycleWorker } from './billing-lifecycle.worker';
 import { SubscriptionService } from './subscription.service';
@@ -10,12 +11,13 @@ import { BillingEmailListener } from './billing-email.listener';
 @Module({
   controllers: [BillingController, SubscriptionController],
   providers: [
+    BillingCalculatorService,
     BillingService,
     SubscriptionService,
     BillingLifecycleWorker,
     InvoicePdfService,
     BillingEmailListener,
   ],
-  exports: [BillingService, SubscriptionService, InvoicePdfService],
+  exports: [BillingService, BillingCalculatorService, SubscriptionService, InvoicePdfService],
 })
 export class BillingModule {}
