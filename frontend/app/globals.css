@@ -25,8 +25,12 @@
   --success-light:   rgba(16, 185, 129, 0.08);
   --success-border:  rgba(16, 185, 129, 0.15);
   --warning:         #F59E0B;
+  --warning-hover:   #D97706;
+  --warning-dark:    #92400E;
+  --warning-darker:  #78350F;
   --warning-light:   rgba(245, 158, 11, 0.08);
   --warning-border:  rgba(245, 158, 11, 0.15);
+  --warning-subtle:  #FDE68A;
   --danger:          #EF4444;
   --danger-light:    rgba(239, 68, 68, 0.08);
   --danger-border:   rgba(239, 68, 68, 0.15);

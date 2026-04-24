@@ -119,6 +119,19 @@
 .confirmTotalLabel { font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); color: var(--text-primary); }
 .confirmTotalValue { font-size: 22px; font-weight: var(--font-weight-bold); color: var(--text-primary); }
 
+/* ── Utility / layout classes ── */
+.cardPadding { padding: var(--space-6); }
+.cardPaddingSkeleton { padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); }
+.searchingText { font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: var(--space-2); }
+
+.navEnd { margin-top: var(--space-4); display: flex; justify-content: flex-end; }
+.navStart { margin-top: var(--space-4); }
+.navBetween { margin-top: var(--space-4); display: flex; justify-content: space-between; }
+
+.profileHeaderRow { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-1); }
+.confirmPriceBlock { text-align: right; }
+.confirmActions { margin-top: var(--space-6); display: flex; justify-content: space-between; }
+
 @media (max-width: 639px) {
   .serviceFieldsGrid { grid-template-columns: 1fr; }
   .profileGrid { grid-template-columns: 1fr; }

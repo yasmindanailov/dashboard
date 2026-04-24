@@ -1,0 +1,233 @@
+/* ═══════════════════════════════════════
+   Client Detail — Sub-component styles
+   Covers: NotesTab, SupportTab, BillingTab
+
+   Tokens only — zero hardcoded values.
+   Ref: UI_SPEC.md §2.5, DESIGN_SYSTEM.md
+   ═══════════════════════════════════════ */
+
+/* ── Shared layout ── */
+.stack { display: flex; flex-direction: column; gap: var(--space-6); }
+.stackSm { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.section {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+}
+.sectionSm {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4);
+}
+.sectionTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-4);
+}
+
+/* ── Notes: Add note form ── */
+.noteTextarea {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  outline: none;
+  resize: none;
+  font-family: var(--font-family);
+  transition: border-color var(--transition-normal);
+}
+.noteTextarea:focus {
+  border-color: var(--brand);
+}
+
+.noteFormRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.noteCategorySelect {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+}
+
+.noteSubmitBtn {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-on-brand);
+  background: var(--brand);
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.noteSubmitBtn:hover { background: var(--brand-hover); }
+.noteSubmitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.noteSuccessMsg {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--success);
+}
+.noteErrorMsg {
+  font-size: var(--font-size-sm);
+  color: var(--danger);
+}
+
+/* ── Notes: Filter bar ── */
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.filterLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
+}
+.filterBtn {
+  padding: var(--space-1_5) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+}
+.filterBtnActive {
+  background: var(--brand-light);
+  color: var(--brand);
+  border-color: var(--brand);
+}
+
+/* ── Notes: Note item ── */
+.noteItem {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface-secondary);
+}
+.noteItemPinned {
+  border-left: 3px solid var(--brand);
+}
+.noteItemDefault {
+  border-left: 3px solid transparent;
+}
+.noteBody {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.noteConvLink {
+  font-size: var(--font-size-xs);
+  color: var(--brand);
+  text-decoration: none;
+  margin-top: var(--space-1);
+  display: inline-block;
+}
+.noteConvLink:hover { text-decoration: underline; }
+
+.noteMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-2);
+}
+.noteMetaLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.noteAuthor {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.noteDot {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+.noteCatBadge {
+  font-size: var(--font-size-xs);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--brand-light);
+  color: var(--brand);
+}
+.noteDate {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.notePinBtn {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.notePinBtnActive { color: var(--brand); }
+.notePinBtnInactive { color: var(--text-tertiary); }
+
+/* ── Empty / loading states ── */
+.emptyText {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: var(--space-8) 0;
+}
+
+/* ── Support Tab ── */
+.convItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  transition: background var(--transition-fast);
+  border: 1px solid var(--border);
+}
+.convItem:hover {
+  background: var(--surface-tertiary);
+}
+.convItemContent { min-width: 0; flex: 1; }
+.convItemSubject {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.convItemMeta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--space-0_5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (max-width: 768px) {
+  .noteFormRow { flex-wrap: wrap; }
+  .filterRow { gap: var(--space-1_5); }
+}

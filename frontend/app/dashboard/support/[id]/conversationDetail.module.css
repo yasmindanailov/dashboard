@@ -109,7 +109,7 @@
 }
 .bubbleInternal {
   background: var(--warning-light);
-  color: var(--warning-dark, #92400E);
+  color: var(--warning-dark);
   border: 1px dashed var(--warning);
   border-bottom-right-radius: var(--radius-xs);
 }
@@ -126,7 +126,7 @@
   color: var(--text-tertiary);
 }
 .bubbleSenderInternal {
-  color: var(--warning-dark, #B45309);
+  color: var(--warning-hover);
 }
 
 .bubbleTime {
@@ -169,7 +169,7 @@
   margin-bottom: var(--space-2);
 }
 .internalToggleActive {
-  color: var(--warning-dark, #B45309);
+  color: var(--warning-hover);
 }
 .internalToggleInactive {
   color: var(--text-tertiary);
@@ -271,17 +271,17 @@
   background: var(--warning-light);
   border-radius: var(--radius-xl);
   padding: var(--space-4);
-  border: 1px solid var(--warning-subtle, #FDE68A);
+  border: 1px solid var(--warning-subtle);
 }
 .noteTitleYellow {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
-  color: var(--warning-dark, #92400E);
+  color: var(--warning-dark);
   margin: 0 0 var(--space-2_5);
 }
 .noteItem {
   font-size: var(--font-size-xs);
-  color: var(--warning-dark, #78350F);
+  color: var(--warning-darker);
   line-height: 1.5;
   padding: var(--space-2) var(--space-2_5);
   background: rgba(255, 255, 255, 0.6);
@@ -300,14 +300,14 @@
 }
 .noteCategory {
   font-size: 10px;
-  color: var(--warning-dark, #B45309);
+  color: var(--warning-hover);
 }
 .noteViewAll {
   display: block;
   text-align: center;
   font-size: 11px;
   font-weight: var(--font-weight-semibold);
-  color: var(--warning-dark, #92400E);
+  color: var(--warning-dark);
   margin-top: var(--space-2);
   text-decoration: none;
 }

@@ -233,7 +233,7 @@
 
 .bubbleInternal {
   background: var(--warning-light);
-  color: #92400E;
+  color: var(--warning-dark);
   border: 1px dashed var(--warning);
 }
 
@@ -263,7 +263,7 @@
 }
 
 .bubbleMetaInternal {
-  color: #D97706;
+  color: var(--warning-hover);
 }
 
 .systemMessage {
@@ -371,7 +371,7 @@
 }
 
 .sendButtonInternal:hover:not(:disabled) {
-  background: #D97706;
+  background: var(--warning-hover);
 }
 
 .sendButton:disabled {
@@ -473,14 +473,14 @@
   background: var(--warning-light);
   border-radius: var(--radius-md);
   padding: var(--space-4);
-  border: 1px solid #FDE68A;
+  border: 1px solid var(--warning-subtle);
   margin-bottom: var(--space-4);
 }
 
 .notesPanelTitle {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: #92400E;
+  color: var(--warning-dark);
   margin: 0 0 var(--space-2_5);
 }
 
@@ -491,7 +491,7 @@
 
 .noteItem {
   font-size: var(--font-size-sm);
-  color: #78350F;
+  color: var(--warning-darker);
   line-height: var(--line-height-normal);
   padding: var(--space-2) var(--space-2_5);
   background: rgba(255, 255, 255, 0.6);
@@ -513,7 +513,7 @@
 
 .noteCategory {
   font-size: var(--font-size-xs);
-  color: #B45309;
+  color: var(--warning-hover);
 }
 
 .notesLink {
@@ -521,7 +521,7 @@
   text-align: center;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  color: #92400E;
+  color: var(--warning-dark);
   margin-top: var(--space-2);
   text-decoration: none;
   transition: opacity var(--transition-fast);

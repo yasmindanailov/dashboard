@@ -44,7 +44,7 @@ export default function StepConfirm({
               {CYCLE_LABELS[selectedPricing.billing_cycle]} · {selectedPricing.currency}
             </span>
           </div>
-          <div style={{ textAlign: 'right' }}>
+          <div className={styles.confirmPriceBlock}>
             <div className={styles.confirmPrice}>{fmt(selectedPricing.price, selectedPricing.currency)}</div>
             {Number(selectedPricing.setup_fee) > 0 && (
               <div className={styles.confirmSetup}>+ {fmt(selectedPricing.setup_fee, selectedPricing.currency)} setup</div>
@@ -85,7 +85,7 @@ export default function StepConfirm({
       </Card>
 
       {/* Info callout */}
-      <div className="mt-4">
+      <div className={styles.navStart}>
         <AlertBanner variant="info">
           Al confirmar se creará un servicio en estado <strong>pendiente</strong> y una factura en <strong>borrador</strong>.
           El servicio se activará cuando la factura esté pagada.
@@ -94,13 +94,13 @@ export default function StepConfirm({
 
       {/* Error */}
       {error && (
-        <div className="mt-4">
+        <div className={styles.navStart}>
           <AlertBanner variant="danger">{error}</AlertBanner>
         </div>
       )}
 
       {/* Actions */}
-      <div className="mt-6 flex justify-between">
+      <div className={styles.confirmActions}>
         <Button variant="ghost" onClick={onBack}>← Atrás</Button>
         <Button onClick={onCheckout} loading={submitting}>
           {submitting ? 'Procesando...' : 'Confirmar pedido'}

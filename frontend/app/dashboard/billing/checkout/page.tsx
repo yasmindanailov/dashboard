@@ -54,7 +54,7 @@ export default function CheckoutPage() {
       {/* STEP: Client (admin only) */}
       {c.step === 'client' && c.isAdmin && (
         <Card>
-          <div className="p-6">
+          <div className={styles.cardPadding}>
             <h2 className={styles.stepTitle}>Selecciona un cliente</h2>
             <p className={styles.stepDescription}>Busca al cliente para el que quieres contratar el servicio</p>
 
@@ -64,7 +64,7 @@ export default function CheckoutPage() {
               placeholder="Buscar por nombre o email..."
             />
 
-            {c.searchingClients && <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>Buscando...</p>}
+            {c.searchingClients && <p className={styles.searchingText}>Buscando...</p>}
 
             {c.selectedClient && (
               <div className={styles.selectedCard}>
@@ -93,7 +93,7 @@ export default function CheckoutPage() {
             )}
 
             {c.selectedClient && (
-              <div className="mt-4 flex justify-end">
+              <div className={styles.navEnd}>
                 <Button onClick={() => c.setStep('product')}>Continuar →</Button>
               </div>
             )}
@@ -106,9 +106,9 @@ export default function CheckoutPage() {
         <div>
           <h2 className={styles.stepTitle}>Selecciona un producto</h2>
           {c.loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className={styles.productGrid}>
               {[1, 2, 3, 4].map(i => (
-                <Card key={i}><div className="p-6 space-y-3"><Skeleton width="60%" height={20} /><Skeleton width="100%" height={14} /><Skeleton width="40%" height={24} /></div></Card>
+                <Card key={i}><div className={styles.cardPaddingSkeleton}><Skeleton width="60%" height={20} /><Skeleton width="100%" height={14} /><Skeleton width="40%" height={24} /></div></Card>
               ))}
             </div>
           ) : (
@@ -155,7 +155,7 @@ export default function CheckoutPage() {
               </button>
             ))}
           </div>
-          <div className="mt-4">
+          <div className={styles.navStart}>
             <Button variant="ghost" onClick={() => c.setStep('product')}>← Cambiar producto</Button>
           </div>
         </div>
@@ -176,7 +176,7 @@ export default function CheckoutPage() {
             {c.profiles.map((profile) => (
               <button key={profile.id} onClick={() => c.setSelectedProfile(profile)}
                 className={`${styles.profileCard} ${c.selectedProfile?.id === profile.id ? styles.profileCardSelected : styles.profileCardDefault}`}>
-                <div className="flex justify-between items-center mb-1">
+                <div className={styles.profileHeaderRow}>
                   <span className={styles.profileLabel}>{profile.label}</span>
                   {profile.is_default && <Badge variant="neutral">Default</Badge>}
                 </div>
@@ -189,7 +189,7 @@ export default function CheckoutPage() {
 
           {/* Optional service fields */}
           <Card>
-            <div className="p-6">
+            <div className={styles.cardPadding}>
               <h3 className={styles.serviceFieldsTitle}>Datos del servicio (opcional)</h3>
               <div className={styles.serviceFieldsGrid}>
                 <Input label="Etiqueta" value={c.label} onChange={e => c.setLabel(e.target.value)} placeholder="Mi web principal" />
@@ -198,7 +198,7 @@ export default function CheckoutPage() {
             </div>
           </Card>
 
-          <div className="mt-4 flex justify-between">
+          <div className={styles.navBetween}>
             <Button variant="ghost" onClick={() => c.setStep('pricing')}>← Atrás</Button>
             <Button onClick={() => c.setStep('confirm')}>Continuar →</Button>
           </div>

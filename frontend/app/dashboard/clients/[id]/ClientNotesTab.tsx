@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { clientsApi } from '../../../lib/api';
+import styles from './clientDetail.module.css';
 
 /* ═══════════════════════════════════════
    ClientNotesTab — Structured notes
@@ -48,22 +49,20 @@ export default function ClientNotesTab({
   onNoteTextChange, onNoteCategoryChange, onAddNote, onRefresh,
 }: ClientNotesTabProps) {
   return (
-    <div className="space-y-6">
+    <div className={styles.stack}>
       {/* Add note */}
-      <div className="rounded-xl p-6" style={{ background: 'var(--surface-primary)', border: '1px solid var(--border)' }}>
-        <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Añadir nota</h2>
+      <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>Añadir nota</h2>
         <textarea
           value={noteText}
           onChange={(e) => onNoteTextChange(e.target.value)}
           placeholder="Escribe una nota interna..."
           rows={3}
-          className="w-full px-4 py-3 text-sm rounded-lg outline-none transition-all duration-200 resize-none"
-          style={{ border: '1px solid var(--border)', background: 'var(--surface-secondary)', color: 'var(--text-primary)' }}
+          className={styles.noteTextarea}
         />
-        <div className="flex items-center gap-3 mt-3">
+        <div className={styles.noteFormRow}>
           <select value={noteCategory} onChange={(e) => onNoteCategoryChange(e.target.value)}
-            className="px-3 py-2 text-xs rounded-lg"
-            style={{ border: '1px solid var(--border)', background: 'var(--surface-secondary)', color: 'var(--text-primary)' }}>
+            className={styles.noteCategorySelect}>
             <option value="general">General</option>
             <option value="conversation">Conversación</option>
             <option value="solution">Solución</option>
@@ -71,28 +70,21 @@ export default function ClientNotesTab({
             <option value="technical">Técnico</option>
           </select>
           <button onClick={onAddNote} disabled={!noteText.trim() || savingNote}
-            className="px-4 py-2 text-sm font-medium text-white rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: 'var(--brand)' }}>
+            className={styles.noteSubmitBtn}>
             {savingNote ? 'Guardando...' : 'Añadir nota'}
           </button>
-          {noteSuccess && <span className="text-sm font-medium" style={{ color: 'var(--success)' }}>Nota guardada</span>}
-          {error && <span className="text-sm" style={{ color: 'var(--danger)' }}>{error}</span>}
+          {noteSuccess && <span className={styles.noteSuccessMsg}>Nota guardada</span>}
+          {error && <span className={styles.noteErrorMsg}>{error}</span>}
         </div>
       </div>
 
       {/* Filter */}
-      <div className="rounded-xl p-4" style={{ background: 'var(--surface-primary)', border: '1px solid var(--border)' }}>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>Filtrar:</span>
+      <div className={styles.sectionSm}>
+        <div className={styles.filterRow}>
+          <span className={styles.filterLabel}>Filtrar:</span>
           {NOTE_CATEGORIES.map((f) => (
             <button key={f.value} onClick={() => onFilterChange(f.value)}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150"
-              style={{
-                background: noteFilter === f.value ? 'var(--brand-light)' : 'var(--surface-secondary)',
-                color: noteFilter === f.value ? 'var(--brand)' : 'var(--text-secondary)',
-                border: noteFilter === f.value ? '1px solid var(--brand)' : '1px solid transparent',
-                cursor: 'pointer',
-              }}>
+              className={`${styles.filterBtn} ${noteFilter === f.value ? styles.filterBtnActive : ''}`}>
               {f.label}
             </button>
           ))}
@@ -100,49 +92,44 @@ export default function ClientNotesTab({
       </div>
 
       {/* Notes list */}
-      <div className="rounded-xl p-6" style={{ background: 'var(--surface-primary)', border: '1px solid var(--border)' }}>
-        <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+      <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>
           Notas ({notes.length})
         </h2>
         {loading ? (
-          <div className="text-center py-8 text-sm" style={{ color: 'var(--text-tertiary)' }}>Cargando notas...</div>
+          <div className={styles.emptyText}>Cargando notas...</div>
         ) : notes.length === 0 ? (
-          <p className="text-sm text-center py-8" style={{ color: 'var(--text-tertiary)' }}>
+          <p className={styles.emptyText}>
             No hay notas{noteFilter ? ` de tipo "${noteFilter}"` : ''}
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className={styles.stackSm}>
             {notes.map((note: any) => {
               const date = new Date(note.created_at);
               const dateStr = date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
               const timeStr = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
               return (
-                <div key={note.id} className="p-4 rounded-lg"
-                  style={{
-                    background: 'var(--surface-secondary)',
-                    borderLeft: note.is_pinned ? '3px solid var(--brand)' : '3px solid transparent',
-                  }}>
+                <div key={note.id} className={`${styles.noteItem} ${note.is_pinned ? styles.noteItemPinned : styles.noteItemDefault}`}>
                   {/* Note body — primary content */}
-                  <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-primary)', lineHeight: 1.6 }}>
+                  <p className={styles.noteBody}>
                     {note.body}
                   </p>
                   {note.conversation_id && (
                     <Link href={`/dashboard/support/${note.conversation_id}`}
-                      className="text-xs mt-1 inline-block"
-                      style={{ color: 'var(--brand)', textDecoration: 'none' }}>
+                      className={styles.noteConvLink}>
                       Ver conversación origen
                     </Link>
                   )}
                   {/* Metadata row — author · category · date · action */}
-                  <div className="flex items-center justify-between mt-3" style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{note.author_name}</span>
-                      <span style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>·</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--brand-light)', color: 'var(--brand)' }}>
+                  <div className={styles.noteMetaRow}>
+                    <div className={styles.noteMetaLeft}>
+                      <span className={styles.noteAuthor}>{note.author_name}</span>
+                      <span className={styles.noteDot}>·</span>
+                      <span className={styles.noteCatBadge}>
                         {CAT_LABELS[note.category] || note.category}
                       </span>
-                      <span style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>·</span>
-                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{dateStr} · {timeStr}</span>
+                      <span className={styles.noteDot}>·</span>
+                      <span className={styles.noteDate}>{dateStr} · {timeStr}</span>
                     </div>
                     <button
                       onClick={async () => {
@@ -151,8 +138,7 @@ export default function ClientNotesTab({
                         await clientsApi.toggleNotePin(token, note.id);
                         onRefresh();
                       }}
-                      className="text-xs font-medium"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: note.is_pinned ? 'var(--brand)' : 'var(--text-tertiary)' }}>
+                      className={`${styles.notePinBtn} ${note.is_pinned ? styles.notePinBtnActive : styles.notePinBtnInactive}`}>
                       {note.is_pinned ? 'Desfijar' : 'Fijar'}
                     </button>
                   </div>
