@@ -1,0 +1,32 @@
+.nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  font-size: var(--font-size-sm);
+}
+
+.link {
+  color: var(--text-tertiary);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+  transition: color var(--transition-fast);
+  white-space: nowrap;
+}
+.link:hover { color: var(--brand); }
+
+.separator {
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  opacity: 0.5;
+  user-select: none;
+}
+
+.current {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}

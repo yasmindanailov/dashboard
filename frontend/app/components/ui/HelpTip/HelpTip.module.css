@@ -1,0 +1,14 @@
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  cursor: help;
+  vertical-align: middle;
+  margin-left: var(--space-1);
+  transition: color var(--transition-fast);
+}
+
+.icon:hover {
+  color: var(--brand);
+}

@@ -208,7 +208,8 @@ export class BillingController {
   }
 
   /* ═══════════════════════════════════════
-     CHECKOUT — userId from JWT, admin can target another user
+     CHECKOUT — userId from JWT, admin MUST target a client
+     Ref: DECISIONS.md §32 — Proceso 2 (compra desde dashboard)
      ═══════════════════════════════════════ */
 
   @Post('checkout')
@@ -222,15 +223,17 @@ export class BillingController {
     const user = req.user as any;
     const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
 
-    // Admin can create checkout for another user
-    // Client always creates for themselves
-    let userId = user.id;
-    if (isAdmin && targetUserId) {
-      userId = targetUserId;
-    } else if (!isAdmin) {
-      userId = user.id; // force — ignore any query param
+    if (isAdmin) {
+      // 7.0.2: Admin MUST specify a target client — cannot self-checkout
+      if (!targetUserId) {
+        throw new BadRequestException(
+          'Como administrador, debes seleccionar un cliente destino (targetUserId).',
+        );
+      }
+      return this.billingService.checkout(targetUserId, dto);
     }
 
-    return this.billingService.checkout(userId, dto);
+    // Client: always self-scoped, ignore any query param
+    return this.billingService.checkout(user.id, dto);
   }
 }

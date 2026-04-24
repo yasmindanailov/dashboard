@@ -1,0 +1,19 @@
+/* ═══════════════════════════════════════
+   ListPage — Aelium Design System
+   Layout wrapper for list pages.
+   Ref: UI_SPEC.md §2.4
+   ═══════════════════════════════════════ */
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.wide {
+  max-width: 1400px;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+}

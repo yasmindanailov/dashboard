@@ -2,7 +2,8 @@
 > Documento técnico de arquitectura.
 > Lo lee el agente IA al inicio de cada sesión de desarrollo.
 > Para el contexto completo de producto, ver DECISIONS.md.
-> Versión 1.1 | Abril 2026
+> Para las normas de diseño e interfaz, ver DESIGN_SYSTEM.md.
+> Versión 1.2 | Abril 2026
 
 ---
 
@@ -17,7 +18,8 @@ Reemplaza WHMCS. No es un SaaS.
 ## STACK TECNOLÓGICO
 
 ```
-Frontend:    Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · shadcn/ui
+Frontend:    Next.js 16 (App Router) · TypeScript · Tailwind CSS 4
+             Aelium Design System (componentes propios en components/ui/)
 Backend:     NestJS 11 · TypeScript · Prisma 7 (driver adapter PrismaPg)
 Auth:        CASL (@casl/ability + @casl/prisma) · PBAC isomórfico
 Base datos:  PostgreSQL 16 (self-hosted en Docker)
@@ -171,6 +173,63 @@ catch (err) {
 }
 ```
 
+### Regla 15 — Límites de tamaño y responsabilidad única por archivo
+Ningún archivo debe crecer sin control. Los límites son estrictos:
+
+**Backend (NestJS):**
+- **Service**: máximo **300 líneas**. Si supera este límite, dividir en sub-servicios por dominio (`ChatService`, `TicketService`, `QueryService`). El módulo principal re-exporta la API pública.
+- **Controller**: máximo **200 líneas**. Un controller solo rutea y valida — la lógica vive en el service.
+- **Gateway (WebSocket)**: máximo **250 líneas**. Handlers delegados a servicios.
+- **Listener/Worker**: máximo **150 líneas**. Un listener = un evento o grupo cohesivo de eventos.
+
+**Frontend (Next.js/React):**
+- **Componente de UI**: máximo **200 líneas**. Si supera, extraer sub-componentes.
+- **Página**: máximo **300 líneas**. Si supera, extraer secciones a componentes dedicados.
+- **Custom hook**: máximo **150 líneas**. Un hook = una responsabilidad (ej: `useChatSocket`, `useConversations`).
+- **Archivo de API**: máximo **400 líneas**. Si supera, dividir por dominio (`support-api.ts`, `billing-api.ts`).
+
+**Regla de oro:** si necesitas scroll para entender qué hace un archivo, es demasiado grande.
+
+```
+Ejemplo de refactorización:
+
+❌ INCORRECTO — support.service.ts (900+ líneas con todo)
+  createChat(), createGuestChat(), createTicket(), escalate(),
+  findAll(), findOne(), addMessage(), markAsRead(), getStats()
+
+✅ CORRECTO — dividido por dominio
+  support-chat.service.ts    → createChat(), createGuestChat(), linkGuest()
+  support-ticket.service.ts  → createTicket(), escalate()
+  support-query.service.ts   → findAll(), findOne(), getStats()
+  support-message.service.ts → addMessage(), markAsRead()
+```
+
+### Regla 16 — Toda interfaz usa el Design System
+Todo componente visual del frontend se construye exclusivamente con los componentes
+de `frontend/app/components/ui/`. Nunca se crean botones, badges, cards, tablas,
+modales o inputs ad-hoc en las páginas.
+
+Las normas de diseño están en `DESIGN_SYSTEM.md`. La organización de las páginas
+(anatomía, reglas de contenido, patrones de interacción) está en `UI_SPEC.md`.
+Ambos documentos son de lectura obligatoria antes de crear cualquier interfaz nueva.
+
+```
+❌ INCORRECTO — botón ad-hoc en una página
+<button
+  className="bg-blue-500 text-white px-4 py-2 rounded"
+  onClick={handleSave}
+>
+  Guardar
+</button>
+
+✅ CORRECTO — componente del Design System
+import { Button } from '@/components/ui';
+<Button variant="primary" onClick={handleSave}>Guardar</Button>
+```
+
+**Regla de oro:** si una página necesita un componente visual que no existe en `components/ui/`,
+el componente se crea primero en la librería, se documenta en DESIGN_SYSTEM.md, y luego se usa.
+
 ---
 
 ## ESTRUCTURA DE CARPETAS
@@ -190,6 +249,7 @@ catch (err) {
 │   │   │   ├── /notifications
 │   │   │   ├── /audit
 │   │   │   ├── /infrastructure
+│   │   │   ├── /projects             ← proyectos y presupuestos (Sprint 22)
 │   │   │   └── /partner              ← módulo partner (Fase 2)
 │   │   │
 │   │   ├── /plugins                  ← integraciones intercambiables
@@ -205,8 +265,10 @@ catch (err) {
 │   │   │   ├── /notification-channels
 │   │   │   │   ├── /email
 │   │   │   │   └── /whatsapp         ← futuro
-│   │   │   └── /ai-providers
+│   │   │   ├── /ai-providers
 │   │   │       └── /claude
+│   │   │   └── /ai-workers              ← agentes IA para tareas (Sprint 25, ver AI_WORKERS.md)
+│   │   │       └── /openclaw
 │   │   │
 │   │   └── /core                     ← servicios compartidos del backend
 │   │       ├── /database              ← PrismaService (PrismaPg driver adapter)
@@ -226,14 +288,41 @@ catch (err) {
 ├── /frontend                         ← Next.js
 │   ├── /app
 │   │   ├── /(auth)                   ← login, registro, verificación
-│   │   ├── /(client)                 ← área del cliente
-│   │   ├── /(agent)                  ← área de agentes
-│   │   └── /(admin)                  ← área del superadmin
-│   ├── /components
+│   │   ├── /dashboard                ← área autenticada (layout con sidebar + topbar)
+│   │   │   ├── /billing
+│   │   │   ├── /clients
+│   │   │   ├── /products
+│   │   │   ├── /support
+│   │   │   ├── /support/chats
+│   │   │   └── /ds-preview           ← preview temporal del Design System
+│   │   ├── /components
+│   │   │   ├── /ui                   ← Aelium Design System (ver DESIGN_SYSTEM.md)
+│   │   │   │   ├── /Button           ← .tsx + .module.css + index.ts
+│   │   │   │   ├── /Badge
+│   │   │   │   ├── /Card
+│   │   │   │   ├── /Table
+│   │   │   │   ├── /Modal
+│   │   │   │   ├── /Toast
+│   │   │   │   ├── /Input
+│   │   │   │   ├── /Tabs
+│   │   │   │   ├── /EmptyState
+│   │   │   │   ├── /Skeleton
+│   │   │   │   ├── /Avatar
+│   │   │   │   ├── /StatusDot
+│   │   │   │   ├── /Tooltip
+│   │   │   │   ├── /Dropdown
+│   │   │   │   └── index.ts          ← barrel export
+│   │   │   └── /ChatWidget           ← widget flotante de chat para clientes
+│   │   └── /globals.css              ← tokens de diseño (fuente única de verdad)
 │   └── /lib                          ← llamadas a la API únicamente
 │
-└── ARCHITECTURE.md                   ← este archivo
-    DECISIONS.md                      ← contexto completo de producto
+├── /docs
+│   ├── ARCHITECTURE.md               ← este archivo
+│   ├── DECISIONS.md                  ← contexto completo de producto
+│   ├── DESIGN_SYSTEM.md              ← normas de diseño y componentes UI
+│   └── ROADMAP.md                    ← plan de ejecución
+│
+└── docker-compose.yml
 ```
 
 ---
@@ -277,9 +366,14 @@ No sabe nada de facturación. Solo escucha eventos y ejecuta acciones.
 **Escucha:** nada
 
 ### tasks
-**Responsabilidad:** generación y gestión de tareas del equipo. Mantenimientos, WOW calls, We Do It For You.
+**Responsabilidad:** generación y gestión de tareas del equipo. Mantenimientos, WOW calls, tareas de proyecto.
 **Emite:** `task.created` · `task.completed` · `task.overdue` · `maintenance.completed`
-**Escucha:** `service.provisioned` (genera tarea WOW) · `invoice.paid` (si activa slot de mantenimiento)
+**Escucha:** `service.provisioned` (genera tarea WOW) · `invoice.paid` (si activa slot de mantenimiento) · `project.deposit_paid` (genera tareas del proyecto)
+
+### projects
+**Responsabilidad:** gestión del ciclo de vida de proyectos (propuestas y organizativos). Presupuestos, items, historial, depósitos.
+**Emite:** `project.created` · `project.proposal_sent` · `project.accepted` · `project.deposit_paid` · `project.completed` · `project.paid` · `project.cancelled`
+**Escucha:** `invoice.paid` (detecta pago de depósito o factura final)
 
 ### notifications
 **Responsabilidad:** escuchar eventos del sistema y despachar notificaciones por los canales activos.

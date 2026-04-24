@@ -1,0 +1,159 @@
+/* ═══════════════════════════════════════
+   Invoice Detail — CSS Module
+   Ref: UI_SPEC.md §2.5
+   ═══════════════════════════════════════ */
+
+/* ── Two-column grid ── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+/* ── Section title ── */
+.sectionTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--space-3);
+}
+
+/* ── Info row: label + value ── */
+.infoRow {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  line-height: 1.8;
+}
+
+.infoLabel {
+  color: var(--text-tertiary);
+}
+
+.infoBlock {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.infoBlockLabel {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* ── Items table ── */
+.itemsWrapper {
+  overflow: hidden;
+  margin-bottom: var(--space-6);
+}
+
+.itemsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.itemsTable thead tr {
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.itemsTable th {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+}
+
+.itemsTable td {
+  padding: var(--space-3_5) var(--space-4);
+  color: var(--text-secondary);
+}
+
+.itemsTable tbody tr {
+  border-bottom: 1px solid var(--border-light);
+}
+
+.itemDesc {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.itemPeriod {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.itemTotal {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+/* ── Totals footer ── */
+.totalsFooter {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--surface-secondary);
+}
+
+.totalsInner {
+  max-width: 300px;
+  margin-left: auto;
+}
+
+.totalsRow {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.totalsFinal {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-2_5) 0 0;
+  border-top: 2px solid var(--text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+/* ── Notes ── */
+.notes {
+  color: var(--text-primary);
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: var(--font-size-sm);
+}
+
+/* ── Actions bar ── */
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* ── Header metadata ── */
+.headerMeta {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+}
+
+.headerMetaPaid {
+  color: var(--success);
+  font-weight: var(--font-weight-medium);
+}
+
+@media (max-width: 639px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

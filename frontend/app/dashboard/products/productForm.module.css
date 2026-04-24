@@ -1,0 +1,232 @@
+/* ═══════════════════════════════════════
+   Product Form — CSS Module
+   Shared between new + edit product pages.
+   Ref: DESIGN_SYSTEM.md, UI_SPEC §5.3
+   ═══════════════════════════════════════ */
+
+/* ── Section layout ── */
+
+.formSection {
+  padding: var(--space-6);
+}
+.formSectionSpaced {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sectionTitle {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+.subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-2);
+}
+
+/* ── Grid layouts ── */
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+@media (min-width: 768px) {
+  .formGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.pricingGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+@media (min-width: 768px) {
+  .pricingGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ── Step 1: Type selection ── */
+
+.stepDesc {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-5);
+}
+
+.typeGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+@media (min-width: 640px) {
+  .typeGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (min-width: 1024px) {
+  .typeGrid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.typeCard {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  text-align: left;
+  font-family: inherit;
+}
+.typeCard:hover {
+  border-color: var(--brand);
+  background: var(--brand-subtle);
+  box-shadow: var(--shadow-sm);
+}
+
+.typeCardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.typeLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.addonBadge {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--brand);
+  background: var(--brand-subtle);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--brand);
+}
+
+.typeDesc {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+/* ── Pricing rows ── */
+
+.pricingRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.pricingItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-secondary);
+  border-radius: var(--radius-md);
+}
+.pricingItemName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+.pricingItemSetup {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-left: var(--space-2);
+}
+.pricingItemPrice {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.removeBtn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1);
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.removeBtn:hover {
+  color: var(--danger);
+  background: var(--surface-secondary);
+}
+.removeBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.addPricingBtn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--brand);
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition-fast);
+}
+.addPricingBtn:hover {
+  border-color: var(--brand);
+  background: var(--brand-subtle);
+}
+
+/* ── Checkbox / lifecycle ── */
+
+.pricingActions {
+  display: flex;
+  align-items: flex-end;
+}
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  padding-bottom: 10px;
+  color: var(--text-secondary);
+}
+.checkboxInput {
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+/* ── Spacing utilities ── */
+
+.mt4 { margin-top: var(--space-4); }
+.mt6 { margin-top: var(--space-6); }
+.mb4 { margin-bottom: var(--space-4); }
+.spaceY2 { display: flex; flex-direction: column; gap: var(--space-2); }
+.spaceY4 { display: flex; flex-direction: column; gap: var(--space-4); }

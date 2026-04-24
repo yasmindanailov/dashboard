@@ -1,5 +1,8 @@
 # Billing — Client Guide
 
+> Guía para el cliente final del módulo de facturación.
+> Última actualización: Sprint 7.5
+
 ## Tus facturas
 
 Desde tu panel de cliente puedes:
@@ -118,3 +121,12 @@ en formato PDF. La factura incluye:
 - Desglose de conceptos con período
 - Subtotal, IVA y Total
 - Estado del pago
+
+## Mejoras de experiencia (Sprint 7.5)
+
+- **Búsqueda instantánea** de facturas por número
+- **Tabs por estado** para filtrar rápidamente (Todas, Pendientes, Pagadas, Vencidas)
+- **Tooltips de ayuda** en columna “Vencimiento” y en el checkout (solo visibles para clientes)
+- **Indicador de pasos** visual en el checkout (Producto → Plan → Facturación → Confirmar)
+- **Skeleton loading** para carga fluida sin pantalla en blanco
+- **Mensajes de acción** claros tras cada operación (“Factura descargada”, etc.)

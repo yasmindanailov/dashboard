@@ -1,0 +1,343 @@
+/* ═══════════════════════════════════════
+   Conversation Detail — Page-specific styles
+   Used by: support/[id]/ components
+
+   ONLY styles specific to conversation detail that
+   are NOT covered by DS components (Card, Badge,
+   Button, Select, Modal, Skeleton, DetailPage).
+
+   Ref: UI_SPEC.md §2.5, ROADMAP.md D25
+   ═══════════════════════════════════════ */
+
+/* ── Page layout: 2-column (messages + sidebar) ── */
+.twoColumn {
+  display: flex;
+  gap: var(--space-6);
+}
+.mainCol {
+  flex: 1;
+  min-width: 0;
+}
+.sideCol {
+  width: 320px;
+  flex-shrink: 0;
+}
+
+/* ── Header: title row ── */
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+.headerTitle {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-2);
+}
+.headerMeta {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.headerMetaText {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.headerActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+.escalationLink {
+  font-size: var(--font-size-xs);
+  color: var(--warning);
+  text-decoration: none;
+  font-weight: var(--font-weight-semibold);
+}
+.escalationLink:hover {
+  text-decoration: underline;
+}
+
+/* ── Messages container ── */
+.messagesContainer {
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.messagesList {
+  max-height: 500px;
+  overflow-y: auto;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Message bubble ── */
+.bubbleWrap {
+  display: flex;
+}
+.bubbleWrapMine {
+  justify-content: flex-end;
+}
+.bubbleWrapTheirs {
+  justify-content: flex-start;
+}
+
+.bubble {
+  max-width: 70%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.bubbleMine {
+  background: var(--brand);
+  color: var(--text-on-brand);
+  border-bottom-right-radius: var(--radius-xs);
+}
+.bubbleTheirs {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  border-bottom-left-radius: var(--radius-xs);
+}
+.bubbleInternal {
+  background: var(--warning-light);
+  color: var(--warning-dark, #92400E);
+  border: 1px dashed var(--warning);
+  border-bottom-right-radius: var(--radius-xs);
+}
+
+.bubbleSender {
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-1);
+}
+.bubbleSenderMine {
+  color: rgba(255, 255, 255, 0.7);
+}
+.bubbleSenderTheirs {
+  color: var(--text-tertiary);
+}
+.bubbleSenderInternal {
+  color: var(--warning-dark, #B45309);
+}
+
+.bubbleTime {
+  font-size: 10px;
+  margin-top: var(--space-1_5);
+  text-align: right;
+}
+.bubbleTimeMine {
+  color: rgba(255, 255, 255, 0.5);
+}
+.bubbleTimeTheirs {
+  color: var(--text-tertiary);
+}
+
+/* ── System message ── */
+.systemMessage {
+  text-align: center;
+  padding: var(--space-1_5) var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* ── Message input area ── */
+.inputArea {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--surface-secondary);
+}
+.inputAreaInternal {
+  background: var(--warning-light);
+}
+
+.internalToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  margin-bottom: var(--space-2);
+}
+.internalToggleActive {
+  color: var(--warning-dark, #B45309);
+}
+.internalToggleInactive {
+  color: var(--text-tertiary);
+}
+
+.inputRow {
+  display: flex;
+  gap: var(--space-3);
+}
+.messageTextarea {
+  flex: 1;
+  padding: var(--space-2_5) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--surface-primary);
+  transition: border-color var(--transition-fast);
+}
+.messageTextarea:focus {
+  border-color: var(--brand);
+}
+.messageTextareaInternal {
+  border-color: var(--warning);
+}
+
+.closedNotice {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border);
+  text-align: center;
+  background: var(--surface-secondary);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+/* ── Sidebar sections ── */
+.sidebarStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.sidebarTitle {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-3);
+}
+
+.clientName {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+.clientEmail {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+.clientMeta {
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+.clientType {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: var(--space-2);
+}
+
+/* ── Service item ── */
+.serviceItem {
+  font-size: var(--font-size-xs);
+  padding: var(--space-1_5) var(--space-2);
+  background: var(--surface-secondary);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-1);
+  color: var(--text-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.serviceStatus {
+  font-size: 10px;
+}
+.serviceStatusActive {
+  color: var(--success);
+}
+.serviceStatusInactive {
+  color: var(--text-tertiary);
+}
+
+/* ── Notes section (sidebar) ── */
+.noteCard {
+  background: var(--warning-light);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4);
+  border: 1px solid var(--warning-subtle, #FDE68A);
+}
+.noteTitleYellow {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--warning-dark, #92400E);
+  margin: 0 0 var(--space-2_5);
+}
+.noteItem {
+  font-size: var(--font-size-xs);
+  color: var(--warning-dark, #78350F);
+  line-height: 1.5;
+  padding: var(--space-2) var(--space-2_5);
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-1_5);
+  white-space: pre-wrap;
+}
+.noteHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-1);
+}
+.noteAuthor {
+  font-weight: var(--font-weight-bold);
+  font-size: 11px;
+}
+.noteCategory {
+  font-size: 10px;
+  color: var(--warning-dark, #B45309);
+}
+.noteViewAll {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--warning-dark, #92400E);
+  margin-top: var(--space-2);
+  text-decoration: none;
+}
+.noteViewAll:hover {
+  text-decoration: underline;
+}
+
+/* ── Quick action links ── */
+.actionLink {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--brand-subtle);
+  color: var(--brand);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  margin-bottom: var(--space-1_5);
+  transition: background var(--transition-fast);
+}
+.actionLink:hover {
+  background: var(--brand-light);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .twoColumn {
+    flex-direction: column;
+  }
+  .sideCol {
+    width: 100%;
+  }
+}

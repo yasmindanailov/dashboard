@@ -1,0 +1,66 @@
+/* ═══════════════════════════════════════
+   BulkActionBar — Aelium Design System
+   Floating bar for bulk operations (§4.11)
+   ═══════════════════════════════════════ */
+
+.bar {
+  position: fixed;
+  bottom: var(--space-6);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-dropdown);
+
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+
+  animation: barIn 200ms ease;
+}
+
+.count {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--brand);
+  white-space: nowrap;
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.clearBtn {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+.clearBtn:hover {
+  color: var(--text-primary);
+  background: var(--surface-secondary);
+}
+
+@keyframes barIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

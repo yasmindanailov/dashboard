@@ -1,0 +1,32 @@
+/* ═══════════════════════════════════════
+   FilterBar — Aelium Design System
+   Ref: UI_SPEC.md §3.4
+   ═══════════════════════════════════════ */
+
+.bar {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+}
+
+.filters {
+  display: flex;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+/* Responsive: stack on mobile */
+@media (max-width: 639px) {
+  .bar {
+    flex-direction: column;
+  }
+
+  .filters {
+    flex-direction: column;
+  }
+}

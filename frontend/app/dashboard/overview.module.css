@@ -1,0 +1,212 @@
+/* ═══════════════════════════════════════
+   Dashboard Overview — Page-specific styles
+   Layout: 1200px wrapper (§2.8)
+   Anatomy: Greeting → Stats → Sections (§2.3)
+   Ref: UI_SPEC.md §2.3, ROADMAP.md D26
+   ═══════════════════════════════════════ */
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ── Greeting header ── */
+.greeting {
+  margin-bottom: var(--space-6);
+}
+.greetingTitle {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-1);
+}
+.greetingSubtitle {
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ── Stats grid — 4 columns (Admin, Client) ── */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+@media (max-width: 900px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 520px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Stats grid — 3 columns (Agent, Partner) ── */
+.statsGridThree {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+@media (max-width: 700px) {
+  .statsGridThree {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Skeleton stats ── */
+.statsSkeleton {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+@media (max-width: 900px) {
+  .statsSkeleton {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ── Content sections ── */
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.sectionTitle {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-4);
+}
+
+/* ── Alert row ── */
+.alertRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-secondary);
+  margin-bottom: var(--space-2);
+  transition: background var(--transition-fast);
+}
+.alertRow:hover {
+  background: var(--surface-hover);
+}
+.alertRowLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.alertIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.alertIconWarning {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+.alertIconDanger {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+.alertIconInfo {
+  background: var(--brand-subtle);
+  color: var(--brand);
+}
+.alertTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+.alertMeta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+/* ── Quick action grid ── */
+.quickActions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+@media (max-width: 700px) {
+  .quickActions {
+    grid-template-columns: 1fr;
+  }
+}
+.quickAction {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.quickAction:hover {
+  border-color: var(--brand);
+  box-shadow: var(--shadow-sm);
+}
+.quickActionIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--brand-subtle);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.quickActionText {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+.quickActionDesc {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+/* ── Section card inner padding ── */
+.sectionBody {
+  padding: var(--space-5);
+}
+
+/* ── Skeleton stat card ── */
+.skeletonCard {
+  padding: var(--space-4);
+}
+.skeletonGap12 {
+  margin-top: var(--space-3);
+}
+.skeletonGap8 {
+  margin-top: var(--space-2);
+}
+.skeletonGap4 {
+  margin-top: var(--space-1);
+}
+
+/* ── Alert link (no decoration) ── */
+.alertLink {
+  text-decoration: none;
+}
+
+/* ── Empty state icon ── */
+.emptyIconSuccess {
+  color: var(--success);
+}

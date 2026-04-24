@@ -1,7 +1,7 @@
 # Auth Module — Documentación de administración
 
 > Módulo: `auth`
-> Sprint: 1 (Backend) + 2 (Emails) + 3 (Frontend) + 3.5 (Hardening)
+> Sprint: 1 (Backend) + 2 (Emails) + 3 (Frontend) + 3.5 (Hardening) + 7.5 (Design System)
 > Estado: ✅ Completo
 
 ---
@@ -125,6 +125,28 @@ Todas las plantillas usan branding Aelium (color #3B82F6, DM Sans).
 
 ---
 
+## Design System Migration (Sprint 7.5 — D27/D27.1)
+
+### Layout split-screen
+Todas las páginas de autenticación usan `AuthLayout`:
+- **55% izquierda**: Aurora Digital (Canvas gradient mesh) + logo glassmorphism card
+- **45% derecha**: Formulario con tokens DS
+- **Mobile**: panel form full-width + logo arriba
+
+### CSS module: `auth.module.css`
+24 clases semánticas. **Zero hex**, **zero Tailwind**.
+Todas las propiedades de color usan `var(--token)`.
+
+### Componentes compartidos: `auth-components.tsx`
+Extraído en D27.1 para DRY (eliminadas ~90 líneas duplicadas):
+- `EyeIcon` — toggle password visibility
+- `PasswordCheck` — indicador visual de requisitos
+
+### Sesiones expiradas
+Login detecta `?expired=true` (query param inyectado por `AuthProvider` al expirar la sesión) y muestra `AlertBanner info` “Tu sesión ha expirado, inicia sesión de nuevo.”
+
+---
+
 ## Archivos clave
 
 ```
@@ -142,11 +164,22 @@ backend/
     templates/auth.templates.ts ← 4 plantillas HTML + escapeHtml
 
 frontend/
-  app/page.tsx              ← Login
-  app/register/page.tsx     ← Registro (con confirmación de contraseña)
-  app/verify-email/page.tsx ← Verificación (con strict mode guard)
-  app/forgot-password/page.tsx ← Recuperación
-  app/reset-password/page.tsx  ← Reset
+  app/AuthLayout.tsx        ← Split-screen layout (Aurora + form)
+  app/auth.module.css       ← 24 clases, zero hex (D27)
+  app/auth-components.tsx   ← EyeIcon + PasswordCheck (D27.1 DRY)
+  app/page.tsx              ← Login (credenciales + 2FA + ?expired)
+  app/register/page.tsx     ← Registro (password checks §4.6)
+  app/verify-email/page.tsx ← Verificación (auto + Suspense)
+  app/forgot-password/page.tsx ← Recuperación (anti-enumeración)
+  app/reset-password/page.tsx  ← Reset (Suspense + token)
   app/lib/api.ts            ← API client (authApi)
   app/lib/auth-context.tsx  ← AuthProvider (route guard + auto-refresh)
+  public/brand/             ← Logo SVGs (logo-blue-black.svg)
 ```
+
+## Ref
+
+- DECISIONS.md §48 (Auth Layout split-screen)
+- DESIGN_SYSTEM.md (AuthLayout, auth-components, auth.module.css)
+- UI_SPEC.md §5.13 (Auth pages — especificación)
+- ROADMAP.md D27, D27.1

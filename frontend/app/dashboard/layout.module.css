@@ -1,0 +1,56 @@
+/* ═══════════════════════════════════════
+   Dashboard Layout — Shell orchestrator
+   Ref: UI_SPEC.md §2.0
+   ═══════════════════════════════════════ */
+
+.shell {
+  min-height: 100vh;
+  background: var(--surface-secondary);
+}
+
+.loadingScreen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-secondary);
+}
+
+.loadingInner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+  height: 24px;
+  width: 24px;
+  color: var(--brand);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loadingText {
+  color: var(--text-secondary);
+}
+
+.main {
+  padding-top: 64px;
+  transition: margin-left var(--transition-normal);
+}
+
+@media (max-width: 767px) {
+  .main { margin-left: 0 !important; }
+}
+
+.content {
+  padding: var(--space-6);
+}
+
+@media (min-width: 1024px) {
+  .content { padding: var(--space-8); }
+}

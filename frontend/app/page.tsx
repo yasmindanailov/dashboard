@@ -1,18 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import GradientMesh from './components/ui/GradientMesh';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from './lib/api';
 import { useAuth } from './lib/auth-context';
+import AuthLayout from './AuthLayout';
+import { EyeIcon } from './auth-components';
+import styles from './auth.module.css';
+
+/* ═══════════════════════════════════════════════════════════
+   Login Page — Aelium Dashboard
+   
+   Layout: AuthLayout (split-screen §5.13)
+   Steps: credentials → 2FA → success redirect
+   DS compliance: zero hex, zero Tailwind, CSS module
+   
+   Ref: UI_SPEC §5.13, §4.4, §4.5, §4.6
+   ═══════════════════════════════════════════════════════════ */
 
 type LoginStep = 'credentials' | '2fa' | 'success';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<AuthLayout><div /></AuthLayout>}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionExpired = searchParams.get('expired') === 'true';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -46,7 +68,6 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       const msg = err.message || 'Error al iniciar sesión';
-      // Detect "pending_verification" to show resend button
       if (msg.includes('verificar tu email') || msg.includes('pending_verification')) {
         setShowResendVerification(true);
       }
@@ -87,292 +108,198 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen">
-      {/* ═══ LEFT — Aurora Digital ═══ */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <GradientMesh />
-        <div className="relative z-10 flex flex-col items-center justify-center w-full px-12">
+    <AuthLayout>
+      <AnimatePresence mode="wait">
+        {step === 'credentials' && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.5 }}
-            className="text-center"
+            key="credentials"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
           >
-            <div
-              className="inline-flex items-center justify-center mb-8 px-8 py-5 rounded-2xl"
-              style={{
-                background: 'rgba(255, 255, 255, 0.65)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.4)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.06)',
-              }}
-            >
-              <span className="text-3xl font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-                aelium
-              </span>
+            {/* Heading (P5 tono) */}
+            <div className={styles.heading}>
+              <h1 className={styles.headingTitle}>Bienvenido de vuelta</h1>
+              <p className={styles.headingSubtitle}>Inicia sesión en tu panel de gestión</p>
             </div>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 1.0 }}
-              className="text-lg font-medium max-w-sm mx-auto"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              Tu socio digital, a tu lado
-            </motion.p>
-          </motion.div>
-        </div>
-      </div>
 
-      {/* ═══ RIGHT — Login Form ═══ */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 lg:px-16" style={{ background: 'var(--surface-primary)' }}>
-        <div className="w-full max-w-[400px]">
-          {/* Mobile logo */}
-          <div className="lg:hidden text-center mb-10">
-            <span className="text-2xl font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-              aelium
-            </span>
-          </div>
-
-          <AnimatePresence mode="wait">
-            {step === 'credentials' && (
-              <motion.div
-                key="credentials"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div className="mb-8">
-                  <h1 className="text-2xl font-semibold tracking-tight mb-2" style={{ color: 'var(--text-primary)' }}>
-                    Bienvenido de vuelta
-                  </h1>
-                  <p className="text-base" style={{ color: 'var(--text-secondary)' }}>
-                    Inicia sesión en tu panel de gestión
-                  </p>
-                </div>
-
-                {/* Error */}
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-4 px-4 py-3 rounded-lg text-sm"
-                    style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}
-                  >
-                    {error}
-                    {showResendVerification && (
-                      <button
-                        type="button"
-                        onClick={handleResendVerification}
-                        className="block mt-2 font-medium underline cursor-pointer"
-                        style={{ color: 'var(--brand)' }}
-                      >
-                        Reenviar email de verificación
-                      </button>
-                    )}
-                  </motion.div>
-                )}
-                {resendSuccess && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-4 px-4 py-3 rounded-lg text-sm"
-                    style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}
-                  >
-                    {resendSuccess}
-                  </motion.div>
-                )}
-
-                <form onSubmit={handleLogin} className="space-y-5">
-                  <InputField
-                    id="login-email"
-                    label="Email"
-                    type="email"
-                    value={email}
-                    onChange={setEmail}
-                    placeholder="tu@email.com"
-                    autoComplete="email"
-                  />
-
-                  <div>
-                    <div className="flex justify-between items-center mb-1.5">
-                      <label htmlFor="login-password" className="block text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                        Contraseña
-                      </label>
-                      <Link
-                        href="/forgot-password"
-                        className="text-sm font-medium transition-colors duration-200"
-                        style={{ color: 'var(--brand)' }}
-                      >
-                        ¿Olvidaste tu contraseña?
-                      </Link>
-                    </div>
-                    <div className="relative">
-                      <input
-                        id="login-password"
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete="current-password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full px-4 py-3 pr-12 text-base rounded-lg transition-all duration-200 outline-none"
-                        style={{ border: '1px solid var(--border-hover)', background: 'var(--surface-primary)', color: 'var(--text-primary)' }}
-                        onFocus={(e) => { e.target.style.borderColor = 'var(--brand)'; e.target.style.boxShadow = '0 0 0 3px var(--brand-subtle)'; }}
-                        onBlur={(e) => { e.target.style.borderColor = 'var(--border-hover)'; e.target.style.boxShadow = 'none'; }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
-                        style={{ color: 'var(--text-tertiary)' }}
-                      >
-                        <EyeIcon open={showPassword} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <SubmitButton loading={isLoading} text="Iniciar sesión" loadingText="Iniciando sesión..." />
-                </form>
-
-                <p className="mt-6 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  ¿No tienes cuenta?{' '}
-                  <Link href="/register" className="font-medium transition-colors duration-200" style={{ color: 'var(--brand)' }}>
-                    Crear cuenta
-                  </Link>
-                </p>
-              </motion.div>
+            {/* Session expired alert (§4.3) */}
+            {sessionExpired && !error && (
+              <div className={`${styles.alert} ${styles.alertInfo}`}
+                style={{ marginBottom: 'var(--space-4)' }}>
+                Tu sesión ha expirado. Inicia sesión de nuevo.
+              </div>
             )}
 
-            {step === '2fa' && (
+            {/* Error alert */}
+            {error && (
               <motion.div
-                key="2fa"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`${styles.alert} ${styles.alertDanger}`}
+                style={{ marginBottom: 'var(--space-4)' }}
               >
-                <div className="mb-8">
-                  <h1 className="text-2xl font-semibold tracking-tight mb-2" style={{ color: 'var(--text-primary)' }}>
-                    Verificación de seguridad
-                  </h1>
-                  <p className="text-base" style={{ color: 'var(--text-secondary)' }}>
-                    Hemos enviado un código de 6 dígitos a tu email
-                  </p>
-                </div>
-
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-4 px-4 py-3 rounded-lg text-sm"
-                    style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}
-                  >
-                    {error}
-                  </motion.div>
-                )}
-
-                <form onSubmit={handle2fa} className="space-y-5">
-                  <InputField
-                    id="login-2fa"
-                    label="Código de verificación"
-                    type="text"
-                    value={code2fa}
-                    onChange={setCode2fa}
-                    placeholder="000000"
-                    autoComplete="one-time-code"
-                    maxLength={6}
-                    pattern="[0-9]{6}"
-                    inputMode="numeric"
-                  />
-
-                  <SubmitButton loading={isLoading} text="Verificar" loadingText="Verificando..." />
-
+                {error}
+                {showResendVerification && (
                   <button
                     type="button"
-                    onClick={() => { setStep('credentials'); setError(''); setCode2fa(''); }}
-                    className="w-full text-center text-sm font-medium transition-colors duration-200 mt-2"
-                    style={{ color: 'var(--text-secondary)' }}
+                    onClick={handleResendVerification}
+                    className={styles.alertAction}
                   >
-                    ← Volver al login
+                    Reenviar email de verificación
                   </button>
-                </form>
+                )}
               </motion.div>
             )}
-          </AnimatePresence>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-/* ── Reusable sub-components ── */
+            {/* Success alert (resend verification) */}
+            {resendSuccess && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`${styles.alert} ${styles.alertSuccess}`}
+                style={{ marginBottom: 'var(--space-4)' }}
+              >
+                {resendSuccess}
+              </motion.div>
+            )}
 
-function InputField({ id, label, type, value, onChange, placeholder, autoComplete, maxLength, pattern, inputMode }: {
-  id: string; label: string; type: string; value: string;
-  onChange: (v: string) => void; placeholder: string; autoComplete?: string;
-  maxLength?: number; pattern?: string; inputMode?: 'numeric' | 'text';
-}) {
-  return (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
-        {label}
-      </label>
-      <input
-        id={id}
-        type={type}
-        autoComplete={autoComplete}
-        required
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        maxLength={maxLength}
-        pattern={pattern}
-        inputMode={inputMode}
-        className="w-full px-4 py-3 text-base rounded-lg transition-all duration-200 outline-none"
-        style={{ border: '1px solid var(--border-hover)', background: 'var(--surface-primary)', color: 'var(--text-primary)' }}
-        onFocus={(e) => { e.target.style.borderColor = 'var(--brand)'; e.target.style.boxShadow = '0 0 0 3px var(--brand-subtle)'; }}
-        onBlur={(e) => { e.target.style.borderColor = 'var(--border-hover)'; e.target.style.boxShadow = 'none'; }}
-      />
-    </div>
-  );
-}
+            <form onSubmit={handleLogin} className={styles.formStack}>
+              {/* Email */}
+              <div className={styles.fieldGroup}>
+                <label htmlFor="login-email" className={styles.fieldLabel}>Email</label>
+                <input
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tu@email.com"
+                  className={styles.authInput}
+                />
+              </div>
 
-function SubmitButton({ loading, text, loadingText }: { loading: boolean; text: string; loadingText: string }) {
-  return (
-    <button
-      type="submit"
-      disabled={loading}
-      className="w-full py-3 px-6 text-base font-medium text-white rounded-lg transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-      style={{ background: 'var(--brand)', boxShadow: 'var(--shadow-brand)' }}
-      onMouseEnter={(e) => { if (!loading) { e.currentTarget.style.background = 'var(--brand-hover)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--brand)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-    >
-      {loading ? (
-        <span className="flex items-center justify-center gap-2">
-          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          {loadingText}
-        </span>
-      ) : text}
-    </button>
-  );
-}
+              {/* Password */}
+              <div className={styles.fieldGroup}>
+                <div className={styles.fieldLabelRow}>
+                  <label htmlFor="login-password" className={styles.fieldLabel}>Contraseña</label>
+                  <Link href="/forgot-password" className={styles.inlineLink}>
+                    ¿Olvidaste tu contraseña?
+                  </Link>
+                </div>
+                <div className={styles.passwordWrapper}>
+                  <input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className={styles.authInput}
+                    style={{ paddingRight: 'var(--space-12)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className={styles.passwordToggle}
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    <EyeIcon open={showPassword} />
+                  </button>
+                </div>
+              </div>
 
-function EyeIcon({ open }: { open: boolean }) {
-  return open ? (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
-      <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  ) : (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
+              {/* Submit */}
+              <button type="submit" disabled={isLoading} className={styles.submitButton}>
+                {isLoading ? (
+                  <span className={styles.submitSpinner}>
+                    <svg className={styles.spinnerIcon} viewBox="0 0 24 24">
+                      <circle opacity="0.25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path opacity="0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Iniciando sesión...
+                  </span>
+                ) : 'Iniciar sesión'}
+              </button>
+            </form>
+
+            <p className={styles.footerText}>
+              ¿No tienes cuenta?{' '}
+              <Link href="/register" className={styles.footerLink}>Crear cuenta</Link>
+            </p>
+          </motion.div>
+        )}
+
+        {step === '2fa' && (
+          <motion.div
+            key="2fa"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className={styles.heading}>
+              <h1 className={styles.headingTitle}>Verificación de seguridad</h1>
+              <p className={styles.headingSubtitle}>
+                Hemos enviado un código de 6 dígitos a tu email
+              </p>
+            </div>
+
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`${styles.alert} ${styles.alertDanger}`}
+                style={{ marginBottom: 'var(--space-4)' }}
+              >
+                {error}
+              </motion.div>
+            )}
+
+            <form onSubmit={handle2fa} className={styles.formStack}>
+              <div className={styles.fieldGroup}>
+                <label htmlFor="login-2fa" className={styles.fieldLabel}>Código de verificación</label>
+                <input
+                  id="login-2fa"
+                  type="text"
+                  autoComplete="one-time-code"
+                  required
+                  value={code2fa}
+                  onChange={(e) => setCode2fa(e.target.value)}
+                  placeholder="000000"
+                  maxLength={6}
+                  pattern="[0-9]{6}"
+                  inputMode="numeric"
+                  className={styles.authInput}
+                />
+              </div>
+
+              <button type="submit" disabled={isLoading} className={styles.submitButton}>
+                {isLoading ? (
+                  <span className={styles.submitSpinner}>
+                    <svg className={styles.spinnerIcon} viewBox="0 0 24 24">
+                      <circle opacity="0.25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path opacity="0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Verificando...
+                  </span>
+                ) : 'Verificar'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setStep('credentials'); setError(''); setCode2fa(''); }}
+                className={styles.backButton}
+              >
+                ← Volver al login
+              </button>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </AuthLayout>
   );
 }

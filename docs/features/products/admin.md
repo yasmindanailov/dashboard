@@ -1,7 +1,7 @@
 # Productos — Documentación Admin
 
 > Módulo de catálogo de productos y pricing del sistema Aelium.
-> Última actualización: Sprint 5 (hardening).
+> Última actualización: Sprint 7.5 (Design System + audit).
 
 ## Acceso
 
@@ -80,15 +80,15 @@ Elementos de checklist para mantenimiento interno. Heredan los slots de mantenim
 | `domain` | Registro/transferencia de dominios | `resellerclub` | — |
 | `docker_service` | Contenedores Docker (Nextcloud, OpenClaw, etc.) | `docker_engine` | — |
 | `support_inside` | Support Inside — addon global de cuenta (Básico, Medium, Pro). Ref: DECISIONS.md §7 | `internal` | `is_addon=true`, `is_global_addon=true`, `requires_existing_product=true` |
-| `we_do_it` | We Do It For You — addon por producto. Solo aplica a `hosting_web` y `docker_service`. Ref: DECISIONS.md §8 | `manual` | `is_addon=true`, `requires_existing_product=true` |
-| `custom_service` | Proyectos manuales a escala (ERP, CRM). El agente recibe tarea al activarse | `manual` | — |
+| ~~`we_do_it`~~ | ~~We Do It For You~~ — **DEPRECADO (§44)**. Reemplazado por módulo Projects (Sprint 22). El CTA "Solicitar desarrollo personalizado" crea un proyecto, no un addon | ~~`manual`~~ | ~~`is_addon=true`~~ |
+| `custom_service` | Servicios manuales a medida (ERP, CRM). El agente recibe tarea al activarse. También se puede crear via Projects | `manual` | — |
 
 > **Nota:** `support_addon` y `support_service` fueron unificados en `support_inside` durante el hardening de Sprint 5. Support Inside es siempre un addon global de cuenta — no existen dos variantes separadas.
 
 ## Decisiones de negocio
 
 1. **`hosting_agency` eliminado** — Los partners son agencias que venden los mismos planes `hosting_web` con descuento (definido en `partner_commission_pct`).
-2. **`we_do_it` es un addon** — Se vincula a productos de tipo `hosting_web` y `docker_service`. NO aplica a `support_inside` ni `custom_service`. Validación pendiente en Sprint 8 (EC-5.4).
+2. ~~**`we_do_it` es un addon**~~ — **DEPRECADO (§44)**. El desarrollo personalizado ahora se gestiona via el módulo Projects (Sprint 22). El cliente pulsa "Solicitar desarrollo personalizado" en la página de su servicio → se crea un proyecto `proposal`.
 3. **`custom_service` es manual** — Se crea caso a caso para proyectos que engloban múltiples servicios.
 4. **Tipo inmutable** — El `type` de un producto no se puede cambiar después de la creación. Esto protege la integridad de `is_addon`, `is_global_addon` y `requires_existing_product` que se auto-configuran según el tipo.
 5. **Provisioner flexible** — El campo `provisioner` es un string libre (no enum) para soportar el sistema de plugins dinámicos planificado en Sprint 8. Los valores actuales son convenciones, no restricciones.
@@ -149,6 +149,70 @@ Vista de lectura con:
 
 Formulario con los mismos campos que el de creación, adaptado al tipo del producto (que es de solo lectura). La gestión de pricing se hace inline: lista de planes existentes con opción de eliminar + formulario para añadir nuevo plan.
 
+## Componentes DS utilizados (Sprint 7.5)
+
+### Catálogo (`/dashboard/products`)
+| Componente | Uso |
+|------------|-----|
+| `ListPage` | Layout con título, subtitle dinámico, filterBar, pagination |
+| `FilterBar` | Search + 2 Selects (estado, tipo) |
+| `SearchInput` | Búsqueda por nombre o slug |
+| `Select` | Filtro estado + filtro tipo |
+| `Table` | Tabla paginada, skeleton, empty state, bulk selection |
+| `Badge` | Estado (success/neutral/danger) + addon indicator + badge_text |
+| `Tooltip` | Acciones en columna (Activar/Desactivar, Editar) |
+| `Button` | CTA “Nuevo producto” |
+| `Pagination` | Paginación estándar |
+| `BulkActionBar` | Activar/Desactivar en lote |
+| `useToast` | Feedback toggle status + errores |
+
+### Detalle (`/dashboard/products/:id`)
+| Componente | Uso |
+|------------|-----|
+| `DetailPage` | Layout con breadcrumb DS |
+| `Badge` | Estado + addon + badge_text |
+| `Card` | Secciones: detalles, pricing, extras, config, metadata |
+| `Button` | Editar, Activar/Desactivar, Eliminar |
+| `Modal` | Confirmación de eliminación (§4.2) |
+| `useToast` | Feedback toggle, delete, error de carga |
+
+### Crear (`/dashboard/products/new`)
+| Componente | Uso |
+|------------|-----|
+| `FormPage` | Layout con breadcrumb dinámico |
+| `Card` | Step 1: type cards + Step 2: form sections |
+| `Input` | Nombre, slug, badge, comisión, precios |
+| `Select` | Provisioner, ciclos |
+| `Textarea` | Descripción, short_description |
+| `Button` | Submit con loading |
+| `AlertBanner` | Errores de validación (nombre obligatorio, precio) |
+| `useToast` | Error de red |
+
+### Editar (`/dashboard/products/:id/edit`)
+| Componente | Uso |
+|------------|-----|
+| `FormPage` | Layout con breadcrumb |
+| `Card` | Secciones del formulario |
+| `Input`, `Select`, `Textarea` | Campos del formulario |
+| `Skeleton` | Loading de datos |
+| `Button` | Submit + añadir pricing con loading |
+| `AlertBanner` | Errores de validación |
+| `Modal` | Confirmación de eliminación de pricing (§4.2) |
+| `useToast` | Éxito/error en save, add pricing, delete pricing |
+
+## Feedback UX (§4)
+
+| Acción | Feedback | Tipo |
+|--------|----------|------|
+| Toggle status | Toast success/error | `useToast` |
+| Crear producto (red) | Toast error | `useToast` |
+| Guardar producto (éxito) | Toast success + redirect | `useToast` |
+| Guardar producto (red) | Toast error | `useToast` |
+| Eliminar producto (éxito) | Toast success + redirect | `useToast` |
+| Eliminar producto | Modal confirmación | `Modal` |
+| Eliminar pricing | Modal confirmación | `Modal` |
+| Validación nombre vacío | AlertBanner persistente | `AlertBanner` |
+
 ## Validaciones y edge cases resueltos
 
 | EC | Descripción | Protección |
@@ -160,6 +224,15 @@ Formulario con los mismos campos que el de creación, adaptado al tipo del produ
 | EC-5 | Pricing duplicado por ciclo | `ConflictException` antes de insertar duplicado `(billing_cycle, currency)` |
 | EC-6 | Comisión partner fuera de rango | `@Min(0) @Max(100)` en ambos DTOs |
 
+## Edge cases documentados
+
+Ver `docs/edge_cases.md`:
+- §6.2: Bulk toggle sin Modal de confirmación (vs billing que sí lo tiene)
+- §6.5: `selectedType` null podría enviarse al API si se fuerza vía devtools
+- §6.6: `handleTypeSelect` usa non-null assertion `!` sin guard
+- §6.1: Search sin debounce (cada keystroke dispara fetch)
+- §12.3: `TYPE_LABELS` duplicado en edit vs types.ts
+
 ## Pendiente para sprints futuros
 
 - **Sprint 8:** Conexión del campo `provisioner` con el registro dinámico de plugins
@@ -167,3 +240,12 @@ Formulario con los mismos campos que el de creación, adaptado al tipo del produ
 - **Sprint 8:** Vinculación addon↔producto (qué addons están disponibles para qué productos)
 - **Sprint 8:** Configuración específica de Support Inside (canales, SLA, slots)
 - **Sprint 8:** Plantillas .yaml para Docker services
+- **Sprint 8+:** Resolver edge cases P1-P2 documentados en `edge_cases.md`
+
+## Ref
+
+- DECISIONS.md §7 (Support Inside)
+- DECISIONS.md §44 (Projects reemplaza WDIFY)
+- UI_SPEC.md §5.3 (Productos — especificación de página)
+- DESIGN_SYSTEM.md (componentes DS)
+- edge_cases.md (análisis exhaustivo Sprint 7)

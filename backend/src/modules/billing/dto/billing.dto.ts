@@ -128,6 +128,17 @@ export class UpdateInvoiceDto {
   @IsString()
   @MaxLength(500)
   payment_ref?: string;
+
+  /**
+   * 7.0.4: When items are provided, the invoice totals
+   * (subtotal, tax_amount, total) are fully recalculated.
+   * Only allowed on draft invoices.
+   */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateInvoiceItemDto)
+  items?: CreateInvoiceItemDto[];
 }
 
 /* ═══════════════════════════════════════

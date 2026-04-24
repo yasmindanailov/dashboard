@@ -1,0 +1,119 @@
+/* ═══════════════════════════════════════
+   Toast — Aelium Design System
+   Ref: docs/DESIGN_SYSTEM.md, UI_SPEC §4.9
+   ═══════════════════════════════════════ */
+
+.container {
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-2);
+  z-index: var(--z-toast);
+  pointer-events: none;
+}
+
+.toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  min-width: 320px;
+  max-width: 480px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  animation: slideIn 200ms ease;
+  pointer-events: auto;
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+}
+
+/* ── Undo variant layout adjustment ── */
+.hasUndo {
+  padding-bottom: var(--space-4);
+}
+
+/* ── Variant colors ── */
+.success { background: #065F46; color: #D1FAE5; }
+.error   { background: #7F1D1D; color: #FEE2E2; }
+.warning { background: #78350F; color: #FEF3C7; }
+.info    { background: #1E3A5F; color: #DBEAFE; }
+
+.icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.message {
+  flex: 1;
+  line-height: var(--line-height-tight);
+}
+
+/* ── Close button ── */
+.close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-xs);
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  flex-shrink: 0;
+}
+.close:hover {
+  opacity: 1;
+}
+
+/* ── Undo button (§4.9) ── */
+.undoButton {
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: inherit;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.undoButton:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ── Countdown progress bar (§4.9) ── */
+.progressTrack {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.progressBar {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 0 1px 0 0;
+  animation: countdown linear forwards;
+  transform-origin: left;
+}
+
+/* ── Animations ── */
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes countdown {
+  from { width: 100%; }
+  to   { width: 0%; }
+}

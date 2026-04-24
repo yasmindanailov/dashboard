@@ -13,6 +13,8 @@
 3. **Bottom-up**: datos → lógica de negocio → infraestructura → producción.
 4. **Zero TODOs**: cada paso deja el código funcional, sin placeholders.
 5. **Documentación incluida**: admin.md se escribe al cerrar cada sprint.
+6. **Regla 15**: al tocar un módulo, verificar que todos sus archivos cumplen los límites de ARCHITECTURE.md Regla 15. Si no cumplen, refactorizar ANTES de añadir lógica nueva.
+7. **Design System**: toda interfaz nueva usa exclusivamente los componentes de `components/ui/` y sigue `DESIGN_SYSTEM.md` + `UI_SPEC.md`. Ver ARCHITECTURE.md Regla 16.
 
 ---
 
@@ -257,29 +259,184 @@
 
 | # | Paso | Origen | Estado |
 |---|------|--------|--------|
-| 7.0.1 | **Admin checkout: UI selector de cliente** — cuando rol es admin, mostrar selector de usuario destino antes de proceder | EC-BILL-02 | ⬜ |
-| 7.0.2 | **Admin checkout: validar `targetUserId` obligatorio** — el admin no puede crear servicios para sí mismo; debe seleccionar un cliente destino | EC-BILL-01 | ⬜ |
-| 7.0.3 | **Validar perfil de facturación contra `targetUserId`** — en checkout admin, el `billing_profile_id` debe pertenecer al cliente destino, no al admin | EC-BILL-03 | ⬜ |
-| 7.0.4 | **IVA se recalcula al editar items de factura** — `updateInvoice` debe recalcular subtotal, tax_amount y total cuando se modifican items | EC-BILL-07 | ⬜ |
-| 7.0.5 | **Descuento anual aplicado en checkout** — aplicar `discount_percentage` del plan anual al calcular el precio en el servicio y factura | EC-CHKOUT-04 | ⬜ |
+| 7.0.1 | **Admin checkout: UI selector de cliente** — cuando rol es admin, mostrar selector de usuario destino antes de proceder | EC-BILL-02 | ✅ |
+| 7.0.2 | **Admin checkout: validar `targetUserId` obligatorio** — el admin no puede crear servicios para sí mismo; debe seleccionar un cliente destino | EC-BILL-01 | ✅ |
+| 7.0.3 | **Validar perfil de facturación contra `targetUserId`** — en checkout admin, el `billing_profile_id` debe pertenecer al cliente destino, no al admin | EC-BILL-03 | ✅ |
+| 7.0.4 | **IVA se recalcula al editar items de factura** — `updateInvoice` debe recalcular subtotal, tax_amount y total cuando se modifican items | EC-BILL-07 | ✅ |
+| 7.0.5 | **Descuento anual aplicado en checkout** — aplicar `discount_percentage` del plan anual al calcular el precio en el servicio y factura | EC-CHKOUT-04 | ✅ |
 
-**Support:**
+**Support — Core:**
 
 | # | Paso | Estado |
 |---|------|--------|
-| 7.1 | SupportService: crear/responder conversaciones | ⬜ |
-| 7.2 | **WebSocket con Socket.io** — namespaces `/chat`, `/notifications`, `/admin` | ⬜ |
-| 7.3 | **Chat en tiempo real** — typing indicators, read receipts, escalación chat→async con contexto | ⬜ |
-| 7.4 | **Chat anónimo (landing)** — guest_name + guest_email + guest_session_token hasheado | ⬜ |
-| 7.5 | **Vinculación chat anónimo** — al registrarse con mismo email, vincular conversaciones | ⬜ |
-| 7.6 | **Horario de atención** — configurable en settings (días + franjas), mensaje fuera de horario | ⬜ |
-| 7.7 | Mensajes con archivos adjuntos (MinIO) | ⬜ |
-| 7.8 | **Filtro IA chat** — agente IA para clientes sin Support Inside (Claude plugin), escala si lo pide | ⬜ |
-| 7.9 | **Copilot IA agente** — panel lateral con sugerencias de respuesta en la voz de Aelium | ⬜ |
-| 7.10 | Frontend: bandeja de conversaciones (admin/agente) | ⬜ |
-| 7.11 | Frontend: chat del cliente (dashboard) | ⬜ |
-| 7.12 | Emails: ticket creado, respuesta recibida | ⬜ |
-| 7.13 | docs/features/support/admin.md + client.md | ⬜ |
+| 7.1 | SupportService: crear/responder conversaciones, CASL, DTOs, ownership enforcement, stats, SLA tracking | ✅ |
+| 7.2 | **WebSocket con Socket.io** — namespace `/support`, JWT auth, rooms (conversation/agent/user), event bridge | ✅ |
+| 7.3 | **Chat en tiempo real** — widget flotante, typing indicators, read receipts, WS + REST fallback | ✅ |
+| 7.3.1 | **Arquitectura dual Chat + Tickets** — schema (type/category/escalated_from_id), DTOs separados, endpoints `/chats` y `/tickets`, escalación chat→ticket, bandeja de tickets (Gmail-like) | ✅ |
+| 7.3.2 | **Panel chat agente** — 3 columnas (lista chats / conversación RT / contexto cliente), WS, notas internas, escalación, resolución | ✅ |
+| 7.10 | Frontend: bandeja de tickets admin — stats, filtros categoría/estado/prioridad, paginación, modal nuevo ticket | ✅ |
+| 7.11 | Frontend: detalle de conversación — vista detalle, mensajes, notas internas, controles admin | ✅ |
+| 7.12 | Emails: conversación creada, respuesta de agente, asignación de conversación | ✅ |
+| 7.13 | docs/features/support/admin.md | ✅ |
+
+**Support — Hardening (bugs y edge cases de la auditoría):**
+
+| # | Paso | Origen | Estado |
+|---|------|--------|--------|
+| 7.H1 | **Fix mensaje duplicado** — ChatWidget envía por WS + REST; gateway también persiste. Resultado: mensaje guardado 2 veces. **Solución:** widget solo envía por WS, REST solo como fallback si WS falla | EC-1, EC-2 | ✅ |
+| 7.H2 | **Guard de escalación única** — `escalateToTicket()` no verifica si el chat ya fue escalado. Añadir check de `escalated_to` existente | EC-3 | ✅ |
+| 7.H3 | **Cleanup typing on disconnect** — en `handleDisconnect`, broadcast `typing:stop` a todas las rooms del usuario desconectado para limpiar indicador | EC-7 | ✅ |
+| 7.H4 | **Comportamiento post-escalación** — definir qué pasa si un cliente escribe en un chat `resolved` por escalación: ¿se reabre el chat o se redirige al ticket? Implementar guard | EC-6 | ✅ |
+| 7.H5 | **Página [id] diferenciada por tipo** — mostrar categoría + badge escalación para tickets, botón "⬆ Escalar" para chats, link al ticket/chat vinculado si existe | EC-8 | ✅ |
+| 7.H6 | **DTO `type` redundante** — hacer `type` opcional en `ConversationListQueryDto` ya que el controller lo fuerza. Evitar conflicto si el frontend lo envía | EC-9 | ✅ |
+| 7.H7 | **Sorting de chats para agente** — priorizar `waiting_agent` (tu turno) sobre `open` en la lista de chats del panel de agente | EC-5 | ✅ |
+| 7.H8 | **Panel agente: indicador asignación** — distinguir visualmente chats asignados al agente actual vs sin asignar vs asignados a otro | EC-10 | ✅ |
+| 7.H9 | **Unread count separado por tipo** — `getUnreadCount()` debe filtrar por `type`. Widget solo cuenta chats, bandeja solo tickets | EC-11 | ✅ |
+| 7.H10 | **Stats filtrados en UI** — el dashboard de stats debe mostrar indicadores separados para chats y tickets, no mezclados | EC-4 | ✅ |
+| 7.H11 | **Nomenclatura §9 → §43** — actualizar §9 de DECISIONS.md para alinear con §43: "Conversaciones" → "Tickets", "Casos" → obsoleto | INC-1 | ✅ |
+| 7.H12 | **Chat directo sin formulario** — usuario logueado abre chat al escribir su primer mensaje, sin pedir asunto ni cuerpo previo. Se auto-genera subject | UX | ✅ |
+| 7.H13 | **Nombres en mensajes** — mostrar nombre del sender (cliente y agente) sobre cada burbuja, tanto en widget, panel agente, y página [id] | UX | ✅ |
+| 7.H14 | **Indicador "última vez en línea"** — en el header del chat widget, mostrar cuándo fue la última respuesta de un agente en la conversación activa | UX | ✅ |
+| 7.H15 | **Historial soporte en ficha cliente** — tab "Soporte" en la ficha del cliente con listado de chats y tickets, clickable a detalle | UX | ✅ |
+| 7.H16 | **Notas del cliente en panel agente** — en la columna derecha del panel de chats, mostrar las notas internas del cliente como contexto para el agente | UX | ✅ |
+| 7.H17 | **Nota de resolución obligatoria** — al resolver, cerrar, o escalar, el agente debe escribir una nota explicando la resolución. Se guarda en `resolution_note` y como mensaje de sistema. Buscable | UX/BL | ✅ |
+| 7.H18 | **Autoría en notas de resolución** — `resolved_by_id` + `resolved_by_name` resuelto en findOne. La nota del sistema muestra quién resolvió | UX | ✅ |
+| 7.BF1 | **Fix "Cargando contexto..." eterno** — reset de `clientContext` al cambiar chat, error state para chats sin usuario o API fallida | BUG | ✅ |
+| 7.H19 | **Notas estructuradas del cliente** — modelo `ClientNote` con categoría (conversation/solution/billing/technical/general), autoría, vinculación a conversación, pin, auto-creación al enviar nota interna | ARCH | ✅ |
+| 7.H20 | **Widget CTA "Empezar conversación"** — reemplaza input inferior con botón CTA superior. Scroll en lista de conversaciones. Placeholder para Support Inside | UX | ✅ |
+| 7.H21 | **Nombre del cliente en detalle ticket/chat** — `client_name` + `client_email` resueltos en `findOne`. Badge con link a ficha del cliente en el header | UX | ✅ |
+| 7.H22 | **Sync bidireccional de notas** — resolution notes → ClientNote(solution), notas legacy → ClientNote(general), internal messages → ClientNote(conversation). Ficha de cliente con filtros por categoría, pin, fecha formateada, autor, link a conversación origen | ARCH | ✅ |
+| 7.H23 | **Nota obligatoria al reabrir** — backend exige `resolution_note` para status `open` (reopen). Mensaje de sistema incluye motivo. ClientNote(general) auto-creada | UX/BL | ✅ |
+| 7.H24 | **Coherencia acciones panel chat** — topbar: ✓ Resolver + 🔒 Cerrar. Sidebar: 👤 Ver perfil + ⬆ Escalar. Sin duplicados entre zonas. Eliminado "Ver detalle completo" por contraproducente | UX | ✅ |
+| 7.BF2 | **Fix badge duplicado "Escalado desde chat"** — oculta la categoría `escalated_chat` cuando ya hay link de escalación dedicado | BUG | ✅ |
+| 7.H25 | **Página de detalle canónica con sidebar** — `/support/[id]` ahora tiene layout 2 columnas: conversación + sidebar de contexto del cliente (perfil, servicios, notas, acciones). Acciones reorganizadas: topbar = resolver/cerrar, sidebar = ver perfil/ir a chats | UX/ARCH | ✅ |
+
+**Support — Chat anónimo (Landing):**
+
+| # | Paso | Estado |
+|---|------|--------|
+| 7.4.1 | **Guest token generation** — generar `guest_session_token` (hash SHA-256 de session + timestamp), almacenar en cookie HttpOnly | ✅ |
+| 7.4.2 | **DTO y endpoint de chat anónimo** — `POST /support/chats/guest` con `guest_name`, `guest_email` (opcional), `body`. Sin JWT, validar por guest token | ✅ |
+| 7.4.3 | **Rate limiting para anónimos** — throttle en endpoint guest: máx 3 chats/hora por IP, máx 10 mensajes/minuto por sesión | ✅ |
+| 7.4.4 | **Gateway: auth fallback para guest** — en `handleConnection`, si no hay JWT válido, aceptar guest_session_token con permisos reducidos (solo su chat) | ✅ |
+| 7.4.5 | **Frontend widget: modo guest** — detectar si no hay JWT, mostrar formulario nombre/email antes del primer mensaje. Reutilizar mismo `ChatWidget` | ✅ |
+| 7.5.1 | **Vinculación por email** — al registrarse un usuario con email que coincide con `guest_email` de chats existentes, ejecutar migración automática: `user_id = nuevo_user.id`, limpiar campos guest | ✅ |
+| 7.5.2 | **Vinculación manual por agente** — en panel de chat, botón "Vincular a cliente" que permite buscar un cliente y asociar el chat huérfano (sin email) | ✅ |
+| 7.5.3 | **Cleanup de sesiones expiradas** — cron job para limpiar chats guest sin actividad en >30 días (configurable en settings) | ✅ |
+
+**Support — Operaciones:**
+
+| # | Paso | Estado |
+|---|------|--------|
+| 7.6.1 | **Modelo de datos horario** — nueva tabla `support_schedule` o campo JSON en Settings: días de la semana + franjas horarias + timezone | ⬜ |
+| 7.6.2 | **Lógica backend** — middleware en gateway y controller: si fuera de horario, respuesta automática "Estamos fuera de horario, te responderemos a las X:XX" | ⬜ |
+| 7.6.3 | **Widget: indicador horario** — mostrar estado "🟢 En línea" / "🔴 Fuera de horario" en el header del widget + mensaje informativo | ⬜ |
+| 7.7 | **Archivos adjuntos** — integración MinIO para mensajes con archivos. Upload desde widget y panel agente. Preview inline para imágenes | ⬜ (bloqueado: Sprint 14 MinIO) |
+
+**Support — IA (bloqueado por Sprint 15):**
+
+| # | Paso | Estado |
+|---|------|--------|
+| 7.8 | **Filtro IA chat** — agente IA para clientes sin Support Inside: recibe contexto del cliente, intenta resolver, escala a humano si no puede. Transparente: "Estás siendo atendido por IA" | ⬜ |
+| 7.9 | **Copilot IA agente** — panel lateral con sugerencias de respuesta generadas con contexto del cliente + documentación interna + voz de Aelium | ⬜ |
+
+**Support — Pendientes de otros módulos:**
+
+| # | Paso | Dependencia | Estado |
+|---|------|-------------|--------|
+| 7.SI.1 | **Badge Support Inside en chat** — verificar si el cliente tiene Support Inside activo y mostrar badge en widget, panel agente y lista de chats. Skip filtro IA si tiene SI | Módulo Support Inside | ⬜ |
+| 7.SI.2 | **Página Support Inside del cliente** — zona en dashboard: plan actual, canales disponibles, servicios con slot, historial de valor, medios de contacto | Módulo Support Inside | ⬜ |
+
+**Support — Refactorización Regla 15 (backend ✅, frontend ⬜):**
+
+> Backend del módulo support ya refactorizado: `support.service.ts` (1054→90 fachada + 4 sub-servicios), `support.gateway.ts` (526→232 + auth helper).
+> Falta refactorizar el frontend del módulo.
+
+| # | Paso | Estado |
+|---|------|---------|
+| 7.R15.1 | **`chats/page.tsx` (907→77 líneas)** — extraído: `types.ts` (56), `useChatPanel.ts` (238), `ChatList.tsx` (109), `ChatConversation.tsx` (188), `ChatClientContext.tsx` (274), `ResolutionModal.tsx` (107). Build ✅ | ✅ |
+| 7.R15.2 | **`ChatWidget.tsx` (671→155 líneas)** — extraído a `ChatWidget/`: `types.ts` (41), `useChatWidget.ts` (205), `GuestForm.tsx` (87), `ConversationList.tsx` (75), `ChatMessages.tsx` (123), `index.tsx` (155). Build ✅ | ✅ |
+| 7.R15.3 | **`support/page.tsx` (557→102 líneas)** — extraído: `types.ts` (64), `useTicketInbox.ts` (134), `TicketStatsCards.tsx` (37), `TicketList.tsx` (132), `NewTicketModal.tsx` (216). Build ✅ | ✅ |
+| 7.R15.4 | **`support/[id]/page.tsx` (733→88 líneas)** — extraído: `types.ts` (62), `useConversationDetail.ts` (158), `ConversationHeader.tsx` (134), `ConversationMessages.tsx` (176), `ConversationSidebar.tsx` (151), `DetailResolutionModal.tsx` (108). Build ✅ | ✅ |
+| 7.R15.5 | **`billing/checkout/page.tsx` (570→233 líneas)** — extraído: `types.ts` (62), `useCheckout.ts` (157), `StepConfirm.tsx` (133). Build ✅ | ✅ |
+| 7.R15.6 | **`layout.tsx` (394→79 líneas)** — extraído: `Sidebar.tsx` (179), `Topbar.tsx` (74). Build ✅ | ✅ |
+| 7.R15.7 | **`clients/[id]/page.tsx` (683→243 líneas)** — extraído: `types.ts` (55), `ClientSupportTab.tsx` (78), `ClientNotesTab.tsx` (158). Build ✅ | ✅ |
+| 7.R15.8 | **`products/page.tsx` (323→282 líneas)** — extraído: `types.ts` (42). Build ✅ | ✅ |
+| 7.R15.9 | **`products/new/page.tsx` (347→296 líneas)** — extraído: `constants.ts` (62). Build ✅ | ✅ |
+
+---
+
+## Sprint 7.5 — Design System Foundation ⬜
+
+> Objetivo: establecer las bases visuales del dashboard antes de construir más módulos.
+> Documento de referencia: docs/DESIGN_SYSTEM.md.
+> Todo módulo nuevo debe usar estos componentes. Todo módulo existente se migra progresivamente.
+
+**Fase 1 — Tokens y componentes base:**
+
+| # | Paso | Estado |
+|---|------|--------|
+| 7.5.D1 | **Tokens CSS** — crear `tokens.css` con todas las variables de diseño (colores, spacing, radii, shadows, tipografía). Importar globalmente. Eliminar valores hardcodeados | ✅ |
+| 7.5.D2 | **Button** — componente reutilizable con variantes (primary, secondary, ghost, danger), tamaños (sm, md, lg), loading state | ✅ |
+| 7.5.D3 | **Input + Select + SearchInput + Textarea** — componentes de formulario con label, error, helper text. Select con options array. SearchInput con icono, clear, loading. Textarea con char counter | ✅ |
+| 7.5.D4 | **Badge + StatusDot** — badges semánticos sin emojis. StatusDot para estados en línea/fuera de horario | ✅ |
+| 7.5.D5 | **Card** — container estándar. Variantes: default, interactive (hover effect) | ✅ |
+| 7.5.D6 | **Modal** — overlay, título, body, footer. Close on ESC + click outside. Confirmación para acciones destructivas | ✅ |
+| 7.5.D7 | **Table** — headers, rows, sorting, empty state integrado. Skeleton loading | ✅ |
+| 7.5.D8 | **Toast** — notificaciones efímeras: success, error, warning, info. Auto-dismiss | ✅ |
+| 7.5.D9 | **EmptyState + Skeleton** — estados vacíos y loading placeholders | ✅ |
+| 7.5.D10 | **Avatar + Tooltip + Dropdown** — componentes complementarios | ✅ |
+| 7.5.D10b | **Pagination + StatsCard + AlertBanner** — componentes de layout y navegación para migración de páginas | ✅ |
+| 7.5.D10c | **UI_SPEC.md** — especificación completa de interfaz: 4 roles, 6 principios UX, 6 tipos de página, reglas de contenido, 12 patrones de interacción, especificación de 13 páginas. Fuente de verdad para layout. | ✅ |
+| 7.5.D10d | **StatusTabs** — tabs con contadores de estado para list pages. Variantes semánticas (success/warning/danger). Reemplaza StatsCards en listados (UI_SPEC §3.2). Exportado + preview + build ✅ | ✅ |
+| 7.5.D10e | **Breadcrumb** — ya existía en DS (creado en D10b). Navegación jerárquica con chevron separators. Build ✅ | ✅ |
+| 7.5.D10f | **Tabs** — ya existía en DS (creado en D10). Tabs de contenido con counters opcionales. Build ✅ | ✅ |
+
+**Fase 2 — Migración de páginas existentes:**
+
+> Cada página se migra al design system según UI_SPEC.md §5: eliminar `style={{}}`, aplicar anatomía de tipo de página, empty states con tono Aelium, jerarquía de acciones.
+
+| # | Paso | Estado |
+|---|------|--------|
+| 7.5.D11 | **Dashboard shell** — Sidebar, Topbar y Layout migrados a CSS modules. **Topbar:** Cmd+K trigger (izquierda, desktop), botón soporte con panel de canales (solo clientes §P3), perfil con Dropdown DS (Mi perfil, Config, Cerrar sesión), notificaciones con badge slot. **Sidebar:** inline styles→CSS module, SVG icons stroke 1.5, collapse toggle. **Layout:** CSS module, eliminado `<style>` tag inline. **Fixes:** Dropdown DS corregido para no forzar 32×32 en triggers custom (nueva clase `.triggerCustom`). 3 tokens añadidos a globals.css (`--space-2_5`, `--shadow-xl`, `--transition-normal`). Build ✅ | ✅ |
+| 7.5.D12 | **Página de clientes** — migrada: Table, Badge, SearchInput, Pagination, Avatar. Eliminados style={{}}, SVG search icon manual. 241→175 líneas | ✅ |
+| 7.5.D13 | **Página de productos** — migrada: Table, Badge, SearchInput, Select, Pagination, Button, Card, Tooltip. Grid manual→Table. 309→224 líneas | ✅ |
+| 7.5.D14 | **Página de billing** — migrada: Table, Badge, SearchInput, Select, Pagination, Button, StatsCard, AlertBanner. Eliminados emojis (📄💰⏳🔴🔍), colores hardcodeados (#635BFF). 317→200 líneas | ✅ |
+| 7.5.D15 | **Página de soporte (tickets)** — migrada: page.tsx (111→90), TicketStatsCards (43→27 vía StatsCard), TicketList (143→110 vía Badge+Card+EmptyState+Skeleton+Pagination), NewTicketModal (227→146 vía Modal+Input+Select+Textarea+Button+SearchInput) | ✅ |
+| 7.5.D16 | **Panel de chats** — migrado: page.tsx (85→75 vía CSS module), ChatList (116→116 vía SearchInput+Badge+StatusDot+Skeleton+EmptyState), ChatConversation (201→159 vía Button+EmptyState+CSS module), ChatClientContext (291→161 vía Avatar+Card+Button+SearchInput+Skeleton), ResolutionModal (115→88 vía Modal+Textarea+Button), GuestLinkingPanel extraído (69 líneas). CSS module: `chats.module.css` (610 líneas). Zero inline styles. Build ✅ | ✅ |
+| 7.5.D16b | **Layout Components** — creados: `PageHeader` (48 líneas, §3.5), `FilterBar` (46 líneas, §3.4), `ListPage` (79 líneas, §2.4), `DetailPage` (109 líneas, §2.5). CSS modules con tokens. Barrel export actualizado. Responsive stacking en mobile (max-width 639px). ARIA roles en tabs de DetailPage. Build ✅ | ✅ |
+| 7.5.D17 | **SupportPanel (§3.9)** — eliminado ChatWidget bubble flotante. Creado `SupportPanel` como sidebar panel (380px, slide-in derecha, overlay dimmed). Trigger: botón "Chat en vivo" del panel de canales del Topbar (D11). Reutiliza `useChatWidget` (WebSocket, REST fallback, guest mode). 4 archivos nuevos: `SupportPanel.tsx` (140L), `PanelChat.tsx` (95L), `PanelConversationList.tsx` (65L), `PanelGuestForm.tsx` (71L). CSS module `SupportPanel.module.css` (322L). Zero inline styles, zero hex. Cierre: ✕ + overlay + ESC. Mobile: fullscreen. Topbar `onOpenSupportPanel` prop + Layout state lifting. Build ✅ | ✅ |
+| 7.5.D19 | **Limpieza global de emojis** — eliminados todos los emojis del frontend. Dashboard `page.tsx`: `👋` eliminado. `ClientNotesTab.tsx`: `📌`/`📍` → SVG pin icon con color DS. `ConversationSidebar.tsx`: `📌` → `▪` text. `constants.ts` (products): 6 emojis (`🌐🔗🐳🛡️🛠️📐`) → cadena vacía (SVGs en D24). `Topbar.tsx` + `StatusDot.tsx`: emojis en comentarios limpiados. Zero emojis en todo el frontend. Build ✅ | ✅ |
+| 7.5.D20 | **Aplicar UI_SPEC a list pages** — 4 list pages migradas a `ListPage` + `FilterBar`. StatusTabs en Billing y Support. Select en Clientes y Productos. Backend extendido con `groupBy`. Build ✅ | ✅ |
+| 7.5.D21 | **Aplicar UI_SPEC a detail pages** — 3 detail pages migradas a `DetailPage` (§2.5). Clientes (265→136), Productos (220→181), Billing (318→177). Build ✅ | ✅ |
+| 7.5.D22 | **Sub-componentes legacy + patrones §4** — **ClientNotesTab**: reorganizado (body primero, metadata abajo), pin badge eliminado → borde izquierdo brand sutil, hex (#16A34A, #DC2626, #FFFBEB, #FDE68A) → tokens DS (--success, --danger), 24 inline (tokens). **ClientSupportTab**: hex StatusBadge eliminado → Badge DS, EmptyState añadido, 87→90L, hex 4→0, inline 12→9. **TicketList**: CSS module creado (80L), inline 15→2 (solo priority.color dinámico). **TicketStatsCards.tsx**: eliminado (dead code, 0 imports). **NewTicketModal**: ya migrado en D15 (15 inline con tokens, 0 hex, DS components). Build ✅ | ✅ |
+| 7.5.D23 | **Checkout migration (§2.6, §5.9)** — **Layout:** `FormPage` (Breadcrumb DS + h1). **DS components:** `<SearchInput>` (client search), `<Card>` (step containers), `<Button loading>` (CTAs + confirm), `<Badge>` (product + savings), `<AlertBanner>` (info + error), `<Skeleton>` (product loading). CSS module `checkout.module.css` (192L). **StepConfirm.tsx:** `<Card>` summary, `<Button loading>`, `<AlertBanner>` callouts. hex 79→0. Build ✅ | ✅ |
+| 7.5.D24 | **Form pages migration (§2.6, §5.6)** — **Nuevo componente:** `FormPage` layout (Breadcrumb DS + h1 + sticky actions). Registrado en barrel export. **Layout:** cada form section en su propia `<Card>`. **DS components:** `<Input>`, `<Select>`, `<Textarea>`, `<Button loading>`, `<AlertBanner>`, `<Skeleton>`. CSS module `productForm.module.css` (155L). **new/page.tsx:** Breadcrumb > Productos > Nuevo. Cards: Identidad, Pricing, Provisioning, Ciclo de vida. **edit/page.tsx:** Breadcrumb > Productos > [Nombre] > Editar. Skeleton loading. hex 7→0. Build ✅ | ✅ |
+| 7.5.D24.5 | **Layout coherence gaps** — **P0: DetailPage → Breadcrumb DS.** Eliminado `backHref`+`backLabel` props + `BackIcon` SVG + `.backLink` CSS. Sustituido por `breadcrumb: BreadcrumbItem[]` + `<Breadcrumb>` DS (idéntico a FormPage). 3 pages actualizadas: clients/[id], products/[id], billing/[id]. **Width unificado:** ListPage, DetailPage, FormPage = **1200px** (antes: 1200/1000/800). `.wide` variant → 1400px. **FormPage actions:** eliminados `sticky`, `background`, `border-top`. **CSS cleanup:** productForm.module.css stripped 160→120L (removidas clases redundantes con DS). checkout.module.css stripped 210→125L. **UI_SPEC §2.5** actualizado: Breadcrumb usa DS component. **§2.6** actualizado: actions sin background/sticky. **§2.8** añadido: Layout Width System (1200px uniforme, prohibiciones explícitas). Build ✅ | ✅ |
+| 7.5.D25 | **Support detail migration (§2.5, §4.2, §4.4)** — **Layout:** `DetailPage` con `<Breadcrumb>` DS (Soporte > [Subject] o Chats > [Subject]). **CSS module:** `conversationDetail.module.css` (290L). **page.tsx:** Skeleton loading (§4.4) para ambas columnas + estado not-found. 2 columnas responsivas (messages + sidebar). **ConversationHeader:** inline badges → `<Badge variant>`, raw `<select>` → `<Select size="sm">`, raw buttons → `<Button variant="secondary">`. 19 hex → 0. **ConversationMessages:** 27 hex → 0, bubble clases con variantes (mine/theirs/internal), `<Button loading>` para enviar. **ConversationSidebar:** custom cards → `<Card>`, loading text → `<Skeleton>`, 32 hex → 0. **DetailResolutionModal:** custom overlay → `<Modal size="sm">`, `<Textarea>`, `<Button loading>`. 13 hex → 0. **types.ts:** `STATUS_CONFIG` refactored: `{color, bg}` → `{variant: BadgeVariant}`. **Total:** 94 hex → 0, 74 inline → ~8 (spacing tokens only). Build ✅ | ✅ |
+| 7.5.D26 | **Dashboard Overview (§2.3)** — **Backend:** `DashboardModule` con `GET /api/v1/dashboard/overview`. Discriminated union: 4 response types (`AdminOverview`, `ClientOverview`, `AgentOverview`, `PartnerOverview`). Cada uno con Prisma `$transaction` optimizada. **Stats por rol (§2.3 tabla):** Admin: clientes activos, ingresos totales, facturas vencidas, tickets abiertos. Cliente: servicios activos, factura pendiente (€), próx. renovación, tickets abiertos. Agente: chats esperando, tickets sin responder, tareas hoy. Partner: clientes referidos, comisiones del mes, próx. liquidación. **Frontend:** Tipo `OverviewStats` (discriminated union). 4 componentes stats: `AdminStats`, `ClientStats`, `AgentStats`, `PartnerStats`. Greeting contextual por hora + rol. Alertas role-aware. Quick actions role-aware. CSS: `.statsGrid` (4 cols) + `.statsGridThree` (3 cols). Zero hex, zero Tailwind. 1200px (§2.8). Build frontend ✅ + backend ✅ | ✅ |
+| 7.5.D26.5 | **Role-text coherence audit (§P6)** — Auditoría exhaustiva de textos/información por rol en todo el dashboard. **UI_SPEC actualizado:** Nuevas secciones P6.1 (Matriz de contenido adaptativo — 17 reglas por página×rol), P6.2 (Tono por rol — derivado del documento de marca), P6.3 (5 Prohibiciones de texto). **7 fixes aplicados:** (1) **Topbar:** eliminado "Tu plan: Básico" hardcodeado → "Plan de soporte activo" (P6.3 regla 1). (2) **Topbar:** fix dead link `/dashboard/catalog` → `/dashboard/billing/checkout` (P6.3 regla 2). (3) **Topbar:** "Configuración" solo visible si rol tiene permiso `Setting` (P6.1). (4) **Billing:** columna "Cliente" oculta para no-admin (P6.3 regla 3). (5) **Billing:** tab "Canceladas" solo para admin (P6.3 regla 5). (6) **Support:** CTA "Abrir ticket" oculto para agent_support/agent_billing — agentes responden, no abren (P6.3 regla 4). CTA text: admin="Nuevo ticket para cliente", client="Nueva conversación". (7) **Overview:** título sección "Alertas" → "Novedades" para client/partner (P6.2 tono). EmptyState messages role-specific. **Checkout:** título/breadcrumb role-aware: admin="Crear servicio para cliente", client="Contratar servicio". Build ✅ | ✅ |
+| 7.5.D26.6 | **Cross-module referrer + Conversation display titles** — **1. ContextBackLink (P6.1):** Nuevo componente DS `<ContextBackLink>` — lee `?from=` y `?fromLabel=` de la URL, renderiza "← Volver a {label}" encima del breadcrumb. Solo visible para non-client roles (agent/admin/partner). Integrado automáticamente en `DetailPage` layout con `<Suspense>`. CSS: `.backLink` → texto terciario, hover → brand. **Links wired:** `ConversationSidebar` → "Ver perfil" + "Ver notas" ahora incluyen `?from=/support/{id}&fromLabel=TK-00042 · Subject`. `ClientSupportTab` → click ticket incluye `?from=/clients/{id}&fromLabel=Perfil de {nombre}`. **2. Ticket sequence_number:** Migración DB: `ALTER TABLE conversations ADD COLUMN sequence_number INT UNIQUE`. PostgreSQL SEQUENCE `conversation_ticket_seq` para auto-increment atómico. Asignado en las 3 rutas de creación: `createTicket`, `createTicketForClient`, `escalateToTicket`. Backfill de tickets existentes. **3. Display titles (`getDisplayTitle`):** Tickets → `TK-00042 · Subject`. Chats genéricos → `{ClientName} · 23 abr`. Chats con subject real → `{ClientName} · Subject`. User relation añadida al query de listado. Aplicado en: `TicketList`, breadcrumb detail page. **Schema:** `Conversation.user` relation + `sequence_number` field. Build frontend ✅ + backend ✅ | ✅ |
+| 7.5.D27 | **Auth pages migration (§5.13)** — **Layout: Split-screen `AuthLayout`** — Aurora Digital (55%) + Form (45%). `GradientMesh` montado 1 vez en layout compartido. Logo SVG real (`/brand/logo-blue-black.svg`) en card glassmorphism + slogan fadeIn. Mobile: panel form + logo arriba. **CSS module `auth.module.css`** (330L): 24 clases: `.authRoot` (grid 55fr/45fr), `.auroraPanel`, `.formPanel`, `.brandCard` (glassmorphism), `.heading`, `.formStack`, `.fieldGroup`, `.authInput` (focus: brand ring), `.submitButton` (hover: translateY), `.alert` (danger/success/info), `.passwordWrapper`, `.passwordToggle`, `.passwordChecks`, `.successContainer`. Zero hex, zero Tailwind. **5 páginas migradas:** Login (credentials → 2FA → redirect, `AnimatePresence`), Register (form → verify success, password checks §4.6), Forgot (email → success, anti-enumeration), Reset (Suspense + token → new password → success), Verify (auto-verify on mount + Suspense). **Metrics:** ~105 inline → 0, ~28 hex → 0, ~1151L → ~880L. Regla 15 cumplida: sub-componentes EyeIcon, PasswordCheck extraídos. **Brand:** Logo SVGs copiados a `/public/brand/`. Responsive @media 1024px. Build ✅ | ✅ |
+| 7.5.D27.1 | **Auth quality hardening** — 6 fixes post-migración (3 críticos + 3 importantes). **Críticos:** (1) `ContextBackLink`: `<a>` → `<Link>` de Next.js — preserva SPA navigation (evita full page reload). Añadido `aria-label`. (2) `DetailPage`: import duplicado de React unificado (`ReactNode` + `Suspense` → 1 línea). (3) `globals.css`: 4 nuevos tokens semánticos `--danger-border`, `--success-border`, `--warning-border`, `--info-border` — eliminan los 3 `rgba()` literales que quedaban en `auth.module.css`. **Importantes:** (4) Login `?expired=true`: lee query param y muestra `alertInfo` "Tu sesión ha expirado" (§4.3). Añadido `Suspense` wrapper para `useSearchParams`. (5) DRY: extraído `auth-components.tsx` con `EyeIcon` + `PasswordCheck` — eliminadas ~90 líneas duplicadas en 3 archivos (login, register, reset). (6) Backend `sequence_number`: los 3 métodos de creación de tickets (`createTicket`, `createTicketForClient`, `escalateToTicket`) ahora refetch con `findUniqueOrThrow` tras asignar el SEQUENCE — la response al frontend incluye `sequence_number` para display inmediato. Logs mejorados: `TK-00042` en vez de UUID. Build frontend ✅ + backend ✅ | ✅ |
+| 7.5.D28 | **Ayuda contextual (§4.12)** — **Nuevo componente `HelpTip`** (ⓘ icon + Tooltip multiline 240px). **Tooltip DS extendido:** prop `multiline` para wrapping. **StatsCard/Table:** `label`/`header` type widened `string → ReactNode`. **5 HelpTips aplicados:** (1) Overview ClientStats: "Factura pendiente" → explicación de cobro automático. (2) Overview ClientStats: "Próxima renovación" → explicación de fecha de aniversario. (3) Billing list: columna "Vencimiento" → explicación de cobro. (4) Billing detail: meta "Vencimiento" → explicación con método de pago. (5) Checkout: "setup" fee → "coste único de activación". **Guards:** todos condicionados a `!isAdmin` (solo clientes). Tono Aelium: breve, claro, sin tecnicismos. Máx 2-3 por página. Build ✅ | ✅ |
+| 7.5.D29 | **Undo toast (§4.9)** — **Toast DS extendido:** nuevo método `toastUndo(variant, message, onUndo, duration?)` en contexto. **Undo UI:** botón "DESHACER" glassmorphism (`rgba(255,255,255,0.15)` + border) + barra de countdown animada (CSS `@keyframes countdown`, width 100%→0%). **Duración:** 8s por defecto (vs 5s estándar). **Timer cleanup:** `useRef<Map>` de timers, cleanup on unmount + on undo click. **ToastItem:** componente interno extraído para separar lógica de undo. Al hacer click en "Deshacer": ejecuta callback `onUndo()` + dismiss inmediato del toast. **DS Preview actualizado:** 3 demos interactivos — cerrar ticket (undo→reabierto), archivar conversación (undo→restaurada), marcar leído (undo→no leído). **Barrel export:** `toastUndo` añadido a `ToastContextValue`. Build ✅ | ✅ |
+| 7.5.D29.1 | **Hardening pass §4 — Toast, Modal, CSS compliance** — **confirm() → Modal DS (§4.2):** 2 `confirm()` nativos eliminados: (1) Product detail delete → `deleteModalOpen` + `<Modal>` con botón "Eliminar definitivamente". (2) Product edit pricing delete → `deletePricingId` + `<Modal>`. **Toast §4.3 aplicado en 5 páginas:** (1) `products/[id]` — toggle status, delete + catch error. (2) `products/[id]/edit` — save, add pricing, delete pricing + catch errors. (3) `products/page` — toggle status + catch error. (4) `billing/page` — finalize/pay/cancel + catch error. (5) `billing/[id]` — finalize/pay/cancel/refund + catch error. **Total: 12 catch vacíos → toast('error') con mensaje.** **Product detail CSS module:** nuevo `productDetail.module.css` — ~50 inline `style={{}}` → clases semánticas (`.headerRow`, `.contentGrid`, `.sectionTitle`, `.detailsGrid`, `.listRow`, `.configStack`, etc.). **Overview inline cleanup:** 8 `style={{}}` → CSS module classes (`.sectionBody`, `.skeletonCard`, `.alertLink`, `.emptyIconSuccess`). **DS Preview:** añadidos `AlertBanner` (4 variantes) + `HelpTip` (3 demos) a la página de preview. Build ✅ | ✅ |
+| 7.5.D30 | **Command Palette (§4.10)** — **Nuevo componente `CommandPalette`** (CSS Module + 280L TSX). **Activación:** `Cmd+K` / `Ctrl+K` global (event listener en layout) + click en Topbar search trigger. **UI:** overlay blur 4px + palette 560px con searchbar, secciones, keyboard nav, footer hints. **Secciones role-aware:** (1) **Recientes** — últimas 5 navegaciones (localStorage `aelium_cmd_recent`), icon reloj. (2) **Navegar** — Dashboard, Clientes, Productos, Facturación, Tickets, Chat, Settings (filtrado por PBAC `canAccess`). Diferentes labels por rol: client → "Mis facturas"/"Soporte", admin → "Facturación"/"Tickets". (3) **Acciones rápidas** — Nuevo producto (admin), Nuevo ticket (todos), Contratar servicio (client). Icon brand. **Búsqueda:** filtrado por label + description + keywords (ej: "facturas", "pagos", "cobros" → Facturación). **Keyboard nav:** `↑↓` navegar, `Enter` ejecutar, `Esc` cerrar. Active item highlight + scroll into view. **History:** `addRecent(label, href)` persiste en localStorage, max 5 entries, deduplica por href. **Integración:** `layout.tsx` → state `cmdPaletteOpen`, `useCallback` open/close, `Topbar` → prop `onOpenCommandPalette`. **Barrel:** registrado en `ui/index.ts`. Build ✅ | ✅ |
+| 7.5.D30.1 | **Command Palette v2 (deferred)** — Mejoras para cuando haya volumen de datos: (1) **API search** — búsqueda debounced (300ms) de clientes por nombre/email, facturas por número (INV-xxxxx), tickets por ID/asunto. Requiere endpoint `/api/search?q=` global. (2) **Fuzzy matching** — algoritmo subsequence con scoring (reemplaza `includes()`). Highlight de letras matcheadas en resultados. (3) **Scope prefixes** — `@` clientes, `#` facturas/tickets, `>` acciones, `/` páginas. (4) **Loading skeleton** — estado de carga durante búsqueda API. (5) **ARIA completo** — `role="listbox"`, `role="option"`, `aria-activedescendant`. **Trigger:** Sprint 9+ cuando haya 50+ clientes en producción. | ⏳ |
+| 7.5.D31 | **Bulk actions (§4.11)** — **Table DS extendido:** nuevas props `selectable`, `selectedIds: Set`, `onSelectionChange`. Checkbox column con `appearance: none` custom + `:checked` + `:indeterminate` states (CSS puro). Header checkbox: select all / deselect all con `useRef` + `indeterminate` DOM property. Row highlight `--brand-subtle` al seleccionar. Skeleton checkbox en loading. Click propagation: `e.stopPropagation()` para no triggear `onRowClick`. **Nuevo componente `BulkActionBar`** — barra flotante fixed bottom-center con slide-up animation. Muestra: count badge + action buttons (children) + "Deseleccionar". `role="toolbar"` + `aria-label`. **Integrado en 3 páginas:** (1) **Billing** (admin): "Cobrar seleccionadas" + "Descargar PDF" + "Cancelar" → bulk con loop `for...of` + contadores ok/fail → toast resumen. Acciones destructivas ("Cobrar"/"Cancelar") → Modal confirmación §4.2. (2) **Products**: "Activar/Desactivar" bulk toggle. (3) **Clients**: "Exportar" (placeholder para implementación backend). **Support:** diferido — ticket list es card-based (no Table). **Barrel:** `BulkActionBar` registrado en `ui/index.ts`. Build ✅ | ✅ |
+| 7.5.D32 | **Auditoría final** — Scan automatizado 9 criterios § 4 en TODAS las páginas. **Resultados: 8/9 PASS.** ① Colores literales: 0 ✅ ② Tailwind suelto: **4 archivos legacy** (ClientNotesTab, ClientSupportTab, checkout×2) documentados para Sprint 8, **2 archivos corregidos** (product edit + new → CSS module). ③ Emojis: 0 ✅ ④ Modal §4.2: 4 modals DS, 0 `confirm()`/`alert()` ✅ ⑤ Loading: Skeleton+Button loading en todos ✅ ⑥ EmptyState: 4 pages ✅ ⑦ Toast: ToastProvider layout, 0 silent catch, 8 pages integradas ✅ ⑧ Validación forms: todos validados ✅ ⑨ Regla 15: 39/39 archivos ✅. **Correcciones realizadas:** `productForm.module.css` extendido (+5 classes), product edit (12 TW→CSS module), product new (15 TW→CSS module), dead emoji code eliminado. **30 componentes DS** registrados en barrel. Build ✅ | ✅ |
+
+> **Regla §4 — Checklist de calidad para cada D de migración:**
+> Todo D de migración (D22-D27) DEBE verificar antes de marcar ✅:
+> - [x] §4.2: Acciones destructivas usan Modal DS (no `confirm()` nativo) — 0 nativos, 7 `<Modal>` DS
+> - [x] §4.3: Toast success/error después de cada acción CRUD — 48 toast calls, 0 silent CRUD catches
+> - [x] §4.4: Skeleton para carga inicial, Button loading para acciones — Skeleton en 8 pages, `loading={}` en 22 Buttons
+> - [x] §4.5: Errores de red → Toast, errores de validación → AlertBanner campo — 3 silent catches corregidos (client detail)
+> - [x] §4.7: Transiciones funcionales (hover, modales, tabs) con tokens — 80+ `transition:` con `--transition-fast/base/normal`
+> - [x] §4.8: Empty states con icono + texto empático + CTA — 7 `<EmptyState>` DS en 5 pages
+
+| 7.5.D32.1 | **Documentación de cierre Sprint 7.5** — (1) **`edge_cases.md`**: análisis exhaustivo línea a línea de 39 archivos. 28 edge cases documentados (0 P0, 3 P1, 12 P2, 13 P3). Categorías: race conditions, token security, error handling, stale state, UX, a11y, type safety, performance. (2) **`features/` update**: 5 feature docs actualizados con tablas DS por página, matrices de feedback UX (§4), edge cases cruzados, y referencias actualizadas. (3) **`SESSION_RULES.md`**: actualizado a Sprint 7.5, añadido workflow DS obligatorio (10 puntos), tabla de documentos con `edge_cases.md` y `AI_WORKERS.md`. (4) **`DESIGN_SYSTEM.md`**: versión 2.3, registro de 30 componentes completo (añadidos FormPage, StatusTabs, HelpTip, CommandPalette, BulkActionBar, NoPermission), referencia a `edge_cases.md`. Coherencia verificada entre todos los docs. | ✅ |
 
 ---
 
@@ -295,7 +452,7 @@
 | 8.4 | **Support Inside** — configuración de planes (Básico/Medium/Pro), asignación de slots a servicios | ⬜ |
 | 8.5 | **Support Inside** — página del cliente (plan, slots activos, historial de valor) | ⬜ |
 | 8.6 | **Support Inside** — cancelación cascada de slots, recurrencia mantenimiento (aniversario) | ⬜ |
-| 8.7 | **We Do It For You** — addon por producto, genera tarea con nota del cliente | ⬜ |
+| 8.7 | ~~**We Do It For You**~~ — **DEPRECADO**: reemplazado por módulo Projects (Sprint 22). El CTA "Solicitar desarrollo personalizado" en la página del servicio crea un proyecto, no un addon | ~~⬜~~ |
 | 8.8 | Frontend: tablero de tareas (agente) | ⬜ |
 | 8.9 | Frontend: mantenimiento mensual | ⬜ |
 | 8.10 | Notificaciones: tarea asignada, tarea crítica | ⬜ |
@@ -435,6 +592,36 @@
 | 13.26 | **Proteger borrado de billing profile con facturas vinculadas** — validar existencia antes de permitir DELETE | EC-BILL-05 | ⬜ |
 | 13.27 | **Cliente no ve drafts propios** — filtrar `status != draft` en listado de facturas del cliente | EC-BILL-11 | ⬜ |
 | 13.28 | **Email verificado requerido para checkout** — guard que comprueba `status != pending_verification` en billing endpoints | EC-CHKOUT-01 | ⬜ |
+| 13.29 | **Catálogo del dashboard** — página `/dashboard/catalog` con features comparativas, planes, badge "Más popular". Alimentado por `features` JSON del producto. El checkout se mantiene transaccional — el catálogo es para exploración. Depende de Sprint 8 (EC-10: UI features) | UX-CLIENT | ⬜ |
+| 13.30 | **Redis adapter Socket.io** — instalar `@socket.io/redis-adapter` para preparar HA multi-instancia. Cambio de ~10 líneas en gateway. Requisito para escalar horizontalmente | ESCALA | ⬜ |
+| 13.31 | **Auditoría N+1 queries** — revisar todos los listados (support, clients, invoices) y eliminar queries N+1 con `include` de Prisma o `$queryRaw`. Hot paths: lista de conversaciones, ficha de cliente, lista de facturas | ESCALA | ⬜ |
+| 13.32 | **Cursor-based pagination en messages** — reemplazar `OFFSET` por cursor (`WHERE created_at < ? LIMIT N`) en la tabla de mensajes. Es la tabla con mayor crecimiento | ESCALA | ⬜ |
+| 13.33 | **Caching Redis para hot paths** — cachear catálogo de productos (TTL 5min), perfiles de cliente frecuentes (TTL 30s), settings (TTL 1min). Invalidación por clave | ESCALA | ⬜ |
+| 13.34 | **Archival strategy para messages** — definir política de archivado para mensajes de conversaciones cerradas >6 meses. Tabla `messages_archive` con mismo schema. Job mensual | ESCALA | ⬜ |
+
+**Refactorización Regla 15 — Módulos completados:**
+
+> Los siguientes módulos fueron construidos antes de establecer la Regla 15 (ARCHITECTURE.md).
+> Cada archivo que supera su límite debe dividirse en sub-servicios/sub-componentes.
+> Ref: ARCHITECTURE.md Regla 15.
+
+| # | Archivo | Líneas → Límite | Acción | Estado |
+|---|---------|----------------|--------|--------|
+| 13.R15.1 | `auth.service.ts` (585 → 300) | Extraer `auth-login.service.ts`, `auth-register.service.ts`, `auth-token.service.ts`, `auth-2fa.service.ts`. Fachada en `auth.service.ts` | ⬜ |
+| 13.R15.2 | `billing.service.ts` (679 → 300) | Extraer `billing-invoice.service.ts`, `billing-payment.service.ts`, `billing-query.service.ts`. Fachada en `billing.service.ts` | ⬜ |
+| 13.R15.3 | `billing-lifecycle.worker.ts` (321 → 150) | Dividir en `billing-renewal.worker.ts` + `billing-overdue.worker.ts` + `billing-cleanup.worker.ts` | ⬜ |
+| 13.R15.4 | `billing-email.listener.ts` (210 → 150) | Dividir por evento: `billing-invoice-email.listener.ts` + `billing-payment-email.listener.ts` | ⬜ |
+| 13.R15.5 | `billing.controller.ts` (210 → 200) | Reducir comentarios, extraer helpers de validación | ⬜ |
+| 13.R15.6 | `products.service.ts` (373 → 300) | Extraer `product-query.service.ts` (listados, búsqueda) del CRUD principal | ⬜ |
+| 13.R15.7 | `clients.service.ts` (342 → 300) | Extraer `client-query.service.ts` (listados, filtros, stats) del CRUD principal | ⬜ |
+| 13.R15.8 | `permissions.ts` (314 → 300) | Separar definiciones por módulo: `permissions-billing.ts`, `permissions-support.ts`, etc. Re-exportar desde index | ⬜ |
+| 13.R15.9 | `checkout/page.tsx` (521 → 300) | Extraer `CheckoutSummary.tsx`, `CheckoutPayment.tsx`, `CheckoutConfirmation.tsx` | ⬜ |
+| 13.R15.10 | `layout.tsx` (394 → 300) | Extraer `Sidebar.tsx`, `Topbar.tsx`, `UserMenu.tsx` | ⬜ |
+| 13.R15.11 | `page.tsx` landing (350 → 300) | Extraer secciones a componentes: `HeroSection.tsx`, `FeaturesSection.tsx`, `PricingSection.tsx` | ⬜ |
+| 13.R15.12 | `products/page.tsx` (323 → 300) | Extraer `ProductTable.tsx` y `ProductFilters.tsx` | ⬜ |
+| 13.R15.13 | `products/new/page.tsx` (319 → 300) | Extraer `ProductForm.tsx` multi-step | ⬜ |
+| 13.R15.14 | `GradientMesh.tsx` (294 → 200) | Extraer lógica WebGL a hook `useGradientMesh.ts` | ⬜ |
+| 13.R15.15 | `support-email.listener.ts` (187 → 150) | Condensar templates inline a imports de `email-templates/` | ⬜ |
 
 ---
 
@@ -624,10 +811,120 @@
 
 ---
 
+## Sprint 22 — Projects ⬜
+
+> Objetivo: sistema de proyectos que reemplaza WDIFY. Dos modos: propuesta (agente→cliente) y organizador (cliente agrupa productos).
+> Referencia: DECISIONS.md §44.
+> Dependencias: Sprint 8 (tasks), Sprint 11 (provisioning), Sprint 6 (billing).
+
+**Fase 1 — Modelo y CRUD:**
+
+| # | Paso | Estado |
+|---|------|--------|
+| 22.1 | **Schema y migraciones** — tablas `projects`, `project_items`, `project_history`, `project_agents`. Campo `project_id` nullable en `tasks` e `invoices`. Enum `invoice_type`: `standard`, `deposit`, `project_final` | ⬜ |
+| 22.2 | **ProjectsService CRUD** — crear, editar, listar, detalle. Validaciones por `type` (`proposal` vs `organizational`) | ⬜ |
+| 22.3 | **Project items** — CRUD de líneas: snapshot de producto (nombre, precio, ciclo) + items custom sin catálogo. Cálculo de total | ⬜ |
+| 22.4 | **Asignación de agentes** — assigned_agent + collaborators. Historial de asignaciones en `project_history` | ⬜ |
+| 22.5 | **Frontend admin: CRUD proyectos** — crear, editar items, asignar agentes, descripción rica | ⬜ |
+
+**Fase 2 — Ciclo de vida (propuestas):**
+
+| # | Paso | Estado |
+|---|------|--------|
+| 22.6 | **Estado machine** — `draft → proposal_sent → accepted → deposit_paid → in_progress → completed → paid → active`. Transiciones con validación y `project_history` | ⬜ |
+| 22.7 | **Vista pública** — endpoint con JWT token (30 días). Página readonly del presupuesto sin login. Descripción, productos, tareas, precio | ⬜ |
+| 22.8 | **Aceptación y registro** — flujo: aceptar → login/registro con email vinculado → auto-vinculación (solo si email verificado) → pago depósito | ⬜ |
+| 22.9 | **Depósito** — invoice tipo `deposit`. Porcentaje configurable por proyecto (`deposit_pct`, default 5%). Se descuenta de factura final | ⬜ |
+| 22.10 | **Provisioning para equipo** — al pagar depósito, los `project_items` con `product_id` crean `services` con status `project_development`. Accesibles para agentes, pendientes para cliente | ⬜ |
+| 22.11 | **Modificaciones post-aceptación** — cambio en items tras aceptación vuelve estado a `pending_review`. Cliente debe re-aceptar | ⬜ |
+| 22.12 | **Expiración** — configurable `valid_until` por proyecto. Job que expira propuestas sin respuesta | ⬜ |
+
+**Fase 3 — Finalización y activación:**
+
+| # | Paso | Estado |
+|---|------|--------|
+| 22.13 | **Integración con tareas** — tareas del proyecto via `tasks.project_id`. Progreso visible al cliente (% completado) | ⬜ |
+| 22.14 | **Finalización** — agente marca como `completed`. Se genera factura final (total - depósito). Cliente ve notificación | ⬜ |
+| 22.15 | **Pago y activación** — al pagar factura final, `services` pasan de `project_development` → `active`. Proyecto → `active` | ⬜ |
+| 22.16 | **Cancelación y reembolso** — política de depósito configurable: `full`, `partial`, `none`. Estado → `cancelled` | ⬜ |
+
+**Fase 4 — Organizador del cliente:**
+
+| # | Paso | Estado |
+|---|------|--------|
+| 22.17 | **Proyectos del cliente** — el cliente crea proyectos tipo `organizational` para agrupar sus servicios activos. CRUD simple | ⬜ |
+| 22.18 | **CTA "Solicitar desarrollo personalizado"** — botón en la página del servicio. Crea proyecto `proposal` vinculado a ese servicio. Genera tarea para agente | ⬜ |
+| 22.19 | **Frontend cliente: mis proyectos** — lista, detalle, progreso de propuestas activas, organización de servicios | ⬜ |
+| 22.20 | **Notificaciones** — propuesta enviada, aceptada, depósito pagado, tarea actualizada, proyecto completado, pago requerido | ⬜ |
+| 22.21 | docs/features/projects/admin.md + client.md | ⬜ |
+
+---
+
+## Sprint 23 — Tickets Redesign ⬜
+
+> Objetivo: diferenciar tickets del chat visualmente y funcionalmente. UI de threads, sidebar enriquecida, vinculación a entidades.
+> Referencia: DECISIONS.md §46.
+> Dependencias: Sprint 7 (support base), Sprint 22 (projects: vinculación).
+
+| # | Paso | Estado |
+|---|------|--------|
+| 23.1 | **UI thread-based** — cada respuesta en un ticket es un bloque completo (cabecera + cuerpo + footer) en vez de burbujas de chat. Visualmente distinto | ⬜ |
+| 23.2 | **Sidebar enriquecida para tickets** — perfil cliente + servicios + notas (igual que chat) + metadata del ticket: SLA, servicio vinculado, proyecto vinculado, tags | ⬜ |
+| 23.3 | **Vinculación a entidades** — al crear/editar ticket, poder linkar a un servicio o proyecto del cliente. Campos `linked_service_id`, `linked_project_id` en `conversations` | ⬜ |
+| 23.4 | **Tags/etiquetas** — tabla `conversation_tags`. CRUD. Filtro en lista de tickets | ⬜ |
+| 23.5 | **Lista de tickets rediseñada** — columnas ordenables: estado, prioridad, agente, categoría, última actividad, SLA. Filtros combinables | ⬜ |
+| 23.6 | **SLA tracking** — campos `sla_response_target`, `sla_resolution_target` en conversación. Indicador visual de cumplimiento | ⬜ |
+| 23.7 | **Deprecar categorías WDIFY** — eliminar `wdify_progress` y `wdify_feedback` de ticket categories. Migrar tickets existentes a `support_technical` | ⬜ |
+| 23.8 | **Adjuntos** — subida de archivos en tickets (MinIO). Soporte para screenshots, logs, documentos | ⬜ |
+| 23.9 | Frontend: página de ticket rediseñada (thread + sidebar) | ⬜ |
+| 23.10 | Frontend: lista de tickets rediseñada (bandeja tipo inbox) | ⬜ |
+| 23.11 | docs/features/support/tickets.md | ⬜ |
+
+---
+
+## Sprint 24 — Citation System ⬜
+
+> Objetivo: poder citar productos, proyectos, y notas en la comunicación (chat y tickets). Rich embeds inline.
+> Referencia: DECISIONS.md §47.
+> Dependencias: Sprint 22 (projects), Sprint 23 (tickets redesign).
+
+| # | Paso | Estado |
+|---|------|--------|
+| 24.1 | **Modelo de referencias** — campo `references` (jsonb) en tabla `messages`. Array de `{ type: 'product'|'project'|'service'|'note', id: uuid, snapshot: {} }` | ⬜ |
+| 24.2 | **Backend: resolver referencias** — al cargar mensajes, enriquecer snapshots con datos actuales (nombre, estado, precio). Fallback si la entidad fue eliminada | ⬜ |
+| 24.3 | **Frontend: selector de referencias** — botón "Adjuntar referencia" en input de mensajes. Busca por tipo (productos, proyectos, servicios, notas del cliente) | ⬜ |
+| 24.4 | **Frontend: render de cards** — las referencias se renderizan como cards clickables inline en el mensaje. Info básica: nombre, tipo, estado, link | ⬜ |
+| 24.5 | **Permisos** — el cliente solo puede citar sus propios productos/proyectos. El agente puede citar cualquier entidad del cliente activo | ⬜ |
+| 24.6 | **Navegación** — al hacer clic en una referencia, tanto agente como cliente navegan a la entidad (producto, proyecto, nota). Deep linking | ⬜ |
+| 24.7 | docs/features/support/citations.md | ⬜ |
+
+---
+
+## Sprint 25 — AI Workers ⬜
+
+> Objetivo: integrar OpenClaw como asistente IA para tareas de desarrollo simples (landings, sitios estáticos).
+> Referencia: docs/AI_WORKERS.md (especificación completa).
+> Dependencias: Sprint 8 (tasks), Sprint 15 (plugins), Sprint 22 (projects).
+
+| # | Paso | Estado |
+|---|------|--------|
+| 25.1 | **Plugin framework para ai-workers** — nueva categoría de plugin con manifest (capabilities, config) | ⬜ |
+| 25.2 | **Campos en tasks** — `assigned_type`, `ai_worker_id`, `ai_session_id` | ⬜ |
+| 25.3 | **Tabla task_artifacts** — artefactos vinculados a tareas, con status y review | ⬜ |
+| 25.4 | **Integración OpenClaw** — docker-compose service, API client, webhook receiver | ⬜ |
+| 25.5 | **BullMQ job ai.task.execute** — orquestación: enviar a OpenClaw, recibir resultado, actualizar tarea | ⬜ |
+| 25.6 | **Frontend: asignar tarea a IA** — botón condicional en detalle de tarea, selección de worker | ⬜ |
+| 25.7 | **Frontend: preview de artefactos** — iframe para HTML, lista de archivos, estados approve/reject | ⬜ |
+| 25.8 | **Frontend: filtro IA en lista de tareas** — badge IA, filtro por assigned_type | ⬜ |
+| 25.9 | **Flujo completo** — asignar → OpenClaw genera → agente revisa → aprueba/rechaza → despliegue via ProvisioningService | ⬜ |
+| 25.10 | docs/features/ai-workers/admin.md | ⬜ |
+
+---
+
 ## Orden de ejecución recomendado
 
 ```
-FASE 1 — CORE (Sprints 0-14)
+FASE 1 — CORE (Sprints 0-14, orden secuencial estricto)
   Sprint 0  Scaffolding                    ✅
   Sprint 1  Auth                           ✅
   Sprint 2  Notifications Core             ✅
@@ -636,23 +933,58 @@ FASE 1 — CORE (Sprints 0-14)
   Sprint 4  Clients                        ✅
   Sprint 5  Products + PBAC                ✅
   Sprint 6  Billing Engine                 ✅
-  Sprint 7  Support                        ⬜
-  Sprint 8  Tasks + Support Inside         ⬜
-  Sprint 9  Audit + Notifications Full     ⬜
-  Sprint 10 Infrastructure                 ⬜
-  Sprint 11 Provisioning                   ⬜
-  Sprint 12 Settings + Knowledge Base      ⬜
-  Sprint 12.5 RGPD                         ⬜
-  Sprint 13 Hardening                      ⬜
-  Sprint 14 Deploy                         ⬜
+  Sprint 7  Support                        ⬜ (en progreso)
+  Sprint 8  Tasks + Support Inside         ⬜  ← depende de 7
+  Sprint 9  Audit + Notifications Full     ⬜  ← depende de 2
+  Sprint 10 Infrastructure                 ⬜  ← independiente
+  Sprint 11 Provisioning                   ⬜  ← depende de 10, 5, 6
+  Sprint 12 Settings + Knowledge Base      ⬜  ← depende de la mayoría
+  Sprint 12.5 RGPD                         ⬜  ← depende de 9, 4
+  Sprint 13 Hardening + Escalabilidad      ⬜  ← último antes de deploy
+  Sprint 14 Deploy                         ⬜  ← cierra Fase 1
 
-FASE 2 — PLUGINS + EXPANSIÓN (Sprints 15-21, orden flexible)
-  Sprint 15 Plugins                        ⬜  (después de Sprint 14 — requiere Settings + Deploy)
-  Sprint 16 i18n + Multi-Currency          ⬜  (después de Sprint 14)
-  Sprint 17 Promotions & Discounts         ⬜  (después de Sprint 6)
-  Sprint 18 Landing Integration            ⬜  (después de Sprint 15)
-  Sprint 19 Partner Module                 ⬜  (después de Sprint 15: Stripe Connect)
-  Sprint 20 Referral System                ⬜  (después de Sprint 6)
-  Sprint 21 CRM Completeness              ⬜  (después de Sprint 11)
+FASE 2 — MÓDULOS DE NEGOCIO (priorizado por valor de negocio)
+
+  Prioridad A — Go to market:
+    Sprint 15 Plugins                      ⬜  ← pago (Stripe) + provisioning automático
+    Sprint 18 Landing Integration          ⬜  ← cara pública, checkout, webchat landing
+
+  Prioridad B — Operaciones de negocio:
+    Sprint 22 Projects                     ⬜  ← flujo de ventas presencial, propuestas (dep: 8+11)
+    Sprint 21 CRM Completeness            ⬜  ← gestión completa de clientes (dep: 11)
+    Sprint 23 Tickets Redesign            ⬜  ← soporte profesional (dep: 7+22)
+    Sprint 24 Citation System             ⬜  ← comunicación contextual (dep: 22+23)
+    Sprint 25 AI Workers                  ⬜  ← asistente IA para tareas (dep: 8+15+22)
+
+  Prioridad C — Crecimiento:
+    Sprint 17 Promotions & Discounts      ⬜  ← upsell, crossell (dep: 5+6)
+    Sprint 20 Referral System             ⬜  ← adquisición orgánica (dep: 6)
+    Sprint 19 Partner Module              ⬜  ← canal de ventas B2B (dep: 15)
+
+  Prioridad D — Internacionalización:
+    Sprint 16 i18n + Multi-Currency       ⬜  ← solo si se abren mercados internacionales
 ```
+
+### Justificación del orden (Fase 2)
+
+**¿Por qué Plugins (15) antes que todo?**
+Sin Stripe no hay cobros. Sin provisioners no hay servicios automáticos. Es el requisito técnico mínimo para operar.
+
+**¿Por qué Landing (18) segundo?**
+Sin cara pública no hay captación online. Webchat + checkout desde landing = primer canal de adquisición.
+
+**¿Por qué Projects (22) antes que CRM (21)?**
+Tu modelo de negocio es: ir a negocios → proponer tecnología → crear proyecto → vender. Projects es tu herramienta de venta principal. CRM es complementario.
+
+**¿Por qué Tickets Redesign (23) después de Projects (22)?**
+Los tickets necesitan vinculación a proyectos y servicios. Sin proyectos, los tickets no tienen contexto que vincular.
+
+**¿Por qué AI Workers (25) en Prioridad B?**
+OpenClaw es una herramienta operativa que acelera el trabajo del agente. No es crecimiento ni internacionalización — es eficiencia del equipo.
+
+**¿Por qué Promotions/Referrals/Partners al final?**
+Son features de crecimiento. Primero necesitas clientes. Luego los retienes y haces crecer.
+
+**¿Por qué i18n último?**
+Solo importa si vendes fuera de España. Es inversión prematura hasta que haya tracción en mercado local.
 

@@ -1,0 +1,82 @@
+.wrapper { position: relative; display: inline-flex; }
+
+/* Default trigger (⋯ icon button) */
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+/* Custom trigger (e.g. profile menu) — no fixed size */
+.triggerCustom {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.trigger:hover,
+.triggerCustom:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  min-width: 180px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-dropdown);
+  padding: var(--space-1) 0;
+  animation: fadeIn 100ms ease;
+}
+
+.left  { left: 0; }
+.right { right: 0; }
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast);
+}
+.item:hover { background: var(--surface-secondary); }
+
+.danger { color: var(--danger); }
+.danger:hover { background: var(--danger-light); }
+
+.icon { display: flex; color: var(--text-tertiary); }
+.danger .icon { color: var(--danger); }
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-1) 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

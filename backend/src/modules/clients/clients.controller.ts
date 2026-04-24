@@ -7,16 +7,24 @@ import {
   Param,
   Body,
   Query,
+  Req,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PoliciesGuard } from '../../core/casl/policies.guard';
 import { CheckPolicies } from '../../core/casl/check-policies.decorator';
 import { Action, Subject } from '../../core/casl/permissions';
 import { ClientsService } from './clients.service';
-import { ClientListQueryDto, UpdateClientProfileDto, AddNoteDto } from './dto/client.dto';
+import {
+  ClientListQueryDto,
+  UpdateClientProfileDto,
+  AddNoteDto,
+  CreateClientNoteDto,
+  ClientNoteQueryDto,
+} from './dto/client.dto';
 import { CreateBillingProfileDto, UpdateBillingProfileDto } from './dto/billing-profile.dto';
 
 @ApiTags('Clients')
@@ -50,13 +58,46 @@ export class ClientsController {
     return this.clientsService.updateProfile(id, dto);
   }
 
+  // Legacy note endpoint (backward compat) — also creates structured note
   @Post(':id/notes')
   @CheckPolicies((ability) => ability.can(Action.Create, Subject.ClientNote))
   addNote(
     @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request,
     @Body() dto: AddNoteDto,
   ) {
-    return this.clientsService.addNote(id, dto);
+    const user = req.user as any;
+    return this.clientsService.addNote(id, dto, user.id);
+  }
+
+  /* ═══════════════════════════════════════
+     STRUCTURED NOTES (7.H19)
+     ═══════════════════════════════════════ */
+
+  @Get(':id/structured-notes')
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.ClientNote))
+  listStructuredNotes(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: ClientNoteQueryDto,
+  ) {
+    return this.clientsService.listStructuredNotes(id, query);
+  }
+
+  @Post(':id/structured-notes')
+  @CheckPolicies((ability) => ability.can(Action.Create, Subject.ClientNote))
+  createStructuredNote(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request,
+    @Body() dto: CreateClientNoteDto,
+  ) {
+    const user = req.user as any;
+    return this.clientsService.createStructuredNote(id, user.id, dto);
+  }
+
+  @Patch('notes/:noteId/pin')
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.ClientNote))
+  toggleNotePin(@Param('noteId', ParseUUIDPipe) noteId: string) {
+    return this.clientsService.toggleNotePin(noteId);
   }
 
   /* ═══════════════════════════════════════

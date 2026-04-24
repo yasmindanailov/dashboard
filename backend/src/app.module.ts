@@ -28,6 +28,7 @@ import { InfrastructureModule } from './modules/infrastructure/infrastructure.mo
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.module';
 import { ErrorLogModule } from './modules/error-log/error-log.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { ErrorLogModule } from './modules/error-log/error-log.module';
     PromotionsModule,
     KnowledgeBaseModule,
     ErrorLogModule,
+    DashboardModule,
   ],
 })
 export class AppModule implements NestModule {

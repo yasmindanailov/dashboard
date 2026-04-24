@@ -1,0 +1,24 @@
+/* ═══════════════════════════════════════
+   ContextBackLink — Cross-module "Back to…" link
+   Subtle, muted, above breadcrumb. Only shows
+   when ?from= query param is present.
+   Ref: UI_SPEC §P6.1
+   ═══════════════════════════════════════ */
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  text-decoration: none;
+  margin-bottom: var(--space-2);
+  transition: color var(--transition-fast);
+  cursor: pointer;
+}
+.backLink:hover {
+  color: var(--brand);
+}
+.backIcon {
+  flex-shrink: 0;
+}

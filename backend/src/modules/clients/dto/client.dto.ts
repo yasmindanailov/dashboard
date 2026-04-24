@@ -1,5 +1,5 @@
-import { IsOptional, IsString, IsEnum, MaxLength } from 'class-validator';
-import { ClientType } from '@prisma/client';
+import { IsOptional, IsString, IsEnum, IsUUID, IsBoolean, MaxLength } from 'class-validator';
+import { ClientType, NoteCategory } from '@prisma/client';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
 
 /* ═══════════════════════════════════════
@@ -75,9 +75,41 @@ export class UpdateClientProfileDto {
 }
 
 /* ═══════════════════════════════════════
-   Add Internal Note
+   Add Internal Note (legacy — kept for backward compat)
    ═══════════════════════════════════════ */
 export class AddNoteDto {
   @IsString()
   note!: string;
+}
+
+/* ═══════════════════════════════════════
+   Structured Client Notes (7.H19)
+   ═══════════════════════════════════════ */
+
+export class CreateClientNoteDto {
+  @IsString()
+  @MaxLength(5000)
+  body!: string;
+
+  @IsOptional()
+  @IsEnum(NoteCategory)
+  category?: NoteCategory;
+
+  @IsOptional()
+  @IsUUID()
+  conversation_id?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_pinned?: boolean;
+}
+
+export class ClientNoteQueryDto extends PaginationDto {
+  @IsOptional()
+  @IsEnum(NoteCategory)
+  category?: NoteCategory;
+
+  @IsOptional()
+  @IsBoolean()
+  pinned_only?: boolean;
 }

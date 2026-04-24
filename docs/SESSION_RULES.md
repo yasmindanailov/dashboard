@@ -2,7 +2,7 @@
 
 > Se lee al inicio de cada sesión. Contiene reglas operativas
 > que NO están en ARCHITECTURE.md ni DECISIONS.md.
-> Actualizado: Sprint 2 (Abril 2026)
+> Actualizado: Sprint 7.5 (Abril 2026)
 
 ---
 
@@ -73,6 +73,11 @@ corregirlo ANTES de avanzar al siguiente sprint.
 
 ## Design system del dashboard
 
+> **Fuente de verdad:** `docs/DESIGN_SYSTEM.md` + `docs/UI_SPEC.md`.
+> Todo módulo nuevo o modificado DEBE cumplir estas reglas.
+> El sistema de componentes está en `components/ui/` (30 componentes).
+> Sprint 7.5 finalizó la auditoría completa de compliance.
+
 ```
 LANDING (marketing)              →  DASHBOARD (herramienta)
 Botones pill (radius full)       →  Botones radius 8px
@@ -103,6 +108,19 @@ Border:           rgba(0, 0, 0, 0.06)
 DM Sans — pesos: 400 (body) · 500 (botones) · 600 (headings)
 
 > Stack completo y versiones exactas: ver ARCHITECTURE.md.
+
+### Workflow obligatorio al crear/modificar interfaz
+
+1. Leer `DESIGN_SYSTEM.md` → componentes disponibles, anti-patrones
+2. Leer `UI_SPEC.md` → anatomía de tu tipo de página, reglas de contenido
+3. Usar SOLO componentes de `components/ui/` (importar vía barrel)
+4. Usar SOLO tokens CSS de `globals.css` — nunca hex literales, nunca Tailwind
+5. CSS Modules obligatorio — nunca `style={{}}` inline
+6. Header comment con `Ref:` (Regla 15 de ARCHITECTURE.md)
+7. Feedback: `Toast` para CRUD, `AlertBanner` solo para validación persistente
+8. Loading: `<Skeleton>` para carga inicial, `<Button loading>` para acciones
+9. Empty states: `<EmptyState>` con tono empático (DESIGN_SYSTEM.md §D1-D10)
+10. Acciones destructivas: `<Modal>` — nunca `confirm()` / `alert()` nativo
 
 ---
 
@@ -138,9 +156,16 @@ test:     tests
 
 | Archivo | Contenido |
 |---------|-----------|
-| `ARCHITECTURE.md` | Stack, módulos, 13 reglas arquitectónicas |
+| `ARCHITECTURE.md` | Stack, módulos, 16 reglas arquitectónicas |
 | `DECISIONS.md` | Lógica de negocio completa (fuente de verdad) |
 | `DATABASE_SCHEMA.md` | Schema de la base de datos |
+| `DESIGN_SYSTEM.md` | Tokens, componentes UI (30), anti-patrones de diseño |
+| `UI_SPEC.md` | Anatomía de páginas, reglas de contenido, especificación de 17 páginas |
 | `ROADMAP.md` | Plan de ejecución con pasos granulares |
 | `SESSION_RULES.md` | Este archivo — reglas operativas del agente |
+| `PARTNER_ARCHITECTURE.md` | Arquitectura del sistema de Partners |
+| `PARTNER_DECISIONS.md` | Reglas de negocio del sistema de Partners |
+| `PARTNER_SCHEMA.md` | Schema de base de datos del sistema de Partners |
+| `AI_WORKERS.md` | Especificación de workers IA y agentes autónomos |
+| `edge_cases.md` | Análisis exhaustivo de edge cases por sprint |
 | `features/` | Documentación por módulo y audiencia |

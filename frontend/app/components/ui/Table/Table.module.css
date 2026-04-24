@@ -1,0 +1,135 @@
+.wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+/* ── Header ── */
+
+.th {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.sortable {
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+.sortable:hover {
+  color: var(--text-primary);
+}
+
+.thContent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.sortIcon {
+  font-size: var(--font-size-xs);
+  color: var(--brand);
+}
+
+/* ── Rows ── */
+
+.tr {
+  transition: background var(--transition-fast);
+}
+.tr:not(:last-child) .td {
+  border-bottom: 1px solid var(--border);
+}
+.tr:hover {
+  background: var(--surface-secondary);
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+/* ── Cells ── */
+
+.td {
+  padding: var(--space-3) var(--space-4);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+/* ── Alignment ── */
+
+.align_left   { text-align: left; }
+.align_center { text-align: center; }
+.align_right  { text-align: right; }
+
+/* ── Checkbox column (§4.11 Bulk Actions) ── */
+
+.checkboxCell {
+  width: 40px;
+  padding: var(--space-2) var(--space-3);
+  text-align: center;
+  vertical-align: middle;
+}
+.checkbox {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  vertical-align: middle;
+}
+.checkbox:hover {
+  border-color: var(--brand);
+}
+.checkbox:checked {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+.checkbox:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 4.5px;
+  width: 5px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+/* Indeterminate (header when partial) */
+.checkbox:indeterminate {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+.checkbox:indeterminate::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 3px;
+  width: 8px;
+  height: 2px;
+  background: white;
+  border-radius: 1px;
+}
+
+/* Selected row */
+.trSelected {
+  background: var(--brand-subtle);
+}
+.trSelected:hover {
+  background: var(--brand-subtle);
+}

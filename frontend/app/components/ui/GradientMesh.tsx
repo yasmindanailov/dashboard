@@ -78,6 +78,7 @@ const SCENE_OFFSET_Y = -0.25;              // vertical shift (-1 to 1, negative 
 
 /* ── Configuration ── */
 function makeNoise(w: number, h: number) {
+  if (w < 1 || h < 1) return null;
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   const ctx = c.getContext('2d')!;
@@ -281,6 +282,7 @@ export default function GradientMesh() {
       const rect = container.getBoundingClientRect();
       const w = rect.width;
       const h = rect.height;
+      if (w < 1 || h < 1) return; // guard: hidden or zero-size container
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
       canvas.style.width = `${w}px`;

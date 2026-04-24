@@ -1,0 +1,33 @@
+.wrapper { position: relative; display: inline-flex; }
+
+.tooltip {
+  position: absolute;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-on-brand);
+  background: var(--text-primary);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: var(--z-tooltip);
+  animation: fadeIn 100ms ease;
+}
+
+/* ── Multiline variant (§4.12 contextual help) ── */
+.multiline {
+  white-space: normal;
+  width: 240px;
+  line-height: var(--line-height-normal);
+  text-align: left;
+}
+
+.top    { bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); }
+.bottom { top: calc(100% + 6px); left: 50%; transform: translateX(-50%); }
+.left   { right: calc(100% + 6px); top: 50%; transform: translateY(-50%); }
+.right  { left: calc(100% + 6px); top: 50%; transform: translateY(-50%); }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(2px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

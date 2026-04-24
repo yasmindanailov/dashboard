@@ -737,7 +737,7 @@ Tareas del equipo. Generadas automáticamente o manualmente.
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
 | id | uuid | PK | |
-| type | enum | NOT NULL | wow_call · maintenance · maintenance_management · we_do_it_for_you · custom_work · support_setup |
+| type | enum | NOT NULL | wow_call · maintenance · maintenance_management · ~~we_do_it_for_you~~ (DEPRECADO §44) · project_task (Sprint 22) · custom_work · support_setup |
 | status | enum | NOT NULL, DEFAULT 'pending' | pending · in_progress · completed · not_completed_in_time |
 | priority | enum | NOT NULL, DEFAULT 'medium' | low · medium · high · critical |
 | assigned_to | uuid | NULLABLE, FK → users(id) | Agente asignado |
@@ -1395,6 +1395,45 @@ support_inside_subscriptions
 
 conversations
   └── messages (1:N)
+  └── client_notes (1:N, via conversation_id, nullable)
+
+users (cliente)
+  └── client_notes (1:N, via user_id)
+```
+
+---
+
+### `client_notes` ✅ Sprint 7
+
+Notas estructuradas del cliente. Reemplaza el campo de texto `notes_internal` de `client_profiles`.
+Permite categorización, autoría, vinculación a conversaciones, y pin.
+
+**Enum `NoteCategory`:**
+```
+conversation · solution · billing · technical · general
+```
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
+| user_id | uuid | NOT NULL, FK → users(id) ON DELETE CASCADE | Cliente al que pertenece la nota |
+| author_id | uuid | NOT NULL, FK → users(id) | Agente/admin que creó la nota |
+| conversation_id | uuid | NULLABLE, FK → conversations(id) ON DELETE SET NULL | Conversación de origen (si aplica) |
+| body | text | NOT NULL | Contenido de la nota |
+| category | enum(NoteCategory) | NOT NULL, DEFAULT 'general' | Tipo de nota |
+| is_pinned | boolean | NOT NULL, DEFAULT false | Notas fijadas aparecen primero |
+| created_at | timestamptz | NOT NULL, DEFAULT now() | |
+| updated_at | timestamptz | NOT NULL, DEFAULT now() | |
+
+**Índices:**
+- `idx_client_notes_user_id` — en user_id
+- `idx_client_notes_conversation_id` — en conversation_id
+
+**Auto-creación:**
+- Al enviar un mensaje interno (`is_internal: true`) → categoría `conversation`
+- Al resolver o cerrar una conversación → categoría `solution`
+- Al reabrir una conversación → categoría `general`
+- Al crear nota desde la ficha del cliente → categoría seleccionada por el agente
 
 servers
   ├── server_pools (1:N)
@@ -1821,4 +1860,163 @@ users (cliente normal)
   └── referral_codes (1:1)
         └── referrals (1:N)
               └── referral_credits (1:N por mes)
+```
+
+---
+
+## BLOQUE 14 — PROYECTOS ⬜ Sprint 22
+
+> Reemplaza WDIFY. Dos modos: `proposal` (agente→cliente) y `organizational` (cliente agrupa servicios).
+> Referencia: DECISIONS.md §44.
+
+---
+
+### `projects`
+Proyecto: propuesta de desarrollo personalizado o agrupador organizativo de servicios.
+
+**Enum `ProjectType`:** `proposal` · `organizational`
+
+**Enum `ProjectStatus`:** `draft` · `proposal_sent` · `accepted` · `pending_review` · `deposit_paid` · `in_progress` · `completed` · `paid` · `active` · `rejected` · `expired` · `cancelled`
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
+| type | enum(ProjectType) | NOT NULL | `proposal` o `organizational` |
+| status | enum(ProjectStatus) | NOT NULL, DEFAULT 'draft' | Solo aplica a `proposal`. `organizational` siempre `active` |
+| name | varchar(300) | NOT NULL | Título del proyecto |
+| description | text | NULLABLE | Descripción rica: qué se hará, por qué, cómo |
+| client_id | uuid | NULLABLE, FK → users(id) | Nullable si `proposal` pre-registro |
+| client_email | varchar(255) | NULLABLE | Email del cliente (para envío de propuesta sin cuenta) |
+| assigned_agent_id | uuid | NULLABLE, FK → users(id) | Agente principal asignado |
+| created_by | uuid | NOT NULL, FK → users(id) | Agente/admin que creó o cliente si `organizational` |
+| deposit_pct | decimal(5,2) | NOT NULL, DEFAULT 5.00 | % de depósito configurable |
+| deposit_refund_policy | enum | NOT NULL, DEFAULT 'partial' | `full` · `partial` · `none` |
+| deposit_invoice_id | uuid | NULLABLE, FK → invoices(id) | Factura del depósito |
+| final_invoice_id | uuid | NULLABLE, FK → invoices(id) | Factura final |
+| total_amount | decimal(10,2) | NOT NULL, DEFAULT 0 | Suma de `project_items.unit_price`. Cache calculado |
+| valid_until | timestamptz | NULLABLE | Fecha de expiración de la propuesta |
+| accepted_at | timestamptz | NULLABLE | |
+| completed_at | timestamptz | NULLABLE | |
+| cancelled_at | timestamptz | NULLABLE | |
+| cancellation_reason | text | NULLABLE | |
+| public_token | varchar(500) | NULLABLE | JWT firmado para vista pública |
+| created_at | timestamptz | NOT NULL, DEFAULT now() | |
+| updated_at | timestamptz | NOT NULL, DEFAULT now() | |
+
+**Índices:**
+- `idx_projects_client_id` — en client_id
+- `idx_projects_status` — en status
+- `idx_projects_assigned_agent` — en assigned_agent_id
+- `idx_projects_type` — en type
+
+---
+
+### `project_items`
+Líneas del presupuesto. Cada item es un snapshot congelado del producto.
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
+| project_id | uuid | NOT NULL, FK → projects(id) ON DELETE CASCADE | |
+| product_id | uuid | NULLABLE, FK → products(id) | Del catálogo. Null si item custom |
+| product_name | varchar(200) | NOT NULL | ⚠️ snapshot — nombre en el momento de añadir |
+| description | text | NULLABLE | Explicación de por qué se incluye |
+| unit_price | decimal(10,2) | NOT NULL | ⚠️ snapshot — precio congelado |
+| billing_cycle | enum | NULLABLE | `monthly` · `annual` · `one_time`. Null si custom sin ciclo |
+| is_custom | boolean | NOT NULL, DEFAULT false | True si no viene del catálogo |
+| custom_description | text | NULLABLE | Para items custom (ej: "Configuración ERP — 20h") |
+| service_id | uuid | NULLABLE, FK → services(id) | Se rellena al provisionar tras depósito |
+| order_index | integer | NOT NULL, DEFAULT 0 | Orden de presentación |
+| created_at | timestamptz | NOT NULL, DEFAULT now() | |
+
+**Índices:**
+- `idx_project_items_project` — en project_id
+
+---
+
+### `project_agents`
+Agentes asignados a un proyecto (equipo de trabajo).
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
+| project_id | uuid | NOT NULL, FK → projects(id) ON DELETE CASCADE | |
+| agent_id | uuid | NOT NULL, FK → users(id) | |
+| role | enum | NOT NULL, DEFAULT 'collaborator' | `lead` · `collaborator` |
+| assigned_at | timestamptz | NOT NULL, DEFAULT now() | |
+| assigned_by | uuid | NOT NULL, FK → users(id) | |
+
+**Índices:**
+- UNIQUE(project_id, agent_id)
+
+---
+
+### `project_history`
+Historial de cambios de estado y eventos del proyecto. Solo INSERT.
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| id | uuid | PK, DEFAULT gen_random_uuid() | |
+| project_id | uuid | NOT NULL, FK → projects(id) ON DELETE CASCADE | |
+| event_type | varchar(100) | NOT NULL | `status_change` · `item_added` · `item_removed` · `agent_assigned` · `agent_removed` · `proposal_sent` · `accepted` · `deposit_paid` · `completed` |
+| old_value | text | NULLABLE | Valor anterior (ej: estado anterior) |
+| new_value | text | NULLABLE | Valor nuevo |
+| actor_id | uuid | NULLABLE, FK → users(id) | Null si fue un job automático |
+| actor_name | varchar(200) | NULLABLE | ⚠️ desnormalizado |
+| note | text | NULLABLE | Nota opcional del actor |
+| created_at | timestamptz | NOT NULL, DEFAULT now() | |
+
+**Índices:**
+- `idx_project_history_project` — en project_id
+- `idx_project_history_created` — en created_at
+
+---
+
+### Campos añadidos en tablas existentes
+
+**`tasks`** — campo nuevo:
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| project_id | uuid | NULLABLE, FK → projects(id) | Tarea de proyecto. Mutualmente excluyente con service_id durante desarrollo |
+
+**`invoices`** — campos nuevos:
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| project_id | uuid | NULLABLE, FK → projects(id) | Depósito o factura final |
+| invoice_type | enum | NOT NULL, DEFAULT 'standard' | `standard` · `deposit` · `project_final` |
+
+**`conversations`** — campos nuevos (Sprint 23):
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| linked_service_id | uuid | NULLABLE, FK → services(id) | Ticket vinculado a un servicio |
+| linked_project_id | uuid | NULLABLE, FK → projects(id) | Ticket vinculado a un proyecto |
+
+**`services`** — nuevo valor en enum `status`:
+```
+project_development — servicio provisionado para el equipo durante desarrollo del proyecto
+```
+
+**`messages`** — campo nuevo (Sprint 24):
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| references | jsonb | NULLABLE, DEFAULT NULL | Array de citas: `[{ type, id, snapshot }]` |
+
+---
+
+### Actualización del resumen de relaciones
+
+```
+projects
+  ├── project_items (1:N)         ← líneas del presupuesto
+  ├── project_agents (N:M)        ← equipo de trabajo
+  ├── project_history (1:N)       ← historial de eventos
+  ├── tasks (1:N via project_id)  ← tareas del proyecto
+  └── invoices (1:N via project_id) ← depósito + factura final
+
+conversations (tickets)
+  ├── linked_service_id → services
+  └── linked_project_id → projects
+
+messages
+  └── references (jsonb) ← citas a servicios, productos, proyectos, notas
 ```

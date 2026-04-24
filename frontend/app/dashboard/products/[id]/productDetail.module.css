@@ -1,0 +1,205 @@
+/* ═══════════════════════════════════════
+   Product Detail Page — Page-specific styles
+   Layout: DetailPage (§2.5)
+   Ref: UI_SPEC.md §2.5, ROADMAP.md D21
+   ═══════════════════════════════════════ */
+
+/* ── Loading state ── */
+.loadingState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10) 0;
+}
+.spinner {
+  animation: spin 1s linear infinite;
+  width: 24px;
+  height: 24px;
+  color: var(--brand);
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Header ── */
+.headerRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.headerTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.headerTitle {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+.headerSlug {
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-1);
+  font-family: monospace;
+  color: var(--text-tertiary);
+}
+.headerActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* ── Content grid (2-col + sidebar) ── */
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-6);
+}
+@media (max-width: 900px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+.mainColumn {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+@media (max-width: 900px) {
+  .mainColumn {
+    grid-column: span 1;
+  }
+}
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ── Section header ── */
+.sectionTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-4);
+}
+
+/* ── Details grid (2-col key-value) ── */
+.detailsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  font-size: var(--font-size-sm);
+}
+.fieldLabel {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-bottom: 2px;
+}
+.fieldValue {
+  color: var(--text-primary);
+}
+.fieldValueMono {
+  font-family: monospace;
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+}
+.description {
+  margin-top: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.descriptionBody {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* ── Pricing / Extras rows ── */
+.listStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.listRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-secondary);
+}
+.pricingCycle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+.pricingSetup {
+  font-size: var(--font-size-xs);
+  margin-left: var(--space-2);
+  color: var(--text-tertiary);
+}
+.pricingAmount {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--brand);
+}
+.noPricing {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+/* ── Extras row ── */
+.extraLabelRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.extraLabel {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+/* ── Sidebar config rows ── */
+.configStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+.configRow {
+  display: flex;
+  justify-content: space-between;
+}
+.configLabel {
+  color: var(--text-tertiary);
+}
+.configValue {
+  color: var(--text-primary);
+}
+
+/* ── Checklist ── */
+.checklistItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+.checkboxIcon {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.checklistLabel {
+  color: var(--text-primary);
+}

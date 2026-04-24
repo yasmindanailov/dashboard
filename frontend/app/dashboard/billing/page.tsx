@@ -2,56 +2,56 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../lib/auth-context';
 import { billingApi } from '../../lib/api';
+import {
+  Table, Badge, SearchInput, Select, Pagination,
+  Button, AlertBanner, HelpTip, useToast, BulkActionBar, Modal,
+  ListPage, FilterBar, StatusTabs,
+} from '../../components/ui';
+import type { TableColumn, BadgeVariant, StatusTab } from '../../components/ui';
 
 /* ═══════════════════════════════════════
-   Status badges
+   Billing Page — List (UI_SPEC §2.4)
+   Layout: ListPage + StatusTabs + FilterBar
+   StatsCards removed (§3.1: only in Overview).
+   Ref: ROADMAP.md §7.5.D20, UI_SPEC §5.4
    ═══════════════════════════════════════ */
-const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  draft: { bg: 'rgba(156, 163, 175, 0.1)', color: '#6b7280', label: 'Borrador' },
-  pending: { bg: 'rgba(245, 158, 11, 0.1)', color: '#d97706', label: 'Pendiente' },
-  paid: { bg: 'rgba(34, 197, 94, 0.1)', color: '#16a34a', label: 'Pagada' },
-  overdue: { bg: 'rgba(239, 68, 68, 0.1)', color: '#dc2626', label: 'Vencida' },
-  cancelled: { bg: 'rgba(107, 114, 128, 0.1)', color: '#6b7280', label: 'Cancelada' },
-  refunded: { bg: 'rgba(139, 92, 246, 0.1)', color: '#7c3aed', label: 'Reembolsada' },
+
+const STATUS_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
+  draft:     { label: 'Borrador',    variant: 'neutral' },
+  pending:   { label: 'Pendiente',   variant: 'warning' },
+  paid:      { label: 'Pagada',      variant: 'success' },
+  overdue:   { label: 'Vencida',     variant: 'danger' },
+  cancelled: { label: 'Cancelada',   variant: 'neutral' },
+  refunded:  { label: 'Reembolsada', variant: 'info' },
 };
 
 interface InvoiceItem {
-  id: string;
-  invoice_number: string;
-  status: string;
-  subtotal: string;
-  tax_rate: string;
-  tax_amount: string;
-  discount_amount: string;
-  total: string;
-  currency: string;
-  due_date: string;
-  paid_at: string | null;
-  payment_provider: string | null;
-  is_manual: boolean;
-  retry_count: number;
-  max_retries: number;
-  created_at: string;
+  id: string; invoice_number: string; status: string;
+  subtotal: string; tax_rate: string; tax_amount: string;
+  discount_amount: string; total: string; currency: string;
+  due_date: string; paid_at: string | null; payment_provider: string | null;
+  is_manual: boolean; retry_count: number; max_retries: number; created_at: string;
   billing_profile?: { label: string; nif_cif?: string } | null;
   items: { description: string }[];
 }
 
 interface InvoiceStats {
-  total_invoices: number;
-  total_revenue: number;
-  pending_amount: number;
-  overdue_count: number;
+  total_invoices: number; total_revenue: number; pending_amount: number;
+  overdue_count: number; draft_count: number; pending_count: number;
+  paid_count: number; cancelled_count: number; refunded_count: number;
 }
+interface PaginatedResponse { data: InvoiceItem[]; meta: { total: number; page: number; limit: number; totalPages: number }; }
 
-interface PaginatedResponse {
-  data: InvoiceItem[];
-  meta: { total: number; page: number; limit: number; totalPages: number };
-}
+const fmt = (amount: string | number, currency = 'EUR') =>
+  new Intl.NumberFormat('es-ES', { style: 'currency', currency }).format(Number(amount));
+const fmtDate = (date: string) =>
+  new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(date));
 
 export default function InvoicesPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const filterUserId = searchParams.get('userId') || '';
@@ -63,39 +63,31 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string | number>>(new Set());
+  const [bulkAction, setBulkAction] = useState<'pay' | 'cancel' | null>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
   const ADMIN_ROLES = ['superadmin', 'agent_full', 'agent_billing'];
   const isAdmin = user?.role?.slug ? ADMIN_ROLES.includes(user.role.slug) : false;
+  const { toast } = useToast();
 
   const loadInvoices = useCallback(async (page = 1) => {
     if (!token) return;
     setLoading(true);
     try {
       const res = await billingApi.listInvoices(token, {
-        page,
-        limit: 20,
-        search: search || undefined,
-        status: filterStatus || undefined,
-        user_id: filterUserId || undefined,
+        page, limit: 20, search: search || undefined,
+        status: filterStatus || undefined, user_id: filterUserId || undefined,
       }) as PaginatedResponse;
-      setInvoices(res.data);
-      setMeta(res.meta);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+      setInvoices(res.data); setMeta(res.meta);
+    } catch { /* handled */ }
+    finally { setLoading(false); }
   }, [token, search, filterStatus, filterUserId]);
 
   const loadStats = useCallback(async () => {
     if (!token) return;
-    try {
-      const res = await billingApi.getStats(token) as InvoiceStats;
-      setStats(res);
-    } catch (e) {
-      console.error(e);
-    }
+    try { setStats(await billingApi.getStats(token) as InvoiceStats); } catch { /* */ }
   }, [token]);
 
   useEffect(() => { loadInvoices(); loadStats(); }, [loadInvoices, loadStats]);
@@ -107,208 +99,190 @@ export default function InvoicesPage() {
       if (action === 'finalize') await billingApi.finalizeInvoice(token, id);
       else if (action === 'pay') await billingApi.markAsPaid(token, id, {});
       else if (action === 'cancel') await billingApi.cancelInvoice(token, id);
-      loadInvoices(meta.page);
-      loadStats();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setActionLoading(null);
+      const labels = { finalize: 'Factura enviada.', pay: 'Factura cobrada.', cancel: 'Factura cancelada.' };
+      toast('success', labels[action]);
+      loadInvoices(meta.page); loadStats();
+    } catch {
+      toast('error', 'No se pudo completar la acción.');
     }
+    finally { setActionLoading(null); }
   };
 
-  const formatCurrency = (amount: string, currency: string) =>
-    new Intl.NumberFormat('es-ES', { style: 'currency', currency }).format(Number(amount));
+  /* ── Bulk actions (§4.11) ── */
+  const executeBulk = async (action: 'pay' | 'cancel') => {
+    if (!token || selected.size === 0) return;
+    setBulkLoading(true);
+    let ok = 0;
+    let fail = 0;
+    for (const id of selected) {
+      try {
+        if (action === 'pay') await billingApi.markAsPaid(token, String(id), {});
+        else await billingApi.cancelInvoice(token, String(id));
+        ok++;
+      } catch { fail++; }
+    }
+    const label = action === 'pay' ? 'cobradas' : 'canceladas';
+    if (ok > 0) toast('success', `${ok} factura${ok > 1 ? 's' : ''} ${label}.`);
+    if (fail > 0) toast('error', `${fail} factura${fail > 1 ? 's' : ''} fallaron.`);
+    setSelected(new Set());
+    setBulkAction(null);
+    setBulkLoading(false);
+    loadInvoices(meta.page);
+    loadStats();
+  };
 
-  const formatDate = (date: string) =>
-    new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(date));
+  const handleBulkPdf = () => {
+    for (const id of selected) {
+      const inv = invoices.find((i) => i.id === String(id));
+      if (inv) billingApi.downloadPdf(token, inv.id, inv.invoice_number);
+    }
+    toast('info', `Descargando ${selected.size} PDF...`);
+  };
+
+  /* ── StatusTabs with per-status counts (§3.2, P6.1) ── */
+  const statusTabs: StatusTab[] = [
+    { label: 'Todas', value: '', count: stats?.total_invoices },
+    { label: 'Pendientes', value: 'pending', count: stats?.pending_count, variant: 'warning' },
+    { label: 'Pagadas', value: 'paid', count: stats?.paid_count, variant: 'success' },
+    { label: 'Vencidas', value: 'overdue', count: stats?.overdue_count, variant: 'danger' },
+    ...(isAdmin ? [{ label: 'Canceladas', value: 'cancelled', count: stats?.cancelled_count }] : []),
+  ];
+
+  /* ── Icons ── */
+  const IconInvoice = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>;
+
+  /* ── Column definitions ── */
+  const columns: TableColumn<InvoiceItem>[] = [
+    {
+      key: 'invoice_number', header: 'Nº Factura',
+      render: (inv) => (
+        <div>
+          <Link href={`/dashboard/billing/${inv.id}`} style={{ color: 'var(--brand)', fontWeight: 'var(--font-weight-semibold)', textDecoration: 'none' }}>
+            {inv.invoice_number}
+          </Link>
+          {inv.is_manual && <span style={{ marginLeft: 6, fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Manual</span>}
+        </div>
+      ),
+    },
+    {
+      key: 'status', header: 'Estado', width: '120px',
+      render: (inv) => { const s = STATUS_MAP[inv.status] || STATUS_MAP.draft; return <Badge variant={s.variant}>{s.label}</Badge>; },
+    },
+    /* P6.1: Hide 'Cliente' column for non-admin (redundant — they only see their own invoices) */
+    ...(isAdmin ? [{
+      key: 'client', header: 'Cliente',
+      render: (inv: InvoiceItem) => (
+        <div>
+          <span style={{ color: 'var(--text-primary)' }}>{inv.billing_profile?.label || '—'}</span>
+          {inv.billing_profile?.nif_cif && <span style={{ display: 'block', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{inv.billing_profile.nif_cif}</span>}
+        </div>
+      ),
+    } as TableColumn<InvoiceItem>] : []),
+    {
+      key: 'total', header: 'Total', width: '120px',
+      render: (inv) => <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--text-primary)' }}>{fmt(inv.total, inv.currency)}</span>,
+    },
+    { key: 'created_at', header: 'Emisión', render: (inv) => <span style={{ color: 'var(--text-secondary)' }}>{fmtDate(inv.created_at)}</span> },
+    {
+      key: 'due_date', header: <>{!isAdmin ? <>Vencimiento <HelpTip text="Fecha límite de pago. Se cobra automáticamente si tienes un método registrado." /></> : 'Vencimiento'}</>,
+      render: (inv) => <span style={{ color: inv.status === 'overdue' ? 'var(--danger)' : 'var(--text-secondary)' }}>{fmtDate(inv.due_date)}</span>,
+    },
+    {
+      key: 'actions', header: '', width: '180px', align: 'right',
+      render: (inv) => (
+        <div style={{ display: 'flex', gap: 'var(--space-1)', justifyContent: 'flex-end' }}>
+          {isAdmin && inv.status === 'draft' && (
+            <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); handleAction(inv.id, 'finalize'); }} disabled={actionLoading === inv.id}>Enviar</Button>
+          )}
+          {isAdmin && ['pending', 'overdue'].includes(inv.status) && (
+            <Button size="sm" variant="primary" onClick={(e) => { e.stopPropagation(); handleAction(inv.id, 'pay'); }} disabled={actionLoading === inv.id}>Cobrar</Button>
+          )}
+          {isAdmin && ['draft', 'pending'].includes(inv.status) && (
+            <Button size="sm" variant="danger" onClick={(e) => { e.stopPropagation(); handleAction(inv.id, 'cancel'); }} disabled={actionLoading === inv.id}>Cancelar</Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); billingApi.downloadPdf(token, inv.id, inv.invoice_number); }}>PDF</Button>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: '#111827', margin: 0 }}>Facturación</h1>
-          <p style={{ color: '#6b7280', margin: '4px 0 0' }}>Gestión de facturas y cobros</p>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <Link href="/dashboard/billing/checkout" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            padding: '10px 20px', background: '#635BFF', color: '#fff',
-            borderRadius: 10, textDecoration: 'none', fontWeight: 600, fontSize: 14,
-            transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(99,91,255,0.3)',
-          }}>
-            + Contratar servicio
-          </Link>
-        </div>
-      </div>
-
-      {/* Filter banner when viewing a specific client's invoices */}
-      {filterUserId && (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 16px', background: 'rgba(99,91,255,0.06)', border: '1px solid rgba(99,91,255,0.15)',
-          borderRadius: 10, marginBottom: 16, fontSize: 13,
-        }}>
-          <span style={{ color: '#4c46b8' }}>
-            🔍 Mostrando facturas de un cliente específico
-          </span>
-          <Link href="/dashboard/billing" style={{
-            color: '#635BFF', fontWeight: 600, textDecoration: 'none', fontSize: 12,
-          }}>
-            ✕ Ver todas
-          </Link>
-        </div>
-      )}
-      {/* Stats cards */}
-      {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
-          {[
-            { label: 'Total facturas', value: stats.total_invoices, icon: '📄' },
-            { label: 'Ingresos', value: formatCurrency(String(stats.total_revenue), 'EUR'), icon: '💰' },
-            { label: 'Pendiente cobro', value: formatCurrency(String(stats.pending_amount), 'EUR'), icon: '⏳' },
-            { label: 'Vencidas', value: stats.overdue_count, icon: '🔴', warn: stats.overdue_count > 0 },
-          ].map((s, i) => (
-            <div key={i} style={{
-              padding: 20, borderRadius: 14,
-              background: s.warn ? 'rgba(239, 68, 68, 0.04)' : '#fff',
-              border: s.warn ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid #f0f0f0',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-            }}>
-              <div style={{ fontSize: 24, marginBottom: 8 }}>{s.icon}</div>
-              <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 4 }}>{s.label}</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: s.warn ? '#dc2626' : '#111827' }}>{s.value}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-        <input
-          placeholder="Buscar factura..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{
-            flex: 1, padding: '10px 16px', border: '1px solid #e5e7eb',
-            borderRadius: 10, fontSize: 14, outline: 'none',
-            transition: 'border 0.2s',
-          }}
-          onFocus={(e) => (e.target.style.borderColor = '#635BFF')}
-          onBlur={(e) => (e.target.style.borderColor = '#e5e7eb')}
+    <ListPage
+      title="Facturación"
+      subtitle={isAdmin ? 'Gestión de facturas y cobros' : 'Mis facturas y servicios'}
+      action={
+        <Link href="/dashboard/billing/checkout">
+          <Button>{isAdmin ? 'Crear servicio para cliente' : 'Contratar servicio'}</Button>
+        </Link>
+      }
+      banner={
+        filterUserId ? (
+          <div style={{ marginBottom: 'var(--space-4)' }}>
+            <AlertBanner variant="info" onClose={() => router.push('/dashboard/billing')}>
+              Mostrando facturas de un cliente específico
+            </AlertBanner>
+          </div>
+        ) : undefined
+      }
+      statusTabs={
+        <StatusTabs tabs={statusTabs} active={filterStatus} onChange={setFilterStatus} />
+      }
+      filterBar={
+        <FilterBar
+          search={
+            <SearchInput value={search} onChange={(e) => setSearch(e.target.value)} onClear={() => setSearch('')} placeholder="Buscar factura..." />
+          }
         />
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          style={{
-            padding: '10px 16px', border: '1px solid #e5e7eb',
-            borderRadius: 10, fontSize: 14, background: '#fff', cursor: 'pointer',
-          }}
-        >
-          <option value="">Todos los estados</option>
-          {Object.entries(STATUS_STYLES).map(([key, { label }]) => (
-            <option key={key} value={key}>{label}</option>
-          ))}
-        </select>
-      </div>
+      }
+      pagination={
+        <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} limit={meta.limit} onPageChange={(p) => loadInvoices(p)} />
+      }
+    >
+      <Table<InvoiceItem>
+        columns={columns} data={invoices} rowKey={(inv) => inv.id}
+        loading={loading} skeletonRows={6}
+        onRowClick={(inv) => router.push(`/dashboard/billing/${inv.id}`)}
+        emptyIcon={IconInvoice} emptyTitle="Sin facturas"
+        emptyDescription="No hay facturas que coincidan con los filtros"
+        selectable={isAdmin}
+        selectedIds={selected}
+        onSelectionChange={setSelected}
+      />
 
-      {/* Table */}
-      <div style={{
-        background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden',
-      }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-          <thead>
-            <tr style={{ background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>
-              {['Nº Factura', 'Estado', 'Cliente', 'Total', 'Fecha emisión', 'Vencimiento', 'Acciones'].map((h) => (
-                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#6b7280', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>Cargando...</td></tr>
-            ) : invoices.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No hay facturas</td></tr>
-            ) : invoices.map((inv) => {
-              const st = STATUS_STYLES[inv.status] || STATUS_STYLES.draft;
-              return (
-                <tr key={inv.id} style={{ borderBottom: '1px solid #f5f5f5', transition: 'background 0.15s' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = '#fafbff')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-                  <td style={{ padding: '14px 16px' }}>
-                    <Link href={`/dashboard/billing/${inv.id}`} style={{ color: '#635BFF', fontWeight: 600, textDecoration: 'none' }}>
-                      {inv.invoice_number}
-                    </Link>
-                    {inv.is_manual && <span style={{ marginLeft: 6, fontSize: 10, color: '#9ca3af' }}>Manual</span>}
-                  </td>
-                  <td style={{ padding: '14px 16px' }}>
-                    <span style={{
-                      display: 'inline-block', padding: '4px 10px', borderRadius: 20,
-                      background: st.bg, color: st.color, fontSize: 12, fontWeight: 600,
-                    }}>{st.label}</span>
-                  </td>
-                  <td style={{ padding: '14px 16px', color: '#374151' }}>
-                    {inv.billing_profile?.label || '—'}
-                    {inv.billing_profile?.nif_cif && <span style={{ display: 'block', fontSize: 11, color: '#9ca3af' }}>{inv.billing_profile.nif_cif}</span>}
-                  </td>
-                  <td style={{ padding: '14px 16px', fontWeight: 600, color: '#111827' }}>
-                    {formatCurrency(inv.total, inv.currency)}
-                  </td>
-                  <td style={{ padding: '14px 16px', color: '#6b7280' }}>{formatDate(inv.created_at)}</td>
-                  <td style={{ padding: '14px 16px', color: inv.status === 'overdue' ? '#dc2626' : '#6b7280' }}>
-                    {formatDate(inv.due_date)}
-                  </td>
-                  <td style={{ padding: '14px 16px' }}>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      {isAdmin && inv.status === 'draft' && (
-                        <button onClick={() => handleAction(inv.id, 'finalize')} disabled={actionLoading === inv.id}
-                          style={{ padding: '5px 10px', fontSize: 12, borderRadius: 6, border: '1px solid #635BFF', background: 'rgba(99,91,255,0.05)', color: '#635BFF', cursor: 'pointer', fontWeight: 500 }}>
-                          Enviar
-                        </button>
-                      )}
-                      {isAdmin && ['pending', 'overdue'].includes(inv.status) && (
-                        <button onClick={() => handleAction(inv.id, 'pay')} disabled={actionLoading === inv.id}
-                          style={{ padding: '5px 10px', fontSize: 12, borderRadius: 6, border: '1px solid #16a34a', background: 'rgba(34,197,94,0.05)', color: '#16a34a', cursor: 'pointer', fontWeight: 500 }}>
-                          Cobrar
-                        </button>
-                      )}
-                      {isAdmin && ['draft', 'pending'].includes(inv.status) && (
-                        <button onClick={() => handleAction(inv.id, 'cancel')} disabled={actionLoading === inv.id}
-                          style={{ padding: '5px 10px', fontSize: 12, borderRadius: 6, border: '1px solid #ef4444', background: 'rgba(239,68,68,0.05)', color: '#ef4444', cursor: 'pointer', fontWeight: 500 }}>
-                          Cancelar
-                        </button>
-                      )}
-                      <button onClick={() => billingApi.downloadPdf(token, inv.id, inv.invoice_number)}
-                        style={{ padding: '5px 10px', fontSize: 12, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fafafa', color: '#374151', cursor: 'pointer', fontWeight: 500 }}>
-                        PDF
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {meta.totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 20 }}>
-          {Array.from({ length: meta.totalPages }, (_, i) => i + 1).map((p) => (
-            <button key={p} onClick={() => loadInvoices(p)}
-              style={{
-                padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                background: p === meta.page ? '#635BFF' : '#f3f4f6',
-                color: p === meta.page ? '#fff' : '#374151',
-                fontWeight: 600, fontSize: 13, transition: 'all 0.2s',
-              }}>
-              {p}
-            </button>
-          ))}
-        </div>
+      {/* Bulk action bar (§4.11) */}
+      {isAdmin && selected.size > 0 && (
+        <BulkActionBar count={selected.size} onClear={() => setSelected(new Set())}>
+          <Button size="sm" onClick={() => setBulkAction('pay')}>Cobrar seleccionadas</Button>
+          <Button size="sm" variant="secondary" onClick={handleBulkPdf}>Descargar PDF</Button>
+          <Button size="sm" variant="danger" onClick={() => setBulkAction('cancel')}>Cancelar</Button>
+        </BulkActionBar>
       )}
-    </div>
+
+      {/* Bulk confirmation modal (§4.2) */}
+      <Modal
+        open={bulkAction !== null}
+        onClose={() => setBulkAction(null)}
+        title={bulkAction === 'pay' ? 'Cobrar facturas en lote' : 'Cancelar facturas en lote'}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setBulkAction(null)}>Cancelar</Button>
+            <Button
+              variant={bulkAction === 'cancel' ? 'danger' : 'primary'}
+              loading={bulkLoading}
+              onClick={() => bulkAction && executeBulk(bulkAction)}
+            >
+              {bulkAction === 'pay' ? `Cobrar ${selected.size}` : `Cancelar ${selected.size}`}
+            </Button>
+          </>
+        }
+      >
+        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+          {bulkAction === 'pay'
+            ? `¿Marcar ${selected.size} factura${selected.size > 1 ? 's' : ''} como pagada${selected.size > 1 ? 's' : ''}?`
+            : `¿Cancelar ${selected.size} factura${selected.size > 1 ? 's' : ''}? Esta acción no se puede deshacer.`
+          }
+        </p>
+      </Modal>
+    </ListPage>
   );
 }

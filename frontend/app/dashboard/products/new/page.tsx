@@ -3,78 +3,28 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productsApi } from '../../../lib/api';
+import { PRODUCT_TYPES, CYCLE_OPTIONS } from './constants';
+import type { PricingRow } from './constants';
+import { Card, Input, Select, Textarea, Button, AlertBanner, FormPage, useToast } from '../../../components/ui';
+import styles from '../productForm.module.css';
 
 /* ═══════════════════════════════════════
-   Product type definitions per DECISIONS.md §6, §7, §8, §27
+   New Product — Multi-step creation form
+   Step 1: Type selection → Step 2: Form
+   Layout: FormPage (§2.6)
+   Components: Card, Input, Select, Textarea,
+   Button, AlertBanner
+   Ref: UI_SPEC.md §2.6, ROADMAP.md D24
    ═══════════════════════════════════════ */
-const PRODUCT_TYPES = [
-  {
-    value: 'hosting_web', label: 'Hosting Web', icon: '🌐', isAddon: false,
-    description: 'Planes de hosting web (Web Inicio, Web Pro, Web Business)',
-    defaultProvisioner: 'enhance_cp',
-  },
-  {
-    value: 'domain', label: 'Dominio', icon: '🔗', isAddon: false,
-    description: 'Registro y transferencia de dominios',
-    defaultProvisioner: 'resellerclub',
-  },
-  {
-    value: 'docker_service', label: 'Docker Service', icon: '🐳', isAddon: false,
-    description: 'Contenedores Docker (Nextcloud, OpenClaw, etc.)',
-    defaultProvisioner: 'docker_engine',
-  },
-  {
-    value: 'support_inside', label: 'Support Inside', icon: '🛡️', isAddon: true,
-    description: 'Addon global de cuenta — planes Básico, Medium, Pro (§7)',
-    defaultProvisioner: 'internal',
-  },
-  {
-    value: 'we_do_it', label: 'We Do It For You', icon: '🛠️', isAddon: true,
-    description: 'Addon por producto — desarrollo/configuración (§8)',
-    defaultProvisioner: 'manual',
-  },
-  {
-    value: 'custom_service', label: 'Proyecto Custom', icon: '📐', isAddon: false,
-    description: 'Proyectos manuales a escala (ERP, CRM). Creación manual.',
-    defaultProvisioner: 'manual',
-  },
-];
-
-const CYCLE_OPTIONS = [
-  { value: 'monthly', label: 'Mensual' },
-  { value: 'quarterly', label: 'Trimestral' },
-  { value: 'semiannual', label: 'Semestral' },
-  { value: 'annual', label: 'Anual' },
-  { value: 'one_time', label: 'Único' },
-];
-
-interface PricingRow { billing_cycle: string; price: string; setup_fee: string; }
-
-const inputStyle = {
-  background: 'var(--surface-secondary)',
-  border: '1px solid var(--border)',
-  color: 'var(--text-primary)',
-  outline: 'none',
-};
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 className="text-sm font-semibold uppercase tracking-wider mb-4 mt-6 first:mt-0" style={{ color: 'var(--text-tertiary)' }}>
-      {children}
-    </h3>
-  );
-}
 
 export default function NewProductPage() {
   const router = useRouter();
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
 
-  // Step 1: type selection
   const [selectedType, setSelectedType] = useState<string | null>(null);
-
-  // Form state
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(''); // validation only
+  const { toast } = useToast();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
@@ -154,193 +104,176 @@ export default function NewProductPage() {
       });
       router.push('/dashboard/products');
     } catch (err: any) {
-      setError(err?.message || 'Error al crear el producto.');
+      toast('error', err?.message || 'Error al crear el producto.');
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <div className="max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => selectedType ? setSelectedType(null) : router.back()} className="p-2 rounded-lg transition-colors cursor-pointer" style={{ color: 'var(--text-tertiary)', background: 'var(--surface-primary)', border: '1px solid var(--border)' }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M19 12H5" /><polyline points="12 19 5 12 12 5" /></svg>
-        </button>
-        <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-          {!selectedType ? 'Nuevo producto' : `Nuevo ${typeMeta?.label}`}
-        </h1>
-      </div>
+  // Breadcrumb always shows current step
+  const breadcrumb = selectedType
+    ? [
+        { label: 'Productos', href: '/dashboard/products' },
+        { label: `Nuevo ${typeMeta?.label || 'producto'}` },
+      ]
+    : [
+        { label: 'Productos', href: '/dashboard/products' },
+        { label: 'Nuevo producto' },
+      ];
 
-      {error && (
-        <div className="mb-4 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.08)', color: '#dc2626', border: '1px solid rgba(239,68,68,0.2)' }}>{error}</div>
-      )}
+  return (
+    <FormPage
+      breadcrumb={breadcrumb}
+      title={!selectedType ? 'Nuevo producto' : `Nuevo ${typeMeta?.label}`}
+      actions={selectedType ? (
+        <>
+          <Button variant="secondary" onClick={() => setSelectedType(null)}>Cambiar tipo</Button>
+          <Button type="submit" form="product-form" loading={saving}>
+            {saving ? 'Guardando...' : `Crear ${typeMeta?.label}`}
+          </Button>
+        </>
+      ) : undefined}
+    >
+      {error && <AlertBanner variant="danger" onClose={() => setError('')}>{error}</AlertBanner>}
 
       {/* ── STEP 1: Type Selection ── */}
       {!selectedType && (
-        <div>
-          <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>¿Qué tipo de producto quieres crear?</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {PRODUCT_TYPES.map(t => (
-              <button key={t.value} onClick={() => handleTypeSelect(t.value)} className="p-4 rounded-xl text-left transition-all duration-200 cursor-pointer group" style={{ background: 'var(--surface-primary)', border: '1px solid var(--border)' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 1px var(--brand)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-              >
-                <div className="flex items-center gap-3 mb-1">
-                  <span className="text-xl">{t.icon}</span>
-                  <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{t.label}</span>
-                  {t.isAddon && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#7c3aed' }}>Addon</span>}
-                </div>
-                <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>{t.description}</p>
-              </button>
-            ))}
+        <Card>
+          <div className={styles.formSection}>
+            <p className={styles.stepDesc}>¿Qué tipo de producto quieres crear?</p>
+            <div className={styles.typeGrid}>
+              {PRODUCT_TYPES.map(t => (
+                <button key={t.value} onClick={() => handleTypeSelect(t.value)} className={styles.typeCard}>
+                  <div className={styles.typeCardHeader}>
+                    <span className={styles.typeLabel}>{t.label}</span>
+                    {t.isAddon && <span className={styles.addonBadge}>Addon</span>}
+                  </div>
+                  <p className={styles.typeDesc}>{t.description}</p>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* ── STEP 2: Form ── */}
       {selectedType && (
-        <form onSubmit={handleSubmit}>
-          <div className="rounded-xl p-6 space-y-0" style={{ background: 'var(--surface-primary)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+        <form id="product-form" onSubmit={handleSubmit}>
+          {/* Auto-set addon badge */}
+          {isAddonType && (
+            <AlertBanner variant="info">
+              <span style={{ fontWeight: 'var(--font-weight-semibold)' }}>Addon</span> —
+              {isSupportInside && ' Global de cuenta · Requiere producto activo previo'}
+              {isWeDoIt && ' Por producto · Solo aplica a hosting_web y docker_service'}
+            </AlertBanner>
+          )}
 
-            {/* Auto-set badges */}
-            {isAddonType && (
-              <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg text-xs" style={{ background: 'rgba(168,85,247,0.06)', color: '#7c3aed', border: '1px solid rgba(168,85,247,0.15)' }}>
-                <span className="font-medium">Addon</span> —
-                {isSupportInside && ' Global de cuenta · Requiere producto activo previo'}
-                {isWeDoIt && ' Por producto · Solo aplica a hosting_web y docker_service'}
+          {/* Card: Identity */}
+          <Card>
+            <div className={styles.formSection}>
+              <h3 className={styles.sectionTitle}>Identidad</h3>
+              <div className={styles.formGrid}>
+                <Input label="Nombre *" value={name} onChange={e => handleNameChange(e.target.value)}
+                  placeholder={isSupportInside ? 'Support Inside Básico' : 'Hosting Starter'} />
+                <Input label="Slug" value={slug} onChange={e => setSlug(e.target.value)}
+                  style={{ fontFamily: 'monospace' }} />
+                <Input label="Badge" value={badgeText} onChange={e => setBadgeText(e.target.value)}
+                  placeholder="Más popular" />
+                <Input label="Comisión partner (%)" type="number" step="0.01" min="0" max="100"
+                  value={partnerCommission} onChange={e => setPartnerCommission(e.target.value)} placeholder="20" />
               </div>
-            )}
-
-            {/* Identity */}
-            <SectionTitle>Identidad</SectionTitle>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Nombre *</label>
-                <input value={name} onChange={e => handleNameChange(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} placeholder={isSupportInside ? 'Support Inside Básico' : 'Hosting Starter'} />
+              <div className={styles.mt4}>
+                <Input label="Descripción corta" value={shortDescription}
+                  onChange={e => setShortDescription(e.target.value)} maxLength={500} />
               </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Slug</label>
-                <input value={slug} onChange={e => setSlug(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm font-mono" style={inputStyle} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Badge</label>
-                <input value={badgeText} onChange={e => setBadgeText(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} placeholder="Más popular" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Comisión partner (%)</label>
-                <input type="number" step="0.01" min="0" max="100" value={partnerCommission} onChange={e => setPartnerCommission(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} placeholder="20" />
+              <div className={styles.mt4}>
+                <Textarea label="Descripción completa" value={description}
+                  onChange={e => setDescription(e.target.value)} rows={3} />
               </div>
             </div>
-            <div className="mt-4">
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Descripción corta</label>
-              <input value={shortDescription} onChange={e => setShortDescription(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} maxLength={500} />
-            </div>
-            <div className="mt-4">
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Descripción completa</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full px-3 py-2.5 rounded-lg text-sm resize-none" style={inputStyle} />
-            </div>
+          </Card>
 
-            {/* Pricing */}
-            <SectionTitle>Pricing</SectionTitle>
-            <div className="space-y-3">
-              {pricingRows.map((row, idx) => (
-                <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_40px] gap-3 items-end">
-                  <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Ciclo</label>
-                    <select value={row.billing_cycle} onChange={e => updatePricingRow(idx, 'billing_cycle', e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm cursor-pointer" style={inputStyle}>
-                      {CYCLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Precio (€) *</label>
-                    <input type="number" step="0.01" min="0" value={row.price} onChange={e => updatePricingRow(idx, 'price', e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} placeholder="9.99" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Setup fee (€)</label>
-                    <input type="number" step="0.01" min="0" value={row.setup_fee} onChange={e => updatePricingRow(idx, 'setup_fee', e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} placeholder="0" />
-                  </div>
-                  <button type="button" onClick={() => removePricingRow(idx)} disabled={pricingRows.length <= 1} className="p-2.5 rounded-lg cursor-pointer disabled:opacity-30" style={{ color: '#dc2626' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                  </button>
+          {/* Card: Pricing */}
+          <div className={styles.mt6}>
+            <Card>
+              <div className={styles.formSection}>
+                <h3 className={styles.sectionTitle}>Pricing</h3>
+                <div className={styles.spaceY2}>
+                  {pricingRows.map((row, idx) => (
+                    <div key={idx} className={styles.pricingRow}>
+                      <Select label="Ciclo" value={row.billing_cycle}
+                        onChange={e => updatePricingRow(idx, 'billing_cycle', e.target.value)}
+                        options={CYCLE_OPTIONS} />
+                      <Input label="Precio (€) *" type="number" step="0.01" min="0"
+                        value={row.price} onChange={e => updatePricingRow(idx, 'price', e.target.value)} placeholder="9.99" />
+                      <Input label="Setup fee (€)" type="number" step="0.01" min="0"
+                        value={row.setup_fee} onChange={e => updatePricingRow(idx, 'setup_fee', e.target.value)} placeholder="0" />
+                      <button type="button" onClick={() => removePricingRow(idx)} disabled={pricingRows.length <= 1} className={styles.removeBtn}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <button type="button" onClick={addPricingRow} className="mt-3 flex items-center gap-2 text-sm font-medium cursor-pointer" style={{ color: 'var(--brand)' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-              Añadir plan de precio
-            </button>
-
-            {/* Provisioning — only for non-addon types */}
-            {!isAddonType && (
-              <>
-                <SectionTitle>Provisioning</SectionTitle>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Provisioner</label>
-                    <input value={provisioner} onChange={e => setProvisioner(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>Se gestionará dinámicamente via plugins (Sprint 8)</p>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Lifecycle — only for products, not addons */}
-            {showLifecycle && (
-              <>
-                <SectionTitle>Ciclo de vida</SectionTitle>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Gracia (días)</label>
-                    <input type="number" min="0" value={gracePeriod} onChange={e => setGracePeriod(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Suspensión (días)</label>
-                    <input type="number" min="0" value={suspensionDays} onChange={e => setSuspensionDays(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Cancelación (días)</label>
-                    <input type="number" min="0" value={cancellationDays} onChange={e => setCancellationDays(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
-                  </div>
-                  <div className="flex items-end">
-                    <label className="flex items-center gap-2 text-sm cursor-pointer pb-2.5" style={{ color: 'var(--text-secondary)' }}>
-                      <input type="checkbox" checked={clientCanPause} onChange={e => setClientCanPause(e.target.checked)} className="rounded cursor-pointer" />
-                      Pausar
-                    </label>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Type-specific hints */}
-            {isSupportInside && (
-              <div className="mt-6 p-4 rounded-lg text-sm" style={{ background: 'var(--surface-secondary)', color: 'var(--text-secondary)' }}>
-                <strong>Support Inside</strong> — Los canales, SLA, y configuración de slots se definirán en el Sprint de Soporte. Por ahora solo se crea el producto base con su pricing.
+                <button type="button" onClick={addPricingRow} className={styles.addPricingBtn}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                  Añadir plan
+                </button>
               </div>
-            )}
-            {isWeDoIt && (
-              <div className="mt-6 p-4 rounded-lg text-sm" style={{ background: 'var(--surface-secondary)', color: 'var(--text-secondary)' }}>
-                <strong>We Do It For You</strong> — La vinculación a productos específicos se gestionará en el Sprint de Provisioning. Solo aplica a hosting_web y docker_service.
-              </div>
-            )}
-            {isCustomService && (
-              <div className="mt-6 p-4 rounded-lg text-sm" style={{ background: 'var(--surface-secondary)', color: 'var(--text-secondary)' }}>
-                <strong>Proyecto Custom</strong> — Se crea manualmente para cada proyecto. El agente recibe una tarea al activarse.
-              </div>
-            )}
+            </Card>
           </div>
 
-          {/* Submit */}
-          <div className="flex items-center justify-end gap-3 mt-6">
-            <button type="button" onClick={() => setSelectedType(null)} className="px-5 py-2.5 rounded-xl text-sm font-medium cursor-pointer" style={{ color: 'var(--text-secondary)', background: 'var(--surface-primary)', border: '1px solid var(--border)' }}>
-              Cambiar tipo
-            </button>
-            <button type="submit" disabled={saving} className="px-6 py-2.5 rounded-xl text-sm font-medium text-white cursor-pointer disabled:opacity-60" style={{ background: 'var(--brand)', boxShadow: 'var(--shadow-brand)' }}>
-              {saving ? 'Guardando...' : `Crear ${typeMeta?.label}`}
-            </button>
-          </div>
+          {/* Card: Provisioning (non-addons only) */}
+          {!isAddonType && (
+            <div className={styles.mt6}>
+              <Card>
+                <div className={styles.formSection}>
+                  <h3 className={styles.sectionTitle}>Provisioning</h3>
+                  <div className={styles.formGrid}>
+                    <Input label="Provisioner" value={provisioner} onChange={e => setProvisioner(e.target.value)}
+                      helperText="Se gestionará dinámicamente via plugins (Sprint 8)" />
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Card: Lifecycle (products only) */}
+          {showLifecycle && (
+            <div className={styles.mt6}>
+              <Card>
+                <div className={styles.formSection}>
+                  <h3 className={styles.sectionTitle}>Ciclo de vida</h3>
+                  <div className={styles.pricingGrid}>
+                    <Input label="Gracia (días)" type="number" min="0"
+                      value={gracePeriod} onChange={e => setGracePeriod(e.target.value)} />
+                    <Input label="Suspensión (días)" type="number" min="0"
+                      value={suspensionDays} onChange={e => setSuspensionDays(e.target.value)} />
+                    <Input label="Cancelación (días)" type="number" min="0"
+                      value={cancellationDays} onChange={e => setCancellationDays(e.target.value)} />
+                    <div className={styles.pricingActions}>
+                      <label className={styles.checkboxLabel}>
+                        <input type="checkbox" checked={clientCanPause} onChange={e => setClientCanPause(e.target.checked)} className={styles.checkboxInput} />
+                        Pausar
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Type-specific info */}
+          {(isSupportInside || isWeDoIt || isCustomService) && (
+            <div className={styles.mt4}>
+              <AlertBanner variant="info">
+                {isSupportInside && <><strong>Support Inside</strong> — Los canales, SLA, y configuración de slots se definirán en el Sprint de Soporte.</>}
+                {isWeDoIt && <><strong>We Do It For You</strong> — La vinculación a productos específicos se gestionará en el Sprint de Provisioning.</>}
+                {isCustomService && <><strong>Proyecto Custom</strong> — Se crea manualmente para cada proyecto. El agente recibe una tarea al activarse.</>}
+              </AlertBanner>
+            </div>
+          )}
         </form>
       )}
-    </div>
+    </FormPage>
   );
 }

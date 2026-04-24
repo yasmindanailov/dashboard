@@ -3,6 +3,7 @@
 > Versión 1.1 | Abril 2026
 > Este documento es la fuente de verdad del **modelo de negocio**.
 > Para arquitectura técnica, ver ARCHITECTURE.md.
+> Para normas de diseño e interfaz, ver DESIGN_SYSTEM.md.
 
 ---
 
@@ -299,14 +300,11 @@ El cliente tiene una zona específica en su dashboard donde ve:
 
 ## 8. WE DO IT FOR YOU
 
-- Addon por producto. Cada producto define lo que incluye.
-  - Hosting web → creación de la web.
-  - Cloud Office → configuración y organización completa del Nextcloud.
-  - Futuros productos → definen su propio alcance.
-- El cliente puede añadir una nota opcional al contratar.
-- El sistema genera una tarea para el agente asignado.
-- El agente contacta al cliente por su canal preferido para acordar fecha y hora.
-- La fecha acordada queda registrada en la tarea.
+> ⚠️ **DEPRECADO (§44)**: WDIFY como addon por producto ha sido reemplazado por el módulo de Proyectos (Sprint 22). El CTA "Solicitar desarrollo personalizado" en la página del servicio crea un proyecto `proposal`, no un addon. Ver §44 para la arquitectura completa.
+
+- ~~Addon por producto. Cada producto define lo que incluye.~~
+- ~~El sistema genera una tarea para el agente asignado.~~
+- **Nuevo flujo**: cliente pulsa CTA → se crea proyecto `proposal` vinculado al servicio → agente define alcance y precio → cliente acepta → depósito → desarrollo → pago final → activación.
 
 ---
 
@@ -329,15 +327,16 @@ WhatsApp                    → Support Inside Medium y Pro
   - Si no dejó email → la conversación queda huérfana, el agente puede vincularla manualmente.
 - Clientes logueados: el agente ve el contexto completo del cliente mientras chatea.
 
-### Las conversaciones asíncronas
-- Nombre interno para el equipo: "Casos".
-- Nombre visible para el cliente: "Conversaciones".
-- Si un chat en tiempo real se complica o alarga → pasa a conversación asíncrona.
-  - El contexto completo del chat se transfiere automáticamente.
-  - El cliente recibe notificación: "Tu consulta sigue en curso".
+### Los tickets (soporte asíncrono)
+> **Nota:** La nomenclatura fue actualizada en §43 (Arquitectura dual). Lo que antes se llamaba "conversaciones asíncronas" o "Casos" ahora se llaman **Tickets**.
+
+- Si un chat en tiempo real se complica o alarga → el agente lo escala a un **ticket**.
+  - El contexto completo del chat se transfiere automáticamente como mensaje de sistema.
+  - El cliente recibe notificación: "Tu consulta ha sido escalada para un seguimiento más detallado".
 - Funcionan como un email interno con historial y contexto.
-- Tienen prioridades (configurable).
-- Se usan también para comunicaciones más lentas: desarrollo web, proyectos, etc.
+- Tienen categorías (`support_general`, `support_billing`, `support_technical`, `escalated_chat`) y prioridades. ~~`wdify_progress`, `wdify_feedback`~~ deprecadas (§44, §46).
+- Se usan también para comunicaciones más lentas: soporte técnico complejo, facturación.
+- Ver §43 para la arquitectura completa, §46 para el rediseño de tickets.
 
 ### El filtro de IA para clientes sin Support Inside
 ```
@@ -346,9 +345,9 @@ Cliente escribe en el chat
 IA intenta resolver (con acceso al contexto del cliente)
 Visible para el cliente: "Estás siendo atendido por IA"
          ↓
-¿Resuelto? → conversación cerrada
+¿Resuelto? → chat cerrado
 ¿No resuelto? → escala a agente real
-¿Se alarga? → pasa a conversación asíncrona con contexto
+¿Se alarga? → agente escala a ticket con contexto completo
 ```
 
 ### Organización del soporte sin vs con Support Inside
@@ -388,8 +387,9 @@ maintenance           → slot de mantenimiento activo
                         Recurrencia: mensual en fecha de aniversario
 maintenance_mgmt      → slot mantenimiento+gestión activo
                         Recurrencia: mensual en fecha de aniversario
-we_do_it_for_you      → cliente contrata el addon
-                        Tarea única con nota del cliente si la hay
+we_do_it_for_you      → DEPRECADO (§44). Reemplazado por project_task
+project_task           → tarea vinculada a un proyecto (Sprint 22)
+                        Via tasks.project_id
 custom_service        → cualquier servicio manual
                         El admin la crea manualmente
 ```
@@ -422,13 +422,16 @@ HOY
 
 ESTA SEMANA
   🔧 Mantenimiento · tienda.com · María López
-  🛠️  We Do It For You · Nextcloud · Agencia Norte
+  📋 Proyecto · Crear landing · Floristería Pérez
 
 PRÓXIMAMENTE
   🔧 Mantenimiento+Gestión · web.com · Carlos Ruiz
 ```
 
 El superadmin ve todas las tareas de todos los agentes con filtros y puede reasignar.
+
+### Asignación a AI Workers (Sprint 25)
+Las tareas de tipo `project_task` y `custom_work` podrán asignarse a un AI Worker (ej: OpenClaw) en vez de a un agente humano. El agente siempre revisa y aprueba el resultado. Especificación completa: `docs/AI_WORKERS.md`.
 
 ---
 
@@ -1356,6 +1359,34 @@ CONFIGURACIÓN DE UN CÓDIGO
 7. Pago → producto activo
 ```
 
+### Tres niveles de catálogo — misma fuente de datos
+El catálogo de productos se presenta en tres contextos con diferente profundidad.
+Los tres consumen la misma API (`/products`) y el campo `features` (JSON) del producto.
+
+```
+Nivel 1 — Checkout (transaccional)
+  Ubicación: /dashboard/billing/checkout
+  Para: cliente + admin
+  Muestra: cards con nombre + precio mínimo → seleccionar → pagar
+  Propósito: comprar rápido (el usuario ya sabe lo que quiere)
+
+Nivel 2 — Catálogo del dashboard (exploración)
+  Ubicación: /dashboard/catalog (Sprint 13.29)
+  Para: cliente
+  Muestra: features comparativas, tabla de planes, badges, FAQ del producto
+  Propósito: explorar y comparar → botón "Contratar" lleva al checkout
+  Depende de: Sprint 8 EC-10 (UI de features)
+
+Nivel 3 — Landing pública (marketing)
+  Ubicación: landing /hosting, /dominios, etc. (Sprint 18)
+  Para: visitante sin cuenta
+  Muestra: pricing tabs, comparativas visuales, CTA a registro+compra
+  Propósito: captar → registrar → comprar en un solo flujo
+```
+
+Regla: el checkout NUNCA muestra comparativas ni features extensas.
+El catálogo NUNCA procesa pagos. Son páginas separadas con responsabilidades separadas.
+
 ### Perfiles de facturación múltiples
 - Un cliente puede tener varios perfiles de facturación.
 - Puede tener perfil personal (NIF) y perfil de empresa (CIF) simultáneamente.
@@ -1914,6 +1945,478 @@ Las migraciones son siempre aditivas — nunca se elimina una columna sin deprec
 Los créditos de referidos pueden expirar si no se usan en un plazo configurable.
 Plazo por defecto: 12 meses. Configurable en settings (`referrals.credit_expiry_months`).
 Si `credit_expiry_months = 0`, los créditos nunca expiran.
+
+---
+
+## 43. ARQUITECTURA DUAL DE SOPORTE: CHAT + TICKETS
+
+### Principio fundamental
+Dos sistemas de soporte paralelos que comparten modelo de datos pero difieren en propósito, cadencia y presentación:
+
+| Aspecto | **Chat (tiempo real)** | **Tickets (asíncrono)** |
+|---------|----------------------|------------------------|
+| Analogía | WhatsApp / Telegram | Gmail / Sistema de tickets |
+| Propósito | Soluciones rápidas, trato cercano | Problemas complejos, trazabilidad |
+| Cadencia | Instantáneo (WebSocket) | Lento, deliberado (REST + email) |
+| Widget | Burbuja flotante | Página completa `/dashboard/support` |
+| Categorías | No aplica | support_general, support_billing, support_technical, escalated_chat. ~~wdify_progress, wdify_feedback~~ deprecadas (§44, §46) |
+| Vista agente | Panel de chat dedicado con contexto lateral | Bandeja tipo Gmail con filtros |
+| Vista cliente | Widget flotante | Página de tickets |
+
+### Modelo de datos compartido
+Campo `type` en `Conversation`: `'chat'` o `'ticket'`. Misma tabla, diferente lógica de presentación y entrega.
+
+### Escalación: Chat → Ticket
+- El agente pulsa "Escalar a ticket" en un chat.
+- Se crea un ticket con `escalated_from_id` apuntando al chat original.
+- El historial del chat se copia como contexto unificado (mensaje de sistema, NO como mensajes individuales).
+- El chat original se marca como `resolved`.
+- El cliente recibe notificación: "Tu consulta se ha escalado para un seguimiento más detallado".
+
+### Endpoints REST separados
+```
+/support/chats               → POST (crear chat) + GET (listar chats)
+/support/chats/:id/escalate  → POST (escalar a ticket)
+/support/tickets             → POST (crear ticket) + GET (listar tickets)
+
+/support/conversations/:id   → GET (detalle) + PATCH (actualizar) ← compartido
+/support/conversations/:id/messages → POST (añadir mensaje) ← compartido
+/support/conversations/stats  → GET (stats filtrado por type)
+```
+
+### Widget de chat flotante (`ChatWidget`)
+- Solo visible para clientes. Los agentes usan la bandeja completa.
+- WebSocket (Socket.io, namespace `/support`) con JWT auth.
+- Fallback REST para persistencia garantizada.
+- Reutilizable: Dashboard ahora, Landing en Sprint 7.4.
+
+### ~~Tickets para "We Do It For You"~~ → DEPRECADO (§44)
+- ~~Categoría `wdify_progress`~~ → eliminada. La trazabilidad de desarrollo vive en el módulo Projects (Sprint 22).
+- ~~Categoría `wdify_feedback`~~ → eliminada. El feedback se gestiona via chat o proyecto.
+- El admin puede crear proyectos `proposal` proactivamente para clientes (`ProjectsService.create`).
+
+---
+
+## §41 — Sistema de Notas Estructuradas del Cliente (Sprint 7.B)
+
+### Problema resuelto
+El campo `notes_internal` (texto libre) en `client_profiles` no permitía categorizar, buscar, ni vincular notas a conversaciones. Los agentes perdían contexto al atender clientes recurrentes.
+
+### Decisión: Modelo `ClientNote`
+Tabla dedicada con:
+- **Categorías** (`NoteCategory`): `conversation`, `solution`, `billing`, `technical`, `general`
+- **Autoría**: `author_id` vinculado al agente que creó la nota + `author_name` resuelto en queries
+- **Vinculación a conversación**: `conversation_id` nullable para trazar el origen
+- **Pin**: `is_pinned` para destacar notas importantes
+
+### Auto-creación (sincronización bidireccional)
+Las notas se crean automáticamente en estos eventos:
+
+| Evento | Categoría | Dónde se crea |
+|--------|-----------|---------------|
+| Agente envía mensaje interno (`is_internal: true`) | `conversation` | `SupportService.addMessage` |
+| Resolver conversación (`status → resolved`) | `solution` | `SupportService.updateConversation` |
+| Cerrar conversación (`status → closed`) | `solution` | `SupportService.updateConversation` |
+| Reabrir conversación (`status → open`) | `general` | `SupportService.updateConversation` |
+| Nota manual desde ficha del cliente | la que elija el agente | `ClientsService.addNote` |
+
+### API
+```
+GET  /clients/:id/structured-notes?category=X&limit=N
+POST /clients/:id/structured-notes
+PATCH /clients/notes/:noteId/pin
+```
+
+### Convivencia con legacy
+El campo `notes_internal` se mantiene (backward compat). Al usar el endpoint legacy `POST /clients/:id/notes`, se escribe en ambos: el campo de texto Y la tabla `client_notes`.
+
+---
+
+## §42 — Nota Obligatoria en Transiciones de Estado (Sprint 7.B)
+
+### Principio
+Toda transición de estado significativa debe dejar un registro auditable escrito por el agente.
+
+### Transiciones que exigen `resolution_note`:
+| Transición | Exigencia |
+|------------|-----------|
+| `* → resolved` | Nota obligatoria: cómo se resolvió |
+| `* → closed` | Nota obligatoria: motivo del cierre |
+| `* → open` (reabrir) | Nota obligatoria: motivo de la reapertura |
+
+Si no se proporciona `resolution_note`, el backend devuelve `400 BadRequest`.
+
+### Efectos colaterales
+- Se crea un `Message` de tipo `system` con la nota visible en el historial
+- Se crea un `ClientNote` vinculado a la conversación (auditable en la ficha del cliente)
+
+---
+
+## §43 — Arquitectura de Vistas del Soporte (Sprint 7.B)
+
+### Principio
+Dos vistas complementarias, no duplicadas. Cada una tiene un propósito claro.
+
+### Panel de chats en vivo (`/dashboard/support/chats`)
+- **Propósito**: Operativo. El agente atiende múltiples chats en tiempo real.
+- **Layout**: 3 columnas — lista de chats | conversación activa | sidebar de contexto
+- **Tecnología**: WebSocket (Socket.io) para mensajes en tiempo real
+- **Acciones en topbar**: ✓ Resolver · 🔒 Cerrar
+- **Acciones en sidebar**: 👤 Ver perfil del cliente · ⬆ Escalar a ticket
+
+### Página de detalle canónica (`/dashboard/support/[id]`)
+- **Propósito**: Consulta, auditoría, gestión. Revisión detallada de cualquier conversación.
+- **Layout**: 2 columnas — conversación completa | sidebar de contexto (idéntica al panel)
+- **Alcance**: Funciona para CHATS y TICKETS (unificada)
+- **Navegación entrante**: Desde la ficha del cliente (tab Soporte), desde notas ("Ver conversación origen"), desde la lista de tickets, desde emails
+- **Sidebar incluye**: Perfil, servicios, notas recientes, acciones contextuales
+
+### Coherencia de acciones
+Las acciones de resolución (resolver, cerrar) están siempre en la zona superior (topbar/header).
+Las acciones de navegación/gestión (ver perfil, escalar, ir a chats) están en la sidebar.
+No se duplican acciones entre topbar y sidebar.
+
+### Widget del cliente (`ChatWidget`)
+- CTA "Empezar conversación" en la parte superior (no input enterrado al fondo)
+- Lista de conversaciones recientes con scroll independiente
+- Placeholder para bifurcación Support Inside vs soporte estándar
+
+---
+
+## §44 — Sistema de Proyectos (Sprint 22)
+
+### Problema resuelto
+WDIFY era un addon con precio fijo vinculado a un solo producto. No cubría casos como: desarrollo personalizado multi-producto, presupuestos formales para clientes potenciales, ni la organización interna de la tecnología del cliente. El sistema de proyectos reemplaza WDIFY con un modelo más flexible y auditable.
+
+### Definición
+Un proyecto es un **orquestador** que vincula entidades existentes:
+```
+Proyecto = Presupuesto (quote) + Productos (catalog snapshot) + Tareas (tasks) + Cliente (users) + Pagos (invoices)
+```
+
+No es un sistema nuevo. Es un wrapper de ventas y gestión sobre entidades ya existentes.
+
+### Dos modos (misma tabla, campo `type`)
+
+| Aspecto | `proposal` (agente crea) | `organizational` (cliente crea) |
+|---------|--------------------------|-------------------------------|
+| **Quién crea** | Agente/admin | Cliente |
+| **Propósito** | Presupuesto formal + desarrollo personalizado | Agrupar servicios activos del negocio |
+| **Productos** | Snapshots de precios (no existen aún como servicios) | Referencias a servicios activos |
+| **Tiene presupuesto** | Sí, con depósito y factura final | No |
+| **Tiene tareas** | Sí (desarrollo, configuración) | No necesariamente |
+| **Vista pública** | Sí (link con JWT para no registrados) | No |
+| **Ciclo de vida** | draft → ... → active (11 estados) | Sin ciclo, existe y se edita |
+
+> **Convergencia**: Un proyecto `proposal` creado por un agente, al finalizar, se convierte en lo mismo que un proyecto `organizational` del cliente. El proceso de propuesta queda como historial archivado.
+
+### Ciclo de vida del proyecto `proposal`
+
+```
+  draft ──→ proposal_sent ──→ accepted ──→ deposit_paid ──→ in_progress ──→ completed ──→ paid ──→ active
+    │            │                │                                                         │
+    │            ▼                ▼                                                         ▼
+    │        expired          rejected                                                  cancelled
+    ▼
+  cancelled
+```
+
+| Estado | Significado | Trigger |
+|--------|-------------|---------|
+| `draft` | Agente construyendo. No visible para cliente | Creación |
+| `proposal_sent` | Presupuesto enviado al email del cliente | Agente envía |
+| `accepted` | Cliente aceptó. Pendiente de depósito | Cliente pulsa "Aceptar" |
+| `deposit_paid` | Depósito recibido. Equipo puede empezar | Pago confirmado |
+| `in_progress` | Trabajo activo. Tareas en curso | Agente inicia trabajo |
+| `completed` | Trabajo terminado. Pendiente pago final | Agente finaliza |
+| `paid` | Factura final pagada. Servicios activándose | Pago confirmado |
+| `active` | Servicios activos. Proyecto archivado | Provisioning completado |
+| `rejected` | Cliente rechazó la propuesta | Cliente rechaza |
+| `expired` | Sin respuesta en plazo configurado | Job automático |
+| `cancelled` | Cancelado (por agente o falta de pago) | Manual o automático |
+
+### WDIFY → Deprecado
+- WDIFY como addon de producto se elimina
+- El CTA **"Solicitar desarrollo personalizado"** en la página del servicio del cliente crea un proyecto `proposal` vinculado a ese servicio
+- Las categorías de ticket `wdify_progress` y `wdify_feedback` se eliminan en Sprint 23
+- Un addon tiene precio fijo; un proyecto tiene precio personalizado definido por el agente
+
+### Items del proyecto (`project_items`)
+
+Cada item es un **snapshot congelado** del producto en el momento de añadirlo:
+
+| Campo | Propósito |
+|-------|-----------|
+| `product_id` | Nullable. Del catálogo, o null si es custom |
+| `product_name` | Snapshot. Nombre en el momento de crear |
+| `description` | Explicación de por qué se incluye este producto |
+| `unit_price` | Snapshot. Precio congelado |
+| `billing_cycle` | Snapshot. Mensual/anual/único |
+| `custom_description` | Para items sin producto del catálogo (ej: "Configuración ERP — 20h") |
+| `service_id` | Se rellena SOLO cuando se provisiona tras pago del depósito |
+
+> **Regla crítica**: Los precios NUNCA se leen del catálogo en vivo. Se congelan al añadir al proyecto. Si el catálogo cambia, el presupuesto no cambia.
+
+### Depósito
+
+- Configurable por proyecto (`deposit_pct`, default 5%)
+- Genera una `invoice` con `invoice_type = 'deposit'`
+- Se descuenta de la factura final (`invoice_type = 'project_final'`)
+- Política de reembolso configurable: `full`, `partial`, `none`
+
+### Servicios durante el desarrollo
+
+Al pagar el depósito, los `project_items` con `product_id` crean `services` con status `project_development`:
+- **Accesibles para el equipo Aelium** (agentes/admin pueden trabajar en ellos)
+- **Pendientes para el cliente** (no visibles como servicios activos)
+- **Coste de infraestructura**: Aelium lo asume. El depósito contribuye pero no cubre completamente. Los servicios no están en producción
+- Al pagar factura final: status `project_development` → `active`
+
+### Modificaciones post-aceptación
+
+Cualquier cambio en items o precio después de que el cliente aceptó:
+1. El estado vuelve a `pending_review`
+2. El cliente recibe notificación
+3. Debe re-aceptar antes de continuar
+
+### Vista pública (pre-registro)
+
+1. Agente crea proyecto con email del cliente (ej: `info@negocio.com`)
+2. Se genera JWT firmado (30 días) con `project_id` + `email`
+3. Email enviado con link: `aelium.es/projects/view?token=xxx`
+4. Cliente ve presupuesto: descripción, productos, tareas, precio total
+5. Al aceptar:
+   - Si tiene cuenta → login → auto-vincula → paga depósito
+   - Si no tiene cuenta → registro con ese email → auto-vinculación (SOLO si email verificado) → paga depósito
+
+> **Seguridad**: La auto-vinculación SOLO ocurre tras verificación de email. Sin verificación = sin acceso al proyecto.
+
+### Comunicación del proyecto
+
+No hay sistema de comunicación propio. El agente actualiza tareas y el cliente ve el progreso (% completado, últimas actualizaciones). Para excepciones, comunicación directa (teléfono, chat).
+
+### Tareas del proyecto (relación 1:N)
+
+Un proyecto tiene **N tareas independientes**, cada una asignable a un agente diferente. No existen subtareas — el proyecto es el agrupador:
+
+```
+Proyecto: "Digitalización Floristería Pérez"
+  ├── Tarea 1: "Crear landing web"          → Agente A (o AI Worker futuro, ver AI_WORKERS.md)
+  ├── Tarea 2: "Configurar Nextcloud"       → Agente B
+  └── Tarea 3: "Migrar email a Nextcloud"   → Agente B
+```
+
+**Reglas:**
+- Cada tarea es `type = 'project_task'` con `project_id` vinculado
+- Cada tarea tiene su propio `assigned_to`, `status`, `priority`, `due_date`
+- El progreso del proyecto se calcula como % de tareas completadas
+- Al completar TODAS las tareas → el agente puede marcar el proyecto como `completed`
+- El cliente ve las tareas del proyecto (título, estado, progreso) pero NO los detalles internos (notas internas, checklist del agente)
+
+---
+
+## §45 — Estrategia de Escalabilidad (Sprint 13 ampliado)
+
+### Principio
+La arquitectura actual (monolito NestJS + PostgreSQL + Docker Compose) es correcta para escalar a miles de clientes. No se necesitan microservicios, Kubernetes, ni GraphQL. Lo que se necesita es **eliminar cuellos de botella en los sistemas existentes**.
+
+### Riesgos identificados y mitigaciones
+
+| Riesgo | Impacto | Solución | Sprint |
+|--------|---------|----------|--------|
+| **Single Point of Failure** | Todo cae si el servidor cae | Backups PostgreSQL automatizados + plan de recovery. Ya planificado en Sprint 14.6 | 14 |
+| **JWT en localStorage** | XSS roba tokens de todos los clientes | Migrar a HttpOnly cookies. Ya planificado en Sprint 13.1 | 13 |
+| **Socket.io single instance** | No se puede escalar horizontalmente | `@socket.io/redis-adapter` (~10 líneas de cambio) | 13.30 |
+| **Queries N+1 con Prisma** | Base de datos se degrada con carga | Auditar listados, usar `include` o `$queryRaw` para JOINs | 13.31 |
+| **Offset pagination en messages** | Se degrada con millones de filas | Cursor-based pagination (`WHERE created_at < ?`) | 13.32 |
+| **Sin caching layer** | Queries repetitivas al DB en cada request | Redis caching con TTL por tipo de dato | 13.33 |
+| **Crecimiento sin límite de messages** | Tabla crece indefinidamente | Archival de mensajes de conversaciones cerradas >6 meses | 13.34 |
+
+### Lo que NO se cambia
+
+- **Monolito modular**: correcto para esta escala. Microservicios añaden complejidad sin beneficio
+- **PostgreSQL**: maneja millones de filas sin problema
+- **Prisma ORM**: limitaciones conocidas pero cambiar ORM ahora es más riesgo que beneficio. Se usa `$queryRaw` para hot paths
+- **Docker Compose**: superior a K8s para esta escala operativa
+- **REST**: correcto. GraphQL no aporta beneficio para un dashboard
+
+### Umbrales de acción
+
+| Umbral | Acción |
+|--------|--------|
+| < 1000 clientes | La arquitectura actual es suficiente |
+| 1000-5000 clientes | Redis caching + cursor pagination + N+1 audit |
+| 5000-10000 clientes | Read replica PostgreSQL + archival de mensajes |
+| > 10000 clientes | Evaluar separación de workers + CDN para MinIO |
+
+---
+
+## §46 — Rediseño de Tickets (Sprint 23)
+
+### Problema resuelto
+Los tickets y los chats compartían la misma interfaz (burbujas de mensajes en `[id]/page.tsx`). Esto hacía que el usuario no percibiera diferencia de propósito entre ambos sistemas. Los tickets carecían de features esenciales para un sistema de soporte profesional.
+
+### Diferenciación Chat vs Tickets
+
+| Aspecto | **Chat** (sin cambios) | **Tickets** (rediseñado) |
+|---------|----------------------|--------------------------|
+| **Modelo mental** | WhatsApp | Email / Jira |
+| **UI de mensajes** | Burbujas compactas, scroll rápido | Bloques completos: cabecera + cuerpo + footer por respuesta |
+| **Tempo** | Segundos | Horas/días |
+| **Sidebar** | Contexto del cliente (perfil, servicios, notas) | Contexto del cliente + metadata del ticket (SLA, servicio vinculado, proyecto vinculado, tags) |
+| **Acciones** | Resolver, cerrar, escalar | + Vincular servicio/proyecto, tags, SLA, adjuntar archivos |
+| **Vista lista** | Panel en vivo (3 columnas) | Bandeja tipo inbox con columnas ordenables y filtros |
+
+### Features nuevos de tickets
+
+1. **UI thread-based**: cada respuesta es un bloque con nombre + fecha + cuerpo. Visualmente distinto al chat
+2. **Sidebar enriquecida**: metadata del ticket (SLA, servicio vinculado, proyecto vinculado, tags) además del contexto del cliente
+3. **Vinculación a entidades**: `linked_service_id` y `linked_project_id` en `conversations`. Se pueden linkar al crear o editar
+4. **Tags/etiquetas**: tabla `conversation_tags`. Filtrable en lista
+5. **SLA tracking**: `sla_response_target` y `sla_resolution_target`. Indicador visual de cumplimiento
+6. **Adjuntos**: subida de archivos a MinIO (screenshots, logs, documentos)
+7. **Lista rediseñada**: columnas ordenables (estado, prioridad, agente, categoría, última actividad, SLA)
+
+### Deprecación de categorías WDIFY
+
+- `wdify_progress` → eliminada (la trazabilidad de desarrollo vive en el proyecto, Sprint 22)
+- `wdify_feedback` → eliminada (el feedback se gestiona via chat o proyecto)
+- Tickets existentes con estas categorías se migran a `support_technical`
+
+### Principio de diseño
+El chat es para **operar en tiempo real**. Los tickets son para **investigar, documentar, y resolver**. Cada sistema tiene su UI optimizada para su propósito.
+
+---
+
+## §47 — Sistema de Citas en Comunicación (Sprint 24)
+
+### Problema resuelto
+Las conversaciones de soporte pierden contexto porque no hay forma de referenciar entidades del sistema (productos, proyectos, notas) directamente en los mensajes. El agente tiene que describir textualmente qué producto o proyecto está discutiendo, y el cliente no puede hacer clic para ver los detalles.
+
+### Definición
+Una cita (citation) es una **referencia estructurada** a una entidad del sistema, embebida dentro de un mensaje de chat o ticket. Se renderiza como una card interactiva con información básica y un link de navegación.
+
+### Modelo de datos
+
+Campo `references` (jsonb) en tabla `messages`:
+```json
+[
+  {
+    "type": "service",
+    "id": "uuid-del-servicio",
+    "snapshot": {
+      "name": "Hosting Web — Plan Pro",
+      "status": "active"
+    }
+  },
+  {
+    "type": "project",
+    "id": "uuid-del-proyecto",
+    "snapshot": {
+      "name": "Digitalización Floristería Pérez",
+      "status": "in_progress"
+    }
+  }
+]
+```
+
+### Tipos de referencia soportados
+
+| Tipo | Quién puede citar | Info en la card |
+|------|-------------------|-----------------|
+| `service` | Cliente (sus propios) + Agente | Nombre, producto, estado |
+| `product` | Cliente + Agente | Nombre, precio, categoría |
+| `project` | Cliente (sus propios) + Agente | Nombre, estado, % progreso |
+| `note` | Solo agente | Resumen, categoría, autor |
+
+### Permisos
+- **Cliente**: solo puede citar entidades propias (sus servicios, sus proyectos)
+- **Agente**: puede citar cualquier entidad del cliente con el que está conversando
+
+### Resolución de referencias
+Al cargar mensajes, el backend enriquece los snapshots con datos actuales. Si la entidad fue eliminada, se muestra el snapshot original con badge "No disponible".
+
+### UX
+- Botón "📎 Adjuntar referencia" en el input de mensajes
+- Selector con búsqueda filtrada por tipo
+- La referencia se renderiza como card clickable dentro del mensaje
+- Al hacer clic, navegación directa a la entidad (deep linking)
+
+---
+
+## §48 — Arquitectura de Auth Layout (Sprint 7.5 · D27)
+
+### Problema resuelto
+Las 5 páginas de autenticación (login, register, forgot, reset, verify-email) tenían ~105 `style={{}}` inline, ~28 colores hex hardcodeados, y cada una montaba su propia instancia de `GradientMesh`. No había layout compartido. El logo era texto hardcodeado ("aelium") sin el SVG real de la marca. La experiencia de auth era visualmente desconectada de la landing page (Aurora Digital).
+
+### Decisión: Split-screen AuthLayout
+
+**Patrón elegido:** Split-screen 55%/45% (Aurora Digital | Form) — idéntico al usado por Stripe, Vercel, Clerk, Supabase.
+
+**Justificación:**
+1. **Continuidad de marca:** El usuario llega de la landing (Aurora Digital) y ve la misma animación en el auth → transición mental fluida.
+2. **Single mount de GradientMesh:** Canvas pesado montado 1 vez en el layout, no 5 veces en cada page.
+3. **Responsive:** A `<1024px`, el panel Aurora se oculta y el form ocupa 100% con logo arriba.
+
+### Arquitectura
+
+```
+app/
+  AuthLayout.tsx         ← Layout compartido (split-screen)
+  auth.module.css        ← CSS module único (24 clases, zero hex, zero Tailwind)
+  auth-components.tsx    ← Shared sub-components (EyeIcon, PasswordCheck) — DRY
+  page.tsx               ← Login (Suspense → credentials → 2FA → redirect)
+  register/page.tsx      ← Register (form → verify email success)
+  forgot-password/page.tsx ← Forgot (email → success, anti-enumeration)
+  reset-password/page.tsx  ← Reset (Suspense + token → new password → success)
+  verify-email/page.tsx    ← Verify (Suspense + auto-verify on mount)
+```
+
+### Panel izquierdo (Aurora)
+- `GradientMesh` (Canvas 2D, Aurora Digital — misma animación de la landing)
+- Logo SVG real (`/brand/logo-blue-black.svg`) en card glassmorphism
+- Slogan "Tu socio digital, a tu lado" con animación cascada (fadeInUp)
+- El panel es decorativo — nunca contiene formularios ni inputs
+
+### CSS module: `auth.module.css`
+Todas las clases de auth viven en un solo CSS module. Reglas:
+- Todo valor de color viene de `globals.css` (tokens)
+- Todo spacing usa `var(--space-*)`
+- Focus states: `var(--brand)` ring + `var(--brand-subtle)` glow
+- Alerts: 3 variantes (danger, success, info) con tokens `--*-light` + `--*-border`
+
+### Session expired (§4.3)
+El login detecta `?expired=true` en la URL y muestra un AlertBanner info: "Tu sesión ha expirado. Inicia sesión de nuevo." — sin bloquear el formulario.
+
+### Anti-enumeration (forgot-password)
+El formulario de forgot-password siempre muestra el mensaje de éxito, independientemente de si el email existe en el sistema. Esto previene la enumeración de emails por un atacante.
+
+### Tokens semánticos de border
+Se añadieron 4 tokens a `globals.css` para bordes de alerts:
+```
+--success-border: rgba(16, 185, 129, 0.15)
+--warning-border: rgba(245, 158, 11, 0.15)
+--danger-border:  rgba(239, 68, 68, 0.15)
+--info-border:    rgba(59, 130, 246, 0.15)
+```
+Esto elimina los últimos `rgba()` literales del módulo auth.
+
+### Quality hardening (D27.1)
+6 fixes post-migración:
+1. `ContextBackLink`: `<a>` → `<Link>` (SPA navigation)
+2. `DetailPage`: import duplicado unificado
+3. Alert borders: `rgba()` → tokens `--*-border`
+4. Login: detección de `?expired=true` (§4.3)
+5. DRY: `auth-components.tsx` (EyeIcon, PasswordCheck compartidos)
+6. Backend: `sequence_number` refetch en 3 métodos de creación de tickets
+
+### Mejoras futuras identificadas (no implementadas)
+- Auto-focus en primer input
+- Metadata por página (pestaña del navegador)
+- Footer legal (GDPR: © + Privacidad + Términos)
+- Redirect con `?next=` (volver a donde estabas tras login)
+- CSS autofill styling (neutralizar colores de Chrome)
+- OTP Input (6 cajas individuales para 2FA)
 
 ---
 

@@ -3,6 +3,16 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { productsApi } from '../../../../lib/api';
+import { Card, Input, Select, Textarea, Button, AlertBanner, Skeleton, FormPage, Modal, useToast } from '../../../../components/ui';
+import styles from '../../productForm.module.css';
+
+/* ═══════════════════════════════════════
+   Edit Product — Update existing product
+   Layout: FormPage (§2.6)
+   Components: Card, Input, Select, Textarea,
+   Button, AlertBanner, Skeleton
+   Ref: UI_SPEC.md §2.6, ROADMAP.md D24
+   ═══════════════════════════════════════ */
 
 const TYPE_LABELS: Record<string, string> = {
   hosting_web: 'Hosting Web', domain: 'Dominio', docker_service: 'Docker Service',
@@ -17,21 +27,6 @@ const CYCLE_OPTIONS = [
   { value: 'one_time', label: 'Único' },
 ];
 
-const inputStyle = {
-  background: 'var(--surface-secondary)',
-  border: '1px solid var(--border)',
-  color: 'var(--text-primary)',
-  outline: 'none',
-};
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 className="text-sm font-semibold uppercase tracking-wider mb-4 mt-6 first:mt-0" style={{ color: 'var(--text-tertiary)' }}>
-      {children}
-    </h3>
-  );
-}
-
 interface Pricing { id: string; billing_cycle: string; price: string; setup_fee: string; currency: string; active: boolean; }
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,11 +36,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState(''); // validation only — network errors use toast
   const [productType, setProductType] = useState('');
-
-  // Editable fields
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
@@ -57,13 +49,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [cancellationDays, setCancellationDays] = useState('30');
   const [clientCanPause, setClientCanPause] = useState(false);
   const [partnerCommission, setPartnerCommission] = useState('');
-
-  // Existing pricing (managed separately via API)
   const [existingPricing, setExistingPricing] = useState<Pricing[]>([]);
   const [newCycle, setNewCycle] = useState('monthly');
   const [newPrice, setNewPrice] = useState('');
   const [newSetup, setNewSetup] = useState('0');
   const [addingPrice, setAddingPrice] = useState(false);
+  const [deletePricingId, setDeletePricingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const isAddon = productType === 'support_inside' || productType === 'we_do_it';
   const showLifecycle = productType !== 'support_inside' && productType !== 'we_do_it';
@@ -92,14 +84,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); setSuccess('');
+    setError('');
     if (!name.trim()) { setError('El nombre es obligatorio.'); return; }
-
     setSaving(true);
     try {
       await productsApi.update(token, id, {
         name: name.trim(),
-        slug: slug.trim(),
+        slug: slug.trim() || undefined,
         description: description || undefined,
         short_description: shortDescription || undefined,
         badge_text: badgeText || undefined,
@@ -110,13 +101,10 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         client_can_pause: clientCanPause,
         partner_commission_pct: partnerCommission ? parseFloat(partnerCommission) : undefined,
       });
-      setSuccess('Producto actualizado correctamente.');
-      setTimeout(() => setSuccess(''), 3000);
+      toast('success', 'Producto actualizado correctamente.');
     } catch (err: any) {
-      setError(err?.message || 'Error al guardar.');
-    } finally {
-      setSaving(false);
-    }
+      toast('error', err?.message || 'Error al guardar.');
+    } finally { setSaving(false); }
   };
 
   const handleAddPricing = async () => {
@@ -124,178 +112,174 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     setAddingPrice(true);
     try {
       await productsApi.addPricing(token, id, {
-        billing_cycle: newCycle,
-        price: parseFloat(newPrice),
-        setup_fee: parseFloat(newSetup) || 0,
+        billing_cycle: newCycle, price: parseFloat(newPrice), setup_fee: parseFloat(newSetup) || 0,
       });
       const data: any = await productsApi.get(token, id);
       setExistingPricing(data.pricing || []);
       setNewPrice(''); setNewSetup('0');
+      toast('success', 'Plan de precio añadido.');
     } catch (err: any) {
-      setError(err?.message || 'Error al añadir precio.');
+      toast('error', err?.message || 'Error al añadir precio.');
     }
     setAddingPrice(false);
   };
 
   const handleDeletePricing = async (pricingId: string) => {
-    if (!confirm('¿Eliminar este plan de precio?')) return;
     try {
       await productsApi.deletePricing(token, pricingId);
       setExistingPricing(existingPricing.filter(p => p.id !== pricingId));
+      toast('success', 'Plan de precio eliminado.');
     } catch (err: any) {
-      setError(err?.message || 'Error al eliminar precio.');
+      toast('error', err?.message || 'Error al eliminar precio.');
     }
+    setDeletePricingId(null);
   };
 
   const cycleLbl = (c: string) => CYCLE_OPTIONS.find(o => o.value === c)?.label || c;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <svg className="animate-spin h-6 w-6" style={{ color: 'var(--brand)' }} viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-      </div>
+      <FormPage
+        breadcrumb={[{ label: 'Productos', href: '/dashboard/products' }, { label: 'Cargando...' }]}
+        title="Editar producto"
+      >
+        <Card>
+          <div className={styles.formSectionSpaced}>
+            <Skeleton width="40%" height={24} />
+            <Skeleton width="100%" height={40} />
+            <Skeleton width="100%" height={40} />
+            <Skeleton width="60%" height={40} />
+          </div>
+        </Card>
+      </FormPage>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => router.push(`/dashboard/products/${id}`)} className="p-2 rounded-lg cursor-pointer" style={{ color: 'var(--text-tertiary)', background: 'var(--surface-primary)', border: '1px solid var(--border)' }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M19 12H5" /><polyline points="12 19 5 12 12 5" /></svg>
-        </button>
-        <div>
-          <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>Editar producto</h1>
-          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{TYPE_LABELS[productType]} · {slug}</p>
-        </div>
-      </div>
-
-      {error && <div className="mb-4 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.08)', color: '#dc2626', border: '1px solid rgba(239,68,68,0.2)' }}>{error}</div>}
-      {success && <div className="mb-4 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(34,197,94,0.08)', color: '#16a34a', border: '1px solid rgba(34,197,94,0.2)' }}>{success}</div>}
-
-      <form onSubmit={handleSave}>
-        <div className="rounded-xl p-6" style={{ background: 'var(--surface-primary)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-
-          <SectionTitle>Identidad</SectionTitle>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Nombre *</label>
-              <input value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Slug</label>
-              <input value={slug} onChange={e => setSlug(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm font-mono" style={inputStyle} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Badge</label>
-              <input value={badgeText} onChange={e => setBadgeText(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Comisión partner (%)</label>
-              <input type="number" step="0.01" min="0" max="100" value={partnerCommission} onChange={e => setPartnerCommission(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
-            </div>
-          </div>
-          <div className="mt-4">
-            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Descripción corta</label>
-            <input value={shortDescription} onChange={e => setShortDescription(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} maxLength={500} />
-          </div>
-          <div className="mt-4">
-            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Descripción completa</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full px-3 py-2.5 rounded-lg text-sm resize-none" style={inputStyle} />
-          </div>
-
-          {!isAddon && (
-            <>
-              <SectionTitle>Provisioning</SectionTitle>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Provisioner</label>
-                <input value={provisioner} onChange={e => setProvisioner(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm md:w-1/2" style={inputStyle} />
-              </div>
-            </>
-          )}
-
-          {showLifecycle && (
-            <>
-              <SectionTitle>Ciclo de vida</SectionTitle>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Gracia (días)</label>
-                  <input type="number" min="0" value={gracePeriod} onChange={e => setGracePeriod(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Suspensión (días)</label>
-                  <input type="number" min="0" value={suspensionDays} onChange={e => setSuspensionDays(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Cancelación (días)</label>
-                  <input type="number" min="0" value={cancellationDays} onChange={e => setCancellationDays(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
-                </div>
-                <div className="flex items-end">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer pb-2.5" style={{ color: 'var(--text-secondary)' }}>
-                    <input type="checkbox" checked={clientCanPause} onChange={e => setClientCanPause(e.target.checked)} className="rounded cursor-pointer" />
-                    Pausar
-                  </label>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Pricing section (separate from main form) */}
-        <div className="rounded-xl p-6 mt-6" style={{ background: 'var(--surface-primary)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-          <SectionTitle>Planes de precio</SectionTitle>
-          {existingPricing.length > 0 && (
-            <div className="space-y-2 mb-4">
-              {existingPricing.map(p => (
-                <div key={p.id} className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--surface-secondary)' }}>
-                  <div>
-                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{cycleLbl(p.billing_cycle)}</span>
-                    {Number(p.setup_fee) > 0 && <span className="text-xs ml-2" style={{ color: 'var(--text-tertiary)' }}>+ {Number(p.setup_fee).toFixed(2)} € setup</span>}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg font-semibold" style={{ color: 'var(--brand)' }}>{Number(p.price).toFixed(2)} €</span>
-                    <button type="button" onClick={() => handleDeletePricing(p.id)} className="p-1 rounded cursor-pointer" style={{ color: '#dc2626' }} title="Eliminar">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-3 items-end">
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Ciclo</label>
-              <select value={newCycle} onChange={e => setNewCycle(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm cursor-pointer" style={inputStyle}>
-                {CYCLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Precio (€)</label>
-              <input type="number" step="0.01" min="0" value={newPrice} onChange={e => setNewPrice(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} placeholder="9.99" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Setup (€)</label>
-              <input type="number" step="0.01" min="0" value={newSetup} onChange={e => setNewSetup(e.target.value)} className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} placeholder="0" />
-            </div>
-            <button type="button" onClick={handleAddPricing} disabled={addingPrice || !newPrice} className="px-4 py-2.5 rounded-lg text-sm font-medium text-white cursor-pointer disabled:opacity-50" style={{ background: 'var(--brand)' }}>
-              Añadir
-            </button>
-          </div>
-        </div>
-
-        {/* Submit */}
-        <div className="flex items-center justify-end gap-3 mt-6">
-          <button type="button" onClick={() => router.push(`/dashboard/products/${id}`)} className="px-5 py-2.5 rounded-xl text-sm font-medium cursor-pointer" style={{ color: 'var(--text-secondary)', background: 'var(--surface-primary)', border: '1px solid var(--border)' }}>
-            Cancelar
-          </button>
-          <button type="submit" disabled={saving} className="px-6 py-2.5 rounded-xl text-sm font-medium text-white cursor-pointer disabled:opacity-60" style={{ background: 'var(--brand)', boxShadow: 'var(--shadow-brand)' }}>
+    <FormPage
+      breadcrumb={[
+        { label: 'Productos', href: '/dashboard/products' },
+        { label: name || slug, href: `/dashboard/products/${id}` },
+        { label: 'Editar' },
+      ]}
+      title="Editar producto"
+      actions={
+        <>
+          <Button variant="secondary" onClick={() => router.push(`/dashboard/products/${id}`)}>Cancelar</Button>
+          <Button type="submit" form="edit-product-form" loading={saving}>
             {saving ? 'Guardando...' : 'Guardar cambios'}
-          </button>
+          </Button>
+        </>
+      }
+    >
+      {error && <AlertBanner variant="danger" onClose={() => setError('')}>{error}</AlertBanner>}
+
+      <form id="edit-product-form" onSubmit={handleSave}>
+        {/* Card: Identity */}
+        <Card>
+          <div className={styles.formSection}>
+            <h3 className={styles.sectionTitle}>Identidad</h3>
+            <p className={styles.subtitle}>{TYPE_LABELS[productType]} · {slug}</p>
+            <div className={styles.formGrid}>
+              <Input label="Nombre *" value={name} onChange={e => setName(e.target.value)} />
+              <Input label="Slug" value={slug} onChange={e => setSlug(e.target.value)} style={{ fontFamily: 'monospace' }} />
+              <Input label="Badge" value={badgeText} onChange={e => setBadgeText(e.target.value)} />
+              <Input label="Comisión partner (%)" type="number" step="0.01" min="0" max="100"
+                value={partnerCommission} onChange={e => setPartnerCommission(e.target.value)} placeholder="20" />
+            </div>
+            <div className={styles.mt4}>
+              <Input label="Descripción corta" value={shortDescription} onChange={e => setShortDescription(e.target.value)} maxLength={500} />
+            </div>
+            <div className={styles.mt4}>
+              <Textarea label="Descripción completa" value={description} onChange={e => setDescription(e.target.value)} rows={3} />
+            </div>
+          </div>
+        </Card>
+
+        {/* Card: Provisioning */}
+        {!isAddon && (
+          <div className={styles.mt6}>
+            <Card>
+              <div className={styles.formSection}>
+                <h3 className={styles.sectionTitle}>Provisioning</h3>
+                <div className={styles.formGrid}>
+                  <Input label="Provisioner" value={provisioner} onChange={e => setProvisioner(e.target.value)} />
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Card: Lifecycle */}
+        {showLifecycle && (
+          <div className={styles.mt6}>
+            <Card>
+              <div className={styles.formSection}>
+                <h3 className={styles.sectionTitle}>Ciclo de vida</h3>
+                <div className={styles.pricingGrid}>
+                  <Input label="Gracia (días)" type="number" min="0" value={gracePeriod} onChange={e => setGracePeriod(e.target.value)} />
+                  <Input label="Suspensión (días)" type="number" min="0" value={suspensionDays} onChange={e => setSuspensionDays(e.target.value)} />
+                  <Input label="Cancelación (días)" type="number" min="0" value={cancellationDays} onChange={e => setCancellationDays(e.target.value)} />
+                  <div className={styles.pricingActions}>
+                    <label className={styles.checkboxLabel}>
+                      <input type="checkbox" checked={clientCanPause} onChange={e => setClientCanPause(e.target.checked)} className={styles.checkboxInput} />
+                      Pausar
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Card: Pricing */}
+        <div className={styles.mt6}>
+          <Card>
+            <div className={styles.formSection}>
+              <h3 className={styles.sectionTitle}>Planes de precio</h3>
+              {existingPricing.length > 0 && (
+                <div className={styles.spaceY2}>
+                  {existingPricing.map(p => (
+                    <div key={p.id} className={styles.pricingItem}>
+                      <div>
+                        <span className={styles.pricingItemName}>{cycleLbl(p.billing_cycle)}</span>
+                        {Number(p.setup_fee) > 0 && <span className={styles.pricingItemSetup}>+ {Number(p.setup_fee).toFixed(2)} € setup</span>}
+                      </div>
+                      <div className={styles.pricingRow}>
+                        <span className={styles.pricingItemPrice}>{Number(p.price).toFixed(2)} €</span>
+                        <button type="button" onClick={() => setDeletePricingId(p.id)} className={styles.removeBtn} title="Eliminar">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className={`${styles.pricingRow} ${styles.mt4}`}>
+                <Select label="Ciclo" value={newCycle} onChange={e => setNewCycle(e.target.value)} options={CYCLE_OPTIONS} />
+                <Input label="Precio (€)" type="number" step="0.01" min="0" value={newPrice} onChange={e => setNewPrice(e.target.value)} placeholder="9.99" />
+                <Input label="Setup (€)" type="number" step="0.01" min="0" value={newSetup} onChange={e => setNewSetup(e.target.value)} placeholder="0" />
+                <Button onClick={handleAddPricing} disabled={addingPrice || !newPrice} loading={addingPrice}>Añadir</Button>
+              </div>
+            </div>
+          </Card>
         </div>
       </form>
-    </div>
+
+      {/* Delete pricing confirmation modal (§4.2) */}
+      <Modal
+        open={deletePricingId !== null}
+        onClose={() => setDeletePricingId(null)}
+        title="Eliminar plan de precio"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeletePricingId(null)}>Cancelar</Button>
+            <Button variant="danger" onClick={() => deletePricingId && handleDeletePricing(deletePricingId)}>Eliminar</Button>
+          </>
+        }
+      >
+        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>¿Eliminar este plan de precio? Esta acción no se puede deshacer.</p>
+      </Modal>
+    </FormPage>
   );
 }

@@ -2,7 +2,13 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../core/database/prisma.service';
 import { RoleSlug } from '@prisma/client';
 import { paginate, PaginatedResult } from '../../common/dto/pagination.dto';
-import { ClientListQueryDto, UpdateClientProfileDto, AddNoteDto } from './dto/client.dto';
+import {
+  ClientListQueryDto,
+  UpdateClientProfileDto,
+  AddNoteDto,
+  CreateClientNoteDto,
+  ClientNoteQueryDto,
+} from './dto/client.dto';
 import { CreateBillingProfileDto, UpdateBillingProfileDto } from './dto/billing-profile.dto';
 
 @Injectable()
@@ -125,16 +131,16 @@ export class ClientsService {
   }
 
   /* ═══════════════════════════════════════
-     ADD INTERNAL NOTE
+     LEGACY ADD INTERNAL NOTE (backward compat + structured sync)
      ═══════════════════════════════════════ */
-  async addNote(userId: string, dto: AddNoteDto) {
+  async addNote(userId: string, dto: AddNoteDto, authorId?: string) {
     const profile = await this.prisma.clientProfile.findUnique({
       where: { user_id: userId },
     });
 
     if (!profile) throw new NotFoundException('Perfil de cliente no encontrado');
 
-    // Append note with timestamp to existing notes
+    // Append note with timestamp to existing notes (legacy text field)
     const timestamp = new Date().toISOString();
     const newNote = `[${timestamp}]\n${dto.note}`;
     const existingNotes = profile.notes_internal || '';
@@ -142,9 +148,98 @@ export class ClientsService {
       ? `${newNote}\n\n---\n\n${existingNotes}`
       : newNote;
 
-    return this.prisma.clientProfile.update({
+    const result = await this.prisma.clientProfile.update({
       where: { user_id: userId },
       data: { notes_internal: updatedNotes },
+    });
+
+    // Also create structured ClientNote for unified view
+    if (authorId) {
+      try {
+        await this.prisma.clientNote.create({
+          data: {
+            user_id: userId,
+            author_id: authorId,
+            body: dto.note,
+            category: 'general',
+            is_pinned: false,
+          },
+        });
+      } catch (e) {
+        // Non-critical: don't break if structured note fails
+      }
+    }
+
+    return result;
+  }
+
+  /* ═══════════════════════════════════════
+     STRUCTURED NOTES (7.H19)
+     ═══════════════════════════════════════ */
+
+  async createStructuredNote(userId: string, authorId: string, dto: CreateClientNoteDto) {
+    // Verify user exists
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundException('Cliente no encontrado');
+
+    return this.prisma.clientNote.create({
+      data: {
+        user_id: userId,
+        author_id: authorId,
+        body: dto.body,
+        category: dto.category || 'conversation',
+        conversation_id: dto.conversation_id || null,
+        is_pinned: dto.is_pinned || false,
+      },
+    });
+  }
+
+  async listStructuredNotes(userId: string, query: ClientNoteQueryDto) {
+    const { page = 1, limit = 50, category, pinned_only } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = { user_id: userId };
+    if (category) where.category = category;
+    if (pinned_only) where.is_pinned = true;
+
+    const [notes, total] = await Promise.all([
+      this.prisma.clientNote.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [{ is_pinned: 'desc' }, { created_at: 'desc' }],
+      }),
+      this.prisma.clientNote.count({ where }),
+    ]);
+
+    // Resolve author names
+    const authorIds = [...new Set(notes.map((n) => n.author_id))];
+    const authors = authorIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: authorIds } },
+          select: { id: true, first_name: true, last_name: true },
+        })
+      : [];
+    const authorMap: Record<string, string> = {};
+    authors.forEach((a) => { authorMap[a.id] = `${a.first_name} ${a.last_name}`; });
+
+    const enrichedNotes = notes.map((n) => ({
+      ...n,
+      author_name: authorMap[n.author_id] || 'Desconocido',
+    }));
+
+    return paginate(enrichedNotes, total, page, limit);
+  }
+
+  async toggleNotePin(noteId: string) {
+    const note = await this.prisma.clientNote.findUnique({ where: { id: noteId } });
+    if (!note) throw new NotFoundException('Nota no encontrada');
+    return this.prisma.clientNote.update({
+      where: { id: noteId },
+      data: { is_pinned: !note.is_pinned },
     });
   }
 

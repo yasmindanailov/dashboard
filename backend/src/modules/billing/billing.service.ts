@@ -404,7 +404,8 @@ export class BillingService {
   }
 
   /* ═══════════════════════════════════════
-     UPDATE INVOICE (metadata only)
+     UPDATE INVOICE
+     7.0.4: Recalculates totals when items are present
      ═══════════════════════════════════════ */
 
   async updateInvoice(id: string, dto: UpdateInvoiceDto): Promise<Invoice> {
@@ -417,11 +418,23 @@ export class BillingService {
       );
     }
 
+    // Only drafts can have items edited
+    if (dto.items && invoice.status !== 'draft') {
+      throw new BadRequestException(
+        'Solo se pueden editar items en facturas en borrador.',
+      );
+    }
+
     // Prevent direct status manipulation via update — use dedicated methods
     if (dto.status) {
       throw new BadRequestException(
         'Usa los endpoints específicos para cambiar el estado de la factura.',
       );
+    }
+
+    // If items are provided, recalculate everything
+    if (dto.items && dto.items.length > 0) {
+      return this.recalculateInvoice(id, dto);
     }
 
     const updated = await this.prisma.invoice.update({
@@ -432,6 +445,69 @@ export class BillingService {
       },
       include: { items: true, billing_profile: true },
     });
+
+    return updated;
+  }
+
+  /**
+   * Recalculate invoice totals from items.
+   * Shared logic between createInvoice and updateInvoice.
+   * 7.0.4: IVA se recalcula al editar items de factura.
+   */
+  private async recalculateInvoice(id: string, dto: UpdateInvoiceDto): Promise<Invoice> {
+    const taxRate = await this.getSettingValue<number>('billing', 'default_tax_rate', 21);
+
+    const calculatedItems = dto.items!.map((item) => {
+      const qty = item.quantity ?? 1;
+      const baseTotal = qty * item.unit_price;
+      const setupFee = item.setup_fee ?? 0;
+      const discountPct = item.discount_pct ?? 0;
+      const discountAmount = baseTotal * (discountPct / 100);
+      const itemTotal = baseTotal - discountAmount + setupFee;
+
+      return {
+        service_id: item.service_id,
+        product_id: item.product_id,
+        description: item.description,
+        quantity: qty,
+        unit_price: item.unit_price,
+        setup_fee: setupFee,
+        discount_pct: item.discount_pct,
+        total: Math.round(itemTotal * 100) / 100,
+        period_start: item.period_start ? new Date(item.period_start) : undefined,
+        period_end: item.period_end ? new Date(item.period_end) : undefined,
+      };
+    });
+
+    const subtotal = calculatedItems.reduce((sum, item) => sum + item.total, 0);
+    const roundedSubtotal = Math.round(subtotal * 100) / 100;
+    const taxAmount = Math.round(roundedSubtotal * (taxRate / 100) * 100) / 100;
+    const total = Math.round((roundedSubtotal + taxAmount) * 100) / 100;
+
+    // Delete old items and create new ones in a transaction
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.invoiceItem.deleteMany({ where: { invoice_id: id } });
+
+      return tx.invoice.update({
+        where: { id },
+        data: {
+          subtotal: roundedSubtotal,
+          tax_rate: taxRate,
+          tax_amount: taxAmount,
+          total,
+          notes: dto.notes,
+          due_date: dto.due_date ? new Date(dto.due_date) : undefined,
+          items: {
+            create: calculatedItems,
+          },
+        },
+        include: { items: true, billing_profile: true },
+      });
+    });
+
+    this.logger.log(
+      `Invoice ${id} recalculated — subtotal: ${roundedSubtotal}, tax: ${taxAmount}, total: ${total}`,
+    );
 
     return updated;
   }
@@ -518,10 +594,16 @@ export class BillingService {
     total_revenue: number;
     pending_amount: number;
     overdue_count: number;
+    /* Per-status counts for StatusTabs (UI_SPEC §3.2) */
+    draft_count: number;
+    pending_count: number;
+    paid_count: number;
+    cancelled_count: number;
+    refunded_count: number;
   }> {
     const baseWhere = userId ? { user_id: userId } : {};
 
-    const [totalCount, paidAgg, pendingAgg, overdueCount] = await this.prisma.$transaction([
+    const [totalCount, paidAgg, pendingAgg, statusGroups] = await this.prisma.$transaction([
       this.prisma.invoice.count({ where: baseWhere }),
       this.prisma.invoice.aggregate({
         where: { ...baseWhere, status: 'paid' },
@@ -531,14 +613,30 @@ export class BillingService {
         where: { ...baseWhere, status: { in: ['pending', 'overdue'] } },
         _sum: { total: true },
       }),
-      this.prisma.invoice.count({ where: { ...baseWhere, status: 'overdue' } }),
+      this.prisma.invoice.groupBy({
+        by: ['status'],
+        where: baseWhere,
+        orderBy: { status: 'asc' },
+        _count: true,
+      }),
     ]);
+
+    // Build a status→count map from the groupBy result
+    const countByStatus: Record<string, number> = {};
+    for (const group of statusGroups) {
+      countByStatus[group.status] = typeof group._count === 'number' ? group._count : 0;
+    }
 
     return {
       total_invoices: totalCount,
       total_revenue: Number(paidAgg._sum.total ?? 0),
       pending_amount: Number(pendingAgg._sum.total ?? 0),
-      overdue_count: overdueCount,
+      overdue_count: countByStatus['overdue'] ?? 0,
+      draft_count: countByStatus['draft'] ?? 0,
+      pending_count: countByStatus['pending'] ?? 0,
+      paid_count: countByStatus['paid'] ?? 0,
+      cancelled_count: countByStatus['cancelled'] ?? 0,
+      refunded_count: countByStatus['refunded'] ?? 0,
     };
   }
 
@@ -555,7 +653,10 @@ export class BillingService {
    * Without an active payment plugin, the admin marks the invoice as paid
    * manually, which triggers service activation.
    *
-   * Ref: DECISIONS.md §12, §21
+   * 7.0.3: billing_profile_id is validated against the target userId
+   * 7.0.5: discount_percentage from ProductPricing is applied to the invoice item
+   *
+   * Ref: DECISIONS.md §12, §21, §32
    */
   async checkout(userId: string, dto: {
     product_pricing_id: string;
@@ -563,7 +664,11 @@ export class BillingService {
     label?: string;
     domain?: string;
   }) {
-    // 1. Validate pricing plan
+    // 1. Validate target user exists
+    const targetUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!targetUser) throw new NotFoundException('Usuario destino no encontrado.');
+
+    // 2. Validate pricing plan
     const pricing = await this.prisma.productPricing.findUnique({
       where: { id: dto.product_pricing_id },
       include: { product: true },
@@ -575,18 +680,21 @@ export class BillingService {
       throw new BadRequestException('Este producto no está disponible.');
     }
 
-    // 2. Validate billing profile if provided
+    // 3. Validate billing profile belongs to the TARGET user, not the caller
+    // 7.0.3: prevents admin accidentally billing to their own profile
     let billingProfile = null;
     if (dto.billing_profile_id) {
       billingProfile = await this.prisma.billingProfile.findFirst({
         where: { id: dto.billing_profile_id, user_id: userId },
       });
       if (!billingProfile) {
-        throw new NotFoundException('Perfil de facturación no encontrado.');
+        throw new BadRequestException(
+          'El perfil de facturación no pertenece al cliente seleccionado.',
+        );
       }
     }
 
-    // 3. Check max_quantity_per_client
+    // 4. Check max_quantity_per_client
     if (pricing.product.max_quantity_per_client) {
       const existingCount = await this.prisma.service.count({
         where: {
@@ -597,12 +705,20 @@ export class BillingService {
       });
       if (existingCount >= pricing.product.max_quantity_per_client) {
         throw new BadRequestException(
-          `Has alcanzado el límite de ${pricing.product.max_quantity_per_client} servicio(s) de este tipo.`,
+          `El cliente ha alcanzado el límite de ${pricing.product.max_quantity_per_client} servicio(s) de este tipo.`,
         );
       }
     }
 
-    // 4. Calculate due date
+    // 5. Calculate pricing with discount
+    // 7.0.5: Apply discount_percentage from the pricing plan (annual discounts etc.)
+    const basePrice = Number(pricing.price);
+    const discountPct = pricing.discount_percentage ? Number(pricing.discount_percentage) : 0;
+    const discountedPrice = discountPct > 0
+      ? Math.round(basePrice * (1 - discountPct / 100) * 100) / 100
+      : basePrice;
+
+    // 6. Calculate due date
     const cycleDays = this.getCycleDays(pricing.billing_cycle);
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 7); // 7 days to pay
@@ -610,9 +726,9 @@ export class BillingService {
     const nextDueDate = new Date();
     nextDueDate.setDate(nextDueDate.getDate() + cycleDays);
 
-    // 5. Create service + invoice in transaction
+    // 7. Create service + invoice in transaction
     const result = await this.prisma.$transaction(async (tx) => {
-      // Create service in pending state
+      // Create service in pending state — amount is the discounted price
       const service = await tx.service.create({
         data: {
           user_id: userId,
@@ -622,7 +738,7 @@ export class BillingService {
           label: dto.label,
           domain: dto.domain,
           billing_cycle: pricing.billing_cycle,
-          amount: pricing.price,
+          amount: discountedPrice,
           currency: pricing.currency,
           next_due_date: nextDueDate,
           next_invoice_date: nextDueDate,
@@ -632,7 +748,7 @@ export class BillingService {
       return { service, pricing };
     });
 
-    // Create invoice (outside transaction — uses SEQUENCE)
+    // 8. Create invoice (outside transaction — uses SEQUENCE)
     const invoice = await this.createInvoice({
       user_id: userId,
       billing_profile_id: dto.billing_profile_id,
@@ -643,15 +759,17 @@ export class BillingService {
         product_id: result.pricing.product_id,
         description: `${result.pricing.product.name} — ${dto.label || dto.domain || 'Nuevo servicio'}`,
         quantity: 1,
-        unit_price: Number(result.pricing.price),
+        unit_price: discountedPrice,
         setup_fee: Number(result.pricing.setup_fee),
+        discount_pct: discountPct > 0 ? discountPct : undefined,
         period_start: new Date().toISOString(),
         period_end: new Date(Date.now() + cycleDays * 24 * 60 * 60 * 1000).toISOString(),
       }],
     });
 
     this.logger.log(
-      `Checkout complete: Service ${result.service.id} + Invoice ${invoice.invoice_number} for user ${userId}`,
+      `Checkout complete: Service ${result.service.id} + Invoice ${invoice.invoice_number} for user ${userId}` +
+      (discountPct > 0 ? ` (${discountPct}% discount applied)` : ''),
     );
 
     this.eventEmitter.emit('checkout.completed', {
@@ -666,6 +784,7 @@ export class BillingService {
       service: result.service,
       invoice,
       invoice_type: billingProfile?.nif_cif ? 'completa' : 'simplificada',
+      discount_applied: discountPct > 0 ? `${discountPct}%` : null,
     };
   }
 

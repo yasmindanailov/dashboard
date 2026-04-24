@@ -1,0 +1,55 @@
+/* ═══════════════════════════════════════
+   DetailPage — Aelium Design System
+   Layout wrapper for detail pages.
+   Ref: UI_SPEC.md §2.5
+   ═══════════════════════════════════════ */
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.wide {
+  max-width: 1400px;
+}
+
+.headerCard {
+  margin-top: var(--space-5);
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.tabBar {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-6);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.tab {
+  padding: var(--space-2_5) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tabActive {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}

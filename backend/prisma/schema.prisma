@@ -75,6 +75,7 @@ model User {
   billing_profiles      BillingProfile[]
   invoices              Invoice[]
   notifications_received Notification[] @relation("notification_recipient")
+  conversations         Conversation[] @relation("UserConversations")
 
   @@index([email])
   @@index([role_id])
@@ -510,31 +511,84 @@ enum ConversationPriority {
   urgent
 }
 
-model Conversation {
-  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id             String?              @db.Uuid
-  assigned_agent_id   String?              @db.Uuid
-  subject             String               @db.VarChar(500)
-  status              ConversationStatus   @default(open)
-  priority            ConversationPriority @default(normal)
-  channel             String               @default("web") @db.VarChar(50)
-  is_ai_filtered      Boolean              @default(false)
-  guest_session_hash  String?              @db.VarChar(500)
-  service_id          String?              @db.Uuid
-  tags                Json?
-  closed_at           DateTime?            @db.Timestamptz()
-  resolved_at         DateTime?            @db.Timestamptz()
-  first_response_at   DateTime?            @db.Timestamptz()
-  metadata            Json?
-  created_at          DateTime             @default(now()) @db.Timestamptz()
-  updated_at          DateTime             @default(now()) @updatedAt @db.Timestamptz()
+enum ConversationType {
+  chat
+  ticket
+}
 
-  messages Message[]
+enum ConversationCategory {
+  support_general
+  support_billing
+  support_technical
+  wdify_progress
+  wdify_feedback
+  escalated_chat
+}
+
+model Conversation {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sequence_number     Int?                  @unique        // Auto-assigned via PostgreSQL SEQUENCE on ticket creation
+  type                ConversationType      @default(chat)
+  user_id             String?               @db.Uuid
+  assigned_agent_id   String?               @db.Uuid
+  subject             String                @db.VarChar(500)
+  status              ConversationStatus    @default(open)
+  priority            ConversationPriority  @default(normal)
+  category            ConversationCategory?
+  channel             String                @default("web") @db.VarChar(50)
+  is_ai_filtered      Boolean               @default(false)
+  guest_name          String?               @db.VarChar(200)     // Para anónimos en la landing
+  guest_email         String?               @db.VarChar(255)     // Para vincular al registrarse (7.5.1)
+  guest_session_hash  String?               @db.VarChar(500)     // Hash SHA-256 del token de sesión guest
+  service_id          String?               @db.Uuid
+  escalated_from_id   String?               @db.Uuid
+  tags                Json?
+  closed_at           DateTime?             @db.Timestamptz()
+  resolved_at         DateTime?             @db.Timestamptz()
+  first_response_at   DateTime?             @db.Timestamptz()
+  resolution_note     String?
+  resolved_by_id      String?               @db.Uuid
+  metadata            Json?
+  created_at          DateTime              @default(now()) @db.Timestamptz()
+  updated_at          DateTime              @default(now()) @updatedAt @db.Timestamptz()
+
+  user            User?          @relation("UserConversations", fields: [user_id], references: [id])
+  messages        Message[]
+  escalated_from  Conversation?  @relation("ConversationEscalation", fields: [escalated_from_id], references: [id])
+  escalated_to    Conversation[] @relation("ConversationEscalation")
 
   @@index([user_id])
   @@index([assigned_agent_id])
   @@index([status])
+  @@index([type])
+  @@index([guest_email])
+  @@index([guest_session_hash])
   @@map("conversations")
+}
+
+// ─── BLOQUE 7B: NOTAS ESTRUCTURADAS DEL CLIENTE ───
+
+enum NoteCategory {
+  conversation
+  solution
+  billing
+  technical
+  general
+}
+
+model ClientNote {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String        @db.Uuid
+  author_id       String        @db.Uuid
+  conversation_id String?       @db.Uuid
+  category        NoteCategory  @default(conversation)
+  body            String
+  is_pinned       Boolean       @default(false)
+  created_at      DateTime      @default(now()) @db.Timestamptz()
+
+  @@index([user_id])
+  @@index([conversation_id])
+  @@map("client_notes")
 }
 
 enum MessageSender {

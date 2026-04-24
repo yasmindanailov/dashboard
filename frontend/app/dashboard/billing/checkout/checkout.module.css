@@ -1,0 +1,125 @@
+/* ═══════════════════════════════════════
+   Checkout — Page-specific styles
+   
+   ONLY styles specific to checkout steps that
+   are NOT covered by DS components (Card, Input,
+   Button, Badge, AlertBanner, SearchInput, FormPage).
+   
+   Ref: UI_SPEC.md §2.6, ROADMAP.md D23
+   ═══════════════════════════════════════ */
+
+/* ── Step indicator ── */
+.steps { display: flex; gap: 4px; margin-bottom: var(--space-8); }
+.step { flex: 1; display: flex; align-items: center; gap: var(--space-2); }
+.stepCircle {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--font-size-sm); font-weight: var(--font-weight-bold);
+  transition: all var(--transition-normal);
+}
+.stepCircleActive { background: var(--brand); color: var(--text-on-brand); }
+.stepCircleInactive { background: var(--surface-secondary); color: var(--text-tertiary); }
+.stepLabel { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); }
+.stepLabelActive { color: var(--text-primary); }
+.stepLabelInactive { color: var(--text-tertiary); }
+.stepLine { flex: 1; height: 2px; border-radius: 1px; transition: background var(--transition-normal); }
+.stepLineActive { background: var(--brand); }
+.stepLineInactive { background: var(--border); }
+
+/* ── Step titles ── */
+.stepTitle { font-size: 20px; font-weight: var(--font-weight-semibold); color: var(--text-primary); margin-bottom: 4px; }
+.stepDescription { color: var(--text-secondary); margin-bottom: var(--space-6); font-size: var(--font-size-sm); }
+
+/* ── Selected client ── */
+.selectedCard {
+  padding: var(--space-4); background: var(--brand-subtle);
+  border: 2px solid var(--brand); border-radius: var(--radius-lg);
+  margin: var(--space-4) 0; display: flex; justify-content: space-between; align-items: center;
+}
+.selectedName { font-weight: var(--font-weight-semibold); color: var(--text-primary); }
+.selectedEmail { font-size: var(--font-size-xs); color: var(--text-secondary); }
+
+/* ── Client list ── */
+.clientGrid { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
+.clientItem {
+  padding: var(--space-4); background: var(--surface-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  cursor: pointer; text-align: left; transition: all var(--transition-fast);
+  display: flex; align-items: center; gap: var(--space-3);
+}
+.clientItem:hover { border-color: var(--brand); background: var(--brand-subtle); }
+.clientAvatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--brand); color: var(--text-on-brand);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: var(--font-weight-bold); font-size: var(--font-size-sm); flex-shrink: 0;
+}
+.clientName { font-weight: var(--font-weight-semibold); color: var(--text-primary); }
+.clientEmail { font-size: var(--font-size-xs); color: var(--text-tertiary); }
+
+/* ── Product card ── */
+.productGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4); }
+.productCard {
+  padding: var(--space-6); background: var(--surface-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-xl);
+  cursor: pointer; text-align: left; transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+.productCard:hover { border-color: var(--brand); box-shadow: var(--shadow-md); }
+.productHeader { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-3); }
+.productName { font-size: 18px; font-weight: var(--font-weight-bold); color: var(--text-primary); margin: 0; }
+.productDesc { font-size: var(--font-size-sm); color: var(--text-secondary); margin: 0 0 var(--space-4); line-height: 1.5; }
+.productPrice { font-size: 22px; font-weight: var(--font-weight-bold); color: var(--brand); }
+.productPriceSuffix { font-size: var(--font-size-sm); font-weight: var(--font-weight-normal); color: var(--text-tertiary); }
+
+/* ── Pricing card ── */
+.pricingGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-4); }
+.pricingCard {
+  padding: var(--space-6); border-radius: var(--radius-xl);
+  cursor: pointer; text-align: center; transition: all var(--transition-fast);
+}
+.pricingCardDefault { background: var(--surface-primary); border: 1px solid var(--border); }
+.pricingCardSelected { background: var(--brand-subtle); border: 2px solid var(--brand); }
+.pricingCycle { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--text-primary); margin-bottom: var(--space-2); }
+.pricingAmount { font-size: 28px; font-weight: var(--font-weight-bold); color: var(--text-primary); margin-bottom: 4px; }
+.pricingSetup { font-size: var(--font-size-xs); color: var(--text-tertiary); }
+
+/* ── Profile card ── */
+.profileGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6); }
+.profileCard {
+  padding: var(--space-5, 20px); border-radius: var(--radius-xl);
+  cursor: pointer; text-align: left; transition: all var(--transition-fast);
+}
+.profileCardDefault { background: var(--surface-primary); border: 1px solid var(--border); }
+.profileCardSelected { background: var(--brand-subtle); border: 2px solid var(--brand); }
+.profileLabel { font-weight: var(--font-weight-semibold); color: var(--text-primary); margin-bottom: 4px; }
+.profileCompany { font-size: var(--font-size-sm); color: var(--text-primary); }
+.profileMeta { font-size: var(--font-size-xs); color: var(--text-tertiary); }
+.profileInvoiceHint { font-size: 11px; color: var(--brand); font-style: italic; }
+
+/* ── Service fields title ── */
+.serviceFieldsTitle { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--text-secondary); margin-bottom: var(--space-4); }
+.serviceFieldsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+
+/* ── Confirm step ── */
+.confirmHeader { padding: var(--space-6); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.confirmProductName { font-size: 18px; font-weight: var(--font-weight-bold); color: var(--text-primary); margin: 0 0 4px; }
+.confirmCycleLabel { font-size: var(--font-size-sm); color: var(--text-secondary); }
+.confirmPrice { font-size: 24px; font-weight: var(--font-weight-bold); color: var(--brand); }
+.confirmSetup { font-size: var(--font-size-xs); color: var(--text-tertiary); }
+.confirmDetails { padding: var(--space-6); }
+.confirmTable { width: 100%; font-size: var(--font-size-sm); }
+.confirmRowLabel { padding: 10px 0; color: var(--text-tertiary); width: 160px; }
+.confirmRowValue { padding: 10px 0; color: var(--text-primary); font-weight: var(--font-weight-medium); }
+.confirmRow { border-bottom: 1px solid var(--border); }
+.confirmTotal {
+  padding: var(--space-4) var(--space-6); background: var(--surface-secondary);
+  border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;
+}
+.confirmTotalLabel { font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); color: var(--text-primary); }
+.confirmTotalValue { font-size: 22px; font-weight: var(--font-weight-bold); color: var(--text-primary); }
+
+@media (max-width: 639px) {
+  .serviceFieldsGrid { grid-template-columns: 1fr; }
+  .profileGrid { grid-template-columns: 1fr; }
+}

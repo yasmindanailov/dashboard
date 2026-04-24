@@ -1,5 +1,9 @@
 # Billing — Admin Guide
 
+> Módulo: `billing`
+> Sprint: 6 (Billing) + 7.5 (Design System)
+> Última actualización: Sprint 7.5 (audit completa)
+
 ## Resumen
 
 El módulo de facturación gestiona el ciclo de vida completo de las facturas:
@@ -180,3 +184,84 @@ Cada factura tiene:
 - La validación de dominio obligatorio se implementa en Sprint 11 (Provisioning).
 - Sin dominio propio → el cliente elige subdominio: `[nombre].cloud.aelium.net`
 - Ref: DECISIONS.md §6, §14
+
+## Componentes DS utilizados (Sprint 7.5)
+
+### Lista de facturas (`/dashboard/billing`)
+| Componente | Uso |
+|------------|-----|
+| `ListPage` | Layout con título role-aware, acción, statusTabs, filterBar, pagination |
+| `StatusTabs` | Tabs con contadores: Todas, Pendientes, Pagadas, Vencidas, Canceladas |
+| `FilterBar` | Container para SearchInput |
+| `SearchInput` | Búsqueda por número de factura |
+| `Table` | Tabla paginada, skeleton, empty state, bulk selection, row click |
+| `Badge` | Estado factura (success/warning/danger/neutral/info) |
+| `Button` | Enviar, Cobrar, Cancelar, PDF (por fila) |
+| `HelpTip` | Tooltip en “Vencimiento” (solo clientes) |
+| `AlertBanner` | Banner “Mostrando facturas de un cliente específico” |
+| `Pagination` | Paginación estándar |
+| `BulkActionBar` | Cobrar + Descargar PDF + Cancelar en lote |
+| `Modal` | Confirmación de acciones bulk (§4.2) |
+| `useToast` | Feedback de todas las acciones CRUD + bulk |
+
+### Detalle de factura (`/dashboard/billing/:id`)
+| Componente | Uso |
+|------------|-----|
+| `DetailPage` | Layout con breadcrumb DS |
+| `Badge` | Estado + “Manual” indicator |
+| `Card` | Perfil de facturación + información de pago |
+| `Button` | Enviar, Cobrar, Reembolsar, Cancelar, PDF |
+| `HelpTip` | Tooltip en “Vencimiento” (solo clientes) |
+| `useToast` | Feedback de acciones |
+
+### Checkout (`/dashboard/billing/checkout`)
+| Componente | Uso |
+|------------|-----|
+| `FormPage` | Layout con breadcrumb + step indicator |
+| `SearchInput` | Búsqueda de clientes (admin) |
+| `Card` | Contenedores por step |
+| `Badge` | Producto + ahorro |
+| `Button` | CTAs + confirm con loading |
+| `AlertBanner` | Info + error |
+| `Skeleton` | Loading de productos |
+
+## Bulk Actions (§4.11)
+
+| Acción | Confirmación | Feedback |
+|--------|-------------|----------|
+| Cobrar seleccionadas | Modal (§4.2) | Toast resumen (`N cobradas` + `M fallaron`) |
+| Cancelar seleccionadas | Modal (§4.2) | Toast resumen |
+| Descargar PDF | Sin modal | Toast info (“Descargando N PDF...”) |
+
+## Feedback UX (§4)
+
+| Acción | Feedback | Tipo |
+|--------|----------|------|
+| Enviar (finalize) | Toast success | `useToast` |
+| Cobrar (pay) | Toast success | `useToast` |
+| Cancelar | Toast success | `useToast` |
+| Reembolsar | Toast success | `useToast` |
+| Acción error red | Toast error | `useToast` |
+| Checkout error | AlertBanner persistente | `AlertBanner` |
+| Validación checkout (sin cliente) | Error inline | `setError` |
+
+## Edge cases documentados
+
+Ver `docs/edge_cases.md`:
+- §6.1: Search sin debounce (cada keystroke dispara fetch)
+- §6.3: Bulk PDF ejecuta N descargas simultáneas (navegador puede bloquear)
+- §1.3: `meta.page` puede ser stale en `executeBulk`
+- §3.1: Catches silenciosos en `loadInvoices` y `loadStats`
+- §12.1: `ADMIN_ROLES` duplicado inline (no importa de constantes)
+- §12.2: `InvoiceDetail` y `InvoiceItem` interfaces duplicadas
+- §12.4: Checkout error usa AlertBanner en vez de Toast (inconsistencia)
+
+## Ref
+
+- DECISIONS.md §32 (Billing profiles)
+- DECISIONS.md §34 (Factura simplificada vs completa)
+- DECISIONS.md §37 (Infraestructura de pagos)
+- UI_SPEC.md §5.4 (Facturación — especificación de página)
+- UI_SPEC.md §5.9 (Checkout — especificación de página)
+- DESIGN_SYSTEM.md (componentes DS)
+- edge_cases.md (análisis exhaustivo Sprint 7)

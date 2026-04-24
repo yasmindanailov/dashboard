@@ -1,0 +1,80 @@
+/* ═══════════════════════════════════════
+   TicketList — CSS Module
+   Ref: UI_SPEC.md §3.3, ROADMAP.md D22
+   ═══════════════════════════════════════ */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.skeletonRow {
+  padding: var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.skeletonContent {
+  flex: 1;
+}
+
+.skeletonMeta {
+  margin-top: 8px;
+}
+
+.row {
+  padding: var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.priority {
+  width: 4px;
+  height: 48px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.subject {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.preview {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.metaLine {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-1);
+}
+
+.metaLine:last-child {
+  margin-bottom: 0;
+}
