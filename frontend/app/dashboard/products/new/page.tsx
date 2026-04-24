@@ -162,7 +162,7 @@ export default function NewProductPage() {
           {/* Auto-set addon badge */}
           {isAddonType && (
             <AlertBanner variant="info">
-              <span style={{ fontWeight: 'var(--font-weight-semibold)' }}>Addon</span> —
+              <span className={styles.addonBadgeLabel}>Addon</span> —
               {isSupportInside && ' Global de cuenta · Requiere producto activo previo'}
               {isWeDoIt && ' Por producto · Solo aplica a hosting_web y docker_service'}
             </AlertBanner>
@@ -176,7 +176,7 @@ export default function NewProductPage() {
                 <Input label="Nombre *" value={name} onChange={e => handleNameChange(e.target.value)}
                   placeholder={isSupportInside ? 'Support Inside Básico' : 'Hosting Starter'} />
                 <Input label="Slug" value={slug} onChange={e => setSlug(e.target.value)}
-                  style={{ fontFamily: 'monospace' }} />
+                  className={styles.monoInput} />
                 <Input label="Badge" value={badgeText} onChange={e => setBadgeText(e.target.value)}
                   placeholder="Más popular" />
                 <Input label="Comisión partner (%)" type="number" step="0.01" min="0" max="100"

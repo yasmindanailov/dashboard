@@ -230,3 +230,8 @@
 .mb4 { margin-bottom: var(--space-4); }
 .spaceY2 { display: flex; flex-direction: column; gap: var(--space-2); }
 .spaceY4 { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* ── Inline style replacements ── */
+.addonBadgeLabel { font-weight: var(--font-weight-semibold); }
+.monoInput { font-family: monospace; }
+.modalText { font-size: var(--font-size-sm); color: var(--text-secondary); }

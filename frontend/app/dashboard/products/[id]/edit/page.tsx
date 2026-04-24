@@ -182,7 +182,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             <p className={styles.subtitle}>{TYPE_LABELS[productType]} · {slug}</p>
             <div className={styles.formGrid}>
               <Input label="Nombre *" value={name} onChange={e => setName(e.target.value)} />
-              <Input label="Slug" value={slug} onChange={e => setSlug(e.target.value)} style={{ fontFamily: 'monospace' }} />
+              <Input label="Slug" value={slug} onChange={e => setSlug(e.target.value)} className={styles.monoInput} />
               <Input label="Badge" value={badgeText} onChange={e => setBadgeText(e.target.value)} />
               <Input label="Comisión partner (%)" type="number" step="0.01" min="0" max="100"
                 value={partnerCommission} onChange={e => setPartnerCommission(e.target.value)} placeholder="20" />
@@ -278,7 +278,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           </>
         }
       >
-        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>¿Eliminar este plan de precio? Esta acción no se puede deshacer.</p>
+        <p className={styles.modalText}>¿Eliminar este plan de precio? Esta acción no se puede deshacer.</p>
       </Modal>
     </FormPage>
   );
