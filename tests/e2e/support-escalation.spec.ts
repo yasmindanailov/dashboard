@@ -25,7 +25,8 @@ test.describe('Soporte', () => {
 
     await loginSuperadminUI(page);
     await page.goto('/dashboard/support');
-    await page.waitForLoadState('networkidle');
+    // No usamos networkidle: el WebSocket de soporte queda abierto y
+    // networkidle nunca se alcanza. Confiamos en auto-wait de expect().
 
     // Verifica heading de la página
     await expect(
@@ -41,7 +42,8 @@ test.describe('Soporte', () => {
   test('admin accede al panel de chats en tiempo real', async ({ page }) => {
     await loginSuperadminUI(page);
     await page.goto('/dashboard/support/chats');
-    await page.waitForLoadState('networkidle');
+    // No usamos networkidle: el WebSocket de soporte queda abierto y
+    // networkidle nunca se alcanza. Confiamos en auto-wait de expect().
 
     // El panel de chats tiene 3 columnas (lista chats / conversación / contexto).
     // Verifica al menos que la página renderiza algún contenedor del panel.
@@ -54,7 +56,8 @@ test.describe('Soporte', () => {
   test('admin puede crear un nuevo ticket desde el modal', async ({ page }) => {
     await loginSuperadminUI(page);
     await page.goto('/dashboard/support');
-    await page.waitForLoadState('networkidle');
+    // No usamos networkidle: el WebSocket de soporte queda abierto y
+    // networkidle nunca se alcanza. Confiamos en auto-wait de expect().
 
     // Botón "Nuevo ticket" debe estar visible para admin.
     const newTicketButton = page.getByRole('button', { name: /nuevo ticket|crear ticket/i });

@@ -27,9 +27,11 @@ test.describe('Checkout / Billing admin', () => {
     // Login admin
     await loginSuperadminUI(page);
 
-    // Navegar a billing
+    // Navegar a billing.
+    // No usamos waitForLoadState('networkidle') porque el dashboard mantiene
+    // un WebSocket abierto (soporte) y networkidle no se alcanza nunca.
+    // El expect(...).toBeVisible() de abajo tiene auto-wait integrado.
     await page.goto('/dashboard/billing');
-    await page.waitForLoadState('networkidle');
 
     // La página debe cargar el ListPage de billing.
     // Comprueba el heading o un elemento característico.
@@ -48,7 +50,6 @@ test.describe('Checkout / Billing admin', () => {
   test('admin puede acceder al checkout para crear servicio', async ({ page }) => {
     await loginSuperadminUI(page);
     await page.goto('/dashboard/billing/checkout');
-    await page.waitForLoadState('networkidle');
 
     // El checkout admin pide seleccionar un cliente target primero (EC-BILL-02).
     // Verificamos al menos que la página renderiza sin crash.
