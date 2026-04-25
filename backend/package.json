@@ -5,6 +5,18 @@
   "author": "Aelium",
   "private": true,
   "license": "UNLICENSED",
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/engines",
+      "@scarf/scarf",
+      "bcrypt",
+      "msgpackr-extract",
+      "prisma",
+      "unrs-resolver"
+    ]
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
