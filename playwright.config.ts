@@ -63,14 +63,18 @@ export default defineConfig({
   ],
 
   // Arranca backend y frontend automáticamente antes de los tests.
-  // - Backend: `start:prod` (asume `pnpm build` previo)
-  // - Frontend: `dev` para que las NEXT_PUBLIC_* se respeten en runtime.
-  //   En `next start` esas vars se fijan en build-time y no se podrían
-  //   sobrescribir desde aquí sin re-buildear.
+  // Ambos en modo producción (`start:prod` / `next start`) — requiere
+  // build previo (`pnpm --dir backend build && pnpm --dir frontend build`).
+  //
+  // ¿Por qué no `next dev`? El root tiene un `package.json` con tooling
+  // (Husky, etc.) y `next dev` confunde el resolver de módulos buscando
+  // dependencias del frontend (Tailwind) desde el root → out-of-memory.
+  // `next start` usa el bundle ya compilado y es estable.
+  //
   // En CI, los services (postgres, redis, mailpit) los provee el workflow.
   webServer: [
     {
-      // Backend NestJS
+      // Backend NestJS (requiere `pnpm --dir backend build` previo)
       command: 'pnpm --dir backend start:prod',
       url: `${BACKEND_URL}/api/v1/health`,
       reuseExistingServer: !process.env.CI,
@@ -79,16 +83,13 @@ export default defineConfig({
       stderr: 'pipe',
     },
     {
-      // Frontend Next.js (dev para respetar env vars en runtime)
-      command: 'pnpm --dir frontend dev',
+      // Frontend Next.js (requiere `pnpm --dir frontend build` previo)
+      command: 'pnpm --dir frontend start',
       url: FRONTEND_URL,
       reuseExistingServer: !process.env.CI,
-      timeout: 180_000,
+      timeout: 120_000,
       stdout: 'pipe',
       stderr: 'pipe',
-      env: {
-        NEXT_PUBLIC_API_URL: `${BACKEND_URL}/api/v1`,
-      },
     },
   ],
 });

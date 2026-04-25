@@ -53,3 +53,8 @@ minio-data/
 
 # Generated
 *.generated.ts
+
+# Playwright artifacts (reportes HTML, traces, videos, screenshots)
+playwright-report/
+test-results/
+playwright/.cache/

@@ -57,24 +57,33 @@ dashboard/
 
 ### Localmente
 
-**Prerequisito:** tener Postgres + Redis + MailPit corriendo (probablemente desde tu `docker-compose.yml`):
-```bash
-docker compose up -d postgres redis mailpit
-```
+**Prerequisitos:**
+
+1. **Servicios Docker corriendo** (Postgres + Redis + MailPit):
+   ```bash
+   docker compose -f docker/docker-compose.dev.yml up -d
+   ```
+2. **Builds compilados** — backend y frontend deben tener `dist/` listo:
+   ```bash
+   pnpm test:e2e:build
+   ```
+   Esto ejecuta `pnpm --dir backend build && pnpm --dir frontend build`.
 
 **Comandos disponibles:**
 
 | Comando | Qué hace |
 |---------|----------|
-| `pnpm test:e2e` | Corre todos los tests en headless (modo CI) |
-| `pnpm test:e2e:ui` | Abre Playwright UI — modo interactivo, recomendado para escribir tests |
+| `pnpm test:e2e:all` | **Recomendado.** Builda + corre tests (la opción "todo en uno") |
+| `pnpm test:e2e` | Solo corre tests (asume builds ya hechos) |
+| `pnpm test:e2e:build` | Solo builda backend y frontend |
+| `pnpm test:e2e:ui` | Abre Playwright UI — modo interactivo |
 | `pnpm test:e2e:debug` | Modo step-by-step con DevTools abierto |
 | `pnpm test:e2e:report` | Abre el último report HTML |
 
 **Notas:**
 - Playwright arranca backend (3001) y frontend (3002) automáticamente vía `webServer`. Si ya los tienes corriendo, los reutiliza.
-- En local usamos `next dev` para el frontend (respeta `NEXT_PUBLIC_API_URL` en runtime).
-- En CI usamos `next start` con build previo (más estable).
+- Ambos servicios corren en **modo producción** (`start:prod` / `next start`) en local y CI. El motivo: con root `package.json` (tooling), `next dev` busca `tailwindcss` desde el root y crashea con out-of-memory. `next start` usa el bundle compilado y es estable.
+- Si cambias env vars (`NEXT_PUBLIC_*`), tienes que **rebuildear** porque Next.js las inlinea en build-time.
 
 ### En CI
 
