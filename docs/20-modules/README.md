@@ -14,29 +14,19 @@ docs/20-modules/
 ├── _events.md                 ← catálogo único de eventos del sistema
 ├── _template-contract.md      ← plantilla canónica para nuevos contracts
 │
-├── auth/
-│   ├── contract.md            ← API pública, eventos, dependencias, invariantes
-│   └── admin.md               ← (cuando se migre desde docs/features/auth/)
-├── billing/
-│   ├── contract.md
-│   ├── admin.md
-│   └── client.md
-├── clients/
-│   ├── contract.md
-│   └── admin.md
-├── support/
-│   ├── contract.md
-│   └── admin.md
-├── products/
-│   ├── contract.md
-│   └── admin.md
-├── tasks/
-│   └── contract.md
-├── dashboard/
-│   └── contract.md
-└── partner/
-    └── contract.md            ← (futuro, módulo en plan)
+├── auth/contract.md           ✅ implementado — Sprint 1, hardening 3.5
+├── billing/contract.md        ✅ implementado — Sprint 6, hardening 7
+├── clients/contract.md        ✅ implementado — Sprint 4
+├── support/contract.md        ✅ implementado — Sprint 7, hardening 7.H1-25
+├── products/contract.md       ✅ implementado — Sprint 5, hardening EC-1..6
+├── tasks/contract.md          🟡 parcial — Sprint 8 WIP
+├── dashboard/contract.md      ✅ implementado — Sprint 5, refactor 7.R15.1
+└── partner/contract.md        ⬜ stub — plan documentado para Fase 2
 ```
+
+**Estado actual: 8 contracts cubriendo todos los módulos del sistema.**
+
+A migrar (en F-future): los `admin.md` de `docs/features/<modulo>/` se moverán a `docs/20-modules/<modulo>/admin.md`. Hoy siguen donde están para preservar referencias históricas.
 
 ---
 
