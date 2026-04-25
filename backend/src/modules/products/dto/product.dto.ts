@@ -6,7 +6,6 @@ import {
   IsInt,
   Min,
   Max,
-  IsDecimal,
   IsArray,
   ValidateNested,
   IsUUID,

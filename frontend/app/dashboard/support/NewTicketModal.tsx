@@ -1,7 +1,7 @@
 'use client';
 
 import { CATEGORY_CONFIG } from './types';
-import { Modal, Input, Select, Textarea, Button, SearchInput, Badge } from '../../components/ui';
+import { Modal, Input, Select, Textarea, Button, SearchInput } from '../../components/ui';
 import s from './NewTicketModal.module.css';
 
 /* ═══════════════════════════════════════

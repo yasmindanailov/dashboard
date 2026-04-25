@@ -5,8 +5,6 @@ import {
   MarkAsPaidDto,
   InvoiceListQueryDto,
 } from './dto/billing.dto';
-import { Invoice } from '@prisma/client';
-import { PaginatedResult } from '../../common/dto/pagination.dto';
 import { PaymentProviderInterface } from './interfaces/payment-provider.interface';
 import { BillingInvoiceService } from './billing-invoice.service';
 import { BillingCheckoutService } from './billing-checkout.service';

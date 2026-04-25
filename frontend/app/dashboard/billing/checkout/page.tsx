@@ -17,12 +17,6 @@ import styles from './checkout.module.css';
 export default function CheckoutPage() {
   const c = useCheckout();
 
-  // Dynamic breadcrumb based on step
-  const stepLabels: Record<string, string> = {
-    client: 'Cliente', product: 'Producto', pricing: 'Plan',
-    profile: 'Facturación', confirm: 'Confirmar',
-  };
-
   /* P6.1: Admin creates service for client, client contracts for themselves */
   const checkoutTitle = c.isAdmin ? 'Crear servicio para cliente' : 'Contratar servicio';
 

@@ -225,7 +225,9 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
      CLIENT — solo sus propios recursos
      Referencia: DECISIONS.md §13, §14, §15
      ═══════════════════════════════════════ */
-  client: (userId: string) => [
+  // userId no usado actualmente — parámetro mantenido por simetría con otros
+  // roles (partner, agent_billing) que sí lo usan en sus condiciones.
+  client: (_userId: string) => [
     { action: Action.Manage, subject: Subject.Dashboard },
     { action: Action.Manage, subject: Subject.Profile },
     // Billing profiles — guard allows, controller enforces user_id ownership

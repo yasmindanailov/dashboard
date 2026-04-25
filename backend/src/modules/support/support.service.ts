@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Conversation, Message } from '@prisma/client';
 
 import { SupportChatService } from './support-chat.service';
 import { SupportTicketService } from './support-ticket.service';
@@ -15,7 +14,6 @@ import {
   ConversationListQueryDto,
   EscalateToTicketDto,
 } from './dto/support.dto';
-import { PaginatedResult } from '../../common/dto/pagination.dto';
 
 /**
  * ═══════════════════════════════════════

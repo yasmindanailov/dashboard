@@ -56,7 +56,6 @@ function SupportPanelInner({
   onClose: () => void;
   sidebarCollapsed?: boolean;
 }) {
-  const sidebarWidth = sidebarCollapsed ? '72px' : '260px';
   /* Close on ESC key */
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();

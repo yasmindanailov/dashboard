@@ -157,7 +157,8 @@ interface QuickAction {
 }
 
 export function getQuickActions(roleSlug: string): QuickAction[] {
-  const isAdmin = ADMIN_ROLES.includes(roleSlug);
+  // _isAdmin reservado para condiciones futuras de quick actions admin-only
+  const _isAdmin = ADMIN_ROLES.includes(roleSlug);
   const isAgent = AGENT_ROLES.includes(roleSlug);
 
   if (roleSlug === 'client') {

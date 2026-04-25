@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { useRef, useEffect, type ReactNode } from 'react';
 import { Skeleton } from '../Skeleton';
 import { EmptyState } from '../EmptyState';
 import styles from './Table.module.css';

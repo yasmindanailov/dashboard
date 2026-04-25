@@ -17,18 +17,8 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import {
-  AbilityBuilder,
-  createMongoAbility,
-  MongoAbility,
-  InferSubjects,
-} from '@casl/ability';
-import {
-  Action,
-  Subject,
-  ROLE_PERMISSIONS,
-  PermissionRule,
-} from './permissions';
+import { AbilityBuilder, createMongoAbility, MongoAbility } from '@casl/ability';
+import { Action, Subject, ROLE_PERMISSIONS } from './permissions';
 
 // ─── Type definitions ───────────────────────────────────────────
 

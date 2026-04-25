@@ -56,4 +56,8 @@ async function bootstrap() {
   logger.log(`🚀 Aelium API running on http://localhost:${port}/api/v1`);
   logger.log(`📚 Swagger docs at http://localhost:${port}/api/v1/docs`);
 }
-bootstrap();
+bootstrap().catch((err: unknown) => {
+  // main.ts: crash visible directamente en stderr (es el único punto sin logger)
+  console.error('Fatal startup error:', err);
+  process.exit(1);
+});

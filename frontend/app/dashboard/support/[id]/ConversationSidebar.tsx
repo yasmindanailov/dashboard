@@ -30,7 +30,7 @@ interface ConversationSidebarProps {
 
 export default function ConversationSidebar({
   isAdmin, conversation, clientContext, clientNotes,
-  clientServices, contextLoading, isChat,
+  clientServices, contextLoading, isChat: _isChat,
 }: ConversationSidebarProps) {
   const fromParams = `?from=${encodeURIComponent(`/dashboard/support/${conversation.id}`)}&fromLabel=${encodeURIComponent(conversation.subject)}`;
 

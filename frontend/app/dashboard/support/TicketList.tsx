@@ -68,7 +68,8 @@ export default function TicketList({
       <div className={styles.list}>
         {tickets.map((conv) => {
           const status = STATUS_CONFIG[conv.status] || STATUS_CONFIG.open;
-          const priority = PRIORITY_CONFIG[conv.priority] || PRIORITY_CONFIG.normal;
+          // _priority reservado para mostrar badge en próxima iteración del diseño
+          const _priority = PRIORITY_CONFIG[conv.priority] || PRIORITY_CONFIG.normal;
           const lastMessage = conv.messages?.[0];
           const preview = lastMessage?.body?.length > 120
             ? lastMessage.body.substring(0, 120) + '...'

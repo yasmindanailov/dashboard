@@ -83,7 +83,10 @@ export class ManualPaymentProvider implements PaymentProviderInterface {
   readonly name = 'manual';
   readonly label = 'Pago manual (admin)';
 
-  async createPayment(invoice: {
+  // Implementación stub: providers reales (Stripe, etc.) sí harán await de
+  // llamadas externas. Aquí devolvemos Promise.resolve para satisfacer el
+  // contrato de interface sin async-without-await.
+  createPayment(invoice: {
     id: string;
     invoice_number: string;
     total: number;
@@ -91,40 +94,39 @@ export class ManualPaymentProvider implements PaymentProviderInterface {
     user_email: string;
     description: string;
   }): Promise<PaymentResult> {
-    // Manual provider does nothing — admin will mark as paid
-    return {
+    return Promise.resolve({
       success: true,
       provider: this.name,
       external_id: `manual-${invoice.id}`,
       payment_method: 'manual',
-    };
+    });
   }
 
-  async handleWebhook(): Promise<PaymentResult & { invoice_id?: string }> {
-    return {
+  handleWebhook(): Promise<PaymentResult & { invoice_id?: string }> {
+    return Promise.resolve({
       success: false,
       provider: this.name,
       error: 'Manual provider does not support webhooks.',
-    };
+    });
   }
 
-  async refund(invoice: {
+  refund(invoice: {
     id: string;
     payment_ref: string;
     amount?: number;
     currency: string;
   }): Promise<RefundResult> {
-    return {
+    return Promise.resolve({
       success: true,
       provider: this.name,
       refund_id: `manual-refund-${invoice.id}`,
-    };
+    });
   }
 
-  async getStatus(): Promise<{
+  getStatus(): Promise<{
     status: 'pending' | 'succeeded' | 'failed' | 'cancelled';
     provider: string;
   }> {
-    return { status: 'succeeded', provider: this.name };
+    return Promise.resolve({ status: 'succeeded', provider: this.name });
   }
 }

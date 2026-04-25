@@ -139,7 +139,9 @@ export class AuthLoginService {
 
   /* ─── Private ─── */
 
-  private async initiate2fa(user: any, ip: string) {
+  // ip recibido pero no usado todavía — pendiente registrar IP del intento
+  // 2FA en LoginAttempt cuando se implemente la auditoría completa.
+  private async initiate2fa(user: any, _ip: string) {
     const code = this.tokenService.generate2FACode();
     const codeHash = this.tokenService.hashToken(code);
     const expiresMinutes = await this.settings.getNumber(

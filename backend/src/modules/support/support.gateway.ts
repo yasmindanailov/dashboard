@@ -58,8 +58,10 @@ export class SupportGateway
       const userInfo = await this.auth.authenticateWithJwt(client, token);
       if (userInfo) {
         this.connectedUsers.set(client.id, userInfo);
-        client.join(`user:${userInfo.userId}`);
-        if (userInfo.isAdmin) client.join('agent:inbox');
+        // socket.io Socket.join() declara Promise<void> en typings pero es
+        // síncrono en runtime. void evita warning de no-floating-promises.
+        void client.join(`user:${userInfo.userId}`);
+        if (userInfo.isAdmin) void client.join('agent:inbox');
         const unread = await this.supportService.getUnreadCount(
           userInfo.userId,
           userInfo.isAdmin ? 'agent' : 'client',
@@ -75,7 +77,7 @@ export class SupportGateway
       const userInfo = await this.auth.authenticateAsGuest(client, guestToken);
       if (userInfo) {
         this.connectedUsers.set(client.id, userInfo);
-        client.join(`guest:${userInfo.guestSessionHash}`);
+        void client.join(`guest:${userInfo.guestSessionHash}`);
         return;
       }
     }
@@ -131,7 +133,7 @@ export class SupportGateway
       }
     }
 
-    client.join(`conversation:${data.conversationId}`);
+    void client.join(`conversation:${data.conversationId}`);
 
     if (!userInfo.isGuest) {
       const role = userInfo.isAdmin ? 'agent' : 'client';
@@ -148,7 +150,7 @@ export class SupportGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { conversationId: string },
   ) {
-    client.leave(`conversation:${data.conversationId}`);
+    void client.leave(`conversation:${data.conversationId}`);
   }
 
   /* ═══ SEND MESSAGE ═══ */

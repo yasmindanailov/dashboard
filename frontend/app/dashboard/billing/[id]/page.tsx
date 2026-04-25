@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../lib/auth-context';
 import { billingApi } from '../../../lib/api';
@@ -43,7 +43,6 @@ const fmtDate = (d: string) => new Intl.DateTimeFormat('es-ES', { day: '2-digit'
 
 export default function InvoiceDetailPage() {
   const { id } = useParams();
-  const router = useRouter();
   const { user } = useAuth();
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);

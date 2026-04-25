@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode } from 'react';
+// (sin imports de React — componente puramente declarativo)
 import styles from './Tabs.module.css';
 
 export interface Tab {
