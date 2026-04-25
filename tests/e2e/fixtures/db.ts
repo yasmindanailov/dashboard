@@ -1,79 +1,102 @@
 /**
  * Helpers de base de datos para tests E2E.
  *
- * Limpieza entre tests: las tablas se truncan en orden seguro respetando FKs.
- * No tocamos roles, settings ni superadmin (datos del seed que asumimos
- * presentes y estables).
+ * Usamos `pg` directo (no Prisma) porque:
+ * - Los tests viven en /tests/e2e/, fuera de backend/, y no tienen acceso
+ *   al @prisma/client generado en backend/node_modules.
+ * - SQL directo es más rápido para cleanup que pasar por el ORM.
+ * - Independiza los tests de regenerar el client cada vez que cambia el schema.
+ *
+ * Las tablas se truncan respetando FKs vía CASCADE. Roles, settings y el
+ * superadmin permanecen (datos del seed que asumimos presentes).
  */
 
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { TEST_CONFIG } from './test-config';
 
-let prismaInstance: PrismaClient | null = null;
+let pool: Pool | null = null;
 
-/**
- * Cliente Prisma singleton para tests. Se conecta usando DATABASE_URL del
- * entorno (mismo que usa el backend NestJS).
- */
-export function getPrisma(): PrismaClient {
-  if (!prismaInstance) {
+function getPool(): Pool {
+  if (!pool) {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
       throw new Error(
-        'DATABASE_URL no definido. Los tests E2E requieren conexión directa a la DB para fixtures y cleanup.',
+        'DATABASE_URL no definido. Los tests E2E requieren conexión directa a la DB.',
       );
     }
-    const pool = new Pool({ connectionString });
-    const adapter = new PrismaPg(pool);
-    prismaInstance = new PrismaClient({ adapter });
+    pool = new Pool({ connectionString, max: 2 });
   }
-  return prismaInstance;
+  return pool;
 }
 
-export async function disconnectPrisma(): Promise<void> {
-  if (prismaInstance) {
-    await prismaInstance.$disconnect();
-    prismaInstance = null;
+/**
+ * Cierra la conexión del pool. Llamar en `afterAll` del último describe
+ * o se quedará abierta hasta el final del proceso (normalmente OK).
+ */
+export async function disconnectDb(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
   }
 }
 
 /**
+ * Tablas que se truncan entre tests. Orden no importa con TRUNCATE CASCADE.
+ * NO incluye: roles, settings (datos del seed). users se trata aparte para
+ * preservar el superadmin.
+ */
+const TABLES_TO_TRUNCATE = [
+  'messages',
+  'conversations',
+  'invoice_items',
+  'invoices',
+  'services',
+  'billing_profiles',
+  'client_notes',
+  'client_profiles',
+  'email_verifications',
+  'password_resets',
+  'sessions',
+  'notifications',
+  'tasks',
+  'audit_access_log',
+  'audit_change_log',
+  'error_log',
+  'event_outbox',
+  // Productos: los preservamos si están seedeados; solo se borran si futuros
+  // tests los crean. Por ahora no se tocan.
+];
+
+/**
  * Limpia datos de tests previos manteniendo seed (roles, settings, superadmin).
- * Borra usuarios creados durante tests (todos excepto superadmin), facturas,
- * conversaciones, mensajes, perfiles de cliente, etc.
+ * Usa TRUNCATE CASCADE para velocidad y respeto de FKs.
  *
- * Llamar en `beforeEach` o `beforeAll` según necesidad.
+ * Llamar en `beforeAll` (preferido) o `beforeEach` según necesidad.
  */
 export async function resetTestData(): Promise<void> {
-  const prisma = getPrisma();
-  const superadminEmail = TEST_CONFIG.superadmin.email;
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
 
-  // Orden importa: borrar dependientes antes que padres.
-  // Usamos $executeRaw para velocidad y evitar callbacks Prisma.
-  await prisma.$transaction([
-    prisma.message.deleteMany({}),
-    prisma.conversation.deleteMany({}),
-    prisma.invoice.deleteMany({}),
-    prisma.service.deleteMany({}),
-    prisma.billingProfile.deleteMany({}),
-    prisma.clientNote.deleteMany({}),
-    prisma.clientProfile.deleteMany({}),
-    prisma.session.deleteMany({}),
-    prisma.token.deleteMany({}),
-    prisma.loginAttempt.deleteMany({}),
-    // Borrar usuarios excepto superadmin
-    prisma.user.deleteMany({
-      where: { email: { not: superadminEmail } },
-    }),
-  ]);
+    // TRUNCATE de las tablas en una sola operación con CASCADE.
+    const tableList = TABLES_TO_TRUNCATE.map((t) => `"${t}"`).join(', ');
+    await client.query(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
+
+    // Borrar todos los users excepto el superadmin (preservado por el seed).
+    await client.query(`DELETE FROM users WHERE email <> $1`, [TEST_CONFIG.superadmin.email]);
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /**
  * Borra un usuario por email (idempotente). Útil para test setup específico.
  */
 export async function deleteUserByEmail(email: string): Promise<void> {
-  const prisma = getPrisma();
-  await prisma.user.deleteMany({ where: { email } });
+  await getPool().query(`DELETE FROM users WHERE email = $1`, [email]);
 }

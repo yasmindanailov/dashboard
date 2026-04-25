@@ -13,7 +13,7 @@
 
 import { test, expect } from '@playwright/test';
 import { clearMailbox, waitForEmail, extractVerifyEmailLink } from './fixtures/mailpit';
-import { resetTestData, deleteUserByEmail, disconnectPrisma } from './fixtures/db';
+import { resetTestData, deleteUserByEmail, disconnectDb } from './fixtures/db';
 
 // Datos del usuario de prueba (regenerados por test para evitar colisiones)
 function makeTestUser() {
@@ -33,7 +33,7 @@ test.describe('Auth flow', () => {
   });
 
   test.afterAll(async () => {
-    await disconnectPrisma();
+    await disconnectDb();
   });
 
   test.beforeEach(async () => {

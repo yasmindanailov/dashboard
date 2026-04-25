@@ -1,8 +1,12 @@
 import type { NextConfig } from 'next';
+import path from 'node:path';
 import { withSentryConfig } from '@sentry/nextjs';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Silencia el warning "Detected additional lockfiles" — el repo tiene un
+  // pnpm-lock.yaml en root (para tooling como Husky) y otro en frontend/.
+  // Fija el root del frontend a esta carpeta para que Next no se confunda.
+  outputFileTracingRoot: path.join(__dirname),
 };
 
 /**
