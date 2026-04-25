@@ -1,3 +1,6 @@
+// Sentry DEBE inicializarse antes de cualquier otro import. No mover de sitio.
+import './instrument';
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';

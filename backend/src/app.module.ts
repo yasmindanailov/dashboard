@@ -1,8 +1,10 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
+import { SentryModule, SentryGlobalFilter } from '@sentry/nestjs/setup';
 
 // Core
 import { PrismaModule } from './core/database/prisma.module';
@@ -32,6 +34,11 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
+    // ── Sentry (debe ir primero para captura completa) ──
+    // Init real ocurre en src/instrument.ts antes del bootstrap.
+    // Aquí solo se registra el módulo NestJS para integración con DI/filters.
+    SentryModule.forRoot(),
+
     // ── Configuration ──
     ConfigModule.forRoot({
       isGlobal: true,
@@ -78,6 +85,16 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     KnowledgeBaseModule,
     ErrorLogModule,
     DashboardModule,
+  ],
+  providers: [
+    // SentryGlobalFilter captura excepciones no manejadas y las reporta a
+    // Sentry antes de pasar al GlobalExceptionFilter (que formatea la
+    // respuesta HTTP). Registrado vía APP_FILTER para inyectarse antes que
+    // los filters de useGlobalFilters() en main.ts.
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
   ],
 })
 export class AppModule implements NestModule {
