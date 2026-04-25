@@ -31,10 +31,9 @@ export default defineConfig({
   // Falla si quedan focus tests (`.only`) en el código.
   forbidOnly: !!process.env.CI,
 
-  // Reintentos: 0 durante la fase de saneamiento (tests aún no estables).
-  // Subir a 2 cuando todos pasen consistentemente — protege contra flakes
-  // pero ralentiza el feedback cuando hay un bug real (3x el tiempo).
-  retries: 0,
+  // Reintentos solo en CI (los flakes locales se arreglan, no se ocultan).
+  // Tests E2E estables en CI desde 2026-04-25 con commit 0bd46ca.
+  retries: process.env.CI ? 2 : 0,
 
   // Reporters: HTML para humanos, JSON para CI artifact.
   reporter: process.env.CI

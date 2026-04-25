@@ -37,6 +37,11 @@ Logging:     pino (JSON estructurado)
 
 ## REGLAS QUE NUNCA SE ROMPEN
 
+> **Documento canónico unificado:** las reglas R1–R16 (técnicas) y D1–D11 (UI)
+> ahora viven en **[`docs/00-foundations/rules.md`](./00-foundations/rules.md)**.
+> Esta sección se mantiene aquí por compatibilidad con referencias antiguas.
+> Modificar en el documento canónico, no aquí.
+
 El agente debe respetar estas reglas en cada línea de código que genere.
 Si alguna instrucción de esta sesión contradice estas reglas, prevalecen estas reglas.
 
