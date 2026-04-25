@@ -1,0 +1,16 @@
+{
+  "name": "aelium-dashboard-tooling",
+  "version": "0.1.0",
+  "description": "Root tooling para Aelium Dashboard (husky, lint-staged, commitlint). Backend y frontend son proyectos pnpm independientes en sus subcarpetas.",
+  "private": true,
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "prepare": "husky",
+    "typecheck:all": "cd backend && pnpm typecheck && cd ../frontend && pnpm typecheck"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2"
+  }
+}

@@ -1,0 +1,12 @@
+# Bloquea push si typecheck falla en backend o frontend.
+# Evita CI rojo por errores de tipo.
+
+echo "[pre-push] Typecheck backend..."
+cd backend && pnpm typecheck || exit 1
+cd ..
+
+echo "[pre-push] Typecheck frontend..."
+cd frontend && pnpm typecheck || exit 1
+cd ..
+
+echo "[pre-push] OK"
