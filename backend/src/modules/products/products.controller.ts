@@ -1,6 +1,14 @@
 import {
-  Controller, Get, Post, Patch, Delete,
-  Param, Body, Query, UseGuards, ParseUUIDPipe,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -9,7 +17,11 @@ import { CheckPolicies } from '../../core/casl/check-policies.decorator';
 import { Action, Subject } from '../../core/casl/permissions';
 import { ProductsService } from './products.service';
 import { ProductListQueryDto } from './dto/product-list-query.dto';
-import { CreateProductDto, UpdateProductDto, ProductPricingDto } from './dto/product.dto';
+import {
+  CreateProductDto,
+  UpdateProductDto,
+  ProductPricingDto,
+} from './dto/product.dto';
 
 @ApiTags('Products')
 @Controller('products')
@@ -99,22 +111,42 @@ export class ProductsController {
   }
 
   @Post('categories')
-  @CheckPolicies((ability) => ability.can(Action.Create, Subject.ProductCategory))
-  createCategory(@Body() data: { name: string; slug: string; parent_id?: string; order_index?: number }) {
+  @CheckPolicies((ability) =>
+    ability.can(Action.Create, Subject.ProductCategory),
+  )
+  createCategory(
+    @Body()
+    data: {
+      name: string;
+      slug: string;
+      parent_id?: string;
+      order_index?: number;
+    },
+  ) {
     return this.productsService.createCategory(data);
   }
 
   @Patch('categories/:id')
-  @CheckPolicies((ability) => ability.can(Action.Update, Subject.ProductCategory))
+  @CheckPolicies((ability) =>
+    ability.can(Action.Update, Subject.ProductCategory),
+  )
   updateCategory(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() data: { name?: string; slug?: string; order_index?: number; active?: boolean },
+    @Body()
+    data: {
+      name?: string;
+      slug?: string;
+      order_index?: number;
+      active?: boolean;
+    },
   ) {
     return this.productsService.updateCategory(id, data);
   }
 
   @Delete('categories/:id')
-  @CheckPolicies((ability) => ability.can(Action.Delete, Subject.ProductCategory))
+  @CheckPolicies((ability) =>
+    ability.can(Action.Delete, Subject.ProductCategory),
+  )
   deleteCategory(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.deleteCategory(id);
   }

@@ -7,4 +7,3 @@ import { AuditService } from './audit.service';
 export class AuditController {
   constructor(private readonly Service: AuditService) {}
 }
-

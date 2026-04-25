@@ -7,4 +7,3 @@ import { PromotionsService } from './promotions.service';
 export class PromotionsController {
   constructor(private readonly Service: PromotionsService) {}
 }
-

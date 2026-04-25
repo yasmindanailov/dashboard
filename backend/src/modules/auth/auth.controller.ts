@@ -65,8 +65,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh access token using refresh token' })
   async refresh(@Req() req: Request) {
     // Read refresh token from cookie or body
-    const refreshToken =
-      req.cookies?.refresh_token || (req.body as any)?.refresh_token;
+    const refreshToken = req.cookies?.refresh_token || req.body?.refresh_token;
     if (!refreshToken) {
       throw new Error('Refresh token not provided');
     }

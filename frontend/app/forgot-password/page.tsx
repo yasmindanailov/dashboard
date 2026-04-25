@@ -27,7 +27,8 @@ export default function ForgotPasswordPage() {
     try {
       await authApi.forgotPassword(email);
       setSuccess(true);
-    } catch {
+    } catch (err) {
+      console.warn('[ForgotPassword] request failed:', err);
       // Always show success to prevent email enumeration
       setSuccess(true);
     } finally {

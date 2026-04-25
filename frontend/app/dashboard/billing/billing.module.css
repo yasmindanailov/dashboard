@@ -1,0 +1,55 @@
+/* billing.module.css — DS-compliant styles for billing list page */
+
+.invoiceLink {
+  color: var(--brand);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.invoiceLink:hover {
+  text-decoration: underline;
+}
+
+.manualTag {
+  margin-left: 6px;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.clientName {
+  color: var(--text-primary);
+}
+
+.clientNif {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.totalAmount {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.dateCell {
+  color: var(--text-secondary);
+}
+
+.dateOverdue {
+  color: var(--danger);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+  justify-content: flex-end;
+}
+
+.bannerWrap {
+  margin-bottom: var(--space-4);
+}
+
+.bulkConfirmText {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}

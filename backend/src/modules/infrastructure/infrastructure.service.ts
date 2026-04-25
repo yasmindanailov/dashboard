@@ -4,4 +4,3 @@
 export class InfrastructureService {
   // TODO: implement infrastructure business logic
 }
-

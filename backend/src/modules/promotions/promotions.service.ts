@@ -4,4 +4,3 @@
 export class PromotionsService {
   // TODO: implement promotions business logic
 }
-

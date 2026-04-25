@@ -39,7 +39,11 @@ export class SupportCleanupWorker {
     // Get configurable TTL (default 30 days)
     let ttlDays = 30;
     try {
-      const setting = await this.settings.get('support', 'guest_session_ttl_days', '30');
+      const setting = await this.settings.get(
+        'support',
+        'guest_session_ttl_days',
+        '30',
+      );
       if (setting) ttlDays = parseInt(setting, 10) || 30;
     } catch {
       // Setting doesn't exist yet — use default

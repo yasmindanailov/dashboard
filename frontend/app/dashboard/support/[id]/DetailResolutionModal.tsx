@@ -2,6 +2,7 @@
 
 import type { ResolutionType } from './types';
 import { Modal, Textarea, Button } from '../../../components/ui';
+import s from './conversationDetail.module.css';
 
 /* ═══════════════════════════════════════
    DetailResolutionModal — Resolution note modal
@@ -64,7 +65,7 @@ export default function DetailResolutionModal({
       title={config.title}
       size="sm"
     >
-      <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-4)' }}>
+      <p className={s.resolutionDesc}>
         {config.description}
       </p>
       <Textarea
@@ -74,7 +75,7 @@ export default function DetailResolutionModal({
         rows={4}
         autoFocus
       />
-      <div style={{ display: 'flex', gap: 'var(--space-2_5)', justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
+      <div className={s.resolutionActions}>
         <Button variant="secondary" onClick={onClose}>Cancelar</Button>
         <Button
           onClick={onSubmit}

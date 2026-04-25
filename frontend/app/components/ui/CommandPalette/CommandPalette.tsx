@@ -114,7 +114,7 @@ function getRecent(): RecentEntry[] {
   if (typeof window === 'undefined') return [];
   try {
     return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
-  } catch { return []; }
+  } catch (err) { console.warn('[CommandPalette] search failed:', err); return []; }
 }
 
 function addRecent(label: string, href: string) {

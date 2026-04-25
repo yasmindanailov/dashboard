@@ -4,4 +4,3 @@
 export class NotificationsService {
   // TODO: implement notifications business logic
 }
-

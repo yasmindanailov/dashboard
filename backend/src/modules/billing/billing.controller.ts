@@ -14,7 +14,12 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiProduces } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiProduces,
+} from '@nestjs/swagger';
 import { BillingService } from './billing.service';
 import { InvoicePdfService } from './invoice-pdf.service';
 import {
@@ -61,7 +66,9 @@ export class BillingController {
   }
 
   @Get('invoices/stats')
-  @ApiOperation({ summary: 'Invoice statistics — admin sees global, client sees own' })
+  @ApiOperation({
+    summary: 'Invoice statistics — admin sees global, client sees own',
+  })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Invoice))
   getStats(@Req() req: Request) {
     const user = req.user as any;
@@ -70,7 +77,9 @@ export class BillingController {
   }
 
   @Get('invoices/:id')
-  @ApiOperation({ summary: 'Get invoice detail — ownership enforced for clients' })
+  @ApiOperation({
+    summary: 'Get invoice detail — ownership enforced for clients',
+  })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Invoice))
   async findOne(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
     const user = req.user as any;
@@ -113,12 +122,16 @@ export class BillingController {
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Invoice))
   async finalize(@Param('id', ParseUUIDPipe) id: string) {
     // Validate invoice has items before finalizing
-    const invoice = await this.billingService.findOne(id) as any;
+    const invoice = (await this.billingService.findOne(id)) as any;
     if (!invoice.items || invoice.items.length === 0) {
-      throw new BadRequestException('No se puede enviar una factura sin líneas');
+      throw new BadRequestException(
+        'No se puede enviar una factura sin líneas',
+      );
     }
     if (Number(invoice.total) <= 0) {
-      throw new BadRequestException('El total de la factura debe ser mayor que 0');
+      throw new BadRequestException(
+        'El total de la factura debe ser mayor que 0',
+      );
     }
     return this.billingService.sendToPending(id);
   }
@@ -141,7 +154,9 @@ export class BillingController {
   }
 
   @Patch('invoices/:id/cancel')
-  @ApiOperation({ summary: 'Cancel invoice (does NOT delete — preserves numbering)' })
+  @ApiOperation({
+    summary: 'Cancel invoice (does NOT delete — preserves numbering)',
+  })
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Invoice))
   cancel(@Param('id', ParseUUIDPipe) id: string) {
     return this.billingService.cancelInvoice(id);
@@ -169,7 +184,7 @@ export class BillingController {
   ) {
     const user = req.user as any;
     const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
-    const invoice = await this.billingService.findOne(id) as any;
+    const invoice = (await this.billingService.findOne(id)) as any;
 
     if (!isAdmin && invoice.user_id !== user.id) {
       throw new ForbiddenException('No tienes acceso a esta factura');

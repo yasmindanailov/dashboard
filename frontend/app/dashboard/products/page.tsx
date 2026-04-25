@@ -72,7 +72,7 @@ export default function ProductsPage() {
       }) as PaginatedResponse;
       setProducts(res.data);
       setMeta(res.meta);
-    } catch { /* handled */ }
+    } catch (err) { console.warn('[Products] fetchProducts failed:', err); }
     finally { setLoading(false); }
   }, [token, search, filterStatus, filterType]);
 

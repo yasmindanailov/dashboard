@@ -1,9 +1,4 @@
-import {
-  IsUUID,
-  IsOptional,
-  IsString,
-  MaxLength,
-} from 'class-validator';
+import { IsUUID, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /**
  * CheckoutDto — Represents the client's purchase request.

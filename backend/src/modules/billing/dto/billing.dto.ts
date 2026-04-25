@@ -1,7 +1,17 @@
 import {
-  IsString, IsOptional, IsEnum, IsBoolean, IsInt,
-  IsNumber, IsUUID, IsArray, ValidateNested, IsDateString,
-  Min, Max, MaxLength,
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsBoolean,
+  IsInt,
+  IsNumber,
+  IsUUID,
+  IsArray,
+  ValidateNested,
+  IsDateString,
+  Min,
+  Max,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { InvoiceStatus } from '@prisma/client';

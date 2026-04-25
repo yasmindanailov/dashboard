@@ -44,10 +44,13 @@ export class SupportMessageService {
       where: { id: conversationId },
     });
 
-    if (!conversation) throw new NotFoundException('Conversación no encontrada.');
+    if (!conversation)
+      throw new NotFoundException('Conversación no encontrada.');
 
     if (conversation.status === 'closed') {
-      throw new BadRequestException('No se pueden enviar mensajes en una conversación cerrada.');
+      throw new BadRequestException(
+        'No se pueden enviar mensajes en una conversación cerrada.',
+      );
     }
 
     // 7.H4: Block client messages on escalated chats
@@ -79,8 +82,13 @@ export class SupportMessageService {
     });
 
     // Auto-update status (skip for internal notes and already resolved/closed)
-    if (!dto.is_internal && !['closed', 'resolved'].includes(conversation.status)) {
-      const statusUpdate: Prisma.ConversationUpdateInput = { updated_at: new Date() };
+    if (
+      !dto.is_internal &&
+      !['closed', 'resolved'].includes(conversation.status)
+    ) {
+      const statusUpdate: Prisma.ConversationUpdateInput = {
+        updated_at: new Date(),
+      };
 
       if (senderType === 'client') {
         statusUpdate.status = 'waiting_agent';
@@ -112,7 +120,12 @@ export class SupportMessageService {
     });
 
     // 7.H19: Auto-create structured ClientNote when agent sends internal note
-    if (dto.is_internal && senderType === 'agent' && conversation.user_id && senderId) {
+    if (
+      dto.is_internal &&
+      senderType === 'agent' &&
+      conversation.user_id &&
+      senderId
+    ) {
       try {
         await this.prisma.clientNote.create({
           data: {
@@ -135,9 +148,16 @@ export class SupportMessageService {
   /**
    * Update conversation metadata (status, priority, assign agent, resolve/close).
    */
-  async updateConversation(id: string, dto: UpdateConversationDto, actorId: string): Promise<Conversation> {
-    const conversation = await this.prisma.conversation.findUnique({ where: { id } });
-    if (!conversation) throw new NotFoundException('Conversación no encontrada.');
+  async updateConversation(
+    id: string,
+    dto: UpdateConversationDto,
+    actorId: string,
+  ): Promise<Conversation> {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id },
+    });
+    if (!conversation)
+      throw new NotFoundException('Conversación no encontrada.');
 
     const data: Prisma.ConversationUpdateInput = {};
 
@@ -156,7 +176,9 @@ export class SupportMessageService {
 
         const agentRoles = ['superadmin', 'agent_full', 'agent_support'];
         if (!agentRoles.includes(agent.role.slug)) {
-          throw new BadRequestException('El usuario asignado no tiene rol de agente.');
+          throw new BadRequestException(
+            'El usuario asignado no tiene rol de agente.',
+          );
         }
 
         data.assigned_agent_id = dto.assigned_agent_id;
@@ -185,8 +207,16 @@ export class SupportMessageService {
     if (dto.status && dto.status !== conversation.status) {
       data.status = dto.status;
 
-      if (['resolved', 'closed', 'open'].includes(dto.status) && !dto.resolution_note?.trim()) {
-        const actionLabel = dto.status === 'open' ? 'reabrir' : dto.status === 'closed' ? 'cerrar' : 'resolver';
+      if (
+        ['resolved', 'closed', 'open'].includes(dto.status) &&
+        !dto.resolution_note?.trim()
+      ) {
+        const actionLabel =
+          dto.status === 'open'
+            ? 'reabrir'
+            : dto.status === 'closed'
+              ? 'cerrar'
+              : 'resolver';
         throw new BadRequestException(
           `Se requiere una nota del agente al ${actionLabel} una conversación.`,
         );
@@ -272,13 +302,19 @@ export class SupportMessageService {
   /**
    * Mark messages as read for a specific reader.
    */
-  async markAsRead(conversationId: string, readerId: string, readerType: 'client' | 'agent'): Promise<number> {
-    const conversation = await this.prisma.conversation.findUnique({ where: { id: conversationId } });
-    if (!conversation) throw new NotFoundException('Conversación no encontrada.');
+  async markAsRead(
+    conversationId: string,
+    readerId: string,
+    readerType: 'client' | 'agent',
+  ): Promise<number> {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
+    if (!conversation)
+      throw new NotFoundException('Conversación no encontrada.');
 
-    const senderTypesToMark: string[] = readerType === 'agent'
-      ? ['client', 'ai']
-      : ['agent', 'system'];
+    const senderTypesToMark: string[] =
+      readerType === 'agent' ? ['client', 'ai'] : ['agent', 'system'];
 
     const result = await this.prisma.message.updateMany({
       where: {

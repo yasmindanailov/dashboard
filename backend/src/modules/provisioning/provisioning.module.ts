@@ -8,4 +8,3 @@ import { ProvisioningController } from './provisioning.controller';
   exports: [ProvisioningService],
 })
 export class ProvisioningModule {}
-

@@ -78,7 +78,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       if (noteFilter) p.category = noteFilter;
       const res = await clientsApi.listStructuredNotes(token, id, p) as any;
       setStructuredNotes(res.data || []);
-    } catch { setStructuredNotes([]); }
+    } catch (err) { console.warn('[ClientDetail] loadNotes failed:', err); setStructuredNotes([]); }
     finally { setLoadingNotes(false); }
   };
 

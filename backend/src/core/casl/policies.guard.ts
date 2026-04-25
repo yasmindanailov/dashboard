@@ -54,7 +54,9 @@ export class PoliciesGuard implements CanActivate {
     const { user } = request;
 
     if (!user) {
-      throw new ForbiddenException('No tienes permisos para acceder a este recurso.');
+      throw new ForbiddenException(
+        'No tienes permisos para acceder a este recurso.',
+      );
     }
 
     // Build CASL ability for this user
@@ -67,7 +69,9 @@ export class PoliciesGuard implements CanActivate {
     const allPassed = policyHandlers.every((handler) => handler(ability));
 
     if (!allPassed) {
-      throw new ForbiddenException('No tienes permisos para realizar esta acción.');
+      throw new ForbiddenException(
+        'No tienes permisos para realizar esta acción.',
+      );
     }
 
     return true;

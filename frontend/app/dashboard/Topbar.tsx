@@ -174,7 +174,35 @@ export default function Topbar({ sidebarCollapsed, onMobileMenuOpen, onOpenSuppo
 
 function SupportButton({ onOpenChat }: { onOpenChat: () => void }) {
   const [open, setOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+
+  // Fetch unread count on mount + poll every 30s
+  useEffect(() => {
+    if (!user) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const fetchUnread = async () => {
+      try {
+        const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+        const res = await fetch(`${API}/support/conversations/unread`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUnreadCount(data.count ?? 0);
+        }
+      } catch (err) {
+        console.warn('[Topbar] fetchUnread failed:', err);
+      }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30_000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Close on click outside
   useEffect(() => {
@@ -194,6 +222,9 @@ function SupportButton({ onOpenChat }: { onOpenChat: () => void }) {
         aria-expanded={open}
       >
         {IconSupport}
+        {unreadCount > 0 && (
+          <span className={styles.countBadge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
+        )}
       </button>
 
       {open && (

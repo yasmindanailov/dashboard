@@ -7,4 +7,3 @@ import { ErrorLogService } from './error-log.service';
 export class ErrorLogController {
   constructor(private readonly Service: ErrorLogService) {}
 }
-

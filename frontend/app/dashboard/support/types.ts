@@ -41,19 +41,19 @@ export interface TicketStats {
   closed_count: number;
 }
 
-export const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  open:           { label: 'Abierta',           color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
-  waiting_client: { label: 'Esperando cliente', color: '#F59E0B', bg: 'rgba(245,158,11,0.08)' },
-  waiting_agent:  { label: 'Esperando agente',  color: '#EF4444', bg: 'rgba(239,68,68,0.08)' },
-  resolved:       { label: 'Resuelta',          color: '#10B981', bg: 'rgba(16,185,129,0.08)' },
-  closed:         { label: 'Cerrada',           color: '#6B7280', bg: 'rgba(107,114,128,0.08)' },
+export const STATUS_CONFIG: Record<string, { label: string; variant: 'info' | 'warning' | 'danger' | 'success' | 'neutral' }> = {
+  open:           { label: 'Abierta',           variant: 'info' },
+  waiting_client: { label: 'Esperando cliente', variant: 'warning' },
+  waiting_agent:  { label: 'Esperando agente',  variant: 'danger' },
+  resolved:       { label: 'Resuelta',          variant: 'success' },
+  closed:         { label: 'Cerrada',           variant: 'neutral' },
 };
 
-export const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
-  low:    { label: 'Baja',    color: '#9CA3AF' },
-  normal: { label: 'Normal',  color: '#6B7280' },
-  high:   { label: 'Alta',    color: '#F59E0B' },
-  urgent: { label: 'Urgente', color: '#EF4444' },
+export const PRIORITY_CONFIG: Record<string, { label: string; variant: 'neutral' | 'warning' | 'danger' }> = {
+  low:    { label: 'Baja',    variant: 'neutral' },
+  normal: { label: 'Normal',  variant: 'neutral' },
+  high:   { label: 'Alta',    variant: 'warning' },
+  urgent: { label: 'Urgente', variant: 'danger' },
 };
 
 export const CATEGORY_CONFIG: Record<string, { label: string }> = {

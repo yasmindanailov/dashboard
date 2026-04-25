@@ -25,7 +25,10 @@ import {
   CreateClientNoteDto,
   ClientNoteQueryDto,
 } from './dto/client.dto';
-import { CreateBillingProfileDto, UpdateBillingProfileDto } from './dto/billing-profile.dto';
+import {
+  CreateBillingProfileDto,
+  UpdateBillingProfileDto,
+} from './dto/billing-profile.dto';
 
 @ApiTags('Clients')
 @Controller('clients')
@@ -111,7 +114,9 @@ export class ClientsController {
   }
 
   @Post(':id/billing-profiles')
-  @CheckPolicies((ability) => ability.can(Action.Create, Subject.BillingProfile))
+  @CheckPolicies((ability) =>
+    ability.can(Action.Create, Subject.BillingProfile),
+  )
   createBillingProfile(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateBillingProfileDto,
@@ -120,7 +125,9 @@ export class ClientsController {
   }
 
   @Patch(':id/billing-profiles/:profileId')
-  @CheckPolicies((ability) => ability.can(Action.Update, Subject.BillingProfile))
+  @CheckPolicies((ability) =>
+    ability.can(Action.Update, Subject.BillingProfile),
+  )
   updateBillingProfile(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('profileId', ParseUUIDPipe) profileId: string,
@@ -130,7 +137,9 @@ export class ClientsController {
   }
 
   @Delete(':id/billing-profiles/:profileId')
-  @CheckPolicies((ability) => ability.can(Action.Delete, Subject.BillingProfile))
+  @CheckPolicies((ability) =>
+    ability.can(Action.Delete, Subject.BillingProfile),
+  )
   deleteBillingProfile(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('profileId', ParseUUIDPipe) profileId: string,
@@ -139,7 +148,9 @@ export class ClientsController {
   }
 
   @Patch(':id/billing-profiles/:profileId/default')
-  @CheckPolicies((ability) => ability.can(Action.Update, Subject.BillingProfile))
+  @CheckPolicies((ability) =>
+    ability.can(Action.Update, Subject.BillingProfile),
+  )
   setDefaultBillingProfile(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('profileId', ParseUUIDPipe) profileId: string,

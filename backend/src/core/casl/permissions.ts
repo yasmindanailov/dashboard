@@ -25,12 +25,12 @@
 // ─── Actions ────────────────────────────────────────────────────
 
 export enum Action {
-  Manage = 'manage',     // Full CRUD (superadmin shortcut)
+  Manage = 'manage', // Full CRUD (superadmin shortcut)
   Create = 'create',
-  Read   = 'read',
+  Read = 'read',
   Update = 'update',
   Delete = 'delete',
-  List   = 'list',
+  List = 'list',
 }
 
 // ─── Subjects ───────────────────────────────────────────────────
@@ -41,69 +41,69 @@ export enum Action {
 
 export enum Subject {
   // Core
-  All           = 'all',          // Wildcard — matches everything
-  Dashboard     = 'Dashboard',
-  Profile       = 'Profile',     // "Mi perfil" — datos propios del usuario
+  All = 'all', // Wildcard — matches everything
+  Dashboard = 'Dashboard',
+  Profile = 'Profile', // "Mi perfil" — datos propios del usuario
 
   // CRM
-  Client        = 'Client',
+  Client = 'Client',
   BillingProfile = 'BillingProfile',
-  ClientNote    = 'ClientNote',
+  ClientNote = 'ClientNote',
 
   // Products
-  Product       = 'Product',
+  Product = 'Product',
   ProductCategory = 'ProductCategory',
 
   // Billing
-  Invoice       = 'Invoice',
-  Payment       = 'Payment',
+  Invoice = 'Invoice',
+  Payment = 'Payment',
 
   // Support
-  Conversation  = 'Conversation',
-  Message       = 'Message',
+  Conversation = 'Conversation',
+  Message = 'Message',
 
   // Tasks
-  Task          = 'Task',
-  Maintenance   = 'Maintenance',
+  Task = 'Task',
+  Maintenance = 'Maintenance',
 
   // Audit & Notifications
-  AuditLog      = 'AuditLog',
-  Notification  = 'Notification',
+  AuditLog = 'AuditLog',
+  Notification = 'Notification',
 
   // Infrastructure
-  Server        = 'Server',
+  Server = 'Server',
   DockerTemplate = 'DockerTemplate',
 
   // Settings
-  Setting       = 'Setting',
-  Agent         = 'Agent',       // Gestión de agentes (crear, editar)
+  Setting = 'Setting',
+  Agent = 'Agent', // Gestión de agentes (crear, editar)
 
   // Promotions & Discounts
-  Promotion     = 'Promotion',
-  DiscountCode  = 'DiscountCode',
+  Promotion = 'Promotion',
+  DiscountCode = 'DiscountCode',
 
   // Partner module
-  Partner           = 'Partner',          // Gestión de partners (admin view)
-  PartnerClient     = 'PartnerClient',    // Clientes del partner (partner view)
+  Partner = 'Partner', // Gestión de partners (admin view)
+  PartnerClient = 'PartnerClient', // Clientes del partner (partner view)
   PartnerCommission = 'PartnerCommission',
-  PartnerPayout     = 'PartnerPayout',
-  PartnerTicket     = 'PartnerTicket',
-  PartnerNote       = 'PartnerNote',
+  PartnerPayout = 'PartnerPayout',
+  PartnerTicket = 'PartnerTicket',
+  PartnerNote = 'PartnerNote',
   PartnerNotification = 'PartnerNotification',
-  PartnerLink       = 'PartnerLink',      // Vinculación cuenta partner-cliente
-  PartnerUnlink     = 'PartnerUnlink',    // Solicitudes de desvinculación
+  PartnerLink = 'PartnerLink', // Vinculación cuenta partner-cliente
+  PartnerUnlink = 'PartnerUnlink', // Solicitudes de desvinculación
 
   // Referrals
-  Referral      = 'Referral',
+  Referral = 'Referral',
 
   // Knowledge Base
   KnowledgeBase = 'KnowledgeBase',
 
   // Error Log
-  ErrorLog      = 'ErrorLog',
+  ErrorLog = 'ErrorLog',
 
   // Service (instancias contratadas)
-  Service       = 'Service',
+  Service = 'Service',
 
   // Support Inside
   SupportInside = 'SupportInside',
@@ -130,15 +130,16 @@ export interface PermissionRule {
 // El argumento `userId` se usa para filtrar recursos propios.
 // El argumento `partnerId` se usa para filtrar clientes del partner.
 
-export type RolePermissions = (userId: string, partnerId?: string) => PermissionRule[];
+export type RolePermissions = (
+  userId: string,
+  partnerId?: string,
+) => PermissionRule[];
 
 export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   /* ═══════════════════════════════════════
      SUPERADMIN — acceso total
      ═══════════════════════════════════════ */
-  superadmin: () => [
-    { action: Action.Manage, subject: Subject.All },
-  ],
+  superadmin: () => [{ action: Action.Manage, subject: Subject.All }],
 
   /* ═══════════════════════════════════════
      AGENT_FULL — todo excepto settings y gestión de agentes
@@ -169,8 +170,18 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     { action: [Action.Read, Action.List], subject: Subject.Partner },
     { action: Action.Manage, subject: Subject.Referral },
     // Cannot manage settings nor agents
-    { action: Action.Manage, subject: Subject.Setting, inverted: true, reason: 'Solo el superadmin puede gestionar settings.' },
-    { action: Action.Manage, subject: Subject.Agent, inverted: true, reason: 'Solo el superadmin puede gestionar agentes.' },
+    {
+      action: Action.Manage,
+      subject: Subject.Setting,
+      inverted: true,
+      reason: 'Solo el superadmin puede gestionar settings.',
+    },
+    {
+      action: Action.Manage,
+      subject: Subject.Agent,
+      inverted: true,
+      reason: 'Solo el superadmin puede gestionar agentes.',
+    },
   ],
 
   /* ═══════════════════════════════════════
@@ -222,14 +233,26 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     // Catálogo de productos (solo lectura — DECISIONS.md §32: "Ve el catálogo dentro del dashboard")
     { action: [Action.Read, Action.List], subject: Subject.Product },
     // Facturas — Read/List (controller filters by user_id from JWT), Create (checkout)
-    { action: [Action.Read, Action.List, Action.Create], subject: Subject.Invoice },
+    {
+      action: [Action.Read, Action.List, Action.Create],
+      subject: Subject.Invoice,
+    },
     // Servicios — lectura + pausar + cancelar (controller filters by user_id)
-    { action: [Action.Read, Action.List, Action.Update], subject: Subject.Service },
+    {
+      action: [Action.Read, Action.List, Action.Update],
+      subject: Subject.Service,
+    },
     // Soporte: crear y ver conversaciones (controller filters by user_id)
-    { action: [Action.Create, Action.Read, Action.List], subject: Subject.Conversation },
+    {
+      action: [Action.Create, Action.Read, Action.List],
+      subject: Subject.Conversation,
+    },
     { action: [Action.Create, Action.Read], subject: Subject.Message },
     // Notificaciones (controller filters by user_id)
-    { action: [Action.Read, Action.List, Action.Update], subject: Subject.Notification },
+    {
+      action: [Action.Read, Action.List, Action.Update],
+      subject: Subject.Notification,
+    },
     // Portal de transparencia
     { action: [Action.Read, Action.List], subject: Subject.AuditLog },
     // Support Inside
@@ -276,48 +299,115 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       { action: Action.Manage, subject: Subject.Profile },
 
       // ── Clientes del partner (lectura) ──
-      { action: [Action.Read, Action.List], subject: Subject.PartnerClient, conditions: partnerCondition },
+      {
+        action: [Action.Read, Action.List],
+        subject: Subject.PartnerClient,
+        conditions: partnerCondition,
+      },
 
       // ── Servicios de sus clientes (lectura) ──
-      { action: [Action.Read, Action.List], subject: Subject.Service, conditions: partnerCondition },
+      {
+        action: [Action.Read, Action.List],
+        subject: Subject.Service,
+        conditions: partnerCondition,
+      },
 
       // ── Facturas de sus clientes (lectura) ──
-      { action: [Action.Read, Action.List], subject: Subject.Invoice, conditions: partnerCondition },
+      {
+        action: [Action.Read, Action.List],
+        subject: Subject.Invoice,
+        conditions: partnerCondition,
+      },
 
       // ── Soporte de sus clientes (lectura, no participa) ──
-      { action: [Action.Read, Action.List], subject: Subject.Conversation, conditions: partnerCondition },
+      {
+        action: [Action.Read, Action.List],
+        subject: Subject.Conversation,
+        conditions: partnerCondition,
+      },
 
       // ── Notas inmutables sobre sus clientes (solo crear y leer) ──
-      { action: [Action.Create, Action.Read, Action.List], subject: Subject.PartnerNote, conditions: partnerCondition },
+      {
+        action: [Action.Create, Action.Read, Action.List],
+        subject: Subject.PartnerNote,
+        conditions: partnerCondition,
+      },
 
       // ── Tickets bidireccionales a sus clientes ──
-      { action: Action.Manage, subject: Subject.PartnerTicket, conditions: partnerCondition },
+      {
+        action: Action.Manage,
+        subject: Subject.PartnerTicket,
+        conditions: partnerCondition,
+      },
 
       // ── Notificaciones unidireccionales a sus clientes ──
-      { action: [Action.Create, Action.Read, Action.List], subject: Subject.PartnerNotification, conditions: partnerCondition },
+      {
+        action: [Action.Create, Action.Read, Action.List],
+        subject: Subject.PartnerNotification,
+        conditions: partnerCondition,
+      },
 
       // ── Comisiones (lectura) ──
-      { action: [Action.Read, Action.List], subject: Subject.PartnerCommission, conditions: partnerCondition },
+      {
+        action: [Action.Read, Action.List],
+        subject: Subject.PartnerCommission,
+        conditions: partnerCondition,
+      },
 
       // ── Liquidaciones (lectura) ──
-      { action: [Action.Read, Action.List], subject: Subject.PartnerPayout, conditions: partnerCondition },
+      {
+        action: [Action.Read, Action.List],
+        subject: Subject.PartnerPayout,
+        conditions: partnerCondition,
+      },
 
       // ── Enlace de referido del partner ──
-      { action: [Action.Read, Action.Update], subject: Subject.Partner, conditions: { user_id: userId } },
+      {
+        action: [Action.Read, Action.Update],
+        subject: Subject.Partner,
+        conditions: { user_id: userId },
+      },
 
       // ── Vinculación de cuenta partner-cliente ──
-      { action: [Action.Create, Action.Read], subject: Subject.PartnerLink, conditions: partnerCondition },
+      {
+        action: [Action.Create, Action.Read],
+        subject: Subject.PartnerLink,
+        conditions: partnerCondition,
+      },
 
       // ── Solicitudes de desvinculación ──
-      { action: [Action.Create, Action.Read, Action.List], subject: Subject.PartnerUnlink, conditions: partnerCondition },
+      {
+        action: [Action.Create, Action.Read, Action.List],
+        subject: Subject.PartnerUnlink,
+        conditions: partnerCondition,
+      },
 
       // ── Notificaciones propias ──
-      { action: [Action.Read, Action.List, Action.Update], subject: Subject.Notification, conditions: { user_id: userId } },
+      {
+        action: [Action.Read, Action.List, Action.Update],
+        subject: Subject.Notification,
+        conditions: { user_id: userId },
+      },
 
       // ── NO puede: modificar datos de clientes, acceder a settings, productos, etc. ──
-      { action: Action.Manage, subject: Subject.Client, inverted: true, reason: 'El partner no puede modificar datos de clientes directamente.' },
-      { action: Action.Manage, subject: Subject.Product, inverted: true, reason: 'El partner no tiene acceso al catálogo de productos.' },
-      { action: Action.Manage, subject: Subject.Setting, inverted: true, reason: 'El partner no puede gestionar settings.' },
+      {
+        action: Action.Manage,
+        subject: Subject.Client,
+        inverted: true,
+        reason: 'El partner no puede modificar datos de clientes directamente.',
+      },
+      {
+        action: Action.Manage,
+        subject: Subject.Product,
+        inverted: true,
+        reason: 'El partner no tiene acceso al catálogo de productos.',
+      },
+      {
+        action: Action.Manage,
+        subject: Subject.Setting,
+        inverted: true,
+        reason: 'El partner no puede gestionar settings.',
+      },
     ];
   },
 };
@@ -331,32 +421,62 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
 
 export const SIDEBAR_PERMISSIONS: Record<string, Subject[]> = {
   superadmin: [
-    Subject.Dashboard, Subject.Client, Subject.Product, Subject.Invoice,
-    Subject.Conversation, Subject.Task, Subject.AuditLog, Subject.Server,
-    Subject.Setting, Subject.Promotion, Subject.KnowledgeBase, Subject.ErrorLog,
-    Subject.Partner, Subject.Referral,
+    Subject.Dashboard,
+    Subject.Client,
+    Subject.Product,
+    Subject.Invoice,
+    Subject.Conversation,
+    Subject.Task,
+    Subject.AuditLog,
+    Subject.Server,
+    Subject.Setting,
+    Subject.Promotion,
+    Subject.KnowledgeBase,
+    Subject.ErrorLog,
+    Subject.Partner,
+    Subject.Referral,
   ],
   agent_full: [
-    Subject.Dashboard, Subject.Client, Subject.Product, Subject.Invoice,
-    Subject.Conversation, Subject.Task, Subject.AuditLog,
-    Subject.Promotion, Subject.KnowledgeBase, Subject.ErrorLog, Subject.Partner,
+    Subject.Dashboard,
+    Subject.Client,
+    Subject.Product,
+    Subject.Invoice,
+    Subject.Conversation,
+    Subject.Task,
+    Subject.AuditLog,
+    Subject.Promotion,
+    Subject.KnowledgeBase,
+    Subject.ErrorLog,
+    Subject.Partner,
   ],
   agent_billing: [
-    Subject.Dashboard, Subject.Client, Subject.Invoice, Subject.Task,
+    Subject.Dashboard,
+    Subject.Client,
+    Subject.Invoice,
+    Subject.Task,
   ],
   agent_support: [
-    Subject.Dashboard, Subject.Client, Subject.Conversation, Subject.Task,
+    Subject.Dashboard,
+    Subject.Client,
+    Subject.Conversation,
+    Subject.Task,
     Subject.KnowledgeBase,
   ],
   client: [
-    Subject.Dashboard, Subject.Service, Subject.Invoice,
-    Subject.Conversation, Subject.SupportInside, Subject.Referral,
-  ],
-  partner_pending: [
     Subject.Dashboard,
+    Subject.Service,
+    Subject.Invoice,
+    Subject.Conversation,
+    Subject.SupportInside,
+    Subject.Referral,
   ],
+  partner_pending: [Subject.Dashboard],
   partner: [
-    Subject.Dashboard, Subject.PartnerClient, Subject.PartnerCommission,
-    Subject.PartnerPayout, Subject.PartnerTicket, Subject.Partner,
+    Subject.Dashboard,
+    Subject.PartnerClient,
+    Subject.PartnerCommission,
+    Subject.PartnerPayout,
+    Subject.PartnerTicket,
+    Subject.Partner,
   ],
 };

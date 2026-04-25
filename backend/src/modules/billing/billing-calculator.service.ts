@@ -64,7 +64,9 @@ export class BillingCalculatorService {
     taxRateOverride?: number,
     discountAmount = 0,
   ): Promise<InvoiceTotals> {
-    const taxRate = taxRateOverride ?? (await this.getSettingValue<number>('billing', 'default_tax_rate', 21));
+    const taxRate =
+      taxRateOverride ??
+      (await this.getSettingValue<number>('billing', 'default_tax_rate', 21));
 
     const calculatedItems: CalculatedItem[] = items.map((item) => {
       const qty = item.quantity ?? 1;
@@ -83,7 +85,9 @@ export class BillingCalculatorService {
         setup_fee: setupFee,
         discount_pct: item.discount_pct,
         total: Math.round(itemTotal * 100) / 100,
-        period_start: item.period_start ? new Date(item.period_start) : undefined,
+        period_start: item.period_start
+          ? new Date(item.period_start)
+          : undefined,
         period_end: item.period_end ? new Date(item.period_end) : undefined,
       };
     });
@@ -144,7 +148,11 @@ export class BillingCalculatorService {
   /**
    * Read a setting value from the settings table with a fallback default.
    */
-  async getSettingValue<T>(category: string, key: string, defaultValue: T): Promise<T> {
+  async getSettingValue<T>(
+    category: string,
+    key: string,
+    defaultValue: T,
+  ): Promise<T> {
     const setting = await this.prisma.setting.findUnique({
       where: { category_key: { category, key } },
     });

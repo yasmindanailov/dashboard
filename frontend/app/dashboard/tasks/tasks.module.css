@@ -1,0 +1,73 @@
+/* ═══════════════════════════════════════
+   Tasks page — CSS Module
+   Ref: Design System tokens, Regla 14
+   ═══════════════════════════════════════ */
+
+.priorityBar {
+  width: 4px;
+  height: 100%;
+  min-height: 24px;
+  border-radius: var(--radius-full, 9999px);
+}
+
+.titleLink {
+  color: var(--color-text);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+.titleLink:hover {
+  color: var(--color-primary);
+}
+
+.clientLink {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  transition: color var(--transition-fast);
+}
+.clientLink:hover {
+  color: var(--color-primary);
+}
+
+.assignee {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.unassigned {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.dueDate {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.overdue {
+  color: var(--color-danger);
+  font-weight: 500;
+}
+
+/* ── New Task Modal ── */
+.formStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.formLabel {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-1);
+}

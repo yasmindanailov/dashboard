@@ -8,4 +8,3 @@ import { PromotionsController } from './promotions.controller';
   exports: [PromotionsService],
 })
 export class PromotionsModule {}
-

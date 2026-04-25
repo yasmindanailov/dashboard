@@ -60,4 +60,3 @@ import { SupportCleanupWorker } from './support-cleanup.worker';
   exports: [SupportService, SupportGateway],
 })
 export class SupportModule {}
-

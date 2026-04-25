@@ -8,4 +8,3 @@ import { ErrorLogController } from './error-log.controller';
   exports: [ErrorLogService],
 })
 export class ErrorLogModule {}
-

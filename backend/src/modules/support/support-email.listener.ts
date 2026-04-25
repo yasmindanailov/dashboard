@@ -67,7 +67,9 @@ export class SupportEmailListener {
       `,
     });
 
-    this.logger.log(`Email sent: conversation.created → client ${payload.user_email}`);
+    this.logger.log(
+      `Email sent: conversation.created → client ${payload.user_email}`,
+    );
 
     // 2. Notify all support agents via internal notification
     // (Email to agents is optional — they'll see it in the dashboard inbox)
@@ -98,7 +100,12 @@ export class SupportEmailListener {
 
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: payload.conversation_id },
-      select: { id: true, subject: true, user_id: true, assigned_agent_id: true },
+      select: {
+        id: true,
+        subject: true,
+        user_id: true,
+        assigned_agent_id: true,
+      },
     });
     if (!conversation) return;
 
@@ -149,7 +156,9 @@ export class SupportEmailListener {
         `,
       });
 
-      this.logger.log(`Email sent: message.created (agent→client) → ${client.email}`);
+      this.logger.log(
+        `Email sent: message.created (agent→client) → ${client.email}`,
+      );
     }
 
     // Note: client→agent notifications are handled via the dashboard inbox

@@ -194,7 +194,7 @@
 - **EC-5.1** (Sprint 7+): CASL conditions no se evalúan automáticamente a nivel de servicio. Cuando se implementen rutas de cliente (`/my-services`, `/my-invoices`), validar `req.user.id === resource.user_id` explícitamente en el service.
 - **EC-5.2** (Sprint 6): Eliminar legacy `@Roles()` decorator y `RolesGuard` tras verificar migración completa a `@CheckPolicies()`.
 - **EC-5.3** (Sprint 6): `auth-context.tsx` no expone `partner_id`. Añadirlo cuando se implemente el dashboard del partner.
-- **EC-5.4** (Sprint 8): Validar restricción de `we_do_it` addon: solo vinculable a `hosting_web` y `docker_service`. Implementar lógica de restricción en `ProductsService.create()`.
+- ~~**EC-5.4** (Sprint 8): Validar restricción de `we_do_it` addon~~ — **DEPRECADO** (§44): WDIFY reemplazado por módulo Projects (Sprint 22).
 - **EC-7** (Sprint 6): Auditar y eliminar cualquier legacy `RolesGuard` que pueda conflictar con CASL `@CheckPolicies()`.
 - **EC-8** (Sprint 6): Refresh automático de token expirado durante formularios largos. Redirect a login si refresh falla.
 - **EC-9** (Sprint 7+): Confirmación "cambios sin guardar" al navegar fuera de formularios de crear/editar (`beforeunload` + router guard).
@@ -333,6 +333,18 @@
 | 7.6.3 | **Widget: indicador horario** — mostrar estado "🟢 En línea" / "🔴 Fuera de horario" en el header del widget + mensaje informativo | ⬜ |
 | 7.7 | **Archivos adjuntos** — integración MinIO para mensajes con archivos. Upload desde widget y panel agente. Preview inline para imágenes | ⬜ (bloqueado: Sprint 14 MinIO) |
 
+**Support — Ticket UX Enhancement (Sprint 7.6):**
+
+> Objetivo: transformar la experiencia de tickets de chat-bubbles a email-style profesional.
+> Bloqueado parcialmente por Storage (MinIO) para adjuntos.
+
+| # | Paso | Dependencia | Estado |
+|---|------|-------------|--------|
+| 7.6.1 | **Rich text editor (TipTap)** — componente `RichEditor` en Design System: negrita, cursiva, listas, headings, color de texto, enlaces. Sanitización HTML en backend (DOMPurify). Migration path: mensajes plaintext existentes renderean como `<p>` | DS Sprint 7.5 | ⬜ |
+| 7.6.2 | **Mensajes email-style para tickets** — reemplazar burbujas por bloques tipo Gmail: header con nombre+fecha, cuerpo HTML renderizado, separador entre mensajes. Solo para `type=ticket` — chats mantienen burbujas | 7.6.1 | ⬜ |
+| 7.6.3 | **Adjuntos en mensajes** — upload de imágenes y documentos desde el editor. Preview inline para imágenes, link de descarga para docs. Límites: 10MB/archivo, tipos permitidos configurables | Sprint 14 MinIO, 7.6.1 | ⬜ |
+| 7.6.4 | **Subject editable por agente** — permitir al agente modificar el subject del ticket para reflejar mejor el contenido tras la primera respuesta | — | ⬜ |
+
 **Support — IA (bloqueado por Sprint 15):**
 
 | # | Paso | Estado |
@@ -440,22 +452,57 @@
 
 ---
 
-## Sprint 8 — Tasks ⬜
+## Sprint 8 — Tasks 🔄
 
 > Objetivo: tareas del equipo, WOW calls, mantenimiento.
+> Organizado en 5 fases (A→E) según dependencias entre items.
+> Ref: DECISIONS.md §7 (Support Inside), §10 (Tareas), §11 (Notificaciones), §44 (Projects).
+> Ref: DATABASE_SCHEMA.md Bloque 6. UI_SPEC.md §5.15 (list), §5.16 (detail).
+
+### Fase A — Schema + fixes base
 
 | # | Paso | Estado |
 |---|------|--------|
-| 8.1 | TasksService: CRUD + asignación + estados | ⬜ |
-| 8.2 | Tareas automáticas (post-provisioning) | ⬜ |
-| 8.3 | WOW calls (checklist post-alta) | ⬜ |
-| 8.4 | **Support Inside** — configuración de planes (Básico/Medium/Pro), asignación de slots a servicios | ⬜ |
-| 8.5 | **Support Inside** — página del cliente (plan, slots activos, historial de valor) | ⬜ |
-| 8.6 | **Support Inside** — cancelación cascada de slots, recurrencia mantenimiento (aniversario) | ⬜ |
+| 8.1 | TasksService: CRUD + asignación + estados + TasksController (REST API con CASL) | 🔄 |
+| 8.1b | **Schema:** modelos `task_checklist_completions` + `maintenance_logs` + `product_checklist_items` + `service_checklist_items` (DATABASE_SCHEMA.md Bloque 6). Migración Prisma | ⬜ |
+| 8.1c | **Schema:** campo `task_id` nullable FK en `client_notes` (§5.16 paso 6c: "ClientNote auto-creada linked to task"). Migración Prisma | ⬜ |
+| 8.1d | **Backend:** Completar maintenance → crear `maintenance_log` + persistir ambas notas (client + internal) en la tarea + crear `ClientNote` con `task_id` (§10 líneas 400-408, §5.16 líneas 1811-1814) | ⬜ |
+| 8.14 | **Backend:** Endpoint listar agentes (`GET /api/v1/users?role=agent*`). Necesario para Select agente en frontend tasks + soporte | ⬜ |
+
+### Fase B — Frontend core
+
+| # | Paso | Estado |
+|---|------|--------|
+| 8.8 | Frontend: tablero de tareas — ListPage (§5.15) + DetailPage (§5.16) + NewTaskModal + TaskTable | 🔄 |
+| 8.8b | **Frontend:** Select agente — asignar/reasignar en List (filtro, §5.15 línea 1670/1707) + Detail (sidebar, §5.16 línea 1785/1832). Admin only. Depende de 8.14 | ⬜ |
+| 8.8c | **Frontend:** Bloques adaptativos por tipo de tarea en detail — maintenance→checklist, wow_call→datos cliente, custom_work→notas, project_task→link proyecto (§5.16 líneas 1788-1795). Depende de 8.1b | ⬜ |
+| 8.8d | **Frontend DS compliance:** emojis→SVG (Regla D1), SearchInput patrón DS para cliente en modal (como NewTicketModal), nombre cliente=link (patrón ConversationSidebar), card servicio en sidebar (§5.16) | ⬜ |
+| 8.8e | **Frontend:** ClientNotesTab — enlace "Ver tarea origen" cuando nota tiene `task_id` (patrón existente con `conversation_id` → "Ver conversación origen"). Depende de 8.1c | ⬜ |
+
+### Fase C — Automatización
+
+| # | Paso | Estado |
+|---|------|--------|
+| 8.2 | **Tareas automáticas:** listener `service.provisioned` → crear `wow_call` si es primer producto del cliente. Plazo 24h. Auto-asignación al agente del cliente (§10 línea 380/384) | ⬜ |
+| 8.3 | **WOW calls:** checklist post-alta. Depende de 8.1b (product_checklist_items) | ⬜ |
+| 8.12 | **Job CRON:** marcar tareas con `due_date` pasada como `not_completed_in_time` (§10 línea 398). Emitir evento `task.overdue` | ⬜ |
+| 8.10 | **Notificaciones:** listeners para `task.assigned`, `task.overdue`, `maintenance.completed`, `maintenance.critical` (§11 líneas 449-452) | ⬜ |
+
+### Fase D — Support Inside (módulo separado)
+
+| # | Paso | Estado |
+|---|------|--------|
+| 8.4 | **Support Inside** — Schema + Service: `support_inside_config`, `support_inside_subscriptions`, `support_inside_slots`. Configuración de planes (Básico/Medium/Pro), asignación de slots a servicios (§7) | ⬜ |
+| 8.5 | **Support Inside** — página del cliente (plan, slots activos, historial de valor, canales disponibles) (§7 líneas 275-281) | ⬜ |
+| 8.6 | **Support Inside** — cancelación cascada de slots, recurrencia mantenimiento (anniversary_day), job CRON generación mensual (§7 líneas 267-273) | ⬜ |
 | 8.7 | ~~**We Do It For You**~~ — **DEPRECADO**: reemplazado por módulo Projects (Sprint 22). El CTA "Solicitar desarrollo personalizado" en la página del servicio crea un proyecto, no un addon | ~~⬜~~ |
-| 8.8 | Frontend: tablero de tareas (agente) | ⬜ |
-| 8.9 | Frontend: mantenimiento mensual | ⬜ |
-| 8.10 | Notificaciones: tarea asignada, tarea crítica | ⬜ |
+| 8.9 | Frontend: vista mantenimiento mensual — calendario/timeline de tareas recurrentes por anniversary_day. Depende de 8.6 | ⬜ |
+| 8.13 | **Job CRON:** alerta tarea crítica — maintenance sin completar X días antes de fin de mes (§7 líneas 272-273). X configurable en settings. Emitir `maintenance.critical` | ⬜ |
+
+### Fase E — Cierre
+
+| # | Paso | Estado |
+|---|------|--------|
 | 8.11 | docs/features/tasks/admin.md + agent.md | ⬜ |
 
 ---
@@ -607,21 +654,32 @@
 
 | # | Archivo | Líneas → Límite | Acción | Estado |
 |---|---------|----------------|--------|--------|
-| 13.R15.1 | `auth.service.ts` (585 → 300) | Extraer `auth-login.service.ts`, `auth-register.service.ts`, `auth-token.service.ts`, `auth-2fa.service.ts`. Fachada en `auth.service.ts` | ⬜ |
-| 13.R15.2 | `billing.service.ts` (679 → 300) | Extraer `billing-invoice.service.ts`, `billing-payment.service.ts`, `billing-query.service.ts`. Fachada en `billing.service.ts` | ⬜ |
-| 13.R15.3 | `billing-lifecycle.worker.ts` (321 → 150) | Dividir en `billing-renewal.worker.ts` + `billing-overdue.worker.ts` + `billing-cleanup.worker.ts` | ⬜ |
+| 13.R15.1 | `auth.service.ts` (585 → 300) | Extraído: `auth-login.service.ts`, `auth-register.service.ts`, `auth-token.service.ts`, `auth-recovery.service.ts`. Fachada en `auth.service.ts` (80L). Build ✅ | ✅ |
+| 13.R15.2 | `billing.service.ts` (518 → 300) | Extraído: `billing-invoice.service.ts` (296L), `billing-checkout.service.ts` (117L). Fachada en `billing.service.ts` (67L). `billing-calculator.service.ts` preexistente. Build ✅ | ✅ |
+| 13.R15.3 | `billing-lifecycle.worker.ts` (380 → 150) | Dividido: `billing-lifecycle.worker.ts` (168L — invoice generation, overdue, retry) + `service-lifecycle.worker.ts` (139L — auto-suspend, auto-cancel, pause expiration). Build ✅ | ✅ |
 | 13.R15.4 | `billing-email.listener.ts` (210 → 150) | Dividir por evento: `billing-invoice-email.listener.ts` + `billing-payment-email.listener.ts` | ⬜ |
 | 13.R15.5 | `billing.controller.ts` (210 → 200) | Reducir comentarios, extraer helpers de validación | ⬜ |
-| 13.R15.6 | `products.service.ts` (373 → 300) | Extraer `product-query.service.ts` (listados, búsqueda) del CRUD principal | ⬜ |
-| 13.R15.7 | `clients.service.ts` (342 → 300) | Extraer `client-query.service.ts` (listados, filtros, stats) del CRUD principal | ⬜ |
-| 13.R15.8 | `permissions.ts` (314 → 300) | Separar definiciones por módulo: `permissions-billing.ts`, `permissions-support.ts`, etc. Re-exportar desde index | ⬜ |
-| 13.R15.9 | `checkout/page.tsx` (521 → 300) | Extraer `CheckoutSummary.tsx`, `CheckoutPayment.tsx`, `CheckoutConfirmation.tsx` | ⬜ |
-| 13.R15.10 | `layout.tsx` (394 → 300) | Extraer `Sidebar.tsx`, `Topbar.tsx`, `UserMenu.tsx` | ⬜ |
+| 13.R15.6 | `products.service.ts` (436 → 300) | Extraído: `products-catalog.service.ts` (115L — pricing, categories). `products.service.ts` reducido a 223L. Build ✅ | ✅ |
+| 13.R15.7 | `clients.service.ts` (396 → 300) | Extraído: `clients-billing.service.ts` (111L — billing profiles). `clients.service.ts` reducido a 185L. Remediado catch silencioso en addNote (Regla 14). Build ✅ | ✅ |
+| 13.R15.8 | `permissions.ts` (362 → 300) | **Excepción documentada**: archivo declarativo CASL (definiciones de rol), no lógica de negocio. Splitting reduciría cohesión | ⏸️ |
+| 13.R15.9 | `checkout/page.tsx` (570 → 300) | Completado en Sprint 7.R15.5: extraído `types.ts`, `useCheckout.ts`, `StepConfirm.tsx`. Build ✅ | ✅ |
+| 13.R15.10 | `layout.tsx` (394 → 300) | Completado en Sprint 7.R15.6: extraído `Sidebar.tsx`, `Topbar.tsx`. Build ✅ | ✅ |
 | 13.R15.11 | `page.tsx` landing (350 → 300) | Extraer secciones a componentes: `HeroSection.tsx`, `FeaturesSection.tsx`, `PricingSection.tsx` | ⬜ |
-| 13.R15.12 | `products/page.tsx` (323 → 300) | Extraer `ProductTable.tsx` y `ProductFilters.tsx` | ⬜ |
-| 13.R15.13 | `products/new/page.tsx` (319 → 300) | Extraer `ProductForm.tsx` multi-step | ⬜ |
+| 13.R15.12 | `products/page.tsx` (323 → 300) | Completado en Sprint 7.R15.8: extraído `types.ts`. Build ✅ | ✅ |
+| 13.R15.13 | `products/new/page.tsx` (347 → 300) | Completado en Sprint 7.R15.9: extraído `constants.ts`. Build ✅ | ✅ |
 | 13.R15.14 | `GradientMesh.tsx` (294 → 200) | Extraer lógica WebGL a hook `useGradientMesh.ts` | ⬜ |
 | 13.R15.15 | `support-email.listener.ts` (187 → 150) | Condensar templates inline a imports de `email-templates/` | ⬜ |
+
+> **Excepciones Regla 15 documentadas (no son lógica de negocio):**
+> - `permissions.ts` (362L) — Configuración declarativa CASL
+> - `product.dto.ts` (348L) — Definiciones DTO + validadores
+> - `invoice-pdf.service.ts` (325L) — Templates HTML inline
+
+> **CSS compliance (Sprint 8.1 inline migration):**
+> 40+ inline styles migrados a CSS Modules en 5 archivos de soporte + billing.
+> Archivos nuevos: `NewTicketModal.module.css`, `billing.module.css`.
+> Archivos extendidos: `conversationDetail.module.css`, `TicketList.module.css`.
+
 
 ---
 
@@ -934,7 +992,7 @@ FASE 1 — CORE (Sprints 0-14, orden secuencial estricto)
   Sprint 5  Products + PBAC                ✅
   Sprint 6  Billing Engine                 ✅
   Sprint 7  Support                        ⬜ (en progreso)
-  Sprint 8  Tasks + Support Inside         ⬜  ← depende de 7
+  Sprint 8  Tasks + Support Inside         🔄  ← Fase A-B en progreso, depende de 7
   Sprint 9  Audit + Notifications Full     ⬜  ← depende de 2
   Sprint 10 Infrastructure                 ⬜  ← independiente
   Sprint 11 Provisioning                   ⬜  ← depende de 10, 5, 6

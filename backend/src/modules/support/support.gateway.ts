@@ -12,7 +12,10 @@ import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { SupportService } from './support.service';
 import { PrismaService } from '../../core/database/prisma.service';
-import { SupportGatewayAuth, ConnectedUserInfo } from './support-gateway-auth.helper';
+import {
+  SupportGatewayAuth,
+  ConnectedUserInfo,
+} from './support-gateway-auth.helper';
 
 /**
  * SupportGateway — WebSocket real-time communication for support.
@@ -25,7 +28,9 @@ import { SupportGatewayAuth, ConnectedUserInfo } from './support-gateway-auth.he
   namespace: '/support',
   cors: { origin: '*', credentials: true },
 })
-export class SupportGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class SupportGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -45,8 +50,9 @@ export class SupportGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
   async handleConnection(client: Socket) {
     // Attempt 1: JWT
-    const token = client.handshake.auth?.token
-      || client.handshake.headers?.authorization?.replace('Bearer ', '');
+    const token =
+      client.handshake.auth?.token ||
+      client.handshake.headers?.authorization?.replace('Bearer ', '');
 
     if (token) {
       const userInfo = await this.auth.authenticateWithJwt(client, token);
@@ -55,7 +61,8 @@ export class SupportGateway implements OnGatewayConnection, OnGatewayDisconnect 
         client.join(`user:${userInfo.userId}`);
         if (userInfo.isAdmin) client.join('agent:inbox');
         const unread = await this.supportService.getUnreadCount(
-          userInfo.userId, userInfo.isAdmin ? 'agent' : 'client',
+          userInfo.userId,
+          userInfo.isAdmin ? 'agent' : 'client',
         );
         client.emit('unread:update', { count: unread });
         return;
@@ -110,19 +117,29 @@ export class SupportGateway implements OnGatewayConnection, OnGatewayDisconnect 
         where: { id: data.conversationId },
         select: { guest_session_hash: true },
       });
-      if (!conv || conv.guest_session_hash !== userInfo.guestSessionHash) return;
+      if (!conv || conv.guest_session_hash !== userInfo.guestSessionHash)
+        return;
     } else if (!userInfo.isAdmin) {
       try {
-        const conv = await this.supportService.findOne(data.conversationId, false);
+        const conv = await this.supportService.findOne(
+          data.conversationId,
+          false,
+        );
         if (conv.user_id !== userInfo.userId) return;
-      } catch { return; }
+      } catch {
+        return;
+      }
     }
 
     client.join(`conversation:${data.conversationId}`);
 
     if (!userInfo.isGuest) {
       const role = userInfo.isAdmin ? 'agent' : 'client';
-      await this.supportService.markAsRead(data.conversationId, userInfo.userId, role as any);
+      await this.supportService.markAsRead(
+        data.conversationId,
+        userInfo.userId,
+        role as any,
+      );
     }
   }
 
@@ -139,7 +156,8 @@ export class SupportGateway implements OnGatewayConnection, OnGatewayDisconnect 
   @SubscribeMessage('message:send')
   async handleSendMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { conversationId: string; body: string; is_internal?: boolean },
+    @MessageBody()
+    data: { conversationId: string; body: string; is_internal?: boolean },
   ) {
     const userInfo = this.connectedUsers.get(client.id);
     if (!userInfo || !data.body?.trim()) return;
@@ -151,19 +169,25 @@ export class SupportGateway implements OnGatewayConnection, OnGatewayDisconnect 
         where: { id: data.conversationId },
         select: { guest_session_hash: true },
       });
-      if (!conv || conv.guest_session_hash !== userInfo.guestSessionHash) return;
+      if (!conv || conv.guest_session_hash !== userInfo.guestSessionHash)
+        return;
 
       try {
         const message = await this.supportService.addMessage(
-          data.conversationId, 'client', null,
+          data.conversationId,
+          'client',
+          null,
           { body: data.body.trim(), is_internal: false },
         );
-        this.server.to(`conversation:${data.conversationId}`).emit('message:new', {
-          conversationId: data.conversationId,
-          message: { ...message, sender_name: userInfo.userName },
-        });
+        this.server
+          .to(`conversation:${data.conversationId}`)
+          .emit('message:new', {
+            conversationId: data.conversationId,
+            message: { ...message, sender_name: userInfo.userName },
+          });
         this.server.to('agent:inbox').emit('conversation:updated', {
-          conversationId: data.conversationId, status: 'waiting_agent',
+          conversationId: data.conversationId,
+          status: 'waiting_agent',
         });
       } catch {
         client.emit('error', { message: 'Error al enviar el mensaje.' });
@@ -176,33 +200,51 @@ export class SupportGateway implements OnGatewayConnection, OnGatewayDisconnect 
     if (!userInfo.isAdmin && data.is_internal) return;
     if (!userInfo.isAdmin) {
       try {
-        const conv = await this.supportService.findOne(data.conversationId, false);
+        const conv = await this.supportService.findOne(
+          data.conversationId,
+          false,
+        );
         if (conv.user_id !== userInfo.userId) return;
-      } catch { return; }
+      } catch {
+        return;
+      }
     }
 
     try {
       const message = await this.supportService.addMessage(
-        data.conversationId, senderType, userInfo.userId,
+        data.conversationId,
+        senderType,
+        userInfo.userId,
         { body: data.body.trim(), is_internal: data.is_internal ?? false },
       );
 
-      this.server.to(`conversation:${data.conversationId}`).emit('message:new', {
-        conversationId: data.conversationId,
-        message: { ...message, sender_name: userInfo.userName },
-      });
+      this.server
+        .to(`conversation:${data.conversationId}`)
+        .emit('message:new', {
+          conversationId: data.conversationId,
+          message: { ...message, sender_name: userInfo.userName },
+        });
 
       if (senderType === 'agent' && !data.is_internal) {
-        const conv = await this.supportService.findOne(data.conversationId, false);
+        const conv = await this.supportService.findOne(
+          data.conversationId,
+          false,
+        );
         if (conv.user_id) {
-          const unread = await this.supportService.getUnreadCount(conv.user_id, 'client');
-          this.server.to(`user:${conv.user_id}`).emit('unread:update', { count: unread });
+          const unread = await this.supportService.getUnreadCount(
+            conv.user_id,
+            'client',
+          );
+          this.server
+            .to(`user:${conv.user_id}`)
+            .emit('unread:update', { count: unread });
         }
       }
 
       if (senderType === 'client') {
         this.server.to('agent:inbox').emit('conversation:updated', {
-          conversationId: data.conversationId, status: 'waiting_agent',
+          conversationId: data.conversationId,
+          status: 'waiting_agent',
         });
       }
     } catch {
@@ -239,7 +281,11 @@ export class SupportGateway implements OnGatewayConnection, OnGatewayDisconnect 
     if (!userInfo || userInfo.isGuest) return;
 
     const role = userInfo.isAdmin ? 'agent' : 'client';
-    await this.supportService.markAsRead(data.conversationId, userInfo.userId, role as any);
+    await this.supportService.markAsRead(
+      data.conversationId,
+      userInfo.userId,
+      role as any,
+    );
 
     client.to(`conversation:${data.conversationId}`).emit('messages:read', {
       conversationId: data.conversationId,
@@ -250,14 +296,26 @@ export class SupportGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
   /* ═══ SERVER-SIDE EMITTERS ═══ */
 
-  broadcastNewConversation(conversationId: string, subject: string, channel: string) {
-    this.server?.to('agent:inbox').emit('conversation:new', { conversationId, subject, channel });
+  broadcastNewConversation(
+    conversationId: string,
+    subject: string,
+    channel: string,
+  ) {
+    this.server
+      ?.to('agent:inbox')
+      .emit('conversation:new', { conversationId, subject, channel });
   }
 
-  broadcastConversationUpdate(conversationId: string, update: Record<string, unknown>) {
-    this.server?.to(`conversation:${conversationId}`).emit('conversation:updated', {
-      conversationId, ...update,
-    });
+  broadcastConversationUpdate(
+    conversationId: string,
+    update: Record<string, unknown>,
+  ) {
+    this.server
+      ?.to(`conversation:${conversationId}`)
+      .emit('conversation:updated', {
+        conversationId,
+        ...update,
+      });
   }
 
   async broadcastUnreadCount(userId: string, role: 'client' | 'agent') {

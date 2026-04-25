@@ -18,4 +18,4 @@ FROM (
 WHERE "conversations".id = subq.id;
 
 -- Update sequence to start after the last backfilled number
-SELECT setval('conversation_ticket_seq', COALESCE((SELECT MAX(sequence_number) FROM "conversations"), 0));
+SELECT setval('conversation_ticket_seq', GREATEST((SELECT COALESCE(MAX(sequence_number), 0) FROM "conversations"), 1), (SELECT COUNT(*) > 0 FROM "conversations" WHERE sequence_number IS NOT NULL));

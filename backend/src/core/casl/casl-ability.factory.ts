@@ -23,7 +23,12 @@ import {
   MongoAbility,
   InferSubjects,
 } from '@casl/ability';
-import { Action, Subject, ROLE_PERMISSIONS, PermissionRule } from './permissions';
+import {
+  Action,
+  Subject,
+  ROLE_PERMISSIONS,
+  PermissionRule,
+} from './permissions';
 
 // ─── Type definitions ───────────────────────────────────────────
 
@@ -56,7 +61,9 @@ export class CaslAbilityFactory {
    * @returns MongoAbility with all permissions for the user's role
    */
   createForUser(user: AuthenticatedUser): AppAbility {
-    const { can, cannot, build } = new AbilityBuilder<AppAbility>(createMongoAbility);
+    const { can, cannot, build } = new AbilityBuilder<AppAbility>(
+      createMongoAbility,
+    );
 
     const roleSlug = user.role.slug;
     const permissionsFn = ROLE_PERMISSIONS[roleSlug];

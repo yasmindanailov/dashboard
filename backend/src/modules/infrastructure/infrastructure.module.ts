@@ -8,4 +8,3 @@ import { InfrastructureController } from './infrastructure.controller';
   exports: [InfrastructureService],
 })
 export class InfrastructureModule {}
-

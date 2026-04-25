@@ -1,53 +1,129 @@
 'use client';
 
 import Link from 'next/link';
-import { Card, Skeleton } from '../../../components/ui';
+import { Card, Badge, Skeleton } from '../../../components/ui';
+import type { ConversationDetail } from './types';
+import { STATUS_CONFIG, CATEGORY_LABELS, formatDate } from './types';
 import styles from './conversationDetail.module.css';
 
 /* ═══════════════════════════════════════
-   ConversationSidebar — Client context panel
-   DS components: Card, Skeleton
-   CSS module: zero inline styles
+   ConversationSidebar — Role-aware context panel
+
+   Admin/Agent: Client profile with link, services,
+   notes, and quick actions.
+   Client: Ticket metadata (status, dates, category,
+   resolution note) — clients don't need their own profile.
+
+   DS components: Card, Badge, Skeleton
    Ref: UI_SPEC §2.5, §4.4, ROADMAP.md D25
    ═══════════════════════════════════════ */
 
 interface ConversationSidebarProps {
-  userId: string | null;
+  isAdmin: boolean;
+  conversation: ConversationDetail;
   clientContext: any;
   clientNotes: any[];
   clientServices: any[];
   contextLoading: boolean;
   isChat: boolean;
-  conversationStatus: string;
-  /** For cross-module referrer links (P6.1) */
-  conversationId?: string;
-  conversationLabel?: string;
 }
 
 export default function ConversationSidebar({
-  userId, clientContext, clientNotes, clientServices,
-  contextLoading, isChat, conversationStatus,
-  conversationId, conversationLabel,
+  isAdmin, conversation, clientContext, clientNotes,
+  clientServices, contextLoading, isChat,
 }: ConversationSidebarProps) {
-  // Build ?from= query string for cross-module links
-  const fromParams = conversationId && conversationLabel
-    ? `?from=${encodeURIComponent(`/dashboard/support/${conversationId}`)}&fromLabel=${encodeURIComponent(conversationLabel)}`
-    : '';
+  const fromParams = `?from=${encodeURIComponent(`/dashboard/support/${conversation.id}`)}&fromLabel=${encodeURIComponent(conversation.subject)}`;
+
+  /* ── Client view: show ticket metadata ── */
+  if (!isAdmin) {
+    const status = STATUS_CONFIG[conversation.status] || STATUS_CONFIG.open;
+    const category = conversation.category
+      ? CATEGORY_LABELS[conversation.category] || conversation.category
+      : null;
+
+    return (
+      <div className={styles.sidebarStack}>
+        <Card>
+          <div className={styles.sidebarSection}>
+            <h4 className={styles.sidebarTitle}>Detalles</h4>
+
+            <div className={styles.metaRow}>
+              <span className={styles.metaLabel}>Estado</span>
+              <Badge variant={status.variant}>{status.label}</Badge>
+            </div>
+
+            <div className={styles.metaRow}>
+              <span className={styles.metaLabel}>Agente</span>
+              <span className={styles.metaValue}>
+                {conversation.assigned_agent_name || 'Sin asignar'}
+              </span>
+            </div>
+
+            {category && (
+              <div className={styles.metaRow}>
+                <span className={styles.metaLabel}>Categoría</span>
+                <span className={styles.metaValue}>{category}</span>
+              </div>
+            )}
+
+            <div className={styles.metaRow}>
+              <span className={styles.metaLabel}>Creada</span>
+              <span className={styles.metaValue}>{formatDate(conversation.created_at)}</span>
+            </div>
+
+            <div className={styles.metaRow}>
+              <span className={styles.metaLabel}>Actualizada</span>
+              <span className={styles.metaValue}>{formatDate(conversation.updated_at)}</span>
+            </div>
+
+            {conversation.first_response_at && (
+              <div className={styles.metaRow}>
+                <span className={styles.metaLabel}>Primera respuesta</span>
+                <span className={styles.metaValue}>{formatDate(conversation.first_response_at)}</span>
+              </div>
+            )}
+
+            {conversation.resolved_at && (
+              <div className={styles.metaRow}>
+                <span className={styles.metaLabel}>Resuelta</span>
+                <span className={styles.metaValue}>{formatDate(conversation.resolved_at)}</span>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {conversation.resolution_note && (
+          <Card>
+            <div className={styles.sidebarSection}>
+              <h4 className={styles.sidebarTitle}>Resolución</h4>
+              <p className={styles.resolutionNote}>{conversation.resolution_note}</p>
+              {conversation.resolved_by_name && (
+                <div className={styles.metaValue}>— {conversation.resolved_by_name}</div>
+              )}
+            </div>
+          </Card>
+        )}
+      </div>
+    );
+  }
+
+  /* ── Admin/Agent view: client context ── */
+
   if (contextLoading) {
     return (
       <div className={styles.sidebarStack}>
         <Card>
-          <div style={{ padding: 'var(--space-4)' }}>
+          <div className={styles.sidebarSection}>
             <Skeleton width="60%" height={16} />
-            <div style={{ marginTop: 12 }}><Skeleton width="100%" height={14} /></div>
-            <div style={{ marginTop: 8 }}><Skeleton width="80%" height={14} /></div>
-            <div style={{ marginTop: 8 }}><Skeleton width="40%" height={12} /></div>
+            <div className={styles.skeletonGap}><Skeleton width="100%" height={14} /></div>
+            <div className={styles.skeletonGap}><Skeleton width="80%" height={14} /></div>
+            <div className={styles.skeletonGap}><Skeleton width="40%" height={12} /></div>
           </div>
         </Card>
         <Card>
-          <div style={{ padding: 'var(--space-4)' }}>
+          <div className={styles.sidebarSection}>
             <Skeleton width="50%" height={14} />
-            <div style={{ marginTop: 12 }}><Skeleton width="100%" height={28} /></div>
+            <div className={styles.skeletonGap}><Skeleton width="100%" height={28} /></div>
           </div>
         </Card>
       </div>
@@ -57,8 +133,8 @@ export default function ConversationSidebar({
   if (!clientContext) {
     return (
       <Card>
-        <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)' }}>
-          {userId ? 'Sin perfil de cliente' : 'Chat anónimo'}
+        <div className={styles.sidebarEmpty}>
+          {conversation.user_id ? 'No se pudo cargar el perfil del cliente' : 'Chat anónimo — sin cuenta vinculada'}
         </div>
       </Card>
     );
@@ -68,10 +144,12 @@ export default function ConversationSidebar({
     <div className={styles.sidebarStack}>
       {/* Client info */}
       <Card>
-        <div style={{ padding: 'var(--space-4)' }}>
+        <div className={styles.sidebarSection}>
           <h4 className={styles.sidebarTitle}>Cliente</h4>
           <div className={styles.clientName}>
-            {clientContext.first_name} {clientContext.last_name}
+            <Link href={`/dashboard/clients/${clientContext.id}${fromParams}`} className={styles.clientLink}>
+              {clientContext.first_name} {clientContext.last_name}
+            </Link>
           </div>
           <div className={styles.clientEmail}>{clientContext.email}</div>
           {clientContext.client_profile?.company_name && (
@@ -89,7 +167,7 @@ export default function ConversationSidebar({
       {/* Services */}
       {clientServices.length > 0 && (
         <Card>
-          <div style={{ padding: 'var(--space-4)' }}>
+          <div className={styles.sidebarSection}>
             <h4 className={styles.sidebarTitle}>Servicios ({clientServices.length})</h4>
             {clientServices.slice(0, 3).map((svc: any) => (
               <div key={svc.id} className={styles.serviceItem}>
@@ -107,7 +185,7 @@ export default function ConversationSidebar({
       {clientNotes.length > 0 && (
         <div className={styles.noteCard}>
           <h4 className={styles.noteTitleYellow}>Notas ({clientNotes.length})</h4>
-          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+          <div className={styles.notesScroll}>
             {clientNotes.slice(0, 4).map((note: any) => (
               <div key={note.id} className={styles.noteItem}>
                 <div className={styles.noteHeader}>
@@ -125,21 +203,6 @@ export default function ConversationSidebar({
           </Link>
         </div>
       )}
-
-      {/* Quick actions */}
-      <Card>
-        <div style={{ padding: 'var(--space-4)' }}>
-          <h4 className={styles.sidebarTitle}>Acciones</h4>
-          <Link href={`/dashboard/clients/${clientContext.id}${fromParams}`} className={styles.actionLink}>
-            Ver perfil del cliente
-          </Link>
-          {isChat && conversationStatus !== 'closed' && conversationStatus !== 'resolved' && (
-            <Link href="/dashboard/support/chats" className={styles.actionLink}>
-              Ir al panel de chats en vivo
-            </Link>
-          )}
-        </div>
-      </Card>
     </div>
   );
 }

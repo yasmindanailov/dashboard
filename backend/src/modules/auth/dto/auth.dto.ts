@@ -19,9 +19,15 @@ export class RegisterDto {
   @ApiProperty({ example: 'MiPassword1' })
   @IsString()
   @MinLength(8)
-  @Matches(/[A-Z]/, { message: 'La contraseña debe contener al menos una mayúscula' })
-  @Matches(/[a-z]/, { message: 'La contraseña debe contener al menos una minúscula' })
-  @Matches(/[0-9]/, { message: 'La contraseña debe contener al menos un número' })
+  @Matches(/[A-Z]/, {
+    message: 'La contraseña debe contener al menos una mayúscula',
+  })
+  @Matches(/[a-z]/, {
+    message: 'La contraseña debe contener al menos una minúscula',
+  })
+  @Matches(/[0-9]/, {
+    message: 'La contraseña debe contener al menos un número',
+  })
   password: string;
 }
 
@@ -66,8 +72,14 @@ export class ResetPasswordDto {
   @ApiProperty({ example: 'NuevaPassword1' })
   @IsString()
   @MinLength(8)
-  @Matches(/[A-Z]/, { message: 'La contraseña debe contener al menos una mayúscula' })
-  @Matches(/[a-z]/, { message: 'La contraseña debe contener al menos una minúscula' })
-  @Matches(/[0-9]/, { message: 'La contraseña debe contener al menos un número' })
+  @Matches(/[A-Z]/, {
+    message: 'La contraseña debe contener al menos una mayúscula',
+  })
+  @Matches(/[a-z]/, {
+    message: 'La contraseña debe contener al menos una minúscula',
+  })
+  @Matches(/[0-9]/, {
+    message: 'La contraseña debe contener al menos un número',
+  })
   password: string;
 }

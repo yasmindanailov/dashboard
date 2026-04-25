@@ -25,13 +25,21 @@ export class SettingsService {
     return value;
   }
 
-  async getNumber(category: string, key: string, fallback: number): Promise<number> {
+  async getNumber(
+    category: string,
+    key: string,
+    fallback: number,
+  ): Promise<number> {
     const val = await this.get(category, key, String(fallback));
     const parsed = parseInt(val, 10);
     return isNaN(parsed) ? fallback : parsed;
   }
 
-  async getBoolean(category: string, key: string, fallback: boolean): Promise<boolean> {
+  async getBoolean(
+    category: string,
+    key: string,
+    fallback: boolean,
+  ): Promise<boolean> {
     const val = await this.get(category, key, String(fallback));
     return val === 'true';
   }

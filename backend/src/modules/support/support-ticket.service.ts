@@ -9,6 +9,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Conversation, Message } from '@prisma/client';
 import { CreateTicketDto, EscalateToTicketDto } from './dto/support.dto';
 
+type ConversationWithMessages = Conversation & { messages: Message[] };
+
 /**
  * ═══════════════════════════════════════
  * SupportTicketService — Ticket creation and escalation
@@ -35,7 +37,10 @@ export class SupportTicketService {
    * Client creates a new ticket (async, like Gmail).
    * type = 'ticket', category required.
    */
-  async createTicket(userId: string, dto: CreateTicketDto): Promise<Conversation & { messages: Message[] }> {
+  async createTicket(
+    userId: string,
+    dto: CreateTicketDto,
+  ): Promise<ConversationWithMessages> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, first_name: true, last_name: true, email: true },
@@ -46,7 +51,8 @@ export class SupportTicketService {
       const service = await this.prisma.service.findFirst({
         where: { id: dto.service_id, user_id: userId },
       });
-      if (!service) throw new BadRequestException('El servicio no pertenece al usuario.');
+      if (!service)
+        throw new BadRequestException('El servicio no pertenece al usuario.');
     }
 
     const conversation = await this.prisma.conversation.create({
@@ -72,29 +78,18 @@ export class SupportTicketService {
       include: { messages: { orderBy: { created_at: 'asc' } } },
     });
 
-    // Assign sequence_number via PostgreSQL SEQUENCE (atomic, gap-free)
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE conversations SET sequence_number = nextval('conversation_ticket_seq') WHERE id = $1::uuid`,
-      conversation.id,
+    const result = await this.assignSequenceAndRefetch(conversation.id);
+
+    this.logger.log(
+      `Ticket ${result.id} (TK-${String(result.sequence_number).padStart(5, '0')}) created by ${userId}: "${dto.subject}" [${dto.category}]`,
     );
-
-    // Refetch to include sequence_number in the response
-    const result = await this.prisma.conversation.findUniqueOrThrow({
-      where: { id: conversation.id },
-      include: { messages: { orderBy: { created_at: 'asc' } } },
-    });
-
-    this.logger.log(`Ticket ${result.id} (TK-${String(result.sequence_number).padStart(5, '0')}) created by ${userId}: "${dto.subject}" [${dto.category}]`);
-
-    this.eventEmitter.emit('conversation.created', {
-      conversation_id: result.id,
-      type: 'ticket',
-      user_id: userId,
-      user_name: `${user.first_name} ${user.last_name}`,
-      user_email: user.email,
-      subject: dto.subject,
-      channel: 'web',
-    });
+    this.emitCreated(
+      result,
+      userId,
+      `${user.first_name} ${user.last_name}`,
+      user.email,
+      dto.subject,
+    );
 
     return result;
   }
@@ -107,7 +102,7 @@ export class SupportTicketService {
     targetUserId: string,
     dto: CreateTicketDto,
     agentId: string,
-  ): Promise<Conversation & { messages: Message[] }> {
+  ): Promise<ConversationWithMessages> {
     const client = await this.prisma.user.findUnique({
       where: { id: targetUserId },
       select: { id: true, first_name: true, last_name: true, email: true },
@@ -124,7 +119,10 @@ export class SupportTicketService {
       const service = await this.prisma.service.findFirst({
         where: { id: dto.service_id, user_id: targetUserId },
       });
-      if (!service) throw new BadRequestException('El servicio no pertenece al cliente destino.');
+      if (!service)
+        throw new BadRequestException(
+          'El servicio no pertenece al cliente destino.',
+        );
     }
 
     const conversation = await this.prisma.conversation.create({
@@ -151,31 +149,18 @@ export class SupportTicketService {
       include: { messages: { orderBy: { created_at: 'asc' } } },
     });
 
-    // Assign sequence_number via PostgreSQL SEQUENCE (atomic, gap-free)
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE conversations SET sequence_number = nextval('conversation_ticket_seq') WHERE id = $1::uuid`,
-      conversation.id,
-    );
-
-    // Refetch to include sequence_number in the response
-    const result = await this.prisma.conversation.findUniqueOrThrow({
-      where: { id: conversation.id },
-      include: { messages: { orderBy: { created_at: 'asc' } } },
-    });
+    const result = await this.assignSequenceAndRefetch(conversation.id);
 
     this.logger.log(
-      `Ticket ${result.id} (TK-${String(result.sequence_number).padStart(5, '0')}) created by agent ${agentId} for client ${targetUserId}: "${dto.subject}" [${dto.category}]`,
+      `Ticket TK-${String(result.sequence_number).padStart(5, '0')} created by agent ${agentId} for client ${targetUserId}`,
     );
-
-    this.eventEmitter.emit('conversation.created', {
-      conversation_id: result.id,
-      type: 'ticket',
-      user_id: targetUserId,
-      user_name: `${client.first_name} ${client.last_name}`,
-      user_email: client.email,
-      subject: dto.subject,
-      channel: 'web',
-    });
+    this.emitCreated(
+      result,
+      targetUserId,
+      `${client.first_name} ${client.last_name}`,
+      client.email,
+      dto.subject,
+    );
 
     return result;
   }
@@ -188,7 +173,7 @@ export class SupportTicketService {
     chatId: string,
     dto: EscalateToTicketDto,
     agentId: string,
-  ): Promise<Conversation & { messages: Message[] }> {
+  ): Promise<ConversationWithMessages> {
     const chat = await this.prisma.conversation.findUnique({
       where: { id: chatId },
       include: {
@@ -200,7 +185,10 @@ export class SupportTicketService {
     });
 
     if (!chat) throw new NotFoundException('Chat no encontrado.');
-    if (chat.type !== 'chat') throw new BadRequestException('Solo se pueden escalar chats, no tickets.');
+    if (chat.type !== 'chat')
+      throw new BadRequestException(
+        'Solo se pueden escalar chats, no tickets.',
+      );
 
     // Guard: prevent double-escalation (7.H2)
     const existingEscalation = await this.prisma.conversation.findFirst({
@@ -215,7 +203,12 @@ export class SupportTicketService {
 
     // Build context summary from chat history
     const contextLines = chat.messages.map((m) => {
-      const sender = m.sender_type === 'client' ? 'Cliente' : m.sender_type === 'agent' ? 'Agente' : 'Sistema';
+      const sender =
+        m.sender_type === 'client'
+          ? 'Cliente'
+          : m.sender_type === 'agent'
+            ? 'Agente'
+            : 'Sistema';
       const time = m.created_at.toLocaleString('es-ES');
       return `[${time}] ${sender}: ${m.body}`;
     });
@@ -229,7 +222,9 @@ export class SupportTicketService {
       ``,
       `── Fin del contexto del chat ──`,
       dto.agent_notes ? `\nNotas del agente: ${dto.agent_notes}` : '',
-    ].filter(Boolean).join('\n');
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     // Create the ticket
     const ticket = await this.prisma.conversation.create({
@@ -257,19 +252,9 @@ export class SupportTicketService {
       include: { messages: { orderBy: { created_at: 'asc' } } },
     });
 
-    // Assign sequence_number via PostgreSQL SEQUENCE (atomic, gap-free)
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE conversations SET sequence_number = nextval('conversation_ticket_seq') WHERE id = $1::uuid`,
-      ticket.id,
-    );
+    const result = await this.assignSequenceAndRefetch(ticket.id);
 
-    // Refetch to include sequence_number in the response
-    const result = await this.prisma.conversation.findUniqueOrThrow({
-      where: { id: ticket.id },
-      include: { messages: { orderBy: { created_at: 'asc' } } },
-    });
-
-    // Add system message to the ORIGINAL CHAT
+    // System message on original chat
     await this.prisma.message.create({
       data: {
         conversation_id: chatId,
@@ -286,31 +271,65 @@ export class SupportTicketService {
         status: 'resolved',
         resolved_at: new Date(),
         resolved_by_id: agentId,
-        resolution_note: dto.agent_notes?.trim() || `Escalado a ticket TK-${String(result.sequence_number).padStart(5, '0')}`,
+        resolution_note:
+          dto.agent_notes?.trim() ||
+          `Escalado a ticket TK-${String(result.sequence_number).padStart(5, '0')}`,
       },
     });
 
-    this.logger.log(`Chat ${chatId} escalated to ticket TK-${String(result.sequence_number).padStart(5, '0')} (${result.id}) by agent ${agentId}`);
+    this.logger.log(
+      `Chat ${chatId} escalated to ticket TK-${String(result.sequence_number).padStart(5, '0')} by agent ${agentId}`,
+    );
 
-    // Notify client
     if (chat.user_id) {
       const client = await this.prisma.user.findUnique({
         where: { id: chat.user_id },
         select: { first_name: true, last_name: true, email: true },
       });
       if (client) {
-        this.eventEmitter.emit('conversation.created', {
-          conversation_id: result.id,
-          type: 'ticket',
-          user_id: chat.user_id,
-          user_name: `${client.first_name} ${client.last_name}`,
-          user_email: client.email,
-          subject: result.subject,
-          channel: 'web',
-        });
+        this.emitCreated(
+          result,
+          chat.user_id,
+          `${client.first_name} ${client.last_name}`,
+          client.email,
+          result.subject || '',
+        );
       }
     }
 
     return result;
+  }
+
+  /* ── Private helpers ── */
+
+  private async assignSequenceAndRefetch(
+    conversationId: string,
+  ): Promise<ConversationWithMessages> {
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE conversations SET sequence_number = nextval('conversation_ticket_seq') WHERE id = $1::uuid`,
+      conversationId,
+    );
+    return this.prisma.conversation.findUniqueOrThrow({
+      where: { id: conversationId },
+      include: { messages: { orderBy: { created_at: 'asc' } } },
+    });
+  }
+
+  private emitCreated(
+    conv: ConversationWithMessages,
+    userId: string,
+    userName: string,
+    email: string,
+    subject: string,
+  ) {
+    this.eventEmitter.emit('conversation.created', {
+      conversation_id: conv.id,
+      type: 'ticket',
+      user_id: userId,
+      user_name: userName,
+      user_email: email,
+      subject,
+      channel: 'web',
+    });
   }
 }

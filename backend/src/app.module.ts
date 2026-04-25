@@ -48,8 +48,8 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     // ── Rate limiting ──
     ThrottlerModule.forRoot({
       throttlers: [
-        { name: 'short', ttl: 60000, limit: 100 },  // 100 req/min general
-        { name: 'login', ttl: 60000, limit: 5 },     // 5 login attempts/min
+        { name: 'short', ttl: 60000, limit: 100 }, // 100 req/min general
+        { name: 'login', ttl: 60000, limit: 5 }, // 5 login attempts/min
       ],
     }),
 

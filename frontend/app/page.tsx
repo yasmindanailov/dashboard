@@ -82,7 +82,8 @@ function LoginContent() {
       await authApi.resendVerification(email);
       setResendSuccess('Email de verificación reenviado. Revisa tu bandeja de entrada.');
       setShowResendVerification(false);
-    } catch {
+    } catch (err) {
+      console.warn('[Login] resendVerification failed:', err);
       setResendSuccess('Si el email existe, recibirás un nuevo enlace.');
     }
   };

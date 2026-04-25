@@ -4,4 +4,3 @@
 export class KnowledgeBaseService {
   // TODO: implement knowledge-base business logic
 }
-

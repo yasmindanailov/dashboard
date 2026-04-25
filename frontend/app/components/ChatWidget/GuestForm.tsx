@@ -1,5 +1,7 @@
 'use client';
 
+import styles from './chatWidget.module.css';
+
 /* ═══════════════════════════════════════
    GuestForm — Guest chat entry form
    Collects name, optional email, and
@@ -32,40 +34,31 @@ export default function GuestForm({
   };
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 16, gap: 12 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary, #111827)' }}>
+    <div className={styles.guestForm}>
+      <div className={styles.guestTitle}>
         ¿En qué podemos ayudarte?
       </div>
-      <div style={{ fontSize: 12, color: 'var(--color-text-secondary, #6b7280)', lineHeight: 1.5 }}>
+      <div className={styles.guestSubtitle}>
         Introduce tu nombre para iniciar una conversación. Un agente te responderá lo antes posible.
       </div>
       <input
+        className={styles.guestInput}
         value={guestName}
         onChange={(e) => onGuestNameChange(e.target.value)}
         placeholder="Tu nombre *"
-        style={{
-          padding: '10px 14px', border: '1px solid var(--color-border, #e5e7eb)',
-          borderRadius: 10, fontSize: 13, outline: 'none',
-        }}
       />
       <input
+        className={styles.guestInput}
         value={guestEmail}
         onChange={(e) => onGuestEmailChange(e.target.value)}
         placeholder="Email (opcional)"
         type="email"
-        style={{
-          padding: '10px 14px', border: '1px solid var(--color-border, #e5e7eb)',
-          borderRadius: 10, fontSize: 13, outline: 'none',
-        }}
       />
       <input
+        className={styles.guestInput}
         value={message}
         onChange={(e) => onMessageChange(e.target.value)}
         placeholder="Escribe tu mensaje..."
-        style={{
-          padding: '10px 14px', border: '1px solid var(--color-border, #e5e7eb)',
-          borderRadius: 10, fontSize: 13, outline: 'none',
-        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey && canSubmit) {
             e.preventDefault();
@@ -74,16 +67,9 @@ export default function GuestForm({
         }}
       />
       <button
+        className={styles.guestSubmit}
         onClick={handleSubmit}
         disabled={!canSubmit}
-        style={{
-          padding: '12px 16px',
-          background: !canSubmit ? '#d1d5db' : 'linear-gradient(135deg, var(--color-brand, #3B82F6) 0%, #60A5FA 100%)',
-          border: 'none', borderRadius: 12, color: '#fff',
-          fontSize: 14, fontWeight: 600,
-          cursor: !canSubmit ? 'not-allowed' : 'pointer',
-          transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
-        }}
       >
         {sending ? 'Enviando...' : 'Iniciar chat'}
       </button>

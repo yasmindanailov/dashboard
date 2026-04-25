@@ -139,7 +139,7 @@ function SupportPanelInner({
             <PanelConversationList
               conversations={w.conversations}
               sending={w.sending}
-              onStartChat={() => w.handleFirstMessage('¡Hola! Necesito ayuda.')}
+              onStartChat={() => w.handleFirstMessage()}
               onSelectConversation={w.openConversation}
             />
           )}

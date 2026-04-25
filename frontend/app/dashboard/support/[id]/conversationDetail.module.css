@@ -215,18 +215,72 @@
   flex-direction: column;
   gap: var(--space-4);
 }
+.sidebarSection {
+  padding: var(--space-4);
+}
 .sidebarTitle {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0 0 var(--space-3);
 }
+.sidebarEmpty {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
 
+/* ── Metadata rows (client sidebar) ── */
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-1_5) 0;
+  border-bottom: 1px solid var(--border-light, var(--border));
+}
+.metaRow:last-child {
+  border-bottom: none;
+}
+.metaLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-medium);
+}
+.metaValue {
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+  text-align: right;
+}
+
+/* ── Resolution note ── */
+.resolutionNote {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ── Skeleton spacing ── */
+.skeletonGap {
+  margin-top: var(--space-2);
+}
+
+/* ── Client info (agent sidebar) ── */
 .clientName {
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin-bottom: var(--space-1);
+}
+.clientLink {
+  color: var(--brand);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.clientLink:hover {
+  text-decoration: underline;
+  color: var(--brand-hover);
 }
 .clientEmail {
   font-size: var(--font-size-xs);
@@ -279,6 +333,10 @@
   color: var(--warning-dark);
   margin: 0 0 var(--space-2_5);
 }
+.notesScroll {
+  max-height: 200px;
+  overflow-y: auto;
+}
 .noteItem {
   font-size: var(--font-size-xs);
   color: var(--warning-darker);
@@ -315,21 +373,64 @@
   text-decoration: underline;
 }
 
-/* ── Quick action links ── */
-.actionLink {
-  display: block;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--brand-subtle);
-  color: var(--brand);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-decoration: none;
-  margin-bottom: var(--space-1_5);
-  transition: background var(--transition-fast);
+/* ── Skeleton states (page.tsx loading) ── */
+.skeletonBadges {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
 }
-.actionLink:hover {
-  background: var(--brand-light);
+
+.skeletonPadLg {
+  padding: var(--space-6);
+}
+
+.skeletonPadSm {
+  padding: var(--space-4);
+}
+
+.skeletonLine {
+  margin-top: 16px;
+}
+
+.skeletonLineSmall {
+  margin-top: 12px;
+}
+
+.skeletonLineTiny {
+  margin-top: 8px;
+}
+
+/* ── Not found state ── */
+.notFoundContainer {
+  text-align: center;
+  padding: var(--space-6);
+}
+
+.notFoundTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.notFoundLink {
+  color: var(--brand);
+  margin-top: var(--space-3);
+  display: inline-block;
+  font-size: var(--font-size-sm);
+}
+
+/* ── Resolution modal (DetailResolutionModal.tsx) ── */
+.resolutionDesc {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-4);
+}
+
+.resolutionActions {
+  display: flex;
+  gap: var(--space-2_5);
+  justify-content: flex-end;
+  margin-top: var(--space-4);
 }
 
 /* ── Responsive ── */

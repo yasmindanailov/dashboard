@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useConversationDetail } from './useConversationDetail';
 import ConversationHeader from './ConversationHeader';
 import ConversationMessages from './ConversationMessages';
@@ -14,12 +16,25 @@ import styles from './conversationDetail.module.css';
    Layout: DetailPage (§2.5)
    Breadcrumb: Soporte > [Subject]
    2-column: messages + client context sidebar
+
+   Redirect: If the conversation is a chat AND the user is
+   an agent, redirect to the live chat panel (/support/chats)
+   so they get the real-time WebSocket experience.
+   Clients always stay on this page (no access to agent panel).
    Ref: UI_SPEC §2.5, ROADMAP.md D25
    ═══════════════════════════════════════ */
 
 export default function ConversationDetailPage() {
   const d = useConversationDetail();
+  const router = useRouter();
   const isChat = d.conversation?.type === 'chat';
+
+  /* Redirect agents to the chat panel for chat-type conversations */
+  useEffect(() => {
+    if (d.conversation && d.conversation.type === 'chat' && d.isAdmin) {
+      router.replace(`/dashboard/support/chats?open=${d.conversation.id}`);
+    }
+  }, [d.conversation, d.isAdmin, router]);
 
   /** Build a display title for tickets: TK-00042 · Subject */
   const getDetailDisplayTitle = (conv: { sequence_number?: number | null; subject: string; type: string }) => {
@@ -40,7 +55,7 @@ export default function ConversationDetailPage() {
         header={
           <div>
             <Skeleton width="50%" height={24} />
-            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <div className={styles.skeletonBadges}>
               <Skeleton width={60} height={20} />
               <Skeleton width={80} height={20} />
             </div>
@@ -50,20 +65,20 @@ export default function ConversationDetailPage() {
         <div className={styles.twoColumn}>
           <div className={styles.mainCol}>
             <Card>
-              <div style={{ padding: 'var(--space-6)' }}>
+              <div className={styles.skeletonPadLg}>
                 <Skeleton width="70%" height={14} />
-                <div style={{ marginTop: 16 }}><Skeleton width="90%" height={14} /></div>
-                <div style={{ marginTop: 16 }}><Skeleton width="50%" height={14} /></div>
-                <div style={{ marginTop: 16 }}><Skeleton width="80%" height={14} /></div>
+                <div className={styles.skeletonLine}><Skeleton width="90%" height={14} /></div>
+                <div className={styles.skeletonLine}><Skeleton width="50%" height={14} /></div>
+                <div className={styles.skeletonLine}><Skeleton width="80%" height={14} /></div>
               </div>
             </Card>
           </div>
           <div className={styles.sideCol}>
             <Card>
-              <div style={{ padding: 'var(--space-4)' }}>
+              <div className={styles.skeletonPadSm}>
                 <Skeleton width="60%" height={16} />
-                <div style={{ marginTop: 12 }}><Skeleton width="100%" height={14} /></div>
-                <div style={{ marginTop: 8 }}><Skeleton width="80%" height={14} /></div>
+                <div className={styles.skeletonLineSmall}><Skeleton width="100%" height={14} /></div>
+                <div className={styles.skeletonLineTiny}><Skeleton width="80%" height={14} /></div>
               </div>
             </Card>
           </div>
@@ -81,11 +96,11 @@ export default function ConversationDetailPage() {
           { label: 'No encontrada' },
         ]}
         header={
-          <div style={{ textAlign: 'center', padding: 'var(--space-6)' }}>
-            <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--text-primary)' }}>
+          <div className={styles.notFoundContainer}>
+            <div className={styles.notFoundTitle}>
               Conversación no encontrada
             </div>
-            <Link href="/dashboard/support" style={{ color: 'var(--brand)', marginTop: 'var(--space-3)', display: 'inline-block', fontSize: 'var(--font-size-sm)' }}>
+            <Link href="/dashboard/support" className={styles.notFoundLink}>
               ← Volver a soporte
             </Link>
           </div>
@@ -136,15 +151,13 @@ export default function ConversationDetailPage() {
         {/* Right: Client context */}
         <div className={styles.sideCol}>
           <ConversationSidebar
-            userId={d.conversation.user_id}
+            isAdmin={d.isAdmin}
+            conversation={d.conversation}
             clientContext={d.clientContext}
             clientNotes={d.clientNotes}
             clientServices={d.clientServices}
             contextLoading={d.contextLoading}
             isChat={isChat}
-            conversationStatus={d.conversation.status}
-            conversationId={d.conversation.id}
-            conversationLabel={getDetailDisplayTitle(d.conversation)}
           />
         </div>
       </div>

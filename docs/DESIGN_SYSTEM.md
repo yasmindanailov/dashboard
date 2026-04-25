@@ -142,6 +142,36 @@ Los mensajes de sistema del dashboard siguen la voz de Aelium definida en el doc
 
 ---
 
+## EXCEPCIONES DOCUMENTADAS
+
+### Excepción 1 — ChatWidget (`components/ChatWidget/`)
+
+**Excepción a:** Regla 16 (toda interfaz usa `components/ui/`) y Capa 2/3 del sistema de theming.
+
+**Razón:** El ChatWidget es un componente embeddable que funciona en dos contextos:
+1. **Dashboard** (tokens.css cargado) → hereda tokens del dashboard automáticamente
+2. **Landing page** (sin tokens) → necesita funcionar sin dependencias externas
+
+Forzar los componentes del Design System (`Button`, `Input`, `Card`) en un widget flotante de 380×520px crearía:
+- Dependencia dura con tokens.css en la landing page
+- Componentes desproporcionados (los UI del DS están diseñados para layout de dashboard, no para chat compacto)
+
+**Solución implementada:** `chatWidget.module.css` define tokens locales `--cw-*` que cascadean desde los tokens del dashboard cuando están disponibles, con fallbacks que coinciden exactamente con `aelium-documento-de-marca.md`:
+
+```css
+.root {
+  --cw-brand: var(--brand, #3B82F6);        /* doc-marca: Color principal */
+  --cw-text-primary: var(--text-primary, #0F172A);  /* doc-marca: Texto principal */
+  --cw-border: var(--border, #E2E8F0);      /* doc-marca: Borde */
+}
+```
+
+**Resultado:** 0 inline styles, 0 hex colors en TSX. En dashboard hereda el DS. En landing funciona standalone.
+
+**El `SupportPanel/` (sidebar de dashboard) NO tiene esta excepción** — vive exclusivamente dentro del dashboard y debe usar componentes del DS.
+
+---
+
 ## SISTEMA DE THEMING — Arquitectura de 3 capas
 
 ### Por qué CSS Custom Properties (y no un JS theme object)

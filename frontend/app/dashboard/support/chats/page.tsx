@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useChatPanel } from './useChatPanel';
 import ChatList from './ChatList';
 import ChatConversation from './ChatConversation';
@@ -12,11 +14,24 @@ import styles from './chats.module.css';
    Workspace layout: 3 columns (UI_SPEC §2.7)
    Chat List | Conversation | Client Context
    All state lives in useChatPanel hook.
+
+   Supports ?open=<chatId> query param for deep-linking
+   from the conversation detail page redirect.
    Ref: DECISIONS.md §43, ARCHITECTURE.md Regla 15
    ═══════════════════════════════════════ */
 
 export default function AgentChatPanel() {
   const panel = useChatPanel();
+  const searchParams = useSearchParams();
+
+  /* Auto-open a specific chat when navigated via ?open=<id> */
+  useEffect(() => {
+    const openId = searchParams.get('open');
+    if (openId && !panel.activeChat && !panel.loadingChats) {
+      panel.openChat(openId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, panel.loadingChats]);
 
   return (
     <>
@@ -47,6 +62,7 @@ export default function AgentChatPanel() {
           onTyping={panel.handleTyping}
           onResolve={() => panel.openResolutionModal('resolve')}
           onClose={() => panel.openResolutionModal('close')}
+          onEscalate={() => panel.openResolutionModal('escalate')}
         />
 
         {/* Right: Client context */}
@@ -63,7 +79,6 @@ export default function AgentChatPanel() {
           onLinkSearchChange={panel.setLinkSearch}
           onSearchClients={panel.searchClients}
           onLinkClient={panel.linkGuestToClient}
-          onEscalate={() => panel.openResolutionModal('escalate')}
         />
       </div>
 

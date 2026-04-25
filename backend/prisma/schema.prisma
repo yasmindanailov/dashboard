@@ -76,6 +76,9 @@ model User {
   invoices              Invoice[]
   notifications_received Notification[] @relation("notification_recipient")
   conversations         Conversation[] @relation("UserConversations")
+  tasks_assigned        Task[]         @relation("TaskAssignee")
+  tasks_created         Task[]         @relation("TaskCreator")
+  tasks_as_client       Task[]         @relation("TaskClient")
 
   @@index([email])
   @@index([role_id])
@@ -617,41 +620,61 @@ model Message {
 
 // ─── BLOQUE 8: TAREAS ───
 
+enum TaskType {
+  wow_call
+  maintenance
+  maintenance_management
+  project_task
+  custom_work
+  support_setup
+}
+
 enum TaskStatus {
   pending
   in_progress
   completed
+  not_completed_in_time
   cancelled
 }
 
 enum TaskPriority {
   low
-  normal
+  medium
   high
-  urgent
+  critical
 }
 
 model Task {
   id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type            TaskType
   title           String       @db.VarChar(500)
   description     String?
   status          TaskStatus   @default(pending)
-  priority        TaskPriority @default(normal)
+  priority        TaskPriority @default(medium)
   assigned_to     String?      @db.Uuid
   created_by      String       @db.Uuid
-  user_id         String?      @db.Uuid
+  client_id       String       @db.Uuid
   service_id      String?      @db.Uuid
   conversation_id String?      @db.Uuid
+  client_note     String?
   due_date        DateTime?    @db.Timestamptz()
   completed_at    DateTime?    @db.Timestamptz()
-  tags            Json?
+  is_recurring    Boolean      @default(false)
+  recurrence_day  Int?
+  billing_month   String?      @db.VarChar(7)
   metadata        Json?
   created_at      DateTime     @default(now()) @db.Timestamptz()
   updated_at      DateTime     @default(now()) @updatedAt @db.Timestamptz()
 
+  assignee User? @relation("TaskAssignee", fields: [assigned_to], references: [id])
+  creator  User  @relation("TaskCreator", fields: [created_by], references: [id])
+  client   User  @relation("TaskClient", fields: [client_id], references: [id])
+
   @@index([assigned_to])
   @@index([status])
-  @@index([user_id])
+  @@index([client_id])
+  @@index([due_date])
+  @@index([billing_month])
   @@map("tasks")
 }
 

@@ -1,15 +1,16 @@
 'use client';
 
+import Link from 'next/link';
 import type { Chat, ClientProfile } from './types';
-import { Avatar, Card, Button, SearchInput, Skeleton } from '../../../components/ui';
+import { Avatar, Card, Skeleton } from '../../../components/ui';
 import GuestLinkingPanel from './GuestLinkingPanel';
 import styles from './chats.module.css';
 
 /* ═══════════════════════════════════════
    ChatClientContext — Right column
-   Displays client profile, services,
-   structured notes, quick actions,
-   and guest linking UI.
+   Displays client profile (name links to
+   client detail page), services, structured
+   notes, and guest linking UI.
    Ref: DECISIONS.md §43, 7.H16, 7.5.2
    ═══════════════════════════════════════ */
 
@@ -27,15 +28,13 @@ interface ChatClientContextProps {
   onLinkSearchChange: (value: string) => void;
   onSearchClients: () => void;
   onLinkClient: (clientId: string, clientName: string) => void;
-  // Actions
-  onEscalate: () => void;
+
 }
 
 export default function ChatClientContext({
   activeChat, clientContext, clientServices, clientNotes, contextError,
   linkSearch, linkResults, linkLoading, showLinkPanel,
   onLinkSearchChange, onSearchClients, onLinkClient,
-  onEscalate,
 }: ChatClientContextProps) {
   if (!activeChat) {
     return (
@@ -95,7 +94,11 @@ export default function ChatClientContext({
           <div className={styles.clientAvatar}>
             <Avatar name={clientName} size="lg" />
           </div>
-          <div className={styles.clientName}>{clientName}</div>
+          <div className={styles.clientName}>
+            <Link href={`/dashboard/clients/${clientContext.id}`} className={styles.clientLink}>
+              {clientName}
+            </Link>
+          </div>
           <div className={styles.clientEmail}>{clientContext.email}</div>
           {clientContext.client_profile?.company_name && (
             <div className={styles.clientMeta}>{clientContext.client_profile.company_name}</div>
@@ -148,25 +151,7 @@ export default function ChatClientContext({
           </div>
         )}
 
-        {/* Quick actions — sidebar: Ver perfil + Escalar (7.H24) */}
-        <Card>
-          <h4 className={styles.sectionTitle}>Acciones</h4>
-          <a
-            href={`/dashboard/clients/${clientContext.id}`}
-            className={styles.actionLink}
-          >
-            Ver perfil del cliente
-          </a>
-          <Button
-            variant="ghost"
-            size="sm"
-            fullWidth
-            onClick={onEscalate}
-            className={styles.escalateBtn}
-          >
-            Escalar a ticket
-          </Button>
-        </Card>
+
       </div>
     </div>
   );

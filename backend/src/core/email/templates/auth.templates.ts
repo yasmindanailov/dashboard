@@ -57,7 +57,10 @@ function button(text: string, url: string): string {
 
 // ── Email verification ──
 
-export function verifyEmailTemplate(name: string, url: string): { subject: string; html: string } {
+export function verifyEmailTemplate(
+  name: string,
+  url: string,
+): { subject: string; html: string } {
   return {
     subject: 'Verifica tu email — Aelium',
     html: layout(`
@@ -75,7 +78,10 @@ export function verifyEmailTemplate(name: string, url: string): { subject: strin
 
 // ── 2FA code ──
 
-export function twoFactorCodeTemplate(name: string, code: string): { subject: string; html: string } {
+export function twoFactorCodeTemplate(
+  name: string,
+  code: string,
+): { subject: string; html: string } {
   return {
     subject: `${code} — Código de verificación Aelium`,
     html: layout(`
@@ -97,7 +103,10 @@ export function twoFactorCodeTemplate(name: string, code: string): { subject: st
 
 // ── Password reset ──
 
-export function passwordResetTemplate(name: string, url: string): { subject: string; html: string } {
+export function passwordResetTemplate(
+  name: string,
+  url: string,
+): { subject: string; html: string } {
   return {
     subject: 'Resetear contraseña — Aelium',
     html: layout(`
@@ -115,7 +124,10 @@ export function passwordResetTemplate(name: string, url: string): { subject: str
 
 // ── Welcome (after verification) ──
 
-export function welcomeTemplate(name: string, dashboardUrl: string): { subject: string; html: string } {
+export function welcomeTemplate(
+  name: string,
+  dashboardUrl: string,
+): { subject: string; html: string } {
   return {
     subject: 'Bienvenido a Aelium 🎉',
     html: layout(`

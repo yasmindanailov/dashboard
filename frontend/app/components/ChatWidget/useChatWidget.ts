@@ -173,12 +173,12 @@ export function useChatWidget() {
 
   /* ─── Create new chat (7.H12) ─── */
 
-  const handleFirstMessage = async (body: string) => {
+  const startNewChat = async () => {
     if (!token || sending) return;
     setSending(true);
     try {
-      const subject = body.length > 50 ? body.substring(0, 50) + '...' : body;
-      const conv = await supportApi.createChat(token, { subject, body }) as Conversation;
+      const subject = 'Nueva conversación';
+      const conv = await supportApi.createChat(token, { subject, body: '' }) as Conversation;
       await openConversation(conv.id);
     } catch (e) { console.error(e); }
     finally { setSending(false); }
@@ -239,7 +239,7 @@ export function useChatWidget() {
     message, setMessage, sending, typingIndicator,
     messagesEndRef, handleSend, handleTyping,
     // New chat
-    handleFirstMessage,
+    handleFirstMessage: startNewChat,
     // Guest
     guestName, setGuestName, guestEmail, setGuestEmail,
     handleGuestFirstMessage,

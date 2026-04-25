@@ -3,6 +3,7 @@
 import { RefObject } from 'react';
 import type { Conversation, Message } from './types';
 import { formatTime } from './types';
+import styles from './chatWidget.module.css';
 
 /* ═══════════════════════════════════════
    ChatMessages — Active chat view
@@ -31,7 +32,7 @@ export default function ChatMessages({
 }: ChatMessagesProps) {
   return (
     <>
-      <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className={styles.messagesScroll}>
         {conversation.messages.map((msg) => (
           <WidgetBubble
             key={msg.id}
@@ -41,7 +42,7 @@ export default function ChatMessages({
         ))}
 
         {typingIndicator && (
-          <div style={{ fontSize: 12, color: 'var(--color-text-tertiary, #9ca3af)', fontStyle: 'italic', padding: '4px 12px' }}>
+          <div className={styles.typingIndicator}>
             Agente escribiendo...
           </div>
         )}
@@ -51,30 +52,22 @@ export default function ChatMessages({
 
       {/* Message input */}
       {conversation.status !== 'closed' && (
-        <div style={{ padding: 12, borderTop: '1px solid #f0f0f0', display: 'flex', gap: 8 }}>
+        <div className={styles.inputBar}>
           <input
+            className={styles.messageInput}
             value={message}
             onChange={(e) => { onMessageChange(e.target.value); onTyping(); }}
             placeholder="Escribe un mensaje..."
-            style={{
-              flex: 1, padding: '10px 14px', border: '1px solid var(--color-border, #e5e7eb)',
-              borderRadius: 10, fontSize: 13, outline: 'none',
-            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
             }}
           />
           <button
+            className={styles.sendButton}
             onClick={onSend}
             disabled={sending || !message.trim()}
-            style={{
-              padding: '10px 16px', border: 'none', borderRadius: 10,
-              background: !message.trim() ? '#d1d5db' : 'var(--color-brand, #3B82F6)',
-              color: '#fff', cursor: !message.trim() ? 'not-allowed' : 'pointer',
-              fontWeight: 600, fontSize: 13,
-            }}
           >
-            →
+            Enviar
           </button>
         </div>
       )}
@@ -85,46 +78,21 @@ export default function ChatMessages({
 /* ─── Private: Widget Message Bubble ─── */
 
 function WidgetBubble({ msg, isMe }: { msg: Message; isMe: boolean }) {
-  const isSystem = msg.sender_type === 'system';
-
-  if (isSystem) {
-    return (
-      <div style={{
-        textAlign: 'center', fontSize: 11, color: 'var(--color-text-tertiary, #9ca3af)',
-        fontStyle: 'italic', padding: '4px 0',
-      }}>
-        {msg.body}
-      </div>
-    );
+  if (msg.sender_type === 'system') {
+    return <div className={styles.systemMessage}>{msg.body}</div>;
   }
 
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column',
-      alignItems: isMe ? 'flex-end' : 'flex-start',
-    }}>
+    <div className={`${styles.bubbleRow} ${isMe ? styles.bubbleRowMe : styles.bubbleRowOther}`}>
       {/* 7.H13: Sender name */}
       {msg.sender_name && (
-        <div style={{
-          fontSize: 10, fontWeight: 600, marginBottom: 2, paddingLeft: 4, paddingRight: 4,
-          color: isMe ? 'var(--color-brand, #3B82F6)' : 'var(--color-text-secondary, #6b7280)',
-        }}>
+        <div className={`${styles.bubbleSender} ${isMe ? styles.bubbleSenderMe : styles.bubbleSenderOther}`}>
           {isMe ? 'Tú' : msg.sender_name}
         </div>
       )}
-      <div style={{
-        maxWidth: '80%', padding: '8px 12px', borderRadius: 12,
-        background: isMe ? 'var(--color-brand, #3B82F6)' : '#f3f4f6',
-        color: isMe ? '#fff' : '#374151',
-        borderBottomRightRadius: isMe ? 2 : 12,
-        borderBottomLeftRadius: isMe ? 12 : 2,
-        fontSize: 13, lineHeight: 1.5,
-      }}>
-        <div style={{ whiteSpace: 'pre-wrap' }}>{msg.body}</div>
-        <div style={{
-          fontSize: 9, textAlign: 'right', marginTop: 4,
-          color: isMe ? 'rgba(255,255,255,0.5)' : '#b0b8c4',
-        }}>
+      <div className={`${styles.bubbleBody} ${isMe ? styles.bubbleMe : styles.bubbleOther}`}>
+        <div className={styles.bubbleText}>{msg.body}</div>
+        <div className={`${styles.bubbleTime} ${isMe ? styles.bubbleTimeMe : styles.bubbleTimeOther}`}>
           {formatTime(msg.created_at)}
           {msg.read_at && ' ✓✓'}
         </div>

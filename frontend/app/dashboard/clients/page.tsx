@@ -88,7 +88,7 @@ export default function ClientsPage() {
       }) as PaginatedResponse;
       setClients(res.data);
       setMeta(res.meta);
-    } catch { /* API interceptor */ }
+    } catch (err) { console.warn('[Clients] loadClients failed:', err); }
     finally { setLoading(false); }
   }, [debouncedSearch, statusFilter]);
 

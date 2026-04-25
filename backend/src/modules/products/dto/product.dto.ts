@@ -1,10 +1,25 @@
 import {
-  IsString, IsOptional, IsEnum, IsBoolean, IsInt,
-  Min, Max, IsDecimal, IsArray, ValidateNested, IsUUID,
-  MaxLength, IsNumber,
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsBoolean,
+  IsInt,
+  Min,
+  Max,
+  IsDecimal,
+  IsArray,
+  ValidateNested,
+  IsUUID,
+  MaxLength,
+  IsNumber,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ProductType, BillingCycle, ExtraType, ExtraApplicableCycle } from '@prisma/client';
+import {
+  ProductType,
+  BillingCycle,
+  ExtraType,
+  ExtraApplicableCycle,
+} from '@prisma/client';
 
 /* ═══════════════════════════════════════
    Product Pricing DTO

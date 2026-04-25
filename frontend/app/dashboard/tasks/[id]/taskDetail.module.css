@@ -1,0 +1,133 @@
+/* Task Detail page — CSS Module
+   Ref: Design System tokens, Regla 14 */
+
+.twoColumns {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+}
+
+@media (max-width: 768px) {
+  .twoColumns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mainColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Header controls ── */
+.headerControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
+
+.headerBadges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ── Card sections ── */
+.cardTitle {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-3);
+}
+
+.description {
+  color: var(--color-text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.emptyDescription {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+/* ── Client sidebar card ── */
+.clientCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.clientInfo {
+  flex: 1;
+}
+
+.clientName {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.clientEmail {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.profileLink {
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: opacity var(--transition-fast);
+}
+.profileLink:hover {
+  opacity: 0.8;
+}
+
+/* ── Timeline ── */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.timelineEntry {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.timelineIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-text-tertiary);
+}
+
+.timelineText {
+  flex: 1;
+}
+
+.timelineDate {
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+/* ── Actions ── */
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}

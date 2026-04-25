@@ -8,4 +8,3 @@ import { KnowledgeBaseController } from './knowledge-base.controller';
   exports: [KnowledgeBaseService],
 })
 export class KnowledgeBaseModule {}
-

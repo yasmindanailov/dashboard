@@ -2,6 +2,7 @@
 
 import { CATEGORY_CONFIG } from './types';
 import { Modal, Input, Select, Textarea, Button, SearchInput, Badge } from '../../components/ui';
+import s from './NewTicketModal.module.css';
 
 /* ═══════════════════════════════════════
    NewTicketModal — Create new ticket modal
@@ -61,19 +62,14 @@ export default function NewTicketModal({
     >
       {/* Admin: Client selector */}
       {isAdmin && (
-        <div style={{ marginBottom: 'var(--space-4)' }}>
+        <div className={s.clientSection}>
           {selectedClient ? (
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: 'var(--space-3) var(--space-4)',
-              background: 'var(--brand-subtle)', border: '1px solid var(--brand-light)',
-              borderRadius: 'var(--radius-sm)',
-            }}>
+            <div className={s.selectedClient}>
               <div>
-                <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--text-primary)', fontSize: 'var(--font-size-base)' }}>
+                <span className={s.clientName}>
                   {selectedClient.first_name} {selectedClient.last_name}
                 </span>
-                <span style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginLeft: 'var(--space-2)' }}>
+                <span className={s.clientEmail}>
                   {selectedClient.email}
                 </span>
               </div>
@@ -84,7 +80,7 @@ export default function NewTicketModal({
               </Button>
             </div>
           ) : (
-            <div style={{ position: 'relative' }}>
+            <div className={s.searchWrapper}>
               <SearchInput
                 label="Cliente destino"
                 value={clientSearch}
@@ -94,26 +90,13 @@ export default function NewTicketModal({
                 loading={searchingClients}
               />
               {clientResults.length > 0 && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 'var(--space-1)',
-                  background: 'var(--surface-primary)', border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)', boxShadow: 'var(--shadow-lg)',
-                  maxHeight: 180, overflowY: 'auto', zIndex: 'var(--z-dropdown)',
-                }}>
+                <div className={s.dropdown}>
                   {clientResults.map((c: any) => (
-                    <div key={c.id} onClick={() => onSelectClient(c)}
-                      style={{
-                        padding: 'var(--space-3) var(--space-4)', cursor: 'pointer',
-                        fontSize: 'var(--font-size-sm)', borderBottom: '1px solid var(--border)',
-                        transition: 'background var(--transition-fast)',
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-secondary)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = ''; }}
-                    >
-                      <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--text-primary)' }}>
+                    <div key={c.id} onClick={() => onSelectClient(c)} className={s.dropdownItem}>
+                      <span className={s.dropdownItemName}>
                         {c.first_name} {c.last_name}
                       </span>
-                      <span style={{ color: 'var(--text-tertiary)', marginLeft: 'var(--space-2)' }}>
+                      <span className={s.dropdownItemEmail}>
                         {c.email}
                       </span>
                     </div>
@@ -126,27 +109,27 @@ export default function NewTicketModal({
       )}
 
       {/* Category + Priority */}
-      <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-        <div style={{ flex: 1 }}>
+      <div className={s.fieldRow}>
+        <div className={s.fieldHalf}>
           <Select label="Categoría" value={category} onChange={(e) => onCategoryChange(e.target.value)} options={CATEGORY_OPTIONS} />
         </div>
-        <div style={{ flex: 1 }}>
+        <div className={s.fieldHalf}>
           <Select label="Prioridad" value={priority} onChange={(e) => onPriorityChange(e.target.value)} options={PRIORITY_OPTIONS} />
         </div>
       </div>
 
       {/* Subject */}
-      <div style={{ marginBottom: 'var(--space-4)' }}>
+      <div className={s.fieldGroup}>
         <Input label="Asunto" value={subject} onChange={(e) => onSubjectChange(e.target.value)} placeholder="Describe brevemente tu consulta" />
       </div>
 
       {/* Body */}
-      <div style={{ marginBottom: 'var(--space-6)' }}>
+      <div className={s.fieldGroupLg}>
         <Textarea label="Mensaje" value={body} onChange={(e) => onBodyChange(e.target.value)} placeholder="Describe tu consulta con detalle..." rows={6} />
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
+      <div className={s.actions}>
         <Button variant="secondary" onClick={onClose}>Cancelar</Button>
         <Button onClick={onSubmit} disabled={!canSubmit} loading={submitting}>
           {submitting ? 'Creando ticket...' : 'Crear ticket'}

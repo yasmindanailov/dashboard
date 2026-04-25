@@ -26,10 +26,10 @@
   margin: 0;
 }
 
-/* ── Stats grid — 4 columns (Admin, Client) ── */
+/* ── Stats grid — auto-fit cards (Admin: 5, Client: 4) ── */
 .statsGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-4);
   margin-bottom: var(--space-8);
 }

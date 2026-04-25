@@ -27,13 +27,14 @@ interface ChatConversationProps {
   onTyping: () => void;
   onResolve: () => void;
   onClose: () => void;
+  onEscalate: () => void;
 }
 
 export default function ChatConversation({
   activeChat, currentUserId, typingIndicator,
   message, internalNote, sending, messagesEndRef,
   onMessageChange, onInternalNoteChange, onSend, onTyping,
-  onResolve, onClose,
+  onResolve, onClose, onEscalate,
 }: ChatConversationProps) {
   if (!activeChat) {
     return (
@@ -64,6 +65,9 @@ export default function ChatConversation({
           </div>
         </div>
         <div className={styles.conversationHeaderActions}>
+          <Button variant="ghost" size="sm" onClick={onEscalate} title="Escalar a ticket">
+            Escalar
+          </Button>
           <Button variant="secondary" size="sm" onClick={onResolve} title="Marcar como resuelto">
             Resolver
           </Button>

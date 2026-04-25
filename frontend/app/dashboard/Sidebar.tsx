@@ -144,7 +144,19 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
       {/* Nav */}
       <nav className={styles.nav}>
         {navItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+          /* Active state:
+             - Exact match always wins
+             - startsWith match, BUT only if no other nav item has a
+               longer href that also matches (prevents /dashboard/support
+               from staying active when /dashboard/support/chats matches) */
+          const startsMatch = item.href !== '/dashboard'
+            && pathname.startsWith(item.href + '/');
+          const hasBetterMatch = startsMatch && navItems.some(
+            (other) => other.href !== item.href
+              && other.href.startsWith(item.href + '/')
+              && pathname.startsWith(other.href),
+          );
+          const isActive = pathname === item.href || (startsMatch && !hasBetterMatch);
           return (
             <Link
               key={item.href + item.section}

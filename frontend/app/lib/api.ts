@@ -379,6 +379,45 @@ export const supportApi = {
   },
 };
 
+// ── Tasks API ──
+
+export const tasksApi = {
+  list: (token: string, params?: {
+    page?: number; limit?: number; status?: string; type?: string;
+    priority?: string; assigned_to?: string; search?: string; time_range?: string;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.status) query.set('status', params.status);
+    if (params?.type) query.set('type', params.type);
+    if (params?.priority) query.set('priority', params.priority);
+    if (params?.assigned_to) query.set('assigned_to', params.assigned_to);
+    if (params?.search) query.set('search', params.search);
+    if (params?.time_range) query.set('time_range', params.time_range);
+    const qs = query.toString();
+    return api(`/tasks${qs ? `?${qs}` : ''}`, { token });
+  },
+
+  get: (token: string, id: string) =>
+    api(`/tasks/${id}`, { token }),
+
+  create: (token: string, data: Record<string, unknown>) =>
+    api('/tasks', { method: 'POST', token, body: data }),
+
+  update: (token: string, id: string, data: Record<string, unknown>) =>
+    api(`/tasks/${id}`, { method: 'PATCH', token, body: data }),
+
+  complete: (token: string, id: string, data: { client_notes?: string; internal_notes?: string }) =>
+    api(`/tasks/${id}/complete`, { method: 'PATCH', token, body: data }),
+
+  delete: (token: string, id: string) =>
+    api(`/tasks/${id}`, { method: 'DELETE', token }),
+
+  getStats: (token: string) =>
+    api('/tasks/stats', { token }),
+};
+
 // ── Dashboard API ──
 
 export interface AdminOverview {
@@ -388,6 +427,7 @@ export interface AdminOverview {
   overdue_invoices: number;
   pending_amount: number;
   open_tickets: number;
+  open_chats: number;
   waiting_agent: number;
 }
 
@@ -396,7 +436,7 @@ export interface ClientOverview {
   active_services: number;
   pending_invoice_amount: number;
   next_renewal: string | null;
-  open_tickets: number;
+  open_conversations: number;
 }
 
 export interface AgentOverview {

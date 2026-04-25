@@ -1,6 +1,14 @@
 import {
-  IsString, IsOptional, IsEnum, IsUUID, IsInt, IsBoolean, IsEmail,
-  MaxLength, Min, Max,
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsUUID,
+  IsInt,
+  IsBoolean,
+  IsEmail,
+  MaxLength,
+  Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import {

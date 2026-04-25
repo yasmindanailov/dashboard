@@ -60,7 +60,7 @@ export function useCheckout() {
       try {
         const res = await clientsApi.list(token, { search: clientSearch, limit: 10 }) as { data: ClientOption[] };
         setClientResults(res.data || []);
-      } catch { setClientResults([]); }
+      } catch (err) { console.warn('[Checkout] clientSearch failed:', err); setClientResults([]); }
       finally { setSearchingClients(false); }
     }, 300);
     return () => clearTimeout(timeout);

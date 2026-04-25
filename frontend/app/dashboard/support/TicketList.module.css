@@ -9,6 +9,11 @@
   gap: var(--space-2);
 }
 
+.ticketLink {
+  text-decoration: none;
+  color: inherit;
+}
+
 .skeletonRow {
   padding: var(--space-5);
   display: flex;
@@ -36,6 +41,23 @@
   height: 48px;
   border-radius: 2px;
   flex-shrink: 0;
+  background: var(--text-tertiary);
+}
+
+.priority[data-priority="urgent"] {
+  background: var(--danger);
+}
+
+.priority[data-priority="high"] {
+  background: var(--warning);
+}
+
+.priority[data-priority="normal"] {
+  background: var(--text-tertiary);
+}
+
+.priority[data-priority="low"] {
+  background: var(--border);
 }
 
 .content {

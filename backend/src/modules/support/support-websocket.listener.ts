@@ -39,7 +39,11 @@ export class SupportWebsocketListener {
     is_internal: boolean;
   }) {
     // Update unread count for the other party
-    if (payload.sender_type === 'agent' && payload.user_id && !payload.is_internal) {
+    if (
+      payload.sender_type === 'agent' &&
+      payload.user_id &&
+      !payload.is_internal
+    ) {
       await this.gateway.broadcastUnreadCount(payload.user_id, 'client');
     }
     // Note: message:new is already broadcasted in the gateway's handleSendMessage

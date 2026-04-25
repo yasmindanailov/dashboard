@@ -120,6 +120,25 @@
   border: 2px solid var(--surface-primary);
 }
 
+/* ── Numeric counter badge (support icon) ── */
+.countBadge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  line-height: 16px;
+  text-align: center;
+  border: 2px solid var(--surface-primary);
+  pointer-events: none;
+}
+
 /* ── Support panel (client only) ── */
 
 .supportPanel {

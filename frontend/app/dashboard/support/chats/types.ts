@@ -41,12 +41,12 @@ export interface ResolutionModalState {
   type: 'resolve' | 'close' | 'escalate';
 }
 
-export const STATUS_BADGE: Record<string, { label: string; color: string; bg: string }> = {
-  open:           { label: 'Nuevo',             color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
-  waiting_client: { label: 'Esperando cliente', color: '#F59E0B', bg: 'rgba(245,158,11,0.08)' },
-  waiting_agent:  { label: 'Tu turno',          color: '#EF4444', bg: 'rgba(239,68,68,0.08)' },
-  resolved:       { label: 'Resuelto',          color: '#10B981', bg: 'rgba(16,185,129,0.08)' },
-  closed:         { label: 'Cerrado',           color: '#6B7280', bg: 'rgba(107,114,128,0.08)' },
+export const STATUS_BADGE: Record<string, { label: string; variant: 'info' | 'warning' | 'danger' | 'success' | 'neutral' }> = {
+  open:           { label: 'Nuevo',             variant: 'info' },
+  waiting_client: { label: 'Esperando cliente', variant: 'warning' },
+  waiting_agent:  { label: 'Tu turno',          variant: 'danger' },
+  resolved:       { label: 'Resuelto',          variant: 'success' },
+  closed:         { label: 'Cerrado',           variant: 'neutral' },
 };
 
 /** Format time as HH:MM */

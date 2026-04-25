@@ -85,12 +85,20 @@ export class InvoicePdfService {
      TEMPLATE SECTIONS
      ═══════════════════════════════════════ */
 
-  private drawHeader(doc: PDFKit.PDFDocument, company: CompanyInfo, invoice: any): void {
+  private drawHeader(
+    doc: PDFKit.PDFDocument,
+    company: CompanyInfo,
+    invoice: any,
+  ): void {
     // Company name
     doc.fontSize(20).font('Helvetica-Bold').text(company.name, 50, 50);
     doc.fontSize(9).font('Helvetica').fillColor('#666666');
     doc.text(company.address, 50, 75);
-    doc.text(`${company.postal_code} ${company.city}, ${company.country}`, 50, 87);
+    doc.text(
+      `${company.postal_code} ${company.city}, ${company.country}`,
+      50,
+      87,
+    );
     doc.text(`NIF: ${company.nif}`, 50, 99);
     doc.text(`Email: ${company.email}`, 50, 111);
 
@@ -100,8 +108,12 @@ export class InvoicePdfService {
 
     doc.fontSize(10).font('Helvetica').fillColor('#666666');
     doc.text(`Nº: ${invoice.invoice_number}`, 400, 80, { align: 'right' });
-    doc.text(`Fecha: ${this.formatDate(invoice.created_at)}`, 400, 94, { align: 'right' });
-    doc.text(`Vencimiento: ${this.formatDate(invoice.due_date)}`, 400, 108, { align: 'right' });
+    doc.text(`Fecha: ${this.formatDate(invoice.created_at)}`, 400, 94, {
+      align: 'right',
+    });
+    doc.text(`Vencimiento: ${this.formatDate(invoice.due_date)}`, 400, 108, {
+      align: 'right',
+    });
 
     // Status badge
     const statusColors: Record<string, string> = {
@@ -137,41 +149,60 @@ export class InvoicePdfService {
     if (bp) {
       // Full billing profile
       if (bp.company_name) {
-        doc.text(bp.company_name, 50, y); y += 13;
+        doc.text(bp.company_name, 50, y);
+        y += 13;
       }
       if (bp.first_name || bp.last_name) {
-        doc.text(`${bp.first_name || ''} ${bp.last_name || ''}`.trim(), 50, y); y += 13;
+        doc.text(`${bp.first_name || ''} ${bp.last_name || ''}`.trim(), 50, y);
+        y += 13;
       }
       if (bp.nif_cif) {
-        doc.text(`NIF/CIF: ${bp.nif_cif}`, 50, y); y += 13;
+        doc.text(`NIF/CIF: ${bp.nif_cif}`, 50, y);
+        y += 13;
       }
       if (bp.address_line1) {
-        doc.text(bp.address_line1, 50, y); y += 13;
+        doc.text(bp.address_line1, 50, y);
+        y += 13;
       }
       if (bp.address_line2) {
-        doc.text(bp.address_line2, 50, y); y += 13;
+        doc.text(bp.address_line2, 50, y);
+        y += 13;
       }
       if (bp.postal_code || bp.city || bp.country) {
-        doc.text(`${bp.postal_code || ''} ${bp.city || ''}, ${bp.country || ''}`.trim(), 50, y); y += 13;
+        doc.text(
+          `${bp.postal_code || ''} ${bp.city || ''}, ${bp.country || ''}`.trim(),
+          50,
+          y,
+        );
+        y += 13;
       }
     } else if (user) {
       // Fallback: use user profile data (factura simplificada)
-      const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+      const fullName =
+        `${user.first_name || ''} ${user.last_name || ''}`.trim();
       if (fullName) {
-        doc.text(fullName, 50, y); y += 13;
+        doc.text(fullName, 50, y);
+        y += 13;
       }
       if (user.email) {
-        doc.text(user.email, 50, y); y += 13;
+        doc.text(user.email, 50, y);
+        y += 13;
       }
       doc.fontSize(7).fillColor('#9CA3AF');
-      doc.text('(Factura simplificada — sin perfil de facturación)', 50, y); y += 11;
+      doc.text('(Factura simplificada — sin perfil de facturación)', 50, y);
+      y += 11;
       doc.fontSize(9).fillColor('#666666');
     } else {
-      doc.text('(Sin datos de cliente)', 50, y); y += 13;
+      doc.text('(Sin datos de cliente)', 50, y);
+      y += 13;
     }
 
     // Separator
-    doc.moveTo(50, y + 10).lineTo(545, y + 10).strokeColor('#E5E7EB').stroke();
+    doc
+      .moveTo(50, y + 10)
+      .lineTo(545, y + 10)
+      .strokeColor('#E5E7EB')
+      .stroke();
   }
 
   private drawItemsTable(doc: PDFKit.PDFDocument, invoice: any): void {
@@ -184,9 +215,18 @@ export class InvoicePdfService {
     doc.fillColor('#ffffff');
     doc.text('Descripción', 55, tableTop, { width: colWidths.desc });
     doc.text('Cant.', 275, tableTop, { width: colWidths.qty, align: 'center' });
-    doc.text('Precio', 325, tableTop, { width: colWidths.price, align: 'right' });
-    doc.text('Setup', 405, tableTop, { width: colWidths.setup, align: 'right' });
-    doc.text('Total', 465, tableTop, { width: colWidths.total, align: 'right' });
+    doc.text('Precio', 325, tableTop, {
+      width: colWidths.price,
+      align: 'right',
+    });
+    doc.text('Setup', 405, tableTop, {
+      width: colWidths.setup,
+      align: 'right',
+    });
+    doc.text('Total', 465, tableTop, {
+      width: colWidths.total,
+      align: 'right',
+    });
 
     // Table rows
     let y = tableTop + 22;
@@ -206,16 +246,38 @@ export class InvoicePdfService {
       }
 
       doc.text(item.description, 55, y, { width: colWidths.desc });
-      doc.text(String(item.quantity), 275, y, { width: colWidths.qty, align: 'center' });
-      doc.text(this.formatCurrency(Number(item.unit_price), invoice.currency), 325, y, { width: colWidths.price, align: 'right' });
-      doc.text(this.formatCurrency(Number(item.setup_fee || 0), invoice.currency), 405, y, { width: colWidths.setup, align: 'right' });
-      doc.text(this.formatCurrency(Number(item.total), invoice.currency), 465, y, { width: colWidths.total, align: 'right' });
+      doc.text(String(item.quantity), 275, y, {
+        width: colWidths.qty,
+        align: 'center',
+      });
+      doc.text(
+        this.formatCurrency(Number(item.unit_price), invoice.currency),
+        325,
+        y,
+        { width: colWidths.price, align: 'right' },
+      );
+      doc.text(
+        this.formatCurrency(Number(item.setup_fee || 0), invoice.currency),
+        405,
+        y,
+        { width: colWidths.setup, align: 'right' },
+      );
+      doc.text(
+        this.formatCurrency(Number(item.total), invoice.currency),
+        465,
+        y,
+        { width: colWidths.total, align: 'right' },
+      );
 
       // Period
       if (item.period_start && item.period_end) {
         y += 14;
         doc.fontSize(7).fillColor('#9CA3AF');
-        doc.text(`Período: ${this.formatDate(item.period_start)} — ${this.formatDate(item.period_end)}`, 55, y);
+        doc.text(
+          `Período: ${this.formatDate(item.period_start)} — ${this.formatDate(item.period_end)}`,
+          55,
+          y,
+        );
         doc.fontSize(8).fillColor('#333333');
       }
 
@@ -230,43 +292,75 @@ export class InvoicePdfService {
     let y = doc.y + 20;
 
     const drawRow = (label: string, value: string, bold = false) => {
-      doc.fontSize(9).font(bold ? 'Helvetica-Bold' : 'Helvetica').fillColor('#333333');
+      doc
+        .fontSize(9)
+        .font(bold ? 'Helvetica-Bold' : 'Helvetica')
+        .fillColor('#333333');
       doc.text(label, 350, y, { width: 100, align: 'right' });
       doc.text(value, 460, y, { width: 85, align: 'right' });
       y += 16;
     };
 
-    drawRow('Subtotal:', this.formatCurrency(Number(invoice.subtotal), invoice.currency));
+    drawRow(
+      'Subtotal:',
+      this.formatCurrency(Number(invoice.subtotal), invoice.currency),
+    );
 
     if (Number(invoice.discount_amount) > 0) {
-      drawRow('Descuento:', `-${this.formatCurrency(Number(invoice.discount_amount), invoice.currency)}`);
+      drawRow(
+        'Descuento:',
+        `-${this.formatCurrency(Number(invoice.discount_amount), invoice.currency)}`,
+      );
     }
 
-    drawRow(`IVA (${invoice.tax_rate}%):`, this.formatCurrency(Number(invoice.tax_amount), invoice.currency));
+    drawRow(
+      `IVA (${invoice.tax_rate}%):`,
+      this.formatCurrency(Number(invoice.tax_amount), invoice.currency),
+    );
 
     // Separator before total
-    doc.moveTo(350, y).lineTo(545, y).strokeColor('#374151').lineWidth(1).stroke();
+    doc
+      .moveTo(350, y)
+      .lineTo(545, y)
+      .strokeColor('#374151')
+      .lineWidth(1)
+      .stroke();
     y += 8;
 
-    drawRow('TOTAL:', this.formatCurrency(Number(invoice.total), invoice.currency), true);
+    drawRow(
+      'TOTAL:',
+      this.formatCurrency(Number(invoice.total), invoice.currency),
+      true,
+    );
 
     if (invoice.paid_at) {
       y += 10;
       doc.fontSize(9).font('Helvetica-Bold').fillColor('#10B981');
-      doc.text(`✓ Pagada el ${this.formatDate(invoice.paid_at)}`, 350, y, { width: 195, align: 'right' });
+      doc.text(`✓ Pagada el ${this.formatDate(invoice.paid_at)}`, 350, y, {
+        width: 195,
+        align: 'right',
+      });
     }
   }
 
-  private drawFooter(doc: PDFKit.PDFDocument, company: CompanyInfo, invoice: any): void {
+  private drawFooter(
+    doc: PDFKit.PDFDocument,
+    company: CompanyInfo,
+    invoice: any,
+  ): void {
     const y = 750;
     doc.fontSize(7).font('Helvetica').fillColor('#9CA3AF');
     doc.text(
       `${company.name} · ${company.nif} · ${company.address}, ${company.postal_code} ${company.city}`,
-      50, y, { width: 495, align: 'center' },
+      50,
+      y,
+      { width: 495, align: 'center' },
     );
     doc.text(
       `Documento generado automáticamente — ${invoice.invoice_number}`,
-      50, y + 12, { width: 495, align: 'center' },
+      50,
+      y + 12,
+      { width: 495, align: 'center' },
     );
   }
 

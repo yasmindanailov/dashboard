@@ -43,7 +43,10 @@ export class SupportGatewayAuth {
    * Authenticate via JWT token (dashboard users).
    * Returns ConnectedUserInfo if successful, null otherwise.
    */
-  async authenticateWithJwt(client: Socket, token: string): Promise<ConnectedUserInfo | null> {
+  async authenticateWithJwt(
+    client: Socket,
+    token: string,
+  ): Promise<ConnectedUserInfo | null> {
     try {
       const payload = this.jwtService.verify(token);
       const user = await this.prisma.user.findUnique({
@@ -55,7 +58,9 @@ export class SupportGatewayAuth {
 
       const isAdmin = ADMIN_ROLES.includes(user.role.slug);
 
-      this.logger.log(`Connected: ${user.email} (${user.role.slug}) — socket: ${client.id}`);
+      this.logger.log(
+        `Connected: ${user.email} (${user.role.slug}) — socket: ${client.id}`,
+      );
 
       return {
         userId: user.id,
@@ -73,7 +78,10 @@ export class SupportGatewayAuth {
    * Authenticate as a guest user via session token cookie (7.4.4).
    * Returns ConnectedUserInfo if successful, null otherwise.
    */
-  async authenticateAsGuest(client: Socket, rawToken: string): Promise<ConnectedUserInfo | null> {
+  async authenticateAsGuest(
+    client: Socket,
+    rawToken: string,
+  ): Promise<ConnectedUserInfo | null> {
     try {
       const sessionHash = hashGuestToken(rawToken);
 
@@ -86,7 +94,9 @@ export class SupportGatewayAuth {
 
       const syntheticId = `guest:${sessionHash.substring(0, 12)}`;
 
-      this.logger.log(`Connected: guest "${guestConversation.guest_name}" — socket: ${client.id}`);
+      this.logger.log(
+        `Connected: guest "${guestConversation.guest_name}" — socket: ${client.id}`,
+      );
 
       return {
         userId: syntheticId,
@@ -108,11 +118,14 @@ export class SupportGatewayAuth {
   extractGuestTokenFromCookie(client: Socket): string | null {
     const cookieHeader = client.handshake.headers?.cookie;
     if (cookieHeader) {
-      const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
-        const [key, ...val] = cookie.trim().split('=');
-        if (key) acc[key.trim()] = val.join('=').trim();
-        return acc;
-      }, {} as Record<string, string>);
+      const cookies = cookieHeader.split(';').reduce(
+        (acc, cookie) => {
+          const [key, ...val] = cookie.trim().split('=');
+          if (key) acc[key.trim()] = val.join('=').trim();
+          return acc;
+        },
+        {} as Record<string, string>,
+      );
 
       if (cookies[GUEST_TOKEN_COOKIE_NAME]) {
         return cookies[GUEST_TOKEN_COOKIE_NAME];

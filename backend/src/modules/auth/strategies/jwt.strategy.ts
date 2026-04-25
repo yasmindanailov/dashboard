@@ -5,9 +5,9 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../core/database/prisma.service';
 
 export interface JwtPayload {
-  sub: string;       // user id
+  sub: string; // user id
   email: string;
-  role: string;      // role slug
+  role: string; // role slug
   type: 'access' | 'refresh' | 'temp_2fa';
 }
 

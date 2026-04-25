@@ -12,8 +12,8 @@
 export interface PaymentResult {
   success: boolean;
   provider: string;
-  external_id?: string;       // e.g., Stripe payment_intent_id
-  payment_method?: string;    // e.g., "card", "sepa_debit"
+  external_id?: string; // e.g., Stripe payment_intent_id
+  payment_method?: string; // e.g., "card", "sepa_debit"
   error?: string;
   metadata?: Record<string, unknown>;
 }
@@ -61,7 +61,7 @@ export interface PaymentProviderInterface {
   refund(invoice: {
     id: string;
     payment_ref: string;
-    amount?: number;  // partial refund if specified
+    amount?: number; // partial refund if specified
     currency: string;
   }): Promise<RefundResult>;
 
@@ -101,7 +101,11 @@ export class ManualPaymentProvider implements PaymentProviderInterface {
   }
 
   async handleWebhook(): Promise<PaymentResult & { invoice_id?: string }> {
-    return { success: false, provider: this.name, error: 'Manual provider does not support webhooks.' };
+    return {
+      success: false,
+      provider: this.name,
+      error: 'Manual provider does not support webhooks.',
+    };
   }
 
   async refund(invoice: {
@@ -117,7 +121,10 @@ export class ManualPaymentProvider implements PaymentProviderInterface {
     };
   }
 
-  async getStatus(): Promise<{ status: 'pending' | 'succeeded' | 'failed' | 'cancelled'; provider: string }> {
+  async getStatus(): Promise<{
+    status: 'pending' | 'succeeded' | 'failed' | 'cancelled';
+    provider: string;
+  }> {
     return { status: 'succeeded', provider: this.name };
   }
 }

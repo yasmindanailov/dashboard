@@ -102,9 +102,15 @@ export class SupportController {
 
     if (isAdmin) {
       if (!targetUserId) {
-        throw new ForbiddenException('Los agentes deben especificar el cliente destino (targetUserId).');
+        throw new ForbiddenException(
+          'Los agentes deben especificar el cliente destino (targetUserId).',
+        );
       }
-      return this.supportService.createTicketForClient(targetUserId, dto, user.id);
+      return this.supportService.createTicketForClient(
+        targetUserId,
+        dto,
+        user.id,
+      );
     }
 
     return this.supportService.createTicket(user.id, dto);
@@ -113,7 +119,10 @@ export class SupportController {
   @Get('tickets')
   @ApiOperation({ summary: 'List tickets (async conversations)' })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Conversation))
-  findAllTickets(@Req() req: Request, @Query() query: ConversationListQueryDto) {
+  findAllTickets(
+    @Req() req: Request,
+    @Query() query: ConversationListQueryDto,
+  ) {
     const user = req.user as any;
     const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
     query.type = 'ticket' as any;
@@ -148,10 +157,7 @@ export class SupportController {
   @Get('conversations/stats')
   @ApiOperation({ summary: 'Get support statistics (admin only)' })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Conversation))
-  getStats(
-    @Req() req: Request,
-    @Query('type') type?: 'chat' | 'ticket',
-  ) {
+  getStats(@Req() req: Request, @Query('type') type?: 'chat' | 'ticket') {
     const user = req.user as any;
     if (!ADMIN_ROLES.includes(user.role?.slug)) {
       throw new ForbiddenException('Solo los agentes pueden ver estadísticas.');
@@ -160,24 +166,24 @@ export class SupportController {
   }
 
   @Get('conversations/unread')
-  @ApiOperation({ summary: 'Get unread message count (optionally filtered by type)' })
+  @ApiOperation({
+    summary: 'Get unread message count (optionally filtered by type)',
+  })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Message))
-  getUnreadCount(
-    @Req() req: Request,
-    @Query('type') type?: 'chat' | 'ticket',
-  ) {
+  getUnreadCount(@Req() req: Request, @Query('type') type?: 'chat' | 'ticket') {
     const user = req.user as any;
     const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
-    return this.supportService.getUnreadCount(user.id, isAdmin ? 'agent' : 'client', type);
+    return this.supportService.getUnreadCount(
+      user.id,
+      isAdmin ? 'agent' : 'client',
+      type,
+    );
   }
 
   @Get('conversations/:id')
   @ApiOperation({ summary: 'Get conversation detail (chat or ticket)' })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Conversation))
-  async findOne(
-    @Req() req: Request,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
     const user = req.user as any;
     const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
     const conversation = await this.supportService.findOne(id, isAdmin);
@@ -201,7 +207,9 @@ export class SupportController {
   ) {
     const user = req.user as any;
     if (!ADMIN_ROLES.includes(user.role?.slug)) {
-      throw new ForbiddenException('Solo los agentes pueden modificar conversaciones.');
+      throw new ForbiddenException(
+        'Solo los agentes pueden modificar conversaciones.',
+      );
     }
     return this.supportService.updateConversation(id, dto, user.id);
   }
@@ -223,7 +231,9 @@ export class SupportController {
     const senderType = isAdmin ? 'agent' : 'client';
 
     if (!isAdmin && dto.is_internal) {
-      throw new ForbiddenException('Los clientes no pueden enviar notas internas.');
+      throw new ForbiddenException(
+        'Los clientes no pueden enviar notas internas.',
+      );
     }
 
     if (!isAdmin) {
@@ -263,7 +273,9 @@ export class SupportController {
      ═══════════════════════════════════════ */
 
   @Patch('conversations/:id/link-client')
-  @ApiOperation({ summary: 'Link a guest conversation to an existing client (agents only)' })
+  @ApiOperation({
+    summary: 'Link a guest conversation to an existing client (agents only)',
+  })
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Conversation))
   async linkGuestToClient(
     @Req() req: Request,
@@ -273,7 +285,9 @@ export class SupportController {
     const user = req.user as any;
     const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
     if (!isAdmin) {
-      throw new ForbiddenException('Solo agentes pueden vincular conversaciones.');
+      throw new ForbiddenException(
+        'Solo agentes pueden vincular conversaciones.',
+      );
     }
 
     return this.supportService.linkGuestToClient(id, body.user_id, user.id);

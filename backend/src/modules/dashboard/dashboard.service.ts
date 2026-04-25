@@ -24,6 +24,7 @@ export interface AdminOverview {
   total_revenue: number;
   overdue_invoices: number;
   open_tickets: number;
+  open_chats: number;
   waiting_agent: number;
   pending_amount: number;
 }
@@ -33,7 +34,7 @@ export interface ClientOverview {
   active_services: number;
   pending_invoice_amount: number;
   next_renewal: string | null; // ISO date or null
-  open_tickets: number;
+  open_conversations: number;
 }
 
 export interface AgentOverview {
@@ -50,7 +51,11 @@ export interface PartnerOverview {
   next_settlement: string | null; // ISO date or null
 }
 
-export type OverviewStats = AdminOverview | ClientOverview | AgentOverview | PartnerOverview;
+export type OverviewStats =
+  | AdminOverview
+  | ClientOverview
+  | AgentOverview
+  | PartnerOverview;
 
 const ADMIN_ROLES = ['superadmin', 'agent_full'];
 const AGENT_ROLES = ['agent_billing', 'agent_support'];
@@ -63,7 +68,10 @@ export class DashboardService {
    * Get role-specific overview stats.
    * Each role gets exactly the metrics defined in UI_SPEC §2.3.
    */
-  async getOverviewStats(userId: string, roleSlug: string): Promise<OverviewStats> {
+  async getOverviewStats(
+    userId: string,
+    roleSlug: string,
+  ): Promise<OverviewStats> {
     if (ADMIN_ROLES.includes(roleSlug)) {
       return this.getAdminOverview();
     }
@@ -85,6 +93,7 @@ export class DashboardService {
       overdueCount,
       pendingAmount,
       openTickets,
+      openChats,
       waitingAgent,
     ] = await this.prisma.$transaction([
       this.prisma.user.count({
@@ -102,7 +111,16 @@ export class DashboardService {
         _sum: { total: true },
       }),
       this.prisma.conversation.count({
-        where: { status: { in: ['open', 'waiting_client', 'waiting_agent'] } },
+        where: {
+          type: 'ticket',
+          status: { in: ['open', 'waiting_client', 'waiting_agent'] },
+        },
+      }),
+      this.prisma.conversation.count({
+        where: {
+          type: 'chat',
+          status: { in: ['open', 'waiting_client', 'waiting_agent'] },
+        },
       }),
       this.prisma.conversation.count({
         where: { status: 'waiting_agent' },
@@ -116,52 +134,49 @@ export class DashboardService {
       overdue_invoices: overdueCount,
       pending_amount: Number(pendingAmount._sum.total ?? 0),
       open_tickets: openTickets,
+      open_chats: openChats,
       waiting_agent: waitingAgent,
     };
   }
 
   // ── Client: personal service health ──
   private async getClientOverview(userId: string): Promise<ClientOverview> {
-    const [
-      activeServices,
-      pendingInvoices,
-      nextRenewal,
-      openTickets,
-    ] = await this.prisma.$transaction([
-      // Servicios activos
-      this.prisma.service.count({
-        where: { user_id: userId, status: 'active' },
-      }),
-      // Factura pendiente (€)
-      this.prisma.invoice.aggregate({
-        where: { user_id: userId, status: { in: ['pending', 'overdue'] } },
-        _sum: { total: true },
-      }),
-      // Próxima renovación (earliest next_due_date from active services)
-      this.prisma.service.findFirst({
-        where: {
-          user_id: userId,
-          status: 'active',
-          next_due_date: { not: null, gte: new Date() },
-        },
-        orderBy: { next_due_date: 'asc' },
-        select: { next_due_date: true },
-      }),
-      // Tickets abiertos
-      this.prisma.conversation.count({
-        where: {
-          user_id: userId,
-          status: { in: ['open', 'waiting_client', 'waiting_agent'] },
-        },
-      }),
-    ]);
+    const [activeServices, pendingInvoices, nextRenewal, openTickets] =
+      await this.prisma.$transaction([
+        // Servicios activos
+        this.prisma.service.count({
+          where: { user_id: userId, status: 'active' },
+        }),
+        // Factura pendiente (€)
+        this.prisma.invoice.aggregate({
+          where: { user_id: userId, status: { in: ['pending', 'overdue'] } },
+          _sum: { total: true },
+        }),
+        // Próxima renovación (earliest next_due_date from active services)
+        this.prisma.service.findFirst({
+          where: {
+            user_id: userId,
+            status: 'active',
+            next_due_date: { not: null, gte: new Date() },
+          },
+          orderBy: { next_due_date: 'asc' },
+          select: { next_due_date: true },
+        }),
+        // Conversaciones abiertas (tickets + chats unificados para el cliente)
+        this.prisma.conversation.count({
+          where: {
+            user_id: userId,
+            status: { in: ['open', 'waiting_client', 'waiting_agent'] },
+          },
+        }),
+      ]);
 
     return {
       role: 'client',
       active_services: activeServices,
       pending_invoice_amount: Number(pendingInvoices._sum.total ?? 0),
       next_renewal: nextRenewal?.next_due_date?.toISOString() ?? null,
-      open_tickets: openTickets,
+      open_conversations: openTickets,
     };
   }
 
@@ -172,35 +187,32 @@ export class DashboardService {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const [
-      waitingChats,
-      unansweredTickets,
-      tasksToday,
-    ] = await this.prisma.$transaction([
-      // Chats esperando agente
-      this.prisma.conversation.count({
-        where: { type: 'chat', status: 'waiting_agent' },
-      }),
-      // Tickets sin primera respuesta
-      this.prisma.conversation.count({
-        where: {
-          type: 'ticket',
-          status: { in: ['open', 'waiting_agent'] },
-          first_response_at: null,
-        },
-      }),
-      // Tareas de hoy (asignadas a este agente, pendientes, vencen hoy)
-      this.prisma.task.count({
-        where: {
-          assigned_to: agentId,
-          status: { in: ['pending', 'in_progress'] },
-          OR: [
-            { due_date: { gte: today, lt: tomorrow } },
-            { due_date: null }, // No due date = always pending
-          ],
-        },
-      }),
-    ]);
+    const [waitingChats, unansweredTickets, tasksToday] =
+      await this.prisma.$transaction([
+        // Chats esperando agente
+        this.prisma.conversation.count({
+          where: { type: 'chat', status: 'waiting_agent' },
+        }),
+        // Tickets sin primera respuesta
+        this.prisma.conversation.count({
+          where: {
+            type: 'ticket',
+            status: { in: ['open', 'waiting_agent'] },
+            first_response_at: null,
+          },
+        }),
+        // Tareas de hoy (asignadas a este agente, pendientes, vencen hoy)
+        this.prisma.task.count({
+          where: {
+            assigned_to: agentId,
+            status: { in: ['pending', 'in_progress'] },
+            OR: [
+              { due_date: { gte: today, lt: tomorrow } },
+              { due_date: null }, // No due date = always pending
+            ],
+          },
+        }),
+      ]);
 
     return {
       role: 'agent',
@@ -211,36 +223,40 @@ export class DashboardService {
   }
 
   // ── Partner: referral & commission overview ──
-  private async getPartnerOverview(partnerId: string): Promise<PartnerOverview> {
+  private async getPartnerOverview(
+    partnerId: string,
+  ): Promise<PartnerOverview> {
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const [
-      referredClients,
-      commissionInvoices,
-    ] = await this.prisma.$transaction([
-      // Clientes referidos (users with partner_id = this partner)
-      this.prisma.user.count({
-        where: { partner_id: partnerId, status: 'active', role: { slug: 'client' } },
-      }),
-      // Comisiones del mes (paid invoices from referred clients this month)
-      this.prisma.invoice.aggregate({
-        where: {
-          partner_id: partnerId,
-          status: 'paid',
-          paid_at: { gte: startOfMonth },
-        },
-        _sum: { total: true },
-      }),
-    ]);
+    const [referredClients, commissionInvoices] =
+      await this.prisma.$transaction([
+        // Clientes referidos (users with partner_id = this partner)
+        this.prisma.user.count({
+          where: {
+            partner_id: partnerId,
+            status: 'active',
+            role: { slug: 'client' },
+          },
+        }),
+        // Comisiones del mes (paid invoices from referred clients this month)
+        this.prisma.invoice.aggregate({
+          where: {
+            partner_id: partnerId,
+            status: 'paid',
+            paid_at: { gte: startOfMonth },
+          },
+          _sum: { total: true },
+        }),
+      ]);
 
     // For commissions, apply the partner_commission_pct from product
     // For simplicity, use total * avg commission rate
     // In production this would be a dedicated commissions table
     const rawTotal = Number(commissionInvoices._sum.total ?? 0);
     // Default 10% commission — actual calculation would use per-product pct
-    const estimatedCommission = rawTotal * 0.10;
+    const estimatedCommission = rawTotal * 0.1;
 
     return {
       role: 'partner',

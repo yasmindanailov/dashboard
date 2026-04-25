@@ -11,6 +11,7 @@ import {
   ListPage, FilterBar, StatusTabs,
 } from '../../components/ui';
 import type { TableColumn, BadgeVariant, StatusTab } from '../../components/ui';
+import s from './billing.module.css';
 
 /* ═══════════════════════════════════════
    Billing Page — List (UI_SPEC §2.4)
@@ -35,6 +36,7 @@ interface InvoiceItem {
   due_date: string; paid_at: string | null; payment_provider: string | null;
   is_manual: boolean; retry_count: number; max_retries: number; created_at: string;
   billing_profile?: { label: string; nif_cif?: string } | null;
+  user?: { id: string; first_name: string; last_name: string; email: string } | null;
   items: { description: string }[];
 }
 
@@ -81,13 +83,13 @@ export default function InvoicesPage() {
         status: filterStatus || undefined, user_id: filterUserId || undefined,
       }) as PaginatedResponse;
       setInvoices(res.data); setMeta(res.meta);
-    } catch { /* handled */ }
+    } catch (err) { console.warn('[Billing] loadInvoices failed:', err); }
     finally { setLoading(false); }
   }, [token, search, filterStatus, filterUserId]);
 
   const loadStats = useCallback(async () => {
     if (!token) return;
-    try { setStats(await billingApi.getStats(token) as InvoiceStats); } catch { /* */ }
+    try { setStats(await billingApi.getStats(token) as InvoiceStats); } catch (err) { console.warn('[Billing] loadStats failed:', err); }
   }, [token]);
 
   useEffect(() => { loadInvoices(); loadStats(); }, [loadInvoices, loadStats]);
@@ -157,10 +159,10 @@ export default function InvoicesPage() {
       key: 'invoice_number', header: 'Nº Factura',
       render: (inv) => (
         <div>
-          <Link href={`/dashboard/billing/${inv.id}`} style={{ color: 'var(--brand)', fontWeight: 'var(--font-weight-semibold)', textDecoration: 'none' }}>
+          <Link href={`/dashboard/billing/${inv.id}`} className={s.invoiceLink}>
             {inv.invoice_number}
           </Link>
-          {inv.is_manual && <span style={{ marginLeft: 6, fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Manual</span>}
+          {inv.is_manual && <span className={s.manualTag}>Manual</span>}
         </div>
       ),
     },
@@ -171,26 +173,31 @@ export default function InvoicesPage() {
     /* P6.1: Hide 'Cliente' column for non-admin (redundant — they only see their own invoices) */
     ...(isAdmin ? [{
       key: 'client', header: 'Cliente',
-      render: (inv: InvoiceItem) => (
-        <div>
-          <span style={{ color: 'var(--text-primary)' }}>{inv.billing_profile?.label || '—'}</span>
-          {inv.billing_profile?.nif_cif && <span style={{ display: 'block', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{inv.billing_profile.nif_cif}</span>}
-        </div>
-      ),
+      render: (inv: InvoiceItem) => {
+        const clientName = inv.user
+          ? `${inv.user.first_name} ${inv.user.last_name}`
+          : null;
+        return (
+          <div>
+            <span className={s.clientName}>{clientName || inv.billing_profile?.label || '—'}</span>
+            {inv.billing_profile?.nif_cif && <span className={s.clientNif}>{inv.billing_profile.nif_cif}</span>}
+          </div>
+        );
+      },
     } as TableColumn<InvoiceItem>] : []),
     {
       key: 'total', header: 'Total', width: '120px',
-      render: (inv) => <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--text-primary)' }}>{fmt(inv.total, inv.currency)}</span>,
+      render: (inv) => <span className={s.totalAmount}>{fmt(inv.total, inv.currency)}</span>,
     },
-    { key: 'created_at', header: 'Emisión', render: (inv) => <span style={{ color: 'var(--text-secondary)' }}>{fmtDate(inv.created_at)}</span> },
+    { key: 'created_at', header: 'Emisión', render: (inv) => <span className={s.dateCell}>{fmtDate(inv.created_at)}</span> },
     {
       key: 'due_date', header: <>{!isAdmin ? <>Vencimiento <HelpTip text="Fecha límite de pago. Se cobra automáticamente si tienes un método registrado." /></> : 'Vencimiento'}</>,
-      render: (inv) => <span style={{ color: inv.status === 'overdue' ? 'var(--danger)' : 'var(--text-secondary)' }}>{fmtDate(inv.due_date)}</span>,
+      render: (inv) => <span className={inv.status === 'overdue' ? s.dateOverdue : s.dateCell}>{fmtDate(inv.due_date)}</span>,
     },
     {
       key: 'actions', header: '', width: '180px', align: 'right',
       render: (inv) => (
-        <div style={{ display: 'flex', gap: 'var(--space-1)', justifyContent: 'flex-end' }}>
+        <div className={s.actions}>
           {isAdmin && inv.status === 'draft' && (
             <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); handleAction(inv.id, 'finalize'); }} disabled={actionLoading === inv.id}>Enviar</Button>
           )}
@@ -217,7 +224,7 @@ export default function InvoicesPage() {
       }
       banner={
         filterUserId ? (
-          <div style={{ marginBottom: 'var(--space-4)' }}>
+          <div className={s.bannerWrap}>
             <AlertBanner variant="info" onClose={() => router.push('/dashboard/billing')}>
               Mostrando facturas de un cliente específico
             </AlertBanner>
@@ -276,7 +283,7 @@ export default function InvoicesPage() {
           </>
         }
       >
-        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+        <p className={s.bulkConfirmText}>
           {bulkAction === 'pay'
             ? `¿Marcar ${selected.size} factura${selected.size > 1 ? 's' : ''} como pagada${selected.size > 1 ? 's' : ''}?`
             : `¿Cancelar ${selected.size} factura${selected.size > 1 ? 's' : ''}? Esta acción no se puede deshacer.`

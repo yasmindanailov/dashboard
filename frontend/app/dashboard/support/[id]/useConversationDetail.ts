@@ -64,7 +64,7 @@ export function useConversationDetail() {
     Promise.all([
       clientsApi.get(token, uid).catch(() => null),
       clientsApi.listStructuredNotes(token, uid, { limit: 5 }).catch(() => ({ data: [] })),
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/services?userId=${uid}`, {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/services?user_id=${uid}&limit=5`, {
         headers: { Authorization: `Bearer ${token}` },
       }).then(r => r.json()).catch(() => ({ data: [] })),
     ]).then(([profile, notesRes, svcRes]: any[]) => {

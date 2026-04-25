@@ -35,6 +35,7 @@ export interface ConversationDetail {
   client_email?: string | null;
   resolved_by_name?: string | null;
   resolution_note?: string | null;
+  assigned_agent_name?: string | null;
 }
 
 export type ResolutionType = 'resolve' | 'close' | 'escalate' | 'reopen';

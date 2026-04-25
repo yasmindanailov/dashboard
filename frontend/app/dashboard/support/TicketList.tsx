@@ -4,7 +4,6 @@ import Link from 'next/link';
 import type { Ticket } from './types';
 import { STATUS_CONFIG, PRIORITY_CONFIG, timeAgo, getDisplayTitle } from './types';
 import { Badge, Card, EmptyState, Skeleton, Pagination } from '../../components/ui';
-import type { BadgeVariant } from '../../components/ui';
 import styles from './TicketList.module.css';
 
 /* ═══════════════════════════════════════
@@ -14,10 +13,6 @@ import styles from './TicketList.module.css';
    Ref: DECISIONS.md §43, ROADMAP.md D22
    ═══════════════════════════════════════ */
 
-const STATUS_BADGE: Record<string, BadgeVariant> = {
-  open: 'info', waiting_client: 'warning', waiting_agent: 'danger',
-  resolved: 'success', closed: 'neutral',
-};
 
 const ChatIcon = (
   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
@@ -80,17 +75,17 @@ export default function TicketList({
             : lastMessage?.body || '';
 
           return (
-            <Link key={conv.id} href={`/dashboard/support/${conv.id}`} style={{ textDecoration: 'none' }}>
+            <Link key={conv.id} href={`/dashboard/support/${conv.id}`} className={styles.ticketLink}>
               <Card variant="interactive">
                 <div className={styles.row}>
                   {/* Priority indicator */}
-                  <div className={styles.priority} style={{ background: priority.color }} />
+                  <div className={styles.priority} data-priority={conv.priority} />
 
                   {/* Content */}
                   <div className={styles.content}>
                     <div className={styles.titleRow}>
                       <span className={styles.subject}>{getDisplayTitle(conv)}</span>
-                      <Badge variant={STATUS_BADGE[conv.status] || 'neutral'}>{status.label}</Badge>
+                      <Badge variant={status.variant}>{status.label}</Badge>
                       {conv.priority === 'urgent' && <Badge variant="danger">URGENTE</Badge>}
                     </div>
                     <div className={styles.preview}>{preview}</div>

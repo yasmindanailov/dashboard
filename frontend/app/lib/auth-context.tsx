@@ -55,7 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Schedule next refresh
           scheduleRefresh(res.expires_in || 900);
         }
-      } catch {
+      } catch (err) {
+        console.warn('[Auth] 401 interceptor refresh failed:', err);
         // Refresh failed — force logout
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
@@ -83,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     const token = localStorage.getItem('access_token');
     if (token) {
-      try { await authApi.logout(token); } catch { /* ignore */ }
+      try { await authApi.logout(token); } catch (err) { console.warn('[Auth] logout notification failed:', err); }
     }
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
@@ -132,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
               return;
             }
-          } catch { /* refresh also failed */ }
+          } catch (err) { console.warn('[Auth] refresh failed:', err); }
         }
         // Both tokens invalid
         localStorage.removeItem('access_token');

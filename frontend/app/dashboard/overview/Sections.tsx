@@ -57,6 +57,15 @@ export function buildAlerts(stats: OverviewStats): Alert[] {
         href: '/dashboard/support',
       });
     }
+    if (stats.open_chats > 0) {
+      alerts.push({
+        id: 'chats',
+        title: `${stats.open_chats} chat${stats.open_chats > 1 ? 's' : ''} activo${stats.open_chats > 1 ? 's' : ''}`,
+        meta: 'Conversaciones en tiempo real',
+        type: 'warning',
+        href: '/dashboard/support/chats',
+      });
+    }
   }
 
   if (stats.role === 'client') {
@@ -69,10 +78,10 @@ export function buildAlerts(stats: OverviewStats): Alert[] {
         href: '/dashboard/billing',
       });
     }
-    if (stats.open_tickets > 0) {
+    if (stats.open_conversations > 0) {
       alerts.push({
-        id: 'tickets',
-        title: `${stats.open_tickets} ticket${stats.open_tickets > 1 ? 's' : ''} en curso`,
+        id: 'conversations',
+        title: `${stats.open_conversations} conversación${stats.open_conversations > 1 ? 'es' : ''} en curso`,
         meta: 'Hay actualizaciones',
         type: 'info',
         href: '/dashboard/support',

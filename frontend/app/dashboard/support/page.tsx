@@ -1,7 +1,6 @@
 'use client';
 
 import { useTicketInbox } from './useTicketInbox';
-import { STATUS_CONFIG, ADMIN_ROLES } from './types';
 import type { StatusTab } from '../../components/ui';
 import TicketList from './TicketList';
 import NewTicketModal from './NewTicketModal';
@@ -39,16 +38,24 @@ export default function SupportPage() {
   const isAgentOnly = AGENT_ONLY_ROLES.includes(roleSlug);
   const canOpenTicket = !isAgentOnly;
 
-  /* ── StatusTabs with stats counts (§3.2, P6.1) ── */
-  const statusTabs: StatusTab[] = [
-    { label: 'Todas', value: '', count: inbox.stats?.total_conversations },
-    { label: 'Abiertas', value: 'open', count: inbox.stats?.open_count, variant: 'info' },
-    { label: 'Esperando agente', value: 'waiting_agent', count: inbox.stats?.waiting_agent_count, variant: 'danger' },
-    { label: 'Esperando cliente', value: 'waiting_client', count: inbox.stats?.waiting_client_count, variant: 'warning' },
-    { label: 'Resueltas', value: 'resolved', count: inbox.stats?.resolved_count, variant: 'success' },
-    /* P6.1: Client doesn't need 'Cerradas' tab */
-    ...(!isClient ? [{ label: 'Cerradas', value: 'closed', count: inbox.stats?.closed_count }] : []),
-  ];
+  /* ── StatusTabs — role-aware (§3.2, P6.1) ──
+     Client: simplified view (Todas, Abiertas, Resueltas).
+     Clients don't need internal workflow states (waiting_agent/waiting_client).
+     Admin/Agent: full workflow tabs for queue management. */
+  const statusTabs: StatusTab[] = isClient
+    ? [
+        { label: 'Todas', value: '', count: inbox.stats?.total_conversations },
+        { label: 'Abiertas', value: 'open', count: inbox.stats?.open_count, variant: 'info' },
+        { label: 'Resueltas', value: 'resolved', count: inbox.stats?.resolved_count, variant: 'success' },
+      ]
+    : [
+        { label: 'Todas', value: '', count: inbox.stats?.total_conversations },
+        { label: 'Abiertas', value: 'open', count: inbox.stats?.open_count, variant: 'info' },
+        { label: 'Esperando agente', value: 'waiting_agent', count: inbox.stats?.waiting_agent_count, variant: 'danger' },
+        { label: 'Esperando cliente', value: 'waiting_client', count: inbox.stats?.waiting_client_count, variant: 'warning' },
+        { label: 'Resueltas', value: 'resolved', count: inbox.stats?.resolved_count, variant: 'success' },
+        { label: 'Cerradas', value: 'closed', count: inbox.stats?.closed_count },
+      ];
 
   return (
     <ListPage

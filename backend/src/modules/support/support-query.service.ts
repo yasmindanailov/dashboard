@@ -1,26 +1,13 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { Prisma } from '@prisma/client';
 import { ConversationListQueryDto } from './dto/support.dto';
 import { paginate, PaginatedResult } from '../../common/dto/pagination.dto';
 
 /**
- * ═══════════════════════════════════════
- * SupportQueryService — Read operations and statistics
- * ═══════════════════════════════════════
- *
- * Responsibilities:
- *   - findAll (paginated list with filters)
- *   - findOne (single conversation with enriched messages)
- *   - getUnreadCount (unread badge)
- *   - getStats (admin dashboard stats)
- *
+ * SupportQueryService — Read operations and statistics.
+ * Responsibilities: findAll, findOne, getUnreadCount, getStats
  * Ref: DECISIONS.md §9, ARCHITECTURE.md Regla 15
- * ═══════════════════════════════════════
  */
 @Injectable()
 export class SupportQueryService {
@@ -32,7 +19,9 @@ export class SupportQueryService {
    * List conversations with pagination and filters.
    * ALWAYS filtered by type (chat or ticket).
    */
-  async findAll(query: ConversationListQueryDto): Promise<PaginatedResult<any>> {
+  async findAll(
+    query: ConversationListQueryDto,
+  ): Promise<PaginatedResult<any>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const skip = (page - 1) * limit;
@@ -44,14 +33,19 @@ export class SupportQueryService {
     if (query.status) where.status = query.status;
     if (query.priority) where.priority = query.priority;
     if (query.category) where.category = query.category;
-    if (query.assigned_agent_id) where.assigned_agent_id = query.assigned_agent_id;
+    if (query.assigned_agent_id)
+      where.assigned_agent_id = query.assigned_agent_id;
     if (query.user_id) where.user_id = query.user_id;
     if (query.channel) where.channel = query.channel;
 
     if (query.search) {
       where.OR = [
         { subject: { contains: query.search, mode: 'insensitive' } },
-        { messages: { some: { body: { contains: query.search, mode: 'insensitive' } } } },
+        {
+          messages: {
+            some: { body: { contains: query.search, mode: 'insensitive' } },
+          },
+        },
       ];
     }
 
@@ -67,10 +61,7 @@ export class SupportQueryService {
             select: { first_name: true, last_name: true },
           },
         },
-        orderBy: [
-          { priority: 'desc' },
-          { updated_at: 'desc' },
-        ],
+        orderBy: [{ priority: 'desc' }, { updated_at: 'desc' }],
         skip,
         take: limit,
       }),
@@ -91,10 +82,17 @@ export class SupportQueryService {
         const wb = statusWeight[b.status] ?? 5;
         if (wa !== wb) return wa - wb;
         if (a.priority !== b.priority) {
-          const prio: Record<string, number> = { urgent: 4, high: 3, normal: 2, low: 1 };
+          const prio: Record<string, number> = {
+            urgent: 4,
+            high: 3,
+            normal: 2,
+            low: 1,
+          };
           return (prio[b.priority] ?? 0) - (prio[a.priority] ?? 0);
         }
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+        return (
+          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        );
       });
     }
 
@@ -166,7 +164,8 @@ export class SupportQueryService {
         where: { id: conversation.resolved_by_id },
         select: { first_name: true, last_name: true },
       });
-      if (resolver) resolved_by_name = `${resolver.first_name} ${resolver.last_name}`;
+      if (resolver)
+        resolved_by_name = `${resolver.first_name} ${resolver.last_name}`;
     }
 
     // 7.H21: Resolve client name for the conversation header
@@ -185,6 +184,15 @@ export class SupportQueryService {
       client_name = conversation.guest_name;
       client_email = conversation.guest_email;
     }
+    // Resolve assigned agent name for client sidebar
+    let assigned_agent_name: string | null = null;
+    if (conversation.assigned_agent_id) {
+      const agent = await this.prisma.user.findUnique({
+        where: { id: conversation.assigned_agent_id },
+        select: { first_name: true, last_name: true },
+      });
+      if (agent) assigned_agent_name = `${agent.first_name} ${agent.last_name}`;
+    }
 
     return {
       ...conversation,
@@ -193,6 +201,7 @@ export class SupportQueryService {
       resolved_by_name,
       client_name,
       client_email,
+      assigned_agent_name,
     };
   }
 
@@ -229,17 +238,7 @@ export class SupportQueryService {
   /**
    * Get conversation stats for the admin dashboard.
    */
-  async getStats(type?: 'chat' | 'ticket'): Promise<{
-    total_conversations: number;
-    open_count: number;
-    waiting_agent_count: number;
-    unassigned_count: number;
-    avg_first_response_minutes: number | null;
-    /* Per-status counts for StatusTabs (UI_SPEC §3.2) */
-    waiting_client_count: number;
-    resolved_count: number;
-    closed_count: number;
-  }> {
+  async getStats(type?: 'chat' | 'ticket') {
     const typeFilter = type ? { type } : {};
 
     const [total, unassigned, statusGroups] = await this.prisma.$transaction([
@@ -262,7 +261,8 @@ export class SupportQueryService {
     // Build a status→count map from the groupBy result
     const countByStatus: Record<string, number> = {};
     for (const group of statusGroups) {
-      countByStatus[group.status] = typeof group._count === 'number' ? group._count : 0;
+      countByStatus[group.status] =
+        typeof group._count === 'number' ? group._count : 0;
     }
 
     const recentConversations = await this.prisma.conversation.findMany({

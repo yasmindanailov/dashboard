@@ -7,4 +7,3 @@ import { KnowledgeBaseService } from './knowledge-base.service';
 export class KnowledgeBaseController {
   constructor(private readonly Service: KnowledgeBaseService) {}
 }
-

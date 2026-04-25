@@ -7,4 +7,3 @@ import { ProvisioningService } from './provisioning.service';
 export class ProvisioningController {
   constructor(private readonly Service: ProvisioningService) {}
 }
-

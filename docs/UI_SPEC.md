@@ -396,6 +396,8 @@ Toda página del dashboard es UNO de estos 6 tipos. Sin excepciones.
 | `/dashboard/support` | List | Cliente (sus tickets), Agente, Admin |
 | `/dashboard/support/[id]` | Detail | Cliente (el suyo), Agente, Admin |
 | `/dashboard/support/chats` | Workspace | Agente, Admin |
+| `/dashboard/tasks` | List | Agente, Admin |
+| `/dashboard/tasks/[id]` | Detail | Agente, Admin |
 
 ---
 
@@ -1644,7 +1646,202 @@ app/
 
 ---
 
-### 5.14 Resumen de componentes nuevos requeridos
+### 5.15 Tareas (`/dashboard/tasks`) — List
+
+**Tipo:** List (§2.4)
+**Pregunta:** "¿Qué tengo pendiente?" (agente) / "¿Cómo va el equipo?" (admin)
+**Roles:** Agente (sus tareas + sin asignar), Admin (todas)
+**Ref:** DECISIONS.md §10, DATABASE_SCHEMA.md `tasks`
+
+**Layout:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│ PAGEHEADER                                           │
+│  Título: "Tareas"                                    │
+│  Subtítulo: role-aware (ver tabla)                   │
+│  CTA: "Nueva tarea" (solo admin)                    │
+├─────────────────────────────────────────────────────┤
+│ STATUSTABS                                           │
+│  Hoy · Esta semana · Pendientes · Completadas        │
+├─────────────────────────────────────────────────────┤
+│ FILTERBAR                                            │
+│  SearchInput + Select tipo + Select prioridad        │
+│  + Select agente (solo admin)                        │
+├─────────────────────────────────────────────────────┤
+│ TABLE                                                │
+│  Prioridad | Título | Cliente | Tipo | Agente |      │
+│  Vencimiento | Estado                                │
+├─────────────────────────────────────────────────────┤
+│ PAGINATION                                           │
+└─────────────────────────────────────────────────────┘
+```
+
+**StatusTabs (§3.2):**
+
+| Tab | Filtro | Variante | Contador |
+|-----|--------|----------|----------|
+| Hoy | `due_date <= fin del día` + status != completed | `danger` si >0 | Tareas con vencimiento hoy |
+| Esta semana | `due_date <= fin de semana` + status != completed | `warning` si >0 | Tareas de la semana |
+| Pendientes | `status IN (pending, in_progress)` | — | Total pendientes |
+| Completadas | `status = completed` | `success` | Total completadas |
+
+**Columnas Table:**
+
+| Columna | Contenido | Width |
+|---------|-----------|-------|
+| Prioridad | Barra color vertical (4px): critical=rojo, high=naranja, medium=gris, low=border) | 4px |
+| Título | Título de la tarea. Link a detail | — |
+| Cliente | Nombre del cliente (link a ficha). Oculto para agente si redundante | — |
+| Tipo | Badge: `WOW Call`, `Mantenimiento`, `Proyecto`, `Custom` | 130px |
+| Agente | Nombre del agente asignado. "Sin asignar" en text-tertiary si null | 140px |
+| Vencimiento | Fecha. Rojo si pasada y no completada (§overdue) | 120px |
+| Estado | Badge: Pendiente (neutral), En progreso (info), Completada (success), Vencida (danger), Cancelada (neutral) | 120px |
+
+**Contenido adaptativo por rol (P6.1):**
+
+| Elemento | Admin | Agente |
+|----------|-------|--------|
+| Subtítulo | "Gestión de tareas del equipo" | "Mis tareas pendientes" |
+| CTA "Nueva tarea" | ✅ Visible | ❌ Oculto |
+| Filtro "Agente" | ✅ Select con lista de agentes | ❌ Oculto (filtro implícito: solo sus tareas) |
+| Columna "Agente" | ✅ Visible | ❌ Oculto (redundante) |
+| Datos visibles | TODAS las tareas de TODOS los agentes | Sus tareas (assigned_to = su id) + sin asignar |
+| Bulk actions | ✅ Reasignar en lote, Cancelar en lote | ❌ No disponible |
+
+**Empty states (§4.8, tono P5):**
+
+| Contexto | Icono | Título | Descripción |
+|----------|-------|--------|-------------|
+| Sin tareas (agente) | ✓ check | "¡Buen trabajo!" | "No tienes tareas pendientes. Disfruta del momento." |
+| Sin tareas (admin) | clipboard | "Sin tareas activas" | "No hay tareas que coincidan con los filtros." |
+| Sin resultados búsqueda | search | "Sin resultados" | "Prueba con otros filtros o términos de búsqueda." |
+
+**Modal "Nueva tarea" (§4.1 — modal, no navegación):**
+
+Formulario en Modal `size="md"`:
+- Input: Título (obligatorio)
+- Textarea: Descripción (opcional)
+- Select: Tipo (wow_call, maintenance, custom_work, project_task)
+- Select: Prioridad (low, medium, high, critical)
+- SearchInput: Cliente destino (obligatorio)
+- Select: Servicio vinculado (opcional, filtrado por cliente seleccionado)
+- Select: Agente asignado (opcional)
+- DatePicker: Fecha de vencimiento (opcional)
+- Actions: Cancelar + "Crear tarea"
+
+**Componentes DS:** ListPage, PageHeader, StatusTabs, FilterBar, SearchInput, Select, Table, Badge, Pagination, Modal, Input, Textarea, Button, EmptyState, Skeleton, Toast.
+
+**Estado:** ⬜ Sprint 8.
+
+---
+
+### 5.16 Tarea Detail (`/dashboard/tasks/[id]`) — Detail
+
+**Tipo:** Detail (§2.5)
+**Pregunta:** "¿Qué tengo que hacer exactamente?"
+**Roles:** Agente (su tarea), Admin (cualquier tarea)
+**Ref:** DECISIONS.md §10, DATABASE_SCHEMA.md `tasks`, `task_checklist_completions`, `maintenance_logs`
+
+**Layout:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│ BREADCRUMB                                           │
+│  Tareas > Mantenimiento · empresa.com                │
+├─────────────────────────────────────────────────────┤
+│ HEADER                                               │
+│  Título de la tarea                                  │
+│  Badge tipo + Badge prioridad + Badge estado         │
+│  Select estado (transición) + Select agente (admin)  │
+├─────────────────────────────────────────────────────┤
+│ TWO COLUMNS                                          │
+│ ┌──────────────────────┬────────────────────────┐   │
+│ │ MAIN COLUMN          │ SIDEBAR                │   │
+│ │                      │                        │   │
+│ │ Card: Descripción    │ Card: Cliente           │   │
+│ │                      │  Avatar + nombre        │   │
+│ │ Card: Checklist      │  Link "Ver perfil"      │   │
+│ │  ☐ Actualizar core   │                        │   │
+│ │  ☑ Revisar SSL       │ Card: Servicio          │   │
+│ │  ☐ Backup            │  Nombre + estado        │   │
+│ │                      │  Link al servicio       │   │
+│ │ Card: Notas cliente  │                        │   │
+│ │  Textarea            │ Card: Historial         │   │
+│ │                      │  Creada: 24 abr         │   │
+│ │ Card: Notas internas │  Asignada: 24 abr       │   │
+│ │  Textarea            │  En progreso: 25 abr    │   │
+│ │                      │                        │   │
+│ │ [Completar y notif.] │                        │   │
+│ └──────────────────────┴────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+```
+
+**Header — controles de estado:**
+
+| Control | Quién lo ve | Opciones |
+|---------|------------|----------|
+| Select "Estado" | Agente + Admin | pending → in_progress → completed. Cancelar solo admin |
+| Select "Agente" | Solo Admin | Lista de agentes del equipo + "Sin asignar" |
+| Select "Prioridad" | Solo Admin | low, medium, high, critical |
+
+**Columna izquierda — bloques por tipo de tarea:**
+
+| Tipo | Bloques visibles |
+|------|-----------------|
+| `maintenance` / `maintenance_management` | Descripción + **Checklist** (heredado del producto/servicio) + Notas cliente + Notas internas + Botón "Completar y notificar" |
+| `wow_call` | Descripción + **Datos del cliente** (nombre, email, servicio contratado, plan, notas del checkout) + Campo "Resumen de la llamada" + Botón "Completar" |
+| `custom_work` | Descripción + Notas cliente + Notas internas + Botón "Completar" |
+| `project_task` | Descripción + Link al proyecto (Sprint 22) + Notas internas + Botón "Completar" |
+
+**Checklist (solo maintenance):**
+- Items heredados de `product_checklist_items` → copiados a `service_checklist_items` al crear el servicio → referenciados en `task_checklist_completions`.
+- Cada item: checkbox + label. Toggle guarda inmediatamente (`PATCH`).
+- Items `is_required = true`: no se puede completar la tarea sin marcarlos.
+- Progreso: "3/7 completados" debajo del título del card.
+
+**Flujo "Completar y notificar" (maintenance):**
+
+```
+1. Agente completa checklist (items required todos ✓)
+2. Escribe "Notas para el cliente" (textarea — van al email)
+3. Escribe "Notas internas" (textarea — solo equipo, guardadas en ClientNote)
+4. Click "Completar y notificar"
+5. → Modal confirmación (§4.2): "Se notificará al cliente por email. ¿Confirmar?"
+6. → Backend:
+   a. task.status = completed, task.completed_at = now()
+   b. maintenance_log creado (task_id, service_id, client_notes, internal_notes)
+   c. ClientNote auto-creada (category: technical, linked to task)
+   d. Evento maintenance.completed emitido → email al cliente
+7. → Toast success: "Tarea completada. Cliente notificado."
+8. → Redirect a /dashboard/tasks
+```
+
+**Sidebar derecha:**
+
+| Card | Contenido |
+|------|-----------|
+| **Cliente** | Avatar + nombre completo + email. Link "Ver perfil" (con `?from` para ContextBackLink) |
+| **Servicio** | Nombre del servicio + Badge estado (active/suspended). Link al servicio (futuro). Solo si `service_id` no es null |
+| **Historial** | Timeline vertical: Creada (fecha) → Asignada a [nombre] (fecha) → En progreso (fecha) → Completada (fecha). Cada entry = `metaLine` con icono + texto + timestamp |
+
+**Contenido adaptativo por rol (P6.1):**
+
+| Elemento | Admin | Agente |
+|----------|-------|--------|
+| Select "Agente" | ✅ Puede reasignar | ❌ Oculto |
+| Select "Prioridad" | ✅ Puede cambiar | ❌ Solo lectura (Badge) |
+| Botón "Cancelar tarea" | ✅ Visible | ❌ Oculto |
+| Checklist toggle | ✅ | ✅ |
+| Completar y notificar | ✅ | ✅ |
+
+**Componentes DS:** DetailPage, Breadcrumb, Badge, Select, Card, Button, Modal, Textarea, Skeleton, Toast, Avatar.
+
+**Estado:** ⬜ Sprint 8.
+
+---
+
+### 5.17 Resumen de componentes nuevos requeridos
 
 Componentes que el DS necesitaba para implementar S5. Todos los de prioridad alta/media están implementados (Sprint 7.5):
 
@@ -1682,7 +1879,7 @@ Componentes que el DS necesitaba para implementar S5. Todos los de prioridad alt
 | S2. Anatomía de páginas (6 tipos) | ✅ Cerrada |
 | S3. Reglas de contenido | ✅ Cerrada |
 | S4. Patrones de interacción (12 patrones) | ✅ Cerrada |
-| S5. Especificación por página (13 páginas) | ✅ Cerrada |
+| S5. Especificación por página (15 páginas) | ✅ Cerrada |
 
 > Este documento es la fuente de verdad para la interfaz del dashboard Aelium.
 > Toda página nueva debe clasificarse en un tipo (S2), seguir sus reglas (S3-S4),

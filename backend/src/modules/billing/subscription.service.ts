@@ -44,14 +44,17 @@ export class SubscriptionService {
     });
 
     if (!service) throw new NotFoundException('Servicio no encontrado.');
-    if (service.user_id !== userId) throw new BadRequestException('No tienes acceso a este servicio.');
+    if (service.user_id !== userId)
+      throw new BadRequestException('No tienes acceso a este servicio.');
     if (service.status !== 'active') {
       throw new BadRequestException('Solo servicios activos pueden pausarse.');
     }
 
     // Check if product allows pausing
     if (!service.product.client_can_pause) {
-      throw new BadRequestException('Este producto no permite pausar la suscripción.');
+      throw new BadRequestException(
+        'Este producto no permite pausar la suscripción.',
+      );
     }
 
     // Calculate max pause date from product settings
@@ -76,7 +79,9 @@ export class SubscriptionService {
       pause_max_date: pauseMaxDate,
     });
 
-    this.logger.log(`Service ${serviceId} paused by user ${userId} until ${pauseMaxDate.toISOString()}`);
+    this.logger.log(
+      `Service ${serviceId} paused by user ${userId} until ${pauseMaxDate.toISOString()}`,
+    );
 
     return updated;
   }
@@ -91,9 +96,12 @@ export class SubscriptionService {
     });
 
     if (!service) throw new NotFoundException('Servicio no encontrado.');
-    if (service.user_id !== userId) throw new BadRequestException('No tienes acceso a este servicio.');
+    if (service.user_id !== userId)
+      throw new BadRequestException('No tienes acceso a este servicio.');
     if (service.status !== 'suspended' || !service.paused_at) {
-      throw new BadRequestException('Solo servicios pausados pueden reanudarse.');
+      throw new BadRequestException(
+        'Solo servicios pausados pueden reanudarse.',
+      );
     }
 
     const updated = await this.prisma.service.update({
@@ -133,20 +141,27 @@ export class SubscriptionService {
     });
     if (!service) throw new NotFoundException('Servicio no encontrado.');
     if (service.status !== 'active') {
-      throw new BadRequestException('Solo servicios activos pueden cambiar de plan.');
+      throw new BadRequestException(
+        'Solo servicios activos pueden cambiar de plan.',
+      );
     }
 
     const newPricing = await this.prisma.productPricing.findUnique({
       where: { id: newPricingId },
     });
-    if (!newPricing) throw new NotFoundException('Plan de precio no encontrado.');
+    if (!newPricing)
+      throw new NotFoundException('Plan de precio no encontrado.');
 
     // Calculate days used in current period
     const now = new Date();
-    const currentCycleDays = this.billingService.getCycleDays(service.billing_cycle);
+    const currentCycleDays = this.billingService.getCycleDays(
+      service.billing_cycle,
+    );
     const periodStart = new Date(service.next_due_date!);
     periodStart.setDate(periodStart.getDate() - currentCycleDays);
-    const daysUsed = Math.floor((now.getTime() - periodStart.getTime()) / (24 * 60 * 60 * 1000));
+    const daysUsed = Math.floor(
+      (now.getTime() - periodStart.getTime()) / (24 * 60 * 60 * 1000),
+    );
 
     const proration = this.billingService.calculateProration({
       currentAmount: Number(service.amount),

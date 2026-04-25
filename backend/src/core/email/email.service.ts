@@ -23,7 +23,9 @@ export class EmailService {
       this.transporter = nodemailer.createTransport({
         jsonTransport: true,
       });
-      this.logger.warn('Email transport: CONSOLE (emails will be logged, not sent)');
+      this.logger.warn(
+        'Email transport: CONSOLE (emails will be logged, not sent)',
+      );
     } else {
       // SMTP transport — MailPit in dev, real SMTP in production
       this.transporter = nodemailer.createTransport({
@@ -44,7 +46,10 @@ export class EmailService {
   }
 
   async send(payload: EmailPayload): Promise<boolean> {
-    const from = this.config.get<string>('MAIL_FROM', 'Aelium <noreply@aelium.net>');
+    const from = this.config.get<string>(
+      'MAIL_FROM',
+      'Aelium <noreply@aelium.net>',
+    );
 
     try {
       const info = await this.transporter.sendMail({
@@ -56,19 +61,28 @@ export class EmailService {
       });
 
       if (this.config.get('MAIL_TRANSPORT') === 'console') {
-        this.logger.log(`[EMAIL → console] To: ${payload.to} | Subject: ${payload.subject}`);
+        this.logger.log(
+          `[EMAIL → console] To: ${payload.to} | Subject: ${payload.subject}`,
+        );
       } else {
-        this.logger.log(`[EMAIL → sent] To: ${payload.to} | MessageId: ${info.messageId}`);
+        this.logger.log(
+          `[EMAIL → sent] To: ${payload.to} | MessageId: ${info.messageId}`,
+        );
       }
 
       return true;
     } catch (error) {
-      this.logger.error(`[EMAIL → failed] To: ${payload.to} | Error: ${(error as Error).message}`);
+      this.logger.error(
+        `[EMAIL → failed] To: ${payload.to} | Error: ${(error as Error).message}`,
+      );
       return false;
     }
   }
 
   private stripHtml(html: string): string {
-    return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    return html
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 }

@@ -67,8 +67,8 @@ export default function DashboardPage() {
       const overview = await dashboardApi.getOverview(token);
       setStats(overview);
       setAlerts(buildAlerts(overview));
-    } catch {
-      // Graceful degradation — show empty state
+    } catch (err) {
+      console.warn('[Overview] loadOverviewData failed:', err);
       setStats(null);
     } finally {
       setLoading(false);

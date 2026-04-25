@@ -52,7 +52,11 @@ export class SupportService {
     return this.chat.createGuestChat(dto, guestSessionHash);
   }
 
-  linkGuestToClient(conversationId: string, targetUserId: string, agentId: string) {
+  linkGuestToClient(
+    conversationId: string,
+    targetUserId: string,
+    agentId: string,
+  ) {
     return this.chat.linkGuestToClient(conversationId, targetUserId, agentId);
   }
 
@@ -61,7 +65,11 @@ export class SupportService {
     return this.ticket.createTicket(userId, dto);
   }
 
-  createTicketForClient(targetUserId: string, dto: CreateTicketDto, agentId: string) {
+  createTicketForClient(
+    targetUserId: string,
+    dto: CreateTicketDto,
+    agentId: string,
+  ) {
     return this.ticket.createTicketForClient(targetUserId, dto, agentId);
   }
 
@@ -83,7 +91,11 @@ export class SupportService {
     return this.message.updateConversation(id, dto, actorId);
   }
 
-  markAsRead(conversationId: string, readerId: string, readerType: 'client' | 'agent') {
+  markAsRead(
+    conversationId: string,
+    readerId: string,
+    readerType: 'client' | 'agent',
+  ) {
     return this.message.markAsRead(conversationId, readerId, readerType);
   }
 
@@ -96,7 +108,11 @@ export class SupportService {
     return this.query.findOne(id, includeInternal);
   }
 
-  getUnreadCount(userId: string, role: 'client' | 'agent', type?: 'chat' | 'ticket') {
+  getUnreadCount(
+    userId: string,
+    role: 'client' | 'agent',
+    type?: 'chat' | 'ticket',
+  ) {
     return this.query.getUnreadCount(userId, role, type);
   }
 

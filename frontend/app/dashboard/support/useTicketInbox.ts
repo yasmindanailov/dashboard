@@ -67,7 +67,7 @@ export function useTicketInbox() {
     try {
       const res = await supportApi.getStats(token, 'ticket') as TicketStats;
       setStats(res);
-    } catch { /* stats are optional */ }
+    } catch (err) { console.warn('[TicketInbox] loadStats failed:', err); }
   }, [token, isAdmin]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
@@ -84,7 +84,7 @@ export function useTicketInbox() {
       try {
         const res = await clientsApi.list(token, { search: clientSearch, limit: 10 }) as { data: any[] };
         setClientResults(res.data || []);
-      } catch { setClientResults([]); }
+      } catch (err) { console.warn('[TicketInbox] clientSearch failed:', err); setClientResults([]); }
       finally { setSearchingClients(false); }
     }, 300);
     return () => clearTimeout(timer);

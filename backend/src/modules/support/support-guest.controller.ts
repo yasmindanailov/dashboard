@@ -68,7 +68,9 @@ export class SupportGuestController {
    */
   @Post('chats/guest')
   @Throttle({ default: { ttl: 3600000, limit: 3 } }) // 3 chats per hour per IP
-  @ApiOperation({ summary: 'Create anonymous chat from landing (no auth required)' })
+  @ApiOperation({
+    summary: 'Create anonymous chat from landing (no auth required)',
+  })
   async createGuestChat(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -87,7 +89,11 @@ export class SupportGuestController {
 
     // Set HttpOnly cookie with the raw token
     const isProduction = this.config.get('NODE_ENV') === 'production';
-    res.cookie(GUEST_TOKEN_COOKIE_NAME, token, getGuestTokenCookieOptions(isProduction));
+    res.cookie(
+      GUEST_TOKEN_COOKIE_NAME,
+      token,
+      getGuestTokenCookieOptions(isProduction),
+    );
 
     this.logger.log(
       `Guest chat created: ${conversation.id} (name: ${dto.guest_name}, email: ${dto.guest_email || 'not provided'})`,

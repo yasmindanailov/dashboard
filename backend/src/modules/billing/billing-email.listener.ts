@@ -35,7 +35,9 @@ export class BillingEmailListener {
     total: number;
     currency: string;
   }) {
-    const user = await this.prisma.user.findUnique({ where: { id: payload.user_id } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.user_id },
+    });
     if (!user) return;
 
     const formattedTotal = this.formatCurrency(payload.total, payload.currency);
@@ -70,7 +72,9 @@ export class BillingEmailListener {
       `,
     });
 
-    this.logger.log(`Email sent: invoice.created → ${user.email} (${payload.invoice_number})`);
+    this.logger.log(
+      `Email sent: invoice.created → ${user.email} (${payload.invoice_number})`,
+    );
   }
 
   /* ═══════════════════════════════════════
@@ -86,7 +90,9 @@ export class BillingEmailListener {
     currency: string;
     payment_provider: string;
   }) {
-    const user = await this.prisma.user.findUnique({ where: { id: payload.user_id } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.user_id },
+    });
     if (!user) return;
 
     const formattedTotal = this.formatCurrency(payload.total, payload.currency);
@@ -122,7 +128,9 @@ export class BillingEmailListener {
       `,
     });
 
-    this.logger.log(`Email sent: invoice.paid → ${user.email} (${payload.invoice_number})`);
+    this.logger.log(
+      `Email sent: invoice.paid → ${user.email} (${payload.invoice_number})`,
+    );
   }
 
   /* ═══════════════════════════════════════
@@ -137,7 +145,9 @@ export class BillingEmailListener {
     retry_count: number;
     max_retries: number;
   }) {
-    const user = await this.prisma.user.findUnique({ where: { id: payload.user_id } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.user_id },
+    });
     if (!user) return;
 
     const remaining = payload.max_retries - payload.retry_count;
@@ -157,9 +167,11 @@ export class BillingEmailListener {
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               No hemos podido procesar el cobro de la factura <strong>${payload.invoice_number}</strong>.
-              ${remaining > 0
-                ? `Volveremos a intentarlo automáticamente (${remaining} intento${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}).`
-                : 'Este ha sido el último intento. Tu servicio será suspendido si no regularizas el pago.'}
+              ${
+                remaining > 0
+                  ? `Volveremos a intentarlo automáticamente (${remaining} intento${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}).`
+                  : 'Este ha sido el último intento. Tu servicio será suspendido si no regularizas el pago.'
+              }
             </p>
             <p style="color: #6b7280; font-size: 13px;">
               Puedes actualizar tu método de pago desde tu panel de cliente.
@@ -169,7 +181,9 @@ export class BillingEmailListener {
       `,
     });
 
-    this.logger.log(`Email sent: invoice.failed → ${user.email} (${payload.invoice_number}, attempt ${payload.retry_count})`);
+    this.logger.log(
+      `Email sent: invoice.failed → ${user.email} (${payload.invoice_number}, attempt ${payload.retry_count})`,
+    );
   }
 
   /* ═══════════════════════════════════════
@@ -185,7 +199,9 @@ export class BillingEmailListener {
     retry_count: number;
     max_retries: number;
   }) {
-    const user = await this.prisma.user.findUnique({ where: { id: payload.user_id } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.user_id },
+    });
     if (!user) return;
 
     const formattedTotal = this.formatCurrency(payload.total, 'EUR');
@@ -217,7 +233,9 @@ export class BillingEmailListener {
       `,
     });
 
-    this.logger.log(`Email sent: invoice.overdue → ${user.email} (${payload.invoice_number})`);
+    this.logger.log(
+      `Email sent: invoice.overdue → ${user.email} (${payload.invoice_number})`,
+    );
   }
 
   /* ═══════════════════════════════════════

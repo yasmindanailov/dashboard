@@ -7,4 +7,3 @@ import { InfrastructureService } from './infrastructure.service';
 export class InfrastructureController {
   constructor(private readonly Service: InfrastructureService) {}
 }
-

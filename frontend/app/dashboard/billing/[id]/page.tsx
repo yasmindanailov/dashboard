@@ -58,7 +58,7 @@ export default function InvoiceDetailPage() {
     if (!token || !id) return;
     setLoading(true);
     try { setInvoice(await billingApi.getInvoice(token, id as string) as InvoiceDetail); }
-    catch { /* */ }
+    catch (err) { console.warn('[InvoiceDetail] loadInvoice failed:', err); }
     finally { setLoading(false); }
   }, [token, id]);
 

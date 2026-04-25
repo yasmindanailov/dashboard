@@ -13,14 +13,6 @@ import styles from './chats.module.css';
    Ref: DECISIONS.md §43, 7.H7, 7.H8
    ═══════════════════════════════════════ */
 
-/** Map chat status to Badge variant */
-const STATUS_TO_VARIANT: Record<string, 'info' | 'warning' | 'danger' | 'success' | 'neutral'> = {
-  open: 'info',
-  waiting_client: 'warning',
-  waiting_agent: 'danger',
-  resolved: 'success',
-  closed: 'neutral',
-};
 
 /** Map assignment to StatusDot color */
 function getAssignmentDot(
@@ -90,7 +82,7 @@ export default function ChatList({
             const isMine = chat.assigned_agent_id === currentUserId;
             const isUnassigned = !chat.assigned_agent_id;
             const assignment = getAssignmentDot(isMine, isUnassigned);
-            const badgeVariant = STATUS_TO_VARIANT[chat.status] || 'neutral';
+            const badgeVariant = status.variant || 'neutral';
 
             return (
               <div

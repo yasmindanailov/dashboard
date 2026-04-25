@@ -15,7 +15,7 @@ import type { Chat, Message, ClientProfile, ResolutionModalState } from './types
    ═══════════════════════════════════════ */
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 export function useChatPanel() {
   const { user } = useAuth();
@@ -135,7 +135,8 @@ export function useChatPanel() {
         try {
           const client = await clientsApi.get(token, conv.user_id) as ClientProfile;
           setClientContext(client);
-        } catch {
+        } catch (err) {
+          console.warn('[ChatPanel] loadClientProfile failed:', err);
           setContextError('No se pudo cargar el perfil del cliente.');
         }
 
@@ -145,12 +146,12 @@ export function useChatPanel() {
             { headers: { Authorization: `Bearer ${token}` } }
           )).json();
           setClientServices(svcRes.data || []);
-        } catch { setClientServices([]); }
+        } catch (err) { console.warn('[ChatPanel] loadServices failed:', err); setClientServices([]); }
 
         try {
           const notesRes = await clientsApi.listStructuredNotes(token, conv.user_id, { limit: 5 }) as any;
           setClientNotes(notesRes.data || []);
-        } catch { setClientNotes([]); }
+        } catch (err) { console.warn('[ChatPanel] loadNotes failed:', err); setClientNotes([]); }
       } else {
         setContextError('Chat sin usuario vinculado (anónimo o huérfano).');
       }
@@ -249,7 +250,7 @@ export function useChatPanel() {
       const res = await clientsApi.list(token, { search: linkSearch.trim(), limit: 5 }) as any;
       setLinkResults(res.data || []);
       setShowLinkPanel(true);
-    } catch { setLinkResults([]); }
+    } catch (err) { console.warn('[ChatPanel] linkSearch failed:', err); setLinkResults([]); }
     finally { setLinkLoading(false); }
   };
 

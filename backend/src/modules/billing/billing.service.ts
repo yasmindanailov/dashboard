@@ -1,513 +1,109 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
-  Logger,
-} from '@nestjs/common';
-import { PrismaService } from '../../core/database/prisma.service';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { paginate, PaginatedResult } from '../../common/dto/pagination.dto';
+import { Injectable } from '@nestjs/common';
 import {
   CreateInvoiceDto,
   UpdateInvoiceDto,
   MarkAsPaidDto,
   InvoiceListQueryDto,
 } from './dto/billing.dto';
-import { Prisma, Invoice, InvoiceStatus } from '@prisma/client';
-import {
-  PaymentProviderInterface,
-  ManualPaymentProvider,
-} from './interfaces/payment-provider.interface';
+import { Invoice } from '@prisma/client';
+import { PaginatedResult } from '../../common/dto/pagination.dto';
+import { PaymentProviderInterface } from './interfaces/payment-provider.interface';
+import { BillingInvoiceService } from './billing-invoice.service';
+import { BillingCheckoutService } from './billing-checkout.service';
 import { BillingCalculatorService } from './billing-calculator.service';
 
 /* ═══════════════════════════════════════
-   Billing Service — Invoice lifecycle orchestration
+   BillingService — Facade
+   Delegates to domain sub-services per
+   ARCHITECTURE.md Regla 15 (max 300 lines).
 
-   Delegates calculation logic to BillingCalculatorService.
-   Delegates checkout flow to inline (will move to CheckoutService in Sprint 15).
-
-   Refactored per Regla 15: 819 → ~350 lines.
+   Split:
+     billing-invoice.service.ts  → CRUD, lifecycle, stats, numbering
+     billing-checkout.service.ts → checkout orchestration
+     billing-calculator.service.ts → (already existed) proration, totals
    ═══════════════════════════════════════ */
 
 @Injectable()
 export class BillingService {
-  private readonly logger = new Logger(BillingService.name);
-  private paymentProvider: PaymentProviderInterface;
-
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly invoiceService: BillingInvoiceService,
+    private readonly checkoutService: BillingCheckoutService,
     private readonly calculator: BillingCalculatorService,
+  ) {}
+
+  /* ── Provider ── */
+  setPaymentProvider(p: PaymentProviderInterface) {
+    this.invoiceService.setPaymentProvider(p);
+  }
+  getPaymentProvider() {
+    return this.invoiceService.getPaymentProvider();
+  }
+
+  /* ── Invoice CRUD ── */
+  generateInvoiceNumber() {
+    return this.invoiceService.generateInvoiceNumber();
+  }
+  createInvoice(dto: CreateInvoiceDto) {
+    return this.invoiceService.createInvoice(dto);
+  }
+  updateInvoice(id: string, dto: UpdateInvoiceDto) {
+    return this.invoiceService.updateInvoice(id, dto);
+  }
+  findAll(query: InvoiceListQueryDto) {
+    return this.invoiceService.findAll(query);
+  }
+  findOne(id: string) {
+    return this.invoiceService.findOne(id);
+  }
+  findByUser(userId: string, query: InvoiceListQueryDto) {
+    return this.invoiceService.findByUser(userId, query);
+  }
+
+  /* ── Lifecycle ── */
+  markAsPaid(id: string, dto?: MarkAsPaidDto) {
+    return this.invoiceService.markAsPaid(id, dto);
+  }
+  markAsOverdue(id: string) {
+    return this.invoiceService.markAsOverdue(id);
+  }
+  cancelInvoice(id: string) {
+    return this.invoiceService.cancelInvoice(id);
+  }
+  sendToPending(id: string) {
+    return this.invoiceService.sendToPending(id);
+  }
+  refundInvoice(id: string) {
+    return this.invoiceService.refundInvoice(id);
+  }
+
+  /* ── Stats ── */
+  getStats(userId?: string) {
+    return this.invoiceService.getStats(userId);
+  }
+
+  /* ── Checkout ── */
+  checkout(
+    userId: string,
+    dto: {
+      product_pricing_id: string;
+      billing_profile_id?: string;
+      label?: string;
+      domain?: string;
+    },
   ) {
-    // Default provider — will be resolved from Settings when plugin system exists
-    this.paymentProvider = new ManualPaymentProvider();
+    return this.checkoutService.checkout(userId, dto);
   }
 
-  /* ═══════════════════════════════════════
-     PAYMENT PROVIDER MANAGEMENT
-     ═══════════════════════════════════════ */
-
-  setPaymentProvider(provider: PaymentProviderInterface): void {
-    this.logger.log(`Payment provider switched to: ${provider.name}`);
-    this.paymentProvider = provider;
-  }
-
-  getPaymentProvider(): PaymentProviderInterface {
-    return this.paymentProvider;
-  }
-
-  /* ═══════════════════════════════════════
-     INVOICE NUMBERING — SEQUENTIAL
-     ═══════════════════════════════════════ */
-
-  /**
-   * Generate next invoice number using PostgreSQL SEQUENCE.
-   * Format: configurable prefix + year + sequential number.
-   * Default: AELIUM-2026-0001
-   *
-   * Uses raw SQL for atomic sequence increment — no race conditions.
-   */
-  async generateInvoiceNumber(): Promise<string> {
-    const year = new Date().getFullYear();
-    const seqName = `invoice_number_seq_${year}`;
-
-    await this.prisma.$executeRawUnsafe(
-      `CREATE SEQUENCE IF NOT EXISTS "${seqName}" START WITH 1 INCREMENT BY 1 NO CYCLE`,
-    );
-
-    const result = await this.prisma.$queryRawUnsafe<{ nextval: string }[]>(
-      `SELECT nextval('"${seqName}"')`,
-    );
-
-    const seq = parseInt(result[0].nextval, 10);
-
-    const prefix = await this.calculator.getSettingValue<string>('billing', 'invoice_prefix', 'AELIUM');
-    return `${prefix}-${year}-${String(seq).padStart(4, '0')}`;
-  }
-
-  /* ═══════════════════════════════════════
-     CREATE INVOICE
-     ═══════════════════════════════════════ */
-
-  async createInvoice(dto: CreateInvoiceDto): Promise<Invoice> {
-    const user = await this.prisma.user.findUnique({ where: { id: dto.user_id } });
-    if (!user) throw new NotFoundException('Usuario no encontrado.');
-
-    if (dto.billing_profile_id) {
-      const profile = await this.prisma.billingProfile.findFirst({
-        where: { id: dto.billing_profile_id, user_id: dto.user_id },
-      });
-      if (!profile) throw new NotFoundException('Perfil de facturación no encontrado o no pertenece al usuario.');
-    }
-
-    if (!dto.items || dto.items.length === 0) {
-      throw new BadRequestException('La factura debe tener al menos un item.');
-    }
-
-    const maxRetries = await this.calculator.getSettingValue<number>('billing', 'max_payment_retries', 3);
-    const totals = await this.calculator.calculateInvoiceTotals(dto.items, dto.tax_rate, dto.discount_amount);
-    const invoiceNumber = await this.generateInvoiceNumber();
-
-    const invoice = await this.prisma.invoice.create({
-      data: {
-        invoice_number: invoiceNumber,
-        user_id: dto.user_id,
-        billing_profile_id: dto.billing_profile_id,
-        status: 'draft',
-        subtotal: totals.subtotal,
-        tax_rate: totals.taxRate,
-        tax_amount: totals.taxAmount,
-        discount_amount: dto.discount_amount ?? 0,
-        total: totals.total,
-        currency: dto.currency ?? 'EUR',
-        due_date: new Date(dto.due_date),
-        is_manual: dto.is_manual ?? false,
-        max_retries: maxRetries,
-        notes: dto.notes,
-        payment_provider: this.paymentProvider.name,
-        items: { create: totals.calculatedItems },
-      },
-      include: { items: true, billing_profile: true },
-    });
-
-    this.logger.log(`Invoice ${invoiceNumber} created for user ${dto.user_id} — total: ${totals.total} ${invoice.currency}`);
-    this.eventEmitter.emit('invoice.created', {
-      invoice_id: invoice.id, invoice_number: invoice.invoice_number,
-      user_id: invoice.user_id, total: invoice.total, currency: invoice.currency,
-    });
-
-    return invoice;
-  }
-
-  /* ═══════════════════════════════════════
-     MARK AS PAID
-     ═══════════════════════════════════════ */
-
-  async markAsPaid(invoiceId: string, dto: MarkAsPaidDto = {}): Promise<Invoice> {
-    const invoice = await this.findOneOrFail(invoiceId);
-
-    if (invoice.status === 'paid') throw new ConflictException('La factura ya está pagada.');
-    if (invoice.status === 'cancelled') throw new BadRequestException('No se puede pagar una factura cancelada.');
-    if (invoice.status === 'refunded') throw new BadRequestException('No se puede pagar una factura reembolsada.');
-
-    const updated = await this.prisma.invoice.update({
-      where: { id: invoiceId },
-      data: {
-        status: 'paid', paid_at: new Date(),
-        payment_provider: dto.payment_provider ?? this.paymentProvider.name,
-        payment_method: dto.payment_method ?? 'manual',
-        payment_ref: dto.payment_ref,
-      },
-      include: { items: true, billing_profile: true },
-    });
-
-    this.logger.log(`Invoice ${invoice.invoice_number} marked as PAID`);
-    this.eventEmitter.emit('invoice.paid', {
-      invoice_id: updated.id, invoice_number: updated.invoice_number,
-      user_id: updated.user_id, total: updated.total, currency: updated.currency,
-      payment_provider: updated.payment_provider,
-    });
-
-    return updated;
-  }
-
-  /* ═══════════════════════════════════════
-     MARK AS OVERDUE
-     ═══════════════════════════════════════ */
-
-  async markAsOverdue(invoiceId: string): Promise<Invoice> {
-    const invoice = await this.findOneOrFail(invoiceId);
-    if (invoice.status !== 'pending') {
-      throw new BadRequestException('Solo facturas pendientes pueden marcarse como vencidas.');
-    }
-
-    const retryDays = await this.calculator.getSettingValue<number>('billing', 'retry_interval_days', 3);
-
-    const updated = await this.prisma.invoice.update({
-      where: { id: invoiceId },
-      data: {
-        status: 'overdue',
-        retry_count: { increment: 1 },
-        next_retry_at: new Date(Date.now() + retryDays * 24 * 60 * 60 * 1000),
-      },
-      include: { items: true },
-    });
-
-    this.eventEmitter.emit('invoice.overdue', {
-      invoice_id: updated.id, invoice_number: updated.invoice_number,
-      user_id: updated.user_id, total: updated.total,
-      retry_count: updated.retry_count, max_retries: updated.max_retries,
-    });
-
-    return updated;
-  }
-
-  /* ═══════════════════════════════════════
-     CANCEL / FINALIZE / REFUND
-     ═══════════════════════════════════════ */
-
-  async cancelInvoice(invoiceId: string): Promise<Invoice> {
-    const invoice = await this.findOneOrFail(invoiceId);
-    if (invoice.status === 'paid') throw new BadRequestException('No se puede cancelar una factura pagada. Usa el reembolso.');
-    if (invoice.status === 'cancelled') throw new ConflictException('La factura ya está cancelada.');
-
-    const updated = await this.prisma.invoice.update({
-      where: { id: invoiceId }, data: { status: 'cancelled' }, include: { items: true },
-    });
-    this.logger.log(`Invoice ${invoice.invoice_number} cancelled`);
-    return updated;
-  }
-
-  async sendToPending(invoiceId: string): Promise<Invoice> {
-    const invoice = await this.findOneOrFail(invoiceId);
-    if (invoice.status !== 'draft') throw new BadRequestException('Solo facturas en borrador pueden enviarse.');
-
-    const updated = await this.prisma.invoice.update({
-      where: { id: invoiceId }, data: { status: 'pending' }, include: { items: true, billing_profile: true },
-    });
-    this.logger.log(`Invoice ${invoice.invoice_number} finalized → PENDING`);
-    return updated;
-  }
-
-  async refundInvoice(invoiceId: string): Promise<Invoice> {
-    const invoice = await this.findOneOrFail(invoiceId);
-    if (invoice.status !== 'paid') throw new BadRequestException('Solo facturas pagadas pueden reembolsarse.');
-
-    if (invoice.payment_ref) {
-      const result = await this.paymentProvider.refund({
-        id: invoice.id, payment_ref: invoice.payment_ref,
-        amount: Number(invoice.total), currency: invoice.currency,
-      });
-      if (!result.success) throw new BadRequestException(`Error del proveedor de pago: ${result.error}`);
-    }
-
-    const updated = await this.prisma.invoice.update({
-      where: { id: invoiceId }, data: { status: 'refunded' }, include: { items: true },
-    });
-    this.logger.log(`Invoice ${invoice.invoice_number} refunded`);
-    return updated;
-  }
-
-  /* ═══════════════════════════════════════
-     READ OPERATIONS
-     ═══════════════════════════════════════ */
-
-  async findAll(query: InvoiceListQueryDto): Promise<PaginatedResult<Invoice>> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
-
-    const where: Prisma.InvoiceWhereInput = {};
-    if (query.status) where.status = query.status;
-    if (query.user_id) where.user_id = query.user_id;
-
-    if (query.search) {
-      where.OR = [
-        { invoice_number: { contains: query.search, mode: 'insensitive' } },
-        { notes: { contains: query.search, mode: 'insensitive' } },
-      ];
-    }
-
-    if (query.date_from || query.date_to) {
-      where.created_at = {};
-      if (query.date_from) where.created_at.gte = new Date(query.date_from);
-      if (query.date_to) where.created_at.lte = new Date(query.date_to);
-    }
-
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.invoice.findMany({
-        where, include: { items: true, billing_profile: true },
-        orderBy: { created_at: 'desc' }, skip, take: limit,
-      }),
-      this.prisma.invoice.count({ where }),
-    ]);
-
-    return paginate(data, total, page, limit);
-  }
-
-  async findOne(id: string): Promise<Invoice> {
-    return this.findOneOrFail(id);
-  }
-
-  async findByUser(userId: string, query: InvoiceListQueryDto): Promise<PaginatedResult<Invoice>> {
-    return this.findAll({ ...query, user_id: userId });
-  }
-
-  /* ═══════════════════════════════════════
-     UPDATE INVOICE
-     7.0.4: Recalculates totals when items are present
-     ═══════════════════════════════════════ */
-
-  async updateInvoice(id: string, dto: UpdateInvoiceDto): Promise<Invoice> {
-    const invoice = await this.findOneOrFail(id);
-
-    if (['paid', 'refunded'].includes(invoice.status)) {
-      throw new BadRequestException('No se pueden editar facturas pagadas o reembolsadas.');
-    }
-    if (dto.items && invoice.status !== 'draft') {
-      throw new BadRequestException('Solo se pueden editar items en facturas en borrador.');
-    }
-    if (dto.status) {
-      throw new BadRequestException('Usa los endpoints específicos para cambiar el estado de la factura.');
-    }
-
-    if (dto.items && dto.items.length > 0) {
-      return this.recalculateInvoice(id, dto);
-    }
-
-    return this.prisma.invoice.update({
-      where: { id },
-      data: { notes: dto.notes, due_date: dto.due_date ? new Date(dto.due_date) : undefined },
-      include: { items: true, billing_profile: true },
-    });
-  }
-
-  /**
-   * Recalculate invoice totals from items.
-   * 7.0.4: IVA se recalcula al editar items de factura.
-   */
-  private async recalculateInvoice(id: string, dto: UpdateInvoiceDto): Promise<Invoice> {
-    const totals = await this.calculator.calculateInvoiceTotals(dto.items!);
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await tx.invoiceItem.deleteMany({ where: { invoice_id: id } });
-      return tx.invoice.update({
-        where: { id },
-        data: {
-          subtotal: totals.subtotal, tax_rate: totals.taxRate,
-          tax_amount: totals.taxAmount, total: totals.total,
-          notes: dto.notes, due_date: dto.due_date ? new Date(dto.due_date) : undefined,
-          items: { create: totals.calculatedItems },
-        },
-        include: { items: true, billing_profile: true },
-      });
-    });
-
-    this.logger.log(`Invoice ${id} recalculated — subtotal: ${totals.subtotal}, tax: ${totals.taxAmount}, total: ${totals.total}`);
-    return updated;
-  }
-
-  /* ═══════════════════════════════════════
-     INVOICE STATS (for dashboard)
-     ═══════════════════════════════════════ */
-
-  async getStats(userId?: string): Promise<{
-    total_invoices: number; total_revenue: number; pending_amount: number;
-    overdue_count: number; draft_count: number; pending_count: number;
-    paid_count: number; cancelled_count: number; refunded_count: number;
-  }> {
-    const baseWhere = userId ? { user_id: userId } : {};
-
-    const [totalCount, paidAgg, pendingAgg, statusGroups] = await this.prisma.$transaction([
-      this.prisma.invoice.count({ where: baseWhere }),
-      this.prisma.invoice.aggregate({ where: { ...baseWhere, status: 'paid' }, _sum: { total: true } }),
-      this.prisma.invoice.aggregate({ where: { ...baseWhere, status: { in: ['pending', 'overdue'] } }, _sum: { total: true } }),
-      this.prisma.invoice.groupBy({ by: ['status'], where: baseWhere, orderBy: { status: 'asc' }, _count: true }),
-    ]);
-
-    const countByStatus: Record<string, number> = {};
-    for (const group of statusGroups) {
-      countByStatus[group.status] = typeof group._count === 'number' ? group._count : 0;
-    }
-
-    return {
-      total_invoices: totalCount, total_revenue: Number(paidAgg._sum.total ?? 0),
-      pending_amount: Number(pendingAgg._sum.total ?? 0), overdue_count: countByStatus['overdue'] ?? 0,
-      draft_count: countByStatus['draft'] ?? 0, pending_count: countByStatus['pending'] ?? 0,
-      paid_count: countByStatus['paid'] ?? 0, cancelled_count: countByStatus['cancelled'] ?? 0,
-      refunded_count: countByStatus['refunded'] ?? 0,
-    };
-  }
-
-  /* ═══════════════════════════════════════
-     CHECKOUT — Create Service + Invoice
-     ═══════════════════════════════════════ */
-
-  /**
-   * Process a checkout: creates a pending Service and a draft Invoice.
-   * Ref: DECISIONS.md §12, §21, §32
-   */
-  async checkout(userId: string, dto: {
-    product_pricing_id: string; billing_profile_id?: string;
-    label?: string; domain?: string;
+  /* ── Calculator delegates ── */
+  calculateProration(params: {
+    currentAmount: number;
+    currentCycleDays: number;
+    daysUsed: number;
+    newAmount: number;
   }) {
-    // 1. Validate target user
-    const targetUser = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!targetUser) throw new NotFoundException('Usuario destino no encontrado.');
-
-    // 2. Validate pricing plan
-    const pricing = await this.prisma.productPricing.findUnique({
-      where: { id: dto.product_pricing_id }, include: { product: true },
-    });
-    if (!pricing) throw new NotFoundException('Plan de precios no encontrado.');
-    if (!pricing.active) throw new BadRequestException('Este plan de precios no está activo.');
-    if (pricing.product.status !== 'active') throw new BadRequestException('Este producto no está disponible.');
-
-    // 3. Validate billing profile belongs to TARGET user (7.0.3)
-    let billingProfile = null;
-    if (dto.billing_profile_id) {
-      billingProfile = await this.prisma.billingProfile.findFirst({
-        where: { id: dto.billing_profile_id, user_id: userId },
-      });
-      if (!billingProfile) throw new BadRequestException('El perfil de facturación no pertenece al cliente seleccionado.');
-    }
-
-    // 4. Check max_quantity_per_client
-    if (pricing.product.max_quantity_per_client) {
-      const existingCount = await this.prisma.service.count({
-        where: { user_id: userId, product_id: pricing.product_id, status: { notIn: ['cancelled', 'terminated'] } },
-      });
-      if (existingCount >= pricing.product.max_quantity_per_client) {
-        throw new BadRequestException(`El cliente ha alcanzado el límite de ${pricing.product.max_quantity_per_client} servicio(s) de este tipo.`);
-      }
-    }
-
-    // 5. Calculate pricing with discount (7.0.5)
-    const basePrice = Number(pricing.price);
-    const discountPct = pricing.discount_percentage ? Number(pricing.discount_percentage) : 0;
-    const discountedPrice = discountPct > 0
-      ? Math.round(basePrice * (1 - discountPct / 100) * 100) / 100
-      : basePrice;
-
-    // 6. Calculate due dates
-    const cycleDays = this.calculator.getCycleDays(pricing.billing_cycle);
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 7);
-    const nextDueDate = new Date();
-    nextDueDate.setDate(nextDueDate.getDate() + cycleDays);
-
-    // 7. Create service in transaction
-    const result = await this.prisma.$transaction(async (tx) => {
-      const service = await tx.service.create({
-        data: {
-          user_id: userId, product_id: pricing.product_id,
-          billing_profile_id: dto.billing_profile_id, status: 'pending',
-          label: dto.label, domain: dto.domain, billing_cycle: pricing.billing_cycle,
-          amount: discountedPrice, currency: pricing.currency,
-          next_due_date: nextDueDate, next_invoice_date: nextDueDate,
-        },
-      });
-      return { service, pricing };
-    });
-
-    // 8. Create invoice (outside transaction — uses SEQUENCE)
-    const invoice = await this.createInvoice({
-      user_id: userId, billing_profile_id: dto.billing_profile_id,
-      due_date: dueDate.toISOString(), currency: result.pricing.currency,
-      items: [{
-        service_id: result.service.id, product_id: result.pricing.product_id,
-        description: `${result.pricing.product.name} — ${dto.label || dto.domain || 'Nuevo servicio'}`,
-        quantity: 1, unit_price: discountedPrice, setup_fee: Number(result.pricing.setup_fee),
-        discount_pct: discountPct > 0 ? discountPct : undefined,
-        period_start: new Date().toISOString(),
-        period_end: new Date(Date.now() + cycleDays * 24 * 60 * 60 * 1000).toISOString(),
-      }],
-    });
-
-    this.logger.log(
-      `Checkout complete: Service ${result.service.id} + Invoice ${invoice.invoice_number} for user ${userId}` +
-      (discountPct > 0 ? ` (${discountPct}% discount applied)` : ''),
-    );
-
-    this.eventEmitter.emit('checkout.completed', {
-      user_id: userId, service_id: result.service.id, invoice_id: invoice.id,
-      product_name: result.pricing.product.name, total: invoice.total,
-    });
-
-    return {
-      service: result.service, invoice,
-      invoice_type: billingProfile?.nif_cif ? 'completa' : 'simplificada',
-      discount_applied: discountPct > 0 ? `${discountPct}%` : null,
-    };
-  }
-
-  /* ═══════════════════════════════════════
-     DELEGATE: Proration (for controller/future use)
-     ═══════════════════════════════════════ */
-
-  calculateProration(params: { currentAmount: number; currentCycleDays: number; daysUsed: number; newAmount: number }) {
     return this.calculator.calculateProration(params);
   }
-
-  getCycleDays(cycle: string): number {
+  getCycleDays(cycle: string) {
     return this.calculator.getCycleDays(cycle);
-  }
-
-  /* ═══════════════════════════════════════
-     INTERNAL HELPERS
-     ═══════════════════════════════════════ */
-
-  private async findOneOrFail(id: string): Promise<Invoice & { items: any[]; user: any }> {
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id },
-      include: {
-        items: true, billing_profile: true,
-        user: { select: { id: true, first_name: true, last_name: true, email: true } },
-      },
-    });
-
-    if (!invoice) throw new NotFoundException(`Factura ${id} no encontrada.`);
-    return invoice as Invoice & { items: any[]; user: any };
   }
 }

@@ -7,57 +7,65 @@ import {
 import { PrismaService } from '../../core/database/prisma.service';
 import { paginate, PaginatedResult } from '../../common/dto/pagination.dto';
 import { ProductListQueryDto } from './dto/product-list-query.dto';
-import { CreateProductDto, UpdateProductDto, ProductPricingDto, ProductExtraDto, ChecklistItemDto } from './dto/product.dto';
+import {
+  CreateProductDto,
+  UpdateProductDto,
+  ProductPricingDto,
+} from './dto/product.dto';
 import { Prisma } from '@prisma/client';
+import { ProductsCatalogService } from './products-catalog.service';
+
+/* ═══════════════════════════════════════
+   ProductsService — Product CRUD + facade
+   for pricing and categories.
+   Ref: ARCHITECTURE.md Regla 15
+   ═══════════════════════════════════════ */
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly catalog: ProductsCatalogService,
+  ) {}
 
-  /* ═══════════════════════════════════════
-     SLUG GENERATION
-     ═══════════════════════════════════════ */
+  /* ── Slug helpers ── */
 
   private generateSlug(name: string): string {
     return name
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
   }
 
-  private async ensureUniqueSlug(slug: string, excludeId?: string): Promise<string> {
+  private async ensureUniqueSlug(
+    slug: string,
+    excludeId?: string,
+  ): Promise<string> {
     let candidate = slug;
     let counter = 0;
-
     while (true) {
       const existing = await this.prisma.product.findUnique({
         where: { slug: candidate },
         select: { id: true },
       });
-
       if (!existing || existing.id === excludeId) return candidate;
-
       counter++;
       candidate = `${slug}-${counter}`;
     }
   }
 
-  /* ═══════════════════════════════════════
-     LIST PRODUCTS
-     ═══════════════════════════════════════ */
+  /* ── List ── */
 
   async findAll(query: ProductListQueryDto): Promise<PaginatedResult<any>> {
     const { page = 1, limit = 20, search, status, type, category_id } = query;
     const skip = (page - 1) * limit;
-
     const where: Prisma.ProductWhereInput = {};
 
     if (status) where.status = status;
     if (type) where.type = type;
     if (category_id) where.category_id = category_id;
-
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -74,19 +82,19 @@ export class ProductsService {
         orderBy: [{ order_index: 'asc' }, { created_at: 'desc' }],
         include: {
           category: { select: { id: true, name: true, slug: true } },
-          pricing: { where: { active: true }, orderBy: { billing_cycle: 'asc' } },
+          pricing: {
+            where: { active: true },
+            orderBy: { billing_cycle: 'asc' },
+          },
           _count: { select: { services: true } },
         },
       }),
       this.prisma.product.count({ where }),
     ]);
-
     return paginate(data, total, page, limit);
   }
 
-  /* ═══════════════════════════════════════
-     GET PRODUCT DETAIL
-     ═══════════════════════════════════════ */
+  /* ── Detail ── */
 
   async findOne(id: string) {
     const product = await this.prisma.product.findUnique({
@@ -99,32 +107,27 @@ export class ProductsService {
         _count: { select: { services: true } },
       },
     });
-
     if (!product) throw new NotFoundException('Producto no encontrado.');
-
     return product;
   }
 
-  /* ═══════════════════════════════════════
-     CREATE PRODUCT
-     ═══════════════════════════════════════ */
+  /* ── Create ── */
 
   async create(dto: CreateProductDto) {
     const slug = await this.ensureUniqueSlug(
       dto.slug || this.generateSlug(dto.name),
     );
 
-    // Validate category exists if provided
     if (dto.category_id) {
       const cat = await this.prisma.productCategory.findUnique({
         where: { id: dto.category_id },
         select: { id: true },
       });
-      if (!cat) throw new BadRequestException('La categoría especificada no existe.');
+      if (!cat)
+        throw new BadRequestException('La categoría especificada no existe.');
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Create product
       const product = await tx.product.create({
         data: {
           name: dto.name,
@@ -155,7 +158,6 @@ export class ProductsService {
         },
       });
 
-      // Create pricing plans
       if (dto.pricing?.length) {
         await tx.productPricing.createMany({
           data: dto.pricing.map((p) => ({
@@ -170,7 +172,6 @@ export class ProductsService {
         });
       }
 
-      // Create extras
       if (dto.extras?.length) {
         await tx.productExtra.createMany({
           data: dto.extras.map((e) => ({
@@ -190,7 +191,6 @@ export class ProductsService {
         });
       }
 
-      // Create checklist items
       if (dto.checklist_items?.length) {
         await tx.productChecklistItem.createMany({
           data: dto.checklist_items.map((c, i) => ({
@@ -202,7 +202,6 @@ export class ProductsService {
         });
       }
 
-      // Return the full product with all relations
       return tx.product.findUnique({
         where: { id: product.id },
         include: {
@@ -215,36 +214,33 @@ export class ProductsService {
     });
   }
 
-  /* ═══════════════════════════════════════
-     UPDATE PRODUCT
-     ═══════════════════════════════════════ */
+  /* ── Update ── */
 
   async update(id: string, dto: UpdateProductDto) {
     const existing = await this.prisma.product.findUnique({
       where: { id },
       select: { id: true, slug: true },
     });
-
     if (!existing) throw new NotFoundException('Producto no encontrado.');
 
-    // EC-1: Validate slug uniqueness on update — throw instead of auto-increment
     if (dto.slug && dto.slug !== existing.slug) {
       const slugTaken = await this.prisma.product.findUnique({
         where: { slug: dto.slug },
         select: { id: true },
       });
-      if (slugTaken && slugTaken.id !== id) {
-        throw new ConflictException(`El slug "${dto.slug}" ya está en uso por otro producto.`);
-      }
+      if (slugTaken && slugTaken.id !== id)
+        throw new ConflictException(
+          `El slug "${dto.slug}" ya está en uso por otro producto.`,
+        );
     }
 
-    // Validate category if changing
     if (dto.category_id) {
       const cat = await this.prisma.productCategory.findUnique({
         where: { id: dto.category_id },
         select: { id: true },
       });
-      if (!cat) throw new BadRequestException('La categoría especificada no existe.');
+      if (!cat)
+        throw new BadRequestException('La categoría especificada no existe.');
     }
 
     return this.prisma.product.update({
@@ -259,20 +255,15 @@ export class ProductsService {
     });
   }
 
-  /* ═══════════════════════════════════════
-     TOGGLE STATUS
-     ═══════════════════════════════════════ */
+  /* ── Toggle / Delete ── */
 
   async toggleStatus(id: string) {
     const product = await this.prisma.product.findUnique({
       where: { id },
       select: { id: true, status: true },
     });
-
     if (!product) throw new NotFoundException('Producto no encontrado.');
-
     const newStatus = product.status === 'active' ? 'inactive' : 'active';
-
     return this.prisma.product.update({
       where: { id },
       data: { status: newStatus },
@@ -280,156 +271,42 @@ export class ProductsService {
     });
   }
 
-  /* ═══════════════════════════════════════
-     DELETE PRODUCT
-     ═══════════════════════════════════════ */
-
   async delete(id: string) {
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: { _count: { select: { services: true } } },
     });
-
     if (!product) throw new NotFoundException('Producto no encontrado.');
-
     if (product._count.services > 0) {
       throw new ConflictException(
         `No se puede eliminar el producto "${product.name}" porque tiene ${product._count.services} servicio(s) asociado(s). Desactívalo en su lugar.`,
       );
     }
-
-    // Delete cascade: pricing, extras, checklist items
     await this.prisma.product.delete({ where: { id } });
-
     return { message: 'Producto eliminado correctamente.' };
   }
 
-  /* ═══════════════════════════════════════
-     PRICING MANAGEMENT
-     ═══════════════════════════════════════ */
+  /* ── Catalog delegates (pricing + categories) ── */
 
-  async addPricing(productId: string, dto: ProductPricingDto) {
-    const product = await this.prisma.product.findUnique({
-      where: { id: productId },
-      select: { id: true },
-    });
-    if (!product) throw new NotFoundException('Producto no encontrado.');
-
-    // EC-5: Check duplicate billing_cycle + currency before inserting
-    const existing = await this.prisma.productPricing.findFirst({
-      where: {
-        product_id: productId,
-        billing_cycle: dto.billing_cycle,
-        currency: dto.currency ?? 'EUR',
-      },
-    });
-    if (existing) {
-      throw new ConflictException(
-        `Ya existe un plan de precio con ciclo "${dto.billing_cycle}" y moneda "${dto.currency ?? 'EUR'}" para este producto.`,
-      );
-    }
-
-    return this.prisma.productPricing.create({
-      data: {
-        product_id: productId,
-        billing_cycle: dto.billing_cycle,
-        price: dto.price,
-        setup_fee: dto.setup_fee ?? 0,
-        currency: dto.currency ?? 'EUR',
-        discount_percentage: dto.discount_percentage,
-        active: dto.active ?? true,
-      },
-    });
+  addPricing(productId: string, dto: ProductPricingDto) {
+    return this.catalog.addPricing(productId, dto);
   }
-
-  async updatePricing(pricingId: string, dto: Partial<ProductPricingDto>) {
-    const pricing = await this.prisma.productPricing.findUnique({
-      where: { id: pricingId },
-    });
-    if (!pricing) throw new NotFoundException('Plan de precio no encontrado.');
-
-    return this.prisma.productPricing.update({
-      where: { id: pricingId },
-      data: dto as any,
-    });
+  updatePricing(pricingId: string, dto: Partial<ProductPricingDto>) {
+    return this.catalog.updatePricing(pricingId, dto);
   }
-
-  async deletePricing(pricingId: string) {
-    const pricing = await this.prisma.productPricing.findUnique({
-      where: { id: pricingId },
-    });
-    if (!pricing) throw new NotFoundException('Plan de precio no encontrado.');
-
-    // EC-3: Prevent deleting the last pricing plan of an active product
-    const remaining = await this.prisma.productPricing.count({
-      where: { product_id: pricing.product_id },
-    });
-    if (remaining <= 1) {
-      const product = await this.prisma.product.findUnique({
-        where: { id: pricing.product_id },
-        select: { status: true },
-      });
-      if (product?.status === 'active') {
-        throw new BadRequestException(
-          'No se puede eliminar el último plan de precio de un producto activo.',
-        );
-      }
-    }
-
-    await this.prisma.productPricing.delete({ where: { id: pricingId } });
-    return { message: 'Plan de precio eliminado.' };
+  deletePricing(pricingId: string) {
+    return this.catalog.deletePricing(pricingId);
   }
-
-  /* ═══════════════════════════════════════
-     CATEGORIES
-     ═══════════════════════════════════════ */
-
-  async findAllCategories() {
-    return this.prisma.productCategory.findMany({
-      where: { active: true },
-      orderBy: { order_index: 'asc' },
-      include: {
-        children: { orderBy: { order_index: 'asc' } },
-        _count: { select: { products: true } },
-      },
-    });
+  findAllCategories() {
+    return this.catalog.findAllCategories();
   }
-
-  async createCategory(data: { name: string; slug: string; parent_id?: string; order_index?: number }) {
-    const existingSlug = await this.prisma.productCategory.findUnique({
-      where: { slug: data.slug },
-    });
-    if (existingSlug) throw new ConflictException('El slug de la categoría ya existe.');
-
-    return this.prisma.productCategory.create({ data });
+  createCategory(data: any) {
+    return this.catalog.createCategory(data);
   }
-
-  async updateCategory(id: string, data: { name?: string; slug?: string; order_index?: number; active?: boolean }) {
-    const cat = await this.prisma.productCategory.findUnique({ where: { id } });
-    if (!cat) throw new NotFoundException('Categoría no encontrada.');
-
-    if (data.slug && data.slug !== cat.slug) {
-      const dup = await this.prisma.productCategory.findUnique({ where: { slug: data.slug } });
-      if (dup) throw new ConflictException('El slug de la categoría ya existe.');
-    }
-
-    return this.prisma.productCategory.update({ where: { id }, data });
+  updateCategory(id: string, data: any) {
+    return this.catalog.updateCategory(id, data);
   }
-
-  async deleteCategory(id: string) {
-    const cat = await this.prisma.productCategory.findUnique({
-      where: { id },
-      include: { _count: { select: { products: true } } },
-    });
-    if (!cat) throw new NotFoundException('Categoría no encontrada.');
-
-    if (cat._count.products > 0) {
-      throw new ConflictException(
-        `No se puede eliminar la categoría "${cat.name}" porque tiene ${cat._count.products} producto(s) asociado(s).`,
-      );
-    }
-
-    await this.prisma.productCategory.delete({ where: { id } });
-    return { message: 'Categoría eliminada correctamente.' };
+  deleteCategory(id: string) {
+    return this.catalog.deleteCategory(id);
   }
 }

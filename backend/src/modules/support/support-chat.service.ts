@@ -35,7 +35,10 @@ export class SupportChatService {
    * Client creates a new chat from the floating widget.
    * type = 'chat', no category.
    */
-  async createChat(userId: string, dto: CreateChatDto): Promise<Conversation & { messages: Message[] }> {
+  async createChat(
+    userId: string,
+    dto: CreateChatDto,
+  ): Promise<Conversation & { messages: Message[] }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, first_name: true, last_name: true, email: true },
@@ -46,7 +49,8 @@ export class SupportChatService {
       const service = await this.prisma.service.findFirst({
         where: { id: dto.service_id, user_id: userId },
       });
-      if (!service) throw new BadRequestException('El servicio no pertenece al usuario.');
+      if (!service)
+        throw new BadRequestException('El servicio no pertenece al usuario.');
     }
 
     const conversation = await this.prisma.conversation.create({
@@ -70,7 +74,9 @@ export class SupportChatService {
       include: { messages: { orderBy: { created_at: 'asc' } } },
     });
 
-    this.logger.log(`Chat ${conversation.id} created by ${userId}: "${dto.subject}"`);
+    this.logger.log(
+      `Chat ${conversation.id} created by ${userId}: "${dto.subject}"`,
+    );
 
     this.eventEmitter.emit('conversation.created', {
       conversation_id: conversation.id,
@@ -93,9 +99,8 @@ export class SupportChatService {
     dto: CreateGuestChatDto,
     guestSessionHash: string,
   ): Promise<Conversation & { messages: Message[] }> {
-    const subject = dto.body.length > 80
-      ? dto.body.substring(0, 77) + '...'
-      : dto.body;
+    const subject =
+      dto.body.length > 80 ? dto.body.substring(0, 77) + '...' : dto.body;
 
     const conversation = await this.prisma.conversation.create({
       data: {
@@ -152,16 +157,26 @@ export class SupportChatService {
       select: { id: true, user_id: true, guest_name: true, guest_email: true },
     });
 
-    if (!conversation) throw new NotFoundException('Conversación no encontrada.');
+    if (!conversation)
+      throw new NotFoundException('Conversación no encontrada.');
     if (conversation.user_id) {
-      throw new BadRequestException('Esta conversación ya está vinculada a un usuario.');
+      throw new BadRequestException(
+        'Esta conversación ya está vinculada a un usuario.',
+      );
     }
 
     const targetUser = await this.prisma.user.findUnique({
       where: { id: targetUserId },
-      select: { id: true, first_name: true, last_name: true, email: true, status: true },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        email: true,
+        status: true,
+      },
     });
-    if (!targetUser) throw new NotFoundException('Usuario destino no encontrado.');
+    if (!targetUser)
+      throw new NotFoundException('Usuario destino no encontrado.');
 
     const agent = await this.prisma.user.findUnique({
       where: { id: agentId },

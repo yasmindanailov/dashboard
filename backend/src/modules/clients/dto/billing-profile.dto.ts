@@ -1,4 +1,10 @@
-import { IsString, IsEnum, IsOptional, IsBoolean, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsBoolean,
+  MaxLength,
+} from 'class-validator';
 import { BillingProfileType } from '@prisma/client';
 
 /* ═══════════════════════════════════════

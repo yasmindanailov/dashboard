@@ -20,7 +20,8 @@ export class DashboardController {
   @Get('overview')
   @ApiOperation({
     summary: 'Dashboard overview — role-specific stats per §2.3',
-    description: 'Returns different metrics depending on user role: admin (global), client (personal), agent (workload), partner (referrals).',
+    description:
+      'Returns different metrics depending on user role: admin (global), client (personal), agent (workload), partner (referrals).',
   })
   getOverview(@Req() req: Request) {
     const user = req.user as any;

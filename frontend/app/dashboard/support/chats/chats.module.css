@@ -425,6 +425,17 @@
   color: var(--text-primary);
 }
 
+.clientLink {
+  color: var(--brand);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.clientLink:hover {
+  text-decoration: underline;
+  color: var(--brand-hover);
+}
+
 .clientEmail {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);

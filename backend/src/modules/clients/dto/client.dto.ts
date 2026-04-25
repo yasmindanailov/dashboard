@@ -1,4 +1,11 @@
-import { IsOptional, IsString, IsEnum, IsUUID, IsBoolean, MaxLength } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsUUID,
+  IsBoolean,
+  MaxLength,
+} from 'class-validator';
 import { ClientType, NoteCategory } from '@prisma/client';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
 
