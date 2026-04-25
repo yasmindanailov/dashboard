@@ -1,0 +1,3 @@
+# Valida que el mensaje de commit cumpla Conventional Commits.
+# Si falla, el commit se aborta. Reformula el mensaje y vuelve a intentar.
+pnpm exec commitlint --edit "$1"
