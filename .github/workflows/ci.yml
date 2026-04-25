@@ -23,9 +23,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup pnpm
+        # Versión leída desde packageManager en package.json del root.
+        # No fijar `version` aquí para evitar conflicto con packageManager.
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -64,9 +64,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup pnpm
+        # Versión leída desde packageManager en package.json del root.
+        # No fijar `version` aquí para evitar conflicto con packageManager.
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
