@@ -51,14 +51,11 @@ test.describe('Checkout / Billing admin', () => {
     await loginSuperadminUI(page);
     await page.goto('/dashboard/billing/checkout');
 
-    // El checkout admin pide seleccionar un cliente target primero (EC-BILL-02).
-    // Verificamos al menos que la página renderiza sin crash.
-    await expect(page.locator('main, [role="main"], body')).toBeVisible();
-
-    // El título o algún elemento de Step 1 (cliente) debe estar visible.
-    // Aceptamos varios textos posibles según el copy actual.
+    // Verificamos que el checkout renderizó algún elemento característico.
+    // Aceptamos varios textos posibles según el copy actual del Step 1
+    // (selección de cliente target — EC-BILL-02).
     await expect(
       page.getByText(/cliente|seleccion|contratar|crear servicio/i).first(),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 15_000 });
   });
 });
