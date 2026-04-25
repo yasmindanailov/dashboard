@@ -95,11 +95,25 @@ Resultado: la historia queda íntegra.
 
 ### Billing & servicios (ADR-025..033)
 
-- _(pendiente F2.B)_
+- [ADR-025](./adr-025-numeracion-secuencial-facturas.md) — Numeración secuencial de facturas (Hacienda RD 1619/2012)
+- [ADR-026](./adr-026-estados-factura.md) — Estados de factura y transiciones permitidas
+- [ADR-027](./adr-027-iva-por-pais.md) — IVA por país y multi-moneda preparada
+- [ADR-028](./adr-028-suscripciones-ciclo-vida.md) — Suscripciones — ciclo de vida avanzado
+- [ADR-029](./adr-029-prorrateo-cambio-plan.md) — Prorrateo en cambio de plan (mensual ↔ anual)
+- [ADR-030](./adr-030-periodo-gracia-reintentos.md) — Período de gracia + reintentos de cobro automáticos
+- [ADR-031](./adr-031-payment-providers.md) — Payment providers como plugins (interface intercambiable)
+- [ADR-032](./adr-032-flujo-compra-checkout.md) — Flujo de compra (dos procesos + tres niveles de catálogo)
+- [ADR-033](./adr-033-outbox-pattern-pendiente.md) — Outbox Pattern para eventos críticos (decisión + deuda actual)
 
 ### Support (ADR-034..040)
 
-- _(pendiente F2.B)_
+- [ADR-034](./adr-034-support-inside-modelo.md) — Support Inside (modelo de soporte gestionado con slots)
+- [ADR-035](./adr-035-sistema-comunicacion-legacy.md) — Sistema de comunicación inicial **(Superseded by ADR-037)**
+- [ADR-036](./adr-036-configuracion-chat.md) — Configuración del chat (horarios, mensajes, comportamiento)
+- [ADR-037](./adr-037-arquitectura-dual-chat-tickets.md) — Arquitectura dual de soporte: chat + tickets
+- [ADR-038](./adr-038-notas-estructuradas-cliente.md) — Sistema de notas estructuradas del cliente
+- [ADR-039](./adr-039-nota-obligatoria-transiciones.md) — Nota obligatoria en transiciones de estado
+- [ADR-040](./adr-040-rediseno-tickets.md) — Rediseño de tickets (Sprint 23 — plan)
 
 ### Otros módulos (tasks, notifications, audit, infrastructure) (ADR-041..047)
 
