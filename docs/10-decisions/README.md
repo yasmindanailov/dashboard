@@ -58,39 +58,60 @@ Resultado: la historia queda íntegra.
 
 ## Índice navegable
 
-> Se actualiza al añadir ADRs.
+> ADRs ordenados por bloque temático. Status entre paréntesis cuando no es `Active`.
 
-### Foundations & cross-cutting
+### Foundations & cross-cutting (ADR-001..010)
 
-- _(pendiente generación durante F2)_
+- [ADR-001](./adr-001-definicion-proyecto.md) — Definición del proyecto y alcance
+- [ADR-002](./adr-002-stack-backend.md) — Stack tecnológico backend (NestJS + Prisma + Postgres + Redis)
+- [ADR-003](./adr-003-extraccion-reglas-canonicas.md) — Extracción de reglas a documento canónico (`rules.md`)
+- [ADR-004](./adr-004-arquitectura-monolito-modular.md) — Arquitectura: monolito modular orientado a eventos
+- [ADR-005](./adr-005-stack-frontend.md) — Stack tecnológico frontend (Next.js 16 + React 19 + Design System)
+- [ADR-006](./adr-006-estrategia-tests.md) — Estrategia de tests (Jest unitarios + Playwright E2E)
+- [ADR-007](./adr-007-observabilidad.md) — Estrategia de observabilidad (Pino + Sentry + correlation IDs)
+- [ADR-008](./adr-008-orden-construccion-sprints.md) — Estrategia de sprints incrementales
+- [ADR-009](./adr-009-estrategia-plugins.md) — Plugins (interface en core, implementación intercambiable)
+- [ADR-010](./adr-010-rgpd-retencion-datos.md) — Cumplimiento RGPD y retención de datos
 
-### Auth & seguridad
+### Auth & seguridad (ADR-011..017)
 
-- _(pendiente)_
+- [ADR-011](./adr-011-roles-sistema.md) — Roles del sistema (7 roles fijos inmutables)
+- [ADR-012](./adr-012-pbac-casl.md) — Autorización con CASL (PBAC isomórfico)
+- [ADR-013](./adr-013-2fa-email.md) — Autenticación de doble factor (2FA) por email
+- [ADR-014](./adr-014-bloqueo-intentos-fallidos.md) — Bloqueo de cuenta por intentos fallidos
+- [ADR-015](./adr-015-encriptacion-credenciales.md) — Encriptación de credenciales con AES-256-GCM
+- [ADR-016](./adr-016-rate-limiting-redis.md) — Rate limiting por endpoint con Redis
+- [ADR-017](./adr-017-audit-log-inmutable.md) — Audit log inmutable
 
-### Products & catálogo
+### Products & catálogo (ADR-018..024)
 
-- _(pendiente)_
+- [ADR-018](./adr-018-catalogo-dinamico-productos.md) — Catálogo dinámico de productos
+- [ADR-019](./adr-019-configuracion-tipos-producto.md) — Configuración por tipo de producto (bloques estructurados)
+- [ADR-020](./adr-020-categorias-extras-producto.md) — Categorías y sistema de extras de producto
+- [ADR-021](./adr-021-provisioners.md) — Provisioners (interfaz + reglas de desarrollo por plugin)
+- [ADR-022](./adr-022-wdify-deprecado-proyectos.md) — "We Do It For You" (Superseded by ADR-046)
+- [ADR-023](./adr-023-promociones-codigos-descuento.md) — Módulo de promociones y códigos de descuento
+- [ADR-024](./adr-024-eliminacion-hosting-agency.md) — Eliminación de `hosting_agency` como tipo
 
-### Billing & servicios
+### Billing & servicios (ADR-025..033)
 
-- _(pendiente)_
+- _(pendiente F2.B)_
 
-### Support
+### Support (ADR-034..040)
 
-- _(pendiente)_
+- _(pendiente F2.B)_
 
-### Otros módulos (tasks, notifications, audit, infrastructure)
+### Otros módulos (tasks, notifications, audit, infrastructure) (ADR-041..047)
 
-- _(pendiente)_
+- _(pendiente F2.C)_
 
-### Partner & referrals
+### Partner & referrals (ADR-048..054)
 
-- _(pendiente)_
+- _(pendiente F2.C)_
 
-### UI / landing / arquitectura visual
+### UI / landing / cross-cutting adicional (ADR-055..060)
 
-- _(pendiente)_
+- _(pendiente F2.C)_
 
 ---
 
