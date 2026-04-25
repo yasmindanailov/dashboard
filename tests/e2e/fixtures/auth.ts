@@ -6,23 +6,52 @@
 
 import { Page, APIRequestContext, expect } from '@playwright/test';
 import { TEST_CONFIG } from './test-config';
+import { clearMailbox, waitForEmail, extract2FACode } from './mailpit';
 
 /**
- * Login del superadmin a través de la UI.
+ * Login del superadmin a través de la UI, gestionando el step de 2FA.
  *
- * Usa selectores por id en lugar de getByLabel/getByRole porque el botón
- * "Mostrar contraseña" tiene aria-label que también matchea con regex
- * abiertas (strict mode de Playwright lo rechaza por ambigüedad).
+ * Backend: ROLES_REQUIRING_2FA incluye superadmin + agentes (auth-login.service).
+ * Por tanto este flujo SIEMPRE pasa por el step 2FA. El código se envía por
+ * email (MailPit) y lo leemos para introducirlo.
  *
- * Si la cuenta tiene 2FA activo, este helper NO lo maneja todavía.
+ * Limpia el buzón ANTES del submit de credentials para evitar matches con
+ * códigos 2FA de runs/tests previos.
+ *
+ * Selectores por id (no getByLabel) porque el botón "Mostrar contraseña"
+ * tiene aria-label que matchea con regex abiertas y strict mode lo rechaza.
  */
 export async function loginSuperadminUI(page: Page): Promise<void> {
+  // Limpia mailbox para que el waitForEmail solo vea el código 2FA nuevo.
+  await clearMailbox();
+
   await page.goto('/');
   await page.locator('#login-email').fill(TEST_CONFIG.superadmin.email);
   await page.locator('#login-password').fill(TEST_CONFIG.superadmin.password);
   await page.getByRole('button', { name: /^(iniciar|entrar|login)/i }).click();
-  // Esperar redirección al dashboard.
-  await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+
+  // Tras submit: o bien aparece input #login-2fa (rol con 2FA), o redirige
+  // directo al dashboard (rol sin 2FA, ej: client). Esperamos el primero
+  // que ocurra y actuamos en consecuencia.
+  const code2faInput = page.locator('#login-2fa');
+  await Promise.race([
+    code2faInput.waitFor({ state: 'visible', timeout: 15_000 }),
+    page.waitForURL(/\/dashboard/, { timeout: 15_000 }),
+  ]);
+
+  if (await code2faInput.isVisible().catch(() => false)) {
+    // Step 2FA: leer el código del email y enviarlo.
+    const message = await waitForEmail(TEST_CONFIG.superadmin.email, {
+      timeoutMs: 15_000,
+      subjectIncludes: 'código',
+    });
+    const code = extract2FACode(message);
+    await code2faInput.fill(code);
+    // El form de 2FA tiene su propio submit ("Verificar" o similar).
+    await page.getByRole('button', { name: /^(verificar|confirmar|continuar)/i }).click();
+    await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+  }
+  // Si no había 2FA, el waitForURL ya nos dejó en /dashboard.
 }
 
 /**
