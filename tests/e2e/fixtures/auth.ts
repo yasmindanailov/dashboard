@@ -9,13 +9,18 @@ import { TEST_CONFIG } from './test-config';
 
 /**
  * Login del superadmin a través de la UI.
- * Si la cuenta tiene 2FA activo, este helper NO lo maneja (usar loginWith2FA).
+ *
+ * Usa selectores por id en lugar de getByLabel/getByRole porque el botón
+ * "Mostrar contraseña" tiene aria-label que también matchea con regex
+ * abiertas (strict mode de Playwright lo rechaza por ambigüedad).
+ *
+ * Si la cuenta tiene 2FA activo, este helper NO lo maneja todavía.
  */
 export async function loginSuperadminUI(page: Page): Promise<void> {
   await page.goto('/');
-  await page.getByLabel(/email/i).fill(TEST_CONFIG.superadmin.email);
-  await page.getByLabel(/contraseña|password/i).fill(TEST_CONFIG.superadmin.password);
-  await page.getByRole('button', { name: /iniciar|entrar|login/i }).click();
+  await page.locator('#login-email').fill(TEST_CONFIG.superadmin.email);
+  await page.locator('#login-password').fill(TEST_CONFIG.superadmin.password);
+  await page.getByRole('button', { name: /^(iniciar|entrar|login)/i }).click();
   // Esperar redirección al dashboard.
   await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
 }

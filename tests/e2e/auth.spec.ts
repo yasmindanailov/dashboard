@@ -16,12 +16,14 @@ import { clearMailbox, waitForEmail, extractVerifyEmailLink } from './fixtures/m
 import { resetTestData, deleteUserByEmail, disconnectDb } from './fixtures/db';
 
 // Datos del usuario de prueba (regenerados por test para evitar colisiones)
+// Usamos .test como TLD (RFC 2606, reservado para tests). `.local` sería
+// válido pero algunos navegadores lo rechazan en validación HTML5 type=email.
 function makeTestUser() {
   const stamp = Date.now();
   return {
     firstName: 'Test',
     lastName: 'User',
-    email: `e2e-user-${stamp}@aelium-test.local`,
+    email: `e2e-user-${stamp}@aelium.test`,
     password: 'TestPassword123!',
   };
 }

@@ -59,9 +59,16 @@ export async function waitForEmail(
     }
     const list = (await listRes.json()) as MailpitListResponse;
 
+    const subjectIncludesLower = subjectIncludes?.toLowerCase();
     const match = list.messages.find((m) => {
-      const matchesAddress = m.To.some((t) => t.Address.toLowerCase() === toAddress.toLowerCase());
-      const matchesSubject = subjectIncludes ? m.Subject.includes(subjectIncludes) : true;
+      const matchesAddress = m.To.some(
+        (t) => t.Address.toLowerCase() === toAddress.toLowerCase(),
+      );
+      // Case-insensitive — los subjects reales usan mayúsculas iniciales
+      // ("Verifica tu email — Aelium") y queremos que el filtro tolere ambos.
+      const matchesSubject = subjectIncludesLower
+        ? m.Subject.toLowerCase().includes(subjectIncludesLower)
+        : true;
       return matchesAddress && matchesSubject;
     });
 
