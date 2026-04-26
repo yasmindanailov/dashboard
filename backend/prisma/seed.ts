@@ -81,6 +81,10 @@ async function main() {
     // Storage settings (Sprint 11.5 + ADR-062)
     { category: 'storage', key: 'signed_url_expiry_minutes', value: '60', description: 'TTL de URLs firmadas para descargas (minutos)' },
     { category: 'storage', key: 'max_upload_size_mb', value: '10', description: 'Tamaño máximo de archivo subido (MB) — uploads externos (chat/tickets)' },
+    // Jobs settings (Sprint 9 Fase A + ADR-063)
+    { category: 'jobs', key: 'default_retries', value: '5', description: 'Reintentos por defecto en BullMQ antes de DLQ (ADR-055)' },
+    { category: 'jobs', key: 'backoff_initial_ms', value: '30000', description: 'Backoff exponencial inicial en ms (30s → 60s → 120s → 240s → 480s)' },
+    { category: 'jobs', key: 'dlq_alert_to_superadmin', value: 'true', description: 'Emitir notificación al superadmin cuando un job entra en DLQ (R7+R13)' },
   ];
 
   for (const s of settings) {

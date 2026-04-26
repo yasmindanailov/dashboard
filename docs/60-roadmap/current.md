@@ -133,6 +133,367 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ---
 
+## 🔄 Sprint 9 — Audit + Notifications Full + BullMQ + DLQ (P1.1)
+
+**Estado:** ⬜ planificación (plan canónico — pendiente ejecución)
+**Inicio estimado:** 2026-04-26 (post Sprint 11.5)
+**Cierre estimado:** 2026-05 (4-5 sub-sesiones — ver Fases A–F)
+
+> **Trigger:** cierre del Sprint 11.5 introdujo deuda controlada R2 (fire-and-forget de PDFs en `InvoicePdfStorageService.generateAndUploadInBackground`, documentada en [`jobs-reference.md` §Crons aspiracionales](../50-operations/jobs-reference.md)) + el cierre P0.2 de Outbox dejó pendiente §7 del [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md) (alerta superadmin si row Outbox llega a `failed`). Sprint 9 es la consolidación arquitectónica que cierra ambas, formaliza ADR-055 (DLQ + retries + circuit breaker), implementa ADR-042 (notifications full), implementa ADR-017 (audit centralizado) y construye la infra BullMQ que [ADR-056](../10-decisions/adr-056-estrategia-escalabilidad.md) declara prerequisito de escalado horizontal.
+
+### 1. Objetivo en una frase
+
+Convertir el sistema de jobs y notificaciones en infra de producción profesional: BullMQ con DLQ + reintentos exponenciales como única forma canónica de trabajo asíncrono, `NotificationsService` multicanal manejando todos los emails + campana, `AuditService` centralizado con portal transparencia, y Error Log UI para que ningún fallo quede silencioso.
+
+### 2. Depende de
+
+| # | Dependencia | Estado | Bloquea qué del sprint |
+|---|-------------|--------|------------------------|
+| 1 | P0.1 listener `task.assigned` cerrado (Sprint 8) | ✅ | Fase D — migración listener a `NotificationsService` |
+| 2 | P0.2 Outbox `invoice.*` (4 eventos) cerrado | ✅ | Fase C — hardening del worker |
+| 3 | P0.3 lint bloqueante en CI | ✅ | Todo el sprint |
+| 4 | P0.4 tests E2E exhaustivos cerrados | ✅ | Fase B/D — referencia para tests nuevos |
+| 5 | P1.2 Sprint 11.5 cerrado (storage + `InvoicePdfStorageService`) | ✅ | Fase B — migrar fire-and-forget a cola `pdf-generation` |
+| 6 | [ADR-055](../10-decisions/adr-055-resiliencia-circuit-breaker.md) — DLQ + retries + backoff exponencial documentado | ✅ doc, ❌ código | Fase A — formaliza implementación |
+| 7 | [ADR-056](../10-decisions/adr-056-estrategia-escalabilidad.md) — migración crons a BullMQ | ✅ doc | Fase A + Fase C |
+| 8 | [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md) §7 — alerta superadmin si Outbox `failed` | ⬜ pendiente | Fase C |
+| 9 | [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) — multicanal + plantillas editables | ✅ doc | Fase D |
+| 10 | [ADR-017](../10-decisions/adr-017-audit-log-inmutable.md) — `AuditService` centralizado | ✅ doc | Fase E |
+| 11 | Stubs `audit/`, `notifications/`, `error-log/` (6 líneas cada uno) — verificados 2026-04-26 | ✅ presentes | Fases D/E/F |
+| 12 | `@nestjs/bullmq` v11 + `bullmq` v5 instalados | ✅ verificado en `backend/package.json` | Fase A |
+
+> Todas las dependencias críticas están ✅. Únicas decisiones nuevas a registrar son los 3 ADRs de Fase A/C/D (ver §9).
+
+### 3. Produce (contratos nuevos)
+
+#### 3.1 Endpoints REST nuevos
+
+- `GET /api/v1/notifications/unread` — campana del usuario actual. Devuelve hasta 50 notificaciones más recientes con `status='unread'`. CASL: `Read.Notification` (ownership por `user_id = req.user.id`).
+- `GET /api/v1/notifications` — histórico paginado del usuario actual (cursor pagination). CASL: `Read.Notification` + ownership.
+- `PATCH /api/v1/notifications/:id/read` — marca como leída. CASL: `Update.Notification` + ownership.
+- `PATCH /api/v1/notifications/read-all` — marca todas como leídas. CASL: `Update.Notification` + ownership.
+- `GET /api/v1/audit/access` — portal transparencia: lecturas a datos del usuario actual. Query params: `resource_type?`, `from?`, `to?`. CASL: `Read.AuditAccess` (ownership por `resource_id IN (recursos del usuario)`).
+- `GET /api/v1/audit/changes` — portal transparencia: cambios sobre datos del usuario actual. CASL: igual que `/access`.
+- `GET /api/v1/admin/error-log` — admin: errores del sistema con paginación. CASL: `Manage.ErrorLog` (solo `superadmin`).
+- `GET /api/v1/admin/jobs/failed` — admin: jobs en DLQ (estado `failed` en BullMQ + tabla `failed_jobs`). CASL: `Manage.Jobs` (solo `superadmin`).
+- `POST /api/v1/admin/jobs/:id/retry` — admin: reintenta manualmente un job de DLQ. CASL: `Manage.Jobs`.
+- `GET /api/v1/admin/notifications/templates` — listar plantillas. CASL: `Manage.NotificationTemplate`.
+- `PATCH /api/v1/admin/notifications/templates/:id` — editar plantilla (asunto + cuerpo). CASL: igual.
+- `POST /api/v1/admin/notifications/templates/:id/preview` — render preview con datos de muestra.
+
+#### 3.2 Eventos nuevos emitidos
+
+- `system.error` — emitido por `ErrorLogService.log()` cuando un error operativo persiste. Payload: `{ error_id, severity, source, message, correlation_id }`. Consumidor: `notifications-error.listener` → notifica al superadmin (campana + email). Cumple R7.
+- `outbox.event_failed` — emitido por `OutboxWorker` cuando un row Outbox alcanza `max_retries`. Payload: `{ event_outbox_id, event_type, last_error, retry_count }`. Consumidor: `notifications-outbox.listener` → alerta superadmin. **Cierra ADR-033 §7.**
+- `dlq.job_failed` — emitido por `DlqService` cuando un job BullMQ entra en DLQ. Payload: `{ job_id, queue, name, last_error, attempts_made }`. Consumidor: `notifications-dlq.listener` → alerta superadmin. **Cierra ADR-055 §DLQ.**
+- `notification.dispatched` — emitido por `NotificationsService.dispatch()` tras envío exitoso. Payload: `{ notification_id, event_type, channel, recipient_id }`. Consumidor: `audit-notification.listener` → registra en `audit_integration_log`.
+
+#### 3.3 Servicios inyectables nuevos
+
+- `JobsModule` (global) — registra `BullModule.forRoot()` con Redis URL + defaults: `attempts=5`, `backoff: { type: 'exponential', delay: 30000 }`, `removeOnComplete: { age: 3600 }`, `removeOnFail: false`. Cumple ADR-055.
+- `DlqService` (`backend/src/core/jobs/dlq.service.ts`) — listener de eventos `failed` en colas BullMQ. Persiste fila en `failed_jobs` + emite `dlq.job_failed` (R13).
+- `RetryService` (`backend/src/core/jobs/retry.service.ts`) — utilidad para que admin reintente un job: lee `failed_jobs` → `queue.add(...)`.
+- `NotificationsService.dispatch(eventType, payload, options?)` (`backend/src/modules/notifications/`) — orquesta render plantilla + envío multicanal. Encola en BullMQ `notifications-dispatch` para envíos pesados (email externo).
+- `NotificationTemplateService` — render de plantillas con Handlebars + validador de variables disponibles por `event_type`.
+- `EmailChannel`, `InAppChannel` — implementan `NotificationChannelInterface` (ADR-042). `EmailChannel` envuelve el `core/email` actual. `InAppChannel` persiste en tabla `notifications` (campana).
+- `AuditService` (`backend/src/modules/audit/`) — métodos `logAccess(actor, resource, action, metadata?)`, `logChange(actor, resource, before, after, metadata?)`, `logIntegration(integration, payload_hash, status, metadata?)`. Reemplaza accesos directos a `audit_access_log` (hoy en billing — ver `_matrix.md`).
+- `ErrorLogService.log(error, context)` — persiste en `error_log` + emite `system.error`. Catch global de NestJS migrado a invocarlo.
+- `PdfGenerationProcessor` (`backend/src/modules/billing/`) — `@Processor('pdf-generation')` + `WorkerHost`. Idempotency guard por `invoice_id`. Reemplaza `InvoicePdfStorageService.generateAndUploadInBackground`.
+- `OutboxDispatcher` — sustituye el `@Interval(5s)` actual de `OutboxWorker` por `BullModule.registerQueue('outbox-dispatch')` con `repeat: { every: 5000 }`. Crash recovery (`onModuleInit`) se mantiene.
+
+#### 3.4 Tablas o campos Prisma
+
+> **Auditoría schema 2026-04-26:** ya existen `notifications` (con shape básico — `channel`/`title`/`body`/`read_at`), `error_log`, `audit_access_log`, `audit_change_log`, `event_outbox` en `backend/prisma/schema.prisma`. Sprint 9 reutiliza el shape existente y añade SOLO lo nuevo, sin duplicar.
+
+##### Tablas nuevas (2)
+
+```prisma
+// Sprint 9 Fase A — DLQ post-mortem (ADR-063)
+enum FailedJobStatus { failed retrying resolved }
+
+model FailedJob {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bull_job_id     String          @db.VarChar(200)              // BullMQ job.id
+  queue           String          @db.VarChar(100)
+  name            String          @db.VarChar(200)
+  payload         Json
+  last_error      String          @db.Text
+  stack_trace     String?         @db.Text
+  attempts_made   Int
+  retried_at      DateTime?       @db.Timestamptz()
+  retried_by      String?         @db.Uuid
+  status          FailedJobStatus @default(failed)
+  created_at      DateTime        @default(now()) @db.Timestamptz()
+  @@index([queue, status])
+  @@index([created_at])
+  @@map("failed_jobs")
+}
+
+// Sprint 9 Fase D — Plantillas editables (ADR-042 §Plantillas, ADR-065)
+model NotificationTemplate {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_type  String   @db.VarChar(100)
+  channel     NotificationChannel
+  locale      String   @default("es") @db.VarChar(10)
+  subject     String   @db.VarChar(300)
+  body        String   @db.Text
+  variables   Json     // { "client.name": "string", ... } — declarativo
+  active      Boolean  @default(true)
+  updated_by  String?  @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz()
+  updated_at  DateTime @updatedAt       @db.Timestamptz()
+  @@unique([event_type, channel, locale])
+  @@map("notification_templates")
+}
+```
+
+##### Tablas existentes — uso sin modificación
+
+- `notifications` (líneas 690–707): se usa tal cual. Campo `read_at NULL` = unread, `read_at NOT NULL` = read. NO añadimos enum status — preservamos el shape actual y `NotificationsService` filtra por `read_at IS NULL`.
+- `error_log` (líneas 768–786): se usa tal cual. Campo `level` (`error|warn|fatal`) en lugar del `severity` que asumí; `module` en lugar de `source`. `ErrorLogService.log()` adapta nombres internamente.
+- `audit_access_log`, `audit_change_log` (líneas 790–821): se usan tal cual. `AuditService.logAccess` mapea (`user_id`, `action`, `resource`, `metadata`) directos.
+- `event_outbox` (líneas 750–764): sin cambios. Sprint 9 Fase C solo modifica el dispatcher externo.
+
+> NO se crea `audit_integration_log` separada (no existe hoy en schema). Se difiere al sprint que la necesite (Stripe / ResellerClub / Docker integrations) y se añade en su sprint dedicado. Sprint 9 §3.2 elimina referencia a `audit_integration_log` — el evento `notification.dispatched` se persiste en `audit_change_log` con `entity_type='notification'`.
+
+#### 3.5 Settings nuevos (seed)
+
+| Key | Tipo | Default | Justificación |
+|-----|------|---------|---------------|
+| `notifications.retention_days` | number | 90 | ADR-042 + ADR-060 — borrado automático notificaciones leídas. |
+| `notifications.unread_max_in_dropdown` | number | 50 | ADR-042 — campana muestra 50 más recientes. |
+| `notifications.email_enabled_globally` | boolean | true | Kill switch global por ambiente (off en CI/staging). |
+| `notifications.maintenance_critical_threshold_days` | number | 7 | ADR-042 — alerta tarea crítica X días antes fin de mes. |
+| `jobs.default_retries` | number | 5 | ADR-055 — defaults BullMQ. |
+| `jobs.backoff_initial_ms` | number | 30000 | ADR-055 — backoff exponencial 30s → 480s. |
+| `jobs.dlq_alert_to_superadmin` | boolean | true | R7 + ADR-055 — alerta cuando job entra en DLQ. |
+| `audit.access_retention_days` | number | 730 | ADR-017 — 2 años (no negociable a la baja). |
+
+#### 3.6 Permisos CASL nuevos
+
+- `Subject.Notification` — `Read`/`Update` con ownership (`user_id = actor.id`).
+- `Subject.NotificationTemplate` — `Manage` solo `superadmin`.
+- `Subject.AuditAccess` / `Subject.AuditChange` — `Read` con ownership (cliente ve sus accesos) + `Manage` para `superadmin`.
+- `Subject.ErrorLog` — `Manage` solo `superadmin`.
+- `Subject.Job` — `Manage` solo `superadmin`.
+
+### 4. Modifica (contratos existentes)
+
+#### 4.1 Endpoints modificados
+
+- `GET /api/v1/billing/invoices/:id/pdf` y `/pdf-url` — sin cambios funcionales para el caller, pero internamente el upload async se sirve desde la cola `pdf-generation` en lugar de `setImmediate`. Edge case nuevo: si el job está `waiting`/`active` cuando se descarga, fallback inline genera y sube síncrono (semántica idéntica al `pdf_url=NULL` actual).
+
+#### 4.2 Servicios modificados
+
+- `BillingInvoiceService.markAsPaid()` y `BillingInvoiceService.sendToPending()` — sustituyen `invoicePdfStorageService.generateAndUploadInBackground(...)` por `pdfQueue.add('invoice-pdf', { invoice_id, idempotency_key })`. Idempotency key estable: `invoice-pdf-{invoice_id}` (la cola descarta duplicados con misma key vía `jobId`).
+- `OutboxWorker` (`backend/src/core/outbox/outbox.worker.ts`) — `@Interval(5000)` se elimina; el dispatch lo programa BullMQ con `repeat: { every: 5000 }`. La lógica `claimBatch` + `processEvent` permanece intacta. Crash recovery `onModuleInit` se mantiene. Cuando un row alcanza `max_retries` → emite `outbox.event_failed`.
+- `BillingEmailListener` — pasa de invocar `EmailService.send(...)` directamente a `NotificationsService.dispatch('invoice.paid', payload)`. La plantilla inline pasa a tabla `notification_templates`.
+- `TasksEmailListener` — equivalente: `NotificationsService.dispatch('task.assigned', payload)`. Mantiene el `task.assigned` cerrado P0.1.
+- Accesos directos `prisma.auditAccessLog.create(...)` actuales (en `BillingService` — ver `_matrix.md` §A2) → migran a `AuditService.logAccess(...)`.
+- `core/email/EmailService` — pasa de servicio público a implementación interna del `EmailChannel` plugin. Solo `NotificationsService` lo usa. Llamadas directas en otros módulos quedan prohibidas (cierra ADR-042).
+
+#### 4.3 Eventos cambiados
+
+- (ninguno) — los eventos existentes mantienen payload. Los listeners cambian su forma de despachar.
+
+#### 4.4 BREAKING changes
+
+- **Semántico interno (no público):** `EmailService.send(...)` deja de ser API estable. Cualquier call site nuevo debe pasar por `NotificationsService.dispatch(...)`. ESLint custom rule (deuda menor — añadir si tiempo) o revisión code-review. Se documenta en `rules.md` como D-NN ("no `EmailService.send` directo").
+- **Operacional:** los crons in-process (`detectOverdueInvoices`, `generatePendingInvoices`, `retryOverduePayments`, `autoSuspendServices`, `autoCancelServices`, `checkPauseExpiration`, `cleanupExpiredGuestSessions`) **NO se migran** en este sprint. Su migración a BullMQ scheduled queda en P2.5 Sprint 13 (Hardening) — explícitamente fuera de scope para no inflar Sprint 9. Documentar en `jobs-reference.md`.
+
+### 5. Pasos atómicos
+
+> Sprint dividido en **6 fases** (A–F) que pueden cerrarse incrementalmente. Cada fase es punto natural de commit + smoke test parcial. Estimado total: 4-5 sub-sesiones.
+
+#### Fase A — Infra BullMQ + DLQ (cierra ADR-055, base de todo)
+
+| # | Paso | Estado |
+|---|------|--------|
+| 9.A.1 | ADR-063 — Infra BullMQ canónica + DLQ + retries (formaliza ADR-055 §DLQ y §Retries con backoff) | ✅ |
+| 9.A.2 | Schema Prisma: tabla `failed_jobs` + enum `FailedJobStatus` (migración pendiente — requiere Docker arriba) | 🟡 schema ✅, migración SQL pendiente Docker |
+| 9.A.3 | `core/jobs/jobs.module.ts` (global) — `BullModule.forRoot()` con Redis URL desde env, defaults `attempts=5` + backoff exponencial 30s→480s | ✅ |
+| 9.A.4 | `core/jobs/dlq.service.ts` — registro diferido por cola via `register()`, persiste en `failed_jobs`, emite `dlq.job_failed` | ✅ |
+| 9.A.5 | `core/jobs/retry.service.ts` — método `retry(failedJobId, actorId)` (re-encola con `attempts=5` reseteado, marca `failed_jobs.retried_at`/`retried_by`) | ✅ |
+| 9.A.6 | Settings seed: 3 nuevos `jobs.*` (`default_retries`, `backoff_initial_ms`, `dlq_alert_to_superadmin`) | ✅ |
+| 9.A.7 | Tests unitarios RetryService (5/5 verdes — mocks Prisma + Queue). DlqService cubierto E2E en Fase B (mismo patrón que P0.2 OutboxWorker) | ✅ |
+
+**Cierre Fase A:** typecheck ✅ · lint ✅ · build ✅ · tests RetryService 5/5 ✅. Migración Prisma `failed_jobs` queda pendiente hasta arranque de Docker Desktop — schema modificado y `prisma generate` ejecutado, falta sólo `pnpm prisma migrate dev --name sprint9_phase_a_failed_jobs` con DB up.
+
+#### Fase B — Cola `pdf-generation` (cierra deuda Sprint 11.5)
+
+| # | Paso | Estado |
+|---|------|--------|
+| 9.B.1 | `BullModule.registerQueue('pdf-generation')` en `BillingModule` | ⬜ |
+| 9.B.2 | `PdfGenerationProcessor` (`@Processor('pdf-generation')` + `WorkerHost`) — invoca `InvoicePdfStorageService.generateAndUpload(invoice_id)` (método ya existe — solo se mueve la invocación a la cola) | ⬜ |
+| 9.B.3 | Idempotency: `jobId = 'invoice-pdf-{invoice_id}'` para que duplicados sean no-op | ⬜ |
+| 9.B.4 | Refactor `BillingInvoiceService.markAsPaid()` y `sendToPending()` — `pdfQueue.add('invoice-pdf', { invoice_id }, { jobId })` en lugar de `generateAndUploadInBackground(...)` | ⬜ |
+| 9.B.5 | Eliminar el método `generateAndUploadInBackground` del `InvoicePdfStorageService` (no más fire-and-forget) | ⬜ |
+| 9.B.6 | Test E2E `tests/e2e/pdf-generation-queue.spec.ts` — pago → job encolado → procesado → PDF en bucket → descarga signed URL OK | ⬜ |
+| 9.B.7 | `jobs-reference.md` — registrar cola `pdf-generation` como activa, eliminar de "aspiracionales" | ⬜ |
+
+#### Fase C — Outbox worker hardening (cierra ADR-033 §7 y §3)
+
+| # | Paso | Estado |
+|---|------|--------|
+| 9.C.1 | ADR-064 — Outbox dispatcher migrado a BullMQ scheduled job (sustituye `@Interval`, prepara escalado horizontal cumpliendo ADR-056 §13.30+) | ⬜ |
+| 9.C.2 | `BullModule.registerQueue('outbox-dispatch')` en `OutboxModule` | ⬜ |
+| 9.C.3 | `OutboxDispatchProcessor` que invoca `OutboxWorker.dispatch()` actual (la lógica `claimBatch` + `processEvent` se mantiene 1:1) | ⬜ |
+| 9.C.4 | Eliminar `@Interval(5000)` del `OutboxWorker`; añadir `OnModuleInit` que registra `repeat: { every: 5000 }` en la cola | ⬜ |
+| 9.C.5 | Backoff exponencial al reintentar evento failed (no inmediato como hoy): `retry_delay_ms = 30000 * 2^retry_count` con cap a 480s | ⬜ |
+| 9.C.6 | Cuando `retry_count >= max_retries` → emit `outbox.event_failed` (cierra ADR-033 §7) | ⬜ |
+| 9.C.7 | Test E2E ampliando `tests/e2e/outbox-invoice.spec.ts` — simular listener que falla siempre → verificar que llega a `failed` + emite `outbox.event_failed` | ⬜ |
+
+#### Fase D — Notifications full (cierra ADR-042)
+
+| # | Paso | Estado |
+|---|------|--------|
+| 9.D.1 | ADR-065 — `NotificationChannelInterface` + plugin pattern (formaliza ADR-042 §Plugin de canal) | ⬜ |
+| 9.D.2 | Schema Prisma: `notifications` + `notification_templates` + enum + migración | ⬜ |
+| 9.D.3 | `NotificationsModule` con `BullModule.registerQueue('notifications-dispatch')` | ⬜ |
+| 9.D.4 | `NotificationTemplateService` — render Handlebars + validador `variables` declaradas | ⬜ |
+| 9.D.5 | `EmailChannel` (envuelve `core/email`) + `InAppChannel` (insert en `notifications`) | ⬜ |
+| 9.D.6 | `NotificationsService.dispatch(eventType, payload)` — lookup template por `(event_type, channel, locale)`, encola en `notifications-dispatch` | ⬜ |
+| 9.D.7 | `NotificationsDispatchProcessor` — itera canales activos del recipient, llama `channel.send(...)` | ⬜ |
+| 9.D.8 | Seed `notification_templates` para los 4 `invoice.*` + `task.assigned` + `system.error` + `outbox.event_failed` + `dlq.job_failed` | ⬜ |
+| 9.D.9 | Refactor `BillingEmailListener` → `NotificationsService.dispatch(...)`. Tests E2E billing siguen verdes (no cambian payload de email) | ⬜ |
+| 9.D.10 | Refactor `TasksEmailListener` (P0.1) → `NotificationsService.dispatch('task.assigned', ...)` | ⬜ |
+| 9.D.11 | Endpoints `/notifications/unread`, `/notifications`, `/:id/read`, `/read-all` + DTOs + CASL | ⬜ |
+| 9.D.12 | Endpoints admin `/admin/notifications/templates` (GET, PATCH, preview) + CASL | ⬜ |
+| 9.D.13 | Frontend: `NotificationBell` en Topbar (Sprint 7.5 D11) — dropdown últimas 50 + contador unread + WS opcional (server-sent o polling 30s) | ⬜ |
+| 9.D.14 | Frontend admin: `/dashboard/admin/notifications/templates` — listado + editor (Design System D6 Modal + D3 Textarea) | ⬜ |
+| 9.D.15 | Cron `cleanupReadNotifications` (in-process, `EVERY_DAY_AT_2AM`) — elimina notificaciones `read` con `read_at < now() - notifications.retention_days` | ⬜ |
+| 9.D.16 | Settings seed: 4 nuevos `notifications.*` | ⬜ |
+| 9.D.17 | Test E2E `tests/e2e/notifications.spec.ts` — pago factura → cliente recibe en campana + email; admin ve plantilla en UI | ⬜ |
+
+#### Fase E — Audit centralizado + portal transparencia (cierra ADR-017 + ADR-010)
+
+| # | Paso | Estado |
+|---|------|--------|
+| 9.E.1 | `AuditService` con métodos `logAccess`, `logChange`, `logIntegration` (cumplimiento R3 — solo INSERT) | ⬜ |
+| 9.E.2 | Migrar accesos directos `prisma.auditAccessLog.create(...)` (en billing — ver `_matrix.md` §A2) a `AuditService.logAccess(...)` | ⬜ |
+| 9.E.3 | Listeners: `audit-auth.listener` (8 eventos `auth.*` huérfanos pasan a registrar audit), `audit-billing.listener` (lecturas/cambios de factura), `audit-notification.listener` (consume `notification.dispatched` → `audit_integration_log`) | ⬜ |
+| 9.E.4 | Endpoints `/audit/access` + `/audit/changes` con CASL ownership filter (cliente ve solo lo suyo) | ⬜ |
+| 9.E.5 | Frontend: `/dashboard/transparency` — portal cliente "Quién accedió a tus datos". Tabla con filtros por tipo/fecha. Design System D7 Table + D10e Breadcrumb | ⬜ |
+| 9.E.6 | Settings seed: `audit.access_retention_days` (730) | ⬜ |
+| 9.E.7 | Cron `cleanupOldAuditLogs` (in-process, `EVERY_DAY_AT_3AM`) — borra rows con `created_at < now() - 730 days` (única operación DELETE permitida sobre audit_*; ADR-017) | ⬜ |
+| 9.E.8 | Test E2E `tests/e2e/audit-portal.spec.ts` — admin ve factura del cliente → cliente entra a transparencia y ve el acceso registrado | ⬜ |
+
+#### Fase F — Error Log UI + jobs failed UI (cierra ADR-055 §Monitoring)
+
+| # | Paso | Estado |
+|---|------|--------|
+| 9.F.1 | Schema Prisma: tabla `error_log` + migración | ⬜ |
+| 9.F.2 | `ErrorLogService.log(error, context)` — persiste + emite `system.error` | ⬜ |
+| 9.F.3 | NestJS `AllExceptionsFilter` global — captura excepciones unhandled → `ErrorLogService.log(...)` (preserva comportamiento R14 al frontend) | ⬜ |
+| 9.F.4 | Endpoint `/admin/error-log` (GET con paginación, PATCH `:id/resolve`) + CASL | ⬜ |
+| 9.F.5 | Endpoint `/admin/jobs/failed` (GET) + `/admin/jobs/:id/retry` (POST) — reintenta vía `RetryService` | ⬜ |
+| 9.F.6 | Frontend admin: `/dashboard/admin/error-log` — tabla DS + filtro por severity/source/resolved | ⬜ |
+| 9.F.7 | Frontend admin: `/dashboard/admin/jobs/failed` — tabla DS + botón "Reintentar" (D2 Button) + Modal confirmación (D6) | ⬜ |
+| 9.F.8 | Listeners: `notifications-error.listener` consume `system.error` → notifica superadmin (campana + email — usa `NotificationsService` Fase D); `notifications-outbox.listener` consume `outbox.event_failed`; `notifications-dlq.listener` consume `dlq.job_failed` | ⬜ |
+| 9.F.9 | Test E2E `tests/e2e/error-log-jobs.spec.ts` — forzar excepción → admin la ve en `/admin/error-log` y `system.error` llega al superadmin | ⬜ |
+
+#### Fase G — Cierre + DoD
+
+| # | Paso | Estado |
+|---|------|--------|
+| 9.G.1 | `_events.md` actualizado con 4 eventos nuevos (`system.error`, `outbox.event_failed`, `dlq.job_failed`, `notification.dispatched`) | ⬜ |
+| 9.G.2 | `jobs-reference.md` — colas BullMQ activas (3): `pdf-generation`, `outbox-dispatch`, `notifications-dispatch`. Eliminar de "aspiracionales" + actualizar resumen ejecutivo | ⬜ |
+| 9.G.3 | `settings-reference.md` — 8 settings nuevos con consumidor real | ⬜ |
+| 9.G.4 | `contracts` actualizados: `audit/contract.md`, `notifications/contract.md`, `error-log/contract.md`, `billing/contract.md` (cola `pdf-generation`) | ⬜ |
+| 9.G.5 | `rules.md` — añadir D-NN: "Notificaciones cliente solo vía `NotificationsService.dispatch(...)`. `EmailService.send` directo prohibido fuera de `EmailChannel`" | ⬜ |
+| 9.G.6 | `_matrix.md` — añadir filas notifications/audit/error-log con dependencias reales | ⬜ |
+| 9.G.7 | Smoke test manual completo (Yasmin) — ver §7 | ⬜ |
+| 9.G.8 | Commit final `feat(P1.1): Sprint 9 — Audit + Notifications Full + BullMQ + DLQ — cumple R2/R7/R8/R13 + ADR-017/033/042/055/063/064/065` | ⬜ |
+| 9.G.9 | Mover sección Sprint 9 a `completed/sprint-9-audit-notifications-bullmq.md` con resumen ejecutivo + retrospectiva | ⬜ |
+
+### 6. Edge cases anticipados
+
+| ID | Caso | Plan |
+|----|------|------|
+| EC-S9-01 | Redis caído al arrancar el backend | `BullModule.forRoot()` con `connection.lazyConnect=true`. Logs warning. App opera (web responde) pero las colas están en pausa. Health check `/health` lo refleja. |
+| EC-S9-02 | Job `pdf-generation` falla 5 veces (MinIO caído largo) | Fila en `failed_jobs` + alerta `dlq.job_failed` al superadmin. Admin reintenta manualmente desde UI cuando MinIO vuelva. |
+| EC-S9-03 | Plantilla `notification_templates` con variable inexistente (`{{client.foo}}`) | Validador en `NotificationTemplateService.validateTemplate()` ejecutado en preview + en PATCH endpoint. Save bloqueado con 422 + mensaje claro (R14). |
+| EC-S9-04 | Cliente con email apagado en sus settings + `invoice.paid` | `NotificationsService` consulta preferencias del recipient. Si email off → solo `InAppChannel`. La factura queda en campana pero no en mailbox. (Settings de preferencias por canal: deferred a Sprint 12.5 Portal RGPD — ahora todos los clientes reciben todo por default.) |
+| EC-S9-05 | Migración Outbox `@Interval` → BullMQ deja eventos atascados durante despliegue | `onModuleInit` del nuevo dispatcher recupera filas en `processing` (mecánica actual). Idempotencia natural: emit `invoice.paid` 2 veces por crash → listener idempotente vía deduplicación por `invoice_id` + estado. Aceptable. |
+| EC-S9-06 | `failed_jobs` crece sin límite en producción | Cron `cleanupResolvedFailedJobs` (futuro Sprint 13) — fuera de scope. Mientras tanto: tabla pequeña (jobs failed son raros) + paginación cursor en UI admin. |
+| EC-S9-07 | `system.error` infinito si el listener de notificaciones falla | Guard explícito: `notifications-error.listener` NO puede emitir `system.error` (rompería el loop). Si falla, log a stderr + Sentry (cuando se configure) — degradación silenciosa por diseño. |
+| EC-S9-08 | Idempotencia `pdf-generation`: dos `markAsPaid` paralelos | `jobId = 'invoice-pdf-{invoice_id}'` → BullMQ descarta el segundo `add()`. Si el primer job falló y se reintenta vía Retry → mismo jobId reutilizado. OK. |
+| EC-S9-09 | Cliente borra cuenta → `notifications` con `user_id` huérfano | FK con `onDelete: Cascade` desde `notifications.user_id → users.id`. Audit log NO cascade (R3 — inmutable). |
+| EC-S9-10 | Plantilla en otro idioma (i18n futuro Sprint 16) | `notification_templates.locale` ya está en schema. Default `'es'`. Lookup busca `(event_type, channel, locale)` con fallback a `'es'` si no hay match. Listo para i18n sin migración. |
+| EC-S9-11 | Worker BullMQ procesa job mientras el backend recibe SIGTERM | `BullModule` registra `WorkerHost` que respeta graceful shutdown ADR-055 §Graceful: 30s para terminar job actual + cierra conexión Redis limpia. Implementado por la lib, validar en test. |
+| EC-S9-12 | Email enviado pero `notification.dispatched` no llega → audit incompleto | Aceptado: el evento sale tras `channel.send()` exitoso. Si el process muere en medio, el email salió pero audit pierde row. Es deuda menor, NO crítica (audit_integration_log no es legal sino operacional). |
+
+### 7. Definition of Done
+
+#### Código
+- [ ] Pasos 9.A.1–9.G.9 marcados ✅
+- [ ] `pnpm typecheck && pnpm build` pasan en backend y frontend
+- [ ] `pnpm lint:check` (backend) + `pnpm lint` (frontend) verdes — bloqueante
+- [ ] `pnpm test` (backend unit) + `pnpm test:e2e` verdes
+- [ ] CI verde tras último push (incluye nuevos servicios MinIO + Redis + Postgres)
+- [ ] Cobertura E2E nueva: pdf-generation queue, notifications, audit portal, error-log, jobs failed retry — al menos 1 spec por área
+
+#### Documentación
+- [ ] ADR-063, ADR-064, ADR-065 creados, fechados, enlazados desde `rules.md` (sección Patrones canónicos), `_matrix.md` y contracts afectados
+- [ ] `_events.md` con 4 eventos nuevos (`system.error`, `outbox.event_failed`, `dlq.job_failed`, `notification.dispatched`) — emisor + consumidor + payload + outbox=no
+- [ ] `jobs-reference.md`: 3 colas BullMQ activas + DLQ implementada + alerta superadmin documentada
+- [ ] `settings-reference.md`: 8 settings nuevos pasan a estado ✅
+- [ ] `contracts` audit/notifications/error-log: pasan de stub a contract real con secciones 1-12
+- [ ] `billing/contract.md` §7 Eventos emitidos — actualizar Outbox `invoice.*` con backoff exponencial
+- [ ] `glossary.md`: términos nuevos *DLQ*, *Failed Job*, *Notification Channel*, *Notification Template*
+- [ ] `rules.md`: nueva D-NN ("notificaciones solo vía NotificationsService") + actualizar §Patrones canónicos con `JobsModule`/`DlqService`/`NotificationsService`/`AuditService`/`ErrorLogService`
+
+#### Proceso
+- [ ] Conventional Commits con citación de regla en cada commit (`feat(jobs): Fase A — DLQ + retries — cumple R13 + ADR-055/063`)
+- [ ] Cada Fase A–F en commit separado (granularidad para rollback selectivo)
+- [ ] ADRs creados ANTES de codear la fase correspondiente (Fase A → ADR-063 primero, Fase C → ADR-064 primero, Fase D → ADR-065 primero)
+- [ ] Edge cases EC-S9-01..12 trackeados (resueltos o referenciados)
+
+#### Smoke testing manual (Yasmin)
+- [ ] Crear factura → finalizar → pagar → ver job `pdf-generation` en cola Redis (CLI `bullmq` o consola admin) → verificar PDF en MinIO
+- [ ] Forzar `MINIO_ENDPOINT` inválido → pagar factura → ver job en `failed_jobs` → ver alerta `dlq.job_failed` en campana superadmin → click "Reintentar" tras restaurar MinIO → job procesa OK
+- [ ] Admin edita plantilla `invoice.paid` → click Preview → ve render con datos de muestra → guardar → pagar factura nueva → email/campana refleja cambio
+- [ ] Admin crea factura para cliente → cliente entra `/dashboard/transparency` → ve fila "admin@aelium.net leyó tu factura"
+- [ ] Forzar excepción en backend (endpoint test) → admin entra `/dashboard/admin/error-log` → ve la entrada → marca como resolved
+- [ ] Verificar campana en Topbar (cliente y admin): contador unread, dropdown últimas 50, click marca como leída
+- [ ] Sin errores en consola del navegador en ninguno de los flujos
+- [ ] Flujos críticos existentes siguen funcionando: login + 2FA + checkout + chat escalación a ticket
+
+### 8. Riesgos identificados
+
+| Riesgo | Impacto si ocurre | Mitigación |
+|--------|-------------------|------------|
+| Migración `EmailService` directo → `NotificationsService` rompe emails legacy | Cliente deja de recibir email tras Fase D | Tests E2E billing/auth corren en cada commit. Si rompen, rollback de la Fase D antes de seguir. Plantillas seedeadas con texto idéntico al inline actual (copia exacta) para no introducir diferencia visible. |
+| Outbox migrado a BullMQ duplica eventos durante el despliegue | Cliente recibe email duplicado | Idempotencia natural: el row Outbox tiene `status` única — emit doble = upsert no-op. Tests demuestran. |
+| BullMQ requiere Redis disponible — CI puede flakear | CI rojo intermitente | Reusar el `redis` service del CI workflow actual (ya existe para cache). Healthcheck antes de tests. |
+| 17 pasos en Fase D — se sobre-ingenia plantillas y se retrasa el sprint | Sprint queda abierto >5 sesiones | Fase D tiene gate explícito: 9.D.1–9.D.10 son MVP (eventos críticos `invoice.*` + `task.assigned`). 9.D.11–9.D.17 son UX admin + cron limpieza — pueden moverse a Sprint 9.5 si presupuesto se agota. |
+| Frontend `/admin` no existe hoy (verificado) — hay que crear estructura nueva | Refactor inesperado en frontend | Crear `frontend/app/dashboard/admin/layout.tsx` reutilizando D11 Sidebar shell. Coste real ~1 archivo. Aceptable. |
+| Schema Prisma con 4 tablas nuevas + 2 enums — migración grande | Migración lenta o rollback complejo en prod | Migración solo afecta dev/CI hoy. Prod aún no existe. En prod (Sprint 14) la migración inicial ya incluirá todo el schema final (no será incremental). |
+| `cleanupOldAuditLogs` cron borra audit del cliente activo por bug | Pérdida de evidencia legal — incumple R3 + RGPD | Test E2E que verifica: insert hace 731 días → corre cron → row borrado; insert hace 729 días → cron NO borra. Implementar como `DELETE` con `FOR UPDATE` y log de count. |
+| Sprint 9 inflado bloquea Sprint 14 deploy | Yasmin no llega a deploy en plazo | Fases A+B+C son el "MVP de Sprint 9" — cierran las deudas pre-deploy críticas (R2 Sprint 11.5 + ADR-033 §7). Si falta tiempo: cerrar Sprint 9 con A+B+C y mover D+E+F a Sprint 9.5/10. Sprint 14 se desbloquea con A+B+C. |
+
+### 9. Decisiones registradas
+
+ADRs nuevos a crear ANTES de la fase correspondiente:
+
+- **ADR-063 — Infra BullMQ canónica + DLQ + retries con backoff exponencial** (pre Fase A). Formaliza implementación de ADR-055 §DLQ y §Retries. Decide: defaults globales, ubicación `core/jobs/`, semántica de `failed_jobs` table vs Redis-only, política de retención.
+- **ADR-064 — Outbox dispatcher migrado a BullMQ scheduled job** (pre Fase C). Sustituye `@Interval(5s)`. Justificación: ADR-056 §13.30+ exige leader election natural antes de escalado horizontal. Backoff exponencial al reintentar (no inmediato como hoy).
+- **ADR-065 — `NotificationChannelInterface` + plugin pattern** (pre Fase D). Formaliza ADR-042 §Plugin de canal. Define interfaz, `EmailChannel` + `InAppChannel` como primeros plugins, hooks de extensión para WhatsApp/Telegram futuros.
+
+### 10. Cierre del sprint
+
+> Rellenar al cerrar.
+
+**Fecha real de cierre:** YYYY-MM-DD
+**Commit final:** `<sha>`
+**Cambios respecto al plan original:** breve resumen
+**Items movidos a sprints futuros:**
+- (rellenar)
+
+**DoD verificado:** ✅ todo / ⚠️ con excepciones (listar)
+
+---
+
 ## ✅ Sprint 11.5 — MinIO Storage local (P1.2)
 
 **Estado:** ✅ completado

@@ -819,3 +819,30 @@ model AuditChangeLog {
   @@index([created_at])
   @@map("audit_change_log")
 }
+
+// ─── BLOQUE 13: DLQ — JOBS FALLIDOS (Sprint 9 Fase A — ADR-063) ───
+
+enum FailedJobStatus {
+  failed
+  retrying
+  resolved
+}
+
+model FailedJob {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bull_job_id   String          @db.VarChar(200)
+  queue         String          @db.VarChar(100)
+  name          String          @db.VarChar(200)
+  payload       Json
+  last_error    String
+  stack_trace   String?
+  attempts_made Int
+  retried_at    DateTime?       @db.Timestamptz()
+  retried_by    String?         @db.Uuid
+  status        FailedJobStatus @default(failed)
+  created_at    DateTime        @default(now()) @db.Timestamptz()
+
+  @@index([queue, status])
+  @@index([created_at])
+  @@map("failed_jobs")
+}

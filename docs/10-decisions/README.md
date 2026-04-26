@@ -148,6 +148,7 @@ Resultado: la historia queda íntegra.
 
 - [ADR-061](./adr-061-support-inside-tier-cuenta-ux.md) — Support Inside como tier de cuenta (refina ADR-034 con UX dedicada, schema reutilizado)
 - [ADR-062](./adr-062-storage-canonico-minio.md) — Storage canónico: MinIO + `@aws-sdk/client-s3` + `pdf_url` guarda S3 key + descarga 302 redirect a signed URL
+- [ADR-063](./adr-063-bullmq-canonico-dlq-retries.md) — Infra BullMQ canónica + DLQ + retries con backoff exponencial (formaliza ADR-055 §DLQ y §Retries — Sprint 9 Fase A)
 
 ---
 

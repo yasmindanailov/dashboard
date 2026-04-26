@@ -93,6 +93,8 @@ RESPONDE INMEDIATO (hilo principal):
   abrir un chat
 ```
 
+> **Implementación canónica:** [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) — `JobsModule` global en `backend/src/core/jobs/`, defaults `attempts=5` + backoff exponencial 30s→480s + jitter ±10%. Ningún `setImmediate`, `setTimeout >100ms` ni cron `@Interval(...)` con side effects nuevo se acepta fuera de BullMQ post Sprint 9 Fase A.
+
 ---
 
 ### R3 — El audit log es inmutable
@@ -241,6 +243,8 @@ nunca en la base de datos ni en el código fuente.
 Cuando un job de BullMQ agota todos sus reintentos, queda en estado `failed` en Redis.
 Se genera una notificación al superadmin. El admin puede reintentar manualmente desde
 el dashboard. Los jobs fallidos nunca se eliminan automáticamente.
+
+> **Implementación canónica:** [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) — `DlqService` escucha `QueueEvents.failed`, persiste en tabla `failed_jobs` (Postgres, post-mortem) + emite `dlq.job_failed` consumido por `notifications-dlq.listener` que alerta al superadmin (cumple R7). `RetryService.retry(failedJobId, actorId)` reencola con `attempts=5` reseteado y marca `retried_at` + `retried_by` (audit trail). UI admin en `/dashboard/admin/jobs/failed`.
 
 ---
 
@@ -504,6 +508,9 @@ Los mensajes de sistema del dashboard siguen la voz de Aelium definida en `docs/
 | `getErrorMessage(err: unknown): string` | `frontend/app/lib/error.ts` | R7/R14 | Análogo en frontend. Maneja también el shape `{ status, message, correlationId }` que `lib/api.ts` lanza. |
 | `frontend/app/lib/types.ts` | `frontend/app/lib/types.ts` | type-safety | Tipos de dominio compartidos (`Client`, `Invoice`, `Conversation`, `Task`, `Pagination<T>`, etc.). Snake_case alineado con la API REST. |
 | `StorageService.upload / download / presignedDownloadUrl` | `backend/src/core/storage/storage.service.ts` | infra (ADR-062) | Persistencia S3-compatible. Inyectar para guardar PDFs, adjuntos, logos. Convención de keys: ver [ADR-062 §D](../10-decisions/adr-062-storage-canonico-minio.md). Endpoint de descarga: 302 redirect a signed URL, no proxy del backend. |
+| `JobsModule` + `BullModule.registerQueue('<nombre>')` | `backend/src/core/jobs/jobs.module.ts` | R2/R13 (ADR-063) | Cualquier trabajo asíncrono >200ms con side effects. Defaults globales: `attempts=5`, backoff exponencial 30s→480s + jitter ±10%, `removeOnFail: false`. Inyectar la cola con `@InjectQueue('<nombre>')` y publicar con `queue.add(name, payload, { jobId? })`. Idempotencia obligatoria. |
+| `DlqService` + tabla `failed_jobs` | `backend/src/core/jobs/dlq.service.ts` | R13 (ADR-063) | Captura automática de jobs `failed` post-retries. No se invoca a mano. Emite `dlq.job_failed` para alerta superadmin. |
+| `RetryService.retry(failedJobId, actorId)` | `backend/src/core/jobs/retry.service.ts` | R13 (ADR-063) | Reintento manual desde UI admin. Resetea `attempts` y guarda audit (`retried_at`, `retried_by`). |
 
 ---
 
