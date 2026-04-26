@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { Conversation, Message, Prisma } from '@prisma/client';
+import { Conversation, Message, MessageSender, Prisma } from '@prisma/client';
 import { CreateMessageDto, UpdateConversationDto } from './dto/support.dto';
 
 /**
@@ -313,13 +313,15 @@ export class SupportMessageService {
     if (!conversation)
       throw new NotFoundException('Conversación no encontrada.');
 
-    const senderTypesToMark: string[] =
-      readerType === 'agent' ? ['client', 'ai'] : ['agent', 'system'];
+    const senderTypesToMark: MessageSender[] =
+      readerType === 'agent'
+        ? [MessageSender.client, MessageSender.ai]
+        : [MessageSender.agent, MessageSender.system];
 
     const result = await this.prisma.message.updateMany({
       where: {
         conversation_id: conversationId,
-        sender_type: { in: senderTypesToMark as any },
+        sender_type: { in: senderTypesToMark },
         read_at: null,
       },
       data: { read_at: new Date() },

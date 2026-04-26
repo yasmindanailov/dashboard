@@ -18,6 +18,7 @@ import {
   BillingCycle,
   ExtraType,
   ExtraApplicableCycle,
+  Prisma,
 } from '@prisma/client';
 
 /* ═══════════════════════════════════════
@@ -88,7 +89,7 @@ export class ProductExtraDto {
   applicable_cycles?: ExtraApplicableCycle;
 
   @IsOptional()
-  tld_restrictions?: any;
+  tld_restrictions?: Prisma.InputJsonValue;
 
   @IsOptional()
   @IsInt()
@@ -220,13 +221,13 @@ export class CreateProductDto {
   pause_max_days?: number;
 
   @IsOptional()
-  provisioner_config?: any;
+  provisioner_config?: Prisma.InputJsonValue;
 
   @IsOptional()
-  audit_event_types?: any;
+  audit_event_types?: Prisma.InputJsonValue;
 
   @IsOptional()
-  features?: any;
+  features?: Prisma.InputJsonValue;
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -346,13 +347,13 @@ export class UpdateProductDto {
   pause_max_days?: number;
 
   @IsOptional()
-  provisioner_config?: any;
+  provisioner_config?: Prisma.InputJsonValue;
 
   @IsOptional()
-  audit_event_types?: any;
+  audit_event_types?: Prisma.InputJsonValue;
 
   @IsOptional()
-  features?: any;
+  features?: Prisma.InputJsonValue;
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })

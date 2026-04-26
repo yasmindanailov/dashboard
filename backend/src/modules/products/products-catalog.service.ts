@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 import { ProductPricingDto } from './dto/product.dto';
 
@@ -60,7 +61,7 @@ export class ProductsCatalogService {
     if (!pricing) throw new NotFoundException('Plan de precio no encontrado.');
     return this.prisma.productPricing.update({
       where: { id: pricingId },
-      data: dto as any,
+      data: dto as Prisma.ProductPricingUpdateInput,
     });
   }
 

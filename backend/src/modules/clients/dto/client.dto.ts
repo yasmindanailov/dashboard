@@ -6,7 +6,7 @@ import {
   IsBoolean,
   MaxLength,
 } from 'class-validator';
-import { ClientType, NoteCategory } from '@prisma/client';
+import { ClientType, NoteCategory, UserStatus } from '@prisma/client';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
 
 /* ═══════════════════════════════════════
@@ -14,8 +14,8 @@ import { PaginationDto } from '../../../common/dto/pagination.dto';
    ═══════════════════════════════════════ */
 export class ClientListQueryDto extends PaginationDto {
   @IsOptional()
-  @IsEnum(['active', 'pending_verification', 'blocked', 'inactive'])
-  status?: string;
+  @IsEnum(UserStatus)
+  status?: UserStatus;
 }
 
 /* ═══════════════════════════════════════

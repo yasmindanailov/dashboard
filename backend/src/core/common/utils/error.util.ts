@@ -17,9 +17,12 @@
 export function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === 'string') return err;
+  if (typeof err === 'number' || typeof err === 'boolean') return String(err);
   if (err === null || err === undefined) return 'unknown error';
+  // Para objetos no-Error (ej. una promesa rejected con un payload), serializar
+  // como JSON evita "[object Object]". Si JSON falla (ciclos, BigInt), fallback.
   try {
-    return String(err);
+    return JSON.stringify(err);
   } catch {
     return 'unknown error';
   }

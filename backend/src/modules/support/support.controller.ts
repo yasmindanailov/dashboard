@@ -13,6 +13,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ConversationType } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 
 import { SupportService } from './support.service';
@@ -83,7 +84,7 @@ export class SupportController {
   ) {
     const user = req.user;
     const isAdmin = ADMIN_ROLES.includes(user.role.slug);
-    query.type = 'chat' as any;
+    query.type = ConversationType.chat;
     if (!isAdmin) query.user_id = user.id;
     return this.supportService.findAll(query);
   }
@@ -128,7 +129,7 @@ export class SupportController {
   ) {
     const user = req.user;
     const isAdmin = ADMIN_ROLES.includes(user.role.slug);
-    query.type = 'ticket' as any;
+    query.type = ConversationType.ticket;
     if (!isAdmin) query.user_id = user.id;
     return this.supportService.findAll(query);
   }

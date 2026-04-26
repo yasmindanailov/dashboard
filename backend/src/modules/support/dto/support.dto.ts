@@ -16,6 +16,7 @@ import {
   ConversationPriority,
   ConversationType,
   ConversationCategory,
+  Prisma,
 } from '@prisma/client';
 
 /* ═══════════════════════════════════════
@@ -138,7 +139,7 @@ export class CreateMessageDto {
   body: string;
 
   @IsOptional()
-  attachments?: any;
+  attachments?: Prisma.InputJsonValue;
 
   /**
    * Internal messages are only visible to agents.
@@ -181,7 +182,8 @@ export class UpdateConversationDto {
   resolution_note?: string;
 
   @IsOptional()
-  tags?: any;
+  @IsString({ each: true })
+  tags?: string[];
 }
 
 /* ═══════════════════════════════════════

@@ -20,7 +20,15 @@ export class SettingsService {
       where: { category_key: { category, key } },
     });
 
-    const value = setting ? String(setting.value) : (fallback ?? '');
+    // setting.value es Json — restringimos a string|number|boolean para evitar
+    // "[object Object]" si alguien guarda un objeto por error.
+    const raw = setting?.value;
+    const value =
+      typeof raw === 'string' ||
+      typeof raw === 'number' ||
+      typeof raw === 'boolean'
+        ? String(raw)
+        : (fallback ?? '');
     this.cache.set(cacheKey, { value, expiresAt: Date.now() + this.CACHE_TTL });
     return value;
   }

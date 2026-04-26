@@ -129,7 +129,7 @@ export class BillingController {
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Invoice))
   async finalize(@Param('id', ParseUUIDPipe) id: string) {
     // Validate invoice has items before finalizing
-    const invoice = (await this.billingService.findOne(id)) as any;
+    const invoice = await this.billingService.findOne(id);
     if (!invoice.items || invoice.items.length === 0) {
       throw new BadRequestException(
         'No se puede enviar una factura sin líneas',
@@ -191,7 +191,7 @@ export class BillingController {
   ) {
     const user = req.user;
     const isAdmin = ADMIN_ROLES.includes(user.role.slug);
-    const invoice = (await this.billingService.findOne(id)) as any;
+    const invoice = await this.billingService.findOne(id);
 
     if (!isAdmin && invoice.user_id !== user.id) {
       throw new ForbiddenException('No tienes acceso a esta factura');

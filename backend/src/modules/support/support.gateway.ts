@@ -50,8 +50,9 @@ export class SupportGateway
 
   async handleConnection(client: Socket) {
     // Attempt 1: JWT
+    const auth = client.handshake.auth as { token?: string } | undefined;
     const token =
-      client.handshake.auth?.token ||
+      auth?.token ||
       client.handshake.headers?.authorization?.replace('Bearer ', '');
 
     if (token) {
@@ -136,11 +137,11 @@ export class SupportGateway
     void client.join(`conversation:${data.conversationId}`);
 
     if (!userInfo.isGuest) {
-      const role = userInfo.isAdmin ? 'agent' : 'client';
+      const role: 'agent' | 'client' = userInfo.isAdmin ? 'agent' : 'client';
       await this.supportService.markAsRead(
         data.conversationId,
         userInfo.userId,
-        role as any,
+        role,
       );
     }
   }
@@ -282,11 +283,11 @@ export class SupportGateway
     const userInfo = this.connectedUsers.get(client.id);
     if (!userInfo || userInfo.isGuest) return;
 
-    const role = userInfo.isAdmin ? 'agent' : 'client';
+    const role: 'agent' | 'client' = userInfo.isAdmin ? 'agent' : 'client';
     await this.supportService.markAsRead(
       data.conversationId,
       userInfo.userId,
-      role as any,
+      role,
     );
 
     client.to(`conversation:${data.conversationId}`).emit('messages:read', {

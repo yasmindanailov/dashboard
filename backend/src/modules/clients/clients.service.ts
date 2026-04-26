@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
-import { RoleSlug } from '@prisma/client';
+import { Prisma, RoleSlug } from '@prisma/client';
 import { paginate, PaginatedResult } from '../../common/dto/pagination.dto';
 import {
   ClientListQueryDto,
@@ -39,7 +39,7 @@ export class ClientsService {
     });
     if (!clientRole) throw new Error('Client role not found');
 
-    const where: any = { role_id: clientRole.id };
+    const where: Prisma.UserWhereInput = { role_id: clientRole.id };
     if (status) where.status = status;
     if (search) {
       where.OR = [
@@ -190,7 +190,7 @@ export class ClientsService {
   async listStructuredNotes(userId: string, query: ClientNoteQueryDto) {
     const { page = 1, limit = 50, category, pinned_only } = query;
     const skip = (page - 1) * limit;
-    const where: any = { user_id: userId };
+    const where: Prisma.ClientNoteWhereInput = { user_id: userId };
     if (category) where.category = category;
     if (pinned_only) where.is_pinned = true;
 

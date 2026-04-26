@@ -49,7 +49,7 @@ export class SupportGatewayAuth {
     token: string,
   ): Promise<ConnectedUserInfo | null> {
     try {
-      const payload = this.jwtService.verify(token);
+      const payload = this.jwtService.verify<{ sub: string }>(token);
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
         include: { role: true },
@@ -133,8 +133,9 @@ export class SupportGatewayAuth {
       }
     }
 
-    if (client.handshake.auth?.guestToken) {
-      return client.handshake.auth.guestToken;
+    const auth = client.handshake.auth as { guestToken?: string } | undefined;
+    if (auth?.guestToken) {
+      return auth.guestToken;
     }
 
     return null;

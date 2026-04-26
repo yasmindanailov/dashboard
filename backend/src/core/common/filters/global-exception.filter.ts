@@ -8,6 +8,13 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { PrismaService } from '../../database/prisma.service';
+import type { AuthenticatedUser } from '../types/authenticated-request';
+
+/** Request augmentado con `correlationId` (middleware) y `user` (JwtAuthGuard). */
+interface ContextualRequest extends Request {
+  correlationId?: string;
+  user?: AuthenticatedUser;
+}
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -17,7 +24,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
   async catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
-    const request = ctx.getRequest<Request>();
+    const request = ctx.getRequest<ContextualRequest>();
     const response = ctx.getResponse<Response>();
 
     const status =
@@ -30,7 +37,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         ? exception.message
         : 'Internal server error';
 
-    const correlationId = (request as any).correlationId || null;
+    const correlationId = request.correlationId ?? null;
 
     // Log to error_log table for 5xx errors
     if (status >= 500) {
@@ -43,7 +50,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
             stack_trace:
               exception instanceof Error ? exception.stack : undefined,
             correlation_id: correlationId,
-            user_id: (request as any).user?.id || null,
+            user_id: request.user?.id ?? null,
             request_path: request.url,
             request_method: request.method,
             metadata: {

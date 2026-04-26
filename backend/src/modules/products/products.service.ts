@@ -245,7 +245,7 @@ export class ProductsService {
 
     return this.prisma.product.update({
       where: { id },
-      data: dto as any,
+      data: dto as Prisma.ProductUpdateInput,
       include: {
         category: true,
         pricing: true,
@@ -300,10 +300,23 @@ export class ProductsService {
   findAllCategories() {
     return this.catalog.findAllCategories();
   }
-  createCategory(data: any) {
+  createCategory(data: {
+    name: string;
+    slug: string;
+    parent_id?: string;
+    order_index?: number;
+  }) {
     return this.catalog.createCategory(data);
   }
-  updateCategory(id: string, data: any) {
+  updateCategory(
+    id: string,
+    data: {
+      name?: string;
+      slug?: string;
+      order_index?: number;
+      active?: boolean;
+    },
+  ) {
     return this.catalog.updateCategory(id, data);
   }
   deleteCategory(id: string) {
