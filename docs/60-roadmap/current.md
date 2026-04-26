@@ -2,7 +2,12 @@
 
 > **Estado real verificado** contra código en auditoría 2026-04-26. Cualquier sprint listado aquí está parcialmente avanzado (no es backlog puro — para eso ver [`backlog.md`](./backlog.md)).
 
-> **Última actualización:** 2026-04-26 — F6 cierre.
+> **Última actualización:** 2026-04-26 — refactor de roadmap (post F6).
+> **Cambios estructurales recientes:**
+> - **Sprint 11.5 (MinIO Storage)** añadido como sprint independiente — antes estaba dentro del Sprint 14 Deploy. Desbloquea adjuntos chat/tickets sin obligar a desplegar a producción.
+> - **Sprint 14 (Deploy)** limpiado — solo lo que realmente requiere producción real.
+> - **Sprint 15 (Plugins)** partido en sub-sprints 15A-15H independientes — cada plugin se aborda según necesidad real, no en cadena.
+> - **Sprint 8 Fase D (Support Inside)** refinada con UX dedicada según [ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md).
 
 ---
 
@@ -82,13 +87,16 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 | 8.10 | **Listeners `task.assigned`, `task.overdue`, `maintenance.completed`, `maintenance.critical`** ← **FALTA listener `task.assigned` confirmado en grep** | ⬜ 🔴 |
 | 8.12 | Cron `not_completed_in_time` + emit `task.overdue` | ⬜ |
 
-### Fase D — Support Inside (módulo separado)
+### Fase D — Support Inside (UX dedicada — ADR-061)
+
+> **Refinada por [ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md):** Support Inside se presenta como **tier de cuenta** con páginas dedicadas, no como producto en el catálogo público. El schema sigue igual ([ADR-034](../10-decisions/adr-034-support-inside-modelo.md)) — solo cambia la presentación.
 
 | # | Paso | Estado real |
 |---|------|-------------|
-| 8.4 | Schema + Service support_inside_* + planes Básico/Medium/Pro | ⬜ |
-| 8.5 | Página cliente Support Inside | ⬜ |
-| 8.6 | Cancelación cascada + recurrencia anniversary_day + cron mensual generación | ⬜ |
+| 8.4 | Schema + Service support_inside_* + planes Básico/Medium/Pro (sin cambios respecto a ADR-034) | ⬜ |
+| **8.4b** | **(NUEVO ADR-061)** Admin `/admin/support-inside-plans` — página dedicada con los 3 planes lado a lado, NO en el CRUD genérico de productos | ⬜ |
+| 8.5 | Página cliente `/dashboard/support-inside` — 3 planes comparados si no tiene activo; gestión de plan/slots si tiene activo. **NO aparece en `/dashboard/catalog`** | ⬜ |
+| 8.6 | Cancelación cascada + recurrencia anniversary_day + cron mensual generación de tareas mantenimiento | ⬜ |
 | 8.7 | ~~We Do It For You~~ — **DEPRECADO** ([ADR-022](../10-decisions/adr-022-wdify-deprecado-proyectos.md), reemplazado por Projects Sprint 22) | 🛑 |
 | 8.9 | Frontend vista mantenimiento mensual (depende 8.6) | ⬜ |
 | 8.13 | Cron alerta tarea crítica (X días antes fin mes, configurable) | ⬜ |

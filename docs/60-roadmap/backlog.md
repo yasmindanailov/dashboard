@@ -1,8 +1,8 @@
 # Backlog priorizado — Aelium Dashboard
 
-> Lista priorizada de **trabajo futuro**, alimentada por la [auditoría 2026-04-26](../90-meta/audit-2026-04-26.md) y el ROADMAP legacy.
+> Lista priorizada de **trabajo futuro**, alimentada por la [auditoría 2026-04-26](../90-meta/audit-2026-04-26.md), refactorizada tras críticas arquitectónicas de Yasmin sobre [ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md), Sprint 11.5 (MinIO standalone), y partición de Sprint 15 en sub-sprints independientes.
 
-> **Última actualización:** 2026-04-26 — F6 cierre.
+> **Última actualización:** 2026-04-26 — refactor de roadmap (post F6).
 
 ---
 
@@ -41,9 +41,10 @@
 | # | Item | Esfuerzo | Depende de |
 |---|------|----------|------------|
 | **P1.1** | **Sprint 9 — Audit + Notifications Full** (audit consultas, portal transparencia cliente, plantillas editables, BullMQ emails, DLQ, Outbox worker, Error Log UI) | 2-3 sesiones | P0.1 (listeners task.*), P0.2 (outbox) |
-| **P1.2** | **Sprint 7.5 Fase 2 finalizar** — migración progresiva de páginas restantes al Design System (oportunista — al tocar página, migrarla en mismo PR) | continuo | — |
-| **P1.3** | **Sprint 14 — Deploy** (Docker Compose producción + Traefik + SSL + MinIO + Grafana/Prometheus/Loki + pipeline + backups Cloudflare R2) | 2-3 sesiones | P0 todo cerrado |
-| **P1.4** | **Backup + recovery plan** documentado (RTO < 4h, RPO < 6h) | 1 sesión | P1.3 |
+| **P1.2** | **Sprint 11.5 — MinIO Storage (local)** (NUEVO refactor 2026-04-26 — antes era parte de Sprint 14 Deploy). Añadir MinIO al docker-compose dev + StorageService + integración con generación de PDFs. **Desbloquea adjuntos en chat (Sprint 7.7) y tickets (Sprint 7.6.3)** | 1 sesión | — (independiente, se puede hacer ya) |
+| **P1.3** | **Sprint 7.5 Fase 2 finalizar** — migración progresiva de páginas restantes al Design System (oportunista — al tocar página, migrarla en mismo PR) | continuo | — |
+| **P1.4** | **Sprint 14 — Deploy real (producción)** (Docker Compose **prod** + Traefik + SSL + Grafana/Prometheus/Loki + pipeline + backups Cloudflare R2 + plan recovery + Sentry real). **Sin MinIO** — ya está en P1.2 | 2-3 sesiones | P0 todo cerrado, P1.1 cerrado, P1.2 cerrado, plugins críticos según necesidad |
+| **P1.5** | **Backup + recovery plan** documentado (RTO < 4h, RPO < 6h) | parte del P1.4 | P1.4 |
 
 ---
 
@@ -61,40 +62,57 @@
 
 ---
 
-## P3 — Crecimiento (Fase 2)
+## P3 — Crecimiento (Fase 2 + Plugins)
 
-> Features que multiplican valor pero no son requisito mínimo. Orden recomendado por valor de negocio (ver [`docs/ROADMAP.md`](../ROADMAP.md) §"Orden de ejecución recomendado" para justificación detallada):
+> Features que multiplican valor pero no son requisito mínimo. **Sprint 15 partido en sub-sprints independientes** ([ADR-009](../10-decisions/adr-009-estrategia-plugins.md), [ADR-021](../10-decisions/adr-021-provisioners.md)) — cada plugin se aborda **cuando se necesita**, no en cadena. Orden recomendado por valor de negocio:
 
-### Prioridad A — Go to market
+### Prioridad A — Plugins críticos para go-to-market
 
 | # | Item | Esfuerzo | Justificación |
 |---|------|----------|---------------|
-| **P3.1** | **Sprint 15 — Plugins** (framework + Stripe + Stripe Connect + Enhance CP + ResellerClub + Docker Engine + Manual + Claude AI) | 4-5 sesiones | Sin Stripe no hay cobros automáticos. Sin provisioners no hay servicios automáticos. |
-| **P3.2** | **Sprint 18 — Landing Integration** (catálogo público + buscador dominios + checkout sin cuenta + webchat + formulario contacto) | 2-3 sesiones | Sin cara pública no hay captación online. |
+| **P3.1** | **Sprint 15A — Plugin Framework** (manifest + loader + UI dinámica desde Settings + encriptación API keys + test contract) | 1-2 sesiones | Base técnica común. Sin él no se puede activar/desactivar plugins desde la UI. **Antes que cualquier otro plugin.** |
+| **P3.2** | **Sprint 15B — Plugin Stripe** (PaymentProvider con Checkout/PaymentIntents + webhook signature verification + frontend Stripe Elements + tests sandbox) | 2-3 sesiones | Sin Stripe el cobro es manual. **Probable primer plugin tras 15A** si vas a aceptar pagos online. Si por ahora cobras transferencia, puede esperar. |
+| **P3.3** | **Sprint 15F — Plugin Claude AI** (filtro chat + copilot agente + token budget + audit + transparencia) | 2-3 sesiones | Desbloquea Sprint 7.8 (filtro IA chat) + Sprint 7.9 (copilot agente). Útil si tienes muchos clientes sin Support Inside (filtro reduce carga del agente). |
+| **P3.4** | **Sprint 18 — Landing Integration** (catálogo público + buscador dominios + checkout sin cuenta + webchat + formulario contacto) | 2-3 sesiones | Sin cara pública no hay captación online. **Requiere 15D (ResellerClub)** si lanzas con buscador de dominios. |
+
+### Prioridad A bis — Plugins de provisioning (según producto que vendas)
+
+| # | Item | Esfuerzo | Cuándo abordar |
+|---|------|----------|----------------|
+| **P3.5** | **Sprint 15C — Plugin Enhance CP** (provisioner hosting web) | 2-3 sesiones | Cuando vendas hosting web a primer cliente real |
+| **P3.6** | **Sprint 15D — Plugin ResellerClub** (provisioner dominios + endpoint público de búsqueda) | 2 sesiones | Cuando vendas dominios o lances landing con buscador |
+| **P3.7** | **Sprint 15E — Plugin Docker Engine** (provisioner contenedores + Collabora compartido + métricas custom) | 3 sesiones | Cuando lances Cloud Office o OpenClaw a primer cliente real |
+| **P3.8** | **Sprint 15G — Plugin Manual** (formaliza el provisioning manual actual) | 1 sesión | Baja prioridad — funciona "manualmente" hoy. Formalizar añade trazabilidad |
 
 ### Prioridad B — Operaciones de negocio
 
 | # | Item | Esfuerzo | Justificación |
 |---|------|----------|---------------|
-| **P3.3** | **Sprint 22 — Projects** (sistema de propuestas + budget + estados + items snapshot + agentes + history) | 3-4 sesiones | Tu modelo de negocio es: ir a negocios → proponer tecnología → crear proyecto → vender. |
-| **P3.4** | **Sprint 21 — CRM Completeness** (gestión completa de clientes) | 2 sesiones | Complementa proyectos. |
-| **P3.5** | **Sprint 23 — Tickets Redesign** (UI thread-based + sidebar enriquecida + vinculación servicio/proyecto + tags + SLA + adjuntos) | 2-3 sesiones | Tickets necesitan vinculación a proyectos/servicios. Depende de P3.3. |
-| **P3.6** | **Sprint 24 — Citation System** (citas estructuradas en mensajes — `references` jsonb) | 1-2 sesiones | Comunicación contextual. Depende de P3.3 + P3.5. |
-| **P3.7** | **Sprint 25 — AI Workers** (asistente IA para tareas — OpenClaw como AI Worker) | 2-3 sesiones | Eficiencia del equipo. Depende de Sprint 8 + P3.1 + P3.3. |
+| **P3.9** | **Sprint 22 — Projects** (sistema de propuestas + budget + estados + items snapshot + agentes + history) | 3-4 sesiones | Tu modelo de negocio es: ir a negocios → proponer tecnología → crear proyecto → vender. |
+| **P3.10** | **Sprint 21 — CRM Completeness** (gestión completa de clientes) | 2 sesiones | Complementa proyectos. |
+| **P3.11** | **Sprint 23 — Tickets Redesign** (UI thread-based + sidebar enriquecida + vinculación servicio/proyecto + tags + SLA + adjuntos) | 2-3 sesiones | Tickets necesitan vinculación a proyectos/servicios. Depende de P3.9. |
+| **P3.12** | **Sprint 24 — Citation System** (citas estructuradas en mensajes — `references` jsonb) | 1-2 sesiones | Comunicación contextual. Depende de P3.9 + P3.11. |
+| **P3.13** | **Sprint 25 — AI Workers** (asistente IA para tareas — OpenClaw como AI Worker) | 2-3 sesiones | Eficiencia del equipo. Depende de Sprint 8 + P3.3 (Plugin Claude) + P3.9. |
 
-### Prioridad C — Crecimiento
+### Prioridad C — Crecimiento (B2C)
 
 | # | Item | Esfuerzo | Justificación |
 |---|------|----------|---------------|
-| **P3.8** | **Sprint 17 — Promotions & Discounts** (upsell, crossell, descuentos, contadores atómicos, BullMQ promotions) | 2-3 sesiones | Aumenta ARPU. |
-| **P3.9** | **Sprint 20 — Referral System** (códigos referido por cliente, créditos mensuales, descuento primera compra) | 2 sesiones | Adquisición orgánica. |
-| **P3.10** | **Sprint 19 — Partner Module** (canal de ventas B2B, comisiones, payouts, tickets bidireccionales, vinculación cuenta cliente) | 4-5 sesiones | Canal de crecimiento sin renunciar al control operativo. Depende de P3.1 (Stripe Connect). |
+| **P3.14** | **Sprint 17 — Promotions & Discounts** (upsell, crossell, descuentos, contadores atómicos, BullMQ promotions) | 2-3 sesiones | Aumenta ARPU. |
+| **P3.15** | **Sprint 20 — Referral System** (códigos referido por cliente, créditos mensuales, descuento primera compra) | 2 sesiones | Adquisición orgánica. |
+
+### Prioridad C bis — Canal Partner (B2B)
+
+| # | Item | Esfuerzo | Justificación |
+|---|------|----------|---------------|
+| **P3.16** | **Sprint 15H — Plugin Stripe Connect** (payouts automáticos a partners via split payments) | 1-2 sesiones | Pre-requisito para Sprint 19. Depende de P3.2 (Stripe activo). |
+| **P3.17** | **Sprint 19 — Partner Module** (canal B2B, comisiones, payouts, tickets bidireccionales, vinculación cuenta cliente) | 4-5 sesiones | Canal de crecimiento sin renunciar al control operativo. Depende de P3.16. |
 
 ### Prioridad D — Internacionalización
 
 | # | Item | Esfuerzo | Justificación |
 |---|------|----------|---------------|
-| **P3.11** | **Sprint 16 — i18n + Multi-Currency** | 2-3 sesiones | Solo importa si vendes fuera de España. **Inversión prematura** hasta que haya tracción en mercado local. |
+| **P3.18** | **Sprint 16 — i18n + Multi-Currency** | 2-3 sesiones | Solo importa si vendes fuera de España. **Inversión prematura** hasta que haya tracción en mercado local. |
 
 ---
 

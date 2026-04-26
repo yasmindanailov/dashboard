@@ -55,14 +55,19 @@ F6 lo parte en 4 vistas con propósito distinto:
 
 Detalle completo en [`current.md`](./current.md).
 
-### Backlog priorizado (output auditoría)
+### Backlog priorizado (output auditoría + refactor 2026-04-26)
 
 | Prioridad | Sprints | Bloquean |
 |-----------|---------|----------|
 | **P0** — Crítico pre-producción | Cerrar Sprint 8 (listener `task.assigned` + validación FK + tests E2E), Outbox `invoice.*`, F0.6 saneamiento lint | Despliegue real |
-| **P1** — Importante | Sprint 9 Audit + Notifications Full, Sprint 7.5 Fase 2, Sprint 14 Deploy | Fase 1 cerrada |
+| **P1** — Importante | Sprint 9 Audit + Notifications Full, **Sprint 11.5 MinIO standalone (NUEVO)**, Sprint 7.5 Fase 2, Sprint 14 Deploy real | Fase 1 cerrada |
 | **P2** — Funcional core | Sprints 10, 11, 12, 12.5, 13 | Producción profesional |
-| **P3** — Crecimiento (Fase 2) | Sprints 15, 18, 22, 21, 23, 24, 25, 17, 20, 19, 16 | Negocio |
+| **P3** — Plugins + Crecimiento | **Sprints 15A-15H (cada plugin independiente)**, Sprint 18, 22, 21, 23, 24, 25, 17, 20, 19, 16 | Negocio |
+
+**Cambios estructurales 2026-04-26:**
+- **MinIO** separado de Sprint 14 (Deploy) → Sprint 11.5 standalone, desbloquea adjuntos sin obligar a desplegar.
+- **Sprint 15 (Plugins)** partido en 15A (framework) + 15B (Stripe) + 15C-15H (cada plugin uno) — abordados según necesidad real, no en cadena. Coherente con [ADR-009](../10-decisions/adr-009-estrategia-plugins.md) y [ADR-021](../10-decisions/adr-021-provisioners.md).
+- **Support Inside** refinado por [ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md) — UX dedicada (no en catálogo público), schema sin cambios.
 
 Detalle completo en [`backlog.md`](./backlog.md).
 
