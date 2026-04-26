@@ -65,7 +65,7 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 | # | Paso | Estado real | Notas |
 |---|------|-------------|-------|
-| 8.1 | TasksService CRUD + asignación + estados + Controller con CASL | 🔄 **Parcial** — endpoints implementados pero **falta validación FK `assigned_to`** |
+| 8.1 | TasksService CRUD + asignación + estados + Controller con CASL | ✅ **Cerrado P0.1 (2026-04-26)** — validación FK `assigned_to` (existe + activo + rol asignable) implementada en `assertAssignableUser`. |
 | 8.1b | Schema: `task_checklist_completions`, `maintenance_logs`, `product_checklist_items`, `service_checklist_items` + migración | ⬜ |
 | 8.1c | Schema: campo `task_id` nullable FK en `client_notes` + migración | ⬜ |
 | 8.1d | Backend: completar maintenance → `maintenance_log` + persistir notas + crear `ClientNote(task_id)` | ⬜ |
@@ -84,7 +84,7 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 |---|------|-------------|
 | 8.2 | Listener `service.provisioned` → crear `wow_call` automático | ⬜ |
 | 8.3 | WOW calls checklist post-alta (depende 8.1b) | ⬜ |
-| 8.10 | **Listeners `task.assigned`, `task.overdue`, `maintenance.completed`, `maintenance.critical`** ← **FALTA listener `task.assigned` confirmado en grep** | ⬜ 🔴 |
+| 8.10 | **Listeners `task.assigned`, `task.overdue`, `maintenance.completed`, `maintenance.critical`** | 🔄 **`task.assigned` cerrado P0.1 (2026-04-26)** vía `tasks-email.listener.ts` (email + notificación interna). Resto pendiente Sprint 9. |
 | 8.12 | Cron `not_completed_in_time` + emit `task.overdue` | ⬜ |
 
 ### Fase D — Support Inside (UX dedicada — ADR-061)
@@ -106,16 +106,24 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 | # | Paso | Estado real |
 |---|------|-------------|
 | 8.11 | docs/features/tasks/admin.md + agent.md | ⬜ |
-| **8.E.1** | **(NUEVO desde auditoría)** Tests E2E para tasks: crear → asignar → completar | ⬜ 🔴 |
+| **8.E.1** | **(NUEVO desde auditoría)** Tests E2E para tasks: crear → asignar → completar | ✅ **Cerrado P0.1 (2026-04-26)** — `tests/e2e/tasks.spec.ts` con 3 specs (flujo completo + 2 validaciones FK). |
 
-### 🔴 Acciones prioritarias para cerrar Sprint 8 (P0 según auditoría)
+### ✅ P0.1 cerrado (2026-04-26) — cierre mínimo Sprint 8
 
-1. **Implementar listener `@OnEvent('task.assigned')`** en `tasks` o `notifications` → email + notificación campana al agente asignado.
-2. **Validar FK `assigned_to`**: en `TasksService.create` y `update`, verificar que `assigned_to` existe en `users` y tiene rol `agent_*`. Devolver 400 si no.
-3. **Tests E2E para tasks** (Playwright): admin crea tarea → asigna → agente la ve → la completa → estado actualizado + notification disparada.
-4. (Opcional pero recomendado) **Cerrar Fase D Support Inside** en el mismo sprint para desbloquear Sprint 7.SI y Sprint 11 (provisioning).
+1. ✅ Listener `@OnEvent('task.assigned')` en `backend/src/modules/tasks/tasks-email.listener.ts` → email al agente + notificación interna en tabla `notifications`.
+2. ✅ Validación FK `assigned_to` (helper privado `assertAssignableUser` en `tasks.service.ts`): valida user existe + status=`active` + rol en `superadmin|agent_full|agent_billing|agent_support`. Devuelve 400 (`BadRequestException`) si no.
+3. ✅ Tests E2E (`tests/e2e/tasks.spec.ts`) — 3 specs serializados (gestión 2FA del superadmin), incluyen helper `loginSuperadminAPI` reusable. Suite completa CI mode 10/10 pasa.
+4. ✅ Fix oportunista: 2 errores `no-unsafe-enum-comparison` resueltos (uso `TaskStatusDto.completed` en vez de string literal). Lint backend mejora -4 errores netos.
 
-**Esfuerzo estimado:** 1-2 sesiones para puntos 1-3 (cierre mínimo). Fase D adicional: 2-3 sesiones más.
+### 🔴 Resto del Sprint 8 — pendiente
+
+- Fase A: schemas pendientes (8.1b/c/d/14).
+- Fase B: frontend bloques adaptativos + ClientNotesTab vinculación tarea.
+- Fase C: listener `task.overdue` + cron `not_completed_in_time` + WOW calls automáticos.
+- Fase D: Support Inside (UX dedicada — ADR-061).
+- Fase E: docs admin/agent.
+
+**Próximo paso recomendado tras P0.1:** **P0.2 Outbox Pattern para `invoice.*`** (ver [`backlog.md`](./backlog.md)) — 1-2 sesiones, crítico legal/financiero pre-deploy.
 
 ---
 

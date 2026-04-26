@@ -10,13 +10,22 @@ NO es visible al cliente — es herramienta interna del equipo.
 
 ## 2. Estado de implementación
 
-🟡 **Parcial — Sprint 8 WIP.** Module + service + controller + DTOs creados. Frontend (lista, detalle, modal de crear) implementado. Pendiente:
+🟡 **Parcial — Sprint 8 cierre mínimo (P0.1) cerrado 2026-04-26.** Module + service + controller + DTOs implementados. Frontend (lista, detalle, modal de crear) implementado.
 
-- Listeners para `task.assigned` (notificar al agente asignado)
-- Validar que `assigned_to` existe en `users` (deuda A4 de matrix)
-- Tests E2E
-- 2 errores `no-unsafe-enum-comparison` en `tasks.service.ts` (no resueltos: por instrucción no se tocó Sprint 8 WIP en F0.6)
-- Cierre formal del Sprint 8 con DoD verificado
+**Cerrado en P0.1:**
+
+- ✅ Listener `task.assigned` → email al agente + notificación interna (`tasks-email.listener.ts`)
+- ✅ Validación FK `assigned_to` (existe + status=`active` + rol en `superadmin|agent_*`)
+- ✅ Tests E2E (3 tests en `tests/e2e/tasks.spec.ts`)
+- ✅ 2 errores `no-unsafe-enum-comparison` resueltos (uso `TaskStatusDto.completed`)
+
+**Pendiente Fases B-E del Sprint 8** (no bloquea desarrollo, sí bloquea cadena):
+
+- Schema Fase A: `task_checklist_completions`, `maintenance_logs`, `product_checklist_items`, `service_checklist_items`, FK `client_notes.task_id`
+- Validación explícita de transiciones de `status` (TASK-INV-2)
+- Listeners `task.overdue`, `maintenance.completed`, `maintenance.critical`
+- Cron `not_completed_in_time`
+- Fase D Support Inside (UX dedicada, ADR-061)
 
 ---
 
@@ -34,7 +43,8 @@ NO es visible al cliente — es herramienta interna del equipo.
 
 | Tabla | Módulo dueño | Tipo | Razón | Estado |
 |-------|--------------|------|-------|--------|
-| `users` | auth | lectura (3 referencias: assignee, creator, client) | Resolver nombres y emails al devolver tareas con `INCLUDE_RELATIONS` | ⚠️ **Deuda A4**: no valida que `assigned_to` existe antes de aceptar el create/update. Si se borra un user con tareas asignadas, queda referencia rota (dependiendo de FK strategy). |
+| `users` | auth | lectura (3 referencias: assignee, creator, client) + validación rol/estado al asignar | Resolver nombres y emails al devolver tareas con `INCLUDE_RELATIONS`. Validar que `assigned_to` existe + status=`active` + rol asignable (helper `assertAssignableUser` en `tasks.service.ts`). | ✅ Deuda A4 cerrada en P0.1 (2026-04-26). |
+| `notifications` | notifications | escritura (insert) | Crear notificación interna al agente cuando se le asigna tarea (vía `tasks-email.listener`). | ✅ Lectura/escritura legítima (cross-módulo notifications es intencional, listener vive en tasks). |
 | `services` | billing | lectura | `service_id` opcional para vincular tarea a un servicio del cliente | ✅ Lectura legítima (contexto opcional) |
 
 ---
@@ -70,10 +80,10 @@ N/A — tasks no tiene gateway. Las actualizaciones se ven al refrescar la pági
 | Evento | Cuándo | Outbox | Estado |
 |--------|--------|--------|--------|
 | `task.created` | Tras `create()` exitoso | ❌ | 🟡 Huérfano (audit futuro) |
-| `task.assigned` | Tras `create()` o `update()` con cambio de `assigned_to` | ❌ | 🟡 Huérfano — listener para notificar al agente asignado pendiente |
+| `task.assigned` | Tras `create()` o `update()` con cambio de `assigned_to` | ❌ | ✅ Consumido por `tasks-email.listener` (email + notificación interna al agente). |
 | `task.completed` | Tras `update({status: completed})` o `complete()` | ❌ | 🟡 Huérfano (audit futuro) |
 
-> **Importante:** los 3 eventos emiten correctamente pero ningún listener los consume todavía. Cierre de Sprint 8 debe añadir al menos `task.assigned` listener para notificación al agente.
+> **Estado P0.1 (2026-04-26):** `task.assigned` ya tiene listener (`tasks-email.listener.ts`). Los otros dos siguen huérfanos a la espera del módulo `audit` (Sprint 9 P1.1).
 
 ---
 
@@ -127,9 +137,11 @@ Ninguno actualmente.
 
 ## 12. Emails enviados
 
-Ninguno actualmente.
+| Trigger | Destinatario | Plantilla | Notas |
+|---------|--------------|-----------|-------|
+| `task.assigned` | Agente asignado (`users.email`) | inline en `tasks-email.listener.ts` | Subject: `Nueva tarea asignada: <título>`. Incluye CTA al detalle de la tarea. |
 
-> **Pendiente cierre Sprint 8:** email al agente cuando se le asigna una tarea (`task.assigned` → email).
+> **Estado:** vivo desde P0.1 (2026-04-26). Emisión vía `tasks-email.listener` consumiendo evento `task.assigned`.
 
 ---
 
@@ -170,11 +182,11 @@ Ninguno actualmente.
 
 ## 17. Pendiente / deuda técnica
 
-- [ ] **CRÍTICO Sprint 8 close:** listener para `task.assigned` → email al agente asignado
-- [ ] Validar que `assigned_to` existe en `users` antes de aceptar (deuda A4)
+- [x] ~~**CRÍTICO Sprint 8 close:** listener para `task.assigned` → email al agente asignado~~ ✅ P0.1 (2026-04-26)
+- [x] ~~Validar que `assigned_to` existe en `users` antes de aceptar (deuda A4)~~ ✅ P0.1 (2026-04-26)
+- [x] ~~Tests E2E del flujo: crear tarea → asignar → completar~~ ✅ P0.1 (`tests/e2e/tasks.spec.ts`)
+- [x] ~~Resolver los 2 `no-unsafe-enum-comparison` (Sprint 8 WIP excepción de F0.6)~~ ✅ P0.1
 - [ ] Validación explícita de transiciones de `status` (TASK-INV-2)
-- [ ] Tests E2E del flujo: crear tarea → asignar → completar
-- [ ] Resolver los 2 `no-unsafe-enum-comparison` (Sprint 8 WIP excepción de F0.6)
 - [ ] Refactor preventivo R15 si `tasks.service.ts` supera 300 líneas
 - [ ] **Futuro:** consumir `service.suspended` para crear tareas técnicas automáticas
 
@@ -183,11 +195,13 @@ Ninguno actualmente.
 ## 18. Cómo testear este módulo
 
 ### Tests E2E
-Pendiente. El cierre formal de Sprint 8 debe incluir:
-- Crear tarea desde modal del frontend
-- Asignar tarea a otro agente
-- Cambiar prioridad y due_date
-- Marcar como completada con nota
+Cobertura mínima cerrada en P0.1: [`tests/e2e/tasks.spec.ts`](../../../tests/e2e/tasks.spec.ts) — 3 specs:
+
+- Admin crea tarea asignada → agente recibe email + notification → admin completa OK.
+- Crear con `assigned_to` UUID inexistente devuelve 400 (validación FK).
+- Crear con `assigned_to` de un usuario rol `client` devuelve 400 (validación rol).
+
+**Pendiente Fase B/E:** flujo via UI (modal crear, drag-drop estados, completar con nota), cuando los selectores del Design System estén estables.
 
 ### Tests unitarios
 Pendiente. Críticos:
