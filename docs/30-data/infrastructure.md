@@ -12,15 +12,17 @@
 
 | Tabla | Estado | Propósito |
 |-------|--------|-----------|
-| `servers` | ⬜ | Servidores externos (Hetzner/OVH/Contabo) registrados. Capacidad detectada automáticamente. |
+| `servers` | ✅ stub | Servidores externos (Hetzner/OVH/Contabo) registrados. Modelo `Server` existe en Prisma; UI/operativa pendiente Sprint 10. Capacidad detectada automáticamente. |
 | `server_pools` | ⬜ | Relación N:N entre servidores y productos. Define qué servidores alojan qué productos. Exclusividad opcional. |
 | `server_metrics` | ⬜ | Métricas periódicas de cada servidor (RAM/CPU/disk/containers) |
 
 ---
 
-## Tabla: `servers` ⬜
+## Tabla: `servers` ✅ stub
 
 Servidores registrados en el sistema. **No incluye el servidor donde corre Aelium mismo** — solo los servidores externos donde se provisionan los productos del cliente ([ADR-043](../10-decisions/adr-043-infraestructura-self-hosted.md)).
+
+> **Estado actual:** modelo `Server` ya existe en `backend/prisma/schema.prisma` con los campos definidos abajo. Operativa (registro, detección de capacidad, dashboard de infra) pendiente Sprint 10.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|

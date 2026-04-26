@@ -19,6 +19,8 @@
 - 60 ADRs individuales en `docs/10-decisions/` (F2 cerrado — `DECISIONS.md` legacy con mapping § → ADR)
 - Schema partido por dominio en `docs/30-data/` (F3 cerrado — `DATABASE_SCHEMA.md` legacy con mapping tabla → archivo)
 - Referencias operativas en `docs/50-operations/` (F5 cerrado — settings, plantillas, jobs, errores)
+- Roadmap profesional en `docs/60-roadmap/` (F6 cerrado — current, backlog priorizado P0-P3, archive de sprints cerrados, plantilla activa)
+- Auditoría código vs doc en `docs/90-meta/audit-2026-04-26.md` (verdad verificada que alimenta el roadmap)
 - Definition of Done escrito y plantilla de sprint lista
 
 ✅ **Conformidad arquitectónica**:
@@ -139,15 +141,15 @@ Hecho:
 - ✅ F3 (`docs/30-data/` con 14 archivos por dominio, `DATABASE_SCHEMA.md` marcado legacy con mapping tabla → archivo)
 - ✅ F4 (contracts + matrix + events) ⭐ la pieza más impactante
 - ✅ F5 (`docs/50-operations/` con settings-reference, email-templates, jobs-reference, api-errors)
+- ✅ F6 (`docs/60-roadmap/` con README, current, backlog priorizado P0-P3, archive de sprints 0-6 en `completed/`, plantilla activa). `ROADMAP.md` legacy con header puntero. **Auditoría 2026-04-26 alimenta el roadmap nuevo con verdad verificada.**
 
 Pendiente, por orden de impacto:
 
 | Fase | Qué produce | Sesiones | Prioridad |
 |------|-------------|----------|-----------|
-| **F6** | `docs/60-roadmap/` con sprints completados archivados, plantilla nueva activa | 1 | Baja — ROADMAP.md actual sigue siendo legible |
-| **F7-F9** | Limpieza voz de marca, partner admin.md, reading-order.md | 1 | Baja |
+| **F7-F9** | Limpieza voz de marca, partner admin.md, reading-order.md | 1 | Baja — pulido final |
 
-**Estado de la documentación:** la base completa para desarrollar coherentemente con un agente Opus está cerrada. F6 y F7-9 son pulido final y no bloquean ningún flujo operativo.
+**Estado de la documentación:** ✅ **completa para desarrollar coherentemente con un agente Opus.** Todas las fases bloqueantes cerradas. F7-F9 son cosmética opcional. El próximo paso natural es **abordar P0 del backlog** ([`docs/60-roadmap/backlog.md`](../60-roadmap/backlog.md)): cerrar Sprint 8 + Outbox `invoice.*` + F0.6 saneamiento lint.
 
 ---
 
@@ -240,7 +242,8 @@ Cuando vuelvas tras tiempo, lee en este orden:
 7. **`docs/10-decisions/README.md`** — índice de los 60 ADRs (consultar cuando una decisión no esté clara)
 8. **`docs/30-data/README.md`** — índice de tablas por dominio (consultar antes de tocar el schema)
 9. **`docs/50-operations/README.md`** — índice de settings, plantillas, jobs, errores (consultar antes de añadir cualquiera de los cuatro)
-10. **`docs/ROADMAP.md`** — qué viene después
+10. **`docs/60-roadmap/README.md`** — qué está en curso, qué viene priorizado P0-P3, qué se ha cerrado
+11. **`docs/90-meta/audit-2026-04-26.md`** — última auditoría: estado real del proyecto (consultar si hay duda sobre coherencia código↔doc)
 
 ---
 
