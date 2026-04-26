@@ -131,10 +131,11 @@ Resumen rápido:
 **Regla: StatsCards solo en Overview.** En list pages, las métricas van como contadores en StatusTabs.
 
 ### Regla D11 — Voz de marca en mensajes de sistema
-Los mensajes de sistema del dashboard siguen la voz de Aelium definida en el documento de marca:
-- Frases cortas. Una idea por frase.
-- Cercano pero competente.
-- Sin jerga burocrática ("Estimado usuario", "Procedemos a gestionar").
+
+> 📖 **Voz canónica:** [`aelium-documento-de-marca.md §VOZ DE MARCA`](./aelium-documento-de-marca.md#voz-de-marca).
+> Aquí solo el delta operativo: cómo aplicarla a strings concretos del dashboard. Si los dos divergen, prevalece la doc de marca.
+
+**Aplicación a strings de UI** (toasts, banners, empty states, errores, confirmaciones):
 
 ```
 ❌  "La conversación ha sido resuelta exitosamente por el agente."
@@ -142,7 +143,12 @@ Los mensajes de sistema del dashboard siguen la voz de Aelium definida en el doc
 
 ❌  "Se ha producido un error en la operación solicitada."
 ✅  "No se pudo guardar. Inténtalo de nuevo."
+
+❌  "No se encontraron resultados."
+✅  "Aún no hay facturas — todo al día." (empty state, contextual)
 ```
+
+**Lo que NO cambia respecto a la doc de marca:** ritmo, prohibiciones (`Estimado…`, `Procederemos…`), sí-uses (nombre del cliente, "Ya lo miro"). Ver canónico para detalles.
 
 ---
 

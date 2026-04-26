@@ -132,9 +132,8 @@ Acompáñalo siempre con:
 
 ---
 
-## 4. Pendiente de la fase de refactor (F1–F9)
+## 4. Refactor de documentación (F1–F9) — ✅ 100% completo
 
-Hecho:
 - ✅ F0 (7 salvaguardas)
 - ✅ F1 (foundations: rules + glossary)
 - ✅ F2 (60 ADRs individuales en `docs/10-decisions/`, `DECISIONS.md` marcado legacy con mapping § → ADR)
@@ -142,14 +141,11 @@ Hecho:
 - ✅ F4 (contracts + matrix + events) ⭐ la pieza más impactante
 - ✅ F5 (`docs/50-operations/` con settings-reference, email-templates, jobs-reference, api-errors)
 - ✅ F6 (`docs/60-roadmap/` con README, current, backlog priorizado P0-P3, archive de sprints 0-6 en `completed/`, plantilla activa). `ROADMAP.md` legacy con header puntero. **Auditoría 2026-04-26 alimenta el roadmap nuevo con verdad verificada.**
+- ✅ **F7** (voz de marca: `DESIGN_SYSTEM.md §D11` y `UI_SPEC.md §P5` convertidos en punteros al canónico `aelium-documento-de-marca.md §VOZ DE MARCA` — sólo conservan ejemplos UI específicos)
+- ✅ **F8** (`docs/20-modules/partner/admin.md` — guía operativa para administrar partners cuando el módulo se implemente)
+- ✅ **F9** (`docs/90-meta/reading-order.md` — qué leer según tipo de tarea, optimizado por contexto)
 
-Pendiente, por orden de impacto:
-
-| Fase | Qué produce | Sesiones | Prioridad |
-|------|-------------|----------|-----------|
-| **F7-F9** | Limpieza voz de marca, partner admin.md, reading-order.md | 1 | Baja — pulido final |
-
-**Estado de la documentación:** ✅ **completa para desarrollar coherentemente con un agente Opus.** Todas las fases bloqueantes cerradas. F7-F9 son cosmética opcional. El próximo paso natural es **abordar P0 del backlog** ([`docs/60-roadmap/backlog.md`](../60-roadmap/backlog.md)): cerrar Sprint 8 + Outbox `invoice.*` + F0.6 saneamiento lint.
+**Estado de la documentación:** ✅ **completa al 100%.** El próximo paso natural es **abordar P0 del backlog** ([`docs/60-roadmap/backlog.md`](../60-roadmap/backlog.md)): cerrar Sprint 8 + Outbox `invoice.*` + F0.6 saneamiento lint.
 
 ---
 

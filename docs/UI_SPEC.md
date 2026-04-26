@@ -164,13 +164,16 @@ El panel muestra además el plan actual del cliente y un enlace sutil a "Ver pla
 
 #### P5. Voz Aelium en la interfaz
 
-> Marca: "Cercano pero competente. Frases cortas. Una idea por frase."
+> 📖 **Voz canónica:** [`aelium-documento-de-marca.md §VOZ DE MARCA`](./aelium-documento-de-marca.md#voz-de-marca) + regla [D11 en `rules.md`](./00-foundations/rules.md#d11--voz-de-marca-en-mensajes-de-sistema).
+> Aquí solo qué implica para anatomía de páginas. Si divergen, prevalece la doc de marca.
 
-- Empty states: tono Aelium, no genérico ("No hay facturas pendientes — todo al día" vs "No se encontraron resultados")
-- Confirmaciones: directas ("Factura creada" no "La factura ha sido creada exitosamente")
-- Errores: honestos ("No se pudo conectar. Reintentando..." no "Ha ocurrido un error inesperado")
+**Patrones aplicados a páginas del dashboard:**
 
-La cercanía viene de las palabras y el ritmo, no de los emojis (eliminados en Sprint 7.5.D19).
+- **Empty states:** tono Aelium, no genérico (`"Aún no hay facturas — todo al día"` vs `"No se encontraron resultados"`).
+- **Confirmaciones (toasts):** directas (`"Factura creada"` no `"La factura ha sido creada exitosamente"`).
+- **Errores:** honestos (`"No se pudo conectar. Reintentando..."` no `"Ha ocurrido un error inesperado"`).
+
+La cercanía viene de las palabras y el ritmo, no de los emojis (eliminados en Sprint 7.5.D19 — D1).
 
 #### P6. Páginas compartidas entre roles — contenido adaptativo
 
