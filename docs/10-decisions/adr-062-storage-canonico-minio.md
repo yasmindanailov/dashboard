@@ -180,6 +180,23 @@ normal (correos transaccionales, curl, integraciones backend-a-backend).
 redirect cross-origin (correctamente, por seguridad) y el preflight CORS
 del bucket fallaría sin configuración adicional.
 
+> **Anti-patrón en tests E2E:** llamar a `request.get('/pdf', { headers:
+> { Authorization }, /* sin maxRedirects:0 */ })` falla en CI con
+> `400 InvalidRequest: multiple authentication types` porque Playwright
+> sigue el 302 propagando el header al bucket — la signed URL ya lleva
+> `X-Amz-Signature` en query y MinIO/S3 ven dos firmas. **Patrón correcto
+> en tests del endpoint legacy:**
+>
+> ```typescript
+> const r = await request.get('/pdf', {
+>   headers: { Authorization: `Bearer ${token}` },
+>   maxRedirects: 0,
+> });
+> expect(r.status()).toBe(302);
+> const final = await request.get(r.headers()['location']);
+> expect(final.ok()).toBeTruthy();
+> ```
+
 #### Lógica común (`getSignedDownloadUrl`)
 
 ```

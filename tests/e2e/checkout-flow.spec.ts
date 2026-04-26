@@ -203,10 +203,23 @@ test.describe('Billing — flujo completo + PDF (P0.4)', () => {
     await waitOutboxDone(invoice.id, 'invoice.paid');
 
     // ── 4. Descargar PDF y validar magic bytes ──
-    const pdfRes = await request.get(
+    //
+    // El endpoint `/pdf` devuelve 302 a una signed URL del bucket
+    // (Sprint 11.5 + ADR-062). NO se puede llamar con `Authorization:
+    // Bearer` siguiendo redirects: MinIO/S3 rechaza con 400
+    // "InvalidRequest: multiple authentication types" porque la signed
+    // URL ya lleva su propia auth en query (X-Amz-Signature). Patrón
+    // correcto: capturar el 302 sin seguirlo + GET la Location sin auth
+    // (igual que un cliente de correo siguiendo el link de un email).
+    const redirectRes = await request.get(
       `${TEST_CONFIG.apiUrl}/billing/invoices/${invoice.id}/pdf`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: { Authorization: `Bearer ${token}` }, maxRedirects: 0 },
     );
+    expect(redirectRes.status()).toBe(302);
+    const signedUrl = redirectRes.headers()['location'];
+    expect(signedUrl).toMatch(/^https?:\/\/.+X-Amz-Signature=/);
+
+    const pdfRes = await request.get(signedUrl);
     expect(
       pdfRes.ok(),
       `PDF download falló: ${pdfRes.status()} ${await pdfRes.text()}`,
