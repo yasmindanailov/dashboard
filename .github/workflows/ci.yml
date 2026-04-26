@@ -45,9 +45,8 @@ jobs:
       - name: Build (bloqueante)
         run: pnpm build
 
-      - name: Lint (informativo — no bloquea hasta sanear errores reales)
+      - name: Lint (bloqueante — saneado en P0.3.a, mantener en 0)
         run: pnpm lint:check
-        continue-on-error: true
 
       - name: Tests (bloqueante)
         run: pnpm test
@@ -78,9 +77,12 @@ jobs:
       - name: Typecheck (bloqueante)
         run: pnpm typecheck
 
-      - name: Lint (informativo — no bloquea hasta sanear errores reales)
-        run: pnpm lint:check
-        continue-on-error: true
+      # Frontend: `lint` (sin --max-warnings) en lugar de `lint:check` porque
+      # quedan 27 warnings `set-state-in-effect` (deuda DC.6 — migración a
+      # Server Components + Suspense, ver `docs/60-roadmap/backlog.md`).
+      # Los errores reales (lint:check) están en 0 desde P0.3.b.
+      - name: Lint (bloqueante en errores; warnings DC.6 visibles)
+        run: pnpm lint
 
       - name: Build (bloqueante)
         run: pnpm build
