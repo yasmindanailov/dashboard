@@ -264,7 +264,7 @@ Persistir los PDFs de facturas (y dejar listo el `StorageService` canónico para
 ### 10. Cierre del sprint
 
 **Fecha real de cierre:** 2026-04-26
-**Commit final:** _pendiente — se asignará al hacer el commit del sprint_
+**Commit final:** `9da0e8b` — `feat(storage): Sprint 11.5 — MinIO storage canonico + PDFs persistentes (P1.2)`
 
 **Cambios respecto al plan original:**
 - **Refactor adicional:** se introdujo `InvoicePdfStorageService` como servicio puente para mantener `InvoicePdfService` como renderizador puro (R15). En vez de añadir `generateAndUpload` directamente al `InvoicePdfService` (que ya tenía 442 líneas), se aisló la responsabilidad de upload + actualización de `pdf_url` en un servicio nuevo.
