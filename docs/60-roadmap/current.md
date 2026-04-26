@@ -323,13 +323,15 @@ model NotificationTemplate {
 
 | # | Paso | Estado |
 |---|------|--------|
-| 9.B.1 | `BullModule.registerQueue('pdf-generation')` en `BillingModule` | ⬜ |
-| 9.B.2 | `PdfGenerationProcessor` (`@Processor('pdf-generation')` + `WorkerHost`) — invoca `InvoicePdfStorageService.generateAndUpload(invoice_id)` (método ya existe — solo se mueve la invocación a la cola) | ⬜ |
-| 9.B.3 | Idempotency: `jobId = 'invoice-pdf-{invoice_id}'` para que duplicados sean no-op | ⬜ |
-| 9.B.4 | Refactor `BillingInvoiceService.markAsPaid()` y `sendToPending()` — `pdfQueue.add('invoice-pdf', { invoice_id }, { jobId })` en lugar de `generateAndUploadInBackground(...)` | ⬜ |
-| 9.B.5 | Eliminar el método `generateAndUploadInBackground` del `InvoicePdfStorageService` (no más fire-and-forget) | ⬜ |
-| 9.B.6 | Test E2E `tests/e2e/pdf-generation-queue.spec.ts` — pago → job encolado → procesado → PDF en bucket → descarga signed URL OK | ⬜ |
-| 9.B.7 | `jobs-reference.md` — registrar cola `pdf-generation` como activa, eliminar de "aspiracionales" | ⬜ |
+| 9.B.1 | `BullModule.registerQueue('pdf-generation')` en `BillingModule` | ✅ |
+| 9.B.2 | `PdfGenerationProcessor` (`@Processor('pdf-generation')` + `WorkerHost`) — invoca `InvoicePdfStorageService.generateAndUpload(invoice_id)`. Registra cola en `DlqService` + `RetryService` en `OnModuleInit` | ✅ |
+| 9.B.3 | Idempotency: `jobId = 'invoice-pdf-{invoice_id}'` para que duplicados sean no-op | ✅ |
+| 9.B.4 | Refactor `BillingInvoiceService.markAsPaid()` y `sendToPending()` — `pdfQueue.add(INVOICE_PDF_JOB, { invoice_id }, { jobId })` via helper privado `enqueuePdfGeneration()` | ✅ |
+| 9.B.5 | Eliminar el método `generateAndUploadInBackground` del `InvoicePdfStorageService` (no más fire-and-forget) | ✅ |
+| 9.B.6 | Test E2E reusando `tests/e2e/storage-pdf.spec.ts` — el flujo observable es idéntico (pago → poll `pdf_url` → descarga). 2/2 specs verdes contra Redis + MinIO + Postgres reales. Comentario header actualizado citando Fase B | ✅ |
+| 9.B.7 | `jobs-reference.md` — cola `pdf-generation` registrada como activa con flujo completo, defaults globales del JobsModule + Redis config | ✅ |
+
+**Cierre Fase B:** typecheck ✅ · lint ✅ · build ✅ · boot real con `DlqService` registrando `pdf-generation` ✅ · E2E `storage-pdf.spec.ts` 2/2 verdes (6.2s) ejercitando cola + processor + upload + signed URL real. **Deuda R2 introducida por Sprint 11.5 cerrada al 100%** — ningún `setImmediate`/`then().catch()` queda en el flujo de PDFs.
 
 #### Fase C — Outbox worker hardening (cierra ADR-033 §7 y §3)
 

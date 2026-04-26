@@ -1,11 +1,15 @@
 /**
- * E2E — Persistencia de PDFs de facturas en MinIO (Sprint 11.5 + ADR-062).
+ * E2E — Persistencia de PDFs de facturas en MinIO (Sprint 11.5 + ADR-062
+ * · Sprint 9 Fase B + ADR-063).
  *
- * Verifica el flujo nuevo de storage canónico:
+ * Verifica el flujo de storage canónico tras la migración a BullMQ:
  *   1. Crear factura → finalizar → pagar (admin manual).
- *   2. `BillingInvoiceService` dispara `pdfStorage.generateAndUploadInBackground()`
- *      tras `markAsPaid`. Esperamos a que termine el upload (poll de
- *      `pdf_url` en la DB con timeout razonable).
+ *   2. `BillingInvoiceService.markAsPaid()` encola un job en la cola
+ *      `pdf-generation` con `jobId='invoice-pdf-{invoice_id}'`. El
+ *      `PdfGenerationProcessor` lo consume y dispara
+ *      `InvoicePdfStorageService.generateAndUpload()`. Esperamos a que
+ *      termine vía poll de `pdf_url` en la DB (timeout generoso para cubrir
+ *      el procesado de cola).
  *   3. La columna `Invoice.pdf_url` queda con la S3 key esperada
  *      (`invoices/{invoice_number}.pdf`) — NO una URL completa, NO null.
  *   4. `GET /billing/invoices/:id/pdf` responde con un PDF válido (magic
@@ -17,7 +21,9 @@
  *      `pdf_url = NULL` en la DB y volviendo a descargar.
  *
  * Crítico: que un PDF de Hacienda quede sólo en memoria del proceso era una
- * deuda. Este test garantiza que el ciclo es persistente bucket-side.
+ * deuda. Este test garantiza que el ciclo es persistente bucket-side y, tras
+ * Fase B, también ejercita implícitamente la infra BullMQ (queue + worker
+ * + DLQ register en boot) — cumple R2 estricto + R13.
  */
 
 import { test, expect, type APIRequestContext } from '@playwright/test';
