@@ -146,7 +146,21 @@ Cualquier excepción en cualquier parte del sistema:
 
 El cliente nunca ve un stack trace ni un error en crudo.
 
-> Implementación actual: `GlobalExceptionFilter` (backend) + `SentryGlobalFilter` (cuando DSN configurado) + manejo en frontend descrito en R14.
+> **Implementación actual:** `GlobalExceptionFilter` (backend) + `SentryGlobalFilter` (cuando DSN configurado) + manejo en frontend descrito en R14.
+>
+> **Patrón canónico para `catch` blocks** (cumple R7 + lint `no-unsafe-*`/`no-explicit-any`): NUNCA tipes el error como `any`. Usa `unknown` (default de TypeScript estricto) y narrowing con el util compartido:
+>
+> - Backend: `getErrorMessage(err: unknown): string` en `backend/src/core/common/utils/error.util.ts`.
+> - Frontend: `getErrorMessage(err: unknown): string` en `frontend/app/lib/error.ts`.
+>
+> ```typescript
+> try { await doStuff(); }
+> catch (err) {
+>   this.logger.error(`Algo falló: ${getErrorMessage(err)}`);  // ✅
+> }
+> ```
+>
+> El util maneja `Error`, string, primitivos, y el shape `{ status, message, correlationId }` que `lib/api.ts` lanza en el frontend.
 
 ---
 
@@ -156,21 +170,31 @@ Los eventos que disparan acciones entre módulos (`invoice.paid`, `service.provi
 se persisten en la tabla `event_outbox` dentro de la misma transacción de base de datos.
 Un worker los despacha y los marca como procesados. Si el proceso muere, el evento se reintenta.
 
+> **Implementación canónica** (P0.2, 2026-04-26): `OutboxService.enqueue(tx, eventType, payload)` en `backend/src/core/outbox/outbox.service.ts`. El `OutboxWorker` (`@Interval(5s)` + `FOR UPDATE SKIP LOCKED`) los despacha vía `EventEmitter2.emitAsync` con retries (max 5) y crash recovery en `OnModuleInit`. Detalle completo en [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md).
+>
+> **Cobertura actual:** 4/13 eventos críticos cubiertos (`invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue`). Pendientes: `service.*` (4) + `checkout.completed` cuando se implemente provisioning, `partner.*` (4) cuando se implemente el módulo partner. Cualquier evento crítico nuevo **debe nacer con Outbox**.
+
 ```typescript
 // ❌ INCORRECTO — emitir evento sin persistir
-await this.invoiceRepo.save(invoice);
-this.eventBus.emit('invoice.paid', payload);
-// Si el proceso muere entre save y emit, el evento se pierde
+await this.prisma.invoice.update({ where: { id }, data: { status: 'paid' } });
+this.eventEmitter.emit('invoice.paid', { invoice_id: id, ... });
+// Si el proceso muere entre commit y emit, el evento se pierde
 
-// ✅ CORRECTO — persistir evento en la misma transacción
-await this.dataSource.transaction(async (manager) => {
-  await manager.save(Invoice, invoice);
-  await manager.save(EventOutbox, {
-    eventName: 'invoice.paid',
-    payload: { invoiceId, clientId, serviceId },
+// ✅ CORRECTO — persistir en outbox dentro de la misma transacción
+const updated = await this.prisma.$transaction(async (tx) => {
+  const u = await tx.invoice.update({
+    where: { id }, data: { status: 'paid', paid_at: new Date() },
   });
+  await this.outbox.enqueue(tx, 'invoice.paid', {
+    invoice_id: u.id,
+    invoice_number: u.invoice_number,
+    user_id: u.user_id,
+    total: Number(u.total),
+    currency: u.currency,
+  });
+  return u;
 });
-// El outbox worker lo despacha. Si muere, se reintenta.
+// El OutboxWorker lo despacha en ≤5s. Si muere, se reintenta.
 ```
 
 ---
@@ -237,12 +261,18 @@ Nunca `catch {}` vacío. Nunca `console.log` como único handling.
 try { await api.save(data); }
 catch { /* handled */ }
 
-// ✅ CORRECTO — feedback visible
+// ✅ CORRECTO — feedback visible vía util compartido
+import { getErrorMessage } from '../../lib/error';
+
 try { await api.save(data); }
 catch (err) {
-  setError(err instanceof Error ? err.message : 'Error inesperado');
+  setError(getErrorMessage(err) || 'Error inesperado');
 }
 ```
+
+> **Util canónico** (P0.3.b, 2026-04-26): `getErrorMessage(err: unknown)` en `frontend/app/lib/error.ts`. Maneja `Error`, string, primitivos, y el shape `{ status, message, correlationId }` que `lib/api.ts` lanza.
+>
+> **Tipos de dominio** para responses del API: `frontend/app/lib/types.ts` (`Client`, `ClientNote`, `Invoice`, `Service`, `Conversation`, `Task`, `Pagination<T>`, etc.). Úsalos en `useState<T[]>` y casts `as Pagination<T>` en lugar de `any`.
 
 ---
 
@@ -458,6 +488,21 @@ Los mensajes de sistema del dashboard siguen la voz de Aelium definida en `docs/
 ```
 
 > **Documento canónico de voz:** `docs/aelium-documento-de-marca.md`. Esta regla es un puntero, no una copia.
+
+---
+
+## Patrones canónicos del codebase
+
+> Esta sección lista las utilidades/tipos compartidos que cumplen las reglas anteriores. Cuando escribas código nuevo, **úsalos en lugar de reinventar el patrón**. Si descubres un patrón nuevo recurrente, documenta aquí en el mismo PR.
+
+| Patrón | Ubicación | Cumple | Cuándo usarlo |
+|--------|-----------|--------|---------------|
+| `OutboxService.enqueue(tx, eventType, payload)` | `backend/src/core/outbox/outbox.service.ts` | R8 | Emitir un evento crítico (transición de dinero, cambio de estado de servicio). Llamar **dentro** de `prisma.$transaction(async (tx) => …)`. |
+| `OutboxWorker` | `backend/src/core/outbox/outbox.worker.ts` | R8 | Despacha automáticamente; no se invoca a mano. Detalle de implementación en [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md). |
+| `AuthenticatedRequest` | `backend/src/core/common/types/authenticated-request.ts` | R5/R14 (type-safety) | Cualquier controller bajo `@UseGuards(JwtAuthGuard, …)`. Reemplaza `req.user as any`. |
+| `getErrorMessage(err: unknown): string` | `backend/src/core/common/utils/error.util.ts` | R7 | Cualquier `catch (err)` que necesite extraer un mensaje legible. Maneja `Error`, string, primitivos, JSON. |
+| `getErrorMessage(err: unknown): string` | `frontend/app/lib/error.ts` | R7/R14 | Análogo en frontend. Maneja también el shape `{ status, message, correlationId }` que `lib/api.ts` lanza. |
+| `frontend/app/lib/types.ts` | `frontend/app/lib/types.ts` | type-safety | Tipos de dominio compartidos (`Client`, `Invoice`, `Conversation`, `Task`, `Pagination<T>`, etc.). Snake_case alineado con la API REST. |
 
 ---
 

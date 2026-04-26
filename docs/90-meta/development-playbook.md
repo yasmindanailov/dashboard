@@ -29,15 +29,18 @@
 
 ### Lo que tiene DEUDA conocida
 
-⚠️ **Outbox Pattern (R8)**: ~~0/25~~ **4/25 eventos lo usan** — `invoice.*` cerrado P0.2 (2026-04-26). Pendiente extender a `service.*` (4) y `checkout.completed` cuando se implemente provisioning, y a `partner.*` (4 futuros).
-⚠️ **Sprint 8 (Tasks) WIP** sin cerrar:
-- 3 eventos `task.*` huérfanos (sin listener)
-- `assigned_to` no validado en code
-- 2 errores lint `no-unsafe-enum-comparison` pendientes
-⚠️ ~~**Lint deuda no-bloqueante en CI**: ~344 errores reales~~ ✅ **Saneado P0.3 (2026-04-26)** — Backend 294 → 0 errores, Frontend 117 → 0 errores. CI con `lint:check` bloqueante en backend y `lint` bloqueante en frontend. Queda deuda DC.6 (27 warnings `set-state-in-effect` → migración a Server Components + Suspense, plan en `docs/60-roadmap/backlog.md`).
+⚠️ **Outbox Pattern (R8)**: **4/25 eventos lo usan** — `invoice.*` (created/paid/failed/overdue) cerrado P0.2 (2026-04-26) vía `OutboxService` + `OutboxWorker` en `backend/src/core/outbox/`. Pendiente extender a `service.*` (4) y `checkout.completed` cuando se implemente provisioning, y a `partner.*` (4 futuros). ADR-033 documenta el patrón canónico.
+⚠️ **Sprint 8 (Tasks) WIP** — el **mínimo desbloqueante** está cerrado (P0.1: listener `task.assigned`, validación FK `assigned_to`, tests E2E `tests/e2e/tasks.spec.ts`). El resto sigue pendiente y vive en [`current.md` §Sprint 8](../60-roadmap/current.md):
+- Fase A: schemas `task_checklist_completions`, `maintenance_logs`, `product_checklist_items`, `service_checklist_items` (8.1b/c/d/14).
+- Fase B: frontend Tablero + bloques adaptativos + ClientNotesTab vinculación (8.8b/c/d/e).
+- Fase C: listeners `task.overdue`, `maintenance.*` + cron `not_completed_in_time` + WOW calls automáticos (8.2/3/10/12).
+- Fase D: Support Inside (UX dedicada — ADR-061).
+- Fase E: docs `admin.md` + `agent.md`.
+- Eventos task aún huérfanos: `task.created`, `task.completed` (`task.assigned` ya tiene listener).
+⚠️ **DC.6 — Frontend `set-state-in-effect`**: 27 warnings del patrón clásico `useEffect+fetch+setLoading` (regla nueva de eslint-plugin-react-hooks 7.x para React 19). Severidad bajada de `error` a `warn` en `frontend/eslint.config.mjs` con justificación. Plan: migrar fetching a Server Components + `use()`/Suspense en Sprint 7.5 Fase 2 o Sprint 13 Hardening — ver [`backlog.md` DC.6](../60-roadmap/backlog.md). El CI **no bloquea** por estos warnings (sólo por errors).
 ⚠️ **15 eventos huérfanos** (todos clasificados en `_events.md` como hooks aspiracionales para módulos futuros).
 ⚠️ **Sentry preparado, sin DSN configurado** — decisión consciente. Activar al desplegar a producción.
-⚠️ **Crons en `@nestjs/schedule` (in-process)** — duplicarán trabajo si se escala a múltiples instancias. Migrar a BullMQ con leader election cuando aplique.
+⚠️ **Crons en `@nestjs/schedule` (in-process)** — duplicarán trabajo si se escala a múltiples instancias. Migrar a BullMQ con leader election cuando aplique. El `OutboxWorker` actual usa `@Interval(5s)` por consistencia; migración a BullMQ planificada en P1.1 Sprint 9.
 
 ### Lo que NO existe todavía
 
@@ -51,7 +54,7 @@
 
 ### Cuando arrancas un sprint nuevo
 
-1. Copia [`docs/90-meta/sprint-template.md`](./sprint-template.md) → `docs/60-roadmap/current-sprint.md` (cuando F6 esté hecho) o adapta al ROADMAP actual.
+1. Copia [`docs/60-roadmap/_sprint-template.md`](../60-roadmap/_sprint-template.md) y rellénalo en una rama nueva, o añade tu sprint como sección a [`current.md`](../60-roadmap/current.md) si es continuación de uno en curso.
 2. Rellena las 10 secciones de la plantilla **antes** de empezar a codificar:
    - Objetivo en 1 frase
    - Depende de
@@ -63,7 +66,7 @@
    - Riesgos
    - Decisiones a registrar
 3. Si el sprint introduce un módulo nuevo → crear `contract.md` siguiendo plantilla en `docs/20-modules/_template-contract.md` **antes** de codificar.
-4. Si introduce decisión de arquitectura → ADR (cuando F2 esté hecho) o entrada en `DECISIONS.md` mientras tanto.
+4. Si introduce decisión de arquitectura → crea un ADR en [`docs/10-decisions/`](../10-decisions/) (F2 cerrado: 60 ADRs vivos). Sigue el formato de los existentes (`adr-NNN-titulo-kebab.md`) y enlázalo desde el contract afectado.
 
 ### Cuando cierras un sprint
 
@@ -151,22 +154,29 @@ Acompáñalo siempre con:
 
 ## 5. Pendiente de desarrollo (features)
 
-### URGENTE — antes de seguir construyendo
+> 🎯 **P0 cerrado al 100% el 2026-04-26** (P0.1 + P0.2 + P0.3 + P0.4). El primer deploy productivo (Sprint 14) ya no tiene bloqueos críticos pre-deploy. La cola siguiente es **P1**.
 
-1. **Cerrar Sprint 8 (Tasks)** — listener `task.assigned`, validación `assigned_to`, arreglar 2 lint errors. ~1-2 sesiones.
-2. **Outbox Pattern para `invoice.*`** — crítico financiero antes de producción. ~1-2 sesiones.
+### P1 — Importante para producción profesional (antes de desplegar)
 
-### IMPORTANTE — antes de despliegue
+1. **P1.1 Sprint 9 — Audit + Notifications Full** — audit consultas, portal transparencia cliente, plantillas editables, BullMQ emails, DLQ, **Outbox worker hardening (migrar de `@Interval` a BullMQ)**, Error Log UI. ~2-3 sesiones.
+2. **P1.2 Sprint 11.5 — MinIO Storage local** — añadir MinIO al `docker-compose.dev.yml` + `StorageService` + integración con generación de PDFs. **Desbloquea adjuntos en chat (7.7) y tickets (7.6.3)**. ~1 sesión, independiente.
+3. **P1.3 Sprint 7.5 Fase 2** — migración progresiva de páginas restantes al Design System. Oportunista (al tocar página, migrar en mismo PR).
+4. **P1.4 Sprint 14 Deploy real** — Docker Compose **prod** + Traefik + SSL + Grafana/Prometheus/Loki + pipeline + backups Cloudflare R2 + plan recovery + Sentry real. Depende de P1.1+P1.2 cerrados. ~2-3 sesiones.
 
-3. **F0.6 saneamiento profundo** — los 344 errores de lint reales. ~3-4 sesiones repartidas.
-4. **Tests E2E exhaustivos** — 2FA con código real, checkout completo, PDF download, escalación con WS. ~2 sesiones.
+### Sprint 8 — pendiente residual (NO crítico, NO bloqueante)
 
-### FEATURES grandes pendientes (cuando lo anterior esté)
+El mínimo desbloqueante (P0.1) está cerrado. El resto del Sprint 8 vive en [`current.md`](../60-roadmap/current.md): schemas Fase A (`8.1b/c/d/14`), frontend Fase B, automatización Fase C (`task.overdue`, WOW calls, crons), Support Inside Fase D (ADR-061), docs Fase E. Se cerrará cuando se aborden las features que lo necesitan (ej. Sprint 9 desbloquea `task.overdue` + cron).
 
-5. **Plugin Stripe** — sprint dedicado, requiere cuenta Stripe + webhooks.
-6. **Módulo Provisioning** — listeners de `service.*` y `checkout.completed`. Activación automática Docker / Enhance CP.
-7. **Módulo Partner** — todo el plan en `partner/contract.md`. Es el más extenso (Fase 2 del proyecto).
-8. **IA — filtro chat + copilot agente** — requiere Sprint 15 con infra de IA.
+### Deuda continua documentada (`backlog.md` §Deuda continua)
+
+- **DC.6** Migración fetch → Server Components + Suspense (cierra los 27 warnings `set-state-in-effect`). Sprint 7.5 Fase 2 o Sprint 13.
+- **DC.5** R15 restantes (oportunista al tocar archivos).
+- **DC.1-4** ver `backlog.md`.
+
+### P2/P3 — Features grandes (cuando P1 esté)
+
+5. **P2.1-5 Módulos pendientes** — Infrastructure, Provisioning, Settings, Knowledge Base, Hardening (ver `backlog.md` P2).
+6. **P3.x Plugins + Fase 2** — Plugin framework, Stripe, ResellerClub, Docker Engine, Claude AI; Projects, CRM, Tickets redesign, Citations, AI Workers, Promotions, Referral, Partner module, i18n. Cada uno gobernado por su propio sub-sprint independiente — ver `backlog.md` P3.
 
 ---
 
@@ -209,7 +219,7 @@ Hoy estás en localhost; cuando despliegues:
 1. **Sentry** te llega por email. Investiga el correlation ID en los logs.
 2. Buscar en logs por correlation ID → ver toda la cadena (request → eventos → jobs).
 3. Hipótesis → reproducir local → fix → test que cubra → push → deploy.
-4. **Documentar el incident** en `docs/60-roadmap/incidents.md` (cuando F6 lo cree).
+4. **Documentar el incident** en `docs/60-roadmap/incidents.md` — el archivo no existe aún (lo creará el primer incident real post-deploy). Estructura sugerida: una entrada por incident con ID, fecha, severidad, sintomáticos, causa raíz, fix, follow-ups.
 5. Si la causa es deuda conocida → priorizarla en próximo sprint.
 
 ---
@@ -245,19 +255,29 @@ Cuando vuelvas tras tiempo, lee en este orden:
 
 ## 10. Mi recomendación honesta para tu próxima sesión
 
-Cuando vuelvas a Claude, mi recomendación es **una de estas dos**:
+> Estado actualizado 2026-04-26: P0 cerrado al 100% (P0.1-P0.4). Refactor F1-F9 al 100%. La doc es ya completa y navegable. Lo que sigue es **P1**.
 
-### Opción A — Cerrar Sprint 8 y continuar features
-- "Cierra Sprint 8 según `tasks/contract.md` sección 17 (deuda técnica)"
-- Esto deja el módulo Tasks listo y consistente con la doc.
-- Después: implementar Outbox para `invoice.*` (R8 crítica antes de prod).
+Mi recomendación: **una de estas dos**, y mi voto va a la **Opción A** porque la prioridad real ahora es habilitar el primer deploy productivo (Sprint 14), y P1.2 lo descongestiona con menor esfuerzo.
 
-### Opción B — Continuar refactor de doc (F3)
-- "Procede con F3: parte `DATABASE_SCHEMA.md` (~2k líneas) en archivos por dominio en `docs/30-data/`"
-- ~1-2 sesiones. Útil para localizar tablas concretas sin scrollear el monolito.
-- F2 (ADRs) y F5 (operations) ya están cerrados — la doc es ya navegable y profesional.
+### Opción A (recomendada) — P1.2 Sprint 11.5: MinIO local
+- "Implementa Sprint 11.5 — añade MinIO al `docker-compose.dev.yml`, crea `StorageService` con métodos `upload/download/delete/presignedUrl`, e integra con `InvoicePdfService` para guardar PDFs."
+- ~1 sesión, **independiente** (no bloqueado por nada).
+- **Desbloquea**: adjuntos en chat (Sprint 7.7) + adjuntos en tickets (Sprint 7.6.3) + persistencia de PDFs de facturas. Tres features de UX pegadas a la espera.
+- Referencias: [`backlog.md` P1.2](../60-roadmap/backlog.md), `docker-compose.dev.yml` actual.
 
-**Mi voto:** **Opción A**. La doc actual es ya **excelente para desarrollar profesionalmente**: 60 ADRs, contracts por módulo, matriz de dependencias, catálogo de eventos, reglas explícitas, y carpeta de operations con settings/emails/jobs/errores canónicos. **El Sprint 8 sí bloquea** (está WIP, ensucia el repo). Cierra primero, organiza el schema después.
+### Opción B — P1.1 Sprint 9: Audit + Notifications Full
+- "Implementa Sprint 9 — Audit consultas + portal transparencia cliente + plantillas editables + BullMQ emails con DLQ + **Outbox worker hardening (migrar `@Interval` a BullMQ)** + Error Log UI."
+- ~2-3 sesiones (más denso).
+- **Cierra deuda histórica**: BullMQ leader election (playbook §1), DLQ para emails fallidos, audit trail completo con portal RGPD.
+- Pre-requisito **directo** de Sprint 14 Deploy real: producción sin DLQ pierde emails silenciosamente.
+
+### Por qué A antes que B
+- A es atómico y demostrable en una sesión. B es 3 sub-piezas que sólo dan valor juntas.
+- Tras A, tienes 2 features de UX (adjuntos chat/tickets) listas para programar oportunamente.
+- B requiere trabajo previo de A NO, son ortogonales — pero A es prerequisito de Sprint 14 también (sin storage no se puede pasar de localhost a prod sin perder PDFs/adjuntos).
+
+### Si tienes prisa por desplegar
+Salta directo a **B → Sprint 14**. Pero en cuanto despliegues sin MinIO, los adjuntos quedarán colgando indefinidamente. A primero es la jugada limpia.
 
 ---
 

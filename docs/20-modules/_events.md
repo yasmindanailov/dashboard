@@ -122,7 +122,8 @@ Todos huérfanos esperando al módulo `provisioning`. Cuando provisioning se imp
 | `task.created` | `tasks.service.ts:create()` | — | `{ task }` | no | 🟡 huérfano |
 
 **Análisis del dominio task:**
-Sprint 8 está WIP — los listeners para notificar al agente asignado están en el plan pero no implementados.
+- `task.assigned`: ✅ cerrado P0.1 (2026-04-26) — listener `tasks-email.listener.ts` envía email al agente + crea notificación interna en tabla `notifications`. Tests E2E en `tests/e2e/tasks.spec.ts`.
+- `task.completed` y `task.created`: 🟡 huérfanos. Quedan como hooks aspiracionales para el futuro módulo `audit`. Sprint 8 sigue WIP en otras fases (schemas A, frontend B, automatización C — `task.overdue` + `maintenance.*`, Support Inside D, docs E) — ver [`current.md` §Sprint 8](../60-roadmap/current.md).
 
 ---
 
@@ -130,10 +131,11 @@ Sprint 8 está WIP — los listeners para notificar al agente asignado están en
 
 | Listener | Eventos consumidos | Acciones |
 |----------|--------------------|----------|
-| `billing-email.listener` | `invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue` | Envía email al cliente con detalles + link al PDF |
+| `billing-email.listener` | `invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue` | Envía email al cliente con detalles + link al PDF (eventos despachados vía Outbox desde P0.2). |
 | `support-email.listener` | `conversation.created`, `conversation.assigned`, `message.created` | Email a cliente o agente según tipo |
 | `support-websocket.listener` | `conversation.created`, `conversation.assigned`, `message.created` | Push por WebSocket a clients conectados |
 | `support-guest-link.listener` | `auth.registered` | Vincula chats guest previos al user nuevo (si email coincide) |
+| `tasks-email.listener` | `task.assigned` | Email al agente asignado + notificación interna en `notifications` (P0.1) |
 
 ---
 
