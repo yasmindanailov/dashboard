@@ -85,6 +85,22 @@ Ejecuta el [Definition of Done](./definition-of-done.md):
 4. Pegarme el log relevante (no todo) y el contexto de qué tocaste.
 5. **No mergees hasta que esté verde.**
 
+### Cuando el dev server del frontend crashea (Turbopack worker)
+
+Síntoma típico: `Jest worker encountered N child process exceptions, exceeding retry limit` al navegar a una página específica. Es un **crash del compilador Turbopack**, no un bug de tu código (Next.js 16 + Turbopack tiene este modo de fallo cuando la caché `.next/` se corrompe o el worker se queda sin memoria tras horas de desarrollo).
+
+Procedimiento estándar (en este orden):
+
+1. **Detén el dev server** del frontend con `Ctrl+C` en su terminal.
+2. **Limpia caché:** `cd frontend && pnpm dev:clean` (alias de `rm -rf .next/`).
+3. **Reinicia:** `pnpm dev`.
+4. **Si reaparece tras limpiar caché**, fallback a webpack (más lento pero estable):
+   ```bash
+   cd frontend && pnpm dev:webpack
+   ```
+   Documentado en `node_modules/next/dist/docs/01-app/03-api-reference/08-turbopack.md` como vía oficial de fallback.
+5. **Si persiste con webpack**, abre issue: probablemente es un bug específico de la página (CSS module mal formado, importación circular, etc.). Léeme el log real del terminal (no el overlay del navegador) — el "Jest worker exception" oculta el error de fondo.
+
 ### Cuando vayas a desplegar a producción
 
 1. Define `SENTRY_DSN` en el hosting → activa observabilidad.

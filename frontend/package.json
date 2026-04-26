@@ -11,6 +11,8 @@
   },
   "scripts": {
     "dev": "next dev --port 3002",
+    "dev:webpack": "next dev --webpack --port 3002",
+    "dev:clean": "node -e \"const fs=require('fs');fs.rmSync('.next',{recursive:true,force:true});console.log('.next/ limpiado')\"",
     "build": "next build",
     "start": "next start --port 3002",
     "lint": "eslint",
