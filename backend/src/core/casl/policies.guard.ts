@@ -29,8 +29,9 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { CaslAbilityFactory } from './casl-ability.factory';
+import { CaslAbilityFactory, AppAbility } from './casl-ability.factory';
 import { CHECK_POLICIES_KEY, PolicyHandler } from './check-policies.decorator';
+import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 
 @Injectable()
 export class PoliciesGuard implements CanActivate {
@@ -50,8 +51,10 @@ export class PoliciesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
-    const { user } = request;
+    const request = context
+      .switchToHttp()
+      .getRequest<AuthenticatedRequest & { ability?: AppAbility }>();
+    const user = request.user;
 
     if (!user) {
       throw new ForbiddenException(

@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import type { Request } from 'express';
+import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import {
@@ -64,8 +65,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token using refresh token' })
   async refresh(@Req() req: Request) {
-    // Read refresh token from cookie or body
-    const refreshToken = req.cookies?.refresh_token || req.body?.refresh_token;
+    // Read refresh token from cookie or body. Express tipa cookies/body como
+    // `any` por defecto — narrowing manual para satisfacer no-unsafe-*.
+    const cookies = req.cookies as Record<string, string> | undefined;
+    const body = req.body as { refresh_token?: string } | undefined;
+    const refreshToken = cookies?.refresh_token ?? body?.refresh_token;
     if (!refreshToken) {
       throw new Error('Refresh token not provided');
     }
@@ -77,10 +81,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout — revoke current session' })
-  async logout(@Req() req: Request) {
-    const user = (req as any).user;
+  async logout(@Req() req: AuthenticatedRequest) {
     const token = req.headers.authorization?.replace('Bearer ', '') || '';
-    return this.authService.logout(user.id, token);
+    return this.authService.logout(req.user.id, token);
   }
 
   @Post('verify-email')
@@ -115,24 +118,27 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List active sessions for current user' })
-  async getSessions(@Req() req: Request) {
-    return this.authService.getSessions((req as any).user.id);
+  async getSessions(@Req() req: AuthenticatedRequest) {
+    return this.authService.getSessions(req.user.id);
   }
 
   @Delete('sessions/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Revoke a specific session' })
-  async revokeSession(@Param('id') id: string, @Req() req: Request) {
-    return this.authService.revokeSession((req as any).user.id, id);
+  async revokeSession(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.authService.revokeSession(req.user.id, id);
   }
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user profile' })
-  async getMe(@Req() req: Request) {
-    return this.authService.getMe((req as any).user.id);
+  async getMe(@Req() req: AuthenticatedRequest) {
+    return this.authService.getMe(req.user.id);
   }
 
   private getIp(req: Request): string {

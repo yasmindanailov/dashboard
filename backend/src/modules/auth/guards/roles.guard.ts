@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { RoleSlug } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import type { AuthenticatedRequest } from '../../../core/common/types/authenticated-request';
 
 /**
  * Guard that checks if the authenticated user has one of the required roles.
@@ -29,7 +30,8 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const { user } = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const user = request.user;
     if (!user || !user.role) {
       throw new ForbiddenException(
         'No tienes permisos para acceder a este recurso.',

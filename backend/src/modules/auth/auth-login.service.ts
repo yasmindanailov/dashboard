@@ -14,7 +14,10 @@ import { twoFactorCodeTemplate } from '../../core/email/templates/auth.templates
 import { LoginDto, Verify2faDto } from './dto/auth.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { AuthTokenService } from './auth-token.service';
-import { RoleSlug } from '@prisma/client';
+import { Prisma, RoleSlug } from '@prisma/client';
+
+/** Usuario con su rol incluido — devuelto por findUnique({ include: { role } }). */
+type UserWithRole = Prisma.UserGetPayload<{ include: { role: true } }>;
 
 /* ═══════════════════════════════════════
    AuthLoginService — Login + 2FA
@@ -141,7 +144,7 @@ export class AuthLoginService {
 
   // ip recibido pero no usado todavía — pendiente registrar IP del intento
   // 2FA en LoginAttempt cuando se implemente la auditoría completa.
-  private async initiate2fa(user: any, _ip: string) {
+  private async initiate2fa(user: UserWithRole, _ip: string) {
     const code = this.tokenService.generate2FACode();
     const codeHash = this.tokenService.hashToken(code);
     const expiresMinutes = await this.settings.getNumber(
@@ -201,7 +204,7 @@ export class AuthLoginService {
     if (!user) return;
 
     const attempts = user.login_attempts + 1;
-    const updateData: any = { login_attempts: attempts };
+    const updateData: Prisma.UserUpdateInput = { login_attempts: attempts };
 
     if (attempts >= maxAttempts) {
       updateData.blocked_until = new Date(Date.now() + blockMinutes * 60_000);

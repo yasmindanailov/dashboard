@@ -1,6 +1,22 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
+// pdfkit publica un CommonJS export sin default — `import = require()` es la
+// forma correcta. Lint excepción documentada (R8 conv: librerías legacy).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 import PDFDocument = require('pdfkit');
+
+/**
+ * Forma concreta del invoice consumido por el generador de PDF.
+ * Coincide 1:1 con el `findUnique({ include: ... })` de generatePdf().
+ */
+type InvoiceForPdf = Prisma.InvoiceGetPayload<{
+  include: {
+    items: true;
+    billing_profile: true;
+    user: { select: { first_name: true; last_name: true; email: true } };
+  };
+}>;
 
 /**
  * InvoicePdfService — Generates PDF invoices.
@@ -88,7 +104,7 @@ export class InvoicePdfService {
   private drawHeader(
     doc: PDFKit.PDFDocument,
     company: CompanyInfo,
-    invoice: any,
+    invoice: InvoiceForPdf,
   ): void {
     // Company name
     doc.fontSize(20).font('Helvetica-Bold').text(company.name, 50, 50);
@@ -132,7 +148,10 @@ export class InvoicePdfService {
     doc.moveTo(50, 150).lineTo(545, 150).strokeColor('#E5E7EB').stroke();
   }
 
-  private drawClientInfo(doc: PDFKit.PDFDocument, invoice: any): void {
+  private drawClientInfo(
+    doc: PDFKit.PDFDocument,
+    invoice: InvoiceForPdf,
+  ): void {
     const bp = invoice.billing_profile;
     const user = invoice.user;
     const isComplete = bp?.nif_cif;
@@ -205,7 +224,10 @@ export class InvoicePdfService {
       .stroke();
   }
 
-  private drawItemsTable(doc: PDFKit.PDFDocument, invoice: any): void {
+  private drawItemsTable(
+    doc: PDFKit.PDFDocument,
+    invoice: InvoiceForPdf,
+  ): void {
     const tableTop = 290;
     const colWidths = { desc: 220, qty: 50, price: 80, setup: 70, total: 80 };
 
@@ -288,7 +310,7 @@ export class InvoicePdfService {
     doc.moveTo(50, y).lineTo(545, y).strokeColor('#E5E7EB').stroke();
   }
 
-  private drawTotals(doc: PDFKit.PDFDocument, invoice: any): void {
+  private drawTotals(doc: PDFKit.PDFDocument, invoice: InvoiceForPdf): void {
     let y = doc.y + 20;
 
     const drawRow = (label: string, value: string, bold = false) => {
@@ -314,7 +336,7 @@ export class InvoicePdfService {
     }
 
     drawRow(
-      `IVA (${invoice.tax_rate}%):`,
+      `IVA (${Number(invoice.tax_rate)}%):`,
       this.formatCurrency(Number(invoice.tax_amount), invoice.currency),
     );
 
@@ -346,7 +368,7 @@ export class InvoicePdfService {
   private drawFooter(
     doc: PDFKit.PDFDocument,
     company: CompanyInfo,
-    invoice: any,
+    invoice: InvoiceForPdf,
   ): void {
     const y = 750;
     doc.fontSize(7).font('Helvetica').fillColor('#9CA3AF');

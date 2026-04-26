@@ -17,28 +17,22 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { AbilityBuilder, createMongoAbility, MongoAbility } from '@casl/ability';
+import {
+  AbilityBuilder,
+  createMongoAbility,
+  MongoAbility,
+} from '@casl/ability';
 import { Action, Subject, ROLE_PERMISSIONS } from './permissions';
 
 // ─── Type definitions ───────────────────────────────────────────
 
 export type AppAbility = MongoAbility<[Action, Subject]>;
 
-// ─── Authenticated user shape (from JwtStrategy.validate) ───────
-
-export interface AuthenticatedUser {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  status: string;
-  role: {
-    id?: string;
-    slug: string;
-    name?: string;
-  };
-  partner_id?: string | null;
-}
+// `AuthenticatedUser` (forma del `req.user` que pone JwtStrategy.validate)
+// vive en `core/common/types/authenticated-request.ts` — re-export aquí
+// para no obligar a los call-sites a conocer la ruta exacta.
+export type { AuthenticatedUser } from '../common/types/authenticated-request';
+import type { AuthenticatedUser } from '../common/types/authenticated-request';
 
 // ─── Factory ────────────────────────────────────────────────────
 
