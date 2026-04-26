@@ -13,11 +13,11 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Settings seedados | 21 |
-| Settings consumidos activamente | 12 (57%) |
-| Settings huérfanos (feature futura) | 5 (24%) |
+| Settings seedados | 23 (incluye 2 storage.* desde Sprint 11.5) |
+| Settings consumidos activamente | 13 (57%) |
+| Settings huérfanos (feature futura) | 6 (26%) |
 | Settings documentados sin seed | 5 (encriptación pendiente, partner, IA, etc.) |
-| Secciones | 6 (auth, billing, general, support, referrals, support_inside) |
+| Secciones | 7 (auth, billing, general, support, referrals, support_inside, storage) |
 
 **Indicadores:**
 - ✅ Setting implementado y consumido
@@ -138,12 +138,12 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 | `infra.safety_margin_cpu_pct` | number | 80 | ❌ | (pendiente — margen seguridad CPU) | ADR-043 |
 | `infra.safety_margin_disk_pct` | number | 90 | ❌ | (pendiente — margen seguridad disco) | ADR-043 |
 
-### 📦 storage.* (Sprint 11.5 MinIO)
+### 📦 storage.* (Sprint 11.5 MinIO + ADR-062)
 
 | Key | Tipo | Default | Estado | Consumidor | Origen |
 |-----|------|---------|--------|------------|--------|
-| `storage.signed_url_expiry_minutes` | number | 60 | ❌ | (pendiente Sprint 11.5 — TTL de URLs firmadas para downloads) | Sprint 11.5 MinIO |
-| `storage.max_upload_size_mb` | number | 10 | ❌ | (pendiente Sprint 11.5 — tamaño máximo de archivo subido) | Sprint 11.5 MinIO |
+| `storage.signed_url_expiry_minutes` | number | 60 | ✅ | `core/storage/storage.service.ts:getDefaultTtlSeconds()` | [ADR-062](../10-decisions/adr-062-storage-canonico-minio.md) · seed.ts |
+| `storage.max_upload_size_mb` | number | 10 | 🟡 | (validar en uploads externos cuando se implementen Sprints 7.7 y 7.6.3 — adjuntos chat/tickets) | ADR-062 · seed.ts |
 
 ### 🤖 ai.* (agentes IA — Sprint 15 futuro)
 

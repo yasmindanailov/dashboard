@@ -241,7 +241,18 @@ Se propaga a logs, eventos, jobs. Permite rastrear todo lo que pasó como consec
 ### Settings (configuración global)
 Tabla `settings` con pares `(category, key, value)`. Cacheado 1 minuto en memoria.
 Editable desde el dashboard por superadmin (Sprint 12 — pendiente).
-Categorías: `general`, `billing`, `auth`, `support`, `referrals`, `email`.
+Categorías: `general`, `billing`, `auth`, `support`, `referrals`, `email`, `storage`.
+
+### Storage (object storage canónico)
+Servicio S3-compatible donde el dashboard persiste objetos binarios: PDFs de facturas, adjuntos de chat/tickets (futuros), logos, avatares.
+En desarrollo: **MinIO** local en `docker/docker-compose.dev.yml`. En producción: AWS S3, Cloudflare R2 u otro S3-compatible (cero cambio de código, sólo env vars).
+Acceso vía `StorageService` (`backend/src/core/storage/storage.service.ts`), `@Global`. Convención de keys y patrón canónico documentados en [ADR-062](../10-decisions/adr-062-storage-canonico-minio.md).
+
+### Bucket
+Contenedor del storage donde viven los objetos. Aelium usa un único bucket (`S3_BUCKET`, default `aelium-storage`) — la separación se hace por **prefijo de key** (`invoices/`, `chats/`, `tickets/`, `branding/`, `avatars/`).
+
+### Signed URL
+URL firmada con TTL (default 60 min vía `storage.signed_url_expiry_minutes`) que permite descargar un objeto del bucket sin pasar por el backend. El endpoint `/pdf` devuelve **302 redirect** a una signed URL — el bucket sirve los bytes directamente, el backend libre.
 
 ---
 

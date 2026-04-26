@@ -40,10 +40,10 @@
 
 | # | Item | Esfuerzo | Depende de |
 |---|------|----------|------------|
-| **P1.1** | **Sprint 9 — Audit + Notifications Full** (audit consultas, portal transparencia cliente, plantillas editables, BullMQ emails, DLQ, Outbox worker, Error Log UI) | 2-3 sesiones | P0.1 (listeners task.*), P0.2 (outbox) |
-| **P1.2** | **Sprint 11.5 — MinIO Storage (local)** (NUEVO refactor 2026-04-26 — antes era parte de Sprint 14 Deploy). Añadir MinIO al docker-compose dev + StorageService + integración con generación de PDFs. **Desbloquea adjuntos en chat (Sprint 7.7) y tickets (Sprint 7.6.3)** | 1 sesión | — (independiente, se puede hacer ya) |
+| **P1.1** | **Sprint 9 — Audit + Notifications Full** (audit consultas, portal transparencia cliente, plantillas editables, BullMQ emails, DLQ, Outbox worker, Error Log UI, **cola `pdf-generation`** para migrar el fire-and-forget actual a BullMQ — cierra deuda R2 introducida por Sprint 11.5) | 2-3 sesiones | P0.1 (listeners task.*), P0.2 (outbox) |
+| ~~**P1.2**~~ | ~~**Sprint 11.5 — MinIO Storage (local)**~~ ✅ **Cerrado 2026-04-26** — `core/storage/StorageService` (`@aws-sdk/client-s3`) + `InvoicePdfStorageService` puente; `Invoice.pdf_url` ahora guarda la S3 key (no URL); endpoint `/pdf` 302 redirect a signed URL con `Content-Disposition: attachment` forzado; MinIO en `docker-compose.dev.yml` y CI; fire-and-forget upload tras `markAsPaid`/`sendToPending` (deuda R2 documentada → P1.1); test E2E `storage-pdf.spec.ts` con flujo principal + fallback legacy; settings `storage.signed_url_expiry_minutes` y `storage.max_upload_size_mb` seedeados; ADR-062 publicado. **Desbloquea Sprint 7.7 (adjuntos chat) + Sprint 7.6.3 (adjuntos tickets) + Sprint 12 (logos brand).** | ~~1 sesión~~ → 1 sesión real | — |
 | **P1.3** | **Sprint 7.5 Fase 2 finalizar** — migración progresiva de páginas restantes al Design System (oportunista — al tocar página, migrarla en mismo PR) | continuo | — |
-| **P1.4** | **Sprint 14 — Deploy real (producción)** (Docker Compose **prod** + Traefik + SSL + Grafana/Prometheus/Loki + pipeline + backups Cloudflare R2 + plan recovery + Sentry real). **Sin MinIO** — ya está en P1.2 | 2-3 sesiones | P0 todo cerrado, P1.1 cerrado, P1.2 cerrado, plugins críticos según necesidad |
+| **P1.4** | **Sprint 14 — Deploy real (producción)** (Docker Compose **prod** + Traefik + SSL + Grafana/Prometheus/Loki + pipeline + backups Cloudflare R2 + plan recovery + Sentry real). **Sin MinIO** — ya está en P1.2 (basta cambiar env vars `S3_*` para apuntar al bucket de prod, mismo SDK) | 2-3 sesiones | P0 todo cerrado, P1.1 cerrado, P1.2 cerrado, plugins críticos según necesidad |
 | **P1.5** | **Backup + recovery plan** documentado (RTO < 4h, RPO < 6h) | parte del P1.4 | P1.4 |
 
 ---

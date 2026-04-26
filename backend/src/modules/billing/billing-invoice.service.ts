@@ -20,6 +20,7 @@ import {
   ManualPaymentProvider,
 } from './interfaces/payment-provider.interface';
 import { BillingCalculatorService } from './billing-calculator.service';
+import { InvoicePdfStorageService } from './invoice-pdf-storage.service';
 
 /* BillingInvoiceService — Invoice CRUD, lifecycle, stats & numbering. Ref: Regla 15 */
 
@@ -32,6 +33,7 @@ export class BillingInvoiceService {
     private readonly prisma: PrismaService,
     private readonly outbox: OutboxService,
     private readonly calculator: BillingCalculatorService,
+    private readonly pdfStorage: InvoicePdfStorageService,
   ) {
     this.paymentProvider = new ManualPaymentProvider();
   }
@@ -178,6 +180,11 @@ export class BillingInvoiceService {
       return u;
     });
 
+    // Persistir PDF en bucket fuera de la transacción crítica (ADR-062).
+    // Fire-and-forget: si MinIO está caído el flujo de cobro no se rompe;
+    // la primera descarga regenera vía fallback en `getSignedDownloadUrl`.
+    this.pdfStorage.generateAndUploadInBackground(invoiceId);
+
     this.logger.log(`Invoice ${invoice.invoice_number} marked as PAID`);
     return updated;
   }
@@ -248,6 +255,10 @@ export class BillingInvoiceService {
       data: { status: 'pending' },
       include: { items: true, billing_profile: true },
     });
+
+    // Generar y persistir PDF al finalizar (ADR-062). Fire-and-forget.
+    this.pdfStorage.generateAndUploadInBackground(invoiceId);
+
     this.logger.log(`Invoice ${invoice.invoice_number} finalized → PENDING`);
     return updated;
   }

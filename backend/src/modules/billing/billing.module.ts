@@ -9,6 +9,7 @@ import { ServiceLifecycleWorker } from './service-lifecycle.worker';
 import { SubscriptionService } from './subscription.service';
 import { SubscriptionController } from './subscription.controller';
 import { InvoicePdfService } from './invoice-pdf.service';
+import { InvoicePdfStorageService } from './invoice-pdf-storage.service';
 import { BillingEmailListener } from './billing-email.listener';
 
 @Module({
@@ -22,6 +23,7 @@ import { BillingEmailListener } from './billing-email.listener';
     BillingLifecycleWorker,
     ServiceLifecycleWorker,
     InvoicePdfService,
+    InvoicePdfStorageService,
     BillingEmailListener,
   ],
   exports: [
@@ -29,6 +31,7 @@ import { BillingEmailListener } from './billing-email.listener';
     BillingCalculatorService,
     SubscriptionService,
     InvoicePdfService,
+    InvoicePdfStorageService,
   ],
 })
 export class BillingModule {}

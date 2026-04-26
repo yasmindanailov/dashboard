@@ -78,6 +78,9 @@ async function main() {
     { category: 'auth', key: 'email_verification_expires_hours', value: '24', description: 'Expiración del token de verificación email (horas)' },
     { category: 'auth', key: 'password_reset_expires_hours', value: '1', description: 'Expiración del token de reset contraseña (horas)' },
     { category: 'auth', key: 'two_factor_code_expires_minutes', value: '5', description: 'Expiración del código 2FA (minutos)' },
+    // Storage settings (Sprint 11.5 + ADR-062)
+    { category: 'storage', key: 'signed_url_expiry_minutes', value: '60', description: 'TTL de URLs firmadas para descargas (minutos)' },
+    { category: 'storage', key: 'max_upload_size_mb', value: '10', description: 'Tamaño máximo de archivo subido (MB) — uploads externos (chat/tickets)' },
   ];
 
   for (const s of settings) {

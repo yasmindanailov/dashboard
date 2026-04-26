@@ -50,8 +50,33 @@ services:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
 
+  # ── MinIO (storage S3-compatible local — Sprint 11.5 + ADR-043 + ADR-062) ──
+  # API S3:    http://localhost:9000
+  # Consola:   http://localhost:9001  (login: minioadmin / minioadmin)
+  # El bucket lo crea automáticamente StorageService.ensureBucket() en boot.
+  minio:
+    image: minio/minio:latest
+    container_name: aelium-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # API S3
+      - "9001:9001"   # Consola web
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  minio_data:
     driver: local

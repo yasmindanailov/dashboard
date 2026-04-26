@@ -22,7 +22,7 @@ import {
   ApiProduces,
 } from '@nestjs/swagger';
 import { BillingService } from './billing.service';
-import { InvoicePdfService } from './invoice-pdf.service';
+import { InvoicePdfStorageService } from './invoice-pdf-storage.service';
 import {
   CreateInvoiceDto,
   UpdateInvoiceDto,
@@ -45,7 +45,7 @@ const ADMIN_ROLES = ['superadmin', 'agent_full', 'agent_billing'];
 export class BillingController {
   constructor(
     private readonly billingService: BillingService,
-    private readonly invoicePdfService: InvoicePdfService,
+    private readonly invoicePdfStorage: InvoicePdfStorageService,
   ) {}
 
   /* ═══════════════════════════════════════
@@ -177,11 +177,13 @@ export class BillingController {
   }
 
   /* ═══════════════════════════════════════
-     PDF DOWNLOAD (ownership enforced)
+     PDF DOWNLOAD (ownership enforced + signed URL — ADR-062)
      ═══════════════════════════════════════ */
 
   @Get('invoices/:id/pdf')
-  @ApiOperation({ summary: 'Download invoice PDF' })
+  @ApiOperation({
+    summary: 'Download invoice PDF (302 redirect a signed URL del bucket)',
+  })
   @ApiProduces('application/pdf')
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Invoice))
   async downloadPdf(
@@ -197,15 +199,11 @@ export class BillingController {
       throw new ForbiddenException('No tienes acceso a esta factura');
     }
 
-    const pdfBuffer = await this.invoicePdfService.generatePdf(id);
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${invoice.invoice_number}.pdf"`,
-      'Content-Length': pdfBuffer.length,
-    });
-
-    res.end(pdfBuffer);
+    // Vía rápida: signed URL del bucket. `getSignedDownloadUrl` se encarga
+    // del fallback si el PDF aún no está en el bucket (legacy / upload
+    // previo fallido) — genera + sube + firma en la misma request.
+    const url = await this.invoicePdfStorage.getSignedDownloadUrl(id);
+    res.redirect(302, url);
   }
 
   /* ═══════════════════════════════════════

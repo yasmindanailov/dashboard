@@ -147,6 +147,7 @@ Resultado: la historia queda íntegra.
 ### Refinamientos post-auditoría (ADR-061+)
 
 - [ADR-061](./adr-061-support-inside-tier-cuenta-ux.md) — Support Inside como tier de cuenta (refina ADR-034 con UX dedicada, schema reutilizado)
+- [ADR-062](./adr-062-storage-canonico-minio.md) — Storage canónico: MinIO + `@aws-sdk/client-s3` + `pdf_url` guarda S3 key + descarga 302 redirect a signed URL
 
 ---
 

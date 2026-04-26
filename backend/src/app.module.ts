@@ -13,6 +13,7 @@ import { EmailModule } from './core/email/email.module';
 import { CorrelationIdMiddleware } from './core/common/middleware/correlation-id.middleware';
 import { CaslModule } from './core/casl/casl.module';
 import { OutboxModule } from './core/outbox/outbox.module';
+import { StorageModule } from './core/storage/storage.module';
 
 // Health
 import { HealthModule } from './health/health.module';
@@ -70,6 +71,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     EmailModule,
     CaslModule,
     OutboxModule,
+    StorageModule,
     HealthModule,
 
     // ── Business modules ──

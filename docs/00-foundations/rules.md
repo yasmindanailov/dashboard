@@ -503,6 +503,7 @@ Los mensajes de sistema del dashboard siguen la voz de Aelium definida en `docs/
 | `getErrorMessage(err: unknown): string` | `backend/src/core/common/utils/error.util.ts` | R7 | Cualquier `catch (err)` que necesite extraer un mensaje legible. Maneja `Error`, string, primitivos, JSON. |
 | `getErrorMessage(err: unknown): string` | `frontend/app/lib/error.ts` | R7/R14 | Análogo en frontend. Maneja también el shape `{ status, message, correlationId }` que `lib/api.ts` lanza. |
 | `frontend/app/lib/types.ts` | `frontend/app/lib/types.ts` | type-safety | Tipos de dominio compartidos (`Client`, `Invoice`, `Conversation`, `Task`, `Pagination<T>`, etc.). Snake_case alineado con la API REST. |
+| `StorageService.upload / download / presignedDownloadUrl` | `backend/src/core/storage/storage.service.ts` | infra (ADR-062) | Persistencia S3-compatible. Inyectar para guardar PDFs, adjuntos, logos. Convención de keys: ver [ADR-062 §D](../10-decisions/adr-062-storage-canonico-minio.md). Endpoint de descarga: 302 redirect a signed URL, no proxy del backend. |
 
 ---
 

@@ -61,7 +61,7 @@ Prefix: `/api/v1/billing` (facturas) y `/api/v1/subscriptions` (servicios).
 | `PATCH` | `/billing/invoices/:id/overdue` | Marcar como vencida (también lo hace el cron) | `Update.Invoice` |
 | `PATCH` | `/billing/invoices/:id/cancel` | Cancelar (no elimina) | `Update.Invoice` |
 | `PATCH` | `/billing/invoices/:id/refund` | Paid → Refunded | `Update.Invoice` |
-| `GET` | `/billing/invoices/:id/pdf` | Descargar PDF | `Read.Invoice` + ownership |
+| `GET` | `/billing/invoices/:id/pdf` | Descargar PDF (302 redirect a signed URL del bucket — ADR-062) | `Read.Invoice` + ownership |
 
 ### Checkout
 
@@ -119,10 +119,19 @@ Ninguno. Billing emite, no escucha (pulsa el reloj del sistema vía crons + acci
 Ninguno cross-módulo. Sub-services internos (R15):
 
 - `BillingService` (fachada)
-- `BillingInvoiceService` — CRUD de facturas + transiciones de estado
+- `BillingInvoiceService` — CRUD de facturas + transiciones de estado. Inyecta `InvoicePdfStorageService` para hooks fire-and-forget de upload tras `markAsPaid` y `sendToPending`.
 - `BillingCheckoutService` — crea Service + Invoice desde producto
 - `BillingCalculatorService` — IVA, descuentos, prorrateo
 - `SubscriptionService` — pausa/reanuda, cambia plan
+- `InvoicePdfService` — render puro del PDF (PDFKit). Devuelve Buffer.
+- `InvoicePdfStorageService` (Sprint 11.5 + [ADR-062](../../10-decisions/adr-062-storage-canonico-minio.md)) — puente entre `InvoicePdfService` y `StorageService`. Métodos:
+  - `generateAndUpload(invoiceId)` — render + upload a bucket + actualiza `Invoice.pdf_url` con la S3 key.
+  - `generateAndUploadInBackground(invoiceId)` — fire-and-forget; si MinIO está caído log + sigue.
+  - `getSignedDownloadUrl(invoiceId)` — devuelve signed URL con TTL (`storage.signed_url_expiry_minutes`). Si `pdf_url` es null, hace fallback de generación on-demand.
+
+Cross-módulo (core):
+- `StorageService` (`core/storage`) — abstracción S3-compatible canónica. Inyectado por `InvoicePdfStorageService`.
+- `OutboxService` (`core/outbox`) — usado por `BillingInvoiceService` para los 4 `invoice.*` (R8).
 - `BillingLifecycleWorker` — crons de invoice generation + retry
 - `ServiceLifecycleWorker` — crons de suspension + cancellation
 

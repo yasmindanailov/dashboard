@@ -106,6 +106,7 @@ Ver [ADR-056 §13.30+](../10-decisions/adr-056-estrategia-escalabilidad.md) — 
 | **Cron expiración de créditos referidos** | [ADR-054](../10-decisions/adr-054-sistema-referidos-clientes.md) | Diario: marcar como `expired` los `referral_credits` con `accrued_at + credit_expiry_months < now()` | Sprint dedicado |
 | **Cron alertas de mantenimiento crítico** | [ADR-041](../10-decisions/adr-041-sistema-tareas.md), [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) | Diario: tareas `maintenance` cuyo `due_date - now < support.maintenance_critical_threshold_days` → notificación al agente + admin | Cierre Sprint 8 + Sprint 11 |
 | **Cron creación tareas mensuales de mantenimiento** | [ADR-041](../10-decisions/adr-041-sistema-tareas.md) | Mensual en fecha de aniversario: por cada slot activo, crear tarea `maintenance` o `maintenance_mgmt` | Cierre Sprint 8 |
+| **Cola BullMQ `pdf-generation`** | Sprint 11.5 + [ADR-062](../10-decisions/adr-062-storage-canonico-minio.md) | Hoy `markAsPaid` y `sendToPending` invocan `InvoicePdfStorageService.generateAndUploadInBackground()` (fire-and-forget síncrono dentro del request). Migrar a una cola BullMQ dedicada `pdf-generation` con DLQ + retries. Cumple R2 estricto (>200ms va a la cola) y R13 (jobs fallidos persistentes). | P1.1 Sprint 9 — Audit + Notifications Full + Outbox worker hardening |
 
 ---
 
