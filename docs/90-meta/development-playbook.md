@@ -29,7 +29,7 @@
 
 ### Lo que tiene DEUDA conocida
 
-⚠️ **Outbox Pattern (R8)**: 0/25 eventos lo usan. Crítico en `invoice.*` (riesgo de pérdida de notificaciones tras pago).
+⚠️ **Outbox Pattern (R8)**: ~~0/25~~ **4/25 eventos lo usan** — `invoice.*` cerrado P0.2 (2026-04-26). Pendiente extender a `service.*` (4) y `checkout.completed` cuando se implemente provisioning, y a `partner.*` (4 futuros).
 ⚠️ **Sprint 8 (Tasks) WIP** sin cerrar:
 - 3 eventos `task.*` huérfanos (sin listener)
 - `assigned_to` no validado en code

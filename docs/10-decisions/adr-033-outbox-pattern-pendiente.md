@@ -1,7 +1,7 @@
 # ADR-033 — Outbox Pattern para eventos críticos (decisión + deuda actual)
 
-> **Status:** Active (decisión arquitectónica) · **deuda técnica documentada** (implementación pendiente)
-> **Date:** 2026-04-26 (formalización durante refactor F2)
+> **Status:** Active · **`invoice.*` cerrado P0.2 (2026-04-26)** · resto de eventos críticos pendiente
+> **Date:** 2026-04-26 (formalización durante refactor F2 + primera implementación P0.2)
 > **Original:** Regla R8 + ARCHITECTURE.md §8 (referencia) + auditoría de eventos `_events.md`
 > **Domain:** foundation, billing
 
@@ -75,46 +75,72 @@ Eventos cuyo impacto de pérdida es absorbible:
 | `task.created`, `task.assigned`, `task.completed` | Tareas internas; no hay impacto a cliente final. |
 | `conversation.created`, `conversation.assigned`, `message.created` | UI se refresca al volver a entrar; pérdida de email puntual aceptable. |
 
-### Mecanismo Outbox (implementación pendiente)
+### Mecanismo Outbox
 
-Schema:
+Schema real implementado (`backend/prisma/schema.prisma`, migración `20260419092414_init`):
 
 ```prisma
-model EventOutbox {
-  id          String    @id @default(uuid()) @db.Uuid
-  event_name  String
-  payload     Json
-  created_at  DateTime  @default(now())
-  processed_at DateTime?
-  retry_count Int       @default(0)
-  last_error  String?
+enum EventStatus {
+  pending
+  processing
+  done
+  failed
+}
 
-  @@index([processed_at])
+model EventOutbox {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_type    String      @db.VarChar(200)
+  payload       Json
+  status        EventStatus @default(pending)
+  retry_count   Int         @default(0)
+  max_retries   Int         @default(5)
+  last_error    String?
+  processed_at  DateTime?   @db.Timestamptz()
+  created_at    DateTime    @default(now()) @db.Timestamptz()
+
+  @@index([status])
+  @@index([created_at])
   @@map("event_outbox")
 }
 ```
 
-Patrón de uso:
+> Nota: el schema real difiere ligeramente del borrador inicial de este ADR.
+> Campos finales: `event_type` (no `event_name`), enum `status` con 4 estados (`pending` / `processing` / `done` / `failed`) en lugar de un boolean derivado de `processed_at`. Permite reaper de filas atascadas en `processing` tras crash.
+
+Patrón de uso (P0.2 — implementado en `invoice.*`):
 
 ```typescript
-// Dentro de la transacción que cambia el estado:
-await this.prisma.$transaction(async (tx) => {
-  await tx.invoice.update({ where: { id }, data: { status: 'paid' } });
-  await tx.eventOutbox.create({
-    data: {
-      event_name: 'invoice.paid',
-      payload: { invoice_id: id, ... },
-    },
-  });
-});
+// backend/src/core/outbox/outbox.service.ts
+@Injectable()
+export class OutboxService {
+  async enqueue<P extends Record<string, unknown>>(
+    tx: Prisma.TransactionClient,
+    eventType: string,
+    payload: P,
+  ): Promise<void> {
+    await tx.eventOutbox.create({
+      data: { event_type: eventType, payload: payload as Prisma.InputJsonValue },
+    });
+  }
+}
 
-// Worker separado (BullMQ cron cada N segundos):
-// 1. SELECT * FROM event_outbox WHERE processed_at IS NULL ORDER BY created_at LIMIT 100
-// 2. Para cada uno: emit via EventEmitter2.
-// 3. Si OK: UPDATE processed_at = now().
-// 4. Si error: incrementar retry_count, last_error. Backoff exponencial.
-// 5. Tras N retries: alerta al superadmin (R7), evento queda en outbox para revisión manual.
+// Productor (ej. billing-invoice.service.ts):
+const updated = await this.prisma.$transaction(async (tx) => {
+  const u = await tx.invoice.update({
+    where: { id }, data: { status: 'paid', paid_at: new Date() },
+  });
+  await this.outbox.enqueue(tx, 'invoice.paid', { invoice_id: u.id, /* ... */ });
+  return u;
+});
 ```
+
+Worker (`backend/src/core/outbox/outbox.worker.ts`):
+
+1. `@Interval(5000)` reclama lote de 50 filas `pending` con `FOR UPDATE SKIP LOCKED` (seguro multi-instancia).
+2. Marca el lote `processing`, emite vía `eventEmitter.emitAsync()` y espera a los listeners.
+3. Si OK → `status='done'`, `processed_at=now()`.
+4. Si listener falla → `retry_count++`, guarda `last_error`. Si `retry_count >= max_retries` → `status='failed'` (revisión manual). Si no → vuelve a `pending` para el siguiente tick.
+5. `onModuleInit()` reclama filas atascadas en `processing` (crash recovery).
 
 Ventajas vs emit directo:
 
@@ -122,19 +148,17 @@ Ventajas vs emit directo:
 - Si muere **después** del commit: el evento persiste en `event_outbox`. Worker lo emitirá cuando arranque.
 - Los listeners siguen siendo `@OnEvent` normales — la abstracción Outbox vive en el productor + worker.
 
-### Plan de cierre — Sprint dedicado
+### Plan de cierre — estado por fase
 
-**Estado:** ⏳ pendiente, sin sprint asignado todavía.
-
-Estimación:
-1. Schema + migración Prisma para `event_outbox` (1-2h).
-2. Helper / decorador `@EmitWithOutbox()` o servicio dedicado para que productores no escriban a la tabla manualmente (3-4h).
-3. Worker BullMQ que despacha (3-4h con error handling + retries).
-4. Refactor de los 13 eventos críticos para usar Outbox en lugar de emit directo (1-2h por dominio = ~3h total).
-5. Tests E2E que demuestren persistencia tras crash simulado (3-4h).
-6. Documentación + monitoring de tabla outbox (alertas si crece > N filas, indica que worker no procesa).
-
-**Total estimado:** 14-19 horas. Sprint dedicado de hardening pre-producción.
+| # | Tarea | Estado |
+|---|------|--------|
+| 1 | Schema + migración Prisma para `event_outbox` | ✅ ya en `init` (`20260419092414_init`) |
+| 2 | Servicio `OutboxService.enqueue(tx, ...)` para que productores no escriban tabla manualmente | ✅ P0.2 (2026-04-26) |
+| 3 | Worker que despacha + retries + crash recovery | ✅ P0.2 — `@Interval(5s)` + `FOR UPDATE SKIP LOCKED`. **Sustituye BullMQ** (consistente con resto de crons del proyecto, ver Playbook §1). Migrar a BullMQ se pospone a Sprint 9 cuando convivan más jobs distribuidos. |
+| 4 | Refactor de eventos críticos `invoice.*` (4) | ✅ P0.2 |
+| 5 | Refactor `service.*` (4), `checkout.completed`, `partner.*` (4 futuros) | ⏳ Pendiente — se hará en Sprint 11 (provisioning) y Sprint 19 (partner) cuando esos módulos se implementen — **deben nacer con outbox** |
+| 6 | Tests E2E que demuestren persistencia tras crash simulado | ✅ P0.2 — `tests/e2e/outbox-invoice.spec.ts` |
+| 7 | Monitoring (alerta si `event_outbox` crece sin procesarse, alerta a superadmin si rows en `failed`) | ⏳ Pendiente — Sprint 9 (Audit + Notifications) |
 
 ### Trigger del sprint
 
@@ -148,15 +172,16 @@ Cuando se cumpla CUALQUIERA de:
 
 ## Consecuencias
 
-- ✅ **Ganamos:**
-  - Decisión explícita: ahora hay clasificación de criticidad y plan.
-  - El equipo (humano + IA) sabe qué eventos NO pueden añadirse sin Outbox al construir features nuevas.
-  - Deuda visible — no se "olvida" en un comentario de código.
+- ✅ **Ganamos (P0.2):**
+  - Los 4 eventos `invoice.*` cumplen R8: si el proceso muere entre commit y emit, el evento queda en `event_outbox` y se reintenta al arrancar el worker.
+  - Patrón canónico (`OutboxService.enqueue(tx, eventType, payload)`) listo para reutilizar en `service.*`, `checkout.*`, `partner.*` cuando esos módulos se implementen.
+  - Deuda visible y medible: una query `SELECT count(*) FROM event_outbox WHERE status='failed'` muestra el problema operacional.
 - ⚠️ **Aceptamos:**
-  - Hoy 13 eventos críticos están en deuda. Si el proceso del backend muere en mal momento → datos inconsistentes con outside-world (cliente sin email tras pago).
-  - El sprint de cierre es bloqueante para producción. Hay que ejecutarlo antes del primer despliegue real.
+  - 9 de 13 eventos críticos siguen sin Outbox (`service.*`, `checkout.completed`, `partner.*` futuros). Aceptable hoy: `service.*` no tiene listener todavía (provisioning es stub) y `partner.*` no existe aún. Se cubren al implementar esos módulos.
+  - Backoff inmediato (próximo tick = 5s) en lugar de exponencial — suficiente para fallos transitorios; los crónicos llegan a `failed` tras 5 reintentos.
+  - Sin alerta automática al superadmin cuando un evento llega a `failed` (R7 lo cubrirá cuando se implemente notifications full en Sprint 9).
 - 🚪 **Cierra:**
-  - **Eventos críticos nuevos** (post-decisión) **deben nacer con Outbox**, no añadirlo después. Reglas claras al implementar feature nueva.
+  - **Eventos críticos nuevos** (post-P0.2) **deben nacer con Outbox**, vía `OutboxService.enqueue(tx, ...)` dentro de `prisma.$transaction`. Cualquier PR que añada un `eventEmitter.emit()` en código transaccional crítico debe ser rechazado.
   - **El campo `outbox` en `_events.md`** se mantiene actualizado al añadir/modificar eventos.
 
 ---

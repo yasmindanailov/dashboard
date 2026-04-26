@@ -123,7 +123,9 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 - Fase D: Support Inside (UX dedicada — ADR-061).
 - Fase E: docs admin/agent.
 
-**Próximo paso recomendado tras P0.1:** **P0.2 Outbox Pattern para `invoice.*`** (ver [`backlog.md`](./backlog.md)) — 1-2 sesiones, crítico legal/financiero pre-deploy.
+**Próximo paso recomendado tras P0.1:** ~~**P0.2 Outbox Pattern para `invoice.*`**~~ ✅ **Cerrado 2026-04-26** — los 4 eventos `invoice.*` (`created`, `paid`, `failed`, `overdue`) usan `OutboxService.enqueue(tx, ...)` dentro de transacción Prisma; `OutboxWorker` (`@Interval(5s)` + `FOR UPDATE SKIP LOCKED`) los despacha vía `EventEmitter2.emitAsync` con retries y crash recovery. Test E2E `tests/e2e/outbox-invoice.spec.ts` demuestra persistencia tras "crash" del bus. ADR-033 actualizado.
+
+**Siguiente:** **P0.3 saneamiento lint** (`F0.6`) o **P0.4 tests E2E exhaustivos** — ver [`backlog.md`](./backlog.md).
 
 ---
 

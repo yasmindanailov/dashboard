@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../core/database/prisma.service';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { OutboxService } from '../../core/outbox/outbox.service';
 import { BillingService } from './billing.service';
 import { BillingCalculatorService } from './billing-calculator.service';
 
@@ -24,7 +24,7 @@ export class BillingLifecycleWorker {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly outbox: OutboxService,
     private readonly billingService: BillingService,
     private readonly calculator: BillingCalculatorService,
   ) {}
@@ -186,22 +186,26 @@ export class BillingLifecycleWorker {
           const nextRetry = new Date();
           nextRetry.setDate(nextRetry.getDate() + retryIntervalDays);
 
-          await this.prisma.invoice.update({
-            where: { id: invoice.id },
-            data: { retry_count: { increment: 1 }, next_retry_at: nextRetry },
+          await this.prisma.$transaction(async (tx) => {
+            await tx.invoice.update({
+              where: { id: invoice.id },
+              data: {
+                retry_count: { increment: 1 },
+                next_retry_at: nextRetry,
+              },
+            });
+            await this.outbox.enqueue(tx, 'invoice.failed', {
+              invoice_id: invoice.id,
+              invoice_number: invoice.invoice_number,
+              user_id: invoice.user_id,
+              retry_count: invoice.retry_count + 1,
+              max_retries: invoice.max_retries,
+            });
           });
 
           this.logger.warn(
             `Invoice ${invoice.invoice_number} retry #${invoice.retry_count + 1} failed — next retry at ${nextRetry.toISOString()}`,
           );
-
-          this.eventEmitter.emit('invoice.failed', {
-            invoice_id: invoice.id,
-            invoice_number: invoice.invoice_number,
-            user_id: invoice.user_id,
-            retry_count: invoice.retry_count + 1,
-            max_retries: invoice.max_retries,
-          });
         }
       } catch (error) {
         this.logger.error(

@@ -6,11 +6,11 @@
 >
 > Detectar drift entre código y este catálogo es responsabilidad de cualquier agente IA que toque el módulo afectado.
 
-> **Última auditoría:** abril 2026 (commits ~`8c4d893`).
+> **Última auditoría:** abril 2026 (commits ~`8c4d893`). **Actualizado 2026-04-26 (P0.2):** los 4 `invoice.*` ya usan Outbox.
 > **Total eventos identificados:** 25.
 > **Convenio de naming:** `<dominio>.<acción>` en pasado. Verificado 100% conforme.
-> **Bus:** `EventEmitter2` global (NestJS `@nestjs/event-emitter`).
-> **Outbox Pattern:** ❌ ningún evento usa outbox actualmente. Deuda técnica de R8.
+> **Bus:** `EventEmitter2` global (NestJS `@nestjs/event-emitter`) — los emisores críticos producen vía `OutboxService.enqueue(tx, ...)` y un `OutboxWorker` (cron `@Interval(5s)` con `FOR UPDATE SKIP LOCKED`) los despacha al bus.
+> **Outbox Pattern:** ✅ 4/25 eventos (`invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue`). Pendientes los 9 críticos restantes (`service.*`, `checkout.completed`, `partner.*` futuro) — ADR-033.
 
 ---
 
@@ -24,7 +24,7 @@
 | **Eventos huérfanos (sin listener)** | **14** |
 | Eventos con múltiples consumidores | 3 (`conversation.created`, `conversation.assigned`, `message.created`) |
 | Listeners únicos | 5 (`billing-email`, `support-email`, `support-websocket`, `support-guest-link`, `tasks-email`) |
-| **Eventos críticos sin Outbox** | **25 / 25** (100%) — riesgo |
+| **Eventos críticos sin Outbox** | **9 / 13** — pendientes `service.*` (4), `checkout.completed`, `partner.*` (4 futuros). Cerrados `invoice.*` (4) en P0.2. |
 
 ### Diagnóstico de los 15 eventos huérfanos
 
@@ -62,15 +62,13 @@ La mayoría de eventos `auth.*` se emiten "por si acaso" pero ningún listener l
 
 | Evento | Emisor | Consumidores | Payload | Outbox | Estado |
 |--------|--------|--------------|---------|--------|--------|
-| `invoice.created` | `billing-invoice.service.ts:createInvoice()` | `billing-email.listener` | `{ invoice_id, invoice_number, user_id, total, currency }` | no | ✅ con consumidor — **debería usar Outbox (R8)** |
-| `invoice.paid` | `billing-invoice.service.ts:markAsPaid()` | `billing-email.listener` | `{ invoice_id, invoice_number, user_id, total, currency, payment_provider }` | no | ✅ con consumidor — **debería usar Outbox** |
-| `invoice.failed` | `billing-lifecycle.worker.ts:retryPayments()` | `billing-email.listener` | `{ invoice_id, invoice_number, user_id, retry_count, max_retries }` | no | ✅ con consumidor — **debería usar Outbox** |
-| `invoice.overdue` | `billing-invoice.service.ts:markAsOverdue()` | `billing-email.listener` | `{ invoice_id, invoice_number, user_id, total, retry_count, max_retries }` | no | ✅ con consumidor — **debería usar Outbox** |
+| `invoice.created` | `billing-invoice.service.ts:createInvoice()` | `billing-email.listener` | `{ invoice_id, invoice_number, user_id, total, currency }` | **sí** | ✅ con consumidor — Outbox vía `OutboxService.enqueue(tx, ...)` |
+| `invoice.paid` | `billing-invoice.service.ts:markAsPaid()` | `billing-email.listener` | `{ invoice_id, invoice_number, user_id, total, currency, payment_provider }` | **sí** | ✅ con consumidor — Outbox |
+| `invoice.failed` | `billing-lifecycle.worker.ts:retryOverduePayments()` | `billing-email.listener` | `{ invoice_id, invoice_number, user_id, retry_count, max_retries }` | **sí** | ✅ con consumidor — Outbox |
+| `invoice.overdue` | `billing-invoice.service.ts:markAsOverdue()` | `billing-email.listener` | `{ invoice_id, invoice_number, user_id, total, retry_count, max_retries }` | **sí** | ✅ con consumidor — Outbox |
 
 **Análisis del dominio invoice:**
-**Este es el grupo más crítico.** Cada evento dispara un email al cliente. Si `EventEmitter2` falla post-commit (memory leak, crash), el cliente no recibe la notificación de su factura. La factura está en BD pero el cliente no se entera.
-
-**Recomendación firme:** primer candidato para implementar Outbox Pattern (R8).
+**Cerrado P0.2 (2026-04-26):** los 4 eventos `invoice.*` se persisten en `event_outbox` dentro de la misma transacción que el cambio de estado de la factura. El `OutboxWorker` (`@Interval(5s)`, `FOR UPDATE SKIP LOCKED`) los despacha al bus con semántica at-least-once: si el proceso muere entre commit y emit, el evento queda en `pending` y se reintenta al arrancar (R8 + ADR-033).
 
 ---
 
@@ -166,7 +164,7 @@ Pendiente para sprint dedicado.
 | Hallazgo | Severidad | Acción |
 |----------|-----------|--------|
 | 15 eventos huérfanos | 🟡 Media | Documentar caso por caso (hecho arriba). No eliminar — son hooks para módulos pendientes |
-| 25/25 eventos sin Outbox | 🔴 Alta | Sprint dedicado para implementar R8 al menos en `invoice.*` y `service.*` |
+| ~~25/25 eventos sin Outbox~~ → 4/13 críticos cubiertos | 🟠 Media | ✅ `invoice.*` cerrado P0.2 (2026-04-26). Pendiente `service.*` (4) + `checkout.completed` cuando se implemente provisioning. |
 | `auth.*` sin audit module que escuche | 🟡 Media | Esperado: módulo audit es stub. Cuando se implemente, listener natural. |
 | `service.*` sin provisioning que escuche | 🟡 Media | Esperado: provisioning es stub. Plan: Sprint dedicado. |
 | Naming 100% consistente | ✅ — | Mantener |

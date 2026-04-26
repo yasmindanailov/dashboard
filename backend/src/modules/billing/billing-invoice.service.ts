@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { OutboxService } from '../../core/outbox/outbox.service';
 import { paginate, PaginatedResult } from '../../common/dto/pagination.dto';
 import {
   CreateInvoiceDto,
@@ -30,7 +30,7 @@ export class BillingInvoiceService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly outbox: OutboxService,
     private readonly calculator: BillingCalculatorService,
   ) {
     this.paymentProvider = new ManualPaymentProvider();
@@ -100,38 +100,41 @@ export class BillingInvoiceService {
     );
     const invoiceNumber = await this.generateInvoiceNumber();
 
-    const invoice = await this.prisma.invoice.create({
-      data: {
-        invoice_number: invoiceNumber,
-        user_id: dto.user_id,
-        billing_profile_id: dto.billing_profile_id,
-        status: 'draft',
-        subtotal: totals.subtotal,
-        tax_rate: totals.taxRate,
-        tax_amount: totals.taxAmount,
-        discount_amount: dto.discount_amount ?? 0,
-        total: totals.total,
-        currency: dto.currency ?? 'EUR',
-        due_date: new Date(dto.due_date),
-        is_manual: dto.is_manual ?? false,
-        max_retries: maxRetries,
-        notes: dto.notes,
-        payment_provider: this.paymentProvider.name,
-        items: { create: totals.calculatedItems },
-      },
-      include: { items: true, billing_profile: true },
+    const invoice = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.invoice.create({
+        data: {
+          invoice_number: invoiceNumber,
+          user_id: dto.user_id,
+          billing_profile_id: dto.billing_profile_id,
+          status: 'draft',
+          subtotal: totals.subtotal,
+          tax_rate: totals.taxRate,
+          tax_amount: totals.taxAmount,
+          discount_amount: dto.discount_amount ?? 0,
+          total: totals.total,
+          currency: dto.currency ?? 'EUR',
+          due_date: new Date(dto.due_date),
+          is_manual: dto.is_manual ?? false,
+          max_retries: maxRetries,
+          notes: dto.notes,
+          payment_provider: this.paymentProvider.name,
+          items: { create: totals.calculatedItems },
+        },
+        include: { items: true, billing_profile: true },
+      });
+      await this.outbox.enqueue(tx, 'invoice.created', {
+        invoice_id: created.id,
+        invoice_number: created.invoice_number,
+        user_id: created.user_id,
+        total: Number(created.total),
+        currency: created.currency,
+      });
+      return created;
     });
 
     this.logger.log(
       `Invoice ${invoiceNumber} created for user ${dto.user_id} — total: ${totals.total} ${invoice.currency}`,
     );
-    this.eventEmitter.emit('invoice.created', {
-      invoice_id: invoice.id,
-      invoice_number: invoice.invoice_number,
-      user_id: invoice.user_id,
-      total: invoice.total,
-      currency: invoice.currency,
-    });
 
     return invoice;
   }
@@ -152,27 +155,30 @@ export class BillingInvoiceService {
         'No se puede pagar una factura reembolsada.',
       );
 
-    const updated = await this.prisma.invoice.update({
-      where: { id: invoiceId },
-      data: {
-        status: 'paid',
-        paid_at: new Date(),
-        payment_provider: dto.payment_provider ?? this.paymentProvider.name,
-        payment_method: dto.payment_method ?? 'manual',
-        payment_ref: dto.payment_ref,
-      },
-      include: { items: true, billing_profile: true },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          status: 'paid',
+          paid_at: new Date(),
+          payment_provider: dto.payment_provider ?? this.paymentProvider.name,
+          payment_method: dto.payment_method ?? 'manual',
+          payment_ref: dto.payment_ref,
+        },
+        include: { items: true, billing_profile: true },
+      });
+      await this.outbox.enqueue(tx, 'invoice.paid', {
+        invoice_id: u.id,
+        invoice_number: u.invoice_number,
+        user_id: u.user_id,
+        total: Number(u.total),
+        currency: u.currency,
+        payment_provider: u.payment_provider,
+      });
+      return u;
     });
 
     this.logger.log(`Invoice ${invoice.invoice_number} marked as PAID`);
-    this.eventEmitter.emit('invoice.paid', {
-      invoice_id: updated.id,
-      invoice_number: updated.invoice_number,
-      user_id: updated.user_id,
-      total: updated.total,
-      currency: updated.currency,
-      payment_provider: updated.payment_provider,
-    });
     return updated;
   }
 
@@ -188,24 +194,27 @@ export class BillingInvoiceService {
       'retry_interval_days',
       3,
     );
-    const updated = await this.prisma.invoice.update({
-      where: { id: invoiceId },
-      data: {
-        status: 'overdue',
-        retry_count: { increment: 1 },
-        next_retry_at: new Date(Date.now() + retryDays * 86400_000),
-      },
-      include: { items: true },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          status: 'overdue',
+          retry_count: { increment: 1 },
+          next_retry_at: new Date(Date.now() + retryDays * 86400_000),
+        },
+        include: { items: true },
+      });
+      await this.outbox.enqueue(tx, 'invoice.overdue', {
+        invoice_id: u.id,
+        invoice_number: u.invoice_number,
+        user_id: u.user_id,
+        total: Number(u.total),
+        retry_count: u.retry_count,
+        max_retries: u.max_retries,
+      });
+      return u;
     });
 
-    this.eventEmitter.emit('invoice.overdue', {
-      invoice_id: updated.id,
-      invoice_number: updated.invoice_number,
-      user_id: updated.user_id,
-      total: updated.total,
-      retry_count: updated.retry_count,
-      max_retries: updated.max_retries,
-    });
     return updated;
   }
 
