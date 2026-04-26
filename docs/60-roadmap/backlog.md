@@ -25,12 +25,12 @@
 
 | # | Item | Esfuerzo | Origen | Bloquea |
 |---|------|----------|--------|---------|
-| **P0.1** | **Cerrar Sprint 8 mínimo:** listener `@OnEvent('task.assigned')` + validación FK `assigned_to` + tests E2E tasks | 1-2 sesiones | Auditoría §3.2 + Sprint 8 contract | Sprint 9 (notifications listeners), Sprint 7.SI |
+| ~~**P0.1**~~ | ~~**Cerrar Sprint 8 mínimo:** listener `@OnEvent('task.assigned')` + validación FK `assigned_to` + tests E2E tasks~~ ✅ **Cerrado 2026-04-26** | ~~1-2 sesiones~~ | Auditoría §3.2 + Sprint 8 contract | Sprint 9 (notifications listeners), Sprint 7.SI — **desbloqueado** |
 | **P0.2** | **Outbox Pattern para `invoice.*`** (4 eventos: created, paid, failed, overdue) | 1-2 sesiones | [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md), R8 | Despliegue real (riesgo legal/financiero — pérdida de notificaciones de cobro) |
 | **P0.3** | **F0.6 saneamiento lint** — resolver ~344 errores `no-unsafe-*`, hacer lint bloqueante en CI | 3-4 sesiones distribuidas | Playbook §1, Auditoría §3.5 | Salvaguarda 5 incompleta — calidad de código en producción |
 | **P0.4** | **Tests E2E exhaustivos** — 2FA con código real, checkout completo, PDF download, escalación con WS | 2 sesiones | Playbook §5 | Confianza pre-deploy |
 
-**Total estimado P0:** 7-11 sesiones. Bloquea el primer deploy productivo.
+**Total estimado P0 restante:** 6-9 sesiones (P0.1 cerrado 2026-04-26). Bloquea el primer deploy productivo.
 
 ---
 

@@ -18,6 +18,7 @@ import {
   UpdateTaskDto,
   CompleteTaskDto,
   TaskListQueryDto,
+  TaskStatusDto,
 } from './dto/task.dto';
 import { Prisma } from '@prisma/client';
 
@@ -31,6 +32,13 @@ const INCLUDE_RELATIONS = {
   },
 };
 
+const ASSIGNABLE_ROLES = [
+  'superadmin',
+  'agent_full',
+  'agent_billing',
+  'agent_support',
+];
+
 @Injectable()
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
@@ -40,8 +48,30 @@ export class TasksService {
     private events: EventEmitter2,
   ) {}
 
+  /* ── Validate assignee FK + role (TASK-INV deuda A4) ── */
+  private async assertAssignableUser(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, status: true, role: { select: { slug: true } } },
+    });
+    if (!user) {
+      throw new BadRequestException('El usuario asignado no existe');
+    }
+    if (user.status !== 'active') {
+      throw new BadRequestException('El usuario asignado no está activo');
+    }
+    if (!ASSIGNABLE_ROLES.includes(user.role.slug)) {
+      throw new BadRequestException(
+        'Solo se pueden asignar tareas a admins o agentes',
+      );
+    }
+  }
+
   /* ── Create ── */
   async create(dto: CreateTaskDto, creatorId: string) {
+    if (dto.assigned_to) {
+      await this.assertAssignableUser(dto.assigned_to);
+    }
     const task = await this.prisma.task.create({
       data: {
         type: dto.type,
@@ -147,6 +177,13 @@ export class TasksService {
         'No puedes modificar tareas de otros agentes',
       );
     }
+    if (
+      dto.assigned_to !== undefined &&
+      dto.assigned_to !== null &&
+      dto.assigned_to !== existing.assigned_to
+    ) {
+      await this.assertAssignableUser(dto.assigned_to);
+    }
     const wasAssigned = existing.assigned_to;
     const task = await this.prisma.task.update({
       where: { id },
@@ -158,7 +195,9 @@ export class TasksService {
         ...(dto.assigned_to !== undefined && { assigned_to: dto.assigned_to }),
         ...(dto.due_date !== undefined && { due_date: new Date(dto.due_date) }),
         ...(dto.client_note !== undefined && { client_note: dto.client_note }),
-        ...(dto.status === 'completed' && { completed_at: new Date() }),
+        ...(dto.status === TaskStatusDto.completed && {
+          completed_at: new Date(),
+        }),
       },
       include: INCLUDE_RELATIONS,
     });
@@ -167,7 +206,7 @@ export class TasksService {
       this.events.emit('task.assigned', { task, assignedBy: userId });
     }
     // Emit status change events
-    if (dto.status === 'completed') {
+    if (dto.status === TaskStatusDto.completed) {
       this.events.emit('task.completed', { task, completedBy: userId });
     }
     return task;

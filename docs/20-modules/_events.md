@@ -20,10 +20,10 @@
 |---------|-------|
 | Eventos totales | 25 |
 | Dominios | 6 (auth, checkout, conversation, invoice, message, service, task) |
-| Eventos con consumidor activo | 10 |
-| **Eventos huérfanos (sin listener)** | **15** |
+| Eventos con consumidor activo | 11 |
+| **Eventos huérfanos (sin listener)** | **14** |
 | Eventos con múltiples consumidores | 3 (`conversation.created`, `conversation.assigned`, `message.created`) |
-| Listeners únicos | 4 (`billing-email`, `support-email`, `support-websocket`, `support-guest-link`) |
+| Listeners únicos | 5 (`billing-email`, `support-email`, `support-websocket`, `support-guest-link`, `tasks-email`) |
 | **Eventos críticos sin Outbox** | **25 / 25** (100%) — riesgo |
 
 ### Diagnóstico de los 15 eventos huérfanos
@@ -119,7 +119,7 @@ Todos huérfanos esperando al módulo `provisioning`. Cuando provisioning se imp
 
 | Evento | Emisor | Consumidores | Payload | Outbox | Estado |
 |--------|--------|--------------|---------|--------|--------|
-| `task.assigned` | `tasks.service.ts:create()`, `update()` | — | `{ task, assignedBy }` | no | 🟡 huérfano (notification al asignado, pendiente Sprint 8 cierre) |
+| `task.assigned` | `tasks.service.ts:create()`, `update()` | `tasks-email.listener` | `{ task, assignedBy }` | no | ✅ con consumidor (email + notification al agente asignado) |
 | `task.completed` | `tasks.service.ts:update()`, `complete()` | — | `{ task, completedBy, clientNotes?, internalNotes? }` | no | 🟡 huérfano (audit) |
 | `task.created` | `tasks.service.ts:create()` | — | `{ task }` | no | 🟡 huérfano |
 
