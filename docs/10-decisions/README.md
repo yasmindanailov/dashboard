@@ -144,6 +144,10 @@ Resultado: la historia queda íntegra.
 - [ADR-059](./adr-059-auth-layout-split-screen.md) — Arquitectura de auth layout (split-screen Aurora Digital)
 - [ADR-060](./adr-060-decisiones-pre-schema.md) — Decisiones pre-schema (perfiles fiscales, sesiones, retención notificaciones)
 
+### Refinamientos post-auditoría (ADR-061+)
+
+- [ADR-061](./adr-061-support-inside-tier-cuenta-ux.md) — Support Inside como tier de cuenta (refina ADR-034 con UX dedicada, schema reutilizado)
+
 ---
 
 ## Documento legacy

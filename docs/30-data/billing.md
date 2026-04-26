@@ -205,7 +205,7 @@ Facturas emitidas. **Inmutables tras emisión** (invariante BILL-INV-2). Rectifi
 | `next_retry_at` | timestamptz | NULLABLE | Próximo intento programado |
 | `is_manual` | boolean | NOT NULL, DEFAULT `false` | Factura creada manualmente por admin |
 | `notes` | text | NULLABLE | Notas internas o para el cliente |
-| `pdf_url` | varchar(1000) | NULLABLE | Generado async cuando se emite |
+| `pdf_url` | varchar(1000) | NULLABLE | Generado async al emitir. **Hoy:** data URL inline. **Tras Sprint 11.5 MinIO:** signed URL a bucket S3-compatible (TTL configurable). |
 | `metadata` | jsonb | NULLABLE | |
 | `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 | `updated_at` | timestamptz | NOT NULL, DEFAULT `now()` | |

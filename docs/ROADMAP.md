@@ -706,48 +706,228 @@
 
 ---
 
-## Sprint 14 — Deploy ⬜
+## Sprint 11.5 — MinIO Storage (local, desbloquea features) ⬜
 
-> Objetivo: infraestructura de producción en el dedicado OVH.
+> **Añadido en refactor de roadmap 2026-04-26.** Originalmente MinIO estaba en Sprint 14 (Deploy) pero **bloqueaba features** que se pueden trabajar en localhost (adjuntos chat/tickets, PDFs persistidos). Separado para no acoplar feature work a despliegue real.
+>
+> Objetivo: añadir MinIO al stack de desarrollo, integrarlo con generación de PDFs y prepararlo para adjuntos. **Se ejecuta en localhost — el deploy a producción sigue en Sprint 14.**
 
 | # | Paso | Estado |
 |---|------|--------|
-| 14.1 | Docker Compose producción | ⬜ |
-| 14.2 | Traefik + SSL (Let's Encrypt) | ⬜ |
-| 14.3 | MinIO (storage S3) | ⬜ |
-| 14.4 | Monitoring: Grafana + Prometheus + Loki | ⬜ |
-| 14.5 | Pipeline de deploy (git push → rebuild) | ⬜ |
-| 14.6 | Backups automáticos a Cloudflare R2 | ⬜ |
+| 11.5.1 | **MinIO en docker-compose dev** — añadir servicio `minio` (puerto 9000 API, 9001 console). Volumen persistente. Crear bucket inicial `aelium-dev` por seed | ⬜ |
+| 11.5.2 | **`StorageService`** — interfaz + implementación MinIO. Métodos: `upload(key, buffer, mime)`, `getSignedUrl(key, expiresIn)`, `delete(key)`, `exists(key)` | ⬜ |
+| 11.5.3 | **Integración con generación de PDFs facturas** — `invoice.pdf_url` deja de ser data URL inline; el PDF se sube a MinIO al generarse y `pdf_url` apunta al signed URL | ⬜ |
+| 11.5.4 | **Encriptación de credenciales** — `MINIO_ACCESS_KEY` y `MINIO_SECRET_KEY` en env vars; nunca en código | ⬜ |
+| 11.5.5 | **Settings de retención** — `storage.signed_url_expiry_minutes` (default 60), `storage.max_upload_size_mb` (default 10) | ⬜ |
+| 11.5.6 | **docs/features/storage/admin.md** — cómo opera, troubleshooting, cómo migrar bucket entre dev/prod | ⬜ |
+
+**Desbloquea:**
+- Sprint 7.7 — Adjuntos en mensajes de chat
+- Sprint 7.6.3 — Adjuntos en mensajes de tickets (rich-text editor)
+- Cualquier feature futura que necesite storage de archivos (avatars, exportaciones, etc.)
+
+**Decisiones arquitectónicas:**
+- **MinIO en dev = MinIO en prod** (mismo binario, distinta config). Cuando llegue Sprint 14, el deploy de producción incluye MinIO en el Docker Compose productivo (no se cambia el `StorageService`).
+- **Solo signed URLs** se exponen al cliente — MinIO no está expuesto públicamente en producción, solo a través del backend.
+- **`StorageService` es interfaz** — futuro: cuando crezca, se puede cambiar a S3 real / Cloudflare R2 sin tocar código de negocio (regla R4).
 
 ---
 
-## Sprint 15 — Plugins ⬜
+## Sprint 14 — Deploy real (producción) ⬜
 
-> Objetivo: implementar los plugins de integración uno por uno.
-> Cada plugin tiene su propia especificación, API keys, y configuración.
-> Referencia: DECISIONS.md §4, §28, §34.
-> **Cada plugin se trabaja en detalle — no se generalizan entre sí.**
+> Objetivo: desplegar el dashboard en el servidor dedicado de producción. **NO incluye MinIO** (ya está en Sprint 11.5 — operativo en dev y se replica en prod). **Bloqueado** hasta que P0 del backlog esté cerrado y Fase 1 completa.
 
 | # | Paso | Estado |
 |---|------|--------|
-| 15.1 | **Plugin framework** — `manifest.json` standard, loader dinámico, Settings UI auto-generada desde manifest | ⬜ |
-| 15.2 | **Plugin: Stripe** — payment provider. `createPayment()`, `handleWebhook()`, `refund()`. Stripe Checkout / Payment Intents. Webhook signature verification | ⬜ |
-| 15.3 | **Plugin: Stripe Connect** — para partners con cuenta conectada. Comisiones automáticas vía split payments | ⬜ |
-| 15.4 | **Plugin: Enhance CP** — provisioner hosting web. Create account, suspend, unsuspend, terminate. API + credenciales | ⬜ |
-| 15.5 | **Plugin: ResellerClub** — provisioner dominios. Registro, transferencia, renovación. Buscador de disponibilidad | ⬜ |
-| 15.6 | **Plugin: Docker Engine** — provisioner contenedores. Deploy desde template YAML, start/stop/restart, métricas, logs | ⬜ |
-| 15.7 | **Plugin: Manual** — provisioner de fallback. Genera tarea para el agente en vez de provisionar automáticamente | ⬜ |
-| 15.8 | **Plugin: Claude AI** — provider IA. Chat filter, copilot agente, sugerencias. Swappable por otro LLM en el futuro | ⬜ |
-| 15.9 | docs/features/plugins/admin.md (uno por plugin) | ⬜ |
+| 14.1 | **Docker Compose producción** — `docker-compose.prod.yml` con servicios: backend, frontend, postgres, redis, **minio** (mismo del dev), traefik, monitoring stack. Variables de entorno desde `.env.prod` (no commiteado). | ⬜ |
+| 14.2 | **Traefik + SSL automático** — reverse proxy con Let's Encrypt para dominio real. Routing: `app.aelium.es` → frontend, `api.aelium.es` → backend, MinIO interno (no expuesto). | ⬜ |
+| 14.3 | **Monitoring: Grafana + Prometheus + Loki** — dashboards predefinidos (latencia API, jobs failed, métricas servidores, errores backend). Alertas críticas via email a superadmin. | ⬜ |
+| 14.4 | **Pipeline de deploy** — script `deploy.sh` (git pull → rebuild containers → migrate DB → restart). Documentado para ejecutarse manualmente en primer deploy; CI/CD en sprint posterior si aplica. | ⬜ |
+| 14.5 | **Backups automáticos a Cloudflare R2** — `pg_dump` diario + cada 6h incremental WAL → upload a bucket R2. Retención 30 días. Test de restauración mensual obligatorio. | ⬜ |
+| 14.6 | **Plan de recovery documentado** — `docs/50-operations/backup-recovery.md` con RTO objetivo <4h, RPO <6h, runbook paso a paso. | ⬜ |
+| 14.7 | **Configuración Sentry real** — `SENTRY_DSN` en env de producción, alertas activas. | ⬜ |
+| 14.8 | **Smoke tests post-deploy** — checklist manual: login + checkout + factura + chat + email arrival. | ⬜ |
+| 14.9 | **docs/features/deploy/admin.md** — runbook completo de despliegue + recovery + rollback | ⬜ |
 
-**Principios del sistema de plugins:**
-- Cada plugin vive en `/src/plugins/<category>/<name>/`
-- Cada plugin expone un `manifest.json` con: nombre, versión, categoría, config schema, descripción
+**Cuándo abordar Sprint 14:**
+- ✅ P0 del backlog cerrado (Sprint 8 cierre + Outbox `invoice.*` + F0.6 lint + tests E2E exhaustivos).
+- ✅ Sprint 9 cerrado (audit + notifications full + outbox worker).
+- ✅ Sprint 11.5 cerrado (MinIO en dev funcionando).
+- ✅ Plugins críticos cerrados según necesidad real (probablemente al menos 15A framework + 15B Stripe).
+- ✅ Decisión de "vamos a desplegar" tomada conscientemente — no antes.
+
+**Lo que NO incluye Sprint 14:**
+- Plugins externos (Stripe, Enhance CP, ResellerClub, Docker Engine, Claude AI) → cada uno es su propio sub-sprint en Sprint 15A-15H, abordados según necesidad real.
+
+---
+
+## Sprint 15 — Plugins (partido en sub-sprints independientes) ⬜
+
+> **Refactorizado en roadmap 2026-04-26.** Originalmente Sprint 15 agrupaba los 7 plugins en un solo sprint, pero **el propio [ADR-021](./10-decisions/adr-021-provisioners.md) y [ADR-009](./10-decisions/adr-009-estrategia-plugins.md) dicen que cada plugin es independiente y se trabaja en detalle.** Cada uno necesita: su propia investigación de la API externa, sus credenciales, sus tests con sandbox, su admin.md.
+>
+> **Se aborda según necesidad real**, no en cadena. Probable orden: 15A (framework) → 15B (Stripe, desbloquea cobros) → 15F (Claude AI, desbloquea filtro/copilot) → resto según vendas qué tipo de producto.
+
+### Sprint 15A — Plugin Framework ⬜
+
+> Base técnica común. Sin esto no se puede activar/desactivar plugins desde la UI.
+
+| # | Paso | Estado |
+|---|------|--------|
+| 15A.1 | **`manifest.ts` standard** — schema TypeScript con: `name`, `label`, `version`, `category`, `configSchema` (zod), `capabilities` | ⬜ |
+| 15A.2 | **Plugin loader** — al arrancar NestJS, carga manifests de `backend/src/plugins/**/manifest.ts` y registra el activo por categoría según settings | ⬜ |
+| 15A.3 | **Settings UI dinámica** — `/admin/settings/plugins` genera formulario desde `configSchema` del plugin activo (string/number/boolean/select/encrypted) | ⬜ |
+| 15A.4 | **Encriptación de API keys** — los campos marcados `encrypted` en configSchema se persisten encriptados con AES-256-GCM (ADR-015) | ⬜ |
+| 15A.5 | **Test contract** — cada plugin debe pasar el test suite genérico de su categoría (ej: todo `PaymentProvider` pasa `payment-provider.contract.spec.ts`) | ⬜ |
+| 15A.6 | **docs/features/plugins/framework.md** — cómo añadir un plugin nuevo paso a paso | ⬜ |
+
+**Cuándo abordar:** antes que cualquier otro plugin (15B en adelante).
+
+---
+
+### Sprint 15B — Plugin: Stripe ⬜
+
+> Payment provider. Desbloquea cobros automáticos (sin esto, el admin marca facturas como `paid` manualmente).
+
+| # | Paso | Estado |
+|---|------|--------|
+| 15B.1 | **Cuenta Stripe + claves** — crear cuenta en Stripe (test mode primero), generar `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PUBLISHABLE_KEY` | ⬜ |
+| 15B.2 | **`backend/src/plugins/payment/stripe/`** — implementar `PaymentProviderInterface`: `createPayment()` (PaymentIntent o Checkout Session), `handleWebhook()` (verificación firma + procesar `payment_intent.succeeded`/`failed`), `refund()`, `getStatus()` | ⬜ |
+| 15B.3 | **Endpoint webhook** `/api/v1/webhooks/stripe` — sin auth JWT (Stripe llama directo), con verificación de firma `Stripe-Signature` obligatoria. Idempotency con `event.id` para evitar dobles procesados | ⬜ |
+| 15B.4 | **Frontend checkout** — Stripe Elements o Stripe Checkout redirect. UX: cliente selecciona producto → redirige a Stripe → vuelve con success/cancel | ⬜ |
+| 15B.5 | **Tests con Stripe sandbox** — flujo completo: checkout → pago exitoso → webhook → invoice.paid → email enviado. También flujo de fallo. | ⬜ |
+| 15B.6 | **docs/features/plugins/stripe.md** — config, troubleshooting, errores comunes, cómo rotar credenciales | ⬜ |
+
+**Depende de:** 15A (framework), Outbox `invoice.*` (P0.2 — sin Outbox los webhooks pueden perder eventos).
+
+**Decisión:** se aborda **antes** de plugins de provisioning si quieres aceptar pagos online. Si por ahora solo cobras manualmente (transferencia), puede esperar.
+
+---
+
+### Sprint 15C — Plugin: Enhance CP ⬜
+
+> Provisioner de hosting web. Necesario solo si vendes hosting web automáticamente.
+
+| # | Paso | Estado |
+|---|------|--------|
+| 15C.1 | **Cuenta Enhance CP + API access** — credenciales de la API del control panel | ⬜ |
+| 15C.2 | **`backend/src/plugins/provisioners/enhance-cp/`** — `provision(service)` (crear cuenta hosting), `deprovision(service)`, `suspend(service)`, `unsuspend(service)`, `getStatus(service)` | ⬜ |
+| 15C.3 | **Mapping de campos** — qué de `Service.provisioner_data` y `Product.provisioner_config` envía a la API de Enhance CP | ⬜ |
+| 15C.4 | **Circuit breaker** (opossum) — proteger contra Enhance CP caído. Notificar superadmin al abrir circuito | ⬜ |
+| 15C.5 | **Tests con sandbox Enhance CP** | ⬜ |
+| 15C.6 | **docs/features/plugins/enhance-cp.md** — config + mapping de campos + errores comunes | ⬜ |
+
+**Depende de:** 15A (framework), Sprint 11 (módulo provisioning), Sprint 10 (servidores registrados con `provider='enhance_cp'`).
+
+**Cuándo abordar:** cuando vendas hosting web a primer cliente real.
+
+---
+
+### Sprint 15D — Plugin: ResellerClub ⬜
+
+> Provisioner de dominios. Necesario solo si vendes dominios.
+
+| # | Paso | Estado |
+|---|------|--------|
+| 15D.1 | **Cuenta ResellerClub + API access** | ⬜ |
+| 15D.2 | **`backend/src/plugins/provisioners/resellerclub/`** — `searchDomain(query)`, `registerDomain(domain, contactInfo)`, `transferDomain(domain, authCode)`, `renewDomain(domain)`, `getStatus(domain)` | ⬜ |
+| 15D.3 | **Endpoint público** `/api/v1/domains/search` (sin auth, rate-limited) — buscador de disponibilidad para landing y dashboard | ⬜ |
+| 15D.4 | **Catálogo de TLDs configurable** — qué TLDs vende Aelium (precio + margen) | ⬜ |
+| 15D.5 | **Circuit breaker + tests con sandbox** | ⬜ |
+| 15D.6 | **docs/features/plugins/resellerclub.md** | ⬜ |
+
+**Depende de:** 15A.
+
+**Cuándo abordar:** cuando vendas dominios o cuando arranques landing con buscador (Sprint 18.2).
+
+---
+
+### Sprint 15E — Plugin: Docker Engine ⬜
+
+> Provisioner de contenedores Docker. Para Cloud Office (Nextcloud), OpenClaw, y futuros productos Docker.
+
+| # | Paso | Estado |
+|---|------|--------|
+| 15E.1 | **Conexión a Docker API** — cada `Server` registrado en Sprint 10 expone Docker socket o SSH. El plugin se conecta usando credenciales encriptadas | ⬜ |
+| 15E.2 | **`backend/src/plugins/provisioners/docker-engine/`** — `provision(service)`: render del template YAML del producto con variables, `docker compose up`, configurar Traefik para subdominio. `deprovision(service)`: `docker compose down`. `getMetrics(service)`: stats container | ⬜ |
+| 15E.3 | **Soporte Collabora** — caso especial: una sola instancia compartida por todos los Nextcloud (no provisionar por cliente) | ⬜ |
+| 15E.4 | **Subdominios automáticos** — integración con Traefik para enrutar `cliente.cloud.aelium.net` o `cliente.dominio-cliente.com` | ⬜ |
+| 15E.5 | **Métricas custom de API del contenedor** — bloques opcionales por producto (CPU/RAM/disco + métricas específicas como "usuarios Nextcloud conectados") | ⬜ |
+| 15E.6 | **Tests con servidor Docker de pruebas** | ⬜ |
+| 15E.7 | **docs/features/plugins/docker-engine.md** | ⬜ |
+
+**Depende de:** 15A, Sprint 10 (servidores), Sprint 11 (provisioning module), `docker_templates` table (Sprint 5 ✅).
+
+**Cuándo abordar:** cuando lances Cloud Office o OpenClaw a primer cliente real.
+
+---
+
+### Sprint 15F — Plugin: Claude AI ⬜
+
+> Provider de IA para filtro de chat (clientes sin Support Inside) + copilot del agente. Swappable por otro LLM.
+
+| # | Paso | Estado |
+|---|------|--------|
+| 15F.1 | **Cuenta Anthropic + API key** | ⬜ |
+| 15F.2 | **`backend/src/plugins/ai-providers/claude/`** — `generateChatResponse(context)`, `generateAgentSuggestion(context)`, `isHealthy()` | ⬜ |
+| 15F.3 | **Modelo configurable por uso** — Settings: `ai.provider.chat_filter` (Sonnet recomendado), `ai.provider.copilot` (Opus recomendado) | ⬜ |
+| 15F.4 | **Token budget** — `ai.client_token_budget_daily` para evitar coste descontrolado por cliente | ⬜ |
+| 15F.5 | **Integración con módulo support** — cuando un chat se crea para cliente sin Support Inside, ChatService llama a `aiProvider.generateChatResponse()` antes de notificar al agente | ⬜ |
+| 15F.6 | **Integración con copilot del agente** — panel lateral en `/dashboard/support/chats` y `/support/[id]` con sugerencias generadas | ⬜ |
+| 15F.7 | **Auditoría obligatoria** — toda generación IA queda en `audit.integration_log` con `integration_slug='claude_api'` + token usage. Cliente ve badge "Asistente AI" en mensajes IA (transparencia, ADR-057) | ⬜ |
+| 15F.8 | **Circuit breaker + degradación elegante** — si Claude API cae, el chat sigue funcionando con agente humano sin filtro | ⬜ |
+| 15F.9 | **docs/features/plugins/claude-ai.md** | ⬜ |
+
+**Depende de:** 15A, Sprint 12 (knowledge base — el filtro IA usa artículos de KB como contexto).
+
+**Desbloquea:** Sprint 7.8 (filtro IA chat) + Sprint 7.9 (copilot agente).
+
+---
+
+### Sprint 15G — Plugin: Manual (formalizar) ⬜
+
+> Provisioner de fallback que genera tarea para el agente. **Conceptualmente ya operativo** (el admin activa servicios manualmente hoy), pero sin plugin formal. Este sprint lo formaliza.
+
+| # | Paso | Estado |
+|---|------|--------|
+| 15G.1 | **`backend/src/plugins/provisioners/manual/`** — implementa `ProvisionerPlugin`: `provision(service)` crea task `custom_work` para el agente owner del cliente. `deprovision(service)` igual. | ⬜ |
+| 15G.2 | **Listener `task.completed` con metadata `manual_provisioning`** — al completarse la tarea, marca el servicio como `active` (o el estado destino correspondiente) | ⬜ |
+| 15G.3 | **docs/features/plugins/manual.md** — cuándo usarlo, cómo configurar productos para usar este plugin | ⬜ |
+
+**Depende de:** 15A, Sprint 8 cierre (listeners task.* funcionando).
+
+**Cuándo abordar:** baja prioridad — funciona "manualmente" hoy. Formalizarlo permite trazabilidad y métricas.
+
+---
+
+### Sprint 15H — Plugin: Stripe Connect (partner payouts) ⬜
+
+> Stripe Connect para liquidaciones automáticas a partners via split payments.
+
+| # | Paso | Estado |
+|---|------|--------|
+| 15H.1 | **Activación de Stripe Connect en cuenta Stripe** | ⬜ |
+| 15H.2 | **Onboarding partner** — flujo para que el partner conecte su cuenta Stripe (`partner.payout_stripe_account_id`) | ⬜ |
+| 15H.3 | **Listener `partner.payout.created`** — usa Stripe Transfers para enviar `payout.total_commissions` a la cuenta conectada del partner | ⬜ |
+| 15H.4 | **Manejo de fallos** — si la transfer falla (cuenta no verificada, fondos insuficientes en plataforma), reintento + notificación superadmin | ⬜ |
+| 15H.5 | **Reconciliación mensual** — verificar que payouts ejecutados coinciden con `partner_commissions` liquidadas | ⬜ |
+| 15H.6 | **docs/features/plugins/stripe-connect.md** | ⬜ |
+
+**Depende de:** 15B (Stripe activo), Sprint 19 (módulo Partner).
+
+**Cuándo abordar:** cuando lances el módulo Partner con primeros partners reales.
+
+---
+
+### Principios del sistema de plugins (aplican a TODOS los sub-sprints)
+
+- Cada plugin vive en `/backend/src/plugins/<category>/<name>/`
+- Cada plugin expone un `manifest.ts` con: nombre, versión, categoría, config schema, descripción
 - La UI de Settings → Plugins se genera dinámicamente desde los manifests
 - Los plugins se activan/desactivan desde Settings sin reiniciar el servidor
-- Las API keys y configuraciones se almacenan cifradas (AES-256-GCM, ARCHITECTURE.md §9)
+- Las API keys y configuraciones se almacenan cifradas (AES-256-GCM, [ADR-015](./10-decisions/adr-015-encriptacion-credenciales.md))
 - Solo un plugin activo por categoría (un payment provider activo, un AI provider activo, etc.)
 - Los provisioners sí pueden tener múltiples activos (uno por tipo de producto)
+- **Cada plugin es independiente — no se generaliza más allá de la interfaz mínima** ([ADR-009](./10-decisions/adr-009-estrategia-plugins.md), [ADR-021](./10-decisions/adr-021-provisioners.md))
 
 ---
 
@@ -1005,30 +1185,41 @@
 ## Orden de ejecución recomendado
 
 ```
-FASE 1 — CORE (Sprints 0-14, orden secuencial estricto)
+FASE 1 — CORE (Sprints 0-14, refactorizado 2026-04-26)
   Sprint 0  Scaffolding                    ✅
   Sprint 1  Auth                           ✅
   Sprint 2  Notifications Core             ✅
   Sprint 3  Auth Frontend Polish           ✅
-  Sprint 3.5 Auth Hardening               ✅
+  Sprint 3.5 Auth Hardening                ✅
   Sprint 4  Clients                        ✅
   Sprint 5  Products + PBAC                ✅
   Sprint 6  Billing Engine                 ✅
-  Sprint 7  Billing Hardening + Support    🔄  ← core + hardening + R15 ✅; bloqueos: MinIO/Sprint 14, Sprint 15 IA, Sprint 8 SI
+  Sprint 7  Billing Hardening + Support    🔄  ← core + hardening + R15 ✅; bloqueos: MinIO/11.5, IA/15F, SI/8 Fase D
   Sprint 7.5 Design System Foundation      🔄  ← Fase 1 ✅; Fase 2 (migración páginas) parcial
-  Sprint 8  Tasks + Support Inside         🔄  ← Fase A-B en progreso, depende de 7
-  Sprint 9  Audit + Notifications Full     ⬜  ← depende de 2
+  Sprint 8  Tasks + Support Inside         🔄  ← Fase A-B en progreso, Fase D Support Inside con UX dedicada (ADR-061)
+  Sprint 9  Audit + Notifications Full     ⬜  ← depende de Sprint 8 cierre + Outbox
   Sprint 10 Infrastructure                 ⬜  ← independiente
   Sprint 11 Provisioning                   ⬜  ← depende de 10, 5, 6
+  Sprint 11.5 MinIO Storage (local)        ⬜  ← NUEVO — desbloquea adjuntos chat/tickets, PDFs persistidos
   Sprint 12 Settings + Knowledge Base      ⬜  ← depende de la mayoría
   Sprint 12.5 RGPD                         ⬜  ← depende de 9, 4
   Sprint 13 Hardening + Escalabilidad      ⬜  ← último antes de deploy
-  Sprint 14 Deploy                         ⬜  ← cierra Fase 1
+  Sprint 14 Deploy real (producción)       ⬜  ← cierra Fase 1. Sin MinIO (ya en 11.5), solo Docker prod + Traefik + monitoring + backups
 
-FASE 2 — MÓDULOS DE NEGOCIO (priorizado por valor de negocio)
+FASE 2 — PLUGINS (cada uno independiente, según necesidad real)
+
+  Sprint 15A Plugin Framework             ⬜  ← base técnica común (manifest + loader + UI dinámica)
+  Sprint 15B Plugin Stripe                ⬜  ← cobros automáticos (probable primer plugin tras 15A)
+  Sprint 15C Plugin Enhance CP            ⬜  ← solo si vendes hosting web automático
+  Sprint 15D Plugin ResellerClub          ⬜  ← solo si vendes dominios
+  Sprint 15E Plugin Docker Engine         ⬜  ← solo si vendes Cloud Office / OpenClaw
+  Sprint 15F Plugin Claude AI             ⬜  ← desbloquea filtro IA chat + copilot agente
+  Sprint 15G Plugin Manual                ⬜  ← formaliza el provisioning manual actual
+  Sprint 15H Plugin Stripe Connect        ⬜  ← payouts a partners (depende 15B + Sprint 19)
+
+FASE 3 — MÓDULOS DE NEGOCIO (priorizado por valor)
 
   Prioridad A — Go to market:
-    Sprint 15 Plugins                      ⬜  ← pago (Stripe) + provisioning automático
     Sprint 18 Landing Integration          ⬜  ← cara pública, checkout, webchat landing
 
   Prioridad B — Operaciones de negocio:
@@ -1047,13 +1238,22 @@ FASE 2 — MÓDULOS DE NEGOCIO (priorizado por valor de negocio)
     Sprint 16 i18n + Multi-Currency       ⬜  ← solo si se abren mercados internacionales
 ```
 
-### Justificación del orden (Fase 2)
+### Justificación del orden (refactor 2026-04-26)
 
-**¿Por qué Plugins (15) antes que todo?**
-Sin Stripe no hay cobros. Sin provisioners no hay servicios automáticos. Es el requisito técnico mínimo para operar.
+**¿Por qué MinIO (11.5) ANTES de Sprint 14 Deploy?**
+MinIO es un servicio local más (igual que Postgres/Redis). Bloquea adjuntos chat/tickets y PDFs persistidos — features que se trabajan en localhost. **Acoplarlo al deploy obligaba a desplegar antes de tiempo.** Ahora MinIO está en 11.5 standalone; el deploy de producción en Sprint 14 lo replica con misma configuración.
 
-**¿Por qué Landing (18) segundo?**
-Sin cara pública no hay captación online. Webchat + checkout desde landing = primer canal de adquisición.
+**¿Por qué partir Sprint 15 en sub-sprints 15A-15H?**
+[ADR-009](./10-decisions/adr-009-estrategia-plugins.md) y [ADR-021](./10-decisions/adr-021-provisioners.md) explícitamente dicen que **cada plugin es independiente**. Cada uno necesita su API externa, credenciales, sandbox, tests, admin.md. Agruparlos en un sprint era inconsistente con esa decisión. Ahora cada plugin se aborda **cuando se necesita** (probablemente: 15A → 15B → 15F primero; los provisioners externos solo cuando vendas el producto correspondiente).
+
+**¿Por qué Plugin Framework (15A) primero?**
+Sin él no se puede activar/desactivar plugins desde la UI ni gestionar credenciales encriptadas. Base común que todo plugin reutiliza.
+
+**¿Por qué Stripe (15B) probablemente segundo?**
+Sin Stripe el cobro es manual (admin marca facturas como pagadas). Tener Stripe operativo desbloquea cobros automáticos = primer ingreso real. **Pero solo si vas a aceptar pagos online ya** — si por ahora cobras transferencia, puede esperar.
+
+**¿Por qué Landing (18) tras plugins críticos?**
+Sin cara pública no hay captación online. Webchat + checkout desde landing = primer canal de adquisición. Pero requiere al menos 15D (ResellerClub para buscador de dominios) si lo lanzas con buscador.
 
 **¿Por qué Projects (22) antes que CRM (21)?**
 Tu modelo de negocio es: ir a negocios → proponer tecnología → crear proyecto → vender. Projects es tu herramienta de venta principal. CRM es complementario.

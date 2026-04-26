@@ -138,6 +138,13 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 | `infra.safety_margin_cpu_pct` | number | 80 | ❌ | (pendiente — margen seguridad CPU) | ADR-043 |
 | `infra.safety_margin_disk_pct` | number | 90 | ❌ | (pendiente — margen seguridad disco) | ADR-043 |
 
+### 📦 storage.* (Sprint 11.5 MinIO)
+
+| Key | Tipo | Default | Estado | Consumidor | Origen |
+|-----|------|---------|--------|------------|--------|
+| `storage.signed_url_expiry_minutes` | number | 60 | ❌ | (pendiente Sprint 11.5 — TTL de URLs firmadas para downloads) | Sprint 11.5 MinIO |
+| `storage.max_upload_size_mb` | number | 10 | ❌ | (pendiente Sprint 11.5 — tamaño máximo de archivo subido) | Sprint 11.5 MinIO |
+
 ### 🤖 ai.* (agentes IA — Sprint 15 futuro)
 
 | Key | Tipo | Default | Estado | Consumidor | Origen |

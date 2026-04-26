@@ -1,7 +1,7 @@
 # ADR-034 — Support Inside (modelo de soporte gestionado con slots)
 
-> **Status:** Active
-> **Date:** 2026-04 (origen) · 2026-04-26 (migración a ADR)
+> **Status:** Active (refinado por ADR-061 — UX dedicada, schema sin cambios)
+> **Date:** 2026-04 (origen) · 2026-04-26 (migración a ADR + refinamiento UX vía ADR-061)
 > **Original:** DECISIONS.md §7
 > **Domain:** support, products
 
