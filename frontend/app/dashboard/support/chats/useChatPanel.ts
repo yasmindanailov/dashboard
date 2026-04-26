@@ -64,6 +64,24 @@ export function useChatPanel() {
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
 
+  /* ─── Load chats (declarado antes del WS effect para que el compiler
+         pueda analizar la referencia desde dentro del effect — React 19
+         hooks plugin no maneja forward references). ─── */
+
+  const loadChats = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = (await supportApi.listChats(token, {
+        limit: 50,
+        ...(chatSearch ? { search: chatSearch } : {}),
+      })) as Pagination<Chat>;
+      setChats(res.data || []);
+    } catch (e) { console.error(e); }
+    finally { setLoadingChats(false); }
+  }, [token, chatSearch]);
+
+  useEffect(() => { loadChats(); }, [loadChats]);
+
   /* ─── WebSocket ─── */
 
   useEffect(() => {
@@ -107,22 +125,6 @@ export function useChatPanel() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeChat?.messages]);
-
-  /* ─── Load chats ─── */
-
-  const loadChats = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = await supportApi.listChats(token, {
-        limit: 50,
-        ...(chatSearch ? { search: chatSearch } : {}),
-      }) as { data: Chat[] };
-      setChats(res.data || []);
-    } catch (e) { console.error(e); }
-    finally { setLoadingChats(false); }
-  }, [token, chatSearch]);
-
-  useEffect(() => { loadChats(); }, [loadChats]);
 
   /* ─── Open chat + load client context ─── */
 

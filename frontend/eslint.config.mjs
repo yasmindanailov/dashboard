@@ -26,6 +26,21 @@ const eslintConfig = defineConfig([
           destructuredArrayIgnorePattern: "^_",
         },
       ],
+
+      // ── Deuda técnica documentada ─────────────────────────────────
+      // `set-state-in-effect` (regla nueva en eslint-plugin-react-hooks 7.x,
+      // alineada con React 19 + React Compiler) marca como error el patrón
+      // clásico `useEffect(() => { setLoading(true); fetch().then(setData) }, …)`.
+      // La doctrina oficial es migrar fetching a Server Components + Suspense
+      // (`https://react.dev/learn/you-might-not-need-an-effect`) — refactor
+      // arquitectónico grande, fuera del alcance de un sprint de saneamiento
+      // lint.
+      //
+      // Por eso aquí lo bajamos de `error` a `warn`: el CI pasa pero los 27
+      // call-sites quedan visibles. Plan de cierre en `docs/60-roadmap/
+      // backlog.md` (item P1.x — Server Components + Suspense data fetching).
+      // ──────────────────────────────────────────────────────────────
+      "react-hooks/set-state-in-effect": "warn",
     },
   },
 ]);

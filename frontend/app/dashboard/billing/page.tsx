@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../lib/auth-context';
 import { billingApi } from '../../lib/api';
 import {
-  Table, Badge, SearchInput, Select, Pagination,
+  Table, Badge, SearchInput, Pagination,
   Button, AlertBanner, HelpTip, useToast, BulkActionBar, Modal,
   ListPage, FilterBar, StatusTabs,
 } from '../../components/ui';

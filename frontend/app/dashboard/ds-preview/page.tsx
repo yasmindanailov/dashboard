@@ -63,7 +63,7 @@ export default function DesignSystemPreview() {
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(false);
   const [tableSort, setTableSort] = useState<TableSort>({ key: 'name', direction: 'asc' });
-  const [tableLoading, setTableLoading] = useState(false);
+  const [_tableLoading, _setTableLoading] = useState(false);
   const { toast, toastUndo } = useToast();
 
   const handleLoadingDemo = () => {

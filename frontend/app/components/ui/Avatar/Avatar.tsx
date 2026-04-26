@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import styles from './Avatar.module.css';
 
 export interface AvatarProps {
@@ -6,6 +7,13 @@ export interface AvatarProps {
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
+
+/** Píxeles asociados a cada `size` — usados para next/image. */
+const SIZE_PX: Record<NonNullable<AvatarProps['size']>, number> = {
+  sm: 28,
+  md: 40,
+  lg: 56,
+};
 
 /** Deterministic color from name string */
 function hashColor(name: string): string {
@@ -34,10 +42,13 @@ export function Avatar({ name, src, size = 'md', className = '' }: AvatarProps) 
   const initials = getInitials(name);
 
   if (src) {
+    const px = SIZE_PX[size];
     return (
-      <img
+      <Image
         src={src}
         alt={name}
+        width={px}
+        height={px}
         className={`${styles.avatar} ${styles[size]} ${className}`}
       />
     );

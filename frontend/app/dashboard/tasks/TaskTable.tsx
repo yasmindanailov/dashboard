@@ -10,7 +10,7 @@ import { Table, Badge, Pagination } from '../../components/ui';
 import type { TableColumn, BadgeVariant } from '../../components/ui';
 import type { Task, TaskListResponse } from './types';
 import {
-  TASK_TYPE_LABELS, TASK_STATUS_LABELS, TASK_PRIORITY_LABELS,
+  TASK_TYPE_LABELS, TASK_STATUS_LABELS,
   TASK_STATUS_VARIANTS, TASK_PRIORITY_COLORS,
 } from './types';
 import styles from './tasks.module.css';

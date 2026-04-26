@@ -127,6 +127,7 @@ Items que deben **integrarse en sprints existentes** (oportunismo) en lugar de t
 | **DC.3** | **Comentarios `///` en Prisma** para descripciones de campos | Al editar schema, oportunismo |
 | **DC.4** | **TODO en `dashboard.service.ts:next_settlement = null`** — feature no documentado | Cuando se decida settlement real (Sprint 6 o futuro billing) |
 | **DC.5** | **Refactor R15 restantes** (billing-email.listener split, billing.controller helpers, page landing secciones, GradientMesh hook) | Al tocar el archivo |
+| **DC.6** | **Migración fetch → Server Components + Suspense (frontend)** — `react-hooks/set-state-in-effect` marca 27 call-sites del patrón clásico `useEffect(() => { setLoading(true); fetch().then(setData) }, …)`. La regla está bajada a `warn` en `frontend/eslint.config.mjs` con justificación. La doctrina React 19 oficial es migrar fetching a Server Components + `use()`/Suspense ([react.dev/learn/you-might-not-need-an-effect](https://react.dev/learn/you-might-not-need-an-effect)). Refactor arquitectónico que conviene hacer cuando se aborde el siguiente sprint de UX (Sprint 7.5 Fase 2 o futuro Sprint 13 Hardening). Mientras tanto, los 27 warnings quedan visibles en el lint pero NO bloquean CI. | Sprint 7.5 Fase 2 / Sprint 13 / al tocar la página |
 
 ---
 

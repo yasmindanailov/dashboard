@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { supportApi } from '../../lib/api';
+import { useAuthOptional } from '../../lib/auth-context';
 import { getErrorMessage } from '../../lib/error';
 import type { Conversation, Message } from './types';
 
@@ -14,21 +15,9 @@ import type { Conversation, Message } from './types';
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
 
-/**
- * Safe auth hook — works both inside and outside AuthProvider.
- * Returns null user when no AuthProvider is present (guest/landing context).
- */
-function useAuthSafe() {
-  try {
-    const { useAuth } = require('../../lib/auth-context');
-    return useAuth();
-  } catch {
-    return { user: null, isAuthenticated: false };
-  }
-}
-
 export function useChatWidget() {
-  const { user } = useAuthSafe();
+  // useAuthOptional para soportar montaje fuera de AuthProvider (landing).
+  const { user } = useAuthOptional();
   const isGuest = !user;
 
   const [isOpen, setIsOpen] = useState(false);

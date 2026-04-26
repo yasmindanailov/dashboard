@@ -50,7 +50,7 @@ export default function SupportPanel({ isOpen, onClose, sidebarCollapsed }: Supp
 function SupportPanelInner({
   w,
   onClose,
-  sidebarCollapsed,
+  sidebarCollapsed: _sidebarCollapsed,
 }: {
   w: ReturnType<typeof useChatWidget>;
   onClose: () => void;

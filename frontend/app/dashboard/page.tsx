@@ -25,7 +25,6 @@ import styles from './overview.module.css';
    - Alerts + Quick Actions → overview/Sections.tsx
    ═══════════════════════════════════════ */
 
-const ADMIN_ROLES = ['superadmin', 'agent_full'];
 const AGENT_ROLES = ['agent_billing', 'agent_support'];
 
 /* ── Contextual greeting per §2.3 ── */

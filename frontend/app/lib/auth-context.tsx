@@ -35,35 +35,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
-  // Schedule token refresh before expiration
-  const scheduleRefresh = useCallback((expiresIn: number) => {
-    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+  // Schedule token refresh before expiration.
+  // Usa ref para romper la auto-referencia (la recursión `scheduleRefresh →
+  // setTimeout → scheduleRefresh` confunde al React Compiler de React 19).
+  const scheduleRefreshRef = useRef<(expiresIn: number) => void>(() => {});
+  const scheduleRefresh = useCallback(
+    (expiresIn: number) => scheduleRefreshRef.current(expiresIn),
+    [],
+  );
 
-    // Refresh 60 seconds before expiration (or at half-life if < 2 min)
-    const refreshMs = expiresIn > 120
-      ? (expiresIn - 60) * 1000
-      : (expiresIn / 2) * 1000;
+  useEffect(() => {
+    scheduleRefreshRef.current = (expiresIn: number) => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
 
-    refreshTimerRef.current = setTimeout(async () => {
-      const refreshToken = localStorage.getItem('refresh_token');
-      if (!refreshToken) return;
+      // Refresh 60 seconds before expiration (or at half-life if < 2 min)
+      const refreshMs =
+        expiresIn > 120 ? (expiresIn - 60) * 1000 : (expiresIn / 2) * 1000;
 
-      try {
-        const res = await authApi.refresh(refreshToken);
-        if (res.access_token) {
-          localStorage.setItem('access_token', res.access_token);
-          // Schedule next refresh
-          scheduleRefresh(res.expires_in || 900);
+      refreshTimerRef.current = setTimeout(async () => {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (!refreshToken) return;
+
+        try {
+          const res = await authApi.refresh(refreshToken);
+          if (res.access_token) {
+            localStorage.setItem('access_token', res.access_token);
+            // Recursión vía ref → no atraviesa el analyzer del compiler.
+            scheduleRefreshRef.current(res.expires_in || 900);
+          }
+        } catch (err) {
+          console.warn('[Auth] 401 interceptor refresh failed:', err);
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          setUser(null);
+          router.push('/');
         }
-      } catch (err) {
-        console.warn('[Auth] 401 interceptor refresh failed:', err);
-        // Refresh failed — force logout
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        setUser(null);
-        router.push('/');
-      }
-    }, refreshMs);
+      }, refreshMs);
+    };
   }, [router]);
 
   // Store tokens after login and set user immediately
@@ -162,4 +170,22 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
+}
+
+/**
+ * Variante segura para componentes que pueden montarse fuera de
+ * AuthProvider (ej. ChatWidget en la landing pública). Devuelve un
+ * fallback con `user: null` en lugar de lanzar.
+ */
+export function useAuthOptional(): AuthContextType {
+  const ctx = useContext(AuthContext);
+  return (
+    ctx ?? {
+      user: null,
+      isLoading: false,
+      isAuthenticated: false,
+      login: () => {},
+      logout: async () => {},
+    }
+  );
 }
