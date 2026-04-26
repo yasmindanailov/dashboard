@@ -127,7 +127,9 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ~~**Siguiente: P0.3 saneamiento lint**~~ ✅ **Cerrado 2026-04-26** — Backend 294 → 0 errores, Frontend 117 → 0 errores, CI lint bloqueante en ambos. 4 commits incrementales (`3b2df25`, `8f91daf`, `56285d3`, `36099a8`, `f313e31`, `3d27da1`). Deuda residual DC.6 (27 warnings `set-state-in-effect` — migración Server Components, ver [`backlog.md`](./backlog.md)).
 
-**Siguiente:** **P0.4 tests E2E exhaustivos** (2FA real, checkout completo, PDF, escalación WS) — última pieza P0 antes del primer deploy productivo.
+~~**Siguiente: P0.4 tests E2E exhaustivos**~~ ✅ **Cerrado 2026-04-26** — 3 specs nuevos en `tests/e2e/` (auth-2fa-exhaustive, checkout-flow, support-ws-escalation). Cubren: código 2FA incorrecto + lockout 5 fallos password, flujo billing completo (crear→finalizar→pagar→descarga PDF con magic bytes), escalación chat→ticket recibida en tiempo real vía WebSocket en `agent:inbox`.
+
+🎯 **P0 cerrado al 100%.** El primer deploy productivo (Sprint 14) ya no tiene bloqueos críticos pre-deploy. Próxima prioridad: **P1.1 Sprint 9 — Audit + Notifications Full + Outbox worker hardening** (ver [`backlog.md`](./backlog.md)).
 
 ---
 
