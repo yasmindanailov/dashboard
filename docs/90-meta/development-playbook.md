@@ -17,6 +17,7 @@
 - Contracts de los 8 módulos en `docs/20-modules/`
 - Matriz de dependencias y catálogo de eventos
 - 60 ADRs individuales en `docs/10-decisions/` (F2 cerrado — `DECISIONS.md` legacy con mapping § → ADR)
+- Schema partido por dominio en `docs/30-data/` (F3 cerrado — `DATABASE_SCHEMA.md` legacy con mapping tabla → archivo)
 - Referencias operativas en `docs/50-operations/` (F5 cerrado — settings, plantillas, jobs, errores)
 - Definition of Done escrito y plantilla de sprint lista
 
@@ -135,6 +136,7 @@ Hecho:
 - ✅ F0 (7 salvaguardas)
 - ✅ F1 (foundations: rules + glossary)
 - ✅ F2 (60 ADRs individuales en `docs/10-decisions/`, `DECISIONS.md` marcado legacy con mapping § → ADR)
+- ✅ F3 (`docs/30-data/` con 14 archivos por dominio, `DATABASE_SCHEMA.md` marcado legacy con mapping tabla → archivo)
 - ✅ F4 (contracts + matrix + events) ⭐ la pieza más impactante
 - ✅ F5 (`docs/50-operations/` con settings-reference, email-templates, jobs-reference, api-errors)
 
@@ -142,11 +144,10 @@ Pendiente, por orden de impacto:
 
 | Fase | Qué produce | Sesiones | Prioridad |
 |------|-------------|----------|-----------|
-| **F3** | `DATABASE_SCHEMA.md` (2k líneas) partido en 9 archivos por dominio en `docs/30-data/` | 1-2 | Media — útil cuando crezca el schema |
 | **F6** | `docs/60-roadmap/` con sprints completados archivados, plantilla nueva activa | 1 | Baja — ROADMAP.md actual sigue siendo legible |
 | **F7-F9** | Limpieza voz de marca, partner admin.md, reading-order.md | 1 | Baja |
 
-**Mi recomendación de orden:** F3 → F6 → F7-9. F3 es el siguiente paso natural ahora que F5 está cerrado.
+**Estado de la documentación:** la base completa para desarrollar coherentemente con un agente Opus está cerrada. F6 y F7-9 son pulido final y no bloquean ningún flujo operativo.
 
 ---
 
@@ -237,8 +238,9 @@ Cuando vuelvas tras tiempo, lee en este orden:
 5. **`docs/20-modules/_matrix.md`** — cómo se conectan los módulos
 6. **`docs/20-modules/<modulo>/contract.md`** del módulo que vayas a tocar
 7. **`docs/10-decisions/README.md`** — índice de los 60 ADRs (consultar cuando una decisión no esté clara)
-8. **`docs/50-operations/README.md`** — índice de settings, plantillas, jobs, errores (consultar antes de añadir cualquiera de los cuatro)
-9. **`docs/ROADMAP.md`** — qué viene después
+8. **`docs/30-data/README.md`** — índice de tablas por dominio (consultar antes de tocar el schema)
+9. **`docs/50-operations/README.md`** — índice de settings, plantillas, jobs, errores (consultar antes de añadir cualquiera de los cuatro)
+10. **`docs/ROADMAP.md`** — qué viene después
 
 ---
 

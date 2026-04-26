@@ -1,4 +1,81 @@
-# DATABASE_SCHEMA.md — Aelium Dashboard
+# DATABASE_SCHEMA.md — Aelium Dashboard (LEGACY)
+
+> ## ⚠️ MIGRADO A `docs/30-data/`
+>
+> **Este documento ya NO es la fuente de verdad del schema.**
+> El schema se mantiene **partido por dominio** en [`docs/30-data/`](./30-data/README.md) (14 archivos, alineados con los módulos de [`docs/20-modules/`](./20-modules/) cuando aplique).
+>
+> Este archivo se conserva **íntegro** por trazabilidad histórica:
+> - Commits, ADRs y código antiguos referencian `DATABASE_SCHEMA.md` — esos enlaces deben seguir funcionando.
+> - El contenido original NO se ha modificado tras la migración.
+> - Para actualizar el schema: editar el archivo de dominio correspondiente en `docs/30-data/` y `backend/prisma/schema.prisma` — **no este archivo**.
+>
+> **¿Buscas una tabla concreta?** Usa el [mapping tabla → archivo](#mapping-tabla--archivo-de-dominio) abajo.
+
+---
+
+## Mapping tabla → archivo de dominio
+
+> Las ~80 tablas del schema mapeadas a los 14 archivos de dominio en `docs/30-data/`.
+
+### Foundations
+
+| Tabla | Archivo |
+|-------|---------|
+| `roles`, `users`, `sessions`, `email_verifications`, `password_resets` | [`30-data/auth.md`](./30-data/auth.md) |
+| `client_profiles`, `billing_profiles`, `client_consents`, `client_folders`, `client_service_folders`, `client_service_tags`, `client_notes` | [`30-data/clients.md`](./30-data/clients.md) |
+
+### Productos y servicios
+
+| Tabla | Archivo |
+|-------|---------|
+| `product_categories`, `products`, `product_pricing`, `product_extras`, `product_checklist_items`, `docker_templates`, `support_inside_config` | [`30-data/products.md`](./30-data/products.md) |
+| `services`, `service_checklist_items`, `subscriptions`, `provisioning_log`, `billing_credits`, `invoices`, `invoice_items`, `payments` | [`30-data/billing.md`](./30-data/billing.md) |
+
+### Operación al cliente
+
+| Tabla | Archivo |
+|-------|---------|
+| `support_inside_subscriptions`, `support_inside_slots`, `conversations`, `messages` | [`30-data/support.md`](./30-data/support.md) |
+| `tasks`, `task_checklist_completions`, `maintenance_logs` | [`30-data/tasks.md`](./30-data/tasks.md) |
+
+### Infraestructura y comercial
+
+| Tabla | Archivo |
+|-------|---------|
+| `servers`, `server_pools`, `server_metrics` | [`30-data/infrastructure.md`](./30-data/infrastructure.md) |
+| `promotions`, `promotion_conditions`, `promotion_messages`, `promotion_views`, `discount_codes`, `discount_code_uses` | [`30-data/promotions.md`](./30-data/promotions.md) |
+
+### Cross-cutting
+
+| Tabla | Archivo |
+|-------|---------|
+| `notifications`, `notification_templates`, `knowledge_base_articles`, `knowledge_base_tags`, `settings`, `integrations_registry`, `error_log`, `event_outbox` | [`30-data/system.md`](./30-data/system.md) |
+| `audit.access_log`, `audit.change_log`, `audit.integration_log`, `audit.service_log` | [`30-data/audit.md`](./30-data/audit.md) |
+
+### Fase 2 — Canales comerciales
+
+| Tabla | Archivo |
+|-------|---------|
+| Bloque 12 — `partners`, `partner_client_notes`, `partner_tickets`, `partner_ticket_messages`, `partner_commissions`, `partner_payouts`, `partner_notifications`, `partner_client_links`, `partner_unlink_requests` + extensiones a `users`, `services`, `invoices`, `products` | [`30-data/partner.md`](./30-data/partner.md) |
+| Bloque 13 — `referral_codes`, `referrals`, `referral_credits` | [`30-data/referrals.md`](./30-data/referrals.md) |
+| Bloque 14 — `projects`, `project_items`, `project_agents`, `project_history` + extensiones a `tasks`, `invoices`, `conversations`, `messages` | [`30-data/projects.md`](./30-data/projects.md) |
+
+---
+
+## Convenciones globales
+
+> Las convenciones (tipos canónicos, naming, restricciones, audit, desnormalización intencional, Outbox) están en [`docs/30-data/README.md`](./30-data/README.md). No se duplican aquí — leer ahí.
+
+---
+
+## Contenido original (sin modificar)
+
+> A partir de aquí, el contenido original del documento. **No editar.**
+
+---
+
+## DATABASE_SCHEMA.md — Aelium Dashboard
 > Schema de la base de datos.
 > Versión 1.1 | Abril 2026
 >
