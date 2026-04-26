@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productsApi } from '../../../lib/api';
+import { getErrorMessage } from '../../../lib/error';
 import { PRODUCT_TYPES, CYCLE_OPTIONS } from './constants';
 import type { PricingRow } from './constants';
 import { Card, Input, Select, Textarea, Button, AlertBanner, FormPage, useToast } from '../../../components/ui';
@@ -66,9 +67,9 @@ export default function NewProductPage() {
 
   const addPricingRow = () => setPricingRows([...pricingRows, { billing_cycle: 'annual', price: '', setup_fee: '0' }]);
   const removePricingRow = (idx: number) => setPricingRows(pricingRows.filter((_, i) => i !== idx));
-  const updatePricingRow = (idx: number, field: string, val: string) => {
+  const updatePricingRow = (idx: number, field: keyof PricingRow, val: string) => {
     const rows = [...pricingRows];
-    (rows[idx] as any)[field] = val;
+    rows[idx] = { ...rows[idx], [field]: val };
     setPricingRows(rows);
   };
 
@@ -103,8 +104,8 @@ export default function NewProductPage() {
         })),
       });
       router.push('/dashboard/products');
-    } catch (err: any) {
-      toast('error', err?.message || 'Error al crear el producto.');
+    } catch (err) {
+      toast('error', getErrorMessage(err) || 'Error al crear el producto.');
     } finally {
       setSaving(false);
     }

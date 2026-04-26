@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from './lib/api';
+import { getErrorMessage } from './lib/error';
 import { useAuth } from './lib/auth-context';
 import AuthLayout from './AuthLayout';
 import { EyeIcon } from './auth-components';
@@ -66,9 +67,12 @@ function LoginContent() {
         setStep('success');
         router.push('/dashboard');
       }
-    } catch (err: any) {
-      const msg = err.message || 'Error al iniciar sesión';
-      if (msg.includes('verificar tu email') || msg.includes('pending_verification')) {
+    } catch (err) {
+      const msg = getErrorMessage(err) || 'Error al iniciar sesión';
+      if (
+        msg.includes('verificar tu email') ||
+        msg.includes('pending_verification')
+      ) {
         setShowResendVerification(true);
       }
       setError(msg);
@@ -101,8 +105,8 @@ function LoginContent() {
         setStep('success');
         router.push('/dashboard');
       }
-    } catch (err: any) {
-      setError(err.message || 'Código incorrecto');
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Código incorrecto');
     } finally {
       setIsLoading(false);
     }

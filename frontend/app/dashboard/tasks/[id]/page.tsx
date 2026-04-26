@@ -10,12 +10,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { tasksApi } from '../../../lib/api';
+import { getErrorMessage } from '../../../lib/error';
 import { useAuth } from '../../../lib/auth-context';
 import { useToast } from '../../../components/ui/Toast/Toast';
 import {
   DetailPage, Badge, Card, Button, Select,
   Textarea, Skeleton, Modal,
 } from '../../../components/ui';
+import type { BadgeVariant } from '../../../components/ui';
 import type { Task } from '../types';
 import {
   TASK_TYPE_LABELS, TASK_STATUS_LABELS, TASK_PRIORITY_LABELS,
@@ -75,8 +77,8 @@ export default function TaskDetailPage() {
       await tasksApi.update(token, id, { status: newStatus });
       toast('success', `Estado actualizado a: ${TASK_STATUS_LABELS[newStatus]}`);
       fetchTask();
-    } catch (err: any) {
-      toast('error', err.message || 'Error al actualizar');
+    } catch (err) {
+      toast('error', getErrorMessage(err) || 'Error al actualizar');
     }
   };
 
@@ -86,8 +88,8 @@ export default function TaskDetailPage() {
       await tasksApi.update(token, id, { priority: newPriority });
       toast('success', 'Prioridad actualizada');
       fetchTask();
-    } catch (err: any) {
-      toast('error', err.message || 'Error al actualizar');
+    } catch (err) {
+      toast('error', getErrorMessage(err) || 'Error al actualizar');
     }
   };
 
@@ -102,8 +104,8 @@ export default function TaskDetailPage() {
       toast('success', 'Tarea completada. Cliente notificado.');
       setShowCompleteModal(false);
       router.push('/dashboard/tasks');
-    } catch (err: any) {
-      toast('error', err.message || 'Error al completar');
+    } catch (err) {
+      toast('error', getErrorMessage(err) || 'Error al completar');
     } finally {
       setCompleting(false);
     }
@@ -139,7 +141,7 @@ export default function TaskDetailPage() {
       <h2>{task.title}</h2>
       <div className={styles.headerBadges}>
         <Badge variant="neutral">{TASK_TYPE_LABELS[task.type] || task.type}</Badge>
-        <Badge variant={TASK_STATUS_VARIANTS[task.status] as any || 'neutral'}>
+        <Badge variant={(TASK_STATUS_VARIANTS[task.status] as BadgeVariant) || 'neutral'}>
           {TASK_STATUS_LABELS[task.status]}
         </Badge>
         <Badge variant={task.priority === 'critical' ? 'danger' : task.priority === 'high' ? 'warning' : 'neutral'}>

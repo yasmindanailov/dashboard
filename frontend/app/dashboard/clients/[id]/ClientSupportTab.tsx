@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Badge, EmptyState } from '../../../components/ui';
 import type { BadgeVariant } from '../../../components/ui';
+import type { Conversation } from '../../../lib/types';
 import styles from './clientDetail.module.css';
 
 /* ═══════════════════════════════════════
@@ -20,14 +21,22 @@ const STATUS_BADGE: Record<string, { label: string; variant: BadgeVariant }> = {
 
 interface ClientSupportTabProps {
   loading: boolean;
-  chats: any[];
-  tickets: any[];
+  chats: Conversation[];
+  tickets: Conversation[];
   /** For cross-module referrer links (P6.1) */
   clientId?: string;
   clientName?: string;
 }
 
-function ConversationRow({ item, type, fromParams }: { item: any; type: 'chat' | 'ticket'; fromParams: string }) {
+function ConversationRow({
+  item,
+  type,
+  fromParams,
+}: {
+  item: Conversation;
+  type: 'chat' | 'ticket';
+  fromParams: string;
+}) {
   const status = STATUS_BADGE[item.status] || { label: item.status, variant: 'neutral' as BadgeVariant };
   return (
     <Link href={`/dashboard/support/${item.id}${fromParams}`} className={styles.convItem}>
@@ -72,7 +81,7 @@ export default function ClientSupportTab({ loading, chats, tickets, clientId, cl
           <EmptyState icon={ChatIcon} title="Sin chats" description="Este cliente no tiene chats en vivo." />
         ) : (
           <div className={styles.stackSm}>
-            {chats.map((c: any) => <ConversationRow key={c.id} item={c} type="chat" fromParams={fromParams} />)}
+            {chats.map((c) => <ConversationRow key={c.id} item={c} type="chat" fromParams={fromParams} />)}
           </div>
         )}
       </div>
@@ -86,7 +95,7 @@ export default function ClientSupportTab({ loading, chats, tickets, clientId, cl
           <EmptyState icon={ChatIcon} title="Sin tickets" description="Este cliente no tiene tickets de soporte." />
         ) : (
           <div className={styles.stackSm}>
-            {tickets.map((t: any) => <ConversationRow key={t.id} item={t} type="ticket" fromParams={fromParams} />)}
+            {tickets.map((t) => <ConversationRow key={t.id} item={t} type="ticket" fromParams={fromParams} />)}
           </div>
         )}
       </div>

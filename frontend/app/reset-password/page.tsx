@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { authApi } from '../lib/api';
+import { getErrorMessage } from '../lib/error';
 import AuthLayout from '../AuthLayout';
 import { EyeIcon, PasswordCheck } from '../auth-components';
 import styles from '../auth.module.css';
@@ -43,8 +44,8 @@ function ResetPasswordContent() {
     try {
       await authApi.resetPassword(token, password);
       setSuccess(true);
-    } catch (err: any) {
-      setError(err.message || 'Error al restablecer la contraseña');
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Error al restablecer la contraseña');
     } finally {
       setIsLoading(false);
     }

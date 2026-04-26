@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { supportApi } from '../../lib/api';
+import { getErrorMessage } from '../../lib/error';
 import type { Conversation, Message } from './types';
 
 /* ═══════════════════════════════════════
@@ -56,7 +57,14 @@ export function useChatWidget() {
   /* ─── WebSocket Connection ─── */
 
   const connectSocket = useCallback((authToken?: string) => {
-    const socketOptions: any = {
+    const socketOptions: {
+      transports: string[];
+      reconnection: boolean;
+      reconnectionDelay: number;
+      reconnectionAttempts: number;
+      auth?: { token: string };
+      withCredentials?: boolean;
+    } = {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
@@ -222,9 +230,9 @@ export function useChatWidget() {
       s.on('connect', () => {
         s.emit('conversation:join', { conversationId: res.conversation_id });
       });
-    } catch (e: any) {
+    } catch (e) {
       console.error('[ChatWidget] Guest chat creation failed:', e);
-      alert(e?.message || 'Error al crear el chat. Inténtalo de nuevo.');
+      alert(getErrorMessage(e) || 'Error al crear el chat. Inténtalo de nuevo.');
     } finally {
       setSending(false);
     }

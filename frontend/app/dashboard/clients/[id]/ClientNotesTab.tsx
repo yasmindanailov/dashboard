@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { clientsApi } from '../../../lib/api';
+import type { ClientNote } from '../../../lib/types';
 import styles from './clientDetail.module.css';
 
 /* ═══════════════════════════════════════
@@ -27,7 +28,7 @@ const CAT_LABELS: Record<string, string> = {
 };
 
 interface ClientNotesTabProps {
-  notes: any[];
+  notes: ClientNote[];
   loading: boolean;
   noteFilter: string;
   onFilterChange: (v: string) => void;
@@ -104,7 +105,7 @@ export default function ClientNotesTab({
           </p>
         ) : (
           <div className={styles.stackSm}>
-            {notes.map((note: any) => {
+            {notes.map((note) => {
               const date = new Date(note.created_at);
               const dateStr = date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
               const timeStr = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -126,7 +127,7 @@ export default function ClientNotesTab({
                       <span className={styles.noteAuthor}>{note.author_name}</span>
                       <span className={styles.noteDot}>·</span>
                       <span className={styles.noteCatBadge}>
-                        {CAT_LABELS[note.category] || note.category}
+                        {note.category ? (CAT_LABELS[note.category] || note.category) : ''}
                       </span>
                       <span className={styles.noteDot}>·</span>
                       <span className={styles.noteDate}>{dateStr} · {timeStr}</span>

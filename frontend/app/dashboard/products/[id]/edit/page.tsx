@@ -3,6 +3,24 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { productsApi } from '../../../../lib/api';
+import { getErrorMessage } from '../../../../lib/error';
+
+/** Subset of the product detail response consumed by this editor. */
+interface EditableProduct {
+  type: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  short_description: string | null;
+  badge_text: string | null;
+  provisioner: string | null;
+  grace_period_days: number;
+  suspension_days: number;
+  cancellation_days: number;
+  client_can_pause: boolean;
+  partner_commission_pct: number | string | null;
+  pricing?: Pricing[];
+}
 import { Card, Input, Select, Textarea, Button, AlertBanner, Skeleton, FormPage, Modal, useToast } from '../../../../components/ui';
 import styles from '../../productForm.module.css';
 
@@ -63,7 +81,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     if (!token || !id) return;
     productsApi.get(token, id)
-      .then((data: any) => {
+      .then((raw) => {
+        const data = raw as EditableProduct;
         setProductType(data.type);
         setName(data.name);
         setSlug(data.slug);
@@ -102,8 +121,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         partner_commission_pct: partnerCommission ? parseFloat(partnerCommission) : undefined,
       });
       toast('success', 'Producto actualizado correctamente.');
-    } catch (err: any) {
-      toast('error', err?.message || 'Error al guardar.');
+    } catch (err) {
+      toast('error', getErrorMessage(err) || 'Error al guardar.');
     } finally { setSaving(false); }
   };
 
@@ -114,12 +133,12 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       await productsApi.addPricing(token, id, {
         billing_cycle: newCycle, price: parseFloat(newPrice), setup_fee: parseFloat(newSetup) || 0,
       });
-      const data: any = await productsApi.get(token, id);
+      const data = (await productsApi.get(token, id)) as EditableProduct;
       setExistingPricing(data.pricing || []);
       setNewPrice(''); setNewSetup('0');
       toast('success', 'Plan de precio añadido.');
-    } catch (err: any) {
-      toast('error', err?.message || 'Error al añadir precio.');
+    } catch (err) {
+      toast('error', getErrorMessage(err) || 'Error al añadir precio.');
     }
     setAddingPrice(false);
   };
@@ -129,8 +148,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       await productsApi.deletePricing(token, pricingId);
       setExistingPricing(existingPricing.filter(p => p.id !== pricingId));
       toast('success', 'Plan de precio eliminado.');
-    } catch (err: any) {
-      toast('error', err?.message || 'Error al eliminar precio.');
+    } catch (err) {
+      toast('error', getErrorMessage(err) || 'Error al eliminar precio.');
     }
     setDeletePricingId(null);
   };

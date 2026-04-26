@@ -2,6 +2,7 @@
 
 import { CATEGORY_CONFIG } from './types';
 import { Modal, Input, Select, Textarea, Button, SearchInput } from '../../components/ui';
+import type { Client } from '../../lib/types';
 import s from './NewTicketModal.module.css';
 
 /* ═══════════════════════════════════════
@@ -36,11 +37,11 @@ interface NewTicketModalProps {
   onSubmit: () => void;
   onClose: () => void;
   clientSearch: string;
-  clientResults: any[];
-  selectedClient: any;
+  clientResults: Client[];
+  selectedClient: Client | null;
   searchingClients: boolean;
   onClientSearchChange: (v: string) => void;
-  onSelectClient: (client: any) => void;
+  onSelectClient: (client: Client) => void;
   onClearClient: () => void;
 }
 
@@ -91,7 +92,7 @@ export default function NewTicketModal({
               />
               {clientResults.length > 0 && (
                 <div className={s.dropdown}>
-                  {clientResults.map((c: any) => (
+                  {clientResults.map((c) => (
                     <div key={c.id} onClick={() => onSelectClient(c)} className={s.dropdownItem}>
                       <span className={s.dropdownItemName}>
                         {c.first_name} {c.last_name}

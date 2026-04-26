@@ -4,7 +4,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../../../lib/auth-context';
 import { supportApi, clientsApi } from '../../../lib/api';
+import { getErrorMessage } from '../../../lib/error';
 import { useToast } from '../../../components/ui';
+import type {
+  Client,
+  ClientNote,
+  Pagination,
+  Service,
+} from '../../../lib/types';
 import type { Chat, Message, ClientProfile, ResolutionModalState } from './types';
 
 /* ═══════════════════════════════════════
@@ -29,9 +36,9 @@ export function useChatPanel() {
 
   // Client context
   const [clientContext, setClientContext] = useState<ClientProfile | null>(null);
-  const [clientServices, setClientServices] = useState<any[]>([]);
+  const [clientServices, setClientServices] = useState<Service[]>([]);
   const [contextError, setContextError] = useState<string | null>(null);
-  const [clientNotes, setClientNotes] = useState<any[]>([]);
+  const [clientNotes, setClientNotes] = useState<ClientNote[]>([]);
 
   // Resolution modal (7.H17)
   const [resolutionModal, setResolutionModal] = useState<ResolutionModalState | null>(null);
@@ -51,7 +58,7 @@ export function useChatPanel() {
 
   // Guest linking (7.5.2)
   const [linkSearch, setLinkSearch] = useState('');
-  const [linkResults, setLinkResults] = useState<any[]>([]);
+  const [linkResults, setLinkResults] = useState<Client[]>([]);
   const [linkLoading, setLinkLoading] = useState(false);
   const [showLinkPanel, setShowLinkPanel] = useState(false);
 
@@ -149,7 +156,7 @@ export function useChatPanel() {
         } catch (err) { console.warn('[ChatPanel] loadServices failed:', err); setClientServices([]); }
 
         try {
-          const notesRes = await clientsApi.listStructuredNotes(token, conv.user_id, { limit: 5 }) as any;
+          const notesRes = (await clientsApi.listStructuredNotes(token, conv.user_id, { limit: 5 })) as Pagination<ClientNote>;
           setClientNotes(notesRes.data || []);
         } catch (err) { console.warn('[ChatPanel] loadNotes failed:', err); setClientNotes([]); }
       } else {
@@ -234,8 +241,8 @@ export function useChatPanel() {
       toast('success', labels[resolutionModal?.type || ''] || 'Acción completada.');
       leaveChat();
       loadChats();
-    } catch (e: any) {
-      toast('error', e?.message || 'Error al procesar.');
+    } catch (e) {
+      toast('error', getErrorMessage(e) || 'Error al procesar.');
     } finally {
       setResolutionLoading(false);
     }
@@ -247,7 +254,7 @@ export function useChatPanel() {
     if (!linkSearch.trim()) return;
     setLinkLoading(true);
     try {
-      const res = await clientsApi.list(token, { search: linkSearch.trim(), limit: 5 }) as any;
+      const res = (await clientsApi.list(token, { search: linkSearch.trim(), limit: 5 })) as Pagination<Client>;
       setLinkResults(res.data || []);
       setShowLinkPanel(true);
     } catch (err) { console.warn('[ChatPanel] linkSearch failed:', err); setLinkResults([]); }
@@ -263,8 +270,8 @@ export function useChatPanel() {
       setLinkResults([]);
       toast('success', `Conversación vinculada a ${clientName}.`);
       openChat(activeChat.id);
-    } catch (err: any) {
-      toast('error', err?.message || 'Error al vincular.');
+    } catch (err) {
+      toast('error', getErrorMessage(err) || 'Error al vincular.');
     }
   };
 

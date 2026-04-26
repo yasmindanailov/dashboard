@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Card, Badge, Skeleton } from '../../../components/ui';
+import type { Client, ClientNote, Service } from '../../../lib/types';
 import type { ConversationDetail } from './types';
 import { STATUS_CONFIG, CATEGORY_LABELS, formatDate } from './types';
 import styles from './conversationDetail.module.css';
@@ -21,9 +22,9 @@ import styles from './conversationDetail.module.css';
 interface ConversationSidebarProps {
   isAdmin: boolean;
   conversation: ConversationDetail;
-  clientContext: any;
-  clientNotes: any[];
-  clientServices: any[];
+  clientContext: Client | null;
+  clientNotes: ClientNote[];
+  clientServices: Service[];
   contextLoading: boolean;
   isChat: boolean;
 }
@@ -159,7 +160,7 @@ export default function ConversationSidebar({
             <div className={styles.clientMeta}>{clientContext.client_profile.phone}</div>
           )}
           <div className={styles.clientType}>
-            Tipo: {clientContext.client_profile?.client_type === 'business' ? 'Empresa' : 'Individual'}
+            Tipo: {clientContext.client_profile?.client_type === 'b2b' ? 'Empresa' : 'Individual'}
           </div>
         </div>
       </Card>
@@ -169,9 +170,9 @@ export default function ConversationSidebar({
         <Card>
           <div className={styles.sidebarSection}>
             <h4 className={styles.sidebarTitle}>Servicios ({clientServices.length})</h4>
-            {clientServices.slice(0, 3).map((svc: any) => (
+            {clientServices.slice(0, 3).map((svc) => (
               <div key={svc.id} className={styles.serviceItem}>
-                <span>{svc.product_name || svc.domain || 'Servicio'}</span>
+                <span>{svc.product?.name || svc.domain || 'Servicio'}</span>
                 <span className={`${styles.serviceStatus} ${svc.status === 'active' ? styles.serviceStatusActive : styles.serviceStatusInactive}`}>
                   {svc.status === 'active' ? '● Activo' : svc.status}
                 </span>
@@ -186,7 +187,7 @@ export default function ConversationSidebar({
         <div className={styles.noteCard}>
           <h4 className={styles.noteTitleYellow}>Notas ({clientNotes.length})</h4>
           <div className={styles.notesScroll}>
-            {clientNotes.slice(0, 4).map((note: any) => (
+            {clientNotes.slice(0, 4).map((note) => (
               <div key={note.id} className={styles.noteItem}>
                 <div className={styles.noteHeader}>
                   <span className={styles.noteAuthor}>

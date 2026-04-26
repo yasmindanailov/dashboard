@@ -326,7 +326,7 @@ export const supportApi = {
   getConversation: (token: string, id: string) =>
     api(`/support/conversations/${id}`, { token }),
 
-  updateConversation: (token: string, id: string, data: { status?: string; priority?: string; category?: string; assigned_agent_id?: string; resolution_note?: string; tags?: any }) =>
+  updateConversation: (token: string, id: string, data: { status?: string; priority?: string; category?: string; assigned_agent_id?: string; resolution_note?: string; tags?: string[] }) =>
     api(`/support/conversations/${id}`, { method: 'PATCH', token, body: data }),
 
   addMessage: (token: string, conversationId: string, data: { body: string; is_internal?: boolean }) =>

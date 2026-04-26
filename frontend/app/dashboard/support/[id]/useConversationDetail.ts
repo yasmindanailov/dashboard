@@ -4,7 +4,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '../../../lib/auth-context';
 import { supportApi, clientsApi } from '../../../lib/api';
+import { getErrorMessage } from '../../../lib/error';
 import { useToast } from '../../../components/ui';
+import type {
+  Client,
+  ClientNote,
+  Pagination,
+  Service,
+} from '../../../lib/types';
 import type { ConversationDetail, ResolutionType } from './types';
 import { ADMIN_ROLES } from './types';
 
@@ -30,9 +37,9 @@ export function useConversationDetail() {
   const [sending, setSending] = useState(false);
 
   // Client context sidebar
-  const [clientContext, setClientContext] = useState<any>(null);
-  const [clientNotes, setClientNotes] = useState<any[]>([]);
-  const [clientServices, setClientServices] = useState<any[]>([]);
+  const [clientContext, setClientContext] = useState<Client | null>(null);
+  const [clientNotes, setClientNotes] = useState<ClientNote[]>([]);
+  const [clientServices, setClientServices] = useState<Service[]>([]);
   const [contextLoading, setContextLoading] = useState(false);
 
   // Resolution modal (7.H17)
@@ -62,12 +69,12 @@ export function useConversationDetail() {
     setContextLoading(true);
     const uid = conversation.user_id;
     Promise.all([
-      clientsApi.get(token, uid).catch(() => null),
-      clientsApi.listStructuredNotes(token, uid, { limit: 5 }).catch(() => ({ data: [] })),
+      clientsApi.get(token, uid).catch(() => null) as Promise<Client | null>,
+      clientsApi.listStructuredNotes(token, uid, { limit: 5 }).catch(() => ({ data: [] })) as Promise<Pagination<ClientNote> | { data: ClientNote[] }>,
       fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/services?user_id=${uid}&limit=5`, {
         headers: { Authorization: `Bearer ${token}` },
-      }).then(r => r.json()).catch(() => ({ data: [] })),
-    ]).then(([profile, notesRes, svcRes]: any[]) => {
+      }).then(r => r.json() as Promise<Pagination<Service> | { data: Service[] }>).catch(() => ({ data: [] })),
+    ]).then(([profile, notesRes, svcRes]) => {
       setClientContext(profile);
       setClientNotes(notesRes?.data || []);
       setClientServices(svcRes?.data || []);
@@ -171,8 +178,8 @@ export function useConversationDetail() {
       };
       toast('success', labels[resolutionModal?.type || ''] || 'Acción completada.');
       loadConversation();
-    } catch (e: any) {
-      toast('error', e?.message || 'Error al procesar.');
+    } catch (e) {
+      toast('error', getErrorMessage(e) || 'Error al procesar.');
     } finally {
       setResolutionLoading(false);
     }

@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { tasksApi } from '../../lib/api';
+import { getErrorMessage } from '../../lib/error';
 import type { TaskListResponse, TaskStats } from './types';
 
 export function useTaskList() {
@@ -26,7 +27,7 @@ export function useTaskList() {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, any> = { page, limit: 20 };
+      const params: Record<string, string | number> = { page, limit: 20 };
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
       if (typeFilter) params.type = typeFilter;
@@ -34,8 +35,8 @@ export function useTaskList() {
       if (timeRange) params.time_range = timeRange;
       const res = await tasksApi.list(token, params) as TaskListResponse;
       setTasks(res);
-    } catch (err: any) {
-      setError(err.message || 'Error al cargar tareas');
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Error al cargar tareas');
     } finally {
       setLoading(false);
     }

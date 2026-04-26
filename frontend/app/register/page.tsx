@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { authApi } from '../lib/api';
+import { getErrorMessage } from '../lib/error';
 import AuthLayout from '../AuthLayout';
 import { EyeIcon, PasswordCheck } from '../auth-components';
 import styles from '../auth.module.css';
@@ -47,8 +48,8 @@ export default function RegisterPage() {
     try {
       await authApi.register({ first_name: firstName, last_name: lastName, email, password });
       setSuccess(true);
-    } catch (err: any) {
-      setError(err.message || 'Error al registrarse');
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Error al registrarse');
     } finally {
       setIsLoading(false);
     }

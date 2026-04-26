@@ -5,6 +5,11 @@ import Link from 'next/link';
 import { clientsApi, supportApi } from '../../../lib/api';
 import { DetailPage, useToast } from '../../../components/ui';
 import type { DetailTab } from '../../../components/ui';
+import type {
+  ClientNote,
+  Conversation,
+  Pagination,
+} from '../../../lib/types';
 import type { ClientDetail, Tab } from './types';
 import { TABS } from './types';
 import ClientDetailHeader from './ClientDetailHeader';
@@ -34,12 +39,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const { toast } = useToast();
 
   // Support history
-  const [supportChats, setSupportChats] = useState<any[]>([]);
-  const [supportTickets, setSupportTickets] = useState<any[]>([]);
+  const [supportChats, setSupportChats] = useState<Conversation[]>([]);
+  const [supportTickets, setSupportTickets] = useState<Conversation[]>([]);
   const [loadingSupport, setLoadingSupport] = useState(false);
 
   // Structured notes
-  const [structuredNotes, setStructuredNotes] = useState<any[]>([]);
+  const [structuredNotes, setStructuredNotes] = useState<ClientNote[]>([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
   const [noteCategory, setNoteCategory] = useState('general');
   const [noteFilter, setNoteFilter] = useState<string>('');
@@ -60,9 +65,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     if (!token) return;
     setLoadingSupport(true);
     Promise.all([
-      supportApi.listChats(token, { user_id: id, limit: 50 }),
-      supportApi.listTickets(token, { user_id: id, limit: 50 }),
-    ]).then(([chatsRes, ticketsRes]: any[]) => {
+      supportApi.listChats(token, { user_id: id, limit: 50 }) as Promise<Pagination<Conversation>>,
+      supportApi.listTickets(token, { user_id: id, limit: 50 }) as Promise<Pagination<Conversation>>,
+    ]).then(([chatsRes, ticketsRes]) => {
       setSupportChats(chatsRes.data || []);
       setSupportTickets(ticketsRes.data || []);
     }).catch(() => { toast('error', 'No se pudo cargar el historial de soporte.'); }).finally(() => setLoadingSupport(false));
@@ -74,9 +79,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     if (!token) return;
     setLoadingNotes(true);
     try {
-      const p: any = { limit: 100 };
+      const p: { limit: number; category?: string } = { limit: 100 };
       if (noteFilter) p.category = noteFilter;
-      const res = await clientsApi.listStructuredNotes(token, id, p) as any;
+      const res = (await clientsApi.listStructuredNotes(token, id, p)) as Pagination<ClientNote>;
       setStructuredNotes(res.data || []);
     } catch (err) { console.warn('[ClientDetail] loadNotes failed:', err); setStructuredNotes([]); }
     finally { setLoadingNotes(false); }

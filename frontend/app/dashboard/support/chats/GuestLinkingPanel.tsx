@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, Button, SearchInput } from '../../../components/ui';
+import type { Client } from '../../../lib/types';
 import styles from './chats.module.css';
 
 /* ═══════════════════════════════════════
@@ -12,7 +13,7 @@ import styles from './chats.module.css';
 
 interface GuestLinkingPanelProps {
   linkSearch: string;
-  linkResults: any[];
+  linkResults: Client[];
   linkLoading: boolean;
   showLinkPanel: boolean;
   onSearchChange: (v: string) => void;
@@ -54,7 +55,7 @@ export default function GuestLinkingPanel({
               No se encontraron clientes
             </div>
           ) : (
-            linkResults.map((client: any) => (
+            linkResults.map((client) => (
               <div
                 key={client.id}
                 onClick={() => onSelect(client.id, `${client.first_name} ${client.last_name} (${client.email})`)}

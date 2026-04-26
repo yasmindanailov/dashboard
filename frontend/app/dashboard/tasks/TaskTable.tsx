@@ -7,6 +7,7 @@
 
 import Link from 'next/link';
 import { Table, Badge, Pagination } from '../../components/ui';
+import type { TableColumn, BadgeVariant } from '../../components/ui';
 import type { Task, TaskListResponse } from './types';
 import {
   TASK_TYPE_LABELS, TASK_STATUS_LABELS, TASK_PRIORITY_LABELS,
@@ -35,7 +36,7 @@ function isOverdue(task: Task): boolean {
 export default function TaskTable({ data, page, onPageChange, showAgentColumn }: Props) {
   if (!data) return null;
 
-  const columns: any[] = [
+  const columns: TableColumn<Task>[] = [
     {
       key: 'priority',
       header: '',
@@ -101,7 +102,7 @@ export default function TaskTable({ data, page, onPageChange, showAgentColumn }:
       header: 'Estado',
       width: '130px',
       render: (t: Task) => (
-        <Badge variant={TASK_STATUS_VARIANTS[t.status] as any || 'neutral'}>
+        <Badge variant={(TASK_STATUS_VARIANTS[t.status] as BadgeVariant) || 'neutral'}>
           {TASK_STATUS_LABELS[t.status] || t.status}
         </Badge>
       ),

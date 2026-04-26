@@ -8,6 +8,8 @@
 import { useState } from 'react';
 import { Modal, Input, Textarea, Select, Button } from '../../components/ui';
 import { useToast } from '../../components/ui/Toast/Toast';
+import { getErrorMessage } from '../../lib/error';
+import type { Client, Pagination } from '../../lib/types';
 import { tasksApi, clientsApi } from '../../lib/api';
 import styles from './tasks.module.css';
 
@@ -42,14 +44,14 @@ export default function NewTaskModal({ open, onClose, onCreated }: Props) {
   const [priority, setPriority] = useState('medium');
   const [clientId, setClientId] = useState('');
   const [clientSearch, setClientSearch] = useState('');
-  const [clients, setClients] = useState<any[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [dueDate, setDueDate] = useState('');
 
   const searchClients = async (query: string) => {
     setClientSearch(query);
     if (!token || query.length < 2) { setClients([]); return; }
     try {
-      const res: any = await clientsApi.list(token, { search: query, limit: 10 });
+      const res = (await clientsApi.list(token, { search: query, limit: 10 })) as Pagination<Client>;
       setClients(res.data || []);
     } catch { setClients([]); }
   };
@@ -66,8 +68,8 @@ export default function NewTaskModal({ open, onClose, onCreated }: Props) {
       toast('success', 'Tarea creada correctamente');
       onCreated();
       handleClose();
-    } catch (err: any) {
-      toast('error', err.message || 'Error al crear la tarea');
+    } catch (err) {
+      toast('error', getErrorMessage(err) || 'Error al crear la tarea');
     } finally {
       setLoading(false);
     }

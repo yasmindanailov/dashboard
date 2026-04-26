@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../lib/auth-context';
 import { productsApi, clientsApi, billingApi } from '../../../lib/api';
+import { getErrorMessage } from '../../../lib/error';
 import type { Product, ProductPricing, BillingProfile, ClientOption, Step } from './types';
 import { ADMIN_ROLES } from './types';
 
@@ -138,8 +139,8 @@ export function useCheckout() {
         domain: domain || undefined,
       }, isAdmin ? selectedClient!.id : undefined);
       router.push('/dashboard/billing');
-    } catch (e: any) {
-      setError(e?.message || 'Error al procesar el checkout');
+    } catch (e) {
+      setError(getErrorMessage(e) || 'Error al procesar el checkout');
     } finally {
       setSubmitting(false);
     }

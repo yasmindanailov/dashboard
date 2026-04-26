@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { Chat, ClientProfile } from './types';
+import type { Client, ClientNote, Service } from '../../../lib/types';
 import { Avatar, Card, Skeleton } from '../../../components/ui';
 import GuestLinkingPanel from './GuestLinkingPanel';
 import styles from './chats.module.css';
@@ -17,18 +18,17 @@ import styles from './chats.module.css';
 interface ChatClientContextProps {
   activeChat: Chat | null;
   clientContext: ClientProfile | null;
-  clientServices: any[];
-  clientNotes: any[];
+  clientServices: Service[];
+  clientNotes: ClientNote[];
   contextError: string | null;
   // Guest linking
   linkSearch: string;
-  linkResults: any[];
+  linkResults: Client[];
   linkLoading: boolean;
   showLinkPanel: boolean;
   onLinkSearchChange: (value: string) => void;
   onSearchClients: () => void;
   onLinkClient: (clientId: string, clientName: string) => void;
-
 }
 
 export default function ChatClientContext({
@@ -114,9 +114,9 @@ export default function ChatClientContext({
           {clientServices.length === 0 ? (
             <div className={styles.contextErrorMessage}>Sin servicios</div>
           ) : (
-            clientServices.map((svc: any) => (
+            clientServices.map((svc) => (
               <div key={svc.id} className={styles.serviceItem}>
-                <div className={styles.serviceName}>{svc.display_name || svc.id}</div>
+                <div className={styles.serviceName}>{svc.label || svc.product?.name || svc.id}</div>
                 <div className={styles.serviceStatus}>{svc.status}</div>
               </div>
             ))
@@ -130,7 +130,7 @@ export default function ChatClientContext({
               Notas del cliente ({clientNotes.length})
             </h4>
             <div className={styles.notesList}>
-              {clientNotes.slice(0, 4).map((note: any) => (
+              {clientNotes.slice(0, 4).map((note) => (
                 <div key={note.id} className={styles.noteItem}>
                   <div className={styles.noteHeader}>
                     <span className={styles.noteAuthor}>

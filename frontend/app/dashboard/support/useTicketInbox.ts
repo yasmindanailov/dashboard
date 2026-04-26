@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { supportApi, clientsApi } from '../../lib/api';
 import { useToast } from '../../components/ui';
+import type { Client, Pagination } from '../../lib/types';
 import type { Ticket, TicketStats } from './types';
 import { ADMIN_ROLES } from './types';
 
@@ -38,8 +39,8 @@ export function useTicketInbox() {
 
   // Admin: client selector
   const [clientSearch, setClientSearch] = useState('');
-  const [clientResults, setClientResults] = useState<any[]>([]);
-  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [clientResults, setClientResults] = useState<Client[]>([]);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [searchingClients, setSearchingClients] = useState(false);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
@@ -50,14 +51,14 @@ export function useTicketInbox() {
     if (!token) return;
     setLoading(true);
     try {
-      const params: Record<string, any> = { page, limit: 20 };
+      const params: Record<string, string | number> = { page, limit: 20 };
       if (statusFilter) params.status = statusFilter;
       if (categoryFilter) params.category = categoryFilter;
       if (search) params.search = search;
 
-      const res = await supportApi.listTickets(token, params) as { data: Ticket[]; meta: any };
+      const res = (await supportApi.listTickets(token, params)) as Pagination<Ticket>;
       setConversations(res.data);
-      setTotalPages(res.meta?.totalPages || 1);
+      setTotalPages(res.meta?.total_pages || 1);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, [token, page, statusFilter, categoryFilter, search]);
@@ -82,7 +83,7 @@ export function useTicketInbox() {
     const timer = setTimeout(async () => {
       setSearchingClients(true);
       try {
-        const res = await clientsApi.list(token, { search: clientSearch, limit: 10 }) as { data: any[] };
+        const res = (await clientsApi.list(token, { search: clientSearch, limit: 10 })) as Pagination<Client>;
         setClientResults(res.data || []);
       } catch (err) { console.warn('[TicketInbox] clientSearch failed:', err); setClientResults([]); }
       finally { setSearchingClients(false); }
@@ -105,7 +106,7 @@ export function useTicketInbox() {
           category: newCategory,
           priority: newPriority,
         },
-        isAdmin ? selectedClient.id : undefined,
+        isAdmin && selectedClient ? selectedClient.id : undefined,
       );
       // Reset modal
       setShowNew(false);
@@ -125,7 +126,7 @@ export function useTicketInbox() {
     finally { setSubmitting(false); }
   };
 
-  const selectClient = (client: any) => {
+  const selectClient = (client: Client) => {
     setSelectedClient(client);
     setClientSearch('');
     setClientResults([]);
