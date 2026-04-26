@@ -11,7 +11,7 @@ import {
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PoliciesGuard } from '../../core/casl/policies.guard';
@@ -66,10 +66,10 @@ export class ClientsController {
   @CheckPolicies((ability) => ability.can(Action.Create, Subject.ClientNote))
   addNote(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Body() dto: AddNoteDto,
   ) {
-    const user = req.user as any;
+    const user = req.user;
     return this.clientsService.addNote(id, dto, user.id);
   }
 
@@ -90,10 +90,10 @@ export class ClientsController {
   @CheckPolicies((ability) => ability.can(Action.Create, Subject.ClientNote))
   createStructuredNote(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Body() dto: CreateClientNoteDto,
   ) {
-    const user = req.user as any;
+    const user = req.user;
     return this.clientsService.createStructuredNote(id, user.id, dto);
   }
 

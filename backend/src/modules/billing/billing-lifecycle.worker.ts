@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../core/database/prisma.service';
 import { OutboxService } from '../../core/outbox/outbox.service';
+import { getErrorMessage } from '../../core/common/utils/error.util';
 import { BillingService } from './billing.service';
 import { BillingCalculatorService } from './billing-calculator.service';
 
@@ -45,7 +46,7 @@ export class BillingLifecycleWorker {
         await this.billingService.markAsOverdue(invoice.id);
       } catch (error) {
         this.logger.error(
-          `Failed to mark invoice ${invoice.invoice_number} as overdue: ${error.message}`,
+          `Failed to mark invoice ${invoice.invoice_number} as overdue: ${getErrorMessage(error)}`,
         );
       }
     }
@@ -135,7 +136,7 @@ export class BillingLifecycleWorker {
         );
       } catch (error) {
         this.logger.error(
-          `Failed to generate invoice for service ${service.id}: ${error.message}`,
+          `Failed to generate invoice for service ${service.id}: ${getErrorMessage(error)}`,
         );
       }
     }
@@ -209,7 +210,7 @@ export class BillingLifecycleWorker {
         }
       } catch (error) {
         this.logger.error(
-          `Payment retry failed for ${invoice.invoice_number}: ${error.message}`,
+          `Payment retry failed for ${invoice.invoice_number}: ${getErrorMessage(error)}`,
         );
       }
     }

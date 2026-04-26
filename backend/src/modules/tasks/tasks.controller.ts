@@ -16,7 +16,7 @@ import {
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
 import {
@@ -40,26 +40,26 @@ export class TasksController {
   @Post()
   @CheckPolicies((ability) => ability.can(Action.Create, Subject.Task))
   @ApiOperation({ summary: 'Create a new task' })
-  create(@Req() req: Request, @Body() dto: CreateTaskDto) {
-    const user = req.user as any;
+  create(@Req() req: AuthenticatedRequest, @Body() dto: CreateTaskDto) {
+    const user = req.user;
     return this.service.create(dto, user.id);
   }
 
   @Get()
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Task))
   @ApiOperation({ summary: 'List tasks (paginated, filtered)' })
-  findAll(@Req() req: Request, @Query() query: TaskListQueryDto) {
-    const user = req.user as any;
-    const isAdmin = ['superadmin', 'agent_full'].includes(user.role?.slug);
+  findAll(@Req() req: AuthenticatedRequest, @Query() query: TaskListQueryDto) {
+    const user = req.user;
+    const isAdmin = ['superadmin', 'agent_full'].includes(user.role.slug);
     return this.service.findAll(query, user.id, isAdmin);
   }
 
   @Get('stats')
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Task))
   @ApiOperation({ summary: 'Get task counters for StatusTabs' })
-  getStats(@Req() req: Request) {
-    const user = req.user as any;
-    const isAdmin = ['superadmin', 'agent_full'].includes(user.role?.slug);
+  getStats(@Req() req: AuthenticatedRequest) {
+    const user = req.user;
+    const isAdmin = ['superadmin', 'agent_full'].includes(user.role.slug);
     return this.service.getStats(user.id, isAdmin);
   }
 
@@ -74,12 +74,12 @@ export class TasksController {
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Task))
   @ApiOperation({ summary: 'Update task (status, assignment, etc.)' })
   update(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTaskDto,
   ) {
-    const user = req.user as any;
-    const isAdmin = ['superadmin', 'agent_full'].includes(user.role?.slug);
+    const user = req.user;
+    const isAdmin = ['superadmin', 'agent_full'].includes(user.role.slug);
     return this.service.update(id, dto, user.id, isAdmin);
   }
 
@@ -87,11 +87,11 @@ export class TasksController {
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Task))
   @ApiOperation({ summary: 'Complete task with notes (maintenance flow)' })
   complete(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CompleteTaskDto,
   ) {
-    const user = req.user as any;
+    const user = req.user;
     return this.service.complete(id, dto, user.id);
   }
 

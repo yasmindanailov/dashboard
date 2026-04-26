@@ -13,7 +13,8 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import type { Response, Request } from 'express';
+import type { Response } from 'express';
+import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import {
   ApiTags,
   ApiOperation,
@@ -54,9 +55,12 @@ export class BillingController {
   @Get('invoices')
   @ApiOperation({ summary: 'List invoices — admin sees all, client sees own' })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Invoice))
-  findAll(@Req() req: Request, @Query() query: InvoiceListQueryDto) {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+  findAll(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: InvoiceListQueryDto,
+  ) {
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
 
     if (!isAdmin) {
       // Client/partner: force own user_id — never trust query param
@@ -70,9 +74,9 @@ export class BillingController {
     summary: 'Invoice statistics — admin sees global, client sees own',
   })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Invoice))
-  getStats(@Req() req: Request) {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+  getStats(@Req() req: AuthenticatedRequest) {
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
     return this.billingService.getStats(isAdmin ? undefined : user.id);
   }
 
@@ -81,9 +85,12 @@ export class BillingController {
     summary: 'Get invoice detail — ownership enforced for clients',
   })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Invoice))
-  async findOne(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+  async findOne(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
     const invoice = await this.billingService.findOne(id);
 
     if (!isAdmin && invoice.user_id !== user.id) {
@@ -178,12 +185,12 @@ export class BillingController {
   @ApiProduces('application/pdf')
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Invoice))
   async downloadPdf(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Res() res: Response,
   ) {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
     const invoice = (await this.billingService.findOne(id)) as any;
 
     if (!isAdmin && invoice.user_id !== user.id) {
@@ -231,12 +238,12 @@ export class BillingController {
   @ApiOperation({ summary: 'Checkout: create Service + Invoice from product' })
   @CheckPolicies((ability) => ability.can(Action.Create, Subject.Invoice))
   checkout(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Body() dto: CheckoutDto,
     @Query('targetUserId') targetUserId?: string,
   ) {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
 
     if (isAdmin) {
       // 7.0.2: Admin MUST specify a target client — cannot self-checkout

@@ -1,5 +1,5 @@
 import { Controller, Get, Req, UseGuards } from '@nestjs/common';
-import type { Request } from 'express';
+import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -23,8 +23,8 @@ export class DashboardController {
     description:
       'Returns different metrics depending on user role: admin (global), client (personal), agent (workload), partner (referrals).',
   })
-  getOverview(@Req() req: Request) {
-    const user = req.user as any;
-    return this.dashboardService.getOverviewStats(user.id, user.role?.slug);
+  getOverview(@Req() req: AuthenticatedRequest) {
+    const user = req.user;
+    return this.dashboardService.getOverviewStats(user.id, user.role.slug);
   }
 }

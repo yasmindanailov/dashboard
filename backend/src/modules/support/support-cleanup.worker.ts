@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../core/database/prisma.service';
 import { SettingsService } from '../../core/settings/settings.service';
+import { getErrorMessage } from '../../core/common/utils/error.util';
 
 /**
  * ═══════════════════════════════════════
@@ -100,7 +101,7 @@ export class SupportCleanupWorker {
         `Guest cleanup: closed ${expiredConversations.length} expired session(s) in ${elapsed}ms (TTL: ${ttlDays}d)`,
       );
     } catch (error) {
-      this.logger.error(`Guest cleanup failed: ${error}`);
+      this.logger.error(`Guest cleanup failed: ${getErrorMessage(error)}`);
     }
   }
 }

@@ -2,6 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { getErrorMessage } from '../common/utils/error.util';
+
+/** Subset de `SentMessageInfo` que usamos — el tipo upstream es `any`. */
+interface SendMailResult {
+  messageId: string;
+}
 
 export interface EmailPayload {
   to: string;
@@ -52,13 +58,13 @@ export class EmailService {
     );
 
     try {
-      const info = await this.transporter.sendMail({
+      const info = (await this.transporter.sendMail({
         from,
         to: payload.to,
         subject: payload.subject,
         html: payload.html,
         text: payload.text || this.stripHtml(payload.html),
-      });
+      })) as SendMailResult;
 
       if (this.config.get('MAIL_TRANSPORT') === 'console') {
         this.logger.log(
@@ -73,7 +79,7 @@ export class EmailService {
       return true;
     } catch (error) {
       this.logger.error(
-        `[EMAIL → failed] To: ${payload.to} | Error: ${(error as Error).message}`,
+        `[EMAIL → failed] To: ${payload.to} | Error: ${getErrorMessage(error)}`,
       );
       return false;
     }

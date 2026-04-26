@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../core/database/prisma.service';
+import { getErrorMessage } from '../../core/common/utils/error.util';
 
 /**
  * ═══════════════════════════════════════
@@ -90,7 +91,7 @@ export class SupportGuestLinkListener {
     } catch (error) {
       // Don't block registration if linking fails
       this.logger.error(
-        `Failed to link guest conversations for ${email}: ${error}`,
+        `Failed to link guest conversations for ${email}: ${getErrorMessage(error)}`,
       );
     }
   }

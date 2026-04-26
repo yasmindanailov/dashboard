@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { getErrorMessage } from '../../core/common/utils/error.util';
 import { BillingCalculatorService } from './billing-calculator.service';
 
 /**
@@ -76,7 +77,7 @@ export class ServiceLifecycleWorker {
           );
         } catch (error) {
           this.logger.error(
-            `Failed to suspend service ${serviceId}: ${error.message}`,
+            `Failed to suspend service ${serviceId}: ${getErrorMessage(error)}`,
           );
         }
       }
@@ -126,7 +127,7 @@ export class ServiceLifecycleWorker {
         );
       } catch (error) {
         this.logger.error(
-          `Failed to cancel service ${service.id}: ${error.message}`,
+          `Failed to cancel service ${service.id}: ${getErrorMessage(error)}`,
         );
       }
     }
@@ -172,7 +173,7 @@ export class ServiceLifecycleWorker {
         this.logger.log(`Service ${service.id} resumed after pause expiration`);
       } catch (error) {
         this.logger.error(
-          `Failed to resume service ${service.id}: ${error.message}`,
+          `Failed to resume service ${service.id}: ${getErrorMessage(error)}`,
         );
       }
     }

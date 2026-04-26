@@ -6,6 +6,7 @@ import {
   hashGuestToken,
   GUEST_TOKEN_COOKIE_NAME,
 } from '../../core/common/utils/guest-token.util';
+import { getErrorMessage } from '../../core/common/utils/error.util';
 
 /**
  * ═══════════════════════════════════════
@@ -107,7 +108,7 @@ export class SupportGatewayAuth {
         guestSessionHash: sessionHash,
       };
     } catch (error) {
-      this.logger.warn(`Guest auth failed: ${error}`);
+      this.logger.warn(`Guest auth failed: ${getErrorMessage(error)}`);
       return null;
     }
   }

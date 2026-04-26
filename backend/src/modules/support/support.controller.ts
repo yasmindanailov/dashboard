@@ -13,7 +13,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 
 import { SupportService } from './support.service';
 import {
@@ -69,17 +69,20 @@ export class SupportController {
   @Post('chats')
   @ApiOperation({ summary: 'Create a new chat (from widget)' })
   @CheckPolicies((ability) => ability.can(Action.Create, Subject.Conversation))
-  createChat(@Req() req: Request, @Body() dto: CreateChatDto) {
-    const user = req.user as any;
+  createChat(@Req() req: AuthenticatedRequest, @Body() dto: CreateChatDto) {
+    const user = req.user;
     return this.supportService.createChat(user.id, dto);
   }
 
   @Get('chats')
   @ApiOperation({ summary: 'List chats (real-time conversations)' })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Conversation))
-  findAllChats(@Req() req: Request, @Query() query: ConversationListQueryDto) {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+  findAllChats(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: ConversationListQueryDto,
+  ) {
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
     query.type = 'chat' as any;
     if (!isAdmin) query.user_id = user.id;
     return this.supportService.findAll(query);
@@ -93,12 +96,12 @@ export class SupportController {
   @ApiOperation({ summary: 'Create a new ticket' })
   @CheckPolicies((ability) => ability.can(Action.Create, Subject.Conversation))
   async createTicket(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Query('targetUserId') targetUserId: string | undefined,
     @Body() dto: CreateTicketDto,
   ) {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
 
     if (isAdmin) {
       if (!targetUserId) {
@@ -120,11 +123,11 @@ export class SupportController {
   @ApiOperation({ summary: 'List tickets (async conversations)' })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Conversation))
   findAllTickets(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Query() query: ConversationListQueryDto,
   ) {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
     query.type = 'ticket' as any;
     if (!isAdmin) query.user_id = user.id;
     return this.supportService.findAll(query);
@@ -138,12 +141,12 @@ export class SupportController {
   @ApiOperation({ summary: 'Escalate a chat to a ticket (agent only)' })
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Conversation))
   async escalateToTicket(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) chatId: string,
     @Body() dto: EscalateToTicketDto,
   ) {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
     if (!isAdmin) {
       throw new ForbiddenException('Solo los agentes pueden escalar chats.');
     }
@@ -157,9 +160,12 @@ export class SupportController {
   @Get('conversations/stats')
   @ApiOperation({ summary: 'Get support statistics (admin only)' })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Conversation))
-  getStats(@Req() req: Request, @Query('type') type?: 'chat' | 'ticket') {
-    const user = req.user as any;
-    if (!ADMIN_ROLES.includes(user.role?.slug)) {
+  getStats(
+    @Req() req: AuthenticatedRequest,
+    @Query('type') type?: 'chat' | 'ticket',
+  ) {
+    const user = req.user;
+    if (!ADMIN_ROLES.includes(user.role.slug)) {
       throw new ForbiddenException('Solo los agentes pueden ver estadísticas.');
     }
     return this.supportService.getStats(type);
@@ -170,9 +176,12 @@ export class SupportController {
     summary: 'Get unread message count (optionally filtered by type)',
   })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Message))
-  getUnreadCount(@Req() req: Request, @Query('type') type?: 'chat' | 'ticket') {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+  getUnreadCount(
+    @Req() req: AuthenticatedRequest,
+    @Query('type') type?: 'chat' | 'ticket',
+  ) {
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
     return this.supportService.getUnreadCount(
       user.id,
       isAdmin ? 'agent' : 'client',
@@ -183,9 +192,12 @@ export class SupportController {
   @Get('conversations/:id')
   @ApiOperation({ summary: 'Get conversation detail (chat or ticket)' })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Conversation))
-  async findOne(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+  async findOne(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
     const conversation = await this.supportService.findOne(id, isAdmin);
 
     if (!isAdmin && conversation.user_id !== user.id) {
@@ -201,12 +213,12 @@ export class SupportController {
   @ApiOperation({ summary: 'Update conversation (status, priority, assign)' })
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Conversation))
   async updateConversation(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateConversationDto,
   ) {
-    const user = req.user as any;
-    if (!ADMIN_ROLES.includes(user.role?.slug)) {
+    const user = req.user;
+    if (!ADMIN_ROLES.includes(user.role.slug)) {
       throw new ForbiddenException(
         'Solo los agentes pueden modificar conversaciones.',
       );
@@ -222,12 +234,12 @@ export class SupportController {
   @ApiOperation({ summary: 'Add a message to a conversation' })
   @CheckPolicies((ability) => ability.can(Action.Create, Subject.Message))
   async addMessage(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateMessageDto,
   ) {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
     const senderType = isAdmin ? 'agent' : 'client';
 
     if (!isAdmin && dto.is_internal) {
@@ -250,11 +262,11 @@ export class SupportController {
   @ApiOperation({ summary: 'Mark all messages as read' })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Message))
   async markAsRead(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
     const role = isAdmin ? 'agent' : 'client';
 
     if (!isAdmin) {
@@ -278,12 +290,12 @@ export class SupportController {
   })
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Conversation))
   async linkGuestToClient(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { user_id: string },
   ) {
-    const user = req.user as any;
-    const isAdmin = ADMIN_ROLES.includes(user.role?.slug);
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
     if (!isAdmin) {
       throw new ForbiddenException(
         'Solo agentes pueden vincular conversaciones.',
