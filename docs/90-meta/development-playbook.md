@@ -16,6 +16,8 @@
 - Glosario canónico en `docs/00-foundations/glossary.md`
 - Contracts de los 8 módulos en `docs/20-modules/`
 - Matriz de dependencias y catálogo de eventos
+- 60 ADRs individuales en `docs/10-decisions/` (F2 cerrado — `DECISIONS.md` legacy con mapping § → ADR)
+- Referencias operativas en `docs/50-operations/` (F5 cerrado — settings, plantillas, jobs, errores)
 - Definition of Done escrito y plantilla de sprint lista
 
 ✅ **Conformidad arquitectónica**:
@@ -132,19 +134,19 @@ Acompáñalo siempre con:
 Hecho:
 - ✅ F0 (7 salvaguardas)
 - ✅ F1 (foundations: rules + glossary)
+- ✅ F2 (60 ADRs individuales en `docs/10-decisions/`, `DECISIONS.md` marcado legacy con mapping § → ADR)
 - ✅ F4 (contracts + matrix + events) ⭐ la pieza más impactante
+- ✅ F5 (`docs/50-operations/` con settings-reference, email-templates, jobs-reference, api-errors)
 
 Pendiente, por orden de impacto:
 
 | Fase | Qué produce | Sesiones | Prioridad |
 |------|-------------|----------|-----------|
-| **F2** | `DECISIONS.md` partido en ~48 ADRs individuales en `docs/10-decisions/` | 2-3 | Alta — los contracts ya escritos referencian §§ que se resolverán mejor con ADRs reales |
 | **F3** | `DATABASE_SCHEMA.md` (2k líneas) partido en 9 archivos por dominio en `docs/30-data/` | 1-2 | Media — útil cuando crezca el schema |
-| **F5** | `docs/50-operations/` con settings-reference, email-templates, jobs-reference, api-errors | 2 | Media — útil al primer despliegue real |
 | **F6** | `docs/60-roadmap/` con sprints completados archivados, plantilla nueva activa | 1 | Baja — ROADMAP.md actual sigue siendo legible |
 | **F7-F9** | Limpieza voz de marca, partner admin.md, reading-order.md | 1 | Baja |
 
-**Mi recomendación de orden:** F2 → F5 → F3 → F6 → F7-9. F2 es el siguiente paso natural.
+**Mi recomendación de orden:** F3 → F6 → F7-9. F3 es el siguiente paso natural ahora que F5 está cerrado.
 
 ---
 
@@ -234,7 +236,9 @@ Cuando vuelvas tras tiempo, lee en este orden:
 4. **`docs/00-foundations/glossary.md`** — términos
 5. **`docs/20-modules/_matrix.md`** — cómo se conectan los módulos
 6. **`docs/20-modules/<modulo>/contract.md`** del módulo que vayas a tocar
-7. **`docs/ROADMAP.md`** — qué viene después
+7. **`docs/10-decisions/README.md`** — índice de los 60 ADRs (consultar cuando una decisión no esté clara)
+8. **`docs/50-operations/README.md`** — índice de settings, plantillas, jobs, errores (consultar antes de añadir cualquiera de los cuatro)
+9. **`docs/ROADMAP.md`** — qué viene después
 
 ---
 
@@ -247,12 +251,12 @@ Cuando vuelvas a Claude, mi recomendación es **una de estas dos**:
 - Esto deja el módulo Tasks listo y consistente con la doc.
 - Después: implementar Outbox para `invoice.*` (R8 crítica antes de prod).
 
-### Opción B — Continuar refactor de doc (F2)
-- "Procede con F2: parte `DECISIONS.md` en ADRs individuales en `docs/10-decisions/`"
-- ~2-3 sesiones. Convierte 48 §§ en 48 archivos ADR navegables.
-- Las referencias de los contracts (`DECISIONS.md §N`) se actualizan a `ADR-NNN`.
+### Opción B — Continuar refactor de doc (F3)
+- "Procede con F3: parte `DATABASE_SCHEMA.md` (~2k líneas) en archivos por dominio en `docs/30-data/`"
+- ~1-2 sesiones. Útil para localizar tablas concretas sin scrollear el monolito.
+- F2 (ADRs) y F5 (operations) ya están cerrados — la doc es ya navegable y profesional.
 
-**Mi voto:** **Opción A**. La doc actual es ya **suficientemente buena para desarrollar profesionalmente**. Tienes contracts claros, matriz de dependencias, eventos catalogados, reglas explícitas. Los ADRs son mejora cualitativa pero no bloquean nada. **El Sprint 8 sí bloquea** (está WIP, ensucia el repo). Cierra primero, organiza doc después.
+**Mi voto:** **Opción A**. La doc actual es ya **excelente para desarrollar profesionalmente**: 60 ADRs, contracts por módulo, matriz de dependencias, catálogo de eventos, reglas explícitas, y carpeta de operations con settings/emails/jobs/errores canónicos. **El Sprint 8 sí bloquea** (está WIP, ensucia el repo). Cierra primero, organiza el schema después.
 
 ---
 
