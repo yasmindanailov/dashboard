@@ -115,17 +115,34 @@ Resultado: la historia queda íntegra.
 - [ADR-039](./adr-039-nota-obligatoria-transiciones.md) — Nota obligatoria en transiciones de estado
 - [ADR-040](./adr-040-rediseno-tickets.md) — Rediseño de tickets (Sprint 23 — plan)
 
-### Otros módulos (tasks, notifications, audit, infrastructure) (ADR-041..047)
+### Otros módulos (tasks, notifications, infrastructure, settings, clients, projects, citas) (ADR-041..047)
 
-- _(pendiente F2.C)_
+- [ADR-041](./adr-041-sistema-tareas.md) — Sistema de tareas internas
+- [ADR-042](./adr-042-sistema-notificaciones.md) — Sistema de notificaciones internas (campana + multicanal)
+- [ADR-043](./adr-043-infraestructura-self-hosted.md) — Infraestructura self-hosted en Docker Compose
+- [ADR-044](./adr-044-settings-extensos.md) — Configuración global extensa (settings) por secciones
+- [ADR-045](./adr-045-gestion-clientes-crm.md) — Gestión de clientes (CRM ligero)
+- [ADR-046](./adr-046-sistema-proyectos.md) — Sistema de Proyectos (Sprint 22 — supersedes ADR-022)
+- [ADR-047](./adr-047-sistema-citas-comunicacion.md) — Sistema de citas (referencias estructuradas en mensajes)
 
 ### Partner & referrals (ADR-048..054)
 
-- _(pendiente F2.C)_
+- [ADR-048](./adr-048-partner-modelo-negocio.md) — Modelo de negocio partner (canal de venta indirecta)
+- [ADR-049](./adr-049-partner-roles-onboarding.md) — Roles y onboarding del partner (semi-automático)
+- [ADR-050](./adr-050-partner-permisos.md) — Permisos del partner (puede / no puede)
+- [ADR-051](./adr-051-partner-comisiones-liquidaciones.md) — Comisiones del partner y liquidaciones automáticas
+- [ADR-052](./adr-052-partner-desvinculacion-cliente.md) — Desvinculación cliente-partner (workflow + protección)
+- [ADR-053](./adr-053-partner-vinculacion-cuenta-cliente.md) — Vinculación cuenta partner ↔ cuenta cliente del mismo usuario
+- [ADR-054](./adr-054-sistema-referidos-clientes.md) — Sistema de referidos para clientes normales
 
 ### UI / landing / cross-cutting adicional (ADR-055..060)
 
-- _(pendiente F2.C)_
+- [ADR-055](./adr-055-resiliencia-circuit-breaker.md) — Resiliencia: circuit breaker, retries, timeouts, dead letter queue
+- [ADR-056](./adr-056-estrategia-escalabilidad.md) — Estrategia de escalabilidad (Sprint 13 ampliado)
+- [ADR-057](./adr-057-agentes-ia.md) — Agentes IA: filtro de chat y copilot del agente
+- [ADR-058](./adr-058-integracion-landing.md) — Integración del dashboard con la landing
+- [ADR-059](./adr-059-auth-layout-split-screen.md) — Arquitectura de auth layout (split-screen Aurora Digital)
+- [ADR-060](./adr-060-decisiones-pre-schema.md) — Decisiones pre-schema (perfiles fiscales, sesiones, retención notificaciones)
 
 ---
 
