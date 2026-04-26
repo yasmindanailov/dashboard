@@ -130,20 +130,10 @@ jobs:
           - 1025:1025
           - 8025:8025
 
-      minio:
-        image: bitnami/minio:latest
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-          MINIO_DEFAULT_BUCKETS: aelium-storage
-        ports:
-          - 9000:9000
-          - 9001:9001
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 15
+      # NOTA: MinIO no se declara aquí como `service:` porque GitHub
+      # Actions services no soporta `command:` y la imagen oficial
+      # `minio/minio` necesita el arg `server /data`. Se arranca como
+      # step explícito más abajo ("Start MinIO"). Ver ADR-062 §C.
 
     env:
       # Conexiones a los services
@@ -190,6 +180,31 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # MinIO como step (no como service:) porque GitHub Actions services
+      # no acepta `command:` y la imagen oficial `minio/minio` necesita
+      # `server /data` como arg. Mismo puerto y credenciales que en local.
+      - name: Start MinIO
+        run: |
+          docker run -d \
+            --name aelium-minio-ci \
+            -p 9000:9000 -p 9001:9001 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio:latest server /data --console-address ":9001"
+
+      - name: Wait for MinIO ready
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:9000/minio/health/live > /dev/null; then
+              echo "MinIO listo en intento $i"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MinIO no respondió tras 60s — abortando"
+          docker logs aelium-minio-ci || true
+          exit 1
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
