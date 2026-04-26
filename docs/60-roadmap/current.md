@@ -125,7 +125,9 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 **Próximo paso recomendado tras P0.1:** ~~**P0.2 Outbox Pattern para `invoice.*`**~~ ✅ **Cerrado 2026-04-26** — los 4 eventos `invoice.*` (`created`, `paid`, `failed`, `overdue`) usan `OutboxService.enqueue(tx, ...)` dentro de transacción Prisma; `OutboxWorker` (`@Interval(5s)` + `FOR UPDATE SKIP LOCKED`) los despacha vía `EventEmitter2.emitAsync` con retries y crash recovery. Test E2E `tests/e2e/outbox-invoice.spec.ts` demuestra persistencia tras "crash" del bus. ADR-033 actualizado.
 
-**Siguiente:** **P0.3 saneamiento lint** (`F0.6`) o **P0.4 tests E2E exhaustivos** — ver [`backlog.md`](./backlog.md).
+~~**Siguiente: P0.3 saneamiento lint**~~ ✅ **Cerrado 2026-04-26** — Backend 294 → 0 errores, Frontend 117 → 0 errores, CI lint bloqueante en ambos. 4 commits incrementales (`3b2df25`, `8f91daf`, `56285d3`, `36099a8`, `f313e31`, `3d27da1`). Deuda residual DC.6 (27 warnings `set-state-in-effect` — migración Server Components, ver [`backlog.md`](./backlog.md)).
+
+**Siguiente:** **P0.4 tests E2E exhaustivos** (2FA real, checkout completo, PDF, escalación WS) — última pieza P0 antes del primer deploy productivo.
 
 ---
 

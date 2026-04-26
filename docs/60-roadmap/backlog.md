@@ -27,10 +27,10 @@
 |---|------|----------|--------|---------|
 | ~~**P0.1**~~ | ~~**Cerrar Sprint 8 mínimo:** listener `@OnEvent('task.assigned')` + validación FK `assigned_to` + tests E2E tasks~~ ✅ **Cerrado 2026-04-26** | ~~1-2 sesiones~~ | Auditoría §3.2 + Sprint 8 contract | Sprint 9 (notifications listeners), Sprint 7.SI — **desbloqueado** |
 | ~~**P0.2**~~ | ~~**Outbox Pattern para `invoice.*`** (4 eventos: created, paid, failed, overdue)~~ ✅ **Cerrado 2026-04-26** — `OutboxService` + `OutboxWorker` (`@Interval(5s)` + `FOR UPDATE SKIP LOCKED`) en `backend/src/core/outbox/`; 4 emits `invoice.*` migrados a `enqueue(tx, ...)` dentro de `prisma.$transaction`; E2E `tests/e2e/outbox-invoice.spec.ts`; ADR-033 actualizado | ~~1-2 sesiones~~ | [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md), R8 | Despliegue real — **desbloqueado para `invoice.*`**; pendiente extender a `service.*` cuando provisioning se implemente |
-| **P0.3** | **F0.6 saneamiento lint** — resolver ~344 errores `no-unsafe-*`, hacer lint bloqueante en CI | 3-4 sesiones distribuidas | Playbook §1, Auditoría §3.5 | Salvaguarda 5 incompleta — calidad de código en producción |
+| ~~**P0.3**~~ | ~~**F0.6 saneamiento lint** — resolver ~344 errores `no-unsafe-*`, hacer lint bloqueante en CI~~ ✅ **Cerrado 2026-04-26** — Backend: 294 → 0 errores (`AuthenticatedRequest`, `getErrorMessage`, Prisma `WhereInput`, JWT layer, guards, JSON DTOs, WebSocket payloads). Frontend: 117 → 0 errores (`lib/types.ts` con tipos de dominio, `lib/error.ts`, refactor de 22 archivos). CI: `lint:check` bloqueante en backend, `lint` bloqueante en frontend. Deuda residual DC.6 (27 warnings `set-state-in-effect` → migración Server Components futura). | ~~3-4 sesiones~~ → 4 commits | Playbook §1, Auditoría §3.5 | Salvaguarda 5 — **completa para errores**, parcial para warnings |
 | **P0.4** | **Tests E2E exhaustivos** — 2FA con código real, checkout completo, PDF download, escalación con WS | 2 sesiones | Playbook §5 | Confianza pre-deploy |
 
-**Total estimado P0 restante:** 5-7 sesiones (P0.1, P0.2 cerrados 2026-04-26). Bloquea el primer deploy productivo.
+**Total estimado P0 restante:** 2 sesiones (P0.1, P0.2, P0.3 cerrados 2026-04-26). Solo queda **P0.4 (E2E exhaustivos)** antes de habilitar el primer deploy productivo.
 
 ---
 

@@ -34,7 +34,7 @@
 - 3 eventos `task.*` huérfanos (sin listener)
 - `assigned_to` no validado en code
 - 2 errores lint `no-unsafe-enum-comparison` pendientes
-⚠️ **Lint deuda no-bloqueante en CI**: ~344 errores reales (no-unsafe-* en backend, hooks issues en frontend, no-explicit-any). Se sanearán en F0.6c/d/e.
+⚠️ ~~**Lint deuda no-bloqueante en CI**: ~344 errores reales~~ ✅ **Saneado P0.3 (2026-04-26)** — Backend 294 → 0 errores, Frontend 117 → 0 errores. CI con `lint:check` bloqueante en backend y `lint` bloqueante en frontend. Queda deuda DC.6 (27 warnings `set-state-in-effect` → migración a Server Components + Suspense, plan en `docs/60-roadmap/backlog.md`).
 ⚠️ **15 eventos huérfanos** (todos clasificados en `_events.md` como hooks aspiracionales para módulos futuros).
 ⚠️ **Sentry preparado, sin DSN configurado** — decisión consciente. Activar al desplegar a producción.
 ⚠️ **Crons en `@nestjs/schedule` (in-process)** — duplicarán trabajo si se escala a múltiples instancias. Migrar a BullMQ con leader election cuando aplique.
