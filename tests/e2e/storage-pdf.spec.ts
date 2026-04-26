@@ -188,7 +188,25 @@ test.describe('Storage — PDFs persistidos en MinIO (Sprint 11.5 + ADR-062)', (
     const pdfUrl = await waitForPdfUrl(invoice.id);
     expect(pdfUrl).toBe(`invoices/${invoice.invoice_number}.pdf`);
 
-    // 5. Descargar PDF — Playwright sigue 302 redirect al bucket.
+    // 5a. Endpoint frontend `/pdf-url`: JSON con signed URL.
+    const urlRes = await authedFetch(
+      request,
+      token,
+      'GET',
+      `/billing/invoices/${invoice.id}/pdf-url`,
+    );
+    expect(urlRes.ok()).toBeTruthy();
+    const urlBody = (await urlRes.json()) as { url: string; filename: string };
+    expect(urlBody.url).toMatch(/^https?:\/\//);
+    expect(urlBody.filename).toBe(`${invoice.invoice_number}.pdf`);
+
+    // 5b. La signed URL devuelve un PDF válido directamente (sin auth).
+    const directRes = await request.get(urlBody.url);
+    expect(directRes.ok()).toBeTruthy();
+    const directBuffer = await directRes.body();
+    expect(directBuffer.slice(0, 5).toString('ascii')).toBe('%PDF-');
+
+    // 6. Endpoint legacy `/pdf` (302 redirect) — Playwright sigue redirect.
     const pdfRes = await request.get(
       `${TEST_CONFIG.apiUrl}/billing/invoices/${invoice.id}/pdf`,
       { headers: { Authorization: `Bearer ${token}` } },

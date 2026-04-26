@@ -255,21 +255,21 @@ export const billingApi = {
   checkout: (token: string, data: Record<string, unknown>, targetUserId?: string) =>
     api(`/billing/checkout${targetUserId ? `?targetUserId=${targetUserId}` : ''}`, { method: 'POST', token, body: data }),
 
-  // PDF — fetch with auth and trigger download
+  // PDF — pedir signed URL (auth Bearer) y luego descargar directo del bucket.
+  // Two-phase para evitar CORS preflight cross-origin contra MinIO/S3.
+  // Ver ADR-062 §H y `billing.controller.ts` (`/pdf-url` vs `/pdf`).
   downloadPdf: async (token: string, id: string, invoiceNumber: string) => {
-    const res = await fetch(`${API_URL}/billing/invoices/${id}/pdf`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error('Error descargando PDF');
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
+    const { url } = await api<{ url: string; filename: string }>(
+      `/billing/invoices/${id}/pdf-url`,
+      { token },
+    );
     const a = document.createElement('a');
     a.href = url;
     a.download = `${invoiceNumber}.pdf`;
+    a.rel = 'noopener noreferrer';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
   },
 };
 

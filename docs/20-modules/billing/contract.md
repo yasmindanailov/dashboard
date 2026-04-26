@@ -61,7 +61,8 @@ Prefix: `/api/v1/billing` (facturas) y `/api/v1/subscriptions` (servicios).
 | `PATCH` | `/billing/invoices/:id/overdue` | Marcar como vencida (también lo hace el cron) | `Update.Invoice` |
 | `PATCH` | `/billing/invoices/:id/cancel` | Cancelar (no elimina) | `Update.Invoice` |
 | `PATCH` | `/billing/invoices/:id/refund` | Paid → Refunded | `Update.Invoice` |
-| `GET` | `/billing/invoices/:id/pdf` | Descargar PDF (302 redirect a signed URL del bucket — ADR-062) | `Read.Invoice` + ownership |
+| `GET` | `/billing/invoices/:id/pdf-url` | Devuelve `{ url, filename }` con la signed URL del bucket — consumido por el frontend, evita CORS cross-origin (ADR-062 §H.1) | `Read.Invoice` + ownership |
+| `GET` | `/billing/invoices/:id/pdf` | 302 redirect a signed URL — para correos, curl, integraciones (ADR-062 §H.2) | `Read.Invoice` + ownership |
 
 ### Checkout
 

@@ -178,11 +178,48 @@ export class BillingController {
 
   /* ═══════════════════════════════════════
      PDF DOWNLOAD (ownership enforced + signed URL — ADR-062)
+
+     Dos endpoints — mismo trabajo, distinto cliente:
+
+     - `GET /pdf-url` (JSON):  { url, filename }
+       Para el frontend del dashboard. El cliente hace fetch JSON con
+       Authorization, recibe la URL firmada, y descarga directo del bucket
+       (window.open / <a download>) sin XHR cross-origin → no requiere
+       configurar CORS en MinIO.
+
+     - `GET /pdf` (302 redirect):
+       Para enlaces externos (correos, curl, integraciones). Sigue el
+       redirect al bucket. NO usar desde fetch del navegador con
+       Authorization (el header se strippea cross-origin y el preflight
+       CORS al bucket falla).
      ═══════════════════════════════════════ */
+
+  @Get('invoices/:id/pdf-url')
+  @ApiOperation({
+    summary:
+      'Obtener URL firmada de descarga del PDF (consumido por el frontend)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Invoice))
+  async getPdfUrl(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ url: string; filename: string }> {
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
+    const invoice = await this.billingService.findOne(id);
+
+    if (!isAdmin && invoice.user_id !== user.id) {
+      throw new ForbiddenException('No tienes acceso a esta factura');
+    }
+
+    const url = await this.invoicePdfStorage.getSignedDownloadUrl(id);
+    return { url, filename: `${invoice.invoice_number}.pdf` };
+  }
 
   @Get('invoices/:id/pdf')
   @ApiOperation({
-    summary: 'Download invoice PDF (302 redirect a signed URL del bucket)',
+    summary:
+      'Descargar PDF (302 redirect a signed URL — para correos/curl, no fetch CORS)',
   })
   @ApiProduces('application/pdf')
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Invoice))
@@ -199,9 +236,6 @@ export class BillingController {
       throw new ForbiddenException('No tienes acceso a esta factura');
     }
 
-    // Vía rápida: signed URL del bucket. `getSignedDownloadUrl` se encarga
-    // del fallback si el PDF aún no está en el bucket (legacy / upload
-    // previo fallido) — genera + sube + firma en la misma request.
     const url = await this.invoicePdfStorage.getSignedDownloadUrl(id);
     res.redirect(302, url);
   }

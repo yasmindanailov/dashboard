@@ -149,21 +149,52 @@ res.redirect(302, url);
 
 `markAsPaid()` y `sendToPending()` invocan `invoicePdfService.generateAndUpload(invoiceId)` **fuera** de la `prisma.$transaction` (la transición de estado y el evento outbox son críticos; el upload es best-effort y se reintenta en la primera descarga si falla). Si la subida falla, se loguea pero no rompe el flujo de cobro.
 
-### H. Endpoint `GET /billing/invoices/:id/pdf`
+### H. Endpoints de descarga del PDF
+
+Dos endpoints — mismo trabajo, distinto cliente. Ambos comparten la lógica
+de generar/recuperar la signed URL vía
+`InvoicePdfStorageService.getSignedDownloadUrl(invoiceId)`. CASL
+`can(Read, Invoice)` + ownership check se hace **antes** de generar la URL.
+
+#### H.1 `GET /billing/invoices/:id/pdf-url` (JSON) — frontend
+
+```
+{ url: string; filename: string }
+```
+
+El frontend del dashboard hace `fetch` con `Authorization: Bearer ...`,
+recibe la signed URL y descarga directo del bucket con un `<a download>`.
+**No hay XHR cross-origin contra el bucket → no se necesita configurar
+CORS en MinIO/S3.** Es la vía recomendada para clientes web del propio
+proyecto.
+
+#### H.2 `GET /billing/invoices/:id/pdf` (302 redirect) — externo
+
+```
+302 Location: <signed-url>
+```
+
+Para enlaces externos que ven el redirect del navegador en navegación
+normal (correos transaccionales, curl, integraciones backend-a-backend).
+**No usar desde `fetch` con `Authorization`**: el header se strippea en el
+redirect cross-origin (correctamente, por seguridad) y el preflight CORS
+del bucket fallaría sin configuración adicional.
+
+#### Lógica común (`getSignedDownloadUrl`)
 
 ```
 si invoice.pdf_url existe:
-  url = await storage.presignedDownloadUrl(invoice.pdf_url, ttl)
-  res.redirect(302, url)
+  return storage.presignedDownloadUrl(invoice.pdf_url, opts)
 si no:
-  buffer = await invoicePdfService.generatePdf(invoiceId)         // legacy fallback
+  buffer = await invoicePdfService.generatePdf(invoiceId)
   await storage.upload({ key, body: buffer, contentType })
   await prisma.update({ pdf_url: key })
-  url = await storage.presignedDownloadUrl(key, ttl)
-  res.redirect(302, url)
+  return storage.presignedDownloadUrl(key, opts)
 ```
 
-CASL `can(Read, Invoice)` + ownership check se hace **antes** de generar la URL.
+`opts` incluye `responseContentDisposition: 'attachment; filename="<num>.pdf"'`
+y `responseContentType: 'application/pdf'` para que el bucket devuelva
+los headers correctos (descarga como attachment con filename estable).
 
 ---
 
