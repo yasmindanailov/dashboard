@@ -21,16 +21,18 @@
 
 | Tabla | Estado | Propósito |
 |-------|--------|-----------|
-| `audit.access_log` | ⬜ | Quién accedió a la ficha de un cliente, cuándo y desde qué origen |
-| `audit.change_log` | ⬜ | Cambios en datos del cliente: campo, valor anterior, valor nuevo, quién |
-| `audit.integration_log` | ⬜ | Datos enviados a integraciones externas + validación de consentimiento |
-| `audit.service_log` | ⬜ | Eventos por servicio concreto. Metadata flexible por tipo de producto |
+| `audit.access_log` | ✅ stub | Quién accedió a la ficha de un cliente, cuándo y desde qué origen. Modelo `AuditAccessLog` existe en Prisma; escritura sistemática pendiente Sprint 9.1. |
+| `audit.change_log` | ✅ stub | Cambios en datos del cliente: campo, valor anterior, valor nuevo, quién. Modelo `AuditChangeLog` existe en Prisma; interceptor global de cambios pendiente Sprint 13.12. |
+| `audit.integration_log` | ⬜ | Datos enviados a integraciones externas + validación de consentimiento (Sprint 12.5) |
+| `audit.service_log` | ⬜ | Eventos por servicio concreto. Metadata flexible por tipo de producto (Sprint 11) |
 
 ---
 
-## Tabla: `audit.access_log` ⬜
+## Tabla: `audit.access_log` ✅ stub
 
 Registro de accesos a la ficha del cliente.
+
+> **Estado actual:** modelo `AuditAccessLog` existe en `backend/prisma/schema.prisma`. Escritura sistemática (interceptor automático en cada `GET /clients/:id`) pendiente Sprint 9.1.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
@@ -50,9 +52,11 @@ Registro de accesos a la ficha del cliente.
 
 ---
 
-## Tabla: `audit.change_log` ⬜
+## Tabla: `audit.change_log` ✅ stub
 
 Cambios en datos del cliente o configuración. Valor anterior y nuevo.
+
+> **Estado actual:** modelo `AuditChangeLog` existe en `backend/prisma/schema.prisma`. El interceptor global que registra automáticamente cambios (old vs new + actor) está pendiente Sprint 13.12 — hoy hay escrituras manuales en algunos services.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|

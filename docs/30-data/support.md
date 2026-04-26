@@ -76,43 +76,60 @@ Slots de mantenimiento (y gestión) asignados a servicios del cliente.
 
 Hilos de comunicación. **Chat y ticket comparten tabla** con campo `type` discriminador ([ADR-037](../10-decisions/adr-037-arquitectura-dual-chat-tickets.md)).
 
+> **Fuente de verdad:** `backend/prisma/schema.prisma` modelos `Conversation` + 4 enums (`ConversationStatus`, `ConversationPriority`, `ConversationType`, `ConversationCategory`).
+> **Nota histórica:** el documento legacy `DATABASE_SCHEMA.md` usaba nombres distintos (`realtime_chat/async`, `active`, `medium`, `assigned_to`, `parent_conversation_id`, `ai_handled`). **Esta tabla refleja Prisma**, no el legacy.
+
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
-| `id` | uuid | PK | |
+| `id` | uuid | PK, DEFAULT `gen_random_uuid()` | |
+| `sequence_number` | integer | NULLABLE, UQ | Auto-asignado vía PostgreSQL SEQUENCE al crear ticket — numeración correlativa visible al cliente (ej: `#1042`) |
+| `type` | enum `ConversationType` | NOT NULL, DEFAULT `'chat'` | **`chat` · `ticket`** |
 | `user_id` | uuid | NULLABLE, FK → `users(id)` | `null` si es anónimo (guest desde landing) |
-| `guest_name` | varchar(200) | NULLABLE | Para anónimos |
-| `guest_email` | varchar(255) | NULLABLE | Para vincular al registrarse después |
-| `guest_session_token` | varchar(500) | NULLABLE | Token (hasheado SHA-256) para vincular conversación anónima |
-| `assigned_to` | uuid | NULLABLE, FK → `users(id)` | Agente asignado |
-| `type` | enum | NOT NULL | `realtime_chat` · `async` (= ticket) |
-| `status` | enum | NOT NULL, DEFAULT `'active'` | `active` · `waiting_agent` · `waiting_client` · `resolved` · `closed` |
-| `channel` | enum | NOT NULL, DEFAULT `'webchat'` | `webchat` · `whatsapp` · `email` |
-| `subject` | varchar(300) | NULLABLE | Para tickets |
-| `priority` | enum | NOT NULL, DEFAULT `'medium'` | `low` · `medium` · `high` · `urgent` |
-| `source` | enum | NOT NULL | `landing` · `dashboard` · `escalated_from_chat` |
-| `parent_conversation_id` | uuid | NULLABLE, FK → `conversations(id)` | Si viene de un chat escalado a ticket |
-| `has_support_inside` | boolean | NOT NULL, DEFAULT `false` | Estado del cliente al crear |
-| `ai_handled` | boolean | NOT NULL, DEFAULT `false` | Si la IA filtro intentó resolver ([ADR-057](../10-decisions/adr-057-agentes-ia.md)) |
-| `ai_summary` | text | NULLABLE | Resumen de lo que intentó la IA antes de escalar |
+| `assigned_agent_id` | uuid | NULLABLE | Agente asignado (FK lógica a `users(id)`) |
+| `subject` | varchar(500) | NOT NULL | Asunto. Para chats se auto-genera del primer mensaje si no se pasa |
+| `status` | enum `ConversationStatus` | NOT NULL, DEFAULT `'open'` | **`open`** · `waiting_client` · `waiting_agent` · `resolved` · `closed` |
+| `priority` | enum `ConversationPriority` | NOT NULL, DEFAULT `'normal'` | `low` · **`normal`** · `high` · `urgent` |
+| `category` | enum `ConversationCategory` | NULLABLE | `support_general` · `support_billing` · `support_technical` · `wdify_progress` · `wdify_feedback` · `escalated_chat` (las dos `wdify_*` deprecadas, [ADR-022](../10-decisions/adr-022-wdify-deprecado-proyectos.md) — solo para tickets pre-Sprint 22, migración a `support_technical` en Sprint 23) |
+| `channel` | varchar(50) | NOT NULL, DEFAULT `'web'` | String libre (no enum). Valores actuales: `web`. Futuros: `whatsapp`, `email`. |
+| `is_ai_filtered` | boolean | NOT NULL, DEFAULT `false` | Si la IA filtro intentó resolver antes de escalar ([ADR-057](../10-decisions/adr-057-agentes-ia.md)) |
+| `guest_name` | varchar(200) | NULLABLE | Para anónimos en la landing |
+| `guest_email` | varchar(255) | NULLABLE | Para vincular al registrarse después (Sprint 7.5.1) |
+| `guest_session_hash` | varchar(500) | NULLABLE | **Hash SHA-256** del token de sesión guest (token plaintext en cookie HttpOnly) |
+| `service_id` | uuid | NULLABLE | Servicio vinculado al ticket. (Originalmente Sprint 23 lo nombraba `linked_service_id` — el código real ya lo expone como `service_id` desde Sprint 7.) |
+| `escalated_from_id` | uuid | NULLABLE, FK → `conversations(id)` | Self-ref. Si la conversación viene de un chat escalado a ticket. (Equivalente al concepto `parent_conversation_id` del legacy.) |
+| `tags` | jsonb | NULLABLE | Tags del ticket (futuro [ADR-040](../10-decisions/adr-040-rediseno-tickets.md) Sprint 23 los formaliza en tabla aparte) |
 | `closed_at` | timestamptz | NULLABLE | |
-| `anonymized_at` | timestamptz | NULLABLE | Cuando se anonimizan datos (RGPD 2 años, [ADR-010](../10-decisions/adr-010-rgpd-retencion-datos.md)) |
-| `linked_service_id` | uuid | NULLABLE, FK → `services(id)` | Sprint 23: ticket vinculado a servicio ([ADR-040](../10-decisions/adr-040-rediseno-tickets.md)) |
-| `linked_project_id` | uuid | NULLABLE, FK → `projects(id)` | Sprint 23: ticket vinculado a proyecto |
+| `resolved_at` | timestamptz | NULLABLE | |
+| `first_response_at` | timestamptz | NULLABLE | Timestamp del primer mensaje del agente — útil para SLA tracking ([ADR-040](../10-decisions/adr-040-rediseno-tickets.md)) |
+| `resolution_note` | text | NULLABLE | Nota obligatoria al resolver/cerrar/escalar ([ADR-039](../10-decisions/adr-039-nota-obligatoria-transiciones.md)) |
+| `resolved_by_id` | uuid | NULLABLE | Quién resolvió (snapshot, FK lógica a `users`) |
+| `metadata` | jsonb | NULLABLE | Metadatos arbitrarios |
 | `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 | `updated_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 
-**Índices:**
-- `idx_conversations_user_id` — en `user_id`
-- `idx_conversations_status` — en `status`
-- `idx_conversations_assigned` — en `assigned_to`
-- `idx_conversations_guest_email` — en `guest_email` (vinculación al registrarse)
-- `idx_conversations_created_at` — en `created_at` (limpieza por retención)
+**Índices reales:**
+- `@@index([user_id])`
+- `@@index([assigned_agent_id])`
+- `@@index([status])`
+- `@@index([type])`
+- `@@index([guest_email])` (vinculación al registrarse)
+- `@@index([guest_session_hash])`
+
+**Campos documentados pero NO existen en Prisma todavía** (planificados para sprints futuros):
+
+| Campo aspiracional | Sprint planificado | Notas |
+|-------------------|--------------------|-------|
+| `linked_project_id` | 23 ([ADR-040](../10-decisions/adr-040-rediseno-tickets.md)) | Cuando exista módulo Projects |
+| `source` (enum landing/dashboard/escalated) | — | Hoy se infiere de `escalated_from_id != null` y de `is_ai_filtered`. Posible añadir si se necesita analítica de origen |
+| `has_support_inside` | — | Hoy se calcula al vuelo cruzando `user_id` con `support_inside_subscriptions`. Si performance lo exige → desnormalizar |
+| `ai_summary` | 15 ([ADR-057](../10-decisions/adr-057-agentes-ia.md)) | Resumen de lo que intentó la IA filtro antes de escalar |
+| `anonymized_at` | 12.5 ([ADR-010](../10-decisions/adr-010-rgpd-retencion-datos.md)) | RGPD — cron de anonimización a 2 años |
 
 **Notas de decisión:**
-- Retención 2 años; después: anonimización (no borrado). El hilo existe pero sin datos personales — cron pendiente, ver [jobs-reference](../50-operations/jobs-reference.md).
-- Vinculación de chat anónimo ocurre al registrarse el usuario con el mismo `guest_email` → listener `support-guest-link` consume `auth.registered`.
-- Sprint 23 añade `linked_service_id` y `linked_project_id` para enriquecer tickets ([ADR-040](../10-decisions/adr-040-rediseno-tickets.md)).
-- Una conversación **solo se escala una vez** (Sprint 7.H2): `escalateToTicket()` valida que no haya child con `parent_conversation_id` ya creado → 409 `CONVERSATION_ALREADY_ESCALATED`.
+- Vinculación de chat anónimo ocurre al registrarse el usuario con el mismo `guest_email` → listener `support-guest-link` consume `auth.registered` y migra `user_id` + limpia campos guest.
+- Una conversación **solo se escala una vez** (Sprint 7.H2): `escalateToTicket()` valida que no haya child con `escalated_from_id = this.id` ya creado → 409 `CONVERSATION_ALREADY_ESCALATED`.
+- `resolution_note` obligatoria en transiciones a `resolved`/`closed`/escalación ([ADR-039](../10-decisions/adr-039-nota-obligatoria-transiciones.md)) — el backend rechaza la transición si está vacía. Se persiste como mensaje de sistema y como `ClientNote(category=solution)` automática.
+- `sequence_number` se asigna sólo al crear `type=ticket` (no a chats) — formato visible al cliente: `#NNNN` correlativo.
 
 ---
 
@@ -120,25 +137,31 @@ Hilos de comunicación. **Chat y ticket comparten tabla** con campo `type` discr
 
 Mensajes dentro de una conversación.
 
+> **Nota histórica:** el documento legacy `DATABASE_SCHEMA.md` nombraba el campo del cuerpo `content`. **El código real usa `body`.** Esta tabla refleja Prisma.
+
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
-| `id` | uuid | PK | |
+| `id` | uuid | PK, DEFAULT `gen_random_uuid()` | |
 | `conversation_id` | uuid | NOT NULL, FK → `conversations(id)` ON DELETE CASCADE | |
-| `sender_id` | uuid | NULLABLE, FK → `users(id)` | `null` si es anónimo o sistema |
-| `sender_type` | enum | NOT NULL | `client` · `agent` · `system` · `ai` (badge "Asistente AI" — ADR-057) |
-| `content` | text | NOT NULL | |
+| `sender_type` | enum `MessageSender` | NOT NULL | `client` · `agent` · `system` · `ai` (badge "Asistente AI" — ADR-057) |
+| `sender_id` | uuid | NULLABLE | `null` si es sistema o anónimo (FK lógica a `users(id)`) |
+| `body` | text | NOT NULL | Cuerpo del mensaje |
+| `attachments` | jsonb | NULLABLE | Adjuntos (Sprint 14 MinIO + Sprint 7.6.3) |
 | `is_internal` | boolean | NOT NULL, DEFAULT `false` | Notas internas del agente. **No visibles al cliente.** Auto-crea `client_notes` ([clients.md](./clients.md)) con categoría `conversation`. |
 | `read_at` | timestamptz | NULLABLE | |
-| `references` | jsonb | NULLABLE | Sprint 24: array de citas `[{ type, id, snapshot }]` ([ADR-047](../10-decisions/adr-047-sistema-citas-comunicacion.md)) |
 | `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 
-**Índices:**
-- `idx_messages_conversation_id` — en `conversation_id`
-- `idx_messages_created_at` — en `created_at`
+**Índices reales:**
+- `@@index([conversation_id])`
+
+**Campos aspiracionales (NO existen en Prisma todavía):**
+
+| Campo | Sprint planificado | Notas |
+|-------|--------------------|-------|
+| `references` (jsonb — citas estructuradas) | 24 ([ADR-047](../10-decisions/adr-047-sistema-citas-comunicacion.md)) | Array `[{ type, id, snapshot }]` — citas a service / product / project / note |
 
 **Notas de decisión:**
-- **Cliente solo puede citar entidades propias** (sus servicios, sus proyectos). Validación en backend (R7 defense in depth — [ADR-047](../10-decisions/adr-047-sistema-citas-comunicacion.md)).
-- Snapshot del campo `references` es **inmutable** — preserva contexto histórico aunque la entidad cambie/desaparezca.
+- **Cliente solo puede citar entidades propias** cuando se implemente Sprint 24 (R7 defense in depth — [ADR-047](../10-decisions/adr-047-sistema-citas-comunicacion.md)).
 - Cliente intentando enviar `is_internal = true` → 403 `INTERNAL_NOTE_UNAUTHORIZED`.
 
 ---

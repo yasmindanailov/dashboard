@@ -18,7 +18,7 @@
 | `knowledge_base_tags` | ⬜ | Tags para organizar artículos KB |
 | `settings` | ✅ | Configuración global clave-valor tipado |
 | `integrations_registry` | ⬜ | Catálogo público de integraciones externas (visible al cliente) |
-| `error_log` | ⬜ | Registro de todos los errores del sistema |
+| `error_log` | ✅ stub | Registro de todos los errores del sistema. Modelo `ErrorLog` ya existe en Prisma; UI admin pendiente Sprint 9.10. |
 | `event_outbox` | ✅ stub | Cola persistente para entrega garantizada de eventos críticos (R8) |
 
 ---
@@ -169,9 +169,11 @@ Catálogo público de integraciones externas. **Visible al cliente** en su porta
 
 ---
 
-## Tabla: `error_log` ⬜
+## Tabla: `error_log` ✅ stub
 
 Registro de todos los errores del sistema. Solo superadmin lo lee.
+
+> **Estado actual:** modelo `ErrorLog` ya existe en `backend/prisma/schema.prisma`. Escritura desde `GlobalExceptionFilter` parcialmente implementada. UI admin con filtros + acción "marcar resuelto" pendiente Sprint 9.10.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|

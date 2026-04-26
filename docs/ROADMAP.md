@@ -1,6 +1,20 @@
-# ROADMAP.md — Plan de ejecución del Dashboard Aelium
+# ROADMAP.md — Plan de ejecución del Dashboard Aelium (LEGACY DETALLADO)
 
-> Fuente de verdad para el orden de implementación.
+> ## ⚠️ MIGRADO A `docs/60-roadmap/`
+>
+> **El roadmap de alto nivel (qué viene, qué está en curso, qué está cerrado)** vive ahora en [`docs/60-roadmap/`](./60-roadmap/README.md), refactorizado en F6 (2026-04-26) sobre la base de la auditoría 2026-04-26 código vs documentación.
+>
+> **Este archivo se conserva** porque mantiene el **detalle granular paso-a-paso** de cada sprint (con sub-pasos numerados, edge cases, decisiones inline). Esa información sigue siendo útil como referencia histórica y para entender por qué se hizo cada paso.
+>
+> **Cómo usar:**
+> - Para **planificar el siguiente sprint**: ir a [`60-roadmap/backlog.md`](./60-roadmap/README.md).
+> - Para **ver qué está en curso**: ir a [`60-roadmap/current.md`](./60-roadmap/current.md).
+> - Para **investigar qué entregó un sprint cerrado**: ir a [`60-roadmap/completed/`](./60-roadmap/completed/).
+> - Para **detalle granular de un sprint** (sub-pasos, edge cases): seguir aquí.
+>
+> Los headers de Sprint 7 y 7.5 se actualizaron a 🔄 con leyenda de bloqueos para reflejar la realidad verificada en auditoría.
+
+> Fuente de verdad para el orden de implementación granular (paso-a-paso).
 > Diseñado para ejecución por agente IA con pasos granulares.
 > Actualizar el estado de cada paso al completarlo.
 
@@ -251,8 +265,15 @@
 
 ---
 
-## Sprint 7 — Billing Hardening + Support ⬜
+## Sprint 7 — Billing Hardening + Support 🔄
 
+> **Estado real (verificado en auditoría 2026-04-26):** core + hardening + R15 ✅ cerrados. Pendientes:
+> - Sprint 7.6 horario soporte (no bloqueado)
+> - Sprint 7.7 attachments (bloqueado por Sprint 14 MinIO)
+> - Sprint 7.6.1-4 ticket UX enhancement (bloqueado por Sprint 7.5 Design System Fase 2 + MinIO)
+> - Sprint 7.8/7.9 IA filtro + copilot (bloqueado por Sprint 15)
+> - Sprint 7.SI Support Inside (bloqueado por Sprint 8 Fase D)
+>
 > Objetivo: cerrar edge cases de billing operacionales antes de Support. Chat asíncrono, conversaciones, filtro IA.
 
 **Billing hardening (al inicio del sprint, antes de Support):**
@@ -378,8 +399,10 @@
 
 ---
 
-## Sprint 7.5 — Design System Foundation ⬜
+## Sprint 7.5 — Design System Foundation 🔄
 
+> **Estado real (verificado en auditoría 2026-04-26):** Fase 1 (componentes base D1–D11) ✅ cerrada. Fase 2 (migración de páginas existentes) parcial.
+>
 > Objetivo: establecer las bases visuales del dashboard antes de construir más módulos.
 > Documento de referencia: docs/DESIGN_SYSTEM.md.
 > Todo módulo nuevo debe usar estos componentes. Todo módulo existente se migra progresivamente.
@@ -991,7 +1014,8 @@ FASE 1 — CORE (Sprints 0-14, orden secuencial estricto)
   Sprint 4  Clients                        ✅
   Sprint 5  Products + PBAC                ✅
   Sprint 6  Billing Engine                 ✅
-  Sprint 7  Support                        ⬜ (en progreso)
+  Sprint 7  Billing Hardening + Support    🔄  ← core + hardening + R15 ✅; bloqueos: MinIO/Sprint 14, Sprint 15 IA, Sprint 8 SI
+  Sprint 7.5 Design System Foundation      🔄  ← Fase 1 ✅; Fase 2 (migración páginas) parcial
   Sprint 8  Tasks + Support Inside         🔄  ← Fase A-B en progreso, depende de 7
   Sprint 9  Audit + Notifications Full     ⬜  ← depende de 2
   Sprint 10 Infrastructure                 ⬜  ← independiente

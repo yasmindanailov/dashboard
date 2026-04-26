@@ -12,54 +12,72 @@
 
 | Tabla | Estado | Propósito |
 |-------|--------|-----------|
-| `services` | ⬜ | Instancias de productos contratados (corazón del sistema) |
+| `services` | ✅ | Instancias de productos contratados (corazón del sistema) |
 | `service_checklist_items` | ⬜ | Checklist personalizado por servicio (heredado del producto) |
-| `subscriptions` | ⬜ | Suscripciones activas (1:1 con `services`) |
-| `provisioning_log` | ⬜ | Registro inmutable de intentos de provisioning |
-| `billing_credits` | ⬜ | Créditos generados por prorrateo o aplicaciones manuales |
-| `invoices` | ⬜ | Facturas emitidas (inmutables tras emisión — invariante BILL-INV-2) |
-| `invoice_items` | ⬜ | Líneas de cada factura |
-| `payments` | ⬜ | Intentos de cobro y resultado |
+| `subscriptions` | ⬜ | Suscripciones activas (1:1 con `services`). Hoy el ciclo de cobro vive en `services` (`billing_cycle` + `next_due_date`); cuando se necesite separar planes/precio del servicio se migrará. |
+| `provisioning_log` | ⬜ | Registro inmutable de intentos de provisioning (Sprint 11) |
+| `billing_credits` | ⬜ | Créditos generados por prorrateo o aplicaciones manuales (Sprint 9) |
+| `invoices` | ✅ | Facturas emitidas (inmutables tras emisión — invariante BILL-INV-2) |
+| `invoice_items` | ✅ | Líneas de cada factura |
+| `payments` | ⬜ | Intentos de cobro detallados (Sprint 15 — hoy el resultado del intento vive en `invoices.payment_*` + `retry_count`) |
 
 ---
 
-## Tabla: `services` ⬜
+## Tabla: `services` ✅
 
 Instancias de productos contratados por clientes. **El corazón del sistema.**
 
+> **Fuente de verdad:** `backend/prisma/schema.prisma` modelo `Service` + enum `ServiceStatus`.
+> **Nota histórica:** el documento legacy `DATABASE_SCHEMA.md` listaba campos detallados de provisioning (`provisioner_reference`, `subdomain`/`custom_domain` separados, `ssl_expires_at`, `provisioned_at`, `failure_reason`, `resource_config`). **El código actual los consolida** en `provisioner_data` (jsonb) y un único campo `domain`. Los detallados se añadirán al implementar el módulo `provisioning` (Sprint 11).
+
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
-| `id` | uuid | PK | |
-| `user_id` | uuid | NOT NULL, FK → `users(id)` | |
+| `id` | uuid | PK, DEFAULT `gen_random_uuid()` | |
+| `user_id` | uuid | NOT NULL | FK lógica a `users(id)` |
 | `product_id` | uuid | NOT NULL, FK → `products(id)` | |
-| `billing_profile_id` | uuid | NULLABLE, FK → `billing_profiles(id)` | Perfil de facturación para este servicio ([clients.md](./clients.md)) |
-| `server_id` | uuid | NULLABLE, FK → `servers(id)` | Solo para productos Docker ([infrastructure.md](./infrastructure.md)) |
-| `status` | enum | NOT NULL, DEFAULT `'pending'` | `pending` · `provisioning` · `active` · `suspended` · `cancelled` · `failed` · `paused` · `project_development` (Sprint 22, [projects.md](./projects.md)) |
-| `provisioner_reference` | varchar(500) | NULLABLE | ID externo del provisioner (ej: ID en Enhance CP) |
-| `subdomain` | varchar(255) | NULLABLE | |
-| `custom_domain` | varchar(255) | NULLABLE | |
-| `ssl_expires_at` | timestamptz | NULLABLE | |
-| `provisioned_at` | timestamptz | NULLABLE | |
-| `suspended_at` | timestamptz | NULLABLE | |
+| `billing_profile_id` | uuid | NULLABLE, FK → `billing_profiles(id)` | Perfil de facturación de este servicio ([clients.md](./clients.md)) |
+| `partner_id` | uuid | NULLABLE | FK lógica a `partners(id)`. `null` = cliente directo ([partner.md](./partner.md)) |
+| `status` | enum `ServiceStatus` | NOT NULL, DEFAULT `'pending'` | `pending` · `provisioning` · `active` · `suspended` · `cancelled` · **`terminated`** |
+| `label` | varchar(300) | NULLABLE | Nombre interno del servicio para el cliente (ej: "Mi tienda") |
+| `domain` | varchar(300) | NULLABLE | Dominio asociado (subdominio o dominio completo — un único campo) |
+| `server_id` | uuid | NULLABLE | FK lógica a `servers(id)`. Solo productos Docker ([infrastructure.md](./infrastructure.md)) |
+| `billing_cycle` | enum `BillingCycle` | NOT NULL, DEFAULT `'monthly'` | `monthly` · `annual` |
+| `amount` | decimal(10,2) | NOT NULL | Importe del ciclo de facturación |
+| `currency` | varchar(3) | NOT NULL, DEFAULT `'EUR'` | ISO 4217 |
+| `next_due_date` | timestamptz | NULLABLE | Próxima fecha de cobro |
+| `next_invoice_date` | timestamptz | NULLABLE | Fecha de generación de la próxima factura (anterior a `next_due_date` por `billing.invoice_advance_days`) |
 | `cancelled_at` | timestamptz | NULLABLE | |
-| `next_renewal_at` | timestamptz | NULLABLE | Fecha de aniversario — disparador de generación de factura |
-| `paused_at` | timestamptz | NULLABLE | |
-| `paused_until` | timestamptz | NULLABLE | |
 | `cancellation_reason` | text | NULLABLE | |
-| `failure_reason` | text | NULLABLE | Si `status = failed` |
-| `provisioner_data` | jsonb | NULLABLE | Datos específicos del provisioner (credenciales, config, etc. — encriptado si contiene secrets) |
-| `resource_config` | jsonb | NULLABLE | RAM, CPU, disco asignados (Docker) |
-| `partner_id` | uuid | NULLABLE, FK → `partners(id)` | `null` = servicio de cliente directo. Ver [partner.md](./partner.md). |
+| `suspended_at` | timestamptz | NULLABLE | |
+| `suspension_reason` | text | NULLABLE | |
+| `paused_at` | timestamptz | NULLABLE | |
+| `pause_max_date` | timestamptz | NULLABLE | Hasta cuándo puede estar pausado (cron `checkPauseExpiration` lo reanuda al pasar) |
+| `provisioner_data` | jsonb | NULLABLE | Datos específicos del provisioner: credenciales, IDs externos, ssl_expires_at, resource_config (RAM/CPU/disco). **Encriptado en reposo si contiene secrets** ([ADR-015](../10-decisions/adr-015-encriptacion-credenciales.md)) |
+| `metadata` | jsonb | NULLABLE | Metadatos arbitrarios |
 | `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 | `updated_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 
-**Índices:**
-- `idx_services_user_id` — en `user_id`
-- `idx_services_status` — en `status`
-- `idx_services_next_renewal` — en `next_renewal_at` (cron de renovaciones)
-- `idx_services_product_id` — en `product_id`
+**Índices reales:**
+- `@@index([user_id])`
+- `@@index([product_id])`
+- `@@index([billing_profile_id])`
+- `@@index([status])`
+- `@@index([next_due_date])` (cron de renovaciones)
 
-**Eventos emitidos:** `service.provisioned`, `service.suspended`, `service.cancelled`, `service.failed`, `service.paused`, `service.resumed`, `checkout.completed` — ver [`_events.md`](../20-modules/_events.md). Hoy todos huérfanos esperando módulo `provisioning`.
+**Campos aspiracionales (NO existen como columnas dedicadas — viven dentro de `provisioner_data` jsonb hoy):**
+
+| Campo aspiracional | Sprint planificado | Notas |
+|--------------------|--------------------|-------|
+| `provisioner_reference` (ID externo en CP/API) | 11 | Se promoverá a columna dedicada con índice cuando exista provisioning real |
+| `ssl_expires_at` | 11 | Útil para alertas de renovación SSL |
+| `provisioned_at` | 11 | Marca técnica del momento de provisión |
+| `failure_reason` | 11 | Detalle si `status` quedara "failed" — hoy `terminated` es el estado de fallo definitivo |
+| `resource_config` (RAM/CPU/disco como columnas) | 11 | Hoy en `provisioner_data` jsonb |
+| `project_development` (valor del enum status) | 22 ([ADR-046](../10-decisions/adr-046-sistema-proyectos.md)) | Servicio en desarrollo de proyecto, no visible al cliente |
+
+**Estado del enum `ServiceStatus` (real):** `pending` · `provisioning` · `active` · `suspended` · `cancelled` · `terminated`. **No tiene `failed`** (lo equivalente es `terminated`). **No tiene `paused`** todavía como valor enum, pero los campos `paused_at` y `pause_max_date` existen — el "pausado" se infiere de `paused_at != null`.
+
+**Eventos emitidos:** `service.provisioned`, `service.suspended`, `service.cancelled`, `service.failed`, `service.paused`, `service.resumed`, `checkout.completed` — ver [`_events.md`](../20-modules/_events.md). Hoy todos huérfanos esperando módulo `provisioning` (Sprint 11).
 
 ---
 
@@ -155,65 +173,92 @@ Créditos generados por prorrateo al cambiar de plan ([ADR-029](../10-decisions/
 
 ---
 
-## Tabla: `invoices` ⬜
+## Tabla: `invoices` ✅
 
 Facturas emitidas. **Inmutables tras emisión** (invariante BILL-INV-2). Rectificación = nueva factura.
 
+> **Fuente de verdad:** `backend/prisma/schema.prisma` modelo `Invoice` + enum `InvoiceStatus`.
+> **Nota histórica:** el documento legacy `DATABASE_SCHEMA.md` listaba un campo `type` enum (`full`/`simplified`) que **NO existe en Prisma** — la "factura simplificada" se infiere del perfil de facturación (`billing_profile.nif_cif IS NULL`). También listaba `credit_applied`, `project_id`, `invoice_type` que son aspiracionales.
+
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
-| `id` | uuid | PK | |
+| `id` | uuid | PK, DEFAULT `gen_random_uuid()` | |
+| `invoice_number` | varchar(50) | NOT NULL, UQ | Formato configurable (`billing.invoice_prefix`). Ej: `AELIUM-2026-0042`. **Generado con SEQUENCE atómica** ([ADR-025](../10-decisions/adr-025-numeracion-secuencial-facturas.md)). |
 | `user_id` | uuid | NOT NULL, FK → `users(id)` | |
 | `billing_profile_id` | uuid | NULLABLE, FK → `billing_profiles(id)` | Perfil usado para esta factura ([clients.md](./clients.md)) |
-| `invoice_number` | varchar(50) | NOT NULL, UQ | Formato configurable. Ej: `AELIUM-2026-0042`. **Generado con SEQUENCE atómica** (ADR-025). |
-| `type` | enum | NOT NULL | `full` · `simplified` (sin NIF del receptor) |
-| `status` | enum | NOT NULL, DEFAULT `'pending'` | `pending` · `paid` · `failed` · `cancelled` · `refunded` ([ADR-026](../10-decisions/adr-026-estados-factura.md)) |
+| `partner_id` | uuid | NULLABLE | FK lógica a `partners(id)` ([partner.md](./partner.md)) |
+| `partner_label` | varchar(200) | NULLABLE | "Aelium · Partner con Agencia X" |
+| `status` | enum `InvoiceStatus` | NOT NULL, DEFAULT `'draft'` | **`draft`** · `pending` · `paid` · `overdue` · `cancelled` · `refunded` ([ADR-026](../10-decisions/adr-026-estados-factura.md)). **No tiene `failed`** — el equivalente es `overdue` con `retry_count >= max_retries`. |
 | `subtotal` | decimal(10,2) | NOT NULL | Base imponible — sobre la que se calcula partner commission |
-| `tax_rate` | decimal(5,2) | NOT NULL, DEFAULT `21.00` | IVA ([ADR-027](../10-decisions/adr-027-iva-por-pais.md)) |
+| `tax_rate` | decimal(5,2) | NOT NULL, DEFAULT `21` | IVA ([ADR-027](../10-decisions/adr-027-iva-por-pais.md)) |
 | `tax_amount` | decimal(10,2) | NOT NULL | |
+| `discount_amount` | decimal(10,2) | NOT NULL, DEFAULT `0` | Descuento total aplicado |
 | `total` | decimal(10,2) | NOT NULL | |
 | `currency` | varchar(3) | NOT NULL, DEFAULT `'EUR'` | |
 | `due_date` | timestamptz | NOT NULL | |
 | `paid_at` | timestamptz | NULLABLE | |
-| `notes` | text | NULLABLE | Notas internas o para el cliente |
-| `pdf_url` | varchar(500) | NULLABLE | Generado async via job |
+| `payment_provider` | varchar(100) | NULLABLE | Plugin que cobró: `stripe`, `manual`, `redsys`, ... ([ADR-031](../10-decisions/adr-031-payment-providers.md)) |
+| `payment_method` | varchar(100) | NULLABLE | `card` · `sepa` · `transfer` · ... |
+| `payment_ref` | varchar(500) | NULLABLE | ID externo del provider de pago |
+| `retry_count` | integer | NOT NULL, DEFAULT `0` | Intentos de cobro fallidos |
+| `max_retries` | integer | NOT NULL, DEFAULT `3` | Configurable (default coincide con `billing.max_payment_retries`) |
+| `next_retry_at` | timestamptz | NULLABLE | Próximo intento programado |
 | `is_manual` | boolean | NOT NULL, DEFAULT `false` | Factura creada manualmente por admin |
-| `credit_applied` | decimal(10,2) | NOT NULL, DEFAULT `0` | Crédito de prorrateo o referidos aplicado |
-| `partner_id` | uuid | NULLABLE, FK → `partners(id)` | Cliente del partner ([partner.md](./partner.md)) |
-| `partner_label` | varchar(200) | NULLABLE | "Aelium · Partner con Agencia X" |
-| `project_id` | uuid | NULLABLE, FK → `projects(id)` | Para depósito o factura final ([projects.md](./projects.md)) |
-| `invoice_type` | enum | NOT NULL, DEFAULT `'standard'` | `standard` · `deposit` · `project_final` |
+| `notes` | text | NULLABLE | Notas internas o para el cliente |
+| `pdf_url` | varchar(1000) | NULLABLE | Generado async cuando se emite |
+| `metadata` | jsonb | NULLABLE | |
 | `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 | `updated_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 
-**Índices:**
-- `idx_invoices_user_id` — en `user_id`
-- `idx_invoices_status` — en `status`
-- `idx_invoices_due_date` — en `due_date` (cron de vencimientos)
-- `idx_invoices_number` — UNIQUE en `invoice_number`
+**Índices reales:**
+- `@@index([user_id])`
+- `@@index([billing_profile_id])`
+- `@@index([status])`
+- `@@index([due_date])` (cron de vencimientos)
+- `@@index([next_retry_at])` (cron `retryOverduePayments`)
+- `@@unique([invoice_number])`
+
+**Campos aspiracionales (NO existen en Prisma todavía):**
+
+| Campo aspiracional | Sprint planificado | Notas |
+|--------------------|--------------------|-------|
+| `type` (enum `full`/`simplified`) | — | Se infiere de `billing_profile.nif_cif IS NULL` (factura simplificada) o `IS NOT NULL` (completa). Si una auditoría fiscal exige columna explícita → añadir |
+| `credit_applied` (decimal — crédito aplicado de referidos/prorrateo) | 17/20 | Cuando exista `referral_credits.applied_to_invoice_id` y `billing_credits.applied_to_invoice_id` se puede computar; columna desnormalizada solo si se justifica |
+| `project_id` (FK a projects) | 22 ([ADR-046](../10-decisions/adr-046-sistema-proyectos.md)) | Para depósito y factura final de proyecto |
+| `invoice_type` (enum `standard`/`deposit`/`project_final`) | 22 | Diferenciar tipos de factura del flujo de proyectos |
 
 **Notas de decisión:**
 - Numeración secuencial por año mediante PostgreSQL SEQUENCE (`invoice_number_seq_<YEAR>`) — atómica, sin race conditions, sin saltos ([ADR-025](../10-decisions/adr-025-numeracion-secuencial-facturas.md)).
 - Las facturas se conservan **10 años** (obligación Hacienda España). No configurable.
 - Cron "preparar año siguiente" pendiente — ver [jobs-reference](../50-operations/jobs-reference.md).
-- **Eventos críticos sin Outbox (deuda R8):** `invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue` — ver [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md).
+- **Eventos críticos sin Outbox (deuda R8):** `invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue` — ver [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md). **El evento `invoice.failed` se emite cuando `retry_count >= max_retries`** (la fila sigue en `status='overdue'`).
 
 ---
 
-## Tabla: `invoice_items` ⬜
+## Tabla: `invoice_items` ✅
 
 Líneas de cada factura. Inmutables tras pasar el invoice a `pending` (BILL-INV-3).
 
+> **Fuente de verdad:** `backend/prisma/schema.prisma` modelo `InvoiceItem`.
+> **Nota histórica:** el documento legacy mencionaba `discount_amount` y `subtotal`. **El código real usa `discount_pct` (porcentaje) y `total`.**
+
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
-| `id` | uuid | PK | |
+| `id` | uuid | PK, DEFAULT `gen_random_uuid()` | |
 | `invoice_id` | uuid | NOT NULL, FK → `invoices(id)` ON DELETE CASCADE | |
-| `service_id` | uuid | NULLABLE, FK → `services(id)` | |
+| `service_id` | uuid | NULLABLE | FK lógica a `services(id)` |
+| `product_id` | uuid | NULLABLE | FK lógica a `products(id)` (snapshot del producto) |
 | `description` | varchar(500) | NOT NULL | |
 | `quantity` | integer | NOT NULL, DEFAULT `1` | |
 | `unit_price` | decimal(10,2) | NOT NULL | |
-| `discount_amount` | decimal(10,2) | NOT NULL, DEFAULT `0` | |
-| `subtotal` | decimal(10,2) | NOT NULL | `(quantity × unit_price) - discount_amount` |
-| `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
+| `setup_fee` | decimal(10,2) | NOT NULL, DEFAULT `0` | Tarifa de alta única |
+| `discount_pct` | decimal(5,2) | NULLABLE | **Porcentaje** de descuento (no importe) |
+| `total` | decimal(10,2) | NOT NULL | `(quantity × unit_price) + setup_fee` con `discount_pct` aplicado |
+| `period_start` | timestamptz | NULLABLE | Inicio del período facturado (suscripciones) |
+| `period_end` | timestamptz | NULLABLE | Fin del período facturado |
+
+**Índices reales:**
+- `@@index([invoice_id])`
 
 ---
 
