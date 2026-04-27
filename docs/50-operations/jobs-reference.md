@@ -3,9 +3,9 @@
 > **Catálogo canónico de TODOS los crons y jobs BullMQ.**
 > Si vas a programar trabajo asíncrono → consulta este archivo para no duplicar. Si vas a añadir uno nuevo → añádelo aquí en el mismo PR.
 
-> **Última auditoría:** 2026-04-27 — Sprint 9 Fase B (cierre P1.1 parcial).
-> **Crons in-process activos:** 7 (todos en `@nestjs/schedule`).
-> **Jobs BullMQ implementados:** **1 — `pdf-generation`** (Sprint 9 Fase B + [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md)). Resto pendiente Fases C/D del Sprint 9.
+> **Última auditoría:** 2026-04-27 — Sprint 9 Fase C (cierre P1.1 parcial).
+> **Crons in-process activos:** 7 (todos en `@nestjs/schedule`). El Outbox dispatcher abandonó `@Interval` en Fase C — ahora es BullMQ scheduled.
+> **Jobs BullMQ implementados:** **2 — `pdf-generation` (Fase B), `outbox-dispatch` (Fase C)** ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md)). Resto pendiente Fases D/F del Sprint 9.
 > **Crons aspiracionales:** 3 documentados en ADRs sin implementación todavía.
 
 ---
@@ -15,8 +15,9 @@
 | Métrica | Valor |
 |---------|-------|
 | Crons `@Cron` activos | 7 |
-| Jobs BullMQ activos | **1** (`pdf-generation` — Sprint 9 Fase B) |
+| Jobs BullMQ activos | **2** (`pdf-generation` Fase B, `outbox-dispatch` Fase C) |
 | DLQ implementada | ✅ ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) — `DlqService` + tabla `failed_jobs` + emit `dlq.job_failed`) |
+| Outbox dispatcher BullMQ scheduled | ✅ ([ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) — backoff exponencial 30s→480s + emit `outbox.event_failed` + leader election natural) |
 | Panel `/dashboard/admin/jobs/failed` | ❌ pendiente — Sprint 9 Fase F |
 | Crons que emiten eventos críticos sin Outbox | 4 (`detectOverdueInvoices`, `generatePendingInvoices`, `autoSuspendServices`, `autoCancelServices`) — **deuda R8** |
 
@@ -92,6 +93,22 @@ markAsPaid / sendToPending  →  pdfQueue.add('invoice-pdf', { invoice_id }, { j
 ```
 
 **Cierra deuda R2:** el fire-and-forget `setImmediate` introducido por Sprint 11.5 ya no existe — todo upload pasa por la cola.
+
+### Cola `outbox-dispatch` (Sprint 9 Fase C + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md))
+
+| Item | Valor |
+|------|-------|
+| Nombre | `outbox-dispatch` |
+| Job principal | `outbox-tick` (sin payload — repeat scheduled) |
+| Productor | `OutboxDispatchProcessor.onModuleInit()` registra `queue.upsertJobScheduler('outbox-tick', { every: 5000 })` (idempotente por id) |
+| Procesador | `OutboxDispatchProcessor.process()` → invoca `OutboxWorker.dispatch()` |
+| Sustituye | `@Interval(5s)` previo del `OutboxWorker` (P0.2) — eliminado en este sprint |
+| Backoff retry de eventos | Exponencial 30s→480s en columna `event_outbox.next_retry_at` (NO en BullMQ retries del tick) |
+| Emit al agotar retries | `outbox.event_failed` (cierra ADR-033 §7) |
+| DLQ | ✅ — `DlqService.register('outbox-dispatch')` |
+| Tests | unit `outbox.worker.spec.ts` (6/6 verde — backoff + emit + recovery), E2E `outbox-invoice.spec.ts` (4/4 verde — flujo end-to-end) |
+
+**Por qué leader election natural:** BullMQ usa Redis como source-of-truth del scheduler; con N instancias del backend, sólo una procesa cada job repeat (la que adquiere el lock atómico). En `@Interval`, las N instancias dispararían el cron paralelamente — el `FOR UPDATE SKIP LOCKED` previene corrupción pero compite por el lote. Con BullMQ se elimina la competencia.
 
 ### Defaults globales (`JobsModule` — [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md))
 

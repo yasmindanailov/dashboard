@@ -6,11 +6,11 @@
 >
 > Detectar drift entre código y este catálogo es responsabilidad de cualquier agente IA que toque el módulo afectado.
 
-> **Última auditoría:** abril 2026 (commits ~`8c4d893`). **Actualizado 2026-04-26 (P0.2):** los 4 `invoice.*` ya usan Outbox.
-> **Total eventos identificados:** 25.
+> **Última auditoría:** abril 2026 (commits ~`8c4d893`). **Actualizado 2026-04-26 (P0.2):** los 4 `invoice.*` ya usan Outbox. **Actualizado 2026-04-27 (Sprint 9 Fase C):** dispatcher migrado a BullMQ, backoff exponencial al reintentar, evento operativo `outbox.event_failed` añadido.
+> **Total eventos identificados:** 26 (25 de negocio + 1 operativo nuevo `outbox.event_failed`).
 > **Convenio de naming:** `<dominio>.<acción>` en pasado. Verificado 100% conforme.
-> **Bus:** `EventEmitter2` global (NestJS `@nestjs/event-emitter`) — los emisores críticos producen vía `OutboxService.enqueue(tx, ...)` y un `OutboxWorker` (cron `@Interval(5s)` con `FOR UPDATE SKIP LOCKED`) los despacha al bus.
-> **Outbox Pattern:** ✅ 4/25 eventos (`invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue`). Pendientes los 9 críticos restantes (`service.*`, `checkout.completed`, `partner.*` futuro) — ADR-033.
+> **Bus:** `EventEmitter2` global (NestJS `@nestjs/event-emitter`) — los emisores críticos producen vía `OutboxService.enqueue(tx, ...)` y el `OutboxWorker.dispatch()` (invocado por `OutboxDispatchProcessor`, cola BullMQ `outbox-dispatch` con `repeat: { every: 5000 }` + `FOR UPDATE SKIP LOCKED`) los despacha al bus. ADR-064 cierra el §7 de ADR-033.
+> **Outbox Pattern:** ✅ 4/25 eventos de negocio (`invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue`). Pendientes los 9 críticos restantes (`service.*`, `checkout.completed`, `partner.*` futuro) — ADR-033.
 
 ---
 
@@ -35,6 +35,17 @@ No es necesariamente bug. Pueden ser:
 3. **Código realmente muerto** — emisión que nadie nunca tendrá interés en escuchar (revisar y borrar).
 
 Se ha clasificado cada evento huérfano abajo en la columna "Estado".
+
+---
+
+## Eventos operativos (cross-cutting)
+
+Eventos sin dominio de negocio — emitidos por la infraestructura para alertas / monitoring.
+
+| Evento | Emisor | Consumidores | Payload | Outbox | Estado |
+|--------|--------|--------------|---------|--------|--------|
+| `outbox.event_failed` | `OutboxWorker.processEvent()` cuando `retry_count >= max_retries` | _(huérfano hasta Sprint 9 Fase D — `notifications-outbox.listener` consumirá para alertar superadmin)_ | `{ event_outbox_id, event_type, last_error, retry_count }` | no (es alerta operativa, no transacción) | ✅ emisor activo desde Sprint 9 Fase C (ADR-064) |
+| `dlq.job_failed` | `DlqService.handleFailed()` cuando un job BullMQ agota `attempts` | _(huérfano hasta Fase D — `notifications-dlq.listener` consumirá)_ | `{ failed_job_id, queue, name, last_error, attempts_made }` | no | ✅ emisor activo desde Sprint 9 Fase A (ADR-063) |
 
 ---
 

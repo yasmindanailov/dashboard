@@ -337,13 +337,15 @@ model NotificationTemplate {
 
 | # | Paso | Estado |
 |---|------|--------|
-| 9.C.1 | ADR-064 — Outbox dispatcher migrado a BullMQ scheduled job (sustituye `@Interval`, prepara escalado horizontal cumpliendo ADR-056 §13.30+) | ⬜ |
-| 9.C.2 | `BullModule.registerQueue('outbox-dispatch')` en `OutboxModule` | ⬜ |
-| 9.C.3 | `OutboxDispatchProcessor` que invoca `OutboxWorker.dispatch()` actual (la lógica `claimBatch` + `processEvent` se mantiene 1:1) | ⬜ |
-| 9.C.4 | Eliminar `@Interval(5000)` del `OutboxWorker`; añadir `OnModuleInit` que registra `repeat: { every: 5000 }` en la cola | ⬜ |
-| 9.C.5 | Backoff exponencial al reintentar evento failed (no inmediato como hoy): `retry_delay_ms = 30000 * 2^retry_count` con cap a 480s | ⬜ |
-| 9.C.6 | Cuando `retry_count >= max_retries` → emit `outbox.event_failed` (cierra ADR-033 §7) | ⬜ |
-| 9.C.7 | Test E2E ampliando `tests/e2e/outbox-invoice.spec.ts` — simular listener que falla siempre → verificar que llega a `failed` + emite `outbox.event_failed` | ⬜ |
+| 9.C.1 | ADR-064 — Outbox dispatcher migrado a BullMQ scheduled job (sustituye `@Interval`, prepara escalado horizontal cumpliendo ADR-056 §13.30+) | ✅ |
+| 9.C.2 | `BullModule.registerQueue('outbox-dispatch')` en `OutboxModule` | ✅ |
+| 9.C.3 | `OutboxDispatchProcessor` invoca `OutboxWorker.dispatch()` (la lógica `claimBatch` + `processEvent` se mantiene; sólo cambia quién la dispara). Registra cola en `DlqService` + `RetryService` en `OnModuleInit` | ✅ |
+| 9.C.4 | `@Interval(5000)` eliminado del `OutboxWorker`. El processor registra `queue.upsertJobScheduler('outbox-tick', { every: 5000 })` en `OnModuleInit` (idempotente por id) | ✅ |
+| 9.C.5 | Backoff exponencial al reintentar evento failed: `next_retry_at = now() + 30000 * 2^retry_count` capado a 480s. Persistido en columna nueva `event_outbox.next_retry_at` (migración Prisma `20260427051749_sprint9_phase_c_outbox_next_retry`). `claimBatch` filtra elegibilidad: `WHERE status='pending' AND (next_retry_at IS NULL OR next_retry_at <= now())` | ✅ |
+| 9.C.6 | Cuando `retry_count + 1 >= max_retries` → status `failed` + emit `outbox.event_failed` (cierra ADR-033 §7). Consumidor llegará en Fase D (notifications-outbox.listener); por ahora el evento queda huérfano y el row persiste como `failed` para revisión manual | ✅ |
+| 9.C.7 | Tests unit `outbox.worker.spec.ts` (6/6 verdes — listener OK, backoff +30s/+120s, cap +480s, emit `outbox.event_failed`, recovery `processing`→`pending`) + E2E `outbox-invoice.spec.ts` (4/4 verdes con la nueva infraestructura) + suite full E2E **20/20 verde en 1.1min** | ✅ |
+
+**Cierre Fase C:** typecheck ✅ · lint ✅ · build ✅ · unit 11/11 (RetryService + OutboxWorker) ✅ · E2E suite 20/20 ✅ · boot real verifica `OutboxDispatchProcessor` registra scheduler y `DlqService` registra cola. **ADR-033 §7 cerrado al 100%** (alerta operativa al agotar retries) y **ADR-056 §13.30+ desbloqueado** (leader election natural — Sprint 14 puede escalar a N instancias sin coordinación adicional).
 
 #### Fase D — Notifications full (cierra ADR-042)
 
