@@ -88,6 +88,11 @@ async function main() {
     { category: 'jobs', key: 'dlq_alert_to_superadmin', value: 'true', description: 'Emitir notificación al superadmin cuando un job entra en DLQ (R7+R13)' },
     // Audit settings (Sprint 9 Fase E + ADR-017)
     { category: 'audit', key: 'access_retention_days', value: '730', description: 'Días de retención de audit_access_log (mínimo legal AEPD: 2 años)' },
+    // Notifications settings (Sprint 9.5 + ADR-042)
+    { category: 'notifications', key: 'retention_days', value: '90', description: 'Días que se conservan notificaciones leídas antes de borrado por cron nightly' },
+    { category: 'notifications', key: 'unread_max_in_dropdown', value: '50', description: 'Tamaño máximo del dropdown de la campana en el Topbar' },
+    { category: 'notifications', key: 'email_enabled_globally', value: 'true', description: 'Kill switch global de envíos email — off en CI/staging para no spamear' },
+    { category: 'notifications', key: 'maintenance_critical_threshold_days', value: '7', description: 'Días antes de fin de mes para alertar tarea crítica de mantenimiento (Sprint 8 Fase C)' },
   ];
 
   for (const s of settings) {

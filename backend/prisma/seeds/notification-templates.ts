@@ -341,6 +341,56 @@ last_error: {{last_error}}</pre>
         attempts_made: 'number',
       },
     },
+
+    // ───────────── system.error (campana superadmin — Sprint 9.5) ─────────────
+    {
+      event_type: 'system.error',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: '⚠ Error operativo: {{module}}',
+      body: '[{{level}}] {{module}} — {{message}}',
+      variables: {
+        error_log_id: 'string',
+        level: 'string',
+        module: 'string',
+        message: 'string',
+        correlation_id: 'string?',
+      },
+    },
+
+    // ───────────── system.error (email superadmin — Sprint 9.5) ─────────────
+    //
+    // Cierra ADR-055 §Monitoring. La emisión la hace ErrorLogService.log() y la
+    // consume notifications-system-error.listener (Sprint 9.5 Fase F.10).
+    {
+      event_type: 'system.error',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: '⚠ Aelium — Error operativo en {{module}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 20px;">⚠ Error operativo</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">{{module}} · {{level}}</p>
+          </div>
+          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
+            <p style="color: #374151; font-size: 14px;">{{message}}</p>
+            <pre style="background: #f9fafb; border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto;">error_log_id: {{error_log_id}}
+module: {{module}}
+level: {{level}}{{#if correlation_id}}
+correlation_id: {{correlation_id}}{{/if}}</pre>
+            <p style="color: #6b7280; font-size: 12px;">Revisa el detalle completo (incluyendo stack trace si aplica) en el panel <code>/admin/error-log</code> y márcalo como resuelto cuando proceda.</p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        error_log_id: 'string',
+        level: 'string',
+        module: 'string',
+        message: 'string',
+        correlation_id: 'string?',
+      },
+    },
   ];
 
   for (const tpl of templates) {

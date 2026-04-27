@@ -3,10 +3,10 @@
 > **Catálogo canónico de TODOS los crons y jobs BullMQ.**
 > Si vas a programar trabajo asíncrono → consulta este archivo para no duplicar. Si vas a añadir uno nuevo → añádelo aquí en el mismo PR.
 
-> **Última auditoría:** 2026-04-27 — Sprint 9 Fase E (cierre completo P1.1).
-> **Crons in-process activos:** 8 (`@nestjs/schedule`). El Outbox dispatcher abandonó `@Interval` en Fase C — ahora es BullMQ scheduled. Fase E añade `cleanupOldAuditLogs` (única DELETE permitida sobre audit).
+> **Última auditoría:** 2026-04-28 — cierre Sprint 9.5 (cron `cleanupReadNotifications` activo + Monitoring §F.10 cerrado).
+> **Crons in-process activos:** 9 (`@nestjs/schedule`). El Outbox dispatcher abandonó `@Interval` en Fase C — ahora es BullMQ scheduled. Fase E añade `cleanupOldAuditLogs`. Sprint 9.5 añade `cleanupReadNotifications` (única DELETE permitida sobre `notifications` canal `internal`).
 > **Jobs BullMQ implementados:** **3 — `pdf-generation` (Fase B), `outbox-dispatch` (Fase C), `notifications-dispatch` (Fase D)** ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) + [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md)).
-> **Crons aspiracionales:** 2 documentados en ADRs sin implementación todavía (la retención RGPD audit ya está activa Fase E; queda retención notifications + numeración year+1).
+> **Crons aspiracionales:** 1 documentado en ADRs sin implementación todavía (numeración year+1).
 
 ---
 
@@ -14,12 +14,13 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Crons `@Cron` activos | 7 |
+| Crons `@Cron` activos | 9 (8 billing/support/audit + 1 notifications retention Sprint 9.5) |
 | Jobs BullMQ activos | **3** (`pdf-generation` Fase B, `outbox-dispatch` Fase C, `notifications-dispatch` Fase D) |
 | DLQ implementada | ✅ ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) — `DlqService` + tabla `failed_jobs` + emit `dlq.job_failed`) |
 | Outbox dispatcher BullMQ scheduled | ✅ ([ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) — backoff exponencial 30s→480s + emit `outbox.event_failed` + leader election natural) |
 | Notifications full multicanal | ✅ ([ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md) — plantillas editables + Email + InApp + alertas operativas a superadmins) |
-| Panel `/dashboard/admin/jobs/failed` | ❌ pendiente — Sprint 9 Fase F |
+| Panel `/admin/jobs/failed` | ✅ Sprint 9 Fase F (lista DLQ + acción "Reintentar" via `RetryService`) |
+| Listener `system.error` → superadmin | ✅ Sprint 9.5 (`NotificationsSystemErrorListener` con guard anti-loop hard) |
 | Crons que emiten eventos críticos sin Outbox | 4 (`detectOverdueInvoices`, `generatePendingInvoices`, `autoSuspendServices`, `autoCancelServices`) — **deuda R8** |
 
 **⚠️ Bloqueo arquitectónico para escalar horizontalmente:** todos los crons corren in-process. Si se añade una segunda instancia del backend, **cada cron se ejecuta dos veces** = facturas duplicadas, suspensiones duplicadas, etc. Antes de escalar, **migrar a BullMQ scheduled jobs** (con leader election natural — un solo worker procesa cada job repeat). Ver ADR-056 §13.30+.
@@ -69,6 +70,12 @@ Día N:  generatePendingInvoices (02:00)  →  factura nueva 'pending'
 | Cron | Schedule | Módulo | Qué hace | Eventos | Estado |
 |------|----------|--------|----------|---------|--------|
 | `cleanupOldAuditLogs` | `EVERY_DAY_AT_3AM` (03:00 UTC) | audit | `DELETE FROM audit_access_log WHERE created_at < now() - audit.access_retention_days` (default 730). **Única operación DELETE permitida sobre tablas audit** ([R3 §Excepción única](../00-foundations/rules.md#r3--el-audit-log-es-inmutable) + [ADR-017 §Retención](../10-decisions/adr-017-audit-log-inmutable.md)) | — | ✅ |
+
+### 📨 Notifications retention (1 cron — Sprint 9.5)
+
+| Cron | Schedule | Módulo | Qué hace | Eventos | Estado |
+|------|----------|--------|----------|---------|--------|
+| `cleanupReadNotifications` | `EVERY_DAY_AT_2AM` (02:00 UTC) | notifications | `DELETE FROM notifications WHERE channel='internal' AND read_at IS NOT NULL AND read_at < now() - notifications.retention_days` (default 90). **Sólo canal `internal`** — los externos (`email`/`whatsapp`/`push`) se conservan como prueba de envío hasta sprint que defina su política (Sprint 12.5 Portal RGPD). Las no leídas se conservan indefinidamente — es responsabilidad del usuario marcarlas | — | ✅ ([ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) + [ADR-060](../10-decisions/adr-060-decisiones-pre-schema.md)) |
 
 ---
 
@@ -162,7 +169,7 @@ markAsPaid / sendToPending  →  pdfQueue.add('invoice-pdf', { invoice_id }, { j
 | **Retención RGPD** | [ADR-010](../10-decisions/adr-010-rgpd-retencion-datos.md) | Diario: anonimizar conversaciones cerradas >2 años, borrar `audit_*_log` >2 años | Sprint dedicado RGPD (sin asignar) — **deuda crítica legal** |
 | **Preparación numeración año siguiente** | [ADR-025](../10-decisions/adr-025-numeracion-secuencial-facturas.md) | Fin de noviembre: `CREATE SEQUENCE invoice_number_seq_<YEAR+1>` | Sprint billing futuro — necesario para RD 1619/2012 |
 | **Expurgo housekeeping** | [ADR-030](../10-decisions/adr-030-periodo-gracia-reintentos.md) | Limpiar datos de servicios completamente cancelados tras `billing.data_retention_after_suspension_days` | Sprint dedicado |
-| **Borrado de notificaciones leídas** | [ADR-060](../10-decisions/adr-060-decisiones-pre-schema.md), [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) | Diario: `DELETE FROM notifications WHERE status='read' AND read_at < now() - interval N days` (configurable `notifications.retention_days`) | Sprint 11 (notifications) |
+<!-- Borrado de notificaciones leídas — implementado Sprint 9.5 (cron `cleanupReadNotifications`). Ver §"Notifications retention" arriba. -->
 | **Cron mensual de comisiones partner** | [ADR-051](../10-decisions/adr-051-partner-comisiones-liquidaciones.md) | 1 del mes a las 03:00 UTC: agrupar `partner_commissions` accrued del mes pasado, generar `partner_payouts`, transferir SEPA / Stripe Connect | Fase 2 partner — **debe usar BullMQ + Outbox** |
 | **Cron mensual de créditos referidos** | [ADR-054](../10-decisions/adr-054-sistema-referidos-clientes.md) | 1 del mes a las 04:00 UTC: por cada referral activo con servicios, generar `referral_credit` accrued | Sprint dedicado tras Fase 2 |
 | **Cron expiración de créditos referidos** | [ADR-054](../10-decisions/adr-054-sistema-referidos-clientes.md) | Diario: marcar como `expired` los `referral_credits` con `accrued_at + credit_expiry_months < now()` | Sprint dedicado |
@@ -187,15 +194,15 @@ markAsPaid / sendToPending  →  pdfQueue.add('invoice-pdf', { invoice_id }, { j
 
 ---
 
-## Monitoring de jobs (planificado)
+## Monitoring de jobs
 
-[ADR-055](../10-decisions/adr-055-resiliencia-circuit-breaker.md) describe pero NO está implementado:
+[ADR-055](../10-decisions/adr-055-resiliencia-circuit-breaker.md) §Monitoring cerrado tras Sprint 9 + 9.5:
 
-- **Panel `/dashboard/admin/jobs/failed`** — listar jobs failed en Redis, ver detalles, **reintentar manualmente**.
-- **Notificación `system.error`** al superadmin cuando un job entra en DLQ.
-- **Métricas Prometheus** sobre cola: tamaño, jobs procesados/seg, ratio failures.
-
-Bloqueado hasta que existan jobs BullMQ.
+- ✅ **Panel `/admin/jobs/failed`** (Sprint 9 Fase F) — lista DLQ paginada + filtros + acción "Reintentar" (vía `RetryService` que reencola con `attempts=5` reseteado y guarda `retried_at`/`retried_by`).
+- ✅ **Panel `/admin/error-log`** (Sprint 9 Fase F) — lista paginada + filtros (level, module, resolved) + acción "Marcar resuelto".
+- ✅ **Alerta `dlq.job_failed`** al superadmin (Sprint 9 Fase D — `notifications-dlq.listener`).
+- ✅ **Alerta `system.error`** al superadmin (Sprint 9.5 — `notifications-system-error.listener` con guard anti-loop hard).
+- ❌ **Métricas Prometheus** sobre colas: pendiente Sprint 14 Deploy real (Grafana/Prometheus/Loki stack).
 
 ---
 

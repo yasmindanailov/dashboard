@@ -122,23 +122,25 @@ Ninguno. Billing emite, no escucha (pulsa el reloj del sistema vía crons + acci
 Ninguno cross-módulo. Sub-services internos (R15):
 
 - `BillingService` (fachada)
-- `BillingInvoiceService` — CRUD de facturas + transiciones de estado. Inyecta `InvoicePdfStorageService` para hooks fire-and-forget de upload tras `markAsPaid` y `sendToPending`.
+- `BillingInvoiceService` — CRUD de facturas + transiciones de estado. Tras `markAsPaid` y `sendToPending` encola `pdfQueue.add('invoice-pdf', { invoice_id }, { jobId: 'invoice-pdf-{invoice_id}' })` (cola BullMQ `pdf-generation` — Sprint 9 Fase B + ADR-063). El `jobId` estable garantiza idempotencia natural.
 - `BillingCheckoutService` — crea Service + Invoice desde producto
 - `BillingCalculatorService` — IVA, descuentos, prorrateo
 - `SubscriptionService` — pausa/reanuda, cambia plan
 - `InvoicePdfService` — render puro del PDF (PDFKit). Devuelve Buffer.
 - `InvoicePdfStorageService` (Sprint 11.5 + [ADR-062](../../10-decisions/adr-062-storage-canonico-minio.md)) — puente entre `InvoicePdfService` y `StorageService`. Métodos:
-  - `generateAndUpload(invoiceId)` — render + upload a bucket + actualiza `Invoice.pdf_url` con la S3 key.
-  - `generateAndUploadInBackground(invoiceId)` — fire-and-forget; si MinIO está caído log + sigue.
-  - `getSignedDownloadUrl(invoiceId)` — devuelve signed URL con TTL (`storage.signed_url_expiry_minutes`). Si `pdf_url` es null, hace fallback de generación on-demand.
+  - `generateAndUpload(invoiceId)` — render + upload a bucket + actualiza `Invoice.pdf_url` con la S3 key. Llamado desde `PdfGenerationProcessor` (cola `pdf-generation`).
+  - `getSignedDownloadUrl(invoiceId)` — devuelve signed URL con TTL (`storage.signed_url_expiry_minutes`). Si `pdf_url` es null, hace fallback de generación on-demand (camino síncrono — semántica idéntica al `pdf_url=NULL` previo).
+  - ~~`generateAndUploadInBackground(invoiceId)`~~ **eliminado en Sprint 9 Fase B** (era `setImmediate` fire-and-forget; reemplazado por cola BullMQ con DLQ + retries — cierra deuda R2 de Sprint 11.5).
 
 Cross-módulo (core):
 - `StorageService` (`core/storage`) — abstracción S3-compatible canónica. Inyectado por `InvoicePdfStorageService`.
-- `OutboxService` (`core/outbox`) — usado por `BillingInvoiceService` para los 4 `invoice.*` (R8).
+- `OutboxService` (`core/outbox`) — usado por `BillingInvoiceService` para los 4 `invoice.*` (R8). Despachado por `OutboxDispatchProcessor` (cola BullMQ `outbox-dispatch`).
+- `JobsModule` (`core/jobs`) — cola `pdf-generation` con `PdfGenerationProcessor` (Sprint 9 Fase B + ADR-063). DLQ persistente en `failed_jobs` + alerta `dlq.job_failed`.
+- `NotificationsService` (`modules/notifications`) — `BillingEmailListener` delega los 4 `invoice.*` a `dispatchToUser` (Sprint 9 Fase D + D12).
 - `BillingLifecycleWorker` — crons de invoice generation + retry
 - `ServiceLifecycleWorker` — crons de suspension + cancellation
 
-Listener: `BillingEmailListener` (consume eventos del propio módulo, técnicamente intra).
+Listener: `BillingEmailListener` (consume eventos del propio módulo, técnicamente intra). Tras Sprint 9 Fase D delega a `NotificationsService.dispatchToUser` — la plantilla y el envío SMTP los ejecuta el processor de `notifications-dispatch`.
 
 ---
 

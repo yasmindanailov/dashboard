@@ -3,8 +3,8 @@
 > **Catálogo canónico de TODOS los settings configurables.**
 > Si vas a leer un setting → consulta este archivo para usar la `key` exacta. Si vas a añadir un setting → añádelo aquí en el mismo PR.
 
-> **Última auditoría:** 2026-04-26 — F5 (auditoría completa de `backend/src/`, `backend/prisma/seed.ts`, ADRs).
-> **Settings totales:** 21 implementados (seeded) + 5 documentados pendientes de implementar.
+> **Última auditoría:** 2026-04-28 — cierre Sprint 9.5 (4 settings `notifications.*` activos + cron `cleanupReadNotifications` consumidor real).
+> **Settings totales:** 31 implementados (seeded) + 5 documentados pendientes de implementar.
 > **Tabla:** `Setting` con clave compuesta `(category, key)`. Valor `Json` flexible. Cache Redis 1min con invalidación en escritura ([ADR-044](../10-decisions/adr-044-settings-extensos.md)).
 
 ---
@@ -13,11 +13,11 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Settings seedados | 23 (incluye 2 storage.* desde Sprint 11.5) |
-| Settings consumidos activamente | 13 (57%) |
-| Settings huérfanos (feature futura) | 6 (26%) |
+| Settings seedados | 31 (Sprint 11.5: 2 storage.*; Sprint 9 Fase A: 3 jobs.*; Sprint 9 Fase E: 1 audit.*; Sprint 9.5: 4 notifications.*) |
+| Settings consumidos activamente | 21 (68%) |
+| Settings huérfanos (feature futura) | 6 (19%) |
 | Settings documentados sin seed | 5 (encriptación pendiente, partner, IA, etc.) |
-| Secciones | 7 (auth, billing, general, support, referrals, support_inside, storage) |
+| Secciones | 10 (auth, billing, general, support, referrals, partner, notifications, infra, storage, jobs, audit, ai) |
 
 **Indicadores:**
 - ✅ Setting implementado y consumido
@@ -103,7 +103,7 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 | `support.guest_session_ttl_days` | number | 30 | ✅ | `support-cleanup.worker.ts:42` | [ADR-037](../10-decisions/adr-037-arquitectura-dual-chat-tickets.md) · contract.md (sin seed explícito) |
 | `support.auto_close_days` | number | 7 | 🟡 | (feature futura — auto-cerrar conversaciones inactivas) | seed.ts:65 |
 | `support.ai_filter_enabled` | boolean | true | 🟡 | (feature futura — [ADR-057](../10-decisions/adr-057-agentes-ia.md) Sprint 15) | seed.ts:66 |
-| `support.maintenance_critical_threshold_days` | number | (sin seed) | ❌ | (pendiente — alerta X días antes de fin de mes para tareas críticas) | [ADR-034](../10-decisions/adr-034-support-inside-modelo.md) · [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) |
+<!-- `support.maintenance_critical_threshold_days` reasignado a `notifications.maintenance_critical_threshold_days` desde Sprint 9.5 — ver §notifications.* abajo. La feature consumidora (cron alerta mantenimiento crítico) llega con Sprint 8 Fase C. -->
 
 ### 🤝 referrals.* (sistema de referidos clientes normales)
 
@@ -124,17 +124,17 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 
 ### 📨 notifications.* (centro y plantillas)
 
-> **Estado tras Sprint 9 Fase D MVP (2026-04-27 + ADR-065):**
-> - Las plantillas vivem ahora en tabla Postgres `notification_templates` (no settings) — seedeadas en `prisma/seeds/notification-templates.ts` con 11 plantillas iniciales (`invoice.*`, `task.assigned`, `outbox.event_failed`, `dlq.job_failed`).
-> - Toggle por evento × canal se expresa con `notification_templates.active = false` por fila (granularidad fina), reemplazando la setting genérica anterior.
-> - Las 4 settings declaradas abajo se difieren a **Sprint 9.5** (UX admin) junto con los endpoints `/notifications/unread`, `NotificationBell` Topbar y cron `cleanupReadNotifications`. No bloquean Sprint 14 Deploy — el seed inicial cubre producción.
+> **Estado tras Sprint 9 Fase D MVP + Sprint 9.5 (2026-04-28 + ADR-042 + ADR-065):**
+> - Las plantillas viven en tabla Postgres `notification_templates` (no settings) — seedeadas en `prisma/seeds/notification-templates.ts` con 13 plantillas (`invoice.*`, `task.assigned`, `outbox.event_failed`, `dlq.job_failed`, `system.error` × email + internal). Editables desde `/admin/notifications/templates` con preview en línea.
+> - Toggle por evento × canal se expresa con `notification_templates.active = false` por fila (granularidad fina).
+> - Las 4 settings de abajo están seedeadas y consumidas activamente desde Sprint 9.5.
 
 | Key | Tipo | Default | Estado | Consumidor | Origen |
 |-----|------|---------|--------|------------|--------|
-| `notifications.retention_days` | number | 90 | ❌ diferido Sprint 9.5 | Cron `cleanupReadNotifications` (`EVERY_DAY_AT_2AM`) — pendiente | [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) · [ADR-060](../10-decisions/adr-060-decisiones-pre-schema.md) |
-| `notifications.unread_max_in_dropdown` | number | 50 | ❌ diferido Sprint 9.5 | `NotificationBell` Topbar — pendiente | ADR-042 |
-| `notifications.email_enabled_globally` | boolean | true | ❌ diferido Sprint 9.5 | `EmailChannel.isAvailableFor()` — kill switch global por entorno | ADR-065 |
-| `notifications.maintenance_critical_threshold_days` | number | 7 | ❌ diferido (Sprint 8 Fase C) | Cron alerta mantenimiento crítico — pendiente | ADR-042 + ADR-041 |
+| `notifications.retention_days` | number | 90 | ✅ | `notifications-retention.cron.ts` (`cleanupReadNotifications` `EVERY_DAY_AT_2AM` UTC) — borra `internal` con `read_at < now() - N days` | [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) · [ADR-060](../10-decisions/adr-060-decisiones-pre-schema.md) · seed.ts |
+| `notifications.unread_max_in_dropdown` | number | 50 | ✅ | `NotificationsService.findUnreadForUser()` — limita el `take` del dropdown del Topbar | ADR-042 · seed.ts |
+| `notifications.email_enabled_globally` | boolean | true | 🟡 seedeado | (kill switch global futuro de `EmailChannel.isAvailableFor()` — hoy seedeado pero no leído por el canal; uso pendiente para entornos CI/staging sin spam SMTP) | ADR-065 · seed.ts |
+| `notifications.maintenance_critical_threshold_days` | number | 7 | 🟡 seedeado | (consumidor real llegará con Sprint 8 Fase C — cron alerta mantenimiento crítico) | ADR-042 + ADR-041 · seed.ts |
 
 ### 🛠️ infra.* (infraestructura)
 
