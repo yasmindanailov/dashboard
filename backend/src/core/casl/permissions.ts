@@ -199,7 +199,12 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     { action: Action.Manage, subject: Subject.Task },
     { action: Action.Manage, subject: Subject.Maintenance },
     { action: [Action.Read, Action.List], subject: Subject.Service },
-    { action: [Action.Read, Action.List], subject: Subject.Notification },
+    // Sus PROPIAS notificaciones — patrón coherente con client + partner
+    // (Sprint 9.5 + ADR-042). Ownership la enforza el controller server-side.
+    {
+      action: [Action.Read, Action.List, Action.Update],
+      subject: Subject.Notification,
+    },
   ],
 
   /* ═══════════════════════════════════════
@@ -218,7 +223,12 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     { action: Action.Manage, subject: Subject.Maintenance },
     { action: [Action.Read, Action.List], subject: Subject.Service },
     { action: [Action.Read, Action.List], subject: Subject.KnowledgeBase },
-    { action: [Action.Read, Action.List], subject: Subject.Notification },
+    // Sus PROPIAS notificaciones — patrón coherente con client + partner
+    // (Sprint 9.5 + ADR-042). Ownership la enforza el controller server-side.
+    {
+      action: [Action.Read, Action.List, Action.Update],
+      subject: Subject.Notification,
+    },
   ],
 
   /* ═══════════════════════════════════════
