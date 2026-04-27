@@ -459,3 +459,94 @@ export const dashboardApi = {
   getOverview: (token: string) =>
     api<OverviewStats>('/dashboard/overview', { token }),
 };
+
+// ── Admin / Error Log (Sprint 9 Fase F) ──
+
+export interface ErrorLogItem {
+  id: string;
+  level: string;
+  module: string;
+  message: string;
+  correlation_id: string | null;
+  user_id: string | null;
+  request_path: string | null;
+  created_at: string;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface ErrorLogListResponse {
+  data: ErrorLogItem[];
+  meta: { total: number; page: number; limit: number; totalPages: number };
+}
+
+export const errorLogApi = {
+  list: (
+    token: string,
+    params?: {
+      level?: string;
+      module?: string;
+      resolved?: boolean;
+      page?: number;
+      limit?: number;
+    },
+  ) => {
+    const query = new URLSearchParams();
+    if (params?.level) query.set('level', params.level);
+    if (params?.module) query.set('module', params.module);
+    if (params?.resolved !== undefined)
+      query.set('resolved', String(params.resolved));
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    const qs = query.toString();
+    return api<ErrorLogListResponse>(`/admin/error-log${qs ? `?${qs}` : ''}`, {
+      token,
+    });
+  },
+  resolve: (token: string, id: string) =>
+    api<{ resolved: true }>(`/admin/error-log/${id}/resolve`, {
+      method: 'PATCH',
+      token,
+    }),
+};
+
+// ── Admin / Jobs (Sprint 9 Fase F) ──
+
+export interface FailedJobItem {
+  id: string;
+  bull_job_id: string;
+  queue: string;
+  name: string;
+  last_error: string;
+  attempts_made: number;
+  status: 'failed' | 'retrying' | 'resolved';
+  retried_at: string | null;
+  retried_by: string | null;
+  created_at: string;
+}
+
+export interface FailedJobsListResponse {
+  data: FailedJobItem[];
+  meta: { total: number; page: number; limit: number; totalPages: number };
+}
+
+export const jobsApi = {
+  listFailed: (
+    token: string,
+    params?: { queue?: string; status?: string; page?: number; limit?: number },
+  ) => {
+    const query = new URLSearchParams();
+    if (params?.queue) query.set('queue', params.queue);
+    if (params?.status) query.set('status', params.status);
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    const qs = query.toString();
+    return api<FailedJobsListResponse>(`/admin/jobs/failed${qs ? `?${qs}` : ''}`, {
+      token,
+    });
+  },
+  retry: (token: string, id: string) =>
+    api<{ retried: true }>(`/admin/jobs/${id}/retry`, {
+      method: 'POST',
+      token,
+    }),
+};

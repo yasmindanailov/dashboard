@@ -1,8 +1,10 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
+import { AuthModule } from '../../modules/auth/auth.module';
 import { DlqService } from './dlq.service';
 import { RetryService } from './retry.service';
+import { JobsController } from './jobs.controller';
 
 /**
  * JobsModule — infra canónica BullMQ (R2 + R13 + ADR-063).
@@ -35,7 +37,9 @@ import { RetryService } from './retry.service';
       },
       inject: [ConfigService],
     }),
+    AuthModule,
   ],
+  controllers: [JobsController],
   providers: [DlqService, RetryService],
   exports: [BullModule, DlqService, RetryService],
 })

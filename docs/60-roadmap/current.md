@@ -393,15 +393,19 @@ model NotificationTemplate {
 
 | # | Paso | Estado |
 |---|------|--------|
-| 9.F.1 | Schema Prisma: tabla `error_log` + migración | ⬜ |
-| 9.F.2 | `ErrorLogService.log(error, context)` — persiste + emite `system.error` | ⬜ |
-| 9.F.3 | NestJS `AllExceptionsFilter` global — captura excepciones unhandled → `ErrorLogService.log(...)` (preserva comportamiento R14 al frontend) | ⬜ |
-| 9.F.4 | Endpoint `/admin/error-log` (GET con paginación, PATCH `:id/resolve`) + CASL | ⬜ |
-| 9.F.5 | Endpoint `/admin/jobs/failed` (GET) + `/admin/jobs/:id/retry` (POST) — reintenta vía `RetryService` | ⬜ |
-| 9.F.6 | Frontend admin: `/dashboard/admin/error-log` — tabla DS + filtro por severity/source/resolved | ⬜ |
-| 9.F.7 | Frontend admin: `/dashboard/admin/jobs/failed` — tabla DS + botón "Reintentar" (D2 Button) + Modal confirmación (D6) | ⬜ |
-| 9.F.8 | Listeners: `notifications-error.listener` consume `system.error` → notifica superadmin (campana + email — usa `NotificationsService` Fase D); `notifications-outbox.listener` consume `outbox.event_failed`; `notifications-dlq.listener` consume `dlq.job_failed` | ⬜ |
-| 9.F.9 | Test E2E `tests/e2e/error-log-jobs.spec.ts` — forzar excepción → admin la ve en `/admin/error-log` y `system.error` llega al superadmin | ⬜ |
+| 9.F.1 | Schema Prisma `error_log` + `failed_jobs` ya existen (Fase A introdujo failed_jobs; error_log existía) | ✅ |
+| 9.F.2 | `ErrorLogService.log(entry)` — persiste fila + emite `system.error` para alerta superadmin (R7). Tres puertas de entrada: `GlobalExceptionFilter` (5xx HTTP, ya existente), `log()` explícito desde jobs/listeners, endpoints admin de consulta | ✅ |
+| 9.F.3 | El `GlobalExceptionFilter` actual ya escribe 5xx a `error_log`. NO se duplica. La instrumentación de jobs/listeners se hará oportunamente cuando capturen errores | ✅ |
+| 9.F.4 | Endpoints `GET /api/v1/admin/error-log` + `PATCH /:id/resolve` con doble guard (`JwtAuthGuard` + `AdminOnlyGuard`). Filtros: level/module/resolved + paginación cursor | ✅ |
+| 9.F.5 | Endpoints `GET /api/v1/admin/jobs/failed` + `POST /:id/retry` — el reintento llama a `RetryService` que reencola con `attempts=5` reseteado y guarda audit (`retried_at` + `retried_by`) | ✅ |
+| 9.F.6 | **`AdminOnlyGuard` global** (`backend/src/core/common/guards/admin-only.guard.ts`) aplicado a todos los controllers staff. Defense in depth: rechaza con 403 antes de CASL si rol no en `STAFF_ROLES` | ✅ |
+| 9.F.7 | Frontend: árbol paralelo `/admin/*` (NO `/dashboard/admin/*` — DC.7 ADR de routing). Layout staff propio (`app/admin/layout.tsx`) con `AdminSidebar` dedicado + página landing `/admin` + `/admin/error-log` + `/admin/jobs/failed` (tablas + filtros + acciones). Auth client-side: si no es staff → redirect a `/dashboard` | ✅ |
+| 9.F.8 | Login redirect post-2FA por rol: helper `landingForRole()` en `app/page.tsx` — staff (`superadmin`/`agent_*`) → `/admin`, resto → `/dashboard`. Helper E2E actualizado con regex `/(dashboard\|admin)/` | ✅ |
+| 9.F.9 | Test E2E `tests/e2e/admin-error-log.spec.ts` — 6 specs cubren: cliente recibe 403 sobre `/admin/error-log` y `/admin/jobs/failed` (verifica `AdminOnlyGuard`), staff lista error-log con filtros, staff marca como resuelto, staff lista DLQ, staff reintenta job. **6/6 verde en 9s** | ✅ |
+| 9.F.10 | Listeners `notifications-error.listener` (consume `system.error`) — diferido. `outbox.event_failed` y `dlq.job_failed` ya consumidos en Fase D. `system.error` queda emitido por `ErrorLogService.log()` pero huérfano hasta wiring; el row Outbox persiste para revisión via `/admin/error-log` | 🟡 emisor activo, listener diferido a Sprint 9.5 |
+| 9.F.11 | Registrado **DC.7 en `backlog.md`** — split de árboles `/dashboard/*` · `/admin/*` · `/partner/*`. Sprint 9.6 cubrirá la migración retroactiva | ✅ |
+
+**Cierre Fase F:** typecheck ✅ · lint:check ✅ · build ✅ · E2E `admin-error-log.spec.ts` 6/6 ✅ · suite E2E full **26/26 verde en 1.1min**. **Defense in depth real instalado**: `/api/v1/admin/*` rechazado por `AdminOnlyGuard` → CASL → ownership. Árbol staff `/admin/*` con login redirect activo. ADR-055 §Monitoring cerrado parcialmente (UI + reintento manual ✅; instrumentación masiva de listeners diferida).
 
 #### Fase G — Cierre + DoD
 

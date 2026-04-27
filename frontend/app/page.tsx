@@ -23,6 +23,23 @@ import styles from './auth.module.css';
 
 type LoginStep = 'credentials' | '2fa' | 'success';
 
+const STAFF_ROLES = new Set([
+  'superadmin',
+  'agent_full',
+  'agent_billing',
+  'agent_support',
+]);
+
+/**
+ * Landing post-login según rol (Sprint 9 Fase F + DC.7).
+ * Staff entran al árbol /admin/*; clientes y partners siguen en /dashboard.
+ * Sprint 19 (Partner Module) añadirá /partner/* para roles partner.
+ */
+function landingForRole(roleSlug?: string): string {
+  if (roleSlug && STAFF_ROLES.has(roleSlug)) return '/admin';
+  return '/dashboard';
+}
+
 export default function LoginPage() {
   return (
     <Suspense fallback={<AuthLayout><div /></AuthLayout>}>
@@ -65,7 +82,7 @@ function LoginContent() {
       } else if (res.access_token) {
         login(res);
         setStep('success');
-        router.push('/dashboard');
+        router.push(landingForRole(res.user?.role?.slug));
       }
     } catch (err) {
       const msg = getErrorMessage(err) || 'Error al iniciar sesión';
@@ -103,7 +120,7 @@ function LoginContent() {
       if (res.access_token) {
         login(res);
         setStep('success');
-        router.push('/dashboard');
+        router.push(landingForRole(res.user?.role?.slug));
       }
     } catch (err) {
       setError(getErrorMessage(err) || 'Código incorrecto');
