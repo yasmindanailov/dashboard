@@ -2,6 +2,7 @@ import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
+import { PrismaService } from '../../core/database/prisma.service';
 import { AuditService } from './audit.service';
 
 /**
@@ -20,7 +21,10 @@ import { AuditService } from './audit.service';
 @Controller('audit')
 @UseGuards(JwtAuthGuard)
 export class AuditController {
-  constructor(private readonly auditService: AuditService) {}
+  constructor(
+    private readonly auditService: AuditService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Get('access')
   @ApiOperation({
@@ -47,14 +51,44 @@ export class AuditController {
         typeof entry.metadata === 'object' &&
         (entry.metadata as Record<string, unknown>).target_user_id === callerId,
     );
+
+    // Enriquecer con nombre + rol del actor staff (ADR-017 §"Quién puede
+    // leer el audit log": el cliente debe VER el nombre real del agente).
+    // Sin esto, el portal solo mostraba IP (`::1` en local) que es
+    // inintelegible para el cliente final.
+    const actorIds = Array.from(new Set(filtered.map((e) => e.user_id)));
+    const actors = actorIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: actorIds } },
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            role: { select: { name: true } },
+          },
+        })
+      : [];
+    const actorMap = new Map(actors.map((a) => [a.id, a]));
+
+    const enriched = filtered.map((entry) => {
+      const actor = actorMap.get(entry.user_id);
+      return {
+        ...entry,
+        actor: actor
+          ? {
+              first_name: actor.first_name,
+              last_name: actor.last_name,
+              role_name: actor.role.name,
+            }
+          : null,
+      };
+    });
+
     return {
-      data: filtered,
+      data: enriched,
       meta: {
         ...result.meta,
-        total: filtered.length,
-        // Nota: total real != total filtrado. El cliente ve sólo lo suyo.
-        // Sprint 9.5 podrá implementar paginación con filter SQL nativo
-        // (jsonb GIN index) para mayor eficiencia.
+        total: enriched.length,
       },
     };
   }

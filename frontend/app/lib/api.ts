@@ -520,6 +520,11 @@ export interface AuditAccessItem {
   resource: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
+  actor: {
+    first_name: string | null;
+    last_name: string | null;
+    role_name: string;
+  } | null;
 }
 
 export interface AuditAccessListResponse {

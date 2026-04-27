@@ -116,9 +116,10 @@ export default function TransparencyPage() {
             <thead style={{ background: 'var(--surface-secondary)' }}>
               <tr>
                 <th style={cellHead}>Cuándo</th>
+                <th style={cellHead}>Quién</th>
                 <th style={cellHead}>Recurso</th>
                 <th style={cellHead}>Acción</th>
-                <th style={cellHead}>Origen</th>
+                <th style={cellHead}>IP</th>
               </tr>
             </thead>
             <tbody>
@@ -128,6 +129,11 @@ export default function TransparencyPage() {
                   (meta?.resource_type as string | undefined) ?? '';
                 const resourceLabel =
                   RESOURCE_LABEL[resourceType] ?? resourceType ?? 'Recurso';
+                const actorName = item.actor
+                  ? [item.actor.first_name, item.actor.last_name]
+                      .filter(Boolean)
+                      .join(' ') || 'Agente'
+                  : 'Agente';
                 return (
                   <tr
                     key={item.id}
@@ -136,12 +142,31 @@ export default function TransparencyPage() {
                     <td style={cell}>
                       {new Date(item.created_at).toLocaleString('es-ES')}
                     </td>
+                    <td style={cell}>
+                      <div style={{ fontWeight: 600 }}>{actorName}</div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: 'var(--text-tertiary)',
+                          marginTop: 2,
+                        }}
+                      >
+                        {item.actor?.role_name ?? '—'}
+                      </div>
+                    </td>
                     <td style={cell}>{resourceLabel}</td>
                     <td style={cell}>
                       {ACTION_LABEL[item.action] ?? item.action}
                     </td>
                     <td style={cell}>
-                      <code style={{ fontSize: 12 }}>{item.ip_address}</code>
+                      <code
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--text-tertiary)',
+                        }}
+                      >
+                        {item.ip_address}
+                      </code>
                     </td>
                   </tr>
                 );

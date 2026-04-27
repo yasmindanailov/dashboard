@@ -60,7 +60,8 @@ export class AuditInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const resourceId = req.params?.id;
+    const rawId = req.params?.id;
+    const resourceId = typeof rawId === 'string' ? rawId : undefined;
     const xff = req.headers['x-forwarded-for'];
     const ip =
       (typeof xff === 'string' ? xff.split(',')[0] : undefined) ??
@@ -72,7 +73,7 @@ export class AuditInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap((response: unknown) => {
-        const ownerId = extractOwnerId(response);
+        const ownerId = extractOwnerId(response, resourceType, resourceId);
 
         // Si el actor staff lee su propio recurso (caso raro pero
         // posible: superadmin con su propia factura), no registramos.
@@ -99,15 +100,39 @@ export class AuditInterceptor implements NestInterceptor {
 }
 
 /**
- * Extrae el `user_id` (dueño del recurso) del response, probando los
- * shapes comunes. Devuelve null si no es inferible.
+ * Extrae el `user_id` (dueño del recurso) probando los shapes comunes:
+ *
+ *  1. Response con `user_id` explícito (Invoice, Service, BillingProfile,
+ *     Conversation, etc.).
+ *  2. Response con `owner_id` (caso futuro genérico).
+ *  3. Response con `id` cuando el resource_type identifica al usuario
+ *     directamente (Client, User) → el dueño ES el recurso mismo. En ese
+ *     caso `id` del response y `resourceId` del path coinciden.
+ *  4. Fallback: `resourceId` del path cuando el resource_type es
+ *     usuario-equivalente y el shape del response no expone `id`.
  */
-function extractOwnerId(response: unknown): string | null {
-  if (!response || typeof response !== 'object') return null;
-  const obj = response as Record<string, unknown>;
-  if (typeof obj.user_id === 'string') return obj.user_id;
-  if (typeof obj.owner_id === 'string') return obj.owner_id;
-  // Para Invoice: campo user_id existe en el modelo. Para ClientProfile:
-  // user_id también. Caso edge: Service tiene user_id heredado.
+function extractOwnerId(
+  response: unknown,
+  resourceType: string,
+  resourceId: string | undefined,
+): string | null {
+  if (response && typeof response === 'object') {
+    const obj = response as Record<string, unknown>;
+    if (typeof obj.user_id === 'string') return obj.user_id;
+    if (typeof obj.owner_id === 'string') return obj.owner_id;
+    // Recursos cuyo "dueño" es el propio recurso: Client (User con
+    // role=client), User. El campo `id` del response identifica al user.
+    if (
+      (resourceType === 'Client' || resourceType === 'User') &&
+      typeof obj.id === 'string'
+    ) {
+      return obj.id;
+    }
+  }
+  // Último fallback: si el resource_type es usuario-equivalente, usar el
+  // path param directamente (caso edge: response sin shape esperado).
+  if ((resourceType === 'Client' || resourceType === 'User') && resourceId) {
+    return resourceId;
+  }
   return null;
 }
