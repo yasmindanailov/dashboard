@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PoliciesGuard } from '../../core/casl/policies.guard';
 import { CheckPolicies } from '../../core/casl/check-policies.decorator';
 import { Action, Subject } from '../../core/casl/permissions';
+import { AuditAccess } from '../audit/audit.decorator';
 import { ClientsService } from './clients.service';
 import {
   ClientListQueryDto,
@@ -48,6 +49,7 @@ export class ClientsController {
 
   @Get(':id')
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Client))
+  @AuditAccess('Client')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.clientsService.findOne(id);
   }

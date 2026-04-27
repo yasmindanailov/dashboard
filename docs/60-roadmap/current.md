@@ -380,14 +380,16 @@ model NotificationTemplate {
 
 | # | Paso | Estado |
 |---|------|--------|
-| 9.E.1 | `AuditService` con métodos `logAccess`, `logChange`, `logIntegration` (cumplimiento R3 — solo INSERT) | ⬜ |
-| 9.E.2 | Migrar accesos directos `prisma.auditAccessLog.create(...)` (en billing — ver `_matrix.md` §A2) a `AuditService.logAccess(...)` | ⬜ |
-| 9.E.3 | Listeners: `audit-auth.listener` (8 eventos `auth.*` huérfanos pasan a registrar audit), `audit-billing.listener` (lecturas/cambios de factura), `audit-notification.listener` (consume `notification.dispatched` → `audit_integration_log`) | ⬜ |
-| 9.E.4 | Endpoints `/audit/access` + `/audit/changes` con CASL ownership filter (cliente ve solo lo suyo) | ⬜ |
-| 9.E.5 | Frontend: `/dashboard/transparency` — portal cliente "Quién accedió a tus datos". Tabla con filtros por tipo/fecha. Design System D7 Table + D10e Breadcrumb | ⬜ |
-| 9.E.6 | Settings seed: `audit.access_retention_days` (730) | ⬜ |
-| 9.E.7 | Cron `cleanupOldAuditLogs` (in-process, `EVERY_DAY_AT_3AM`) — borra rows con `created_at < now() - 730 days` (única operación DELETE permitida sobre audit_*; ADR-017) | ⬜ |
-| 9.E.8 | Test E2E `tests/e2e/audit-portal.spec.ts` — admin ve factura del cliente → cliente entra a transparencia y ve el acceso registrado | ⬜ |
+| 9.E.1 | `AuditService` con métodos `logAccess`, `logChange`, `cleanupOldAccessLogs` (R3 + ADR-017). Degradación silenciosa si Prisma falla (R7 — el caller no se rompe por audit) | ✅ |
+| 9.E.2 | Decorador `@AuditAccess('ResourceType')` + `AuditInterceptor` registrado a nivel APP (intercepta todos los controllers, solo actúa en handlers decorados → cero overhead). Activa fila SOLO cuando: handler decorado + actor staff + recurso de OTRO usuario. Cliente leyendo SUS propios datos NO genera fila (es su derecho natural) | ✅ |
+| 9.E.3 | Aplicado `@AuditAccess` a 2 endpoints staff: `GET /clients/:id` (Client) y `GET /billing/invoices/:id` (Invoice). Endpoints PDF NO se decoran — cubiertos transitivamente por el primer click natural en detalle. Sprint 9.5 puede ampliar a `BillingProfile` y otros recursos sensibles | ✅ |
+| 9.E.4 | Endpoint `GET /api/v1/audit/access` con ownership filter server-side (`metadata.target_user_id === caller.id`). Nunca devuelve accesos a recursos ajenos. Listeners aspiracionales `audit-auth.listener` / `audit-billing.listener` diferidos a Sprint 9.5 — los `auth.*` ya escriben directo desde Sprint 5 (DC.8: oportunista al tocar el archivo) | ✅ |
+| 9.E.5 | Frontend cliente `/dashboard/transparency` — portal RGPD con tabla de accesos staff. Etiquetas humanizadas ("Tu ficha de cliente", "Factura"). NO requiere cambio en `permissions.ts` (rutas no mapeadas → permitidas; cualquier user autenticado ve SUS datos) | ✅ |
+| 9.E.6 | Setting `audit.access_retention_days = 730` seedeado | ✅ |
+| 9.E.7 | Cron `cleanupOldAuditLogs` (`@nestjs/schedule` `EVERY_DAY_AT_3AM` UTC) — borra rows con `created_at < now() - retention_days`. Aislado en `AuditRetentionCron` (R3 §Excepción única). Migración a BullMQ scheduled diferida a Sprint 13 Hardening | ✅ |
+| 9.E.8 | Tests unit `AuditService` 4/4 verde (logAccess shape + degradación silenciosa + logChange + cleanup cutoff calculado). Test E2E `audit-portal.spec.ts` 4/4 verde: admin lee factura → audit registrado, cliente ve solo SUS accesos, otro cliente NO ve ajenos, cliente leyendo sus propios datos NO genera fila | ✅ |
+
+**Cierre Fase E:** typecheck ✅ · lint:check ✅ · build ✅ · unit 21/21 (RetryService 5 + OutboxWorker 6 + NotificationTemplateService 6 + AuditService 4) · E2E suite full **30/30 verde en 1.8min** (4 nuevos audit-portal + 26 anteriores). **ADR-017 cerrado al 100%** (R3 inmutable + retención automática + audit centralizado + portal cliente RGPD). **ADR-010 §Transparency** cubierto.
 
 #### Fase F — Error Log UI + jobs failed UI (cierra ADR-055 §Monitoring)
 

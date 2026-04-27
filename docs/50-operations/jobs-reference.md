@@ -3,10 +3,10 @@
 > **Catálogo canónico de TODOS los crons y jobs BullMQ.**
 > Si vas a programar trabajo asíncrono → consulta este archivo para no duplicar. Si vas a añadir uno nuevo → añádelo aquí en el mismo PR.
 
-> **Última auditoría:** 2026-04-27 — Sprint 9 Fase D MVP (cierre P1.1 parcial).
-> **Crons in-process activos:** 7 (todos en `@nestjs/schedule`). El Outbox dispatcher abandonó `@Interval` en Fase C — ahora es BullMQ scheduled.
-> **Jobs BullMQ implementados:** **3 — `pdf-generation` (Fase B), `outbox-dispatch` (Fase C), `notifications-dispatch` (Fase D)** ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) + [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md)). Resto pendiente Fase F del Sprint 9 (UI admin).
-> **Crons aspiracionales:** 3 documentados en ADRs sin implementación todavía.
+> **Última auditoría:** 2026-04-27 — Sprint 9 Fase E (cierre completo P1.1).
+> **Crons in-process activos:** 8 (`@nestjs/schedule`). El Outbox dispatcher abandonó `@Interval` en Fase C — ahora es BullMQ scheduled. Fase E añade `cleanupOldAuditLogs` (única DELETE permitida sobre audit).
+> **Jobs BullMQ implementados:** **3 — `pdf-generation` (Fase B), `outbox-dispatch` (Fase C), `notifications-dispatch` (Fase D)** ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) + [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md)).
+> **Crons aspiracionales:** 2 documentados en ADRs sin implementación todavía (la retención RGPD audit ya está activa Fase E; queda retención notifications + numeración year+1).
 
 ---
 
@@ -63,6 +63,12 @@ Día N:  generatePendingInvoices (02:00)  →  factura nueva 'pending'
 | Cron | Schedule | Módulo | Qué hace | Eventos | Estado |
 |------|----------|--------|----------|---------|--------|
 | `cleanupExpiredGuestSessions` | `EVERY_DAY_AT_6AM` (06:00) | support | Cierra sesiones guest expiradas (>30 días sin actividad — configurable `support.guest_session_ttl_days`) | `guest_session.expired` (si está catalogado — verificar) | ✅ |
+
+### 🔐 Audit retention (1 cron — Sprint 9 Fase E)
+
+| Cron | Schedule | Módulo | Qué hace | Eventos | Estado |
+|------|----------|--------|----------|---------|--------|
+| `cleanupOldAuditLogs` | `EVERY_DAY_AT_3AM` (03:00 UTC) | audit | `DELETE FROM audit_access_log WHERE created_at < now() - audit.access_retention_days` (default 730). **Única operación DELETE permitida sobre tablas audit** ([R3 §Excepción única](../00-foundations/rules.md#r3--el-audit-log-es-inmutable) + [ADR-017 §Retención](../10-decisions/adr-017-audit-log-inmutable.md)) | — | ✅ |
 
 ---
 

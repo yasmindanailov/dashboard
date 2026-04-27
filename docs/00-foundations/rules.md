@@ -103,6 +103,10 @@ Las tablas del schema `audit` (`audit_access_log`, `audit_change_log`) solo perm
 Nunca UPDATE ni DELETE en ninguna tabla de audit.
 Ni el superadmin tiene permisos de modificación sobre estas tablas.
 
+> **Excepción única (ADR-017 §Retención):** el cron `cleanupOldAuditLogs` (`backend/src/modules/audit/audit-retention.cron.ts`) ejecuta `DELETE FROM audit_access_log WHERE created_at < now() - 730 días` (configurable vía `audit.access_retention_days`, mínimo legal AEPD: 2 años). Es la única operación DELETE permitida sobre tablas audit y vive aislada en su propio service para minimizar superficie de bug.
+>
+> **Implementación canónica:** `AuditService.logAccess()` y `AuditService.logChange()` en `backend/src/modules/audit/audit.service.ts`. Ambos métodos NUNCA relanzan — degradación silenciosa con log de stderr si Prisma falla (R7: el caller no debe romperse por un fallo de audit).
+
 ---
 
 ### R4 — Los plugins implementan su interfaz, el core no los conoce
@@ -535,6 +539,7 @@ await this.notifications.dispatchToUser('invoice.paid', payload, userId);
 | `NotificationsService.dispatchToUser / dispatchToSuperadmins` | `backend/src/modules/notifications/notifications.service.ts` | D12, R7, R2 (ADR-065) | Toda notificación cliente/agente/superadmin. Encola en cola BullMQ `notifications-dispatch`. Plantillas en tabla `notification_templates` (Handlebars). |
 | `NotificationChannelInterface` | `backend/src/modules/notifications/interfaces/notification-channel.interface.ts` | D12 (ADR-065) | Contrato para canales. Plugins iniciales: `EmailChannel`, `InAppChannel`. Añadir canal nuevo = nuevo provider con token `NOTIFICATION_CHANNELS`. |
 | `AdminOnlyGuard` + ruta canónica `/api/v1/admin/*` y `/admin/*` (frontend) | `backend/src/core/common/guards/admin-only.guard.ts` + `frontend/app/admin/layout.tsx` | DC.7 (Sprint 9 Fase F) | **Árbol staff dedicado**: cualquier endpoint o página exclusiva de operativo interno (audit, error log, jobs, settings global, gestión de catálogo, etc.) vive bajo `/admin/*`. Doble guard (defense in depth): `AdminOnlyGuard` rechaza no-staff antes de CASL; CASL aplica granularidad por rol. Login post-2FA redirige al landing del rol (staff → `/admin`, cliente → `/dashboard`, partner → `/dashboard` hasta Sprint 19 que añade `/partner/*`). Migración retroactiva de las 6 páginas existentes en Sprint 9.6 (DC.7). |
+| `AuditService.logAccess / logChange` + `@AuditAccess('Resource')` + `AuditInterceptor` | `backend/src/modules/audit/` | R3 + ADR-017 + ADR-010 (Sprint 9 Fase E) | Registro centralizado de accesos staff a datos del cliente y de cambios sobre entities sensibles. El decorador `@AuditAccess('Resource')` aplicado a un handler GET activa el `AuditInterceptor` global, que registra fila en `audit_access_log` SOLO cuando el caller es staff y el recurso pertenece a OTRO usuario (cliente leyendo sus propios datos NO genera fila — es su derecho natural). Cliente consulta sus accesos en `GET /api/v1/audit/access` (filtro ownership server-side). Frontend cliente: `/dashboard/transparency`. Cron `cleanupOldAuditLogs` borra rows >730 días (ADR-017 §Retención — único DELETE permitido). |
 
 ---
 

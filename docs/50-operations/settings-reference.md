@@ -145,6 +145,20 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 | `storage.signed_url_expiry_minutes` | number | 60 | ✅ | `core/storage/storage.service.ts:getDefaultTtlSeconds()` | [ADR-062](../10-decisions/adr-062-storage-canonico-minio.md) · seed.ts |
 | `storage.max_upload_size_mb` | number | 10 | 🟡 | (validar en uploads externos cuando se implementen Sprints 7.7 y 7.6.3 — adjuntos chat/tickets) | ADR-062 · seed.ts |
 
+### ⚙️ jobs.* (Sprint 9 Fase A — ADR-063)
+
+| Key | Tipo | Default | Estado | Consumidor | Origen |
+|-----|------|---------|--------|------------|--------|
+| `jobs.default_retries` | number | 5 | ✅ | `core/jobs/jobs.module.ts` defaults | [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) · seed.ts |
+| `jobs.backoff_initial_ms` | number | 30000 | ✅ | `core/jobs/jobs.module.ts` defaults (30s → 60s → 120s → 240s → 480s) | ADR-063 · seed.ts |
+| `jobs.dlq_alert_to_superadmin` | boolean | true | ✅ | `core/jobs/dlq.service.ts` (kill switch para entornos test) | ADR-063 · seed.ts |
+
+### 🛡️ audit.* (Sprint 9 Fase E — ADR-017)
+
+| Key | Tipo | Default | Estado | Consumidor | Origen |
+|-----|------|---------|--------|------------|--------|
+| `audit.access_retention_days` | number | 730 | ✅ | `modules/audit/audit-retention.cron.ts` (mínimo legal AEPD: 2 años) | [ADR-017](../10-decisions/adr-017-audit-log-inmutable.md) · seed.ts |
+
 ### 🤖 ai.* (agentes IA — Sprint 15 futuro)
 
 | Key | Tipo | Default | Estado | Consumidor | Origen |

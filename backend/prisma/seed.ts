@@ -86,6 +86,8 @@ async function main() {
     { category: 'jobs', key: 'default_retries', value: '5', description: 'Reintentos por defecto en BullMQ antes de DLQ (ADR-055)' },
     { category: 'jobs', key: 'backoff_initial_ms', value: '30000', description: 'Backoff exponencial inicial en ms (30s → 60s → 120s → 240s → 480s)' },
     { category: 'jobs', key: 'dlq_alert_to_superadmin', value: 'true', description: 'Emitir notificación al superadmin cuando un job entra en DLQ (R7+R13)' },
+    // Audit settings (Sprint 9 Fase E + ADR-017)
+    { category: 'audit', key: 'access_retention_days', value: '730', description: 'Días de retención de audit_access_log (mínimo legal AEPD: 2 años)' },
   ];
 
   for (const s of settings) {

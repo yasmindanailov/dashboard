@@ -34,6 +34,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PoliciesGuard } from '../../core/casl/policies.guard';
 import { CheckPolicies } from '../../core/casl/check-policies.decorator';
 import { Action, Subject } from '../../core/casl/permissions';
+import { AuditAccess } from '../audit/audit.decorator';
 
 /** Helper: admin roles that can see all data */
 const ADMIN_ROLES = ['superadmin', 'agent_full', 'agent_billing'];
@@ -85,6 +86,7 @@ export class BillingController {
     summary: 'Get invoice detail — ownership enforced for clients',
   })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Invoice))
+  @AuditAccess('Invoice')
   async findOne(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
