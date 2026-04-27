@@ -138,9 +138,16 @@ jobs:
     env:
       # Conexiones a los services
       DATABASE_URL: postgresql://aelium:aelium_test@localhost:5432/aelium_dashboard_test?schema=public
+      # REDIS_URL es la canónica desde Sprint 9 Fase A (ADR-063 §B):
+      # JobsModule + DlqService leen `ConfigService.getOrThrow('REDIS_URL')`.
+      REDIS_URL: redis://localhost:6379
       REDIS_HOST: localhost
       REDIS_PORT: 6379
       REDIS_PASSWORD: ''
+      # Prefijo BullMQ aislado para CI — evita colisiones si el runner
+      # comparte Redis con otros jobs (improbable con services efímeros,
+      # pero más seguro y barato).
+      BULLMQ_PREFIX: aelium-jobs-ci
 
       # Backend
       PORT: 3001
