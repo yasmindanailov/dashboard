@@ -1,6 +1,6 @@
 # audit — Contract
 
-> **Stub mínimo (Sprint 9 Fase E).** Detalle canónico vive en [ADR-017](../../10-decisions/adr-017-audit-log-inmutable.md) + [ADR-010](../../10-decisions/adr-010-rgpd-retencion-datos.md). Redacción completa de las 12 secciones diferida a **DC.9** (Sprint 9.5 recomendado).
+> **Contract conciso por convención (DC.9 cerrada 2026-04-28):** el detalle profundo vive en [ADR-017](../../10-decisions/adr-017-audit-log-inmutable.md) + [ADR-010](../../10-decisions/adr-010-rgpd-retencion-datos.md), no se duplica aquí.
 
 ## 1. Propósito
 
@@ -16,6 +16,8 @@ Registro inmutable y centralizado de accesos staff a datos del cliente y de camb
 - Cron `cleanupOldAuditLogs` (R3 §Excepción única — `EVERY_DAY_AT_3AM` UTC).
 
 **Pendiente DC.8 (oportunista al tocar `auth/*`):** migrar 3 call sites de `auth-login/register/token.service` que escriben directo a `audit_access_log` para que pasen por `AuditService.logAccess(...)`.
+
+**Cobertura E2E ampliada Sprint 9.5 (DC.10 cerrada):** `tests/e2e/audit-portal.spec.ts` incluye spec para path Client/User (admin `GET /clients/:id` → fila con `target_user_id = client.id` + verificación en portal cliente).
 
 ## 3. Arquitectura — referencias canónicas
 
@@ -40,6 +42,6 @@ Registro inmutable y centralizado de accesos staff a datos del cliente y de camb
 |--------|------|-------------|------|
 | `GET` | `/api/v1/audit/access` | Portal transparencia cliente — ownership filter server-side, response enriquecido con actor (nombre + rol) | `JwtAuthGuard` |
 
-## 6–12. Detalle completo
+## 6. Anti-loop + degradación silenciosa
 
-Pendiente DC.9. Los enlaces de §3 cubren todo el comportamiento.
+`AuditService.logAccess` y `logChange` degradan silenciosamente si Prisma falla (catch + log a stderr). El caller NUNCA se rompe por audit fallido (R7 — el audit es operacional, no transaccional con la operación de negocio). El cron de retención `cleanupOldAuditLogs` también degrada silenciosamente — si una noche falla, la siguiente recupera.

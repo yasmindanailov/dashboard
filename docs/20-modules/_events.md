@@ -6,7 +6,7 @@
 >
 > Detectar drift entre código y este catálogo es responsabilidad de cualquier agente IA que toque el módulo afectado.
 
-> **Última auditoría:** abril 2026 (commits ~`8c4d893`). **Actualizado 2026-04-26 (P0.2):** los 4 `invoice.*` ya usan Outbox. **Actualizado 2026-04-27 (Sprint 9 Fases A–F):** dispatcher migrado a BullMQ + backoff exponencial; eventos operativos `outbox.event_failed` (Fase C), `dlq.job_failed` (Fase A), `system.error` (Fase F emisor), `notification.dispatched` (aspiracional).
+> **Última auditoría:** abril 2026 (commits ~`8c4d893`). **Actualizado 2026-04-26 (P0.2):** los 4 `invoice.*` ya usan Outbox. **Actualizado 2026-04-27 (Sprint 9 Fases A–F):** dispatcher migrado a BullMQ + backoff exponencial; eventos operativos `outbox.event_failed` (Fase C), `dlq.job_failed` (Fase A), `system.error` (Fase F emisor), `notification.dispatched` (aspiracional). **Actualizado 2026-04-28 (Sprint 9.5):** `system.error` ya tiene consumidor activo (`NotificationsSystemErrorListener` con guard anti-loop hard).
 > **Total eventos identificados:** 28 (25 de negocio + 3 operativos activos `outbox.event_failed` / `dlq.job_failed` / `system.error` + 1 aspiracional `notification.dispatched`).
 > **Convenio de naming:** `<dominio>.<acción>` en pasado. Verificado 100% conforme.
 > **Bus:** `EventEmitter2` global (NestJS `@nestjs/event-emitter`) — los emisores críticos producen vía `OutboxService.enqueue(tx, ...)` y el `OutboxWorker.dispatch()` (invocado por `OutboxDispatchProcessor`, cola BullMQ `outbox-dispatch` con `repeat: { every: 5000 }` + `FOR UPDATE SKIP LOCKED`) los despacha al bus. ADR-064 cierra el §7 de ADR-033.
@@ -46,8 +46,8 @@ Eventos sin dominio de negocio — emitidos por la infraestructura para alertas 
 |--------|--------|--------------|---------|--------|--------|
 | `outbox.event_failed` | `OutboxWorker.processEvent()` cuando `retry_count >= max_retries` | `notifications-outbox.listener` → `NotificationsService.dispatchToSuperadmins` (campana + email — ADR-065) | `{ event_outbox_id, event_type, last_error, retry_count }` | no (es alerta operativa, no transacción) | ✅ emisor + consumidor activos (Sprint 9 Fases C+D — ADR-064 + ADR-065) |
 | `dlq.job_failed` | `DlqService.handleFailed()` cuando un job BullMQ agota `attempts` | `notifications-dlq.listener` → `NotificationsService.dispatchToSuperadmins` (campana + email — ADR-065) | `{ failed_job_id, queue, name, last_error, attempts_made }` | no | ✅ emisor + consumidor activos (Sprint 9 Fases A+D — ADR-063 + ADR-065) |
-| `system.error` | `ErrorLogService.log()` desde jobs/listeners no-HTTP. Para errores HTTP 5xx el `GlobalExceptionFilter` escribe directo a `error_log` sin emit (no necesita alerta — el admin ve en `/admin/error-log`) | _(huérfano hasta Sprint 9.5)_ — listener `notifications-system-error.listener` + plantilla `system.error` quedaron diferidos. La row queda en `error_log` accesible vía `/admin/error-log` | `{ error_log_id, level, module, message, correlation_id }` | no | 🟡 emisor activo (Sprint 9 Fase F — ADR-055), consumidor diferido a Sprint 9.5 |
-| `notification.dispatched` | _(no implementado)_ — declarado en ADR-065 §3.2 como hook futuro para que `audit-notification.listener` registre integraciones en `audit_change_log`. Difere a Sprint 9.5 cuando audit de integraciones se aborde | — | `{ notification_id, event_type, channel, recipient_id }` | no | ⬜ aspiracional — declarado, no emitido |
+| `system.error` | `ErrorLogService.log()` desde jobs/listeners no-HTTP. Para errores HTTP 5xx el `GlobalExceptionFilter` escribe directo a `error_log` sin emit (no necesita alerta — el admin ve en `/admin/error-log`) | `notifications-system-error.listener` → `NotificationsService.dispatchToSuperadmins` (campana + email vía plantilla `system.error` seedeada). Guard anti-loop hard: si `module` proviene del dominio notifications, el listener log + drop (EC-S9-07) | `{ error_log_id, level, module, message, correlation_id }` | no | ✅ emisor + consumidor activos (Sprint 9 Fase F + Sprint 9.5 — ADR-055 + ADR-065) |
+| `notification.dispatched` | _(no implementado)_ — declarado en ADR-065 §3.2 como hook futuro para que `audit-notification.listener` registre integraciones en `audit_change_log`. Difere al sprint que aborde audit de integraciones (Stripe/ResellerClub/Docker) | — | `{ notification_id, event_type, channel, recipient_id }` | no | ⬜ aspiracional — declarado, no emitido |
 
 ---
 
@@ -144,11 +144,14 @@ Todos huérfanos esperando al módulo `provisioning`. Cuando provisioning se imp
 
 | Listener | Eventos consumidos | Acciones |
 |----------|--------------------|----------|
-| `billing-email.listener` | `invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue` | Envía email al cliente con detalles + link al PDF (eventos despachados vía Outbox desde P0.2). |
+| `billing-email.listener` | `invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue` | Delega a `NotificationsService.dispatchToUser` — render plantilla + email + campana (Sprint 9 Fase D) |
 | `support-email.listener` | `conversation.created`, `conversation.assigned`, `message.created` | Email a cliente o agente según tipo |
 | `support-websocket.listener` | `conversation.created`, `conversation.assigned`, `message.created` | Push por WebSocket a clients conectados |
 | `support-guest-link.listener` | `auth.registered` | Vincula chats guest previos al user nuevo (si email coincide) |
-| `tasks-email.listener` | `task.assigned` | Email al agente asignado + notificación interna en `notifications` (P0.1) |
+| `tasks-email.listener` | `task.assigned` | Delega a `NotificationsService.dispatchToUser` — email + campana (Sprint 9 Fase D) |
+| `notifications-outbox.listener` | `outbox.event_failed` | Alerta superadmin (campana + email) cuando un row Outbox agota retries (Sprint 9 Fase D) |
+| `notifications-dlq.listener` | `dlq.job_failed` | Alerta superadmin cuando un job BullMQ entra en DLQ (Sprint 9 Fase D) |
+| `notifications-system-error.listener` | `system.error` | Alerta superadmin con guard anti-loop hard si `module` proviene del dominio notifications (Sprint 9.5) |
 
 ---
 

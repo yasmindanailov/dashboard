@@ -33,7 +33,7 @@ Filas = módulo origen. Columnas = módulo destino. Celda = tipo de relación.
 | **dashboard** | read users | read clients data | — | read invoices, services | read conversations | read tasks | — | — | — | — | — | prisma |
 | **notifications** | read users (resolver recipients + superadmins) | — | — | — | — | — | — | (sub R15) | — | — | — | prisma, **email**, **jobs** |
 | **audit** | — | — | — | — | — | — | — | — | (sub R15) | — | — | prisma |
-| **error-log** | — | — | — | — | — | — | — | emite `system.error` (consumidor diferido Sprint 9.5) | — | (sub R15) | — | prisma, **events** |
+| **error-log** | — | — | — | — | — | — | — | emite `system.error` → `notifications-system-error.listener` (Sprint 9.5) | — | (sub R15) | — | prisma, **events** |
 | **partner** | (stub) | (stub) | (stub) | (stub) | (stub) | (stub) | (stub) | — | — | — | (stub) | — |
 
 ### Leyenda
@@ -43,11 +43,12 @@ Filas = módulo origen. Columnas = módulo destino. Celda = tipo de relación.
 - **`—`**: sin relación directa.
 - **`core`**: servicios globales (PrismaService, SettingsService, EmailService, CaslAbilityFactory, **OutboxService**, **StorageService**, **JobsModule**, **AuditService**, **events** EventEmitter2). Todos los módulos los usan; no es acoplamiento problemático.
 
-> **Sprint 9 (2026-04-27) cambios estructurales:**
+> **Sprint 9 (2026-04-27) + Sprint 9.5 (2026-04-28) cambios estructurales:**
 > - `audit/`, `notifications/`, `error-log/` salieron de stub a implementación real.
-> - `notifications` es @Global y consumido por `BillingEmailListener` + `TasksEmailListener` + listeners operativos (`outbox.event_failed`, `dlq.job_failed`).
+> - `notifications` es @Global y consumido por `BillingEmailListener` + `TasksEmailListener` + 3 listeners operativos (`outbox.event_failed`, `dlq.job_failed`, `system.error`).
 > - `audit` es @Global; `AuditInterceptor` registrado APP-wide intercepta endpoints decorados con `@AuditAccess('Resource')`.
-> - `error-log.service` emite `system.error` para alerta superadmin (consumidor diferido Sprint 9.5).
+> - `error-log.service` emite `system.error` → consumido por `notifications-system-error.listener` (Sprint 9.5) con guard anti-loop hard si `module` proviene del dominio notifications.
+> - Sprint 9.5 añade endpoints cliente `/notifications/*` + admin `/admin/notifications/templates`, `NotificationsRetentionCron`, `NotificationBell` Topbar, página admin de plantillas.
 > - Los 3 módulos cumplen R1 (comunicación vía eventos cuando aplica) y R15 (todos sus archivos <300 líneas).
 
 ---
