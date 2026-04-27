@@ -1,7 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { StorageService } from '../../core/storage/storage.service';
-import { getErrorMessage } from '../../core/common/utils/error.util';
 import { InvoicePdfService } from './invoice-pdf.service';
 
 /**
@@ -13,8 +12,8 @@ import { InvoicePdfService } from './invoice-pdf.service';
  * Convención de keys (ADR-062 §D): `invoices/{invoice_number}.pdf`.
  *
  * Uso:
- *   await this.pdfStorage.generateAndUpload(invoiceId);     // post markAsPaid / sendToPending
- *   const url = await this.pdfStorage.getSignedDownloadUrl(invoiceId); // endpoint /pdf
+ *   await this.pdfStorage.generateAndUpload(invoiceId);     // invocado por PdfGenerationProcessor (Sprint 9 Fase B — ADR-063)
+ *   const url = await this.pdfStorage.getSignedDownloadUrl(invoiceId); // endpoint /pdf con fallback inline
  */
 @Injectable()
 export class InvoicePdfStorageService {
@@ -80,20 +79,6 @@ export class InvoicePdfStorageService {
     return this.storage.presignedDownloadUrl(key, {
       responseContentDisposition: `attachment; filename="${invoice.invoice_number}.pdf"`,
       responseContentType: 'application/pdf',
-    });
-  }
-
-  /**
-   * Hook para `BillingInvoiceService.markAsPaid` y `sendToPending`.
-   * Fire-and-forget: si el bucket está caído, log + sigue. La descarga
-   * posterior recupera vía fallback en `getSignedDownloadUrl`.
-   */
-  generateAndUploadInBackground(invoiceId: string): void {
-    void this.generateAndUpload(invoiceId).catch((err) => {
-      this.logger.warn(
-        `Upload de PDF falló para invoice=${invoiceId}: ${getErrorMessage(err)}. ` +
-          `Se reintentará en la próxima descarga.`,
-      );
     });
   }
 

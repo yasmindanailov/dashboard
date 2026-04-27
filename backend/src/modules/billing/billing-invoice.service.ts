@@ -5,6 +5,8 @@ import {
   ConflictException,
   Logger,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../../core/database/prisma.service';
 import { OutboxService } from '../../core/outbox/outbox.service';
 import { paginate, PaginatedResult } from '../../common/dto/pagination.dto';
@@ -21,6 +23,11 @@ import {
 } from './interfaces/payment-provider.interface';
 import { BillingCalculatorService } from './billing-calculator.service';
 import { InvoicePdfStorageService } from './invoice-pdf-storage.service';
+import {
+  PDF_GENERATION_QUEUE,
+  INVOICE_PDF_JOB,
+  type InvoicePdfJobPayload,
+} from './pdf-generation.processor';
 
 /* BillingInvoiceService — Invoice CRUD, lifecycle, stats & numbering. Ref: Regla 15 */
 
@@ -34,8 +41,26 @@ export class BillingInvoiceService {
     private readonly outbox: OutboxService,
     private readonly calculator: BillingCalculatorService,
     private readonly pdfStorage: InvoicePdfStorageService,
+    @InjectQueue(PDF_GENERATION_QUEUE) private readonly pdfQueue: Queue,
   ) {
     this.paymentProvider = new ManualPaymentProvider();
+  }
+
+  /**
+   * Encola la generación + upload del PDF en la cola `pdf-generation`.
+   * `jobId` estable por factura → BullMQ descarta duplicados (idempotencia
+   * natural — ADR-063 §G). Si el job falla agotando retries, el DlqService
+   * lo persiste en `failed_jobs` y emite `dlq.job_failed` (R7+R13).
+   *
+   * Sustituye al `pdfStorage.generateAndUploadInBackground(...)` introducido
+   * en Sprint 11.5 (deuda controlada R2). Cumple R2 estricto: el upload va
+   * a la cola, nunca al hilo de la request.
+   */
+  private async enqueuePdfGeneration(invoiceId: string): Promise<void> {
+    const payload: InvoicePdfJobPayload = { invoice_id: invoiceId };
+    await this.pdfQueue.add(INVOICE_PDF_JOB, payload, {
+      jobId: `invoice-pdf-${invoiceId}`,
+    });
   }
 
   setPaymentProvider(provider: PaymentProviderInterface) {
@@ -180,10 +205,11 @@ export class BillingInvoiceService {
       return u;
     });
 
-    // Persistir PDF en bucket fuera de la transacción crítica (ADR-062).
-    // Fire-and-forget: si MinIO está caído el flujo de cobro no se rompe;
-    // la primera descarga regenera vía fallback en `getSignedDownloadUrl`.
-    this.pdfStorage.generateAndUploadInBackground(invoiceId);
+    // Encolar generación + upload del PDF (R2 + ADR-063 Fase B).
+    // Si MinIO o el processor están caídos, la cola reintenta (5 intentos
+    // con backoff exponencial) y, si agota, queda en `failed_jobs` con
+    // alerta superadmin. La descarga conserva fallback inline.
+    await this.enqueuePdfGeneration(invoiceId);
 
     this.logger.log(`Invoice ${invoice.invoice_number} marked as PAID`);
     return updated;
@@ -256,8 +282,8 @@ export class BillingInvoiceService {
       include: { items: true, billing_profile: true },
     });
 
-    // Generar y persistir PDF al finalizar (ADR-062). Fire-and-forget.
-    this.pdfStorage.generateAndUploadInBackground(invoiceId);
+    // Generar y persistir PDF al finalizar (R2 + ADR-063 Fase B).
+    await this.enqueuePdfGeneration(invoiceId);
 
     this.logger.log(`Invoice ${invoice.invoice_number} finalized → PENDING`);
     return updated;

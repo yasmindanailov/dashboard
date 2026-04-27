@@ -3,10 +3,10 @@
 > **Catálogo canónico de TODOS los crons y jobs BullMQ.**
 > Si vas a programar trabajo asíncrono → consulta este archivo para no duplicar. Si vas a añadir uno nuevo → añádelo aquí en el mismo PR.
 
-> **Última auditoría:** 2026-04-26 — F5.
-> **Crons in-process activos:** 7 (todos en `@nestjs/schedule`).
-> **Jobs BullMQ implementados:** 0 — librería instalada pero **sin colas registradas**. **Deuda crítica** ([ADR-056](../10-decisions/adr-056-estrategia-escalabilidad.md)).
-> **Crons aspiracionales:** 4 documentados en ADRs sin implementación todavía.
+> **Última auditoría:** 2026-04-27 — Sprint 9 Fase E (cierre completo P1.1).
+> **Crons in-process activos:** 8 (`@nestjs/schedule`). El Outbox dispatcher abandonó `@Interval` en Fase C — ahora es BullMQ scheduled. Fase E añade `cleanupOldAuditLogs` (única DELETE permitida sobre audit).
+> **Jobs BullMQ implementados:** **3 — `pdf-generation` (Fase B), `outbox-dispatch` (Fase C), `notifications-dispatch` (Fase D)** ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) + [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md)).
+> **Crons aspiracionales:** 2 documentados en ADRs sin implementación todavía (la retención RGPD audit ya está activa Fase E; queda retención notifications + numeración year+1).
 
 ---
 
@@ -15,9 +15,11 @@
 | Métrica | Valor |
 |---------|-------|
 | Crons `@Cron` activos | 7 |
-| Jobs BullMQ activos | **0** |
-| DLQ implementada | ❌ ([ADR-055](../10-decisions/adr-055-resiliencia-circuit-breaker.md) la describe — bloqueada hasta tener BullMQ) |
-| Panel `/dashboard/admin/jobs/failed` | ❌ pendiente |
+| Jobs BullMQ activos | **3** (`pdf-generation` Fase B, `outbox-dispatch` Fase C, `notifications-dispatch` Fase D) |
+| DLQ implementada | ✅ ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) — `DlqService` + tabla `failed_jobs` + emit `dlq.job_failed`) |
+| Outbox dispatcher BullMQ scheduled | ✅ ([ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) — backoff exponencial 30s→480s + emit `outbox.event_failed` + leader election natural) |
+| Notifications full multicanal | ✅ ([ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md) — plantillas editables + Email + InApp + alertas operativas a superadmins) |
+| Panel `/dashboard/admin/jobs/failed` | ❌ pendiente — Sprint 9 Fase F |
 | Crons que emiten eventos críticos sin Outbox | 4 (`detectOverdueInvoices`, `generatePendingInvoices`, `autoSuspendServices`, `autoCancelServices`) — **deuda R8** |
 
 **⚠️ Bloqueo arquitectónico para escalar horizontalmente:** todos los crons corren in-process. Si se añade una segunda instancia del backend, **cada cron se ejecuta dos veces** = facturas duplicadas, suspensiones duplicadas, etc. Antes de escalar, **migrar a BullMQ scheduled jobs** (con leader election natural — un solo worker procesa cada job repeat). Ver ADR-056 §13.30+.
@@ -62,34 +64,94 @@ Día N:  generatePendingInvoices (02:00)  →  factura nueva 'pending'
 |------|----------|--------|----------|---------|--------|
 | `cleanupExpiredGuestSessions` | `EVERY_DAY_AT_6AM` (06:00) | support | Cierra sesiones guest expiradas (>30 días sin actividad — configurable `support.guest_session_ttl_days`) | `guest_session.expired` (si está catalogado — verificar) | ✅ |
 
+### 🔐 Audit retention (1 cron — Sprint 9 Fase E)
+
+| Cron | Schedule | Módulo | Qué hace | Eventos | Estado |
+|------|----------|--------|----------|---------|--------|
+| `cleanupOldAuditLogs` | `EVERY_DAY_AT_3AM` (03:00 UTC) | audit | `DELETE FROM audit_access_log WHERE created_at < now() - audit.access_retention_days` (default 730). **Única operación DELETE permitida sobre tablas audit** ([R3 §Excepción única](../00-foundations/rules.md#r3--el-audit-log-es-inmutable) + [ADR-017 §Retención](../10-decisions/adr-017-audit-log-inmutable.md)) | — | ✅ |
+
 ---
 
 ## Jobs BullMQ activos
 
-**Ninguno todavía.** Las librerías `@nestjs/bull` y `bull` están instaladas en `node_modules/`, pero:
+### Cola `pdf-generation` (Sprint 9 Fase B + [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md))
 
-- ❌ No hay `BullModule.registerQueue(...)` en `app.module.ts` ni en módulos individuales.
-- ❌ No hay clases con `@Processor(...)` / `WorkerHost`.
-- ❌ No hay `Queue.add(...)` en código.
+| Item | Valor |
+|------|-------|
+| Nombre | `pdf-generation` |
+| Job principal | `invoice-pdf` (payload `{ invoice_id }`) |
+| Productor | `BillingInvoiceService.markAsPaid()` y `sendToPending()` via `pdfQueue.add(INVOICE_PDF_JOB, payload, { jobId: 'invoice-pdf-{invoice_id}' })` |
+| Procesador | `PdfGenerationProcessor` (`@Processor('pdf-generation')` + `WorkerHost`) — invoca `InvoicePdfStorageService.generateAndUpload()` |
+| Idempotencia | `jobId` estable por factura — duplicados descartados automáticamente por BullMQ (ADR-063 §G) |
+| Defaults heredados | `attempts=5`, backoff exponencial 30s→480s, `removeOnFail:false`, `removeOnComplete: { age: 3600 }` |
+| DLQ | ✅ — `DlqService.register('pdf-generation')` en `OnModuleInit` del processor |
+| Tests E2E | `tests/e2e/storage-pdf.spec.ts` (2 specs verdes) |
 
-Ver [ADR-056 §13.30+](../10-decisions/adr-056-estrategia-escalabilidad.md) — migración planificada cuando aplique.
+**Flujo lógico:**
 
-### Defaults globales esperados (cuando se implemente — [ADR-055](../10-decisions/adr-055-resiliencia-circuit-breaker.md))
+```
+markAsPaid / sendToPending  →  pdfQueue.add('invoice-pdf', { invoice_id }, { jobId })
+                                   ↓
+                       PdfGenerationProcessor.process(job)
+                                   ↓
+                  InvoicePdfStorageService.generateAndUpload()
+                                   ↓
+        S3 upload + UPDATE invoices SET pdf_url = '<key>'
+```
 
-| Parámetro | Valor |
-|-----------|-------|
-| Reintentos | 5 |
-| Backoff | Exponencial (30s → 60s → 120s → 240s → 480s) |
-| Jitter | ±10% (evitar thundering herd) |
-| DLQ | Jobs `failed` quedan en Redis indefinidamente, generan `system.error` al superadmin |
-| Idempotencia | Obligatoria — `idempotency_key` en payload de jobs con side effects |
+**Cierra deuda R2:** el fire-and-forget `setImmediate` introducido por Sprint 11.5 ya no existe — todo upload pasa por la cola.
 
-### Configuración Redis (cuando se conecte BullMQ)
+### Cola `outbox-dispatch` (Sprint 9 Fase C + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md))
+
+| Item | Valor |
+|------|-------|
+| Nombre | `outbox-dispatch` |
+| Job principal | `outbox-tick` (sin payload — repeat scheduled) |
+| Productor | `OutboxDispatchProcessor.onModuleInit()` registra `queue.upsertJobScheduler('outbox-tick', { every: 5000 })` (idempotente por id) |
+| Procesador | `OutboxDispatchProcessor.process()` → invoca `OutboxWorker.dispatch()` |
+| Sustituye | `@Interval(5s)` previo del `OutboxWorker` (P0.2) — eliminado en este sprint |
+| Backoff retry de eventos | Exponencial 30s→480s en columna `event_outbox.next_retry_at` (NO en BullMQ retries del tick) |
+| Emit al agotar retries | `outbox.event_failed` (cierra ADR-033 §7) |
+| DLQ | ✅ — `DlqService.register('outbox-dispatch')` |
+| Tests | unit `outbox.worker.spec.ts` (6/6 verde — backoff + emit + recovery), E2E `outbox-invoice.spec.ts` (4/4 verde — flujo end-to-end) |
+
+**Por qué leader election natural:** BullMQ usa Redis como source-of-truth del scheduler; con N instancias del backend, sólo una procesa cada job repeat (la que adquiere el lock atómico). En `@Interval`, las N instancias dispararían el cron paralelamente — el `FOR UPDATE SKIP LOCKED` previene corrupción pero compite por el lote. Con BullMQ se elimina la competencia.
+
+### Cola `notifications-dispatch` (Sprint 9 Fase D + [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md))
+
+| Item | Valor |
+|------|-------|
+| Nombre | `notifications-dispatch` |
+| Job principal | `dispatch-notification` (payload `{ eventType, payload, recipient_user_ids }`) |
+| Productor | `NotificationsService.dispatchToUser()` y `dispatchToSuperadmins()` (regla canónica D12) |
+| Procesador | `NotificationsDispatchProcessor` — resuelve recipients, hace lookup de plantillas en `notification_templates`, itera canales (`EmailChannel` + `InAppChannel`) |
+| Plantillas | Tabla Postgres `notification_templates` (Handlebars), seedeada en `prisma/seeds/notification-templates.ts` (11 plantillas iniciales: invoice.* + task.assigned + alertas operativas outbox/dlq) |
+| Canales activos | Email (envuelve `core/email/EmailService`), Internal (campana — insert en `notifications`) |
+| Idempotencia | No idempotente por jobId — dos eventos del mismo tipo al mismo recipient son 2 envíos legítimos |
+| DLQ | ✅ — `DlqService.register('notifications-dispatch')`. Si email rebota 5×, queda en `failed_jobs` con alerta superadmin (loop natural cortado por guard del listener) |
+| Tests | unit `notification-template.service.spec.ts` (6/6 verde — render Handlebars + helpers `lt`/`gt`/`eq` + escape HTML por canal + fallback locale) + E2E suite full (20/20) |
+| Cierra deuda | HTML inline en `BillingEmailListener` y `TasksEmailListener` (movido a tabla); huérfanos `outbox.event_failed` y `dlq.job_failed` (consumidos por `notifications-outbox.listener` y `notifications-dlq.listener`) |
+
+### Defaults globales (`JobsModule` — [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md))
+
+| Parámetro | Valor | Override por cola |
+|-----------|-------|-------------------|
+| `attempts` | 5 | sí (en `BullModule.registerQueue` o en `queue.add`) |
+| `backoff.type` | `'exponential'` | sí |
+| `backoff.delay` | `30_000` ms (30s → 480s en 5 intentos) | sí |
+| `removeOnComplete` | `{ age: 3600 }` (1h) | sí |
+| `removeOnFail` | `false` (jobs failed quedan en Redis hasta intervención) | sí |
+| Jitter | ±10% (cuando se aplique a una cola con `backoff.type: 'custom'`) | sí |
+| DLQ | Persistida en `failed_jobs` (Postgres) + emit `dlq.job_failed` (R7+R13) | — |
+| Idempotencia | Obligatoria — `jobId` estable o `idempotency_key` en payload | — |
+
+### Configuración Redis
 
 | Variable env | Default | Notas |
 |--------------|---------|-------|
-| `REDIS_URL` | `redis://localhost:6379` (host `redis` en Docker Compose) | Compartido entre cache y BullMQ — usar bases distintas (`/0` cache, `/1` BullMQ) |
-| `BULLMQ_PREFIX` | `aelium-jobs` | (cuando se configure) |
+| `REDIS_URL` | `redis://localhost:6379` | Lectura única vía `ConfigService.getOrThrow('REDIS_URL')`. **Requerida** para arrancar el backend (cumple ADR-063). |
+| `BULLMQ_PREFIX` | `aelium-jobs` | Prefijo de keys en Redis. Permite múltiples entornos sobre el mismo Redis. |
+| Redis DB | `1` | Reservada para BullMQ. DB 0 queda para cache de `SettingsService` cuando se implemente. |
 
 ---
 
@@ -106,7 +168,7 @@ Ver [ADR-056 §13.30+](../10-decisions/adr-056-estrategia-escalabilidad.md) — 
 | **Cron expiración de créditos referidos** | [ADR-054](../10-decisions/adr-054-sistema-referidos-clientes.md) | Diario: marcar como `expired` los `referral_credits` con `accrued_at + credit_expiry_months < now()` | Sprint dedicado |
 | **Cron alertas de mantenimiento crítico** | [ADR-041](../10-decisions/adr-041-sistema-tareas.md), [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) | Diario: tareas `maintenance` cuyo `due_date - now < support.maintenance_critical_threshold_days` → notificación al agente + admin | Cierre Sprint 8 + Sprint 11 |
 | **Cron creación tareas mensuales de mantenimiento** | [ADR-041](../10-decisions/adr-041-sistema-tareas.md) | Mensual en fecha de aniversario: por cada slot activo, crear tarea `maintenance` o `maintenance_mgmt` | Cierre Sprint 8 |
-| **Cola BullMQ `pdf-generation`** | Sprint 11.5 + [ADR-062](../10-decisions/adr-062-storage-canonico-minio.md) | Hoy `markAsPaid` y `sendToPending` invocan `InvoicePdfStorageService.generateAndUploadInBackground()` (fire-and-forget síncrono dentro del request). Migrar a una cola BullMQ dedicada `pdf-generation` con DLQ + retries. Cumple R2 estricto (>200ms va a la cola) y R13 (jobs fallidos persistentes). | P1.1 Sprint 9 — Audit + Notifications Full + Outbox worker hardening |
+<!-- Cola `pdf-generation` ya implementada (Sprint 9 Fase B 2026-04-27) — ver §"Jobs BullMQ activos" arriba -->
 
 ---
 

@@ -3,6 +3,7 @@ import { PrismaClient, RoleSlug } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
+import { seedNotificationTemplates } from './seeds/notification-templates';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -81,6 +82,12 @@ async function main() {
     // Storage settings (Sprint 11.5 + ADR-062)
     { category: 'storage', key: 'signed_url_expiry_minutes', value: '60', description: 'TTL de URLs firmadas para descargas (minutos)' },
     { category: 'storage', key: 'max_upload_size_mb', value: '10', description: 'Tamaño máximo de archivo subido (MB) — uploads externos (chat/tickets)' },
+    // Jobs settings (Sprint 9 Fase A + ADR-063)
+    { category: 'jobs', key: 'default_retries', value: '5', description: 'Reintentos por defecto en BullMQ antes de DLQ (ADR-055)' },
+    { category: 'jobs', key: 'backoff_initial_ms', value: '30000', description: 'Backoff exponencial inicial en ms (30s → 60s → 120s → 240s → 480s)' },
+    { category: 'jobs', key: 'dlq_alert_to_superadmin', value: 'true', description: 'Emitir notificación al superadmin cuando un job entra en DLQ (R7+R13)' },
+    // Audit settings (Sprint 9 Fase E + ADR-017)
+    { category: 'audit', key: 'access_retention_days', value: '730', description: 'Días de retención de audit_access_log (mínimo legal AEPD: 2 años)' },
   ];
 
   for (const s of settings) {
@@ -91,6 +98,9 @@ async function main() {
     });
   }
   console.log(`  ✓ ${settings.length} settings created`);
+
+  // ── Notification templates (Sprint 9 Fase D + ADR-065) ──
+  await seedNotificationTemplates(prisma);
 
   console.log('✅ Seed completed');
 }

@@ -31,12 +31,13 @@ export async function loginSuperadminUI(page: Page): Promise<void> {
   await page.getByRole('button', { name: /^(iniciar|entrar|login)/i }).click();
 
   // Tras submit: o bien aparece input #login-2fa (rol con 2FA), o redirige
-  // directo al dashboard (rol sin 2FA, ej: client). Esperamos el primero
-  // que ocurra y actuamos en consecuencia.
+  // directo al landing del rol (rol sin 2FA, ej: client → /dashboard;
+  // staff → /admin tras Sprint 9 Fase F + DC.7). Esperamos el primero que
+  // ocurra y actuamos en consecuencia.
   const code2faInput = page.locator('#login-2fa');
   await Promise.race([
     code2faInput.waitFor({ state: 'visible', timeout: 15_000 }),
-    page.waitForURL(/\/dashboard/, { timeout: 15_000 }),
+    page.waitForURL(/\/(dashboard|admin)/, { timeout: 15_000 }),
   ]);
 
   if (await code2faInput.isVisible().catch(() => false)) {
@@ -49,9 +50,9 @@ export async function loginSuperadminUI(page: Page): Promise<void> {
     await code2faInput.fill(code);
     // El form de 2FA tiene su propio submit ("Verificar" o similar).
     await page.getByRole('button', { name: /^(verificar|confirmar|continuar)/i }).click();
-    await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+    await page.waitForURL(/\/(dashboard|admin)/, { timeout: 15_000 });
   }
-  // Si no había 2FA, el waitForURL ya nos dejó en /dashboard.
+  // Si no había 2FA, el waitForURL ya nos dejó en el landing del rol.
 }
 
 /**

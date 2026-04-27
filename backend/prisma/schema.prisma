@@ -706,6 +706,24 @@ model Notification {
   @@map("notifications")
 }
 
+model NotificationTemplate {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_type  String              @db.VarChar(100)
+  channel     NotificationChannel
+  locale      String              @default("es") @db.VarChar(10)
+  subject     String              @db.VarChar(300)
+  body        String
+  variables   Json
+  active      Boolean             @default(true)
+  updated_by  String?             @db.Uuid
+  created_at  DateTime            @default(now()) @db.Timestamptz()
+  updated_at  DateTime            @updatedAt       @db.Timestamptz()
+
+  @@unique([event_type, channel, locale])
+  @@index([event_type])
+  @@map("notification_templates")
+}
+
 // ─── BLOQUE 10: INFRAESTRUCTURA ───
 
 enum ServerStatus {
@@ -756,9 +774,10 @@ model EventOutbox {
   max_retries   Int         @default(5)
   last_error    String?
   processed_at  DateTime?   @db.Timestamptz()
+  next_retry_at DateTime?   @db.Timestamptz()
   created_at    DateTime    @default(now()) @db.Timestamptz()
 
-  @@index([status])
+  @@index([status, next_retry_at])
   @@index([created_at])
   @@map("event_outbox")
 }
@@ -818,4 +837,31 @@ model AuditChangeLog {
   @@index([user_id])
   @@index([created_at])
   @@map("audit_change_log")
+}
+
+// ─── BLOQUE 13: DLQ — JOBS FALLIDOS (Sprint 9 Fase A — ADR-063) ───
+
+enum FailedJobStatus {
+  failed
+  retrying
+  resolved
+}
+
+model FailedJob {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bull_job_id   String          @db.VarChar(200)
+  queue         String          @db.VarChar(100)
+  name          String          @db.VarChar(200)
+  payload       Json
+  last_error    String
+  stack_trace   String?
+  attempts_made Int
+  retried_at    DateTime?       @db.Timestamptz()
+  retried_by    String?         @db.Uuid
+  status        FailedJobStatus @default(failed)
+  created_at    DateTime        @default(now()) @db.Timestamptz()
+
+  @@index([queue, status])
+  @@index([created_at])
+  @@map("failed_jobs")
 }

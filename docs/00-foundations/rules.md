@@ -93,6 +93,8 @@ RESPONDE INMEDIATO (hilo principal):
   abrir un chat
 ```
 
+> **Implementación canónica:** [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) — `JobsModule` global en `backend/src/core/jobs/`, defaults `attempts=5` + backoff exponencial 30s→480s + jitter ±10%. Ningún `setImmediate`, `setTimeout >100ms` ni cron `@Interval(...)` con side effects nuevo se acepta fuera de BullMQ post Sprint 9 Fase A.
+
 ---
 
 ### R3 — El audit log es inmutable
@@ -100,6 +102,10 @@ RESPONDE INMEDIATO (hilo principal):
 Las tablas del schema `audit` (`audit_access_log`, `audit_change_log`) solo permiten INSERT.
 Nunca UPDATE ni DELETE en ninguna tabla de audit.
 Ni el superadmin tiene permisos de modificación sobre estas tablas.
+
+> **Excepción única (ADR-017 §Retención):** el cron `cleanupOldAuditLogs` (`backend/src/modules/audit/audit-retention.cron.ts`) ejecuta `DELETE FROM audit_access_log WHERE created_at < now() - 730 días` (configurable vía `audit.access_retention_days`, mínimo legal AEPD: 2 años). Es la única operación DELETE permitida sobre tablas audit y vive aislada en su propio service para minimizar superficie de bug.
+>
+> **Implementación canónica:** `AuditService.logAccess()` y `AuditService.logChange()` en `backend/src/modules/audit/audit.service.ts`. Ambos métodos NUNCA relanzan — degradación silenciosa con log de stderr si Prisma falla (R7: el caller no debe romperse por un fallo de audit).
 
 ---
 
@@ -170,7 +176,7 @@ Los eventos que disparan acciones entre módulos (`invoice.paid`, `service.provi
 se persisten en la tabla `event_outbox` dentro de la misma transacción de base de datos.
 Un worker los despacha y los marca como procesados. Si el proceso muere, el evento se reintenta.
 
-> **Implementación canónica** (P0.2, 2026-04-26): `OutboxService.enqueue(tx, eventType, payload)` en `backend/src/core/outbox/outbox.service.ts`. El `OutboxWorker` (`@Interval(5s)` + `FOR UPDATE SKIP LOCKED`) los despacha vía `EventEmitter2.emitAsync` con retries (max 5) y crash recovery en `OnModuleInit`. Detalle completo en [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md).
+> **Implementación canónica** (P0.2, 2026-04-26 · hardened Sprint 9 Fase C, 2026-04-27): `OutboxService.enqueue(tx, eventType, payload)` en `backend/src/core/outbox/outbox.service.ts`. El `OutboxWorker.dispatch()` se invoca desde el `OutboxDispatchProcessor` (cola BullMQ `outbox-dispatch`, repeat every 5s — [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md)) con `FOR UPDATE SKIP LOCKED` y crash recovery en `OnModuleInit`. Backoff exponencial 30s→480s al reintentar evento fallido (campo `next_retry_at` en `event_outbox`). Si un evento agota `max_retries` → estado `failed` + emit `outbox.event_failed` para alerta superadmin (cierra ADR-033 §7). Detalle completo en [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md).
 >
 > **Cobertura actual:** 4/13 eventos críticos cubiertos (`invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue`). Pendientes: `service.*` (4) + `checkout.completed` cuando se implemente provisioning, `partner.*` (4) cuando se implemente el módulo partner. Cualquier evento crítico nuevo **debe nacer con Outbox**.
 
@@ -241,6 +247,8 @@ nunca en la base de datos ni en el código fuente.
 Cuando un job de BullMQ agota todos sus reintentos, queda en estado `failed` en Redis.
 Se genera una notificación al superadmin. El admin puede reintentar manualmente desde
 el dashboard. Los jobs fallidos nunca se eliminan automáticamente.
+
+> **Implementación canónica:** [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) — `DlqService` escucha `QueueEvents.failed`, persiste en tabla `failed_jobs` (Postgres, post-mortem) + emite `dlq.job_failed` consumido por `notifications-dlq.listener` que alerta al superadmin (cumple R7). `RetryService.retry(failedJobId, actorId)` reencola con `attempts=5` reseteado y marca `retried_at` + `retried_by` (audit trail). UI admin en `/dashboard/admin/jobs/failed`.
 
 ---
 
@@ -491,6 +499,27 @@ Los mensajes de sistema del dashboard siguen la voz de Aelium definida en `docs/
 
 ---
 
+### D12 — Notificaciones cliente solo vía `NotificationsService.dispatch*()`
+
+Cualquier email, campana o canal futuro (WhatsApp, SMS, Slack) que el sistema envíe a un cliente, agente o superadmin **debe pasar por** `NotificationsService.dispatchToUser(eventType, payload, userId)` o `dispatchToSuperadmins(eventType, payload)`. La plantilla vive en `notification_templates` (tabla Postgres), no en código TypeScript.
+
+**Prohibido fuera del módulo `core/email/`** (que sólo lo invoca el `EmailChannel`):
+
+```typescript
+// ❌ INCORRECTO — en un listener de negocio post Sprint 9 Fase D
+await this.emailService.send({ to: ..., subject: ..., html: `<div>...` });
+
+// ❌ INCORRECTO — HTML inline en código
+const html = `<div>${user.first_name}</div>`;
+
+// ✅ CORRECTO — toda notificación pasa por el dispatcher
+await this.notifications.dispatchToUser('invoice.paid', payload, userId);
+```
+
+> **Implementación canónica:** `NotificationsService` + `NotificationsDispatchProcessor` (cola BullMQ `notifications-dispatch`) + `EmailChannel`/`InAppChannel` + `NotificationTemplateService` (Handlebars). Detalle completo en [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md). Plantillas en tabla `notification_templates`, seedeadas en `prisma/seeds/notification-templates.ts`.
+
+---
+
 ## Patrones canónicos del codebase
 
 > Esta sección lista las utilidades/tipos compartidos que cumplen las reglas anteriores. Cuando escribas código nuevo, **úsalos en lugar de reinventar el patrón**. Si descubres un patrón nuevo recurrente, documenta aquí en el mismo PR.
@@ -504,6 +533,14 @@ Los mensajes de sistema del dashboard siguen la voz de Aelium definida en `docs/
 | `getErrorMessage(err: unknown): string` | `frontend/app/lib/error.ts` | R7/R14 | Análogo en frontend. Maneja también el shape `{ status, message, correlationId }` que `lib/api.ts` lanza. |
 | `frontend/app/lib/types.ts` | `frontend/app/lib/types.ts` | type-safety | Tipos de dominio compartidos (`Client`, `Invoice`, `Conversation`, `Task`, `Pagination<T>`, etc.). Snake_case alineado con la API REST. |
 | `StorageService.upload / download / presignedDownloadUrl` | `backend/src/core/storage/storage.service.ts` | infra (ADR-062) | Persistencia S3-compatible. Inyectar para guardar PDFs, adjuntos, logos. Convención de keys: ver [ADR-062 §D](../10-decisions/adr-062-storage-canonico-minio.md). Endpoint de descarga: 302 redirect a signed URL, no proxy del backend. |
+| `JobsModule` + `BullModule.registerQueue('<nombre>')` | `backend/src/core/jobs/jobs.module.ts` | R2/R13 (ADR-063) | Cualquier trabajo asíncrono >200ms con side effects. Defaults globales: `attempts=5`, backoff exponencial 30s→480s + jitter ±10%, `removeOnFail: false`. Inyectar la cola con `@InjectQueue('<nombre>')` y publicar con `queue.add(name, payload, { jobId? })`. Idempotencia obligatoria. |
+| `DlqService` + tabla `failed_jobs` | `backend/src/core/jobs/dlq.service.ts` | R13 (ADR-063) | Captura automática de jobs `failed` post-retries. No se invoca a mano. Emite `dlq.job_failed` para alerta superadmin. |
+| `RetryService.retry(failedJobId, actorId)` | `backend/src/core/jobs/retry.service.ts` | R13 (ADR-063) | Reintento manual desde UI admin. Resetea `attempts` y guarda audit (`retried_at`, `retried_by`). |
+| `NotificationsService.dispatchToUser / dispatchToSuperadmins` | `backend/src/modules/notifications/notifications.service.ts` | D12, R7, R2 (ADR-065) | Toda notificación cliente/agente/superadmin. Encola en cola BullMQ `notifications-dispatch`. Plantillas en tabla `notification_templates` (Handlebars). |
+| `NotificationChannelInterface` | `backend/src/modules/notifications/interfaces/notification-channel.interface.ts` | D12 (ADR-065) | Contrato para canales. Plugins iniciales: `EmailChannel`, `InAppChannel`. Añadir canal nuevo = nuevo provider con token `NOTIFICATION_CHANNELS`. |
+| `AdminOnlyGuard` + ruta canónica `/api/v1/admin/*` y `/admin/*` (frontend) | `backend/src/core/common/guards/admin-only.guard.ts` + `frontend/app/admin/layout.tsx` | DC.7 (Sprint 9 Fase F) | **Árbol staff dedicado**: cualquier endpoint o página exclusiva de operativo interno (audit, error log, jobs, settings global, gestión de catálogo, etc.) vive bajo `/admin/*`. Doble guard (defense in depth): `AdminOnlyGuard` rechaza no-staff antes de CASL; CASL aplica granularidad por rol. Login post-2FA redirige al landing del rol (staff → `/admin`, cliente → `/dashboard`, partner → `/dashboard` hasta Sprint 19 que añade `/partner/*`). Migración retroactiva de las 6 páginas existentes en Sprint 9.6 (DC.7). |
+| `AuditService.logAccess / logChange` + `@AuditAccess('Resource')` + `AuditInterceptor` | `backend/src/modules/audit/` | R3 + ADR-017 + ADR-010 (Sprint 9 Fase E) | Registro centralizado de accesos staff a datos del cliente y de cambios sobre entities sensibles. El decorador `@AuditAccess('Resource')` aplicado a un handler GET activa el `AuditInterceptor` global, que registra fila en `audit_access_log` SOLO cuando el caller es staff y el recurso pertenece a OTRO usuario (cliente leyendo sus propios datos NO genera fila — es su derecho natural). Cliente consulta sus accesos en `GET /api/v1/audit/access` (filtro ownership server-side, response enriquecido con `actor: { first_name, last_name, role_name }` por ADR-017 §"Quién"). Frontend cliente: `/dashboard/transparency`. Cron `cleanupOldAuditLogs` borra rows >730 días (ADR-017 §Retención — único DELETE permitido). |
+| `ErrorLogService.log(entry)` + `GlobalExceptionFilter` | `backend/src/modules/error-log/error-log.service.ts` | R7 + ADR-055 §Monitoring (Sprint 9 Fase F) | Registro centralizado de errores operativos del sistema. Tres puertas de entrada: (a) `GlobalExceptionFilter` para HTTP 5xx (escribe directo a tabla, no emite); (b) `log(entry)` explícito desde jobs/listeners no-HTTP, persiste fila + emite `system.error` para alerta superadmin (consumidor diferido Sprint 9.5); (c) endpoints admin `GET/PATCH /api/v1/admin/error-log` con doble guard (JwtAuthGuard + AdminOnlyGuard). Marca como resuelto via `metadata.resolved` + audit (`resolved_at`, `resolved_by`). Frontend admin: `/admin/error-log`. |
 
 ---
 

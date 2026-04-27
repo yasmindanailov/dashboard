@@ -124,11 +124,17 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 
 ### 📨 notifications.* (centro y plantillas)
 
+> **Estado tras Sprint 9 Fase D MVP (2026-04-27 + ADR-065):**
+> - Las plantillas vivem ahora en tabla Postgres `notification_templates` (no settings) — seedeadas en `prisma/seeds/notification-templates.ts` con 11 plantillas iniciales (`invoice.*`, `task.assigned`, `outbox.event_failed`, `dlq.job_failed`).
+> - Toggle por evento × canal se expresa con `notification_templates.active = false` por fila (granularidad fina), reemplazando la setting genérica anterior.
+> - Las 4 settings declaradas abajo se difieren a **Sprint 9.5** (UX admin) junto con los endpoints `/notifications/unread`, `NotificationBell` Topbar y cron `cleanupReadNotifications`. No bloquean Sprint 14 Deploy — el seed inicial cubre producción.
+
 | Key | Tipo | Default | Estado | Consumidor | Origen |
 |-----|------|---------|--------|------------|--------|
-| `notifications.retention_days` | number | 90 | ❌ | (pendiente — borrado automático de notificaciones leídas tras N días) | [ADR-060](../10-decisions/adr-060-decisiones-pre-schema.md) · [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) |
-| `notifications.enabled.<event>.<channel>` | boolean | (sin seed) | ❌ | (pendiente — toggle por evento × canal) | ADR-042 |
-| `notifications.templates.<event>` | jsonb | (sin seed) | ❌ | (pendiente — plantillas editables desde UI) | ADR-042 · ver [`email-templates.md`](./email-templates.md) |
+| `notifications.retention_days` | number | 90 | ❌ diferido Sprint 9.5 | Cron `cleanupReadNotifications` (`EVERY_DAY_AT_2AM`) — pendiente | [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) · [ADR-060](../10-decisions/adr-060-decisiones-pre-schema.md) |
+| `notifications.unread_max_in_dropdown` | number | 50 | ❌ diferido Sprint 9.5 | `NotificationBell` Topbar — pendiente | ADR-042 |
+| `notifications.email_enabled_globally` | boolean | true | ❌ diferido Sprint 9.5 | `EmailChannel.isAvailableFor()` — kill switch global por entorno | ADR-065 |
+| `notifications.maintenance_critical_threshold_days` | number | 7 | ❌ diferido (Sprint 8 Fase C) | Cron alerta mantenimiento crítico — pendiente | ADR-042 + ADR-041 |
 
 ### 🛠️ infra.* (infraestructura)
 
@@ -144,6 +150,20 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 |-----|------|---------|--------|------------|--------|
 | `storage.signed_url_expiry_minutes` | number | 60 | ✅ | `core/storage/storage.service.ts:getDefaultTtlSeconds()` | [ADR-062](../10-decisions/adr-062-storage-canonico-minio.md) · seed.ts |
 | `storage.max_upload_size_mb` | number | 10 | 🟡 | (validar en uploads externos cuando se implementen Sprints 7.7 y 7.6.3 — adjuntos chat/tickets) | ADR-062 · seed.ts |
+
+### ⚙️ jobs.* (Sprint 9 Fase A — ADR-063)
+
+| Key | Tipo | Default | Estado | Consumidor | Origen |
+|-----|------|---------|--------|------------|--------|
+| `jobs.default_retries` | number | 5 | ✅ | `core/jobs/jobs.module.ts` defaults | [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) · seed.ts |
+| `jobs.backoff_initial_ms` | number | 30000 | ✅ | `core/jobs/jobs.module.ts` defaults (30s → 60s → 120s → 240s → 480s) | ADR-063 · seed.ts |
+| `jobs.dlq_alert_to_superadmin` | boolean | true | ✅ | `core/jobs/dlq.service.ts` (kill switch para entornos test) | ADR-063 · seed.ts |
+
+### 🛡️ audit.* (Sprint 9 Fase E — ADR-017)
+
+| Key | Tipo | Default | Estado | Consumidor | Origen |
+|-----|------|---------|--------|------------|--------|
+| `audit.access_retention_days` | number | 730 | ✅ | `modules/audit/audit-retention.cron.ts` (mínimo legal AEPD: 2 años) | [ADR-017](../10-decisions/adr-017-audit-log-inmutable.md) · seed.ts |
 
 ### 🤖 ai.* (agentes IA — Sprint 15 futuro)
 

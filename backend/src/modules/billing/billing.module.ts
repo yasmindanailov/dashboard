@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
 import { BillingService } from './billing.service';
 import { BillingInvoiceService } from './billing-invoice.service';
 import { BillingCheckoutService } from './billing-checkout.service';
@@ -11,8 +12,18 @@ import { SubscriptionController } from './subscription.controller';
 import { InvoicePdfService } from './invoice-pdf.service';
 import { InvoicePdfStorageService } from './invoice-pdf-storage.service';
 import { BillingEmailListener } from './billing-email.listener';
+import {
+  PdfGenerationProcessor,
+  PDF_GENERATION_QUEUE,
+} from './pdf-generation.processor';
 
 @Module({
+  imports: [
+    // Sprint 9 Fase B — cola BullMQ para generación + upload de PDFs.
+    // Hereda los defaults del JobsModule global (attempts=5, backoff
+    // exponencial 30s→480s, removeOnFail:false). ADR-063.
+    BullModule.registerQueue({ name: PDF_GENERATION_QUEUE }),
+  ],
   controllers: [BillingController, SubscriptionController],
   providers: [
     BillingCalculatorService,
@@ -25,6 +36,7 @@ import { BillingEmailListener } from './billing-email.listener';
     InvoicePdfService,
     InvoicePdfStorageService,
     BillingEmailListener,
+    PdfGenerationProcessor,
   ],
   exports: [
     BillingService,
