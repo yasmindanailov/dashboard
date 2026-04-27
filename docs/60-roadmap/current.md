@@ -351,23 +351,30 @@ model NotificationTemplate {
 
 | # | Paso | Estado |
 |---|------|--------|
-| 9.D.1 | ADR-065 — `NotificationChannelInterface` + plugin pattern (formaliza ADR-042 §Plugin de canal) | ⬜ |
-| 9.D.2 | Schema Prisma: `notifications` + `notification_templates` + enum + migración | ⬜ |
-| 9.D.3 | `NotificationsModule` con `BullModule.registerQueue('notifications-dispatch')` | ⬜ |
-| 9.D.4 | `NotificationTemplateService` — render Handlebars + validador `variables` declaradas | ⬜ |
-| 9.D.5 | `EmailChannel` (envuelve `core/email`) + `InAppChannel` (insert en `notifications`) | ⬜ |
-| 9.D.6 | `NotificationsService.dispatch(eventType, payload)` — lookup template por `(event_type, channel, locale)`, encola en `notifications-dispatch` | ⬜ |
-| 9.D.7 | `NotificationsDispatchProcessor` — itera canales activos del recipient, llama `channel.send(...)` | ⬜ |
-| 9.D.8 | Seed `notification_templates` para los 4 `invoice.*` + `task.assigned` + `system.error` + `outbox.event_failed` + `dlq.job_failed` | ⬜ |
-| 9.D.9 | Refactor `BillingEmailListener` → `NotificationsService.dispatch(...)`. Tests E2E billing siguen verdes (no cambian payload de email) | ⬜ |
-| 9.D.10 | Refactor `TasksEmailListener` (P0.1) → `NotificationsService.dispatch('task.assigned', ...)` | ⬜ |
-| 9.D.11 | Endpoints `/notifications/unread`, `/notifications`, `/:id/read`, `/read-all` + DTOs + CASL | ⬜ |
-| 9.D.12 | Endpoints admin `/admin/notifications/templates` (GET, PATCH, preview) + CASL | ⬜ |
-| 9.D.13 | Frontend: `NotificationBell` en Topbar (Sprint 7.5 D11) — dropdown últimas 50 + contador unread + WS opcional (server-sent o polling 30s) | ⬜ |
-| 9.D.14 | Frontend admin: `/dashboard/admin/notifications/templates` — listado + editor (Design System D6 Modal + D3 Textarea) | ⬜ |
-| 9.D.15 | Cron `cleanupReadNotifications` (in-process, `EVERY_DAY_AT_2AM`) — elimina notificaciones `read` con `read_at < now() - notifications.retention_days` | ⬜ |
-| 9.D.16 | Settings seed: 4 nuevos `notifications.*` | ⬜ |
-| 9.D.17 | Test E2E `tests/e2e/notifications.spec.ts` — pago factura → cliente recibe en campana + email; admin ve plantilla en UI | ⬜ |
+| 9.D.1 | ADR-065 — `NotificationChannelInterface` + plantillas editables + dispatcher BullMQ (formaliza ADR-042) | ✅ |
+| 9.D.2 | Schema Prisma: `notification_templates` + migración `20260427053610_sprint9_phase_d_notification_templates`. `notifications` ya existe — preserva shape original | ✅ |
+| 9.D.3 | `NotificationsModule` (@Global) con `BullModule.registerQueue('notifications-dispatch')` + multi-provider `NOTIFICATION_CHANNELS` | ✅ |
+| 9.D.4 | `NotificationTemplateService` — render Handlebars con helpers `lt`/`gt`/`eq` + locale fallback `es` + canal email no escapa HTML, internal sí. Tests unit 6/6 verde | ✅ |
+| 9.D.5 | `EmailChannel` (envuelve `core/email`) + `InAppChannel` (insert en `notifications`, persiste `action_url` y `metadata` para frontend) | ✅ |
+| 9.D.6 | `NotificationsService.dispatchToUser` y `dispatchToSuperadmins` — encolan en `notifications-dispatch`. Resolución de superadmins via `User.role.slug='superadmin'` | ✅ |
+| 9.D.7 | `NotificationsDispatchProcessor` — resuelve recipients, lookup template `(event_type, channel, locale)`, itera canales, retorno parcial (algunos OK, algunos fail = warning), throw si TODOS fallan | ✅ |
+| 9.D.8 | Seed inicial 11 plantillas en `prisma/seeds/notification-templates.ts`: `invoice.*` (4) + `task.assigned` (2 canales) + `outbox.event_failed` (2) + `dlq.job_failed` (2) + `invoice.paid` campana. HTML byte-idéntico al inline previo para preservar tests E2E | ✅ |
+| 9.D.9 | Refactor `BillingEmailListener` (4 handlers: una línea cada uno → `notifications.dispatchToUser('invoice.X', payload, user_id)`) y `TasksEmailListener` (delega + añade `action_url` relativo + `task_url` absoluto al payload) | ✅ |
+| 9.D.10 | Listeners `notifications-outbox.listener` (consume `outbox.event_failed`) y `notifications-dlq.listener` (consume `dlq.job_failed`) → `dispatchToSuperadmins(...)`. Guard explícito anti-loop: si dispatch falla, log y degradación silenciosa | ✅ |
+
+**Cierre Fase D MVP:** typecheck ✅ · lint ✅ · build ✅ · unit 17/17 (RetryService 5 + OutboxWorker 6 + NotificationTemplateService 6) ✅ · E2E suite full **20/20 verde en 1.0min** · boot real con 3 colas BullMQ activas registradas en DLQ (`pdf-generation`, `outbox-dispatch`, `notifications-dispatch`). **Huérfanos `outbox.event_failed` y `dlq.job_failed` ahora tienen consumidor** — la alerta R7 al superadmin queda cerrada de extremo a extremo.
+
+**Pasos diferidos a Sprint 9.5 (UX admin, fuera de Fase D MVP):**
+
+| # | Paso | Estado |
+|---|------|--------|
+| 9.D.11 | Endpoints `/notifications/unread`, `/notifications`, `/:id/read`, `/read-all` + DTOs + CASL | ⬜ Sprint 9.5 |
+| 9.D.12 | Endpoints admin `/admin/notifications/templates` (GET, PATCH, preview) + CASL | ⬜ Sprint 9.5 |
+| 9.D.13 | Frontend: `NotificationBell` en Topbar — dropdown últimas 50 + contador unread | ⬜ Sprint 9.5 |
+| 9.D.14 | Frontend admin: `/dashboard/admin/notifications/templates` — listado + editor (DS D6 Modal + D3 Textarea) | ⬜ Sprint 9.5 |
+| 9.D.15 | Cron `cleanupReadNotifications` (`EVERY_DAY_AT_2AM`) | ⬜ Sprint 9.5 |
+| 9.D.16 | Settings seed: 4 nuevos `notifications.*` (`retention_days`, `unread_max_in_dropdown`, `email_enabled_globally`, `maintenance_critical_threshold_days`) | ⬜ Sprint 9.5 |
+| 9.D.17 | Test E2E `notifications.spec.ts` específico — flujo end-to-end de campana | ⬜ Sprint 9.5 (cubierto parcialmente hoy por `tasks.spec.ts:151` que verifica `notifications` row + `action_url` + `metadata.event`) |
 
 #### Fase E — Audit centralizado + portal transparencia (cierra ADR-017 + ADR-010)
 

@@ -44,8 +44,8 @@ Eventos sin dominio de negocio — emitidos por la infraestructura para alertas 
 
 | Evento | Emisor | Consumidores | Payload | Outbox | Estado |
 |--------|--------|--------------|---------|--------|--------|
-| `outbox.event_failed` | `OutboxWorker.processEvent()` cuando `retry_count >= max_retries` | _(huérfano hasta Sprint 9 Fase D — `notifications-outbox.listener` consumirá para alertar superadmin)_ | `{ event_outbox_id, event_type, last_error, retry_count }` | no (es alerta operativa, no transacción) | ✅ emisor activo desde Sprint 9 Fase C (ADR-064) |
-| `dlq.job_failed` | `DlqService.handleFailed()` cuando un job BullMQ agota `attempts` | _(huérfano hasta Fase D — `notifications-dlq.listener` consumirá)_ | `{ failed_job_id, queue, name, last_error, attempts_made }` | no | ✅ emisor activo desde Sprint 9 Fase A (ADR-063) |
+| `outbox.event_failed` | `OutboxWorker.processEvent()` cuando `retry_count >= max_retries` | `notifications-outbox.listener` → `NotificationsService.dispatchToSuperadmins` (campana + email — ADR-065) | `{ event_outbox_id, event_type, last_error, retry_count }` | no (es alerta operativa, no transacción) | ✅ emisor + consumidor activos (Sprint 9 Fases C+D — ADR-064 + ADR-065) |
+| `dlq.job_failed` | `DlqService.handleFailed()` cuando un job BullMQ agota `attempts` | `notifications-dlq.listener` → `NotificationsService.dispatchToSuperadmins` (campana + email — ADR-065) | `{ failed_job_id, queue, name, last_error, attempts_made }` | no | ✅ emisor + consumidor activos (Sprint 9 Fases A+D — ADR-063 + ADR-065) |
 
 ---
 

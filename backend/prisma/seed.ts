@@ -3,6 +3,7 @@ import { PrismaClient, RoleSlug } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
+import { seedNotificationTemplates } from './seeds/notification-templates';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -95,6 +96,9 @@ async function main() {
     });
   }
   console.log(`  ✓ ${settings.length} settings created`);
+
+  // ── Notification templates (Sprint 9 Fase D + ADR-065) ──
+  await seedNotificationTemplates(prisma);
 
   console.log('✅ Seed completed');
 }

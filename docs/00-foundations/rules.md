@@ -495,6 +495,27 @@ Los mensajes de sistema del dashboard siguen la voz de Aelium definida en `docs/
 
 ---
 
+### D12 — Notificaciones cliente solo vía `NotificationsService.dispatch*()`
+
+Cualquier email, campana o canal futuro (WhatsApp, SMS, Slack) que el sistema envíe a un cliente, agente o superadmin **debe pasar por** `NotificationsService.dispatchToUser(eventType, payload, userId)` o `dispatchToSuperadmins(eventType, payload)`. La plantilla vive en `notification_templates` (tabla Postgres), no en código TypeScript.
+
+**Prohibido fuera del módulo `core/email/`** (que sólo lo invoca el `EmailChannel`):
+
+```typescript
+// ❌ INCORRECTO — en un listener de negocio post Sprint 9 Fase D
+await this.emailService.send({ to: ..., subject: ..., html: `<div>...` });
+
+// ❌ INCORRECTO — HTML inline en código
+const html = `<div>${user.first_name}</div>`;
+
+// ✅ CORRECTO — toda notificación pasa por el dispatcher
+await this.notifications.dispatchToUser('invoice.paid', payload, userId);
+```
+
+> **Implementación canónica:** `NotificationsService` + `NotificationsDispatchProcessor` (cola BullMQ `notifications-dispatch`) + `EmailChannel`/`InAppChannel` + `NotificationTemplateService` (Handlebars). Detalle completo en [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md). Plantillas en tabla `notification_templates`, seedeadas en `prisma/seeds/notification-templates.ts`.
+
+---
+
 ## Patrones canónicos del codebase
 
 > Esta sección lista las utilidades/tipos compartidos que cumplen las reglas anteriores. Cuando escribas código nuevo, **úsalos en lugar de reinventar el patrón**. Si descubres un patrón nuevo recurrente, documenta aquí en el mismo PR.
@@ -511,6 +532,8 @@ Los mensajes de sistema del dashboard siguen la voz de Aelium definida en `docs/
 | `JobsModule` + `BullModule.registerQueue('<nombre>')` | `backend/src/core/jobs/jobs.module.ts` | R2/R13 (ADR-063) | Cualquier trabajo asíncrono >200ms con side effects. Defaults globales: `attempts=5`, backoff exponencial 30s→480s + jitter ±10%, `removeOnFail: false`. Inyectar la cola con `@InjectQueue('<nombre>')` y publicar con `queue.add(name, payload, { jobId? })`. Idempotencia obligatoria. |
 | `DlqService` + tabla `failed_jobs` | `backend/src/core/jobs/dlq.service.ts` | R13 (ADR-063) | Captura automática de jobs `failed` post-retries. No se invoca a mano. Emite `dlq.job_failed` para alerta superadmin. |
 | `RetryService.retry(failedJobId, actorId)` | `backend/src/core/jobs/retry.service.ts` | R13 (ADR-063) | Reintento manual desde UI admin. Resetea `attempts` y guarda audit (`retried_at`, `retried_by`). |
+| `NotificationsService.dispatchToUser / dispatchToSuperadmins` | `backend/src/modules/notifications/notifications.service.ts` | D12, R7, R2 (ADR-065) | Toda notificación cliente/agente/superadmin. Encola en cola BullMQ `notifications-dispatch`. Plantillas en tabla `notification_templates` (Handlebars). |
+| `NotificationChannelInterface` | `backend/src/modules/notifications/interfaces/notification-channel.interface.ts` | D12 (ADR-065) | Contrato para canales. Plugins iniciales: `EmailChannel`, `InAppChannel`. Añadir canal nuevo = nuevo provider con token `NOTIFICATION_CHANNELS`. |
 
 ---
 

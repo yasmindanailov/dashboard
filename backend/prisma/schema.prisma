@@ -706,6 +706,24 @@ model Notification {
   @@map("notifications")
 }
 
+model NotificationTemplate {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_type  String              @db.VarChar(100)
+  channel     NotificationChannel
+  locale      String              @default("es") @db.VarChar(10)
+  subject     String              @db.VarChar(300)
+  body        String
+  variables   Json
+  active      Boolean             @default(true)
+  updated_by  String?             @db.Uuid
+  created_at  DateTime            @default(now()) @db.Timestamptz()
+  updated_at  DateTime            @updatedAt       @db.Timestamptz()
+
+  @@unique([event_type, channel, locale])
+  @@index([event_type])
+  @@map("notification_templates")
+}
+
 // ─── BLOQUE 10: INFRAESTRUCTURA ───
 
 enum ServerStatus {
