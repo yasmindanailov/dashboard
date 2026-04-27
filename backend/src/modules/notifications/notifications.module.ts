@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
 import { NotificationTemplateService } from './notification-template.service';
+import { NotificationTemplatesAdminController } from './notification-templates-admin.controller';
 import {
   NotificationsDispatchProcessor,
   NOTIFICATIONS_DISPATCH_QUEUE,
@@ -12,6 +13,8 @@ import { InAppChannel } from './channels/in-app.channel';
 import { NOTIFICATION_CHANNELS } from './interfaces/notification-channel.interface';
 import { NotificationsOutboxListener } from './listeners/notifications-outbox.listener';
 import { NotificationsDlqListener } from './listeners/notifications-dlq.listener';
+import { NotificationsSystemErrorListener } from './listeners/notifications-system-error.listener';
+import { NotificationsRetentionCron } from './notifications-retention.cron';
 
 /**
  * NotificationsModule — Sprint 9 Fase D (ADR-065 + ADR-042).
@@ -27,7 +30,7 @@ import { NotificationsDlqListener } from './listeners/notifications-dlq.listener
 @Global()
 @Module({
   imports: [BullModule.registerQueue({ name: NOTIFICATIONS_DISPATCH_QUEUE })],
-  controllers: [NotificationsController],
+  controllers: [NotificationsController, NotificationTemplatesAdminController],
   providers: [
     NotificationsService,
     NotificationTemplateService,
@@ -36,6 +39,8 @@ import { NotificationsDlqListener } from './listeners/notifications-dlq.listener
     InAppChannel,
     NotificationsOutboxListener,
     NotificationsDlqListener,
+    NotificationsSystemErrorListener,
+    NotificationsRetentionCron,
     {
       provide: NOTIFICATION_CHANNELS,
       useFactory: (email: EmailChannel, inApp: InAppChannel) => [email, inApp],

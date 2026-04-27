@@ -35,6 +35,13 @@ const ICON = {
       <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
     </svg>
   ),
+  templates: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M4 4h16v16H4z" />
+      <path d="M4 9h16" />
+      <path d="M9 9v11" />
+    </svg>
+  ),
 };
 
 const ALL_ITEMS: NavItem[] = [
@@ -48,6 +55,12 @@ const ALL_ITEMS: NavItem[] = [
     label: 'Jobs en DLQ',
     href: '/admin/jobs/failed',
     icon: ICON.jobs,
+    allowedRoles: ['superadmin'],
+  },
+  {
+    label: 'Plantillas notificaciones',
+    href: '/admin/notifications/templates',
+    icon: ICON.templates,
     allowedRoles: ['superadmin'],
   },
 ];

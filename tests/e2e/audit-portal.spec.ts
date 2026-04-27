@@ -229,4 +229,69 @@ test.describe.serial('Audit portal — Sprint 9 Fase E (ADR-017 + RGPD)', () => 
     );
     expect(rows.rowCount).toBe(0);
   });
+
+  /**
+   * Sprint 9.5 — DC.10: cobertura del path Client/User.
+   *
+   * El fix `bff4fec` añadió a `extractOwnerId` el caso en que el
+   * `resource_type` ES el usuario (Client / User shape) — el `id` del
+   * response identifica al owner, no `user_id`. El spec original solo
+   * cubría Invoice (que tiene `user_id` directo); este test ejercita
+   * `GET /clients/:id` (decorado con `@AuditAccess('Client')`) y verifica
+   * que la fila persiste con `target_user_id = client.id`.
+   */
+  test('admin lee /clients/:id (Client) → target_user_id == client.id (DC.10)', async ({
+    request,
+  }) => {
+    // Limpia rows previas para este cliente.
+    await pool.query(
+      `DELETE FROM audit_access_log
+       WHERE metadata->>'target_user_id' = $1`,
+      [clientUserId],
+    );
+
+    const res = await request.get(
+      `${TEST_CONFIG.apiUrl}/clients/${clientUserId}`,
+      { headers: { Authorization: `Bearer ${staffToken}` } },
+    );
+    expect(
+      res.ok(),
+      `GET /clients/:id falló: ${res.status()} ${await res.text()}`,
+    ).toBeTruthy();
+
+    await new Promise((r) => setTimeout(r, 300));
+
+    const rows = await pool.query<{
+      action: string;
+      resource: string;
+      metadata: Record<string, unknown>;
+    }>(
+      `SELECT action, resource, metadata FROM audit_access_log
+       WHERE metadata->>'target_user_id' = $1
+       ORDER BY created_at DESC LIMIT 1`,
+      [clientUserId],
+    );
+    expect(rows.rowCount).toBe(1);
+    const row = rows.rows[0];
+    expect(row.action).toBe('read');
+    expect(row.resource).toContain('Client');
+    expect(row.metadata.resource_type).toBe('Client');
+    expect(row.metadata.target_user_id).toBe(clientUserId);
+    expect(row.metadata.actor_role).toBe('superadmin');
+
+    // Y el cliente lo ve en su portal de transparencia.
+    const portal = await request.get(`${TEST_CONFIG.apiUrl}/audit/access`, {
+      headers: { Authorization: `Bearer ${clientToken}` },
+    });
+    expect(portal.ok()).toBeTruthy();
+    const portalBody = (await portal.json()) as {
+      data: Array<{ resource: string | null; metadata: Record<string, unknown> | null }>;
+    };
+    const matching = portalBody.data.find(
+      (e) =>
+        (e.metadata as { resource_type?: string } | null)?.resource_type ===
+        'Client',
+    );
+    expect(matching).toBeDefined();
+  });
 });

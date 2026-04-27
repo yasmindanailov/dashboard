@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '../lib/auth-context';
 import { canAccess } from '../lib/permissions';
 import { Dropdown, type DropdownItem } from '../components/ui';
+import NotificationBell from './NotificationBell';
 import styles from './Topbar.module.css';
 
 /* ═══════════════════════════════════════
@@ -30,13 +31,6 @@ const IconSearch = (
 const IconSupport = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-  </svg>
-);
-
-const IconBell = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
   </svg>
 );
 
@@ -138,12 +132,8 @@ export default function Topbar({ sidebarCollapsed, onMobileMenuOpen, onOpenSuppo
         {/* Support button (client only) — UI_SPEC §P3 */}
         {isClient && <SupportButton onOpenChat={onOpenSupportPanel} />}
 
-        {/* Notification bell */}
-        <button className={styles.iconBtn} title="Notificaciones">
-          {IconBell}
-          {/* Uncomment when notification count is available:
-          <span className={styles.notifBadge} /> */}
-        </button>
+        {/* Notification bell — Sprint 9.5 (ADR-042 + ADR-065) */}
+        <NotificationBell triggerClassName={styles.iconBtn} />
 
         {/* Profile dropdown */}
         <Dropdown

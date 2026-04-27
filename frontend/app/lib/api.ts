@@ -547,6 +547,140 @@ export const auditApi = {
   },
 };
 
+// ── Notifications (Sprint 9.5 — campana cliente) ──
+
+export type NotificationChannel = 'internal' | 'email' | 'whatsapp' | 'push';
+
+export interface NotificationItem {
+  id: string;
+  channel: NotificationChannel;
+  title: string;
+  body: string;
+  action_url: string | null;
+  read_at: string | null;
+  sent_at: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface UnreadNotificationsResponse {
+  data: NotificationItem[];
+  unread_count: number;
+}
+
+export interface NotificationsListResponse {
+  data: NotificationItem[];
+  meta: { total: number; page: number; limit: number; totalPages: number };
+}
+
+export const notificationsApi = {
+  unread: (token: string) =>
+    api<UnreadNotificationsResponse>('/notifications/unread', { token }),
+
+  list: (
+    token: string,
+    params?: { page?: number; limit?: number; unread_only?: boolean },
+  ) => {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.unread_only) query.set('unread_only', 'true');
+    const qs = query.toString();
+    return api<NotificationsListResponse>(
+      `/notifications${qs ? `?${qs}` : ''}`,
+      { token },
+    );
+  },
+
+  markRead: (token: string, id: string) =>
+    api<{ read: true }>(`/notifications/${id}/read`, {
+      method: 'PATCH',
+      token,
+    }),
+
+  markAllRead: (token: string) =>
+    api<{ updated: number }>('/notifications/read-all', {
+      method: 'PATCH',
+      token,
+    }),
+};
+
+// ── Admin / Notification Templates (Sprint 9.5) ──
+
+export interface NotificationTemplateItem {
+  id: string;
+  event_type: string;
+  channel: NotificationChannel;
+  locale: string;
+  subject: string;
+  body: string;
+  variables: Record<string, unknown> | null;
+  active: boolean;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationTemplatesListResponse {
+  data: NotificationTemplateItem[];
+  meta: { total: number; page: number; limit: number; totalPages: number };
+}
+
+export interface NotificationTemplatePreviewResponse {
+  event_type: string;
+  subject: string;
+  body: string;
+}
+
+export const notificationTemplatesApi = {
+  list: (
+    token: string,
+    params?: {
+      event_type?: string;
+      channel?: NotificationChannel;
+      page?: number;
+      limit?: number;
+    },
+  ) => {
+    const query = new URLSearchParams();
+    if (params?.event_type) query.set('event_type', params.event_type);
+    if (params?.channel) query.set('channel', params.channel);
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    const qs = query.toString();
+    return api<NotificationTemplatesListResponse>(
+      `/admin/notifications/templates${qs ? `?${qs}` : ''}`,
+      { token },
+    );
+  },
+
+  get: (token: string, id: string) =>
+    api<NotificationTemplateItem>(`/admin/notifications/templates/${id}`, {
+      token,
+    }),
+
+  update: (
+    token: string,
+    id: string,
+    data: { subject?: string; body?: string; active?: boolean },
+  ) =>
+    api<{ id: string }>(`/admin/notifications/templates/${id}`, {
+      method: 'PATCH',
+      token,
+      body: data,
+    }),
+
+  preview: (
+    token: string,
+    id: string,
+    payload?: Record<string, unknown>,
+  ) =>
+    api<NotificationTemplatePreviewResponse>(
+      `/admin/notifications/templates/${id}/preview`,
+      { method: 'POST', token, body: payload ? { payload } : {} },
+    ),
+};
+
 // ── Admin / Jobs (Sprint 9 Fase F) ──
 
 export interface FailedJobItem {
