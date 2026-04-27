@@ -124,11 +124,17 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 
 ### 📨 notifications.* (centro y plantillas)
 
+> **Estado tras Sprint 9 Fase D MVP (2026-04-27 + ADR-065):**
+> - Las plantillas vivem ahora en tabla Postgres `notification_templates` (no settings) — seedeadas en `prisma/seeds/notification-templates.ts` con 11 plantillas iniciales (`invoice.*`, `task.assigned`, `outbox.event_failed`, `dlq.job_failed`).
+> - Toggle por evento × canal se expresa con `notification_templates.active = false` por fila (granularidad fina), reemplazando la setting genérica anterior.
+> - Las 4 settings declaradas abajo se difieren a **Sprint 9.5** (UX admin) junto con los endpoints `/notifications/unread`, `NotificationBell` Topbar y cron `cleanupReadNotifications`. No bloquean Sprint 14 Deploy — el seed inicial cubre producción.
+
 | Key | Tipo | Default | Estado | Consumidor | Origen |
 |-----|------|---------|--------|------------|--------|
-| `notifications.retention_days` | number | 90 | ❌ | (pendiente — borrado automático de notificaciones leídas tras N días) | [ADR-060](../10-decisions/adr-060-decisiones-pre-schema.md) · [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) |
-| `notifications.enabled.<event>.<channel>` | boolean | (sin seed) | ❌ | (pendiente — toggle por evento × canal) | ADR-042 |
-| `notifications.templates.<event>` | jsonb | (sin seed) | ❌ | (pendiente — plantillas editables desde UI) | ADR-042 · ver [`email-templates.md`](./email-templates.md) |
+| `notifications.retention_days` | number | 90 | ❌ diferido Sprint 9.5 | Cron `cleanupReadNotifications` (`EVERY_DAY_AT_2AM`) — pendiente | [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) · [ADR-060](../10-decisions/adr-060-decisiones-pre-schema.md) |
+| `notifications.unread_max_in_dropdown` | number | 50 | ❌ diferido Sprint 9.5 | `NotificationBell` Topbar — pendiente | ADR-042 |
+| `notifications.email_enabled_globally` | boolean | true | ❌ diferido Sprint 9.5 | `EmailChannel.isAvailableFor()` — kill switch global por entorno | ADR-065 |
+| `notifications.maintenance_critical_threshold_days` | number | 7 | ❌ diferido (Sprint 8 Fase C) | Cron alerta mantenimiento crítico — pendiente | ADR-042 + ADR-041 |
 
 ### 🛠️ infra.* (infraestructura)
 

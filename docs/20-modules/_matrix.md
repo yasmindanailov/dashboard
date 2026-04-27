@@ -22,23 +22,33 @@ Auditoría exhaustiva confirmó:
 
 Filas = módulo origen. Columnas = módulo destino. Celda = tipo de relación.
 
-| Origen → Destino | auth | clients | products | billing | support | tasks | dashboard | partner | core |
-|------------------|------|---------|----------|---------|---------|-------|-----------|---------|------|
-| **auth** | (sub R15) | — | — | — | — | — | — | — | prisma, settings, email, casl |
-| **clients** | read users | (sub R15) | — | read invoices | — | — | — | — | prisma, casl |
-| **products** | — | — | (sub R15) | — | — | — | — | — | prisma, casl |
-| **billing** | read users | read billing_profiles | read products, product_pricing | (sub R15) | — | — | — | — | prisma, settings, email, casl |
-| **support** | read users | read client_notes | — | read services | (sub R15) | — | — | — | prisma, settings, email, casl |
-| **tasks** | read users | — | — | — | — | — | — | — | prisma, casl |
-| **dashboard** | read users | read clients data | — | read invoices, services | read conversations | read tasks | — | — | prisma |
-| **partner** | (stub) | (stub) | (stub) | (stub) | (stub) | (stub) | (stub) | (stub) | — |
+| Origen → Destino | auth | clients | products | billing | support | tasks | dashboard | notifications | audit | error-log | partner | core |
+|------------------|------|---------|----------|---------|---------|-------|-----------|---------------|-------|-----------|---------|------|
+| **auth** | (sub R15) | — | — | — | — | — | — | — | write `audit_access_log` (DC.8 — directo, no via AuditService) | — | — | prisma, settings, email, casl |
+| **clients** | read users | (sub R15) | — | read invoices | — | — | — | — | — | — | — | prisma, casl |
+| **products** | — | — | (sub R15) | — | — | — | — | — | — | — | — | prisma, casl |
+| **billing** | read users | read billing_profiles | read products, product_pricing | (sub R15) | — | — | — | dispatchToUser via `BillingEmailListener` | — | — | — | prisma, settings, email, casl, **outbox**, **storage**, **jobs** |
+| **support** | read users | read client_notes | — | read services | (sub R15) | — | — | — | — | — | — | prisma, settings, email, casl |
+| **tasks** | read users | — | — | — | — | — | — | dispatchToUser via `TasksEmailListener` | — | — | — | prisma, casl |
+| **dashboard** | read users | read clients data | — | read invoices, services | read conversations | read tasks | — | — | — | — | — | prisma |
+| **notifications** | read users (resolver recipients + superadmins) | — | — | — | — | — | — | (sub R15) | — | — | — | prisma, **email**, **jobs** |
+| **audit** | — | — | — | — | — | — | — | — | (sub R15) | — | — | prisma |
+| **error-log** | — | — | — | — | — | — | — | emite `system.error` (consumidor diferido Sprint 9.5) | — | (sub R15) | — | prisma, **events** |
+| **partner** | (stub) | (stub) | (stub) | (stub) | (stub) | (stub) | (stub) | — | — | — | (stub) | — |
 
 ### Leyenda
 - **`read X`**: el módulo origen lee tabla `X` del módulo destino vía Prisma. Lectura legítima — los módulos son aggregates, no microservicios estrictos.
 - **`(sub R15)`**: relación INTRA-módulo (sub-services por Regla 15). No es acoplamiento entre dominios.
 - **`(stub)`**: módulo definido pero sin implementación.
 - **`—`**: sin relación directa.
-- **`core`**: servicios globales (PrismaService, SettingsService, EmailService, CaslAbilityFactory). Todos los módulos los usan; no es acoplamiento problemático.
+- **`core`**: servicios globales (PrismaService, SettingsService, EmailService, CaslAbilityFactory, **OutboxService**, **StorageService**, **JobsModule**, **AuditService**, **events** EventEmitter2). Todos los módulos los usan; no es acoplamiento problemático.
+
+> **Sprint 9 (2026-04-27) cambios estructurales:**
+> - `audit/`, `notifications/`, `error-log/` salieron de stub a implementación real.
+> - `notifications` es @Global y consumido por `BillingEmailListener` + `TasksEmailListener` + listeners operativos (`outbox.event_failed`, `dlq.job_failed`).
+> - `audit` es @Global; `AuditInterceptor` registrado APP-wide intercepta endpoints decorados con `@AuditAccess('Resource')`.
+> - `error-log.service` emite `system.error` para alerta superadmin (consumidor diferido Sprint 9.5).
+> - Los 3 módulos cumplen R1 (comunicación vía eventos cuando aplica) y R15 (todos sus archivos <300 líneas).
 
 ---
 
@@ -136,14 +146,14 @@ Lista de "atención" (mejoras incrementales, no bloqueantes):
 
 ## Módulos completamente aislados
 
-Estos módulos no aparecen en la matriz como origen ni destino (más allá de core):
+Estos módulos no aparecen en la matriz principal como origen ni destino (más allá de core):
 
-| Módulo | Estado | Comunicación esperada (futura) |
-|--------|--------|-------------------------------|
-| audit | stub | Listener de eventos `*.created`, `*.changed` para auditar |
-| notifications | stub | Listener de `notification.*` |
+| Módulo | Estado | Comunicación |
+|--------|--------|--------------|
+| ~~audit~~ | ✅ **implementado Sprint 9 Fase E** — ver matriz principal | `AuditService.logAccess` via `AuditInterceptor` + endpoint cliente `/audit/access`. Cron retención 730 días |
+| ~~notifications~~ | ✅ **implementado Sprint 9 Fase D MVP** — ver matriz principal | @Global, multicanal (`EmailChannel` + `InAppChannel`), plantillas Handlebars, cola `notifications-dispatch` |
+| ~~error-log~~ | ✅ **implementado Sprint 9 Fase F** — ver matriz principal | Persistido por `GlobalExceptionFilter` (5xx HTTP) + `ErrorLogService.log()` desde jobs/listeners. Endpoint admin `/admin/error-log` |
 | promotions | stub | Listener de `invoice.created` para aplicar descuentos retroactivos |
-| error-log | stub | Listener de excepciones globales |
 | infrastructure | stub | Gestión de servidores físicos / VMs |
 | knowledge-base | stub | Self-service docs para clientes |
 | provisioning | stub | Listener de `invoice.paid` → activar servicio externo (Docker, Enhance) |

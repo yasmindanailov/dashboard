@@ -14,8 +14,8 @@ Motor de facturación y ciclo de vida de servicios. Crea facturas (manual o vía
 
 Pendiente conocido:
 - Plugin de pago real (hoy solo `manual` payment provider). Stripe está en backlog.
-- Implementar Outbox Pattern (R8) para `invoice.*` — deuda crítica documentada.
-- Email templates inline → mover a `core/email/templates/billing.templates.ts` (deuda menor)
+- ~~Outbox Pattern (R8) para `invoice.*`~~ ✅ **cerrado P0.2 (2026-04-26) + hardened Sprint 9 Fase C (ADR-064)**: 4 `invoice.*` usan `OutboxService.enqueue(tx, …)`; despacho via cola BullMQ `outbox-dispatch` con backoff exponencial 30s→480s; emit `outbox.event_failed` si agotan retries.
+- ~~Email templates inline~~ ✅ **cerrado Sprint 9 Fase D (ADR-065)**: HTML movido a tabla `notification_templates` (Handlebars). `BillingEmailListener` delega a `NotificationsService.dispatchToUser()`.
 
 ---
 
@@ -93,19 +93,21 @@ N/A — billing no tiene gateway. El estado de facturas se actualiza vía REST +
 
 > Detalles completos en [`../_events.md`](../_events.md).
 
+> **Status R8 (2026-04-27):** los 4 `invoice.*` cerrados al 100% — `OutboxService.enqueue(tx, …)` dentro de `prisma.$transaction`, despachados por `OutboxWorker.dispatch()` invocado desde cola BullMQ `outbox-dispatch` (ADR-064). Backoff exponencial 30s→480s en `next_retry_at`. Si agotan retries → emit `outbox.event_failed` para alerta superadmin (R7).
+
 | Evento | Cuándo | Outbox | Estado |
 |--------|--------|--------|--------|
-| `invoice.created` | Tras `createInvoice()` exitoso | ❌ deuda R8 | ✅ Consumido por `billing-email.listener` |
-| `invoice.paid` | Tras `markAsPaid()` | ❌ deuda R8 | ✅ Consumido por `billing-email.listener` |
-| `invoice.overdue` | Tras `markAsOverdue()` (manual o cron) | ❌ deuda R8 | ✅ Consumido por `billing-email.listener` |
-| `invoice.failed` | Tras intento de cobro fallido en worker | ❌ deuda R8 | ✅ Consumido por `billing-email.listener` |
+| `invoice.created` | Tras `createInvoice()` exitoso | ✅ (P0.2 + ADR-064) | ✅ Consumido por `BillingEmailListener` → `NotificationsService.dispatchToUser` (Sprint 9 Fase D) |
+| `invoice.paid` | Tras `markAsPaid()` | ✅ | ✅ Idem |
+| `invoice.overdue` | Tras `markAsOverdue()` (manual o cron) | ✅ | ✅ Idem |
+| `invoice.failed` | Tras intento de cobro fallido en worker | ✅ | ✅ Idem |
 | `checkout.completed` | Tras `checkout()` exitoso | ❌ | 🟠 Huérfano (consumirá provisioning cuando exista) |
 | `service.suspended` | Cron `autoSuspendServices()` | ❌ | 🟠 Huérfano (provisioning futuro) |
 | `service.resumed` | `resumeService()` o cron `checkPauseExpiration()` | ❌ | 🟠 Huérfano (provisioning futuro) |
 | `service.cancelled` | Cron `autoCancelServices()` | ❌ | 🟠 Huérfano (provisioning futuro) |
 | `service.paused` | `pauseService()` | ❌ | 🟠 Huérfano (provisioning futuro) |
 
-> **Crítico R8:** los `invoice.*` deben usar Outbox Pattern. Si `EventEmitter2` falla post-commit, la factura queda en BD pero el cliente no recibe email. Es el primer candidato de la próxima fase de hardening.
+> ~~**Crítico R8:** los `invoice.*` deben usar Outbox Pattern.~~ ✅ **Resuelto** (P0.2 + Sprint 9 Fase C). Mecanismo descrito arriba.
 
 ---
 
@@ -236,7 +238,7 @@ Implementados en `BillingLifecycleWorker` y `ServiceLifecycleWorker`:
 ## 16. Excepciones documentadas
 
 - **R1 (módulos no se llaman):** ✅ cumplido. Lecturas a `users`, `products`, `billing_profiles` son legítimas (aggregator).
-- **R8 (Outbox para eventos críticos):** ❌ **Violación documentada.** Los `invoice.*` deberían usar outbox y NO lo hacen. **Riesgo real:** factura emitida pero email perdido si proceso muere entre commit y emit. **Plan:** sprint dedicado de hardening de R8.
+- **R8 (Outbox para eventos críticos):** ✅ **Cumplido al 100%** (P0.2 2026-04-26 + Sprint 9 Fase C 2026-04-27). Los 4 `invoice.*` usan `OutboxService.enqueue(tx, …)` + dispatcher BullMQ con backoff exponencial 30s→480s. Si agotan retries → alerta superadmin (R7). Cobertura E2E `tests/e2e/outbox-invoice.spec.ts` 4/4.
 - **D1 (sin emojis en UI):** ❌ **Violación parcial** en subjects de emails (`✓`, `⚠`, `🔴`). Plan: migrar templates a archivos separados sin emojis.
 - **R15 (límite 300 líneas):** ✅ post-refactor Sprint 7+. BillingService = fachada.
 
@@ -244,7 +246,7 @@ Implementados en `BillingLifecycleWorker` y `ServiceLifecycleWorker`:
 
 ## 17. Pendiente / deuda técnica
 
-- [ ] **CRÍTICO:** Implementar Outbox Pattern para los 4 eventos `invoice.*`
+- [x] ~~**CRÍTICO:** Implementar Outbox Pattern para los 4 eventos `invoice.*`~~ ✅ Cerrado P0.2 + Sprint 9 Fase C
 - [ ] Migrar emails inline en `billing-email.listener` a `core/email/templates/billing.templates.ts` (sin emojis)
 - [ ] Implementar plugin Stripe — Sprint dedicado post-Sprint 14
 - [ ] Resolver settings huérfanos: `invoice_prefix`, `payment_due_days`, `default_tax_rate` (verificar uso real, eliminar inconsistencia entre defaults hardcodeados y settings DB)

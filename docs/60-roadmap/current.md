@@ -499,15 +499,36 @@ ADRs nuevos a crear ANTES de la fase correspondiente:
 
 ### 10. Cierre del sprint
 
-> Rellenar al cerrar.
+**Fecha real de cierre:** 2026-04-27 (3 sesiones reales — A 2026-04-26, B+C+D+F 2026-04-27, E 2026-04-27)
 
-**Fecha real de cierre:** YYYY-MM-DD
-**Commit final:** `<sha>`
-**Cambios respecto al plan original:** breve resumen
+**Commits del sprint** (en orden cronológico):
+1. `b6fd53a` — Fase A: infra BullMQ canónica + DLQ + retries (P1.1)
+2. `58fc55f` — Fase A: migración Prisma `failed_jobs`
+3. `875be64` — Fase B: cola `pdf-generation` (cierra deuda R2 Sprint 11.5)
+4. `7567603` — Fase C: dispatcher BullMQ + backoff exponencial + alerta `outbox.event_failed` (cierra ADR-033 §7)
+5. `8df3d2c` — Fase D MVP: notifications multicanal + plantillas Handlebars + huérfanos consumidos
+6. `977d308` — Fase F: árbol staff `/admin/*` + Error Log + Jobs DLQ UI + DC.7
+7. `9e2d3a6` — Fase E: AuditService centralizado + portal transparencia RGPD
+8. `bff4fec` — Fix post-smoke: AuditInterceptor.extractOwnerId para Client/User + portal enriquecido con actor (nombre + rol)
+
+**Cambios respecto al plan original:**
+- **9.D.11–9.D.17 diferidos a Sprint 9.5** (UX admin de notifications): endpoints `/notifications/unread`, panel admin de plantillas, `NotificationBell` en Topbar, cron `cleanupReadNotifications`, 4 settings `notifications.*`, test E2E específico de campana. **No bloquean Sprint 14 Deploy** — el seed inicial cubre producción; admin puede editar plantillas vía SQL directo hasta Sprint 9.5.
+- **9.F.10 (listener `system.error`) diferido a Sprint 9.5**: `ErrorLogService.log()` emite `system.error`, pero el listener consumidor + plantilla `system.error` quedan pendientes. Mientras tanto, el row queda accesible vía `/admin/error-log`.
+- **`notification.dispatched` queda como evento aspiracional** (declarado en ADR-065 §3.2 pero no emitido). Su consumidor `audit-notification.listener` se aborda cuando se implemente audit de integraciones (Sprint 9.5 / dedicated).
+- **Contracts canónicos `audit/`, `notifications/`, `error-log/` quedan pendientes** como deuda DC.9 — los módulos pasaron de stub a implementación real pero su `contract.md` no se redactó. Aceptado para no inflar el sprint.
+- **`@AuditAccess` aplicado solo a 2 endpoints staff** (clients/:id e invoices/:id). Endpoints PDF + listener auth-* migration diferidos (DC.8 — oportunista al tocar archivo).
+- **Migración crons in-process a BullMQ scheduled** (los 7 crons existentes de billing/support) explícitamente fuera de scope — Sprint 13 Hardening (ADR-056).
+- **Test E2E `audit-portal.spec.ts` cubre solo Invoice** (que tiene `user_id` directo). El fix `bff4fec` añadió path para `Client`/`User` shapes; cobertura específica diferida a Sprint 9.5 (DC.10).
+
 **Items movidos a sprints futuros:**
-- (rellenar)
+- **Sprint 9.5** (UX admin diferida) — ver `backlog.md` Sprint 9.5: 9.D.11–9.D.17 + 9.F.10 + DC.10.
+- **Sprint 9.6 (DC.7)** (split admin/cliente retroactivo + permisos granulares por rol staff) — ver `backlog.md` DC.7.
+- **Sprint 13 Hardening** — migración crons in-process a BullMQ scheduled (ADR-056 §13.30+).
+- **Sprint 19 (Partner Module)** — replicar patrón `/admin/*` con `/partner/*`.
 
-**DoD verificado:** ✅ todo / ⚠️ con excepciones (listar)
+**DoD verificado:** ✅ todo el alcance reducido (Fases A, B, C, D MVP, E, F) cumple typecheck + lint + build + tests unit (21/21) + E2E suite full (30/30 verde en 1.8min) + boot real con 3 colas BullMQ + 8 crons in-process activos. ⚠️ Excepciones documentadas: contracts módulos sin redactar (DC.9), listener `system.error` diferido, `notification.dispatched` aspiracional, audit cobertura E2E Client diferida (DC.10).
+
+**Sprint 9 cerrado al 100% del alcance MVP** y **P1.1 desbloquea Sprint 14 Deploy** sin bloqueos críticos: deuda R2 saneada, ADR-033 §7 cerrado, defense-in-depth instalado, audit RGPD funcional.
 
 ---
 
