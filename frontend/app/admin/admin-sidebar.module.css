@@ -15,6 +15,12 @@
 
 .brand {
   padding: 0 var(--space-2);
+  /* 80px asegura que el cuadrado A + <PortalBadge> (logo "Aelium" +
+     subtítulo "Portal de Administración") quepan cómodamente en stack
+     horizontal con el badge en flex-column. Cumple D6 (escala 4px). */
+  min-height: 80px;
+  display: flex;
+  align-items: center;
 }
 
 .brandLink {
@@ -37,11 +43,9 @@
   font-weight: 700;
 }
 
-.brandLabel {
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.02em;
-}
+/* `.brandLabel` eliminado en Sprint 9.6 — el texto + subtítulo ahora vive en
+   el componente <PortalBadge> (ADR-066). El cuadrado .brandMark se conserva
+   como logo gráfico al lado del badge tipográfico. */
 
 .nav {
   display: flex;

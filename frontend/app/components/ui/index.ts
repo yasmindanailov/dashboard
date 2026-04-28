@@ -46,3 +46,6 @@ export { CommandPalette } from './CommandPalette';
 
 /* ── Bulk Actions (UI_SPEC §4.11) ── */
 export { BulkActionBar, type BulkActionBarProps } from './BulkActionBar';
+
+/* ── Portal identity (ADR-066) ── */
+export { PortalBadge, type PortalBadgeProps } from './PortalBadge';

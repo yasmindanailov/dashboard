@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../lib/auth-context';
+import { PortalBadge } from '../components/ui';
 import styles from './admin-sidebar.module.css';
 
 /* ═══════════════════════════════════════
@@ -88,9 +89,12 @@ export default function AdminSidebar() {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.brand}>
-        <Link href="/admin" className={styles.brandLink}>
-          <span className={styles.brandMark}>A</span>
-          <span className={styles.brandLabel}>Aelium · Staff</span>
+        <Link href="/admin" className={styles.brandLink} aria-label="Inicio Portal de Administración">
+          <span className={styles.brandMark} aria-hidden="true">A</span>
+          {/* PortalBadge cumple ADR-066: identidad clara del portal en el
+              header. logo="Aelium" + subtítulo "Portal de Administración"
+              resuelto por variant. */}
+          <PortalBadge variant="admin" logo="Aelium" />
         </Link>
       </div>
 
