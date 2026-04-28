@@ -45,7 +45,10 @@ Pendiente conocido:
 
 ## 5. API REST expuesta
 
-Prefix: `/api/v1/billing` (facturas) y `/api/v1/subscriptions` (servicios).
+**Prefix**: `/api/v1/billing` (facturas) y `/api/v1/subscriptions` (servicios). **NO migra a `/admin/*`** (Sprint 9.6 + ADR-066): es endpoint **compartido** cliente/staff. La distinción audiencia se aplica server-side:
+
+- El controller filtra por rol con la constante `ADMIN_ROLES = ['superadmin', 'agent_full', 'agent_billing']`. Si el caller no es admin, se fuerza `user_id = caller.id` en `findAll`/`getStats` y se valida ownership en `findOne` (cliente sólo ve sus facturas).
+- Las páginas frontend SÍ están splitteadas (Sprint 9.6 Fase E.2): `/dashboard/billing/*` (UX cliente simplificada — sin columna Cliente, sin tab Cancelado, sin acciones admin, checkout sin step de selección de cliente) y `/admin/billing/*` (UX staff full — list con bulk operations, detail con Finalize/Pay/Refund/Cancel, checkout 5 steps).
 
 ### Facturas
 

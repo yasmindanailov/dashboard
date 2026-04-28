@@ -39,35 +39,50 @@ Ninguno. **Products es un módulo completamente aislado.** Solo accede a sus pro
 
 ## 5. API REST expuesta
 
-Prefix: `/api/v1/products`. JWT auth en todos.
+**Split público / admin (Sprint 9.6 + ADR-066/068)**: las **lecturas** del catálogo viven en `/api/v1/products` (sin prefijo `/admin`) — endpoint público bajo CASL `Read.Product`/`List.Product`, accesible al rol cliente para futuro Sprint 18 (Landing Integration). Las **mutaciones** (CRUD producto + pricing + categorías mutaciones) viven en `/api/v1/admin/products` con triple guard (`JwtAuthGuard` + `AdminOnlyGuard` + `PoliciesGuard`).
 
-### Productos
+**Multi-path con alias legacy** (ADR-068): las mutaciones también responden en `/api/v1/products/{POST|PATCH|DELETE}` con headers `Deprecation: true` + `Sunset: Wed, 31 Dec 2026 23:59:59 GMT` + `Link: </api/v1/admin/products>; rel="successor-version"`. El path legacy se elimina del array `@Controller([...])` en commit pre-deploy de Sprint 14.
+
+NestJS desambigua por método HTTP: `GET /api/v1/products` golpea `ProductsController` (lectura pública), `POST /api/v1/products` golpea `AdminProductsController` (mutación legacy con headers). Sin colisión.
+
+### Productos — Lectura (canónico público `/products`)
+
+JWT auth obligatorio. CASL `Read.Product`/`List.Product`.
 
 | Método | Ruta | Descripción | CASL |
 |--------|------|-------------|------|
-| `GET` | `/products` | Listar productos (filtros activos, type, etc.) | `Read.Product` |
+| `GET` | `/products` | Listar productos (filtros activos, type, etc.) | `List.Product` |
 | `GET` | `/products/:id` | Detalle producto con pricing, extras, checklist | `Read.Product` |
-| `POST` | `/products` | Crear producto | `Create.Product` |
-| `PATCH` | `/products/:id` | Actualizar producto (sin tocar `type`) | `Update.Product` |
-| `PATCH` | `/products/:id/status` | Toggle activo/inactivo | `Update.Product` |
-| `DELETE` | `/products/:id` | Eliminar producto | `Delete.Product` |
 
-### Pricing
+### Productos — Mutaciones (canónico admin `/admin/products`, alias legacy `/products`)
 
-| Método | Ruta | Descripción | CASL |
-|--------|------|-------------|------|
-| `POST` | `/products/:id/pricing` | Añadir plan de pricing | `Update.Product` |
-| `PATCH` | `/products/pricing/:pricingId` | Editar plan | `Update.Product` |
-| `DELETE` | `/products/pricing/:pricingId` | Eliminar plan (no si es el último activo, EC-3) | `Update.Product` |
+Triple guard. CASL `Manage.Product` (sólo `superadmin` y `agent_full`).
+
+| Método | Ruta canónica | Descripción | CASL |
+|--------|--------------|-------------|------|
+| `POST` | `/admin/products` | Crear producto | `Create.Product` |
+| `PATCH` | `/admin/products/:id` | Actualizar producto (sin tocar `type`) | `Update.Product` |
+| `PATCH` | `/admin/products/:id/status` | Toggle activo/inactivo | `Update.Product` |
+| `DELETE` | `/admin/products/:id` | Eliminar producto | `Delete.Product` |
+
+### Pricing (canónico admin `/admin/products/...`, alias legacy `/products/...`)
+
+| Método | Ruta canónica | Descripción | CASL |
+|--------|--------------|-------------|------|
+| `POST` | `/admin/products/:id/pricing` | Añadir plan de pricing | `Update.Product` |
+| `PATCH` | `/admin/products/pricing/:pricingId` | Editar plan | `Update.Product` |
+| `DELETE` | `/admin/products/pricing/:pricingId` | Eliminar plan (no si es el último activo, EC-3) | `Update.Product` |
 
 ### Categorías
 
-| Método | Ruta | Descripción | CASL |
-|--------|------|-------------|------|
-| `GET` | `/products/categories/all` | Árbol completo | `Read.ProductCategory` |
-| `POST` | `/products/categories` | Crear categoría | `Create.ProductCategory` |
-| `PATCH` | `/products/categories/:id` | Editar categoría | `Update.ProductCategory` |
-| `DELETE` | `/products/categories/:id` | Eliminar categoría (si no tiene productos asignados) | `Delete.ProductCategory` |
+Lectura del árbol queda en el endpoint público `/products/categories/all` (cliente lo necesita en futuro catálogo). Mutaciones en `/admin/products/categories` con alias legacy.
+
+| Método | Ruta canónica | Descripción | CASL |
+|--------|--------------|-------------|------|
+| `GET` | `/products/categories/all` | Árbol completo | `List.ProductCategory` |
+| `POST` | `/admin/products/categories` | Crear categoría | `Create.ProductCategory` |
+| `PATCH` | `/admin/products/categories/:id` | Editar categoría | `Update.ProductCategory` |
+| `DELETE` | `/admin/products/categories/:id` | Eliminar categoría (si no tiene productos asignados) | `Delete.ProductCategory` |
 
 ---
 

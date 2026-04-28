@@ -303,6 +303,27 @@ Ejemplo: "Aún no tienes clientes. [+ Añadir cliente]".
 
 ---
 
+## Portales y audiencias (ADR-066)
+
+### Portal
+Árbol raíz del frontend asociado a una **audiencia** del sistema. Cada portal tiene su propio prefijo de URL, su propio shell (Sidebar + Topbar), su propio guard de rol y su propio subtítulo `PortalBadge`. Tres portales canónicos a partir de Sprint 9.6 (DC.7):
+
+| Portal | URL raíz | Audiencia (roles) | Subtítulo |
+|--------|----------|-------------------|-----------|
+| **Administración** | `/admin/*` | `superadmin`, `agent_full`, `agent_billing`, `agent_support` | "Portal de Administración" |
+| **Cliente** | `/dashboard/*` | `client` | "Portal de Cliente" |
+| **Partner** | `/partner/*` (Sprint 19) | `partner`, `partner_pending` | "Portal de Partner" |
+
+La granularidad fina entre roles staff (qué subset de items ve cada agente en el sidebar admin) se resuelve con CASL + `SIDEBAR_PERMISSIONS` **dentro** del portal, no creando un portal por rol. Documento canónico: [`docs/10-decisions/adr-066-tres-portales-raiz-portalbadge.md`](../10-decisions/adr-066-tres-portales-raiz-portalbadge.md).
+
+### PortalBadge
+Componente del Design System en `frontend/app/components/ui/PortalBadge/` que renderiza el subtítulo identificador del portal bajo el logo del Sidebar. Recibe la variante (`admin | client | partner`) o resuelve dinámicamente desde el rol del usuario vía helper `portalForRole(roleSlug)` en `frontend/app/lib/portal.ts`. Cumple R16 + D11.
+
+### Multi-path con Deprecation headers (ADR-068)
+Patrón canónico para migrar rutas REST sin romper consumidores. El controller declara `@Controller([canónico, legacy])` (NestJS multi-path nativo) y el `LegacyRouteDeprecationMiddleware` añade headers `Deprecation: true` + `Sunset: <fecha HTTP-date>` + `Link: <successor>; rel="successor-version"` (RFC 9745 / 8594 / 8288) sólo a las llamadas al path legacy. La ventana de deprecación canónica para Sprint 9.6 es hasta Sprint 14 Deploy. Documento canónico: [`docs/10-decisions/adr-068-multi-path-deprecation-headers.md`](../10-decisions/adr-068-multi-path-deprecation-headers.md).
+
+---
+
 ## Convenciones de uso del glosario
 
 - **Citar términos:** cuando uses un término del glosario en doc o código, asegúrate de usarlo con el significado canónico aquí definido.

@@ -178,6 +178,63 @@ Estos módulos no aparecen en la matriz principal como origen ni destino (más a
 
 ---
 
+## Granularidad CASL por rol staff (ADR-067, Sprint 9.6)
+
+Matriz canónica de qué `Action` tiene cada rol staff sobre cada `Subject` del enum. Define la **defense in depth nivel 3** sobre los endpoints `/api/v1/admin/*` (los niveles 1 y 2 son `JwtAuthGuard` + `AdminOnlyGuard`). Implementación: [`backend/src/core/casl/permissions.ts`](../../backend/src/core/casl/permissions.ts).
+
+| Subject | superadmin | agent_full | agent_billing | agent_support | client | partner |
+|---------|:---------:|:----------:|:-------------:|:-------------:|:------:|:-------:|
+| `Dashboard` | Manage | Manage | Manage | Manage | Manage | Manage |
+| `Profile` | Manage | Manage | Manage | Manage | Manage | Manage |
+| `Client` | Manage | Manage | Manage | Read/List | — | — |
+| `BillingProfile` | Manage | Manage | Manage | Read/List | Manage (own) | — |
+| `ClientNote` | Manage | Manage | Manage | Create+Read | — | — |
+| `Product` | Manage | Manage | — | — | Read/List (catálogo) | — |
+| `ProductCategory` | Manage | Manage | — | — | — | — |
+| `Invoice` | Manage | Manage | Manage | — | Read+List+Create (own) | Read/List (partner_scoped) |
+| `Payment` | Manage | Manage | Manage | — | — | — |
+| `Conversation` | Manage | Manage | — | Manage | Create+Read+List (own) | Read/List (partner_scoped) |
+| `Message` | Manage | Manage | — | Manage | Create+Read | — |
+| `Task` | Manage | Manage | Manage | Manage | — | — |
+| `Maintenance` | Manage | Manage | Manage | Manage | — | — |
+| `Service` | Manage | Manage | Read/List | Read/List | Read+List+Update (own) | Read/List (partner_scoped) |
+| `AuditLog` | Manage | Read/List | — | — | Read/List (own) | — |
+| `Notification` | Manage | Manage | Read+List+Update (own) | Read+List+Update (own) | Read+List+Update (own) | Read+List+Update (own) |
+| **`NotificationTemplate` (ADR-067)** | **Manage** | — | — | — | — | — |
+| `Promotion` | Manage | Manage | — | — | — | — |
+| `KnowledgeBase` | Manage | Manage | — | Read/List | — | — |
+| `ErrorLog` | Manage | Read/List | — | — | — | — |
+| **`Job` (ADR-067)** | **Manage** | — | — | — | — | — |
+| `Server` | Manage | Read/List | — | — | — | — |
+| `Setting` | Manage | — (inverted) | — | — | — | — |
+| `Agent` | Manage | — (inverted) | — | — | — | — |
+| `SupportInside` | Manage | Manage | — | — | Read/List | — |
+| `Referral` | Manage | Manage | — | — | Read/List | — |
+| `Partner` | Manage | Read/List | — | — | — | Read+Update (own) |
+| `PartnerClient` | Manage | — | — | — | — | Read/List (partner_scoped) |
+| `PartnerCommission` | Manage | — | — | — | — | Read/List (partner_scoped) |
+| `PartnerPayout` | Manage | — | — | — | — | Read/List (partner_scoped) |
+| `PartnerTicket` | Manage | — | — | — | — | Manage (partner_scoped) |
+| `PartnerNote` | Manage | — | — | — | — | Create+Read+List (partner_scoped) |
+| `PartnerNotification` | Manage | — | — | — | — | Create+Read+List (partner_scoped) |
+| `PartnerLink` | Manage | — | — | — | — | Create+Read (partner_scoped) |
+| `PartnerUnlink` | Manage | — | — | — | — | Create+Read+List (partner_scoped) |
+
+### Reglas derivadas
+
+- **`Manage` = full CRUD** (Create, Read, Update, Delete, List).
+- **`(own)` = condition-filtered** por `user_id = caller.id` server-side (CASL `conditions: { user_id }`).
+- **`(partner_scoped)` = condition-filtered** por `partner_id = caller.partner_id`.
+- **`(inverted)` = regla `cannot`** explícita — el rol pasa por wildcard `Manage All` (no aplica aquí porque sólo superadmin lo tiene) pero la inversa lo bloquea. Patrón usado para que `agent_full` NO pueda gestionar `Setting` ni `Agent` aunque tenga acceso amplio.
+- **`—` = ausencia de regla** → CASL devuelve `false` por defecto → `PoliciesGuard` rechaza con 403.
+
+### Verificación canónica
+
+- Tests unit: [`backend/src/core/casl/casl-ability.factory.spec.ts`](../../backend/src/core/casl/casl-ability.factory.spec.ts) — 16 aserciones cubren la matriz canónica + Subjects nuevos.
+- Tests E2E: [`tests/e2e/admin-granular-roles.spec.ts`](../../tests/e2e/admin-granular-roles.spec.ts) — 8 aserciones contra endpoints reales (positivas y negativas por rol).
+
+---
+
 ## Cómo se mantiene esta matriz
 
 - **Trigger de actualización:** cualquier cambio en imports, inyecciones o accesos cross-módulo.

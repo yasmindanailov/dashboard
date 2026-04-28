@@ -42,7 +42,10 @@ Pendiente:
 
 ## 5. API REST expuesta
 
-Prefix: `/api/v1/support`. JWT auth en todos salvo `POST /chats/guest`.
+**Prefix**: `/api/v1/support`. JWT auth en todos salvo `POST /chats/guest`. **NO migra a `/admin/*`** (Sprint 9.6 + ADR-066): es endpoint **compartido** cliente/staff. Distinción audiencia server-side:
+
+- Controller filtra por `ADMIN_ROLES = ['superadmin', 'agent_full', 'agent_support']`. Si caller no es admin, se fuerza `user_id = caller.id` y CASL `Read.Conversation` (own) limita el scope. `agent_billing` recibe 403 sobre cualquier endpoint de soporte (no tiene `Read.Conversation` en CASL — verificado en `tests/e2e/admin-granular-roles.spec.ts`).
+- Las páginas frontend SÍ están splitteadas (Sprint 9.6 Fase E.3): `/dashboard/support/*` (UX cliente — tabs reducidas Todas/Abiertas/Resueltas, sin sidebar contexto, sin toggle is_internal, sin acciones de status/priority/escalate) y `/admin/support/*` (UX staff full — tabs full workflow 6 estados, sidebar contexto cliente con servicios + notas, toggle is_internal en respuestas, redirect a `/admin/support/chats` si conversation.type='chat').
 
 ### Conversaciones
 

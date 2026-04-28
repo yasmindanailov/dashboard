@@ -37,22 +37,25 @@ Pendiente menor:
 
 ## 5. API REST expuesta
 
-Prefix: `/api/v1/clients`. JWT auth en todos.
+**Prefix canónico**: `/api/v1/admin/clients` (Sprint 9.6 + ADR-066/068).
+**Alias legacy**: `/api/v1/clients` (multi-path con headers `Deprecation: true` + `Sunset: Wed, 31 Dec 2026 23:59:59 GMT` + `Link: </api/v1/admin/clients>; rel="successor-version"` — eliminado en commit pre-deploy de Sprint 14).
 
-| Método | Ruta | Descripción | CASL |
-|--------|------|-------------|------|
-| `GET` | `/clients` | Listar (paginated) | `List.Client` |
-| `GET` | `/clients/:id` | Ficha completa (perfil + servicios + facturas + notas) | `Read.Client` |
-| `PATCH` | `/clients/:id` | Actualizar perfil | `Update.Client` |
-| `POST` | `/clients/:id/notes` | Crear nota legacy (deprecated, ahora structured-notes) | `Create.ClientNote` |
-| `GET` | `/clients/:id/structured-notes` | Listar notas con filtros (categoría, pinneada) | `Read.ClientNote` |
-| `POST` | `/clients/:id/structured-notes` | Crear nota estructurada | `Create.ClientNote` |
-| `PATCH` | `/clients/notes/:noteId/pin` | Toggle pin de nota | `Update.ClientNote` |
-| `GET` | `/clients/:id/billing-profiles` | Listar perfiles fiscales del cliente | `Read.BillingProfile` + ownership |
-| `POST` | `/clients/:id/billing-profiles` | Crear perfil fiscal | `Create.BillingProfile` |
-| `PATCH` | `/clients/:id/billing-profiles/:profileId` | Actualizar perfil fiscal | `Update.BillingProfile` |
-| `DELETE` | `/clients/:id/billing-profiles/:profileId` | Eliminar perfil | `Delete.BillingProfile` |
-| `PATCH` | `/clients/:id/billing-profiles/:profileId/default` | Marcar como default | `Update.BillingProfile` |
+Triple guard en todos: `JwtAuthGuard` + `AdminOnlyGuard` + `PoliciesGuard`. El árbol completo es staff-puro — el cliente final no consume ningún endpoint de este módulo (sus billing_profiles los gestiona vía `/api/v1/billing/...` del módulo billing con ownership filter).
+
+| Método | Ruta canónica | Descripción | CASL |
+|--------|--------------|-------------|------|
+| `GET` | `/admin/clients` | Listar (paginated) | `List.Client` |
+| `GET` | `/admin/clients/:id` | Ficha completa (perfil + servicios + facturas + notas) | `Read.Client` + `@AuditAccess('Client')` |
+| `PATCH` | `/admin/clients/:id` | Actualizar perfil | `Update.Client` |
+| `POST` | `/admin/clients/:id/notes` | Crear nota legacy (deprecated en favor de structured-notes) | `Create.ClientNote` |
+| `GET` | `/admin/clients/:id/structured-notes` | Listar notas con filtros (categoría, pinneada) | `Read.ClientNote` |
+| `POST` | `/admin/clients/:id/structured-notes` | Crear nota estructurada | `Create.ClientNote` |
+| `PATCH` | `/admin/clients/notes/:noteId/pin` | Toggle pin de nota | `Update.ClientNote` |
+| `GET` | `/admin/clients/:id/billing-profiles` | Listar perfiles fiscales del cliente | `Read.BillingProfile` + ownership |
+| `POST` | `/admin/clients/:id/billing-profiles` | Crear perfil fiscal | `Create.BillingProfile` |
+| `PATCH` | `/admin/clients/:id/billing-profiles/:profileId` | Actualizar perfil fiscal | `Update.BillingProfile` |
+| `DELETE` | `/admin/clients/:id/billing-profiles/:profileId` | Eliminar perfil | `Delete.BillingProfile` |
+| `PATCH` | `/admin/clients/:id/billing-profiles/:profileId/default` | Marcar como default | `Update.BillingProfile` |
 
 ---
 
