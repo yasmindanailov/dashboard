@@ -12,15 +12,26 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { AdminOnlyGuard } from '../common/guards/admin-only.guard';
+import { PoliciesGuard } from '../casl/policies.guard';
+import { CheckPolicies } from '../casl/check-policies.decorator';
+import { Action, Subject } from '../casl/permissions';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { PrismaService } from '../database/prisma.service';
 import { paginate } from '../../common/dto/pagination.dto';
 import { RetryService } from './retry.service';
 
 /**
- * JobsController — Sprint 9 Fase F (DC.7 + ADR-063 §UI admin + R13).
+ * JobsController — Sprint 9 Fase F (DC.7 + ADR-063 §UI admin + R13)
+ * + granularidad CASL Sprint 9.6 (ADR-067).
  *
- * Bajo `/api/v1/admin/jobs` con doble guard (JwtAuthGuard + AdminOnlyGuard).
+ * Bajo `/api/v1/admin/jobs` con triple guard (defense in depth, ADR-067 §4):
+ *  1. `JwtAuthGuard` — usuario autenticado.
+ *  2. `AdminOnlyGuard` — rol staff (corte temprano antes de CASL).
+ *  3. `PoliciesGuard` — evalúa `@CheckPolicies(Manage Job)`.
+ *
+ * Sólo `superadmin` tiene `Manage Job` (regla wildcard `Manage All`). Reintentar
+ * un job de DLQ re-ejecuta side effects (emails, PDFs, integraciones) — debe
+ * estar restringido al rol con visión global.
  *
  * Endpoints:
  *  - `GET /admin/jobs/failed` — paginado de filas `failed_jobs` (post-mortem
@@ -32,7 +43,7 @@ import { RetryService } from './retry.service';
 @ApiTags('Admin / Jobs')
 @ApiBearerAuth()
 @Controller('admin/jobs')
-@UseGuards(JwtAuthGuard, AdminOnlyGuard)
+@UseGuards(JwtAuthGuard, AdminOnlyGuard, PoliciesGuard)
 export class JobsController {
   constructor(
     private readonly prisma: PrismaService,
@@ -40,6 +51,7 @@ export class JobsController {
   ) {}
 
   @Get('failed')
+  @CheckPolicies((ability) => ability.can(Action.Manage, Subject.Job))
   @ApiOperation({ summary: 'Listar jobs en DLQ (failed_jobs paginado)' })
   async listFailed(
     @Query('queue') queue?: string,
@@ -81,6 +93,7 @@ export class JobsController {
   }
 
   @Post(':id/retry')
+  @CheckPolicies((ability) => ability.can(Action.Manage, Subject.Job))
   @ApiOperation({ summary: 'Reintentar job de DLQ manualmente' })
   retry(
     @Param('id', ParseUUIDPipe) id: string,
