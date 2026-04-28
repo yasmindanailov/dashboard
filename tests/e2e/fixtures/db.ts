@@ -82,8 +82,35 @@ export async function resetTestData(): Promise<void> {
     const tableList = TABLES_TO_TRUNCATE.map((t) => `"${t}"`).join(', ');
     await client.query(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
 
-    // Borrar todos los users excepto el superadmin (preservado por el seed).
-    await client.query(`DELETE FROM users WHERE email <> $1`, [TEST_CONFIG.superadmin.email]);
+    // Sprint 9.6 Fase F.0 (DC.7): preservamos las cuentas canónicas del
+    // seed (superadmin + las 6 cuentas demo `*.test` con 1 cuenta por
+    // cada rol). Eso permite que los specs E2E `admin-tree-migration`
+    // y `admin-granular-roles` reusen las cuentas del seed sin tener
+    // que recrearlas en cada `beforeAll`. Cualquier user creado por
+    // un test ad-hoc con dominio distinto SÍ se borra (los specs que
+    // crean cuentas con `e2e-*-${Date.now()}@aelium.test` siguen
+    // limpiándose entre runs).
+    //
+    // Patrón: preservamos email exacto del superadmin + `*.test` con
+    // local-part literal definido por el seed (no `e2e-*` ni
+    // `*-${timestamp}@aelium.test`).
+    const SEED_EMAILS = [
+      TEST_CONFIG.superadmin.email,
+      'agent.full@aelium.test',
+      'agent.billing@aelium.test',
+      'agent.support@aelium.test',
+      'cliente@aelium.test',
+      'partner@aelium.test',
+      'partner.pending@aelium.test',
+      // Clientes demo de sample-clients.ts
+      'maria.perez@aelium.test',
+      'contacto@acme-demo.test',
+    ];
+    const placeholders = SEED_EMAILS.map((_, i) => `$${i + 1}`).join(', ');
+    await client.query(
+      `DELETE FROM users WHERE email NOT IN (${placeholders})`,
+      SEED_EMAILS,
+    );
 
     await client.query('COMMIT');
   } catch (err) {

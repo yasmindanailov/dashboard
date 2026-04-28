@@ -10,6 +10,11 @@
  *
  * Crítico porque soporte es el principal canal de comunicación con
  * clientes activos: si se cae, el negocio pierde visibilidad inmediata.
+ *
+ * Sprint 9.6 Fase F.1 (DC.7 + ADR-066): paths admin migraron de
+ * `/dashboard/support*` al Portal de Administración `/admin/support*`.
+ * El árbol `/dashboard/support*` sobrevive con UX cliente simplificada
+ * (tabs reducidas Todas / Abiertas / Resueltas, sin sidebar contexto).
  */
 
 import { test, expect } from '@playwright/test';
@@ -18,7 +23,7 @@ import { loginSuperadminUI } from './fixtures/auth';
 test.describe('Soporte', () => {
   test('admin accede a la bandeja de tickets', async ({ page }) => {
     await loginSuperadminUI(page);
-    await page.goto('/dashboard/support');
+    await page.goto('/admin/support');
 
     // Verifica que la página de soporte renderizó. Buscamos texto típico de
     // la bandeja de tickets ("Tickets", "Soporte", filtros como "Todos",
@@ -35,7 +40,7 @@ test.describe('Soporte', () => {
 
   test('admin accede al panel de chats en tiempo real', async ({ page }) => {
     await loginSuperadminUI(page);
-    await page.goto('/dashboard/support/chats');
+    await page.goto('/admin/support/chats');
 
     // El panel de chats tiene 3 columnas (lista chats / conversación / contexto).
     // Aceptamos textos típicos del panel o estados vacíos ("Sin chats").
@@ -46,7 +51,7 @@ test.describe('Soporte', () => {
 
   test('admin puede crear un nuevo ticket desde el modal', async ({ page }) => {
     await loginSuperadminUI(page);
-    await page.goto('/dashboard/support');
+    await page.goto('/admin/support');
     // No usamos networkidle: el WebSocket de soporte queda abierto y
     // networkidle nunca se alcanza. Confiamos en auto-wait de expect().
 
