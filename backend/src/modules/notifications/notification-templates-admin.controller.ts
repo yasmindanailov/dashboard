@@ -13,6 +13,9 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminOnlyGuard } from '../../core/common/guards/admin-only.guard';
+import { PoliciesGuard } from '../../core/casl/policies.guard';
+import { CheckPolicies } from '../../core/casl/check-policies.decorator';
+import { Action, Subject } from '../../core/casl/permissions';
 import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import { NotificationTemplateService } from './notification-template.service';
 import { NotificationTemplateListQueryDto } from './dto/notification-template-list-query.dto';
@@ -20,25 +23,31 @@ import { NotificationTemplateUpdateDto } from './dto/notification-template-updat
 import { NotificationTemplatePreviewDto } from './dto/notification-template-preview.dto';
 
 /**
- * NotificationTemplatesAdminController — Sprint 9.5 (ADR-042 + ADR-065).
+ * NotificationTemplatesAdminController — Sprint 9.5 (ADR-042 + ADR-065)
+ * + granularidad CASL Sprint 9.6 (ADR-067).
  *
- * Bajo `/api/v1/admin/notifications/templates` con doble guard:
+ * Bajo `/api/v1/admin/notifications/templates` con triple guard
+ * (defense in depth, ADR-067 §4):
  *  1. `JwtAuthGuard` — usuario autenticado.
- *  2. `AdminOnlyGuard` — rol staff (defense-in-depth Fase F).
+ *  2. `AdminOnlyGuard` — rol staff (corte temprano antes de CASL).
+ *  3. `PoliciesGuard` — evalúa `@CheckPolicies(Manage NotificationTemplate)`.
  *
- * Granularidad por rol staff (qué subset de plantillas ve cada agente)
- * se difiere a Sprint 9.6 con CASL `Manage.NotificationTemplate`. Hoy
- * cualquier staff puede leer/editar — el riesgo es bajo (auditoría manual
- * vía `audit_change_log` cuando se necesite).
+ * Sólo `superadmin` tiene `Manage NotificationTemplate` (regla wildcard
+ * `Manage All`). El resto de staff (`agent_full`/`agent_billing`/`agent_support`)
+ * recibe 403 — la edición de plantillas afecta el copy de la marca y debe
+ * estar centralizada en el rol con visión global.
  */
 @ApiTags('Admin / Notification Templates')
 @ApiBearerAuth()
 @Controller('admin/notifications/templates')
-@UseGuards(JwtAuthGuard, AdminOnlyGuard)
+@UseGuards(JwtAuthGuard, AdminOnlyGuard, PoliciesGuard)
 export class NotificationTemplatesAdminController {
   constructor(private readonly service: NotificationTemplateService) {}
 
   @Get()
+  @CheckPolicies((ability) =>
+    ability.can(Action.Manage, Subject.NotificationTemplate),
+  )
   @ApiOperation({
     summary: 'Listar plantillas (filtrable por event_type/canal)',
   })
@@ -47,12 +56,18 @@ export class NotificationTemplatesAdminController {
   }
 
   @Get(':id')
+  @CheckPolicies((ability) =>
+    ability.can(Action.Manage, Subject.NotificationTemplate),
+  )
   @ApiOperation({ summary: 'Obtener una plantilla por id' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.findOne(id);
   }
 
   @Patch(':id')
+  @CheckPolicies((ability) =>
+    ability.can(Action.Manage, Subject.NotificationTemplate),
+  )
   @ApiOperation({
     summary:
       'Actualizar subject/body/active. Bloquea save si la plantilla no compila Handlebars (R14 + EC-S9-03).',
@@ -66,6 +81,9 @@ export class NotificationTemplatesAdminController {
   }
 
   @Post(':id/preview')
+  @CheckPolicies((ability) =>
+    ability.can(Action.Manage, Subject.NotificationTemplate),
+  )
   @ApiOperation({
     summary:
       'Render preview con datos de muestra (o payload custom). NO persiste cambios.',

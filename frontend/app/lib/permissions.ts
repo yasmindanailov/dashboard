@@ -24,6 +24,9 @@ export type AppModule =
   | 'AuditLog'
   | 'Server'
   | 'Setting'
+  // ADR-067 — Subjects admin-puro plataforma (solo superadmin).
+  | 'NotificationTemplate'
+  | 'Job'
   | 'Promotion'
   | 'KnowledgeBase'
   | 'ErrorLog'
@@ -47,6 +50,8 @@ export const SIDEBAR_PERMISSIONS: Record<string, AppModule[]> = {
     'Dashboard', 'Client', 'Product', 'Invoice',
     'Conversation', 'Task', 'AuditLog', 'Server',
     'Setting', 'Promotion', 'KnowledgeBase', 'ErrorLog',
+    // ADR-067 — items admin-puro plataforma (solo superadmin).
+    'NotificationTemplate', 'Job',
     'Partner', 'Referral',
   ],
   agent_full: [

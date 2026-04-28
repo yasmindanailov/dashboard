@@ -69,6 +69,10 @@ export enum Subject {
   // Audit & Notifications
   AuditLog = 'AuditLog',
   Notification = 'Notification',
+  // ADR-067 — Plantillas de notificaciones (solo superadmin puede gestionarlas).
+  // El control vivía con `AdminOnlyGuard` puro hasta Sprint 9.6; ahora se delega
+  // a CASL para granularidad declarativa coherente con el resto de Subjects.
+  NotificationTemplate = 'NotificationTemplate',
 
   // Infrastructure
   Server = 'Server',
@@ -101,6 +105,11 @@ export enum Subject {
 
   // Error Log
   ErrorLog = 'ErrorLog',
+
+  // ADR-067 — Operaciones de plataforma sobre BullMQ jobs (DLQ + retry).
+  // Solo superadmin puede gestionarlos: reintentar un job re-ejecuta side
+  // effects (emails, PDFs, integraciones) con impacto operacional.
+  Job = 'Job',
 
   // Service (instancias contratadas)
   Service = 'Service',
@@ -445,6 +454,9 @@ export const SIDEBAR_PERMISSIONS: Record<string, Subject[]> = {
     Subject.Promotion,
     Subject.KnowledgeBase,
     Subject.ErrorLog,
+    // ADR-067 — items admin-puro plataforma (solo superadmin).
+    Subject.NotificationTemplate,
+    Subject.Job,
     Subject.Partner,
     Subject.Referral,
   ],
