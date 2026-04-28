@@ -8,19 +8,21 @@ import {
   Button, SearchInput, Select,
   ListPage, FilterBar, StatusTabs,
 } from '../../components/ui';
+import { useAuth } from '../../lib/auth-context';
 
 /* ═══════════════════════════════════════
-   Client Support — Portal de Cliente (ADR-066 Fase E.3)
-   UX simplificada: tabs reducidas (Todas / Abiertas / Resueltas).
-   El cliente no necesita ver los estados internos del workflow staff
-   (waiting_agent / waiting_client / closed) — el backend ya filtra
-   sus conversaciones por ownership y la UX es para *él*, no para
-   gestionar la cola del equipo.
-   CTA "Nueva conversación" abre un ticket personal sin selector de
-   cliente (el ticket es para el caller mismo).
-   Audiencia: rol `client` (CASL `Read.Conversation` + `Create.Conversation`
-   con ownership filter server-side).
-   El staff tiene `/admin/support` (full workflow tabs).
+   Admin Support — Portal de Administración (ADR-066 Fase E.3)
+   Full workflow tabs (Todas / Abiertas / Esperando agente / Esperando
+   cliente / Resueltas / Cerradas) + CTA "Nuevo ticket para cliente"
+   con selector de cliente. CASL `Manage Conversation` filtra el acceso
+   por rol staff:
+     - superadmin / agent_full → ven todo
+     - agent_support           → ve todo (su trabajo principal)
+     - agent_billing           → 403 backend (no tiene Conversation)
+   `agent_full` y `superadmin` pueden abrir tickets en nombre del
+   cliente; `agent_support` NO abre tickets (sólo responde) — lo
+   refleja `canOpenTicket` en el shell.
+   El cliente final tiene `/dashboard/support` (tabs reducidas).
    Ref: UI_SPEC §2.4, ADR-066, ADR-067, DECISIONS.md §43
    ═══════════════════════════════════════ */
 
@@ -29,24 +31,37 @@ const CATEGORY_OPTIONS = [
   { value: 'support_general', label: 'Soporte general' },
   { value: 'support_billing', label: 'Facturación' },
   { value: 'support_technical', label: 'Soporte técnico' },
+  { value: 'escalated_chat', label: 'Escalado desde chat' },
 ];
 
-export default function ClientSupportPage() {
+export default function AdminSupportPage() {
   const inbox = useTicketInbox();
+  const { user } = useAuth();
+  const roleSlug = user?.role?.slug || '';
 
-  /* StatusTabs simplificadas — sólo los estados visibles al cliente */
+  /* P6.1: agent_support responde, no abre tickets en nombre del cliente.
+     superadmin / agent_full sí (CTA "Nuevo ticket para cliente"). */
+  const AGENT_RESPOND_ONLY = ['agent_support'];
+  const canOpenTicket = !AGENT_RESPOND_ONLY.includes(roleSlug);
+
+  /* StatusTabs full workflow staff (admin ve los 6 estados) */
   const statusTabs: StatusTab[] = [
     { label: 'Todas', value: '', count: inbox.stats?.total_conversations },
     { label: 'Abiertas', value: 'open', count: inbox.stats?.open_count, variant: 'info' },
+    { label: 'Esperando agente', value: 'waiting_agent', count: inbox.stats?.waiting_agent_count, variant: 'danger' },
+    { label: 'Esperando cliente', value: 'waiting_client', count: inbox.stats?.waiting_client_count, variant: 'warning' },
     { label: 'Resueltas', value: 'resolved', count: inbox.stats?.resolved_count, variant: 'success' },
+    { label: 'Cerradas', value: 'closed', count: inbox.stats?.closed_count },
   ];
 
   return (
     <ListPage
       title="Soporte"
-      subtitle="Tus consultas y conversaciones con el equipo"
+      subtitle="Bandeja de conversaciones del equipo"
       action={
-        <Button onClick={() => inbox.setShowNew(true)}>Nueva conversación</Button>
+        canOpenTicket ? (
+          <Button onClick={() => inbox.setShowNew(true)}>Nuevo ticket para cliente</Button>
+        ) : undefined
       }
       statusTabs={
         <StatusTabs
@@ -78,16 +93,16 @@ export default function ClientSupportPage() {
       <TicketList
         tickets={inbox.conversations}
         loading={inbox.loading}
-        isAdmin={false}
+        isAdmin={inbox.isAdmin}
         page={inbox.page}
         totalPages={inbox.totalPages}
         onPageChange={inbox.setPage}
-        basePath="/dashboard/support"
+        basePath="/admin/support"
       />
 
       {inbox.showNew && (
         <NewTicketModal
-          isAdmin={false}
+          isAdmin={inbox.isAdmin}
           subject={inbox.newSubject}
           body={inbox.newBody}
           category={inbox.newCategory}
@@ -99,15 +114,13 @@ export default function ClientSupportPage() {
           onPriorityChange={inbox.setNewPriority}
           onSubmit={inbox.handleNewTicket}
           onClose={() => inbox.setShowNew(false)}
-          /* Cliente: el modal NO renderiza selector — pasamos placeholders
-             que el componente neutro ignora cuando isAdmin=false. */
-          clientSearch=""
-          clientResults={[]}
-          selectedClient={null}
-          searchingClients={false}
-          onClientSearchChange={() => {}}
-          onSelectClient={() => {}}
-          onClearClient={() => {}}
+          clientSearch={inbox.clientSearch}
+          clientResults={inbox.clientResults}
+          selectedClient={inbox.selectedClient}
+          searchingClients={inbox.searchingClients}
+          onClientSearchChange={inbox.setClientSearch}
+          onSelectClient={inbox.selectClient}
+          onClearClient={inbox.clearSelectedClient}
         />
       )}
     </ListPage>

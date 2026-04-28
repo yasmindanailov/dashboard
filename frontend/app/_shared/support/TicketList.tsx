@@ -27,10 +27,17 @@ interface TicketListProps {
   page: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  /**
+   * Sprint 9.6 (ADR-066): el árbol del portal contenedor. El link a
+   * cada ticket se construye como `${basePath}/${ticketId}` para que
+   * `/admin/support/*` y `/dashboard/support/*` aterricen en su
+   * propio detail.
+   */
+  basePath: string;
 }
 
 export default function TicketList({
-  tickets, loading, isAdmin, page, totalPages, onPageChange,
+  tickets, loading, isAdmin, page, totalPages, onPageChange, basePath,
 }: TicketListProps) {
   if (loading) {
     return (
@@ -76,7 +83,7 @@ export default function TicketList({
             : lastMessage?.body || '';
 
           return (
-            <Link key={conv.id} href={`/dashboard/support/${conv.id}`} className={styles.ticketLink}>
+            <Link key={conv.id} href={`${basePath}/${conv.id}`} className={styles.ticketLink}>
               <Card variant="interactive">
                 <div className={styles.row}>
                   {/* Priority indicator */}
