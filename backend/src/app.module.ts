@@ -11,6 +11,7 @@ import { PrismaModule } from './core/database/prisma.module';
 import { SettingsModule } from './core/settings/settings.module';
 import { EmailModule } from './core/email/email.module';
 import { CorrelationIdMiddleware } from './core/common/middleware/correlation-id.middleware';
+import { LegacyRouteDeprecationMiddleware } from './core/common/middleware/legacy-route-deprecation.middleware';
 import { CaslModule } from './core/casl/casl.module';
 import { OutboxModule } from './core/outbox/outbox.module';
 import { StorageModule } from './core/storage/storage.module';
@@ -105,6 +106,10 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
+    // CorrelationIdMiddleware debe correr ANTES que cualquier otro middleware
+    // que quiera incluir el correlationId en su log (R9 + ADR-068).
+    consumer
+      .apply(CorrelationIdMiddleware, LegacyRouteDeprecationMiddleware)
+      .forRoutes('*');
   }
 }

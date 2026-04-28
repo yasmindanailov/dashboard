@@ -14,6 +14,7 @@ import {
 import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminOnlyGuard } from '../../core/common/guards/admin-only.guard';
 import { PoliciesGuard } from '../../core/casl/policies.guard';
 import { CheckPolicies } from '../../core/casl/check-policies.decorator';
 import { Action, Subject } from '../../core/casl/permissions';
@@ -31,9 +32,26 @@ import {
   UpdateBillingProfileDto,
 } from './dto/billing-profile.dto';
 
+/**
+ * ClientsController — endpoints staff sobre datos de cliente.
+ *
+ * Sprint 9.6 (DC.7 + ADR-068): multi-path canónico `/api/v1/admin/clients/*`
+ * con alias legacy `/api/v1/clients/*` durante ventana de deprecación
+ * (Sunset Wed, 31 Dec 2026 23:59:59 GMT — cerrado en commit pre-deploy
+ * Sprint 14). El `LegacyRouteDeprecationMiddleware` añade headers
+ * `Deprecation: true` + `Sunset` + `Link` solo a las llamadas al path legacy.
+ *
+ * Triple guard (defense in depth, ADR-067 §4):
+ *  1. JwtAuthGuard — usuario autenticado.
+ *  2. AdminOnlyGuard — corte temprano antes de CASL (clientes y partners
+ *     no deben llegar a estos endpoints; CASL ya lo bloquearía pero
+ *     `AdminOnlyGuard` es más explícito y barato).
+ *  3. PoliciesGuard — granularidad fina por Subject CASL (Client/ClientNote/
+ *     BillingProfile) según rol staff.
+ */
 @ApiTags('Clients')
-@Controller('clients')
-@UseGuards(JwtAuthGuard, PoliciesGuard)
+@Controller(['admin/clients', 'clients'])
+@UseGuards(JwtAuthGuard, AdminOnlyGuard, PoliciesGuard)
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
