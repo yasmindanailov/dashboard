@@ -738,11 +738,12 @@ Persistir los PDFs de facturas (y dejar listo el `StorageService` canónico para
 
 ---
 
-## 🚧 Sprint 9.6 — Split admin/cliente retroactivo + 3 portales raíz + permisos granulares (P1.1.6 / DC.7)
+## ✅ Sprint 9.6 — Split admin/cliente retroactivo + 3 portales raíz + permisos granulares (P1.1.6 / DC.7)
 
-**Estado:** 🚧 en curso
+**Estado:** ✅ completado
 **Inicio:** 2026-04-28
-**Cierre estimado:** 1.5–2 sesiones
+**Cierre real:** 2026-04-28 (1 sesión densa, 12 commits encadenados)
+**Resumen ejecutivo + retrospectiva:** [`completed/sprint-9-6-split-admin-cliente.md`](./completed/sprint-9-6-split-admin-cliente.md)
 
 ### 1. Objetivo en una frase
 
@@ -966,7 +967,59 @@ ADRs nuevos a crear ANTES de la fase correspondiente:
 
 ### 10. Cierre del sprint
 
-_Pendiente — se completará al cierre._
+**Fecha real de cierre:** 2026-04-28 (1 sesión densa).
+
+**Commits del sprint** (rama `feat/sprint-9-6-split-admin-cliente`, en orden cronológico):
+
+1. `16b22ed` — Fase A: granularidad CASL + Subjects `NotificationTemplate`/`Job` (ADR-067).
+2. `241a8a9` — Fase B: multi-path REST + `LegacyRouteDeprecationMiddleware` (ADR-068).
+3. `3937ffa` — Fase C: componente `PortalBadge` + helper `portalForRole` (ADR-066).
+4. `0b8f6b5` — Fase D: migración páginas admin-puro `/dashboard/*` → `/admin/*` (clients, products, tasks, support/chats) + reescritura `AdminSidebar` con `useAbility` granular.
+5. `(extracción _shared)` — Fase E.1: `_shared/billing/` + `_shared/support/` con hooks neutros + `invoice-status-map.ts` canónico.
+6. `6b4c152` — Fase E.2: split UX billing (`/admin/billing/*` full + `/dashboard/billing/*` simplificado).
+7. `a2b8db4` — Fase E.3: split UX support (`/admin/support/*` full workflow + `/dashboard/support/*` cliente reducido).
+8. `(seed F.0)` — Fase F.0: seed modular profesional + 7 cuentas por rol + datos demo + `docs/50-operations/seed-reference.md` + `development-playbook.md` §11.
+9. `97f164d` — Fase F.0.bis: `Topbar` + `NotificationBell` movidos a `_shared/shell/` (cierra bug "no se puede cerrar sesión en /admin").
+10. `e989f3c` — Fase F.1–F.3: 2 specs E2E actualizados + 2 nuevos (`admin-tree-migration` 7 tests + `admin-granular-roles` 8 tests) + fix `resetTestData` para preservar cuentas seed.
+11. `e3955bc` — Fase F.4: fix `playwright.config` (`workers=1` + `fullyParallel=false` por default — la suite no soporta paralelismo todavía).
+12. `53b90d0` — Fase F.4: `resetTestData` desbloquea `login_attempts`/`blocked_until`/`two_factor_secret` de cuentas seed entre runs.
+
+**Cambios respecto al plan original:**
+
+- **Fase F.0 expandida** con seed modular profesional (no estaba en plan inicial, surgió del feedback de Yasmin "tras cada migración se me borra el cliente test"). Aporta: `backend/prisma/seeds/{roles,settings,test-accounts,sample-clients,sample-products,sample-invoices,sample-support}.ts` + `seed-reference.md` + 4 salvaguardas (guard `NODE_ENV`, TLD `.test` RFC 6761, override env vars, markers `metadata.seeded`).
+- **Fase F.0.bis Topbar unificado** (no estaba en plan inicial, surgió del bug "no hay logout en `/admin`"). Aporta: extracción de `Topbar` + `NotificationBell` a `_shared/shell/` siguiendo doctrina ADR-066 (single source of truth entre portales). El admin/layout pasa de 62 → 130 líneas con simetría completa al dashboard cliente (Cmd+K, ToastProvider, NoPermission, CommandPalette).
+- **Bug de E2E paralelismo descubierto en Fase F.4** — `playwright.config` distinguía CI vs local con `fullyParallel: !process.env.CI`, pero la suite comparte DB/MailPit/cuentas seed/Redis y no soporta paralelismo real. Forzado `workers=1` en ambos entornos. Paralelización con fixtures aisladas queda como deuda nueva DC.X para Sprint 13 Hardening.
+- **Bug latente de `resetTestData`** — borraba `login_attempts`/`blocked_until`/`two_factor_secret` de cuentas seed que ahora sobreviven al DELETE. Tras una corrida con password mal, el superadmin quedaba bloqueado en runs siguientes. Fix: reset proactivo de esos 3 campos en cada `resetTestData()`.
+
+**Items movidos a sprints futuros:**
+
+- **Sprint 13 Hardening** (paralelización E2E real) — requiere fixtures aisladas por spec: DB de test propia, MailPit dedicado, usuarios `e2e-${uid}` por spec. Hoy la suite serial es suficiente (60 tests en ~1 min).
+- **Sprint 13 Hardening** (collapse de Sidebar admin + mobile drawer) — `AdminSidebar` es width 260 fijo. Sprint 9.6 estabilizó la lógica; el pulido UX entra en sprint dedicado tras todos los módulos cerrados.
+- **Sprint 13 Hardening** (colapsar duplicación `SIDEBAR_PERMISSIONS` frontend/backend a un endpoint `/api/v1/me/permissions`) — la réplica actual es manual.
+- **Sprint 14 Deploy** — eliminar paths legacy del array `@Controller([...])` antes del primer push productivo (cierra ventana de deprecación de aliases REST).
+- **Sprint 18 Landing Integration** — `GET /api/v1/products` (canónico público) ya está listo para alimentar el catálogo público sin auth (vía endpoint distinto futuro `/api/v1/public/catalog`).
+- **Sprint 19 Partner Module** — replica patrón ADR-066 con `/partner/*`, reusando todo `_shared/billing` + `_shared/support` + `_shared/shell` + `PortalBadge` variant `'partner'`.
+
+**DoD verificado:**
+
+- ✅ Pasos 9.6.A.1–9.6.G.8 marcados.
+- ✅ `pnpm typecheck` (backend + frontend) verde.
+- ✅ `pnpm lint:check` (backend) + `pnpm lint` (frontend, 0 errors / 40 warnings DC.6 esperados) verdes.
+- ✅ `pnpm build` (backend + frontend) verde — todas las rutas `/admin/*` y `/dashboard/*` generadas; bundle Topbar compartido en chunk vendor (no duplicado).
+- ✅ `pnpm test` (backend unit) — **37/37 verde** (21 anteriores + 16 nuevos `casl-ability.factory.spec.ts`).
+- ✅ `pnpm test:e2e` (suite full) — **60/60 verde en ~1 min** (51 heredados + 9 nuevos: 7 `aliases-rest-deprecation` + 7 `admin-tree-migration` + 8 `admin-granular-roles` + actualizaciones a `checkout-admin` y `support-escalation`).
+- ✅ ADR-066, ADR-067, ADR-068 creados, fechados, enlazados desde `rules.md` (Patrones canónicos), `_matrix.md` (granularidad CASL), `glossary.md` (término "Portal"), contracts afectados.
+- ✅ `glossary.md` § "Portales y audiencias" con 3 términos canónicos (Portal, PortalBadge, Multi-path con Deprecation headers).
+- ✅ `rules.md` §Patrones canónicos: 4 entries nuevas (`PortalBadge`, `_shared/shell/Topbar`, `LegacyRouteDeprecationMiddleware` + multi-path, Subjects CASL `NotificationTemplate`/`Job`).
+- ✅ `_matrix.md` §"Granularidad CASL por rol staff" — matriz completa 6 roles × 30+ Subjects.
+- ✅ Contracts actualizados: `clients/contract.md`, `products/contract.md` (split público/admin), `billing/contract.md`, `support/contract.md` (paths `/admin/*` reflejados; aliases legacy documentados).
+- ✅ `frontend/app/lib/permissions.ts` con Subjects `NotificationTemplate`/`Job` y comentario citando ADR-067.
+- ✅ Smoke manual Yasmin: las 7 cuentas seed loguean correctamente, cada una aterriza en su portal, cada agente staff ve el sidebar correcto según CASL, el logout funciona desde el dropdown perfil del Topbar (era el bug que disparó Fase F.0.bis).
+- ⏳ CI verde tras último push — pendiente del `git push` cuando Yasmin lo apruebe.
+
+**Items movidos a `completed/sprint-9-6-split-admin-cliente.md`** con resumen ejecutivo + retrospectiva (qué funcionó, qué no esperábamos, deuda residual + lessons learned). DC.7 cerrado en `backlog.md` con commit de referencia. P1.1.6 marcado ✅ Cerrado.
+
+**Sprint 9.6 cierra al 100%.** Próximo natural según `development-playbook.md §10`: Sprint 8 residual (Tasks Fase A schemas + B frontend Tablero + C listeners task.overdue + D Support Inside ADR-061 + E docs) o Sprint 11 Provisioning según prioridad operativa.
 
 ---
 
