@@ -112,6 +112,25 @@ export async function resetTestData(): Promise<void> {
       SEED_EMAILS,
     );
 
+    // Sprint 9.6 Fase F.4 — desbloquear las cuentas seed que sobreviven.
+    // El bug típico: una corrida anterior con password equivocado deja
+    // `login_attempts >= 5` + `blocked_until` futuro en superadmin →
+    // todos los specs siguientes fallan al hacer login con cascada de
+    // 18+ "did not run". Reset proactivo a estado limpio:
+    //   - login_attempts: 0 (sin intentos previos)
+    //   - blocked_until: NULL (no bloqueado)
+    //   - two_factor_secret: NULL (sin código 2FA pendiente del run
+    //     anterior — Sprint 9.5 puso un guard de TTL pero un secret
+    //     viejo causa flakiness en login subsecuente)
+    await client.query(
+      `UPDATE users
+       SET login_attempts = 0,
+           blocked_until = NULL,
+           two_factor_secret = NULL
+       WHERE email IN (${placeholders})`,
+      SEED_EMAILS,
+    );
+
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
