@@ -1,120 +1,68 @@
 import 'dotenv/config';
-import { PrismaClient, RoleSlug } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
-import * as bcrypt from 'bcrypt';
+
+import { seedRoles } from './seeds/roles';
+import { seedSettings } from './seeds/settings';
+import { seedTestAccounts } from './seeds/test-accounts';
+import { seedSampleClients } from './seeds/sample-clients';
+import { seedSampleProducts } from './seeds/sample-products';
+import { seedSampleInvoices } from './seeds/sample-invoices';
+import { seedSampleSupport } from './seeds/sample-support';
 import { seedNotificationTemplates } from './seeds/notification-templates';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
-
+/**
+ * Orquestador del seed de la base de datos — Sprint 9.6 Fase F.0
+ * (DC.7 + ADR-066).
+ *
+ * Compone los módulos de `seeds/` en el orden correcto. Cada módulo
+ * es **idempotente** (re-seed no rompe ni duplica) y los módulos demo
+ * (`test-accounts`, `sample-*`) ejecutan un guard interno
+ * `NODE_ENV !== 'production'` para no contaminar producción con
+ * datos de prueba.
+ *
+ * Orden de ejecución:
+ *   1. roles                  — Foreign key necesaria para todo lo demás.
+ *   2. settings               — Catálogo global; sin FKs.
+ *   3. notification-templates — Plantillas Handlebars (Sprint 9 Fase D).
+ *   4. test-accounts          — 1 cuenta por cada rol (incluye superadmin).
+ *   5. sample-clients         — 2 clientes demo + perfiles billing.
+ *   6. sample-products        — 2 productos demo + pricing rows.
+ *   7. sample-invoices        — 2 facturas del cliente principal.
+ *   8. sample-support         — 1 ticket + 1 chat del cliente principal.
+ *
+ * En producción solo corren los pasos 1-4 (la cuenta superadmin sí se
+ * siembra, las demo `*.test` se omiten via guard).
+ *
+ * Documentación canónica de cuentas y datos de muestra:
+ * `docs/50-operations/seed-reference.md`.
+ */
 async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaPg(pool);
+  const prisma = new PrismaClient({ adapter });
+
   console.log('🌱 Seeding database...');
+  console.log(`  Environment: NODE_ENV=${process.env.NODE_ENV || '(undefined)'}`);
 
-  // ── Roles ──
-  const roles = [
-    { slug: RoleSlug.superadmin, name: 'Superadmin', description: 'Acceso total al sistema', is_system: true },
-    { slug: RoleSlug.agent_full, name: 'Agente completo', description: 'Acceso a todos los módulos operativos', is_system: true },
-    { slug: RoleSlug.agent_billing, name: 'Agente facturación', description: 'Acceso solo a billing y clientes', is_system: true },
-    { slug: RoleSlug.agent_support, name: 'Agente soporte', description: 'Acceso solo a soporte y tareas', is_system: true },
-    { slug: RoleSlug.client, name: 'Cliente', description: 'Acceso al portal de cliente', is_system: true },
-    { slug: RoleSlug.partner_pending, name: 'Partner pendiente', description: 'Registrado, pendiente de aprobación', is_system: true },
-    { slug: RoleSlug.partner, name: 'Partner', description: 'Agencia partner aprobada', is_system: true },
-  ];
+  try {
+    await seedRoles(prisma);
+    await seedSettings(prisma);
+    await seedNotificationTemplates(prisma);
+    await seedTestAccounts(prisma);
+    await seedSampleClients(prisma);
+    await seedSampleProducts(prisma);
+    await seedSampleInvoices(prisma);
+    await seedSampleSupport(prisma);
 
-  for (const role of roles) {
-    await prisma.role.upsert({
-      where: { slug: role.slug },
-      update: {},
-      create: role,
-    });
+    console.log('✅ Seed completed');
+  } finally {
+    await prisma.$disconnect();
   }
-  console.log(`  ✓ ${roles.length} roles created`);
-
-  // ── Superadmin ──
-  const superadminRole = await prisma.role.findUnique({ where: { slug: RoleSlug.superadmin } });
-  if (!superadminRole) throw new Error('Superadmin role not found');
-
-  const email = process.env.SUPERADMIN_EMAIL || 'admin@aelium.net';
-  const password = process.env.SUPERADMIN_PASSWORD || 'AeliumDev2026!';
-  const hash = await bcrypt.hash(password, 12);
-
-  await prisma.user.upsert({
-    where: { email },
-    update: { password_hash: hash },
-    create: {
-      email,
-      password_hash: hash,
-      first_name: 'Admin',
-      last_name: 'Aelium',
-      status: 'active',
-      email_verified_at: new Date(),
-      role_id: superadminRole.id,
-    },
-  });
-  console.log(`  ✓ Superadmin created (${email})`);
-
-  // ── Settings ──
-  const settings = [
-    { category: 'general', key: 'company_name', value: 'Aelium', description: 'Nombre de la empresa' },
-    { category: 'general', key: 'company_email', value: 'hola@aelium.net', description: 'Email de contacto' },
-    { category: 'general', key: 'default_currency', value: 'EUR', description: 'Moneda por defecto' },
-    { category: 'general', key: 'default_tax_rate', value: '21', description: 'IVA por defecto (%)' },
-    { category: 'billing', key: 'invoice_prefix', value: 'AEL', description: 'Prefijo de facturas' },
-    { category: 'billing', key: 'payment_due_days', value: '7', description: 'Días hasta vencimiento' },
-    { category: 'support', key: 'auto_close_days', value: '7', description: 'Días para cerrar conversación inactiva' },
-    { category: 'support', key: 'ai_filter_enabled', value: 'true', description: 'Filtro IA activo' },
-    { category: 'referrals', key: 'monthly_credit_amount', value: '3', description: 'Crédito mensual por referido (€)' },
-    { category: 'referrals', key: 'system_active', value: 'true', description: 'Sistema de referidos activo' },
-    // Auth settings (configurable desde el dashboard)
-    { category: 'auth', key: 'max_login_attempts', value: '5', description: 'Intentos máximos de login antes de bloqueo' },
-    { category: 'auth', key: 'block_duration_minutes', value: '15', description: 'Duración del bloqueo por intentos fallidos (minutos)' },
-    { category: 'auth', key: 'password_min_length', value: '8', description: 'Longitud mínima de contraseña' },
-    { category: 'auth', key: 'require_uppercase', value: 'true', description: 'Requerir al menos una mayúscula' },
-    { category: 'auth', key: 'require_lowercase', value: 'true', description: 'Requerir al menos una minúscula' },
-    { category: 'auth', key: 'require_number', value: 'true', description: 'Requerir al menos un número' },
-    { category: 'auth', key: 'access_token_expires_minutes', value: '15', description: 'Expiración del access token (minutos)' },
-    { category: 'auth', key: 'refresh_token_expires_days', value: '7', description: 'Expiración del refresh token (días)' },
-    { category: 'auth', key: 'email_verification_expires_hours', value: '24', description: 'Expiración del token de verificación email (horas)' },
-    { category: 'auth', key: 'password_reset_expires_hours', value: '1', description: 'Expiración del token de reset contraseña (horas)' },
-    { category: 'auth', key: 'two_factor_code_expires_minutes', value: '5', description: 'Expiración del código 2FA (minutos)' },
-    // Storage settings (Sprint 11.5 + ADR-062)
-    { category: 'storage', key: 'signed_url_expiry_minutes', value: '60', description: 'TTL de URLs firmadas para descargas (minutos)' },
-    { category: 'storage', key: 'max_upload_size_mb', value: '10', description: 'Tamaño máximo de archivo subido (MB) — uploads externos (chat/tickets)' },
-    // Jobs settings (Sprint 9 Fase A + ADR-063)
-    { category: 'jobs', key: 'default_retries', value: '5', description: 'Reintentos por defecto en BullMQ antes de DLQ (ADR-055)' },
-    { category: 'jobs', key: 'backoff_initial_ms', value: '30000', description: 'Backoff exponencial inicial en ms (30s → 60s → 120s → 240s → 480s)' },
-    { category: 'jobs', key: 'dlq_alert_to_superadmin', value: 'true', description: 'Emitir notificación al superadmin cuando un job entra en DLQ (R7+R13)' },
-    // Audit settings (Sprint 9 Fase E + ADR-017)
-    { category: 'audit', key: 'access_retention_days', value: '730', description: 'Días de retención de audit_access_log (mínimo legal AEPD: 2 años)' },
-    // Notifications settings (Sprint 9.5 + ADR-042)
-    { category: 'notifications', key: 'retention_days', value: '90', description: 'Días que se conservan notificaciones leídas antes de borrado por cron nightly' },
-    { category: 'notifications', key: 'unread_max_in_dropdown', value: '50', description: 'Tamaño máximo del dropdown de la campana en el Topbar' },
-    { category: 'notifications', key: 'email_enabled_globally', value: 'true', description: 'Kill switch global de envíos email — off en CI/staging para no spamear' },
-    { category: 'notifications', key: 'maintenance_critical_threshold_days', value: '7', description: 'Días antes de fin de mes para alertar tarea crítica de mantenimiento (Sprint 8 Fase C)' },
-  ];
-
-  for (const s of settings) {
-    await prisma.setting.upsert({
-      where: { category_key: { category: s.category, key: s.key } },
-      update: {},
-      create: { ...s, value: s.value },
-    });
-  }
-  console.log(`  ✓ ${settings.length} settings created`);
-
-  // ── Notification templates (Sprint 9 Fase D + ADR-065) ──
-  await seedNotificationTemplates(prisma);
-
-  console.log('✅ Seed completed');
 }
 
-main()
-  .catch((e) => {
-    console.error('❌ Seed failed:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch((e) => {
+  console.error('❌ Seed failed:', e);
+  process.exit(1);
+});

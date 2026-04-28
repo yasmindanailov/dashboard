@@ -297,7 +297,44 @@ Salta directo a **B → Sprint 14**. Pero en cuanto despliegues sin MinIO, los a
 
 ---
 
-## 11. Si te bloqueas
+## 11. Seed y datos de prueba
+
+> Documento canónico: [`docs/50-operations/seed-reference.md`](../50-operations/seed-reference.md).
+
+El seed (`pnpm seed` desde `backend/`) es modular e idempotente desde
+Sprint 9.6 Fase F.0. Cada `pnpm seed` deja la base de datos en un
+estado conocido con:
+
+- **7 cuentas canónicas** (1 por cada rol en `RoleSlug`):
+  - `admin@aelium.net` / `AeliumDev2026!` (superadmin, requiere 2FA)
+  - `agent.full@aelium.test` / `AgentFull2026!`
+  - `agent.billing@aelium.test` / `AgentBilling2026!`
+  - `agent.support@aelium.test` / `AgentSupport2026!`
+  - `cliente@aelium.test` / `Cliente2026!`
+  - `partner@aelium.test` / `Partner2026!`
+  - `partner.pending@aelium.test` / `Partner2026!`
+- **Datos de muestra mínimos**: 2 clientes adicionales, 2 productos
+  con pricing real, 2 facturas (una `paid` + una `pending`), 1 ticket
+  + 1 chat del cliente principal. Con marker `metadata.seeded = true`
+  para limpieza selectiva futura.
+
+**Salvaguardas**: cuentas demo `*.test` y datos demo NO se siembran si
+`NODE_ENV === 'production'`. La cuenta superadmin sí (boot inicial).
+Passwords overridables vía `SEED_*_PASSWORD` env vars.
+
+**Cuándo re-seedear**:
+- Tras `pnpm prisma migrate deploy` (cambio de schema borra/recrea
+  tablas afectadas).
+- Tras `pnpm prisma migrate reset` (resetea toda la DB).
+- En CI antes de cada run de tests E2E.
+
+Si añades un módulo de datos demo nuevo, sigue el patrón de
+`backend/prisma/seeds/sample-<dominio>.ts` documentado en
+`seed-reference.md` §"Estructura del seed".
+
+---
+
+## 12. Si te bloqueas
 
 - **Si no entiendes una regla** → léela en `rules.md` con ejemplos. Si sigue confuso, pídeme que te explique con un caso concreto.
 - **Si Claude propone algo que parece chocar con una regla** → cita la regla y pídele que justifique.

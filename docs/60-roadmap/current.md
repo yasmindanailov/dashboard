@@ -866,10 +866,11 @@ Cerrar DC.7 retroactivamente: separar el árbol frontend en **tres portales raí
 | 9.6.E.8 | `/dashboard/support/page.tsx` (tabs reducidas: Todas/Abiertas/Resueltas) + CTA "Nueva conversación" | ⬜ |
 | 9.6.E.9 | `/admin/support/[id]` (full detail: sidebar contexto cliente + servicios + notas, toggle is_internal, status/priority/escalate) + `/dashboard/support/[id]` (cliente: sin sidebar, sin is_internal, view-only de status) | ⬜ |
 
-#### Fase F — Tests E2E + DoD final
+#### Fase F — Seed enriquecido + Tests E2E + DoD final
 
 | # | Paso | Estado |
 |---|------|--------|
+| 9.6.F.0 | **Seed modular profesional** ([`docs/50-operations/seed-reference.md`](../50-operations/seed-reference.md)). Refactorizar `backend/prisma/seed.ts` a orquestador + `backend/prisma/seeds/` con módulos `roles.ts`, `settings.ts`, `test-accounts.ts` (1 cuenta por cada rol con guard `NODE_ENV` + override env vars), `sample-clients.ts` (2 clientes adicionales), `sample-products.ts` (2 productos con pricing real), `sample-invoices.ts` (2 facturas del cliente principal), `sample-support.ts` (1 ticket + 1 chat). Idempotente vía upserts y markers `metadata.seeded`. Cierra el bug recurrente "tras reseed se me borra el cliente test" introducido por Sprint 11.5+. Doc canónica `docs/50-operations/seed-reference.md` + §11 en development-playbook | ✅ |
 | 9.6.F.1 | Actualizar `tests/e2e/checkout-admin.spec.ts`: paths `/dashboard/billing*` → `/admin/billing*` | ⬜ |
 | 9.6.F.2 | Actualizar `tests/e2e/support-escalation.spec.ts`: paths `/dashboard/support*` → `/admin/support*` | ⬜ |
 | 9.6.F.3 | Crear `tests/e2e/admin-tree-migration.spec.ts` (5 tests): cliente recibe 403 sobre `/api/v1/admin/clients` y `/admin/products`; staff accede; aliases REST devuelven `Deprecation: true`; cliente entra `/dashboard/billing` y NO ve columna Cliente; cliente entra `/dashboard/support` y solo ve 3 tabs | ⬜ |
