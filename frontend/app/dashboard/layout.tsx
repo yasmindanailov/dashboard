@@ -8,7 +8,9 @@ import NoPermission from '../components/ui/NoPermission';
 import { ToastProvider, CommandPalette } from '../components/ui';
 import dynamic from 'next/dynamic';
 import Sidebar from './Sidebar';
-import Topbar from './Topbar';
+// Sprint 9.6 Fase F.0: Topbar movido a _shared/shell/ — single source of
+// truth entre Portal de Cliente y Portal de Administración (ADR-066).
+import Topbar from '../_shared/shell/Topbar';
 import styles from './layout.module.css';
 
 const SupportPanel = dynamic(() => import('../components/SupportPanel'), { ssr: false });

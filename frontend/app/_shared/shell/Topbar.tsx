@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '../lib/auth-context';
-import { canAccess } from '../lib/permissions';
-import { Dropdown, type DropdownItem } from '../components/ui';
+import { useAuth } from '../../lib/auth-context';
+import { canAccess } from '../../lib/permissions';
+import { Dropdown, type DropdownItem } from '../../components/ui';
 import NotificationBell from './NotificationBell';
 import styles from './Topbar.module.css';
 
