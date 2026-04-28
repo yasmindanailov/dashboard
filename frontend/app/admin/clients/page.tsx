@@ -172,7 +172,7 @@ export default function ClientsPage() {
         rowKey={(c) => c.id}
         loading={loading}
         skeletonRows={8}
-        onRowClick={(c) => router.push(`/dashboard/clients/${c.id}`)}
+        onRowClick={(c) => router.push(`/admin/clients/${c.id}`)}
         emptyIcon={UsersIcon}
         emptyTitle={debouncedSearch ? 'Sin resultados' : 'No hay clientes'}
         emptyDescription={debouncedSearch ? 'No se encontraron clientes con esa búsqueda' : 'No hay clientes registrados'}

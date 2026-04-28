@@ -87,15 +87,20 @@ const ICON = {
   ),
 };
 
+/**
+ * Sprint 9.6 (DC.7 + ADR-066): los items admin-puro (`section: 'admin'`)
+ * fueron movidos al árbol staff `/admin/*` y ahora viven en
+ * `app/admin/AdminSidebar.tsx`. El Sidebar cliente sólo muestra items
+ * `main` (Dashboard cliente landing role-aware), `client` (Mis servicios,
+ * Mis facturas, Soporte, Transparencia) y `partner` (hasta Sprint 19,
+ * que los moverá a `/partner/*`).
+ *
+ * Si llega un staff a `/dashboard` por error de routing, el AdminLayout
+ * + landingForRole() lo redirigen a `/admin` antes de renderizar este
+ * sidebar.
+ */
 const ALL_NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', requiredModule: 'Dashboard', icon: ICON.dashboard, section: 'main' },
-  { label: 'Clientes', href: '/dashboard/clients', requiredModule: 'Client', icon: ICON.clients, section: 'admin' },
-  { label: 'Productos', href: '/dashboard/products', requiredModule: 'Product', icon: ICON.products, section: 'admin' },
-  { label: 'Facturación', href: '/dashboard/billing', requiredModule: 'Invoice', icon: ICON.billing, section: 'admin' },
-  { label: 'Tickets', href: '/dashboard/support', requiredModule: 'Conversation', icon: ICON.support, section: 'admin' },
-  { label: 'Chat en vivo', href: '/dashboard/support/chats', requiredModule: 'Conversation', icon: ICON.chat, section: 'admin' },
-  { label: 'Tareas', href: '/dashboard/tasks', requiredModule: 'Task', icon: ICON.tasks, section: 'admin' },
-  { label: 'Settings', href: '/dashboard/settings', requiredModule: 'Setting', icon: ICON.settings, section: 'admin' },
   { label: 'Mis servicios', href: '/dashboard/services', requiredModule: 'Service', icon: ICON.services, section: 'client' },
   { label: 'Mis facturas', href: '/dashboard/billing', requiredModule: 'Invoice', icon: ICON.billing, section: 'client' },
   { label: 'Soporte', href: '/dashboard/support', requiredModule: 'Conversation', icon: ICON.support, section: 'client' },
@@ -105,13 +110,14 @@ const ALL_NAV_ITEMS: NavItem[] = [
 ];
 
 function getNavItemsForRole(roleSlug: string): NavItem[] {
-  const isAdmin = ['superadmin', 'agent_full', 'agent_billing', 'agent_support'].includes(roleSlug);
   const isClient = roleSlug === 'client';
   const isPartner = ['partner', 'partner_pending'].includes(roleSlug);
 
   return ALL_NAV_ITEMS.filter((item) => {
     if (!canAccess(roleSlug, item.requiredModule)) return false;
-    if (item.section === 'admin' && !isAdmin) return false;
+    // 'admin' ya no se renderiza desde aquí (DC.7) — defensa por si algún
+    // futuro item olvida el rol y queda mal etiquetado.
+    if (item.section === 'admin') return false;
     if (item.section === 'client' && !isClient) return false;
     if (item.section === 'partner' && !isPartner) return false;
     return true;

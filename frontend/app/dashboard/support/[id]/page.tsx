@@ -32,7 +32,7 @@ export default function ConversationDetailPage() {
   /* Redirect agents to the chat panel for chat-type conversations */
   useEffect(() => {
     if (d.conversation && d.conversation.type === 'chat' && d.isAdmin) {
-      router.replace(`/dashboard/support/chats?open=${d.conversation.id}`);
+      router.replace(`/admin/support/chats?open=${d.conversation.id}`);
     }
   }, [d.conversation, d.isAdmin, router]);
 
@@ -116,7 +116,7 @@ export default function ConversationDetailPage() {
   return (
     <DetailPage
       breadcrumb={[
-        { label: isChat ? 'Chats' : 'Soporte', href: isChat ? '/dashboard/support/chats' : '/dashboard/support' },
+        { label: isChat ? 'Chats' : 'Soporte', href: isChat ? '/admin/support/chats' : '/dashboard/support' },
         { label: getDetailDisplayTitle(d.conversation) },
       ]}
       header={

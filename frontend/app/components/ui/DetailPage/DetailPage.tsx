@@ -16,7 +16,7 @@ import styles from './DetailPage.module.css';
  * @example
  *   <DetailPage
  *     breadcrumb={[
- *       { label: 'Clientes', href: '/dashboard/clients' },
+ *       { label: 'Clientes', href: '/admin/clients' },
  *       { label: 'Juan García' },
  *     ]}
  *     header={<ClientHeader client={client} />}

@@ -111,7 +111,7 @@ export default function ProductsPage() {
       render: (p) => (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <Link href={`/dashboard/products/${p.id}`}
+            <Link href={`/admin/products/${p.id}`}
               style={{ color: 'var(--text-primary)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-sm)', textDecoration: 'none' }}>
               {p.name}
             </Link>
@@ -155,7 +155,7 @@ export default function ProductsPage() {
             </button>
           </Tooltip>
           <Tooltip content="Editar">
-            <Link href={`/dashboard/products/${p.id}`}
+            <Link href={`/admin/products/${p.id}`}
               style={{ color: 'var(--text-tertiary)', padding: '6px', borderRadius: 'var(--radius-sm)', display: 'flex' }}>
               <EditIcon />
             </Link>
@@ -170,7 +170,7 @@ export default function ProductsPage() {
       title="Productos"
       subtitle={`${meta.total} producto${meta.total !== 1 ? 's' : ''} en el catálogo`}
       action={
-        <Link href="/dashboard/products/new">
+        <Link href="/admin/products/new">
           <Button><PlusIcon /> Nuevo producto</Button>
         </Link>
       }
@@ -200,7 +200,7 @@ export default function ProductsPage() {
       <Table<ProductItem>
         columns={columns} data={products} rowKey={(p) => p.id}
         loading={loading} skeletonRows={8}
-        onRowClick={(p) => router.push(`/dashboard/products/${p.id}`)}
+        onRowClick={(p) => router.push(`/admin/products/${p.id}`)}
         emptyIcon={PackageIcon} emptyTitle="Sin productos"
         emptyDescription="No hay productos en el catálogo"
         selectable

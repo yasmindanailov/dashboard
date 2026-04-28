@@ -3,27 +3,82 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../lib/auth-context';
+import { canAccess, type AppModule } from '../lib/permissions';
 import { PortalBadge } from '../components/ui';
 import styles from './admin-sidebar.module.css';
 
 /* ═══════════════════════════════════════
-   AdminSidebar — Sidebar exclusivo del árbol staff `/admin/*`.
-   Ref: Sprint 9 Fase F + DC.7.
+   AdminSidebar — Sidebar exclusivo del Portal de Administración
+   (`/admin/*`). Sprint 9 Fase F (DC.7) + Sprint 9.6 (split retroactivo)
+   + ADR-066 + ADR-067.
 
-   Hoy contiene los 2 items que Fase F introduce. Sprint 9.6 (split
-   retroactivo) migrará los items admin existentes (clients, tasks,
-   settings, etc.) a este sidebar.
+   Visibilidad por rol staff vía `canAccess(roleSlug, requiredModule)` —
+   misma fuente de verdad que el Sidebar cliente. La granularidad real
+   vive en `SIDEBAR_PERMISSIONS` (lib/permissions.ts) que es réplica del
+   backend (core/casl/permissions.ts).
+
+   Matriz de visibilidad (ADR-067 + Sprint 9.6 §3):
+     - superadmin    → todo
+     - agent_full    → Clientes, Productos, Facturación, Soporte, Tareas
+                       + Error Log (NO Settings, NO Plantillas, NO Jobs)
+     - agent_billing → Clientes, Facturación, Tareas
+     - agent_support → Clientes (read), Soporte, Tareas
    ═══════════════════════════════════════ */
 
 interface NavItem {
   label: string;
   href: string;
+  requiredModule: AppModule;
   icon: React.ReactNode;
-  /** Roles que pueden VER este item (subset de los roles staff). */
-  allowedRoles?: string[];
+  /** Sub-sección visual del Sidebar (cabecera de grupo). */
+  section: 'operaciones' | 'plataforma';
 }
 
 const ICON = {
+  home: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  ),
+  clients: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  ),
+  products: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
+    </svg>
+  ),
+  billing: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
+    </svg>
+  ),
+  support: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  chat: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
+  ),
+  tasks: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  ),
+  settings: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  ),
   errorLog: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
       <circle cx="12" cy="12" r="10" />
@@ -46,24 +101,20 @@ const ICON = {
 };
 
 const ALL_ITEMS: NavItem[] = [
-  {
-    label: 'Error Log',
-    href: '/admin/error-log',
-    icon: ICON.errorLog,
-    allowedRoles: ['superadmin'],
-  },
-  {
-    label: 'Jobs en DLQ',
-    href: '/admin/jobs/failed',
-    icon: ICON.jobs,
-    allowedRoles: ['superadmin'],
-  },
-  {
-    label: 'Plantillas notificaciones',
-    href: '/admin/notifications/templates',
-    icon: ICON.templates,
-    allowedRoles: ['superadmin'],
-  },
+  // ── Operaciones de negocio (visibilidad granular por CASL) ──
+  { label: 'Inicio', href: '/admin', requiredModule: 'Dashboard', icon: ICON.home, section: 'operaciones' },
+  { label: 'Clientes', href: '/admin/clients', requiredModule: 'Client', icon: ICON.clients, section: 'operaciones' },
+  { label: 'Productos', href: '/admin/products', requiredModule: 'Product', icon: ICON.products, section: 'operaciones' },
+  { label: 'Facturación', href: '/admin/billing', requiredModule: 'Invoice', icon: ICON.billing, section: 'operaciones' },
+  { label: 'Soporte', href: '/admin/support', requiredModule: 'Conversation', icon: ICON.support, section: 'operaciones' },
+  { label: 'Chat en vivo', href: '/admin/support/chats', requiredModule: 'Conversation', icon: ICON.chat, section: 'operaciones' },
+  { label: 'Tareas', href: '/admin/tasks', requiredModule: 'Task', icon: ICON.tasks, section: 'operaciones' },
+
+  // ── Plataforma (sólo superadmin — ADR-067 Subjects nuevos + Setting) ──
+  { label: 'Settings', href: '/admin/settings', requiredModule: 'Setting', icon: ICON.settings, section: 'plataforma' },
+  { label: 'Error Log', href: '/admin/error-log', requiredModule: 'ErrorLog', icon: ICON.errorLog, section: 'plataforma' },
+  { label: 'Jobs en DLQ', href: '/admin/jobs/failed', requiredModule: 'Job', icon: ICON.jobs, section: 'plataforma' },
+  { label: 'Plantillas notificaciones', href: '/admin/notifications/templates', requiredModule: 'NotificationTemplate', icon: ICON.templates, section: 'plataforma' },
 ];
 
 const STAFF_ROLES = new Set([
@@ -75,9 +126,7 @@ const STAFF_ROLES = new Set([
 
 function getItemsForRole(roleSlug: string): NavItem[] {
   if (!STAFF_ROLES.has(roleSlug)) return [];
-  return ALL_ITEMS.filter(
-    (item) => !item.allowedRoles || item.allowedRoles.includes(roleSlug),
-  );
+  return ALL_ITEMS.filter((item) => canAccess(roleSlug, item.requiredModule));
 }
 
 export default function AdminSidebar() {
@@ -86,45 +135,49 @@ export default function AdminSidebar() {
   const roleSlug = user?.role?.slug || '';
   const items = getItemsForRole(roleSlug);
 
+  const operacionesItems = items.filter((i) => i.section === 'operaciones');
+  const plataformaItems = items.filter((i) => i.section === 'plataforma');
+
+  const renderLink = (item: NavItem) => {
+    const active =
+      pathname === item.href || pathname?.startsWith(`${item.href}/`);
+    return (
+      <li key={item.href}>
+        <Link
+          href={item.href}
+          className={`${styles.link} ${active ? styles.linkActive : ''}`}
+          aria-current={active ? 'page' : undefined}
+        >
+          <span className={styles.icon}>{item.icon}</span>
+          <span className={styles.label}>{item.label}</span>
+        </Link>
+      </li>
+    );
+  };
+
   return (
     <aside className={styles.sidebar}>
       <div className={styles.brand}>
         <Link href="/admin" className={styles.brandLink} aria-label="Inicio Portal de Administración">
           <span className={styles.brandMark} aria-hidden="true">A</span>
-          {/* PortalBadge cumple ADR-066: identidad clara del portal en el
-              header. logo="Aelium" + subtítulo "Portal de Administración"
-              resuelto por variant. */}
           <PortalBadge variant="admin" logo="Aelium" />
         </Link>
       </div>
 
       <nav className={styles.nav}>
-        <div className={styles.section}>
-          <span className={styles.sectionTitle}>Operaciones</span>
-          <ul className={styles.list}>
-            {items.map((item) => {
-              const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={`${styles.link} ${active ? styles.linkActive : ''}`}
-                    aria-current={active ? 'page' : undefined}
-                  >
-                    <span className={styles.icon}>{item.icon}</span>
-                    <span className={styles.label}>{item.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+        {operacionesItems.length > 0 && (
+          <div className={styles.section}>
+            <span className={styles.sectionTitle}>Operaciones</span>
+            <ul className={styles.list}>{operacionesItems.map(renderLink)}</ul>
+          </div>
+        )}
 
-        <div className={styles.section}>
-          <Link href="/dashboard" className={styles.backLink}>
-            ← Volver al panel cliente
-          </Link>
-        </div>
+        {plataformaItems.length > 0 && (
+          <div className={styles.section}>
+            <span className={styles.sectionTitle}>Plataforma</span>
+            <ul className={styles.list}>{plataformaItems.map(renderLink)}</ul>
+          </div>
+        )}
       </nav>
     </aside>
   );

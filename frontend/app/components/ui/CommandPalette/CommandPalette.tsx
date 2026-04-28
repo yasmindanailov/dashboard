@@ -137,10 +137,10 @@ function buildItems(roleSlug: string): PaletteItem[] {
   items.push({ id: 'nav-dashboard', label: 'Dashboard', description: 'Ir al resumen', icon: IconNav, href: '/dashboard', section: 'navigate', keywords: ['inicio', 'home', 'resumen'] });
 
   if (isAdmin && can('Client'))
-    items.push({ id: 'nav-clients', label: 'Clientes', description: 'Lista de clientes', icon: IconClients, href: '/dashboard/clients', section: 'navigate', keywords: ['crm', 'users'] });
+    items.push({ id: 'nav-clients', label: 'Clientes', description: 'Lista de clientes', icon: IconClients, href: '/admin/clients', section: 'navigate', keywords: ['crm', 'users'] });
 
   if (isAdmin && can('Product'))
-    items.push({ id: 'nav-products', label: 'Productos', description: 'Catálogo de productos', icon: IconProducts, href: '/dashboard/products', section: 'navigate', keywords: ['planes', 'hosting'] });
+    items.push({ id: 'nav-products', label: 'Productos', description: 'Catálogo de productos', icon: IconProducts, href: '/admin/products', section: 'navigate', keywords: ['planes', 'hosting'] });
 
   if (can('Invoice'))
     items.push({ id: 'nav-billing', label: isClient ? 'Mis facturas' : 'Facturación', description: isClient ? 'Tus facturas' : 'Todas las facturas', icon: IconBilling, href: '/dashboard/billing', section: 'navigate', keywords: ['facturas', 'pagos', 'cobros'] });
@@ -148,18 +148,18 @@ function buildItems(roleSlug: string): PaletteItem[] {
   if (can('Conversation')) {
     items.push({ id: 'nav-tickets', label: isClient ? 'Soporte' : 'Tickets', description: isClient ? 'Tus tickets de soporte' : 'Tickets de soporte', icon: IconSupport, href: '/dashboard/support', section: 'navigate', keywords: ['soporte', 'ayuda', 'incidencias'] });
     if (isAdmin)
-      items.push({ id: 'nav-chats', label: 'Chat en vivo', description: 'Conversaciones en tiempo real', icon: IconChat, href: '/dashboard/support/chats', section: 'navigate', keywords: ['chat', 'mensajes', 'live'] });
+      items.push({ id: 'nav-chats', label: 'Chat en vivo', description: 'Conversaciones en tiempo real', icon: IconChat, href: '/admin/support/chats', section: 'navigate', keywords: ['chat', 'mensajes', 'live'] });
   }
 
   if (isAdmin && can('Setting'))
-    items.push({ id: 'nav-settings', label: 'Configuración', description: 'Ajustes del sistema', icon: IconSettings, href: '/dashboard/settings', section: 'navigate', keywords: ['config', 'ajustes'] });
+    items.push({ id: 'nav-settings', label: 'Configuración', description: 'Ajustes del sistema', icon: IconSettings, href: '/admin/settings', section: 'navigate', keywords: ['config', 'ajustes'] });
 
   if (isPartner && can('PartnerClient'))
     items.push({ id: 'nav-my-clients', label: 'Mis clientes', description: 'Clientes referidos', icon: IconClients, href: '/dashboard/my-clients', section: 'navigate', keywords: ['referidos'] });
 
   // ── Quick actions ──
   if (isAdmin && can('Product'))
-    items.push({ id: 'act-new-product', label: 'Nuevo producto', description: 'Crear producto', icon: IconPlus, href: '/dashboard/products/new', section: 'action', keywords: ['crear', 'añadir', 'producto'] });
+    items.push({ id: 'act-new-product', label: 'Nuevo producto', description: 'Crear producto', icon: IconPlus, href: '/admin/products/new', section: 'action', keywords: ['crear', 'añadir', 'producto'] });
 
   if (can('Conversation'))
     items.push({ id: 'act-new-ticket', label: 'Nuevo ticket', description: 'Crear ticket de soporte', icon: IconPlus, href: '/dashboard/support', section: 'action', keywords: ['crear', 'ticket', 'soporte'] });

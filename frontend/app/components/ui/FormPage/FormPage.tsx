@@ -14,7 +14,7 @@ import styles from './FormPage.module.css';
  * @example
  *   <FormPage
  *     breadcrumb={[
- *       { label: 'Productos', href: '/dashboard/products' },
+ *       { label: 'Productos', href: '/admin/products' },
  *       { label: 'Nuevo producto' },
  *     ]}
  *     title="Nuevo producto"

@@ -63,7 +63,7 @@ const ChatIcon = (
 export default function ClientSupportTab({ loading, chats, tickets, clientId, clientName }: ClientSupportTabProps) {
   // Build ?from= query string for cross-module links (P6.1)
   const fromParams = clientId && clientName
-    ? `?from=${encodeURIComponent(`/dashboard/clients/${clientId}`)}&fromLabel=${encodeURIComponent(`Perfil de ${clientName}`)}`
+    ? `?from=${encodeURIComponent(`/admin/clients/${clientId}`)}&fromLabel=${encodeURIComponent(`Perfil de ${clientName}`)}`
     : '';
 
   if (loading) {

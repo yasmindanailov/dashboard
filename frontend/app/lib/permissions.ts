@@ -85,29 +85,34 @@ export const SIDEBAR_PERMISSIONS: Record<string, AppModule[]> = {
 // Used by the route guard to check if the user can access a page.
 
 export const ROUTE_PERMISSIONS: Record<string, AppModule> = {
+  // ── Cliente / Compartidas (Portal de Cliente — ADR-066) ──
   '/dashboard': 'Dashboard',
-  '/dashboard/clients': 'Client',
-  '/dashboard/products': 'Product',
   '/dashboard/billing': 'Invoice',
   '/dashboard/support': 'Conversation',
-  '/dashboard/tasks': 'Task',
-  '/dashboard/audit': 'AuditLog',
-  '/dashboard/infrastructure': 'Server',
-  '/dashboard/settings': 'Setting',
-  '/dashboard/promotions': 'Promotion',
-  '/dashboard/knowledge-base': 'KnowledgeBase',
-  '/dashboard/errors': 'ErrorLog',
-  '/dashboard/partners': 'Partner',
-  '/dashboard/referrals': 'Referral',
   // Client-specific
   '/dashboard/services': 'Service',
   '/dashboard/support-inside': 'SupportInside',
-  // Partner-specific
+  '/dashboard/referrals': 'Referral',
+  // Partner-specific (mantenido en /dashboard hasta Sprint 19; ese sprint
+  // mueve los items partner a /partner/*).
   '/dashboard/my-clients': 'PartnerClient',
   '/dashboard/commissions': 'PartnerCommission',
   '/dashboard/payouts': 'PartnerPayout',
   '/dashboard/tickets': 'PartnerTicket',
   '/dashboard/my-link': 'Partner',
+
+  // ── Staff (Portal de Administración — Sprint 9.6 + ADR-066) ──
+  '/admin': 'Dashboard',
+  '/admin/clients': 'Client',
+  '/admin/products': 'Product',
+  '/admin/billing': 'Invoice',
+  '/admin/support': 'Conversation',
+  '/admin/support/chats': 'Conversation',
+  '/admin/tasks': 'Task',
+  '/admin/settings': 'Setting',
+  '/admin/error-log': 'ErrorLog',
+  '/admin/jobs/failed': 'Job',
+  '/admin/notifications/templates': 'NotificationTemplate',
 };
 
 /**
