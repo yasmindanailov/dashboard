@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../lib/auth-context';
 import { canAccess, type AppModule } from '../lib/permissions';
+import { portalForRole } from '../lib/portal';
+import { PortalBadge } from '../components/ui';
 import styles from './Sidebar.module.css';
 
 /* ═══════════════════════════════════════
@@ -133,11 +135,21 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
 
   const sidebarContent = (
     <aside className={styles.sidebar}>
-      {/* Logo */}
+      {/* Logo + PortalBadge (ADR-066): identidad del portal cliente/partner.
+          En estado colapsado solo se muestra el cuadrado "A". Cuando se
+          expande, el PortalBadge resuelve "aelium" + subtítulo según rol
+          ("Portal de Cliente" o "Portal de Partner"). */}
       <div className={styles.logoArea}>
-        <Link href="/dashboard" className={styles.logoLink} onClick={onMobileClose}>
-          <div className={styles.logoIcon}>A</div>
-          {!collapsed && <span className={styles.logoText}>aelium</span>}
+        <Link
+          href="/dashboard"
+          className={styles.logoLink}
+          onClick={onMobileClose}
+          aria-label="Inicio del portal"
+        >
+          <div className={styles.logoIcon} aria-hidden="true">A</div>
+          {!collapsed && (
+            <PortalBadge variant={portalForRole(roleSlug)} logo="aelium" />
+          )}
         </Link>
       </div>
 

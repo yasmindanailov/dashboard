@@ -63,10 +63,12 @@
 /* ── Logo area ── */
 
 .logoArea {
-  height: 64px;
+  /* 80px para acomodar el cuadrado A + <PortalBadge> en stack vertical
+     (logo "aelium" + subtítulo del portal). Cumple D6 (escala 4px). */
+  min-height: 80px;
   display: flex;
   align-items: center;
-  padding: 0 var(--space-5);
+  padding: var(--space-3) var(--space-5);
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
 }
@@ -93,13 +95,9 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.logoText {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-  color: var(--text-primary);
-}
+/* `.logoText` eliminado en Sprint 9.6 — el logo + subtítulo viven en el
+   componente <PortalBadge> (ADR-066). El cuadrado .logoIcon se conserva
+   como logo gráfico al lado del badge tipográfico. */
 
 /* ── Navigation ── */
 
