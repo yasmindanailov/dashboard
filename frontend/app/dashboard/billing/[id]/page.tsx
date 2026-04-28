@@ -7,7 +7,7 @@ import { useAuth } from '../../../lib/auth-context';
 import { billingApi } from '../../../lib/api';
 import { DetailPage, Badge, Button, Card, HelpTip, useToast } from '../../../components/ui';
 import type { BadgeVariant } from '../../../components/ui';
-import styles from './invoiceDetail.module.css';
+import styles from '../../../_shared/billing/invoiceDetail.module.css';
 
 /* ═══════════════════════════════════════
    Invoice Detail Page (UI_SPEC §2.5)
