@@ -95,7 +95,7 @@ export default function ChatClientContext({
             <Avatar name={clientName} size="lg" />
           </div>
           <div className={styles.clientName}>
-            <Link href={`/dashboard/clients/${clientContext.id}`} className={styles.clientLink}>
+            <Link href={`/admin/clients/${clientContext.id}`} className={styles.clientLink}>
               {clientName}
             </Link>
           </div>
@@ -143,7 +143,7 @@ export default function ChatClientContext({
               ))}
             </div>
             <a
-              href={`/dashboard/clients/${clientContext.id}?tab=notas`}
+              href={`/admin/clients/${clientContext.id}?tab=notas`}
               className={styles.notesLink}
             >
               Ver todas las notas →

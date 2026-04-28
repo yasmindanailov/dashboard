@@ -49,7 +49,7 @@ export default function TaskTable({ data, page, onPageChange, showAgentColumn }:
       key: 'title',
       header: 'Tarea',
       render: (t: Task) => (
-        <Link href={`/dashboard/tasks/${t.id}`} className={styles.titleLink}>
+        <Link href={`/admin/tasks/${t.id}`} className={styles.titleLink}>
           {t.title}
         </Link>
       ),
@@ -58,7 +58,7 @@ export default function TaskTable({ data, page, onPageChange, showAgentColumn }:
       key: 'client',
       header: 'Cliente',
       render: (t: Task) => t.client ? (
-        <Link href={`/dashboard/clients/${t.client.id}`} className={styles.clientLink}>
+        <Link href={`/admin/clients/${t.client.id}`} className={styles.clientLink}>
           {t.client.first_name} {t.client.last_name}
         </Link>
       ) : '—',

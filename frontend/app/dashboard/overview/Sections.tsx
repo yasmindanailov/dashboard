@@ -45,7 +45,7 @@ export function buildAlerts(stats: OverviewStats): Alert[] {
         title: `${stats.waiting_agent} chat${stats.waiting_agent > 1 ? 's' : ''} esperando respuesta`,
         meta: 'Clientes en cola',
         type: 'warning',
-        href: '/dashboard/support/chats',
+        href: '/admin/support/chats',
       });
     }
     if (stats.open_tickets > 0) {
@@ -63,7 +63,7 @@ export function buildAlerts(stats: OverviewStats): Alert[] {
         title: `${stats.open_chats} chat${stats.open_chats > 1 ? 's' : ''} activo${stats.open_chats > 1 ? 's' : ''}`,
         meta: 'Conversaciones en tiempo real',
         type: 'warning',
-        href: '/dashboard/support/chats',
+        href: '/admin/support/chats',
       });
     }
   }
@@ -96,7 +96,7 @@ export function buildAlerts(stats: OverviewStats): Alert[] {
         title: `${stats.waiting_chats} chat${stats.waiting_chats > 1 ? 's' : ''} esperando tu respuesta`,
         meta: 'Clientes activos en cola',
         type: 'danger',
-        href: '/dashboard/support/chats',
+        href: '/admin/support/chats',
       });
     }
     if (stats.unanswered_tickets > 0) {
@@ -178,18 +178,18 @@ export function getQuickActions(roleSlug: string): QuickAction[] {
 
   if (isAgent) {
     return [
-      { href: '/dashboard/support/chats', icon: <ChatIcon />, title: 'Chats en vivo', desc: 'Panel de agente' },
+      { href: '/admin/support/chats', icon: <ChatIcon />, title: 'Chats en vivo', desc: 'Panel de agente' },
       { href: '/dashboard/support', icon: <TicketIcon />, title: 'Tickets', desc: 'Gestionar tickets' },
-      { href: '/dashboard/clients', icon: <UsersIcon />, title: 'Clientes', desc: 'Buscar clientes' },
+      { href: '/admin/clients', icon: <UsersIcon />, title: 'Clientes', desc: 'Buscar clientes' },
     ];
   }
 
-  // Admin
+  // Admin (Sprint 9.6 + ADR-066: Portal de Administración → /admin/*)
   return [
-    { href: '/dashboard/clients', icon: <UsersIcon />, title: 'Clientes', desc: 'Gestionar clientes' },
+    { href: '/admin/clients', icon: <UsersIcon />, title: 'Clientes', desc: 'Gestionar clientes' },
     { href: '/dashboard/billing', icon: <InvoiceIcon />, title: 'Facturación', desc: 'Ver facturas' },
-    { href: '/dashboard/products', icon: <ProductIcon />, title: 'Productos', desc: 'Catálogo de servicios' },
+    { href: '/admin/products', icon: <ProductIcon />, title: 'Productos', desc: 'Catálogo de servicios' },
     { href: '/dashboard/support', icon: <TicketIcon />, title: 'Soporte', desc: 'Tickets y chats' },
-    { href: '/dashboard/support/chats', icon: <ChatIcon />, title: 'Chats en vivo', desc: 'Panel de agente' },
+    { href: '/admin/support/chats', icon: <ChatIcon />, title: 'Chats en vivo', desc: 'Panel de agente' },
   ];
 }

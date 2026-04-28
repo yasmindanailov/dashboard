@@ -97,7 +97,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         setPartnerCommission(data.partner_commission_pct ? String(data.partner_commission_pct) : '');
         setExistingPricing(data.pricing || []);
       })
-      .catch(() => router.push('/dashboard/products'))
+      .catch(() => router.push('/admin/products'))
       .finally(() => setLoading(false));
   }, [token, id, router]);
 
@@ -159,7 +159,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   if (loading) {
     return (
       <FormPage
-        breadcrumb={[{ label: 'Productos', href: '/dashboard/products' }, { label: 'Cargando...' }]}
+        breadcrumb={[{ label: 'Productos', href: '/admin/products' }, { label: 'Cargando...' }]}
         title="Editar producto"
       >
         <Card>
@@ -177,14 +177,14 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   return (
     <FormPage
       breadcrumb={[
-        { label: 'Productos', href: '/dashboard/products' },
-        { label: name || slug, href: `/dashboard/products/${id}` },
+        { label: 'Productos', href: '/admin/products' },
+        { label: name || slug, href: `/admin/products/${id}` },
         { label: 'Editar' },
       ]}
       title="Editar producto"
       actions={
         <>
-          <Button variant="secondary" onClick={() => router.push(`/dashboard/products/${id}`)}>Cancelar</Button>
+          <Button variant="secondary" onClick={() => router.push(`/admin/products/${id}`)}>Cancelar</Button>
           <Button type="submit" form="edit-product-form" loading={saving}>
             {saving ? 'Guardando...' : 'Guardar cambios'}
           </Button>

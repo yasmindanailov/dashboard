@@ -97,7 +97,10 @@ export const authApi = {
     api<LoginResponse>('/auth/refresh', { method: 'POST', body: { refresh_token } }),
 };
 
-// ── Clients API ──
+// ── Clients API (Sprint 9.6 + ADR-068: path canónico /admin/clients/*) ──
+// El backend mantiene `/clients/*` como alias legacy con headers Deprecation
+// hasta el cierre Sprint 14. Aquí ya apuntamos al canónico para evitar
+// las advertencias de deprecación en runtime.
 
 export const clientsApi = {
   list: (token: string, params?: { page?: number; limit?: number; search?: string; status?: string }) => {
@@ -107,32 +110,32 @@ export const clientsApi = {
     if (params?.search) query.set('search', params.search);
     if (params?.status) query.set('status', params.status);
     const qs = query.toString();
-    return api(`/clients${qs ? `?${qs}` : ''}`, { token });
+    return api(`/admin/clients${qs ? `?${qs}` : ''}`, { token });
   },
 
   get: (token: string, id: string) =>
-    api(`/clients/${id}`, { token }),
+    api(`/admin/clients/${id}`, { token }),
 
   update: (token: string, id: string, data: Record<string, unknown>) =>
-    api(`/clients/${id}`, { method: 'PATCH', token, body: data }),
+    api(`/admin/clients/${id}`, { method: 'PATCH', token, body: data }),
 
   addNote: (token: string, id: string, note: string) =>
-    api(`/clients/${id}/notes`, { method: 'POST', token, body: { note } }),
+    api(`/admin/clients/${id}/notes`, { method: 'POST', token, body: { note } }),
 
   getBillingProfiles: (token: string, id: string) =>
-    api(`/clients/${id}/billing-profiles`, { token }),
+    api(`/admin/clients/${id}/billing-profiles`, { token }),
 
   createBillingProfile: (token: string, id: string, data: Record<string, unknown>) =>
-    api(`/clients/${id}/billing-profiles`, { method: 'POST', token, body: data }),
+    api(`/admin/clients/${id}/billing-profiles`, { method: 'POST', token, body: data }),
 
   updateBillingProfile: (token: string, userId: string, profileId: string, data: Record<string, unknown>) =>
-    api(`/clients/${userId}/billing-profiles/${profileId}`, { method: 'PATCH', token, body: data }),
+    api(`/admin/clients/${userId}/billing-profiles/${profileId}`, { method: 'PATCH', token, body: data }),
 
   deleteBillingProfile: (token: string, userId: string, profileId: string) =>
-    api(`/clients/${userId}/billing-profiles/${profileId}`, { method: 'DELETE', token }),
+    api(`/admin/clients/${userId}/billing-profiles/${profileId}`, { method: 'DELETE', token }),
 
   setDefaultBillingProfile: (token: string, userId: string, profileId: string) =>
-    api(`/clients/${userId}/billing-profiles/${profileId}/default`, { method: 'PATCH', token }),
+    api(`/admin/clients/${userId}/billing-profiles/${profileId}/default`, { method: 'PATCH', token }),
 
   // Structured notes (7.H19)
   listStructuredNotes: (token: string, userId: string, params?: { category?: string; pinned_only?: boolean; limit?: number }) => {
@@ -141,17 +144,23 @@ export const clientsApi = {
     if (params?.pinned_only) query.set('pinned_only', 'true');
     if (params?.limit) query.set('limit', String(params.limit));
     const qs = query.toString();
-    return api(`/clients/${userId}/structured-notes${qs ? `?${qs}` : ''}`, { token });
+    return api(`/admin/clients/${userId}/structured-notes${qs ? `?${qs}` : ''}`, { token });
   },
 
   createStructuredNote: (token: string, userId: string, data: { body: string; category?: string; conversation_id?: string; is_pinned?: boolean }) =>
-    api(`/clients/${userId}/structured-notes`, { method: 'POST', token, body: data }),
+    api(`/admin/clients/${userId}/structured-notes`, { method: 'POST', token, body: data }),
 
   toggleNotePin: (token: string, noteId: string) =>
-    api(`/clients/notes/${noteId}/pin`, { method: 'PATCH', token }),
+    api(`/admin/clients/notes/${noteId}/pin`, { method: 'PATCH', token }),
 };
 
-// ── Products API ──
+// ── Products API (Sprint 9.6 + ADR-068) ──
+// Lectura del catálogo (`list`, `get`, `listCategories`) → endpoint canónico
+// público bajo `/products` (cliente puede leer en CASL `Read.Product`,
+// preparado para Sprint 18 Landing).
+// Mutaciones (`create/update/delete/pricing/categories mutaciones`) →
+// endpoint canónico admin bajo `/admin/products`. El backend mantiene
+// `/products/*` como alias legacy con headers Deprecation hasta Sprint 14.
 
 export const productsApi = {
   list: (token: string, params?: { page?: number; limit?: number; search?: string; status?: string; type?: string; category_id?: string }) => {
@@ -170,39 +179,39 @@ export const productsApi = {
     api(`/products/${id}`, { token }),
 
   create: (token: string, data: Record<string, unknown>) =>
-    api('/products', { method: 'POST', token, body: data }),
+    api('/admin/products', { method: 'POST', token, body: data }),
 
   update: (token: string, id: string, data: Record<string, unknown>) =>
-    api(`/products/${id}`, { method: 'PATCH', token, body: data }),
+    api(`/admin/products/${id}`, { method: 'PATCH', token, body: data }),
 
   toggleStatus: (token: string, id: string) =>
-    api(`/products/${id}/status`, { method: 'PATCH', token }),
+    api(`/admin/products/${id}/status`, { method: 'PATCH', token }),
 
   delete: (token: string, id: string) =>
-    api(`/products/${id}`, { method: 'DELETE', token }),
+    api(`/admin/products/${id}`, { method: 'DELETE', token }),
 
-  // Pricing
+  // Pricing — todas son mutaciones admin
   addPricing: (token: string, productId: string, data: Record<string, unknown>) =>
-    api(`/products/${productId}/pricing`, { method: 'POST', token, body: data }),
+    api(`/admin/products/${productId}/pricing`, { method: 'POST', token, body: data }),
 
   updatePricing: (token: string, pricingId: string, data: Record<string, unknown>) =>
-    api(`/products/pricing/${pricingId}`, { method: 'PATCH', token, body: data }),
+    api(`/admin/products/pricing/${pricingId}`, { method: 'PATCH', token, body: data }),
 
   deletePricing: (token: string, pricingId: string) =>
-    api(`/products/pricing/${pricingId}`, { method: 'DELETE', token }),
+    api(`/admin/products/pricing/${pricingId}`, { method: 'DELETE', token }),
 
-  // Categories
+  // Categories — lectura pública, mutaciones admin
   listCategories: (token: string) =>
     api('/products/categories/all', { token }),
 
   createCategory: (token: string, data: Record<string, unknown>) =>
-    api('/products/categories', { method: 'POST', token, body: data }),
+    api('/admin/products/categories', { method: 'POST', token, body: data }),
 
   updateCategory: (token: string, id: string, data: Record<string, unknown>) =>
-    api(`/products/categories/${id}`, { method: 'PATCH', token, body: data }),
+    api(`/admin/products/categories/${id}`, { method: 'PATCH', token, body: data }),
 
   deleteCategory: (token: string, id: string) =>
-    api(`/products/categories/${id}`, { method: 'DELETE', token }),
+    api(`/admin/products/categories/${id}`, { method: 'DELETE', token }),
 };
 
 // ── Billing API ──

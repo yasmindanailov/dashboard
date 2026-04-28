@@ -124,7 +124,7 @@ export default function InvoiceDetailPage() {
           {invoice.user && (
             <div style={{ marginBottom: 'var(--space-2_5)', paddingBottom: 'var(--space-2_5)', borderBottom: '1px solid var(--border-light)' }}>
               <span className={styles.infoBlockLabel}>CLIENTE</span>
-              <Link href={`/dashboard/clients/${invoice.user.id}`} style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--brand)', textDecoration: 'none' }}>
+              <Link href={`/admin/clients/${invoice.user.id}`} style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--brand)', textDecoration: 'none' }}>
                 {invoice.user.first_name} {invoice.user.last_name}
               </Link>
               <span style={{ color: 'var(--text-tertiary)', marginLeft: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>{invoice.user.email}</span>

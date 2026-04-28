@@ -103,7 +103,7 @@ export default function TaskDetailPage() {
       });
       toast('success', 'Tarea completada. Cliente notificado.');
       setShowCompleteModal(false);
-      router.push('/dashboard/tasks');
+      router.push('/admin/tasks');
     } catch (err) {
       toast('error', getErrorMessage(err) || 'Error al completar');
     } finally {
@@ -114,7 +114,7 @@ export default function TaskDetailPage() {
   if (loading) {
     return (
       <DetailPage
-        breadcrumb={[{ label: 'Tareas', href: '/dashboard/tasks' }, { label: 'Cargando...' }]}
+        breadcrumb={[{ label: 'Tareas', href: '/admin/tasks' }, { label: 'Cargando...' }]}
         header={<Skeleton height={40} />}
       >
         <Skeleton height={500} />
@@ -125,7 +125,7 @@ export default function TaskDetailPage() {
   if (!task) {
     return (
       <DetailPage
-        breadcrumb={[{ label: 'Tareas', href: '/dashboard/tasks' }, { label: 'No encontrada' }]}
+        breadcrumb={[{ label: 'Tareas', href: '/admin/tasks' }, { label: 'No encontrada' }]}
         header={<h2>Tarea no encontrada</h2>}
       >
         <Card><p>La tarea solicitada no existe o no tienes permisos para verla.</p></Card>
@@ -170,7 +170,7 @@ export default function TaskDetailPage() {
   return (
     <DetailPage
       breadcrumb={[
-        { label: 'Tareas', href: '/dashboard/tasks' },
+        { label: 'Tareas', href: '/admin/tasks' },
         { label: task.title },
       ]}
       header={taskHeader}
@@ -248,7 +248,7 @@ export default function TaskDetailPage() {
                 )}
               </div>
             </div>
-            <Link href={`/dashboard/clients/${task.client.id}`} className={styles.profileLink}>
+            <Link href={`/admin/clients/${task.client.id}`} className={styles.profileLink}>
               Ver perfil →
             </Link>
           </Card>

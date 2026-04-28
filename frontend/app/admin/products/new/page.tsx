@@ -103,7 +103,7 @@ export default function NewProductPage() {
           setup_fee: parseFloat(r.setup_fee) || 0,
         })),
       });
-      router.push('/dashboard/products');
+      router.push('/admin/products');
     } catch (err) {
       toast('error', getErrorMessage(err) || 'Error al crear el producto.');
     } finally {
@@ -114,11 +114,11 @@ export default function NewProductPage() {
   // Breadcrumb always shows current step
   const breadcrumb = selectedType
     ? [
-        { label: 'Productos', href: '/dashboard/products' },
+        { label: 'Productos', href: '/admin/products' },
         { label: `Nuevo ${typeMeta?.label || 'producto'}` },
       ]
     : [
-        { label: 'Productos', href: '/dashboard/products' },
+        { label: 'Productos', href: '/admin/products' },
         { label: 'Nuevo producto' },
       ];
 

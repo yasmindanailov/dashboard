@@ -34,7 +34,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       .then((data) => setProduct(data as ProductDetailItem))
       .catch(() => {
         toast('error', 'No se pudo cargar el producto.');
-        router.push('/dashboard/products');
+        router.push('/admin/products');
       })
       .finally(() => setLoading(false));
   }, [token, id, router, toast]);
@@ -58,7 +58,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     try {
       await productsApi.delete(token, product.id);
       toast('success', `"${product.name}" eliminado.`);
-      router.push('/dashboard/products');
+      router.push('/admin/products');
     } catch {
       toast('error', 'No se pudo eliminar el producto.');
       setDeleting(false);
@@ -84,7 +84,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   return (
     <DetailPage
       breadcrumb={[
-        { label: 'Productos', href: '/dashboard/products' },
+        { label: 'Productos', href: '/admin/products' },
         { label: product.name },
       ]}
       wide
@@ -100,7 +100,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <p className={styles.headerSlug}>{product.slug}</p>
           </div>
           <div className={styles.headerActions}>
-            <Link href={`/dashboard/products/${product.id}/edit`}>
+            <Link href={`/admin/products/${product.id}/edit`}>
               <Button>Editar</Button>
             </Link>
             <Button variant="secondary" onClick={handleToggle} disabled={toggling}>

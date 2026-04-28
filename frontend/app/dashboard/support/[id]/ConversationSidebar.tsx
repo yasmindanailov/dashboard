@@ -148,7 +148,7 @@ export default function ConversationSidebar({
         <div className={styles.sidebarSection}>
           <h4 className={styles.sidebarTitle}>Cliente</h4>
           <div className={styles.clientName}>
-            <Link href={`/dashboard/clients/${clientContext.id}${fromParams}`} className={styles.clientLink}>
+            <Link href={`/admin/clients/${clientContext.id}${fromParams}`} className={styles.clientLink}>
               {clientContext.first_name} {clientContext.last_name}
             </Link>
           </div>
@@ -199,7 +199,7 @@ export default function ConversationSidebar({
               </div>
             ))}
           </div>
-          <Link href={`/dashboard/clients/${clientContext.id}?tab=notas${fromParams ? '&' + fromParams.substring(1) : ''}`} className={styles.noteViewAll}>
+          <Link href={`/admin/clients/${clientContext.id}?tab=notas${fromParams ? '&' + fromParams.substring(1) : ''}`} className={styles.noteViewAll}>
             Ver todas las notas →
           </Link>
         </div>

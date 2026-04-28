@@ -124,14 +124,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   if (!client) return (
     <div style={{ textAlign: 'center', padding: 'var(--space-10) 0' }}>
       <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>Cliente no encontrado</p>
-      <Link href="/dashboard/clients" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)', color: 'var(--brand)', marginTop: 'var(--space-2)', display: 'inline-block', textDecoration: 'none' }}>← Volver</Link>
+      <Link href="/admin/clients" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)', color: 'var(--brand)', marginTop: 'var(--space-2)', display: 'inline-block', textDecoration: 'none' }}>← Volver</Link>
     </div>
   );
 
   return (
     <DetailPage
       breadcrumb={[
-        { label: 'Clientes', href: '/dashboard/clients' },
+        { label: 'Clientes', href: '/admin/clients' },
         { label: `${client.first_name} ${client.last_name}` },
       ]}
       header={<ClientDetailHeader client={client} />}
