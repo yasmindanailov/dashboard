@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import {
   notificationsApi,
   type NotificationItem,
-} from '../lib/api';
-import { getErrorMessage } from '../lib/error';
+} from '../../lib/api';
+import { getErrorMessage } from '../../lib/error';
 import styles from './NotificationBell.module.css';
 
 /* ═══════════════════════════════════════

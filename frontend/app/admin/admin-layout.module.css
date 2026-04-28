@@ -1,22 +1,38 @@
+/* ═══════════════════════════════════════
+   Admin Layout — Portal de Administración (`/admin/*`).
+   Sprint 9.6 Fase F.0 — shell unificado: misma estructura espacial
+   que `app/dashboard/layout.module.css` (Topbar fijo arriba 64px,
+   sidebar a la izquierda) para que la UX se sienta coherente
+   entre portales. La diferencia visible queda en Sidebar +
+   PortalBadge.
+   ═══════════════════════════════════════ */
+
 .shell {
   min-height: 100vh;
   background: var(--surface-secondary);
 }
 
 .main {
-  margin-left: 260px;
-  padding: var(--space-6);
+  /* margin-left dinámico (260px) lo aplica el inline-style de
+     layout.tsx para poder colapsar en futuro Sprint 13. */
+  padding-top: 64px;  /* deja sitio al Topbar fijo */
+  transition: margin-left var(--transition-normal);
 }
 
 @media (max-width: 767px) {
   .main {
-    margin-left: 0;
+    margin-left: 0 !important;
   }
 }
 
 .content {
-  max-width: 1280px;
-  margin: 0 auto;
+  padding: var(--space-6);
+}
+
+@media (min-width: 1024px) {
+  .content {
+    padding: var(--space-8);
+  }
 }
 
 .loading {
