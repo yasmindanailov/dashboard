@@ -1,10 +1,10 @@
 'use client';
 
-import { useCheckout } from './useCheckout';
-import { CYCLE_LABELS, CYCLE_SAVINGS, fmt } from './types';
-import StepConfirm from './StepConfirm';
+import { useCheckout } from '../../../_shared/billing/checkout/useCheckout';
+import { CYCLE_LABELS, CYCLE_SAVINGS, fmt } from '../../../_shared/billing/checkout/types';
+import StepConfirm from '../../../_shared/billing/checkout/StepConfirm';
 import { FormPage, Card, Input, Button, Badge, SearchInput, Skeleton, HelpTip } from '../../../components/ui';
-import styles from './checkout.module.css';
+import styles from '../../../_shared/billing/checkout/checkout.module.css';
 
 /* ═══════════════════════════════════════
    Checkout Page — Multi-step service checkout

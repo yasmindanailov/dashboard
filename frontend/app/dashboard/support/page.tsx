@@ -1,9 +1,9 @@
 'use client';
 
-import { useTicketInbox } from './useTicketInbox';
+import { useTicketInbox } from '../../_shared/support/useTicketInbox';
 import type { StatusTab } from '../../components/ui';
-import TicketList from './TicketList';
-import NewTicketModal from './NewTicketModal';
+import TicketList from '../../_shared/support/TicketList';
+import NewTicketModal from '../../_shared/support/NewTicketModal';
 import {
   Button, SearchInput, Select,
   ListPage, FilterBar, StatusTabs,

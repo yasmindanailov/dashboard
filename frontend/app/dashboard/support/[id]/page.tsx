@@ -3,13 +3,13 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useConversationDetail } from './useConversationDetail';
-import ConversationHeader from './ConversationHeader';
-import ConversationMessages from './ConversationMessages';
-import ConversationSidebar from './ConversationSidebar';
-import DetailResolutionModal from './DetailResolutionModal';
+import { useConversationDetail } from '../../../_shared/support/conversation/useConversationDetail';
+import ConversationHeader from '../../../_shared/support/conversation/ConversationHeader';
+import ConversationMessages from '../../../_shared/support/conversation/ConversationMessages';
+import ConversationSidebar from '../../../_shared/support/conversation/ConversationSidebar';
+import DetailResolutionModal from '../../../_shared/support/conversation/DetailResolutionModal';
 import { DetailPage, Card, Skeleton } from '../../../components/ui';
-import styles from './conversationDetail.module.css';
+import styles from '../../../_shared/support/conversation/conversationDetail.module.css';
 
 /* ═══════════════════════════════════════
    Conversation Detail Page — Orchestrator

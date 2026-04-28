@@ -11,7 +11,7 @@ import {
   ListPage, FilterBar, StatusTabs,
 } from '../../components/ui';
 import type { TableColumn, BadgeVariant, StatusTab } from '../../components/ui';
-import s from './billing.module.css';
+import s from '../../_shared/billing/billing.module.css';
 
 /* ═══════════════════════════════════════
    Billing Page — List (UI_SPEC §2.4)
