@@ -3,31 +3,33 @@
 import { useCheckout } from '../../../_shared/billing/checkout/useCheckout';
 import { CYCLE_LABELS, CYCLE_SAVINGS, fmt } from '../../../_shared/billing/checkout/types';
 import StepConfirm from '../../../_shared/billing/checkout/StepConfirm';
-import { FormPage, Card, Input, Button, Badge, Skeleton, HelpTip } from '../../../components/ui';
+import { FormPage, Card, Input, Button, Badge, SearchInput, Skeleton } from '../../../components/ui';
 import styles from '../../../_shared/billing/checkout/checkout.module.css';
 
 /* ═══════════════════════════════════════
-   Client Checkout — Portal de Cliente (ADR-066 Fase E.2)
-   Contratar servicio: 4 steps SIN selector de cliente (el cliente
-   contrata para sí mismo). El hook `useCheckout` resuelve `isAdmin=false`
-   desde AuthContext y construye `allSteps` sin el step 'client'.
-   Audiencia: rol `client` (CASL `Create.Invoice`).
-   El staff tiene `/admin/billing/checkout` (5 steps con selector).
+   Admin Checkout — Portal de Administración (ADR-066 Fase E.2)
+   Crear servicio para cliente: 5 steps incluyendo selector de cliente.
+   Audiencia: superadmin / agent_full / agent_billing (CASL Manage Invoice).
+   El cliente final tiene `/dashboard/billing/checkout` (4 steps sin cliente).
+
+   El hook `useCheckout` resuelve `isAdmin` desde AuthContext y construye
+   el array `allSteps` con o sin step 'client' según el rol del caller.
+   Esta page sólo renderiza el resultado.
    Ref: UI_SPEC §2.6, ADR-066, ADR-067
    ═══════════════════════════════════════ */
 
-export default function ClientCheckoutPage() {
+export default function AdminCheckoutPage() {
   const c = useCheckout();
 
   return (
     <FormPage
       breadcrumb={[
-        { label: 'Mis facturas', href: '/dashboard/billing' },
-        { label: 'Contratar servicio' },
+        { label: 'Facturación', href: '/admin/billing' },
+        { label: 'Crear servicio para cliente' },
       ]}
-      title="Contratar servicio"
+      title="Crear servicio para cliente"
     >
-      {/* Step indicator (4 steps: producto → plan → facturación → confirmar) */}
+      {/* Step indicator */}
       <div className={styles.steps}>
         {c.allSteps.map((s, i) => (
           <div key={s.key} className={styles.step}>
@@ -43,6 +45,56 @@ export default function ClientCheckoutPage() {
           </div>
         ))}
       </div>
+
+      {/* STEP: Client selector (admin-only entry point) */}
+      {c.step === 'client' && (
+        <Card>
+          <div className={styles.cardPadding}>
+            <h2 className={styles.stepTitle}>Selecciona un cliente</h2>
+            <p className={styles.stepDescription}>Busca al cliente para el que quieres contratar el servicio</p>
+
+            <SearchInput
+              value={c.clientSearch}
+              onChange={e => c.setClientSearch(e.target.value)}
+              placeholder="Buscar por nombre o email..."
+            />
+
+            {c.searchingClients && <p className={styles.searchingText}>Buscando...</p>}
+
+            {c.selectedClient && (
+              <div className={styles.selectedCard}>
+                <div>
+                  <div className={styles.selectedName}>{c.selectedClient.first_name} {c.selectedClient.last_name}</div>
+                  <div className={styles.selectedEmail}>{c.selectedClient.email}</div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={c.clearSelectedClient}>Cambiar</Button>
+              </div>
+            )}
+
+            {c.clientResults.length > 0 && !c.selectedClient && (
+              <div className={styles.clientGrid}>
+                {c.clientResults.map((client) => (
+                  <button key={client.id} onClick={() => c.handleSelectClient(client)} className={styles.clientItem}>
+                    <div className={styles.clientAvatar}>
+                      {client.first_name?.[0]}{client.last_name?.[0]}
+                    </div>
+                    <div>
+                      <div className={styles.clientName}>{client.first_name} {client.last_name}</div>
+                      <div className={styles.clientEmail}>{client.email}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {c.selectedClient && (
+              <div className={styles.navEnd}>
+                <Button onClick={() => c.setStep('product')}>Continuar →</Button>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* STEP: Product selection */}
       {c.step === 'product' && (
@@ -87,7 +139,7 @@ export default function ClientCheckoutPage() {
       {/* STEP: Pricing */}
       {c.step === 'pricing' && c.selectedProduct && (
         <div>
-          <h2 className={styles.stepTitle}>Elige tu plan — {c.selectedProduct.name}</h2>
+          <h2 className={styles.stepTitle}>Elige el plan — {c.selectedProduct.name}</h2>
           <p className={styles.stepDescription}>Selecciona el ciclo de facturación que prefieras</p>
           <div className={styles.pricingGrid}>
             {c.selectedProduct.pricing.filter((p) => p.active).map((pricing) => (
@@ -99,10 +151,7 @@ export default function ClientCheckoutPage() {
                 <div className={styles.pricingCycle}>{CYCLE_LABELS[pricing.billing_cycle] || pricing.billing_cycle}</div>
                 <div className={styles.pricingAmount}>{fmt(pricing.price, pricing.currency)}</div>
                 {Number(pricing.setup_fee) > 0 && (
-                  <div className={styles.pricingSetup}>
-                    + {fmt(pricing.setup_fee, pricing.currency)} setup
-                    <HelpTip text="Coste único de activación. Solo se cobra una vez al contratar el servicio." />
-                  </div>
+                  <div className={styles.pricingSetup}>+ {fmt(pricing.setup_fee, pricing.currency)} setup</div>
                 )}
                 {CYCLE_SAVINGS[pricing.billing_cycle] && (
                   <Badge variant="success">{`Ahorra ${CYCLE_SAVINGS[pricing.billing_cycle]}`}</Badge>
@@ -173,11 +222,11 @@ export default function ClientCheckoutPage() {
       {/* STEP: Confirm */}
       {c.step === 'confirm' && c.selectedProduct && c.selectedPricing && (
         <StepConfirm
-          isAdmin={false}
+          isAdmin={c.isAdmin}
           selectedProduct={c.selectedProduct}
           selectedPricing={c.selectedPricing}
           selectedProfile={c.selectedProfile}
-          selectedClient={null}
+          selectedClient={c.selectedClient}
           targetUserName={c.targetUserName || ''}
           label={c.label}
           domain={c.domain}

@@ -138,7 +138,8 @@ export function useCheckout() {
         label: label || undefined,
         domain: domain || undefined,
       }, isAdmin ? selectedClient!.id : undefined);
-      router.push('/dashboard/billing');
+      // Sprint 9.6 (ADR-066): cada portal redirige a su propio listado.
+      router.push(isAdmin ? '/admin/billing' : '/dashboard/billing');
     } catch (e) {
       setError(getErrorMessage(e) || 'Error al procesar el checkout');
     } finally {
