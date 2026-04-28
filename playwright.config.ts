@@ -23,10 +23,26 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
 
-  // En CI: tests serializados para evitar contención de DB compartida.
-  // En local: paralelismo permitido.
-  fullyParallel: !process.env.CI,
-  workers: process.env.CI ? 1 : undefined,
+  // Sprint 9.6 Fase F.4 (DC.7): la suite E2E NO soporta paralelismo real
+  // todavía — los specs comparten:
+  //   - DB Postgres (resetTestData() global)
+  //   - MailPit (un buzón compartido para extracción de códigos 2FA)
+  //   - Cuentas demo del seed (1 por rol, login concurrente colisiona)
+  //   - Redis (sesiones BullMQ + JWT refresh)
+  //
+  // Si ejecutas `pnpm test:e2e` con N workers, los specs se truncan
+  // mutuamente las tablas mid-test, leen códigos 2FA de OTRO spec, y
+  // pierden carreras de UPDATE en `users.login_attempts`. Resultado:
+  // cascada de 19+ fallos en local con 0 errores reales.
+  //
+  // La paralelización con fixtures aisladas por spec (cada spec con su
+  // propia DB de test, su MailPit dedicado, sus usuarios `e2e-${uid}`)
+  // queda como deuda DC.X para Sprint 13 Hardening — fuera de scope
+  // del split admin/cliente.
+  //
+  // Hasta entonces: workers=1 + fullyParallel=false en local y CI.
+  fullyParallel: false,
+  workers: 1,
 
   // Falla si quedan focus tests (`.only`) en el código.
   forbidOnly: !!process.env.CI,
