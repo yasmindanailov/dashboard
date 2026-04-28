@@ -10,6 +10,12 @@
  *
  * Crítico porque el flujo de billing es uno de los 3 que NO puede romperse
  * silenciosamente — afecta directamente al ingreso del negocio.
+ *
+ * Sprint 9.6 Fase F.1 (DC.7 + ADR-066): los paths admin migraron de
+ * `/dashboard/billing*` al Portal de Administración `/admin/billing*`.
+ * El árbol `/dashboard/billing*` sobrevive con UX cliente simplificada,
+ * pero el flujo de creación de servicio para clientes (5 steps con
+ * selector de cliente) sólo existe en el árbol admin.
  */
 
 import { test, expect } from '@playwright/test';
@@ -18,7 +24,7 @@ import { loginSuperadminUI } from './fixtures/auth';
 test.describe('Checkout / Billing admin', () => {
   test('admin accede al listado de facturas sin errores', async ({ page }) => {
     await loginSuperadminUI(page);
-    await page.goto('/dashboard/billing');
+    await page.goto('/admin/billing');
 
     // La página debe cargar el ListPage de billing.
     await expect(page.locator('h1, h2').filter({ hasText: /factura/i }).first()).toBeVisible({
@@ -33,11 +39,12 @@ test.describe('Checkout / Billing admin', () => {
 
   test('admin puede acceder al checkout para crear servicio', async ({ page }) => {
     await loginSuperadminUI(page);
-    await page.goto('/dashboard/billing/checkout');
+    await page.goto('/admin/billing/checkout');
 
     // Verificamos que el checkout renderizó algún elemento característico.
     // Aceptamos varios textos posibles según el copy actual del Step 1
-    // (selección de cliente target — EC-BILL-02).
+    // (selección de cliente target — EC-BILL-02 + Sprint 9.6 Fase E.2:
+    // checkout admin tiene 5 steps con selector cliente al inicio).
     await expect(
       page.getByText(/cliente|seleccion|contratar|crear servicio/i).first(),
     ).toBeVisible({ timeout: 15_000 });
