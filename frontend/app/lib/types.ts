@@ -101,6 +101,14 @@ export interface ClientNote {
   is_pinned: boolean;
   conversation_id: string | null;
   task_id?: string | null;
+  /**
+   * Sprint 8 Fase B.4 (2026-04-29): backend enriquece con título y tipo
+   * de la task de origen cuando `task_id` está poblado. Permite al
+   * `ClientNotesTab` mostrar "Tarea: <title>" como link clicable, en
+   * paralelo a la fila ya existente para `conversation_id`.
+   */
+  task_title?: string | null;
+  task_type?: string | null;
   created_at: string;
 }
 

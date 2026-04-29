@@ -10,6 +10,29 @@ export interface TaskUser {
   email?: string;
 }
 
+/**
+ * Sprint 8 Fase B.2 (2026-04-29) — `findOne()` backend incluye `service`
+ * + `product` para alimentar la sidebar "Servicio" + bloque adaptativo
+ * `wow_call` (UI_SPEC §5.16). La lista (`findAll`) no lo trae para no
+ * penalizar el tablero. `null` cuando la task no tiene service_id, o
+ * cuando viene de la lista (NewTaskModal/[id]/list shape distinto).
+ */
+export interface TaskService {
+  id: string;
+  label: string | null;
+  domain: string | null;
+  status: string;
+  amount: string | number;
+  billing_cycle: string;
+  currency: string;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    type: string;
+  } | null;
+}
+
 export interface Task {
   id: string;
   type: string;
@@ -31,6 +54,8 @@ export interface Task {
   assignee: TaskUser | null;
   creator: TaskUser;
   client: TaskUser;
+  /** Sólo viene poblado en `findOne()` (DetailPage). */
+  service?: TaskService | null;
 }
 
 export interface TaskListResponse {

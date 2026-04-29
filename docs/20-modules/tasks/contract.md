@@ -220,6 +220,8 @@ Lista canónica de edge cases del módulo vive en [`docs/60-roadmap/current.md` 
 - [x] ~~`getStats` no respetaba scope → contadores mentían en vista segmentada~~ ✅ Sprint 8 Fase B.1.bis
 - [x] ~~Validación explícita de transiciones de `status` (TASK-INV-2 — EC-T8-19/20/21)~~ ✅ Sprint 8 Fase B.1.bis
 - [x] ~~Auto-asignación desde cola pública (EC-T8-22 — alineado con [ADR-072](../../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md))~~ ✅ Sprint 8 Fase B.1.bis
+- [x] ~~**Sprint 8 Fase B.2:** bloques adaptativos por TaskType (wow_call con datos del cliente + plan, maintenance con placeholder checklist, project_task con placeholder Sprint 22) + sidebar Servicio + helpers formatAmount/translateCycle/translateServiceStatus~~ ✅ Sprint 8 Fase B.2 (2026-04-29)
+- [x] ~~**Sprint 8 Fase B.4:** ClientNotesTab con link "Tarea origen" + título + badge tipo. Backend `listStructuredNotes` enriquecido con `task_title`/`task_type` (query batch sin N+1)~~ ✅ Sprint 8 Fase B.4 (2026-04-29)
 - [ ] **Sprint 8 Fase B (pendiente):** validaciones EC-T8-12..17 (due_date pasado, service_id↔client_id, regex billing_month, MaxLength description, sanitización plantillas)
 - [ ] **Sprint 8 Fase C (pendiente):** listeners `task.overdue`, `maintenance.completed`, `maintenance.critical` + cron `not_completed_in_time` + cron `tasks-unassigned-overdue` (ADR-072) + WOW calls automáticos
 - [ ] **Sprint 8 Fase D (pendiente):** Support Inside ([ADR-061](../../10-decisions/adr-061-support-inside-tier-cuenta-ux.md))

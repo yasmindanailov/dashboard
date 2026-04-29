@@ -187,10 +187,11 @@ Cerrar el módulo `tasks` con automatización completa (mantenimiento mensual + 
 | 8.A.4 | Tests E2E `tests/e2e/admin-users-list.spec.ts` — 9 specs (auth, denial cliente, 4 staff roles, filtros `role`/`search`, defense-in-depth ASSIGNABLE intersect). Suite completa **69/69 verde** (60 → 69, +9 nuevos sin regresión). | ✅ |
 | 8.A.5 | Doc canónica: `docs/30-data/tasks.md` reescrito (3 tablas nuevas + UNIQUE + relaciones), `docs/30-data/clients.md` (`client_notes.task_id`), backend lint + build verde, 37/37 unit tests verdes. | ✅ |
 | **8.B** | **Frontend tablero refinement + ClientNotesTab vinculación** | ⬜ |
-| 8.B.1 | `NewTaskModal`: select de agente (consume endpoint 8.A.3) + validación inline FK | ⬜ |
-| 8.B.2 | Bloques adaptativos por `TaskType` (maintenance, wow_call, custom_work) — UI condicional con campos relevantes por tipo | ⬜ |
-| 8.B.3 | Auditoría DS compliance del tablero (componentes ad-hoc → Design System canónico) | ⬜ |
-| 8.B.4 | `ClientNotesTab` en `/admin/clients/[id]`: agrupa notas por `task_id` (timeline con headings de tarea) | ⬜ |
+| 8.B.1 | `NewTaskModal`: select de agente (consume endpoint 8.A.3) + validación inline FK | ✅ Sprint 8 Fase B.1 (2026-04-29) |
+| 8.B.1.bis | Tablero scope tabs (Mis/Sin asignar/Todas) + filtro agente + activeStatusTab honesto + statusFilter='pending' default + getStats con scope + empty states cruzados + plantilla notification labels humanos + ClientNote.task_id + EC-T8-19/20/21/22 + ADR-072 cola pública | ✅ Sprint 8 Fase B.1.bis (2026-04-29) |
+| 8.B.2 | Bloques adaptativos por `TaskType` (UI_SPEC §5.16): wow_call con "Datos del cliente" (servicio + plan + producto contratado); maintenance/maintenance_management con placeholder Checklist; project_task con placeholder link Sprint 22; custom_work mantiene UX simple. Sidebar Servicio nueva (UI_SPEC §5.16) con badge estado + amount + cycle. Backend `findOne()` con `INCLUDE_RELATIONS_DETAIL` (service+product+pricing inline). Etiqueta "Notas para el cliente" → "Resumen de la llamada" en wow_call. Helpers `formatAmount`/`translateCycle`/`translateServiceStatus`. | ✅ Sprint 8 Fase B.2 (2026-04-29) |
+| 8.B.3 | Auditoría DS compliance del tablero (componentes ad-hoc → Design System canónico) | 🟡 parcial — tabla + sidebar usan DS canónico tras B.1.bis y B.2; auditoría exhaustiva pendiente |
+| 8.B.4 | `ClientNotesTab` en `/admin/clients/[id]`: link "Tarea origen" con título + badge tipo de la task que generó la nota (tras `tasks.complete()`). Backend `listStructuredNotes` enriquece `task_title` + `task_type` con query batch única (sin N+1). Patrón paralelo al ya existente para `conversation_id` ([ADR-038](../10-decisions/adr-038-notas-estructuradas-cliente.md) + decisión Sprint 8 §3.4). | ✅ Sprint 8 Fase B.4 (2026-04-29) |
 | 8.B.5 | Endpoint admin `POST /tasks/:id/checklist/:itemId/complete` + `POST /tasks/:id/maintenance/log` + UI checklist completable | ⬜ |
 | **8.C** | **Automatización: cron + listeners + WOW calls** | ⬜ |
 | 8.C.1 | `TasksOverdueProcessor` (BullMQ cron diario) + emite `task.overdue` + cambia `status` tras N días | ⬜ |

@@ -192,8 +192,20 @@ export default function TaskDetailPage() {
     );
   }
 
-  const isClosed = ['completed', 'cancelled'].includes(task.status);
+  const isClosed = ['completed', 'cancelled', 'not_completed_in_time'].includes(task.status);
   const isMaintenanceType = ['maintenance', 'maintenance_management'].includes(task.type);
+  const isWowCallType = task.type === 'wow_call';
+  const isProjectTaskType = task.type === 'project_task';
+  // UI_SPEC §5.16 — etiqueta del campo "Notas para el cliente" cambia
+  // según el tipo de task. Para wow_call se llama "Resumen de la
+  // llamada" (es lo que el agente apunta tras hablar con el cliente);
+  // para maintenance es "Notas para el cliente" (van al email de cierre).
+  const clientNotesLabel = isWowCallType
+    ? 'Resumen de la llamada'
+    : 'Notas para el cliente';
+  const clientNotesPlaceholder = isWowCallType
+    ? 'Resume la conversación con el cliente: dudas resueltas, próximos pasos...'
+    : 'Estas notas se incluirán en la notificación al cliente...';
 
   const taskHeader = (
     <>
@@ -254,13 +266,80 @@ export default function TaskDetailPage() {
             </Card>
           )}
 
+          {/* Sprint 8 Fase B.2 — bloques adaptativos por TaskType (UI_SPEC §5.16).
+              Cada tipo de tarea tiene su superficie operativa específica. */}
+
+          {/* wow_call: bloque "Datos del cliente" con info contratada */}
+          {isWowCallType && task.service && (
+            <Card>
+              <h3 className={styles.cardTitle}>Datos del cliente</h3>
+              <dl className={styles.dataList}>
+                <div className={styles.dataRow}>
+                  <dt>Cliente</dt>
+                  <dd>
+                    {task.client.first_name} {task.client.last_name}
+                    {task.client.email && (
+                      <span className={styles.dataMuted}> · {task.client.email}</span>
+                    )}
+                  </dd>
+                </div>
+                <div className={styles.dataRow}>
+                  <dt>Servicio</dt>
+                  <dd>
+                    {task.service.label || task.service.product?.name || '—'}
+                    {task.service.domain && (
+                      <span className={styles.dataMuted}> · {task.service.domain}</span>
+                    )}
+                  </dd>
+                </div>
+                {task.service.product?.name && task.service.label && (
+                  <div className={styles.dataRow}>
+                    <dt>Producto</dt>
+                    <dd>{task.service.product.name}</dd>
+                  </div>
+                )}
+                <div className={styles.dataRow}>
+                  <dt>Plan</dt>
+                  <dd>
+                    {formatAmount(task.service.amount, task.service.currency)}
+                    <span className={styles.dataMuted}> / {translateCycle(task.service.billing_cycle)}</span>
+                  </dd>
+                </div>
+              </dl>
+            </Card>
+          )}
+
+          {/* maintenance / maintenance_management: bloque Checklist (placeholder
+              hasta Sprint 8 Fase B.5 que añade endpoints + UI checkable). */}
+          {isMaintenanceType && (
+            <Card>
+              <h3 className={styles.cardTitle}>Checklist del servicio</h3>
+              <p className={styles.emptyDescription}>
+                Los items del checklist se cargarán cuando el servicio
+                tenga `service_checklist_items` poblados (Sprint 8 Fase B.5
+                añade endpoints + UI checkable).
+              </p>
+            </Card>
+          )}
+
+          {/* project_task: link al proyecto (Sprint 22 — placeholder hoy) */}
+          {isProjectTaskType && (
+            <Card>
+              <h3 className={styles.cardTitle}>Proyecto vinculado</h3>
+              <p className={styles.emptyDescription}>
+                El módulo de proyectos llegará en Sprint 22. Hasta entonces,
+                las tareas `project_task` viven sin link explícito.
+              </p>
+            </Card>
+          )}
+
           {!isClosed && (
             <Card>
-              <h3 className={styles.cardTitle}>Notas para el cliente</h3>
+              <h3 className={styles.cardTitle}>{clientNotesLabel}</h3>
               <Textarea
                 value={clientNotes}
                 onChange={e => setClientNotes(e.target.value)}
-                placeholder="Estas notas se incluirán en la notificación al cliente..."
+                placeholder={clientNotesPlaceholder}
                 rows={3}
               />
             </Card>
@@ -313,6 +392,40 @@ export default function TaskDetailPage() {
               </div>
             </div>
           </Card>
+
+          {/* Service card — UI_SPEC §5.16 sidebar "Servicio" — Sprint 8 Fase B.2.
+              Sólo si la task tiene `service_id` poblado. Nombre +
+              estado del servicio + link al detalle. El backend
+              (`findOne` con INCLUDE_RELATIONS_DETAIL) trae product +
+              pricing; aquí mostramos lo esencial. */}
+          {task.service && (
+            <Card>
+              <h3 className={styles.cardTitle}>Servicio</h3>
+              <div className={styles.serviceCard}>
+                <div className={styles.clientName}>
+                  {task.service.label || task.service.product?.name || 'Servicio'}
+                </div>
+                {task.service.domain && (
+                  <div className={styles.clientEmail}>{task.service.domain}</div>
+                )}
+                <div className={styles.serviceMeta}>
+                  <Badge
+                    variant={
+                      task.service.status === 'active' ? 'success'
+                      : task.service.status === 'suspended' ? 'warning'
+                      : task.service.status === 'cancelled' ? 'danger'
+                      : 'neutral'
+                    }
+                  >
+                    {translateServiceStatus(task.service.status)}
+                  </Badge>
+                  <span className={styles.dataMuted}>
+                    {formatAmount(task.service.amount, task.service.currency)} / {translateCycle(task.service.billing_cycle)}
+                  </span>
+                </div>
+              </div>
+            </Card>
+          )}
 
           {/* Assignee — Sprint 8 Fase B.1: reasignación inline para admin/agent_full */}
           <Card>
@@ -403,5 +516,52 @@ export default function TaskDetailPage() {
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/**
+ * Sprint 8 Fase B.2 — formato canónico monetario para sidebar Servicio
+ * + bloque wow_call. Usa Intl.NumberFormat con currency real (EUR/USD/...).
+ * Si el `amount` viene como string (Prisma Decimal lo serializa así), se
+ * convierte; si es null/inválido devuelve un placeholder neutro.
+ */
+function formatAmount(
+  amount: string | number | null | undefined,
+  currency: string = 'EUR',
+): string {
+  if (amount === null || amount === undefined) return '—';
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (Number.isNaN(num)) return '—';
+  try {
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(num);
+  } catch {
+    return `${num} ${currency}`;
+  }
+}
+
+const CYCLE_LABELS: Record<string, string> = {
+  monthly: 'mes',
+  quarterly: 'trimestre',
+  semi_annually: 'semestre',
+  yearly: 'año',
+  biennial: '2 años',
+  triennial: '3 años',
+};
+function translateCycle(cycle: string): string {
+  return CYCLE_LABELS[cycle] ?? cycle;
+}
+
+const SERVICE_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pendiente',
+  active: 'Activo',
+  suspended: 'Suspendido',
+  cancelled: 'Cancelado',
+  paused: 'Pausado',
+};
+function translateServiceStatus(status: string): string {
+  return SERVICE_STATUS_LABELS[status] ?? status;
 }
 

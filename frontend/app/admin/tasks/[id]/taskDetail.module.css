@@ -132,3 +132,54 @@
   gap: var(--space-3);
   margin-top: var(--space-4);
 }
+
+/* ── Sprint 8 Fase B.2 — bloques adaptativos por TaskType ── */
+.dataList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.dataRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.dataRow dt {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.dataRow dd {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.dataMuted {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+/* Sidebar Servicio card */
+.serviceCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.serviceMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+}

@@ -33,6 +33,28 @@ const INCLUDE_RELATIONS = {
   },
 };
 
+/**
+ * Sprint 8 Fase B.2 (2026-04-29) — UI_SPEC §5.16 sidebar "Servicio" + bloque
+ * adaptativo wow_call que muestra "servicio contratado, plan". Versión más
+ * rica de INCLUDE para `findOne()` solamente — la lista (`findAll`) sigue
+ * con `INCLUDE_RELATIONS` para no degradar la query con N+1 implícito.
+ */
+const INCLUDE_RELATIONS_DETAIL = {
+  ...INCLUDE_RELATIONS,
+  service: {
+    select: {
+      id: true,
+      label: true,
+      domain: true,
+      status: true,
+      amount: true,
+      billing_cycle: true,
+      currency: true,
+      product: { select: { id: true, name: true, slug: true, type: true } },
+    },
+  },
+};
+
 const ASSIGNABLE_ROLES = [
   'superadmin',
   'agent_full',
@@ -176,11 +198,15 @@ export class TasksService {
     };
   }
 
-  /* ── Find one ── */
+  /* ── Find one ──
+     Sprint 8 Fase B.2 (2026-04-29): incluye `service` + `product` (UI_SPEC
+     §5.16 sidebar Servicio + bloque wow_call). La lista (`findAll`) sigue
+     con `INCLUDE_RELATIONS` ligero para no penalizar el tablero con joins
+     innecesarios — el detail carga lo extra solo cuando hace falta. */
   async findOne(id: string) {
     const task = await this.prisma.task.findUnique({
       where: { id },
-      include: INCLUDE_RELATIONS,
+      include: INCLUDE_RELATIONS_DETAIL,
     });
     if (!task) throw new NotFoundException('Tarea no encontrada');
     return task;
