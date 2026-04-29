@@ -384,22 +384,37 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 
 ### 10. Cierre del sprint
 
-> A rellenar al cerrar.
+> Sprint 8 sigue **WIP**. Fase A + B (B.1 + B.1.bis + B.2 + B.3 + B.4 + B.5) ✅ cerradas. Cola restante: validaciones defensivas EC-T8-12..17 → Fase C automatización → Fase D Support Inside → Fase E docs.
 
-**Lo cerrado en P0.1 (2026-04-26)** — consolidado aquí:
+**Cierres registrados:**
 
-1. ✅ Listener `@OnEvent('task.assigned')` en `backend/src/modules/tasks/tasks-email.listener.ts` → email + notificación interna.
-2. ✅ Validación FK `assigned_to` (helper `assertAssignableUser` en `tasks.service.ts`): user existe + status=active + rol asignable.
-3. ✅ Tests E2E base (`tests/e2e/tasks.spec.ts`) — 3 specs serializados con helper `loginSuperadminAPI`.
-4. ✅ Fix oportunista: 2 errores `no-unsafe-enum-comparison` resueltos.
+| Sub-sprint | Fecha | Commit |
+|---|---|---|
+| P0.1 (cierre mínimo) | 2026-04-26 | varios |
+| 8.A (schemas + admin/users) | 2026-04-29 | `6509260` |
+| 8.B.1 + 8.B.1.bis (tablero + auditoría EC + ADR-072) | 2026-04-29 | `ec123bf` |
+| 8.B.2 + 8.B.4 (bloques adaptativos + ClientNotesTab) | 2026-04-29 | `8743cea` |
+| 8.B.5 (checklist + maintenance_log) | 2026-04-29 | `dbbf4b2` |
+| 8.B.3 (DS compliance refactor) | 2026-04-29 | `0e29c85` |
 
-**Fecha real de cierre:** _pendiente_
-**Commit final:** _pendiente_
-**Cambios respecto al plan original:** _pendiente_
-**Items movidos a sprints futuros:** _pendiente_
-**DoD verificado:** _pendiente_
+**Estado DoD** (al cierre de Fase B):
 
-> Plan original (Fase A/B/C/D/E) reemplazado por el plan canónico §1-10 arriba (2026-04-29). Lo cerrado en P0.1 (listener `task.assigned` + validación FK + tests E2E base) está consolidado en §10. Lo pendiente está mapeado a sub-sprints 8.A → 8.E con granularidad atómica.
+- ✅ Backend typecheck + lint + build + 37/37 unit tests
+- ✅ Frontend typecheck + lint + build (42 warnings DC.6 preexistentes, 0 errores)
+- ✅ E2E suite **88/88 verde** sin regresión
+- ✅ ADRs creados: 069 (deploy diferido), 070 (service info SSO), 071 (vista admin federada), 072 (cola pública tareas)
+- ✅ Doc canónica: `current.md` §6 con 35 EC nuevos, `tasks/contract.md` §14/14b/17, `_events.md` con `maintenance.completed`, `glossary.md` con términos nuevos, schema en `30-data/tasks.md` y `30-data/clients.md`, plantillas en `notification-templates.ts` con `maintenance.completed`
+- ✅ EC cerrados: T8-19, T8-20, T8-21, T8-22, T8-01, EC-IMPL-01..03; portal URL bug fix
+- ⬜ Pendiente: validaciones EC-T8-12..17, Fase C, Fase D, Fase E, smoke testing manual final
+
+---
+
+### ✍ Próxima sesión — orden recomendado
+
+1. **EC-T8-12..17 (validaciones defensivas de campo)** — sub-sesión rápida ~0.5: `due_date` en pasado · coherencia `service_id ↔ client_id` · regex `billing_month` · `@MaxLength` description · sanitización plantillas. Blinda al cron antes de Fase C.
+2. **Sprint 8 Fase C** — automatización completa: `TasksOverdueProcessor` (cron diario `0 2 * * *` → `task.overdue` + `not_completed_in_time` tras N días) · `TasksUnassignedOverdueCron` (ADR-072, cron diario `0 9 * * *` → `task.unassigned_overdue` con SLA por tipo) · `MaintenanceCriticalCron` (cron diario → `maintenance.critical`) · `WowCallCreatorListener` (`@OnEvent('service.provisioned')`) · plantillas seed faltantes (`task.overdue`, `maintenance.critical`, `task.unassigned_overdue`) · settings nuevos (`tasks.overdue_to_failure_days`, `support.maintenance_critical_threshold_days`, `tasks.unassigned_sla_hours.<type>`).
+3. **Sprint 8 Fase D — Support Inside** ([ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md)) — denso, 1.5 sesiones: schema `support_inside_*` + service + 6 endpoints cliente + 2 admin + páginas dedicadas `/dashboard/support-inside` y `/admin/support-inside-plans` + cancelación cascada + `MaintenanceMonthlyCron` mensual + seed 3 planes Básico/Medium/Pro.
+4. **Sprint 8 Fase E** — docs canónicas: `docs/features/tasks/admin.md` + `agent.md` + `docs/features/support-inside/admin.md` + `client.md` + retrospectiva en `completed/sprint-8-tasks-support-inside.md`.
 
 ---
 

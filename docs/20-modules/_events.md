@@ -126,17 +126,25 @@ Todos huérfanos esperando al módulo `provisioning`. Cuando provisioning se imp
 
 ---
 
-### 📋 task.*
+### 📋 task.* / maintenance.*
 
 | Evento | Emisor | Consumidores | Payload | Outbox | Estado |
 |--------|--------|--------------|---------|--------|--------|
-| `task.assigned` | `tasks.service.ts:create()`, `update()` | `tasks-email.listener` | `{ task, assignedBy }` | no | ✅ con consumidor (email + notification al agente asignado) |
-| `task.completed` | `tasks.service.ts:update()`, `complete()` | — | `{ task, completedBy, clientNotes?, internalNotes? }` | no | 🟡 huérfano (audit) |
-| `task.created` | `tasks.service.ts:create()` | — | `{ task }` | no | 🟡 huérfano |
+| `task.created` | `tasks.service.ts:create()` | — | `{ task }` | no | 🟡 huérfano (audit futuro Sprint 9 Fase E EC-T8-44) |
+| `task.assigned` | `tasks.service.ts:create()`, `update()` (incluye auto-asignación cola pública [ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md)) | `tasks-email.listener` | `{ task, assignedBy }` | no — deuda EC-T8-28 / P-DEPLOY.4 | ✅ consumido (email + notification al agente vía `NotificationsService`, plantilla con `task_type_label` / `task_priority_label`) |
+| `task.completed` | `tasks.service.ts:update({status: completed})`, `tasks.service.complete()`, `MaintenanceLogService.recordCompletion()` | — | `{ task, completedBy }` | no | 🟡 huérfano (audit futuro EC-T8-44) |
+| `maintenance.completed` | `MaintenanceLogService.recordCompletion()` post-commit (Sprint 8 Fase B.5) | `MaintenanceCompletedListener` | `{ taskId, maintenanceLogId, serviceId, clientId, monthYear, completedBy, completedAt, notes }` | no — deuda P-DEPLOY.4 | ✅ consumido (email + campana al cliente vía `NotificationsService`, plantilla seedeada) |
+| `task.overdue` | `TasksOverdueProcessor` (Sprint 8 Fase C — pendiente) | `tasks-overdue.listener` (pendiente) | `{ taskId, type, assignedTo, dueDate, overdueDays }` | — | ⬜ pendiente Fase C |
+| `task.unassigned_overdue` | `TasksUnassignedOverdueCron` ([ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md), Fase C extendida — pendiente) | `notifications-unassigned-overdue.listener` (pendiente) | `{ task_ids: string[], total: number }` | — | ⬜ pendiente Fase C |
+| `maintenance.critical` | `MaintenanceCriticalCron` (Sprint 8 Fase C — pendiente) | `notifications` (pendiente) | `{ taskId, serviceId, clientId, daysUntilCriticalDeadline }` | — | ⬜ pendiente Fase C |
 
-**Análisis del dominio task:**
-- `task.assigned`: ✅ cerrado P0.1 (2026-04-26) — listener `tasks-email.listener.ts` envía email al agente + crea notificación interna en tabla `notifications`. Tests E2E en `tests/e2e/tasks.spec.ts`.
-- `task.completed` y `task.created`: 🟡 huérfanos. Quedan como hooks aspiracionales para el futuro módulo `audit`. Sprint 8 sigue WIP en otras fases (schemas A, frontend B, automatización C — `task.overdue` + `maintenance.*`, Support Inside D, docs E) — ver [`current.md` §Sprint 8](../60-roadmap/current.md).
+**Análisis del dominio task / maintenance** (estado tras Sprint 8 Fase B cerrado 2026-04-29):
+
+- ✅ **`task.assigned`**: cerrado P0.1 (2026-04-26) + plantilla sin enums crudos en B.1.bis (`task_type_label`/`task_priority_label`). Cobertura E2E en `tests/e2e/tasks.spec.ts` + `tests/e2e/notifications.spec.ts`.
+- ✅ **`task.completed`**: el evento se emite en 3 sitios (update directo, `complete()` legacy, `MaintenanceLogService` Fase B.5). **Sin consumidor todavía** — el listener `audit-tasks` que lo persistirá en `audit_change_log` queda en deuda EC-T8-44 (Sprint 9 Fase E ya provee `AuditService.logChange`, falta sólo wirearlo).
+- ✅ **`maintenance.completed`** (Sprint 8 Fase B.5, NUEVO): emisión atómica post-commit desde `MaintenanceLogService`. Listener canónico en `MaintenanceCompletedListener` despacha vía `NotificationsService` con plantilla seedeada (email HTML + campana en `notification-templates.ts`). Cobertura E2E en `tests/e2e/tasks-checklist-and-maintenance-log.spec.ts`.
+- ⬜ **`task.overdue`** + **`maintenance.critical`** + **`task.unassigned_overdue`**: pendientes Sprint 8 Fase C. ADR-072 documenta el SLA + cron de cola pública. Plantillas no seedeadas todavía (EC-T8-30 — debe cerrarse antes de emitir, si no el `notifications-dispatch` job iría a DLQ).
+- 📋 **Outbox para `task.*` y `maintenance.*`**: deuda EC-T8-28 / P-DEPLOY.4. Hoy si el bus revienta entre commit y emit, el evento se pierde silenciosamente. Aceptable mientras el deploy productivo esté diferido (ADR-069); blocker para Sprint 14.
 
 ---
 
@@ -148,7 +156,8 @@ Todos huérfanos esperando al módulo `provisioning`. Cuando provisioning se imp
 | `support-email.listener` | `conversation.created`, `conversation.assigned`, `message.created` | Email a cliente o agente según tipo |
 | `support-websocket.listener` | `conversation.created`, `conversation.assigned`, `message.created` | Push por WebSocket a clients conectados |
 | `support-guest-link.listener` | `auth.registered` | Vincula chats guest previos al user nuevo (si email coincide) |
-| `tasks-email.listener` | `task.assigned` | Delega a `NotificationsService.dispatchToUser` — email + campana (Sprint 9 Fase D) |
+| `tasks-email.listener` | `task.assigned` | Delega a `NotificationsService.dispatchToUser` — email + campana al agente, con `task_type_label`/`task_priority_label` (Sprint 8 Fase B.1.bis sin enums crudos) |
+| `MaintenanceCompletedListener` | `maintenance.completed` | Delega a `NotificationsService.dispatchToUser` — email + campana al cliente con resumen del trabajo + mes formateado es-ES (Sprint 8 Fase B.5) |
 | `notifications-outbox.listener` | `outbox.event_failed` | Alerta superadmin (campana + email) cuando un row Outbox agota retries (Sprint 9 Fase D) |
 | `notifications-dlq.listener` | `dlq.job_failed` | Alerta superadmin cuando un job BullMQ entra en DLQ (Sprint 9 Fase D) |
 | `notifications-system-error.listener` | `system.error` | Alerta superadmin con guard anti-loop hard si `module` proviene del dominio notifications (Sprint 9.5) |
