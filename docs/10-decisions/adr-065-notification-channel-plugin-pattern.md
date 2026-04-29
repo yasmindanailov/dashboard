@@ -328,3 +328,9 @@ Seedeados en Fase D (parte de 9.D.16 — pueden añadirse en Fase D MVP o en sub
 - **ADRs relacionados:** [ADR-042](./adr-042-sistema-notificaciones.md) (formaliza), [ADR-031](./adr-031-payment-providers.md) (patrón análogo plugin), [ADR-021](./adr-021-provisioners.md) (patrón análogo plugin), [ADR-033 §7](./adr-033-outbox-pattern-pendiente.md) (consumidor del huérfano `outbox.event_failed`), [ADR-055 §Monitoring](./adr-055-resiliencia-circuit-breaker.md) (consumidor del huérfano `dlq.job_failed`), [ADR-063](./adr-063-bullmq-canonico-dlq-retries.md) (cola `notifications-dispatch` hereda defaults).
 - **Glosario:** [Notificación](../00-foundations/glossary.md), [Canal](../00-foundations/glossary.md), [Plantilla](../00-foundations/glossary.md).
 - **Sprint que implementa:** [Sprint 9 Fase D](../60-roadmap/current.md#fase-d--notifications-full-cierra-adr-042).
+
+---
+
+## Notas de revisión
+
+> **2026-04-29 (post [ADR-069](./adr-069-estrategia-deploy-diferido.md)):** la referencia interna a "P1.4 Sprint 14 inminente" en la sección Contexto debe leerse como **P-DEPLOY (gate condicionado)** tras la reclasificación de ADR-069. La decisión técnica del plugin pattern de canales no cambia; el momento operativo en que el admin podrá editar plantillas vía UI ya ocurrió (Sprint 9.5, 2026-04-27). El paso siguiente que dependía de Sprint 14 (ej. observabilidad real Sentry para errores de envío) queda agrupado bajo P-DEPLOY.

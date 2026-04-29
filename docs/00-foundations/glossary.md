@@ -324,6 +324,40 @@ Patrón canónico para migrar rutas REST sin romper consumidores. El controller 
 
 ---
 
+## Provisioning y servicios del cliente
+
+### Provisioner
+Plugin que activa un producto en un sistema externo (cPanel WHM, Enhance, ResellerClub, Docker Engine, ...) o internamente (`internal`, `manual`). Declarado en `products.provisioner_slug`. Implementa la interfaz `ProvisionerPlugin` definida en [ADR-021](../10-decisions/adr-021-provisioners.md) y extendida en [ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md).
+
+### Provisioning orchestrator
+Componente del módulo `provisioning` (Sprint 11) que recibe `invoice.paid` (vía R8 Outbox), resuelve `provisioner_slug` del producto, decide servidor (consulta `infrastructure.pickServerForProduct` cuando aplica), invoca `plugin.provision(...)`, gestiona retries via BullMQ y resultado. **Es el único conector entre core y plugins** — los plugins no se importan desde otros módulos.
+
+### Service info (`getServiceInfo()`)
+Payload normalizado que cada `ProvisionerPlugin` retorna a la página `/dashboard/services/[id]`: estado, display, métricas opcionales, capabilities (incluido `has_sso_panel` e `inline_actions`). Pull lazy bajo demanda con cache Redis 60s (TTL configurable). Documento canónico: [ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md). Permite que **una sola plantilla React renderice todos los servicios** independientemente del plugin (sin `if (provisioner === 'X')`).
+
+### SSO panel (`getSsoUrl()`)
+Mecanismo canónico para que el cliente abra el panel del proveedor externo (cPanel, Plesk, Enhance, Collabora admin) **logueado** sin volver a introducir credenciales. El plugin genera URL temporal (5-15 min) firmada por la API del proveedor. Si el plugin no soporta SSO (ResellerClub para clientes finales), `getSsoUrl` retorna `null` y el frontend oculta el botón. Cada apertura registra fila en `audit_access_log` con `action='sso_panel_open'`.
+
+### Acción curada
+Acción inline ejecutable desde el dashboard sin salir al panel externo (ej. `restart_container` para Docker, `add_dns_record` para ResellerClub, `reset_account_password` para cPanel). Cada plugin declara su lista en `capabilities.inline_actions`. Una acción **sólo** se admite si cumple los **5 criterios canónicos** de [ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md) §"doctrina de cuándo añadir una acción inline": frecuencia >5/mes, idempotencia o reversibilidad, sin estado dual, auditable significativamente, aprobada por superadmin con ADR específico. Toda ejecución registra fila en `audit_access_log`.
+
+### Capability flag
+Booleano declarado por el plugin en `capabilities` que el frontend usa para condicionar UI sin ramificar por slug. Ejemplos: `has_sso_panel`, `has_metrics_history` (sólo Docker), `has_renewal_link`. Doctrina ADR-070: **el frontend lee capabilities, nunca compara `provisioner_slug`** directamente.
+
+### Dashboard como puerta unificada
+Doctrina arquitectónica ([ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md)): el dashboard de Aelium es **siempre la puerta de entrada y el archivo histórico** del cliente, aunque la operativa profunda (gestionar emails, DBs, instalar apps de cPanel) viva en el panel externo accesible vía SSO. Aelium **no replica** funcionalidad de paneles externos — sólo **delega** (SSO) o **expone acciones curadas** (5 criterios). Antipatrón explícitamente prohibido: implementar "Email Manager / DB Manager / File Manager" replicando cPanel desde el dashboard.
+
+### RemoteServer
+DTO en memoria (NO tabla Prisma) que representa un servidor gestionado por un proveedor SaaS (Enhance CP, cPanel WHM, Plesk Obsidian, DirectAdmin) tal como lo expone su API admin. Aelium **NO almacena** `RemoteServer` en BD — los obtiene bajo demanda vía `plugin.listRemoteServers()` con cache Redis 600s. Documento canónico: [ADR-071](../10-decisions/adr-071-vista-admin-federada-infraestructura.md). Distinto del `Server` propio (tabla `servers`), que sí persiste con métricas time-series.
+
+### Federated Server View (Vista admin federada)
+Patrón arquitectónico ([ADR-071](../10-decisions/adr-071-vista-admin-federada-infraestructura.md)): la página `/admin/infrastructure` **agrega en una sola pantalla** servidores propios (Docker, persistidos por Aelium) + servidores remotos (gestionados por proveedores SaaS, fetcheados via API con cache 600s). Sin doble fuente de verdad: Aelium no almacena los remotos, los presenta consultivamente. Distinción visual clara: TAB 1 propios con gráficas time-series, TAB 2 remotos con snapshot + "última sync hace X min". Cierra el antipatrón "vista admin partida" sin caer en BD espejo (antipatrón A2) ni replicación de panel admin (antipatrón A3).
+
+### ProviderHealthSummary
+DTO devuelto por `plugin.getProviderHealthSummary()` ([ADR-071](../10-decisions/adr-071-vista-admin-federada-infraestructura.md)) con resumen agregado de un proveedor SaaS: `servers_total`, `servers_healthy`, `servers_with_warnings`, `servers_unreachable`, `total_active_services`, `api_status` (`healthy | degraded | down`), `last_sync_at`. Permite mostrar cabecera por proveedor en `/admin/infrastructure` TAB 2 sin abrir cada servidor uno a uno. Cache compartida con `listRemoteServers` (un solo round-trip al proveedor por sync).
+
+---
+
 ## Convenciones de uso del glosario
 
 - **Citar términos:** cuando uses un término del glosario en doc o código, asegúrate de usarlo con el significado canónico aquí definido.

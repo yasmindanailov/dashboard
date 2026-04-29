@@ -1,11 +1,12 @@
 # Sprints en curso — Aelium Dashboard
 
-> **Estado real verificado** contra código en auditoría 2026-04-26. Cualquier sprint listado aquí está parcialmente avanzado (no es backlog puro — para eso ver [`backlog.md`](./backlog.md)).
+> **Estado real verificado** contra código en auditoría 2026-04-26 + closures Sprint 9 / 9.5 / 9.6 (2026-04-27/28). Cualquier sprint listado aquí está parcialmente avanzado (no es backlog puro — para eso ver [`backlog.md`](./backlog.md)).
 
-> **Última actualización:** 2026-04-26 — refactor de roadmap (post F6).
+> **Última actualización:** 2026-04-29 — re-priorización tras [ADR-069 deploy diferido](../10-decisions/adr-069-estrategia-deploy-diferido.md).
 > **Cambios estructurales recientes:**
+> - 📜 **[ADR-069 (2026-04-29)](../10-decisions/adr-069-estrategia-deploy-diferido.md)** reclasifica **Sprint 14 Deploy real** como **gate condicionado P-DEPLOY** (no está en cola activa). Se activa sólo con trigger de negocio explícito (cliente real, demo, captación, validación externa). La cola activa post-Sprint 9.6 son features (Sprint 8 residual / Sprint 10 Infrastructure / Sprint 11 Provisioning / Sprint 12 Settings+KB / Sprint 13 Hardening) según valor funcional.
 > - **Sprint 11.5 (MinIO Storage)** añadido como sprint independiente — antes estaba dentro del Sprint 14 Deploy. Desbloquea adjuntos chat/tickets sin obligar a desplegar a producción.
-> - **Sprint 14 (Deploy)** limpiado — solo lo que realmente requiere producción real.
+> - **Sprint 14 (Deploy)** limpiado — solo lo que realmente requiere producción real. **Hoy gate condicionado bajo ADR-069.**
 > - **Sprint 15 (Plugins)** partido en sub-sprints 15A-15H independientes — cada plugin se aborda según necesidad real, no en cadena.
 > - **Sprint 8 Fase D (Support Inside)** refinada con UX dedicada según [ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md).
 
@@ -55,81 +56,270 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ---
 
-## 🔄 Sprint 8 — Tasks + Support Inside
+## 🔄 Sprint 8 — Tasks + Support Inside (residual, plan canónico 2026-04-29)
 
-**Estado:** WIP confirmado en auditoría 2026-04-26. Fase A 50%, Fases B-E pendientes.
+**Estado:** 🟡 en curso — plan canónico reescrito 2026-04-29 tras cierre P0/P1.1/9.5/9.6/11.5 + ADR-069/070/071.
+**Inicio del residual:** 2026-04-29 (sub-sprint 8.A arrancado en sesión actual)
+**Cierre estimado:** 5 sub-sesiones (8.A → 8.E).
 
-> **Bloquea cadena de Sprint 9** (Audit + Notifications) que necesita listeners de `task.*` para emails.
+> **Plan refundido siguiendo `docs/90-meta/sprint-template.md`** (10 secciones). Sustituye la versión Fase A/B/C/D/E original que ya no cubría la realidad post-9.6. Lo cerrado en P0.1 (listener `task.assigned`, validación FK `assigned_to`, tests E2E base) se consolida en §10 al final.
 
-### Fase A — Schema + fixes base
+---
 
-| # | Paso | Estado real | Notas |
-|---|------|-------------|-------|
-| 8.1 | TasksService CRUD + asignación + estados + Controller con CASL | ✅ **Cerrado P0.1 (2026-04-26)** — validación FK `assigned_to` (existe + activo + rol asignable) implementada en `assertAssignableUser`. |
-| 8.1b | Schema: `task_checklist_completions`, `maintenance_logs`, `product_checklist_items`, `service_checklist_items` + migración | ⬜ |
-| 8.1c | Schema: campo `task_id` nullable FK en `client_notes` + migración | ⬜ |
-| 8.1d | Backend: completar maintenance → `maintenance_log` + persistir notas + crear `ClientNote(task_id)` | ⬜ |
-| 8.14 | Backend: endpoint listar agentes (`GET /api/v1/users?role=agent*`) | ⬜ |
+### 1. Objetivo en una frase
 
-### Fase B — Frontend core
+Cerrar el módulo `tasks` con automatización completa (mantenimiento mensual + WOW calls + cron `not_completed_in_time`) y entregar Support Inside como tier de cuenta visible al cliente con UX dedicada ([ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md)) — todo basado en infra ya existente (BullMQ + Notifications + Audit cerrados en Sprint 9).
 
-| # | Paso | Estado real |
-|---|------|-------------|
-| 8.8 | Tablero ListPage + DetailPage + NewTaskModal + TaskTable | 🔄 |
-| 8.8b/c/d/e | Select agente, bloques adaptativos, DS compliance, ClientNotesTab vinculación tarea | ⬜ |
+---
 
-### Fase C — Automatización
+### 2. Depende de
 
-| # | Paso | Estado real |
-|---|------|-------------|
-| 8.2 | Listener `service.provisioned` → crear `wow_call` automático | ⬜ |
-| 8.3 | WOW calls checklist post-alta (depende 8.1b) | ⬜ |
-| 8.10 | **Listeners `task.assigned`, `task.overdue`, `maintenance.completed`, `maintenance.critical`** | 🔄 **`task.assigned` cerrado P0.1 (2026-04-26)** vía `tasks-email.listener.ts` (email + notificación interna). Resto pendiente Sprint 9. |
-| 8.12 | Cron `not_completed_in_time` + emit `task.overdue` | ⬜ |
+| # | Dependencia | Estado | Bloquea qué del sprint |
+|---|-------------|--------|------------------------|
+| 1 | P0.1 listener `task.assigned` + validación FK + tests E2E base | ✅ cerrado 2026-04-26 | Punto de partida |
+| 2 | P1.1 Sprint 9 — `NotificationsService` + plantillas + BullMQ + DLQ | ✅ cerrado 2026-04-27 | Fase 8.C listeners `task.overdue` + `maintenance.*` reusan `NotificationsService.dispatchToUser` |
+| 3 | P1.1 Sprint 9 — `OutboxService` + `OutboxDispatchProcessor` | ✅ cerrado | Fase 8.C eventos `maintenance.*` y `task.overdue` viajan por Outbox (R8) |
+| 4 | P1.1 Sprint 9 Fase A — `JobsModule` (BullMQ canónico) + `DlqService` | ✅ cerrado | Fase 8.C cron `not_completed_in_time` se implementa como `@Processor` BullMQ |
+| 5 | P1.1.5 Sprint 9.5 — `NotificationBell` Topbar + plantillas editables | ✅ cerrado 2026-04-27 | Fase 8.C las notificaciones internas de mantenimiento aparecen en la campana |
+| 6 | P1.1.6 Sprint 9.6 — split `/admin/*` con `AdminOnlyGuard` + `_shared/shell/Topbar` | ✅ cerrado 2026-04-28 | Fase 8.B endpoints admin tasks ya bajo `/api/v1/admin/tasks` por inercia |
+| 7 | [ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md) — Support Inside como tier de cuenta | ✅ doc | Fase 8.D |
+| 8 | [ADR-034](../10-decisions/adr-034-support-inside-modelo.md) — modelo `support_inside_*` | ✅ doc | Fase 8.D schema |
+| 9 | [ADR-029](../10-decisions/adr-029-prorrateo-cambio-plan.md) — prorrateo cambio plan | ✅ doc + código | Fase 8.D upgrade plan Support Inside |
+| 10 | Schema `Task` + `ClientNote` + enum `TaskType` (incluye `wow_call`, `maintenance`, `maintenance_management`, `project_task`, `custom_work`, `support_setup`) | ✅ verificado en `prisma/schema.prisma:622-679` | Fases 8.A/B/C |
 
-### Fase D — Support Inside (UX dedicada — ADR-061)
+> Todas las dependencias críticas están ✅. Sprint 9.6 `/admin/*` simplifica el split frontend (tablero tasks ya en `/admin/tasks`).
 
-> **Refinada por [ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md):** Support Inside se presenta como **tier de cuenta** con páginas dedicadas, no como producto en el catálogo público. El schema sigue igual ([ADR-034](../10-decisions/adr-034-support-inside-modelo.md)) — solo cambia la presentación.
+---
 
-| # | Paso | Estado real |
-|---|------|-------------|
-| 8.4 | Schema + Service support_inside_* + planes Básico/Medium/Pro (sin cambios respecto a ADR-034) | ⬜ |
-| **8.4b** | **(NUEVO ADR-061)** Admin `/admin/support-inside-plans` — página dedicada con los 3 planes lado a lado, NO en el CRUD genérico de productos | ⬜ |
-| 8.5 | Página cliente `/dashboard/support-inside` — 3 planes comparados si no tiene activo; gestión de plan/slots si tiene activo. **NO aparece en `/dashboard/catalog`** | ⬜ |
-| 8.6 | Cancelación cascada + recurrencia anniversary_day + cron mensual generación de tareas mantenimiento | ⬜ |
-| 8.7 | ~~We Do It For You~~ — **DEPRECADO** ([ADR-022](../10-decisions/adr-022-wdify-deprecado-proyectos.md), reemplazado por Projects Sprint 22) | 🛑 |
-| 8.9 | Frontend vista mantenimiento mensual (depende 8.6) | ⬜ |
-| 8.13 | Cron alerta tarea crítica (X días antes fin mes, configurable) | ⬜ |
+### 3. Produce (contratos nuevos)
 
-### Fase E — Cierre
+#### 3.1 Endpoints REST nuevos
 
-| # | Paso | Estado real |
-|---|------|-------------|
-| 8.11 | docs/features/tasks/admin.md + agent.md | ⬜ |
-| **8.E.1** | **(NUEVO desde auditoría)** Tests E2E para tasks: crear → asignar → completar | ✅ **Cerrado P0.1 (2026-04-26)** — `tests/e2e/tasks.spec.ts` con 3 specs (flujo completo + 2 validaciones FK). |
+- `GET /api/v1/admin/users?role=agent_full|agent_billing|agent_support|superadmin` (Fase 8.A) — listar usuarios asignables a tareas. CASL `Read.User` para `superadmin` + `agent_full`, retorna `[{ id, full_name, role, status, email }]` filtrado por `status=active`. Reusable por `NewTaskModal`.
+- `POST /api/v1/admin/tasks/:id/checklist/:itemId/complete` (Fase 8.B) — marca un `service_checklist_item` o `product_checklist_item` como completado dentro de la task. Crea fila en `task_checklist_completions`. Idempotente.
+- `POST /api/v1/admin/tasks/:id/maintenance/log` (Fase 8.B) — registra `maintenance_log` con `notes` + lista de checklist items completados. Cierra la task tipo `maintenance` y opcionalmente crea `ClientNote` vinculada.
+- `GET /api/v1/dashboard/support-inside` (Fase 8.D) — cliente: estado actual (sin plan / Básico / Medium / Pro) + planes disponibles + slots si activo.
+- `POST /api/v1/dashboard/support-inside/checkout` (Fase 8.D) — cliente: arranca checkout de un plan.
+- `POST /api/v1/dashboard/support-inside/upgrade` (Fase 8.D) — cliente: cambio de plan con prorrateo.
+- `POST /api/v1/dashboard/support-inside/cancel` (Fase 8.D) — cliente: cancelación cascada de slots.
+- `POST /api/v1/dashboard/support-inside/slots` (Fase 8.D) — cliente: añadir slot (asigna a un servicio existente).
+- `DELETE /api/v1/dashboard/support-inside/slots/:slotId` (Fase 8.D) — cliente: liberar slot.
+- `GET /api/v1/admin/support-inside/plans` (Fase 8.D) — admin: 3 planes con su `support_inside_config`.
+- `PATCH /api/v1/admin/support-inside/plans/:productId` (Fase 8.D) — admin: editar plan.
 
-### ✅ P0.1 cerrado (2026-04-26) — cierre mínimo Sprint 8
+#### 3.2 Eventos nuevos emitidos
 
-1. ✅ Listener `@OnEvent('task.assigned')` en `backend/src/modules/tasks/tasks-email.listener.ts` → email al agente + notificación interna en tabla `notifications`.
-2. ✅ Validación FK `assigned_to` (helper privado `assertAssignableUser` en `tasks.service.ts`): valida user existe + status=`active` + rol en `superadmin|agent_full|agent_billing|agent_support`. Devuelve 400 (`BadRequestException`) si no.
-3. ✅ Tests E2E (`tests/e2e/tasks.spec.ts`) — 3 specs serializados (gestión 2FA del superadmin), incluyen helper `loginSuperadminAPI` reusable. Suite completa CI mode 10/10 pasa.
-4. ✅ Fix oportunista: 2 errores `no-unsafe-enum-comparison` resueltos (uso `TaskStatusDto.completed` en vez de string literal). Lint backend mejora -4 errores netos.
+- `task.created` — emitido por `TasksService.create()`. Payload: `{ taskId, type, clientId, assignedTo, dueDate }`. Consumidor: `audit-tasks.listener`.
+- `task.completed` — emitido por `TasksService.complete()`. Payload: `{ taskId, type, completedBy, completedAt }`. Consumidores: `audit`, `provisioning` (cuando `manual` provisioner haya sido implementado en Sprint 11; hoy listener stub).
+- `task.overdue` — emitido por `TasksOverdueProcessor` (BullMQ scheduled, daily). Payload: `{ taskId, type, assignedTo, dueDate, overdueDays }`. Consumidor: `tasks-overdue.listener` → `NotificationsService.dispatchToUser(assignedTo, 'task.overdue', payload)`.
+- `maintenance.completed` — emitido por `TasksService.completeMaintenance()`. Payload: `{ taskId, serviceId, clientId, monthYear, completedBy, completedAt, checklistCompletedCount }`. Consumidores: `notifications`, `audit`.
+- `maintenance.critical` — emitido por `MaintenanceCriticalCron`. Payload: `{ taskId, serviceId, clientId, daysUntilCriticalDeadline }`. Consumidor: `notifications` → alerta admin + agente asignado.
+- `service.provisioned` (consumido) — listener `wow-call.listener` (Fase 8.C) → crea `Task(type=wow_call)` automáticamente.
+- `support_inside.subscribed` (Fase 8.D) — emitido por `SupportInsideService.subscribe()` tras `invoice.paid`. Payload: `{ subscriptionId, clientId, planSlug, anniversaryDay }`.
+- `support_inside.upgraded` / `support_inside.cancelled` — análogos.
+- `support_inside.slot_assigned` / `support_inside.slot_released` — slots.
 
-### 🔴 Resto del Sprint 8 — pendiente
+#### 3.3 Servicios inyectables nuevos
 
-- Fase A: schemas pendientes (8.1b/c/d/14).
-- Fase B: frontend bloques adaptativos + ClientNotesTab vinculación tarea.
-- Fase C: listener `task.overdue` + cron `not_completed_in_time` + WOW calls automáticos.
-- Fase D: Support Inside (UX dedicada — ADR-061).
-- Fase E: docs admin/agent.
+- `MaintenanceLogService` (Fase 8.A/B) — `recordCompletion(taskId, notes, checklistItems)` → fila `maintenance_logs` + emite `maintenance.completed`.
+- `ChecklistCompletionService` (Fase 8.A/B) — gestión `task_checklist_completions` con idempotencia.
+- `TasksOverdueProcessor` (`@Processor('tasks-overdue')` Fase 8.C) — cron BullMQ scheduled `repeat: { cron: '0 2 * * *' }` (diario a las 02:00) que escanea `Task` con `due_date < now()` + `status IN [pending, in_progress]` y emite `task.overdue`. Marca `status = not_completed_in_time` tras N días configurable (`tasks.overdue_to_failure_days`, default 7).
+- `MaintenanceMonthlyCron` (Fase 8.D) — cron BullMQ `repeat: { cron: '0 3 1 * *' }` (día 1 de cada mes a las 03:00) que itera `support_inside_subscriptions` activas y crea `Task(type=maintenance_management, billing_month=YYYY-MM)` por cada slot. Idempotente por `(service_id, billing_month)`.
+- `MaintenanceCriticalCron` (Fase 8.C) — cron BullMQ `repeat: { cron: '0 9 * * *' }` (diario 09:00) que detecta tasks `maintenance` con `due_date - now() < settings.support.maintenance_critical_threshold_days` y emite `maintenance.critical`.
+- `WowCallCreatorListener` (Fase 8.C) — `@OnEvent('service.provisioned')` → crea task `wow_call` con plantilla del producto. Ignora si producto no requiere wow_call.
+- `SupportInsideService` (Fase 8.D) — `subscribe`, `upgrade`, `cancel`, `addSlot`, `releaseSlot`, `getStatus`. Reutiliza `BillingService.checkout` + `BillingService.changePlan` + cancelación cascada según [ADR-034](../10-decisions/adr-034-support-inside-modelo.md).
+- `TasksOverdueListener`, `MaintenanceCompletedListener`, `MaintenanceCriticalListener`, `SupportInsideEventsListener` (Fase 8.C/D) — adaptadores que invocan `NotificationsService.dispatchToUser(...)` con plantillas seedeadas.
 
-**Próximo paso recomendado tras P0.1:** ~~**P0.2 Outbox Pattern para `invoice.*`**~~ ✅ **Cerrado 2026-04-26** — los 4 eventos `invoice.*` (`created`, `paid`, `failed`, `overdue`) usan `OutboxService.enqueue(tx, ...)` dentro de transacción Prisma; `OutboxWorker` (`@Interval(5s)` + `FOR UPDATE SKIP LOCKED`) los despacha vía `EventEmitter2.emitAsync` con retries y crash recovery. Test E2E `tests/e2e/outbox-invoice.spec.ts` demuestra persistencia tras "crash" del bus. ADR-033 actualizado.
+#### 3.4 Tablas o campos Prisma nuevos
 
-~~**Siguiente: P0.3 saneamiento lint**~~ ✅ **Cerrado 2026-04-26** — Backend 294 → 0 errores, Frontend 117 → 0 errores, CI lint bloqueante en ambos. 4 commits incrementales (`3b2df25`, `8f91daf`, `56285d3`, `36099a8`, `f313e31`, `3d27da1`). Deuda residual DC.6 (27 warnings `set-state-in-effect` — migración Server Components, ver [`backlog.md`](./backlog.md)).
+- **Tabla `task_checklist_completions`** (Fase 8.A) — `(id, task_id FK, item_id, item_kind enum [product|service], completed_by FK users, completed_at, notes?)`. Índices: `task_id`, `(task_id, item_id, item_kind)` UNIQUE.
+- **Tabla `maintenance_logs`** (Fase 8.A) — `(id, task_id FK UNIQUE, service_id FK, client_id FK, month_year varchar(7), notes text, performed_by FK users, performed_at, metadata jsonb)`. Índices: `service_id`, `month_year`.
+- **Tabla `service_checklist_items`** (Fase 8.A) — `(id, service_id FK, item_template_id FK product_checklist_items NULLABLE, label varchar(300), is_required, order_index, created_at)`. Snapshot de `product_checklist_items` al provisionar el servicio (para que cambios futuros del producto no afecten servicios activos).
+- **Tabla `support_inside_config`** (Fase 8.D) — `(id, product_id FK UNIQUE, channels jsonb, slot_count_included, slot_type_available enum, slot_price_extra_cents, response_sla_hours, description_md text)`.
+- **Tabla `support_inside_subscriptions`** (Fase 8.D) — `(id, client_id FK, product_id FK, status enum, anniversary_day int 1-28, started_at, cancelled_at, billing_period enum [monthly|yearly])`. UNIQUE `(client_id)` (1 cliente → 1 subscription activa, [ADR-034](../10-decisions/adr-034-support-inside-modelo.md)).
+- **Tabla `support_inside_slots`** (Fase 8.D) — `(id, subscription_id FK, service_id FK NULLABLE, slot_type enum, assigned_at, released_at)`. Índice: `subscription_id`.
+- **Campo nuevo `client_notes.task_id`** (Fase 8.A) — `Uuid NULLABLE FK → tasks(id) ON DELETE SET NULL`. Permite vincular nota a la task que la generó (Fase 8.B `ClientNotesTab` los muestra agrupados).
 
-~~**Siguiente: P0.4 tests E2E exhaustivos**~~ ✅ **Cerrado 2026-04-26** — 3 specs nuevos en `tests/e2e/` (auth-2fa-exhaustive, checkout-flow, support-ws-escalation). Cubren: código 2FA incorrecto + lockout 5 fallos password, flujo billing completo (crear→finalizar→pagar→descarga PDF con magic bytes), escalación chat→ticket recibida en tiempo real vía WebSocket en `agent:inbox`.
+> **Decisión local 2026-04-29**: el campo legacy `tasks.client_note` (string) se **mantiene** como nota inline rápida del agente al ejecutar la task. El nuevo `client_notes.task_id` es para **notas estructuradas** persistidas en la timeline del cliente (ADR-038). Ambos coexisten — no son redundantes.
 
-🎯 **P0 cerrado al 100%.** El primer deploy productivo (Sprint 14) ya no tiene bloqueos críticos pre-deploy. Próxima prioridad: **P1.1 Sprint 9 — Audit + Notifications Full + Outbox worker hardening** (ver [`backlog.md`](./backlog.md)).
+#### 3.5 Settings nuevos
+
+- `tasks.overdue_to_failure_days` — int, default 7, rango 1-30. Tras N días `due_date` superado, `status` cambia a `not_completed_in_time`.
+- `support.maintenance_critical_threshold_days` — int, default 5, rango 1-15. N días antes de fin de mes alerta tarea crítica.
+- `support_inside.default_anniversary_day` — int, default 1, rango 1-28. Día del mes al que arrancar suscripciones nuevas si no se especifica.
+
+#### 3.6 Permisos CASL nuevos
+
+- Subject `MaintenanceLog` — `Read.MaintenanceLog` para staff (todos los agentes); `Manage.MaintenanceLog` para `superadmin` + `agent_full`.
+- Subject `SupportInsideSubscription` — `Read.SupportInsideSubscription` para owner (cliente) + staff; `Manage.SupportInsideSubscription` para `superadmin` + `agent_full` + `agent_billing`.
+- Subject `SupportInsideSlot` — `Read.SupportInsideSlot` para owner; `Update.SupportInsideSlot` (asignar/liberar) para owner.
+- Subject `SupportInsidePlan` (= producto `type=support_inside`) — `Manage.SupportInsidePlan` solo `superadmin` (planes son producto sensible — afectan facturación de todos los suscritores).
+
+---
+
+### 4. Modifica (contratos existentes)
+
+#### 4.1 Servicios modificados
+
+- `TasksService.complete(taskId, payload)` — admite ahora `payload.checklistCompletions: { itemId, itemKind, notes? }[]` que se persiste en `task_checklist_completions`. Si task `type === 'maintenance'`, además crea `MaintenanceLog`.
+- `BillingService.checkout(payload)` — sin cambios; reusada por `SupportInsideService.subscribe`.
+- `BillingService.changePlan(serviceId, newPlanId)` — sin cambios; reusada por `SupportInsideService.upgrade`.
+- `ProvisioningService` (stub Sprint 11) — ya emitirá `service.provisioned`. No es bloqueante: hoy `BillingService.markAsPaid` puede emitir el evento mientras `provisioning` queda stub.
+
+#### 4.2 Eventos cambiados
+
+- `task.assigned` ya emite, `tasks-email.listener` ya escucha. Tras Sprint 9 Fase D, **migrar el listener** a invocar `NotificationsService.dispatchToUser(assignedTo, 'task.assigned', payload)` en vez de `core/email` directo. **Bug menor descubierto en auditoría**: hoy hace ambas cosas redundantes (envío directo + notificación en BD). Fase 8.C limpia esta duplicación.
+
+#### 4.3 BREAKING changes
+
+(ninguno). Schema añade tablas y un campo NULLABLE; eventos nuevos son aditivos.
+
+---
+
+### 5. Pasos atómicos (sub-sprints)
+
+| # | Paso | Estado |
+|---|------|--------|
+| **8.A** | **Schemas Fase A + endpoint listar agentes** (cerrado 2026-04-29) | ✅ |
+| 8.A.1 | Schema Prisma: `task_checklist_completions` + `maintenance_logs` + `service_checklist_items` + `client_notes.task_id` + relaciones inversas en `Task`, `User`, `Service`, `ClientNote` + UNIQUE compuesto `(service_id, billing_month, type)` (idempotencia mantenimiento mensual) | ✅ |
+| 8.A.2 | Migración Prisma `20260429151128_sprint8a_tasks_checklist_and_maintenance` aplicada + `prisma generate` + typecheck verde | ✅ |
+| 8.A.3 | Endpoint `GET /api/v1/admin/users` con `JwtAuthGuard + AdminOnlyGuard + PoliciesGuard` (`List.Agent`) + DTO con `role[]/search/status/page/limit` + service `findAgents` que intersecta con `ASSIGNABLE_ROLE_SLUGS`. **Fix CASL crítico**: `inverted Manage.Agent` (wildcard) anulaba `Read/List.Agent`; refactorizado a `inverted [Create, Update, Delete]` para permitir lectura a los 3 staff + bloquear escritura a non-superadmin. | ✅ |
+| 8.A.4 | Tests E2E `tests/e2e/admin-users-list.spec.ts` — 9 specs (auth, denial cliente, 4 staff roles, filtros `role`/`search`, defense-in-depth ASSIGNABLE intersect). Suite completa **69/69 verde** (60 → 69, +9 nuevos sin regresión). | ✅ |
+| 8.A.5 | Doc canónica: `docs/30-data/tasks.md` reescrito (3 tablas nuevas + UNIQUE + relaciones), `docs/30-data/clients.md` (`client_notes.task_id`), backend lint + build verde, 37/37 unit tests verdes. | ✅ |
+| **8.B** | **Frontend tablero refinement + ClientNotesTab vinculación** | ⬜ |
+| 8.B.1 | `NewTaskModal`: select de agente (consume endpoint 8.A.3) + validación inline FK | ⬜ |
+| 8.B.2 | Bloques adaptativos por `TaskType` (maintenance, wow_call, custom_work) — UI condicional con campos relevantes por tipo | ⬜ |
+| 8.B.3 | Auditoría DS compliance del tablero (componentes ad-hoc → Design System canónico) | ⬜ |
+| 8.B.4 | `ClientNotesTab` en `/admin/clients/[id]`: agrupa notas por `task_id` (timeline con headings de tarea) | ⬜ |
+| 8.B.5 | Endpoint admin `POST /tasks/:id/checklist/:itemId/complete` + `POST /tasks/:id/maintenance/log` + UI checklist completable | ⬜ |
+| **8.C** | **Automatización: cron + listeners + WOW calls** | ⬜ |
+| 8.C.1 | `TasksOverdueProcessor` (BullMQ cron diario) + emite `task.overdue` + cambia `status` tras N días | ⬜ |
+| 8.C.2 | Listeners `tasks-overdue`, `maintenance-completed`, `maintenance-critical` → `NotificationsService.dispatchToUser` | ⬜ |
+| 8.C.3 | Migrar `tasks-email.listener` → `NotificationsService.dispatchToUser` (limpia redundancia §4.2) | ⬜ |
+| 8.C.4 | `MaintenanceCriticalCron` (BullMQ cron diario 09:00) + setting `support.maintenance_critical_threshold_days` | ⬜ |
+| 8.C.5 | `WowCallCreatorListener` (`@OnEvent('service.provisioned')`) — crea `Task(type=wow_call)` con plantilla del producto | ⬜ |
+| 8.C.6 | Plantillas `notification_templates` para `task.assigned`, `task.overdue`, `maintenance.completed`, `maintenance.critical` (email + internal) | ⬜ |
+| 8.C.7 | Tests unit + E2E (cron disparado manualmente vía endpoint admin de testing) | ⬜ |
+| **8.D** | **Support Inside (UX dedicada — ADR-061)** — sub-sprint denso, 1.5 sesiones | ⬜ |
+| 8.D.1 | Schema `support_inside_config` + `support_inside_subscriptions` + `support_inside_slots` + migración | ⬜ |
+| 8.D.2 | `SupportInsideService` con `subscribe/upgrade/cancel/addSlot/releaseSlot/getStatus` | ⬜ |
+| 8.D.3 | Endpoints cliente `/api/v1/dashboard/support-inside/*` (6) | ⬜ |
+| 8.D.4 | Endpoints admin `/api/v1/admin/support-inside/plans*` (2) | ⬜ |
+| 8.D.5 | Cliente: página `/dashboard/support-inside` (vista comparativa o gestión activa) | ⬜ |
+| 8.D.6 | Admin: página `/admin/support-inside-plans` (3 planes lado a lado) | ⬜ |
+| 8.D.7 | `MaintenanceMonthlyCron` (BullMQ día 1 de cada mes) — genera `Task(type=maintenance_management)` por slot activo. Idempotente por `(service_id, billing_month)` | ⬜ |
+| 8.D.8 | Cancelación cascada de slots cuando se cancela subscription | ⬜ |
+| 8.D.9 | Seed: 3 planes Básico/Medium/Pro con `support_inside_config` poblado | ⬜ |
+| 8.D.10 | Tests E2E: subscribe → assign slot → maintenance auto-creada → admin completa con checklist | ⬜ |
+| **8.E** | **Cierre documental + pulido** | ⬜ |
+| 8.E.1 | `docs/features/tasks/admin.md` + `agent.md` (operativa diaria) | ⬜ |
+| 8.E.2 | `docs/features/support-inside/admin.md` + `client.md` | ⬜ |
+| 8.E.3 | Actualizar `tasks/contract.md` + `_events.md` (8 eventos nuevos) + `_matrix.md` (relaciones) | ⬜ |
+| 8.E.4 | Smoke testing manual (Yasmin) — flujo completo punta a punta | ⬜ |
+| 8.E.5 | DoD verificado + retrospectiva en `completed/sprint-8-tasks-support-inside.md` | ⬜ |
+
+---
+
+### 6. Edge cases anticipados
+
+| ID | Caso | Plan |
+|----|------|------|
+| EC-T8-01 | Task `maintenance` se completa pero algún checklist item del servicio queda sin marcar | Validación: si `is_required=true` queda sin completar → 422; si opcional → permitir y registrar advertencia en `maintenance_log.metadata.warnings` |
+| EC-T8-02 | `MaintenanceMonthlyCron` se ejecuta dos veces el mismo día (worker duplicado o crash recovery) | Idempotency guard: `UNIQUE (service_id, billing_month)` en `tasks` para `type=maintenance_management` rechaza duplicado en BD; processor lo captura y marca job como skipped |
+| EC-T8-03 | Cliente cancela Support Inside con slots aún asignados a servicios activos | Cancelación cascada: emite `support_inside.slot_released` por cada slot, marca `subscription.status=cancelled`, mantiene servicios técnicos del cliente intactos |
+| EC-T8-04 | Cliente upgrade de plan Básico → Pro a mitad de mes | Reusa `BillingService.changePlan` con [ADR-029](../10-decisions/adr-029-prorrateo-cambio-plan.md) — prorrateo automático |
+| EC-T8-05 | `task.overdue` se emite pero el agente asignado fue desactivado | Listener detecta `assignee.status !== 'active'` → escala a admin (notificación a `superadmin` con tag `unassigned_overdue`) |
+| EC-T8-06 | `WowCallCreatorListener` recibe `service.provisioned` pero el producto no tiene plantilla de wow call | Listener decide silenciosamente skip si `metadata.skip_wow_call=true` o si producto carece de checklist asociada |
+| EC-T8-07 | Admin edita un plan Support Inside con suscriptores activos (cambia precio o slots incluidos) | Aviso UI + ADR específico futuro: hoy se permite con warning, no afecta facturación de suscripciones existentes (los planes siguen el snapshot de `service_pricing` original — coherente con [ADR-029](../10-decisions/adr-029-prorrateo-cambio-plan.md)) |
+| EC-T8-08 | Cliente intenta `addSlot` cuando ya está al límite del plan | 422 + mensaje claro "Tu plan permite N slots; sube de plan o libera uno" |
+| EC-T8-09 | `support_inside_subscriptions` UNIQUE por `client_id` rechaza segunda subscription | DTOs de checkout admiten un solo plan a la vez; UI cliente oculta CTAs si ya hay activa |
+| EC-T8-10 | `tasks.overdue_to_failure_days` cambia mientras hay tareas en flight | Cron lee setting al ejecutar, no almacena snapshot; tareas con `status=in_progress` no se ven afectadas (sólo aplica a `pending`) |
+| EC-T8-11 | Suscripción Support Inside con `anniversary_day=29..31` al pasar a febrero | Validación: rango 1-28 en BD + DTO (decisión consciente para evitar el bug clásico de meses cortos) |
+
+---
+
+### 7. Definition of Done
+
+#### Código
+- [ ] 8.A.1–8.E.5 todos ✅
+- [ ] Backend: `pnpm typecheck` + `pnpm lint:check` + `pnpm build` + `pnpm test` verde
+- [ ] Frontend: `pnpm lint` + `pnpm build` + `pnpm typecheck` verde
+- [ ] CI verde tras último push
+- [ ] Tests E2E nuevos verdes (mínimo 3 specs: maintenance flow, support-inside subscribe+upgrade, overdue cron disparado manualmente)
+
+#### Documentación
+- [ ] `docs/features/tasks/admin.md` + `agent.md`
+- [ ] `docs/features/support-inside/admin.md` + `client.md`
+- [ ] `docs/20-modules/tasks/contract.md` actualizado con tablas + eventos nuevos
+- [ ] `docs/20-modules/_events.md` con 8 eventos nuevos
+- [ ] `docs/20-modules/_matrix.md` con dependencias actualizadas
+- [ ] `docs/30-data/tasks.md` y `support.md` con tablas nuevas
+- [ ] `docs/50-operations/jobs-reference.md` con 3 crons nuevos (`tasks-overdue`, `maintenance-monthly`, `maintenance-critical`)
+- [ ] `docs/50-operations/settings-reference.md` con 3 settings nuevos
+- [ ] ADRs creados si surgen decisiones (lista en §9)
+- [ ] Retrospectiva en `docs/60-roadmap/completed/sprint-8-tasks-support-inside.md`
+
+#### Proceso
+- [ ] Commits con Conventional Commits (`feat(tasks):`, `feat(support-inside):`, `chore(prisma):`, `test(e2e):`, `docs:`)
+- [ ] Edge cases pendientes movidos al backlog DC.* con justificación
+- [ ] Items diferidos a Sprint 13 Hardening si aplica
+
+#### Smoke testing manual (Yasmin)
+- [ ] Crear task manual con select agente → asignación funciona + email recibido
+- [ ] Completar task `maintenance` con checklist marcado → `maintenance_log` persistido + `ClientNote` creada visible en cliente
+- [ ] Cliente sin Support Inside → ve 3 planes lado a lado en `/dashboard/support-inside`
+- [ ] Cliente subscribe a Plan Pro → checkout funciona → `support_inside_subscriptions` activa + slots disponibles
+- [ ] Cliente assign slot a un servicio → tarea `maintenance_management` se crea día 1 mes siguiente (verificar manualmente disparando el cron)
+- [ ] Admin edita plan Pro → cambios se reflejan en cliente nuevo (no afecta a activos)
+- [ ] Cron `not_completed_in_time` disparado manualmente → tasks con `due_date` pasado N días pasan a `not_completed_in_time` + emit `task.overdue` + notificación al asignado
+- [ ] Sin errores en consola del navegador
+- [ ] UI cumple Design System (todos los componentes desde `frontend/components/ui/`)
+
+---
+
+### 8. Riesgos identificados
+
+| Riesgo | Impacto si ocurre | Mitigación |
+|--------|-------------------|------------|
+| Migración Prisma 4 tablas + 1 campo en una sola pasada rompe datos | Pérdida de datos en dev | Migración generada con `prisma migrate dev --name sprint8a-tasks-and-checklist`; backup manual previo en CI mode local. **No hay datos en prod** — riesgo limitado a dev. |
+| `MaintenanceMonthlyCron` se solapa con cron de Sprint 9 ya activo | Doble notificación o doble task creada | Idempotency guard via UNIQUE `(service_id, billing_month)` + nombre de cola distinto (`tasks-maintenance-monthly` vs colas Sprint 9). |
+| Sprint 8.D denso → puede partirse a 8.D-bis si excede sesión | Sprint 8 tarda más | Aceptable; cada sub-sprint es atómico. Plan declara explícitamente 1.5 sesiones para 8.D. |
+| `SupportInsideService.cancel` cascada de slots toca demasiadas filas | Performance en cliente con muchos slots | Cancelación en `prisma.$transaction([cancelSubscription, releaseAllSlots])`. Volumen real bajo (slots típicamente <10/cliente). |
+| El cliente ve planes Support Inside antes de que admin haya seedeado los 3 planes | UI muestra catálogo vacío | Seed corre en `prisma seed` automático tras migración (Fase 8.D.9). Frontend muestra empty state con CTA "contactar soporte" si no hay planes. |
+| `tasks.client_note` (legacy string) vs `client_notes.task_id` (nuevo FK) genera confusión | Drift de doc/código | Decisión local 2026-04-29 documentada en §3.4 (ambos coexisten con propósitos distintos). Doc canónica `tasks/contract.md` lo aclarará. |
+
+---
+
+### 9. Decisiones a registrar
+
+ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decisión emerge real):
+
+- **(potencial)** ADR-072 — Coexistencia `tasks.client_note` (texto inline) + `client_notes.task_id` (FK estructurada). Se decide al cerrar Fase 8.A si compensa formalizar como ADR o si basta con la nota en `tasks/contract.md`.
+- **(potencial)** ADR-073 — Política de plantillas Support Inside ante cambios con suscripciones activas (snapshot vs propagación). Sólo si EC-T8-07 requiere matización canónica.
+- **(potencial)** ADR-074 — Política de wow_call automática vs manual (cuándo el listener crea la task vs cuándo lo decide el agente). Sólo si Fase 8.C.5 plantea casos no triviales.
+
+> Ningún ADR es prerequisito del sprint; se crean **si y sólo si** la decisión es no-trivial.
+
+---
+
+### 10. Cierre del sprint
+
+> A rellenar al cerrar.
+
+**Lo cerrado en P0.1 (2026-04-26)** — consolidado aquí:
+
+1. ✅ Listener `@OnEvent('task.assigned')` en `backend/src/modules/tasks/tasks-email.listener.ts` → email + notificación interna.
+2. ✅ Validación FK `assigned_to` (helper `assertAssignableUser` en `tasks.service.ts`): user existe + status=active + rol asignable.
+3. ✅ Tests E2E base (`tests/e2e/tasks.spec.ts`) — 3 specs serializados con helper `loginSuperadminAPI`.
+4. ✅ Fix oportunista: 2 errores `no-unsafe-enum-comparison` resueltos.
+
+**Fecha real de cierre:** _pendiente_
+**Commit final:** _pendiente_
+**Cambios respecto al plan original:** _pendiente_
+**Items movidos a sprints futuros:** _pendiente_
+**DoD verificado:** _pendiente_
+
+> Plan original (Fase A/B/C/D/E) reemplazado por el plan canónico §1-10 arriba (2026-04-29). Lo cerrado en P0.1 (listener `task.assigned` + validación FK + tests E2E base) está consolidado en §10. Lo pendiente está mapeado a sub-sprints 8.A → 8.E con granularidad atómica.
 
 ---
 

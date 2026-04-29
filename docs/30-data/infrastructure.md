@@ -2,9 +2,21 @@
 
 > **Dominio:** servidores donde se provisionan productos Docker, pools por producto, métricas.
 > **Módulo:** infrastructure (stub hoy — pendiente Sprint 10).
-> **Sprint origen:** Sprint 10.
+> **Sprint origen:** Sprint 10 — **emparejado con Sprint 15E (Plugin Docker Engine)** (ver nota canónica de alcance abajo).
 > **Estado:** ⬜ no implementado.
-> **ADRs:** [043](../10-decisions/adr-043-infraestructura-self-hosted.md) (infra self-hosted) · [015](../10-decisions/adr-015-encriptacion-credenciales.md) (encriptación de credenciales) · [056](../10-decisions/adr-056-estrategia-escalabilidad.md) (escalabilidad).
+> **ADRs:** [043](../10-decisions/adr-043-infraestructura-self-hosted.md) (infra self-hosted) · [015](../10-decisions/adr-015-encriptacion-credenciales.md) (encriptación de credenciales) · [056](../10-decisions/adr-056-estrategia-escalabilidad.md) (escalabilidad) · [070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md) (consume `server_metrics` para `has_metrics_history` del plugin Docker).
+
+---
+
+## Nota canónica de alcance (2026-04-29)
+
+> **Sprint 10 sólo aplica al modelo de provisioning Docker auto-hosteado** (`docker_engine` plugin — Sprint 15E). Los plugins SaaS (`enhance_cp`, `cpanel_whm`, `plesk_obsidian`, `resellerclub`, `directadmin`, ...) **NO consumen** `servers`, `server_pools`, `server_metrics` ni `docker_templates`. Para esos plugins, los servidores y la capacidad los gestiona el proveedor externo (Enhance, cPanel/WHM, ResellerClub) y Aelium se relaciona con sus APIs.
+>
+> Por tanto, **Sprint 10 se emparejará con Sprint 15E** y se ejecutará justo antes (no como sprint independiente que precede a Sprints 11/12/13). Construir Sprint 10 sin un plugin Docker que lo consuma viola YAGNI: módulo sin consumidor real.
+>
+> Si Aelium **nunca** llegase a vender Docker auto-hosteado (improbable dada la roadmap actual con Cloud Office, OpenClaw, Nextcloud), Sprint 10 sería innecesario y `Server` se eliminaría del schema en un ADR de descarte.
+>
+> **Métricas time-series** (`server_metrics`) **sólo existen para Docker**. Para hostings/dominios la información del servicio del cliente se obtiene mediante `ProvisionerPlugin.getServiceInfo()` ([ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md), pull lazy bajo demanda con cache 60s en Redis), no se almacena en BD.
 
 ---
 
