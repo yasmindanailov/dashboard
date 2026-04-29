@@ -1,5 +1,8 @@
 /* Task Detail page — CSS Module
-   Ref: Design System tokens, Regla 14 */
+   Sprint 8 Fase B.3 (2026-04-29) — DS compliance: tokens canónicos del DS
+   (`globals.css`). Migrado desde --color-* (tokens fantasma legacy) a
+   --text-*, --brand, --border, --danger, --success, --surface-* reales.
+   Ref: globals.css §Design Tokens, Regla 14. */
 
 .twoColumns {
   display: grid;
@@ -44,21 +47,21 @@
 /* ── Card sections ── */
 .cardTitle {
   font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: var(--space-3);
 }
 
 .description {
-  color: var(--color-text);
-  line-height: 1.6;
+  color: var(--text-primary);
+  line-height: var(--line-height-relaxed);
   white-space: pre-wrap;
 }
 
 .emptyDescription {
-  color: var(--color-text-tertiary);
+  color: var(--text-tertiary);
   font-style: italic;
 }
 
@@ -74,23 +77,23 @@
 }
 
 .clientName {
-  font-weight: 500;
-  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
 }
 
 .clientNameLink {
-  font-weight: 500;
-  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
   text-decoration: none;
   transition: color var(--transition-fast);
 }
 .clientNameLink:hover {
-  color: var(--color-primary);
+  color: var(--brand);
 }
 
 .clientEmail {
   font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
 /* ── Timeline ── */
@@ -105,16 +108,16 @@
   align-items: flex-start;
   gap: var(--space-2);
   font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
 .timelineDot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   flex-shrink: 0;
   margin-top: 7px;
-  background-color: var(--color-text-tertiary);
+  background-color: var(--text-tertiary);
 }
 
 .timelineText {
@@ -122,13 +125,34 @@
 }
 
 .timelineDate {
-  color: var(--color-text-tertiary);
+  color: var(--text-tertiary);
   white-space: nowrap;
 }
 
 /* ── Actions ── */
 .actions {
   display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+/**
+ * Sprint 8 Fase B.3 — wrapper inline del Select reasignación dentro del
+ * Card "Agente asignado". Reemplaza inline `style={{ marginTop }}`.
+ */
+.assigneeReassign {
+  margin-top: var(--space-3);
+}
+
+/**
+ * Sprint 8 Fase B.3 — footer de acciones del modal de confirmación
+ * (Cancelar / Confirmar). Margin más ajustado que `.modalActions` global
+ * porque el modal de confirmación es compacto. Reemplaza inline
+ * `style={{ display: 'flex', justifyContent: 'flex-end', gap, marginTop }}`.
+ */
+.confirmModalActions {
+  display: flex;
+  justify-content: flex-end;
   gap: var(--space-3);
   margin-top: var(--space-4);
 }
@@ -149,8 +173,8 @@
 
 .dataRow dt {
   font-size: var(--font-size-xs);
-  font-weight: 600;
-  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin: 0;
@@ -158,13 +182,13 @@
 
 .dataRow dd {
   font-size: var(--font-size-base);
-  color: var(--color-text);
+  color: var(--text-primary);
   margin: 0;
-  line-height: 1.4;
+  line-height: var(--line-height-tight);
 }
 
 .dataMuted {
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
   font-size: var(--font-size-sm);
 }
 
@@ -184,7 +208,7 @@
   font-size: var(--font-size-sm);
 }
 
-/* ── Sprint 8 Fase B.5 — Checklist completable ── */
+/* ── Sprint 8 Fase B.5 — Checklist completable (Sprint 8.B.3 DS compliance) ── */
 .checklistHeader {
   display: flex;
   align-items: center;
@@ -195,9 +219,9 @@
 
 .checklistProgress {
   font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  background: var(--color-surface-alt, var(--color-bg-subtle, transparent));
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  background: var(--surface-secondary);
   padding: 2px var(--space-2);
   border-radius: var(--radius-full);
 }
@@ -216,24 +240,26 @@
   align-items: flex-start;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  transition: background var(--transition-fast), border-color var(--transition-fast);
+  border: 1px solid var(--border);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
 }
 .checklistItem:hover {
-  background: var(--color-surface-alt, transparent);
+  background: var(--surface-secondary);
 }
 .checklistItemDone {
-  background: var(--color-surface-alt, transparent);
-  border-color: var(--color-success, var(--color-border));
-  opacity: 0.85;
+  background: var(--success-light);
+  border-color: var(--success-border);
+  opacity: 0.9;
 }
 .checklistItemDone .checklistText {
   text-decoration: line-through;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 .checklistItemMissing {
-  border-color: var(--color-danger);
-  background: rgba(239, 68, 68, 0.05);
+  border-color: var(--danger);
+  background: var(--danger-light);
 }
 
 .checklistLabel {
@@ -243,7 +269,7 @@
   cursor: pointer;
   flex: 1;
   font-size: var(--font-size-sm);
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
 }
 .checklistLabel input[disabled] {
   cursor: not-allowed;
@@ -254,17 +280,17 @@
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  accent-color: var(--color-primary);
+  accent-color: var(--brand);
   cursor: pointer;
 }
 
 .checklistText {
   flex: 1;
-  color: var(--color-text);
+  color: var(--text-primary);
 }
 
 .checklistRequired {
-  color: var(--color-danger);
-  font-weight: 700;
+  color: var(--danger);
+  font-weight: var(--font-weight-semibold);
   margin-left: 4px;
 }

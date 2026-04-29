@@ -42,7 +42,15 @@ export default function TaskTable({ data, page, onPageChange, showAgentColumn }:
       header: '',
       width: '8px',
       render: (t: Task) => (
-        <div className={styles.priorityBar} style={{ backgroundColor: TASK_PRIORITY_COLORS[t.priority] || 'var(--color-border)' }} />
+        // Inline style justificado: color dinámico por priority. La clase
+        // `.priorityBar` aporta dimensiones + radius; el background lo
+        // resuelve `TASK_PRIORITY_COLORS` (tokens canónicos DS post B.3).
+        <div
+          className={styles.priorityBar}
+          style={{
+            backgroundColor: TASK_PRIORITY_COLORS[t.priority] || 'var(--border)',
+          }}
+        />
       ),
     },
     {

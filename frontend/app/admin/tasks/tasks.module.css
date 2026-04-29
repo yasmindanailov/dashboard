@@ -1,54 +1,60 @@
 /* ═══════════════════════════════════════
    Tasks page — CSS Module
-   Ref: Design System tokens, Regla 14
+   Sprint 8 Fase B.3 (2026-04-29) — DS compliance:
+   tokens canónicos de `globals.css` (--brand, --text-*, --border,
+   --danger, --warning, etc.). Anteriormente usaba `--color-*` que
+   son tokens fantasma — la barra de prioridad y los colores semánticos
+   se renderizaban transparentes/incorrectos en producción.
+   Ref: globals.css §Design Tokens, Regla 14 ("ningún componente usa
+   valores literales — todo via var(--token)").
    ═══════════════════════════════════════ */
 
 .priorityBar {
   width: 4px;
   height: 100%;
   min-height: 24px;
-  border-radius: var(--radius-full, 9999px);
+  border-radius: var(--radius-full);
 }
 
 .titleLink {
-  color: var(--color-text);
+  color: var(--text-primary);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   transition: color var(--transition-fast);
 }
 .titleLink:hover {
-  color: var(--color-primary);
+  color: var(--brand);
 }
 
 .clientLink {
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
   text-decoration: none;
   font-size: var(--font-size-sm);
   transition: color var(--transition-fast);
 }
 .clientLink:hover {
-  color: var(--color-primary);
+  color: var(--brand);
 }
 
 .assignee {
   font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
 .unassigned {
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: var(--text-tertiary);
   font-style: italic;
 }
 
 .dueDate {
   font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
 .overdue {
-  color: var(--color-danger);
-  font-weight: 500;
+  color: var(--danger);
+  font-weight: var(--font-weight-medium);
 }
 
 /* ── New Task Modal ── */
@@ -67,7 +73,32 @@
 .formLabel {
   display: block;
   font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
   margin-bottom: var(--space-1);
+}
+
+/* ── Sprint 8 Fase B.3 — clases nuevas DS canónicas ── */
+
+/**
+ * Footer de acciones de un Modal (Cancelar / Confirmar). Reemplaza
+ * inline `style={{ display: 'flex', justifyContent: 'flex-end',
+ * gap, marginTop }}` repetido en NewTaskModal.tsx + [id]/page.tsx.
+ */
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+/**
+ * Wrapper vertical para el slot de StatusTabs cuando hay segmentación
+ * jerárquica (scope tabs encima de status tabs). Reemplaza inline
+ * `style={{ display: 'flex', flexDirection: 'column', gap }}`.
+ */
+.scopeStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }

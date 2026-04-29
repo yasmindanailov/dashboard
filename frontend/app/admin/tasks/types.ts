@@ -102,9 +102,15 @@ export const TASK_STATUS_VARIANTS: Record<string, string> = {
   cancelled: 'neutral',
 };
 
+/**
+ * Sprint 8 Fase B.3 (2026-04-29) — DS compliance: tokens canónicos del DS
+ * (`globals.css`). Los nombres `--color-*` no existen en el DS — son
+ * tokens fantasma legacy que dejaban la barra transparente. Ahora apuntan
+ * a `--danger`/`--warning`/`--border` reales.
+ */
 export const TASK_PRIORITY_COLORS: Record<string, string> = {
-  critical: 'var(--color-danger)',
-  high: 'var(--color-warning)',
-  medium: 'var(--color-border)',
-  low: 'var(--color-border-light, var(--color-border))',
+  critical: 'var(--danger)',
+  high: 'var(--warning)',
+  medium: 'var(--border)',
+  low: 'var(--border)',
 };

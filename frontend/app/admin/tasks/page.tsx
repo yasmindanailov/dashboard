@@ -22,6 +22,7 @@ import {
   ListPage, FilterBar, StatusTabs, Tabs,
   EmptyState, Skeleton,
 } from '../../components/ui';
+import styles from './tasks.module.css';
 import { useAuth } from '../../lib/auth-context';
 import { isStaffRole, isAdminRole } from '../../lib/portal';
 import { usersApi } from '../../lib/api';
@@ -211,7 +212,7 @@ export default function TasksPage() {
         <Button onClick={() => list.setShowNewModal(true)}>Nueva tarea</Button>
       ) : undefined}
       statusTabs={
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div className={styles.scopeStack}>
           <Tabs
             tabs={scopeTabs}
             activeTab={list.scope}

@@ -624,7 +624,7 @@ export default function TaskDetailPage() {
               <div className={styles.emptyDescription}>Sin asignar</div>
             )}
             {canManageTask && !isClosed && (
-              <div style={{ marginTop: 'var(--space-3)' }}>
+              <div className={styles.assigneeReassign}>
                 <Select
                   value={task.assigned_to ?? ''}
                   onChange={(e) => handleReassign(e.target.value)}
@@ -690,7 +690,7 @@ export default function TaskDetailPage() {
             ? 'Se notificará al cliente por email. ¿Confirmar?'
             : '¿Seguro que quieres marcar esta tarea como completada?'}
         </p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+        <div className={styles.confirmModalActions}>
           <Button variant="secondary" onClick={() => setShowCompleteModal(false)}>Cancelar</Button>
           <Button onClick={handleComplete} loading={completing}>Confirmar</Button>
         </div>

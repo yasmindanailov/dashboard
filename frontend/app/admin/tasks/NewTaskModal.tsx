@@ -182,7 +182,7 @@ export default function NewTaskModal({ open, onClose, onCreated }: Props) {
           <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalles adicionales..." rows={3} />
         </div>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
+      <div className={styles.modalActions}>
         <Button variant="secondary" onClick={handleClose}>Cancelar</Button>
         <Button onClick={handleSubmit} loading={loading} disabled={!title.trim() || !clientId}>
           Crear tarea
