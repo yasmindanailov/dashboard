@@ -22,6 +22,7 @@ import { HealthModule } from './health/health.module';
 
 // Business modules
 import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { ProductsModule } from './modules/products/products.module';
@@ -79,6 +80,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 
     // ── Business modules ──
     AuthModule,
+    UsersModule,
     ClientsModule,
     BillingModule,
     ProductsModule,

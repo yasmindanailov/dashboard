@@ -167,21 +167,28 @@ Notas estructuradas del cliente. Reemplaza el campo de texto `client_profiles.no
 | `user_id` | uuid | NOT NULL, FK → `users(id)` ON DELETE CASCADE | Cliente al que pertenece la nota |
 | `author_id` | uuid | NOT NULL, FK → `users(id)` | Agente/admin que creó la nota |
 | `conversation_id` | uuid | NULLABLE, FK → `conversations(id)` ON DELETE SET NULL | Conversación de origen (si aplica) |
+| `task_id` | uuid | NULLABLE, FK → `tasks(id)` ON DELETE SET NULL | Sprint 8 Fase A — task que generó la nota (mantenimientos, WOW calls, etc.). Permite agrupar la timeline del cliente por task de origen. |
 | `body` | text | NOT NULL | Contenido de la nota |
 | `category` | enum `NoteCategory` | NOT NULL, DEFAULT `'general'` | Tipo de nota |
 | `is_pinned` | boolean | NOT NULL, DEFAULT `false` | Notas fijadas aparecen primero |
 | `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
-| `updated_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 
 **Índices:**
 - `idx_client_notes_user_id` — en `user_id`
 - `idx_client_notes_conversation_id` — en `conversation_id`
+- `idx_client_notes_task_id` — en `task_id` (Sprint 8 Fase A)
 
 **Auto-creación:**
 - Al enviar mensaje interno (`is_internal = true`) → categoría `conversation`.
 - Al resolver/cerrar una conversación → categoría `solution` (transición obligatoria — [ADR-039](../10-decisions/adr-039-nota-obligatoria-transiciones.md)).
 - Al reabrir una conversación → categoría `general`.
 - Al crear nota desde la ficha → categoría seleccionada por el agente.
+- Al completar una task tipo `maintenance` o `wow_call` (Sprint 8 Fase B) → categoría `solution` con `task_id` populado. La página `/admin/clients/[id]` (`ClientNotesTab`) las agrupa por task en la timeline.
+
+**Coexistencia con `tasks.client_note` (decisión Sprint 8 §3.4):**
+- `tasks.client_note` (text inline) — nota rápida del agente al ejecutar la task.
+- `client_notes.task_id` (FK estructurada) — nota persistida en la timeline del cliente, visible en su ficha.
+- Ambos coexisten con propósitos distintos. Ver [tasks.md](./tasks.md) §`tasks` notas de decisión.
 
 ---
 
@@ -196,7 +203,8 @@ users (cliente)
   │     └── client_service_folders (N:1) → services
   ├── client_service_tags (1:N)      ← etiquetas sobre servicios
   └── client_notes (1:N)             ← notas estructuradas del agente
-        └── conversation_id (nullable) → conversations
+        ├── conversation_id (nullable) → conversations
+        └── task_id (nullable, Sprint 8 Fase A) → tasks  (timeline agrupada por task)
 ```
 
 ---
@@ -207,6 +215,7 @@ users (cliente)
   - `services.billing_profile_id` → `billing_profiles` ([billing.md](./billing.md))
   - `invoices.billing_profile_id` → `billing_profiles` ([billing.md](./billing.md))
   - `client_notes.conversation_id` → `conversations` ([support.md](./support.md))
+  - `client_notes.task_id` → `tasks` ([tasks.md](./tasks.md)) — Sprint 8 Fase A.
 - **Audit:** todo cambio en `client_profiles` o `billing_profiles` genera entrada en `audit.change_log`. Cada acceso a la ficha del cliente queda en `audit.access_log` ([audit.md](./audit.md)).
 - **ADRs principales:** [045](../10-decisions/adr-045-gestion-clientes-crm.md) (CRM ligero), [038](../10-decisions/adr-038-notas-estructuradas-cliente.md) (notas), [039](../10-decisions/adr-039-nota-obligatoria-transiciones.md) (nota obligatoria en transiciones), [060](../10-decisions/adr-060-decisiones-pre-schema.md) (perfiles fiscales múltiples).
 - **Eventos:** `client.registered`, `client.wow_pending` — ver [`_events.md`](../20-modules/_events.md).
