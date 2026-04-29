@@ -396,7 +396,7 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 | 8.B.2 + 8.B.4 (bloques adaptativos + ClientNotesTab) | 2026-04-29 | `8743cea` |
 | 8.B.5 (checklist + maintenance_log) | 2026-04-29 | `dbbf4b2` |
 | 8.B.3 (DS compliance refactor) | 2026-04-29 | `0e29c85` |
-| 8.B.6 (validaciones defensivas EC-T8-12..17) | 2026-04-29 | _(pendiente commit)_ |
+| 8.B.6 (validaciones defensivas EC-T8-12..17) | 2026-04-29 | `840d964` |
 
 **Estado DoD** (al cierre de Fase B + EC-T8-12..17):
 
