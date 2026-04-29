@@ -156,9 +156,32 @@ Ninguno actualmente.
 ## 14. Invariantes
 
 - **TASK-INV-1:** El `created_by` es inmutable tras creación. Trazabilidad de origen.
-- **TASK-INV-2:** El `status` solo transiciona en orden válido: `pending → in_progress → completed`, o cualquier estado → `cancelled`. No hay vuelta atrás desde `completed` o `cancelled`. (Sprint 8 hardening pendiente: añadir validación explícita).
+- **TASK-INV-2:** El `status` solo transiciona en orden válido: `pending → in_progress → completed`, o cualquier estado no-terminal → `cancelled`. **No hay vuelta atrás desde `completed`, `cancelled` o `not_completed_in_time`** (estados terminales). Refuerzo runtime cerrado en Sprint 8 Fase B.1.bis (2026-04-29) — ver §Edge cases EC-T8-19.
 - **TASK-INV-3:** Una tarea puede no tener `client_id` ni `service_id` (tareas de admin internas, ej: revisar logs). Estas son visibles solo a roles internos.
-- **TASK-INV-4:** Notas: `client_note` es texto visible al cliente si se exporta o muestra; `internal_note` es solo para el equipo. Mantener separación clara en UI.
+- **TASK-INV-4:** Notas: `client_note` es texto inline rápido del agente; las notas estructuradas (timeline cliente) van a `client_notes` con `task_id` FK ([decisión Sprint 8 §3.4](../../60-roadmap/current.md), [ADR-038](../../10-decisions/adr-038-notas-estructuradas-cliente.md)). Mantener separación clara en UI.
+- **TASK-INV-5:** Una tarea puede nacer sin `assigned_to` ([ADR-072](../../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md), refina ADR-041 §"🚪 Cierra"). La cola "Sin asignar" funciona como buffer temporal; cualquier staff con `Manage.Task` puede auto-asignársela. SLA por tipo configurable + cron `tasks-unassigned-overdue` aplica presión operativa (Fase C extendida — pendiente).
+
+---
+
+## 14b. Edge cases — referencia canónica
+
+Lista canónica de edge cases del módulo vive en [`docs/60-roadmap/current.md` §6 Sprint 8](../../60-roadmap/current.md) — actualmente cubre **EC-T8-01..46 + EC-IMPL-01..03**. Aquí solo el resumen para navegación rápida:
+
+| Bloque | Rango | Estado dominante |
+|--------|-------|------------------|
+| Originales del plan canónico (Fase A/B/C/D pendientes) | EC-T8-01..11 | ⬜ planificados |
+| Validaciones de campo (Sprint 8 Fase B) | EC-T8-12..17 | ⬜ pendientes |
+| Transiciones de estado y autorización | EC-T8-18..24 | ✅ EC-T8-19/20/21/22 cerrados (B.1.bis); resto planificado |
+| Eventos / listeners externos | EC-T8-25..30 | ⬜ Sprint 11 + Fase C |
+| CASL fino | EC-T8-31..33 | 🟡 UI restringe, backend permitivo (Opción A ADR-067) |
+| Concurrencia / archivado | EC-T8-34..35 | ⬜ Sprint 13 |
+| Módulos futuros | EC-T8-36..46 | ⬜ Sprints 11/12.5/13/19/22/25 |
+| Implementados sin ID previo | EC-IMPL-01..03 | ✅ vivos en código |
+
+**Cobertura tests E2E**:
+- [`tests/e2e/tasks.spec.ts`](../../../tests/e2e/tasks.spec.ts) — flujo P0.1 (crear/asignar/email/completar/validación FK).
+- [`tests/e2e/tasks-edge-cases.spec.ts`](../../../tests/e2e/tasks-edge-cases.spec.ts) — Sprint 8 Fase B.1.bis: 6 specs cubriendo EC-T8-19/20/21/22 (a/b/c).
+- [`tests/e2e/admin-users-list.spec.ts`](../../../tests/e2e/admin-users-list.spec.ts) — endpoint listar agentes para selector NewTaskModal (Sprint 8 Fase A).
 
 ---
 
@@ -186,9 +209,26 @@ Ninguno actualmente.
 - [x] ~~Validar que `assigned_to` existe en `users` antes de aceptar (deuda A4)~~ ✅ P0.1 (2026-04-26)
 - [x] ~~Tests E2E del flujo: crear tarea → asignar → completar~~ ✅ P0.1 (`tests/e2e/tasks.spec.ts`)
 - [x] ~~Resolver los 2 `no-unsafe-enum-comparison` (Sprint 8 WIP excepción de F0.6)~~ ✅ P0.1
-- [ ] Validación explícita de transiciones de `status` (TASK-INV-2)
-- [ ] Refactor preventivo R15 si `tasks.service.ts` supera 300 líneas
-- [ ] **Futuro:** consumir `service.suspended` para crear tareas técnicas automáticas
+- [x] ~~Schema Fase A: `task_checklist_completions`, `maintenance_logs`, `service_checklist_items`, `client_notes.task_id` FK~~ ✅ Sprint 8 Fase A (2026-04-29)
+- [x] ~~Endpoint `GET /admin/users` para selector de agentes en NewTaskModal~~ ✅ Sprint 8 Fase A.3
+- [x] ~~Bug portal: `action_url` apuntaba a `/dashboard/tasks/...` cuando ADR-066 + Sprint 9.6 DC.7 movieron tasks a `/admin/tasks/*`~~ ✅ Sprint 8 Fase B.1.bis (2026-04-29)
+- [x] ~~Plantilla notification mostraba enums crudos (`custom_work` en vez de "Personalizada")~~ ✅ Sprint 8 Fase B.1.bis — listener inyecta `task_type_label` / `task_priority_label`
+- [x] ~~`tasks.complete()` no vinculaba `ClientNote.task_id` ni usaba category=`solution`~~ ✅ Sprint 8 Fase B.1.bis
+- [x] ~~DetailPage: emoticonos `📋👤✅` violan tono de marca D1 + CTA "Ver perfil →" duplicaba el enlace del nombre del cliente~~ ✅ Sprint 8 Fase B.1.bis
+- [x] ~~Tablero `/admin/tasks` sin segmentación scope (Mis/Sin asignar/Todas)~~ ✅ Sprint 8 Fase B.1.bis
+- [x] ~~Default tab "Pendientes" mostraba todas las tareas (statusFilter no inicializado)~~ ✅ Sprint 8 Fase B.1.bis
+- [x] ~~`getStats` no respetaba scope → contadores mentían en vista segmentada~~ ✅ Sprint 8 Fase B.1.bis
+- [x] ~~Validación explícita de transiciones de `status` (TASK-INV-2 — EC-T8-19/20/21)~~ ✅ Sprint 8 Fase B.1.bis
+- [x] ~~Auto-asignación desde cola pública (EC-T8-22 — alineado con [ADR-072](../../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md))~~ ✅ Sprint 8 Fase B.1.bis
+- [ ] **Sprint 8 Fase B (pendiente):** validaciones EC-T8-12..17 (due_date pasado, service_id↔client_id, regex billing_month, MaxLength description, sanitización plantillas)
+- [ ] **Sprint 8 Fase C (pendiente):** listeners `task.overdue`, `maintenance.completed`, `maintenance.critical` + cron `not_completed_in_time` + cron `tasks-unassigned-overdue` (ADR-072) + WOW calls automáticos
+- [ ] **Sprint 8 Fase D (pendiente):** Support Inside ([ADR-061](../../10-decisions/adr-061-support-inside-tier-cuenta-ux.md))
+- [ ] **Sprint 8 Fase E (pendiente):** docs `features/tasks/admin.md` + `agent.md`
+- [ ] **Sprint 9 Fase E pendiente:** listener `audit-tasks` que invoque `AuditService.logChange(actor, 'task', before, after)` para reasignaciones/transiciones (EC-T8-44)
+- [ ] **P-DEPLOY.4** ([ADR-069](../../10-decisions/adr-069-estrategia-deploy-diferido.md)): extender Outbox a `task.*` events (EC-T8-28)
+- [ ] **Sprint 11 (pendiente):** listeners `tasks-on-service-cancelled` / `service-suspended` / `provisioning-on-task-completed` (EC-T8-25/26/27)
+- [ ] **Sprint 13 Hardening:** archivado `not_completed_in_time` >1 año + N+1 audit (EC-T8-34/35)
+- [ ] Refactor preventivo R15 si `tasks.service.ts` supera 300 líneas (actual ~330 tras B.1.bis)
 
 ---
 

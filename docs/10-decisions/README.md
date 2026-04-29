@@ -157,6 +157,7 @@ Resultado: la historia queda íntegra.
 - [ADR-069](./adr-069-estrategia-deploy-diferido.md) — Estrategia de deploy diferido (proyecto a largo plazo) — Sprint 14 reclasificado como gate condicionado P-DEPLOY
 - [ADR-070](./adr-070-service-info-sso-acciones-curadas.md) — Dashboard como puerta unificada: `getServiceInfo()` + SSO al panel externo + acciones curadas inline (extiende ADR-021 con interfaz expresiva)
 - [ADR-071](./adr-071-vista-admin-federada-infraestructura.md) — Vista admin federada de infraestructura: `listRemoteServers()` + `getProviderHealthSummary()` (simétrico admin de ADR-070)
+- [ADR-072](./adr-072-tareas-sin-asignar-cola-publica.md) — Tareas sin `assigned_to`: cola pública con SLA (refina ADR-041 §"🚪 Cierra")
 
 ---
 

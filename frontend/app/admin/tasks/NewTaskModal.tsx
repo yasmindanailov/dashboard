@@ -3,14 +3,16 @@
 /* ═══════════════════════════════════════
    NewTaskModal — Create task form
    Ref: UI_SPEC.md §5.15, §4.1 (modal for create)
+   Sprint 8 Fase B.1 (2026-04-29) — añade selector de agente que consume
+   GET /api/v1/admin/users (UsersController, Sprint 8 Fase A.3).
    ═══════════════════════════════════════ */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Input, Textarea, Select, Button } from '../../components/ui';
 import { useToast } from '../../components/ui/Toast/Toast';
 import { getErrorMessage } from '../../lib/error';
-import type { Client, Pagination } from '../../lib/types';
-import { tasksApi, clientsApi } from '../../lib/api';
+import type { Agent, Client, Pagination, RoleSlug } from '../../lib/types';
+import { tasksApi, clientsApi, usersApi } from '../../lib/api';
 import styles from './tasks.module.css';
 
 const TYPE_OPTIONS = [
@@ -27,6 +29,15 @@ const PRIORITY_OPTIONS = [
   { value: 'high', label: 'Alta' },
   { value: 'critical', label: 'Crítica' },
 ];
+
+const ROLE_LABELS: Record<RoleSlug, string> = {
+  superadmin: 'Superadmin',
+  agent_full: 'Agente',
+  agent_billing: 'Facturación',
+  agent_support: 'Soporte',
+  client: 'Cliente',
+  partner: 'Partner',
+};
 
 interface Props {
   open: boolean;
@@ -46,6 +57,27 @@ export default function NewTaskModal({ open, onClose, onCreated }: Props) {
   const [clientSearch, setClientSearch] = useState('');
   const [clients, setClients] = useState<Client[]>([]);
   const [dueDate, setDueDate] = useState('');
+  const [assignedTo, setAssignedTo] = useState('');
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+
+  // Carga lazy de agentes al abrir el modal — evita request si nunca se abre.
+  // Sprint 8 Fase A.3: el backend ya filtra por ASSIGNABLE_ROLE_SLUGS y
+  // status=active por defecto, así que aquí basta con `limit=50` (no
+  // esperamos más de ~10 agentes en operativa real).
+  useEffect(() => {
+    if (!open || !token) return;
+    if (agents.length > 0) return; // ya cargados en una apertura previa
+    setAgentsLoading(true);
+    void usersApi
+      .listAgents(token, { limit: 50 })
+      .then((res) => {
+        const payload = res as Pagination<Agent>;
+        setAgents(payload.data || []);
+      })
+      .catch(() => setAgents([]))
+      .finally(() => setAgentsLoading(false));
+  }, [open, token, agents.length]);
 
   const searchClients = async (query: string) => {
     setClientSearch(query);
@@ -63,9 +95,10 @@ export default function NewTaskModal({ open, onClose, onCreated }: Props) {
       await tasksApi.create(token, {
         type, title: title.trim(), description: description.trim() || undefined,
         priority, client_id: clientId,
+        assigned_to: assignedTo || undefined,
         due_date: dueDate || undefined,
       });
-      toast('success', 'Tarea creada correctamente');
+      toast('success', assignedTo ? 'Tarea creada y asignada' : 'Tarea creada (sin asignar)');
       onCreated();
       handleClose();
     } catch (err) {
@@ -78,7 +111,7 @@ export default function NewTaskModal({ open, onClose, onCreated }: Props) {
   const handleClose = () => {
     setTitle(''); setDescription(''); setType('custom_work');
     setPriority('medium'); setClientId(''); setClientSearch('');
-    setClients([]); setDueDate('');
+    setClients([]); setDueDate(''); setAssignedTo('');
     onClose();
   };
 
@@ -86,6 +119,14 @@ export default function NewTaskModal({ open, onClose, onCreated }: Props) {
     value: c.id,
     label: `${c.first_name} ${c.last_name} (${c.email})`,
   }));
+
+  const agentOptions = [
+    { value: '', label: agentsLoading ? 'Cargando agentes…' : 'Sin asignar (asignar luego)' },
+    ...agents.map((a) => ({
+      value: a.id,
+      label: `${a.full_name} · ${ROLE_LABELS[a.role] ?? a.role}`,
+    })),
+  ];
 
   return (
     <Modal open={open} onClose={handleClose} title="Nueva tarea" size="md">
@@ -122,6 +163,15 @@ export default function NewTaskModal({ open, onClose, onCreated }: Props) {
               options={[{ value: '', label: 'Seleccionar cliente...' }, ...clientOptions]}
             />
           )}
+        </div>
+        <div>
+          <label className={styles.formLabel}>Asignar a</label>
+          <Select
+            value={assignedTo}
+            onChange={(e) => setAssignedTo(e.target.value)}
+            options={agentOptions}
+            disabled={agentsLoading}
+          />
         </div>
         <div>
           <label className={styles.formLabel}>Fecha de vencimiento</label>

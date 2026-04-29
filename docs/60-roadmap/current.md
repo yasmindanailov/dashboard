@@ -236,6 +236,85 @@ Cerrar el módulo `tasks` con automatización completa (mantenimiento mensual + 
 | EC-T8-10 | `tasks.overdue_to_failure_days` cambia mientras hay tareas en flight | Cron lee setting al ejecutar, no almacena snapshot; tareas con `status=in_progress` no se ven afectadas (sólo aplica a `pending`) |
 | EC-T8-11 | Suscripción Support Inside con `anniversary_day=29..31` al pasar a febrero | Validación: rango 1-28 en BD + DTO (decisión consciente para evitar el bug clásico de meses cortos) |
 
+#### Auditoría rigurosa (2026-04-29) — EC-T8-12..46
+
+> Resultado de la revisión completa post-Sprint 8.B.1.bis. Cubre tres frentes: validaciones de campo no implementadas, transiciones de estado/autorización (algunas ya cerradas en este sprint via [ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md)), y edge cases que aparecen con módulos futuros (Sprint 11 / 12.5 / 13 / 19 / 22 / 25). El estado por EC indica si el caso ya está cerrado, planificado en una fase concreta, o queda como deuda explícita.
+
+##### Validaciones de campo (Sprint 8 Fase B/C)
+
+| ID | Caso | Estado | Plan |
+|----|------|--------|------|
+| EC-T8-12 | `due_date` en el pasado al crear | ⬜ | Validar `due_date >= now()` salvo flag opcional `allow_overdue=true` (cron de overdue puede crearlas legítimamente). Sprint 8 Fase B antes de cerrar tablero. |
+| EC-T8-13 | `client_id` ↔ `service_id` incoherentes (servicio de otro cliente) | ⬜ | Validar `service.user_id === client_id` en `tasks.service.create()`. Sprint 8 Fase B. |
+| EC-T8-14 | `is_recurring=true` con `recurrence_day=null` | ⬜ | DTO con `@ValidateIf((o) => o.is_recurring)`. Sprint 8 Fase B. |
+| EC-T8-15 | `billing_month` con formato inválido (`2026-13`, `2026-1`) | ⬜ | Regex `^\d{4}-(0[1-9]|1[0-2])$` en DTO. Sprint 8 Fase B. |
+| EC-T8-16 | `description` >100KB rompe email Handlebars | ⬜ | `@MaxLength(50000)` en DTOs. Sprint 8 Fase B. |
+| EC-T8-17 | XSS en `task_url` / `assigned_by` inyectados sin escapar en plantilla | ⬜ | Auditoría plantillas: usar siempre `{{var}}`, nunca `{{{var}}}`. Sprint 8 Fase C cuando se añadan plantillas `task.overdue` / `maintenance.completed`. |
+
+##### Transiciones de estado y autorización
+
+| ID | Caso | Estado | Plan |
+|----|------|--------|------|
+| EC-T8-18 | Saltar `pending` → `completed` sin `in_progress` | 🟡 deuda aceptada | UI guía pero backend permite. Aceptable para `complete` directo desde el modal. Si se restringe, requiere ADR específico. |
+| EC-T8-19 | `update` con `status` desde estado terminal (reabrir tarea cerrada) | ✅ cerrado 2026-04-29 (Sprint 8 Fase B.1.bis) | `tasks.service.update()` rechaza con 400 si `existing.status` ∈ TERMINAL_STATES y el DTO cambia status. Test E2E `tasks-edge-cases.spec.ts`. |
+| EC-T8-20 | Reasignar tarea cerrada vía PATCH directo | ✅ cerrado 2026-04-29 | Mismo guard TERMINAL_STATES bloquea cambio de `assigned_to`. Test E2E. |
+| EC-T8-21 | Cambiar `priority` o `due_date` de tarea cerrada | ✅ cerrado 2026-04-29 | Mismo guard. Test E2E. |
+| EC-T8-22 | Auto-asignación: staff no admin toma una tarea de la cola pública (`assigned_to=null` → su id) | ✅ cerrado 2026-04-29 (formaliza [ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md)) | `update` admite `assigned_to=userId` cuando `existing.assigned_to===null`, sin requerir admin pleno. Tres tests E2E (claim ok, robar ajena rechazada, admin reasigna sin restricción). |
+| EC-T8-23 | Cola "Sin asignar" sin SLA → tareas pueden quedar olvidadas indefinidamente | ⬜ | Setting `tasks.unassigned_sla_hours.<type>` (ADR-072 §"Reglas canónicas") + cron `tasks-unassigned-overdue` diario 09:00 emite `task.unassigned_overdue` → alerta superadmin. Sprint 8 Fase C extendida. |
+| EC-T8-24 | Dos agentes intentan tomar la misma tarea sin asignar simultáneamente | ⬜ | Race condition. Compare-and-swap con `prisma.task.update({ where: { id, assigned_to: null }, ... })` → si otro la tomó primero, el update afecta 0 filas y se devuelve 409 Conflict. Sprint 8 Fase C. |
+
+##### Eventos / listeners externos
+
+| ID | Caso | Estado | Plan |
+|----|------|--------|------|
+| EC-T8-25 | `service.cancelled` con tareas `maintenance` pendientes | ⬜ | Listener `tasks-on-service-cancelled` cancela `maintenance`/`maintenance_management`/`wow_call` pendientes del servicio. Sprint 11 (Provisioning). |
+| EC-T8-26 | `service.suspended` (impago) → ¿pausar `MaintenanceMonthlyCron`? | ⬜ | Listener pausa creación próxima del cron para ese servicio (no cancela activas). Sprint 11. |
+| EC-T8-27 | `task.completed` para provisioner `manual` → activar servicio | ⬜ | Listener `provisioning-on-task-completed` requerido por [ADR-021 §"manual"](../10-decisions/adr-021-provisioners.md). Sin esto los servicios `manual` se quedan en `pending` para siempre. Sprint 11 (P2.1). |
+| EC-T8-28 | Listener `task.assigned` falla (notifications down) → evento perdido | ⬜ | [ADR-033 R8 Outbox](../10-decisions/adr-033-outbox-pattern-pendiente.md) extender a `task.*`. **P-DEPLOY.4** ([ADR-069](../10-decisions/adr-069-estrategia-deploy-diferido.md)). |
+| EC-T8-29 | Job `notifications-dispatch` agota retries con `task.assigned` payload | 🟡 parcial | DLQ admin lo ve (Sprint 9 ✅), pero el agente nunca recibe email. Verificar que `failed_jobs.metadata` incluye `task_id` para investigar. Sprint 8 Fase C. |
+| EC-T8-30 | Plantillas `task.overdue` / `maintenance.completed` / `maintenance.critical` no seedeadas → emit falla | ⬜ | Pre-requisito Fase C: añadir las 3 plantillas a `notification-templates.ts` antes de implementar los listeners. Falla actual sería un DLQ silencioso. |
+
+##### CASL / autorización fina
+
+| ID | Caso | Estado | Plan |
+|----|------|--------|------|
+| EC-T8-31 | `agent_billing` o `agent_support` cambia `priority` o cancela tarea | 🟡 UI restringe, backend permite | UI esconde controles ([UI_SPEC §5.16](../UI_SPEC.md)); backend permite `Manage.Task` ([ADR-067](../10-decisions/adr-067-granularidad-casl-rol-staff.md) Opción A). Si se requiere split fino, crear `Subject.TaskAdmin` distinto de `Subject.Task`. Sprint 13 Hardening. |
+| EC-T8-32 | Cliente accede a `/api/v1/tasks` (rol `client`) | ✅ cubierto | CASL `Read.Task` no existe para client → 403 automático. Aceptable hoy. |
+| EC-T8-33 | Partner ve tareas de sus clientes | ⬜ aspiracional | Sprint 19 Partner Module — sólo notificación `maintenance.completed`, NO acceso CRUD. |
+
+##### Concurrencia / archivado
+
+| ID | Caso | Estado | Plan |
+|----|------|--------|------|
+| EC-T8-34 | Tabla `tasks` crece indefinidamente con `not_completed_in_time` | ⬜ | Archivar tras 1 año a tabla histórica ([ADR-041 §"⚠ Aceptamos"](../10-decisions/adr-041-sistema-tareas.md)). Sprint 13 Hardening. |
+| EC-T8-35 | N+1 en `findAll` con `INCLUDE_RELATIONS` | 🟡 sospechoso | Hoy Prisma resuelve con JOIN, verificar al crecer >10k. Sprint 13. |
+
+##### Módulos futuros — EC anticipados
+
+| ID | Caso | Sprint |
+|----|------|--------|
+| EC-T8-36 | `service.provisioning_failed` → crear `support_setup` para investigar | Sprint 11 (P2.1) |
+| EC-T8-37 | Plugin `docker_engine` deprovisión falla → ¿task de cleanup? | Sprint 15E aspiracional |
+| EC-T8-38 | `assigned_to` apunta a AI Worker (no User) | Sprint 25 (P3.9) — schema refactor `assigned_type` polimórfico (ADR-041 §"Cuándo revisar" lo prevé) |
+| EC-T8-39 | AI completa task con estado `awaiting_review` (humano valida) | Sprint 25 — nuevo TaskStatus |
+| EC-T8-40 | Borrado RGPD: `maintenance_log` con notas es evidencia legal | Sprint 12.5 (P2.8) — anonimizar `client_id`, retener `maintenance_log` |
+| EC-T8-41 | Schema requiere FK `project_id` en `tasks` | Sprint 22 (P3.5) — migración añade columna |
+| EC-T8-42 | Cola sin asignar + SLA expirado → `task.unassigned_overdue` | ADR-072 §"Reglas canónicas" — Sprint 8 Fase C extendida |
+| EC-T8-43 | Adjuntos (foto evidencia checklist) | Sprint 11.5 ✅ Storage + futuro UI tasks |
+| EC-T8-44 | Audit log de reasignaciones | Sprint 9 Fase E ✅ — falta listener `audit-tasks` que invoque `AuditService.logChange(actor, 'task', before, after)` |
+| EC-T8-45 | Acción curada cliente que crea task (ej. `request_resource_upgrade`) | Sprint 11 + 15E + ADR-070 |
+| EC-T8-46 | Partner notificado al completar `maintenance` de cliente vinculado | Sprint 19 (P3.13) |
+
+##### EC implementados sin ID previo (consolidación)
+
+| ID | Caso | Estado |
+|----|------|--------|
+| EC-IMPL-01 | `assigned_to` no existe / no `active` / rol no asignable → 400 | ✅ `assertAssignableUser` (P0.1) |
+| EC-IMPL-02 | Task ya cerrada → no se puede recompletar | ✅ `complete()` 400 |
+| EC-IMPL-03 | Agente no admin no puede modificar tareas ajenas (salvo cola pública por EC-T8-22) | ✅ `update()` 403 |
+
+> **Cobertura tests E2E** (post Sprint 8 Fase B.1.bis): 75/75 verde con 6 specs nuevos en `tests/e2e/tasks-edge-cases.spec.ts` cubriendo EC-T8-19/20/21/22 (a/b/c). Cada EC ⬜ pendiente añadirá su test al implementarse.
+
 ---
 
 ### 7. Definition of Done

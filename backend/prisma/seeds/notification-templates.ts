@@ -193,6 +193,10 @@ export async function seedNotificationTemplates(
     },
 
     // ───────────── task.assigned (email) ─────────────
+    // Sprint 8.B.1.bis: usa labels humanos `task_type_label` / `task_priority_label`
+    // que el listener computa desde el enum (TASK_TYPE_LABELS_ES). No usar
+    // el enum crudo `{{task_type}}` en el cuerpo — la plantilla es contenido
+    // editable por admin (Sprint 9.5) y no debe conocer mapeos internos.
     {
       event_type: 'task.assigned',
       channel: 'email' as const,
@@ -202,7 +206,7 @@ export async function seedNotificationTemplates(
         <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
             <h1 style="color: #fff; margin: 0; font-size: 24px;">Tarea asignada</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_type}} · {{task_priority}}</p>
+            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_type_label}} · Prioridad {{task_priority_label}}</p>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
@@ -213,8 +217,8 @@ export async function seedNotificationTemplates(
             </p>
             <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0;">
               <table style="width: 100%; font-size: 14px; color: #374151;">
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Tipo:</td><td style="text-align: right; font-weight: 600;">{{task_type}}</td></tr>
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Prioridad:</td><td style="text-align: right;">{{task_priority}}</td></tr>
+                <tr><td style="padding: 4px 0; color: #9ca3af;">Tipo:</td><td style="text-align: right; font-weight: 600;">{{task_type_label}}</td></tr>
+                <tr><td style="padding: 4px 0; color: #9ca3af;">Prioridad:</td><td style="text-align: right;">{{task_priority_label}}</td></tr>
                 <tr><td style="padding: 4px 0; color: #9ca3af;">Vence:</td><td style="text-align: right;">{{due_label}}</td></tr>
               </table>
             </div>
@@ -227,8 +231,8 @@ export async function seedNotificationTemplates(
       variables: {
         task_id: 'string',
         task_title: 'string',
-        task_type: 'string',
-        task_priority: 'string',
+        task_type_label: 'string',
+        task_priority_label: 'string',
         task_url: 'string',
         due_label: 'string',
         'recipient.first_name': 'string?',
@@ -241,11 +245,11 @@ export async function seedNotificationTemplates(
       channel: 'internal' as const,
       locale: 'es',
       subject: 'Nueva tarea: {{task_title}}',
-      body: 'Se te ha asignado una tarea de tipo {{task_type}} con prioridad {{task_priority}}.',
+      body: 'Se te ha asignado una tarea de {{task_type_label}} con prioridad {{task_priority_label}}.',
       variables: {
         task_title: 'string',
-        task_type: 'string',
-        task_priority: 'string',
+        task_type_label: 'string',
+        task_priority_label: 'string',
       },
     },
 

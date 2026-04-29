@@ -18,6 +18,7 @@ import {
   UpdateTaskDto,
   CompleteTaskDto,
   TaskListQueryDto,
+  TaskScopeDto,
   TaskStatusDto,
 } from './dto/task.dto';
 import { Prisma } from '@prisma/client';
@@ -103,14 +104,36 @@ export class TasksService {
     const limit = query.limit || 20;
     const where: Prisma.TaskWhereInput = {};
 
-    // Role-based filtering: agents see only their tasks + unassigned
-    if (!isAdmin) {
+    // Sprint 8.B.1.bis (2026-04-29) — scope segmenta la vista del tablero
+    // según UI_SPEC §5.15 (Mis tareas / Sin asignar / Todas). Tiene
+    // precedencia sobre el role-based filtering legacy: si el frontend
+    // pide explícitamente `scope=mine|unassigned|all`, respeta esa
+    // intención. Si no llega `scope`, mantiene el comportamiento previo
+    // (agente ve `mine + unassigned` mezcladas, admin ve todas).
+    if (query.scope === TaskScopeDto.mine) {
+      where.assigned_to = userId;
+    } else if (query.scope === TaskScopeDto.unassigned) {
+      where.assigned_to = null;
+    } else if (query.scope === TaskScopeDto.all) {
+      // sólo staff puede pedir 'all' explícitamente; si un cliente lo
+      // pidiera, el guard CASL ya habría rechazado antes (List.Task no
+      // existe para client). Aquí simplemente no añadimos filtro.
+    } else if (!isAdmin) {
+      // legacy fallback: agente sin scope explícito ve mine + unassigned.
       where.OR = [{ assigned_to: userId }, { assigned_to: null }];
     }
     if (query.status) where.status = query.status;
     if (query.type) where.type = query.type;
     if (query.priority) where.priority = query.priority;
-    if (query.assigned_to) where.assigned_to = query.assigned_to;
+    // El filtro por agente concreto sólo se aplica cuando el scope no es
+    // 'mine' (en mine ya está implícito) ni 'unassigned' (incompatible).
+    if (
+      query.assigned_to &&
+      query.scope !== TaskScopeDto.mine &&
+      query.scope !== TaskScopeDto.unassigned
+    ) {
+      where.assigned_to = query.assigned_to;
+    }
     if (query.search) {
       where.title = { contains: query.search, mode: 'insensitive' };
     }
@@ -163,7 +186,11 @@ export class TasksService {
     return task;
   }
 
-  /* ── Update ── */
+  /* ── Update ──
+     Sprint 8 Fase B.1.bis (2026-04-29) — refactor coherente tras auditoría
+     de edge cases (ver `current.md` §6 EC-T8-19 / EC-T8-20 / EC-T8-21 /
+     EC-T8-22) y la doctrina actualizada de cola pública (ADR-072).
+  */
   async update(
     id: string,
     dto: UpdateTaskDto,
@@ -171,12 +198,73 @@ export class TasksService {
     isAdmin: boolean,
   ) {
     const existing = await this.findOne(id);
-    // Agents can only update their own tasks
-    if (!isAdmin && existing.assigned_to !== userId) {
+
+    // EC-T8-19/20/21 — refuerzo doctrina ADR-041 §"completada nunca se
+    // reabre". Una tarea en estado terminal (completed | cancelled |
+    // not_completed_in_time) NO admite cambios de status, priority,
+    // assigned_to ni due_date. Sólo `client_note` (texto libre del agente
+    // sobre lo que ocurrió) y `description` se permiten editar como
+    // anexo informativo. Si necesita retomarse el trabajo, se crea una
+    // tarea nueva (auditabilidad).
+    const TERMINAL_STATES: readonly string[] = [
+      'completed',
+      'cancelled',
+      'not_completed_in_time',
+    ];
+    const isTerminal = TERMINAL_STATES.includes(existing.status);
+    if (isTerminal) {
+      const blocked: string[] = [];
+      if (
+        dto.status !== undefined &&
+        (dto.status as string) !== (existing.status as string)
+      ) {
+        blocked.push('status');
+      }
+      if (
+        dto.priority !== undefined &&
+        (dto.priority as string) !== (existing.priority as string)
+      ) {
+        blocked.push('priority');
+      }
+      if (
+        dto.assigned_to !== undefined &&
+        dto.assigned_to !== existing.assigned_to
+      ) {
+        blocked.push('assigned_to');
+      }
+      if (dto.due_date !== undefined) blocked.push('due_date');
+      if (blocked.length > 0) {
+        throw new BadRequestException(
+          `Esta tarea está cerrada (estado ${existing.status}). No se puede modificar: ${blocked.join(', ')}. Si necesitas retomar el trabajo, crea una tarea nueva.`,
+        );
+      }
+    }
+
+    // EC-T8-22 — cola pública (ADR-072). Reglas de autorización para
+    // editar una tarea, en orden de evaluación:
+    //
+    //   1. Admin pleno (`superadmin` + `agent_full`) — puede editar
+    //      cualquier tarea (sin cambio respecto a antes).
+    //   2. Staff con `Manage.Task` que es `assigned_to` actual — puede
+    //      editar la suya (sin cambio respecto a antes).
+    //   3. Staff con `Manage.Task` tomando una tarea de la cola pública
+    //      (`existing.assigned_to === null` y la única intención del PATCH
+    //      es auto-asignarse: `dto.assigned_to === userId`) — permitido
+    //      por ADR-072.
+    //   4. Cualquier otro staff editando tarea ajena — 403 (la regla
+    //      anti-deriva de ADR-041 sigue vigente para tareas con owner).
+    //
+    // Nota: el guard `Manage.Task` lo da el PoliciesGuard del controller
+    // (CASL para los 4 staff por ADR-067). Aquí sólo distinguimos casos.
+    const isClaimingFromPool =
+      existing.assigned_to === null && dto.assigned_to === userId;
+    const isOwnTask = existing.assigned_to === userId;
+    if (!isAdmin && !isOwnTask && !isClaimingFromPool) {
       throw new ForbiddenException(
         'No puedes modificar tareas de otros agentes',
       );
     }
+
     if (
       dto.assigned_to !== undefined &&
       dto.assigned_to !== null &&
@@ -201,7 +289,9 @@ export class TasksService {
       },
       include: INCLUDE_RELATIONS,
     });
-    // Emit assignment event if agent changed
+    // Emit assignment event if agent changed (incluye auto-asignación
+    // desde la cola pública: `assignedBy = userId` igual que cualquier
+    // otra reasignación — auditoría coherente con ADR-072).
     if (dto.assigned_to && dto.assigned_to !== wasAssigned) {
       this.events.emit('task.assigned', { task, assignedBy: userId });
     }
@@ -223,16 +313,34 @@ export class TasksService {
       data: { status: 'completed', completed_at: new Date() },
       include: INCLUDE_RELATIONS,
     });
-    // If it's a maintenance task, create the client note
+    // Sprint 8 Fase B.1.bis (2026-04-29): persistir notas internas como
+    // ClientNote estructurada vinculada a la task.
+    //
+    // Cambios respecto al comportamiento anterior:
+    //   1. category = 'solution' (no 'technical') — coherente con ADR-038/
+    //      ADR-039: las notas al cerrar son del tipo "solución" canónica,
+    //      no notas técnicas sueltas. Permite que la timeline del cliente
+    //      las muestre con el tono correcto.
+    //   2. task_id poblado — Sprint 8 Fase A añadió este FK; el
+    //      ClientNotesTab agrupa por origen (task) en la timeline igual
+    //      que ya hace por conversation_id. Este es el equivalente
+    //      "enlace a la fuente" que las notas de conversaciones tienen
+    //      hacia su ticket origen.
+    //   3. Aplica a CUALQUIER task que tenga internal_notes — no sólo
+    //      maintenance (el comentario antiguo era engañoso). El Sprint
+    //      8.B.5 añadirá MaintenanceLog específico para tareas de
+    //      mantenimiento; mientras tanto, la nota estructurada es
+    //      suficiente para la trazabilidad básica.
     if (dto.internal_notes && task.client_id) {
       try {
         await this.prisma.clientNote.create({
           data: {
             user_id: task.client_id,
             author_id: userId,
-            category: 'technical',
+            category: 'solution',
             body: dto.internal_notes,
             is_pinned: false,
+            task_id: task.id,
           },
         });
       } catch (err) {
@@ -249,11 +357,28 @@ export class TasksService {
     return completed;
   }
 
-  /* ── Stats ── */
-  async getStats(userId: string, isAdmin: boolean) {
-    const baseWhere: Prisma.TaskWhereInput = isAdmin
-      ? {}
-      : { OR: [{ assigned_to: userId }, { assigned_to: null }] };
+  /* ── Stats ──
+     Sprint 8.B.1.bis: respeta el `scope` igual que `findAll`. Sin esta
+     coherencia, los contadores de StatusTabs (Hoy/Semana/Pendientes/
+     Completadas) muestran cifras del conjunto global aunque el usuario
+     esté en una vista segmentada (Mis tareas / Sin asignar / Todas) —
+     bug visible cuando, p.ej., en "Sin asignar" el tab Pendientes dice
+     "5" pero al entrar la tabla está vacía. */
+  async getStats(userId: string, isAdmin: boolean, scope?: TaskScopeDto) {
+    let baseWhere: Prisma.TaskWhereInput;
+    if (scope === TaskScopeDto.mine) {
+      baseWhere = { assigned_to: userId };
+    } else if (scope === TaskScopeDto.unassigned) {
+      baseWhere = { assigned_to: null };
+    } else if (scope === TaskScopeDto.all) {
+      baseWhere = {};
+    } else {
+      // legacy fallback (sin scope explícito): admin ve todo, agente ve
+      // mine + unassigned mezcladas. Igual que en `findAll`.
+      baseWhere = isAdmin
+        ? {}
+        : { OR: [{ assigned_to: userId }, { assigned_to: null }] };
+    }
     const now = new Date();
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);

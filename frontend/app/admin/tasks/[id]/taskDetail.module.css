@@ -78,19 +78,19 @@
   color: var(--color-text);
 }
 
+.clientNameLink {
+  font-weight: 500;
+  color: var(--color-text);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.clientNameLink:hover {
+  color: var(--color-primary);
+}
+
 .clientEmail {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-}
-
-.profileLink {
-  font-size: var(--font-size-sm);
-  color: var(--color-primary);
-  text-decoration: none;
-  transition: opacity var(--transition-fast);
-}
-.profileLink:hover {
-  opacity: 0.8;
 }
 
 /* ── Timeline ── */
@@ -108,12 +108,13 @@
   color: var(--color-text-secondary);
 }
 
-.timelineIcon {
-  width: 16px;
-  height: 16px;
+.timelineDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   flex-shrink: 0;
-  margin-top: 2px;
-  color: var(--color-text-tertiary);
+  margin-top: 7px;
+  background-color: var(--color-text-tertiary);
 }
 
 .timelineText {

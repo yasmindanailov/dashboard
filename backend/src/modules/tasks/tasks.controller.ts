@@ -24,6 +24,7 @@ import {
   UpdateTaskDto,
   CompleteTaskDto,
   TaskListQueryDto,
+  TaskScopeDto,
 } from './dto/task.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PoliciesGuard } from '../../core/casl/policies.guard';
@@ -57,10 +58,13 @@ export class TasksController {
   @Get('stats')
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Task))
   @ApiOperation({ summary: 'Get task counters for StatusTabs' })
-  getStats(@Req() req: AuthenticatedRequest) {
+  getStats(
+    @Req() req: AuthenticatedRequest,
+    @Query('scope') scope?: TaskScopeDto,
+  ) {
     const user = req.user;
     const isAdmin = ['superadmin', 'agent_full'].includes(user.role.slug);
-    return this.service.getStats(user.id, isAdmin);
+    return this.service.getStats(user.id, isAdmin, scope);
   }
 
   @Get(':id')

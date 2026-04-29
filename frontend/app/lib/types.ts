@@ -54,6 +54,26 @@ export interface UserSummary {
   role?: { slug: RoleSlug; name: string };
 }
 
+/**
+ * Shape devuelto por `GET /api/v1/admin/users` (Sprint 8 Fase A — backend
+ * `AgentListItemDto`). Subconjunto del User que el frontend muestra en
+ * selectores de asignación de tareas (NewTaskModal, DetailPage reasignar).
+ *
+ * `role` es siempre uno de los 4 slugs staff asignables: `superadmin`,
+ * `agent_full`, `agent_billing`, `agent_support`. El backend filtra
+ * defense-in-depth via `ASSIGNABLE_ROLE_SLUGS`.
+ */
+export interface Agent {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  role: RoleSlug;
+  status: UserStatus;
+  avatar_url: string | null;
+}
+
 // ─── Clients ─────────────────────────────────────────────────────
 
 export type ClientType = 'b2c' | 'b2b';

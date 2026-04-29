@@ -191,7 +191,12 @@ test.describe('Tasks — cierre Sprint 8 (P0.1)', () => {
     );
     expect(notifs.rowCount).toBe(1);
     expect(notifs.rows[0].title).toContain('WOW call cliente nuevo');
-    expect(notifs.rows[0].action_url).toBe(`/dashboard/tasks/${created.id}`);
+    // Sprint 8 Fase B.1.bis (2026-04-29): tasks viven en `/admin/tasks/*`
+    // (ADR-066 + DC.7); el listener `tasks-email.listener.ts` ahora emite
+    // `action_url` apuntando al portal staff. URL legacy `/dashboard/tasks/`
+    // quedaba huérfana tras Sprint 9.6 — fix portal incluido en la sesión
+    // 8.B.1 + bugfix detection by Yasmin.
+    expect(notifs.rows[0].action_url).toBe(`/admin/tasks/${created.id}`);
     expect(notifs.rows[0].metadata?.event).toBe('task.assigned');
 
     // 4. Reasignar al agent_billing → otra notification

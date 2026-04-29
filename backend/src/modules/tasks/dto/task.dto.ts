@@ -85,6 +85,26 @@ export class CompleteTaskDto {
   @ApiPropertyOptional() @IsOptional() @IsString() internal_notes?: string;
 }
 
+/**
+ * Sprint 8.B.1.bis (2026-04-29): vista segmentada del tablero según
+ * UI_SPEC §5.15 — "Mis tareas" / "Sin asignar" / "Todas". Filtro implícito
+ * que acota qué tareas se ven antes de aplicar status/type/priority.
+ *
+ *   - `mine`        → assigned_to = userId actual.
+ *   - `unassigned`  → assigned_to IS NULL (la cola de pendientes que
+ *                     cualquier staff puede tomar).
+ *   - `all`         → todas las tareas (sólo staff; el role-based
+ *                     filtering del service no aplica scope cuando es admin).
+ *
+ * Si se omite, se mantiene el comportamiento clásico: agente ve sus
+ * tareas + sin asignar en una sola lista, admin ve todas.
+ */
+export enum TaskScopeDto {
+  mine = 'mine',
+  unassigned = 'unassigned',
+  all = 'all',
+}
+
 /* ── Query (list) ── */
 export class TaskListQueryDto {
   @ApiPropertyOptional()
@@ -97,6 +117,10 @@ export class TaskListQueryDto {
   @IsEnum(TaskPriorityDto)
   priority?: TaskPriorityDto;
   @ApiPropertyOptional() @IsOptional() @IsUUID() assigned_to?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEnum(TaskScopeDto)
+  scope?: TaskScopeDto;
   @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() time_range?:
     | 'today'

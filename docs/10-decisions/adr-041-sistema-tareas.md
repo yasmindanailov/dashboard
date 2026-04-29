@@ -119,3 +119,9 @@ Las tareas `project_task` y `custom_service` podrán asignarse a un AI Worker (e
 - **Glosario:** [Tarea](../00-foundations/glossary.md), [Slot](../00-foundations/glossary.md).
 - **Implementación:** `backend/src/modules/tasks/`, `docs/20-modules/tasks/contract.md`.
 - **Deuda conocida:** Sprint 8 WIP — listener `task.assigned` ausente, validación `assigned_to` pendiente, 2 errores lint `no-unsafe-enum-comparison` (ver development-playbook §1).
+
+---
+
+## Notas de revisión
+
+> **2026-04-29 — refinado por [ADR-072](./adr-072-tareas-sin-asignar-cola-publica.md):** la regla §"🚪 Cierra" *"No tareas sin `assigned_to`. Toda tarea tiene dueño. Nunca pool global"* queda **actualizada**. Las tareas pueden nacer sin owner si y sólo si (a) un listener automático las crea y no hay owner determinable, o (b) un admin las crea conscientemente con la opción "Sin asignar" del UI. La cola "Sin asignar" funciona como buffer temporal con presión operativa explícita: SLA por tipo (configurable en settings) + cron `tasks-unassigned-overdue` que alerta al superadmin cuando el plazo se excede. Cualquier staff con CASL `Manage.Task` puede auto-asignarse una tarea de la cola. Las demás reglas de ADR-041 (auditoría completa, tareas completadas no se reabren, asignación 1:1 con un agente concreto cuando hay owner) **siguen vigentes íntegras**.

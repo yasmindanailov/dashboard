@@ -388,12 +388,50 @@ export const supportApi = {
   },
 };
 
+// ── Users API (Sprint 8 Fase A — listar agentes asignables) ──
+//
+// Endpoint admin-only que el NewTaskModal y DetailPage usan para resolver
+// el selector de "Asignar a". El backend filtra por `ASSIGNABLE_ROLE_SLUGS`
+// (superadmin + 3 agentes); los `client`/`partner` nunca aparecen aquí
+// (defense-in-depth).
+
+export const usersApi = {
+  listAgents: (
+    token: string,
+    params?: {
+      role?: string | string[];
+      search?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) => {
+    const query = new URLSearchParams();
+    if (params?.role) {
+      const roles = Array.isArray(params.role) ? params.role : [params.role];
+      roles.forEach((r) => query.append('role', r));
+    }
+    if (params?.search) query.set('search', params.search);
+    if (params?.status) query.set('status', params.status);
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    const qs = query.toString();
+    return api(`/admin/users${qs ? `?${qs}` : ''}`, { token });
+  },
+};
+
 // ── Tasks API ──
 
 export const tasksApi = {
   list: (token: string, params?: {
     page?: number; limit?: number; status?: string; type?: string;
     priority?: string; assigned_to?: string; search?: string; time_range?: string;
+    /**
+     * Sprint 8.B.1.bis: vista segmentada según UI_SPEC §5.15.
+     * `mine` = mis tareas · `unassigned` = sin asignar · `all` = todas.
+     * Sin scope: comportamiento clásico (agente ve mine+unassigned, admin ve todas).
+     */
+    scope?: 'mine' | 'unassigned' | 'all';
   }) => {
     const query = new URLSearchParams();
     if (params?.page) query.set('page', String(params.page));
@@ -404,6 +442,7 @@ export const tasksApi = {
     if (params?.assigned_to) query.set('assigned_to', params.assigned_to);
     if (params?.search) query.set('search', params.search);
     if (params?.time_range) query.set('time_range', params.time_range);
+    if (params?.scope) query.set('scope', params.scope);
     const qs = query.toString();
     return api(`/tasks${qs ? `?${qs}` : ''}`, { token });
   },
@@ -423,8 +462,16 @@ export const tasksApi = {
   delete: (token: string, id: string) =>
     api(`/tasks/${id}`, { method: 'DELETE', token }),
 
-  getStats: (token: string) =>
-    api('/tasks/stats', { token }),
+  /**
+   * Sprint 8.B.1.bis: acepta `scope` para alinear los contadores con la
+   * vista segmentada activa. Sin `scope`, comportamiento legacy (admin
+   * ve todo, agente ve mine+unassigned mezcladas — coherente con
+   * `tasksApi.list` cuando tampoco se pasa scope).
+   */
+  getStats: (token: string, scope?: 'mine' | 'unassigned' | 'all') => {
+    const qs = scope ? `?scope=${scope}` : '';
+    return api(`/tasks/stats${qs}`, { token });
+  },
 };
 
 // ── Dashboard API ──
