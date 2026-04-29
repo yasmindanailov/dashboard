@@ -472,6 +472,57 @@ export const tasksApi = {
     const qs = scope ? `?scope=${scope}` : '';
     return api(`/tasks/stats${qs}`, { token });
   },
+
+  /**
+   * Sprint 8 Fase B.5 (2026-04-29) — checklist + maintenance log.
+   *
+   * `getChecklist` devuelve `{ items, completions }` para la task. La UI
+   * los cruza para renderizar checkboxes con su estado.
+   */
+  getChecklist: (token: string, taskId: string) =>
+    api(`/tasks/${taskId}/checklist`, { token }),
+
+  /** Marca un item como completado (idempotente por backend upsert). */
+  completeChecklistItem: (
+    token: string,
+    taskId: string,
+    data: {
+      item_id: string;
+      item_kind: 'service' | 'product';
+      notes?: string;
+    },
+  ) =>
+    api(`/tasks/${taskId}/checklist/complete`, {
+      method: 'POST',
+      token,
+      body: data,
+    }),
+
+  /**
+   * Cierra task de mantenimiento: valida items requeridos + crea
+   * `maintenance_log` + emite `maintenance.completed` (notifica al
+   * cliente). Si faltan items obligatorios → 400 con
+   * `missing_required: [{id, label, kind}]` para que la UI los muestre.
+   */
+  recordMaintenanceLog: (
+    token: string,
+    taskId: string,
+    data: {
+      notes: string;
+      month_year?: string;
+      internal_notes?: string;
+      checklist_completions?: {
+        item_id: string;
+        item_kind: 'service' | 'product';
+        notes?: string;
+      }[];
+    },
+  ) =>
+    api(`/tasks/${taskId}/maintenance/log`, {
+      method: 'POST',
+      token,
+      body: data,
+    }),
 };
 
 // ── Dashboard API ──

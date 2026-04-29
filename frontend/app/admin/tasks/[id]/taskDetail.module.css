@@ -183,3 +183,88 @@
   margin-top: var(--space-2);
   font-size: var(--font-size-sm);
 }
+
+/* ── Sprint 8 Fase B.5 — Checklist completable ── */
+.checklistHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.checklistProgress {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-alt, var(--color-bg-subtle, transparent));
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+}
+
+.checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.checklistItem {
+  display: flex;
+  align-items: flex-start;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.checklistItem:hover {
+  background: var(--color-surface-alt, transparent);
+}
+.checklistItemDone {
+  background: var(--color-surface-alt, transparent);
+  border-color: var(--color-success, var(--color-border));
+  opacity: 0.85;
+}
+.checklistItemDone .checklistText {
+  text-decoration: line-through;
+  color: var(--color-text-secondary);
+}
+.checklistItemMissing {
+  border-color: var(--color-danger);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.checklistLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  cursor: pointer;
+  flex: 1;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+.checklistLabel input[disabled] {
+  cursor: not-allowed;
+}
+
+.checklistCheckbox {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.checklistText {
+  flex: 1;
+  color: var(--color-text);
+}
+
+.checklistRequired {
+  color: var(--color-danger);
+  font-weight: 700;
+  margin-left: 4px;
+}

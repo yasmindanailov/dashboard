@@ -73,6 +73,34 @@ export default function TaskDetailPage() {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
+
+  // Sprint 8 Fase B.5 — checklist state. Items vienen del backend con su
+  // tipo (`service`/`product`) y la lista de completions ya hechas. El
+  // toggle persiste inmediatamente vía API (UI_SPEC §5.16).
+  interface ChecklistItem {
+    id: string;
+    label: string;
+    is_required: boolean;
+    order_index: number;
+    kind: 'service' | 'product';
+  }
+  interface ChecklistCompletion {
+    id: string;
+    task_id: string;
+    item_id: string;
+    item_kind: 'service' | 'product';
+    completed_by: string;
+    completed_at: string;
+    notes: string | null;
+  }
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+  const [checklistCompletions, setChecklistCompletions] = useState<
+    ChecklistCompletion[]
+  >([]);
+  const [checklistLoading, setChecklistLoading] = useState(false);
+  const [missingRequired, setMissingRequired] = useState<
+    { id: string; label: string; kind: 'service' | 'product' }[]
+  >([]);
   const [reassigning, setReassigning] = useState(false);
 
   const fetchTask = useCallback(async () => {
@@ -89,6 +117,61 @@ export default function TaskDetailPage() {
   }, [token, id]);
 
   useEffect(() => { fetchTask(); }, [fetchTask]);
+
+  // Sprint 8 Fase B.5 — carga checklist + completions cuando la task es
+  // de mantenimiento. Re-dispara cuando se completa un item para refrescar
+  // el estado (el backend devuelve la completion creada/actualizada).
+  const fetchChecklist = useCallback(async () => {
+    if (!token || !id || !task) return;
+    if (!['maintenance', 'maintenance_management'].includes(task.type)) return;
+    setChecklistLoading(true);
+    try {
+      const res = (await tasksApi.getChecklist(token, id)) as {
+        items: ChecklistItem[];
+        completions: ChecklistCompletion[];
+      };
+      setChecklistItems(res.items);
+      setChecklistCompletions(res.completions);
+    } catch {
+      // Degradación elegante: si falla, no bloqueamos la página entera
+    } finally {
+      setChecklistLoading(false);
+    }
+  }, [token, id, task]);
+
+  useEffect(() => { void fetchChecklist(); }, [fetchChecklist]);
+
+  const handleToggleChecklistItem = async (
+    itemId: string,
+    itemKind: 'service' | 'product',
+  ) => {
+    if (!token || !id) return;
+    const isCompleted = checklistCompletions.some(
+      (c) => c.item_id === itemId && c.item_kind === itemKind,
+    );
+    if (isCompleted) {
+      // Sprint 8 Fase B.5: el endpoint actual sólo soporta marcar como
+      // completado (idempotente). Desmarcar requeriría DELETE — aspiracional
+      // (EC potencial: un agente podría querer "reabrir" un item por
+      // error). Por ahora, los items completados son inmutables — la
+      // doctrina canónica de auditoría (ADR-041) lo prefiere así.
+      toast('info', 'Los items completados no se pueden desmarcar (auditoría).');
+      return;
+    }
+    try {
+      await tasksApi.completeChecklistItem(token, id, {
+        item_id: itemId,
+        item_kind: itemKind,
+      });
+      // Limpiar la lista de "missing" — el item ya no falta
+      setMissingRequired((prev) =>
+        prev.filter((m) => !(m.id === itemId && m.kind === itemKind)),
+      );
+      await fetchChecklist();
+    } catch (err) {
+      toast('error', getErrorMessage(err) || 'Error al marcar el item');
+    }
+  };
 
   // Sprint 8 Fase B.1 — carga lazy de agentes para reasignación. Sólo se
   // dispara una vez por montaje de la página (la lista cambia con muy poca
@@ -153,18 +236,72 @@ export default function TaskDetailPage() {
   };
 
   const handleComplete = async () => {
-    if (!token || !id) return;
+    if (!token || !id || !task) return;
     setCompleting(true);
+    setMissingRequired([]);
     try {
-      await tasksApi.complete(token, id, {
-        client_notes: clientNotes || undefined,
-        internal_notes: internalNotes || undefined,
-      });
+      // Sprint 8 Fase B.5: flujo adaptativo según TaskType.
+      //
+      //   - maintenance / maintenance_management → usa
+      //     `recordMaintenanceLog` que crea `maintenance_log`, valida
+      //     items requeridos del checklist (EC-T8-01) y emite
+      //     `maintenance.completed` para notificar al cliente.
+      //   - resto → usa `complete()` legacy.
+      const isMaintenance = ['maintenance', 'maintenance_management'].includes(
+        task.type,
+      );
+      if (isMaintenance) {
+        if (!clientNotes.trim()) {
+          toast(
+            'error',
+            'El resumen para el cliente es obligatorio en mantenimientos.',
+          );
+          setCompleting(false);
+          return;
+        }
+        await tasksApi.recordMaintenanceLog(token, id, {
+          notes: clientNotes,
+          internal_notes: internalNotes || undefined,
+        });
+      } else {
+        await tasksApi.complete(token, id, {
+          client_notes: clientNotes || undefined,
+          internal_notes: internalNotes || undefined,
+        });
+      }
       toast('success', 'Tarea completada. Cliente notificado.');
       setShowCompleteModal(false);
       router.push('/admin/tasks');
-    } catch (err) {
-      toast('error', getErrorMessage(err) || 'Error al completar');
+    } catch (err: unknown) {
+      // Si falla por items requeridos sin completar (EC-T8-01), el
+      // backend devuelve `missing_required: [{id, label, kind}]` en el
+      // body. Lo extraemos para resaltarlos en el checklist y guiar
+      // al agente.
+      const errBody =
+        err && typeof err === 'object' && 'message' in err
+          ? (err as { message: unknown; missing_required?: unknown }).message
+          : null;
+      const missing =
+        err && typeof err === 'object' && 'missing_required' in err
+          ? (err as { missing_required?: unknown }).missing_required
+          : null;
+      if (Array.isArray(missing)) {
+        setMissingRequired(
+          missing as { id: string; label: string; kind: 'service' | 'product' }[],
+        );
+        toast(
+          'error',
+          'Hay items obligatorios sin completar. Revisa el checklist.',
+        );
+        setShowCompleteModal(false);
+      } else {
+        toast(
+          'error',
+          (typeof errBody === 'string' ? errBody : null) ||
+            getErrorMessage(err) ||
+            'Error al completar',
+        );
+      }
     } finally {
       setCompleting(false);
     }
@@ -309,16 +446,65 @@ export default function TaskDetailPage() {
             </Card>
           )}
 
-          {/* maintenance / maintenance_management: bloque Checklist (placeholder
-              hasta Sprint 8 Fase B.5 que añade endpoints + UI checkable). */}
+          {/* maintenance / maintenance_management: bloque Checklist real
+              — Sprint 8 Fase B.5 (UI_SPEC §5.16). */}
           {isMaintenanceType && (
             <Card>
-              <h3 className={styles.cardTitle}>Checklist del servicio</h3>
-              <p className={styles.emptyDescription}>
-                Los items del checklist se cargarán cuando el servicio
-                tenga `service_checklist_items` poblados (Sprint 8 Fase B.5
-                añade endpoints + UI checkable).
-              </p>
+              <div className={styles.checklistHeader}>
+                <h3 className={styles.cardTitle}>Checklist del servicio</h3>
+                {checklistItems.length > 0 && (
+                  <span className={styles.checklistProgress}>
+                    {checklistCompletions.length} / {checklistItems.length} completados
+                  </span>
+                )}
+              </div>
+              {checklistLoading ? (
+                <Skeleton height={120} />
+              ) : checklistItems.length === 0 ? (
+                <p className={styles.emptyDescription}>
+                  Este servicio no tiene checklist asociado todavía. Los
+                  items se popularán al provisionar el servicio (Sprint 11).
+                </p>
+              ) : (
+                <ul className={styles.checklist}>
+                  {checklistItems.map((item) => {
+                    const completion = checklistCompletions.find(
+                      (c) => c.item_id === item.id && c.item_kind === item.kind,
+                    );
+                    const isMissing = missingRequired.some(
+                      (m) => m.id === item.id && m.kind === item.kind,
+                    );
+                    return (
+                      <li
+                        key={`${item.kind}:${item.id}`}
+                        className={`${styles.checklistItem} ${
+                          completion ? styles.checklistItemDone : ''
+                        } ${isMissing ? styles.checklistItemMissing : ''}`}
+                      >
+                        <label className={styles.checklistLabel}>
+                          <input
+                            type="checkbox"
+                            checked={!!completion}
+                            disabled={isClosed || !!completion}
+                            onChange={() =>
+                              handleToggleChecklistItem(item.id, item.kind)
+                            }
+                            className={styles.checklistCheckbox}
+                          />
+                          <span className={styles.checklistText}>
+                            {item.label}
+                            {item.is_required && (
+                              <span className={styles.checklistRequired} aria-label="obligatorio">
+                                *
+                              </span>
+                            )}
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </Card>
           )}
 

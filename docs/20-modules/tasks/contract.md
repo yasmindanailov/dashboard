@@ -60,7 +60,10 @@ Prefix: `/api/v1/tasks`. JWT auth en todos.
 | `GET` | `/tasks/stats` | Contadores por estado (pendientes, hoy, semana) | `Read.Task` |
 | `GET` | `/tasks/:id` | Detalle | `Read.Task` |
 | `PATCH` | `/tasks/:id` | Actualizar (campos editables, ownership según rol) | `Update.Task` |
-| `PATCH` | `/tasks/:id/complete` | Marcar como completada con notas | `Update.Task` |
+| `PATCH` | `/tasks/:id/complete` | Marcar como completada con notas (custom_work / wow_call) | `Update.Task` |
+| `GET` | `/tasks/:id/checklist` | Sprint 8 Fase B.5 — items + completions de la task (cruzados con `service_checklist_items` snapshot o fallback `product_checklist_items`) | `Read.Task` |
+| `POST` | `/tasks/:id/checklist/complete` | Sprint 8 Fase B.5 — marcar item como completado (idempotente upsert) | `Update.Task` |
+| `POST` | `/tasks/:id/maintenance/log` | Sprint 8 Fase B.5 — flujo "Completar y notificar" maintenance: valida required (EC-T8-01) + crea `maintenance_log` + emite `maintenance.completed` (transacción atómica) | `Update.Task` |
 | `DELETE` | `/tasks/:id` | Eliminar tarea | `Delete.Task` |
 
 > **Data isolation por rol:** los agentes (`agent_*`) solo ven tareas asignadas a sí mismos o sin asignar. `superadmin` y `agent_full` ven todas. Aplicado en service (no solo CASL).
@@ -81,7 +84,8 @@ N/A — tasks no tiene gateway. Las actualizaciones se ven al refrescar la pági
 |--------|--------|--------|--------|
 | `task.created` | Tras `create()` exitoso | ❌ | 🟡 Huérfano (audit futuro) |
 | `task.assigned` | Tras `create()` o `update()` con cambio de `assigned_to` | ❌ | ✅ Consumido por `tasks-email.listener` (email + notificación interna al agente). |
-| `task.completed` | Tras `update({status: completed})` o `complete()` | ❌ | 🟡 Huérfano (audit futuro) |
+| `task.completed` | Tras `update({status: completed})`, `complete()` o `MaintenanceLogService.recordCompletion()` | ❌ | 🟡 Huérfano (audit futuro) |
+| `maintenance.completed` | Tras `MaintenanceLogService.recordCompletion()` post-commit (Sprint 8 Fase B.5) | ❌ — pendiente Outbox Sprint P-DEPLOY.4 | ✅ Consumido por `MaintenanceCompletedListener` → `NotificationsService` (email + campana cliente). |
 
 > **Estado P0.1 (2026-04-26):** `task.assigned` ya tiene listener (`tasks-email.listener.ts`). Los otros dos siguen huérfanos a la espera del módulo `audit` (Sprint 9 P1.1).
 
@@ -222,6 +226,7 @@ Lista canónica de edge cases del módulo vive en [`docs/60-roadmap/current.md` 
 - [x] ~~Auto-asignación desde cola pública (EC-T8-22 — alineado con [ADR-072](../../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md))~~ ✅ Sprint 8 Fase B.1.bis
 - [x] ~~**Sprint 8 Fase B.2:** bloques adaptativos por TaskType (wow_call con datos del cliente + plan, maintenance con placeholder checklist, project_task con placeholder Sprint 22) + sidebar Servicio + helpers formatAmount/translateCycle/translateServiceStatus~~ ✅ Sprint 8 Fase B.2 (2026-04-29)
 - [x] ~~**Sprint 8 Fase B.4:** ClientNotesTab con link "Tarea origen" + título + badge tipo. Backend `listStructuredNotes` enriquecido con `task_title`/`task_type` (query batch sin N+1)~~ ✅ Sprint 8 Fase B.4 (2026-04-29)
+- [x] ~~**Sprint 8 Fase B.5:** ChecklistCompletionService (upsert idempotente) + MaintenanceLogService (transacción atómica) + 3 endpoints (GET checklist, POST checklist/complete, POST maintenance/log). Listener `MaintenanceCompletedListener` + plantillas seed `maintenance.completed`. UI checklist completable con progreso N/M. Cierra EC-T8-01 (required missing → 400 con `missing_required`). Fix oportunista: `GlobalExceptionFilter` preserva metadata adicional del body cuando HttpException se construye con objeto~~ ✅ Sprint 8 Fase B.5 (2026-04-29)
 - [ ] **Sprint 8 Fase B (pendiente):** validaciones EC-T8-12..17 (due_date pasado, service_id↔client_id, regex billing_month, MaxLength description, sanitización plantillas)
 - [ ] **Sprint 8 Fase C (pendiente):** listeners `task.overdue`, `maintenance.completed`, `maintenance.critical` + cron `not_completed_in_time` + cron `tasks-unassigned-overdue` (ADR-072) + WOW calls automáticos
 - [ ] **Sprint 8 Fase D (pendiente):** Support Inside ([ADR-061](../../10-decisions/adr-061-support-inside-tier-cuenta-ux.md))

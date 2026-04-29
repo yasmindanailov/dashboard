@@ -253,6 +253,70 @@ export async function seedNotificationTemplates(
       },
     },
 
+    // ───────────── maintenance.completed (email cliente) ─────────────
+    // Sprint 8 Fase B.5 — UI_SPEC §5.16 flujo "Completar y notificar":
+    // tras cerrar la task de mantenimiento se envía email al cliente
+    // con resumen del trabajo. Variables computadas por el listener
+    // (mes en es-ES, URL de servicio).
+    {
+      event_type: 'maintenance.completed',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Mantenimiento completado · {{month_label}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Mantenimiento completado</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{month_label}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola {{#if recipient.first_name}}{{recipient.first_name}}{{else}}cliente{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hemos completado el mantenimiento mensual de tu servicio.
+              Aquí tienes el resumen del trabajo realizado:
+            </p>
+            <div style="background: #f9fafb; border-left: 4px solid #635BFF; border-radius: 8px; padding: 16px 20px; margin: 20px 0;">
+              <p style="color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin: 0;">{{notes}}</p>
+            </div>
+            <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+              Si tienes cualquier duda sobre este mantenimiento o detectas
+              algo que revisar, contáctanos respondiendo a este correo o
+              desde tu panel de cliente.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{service_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver mi servicio</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        task_id: 'string',
+        maintenance_log_id: 'string',
+        service_id: 'string',
+        month_year: 'string',
+        month_label: 'string',
+        notes: 'string',
+        service_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── maintenance.completed (campana cliente) ─────────────
+    {
+      event_type: 'maintenance.completed',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Mantenimiento completado · {{month_label}}',
+      body:
+        'Hemos completado el mantenimiento mensual de tu servicio ({{month_label}}). Revisa el resumen desde tu panel.',
+      variables: {
+        month_year: 'string',
+        month_label: 'string',
+      },
+    },
+
     // ───────────── outbox.event_failed (campana superadmin) ─────────────
     {
       event_type: 'outbox.event_failed',

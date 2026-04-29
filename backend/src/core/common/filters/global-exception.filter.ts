@@ -68,11 +68,35 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       `[${correlationId}] ${request.method} ${request.url} → ${status}: ${message}`,
     );
 
+    // Sprint 8 Fase B.5 (2026-04-29): preservar metadata adicional del
+    // body cuando una HttpException se construye con un objeto (ej.
+    // `BadRequestException({ message, missing_required: [...] })`).
+    // Sin esto, casos como EC-T8-01 (items requeridos sin completar)
+    // perderían el array `missing_required` que la UI necesita para
+    // resaltar los items bloqueantes en el checklist.
+    const extraBody: Record<string, unknown> = {};
+    if (exception instanceof HttpException) {
+      const exResponse = exception.getResponse();
+      if (
+        exResponse &&
+        typeof exResponse === 'object' &&
+        !Array.isArray(exResponse)
+      ) {
+        const obj = exResponse as Record<string, unknown>;
+        for (const key of Object.keys(obj)) {
+          if (key !== 'message' && key !== 'statusCode' && key !== 'error') {
+            extraBody[key] = obj[key];
+          }
+        }
+      }
+    }
+
     response.status(status).json({
       statusCode: status,
       message,
       correlationId,
       timestamp: new Date().toISOString(),
+      ...extraBody,
     });
   }
 }
