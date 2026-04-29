@@ -71,10 +71,11 @@ const DEFAULT_PREVIEW_SAMPLES: Record<string, Record<string, unknown>> = {
   'task.assigned': {
     task_id: '00000000-0000-0000-0000-000000000000',
     task_title: 'Llamada de bienvenida',
-    task_type: 'wow_call',
-    task_type_label: 'WOW Call',
+    task_type: 'contact_client',
+    task_type_label: 'Contactar cliente',
     task_priority: 'high',
     task_priority_label: 'Alta',
+    task_reason: 'Bienvenida primer servicio',
     task_url: 'http://localhost:3002/admin/tasks/preview',
     due_label: '15 may 2026',
   },

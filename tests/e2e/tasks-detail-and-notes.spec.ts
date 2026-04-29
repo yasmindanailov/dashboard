@@ -1,7 +1,8 @@
 /**
  * E2E — Sprint 8 Fase B.2 + B.4 (2026-04-29).
  *
- * B.2 (UI_SPEC §5.16 sidebar Servicio + bloque adaptativo wow_call):
+ * B.2 (UI_SPEC §5.16 sidebar Servicio + bloque adaptativo de servicio,
+ *      generalizado en B.7 ADR-073 a cualquier tipo con service_id):
  *   - GET /tasks/:id devuelve `service` poblado con product/amount/cycle
  *     cuando task.service_id no es null (`INCLUDE_RELATIONS_DETAIL`).
  *   - GET /tasks/:id sin service_id devuelve `service` undefined/null
@@ -179,7 +180,7 @@ test.describe('Tasks — detail enrichment (B.2) + notes con task origen (B.4)',
     request,
   }) => {
     const createRes = await authed(request, token, 'POST', '/tasks', {
-      type: 'wow_call',
+      type: 'contact_client',
       title: 'B.2 wow call con servicio',
       priority: 'high',
       client_id: clientUserId,

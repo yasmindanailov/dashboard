@@ -178,7 +178,7 @@ test.describe.serial('Notifications campana — Sprint 9.5 (ADR-042/065)', () =>
         'Content-Type': 'application/json',
       },
       data: {
-        type: 'wow_call',
+        type: 'contact_client',
         title: 'Notificación E2E — verificar campana',
         description: 'Prueba de campana Topbar',
         priority: 'high',
@@ -271,7 +271,7 @@ test.describe.serial('Notifications campana — Sprint 9.5 (ADR-042/065)', () =>
         'Content-Type': 'application/json',
       },
       data: {
-        type: 'wow_call',
+        type: 'contact_client',
         title: 'Mark-all E2E',
         description: 'verificación read-all',
         priority: 'medium',

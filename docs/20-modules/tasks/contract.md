@@ -33,9 +33,11 @@ NO es visible al cliente — es herramienta interna del equipo.
 
 | Tabla | Descripción | Invariantes destacadas |
 |-------|-------------|------------------------|
-| `tasks` | Tareas internas del equipo | `assigned_to` puede ser null (sin asignar). `due_date` opcional. `status`: `pending`, `in_progress`, `completed`, `cancelled`. |
+| `tasks` | Tareas internas del equipo | `assigned_to` puede ser null (sin asignar). `due_date` opcional. `status`: `pending`, `in_progress`, `completed`, `cancelled`. `reason` texto libre <=100 (Sprint 8 Fase B.7 — ADR-073). |
+| `task_tags` | Catálogo de etiquetas extensibles asignables a tareas (Sprint 8 Fase B.7 — ADR-073) | `slug` único kebab-case. `label` mostrable. `color` hex opcional. Crear/borrar requiere `Manage.TaskTag`. |
+| `task_tag_assignments` | M2M Task ↔ TaskTag (Sprint 8 Fase B.7 — ADR-073) | PK compuesta `(task_id, tag_id)`. Cascada FK borra assignments al eliminar task o tag. |
 
-> Schema simple. No hay subtareas, dependencias entre tareas, ni etiquetas en este sprint. Si se priorizan en futuro, requieren tablas adicionales.
+> El enum `TaskType` se mantiene cerrado y representa **qué bloque/automatización activa la tarea**, no la intención humana. El POR QUÉ humano vive en `reason` (libre) + `tags` (extensibles). Para añadir un contexto operativo nuevo (ej. "renovación hosting") se crea un tag desde `/admin/task-tags`, NO un valor de enum nuevo. Ver [ADR-073](../../10-decisions/adr-073-tipos-flexibles-tasks-reason-tags.md).
 
 ---
 
@@ -56,6 +58,9 @@ Prefix: `/api/v1/tasks`. JWT auth en todos.
 | Método | Ruta | Descripción | CASL |
 |--------|------|-------------|------|
 | `POST` | `/tasks` | Crear tarea | `Create.Task` |
+| `GET` | `/admin/task-tags` | Listar tags disponibles (catálogo) — Sprint 8 Fase B.7 / ADR-073 | `Read.TaskTag` |
+| `POST` | `/admin/task-tags` | Crear tag (slug auto-generado del label si se omite) | `Manage.TaskTag` |
+| `DELETE` | `/admin/task-tags/:id` | Eliminar tag (cascada borra assignments) | `Manage.TaskTag` |
 | `GET` | `/tasks` | Listar (paginated, filtros por status, priority, assigned_to, client_id, service_id) | `Read.Task` + role filter |
 | `GET` | `/tasks/stats` | Contadores por estado (pendientes, hoy, semana) | `Read.Task` |
 | `GET` | `/tasks/:id` | Detalle | `Read.Task` |
@@ -112,6 +117,7 @@ Ninguno. `TasksService` directo (sin sub-services todavía — el archivo está 
 | Subject | Descripción |
 |---------|-------------|
 | `Subject.Task` | Tareas internas |
+| `Subject.TaskTag` | Etiquetas extensibles del catálogo (Sprint 8 Fase B.7 — ADR-073) |
 | `Subject.Maintenance` | (futuro) tareas de mantenimiento programado |
 
 ### Permisos por rol
@@ -119,7 +125,10 @@ Ninguno. `TasksService` directo (sin sub-services todavía — el archivo está 
 | Subject | superadmin | agent_full | agent_billing | agent_support | client | partner |
 |---------|------------|------------|---------------|---------------|--------|---------|
 | `Task` | manage | manage | manage | manage | — | — |
+| `TaskTag` | manage | manage | read+list | read+list | — | — |
 | `Maintenance` | manage | manage | manage | manage | — | — |
+
+> **TaskTag** (ADR-073): crear/borrar es exclusivo de `superadmin` + `agent_full` para evitar proliferación descontrolada. Los demás agentes pueden leer la lista (necesaria para asignar tags al crear tareas) pero no editar el catálogo.
 
 > **Importante:** clientes y partners NO ven tareas. Es 100% herramienta interna.
 
@@ -188,9 +197,13 @@ Lista canónica de edge cases del módulo vive en [`docs/60-roadmap/current.md` 
 - [`tests/e2e/admin-users-list.spec.ts`](../../../tests/e2e/admin-users-list.spec.ts) — endpoint listar agentes para selector NewTaskModal (Sprint 8 Fase A).
 
 **Cobertura tests unit (Sprint 8 Fase B EC-T8-12..17)**:
-- [`backend/src/modules/tasks/dto/task.dto.spec.ts`](../../../backend/src/modules/tasks/dto/task.dto.spec.ts) — 13 specs declarativos: EC-T8-14 (`@ValidateIf` recurrence), EC-T8-15 (`BILLING_MONTH_REGEX`), EC-T8-16 (`@MaxLength(50000)`).
+- [`backend/src/modules/tasks/dto/task.dto.spec.ts`](../../../backend/src/modules/tasks/dto/task.dto.spec.ts) — 19 specs declarativos: EC-T8-14 (`@ValidateIf` recurrence), EC-T8-15 (`BILLING_MONTH_REGEX`), EC-T8-16 (`@MaxLength(50000)`); + B.7 ADR-073 (`reason` MaxLength 100, `tag_ids` ArrayMaxSize 10 + IsUUID each).
 - [`backend/src/modules/tasks/tasks.service.spec.ts`](../../../backend/src/modules/tasks/tasks.service.spec.ts) — 9 specs: EC-T8-12 (`due_date` pasada + bypass `allowOverdue`), EC-T8-13 (`service.user_id === client_id`).
+- [`backend/src/modules/tasks/task-tags.service.spec.ts`](../../../backend/src/modules/tasks/task-tags.service.spec.ts) — 6 specs (Sprint 8 Fase B.7): list orderBy, slug auto-generado kebab-case, slug explícito, BadRequest si label sólo símbolos, P2002 → 409, NotFound en remove.
 - [`backend/src/modules/notifications/notification-templates.security.spec.ts`](../../../backend/src/modules/notifications/notification-templates.security.spec.ts) — 3 specs guard EC-T8-17: ningún `{{{var}}}` ni `{{& var}}` en plantillas seedeadas.
+
+**Cobertura tests E2E nuevos (Sprint 8 Fase B.7)**:
+- [`tests/e2e/tasks-reason-and-tags.spec.ts`](../../../tests/e2e/tasks-reason-and-tags.spec.ts) — 7 specs: catálogo seedeado, crear tag con slug auto, crear task con `reason+tag_ids`, update reason='' → null, update tag_ids=[] desetiqueta, tag_id inexistente → 400, agent_billing puede LEER tags pero NO crear/borrar.
 
 ---
 
@@ -234,6 +247,7 @@ Lista canónica de edge cases del módulo vive en [`docs/60-roadmap/current.md` 
 - [x] ~~**Sprint 8 Fase B.5:** ChecklistCompletionService (upsert idempotente) + MaintenanceLogService (transacción atómica) + 3 endpoints (GET checklist, POST checklist/complete, POST maintenance/log). Listener `MaintenanceCompletedListener` + plantillas seed `maintenance.completed`. UI checklist completable con progreso N/M. Cierra EC-T8-01 (required missing → 400 con `missing_required`). Fix oportunista: `GlobalExceptionFilter` preserva metadata adicional del body cuando HttpException se construye con objeto~~ ✅ Sprint 8 Fase B.5 (2026-04-29)
 - [x] ~~**Sprint 8 Fase B.3:** DS compliance — fix masivo tokens fantasma `--color-*` → canónicos (`--text-*`, `--brand`, `--border`, `--danger`, `--warning`, `--success`, `--surface-*`) en `types.ts` + `tasks.module.css` + `taskDetail.module.css` (38 ocurrencias). Eliminación 4 inline styles ad-hoc → clases CSS module. font-weight numéricos → tokens. Suite 88/88 sin regresión~~ ✅ Sprint 8 Fase B.3 (2026-04-29)
 - [x] ~~**Sprint 8 Fase B EC-T8-12..17:** validaciones defensivas — `assertDueDateNotInPast` (con bypass `allowOverdue` para cron Fase D) + `assertServiceBelongsToClient` en `TasksService` · `is_recurring↔recurrence_day` con `@ValidateIf` · regex `BILLING_MONTH_REGEX` aplicada a `billing_month` · `@MaxLength(50000)` en `description` · auditoría plantillas Handlebars (0 patrones unsafe) + test guard `notification-templates.security.spec.ts` · fix oportunista password seed E2E (`AeliumDev2026!`)~~ ✅ Sprint 8 Fase B (2026-04-29) — 60/60 unit, 88/88 E2E.
+- [x] ~~**Sprint 8 Fase B.7 — ADR-073: tipos flexibles (reason + tags):** rename enum `wow_call` → `contact_client` (preserva contexto histórico via `reason='Bienvenida primer servicio'` en migration data) · columna `tasks.reason` (texto libre <=100) · catálogo `task_tags` + tabla pivote `task_tag_assignments` m2m explícita · 3 endpoints `/admin/task-tags` (list / create / delete) con CASL `Subject.TaskTag` · seed canónico `sample-task-tags.ts` (5 tags: bienvenida, renovación, incidencia, migración, cortesía) · bloque adaptativo "Datos del cliente + plan" generalizado a cualquier tarea con `service_id` (no exclusivo del tipo) · `NewTaskModal` con input "Motivo" + multi-toggle de tags + crear inline · chips en tablero y detail · `frontend/app/lib/types.ts` SINCRONIZADO con backend (antes divergía en `TaskPriority='urgent'`/`'critical'`, falta `not_completed_in_time`, sobraban `follow_up`/`other`).~~ ✅ Sprint 8 Fase B.7 (2026-04-29) — 73/73 unit (60 previos + 13 nuevos), 95/95 E2E (88 previos + 7 nuevos).
 - [ ] **Sprint 8 Fase C (pendiente):** listeners `task.overdue`, `maintenance.completed`, `maintenance.critical` + cron `not_completed_in_time` + cron `tasks-unassigned-overdue` (ADR-072) + WOW calls automáticos
 - [ ] **Sprint 8 Fase D (pendiente):** Support Inside ([ADR-061](../../10-decisions/adr-061-support-inside-tier-cuenta-ux.md))
 - [ ] **Sprint 8 Fase E (pendiente):** docs `features/tasks/admin.md` + `agent.md`

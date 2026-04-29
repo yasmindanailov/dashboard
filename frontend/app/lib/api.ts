@@ -525,6 +525,29 @@ export const tasksApi = {
     }),
 };
 
+// ── Task Tags API ── Sprint 8 Fase B.7 (ADR-073)
+
+export interface TaskTagPayload {
+  id: string;
+  slug: string;
+  label: string;
+  color: string | null;
+  created_at: string;
+}
+
+export const taskTagsApi = {
+  list: (token: string) =>
+    api<TaskTagPayload[]>('/admin/task-tags', { token }),
+
+  create: (
+    token: string,
+    data: { label: string; slug?: string; color?: string },
+  ) => api<TaskTagPayload>('/admin/task-tags', { method: 'POST', token, body: data }),
+
+  delete: (token: string, id: string) =>
+    api(`/admin/task-tags/${id}`, { method: 'DELETE', token }),
+};
+
 // ── Dashboard API ──
 
 export interface AdminOverview {

@@ -119,4 +119,50 @@ describe('CreateTaskDto / UpdateTaskDto — EC-T8-14/15/16 validaciones DTO', ()
       expect(offending).toBeDefined();
     });
   });
+
+  /* ── Sprint 8 Fase B.7 — ADR-073: reason MaxLength(100) ── */
+  describe('B.7 — reason MaxLength 100', () => {
+    it('acepta reason en el límite (100 chars)', async () => {
+      const errs = await validate(buildCreate({ reason: 'x'.repeat(100) }));
+      expect(errs).toHaveLength(0);
+    });
+
+    it('rechaza reason >100 chars', async () => {
+      const errs = await validate(buildCreate({ reason: 'x'.repeat(101) }));
+      const offending = errs.find((e) => e.property === 'reason');
+      expect(offending).toBeDefined();
+    });
+
+    it('aplica la misma regla en UpdateTaskDto', async () => {
+      const errs = await validate(buildUpdate({ reason: 'x'.repeat(101) }));
+      const offending = errs.find((e) => e.property === 'reason');
+      expect(offending).toBeDefined();
+    });
+  });
+
+  /* ── Sprint 8 Fase B.7 — ADR-073: tag_ids ArrayMaxSize(10) + IsUUID ── */
+  describe('B.7 — tag_ids array de UUIDs <=10', () => {
+    const validId = '00000000-0000-4000-8000-000000000002';
+
+    it('acepta hasta 10 UUIDs válidos', async () => {
+      const tags = Array.from({ length: 10 }, () => validId);
+      const errs = await validate(buildCreate({ tag_ids: tags }));
+      expect(errs).toHaveLength(0);
+    });
+
+    it('rechaza 11 elementos', async () => {
+      const tags = Array.from({ length: 11 }, () => validId);
+      const errs = await validate(buildCreate({ tag_ids: tags }));
+      const offending = errs.find((e) => e.property === 'tag_ids');
+      expect(offending).toBeDefined();
+    });
+
+    it('rechaza si algún elemento no es UUID', async () => {
+      const errs = await validate(
+        buildCreate({ tag_ids: [validId, 'not-a-uuid'] }),
+      );
+      const offending = errs.find((e) => e.property === 'tag_ids');
+      expect(offending).toBeDefined();
+    });
+  });
 });

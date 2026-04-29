@@ -35,7 +35,7 @@ const CAT_LABELS: Record<string, string> = {
  * alguno cambia, hay que actualizar los tres a la vez.
  */
 const TASK_TYPE_LABELS: Record<string, string> = {
-  wow_call: 'WOW Call',
+  contact_client: 'Contactar cliente',
   maintenance: 'Mantenimiento',
   maintenance_management: 'Mant. + Gestión',
   project_task: 'Proyecto',

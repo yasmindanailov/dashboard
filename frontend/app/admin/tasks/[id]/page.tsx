@@ -331,22 +331,34 @@ export default function TaskDetailPage() {
 
   const isClosed = ['completed', 'cancelled', 'not_completed_in_time'].includes(task.status);
   const isMaintenanceType = ['maintenance', 'maintenance_management'].includes(task.type);
-  const isWowCallType = task.type === 'wow_call';
+  const isContactClientType = task.type === 'contact_client';
   const isProjectTaskType = task.type === 'project_task';
+  // Sprint 8 Fase B.7 (2026-04-29) — ADR-073: el bloque "Datos del cliente
+  // + plan" deja de ser exclusivo de `contact_client` y se renderiza
+  // siempre que la tarea tenga `service_id` vinculado. Independiente del
+  // tipo: el contexto operativo "este trabajo es sobre este servicio" es
+  // útil para cualquier tipo (custom_work, maintenance, etc.).
+  const showServiceBlock = task.service != null;
   // UI_SPEC §5.16 — etiqueta del campo "Notas para el cliente" cambia
-  // según el tipo de task. Para wow_call se llama "Resumen de la
+  // según el tipo de task. Para contact_client se llama "Resumen de la
   // llamada" (es lo que el agente apunta tras hablar con el cliente);
   // para maintenance es "Notas para el cliente" (van al email de cierre).
-  const clientNotesLabel = isWowCallType
+  const clientNotesLabel = isContactClientType
     ? 'Resumen de la llamada'
     : 'Notas para el cliente';
-  const clientNotesPlaceholder = isWowCallType
+  const clientNotesPlaceholder = isContactClientType
     ? 'Resume la conversación con el cliente: dudas resueltas, próximos pasos...'
     : 'Estas notas se incluirán en la notificación al cliente...';
+  const tagAssignments = task.tag_assignments ?? [];
 
   const taskHeader = (
     <>
       <h2>{task.title}</h2>
+      {/* Sprint 8 Fase B.7 — ADR-073: el "porqué humano" sale como subtítulo
+          bajo el title si está poblado. Truncamos vía CSS, no aquí. */}
+      {task.reason && (
+        <p className={styles.taskReason}>{task.reason}</p>
+      )}
       <div className={styles.headerBadges}>
         <Badge variant="neutral">{TASK_TYPE_LABELS[task.type] || task.type}</Badge>
         <Badge variant={(TASK_STATUS_VARIANTS[task.status] as BadgeVariant) || 'neutral'}>
@@ -355,6 +367,26 @@ export default function TaskDetailPage() {
         <Badge variant={task.priority === 'critical' ? 'danger' : task.priority === 'high' ? 'warning' : 'neutral'}>
           {TASK_PRIORITY_LABELS[task.priority]}
         </Badge>
+        {/* Sprint 8 Fase B.7 — ADR-073: chips de tags asignados.
+            Usan color del tag si está definido, fallback al neutral del DS.
+            <span> dedicado (no Badge) porque tags admiten color arbitrario. */}
+        {tagAssignments.map((a) => (
+          <span
+            key={a.tag.id}
+            className={styles.tagChip}
+            style={
+              a.tag.color
+                ? {
+                    backgroundColor: `${a.tag.color}1A`,
+                    color: a.tag.color,
+                    borderColor: `${a.tag.color}33`,
+                  }
+                : undefined
+            }
+          >
+            {a.tag.label}
+          </span>
+        ))}
       </div>
       {!isClosed && (
         <div className={styles.headerControls}>
@@ -404,10 +436,12 @@ export default function TaskDetailPage() {
           )}
 
           {/* Sprint 8 Fase B.2 — bloques adaptativos por TaskType (UI_SPEC §5.16).
-              Cada tipo de tarea tiene su superficie operativa específica. */}
+              Cada tipo de tarea tiene su superficie operativa específica.
+              Sprint 8 Fase B.7 (ADR-073) — el bloque "Datos del cliente +
+              servicio" deja de ser exclusivo de `contact_client` y se
+              renderiza para CUALQUIER tipo cuando hay `service` vinculado. */}
 
-          {/* wow_call: bloque "Datos del cliente" con info contratada */}
-          {isWowCallType && task.service && (
+          {showServiceBlock && task.service && (
             <Card>
               <h3 className={styles.cardTitle}>Datos del cliente</h3>
               <dl className={styles.dataList}>

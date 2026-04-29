@@ -5,6 +5,8 @@
 > **Domain:** tasks, operativa interna
 > **Sprint:** Sprint 8 Fase B.1.bis
 
+> 📜 **Nota canónica (2026-04-29 — [ADR-073](./adr-073-tipos-flexibles-tasks-reason-tags.md)):** el setting `tasks.unassigned_sla_hours.wow_call` se renombra a `tasks.unassigned_sla_hours.contact_client`. El listener canónico aludido aquí como `WowCallCreatorListener` se renombra `ContactClientTaskListener`. Mismo comportamiento, nombre alineado con el enum vigente.
+
 ---
 
 ## Contexto

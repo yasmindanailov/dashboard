@@ -1,9 +1,11 @@
 # ADR-041 — Sistema de tareas internas
 
-> **Status:** Active
+> **Status:** Active (refinado por [ADR-072](./adr-072-tareas-sin-asignar-cola-publica.md) §"cola pública" y por [ADR-073](./adr-073-tipos-flexibles-tasks-reason-tags.md) §"tipos flexibles: reason + tags")
 > **Date:** 2026-04 (Sprint 8) · 2026-04-26 (migración a ADR)
 > **Original:** DECISIONS.md §10
 > **Domain:** tasks
+
+> 📜 **Nota canónica (Sprint 8 Fase B.7 — 2026-04-29):** [ADR-073](./adr-073-tipos-flexibles-tasks-reason-tags.md) renombra el tipo `wow_call` → `contact_client` y separa el QUÉ del POR QUÉ. El enum `TaskType` se mantiene cerrado y representa qué bloque/automatización dispara la tarea; la intención humana ("Bienvenida primer servicio", "Renovación", "Aviso migración") vive en `Task.reason` (libre <=100) + tags asignables en `task_tags`. Los listeners del Sprint 11 que ADR-041 llamaba `WowCallCreatorListener` se renombran `ContactClientTaskListener` y emiten `type=contact_client` con `reason` + tag `bienvenida`.
 
 ---
 

@@ -15,6 +15,8 @@ import {
   Min,
   Max,
   IsBoolean,
+  IsArray,
+  ArrayMaxSize,
   Matches,
   ValidateIf,
 } from 'class-validator';
@@ -31,8 +33,15 @@ import { Type } from 'class-transformer';
  */
 export const BILLING_MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 
+/**
+ * Sprint 8 Fase B.7 (2026-04-29) — ADR-073 renombra `wow_call` → `contact_client`.
+ * El enum representa qué bloque/automatización activa la tarea, NO la intención
+ * humana. La intención vive en `reason` (texto libre <=100) + `tag_ids[]`
+ * extensibles. Para añadir un nuevo contexto operativo (ej: "renovación
+ * hosting"), crear un tag desde el admin — NO añadir un nuevo valor de enum.
+ */
 export enum TaskTypeDto {
-  wow_call = 'wow_call',
+  contact_client = 'contact_client',
   maintenance = 'maintenance',
   maintenance_management = 'maintenance_management',
   project_task = 'project_task',
@@ -114,6 +123,28 @@ export class CreateTaskDto {
     message: 'billing_month debe tener formato YYYY-MM con mes 01-12',
   })
   billing_month?: string;
+
+  /* ── Sprint 8 Fase B.7 (2026-04-29) — ADR-073 ── */
+
+  @ApiPropertyOptional({
+    description:
+      'POR QUÉ humano de la tarea ("Bienvenida primer servicio", "Renovación", "Aviso migración"). Texto libre opcional <=100 chars.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  reason?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'IDs de TaskTag a asignar al crear (máx. 10). Los tags deben existir previamente — se crean desde `/admin/task-tags`.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsUUID('all', { each: true })
+  tag_ids?: string[];
 }
 
 /* ── Update ──
@@ -165,6 +196,28 @@ export class UpdateTaskDto {
     message: 'billing_month debe tener formato YYYY-MM con mes 01-12',
   })
   billing_month?: string;
+
+  /* ── Sprint 8 Fase B.7 (2026-04-29) — ADR-073 ── */
+
+  @ApiPropertyOptional({
+    description:
+      'POR QUÉ humano de la tarea. Texto libre opcional <=100 chars. Pasar string vacío para limpiar.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  reason?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'IDs de TaskTag (set completo: reemplaza la lista actual de la tarea). Pasar array vacío para desetiquetar.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsUUID('all', { each: true })
+  tag_ids?: string[];
 }
 
 /* ── Complete ── */

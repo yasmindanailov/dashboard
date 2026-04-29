@@ -82,6 +82,7 @@ model User {
   checklist_completions      TaskChecklistCompletion[] @relation("ChecklistCompleter")
   maintenance_logs_performed MaintenanceLog[]          @relation("MaintenancePerformer")
   maintenance_logs_as_client MaintenanceLog[]          @relation("ClientMaintenanceLogs")
+  task_tags_created          TaskTag[]                 @relation("TaskTagCreator")
 
   @@index([email])
   @@index([role_id])
@@ -630,8 +631,13 @@ model Message {
 
 // ─── BLOQUE 8: TAREAS ───
 
+// Sprint 8 Fase B.7 (2026-04-29) — ADR-073 renombra `wow_call` → `contact_client`.
+// El enum representa qué bloque/automatización activa la tarea, no la intención
+// del agente. La intención humana ("Bienvenida primer servicio", "Renovación
+// hosting", etc.) vive en `Task.reason` (texto libre <=100) + tags asignables
+// extensibles en `task_tags`.
 enum TaskType {
-  wow_call
+  contact_client
   maintenance
   maintenance_management
   project_task
@@ -672,6 +678,11 @@ model Task {
   is_recurring    Boolean      @default(false)
   recurrence_day  Int?
   billing_month   String?      @db.VarChar(7)
+  // Sprint 8 Fase B.7 (2026-04-29) — ADR-073. POR QUÉ humano de la tarea
+  // ("Bienvenida primer servicio", "Renovación próxima", etc.). Texto libre
+  // opcional. Visible en el detalle bajo el título y truncado a 60 chars en
+  // el tablero. Indexable para futura búsqueda full-text.
+  reason          String?      @db.VarChar(100)
   metadata        Json?
   created_at      DateTime     @default(now()) @db.Timestamptz()
   updated_at      DateTime     @default(now()) @updatedAt @db.Timestamptz()
@@ -683,6 +694,7 @@ model Task {
   checklist_completions TaskChecklistCompletion[] @relation("TaskChecklistCompletions")
   maintenance_log       MaintenanceLog?           @relation("TaskMaintenanceLog")
   structured_notes      ClientNote[]              @relation("TaskClientNotes")
+  tag_assignments       TaskTagAssignment[]       @relation("TaskTagAssignments")
 
   @@unique([service_id, billing_month, type], name: "uniq_task_maintenance_per_month", map: "tasks_uniq_maintenance_per_month")
   @@index([assigned_to])
@@ -691,6 +703,39 @@ model Task {
   @@index([due_date])
   @@index([billing_month])
   @@map("tasks")
+}
+
+// ─── BLOQUE 8B BIS: TAGS DE TAREAS ───
+// Sprint 8 Fase B.7 (2026-04-29) — ADR-073. Etiquetas extensibles asignables
+// por staff con `Manage.Task`. Crear/borrar etiquetas requiere `Manage.TaskTag`
+// (superadmin + agent_full). Clientes/partners NO ven tags. M2M explícita
+// para que CASL filtre por tag y para que la UI pueda mostrar metadatos
+// (color, fecha de creación) sin queries adicionales.
+model TaskTag {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug        String              @unique @db.VarChar(50)
+  label       String              @db.VarChar(50)
+  color       String?             @db.VarChar(7)
+  created_at  DateTime            @default(now()) @db.Timestamptz()
+  created_by  String?             @db.Uuid
+
+  creator     User?               @relation("TaskTagCreator", fields: [created_by], references: [id])
+  assignments TaskTagAssignment[] @relation("TagAssignments")
+
+  @@map("task_tags")
+}
+
+model TaskTagAssignment {
+  task_id     String   @db.Uuid
+  tag_id      String   @db.Uuid
+  assigned_at DateTime @default(now()) @db.Timestamptz()
+
+  task        Task    @relation("TaskTagAssignments", fields: [task_id], references: [id], onDelete: Cascade)
+  tag         TaskTag @relation("TagAssignments", fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@id([task_id, tag_id])
+  @@index([tag_id])
+  @@map("task_tag_assignments")
 }
 
 // ─── BLOQUE 8B: TAREAS — CHECKLIST + MANTENIMIENTO ───

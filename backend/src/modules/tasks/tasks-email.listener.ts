@@ -12,6 +12,7 @@ interface TaskAssignedPayload {
     assigned_to: string | null;
     due_date: Date | null;
     description: string | null;
+    reason?: string | null;
   };
   assignedBy: string;
 }
@@ -35,7 +36,7 @@ interface TaskAssignedPayload {
  * `TASK_PRIORITY_LABELS`) — si cambia el enum hay que actualizar ambos lados.
  */
 const TASK_TYPE_LABELS_ES: Record<string, string> = {
-  wow_call: 'WOW Call',
+  contact_client: 'Contactar cliente',
   maintenance: 'Mantenimiento',
   maintenance_management: 'Mantenimiento + Gestión',
   project_task: 'Proyecto',
@@ -87,6 +88,10 @@ export class TasksEmailListener {
         task_priority_label:
           TASK_PRIORITY_LABELS_ES[task.priority] ?? task.priority,
         task_description: task.description,
+        // Sprint 8 Fase B.7 — ADR-073: el contexto humano (reason) viaja
+        // al payload para que la plantilla pueda mostrar el porqué bajo
+        // el título. Vacío/null = no se renderiza.
+        task_reason: task.reason ?? null,
         // Tasks viven en el portal staff: ADR-066 + Sprint 9.6 DC.7 movió
         // `/dashboard/tasks/*` → `/admin/tasks/*` con `git mv`. La campana
         // del topbar y los emails al agente deben apuntar al portal admin.

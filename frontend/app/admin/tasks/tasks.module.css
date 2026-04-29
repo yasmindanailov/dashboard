@@ -26,6 +26,50 @@
   color: var(--brand);
 }
 
+/* Sprint 8 Fase B.7 (2026-04-29) — ADR-073: celda de título compuesta
+   con porqué humano (`reason`) + chips de tags como secundaria. */
+.titleCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.titleReason {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60ch;
+}
+
+.titleTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.titleTagChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  background-color: var(--surface-muted);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.titleTagMore {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  align-self: center;
+}
+
 .clientLink {
   color: var(--text-secondary);
   text-decoration: none;
@@ -76,6 +120,69 @@
   font-weight: var(--font-weight-medium);
   color: var(--text-secondary);
   margin-bottom: var(--space-1);
+}
+
+/* Sprint 8 Fase B.7 (2026-04-29) — ADR-073: contador inline (ej "12/100"
+   bajo el label de "Motivo") y mensajes hint en formularios. */
+.formHint {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+  color: var(--text-tertiary);
+  margin-left: var(--space-2);
+}
+
+/* Sprint 8 Fase B.7 — Selector de tags multi-toggle. Chips clicables
+   y crear nuevo inline. Visualmente alineado con el resto del DS. */
+.tagsPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-muted);
+  min-height: 40px;
+  align-items: center;
+}
+
+.tagChip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background-color: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tagChip:hover {
+  border-color: var(--brand);
+  color: var(--text-primary);
+}
+
+.tagChipSelected {
+  background-color: var(--brand);
+  color: var(--surface);
+  border-color: var(--brand);
+}
+
+.tagChipSelected:hover {
+  color: var(--surface);
+}
+
+.tagCreator {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  align-items: stretch;
+}
+
+.tagCreator > :first-child {
+  flex: 1;
 }
 
 /* ── Sprint 8 Fase B.3 — clases nuevas DS canónicas ── */

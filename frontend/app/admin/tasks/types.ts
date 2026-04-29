@@ -13,9 +13,14 @@ export interface TaskUser {
 /**
  * Sprint 8 Fase B.2 (2026-04-29) — `findOne()` backend incluye `service`
  * + `product` para alimentar la sidebar "Servicio" + bloque adaptativo
- * `wow_call` (UI_SPEC §5.16). La lista (`findAll`) no lo trae para no
- * penalizar el tablero. `null` cuando la task no tiene service_id, o
- * cuando viene de la lista (NewTaskModal/[id]/list shape distinto).
+ * de "datos del servicio" (UI_SPEC §5.16). La lista (`findAll`) no lo
+ * trae para no penalizar el tablero. `null` cuando la task no tiene
+ * service_id, o cuando viene de la lista (NewTaskModal/[id]/list shape
+ * distinto).
+ *
+ * Sprint 8 Fase B.7 (2026-04-29) — ADR-073: el bloque de datos del
+ * servicio dejó de ser exclusivo del tipo `contact_client`. Se renderiza
+ * siempre que `service_id` esté presente, independiente del tipo.
  */
 export interface TaskService {
   id: string;
@@ -31,6 +36,22 @@ export interface TaskService {
     slug: string;
     type: string;
   } | null;
+}
+
+/**
+ * Sprint 8 Fase B.7 (2026-04-29) — ADR-073: tag canónico tal como lo
+ * devuelve `INCLUDE_TAG_ASSIGNMENTS` del backend (`tag` anidado para
+ * evitar N+1 al renderizar chips).
+ */
+export interface TaskTag {
+  id: string;
+  slug: string;
+  label: string;
+  color: string | null;
+}
+
+export interface TaskTagAssignment {
+  tag: TaskTag;
 }
 
 export interface Task {
@@ -49,6 +70,8 @@ export interface Task {
   completed_at: string | null;
   is_recurring: boolean;
   billing_month: string | null;
+  /** Sprint 8 Fase B.7 — ADR-073: POR QUÉ humano. Texto libre <=100. */
+  reason: string | null;
   created_at: string;
   updated_at: string;
   assignee: TaskUser | null;
@@ -56,6 +79,8 @@ export interface Task {
   client: TaskUser;
   /** Sólo viene poblado en `findOne()` (DetailPage). */
   service?: TaskService | null;
+  /** Sprint 8 Fase B.7 — ADR-073: tags asignados (chips en tabla/detail). */
+  tag_assignments?: TaskTagAssignment[];
 }
 
 export interface TaskListResponse {
@@ -71,7 +96,7 @@ export interface TaskStats {
 }
 
 export const TASK_TYPE_LABELS: Record<string, string> = {
-  wow_call: 'WOW Call',
+  contact_client: 'Contactar cliente',
   maintenance: 'Mantenimiento',
   maintenance_management: 'Mant. + Gestión',
   project_task: 'Proyecto',

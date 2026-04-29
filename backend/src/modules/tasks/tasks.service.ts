@@ -23,6 +23,18 @@ import {
 } from './dto/task.dto';
 import { Prisma } from '@prisma/client';
 
+/**
+ * Sprint 8 Fase B.7 (2026-04-29) — ADR-073 expone tags asignados al cliente.
+ * Se incluye `tag` anidado para evitar N+1 al renderizar chips en el tablero.
+ */
+const INCLUDE_TAG_ASSIGNMENTS = {
+  tag_assignments: {
+    include: {
+      tag: { select: { id: true, slug: true, label: true, color: true } },
+    },
+  },
+} as const;
+
 const INCLUDE_RELATIONS = {
   assignee: {
     select: { id: true, first_name: true, last_name: true, email: true },
@@ -31,11 +43,12 @@ const INCLUDE_RELATIONS = {
   client: {
     select: { id: true, first_name: true, last_name: true, email: true },
   },
+  ...INCLUDE_TAG_ASSIGNMENTS,
 };
 
 /**
  * Sprint 8 Fase B.2 (2026-04-29) — UI_SPEC §5.16 sidebar "Servicio" + bloque
- * adaptativo wow_call que muestra "servicio contratado, plan". Versión más
+ * adaptativo de servicio que muestra "servicio contratado, plan". Versión más
  * rica de INCLUDE para `findOne()` solamente — la lista (`findAll`) sigue
  * con `INCLUDE_RELATIONS` para no degradar la query con N+1 implícito.
  */
@@ -136,6 +149,27 @@ export class TasksService {
     }
   }
 
+  /* ── Sprint 8 Fase B.7 (2026-04-29) — ADR-073. Verifica que TODOS los
+     `tag_ids` recibidos existen en `task_tags`. Devuelve los IDs canónicos
+     para usarlos en `createMany`/`deleteMany`. Lanza 400 si alguno no
+     existe — fail-fast preferible a crear assignments parciales. */
+  private async assertTagsExist(tagIds: string[]): Promise<string[]> {
+    if (tagIds.length === 0) return [];
+    const unique = Array.from(new Set(tagIds));
+    const found = await this.prisma.taskTag.findMany({
+      where: { id: { in: unique } },
+      select: { id: true },
+    });
+    if (found.length !== unique.length) {
+      const foundIds = new Set(found.map((t) => t.id));
+      const missing = unique.filter((id) => !foundIds.has(id));
+      throw new BadRequestException(
+        `Estos tags no existen: ${missing.join(', ')}`,
+      );
+    }
+    return unique;
+  }
+
   /* ── Create ──
      Sprint 8 Fase B EC-T8-12/13/14/15/16 (2026-04-29): valida `due_date`
      no pasada, coherencia `service_id ↔ client_id`, y propaga los nuevos
@@ -155,6 +189,10 @@ export class TasksService {
     if (dto.assigned_to) {
       await this.assertAssignableUser(dto.assigned_to);
     }
+    // Sprint 8 Fase B.7 — ADR-073: validar tags antes de la transacción para
+    // que un tag inexistente no deje la tarea creada sin etiquetar (fail-fast).
+    const tagIds = dto.tag_ids ? await this.assertTagsExist(dto.tag_ids) : [];
+
     const task = await this.prisma.task.create({
       data: {
         type: dto.type,
@@ -169,7 +207,13 @@ export class TasksService {
         is_recurring: dto.is_recurring ?? false,
         recurrence_day: dto.recurrence_day,
         billing_month: dto.billing_month,
+        reason: dto.reason,
         created_by: creatorId,
+        ...(tagIds.length > 0 && {
+          tag_assignments: {
+            create: tagIds.map((tag_id) => ({ tag_id })),
+          },
+        }),
       },
       include: INCLUDE_RELATIONS,
     });
@@ -263,7 +307,8 @@ export class TasksService {
 
   /* ── Find one ──
      Sprint 8 Fase B.2 (2026-04-29): incluye `service` + `product` (UI_SPEC
-     §5.16 sidebar Servicio + bloque wow_call). La lista (`findAll`) sigue
+     §5.16 sidebar Servicio + bloque adaptativo cuando hay service). La
+     lista (`findAll`) sigue
      con `INCLUDE_RELATIONS` ligero para no penalizar el tablero con joins
      innecesarios — el detail carga lo extra solo cuando hace falta. */
   async findOne(id: string) {
@@ -367,30 +412,58 @@ export class TasksService {
       await this.assertAssignableUser(dto.assigned_to);
     }
     const wasAssigned = existing.assigned_to;
-    const task = await this.prisma.task.update({
-      where: { id },
-      data: {
-        ...(dto.title !== undefined && { title: dto.title }),
-        ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.status !== undefined && { status: dto.status }),
-        ...(dto.priority !== undefined && { priority: dto.priority }),
-        ...(dto.assigned_to !== undefined && { assigned_to: dto.assigned_to }),
-        ...(dto.due_date !== undefined && { due_date: new Date(dto.due_date) }),
-        ...(dto.client_note !== undefined && { client_note: dto.client_note }),
-        ...(dto.is_recurring !== undefined && {
-          is_recurring: dto.is_recurring,
-        }),
-        ...(dto.recurrence_day !== undefined && {
-          recurrence_day: dto.recurrence_day,
-        }),
-        ...(dto.billing_month !== undefined && {
-          billing_month: dto.billing_month,
-        }),
-        ...(dto.status === TaskStatusDto.completed && {
-          completed_at: new Date(),
-        }),
-      },
-      include: INCLUDE_RELATIONS,
+    // Sprint 8 Fase B.7 — ADR-073: tags se setean por reemplazo completo
+    // (semántica PUT, coherente con `set` de Prisma m2m). Si llega
+    // `tag_ids` lo validamos antes; si llega vacío `[]` se desetiqueta.
+    const newTagIds = dto.tag_ids
+      ? await this.assertTagsExist(dto.tag_ids)
+      : null;
+
+    const task = await this.prisma.$transaction(async (tx) => {
+      if (newTagIds !== null) {
+        await tx.taskTagAssignment.deleteMany({ where: { task_id: id } });
+        if (newTagIds.length > 0) {
+          await tx.taskTagAssignment.createMany({
+            data: newTagIds.map((tag_id) => ({ task_id: id, tag_id })),
+          });
+        }
+      }
+      return tx.task.update({
+        where: { id },
+        data: {
+          ...(dto.title !== undefined && { title: dto.title }),
+          ...(dto.description !== undefined && {
+            description: dto.description,
+          }),
+          ...(dto.status !== undefined && { status: dto.status }),
+          ...(dto.priority !== undefined && { priority: dto.priority }),
+          ...(dto.assigned_to !== undefined && {
+            assigned_to: dto.assigned_to,
+          }),
+          ...(dto.due_date !== undefined && {
+            due_date: new Date(dto.due_date),
+          }),
+          ...(dto.client_note !== undefined && {
+            client_note: dto.client_note,
+          }),
+          ...(dto.is_recurring !== undefined && {
+            is_recurring: dto.is_recurring,
+          }),
+          ...(dto.recurrence_day !== undefined && {
+            recurrence_day: dto.recurrence_day,
+          }),
+          ...(dto.billing_month !== undefined && {
+            billing_month: dto.billing_month,
+          }),
+          ...(dto.reason !== undefined && {
+            reason: dto.reason === '' ? null : dto.reason,
+          }),
+          ...(dto.status === TaskStatusDto.completed && {
+            completed_at: new Date(),
+          }),
+        },
+        include: INCLUDE_RELATIONS,
+      });
     });
     // Emit assignment event if agent changed (incluye auto-asignación
     // desde la cola pública: `assignedBy = userId` igual que cualquier

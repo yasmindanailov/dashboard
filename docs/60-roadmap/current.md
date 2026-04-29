@@ -384,7 +384,7 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 
 ### 10. Cierre del sprint
 
-> Sprint 8 sigue **WIP**. Fase A + B (B.1 + B.1.bis + B.2 + B.3 + B.4 + B.5 + EC-T8-12..17) ✅ cerradas. Cola restante: Fase C automatización → Fase D Support Inside → Fase E docs.
+> Sprint 8 sigue **WIP**. Fase A + B (B.1 + B.1.bis + B.2 + B.3 + B.4 + B.5 + B.6 EC-T8-12..17 + B.7 tipos flexibles ADR-073) ✅ cerradas. Cola restante: Fase C automatización → Fase D Support Inside → Fase E docs.
 
 **Cierres registrados:**
 
@@ -397,15 +397,17 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 | 8.B.5 (checklist + maintenance_log) | 2026-04-29 | `dbbf4b2` |
 | 8.B.3 (DS compliance refactor) | 2026-04-29 | `0e29c85` |
 | 8.B.6 (validaciones defensivas EC-T8-12..17) | 2026-04-29 | `840d964` |
+| 8.B.7 (tipos flexibles: rename `wow_call`→`contact_client` + `reason` libre + `tags` ADR-073) | 2026-04-29 | _(pendiente commit)_ |
 
-**Estado DoD** (al cierre de Fase B + EC-T8-12..17):
+**Estado DoD** (al cierre de Fase B + EC-T8-12..17 + B.7 tipos flexibles ADR-073):
 
-- ✅ Backend typecheck + lint + build + **60/60 unit tests** (37 previos + 23 nuevos: 13 DTO + 9 service + 3 templates security guard)
-- ✅ Frontend typecheck + lint + build (42 warnings DC.6 preexistentes, 0 errores)
-- ✅ E2E suite **88/88 verde** sin regresión
-- ✅ ADRs creados: 069 (deploy diferido), 070 (service info SSO), 071 (vista admin federada), 072 (cola pública tareas)
-- ✅ Doc canónica: `current.md` §6 con 35 EC nuevos, `tasks/contract.md` §14/14b/17, `_events.md` con `maintenance.completed`, `glossary.md` con términos nuevos, schema en `30-data/tasks.md` y `30-data/clients.md`, plantillas en `notification-templates.ts` con `maintenance.completed`
+- ✅ Backend typecheck + lint + build + **73/73 unit tests** (60 previos + 13 nuevos: 6 DTO B.7 reason/tags + 6 TaskTagsService + 1 hint actualizado)
+- ✅ Frontend typecheck + lint (0 errores; 42 warnings DC.6 preexistentes) + build
+- ✅ E2E suite **95/95 verde** sin regresión (88 previos + 7 nuevos `tasks-reason-and-tags.spec.ts`)
+- ✅ ADRs creados: 069 (deploy diferido), 070 (service info SSO), 071 (vista admin federada), 072 (cola pública tareas), **073 (tipos flexibles tasks reason+tags)**
+- ✅ Doc canónica: `current.md` §6 con 35 EC nuevos, `tasks/contract.md` §3/§5/§10/§14/14b/17 actualizados B.7, `_events.md` con `maintenance.completed`, `glossary.md` con términos nuevos, schema en `30-data/tasks.md` y `30-data/clients.md` (pendiente actualizar enum `wow_call`→`contact_client` + tablas `task_tags`/`task_tag_assignments`)
 - ✅ EC cerrados: T8-12, T8-13, T8-14, T8-15, T8-16, T8-17, T8-19, T8-20, T8-21, T8-22, T8-01, EC-IMPL-01..03; portal URL bug fix; password seed alineado en `tests/e2e/fixtures/test-config.ts`
+- ✅ B.7: enum `wow_call` → `contact_client` (preserva contexto via `reason='Bienvenida primer servicio'`); columna `tasks.reason` (texto libre <=100); tablas `task_tags` + `task_tag_assignments` (m2m explícita); 3 endpoints `/admin/task-tags`; CASL `Subject.TaskTag`; seed 5 tags canónicos; bloque adaptativo "Datos del cliente + plan" generalizado a cualquier tarea con `service_id`; frontend `lib/types.ts` SINCRONIZADO con backend
 - ⬜ Pendiente: Fase C, Fase D, Fase E, smoke testing manual final
 
 ---

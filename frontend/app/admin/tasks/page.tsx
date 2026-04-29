@@ -28,9 +28,10 @@ import { isStaffRole, isAdminRole } from '../../lib/portal';
 import { usersApi } from '../../lib/api';
 import type { Agent, Pagination } from '../../lib/types';
 
+// Sprint 8 Fase B.7 (2026-04-29) — ADR-073: rename `wow_call` → `contact_client`.
 const TYPE_OPTIONS = [
   { value: '', label: 'Todos los tipos' },
-  { value: 'wow_call', label: 'WOW Call' },
+  { value: 'contact_client', label: 'Contactar cliente' },
   { value: 'maintenance', label: 'Mantenimiento' },
   { value: 'maintenance_management', label: 'Mant. + Gestión' },
   { value: 'custom_work', label: 'Personalizada' },

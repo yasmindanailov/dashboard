@@ -64,6 +64,10 @@ export enum Subject {
 
   // Tasks
   Task = 'Task',
+  // Sprint 8 Fase B.7 — ADR-073. Etiquetas extensibles asignables a tareas.
+  // `Manage` = superadmin + agent_full (crear/borrar). `Read` = todo staff
+  // con `Manage.Task` (necesitan listar para asignar). Clientes/partners NO.
+  TaskTag = 'TaskTag',
   Maintenance = 'Maintenance',
 
   // Audit & Notifications
@@ -166,6 +170,8 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     { action: Action.Manage, subject: Subject.Conversation },
     { action: Action.Manage, subject: Subject.Message },
     { action: Action.Manage, subject: Subject.Task },
+    // ADR-073 — agent_full puede crear/borrar tags (mismo nivel que tasks).
+    { action: Action.Manage, subject: Subject.TaskTag },
     { action: Action.Manage, subject: Subject.Maintenance },
     { action: Action.Manage, subject: Subject.Service },
     { action: Action.Manage, subject: Subject.SupportInside },
@@ -216,6 +222,9 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     { action: Action.Manage, subject: Subject.Invoice },
     { action: Action.Manage, subject: Subject.Payment },
     { action: Action.Manage, subject: Subject.Task },
+    // ADR-073 — agent_billing puede leer tags para asignarlos al crear/editar
+    // tareas, pero no crear/borrar (eso queda para superadmin + agent_full).
+    { action: [Action.Read, Action.List], subject: Subject.TaskTag },
     { action: Action.Manage, subject: Subject.Maintenance },
     { action: [Action.Read, Action.List], subject: Subject.Service },
     // Sprint 8 Fase A — lectura de agentes para selector de asignación de tareas.
@@ -241,6 +250,8 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     { action: Action.Manage, subject: Subject.Conversation },
     { action: Action.Manage, subject: Subject.Message },
     { action: Action.Manage, subject: Subject.Task },
+    // ADR-073 — agent_support puede leer tags para asignarlos.
+    { action: [Action.Read, Action.List], subject: Subject.TaskTag },
     { action: Action.Manage, subject: Subject.Maintenance },
     { action: [Action.Read, Action.List], subject: Subject.Service },
     { action: [Action.Read, Action.List], subject: Subject.KnowledgeBase },

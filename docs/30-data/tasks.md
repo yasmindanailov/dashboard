@@ -26,7 +26,7 @@ Tareas del equipo. Generadas automáticamente o manualmente. Asignación 1:1 con
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
 | `id` | uuid | PK | |
-| `type` | enum | NOT NULL | `wow_call` · `maintenance` · `maintenance_management` · `project_task` (Sprint 22, [projects.md](./projects.md)) · `custom_work` · `support_setup` |
+| `type` | enum | NOT NULL | `contact_client` · `maintenance` · `maintenance_management` · `project_task` (Sprint 22, [projects.md](./projects.md)) · `custom_work` · `support_setup`. Sprint 8 Fase B.7 ([ADR-073](../10-decisions/adr-073-tipos-flexibles-tasks-reason-tags.md)) renombró `wow_call` → `contact_client`; el contexto histórico se preserva en `reason='Bienvenida primer servicio'`. |
 | `status` | enum | NOT NULL, DEFAULT `'pending'` | `pending` · `in_progress` · `completed` · `not_completed_in_time` · `cancelled` |
 | `priority` | enum | NOT NULL, DEFAULT `'medium'` | `low` · `medium` · `high` · `critical` |
 | `assigned_to` | uuid | NULLABLE, FK → `users(id)` | Agente asignado. Validación FK `assertAssignableUser` (rol staff + status active) cerrada en Sprint 8 P0.1 |
@@ -41,7 +41,8 @@ Tareas del equipo. Generadas automáticamente o manualmente. Asignación 1:1 con
 | `completed_at` | timestamptz | NULLABLE | |
 | `is_recurring` | boolean | NOT NULL, DEFAULT `false` | |
 | `recurrence_day` | integer | NULLABLE | Día del mes para tareas recurrentes |
-| `billing_month` | varchar(7) | NULLABLE | YYYY-MM — a qué mes corresponde el mantenimiento. Idempotencia mensual reforzada por UNIQUE `(service_id, billing_month, type)` (Sprint 8 Fase A) |
+| `billing_month` | varchar(7) | NULLABLE | YYYY-MM — a qué mes corresponde el mantenimiento. Idempotencia mensual reforzada por UNIQUE `(service_id, billing_month, type)` (Sprint 8 Fase A). Validación regex en DTO (EC-T8-15). |
+| `reason` | varchar(100) | NULLABLE | POR QUÉ humano de la tarea. Texto libre. Sprint 8 Fase B.7 ([ADR-073](../10-decisions/adr-073-tipos-flexibles-tasks-reason-tags.md)). |
 | `metadata` | jsonb | NULLABLE | Datos adicionales del provisioner / listener creador |
 | `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 | `updated_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
@@ -184,3 +185,40 @@ Ver [jobs-reference](../50-operations/jobs-reference.md) para más detalles.
 - **Settings consumidos:** `tasks.overdue_to_failure_days`, `support.maintenance_critical_threshold_days` (Sprint 8 Fase C/D — pendientes seed) — ver [settings-reference](../50-operations/settings-reference.md).
 - **Errores API:** `TASK_NOT_FOUND`, `CANNOT_EDIT_OTHERS_TASK`, `ASSIGNED_USER_NOT_ASSIGNABLE` (P0.1) — ver [api-errors](../50-operations/api-errors.md).
 - **AI Workers (Sprint 25 — futuro):** tareas `project_task` y `custom_work` podrán asignarse a un AI Worker en lugar de agente humano. El agente humano siempre revisa y aprueba.
+
+---
+
+## `task_tags` (Sprint 8 Fase B.7 — [ADR-073](../10-decisions/adr-073-tipos-flexibles-tasks-reason-tags.md))
+
+Catálogo de etiquetas extensibles asignables a tareas. Sustituye al uso del enum `TaskType` para capturar contextos operativos no canónicos ("renovación", "incidencia", "migración"…). El admin con `Manage.TaskTag` (superadmin + agent_full) crea y borra; el resto del staff con `Manage.Task` los lee y asigna.
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| `id` | uuid | PK | |
+| `slug` | varchar(50) | NOT NULL, UNIQUE | Canónico kebab-case (regex `^[a-z0-9]+(?:-[a-z0-9]+)*$`). Estable para listeners/automatizaciones futuras (ej. `ContactClientTaskListener` asigna `slug='bienvenida'`). |
+| `label` | varchar(50) | NOT NULL | Mostrable. Editable sin afectar al slug. |
+| `color` | varchar(7) | NULLABLE | Hex `#RRGGBB` opcional para el chip. |
+| `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
+| `created_by` | uuid | NULLABLE, FK → `users(id)` ON DELETE SET NULL | Trazabilidad de autoría. |
+
+**Seed canónico** (`backend/prisma/seeds/sample-task-tags.ts` — idempotente vía slug, ejecuta en cualquier entorno): `bienvenida`, `renovacion`, `incidencia`, `migracion`, `cortesia`.
+
+---
+
+## `task_tag_assignments` (Sprint 8 Fase B.7 — ADR-073)
+
+Tabla pivote M2M explícita Task ↔ TaskTag. M2M explícita (no implícita Prisma) para que CASL pueda filtrar por tag y para futuras extensiones (`assigned_by`, contadores, etc.).
+
+| Campo | Tipo | Restricciones | Notas |
+|-------|------|---------------|-------|
+| `task_id` | uuid | FK → `tasks(id)` ON DELETE CASCADE | |
+| `tag_id` | uuid | FK → `task_tags(id)` ON DELETE CASCADE | |
+| `assigned_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
+
+**PK compuesta:** `(task_id, tag_id)` — un mismo tag no puede asignarse dos veces a la misma tarea.
+
+**Índices:** `task_tag_assignments_tag_id_idx` — para listar tareas por tag (filtro de tablero).
+
+**Validación backend (`TasksService.create/update`):** todos los `tag_ids` recibidos del DTO deben existir en `task_tags` (helper `assertTagsExist`). Fail-fast: si alguno no existe, 400 antes de crear/modificar la tarea.
+
+**Límite por tarea:** 10 tags (DTO `@ArrayMaxSize(10)`).

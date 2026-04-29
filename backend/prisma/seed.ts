@@ -11,6 +11,7 @@ import { seedSampleProducts } from './seeds/sample-products';
 import { seedSampleInvoices } from './seeds/sample-invoices';
 import { seedSampleSupport } from './seeds/sample-support';
 import { seedNotificationTemplates } from './seeds/notification-templates';
+import { seedSampleTaskTags } from './seeds/sample-task-tags';
 
 /**
  * Orquestador del seed de la base de datos — Sprint 9.6 Fase F.0
@@ -50,6 +51,9 @@ async function main() {
     await seedRoles(prisma);
     await seedSettings(prisma);
     await seedNotificationTemplates(prisma);
+    // Sprint 8 Fase B.7 (ADR-073) — catálogo operativo, no datos demo:
+    // se siembra siempre (idempotente vía slug).
+    await seedSampleTaskTags(prisma);
     await seedTestAccounts(prisma);
     await seedSampleClients(prisma);
     await seedSampleProducts(prisma);
