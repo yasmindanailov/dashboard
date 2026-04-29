@@ -9,9 +9,12 @@ export const TEST_CONFIG = {
   apiUrl: process.env.E2E_API_URL || 'http://localhost:3001/api/v1',
   mailpitUrl: process.env.E2E_MAILPIT_URL || 'http://localhost:8025',
 
-  // Superadmin pre-seedeado por backend/prisma/seed.ts
+  // Superadmin pre-seedeado por backend/prisma/seed.ts. Password canónico
+  // declarado en `docs/90-meta/development-playbook.md` §11 y honrado por
+  // `backend/prisma/seeds/sample-users.ts`. Alineado con
+  // `tests/e2e/tasks-edge-cases.spec.ts` (que ya usaba el sufijo `!`).
   superadmin: {
     email: process.env.SUPERADMIN_EMAIL || 'admin@aelium.net',
-    password: process.env.SUPERADMIN_PASSWORD || 'AeliumDev2026',
+    password: process.env.SUPERADMIN_PASSWORD || 'AeliumDev2026!',
   },
 };

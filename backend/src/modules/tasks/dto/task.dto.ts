@@ -14,9 +14,22 @@ import {
   IsInt,
   Min,
   Max,
+  IsBoolean,
+  Matches,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+
+/**
+ * Sprint 8 Fase B (2026-04-29) — EC-T8-15. Formato canónico ISO 8601 mes:
+ * `YYYY-MM` con mes en rango 01-12. Compartido entre `tasks.billing_month`,
+ * `maintenance_logs.month_year` y cualquier consumidor futuro que necesite
+ * agrupar por mes calendario. Atrapa errores como `2026-13`, `2026-1`,
+ * `26-04`, `2026-04-01`. Mismo patrón que el unique constraint canónico
+ * `uniq_task_maintenance_per_month` (schema.prisma).
+ */
+export const BILLING_MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export enum TaskTypeDto {
   wow_call = 'wow_call',
@@ -42,11 +55,30 @@ export enum TaskPriorityDto {
   critical = 'critical',
 }
 
-/* ── Create ── */
+/* ── Create ──
+   Sprint 8 Fase B EC-T8-12..16 (2026-04-29):
+   - description ≤50KB (EC-T8-16): plantillas Handlebars rompen con bodies
+     enormes y los emails truncan en producción. 50000 chars cubre todo
+     uso operativo legítimo.
+   - billing_month regex (EC-T8-15): único formato aceptado `YYYY-MM`
+     con mes 01-12. Atrapa `2026-13`, `2026-1`, etc.
+   - is_recurring + recurrence_day coherentes (EC-T8-14): si la tarea
+     declara `is_recurring=true` el `recurrence_day` (1-31) es obligatorio.
+     `@ValidateIf` aplica el resto de constraints solo cuando hay flag.
+   - due_date pasado (EC-T8-12): validación canónica vive en
+     `TasksService.assertDueDateNotInPast()` (necesita comparación contra
+     reloj actual del servidor — no es estática). El flag interno
+     `allow_overdue` lo usa el cron del Fase D para crear retroactivos
+     legítimos; deliberadamente NO se expone como propiedad en el DTO.
+*/
 export class CreateTaskDto {
   @ApiProperty() @IsEnum(TaskTypeDto) type: TaskTypeDto;
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(500) title: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(50000)
+  description?: string;
   @ApiPropertyOptional()
   @IsOptional()
   @IsEnum(TaskPriorityDto)
@@ -54,18 +86,51 @@ export class CreateTaskDto {
   @ApiProperty() @IsUUID() client_id: string;
   @ApiPropertyOptional() @IsOptional() @IsUUID() service_id?: string;
   @ApiPropertyOptional() @IsOptional() @IsUUID() assigned_to?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() client_note?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  client_note?: string;
   @ApiPropertyOptional() @IsOptional() @IsDateString() due_date?: string;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  is_recurring?: boolean;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 31 })
+  @ValidateIf((o: CreateTaskDto) => o.is_recurring === true)
+  @IsInt()
+  @Min(1)
+  @Max(31)
+  recurrence_day?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Mes calendario `YYYY-MM` (mes 01-12). Sólo para tareas de mantenimiento mensual.',
+  })
+  @IsOptional()
+  @Matches(BILLING_MONTH_REGEX, {
+    message: 'billing_month debe tener formato YYYY-MM con mes 01-12',
+  })
+  billing_month?: string;
 }
 
-/* ── Update ── */
+/* ── Update ──
+   Mismas reglas que CreateTaskDto sobre los campos editables. `client_id`,
+   `service_id` y `type` no son editables (TASK-INV-1 trazabilidad de
+   origen + coherencia con eventos ya emitidos). */
 export class UpdateTaskDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @MaxLength(500)
   title?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(50000)
+  description?: string;
   @ApiPropertyOptional()
   @IsOptional()
   @IsEnum(TaskStatusDto)
@@ -76,7 +141,30 @@ export class UpdateTaskDto {
   priority?: TaskPriorityDto;
   @ApiPropertyOptional() @IsOptional() @IsUUID() assigned_to?: string;
   @ApiPropertyOptional() @IsOptional() @IsDateString() due_date?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() client_note?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  client_note?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  is_recurring?: boolean;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 31 })
+  @ValidateIf((o: UpdateTaskDto) => o.is_recurring === true)
+  @IsInt()
+  @Min(1)
+  @Max(31)
+  recurrence_day?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Matches(BILLING_MONTH_REGEX, {
+    message: 'billing_month debe tener formato YYYY-MM con mes 01-12',
+  })
+  billing_month?: string;
 }
 
 /* ── Complete ── */

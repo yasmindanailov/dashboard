@@ -7,6 +7,15 @@ import { PrismaClient } from '@prisma/client';
  * `BillingEmailListener` y `TasksEmailListener` para que los tests E2E
  * y la UX del cliente no detecten cambios en el copy.
  *
+ * 🔒 EC-T8-17 (Sprint 8 Fase B 2026-04-29) — REGLA CANÓNICA DE PLANTILLAS:
+ *
+ * SIEMPRE usar `{{var}}` (escape automático Handlebars). NUNCA usar
+ * `{{{var}}}` ni `{{& var}}` — ambos rinden el contenido sin escapar y
+ * abren XSS si el payload incluye texto controlado por usuario (ej.
+ * `task_url`, `assigned_by`, `task_title`, `description` cliente-side).
+ * El test guard `notification-templates.security.spec.ts` falla el build
+ * si alguna plantilla seedeada introduce un triple-stash.
+ *
  * Variables disponibles por evento:
  *  - `invoice.*`: invoice_id, invoice_number, user_id, total, currency,
  *    payment_provider (paid), retry_count + max_retries (failed/overdue),

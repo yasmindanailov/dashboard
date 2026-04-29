@@ -245,12 +245,12 @@ Cerrar el módulo `tasks` con automatización completa (mantenimiento mensual + 
 
 | ID | Caso | Estado | Plan |
 |----|------|--------|------|
-| EC-T8-12 | `due_date` en el pasado al crear | ⬜ | Validar `due_date >= now()` salvo flag opcional `allow_overdue=true` (cron de overdue puede crearlas legítimamente). Sprint 8 Fase B antes de cerrar tablero. |
-| EC-T8-13 | `client_id` ↔ `service_id` incoherentes (servicio de otro cliente) | ⬜ | Validar `service.user_id === client_id` en `tasks.service.create()`. Sprint 8 Fase B. |
-| EC-T8-14 | `is_recurring=true` con `recurrence_day=null` | ⬜ | DTO con `@ValidateIf((o) => o.is_recurring)`. Sprint 8 Fase B. |
-| EC-T8-15 | `billing_month` con formato inválido (`2026-13`, `2026-1`) | ⬜ | Regex `^\d{4}-(0[1-9]|1[0-2])$` en DTO. Sprint 8 Fase B. |
-| EC-T8-16 | `description` >100KB rompe email Handlebars | ⬜ | `@MaxLength(50000)` en DTOs. Sprint 8 Fase B. |
-| EC-T8-17 | XSS en `task_url` / `assigned_by` inyectados sin escapar en plantilla | ⬜ | Auditoría plantillas: usar siempre `{{var}}`, nunca `{{{var}}}`. Sprint 8 Fase C cuando se añadan plantillas `task.overdue` / `maintenance.completed`. |
+| EC-T8-12 | `due_date` en el pasado al crear | ✅ | `TasksService.assertDueDateNotInPast()` (Sprint 8 Fase B 2026-04-29). Bypass interno via `opts.allowOverdue=true` para cron retroactivo (Fase D). 5 unit tests + integración E2E. |
+| EC-T8-13 | `client_id` ↔ `service_id` incoherentes (servicio de otro cliente) | ✅ | `TasksService.assertServiceBelongsToClient()` (Sprint 8 Fase B 2026-04-29). 4 unit tests cubriendo cliente correcto/incorrecto/inexistente/sin service_id. |
+| EC-T8-14 | `is_recurring=true` con `recurrence_day=null` | ✅ | `CreateTaskDto`/`UpdateTaskDto` con `@ValidateIf((o) => o.is_recurring === true)` + `@IsInt @Min(1) @Max(31)` (Sprint 8 Fase B 2026-04-29). 4 unit tests DTO. |
+| EC-T8-15 | `billing_month` con formato inválido (`2026-13`, `2026-1`) | ✅ | `BILLING_MONTH_REGEX = /^\d{4}-(0[1-9]\|1[0-2])$/` aplicado en ambos DTOs vía `@Matches` (Sprint 8 Fase B 2026-04-29). 4 unit tests DTO. |
+| EC-T8-16 | `description` >100KB rompe email Handlebars | ✅ | `@MaxLength(50000)` en `description` de `CreateTaskDto` y `UpdateTaskDto` (Sprint 8 Fase B 2026-04-29). 3 unit tests DTO. |
+| EC-T8-17 | XSS en `task_url` / `assigned_by` inyectados sin escapar en plantilla | ✅ | Auditadas todas las plantillas seedeadas (`prisma/seeds/notification-templates.ts`): 0 ocurrencias de `{{{var}}}` y `{{& var}}`. Test guard `notification-templates.security.spec.ts` falla el build si alguien introduce el patrón unsafe. Comentario canónico añadido al header del seed. (Sprint 8 Fase B 2026-04-29) |
 
 ##### Transiciones de estado y autorización
 
@@ -384,7 +384,7 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 
 ### 10. Cierre del sprint
 
-> Sprint 8 sigue **WIP**. Fase A + B (B.1 + B.1.bis + B.2 + B.3 + B.4 + B.5) ✅ cerradas. Cola restante: validaciones defensivas EC-T8-12..17 → Fase C automatización → Fase D Support Inside → Fase E docs.
+> Sprint 8 sigue **WIP**. Fase A + B (B.1 + B.1.bis + B.2 + B.3 + B.4 + B.5 + EC-T8-12..17) ✅ cerradas. Cola restante: Fase C automatización → Fase D Support Inside → Fase E docs.
 
 **Cierres registrados:**
 
@@ -396,22 +396,23 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 | 8.B.2 + 8.B.4 (bloques adaptativos + ClientNotesTab) | 2026-04-29 | `8743cea` |
 | 8.B.5 (checklist + maintenance_log) | 2026-04-29 | `dbbf4b2` |
 | 8.B.3 (DS compliance refactor) | 2026-04-29 | `0e29c85` |
+| 8.B.6 (validaciones defensivas EC-T8-12..17) | 2026-04-29 | _(pendiente commit)_ |
 
-**Estado DoD** (al cierre de Fase B):
+**Estado DoD** (al cierre de Fase B + EC-T8-12..17):
 
-- ✅ Backend typecheck + lint + build + 37/37 unit tests
+- ✅ Backend typecheck + lint + build + **60/60 unit tests** (37 previos + 23 nuevos: 13 DTO + 9 service + 3 templates security guard)
 - ✅ Frontend typecheck + lint + build (42 warnings DC.6 preexistentes, 0 errores)
 - ✅ E2E suite **88/88 verde** sin regresión
 - ✅ ADRs creados: 069 (deploy diferido), 070 (service info SSO), 071 (vista admin federada), 072 (cola pública tareas)
 - ✅ Doc canónica: `current.md` §6 con 35 EC nuevos, `tasks/contract.md` §14/14b/17, `_events.md` con `maintenance.completed`, `glossary.md` con términos nuevos, schema en `30-data/tasks.md` y `30-data/clients.md`, plantillas en `notification-templates.ts` con `maintenance.completed`
-- ✅ EC cerrados: T8-19, T8-20, T8-21, T8-22, T8-01, EC-IMPL-01..03; portal URL bug fix
-- ⬜ Pendiente: validaciones EC-T8-12..17, Fase C, Fase D, Fase E, smoke testing manual final
+- ✅ EC cerrados: T8-12, T8-13, T8-14, T8-15, T8-16, T8-17, T8-19, T8-20, T8-21, T8-22, T8-01, EC-IMPL-01..03; portal URL bug fix; password seed alineado en `tests/e2e/fixtures/test-config.ts`
+- ⬜ Pendiente: Fase C, Fase D, Fase E, smoke testing manual final
 
 ---
 
 ### ✍ Próxima sesión — orden recomendado
 
-1. **EC-T8-12..17 (validaciones defensivas de campo)** — sub-sesión rápida ~0.5: `due_date` en pasado · coherencia `service_id ↔ client_id` · regex `billing_month` · `@MaxLength` description · sanitización plantillas. Blinda al cron antes de Fase C.
+1. ~~**EC-T8-12..17 (validaciones defensivas de campo)**~~ ✅ cerrado 2026-04-29 — `due_date` no pasada · coherencia `service_id ↔ client_id` · `is_recurring↔recurrence_day` · regex `billing_month` · `@MaxLength(50000)` description · plantillas seguras (test guard). Cron de Fase C blindado.
 2. **Sprint 8 Fase C** — automatización completa: `TasksOverdueProcessor` (cron diario `0 2 * * *` → `task.overdue` + `not_completed_in_time` tras N días) · `TasksUnassignedOverdueCron` (ADR-072, cron diario `0 9 * * *` → `task.unassigned_overdue` con SLA por tipo) · `MaintenanceCriticalCron` (cron diario → `maintenance.critical`) · `WowCallCreatorListener` (`@OnEvent('service.provisioned')`) · plantillas seed faltantes (`task.overdue`, `maintenance.critical`, `task.unassigned_overdue`) · settings nuevos (`tasks.overdue_to_failure_days`, `support.maintenance_critical_threshold_days`, `tasks.unassigned_sla_hours.<type>`).
 3. **Sprint 8 Fase D — Support Inside** ([ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md)) — denso, 1.5 sesiones: schema `support_inside_*` + service + 6 endpoints cliente + 2 admin + páginas dedicadas `/dashboard/support-inside` y `/admin/support-inside-plans` + cancelación cascada + `MaintenanceMonthlyCron` mensual + seed 3 planes Básico/Medium/Pro.
 4. **Sprint 8 Fase E** — docs canónicas: `docs/features/tasks/admin.md` + `agent.md` + `docs/features/support-inside/admin.md` + `client.md` + retrospectiva en `completed/sprint-8-tasks-support-inside.md`.

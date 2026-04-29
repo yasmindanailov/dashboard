@@ -90,8 +90,68 @@ export class TasksService {
     }
   }
 
-  /* ── Create ── */
-  async create(dto: CreateTaskDto, creatorId: string) {
+  /* ── EC-T8-12 (Sprint 8 Fase B 2026-04-29) — `due_date` no puede estar
+     en el pasado al crear/actualizar desde la API pública. El cron del
+     Fase D que crea tareas retroactivas legítimas (mantenimientos del
+     mes anterior cerrados a posteriori) debe invocar este service con
+     `{ allowOverdue: true }`. Comparación a nivel de día (00:00 local)
+     para que "hoy" siga siendo válido aunque sea por la tarde. */
+  private assertDueDateNotInPast(
+    dueDate: string | Date | null | undefined,
+    opts: { allowOverdue?: boolean } = {},
+  ): void {
+    if (!dueDate || opts.allowOverdue) return;
+    const due = new Date(dueDate);
+    if (Number.isNaN(due.getTime())) {
+      throw new BadRequestException('due_date inválida');
+    }
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    if (due < todayStart) {
+      throw new BadRequestException(
+        'La fecha límite no puede estar en el pasado',
+      );
+    }
+  }
+
+  /* ── EC-T8-13 (Sprint 8 Fase B 2026-04-29) — `service_id` debe pertenecer
+     al `client_id` declarado. Sin esta comprobación, un staff podría
+     vincular una tarea al cliente A con el servicio del cliente B y la
+     timeline + bloques adaptativos mostrarían datos cruzados. */
+  private async assertServiceBelongsToClient(
+    serviceId: string,
+    clientId: string,
+  ): Promise<void> {
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: { id: true, user_id: true },
+    });
+    if (!service) {
+      throw new BadRequestException('El servicio asociado no existe');
+    }
+    if (service.user_id !== clientId) {
+      throw new BadRequestException(
+        'El servicio no pertenece al cliente seleccionado',
+      );
+    }
+  }
+
+  /* ── Create ──
+     Sprint 8 Fase B EC-T8-12/13/14/15/16 (2026-04-29): valida `due_date`
+     no pasada, coherencia `service_id ↔ client_id`, y propaga los nuevos
+     campos opcionales (`is_recurring`, `recurrence_day`, `billing_month`).
+     `opts.allowOverdue` permite que el cron del Fase D cree tareas
+     retroactivas legítimas (mantenimientos cerrados a posteriori) sin
+     dispararse contra el guard EC-T8-12. */
+  async create(
+    dto: CreateTaskDto,
+    creatorId: string,
+    opts: { allowOverdue?: boolean } = {},
+  ) {
+    this.assertDueDateNotInPast(dto.due_date, opts);
+    if (dto.service_id) {
+      await this.assertServiceBelongsToClient(dto.service_id, dto.client_id);
+    }
     if (dto.assigned_to) {
       await this.assertAssignableUser(dto.assigned_to);
     }
@@ -106,6 +166,9 @@ export class TasksService {
         assigned_to: dto.assigned_to,
         client_note: dto.client_note,
         due_date: dto.due_date ? new Date(dto.due_date) : null,
+        is_recurring: dto.is_recurring ?? false,
+        recurrence_day: dto.recurrence_day,
+        billing_month: dto.billing_month,
         created_by: creatorId,
       },
       include: INCLUDE_RELATIONS,
@@ -222,8 +285,13 @@ export class TasksService {
     dto: UpdateTaskDto,
     userId: string,
     isAdmin: boolean,
+    opts: { allowOverdue?: boolean } = {},
   ) {
     const existing = await this.findOne(id);
+    // EC-T8-12 — si llega un `due_date` nuevo, no puede ser pasado.
+    if (dto.due_date !== undefined) {
+      this.assertDueDateNotInPast(dto.due_date, opts);
+    }
 
     // EC-T8-19/20/21 — refuerzo doctrina ADR-041 §"completada nunca se
     // reabre". Una tarea en estado terminal (completed | cancelled |
@@ -309,6 +377,15 @@ export class TasksService {
         ...(dto.assigned_to !== undefined && { assigned_to: dto.assigned_to }),
         ...(dto.due_date !== undefined && { due_date: new Date(dto.due_date) }),
         ...(dto.client_note !== undefined && { client_note: dto.client_note }),
+        ...(dto.is_recurring !== undefined && {
+          is_recurring: dto.is_recurring,
+        }),
+        ...(dto.recurrence_day !== undefined && {
+          recurrence_day: dto.recurrence_day,
+        }),
+        ...(dto.billing_month !== undefined && {
+          billing_month: dto.billing_month,
+        }),
         ...(dto.status === TaskStatusDto.completed && {
           completed_at: new Date(),
         }),

@@ -174,7 +174,7 @@ Lista canónica de edge cases del módulo vive en [`docs/60-roadmap/current.md` 
 | Bloque | Rango | Estado dominante |
 |--------|-------|------------------|
 | Originales del plan canónico (Fase A/B/C/D pendientes) | EC-T8-01..11 | ⬜ planificados |
-| Validaciones de campo (Sprint 8 Fase B) | EC-T8-12..17 | ⬜ pendientes |
+| Validaciones de campo (Sprint 8 Fase B) | EC-T8-12..17 | ✅ cerrados (2026-04-29) |
 | Transiciones de estado y autorización | EC-T8-18..24 | ✅ EC-T8-19/20/21/22 cerrados (B.1.bis); resto planificado |
 | Eventos / listeners externos | EC-T8-25..30 | ⬜ Sprint 11 + Fase C |
 | CASL fino | EC-T8-31..33 | 🟡 UI restringe, backend permitivo (Opción A ADR-067) |
@@ -186,6 +186,11 @@ Lista canónica de edge cases del módulo vive en [`docs/60-roadmap/current.md` 
 - [`tests/e2e/tasks.spec.ts`](../../../tests/e2e/tasks.spec.ts) — flujo P0.1 (crear/asignar/email/completar/validación FK).
 - [`tests/e2e/tasks-edge-cases.spec.ts`](../../../tests/e2e/tasks-edge-cases.spec.ts) — Sprint 8 Fase B.1.bis: 6 specs cubriendo EC-T8-19/20/21/22 (a/b/c).
 - [`tests/e2e/admin-users-list.spec.ts`](../../../tests/e2e/admin-users-list.spec.ts) — endpoint listar agentes para selector NewTaskModal (Sprint 8 Fase A).
+
+**Cobertura tests unit (Sprint 8 Fase B EC-T8-12..17)**:
+- [`backend/src/modules/tasks/dto/task.dto.spec.ts`](../../../backend/src/modules/tasks/dto/task.dto.spec.ts) — 13 specs declarativos: EC-T8-14 (`@ValidateIf` recurrence), EC-T8-15 (`BILLING_MONTH_REGEX`), EC-T8-16 (`@MaxLength(50000)`).
+- [`backend/src/modules/tasks/tasks.service.spec.ts`](../../../backend/src/modules/tasks/tasks.service.spec.ts) — 9 specs: EC-T8-12 (`due_date` pasada + bypass `allowOverdue`), EC-T8-13 (`service.user_id === client_id`).
+- [`backend/src/modules/notifications/notification-templates.security.spec.ts`](../../../backend/src/modules/notifications/notification-templates.security.spec.ts) — 3 specs guard EC-T8-17: ningún `{{{var}}}` ni `{{& var}}` en plantillas seedeadas.
 
 ---
 
@@ -228,7 +233,7 @@ Lista canónica de edge cases del módulo vive en [`docs/60-roadmap/current.md` 
 - [x] ~~**Sprint 8 Fase B.4:** ClientNotesTab con link "Tarea origen" + título + badge tipo. Backend `listStructuredNotes` enriquecido con `task_title`/`task_type` (query batch sin N+1)~~ ✅ Sprint 8 Fase B.4 (2026-04-29)
 - [x] ~~**Sprint 8 Fase B.5:** ChecklistCompletionService (upsert idempotente) + MaintenanceLogService (transacción atómica) + 3 endpoints (GET checklist, POST checklist/complete, POST maintenance/log). Listener `MaintenanceCompletedListener` + plantillas seed `maintenance.completed`. UI checklist completable con progreso N/M. Cierra EC-T8-01 (required missing → 400 con `missing_required`). Fix oportunista: `GlobalExceptionFilter` preserva metadata adicional del body cuando HttpException se construye con objeto~~ ✅ Sprint 8 Fase B.5 (2026-04-29)
 - [x] ~~**Sprint 8 Fase B.3:** DS compliance — fix masivo tokens fantasma `--color-*` → canónicos (`--text-*`, `--brand`, `--border`, `--danger`, `--warning`, `--success`, `--surface-*`) en `types.ts` + `tasks.module.css` + `taskDetail.module.css` (38 ocurrencias). Eliminación 4 inline styles ad-hoc → clases CSS module. font-weight numéricos → tokens. Suite 88/88 sin regresión~~ ✅ Sprint 8 Fase B.3 (2026-04-29)
-- [ ] **Sprint 8 Fase B (pendiente):** validaciones EC-T8-12..17 (due_date pasado, service_id↔client_id, regex billing_month, MaxLength description, sanitización plantillas)
+- [x] ~~**Sprint 8 Fase B EC-T8-12..17:** validaciones defensivas — `assertDueDateNotInPast` (con bypass `allowOverdue` para cron Fase D) + `assertServiceBelongsToClient` en `TasksService` · `is_recurring↔recurrence_day` con `@ValidateIf` · regex `BILLING_MONTH_REGEX` aplicada a `billing_month` · `@MaxLength(50000)` en `description` · auditoría plantillas Handlebars (0 patrones unsafe) + test guard `notification-templates.security.spec.ts` · fix oportunista password seed E2E (`AeliumDev2026!`)~~ ✅ Sprint 8 Fase B (2026-04-29) — 60/60 unit, 88/88 E2E.
 - [ ] **Sprint 8 Fase C (pendiente):** listeners `task.overdue`, `maintenance.completed`, `maintenance.critical` + cron `not_completed_in_time` + cron `tasks-unassigned-overdue` (ADR-072) + WOW calls automáticos
 - [ ] **Sprint 8 Fase D (pendiente):** Support Inside ([ADR-061](../../10-decisions/adr-061-support-inside-tier-cuenta-ux.md))
 - [ ] **Sprint 8 Fase E (pendiente):** docs `features/tasks/admin.md` + `agent.md`
