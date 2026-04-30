@@ -358,6 +358,100 @@ test.describe('Tasks ↔ Tickets bridge (Sprint 8 Fase B.10 / ADR-074)', () => {
     expect(body.message.toLowerCase()).toContain('nota');
   });
 
+  test('B.10.6 — cancelar task bridge → ticket queda sin asignar (fix feedback)', async ({
+    request,
+  }) => {
+    const ticketId = await createTicketInDb(
+      clientUserId,
+      'B.10.6 cancelar libera ticket',
+      'normal',
+    );
+    await authed(
+      request,
+      superadminToken,
+      'PATCH',
+      `/support/conversations/${ticketId}`,
+      { assigned_agent_id: agentSupportId },
+    );
+    let taskId = '';
+    for (let i = 0; i < 20; i++) {
+      const r = await pool.query(
+        `SELECT id FROM tasks WHERE conversation_id = $1 LIMIT 1`,
+        [ticketId],
+      );
+      if (r.rowCount && r.rowCount > 0) {
+        taskId = r.rows[0].id as string;
+        break;
+      }
+      await new Promise((res) => setTimeout(res, 250));
+    }
+    expect(taskId).toBeTruthy();
+
+    // Confirmar pre-state: ticket asignado al agent_support
+    const before = await pool.query(
+      `SELECT assigned_agent_id, status FROM conversations WHERE id = $1`,
+      [ticketId],
+    );
+    expect(before.rows[0].assigned_agent_id).toBe(agentSupportId);
+    expect(before.rows[0].status).toBe('open');
+
+    // Cancelar la task bridge
+    const cancelRes = await authed(
+      request,
+      superadminToken,
+      'PATCH',
+      `/tasks/${taskId}`,
+      { status: 'cancelled' },
+    );
+    expect(cancelRes.ok()).toBeTruthy();
+    const cancelled = (await cancelRes.json()) as {
+      __ticket_released?: boolean;
+      status: string;
+    };
+    expect(cancelled.status).toBe('cancelled');
+    expect(cancelled.__ticket_released).toBe(true);
+
+    // Ticket queda sin asignar pero abierto (no resuelto/cerrado)
+    const after = await pool.query(
+      `SELECT assigned_agent_id, status FROM conversations WHERE id = $1`,
+      [ticketId],
+    );
+    expect(after.rows[0].assigned_agent_id).toBeNull();
+    expect(after.rows[0].status).toBe('open');
+
+    // Reasignar a otro agente → crea NUEVA task (la cancelada no se reusa)
+    await authed(
+      request,
+      superadminToken,
+      'PATCH',
+      `/support/conversations/${ticketId}`,
+      { assigned_agent_id: agentBillingId },
+    );
+    let newTaskId = '';
+    for (let i = 0; i < 20; i++) {
+      const r = await pool.query(
+        `SELECT id FROM tasks
+         WHERE conversation_id = $1 AND status IN ('pending','in_progress')
+         ORDER BY created_at DESC LIMIT 1`,
+        [ticketId],
+      );
+      if (r.rowCount && r.rowCount > 0) {
+        newTaskId = r.rows[0].id as string;
+        break;
+      }
+      await new Promise((res) => setTimeout(res, 250));
+    }
+    expect(newTaskId).toBeTruthy();
+    expect(newTaskId).not.toBe(taskId);
+
+    // Verificar que la cancelada sigue en BD (no borrada — auditoría)
+    const oldTask = await pool.query(
+      `SELECT status FROM tasks WHERE id = $1`,
+      [taskId],
+    );
+    expect(oldTask.rows[0].status).toBe('cancelled');
+  });
+
   test('B.10.5 — completar task bridge con close → ticket closed', async ({
     request,
   }) => {

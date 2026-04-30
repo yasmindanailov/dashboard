@@ -244,11 +244,44 @@ export default function TaskDetailPage() {
   const handleStatusChange = async (newStatus: string) => {
     if (!token || !id) return;
     try {
-      await tasksApi.update(token, id, { status: newStatus });
-      toast('success', `Estado actualizado a: ${TASK_STATUS_LABELS[newStatus]}`);
+      // Sprint 8 Fase B.10.fix (2026-04-30) — el backend devuelve flag
+      // `__ticket_released: true` cuando una task bridge se cancela y
+      // libera el ticket vinculado. Lo usamos para mostrar toast
+      // contextual con CTA al ticket, en lugar del genérico.
+      const updated = (await tasksApi.update(token, id, { status: newStatus })) as
+        | { __ticket_released?: boolean; conversation_id?: string | null }
+        | null;
+      if (
+        newStatus === 'cancelled' &&
+        updated?.__ticket_released &&
+        updated?.conversation_id
+      ) {
+        toast(
+          'success',
+          'Tarea cancelada. El ticket vinculado quedó sin asignar — listo para que otro agente lo recoja.',
+        );
+      } else {
+        toast('success', `Estado actualizado a: ${TASK_STATUS_LABELS[newStatus]}`);
+      }
       fetchTask();
     } catch (err) {
       toast('error', getErrorMessage(err) || 'Error al actualizar');
+    }
+  };
+
+  /**
+   * Sprint 8 Fase B.10.fix (2026-04-30) — confirm dialog antes de cancelar
+   * una task bridge (con `conversation_id`). Sin la confirmación el
+   * agente no entiende qué pasa con el ticket; con ella tiene contexto
+   * explícito antes de actuar. Para tareas no-bridge, sin modal —
+   * cancelación directa.
+   */
+  const [showCancelBridgeModal, setShowCancelBridgeModal] = useState(false);
+  const requestCancel = () => {
+    if (task?.conversation_id) {
+      setShowCancelBridgeModal(true);
+    } else {
+      void handleStatusChange('cancelled');
     }
   };
 
@@ -492,7 +525,7 @@ export default function TaskDetailPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => handleStatusChange('cancelled')}
+              onClick={requestCancel}
             >
               Cancelar
             </Button>
@@ -810,6 +843,45 @@ export default function TaskDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Sprint 8 Fase B.10.fix (2026-04-30) — confirmación explícita al
+          cancelar una task bridge. La cancelación libera el ticket
+          (desasigna agente) — sin este modal el agente no entiende qué
+          le pasa al ticket. Para tareas no-bridge, `requestCancel`
+          ejecuta directo sin pasar por aquí. */}
+      <Modal
+        open={showCancelBridgeModal}
+        onClose={() => setShowCancelBridgeModal(false)}
+        title="Cancelar tarea vinculada al ticket"
+        size="sm"
+      >
+        <p className={styles.completionDesc}>
+          Esta tarea está vinculada a un ticket de soporte. Si la cancelas:
+        </p>
+        <ul style={{ paddingLeft: 'var(--space-5)', color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: 'var(--font-size-sm)' }}>
+          <li>El ticket <strong>quedará sin asignar</strong> y volverá a la cola.</li>
+          <li>Otro agente podrá recogerlo desde el ticket asignándose o reasignándolo.</li>
+          <li>El ticket <strong>NO se cierra</strong> — el problema del cliente sigue abierto.</li>
+          <li>Esta tarea queda en estado <strong>cancelada</strong> en el historial (no se borra).</li>
+        </ul>
+        <div className={styles.completionActions}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowCancelBridgeModal(false)}
+          >
+            Volver
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              setShowCancelBridgeModal(false);
+              void handleStatusChange('cancelled');
+            }}
+          >
+            Sí, cancelar tarea y liberar ticket
+          </Button>
+        </div>
+      </Modal>
 
       {/* Sprint 8 Fase B.9 / B.10 — modal canónico de cierre. Modo
           simple (B.9) si la tarea no tiene `conversation_id`, modo

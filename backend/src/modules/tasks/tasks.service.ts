@@ -487,7 +487,41 @@ export class TasksService {
     if (dto.status === TaskStatusDto.completed) {
       this.events.emit('task.completed', { task, completedBy: userId });
     }
-    return task;
+
+    /* Sprint 8 Fase B.10.fix (2026-04-30) — ADR-074: si se CANCELA una
+       tarea con `conversation_id` (bridge), liberar el ticket vinculado
+       desasignando el agente. Doctrina canónica: "la tarea ES el trabajo
+       del agente sobre el ticket; si se cancela, el ticket vuelve a la
+       cola". Sin esta lógica, el ticket queda asignado al agente que
+       canceló sin tarea activa — estado incoherente que confunde al
+       siguiente admin que ve el detalle del ticket.
+
+       NO usamos `complete()` con `ticket_action` porque la cancelación
+       no implica resolución/cierre del ticket — el problema del cliente
+       sigue abierto y pendiente. El ticket vuelve a `open` con
+       `assigned_agent_id=null`. La cancelación queda registrada en el
+       timeline del ticket vía mensaje sistema delegado a support. */
+    let ticketReleased = false;
+    if (dto.status === TaskStatusDto.cancelled && task.conversation_id) {
+      try {
+        await this.support.updateConversation(
+          task.conversation_id,
+          { assigned_agent_id: null },
+          userId,
+        );
+        ticketReleased = true;
+      } catch (err) {
+        // Degradación elegante: la cancelación de la tarea ya está
+        // confirmada. Si falla la liberación del ticket, log y seguimos
+        // — el admin puede desasignar manualmente desde el sidebar.
+        this.logger.warn(
+          `Failed to release ticket ${task.conversation_id} after task cancel: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    return ticketReleased
+      ? { ...task, __ticket_released: true as const }
+      : task;
   }
 
   /* ── Complete with notes (maintenance flow + ticket-bridge) ──

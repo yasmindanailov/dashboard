@@ -9,6 +9,7 @@ import {
   MaxLength,
   Min,
   Max,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
@@ -172,9 +173,20 @@ export class UpdateConversationDto {
   @IsEnum(ConversationCategory)
   category?: ConversationCategory;
 
+  /**
+   * Sprint 8 Fase B.10.fix (2026-04-30) — admite `null` explícito para
+   * desasignación (el service ya gestiona ambos casos: una rama crea
+   * mensaje sistema + emite `conversation.assigned`, la otra setea
+   * `assigned_agent_id = null`). Antes de B.10.fix el DTO tipo `string`
+   * sólo bloqueaba el shape — el frontend ya lo enviaba como null al
+   * pulsar "Sin asignar" y el `class-transformer` lo aceptaba en runtime
+   * pero TypeScript en cross-call (TasksService → SupportService) lo
+   * rechazaba. `@ValidateIf` salta `IsUUID` cuando el valor es null.
+   */
   @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
   @IsUUID()
-  assigned_agent_id?: string;
+  assigned_agent_id?: string | null;
 
   @IsOptional()
   @IsString()
