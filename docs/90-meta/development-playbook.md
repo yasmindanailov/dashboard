@@ -27,9 +27,13 @@
 - Regla R1 (módulos por eventos): 100% conforme
 - Subservices Regla R15: aplicados correctamente en 5 módulos
 
+### Postura de deploy (formalizada 2026-04-29)
+
+📜 **[ADR-069 — Estrategia de deploy diferido](../10-decisions/adr-069-estrategia-deploy-diferido.md)**: el proyecto es a largo plazo, sin clientes esperando ni demo pública. Sprint 14 Deploy real está reclasificado como **gate condicionado P-DEPLOY**, no como cola activa. Toda la deuda dependiente de prod queda agrupada bajo P-DEPLOY hasta trigger explícito (cliente real / demo / captación / decisión consciente). Mientras tanto, la cola activa la ordena el **valor funcional**, no la cercanía al deploy.
+
 ### Lo que tiene DEUDA conocida
 
-⚠️ **Outbox Pattern (R8)**: **4/25 eventos lo usan** — `invoice.*` (created/paid/failed/overdue) cerrado P0.2 (2026-04-26) vía `OutboxService` + `OutboxWorker` en `backend/src/core/outbox/`. Pendiente extender a `service.*` (4) y `checkout.completed` cuando se implemente provisioning, y a `partner.*` (4 futuros). ADR-033 documenta el patrón canónico.
+⚠️ **Outbox Pattern (R8)**: **4/25 eventos lo usan** — `invoice.*` (created/paid/failed/overdue) cerrado P0.2 (2026-04-26) vía `OutboxService` + `OutboxWorker` en `backend/src/core/outbox/`. Pendiente extender a `service.*` (4) y `checkout.completed` cuando se implemente provisioning, y a `partner.*` (4 futuros). ADR-033 documenta el patrón canónico. **Bajo P-DEPLOY (no urgente — ADR-069).**
 ⚠️ **Sprint 8 (Tasks) WIP** — el **mínimo desbloqueante** está cerrado (P0.1: listener `task.assigned`, validación FK `assigned_to`, tests E2E `tests/e2e/tasks.spec.ts`). El resto sigue pendiente y vive en [`current.md` §Sprint 8](../60-roadmap/current.md):
 - Fase A: schemas `task_checklist_completions`, `maintenance_logs`, `product_checklist_items`, `service_checklist_items` (8.1b/c/d/14).
 - Fase B: frontend Tablero + bloques adaptativos + ClientNotesTab vinculación (8.8b/c/d/e).
@@ -103,13 +107,20 @@ Procedimiento estándar (en este orden):
 
 ### Cuando vayas a desplegar a producción
 
+> ⚠️ **Política canónica ([ADR-069](../10-decisions/adr-069-estrategia-deploy-diferido.md))**: el deploy productivo (Sprint 14) **NO se ejecuta por defecto**. Requiere trigger explícito: cliente real con fecha de onboarding, demo pública, campaña de captación, validación externa de UX, o decisión consciente documentada. Si no se cumple ningún trigger, **no es momento de desplegar** — la cola activa son features.
+
+Cuando el trigger se cumpla y Sprint 14 se active, ejecuta toda la lista P-DEPLOY de [`backlog.md`](../60-roadmap/backlog.md) en una sola pasada (commit atómico o cadena corta), incluyendo:
+
 1. Define `SENTRY_DSN` en el hosting → activa observabilidad.
 2. Define `NEXT_PUBLIC_API_URL` real (no localhost).
 3. Define los secrets sensibles (`JWT_SECRET`, `JWT_REFRESH_SECRET`, `ENCRYPTION_KEY`) — generar nuevos, no usar los de dev.
 4. Configura SMTP real (Mailgun, SES, etc.) en lugar de MailPit.
 5. Migra Postgres + Redis a managed services o instancias dedicadas.
-6. **Antes del primer deploy:** cierra deuda Outbox al menos para `invoice.*` (R8). Es crítico legal/financiero.
-7. Habilita branch protection en GitHub Pro/Team (cuando upgrade del plan Free).
+6. **Cierra ventana de aliases REST** ([ADR-068 §3](../10-decisions/adr-068-multi-path-deprecation-headers.md)) — eliminar paths legacy del array `@Controller([...])`.
+7. **Reemplaza fire-and-forget R2** de PDFs (`InvoicePdfStorageService.generateAndUploadInBackground`) por job persistente BullMQ.
+8. **Extiende Outbox a `service.*` / `partner.*`** si esos módulos están implementados (R8).
+9. Habilita branch protection en GitHub Pro/Team (cuando upgrade del plan Free).
+10. Dry-run de Sprint 14 contra staging desechable antes del primer push productivo + checklist + runbook.
 
 ---
 
@@ -170,29 +181,49 @@ Acompáñalo siempre con:
 
 ## 5. Pendiente de desarrollo (features)
 
-> 🎯 **P0 cerrado al 100% el 2026-04-26** (P0.1 + P0.2 + P0.3 + P0.4). El primer deploy productivo (Sprint 14) ya no tiene bloqueos críticos pre-deploy. La cola siguiente es **P1**.
+> 🎯 **P0 cerrado al 100%** (2026-04-26) · **P1.1 / P1.1.5 / P1.1.6** cerrados (2026-04-27/28) · **P1.2 Sprint 11.5 (MinIO)** cerrado (2026-04-26).
+> 📜 **[ADR-069](../10-decisions/adr-069-estrategia-deploy-diferido.md) reclasifica P1.4 Sprint 14 Deploy como gate condicionado P-DEPLOY** — no está en cola activa.
 
-### P1 — Importante para producción profesional (antes de desplegar)
+### Cola activa (orden recomendado por valor funcional, post [ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md) 2026-04-29)
 
-1. **P1.1 Sprint 9 — Audit + Notifications Full** — audit consultas, portal transparencia cliente, plantillas editables, BullMQ emails, DLQ, **Outbox worker hardening (migrar de `@Interval` a BullMQ)**, Error Log UI. ~2-3 sesiones.
-2. **P1.2 Sprint 11.5 — MinIO Storage local** — añadir MinIO al `docker-compose.dev.yml` + `StorageService` + integración con generación de PDFs. **Desbloquea adjuntos en chat (7.7) y tickets (7.6.3)**. ~1 sesión, independiente.
-3. **P1.3 Sprint 7.5 Fase 2** — migración progresiva de páginas restantes al Design System. Oportunista (al tocar página, migrar en mismo PR).
-4. **P1.4 Sprint 14 Deploy real** — Docker Compose **prod** + Traefik + SSL + Grafana/Prometheus/Loki + pipeline + backups Cloudflare R2 + plan recovery + Sentry real. Depende de P1.1+P1.2 cerrados. ~2-3 sesiones.
+1. **Sprint 8 residual — Tasks + Support Inside** — Fase A schemas (`8.1b/c/d/14`), Fase B frontend Tablero + bloques adaptativos + ClientNotesTab vinculación, Fase C listeners `task.overdue` + cron `not_completed_in_time` + WOW calls automáticos (8.2/8.3/8.10/8.12), Fase D Support Inside UX dedicada ([ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md)), Fase E docs. ~3-4 sesiones. **Recomendado primero por regla "no abrir lo nuevo con WIP abierto".**
+2. **P2.1 Sprint 11 — Provisioning** (orquestador lifecycle + interfaz `ProvisionerPlugin` extendida [ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md) — `getServiceInfo` + `getSsoUrl` + `executeAction` + cache Redis + audit hooks · plugins iniciales triviales `internal` y `manual` · página única cliente `/dashboard/services/[id]`) — ~3 sesiones.
+3. **P2.2 Sprint 15A — Plugin Framework** (manifest + loader + UI dinámica desde Settings + encriptación API keys + helpers `core/provisioning/plugin-utils.ts`) — ~1-2 sesiones.
+4. **P2.3 Sprint 15D — Plugin ResellerClub (dominios)** — primer plugin externo. SaaS, no usa Sprint 10. Acciones curadas: DNS records CRUD + transfer out + auto-renew. ~2 sesiones.
+5. **P2.4 Sprint 15C — Plugin Enhance CP (hostings)** — segundo plugin SaaS. Tampoco usa Sprint 10. Acciones curadas: reset password + view disk/bandwidth. SSO al panel Enhance. ~2-3 sesiones.
+6. **P2.5 Sprint 10 — Infrastructure** (CRUD servidores + pools + capacidad detectada + cron `poll-server-metrics` + algoritmo `pickServerForProduct` + UI `/admin/infrastructure` + editor `docker_templates`) — ~2 sesiones. **Emparejado con P2.6.**
+7. **P2.6 Sprint 15E — Plugin Docker Engine** — provisioner contenedores Docker + Collabora compartido + métricas Docker stats por contenedor + acciones curadas (restart, view_logs, reset_admin_password, change_subdomain). ~3 sesiones. **Único consumidor real de Sprint 10 — por eso se ejecutan en cadena corta.**
+8. **P2.7 Sprint 12 — Settings + Knowledge Base** (página settings categorizada + gestión plugins via UI dinámica + editor marca + prefijo numeración configurable + due_date desde settings + KB articles) — ~2-3 sesiones.
+9. **P2.8 Sprint 12.5 — Portal Transparencia RGPD** (zona transparencia cliente, integrations registry, consentimientos, editor textos legales, exportación datos, eliminación cuenta) — ~2-3 sesiones.
+10. **P2.9 Sprint 13 — Hardening + Escalabilidad** (httpOnly cookies, refresh rotation, audit trail global, validaciones billing edge cases, Redis adapter Socket.io, N+1 audit, cursor pagination, caching, R15 restantes, **DC.13 paralelización E2E**, **DC.14 AdminSidebar collapse**, **DC.15 colapso `SIDEBAR_PERMISSIONS`** duplicado).
 
-### Sprint 8 — pendiente residual (NO crítico, NO bloqueante)
+> 📜 **Doctrina de orden** ([ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md)):
+> - Sprint 11 + Plugin Framework primero, **antes** de cualquier plugin concreto, para fijar la interfaz extendida.
+> - **Plugins SaaS antes que Sprint 10**: `resellerclub` y `enhance_cp` no consumen `infrastructure`. Construir Sprint 10 antes que ellos sería YAGNI (módulo sin consumidor).
+> - Sprint 10 + Sprint 15E **emparejados** porque el plugin Docker es el único consumidor real de `servers`/`server_pools`/`server_metrics`.
+> - Sprint 12 (Settings + KB) tras los plugins porque la UI dinámica de settings depende del manifest declarado por cada plugin.
 
-El mínimo desbloqueante (P0.1) está cerrado. El resto del Sprint 8 vive en [`current.md`](../60-roadmap/current.md): schemas Fase A (`8.1b/c/d/14`), frontend Fase B, automatización Fase C (`task.overdue`, WOW calls, crons), Support Inside Fase D (ADR-061), docs Fase E. Se cerrará cuando se aborden las features que lo necesitan (ej. Sprint 9 desbloquea `task.overdue` + cron).
+### Continuo / oportunista (sin sprint dedicado)
 
-### Deuda continua documentada (`backlog.md` §Deuda continua)
+- **P1.3 Sprint 7.5 Fase 2** — migración progresiva al Design System. Al tocar página, migrar en el mismo PR.
+- **DC.5 R15 restantes** — al tocar el archivo.
+- **DC.6 Migración fetch → Server Components + Suspense** — cierra los 27 warnings `set-state-in-effect`. Sprint 7.5 Fase 2 o Sprint 13.
+- **DC.8 Listeners `auth.*`** → `AuditService.logAccess(...)` — al tocar `auth/*`.
+- **DC.11 Suite E2E env coherente** — documentar al preparar Sprint 14 o tocar tests.
 
-- **DC.6** Migración fetch → Server Components + Suspense (cierra los 27 warnings `set-state-in-effect`). Sprint 7.5 Fase 2 o Sprint 13.
-- **DC.5** R15 restantes (oportunista al tocar archivos).
-- **DC.1-4** ver `backlog.md`.
+### Gate condicionado: P-DEPLOY (Sprint 14 — ADR-069)
 
-### P2/P3 — Features grandes (cuando P1 esté)
+> No está en cola activa. Se ejecuta cuando se cumple un **trigger de negocio**: cliente real con fecha de onboarding, demo pública, captación activa, validación externa de UX, o decisión consciente de Yasmin.
 
-5. **P2.1-5 Módulos pendientes** — Infrastructure, Provisioning, Settings, Knowledge Base, Hardening (ver `backlog.md` P2).
-6. **P3.x Plugins + Fase 2** — Plugin framework, Stripe, ResellerClub, Docker Engine, Claude AI; Projects, CRM, Tickets redesign, Citations, AI Workers, Promotions, Referral, Partner module, i18n. Cada uno gobernado por su propio sub-sprint independiente — ver `backlog.md` P3.
+- **P-DEPLOY.1** Sprint 14 — Deploy real (Docker Compose prod + Traefik + SSL + Grafana/Prometheus/Loki + pipeline + backups Cloudflare R2 + Sentry real + reglas WAF `/admin/*` + rate limiting diferenciado).
+- **P-DEPLOY.2** Backup + recovery plan documentado (RTO < 4h, RPO < 6h).
+- **P-DEPLOY.3** Cierre ventana aliases REST ([ADR-068 §3](../10-decisions/adr-068-multi-path-deprecation-headers.md)).
+- **P-DEPLOY.4** Outbox extendido a `service.*` / `partner.*` (cuando sus módulos estén implementados).
+- **P-DEPLOY.5** Reemplazo fire-and-forget R2 PDFs por job persistente BullMQ.
+
+### P3 — Features grandes (Fase 2, plugins, canal partner, i18n)
+
+Plugin framework, Stripe, ResellerClub, Docker Engine, Claude AI; Projects, CRM, Tickets redesign, Citations, AI Workers, Promotions, Referral, Partner module, i18n. Cada uno gobernado por su propio sub-sprint independiente — ver [`backlog.md` P3](../60-roadmap/backlog.md).
 
 ---
 
@@ -271,29 +302,54 @@ Cuando vuelvas tras tiempo, lee en este orden:
 
 ## 10. Mi recomendación honesta para tu próxima sesión
 
-> Estado actualizado 2026-04-26: P0 cerrado al 100% (P0.1-P0.4). Refactor F1-F9 al 100%. La doc es ya completa y navegable. Lo que sigue es **P1**.
+> **Estado actualizado 2026-04-29.**
+> ✅ **P0 cerrado al 100%** (2026-04-26).
+> ✅ **P1.1 Sprint 9** (Audit + Notifications + BullMQ + DLQ) cerrado 2026-04-27.
+> ✅ **P1.1.5 Sprint 9.5** (UX admin notifications) cerrado 2026-04-27.
+> ✅ **P1.1.6 Sprint 9.6** (DC.7 split admin/cliente + 3 ADRs nuevos 066/067/068) cerrado 2026-04-28.
+> ✅ **P1.2 Sprint 11.5** (MinIO Storage) cerrado 2026-04-26.
+> 📜 **Política deploy diferido formalizada en [ADR-069](../10-decisions/adr-069-estrategia-deploy-diferido.md)** (2026-04-29): Sprint 14 reclasificado como **gate condicionado P-DEPLOY**, no como cola activa.
 
-Mi recomendación: **una de estas dos**, y mi voto va a la **Opción A** porque la prioridad real ahora es habilitar el primer deploy productivo (Sprint 14), y P1.2 lo descongestiona con menor esfuerzo.
+### Política canónica para "qué viene ahora" (post ADR-069)
 
-### Opción A (recomendada) — P1.2 Sprint 11.5: MinIO local
-- "Implementa Sprint 11.5 — añade MinIO al `docker-compose.dev.yml`, crea `StorageService` con métodos `upload/download/delete/presignedUrl`, e integra con `InvoicePdfService` para guardar PDFs."
-- ~1 sesión, **independiente** (no bloqueado por nada).
-- **Desbloquea**: adjuntos en chat (Sprint 7.7) + adjuntos en tickets (Sprint 7.6.3) + persistencia de PDFs de facturas. Tres features de UX pegadas a la espera.
-- Referencias: [`backlog.md` P1.2](../60-roadmap/backlog.md), `docker-compose.dev.yml` actual.
+El proyecto es **a largo plazo**, sin clientes esperando ni demo pública pendiente. Por tanto, la cola activa **NO** la ordena la cercanía al deploy productivo, sino el **valor funcional de cada sprint**. Sprint 14 espera trigger explícito (cliente real, demo, captación, decisión consciente). Mientras tanto, la cola activa es feature work de los módulos pendientes.
 
-### Opción B — P1.1 Sprint 9: Audit + Notifications Full
-- "Implementa Sprint 9 — Audit consultas + portal transparencia cliente + plantillas editables + BullMQ emails con DLQ + **Outbox worker hardening (migrar `@Interval` a BullMQ)** + Error Log UI."
-- ~2-3 sesiones (más denso).
-- **Cierra deuda histórica**: BullMQ leader election (playbook §1), DLQ para emails fallidos, audit trail completo con portal RGPD.
-- Pre-requisito **directo** de Sprint 14 Deploy real: producción sin DLQ pierde emails silenciosamente.
+### Vías legítimas para el siguiente sprint (ordenadas por valor profesional)
 
-### Por qué A antes que B
-- A es atómico y demostrable en una sesión. B es 3 sub-piezas que sólo dan valor juntas.
-- Tras A, tienes 2 features de UX (adjuntos chat/tickets) listas para programar oportunamente.
-- B requiere trabajo previo de A NO, son ortogonales — pero A es prerequisito de Sprint 14 también (sin storage no se puede pasar de localhost a prod sin perder PDFs/adjuntos).
+#### Vía 1 (recomendada por defecto) — Cerrar Sprint 8 residual (Tasks)
 
-### Si tienes prisa por desplegar
-Salta directo a **B → Sprint 14**. Pero en cuanto despliegues sin MinIO, los adjuntos quedarán colgando indefinidamente. A primero es la jugada limpia.
+- **"Cierra Sprint 8 — Fase A schemas (`task_checklist_completions`, `maintenance_logs`, `product_checklist_items`, `service_checklist_items`, `client_notes.task_id` FK), Fase B Tablero + bloques adaptativos + ClientNotesTab vinculación, Fase C listeners `task.overdue` + cron `not_completed_in_time` + WOW calls, Fase D Support Inside (UX dedicada — ADR-061), Fase E docs admin/agent."**
+- ~3-4 sesiones (Fase A→E pueden partirse).
+- **Por qué primero**: regla profesional canónica — *no abrir features grandes nuevas con WIP sin cerrar*. Sprint 8 lleva más tiempo abierto que cualquier otro y arrastra Support Inside (ADR-061), que es feature de cliente real con UX dedicada.
+- **Lo que cierra**: tres bloques de funcionalidad pegada a UX cliente (tablero de tareas operativo, Support Inside como tier de cuenta visible, automatización de mantenimiento WOW post-alta).
+
+#### Vía 2 — Sprint 10 Infrastructure (P2.1, independiente)
+
+- **"Implementa Sprint 10 — CRUD servidores + pools + capacidad detectada automáticamente + docker_templates UI"**.
+- ~2 sesiones, **sin dependencias** — se puede arrancar en paralelo con Sprint 8 si Yasmin quisiera dos frentes (no recomendado en práctica para un dev solo).
+- **Por qué tiene sentido**: base directa de Sprint 11 Provisioning (núcleo del producto). Empezarla pronto desbloquea cadena P2.
+
+#### Vía 3 — Sprint 11 Provisioning (P2.2, núcleo del negocio)
+
+- **"Implementa Sprint 11 — orquestación lifecycle servicios, plugins Enhance CP/Docker/Manual, subdominios, métricas Docker cliente"**.
+- ~3-4 sesiones. **Depende de Sprint 10**.
+- **Por qué la considero**: es el núcleo operativo del producto (sin Provisioning, "vender hosting" es manual). Pero **no antes de Sprint 8** salvo que Yasmin priorice valor de negocio sobre cierre de WIP.
+
+### Mi voto profesional: Vía 1 (Sprint 8 residual)
+
+Razones:
+1. **Regla "no abrir lo nuevo con WIP abierto"** — Sprint 8 es la deuda más antigua del roadmap activo.
+2. **Support Inside (ADR-061)** es feature visible a cliente; cerrarlo aporta valor inmediato a la UX.
+3. **Sprint 9/9.5/9.6 ya tocaron notifications + tasks listeners parcialmente** — el contexto está fresco para cerrar la cola de listeners `task.overdue` + cron + WOW calls de la Fase C sin re-aprender nada.
+4. **Sprint 10/11** quedan más limpios cuando Sprint 8 está cerrado: sin entrelazado de tasks/maintenance con provisioning.
+
+### Si decides priorizar valor de negocio sobre cierre WIP
+
+Vía 2 (Sprint 10 Infrastructure) — independiente y rápido, sienta la base para Provisioning. Es decisión legítima si quieres atacar el núcleo de producto cuanto antes.
+
+### Cuándo Sprint 14 vuelve a estar en cola
+
+Cuando se cumpla **trigger ADR-069** (cliente real con fecha, demo pública, captación activa, validación externa de UX, o decisión consciente documentada). Hasta entonces, toda la deuda pre-deploy (R8 Outbox para `service.*`/`partner.*`, fire-and-forget R2 de PDFs, cierre de aliases REST por ADR-068 §3, secrets reales, Sentry DSN, plan recovery) queda agrupada bajo **P-DEPLOY** en `backlog.md` y se ejecuta toda junta cuando el gate se active.
 
 ---
 

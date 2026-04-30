@@ -54,6 +54,26 @@ export interface UserSummary {
   role?: { slug: RoleSlug; name: string };
 }
 
+/**
+ * Shape devuelto por `GET /api/v1/admin/users` (Sprint 8 Fase A — backend
+ * `AgentListItemDto`). Subconjunto del User que el frontend muestra en
+ * selectores de asignación de tareas (NewTaskModal, DetailPage reasignar).
+ *
+ * `role` es siempre uno de los 4 slugs staff asignables: `superadmin`,
+ * `agent_full`, `agent_billing`, `agent_support`. El backend filtra
+ * defense-in-depth via `ASSIGNABLE_ROLE_SLUGS`.
+ */
+export interface Agent {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  role: RoleSlug;
+  status: UserStatus;
+  avatar_url: string | null;
+}
+
 // ─── Clients ─────────────────────────────────────────────────────
 
 export type ClientType = 'b2c' | 'b2b';
@@ -81,6 +101,14 @@ export interface ClientNote {
   is_pinned: boolean;
   conversation_id: string | null;
   task_id?: string | null;
+  /**
+   * Sprint 8 Fase B.4 (2026-04-29): backend enriquece con título y tipo
+   * de la task de origen cuando `task_id` está poblado. Permite al
+   * `ClientNotesTab` mostrar "Tarea: <title>" como link clicable, en
+   * paralelo a la fila ya existente para `conversation_id`.
+   */
+  task_title?: string | null;
+  task_type?: string | null;
   created_at: string;
 }
 
@@ -221,15 +249,33 @@ export interface Message {
 }
 
 // ─── Tasks ───────────────────────────────────────────────────────
+// Sprint 8 Fase B.7 (2026-04-29) — ADR-073. Sincronizado con
+// `backend/src/modules/tasks/dto/task.dto.ts`. Antes de B.7 esta
+// definición divergía (`follow_up`/`other` inexistentes, `urgent` en
+// vez de `critical`, faltaba `not_completed_in_time`). Si añades un
+// nuevo valor en backend, replícalo aquí o el tipado mentirá silenciosamente.
 
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
-export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type TaskStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'completed'
+  | 'not_completed_in_time'
+  | 'cancelled';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
 export type TaskType =
-  | 'wow_call'
+  | 'contact_client'
   | 'maintenance'
   | 'maintenance_management'
-  | 'follow_up'
-  | 'other';
+  | 'project_task'
+  | 'custom_work'
+  | 'support_setup';
+
+export interface TaskTag {
+  id: string;
+  slug: string;
+  label: string;
+  color: string | null;
+}
 
 export interface Task {
   id: string;
@@ -243,4 +289,8 @@ export interface Task {
   due_date: string | null;
   completed_at: string | null;
   created_at: string;
+  /** Sprint 8 Fase B.7 — ADR-073: POR QUÉ humano de la tarea. */
+  reason: string | null;
+  /** Sprint 8 Fase B.7 — ADR-073: tags asignados (chips). */
+  tag_assignments?: { tag: TaskTag }[];
 }

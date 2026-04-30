@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useConversationDetail } from '../../../_shared/support/conversation/useConversationDetail';
@@ -10,6 +10,7 @@ import ConversationSidebar from '../../../_shared/support/conversation/Conversat
 import DetailResolutionModal from '../../../_shared/support/conversation/DetailResolutionModal';
 import { DetailPage, Card, Skeleton } from '../../../components/ui';
 import styles from '../../../_shared/support/conversation/conversationDetail.module.css';
+import { tasksApi } from '../../../lib/api';
 
 /* ═══════════════════════════════════════
    Admin Conversation Detail — Portal de Administración
@@ -29,10 +30,19 @@ import styles from '../../../_shared/support/conversation/conversationDetail.mod
    Ref: UI_SPEC §2.5, ADR-066, ADR-067, DECISIONS.md §43, §46, 7.H17
    ═══════════════════════════════════════ */
 
+interface LinkedTaskHint {
+  id: string;
+  status: string;
+  title: string;
+}
+
 export default function AdminConversationDetailPage() {
   const d = useConversationDetail();
   const router = useRouter();
   const isChat = d.conversation?.type === 'chat';
+  // Sprint 8 Fase B.10 (2026-04-30) — ADR-074: detectar task vinculada
+  // activa para ocultar Resolver/Cerrar y delegar el cierre a la task.
+  const [linkedTask, setLinkedTask] = useState<LinkedTaskHint | null>(null);
 
   /* Chat → workspace en vivo. Tickets se quedan aquí. */
   useEffect(() => {
@@ -40,6 +50,49 @@ export default function AdminConversationDetailPage() {
       router.replace(`/admin/support/chats?open=${d.conversation.id}`);
     }
   }, [d.conversation, router]);
+
+  // Carga lazy de la task vinculada (un row máximo). El backend filtra
+  // por `conversation_id` y devuelve solo activas (pending|in_progress)
+  // si el ticket tiene una bridge en curso. Si no hay, queda en null.
+  useEffect(() => {
+    const conv = d.conversation;
+    if (!conv || conv.type !== 'ticket') return;
+    const token =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('access_token') || ''
+        : '';
+    if (!token) return;
+    void (async () => {
+      try {
+        const res = (await tasksApi.list(token, {
+          conversation_id: conv.id,
+          status: 'pending',
+          scope: 'all',
+          limit: 1,
+        })) as { data?: { id: string; status: string; title: string }[] };
+        const data = res?.data ?? [];
+        // Si la primera está pending, perfecto. Si no, probamos in_progress.
+        if (data.length > 0) {
+          setLinkedTask({ id: data[0].id, status: data[0].status, title: data[0].title });
+          return;
+        }
+        const res2 = (await tasksApi.list(token, {
+          conversation_id: conv.id,
+          status: 'in_progress',
+          scope: 'all',
+          limit: 1,
+        })) as { data?: { id: string; status: string; title: string }[] };
+        const data2 = res2?.data ?? [];
+        setLinkedTask(
+          data2.length > 0
+            ? { id: data2[0].id, status: data2[0].status, title: data2[0].title }
+            : null,
+        );
+      } catch {
+        setLinkedTask(null);
+      }
+    })();
+  }, [d.conversation]);
 
   const getDetailDisplayTitle = (conv: { sequence_number?: number | null; subject: string; type: string }) => {
     if (conv.type === 'ticket' && conv.sequence_number) {
@@ -124,6 +177,7 @@ export default function AdminConversationDetailPage() {
           onStatusChange={d.handleStatusChange}
           onPriorityChange={d.handlePriorityChange}
           onEscalateToTicket={d.handleEscalateToTicket}
+          linkedTask={linkedTask}
         />
       }
       wide
@@ -156,6 +210,7 @@ export default function AdminConversationDetailPage() {
             clientServices={d.clientServices}
             contextLoading={d.contextLoading}
             isChat={isChat}
+            onAssignAgent={d.handleAssignAgent}
           />
         </div>
       </div>

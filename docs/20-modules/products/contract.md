@@ -6,6 +6,8 @@ Catálogo de lo que Aelium vende. Gestiona el ciclo de vida de productos (alta, 
 
 Es el módulo más **autocontenido** del sistema: cero eventos emitidos, cero eventos consumidos, cero acceso a tablas foráneas. Otros módulos (billing, dashboard) le LEEN; products no depende de nadie.
 
+> Cada producto declara `provisioner_slug` (ej. `docker_engine`, `enhance_cp`, `resellerclub`, `internal`, `manual`). El módulo `provisioning` (Sprint 11) lo lee para invocar el plugin correcto durante el ciclo de vida del servicio. La interfaz canónica del plugin está definida en [ADR-021](../../10-decisions/adr-021-provisioners.md) y extendida en [ADR-070](../../10-decisions/adr-070-service-info-sso-acciones-curadas.md) (`getServiceInfo` + `getSsoUrl` + `executeAction`). La página del cliente `/dashboard/services/[id]` es **única para todos los plugins** y se condiciona por las `capabilities` que cada plugin reporta.
+
 ---
 
 ## 2. Estado de implementación

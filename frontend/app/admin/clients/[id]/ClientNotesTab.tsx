@@ -27,6 +27,22 @@ const CAT_LABELS: Record<string, string> = {
   general: 'General',
 };
 
+/**
+ * Sprint 8 Fase B.4 (2026-04-29) — labels canónicos del enum TaskType para
+ * el badge "Tarea origen" cuando una `ClientNote` tiene `task_id` poblado.
+ * Espejo del mapeo en `frontend/app/admin/tasks/types.ts:TASK_TYPE_LABELS`
+ * y del mapeo backend `tasks-email.listener.ts:TASK_TYPE_LABELS_ES`. Si
+ * alguno cambia, hay que actualizar los tres a la vez.
+ */
+const TASK_TYPE_LABELS: Record<string, string> = {
+  contact_client: 'Contactar cliente',
+  maintenance: 'Mantenimiento',
+  maintenance_management: 'Mant. + Gestión',
+  project_task: 'Proyecto',
+  custom_work: 'Personalizada',
+  support_setup: 'Setup soporte',
+};
+
 interface ClientNotesTabProps {
   notes: ClientNote[];
   loading: boolean;
@@ -119,6 +135,25 @@ export default function ClientNotesTab({
                     <Link href={`/dashboard/support/${note.conversation_id}`}
                       className={styles.noteConvLink}>
                       Ver conversación origen
+                    </Link>
+                  )}
+                  {/* Sprint 8 Fase B.4 (2026-04-29): si la nota se generó
+                      al cerrar una task (tasks.complete() persiste con
+                      task_id + category=solution), mostrar link clicable
+                      al detalle de la task con su título. Paralelo a la
+                      fila ya existente para conversation_id. */}
+                  {note.task_id && (
+                    <Link href={`/admin/tasks/${note.task_id}`}
+                      className={styles.noteTaskLink}>
+                      <span className={styles.noteTaskLabel}>Tarea origen:</span>
+                      <span className={styles.noteTaskTitle}>
+                        {note.task_title ?? '(tarea eliminada)'}
+                      </span>
+                      {note.task_type && (
+                        <span className={styles.noteTaskBadge}>
+                          {TASK_TYPE_LABELS[note.task_type] ?? note.task_type}
+                        </span>
+                      )}
                     </Link>
                   )}
                   {/* Metadata row — author · category · date · action */}

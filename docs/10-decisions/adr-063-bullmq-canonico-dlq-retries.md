@@ -306,3 +306,9 @@ ADR-055 §Monitoring describe métricas Prometheus (queue size, jobs/sec, failur
 - **Glosario:** [DLQ](../00-foundations/glossary.md), [Idempotencia](../00-foundations/glossary.md), [Job](../00-foundations/glossary.md), [Backoff exponencial](../00-foundations/glossary.md).
 - **Catálogo:** [`jobs-reference.md`](../50-operations/jobs-reference.md) — actualizado en Sprint 9 G.2.
 - **Sprint que implementa:** [Sprint 9 Fase A](../60-roadmap/current.md#fase-a--infra-bullmq--dlq-cierra-adr-055-base-de-todo).
+
+---
+
+## Notas de revisión
+
+> **2026-04-29 (post [ADR-069](./adr-069-estrategia-deploy-diferido.md)):** las referencias internas de este ADR a "Sprint 14 P1.4" y "Sprint 14+" deben leerse como **Sprint 14 / P-DEPLOY** tras la reclasificación de ADR-069. La decisión técnica de este ADR no cambia; sólo cambia que Sprint 14 ya no está en cola activa por defecto, requiere trigger de negocio. Las consecuencias técnicas (Prometheus pendiente, leader election natural via Redis ya disponible) se mantienen.

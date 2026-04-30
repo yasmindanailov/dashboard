@@ -335,7 +335,7 @@ export const supportApi = {
   getConversation: (token: string, id: string) =>
     api(`/support/conversations/${id}`, { token }),
 
-  updateConversation: (token: string, id: string, data: { status?: string; priority?: string; category?: string; assigned_agent_id?: string; resolution_note?: string; tags?: string[] }) =>
+  updateConversation: (token: string, id: string, data: { status?: string; priority?: string; category?: string; assigned_agent_id?: string | null; resolution_note?: string; tags?: string[] }) =>
     api(`/support/conversations/${id}`, { method: 'PATCH', token, body: data }),
 
   addMessage: (token: string, conversationId: string, data: { body: string; is_internal?: boolean }) =>
@@ -388,12 +388,52 @@ export const supportApi = {
   },
 };
 
+// ── Users API (Sprint 8 Fase A — listar agentes asignables) ──
+//
+// Endpoint admin-only que el NewTaskModal y DetailPage usan para resolver
+// el selector de "Asignar a". El backend filtra por `ASSIGNABLE_ROLE_SLUGS`
+// (superadmin + 3 agentes); los `client`/`partner` nunca aparecen aquí
+// (defense-in-depth).
+
+export const usersApi = {
+  listAgents: (
+    token: string,
+    params?: {
+      role?: string | string[];
+      search?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) => {
+    const query = new URLSearchParams();
+    if (params?.role) {
+      const roles = Array.isArray(params.role) ? params.role : [params.role];
+      roles.forEach((r) => query.append('role', r));
+    }
+    if (params?.search) query.set('search', params.search);
+    if (params?.status) query.set('status', params.status);
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    const qs = query.toString();
+    return api(`/admin/users${qs ? `?${qs}` : ''}`, { token });
+  },
+};
+
 // ── Tasks API ──
 
 export const tasksApi = {
   list: (token: string, params?: {
     page?: number; limit?: number; status?: string; type?: string;
     priority?: string; assigned_to?: string; search?: string; time_range?: string;
+    /**
+     * Sprint 8.B.1.bis: vista segmentada según UI_SPEC §5.15.
+     * `mine` = mis tareas · `unassigned` = sin asignar · `all` = todas.
+     * Sin scope: comportamiento clásico (agente ve mine+unassigned, admin ve todas).
+     */
+    scope?: 'mine' | 'unassigned' | 'all';
+    /** Sprint 8 Fase B.10 — ADR-074: filtra por ticket vinculado. */
+    conversation_id?: string;
   }) => {
     const query = new URLSearchParams();
     if (params?.page) query.set('page', String(params.page));
@@ -404,6 +444,8 @@ export const tasksApi = {
     if (params?.assigned_to) query.set('assigned_to', params.assigned_to);
     if (params?.search) query.set('search', params.search);
     if (params?.time_range) query.set('time_range', params.time_range);
+    if (params?.scope) query.set('scope', params.scope);
+    if (params?.conversation_id) query.set('conversation_id', params.conversation_id);
     const qs = query.toString();
     return api(`/tasks${qs ? `?${qs}` : ''}`, { token });
   },
@@ -417,14 +459,147 @@ export const tasksApi = {
   update: (token: string, id: string, data: Record<string, unknown>) =>
     api(`/tasks/${id}`, { method: 'PATCH', token, body: data }),
 
-  complete: (token: string, id: string, data: { client_notes?: string; internal_notes?: string }) =>
-    api(`/tasks/${id}/complete`, { method: 'PATCH', token, body: data }),
+  /**
+   * Cierra una tarea. Shape soportado:
+   *   - Flujo simple (B.9): `{client_notes?, internal_notes?}` — si la
+   *     tarea no tiene conversation_id, `client_notes` dispara email al
+   *     cliente vía `task.completed` listener.
+   *   - Flujo bridge (B.10, ADR-074): `{ticket_action, resolution_note}`
+   *     — si la tarea tiene `conversation_id`, el backend marca el
+   *     ticket vinculado como `resolved` o `closed` y persiste la nota
+   *     interna. Sin notificación duplicada al cliente (la dispara
+   *     el módulo support).
+   */
+  complete: (
+    token: string,
+    id: string,
+    data: {
+      client_notes?: string;
+      internal_notes?: string;
+      ticket_action?: 'resolve' | 'close';
+      resolution_note?: string;
+    },
+  ) => api(`/tasks/${id}/complete`, { method: 'PATCH', token, body: data }),
 
   delete: (token: string, id: string) =>
     api(`/tasks/${id}`, { method: 'DELETE', token }),
 
-  getStats: (token: string) =>
-    api('/tasks/stats', { token }),
+  /**
+   * Sprint 8.B.1.bis: acepta `scope` para alinear los contadores con la
+   * vista segmentada activa. Sin `scope`, comportamiento legacy (admin
+   * ve todo, agente ve mine+unassigned mezcladas — coherente con
+   * `tasksApi.list` cuando tampoco se pasa scope).
+   */
+  getStats: (token: string, scope?: 'mine' | 'unassigned' | 'all') => {
+    const qs = scope ? `?scope=${scope}` : '';
+    return api(`/tasks/stats${qs}`, { token });
+  },
+
+  /**
+   * Sprint 8 Fase B.5 (2026-04-29) — checklist + maintenance log.
+   *
+   * `getChecklist` devuelve `{ items, completions }` para la task. La UI
+   * los cruza para renderizar checkboxes con su estado.
+   */
+  getChecklist: (token: string, taskId: string) =>
+    api(`/tasks/${taskId}/checklist`, { token }),
+
+  /** Marca un item como completado (idempotente por backend upsert). */
+  completeChecklistItem: (
+    token: string,
+    taskId: string,
+    data: {
+      item_id: string;
+      item_kind: 'service' | 'product';
+      notes?: string;
+    },
+  ) =>
+    api(`/tasks/${taskId}/checklist/complete`, {
+      method: 'POST',
+      token,
+      body: data,
+    }),
+
+  /**
+   * Cierra task de mantenimiento: valida items requeridos + crea
+   * `maintenance_log` + emite `maintenance.completed` (notifica al
+   * cliente). Si faltan items obligatorios → 400 con
+   * `missing_required: [{id, label, kind}]` para que la UI los muestre.
+   */
+  recordMaintenanceLog: (
+    token: string,
+    taskId: string,
+    data: {
+      notes: string;
+      month_year?: string;
+      internal_notes?: string;
+      checklist_completions?: {
+        item_id: string;
+        item_kind: 'service' | 'product';
+        notes?: string;
+      }[];
+    },
+  ) =>
+    api(`/tasks/${taskId}/maintenance/log`, {
+      method: 'POST',
+      token,
+      body: data,
+    }),
+
+  /* ── Sprint 8 Fase B.9 (2026-04-30) — Notas internas inline ── */
+
+  /**
+   * Lista las notas internas (`category=technical`) asociadas a la tarea.
+   * Devuelve cada nota con su autor (first/last_name) ya enriquecido para
+   * evitar N+1 al renderizar la card en el detail.
+   */
+  listNotes: (token: string, taskId: string) =>
+    api<TaskNotePayload[]>(`/tasks/${taskId}/notes`, { token }),
+
+  /**
+   * Persiste inmediatamente una nota interna (no se acumula en estado
+   * local). Devuelve la nota recién creada para refrescar la lista.
+   */
+  createNote: (token: string, taskId: string, body: string) =>
+    api<TaskNotePayload>(`/tasks/${taskId}/notes`, {
+      method: 'POST',
+      token,
+      body: { body },
+    }),
+};
+
+export interface TaskNotePayload {
+  id: string;
+  body: string;
+  created_at: string;
+  author: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  };
+}
+
+// ── Task Tags API ── Sprint 8 Fase B.7 (ADR-073)
+
+export interface TaskTagPayload {
+  id: string;
+  slug: string;
+  label: string;
+  color: string | null;
+  created_at: string;
+}
+
+export const taskTagsApi = {
+  list: (token: string) =>
+    api<TaskTagPayload[]>('/admin/task-tags', { token }),
+
+  create: (
+    token: string,
+    data: { label: string; slug?: string; color?: string },
+  ) => api<TaskTagPayload>('/admin/task-tags', { method: 'POST', token, body: data }),
+
+  delete: (token: string, id: string) =>
+    api(`/admin/task-tags/${id}`, { method: 'DELETE', token }),
 };
 
 // ── Dashboard API ──

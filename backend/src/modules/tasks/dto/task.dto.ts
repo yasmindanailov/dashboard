@@ -14,17 +14,44 @@ import {
   IsInt,
   Min,
   Max,
+  IsBoolean,
+  IsArray,
+  ArrayMaxSize,
+  Matches,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
+/**
+ * Sprint 8 Fase B (2026-04-29) — EC-T8-15. Formato canónico ISO 8601 mes:
+ * `YYYY-MM` con mes en rango 01-12. Compartido entre `tasks.billing_month`,
+ * `maintenance_logs.month_year` y cualquier consumidor futuro que necesite
+ * agrupar por mes calendario. Atrapa errores como `2026-13`, `2026-1`,
+ * `26-04`, `2026-04-01`. Mismo patrón que el unique constraint canónico
+ * `uniq_task_maintenance_per_month` (schema.prisma).
+ */
+export const BILLING_MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/**
+ * Sprint 8 Fase B.7 (2026-04-29) — ADR-073 renombra `wow_call` → `contact_client`.
+ * El enum representa qué bloque/automatización activa la tarea, NO la intención
+ * humana. La intención vive en `reason` (texto libre <=100) + `tag_ids[]`
+ * extensibles. Para añadir un nuevo contexto operativo (ej: "renovación
+ * hosting"), crear un tag desde el admin — NO añadir un nuevo valor de enum.
+ *
+ * Sprint 8 Fase B.10 (2026-04-30) — ADR-074 añade `support_ticket`. Tareas
+ * creadas automáticamente por `SupportTicketTaskCreatorListener` al asignar
+ * un ticket. SIEMPRE tienen `conversation_id` poblado.
+ */
 export enum TaskTypeDto {
-  wow_call = 'wow_call',
+  contact_client = 'contact_client',
   maintenance = 'maintenance',
   maintenance_management = 'maintenance_management',
   project_task = 'project_task',
   custom_work = 'custom_work',
   support_setup = 'support_setup',
+  support_ticket = 'support_ticket',
 }
 
 export enum TaskStatusDto {
@@ -42,11 +69,30 @@ export enum TaskPriorityDto {
   critical = 'critical',
 }
 
-/* ── Create ── */
+/* ── Create ──
+   Sprint 8 Fase B EC-T8-12..16 (2026-04-29):
+   - description ≤50KB (EC-T8-16): plantillas Handlebars rompen con bodies
+     enormes y los emails truncan en producción. 50000 chars cubre todo
+     uso operativo legítimo.
+   - billing_month regex (EC-T8-15): único formato aceptado `YYYY-MM`
+     con mes 01-12. Atrapa `2026-13`, `2026-1`, etc.
+   - is_recurring + recurrence_day coherentes (EC-T8-14): si la tarea
+     declara `is_recurring=true` el `recurrence_day` (1-31) es obligatorio.
+     `@ValidateIf` aplica el resto de constraints solo cuando hay flag.
+   - due_date pasado (EC-T8-12): validación canónica vive en
+     `TasksService.assertDueDateNotInPast()` (necesita comparación contra
+     reloj actual del servidor — no es estática). El flag interno
+     `allow_overdue` lo usa el cron del Fase D para crear retroactivos
+     legítimos; deliberadamente NO se expone como propiedad en el DTO.
+*/
 export class CreateTaskDto {
   @ApiProperty() @IsEnum(TaskTypeDto) type: TaskTypeDto;
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(500) title: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(50000)
+  description?: string;
   @ApiPropertyOptional()
   @IsOptional()
   @IsEnum(TaskPriorityDto)
@@ -54,18 +100,81 @@ export class CreateTaskDto {
   @ApiProperty() @IsUUID() client_id: string;
   @ApiPropertyOptional() @IsOptional() @IsUUID() service_id?: string;
   @ApiPropertyOptional() @IsOptional() @IsUUID() assigned_to?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() client_note?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  client_note?: string;
   @ApiPropertyOptional() @IsOptional() @IsDateString() due_date?: string;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  is_recurring?: boolean;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 31 })
+  @ValidateIf((o: CreateTaskDto) => o.is_recurring === true)
+  @IsInt()
+  @Min(1)
+  @Max(31)
+  recurrence_day?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Mes calendario `YYYY-MM` (mes 01-12). Sólo para tareas de mantenimiento mensual.',
+  })
+  @IsOptional()
+  @Matches(BILLING_MONTH_REGEX, {
+    message: 'billing_month debe tener formato YYYY-MM con mes 01-12',
+  })
+  billing_month?: string;
+
+  /* ── Sprint 8 Fase B.7 (2026-04-29) — ADR-073 ── */
+
+  @ApiPropertyOptional({
+    description:
+      'POR QUÉ humano de la tarea ("Bienvenida primer servicio", "Renovación", "Aviso migración"). Texto libre opcional <=100 chars.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  reason?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'IDs de TaskTag a asignar al crear (máx. 10). Los tags deben existir previamente — se crean desde `/admin/task-tags`.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsUUID('all', { each: true })
+  tag_ids?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'UUID del ticket vinculado. Sólo lo poblan listeners internos del bridge ticket↔task (Sprint 8 Fase B.10 / ADR-074). El frontend NO debe enviarlo: la asignación canónica es ticket → task vía `conversation.assigned`.',
+  })
+  @IsOptional()
+  @IsUUID()
+  conversation_id?: string;
 }
 
-/* ── Update ── */
+/* ── Update ──
+   Mismas reglas que CreateTaskDto sobre los campos editables. `client_id`,
+   `service_id` y `type` no son editables (TASK-INV-1 trazabilidad de
+   origen + coherencia con eventos ya emitidos). */
 export class UpdateTaskDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @MaxLength(500)
   title?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(50000)
+  description?: string;
   @ApiPropertyOptional()
   @IsOptional()
   @IsEnum(TaskStatusDto)
@@ -76,13 +185,208 @@ export class UpdateTaskDto {
   priority?: TaskPriorityDto;
   @ApiPropertyOptional() @IsOptional() @IsUUID() assigned_to?: string;
   @ApiPropertyOptional() @IsOptional() @IsDateString() due_date?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() client_note?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  client_note?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  is_recurring?: boolean;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 31 })
+  @ValidateIf((o: UpdateTaskDto) => o.is_recurring === true)
+  @IsInt()
+  @Min(1)
+  @Max(31)
+  recurrence_day?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Matches(BILLING_MONTH_REGEX, {
+    message: 'billing_month debe tener formato YYYY-MM con mes 01-12',
+  })
+  billing_month?: string;
+
+  /* ── Sprint 8 Fase B.7 (2026-04-29) — ADR-073 ── */
+
+  @ApiPropertyOptional({
+    description:
+      'POR QUÉ humano de la tarea. Texto libre opcional <=100 chars. Pasar string vacío para limpiar.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  reason?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'IDs de TaskTag (set completo: reemplaza la lista actual de la tarea). Pasar array vacío para desetiquetar.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsUUID('all', { each: true })
+  tag_ids?: string[];
 }
 
-/* ── Complete ── */
+/* ── Complete ──
+   Sprint 8 Fase B.10 (2026-04-30) — ADR-074. Cuando la tarea tiene
+   `conversation_id` poblado (tipo `support_ticket`), el flujo de cierre
+   activa el bridge: el agente elige `ticket_action` (`resolve` | `close`)
+   y aporta `resolution_note` interna. El backend marca la conversación
+   con el status correspondiente y persiste `ClientNote(category=solution)`
+   sin emitir notificación adicional desde tasks (la notificación
+   canónica al cliente la dispara support). Para tareas sin
+   `conversation_id`, esos campos se ignoran y aplica el flujo simple
+   B.9 (`client_notes` → email cliente). */
+export enum TicketActionDto {
+  resolve = 'resolve',
+  close = 'close',
+}
+
 export class CompleteTaskDto {
-  @ApiPropertyOptional() @IsOptional() @IsString() client_notes?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() internal_notes?: string;
+  @ApiPropertyOptional({
+    description:
+      'Mensaje al cliente (Sprint 8 Fase B.9). Si la tarea tiene `conversation_id`, este campo se IGNORA — la nota canónica vive en `resolution_note`.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  client_notes?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Nota interna (legacy, Sprint 8 Fase B.5). Sustituido en B.9 por las notas inline (POST /tasks/:id/notes); se mantiene por compatibilidad con el flujo `recordMaintenanceLog`.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  internal_notes?: string;
+
+  @ApiPropertyOptional({
+    enum: TicketActionDto,
+    description:
+      'Sprint 8 Fase B.10 — ADR-074. Sólo aplicable si la tarea tiene `conversation_id`. Determina si el ticket vinculado pasa a `resolved` o `closed`.',
+  })
+  @IsOptional()
+  @IsEnum(TicketActionDto)
+  ticket_action?: TicketActionDto;
+
+  @ApiPropertyOptional({
+    description:
+      'Sprint 8 Fase B.10 — ADR-074. Nota interna obligatoria (cuando `ticket_action` está presente) que se persiste como `ClientNote(category=solution, conversation_id)` y se pasa al módulo support como `resolution_note`. Mismo placeholder que `DetailResolutionModal`.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  resolution_note?: string;
+}
+
+/**
+ * Sprint 8 Fase B.5 (2026-04-29) — checklist completable + maintenance log.
+ *
+ * `item_kind` distingue dónde vive el item al que se refiere `item_id`:
+ *   - `service`: snapshot del servicio (`service_checklist_items`) que
+ *     se popula al provisionar (Sprint 11). Es el caso canónico cuando
+ *     hay servicio activo.
+ *   - `product`: items globales del producto (`product_checklist_items`)
+ *     usados como fallback cuando un servicio no tiene snapshot todavía
+ *     (caso transitorio hasta Sprint 11). Permite que el agente cierre
+ *     mantenimiento incluso antes de que `ServiceChecklistItem` exista.
+ */
+export enum ChecklistItemKindDto {
+  service = 'service',
+  product = 'product',
+}
+
+export class CompleteChecklistItemDto {
+  @ApiProperty({ description: 'UUID del item (service_* o product_*).' })
+  @IsUUID()
+  item_id: string;
+
+  @ApiProperty({ enum: ChecklistItemKindDto })
+  @IsEnum(ChecklistItemKindDto)
+  item_kind: ChecklistItemKindDto;
+
+  @ApiPropertyOptional({
+    description:
+      'Comentario opcional del agente al completar el item (ej: "actualicé core a v2.5").',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  notes?: string;
+}
+
+/**
+ * Sprint 8 Fase B.5 — registra `MaintenanceLog` (1:1 con la task) +
+ * cierra la task tipo `maintenance` / `maintenance_management`. Reúne en
+ * una sola transacción la creación del log + status=completed + emisión
+ * de `maintenance.completed` para que el cliente reciba la notificación.
+ *
+ * `month_year` se calcula del `task.billing_month` (poblado por el cron
+ * mensual del Sprint 8 Fase D) o del momento actual si no estaba populado.
+ * El DTO permite override explícito por si el agente cierra retroactivamente
+ * un mantenimiento del mes anterior (caso operativo real).
+ */
+export class RecordMaintenanceLogDto {
+  @ApiProperty({
+    description:
+      'Resumen del mantenimiento que se inyecta en la plantilla del email al cliente.',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(5000)
+  notes: string;
+
+  @ApiPropertyOptional({
+    description:
+      'YYYY-MM al que corresponde el mantenimiento. Default: task.billing_month o mes actual.',
+  })
+  @IsOptional()
+  @IsString()
+  month_year?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Notas internas (sólo equipo). Se persisten como ClientNote con task_id + category=solution. Equivalente al campo internal_notes de CompleteTaskDto pero específico del flujo maintenance.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  internal_notes?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Lista opcional de items de checklist que se completan en el mismo POST (atajo del flujo "Completar y notificar"). Cada item debe tener {item_id, item_kind, notes?}.',
+    type: [CompleteChecklistItemDto],
+  })
+  @IsOptional()
+  checklist_completions?: CompleteChecklistItemDto[];
+}
+
+/**
+ * Sprint 8.B.1.bis (2026-04-29): vista segmentada del tablero según
+ * UI_SPEC §5.15 — "Mis tareas" / "Sin asignar" / "Todas". Filtro implícito
+ * que acota qué tareas se ven antes de aplicar status/type/priority.
+ *
+ *   - `mine`        → assigned_to = userId actual.
+ *   - `unassigned`  → assigned_to IS NULL (la cola de pendientes que
+ *                     cualquier staff puede tomar).
+ *   - `all`         → todas las tareas (sólo staff; el role-based
+ *                     filtering del service no aplica scope cuando es admin).
+ *
+ * Si se omite, se mantiene el comportamiento clásico: agente ve sus
+ * tareas + sin asignar en una sola lista, admin ve todas.
+ */
+export enum TaskScopeDto {
+  mine = 'mine',
+  unassigned = 'unassigned',
+  all = 'all',
 }
 
 /* ── Query (list) ── */
@@ -97,6 +401,16 @@ export class TaskListQueryDto {
   @IsEnum(TaskPriorityDto)
   priority?: TaskPriorityDto;
   @ApiPropertyOptional() @IsOptional() @IsUUID() assigned_to?: string;
+  /**
+   * Sprint 8 Fase B.10 — ADR-074: filtra tareas vinculadas a un ticket
+   * concreto. Lo usa el detail del ticket en `/admin/support/[id]` para
+   * detectar si hay task activa que oculte los botones Resolver/Cerrar.
+   */
+  @ApiPropertyOptional() @IsOptional() @IsUUID() conversation_id?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEnum(TaskScopeDto)
+  scope?: TaskScopeDto;
   @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() time_range?:
     | 'today'

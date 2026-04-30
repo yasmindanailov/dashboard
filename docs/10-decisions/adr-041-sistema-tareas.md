@@ -1,9 +1,11 @@
 # ADR-041 — Sistema de tareas internas
 
-> **Status:** Active
+> **Status:** Active (refinado por [ADR-072](./adr-072-tareas-sin-asignar-cola-publica.md) §"cola pública" y por [ADR-073](./adr-073-tipos-flexibles-tasks-reason-tags.md) §"tipos flexibles: reason + tags")
 > **Date:** 2026-04 (Sprint 8) · 2026-04-26 (migración a ADR)
 > **Original:** DECISIONS.md §10
 > **Domain:** tasks
+
+> 📜 **Nota canónica (Sprint 8 Fase B.7 — 2026-04-29):** [ADR-073](./adr-073-tipos-flexibles-tasks-reason-tags.md) renombra el tipo `wow_call` → `contact_client` y separa el QUÉ del POR QUÉ. El enum `TaskType` se mantiene cerrado y representa qué bloque/automatización dispara la tarea; la intención humana ("Bienvenida primer servicio", "Renovación", "Aviso migración") vive en `Task.reason` (libre <=100) + tags asignables en `task_tags`. Los listeners del Sprint 11 que ADR-041 llamaba `WowCallCreatorListener` se renombran `ContactClientTaskListener` y emiten `type=contact_client` con `reason` + tag `bienvenida`.
 
 ---
 
@@ -119,3 +121,9 @@ Las tareas `project_task` y `custom_service` podrán asignarse a un AI Worker (e
 - **Glosario:** [Tarea](../00-foundations/glossary.md), [Slot](../00-foundations/glossary.md).
 - **Implementación:** `backend/src/modules/tasks/`, `docs/20-modules/tasks/contract.md`.
 - **Deuda conocida:** Sprint 8 WIP — listener `task.assigned` ausente, validación `assigned_to` pendiente, 2 errores lint `no-unsafe-enum-comparison` (ver development-playbook §1).
+
+---
+
+## Notas de revisión
+
+> **2026-04-29 — refinado por [ADR-072](./adr-072-tareas-sin-asignar-cola-publica.md):** la regla §"🚪 Cierra" *"No tareas sin `assigned_to`. Toda tarea tiene dueño. Nunca pool global"* queda **actualizada**. Las tareas pueden nacer sin owner si y sólo si (a) un listener automático las crea y no hay owner determinable, o (b) un admin las crea conscientemente con la opción "Sin asignar" del UI. La cola "Sin asignar" funciona como buffer temporal con presión operativa explícita: SLA por tipo (configurable en settings) + cron `tasks-unassigned-overdue` que alerta al superadmin cuando el plazo se excede. Cualquier staff con CASL `Manage.Task` puede auto-asignarse una tarea de la cola. Las demás reglas de ADR-041 (auditoría completa, tareas completadas no se reabren, asignación 1:1 con un agente concreto cuando hay owner) **siguen vigentes íntegras**.

@@ -46,39 +46,44 @@ model Role {
 }
 
 model User {
-  id                    String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                 String     @unique @db.VarChar(255)
-  password_hash         String     @db.VarChar(500)
-  first_name            String     @db.VarChar(100)
-  last_name             String     @db.VarChar(100)
-  status                UserStatus @default(pending_verification)
-  email_verified_at     DateTime?  @db.Timestamptz()
-  login_attempts        Int        @default(0)
-  blocked_until         DateTime?  @db.Timestamptz()
-  last_login_at         DateTime?  @db.Timestamptz()
-  last_login_ip         String?    @db.VarChar(45)
-  two_factor_enabled    Boolean    @default(false)
-  two_factor_secret     String?    @db.VarChar(500)
-  avatar_url            String?    @db.VarChar(1000)
-  language              String     @default("es") @db.VarChar(5)
-  timezone              String     @default("Europe/Madrid") @db.VarChar(50)
-  role_id               String     @db.Uuid
-  partner_id            String?    @db.Uuid
-  created_at            DateTime   @default(now()) @db.Timestamptz()
-  updated_at            DateTime   @default(now()) @updatedAt @db.Timestamptz()
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email              String     @unique @db.VarChar(255)
+  password_hash      String     @db.VarChar(500)
+  first_name         String     @db.VarChar(100)
+  last_name          String     @db.VarChar(100)
+  status             UserStatus @default(pending_verification)
+  email_verified_at  DateTime?  @db.Timestamptz()
+  login_attempts     Int        @default(0)
+  blocked_until      DateTime?  @db.Timestamptz()
+  last_login_at      DateTime?  @db.Timestamptz()
+  last_login_ip      String?    @db.VarChar(45)
+  two_factor_enabled Boolean    @default(false)
+  two_factor_secret  String?    @db.VarChar(500)
+  avatar_url         String?    @db.VarChar(1000)
+  language           String     @default("es") @db.VarChar(5)
+  timezone           String     @default("Europe/Madrid") @db.VarChar(50)
+  role_id            String     @db.Uuid
+  partner_id         String?    @db.Uuid
+  created_at         DateTime   @default(now()) @db.Timestamptz()
+  updated_at         DateTime   @default(now()) @updatedAt @db.Timestamptz()
 
-  role                  Role       @relation(fields: [role_id], references: [id])
-  sessions              Session[]
-  email_verifications   EmailVerification[]
-  password_resets       PasswordReset[]
-  client_profile        ClientProfile?
-  billing_profiles      BillingProfile[]
-  invoices              Invoice[]
-  notifications_received Notification[] @relation("notification_recipient")
-  conversations         Conversation[] @relation("UserConversations")
-  tasks_assigned        Task[]         @relation("TaskAssignee")
-  tasks_created         Task[]         @relation("TaskCreator")
-  tasks_as_client       Task[]         @relation("TaskClient")
+  role                       Role                      @relation(fields: [role_id], references: [id])
+  sessions                   Session[]
+  email_verifications        EmailVerification[]
+  password_resets            PasswordReset[]
+  client_profile             ClientProfile?
+  billing_profiles           BillingProfile[]
+  invoices                   Invoice[]
+  notifications_received     Notification[]            @relation("notification_recipient")
+  conversations              Conversation[]            @relation("UserConversations")
+  tasks_assigned             Task[]                    @relation("TaskAssignee")
+  tasks_created              Task[]                    @relation("TaskCreator")
+  tasks_as_client            Task[]                    @relation("TaskClient")
+  checklist_completions      TaskChecklistCompletion[] @relation("ChecklistCompleter")
+  maintenance_logs_performed MaintenanceLog[]          @relation("MaintenancePerformer")
+  maintenance_logs_as_client MaintenanceLog[]          @relation("ClientMaintenanceLogs")
+  task_tags_created          TaskTag[]                 @relation("TaskTagCreator")
+  client_notes_authored      ClientNote[]              @relation("ClientNoteAuthor")
 
   @@index([email])
   @@index([role_id])
@@ -87,17 +92,17 @@ model User {
 }
 
 model Session {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id        String    @db.Uuid
-  token_hash     String    @unique @db.VarChar(500)
-  refresh_hash   String    @unique @db.VarChar(500)
-  ip_address     String    @db.VarChar(45)
-  user_agent     String?   @db.VarChar(1000)
-  device_label   String?   @db.VarChar(200)
-  is_active      Boolean   @default(true)
-  last_used_at   DateTime  @default(now()) @db.Timestamptz()
-  expires_at     DateTime  @db.Timestamptz()
-  created_at     DateTime  @default(now()) @db.Timestamptz()
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String   @db.Uuid
+  token_hash   String   @unique @db.VarChar(500)
+  refresh_hash String   @unique @db.VarChar(500)
+  ip_address   String   @db.VarChar(45)
+  user_agent   String?  @db.VarChar(1000)
+  device_label String?  @db.VarChar(200)
+  is_active    Boolean  @default(true)
+  last_used_at DateTime @default(now()) @db.Timestamptz()
+  expires_at   DateTime @db.Timestamptz()
+  created_at   DateTime @default(now()) @db.Timestamptz()
 
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
@@ -143,25 +148,25 @@ enum ClientType {
 }
 
 model ClientProfile {
-  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id           String     @unique @db.Uuid
-  client_type       ClientType @default(individual)
-  company_name      String?    @db.VarChar(300)
-  tax_id            String?    @db.VarChar(20)
-  phone             String?    @db.VarChar(20)
-  address_line1     String?    @db.VarChar(500)
-  address_line2     String?    @db.VarChar(500)
-  city              String?    @db.VarChar(100)
-  state             String?    @db.VarChar(100)
-  postal_code       String?    @db.VarChar(10)
-  country           String     @default("ES") @db.VarChar(2)
-  billing_email     String?    @db.VarChar(255)
-  notes_internal    String?
-  stripe_customer_id String?   @db.VarChar(200)
-  credit_balance    Decimal    @default(0) @db.Decimal(10, 2)
-  metadata          Json?
-  created_at        DateTime   @default(now()) @db.Timestamptz()
-  updated_at        DateTime   @default(now()) @updatedAt @db.Timestamptz()
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String     @unique @db.Uuid
+  client_type        ClientType @default(individual)
+  company_name       String?    @db.VarChar(300)
+  tax_id             String?    @db.VarChar(20)
+  phone              String?    @db.VarChar(20)
+  address_line1      String?    @db.VarChar(500)
+  address_line2      String?    @db.VarChar(500)
+  city               String?    @db.VarChar(100)
+  state              String?    @db.VarChar(100)
+  postal_code        String?    @db.VarChar(10)
+  country            String     @default("ES") @db.VarChar(2)
+  billing_email      String?    @db.VarChar(255)
+  notes_internal     String?
+  stripe_customer_id String?    @db.VarChar(200)
+  credit_balance     Decimal    @default(0) @db.Decimal(10, 2)
+  metadata           Json?
+  created_at         DateTime   @default(now()) @db.Timestamptz()
+  updated_at         DateTime   @default(now()) @updatedAt @db.Timestamptz()
 
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
@@ -175,24 +180,24 @@ enum BillingProfileType {
 }
 
 model BillingProfile {
-  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id      String             @db.Uuid
-  type         BillingProfileType
-  label        String             @db.VarChar(100)
-  first_name   String?            @db.VarChar(100)
-  last_name    String?            @db.VarChar(100)
-  company_name String?            @db.VarChar(200)
-  nif_cif      String?            @db.VarChar(20)
-  address_line1 String            @db.VarChar(255)
-  address_line2 String?           @db.VarChar(255)
-  city         String             @db.VarChar(100)
-  postal_code  String             @db.VarChar(20)
-  country      String             @default("ES") @db.VarChar(2)
-  is_default   Boolean            @default(false)
-  created_at   DateTime           @default(now()) @db.Timestamptz()
-  updated_at   DateTime           @default(now()) @updatedAt @db.Timestamptz()
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String             @db.Uuid
+  type          BillingProfileType
+  label         String             @db.VarChar(100)
+  first_name    String?            @db.VarChar(100)
+  last_name     String?            @db.VarChar(100)
+  company_name  String?            @db.VarChar(200)
+  nif_cif       String?            @db.VarChar(20)
+  address_line1 String             @db.VarChar(255)
+  address_line2 String?            @db.VarChar(255)
+  city          String             @db.VarChar(100)
+  postal_code   String             @db.VarChar(20)
+  country       String             @default("ES") @db.VarChar(2)
+  is_default    Boolean            @default(false)
+  created_at    DateTime           @default(now()) @db.Timestamptz()
+  updated_at    DateTime           @default(now()) @updatedAt @db.Timestamptz()
 
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
   services Service[]
   invoices Invoice[]
 
@@ -234,12 +239,12 @@ enum ProductStatus {
 }
 
 enum ProductType {
-  hosting_web       // Plans: Web Inicio, Web Pro, Web Business
-  domain            // Independent product, free first year with annual hosting
-  docker_service    // Nextcloud, OpenClaw, etc. — template .yaml
-  support_inside    // Addon global de cuenta (Básico, Medium, Pro) — §7 DECISIONS.md
-  we_do_it          // Addon por producto (hosting, docker) — §8 DECISIONS.md
-  custom_service    // Proyectos manuales a escala (ERP, CRM) — §27 DECISIONS.md
+  hosting_web // Plans: Web Inicio, Web Pro, Web Business
+  domain // Independent product, free first year with annual hosting
+  docker_service // Nextcloud, OpenClaw, etc. — template .yaml
+  support_inside // Addon global de cuenta (Básico, Medium, Pro) — §7 DECISIONS.md
+  we_do_it // Addon por producto (hosting, docker) — §8 DECISIONS.md
+  custom_service // Proyectos manuales a escala (ERP, CRM) — §27 DECISIONS.md
 }
 
 // ProvisionerType: dinámico via plugin system (Sprint 8).
@@ -277,42 +282,42 @@ model ProductCategory {
 }
 
 model Product {
-  id                       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  category_id              String?         @db.Uuid
-  name                     String          @db.VarChar(200)
-  slug                     String          @unique @db.VarChar(200)
-  description              String?
-  short_description        String?         @db.VarChar(500)
-  type                     ProductType
-  provisioner              String          @default("manual") @db.VarChar(100)
-  image_url                String?         @db.VarChar(500)
-  badge_text               String?         @db.VarChar(50)
-  order_index              Int             @default(0)
-  status                   ProductStatus   @default(active)
-  is_addon                 Boolean         @default(false)
-  is_global_addon          Boolean         @default(false)
-  requires_existing_product Boolean        @default(false)
-  required_product_type    String?         @db.VarChar(50)
-  max_quantity_per_client  Int?
-  grace_period_days        Int             @default(0)
-  suspension_days          Int             @default(7)
-  cancellation_days        Int             @default(30)
-  data_retention_days      Int             @default(30)
-  client_can_pause         Boolean         @default(false)
-  pause_max_days           Int?
-  provisioner_config       Json?
-  audit_event_types        Json?
-  features                 Json?
-  metadata                 Json?
-  partner_commission_pct   Decimal?        @db.Decimal(5, 2)
-  created_at               DateTime        @default(now()) @db.Timestamptz()
-  updated_at               DateTime        @default(now()) @updatedAt @db.Timestamptz()
+  id                        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category_id               String?       @db.Uuid
+  name                      String        @db.VarChar(200)
+  slug                      String        @unique @db.VarChar(200)
+  description               String?
+  short_description         String?       @db.VarChar(500)
+  type                      ProductType
+  provisioner               String        @default("manual") @db.VarChar(100)
+  image_url                 String?       @db.VarChar(500)
+  badge_text                String?       @db.VarChar(50)
+  order_index               Int           @default(0)
+  status                    ProductStatus @default(active)
+  is_addon                  Boolean       @default(false)
+  is_global_addon           Boolean       @default(false)
+  requires_existing_product Boolean       @default(false)
+  required_product_type     String?       @db.VarChar(50)
+  max_quantity_per_client   Int?
+  grace_period_days         Int           @default(0)
+  suspension_days           Int           @default(7)
+  cancellation_days         Int           @default(30)
+  data_retention_days       Int           @default(30)
+  client_can_pause          Boolean       @default(false)
+  pause_max_days            Int?
+  provisioner_config        Json?
+  audit_event_types         Json?
+  features                  Json?
+  metadata                  Json?
+  partner_commission_pct    Decimal?      @db.Decimal(5, 2)
+  created_at                DateTime      @default(now()) @db.Timestamptz()
+  updated_at                DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
-  category         ProductCategory?       @relation(fields: [category_id], references: [id])
-  pricing          ProductPricing[]
-  extras           ProductExtra[]
-  checklist_items  ProductChecklistItem[]
-  services         Service[]
+  category        ProductCategory?       @relation(fields: [category_id], references: [id])
+  pricing         ProductPricing[]
+  extras          ProductExtra[]
+  checklist_items ProductChecklistItem[]
+  services        Service[]
 
   @@index([category_id])
   @@index([type])
@@ -339,23 +344,23 @@ model ProductPricing {
 }
 
 model ProductExtra {
-  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  product_id          String             @db.Uuid
-  extra_product_id    String?            @db.Uuid
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id          String               @db.Uuid
+  extra_product_id    String?              @db.Uuid
   type                ExtraType
-  is_mandatory        Boolean            @default(false)
-  label               String             @db.VarChar(200)
-  discount_percentage Decimal?           @db.Decimal(5, 2)
+  is_mandatory        Boolean              @default(false)
+  label               String               @db.VarChar(200)
+  discount_percentage Decimal?             @db.Decimal(5, 2)
   free_months         Int?
-  max_value_eur       Decimal?           @db.Decimal(10, 2)
+  max_value_eur       Decimal?             @db.Decimal(10, 2)
   applicable_cycles   ExtraApplicableCycle @default(annual)
   tld_restrictions    Json?
-  valid_until         DateTime?          @db.Timestamptz()
+  valid_until         DateTime?            @db.Timestamptz()
   max_uses            Int?
-  uses_count          Int                @default(0)
-  active              Boolean            @default(true)
-  created_at          DateTime           @default(now()) @db.Timestamptz()
-  updated_at          DateTime           @default(now()) @updatedAt @db.Timestamptz()
+  uses_count          Int                  @default(0)
+  active              Boolean              @default(true)
+  created_at          DateTime             @default(now()) @db.Timestamptz()
+  updated_at          DateTime             @default(now()) @updatedAt @db.Timestamptz()
 
   product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
 
@@ -389,33 +394,36 @@ enum ServiceStatus {
 }
 
 model Service {
-  id                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id               String        @db.Uuid
-  product_id            String        @db.Uuid
-  billing_profile_id    String?       @db.Uuid
-  partner_id            String?       @db.Uuid
-  status                ServiceStatus @default(pending)
-  label                 String?       @db.VarChar(300)
-  domain                String?       @db.VarChar(300)
-  server_id             String?       @db.Uuid
-  billing_cycle         BillingCycle  @default(monthly)
-  amount                Decimal       @db.Decimal(10, 2)
-  currency              String        @default("EUR") @db.VarChar(3)
-  next_due_date         DateTime?     @db.Timestamptz()
-  next_invoice_date     DateTime?     @db.Timestamptz()
-  cancelled_at          DateTime?     @db.Timestamptz()
-  cancellation_reason   String?
-  suspended_at          DateTime?     @db.Timestamptz()
-  suspension_reason     String?
-  paused_at             DateTime?     @db.Timestamptz()
-  pause_max_date        DateTime?     @db.Timestamptz()
-  provisioner_data      Json?
-  metadata              Json?
-  created_at            DateTime      @default(now()) @db.Timestamptz()
-  updated_at            DateTime      @default(now()) @updatedAt @db.Timestamptz()
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String        @db.Uuid
+  product_id          String        @db.Uuid
+  billing_profile_id  String?       @db.Uuid
+  partner_id          String?       @db.Uuid
+  status              ServiceStatus @default(pending)
+  label               String?       @db.VarChar(300)
+  domain              String?       @db.VarChar(300)
+  server_id           String?       @db.Uuid
+  billing_cycle       BillingCycle  @default(monthly)
+  amount              Decimal       @db.Decimal(10, 2)
+  currency            String        @default("EUR") @db.VarChar(3)
+  next_due_date       DateTime?     @db.Timestamptz()
+  next_invoice_date   DateTime?     @db.Timestamptz()
+  cancelled_at        DateTime?     @db.Timestamptz()
+  cancellation_reason String?
+  suspended_at        DateTime?     @db.Timestamptz()
+  suspension_reason   String?
+  paused_at           DateTime?     @db.Timestamptz()
+  pause_max_date      DateTime?     @db.Timestamptz()
+  provisioner_data    Json?
+  metadata            Json?
+  created_at          DateTime      @default(now()) @db.Timestamptz()
+  updated_at          DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
-  product         Product         @relation(fields: [product_id], references: [id])
-  billing_profile BillingProfile? @relation(fields: [billing_profile_id], references: [id])
+  product          Product                @relation(fields: [product_id], references: [id])
+  billing_profile  BillingProfile?        @relation(fields: [billing_profile_id], references: [id])
+  tasks            Task[]                 @relation("TaskService")
+  maintenance_logs MaintenanceLog[]       @relation("ServiceMaintenanceLogs")
+  checklist_items  ServiceChecklistItem[] @relation("ServiceChecklistItems")
 
   @@index([user_id])
   @@index([product_id])
@@ -437,37 +445,37 @@ enum InvoiceStatus {
 }
 
 model Invoice {
-  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  invoice_number       String        @unique @db.VarChar(50)
-  user_id              String        @db.Uuid
-  billing_profile_id   String?       @db.Uuid
-  partner_id           String?       @db.Uuid
-  partner_label        String?       @db.VarChar(200)
-  status               InvoiceStatus @default(draft)
-  subtotal             Decimal       @db.Decimal(10, 2)
-  tax_rate             Decimal       @default(21) @db.Decimal(5, 2)
-  tax_amount           Decimal       @db.Decimal(10, 2)
-  discount_amount      Decimal       @default(0) @db.Decimal(10, 2)
-  total                Decimal       @db.Decimal(10, 2)
-  currency             String        @default("EUR") @db.VarChar(3)
-  due_date             DateTime      @db.Timestamptz()
-  paid_at              DateTime?     @db.Timestamptz()
-  payment_provider     String?       @db.VarChar(100)  // Plugin: "stripe", "manual", etc.
-  payment_method       String?       @db.VarChar(100)  // "card", "sepa", "transfer"
-  payment_ref          String?       @db.VarChar(500)  // External ID from payment provider
-  retry_count          Int           @default(0)
-  max_retries          Int           @default(3)
-  next_retry_at        DateTime?     @db.Timestamptz()
-  is_manual            Boolean       @default(false)
-  notes                String?
-  pdf_url              String?       @db.VarChar(1000)
-  metadata             Json?
-  created_at           DateTime      @default(now()) @db.Timestamptz()
-  updated_at           DateTime      @default(now()) @updatedAt @db.Timestamptz()
+  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_number     String        @unique @db.VarChar(50)
+  user_id            String        @db.Uuid
+  billing_profile_id String?       @db.Uuid
+  partner_id         String?       @db.Uuid
+  partner_label      String?       @db.VarChar(200)
+  status             InvoiceStatus @default(draft)
+  subtotal           Decimal       @db.Decimal(10, 2)
+  tax_rate           Decimal       @default(21) @db.Decimal(5, 2)
+  tax_amount         Decimal       @db.Decimal(10, 2)
+  discount_amount    Decimal       @default(0) @db.Decimal(10, 2)
+  total              Decimal       @db.Decimal(10, 2)
+  currency           String        @default("EUR") @db.VarChar(3)
+  due_date           DateTime      @db.Timestamptz()
+  paid_at            DateTime?     @db.Timestamptz()
+  payment_provider   String?       @db.VarChar(100) // Plugin: "stripe", "manual", etc.
+  payment_method     String?       @db.VarChar(100) // "card", "sepa", "transfer"
+  payment_ref        String?       @db.VarChar(500) // External ID from payment provider
+  retry_count        Int           @default(0)
+  max_retries        Int           @default(3)
+  next_retry_at      DateTime?     @db.Timestamptz()
+  is_manual          Boolean       @default(false)
+  notes              String?
+  pdf_url            String?       @db.VarChar(1000)
+  metadata           Json?
+  created_at         DateTime      @default(now()) @db.Timestamptz()
+  updated_at         DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
-  items            InvoiceItem[]
-  billing_profile  BillingProfile? @relation(fields: [billing_profile_id], references: [id])
-  user             User            @relation(fields: [user_id], references: [id])
+  items           InvoiceItem[]
+  billing_profile BillingProfile? @relation(fields: [billing_profile_id], references: [id])
+  user            User            @relation(fields: [user_id], references: [id])
 
   @@index([user_id])
   @@index([billing_profile_id])
@@ -478,18 +486,18 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  invoice_id    String    @db.Uuid
-  service_id    String?   @db.Uuid
-  product_id    String?   @db.Uuid
-  description   String    @db.VarChar(500)
-  quantity      Int       @default(1)
-  unit_price    Decimal   @db.Decimal(10, 2)
-  setup_fee     Decimal   @default(0) @db.Decimal(10, 2)
-  discount_pct  Decimal?  @db.Decimal(5, 2)
-  total         Decimal   @db.Decimal(10, 2)
-  period_start  DateTime? @db.Timestamptz()
-  period_end    DateTime? @db.Timestamptz()
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_id   String    @db.Uuid
+  service_id   String?   @db.Uuid
+  product_id   String?   @db.Uuid
+  description  String    @db.VarChar(500)
+  quantity     Int       @default(1)
+  unit_price   Decimal   @db.Decimal(10, 2)
+  setup_fee    Decimal   @default(0) @db.Decimal(10, 2)
+  discount_pct Decimal?  @db.Decimal(5, 2)
+  total        Decimal   @db.Decimal(10, 2)
+  period_start DateTime? @db.Timestamptz()
+  period_end   DateTime? @db.Timestamptz()
 
   invoice Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
 
@@ -529,36 +537,36 @@ enum ConversationCategory {
 }
 
 model Conversation {
-  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sequence_number     Int?                  @unique        // Auto-assigned via PostgreSQL SEQUENCE on ticket creation
-  type                ConversationType      @default(chat)
-  user_id             String?               @db.Uuid
-  assigned_agent_id   String?               @db.Uuid
-  subject             String                @db.VarChar(500)
-  status              ConversationStatus    @default(open)
-  priority            ConversationPriority  @default(normal)
-  category            ConversationCategory?
-  channel             String                @default("web") @db.VarChar(50)
-  is_ai_filtered      Boolean               @default(false)
-  guest_name          String?               @db.VarChar(200)     // Para anónimos en la landing
-  guest_email         String?               @db.VarChar(255)     // Para vincular al registrarse (7.5.1)
-  guest_session_hash  String?               @db.VarChar(500)     // Hash SHA-256 del token de sesión guest
-  service_id          String?               @db.Uuid
-  escalated_from_id   String?               @db.Uuid
-  tags                Json?
-  closed_at           DateTime?             @db.Timestamptz()
-  resolved_at         DateTime?             @db.Timestamptz()
-  first_response_at   DateTime?             @db.Timestamptz()
-  resolution_note     String?
-  resolved_by_id      String?               @db.Uuid
-  metadata            Json?
-  created_at          DateTime              @default(now()) @db.Timestamptz()
-  updated_at          DateTime              @default(now()) @updatedAt @db.Timestamptz()
+  id                 String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sequence_number    Int?                  @unique // Auto-assigned via PostgreSQL SEQUENCE on ticket creation
+  type               ConversationType      @default(chat)
+  user_id            String?               @db.Uuid
+  assigned_agent_id  String?               @db.Uuid
+  subject            String                @db.VarChar(500)
+  status             ConversationStatus    @default(open)
+  priority           ConversationPriority  @default(normal)
+  category           ConversationCategory?
+  channel            String                @default("web") @db.VarChar(50)
+  is_ai_filtered     Boolean               @default(false)
+  guest_name         String?               @db.VarChar(200) // Para anónimos en la landing
+  guest_email        String?               @db.VarChar(255) // Para vincular al registrarse (7.5.1)
+  guest_session_hash String?               @db.VarChar(500) // Hash SHA-256 del token de sesión guest
+  service_id         String?               @db.Uuid
+  escalated_from_id  String?               @db.Uuid
+  tags               Json?
+  closed_at          DateTime?             @db.Timestamptz()
+  resolved_at        DateTime?             @db.Timestamptz()
+  first_response_at  DateTime?             @db.Timestamptz()
+  resolution_note    String?
+  resolved_by_id     String?               @db.Uuid
+  metadata           Json?
+  created_at         DateTime              @default(now()) @db.Timestamptz()
+  updated_at         DateTime              @default(now()) @updatedAt @db.Timestamptz()
 
-  user            User?          @relation("UserConversations", fields: [user_id], references: [id])
-  messages        Message[]
-  escalated_from  Conversation?  @relation("ConversationEscalation", fields: [escalated_from_id], references: [id])
-  escalated_to    Conversation[] @relation("ConversationEscalation")
+  user           User?          @relation("UserConversations", fields: [user_id], references: [id])
+  messages       Message[]
+  escalated_from Conversation?  @relation("ConversationEscalation", fields: [escalated_from_id], references: [id])
+  escalated_to   Conversation[] @relation("ConversationEscalation")
 
   @@index([user_id])
   @@index([assigned_agent_id])
@@ -580,17 +588,29 @@ enum NoteCategory {
 }
 
 model ClientNote {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id         String        @db.Uuid
-  author_id       String        @db.Uuid
-  conversation_id String?       @db.Uuid
-  category        NoteCategory  @default(conversation)
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String       @db.Uuid
+  author_id       String       @db.Uuid
+  conversation_id String?      @db.Uuid
+  task_id         String?      @db.Uuid
+  category        NoteCategory @default(conversation)
   body            String
-  is_pinned       Boolean       @default(false)
-  created_at      DateTime      @default(now()) @db.Timestamptz()
+  is_pinned       Boolean      @default(false)
+  created_at      DateTime     @default(now()) @db.Timestamptz()
+
+  task   Task? @relation("TaskClientNotes", fields: [task_id], references: [id], onDelete: SetNull)
+  // Sprint 8 Fase B.9 (2026-04-30) — relación inversa al autor (staff)
+  // para enriquecer las notas con `first_name`/`last_name` sin segunda
+  // query. Cliente y autor son ambos `users(id)`, distinguidos por
+  // categoría: `user_id` = cliente al que pertenece la nota; `author_id`
+  // = staff que la escribió. No se requiere migration SQL: el FK
+  // `author_id` ya existe a nivel BD desde el seed inicial; sólo se
+  // expone como navegación en el cliente Prisma generado.
+  author User  @relation("ClientNoteAuthor", fields: [author_id], references: [id])
 
   @@index([user_id])
   @@index([conversation_id])
+  @@index([task_id])
   @@map("client_notes")
 }
 
@@ -620,13 +640,25 @@ model Message {
 
 // ─── BLOQUE 8: TAREAS ───
 
+// Sprint 8 Fase B.7 (2026-04-29) — ADR-073 renombra `wow_call` → `contact_client`.
+// El enum representa qué bloque/automatización activa la tarea, no la intención
+// del agente. La intención humana ("Bienvenida primer servicio", "Renovación
+// hosting", etc.) vive en `Task.reason` (texto libre <=100) + tags asignables
+// extensibles en `task_tags`.
+//
+// Sprint 8 Fase B.10 (2026-04-30) — ADR-074 añade `support_ticket`.
+// Tareas creadas automáticamente por `SupportTicketTaskCreatorListener`
+// al asignar un ticket. SIEMPRE tienen `conversation_id` poblado (FK a
+// `Conversation`). El cierre delega en el módulo support para
+// notificación canónica al cliente — ver ADR-074 §"Reglas canónicas".
 enum TaskType {
-  wow_call
+  contact_client
   maintenance
   maintenance_management
   project_task
   custom_work
   support_setup
+  support_ticket
 }
 
 enum TaskStatus {
@@ -662,20 +694,127 @@ model Task {
   is_recurring    Boolean      @default(false)
   recurrence_day  Int?
   billing_month   String?      @db.VarChar(7)
+  // Sprint 8 Fase B.7 (2026-04-29) — ADR-073. POR QUÉ humano de la tarea
+  // ("Bienvenida primer servicio", "Renovación próxima", etc.). Texto libre
+  // opcional. Visible en el detalle bajo el título y truncado a 60 chars en
+  // el tablero. Indexable para futura búsqueda full-text.
+  reason          String?      @db.VarChar(100)
   metadata        Json?
   created_at      DateTime     @default(now()) @db.Timestamptz()
   updated_at      DateTime     @default(now()) @updatedAt @db.Timestamptz()
 
-  assignee User? @relation("TaskAssignee", fields: [assigned_to], references: [id])
-  creator  User  @relation("TaskCreator", fields: [created_by], references: [id])
-  client   User  @relation("TaskClient", fields: [client_id], references: [id])
+  assignee              User?                     @relation("TaskAssignee", fields: [assigned_to], references: [id])
+  creator               User                      @relation("TaskCreator", fields: [created_by], references: [id])
+  client                User                      @relation("TaskClient", fields: [client_id], references: [id])
+  service               Service?                  @relation("TaskService", fields: [service_id], references: [id], onDelete: SetNull)
+  checklist_completions TaskChecklistCompletion[] @relation("TaskChecklistCompletions")
+  maintenance_log       MaintenanceLog?           @relation("TaskMaintenanceLog")
+  structured_notes      ClientNote[]              @relation("TaskClientNotes")
+  tag_assignments       TaskTagAssignment[]       @relation("TaskTagAssignments")
 
+  @@unique([service_id, billing_month, type], name: "uniq_task_maintenance_per_month", map: "tasks_uniq_maintenance_per_month")
   @@index([assigned_to])
   @@index([status])
   @@index([client_id])
   @@index([due_date])
   @@index([billing_month])
   @@map("tasks")
+}
+
+// ─── BLOQUE 8B BIS: TAGS DE TAREAS ───
+// Sprint 8 Fase B.7 (2026-04-29) — ADR-073. Etiquetas extensibles asignables
+// por staff con `Manage.Task`. Crear/borrar etiquetas requiere `Manage.TaskTag`
+// (superadmin + agent_full). Clientes/partners NO ven tags. M2M explícita
+// para que CASL filtre por tag y para que la UI pueda mostrar metadatos
+// (color, fecha de creación) sin queries adicionales.
+model TaskTag {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug        String              @unique @db.VarChar(50)
+  label       String              @db.VarChar(50)
+  color       String?             @db.VarChar(7)
+  created_at  DateTime            @default(now()) @db.Timestamptz()
+  created_by  String?             @db.Uuid
+
+  creator     User?               @relation("TaskTagCreator", fields: [created_by], references: [id])
+  assignments TaskTagAssignment[] @relation("TagAssignments")
+
+  @@map("task_tags")
+}
+
+model TaskTagAssignment {
+  task_id     String   @db.Uuid
+  tag_id      String   @db.Uuid
+  assigned_at DateTime @default(now()) @db.Timestamptz()
+
+  task        Task    @relation("TaskTagAssignments", fields: [task_id], references: [id], onDelete: Cascade)
+  tag         TaskTag @relation("TagAssignments", fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@id([task_id, tag_id])
+  @@index([tag_id])
+  @@map("task_tag_assignments")
+}
+
+// ─── BLOQUE 8B: TAREAS — CHECKLIST + MANTENIMIENTO ───
+// Sprint 8 Fase A (2026-04-29). ADR-061 (Support Inside) + plan Sprint 8 §3.4.
+
+enum ChecklistItemKind {
+  product
+  service
+}
+
+model TaskChecklistCompletion {
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id      String            @db.Uuid
+  item_id      String            @db.Uuid
+  item_kind    ChecklistItemKind
+  completed_by String            @db.Uuid
+  completed_at DateTime          @default(now()) @db.Timestamptz()
+  notes        String?
+
+  task      Task @relation("TaskChecklistCompletions", fields: [task_id], references: [id], onDelete: Cascade)
+  completer User @relation("ChecklistCompleter", fields: [completed_by], references: [id])
+
+  @@unique([task_id, item_id, item_kind], name: "uniq_completion_per_item", map: "task_checklist_completions_uniq")
+  @@index([task_id])
+  @@index([item_id, item_kind])
+  @@map("task_checklist_completions")
+}
+
+model MaintenanceLog {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id      String   @unique @db.Uuid
+  service_id   String   @db.Uuid
+  client_id    String   @db.Uuid
+  month_year   String   @db.VarChar(7)
+  notes        String
+  performed_by String   @db.Uuid
+  performed_at DateTime @default(now()) @db.Timestamptz()
+  metadata     Json?
+
+  task      Task    @relation("TaskMaintenanceLog", fields: [task_id], references: [id], onDelete: Cascade)
+  service   Service @relation("ServiceMaintenanceLogs", fields: [service_id], references: [id], onDelete: Cascade)
+  client    User    @relation("ClientMaintenanceLogs", fields: [client_id], references: [id])
+  performer User    @relation("MaintenancePerformer", fields: [performed_by], references: [id])
+
+  @@index([service_id])
+  @@index([month_year])
+  @@index([client_id])
+  @@map("maintenance_logs")
+}
+
+model ServiceChecklistItem {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  service_id       String   @db.Uuid
+  item_template_id String?  @db.Uuid
+  label            String   @db.VarChar(300)
+  is_required      Boolean  @default(false)
+  order_index      Int      @default(0)
+  created_at       DateTime @default(now()) @db.Timestamptz()
+
+  service Service @relation("ServiceChecklistItems", fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@index([service_id])
+  @@map("service_checklist_items")
 }
 
 // ─── BLOQUE 9: NOTIFICACIONES ───
@@ -688,16 +827,16 @@ enum NotificationChannel {
 }
 
 model Notification {
-  id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id      String              @db.Uuid
-  channel      NotificationChannel @default(internal)
-  title        String              @db.VarChar(300)
-  body         String
-  action_url   String?             @db.VarChar(1000)
-  read_at      DateTime?           @db.Timestamptz()
-  sent_at      DateTime?           @db.Timestamptz()
-  metadata     Json?
-  created_at   DateTime            @default(now()) @db.Timestamptz()
+  id         String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String              @db.Uuid
+  channel    NotificationChannel @default(internal)
+  title      String              @db.VarChar(300)
+  body       String
+  action_url String?             @db.VarChar(1000)
+  read_at    DateTime?           @db.Timestamptz()
+  sent_at    DateTime?           @db.Timestamptz()
+  metadata   Json?
+  created_at DateTime            @default(now()) @db.Timestamptz()
 
   user User @relation("notification_recipient", fields: [user_id], references: [id], onDelete: Cascade)
 
@@ -707,17 +846,17 @@ model Notification {
 }
 
 model NotificationTemplate {
-  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  event_type  String              @db.VarChar(100)
-  channel     NotificationChannel
-  locale      String              @default("es") @db.VarChar(10)
-  subject     String              @db.VarChar(300)
-  body        String
-  variables   Json
-  active      Boolean             @default(true)
-  updated_by  String?             @db.Uuid
-  created_at  DateTime            @default(now()) @db.Timestamptz()
-  updated_at  DateTime            @updatedAt       @db.Timestamptz()
+  id         String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_type String              @db.VarChar(100)
+  channel    NotificationChannel
+  locale     String              @default("es") @db.VarChar(10)
+  subject    String              @db.VarChar(300)
+  body       String
+  variables  Json
+  active     Boolean             @default(true)
+  updated_by String?             @db.Uuid
+  created_at DateTime            @default(now()) @db.Timestamptz()
+  updated_at DateTime            @updatedAt @db.Timestamptz()
 
   @@unique([event_type, channel, locale])
   @@index([event_type])
@@ -785,17 +924,17 @@ model EventOutbox {
 // ─── BLOQUE 12: ERROR LOG ───
 
 model ErrorLog {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  level           String   @default("error") @db.VarChar(20)
-  module          String   @db.VarChar(100)
-  message         String
-  stack_trace     String?
-  correlation_id  String?  @db.VarChar(100)
-  user_id         String?  @db.Uuid
-  request_path    String?  @db.VarChar(1000)
-  request_method  String?  @db.VarChar(10)
-  metadata        Json?
-  created_at      DateTime @default(now()) @db.Timestamptz()
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  level          String   @default("error") @db.VarChar(20)
+  module         String   @db.VarChar(100)
+  message        String
+  stack_trace    String?
+  correlation_id String?  @db.VarChar(100)
+  user_id        String?  @db.Uuid
+  request_path   String?  @db.VarChar(1000)
+  request_method String?  @db.VarChar(10)
+  metadata       Json?
+  created_at     DateTime @default(now()) @db.Timestamptz()
 
   @@index([module])
   @@index([level])

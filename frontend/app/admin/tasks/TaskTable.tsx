@@ -42,16 +42,55 @@ export default function TaskTable({ data, page, onPageChange, showAgentColumn }:
       header: '',
       width: '8px',
       render: (t: Task) => (
-        <div className={styles.priorityBar} style={{ backgroundColor: TASK_PRIORITY_COLORS[t.priority] || 'var(--color-border)' }} />
+        // Inline style justificado: color dinámico por priority. La clase
+        // `.priorityBar` aporta dimensiones + radius; el background lo
+        // resuelve `TASK_PRIORITY_COLORS` (tokens canónicos DS post B.3).
+        <div
+          className={styles.priorityBar}
+          style={{
+            backgroundColor: TASK_PRIORITY_COLORS[t.priority] || 'var(--border)',
+          }}
+        />
       ),
     },
     {
       key: 'title',
       header: 'Tarea',
       render: (t: Task) => (
-        <Link href={`/admin/tasks/${t.id}`} className={styles.titleLink}>
-          {t.title}
-        </Link>
+        <div className={styles.titleCell}>
+          <Link href={`/admin/tasks/${t.id}`} className={styles.titleLink}>
+            {t.title}
+          </Link>
+          {/* Sprint 8 Fase B.7 (2026-04-29) — ADR-073: porqué humano +
+              chips de tags como segunda línea bajo el título. */}
+          {t.reason && <span className={styles.titleReason}>{t.reason}</span>}
+          {t.tag_assignments && t.tag_assignments.length > 0 && (
+            <div className={styles.titleTags}>
+              {t.tag_assignments.slice(0, 3).map((a) => (
+                <span
+                  key={a.tag.id}
+                  className={styles.titleTagChip}
+                  style={
+                    a.tag.color
+                      ? {
+                          backgroundColor: `${a.tag.color}1A`,
+                          color: a.tag.color,
+                          borderColor: `${a.tag.color}33`,
+                        }
+                      : undefined
+                  }
+                >
+                  {a.tag.label}
+                </span>
+              ))}
+              {t.tag_assignments.length > 3 && (
+                <span className={styles.titleTagMore}>
+                  +{t.tag_assignments.length - 3}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       ),
     },
     {

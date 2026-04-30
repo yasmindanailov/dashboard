@@ -141,6 +141,30 @@ export function useConversationDetail() {
     }
   };
 
+  /**
+   * Sprint 8 Fase B.10 (2026-04-30) — ADR-074. Asignar/reasignar agente
+   * dispara el listener `SupportTicketTaskCreatorListener` que crea o
+   * reasigna la `Task(type=support_ticket)` vinculada — única vía UI
+   * canónica para iniciar el bridge ticket↔task. Acepta string vacío
+   * para "Sin asignar" (envía `null` al backend).
+   */
+  const handleAssignAgent = async (agentId: string) => {
+    if (!token || !conversationId) return;
+    try {
+      await supportApi.updateConversation(token, conversationId, {
+        assigned_agent_id: agentId || null,
+      });
+      loadConversation();
+      toast(
+        'success',
+        agentId ? 'Agente asignado. Tarea creada.' : 'Asignación retirada.',
+      );
+    } catch (e) {
+      console.error(e);
+      toast('error', getErrorMessage(e) || 'No se pudo asignar el agente.');
+    }
+  };
+
   const handleEscalateToTicket = () => {
     setResolutionModal({ type: 'escalate' });
     setResolutionNote('');
@@ -197,6 +221,8 @@ export function useConversationDetail() {
     sending, handleSendMessage, messagesEndRef,
     // Status/priority
     handleStatusChange, handlePriorityChange, handleEscalateToTicket,
+    // Assignment (Sprint 8 Fase B.10 — ADR-074: dispara bridge ticket→task)
+    handleAssignAgent,
     // Resolution
     resolutionModal, resolutionNote, setResolutionNote,
     resolutionLoading, submitResolution, closeResolutionModal,

@@ -144,6 +144,55 @@
 }
 .noteConvLink:hover { text-decoration: underline; }
 
+/* Sprint 8 Fase B.4 — bloque "Tarea origen" en cada nota cuando
+   `task_id` está poblado. Más visual que el link sencillo de
+   conversation_id porque incluye título + badge tipo (UI_SPEC §5.16
+   + decisión Sprint 8 §3.4). */
+.noteTaskLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--brand-light);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  transition: background var(--transition-fast);
+}
+.noteTaskLink:hover {
+  background: var(--brand);
+  color: white;
+}
+.noteTaskLabel {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.noteTaskLink:hover .noteTaskLabel {
+  color: white;
+}
+.noteTaskTitle {
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.noteTaskBadge {
+  font-size: var(--font-size-xs);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--brand);
+  color: white;
+}
+.noteTaskLink:hover .noteTaskBadge {
+  background: white;
+  color: var(--brand);
+}
+
 .noteMetaRow {
   display: flex;
   align-items: center;

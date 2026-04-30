@@ -61,6 +61,36 @@
   text-decoration: underline;
 }
 
+/* Sprint 8 Fase B.10 (2026-04-30) — ADR-074: pill que reemplaza los
+   botones Resolver/Cerrar cuando el ticket tiene una tarea bridge
+   activa. El cierre canónico vive en la tarea. */
+.linkedTaskPill {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background-color: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+  border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+.linkedTaskPill:hover {
+  background-color: color-mix(in srgb, var(--brand) 18%, transparent);
+}
+
+/* Sprint 8 Fase B.10 (2026-04-30) — ADR-074: hint operativo bajo el
+   selector de asignación cuando un ticket queda asignado. */
+.assignmentHint {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  line-height: var(--line-height-relaxed);
+  margin: var(--space-2) 0 0;
+}
+
 /* ── Messages container ── */
 .messagesContainer {
   overflow: hidden;

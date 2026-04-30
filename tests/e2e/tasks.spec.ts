@@ -155,11 +155,15 @@ test.describe('Tasks — cierre Sprint 8 (P0.1)', () => {
     const accessToken = sharedToken;
 
     // 1. Crear tarea asignada al agent_support
+    // Sprint 8 Fase B.7 (ADR-073): rename `wow_call` → `contact_client`.
+    // El payload incluye `reason` para verificar que se persiste y aparece
+    // en la notificación interna.
     const createRes = await authedRequest(request, accessToken, 'POST', '/tasks', {
-      type: 'wow_call',
-      title: 'WOW call cliente nuevo (E2E)',
+      type: 'contact_client',
+      title: 'Llamada cliente nuevo (E2E)',
       description: 'Verificar onboarding y resolver dudas iniciales',
       priority: 'high',
+      reason: 'Bienvenida primer servicio',
       client_id: clientUserId,
       assigned_to: agentSupportId,
     });
@@ -180,7 +184,7 @@ test.describe('Tasks — cierre Sprint 8 (P0.1)', () => {
       subjectIncludes: 'tarea asignada',
       timeoutMs: 15_000,
     });
-    expect(email.Subject).toContain('WOW call cliente nuevo');
+    expect(email.Subject).toContain('Llamada cliente nuevo');
 
     // 3. Notification interna persistida
     const notifs = await pool.query(
@@ -190,8 +194,13 @@ test.describe('Tasks — cierre Sprint 8 (P0.1)', () => {
       [agentSupportId],
     );
     expect(notifs.rowCount).toBe(1);
-    expect(notifs.rows[0].title).toContain('WOW call cliente nuevo');
-    expect(notifs.rows[0].action_url).toBe(`/dashboard/tasks/${created.id}`);
+    expect(notifs.rows[0].title).toContain('Llamada cliente nuevo');
+    // Sprint 8 Fase B.1.bis (2026-04-29): tasks viven en `/admin/tasks/*`
+    // (ADR-066 + DC.7); el listener `tasks-email.listener.ts` ahora emite
+    // `action_url` apuntando al portal staff. URL legacy `/dashboard/tasks/`
+    // quedaba huérfana tras Sprint 9.6 — fix portal incluido en la sesión
+    // 8.B.1 + bugfix detection by Yasmin.
+    expect(notifs.rows[0].action_url).toBe(`/admin/tasks/${created.id}`);
     expect(notifs.rows[0].metadata?.event).toBe('task.assigned');
 
     // 4. Reasignar al agent_billing → otra notification

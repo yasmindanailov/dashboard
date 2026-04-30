@@ -199,7 +199,26 @@ export class SupportMessageService {
           assigned_by: actorId,
         });
       } else {
+        // Sprint 8 Fase B.10.fix2 (2026-04-30) — ADR-074 EC#8: emitir
+        // `conversation.unassigned` para que `SupportTicketTaskBridgeListener`
+        // cancele la task bridge activa. Sin este evento, desasignar el
+        // ticket dejaba la task asignada al agente fantasma — incoherente.
         data.assigned_agent_id = null;
+        if (conversation.assigned_agent_id) {
+          await this.prisma.message.create({
+            data: {
+              conversation_id: id,
+              sender_type: 'system',
+              body: 'Conversación desasignada — vuelve a la cola.',
+              is_internal: true,
+            },
+          });
+          this.eventEmitter.emit('conversation.unassigned', {
+            conversation_id: id,
+            prev_agent_id: conversation.assigned_agent_id,
+            unassigned_by: actorId,
+          });
+        }
       }
     }
 
@@ -272,6 +291,33 @@ export class SupportMessageService {
       data,
       include: { messages: { orderBy: { created_at: 'desc' }, take: 1 } },
     });
+
+    /* Sprint 8 Fase B.10.fix2 (2026-04-30) — ADR-074 EC#3: cuando un
+       ticket se REABRE (closed/resolved → open) y conserva agente
+       asignado, re-emitimos `conversation.assigned` para que el listener
+       cree una nueva task bridge. La task previa quedó completed (al
+       cerrar el ticket vía bridge) o cancelled (vía liberación) — el
+       agente vuelve a tener trabajo activo y el sistema lo refleja como
+       tarea pendiente. Idempotente: si el listener encuentra task
+       activa con mismo agente, no hace nada. */
+    if (
+      dto.status === 'open' &&
+      conversation.status !== 'open' &&
+      updated.assigned_agent_id
+    ) {
+      const agent = await this.prisma.user.findUnique({
+        where: { id: updated.assigned_agent_id },
+        select: { first_name: true, last_name: true },
+      });
+      if (agent) {
+        this.eventEmitter.emit('conversation.assigned', {
+          conversation_id: id,
+          agent_id: updated.assigned_agent_id,
+          agent_name: `${agent.first_name} ${agent.last_name}`,
+          assigned_by: actorId,
+        });
+      }
+    }
 
     // 7.H22: Auto-create ClientNote for resolution/reopen notes
     if (

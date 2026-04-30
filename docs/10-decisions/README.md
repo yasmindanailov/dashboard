@@ -151,6 +151,15 @@ Resultado: la historia queda íntegra.
 - [ADR-063](./adr-063-bullmq-canonico-dlq-retries.md) — Infra BullMQ canónica + DLQ + retries con backoff exponencial (formaliza ADR-055 §DLQ y §Retries — Sprint 9 Fase A)
 - [ADR-064](./adr-064-outbox-dispatcher-bullmq.md) — Outbox dispatcher migrado a BullMQ scheduled job + alerta `outbox.event_failed` (cierra ADR-033 §7 + §3 — Sprint 9 Fase C)
 - [ADR-065](./adr-065-notification-channel-plugin-pattern.md) — `NotificationChannelInterface` + plantillas editables + dispatcher BullMQ (formaliza ADR-042 — Sprint 9 Fase D)
+- [ADR-066](./adr-066-tres-portales-raiz-portalbadge.md) — Tres portales raíz por audiencia + componente `PortalBadge` (Sprint 9.6 — DC.7)
+- [ADR-067](./adr-067-granularidad-casl-rol-staff.md) — Granularidad CASL fina por rol staff + Subjects `NotificationTemplate` y `Job` solo superadmin (Sprint 9.6)
+- [ADR-068](./adr-068-multi-path-deprecation-headers.md) — Multi-path con Deprecation headers para migración retroactiva de rutas REST (Sprint 9.6)
+- [ADR-069](./adr-069-estrategia-deploy-diferido.md) — Estrategia de deploy diferido (proyecto a largo plazo) — Sprint 14 reclasificado como gate condicionado P-DEPLOY
+- [ADR-070](./adr-070-service-info-sso-acciones-curadas.md) — Dashboard como puerta unificada: `getServiceInfo()` + SSO al panel externo + acciones curadas inline (extiende ADR-021 con interfaz expresiva)
+- [ADR-071](./adr-071-vista-admin-federada-infraestructura.md) — Vista admin federada de infraestructura: `listRemoteServers()` + `getProviderHealthSummary()` (simétrico admin de ADR-070)
+- [ADR-072](./adr-072-tareas-sin-asignar-cola-publica.md) — Tareas sin `assigned_to`: cola pública con SLA (refina ADR-041 §"🚪 Cierra")
+- [ADR-073](./adr-073-tipos-flexibles-tasks-reason-tags.md) — Tipos de tarea + `reason` libre + `tags`: separa el QUÉ del POR QUÉ (rename `wow_call` → `contact_client`, refina ADR-041 §"Tipos canónicos")
+- [ADR-074](./adr-074-ticket-task-bridge.md) — Ticket ↔ Task bridge: asignar ticket crea tarea automática (`type=support_ticket`); cierre canónico vive en la tarea con dual path resolver/cerrar; sin notificaciones duplicadas al cliente
 
 ---
 

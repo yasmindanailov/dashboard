@@ -71,3 +71,31 @@ const PORTAL_ROOTS: Record<PortalVariant, string> = {
 export function portalRootForRole(roleSlug?: string): string {
   return PORTAL_ROOTS[portalForRole(roleSlug)];
 }
+
+/**
+ * `true` si el rol es staff (superadmin + 3 agentes). Útil para puntos
+ * concretos de UI donde el frontend necesita decidir capacidad operativa
+ * sin pasar por toda la lógica de portal (ej. mostrar dropdown de
+ * reasignación de tareas, activar bulk actions).
+ *
+ * Coherente con el backend `Manage.Task` permitido a los 4 staff
+ * ([ADR-067](../../docs/10-decisions/adr-067-granularidad-casl-rol-staff.md)).
+ * Granularidades más finas (CTA "Nueva tarea" solo superadmin+full por
+ * UI_SPEC §5.15) se resuelven con `STAFF_ADMIN_ROLES` debajo.
+ */
+export function isStaffRole(roleSlug?: string): boolean {
+  return roleSlug ? STAFF_ROLES.has(roleSlug) : false;
+}
+
+/**
+ * Subconjunto de staff con permisos de "admin pleno" en UI: crear/cancelar
+ * recursos, bulk actions, ver auditoría completa. Por UI_SPEC §5.15 +
+ * §5.16, el CTA "Nueva tarea" y los bulk actions sobre tareas son
+ * exclusivos de este subset, aunque CASL permite `Manage.Task` a los 4
+ * staff (la diferencia es ergonomía UX, no política de seguridad).
+ */
+const STAFF_ADMIN_ROLES = new Set(['superadmin', 'agent_full']);
+
+export function isAdminRole(roleSlug?: string): boolean {
+  return roleSlug ? STAFF_ADMIN_ROLES.has(roleSlug) : false;
+}

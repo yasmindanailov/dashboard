@@ -216,9 +216,34 @@ export class ClientsService {
       authorMap[a.id] = `${a.first_name} ${a.last_name}`;
     });
 
+    // Sprint 8 Fase B.4 (2026-04-29): enriquecer con título + tipo de la
+    // task de origen cuando `task_id` está poblado. Permite al
+    // ClientNotesTab mostrar "Tarea: WOW call cliente nuevo" como link
+    // clicable, en paralelo a la fila ya existente para `conversation_id`
+    // (UI_SPEC §5.16 + decisión Sprint 8 §3.4: las notas estructuradas
+    // tienen referencia a su origen igual que las de conversaciones).
+    // Una sola query batched en lugar de N+1.
+    const taskIds = [
+      ...new Set(
+        notes.map((n) => n.task_id).filter((id): id is string => !!id),
+      ),
+    ];
+    const tasks = taskIds.length
+      ? await this.prisma.task.findMany({
+          where: { id: { in: taskIds } },
+          select: { id: true, title: true, type: true },
+        })
+      : [];
+    const taskMap: Record<string, { title: string; type: string }> = {};
+    tasks.forEach((t) => {
+      taskMap[t.id] = { title: t.title, type: t.type };
+    });
+
     const enrichedNotes = notes.map((n) => ({
       ...n,
       author_name: authorMap[n.author_id] || 'Desconocido',
+      task_title: n.task_id ? (taskMap[n.task_id]?.title ?? null) : null,
+      task_type: n.task_id ? (taskMap[n.task_id]?.type ?? null) : null,
     }));
 
     return paginate(enrichedNotes, total, page, limit);

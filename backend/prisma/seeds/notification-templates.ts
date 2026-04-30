@@ -7,6 +7,15 @@ import { PrismaClient } from '@prisma/client';
  * `BillingEmailListener` y `TasksEmailListener` para que los tests E2E
  * y la UX del cliente no detecten cambios en el copy.
  *
+ * 🔒 EC-T8-17 (Sprint 8 Fase B 2026-04-29) — REGLA CANÓNICA DE PLANTILLAS:
+ *
+ * SIEMPRE usar `{{var}}` (escape automático Handlebars). NUNCA usar
+ * `{{{var}}}` ni `{{& var}}` — ambos rinden el contenido sin escapar y
+ * abren XSS si el payload incluye texto controlado por usuario (ej.
+ * `task_url`, `assigned_by`, `task_title`, `description` cliente-side).
+ * El test guard `notification-templates.security.spec.ts` falla el build
+ * si alguna plantilla seedeada introduce un triple-stash.
+ *
  * Variables disponibles por evento:
  *  - `invoice.*`: invoice_id, invoice_number, user_id, total, currency,
  *    payment_provider (paid), retry_count + max_retries (failed/overdue),
@@ -193,6 +202,10 @@ export async function seedNotificationTemplates(
     },
 
     // ───────────── task.assigned (email) ─────────────
+    // Sprint 8.B.1.bis: usa labels humanos `task_type_label` / `task_priority_label`
+    // que el listener computa desde el enum (TASK_TYPE_LABELS_ES). No usar
+    // el enum crudo `{{task_type}}` en el cuerpo — la plantilla es contenido
+    // editable por admin (Sprint 9.5) y no debe conocer mapeos internos.
     {
       event_type: 'task.assigned',
       channel: 'email' as const,
@@ -202,7 +215,7 @@ export async function seedNotificationTemplates(
         <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
             <h1 style="color: #fff; margin: 0; font-size: 24px;">Tarea asignada</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_type}} · {{task_priority}}</p>
+            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_type_label}} · Prioridad {{task_priority_label}}</p>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
@@ -213,8 +226,8 @@ export async function seedNotificationTemplates(
             </p>
             <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0;">
               <table style="width: 100%; font-size: 14px; color: #374151;">
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Tipo:</td><td style="text-align: right; font-weight: 600;">{{task_type}}</td></tr>
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Prioridad:</td><td style="text-align: right;">{{task_priority}}</td></tr>
+                <tr><td style="padding: 4px 0; color: #9ca3af;">Tipo:</td><td style="text-align: right; font-weight: 600;">{{task_type_label}}</td></tr>
+                <tr><td style="padding: 4px 0; color: #9ca3af;">Prioridad:</td><td style="text-align: right;">{{task_priority_label}}</td></tr>
                 <tr><td style="padding: 4px 0; color: #9ca3af;">Vence:</td><td style="text-align: right;">{{due_label}}</td></tr>
               </table>
             </div>
@@ -227,8 +240,8 @@ export async function seedNotificationTemplates(
       variables: {
         task_id: 'string',
         task_title: 'string',
-        task_type: 'string',
-        task_priority: 'string',
+        task_type_label: 'string',
+        task_priority_label: 'string',
         task_url: 'string',
         due_label: 'string',
         'recipient.first_name': 'string?',
@@ -241,11 +254,138 @@ export async function seedNotificationTemplates(
       channel: 'internal' as const,
       locale: 'es',
       subject: 'Nueva tarea: {{task_title}}',
-      body: 'Se te ha asignado una tarea de tipo {{task_type}} con prioridad {{task_priority}}.',
+      body: 'Se te ha asignado una tarea de {{task_type_label}} con prioridad {{task_priority_label}}.',
       variables: {
         task_title: 'string',
+        task_type_label: 'string',
+        task_priority_label: 'string',
+      },
+    },
+
+    // ───────────── maintenance.completed (email cliente) ─────────────
+    // Sprint 8 Fase B.5 — UI_SPEC §5.16 flujo "Completar y notificar":
+    // tras cerrar la task de mantenimiento se envía email al cliente
+    // con resumen del trabajo. Variables computadas por el listener
+    // (mes en es-ES, URL de servicio).
+    {
+      event_type: 'maintenance.completed',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Mantenimiento completado · {{month_label}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Mantenimiento completado</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{month_label}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola {{#if recipient.first_name}}{{recipient.first_name}}{{else}}cliente{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hemos completado el mantenimiento mensual de tu servicio.
+              Aquí tienes el resumen del trabajo realizado:
+            </p>
+            <div style="background: #f9fafb; border-left: 4px solid #635BFF; border-radius: 8px; padding: 16px 20px; margin: 20px 0;">
+              <p style="color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin: 0;">{{notes}}</p>
+            </div>
+            <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+              Si tienes cualquier duda sobre este mantenimiento o detectas
+              algo que revisar, contáctanos respondiendo a este correo o
+              desde tu panel de cliente.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{service_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver mi servicio</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        task_id: 'string',
+        maintenance_log_id: 'string',
+        service_id: 'string',
+        month_year: 'string',
+        month_label: 'string',
+        notes: 'string',
+        service_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── maintenance.completed (campana cliente) ─────────────
+    {
+      event_type: 'maintenance.completed',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Mantenimiento completado · {{month_label}}',
+      body:
+        'Hemos completado el mantenimiento mensual de tu servicio ({{month_label}}). Revisa el resumen desde tu panel.',
+      variables: {
+        month_year: 'string',
+        month_label: 'string',
+      },
+    },
+
+    // ───────────── task.completed (email cliente) ─────────────
+    // Sprint 8 Fase B.9 (2026-04-30) — notificación al cliente cuando el
+    // agente cierra una tarea NO-MAINTENANCE con un mensaje explícito
+    // (`client_notes`). Maintenance tiene su propio listener arriba con
+    // plantilla más rica (resumen + mes). Aquí el subject es genérico
+    // "Sobre tu solicitud" y el cuerpo prioriza el `task_reason` (Sprint
+    // 8 Fase B.7 — porqué humano) si está poblado.
+    {
+      event_type: 'task.completed',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Sobre tu solicitud: {{task_title}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Tarea completada</h1>
+            {{#if task_reason}}<p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_reason}}</p>{{/if}}
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola {{#if recipient.first_name}}{{recipient.first_name}}{{else}}cliente{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hemos terminado de trabajar en tu solicitud "<strong>{{task_title}}</strong>". Aquí tienes el detalle:
+            </p>
+            <div style="background: #f9fafb; border-left: 4px solid #635BFF; border-radius: 8px; padding: 16px 20px; margin: 20px 0;">
+              <p style="color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin: 0;">{{client_notes}}</p>
+            </div>
+            <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+              Si tienes cualquier duda, contáctanos respondiendo a este correo o desde tu panel de cliente.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{service_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ir a mi panel</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        task_id: 'string',
+        task_title: 'string',
         task_type: 'string',
-        task_priority: 'string',
+        task_type_label: 'string',
+        task_reason: 'string?',
+        client_notes: 'string',
+        service_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── task.completed (campana cliente) ─────────────
+    {
+      event_type: 'task.completed',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Sobre tu solicitud: {{task_title}}',
+      body:
+        'Hemos completado tu solicitud{{#if task_reason}} ({{task_reason}}){{/if}}. Revisa los detalles desde tu panel.',
+      variables: {
+        task_title: 'string',
+        task_reason: 'string?',
       },
     },
 
