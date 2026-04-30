@@ -399,7 +399,7 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 | 8.B.6 (validaciones defensivas EC-T8-12..17) | 2026-04-29 | `840d964` |
 | 8.B.7 (tipos flexibles: rename `wow_call`→`contact_client` + `reason` libre + `tags` ADR-073) | 2026-04-29 | `d8f1d51` |
 | 8.B.8 (header detail alineado con ConversationHeader: sin badges duplicados + tokens DS) | 2026-04-30 | `a2e5cc1` |
-| 8.B.9 (refactor notas: card inline + modal completar + listener `task.completed` notifica cliente) | 2026-04-30 | _(pendiente commit)_ |
+| 8.B.9 (refactor notas: card inline + modal completar + listener `task.completed` notifica cliente) | 2026-04-30 | `b6d6d20` |
 
 **Estado DoD** (al cierre de Fase B + EC-T8-12..17 + B.7 tipos flexibles ADR-073):
 
