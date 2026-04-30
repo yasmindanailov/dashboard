@@ -110,6 +110,14 @@ test.describe('Tasks — reason + tags (Sprint 8 Fase B.7 / ADR-073)', () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 2 });
     await resetTestData();
 
+    // Limpieza de tags ad-hoc creados por runs anteriores. `resetTestData()`
+    // no toca `task_tags` porque son catálogo operativo (no demo data) — los
+    // 5 canónicos los reseedea `seedSampleTaskTags`. Esto borra cualquier
+    // residuo de B.7.2 que se haya quedado entre runs.
+    await pool.query(
+      `DELETE FROM task_tags WHERE slug NOT IN ('bienvenida','renovacion','incidencia','migracion','cortesia')`,
+    );
+
     clientUserId = await createUser({
       email: 'e2e-b7-client@aelium.test',
       firstName: 'Camila',
@@ -136,16 +144,25 @@ test.describe('Tasks — reason + tags (Sprint 8 Fase B.7 / ADR-073)', () => {
     await disconnectDb();
   });
 
-  test('B.7.1 — catálogo seedeado expone 5 tags canónicos', async ({
+  test('B.7.1 — catálogo seedeado incluye los 5 tags canónicos', async ({
     request,
   }) => {
     const res = await authed(request, superadminToken, 'GET', '/admin/task-tags');
     expect(res.ok()).toBeTruthy();
     const tags = (await res.json()) as { slug: string }[];
     const slugs = new Set(tags.map((t) => t.slug));
-    expect(slugs).toEqual(
-      new Set(['bienvenida', 'renovacion', 'incidencia', 'migracion', 'cortesia']),
-    );
+    // Verifica INCLUSIÓN, no igualdad — runs previos pueden haber dejado
+    // tags creados ad-hoc por B.7.2 (`llamada-cortesia-b-7`) sin que el
+    // seed los limpie (el seed es upsert idempotente, no truncate).
+    for (const canonical of [
+      'bienvenida',
+      'renovacion',
+      'incidencia',
+      'migracion',
+      'cortesia',
+    ]) {
+      expect(slugs).toContain(canonical);
+    }
     expect(agentBillingId).toBeTruthy(); // referenced later, satisfy lint
   });
 

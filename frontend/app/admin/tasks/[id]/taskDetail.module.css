@@ -29,19 +29,42 @@
   gap: var(--space-4);
 }
 
-/* ── Header controls ── */
-.headerControls {
+/* ── Header (Sprint 8 Fase B.8 — alineado con ConversationHeader) ──
+   Reemplaza el patrón antiguo `headerBadges` + `headerControls` (info
+   duplicada: badge + select del mismo campo) por el canónico de ticket:
+   `headerRow` con título + meta a la izquierda, acciones a la derecha.
+   Tokens DS idénticos a `_shared/support/conversation/conversationDetail
+   .module.css` para coherencia entre detalles tipo gestión. */
+.headerRow {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  margin-top: var(--space-3);
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
 }
 
-.headerBadges {
+.headerTitle {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-2);
+}
+
+.headerMeta {
   display: flex;
-  align-items: center;
   gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.headerMetaText {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.headerActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
   flex-wrap: wrap;
 }
 

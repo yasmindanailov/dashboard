@@ -36,13 +36,6 @@ const ROLE_LABELS: Record<RoleSlug, string> = {
   partner: 'Partner',
 };
 
-const STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pendiente' },
-  { value: 'in_progress', label: 'En progreso' },
-  { value: 'completed', label: 'Completada' },
-  { value: 'cancelled', label: 'Cancelada' },
-];
-
 const PRIORITY_OPTIONS = [
   { value: 'low', label: 'Baja' },
   { value: 'medium', label: 'Media' },
@@ -351,60 +344,102 @@ export default function TaskDetailPage() {
     : 'Estas notas se incluirán en la notificación al cliente...';
   const tagAssignments = task.tag_assignments ?? [];
 
+  /* Sprint 8 Fase B.8 (2026-04-30) — header alineado con
+     `ConversationHeader` del módulo support. Cambios canónicos:
+
+     1. Sin duplicación badge↔selector. Status y priority muestran UN SOLO
+        control en cada momento: badge (lectura, tarea cerrada / no admin)
+        o selector/botón (edición). Antes el agente leía "Pendiente" dos
+        veces (badge + opción seleccionada en dropdown), ruido sin valor.
+     2. Botón contextual "Iniciar" en el header (transición pending →
+        in_progress, sin necesidad de modal). Los botones de cierre
+        ("Completar", "Cancelar tarea") siguen en el footer porque
+        disparan el modal de captura de notas; 8.B.9 los trasladará al
+        header cuando el modal canónico unificado esté listo.
+     3. Type sigue como badge (no editable post-creación, TASK-INV-1).
+     4. Priority como Select size="sm" sólo si admin y no cerrada.
+     5. Tipografía: `<h1 className={headerTitle}>` con tokens DS idénticos
+        a ticket. */
   const taskHeader = (
-    <>
-      <h2>{task.title}</h2>
-      {/* Sprint 8 Fase B.7 — ADR-073: el "porqué humano" sale como subtítulo
-          bajo el title si está poblado. Truncamos vía CSS, no aquí. */}
-      {task.reason && (
-        <p className={styles.taskReason}>{task.reason}</p>
-      )}
-      <div className={styles.headerBadges}>
-        <Badge variant="neutral">{TASK_TYPE_LABELS[task.type] || task.type}</Badge>
-        <Badge variant={(TASK_STATUS_VARIANTS[task.status] as BadgeVariant) || 'neutral'}>
-          {TASK_STATUS_LABELS[task.status]}
-        </Badge>
-        <Badge variant={task.priority === 'critical' ? 'danger' : task.priority === 'high' ? 'warning' : 'neutral'}>
-          {TASK_PRIORITY_LABELS[task.priority]}
-        </Badge>
-        {/* Sprint 8 Fase B.7 — ADR-073: chips de tags asignados.
-            Usan color del tag si está definido, fallback al neutral del DS.
-            <span> dedicado (no Badge) porque tags admiten color arbitrario. */}
-        {tagAssignments.map((a) => (
-          <span
-            key={a.tag.id}
-            className={styles.tagChip}
-            style={
-              a.tag.color
-                ? {
-                    backgroundColor: `${a.tag.color}1A`,
-                    color: a.tag.color,
-                    borderColor: `${a.tag.color}33`,
-                  }
-                : undefined
-            }
-          >
-            {a.tag.label}
-          </span>
-        ))}
+    <div className={styles.headerRow}>
+      <div>
+        <h1 className={styles.headerTitle}>{task.title}</h1>
+        {/* Sprint 8 Fase B.7 — ADR-073: porqué humano como subtítulo. */}
+        {task.reason && <p className={styles.taskReason}>{task.reason}</p>}
+        <div className={styles.headerMeta}>
+          <Badge variant="neutral">
+            {TASK_TYPE_LABELS[task.type] || task.type}
+          </Badge>
+          {/* Status → badge SOLO en estado terminal (lectura). En estado
+              abierto, la acción se muestra como botón a la derecha. */}
+          {isClosed && (
+            <Badge
+              variant={
+                (TASK_STATUS_VARIANTS[task.status] as BadgeVariant) || 'neutral'
+              }
+            >
+              {TASK_STATUS_LABELS[task.status]}
+            </Badge>
+          )}
+          {/* Priority → badge SOLO si la tarea está cerrada o el usuario
+              no es admin (no puede editar). Si es admin y abierta, el
+              <Select> de la derecha es la fuente de verdad. */}
+          {(isClosed || !isAdmin) && (
+            <Badge
+              variant={
+                task.priority === 'critical'
+                  ? 'danger'
+                  : task.priority === 'high'
+                    ? 'warning'
+                    : 'neutral'
+              }
+            >
+              {TASK_PRIORITY_LABELS[task.priority]}
+            </Badge>
+          )}
+          {/* Sprint 8 Fase B.7 — ADR-073: chips de tags asignados. */}
+          {tagAssignments.map((a) => (
+            <span
+              key={a.tag.id}
+              className={styles.tagChip}
+              style={
+                a.tag.color
+                  ? {
+                      backgroundColor: `${a.tag.color}1A`,
+                      color: a.tag.color,
+                      borderColor: `${a.tag.color}33`,
+                    }
+                  : undefined
+              }
+            >
+              {a.tag.label}
+            </span>
+          ))}
+        </div>
       </div>
+
       {!isClosed && (
-        <div className={styles.headerControls}>
-          <Select
-            value={task.status}
-            onChange={e => handleStatusChange(e.target.value)}
-            options={STATUS_OPTIONS}
-          />
+        <div className={styles.headerActions}>
           {isAdmin && (
             <Select
               value={task.priority}
-              onChange={e => handlePriorityChange(e.target.value)}
+              onChange={(e) => handlePriorityChange(e.target.value)}
               options={PRIORITY_OPTIONS}
+              size="sm"
             />
+          )}
+          {task.status === 'pending' && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handleStatusChange('in_progress')}
+            >
+              Iniciar
+            </Button>
           )}
         </div>
       )}
-    </>
+    </div>
   );
 
   return (
