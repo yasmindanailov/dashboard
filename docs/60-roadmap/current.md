@@ -384,7 +384,7 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 
 ### 10. Cierre del sprint
 
-> Sprint 8 sigue **WIP**. Fase A + B (B.1 + B.1.bis + B.2 + B.3 + B.4 + B.5 + B.6 EC-T8-12..17 + B.7 tipos flexibles ADR-073) ✅ cerradas. Cola restante: Fase C automatización → Fase D Support Inside → Fase E docs.
+> Sprint 8 sigue **WIP**. **Fase B 100% cerrada** (B.1..B.10 + fix + fix2). Cola restante: Fase C automatización → Fase D Support Inside → Fase E docs.
 
 **Cierres registrados:**
 
@@ -401,26 +401,47 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 | 8.B.8 (header detail alineado con ConversationHeader: sin badges duplicados + tokens DS) | 2026-04-30 | `a2e5cc1` |
 | 8.B.9 (refactor notas: card inline + modal completar + listener `task.completed` notifica cliente) | 2026-04-30 | `b6d6d20` |
 | 8.B.10 (ticket↔task bridge: asignar ticket crea task; cierre tarea = cierre ticket; ADR-074) | 2026-04-30 | `c204f08` |
+| 8.B.10.fix (UI: Select asignación agente cableado en ConversationSidebar admin) | 2026-04-30 | `8bffaf4` |
+| 8.B.10.fix (cancel task bridge libera ticket + feedback agente) | 2026-04-30 | `2f5e2b8` |
+| 8.B.10.fix2 (3 EC críticos: reapertura / nace asignado / desasignar libera task) | 2026-04-30 | `7107de1` |
 
-**Estado DoD** (al cierre de Fase B + EC-T8-12..17 + B.7 tipos flexibles ADR-073):
+**Estado DoD final Fase B (al cierre 2026-04-30):**
 
-- ✅ Backend typecheck + lint + build + **73/73 unit tests** (60 previos + 13 nuevos: 6 DTO B.7 reason/tags + 6 TaskTagsService + 1 hint actualizado)
-- ✅ Frontend typecheck + lint (0 errores; 42 warnings DC.6 preexistentes) + build
-- ✅ E2E suite **95/95 verde** sin regresión (88 previos + 7 nuevos `tasks-reason-and-tags.spec.ts`)
-- ✅ ADRs creados: 069 (deploy diferido), 070 (service info SSO), 071 (vista admin federada), 072 (cola pública tareas), **073 (tipos flexibles tasks reason+tags)**
-- ✅ Doc canónica: `current.md` §6 con 35 EC nuevos, `tasks/contract.md` §3/§5/§10/§14/14b/17 actualizados B.7, `_events.md` con `maintenance.completed`, `glossary.md` con términos nuevos, schema en `30-data/tasks.md` y `30-data/clients.md` (pendiente actualizar enum `wow_call`→`contact_client` + tablas `task_tags`/`task_tag_assignments`)
-- ✅ EC cerrados: T8-12, T8-13, T8-14, T8-15, T8-16, T8-17, T8-19, T8-20, T8-21, T8-22, T8-01, EC-IMPL-01..03; portal URL bug fix; password seed alineado en `tests/e2e/fixtures/test-config.ts`
-- ✅ B.7: enum `wow_call` → `contact_client` (preserva contexto via `reason='Bienvenida primer servicio'`); columna `tasks.reason` (texto libre <=100); tablas `task_tags` + `task_tag_assignments` (m2m explícita); 3 endpoints `/admin/task-tags`; CASL `Subject.TaskTag`; seed 5 tags canónicos; bloque adaptativo "Datos del cliente + plan" generalizado a cualquier tarea con `service_id`; frontend `lib/types.ts` SINCRONIZADO con backend
-- ⬜ Pendiente: Fase C, Fase D, Fase E, smoke testing manual final
+- ✅ Backend typecheck + lint + build + **86/86 unit tests** (60 previos + 26 nuevos: 13 DTO/Service B.7 + 7 TaskCompletedListener B.9 + 6 SupportTicketTaskCreatorListener B.10)
+- ✅ Frontend typecheck + lint (0 errores; 44 warnings DC.6 preexistentes) + build
+- ✅ E2E suite **107/107 verde** sin regresión (88 previos + 7 B.7 + 3 B.9 + 9 B.10/fix/fix2 = 107)
+- ✅ **ADRs creados Fase B**: 069 (deploy diferido), 070 (service info SSO), 071 (vista admin federada), 072 (cola pública tareas), 073 (tipos flexibles tasks reason+tags), **074 (ticket↔task bridge)**
+- ✅ Doc canónica completa: `current.md` §6 con 46 EC, `tasks/contract.md` §3/§5/§10/§14/14b/17, `30-data/tasks.md` con `task_tags`/`task_tag_assignments`, `_events.md` con `maintenance.completed` + `task.completed` + `conversation.unassigned`, `glossary.md`, `adr-074-ticket-task-bridge.md` §"Edge cases" con 12 casos doctrinales (4 cerrados con SHA + 8 documentados)
+- ✅ EC cerrados: T8-01, T8-12..17, T8-19..22, EC-IMPL-01..03 (Fase A/B previas) + EC-B10-1/3/7/8 (bridge ticket↔task) + portal URL fix + password seed alineado
+- ✅ Schema final Fase B: `tasks.reason VARCHAR(100)` · `tasks` enum `wow_call` → `contact_client` + `support_ticket` · `task_tags` + `task_tag_assignments` (m2m) · `client_notes.author` FK física · 3 migraciones limpias aplicadas
+- ✅ Endpoints Fase B: `/tasks` (CRUD) · `/tasks/:id/complete` (dual path: simple B.9 / bridge B.10) · `/tasks/:id/notes` GET+POST · `/tasks/:id/checklist` · `/tasks/:id/maintenance/log` · `/admin/task-tags` GET+POST+DELETE · `/support/conversations/:id` PATCH soporta `assigned_agent_id: null` (desasignación)
+- ✅ Listeners Fase B: `tasks-email` · `MaintenanceCompletedListener` · `TaskCompletedListener` (B.9, dispara email cliente con flag `__skipClientNotification` para bridge) · `SupportTicketTaskCreatorListener` (dual handler: `conversation.assigned` + `conversation.unassigned`)
+- ⬜ Pendiente: Fase C automatización (crons + WOW listener) → Fase D Support Inside (ADR-061) → Fase E docs canónicas
 
 ---
 
 ### ✍ Próxima sesión — orden recomendado
 
-1. ~~**EC-T8-12..17 (validaciones defensivas de campo)**~~ ✅ cerrado 2026-04-29 — `due_date` no pasada · coherencia `service_id ↔ client_id` · `is_recurring↔recurrence_day` · regex `billing_month` · `@MaxLength(50000)` description · plantillas seguras (test guard). Cron de Fase C blindado.
-2. **Sprint 8 Fase C** — automatización completa: `TasksOverdueProcessor` (cron diario `0 2 * * *` → `task.overdue` + `not_completed_in_time` tras N días) · `TasksUnassignedOverdueCron` (ADR-072, cron diario `0 9 * * *` → `task.unassigned_overdue` con SLA por tipo) · `MaintenanceCriticalCron` (cron diario → `maintenance.critical`) · `WowCallCreatorListener` (`@OnEvent('service.provisioned')`) · plantillas seed faltantes (`task.overdue`, `maintenance.critical`, `task.unassigned_overdue`) · settings nuevos (`tasks.overdue_to_failure_days`, `support.maintenance_critical_threshold_days`, `tasks.unassigned_sla_hours.<type>`).
-3. **Sprint 8 Fase D — Support Inside** ([ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md)) — denso, 1.5 sesiones: schema `support_inside_*` + service + 6 endpoints cliente + 2 admin + páginas dedicadas `/dashboard/support-inside` y `/admin/support-inside-plans` + cancelación cascada + `MaintenanceMonthlyCron` mensual + seed 3 planes Básico/Medium/Pro.
+> **Fase B 100% cerrada el 2026-04-30** (B.1..B.10 + fix + fix2). Suite 107/107 E2E + 86/86 unit verde. La cola activa retoma desde Fase C automatización. Mensaje sugerido para arrancar la sesión nueva con contexto fresco: *"Lee `docs/90-meta/development-playbook.md` y `docs/60-roadmap/current.md` §Sprint 8. Vamos a abordar Sprint 8 Fase C automatización. Procede con rigor."*
+
+1. ~~**EC-T8-12..17 + B.7..B.10 + fix2 EC#3/#7/#8**~~ ✅ cerrado 2026-04-29/30 — ver §10 cierres registrados.
+2. **Sprint 8 Fase C** — automatización completa (próximo paso, ~2-3 sesiones):
+   - **`TasksOverdueProcessor`** (cron diario `0 2 * * *`): tareas con `due_date < now() - settings.tasks.overdue_to_failure_days` → status=`not_completed_in_time` + emite `task.overdue` (notifica al agente).
+   - **`TasksUnassignedOverdueCron`** (ADR-072, cron diario `0 9 * * *`): tareas en cola pública (`assigned_to=null`) que superan SLA por tipo → emite `task.unassigned_overdue` (alerta superadmin).
+   - **`MaintenanceCriticalCron`** (cron diario): servicios sin `maintenance_log` en N meses → emite `maintenance.critical`.
+   - **`ContactClientTaskListener`** (post Sprint 11 Provisioning) `@OnEvent('service.provisioned')`: crea task `type=contact_client` con tag `bienvenida` (renombrado desde `WowCallCreatorListener` por ADR-073). **Diferido** hasta Sprint 11 — Fase C no lo implementa, solo deja stub documentado.
+   - **Plantillas seed faltantes**: `task.overdue`, `maintenance.critical`, `task.unassigned_overdue` en `notification-templates.ts` con guard EC-T8-17 (sin `{{{var}}}`).
+   - **Settings nuevos** (seed en `settings.ts`): `tasks.overdue_to_failure_days` (default 7) · `support.maintenance_critical_threshold_days` (default 60) · `tasks.unassigned_sla_hours.<type>` (5 entradas: contact_client=24, maintenance=12, maintenance_management=12, custom_work=48, support_setup=4 — de ADR-072) + fallback `default=24`.
+   - **Tests críticos**: unit por cron (clock injection con `jest.useFakeTimers`) + E2E que cubra al menos `task.overdue` end-to-end (crear tarea con due_date pasada → cron detecta → status cambia → email llega).
+3. **Sprint 8 Fase D — Support Inside** ([ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md)) — ~1.5 sesiones: schema `support_inside_*` + service + 6 endpoints cliente + 2 admin + páginas dedicadas `/dashboard/support-inside` y `/admin/support-inside-plans` + cancelación cascada + `MaintenanceMonthlyCron` mensual + seed 3 planes Básico/Medium/Pro.
 4. **Sprint 8 Fase E** — docs canónicas: `docs/features/tasks/admin.md` + `agent.md` + `docs/features/support-inside/admin.md` + `client.md` + retrospectiva en `completed/sprint-8-tasks-support-inside.md`.
+
+#### Atención al arrancar Fase C
+
+- **Verificar primero ADR-056** (`docs/10-decisions/adr-056-estrategia-escalabilidad.md`) — la doctrina canónica dice que **los crons nuevos deben ir a BullMQ con leader election**, no `@nestjs/schedule` in-process. Sprint 9 Fase A/C ya tiene la infra BullMQ + DLQ (`OutboxWorker` migrado). Replicar ese patrón para los 3 crons de Fase C.
+- **Reglas R7 + R13** aplican: cualquier emisión a notifications usa `NotificationsService.dispatchToUser` (no email directo); errores no relanzan, log + DLQ.
+- **EC-T8-17 sigue activo**: cualquier plantilla nueva pasa por `notification-templates.security.spec.ts` guard.
+- **No abrir Fase D/E hasta Fase C cerrada** — regla "no abrir lo nuevo con WIP abierto".
 
 ---
 

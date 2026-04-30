@@ -10,22 +10,25 @@ NO es visible al cliente — es herramienta interna del equipo.
 
 ## 2. Estado de implementación
 
-🟡 **Parcial — Sprint 8 cierre mínimo (P0.1) cerrado 2026-04-26.** Module + service + controller + DTOs implementados. Frontend (lista, detalle, modal de crear) implementado.
+🟢 **Sprint 8 Fase A + B 100% cerradas** (2026-04-26 → 2026-04-30). Cola activa: Fase C (automatización crons + WOW listener) → Fase D (Support Inside) → Fase E (docs canónicas). Ver §17 deuda y `docs/60-roadmap/current.md` §10.
 
-**Cerrado en P0.1:**
+**Resumen del estado funcional tras Fase B:**
 
-- ✅ Listener `task.assigned` → email al agente + notificación interna (`tasks-email.listener.ts`)
-- ✅ Validación FK `assigned_to` (existe + status=`active` + rol en `superadmin|agent_*`)
-- ✅ Tests E2E (3 tests en `tests/e2e/tasks.spec.ts`)
-- ✅ 2 errores `no-unsafe-enum-comparison` resueltos (uso `TaskStatusDto.completed`)
+- ✅ Module + service + controller + DTOs completos. Validaciones defensivas EC-T8-12..17 activas.
+- ✅ Tipos canónicos (ADR-073): enum `TaskType` (`contact_client`, `maintenance`, `maintenance_management`, `project_task`, `custom_work`, `support_setup`, `support_ticket`) + `reason` libre + `tags` extensibles.
+- ✅ Bridge ticket↔task (ADR-074): asignar ticket crea task automática (`type=support_ticket`); cierre canónico unificado en la tarea con dual path (resolver/cerrar ticket); 12 edge cases doctrinales documentados.
+- ✅ Notificaciones canónicas: `task.assigned` (email + campana al agente), `task.completed` (email + campana al cliente sólo si hay `clientNotes` y tipo no-maintenance), `maintenance.completed` (email + campana al cliente con resumen mensual). Listener bridge desactiva notificación duplicada via flag `__skipClientNotification`.
+- ✅ UI admin completa: tablero segmentado (mine/unassigned/all), detalle con header `ConversationHeader`-style, `TaskCompletionModal` dual mode, card "Notas internas" inline persistente, `TaskInternalNotesCard` + chips de tags, sidebar "Ticket origen" cuando hay `conversation_id`.
+- ✅ CASL granularidad ADR-067: `Subject.Task` (todo staff manage), `Subject.TaskTag` (manage admin pleno, read demás staff).
+- ✅ Schema: 5 migraciones limpias (`task_checklist_completions`, `maintenance_logs`, `task_tags` + m2m, FK `client_notes.author`, enum `support_ticket`).
 
-**Pendiente Fases B-E del Sprint 8** (no bloquea desarrollo, sí bloquea cadena):
+**Pendiente:**
 
-- Schema Fase A: `task_checklist_completions`, `maintenance_logs`, `product_checklist_items`, `service_checklist_items`, FK `client_notes.task_id`
-- Validación explícita de transiciones de `status` (TASK-INV-2)
-- Listeners `task.overdue`, `maintenance.completed`, `maintenance.critical`
-- Cron `not_completed_in_time`
-- Fase D Support Inside (UX dedicada, ADR-061)
+- ⬜ Fase C: cron `task.overdue` (→ status `not_completed_in_time`) · cron `task.unassigned_overdue` (ADR-072 SLA por tipo) · cron `maintenance.critical` · plantillas seed `task.overdue`/`maintenance.critical`/`task.unassigned_overdue` · 4 settings nuevos · **migración a BullMQ con leader election** (ADR-056) requerida.
+- ⬜ Fase D: Support Inside ([ADR-061](../../10-decisions/adr-061-support-inside-tier-cuenta-ux.md)) — schema + service + 8 endpoints + páginas dedicadas + cron mensual.
+- ⬜ Fase E: docs canónicas `features/tasks/admin.md` + `agent.md` + retrospectiva `completed/sprint-8-tasks-support-inside.md`.
+- ⬜ Sprint 11 (post-Fase C): `ContactClientTaskListener` (`@OnEvent('service.provisioned')`) — renombrado del histórico `WowCallCreatorListener` por ADR-073.
+- ⬜ Sprint 8.B.11 documentado como deuda futura: auto-asignación obligatoria de tickets sin agente al crearse/escalarse (algoritmo round-robin balanceado por carga, plan canónico en ADR-074 §"Reglas canónicas").
 
 ---
 
@@ -36,6 +39,8 @@ NO es visible al cliente — es herramienta interna del equipo.
 | `tasks` | Tareas internas del equipo | `assigned_to` puede ser null (sin asignar). `due_date` opcional. `status`: `pending`, `in_progress`, `completed`, `cancelled`. `reason` texto libre <=100 (Sprint 8 Fase B.7 — ADR-073). |
 | `task_tags` | Catálogo de etiquetas extensibles asignables a tareas (Sprint 8 Fase B.7 — ADR-073) | `slug` único kebab-case. `label` mostrable. `color` hex opcional. Crear/borrar requiere `Manage.TaskTag`. |
 | `task_tag_assignments` | M2M Task ↔ TaskTag (Sprint 8 Fase B.7 — ADR-073) | PK compuesta `(task_id, tag_id)`. Cascada FK borra assignments al eliminar task o tag. |
+
+> **Sprint 8 Fase B.10 — ADR-074 ticket↔task bridge** (2026-04-30): el enum `TaskType` añade el valor `support_ticket`. Tareas creadas automáticamente al asignar un ticket de soporte — siempre tienen `conversation_id` poblado. El cierre canónico de ese tipo de tarea pasa por `TaskCompletionModal` modo bridge (selector resolve/close + nota interna obligatoria) y delega en `SupportService.updateConversation` para notificar al cliente — sin duplicar emails. Ver detalles + 12 edge cases doctrinales en [ADR-074 §"Edge cases"](../../10-decisions/adr-074-ticket-task-bridge.md#edge-cases).
 
 > El enum `TaskType` se mantiene cerrado y representa **qué bloque/automatización activa la tarea**, no la intención humana. El POR QUÉ humano vive en `reason` (libre) + `tags` (extensibles). Para añadir un contexto operativo nuevo (ej. "renovación hosting") se crea un tag desde `/admin/task-tags`, NO un valor de enum nuevo. Ver [ADR-073](../../10-decisions/adr-073-tipos-flexibles-tasks-reason-tags.md).
 
@@ -100,7 +105,10 @@ N/A — tasks no tiene gateway. Las actualizaciones se ven al refrescar la pági
 
 ## 8. Eventos consumidos
 
-Ninguno actualmente.
+| Evento | Listener | Acción | Sprint |
+|---|---|---|---|
+| `conversation.assigned` | `SupportTicketTaskCreatorListener.handle` | Crea o reasigna `Task(type=support_ticket)` vinculada al ticket. Idempotente: si la task activa ya existe con mismo agente, no hace nada. | Sprint 8 Fase B.10 (ADR-074) |
+| `conversation.unassigned` | `SupportTicketTaskCreatorListener.handleUnassigned` | Cancela la task bridge activa con flag `skipTicketRelease` para evitar ciclo. | Sprint 8 Fase B.10.fix2 (ADR-074 EC#8) |
 
 > **Propuesta futura:** consumir `service.suspended` para crear automáticamente una tarea técnica al equipo cuando se suspende un servicio. Hoy se hace manualmente.
 
@@ -108,7 +116,9 @@ Ninguno actualmente.
 
 ## 9. Servicios consumidos cross-módulo
 
-Ninguno. `TasksService` directo (sin sub-services todavía — el archivo está cerca del límite R15 con ~280 líneas, candidato a refactor si crece).
+| Service | Método | Razón | Sprint |
+|---|---|---|---|
+| `SupportService` | `updateConversation(id, {status, resolution_note} \| {assigned_agent_id: null}, actorId)` | Bridge ticket↔task: cuando una task con `conversation_id` se completa, delega en support para cerrar/resolver el ticket vinculado y emitir notificación canónica al cliente. Cuando se cancela, libera el ticket. Excepción documentada de R1 (módulos no se llaman) — formalizada en [ADR-074 §Decisión](../../10-decisions/adr-074-ticket-task-bridge.md). | Sprint 8 Fase B.10 |
 
 ---
 
@@ -250,7 +260,12 @@ Lista canónica de edge cases del módulo vive en [`docs/60-roadmap/current.md` 
 - [x] ~~**Sprint 8 Fase B.3:** DS compliance — fix masivo tokens fantasma `--color-*` → canónicos (`--text-*`, `--brand`, `--border`, `--danger`, `--warning`, `--success`, `--surface-*`) en `types.ts` + `tasks.module.css` + `taskDetail.module.css` (38 ocurrencias). Eliminación 4 inline styles ad-hoc → clases CSS module. font-weight numéricos → tokens. Suite 88/88 sin regresión~~ ✅ Sprint 8 Fase B.3 (2026-04-29)
 - [x] ~~**Sprint 8 Fase B EC-T8-12..17:** validaciones defensivas — `assertDueDateNotInPast` (con bypass `allowOverdue` para cron Fase D) + `assertServiceBelongsToClient` en `TasksService` · `is_recurring↔recurrence_day` con `@ValidateIf` · regex `BILLING_MONTH_REGEX` aplicada a `billing_month` · `@MaxLength(50000)` en `description` · auditoría plantillas Handlebars (0 patrones unsafe) + test guard `notification-templates.security.spec.ts` · fix oportunista password seed E2E (`AeliumDev2026!`)~~ ✅ Sprint 8 Fase B (2026-04-29) — 60/60 unit, 88/88 E2E.
 - [x] ~~**Sprint 8 Fase B.7 — ADR-073: tipos flexibles (reason + tags):** rename enum `wow_call` → `contact_client` (preserva contexto histórico via `reason='Bienvenida primer servicio'` en migration data) · columna `tasks.reason` (texto libre <=100) · catálogo `task_tags` + tabla pivote `task_tag_assignments` m2m explícita · 3 endpoints `/admin/task-tags` (list / create / delete) con CASL `Subject.TaskTag` · seed canónico `sample-task-tags.ts` (5 tags: bienvenida, renovación, incidencia, migración, cortesía) · bloque adaptativo "Datos del cliente + plan" generalizado a cualquier tarea con `service_id` (no exclusivo del tipo) · `NewTaskModal` con input "Motivo" + multi-toggle de tags + crear inline · chips en tablero y detail · `frontend/app/lib/types.ts` SINCRONIZADO con backend (antes divergía en `TaskPriority='urgent'`/`'critical'`, falta `not_completed_in_time`, sobraban `follow_up`/`other`).~~ ✅ Sprint 8 Fase B.7 (2026-04-29) — 73/73 unit (60 previos + 13 nuevos), 95/95 E2E (88 previos + 7 nuevos).
-- [ ] **Sprint 8 Fase C (pendiente):** listeners `task.overdue`, `maintenance.completed`, `maintenance.critical` + cron `not_completed_in_time` + cron `tasks-unassigned-overdue` (ADR-072) + WOW calls automáticos
+- [x] ~~**Sprint 8 Fase B.8 — header detail alineado con ConversationHeader:** sin duplicación badge/selector (status/priority muestran UN SOLO control según contexto) · botón "Iniciar" contextual · tipografía + tokens DS idénticos a `_shared/support/conversation/conversationDetail.module.css` · fix oportunista cleanup task_tags en spec B.7 (DELETE residuos NOT IN canónicos)~~ ✅ Sprint 8 Fase B.8 (2026-04-30, `a2e5cc1`) — 95/95 E2E sin regresión.
+- [x] ~~**Sprint 8 Fase B.9 — refactor notas + modal completar + listener task.completed:** notas internas card persistente con botón "+ Añadir nota" (POST `/tasks/:id/notes` inmediato, `ClientNote category=technical`) · `TaskCompletionModal` canónico replica `DetailResolutionModal` patrón · listener `TaskCompletedListener` notifica al cliente vía email + campana cuando hay `clientNotes` y tipo no-maintenance · plantillas seed `task.completed` (email + internal) · `Completar`/`Cancelar` trasladados al header · schema FK física `client_notes.author` ON DELETE RESTRICT~~ ✅ Sprint 8 Fase B.9 (2026-04-30, `b6d6d20`) — 80/80 unit (73 + 7 nuevos), 98/98 E2E (95 + 3 nuevos).
+- [x] ~~**Sprint 8 Fase B.10 — ADR-074 ticket↔task bridge:** nuevo enum `TaskType.support_ticket` · `SupportTicketTaskCreatorListener` consume `conversation.assigned` → crea/reasigna task bridge · `TasksService.complete` dual path (simple B.9 / bridge B.10) delega en `SupportService` cuando hay `conversation_id` · `TaskCompletionModal` modo bridge con selector resolve/close + nota interna obligatoria · `ConversationHeader` oculta botones legacy + muestra pill "Trabajando en tarea →" cuando hay task vinculada · sidebar "Ticket origen" en task detail · filtro `tasksApi.list({conversation_id})` · CompleteTaskDto extendido con `ticket_action` + `resolution_note`~~ ✅ Sprint 8 Fase B.10 (2026-04-30, `c204f08`) — 86/86 unit (80 + 6 nuevos `SupportTicketTaskCreatorListener`), 103/103 E2E (98 + 5 nuevos `tasks-ticket-bridge.spec.ts`).
+- [x] ~~**Sprint 8 Fase B.10.fix — UI selector asignación + cancel libera ticket:** Select de agentes en `ConversationSidebar` admin con lazy fetch via `usersApi.listAgents` + handler `useConversationDetail.handleAssignAgent` (8bffaf4) · cancelar task bridge libera ticket (`assigned_agent_id=null`) + flag `__ticket_released` para toast contextual + confirm modal con copy explícito sobre las 4 consecuencias (2f5e2b8) · `UpdateConversationDto.assigned_agent_id` admite `null` para desasignación~~ ✅ Sprint 8 Fase B.10.fix (2026-04-30) — 104/104 E2E (103 + 1 nuevo B.10.6).
+- [x] ~~**Sprint 8 Fase B.10.fix2 — 3 EC críticos del bridge:** EC#3 reabrir ticket re-emite `conversation.assigned` → listener crea nueva task · EC#7 `createTicketForClient` y `escalateToTicket` emiten `conversation.assigned` post-creación si nace asignado · EC#8 `support-message.service` emite `conversation.unassigned` + handler nuevo en listener cancela task con flag `skipTicketRelease` para evitar ciclo · ADR-074 §"Edge cases" con 12 casos doctrinales (4 cerrados con SHA + 8 documentados sin fix)~~ ✅ Sprint 8 Fase B.10.fix2 (2026-04-30, `7107de1`) — 107/107 E2E (104 + 3 nuevos B.10.7/8/9).
+- [ ] **Sprint 8 Fase C (pendiente):** listeners `task.overdue`, `maintenance.critical` + cron `not_completed_in_time` + cron `tasks-unassigned-overdue` (ADR-072) + plantillas seed faltantes + settings nuevos. **Migrar a BullMQ con leader election** (ADR-056) — replicar patrón Sprint 9 Fase A. `ContactClientTaskListener` (ex-`WowCallCreatorListener` por ADR-073) diferido a Sprint 11 Provisioning.
 - [ ] **Sprint 8 Fase D (pendiente):** Support Inside ([ADR-061](../../10-decisions/adr-061-support-inside-tier-cuenta-ux.md))
 - [ ] **Sprint 8 Fase E (pendiente):** docs `features/tasks/admin.md` + `agent.md`
 - [ ] **Sprint 9 Fase E pendiente:** listener `audit-tasks` que invoque `AuditService.logChange(actor, 'task', before, after)` para reasignaciones/transiciones (EC-T8-44)
