@@ -210,6 +210,7 @@ export default function AdminConversationDetailPage() {
             clientServices={d.clientServices}
             contextLoading={d.contextLoading}
             isChat={isChat}
+            onAssignAgent={d.handleAssignAgent}
           />
         </div>
       </div>

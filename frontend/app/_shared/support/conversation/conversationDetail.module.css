@@ -82,6 +82,15 @@
   background-color: color-mix(in srgb, var(--brand) 18%, transparent);
 }
 
+/* Sprint 8 Fase B.10 (2026-04-30) — ADR-074: hint operativo bajo el
+   selector de asignación cuando un ticket queda asignado. */
+.assignmentHint {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  line-height: var(--line-height-relaxed);
+  margin: var(--space-2) 0 0;
+}
+
 /* ── Messages container ── */
 .messagesContainer {
   overflow: hidden;

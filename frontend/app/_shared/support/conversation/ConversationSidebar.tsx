@@ -1,11 +1,29 @@
 'use client';
 
 import Link from 'next/link';
-import { Card, Badge, Skeleton } from '../../../components/ui';
-import type { Client, ClientNote, Service } from '../../../lib/types';
+import { useEffect, useState } from 'react';
+import { Card, Badge, Skeleton, Select } from '../../../components/ui';
+import type {
+  Agent,
+  Client,
+  ClientNote,
+  Pagination,
+  RoleSlug,
+  Service,
+} from '../../../lib/types';
 import type { ConversationDetail } from './types';
 import { STATUS_CONFIG, CATEGORY_LABELS, formatDate } from './types';
+import { usersApi } from '../../../lib/api';
 import styles from './conversationDetail.module.css';
+
+const ROLE_LABELS: Record<RoleSlug, string> = {
+  superadmin: 'Superadmin',
+  agent_full: 'Agente',
+  agent_billing: 'Facturación',
+  agent_support: 'Soporte',
+  client: 'Cliente',
+  partner: 'Partner',
+};
 
 /* ═══════════════════════════════════════
    ConversationSidebar — Role-aware context panel
@@ -27,12 +45,46 @@ interface ConversationSidebarProps {
   clientServices: Service[];
   contextLoading: boolean;
   isChat: boolean;
+  /**
+   * Sprint 8 Fase B.10 (2026-04-30) — ADR-074. Handler de asignación
+   * que dispara el bridge ticket↔task. Se cablea desde el page padre
+   * (`useConversationDetail.handleAssignAgent`). Si llega null, el
+   * sidebar no renderiza el selector (modo legacy / cliente).
+   */
+  onAssignAgent?: ((agentId: string) => void) | null;
 }
 
 export default function ConversationSidebar({
   isAdmin, conversation, clientContext, clientNotes,
   clientServices, contextLoading, isChat: _isChat,
+  onAssignAgent,
 }: ConversationSidebarProps) {
+  /* Sprint 8 Fase B.10 (2026-04-30) — ADR-074: lazy fetch del catálogo
+     de agentes asignables. Reutiliza el endpoint canónico
+     `GET /admin/users` (Sprint 8 Fase A.3) que filtra por rol staff y
+     status active server-side. ~10 agentes operativos en práctica, 50
+     es buffer cómodo. */
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isAdmin || !onAssignAgent) return;
+    if (agents.length > 0) return;
+    const token =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('access_token') || ''
+        : '';
+    if (!token) return;
+    setAgentsLoading(true);
+    void usersApi
+      .listAgents(token, { limit: 50 })
+      .then((res) => {
+        const payload = res as Pagination<Agent>;
+        setAgents(payload.data || []);
+      })
+      .catch(() => setAgents([]))
+      .finally(() => setAgentsLoading(false));
+  }, [isAdmin, onAssignAgent, agents.length]);
   const fromParams = `?from=${encodeURIComponent(`/dashboard/support/${conversation.id}`)}&fromLabel=${encodeURIComponent(conversation.subject)}`;
 
   /* ── Client view: show ticket metadata ── */
@@ -141,8 +193,45 @@ export default function ConversationSidebar({
     );
   }
 
+  /* Sprint 8 Fase B.10 (2026-04-30) — ADR-074: card "Asignación" en
+     vista admin. Cambiar agente dispara el listener
+     `SupportTicketTaskCreatorListener` que crea/reasigna la
+     `Task(type=support_ticket)` vinculada. Es el ÚNICO punto de UI
+     canónico para iniciar el bridge ticket↔task. */
+  const assignmentSection = isAdmin && onAssignAgent && (
+    <Card>
+      <div className={styles.sidebarSection}>
+        <h4 className={styles.sidebarTitle}>Asignación</h4>
+        <Select
+          value={conversation.assigned_agent_id ?? ''}
+          onChange={(e) => onAssignAgent(e.target.value)}
+          disabled={agentsLoading}
+          options={[
+            {
+              value: '',
+              label: agentsLoading
+                ? 'Cargando agentes…'
+                : 'Sin asignar',
+            },
+            ...agents.map((a) => ({
+              value: a.id,
+              label: `${a.full_name} · ${ROLE_LABELS[a.role] ?? a.role}`,
+            })),
+          ]}
+        />
+        {conversation.type === 'ticket' && conversation.assigned_agent_id && (
+          <p className={styles.assignmentHint}>
+            Al asignar un ticket se crea automáticamente una tarea
+            vinculada. Cierra el ticket completando esa tarea.
+          </p>
+        )}
+      </div>
+    </Card>
+  );
+
   return (
     <div className={styles.sidebarStack}>
+      {assignmentSection}
       {/* Client info */}
       <Card>
         <div className={styles.sidebarSection}>
