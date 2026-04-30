@@ -159,6 +159,7 @@ Resultado: la historia queda íntegra.
 - [ADR-071](./adr-071-vista-admin-federada-infraestructura.md) — Vista admin federada de infraestructura: `listRemoteServers()` + `getProviderHealthSummary()` (simétrico admin de ADR-070)
 - [ADR-072](./adr-072-tareas-sin-asignar-cola-publica.md) — Tareas sin `assigned_to`: cola pública con SLA (refina ADR-041 §"🚪 Cierra")
 - [ADR-073](./adr-073-tipos-flexibles-tasks-reason-tags.md) — Tipos de tarea + `reason` libre + `tags`: separa el QUÉ del POR QUÉ (rename `wow_call` → `contact_client`, refina ADR-041 §"Tipos canónicos")
+- [ADR-074](./adr-074-ticket-task-bridge.md) — Ticket ↔ Task bridge: asignar ticket crea tarea automática (`type=support_ticket`); cierre canónico vive en la tarea con dual path resolver/cerrar; sin notificaciones duplicadas al cliente
 
 ---
 

@@ -65,6 +65,8 @@ export interface Task {
   created_by: string;
   client_id: string;
   service_id: string | null;
+  /** Sprint 8 Fase B.10 — ADR-074: ticket vinculado (bridge ticket↔task). */
+  conversation_id: string | null;
   client_note: string | null;
   due_date: string | null;
   completed_at: string | null;

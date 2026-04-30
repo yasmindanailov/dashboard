@@ -432,6 +432,8 @@ export const tasksApi = {
      * Sin scope: comportamiento clásico (agente ve mine+unassigned, admin ve todas).
      */
     scope?: 'mine' | 'unassigned' | 'all';
+    /** Sprint 8 Fase B.10 — ADR-074: filtra por ticket vinculado. */
+    conversation_id?: string;
   }) => {
     const query = new URLSearchParams();
     if (params?.page) query.set('page', String(params.page));
@@ -443,6 +445,7 @@ export const tasksApi = {
     if (params?.search) query.set('search', params.search);
     if (params?.time_range) query.set('time_range', params.time_range);
     if (params?.scope) query.set('scope', params.scope);
+    if (params?.conversation_id) query.set('conversation_id', params.conversation_id);
     const qs = query.toString();
     return api(`/tasks${qs ? `?${qs}` : ''}`, { token });
   },
@@ -456,8 +459,27 @@ export const tasksApi = {
   update: (token: string, id: string, data: Record<string, unknown>) =>
     api(`/tasks/${id}`, { method: 'PATCH', token, body: data }),
 
-  complete: (token: string, id: string, data: { client_notes?: string; internal_notes?: string }) =>
-    api(`/tasks/${id}/complete`, { method: 'PATCH', token, body: data }),
+  /**
+   * Cierra una tarea. Shape soportado:
+   *   - Flujo simple (B.9): `{client_notes?, internal_notes?}` — si la
+   *     tarea no tiene conversation_id, `client_notes` dispara email al
+   *     cliente vía `task.completed` listener.
+   *   - Flujo bridge (B.10, ADR-074): `{ticket_action, resolution_note}`
+   *     — si la tarea tiene `conversation_id`, el backend marca el
+   *     ticket vinculado como `resolved` o `closed` y persiste la nota
+   *     interna. Sin notificación duplicada al cliente (la dispara
+   *     el módulo support).
+   */
+  complete: (
+    token: string,
+    id: string,
+    data: {
+      client_notes?: string;
+      internal_notes?: string;
+      ticket_action?: 'resolve' | 'close';
+      resolution_note?: string;
+    },
+  ) => api(`/tasks/${id}/complete`, { method: 'PATCH', token, body: data }),
 
   delete: (token: string, id: string) =>
     api(`/tasks/${id}`, { method: 'DELETE', token }),

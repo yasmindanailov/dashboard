@@ -20,8 +20,10 @@ import {
   TaskListQueryDto,
   TaskScopeDto,
   TaskStatusDto,
+  TicketActionDto,
 } from './dto/task.dto';
 import { Prisma } from '@prisma/client';
+import { SupportService } from '../support/support.service';
 
 /**
  * Sprint 8 Fase B.7 (2026-04-29) — ADR-073 expone tags asignados al cliente.
@@ -82,6 +84,10 @@ export class TasksService {
   constructor(
     private prisma: PrismaService,
     private events: EventEmitter2,
+    // Sprint 8 Fase B.10 (2026-04-30) — ADR-074 bridge ticket↔task.
+    // Inyectado para delegar en `SupportService.updateConversation`
+    // cuando la tarea de cierre tiene `conversation_id` poblado.
+    private support: SupportService,
   ) {}
 
   /* ── Validate assignee FK + role (TASK-INV deuda A4) ── */
@@ -208,6 +214,8 @@ export class TasksService {
         recurrence_day: dto.recurrence_day,
         billing_month: dto.billing_month,
         reason: dto.reason,
+        // Sprint 8 Fase B.10 — ADR-074. Sólo lo pobla el listener del bridge.
+        conversation_id: dto.conversation_id,
         created_by: creatorId,
         ...(tagIds.length > 0 && {
           tag_assignments: {
@@ -265,6 +273,10 @@ export class TasksService {
     }
     if (query.search) {
       where.title = { contains: query.search, mode: 'insensitive' };
+    }
+    // Sprint 8 Fase B.10 — ADR-074: filtro por ticket vinculado.
+    if (query.conversation_id) {
+      where.conversation_id = query.conversation_id;
     }
     // Time range filters
     if (query.time_range === 'today') {
@@ -478,12 +490,28 @@ export class TasksService {
     return task;
   }
 
-  /* ── Complete with notes (maintenance flow) ── */
+  /* ── Complete with notes (maintenance flow + ticket-bridge) ──
+     Sprint 8 Fase B.10 (2026-04-30) — ADR-074. Si `task.conversation_id`
+     está poblado, el cierre delega en el módulo support: persiste la
+     ClientNote(category=solution) vinculada a la conversación, marca el
+     ticket como `resolved` o `closed` (según `ticket_action`), y emite
+     `task.completed` con flag `__skipClientNotification` para que
+     `TaskCompletedListener` ignore el evento — la notificación canónica
+     al cliente la dispara `conversation.resolved`/`closed` desde support. */
   async complete(id: string, dto: CompleteTaskDto, userId: string) {
     const task = await this.findOne(id);
     if (['completed', 'cancelled'].includes(task.status)) {
       throw new BadRequestException('Esta tarea ya está cerrada');
     }
+
+    // Bridge ticket→task: la tarea está vinculada a un ticket. El cierre
+    // pasa por SupportService — única fuente de verdad para la
+    // notificación al cliente. EC: si el agente olvida la nota o la
+    // acción, fail-fast con mensaje accionable.
+    if (task.conversation_id) {
+      return this.completeAsTicketBridge(task, dto, userId);
+    }
+
     const completed = await this.prisma.task.update({
       where: { id },
       data: { status: 'completed', completed_at: new Date() },
@@ -530,6 +558,79 @@ export class TasksService {
       internalNotes: dto.internal_notes,
     });
     this.logger.log(`Task completed: ${id} [${task.type}] by ${userId}`);
+    return completed;
+  }
+
+  /* ── Sprint 8 Fase B.10 (2026-04-30) — ADR-074 ──
+     Cierre de tareas tipo `support_ticket` (con `conversation_id`).
+     Único punto donde el agente cierra el bucle de un ticket:
+       1. Valida que llegue `ticket_action` (resolve|close) + `resolution_note`.
+       2. Delega en `SupportService.updateConversation` con la nota — el
+          módulo support persiste `ClientNote(solution)`, emite mensaje
+          interno de sistema, dispara evento `conversation.resolved`/`closed`
+          y notifica al cliente vía su listener canónico.
+       3. Marca la tarea como completed.
+       4. Emite `task.completed` con flag `__skipClientNotification` para
+          que `TaskCompletedListener` (B.9) IGNORE el evento — sin notificar
+          duplicado al cliente. El flag es interno (no parte del payload
+          público); listeners agnósticos lo ven como propiedad extra y la
+          ignoran si no la conocen. */
+  private async completeAsTicketBridge(
+    task: { id: string; type: string; conversation_id: string | null },
+    dto: CompleteTaskDto,
+    userId: string,
+  ) {
+    if (!task.conversation_id) {
+      throw new BadRequestException(
+        'Tarea sin ticket vinculado — usa el flujo simple de cierre.',
+      );
+    }
+    if (!dto.ticket_action) {
+      throw new BadRequestException(
+        'Debes elegir si el ticket se resuelve o se cierra (ticket_action).',
+      );
+    }
+    if (!dto.resolution_note?.trim()) {
+      throw new BadRequestException(
+        'La nota interna sobre la resolución del ticket es obligatoria.',
+      );
+    }
+
+    const newStatus =
+      dto.ticket_action === TicketActionDto.resolve ? 'resolved' : 'closed';
+
+    // 1. Delegar al módulo support — persiste ClientNote(solution), emite
+    //    `conversation.resolved`/`closed`, mensaje interno de sistema,
+    //    notifica al cliente. La nota se asocia a `conversation_id`
+    //    (no a `task_id`) — convención canónica del support.
+    await this.support.updateConversation(
+      task.conversation_id,
+      { status: newStatus, resolution_note: dto.resolution_note },
+      userId,
+    );
+
+    // 2. Marcar la tarea como completed.
+    const completed = await this.prisma.task.update({
+      where: { id: task.id },
+      data: { status: 'completed', completed_at: new Date() },
+      include: INCLUDE_RELATIONS,
+    });
+
+    // 3. Emitir `task.completed` con flag de skip — listener B.9 lo
+    //    detecta y NO notifica al cliente. Mantenemos la emisión para
+    //    auditoría y para futuros consumidores que quieran saber del
+    //    cierre (ej. métricas de carga del agente).
+    this.events.emit('task.completed', {
+      task: completed,
+      completedBy: userId,
+      clientNotes: undefined,
+      internalNotes: dto.resolution_note,
+      __skipClientNotification: true,
+    });
+
+    this.logger.log(
+      `Task ${task.id} (support_ticket) completed via bridge — ticket ${task.conversation_id} → ${newStatus}`,
+    );
     return completed;
   }
 

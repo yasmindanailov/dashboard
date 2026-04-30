@@ -645,6 +645,12 @@ model Message {
 // del agente. La intención humana ("Bienvenida primer servicio", "Renovación
 // hosting", etc.) vive en `Task.reason` (texto libre <=100) + tags asignables
 // extensibles en `task_tags`.
+//
+// Sprint 8 Fase B.10 (2026-04-30) — ADR-074 añade `support_ticket`.
+// Tareas creadas automáticamente por `SupportTicketTaskCreatorListener`
+// al asignar un ticket. SIEMPRE tienen `conversation_id` poblado (FK a
+// `Conversation`). El cierre delega en el módulo support para
+// notificación canónica al cliente — ver ADR-074 §"Reglas canónicas".
 enum TaskType {
   contact_client
   maintenance
@@ -652,6 +658,7 @@ enum TaskType {
   project_task
   custom_work
   support_setup
+  support_ticket
 }
 
 enum TaskStatus {

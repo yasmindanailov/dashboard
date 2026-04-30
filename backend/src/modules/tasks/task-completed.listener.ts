@@ -15,6 +15,15 @@ interface TaskCompletedPayload {
   completedBy: string;
   clientNotes?: string;
   internalNotes?: string;
+  /**
+   * Sprint 8 Fase B.10 (2026-04-30) — ADR-074. Flag interno del bridge
+   * ticket↔task. Cuando una tarea con `conversation_id` se cierra,
+   * `TasksService.completeAsTicketBridge` delega la notificación al
+   * módulo support (que ya emite `conversation.resolved`/`closed` con
+   * su propio listener al cliente). Sin este flag, el cliente recibiría
+   * dos emails: uno de support (canónico) y otro de tasks (ruido).
+   */
+  __skipClientNotification?: boolean;
 }
 
 const TASK_TYPE_LABELS_ES: Record<string, string> = {
@@ -61,6 +70,10 @@ export class TaskCompletedListener {
   @OnEvent('task.completed')
   async handle(payload: TaskCompletedPayload): Promise<void> {
     const { task, clientNotes } = payload;
+    // Sprint 8 Fase B.10 — ADR-074: el bridge ticket↔task delega la
+    // notificación al cliente en el módulo support. Si el flag está
+    // presente, salimos silenciosamente para evitar email duplicado.
+    if (payload.__skipClientNotification) return;
     if (!clientNotes || !clientNotes.trim()) return;
     if (task.type === 'maintenance' || task.type === 'maintenance_management') {
       return;

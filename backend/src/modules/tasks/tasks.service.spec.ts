@@ -4,6 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../core/database/prisma.service';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto, TaskTypeDto, TaskPriorityDto } from './dto/task.dto';
+import { SupportService } from '../support/support.service';
 
 /**
  * Tests unit TasksService — Sprint 8 Fase B EC-T8-12 / EC-T8-13 (2026-04-29).
@@ -55,6 +56,13 @@ describe('TasksService — EC-T8-12 / EC-T8-13 (validaciones defensivas)', () =>
         TasksService,
         { provide: PrismaService, useValue: prisma },
         { provide: EventEmitter2, useValue: events },
+        // Sprint 8 Fase B.10 — ADR-074. SupportService inyectado para
+        // el bridge ticket↔task. Estos tests no ejercen el bridge, así
+        // que un mock vacío es suficiente.
+        {
+          provide: SupportService,
+          useValue: { updateConversation: jest.fn() },
+        },
       ],
     }).compile();
 

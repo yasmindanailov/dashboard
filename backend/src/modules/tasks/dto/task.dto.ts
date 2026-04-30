@@ -39,6 +39,10 @@ export const BILLING_MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
  * humana. La intención vive en `reason` (texto libre <=100) + `tag_ids[]`
  * extensibles. Para añadir un nuevo contexto operativo (ej: "renovación
  * hosting"), crear un tag desde el admin — NO añadir un nuevo valor de enum.
+ *
+ * Sprint 8 Fase B.10 (2026-04-30) — ADR-074 añade `support_ticket`. Tareas
+ * creadas automáticamente por `SupportTicketTaskCreatorListener` al asignar
+ * un ticket. SIEMPRE tienen `conversation_id` poblado.
  */
 export enum TaskTypeDto {
   contact_client = 'contact_client',
@@ -47,6 +51,7 @@ export enum TaskTypeDto {
   project_task = 'project_task',
   custom_work = 'custom_work',
   support_setup = 'support_setup',
+  support_ticket = 'support_ticket',
 }
 
 export enum TaskStatusDto {
@@ -145,6 +150,14 @@ export class CreateTaskDto {
   @ArrayMaxSize(10)
   @IsUUID('all', { each: true })
   tag_ids?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'UUID del ticket vinculado. Sólo lo poblan listeners internos del bridge ticket↔task (Sprint 8 Fase B.10 / ADR-074). El frontend NO debe enviarlo: la asignación canónica es ticket → task vía `conversation.assigned`.',
+  })
+  @IsOptional()
+  @IsUUID()
+  conversation_id?: string;
 }
 
 /* ── Update ──
@@ -220,10 +233,57 @@ export class UpdateTaskDto {
   tag_ids?: string[];
 }
 
-/* ── Complete ── */
+/* ── Complete ──
+   Sprint 8 Fase B.10 (2026-04-30) — ADR-074. Cuando la tarea tiene
+   `conversation_id` poblado (tipo `support_ticket`), el flujo de cierre
+   activa el bridge: el agente elige `ticket_action` (`resolve` | `close`)
+   y aporta `resolution_note` interna. El backend marca la conversación
+   con el status correspondiente y persiste `ClientNote(category=solution)`
+   sin emitir notificación adicional desde tasks (la notificación
+   canónica al cliente la dispara support). Para tareas sin
+   `conversation_id`, esos campos se ignoran y aplica el flujo simple
+   B.9 (`client_notes` → email cliente). */
+export enum TicketActionDto {
+  resolve = 'resolve',
+  close = 'close',
+}
+
 export class CompleteTaskDto {
-  @ApiPropertyOptional() @IsOptional() @IsString() client_notes?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() internal_notes?: string;
+  @ApiPropertyOptional({
+    description:
+      'Mensaje al cliente (Sprint 8 Fase B.9). Si la tarea tiene `conversation_id`, este campo se IGNORA — la nota canónica vive en `resolution_note`.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  client_notes?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Nota interna (legacy, Sprint 8 Fase B.5). Sustituido en B.9 por las notas inline (POST /tasks/:id/notes); se mantiene por compatibilidad con el flujo `recordMaintenanceLog`.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  internal_notes?: string;
+
+  @ApiPropertyOptional({
+    enum: TicketActionDto,
+    description:
+      'Sprint 8 Fase B.10 — ADR-074. Sólo aplicable si la tarea tiene `conversation_id`. Determina si el ticket vinculado pasa a `resolved` o `closed`.',
+  })
+  @IsOptional()
+  @IsEnum(TicketActionDto)
+  ticket_action?: TicketActionDto;
+
+  @ApiPropertyOptional({
+    description:
+      'Sprint 8 Fase B.10 — ADR-074. Nota interna obligatoria (cuando `ticket_action` está presente) que se persiste como `ClientNote(category=solution, conversation_id)` y se pasa al módulo support como `resolution_note`. Mismo placeholder que `DetailResolutionModal`.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  resolution_note?: string;
 }
 
 /**
@@ -341,6 +401,12 @@ export class TaskListQueryDto {
   @IsEnum(TaskPriorityDto)
   priority?: TaskPriorityDto;
   @ApiPropertyOptional() @IsOptional() @IsUUID() assigned_to?: string;
+  /**
+   * Sprint 8 Fase B.10 — ADR-074: filtra tareas vinculadas a un ticket
+   * concreto. Lo usa el detail del ticket en `/admin/support/[id]` para
+   * detectar si hay task activa que oculte los botones Resolver/Cerrar.
+   */
+  @ApiPropertyOptional() @IsOptional() @IsUUID() conversation_id?: string;
   @ApiPropertyOptional()
   @IsOptional()
   @IsEnum(TaskScopeDto)

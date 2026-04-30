@@ -26,7 +26,7 @@ import {
   TASK_STATUS_VARIANTS,
 } from '../types';
 import styles from './taskDetail.module.css';
-import TaskCompletionModal from './TaskCompletionModal';
+import TaskCompletionModal, { type TicketAction } from './TaskCompletionModal';
 import TaskInternalNotesCard from './TaskInternalNotesCard';
 
 const ROLE_LABELS: Record<RoleSlug, string> = {
@@ -74,6 +74,9 @@ export default function TaskDetailPage() {
   const [completing, setCompleting] = useState(false);
   const [internalNotes, setInternalNotes] = useState<TaskNotePayload[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
+  // Sprint 8 Fase B.10 — ADR-074: en modo bridge (task con conversation_id),
+  // el agente elige resolver o cerrar el ticket vinculado. Default: resolve.
+  const [ticketAction, setTicketAction] = useState<TicketAction>('resolve');
   const [agents, setAgents] = useState<Agent[]>([]);
 
   // Sprint 8 Fase B.5 — checklist state. Items vienen del backend con su
@@ -281,8 +284,26 @@ export default function TaskDetailPage() {
       const isMaintenance = ['maintenance', 'maintenance_management'].includes(
         task.type,
       );
+      const isBridge = !!task.conversation_id;
       const note = completionNote.trim();
-      if (isMaintenance) {
+
+      if (isBridge) {
+        // Sprint 8 Fase B.10 — ADR-074: cierre canónico del bridge.
+        // Backend valida que `ticket_action` y `resolution_note` están
+        // presentes. La notificación al cliente la dispara support.
+        if (!note) {
+          toast(
+            'error',
+            'La nota interna sobre la resolución del ticket es obligatoria.',
+          );
+          setCompleting(false);
+          return;
+        }
+        await tasksApi.complete(token, id, {
+          ticket_action: ticketAction,
+          resolution_note: note,
+        });
+      } else if (isMaintenance) {
         if (!note) {
           toast(
             'error',
@@ -299,7 +320,11 @@ export default function TaskDetailPage() {
       }
       toast(
         'success',
-        note ? 'Tarea completada. Cliente notificado.' : 'Tarea completada.',
+        isBridge
+          ? `Ticket ${ticketAction === 'resolve' ? 'resuelto' : 'cerrado'} y tarea completada.`
+          : note
+            ? 'Tarea completada. Cliente notificado.'
+            : 'Tarea completada.',
       );
       setShowCompleteModal(false);
       setCompletionNote('');
@@ -646,6 +671,26 @@ export default function TaskDetailPage() {
 
         {/* Sidebar */}
         <div className={styles.sidebar}>
+          {/* Sprint 8 Fase B.10 (2026-04-30) — ADR-074: card "Ticket
+              origen" cuando la tarea es bridge. Permite al agente saltar
+              al ticket vinculado para leer mensajes y contexto. */}
+          {task.conversation_id && (
+            <Card>
+              <h3 className={styles.cardTitle}>Ticket origen</h3>
+              <Link
+                href={`/admin/support/${task.conversation_id}`}
+                className={styles.clientNameLink}
+              >
+                Ver ticket vinculado →
+              </Link>
+              <p className={styles.emptyDescription} style={{ marginTop: 'var(--space-2)' }}>
+                Esta tarea se generó al asignar un ticket de soporte. Al
+                completarla aquí se cerrará/resolverá el ticket
+                automáticamente — no hace falta abrir el ticket para cerrarlo.
+              </p>
+            </Card>
+          )}
+
           {/* Client card — UI_SPEC §5.16: nombre clicable (link al perfil)
               + email. Sin CTA "Ver perfil" separado: la convención DS es
               que el nombre es el target del enlace, igual que en Tickets. */}
@@ -766,13 +811,15 @@ export default function TaskDetailPage() {
         </div>
       </div>
 
-      {/* Sprint 8 Fase B.9 (2026-04-30) — modal canónico de cierre con
-          captura de la nota al cliente. Replica patrón
-          DetailResolutionModal del módulo support. */}
+      {/* Sprint 8 Fase B.9 / B.10 — modal canónico de cierre. Modo
+          simple (B.9) si la tarea no tiene `conversation_id`, modo
+          bridge (B.10 / ADR-074) si la tiene: pide acción
+          resolver/cerrar + nota interna obligatoria. */}
       <TaskCompletionModal
         open={showCompleteModal}
         taskType={task.type}
         taskTitle={task.title}
+        conversationId={task.conversation_id ?? null}
         note={completionNote}
         loading={completing}
         onNoteChange={setCompletionNote}
@@ -781,6 +828,8 @@ export default function TaskDetailPage() {
           setShowCompleteModal(false);
           setCompletionNote('');
         }}
+        ticketAction={ticketAction}
+        onTicketActionChange={setTicketAction}
       />
     </DetailPage>
   );
