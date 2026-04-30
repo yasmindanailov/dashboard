@@ -342,7 +342,7 @@ export class TasksService {
     dto: UpdateTaskDto,
     userId: string,
     isAdmin: boolean,
-    opts: { allowOverdue?: boolean } = {},
+    opts: { allowOverdue?: boolean; skipTicketRelease?: boolean } = {},
   ) {
     const existing = await this.findOne(id);
     // EC-T8-12 — si llega un `due_date` nuevo, no puede ser pasado.
@@ -502,7 +502,11 @@ export class TasksService {
        `assigned_agent_id=null`. La cancelación queda registrada en el
        timeline del ticket vía mensaje sistema delegado a support. */
     let ticketReleased = false;
-    if (dto.status === TaskStatusDto.cancelled && task.conversation_id) {
+    if (
+      dto.status === TaskStatusDto.cancelled &&
+      task.conversation_id &&
+      !opts.skipTicketRelease
+    ) {
       try {
         await this.support.updateConversation(
           task.conversation_id,

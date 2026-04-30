@@ -452,6 +452,200 @@ test.describe('Tasks ↔ Tickets bridge (Sprint 8 Fase B.10 / ADR-074)', () => {
     expect(oldTask.rows[0].status).toBe('cancelled');
   });
 
+  /* ═══════════════════════════════════════════════════════════════
+     Sprint 8 Fase B.10.fix2 (2026-04-30) — ADR-074 EC#3, EC#7, EC#8.
+     Cobertura de los 3 edge cases críticos de coherencia ticket↔task.
+     ═══════════════════════════════════════════════════════════════ */
+
+  test('B.10.7 — desasignar ticket cancela la task bridge activa (EC#8)', async ({
+    request,
+  }) => {
+    const ticketId = await createTicketInDb(
+      clientUserId,
+      'B.10.7 desasignar libera task',
+      'normal',
+    );
+    await authed(
+      request,
+      superadminToken,
+      'PATCH',
+      `/support/conversations/${ticketId}`,
+      { assigned_agent_id: agentSupportId },
+    );
+    let taskId = '';
+    for (let i = 0; i < 20; i++) {
+      const r = await pool.query(
+        `SELECT id FROM tasks WHERE conversation_id = $1
+         AND status IN ('pending','in_progress') LIMIT 1`,
+        [ticketId],
+      );
+      if (r.rowCount && r.rowCount > 0) {
+        taskId = r.rows[0].id as string;
+        break;
+      }
+      await new Promise((res) => setTimeout(res, 250));
+    }
+    expect(taskId).toBeTruthy();
+
+    // Desasignar el ticket
+    await authed(
+      request,
+      superadminToken,
+      'PATCH',
+      `/support/conversations/${ticketId}`,
+      { assigned_agent_id: null },
+    );
+
+    // Esperar a que el listener cancele la task (cross-process events)
+    let finalStatus = '';
+    for (let i = 0; i < 20; i++) {
+      const r = await pool.query(
+        `SELECT status FROM tasks WHERE id = $1`,
+        [taskId],
+      );
+      if (r.rows[0].status === 'cancelled') {
+        finalStatus = 'cancelled';
+        break;
+      }
+      await new Promise((res) => setTimeout(res, 250));
+    }
+    expect(finalStatus).toBe('cancelled');
+
+    // Ticket queda sin agente y sigue abierto (no cerrado)
+    const conv = await pool.query(
+      `SELECT assigned_agent_id, status FROM conversations WHERE id = $1`,
+      [ticketId],
+    );
+    expect(conv.rows[0].assigned_agent_id).toBeNull();
+    expect(conv.rows[0].status).toBe('open');
+  });
+
+  test('B.10.8 — ticket que nace asignado dispara creación de task (EC#7)', async ({
+    request,
+  }) => {
+    // `createTicketForClient` asigna al actor (admin que llama). Esto cubre
+    // el flujo "admin crea ticket proactivo para cliente" — el ticket nace
+    // con `assigned_agent_id = superadmin.id`. Antes de B.10.fix2, la task
+    // no se creaba porque `conversation.assigned` solo se emitía al
+    // CAMBIAR el agente, no al crear con agente desde el inicio.
+    const createRes = await authed(
+      request,
+      superadminToken,
+      'POST',
+      `/support/tickets?targetUserId=${clientUserId}`,
+      {
+        subject: 'B.10.8 ticket nace asignado',
+        body: 'Mensaje inicial del admin',
+        priority: 'high',
+        category: 'support_general',
+      },
+    );
+    expect(createRes.ok()).toBeTruthy();
+    const created = (await createRes.json()) as {
+      id: string;
+      assigned_agent_id: string;
+    };
+    expect(created.assigned_agent_id).toBeTruthy();
+
+    // Esperar a que el listener cree la task
+    let task: { id: string; type: string; assigned_to: string } | null = null;
+    for (let i = 0; i < 20; i++) {
+      const r = await pool.query(
+        `SELECT id, type, assigned_to FROM tasks
+         WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [created.id],
+      );
+      if (r.rowCount && r.rowCount > 0) {
+        task = r.rows[0] as { id: string; type: string; assigned_to: string };
+        break;
+      }
+      await new Promise((res) => setTimeout(res, 250));
+    }
+    expect(task).not.toBeNull();
+    expect(task!.type).toBe('support_ticket');
+    expect(task!.assigned_to).toBe(created.assigned_agent_id);
+  });
+
+  test('B.10.9 — reabrir ticket con agente regenera task bridge (EC#3)', async ({
+    request,
+  }) => {
+    // Crear ticket asignado, completar bridge → ticket resolved + task completed
+    const ticketId = await createTicketInDb(
+      clientUserId,
+      'B.10.9 reapertura',
+      'normal',
+    );
+    await authed(
+      request,
+      superadminToken,
+      'PATCH',
+      `/support/conversations/${ticketId}`,
+      { assigned_agent_id: agentSupportId },
+    );
+    let firstTaskId = '';
+    for (let i = 0; i < 20; i++) {
+      const r = await pool.query(
+        `SELECT id FROM tasks WHERE conversation_id = $1 LIMIT 1`,
+        [ticketId],
+      );
+      if (r.rowCount && r.rowCount > 0) {
+        firstTaskId = r.rows[0].id as string;
+        break;
+      }
+      await new Promise((res) => setTimeout(res, 250));
+    }
+    expect(firstTaskId).toBeTruthy();
+
+    await authed(
+      request,
+      superadminToken,
+      'PATCH',
+      `/tasks/${firstTaskId}/complete`,
+      {
+        ticket_action: 'resolve',
+        resolution_note: 'Resuelto inicialmente.',
+      },
+    );
+
+    // Reabrir el ticket — admin
+    const reopenRes = await authed(
+      request,
+      superadminToken,
+      'PATCH',
+      `/support/conversations/${ticketId}`,
+      {
+        status: 'open',
+        resolution_note: 'El cliente reporta que el problema reaparece.',
+      },
+    );
+    expect(reopenRes.ok()).toBeTruthy();
+
+    // Esperar a que el listener cree NUEVA task (la primera está completed)
+    let newTaskId = '';
+    for (let i = 0; i < 20; i++) {
+      const r = await pool.query(
+        `SELECT id FROM tasks
+         WHERE conversation_id = $1 AND status IN ('pending','in_progress')
+         ORDER BY created_at DESC LIMIT 1`,
+        [ticketId],
+      );
+      if (r.rowCount && r.rowCount > 0) {
+        newTaskId = r.rows[0].id as string;
+        break;
+      }
+      await new Promise((res) => setTimeout(res, 250));
+    }
+    expect(newTaskId).toBeTruthy();
+    expect(newTaskId).not.toBe(firstTaskId);
+
+    // La primera sigue completed (auditoría)
+    const oldTask = await pool.query(
+      `SELECT status FROM tasks WHERE id = $1`,
+      [firstTaskId],
+    );
+    expect(oldTask.rows[0].status).toBe('completed');
+  });
+
   test('B.10.5 — completar task bridge con close → ticket closed', async ({
     request,
   }) => {

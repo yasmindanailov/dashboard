@@ -162,6 +162,21 @@ export class SupportTicketService {
       dto.subject,
     );
 
+    /* Sprint 8 Fase B.10.fix2 (2026-04-30) — ADR-074 EC#7: ticket que
+       NACE asignado debe disparar el bridge. Antes, sólo
+       `updateConversation` emitía `conversation.assigned` cuando el
+       agente CAMBIABA — un ticket creado con agente desde el inicio
+       quedaba sin task vinculada (silent gap). Ahora emitimos en la
+       creación si el ticket nace con agente. */
+    if (result.assigned_agent_id) {
+      this.eventEmitter.emit('conversation.assigned', {
+        conversation_id: result.id,
+        agent_id: result.assigned_agent_id,
+        agent_name: `${agent.first_name} ${agent.last_name}`,
+        assigned_by: agentId,
+      });
+    }
+
     return result;
   }
 
@@ -294,6 +309,26 @@ export class SupportTicketService {
           client.email,
           result.subject || '',
         );
+      }
+    }
+
+    /* Sprint 8 Fase B.10.fix2 (2026-04-30) — ADR-074 EC#7: el ticket
+       escalado nace asignado al agente que escaló. Emitimos
+       `conversation.assigned` para disparar la creación de la task
+       bridge — sin esto, la escalación creaba ticket asignado pero el
+       sistema de tareas no lo reflejaba. */
+    if (result.assigned_agent_id) {
+      const agent = await this.prisma.user.findUnique({
+        where: { id: result.assigned_agent_id },
+        select: { first_name: true, last_name: true },
+      });
+      if (agent) {
+        this.eventEmitter.emit('conversation.assigned', {
+          conversation_id: result.id,
+          agent_id: result.assigned_agent_id,
+          agent_name: `${agent.first_name} ${agent.last_name}`,
+          assigned_by: agentId,
+        });
       }
     }
 

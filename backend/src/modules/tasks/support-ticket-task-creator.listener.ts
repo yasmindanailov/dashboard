@@ -2,13 +2,19 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../core/database/prisma.service';
 import { TasksService } from './tasks.service';
-import { TaskTypeDto, TaskPriorityDto } from './dto/task.dto';
+import { TaskTypeDto, TaskPriorityDto, TaskStatusDto } from './dto/task.dto';
 
 interface ConversationAssignedPayload {
   conversation_id: string;
   agent_id: string;
   agent_name: string;
   assigned_by: string;
+}
+
+interface ConversationUnassignedPayload {
+  conversation_id: string;
+  prev_agent_id: string;
+  unassigned_by: string;
 }
 
 /**
@@ -139,6 +145,50 @@ export class SupportTicketTaskCreatorListener {
     } catch (err) {
       this.logger.warn(
         `failed to create support_ticket task for conversation ${conversation.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * Sprint 8 Fase B.10.fix2 (2026-04-30) — ADR-074 EC#8.
+   *
+   * Cuando el admin desasigna un ticket (admin pulsa "Sin asignar" en
+   * el sidebar de support), `support-message.service` emite
+   * `conversation.unassigned`. Aquí cancelamos la task bridge activa
+   * vinculada para mantener coherencia: la tarea ES el trabajo del
+   * agente sobre el ticket; si el ticket pierde dueño, la tarea no
+   * tiene sentido.
+   *
+   * Ciclo evitado con `skipTicketRelease: true` — el cancel ya viene
+   * desde la liberación, no debe re-disparar `updateConversation`.
+   */
+  @OnEvent('conversation.unassigned')
+  async handleUnassigned(
+    payload: ConversationUnassignedPayload,
+  ): Promise<void> {
+    const existing = await this.prisma.task.findFirst({
+      where: {
+        conversation_id: payload.conversation_id,
+        status: { in: ['pending', 'in_progress'] },
+      },
+      select: { id: true },
+    });
+    if (!existing) return; // sin task activa, nada que hacer
+
+    try {
+      await this.tasksService.update(
+        existing.id,
+        { status: TaskStatusDto.cancelled },
+        payload.unassigned_by,
+        true, // isAdmin = true: el listener actúa como sistema
+        { skipTicketRelease: true },
+      );
+      this.logger.log(
+        `support_ticket task ${existing.id} cancelled — ticket ${payload.conversation_id} desasignado`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `failed to cancel task ${existing.id} on ticket unassign: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }

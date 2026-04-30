@@ -216,6 +216,34 @@ Sin cambios. `Subject.Task` y `Subject.Conversation` ya cubren las acciones. La 
 
 ---
 
+## Edge cases
+
+> Lista canónica del bridge. Casos cerrados marcan SHA del fix; casos
+> documentados sin fix tienen doctrina explícita para que cualquier
+> futuro lector sepa el comportamiento esperado.
+
+### Cerrados con código
+
+| ID | Caso | Comportamiento | Fix |
+|---|---|---|---|
+| EC-B10-1 | **Cancelar task bridge** | Libera el ticket (`assigned_agent_id=null`, `status=open`) + mensaje sistema. Toast contextual al agente. | `2f5e2b8` (B.10.fix) |
+| EC-B10-3 | **Reabrir ticket** (`closed`/`resolved` → `open`) con agente asignado | Re-emite `conversation.assigned` desde `support-message.service`. El listener crea task nueva (la previa quedó completed/cancelled — auditoría preservada). | `8.B.10.fix2` |
+| EC-B10-7 | **Ticket nace asignado** (admin crea via `createTicketForClient` o escalación chat→ticket) | Tras crear, si `assigned_agent_id` está poblado, emite `conversation.assigned` para disparar el bridge. Antes solo `updateConversation` emitía y los tickets nacidos asignados quedaban sin task. | `8.B.10.fix2` |
+| EC-B10-8 | **Desasignar ticket** (admin pone "Sin asignar") | Emite `conversation.unassigned`. El listener cancela la task bridge activa con flag `skipTicketRelease` para evitar ciclo (no reintenta liberar el ticket que ya está liberado). Mensaje sistema en el ticket: "Conversación desasignada — vuelve a la cola." | `8.B.10.fix2` |
+
+### Decisiones doctrinales (sin fix de código)
+
+| ID | Caso | Doctrina |
+|---|---|---|
+| EC-B10-2 | **DELETE task bridge** (admin destructivo) | El borrado físico de una task con `conversation_id` activo NO libera el ticket. Caso operativamente raro (la cancelación canónica es `status=cancelled`, no DELETE). El admin que borra debe desasignar el ticket manualmente desde el sidebar. Si el caso aparece en producción, considerar añadir guard al `DELETE /tasks/:id` que rechace tasks con `conversation_id` activa. **Sprint 13 Hardening** lo aborda si se materializa. |
+| EC-B10-4 | **Editar título/descripción** de task bridge | NO se sincroniza al ticket. El subject del ticket es propiedad del cliente (lo escribió en su mensaje original); el title de la task es propiedad del agente (puede refinarlo para su gestión interna). **Drift textual aceptado por diseño** — son entidades con dueños distintos. |
+| EC-B10-5 | **Múltiples tasks bridge en mismo ticket** (cancelaciones + reaperturas sucesivas) | Comportamiento intencional. Cada ciclo (asignar → cancelar → reasignar / reabrir) genera una task nueva; las anteriores quedan en historial con `status` terminal (`cancelled` o `completed`). El frontend filtra por activas (`pending`/`in_progress`) en operativa diaria; reportes pueden listar todas vía `tasksApi.list({conversation_id})`. |
+| EC-B10-6 | **Race condition al asignar simultáneamente** (dos admins, mismo ticket) | El segundo evento ve la task ya creada por el primero y entra en la rama `existing.assigned_to !== payload.agent_id` → reasigna. El `created_by` queda con el primer admin (auditable). Riesgo bajo en operativa de un superadmin + pocos agentes. |
+| EC-B10-11 | **Reasignar ticket ya `resolved`/`closed`** | El `support-message.service` emite `BadRequestException` si intentas reasignar conversation cerrada (validación de transición). El listener nunca recibe el evento — sin task creada. Comportamiento correcto: tickets cerrados no admiten cambios sin reabrirlos primero. |
+| EC-B10-13 | **Cliente o agente eliminado** con task bridge activa | FK lógicas (sin constraint físico actual) — la task queda con `client_id`/`assigned_to` apuntando al fantasma. Reportar como **deuda Sprint 13 Hardening** (FKs físicas para `users(id)` referenciadas desde `tasks` + `conversations`). |
+| EC-B10-14 | **Notas técnicas (`category=technical`) inline en task bridge** | Se persisten con `task_id` + `user_id=client_id`. Aparecen en `ClientNotesTab` del admin. **No se exponen al cliente** porque el portal cliente filtra por `category in (general, public)` — `technical` queda interno. Verificar en Sprint 13 cuando se publique audit/transparencia. |
+| EC-B10-15 | **Cancelar task bridge cuando ticket ya está closed** | El `updateConversation({assigned_agent_id: null})` sobre un ticket cerrado no está bloqueado por el service — pasa a la rama "set null" y emite `conversation.unassigned`. El listener intenta cancelar task activa pero NO hay (la task ya estaba `completed` cuando se cerró el ticket). Idempotente. |
+
 ## Referencias
 
 - [ADR-037](./adr-037-arquitectura-conversaciones.md) — chat → ticket escalation. Este ADR añade el flujo inverso ticket → task.
