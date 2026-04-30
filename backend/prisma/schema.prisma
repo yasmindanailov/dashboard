@@ -83,6 +83,7 @@ model User {
   maintenance_logs_performed MaintenanceLog[]          @relation("MaintenancePerformer")
   maintenance_logs_as_client MaintenanceLog[]          @relation("ClientMaintenanceLogs")
   task_tags_created          TaskTag[]                 @relation("TaskTagCreator")
+  client_notes_authored      ClientNote[]              @relation("ClientNoteAuthor")
 
   @@index([email])
   @@index([role_id])
@@ -597,7 +598,15 @@ model ClientNote {
   is_pinned       Boolean      @default(false)
   created_at      DateTime     @default(now()) @db.Timestamptz()
 
-  task Task? @relation("TaskClientNotes", fields: [task_id], references: [id], onDelete: SetNull)
+  task   Task? @relation("TaskClientNotes", fields: [task_id], references: [id], onDelete: SetNull)
+  // Sprint 8 Fase B.9 (2026-04-30) — relación inversa al autor (staff)
+  // para enriquecer las notas con `first_name`/`last_name` sin segunda
+  // query. Cliente y autor son ambos `users(id)`, distinguidos por
+  // categoría: `user_id` = cliente al que pertenece la nota; `author_id`
+  // = staff que la escribió. No se requiere migration SQL: el FK
+  // `author_id` ya existe a nivel BD desde el seed inicial; sólo se
+  // expone como navegación en el cliente Prisma generado.
+  author User  @relation("ClientNoteAuthor", fields: [author_id], references: [id])
 
   @@index([user_id])
   @@index([conversation_id])

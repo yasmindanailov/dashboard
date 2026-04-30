@@ -326,6 +326,69 @@ export async function seedNotificationTemplates(
       },
     },
 
+    // ───────────── task.completed (email cliente) ─────────────
+    // Sprint 8 Fase B.9 (2026-04-30) — notificación al cliente cuando el
+    // agente cierra una tarea NO-MAINTENANCE con un mensaje explícito
+    // (`client_notes`). Maintenance tiene su propio listener arriba con
+    // plantilla más rica (resumen + mes). Aquí el subject es genérico
+    // "Sobre tu solicitud" y el cuerpo prioriza el `task_reason` (Sprint
+    // 8 Fase B.7 — porqué humano) si está poblado.
+    {
+      event_type: 'task.completed',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Sobre tu solicitud: {{task_title}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Tarea completada</h1>
+            {{#if task_reason}}<p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_reason}}</p>{{/if}}
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola {{#if recipient.first_name}}{{recipient.first_name}}{{else}}cliente{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hemos terminado de trabajar en tu solicitud "<strong>{{task_title}}</strong>". Aquí tienes el detalle:
+            </p>
+            <div style="background: #f9fafb; border-left: 4px solid #635BFF; border-radius: 8px; padding: 16px 20px; margin: 20px 0;">
+              <p style="color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin: 0;">{{client_notes}}</p>
+            </div>
+            <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+              Si tienes cualquier duda, contáctanos respondiendo a este correo o desde tu panel de cliente.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{service_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ir a mi panel</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        task_id: 'string',
+        task_title: 'string',
+        task_type: 'string',
+        task_type_label: 'string',
+        task_reason: 'string?',
+        client_notes: 'string',
+        service_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── task.completed (campana cliente) ─────────────
+    {
+      event_type: 'task.completed',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Sobre tu solicitud: {{task_title}}',
+      body:
+        'Hemos completado tu solicitud{{#if task_reason}} ({{task_reason}}){{/if}}. Revisa los detalles desde tu panel.',
+      variables: {
+        task_title: 'string',
+        task_reason: 'string?',
+      },
+    },
+
     // ───────────── outbox.event_failed (campana superadmin) ─────────────
     {
       event_type: 'outbox.event_failed',

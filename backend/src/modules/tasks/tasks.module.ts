@@ -7,6 +7,8 @@ import { MaintenanceLogService } from './maintenance-log.service';
 import { MaintenanceCompletedListener } from './maintenance-completed.listener';
 import { TaskTagsService } from './task-tags.service';
 import { TaskTagsController } from './task-tags.controller';
+import { TaskNotesService } from './task-notes.service';
+import { TaskCompletedListener } from './task-completed.listener';
 import { PrismaModule } from '../../core/database/prisma.module';
 
 @Module({
@@ -18,8 +20,10 @@ import { PrismaModule } from '../../core/database/prisma.module';
     MaintenanceLogService,
     TasksEmailListener,
     MaintenanceCompletedListener,
+    TaskCompletedListener,
     TaskTagsService,
+    TaskNotesService,
   ],
-  exports: [TasksService, TaskTagsService],
+  exports: [TasksService, TaskTagsService, TaskNotesService],
 })
 export class TasksModule {}

@@ -9,13 +9,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { tasksApi, usersApi } from '../../../lib/api';
+import { tasksApi, usersApi, type TaskNotePayload } from '../../../lib/api';
 import { getErrorMessage } from '../../../lib/error';
 import { useAuth } from '../../../lib/auth-context';
 import { useToast } from '../../../components/ui/Toast/Toast';
 import {
   DetailPage, Badge, Card, Button, Select,
-  Textarea, Skeleton, Modal,
+  Skeleton, Modal,
 } from '../../../components/ui';
 import type { BadgeVariant } from '../../../components/ui';
 import type { Agent, Pagination, RoleSlug } from '../../../lib/types';
@@ -26,6 +26,8 @@ import {
   TASK_STATUS_VARIANTS,
 } from '../types';
 import styles from './taskDetail.module.css';
+import TaskCompletionModal from './TaskCompletionModal';
+import TaskInternalNotesCard from './TaskInternalNotesCard';
 
 const ROLE_LABELS: Record<RoleSlug, string> = {
   superadmin: 'Superadmin',
@@ -61,10 +63,17 @@ export default function TaskDetailPage() {
 
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
-  const [clientNotes, setClientNotes] = useState('');
-  const [internalNotes, setInternalNotes] = useState('');
+  // Sprint 8 Fase B.9 (2026-04-30) — refactor de notas:
+  //   - `clientNotes` (mensaje al cliente) ahora vive sólo en el modal
+  //     de cierre — captado bajo demanda, no acumulado en pantalla.
+  //   - `internalNotes` ya no es un textarea inline; se persisten una
+  //     a una via `tasksApi.createNote` (cada nota = 1 row ClientNote
+  //     `category=technical`). El estado `notes` mantiene la lista.
+  const [completionNote, setCompletionNote] = useState('');
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [internalNotes, setInternalNotes] = useState<TaskNotePayload[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
 
   // Sprint 8 Fase B.5 — checklist state. Items vienen del backend con su
@@ -133,6 +142,29 @@ export default function TaskDetailPage() {
   }, [token, id, task]);
 
   useEffect(() => { void fetchChecklist(); }, [fetchChecklist]);
+
+  // Sprint 8 Fase B.9 (2026-04-30) — fetch lazy de notas internas. El
+  // backend devuelve `category=technical` filtradas por task_id con autor
+  // ya enriquecido (relación ClientNote.author). Se refresca cada vez que
+  // el usuario añade una nota (callback `onCreated` del componente).
+  const fetchNotes = useCallback(async () => {
+    if (!token || !id) return;
+    setNotesLoading(true);
+    try {
+      const list = await tasksApi.listNotes(token, id);
+      setInternalNotes(list);
+    } catch {
+      // Degradación elegante: la página principal sigue funcionando.
+    } finally {
+      setNotesLoading(false);
+    }
+  }, [token, id]);
+
+  useEffect(() => { void fetchNotes(); }, [fetchNotes]);
+
+  const handleNoteCreated = (note: TaskNotePayload) => {
+    setInternalNotes((prev) => [note, ...prev]);
+  };
 
   const handleToggleChecklistItem = async (
     itemId: string,
@@ -233,18 +265,25 @@ export default function TaskDetailPage() {
     setCompleting(true);
     setMissingRequired([]);
     try {
-      // Sprint 8 Fase B.5: flujo adaptativo según TaskType.
+      // Sprint 8 Fase B.9 (2026-04-30) — refactor: la nota al cliente la
+      // captura `TaskCompletionModal` bajo demanda en `completionNote`.
+      // No hay textarea separada para internal_notes — esas notas se
+      // persisten inline durante la ejecución (POST /tasks/:id/notes).
+      // Si el agente quiere dejar nota interna AL CIERRE, lo hace antes
+      // de pulsar Completar (la card permite añadir tantas como quiera).
       //
-      //   - maintenance / maintenance_management → usa
-      //     `recordMaintenanceLog` que crea `maintenance_log`, valida
-      //     items requeridos del checklist (EC-T8-01) y emite
-      //     `maintenance.completed` para notificar al cliente.
-      //   - resto → usa `complete()` legacy.
+      // Sprint 8 Fase B.5 sigue intacto:
+      //   - maintenance / maintenance_management → `recordMaintenanceLog`
+      //     valida checklist requerido + emite `maintenance.completed`.
+      //   - resto → `complete()` emite `task.completed`. Si el payload
+      //     incluye `client_notes`, `TaskCompletedListener` despacha
+      //     email + campana al cliente (Sprint 8 Fase B.9).
       const isMaintenance = ['maintenance', 'maintenance_management'].includes(
         task.type,
       );
+      const note = completionNote.trim();
       if (isMaintenance) {
-        if (!clientNotes.trim()) {
+        if (!note) {
           toast(
             'error',
             'El resumen para el cliente es obligatorio en mantenimientos.',
@@ -252,18 +291,18 @@ export default function TaskDetailPage() {
           setCompleting(false);
           return;
         }
-        await tasksApi.recordMaintenanceLog(token, id, {
-          notes: clientNotes,
-          internal_notes: internalNotes || undefined,
-        });
+        await tasksApi.recordMaintenanceLog(token, id, { notes: note });
       } else {
         await tasksApi.complete(token, id, {
-          client_notes: clientNotes || undefined,
-          internal_notes: internalNotes || undefined,
+          client_notes: note || undefined,
         });
       }
-      toast('success', 'Tarea completada. Cliente notificado.');
+      toast(
+        'success',
+        note ? 'Tarea completada. Cliente notificado.' : 'Tarea completada.',
+      );
       setShowCompleteModal(false);
+      setCompletionNote('');
       router.push('/admin/tasks');
     } catch (err: unknown) {
       // Si falla por items requeridos sin completar (EC-T8-01), el
@@ -324,42 +363,23 @@ export default function TaskDetailPage() {
 
   const isClosed = ['completed', 'cancelled', 'not_completed_in_time'].includes(task.status);
   const isMaintenanceType = ['maintenance', 'maintenance_management'].includes(task.type);
-  const isContactClientType = task.type === 'contact_client';
   const isProjectTaskType = task.type === 'project_task';
   // Sprint 8 Fase B.7 (2026-04-29) — ADR-073: el bloque "Datos del cliente
   // + plan" deja de ser exclusivo de `contact_client` y se renderiza
-  // siempre que la tarea tenga `service_id` vinculado. Independiente del
-  // tipo: el contexto operativo "este trabajo es sobre este servicio" es
-  // útil para cualquier tipo (custom_work, maintenance, etc.).
+  // siempre que la tarea tenga `service_id` vinculado.
   const showServiceBlock = task.service != null;
-  // UI_SPEC §5.16 — etiqueta del campo "Notas para el cliente" cambia
-  // según el tipo de task. Para contact_client se llama "Resumen de la
-  // llamada" (es lo que el agente apunta tras hablar con el cliente);
-  // para maintenance es "Notas para el cliente" (van al email de cierre).
-  const clientNotesLabel = isContactClientType
-    ? 'Resumen de la llamada'
-    : 'Notas para el cliente';
-  const clientNotesPlaceholder = isContactClientType
-    ? 'Resume la conversación con el cliente: dudas resueltas, próximos pasos...'
-    : 'Estas notas se incluirán en la notificación al cliente...';
   const tagAssignments = task.tag_assignments ?? [];
 
-  /* Sprint 8 Fase B.8 (2026-04-30) — header alineado con
-     `ConversationHeader` del módulo support. Cambios canónicos:
+  /* Sprint 8 Fase B.9 (2026-04-30) — header con TODAS las acciones de
+     ciclo de vida de la tarea (Iniciar / Completar / Cancelar). Antes
+     vivían dispersas: "Iniciar" en el header, "Completar" + "Cancelar
+     tarea" al final del main column como `actions` separadas. Ahora
+     todo arriba a la derecha, junto a `Priority`, igual que
+     `ConversationHeader` del módulo support.
 
-     1. Sin duplicación badge↔selector. Status y priority muestran UN SOLO
-        control en cada momento: badge (lectura, tarea cerrada / no admin)
-        o selector/botón (edición). Antes el agente leía "Pendiente" dos
-        veces (badge + opción seleccionada en dropdown), ruido sin valor.
-     2. Botón contextual "Iniciar" en el header (transición pending →
-        in_progress, sin necesidad de modal). Los botones de cierre
-        ("Completar", "Cancelar tarea") siguen en el footer porque
-        disparan el modal de captura de notas; 8.B.9 los trasladará al
-        header cuando el modal canónico unificado esté listo.
-     3. Type sigue como badge (no editable post-creación, TASK-INV-1).
-     4. Priority como Select size="sm" sólo si admin y no cerrada.
-     5. Tipografía: `<h1 className={headerTitle}>` con tokens DS idénticos
-        a ticket. */
+     - "Completar" abre `TaskCompletionModal` (captura nota cliente).
+     - "Cancelar" usa el flujo legacy `handleStatusChange('cancelled')`
+       — sin modal porque cancelar no notifica al cliente. */
   const taskHeader = (
     <div className={styles.headerRow}>
       <div>
@@ -435,6 +455,21 @@ export default function TaskDetailPage() {
               onClick={() => handleStatusChange('in_progress')}
             >
               Iniciar
+            </Button>
+          )}
+          <Button
+            size="sm"
+            onClick={() => setShowCompleteModal(true)}
+          >
+            {isMaintenanceType ? 'Completar y notificar' : 'Completar'}
+          </Button>
+          {isAdmin && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handleStatusChange('cancelled')}
+            >
+              Cancelar
             </Button>
           )}
         </div>
@@ -588,42 +623,25 @@ export default function TaskDetailPage() {
             </Card>
           )}
 
-          {!isClosed && (
-            <Card>
-              <h3 className={styles.cardTitle}>{clientNotesLabel}</h3>
-              <Textarea
-                value={clientNotes}
-                onChange={e => setClientNotes(e.target.value)}
-                placeholder={clientNotesPlaceholder}
-                rows={3}
-              />
-            </Card>
-          )}
-
-          {!isClosed && (
-            <Card>
-              <h3 className={styles.cardTitle}>Notas internas</h3>
-              <Textarea
-                value={internalNotes}
-                onChange={e => setInternalNotes(e.target.value)}
-                placeholder="Solo visibles para el equipo..."
-                rows={3}
-              />
-            </Card>
-          )}
-
-          {!isClosed && (
-            <div className={styles.actions}>
-              <Button onClick={() => setShowCompleteModal(true)}>
-                {isMaintenanceType ? 'Completar y notificar' : 'Completar'}
-              </Button>
-              {isAdmin && (
-                <Button variant="danger" onClick={() => handleStatusChange('cancelled')}>
-                  Cancelar tarea
-                </Button>
-              )}
-            </div>
-          )}
+          {/* Sprint 8 Fase B.9 (2026-04-30) — refactor de notas:
+              - El textarea "Notas para el cliente" se ELIMINA del detail.
+                Esa nota la captura `TaskCompletionModal` al pulsar
+                "Completar" (header) y se envía al cliente vía email.
+              - El textarea "Notas internas" se sustituye por una card
+                con lista persistente + botón "Añadir nota". Cada nota es
+                una `ClientNote(category=technical)` con autor y fecha.
+                Visible siempre (incluso en tareas cerradas — auditoría),
+                edición sólo si la tarea está abierta.
+              - Los botones "Completar" / "Cancelar tarea" se han movido
+                al header (junto a "Iniciar" + Priority). El footer
+                actions desaparece. */}
+          <TaskInternalNotesCard
+            taskId={task.id}
+            notes={internalNotes}
+            loading={notesLoading}
+            onCreated={handleNoteCreated}
+            readOnly={isClosed}
+          />
         </div>
 
         {/* Sidebar */}
@@ -748,22 +766,22 @@ export default function TaskDetailPage() {
         </div>
       </div>
 
-      {/* Complete confirmation modal — §4.2 */}
-      <Modal
+      {/* Sprint 8 Fase B.9 (2026-04-30) — modal canónico de cierre con
+          captura de la nota al cliente. Replica patrón
+          DetailResolutionModal del módulo support. */}
+      <TaskCompletionModal
         open={showCompleteModal}
-        onClose={() => setShowCompleteModal(false)}
-        title="Confirmar finalización"
-      >
-        <p>
-          {isMaintenanceType
-            ? 'Se notificará al cliente por email. ¿Confirmar?'
-            : '¿Seguro que quieres marcar esta tarea como completada?'}
-        </p>
-        <div className={styles.confirmModalActions}>
-          <Button variant="secondary" onClick={() => setShowCompleteModal(false)}>Cancelar</Button>
-          <Button onClick={handleComplete} loading={completing}>Confirmar</Button>
-        </div>
-      </Modal>
+        taskType={task.type}
+        taskTitle={task.title}
+        note={completionNote}
+        loading={completing}
+        onNoteChange={setCompletionNote}
+        onSubmit={handleComplete}
+        onClose={() => {
+          setShowCompleteModal(false);
+          setCompletionNote('');
+        }}
+      />
     </DetailPage>
   );
 }

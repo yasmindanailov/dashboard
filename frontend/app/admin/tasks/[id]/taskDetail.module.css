@@ -84,6 +84,82 @@
   overflow: hidden;
 }
 
+/* Sprint 8 Fase B.9 (2026-04-30) — TaskCompletionModal + TaskInternalNotesCard.
+   Tokens DS canónicos: alineados con DetailResolutionModal del módulo
+   support para coherencia visual entre detalles. */
+.completionDesc {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  margin: 0 0 var(--space-3);
+}
+
+.completionMeta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  text-align: right;
+  margin-top: var(--space-1);
+}
+
+.completionActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.notesHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.notesList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.noteItem {
+  background-color: var(--surface-muted);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+
+.noteHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-1);
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.noteAuthor {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.noteDate {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.noteBody {
+  color: var(--text-primary);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-wrap;
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
 /* Sprint 8 Fase B.7 (2026-04-29) — ADR-073: chip de tag asignado.
    Color custom por tag (style inline en JSX) cuando está definido;
    fallback a la paleta neutral del DS. */

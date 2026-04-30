@@ -69,6 +69,8 @@ Prefix: `/api/v1/tasks`. JWT auth en todos.
 | `GET` | `/tasks/:id/checklist` | Sprint 8 Fase B.5 — items + completions de la task (cruzados con `service_checklist_items` snapshot o fallback `product_checklist_items`) | `Read.Task` |
 | `POST` | `/tasks/:id/checklist/complete` | Sprint 8 Fase B.5 — marcar item como completado (idempotente upsert) | `Update.Task` |
 | `POST` | `/tasks/:id/maintenance/log` | Sprint 8 Fase B.5 — flujo "Completar y notificar" maintenance: valida required (EC-T8-01) + crea `maintenance_log` + emite `maintenance.completed` (transacción atómica) | `Update.Task` |
+| `GET` | `/tasks/:id/notes` | Sprint 8 Fase B.9 — listar notas internas (`ClientNote category=technical` filtradas por `task_id`) con autor enriquecido | `Read.Task` |
+| `POST` | `/tasks/:id/notes` | Sprint 8 Fase B.9 — crear nota interna inline durante la ejecución de la tarea (persiste inmediatamente, no se acumula en estado del cliente) | `Update.Task` |
 | `DELETE` | `/tasks/:id` | Eliminar tarea | `Delete.Task` |
 
 > **Data isolation por rol:** los agentes (`agent_*`) solo ven tareas asignadas a sí mismos o sin asignar. `superadmin` y `agent_full` ven todas. Aplicado en service (no solo CASL).
@@ -89,7 +91,7 @@ N/A — tasks no tiene gateway. Las actualizaciones se ven al refrescar la pági
 |--------|--------|--------|--------|
 | `task.created` | Tras `create()` exitoso | ❌ | 🟡 Huérfano (audit futuro) |
 | `task.assigned` | Tras `create()` o `update()` con cambio de `assigned_to` | ❌ | ✅ Consumido por `tasks-email.listener` (email + notificación interna al agente). |
-| `task.completed` | Tras `update({status: completed})`, `complete()` o `MaintenanceLogService.recordCompletion()` | ❌ | 🟡 Huérfano (audit futuro) |
+| `task.completed` | Tras `update({status: completed})`, `complete()` o `MaintenanceLogService.recordCompletion()` | ❌ | ✅ Consumido por `task-completed.listener` (Sprint 8 Fase B.9) — notifica al cliente vía email + campana SI `clientNotes` poblado y tipo NO es maintenance (esos los cubre `MaintenanceCompletedListener` con plantilla específica). |
 | `maintenance.completed` | Tras `MaintenanceLogService.recordCompletion()` post-commit (Sprint 8 Fase B.5) | ❌ — pendiente Outbox Sprint P-DEPLOY.4 | ✅ Consumido por `MaintenanceCompletedListener` → `NotificationsService` (email + campana cliente). |
 
 > **Estado P0.1 (2026-04-26):** `task.assigned` ya tiene listener (`tasks-email.listener.ts`). Los otros dos siguen huérfanos a la espera del módulo `audit` (Sprint 9 P1.1).

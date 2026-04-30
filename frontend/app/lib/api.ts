@@ -523,7 +523,39 @@ export const tasksApi = {
       token,
       body: data,
     }),
+
+  /* ── Sprint 8 Fase B.9 (2026-04-30) — Notas internas inline ── */
+
+  /**
+   * Lista las notas internas (`category=technical`) asociadas a la tarea.
+   * Devuelve cada nota con su autor (first/last_name) ya enriquecido para
+   * evitar N+1 al renderizar la card en el detail.
+   */
+  listNotes: (token: string, taskId: string) =>
+    api<TaskNotePayload[]>(`/tasks/${taskId}/notes`, { token }),
+
+  /**
+   * Persiste inmediatamente una nota interna (no se acumula en estado
+   * local). Devuelve la nota recién creada para refrescar la lista.
+   */
+  createNote: (token: string, taskId: string, body: string) =>
+    api<TaskNotePayload>(`/tasks/${taskId}/notes`, {
+      method: 'POST',
+      token,
+      body: { body },
+    }),
 };
+
+export interface TaskNotePayload {
+  id: string;
+  body: string;
+  created_at: string;
+  author: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  };
+}
 
 // ── Task Tags API ── Sprint 8 Fase B.7 (ADR-073)
 

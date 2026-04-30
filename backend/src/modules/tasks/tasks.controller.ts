@@ -30,6 +30,8 @@ import {
 } from './dto/task.dto';
 import { ChecklistCompletionService } from './checklist-completion.service';
 import { MaintenanceLogService } from './maintenance-log.service';
+import { TaskNotesService } from './task-notes.service';
+import { CreateTaskNoteDto } from './dto/task-note.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PoliciesGuard } from '../../core/casl/policies.guard';
 import { CheckPolicies } from '../../core/casl/check-policies.decorator';
@@ -44,6 +46,7 @@ export class TasksController {
     private readonly service: TasksService,
     private readonly checklist: ChecklistCompletionService,
     private readonly maintenanceLog: MaintenanceLogService,
+    private readonly notes: TaskNotesService,
   ) {}
 
   @Post()
@@ -155,6 +158,31 @@ export class TasksController {
     @Body() dto: RecordMaintenanceLogDto,
   ) {
     return this.maintenanceLog.recordCompletion(id, dto, req.user.id);
+  }
+
+  /* ── Sprint 8 Fase B.9 (2026-04-30) — Notas internas inline ── */
+
+  @Get(':id/notes')
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Task))
+  @ApiOperation({
+    summary: 'Listar notas internas (category=technical) asociadas a la task',
+  })
+  listNotes(@Param('id', ParseUUIDPipe) id: string) {
+    return this.notes.list(id);
+  }
+
+  @Post(':id/notes')
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Task))
+  @ApiOperation({
+    summary:
+      'Añadir nota interna (technical) inline durante la ejecución de la tarea',
+  })
+  createNote(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateTaskNoteDto,
+  ) {
+    return this.notes.create(id, dto, req.user.id);
   }
 
   @Delete(':id')
