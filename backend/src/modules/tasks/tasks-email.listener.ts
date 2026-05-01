@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  TASK_TYPE_LABELS_ES,
+  TASK_PRIORITY_LABELS_ES,
+  formatDueLabel,
+} from './task-labels';
 
 interface TaskAssignedPayload {
   task: {
@@ -28,29 +33,6 @@ interface TaskAssignedPayload {
  *
  * Cumple R1 + R2 + R7 + ADR-042 + ADR-065.
  */
-/**
- * Mapeo enum Prisma → label humano (es-ES). Vive en el listener en lugar de
- * en la plantilla porque (a) las plantillas son contenido que el admin puede
- * editar vía UI Sprint 9.5 — no debe contener mapeos internos de enums; (b)
- * mantiene sincronía con `frontend/app/admin/tasks/types.ts` (`TASK_TYPE_LABELS`,
- * `TASK_PRIORITY_LABELS`) — si cambia el enum hay que actualizar ambos lados.
- */
-const TASK_TYPE_LABELS_ES: Record<string, string> = {
-  contact_client: 'Contactar cliente',
-  maintenance: 'Mantenimiento',
-  maintenance_management: 'Mantenimiento + Gestión',
-  project_task: 'Proyecto',
-  custom_work: 'Personalizada',
-  support_setup: 'Setup soporte',
-};
-
-const TASK_PRIORITY_LABELS_ES: Record<string, string> = {
-  low: 'Baja',
-  medium: 'Media',
-  high: 'Alta',
-  critical: 'Crítica',
-};
-
 @Injectable()
 export class TasksEmailListener {
   private readonly logger = new Logger(TasksEmailListener.name);
@@ -69,13 +51,6 @@ export class TasksEmailListener {
       'NEXT_PUBLIC_APP_URL',
       'http://localhost:3002',
     );
-    const dueLabel = task.due_date
-      ? new Date(task.due_date).toLocaleDateString('es-ES', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-        })
-      : 'Sin fecha límite';
 
     await this.notifications.dispatchToUser(
       'task.assigned',
@@ -97,7 +72,7 @@ export class TasksEmailListener {
         // del topbar y los emails al agente deben apuntar al portal admin.
         task_url: `${appUrl}/admin/tasks/${task.id}`,
         action_url: `/admin/tasks/${task.id}`,
-        due_label: dueLabel,
+        due_label: formatDueLabel(task.due_date),
         assigned_by: payload.assignedBy,
       },
       task.assigned_to,
