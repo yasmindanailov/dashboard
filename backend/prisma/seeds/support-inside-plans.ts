@@ -9,6 +9,15 @@ import {
   SupportInsideCtaVisibility,
 } from '@prisma/client';
 
+// Sub-fase 8.D.12 (2026-05-01): tipos de producto canónicos a los que se
+// les puede asignar slot Support Inside. Excluye `domain` (no se mantiene,
+// se renueva), `support_inside` (auto-asignación absurda), y `we_do_it` /
+// `custom_service` (a decidir cuando se introduzcan en el catálogo real).
+const DEFAULT_APPLICABLE_PRODUCT_TYPES: ProductType[] = [
+  ProductType.hosting_web,
+  ProductType.docker_service,
+];
+
 /**
  * Seed canónico de los 3 planes Support Inside — Sprint 8 Fase D
  * (ADR-034 §"Tres niveles base" + ADR-061 + ADR-075).
@@ -41,6 +50,7 @@ interface PlanSeed {
   config: {
     slots_included: number;
     slot_types_allowed: SupportInsideSlotType[];
+    applicable_product_types: ProductType[];
     extra_slot_price: string;
     channels_active: SupportInsideChannel[];
     priority_tier: SupportInsidePriorityTier;
@@ -62,6 +72,7 @@ const PLANS: ReadonlyArray<PlanSeed> = [
     config: {
       slots_included: 0,
       slot_types_allowed: [SupportInsideSlotType.maintenance],
+      applicable_product_types: DEFAULT_APPLICABLE_PRODUCT_TYPES,
       extra_slot_price: '12.00',
       channels_active: [
         SupportInsideChannel.webchat,
@@ -87,6 +98,7 @@ const PLANS: ReadonlyArray<PlanSeed> = [
     config: {
       slots_included: 1,
       slot_types_allowed: [SupportInsideSlotType.maintenance],
+      applicable_product_types: DEFAULT_APPLICABLE_PRODUCT_TYPES,
       extra_slot_price: '12.00',
       channels_active: [
         SupportInsideChannel.webchat,
@@ -115,6 +127,7 @@ const PLANS: ReadonlyArray<PlanSeed> = [
         SupportInsideSlotType.maintenance,
         SupportInsideSlotType.maintenance_management,
       ],
+      applicable_product_types: DEFAULT_APPLICABLE_PRODUCT_TYPES,
       extra_slot_price: '24.00',
       channels_active: [
         SupportInsideChannel.webchat,
@@ -200,14 +213,21 @@ export async function seedSupportInsidePlans(
       },
     });
 
-    // SupportInsideConfig 1:1
+    // SupportInsideConfig 1:1.
+    // Update sincroniza `applicable_product_types` cuando cambia el seed
+    // (no `slot_types_allowed`/`channels_active` etc, que el admin edita
+    // desde la UI — preservamos su elección). El re-seed solo refresca lo
+    // que es decisión técnica/migracional, no comercial.
     await prisma.supportInsideConfig.upsert({
       where: { product_id: product.id },
-      update: {},
+      update: {
+        applicable_product_types: plan.config.applicable_product_types,
+      },
       create: {
         product_id: product.id,
         slots_included: plan.config.slots_included,
         slot_types_allowed: plan.config.slot_types_allowed,
+        applicable_product_types: plan.config.applicable_product_types,
         extra_slot_price: plan.config.extra_slot_price,
         channels_active: plan.config.channels_active,
         priority_tier: plan.config.priority_tier,

@@ -44,6 +44,7 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
       count: jest.Mock;
     };
     productPricing: { findUnique: jest.Mock };
+    product: { findMany: jest.Mock };
     service: { findUnique: jest.Mock; update: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -74,6 +75,7 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
         count: jest.fn().mockResolvedValue(0),
       },
       productPricing: { findUnique: jest.fn() },
+      product: { findMany: jest.fn() },
       service: { findUnique: jest.fn(), update: jest.fn() },
       $transaction: jest.fn(),
     };
@@ -275,6 +277,7 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
     overrides: {
       slots_included?: number;
       slot_types_allowed?: Array<'maintenance' | 'maintenance_management'>;
+      applicable_product_types?: string[];
     } = {},
   ) {
     prisma.supportInsideSubscription.findUnique.mockResolvedValue({
@@ -282,9 +285,17 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
       client_id: CLIENT_ID,
       status: 'active',
       product: {
+        name: 'Support Inside Test',
         support_inside_config: {
           slots_included: overrides.slots_included ?? 1,
           slot_types_allowed: overrides.slot_types_allowed ?? ['maintenance'],
+          // Sub-fase 8.D.12 (2026-05-01): por defecto admite hosting_web —
+          // los tests existentes mockean service.product.type='hosting_web'
+          // así que pasan el filtro. Tests que prueben rechazo deben
+          // override con [] o un tipo distinto.
+          applicable_product_types: overrides.applicable_product_types ?? [
+            'hosting_web',
+          ],
         },
       },
     });
@@ -296,6 +307,7 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
       id: SERVICE_ID,
       user_id: 'OTHER_USER',
       status: 'active',
+      product: { type: 'hosting_web' },
     });
 
     await expect(
@@ -306,12 +318,81 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('addSlot → 400 si service.product.type NO está en applicable_product_types del plan (D.12 fix)', async () => {
+    // Plan que solo permite mantenimiento de hosting_web. Cliente intenta
+    // asignar el slot a un dominio (type=domain) → rechazo con 400 +
+    // mensaje accionable que enumera tipos permitidos.
+    mockActiveSubscription({ applicable_product_types: ['hosting_web'] });
+    prisma.service.findUnique.mockResolvedValue({
+      id: SERVICE_ID,
+      user_id: CLIENT_ID,
+      status: 'active',
+      product: { type: 'domain' },
+    });
+
+    await expect(
+      service.addSlot(CLIENT_ID, {
+        service_id: SERVICE_ID,
+        slot_type: 'maintenance',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.supportInsideSlot.create).not.toHaveBeenCalled();
+  });
+
+  it('addSlot → empty applicable_product_types = sin restricción (legacy/Enterprise)', async () => {
+    mockActiveSubscription({ applicable_product_types: [] });
+    prisma.service.findUnique.mockResolvedValue({
+      id: SERVICE_ID,
+      user_id: CLIENT_ID,
+      status: 'active',
+      product: { type: 'we_do_it' },
+    });
+    prisma.supportInsideSlot.findFirst.mockResolvedValue(null);
+    prisma.supportInsideSlot.count.mockResolvedValue(0);
+    prisma.supportInsideSlot.create.mockResolvedValue({
+      id: SLOT_ID,
+      subscription_id: SUBSCRIPTION_ID,
+      service_id: SERVICE_ID,
+      slot_type: 'maintenance',
+      is_extra: false,
+    });
+
+    await expect(
+      service.addSlot(CLIENT_ID, {
+        service_id: SERVICE_ID,
+        slot_type: 'maintenance',
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it('addSlot → 400 si el service.product.type=support_inside (defense in depth, fix 2026-05-01)', async () => {
+    mockActiveSubscription();
+    prisma.service.findUnique.mockResolvedValue({
+      id: SERVICE_ID,
+      user_id: CLIENT_ID,
+      status: 'active',
+      // El plan SI vive en `services` solo como vehículo de billing —
+      // NO es un recurso técnico mantenible. Asignarse un slot a sí
+      // mismo es semánticamente absurdo.
+      product: { type: 'support_inside' },
+    });
+
+    await expect(
+      service.addSlot(CLIENT_ID, {
+        service_id: SERVICE_ID,
+        slot_type: 'maintenance',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.supportInsideSlot.create).not.toHaveBeenCalled();
+  });
+
   it('addSlot → 409 si el servicio ya tiene slot activo', async () => {
     mockActiveSubscription();
     prisma.service.findUnique.mockResolvedValue({
       id: SERVICE_ID,
       user_id: CLIENT_ID,
       status: 'active',
+      product: { type: 'hosting_web' },
     });
     prisma.supportInsideSlot.findFirst.mockResolvedValue({ id: 'existing' });
 
@@ -329,6 +410,7 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
       id: SERVICE_ID,
       user_id: CLIENT_ID,
       status: 'active',
+      product: { type: 'hosting_web' },
     });
     prisma.supportInsideSlot.findFirst.mockResolvedValue(null);
 
@@ -346,6 +428,7 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
       id: SERVICE_ID,
       user_id: CLIENT_ID,
       status: 'active',
+      product: { type: 'hosting_web' },
     });
     prisma.supportInsideSlot.findFirst.mockResolvedValue(null);
     prisma.supportInsideSlot.count.mockResolvedValue(1); // ya tiene 1 incluido
@@ -364,6 +447,7 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
       id: SERVICE_ID,
       user_id: CLIENT_ID,
       status: 'active',
+      product: { type: 'hosting_web' },
     });
     prisma.supportInsideSlot.findFirst.mockResolvedValue(null);
     prisma.supportInsideSlot.count.mockResolvedValue(0);
@@ -451,5 +535,98 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
     expect(() =>
       service.upgrade(CLIENT_ID, { new_product_pricing_id: PRICING_ID }),
     ).toThrow(BadRequestException);
+  });
+
+  // ─── listPublicPlans ─────────────────────────────────────────
+
+  it('listPublicPlans → mapea producto + config + pricing al shape comparador cliente (ADR-075 §B.1)', async () => {
+    prisma.product.findMany.mockResolvedValue([
+      {
+        id: PRODUCT_ID,
+        slug: 'support-inside-medium',
+        name: 'Support Inside Medium',
+        short_description: '1 slot incluido',
+        description: 'Plan medio',
+        badge_text: 'Recomendado',
+        order_index: 2,
+        support_inside_config: {
+          slots_included: 1,
+          slot_types_allowed: ['maintenance'],
+          extra_slot_price: { toString: () => '12.00' },
+          channels_active: ['webchat', 'email', 'phone', 'whatsapp'],
+          priority_tier: 'high',
+          response_sla_hours: 12,
+        },
+        pricing: [
+          {
+            id: 'PR-MONTH',
+            billing_cycle: 'monthly',
+            currency: 'EUR',
+            price: { toString: () => '39.00' },
+            discount_percentage: null,
+          },
+          {
+            id: 'PR-YEAR',
+            billing_cycle: 'annual',
+            currency: 'EUR',
+            price: { toString: () => '397.80' },
+            discount_percentage: { toString: () => '15.00' },
+          },
+        ],
+      },
+    ]);
+
+    const out = await service.listPublicPlans();
+
+    expect(out).toHaveLength(1);
+    const plan = out[0];
+    expect(plan.slug).toBe('support-inside-medium');
+    expect(plan.badge_text).toBe('Recomendado');
+    expect(plan.pricing.monthly).toEqual({
+      product_pricing_id: 'PR-MONTH',
+      price: '39.00',
+      currency: 'EUR',
+    });
+    expect(plan.pricing.yearly).toEqual({
+      product_pricing_id: 'PR-YEAR',
+      price: '397.80',
+      currency: 'EUR',
+      discount_percentage: '15.00',
+    });
+    expect(plan.config?.slots_included).toBe(1);
+    expect(plan.config?.channels_active).toEqual([
+      'webchat',
+      'email',
+      'phone',
+      'whatsapp',
+    ]);
+
+    // Filtro canónico: sólo `type=support_inside` activos.
+    const where = firstCallFirstArg(prisma.product.findMany).where as Record<
+      string,
+      unknown
+    >;
+    expect(where.type).toBe('support_inside');
+    expect(where.status).toBe('active');
+  });
+
+  it('listPublicPlans → devuelve config null si el producto no tiene support_inside_config (defensa anti-drift)', async () => {
+    prisma.product.findMany.mockResolvedValue([
+      {
+        id: PRODUCT_ID,
+        slug: 'support-inside-basico',
+        name: 'Básico',
+        short_description: 'Sin slots',
+        description: null,
+        badge_text: null,
+        order_index: 1,
+        support_inside_config: null,
+        pricing: [],
+      },
+    ]);
+    const [plan] = await service.listPublicPlans();
+    expect(plan.config).toBeNull();
+    expect(plan.pricing.monthly).toBeNull();
+    expect(plan.pricing.yearly).toBeNull();
   });
 });

@@ -98,6 +98,13 @@ const ICON = {
       <path d="M9 9v11" />
     </svg>
   ),
+  supportInside: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M12 2l9 4v6c0 5-3.6 9.3-9 10-5.4-.7-9-5-9-10V6l9-4z" />
+      <path d="M12 11v4" />
+      <path d="M12 8h.01" />
+    </svg>
+  ),
 };
 
 const ALL_ITEMS: NavItem[] = [
@@ -105,6 +112,9 @@ const ALL_ITEMS: NavItem[] = [
   { label: 'Inicio', href: '/admin', requiredModule: 'Dashboard', icon: ICON.home, section: 'operaciones' },
   { label: 'Clientes', href: '/admin/clients', requiredModule: 'Client', icon: ICON.clients, section: 'operaciones' },
   { label: 'Productos', href: '/admin/products', requiredModule: 'Product', icon: ICON.products, section: 'operaciones' },
+  // ADR-075 — gestión de planes Support Inside aislada del CRUD genérico.
+  // Visible para superadmin + agent_full (Manage.SupportInside).
+  { label: 'Support Inside', href: '/admin/support-inside-plans', requiredModule: 'SupportInside', icon: ICON.supportInside, section: 'operaciones' },
   { label: 'Facturación', href: '/admin/billing', requiredModule: 'Invoice', icon: ICON.billing, section: 'operaciones' },
   { label: 'Soporte', href: '/admin/support', requiredModule: 'Conversation', icon: ICON.support, section: 'operaciones' },
   { label: 'Chat en vivo', href: '/admin/support/chats', requiredModule: 'Conversation', icon: ICON.chat, section: 'operaciones' },

@@ -8,11 +8,14 @@ import { MaintenanceMonthlyService } from './maintenance-monthly.service';
 
 export const MAINTENANCE_MONTHLY_QUEUE = 'maintenance-monthly';
 export const MAINTENANCE_MONTHLY_TICK_JOB = 'maintenance-monthly-tick';
-// Cron pattern: día 1 de cada mes a las 06:00 UTC. Antes de la apertura
-// laboral europea para que el agente vea las tareas del mes en su
-// scope "Sin asignar" al empezar el día. Coherente con plan canónico
-// Sprint 8 Fase D (current.md §5).
-export const MAINTENANCE_MONTHLY_CRON_PATTERN = '0 6 1 * *';
+// Sub-fase 8.D.12.1 (2026-05-01): cron diario a las 06:00 UTC. Cada día
+// el service filtra slots con `anniversary_day = EXTRACT(DAY FROM NOW())`
+// — distribuye carga a lo largo del mes (ADR-034 §recurrencia) en lugar
+// de concentrar todo el día 1.
+//
+// Antes (Fase D.7): `0 6 1 * *` (todos día 1) — drift respecto a ADR-034
+// detectado en auditoría 2026-05-01. Reescrito en sub-fase 8.D.12.1.
+export const MAINTENANCE_MONTHLY_CRON_PATTERN = '0 6 * * *';
 
 /**
  * MaintenanceMonthlyProcessor — Sprint 8 Fase D (2026-05-01).

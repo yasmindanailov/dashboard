@@ -12,6 +12,9 @@ import {
   MAINTENANCE_MONTHLY_QUEUE,
 } from './crons/maintenance-monthly.processor';
 import { MaintenanceMonthlyAdminController } from './crons/maintenance-monthly-admin.controller';
+import { SupportInsidePriorityListener } from './listeners/support-inside-priority.listener';
+import { SupportInsideAuditListener } from './listeners/support-inside-audit.listener';
+import { SupportInsideOnServiceProvisionedListener } from './listeners/support-inside-on-service-provisioned.listener';
 
 /**
  * SupportInsideModule — Sprint 8 Fase D (ADR-034 + ADR-061 + ADR-075).
@@ -43,6 +46,10 @@ import { MaintenanceMonthlyAdminController } from './crons/maintenance-monthly-a
     SupportInsidePlansAdminService,
     MaintenanceMonthlyService,
     MaintenanceMonthlyProcessor,
+    // Listeners transversales (sub-fase 8.D.12).
+    SupportInsidePriorityListener,
+    SupportInsideAuditListener,
+    SupportInsideOnServiceProvisionedListener,
   ],
   exports: [SupportInsideService, SupportInsidePlansAdminService],
 })

@@ -63,14 +63,29 @@ describe('MaintenanceMonthlyService — Sprint 8 Fase D', () => {
     expect(result.billing_month).toBe('2026-05');
   });
 
-  it('filtra slots: released_at=null + subscription.status=active', async () => {
+  it('filtra slots: released_at=null + subscription.status=active + anniversary_day=hoy (D.12.1)', async () => {
+    // NOW = 2026-05-01 UTC → anniversary_day = 1.
     await service.run(NOW);
     expect(prisma.supportInsideSlot.findMany).toHaveBeenCalledWith({
       where: {
         released_at: null,
+        anniversary_day: 1,
         subscription: { status: 'active' },
       },
       // El include es un shape conocido — el resto de specs lo ejercitan.
+      include: expect.anything() as unknown,
+    });
+  });
+
+  it('anniversary_day se capa a 28 cuando getUTCDate() > 28 (cron día 29-31, D.12.1)', async () => {
+    const day31 = new Date('2026-07-31T06:00:00Z');
+    await service.run(day31);
+    expect(prisma.supportInsideSlot.findMany).toHaveBeenCalledWith({
+      where: {
+        released_at: null,
+        anniversary_day: 28, // cap a 28 — slots de día 29/30/31 no existen por CHECK constraint
+        subscription: { status: 'active' },
+      },
       include: expect.anything() as unknown,
     });
   });

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { ConversationDetail } from './types';
 import { STATUS_CONFIG, PRIORITY_OPTIONS, CATEGORY_LABELS, formatDate } from './types';
-import { Badge, Select, Button } from '../../../components/ui';
+import { Badge, Select, Button, Tooltip } from '../../../components/ui';
 import styles from './conversationDetail.module.css';
 
 /* ═══════════════════════════════════════
@@ -52,6 +52,26 @@ export default function ConversationHeader({
           </Badge>
           {/* Status */}
           <Badge variant={status.variant}>{status.label}</Badge>
+          {/* Sub-fase 8.D.12.6 — Support Inside del cliente.
+              Si el cliente tiene plan SI activo, mostramos el badge
+              tier+SLA al lado del status para que el agente entienda
+              de un vistazo la prioridad esperada. Tooltip con canales
+              activos. Brand para llamar la atención sin interferir
+              con el flujo de status/category. */}
+          {conversation.client_support_inside && isAdmin && (
+            <Tooltip
+              content={`SLA respuesta ${conversation.client_support_inside.response_sla_hours}h · Canales: ${conversation.client_support_inside.channels_active.join(', ')}`}
+            >
+              <Link
+                href={`/admin/support-inside-plans/${conversation.client_support_inside.product_slug}`}
+                style={{ textDecoration: 'none' }}
+              >
+                <Badge variant="brand">
+                  {conversation.client_support_inside.product_name} · SLA {conversation.client_support_inside.response_sla_hours}h
+                </Badge>
+              </Link>
+            </Tooltip>
+          )}
           {/* Category */}
           {isTicket && conversation.category && conversation.category !== 'escalated_chat' && (
             <Badge variant="neutral">

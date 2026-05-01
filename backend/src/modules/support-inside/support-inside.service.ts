@@ -267,7 +267,12 @@ export class SupportInsideService {
     // 2. Service pertenece al cliente y está activo.
     const service = await this.prisma.service.findUnique({
       where: { id: dto.service_id },
-      select: { id: true, user_id: true, status: true },
+      select: {
+        id: true,
+        user_id: true,
+        status: true,
+        product: { select: { type: true } },
+      },
     });
     if (!service) {
       throw new NotFoundException('Servicio no encontrado.');
@@ -280,6 +285,30 @@ export class SupportInsideService {
     if (service.status !== 'active') {
       throw new BadRequestException(
         'Sólo puedes asignar slots a servicios activos.',
+      );
+    }
+    // Sub-fase 8.D.12 fix bug 2026-05-01: el plan SI vive en `services`
+    // como vehículo del cobro recurrente del propio plan, NO como un
+    // recurso técnico mantenible. Asignarle un slot a sí mismo es
+    // semánticamente absurdo (el cliente cobraría mantenimiento de su
+    // propio mantenimiento). Defense in depth: el endpoint
+    // `eligible-services` ya los filtra, pero `addSlot()` recibe
+    // `service_id` directo y debe rechazarlo aquí también.
+    if (service.product.type === 'support_inside') {
+      throw new BadRequestException(
+        'No puedes asignar un slot al propio plan Support Inside. Elige uno de tus servicios técnicos (hosting, dominio, etc.).',
+      );
+    }
+    // Sub-fase 8.D.12 (2026-05-01): cada plan SI declara qué tipos de
+    // producto admite mantenimiento. Empty array = sin restricciones
+    // (legacy / "Enterprise" futuro). Si el array tiene entradas y el
+    // tipo del servicio NO está, rechazo con mensaje accionable. El
+    // editor admin lo configura por plan; el cliente ve solo los
+    // servicios elegibles en el dropdown (filtrado en `eligible-services`).
+    const applicable = subscription.config.applicable_product_types;
+    if (applicable.length > 0 && !applicable.includes(service.product.type)) {
+      throw new BadRequestException(
+        `Tu plan ${subscription.product.name} no admite mantenimiento para servicios de tipo "${service.product.type}". Tipos permitidos: ${applicable.join(', ')}.`,
       );
     }
 
@@ -318,12 +347,19 @@ export class SupportInsideService {
       }
     }
 
+    // ADR-034 §recurrencia + sub-fase 8.D.12.1: distribuir carga del cron
+    // a lo largo del mes. anniversary_day = día efectivo de hoy capado a 28
+    // para evitar problemas con febrero. CHECK constraint en BD lo refuerza.
+    const today = new Date();
+    const anniversaryDay = Math.min(today.getUTCDate(), 28);
+
     const slot = await this.prisma.supportInsideSlot.create({
       data: {
         subscription_id: subscription.id,
         service_id: dto.service_id,
         slot_type: dto.slot_type,
         is_extra: isExtra,
+        anniversary_day: anniversaryDay,
       },
     });
 
@@ -379,6 +415,151 @@ export class SupportInsideService {
     );
 
     return { released: true };
+  }
+
+  // ─── List public plans (catalog for client comparator) ──────────
+  //
+  // Sprint 8 Fase D frontend (8.D.5): el cliente necesita ver los 3
+  // planes para decidir cuál contratar. El catálogo público de productos
+  // (`/products`) no incluye `support_inside_config`, así que exponemos
+  // un endpoint específico que devuelve los campos canónicos del
+  // comparador (precio mensual + anual, slots, canales, SLA, tier de
+  // prioridad). Coherente con ADR-075 §B.2 — el formato comparador es
+  // del cliente, no del admin.
+  //
+  // El endpoint exige `Read.SupportInside` (cualquier `client` lo tiene),
+  // así no se filtran datos de planes a roles que no deben verlos
+  // (partner / partner_pending no tienen `Read.SupportInside`).
+
+  async listPublicPlans() {
+    const products = await this.prisma.product.findMany({
+      where: { type: 'support_inside', status: 'active' },
+      include: {
+        support_inside_config: true,
+        pricing: { where: { active: true }, orderBy: { billing_cycle: 'asc' } },
+      },
+      orderBy: { order_index: 'asc' },
+    });
+
+    return products.map((p) => {
+      const monthly = p.pricing.find((pr) => pr.billing_cycle === 'monthly');
+      const yearly = p.pricing.find((pr) => pr.billing_cycle === 'annual');
+      return {
+        id: p.id,
+        slug: p.slug,
+        name: p.name,
+        short_description: p.short_description,
+        description: p.description,
+        badge_text: p.badge_text,
+        order_index: p.order_index,
+        pricing: {
+          monthly: monthly
+            ? {
+                product_pricing_id: monthly.id,
+                price: monthly.price.toString(),
+                currency: monthly.currency,
+              }
+            : null,
+          yearly: yearly
+            ? {
+                product_pricing_id: yearly.id,
+                price: yearly.price.toString(),
+                currency: yearly.currency,
+                discount_percentage:
+                  yearly.discount_percentage?.toString() ?? null,
+              }
+            : null,
+        },
+        config: p.support_inside_config
+          ? {
+              slots_included: p.support_inside_config.slots_included,
+              slot_types_allowed: p.support_inside_config.slot_types_allowed,
+              applicable_product_types:
+                p.support_inside_config.applicable_product_types,
+              extra_slot_price:
+                p.support_inside_config.extra_slot_price.toString(),
+              channels_active: p.support_inside_config.channels_active,
+              priority_tier: p.support_inside_config.priority_tier,
+              response_sla_hours: p.support_inside_config.response_sla_hours,
+            }
+          : null,
+      };
+    });
+  }
+
+  // ─── List eligible services for slot assignment ─────────────
+  //
+  // Sub-fase 8.D.12.8: el modal de asignación de slot necesita el listado
+  // de servicios `active` del cliente que NO tienen slot Support Inside
+  // activo (ya cubierto). Endpoint scoped al dominio support-inside —
+  // cuando llegue Sprint 11 Provisioning con `/dashboard/services` propio,
+  // ese listado canónico podrá reusar el mismo backend filtrando con
+  // `?eligible_for_support_inside=true`.
+
+  async listEligibleServices(userId: string) {
+    // Resolvemos primero la subscription activa para conocer
+    // `applicable_product_types`. Si el cliente no tiene plan, devuelvo
+    // listado vacío con mensaje descriptivo en frontend (no debería pasar
+    // por CASL — `Update.SupportInside` exige plan, pero defense in depth).
+    const subscription = await this.prisma.supportInsideSubscription.findUnique(
+      {
+        where: { client_id: userId },
+        include: {
+          product: { include: { support_inside_config: true } },
+        },
+      },
+    );
+    if (
+      !subscription ||
+      subscription.status !== 'active' ||
+      !subscription.product.support_inside_config
+    ) {
+      return [];
+    }
+    const applicable =
+      subscription.product.support_inside_config.applicable_product_types;
+
+    // Construimos el filtro `product.type` combinando dos reglas:
+    //   - Defensa: nunca el propio plan SI.
+    //   - Si el plan declara `applicable_product_types`, intersecta con esa
+    //     lista (también excluye `support_inside` por construcción ya que
+    //     es un type que no estará en el array, pero el `not` defensivo
+    //     queda igualmente para legacy / arrays vacíos).
+    const productFilter: Prisma.ProductWhereInput =
+      applicable.length > 0
+        ? {
+            // `in` ya es restrictivo. Filtramos `support_inside` aunque
+            // no esté en la lista canónica — defense in depth.
+            type: { in: applicable.filter((t) => t !== 'support_inside') },
+          }
+        : { type: { not: 'support_inside' } };
+
+    const services = await this.prisma.service.findMany({
+      where: {
+        user_id: userId,
+        status: 'active',
+        // Solo servicios sin slot SI activo (released_at IS NULL).
+        support_inside_slots: { none: { released_at: null } },
+        product: productFilter,
+      },
+      select: {
+        id: true,
+        label: true,
+        domain: true,
+        status: true,
+        product: { select: { name: true, type: true } },
+      },
+      orderBy: [{ created_at: 'asc' }],
+    });
+
+    return services.map((s) => ({
+      id: s.id,
+      label: s.label,
+      domain: s.domain,
+      status: s.status,
+      product_name: s.product.name,
+      product_type: s.product.type,
+    }));
   }
 
   // ─── Get status ──────────────────────────────────────────────

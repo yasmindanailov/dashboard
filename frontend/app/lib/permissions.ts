@@ -53,11 +53,15 @@ export const SIDEBAR_PERMISSIONS: Record<string, AppModule[]> = {
     // ADR-067 — items admin-puro plataforma (solo superadmin).
     'NotificationTemplate', 'Job',
     'Partner', 'Referral',
+    // ADR-075 — gestión de planes Support Inside (Manage.SupportInside).
+    'SupportInside',
   ],
   agent_full: [
     'Dashboard', 'Client', 'Product', 'Invoice',
     'Conversation', 'Task', 'AuditLog',
     'Promotion', 'KnowledgeBase', 'ErrorLog', 'Partner',
+    // ADR-075 — agent_full puede editar planes Support Inside.
+    'SupportInside',
   ],
   agent_billing: [
     'Dashboard', 'Client', 'Invoice', 'Task',
@@ -113,6 +117,9 @@ export const ROUTE_PERMISSIONS: Record<string, AppModule> = {
   '/admin/error-log': 'ErrorLog',
   '/admin/jobs/failed': 'Job',
   '/admin/notifications/templates': 'NotificationTemplate',
+  // ADR-075 — Support Inside admin (sólo superadmin + agent_full por
+  // Manage.SupportInside; ver SIDEBAR_PERMISSIONS).
+  '/admin/support-inside-plans': 'SupportInside',
 };
 
 /**

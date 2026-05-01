@@ -168,17 +168,64 @@ export class SupportQueryService {
         resolved_by_name = `${resolver.first_name} ${resolver.last_name}`;
     }
 
-    // 7.H21: Resolve client name for the conversation header
+    // 7.H21: Resolve client name for the conversation header.
+    // Sub-fase 8.D.12.6: enriquecemos con `support_inside_subscription`
+    // del owner activo (si existe) para que el header muestre el badge
+    // tier+SLA. Single query con `include` — sin N+1.
     let client_name: string | null = null;
     let client_email: string | null = null;
+    let client_support_inside: {
+      product_slug: string;
+      product_name: string;
+      priority_tier: 'standard' | 'high' | 'max';
+      response_sla_hours: number;
+      channels_active: ('webchat' | 'email' | 'phone' | 'whatsapp')[];
+    } | null = null;
     if (conversation.user_id) {
       const client = await this.prisma.user.findUnique({
         where: { id: conversation.user_id },
-        select: { first_name: true, last_name: true, email: true },
+        select: {
+          first_name: true,
+          last_name: true,
+          email: true,
+          support_inside_subscription: {
+            select: {
+              status: true,
+              product: {
+                select: {
+                  slug: true,
+                  name: true,
+                  support_inside_config: {
+                    select: {
+                      priority_tier: true,
+                      response_sla_hours: true,
+                      channels_active: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       });
       if (client) {
         client_name = `${client.first_name} ${client.last_name}`;
         client_email = client.email;
+        const sub = client.support_inside_subscription;
+        if (
+          sub &&
+          sub.status === 'active' &&
+          sub.product.support_inside_config
+        ) {
+          client_support_inside = {
+            product_slug: sub.product.slug,
+            product_name: sub.product.name,
+            priority_tier: sub.product.support_inside_config.priority_tier,
+            response_sla_hours:
+              sub.product.support_inside_config.response_sla_hours,
+            channels_active: sub.product.support_inside_config.channels_active,
+          };
+        }
       }
     } else if (conversation.guest_name) {
       client_name = conversation.guest_name;
@@ -201,6 +248,7 @@ export class SupportQueryService {
       resolved_by_name,
       client_name,
       client_email,
+      client_support_inside,
       assigned_agent_name,
     };
   }

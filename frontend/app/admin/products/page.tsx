@@ -105,24 +105,40 @@ export default function ProductsPage() {
   if (!user) return null;
 
   /* ── Columns ── */
+  // ADR-075: filas con `type='support_inside'` se renderizan en gris con
+  // badge "Tier de cuenta" y un link "Gestionar →" a la página dedicada.
+  // El detalle directo `/admin/products/<id>` redirige también, pero
+  // este listado se asegura de no ofrecer la edición clásica.
+  const isSupportInside = (p: ProductItem) => p.type === 'support_inside';
+
   const columns: TableColumn<ProductItem>[] = [
     {
       key: 'name', header: 'Producto',
-      render: (p) => (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <Link href={`/admin/products/${p.id}`}
-              style={{ color: 'var(--text-primary)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-sm)', textDecoration: 'none' }}>
-              {p.name}
-            </Link>
-            {p.badge_text && <Badge variant="brand">{p.badge_text}</Badge>}
-            {p.is_addon && <Badge variant="info">Addon</Badge>}
+      render: (p) => {
+        const si = isSupportInside(p);
+        const linkHref = si
+          ? `/admin/support-inside-plans/${p.slug}`
+          : `/admin/products/${p.id}`;
+        return (
+          <div style={{ opacity: si ? 0.7 : 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Link href={linkHref}
+                style={{ color: 'var(--text-primary)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-sm)', textDecoration: 'none' }}>
+                {p.name}
+              </Link>
+              {p.badge_text && <Badge variant="brand">{p.badge_text}</Badge>}
+              {si ? (
+                <Badge variant="neutral">Tier de cuenta</Badge>
+              ) : (
+                p.is_addon && <Badge variant="info">Addon</Badge>
+              )}
+            </div>
+            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+              {p.slug}{p.category && ` · ${p.category.name}`}
+            </p>
           </div>
-          <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-            {p.slug}{p.category && ` · ${p.category.name}`}
-          </p>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: 'type', header: 'Tipo',
@@ -144,24 +160,47 @@ export default function ProductsPage() {
       },
     },
     {
-      key: 'actions', header: '', width: '80px', align: 'right',
-      render: (p) => (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)' }}>
-          <Tooltip content={p.status === 'active' ? 'Desactivar' : 'Activar'}>
-            <button onClick={(e) => { e.stopPropagation(); handleToggleStatus(p.id); }}
-              disabled={toggling === p.id}
-              style={{ color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: 'var(--radius-sm)', display: 'flex' }}>
-              {p.status === 'active' ? <EyeIcon /> : <EyeOffIcon />}
-            </button>
-          </Tooltip>
-          <Tooltip content="Editar">
-            <Link href={`/admin/products/${p.id}`}
-              style={{ color: 'var(--text-tertiary)', padding: '6px', borderRadius: 'var(--radius-sm)', display: 'flex' }}>
-              <EditIcon />
+      key: 'actions', header: '', width: '120px', align: 'right',
+      render: (p) => {
+        if (isSupportInside(p)) {
+          return (
+            <Link
+              href={`/admin/support-inside-plans/${p.slug}`}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                color: 'var(--text-secondary)',
+                fontSize: 'var(--font-size-xs)',
+                fontWeight: 'var(--font-weight-medium)',
+                textDecoration: 'none',
+                padding: '6px 10px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)',
+                background: 'var(--surface-secondary)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Gestionar →
             </Link>
-          </Tooltip>
-        </div>
-      ),
+          );
+        }
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)' }}>
+            <Tooltip content={p.status === 'active' ? 'Desactivar' : 'Activar'}>
+              <button onClick={(e) => { e.stopPropagation(); handleToggleStatus(p.id); }}
+                disabled={toggling === p.id}
+                style={{ color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: 'var(--radius-sm)', display: 'flex' }}>
+                {p.status === 'active' ? <EyeIcon /> : <EyeOffIcon />}
+              </button>
+            </Tooltip>
+            <Tooltip content="Editar">
+              <Link href={`/admin/products/${p.id}`}
+                style={{ color: 'var(--text-tertiary)', padding: '6px', borderRadius: 'var(--radius-sm)', display: 'flex' }}>
+                <EditIcon />
+              </Link>
+            </Tooltip>
+          </div>
+        );
+      },
     },
   ];
 
@@ -200,7 +239,12 @@ export default function ProductsPage() {
       <Table<ProductItem>
         columns={columns} data={products} rowKey={(p) => p.id}
         loading={loading} skeletonRows={8}
-        onRowClick={(p) => router.push(`/admin/products/${p.id}`)}
+        onRowClick={(p) =>
+          // ADR-075: filas Support Inside redirigen a la página dedicada.
+          isSupportInside(p)
+            ? router.push(`/admin/support-inside-plans/${p.slug}`)
+            : router.push(`/admin/products/${p.id}`)
+        }
         emptyIcon={PackageIcon} emptyTitle="Sin productos"
         emptyDescription="No hay productos en el catálogo"
         selectable

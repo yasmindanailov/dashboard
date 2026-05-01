@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../lib/auth-context';
 import { productsApi, clientsApi, billingApi } from '../../../lib/api';
 import { getErrorMessage } from '../../../lib/error';
@@ -18,8 +18,14 @@ import { ADMIN_ROLES } from './types';
 
 export function useCheckout() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const isAdmin = user?.role?.slug ? ADMIN_ROLES.includes(user.role.slug) : false;
+
+  // Sub-fase 8.D.12.9 (ADR-076): si el comparador Support Inside (o cualquier
+  // CTA del catálogo) redirige aquí con `?product_pricing_id=X`, saltamos
+  // directo al step de facturación con plan pre-seleccionado.
+  const prefilledPricingId = searchParams?.get('product_pricing_id') ?? null;
 
   const [step, setStep] = useState<Step>(isAdmin ? 'client' : 'product');
   const [products, setProducts] = useState<Product[]>([]);
@@ -74,10 +80,55 @@ export function useCheckout() {
     setLoading(true);
     try {
       const res = await productsApi.list(token, { limit: 50, status: 'active' }) as { data: Product[] };
-      setProducts(res.data.filter((p) => p.pricing.some((pr) => pr.active)));
-    } catch (e) { console.error(e); }
+      // ADR-075 §A.2 + ADR-076 §frontend — `support_inside` queda fuera
+      // del wizard de catálogo. Solo se llega a la suscripción de SI con
+      // `?product_pricing_id=...` desde el comparador `/dashboard/support-inside`.
+      // Defense in depth: si alguien linka al wizard sin query param, no
+      // verá los planes SI mezclados con productos técnicos.
+      setProducts(
+        res.data.filter(
+          (p) => p.type !== 'support_inside' && p.pricing.some((pr) => pr.active),
+        ),
+      );
+    } catch (e) { console.warn('[Checkout] loadProducts failed:', getErrorMessage(e)); }
     finally { setLoading(false); }
   }, [token]);
+
+  // Sub-fase 8.D.12.9 (ADR-076): cuando hay product_pricing_id en URL,
+  // resolvemos el producto + pricing y saltamos a `profile`. Si admin,
+  // mantenemos `step='client'` hasta que seleccione cliente, luego salta.
+  const prefillFromUrl = useCallback(async () => {
+    if (!token || !prefilledPricingId) return;
+    try {
+      // Necesitamos el producto que contiene este pricing. Buscamos en el
+      // catálogo público completo (incluye support_inside porque el filtro
+      // del wizard lo excluye PERO aquí queremos resolverlo manualmente).
+      const fullCatalog = (await productsApi.list(token, { limit: 100, status: 'active' })) as { data: Product[] };
+      let prod: Product | null = null;
+      let pricing: ProductPricing | null = null;
+      for (const p of fullCatalog.data) {
+        const match = p.pricing.find((pr) => pr.id === prefilledPricingId);
+        if (match) {
+          prod = p;
+          pricing = match;
+          break;
+        }
+      }
+      if (!prod || !pricing) return;
+      setSelectedProduct(prod);
+      setSelectedPricing(pricing);
+      // Si soy cliente, salto a profile directamente. Si soy admin, dejo
+      // que primero seleccione cliente — luego al pasar a `product` ya
+      // habrá selectedPricing, así que avanzamos a profile.
+      if (!isAdmin) setStep('profile');
+    } catch (e) {
+      console.warn('[Checkout] prefill failed:', e);
+    }
+  }, [token, prefilledPricingId, isAdmin]);
+
+  useEffect(() => {
+    void prefillFromUrl();
+  }, [prefillFromUrl]);
 
   /* ─── Load billing profiles ─── */
 
@@ -89,7 +140,12 @@ export function useCheckout() {
       const defaultProfile = (Array.isArray(res) ? res : []).find((p: BillingProfile) => p.is_default);
       if (defaultProfile) setSelectedProfile(defaultProfile);
       else setSelectedProfile(null);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      // El helper api() lanza objetos plain {status, message, correlationId}
+      // sin prototype Error, por eso console.error(e) los imprimía como `{}`.
+      // Usamos getErrorMessage para extraer el message legible.
+      console.warn('[Checkout] loadProfiles failed:', getErrorMessage(e));
+    }
   }, [token, targetUserId]);
 
   useEffect(() => { loadProducts(); }, [loadProducts]);
@@ -139,7 +195,16 @@ export function useCheckout() {
         domain: domain || undefined,
       }, isAdmin ? selectedClient!.id : undefined);
       // Sprint 9.6 (ADR-066): cada portal redirige a su propio listado.
-      router.push(isAdmin ? '/admin/billing' : '/dashboard/billing');
+      // Sub-fase 8.D.12.9 (ADR-076): si el producto era Support Inside,
+      // redirigimos a la vista de gestión SI en lugar del listado de
+      // facturas — más útil para el cliente que acaba de activar el plan.
+      const isSupportInsideCheckout =
+        !isAdmin && selectedProduct?.type === 'support_inside';
+      if (isSupportInsideCheckout) {
+        router.push('/dashboard/support-inside');
+      } else {
+        router.push(isAdmin ? '/admin/billing' : '/dashboard/billing');
+      }
     } catch (e) {
       setError(getErrorMessage(e) || 'Error al procesar el checkout');
     } finally {

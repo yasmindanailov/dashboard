@@ -18,14 +18,17 @@ export interface MaintenanceMonthlyRunResult {
  * endpoint admin de smoke testing.
  *
  * Reglas canónicas (ADR-034 §"Recurrencia del mantenimiento" + Sprint 8
- * Fase D plan):
- *   - Se ejecuta el día 1 de cada mes a las 06:00 UTC (cron pattern
- *     `0 6 1 * *`). El día concreto del mes en que se hace el trabajo lo
- *     decide el agente cuando aborda la tarea — el cron sólo CREA la
- *     tarea para ese mes, no la ejecuta.
+ * Fase D plan + sub-fase 8.D.12.1):
+ *   - Se ejecuta **diariamente** a las 06:00 UTC (cron pattern `0 6 * * *`).
+ *     Cada día filtra los slots cuyo `anniversary_day` coincide con el día
+ *     de hoy — distribuye carga del equipo a lo largo del mes (ADR-034
+ *     §recurrencia "no acumular trabajo el día 1"). Pre-D.12.1 era `0 6 1 * *`.
  *   - Por cada slot Support Inside ACTIVO (released_at IS NULL) cuya
- *     subscription está `active`, crea una `Task(type=maintenance_management)`
- *     vinculada al servicio que el slot cubre.
+ *     subscription está `active` y cuyo `anniversary_day = EXTRACT(DAY FROM NOW())`,
+ *     crea una `Task(type=maintenance_management)` vinculada al servicio
+ *     que el slot cubre. El día concreto del mes en que se hace el
+ *     trabajo lo decide el agente cuando aborda la tarea — el cron sólo
+ *     CREA la tarea para ese mes, no la ejecuta.
  *   - **Idempotencia obligatoria** por `(service_id, billing_month)` —
  *     UNIQUE compuesto en `tasks` (ADR-034 §"Idempotencia mensual" +
  *     migración Sprint 8 Fase A). Si el cron se reejecuta el mismo mes
@@ -56,12 +59,20 @@ export class MaintenanceMonthlyService {
   async run(now: Date = new Date()): Promise<MaintenanceMonthlyRunResult> {
     const billingMonth = this.formatBillingMonth(now);
 
-    // 1. Recolectar slots activos en subscriptions activas. JOIN
-    //    profundo para extraer client_id (= subscription.client_id) y
-    //    metadata del servicio para el título de la task.
+    // Sub-fase 8.D.12.1: filtra `anniversary_day = EXTRACT(DAY FROM NOW())`.
+    // En el día N del mes solo despachamos los slots cuyo aniversario es N
+    // (capado a 28 por CHECK constraint para que febrero no quede vacío).
+    // Cron diario `0 6 * * *` → cada slot dispara una vez al mes en su
+    // día canónico de contratación. ADR-034 §recurrencia.
+    const todayDay = Math.min(now.getUTCDate(), 28);
+
+    // 1. Recolectar slots activos en subscriptions activas con anniversary
+    //    de hoy. JOIN profundo para extraer client_id (= subscription.client_id)
+    //    y metadata del servicio para el título de la task.
     const slots = await this.prisma.supportInsideSlot.findMany({
       where: {
         released_at: null,
+        anniversary_day: todayDay,
         subscription: { status: 'active' },
       },
       include: {
@@ -103,12 +114,13 @@ export class MaintenanceMonthlyService {
             created_by: slot.subscription.client_id, // marcador "creado por sistema en nombre del cliente"
             billing_month: billingMonth,
             is_recurring: true,
-            recurrence_day: 1,
+            recurrence_day: todayDay,
             metadata: {
               source: 'support_inside_monthly_cron',
               subscription_id: slot.subscription.id,
               slot_id: slot.id,
               slot_type: slot.slot_type,
+              anniversary_day: slot.anniversary_day,
             },
           },
         });

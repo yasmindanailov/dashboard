@@ -155,6 +155,21 @@ export class BillingCheckoutService {
       total: invoice.total,
     });
 
+    // ADR-076 + sub-fase 8.D.12.9 — emit canónico `service.provisioned`.
+    // Listener `support-inside-on-service-provisioned` filtra por
+    // `product_type='support_inside'` y crea/reactiva la subscription.
+    // Otros futuros listeners (Sprint 11 Provisioning para hosting,
+    // Docker, etc.) se enganchan al mismo evento sin tocar este service.
+    this.eventEmitter.emit('service.provisioned', {
+      service_id: result.service.id,
+      user_id: userId,
+      product_id: result.pricing.product_id,
+      product_type: result.pricing.product.type,
+      product_pricing_id: result.pricing.id,
+      invoice_id: invoice.id,
+      billing_profile_id: dto.billing_profile_id,
+    });
+
     return {
       service: result.service,
       invoice,
