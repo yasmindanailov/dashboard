@@ -152,12 +152,12 @@ Todos huérfanos esperando al módulo `provisioning`. Cuando provisioning se imp
 
 | Evento | Emisor | Consumidores | Payload | Outbox | Estado |
 |--------|--------|--------------|---------|--------|--------|
-| `support_inside.subscribed` | `SupportInsideService.subscribe()` tras checkout + create/update subscription | — | `{ subscription_id, client_id, product_id, service_id }` | no | 🟡 huérfano (audit / notifications futuras) |
-| `support_inside.cancelled` | `SupportInsideService.cancel()` tras transacción que libera slots + cancela Service estándar | — | `{ subscription_id, client_id, reason, released_slots }` | no | 🟡 huérfano (audit futuro) |
-| `support_inside.slot_assigned` | `SupportInsideService.addSlot()` tras crear `SupportInsideSlot` | — | `{ slot_id, subscription_id, client_id, service_id, slot_type, is_extra }` | no | 🟡 huérfano (badge "Mantenido" en frontend cuando llegue Fase D frontend) |
-| `support_inside.slot_released` | `SupportInsideService.releaseSlot()` (manual) y `SupportInsideService.cancel()` (cascada) | — | `{ slot_id, subscription_id, client_id, reason: 'manual'\|'subscription_cancelled' }` | no | 🟡 huérfano (mismo que slot_assigned) |
+| `support_inside.subscribed` | `SupportInsideService.subscribe()` tras checkout + create/update subscription | `SupportInsideAuditListener` (D.12.3) | `{ subscription_id, client_id, product_id, service_id }` | no | ✅ consumido |
+| `support_inside.cancelled` | `SupportInsideService.cancel()` tras transacción que libera slots + cancela Service estándar | `SupportInsideAuditListener` (D.12.3) | `{ subscription_id, client_id, reason, released_slots }` | no | ✅ consumido |
+| `support_inside.slot_assigned` | `SupportInsideService.addSlot()` tras crear `SupportInsideSlot` | `SupportInsideAuditListener` (D.12.3) | `{ slot_id, subscription_id, client_id, service_id, slot_type, is_extra }` | no | ✅ consumido |
+| `support_inside.slot_released` | `SupportInsideService.releaseSlot()` (manual) y `SupportInsideService.cancel()` (cascada) | `SupportInsideAuditListener` (D.12.3) | `{ slot_id, subscription_id, client_id, reason: 'manual'\|'subscription_cancelled' }` | no | ✅ consumido |
 
-**Nota canónica**: los 4 eventos son **hooks aspiracionales** declarados desde el primer commit del módulo para que listeners futuros (audit, notifications cliente, métricas operativas) se enganchen sin tocar el `SupportInsideService`. Cumple R1 (módulos por eventos) por construcción — el día que `audit-support-inside.listener` quiera persistir un audit log, sólo añade el `@OnEvent('support_inside.*')` sin coordinación cross-módulo.
+**Nota canónica**: los 4 eventos están declarados como hooks aspiracionales y **cerrados con consumidor en Sprint 8 Fase D.12** (`SupportInsideAuditListener`). Cumple R1 (módulos por eventos) — `audit-support-inside` se enganchó vía `@OnEvent('support_inside.*')` sin tocar `SupportInsideService`. Listeners adicionales (`SupportInsidePriorityListener` consume `conversation.created`, `SupportInsideOnServiceProvisionedListener` consume `service.provisioned`) materializan la doctrina ADR-061 §"tier de cuenta visible" y ADR-076 (checkout único vía evento).
 
 ---
 
@@ -174,6 +174,9 @@ Todos huérfanos esperando al módulo `provisioning`. Cuando provisioning se imp
 | `TasksOverdueListener` | `task.overdue` | Delega a `NotificationsService.dispatchToUser` — email + campana al agente cuya tarea pasó a `not_completed_in_time` (Sprint 8 Fase C, 2026-05-01) |
 | `TasksUnassignedOverdueListener` | `task.unassigned_overdue` | Delega a `NotificationsService.dispatchToSuperadmins` — resumen agregado de la cola pública fuera de SLA por tipo (Sprint 8 Fase C / ADR-072) |
 | `MaintenanceCriticalListener` | `maintenance.critical` | Delega a `NotificationsService.dispatchToSuperadmins` — resumen agregado de servicios sin maintenance_log >threshold (Sprint 8 Fase C) |
+| `SupportInsidePriorityListener` | `conversation.created` | Si el cliente tiene SI activa, mapea `priority_tier` → `ConversationPriority` con compare-and-swap (sólo escala si `priority='normal'` — preserva elección manual del agente, EC-T8-47) (Sprint 8 Fase D.12.2) |
+| `SupportInsideAuditListener` | `support_inside.subscribed/cancelled/slot_assigned/slot_released` | Delega en `AuditService.logChange()` con `entity_type` distinguiendo subscription vs slot (R3 audit inmutable, alimenta portal transparencia cliente) (Sprint 8 Fase D.12.3) |
+| `SupportInsideOnServiceProvisionedListener` | `service.provisioned` | Si `product.type='support_inside'`: crea/reactiva `SupportInsideSubscription`. Materializa ADR-076 (checkout único vía evento). Filtra defensivamente para coexistir con futuros listeners hosting/docker (Sprint 8 Fase D.12.9) |
 | `notifications-outbox.listener` | `outbox.event_failed` | Alerta superadmin (campana + email) cuando un row Outbox agota retries (Sprint 9 Fase D) |
 | `notifications-dlq.listener` | `dlq.job_failed` | Alerta superadmin cuando un job BullMQ entra en DLQ (Sprint 9 Fase D) |
 | `notifications-system-error.listener` | `system.error` | Alerta superadmin con guard anti-loop hard si `module` proviene del dominio notifications (Sprint 9.5) |

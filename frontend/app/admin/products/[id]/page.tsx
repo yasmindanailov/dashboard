@@ -31,7 +31,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     if (!token || !id) return;
     productsApi.get(token, id)
-      .then((data) => setProduct(data as ProductDetailItem))
+      .then((data) => {
+        const p = data as ProductDetailItem;
+        // ADR-075 §A.2: el detalle directo de un producto Support Inside
+        // redirige a la página dedicada. El admin nunca edita Support
+        // Inside desde el CRUD genérico — el guard backend lo bloquea
+        // igualmente, esto es UX para evitar el viaje al 400.
+        if (p.type === 'support_inside') {
+          toast('info', 'Support Inside se gestiona en su página dedicada.');
+          router.replace(`/admin/support-inside-plans/${p.slug}`);
+          return;
+        }
+        setProduct(p);
+      })
       .catch(() => {
         toast('error', 'No se pudo cargar el producto.');
         router.push('/admin/products');

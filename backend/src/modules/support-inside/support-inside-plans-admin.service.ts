@@ -196,6 +196,10 @@ export class SupportInsidePlansAdminService {
         configPatch.slots_included = data.slots_included;
       if (data.slot_types_allowed !== undefined)
         configPatch.slot_types_allowed = { set: data.slot_types_allowed };
+      if (data.applicable_product_types !== undefined)
+        configPatch.applicable_product_types = {
+          set: data.applicable_product_types,
+        };
       if (data.extra_slot_price !== undefined)
         configPatch.extra_slot_price = data.extra_slot_price;
       if (data.channels_active !== undefined)
@@ -223,6 +227,7 @@ export class SupportInsidePlansAdminService {
               product: { connect: { id: existing.id } },
               slots_included: data.slots_included ?? 0,
               slot_types_allowed: data.slot_types_allowed ?? [],
+              applicable_product_types: data.applicable_product_types ?? [],
               extra_slot_price: data.extra_slot_price ?? 0,
               channels_active: data.channels_active ?? [],
               priority_tier: data.priority_tier ?? 'standard',

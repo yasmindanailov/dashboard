@@ -1,0 +1,49 @@
+/* ═══════════════════════════════════════
+   /admin/support-inside-plans — índice (ADR-075 §B.2)
+   Tabla vertical clicable. NO formato comparador.
+   ═══════════════════════════════════════ */
+
+.intro {
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-5);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.introIcon {
+  color: var(--brand);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.introBody {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.priceCell {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.priceMissing {
+  color: var(--text-tertiary);
+}
+
+.savingsBadge {
+  margin-left: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--success);
+}
+
+.muted {
+  color: var(--text-secondary);
+}

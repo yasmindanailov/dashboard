@@ -1,7 +1,7 @@
 # ADR-034 — Support Inside (modelo de soporte gestionado con slots)
 
-> **Status:** Active (refinado por ADR-061 — UX dedicada, schema sin cambios)
-> **Date:** 2026-04 (origen) · 2026-04-26 (migración a ADR + refinamiento UX vía ADR-061)
+> **Status:** Active (refinado por [ADR-061](./adr-061-support-inside-tier-cuenta-ux.md) — UX dedicada, schema sin cambios · refinado por [ADR-075](./adr-075-support-inside-ux-lista-y-aislamiento-productos.md) — aislamiento CRUD productos · refinado por [ADR-076](./adr-076-checkout-unico-support-inside-via-evento.md) — checkout único vía evento `service.provisioned`)
+> **Date:** 2026-04 (origen) · 2026-04-26 (migración a ADR + refinamiento UX vía ADR-061) · 2026-05-01 (Sprint 8 Fase D backend + frontend cerrados, sub-fase 8.D.12 abre cableado horizontal)
 > **Original:** DECISIONS.md §7
 > **Domain:** support, products
 
@@ -63,11 +63,15 @@ La pregunta de diseño: **¿cómo se modela Support Inside para que sea coherent
 
 ### Recurrencia del mantenimiento
 
-- La tarea de mantenimiento se genera **el día del mes equivalente al de contratación del slot**. Ej: contratado el día 15 → mantenimiento el día 15 de cada mes.
+- La tarea de mantenimiento se genera **el día del mes equivalente al de contratación del slot** (`anniversary_day`).
+  - Ej: contratado el día 15 → mantenimiento el día 15 de cada mes.
+  - **Rango válido 1-28** (CHECK constraint en BD) para evitar problemas con febrero.
+  - Si el slot se contrata en día 29-31, `anniversary_day = LEAST(EXTRACT(DAY FROM assigned_at), 28)`.
 - Esto **distribuye la carga de trabajo del equipo** a lo largo del mes (en lugar de todos los mantenimientos el día 1).
+- El cron canónico es **diario** (`0 6 * * *` UTC) con filtro `WHERE anniversary_day = EXTRACT(DAY FROM NOW())` — NO mensual el día 1. Doctrina formalizada en sub-fase 8.D.12.1 (2026-05-01) tras detectar drift entre el código del primer commit (que disparaba todos el día 1, `0 6 1 * *`) y la doctrina canónica de este ADR.
 - El mantenimiento corresponde al mes en curso. **No se arrastra al siguiente.**
 - Si la tarea no se completa en su mes → alerta al admin (estado: crítico).
-- Alerta de tarea crítica: X días antes de fin de mes si sigue pendiente. X configurable en settings.
+- Alerta de tarea crítica: X días antes de fin de mes si sigue pendiente. X configurable en settings (`support.maintenance_critical_threshold_days`).
 
 ### Página de Support Inside del cliente
 
@@ -126,7 +130,7 @@ Resumen aquí: la IA NO es para el cliente. Es **copilot interno para el agente 
 ## Referencias
 
 - **Módulos afectados:** support, products (Support Inside es producto), tasks (mantenimientos generan tareas).
-- **ADRs relacionados:** ADR-018 (catálogo dinámico), ADR-019 (config tipos), ADR-035 / ADR-037 (sistema de comunicación), ADR-057 (IA copilot).
+- **ADRs relacionados:** [ADR-018](./adr-018-catalogo-dinamico-productos.md) (catálogo dinámico), [ADR-019](./adr-019-configuracion-tipos-producto.md) (config tipos), [ADR-029](./adr-029-prorrateo-cambio-plan.md) (prorrateo cambio plan — bloquea upgrade Básico↔Pro hasta DC.18 cierre), ADR-035 / ADR-037 (sistema de comunicación), [ADR-057](./adr-057-agentes-ia.md) (IA copilot del agente — Sprint 15F P3.2), [ADR-061](./adr-061-support-inside-tier-cuenta-ux.md) (UX dedicada), [ADR-075](./adr-075-support-inside-ux-lista-y-aislamiento-productos.md) (aislamiento CRUD productos), [ADR-076](./adr-076-checkout-unico-support-inside-via-evento.md) (checkout único vía evento `service.provisioned`).
 - **Glosario:** [Support Inside](../00-foundations/glossary.md) — pendiente de añadir si no existe.
 - **Implementación:** módulo Support Inside actualmente parcialmente modelado en schema. Lógica de slots pendiente.
 - **Decisiones pendientes a cerrar:** nombres de planes, SLAs concretos, pricing definitivo.

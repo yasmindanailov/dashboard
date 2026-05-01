@@ -1,9 +1,17 @@
 /* ═══════════════════════════════════════
    New Product — Constants & types
-   Ref: DECISIONS.md §6, §7, §8, §27
+   Ref: DECISIONS.md §6, §7, §8, §27 + ADR-075 §A (aislamiento support_inside)
    ═══════════════════════════════════════ */
 
-export const PRODUCT_TYPES = [
+/**
+ * Tipos creables desde `/admin/products`. NO incluye `support_inside` —
+ * los planes Support Inside se gestionan desde la página dedicada
+ * `/admin/support-inside-plans` (ADR-075). El backend además aplica
+ * `SupportInsideIsolationGuard` que rechaza `POST/PATCH/DELETE` con
+ * `type='support_inside'` salvo header interno `X-Aelium-Source:
+ * support-inside-admin` (defense in depth).
+ */
+export const PRODUCT_TYPES_CREATABLE = [
   {
     value: 'hosting_web', label: 'Hosting Web', icon: '', isAddon: false,
     description: 'Planes de hosting web (Web Inicio, Web Pro, Web Business)',
@@ -19,11 +27,9 @@ export const PRODUCT_TYPES = [
     description: 'Contenedores Docker (Nextcloud, OpenClaw, etc.)',
     defaultProvisioner: 'docker_engine',
   },
-  {
-    value: 'support_inside', label: 'Support Inside', icon: '', isAddon: true,
-    description: 'Addon global de cuenta — planes Básico, Medium, Pro (§7)',
-    defaultProvisioner: 'internal',
-  },
+  // 'support_inside' — EXCLUIDO ADR-075. Crear/editar desde
+  // /admin/support-inside-plans. Cualquier intento aquí lo rechaza el
+  // SupportInsideIsolationGuard del backend.
   {
     value: 'we_do_it', label: 'We Do It For You', icon: '', isAddon: true,
     description: 'Addon por producto — desarrollo/configuración (§8)',
@@ -35,6 +41,14 @@ export const PRODUCT_TYPES = [
     defaultProvisioner: 'manual',
   },
 ] as const;
+
+/**
+ * Alias retrocompatible: páginas que aún importan `PRODUCT_TYPES` reciben
+ * la lista creable (sin `support_inside`). Cualquier UI que necesite la
+ * lista completa de tipos para *etiquetar* (no crear) debe usar
+ * `TYPE_LABELS` de `app/admin/products/types.ts`.
+ */
+export const PRODUCT_TYPES = PRODUCT_TYPES_CREATABLE;
 
 export const CYCLE_OPTIONS = [
   { value: 'monthly', label: 'Mensual' },

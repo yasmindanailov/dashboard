@@ -35,6 +35,20 @@ export interface ClientOverview {
   pending_invoice_amount: number;
   next_renewal: string | null; // ISO date or null
   open_conversations: number;
+  // Sub-fase 8.D.12.7 — visibilidad transversal Support Inside.
+  // `null` si el cliente no tiene plan o está cancelled. El frontend
+  // renderiza una card "Activa Support Inside" con CTA cuando es null
+  // y una card "Mi plan SI · slots usados/incluidos" cuando es activo.
+  support_inside: ClientOverviewSupportInside | null;
+}
+
+export interface ClientOverviewSupportInside {
+  product_name: string;
+  product_slug: string;
+  priority_tier: 'standard' | 'high' | 'max';
+  response_sla_hours: number;
+  slots_included: number;
+  slots_used: number;
 }
 
 export interface AgentOverview {
@@ -141,35 +155,81 @@ export class DashboardService {
 
   // ── Client: personal service health ──
   private async getClientOverview(userId: string): Promise<ClientOverview> {
-    const [activeServices, pendingInvoices, nextRenewal, openTickets] =
-      await this.prisma.$transaction([
-        // Servicios activos
-        this.prisma.service.count({
-          where: { user_id: userId, status: 'active' },
-        }),
-        // Factura pendiente (€)
-        this.prisma.invoice.aggregate({
-          where: { user_id: userId, status: { in: ['pending', 'overdue'] } },
-          _sum: { total: true },
-        }),
-        // Próxima renovación (earliest next_due_date from active services)
-        this.prisma.service.findFirst({
-          where: {
-            user_id: userId,
-            status: 'active',
-            next_due_date: { not: null, gte: new Date() },
+    const [
+      activeServices,
+      pendingInvoices,
+      nextRenewal,
+      openTickets,
+      supportInsideSubscription,
+    ] = await this.prisma.$transaction([
+      // Servicios activos
+      this.prisma.service.count({
+        where: { user_id: userId, status: 'active' },
+      }),
+      // Factura pendiente (€)
+      this.prisma.invoice.aggregate({
+        where: { user_id: userId, status: { in: ['pending', 'overdue'] } },
+        _sum: { total: true },
+      }),
+      // Próxima renovación (earliest next_due_date from active services)
+      this.prisma.service.findFirst({
+        where: {
+          user_id: userId,
+          status: 'active',
+          next_due_date: { not: null, gte: new Date() },
+        },
+        orderBy: { next_due_date: 'asc' },
+        select: { next_due_date: true },
+      }),
+      // Conversaciones abiertas (tickets + chats unificados para el cliente)
+      this.prisma.conversation.count({
+        where: {
+          user_id: userId,
+          status: { in: ['open', 'waiting_client', 'waiting_agent'] },
+        },
+      }),
+      // Sub-fase 8.D.12.7 — Support Inside del cliente (con slots activos).
+      this.prisma.supportInsideSubscription.findUnique({
+        where: { client_id: userId },
+        select: {
+          status: true,
+          product: {
+            select: {
+              slug: true,
+              name: true,
+              support_inside_config: {
+                select: {
+                  priority_tier: true,
+                  response_sla_hours: true,
+                  slots_included: true,
+                },
+              },
+            },
           },
-          orderBy: { next_due_date: 'asc' },
-          select: { next_due_date: true },
-        }),
-        // Conversaciones abiertas (tickets + chats unificados para el cliente)
-        this.prisma.conversation.count({
-          where: {
-            user_id: userId,
-            status: { in: ['open', 'waiting_client', 'waiting_agent'] },
+          slots: {
+            where: { released_at: null },
+            select: { id: true },
           },
-        }),
-      ]);
+        },
+      }),
+    ]);
+
+    let support_inside: ClientOverviewSupportInside | null = null;
+    if (
+      supportInsideSubscription &&
+      supportInsideSubscription.status === 'active' &&
+      supportInsideSubscription.product.support_inside_config
+    ) {
+      const cfg = supportInsideSubscription.product.support_inside_config;
+      support_inside = {
+        product_name: supportInsideSubscription.product.name,
+        product_slug: supportInsideSubscription.product.slug,
+        priority_tier: cfg.priority_tier,
+        response_sla_hours: cfg.response_sla_hours,
+        slots_included: cfg.slots_included,
+        slots_used: supportInsideSubscription.slots.length,
+      };
+    }
 
     return {
       role: 'client',
@@ -177,6 +237,7 @@ export class DashboardService {
       pending_invoice_amount: Number(pendingInvoices._sum.total ?? 0),
       next_renewal: nextRenewal?.next_due_date?.toISOString() ?? null,
       open_conversations: openTickets,
+      support_inside,
     };
   }
 

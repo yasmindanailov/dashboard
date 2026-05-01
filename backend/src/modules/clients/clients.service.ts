@@ -95,6 +95,44 @@ export class ClientsService {
         role: { select: { slug: true, name: true } },
         client_profile: true,
         billing_profiles: { orderBy: { created_at: 'desc' } },
+        // Sub-fase 8.D.12.4: enriquecimiento canónico Support Inside.
+        // Se incluye SIEMPRE en la respuesta admin del cliente para que
+        // header / sidebar / acciones puedan renderizar el badge "tier
+        // de cuenta" sin N+1 queries adicionales (ADR-061 §"visible").
+        // El campo es null si el cliente no tiene subscription activa o
+        // cancelled — el frontend decide qué renderizar.
+        support_inside_subscription: {
+          select: {
+            id: true,
+            status: true,
+            started_at: true,
+            cancelled_at: true,
+            product: {
+              select: {
+                slug: true,
+                name: true,
+                support_inside_config: {
+                  select: {
+                    priority_tier: true,
+                    response_sla_hours: true,
+                    channels_active: true,
+                    slots_included: true,
+                  },
+                },
+              },
+            },
+            slots: {
+              where: { released_at: null },
+              select: {
+                id: true,
+                service_id: true,
+                slot_type: true,
+                is_extra: true,
+                anniversary_day: true,
+              },
+            },
+          },
+        },
       },
     });
 

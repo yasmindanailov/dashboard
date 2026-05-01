@@ -13,6 +13,7 @@ import { seedSampleSupport } from './seeds/sample-support';
 import { seedNotificationTemplates } from './seeds/notification-templates';
 import { seedSampleTaskTags } from './seeds/sample-task-tags';
 import { seedSupportInsidePlans } from './seeds/support-inside-plans';
+import { seedSampleSupportInside } from './seeds/sample-support-inside';
 
 /**
  * Orquestador del seed de la base de datos — Sprint 9.6 Fase F.0
@@ -65,6 +66,9 @@ async function main() {
     await seedSampleProducts(prisma);
     await seedSampleInvoices(prisma);
     await seedSampleSupport(prisma);
+    // Sub-fase 8.D.12.10 — depende de support-inside-plans + sample-products
+    // (hosting-pro como servicio cubierto) + test-accounts (cliente Carla).
+    await seedSampleSupportInside(prisma);
 
     console.log('✅ Seed completed');
   } finally {

@@ -13,6 +13,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ProductType } from '@prisma/client';
 
 /* ═══════════════════════════════════════
    Cliente — Sprint 8 Fase D
@@ -156,6 +157,15 @@ export class UpdateSupportInsidePlanDto {
   @IsArray()
   @IsEnum(SupportInsideSlotTypeDto, { each: true })
   slot_types_allowed?: SupportInsideSlotTypeDto[];
+
+  // Sub-fase 8.D.12 (2026-05-01) — productos a los que el plan permite
+  // asignar slots de mantenimiento. Default canónico (definido en seed)
+  // = ['hosting_web', 'docker_service']. El admin puede afinar desde el
+  // editor §3 "Slots y capacidades".
+  @IsOptional()
+  @IsArray()
+  @IsEnum(ProductType, { each: true })
+  applicable_product_types?: ProductType[];
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })

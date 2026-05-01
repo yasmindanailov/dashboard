@@ -40,6 +40,16 @@ import {
 export class SupportInsideController {
   constructor(private readonly service: SupportInsideService) {}
 
+  @Get('plans')
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.SupportInside))
+  @ApiOperation({
+    summary:
+      'Listado público de los 3 planes Support Inside (comparador cliente — ADR-075 §B.1 visible al cliente)',
+  })
+  listPublicPlans() {
+    return this.service.listPublicPlans();
+  }
+
   @Get('status')
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.SupportInside))
   @ApiOperation({
@@ -47,6 +57,16 @@ export class SupportInsideController {
   })
   getStatus(@Req() req: AuthenticatedRequest) {
     return this.service.getStatus(req.user.id);
+  }
+
+  @Get('eligible-services')
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.SupportInside))
+  @ApiOperation({
+    summary:
+      'Servicios `active` del cliente sin slot Support Inside activo (modal asignar slot — sub-fase 8.D.12.8)',
+  })
+  listEligibleServices(@Req() req: AuthenticatedRequest) {
+    return this.service.listEligibleServices(req.user.id);
   }
 
   @Post('subscribe')

@@ -31,6 +31,35 @@ export interface ClientDetail {
     credit_balance: string;
   } | null;
   billing_profiles: BillingProfile[];
+  // Sub-fase 8.D.12.4 — visibilidad transversal Support Inside.
+  // Enriquecido server-side por `clientsService.findOne`. `null` si el
+  // cliente no tiene subscription (admin renderiza CTA "no tiene plan"),
+  // status ∈ {active, cancelled, past_due} si existe.
+  support_inside_subscription: ClientSupportInsideSubscription | null;
+}
+
+export interface ClientSupportInsideSubscription {
+  id: string;
+  status: 'active' | 'cancelled' | 'past_due';
+  started_at: string;
+  cancelled_at: string | null;
+  product: {
+    slug: string;
+    name: string;
+    support_inside_config: {
+      priority_tier: 'standard' | 'high' | 'max';
+      response_sla_hours: number;
+      channels_active: ('webchat' | 'email' | 'phone' | 'whatsapp')[];
+      slots_included: number;
+    } | null;
+  };
+  slots: {
+    id: string;
+    service_id: string;
+    slot_type: 'maintenance' | 'maintenance_management';
+    is_extra: boolean;
+    anniversary_day: number;
+  }[];
 }
 
 export interface BillingProfile {

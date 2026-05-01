@@ -49,3 +49,9 @@ export { BulkActionBar, type BulkActionBarProps } from './BulkActionBar';
 
 /* ── Portal identity (ADR-066) ── */
 export { PortalBadge, type PortalBadgeProps } from './PortalBadge';
+
+/* ── Editor patterns (ADR-075 §B.2 — extensible section cards) ── */
+export {
+  EditorSectionCard,
+  type EditorSectionCardProps,
+} from './EditorSectionCard';

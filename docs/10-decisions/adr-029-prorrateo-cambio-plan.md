@@ -109,6 +109,7 @@ nuevo_periodo = 365 días desde la fecha de cambio
 - Si surge necesidad de upgrade entre productos distintos (Web Pro → Web Business): ADR adicional con lógica de migración + prorrateo de la diferencia.
 - Si Hacienda obliga a tratamiento fiscal específico para créditos no consumidos en cuenta de cliente.
 - Si el "abuse" de cambios de plan repetidos se vuelve real → activar restricción N cambios por ciclo.
+- **Si surge demanda de wallet/loyalty/refunds visibles al cliente** (ej. campañas "5€ por referir", compensación por incident, créditos navideños) → **NO extender `services.credit_balance_eur`**, escribir ADR-NNN nuevo con tabla dedicada `credit_transactions` (audit inmutable, expiración, source enum, RGPD) + UI cliente "Mi saldo" + reportes admin. El campo `credit_balance_eur` de este ADR es **buffer técnico interno** del flujo de prorrateo, no un sistema de créditos transversal. Mantener esa frontera evita que el dashboard se convierta en un wallet de facto sin haber tomado la decisión consciente.
 
 ---
 

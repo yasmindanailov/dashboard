@@ -36,6 +36,18 @@ export interface ConversationDetail {
   resolved_by_name?: string | null;
   resolution_note?: string | null;
   assigned_agent_name?: string | null;
+  // Sub-fase 8.D.12.6 — visibilidad transversal Support Inside.
+  // Enriquecido por `SupportQueryService.findOne` con la subscription
+  // activa del owner. `null` si el cliente no tiene plan o es chat guest.
+  client_support_inside?: ConversationSupportInside | null;
+}
+
+export interface ConversationSupportInside {
+  product_slug: string;
+  product_name: string;
+  priority_tier: 'standard' | 'high' | 'max';
+  response_sla_hours: number;
+  channels_active: ('webchat' | 'email' | 'phone' | 'whatsapp')[];
 }
 
 export type ResolutionType = 'resolve' | 'close' | 'escalate' | 'reopen';
