@@ -10,7 +10,7 @@ NO es visible al cliente — es herramienta interna del equipo.
 
 ## 2. Estado de implementación
 
-🟢 **Sprint 8 Fase A + B 100% cerradas** (2026-04-26 → 2026-04-30). Cola activa: Fase C (automatización crons + WOW listener) → Fase D (Support Inside) → Fase E (docs canónicas). Ver §17 deuda y `docs/60-roadmap/current.md` §10.
+🟢 **Sprint 8 Fase A + B + C 100% cerradas** (2026-04-26 → 2026-05-01). Cola activa: Fase D (Support Inside) → Fase E (docs canónicas). Ver §17 deuda y `docs/60-roadmap/current.md` §10.
 
 **Resumen del estado funcional tras Fase B:**
 
@@ -22,9 +22,10 @@ NO es visible al cliente — es herramienta interna del equipo.
 - ✅ CASL granularidad ADR-067: `Subject.Task` (todo staff manage), `Subject.TaskTag` (manage admin pleno, read demás staff).
 - ✅ Schema: 5 migraciones limpias (`task_checklist_completions`, `maintenance_logs`, `task_tags` + m2m, FK `client_notes.author`, enum `support_ticket`).
 
+**Cerrado Fase C (2026-05-01):** 3 colas BullMQ scheduled con leader election natural via Redis (ADR-063 + ADR-064): `tasks-overdue` (`0 2 * * *` UTC) marca tareas vencidas como `not_completed_in_time` + emite `task.overdue` al agente; `tasks-unassigned-overdue` (`0 9 * * *` UTC, ADR-072) emite resumen agregado al superadmin con tareas en cola pública fuera de SLA por tipo; `maintenance-critical` (`0 8 * * *` UTC) emite resumen de servicios sin `maintenance_log` >`support.maintenance_critical_threshold_days` (default 60). 6 plantillas Handlebars seedeadas (3 eventos × email/internal) con guard EC-T8-17 OK. 8 settings nuevos (`tasks.overdue_to_failure_days` + 6 `tasks.unassigned_sla_hours.*` + `support.maintenance_critical_threshold_days`). Endpoint admin `POST /api/v1/admin/tasks/cron/:name` (`overdue|unassigned-overdue|maintenance-critical`) restringido a `Manage.Job` (superadmin) para smoke + E2E + recovery. Cobertura: **21 unit tests** (7+6+8) + **5 E2E** (`tasks-crons.spec.ts`) — suite full 112/112 verde sin regresión.
+
 **Pendiente:**
 
-- ⬜ Fase C: cron `task.overdue` (→ status `not_completed_in_time`) · cron `task.unassigned_overdue` (ADR-072 SLA por tipo) · cron `maintenance.critical` · plantillas seed `task.overdue`/`maintenance.critical`/`task.unassigned_overdue` · 4 settings nuevos · **migración a BullMQ con leader election** (ADR-056) requerida.
 - ⬜ Fase D: Support Inside ([ADR-061](../../10-decisions/adr-061-support-inside-tier-cuenta-ux.md)) — schema + service + 8 endpoints + páginas dedicadas + cron mensual.
 - ⬜ Fase E: docs canónicas `features/tasks/admin.md` + `agent.md` + retrospectiva `completed/sprint-8-tasks-support-inside.md`.
 - ⬜ Sprint 11 (post-Fase C): `ContactClientTaskListener` (`@OnEvent('service.provisioned')`) — renombrado del histórico `WowCallCreatorListener` por ADR-073.
@@ -77,6 +78,7 @@ Prefix: `/api/v1/tasks`. JWT auth en todos.
 | `GET` | `/tasks/:id/notes` | Sprint 8 Fase B.9 — listar notas internas (`ClientNote category=technical` filtradas por `task_id`) con autor enriquecido | `Read.Task` |
 | `POST` | `/tasks/:id/notes` | Sprint 8 Fase B.9 — crear nota interna inline durante la ejecución de la tarea (persiste inmediatamente, no se acumula en estado del cliente) | `Update.Task` |
 | `DELETE` | `/tasks/:id` | Eliminar tarea | `Delete.Task` |
+| `POST` | `/admin/tasks/cron/:name` | Sprint 8 Fase C — disparar manualmente uno de los 3 crons (`overdue` / `unassigned-overdue` / `maintenance-critical`) para smoke testing, E2E, o recovery operativo cuando el cron real (BullMQ scheduled) tuvo un incidente | `Manage.Job` (sólo superadmin — disparar re-ejecuta side effects) |
 
 > **Data isolation por rol:** los agentes (`agent_*`) solo ven tareas asignadas a sí mismos o sin asignar. `superadmin` y `agent_full` ven todas. Aplicado en service (no solo CASL).
 
@@ -97,6 +99,9 @@ N/A — tasks no tiene gateway. Las actualizaciones se ven al refrescar la pági
 | `task.created` | Tras `create()` exitoso | ❌ | 🟡 Huérfano (audit futuro) |
 | `task.assigned` | Tras `create()` o `update()` con cambio de `assigned_to` | ❌ | ✅ Consumido por `tasks-email.listener` (email + notificación interna al agente). |
 | `task.completed` | Tras `update({status: completed})`, `complete()` o `MaintenanceLogService.recordCompletion()` | ❌ | ✅ Consumido por `task-completed.listener` (Sprint 8 Fase B.9) — notifica al cliente vía email + campana SI `clientNotes` poblado y tipo NO es maintenance (esos los cubre `MaintenanceCompletedListener` con plantilla específica). |
+| `task.overdue` | Sprint 8 Fase C (2026-05-01) — `TasksOverdueService.run()` (cron BullMQ `tasks-overdue` `0 2 * * *` UTC) cuando una tarea con asignado supera `tasks.overdue_to_failure_days` desde `due_date`. La tarea queda en `not_completed_in_time` (terminal). | ❌ — operativo (no de negocio) | ✅ Consumido por `TasksOverdueListener` → `NotificationsService.dispatchToUser` al agente (email + campana). |
+| `task.unassigned_overdue` | Sprint 8 Fase C (2026-05-01) + [ADR-072](../../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md) — `TasksUnassignedOverdueService.run()` (cron BullMQ `tasks-unassigned-overdue` `0 9 * * *` UTC) cuando ≥1 tarea en cola pública supera SLA por tipo. Resumen agregado, no 1 emit por tarea. | ❌ — operativo | ✅ Consumido por `TasksUnassignedOverdueListener` → `NotificationsService.dispatchToSuperadmins`. |
+| `maintenance.critical` | Sprint 8 Fase C (2026-05-01) — `MaintenanceCriticalService.run()` (cron BullMQ `maintenance-critical` `0 8 * * *` UTC) cuando ≥1 servicio activo con `service_checklist_items` lleva más de `support.maintenance_critical_threshold_days` sin `maintenance_log`. | ❌ — operativo | ✅ Consumido por `MaintenanceCriticalListener` → `NotificationsService.dispatchToSuperadmins`. Degradación elegante: total=0 mientras Fase D no introduzca service_checklist_items. |
 | `maintenance.completed` | Tras `MaintenanceLogService.recordCompletion()` post-commit (Sprint 8 Fase B.5) | ❌ — pendiente Outbox Sprint P-DEPLOY.4 | ✅ Consumido por `MaintenanceCompletedListener` → `NotificationsService` (email + campana cliente). |
 
 > **Estado P0.1 (2026-04-26):** `task.assigned` ya tiene listener (`tasks-email.listener.ts`). Los otros dos siguen huérfanos a la espera del módulo `audit` (Sprint 9 P1.1).
@@ -152,7 +157,16 @@ N/A — tasks no tiene gateway. Las actualizaciones se ven al refrescar la pági
 
 ## 11. Settings consumidos
 
-Ninguno actualmente.
+| Setting | Default | Consumidor |
+|---------|---------|------------|
+| `tasks.overdue_to_failure_days` | 7 | `TasksOverdueService.run()` (Sprint 8 Fase C) |
+| `tasks.unassigned_sla_hours.contact_client` | 24 | `TasksUnassignedOverdueService.run()` (ADR-072 §4) |
+| `tasks.unassigned_sla_hours.maintenance` | 12 | Igual |
+| `tasks.unassigned_sla_hours.maintenance_management` | 12 | Igual |
+| `tasks.unassigned_sla_hours.custom_work` | 48 | Igual |
+| `tasks.unassigned_sla_hours.support_setup` | 4 | Igual (alta prioridad) |
+| `tasks.unassigned_sla_hours.default` | 24 | Fallback global |
+| `support.maintenance_critical_threshold_days` | 60 | `MaintenanceCriticalService.run()` (Sprint 8 Fase C) |
 
 > **Candidatos futuros:**
 > - `tasks.default_priority` — prioridad default al crear
@@ -172,9 +186,17 @@ Ninguno actualmente.
 
 ## 13. Jobs / cron
 
-Ninguno actualmente.
+Sprint 8 Fase C (2026-05-01) introdujo 3 colas BullMQ scheduled con leader election natural via Redis (ADR-063 + ADR-064). Detalle completo en [`docs/50-operations/jobs-reference.md`](../../50-operations/jobs-reference.md).
 
-> **Candidato futuro:** cron diario que envíe digest a cada agente con sus tareas del día / próximas a vencer.
+| Cola | Schedule | Service | Qué hace | Eventos emitidos |
+|------|----------|---------|----------|------------------|
+| `tasks-overdue` | `0 2 * * *` UTC | `TasksOverdueService` | Marca tareas con asignado vencidas como `not_completed_in_time` (terminal) | `task.overdue` (1 por tarea) |
+| `tasks-unassigned-overdue` | `0 9 * * *` UTC | `TasksUnassignedOverdueService` | Cola pública fuera de SLA por tipo (ADR-072) | `task.unassigned_overdue` (resumen agregado) |
+| `maintenance-critical` | `0 8 * * *` UTC | `MaintenanceCriticalService` | Servicios sin maintenance_log >threshold | `maintenance.critical` (resumen agregado) |
+
+Endpoint `POST /api/v1/admin/tasks/cron/:name` permite disparar manualmente cada cron (para smoke + E2E + recovery operativo). Restringido a `Manage.Job` (superadmin).
+
+> **Candidatos futuros:** cron diario que envíe digest a cada agente con sus tareas del día / próximas a vencer.
 
 ---
 
@@ -265,7 +287,7 @@ Lista canónica de edge cases del módulo vive en [`docs/60-roadmap/current.md` 
 - [x] ~~**Sprint 8 Fase B.10 — ADR-074 ticket↔task bridge:** nuevo enum `TaskType.support_ticket` · `SupportTicketTaskCreatorListener` consume `conversation.assigned` → crea/reasigna task bridge · `TasksService.complete` dual path (simple B.9 / bridge B.10) delega en `SupportService` cuando hay `conversation_id` · `TaskCompletionModal` modo bridge con selector resolve/close + nota interna obligatoria · `ConversationHeader` oculta botones legacy + muestra pill "Trabajando en tarea →" cuando hay task vinculada · sidebar "Ticket origen" en task detail · filtro `tasksApi.list({conversation_id})` · CompleteTaskDto extendido con `ticket_action` + `resolution_note`~~ ✅ Sprint 8 Fase B.10 (2026-04-30, `c204f08`) — 86/86 unit (80 + 6 nuevos `SupportTicketTaskCreatorListener`), 103/103 E2E (98 + 5 nuevos `tasks-ticket-bridge.spec.ts`).
 - [x] ~~**Sprint 8 Fase B.10.fix — UI selector asignación + cancel libera ticket:** Select de agentes en `ConversationSidebar` admin con lazy fetch via `usersApi.listAgents` + handler `useConversationDetail.handleAssignAgent` (8bffaf4) · cancelar task bridge libera ticket (`assigned_agent_id=null`) + flag `__ticket_released` para toast contextual + confirm modal con copy explícito sobre las 4 consecuencias (2f5e2b8) · `UpdateConversationDto.assigned_agent_id` admite `null` para desasignación~~ ✅ Sprint 8 Fase B.10.fix (2026-04-30) — 104/104 E2E (103 + 1 nuevo B.10.6).
 - [x] ~~**Sprint 8 Fase B.10.fix2 — 3 EC críticos del bridge:** EC#3 reabrir ticket re-emite `conversation.assigned` → listener crea nueva task · EC#7 `createTicketForClient` y `escalateToTicket` emiten `conversation.assigned` post-creación si nace asignado · EC#8 `support-message.service` emite `conversation.unassigned` + handler nuevo en listener cancela task con flag `skipTicketRelease` para evitar ciclo · ADR-074 §"Edge cases" con 12 casos doctrinales (4 cerrados con SHA + 8 documentados sin fix)~~ ✅ Sprint 8 Fase B.10.fix2 (2026-04-30, `7107de1`) — 107/107 E2E (104 + 3 nuevos B.10.7/8/9).
-- [ ] **Sprint 8 Fase C (pendiente):** listeners `task.overdue`, `maintenance.critical` + cron `not_completed_in_time` + cron `tasks-unassigned-overdue` (ADR-072) + plantillas seed faltantes + settings nuevos. **Migrar a BullMQ con leader election** (ADR-056) — replicar patrón Sprint 9 Fase A. `ContactClientTaskListener` (ex-`WowCallCreatorListener` por ADR-073) diferido a Sprint 11 Provisioning.
+- [x] ~~**Sprint 8 Fase C:** listeners `task.overdue`, `maintenance.critical` + cron `not_completed_in_time` + cron `tasks-unassigned-overdue` (ADR-072) + plantillas seed faltantes + settings nuevos. Migrar a BullMQ con leader election (ADR-056).~~ ✅ **Cerrado 2026-05-01** — 3 colas BullMQ scheduled con cron pattern UTC, 3 services (testables sin Redis), 3 listeners delegando en `NotificationsService`, 6 plantillas seed (EC-T8-30 cerrado, guard EC-T8-17 OK), 8 settings nuevos, endpoint admin trigger manual, **21 unit tests + 5 E2E (suite full 112/112 verde sin regresión)**. `ContactClientTaskListener` (ex-`WowCallCreatorListener` por ADR-073) sigue diferido a Sprint 11 Provisioning.
 - [ ] **Sprint 8 Fase D (pendiente):** Support Inside ([ADR-061](../../10-decisions/adr-061-support-inside-tier-cuenta-ux.md))
 - [ ] **Sprint 8 Fase E (pendiente):** docs `features/tasks/admin.md` + `agent.md`
 - [ ] **Sprint 9 Fase E pendiente:** listener `audit-tasks` que invoque `AuditService.logChange(actor, 'task', before, after)` para reasignaciones/transiciones (EC-T8-44)

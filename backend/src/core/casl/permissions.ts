@@ -301,8 +301,14 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     },
     // Portal de transparencia
     { action: [Action.Read, Action.List], subject: Subject.AuditLog },
-    // Support Inside
-    { action: [Action.Read, Action.List], subject: Subject.SupportInside },
+    // Support Inside — Sprint 8 Fase D (ADR-061): el cliente puede leer
+    // su estado y gestionar (subscribe / cancel / addSlot / releaseSlot)
+    // su propia suscripción. Ownership la enforza cada handler con
+    // req.user.id (los services validan client_id antes de mutar).
+    {
+      action: [Action.Read, Action.List, Action.Update],
+      subject: Subject.SupportInside,
+    },
     // Referidos
     { action: [Action.Read, Action.List], subject: Subject.Referral },
   ],

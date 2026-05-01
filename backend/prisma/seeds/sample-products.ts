@@ -13,7 +13,12 @@ import {
  * (4 steps) tengan productos disponibles al hacer smoke local.
  *
  *  - hosting-pro          (hosting_web)    — 3 ciclos (mensual / trimestral / anual)
- *  - support-inside-basic (support_inside) — 1 ciclo (mensual)
+ *
+ * Sprint 8 Fase D + ADR-075 (2026-05-01): el producto demo
+ * `support-inside-basic` se eliminó de aquí. Los 3 planes canónicos
+ * Básico/Medium/Pro de Support Inside se seedean en
+ * `support-inside-plans.ts` como operación canónica (no demo data),
+ * con su `support_inside_config` poblada según ADR-034 §"Tres niveles".
  *
  * Salvaguardas:
  *  - Skip si NODE_ENV === 'production'.
@@ -53,19 +58,6 @@ const PRODUCTS: ReadonlyArray<SampleProduct> = [
       { billing_cycle: BillingCycle.monthly, price: '12.00' },
       { billing_cycle: BillingCycle.quarterly, price: '34.20', discount_percentage: '5.00' },
       { billing_cycle: BillingCycle.annual, price: '115.20', discount_percentage: '20.00' },
-    ],
-  },
-  {
-    slug: 'support-inside-basic',
-    name: 'Support Inside Basic',
-    type: ProductType.support_inside,
-    short_description: 'Soporte prioritario y asistencia mensual recurrente.',
-    description:
-      'Soporte con SLA de respuesta de 4h hábiles, hasta 2 incidencias mensuales y revisión proactiva de servicios contratados.',
-    is_addon: true,
-    is_global_addon: true,
-    pricing: [
-      { billing_cycle: BillingCycle.monthly, price: '19.00' },
     ],
   },
 ];

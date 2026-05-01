@@ -482,6 +482,165 @@ last_error: {{last_error}}</pre>
       },
     },
 
+    // ───────────── task.overdue (email agente — Sprint 8 Fase C) ─────────────
+    //
+    // Emitido por TasksOverdueService cuando una tarea con asignado supera
+    // `tasks.overdue_to_failure_days` desde su due_date. La tarea queda en
+    // status=`not_completed_in_time` (terminal) y el agente recibe alerta.
+    // Reglas R7+R13 + EC-T8-17 (sin triple-stash).
+    {
+      event_type: 'task.overdue',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: '⚠ Tarea vencida: {{task_title}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">⚠ Tarea vencida</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_type_label}} · Prioridad {{task_priority_label}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola {{#if recipient.first_name}}{{recipient.first_name}}{{else}}agente{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              La tarea <strong>{{task_title}}</strong> ha superado su fecha límite por más de {{days_overdue}} días y se ha marcado automáticamente como <strong>no completada a tiempo</strong>.
+            </p>
+            <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 16px; margin: 20px 0;">
+              <table style="width: 100%; font-size: 14px; color: #374151;">
+                <tr><td style="padding: 4px 0; color: #9ca3af;">Tipo:</td><td style="text-align: right; font-weight: 600;">{{task_type_label}}</td></tr>
+                <tr><td style="padding: 4px 0; color: #9ca3af;">Prioridad:</td><td style="text-align: right;">{{task_priority_label}}</td></tr>
+                <tr><td style="padding: 4px 0; color: #9ca3af;">Vencía:</td><td style="text-align: right;">{{due_date_label}}</td></tr>
+                <tr><td style="padding: 4px 0; color: #9ca3af;">Días vencida:</td><td style="text-align: right; color: #991B1B; font-weight: 600;">{{days_overdue}}</td></tr>
+              </table>
+            </div>
+            <p style="color: #6b7280; font-size: 13px; line-height: 1.6;">
+              Esta tarea ya está en estado terminal y no admite cambios. Si necesitas retomar el trabajo, crea una tarea nueva (auditabilidad ADR-041).
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{task_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver tarea</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        task_id: 'string',
+        task_title: 'string',
+        task_type: 'string',
+        task_type_label: 'string',
+        task_priority_label: 'string',
+        task_url: 'string',
+        due_date_label: 'string',
+        days_overdue: 'number',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── task.overdue (campana agente) ─────────────
+    {
+      event_type: 'task.overdue',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Tarea vencida: {{task_title}}',
+      body: 'La tarea {{task_title}} ({{task_type_label}}) superó su fecha límite por {{days_overdue}} días y pasó a estado no completada a tiempo.',
+      variables: {
+        task_title: 'string',
+        task_type_label: 'string',
+        days_overdue: 'number',
+      },
+    },
+
+    // ───────────── task.unassigned_overdue (campana superadmin — Sprint 8 Fase C + ADR-072) ─────────────
+    //
+    // Emitido por TasksUnassignedOverdueService cuando hay tareas en la cola
+    // pública que superan su SLA por tipo. Resumen pre-renderizado en el
+    // listener (`summary` string) — la plantilla queda declarativa para que
+    // el editor admin del Sprint 9.5 no tenga que iterar arrays Handlebars.
+    {
+      event_type: 'task.unassigned_overdue',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: '⚠ {{total}} tarea(s) sin asignar fuera de SLA',
+      body: 'Hay {{total}} tarea(s) en la cola pública sin asignar que superan su SLA. La más antigua lleva {{oldest_age_hours}} h. Revísalas en /admin/tasks.',
+      variables: {
+        total: 'number',
+        oldest_age_hours: 'number',
+        summary: 'string',
+      },
+    },
+
+    // ───────────── task.unassigned_overdue (email superadmin) ─────────────
+    {
+      event_type: 'task.unassigned_overdue',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: '⚠ Aelium — {{total}} tarea(s) sin asignar fuera de SLA',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 20px;">⚠ Cola pública fuera de SLA</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">{{total}} tarea(s) sin asignar</p>
+          </div>
+          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
+            <p style="color: #374151; font-size: 14px;">Las siguientes tareas llevan demasiado tiempo en la cola pública sin tomarse. La más antigua espera desde hace {{oldest_age_hours}} h.</p>
+            <pre style="background: #f9fafb; border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto; white-space: pre-wrap;">{{summary}}</pre>
+            <p style="color: #6b7280; font-size: 12px;">Reasigna desde <code>/admin/tasks?scope=unassigned</code> o investiga si la cola crece sistemáticamente (capacidad de equipo, ADR-072 §"Doctrina permanente").</p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        total: 'number',
+        oldest_age_hours: 'number',
+        summary: 'string',
+      },
+    },
+
+    // ───────────── maintenance.critical (campana superadmin — Sprint 8 Fase C) ─────────────
+    //
+    // Emitido por MaintenanceCriticalService cuando hay servicios activos con
+    // checklist_items asignados que llevan >`support.maintenance_critical_threshold_days`
+    // sin maintenance_log. Mientras Fase D (Support Inside) no esté cerrada y
+    // ningún servicio tenga `service_checklist_items`, el cron no alerta nada
+    // (degradación elegante por construcción).
+    {
+      event_type: 'maintenance.critical',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: '⚠ {{total}} servicio(s) sin mantenimiento >{{threshold_days}}d',
+      body: 'Hay {{total}} servicio(s) activo(s) con mantenimiento pendiente desde hace más de {{threshold_days}} días. Revisa el detalle en el panel admin.',
+      variables: {
+        total: 'number',
+        threshold_days: 'number',
+        summary: 'string',
+      },
+    },
+
+    // ───────────── maintenance.critical (email superadmin) ─────────────
+    {
+      event_type: 'maintenance.critical',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: '⚠ Aelium — {{total}} servicio(s) sin mantenimiento crítico',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 20px;">⚠ Mantenimiento crítico</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">{{total}} servicio(s) sin maintenance_log >{{threshold_days}}d</p>
+          </div>
+          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
+            <p style="color: #374151; font-size: 14px;">Los siguientes servicios activos con checklist contratado llevan más de {{threshold_days}} días sin un mantenimiento registrado.</p>
+            <pre style="background: #f9fafb; border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto; white-space: pre-wrap;">{{summary}}</pre>
+            <p style="color: #6b7280; font-size: 12px;">Acción recomendada: programar maintenance_management urgente para los servicios listados o revisar si el servicio sigue activo en producción.</p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        total: 'number',
+        threshold_days: 'number',
+        summary: 'string',
+      },
+    },
+
     // ───────────── system.error (campana superadmin — Sprint 9.5) ─────────────
     {
       event_type: 'system.error',

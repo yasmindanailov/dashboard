@@ -196,6 +196,7 @@ Ninguno.
 - [ ] Validar restricción `we_do_it` addon — EC-5.4 (Sprint 8)
 - [ ] Implementar Promociones y Códigos de descuento (Subjects CASL ya definidos)
 - [ ] Considerar emitir `product.created` / `product.archived` cuando partners necesiten notificaciones automáticas por catálogo nuevo
+- [ ] **[Sprint 8 Fase D — ADR-075]** `AdminProductsController` añade guard que rechaza `POST/PATCH/DELETE` sobre `type='support_inside'` con 400 salvo header interno `X-Aelium-Source: support-inside-admin` (sólo lo añade el cliente HTTP de la página dedicada `/admin/support-inside-plans`). Frontend filtra `support_inside` de `PRODUCT_TYPES_CREATABLE`. Listado renderiza filas `support_inside` en gris con badge "Tier de cuenta" + link a página dedicada. Doctrina canónica: Support Inside vive en `products` (ADR-034) pero se gestiona EXCLUSIVAMENTE desde su página dedicada (ADR-061 + ADR-075).
 
 ---
 
