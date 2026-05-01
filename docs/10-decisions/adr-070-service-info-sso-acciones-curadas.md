@@ -4,6 +4,7 @@
 > **Date:** 2026-04-29
 > **Domain:** provisioning, products, ui, cross-cutting
 > **Sprint:** N/A (decisión arquitectónica que aplica a Sprint 11 + 15A/C/D/E + 18)
+> **Materializado por:** [ADR-077](./adr-077-contrato-provisioner-plugin-v2.md) (2026-05-01) — congela la firma TypeScript exacta del contrato `ProvisionerPlugin` v2 con shapes exhaustivos + capability flags cerrados + pipeline canónico de wrappers cross-cutting. Sprint 11 Fase 11.A traslada literalmente la firma a `core/provisioning/types.ts` antes de codear el orquestador.
 
 ---
 

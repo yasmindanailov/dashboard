@@ -11,17 +11,19 @@ Orquestador del lifecycle de servicios del cliente: recibe `invoice.paid` (vía 
 ⬜ **Stub.** Sprint 11 (P2.1 backlog) lo implementa.
 
 Pendiente:
-- `ProvisioningOrchestrator` (listener `invoice.paid` + cola `provisioning-dispatch` BullMQ).
-- Interfaz `ProvisionerPlugin` extendida con `getServiceInfo` + `getSsoUrl` + `executeAction` ([ADR-070](../../10-decisions/adr-070-service-info-sso-acciones-curadas.md)).
-- Plugins iniciales triviales: `internal` y `manual`.
-- Página única cliente `/dashboard/services/[id]` con layout condicionado por `capabilities` del plugin.
-- Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras `executeAction`.
-- Audit hooks: emitir `service.action_executed`, `service.sso_opened`, `service.metrics_fetched` para que `audit` los persista.
+- **Fase 11.A — Contratos congelados** ([ADR-077](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md)): `core/provisioning/types.ts` literal del ADR + stubs `internal` y `manual` con interfaz cumplida + test contract genérico.
+- **Fase 11.B — Orquestador**: `ProvisioningOrchestrator` (listener `invoice.paid` + cola `provisioning-dispatch` BullMQ) + 3 wrappers canónicos (`getServiceInfoWithCache`, `executeActionWithCacheInvalidation`, `getSsoUrlWithAudit`) en `core/provisioning/plugin-utils.ts`.
+- **Fase 11.C — Plugins triviales**: `internal` (Support Inside) y `manual` (crea task `support_setup` en cola pública). Listener `provisioning-on-task-completed` filtrado por `capabilities.completes_via_task`.
+- **Fase 11.D — Frontend**: página única cliente `/dashboard/services/[id]` (Server Component) + admin `/admin/services` con layout condicionado por `capabilities` del plugin.
+- **Fase 11.E — Docs + retrospectiva**: `docs/features/provisioning/` + `docs/features/services/` + actualización `_events.md` + `_matrix.md`.
+
+Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras `executeAction` (gestionada por wrapper, no por plugin). Audit hooks emiten `service.action_executed`, `service.sso_opened`, `service.metrics_fetched` para que `audit` los persista.
 
 ## 3. Arquitectura → referencias canónicas
 
-- [ADR-021](../../10-decisions/adr-021-provisioners.md) — interfaz mínima `provision/deprovision/getStatus` y patrón "plugin libre dentro de la interfaz".
-- [ADR-070](../../10-decisions/adr-070-service-info-sso-acciones-curadas.md) — extensión obligatoria (vista cliente) con `getServiceInfo` + `getSsoUrl` + `executeAction` + doctrina de acciones curadas (5 criterios para añadir una nueva).
+- [ADR-021](../../10-decisions/adr-021-provisioners.md) — interfaz mínima v1 `provision/deprovision/getStatus` y patrón "plugin libre dentro de la interfaz".
+- [ADR-070](../../10-decisions/adr-070-service-info-sso-acciones-curadas.md) — decisión arquitectónica abstracta de `getServiceInfo` + `getSsoUrl` + `executeAction` + doctrina de acciones curadas (5 criterios para añadir una nueva).
+- **[ADR-077](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) — Contrato canónico `ProvisionerPlugin` v2 congelado (firma TypeScript + capability flags + shapes + pipeline canónico de wrappers + política de versionado + test contract genérico). Materializa ADR-070 a nivel de código. Sprint 11 Fase 11.A.**
 - [ADR-071](../../10-decisions/adr-071-vista-admin-federada-infraestructura.md) — extensión opcional (vista admin federada) con `listRemoteServers` + `getProviderHealthSummary` para `/admin/infrastructure`. Mismo principio "no replicar panel del proveedor"; mapping inicial: `enhance_cp` ✅, `cpanel_whm` ✅, `plesk_obsidian` ✅, `directadmin` ⚠ parcial, `docker_engine` N/A (usa tabla `servers` directa), `resellerclub`/`internal`/`manual` ❌.
 - [ADR-009](../../10-decisions/adr-009-estrategia-plugins.md) — patrón plugin general (manifest, loader, encriptación de credenciales).
 - [ADR-043 §B](../../10-decisions/adr-043-infraestructura-self-hosted.md) — `infrastructure.pickServerForProduct()` se invoca **sólo** para plugins que consumen servidores propios (hoy únicamente `docker_engine` — Sprint 15E). El resto de plugins ignoran `infrastructure`.
