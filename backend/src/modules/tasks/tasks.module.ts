@@ -29,6 +29,7 @@ import {
   MAINTENANCE_CRITICAL_QUEUE,
 } from './crons/maintenance-critical.processor';
 import { MaintenanceCriticalListener } from './listeners/maintenance-critical.listener';
+import { TasksCronsAdminController } from './crons/tasks-crons-admin.controller';
 import { PrismaModule } from '../../core/database/prisma.module';
 import { SupportModule } from '../support/support.module';
 
@@ -51,7 +52,7 @@ import { SupportModule } from '../support/support.module';
     BullModule.registerQueue({ name: TASKS_UNASSIGNED_OVERDUE_QUEUE }),
     BullModule.registerQueue({ name: MAINTENANCE_CRITICAL_QUEUE }),
   ],
-  controllers: [TasksController, TaskTagsController],
+  controllers: [TasksController, TaskTagsController, TasksCronsAdminController],
   providers: [
     TasksService,
     ChecklistCompletionService,

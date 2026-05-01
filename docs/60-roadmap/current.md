@@ -384,7 +384,7 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 
 ### 10. Cierre del sprint
 
-> Sprint 8 sigue **WIP**. **Fase B 100% cerrada** (B.1..B.10 + fix + fix2). Cola restante: Fase C automatización → Fase D Support Inside → Fase E docs.
+> Sprint 8 sigue **WIP**. **Fase B + Fase C 100% cerradas** (B.1..B.10 + fix + fix2 + C.0..C.5). Cola restante: Fase D Support Inside → Fase E docs.
 
 **Cierres registrados:**
 
@@ -404,6 +404,12 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 | 8.B.10.fix (UI: Select asignación agente cableado en ConversationSidebar admin) | 2026-04-30 | `8bffaf4` |
 | 8.B.10.fix (cancel task bridge libera ticket + feedback agente) | 2026-04-30 | `2f5e2b8` |
 | 8.B.10.fix2 (3 EC críticos: reapertura / nace asignado / desasignar libera task) | 2026-04-30 | `7107de1` |
+| 8.C.0 (settings + plantillas seed: 8 settings tasks/support + 6 plantillas seed task.overdue/unassigned_overdue/maintenance.critical email+internal con guard EC-T8-17) | 2026-05-01 | _(este sprint)_ |
+| 8.C.1 (TasksOverdueService + TasksOverdueProcessor BullMQ scheduled `0 2 * * *` + TasksOverdueListener → agente; +7 unit tests; task-labels compartido) | 2026-05-01 | _(este sprint)_ |
+| 8.C.2 (TasksUnassignedOverdueService + Processor `0 9 * * *` + listener → superadmin; resumen agregado con summary pre-renderizado, ADR-072 §4; +6 unit tests) | 2026-05-01 | _(este sprint)_ |
+| 8.C.3 (MaintenanceCriticalService + Processor `0 8 * * *` + listener → superadmin; degradación elegante mientras Fase D no introduzca service_checklist_items; +8 unit tests) | 2026-05-01 | _(este sprint)_ |
+| 8.C.4 (Endpoint admin `POST /admin/tasks/cron/:name` para smoke + E2E + recovery; triple guard JwtAuthGuard + AdminOnlyGuard + Manage.Job) | 2026-05-01 | _(este sprint)_ |
+| 8.C.5 (Test E2E `tasks-crons.spec.ts` 5/5 verde: overdue end-to-end + unassigned-overdue + maintenance-critical degradación + 400 nombre inválido + 403 cliente; suite full **112/112 verde sin regresión**) | 2026-05-01 | _(este sprint)_ |
 
 **Estado DoD final Fase B (al cierre 2026-04-30):**
 
@@ -416,32 +422,40 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 - ✅ Schema final Fase B: `tasks.reason VARCHAR(100)` · `tasks` enum `wow_call` → `contact_client` + `support_ticket` · `task_tags` + `task_tag_assignments` (m2m) · `client_notes.author` FK física · 3 migraciones limpias aplicadas
 - ✅ Endpoints Fase B: `/tasks` (CRUD) · `/tasks/:id/complete` (dual path: simple B.9 / bridge B.10) · `/tasks/:id/notes` GET+POST · `/tasks/:id/checklist` · `/tasks/:id/maintenance/log` · `/admin/task-tags` GET+POST+DELETE · `/support/conversations/:id` PATCH soporta `assigned_agent_id: null` (desasignación)
 - ✅ Listeners Fase B: `tasks-email` · `MaintenanceCompletedListener` · `TaskCompletedListener` (B.9, dispara email cliente con flag `__skipClientNotification` para bridge) · `SupportTicketTaskCreatorListener` (dual handler: `conversation.assigned` + `conversation.unassigned`)
-- ⬜ Pendiente: Fase C automatización (crons + WOW listener) → Fase D Support Inside (ADR-061) → Fase E docs canónicas
+- ✅ **Fase C cerrada 2026-05-01** (ver bloque dedicado a continuación).
+
+**Estado DoD final Fase C (al cierre 2026-05-01):**
+
+- ✅ Backend typecheck + lint + build + **107/107 unit tests** (86 previos + 21 nuevos: 7 TasksOverdueService + 6 TasksUnassignedOverdueService + 8 MaintenanceCriticalService).
+- ✅ E2E suite full **112/112 verde** sin regresión (107 previos + 5 nuevos en `tasks-crons.spec.ts`: cron `overdue` end-to-end con email + notification, cron `unassigned-overdue` agregado al superadmin con email, cron `maintenance-critical` degradación elegante total=0, endpoint admin rechaza nombres inválidos con 400, cliente recibe 403 defense in depth).
+- ✅ Seed aplicado: **39 settings** (era 31, +8 nuevos: `tasks.overdue_to_failure_days`, `tasks.unassigned_sla_hours.*` × 6, `support.maintenance_critical_threshold_days`) + **23 notification templates** (era 17, +6 nuevos: `task.overdue` × 2 canales + `task.unassigned_overdue` × 2 + `maintenance.critical` × 2). Guard EC-T8-17 sigue verde (sin triple-stash).
+- ✅ **3 colas BullMQ scheduled** registradas: `tasks-overdue` (`0 2 * * *` UTC) · `tasks-unassigned-overdue` (`0 9 * * *` UTC) · `maintenance-critical` (`0 8 * * *` UTC). Cada una con leader election natural via Redis (ADR-063 + ADR-064), DLQ + RetryService registrados, processor delegando en service testeable.
+- ✅ **3 listeners** consumen los nuevos eventos vía `NotificationsService` (ADR-042/065): `TasksOverdueListener` (al agente), `TasksUnassignedOverdueListener` y `MaintenanceCriticalListener` (al superadmin con `dispatchToSuperadmins` + summary pre-renderizado para no iterar arrays Handlebars en plantillas editables).
+- ✅ Endpoint admin `POST /api/v1/admin/tasks/cron/:name` (`overdue|unassigned-overdue|maintenance-critical`) con triple guard `JwtAuthGuard + AdminOnlyGuard + Manage.Job` (sólo superadmin). Habilita smoke testing manual, E2E, y recovery operativo cuando el cron real tuvo un incidente.
+- ✅ Doc canónica completa: `tasks/contract.md` (§2/§5/§7/§11/§13/§17), `_events.md` (3 eventos task/maintenance + 3 listeners + resumen ejecutivo), `jobs-reference.md` (3 colas BullMQ nuevas + tabla de eventos emitidos por crons), `settings-reference.md` (sección `tasks.*` nueva + `support.maintenance_critical_threshold_days` activado + nota de distinción frente a `notifications.maintenance_critical_threshold_days`).
+- ✅ Decisiones técnicas documentadas:
+  - **Resumen agregado** (no 1 emit por elemento) para `task.unassigned_overdue` y `maintenance.critical` — destinatario es 1 humano (superadmin), N emails individuales serían ruido. `summary` se pre-renderiza en el service (truncado a 20 entradas + sufijo "y N más") para mantener plantillas declarativas y editables desde Sprint 9.5.
+  - **`MaintenanceCriticalService` filtra por `service_checklist_items: { some: {} }`** como proxy canónico de "mantenimiento contratado" hasta que Fase D introduzca `support_inside_subscriptions`. Mientras Fase D no esté cerrada, el cron NO alerta nada — degradación elegante por construcción (test E2E lo verifica explícitamente).
+  - **Compare-and-swap por status** en `TasksOverdueService` (UPDATE filtra `status: { in: ['pending', 'in_progress'] }`) para evitar marcar `not_completed_in_time` a una tarea cerrada por otra ejecución concurrente del cron.
 
 ---
 
 ### ✍ Próxima sesión — orden recomendado
 
-> **Fase B 100% cerrada el 2026-04-30** (B.1..B.10 + fix + fix2). Suite 107/107 E2E + 86/86 unit verde. La cola activa retoma desde Fase C automatización. Mensaje sugerido para arrancar la sesión nueva con contexto fresco: *"Lee `docs/90-meta/development-playbook.md` y `docs/60-roadmap/current.md` §Sprint 8. Vamos a abordar Sprint 8 Fase C automatización. Procede con rigor."*
+> **Fase C 100% cerrada el 2026-05-01** (C.0..C.5: settings + plantillas + 3 services + 3 processors + 3 listeners + endpoint admin + tests). Suite 112/112 E2E + 107/107 unit verde. La cola activa retoma desde Fase D Support Inside (ADR-061). Mensaje sugerido para arrancar la sesión nueva con contexto fresco: *"Lee `docs/90-meta/development-playbook.md` y `docs/60-roadmap/current.md` §Sprint 8. Vamos a abordar Sprint 8 Fase D Support Inside (ADR-061). Procede con rigor."*
 
 1. ~~**EC-T8-12..17 + B.7..B.10 + fix2 EC#3/#7/#8**~~ ✅ cerrado 2026-04-29/30 — ver §10 cierres registrados.
-2. **Sprint 8 Fase C** — automatización completa (próximo paso, ~2-3 sesiones):
-   - **`TasksOverdueProcessor`** (cron diario `0 2 * * *`): tareas con `due_date < now() - settings.tasks.overdue_to_failure_days` → status=`not_completed_in_time` + emite `task.overdue` (notifica al agente).
-   - **`TasksUnassignedOverdueCron`** (ADR-072, cron diario `0 9 * * *`): tareas en cola pública (`assigned_to=null`) que superan SLA por tipo → emite `task.unassigned_overdue` (alerta superadmin).
-   - **`MaintenanceCriticalCron`** (cron diario): servicios sin `maintenance_log` en N meses → emite `maintenance.critical`.
-   - **`ContactClientTaskListener`** (post Sprint 11 Provisioning) `@OnEvent('service.provisioned')`: crea task `type=contact_client` con tag `bienvenida` (renombrado desde `WowCallCreatorListener` por ADR-073). **Diferido** hasta Sprint 11 — Fase C no lo implementa, solo deja stub documentado.
-   - **Plantillas seed faltantes**: `task.overdue`, `maintenance.critical`, `task.unassigned_overdue` en `notification-templates.ts` con guard EC-T8-17 (sin `{{{var}}}`).
-   - **Settings nuevos** (seed en `settings.ts`): `tasks.overdue_to_failure_days` (default 7) · `support.maintenance_critical_threshold_days` (default 60) · `tasks.unassigned_sla_hours.<type>` (5 entradas: contact_client=24, maintenance=12, maintenance_management=12, custom_work=48, support_setup=4 — de ADR-072) + fallback `default=24`.
-   - **Tests críticos**: unit por cron (clock injection con `jest.useFakeTimers`) + E2E que cubra al menos `task.overdue` end-to-end (crear tarea con due_date pasada → cron detecta → status cambia → email llega).
-3. **Sprint 8 Fase D — Support Inside** ([ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md)) — ~1.5 sesiones: schema `support_inside_*` + service + 6 endpoints cliente + 2 admin + páginas dedicadas `/dashboard/support-inside` y `/admin/support-inside-plans` + cancelación cascada + `MaintenanceMonthlyCron` mensual + seed 3 planes Básico/Medium/Pro.
+2. ~~**Sprint 8 Fase C** — automatización completa~~ ✅ cerrado 2026-05-01 — 3 colas BullMQ scheduled (`tasks-overdue`, `tasks-unassigned-overdue` ADR-072, `maintenance-critical`) + 3 listeners → `NotificationsService` + 6 plantillas + 8 settings + endpoint admin trigger manual + 21 unit tests + 5 E2E (suite full 112/112). `ContactClientTaskListener` sigue diferido a Sprint 11.
+3. **Sprint 8 Fase D — Support Inside** ([ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md)) — ~1.5 sesiones: schema `support_inside_*` + service + 6 endpoints cliente + 2 admin + páginas dedicadas `/dashboard/support-inside` y `/admin/support-inside-plans` + cancelación cascada + `MaintenanceMonthlyCron` mensual (replicar patrón BullMQ scheduled de Fase C) + seed 3 planes Básico/Medium/Pro.
 4. **Sprint 8 Fase E** — docs canónicas: `docs/features/tasks/admin.md` + `agent.md` + `docs/features/support-inside/admin.md` + `client.md` + retrospectiva en `completed/sprint-8-tasks-support-inside.md`.
 
-#### Atención al arrancar Fase C
+#### Atención al arrancar Fase D
 
-- **Verificar primero ADR-056** (`docs/10-decisions/adr-056-estrategia-escalabilidad.md`) — la doctrina canónica dice que **los crons nuevos deben ir a BullMQ con leader election**, no `@nestjs/schedule` in-process. Sprint 9 Fase A/C ya tiene la infra BullMQ + DLQ (`OutboxWorker` migrado). Replicar ese patrón para los 3 crons de Fase C.
-- **Reglas R7 + R13** aplican: cualquier emisión a notifications usa `NotificationsService.dispatchToUser` (no email directo); errores no relanzan, log + DLQ.
+- **Reusar el patrón BullMQ scheduled de Fase C** — `MaintenanceMonthlyCron` debe replicar `TasksOverdueProcessor` (service testeable + processor delegando + cron pattern UTC + DLQ register + endpoint admin para smoke). NO usar `@nestjs/schedule` in-process (ADR-056 §13.30).
+- **Reglas R7 + R13** aplican siempre: notificaciones via `NotificationsService.dispatchToUser`/`dispatchToSuperadmins`; listeners no relanzan, log + DLQ.
 - **EC-T8-17 sigue activo**: cualquier plantilla nueva pasa por `notification-templates.security.spec.ts` guard.
-- **No abrir Fase D/E hasta Fase C cerrada** — regla "no abrir lo nuevo con WIP abierto".
+- **`MaintenanceCriticalService` empezará a alertar automáticamente** una vez Fase D copie checklist semilla a `service_checklist_items` por cada slot Support Inside activo (degradación elegante implementada en Fase C).
+- **Reglas operativas**: una sola Fase abierta a la vez (no abrir Fase E hasta Fase D cerrada).
 
 ---
 

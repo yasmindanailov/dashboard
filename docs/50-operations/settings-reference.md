@@ -3,8 +3,8 @@
 > **Catálogo canónico de TODOS los settings configurables.**
 > Si vas a leer un setting → consulta este archivo para usar la `key` exacta. Si vas a añadir un setting → añádelo aquí en el mismo PR.
 
-> **Última auditoría:** 2026-04-28 — cierre Sprint 9.5 (4 settings `notifications.*` activos + cron `cleanupReadNotifications` consumidor real).
-> **Settings totales:** 31 implementados (seeded) + 5 documentados pendientes de implementar.
+> **Última auditoría:** 2026-05-01 — cierre Sprint 8 Fase C (8 settings nuevos: 7 `tasks.*` ADR-072 + 1 `support.maintenance_critical_threshold_days`, todos con consumidor real en los 3 crons BullMQ nuevos).
+> **Settings totales:** 39 implementados (seeded) + 5 documentados pendientes de implementar.
 > **Tabla:** `Setting` con clave compuesta `(category, key)`. Valor `Json` flexible. Cache Redis 1min con invalidación en escritura ([ADR-044](../10-decisions/adr-044-settings-extensos.md)).
 
 ---
@@ -13,11 +13,11 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Settings seedados | 31 (Sprint 11.5: 2 storage.*; Sprint 9 Fase A: 3 jobs.*; Sprint 9 Fase E: 1 audit.*; Sprint 9.5: 4 notifications.*) |
-| Settings consumidos activamente | 21 (68%) |
-| Settings huérfanos (feature futura) | 6 (19%) |
+| Settings seedados | 39 (Sprint 11.5: 2 storage.*; Sprint 9 Fase A: 3 jobs.*; Sprint 9 Fase E: 1 audit.*; Sprint 9.5: 4 notifications.*; Sprint 8 Fase C: 1 support.* + 7 tasks.*) |
+| Settings consumidos activamente | 29 (74%) |
+| Settings huérfanos (feature futura) | 6 (15%) |
 | Settings documentados sin seed | 5 (encriptación pendiente, partner, IA, etc.) |
-| Secciones | 10 (auth, billing, general, support, referrals, partner, notifications, infra, storage, jobs, audit, ai) |
+| Secciones | 11 (auth, billing, general, support, referrals, partner, notifications, tasks, infra, storage, jobs, audit, ai) |
 
 **Indicadores:**
 - ✅ Setting implementado y consumido
@@ -103,7 +103,7 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 | `support.guest_session_ttl_days` | number | 30 | ✅ | `support-cleanup.worker.ts:42` | [ADR-037](../10-decisions/adr-037-arquitectura-dual-chat-tickets.md) · contract.md (sin seed explícito) |
 | `support.auto_close_days` | number | 7 | 🟡 | (feature futura — auto-cerrar conversaciones inactivas) | seed.ts:65 |
 | `support.ai_filter_enabled` | boolean | true | 🟡 | (feature futura — [ADR-057](../10-decisions/adr-057-agentes-ia.md) Sprint 15) | seed.ts:66 |
-<!-- `support.maintenance_critical_threshold_days` reasignado a `notifications.maintenance_critical_threshold_days` desde Sprint 9.5 — ver §notifications.* abajo. La feature consumidora (cron alerta mantenimiento crítico) llega con Sprint 8 Fase C. -->
+| `support.maintenance_critical_threshold_days` | number | 60 | ✅ | `MaintenanceCriticalService.run()` (Sprint 8 Fase C) — services activos sin `maintenance_log` >N días → emite `maintenance.critical` al superadmin | seed.ts (Sprint 8 Fase C) |
 
 ### 🤝 referrals.* (sistema de referidos clientes normales)
 
@@ -134,7 +134,19 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 | `notifications.retention_days` | number | 90 | ✅ | `notifications-retention.cron.ts` (`cleanupReadNotifications` `EVERY_DAY_AT_2AM` UTC) — borra `internal` con `read_at < now() - N days` | [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) · [ADR-060](../10-decisions/adr-060-decisiones-pre-schema.md) · seed.ts |
 | `notifications.unread_max_in_dropdown` | number | 50 | ✅ | `NotificationsService.findUnreadForUser()` — limita el `take` del dropdown del Topbar | ADR-042 · seed.ts |
 | `notifications.email_enabled_globally` | boolean | true | 🟡 seedeado | (kill switch global futuro de `EmailChannel.isAvailableFor()` — hoy seedeado pero no leído por el canal; uso pendiente para entornos CI/staging sin spam SMTP) | ADR-065 · seed.ts |
-| `notifications.maintenance_critical_threshold_days` | number | 7 | 🟡 seedeado | (consumidor real llegará con Sprint 8 Fase C — cron alerta mantenimiento crítico) | ADR-042 + ADR-041 · seed.ts |
+| `notifications.maintenance_critical_threshold_days` | number | 7 | 🟡 seedeado, sin consumidor | Reservado para lead time intra-mes pre-cierre del mantenimiento mensual cuando llegue Fase D. **Distinto de `support.maintenance_critical_threshold_days = 60`** (Sprint 8 Fase C, alerta de servicios crónicos sin maintenance_log) | ADR-042 + ADR-041 · seed.ts |
+
+### 📋 tasks.* (Sprint 8 Fase C — ADR-072)
+
+| Key | Tipo | Default | Estado | Consumidor | Origen |
+|-----|------|---------|--------|------------|--------|
+| `tasks.overdue_to_failure_days` | number | 7 | ✅ | `TasksOverdueService.run()` (cron BullMQ `tasks-overdue` `0 2 * * *` UTC) — tareas con asignado y `due_date < now()-N` pasan a `not_completed_in_time` y emiten `task.overdue` al agente | Sprint 8 Fase C · seed.ts |
+| `tasks.unassigned_sla_hours.contact_client` | number | 24 | ✅ | `TasksUnassignedOverdueService.run()` (cron BullMQ `tasks-unassigned-overdue` `0 9 * * *` UTC) — SLA por tipo de tarea en cola pública | [ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md) §4 · seed.ts |
+| `tasks.unassigned_sla_hours.maintenance` | number | 12 | ✅ | Igual | ADR-072 · seed.ts |
+| `tasks.unassigned_sla_hours.maintenance_management` | number | 12 | ✅ | Igual | ADR-072 · seed.ts |
+| `tasks.unassigned_sla_hours.custom_work` | number | 48 | ✅ | Igual | ADR-072 · seed.ts |
+| `tasks.unassigned_sla_hours.support_setup` | number | 4 | ✅ | Igual (alta prioridad: tickets de soporte recién escalados) | ADR-072 · seed.ts |
+| `tasks.unassigned_sla_hours.default` | number | 24 | ✅ | Fallback global cuando un tipo no tiene entrada específica | ADR-072 · seed.ts |
 
 ### 🛠️ infra.* (infraestructura)
 

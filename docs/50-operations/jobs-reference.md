@@ -3,9 +3,9 @@
 > **Catálogo canónico de TODOS los crons y jobs BullMQ.**
 > Si vas a programar trabajo asíncrono → consulta este archivo para no duplicar. Si vas a añadir uno nuevo → añádelo aquí en el mismo PR.
 
-> **Última auditoría:** 2026-04-28 — cierre Sprint 9.5 (cron `cleanupReadNotifications` activo + Monitoring §F.10 cerrado).
-> **Crons in-process activos:** 9 (`@nestjs/schedule`). El Outbox dispatcher abandonó `@Interval` en Fase C — ahora es BullMQ scheduled. Fase E añade `cleanupOldAuditLogs`. Sprint 9.5 añade `cleanupReadNotifications` (única DELETE permitida sobre `notifications` canal `internal`).
-> **Jobs BullMQ implementados:** **3 — `pdf-generation` (Fase B), `outbox-dispatch` (Fase C), `notifications-dispatch` (Fase D)** ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) + [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md)).
+> **Última auditoría:** 2026-05-01 — cierre Sprint 8 Fase C (3 crons nuevos BullMQ scheduled: `tasks-overdue`, `tasks-unassigned-overdue`, `maintenance-critical`).
+> **Crons in-process activos:** 9 (`@nestjs/schedule`). El Outbox dispatcher abandonó `@Interval` en Sprint 9 Fase C — ahora es BullMQ scheduled. Sprint 9 Fase E añade `cleanupOldAuditLogs`. Sprint 9.5 añade `cleanupReadNotifications` (única DELETE permitida sobre `notifications` canal `internal`).
+> **Jobs BullMQ implementados:** **6 — `pdf-generation` (Sprint 9 Fase B), `outbox-dispatch` (Sprint 9 Fase C), `notifications-dispatch` (Sprint 9 Fase D), `tasks-overdue` (Sprint 8 Fase C), `tasks-unassigned-overdue` (Sprint 8 Fase C / ADR-072), `maintenance-critical` (Sprint 8 Fase C)** ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) + [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md) + [ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md)).
 > **Crons aspiracionales:** 1 documentado en ADRs sin implementación todavía (numeración year+1).
 
 ---
@@ -15,7 +15,7 @@
 | Métrica | Valor |
 |---------|-------|
 | Crons `@Cron` activos | 9 (8 billing/support/audit + 1 notifications retention Sprint 9.5) |
-| Jobs BullMQ activos | **3** (`pdf-generation` Fase B, `outbox-dispatch` Fase C, `notifications-dispatch` Fase D) |
+| Jobs BullMQ activos | **6** (`pdf-generation` Sprint 9 Fase B · `outbox-dispatch` Sprint 9 Fase C · `notifications-dispatch` Sprint 9 Fase D · `tasks-overdue` Sprint 8 Fase C · `tasks-unassigned-overdue` Sprint 8 Fase C / ADR-072 · `maintenance-critical` Sprint 8 Fase C) |
 | DLQ implementada | ✅ ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) — `DlqService` + tabla `failed_jobs` + emit `dlq.job_failed`) |
 | Outbox dispatcher BullMQ scheduled | ✅ ([ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) — backoff exponencial 30s→480s + emit `outbox.event_failed` + leader election natural) |
 | Notifications full multicanal | ✅ ([ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md) — plantillas editables + Email + InApp + alertas operativas a superadmins) |
@@ -139,6 +139,45 @@ markAsPaid / sendToPending  →  pdfQueue.add('invoice-pdf', { invoice_id }, { j
 | Tests | unit `notification-template.service.spec.ts` (6/6 verde — render Handlebars + helpers `lt`/`gt`/`eq` + escape HTML por canal + fallback locale) + E2E suite full (20/20) |
 | Cierra deuda | HTML inline en `BillingEmailListener` y `TasksEmailListener` (movido a tabla); huérfanos `outbox.event_failed` y `dlq.job_failed` (consumidos por `notifications-outbox.listener` y `notifications-dlq.listener`) |
 
+### Cola `tasks-overdue` (Sprint 8 Fase C + [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md))
+
+| Item | Valor |
+|------|-------|
+| Nombre | `tasks-overdue` |
+| Job principal | `tasks-overdue-tick` (sin payload — repeat scheduled cron `0 2 * * *` UTC) |
+| Productor | `TasksOverdueProcessor.onModuleInit()` registra `queue.upsertJobScheduler('tasks-overdue-tick', { pattern: '0 2 * * *' })` (idempotente por id) |
+| Procesador | `TasksOverdueProcessor.process()` → invoca `TasksOverdueService.run()` |
+| Lógica | Selecciona tareas con `assigned_to NOT NULL`, `status ∈ {pending, in_progress}`, `due_date < now() - tasks.overdue_to_failure_days`. Compare-and-swap a `not_completed_in_time` + emit `task.overdue` (consumido por `TasksOverdueListener` → email + campana al agente). ADR-072 §6: las tareas de la cola pública NO entran en este cron. |
+| Manual trigger | `POST /api/v1/admin/tasks/cron/overdue` (JwtAuthGuard + AdminOnlyGuard + `Manage.Job` — sólo superadmin). |
+| DLQ | ✅ — `DlqService.register('tasks-overdue')` |
+| Tests | unit `tasks-overdue.service.spec.ts` (7/7 verde — cutoff/filtros/CAS/labels), E2E `tasks-crons.spec.ts:163` (1/1 verde — flujo end-to-end con email + notification) |
+
+### Cola `tasks-unassigned-overdue` (Sprint 8 Fase C + [ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md))
+
+| Item | Valor |
+|------|-------|
+| Nombre | `tasks-unassigned-overdue` |
+| Job principal | `tasks-unassigned-overdue-tick` (sin payload — repeat scheduled cron `0 9 * * *` UTC, inicio jornada laboral) |
+| Productor | `TasksUnassignedOverdueProcessor.onModuleInit()` |
+| Procesador | `TasksUnassignedOverdueProcessor.process()` → invoca `TasksUnassignedOverdueService.run()` |
+| Lógica | Para cada tipo en `SLA_TYPES` lee `tasks.unassigned_sla_hours.<type>` (fallback `tasks.unassigned_sla_hours.default = 24`). Selecciona tareas con `assigned_to=null` + `status ∈ {pending, in_progress}` + `created_at + sla < now()`. Si total ≥ 1, emite **resumen agregado** `task.unassigned_overdue` con `summary` pre-renderizado (consumido por `TasksUnassignedOverdueListener` → email + campana al superadmin). |
+| Manual trigger | `POST /api/v1/admin/tasks/cron/unassigned-overdue` |
+| DLQ | ✅ |
+| Tests | unit `tasks-unassigned-overdue.service.spec.ts` (6/6 verde — SLA por tipo, filtros, summary truncado a 20 entradas), E2E `tasks-crons.spec.ts:250` |
+
+### Cola `maintenance-critical` (Sprint 8 Fase C)
+
+| Item | Valor |
+|------|-------|
+| Nombre | `maintenance-critical` |
+| Job principal | `maintenance-critical-tick` (sin payload — repeat scheduled cron `0 8 * * *` UTC, antes que `tasks-unassigned-overdue` para dar contexto operativo completo al superadmin) |
+| Productor | `MaintenanceCriticalProcessor.onModuleInit()` |
+| Procesador | `MaintenanceCriticalProcessor.process()` → invoca `MaintenanceCriticalService.run()` |
+| Lógica | Selecciona services activos con `checklist_items: { some: {} }` (proxy de "mantenimiento contratado"). Marca crítico al servicio sin `maintenance_log` reciente o cuyo último log es anterior a `support.maintenance_critical_threshold_days` (default 60). Emite resumen agregado `maintenance.critical` con `summary` pre-renderizado (consumido por `MaintenanceCriticalListener` → email + campana al superadmin). **Mientras Fase D (Support Inside) no esté cerrada y ningún servicio tenga `service_checklist_items`, el cron NO alerta nada — degradación elegante por construcción.** |
+| Manual trigger | `POST /api/v1/admin/tasks/cron/maintenance-critical` |
+| DLQ | ✅ |
+| Tests | unit `maintenance-critical.service.spec.ts` (8/8 verde — threshold, filtros, NUNCA + cutoff, summary truncado), E2E `tasks-crons.spec.ts:322` (verifica degradación elegante: total=0 sin checklist) |
+
 ### Defaults globales (`JobsModule` — [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md))
 
 | Parámetro | Valor | Override por cola |
@@ -173,8 +212,8 @@ markAsPaid / sendToPending  →  pdfQueue.add('invoice-pdf', { invoice_id }, { j
 | **Cron mensual de comisiones partner** | [ADR-051](../10-decisions/adr-051-partner-comisiones-liquidaciones.md) | 1 del mes a las 03:00 UTC: agrupar `partner_commissions` accrued del mes pasado, generar `partner_payouts`, transferir SEPA / Stripe Connect | Fase 2 partner — **debe usar BullMQ + Outbox** |
 | **Cron mensual de créditos referidos** | [ADR-054](../10-decisions/adr-054-sistema-referidos-clientes.md) | 1 del mes a las 04:00 UTC: por cada referral activo con servicios, generar `referral_credit` accrued | Sprint dedicado tras Fase 2 |
 | **Cron expiración de créditos referidos** | [ADR-054](../10-decisions/adr-054-sistema-referidos-clientes.md) | Diario: marcar como `expired` los `referral_credits` con `accrued_at + credit_expiry_months < now()` | Sprint dedicado |
-| **Cron alertas de mantenimiento crítico** | [ADR-041](../10-decisions/adr-041-sistema-tareas.md), [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) | Diario: tareas `maintenance` cuyo `due_date - now < support.maintenance_critical_threshold_days` → notificación al agente + admin | Cierre Sprint 8 + Sprint 11 |
-| **Cron creación tareas mensuales de mantenimiento** | [ADR-041](../10-decisions/adr-041-sistema-tareas.md) | Mensual en fecha de aniversario: por cada slot activo, crear tarea `maintenance` o `maintenance_mgmt` | Cierre Sprint 8 |
+<!-- Cron alertas de mantenimiento crítico — implementado Sprint 8 Fase C como cola BullMQ `maintenance-critical`. Ver §"Jobs BullMQ activos" arriba. -->
+| **Cron creación tareas mensuales de mantenimiento** | [ADR-041](../10-decisions/adr-041-sistema-tareas.md) | Mensual en fecha de aniversario: por cada slot activo, crear tarea `maintenance` o `maintenance_management` | Sprint 8 Fase D (Support Inside) |
 <!-- Cola `pdf-generation` ya implementada (Sprint 9 Fase B 2026-04-27) — ver §"Jobs BullMQ activos" arriba -->
 
 ---
@@ -189,6 +228,9 @@ markAsPaid / sendToPending  →  pdfQueue.add('invoice-pdf', { invoice_id }, { j
 | `service.suspended` | `autoSuspendServices` | _(huérfano — espera provisioning)_ | ❌ |
 | `service.cancelled` | `autoCancelServices` | _(huérfano — espera provisioning)_ | ❌ |
 | `service.resumed` | `checkPauseExpiration` | _(huérfano — espera provisioning)_ | ❌ |
+| `task.overdue` | `tasks-overdue` (BullMQ) | `tasks-overdue.listener` → email + campana al agente | ❌ — bajo P-DEPLOY.4 (ADR-069) |
+| `task.unassigned_overdue` | `tasks-unassigned-overdue` (BullMQ) | `tasks-unassigned-overdue.listener` → email + campana superadmin | ❌ — operativo, no de negocio |
+| `maintenance.critical` | `maintenance-critical` (BullMQ) | `maintenance-critical.listener` → email + campana superadmin | ❌ — operativo, no de negocio |
 
 **Riesgo R8:** los 4 eventos `invoice.*` salen de un cron — si el proceso muere entre commit DB y `emit`, el cliente no se entera de su factura. Por eso `invoice.*` es el primer candidato para Outbox.
 
