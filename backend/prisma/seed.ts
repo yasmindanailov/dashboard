@@ -12,6 +12,7 @@ import { seedSampleInvoices } from './seeds/sample-invoices';
 import { seedSampleSupport } from './seeds/sample-support';
 import { seedNotificationTemplates } from './seeds/notification-templates';
 import { seedSampleTaskTags } from './seeds/sample-task-tags';
+import { seedSupportInsidePlans } from './seeds/support-inside-plans';
 
 /**
  * Orquestador del seed de la base de datos — Sprint 9.6 Fase F.0
@@ -54,6 +55,11 @@ async function main() {
     // Sprint 8 Fase B.7 (ADR-073) — catálogo operativo, no datos demo:
     // se siembra siempre (idempotente vía slug).
     await seedSampleTaskTags(prisma);
+    // Sprint 8 Fase D (ADR-034 + ADR-061 + ADR-075) — los 3 planes
+    // canónicos Support Inside. Operación canónica de la empresa, no
+    // demo data: se siembra SIEMPRE (incluso en producción) con upsert
+    // idempotente por slug.
+    await seedSupportInsidePlans(prisma);
     await seedTestAccounts(prisma);
     await seedSampleClients(prisma);
     await seedSampleProducts(prisma);

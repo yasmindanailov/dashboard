@@ -3,9 +3,9 @@
 > **Catálogo canónico de TODOS los crons y jobs BullMQ.**
 > Si vas a programar trabajo asíncrono → consulta este archivo para no duplicar. Si vas a añadir uno nuevo → añádelo aquí en el mismo PR.
 
-> **Última auditoría:** 2026-05-01 — cierre Sprint 8 Fase C (3 crons nuevos BullMQ scheduled: `tasks-overdue`, `tasks-unassigned-overdue`, `maintenance-critical`).
+> **Última auditoría:** 2026-05-01 — cierre Sprint 8 Fase D backend (cola nueva BullMQ scheduled: `maintenance-monthly` para crear tasks de mantenimiento por slot Support Inside activo).
 > **Crons in-process activos:** 9 (`@nestjs/schedule`). El Outbox dispatcher abandonó `@Interval` en Sprint 9 Fase C — ahora es BullMQ scheduled. Sprint 9 Fase E añade `cleanupOldAuditLogs`. Sprint 9.5 añade `cleanupReadNotifications` (única DELETE permitida sobre `notifications` canal `internal`).
-> **Jobs BullMQ implementados:** **6 — `pdf-generation` (Sprint 9 Fase B), `outbox-dispatch` (Sprint 9 Fase C), `notifications-dispatch` (Sprint 9 Fase D), `tasks-overdue` (Sprint 8 Fase C), `tasks-unassigned-overdue` (Sprint 8 Fase C / ADR-072), `maintenance-critical` (Sprint 8 Fase C)** ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) + [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md) + [ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md)).
+> **Jobs BullMQ implementados:** **7 — `pdf-generation` (Sprint 9 Fase B), `outbox-dispatch` (Sprint 9 Fase C), `notifications-dispatch` (Sprint 9 Fase D), `tasks-overdue` (Sprint 8 Fase C), `tasks-unassigned-overdue` (Sprint 8 Fase C / ADR-072), `maintenance-critical` (Sprint 8 Fase C), `maintenance-monthly` (Sprint 8 Fase D / ADR-034 + ADR-061)** ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) + [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md) + [ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md) + [ADR-034](../10-decisions/adr-034-support-inside-modelo.md)).
 > **Crons aspiracionales:** 1 documentado en ADRs sin implementación todavía (numeración year+1).
 
 ---
@@ -15,7 +15,7 @@
 | Métrica | Valor |
 |---------|-------|
 | Crons `@Cron` activos | 9 (8 billing/support/audit + 1 notifications retention Sprint 9.5) |
-| Jobs BullMQ activos | **6** (`pdf-generation` Sprint 9 Fase B · `outbox-dispatch` Sprint 9 Fase C · `notifications-dispatch` Sprint 9 Fase D · `tasks-overdue` Sprint 8 Fase C · `tasks-unassigned-overdue` Sprint 8 Fase C / ADR-072 · `maintenance-critical` Sprint 8 Fase C) |
+| Jobs BullMQ activos | **7** (`pdf-generation` Sprint 9 Fase B · `outbox-dispatch` Sprint 9 Fase C · `notifications-dispatch` Sprint 9 Fase D · `tasks-overdue` Sprint 8 Fase C · `tasks-unassigned-overdue` Sprint 8 Fase C / ADR-072 · `maintenance-critical` Sprint 8 Fase C · `maintenance-monthly` Sprint 8 Fase D / ADR-034) |
 | DLQ implementada | ✅ ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) — `DlqService` + tabla `failed_jobs` + emit `dlq.job_failed`) |
 | Outbox dispatcher BullMQ scheduled | ✅ ([ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) — backoff exponencial 30s→480s + emit `outbox.event_failed` + leader election natural) |
 | Notifications full multicanal | ✅ ([ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md) — plantillas editables + Email + InApp + alertas operativas a superadmins) |
@@ -178,6 +178,19 @@ markAsPaid / sendToPending  →  pdfQueue.add('invoice-pdf', { invoice_id }, { j
 | DLQ | ✅ |
 | Tests | unit `maintenance-critical.service.spec.ts` (8/8 verde — threshold, filtros, NUNCA + cutoff, summary truncado), E2E `tasks-crons.spec.ts:322` (verifica degradación elegante: total=0 sin checklist) |
 
+### Cola `maintenance-monthly` (Sprint 8 Fase D + [ADR-034](../10-decisions/adr-034-support-inside-modelo.md) + [ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md))
+
+| Item | Valor |
+|------|-------|
+| Nombre | `maintenance-monthly` |
+| Job principal | `maintenance-monthly-tick` (sin payload — repeat scheduled cron `0 6 1 * *` UTC, día 1 de cada mes a las 06:00 antes de la jornada laboral europea) |
+| Productor | `MaintenanceMonthlyProcessor.onModuleInit()` registra el job scheduler vía `upsertJobScheduler` (idempotente por id) |
+| Procesador | `MaintenanceMonthlyProcessor.process()` → invoca `MaintenanceMonthlyService.run()` |
+| Lógica | Por cada `support_inside_slot` activo (`released_at IS NULL`) en una `support_inside_subscription` con status `active`, crea una `Task(type=maintenance_management)` para el servicio asociado. **Idempotencia obligatoria** por UNIQUE compuesto `(service_id, billing_month, type)` en `tasks` (Sprint 8 Fase A): captura P2002 y suma a `skipped_idempotent`. **Cola pública (ADR-072)**: `assigned_to=null` — el agente que tome la tarea desde `/admin/tasks?scope=unassigned` se la auto-asigna (no se asigna arbitrariamente). |
+| Manual trigger | `POST /api/v1/admin/support-inside/cron/maintenance-monthly` (JwtAuthGuard + AdminOnlyGuard + `Manage.Job` — sólo superadmin). |
+| DLQ | ✅ — `DlqService.register('maintenance-monthly')` |
+| Tests | unit `maintenance-monthly.service.spec.ts` (7/7 verde — billing_month canónico, filtros, idempotencia P2002, retry on otros errores), E2E `support-inside.spec.ts:195` (1/1 verde — flujo end-to-end subscribe + slot + cron + idempotencia) |
+
 ### Defaults globales (`JobsModule` — [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md))
 
 | Parámetro | Valor | Override por cola |
@@ -213,7 +226,8 @@ markAsPaid / sendToPending  →  pdfQueue.add('invoice-pdf', { invoice_id }, { j
 | **Cron mensual de créditos referidos** | [ADR-054](../10-decisions/adr-054-sistema-referidos-clientes.md) | 1 del mes a las 04:00 UTC: por cada referral activo con servicios, generar `referral_credit` accrued | Sprint dedicado tras Fase 2 |
 | **Cron expiración de créditos referidos** | [ADR-054](../10-decisions/adr-054-sistema-referidos-clientes.md) | Diario: marcar como `expired` los `referral_credits` con `accrued_at + credit_expiry_months < now()` | Sprint dedicado |
 <!-- Cron alertas de mantenimiento crítico — implementado Sprint 8 Fase C como cola BullMQ `maintenance-critical`. Ver §"Jobs BullMQ activos" arriba. -->
-| **Cron creación tareas mensuales de mantenimiento** | [ADR-041](../10-decisions/adr-041-sistema-tareas.md) | Mensual en fecha de aniversario: por cada slot activo, crear tarea `maintenance` o `maintenance_management` | Sprint 8 Fase D (Support Inside) |
+<!-- Cron creación tareas mensuales de mantenimiento — implementado Sprint 8 Fase D como cola BullMQ `maintenance-monthly`. Ver §"Jobs BullMQ activos" arriba. -->
+
 <!-- Cola `pdf-generation` ya implementada (Sprint 9 Fase B 2026-04-27) — ver §"Jobs BullMQ activos" arriba -->
 
 ---

@@ -6,8 +6,8 @@
 >
 > Detectar drift entre código y este catálogo es responsabilidad de cualquier agente IA que toque el módulo afectado.
 
-> **Última auditoría:** abril 2026 (commits ~`8c4d893`). **Actualizado 2026-04-26 (P0.2):** los 4 `invoice.*` ya usan Outbox. **Actualizado 2026-04-27 (Sprint 9 Fases A–F):** dispatcher migrado a BullMQ + backoff exponencial; eventos operativos `outbox.event_failed` (Fase C), `dlq.job_failed` (Fase A), `system.error` (Fase F emisor), `notification.dispatched` (aspiracional). **Actualizado 2026-04-28 (Sprint 9.5):** `system.error` ya tiene consumidor activo (`NotificationsSystemErrorListener` con guard anti-loop hard). **Actualizado 2026-05-01 (Sprint 8 Fase C):** 3 eventos task/maintenance nuevos cerrados (`task.overdue`, `task.unassigned_overdue`, `maintenance.critical`) — emisores son crons BullMQ scheduled, listeners despachan vía `NotificationsService` con plantillas seedeadas.
-> **Total eventos identificados:** 31 (28 de negocio + 3 operativos activos `outbox.event_failed` / `dlq.job_failed` / `system.error` + 1 aspiracional `notification.dispatched`).
+> **Última auditoría:** abril 2026 (commits ~`8c4d893`). **Actualizado 2026-04-26 (P0.2):** los 4 `invoice.*` ya usan Outbox. **Actualizado 2026-04-27 (Sprint 9 Fases A–F):** dispatcher migrado a BullMQ + backoff exponencial; eventos operativos `outbox.event_failed` (Fase C), `dlq.job_failed` (Fase A), `system.error` (Fase F emisor), `notification.dispatched` (aspiracional). **Actualizado 2026-04-28 (Sprint 9.5):** `system.error` ya tiene consumidor activo (`NotificationsSystemErrorListener` con guard anti-loop hard). **Actualizado 2026-05-01 (Sprint 8 Fase C):** 3 eventos task/maintenance nuevos cerrados (`task.overdue`, `task.unassigned_overdue`, `maintenance.critical`) — emisores son crons BullMQ scheduled, listeners despachan vía `NotificationsService` con plantillas seedeadas. **Actualizado 2026-05-01 (Sprint 8 Fase D backend):** 4 eventos support_inside nuevos (`support_inside.subscribed`, `support_inside.cancelled`, `support_inside.slot_assigned`, `support_inside.slot_released`) — emisores en `SupportInsideService`, sin consumidor todavía (hooks aspiracionales para audit/notifications futuras).
+> **Total eventos identificados:** 35 (32 de negocio + 3 operativos activos `outbox.event_failed` / `dlq.job_failed` / `system.error` + 1 aspiracional `notification.dispatched`).
 > **Convenio de naming:** `<dominio>.<acción>` en pasado. Verificado 100% conforme.
 > **Bus:** `EventEmitter2` global (NestJS `@nestjs/event-emitter`) — los emisores críticos producen vía `OutboxService.enqueue(tx, ...)` y el `OutboxWorker.dispatch()` (invocado por `OutboxDispatchProcessor`, cola BullMQ `outbox-dispatch` con `repeat: { every: 5000 }` + `FOR UPDATE SKIP LOCKED`) los despacha al bus. ADR-064 cierra el §7 de ADR-033.
 > **Outbox Pattern:** ✅ 4/25 eventos de negocio (`invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue`). Pendientes los 9 críticos restantes (`service.*`, `checkout.completed`, `partner.*` futuro) — ADR-033.
@@ -145,6 +145,19 @@ Todos huérfanos esperando al módulo `provisioning`. Cuando provisioning se imp
 - ✅ **`maintenance.completed`** (Sprint 8 Fase B.5, NUEVO): emisión atómica post-commit desde `MaintenanceLogService`. Listener canónico en `MaintenanceCompletedListener` despacha vía `NotificationsService` con plantilla seedeada (email HTML + campana en `notification-templates.ts`). Cobertura E2E en `tests/e2e/tasks-checklist-and-maintenance-log.spec.ts`.
 - ✅ **`task.overdue`** + **`maintenance.critical`** + **`task.unassigned_overdue`** (Sprint 8 Fase C, 2026-05-01): cerrados al 100%. 3 colas BullMQ scheduled (`tasks-overdue` `0 2 * * *`, `tasks-unassigned-overdue` `0 9 * * *`, `maintenance-critical` `0 8 * * *`) con leader election natural via Redis (ADR-063 + ADR-064). Listeners canónicos delegan en `NotificationsService` con plantillas seedeadas (EC-T8-30 cerrado: 6 plantillas nuevas en `notification-templates.ts`, todas pasan el guard EC-T8-17 sin triple-stash). Endpoint admin `POST /api/v1/admin/tasks/cron/:name` permite disparar manualmente para smoke + E2E. Cobertura: 21 tests unit + 5 E2E (`tasks-crons.spec.ts` 5/5 verde, suite full 112/112 sin regresión).
 - 📋 **Outbox para `task.*` y `maintenance.*`**: deuda EC-T8-28 / P-DEPLOY.4. Hoy si el bus revienta entre commit y emit, el evento se pierde silenciosamente. Aceptable mientras el deploy productivo esté diferido (ADR-069); blocker para Sprint 14.
+
+---
+
+### 🛡️ support_inside.* (Sprint 8 Fase D backend — ADR-034 + ADR-061 + ADR-075)
+
+| Evento | Emisor | Consumidores | Payload | Outbox | Estado |
+|--------|--------|--------------|---------|--------|--------|
+| `support_inside.subscribed` | `SupportInsideService.subscribe()` tras checkout + create/update subscription | — | `{ subscription_id, client_id, product_id, service_id }` | no | 🟡 huérfano (audit / notifications futuras) |
+| `support_inside.cancelled` | `SupportInsideService.cancel()` tras transacción que libera slots + cancela Service estándar | — | `{ subscription_id, client_id, reason, released_slots }` | no | 🟡 huérfano (audit futuro) |
+| `support_inside.slot_assigned` | `SupportInsideService.addSlot()` tras crear `SupportInsideSlot` | — | `{ slot_id, subscription_id, client_id, service_id, slot_type, is_extra }` | no | 🟡 huérfano (badge "Mantenido" en frontend cuando llegue Fase D frontend) |
+| `support_inside.slot_released` | `SupportInsideService.releaseSlot()` (manual) y `SupportInsideService.cancel()` (cascada) | — | `{ slot_id, subscription_id, client_id, reason: 'manual'\|'subscription_cancelled' }` | no | 🟡 huérfano (mismo que slot_assigned) |
+
+**Nota canónica**: los 4 eventos son **hooks aspiracionales** declarados desde el primer commit del módulo para que listeners futuros (audit, notifications cliente, métricas operativas) se enganchen sin tocar el `SupportInsideService`. Cumple R1 (módulos por eventos) por construcción — el día que `audit-support-inside.listener` quiera persistir un audit log, sólo añade el `@OnEvent('support_inside.*')` sin coordinación cross-módulo.
 
 ---
 
