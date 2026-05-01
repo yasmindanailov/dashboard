@@ -1,0 +1,430 @@
+/**
+ * Sprint 11 Fase 11.B (2026-05-01) — Contrato canónico ProvisionerPlugin v2.
+ *
+ * Materializa literalmente ADR-077 §1 + §2.
+ * https://github.com/yasmindanailov/dashboard/blob/master/docs/10-decisions/adr-077-contrato-provisioner-plugin-v2.md
+ *
+ * Cualquier plugin de provisioning DEBE implementar `ProvisionerPlugin` v2.
+ * Cualquier cambio breaking a estos tipos requiere ADR específico + bump v3
+ * + período de coexistencia (ver ADR-077 §6 política de versionado).
+ *
+ * Importación canónica desde plugins:
+ *   import type { ProvisionerPlugin, ServiceInfo, ... } from 'src/core/provisioning/types';
+ *
+ * Los plugins NO importan `src/modules/provisioning/*` (R4). Sí importan:
+ *   - este archivo (contrato).
+ *   - `src/core/provisioning/plugin-utils` (wrappers cross-cutting).
+ */
+
+import type { Service } from '@prisma/client';
+
+// ────────────────────────────────────────────────────────────────────────────
+// 1. Servicio Prisma con relaciones (input al plugin)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Servicio Prisma con relaciones precargadas que el orquestador inyecta
+ * al plugin en `ProvisionContext`. El plugin NO debe consultar Prisma
+ * directamente — todo lo que necesita viene en este shape.
+ */
+export interface ServiceWithRelations extends Service {
+  client: ClientPublicData;
+  product: {
+    id: string;
+    slug: string;
+    name: string;
+    type: string;
+    provisioner: string;
+    provisioner_config: Record<string, unknown> | null;
+  };
+}
+
+/**
+ * Datos públicos del cliente sanitizados (sin password hash, sin secretos).
+ * Lo que el plugin puede usar para enviar al proveedor externo.
+ */
+export interface ClientPublicData {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  company_name: string | null;
+  phone: string | null;
+  locale: string | null;
+  country_code: string | null;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 2. ProvisionContext + ProvisionResult (entrada/salida de provision())
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface ProvisionContext {
+  /** Servicio Prisma con relaciones precargadas. */
+  readonly service: ServiceWithRelations;
+
+  /** Datos del cliente sanitizados. */
+  readonly client: ClientPublicData;
+
+  /** Configuración del producto (jsonb plano de `products.provisioner_config`). */
+  readonly productConfig: Record<string, unknown>;
+
+  /**
+   * ID de servidor asignado por `infrastructure.pickServerForProduct()`.
+   * Solo poblado para plugins con `capabilities.requires_server = true`
+   * (hoy solo `docker_engine` — Sprint 15E). Resto reciben `null`.
+   */
+  readonly serverId: string | null;
+
+  /** Correlation ID para audit + log + tracing distribuido. */
+  readonly correlationId: string;
+}
+
+export interface ProvisionResult {
+  /**
+   * Identificador del recurso en el sistema externo (cPanel account ID,
+   * domain ID, container ID, etc.). NULL para plugins `internal`/`manual`.
+   * El orquestador lo persiste en `services.provider_reference`.
+   */
+  providerReference: string | null;
+
+  /**
+   * Metadata adicional del proveedor para persistir en `services.metadata`.
+   * Plano, sin secretos.
+   */
+  metadata: Record<string, string | number | boolean>;
+
+  /**
+   * Acciones de seguimiento que el orquestador ejecuta tras éxito.
+   * Lista cerrada — ver ProvisioningFollowUp.
+   */
+  followUp: readonly ProvisioningFollowUp[];
+}
+
+export type ProvisioningFollowUp =
+  | 'mark_active' // services.status = 'active' inmediatamente
+  | 'wait_for_task_completion' // services.status = 'pending', listener `provisioning-on-task-completed` lo activa
+  | 'create_setup_task'; // crea Task(type=support_setup) en cola pública
+
+// ────────────────────────────────────────────────────────────────────────────
+// 3. DeprovisionContext (entrada de deprovision())
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface DeprovisionContext {
+  readonly service: ServiceWithRelations;
+  readonly reason: 'cancelled' | 'expired' | 'admin_override';
+  readonly correlationId: string;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 4. ServiceStatusReport (salida de getStatus())
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface ServiceStatusReport {
+  /** Estado actual real en el proveedor. */
+  status: ServiceInfoStatus;
+  /** Texto libre del proveedor explicando el estado. */
+  statusReason?: string;
+  /** Última verificación. */
+  checkedAt: string;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 5. ServiceInfo (salida de getServiceInfo())
+// ────────────────────────────────────────────────────────────────────────────
+
+export type ServiceInfoStatus =
+  | 'active'
+  | 'suspended'
+  | 'expired'
+  | 'pending'
+  | 'failed'
+  | 'cancelled'
+  | 'unknown'; // proveedor caído / timeout
+
+export interface ServiceMetrics {
+  diskUsedMb?: number;
+  diskTotalMb?: number;
+  bandwidthUsedMb?: number;
+  bandwidthTotalMb?: number;
+  /** Solo Docker. */
+  ramUsedMb?: number;
+  /** Solo Docker. */
+  ramTotalMb?: number;
+  /** Solo Docker. */
+  cpuUsagePercent?: number;
+  emailAccountsUsed?: number;
+  emailAccountsTotal?: number;
+  databasesUsed?: number;
+  databasesTotal?: number;
+  /** Campos libres del plugin. */
+  custom?: Record<string, string | number>;
+  /** Timestamp de la lectura del proveedor. */
+  fetchedAt: string;
+}
+
+export interface ServiceInfo {
+  /**
+   * Estado real del servicio en el proveedor.
+   * Distinto de `services.status` (cache local) — el plugin lo determina.
+   */
+  status: ServiceInfoStatus;
+  statusReason?: string;
+
+  display: {
+    /** Ej. "miweb.com" / "cliente1.aelium.net" / "miempresa.es". */
+    primary: string;
+    /** Ej. "Hosting Pro 10GB" / "Cloud Office Pro 4GB". */
+    secondary?: string;
+    /** ISO-8601. */
+    expiresAt?: string;
+    autoRenew?: boolean;
+  };
+
+  /** undefined si plugin no expone métricas. */
+  metrics?: ServiceMetrics;
+
+  /**
+   * Capability flags por instancia de servicio. Override estáticos por
+   * contexto. Ej. un servicio Docker en pool sin admin panel devuelve
+   * `hasSsoPanel=false` aunque el plugin declare estático `has_sso_panel=true`.
+   */
+  capabilities: ServiceCapabilities;
+
+  /**
+   * Subset de `plugin.inlineActions` filtrado por el estado actual del
+   * servicio (ej. `restart` no aparece si `status='cancelled'`).
+   */
+  availableActions: readonly ServiceAction[];
+
+  /** Timestamp de la lectura del proveedor (cache se calcula desde aquí). */
+  fetchedAt: string;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 6. SsoUrl (salida de getSsoUrl())
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface SsoUrl {
+  /** URL completa con session token. */
+  url: string;
+  /** ISO-8601. Típicamente 5-15 min. */
+  expiresAt: string;
+  /** Etiqueta del panel de destino (i18n key del plugin). */
+  panelLabel: string;
+  /** Canónico: siempre 'new_tab' para no perder el dashboard. */
+  opensIn: 'new_tab';
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 7. ServiceAction + ActionResult (entrada/salida de executeAction())
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface ServiceAction {
+  /** Slug canónico (kebab-case) — lista cerrada por plugin. */
+  slug: string;
+  /** Etiqueta i18n key. */
+  label: string;
+  /** Descripción i18n key (opcional). */
+  description?: string;
+  /** Si requiere modal de confirmación. */
+  confirmRequired: boolean;
+  /** Texto de confirmación i18n key (si confirmRequired). */
+  confirmationText?: string;
+  /** Si renderizar con estilo destructive. */
+  destructive: boolean;
+  /**
+   * Schema de payload (Zod descrito como JSON Schema 7).
+   * Usado por frontend para construir el formulario inline.
+   */
+  payloadSchema?: Record<string, unknown>;
+}
+
+export type ActionSideEffect =
+  | 'service.metrics_invalidated'
+  | 'service.restarted'
+  | 'service.dns_modified'
+  | 'service.password_reset'
+  | 'service.subdomain_changed';
+
+export interface ActionResult {
+  /** Si la acción terminó OK desde el punto de vista del plugin. */
+  success: boolean;
+  /** Mensaje al cliente (i18n key del plugin). */
+  message?: string;
+  /**
+   * Side effects para que el orquestador notifique a otros módulos.
+   * Lista cerrada — solo strings de `ActionSideEffect`.
+   */
+  sideEffects?: readonly ActionSideEffect[];
+  /** Datos adicionales que el frontend renderiza inline (ej. logs tail). */
+  data?: Record<string, unknown>;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 8. Capability flags estáticos cerrados
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface PluginCapabilities {
+  /** Soporta SSO al panel externo (getSsoUrl puede devolver no-null). */
+  has_sso_panel: boolean;
+  /** Etiqueta del panel para el botón cliente. Solo si `has_sso_panel=true`. */
+  panel_label?: string;
+  /** Devuelve métricas en `getServiceInfo.metrics`. */
+  has_metrics: boolean;
+  /** Aelium guarda series temporales (server_metrics filtradas). Solo Docker. */
+  has_metrics_history: boolean;
+  /** Requiere asignación de servidor (`pickServerForProduct`). Solo Docker. */
+  requires_server: boolean;
+  /**
+   * Provision es síncrono (devuelve antes de N segundos) o asíncrono.
+   * Si `async`, el orquestador no espera el resultado y delega al webhook
+   * o cron de reconciliación del plugin.
+   */
+  provision_mode: 'sync' | 'async';
+  /**
+   * Plugin completa el provisioning vía Task del agente.
+   * Si `true`, el listener `provisioning-on-task-completed` activa el servicio
+   * cuando se cierra la Task asociada. Hoy solo `manual`.
+   */
+  completes_via_task: boolean;
+  /**
+   * Aelium puede hacer reconciliación periódica (cron `service-reconcile`)
+   * llamando a `getStatus()`. False si la operación es cara para el proveedor.
+   */
+  supports_reconciliation: boolean;
+}
+
+/**
+ * Capability flags por instancia de servicio (overrides estáticos).
+ * `getServiceInfo()` devuelve este shape; el frontend ramifica por estos flags
+ * (NUNCA por `provisioner_slug` — eso rompería ADR-070).
+ */
+export interface ServiceCapabilities extends PluginCapabilities {
+  /** Por instancia: si el SSO está disponible AHORA. */
+  hasSsoPanel: boolean;
+  /** Por instancia: subset disponible para este servicio + estado actual. */
+  inlineActions: readonly ServiceAction[];
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 9. ProvisionerPluginError (clase de error semántico canónico)
+// ────────────────────────────────────────────────────────────────────────────
+
+export type ProvisionerErrorCode =
+  | 'PROVIDER_TIMEOUT' // retriable=true
+  | 'PROVIDER_RATE_LIMITED' // retriable=true
+  | 'PROVIDER_AUTH_FAILED' // retriable=false (credenciales mal — alerta admin)
+  | 'PROVIDER_RESOURCE_EXHAUSTED' // retriable=false (capacidad superada)
+  | 'INVALID_PAYLOAD' // retriable=false (DTO mal — bug del orquestador)
+  | 'INVALID_STATE' // retriable=false (servicio en estado incompatible)
+  | 'NOT_IMPLEMENTED' // retriable=false (capability declarada pero no soportada — bug)
+  | 'PROVIDER_INTERNAL_ERROR' // retriable=true por defecto
+  | 'NETWORK_ERROR'; // retriable=true
+
+/**
+ * Error semántico canónico — todos los plugins lanzan instancias de esta clase,
+ * no `Error` plano. El orquestador usa `error.retriable` para decidir si
+ * reintentar (con backoff [30s, 90s, 270s]) o ir directo a DLQ + emitir
+ * `service.provisioning_failed`.
+ */
+export class ProvisionerPluginError extends Error {
+  constructor(
+    message: string,
+    public readonly code: ProvisionerErrorCode,
+    public readonly retriable: boolean,
+    public readonly cause?: unknown,
+  ) {
+    super(message);
+    this.name = 'ProvisionerPluginError';
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 10. ProvisionerPlugin (interfaz canónica v2)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * ProvisionerPlugin v2 — contrato canónico congelado por ADR-077.
+ *
+ * Implementa los 6 métodos:
+ *   - 3 heredados de ADR-021 (provision, deprovision, getStatus)
+ *   - 3 nuevos de ADR-070 (getServiceInfo, getSsoUrl, executeAction)
+ *
+ * Versionado: el contrato v2 es estable. Cambios futuros que rompan
+ * compatibilidad requieren ADR explícito + bump a v3 + migración.
+ */
+export interface ProvisionerPlugin {
+  /** Identificador canónico del plugin (slug en kebab-case). Inmutable. */
+  readonly slug: string;
+
+  /** Versión del contrato implementado. Hoy: 'v2'. */
+  readonly contractVersion: 'v2';
+
+  /** Capability flags declarados estáticamente. */
+  readonly capabilities: PluginCapabilities;
+
+  /** Lista cerrada de acciones inline soportadas. */
+  readonly inlineActions: readonly ServiceAction[];
+
+  // ─── Métodos heredados ADR-021 ─────────────────────────────────────────
+
+  /**
+   * Crea el servicio en el sistema externo (o marca activo si interno).
+   * Idempotente: si ya existe `provider_reference`, devuelve éxito sin recrear.
+   * Lanza `ProvisionerPluginError` con código semántico en fallo.
+   */
+  provision(ctx: ProvisionContext): Promise<ProvisionResult>;
+
+  /**
+   * Cancela / elimina el servicio en el sistema externo.
+   * Idempotente: si ya está cancelado externamente, devuelve éxito.
+   */
+  deprovision(ctx: DeprovisionContext): Promise<void>;
+
+  /**
+   * Lectura puntual del estado real en el sistema externo.
+   * NO debe consultar cache de Aelium — es la fuente de verdad ad-hoc.
+   * Usado por crons de reconciliación, no por `/dashboard/services/[id]`.
+   */
+  getStatus(service: ServiceWithRelations): Promise<ServiceStatusReport>;
+
+  // ─── Métodos nuevos ADR-070 (canónicos a partir de v2) ─────────────────
+
+  /**
+   * Devuelve información normalizada del servicio para renderizar
+   * `/dashboard/services/[id]`. El orquestador la cachea en Redis con
+   * TTL configurable. Plugins NO gestionan la cache — el wrapper
+   * `core/provisioning/plugin-utils.getServiceInfoWithCache()` lo hace.
+   */
+  getServiceInfo(service: ServiceWithRelations): Promise<ServiceInfo>;
+
+  /**
+   * Devuelve URL firmada de single sign-on al panel del proveedor.
+   * Devuelve `null` si el plugin no soporta SSO (ej. resellerclub, manual).
+   * El orquestador audita la llamada con `service.sso_opened`.
+   */
+  getSsoUrl(service: ServiceWithRelations): Promise<SsoUrl | null>;
+
+  /**
+   * Ejecuta una acción inline del catálogo `inlineActions`.
+   * El wrapper `executeActionWithCacheInvalidation()` invalida cache
+   * y emite `service.action_executed` automáticamente.
+   * El plugin SOLO implementa la lógica del proveedor.
+   */
+  executeAction(
+    service: ServiceWithRelations,
+    actionSlug: string,
+    payload: Record<string, unknown>,
+  ): Promise<ActionResult>;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 11. Constante de versión (validada por orquestador al cargar plugins)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Versión canónica del contrato. El orquestador rechaza plugins con
+ * `contractVersion !== PROVISIONER_PLUGIN_CONTRACT_VERSION` con error
+ * explícito + alerta admin.
+ */
+export const PROVISIONER_PLUGIN_CONTRACT_VERSION = 'v2' as const;
