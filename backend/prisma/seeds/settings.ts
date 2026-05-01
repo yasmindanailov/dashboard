@@ -66,6 +66,32 @@ const SETTINGS: ReadonlyArray<SeedSetting> = [
   { category: 'notifications', key: 'unread_max_in_dropdown', value: '50', description: 'Tamaño máximo del dropdown de la campana en el Topbar' },
   { category: 'notifications', key: 'email_enabled_globally', value: 'true', description: 'Kill switch global de envíos email' },
   { category: 'notifications', key: 'maintenance_critical_threshold_days', value: '7', description: 'Días antes de fin de mes para alertar tarea crítica de mantenimiento' },
+
+  // ── tasks (Sprint 8 Fase C + ADR-072) ──
+  // Consumidor: TasksOverdueService — tareas con due_date < now()-N pasan a
+  // status=not_completed_in_time + emit task.overdue al agente asignado.
+  { category: 'tasks', key: 'overdue_to_failure_days', value: '7', description: 'Días tras due_date para marcar tarea como not_completed_in_time' },
+  // Consumidores: TasksUnassignedOverdueService (ADR-072 §"SLA por tipo de
+  // tarea"). Cada tipo tiene SLA distinto en horas. Si una tarea está en la
+  // cola pública (assigned_to=null) y `created_at + sla_hours < now()`, el
+  // cron emite task.unassigned_overdue al superadmin. Las claves por tipo
+  // siguen el patrón `tasks.unassigned_sla_hours.<type>`; si una entrada
+  // falta, fallback a `tasks.unassigned_sla_hours.default`.
+  { category: 'tasks', key: 'unassigned_sla_hours.contact_client', value: '24', description: 'SLA en horas para tareas contact_client en cola pública (ADR-072)' },
+  { category: 'tasks', key: 'unassigned_sla_hours.maintenance', value: '12', description: 'SLA en horas para tareas maintenance en cola pública' },
+  { category: 'tasks', key: 'unassigned_sla_hours.maintenance_management', value: '12', description: 'SLA en horas para tareas maintenance_management en cola pública' },
+  { category: 'tasks', key: 'unassigned_sla_hours.custom_work', value: '48', description: 'SLA en horas para tareas custom_work en cola pública' },
+  { category: 'tasks', key: 'unassigned_sla_hours.support_setup', value: '4', description: 'SLA en horas para tareas support_setup en cola pública (alta prioridad)' },
+  { category: 'tasks', key: 'unassigned_sla_hours.default', value: '24', description: 'SLA en horas fallback para tipos sin entrada específica (ADR-072)' },
+
+  // ── support (Sprint 8 Fase C) ──
+  // Consumidor: MaintenanceCriticalService — servicios activos con
+  // service_checklist_items que llevan más de N días sin maintenance_log
+  // levantan alerta maintenance.critical al superadmin. Distinto del setting
+  // `notifications.maintenance_critical_threshold_days` (lead time intra-mes
+  // pre-cierre del mantenimiento mensual — Sprint 9 placeholder, sin
+  // consumidor todavía).
+  { category: 'support', key: 'maintenance_critical_threshold_days', value: '60', description: 'Días sin maintenance_log para alertar al superadmin (Sprint 8 Fase C)' },
 ];
 
 export async function seedSettings(prisma: PrismaClient): Promise<void> {
