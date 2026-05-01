@@ -1,6 +1,6 @@
 # ADR-061 — Support Inside como tier de cuenta (UX dedicada, schema reutilizado)
 
-> **Status:** Active (refina ADR-034)
+> **Status:** Active (refina ADR-034) · **Refinado por [ADR-075](./adr-075-support-inside-ux-lista-y-aislamiento-productos.md)** (2026-05-01) en dos puntos: materialización técnica del aislamiento del CRUD genérico de productos (filtro frontend + guard backend) y formato visual del admin (lista clicable + editor con secciones card extensibles, no formato comparador "3 cards lado a lado").
 > **Date:** 2026-04-26
 > **Domain:** support, ui
 
@@ -137,3 +137,5 @@ Esta decisión **se materializa en Sprint 8 Fase D** ([Sprint 8](../60-roadmap/c
 ## Notas de revisión
 
 > **2026-04-26:** ADR creado tras crítica arquitectónica de Yasmin durante la auditoría 2026-04-26. La decisión refina (no reemplaza) [ADR-034](./adr-034-support-inside-modelo.md) — el schema sigue igual, solo la presentación de la UI cambia.
+>
+> **2026-05-01:** [ADR-075](./adr-075-support-inside-ux-lista-y-aislamiento-productos.md) refina dos puntos que este ADR dejaba ambiguos. (a) **Materialización técnica del "no aparece en `/admin/products`"** — frontend filtra `support_inside` del dropdown de tipos creables (`PRODUCT_TYPES_CREATABLE`); backend `AdminProductsController` rechaza con 400 cualquier `POST/PATCH/DELETE` sobre `type='support_inside'` salvo desde el endpoint dedicado `/admin/support-inside/plans` (header interno `X-Aelium-Source`). Las filas existentes en el listado se renderizan en gris con badge "Tier de cuenta" + link a la página dedicada. (b) **Formato visual del admin** — descartado el comparador "3 cards lado a lado" (ese formato es para el cliente en `/dashboard/support-inside`, no para el admin que sólo configura). En su lugar: lista clicable en el índice + editor con secciones card por dominio (Identidad, Precios, Slots, Soporte, Avanzada) que escala por adición sin redesign cuando sprints futuros (9.5/12/15F) añadan campos nuevos. ADR-061 sigue siendo el documento canónico de "por qué Support Inside tiene UX dedicada"; ADR-075 documenta "cómo se materializa".

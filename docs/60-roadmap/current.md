@@ -201,17 +201,19 @@ Cerrar el módulo `tasks` con automatización completa (mantenimiento mensual + 
 | 8.C.5 | `WowCallCreatorListener` (`@OnEvent('service.provisioned')`) — crea `Task(type=wow_call)` con plantilla del producto | ⬜ |
 | 8.C.6 | Plantillas `notification_templates` para `task.assigned`, `task.overdue`, `maintenance.completed`, `maintenance.critical` (email + internal) | ⬜ |
 | 8.C.7 | Tests unit + E2E (cron disparado manualmente vía endpoint admin de testing) | ⬜ |
-| **8.D** | **Support Inside (UX dedicada — ADR-061)** — sub-sprint denso, 1.5 sesiones | ⬜ |
+| **8.D** | **Support Inside (UX dedicada — [ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md) + [ADR-075](../10-decisions/adr-075-support-inside-ux-lista-y-aislamiento-productos.md))** — sub-sprint denso, ~2 sesiones | ⬜ |
 | 8.D.1 | Schema `support_inside_config` + `support_inside_subscriptions` + `support_inside_slots` + migración | ⬜ |
 | 8.D.2 | `SupportInsideService` con `subscribe/upgrade/cancel/addSlot/releaseSlot/getStatus` | ⬜ |
 | 8.D.3 | Endpoints cliente `/api/v1/dashboard/support-inside/*` (6) | ⬜ |
-| 8.D.4 | Endpoints admin `/api/v1/admin/support-inside/plans*` (2) | ⬜ |
-| 8.D.5 | Cliente: página `/dashboard/support-inside` (vista comparativa o gestión activa) | ⬜ |
-| 8.D.6 | Admin: página `/admin/support-inside-plans` (3 planes lado a lado) | ⬜ |
-| 8.D.7 | `MaintenanceMonthlyCron` (BullMQ día 1 de cada mes) — genera `Task(type=maintenance_management)` por slot activo. Idempotente por `(service_id, billing_month)` | ⬜ |
-| 8.D.8 | Cancelación cascada de slots cuando se cancela subscription | ⬜ |
-| 8.D.9 | Seed: 3 planes Básico/Medium/Pro con `support_inside_config` poblado | ⬜ |
-| 8.D.10 | Tests E2E: subscribe → assign slot → maintenance auto-creada → admin completa con checklist | ⬜ |
+| 8.D.4 | Endpoints admin `/api/v1/admin/support-inside/plans` (3): `GET` listado, `GET /:slug` detalle full, `PATCH /:slug` actualiza en transacción (products + support_inside_config + product_pricing). NO POST/DELETE — los 3 planes son seedeados; cuarto plan exige migración + ADR (ADR-075 §A.3). CASL `Manage.SupportInside` (subject nuevo, sólo `superadmin` + `agent_full`) | ⬜ |
+| 8.D.4b | **[ADR-075]** Aislamiento del CRUD genérico de productos: (a) `AdminProductsController.create/update/delete` rechaza `type='support_inside'` con 400 salvo header interno `X-Aelium-Source: support-inside-admin`. (b) Frontend constante canónica `PRODUCT_TYPES_CREATABLE` excluye `support_inside`. (c) Listado `/admin/products` renderiza filas `support_inside` en gris con badge "Tier de cuenta" + link a página dedicada. (d) Detalle directo `/admin/products/:id` con `type='support_inside'` redirige a `/admin/support-inside-plans/<slug>` con toast | ⬜ |
+| 8.D.5 | Cliente: página `/dashboard/support-inside` — formato comparador 3 cards lado a lado (target: cliente que decide qué contratar). Si tiene plan activo: vista de gestión (slots + servicios asignados + historial valor). | ⬜ |
+| 8.D.6 | **[ADR-075]** Admin: índice `/admin/support-inside-plans` con tabla vertical de 3 filas (nombre, precio mensual, precio anual, slots, activo, última edición). NO formato comparador. Click en fila → editor `/admin/support-inside-plans/<slug>` | ⬜ |
+| 8.D.6b | **[ADR-075]** Admin: editor `/admin/support-inside-plans/<slug>` con secciones card extensibles. 5 secciones canónicas Sprint 8: Identidad · Precios · Slots y capacidades · Soporte y canales · Configuración avanzada. Cada card con botón "Guardar cambios" propio (sin auto-save) + warning navegación si dirty. Patrón canónico: cada sprint futuro añade UNA card nueva al final, NO redistribuye | ⬜ |
+| 8.D.7 | `MaintenanceMonthlyCron` (BullMQ scheduled cron `0 6 1 * *` UTC — replicar patrón Fase C) — genera `Task(type=maintenance_management)` por slot activo. Idempotente por `(service_id, billing_month)`. Endpoint admin trigger manual `POST /admin/tasks/cron/maintenance-monthly` para smoke + E2E | ⬜ |
+| 8.D.8 | Cancelación cascada de slots cuando se cancela subscription. Servicios técnicos del cliente se mantienen intactos (sólo se desactiva el slot Support Inside). | ⬜ |
+| 8.D.9 | Seed: 3 planes Básico/Medium/Pro con `support_inside_config` poblado + `product_pricing` (mensual + anual). Campos canónicos del editor pre-poblados. Idempotente por `slug` | ⬜ |
+| 8.D.10 | Tests E2E `tests/e2e/support-inside.spec.ts`: (a) cliente subscribe → assign slot → maintenance auto-creada vía cron manual → admin completa con checklist; (b) admin lista `/admin/support-inside-plans` ve 3 filas; (c) admin edita plan Pro sección Precios → cambio refleja en `product_pricing` sin afectar suscripciones activas; (d) `POST /admin/products` con `type='support_inside'` sin header interno → 400; (e) cliente intenta `GET /admin/support-inside/plans` → 403 (defense in depth) | ⬜ |
 | **8.E** | **Cierre documental + pulido** | ⬜ |
 | 8.E.1 | `docs/features/tasks/admin.md` + `agent.md` (operativa diaria) | ⬜ |
 | 8.E.2 | `docs/features/support-inside/admin.md` + `client.md` | ⬜ |
@@ -384,7 +386,7 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 
 ### 10. Cierre del sprint
 
-> Sprint 8 sigue **WIP**. **Fase B + Fase C 100% cerradas** (B.1..B.10 + fix + fix2 + C.0..C.5). Cola restante: Fase D Support Inside → Fase E docs.
+> Sprint 8 sigue **WIP**. **Fase B + Fase C + Fase D backend 100% cerradas** (B.1..B.10 + fix + fix2 + C.0..C.5 + D.1..D.10 backend). Cola restante: **Fase D frontend** (8.D.5 + 8.D.6 + 8.D.6b — cliente comparador, admin índice, admin editor con secciones card extensibles + filtro/redirect ADR-075) → Fase E docs canónicas + retrospectiva.
 
 **Cierres registrados:**
 
@@ -410,6 +412,15 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 | 8.C.3 (MaintenanceCriticalService + Processor `0 8 * * *` + listener → superadmin; degradación elegante mientras Fase D no introduzca service_checklist_items; +8 unit tests) | 2026-05-01 | _(este sprint)_ |
 | 8.C.4 (Endpoint admin `POST /admin/tasks/cron/:name` para smoke + E2E + recovery; triple guard JwtAuthGuard + AdminOnlyGuard + Manage.Job) | 2026-05-01 | _(este sprint)_ |
 | 8.C.5 (Test E2E `tasks-crons.spec.ts` 5/5 verde: overdue end-to-end + unassigned-overdue + maintenance-critical degradación + 400 nombre inválido + 403 cliente; suite full **112/112 verde sin regresión**) | 2026-05-01 | _(este sprint)_ |
+| 8.D.0 (ADR-075 + actualizar ADR-061 nota revisión + plan Fase D refinado en current.md §5 + products/contract.md §17 deuda) | 2026-05-01 | _(este sprint)_ |
+| 8.D.1 (Schema Prisma 3 tablas + 5 enums + relaciones inversas User/Service/Product + migración `sprint8d_support_inside_schema` aplicada) | 2026-05-01 | _(este sprint)_ |
+| 8.D.2 + 8.D.8 (SupportInsideService: subscribe reusa BillingCheckoutService ADR-061 + cancel cascada de slots + addSlot/releaseSlot/getStatus + upgrade MVP rechazo ADR-029 pendiente) | 2026-05-01 | _(este sprint)_ |
+| 8.D.3 + 8.D.4 (Cliente: 6 endpoints `/dashboard/support-inside/*` + DTOs + CASL `SupportInside.Update` ownership · Admin: 3 endpoints `/admin/support-inside/plans*` con DTO de 5 secciones extensibles + CASL `Manage.SupportInside`) | 2026-05-01 | _(este sprint)_ |
+| 8.D.4b (SupportInsideIsolationGuard backend: bloquea POST/PATCH/DELETE sobre `type=support_inside` salvo header `X-Aelium-Source: support-inside-admin` — ADR-075 §A.2 defense in depth) | 2026-05-01 | _(este sprint)_ |
+| 8.D.7 (MaintenanceMonthlyService + Processor BullMQ scheduled `0 6 1 * *` UTC + endpoint admin trigger manual + idempotencia P2002 por UNIQUE `(service_id, billing_month, type)` + ADR-072 cola pública `assigned_to=null`) | 2026-05-01 | _(este sprint)_ |
+| 8.D.9 (Seed canónico 3 planes Básico/Medium/Pro con `support_inside_config` + pricing mensual+anual con 15% descuento + idempotente por slug + integrado en `seed.ts` orquestador) | 2026-05-01 | _(este sprint)_ |
+| 8.D.9.fix (Migración `sprint8d_cleanup_legacy_support_inside_basic` versionada elimina `slug=support-inside-basic` huérfano del seed sample previo — limpieza profesional vía Prisma migrate, no SQL ad-hoc) | 2026-05-01 | _(este sprint)_ |
+| 8.D.10 + 8.D.11 (Tests E2E `support-inside.spec.ts` 5/5 verde + 28 tests unit nuevos: 15 SupportInsideService + 7 MaintenanceMonthlyService + 6 SupportInsideIsolationGuard; suite full **117/117 E2E + 135/135 unit verde sin regresión**) | 2026-05-01 | _(este sprint)_ |
 
 **Estado DoD final Fase B (al cierre 2026-04-30):**
 
@@ -423,6 +434,7 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 - ✅ Endpoints Fase B: `/tasks` (CRUD) · `/tasks/:id/complete` (dual path: simple B.9 / bridge B.10) · `/tasks/:id/notes` GET+POST · `/tasks/:id/checklist` · `/tasks/:id/maintenance/log` · `/admin/task-tags` GET+POST+DELETE · `/support/conversations/:id` PATCH soporta `assigned_agent_id: null` (desasignación)
 - ✅ Listeners Fase B: `tasks-email` · `MaintenanceCompletedListener` · `TaskCompletedListener` (B.9, dispara email cliente con flag `__skipClientNotification` para bridge) · `SupportTicketTaskCreatorListener` (dual handler: `conversation.assigned` + `conversation.unassigned`)
 - ✅ **Fase C cerrada 2026-05-01** (ver bloque dedicado a continuación).
+- ✅ **Fase D backend cerrada 2026-05-01** (ver bloque "Fase D backend" más abajo).
 
 **Estado DoD final Fase C (al cierre 2026-05-01):**
 
@@ -440,9 +452,36 @@ ADRs potenciales que pueden surgir durante el sprint (sólo se crean si la decis
 
 ---
 
+**Estado DoD final Fase D backend (al cierre 2026-05-01):**
+
+- ✅ Backend typecheck + lint + build + **135/135 unit tests** (107 previos + 28 nuevos: 15 `SupportInsideService` + 7 `MaintenanceMonthlyService` + 6 `SupportInsideIsolationGuard`).
+- ✅ E2E suite full **117/117 verde** sin regresión (112 previos + 5 nuevos en `support-inside.spec.ts`: subscribe end-to-end + slot + cron mensual + idempotencia P2002 / admin GET 3 planes / admin PATCH Pro Precios / 400 isolation guard / 403 defense in depth cliente).
+- ✅ **2 migraciones nuevas**: `sprint8d_support_inside_schema` (3 tablas + 5 enums + relaciones inversas User/Service/Product) + `sprint8d_cleanup_legacy_support_inside_basic` (limpieza versionada del producto huérfano del seed previo, no SQL ad-hoc).
+- ✅ **Seed canónico 3 planes** Básico/Medium/Pro con `support_inside_config` + pricing mensual+anual con 15% descuento, idempotente por slug, integrado en `seed.ts` orquestador. Operación canónica de la empresa, NO demo data — se siembra incluso en `NODE_ENV=production`.
+- ✅ **1 cola BullMQ scheduled nueva**: `maintenance-monthly` (`0 6 1 * *` UTC) replica patrón canónico Fase C — service testeable + processor delgado + DLQ + endpoint admin trigger manual `POST /api/v1/admin/support-inside/cron/maintenance-monthly`.
+- ✅ **Aislamiento ADR-075 §A.2 backend**: `SupportInsideIsolationGuard` aplicado a `AdminProductsController` rechaza POST/PATCH/DELETE sobre `type=support_inside` salvo header interno `X-Aelium-Source: support-inside-admin`. Defense in depth: aunque el frontend filtre, la API protege.
+- ✅ **6 endpoints cliente** + **3 endpoints admin** + **1 endpoint admin trigger cron** activos con triple guard (`JwtAuthGuard` + `AdminOnlyGuard` para admin + `PoliciesGuard`).
+- ✅ **CASL extendido**: `Subject.SupportInside` ya existía; ampliado `client` con `[Read, List, Update]` para gestionar su propia subscription. `superadmin` (Manage.All wildcard) y `agent_full` (Manage.SupportInside explícito) editan planes desde `/admin/support-inside-plans`.
+- ✅ **4 eventos nuevos** (`support_inside.subscribed/cancelled/slot_assigned/slot_released`) emitidos como hooks aspiracionales — sin consumidor todavía (audit / notifications futuras se enganchan sin tocar `SupportInsideService`).
+- ✅ Doc canónica completa: ADR-075 + nota revisión ADR-061, products/contract.md §17, jobs-reference.md (cola nueva + tabla resumen), `_events.md` sección `support_inside.*`, current.md §10 cierres registrados.
+- ✅ **Decisiones técnicas registradas**:
+  - **upgrade() MVP rechaza** con mensaje accionable (ADR-029 prorrateo pendiente sprint dedicado). Workaround: cliente cancela y recontrata.
+  - **subscribe() reactiva subscription cancelada** (no crea duplicada — UNIQUE client_id lo exige).
+  - **MaintenanceMonthlyService usa cola pública ADR-072** (`assigned_to=null` en task creada) — el agente la auto-asigna desde `/admin/tasks?scope=unassigned`.
+  - **SupportInsidePlansAdminService llama directo a Prisma** (no via `ProductsService`) para editar las 3 tablas en una sola transacción atómica y evitar las invariantes PROD-INV-2/3 que no aplican al editor dedicado.
+  - **NO hay `POST` ni `DELETE` en `/admin/support-inside/plans`** — un cuarto plan exige migración + seed + ADR específico (cambiar la oferta comercial merece auditoría git, no clic en UI).
+
+**Pendiente Fase D frontend (próxima sesión, ~1.5 sesiones):**
+
+- ⬜ **8.D.5** — Página cliente `/dashboard/support-inside`: comparador 3 cards si no tiene plan; vista de gestión con slots + servicios asignados + historial valor si tiene plan activo.
+- ⬜ **8.D.6** — Admin índice `/admin/support-inside-plans`: tabla vertical 3 filas (NO formato comparador — ese es para cliente). Click → editor.
+- ⬜ **8.D.6b** — Admin editor `/admin/support-inside-plans/[slug]` con 5 secciones card extensibles (ADR-075 §B.2): Identidad · Precios · Slots y capacidades · Soporte y canales · Configuración avanzada. Cada card con botón "Guardar cambios" propio + warning navegación si dirty. **Componente reusable `EditorSectionCard`** del Design System para que sprints futuros (9.5/12/15F) añadan secciones nuevas sin redesign. + Frontend isolation: constante `PRODUCT_TYPES_CREATABLE` excluye `support_inside` del dropdown de creación en `/admin/products`; listado renderiza filas `support_inside` en gris con badge "Tier de cuenta" + link a página dedicada; detalle directo redirige.
+
+---
+
 ### ✍ Próxima sesión — orden recomendado
 
-> **Fase C 100% cerrada el 2026-05-01** (C.0..C.5: settings + plantillas + 3 services + 3 processors + 3 listeners + endpoint admin + tests). Suite 112/112 E2E + 107/107 unit verde. La cola activa retoma desde Fase D Support Inside (ADR-061). Mensaje sugerido para arrancar la sesión nueva con contexto fresco: *"Lee `docs/90-meta/development-playbook.md` y `docs/60-roadmap/current.md` §Sprint 8. Vamos a abordar Sprint 8 Fase D Support Inside (ADR-061). Procede con rigor."*
+> **Fase D backend 100% cerrada el 2026-05-01** (D.1..D.10 + cleanup migration + ADR-075 + 28 tests unit + 5 E2E). Suite **117/117 E2E + 135/135 unit verde**. La cola activa retoma desde **Fase D frontend** (8.D.5 + 8.D.6 + 8.D.6b — 3 páginas Next.js + componente reusable `EditorSectionCard`). Mensaje sugerido para arrancar la sesión nueva con contexto fresco: *"Lee `docs/90-meta/development-playbook.md`, `docs/60-roadmap/current.md` §Sprint 8 Fase D, `docs/10-decisions/adr-075-support-inside-ux-lista-y-aislamiento-productos.md` (canónico de la UX) y `docs/10-decisions/adr-061-support-inside-tier-cuenta-ux.md` (motivación). Vamos a abordar Sprint 8 Fase D **frontend**: cliente `/dashboard/support-inside` (comparador 3 cards + vista gestión), admin `/admin/support-inside-plans` (lista clicable, NO comparador) + editor con 5 secciones card extensibles + filtro PRODUCT_TYPES_CREATABLE + listado fila gris + redirect detalle. Procede con rigor."*
 
 1. ~~**EC-T8-12..17 + B.7..B.10 + fix2 EC#3/#7/#8**~~ ✅ cerrado 2026-04-29/30 — ver §10 cierres registrados.
 2. ~~**Sprint 8 Fase C** — automatización completa~~ ✅ cerrado 2026-05-01 — 3 colas BullMQ scheduled (`tasks-overdue`, `tasks-unassigned-overdue` ADR-072, `maintenance-critical`) + 3 listeners → `NotificationsService` + 6 plantillas + 8 settings + endpoint admin trigger manual + 21 unit tests + 5 E2E (suite full 112/112). `ContactClientTaskListener` sigue diferido a Sprint 11.
