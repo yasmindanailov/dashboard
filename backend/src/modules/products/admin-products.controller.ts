@@ -20,6 +20,7 @@ import {
   UpdateProductDto,
   ProductPricingDto,
 } from './dto/product.dto';
+import { SupportInsideIsolationGuard } from './guards/support-inside-isolation.guard';
 
 /**
  * AdminProductsController — operaciones admin del módulo Products
@@ -45,7 +46,12 @@ import {
 @ApiTags('Admin / Products')
 @ApiBearerAuth()
 @Controller(['admin/products', 'products'])
-@UseGuards(JwtAuthGuard, AdminOnlyGuard, PoliciesGuard)
+@UseGuards(
+  JwtAuthGuard,
+  AdminOnlyGuard,
+  PoliciesGuard,
+  SupportInsideIsolationGuard,
+)
 export class AdminProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
