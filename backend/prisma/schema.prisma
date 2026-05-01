@@ -67,23 +67,24 @@ model User {
   created_at         DateTime   @default(now()) @db.Timestamptz()
   updated_at         DateTime   @default(now()) @updatedAt @db.Timestamptz()
 
-  role                       Role                      @relation(fields: [role_id], references: [id])
-  sessions                   Session[]
-  email_verifications        EmailVerification[]
-  password_resets            PasswordReset[]
-  client_profile             ClientProfile?
-  billing_profiles           BillingProfile[]
-  invoices                   Invoice[]
-  notifications_received     Notification[]            @relation("notification_recipient")
-  conversations              Conversation[]            @relation("UserConversations")
-  tasks_assigned             Task[]                    @relation("TaskAssignee")
-  tasks_created              Task[]                    @relation("TaskCreator")
-  tasks_as_client            Task[]                    @relation("TaskClient")
-  checklist_completions      TaskChecklistCompletion[] @relation("ChecklistCompleter")
-  maintenance_logs_performed MaintenanceLog[]          @relation("MaintenancePerformer")
-  maintenance_logs_as_client MaintenanceLog[]          @relation("ClientMaintenanceLogs")
-  task_tags_created          TaskTag[]                 @relation("TaskTagCreator")
-  client_notes_authored      ClientNote[]              @relation("ClientNoteAuthor")
+  role                        Role                       @relation(fields: [role_id], references: [id])
+  sessions                    Session[]
+  email_verifications         EmailVerification[]
+  password_resets             PasswordReset[]
+  client_profile              ClientProfile?
+  billing_profiles            BillingProfile[]
+  invoices                    Invoice[]
+  notifications_received      Notification[]             @relation("notification_recipient")
+  conversations               Conversation[]             @relation("UserConversations")
+  tasks_assigned              Task[]                     @relation("TaskAssignee")
+  tasks_created               Task[]                     @relation("TaskCreator")
+  tasks_as_client             Task[]                     @relation("TaskClient")
+  checklist_completions       TaskChecklistCompletion[]  @relation("ChecklistCompleter")
+  maintenance_logs_performed  MaintenanceLog[]           @relation("MaintenancePerformer")
+  maintenance_logs_as_client  MaintenanceLog[]           @relation("ClientMaintenanceLogs")
+  task_tags_created           TaskTag[]                  @relation("TaskTagCreator")
+  client_notes_authored       ClientNote[]               @relation("ClientNoteAuthor")
+  support_inside_subscription SupportInsideSubscription? @relation("UserSupportInsideSubscription")
 
   @@index([email])
   @@index([role_id])
@@ -313,11 +314,13 @@ model Product {
   created_at                DateTime      @default(now()) @db.Timestamptz()
   updated_at                DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
-  category        ProductCategory?       @relation(fields: [category_id], references: [id])
-  pricing         ProductPricing[]
-  extras          ProductExtra[]
-  checklist_items ProductChecklistItem[]
-  services        Service[]
+  category                     ProductCategory?            @relation(fields: [category_id], references: [id])
+  pricing                      ProductPricing[]
+  extras                       ProductExtra[]
+  checklist_items              ProductChecklistItem[]
+  services                     Service[]
+  support_inside_config        SupportInsideConfig?        @relation("ProductSupportInsideConfig")
+  support_inside_subscriptions SupportInsideSubscription[] @relation("ProductSupportInsideSubscriptions")
 
   @@index([category_id])
   @@index([type])
@@ -419,11 +422,13 @@ model Service {
   created_at          DateTime      @default(now()) @db.Timestamptz()
   updated_at          DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
-  product          Product                @relation(fields: [product_id], references: [id])
-  billing_profile  BillingProfile?        @relation(fields: [billing_profile_id], references: [id])
-  tasks            Task[]                 @relation("TaskService")
-  maintenance_logs MaintenanceLog[]       @relation("ServiceMaintenanceLogs")
-  checklist_items  ServiceChecklistItem[] @relation("ServiceChecklistItems")
+  product                     Product                    @relation(fields: [product_id], references: [id])
+  billing_profile             BillingProfile?            @relation(fields: [billing_profile_id], references: [id])
+  tasks                       Task[]                     @relation("TaskService")
+  maintenance_logs            MaintenanceLog[]           @relation("ServiceMaintenanceLogs")
+  checklist_items             ServiceChecklistItem[]     @relation("ServiceChecklistItems")
+  support_inside_subscription SupportInsideSubscription? @relation("ServiceSupportInsideSubscription")
+  support_inside_slots        SupportInsideSlot[]        @relation("ServiceSupportInsideSlots")
 
   @@index([user_id])
   @@index([product_id])
@@ -728,12 +733,12 @@ model Task {
 // para que CASL filtre por tag y para que la UI pueda mostrar metadatos
 // (color, fecha de creación) sin queries adicionales.
 model TaskTag {
-  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug        String              @unique @db.VarChar(50)
-  label       String              @db.VarChar(50)
-  color       String?             @db.VarChar(7)
-  created_at  DateTime            @default(now()) @db.Timestamptz()
-  created_by  String?             @db.Uuid
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug       String   @unique @db.VarChar(50)
+  label      String   @db.VarChar(50)
+  color      String?  @db.VarChar(7)
+  created_at DateTime @default(now()) @db.Timestamptz()
+  created_by String?  @db.Uuid
 
   creator     User?               @relation("TaskTagCreator", fields: [created_by], references: [id])
   assignments TaskTagAssignment[] @relation("TagAssignments")
@@ -746,8 +751,8 @@ model TaskTagAssignment {
   tag_id      String   @db.Uuid
   assigned_at DateTime @default(now()) @db.Timestamptz()
 
-  task        Task    @relation("TaskTagAssignments", fields: [task_id], references: [id], onDelete: Cascade)
-  tag         TaskTag @relation("TagAssignments", fields: [tag_id], references: [id], onDelete: Cascade)
+  task Task    @relation("TaskTagAssignments", fields: [task_id], references: [id], onDelete: Cascade)
+  tag  TaskTag @relation("TagAssignments", fields: [tag_id], references: [id], onDelete: Cascade)
 
   @@id([task_id, tag_id])
   @@index([tag_id])
@@ -815,6 +820,124 @@ model ServiceChecklistItem {
 
   @@index([service_id])
   @@map("service_checklist_items")
+}
+
+// ─── BLOQUE 8C: SUPPORT INSIDE (Sprint 8 Fase D — ADR-034 + ADR-061 + ADR-075) ───
+// Schema de Support Inside como tier de cuenta con UX dedicada. El producto
+// Support Inside vive en `products` con type=support_inside (ADR-034); aquí
+// se añade su configuración 1:1, las suscripciones de cliente, y los slots
+// asignados a servicios concretos.
+//
+// Doctrina canónica:
+//   - 1 cliente puede tener máx. 1 suscripción activa (ADR-034 + EC-T8-09).
+//   - 1 servicio puede tener máx. 1 slot activo (released_at IS NULL).
+//     Validado en service layer (Postgres no permite UNIQUE parcial WHERE
+//     en Prisma sin SQL raw).
+//   - La suscripción genera un Service estándar (ADR-061: reusa todo el
+//     motor de billing/cancelación/prorrateo) — `subscription.service_id`
+//     apunta al service de la propia subscription en `services`.
+
+enum SupportInsideSlotType {
+  maintenance
+  maintenance_management
+}
+
+enum SupportInsideSubscriptionStatus {
+  active
+  cancelled
+  paused
+}
+
+enum SupportInsideChannel {
+  webchat
+  email
+  phone
+  whatsapp
+}
+
+enum SupportInsidePriorityTier {
+  standard
+  high
+  max
+}
+
+enum SupportInsideCtaVisibility {
+  hidden
+  catalog_banner
+  landing_cta
+}
+
+// Configuración 1:1 del producto Support Inside. Editable desde el editor
+// dedicado `/admin/support-inside-plans/<slug>` (ADR-075). Las secciones
+// del editor mapean directamente a campos aquí — añadir campo nuevo en
+// sprint futuro = añadir columna + sección card sin tocar las anteriores.
+model SupportInsideConfig {
+  id                 String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id         String                     @unique @db.Uuid
+  // Sección "Slots y capacidades" del editor (ADR-075 §B.2).
+  slots_included     Int                        @default(0)
+  slot_types_allowed SupportInsideSlotType[]
+  extra_slot_price   Decimal                    @default(0) @db.Decimal(10, 2)
+  // Sección "Soporte y canales".
+  channels_active    SupportInsideChannel[]
+  priority_tier      SupportInsidePriorityTier  @default(standard)
+  response_sla_hours Int                        @default(24)
+  // Sección "Configuración avanzada".
+  cta_visibility     SupportInsideCtaVisibility @default(hidden)
+  // Metadata libre por si alguna sección futura necesita campos no
+  // estructurados antes de promocionarlos a columna real.
+  metadata           Json?
+  created_at         DateTime                   @default(now()) @db.Timestamptz()
+  updated_at         DateTime                   @default(now()) @updatedAt @db.Timestamptz()
+
+  product Product @relation("ProductSupportInsideConfig", fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@map("support_inside_config")
+}
+
+model SupportInsideSubscription {
+  id                  String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client_id           String                          @unique @db.Uuid
+  product_id          String                          @db.Uuid
+  service_id          String                          @unique @db.Uuid
+  status              SupportInsideSubscriptionStatus @default(active)
+  started_at          DateTime                        @default(now()) @db.Timestamptz()
+  cancelled_at        DateTime?                       @db.Timestamptz()
+  cancellation_reason String?
+  metadata            Json?
+  created_at          DateTime                        @default(now()) @db.Timestamptz()
+  updated_at          DateTime                        @default(now()) @updatedAt @db.Timestamptz()
+
+  client  User                @relation("UserSupportInsideSubscription", fields: [client_id], references: [id], onDelete: Restrict)
+  product Product             @relation("ProductSupportInsideSubscriptions", fields: [product_id], references: [id])
+  service Service             @relation("ServiceSupportInsideSubscription", fields: [service_id], references: [id], onDelete: Restrict)
+  slots   SupportInsideSlot[] @relation("SubscriptionSlots")
+
+  @@index([client_id])
+  @@index([product_id])
+  @@index([status])
+  @@map("support_inside_subscriptions")
+}
+
+model SupportInsideSlot {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subscription_id  String                @db.Uuid
+  service_id       String                @db.Uuid
+  slot_type        SupportInsideSlotType
+  is_extra         Boolean               @default(false)
+  extra_pricing_id String?               @db.Uuid
+  assigned_at      DateTime              @default(now()) @db.Timestamptz()
+  released_at      DateTime?             @db.Timestamptz()
+  metadata         Json?
+  created_at       DateTime              @default(now()) @db.Timestamptz()
+
+  subscription SupportInsideSubscription @relation("SubscriptionSlots", fields: [subscription_id], references: [id], onDelete: Cascade)
+  service      Service                   @relation("ServiceSupportInsideSlots", fields: [service_id], references: [id], onDelete: Restrict)
+
+  @@index([subscription_id])
+  @@index([service_id])
+  @@index([released_at])
+  @@map("support_inside_slots")
 }
 
 // ─── BLOQUE 9: NOTIFICACIONES ───
