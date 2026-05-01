@@ -1,0 +1,606 @@
+# ADR-077 — Contrato canónico `ProvisionerPlugin` v2: firma congelada + capability flags + shapes
+
+> **Status:** Active (extiende [ADR-021](./adr-021-provisioners.md), materializa la decisión arquitectónica de [ADR-070](./adr-070-service-info-sso-acciones-curadas.md))
+> **Date:** 2026-05-01
+> **Domain:** provisioning, plugins, cross-cutting
+> **Sprint:** Sprint 11 (Fase 11.A — congelación de contratos antes de cualquier código de orquestador)
+
+---
+
+## Contexto
+
+[ADR-021](./adr-021-provisioners.md) (2025-11) declaró la interfaz mínima de un `ProvisionerPlugin` con tres métodos: `provision`, `deprovision`, `getStatus`. Hizo explícito el principio canónico *"el plugin internamente hace lo que tenga que hacer"*. Esa interfaz es necesaria pero **insuficiente** para soportar la doctrina de UX que [ADR-070](./adr-070-service-info-sso-acciones-curadas.md) (2026-04-29) cerró:
+
+- Página `/dashboard/services/[id]` única para todos los productos sin condicionales por plugin → necesita `getServiceInfo()` normalizado.
+- Delegación al panel especialista (cPanel/Plesk/Enhance/Collabora admin) cuando el plugin lo soporte → necesita `getSsoUrl()`.
+- Acciones curadas inline auditables (reset password, restart container, DNS records CRUD) → necesita `executeAction()`.
+
+ADR-070 declaró estos tres mecanismos pero **a nivel arquitectónico abstracto** — describió qué hace cada uno y dio ejemplos de payload. No congeló:
+
+1. La firma TypeScript exacta de los 6 métodos del contrato v2.
+2. El shape exhaustivo de `ServiceInfo`, `SsoUrl`, `ActionResult`, `ServiceMetrics`.
+3. La lista cerrada de **capability flags** que el frontend usa para condicionar UI.
+4. La doctrina de cómo se invocan (sync/async, pipeline de cache + audit + circuit breaker, qué se delega al plugin y qué hace el orquestador).
+5. La política de versionado del contrato cuando deba evolucionar (v3 futuro).
+
+Sprint 11 (P2.1) implementa el orquestador `provisioning` y los dos plugins triviales (`internal`, `manual`). Sprint 15A construye el plugin framework y los helpers compartidos. Sprints 15C/D/E/G implementan plugins reales (Enhance CP, ResellerClub, Docker Engine, Plesk).
+
+> **¿Qué pasaría si NO tomáramos esta decisión?** Cada plugin se desarrollaría con micro-divergencias del contrato — campos opcionales que un plugin trata como obligatorios, capability flags que algún plugin omite y otros declaran, shapes que difieren en el orden de propiedades por convenio implícito, retornos `null` vs `undefined` interpretados distinto. Sprint 15A construiría el framework con ambigüedades que se trasladarían a 15C/D/E. Code review se llenaría de "¿esto debería ser opcional o obligatorio?" sin fuente de verdad, y la regla R4 (no importar plugins desde core) se erosionaría porque cada plugin redefine sus propios tipos. **Es exactamente el antipatrón que ADR-070 §Cuándo revisar advierte cuando dice "si Aelium evoluciona a operar el control panel del cliente, revisar"**: la diferencia entre interfaz curada e interfaz emergente.
+
+---
+
+## Opciones consideradas
+
+### A. Status quo — deferir el contrato exacto a Sprint 15A (plugin framework)
+
+- **Pros**: Sprint 11 arranca antes; el primer plugin real "descubre" la firma necesaria.
+- **Contras**: Sprint 11 implementa orquestador + 2 plugins triviales sin contrato firme → cuando Sprint 15A llegue, los 2 plugins triviales se reescriben para alinearse. Sprint 11 paga refactor inevitable. Y el patrón "interface emerge from implementation" es exactamente lo que la doctrina del proyecto evita en cada sprint cerrado.
+
+### B. Definir el contrato en código directamente (sin ADR)
+
+- **Pros**: rapidez.
+- **Contras**: cualquier cambio del contrato pasa por code review en lugar de ADR explícito. Sprint 15A puede modificarlo unilateralmente. La regla R0 (las decisiones arquitectónicas requieren ADR) se rompe. **No reproducible** — un nuevo desarrollador que mire `core/provisioning/types.ts` no encuentra el "por qué" de cada campo.
+
+### C. (elegida) Congelar el contrato en este ADR antes del primer commit de Sprint 11
+
+- ADR-077 declara los 6 métodos con firma TypeScript exacta + shapes completos + capability flags cerrados + política de versionado.
+- Sprint 11 Fase 11.A traslada el contrato a `backend/src/core/provisioning/types.ts` **literal** (sin reinterpretar).
+- Sprint 15A consume el contrato como fuente de verdad para los helpers.
+- Sprints 15C/D/E/G implementan plugins reales sobre el contrato sin tocarlo.
+- Cualquier evolución (`v3`) requiere ADR específico que documente migración + compatibilidad.
+
+- **Pros**:
+  - Contratos congelados antes de codear → cero refactor inter-sprint.
+  - ADR como fuente de verdad → futuras conversaciones citan §3.X de este ADR, no archivos de código.
+  - Test contract genérico (`plugin-contract.spec.ts`) verifica que cualquier plugin nuevo cumple la firma — ejecutado en CI.
+  - Compatible con el patrón de Sprint 8 D.0 (ADR-075 redactado antes de Fase D código): redactar ADR antes del primer commit funciona y produce sprint robusto.
+- **Contras**:
+  - Sprint 11 Fase 11.A se retrasa ~0.5 sesión por la redacción del ADR.
+  - Riesgo: el ADR se queda "demasiado abstracto" y el primer plugin real (Sprint 15C Enhance CP) descubre un caso no previsto. Mitigación: **§"Cuándo revisar"** explícita.
+
+---
+
+## Decisión
+
+**Opción C — congelar el contrato canónico `ProvisionerPlugin` v2 en este ADR antes del primer commit de orquestador.**
+
+A continuación se especifica de forma exhaustiva la firma, los shapes, los capability flags, la doctrina de invocación y la política de versionado.
+
+---
+
+### 1. Firma canónica TypeScript del contrato v2
+
+```typescript
+/**
+ * ProvisionerPlugin v2 — contrato canónico congelado por ADR-077.
+ *
+ * Cualquier plugin de provisioning DEBE implementar los 6 métodos:
+ *   - 3 heredados de ADR-021 (provision, deprovision, getStatus)
+ *   - 3 nuevos de ADR-070 (getServiceInfo, getSsoUrl, executeAction)
+ *
+ * Versionado: el contrato v2 es estable. Cambios futuros que rompan
+ * compatibilidad requieren ADR explícito + bump a v3 + migración.
+ */
+export interface ProvisionerPlugin {
+  /** Identificador canónico del plugin (slug en kebab-case). Inmutable. */
+  readonly slug: string;
+
+  /** Versión del contrato implementado. Hoy: 'v2'. */
+  readonly contractVersion: 'v2';
+
+  /** Capability flags declarados estáticamente. Ver §3. */
+  readonly capabilities: PluginCapabilities;
+
+  /** Lista cerrada de acciones inline soportadas. Ver §4. */
+  readonly inlineActions: readonly ServiceAction[];
+
+  // ─── Métodos heredados ADR-021 ──────────────────────────────────────────
+
+  /**
+   * Crea el servicio en el sistema externo (o marca activo si interno).
+   * Idempotente: si ya existe `provider_reference`, devuelve éxito sin recrear.
+   * Lanza ProvisionerPluginError con código semántico (ver §6) en fallo.
+   */
+  provision(ctx: ProvisionContext): Promise<ProvisionResult>;
+
+  /**
+   * Cancela / elimina el servicio en el sistema externo.
+   * Idempotente: si ya está cancelado externamente, devuelve éxito.
+   */
+  deprovision(ctx: DeprovisionContext): Promise<void>;
+
+  /**
+   * Lectura puntual del estado real en el sistema externo.
+   * NO debe consultar cache de Aelium — es la fuente de verdad ad-hoc.
+   * Usado por crons de reconciliación, no por la página `/dashboard/services/[id]`.
+   */
+  getStatus(service: Service): Promise<ServiceStatusReport>;
+
+  // ─── Métodos nuevos ADR-070 (canónicos a partir de v2) ──────────────────
+
+  /**
+   * Devuelve información normalizada del servicio para renderizar
+   * `/dashboard/services/[id]`. El orquestador la cachea en Redis con
+   * TTL configurable. Plugins NO gestionan la cache — el wrapper
+   * `core/provisioning/plugin-utils.executeWithCache()` lo hace.
+   */
+  getServiceInfo(service: Service): Promise<ServiceInfo>;
+
+  /**
+   * Devuelve URL firmada de single sign-on al panel del proveedor.
+   * Devuelve `null` si el plugin no soporta SSO (ej. resellerclub, manual).
+   * El orquestador audita la llamada con `service.sso_opened`.
+   */
+  getSsoUrl(service: Service): Promise<SsoUrl | null>;
+
+  /**
+   * Ejecuta una acción inline del catálogo `inlineActions`.
+   * El wrapper `executeActionWithCacheInvalidation()` invalida cache
+   * y emite `service.action_executed` automáticamente.
+   * El plugin SOLO implementa la lógica del proveedor.
+   */
+  executeAction(
+    service: Service,
+    actionSlug: string,
+    payload: Record<string, unknown>,
+  ): Promise<ActionResult>;
+}
+```
+
+---
+
+### 2. Shapes congelados
+
+#### 2.1 `ProvisionContext`
+
+```typescript
+export interface ProvisionContext {
+  /** Servicio Prisma con relaciones precargadas: client, product, pricing. */
+  readonly service: ServiceWithRelations;
+
+  /** Datos del cliente sanitizados (sin password hashes ni secrets). */
+  readonly client: ClientPublicData;
+
+  /** Configuración del producto (jsonb plano declarado en `products.config`). */
+  readonly productConfig: Record<string, unknown>;
+
+  /** ID de servidor asignado por `infrastructure.pickServerForProduct()`.
+   * Solo poblado para plugins que declaran `capabilities.requires_server = true`
+   * (hoy solo `docker_engine`). Resto de plugins reciben `null`. */
+  readonly serverId: string | null;
+
+  /** Correlation ID para audit + log. */
+  readonly correlationId: string;
+}
+```
+
+#### 2.2 `ProvisionResult`
+
+```typescript
+export interface ProvisionResult {
+  /** Identificador del recurso en el sistema externo (cPanel account ID,
+   * domain ID, container ID, etc.). NULL para plugins `internal` y `manual`. */
+  providerReference: string | null;
+
+  /** Metadata adicional del proveedor para persistir en `services.metadata`.
+   * Plano, sin secretos. */
+  metadata: Record<string, string | number | boolean>;
+
+  /** Acciones de seguimiento que el orquestador debe ejecutar tras éxito.
+   * Hoy: ['mark_active'] (default), ['create_setup_task'] (manual provisioner). */
+  followUp: ProvisioningFollowUp[];
+}
+
+export type ProvisioningFollowUp =
+  | 'mark_active'              // services.status = 'active' inmediatamente
+  | 'wait_for_task_completion' // services.status = 'pending', listener `provisioning-on-task-completed` lo activa
+  | 'create_setup_task';       // crea Task(type=support_setup) en cola pública
+```
+
+#### 2.3 `ServiceInfo` (canónico — frontend lo consume server-side)
+
+```typescript
+export interface ServiceInfo {
+  /** Estado real del servicio en el proveedor.
+   * Distinto de services.status (cache local) — el plugin lo determina. */
+  status: ServiceInfoStatus;
+  statusReason?: string;
+
+  display: {
+    primary: string;            // ej. "miweb.com" / "cliente1.aelium.net"
+    secondary?: string;         // ej. "Hosting Pro 10GB"
+    expiresAt?: string;         // ISO-8601
+    autoRenew?: boolean;
+  };
+
+  metrics?: ServiceMetrics;     // undefined si plugin no expone
+
+  /** Capability flags por instancia de servicio (overrides estáticos por contexto).
+   * Ej. un servicio Docker en pool sin admin panel devuelve has_sso_panel=false aunque
+   * el plugin declare en static capabilities has_sso_panel=true. */
+  capabilities: ServiceCapabilities;
+
+  /** Acciones disponibles para ESTE servicio (subset de plugin.inlineActions
+   * filtrado por estado actual; ej. restart no aparece si status='cancelled'). */
+  availableActions: readonly ServiceAction[];
+
+  /** Timestamp de la lectura del proveedor (cache se calcula desde aquí). */
+  fetchedAt: string;            // ISO-8601
+}
+
+export type ServiceInfoStatus =
+  | 'active'
+  | 'suspended'
+  | 'expired'
+  | 'pending'
+  | 'failed'
+  | 'cancelled'
+  | 'unknown';                  // proveedor caído / timeout
+
+export interface ServiceMetrics {
+  diskUsedMb?: number;
+  diskTotalMb?: number;
+  bandwidthUsedMb?: number;
+  bandwidthTotalMb?: number;
+  ramUsedMb?: number;           // Docker only
+  ramTotalMb?: number;
+  cpuUsagePercent?: number;     // Docker only
+  emailAccountsUsed?: number;
+  emailAccountsTotal?: number;
+  databasesUsed?: number;
+  databasesTotal?: number;
+  custom?: Record<string, string | number>;
+  fetchedAt: string;            // ISO-8601
+}
+
+export interface ServiceCapabilities extends PluginCapabilities {
+  /** Por instancia: si el SSO está disponible AHORA (puede degradarse aunque el plugin lo soporte). */
+  hasSsoPanel: boolean;
+  /** Por instancia: subset de inline_actions disponible para este servicio + su estado actual. */
+  inlineActions: readonly ServiceAction[];
+}
+```
+
+#### 2.4 `SsoUrl`
+
+```typescript
+export interface SsoUrl {
+  /** URL completa con session token. */
+  url: string;
+  /** Cuándo expira el token. ISO-8601. Típicamente 5-15 min. */
+  expiresAt: string;
+  /** Etiqueta del panel de destino (i18n key del plugin). */
+  panelLabel: string;
+  /** Canónico: siempre 'new_tab' para no perder el dashboard. */
+  opensIn: 'new_tab';
+}
+```
+
+#### 2.5 `ActionResult` + `ServiceAction`
+
+```typescript
+export interface ServiceAction {
+  /** Slug canónico (kebab-case) — lista cerrada por plugin. */
+  slug: string;
+  /** Etiqueta i18n key. */
+  label: string;
+  /** Descripción i18n key (opcional). */
+  description?: string;
+  /** Si requiere modal de confirmación. */
+  confirmRequired: boolean;
+  /** Texto de confirmación i18n key (si confirmRequired). */
+  confirmationText?: string;
+  /** Si renderizar con estilo destructive. */
+  destructive: boolean;
+  /** Schema de payload (Zod descrito como JSON Schema 7).
+   * Usado por frontend para construir el formulario inline. */
+  payloadSchema?: Record<string, unknown>;
+}
+
+export interface ActionResult {
+  /** Si la acción terminó OK desde el punto de vista del plugin. */
+  success: boolean;
+  /** Mensaje al cliente (i18n key del plugin). */
+  message?: string;
+  /** Side effects para que el orquestador notifique a otros módulos.
+   * Lista cerrada — solo strings de §5. */
+  sideEffects?: readonly ActionSideEffect[];
+  /** Datos adicionales que el frontend renderiza inline (ej. logs tail). */
+  data?: Record<string, unknown>;
+}
+
+export type ActionSideEffect =
+  | 'service.metrics_invalidated'
+  | 'service.restarted'
+  | 'service.dns_modified'
+  | 'service.password_reset'
+  | 'service.subdomain_changed';
+```
+
+#### 2.6 `ProvisionerPluginError`
+
+Error semántico canónico — todos los plugins lanzan instancias de esta clase, no `Error` plano.
+
+```typescript
+export class ProvisionerPluginError extends Error {
+  constructor(
+    message: string,
+    public readonly code: ProvisionerErrorCode,
+    public readonly retriable: boolean,
+    public readonly cause?: unknown,
+  ) {
+    super(message);
+    this.name = 'ProvisionerPluginError';
+  }
+}
+
+export type ProvisionerErrorCode =
+  | 'PROVIDER_TIMEOUT'        // retriable=true
+  | 'PROVIDER_RATE_LIMITED'   // retriable=true
+  | 'PROVIDER_AUTH_FAILED'    // retriable=false (credenciales mal — alerta admin)
+  | 'PROVIDER_RESOURCE_EXHAUSTED' // retriable=false (capacidad superada)
+  | 'INVALID_PAYLOAD'         // retriable=false (DTO mal — bug del orquestador)
+  | 'INVALID_STATE'           // retriable=false (servicio en estado incompatible)
+  | 'NOT_IMPLEMENTED'         // retriable=false (capability declarada pero no soportada — bug)
+  | 'PROVIDER_INTERNAL_ERROR' // retriable=true por defecto, plugin puede sobreescribir
+  | 'NETWORK_ERROR';          // retriable=true
+```
+
+El orquestador usa `error.retriable` para decidir si reintentar (con backoff [30s, 90s, 270s]) o ir directo a DLQ + emitir `service.provisioning_failed`.
+
+---
+
+### 3. `PluginCapabilities` — flags estáticos cerrados
+
+Lista canónica congelada. Cualquier flag nuevo requiere ADR específico.
+
+```typescript
+export interface PluginCapabilities {
+  /** Soporta SSO al panel externo (es decir, getSsoUrl puede devolver no-null). */
+  has_sso_panel: boolean;
+
+  /** Etiqueta del panel para el botón cliente. Solo si has_sso_panel=true. */
+  panel_label?: string;
+
+  /** Devuelve métricas en getServiceInfo.metrics. */
+  has_metrics: boolean;
+
+  /** Aelium guarda series temporales (server_metrics filtradas). Solo Docker. */
+  has_metrics_history: boolean;
+
+  /** Requiere asignación de servidor (`pickServerForProduct`). Solo Docker. */
+  requires_server: boolean;
+
+  /** Provision es síncrono (devuelve antes de N segundos) o asíncrono.
+   * Si async, el orquestador no espera el resultado y delega al webhook
+   * o cron de reconciliación del plugin. */
+  provision_mode: 'sync' | 'async';
+
+  /** Plugin completa el provisioning vía Task del agente.
+   * Si true, el listener `provisioning-on-task-completed` activa el servicio
+   * cuando se cierra la Task asociada. Hoy solo `manual`. */
+  completes_via_task: boolean;
+
+  /** Aelium puede hacer reconciliación periódica (cron `service-reconcile`)
+   * llamando a getStatus(). Falsi si la operación es cara para el proveedor. */
+  supports_reconciliation: boolean;
+}
+```
+
+**Mapping inicial canónico (Sprint 11 + Sprint 15 referencia):**
+
+| Plugin | has_sso_panel | has_metrics | has_metrics_history | requires_server | provision_mode | completes_via_task | supports_reconciliation |
+|---|---|---|---|---|---|---|---|
+| `internal` | ❌ | ❌ | ❌ | ❌ | `sync` | ❌ | ❌ |
+| `manual` | ❌ | ❌ | ❌ | ❌ | `sync` | ✅ | ❌ |
+| `enhance_cp` (15C) | ✅ | ✅ | ❌ | ❌ | `sync` | ❌ | ✅ |
+| `cpanel_whm` (15C bis) | ✅ | ✅ | ❌ | ❌ | `sync` | ❌ | ✅ |
+| `resellerclub` (15D) | ❌ | ❌ | ❌ | ❌ | `sync` | ❌ | ✅ |
+| `docker_engine` (15E) | ⚠ condicional | ✅ | ✅ | ✅ | `sync` | ❌ | ✅ |
+| `plesk_obsidian` (15G) | ✅ | ✅ | ❌ | ❌ | `sync` | ❌ | ✅ |
+
+`docker_engine.has_sso_panel` es ⚠ condicional: depende de si `docker_template.yaml` declara `admin_panel_url` — el plugin lo determina por servicio (vía `ServiceCapabilities`, no estático).
+
+---
+
+### 4. `inlineActions` — declaración estática del catálogo de acciones
+
+Cada plugin declara su lista cerrada en construcción (no se mutan en runtime). Las acciones disponibles **por servicio** (filtradas por estado) las devuelve `getServiceInfo().capabilities.inlineActions`.
+
+**Mapping canónico inicial** (referencia para Sprints 15A-G):
+
+| Plugin | Slugs aprobados |
+|---|---|
+| `internal` | (vacío — solo lectura) |
+| `manual` | (vacío desde cliente; agente actúa via tasks) |
+| `enhance_cp` / `cpanel_whm` | `reset_account_password`, `view_disk_usage`, `view_bandwidth_usage` |
+| `resellerclub` | `view_dns_records`, `add_dns_record`, `update_dns_record`, `delete_dns_record`, `request_transfer_out`, `toggle_auto_renew` |
+| `docker_engine` | `restart_container`, `view_logs_tail_100`, `reset_admin_password`, `change_subdomain`, `request_resource_upgrade` |
+
+**Doctrina canónica** para añadir un slug nuevo (heredada de ADR-070, reafirmada aquí):
+
+1. Frecuencia >5 veces/mes por cliente.
+2. Idempotente o reversible.
+3. Sin estado dual (sin espejo cPanel local).
+4. Auditable significativamente.
+5. Aprobada por superadmin vía ADR específico del plugin.
+
+Cualquier acción no listada arriba ni aprobada vía ADR queda fuera del dashboard. Cliente la ejecuta vía SSO o ticket.
+
+---
+
+### 5. Pipeline canónico de invocación (orquestador → plugin)
+
+El orquestador `provisioning` NO llama a los plugins directamente. Usa **3 helpers wrapper** que centralizan cache, audit, circuit breaker y emisión de eventos.
+
+```typescript
+// core/provisioning/plugin-utils.ts
+
+/**
+ * Wrapper canónico para getServiceInfo:
+ *   1. Lee cache Redis service_info:<id>
+ *   2. Si miss o stale: llama plugin.getServiceInfo(service)
+ *   3. Cachea con TTL (settings.provisioning.service_info_ttl_seconds, default 60)
+ *   4. Emite service.metrics_fetched (audit)
+ *   5. Si plugin lanza ProvisionerPluginError(retriable=false): cache short-TTL del error
+ *      con `status='unknown'` para evitar martillar al proveedor; UI muestra warning
+ */
+export async function getServiceInfoWithCache(
+  plugin: ProvisionerPlugin,
+  service: Service,
+  redis: Redis,
+  events: EventEmitter2,
+): Promise<ServiceInfo> { /* ... */ }
+
+/**
+ * Wrapper canónico para executeAction:
+ *   1. Valida que actionSlug ∈ plugin.inlineActions[].slug
+ *   2. Valida payload contra plugin.inlineActions[i].payloadSchema (Zod)
+ *   3. Ejecuta plugin.executeAction()
+ *   4. Invalida cache service_info:<id>
+ *   5. Emite service.action_executed (audit)
+ *   6. Si side_effects incluye 'service.metrics_invalidated' → invalida también server_metrics:<id> (Docker)
+ */
+export async function executeActionWithCacheInvalidation(
+  plugin: ProvisionerPlugin,
+  service: Service,
+  actionSlug: string,
+  payload: Record<string, unknown>,
+  redis: Redis,
+  events: EventEmitter2,
+  audit: AuditService,
+): Promise<ActionResult> { /* ... */ }
+
+/**
+ * Wrapper canónico para getSsoUrl:
+ *   1. Llama plugin.getSsoUrl(service)
+ *   2. Si null: devuelve null (UI oculta botón)
+ *   3. Si url: emite service.sso_opened (audit con IP, UA, panelLabel)
+ *   4. Devuelve la URL al frontend
+ */
+export async function getSsoUrlWithAudit(
+  plugin: ProvisionerPlugin,
+  service: Service,
+  audit: AuditService,
+  request: { ip: string; userAgent: string },
+): Promise<SsoUrl | null> { /* ... */ }
+```
+
+**Regla canónica:** **los plugins NUNCA llaman directamente a Redis, EventEmitter o AuditService.** El plugin recibe los datos por parámetro (vía contexto) y devuelve el resultado. La interceptación cross-cutting vive en estos 3 wrappers.
+
+Esto materializa R4 (plugins no se importan desde core, pero sí los plugins importan helpers de `core/provisioning/plugin-utils` — los helpers son librería, no orquestador). Y R7 + R11 (errores y circuit breaker) los implementa el wrapper, no cada plugin.
+
+---
+
+### 6. Política de versionado del contrato
+
+- **v2** es la versión canónica fijada por este ADR. Estable hasta nuevo ADR que justifique v3.
+- Los plugins declaran `contractVersion: 'v2'` literal. El orquestador rechaza plugins con `contractVersion !== 'v2'` con error explícito + alerta admin.
+- Cambios **compatibles hacia atrás** (añadir un capability flag opcional, añadir un campo opcional a un shape) se documentan como amendment a este ADR (sección "Amendments" al final). NO bumpean a v3.
+- Cambios **breaking** (renombrar método, eliminar campo, cambiar tipo) requieren:
+  1. ADR-NNN nuevo que justifique el cambio.
+  2. Bump a `contractVersion: 'v3'` en plugins migrados.
+  3. Período de coexistencia v2+v3 si hay plugins en producción → orquestador soporta ambos hasta migración total.
+  4. Test contract genérico actualizado.
+
+**Ejemplo de cambio breaking previsible:** si un plugin futuro requiere métricas time-series (no solo snapshot), eso podría exigir que `ServiceMetrics` se convierta en stream — eso es v3.
+
+---
+
+### 7. Test contract genérico
+
+Sprint 11 Fase 11.A entrega un test parametrizado que **cualquier plugin nuevo debe pasar**:
+
+```typescript
+// tests/unit/plugin-contract.spec.ts
+describe.each(REGISTERED_PROVISIONER_PLUGINS)(
+  'ProvisionerPlugin contract v2 — %s',
+  (plugin) => {
+    it('declara slug en kebab-case', () => { /* ... */ });
+    it('declara contractVersion === v2', () => { /* ... */ });
+    it('declara capabilities completas', () => { /* ... */ });
+    it('todas las inlineActions tienen slug único', () => { /* ... */ });
+    it('si has_sso_panel=true → declara panel_label', () => { /* ... */ });
+    it('si requires_server=true → solo aplica a docker_engine', () => { /* ... */ });
+    it('completes_via_task=true → existe listener provisioning-on-task-completed configurado', () => { /* ... */ });
+    it('provision con ProvisionContext válido devuelve ProvisionResult shape', () => { /* ... */ });
+    it('deprovision con servicio inexistente externamente NO lanza (idempotente)', () => { /* ... */ });
+    it('getServiceInfo devuelve ServiceInfo shape', () => { /* ... */ });
+    it('getSsoUrl devuelve null o SsoUrl shape', () => { /* ... */ });
+    it('executeAction con slug inválido lanza ProvisionerPluginError(INVALID_PAYLOAD)', () => { /* ... */ });
+  },
+);
+```
+
+Este test corre en CI. Cualquier PR que añada un plugin nuevo debe pasar el test antes de merge.
+
+---
+
+## Consecuencias
+
+- ✅ **Ganamos:**
+  - **Contrato congelado** antes del primer commit de orquestador. Cero ambigüedad cross-sprint.
+  - **Test contract genérico** garantiza que cualquier plugin futuro cumple la firma — error en CI inmediato si un plugin se desvía.
+  - **Wrappers cross-cutting** centralizados (`executeActionWithCacheInvalidation`, etc.) → cada plugin solo escribe lógica del proveedor, no boilerplate de cache/audit.
+  - **Política de versionado explícita** → la conversación "¿esto es breaking?" tiene respuesta canónica.
+  - **R4 reforzado**: plugins importan de `core/provisioning/plugin-utils` (librería) pero NO de `modules/provisioning` (orquestador). El linter ESLint puede enforzarlo.
+  - **Sprint 11 robusto** — replica el patrón Sprint 8 D.0 (ADR-075 antes de código) que produjo el mejor sprint del proyecto.
+- ⚠️ **Aceptamos:**
+  - **Sprint 11 Fase 11.A se retrasa ~0.5 sesión** redactando este ADR + test contract. Inversión que paga >5x cuando llegan Sprints 15A-G.
+  - **Riesgo de que un plugin real (Enhance CP, Sprint 15C) descubra un caso no previsto**. Mitigación: §"Cuándo revisar" + amendments para cambios compatibles + bump a v3 para breaking.
+  - **El orquestador depende de helpers `plugin-utils`** — si cambian su contrato, todos los plugins lo notan. Mitigación: helpers forman parte del contrato canónico, su firma se documenta aquí también.
+- 🚪 **Cierra:**
+  - **No `interface emerges from implementation`** — el contrato existe ANTES del primer plugin real.
+  - **No plugin importa Redis/EventEmitter directamente** — pasa por wrappers.
+  - **No `contractVersion` ad-hoc** — solo `'v2'` hoy; cambio requiere ADR.
+  - **No acciones ad-hoc en código** — toda acción nueva pasa por la doctrina §4 (5 criterios + ADR plugin específico).
+  - **No `if (provisioner === 'X')` en frontend** — page reads `getServiceInfo().capabilities` y ramifica por capability flag, nunca por slug.
+
+---
+
+## Cuándo revisar
+
+- **Si Sprint 15C (Enhance CP) descubre un caso no cubierto** (ej. paginación de métricas, webhook de cambios async, multi-language errors): añadir amendment a este ADR si compatible; ADR-NNN nuevo + bump v3 si breaking.
+- **Si surge un plugin con `provision_mode: async` real** (ej. cPanel sólo confirma cuenta tras 30 min): hoy ningún plugin lo necesita pero el flag está reservado. Cuando llegue, validar que el orquestador soporta el modo asíncrono con `provider_reference` parcialmente poblado y reconciliación posterior.
+- **Si un partner del Sprint 19 quiere invocar `executeAction` sobre servicios de sus clientes**: revisar §3 capabilities (añadir `partner_can_execute: boolean`) o ADR específico que lo gobierne.
+- **Si el helper `executeActionWithCacheInvalidation` se vuelve cuello de botella** (ej. acciones que tocan 50 servicios a la vez): considerar versión batch del wrapper.
+- **Si un capability flag se vuelve true en >5 plugins** (ej. `has_metrics`): pasar a default `true` con opt-out, no opt-in.
+
+---
+
+## Referencias
+
+- **Módulos afectados:**
+  - `provisioning` (Sprint 11) — orquestador implementa los 3 wrappers + el listener `invoice.paid` + cola BullMQ.
+  - `core/provisioning/plugin-utils` (Sprint 11 + 15A) — librería de wrappers compartidos.
+  - `core/provisioning/types.ts` (Sprint 11 Fase 11.A) — types congelados literales de §1 + §2.
+  - `plugins/provisioners/internal` y `plugins/provisioners/manual` (Sprint 11 Fase 11.C) — plugins triviales que validan el chasis.
+  - `plugins/provisioners/{enhance_cp, resellerclub, docker_engine, plesk_obsidian}` (Sprints 15C/D/E/G) — plugins reales que consumen el contrato.
+- **Reglas relacionadas:**
+  - [R4](../00-foundations/rules.md) — plugins no importan desde core (orquestador). Sí importan de `core/provisioning/plugin-utils` (librería).
+  - [R7](../00-foundations/rules.md) — todos los errores se registran y notifican (`ProvisionerPluginError` + DLQ).
+  - [R11](../00-foundations/rules.md) — circuit breaker en llamadas externas. Implementado en wrappers.
+  - [R12](../00-foundations/rules.md) — credenciales encriptadas. `productConfig` recibe credenciales descifradas en `ProvisionContext` y el plugin no las persiste.
+  - [R13](../00-foundations/rules.md) — fallos no desaparecen. Cola BullMQ con DLQ + `service.provisioning_failed`.
+  - [R14](../00-foundations/rules.md) — manejo de errores frontend. `ProvisionerPluginError.message` se sanitiza antes de devolver al cliente.
+- **ADRs relacionados:**
+  - [ADR-021](./adr-021-provisioners.md) — interfaz mínima v1 (`provision/deprovision/getStatus`). Este ADR la **extiende** con 3 métodos nuevos a v2.
+  - [ADR-070](./adr-070-service-info-sso-acciones-curadas.md) — decisión arquitectónica de `getServiceInfo` + `getSsoUrl` + `executeAction`. Este ADR la **materializa** con firma exhaustiva.
+  - [ADR-009](./adr-009-estrategia-plugins.md) — patrón plugin general (manifest, loader, encriptación de credenciales).
+  - [ADR-017](./adr-017-audit-log-inmutable.md) — `AuditService.logAccess`. Wrappers lo invocan.
+  - [ADR-033](./adr-033-outbox-pattern-pendiente.md) — `invoice.paid` viaja por Outbox. Orquestador consume del bus.
+  - [ADR-055](./adr-055-resiliencia-circuit-breaker.md) — circuit breaker. Wrappers lo aplican.
+  - [ADR-063](./adr-063-bullmq-canonico-dlq-retries.md) — cola `provisioning-dispatch` con DLQ.
+  - [ADR-066](./adr-066-tres-portales-raiz-portalbadge.md) — página vive en `/dashboard/services/[id]` (portal cliente).
+  - [ADR-046](./adr-046-sistema-proyectos.md) — Sprint 22 Projects extenderá `services.status` con `project_development` + nuevo trigger de provisioning. **No afecta a este contrato** (las extensiones de Projects son orthogonales al plugin).
+- **Glosario:** *ProvisionerPlugin v2*, *Capability flag*, *Inline action*, *Service info*, *Side effect*, *Provision mode* (a añadir en `glossary.md`).
+- **Sprint:** 11 Fase 11.A (congelación) + 11.B-E (consumo del contrato).
+- **Inspiración industrial:** WHMCS Server Modules API (desde 2010), Blesta Module API, FOSSBilling Server Modules — convergen en patrones similares (capability flags, action catalog, SSO opcional).
+
+---
+
+## Amendments
+
+> Reservado para cambios compatibles hacia atrás post-cierre del ADR. Cada amendment con fecha + ADR específico que lo justifica.
+
+(ninguno todavía)
