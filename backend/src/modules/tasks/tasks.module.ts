@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
 import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
 import { TasksEmailListener } from './tasks-email.listener';
@@ -10,6 +11,24 @@ import { TaskTagsController } from './task-tags.controller';
 import { TaskNotesService } from './task-notes.service';
 import { TaskCompletedListener } from './task-completed.listener';
 import { SupportTicketTaskCreatorListener } from './support-ticket-task-creator.listener';
+import { TasksOverdueService } from './crons/tasks-overdue.service';
+import {
+  TasksOverdueProcessor,
+  TASKS_OVERDUE_QUEUE,
+} from './crons/tasks-overdue.processor';
+import { TasksOverdueListener } from './listeners/tasks-overdue.listener';
+import { TasksUnassignedOverdueService } from './crons/tasks-unassigned-overdue.service';
+import {
+  TasksUnassignedOverdueProcessor,
+  TASKS_UNASSIGNED_OVERDUE_QUEUE,
+} from './crons/tasks-unassigned-overdue.processor';
+import { TasksUnassignedOverdueListener } from './listeners/tasks-unassigned-overdue.listener';
+import { MaintenanceCriticalService } from './crons/maintenance-critical.service';
+import {
+  MaintenanceCriticalProcessor,
+  MAINTENANCE_CRITICAL_QUEUE,
+} from './crons/maintenance-critical.processor';
+import { MaintenanceCriticalListener } from './listeners/maintenance-critical.listener';
 import { PrismaModule } from '../../core/database/prisma.module';
 import { SupportModule } from '../support/support.module';
 
@@ -20,7 +39,18 @@ import { SupportModule } from '../support/support.module';
   // TasksModule (sin ciclo), pero el listener canónico
   // `SupportTicketTaskCreatorListener` vive aquí (en `tasks/`) porque su
   // efecto es crear/reasignar una task — su lugar natural.
-  imports: [PrismaModule, SupportModule],
+  //
+  // Sprint 8 Fase C (2026-05-01) — registra la cola BullMQ `tasks-overdue`
+  // (ADR-063 patrón canónico, ADR-064 leader election). El processor
+  // delega en `TasksOverdueService` para permitir testeo unitario y
+  // disparo manual desde el endpoint admin de smoke testing.
+  imports: [
+    PrismaModule,
+    SupportModule,
+    BullModule.registerQueue({ name: TASKS_OVERDUE_QUEUE }),
+    BullModule.registerQueue({ name: TASKS_UNASSIGNED_OVERDUE_QUEUE }),
+    BullModule.registerQueue({ name: MAINTENANCE_CRITICAL_QUEUE }),
+  ],
   controllers: [TasksController, TaskTagsController],
   providers: [
     TasksService,
@@ -32,6 +62,15 @@ import { SupportModule } from '../support/support.module';
     SupportTicketTaskCreatorListener,
     TaskTagsService,
     TaskNotesService,
+    TasksOverdueService,
+    TasksOverdueProcessor,
+    TasksOverdueListener,
+    TasksUnassignedOverdueService,
+    TasksUnassignedOverdueProcessor,
+    TasksUnassignedOverdueListener,
+    MaintenanceCriticalService,
+    MaintenanceCriticalProcessor,
+    MaintenanceCriticalListener,
   ],
   exports: [TasksService, TaskTagsService, TaskNotesService],
 })
