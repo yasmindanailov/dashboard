@@ -34,13 +34,7 @@
 ### Lo que tiene DEUDA conocida
 
 ⚠️ **Outbox Pattern (R8)**: **4/25 eventos lo usan** — `invoice.*` (created/paid/failed/overdue) cerrado P0.2 (2026-04-26) vía `OutboxService` + `OutboxWorker` en `backend/src/core/outbox/`. Pendiente extender a `service.*` (4) y `checkout.completed` cuando se implemente provisioning, y a `partner.*` (4 futuros). ADR-033 documenta el patrón canónico. **Bajo P-DEPLOY (no urgente — ADR-069).**
-⚠️ **Sprint 8 (Tasks) WIP** — el **mínimo desbloqueante** está cerrado (P0.1: listener `task.assigned`, validación FK `assigned_to`, tests E2E `tests/e2e/tasks.spec.ts`). El resto sigue pendiente y vive en [`current.md` §Sprint 8](../60-roadmap/current.md):
-- Fase A: schemas `task_checklist_completions`, `maintenance_logs`, `product_checklist_items`, `service_checklist_items` (8.1b/c/d/14).
-- Fase B: frontend Tablero + bloques adaptativos + ClientNotesTab vinculación (8.8b/c/d/e).
-- Fase C: listeners `task.overdue`, `maintenance.*` + cron `not_completed_in_time` + WOW calls automáticos (8.2/3/10/12).
-- Fase D: Support Inside (UX dedicada — ADR-061).
-- Fase E: docs `admin.md` + `agent.md`.
-- Eventos task aún huérfanos: `task.created`, `task.completed` (`task.assigned` ya tiene listener).
+✅ **Sprint 8 (Tasks + Support Inside)** — **cerrado 2026-05-01** (~6 sesiones, ~25 commits, 5 ADRs nuevos 072..076). Retrospectiva en [`completed/sprint-8-tasks-support-inside.md`](../60-roadmap/completed/sprint-8-tasks-support-inside.md). Documentación operativa en [`docs/features/tasks/`](../features/tasks/) y [`docs/features/support-inside/`](../features/support-inside/). Cobertura final: 157/157 unit + 117/117 E2E verde, 5 migraciones aplicadas. Eventos task aún huérfanos: `task.created`, `task.completed` (audit Sprint 9 Fase E pendiente — EC-T8-44).
 ⚠️ **DC.6 — Frontend `set-state-in-effect`**: 27 warnings del patrón clásico `useEffect+fetch+setLoading` (regla nueva de eslint-plugin-react-hooks 7.x para React 19). Severidad bajada de `error` a `warn` en `frontend/eslint.config.mjs` con justificación. Plan: migrar fetching a Server Components + `use()`/Suspense en Sprint 7.5 Fase 2 o Sprint 13 Hardening — ver [`backlog.md` DC.6](../60-roadmap/backlog.md). El CI **no bloquea** por estos warnings (sólo por errors).
 ⚠️ **15 eventos huérfanos** (todos clasificados en `_events.md` como hooks aspiracionales para módulos futuros).
 ⚠️ **Sentry preparado, sin DSN configurado** — decisión consciente. Activar al desplegar a producción.
@@ -186,8 +180,8 @@ Acompáñalo siempre con:
 
 ### Cola activa (orden recomendado por valor funcional, post [ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md) 2026-04-29)
 
-1. **Sprint 8 residual — Tasks + Support Inside** — Fase A schemas (`8.1b/c/d/14`), Fase B frontend Tablero + bloques adaptativos + ClientNotesTab vinculación, Fase C listeners `task.overdue` + cron `not_completed_in_time` + WOW calls automáticos (8.2/8.3/8.10/8.12), Fase D Support Inside UX dedicada ([ADR-061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md)), Fase E docs. ~3-4 sesiones. **Recomendado primero por regla "no abrir lo nuevo con WIP abierto".**
-2. **P2.1 Sprint 11 — Provisioning** (orquestador lifecycle + interfaz `ProvisionerPlugin` extendida [ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md) — `getServiceInfo` + `getSsoUrl` + `executeAction` + cache Redis + audit hooks · plugins iniciales triviales `internal` y `manual` · página única cliente `/dashboard/services/[id]`) — ~3 sesiones.
+1. ~~**Sprint 8 residual — Tasks + Support Inside**~~ ✅ **Cerrado 2026-05-01** — ver [`completed/sprint-8-tasks-support-inside.md`](../60-roadmap/completed/sprint-8-tasks-support-inside.md).
+2. **P2.1 Sprint 11 — Provisioning** (orquestador lifecycle + interfaz `ProvisionerPlugin` extendida [ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md) — `getServiceInfo` + `getSsoUrl` + `executeAction` + cache Redis + audit hooks · plugins iniciales triviales `internal` y `manual` · página única cliente `/dashboard/services/[id]`) — ~3 sesiones. **Cabeza de cola activa.**
 3. **P2.2 Sprint 15A — Plugin Framework** (manifest + loader + UI dinámica desde Settings + encriptación API keys + helpers `core/provisioning/plugin-utils.ts`) — ~1-2 sesiones.
 4. **P2.3 Sprint 15D — Plugin ResellerClub (dominios)** — primer plugin externo. SaaS, no usa Sprint 10. Acciones curadas: DNS records CRUD + transfer out + auto-renew. ~2 sesiones.
 5. **P2.4 Sprint 15C — Plugin Enhance CP (hostings)** — segundo plugin SaaS. Tampoco usa Sprint 10. Acciones curadas: reset password + view disk/bandwidth. SSO al panel Enhance. ~2-3 sesiones.
@@ -302,12 +296,14 @@ Cuando vuelvas tras tiempo, lee en este orden:
 
 ## 10. Mi recomendación honesta para tu próxima sesión
 
-> **Estado actualizado 2026-04-29.**
+> **Estado actualizado 2026-05-01.**
 > ✅ **P0 cerrado al 100%** (2026-04-26).
-> ✅ **P1.1 Sprint 9** (Audit + Notifications + BullMQ + DLQ) cerrado 2026-04-27.
-> ✅ **P1.1.5 Sprint 9.5** (UX admin notifications) cerrado 2026-04-27.
-> ✅ **P1.1.6 Sprint 9.6** (DC.7 split admin/cliente + 3 ADRs nuevos 066/067/068) cerrado 2026-04-28.
-> ✅ **P1.2 Sprint 11.5** (MinIO Storage) cerrado 2026-04-26.
+> ✅ **P1.1 Sprint 9** (Audit + Notifications + BullMQ + DLQ) cerrado 2026-04-27 — [`completed/sprint-9-audit-notifications-bullmq.md`](../60-roadmap/completed/sprint-9-audit-notifications-bullmq.md).
+> ✅ **P1.1.5 Sprint 9.5** (UX admin notifications) cerrado 2026-04-27 — [`completed/sprint-9-5-ux-admin-notifications.md`](../60-roadmap/completed/sprint-9-5-ux-admin-notifications.md).
+> ✅ **P1.1.6 Sprint 9.6** (DC.7 split admin/cliente + 3 ADRs nuevos 066/067/068) cerrado 2026-04-28 — [`completed/sprint-9-6-split-admin-cliente.md`](../60-roadmap/completed/sprint-9-6-split-admin-cliente.md).
+> ✅ **P1.2 Sprint 11.5** (MinIO Storage) cerrado 2026-04-26 — [`completed/sprint-11-5-minio-storage.md`](../60-roadmap/completed/sprint-11-5-minio-storage.md).
+> ✅ **Sprint 8** (Tasks + Support Inside, 5 ADRs nuevos 072..076) cerrado **2026-05-01** — [`completed/sprint-8-tasks-support-inside.md`](../60-roadmap/completed/sprint-8-tasks-support-inside.md).
+> 🧹 **Saneamiento documental 2026-05-01**: 4 sprints cerrados que vivían en `current.md` por inercia (9 / 9.5 / 11.5 / 9.6) movidos a `completed/`. `current.md` ahora muestra solo Sprint 7 + 7.5 (paraguas continuos) + punteros cronológicos a los cerrados.
 > 📜 **Política deploy diferido formalizada en [ADR-069](../10-decisions/adr-069-estrategia-deploy-diferido.md)** (2026-04-29): Sprint 14 reclasificado como **gate condicionado P-DEPLOY**, no como cola activa.
 
 ### Política canónica para "qué viene ahora" (post ADR-069)
@@ -316,36 +312,27 @@ El proyecto es **a largo plazo**, sin clientes esperando ni demo pública pendie
 
 ### Vías legítimas para el siguiente sprint (ordenadas por valor profesional)
 
-#### Vía 1 (recomendada por defecto) — Cerrar Sprint 8 residual (Tasks)
+#### Vía 1 (recomendada por defecto) — Sprint 11 Provisioning (P2.1, núcleo del negocio)
 
-- **"Cierra Sprint 8 — Fase A schemas (`task_checklist_completions`, `maintenance_logs`, `product_checklist_items`, `service_checklist_items`, `client_notes.task_id` FK), Fase B Tablero + bloques adaptativos + ClientNotesTab vinculación, Fase C listeners `task.overdue` + cron `not_completed_in_time` + WOW calls, Fase D Support Inside (UX dedicada — ADR-061), Fase E docs admin/agent."**
-- ~3-4 sesiones (Fase A→E pueden partirse).
-- **Por qué primero**: regla profesional canónica — *no abrir features grandes nuevas con WIP sin cerrar*. Sprint 8 lleva más tiempo abierto que cualquier otro y arrastra Support Inside (ADR-061), que es feature de cliente real con UX dedicada.
-- **Lo que cierra**: tres bloques de funcionalidad pegada a UX cliente (tablero de tareas operativo, Support Inside como tier de cuenta visible, automatización de mantenimiento WOW post-alta).
+- **"Implementa Sprint 11 — orquestador lifecycle servicios + interfaz `ProvisionerPlugin` extendida (ADR-070) + plugins iniciales triviales `internal` y `manual` + página única cliente `/dashboard/services/[id]`."**
+- ~3 sesiones.
+- **Por qué primero**: con Sprint 8 cerrado, Sprint 11 es la cabeza de la cola activa P2. El listener `ContactClientTaskListener` (renombrado del histórico `WowCallCreatorListener` por ADR-073) entra aquí, junto con los listeners cross-módulo `tasks-on-service-cancelled` / `service-suspended → maintenance pause` / `provisioning-on-task-completed → activate manual service`.
+- **Lo que cierra**: núcleo operativo del producto (sin Provisioning, "vender hosting" sigue siendo manual). Materializa ADR-070 (service info + SSO + acciones curadas).
 
-#### Vía 2 — Sprint 10 Infrastructure (P2.1, independiente)
+#### Vía 2 — Sprint 10 Infrastructure (P2.5, independiente)
 
-- **"Implementa Sprint 10 — CRUD servidores + pools + capacidad detectada automáticamente + docker_templates UI"**.
-- ~2 sesiones, **sin dependencias** — se puede arrancar en paralelo con Sprint 8 si Yasmin quisiera dos frentes (no recomendado en práctica para un dev solo).
-- **Por qué tiene sentido**: base directa de Sprint 11 Provisioning (núcleo del producto). Empezarla pronto desbloquea cadena P2.
+- **"Implementa Sprint 10 — CRUD servidores + pools + capacidad detectada automáticamente + docker_templates UI."**
+- ~2 sesiones, **sin dependencias**.
+- **Por qué tiene sentido**: emparejado con Sprint 15E (Plugin Docker Engine) en cadena corta — son los únicos consumidores reales de la infra `servers/server_pools`. Si la prioridad es Docker Engine, abrir Sprint 10 antes que Sprint 11 es legítimo.
+- **Por qué no por defecto**: el plan canónico (ADR-070) recomienda **Sprint 11 + Plugin Framework primero**, antes de Sprint 10/15E, para fijar la interfaz extendida `ProvisionerPlugin`. Construir Sprint 10 antes de tener Sprint 11/15A sería YAGNI (módulo sin consumidor real definido).
 
-#### Vía 3 — Sprint 11 Provisioning (P2.2, núcleo del negocio)
-
-- **"Implementa Sprint 11 — orquestación lifecycle servicios, plugins Enhance CP/Docker/Manual, subdominios, métricas Docker cliente"**.
-- ~3-4 sesiones. **Depende de Sprint 10**.
-- **Por qué la considero**: es el núcleo operativo del producto (sin Provisioning, "vender hosting" es manual). Pero **no antes de Sprint 8** salvo que Yasmin priorice valor de negocio sobre cierre de WIP.
-
-### Mi voto profesional: Vía 1 (Sprint 8 residual)
+### Mi voto profesional: Vía 1 (Sprint 11 Provisioning)
 
 Razones:
-1. **Regla "no abrir lo nuevo con WIP abierto"** — Sprint 8 es la deuda más antigua del roadmap activo.
-2. **Support Inside (ADR-061)** es feature visible a cliente; cerrarlo aporta valor inmediato a la UX.
-3. **Sprint 9/9.5/9.6 ya tocaron notifications + tasks listeners parcialmente** — el contexto está fresco para cerrar la cola de listeners `task.overdue` + cron + WOW calls de la Fase C sin re-aprender nada.
-4. **Sprint 10/11** quedan más limpios cuando Sprint 8 está cerrado: sin entrelazado de tasks/maintenance con provisioning.
-
-### Si decides priorizar valor de negocio sobre cierre WIP
-
-Vía 2 (Sprint 10 Infrastructure) — independiente y rápido, sienta la base para Provisioning. Es decisión legítima si quieres atacar el núcleo de producto cuanto antes.
+1. **Sprint 8 cerrado al 100%** (2026-05-01) — sin WIP arrastrado.
+2. **Sprint 11 Provisioning** es la cabeza de cola activa P2 según [ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md): orquestador + interfaz extendida + plugins triviales primero, antes de cualquier plugin concreto.
+3. **Listeners cross-módulo Sprint 8 → Sprint 11**: `tasks-on-service-cancelled`, `service-suspended → maintenance pause`, `provisioning-on-task-completed → activate manual service`, `ContactClientTaskListener` (ADR-073). Contexto Tasks fresco favorece cierre limpio de las relaciones cross-módulo.
+4. **DC.17 `tasks.slot_id` FK** dependiente Sprint 11 — cuando exista directorio `/dashboard/services` cliente, el slot Support Inside puede entrar simétricamente desde la card del servicio (8.D.12.8 simétrico).
 
 ### Cuándo Sprint 14 vuelve a estar en cola
 

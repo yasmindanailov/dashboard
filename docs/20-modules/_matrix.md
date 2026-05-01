@@ -22,19 +22,20 @@ Auditoría exhaustiva confirmó:
 
 Filas = módulo origen. Columnas = módulo destino. Celda = tipo de relación.
 
-| Origen → Destino | auth | clients | products | billing | support | tasks | dashboard | notifications | audit | error-log | partner | core |
-|------------------|------|---------|----------|---------|---------|-------|-----------|---------------|-------|-----------|---------|------|
-| **auth** | (sub R15) | — | — | — | — | — | — | — | write `audit_access_log` (DC.8 — directo, no via AuditService) | — | — | prisma, settings, email, casl |
-| **clients** | read users | (sub R15) | — | read invoices | — | — | — | — | — | — | — | prisma, casl |
-| **products** | — | — | (sub R15) | — | — | — | — | — | — | — | — | prisma, casl |
-| **billing** | read users | read billing_profiles | read products, product_pricing | (sub R15) | — | — | — | dispatchToUser via `BillingEmailListener` | — | — | — | prisma, settings, email, casl, **outbox**, **storage**, **jobs** |
-| **support** | read users | read client_notes | — | read services | (sub R15) | — | — | — | — | — | — | prisma, settings, email, casl |
-| **tasks** | read users | — | — | — | — | — | — | dispatchToUser via `TasksEmailListener` | — | — | — | prisma, casl |
-| **dashboard** | read users | read clients data | — | read invoices, services | read conversations | read tasks | — | — | — | — | — | prisma |
-| **notifications** | read users (resolver recipients + superadmins) | — | — | — | — | — | — | (sub R15) | — | — | — | prisma, **email**, **jobs** |
-| **audit** | — | — | — | — | — | — | — | — | (sub R15) | — | — | prisma |
-| **error-log** | — | — | — | — | — | — | — | emite `system.error` → `notifications-system-error.listener` (Sprint 9.5) | — | (sub R15) | — | prisma, **events** |
-| **partner** | (stub) | (stub) | (stub) | (stub) | (stub) | (stub) | (stub) | — | — | — | (stub) | — |
+| Origen → Destino | auth | clients | products | billing | support | support_inside | tasks | dashboard | notifications | audit | error-log | partner | core |
+|------------------|------|---------|----------|---------|---------|----------------|-------|-----------|---------------|-------|-----------|---------|------|
+| **auth** | (sub R15) | — | — | — | — | — | — | — | — | write `audit_access_log` (DC.8 — directo, no via AuditService) | — | — | prisma, settings, email, casl |
+| **clients** | read users | (sub R15) | — | read invoices | — | — | — | — | — | — | — | — | prisma, casl |
+| **products** | — | — | (sub R15) | — | — | — | — | — | — | — | — | — | prisma, casl |
+| **billing** | read users | read billing_profiles | read products, product_pricing | (sub R15) | — | — | — | — | dispatchToUser via `BillingEmailListener` | — | — | — | prisma, settings, email, casl, **outbox**, **storage**, **jobs** |
+| **support** | read users | read client_notes | — | read services | (sub R15) | read SI subscription via supportQueryService include | — | — | — | — | — | — | prisma, settings, email, casl |
+| **support_inside** | — | — | — | invoke `BillingCheckoutService.checkout()` (subscribe) — emite `service.provisioned` | listener `SupportInsidePriorityListener` consume `conversation.created` | (sub R15) | crea `Task(type=maintenance_management)` via cron `maintenance-monthly` (cola pública ADR-072) | — | — | listener `SupportInsideAuditListener` → `AuditService.logChange` (4 eventos) | — | — | prisma, casl, **events**, **jobs** |
+| **tasks** | read users | write `client_notes` (maintenance_log + technical notes) | — | read services | invoke `SupportService.updateConversation` (bridge ticket↔task ADR-074) | — | (sub R15) | — | dispatchToUser via `TasksEmailListener` + 3 listeners cron (overdue / unassigned / maintenance.critical) | — | — | — | prisma, casl, **events**, **jobs** |
+| **dashboard** | read users | read clients data | — | read invoices, services | read conversations | read SI subscription (helper `getClientOverview` include) | read tasks | — | — | — | — | — | prisma |
+| **notifications** | read users (resolver recipients + superadmins) | — | — | — | — | — | — | — | (sub R15) | — | — | — | prisma, **email**, **jobs** |
+| **audit** | — | — | — | — | — | — | — | — | — | (sub R15) | — | — | prisma |
+| **error-log** | — | — | — | — | — | — | — | — | emite `system.error` → `notifications-system-error.listener` (Sprint 9.5) | — | (sub R15) | — | prisma, **events** |
+| **partner** | (stub) | (stub) | (stub) | (stub) | (stub) | — | (stub) | (stub) | — | — | — | (stub) | — |
 
 ### Leyenda
 - **`read X`**: el módulo origen lee tabla `X` del módulo destino vía Prisma. Lectura legítima — los módulos son aggregates, no microservicios estrictos.
@@ -48,6 +49,13 @@ Filas = módulo origen. Columnas = módulo destino. Celda = tipo de relación.
 > - `notifications` es @Global y consumido por `BillingEmailListener` + `TasksEmailListener` + 3 listeners operativos (`outbox.event_failed`, `dlq.job_failed`, `system.error`).
 > - `audit` es @Global; `AuditInterceptor` registrado APP-wide intercepta endpoints decorados con `@AuditAccess('Resource')`.
 > - `error-log.service` emite `system.error` → consumido por `notifications-system-error.listener` (Sprint 9.5) con guard anti-loop hard si `module` proviene del dominio notifications.
+
+> **Sprint 8 Fase D + D.12 (2026-05-01) cambios estructurales:**
+> - `support_inside/` salió de stub a implementación real (3 tablas + 5 enums + 5 servicios + 3 listeners transversales).
+> - `tasks` ahora invoca `SupportService.updateConversation` (excepción documentada R1 — [ADR-074](../10-decisions/adr-074-ticket-task-bridge.md)).
+> - `support_inside` invoca `BillingCheckoutService.checkout()` para `subscribe()` y consume `service.provisioned` para crear `SupportInsideSubscription` ([ADR-076](../10-decisions/adr-076-checkout-unico-support-inside-via-evento.md)) — un único motor de checkout cliente.
+> - 3 colas BullMQ scheduled nuevas (`tasks-overdue`, `tasks-unassigned-overdue`, `maintenance-critical`) + 1 cola Support Inside (`maintenance-monthly` con cron diario filtro `anniversary_day`).
+> - 3 listeners transversales SI: `SupportInsidePriorityListener` (consume `conversation.created`), `SupportInsideAuditListener` (consume los 4 eventos `support_inside.*`), `SupportInsideOnServiceProvisionedListener` (consume `service.provisioned`).
 > - Sprint 9.5 añade endpoints cliente `/notifications/*` + admin `/admin/notifications/templates`, `NotificationsRetentionCron`, `NotificationBell` Topbar, página admin de plantillas.
 > - Los 3 módulos cumplen R1 (comunicación vía eventos cuando aplica) y R15 (todos sus archivos <300 líneas).
 
@@ -89,7 +97,7 @@ Algunos módulos leen tablas de otros módulos directamente con `prisma.<tabla>.
 
 ### Riesgos potenciales
 - **clients → users (lectura completa):** debería filtrar a `role=client` para no exponer otros roles. Pendiente verificar (deuda menor).
-- **tasks → users:** no valida que `assigned_to` existe antes de aceptar. Edge case **EC-FOO-01** (pendiente).
+- ~~**tasks → users:** no valida que `assigned_to` existe antes de aceptar.~~ ✅ Cerrado P0.1 (2026-04-26) vía helper `assertAssignableUser` en `tasks.service.ts` (valida existencia + status=`active` + rol asignable).
 - **auth, billing → audit_access_log:** escritura directa al log de auditoría. Funcionalmente correcto pero conceptualmente debería pasar por un `AuditService` centralizado (futuro Sprint).
 
 ---
@@ -125,7 +133,8 @@ support emits...
   message.created      ─┘└────► support-websocket.listener (push al WS)
 
 (Eventos huérfanos — emitidos sin listener actual:
- auth.* (7 eventos), service.* (4), task.* (3), checkout.completed)
+ auth.* (7 eventos), service.cancelled/suspended/resumed (Sprint 11), task.created/completed (audit Sprint 9 Fase E pendiente), checkout.completed.
+ Cerrados Sprint 8: task.assigned/overdue/unassigned_overdue + maintenance.completed/critical + 4 support_inside.* + service.provisioned consumido por SI Listener)
 ```
 
 ---
@@ -141,7 +150,7 @@ Lista de "atención" (mejoras incrementales, no bloqueantes):
 | A1 | `clients` lee tabla `users` sin filtrar por rol | El "cliente" es un `User` con `role.slug = 'client'`. Sin filtro explícito, listings podrían incluir agentes. | Validar filtro existe en `ClientsService.findAll()`. Issue menor. |
 | A2 | Servicios escriben directo a `audit_access_log` | No hay `AuditService` centralizado. | Crear `AuditService` cuando se priorice módulo audit. |
 | A3 | 15 eventos huérfanos (sin listener) | Features incompletas o decididas-pero-no-implementadas. | Documentar caso por caso en cada `contract.md`. |
-| A4 | `Tasks.assigned_to` no valida existencia de User | El módulo Tasks está parcialmente implementado (Sprint 8 WIP). | Cierre de Sprint 8 debe añadir validación. |
+| ~~A4~~ | ~~`Tasks.assigned_to` no valida existencia de User~~ | ✅ **Cerrado P0.1** (2026-04-26) vía `assertAssignableUser`. |
 
 ---
 
@@ -170,8 +179,9 @@ Estos módulos no aparecen en la matriz principal como origen ni destino (más a
 | **auth (User schema)** | clients, billing, support, tasks, dashboard (todos leen `users`) |
 | **billing (Invoice/Service)** | clients (lee invoices), dashboard (lee invoices y services), support (lee services) |
 | **products (Product/Pricing)** | billing (lee products en checkout), dashboard (futuro) |
-| **support (Conversation/Message)** | dashboard (lee conversations) |
-| **tasks (Task)** | dashboard (lee tasks) |
+| **support (Conversation/Message)** | dashboard (lee conversations), tasks (bridge ticket↔task ADR-074), support_inside (listener priority) |
+| **tasks (Task)** | dashboard (lee tasks), support_inside (cron `maintenance-monthly` crea tasks) |
+| **support_inside (Subscription/Slot/Config)** | clients (helper findOne enriquecido), support (helper findOne con tier), dashboard (overview con plan), audit (listener cambios) |
 | **dashboard** | nadie (es módulo de solo lectura) |
 
 > **Si tocas un módulo del que dependen otros**, ejecuta los tests E2E completos (`pnpm test:e2e`). Cubre login + checkout + soporte que tocan los acoplamientos transversales.
