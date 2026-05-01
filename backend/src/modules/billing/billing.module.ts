@@ -41,6 +41,7 @@ import {
   exports: [
     BillingService,
     BillingCalculatorService,
+    BillingCheckoutService,
     SubscriptionService,
     InvoicePdfService,
     InvoicePdfStorageService,

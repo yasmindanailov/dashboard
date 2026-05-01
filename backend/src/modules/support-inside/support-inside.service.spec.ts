@@ -1,0 +1,455 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PrismaService } from '../../core/database/prisma.service';
+import { BillingCheckoutService } from '../billing/billing-checkout.service';
+import { SupportInsideService } from './support-inside.service';
+
+/**
+ * Tests unit SupportInsideService — Sprint 8 Fase D.
+ *
+ * Cobertura crítica de la doctrina ADR-034 + ADR-061 + ADR-072:
+ *   - subscribe rechaza si ya hay subscription activa (409).
+ *   - subscribe rechaza si pricing no es type=support_inside (400 defense).
+ *   - subscribe reactivacancellation existente (no crea duplicada).
+ *   - cancel libera slots en cascada y cancela el Service estándar.
+ *   - addSlot valida ownership, plan, slot único activo por servicio.
+ *   - addSlot agotada slots_included sin is_extra → 400 con mensaje.
+ *   - releaseSlot rechaza si slot ajeno o ya liberado.
+ *   - upgrade MVP rechaza con mensaje accionable (ADR-029 pendiente).
+ */
+type CallArgs = Record<string, unknown>;
+const firstCallFirstArg = (spy: jest.Mock): CallArgs =>
+  (spy.mock.calls[0] as unknown as [CallArgs])[0];
+
+describe('SupportInsideService — Sprint 8 Fase D', () => {
+  let service: SupportInsideService;
+  let prisma: {
+    supportInsideSubscription: {
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+    };
+    supportInsideSlot: {
+      findFirst: jest.Mock;
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+      updateMany: jest.Mock;
+      count: jest.Mock;
+    };
+    productPricing: { findUnique: jest.Mock };
+    service: { findUnique: jest.Mock; update: jest.Mock };
+    $transaction: jest.Mock;
+  };
+  let events: { emit: jest.Mock };
+  let checkout: { checkout: jest.Mock };
+
+  const CLIENT_ID = '11111111-1111-1111-1111-111111111111';
+  const SERVICE_ID = '22222222-2222-2222-2222-222222222222';
+  const PRICING_ID = '33333333-3333-3333-3333-333333333333';
+  const PRODUCT_ID = '44444444-4444-4444-4444-444444444444';
+  const SUBSCRIPTION_ID = '55555555-5555-5555-5555-555555555555';
+  const SLOT_ID = '66666666-6666-6666-6666-666666666666';
+  const NEW_SERVICE_ID = '77777777-7777-7777-7777-777777777777';
+
+  beforeEach(async () => {
+    prisma = {
+      supportInsideSubscription: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      supportInsideSlot: {
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      productPricing: { findUnique: jest.fn() },
+      service: { findUnique: jest.fn(), update: jest.fn() },
+      $transaction: jest.fn(),
+    };
+    // $transaction aquí ejecuta el callback con el mismo prisma como tx
+    prisma.$transaction.mockImplementation(
+      async (cb: (tx: typeof prisma) => Promise<unknown>) => cb(prisma),
+    );
+    events = { emit: jest.fn() };
+    checkout = { checkout: jest.fn() };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SupportInsideService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: EventEmitter2, useValue: events },
+        { provide: BillingCheckoutService, useValue: checkout },
+      ],
+    }).compile();
+
+    service = module.get(SupportInsideService);
+  });
+
+  // ─── subscribe ───────────────────────────────────────────────
+
+  it('subscribe → 409 si el cliente ya tiene subscription activa', async () => {
+    prisma.supportInsideSubscription.findUnique.mockResolvedValue({
+      id: SUBSCRIPTION_ID,
+      status: 'active',
+    });
+
+    await expect(
+      service.subscribe(CLIENT_ID, { product_pricing_id: PRICING_ID }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(checkout.checkout).not.toHaveBeenCalled();
+  });
+
+  it('subscribe → 400 si pricing no es type=support_inside (defense in depth)', async () => {
+    prisma.supportInsideSubscription.findUnique.mockResolvedValue(null);
+    prisma.productPricing.findUnique.mockResolvedValue({
+      id: PRICING_ID,
+      product_id: PRODUCT_ID,
+      product: { id: PRODUCT_ID, type: 'hosting_web', name: 'Hosting Pro' },
+    });
+
+    await expect(
+      service.subscribe(CLIENT_ID, { product_pricing_id: PRICING_ID }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('subscribe → flujo completo: checkout + create subscription + emit event', async () => {
+    prisma.supportInsideSubscription.findUnique.mockResolvedValue(null);
+    prisma.productPricing.findUnique.mockResolvedValue({
+      id: PRICING_ID,
+      product_id: PRODUCT_ID,
+      product: {
+        id: PRODUCT_ID,
+        type: 'support_inside',
+        slug: 'support-inside-pro',
+        name: 'Support Inside Pro',
+      },
+    });
+    checkout.checkout.mockResolvedValue({
+      service: { id: SERVICE_ID },
+      invoice: { id: 'inv-1' },
+    });
+    prisma.supportInsideSubscription.create.mockResolvedValue({
+      id: SUBSCRIPTION_ID,
+      client_id: CLIENT_ID,
+      product_id: PRODUCT_ID,
+      service_id: SERVICE_ID,
+      status: 'active',
+    });
+
+    const result = await service.subscribe(CLIENT_ID, {
+      product_pricing_id: PRICING_ID,
+    });
+
+    expect(checkout.checkout).toHaveBeenCalledWith(CLIENT_ID, {
+      product_pricing_id: PRICING_ID,
+      billing_profile_id: undefined,
+      label: 'Support Inside — Support Inside Pro',
+    });
+    expect(prisma.supportInsideSubscription.create).toHaveBeenCalled();
+    expect(events.emit).toHaveBeenCalledWith(
+      'support_inside.subscribed',
+      expect.objectContaining({
+        subscription_id: SUBSCRIPTION_ID,
+        client_id: CLIENT_ID,
+        product_id: PRODUCT_ID,
+        service_id: SERVICE_ID,
+      }),
+    );
+    expect(result.subscription.id).toBe(SUBSCRIPTION_ID);
+  });
+
+  it('subscribe → reactiva subscription cancelada (update, no create)', async () => {
+    prisma.supportInsideSubscription.findUnique.mockResolvedValue({
+      id: SUBSCRIPTION_ID,
+      status: 'cancelled',
+    });
+    prisma.productPricing.findUnique.mockResolvedValue({
+      id: PRICING_ID,
+      product_id: PRODUCT_ID,
+      product: {
+        id: PRODUCT_ID,
+        type: 'support_inside',
+        slug: 'support-inside-basico',
+        name: 'Support Inside Básico',
+      },
+    });
+    checkout.checkout.mockResolvedValue({
+      service: { id: SERVICE_ID },
+      invoice: { id: 'inv-2' },
+    });
+    prisma.supportInsideSubscription.update.mockResolvedValue({
+      id: SUBSCRIPTION_ID,
+      client_id: CLIENT_ID,
+      product_id: PRODUCT_ID,
+      service_id: SERVICE_ID,
+      status: 'active',
+    });
+
+    await service.subscribe(CLIENT_ID, { product_pricing_id: PRICING_ID });
+
+    expect(prisma.supportInsideSubscription.create).not.toHaveBeenCalled();
+    const upd = firstCallFirstArg(prisma.supportInsideSubscription.update) as {
+      where: CallArgs;
+      data: CallArgs;
+    };
+    expect(upd.where).toEqual({ client_id: CLIENT_ID });
+    expect(upd.data.product_id).toBe(PRODUCT_ID);
+    expect(upd.data.service_id).toBe(SERVICE_ID);
+    expect(upd.data.status).toBe('active');
+    expect(upd.data.cancelled_at).toBeNull();
+  });
+
+  // ─── cancel (cascada de slots — 8.D.8) ────────────────────────
+
+  it('cancel → libera todos los slots activos + cancela Service + emite eventos', async () => {
+    const activeSlots = [
+      { id: 'slot-1', service_id: SERVICE_ID },
+      { id: 'slot-2', service_id: NEW_SERVICE_ID },
+    ];
+    prisma.supportInsideSubscription.findUnique.mockResolvedValue({
+      id: SUBSCRIPTION_ID,
+      service_id: SERVICE_ID,
+      status: 'active',
+      slots: activeSlots,
+    });
+
+    const result = await service.cancel(CLIENT_ID, { reason: 'no lo uso' });
+
+    expect(result).toEqual({ cancelled: true, released_slots: 2 });
+    const slotUpd = firstCallFirstArg(prisma.supportInsideSlot.updateMany) as {
+      where: CallArgs;
+      data: CallArgs;
+    };
+    expect(slotUpd.where).toEqual({ id: { in: ['slot-1', 'slot-2'] } });
+    expect(slotUpd.data.released_at).toBeInstanceOf(Date);
+    const subUpd = firstCallFirstArg(
+      prisma.supportInsideSubscription.update,
+    ) as { where: CallArgs; data: CallArgs };
+    expect(subUpd.where).toEqual({ id: SUBSCRIPTION_ID });
+    expect(subUpd.data.status).toBe('cancelled');
+    expect(subUpd.data.cancellation_reason).toBe('no lo uso');
+    const svcUpd = firstCallFirstArg(prisma.service.update) as {
+      where: CallArgs;
+      data: CallArgs;
+    };
+    expect(svcUpd.where).toEqual({ id: SERVICE_ID });
+    expect(svcUpd.data.status).toBe('cancelled');
+    // 2 slot_released + 1 cancelled = 3 emits
+    expect(events.emit).toHaveBeenCalledTimes(3);
+    expect(events.emit).toHaveBeenCalledWith(
+      'support_inside.slot_released',
+      expect.objectContaining({ slot_id: 'slot-1' }),
+    );
+    expect(events.emit).toHaveBeenCalledWith(
+      'support_inside.slot_released',
+      expect.objectContaining({ slot_id: 'slot-2' }),
+    );
+    expect(events.emit).toHaveBeenCalledWith(
+      'support_inside.cancelled',
+      expect.objectContaining({ released_slots: 2 }),
+    );
+  });
+
+  it('cancel → 404 si no hay subscription activa', async () => {
+    prisma.supportInsideSubscription.findUnique.mockResolvedValue(null);
+
+    await expect(service.cancel(CLIENT_ID, {})).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  // ─── addSlot ─────────────────────────────────────────────────
+
+  function mockActiveSubscription(
+    overrides: {
+      slots_included?: number;
+      slot_types_allowed?: Array<'maintenance' | 'maintenance_management'>;
+    } = {},
+  ) {
+    prisma.supportInsideSubscription.findUnique.mockResolvedValue({
+      id: SUBSCRIPTION_ID,
+      client_id: CLIENT_ID,
+      status: 'active',
+      product: {
+        support_inside_config: {
+          slots_included: overrides.slots_included ?? 1,
+          slot_types_allowed: overrides.slot_types_allowed ?? ['maintenance'],
+        },
+      },
+    });
+  }
+
+  it('addSlot → 403 si el servicio no pertenece al cliente', async () => {
+    mockActiveSubscription();
+    prisma.service.findUnique.mockResolvedValue({
+      id: SERVICE_ID,
+      user_id: 'OTHER_USER',
+      status: 'active',
+    });
+
+    await expect(
+      service.addSlot(CLIENT_ID, {
+        service_id: SERVICE_ID,
+        slot_type: 'maintenance',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('addSlot → 409 si el servicio ya tiene slot activo', async () => {
+    mockActiveSubscription();
+    prisma.service.findUnique.mockResolvedValue({
+      id: SERVICE_ID,
+      user_id: CLIENT_ID,
+      status: 'active',
+    });
+    prisma.supportInsideSlot.findFirst.mockResolvedValue({ id: 'existing' });
+
+    await expect(
+      service.addSlot(CLIENT_ID, {
+        service_id: SERVICE_ID,
+        slot_type: 'maintenance',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('addSlot → 400 si slot_type no permitido por el plan', async () => {
+    mockActiveSubscription({ slot_types_allowed: ['maintenance'] });
+    prisma.service.findUnique.mockResolvedValue({
+      id: SERVICE_ID,
+      user_id: CLIENT_ID,
+      status: 'active',
+    });
+    prisma.supportInsideSlot.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.addSlot(CLIENT_ID, {
+        service_id: SERVICE_ID,
+        slot_type: 'maintenance_management',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('addSlot → 400 si slots_included agotados sin is_extra', async () => {
+    mockActiveSubscription({ slots_included: 1 });
+    prisma.service.findUnique.mockResolvedValue({
+      id: SERVICE_ID,
+      user_id: CLIENT_ID,
+      status: 'active',
+    });
+    prisma.supportInsideSlot.findFirst.mockResolvedValue(null);
+    prisma.supportInsideSlot.count.mockResolvedValue(1); // ya tiene 1 incluido
+
+    await expect(
+      service.addSlot(CLIENT_ID, {
+        service_id: SERVICE_ID,
+        slot_type: 'maintenance',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('addSlot → flujo OK crea slot + emite event', async () => {
+    mockActiveSubscription({ slots_included: 1 });
+    prisma.service.findUnique.mockResolvedValue({
+      id: SERVICE_ID,
+      user_id: CLIENT_ID,
+      status: 'active',
+    });
+    prisma.supportInsideSlot.findFirst.mockResolvedValue(null);
+    prisma.supportInsideSlot.count.mockResolvedValue(0);
+    prisma.supportInsideSlot.create.mockResolvedValue({
+      id: SLOT_ID,
+      subscription_id: SUBSCRIPTION_ID,
+      service_id: SERVICE_ID,
+      slot_type: 'maintenance',
+      is_extra: false,
+    });
+
+    const slot = await service.addSlot(CLIENT_ID, {
+      service_id: SERVICE_ID,
+      slot_type: 'maintenance',
+    });
+
+    expect(slot.id).toBe(SLOT_ID);
+    expect(events.emit).toHaveBeenCalledWith(
+      'support_inside.slot_assigned',
+      expect.objectContaining({
+        slot_id: SLOT_ID,
+        client_id: CLIENT_ID,
+        service_id: SERVICE_ID,
+      }),
+    );
+  });
+
+  // ─── releaseSlot ─────────────────────────────────────────────
+
+  it('releaseSlot → 403 si el slot no pertenece al cliente', async () => {
+    prisma.supportInsideSlot.findUnique.mockResolvedValue({
+      id: SLOT_ID,
+      subscription_id: SUBSCRIPTION_ID,
+      service_id: SERVICE_ID,
+      released_at: null,
+      subscription: { client_id: 'OTHER_USER' },
+    });
+
+    await expect(
+      service.releaseSlot(CLIENT_ID, SLOT_ID),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('releaseSlot → 400 si el slot ya está liberado', async () => {
+    prisma.supportInsideSlot.findUnique.mockResolvedValue({
+      id: SLOT_ID,
+      subscription_id: SUBSCRIPTION_ID,
+      service_id: SERVICE_ID,
+      released_at: new Date(),
+      subscription: { client_id: CLIENT_ID },
+    });
+
+    await expect(
+      service.releaseSlot(CLIENT_ID, SLOT_ID),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('releaseSlot → marca released_at + emite event', async () => {
+    prisma.supportInsideSlot.findUnique.mockResolvedValue({
+      id: SLOT_ID,
+      subscription_id: SUBSCRIPTION_ID,
+      service_id: SERVICE_ID,
+      released_at: null,
+      subscription: { client_id: CLIENT_ID },
+    });
+
+    const result = await service.releaseSlot(CLIENT_ID, SLOT_ID);
+
+    expect(result).toEqual({ released: true });
+    const updArgs = firstCallFirstArg(prisma.supportInsideSlot.update) as {
+      where: CallArgs;
+      data: CallArgs;
+    };
+    expect(updArgs.where).toEqual({ id: SLOT_ID });
+    expect(updArgs.data.released_at).toBeInstanceOf(Date);
+    expect(events.emit).toHaveBeenCalledWith(
+      'support_inside.slot_released',
+      expect.objectContaining({ slot_id: SLOT_ID, reason: 'manual' }),
+    );
+  });
+
+  // ─── upgrade (MVP) ───────────────────────────────────────────
+
+  it('upgrade → rechaza con mensaje accionable (ADR-029 pendiente)', () => {
+    expect(() =>
+      service.upgrade(CLIENT_ID, { new_product_pricing_id: PRICING_ID }),
+    ).toThrow(BadRequestException);
+  });
+});
