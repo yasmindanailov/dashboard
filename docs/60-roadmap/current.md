@@ -105,6 +105,113 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ---
 
+## 🔄 Sprint 16 — Tasks refactor + Notes consolidation (P2.1.5, plan canónico)
+
+**Estado:** ⬜ pendiente — ADR-079 (contrato canónico) mergeable como PR doc-only inmediato. Fases B-E pendientes de arrancar.
+**Inicio estimado:** próxima sesión tras merge ADR-079.
+**Cierre estimado:** ~2-3 sesiones (5 fases A→E, A es ADR doc-only ya redactado).
+
+> **Doctrina aplicada:** ADR antes de código (replica el patrón Sprint 8 D.0 / Sprint 11 A / Sprint 11 D pre). [ADR-079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) congela toda la doctrina (modelo de datos, lifecycle, auto-asignación, prioridad, accionadores inline, consolidación notas, política de extensión, política de migración) antes de tocar código de Sprint 16.
+
+---
+
+### 1. Objetivo en una frase
+
+Convertir el sistema de tareas en lo que originalmente debía ser: **bridge unidireccional read-only que organiza el trabajo del agente trayendo info de los demás sistemas (tickets, slots Support Inside, provisioning manual, ciclo de vida del cliente, proyectos) sin duplicar lógica**, con accionadores inline contextuales en cada card que delegan en el sistema vinculado, asignador automático por carga + rol, prioridad cross-sistema canónica, widget en sidebar + dashboard staff. **Y consolidar las notas dispersas en `client_notes` con source tracking** (`source_system` + `source_id` + `triggered_by_action`).
+
+---
+
+### 2. Depende de
+
+| # | Dependencia | Estado | Bloquea qué del sprint |
+|---|-------------|--------|------------------------|
+| 1 | Sprint 8 (tasks core + ClientNote) | ✅ | Refactor base |
+| 2 | Sprint 11 (Provisioning + plugin manual + listener `provisioning-on-task-completed`) | ✅ | El listener se adapta a `source_system='provisioning_manual'` |
+| 3 | [ADR-069](../10-decisions/adr-069-estrategia-deploy-diferido.md) (deploy diferido) | ✅ | Habilita migración Opción B (drop + reseed sin backfill) |
+| 4 | [ADR-079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) (contrato canónico) | ⬜ Fase A pendiente — mergeable inmediato como PR doc-only | Resto del sprint |
+
+---
+
+### 3. Pasos atómicos (sub-fases)
+
+| # | Fase | Estado | Salida |
+|---|------|--------|--------|
+| **16.A** | **ADR-079 — Contrato canónico tasks bridge + notes consolidation congelado** (firma TaskSourceSystem + 11 campos canónicos + helpers priority/auto-assign/sla/list-ordering + accionadores inline + consolidación client_notes + política migración Opción B + política extensión). PR doc-only. | ⬜ mergeable | PR #21 propuesto |
+| **16.B** | **Migración + backend refactor**:<br>· Migración Prisma `sprint16_tasks_notes_refactor` (drop tablas, recrear schema canónico, drop `task_tags`, eliminar campos legacy, rename `MaintenanceLog.notes` → `client_facing_notes`, drop `internal_notes`).<br>· `backend/src/core/tasks/` nuevos helpers: `priority-helper.ts`, `auto-assign.ts`, `sla-helper.ts`, `list-ordering.ts`.<br>· `backend/src/modules/tasks/tasks.service.ts` reducido de 740 → ~250 LOC (eliminar create/update libre/setReason/tags/recurrencia; mantener assign/complete/cancel/findOne/findAll con nueva orden).<br>· Eliminar archivos: `task-tags.{controller,service,spec}.ts`, `task-notes.service.ts`, DTOs de tag/note.<br>· Refactor listeners: `support-ticket-task-creator` adaptado a `source_system`, `MaintenanceMonthlyService` adaptado, `provisioning-on-task-completed` filtra por `source_system='provisioning_manual'`.<br>· Listeners nuevos: `client-lifecycle-task-creator.listener.ts` (cliente), `tasks-on-slot-released.listener.ts`, `tasks-on-service-cancelled.listener.ts`.<br>· `client-notes.service.ts` consolidado en módulo `clients` con métodos canónicos.<br>· `core/casl/permissions.ts`: drop `Subject.TaskTag`, refinar `Task` y `ClientNote`.<br>· Tests unit reescritos (helpers + service + listeners). | ⬜ | suite full verde |
+| **16.C** | **Frontend refactor**:<br>· `/admin/tasks/page.tsx` reescrita con nueva regla de orden + sin tabs scope.<br>· `NewTaskModal.tsx` eliminado (sin creación manual).<br>· `_shared/tasks/` nuevo: `source-labels.ts`, `TaskCard.tsx`, `CompleteTaskModal.tsx`.<br>· `_shared/widgets/TasksWidget.tsx` (dashboard) + badge sidebar item "Tareas".<br>· `/admin/page.tsx` insertar `<TasksWidget />`.<br>· `/admin/clients/[id]/ClientNotesTab.tsx` ajustado a nuevo schema + botón "Añadir nota excepcional" → `ExceptionalNoteModal.tsx`.<br>· Cada Client Component nuevo lleva marker `TODO(ADR-078, Sprint 13)`.<br>· DC.6 warnings nuevos esperados: ~5-10 (esperados por ADR-078 §3.3, NO bloqueantes). | ⬜ | UI canónica funcional |
+| **16.D** | **Tests E2E + smoke testing**:<br>· `tests/e2e/tasks.spec.ts` ajustado al nuevo flujo (sin POST manual).<br>· `tests/e2e/tasks-crons.spec.ts` ajustado (campos del schema cambiados pero lógica intacta).<br>· `tests/e2e/support-inside.spec.ts` ajustado (notas a `client_notes`).<br>· `tests/e2e/client-lifecycle-welcome-task.spec.ts` (nuevo): cliente nuevo paga primer servicio → task aparece → completar con nota → verificar `client_notes` row.<br>· `tests/e2e/notes.spec.ts` (nuevo): cobertura flujo notas (5 source_systems + nota excepcional + filtros).<br>· Smoke testing manual con Carla (cliente seedeado): bridge ticket→task, mantenimiento mensual, plugin manual setup, llamada bienvenida, todas crean cards, completar pide nota cuando aplica, widget dashboard refleja correctamente. | ⬜ | suite full verde |
+| **16.E** | **Cierre documental**:<br>· `docs/20-modules/tasks/contract.md` reescrito completo con la nueva doctrina (sustituyendo el banner ADR-079 actual).<br>· `docs/30-data/tasks.md` y `docs/30-data/clients.md` (sección notas) reescritos con schema canónico.<br>· `docs/features/tasks/admin.md` + `agent.md` reescritos.<br>· `docs/features/notes/admin.md` (nuevo): operativa de notas para staff.<br>· `docs/20-modules/_events.md` con listeners nuevos canónicos documentados.<br>· `docs/20-modules/_matrix.md` actualizado.<br>· `docs/50-operations/jobs-reference.md` revisado (los 3 crons de tasks-overdue/unassigned-overdue/maintenance-critical permanecen intactos en lógica, solo cambian campos consultados).<br>· Retrospectiva `completed/sprint-16-tasks-notes-refactor.md`.<br>· Mover Sprint 16 entero de `current.md` a `completed/`. | ⬜ | PR doc-only |
+
+---
+
+### 4. Definition of Done
+
+#### Código
+- [ ] Backend: typecheck + lint:check + build + suite unit completa verde (con +15 tests nuevos para helpers + listeners nuevos).
+- [ ] Frontend: typecheck + lint (warnings DC.6 esperados, NO errores) + build verde.
+- [ ] Suite E2E completa verde sin regresión (+2 specs nuevos: client-lifecycle-welcome-task + notes).
+- [ ] 1 migración Prisma aplicada limpiamente: `sprint16_tasks_notes_refactor` (drop + recrear).
+
+#### Documentación
+- [x] ADR-079 escrito y mergeado (Fase A).
+- [ ] `docs/20-modules/tasks/contract.md` reescrito completo.
+- [ ] `docs/30-data/tasks.md` reescrito.
+- [ ] `docs/30-data/clients.md` (sección `client_notes`) reescrita.
+- [ ] `docs/features/tasks/admin.md` + `agent.md` reescritos.
+- [ ] `docs/features/notes/admin.md` (nuevo).
+- [ ] `_events.md` + `_matrix.md` con listeners nuevos.
+- [ ] Retrospectiva `completed/sprint-16-tasks-notes-refactor.md`.
+
+#### Proceso
+- [ ] Conventional Commits respetados.
+- [ ] ADRs predecesores (038, 041, 072, 073, 074) mantienen sus headers actualizados con punteros a ADR-079 (ya hecho en Fase A).
+- [ ] Marker mecánico `TODO(ADR-078, Sprint 13)` en cada Client Component nuevo de Fase 16.C.
+
+#### Smoke testing manual (Yasmin)
+- [ ] Cliente Carla compra primer servicio → task `client_lifecycle` aparece en widget agente → completar con nota obligatoria → verificar `client_notes` row con `source_system='task_completion'` + `triggered_by_action='task.completed'` + `category='onboarding'`.
+- [ ] Asignar ticket support a Carla → task `support_ticket` aparece con badge `[SI <tier>]` si tiene SI activo → resolver inline → ticket cerrado + nota en `client_notes`.
+- [ ] Cron `maintenance-monthly` (disparo manual) crea task `support_inside_slot` → completar con maintenance log → ver email cliente con `client_facing_notes` + nota interna en `client_notes`.
+- [ ] Cliente compra producto manual (plugin `manual`) → task `provisioning_manual` aparece → marcar setup completado con nota → service activado.
+- [ ] Widget sidebar muestra badge numérico correcto (count tasks pendientes del agente).
+- [ ] Widget dashboard muestra top 5 tasks ordenadas por regla canónica §3.3 ADR-079.
+- [ ] Superadmin toggle "Ver todas las tareas" muestra tasks de todos los agentes; reasignación funciona.
+- [ ] Agente perfil cliente → "Añadir nota excepcional" → modal → nota creada con `source_system='exceptional'`.
+
+---
+
+### 5. Riesgos identificados
+
+| Riesgo | Impacto | Mitigación |
+|--------|---------|------------|
+| Migración drop pierde datos demo en BD local del desarrollador | Bajo (pre-producción ADR-069) | Reseed canónico tras migración deja BD funcional |
+| Frontend de Client Components nuevos suma warnings DC.6 | Bajo | Esperado por ADR-078 §3.3, NO bloquea CI; cierre bulk en Sprint 13 §13.AUTH |
+| Listeners cross-módulo nuevos (`client-lifecycle-task-creator`, `tasks-on-slot-released`, `tasks-on-service-cancelled`) introducen efectos inesperados | Medio | Tests E2E cubren los 5 flujos completos; smoke testing con Carla valida punta a punta |
+| Drop de `task_tags` rompe seeds o E2E que dependían de chips de tags | Bajo | Seeds y E2E ya no referencian tags tras refactor de Fase 16.B |
+| Sprint 12 (Settings + KB) llega y descubre que `calculateTaskPriority` necesita más flexibilidad | Bajo | Helper tiene mismo input/output que la versión settings → migración a settings = cero refactor §3.3 ADR-079 |
+| Plan checklist→task promotion (Sprint 22) genera fricción cuando llegue | Bajo | Doctrina congelada §3.7 ADR-079; Sprint 22 nace alineado |
+
+---
+
+### 6. Decisiones registradas
+
+#### ADR nuevo confirmado
+- **[ADR-079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md)** — Tasks como bridge unidireccional read-only + consolidación de notas con source tracking. Supersedes parciales: ADR-041 §"Tipos canónicos" + §"Creación manual"; ADR-073 §"Tags M2M" + §"reason libre"; ADR-038 §"Categorías" + §"Origen de la nota". Refina: ADR-072 §"Cola pública", ADR-074 §"Bridge ticket↔task". **Mergeable inmediato** como PR doc-only antes de Fase 16.B.
+
+#### Decisiones locales sin ADR (documentadas en ADR-079)
+- **Migración Opción B** (drop + reseed) — pre-producción ADR-069 lo permite; schema limpio sin debt legacy.
+- **Auto-asignación V1 hardcoded** ahora; V2 settings configurable diferida a Sprint 12.
+- **Promoción checklist→task Opción A** (explícita) sobre Opción B (assignable inline) — preserva pureza del sistema.
+
+---
+
+### ✍ Próxima sesión — orden recomendado
+
+> **Frase canónica para arrancar Sprint 16 con contexto fresco:**
+>
+> *"Lee `docs/90-meta/development-playbook.md`, `docs/10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md`, `docs/20-modules/tasks/contract.md`, `docs/30-data/tasks.md`, `docs/30-data/clients.md`, `docs/60-roadmap/current.md` §Sprint 16. Vamos con Sprint 16 Fase 16.B — migración + backend refactor. Crea rama `sprint16-fase-b-tasks-notes-backend` desde master."*
+
+---
+
 ## Convenciones de este documento
 
 - **Estado real ≠ estado declarado.** Los símbolos aquí reflejan lo verificado en código a fecha 2026-04-26.

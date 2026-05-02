@@ -1,10 +1,20 @@
 # Tasks — Schema
 
+> 📜 **DOCTRINA CANÓNICA POST-ADR-079 (2026-05-02)** — Sprint 16 reemplaza el modelo de datos descrito abajo:
+>
+> - Enum `TaskType` (7 valores) → `TaskSourceSystem` (5 valores: `support_ticket`, `support_inside_slot`, `provisioning_manual`, `client_lifecycle`, `project`).
+> - Tabla `tasks` baja de 16 a 11 columnas. Drop de `client_note`, `is_recurring`, `recurrence_day`, `billing_month` (se deriva de `created_at`), `reason`, `metadata`, `title`, `description`, `created_by`, `service_id`, `conversation_id` (estos 2 últimos reemplazados por `source_id` polimórfico).
+> - Tablas `task_tags` + `task_tag_assignments` se eliminan (drop CASCADE).
+> - Tabla `maintenance_logs`: campo `internal_notes` se elimina (va a `client_notes`); `notes` se renombra a `client_facing_notes` (contenido del email al cliente).
+> - UNIQUE `(service_id, billing_month, type)` se reemplaza por UNIQUE `(source_system, source_id) WHERE status IN ('pending', 'in_progress')` (1 task activa por origen).
+>
+> Plan completo en [ADR-079 §3.1 + §4](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md). **Migración Opción B (drop + reseed) durante Sprint 16** según [ADR-069](../10-decisions/adr-069-estrategia-deploy-diferido.md). **Esta página describe el estado VIGENTE pre-Sprint 16**; cuando Sprint 16 cierre, se reescribe completa.
+
 > **Dominio:** tareas internas (operativa diaria del equipo).
 > **Módulo:** [`docs/20-modules/tasks/contract.md`](../20-modules/tasks/contract.md).
 > **Sprint origen:** Sprint 8 (en curso — Fase A cerrada 2026-04-29, Fases B-E pendientes).
 > **Estado:** ✅ `tasks` (P0.1) + ✅ `task_checklist_completions` + ✅ `maintenance_logs` + ✅ `service_checklist_items` (Sprint 8 Fase A, 2026-04-29).
-> **ADRs:** [041](../10-decisions/adr-041-sistema-tareas.md) (tareas) · [022](../10-decisions/adr-022-wdify-deprecado-proyectos.md) (WDIFY deprecado) · [046](../10-decisions/adr-046-sistema-proyectos.md) (proyectos como reemplazo de WDIFY) · [061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md) (Support Inside como tier de cuenta).
+> **ADRs:** [041](../10-decisions/adr-041-sistema-tareas.md) (tareas) · [022](../10-decisions/adr-022-wdify-deprecado-proyectos.md) (WDIFY deprecado) · [046](../10-decisions/adr-046-sistema-proyectos.md) (proyectos como reemplazo de WDIFY) · [061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md) (Support Inside como tier de cuenta) · **[079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) (refactor canónico Sprint 16: bridge unidireccional read-only + 5 source_systems + drop tags + consolidación notas)**.
 
 ---
 

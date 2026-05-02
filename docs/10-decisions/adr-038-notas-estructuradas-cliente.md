@@ -1,7 +1,7 @@
 # ADR-038 — Sistema de notas estructuradas del cliente
 
-> **Status:** Active
-> **Date:** 2026-04 (Sprint 7.B) · 2026-04-26 (migración a ADR)
+> **Status:** Active — refinado por [ADR-079](./adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) §3.8 + §3.9 (categorías ampliadas, `source_system` + `source_id` + `triggered_by_action` añadidos, consolidación de `Task.client_note` y `MaintenanceLog.internal_notes` en `client_notes`). Las decisiones canónicas de §"Modelo conceptual" y §"No editable" permanecen vigentes; las §"Categorías" originales y §"FK directa a `task_id`/`conversation_id`" quedan superseded por ADR-079 y se aplican tras Sprint 16.
+> **Date:** 2026-04 (Sprint 7.B) · 2026-04-26 (migración a ADR) · 2026-05-02 (refinamiento ADR-079)
 > **Original:** DECISIONS.md §41
 > **Domain:** clients, support
 

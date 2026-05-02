@@ -157,9 +157,20 @@ Etiquetas opcionales del cliente sobre sus servicios. Múltiples por servicio.
 
 ## Tabla: `client_notes` ✅ (Sprint 7)
 
-Notas estructuradas del cliente. Reemplaza el campo de texto `client_profiles.notes_internal`. Permite categorización, autoría, vinculación a conversaciones, y pin. Decisión [ADR-038](../10-decisions/adr-038-notas-estructuradas-cliente.md).
+> 📜 **DOCTRINA CANÓNICA POST-ADR-079 (2026-05-02)** — Sprint 16 reemplaza el modelo descrito abajo:
+>
+> - Campos `conversation_id` + `task_id` (FK directas) → reemplazados por `source_id` polimórfico (uuid nullable, sin FK dura excepto opcional a Task) + `source_system` (enum `NoteSourceSystem`).
+> - Enum `NoteCategory` cambia: `conversation/solution/billing/technical/general` → `support/maintenance/onboarding/billing/project/technical_incident/exceptional` (mapping migración: `conversation→support`, `solution→support`, `technical→technical_incident`, `general→exceptional`, `billing→billing`).
+> - Enum nuevo `NoteSourceSystem` con valores: `ticket`, `chat`, `maintenance_log`, `task_completion`, `exceptional`.
+> - Campo nuevo `triggered_by_action` (varchar 100 nullable) — la acción canónica que disparó la nota: `ticket.resolved`, `ticket.closed`, `task.completed`, `maintenance.completed`, `manual_entry`.
+> - Migración Opción B (drop + reseed) durante Sprint 16 según [ADR-069](../10-decisions/adr-069-estrategia-deploy-diferido.md).
+> - `Task.client_note` (campo string en task) y `MaintenanceLog.internal_notes` se eliminan; su contenido pasa a vivir en `client_notes` con su `source_system` correspondiente.
+>
+> Plan completo en [ADR-079 §3.8 + §3.9](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md). **Esta sección describe el estado VIGENTE pre-Sprint 16**; cuando Sprint 16 cierre, se reescribe completa.
 
-**Enum `NoteCategory`:** `conversation` · `solution` · `billing` · `technical` · `general`
+Notas estructuradas del cliente. Reemplaza el campo de texto `client_profiles.notes_internal`. Permite categorización, autoría, vinculación a conversaciones, y pin. Decisión [ADR-038](../10-decisions/adr-038-notas-estructuradas-cliente.md), refinada por [ADR-079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) §3.8.
+
+**Enum `NoteCategory` (vigente pre-Sprint 16):** `conversation` · `solution` · `billing` · `technical` · `general`
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|

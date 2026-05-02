@@ -1,7 +1,7 @@
 # ADR-074 — Ticket ↔ Task: bridge automático con cierre unificado en la tarea
 
-> **Status:** Active (refina [ADR-037](./adr-037-arquitectura-conversaciones.md) §"flujo chat→ticket" y [ADR-041](./adr-041-sistema-tareas.md) §"Tipos canónicos")
-> **Date:** 2026-04-30
+> **Status:** Active — **refinado** por [ADR-079](./adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) §2 + §3.6.1 (el bridge sigue vigente como mecanismo canónico; la implementación pasa a `source_system='support_ticket'` + `source_id=conversation_id` en lugar de `task.type='support_ticket'` + `conversation_id` directo. Los accionadores inline de la card delegan en `support.updateConversation` igual que hoy. La doctrina "cierre delegado al sistema vinculado" se eleva a regla universal aplicable a los 5 `source_system`). **Aplica tras Sprint 16.**
+> **Date:** 2026-04-30 · 2026-05-02 (refinado por ADR-079)
 > **Domain:** tasks, support, operativa interna
 > **Sprint:** Sprint 8 Fase B.10
 
