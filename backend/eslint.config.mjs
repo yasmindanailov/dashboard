@@ -43,4 +43,34 @@ export default tseslint.config(
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },
+  // Sprint 11 Fase 11.C — EC-P11-10 + R4: los plugins de provisioning
+  // SOLO pueden importar de `core/provisioning/*` (contrato + librería de
+  // wrappers). NUNCA de `modules/provisioning/*` (orquestador) — el sentido
+  // de la dependencia es plugin → core, no plugin → orquestador. Si se
+  // diera, romperíamos R4 + crearíamos ciclo de imports y los plugins
+  // tendrían acceso al EventEmitter / Prisma / Redis del orquestador.
+  // Esta regla cubre los plugins triviales hoy y los reales (Sprint
+  // 15A/C/D/E/G) automáticamente cuando se añadan al directorio.
+  {
+    files: ['src/plugins/provisioners/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '**/modules/provisioning/*',
+                '**/modules/provisioning',
+                '../../modules/provisioning/*',
+                '../../../modules/provisioning/*',
+              ],
+              message:
+                'R4 + EC-P11-10: los plugins de provisioning NO importan del orquestador (modules/provisioning). Usa core/provisioning/types (contrato) o core/provisioning/plugin-utils (wrappers). Ver ADR-077 §5.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

@@ -154,6 +154,9 @@ export async function seedSupportInsidePlans(
         description: plan.description,
         badge_text: plan.badge_text,
         order_index: plan.order_index,
+        // Sprint 11 Fase 11.C: idempotencia para corregir BDs ya seedeadas
+        // antes del cambio canónico (provisioner: 'manual' → 'internal').
+        provisioner: 'internal',
       },
       create: {
         slug: plan.slug,
@@ -169,7 +172,15 @@ export async function seedSupportInsidePlans(
         is_global_addon: true,
         requires_existing_product: true,
         status: ProductStatus.active,
-        provisioner: 'manual',
+        // Sprint 11 Fase 11.C (ADR-077 §3 mapping canónico): Support Inside
+        // es servicio digital sin proveedor externo ni setup manual del
+        // agente — usa el plugin `internal` que activa el service
+        // inmediatamente tras `invoice.paid`. El listener Sprint 8 D.12.9
+        // (`SupportInsideOnServiceProvisionedListener`) sigue creando la
+        // SupportInsideSubscription aparte (consume `service.provisioned`
+        // emitido por BillingCheckoutService al CREAR el service, no
+        // `service.activated` del orquestador).
+        provisioner: 'internal',
       },
     });
 

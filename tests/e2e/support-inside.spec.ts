@@ -36,6 +36,15 @@ let clientServiceId: string;
 let proPlanId: string;
 let proPricingMonthlyId: string;
 
+// Sprint 11 Fase 11.C — segundo cliente para el flujo end-to-end real
+// (orquestador + plugin internal + listener D.12.9 coordinando).
+let secondClientUserId: string;
+let basicoPricingMonthlyId: string;
+
+const OUTBOX_TICK_MS = 5_000;
+const OUTBOX_DEADLINE_MS = OUTBOX_TICK_MS * 4;
+const ACTIVATION_DEADLINE_MS = 30_000;
+
 async function loginSuperadminAPI(request: APIRequestContext): Promise<string> {
   await clearMailbox();
   const loginRes = await request.post(`${TEST_CONFIG.apiUrl}/auth/login`, {
@@ -182,6 +191,28 @@ test.describe('Support Inside — Sprint 8 Fase D', () => {
     }
     proPlanId = proPlan.rows[0].product_id as string;
     proPricingMonthlyId = proPlan.rows[0].pricing_id as string;
+
+    // Sprint 11 Fase 11.C — segundo cliente + plan Básico para el flujo
+    // end-to-end real con orquestador + plugin internal + listener D.12.9.
+    secondClientUserId = await createUser({
+      email: 'e2e-si-client-2@aelium.test',
+      firstName: 'Carla',
+      lastName: 'BasicoSprint11C',
+      roleSlug: 'client',
+    });
+
+    const basicoPlan = await pool.query(
+      `SELECT pp.id AS pricing_id
+       FROM products p
+       JOIN product_pricing pp ON pp.product_id = p.id
+       WHERE p.slug = 'support-inside-basico' AND pp.billing_cycle = 'monthly'`,
+    );
+    if (!basicoPlan.rows[0]) {
+      throw new Error(
+        'Seed support-inside-plans no aplicado: falta support-inside-basico mensual.',
+      );
+    }
+    basicoPricingMonthlyId = basicoPlan.rows[0].pricing_id as string;
 
     superadminToken = await loginSuperadminAPI(request);
     clientToken = await loginClientAPI(request, 'e2e-si-client@aelium.test');
@@ -362,5 +393,158 @@ test.describe('Support Inside — Sprint 8 Fase D', () => {
       '/admin/support-inside/plans',
     );
     expect(res.status()).toBe(403);
+  });
+
+  /* ───────────────────────────────────────────────────────────────────────
+   * Sprint 11 Fase 11.C — flujo end-to-end real (hito histórico).
+   *
+   * Cliente NUEVO compra Plan Básico Support Inside vía
+   * `/billing/checkout` (canónico tras ADR-076). Esto valida POR PRIMERA
+   * VEZ EN E2E que:
+   *   1. `BillingCheckoutService` crea Service + Invoice + emite
+   *      `service.provisioned` → `SupportInsideOnServiceProvisionedListener`
+   *      (Sprint 8 D.12.9) crea la `SupportInsideSubscription`.
+   *   2. Tras finalize + pay → outbox dispatch `invoice.paid` →
+   *      orquestador (Sprint 11 Fase 11.B) resuelve plugin `internal` del
+   *      registry → `provision()` devuelve `followUp=['mark_active']` →
+   *      orquestador marca `services.status='active'` y emite
+   *      `service.activated` (evento NUEVO, coexistencia documentada con
+   *      `service.provisioned` legacy — current.md §9 EC-P11-01).
+   *   3. `services.provisioner_slug='internal'` denormalizado por el
+   *      orquestador (Fase 11.B).
+   *   4. Listener D.12.9 sigue funcionando intacto en flujo real (riesgo
+   *      identificado en §8 del plan).
+   * ─────────────────────────────────────────────────────────────────── */
+
+  test('Sprint 11 Fase 11.C — Cliente compra Plan Básico → orquestador + plugin internal + listener D.12.9 coordinan', async ({
+    request,
+  }) => {
+    const secondClientToken = await loginClientAPI(
+      request,
+      'e2e-si-client-2@aelium.test',
+    );
+
+    // ── 1. Cliente checkout Plan Básico (canónico ADR-076) ──
+    const checkoutRes = await authedRequest(
+      request,
+      secondClientToken,
+      'POST',
+      '/billing/checkout',
+      { product_pricing_id: basicoPricingMonthlyId },
+    );
+    expect(
+      checkoutRes.ok(),
+      `Checkout falló: ${checkoutRes.status()} ${await checkoutRes.text()}`,
+    ).toBeTruthy();
+    const checkoutBody = (await checkoutRes.json()) as {
+      service: { id: string; status: string };
+      invoice: { id: string; status: string };
+    };
+    expect(checkoutBody.service.status).toBe('pending');
+
+    const serviceId = checkoutBody.service.id;
+    const invoiceId = checkoutBody.invoice.id;
+
+    // El listener D.12.9 (`SupportInsideOnServiceProvisionedListener`)
+    // consume `service.provisioned` (emitido por `BillingCheckoutService`
+    // al CREAR el service, NO al activarlo). El evento es async — el
+    // checkout retorna antes de que el listener termine. Polling hasta
+    // 5s para que aparezca la subscription.
+    const subscriptionDeadline = Date.now() + 5_000;
+    let subscriptionRow: {
+      rowCount: number | null;
+      rows: Array<{ id: string; status: string; service_id: string }>;
+    } = { rowCount: 0, rows: [] };
+    while (Date.now() < subscriptionDeadline) {
+      subscriptionRow = (await pool.query(
+        `SELECT id, status, service_id FROM support_inside_subscriptions
+         WHERE client_id = $1`,
+        [secondClientUserId],
+      )) as never;
+      if ((subscriptionRow.rowCount ?? 0) >= 1) break;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    expect(subscriptionRow.rowCount).toBe(1);
+    expect(subscriptionRow.rows[0].status).toBe('active');
+    expect(subscriptionRow.rows[0].service_id).toBe(serviceId);
+
+    // ── 2. Superadmin finaliza + paga → outbox emite invoice.paid ──
+    const finalizeRes = await authedRequest(
+      request,
+      superadminToken,
+      'PATCH',
+      `/billing/invoices/${invoiceId}/finalize`,
+    );
+    expect(finalizeRes.ok()).toBeTruthy();
+
+    const payRes = await authedRequest(
+      request,
+      superadminToken,
+      'PATCH',
+      `/billing/invoices/${invoiceId}/pay`,
+      { payment_method: 'manual', payment_ref: 'P11C-SI-INTERNAL' },
+    );
+    expect(payRes.ok()).toBeTruthy();
+
+    // Esperar a que el outbox worker procese invoice.paid → orquestador
+    // ha procesado el evento (emitAsync espera a los listeners).
+    const deadline = Date.now() + OUTBOX_DEADLINE_MS;
+    let outboxDone = false;
+    while (Date.now() < deadline) {
+      const r = await pool.query<{ status: string }>(
+        `SELECT status FROM event_outbox
+          WHERE event_type = 'invoice.paid' AND payload->>'invoice_id' = $1
+          ORDER BY created_at DESC LIMIT 1`,
+        [invoiceId],
+      );
+      if (r.rows[0]?.status === 'done') {
+        outboxDone = true;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    expect(
+      outboxDone,
+      `Outbox invoice.paid no llegó a done en ${OUTBOX_DEADLINE_MS}ms`,
+    ).toBe(true);
+
+    // ── 3. Esperar a que el orquestador active el service ──
+    // Plugin `internal` declara followUp=['mark_active'] → orquestador
+    // marca status='active' inmediatamente.
+    const activationDeadline = Date.now() + ACTIVATION_DEADLINE_MS;
+    let activatedStatus: string | null = null;
+    while (Date.now() < activationDeadline) {
+      const r = await pool.query<{
+        status: string;
+        provisioner_slug: string | null;
+      }>(
+        `SELECT status, provisioner_slug FROM services WHERE id = $1`,
+        [serviceId],
+      );
+      if (r.rows[0]?.status === 'active') {
+        activatedStatus = r.rows[0].status;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    expect(activatedStatus).toBe('active');
+
+    // ── 4. Verificación final: provisioner_slug denormalizado + subscription
+    //       sigue activa post-activación (no se rompió por la coexistencia) ──
+    const finalServiceRow = await pool.query<{
+      status: string;
+      provisioner_slug: string | null;
+    }>(
+      `SELECT status, provisioner_slug FROM services WHERE id = $1`,
+      [serviceId],
+    );
+    expect(finalServiceRow.rows[0].status).toBe('active');
+    expect(finalServiceRow.rows[0].provisioner_slug).toBe('internal');
+
+    const finalSubRow = await pool.query<{ status: string }>(
+      `SELECT status FROM support_inside_subscriptions WHERE client_id = $1`,
+      [secondClientUserId],
+    );
+    expect(finalSubRow.rows[0].status).toBe('active');
   });
 });
