@@ -6,10 +6,13 @@ import {
   PROVISIONER_PLUGINS,
 } from '../../core/provisioning/plugin-registry';
 import { ProvisioningCacheService } from '../../core/provisioning/provisioning-cache.service';
+import { SettingsModule } from '../../core/settings/settings.module';
 import { InternalProvisionerPlugin } from '../../plugins/provisioners/internal/internal.plugin';
 import { ManualProvisionerPlugin } from '../../plugins/provisioners/manual/manual.plugin';
+import { AuditModule } from '../audit/audit.module';
 import { TasksModule } from '../tasks/tasks.module';
 
+import { AdminProvisioningController } from './admin-provisioning.controller';
 import { ProvisioningOnTaskCompletedListener } from './listeners/provisioning-on-task-completed.listener';
 import {
   PROVISIONING_DISPATCH_QUEUE,
@@ -48,9 +51,11 @@ import { ProvisioningService } from './provisioning.service';
 @Module({
   imports: [
     BullModule.registerQueue({ name: PROVISIONING_DISPATCH_QUEUE }),
+    SettingsModule,
+    AuditModule,
     TasksModule,
   ],
-  controllers: [ProvisioningController],
+  controllers: [ProvisioningController, AdminProvisioningController],
   providers: [
     ProvisioningService,
     ProvisioningOrchestratorService,

@@ -1195,3 +1195,212 @@ export const jobsApi = {
       token,
     }),
 };
+
+// ─── Services API (Sprint 11 Fase 11.D — ADR-070 + ADR-077) ─────────
+//
+// Cliente: 4 endpoints (`GET /services`, `GET /services/:id`,
+// `POST /services/:id/sso`, `POST /services/:id/actions/:slug`).
+// Admin: 3 endpoints (`GET /admin/services`, `POST /admin/services/:id/reprovision`,
+// `POST /admin/services/:id/deprovision`).
+//
+// Shapes alineados con `backend/src/core/provisioning/types.ts` (ADR-077 §1+§2).
+
+export interface ServiceListItem {
+  id: string;
+  user_id: string;
+  status: string;
+  label: string | null;
+  domain: string | null;
+  provisioner_slug: string | null;
+  provider_reference: string | null;
+  created_at: string;
+  product: {
+    id: string;
+    slug: string;
+    name: string;
+    type: string;
+    provisioner: string;
+  };
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
+}
+
+export interface ServiceListResponse {
+  data: ServiceListItem[];
+  meta: { total: number; page: number; limit: number; totalPages: number };
+}
+
+export interface ServiceInfoCapabilities {
+  has_sso_panel: boolean;
+  panel_label?: string;
+  has_metrics: boolean;
+  has_metrics_history: boolean;
+  requires_server: boolean;
+  provision_mode: 'sync' | 'async';
+  completes_via_task: boolean;
+  supports_reconciliation: boolean;
+  hasSsoPanel: boolean;
+  inlineActions: ServiceAction[];
+}
+
+export interface ServiceAction {
+  slug: string;
+  label: string;
+  description?: string;
+  confirmRequired: boolean;
+  confirmationText?: string;
+  destructive: boolean;
+  payloadSchema?: Record<string, unknown>;
+}
+
+export interface ServiceMetrics {
+  diskUsedMb?: number;
+  diskTotalMb?: number;
+  bandwidthUsedMb?: number;
+  bandwidthTotalMb?: number;
+  ramUsedMb?: number;
+  ramTotalMb?: number;
+  cpuUsagePercent?: number;
+  emailAccountsUsed?: number;
+  emailAccountsTotal?: number;
+  databasesUsed?: number;
+  databasesTotal?: number;
+  custom?: Record<string, string | number>;
+  fetchedAt: string;
+}
+
+export interface ServiceInfo {
+  status:
+    | 'active'
+    | 'suspended'
+    | 'expired'
+    | 'pending'
+    | 'failed'
+    | 'cancelled'
+    | 'unknown';
+  statusReason?: string;
+  display: {
+    primary: string;
+    secondary?: string;
+    expiresAt?: string;
+    autoRenew?: boolean;
+  };
+  metrics?: ServiceMetrics;
+  capabilities: ServiceInfoCapabilities;
+  availableActions: readonly ServiceAction[];
+  fetchedAt: string;
+}
+
+export interface ServiceDetailResponse {
+  service: {
+    id: string;
+    user_id: string;
+    status: string;
+    provisioner_slug: string | null;
+    product_slug: string;
+    product_name: string;
+    product_type: string;
+    created_at: string;
+  };
+  info: ServiceInfo;
+}
+
+export interface SsoUrl {
+  url: string;
+  expiresAt: string;
+  panelLabel: string;
+  opensIn: 'new_tab';
+}
+
+export interface ActionResult {
+  success: boolean;
+  message?: string;
+  sideEffects?: readonly string[];
+  data?: Record<string, unknown>;
+}
+
+export const servicesApi = {
+  // ── Cliente ──
+  list: (
+    token: string,
+    params?: { page?: number; limit?: number; status?: string },
+  ) => {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.status) query.set('status', params.status);
+    const qs = query.toString();
+    return api<ServiceListResponse>(`/services${qs ? `?${qs}` : ''}`, {
+      token,
+    });
+  },
+
+  detail: (token: string, id: string) =>
+    api<ServiceDetailResponse>(`/services/${id}`, { token }),
+
+  sso: (token: string, id: string) =>
+    api<{ sso: SsoUrl | null }>(`/services/${id}/sso`, {
+      method: 'POST',
+      token,
+    }),
+
+  executeAction: (
+    token: string,
+    id: string,
+    slug: string,
+    payload: Record<string, unknown>,
+  ) =>
+    api<ActionResult>(`/services/${id}/actions/${slug}`, {
+      method: 'POST',
+      token,
+      body: { payload },
+    }),
+
+  // ── Admin ──
+  adminList: (
+    token: string,
+    params?: {
+      page?: number;
+      limit?: number;
+      user_id?: string;
+      provisioner_slug?: string;
+      status?: string;
+      search?: string;
+    },
+  ) => {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.user_id) query.set('user_id', params.user_id);
+    if (params?.provisioner_slug)
+      query.set('provisioner_slug', params.provisioner_slug);
+    if (params?.status) query.set('status', params.status);
+    if (params?.search) query.set('search', params.search);
+    const qs = query.toString();
+    return api<ServiceListResponse>(`/admin/services${qs ? `?${qs}` : ''}`, {
+      token,
+    });
+  },
+
+  adminDetail: (token: string, id: string) =>
+    api<ServiceDetailResponse>(`/admin/services/${id}`, { token }),
+
+  adminReprovision: (token: string, id: string) =>
+    api<{ enqueued: true }>(`/admin/services/${id}/reprovision`, {
+      method: 'POST',
+      token,
+    }),
+
+  adminDeprovision: (
+    token: string,
+    id: string,
+    body: {
+      reason: 'cancelled' | 'expired' | 'admin_override';
+      notes?: string;
+    },
+  ) =>
+    api<{ id: string; status: string; cancellation_reason: string }>(
+      `/admin/services/${id}/deprovision`,
+      { method: 'POST', token, body },
+    ),
+};

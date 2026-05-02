@@ -55,6 +55,8 @@ export const SIDEBAR_PERMISSIONS: Record<string, AppModule[]> = {
     'Partner', 'Referral',
     // ADR-075 — gestión de planes Support Inside (Manage.SupportInside).
     'SupportInside',
+    // Sprint 11 Fase 11.D — vista admin federada de servicios contratados.
+    'Service',
   ],
   agent_full: [
     'Dashboard', 'Client', 'Product', 'Invoice',
@@ -62,13 +64,19 @@ export const SIDEBAR_PERMISSIONS: Record<string, AppModule[]> = {
     'Promotion', 'KnowledgeBase', 'ErrorLog', 'Partner',
     // ADR-075 — agent_full puede editar planes Support Inside.
     'SupportInside',
+    // Sprint 11 Fase 11.D — Manage.Service incluye reprovision/deprovision.
+    'Service',
   ],
   agent_billing: [
     'Dashboard', 'Client', 'Invoice', 'Task',
+    // Sprint 11 Fase 11.D — Read.Service para visibilidad cross-billing.
+    'Service',
   ],
   agent_support: [
     'Dashboard', 'Client', 'Conversation', 'Task',
     'KnowledgeBase',
+    // Sprint 11 Fase 11.D — Read.Service para diagnóstico desde tickets.
+    'Service',
   ],
   client: [
     'Dashboard', 'Service', 'Invoice',
@@ -117,6 +125,8 @@ export const ROUTE_PERMISSIONS: Record<string, AppModule> = {
   '/admin/error-log': 'ErrorLog',
   '/admin/jobs/failed': 'Job',
   '/admin/notifications/templates': 'NotificationTemplate',
+  // Sprint 11 Fase 11.D — vista admin federada (ADR-066 portal admin).
+  '/admin/services': 'Service',
   // ADR-075 — Support Inside admin (sólo superadmin + agent_full por
   // Manage.SupportInside; ver SIDEBAR_PERMISSIONS).
   '/admin/support-inside-plans': 'SupportInside',

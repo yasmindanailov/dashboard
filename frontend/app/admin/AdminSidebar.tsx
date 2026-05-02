@@ -105,6 +105,13 @@ const ICON = {
       <path d="M12 8h.01" />
     </svg>
   ),
+  services: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+      <line x1="8" y1="21" x2="16" y2="21" />
+      <line x1="12" y1="17" x2="12" y2="21" />
+    </svg>
+  ),
 };
 
 const ALL_ITEMS: NavItem[] = [
@@ -115,6 +122,8 @@ const ALL_ITEMS: NavItem[] = [
   // ADR-075 — gestión de planes Support Inside aislada del CRUD genérico.
   // Visible para superadmin + agent_full (Manage.SupportInside).
   { label: 'Support Inside', href: '/admin/support-inside-plans', requiredModule: 'SupportInside', icon: ICON.supportInside, section: 'operaciones' },
+  // Sprint 11 Fase 11.D — vista admin federada de servicios contratados.
+  { label: 'Servicios', href: '/admin/services', requiredModule: 'Service', icon: ICON.services, section: 'operaciones' },
   { label: 'Facturación', href: '/admin/billing', requiredModule: 'Invoice', icon: ICON.billing, section: 'operaciones' },
   { label: 'Soporte', href: '/admin/support', requiredModule: 'Conversation', icon: ICON.support, section: 'operaciones' },
   { label: 'Chat en vivo', href: '/admin/support/chats', requiredModule: 'Conversation', icon: ICON.chat, section: 'operaciones' },
