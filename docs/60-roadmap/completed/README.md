@@ -23,8 +23,9 @@
 | **9.5** | UX admin de notifications (P1.1.5) | [sprint-9-5-ux-admin-notifications.md](./sprint-9-5-ux-admin-notifications.md) | ✅ (cerrado 2026-04-27) |
 | **9.6** | Split admin/cliente + 3 portales raíz (P1.1.6 / DC.7) | [sprint-9-6-split-admin-cliente.md](./sprint-9-6-split-admin-cliente.md) | ✅ (cerrado 2026-04-28) |
 | **11.5** | MinIO Storage local (P1.2) | [sprint-11-5-minio-storage.md](./sprint-11-5-minio-storage.md) | ✅ (cerrado 2026-04-26) |
+| **11** | Provisioning (P2.1 — orquestador + chasis canónico + plugins triviales + frontend) | [sprint-11-provisioning.md](./sprint-11-provisioning.md) | ✅ (cerrado 2026-05-02) |
 
-**Total cerrados:** 13 sprints (Sprint 7/7.5 son sprints paraguas continuos, no se cierran formalmente hasta Sprint 14).
+**Total cerrados:** 14 sprints (Sprint 7/7.5 son sprints paraguas continuos, no se cierran formalmente hasta Sprint 14).
 
 ---
 
@@ -36,7 +37,7 @@ Sprints 7 (Billing + Support — paraguas, ~95% bloqueado por dependencias) y 7.
 
 ## Próximos sprints (NO en este archive)
 
-Sprints 10 (Infrastructure), 11 (Provisioning), 12 (Settings + KB), 12.5 (Portal RGPD), 13 (Hardening), 14 (Deploy — gate condicionado [ADR-069](../../10-decisions/adr-069-estrategia-deploy-diferido.md)), 15A-H (Plugins), 19 (Partner) y 22+ viven en [`../backlog.md`](../backlog.md) — no se han iniciado. Priorizados P0/P1/P2/P3.
+Sprints 10 (Infrastructure), 12 (Settings + KB), 12.5 (Portal RGPD), 13 (Hardening), 14 (Deploy — gate condicionado [ADR-069](../../10-decisions/adr-069-estrategia-deploy-diferido.md)), 15A-H (Plugins), 19 (Partner) y 22+ viven en [`../backlog.md`](../backlog.md) — no se han iniciado. Priorizados P0/P1/P2/P3.
 
 ---
 

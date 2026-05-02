@@ -8,9 +8,9 @@ Orquestador del lifecycle de servicios del cliente: recibe `invoice.paid` (vía 
 
 ## 2. Estado de implementación
 
-🟡 **Sprint 11 WIP — Fases 11.A + 11.B mergeadas en master (2026-05-02). Cola: 11.C → 11.D → 11.E.**
+✅ **Sprint 11 cerrado al 100% (2026-05-02). Fases 11.A → 11.E mergeadas en master.** Detalle completo + retrospectiva en [`completed/sprint-11-provisioning.md`](../../60-roadmap/completed/sprint-11-provisioning.md).
 
-**Cerrado:**
+**Cerrado por fase:**
 
 - ✅ **Fase 11.A** ([ADR-077](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md), PR #13, commit master `a23f6bf` 2026-05-01): Contrato canónico `ProvisionerPlugin` v2 congelado (firma TypeScript + 8 capability flags + shapes + 9 ProvisionerErrorCode + pipeline de wrappers + política de versionado v2 estable + test contract genérico). Decisión arquitectónica antes de cualquier código.
 - ✅ **Fase 11.B** (PR #14, commit master `67fd733` 2026-05-02): Orquestador + chasis canónico:
@@ -21,15 +21,24 @@ Orquestador del lifecycle de servicios del cliente: recibe `invoice.paid` (vía 
   - `ProvisioningOrchestratorService` con `@OnEvent('invoice.paid')` + processor BullMQ `provisioning-dispatch` con DLQ + retries [30s, 90s, 270s, ...]. Distinción retriable vs non-retriable errors.
   - Schema: `services.provisioner_slug` + `services.provider_reference` (NULLABLE, indexados). Migración `sprint11b_services_provisioner_columns`.
   - Setting `provisioning.service_info_ttl_seconds` (default 60s).
-  - **26 unit tests nuevos** (suite full **183/183 verde**): 7 PluginRegistryService + 9 wrappers + 10 orquestador.
+  - **26 unit tests nuevos** (suite **183/183 verde**): 7 PluginRegistryService + 9 wrappers + 10 orquestador.
+- ✅ **Fase 11.C** (PR #16, commit master `179d7c4` 2026-05-02): Plugins triviales `internal` + `manual` + listener `provisioning-on-task-completed` filtrado por `capabilities.completes_via_task` (NO por `task.type`) + ESLint `no-restricted-imports` enforce R4 sobre `src/plugins/provisioners/**` + test contract genérico parametrizado por plugin (ADR-077 §7) + E2E `provisioning-manual-flow.spec.ts` + extensión `support-inside.spec.ts` con flujo end-to-end real (**hito histórico**: listener Sprint 8 D.12.9 validado por primera vez en flujo real). Suite **228/228 unit + 120/120 E2E verde**. Seed `support-inside-plans` migrado a `provisioner='internal'`.
+- ✅ **Fase 11.D** (PR #18, commit master `e5fb67e` 2026-05-02): Frontend + REST endpoints:
+  - **8 endpoints REST** (4 cliente + 4 admin — el plan inicial mencionaba 7; admin tiene también `GET :id` para detalle agente).
+  - **3 páginas frontend** (`/dashboard/services`, `/dashboard/services/[id]`, `/admin/services`) + **5 componentes shared** en `_shared/services/` (ServiceHeader, MetricsBar, ActionsBar, SsoButton, helpers `service-status`).
+  - SSO endpoint canónico devuelve `{ sso: SsoUrl | null }` (wrapper JSON profesional vs `null` literal).
+  - **ADR-078 mergeado vía PR #17** como pre-requisito doctrinal: marker `TODO(ADR-078, Sprint 13)` aplicado en cada Client Component nuevo (5 entries verificables vía `grep -r "TODO(ADR-078" frontend/app`). Fase 11.D = **última excepción permitida** del patrón `'use client' + localStorage`.
+  - Suite **241/241 unit + 129/129 E2E verde** (+13 unit + 9 E2E sobre Fase 11.C).
+  - 51 warnings DC.6 esperados (ADR-078 §3.3) — NO bloqueantes en CI.
+- ✅ **Fase 11.E** (PR #20, doc-only — esta fase): Cierre documental:
+  - `docs/features/services/admin.md` + `client.md` (nuevos).
+  - `docs/features/provisioning/admin.md` (vista interna del orquestador).
+  - Este `contract.md` actualizado a estado ✅ implementado.
+  - `_events.md`, `_matrix.md`, `billing.md`, `jobs-reference.md`, `settings-reference.md` — verificación + actualización con estado real (la mayoría ya al día desde commits 11.B-D).
+  - 4 DCs nuevas registradas en `backlog.md` (DC.27 Playwright image, DC.29 bloque servicios admin/clients, DC.30 UI inline slot SI, DC.31 AuditLogFeed inline).
+  - Retrospectiva `completed/sprint-11-provisioning.md` + Sprint 11 movido entero a `completed/` con puntero en `current.md`.
 
-**Pendiente:**
-
-- ⬜ **Fase 11.C** — Plugins triviales `internal` y `manual` + listener `provisioning-on-task-completed` filtrado por `capabilities.completes_via_task` + tests E2E `provisioning-manual-flow.spec.ts` + extensión `support-inside.spec.ts` (hito histórico: valida listener Sprint 8 D.12.9 en flujo real por primera vez).
-- ⬜ **Fase 11.D** — Frontend: página única cliente `/dashboard/services/[id]` (Server Component nativo) + admin `/admin/services` con layout condicionado por `capabilities` flags + 7 endpoints REST (cliente: list, detail, sso, action; admin: list, reprovision, deprovision).
-- ⬜ **Fase 11.E** — Docs canónicas (`docs/features/services/admin.md` + `client.md`, `docs/features/provisioning/admin.md`) + retrospectiva `completed/sprint-11-provisioning.md` + smoke testing manual + mover Sprint 11 a `completed/`.
-
-Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras `executeAction` (gestionada por wrapper, no por plugin). Audit hooks emiten `service.action_executed`, `service.sso_opened`, `service.metrics_fetched` para que `audit` los persista.
+Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras `executeAction` (gestionada por wrapper, no por plugin). Audit hooks emiten `service.action_executed`, `service.sso_opened`, `service.metrics_fetched` — listeners `audit` + `notifications` pendientes para cuando llegue plugin real con coste de fallo significativo (NO bloquean cierre Sprint 11; pipeline ya emite los eventos correctamente).
 
 **Decisión local registrada (Fase 11.B, sin ADR aparte):** el orquestador emite un evento NUEVO `service.activated` cuando confirma `services.status='active'` tras `plugin.provision()` exitoso. NO sobreescribe `service.provisioned` que `BillingCheckoutService` emite al crear el service (consumido por listener Sprint 8 D.12.9 `SupportInsideOnServiceProvisionedListener`). Plugins reales Sprint 15 consumen `service.activated`. Documentado inline en docstring del orquestador.
 
@@ -109,6 +118,13 @@ Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras
 
 ## 9. Pendientes registrados
 
-- Implementar (Sprint 11).
+- ✅ Sprint 11 cerrado al 100% (2026-05-02). Plugins triviales `internal` + `manual` operativos; orquestador escucha `invoice.paid` y emite los 5 eventos canónicos.
+- Listener `notifications-on-provisioning-failed` para alertar superadmin cuando llegue plugin con coste de fallo significativo (Sprint 12 o cuando llegue primer plugin real).
+- Listener `audit-on-service-events` para persistir `service.metrics_fetched` / `service.action_executed` / `service.sso_opened` en `audit_change_log` + portal RGPD cliente (Sprint 12.5 Portal Transparencia o sub-sprint dedicado).
+- Sprint 15A — Plugin framework + UI dinámica desde Settings + helpers `core/provisioning/plugin-utils.ts` extendidos.
+- Sprint 15C/D/E/G — Plugins reales (Enhance CP, ResellerClub, Docker Engine, Plesk Obsidian).
 - Cuando se implemente Sprint 15E (Plugin Docker), añadir a `service_metrics` lectura filtrada por contenedor del cliente.
 - Cuando se implemente Sprint 19 (Partner Module), abrir tema "qué partners pueden invocar `executeAction` de servicios de sus clientes" — decisión pendiente con ADR específico.
+- DC.29 (backlog): bloque "Servicios contratados" en `/admin/clients/[id]` (vista relacional cotidiana del agente).
+- DC.30 (backlog): UI inline del slot Support Inside desde `/dashboard/services/[id]` (DC.17 cierre parcial).
+- DC.31 (backlog): `<AuditLogFeed>` inline en `/dashboard/services/[id]` (diferido — `/dashboard/transparency` cubre el caso global).
