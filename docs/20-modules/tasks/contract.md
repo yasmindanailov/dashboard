@@ -1,10 +1,24 @@
 # tasks — Contract
 
+> 📜 **DOCTRINA CANÓNICA POST-ADR-079 (2026-05-02)** — Sprint 16 refactoriza este módulo profundamente. **Toda la sección §1-§17 describe el estado VIGENTE pre-Sprint 16** (lo que hay hoy en código tras Sprint 8 Fases A-D). **Tras Sprint 16 (cuando se mergee), las decisiones canónicas pasan a las definidas en [ADR-079](../../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md):**
+>
+> - Tasks = bridge unidireccional read-only desde 5 triggers automáticos cerrados (`support_ticket`, `support_inside_slot`, `provisioning_manual`, `client_lifecycle`, `project`). NO creación manual.
+> - Enum `TaskType` (7 valores) → enum `TaskSourceSystem` (5 valores).
+> - Modelo de datos: 16 campos → 11 canónicos. Drop de `task_tags`, `Task.client_note`, `is_recurring`/`recurrence_day`/`billing_month`, `reason`, `metadata`, `title`, `description`, `created_by`.
+> - Notas consolidadas en `client_notes` con `source_system` + `source_id` + `triggered_by_action`.
+> - Auto-asignación canónica por carga + rol (V1 hardcoded; V2 settings Sprint 12).
+> - Card simple con accionadores inline contextuales delegando en sistema vinculado.
+> - Widget sidebar + dashboard staff con prioridad cross-sistema.
+>
+> **Cuando Sprint 16 cierre, este contract.md se reescribe completo** sustituyendo el contenido pre-refactor por la nueva doctrina. Mientras tanto se preserva como referencia histórica del estado actual del código.
+
 ## 1. Propósito
 
 Sistema interno de gestión de tareas para el equipo de Aelium. Permite que admins y agentes asignen, reasignen, completen y prioricen trabajo: tareas técnicas, gestiones administrativas, mantenimientos programados, comunicaciones con clientes. Cada tarea tiene tipo, prioridad, asignado, cliente vinculado opcional, servicio vinculado opcional, fecha límite y notas (cliente / internas).
 
 NO es visible al cliente — es herramienta interna del equipo.
+
+> **Tras Sprint 16:** el propósito se ajusta a "capa transversal de organización del trabajo del agente humano que viene como reflejo de eventos de los demás sistemas (tickets, slots Support Inside, provisioning manual, ciclo de vida del cliente, proyectos)". El "qué hay que hacer" sigue viviendo en cada sistema; tasks es la cara organizada que unifica el flujo.
 
 ---
 

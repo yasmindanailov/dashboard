@@ -1,7 +1,9 @@
 # Tasks — Guía del agente
 
+> 📜 **DOCTRINA POST-ADR-079 (2026-05-02)** — Esta guía describe el sistema VIGENTE tras Sprint 8. **Sprint 16 lo refactoriza profundamente** (ADR-079 mergeado): tasks pasa a ser bridge unidireccional read-only desde 5 triggers automáticos; card simple con accionadores inline contextuales; widget en sidebar y dashboard. Cuando Sprint 16 cierre, esta guía se reescribe.
+
 > Módulo: `tasks`
-> Última actualización: 2026-05-01 (cierre Sprint 8)
+> Última actualización: 2026-05-02 (banner ADR-079)
 > Audiencia: agentes del equipo Aelium (`agent_full`, `agent_billing`, `agent_support`).
 > Para la vista superadmin / configuración del módulo, ver [`admin.md`](./admin.md).
 

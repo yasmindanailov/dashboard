@@ -1,7 +1,7 @@
 # ADR-073 — Tipos de tarea + `reason` libre + `tags`: separar el QUÉ del POR QUÉ (refina ADR-041)
 
-> **Status:** Active (refina [ADR-041](./adr-041-sistema-tareas.md) §"Tipos canónicos" + [ADR-072](./adr-072-tareas-sin-asignar-cola-publica.md) §"Cola pública por tipo")
-> **Date:** 2026-04-29
+> **Status:** **SUPERSEDED por** [ADR-079](./adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) §1 + §2 + §3.1 (tras Sprint 16). El enum `TaskType` con 7 valores se reemplaza por `TaskSourceSystem` con 5 valores; el campo `reason` (texto libre) se elimina (la doctrina pasa a "el sistema vinculado da la categoría operativa, no necesita texto humano paralelo"); las tablas `task_tags` y `task_tag_assignments` se eliminan completamente (código muerto sin consumidor real, identificado en auditoría 2026-05-02). El renombrado `wow_call → contact_client` queda obsoleto: `client_lifecycle` reemplaza ambos. **Aplica tras Sprint 16.**
+> **Date:** 2026-04-29 · 2026-05-02 (superseded por ADR-079)
 > **Domain:** tasks, operativa interna, automatizaciones
 > **Sprint:** Sprint 8 Fase B.7
 

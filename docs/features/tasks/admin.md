@@ -1,8 +1,10 @@
 # Tasks — Guía de administración
 
+> 📜 **DOCTRINA POST-ADR-079 (2026-05-02)** — Esta guía describe el sistema VIGENTE tras Sprint 8 (creación manual + 7 tipos + tags + reason). **Sprint 16 (planificado, ADR-079 mergeado)** lo refactoriza profundamente: tasks pasa a ser bridge unidireccional read-only desde 5 triggers automáticos cerrados; sin creación manual; card simple con accionadores inline; widget en sidebar + dashboard. Cuando Sprint 16 cierre, esta guía se reescribe completa. Mientras tanto, lo descrito aquí refleja el código actual.
+
 > Módulo: `tasks`
-> Sprints: 8 (P0.1 + Fase A/B/C/D + sub-fase D.12)
-> Última actualización: 2026-05-01 (cierre Sprint 8)
+> Sprints: 8 (P0.1 + Fase A/B/C/D + sub-fase D.12) · refactor canónico Sprint 16 (planificado — ver [ADR-079](../../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md))
+> Última actualización: 2026-05-02 (banner ADR-079)
 > Documento canónico de operativa diaria del equipo Aelium sobre el sistema interno de tareas.
 
 ---

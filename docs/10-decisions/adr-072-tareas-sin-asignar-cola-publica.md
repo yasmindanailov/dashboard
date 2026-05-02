@@ -1,7 +1,7 @@
 # ADR-072 — Tareas sin `assigned_to`: cola pública con SLA explícito (refina ADR-041)
 
-> **Status:** Active (refina [ADR-041](./adr-041-sistema-tareas.md) §"🚪 Cierra")
-> **Date:** 2026-04-29
+> **Status:** Active — **parcialmente refinado** por [ADR-079](./adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) §3.4 (la cola pública sigue existiendo conceptualmente pero su gobernanza pasa al helper canónico `autoAssignTask` que devuelve `null` cuando no hay candidato eligible — entonces la task queda "sin asignar" automáticamente). El cron `tasks-unassigned-overdue` permanece intacto. **Aplica tras Sprint 16.**
+> **Date:** 2026-04-29 · 2026-05-02 (parcialmente refinado por ADR-079)
 > **Domain:** tasks, operativa interna
 > **Sprint:** Sprint 8 Fase B.1.bis
 

@@ -1,11 +1,11 @@
 # ADR-041 — Sistema de tareas internas
 
-> **Status:** Active (refinado por [ADR-072](./adr-072-tareas-sin-asignar-cola-publica.md) §"cola pública" y por [ADR-073](./adr-073-tipos-flexibles-tasks-reason-tags.md) §"tipos flexibles: reason + tags")
-> **Date:** 2026-04 (Sprint 8) · 2026-04-26 (migración a ADR)
+> **Status:** Active — **parcialmente superseded** por [ADR-079](./adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) §1 + §2 + §3.1 (tasks pasan a bridge unidireccional read-only desde 5 triggers automáticos cerrados, sin creación manual; enum `TaskType` con 7 valores reemplazado por enum `TaskSourceSystem` con 5 valores; modelo de datos reducido a 11 campos canónicos; eliminación de `task_tags`/`Task.client_note`/`is_recurring`/`metadata`/`reason`). La doctrina §"Lifecycle de la task" y §"Inmutabilidad del cierre" permanece vigente. Los anteriores refinamientos por ADR-072 y ADR-073 también quedan parcialmente superseded por ADR-079 (cola pública sigue existiendo pero gestionada por `autoAssignTask`; tags eliminados). **Aplica tras Sprint 16 (refactor canónico).**
+> **Date:** 2026-04 (Sprint 8) · 2026-04-26 (migración a ADR) · 2026-05-02 (parcialmente superseded por ADR-079)
 > **Original:** DECISIONS.md §10
 > **Domain:** tasks
 
-> 📜 **Nota canónica (Sprint 8 Fase B.7 — 2026-04-29):** [ADR-073](./adr-073-tipos-flexibles-tasks-reason-tags.md) renombra el tipo `wow_call` → `contact_client` y separa el QUÉ del POR QUÉ. El enum `TaskType` se mantiene cerrado y representa qué bloque/automatización dispara la tarea; la intención humana ("Bienvenida primer servicio", "Renovación", "Aviso migración") vive en `Task.reason` (libre <=100) + tags asignables en `task_tags`. Los listeners del Sprint 11 que ADR-041 llamaba `WowCallCreatorListener` se renombran `ContactClientTaskListener` y emiten `type=contact_client` con `reason` + tag `bienvenida`.
+> 📜 **Nota canónica (Sprint 8 Fase B.7 — 2026-04-29):** [ADR-073](./adr-073-tipos-flexibles-tasks-reason-tags.md) renombra el tipo `wow_call` → `contact_client` y separa el QUÉ del POR QUÉ. El enum `TaskType` se mantiene cerrado y representa qué bloque/automatización dispara la tarea; la intención humana ("Bienvenida primer servicio", "Renovación", "Aviso migración") vive en `Task.reason` (libre <=100) + tags asignables en `task_tags`. Los listeners del Sprint 11 que ADR-041 llamaba `WowCallCreatorListener` se renombran `ContactClientTaskListener` y emiten `type=contact_client` con `reason` + tag `bienvenida`. **Esta nota queda superseded por ADR-079: el listener `client-lifecycle-task-creator` consume `service.activated` y crea task `source_system='client_lifecycle'` (sustituye a `contact_client`); `task.reason` y `task_tags` se eliminan (el `source_system` ya da la categoría operativa).**
 
 ---
 

@@ -1,5 +1,7 @@
 # Catálogo de eventos del sistema
 
+> 📜 **DOCTRINA POST-ADR-079 (2026-05-02)** — Sprint 16 introducirá listeners nuevos en el dominio `tasks`/`client_notes` (bridge unidireccional canónico): `ClientLifecycleTaskCreatorListener` (consume `service.activated` del primer servicio del cliente), `TasksOnSlotReleasedListener` (consume `support_inside.slot_released` para cancelar tasks de slot liberado), `TasksOnServiceCancelledListener` (consume `service.cancelled` para cancelar tasks `provisioning_manual` huérfanas), `ProjectChecklistItemPromotedListener` (Sprint 22, consume promoción explícita item→task). Los eventos `task.assigned/completed/overdue/unassigned_overdue` permanecen idénticos en payload + emisores; solo cambian los flujos que los disparan. Los eventos `support_inside.slot_*` y `service.activated` ya existen — solo se enchufan listeners nuevos. **Hasta Sprint 16 mergeado, este catálogo refleja el código vigente**; las entradas anticipadas se documentan al cerrar Sprint 16.
+
 > **Fuente única de verdad** sobre qué eventos existen en Aelium Dashboard, quién los emite, quién los consume y qué payload llevan.
 >
 > Cada vez que un módulo emite un `eventEmitter.emit(...)` debe corresponderse con una entrada aquí. Cada `@OnEvent(...)` también.
