@@ -4,7 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, ChecklistItemKind } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 import { CompleteChecklistItemDto, ChecklistItemKindDto } from './dto/task.dto';
 
@@ -214,8 +214,30 @@ export class ChecklistCompletionService {
     return [];
   }
 
+  /**
+   * Sprint 16 (ADR-079): cuando la task es `support_inside_slot`, el
+   * `source_id` apunta al slot. Para resolver el checklist hay que cargar
+   * el slot → service → product. Helper canónico para uso del controller.
+   */
+  async getSlotForTask(
+    slotId: string,
+  ): Promise<{ service_id: string; product_id: string | null } | null> {
+    const slot = await this.prisma.supportInsideSlot.findUnique({
+      where: { id: slotId },
+      select: {
+        service_id: true,
+        service: { select: { product_id: true } },
+      },
+    });
+    if (!slot) return null;
+    return {
+      service_id: slot.service_id,
+      product_id: slot.service?.product_id ?? null,
+    };
+  }
+
   private async assertItemExists(dto: CompleteChecklistItemDto): Promise<void> {
-    if (dto.item_kind === ChecklistItemKindDto.service) {
+    if (dto.item_kind === ChecklistItemKind.service) {
       const item = await this.prisma.serviceChecklistItem.findUnique({
         where: { id: dto.item_id },
         select: { id: true },

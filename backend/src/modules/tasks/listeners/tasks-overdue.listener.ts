@@ -5,9 +5,9 @@ import { getErrorMessage } from '../../../core/common/utils/error.util';
 
 interface TaskOverduePayload {
   task_id: string;
-  task_title: string;
-  task_type: string;
-  task_type_label: string;
+  task_source_system: string;
+  task_source_id: string;
+  task_source_system_label: string;
   task_priority: string;
   task_priority_label: string;
   task_url: string;

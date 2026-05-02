@@ -127,13 +127,19 @@ export class SupportMessageService {
       senderId
     ) {
       try {
+        // Sprint 16 (ADR-079 §3.8): mensaje interno del agente al cliente
+        // → ClientNote con source_system='ticket', triggered_by_action
+        // 'manual_entry' (no es transición canónica resolved/closed; es un
+        // apunte manual durante la conversación) y categoría 'support'.
         await this.prisma.clientNote.create({
           data: {
             user_id: conversation.user_id,
             author_id: senderId,
-            conversation_id: conversationId,
+            source_system: 'ticket',
+            source_id: conversationId,
+            triggered_by_action: 'manual_entry',
             body: dto.body,
-            category: 'conversation',
+            category: 'support',
             is_pinned: false,
           },
         });
@@ -319,21 +325,31 @@ export class SupportMessageService {
       }
     }
 
-    // 7.H22: Auto-create ClientNote for resolution/reopen notes
+    // 7.H22 → Sprint 16 (ADR-079 §3.8): auto-create ClientNote canónico al
+    // resolver/cerrar/reabrir un ticket. `source_system='ticket'` +
+    // `triggered_by_action` traza la acción exacta. Categoría = 'support'
+    // (las viejas 'solution'/'general' se colapsaron en la nueva taxonomía).
     if (
       ['resolved', 'closed', 'open'].includes(dto.status || '') &&
       dto.resolution_note?.trim() &&
       conversation.user_id
     ) {
       try {
-        const noteCategory = dto.status === 'open' ? 'general' : 'solution';
+        const triggeredBy =
+          dto.status === 'open'
+            ? 'manual_entry'
+            : dto.status === 'resolved'
+              ? 'ticket.resolved'
+              : 'ticket.closed';
         await this.prisma.clientNote.create({
           data: {
             user_id: conversation.user_id,
             author_id: actorId,
-            conversation_id: id,
+            source_system: 'ticket',
+            source_id: id,
+            triggered_by_action: triggeredBy,
             body: dto.resolution_note.trim(),
-            category: noteCategory,
+            category: 'support',
             is_pinned: false,
           },
         });

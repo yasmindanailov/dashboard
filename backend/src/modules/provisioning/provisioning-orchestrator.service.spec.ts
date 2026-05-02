@@ -33,9 +33,11 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
     service: { findUnique: jest.Mock; update: jest.Mock };
     user: { findUnique: jest.Mock };
     invoice: { findUnique: jest.Mock };
+    supportInsideSubscription: { findUnique: jest.Mock };
+    $queryRaw: jest.Mock;
   };
   let registry: jest.Mocked<PluginRegistryService>;
-  let tasks: { create: jest.Mock };
+  let tasks: { createFromTrigger: jest.Mock };
   let events: { emit: jest.Mock };
   let queue: { add: jest.Mock };
   let orchestrator: ProvisioningOrchestratorService;
@@ -100,13 +102,17 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
         }),
       },
       invoice: { findUnique: jest.fn() },
+      supportInsideSubscription: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      $queryRaw: jest.fn().mockResolvedValue([]),
     };
     registry = {
       get: jest.fn(),
       getOrThrow: jest.fn(),
       listSlugs: jest.fn().mockReturnValue([]),
     } as unknown as jest.Mocked<PluginRegistryService>;
-    tasks = { create: jest.fn() };
+    tasks = { createFromTrigger: jest.fn() };
     events = { emit: jest.fn() };
     queue = { add: jest.fn().mockResolvedValue(undefined) };
 
@@ -205,13 +211,12 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
 
     await orchestrator.provisionService('svc-1', 'cor-1');
 
-    expect(tasks.create).toHaveBeenCalledWith(
+    expect(tasks.createFromTrigger).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: 'support_setup',
+        source_system: 'provisioning_manual',
+        source_id: 'svc-1',
         client_id: 'user-1',
-        service_id: 'svc-1',
       }),
-      'user-1',
     );
   });
 

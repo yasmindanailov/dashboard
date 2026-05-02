@@ -2,11 +2,15 @@ import {
   IsOptional,
   IsString,
   IsEnum,
-  IsUUID,
   IsBoolean,
   MaxLength,
 } from 'class-validator';
-import { ClientType, NoteCategory, UserStatus } from '@prisma/client';
+import {
+  ClientType,
+  NoteCategory,
+  NoteSourceSystem,
+  UserStatus,
+} from '@prisma/client';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
 
 /* ═══════════════════════════════════════
@@ -82,7 +86,9 @@ export class UpdateClientProfileDto {
 }
 
 /* ═══════════════════════════════════════
-   Add Internal Note (legacy — kept for backward compat)
+   Add Internal Note (legacy — kept for backward compat con
+   `client_profiles.notes_internal` que sigue existiendo como
+   campo histórico legacy en la tabla, ver clients.md §`client_profiles`)
    ═══════════════════════════════════════ */
 export class AddNoteDto {
   @IsString()
@@ -90,21 +96,18 @@ export class AddNoteDto {
 }
 
 /* ═══════════════════════════════════════
-   Structured Client Notes (7.H19)
+   Sprint 16 (ADR-079 §3.8) — DTOs de notas estructuradas canónicas
    ═══════════════════════════════════════ */
 
-export class CreateClientNoteDto {
+/**
+ * Nota excepcional — única forma de creación libre desde perfil cliente.
+ * El resto de notas se crean automáticamente desde listeners (ticket/
+ * maintenance/task) y NO exponen endpoint público.
+ */
+export class CreateExceptionalNoteDto {
   @IsString()
   @MaxLength(5000)
   body!: string;
-
-  @IsOptional()
-  @IsEnum(NoteCategory)
-  category?: NoteCategory;
-
-  @IsOptional()
-  @IsUUID()
-  conversation_id?: string;
 
   @IsOptional()
   @IsBoolean()
@@ -115,6 +118,10 @@ export class ClientNoteQueryDto extends PaginationDto {
   @IsOptional()
   @IsEnum(NoteCategory)
   category?: NoteCategory;
+
+  @IsOptional()
+  @IsEnum(NoteSourceSystem)
+  source_system?: NoteSourceSystem;
 
   @IsOptional()
   @IsBoolean()

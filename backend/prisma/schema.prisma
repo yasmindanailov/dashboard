@@ -77,12 +77,12 @@ model User {
   notifications_received      Notification[]             @relation("notification_recipient")
   conversations               Conversation[]             @relation("UserConversations")
   tasks_assigned              Task[]                     @relation("TaskAssignee")
-  tasks_created               Task[]                     @relation("TaskCreator")
   tasks_as_client             Task[]                     @relation("TaskClient")
+  tasks_completed             Task[]                     @relation("TaskCompleter")
   checklist_completions       TaskChecklistCompletion[]  @relation("ChecklistCompleter")
   maintenance_logs_performed  MaintenanceLog[]           @relation("MaintenancePerformer")
   maintenance_logs_as_client  MaintenanceLog[]           @relation("ClientMaintenanceLogs")
-  task_tags_created           TaskTag[]                  @relation("TaskTagCreator")
+  client_notes                ClientNote[]               @relation("ClientNoteUser")
   client_notes_authored       ClientNote[]               @relation("ClientNoteAuthor")
   support_inside_subscription SupportInsideSubscription? @relation("UserSupportInsideSubscription")
 
@@ -431,7 +431,10 @@ model Service {
 
   product                     Product                    @relation(fields: [product_id], references: [id])
   billing_profile             BillingProfile?            @relation(fields: [billing_profile_id], references: [id])
-  tasks                       Task[]                     @relation("TaskService")
+  // Sprint 16 (ADR-079): la relación directa Service ↔ Task (vía `service_id` FK)
+  // se eliminó. Las tasks de tipo `provisioning_manual` ahora apuntan al
+  // service vía `Task.source_id` polimórfico (sin FK Prisma) — la integridad
+  // referencial se gestiona en listeners (`tasks-on-service-cancelled`).
   maintenance_logs            MaintenanceLog[]           @relation("ServiceMaintenanceLogs")
   checklist_items             ServiceChecklistItem[]     @relation("ServiceChecklistItems")
   support_inside_subscription SupportInsideSubscription? @relation("ServiceSupportInsideSubscription")
@@ -596,39 +599,58 @@ model Conversation {
 }
 
 // ─── BLOQUE 7B: NOTAS ESTRUCTURADAS DEL CLIENTE ───
+// Sprint 16 (2026-05-02) — ADR-079 §3.8. Tabla única de notas del cliente
+// con source tracking (`source_system` + `source_id` + `triggered_by_action`).
+// Reemplaza los 3 mecanismos paralelos previos (`Task.client_note`,
+// `client_notes(task_id|conversation_id)`, `MaintenanceLog.internal_notes`).
 
 enum NoteCategory {
-  conversation
-  solution
-  billing
-  technical
-  general
+  support // notas de tickets/chats
+  maintenance // notas de mantenimientos
+  onboarding // notas de bienvenida / primer servicio
+  billing // notas relacionadas con facturación / pagos
+  project // notas de proyectos
+  technical_incident // notas de incidentes técnicos del cliente
+  exceptional // nota libre del agente desde perfil cliente, sin actuador
+}
+
+enum NoteSourceSystem {
+  ticket // ticket cerrado/resolved → nota
+  chat // mensaje interno en chat (futuro, no Sprint 16)
+  maintenance_log // mantenimiento completado
+  task_completion // task completada (cubre client_lifecycle, project promotion, etc.)
+  exceptional // nota libre desde perfil cliente
 }
 
 model ClientNote {
-  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id         String       @db.Uuid
-  author_id       String       @db.Uuid
-  conversation_id String?      @db.Uuid
-  task_id         String?      @db.Uuid
-  category        NoteCategory @default(conversation)
-  body            String
-  is_pinned       Boolean      @default(false)
-  created_at      DateTime     @default(now()) @db.Timestamptz()
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String           @db.Uuid
+  author_id           String           @db.Uuid
+  category            NoteCategory
+  body                String
+  source_system       NoteSourceSystem
+  // ID en el sistema vinculado: conversation_id | slot_id | task_id |
+  // project_id según `source_system`. Sin FK dura excepto opcional a Task
+  // (cuando `source_system='task_completion'`). Validación a nivel listener.
+  source_id           String?          @db.Uuid
+  // Acción canónica que disparó la nota: 'ticket.resolved', 'ticket.closed',
+  // 'task.completed', 'maintenance.completed', 'manual_entry'. Texto libre <=100.
+  triggered_by_action String?          @db.VarChar(100)
+  is_pinned           Boolean          @default(false)
+  created_at          DateTime         @default(now()) @db.Timestamptz()
 
-  task   Task? @relation("TaskClientNotes", fields: [task_id], references: [id], onDelete: SetNull)
-  // Sprint 8 Fase B.9 (2026-04-30) — relación inversa al autor (staff)
-  // para enriquecer las notas con `first_name`/`last_name` sin segunda
-  // query. Cliente y autor son ambos `users(id)`, distinguidos por
-  // categoría: `user_id` = cliente al que pertenece la nota; `author_id`
-  // = staff que la escribió. No se requiere migration SQL: el FK
-  // `author_id` ya existe a nivel BD desde el seed inicial; sólo se
-  // expone como navegación en el cliente Prisma generado.
-  author User  @relation("ClientNoteAuthor", fields: [author_id], references: [id])
+  user   User @relation("ClientNoteUser", fields: [user_id], references: [id], onDelete: Cascade)
+  author User @relation("ClientNoteAuthor", fields: [author_id], references: [id])
+  // Sprint 16 (ADR-079 §3.8): NO FK formal sobre `source_id`. El campo es
+  // polimórfico y apunta a entidades distintas según `source_system`
+  // (Task | Conversation | Slot | Project). La integridad referencial
+  // se valida a nivel listener; la navegación a la Task vinculada se
+  // resuelve vía `ClientNotesService.findByTask(taskId)`.
 
-  @@index([user_id])
-  @@index([conversation_id])
-  @@index([task_id])
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([author_id])
+  @@index([source_system, source_id])
+  @@index([category])
   @@map("client_notes")
 }
 
@@ -657,26 +679,18 @@ model Message {
 }
 
 // ─── BLOQUE 8: TAREAS ───
+// Sprint 16 (2026-05-02) — ADR-079: bridge unidireccional read-only.
+// Las tasks vienen siempre de uno de los 5 triggers automáticos canónicos.
+// El "qué hay que hacer" vive en el sistema vinculado (`source_system` +
+// `source_id`); la task NO duplica subject/description/checklist — los
+// renderiza dinámicamente la UI consultando el sistema vinculado.
 
-// Sprint 8 Fase B.7 (2026-04-29) — ADR-073 renombra `wow_call` → `contact_client`.
-// El enum representa qué bloque/automatización activa la tarea, no la intención
-// del agente. La intención humana ("Bienvenida primer servicio", "Renovación
-// hosting", etc.) vive en `Task.reason` (texto libre <=100) + tags asignables
-// extensibles en `task_tags`.
-//
-// Sprint 8 Fase B.10 (2026-04-30) — ADR-074 añade `support_ticket`.
-// Tareas creadas automáticamente por `SupportTicketTaskCreatorListener`
-// al asignar un ticket. SIEMPRE tienen `conversation_id` poblado (FK a
-// `Conversation`). El cierre delega en el módulo support para
-// notificación canónica al cliente — ver ADR-074 §"Reglas canónicas".
-enum TaskType {
-  contact_client
-  maintenance
-  maintenance_management
-  project_task
-  custom_work
-  support_setup
+enum TaskSourceSystem {
   support_ticket
+  support_inside_slot
+  provisioning_manual
+  client_lifecycle
+  project
 }
 
 enum TaskStatus {
@@ -695,81 +709,58 @@ enum TaskPriority {
 }
 
 model Task {
-  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  type            TaskType
-  title           String       @db.VarChar(500)
-  description     String?
-  status          TaskStatus   @default(pending)
-  priority        TaskPriority @default(medium)
-  assigned_to     String?      @db.Uuid
-  created_by      String       @db.Uuid
-  client_id       String       @db.Uuid
-  service_id      String?      @db.Uuid
-  conversation_id String?      @db.Uuid
-  client_note     String?
-  due_date        DateTime?    @db.Timestamptz()
-  completed_at    DateTime?    @db.Timestamptz()
-  is_recurring    Boolean      @default(false)
-  recurrence_day  Int?
-  billing_month   String?      @db.VarChar(7)
-  // Sprint 8 Fase B.7 (2026-04-29) — ADR-073. POR QUÉ humano de la tarea
-  // ("Bienvenida primer servicio", "Renovación próxima", etc.). Texto libre
-  // opcional. Visible en el detalle bajo el título y truncado a 60 chars en
-  // el tablero. Indexable para futura búsqueda full-text.
-  reason          String?      @db.VarChar(100)
-  metadata        Json?
-  created_at      DateTime     @default(now()) @db.Timestamptz()
-  updated_at      DateTime     @default(now()) @updatedAt @db.Timestamptz()
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_system TaskSourceSystem
+  // ID en el sistema vinculado: conversation_id | slot_id | service_id |
+  // client_id | project_id según `source_system`. Polimórfico — sin FK
+  // dura para preservar flexibilidad. Listeners validan existencia antes
+  // de crear; cancelaciones cross-sistema gestionadas por listeners
+  // dedicados (`tasks-on-slot-released`, `tasks-on-service-cancelled`).
+  source_id     String           @db.Uuid
+  // Cliente afectado (denormalizado para query rápida + filtros UI).
+  client_id     String           @db.Uuid
+  // null = cola pública (ADR-072). Auto-asignación V1 hardcoded por carga
+  // en `core/tasks/auto-assign.ts`; V2 settings configurable Sprint 12.
+  assigned_to   String?          @db.Uuid
+  // Calculada al crear según `core/tasks/priority-helper.ts`.
+  priority      TaskPriority     @default(medium)
+  status        TaskStatus       @default(pending)
+  // SLA — calculado al crear según `core/tasks/sla-helper.ts`. Null para
+  // proyectos (sin SLA: trabajo de fondo).
+  due_date      DateTime?        @db.Timestamptz()
+  completed_at  DateTime?        @db.Timestamptz()
+  // Quién completó (auditoría inmutable). Coexiste con `assigned_to` —
+  // pueden coincidir o divergir si el superadmin fuerza completar.
+  completed_by  String?          @db.Uuid
+  created_at    DateTime         @default(now()) @db.Timestamptz()
+  updated_at    DateTime         @default(now()) @updatedAt @db.Timestamptz()
 
   assignee              User?                     @relation("TaskAssignee", fields: [assigned_to], references: [id])
-  creator               User                      @relation("TaskCreator", fields: [created_by], references: [id])
   client                User                      @relation("TaskClient", fields: [client_id], references: [id])
-  service               Service?                  @relation("TaskService", fields: [service_id], references: [id], onDelete: SetNull)
+  completer             User?                     @relation("TaskCompleter", fields: [completed_by], references: [id])
+  // Las completions del checklist y `maintenance_log` permanecen 1:N/1:1
+  // con la task igual que pre-Sprint 16. Cuando `source_system='support_inside_slot'`,
+  // el flujo de cierre persiste maintenance_log + completions sobre esta task.
   checklist_completions TaskChecklistCompletion[] @relation("TaskChecklistCompletions")
   maintenance_log       MaintenanceLog?           @relation("TaskMaintenanceLog")
-  structured_notes      ClientNote[]              @relation("TaskClientNotes")
-  tag_assignments       TaskTagAssignment[]       @relation("TaskTagAssignments")
+  // Sprint 16 (ADR-079 §3.8): las notas vinculadas se resuelven vía
+  // `client_notes (source_system='task_completion', source_id=task.id)`.
+  // No hay FK física hacia ClientNote — relación implícita gestionada
+  // por listeners y `ClientNotesService.findByTask`.
 
-  @@unique([service_id, billing_month, type], name: "uniq_task_maintenance_per_month", map: "tasks_uniq_maintenance_per_month")
+  // Idempotencia: 1 task ACTIVA (status IN ('pending','in_progress')) por
+  // (source_system, source_id). Implementada como UNIQUE INDEX parcial en
+  // SQL crudo dentro de la migración `sprint16_tasks_notes_refactor` —
+  // Prisma no soporta partial unique indexes en su DSL (Issue #3387). Las
+  // tasks en estado terminal (completed|cancelled|not_completed_in_time)
+  // quedan fuera del índice → un nuevo trigger desde el mismo origen tras
+  // cierre crea una task nueva (ej. ticket reabierto, mes siguiente, etc.).
   @@index([assigned_to])
   @@index([status])
   @@index([client_id])
+  @@index([source_system, source_id])
   @@index([due_date])
-  @@index([billing_month])
   @@map("tasks")
-}
-
-// ─── BLOQUE 8B BIS: TAGS DE TAREAS ───
-// Sprint 8 Fase B.7 (2026-04-29) — ADR-073. Etiquetas extensibles asignables
-// por staff con `Manage.Task`. Crear/borrar etiquetas requiere `Manage.TaskTag`
-// (superadmin + agent_full). Clientes/partners NO ven tags. M2M explícita
-// para que CASL filtre por tag y para que la UI pueda mostrar metadatos
-// (color, fecha de creación) sin queries adicionales.
-model TaskTag {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug       String   @unique @db.VarChar(50)
-  label      String   @db.VarChar(50)
-  color      String?  @db.VarChar(7)
-  created_at DateTime @default(now()) @db.Timestamptz()
-  created_by String?  @db.Uuid
-
-  creator     User?               @relation("TaskTagCreator", fields: [created_by], references: [id])
-  assignments TaskTagAssignment[] @relation("TagAssignments")
-
-  @@map("task_tags")
-}
-
-model TaskTagAssignment {
-  task_id     String   @db.Uuid
-  tag_id      String   @db.Uuid
-  assigned_at DateTime @default(now()) @db.Timestamptz()
-
-  task Task    @relation("TaskTagAssignments", fields: [task_id], references: [id], onDelete: Cascade)
-  tag  TaskTag @relation("TagAssignments", fields: [tag_id], references: [id], onDelete: Cascade)
-
-  @@id([task_id, tag_id])
-  @@index([tag_id])
-  @@map("task_tag_assignments")
 }
 
 // ─── BLOQUE 8B: TAREAS — CHECKLIST + MANTENIMIENTO ───
@@ -799,15 +790,19 @@ model TaskChecklistCompletion {
 }
 
 model MaintenanceLog {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  task_id      String   @unique @db.Uuid
-  service_id   String   @db.Uuid
-  client_id    String   @db.Uuid
-  month_year   String   @db.VarChar(7)
-  notes        String
-  performed_by String   @db.Uuid
-  performed_at DateTime @default(now()) @db.Timestamptz()
-  metadata     Json?
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id             String   @unique @db.Uuid
+  service_id          String   @db.Uuid
+  client_id           String   @db.Uuid
+  month_year          String   @db.VarChar(7)
+  // Sprint 16 (ADR-079 §3.8): renombrado desde `notes`. Es contenido público
+  // del email al cliente con el resumen del mantenimiento, no una nota interna.
+  // Las notas internas viven ahora en `client_notes` con
+  // `source_system='maintenance_log'` + `triggered_by_action='maintenance.completed'`.
+  client_facing_notes String
+  performed_by        String   @db.Uuid
+  performed_at        DateTime @default(now()) @db.Timestamptz()
+  metadata            Json?
 
   task      Task    @relation("TaskMaintenanceLog", fields: [task_id], references: [id], onDelete: Cascade)
   service   Service @relation("ServiceMaintenanceLogs", fields: [service_id], references: [id], onDelete: Cascade)
@@ -885,11 +880,11 @@ enum SupportInsideCtaVisibility {
 // del editor mapean directamente a campos aquí — añadir campo nuevo en
 // sprint futuro = añadir columna + sección card sin tocar las anteriores.
 model SupportInsideConfig {
-  id                 String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  product_id         String                     @unique @db.Uuid
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id               String                     @unique @db.Uuid
   // Sección "Slots y capacidades" del editor (ADR-075 §B.2).
-  slots_included     Int                        @default(0)
-  slot_types_allowed SupportInsideSlotType[]
+  slots_included           Int                        @default(0)
+  slot_types_allowed       SupportInsideSlotType[]
   /// Sub-fase 8.D.12.fix (2026-05-01): tipos de producto a los que el plan
   /// permite asignar slots de mantenimiento. Default `[hosting_web,
   /// docker_service]` — los servicios técnicos cuyo mantenimiento tiene
@@ -898,18 +893,18 @@ model SupportInsideConfig {
   /// `custom_service` (futuros, decidir al introducirlos).
   /// Empty array = sin restricciones (legacy / migración).
   applicable_product_types ProductType[]
-  extra_slot_price   Decimal                    @default(0) @db.Decimal(10, 2)
+  extra_slot_price         Decimal                    @default(0) @db.Decimal(10, 2)
   // Sección "Soporte y canales".
-  channels_active    SupportInsideChannel[]
-  priority_tier      SupportInsidePriorityTier  @default(standard)
-  response_sla_hours Int                        @default(24)
+  channels_active          SupportInsideChannel[]
+  priority_tier            SupportInsidePriorityTier  @default(standard)
+  response_sla_hours       Int                        @default(24)
   // Sección "Configuración avanzada".
-  cta_visibility     SupportInsideCtaVisibility @default(hidden)
+  cta_visibility           SupportInsideCtaVisibility @default(hidden)
   // Metadata libre por si alguna sección futura necesita campos no
   // estructurados antes de promocionarlos a columna real.
-  metadata           Json?
-  created_at         DateTime                   @default(now()) @db.Timestamptz()
-  updated_at         DateTime                   @default(now()) @updatedAt @db.Timestamptz()
+  metadata                 Json?
+  created_at               DateTime                   @default(now()) @db.Timestamptz()
+  updated_at               DateTime                   @default(now()) @updatedAt @db.Timestamptz()
 
   product Product @relation("ProductSupportInsideConfig", fields: [product_id], references: [id], onDelete: Cascade)
 

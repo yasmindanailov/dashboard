@@ -1,6 +1,8 @@
 /* ═══════════════════════════════════════
-   TasksController — REST API for tasks
-   Ref: DECISIONS.md §10, UI_SPEC.md §5.15-5.16
+   TasksController — Sprint 16 Fase 16.B (ADR-079)
+   API canónica read-only sobre triggers automáticos.
+   Sin POST manual ni PATCH libre — sólo: list, findOne, assign, complete,
+   complete-ticket-bridge, cancel, stats, checklist + maintenance log.
    ═══════════════════════════════════════ */
 
 import {
@@ -8,7 +10,6 @@ import {
   Get,
   Post,
   Patch,
-  Delete,
   Body,
   Param,
   Query,
@@ -20,22 +21,24 @@ import type { AuthenticatedRequest } from '../../core/common/types/authenticated
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
 import {
-  CreateTaskDto,
-  UpdateTaskDto,
-  CompleteTaskDto,
+  AssignTaskDto,
+  CancelTaskDto,
   CompleteChecklistItemDto,
+  CompleteTaskDto,
   RecordMaintenanceLogDto,
   TaskListQueryDto,
   TaskScopeDto,
+  TicketBridgeCompletionDto,
 } from './dto/task.dto';
 import { ChecklistCompletionService } from './checklist-completion.service';
 import { MaintenanceLogService } from './maintenance-log.service';
-import { TaskNotesService } from './task-notes.service';
-import { CreateTaskNoteDto } from './dto/task-note.dto';
+import { ClientNotesService } from '../clients/client-notes.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PoliciesGuard } from '../../core/casl/policies.guard';
 import { CheckPolicies } from '../../core/casl/check-policies.decorator';
 import { Action, Subject } from '../../core/casl/permissions';
+
+const ADMIN_ROLES = ['superadmin', 'agent_full'];
 
 @ApiTags('Tasks')
 @ApiBearerAuth()
@@ -46,24 +49,17 @@ export class TasksController {
     private readonly service: TasksService,
     private readonly checklist: ChecklistCompletionService,
     private readonly maintenanceLog: MaintenanceLogService,
-    private readonly notes: TaskNotesService,
+    private readonly clientNotes: ClientNotesService,
   ) {}
 
-  @Post()
-  @CheckPolicies((ability) => ability.can(Action.Create, Subject.Task))
-  @ApiOperation({ summary: 'Create a new task' })
-  create(@Req() req: AuthenticatedRequest, @Body() dto: CreateTaskDto) {
-    const user = req.user;
-    return this.service.create(dto, user.id);
-  }
+  /* ── Listado + detalle + stats ── */
 
   @Get()
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Task))
   @ApiOperation({ summary: 'List tasks (paginated, filtered)' })
   findAll(@Req() req: AuthenticatedRequest, @Query() query: TaskListQueryDto) {
-    const user = req.user;
-    const isAdmin = ['superadmin', 'agent_full'].includes(user.role.slug);
-    return this.service.findAll(query, user.id, isAdmin);
+    const isAdmin = ADMIN_ROLES.includes(req.user.role.slug);
+    return this.service.findAll(query, req.user.id, isAdmin);
   }
 
   @Get('stats')
@@ -73,9 +69,8 @@ export class TasksController {
     @Req() req: AuthenticatedRequest,
     @Query('scope') scope?: TaskScopeDto,
   ) {
-    const user = req.user;
-    const isAdmin = ['superadmin', 'agent_full'].includes(user.role.slug);
-    return this.service.getStats(user.id, isAdmin, scope);
+    const isAdmin = ADMIN_ROLES.includes(req.user.role.slug);
+    return this.service.getStats(req.user.id, isAdmin, scope);
   }
 
   @Get(':id')
@@ -85,48 +80,80 @@ export class TasksController {
     return this.service.findOne(id);
   }
 
-  @Patch(':id')
+  /* ── Mutaciones canónicas — sin POST /tasks ni PATCH /tasks/:id libre ── */
+
+  @Patch(':id/assign')
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Task))
-  @ApiOperation({ summary: 'Update task (status, assignment, etc.)' })
-  update(
+  @ApiOperation({
+    summary:
+      'Asignar / reasignar / liberar a cola pública. Admin pleno o auto-asignación desde cola pública.',
+  })
+  assign(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateTaskDto,
+    @Body() dto: AssignTaskDto,
   ) {
-    const user = req.user;
-    const isAdmin = ['superadmin', 'agent_full'].includes(user.role.slug);
-    return this.service.update(id, dto, user.id, isAdmin);
+    const isAdmin = ADMIN_ROLES.includes(req.user.role.slug);
+    return this.service.assign(id, dto, req.user.id, isAdmin);
   }
 
   @Patch(':id/complete')
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Task))
-  @ApiOperation({ summary: 'Complete task with notes (maintenance flow)' })
+  @ApiOperation({
+    summary:
+      'Completar task no-bridge (provisioning_manual / client_lifecycle / project). Nota obligatoria — se persiste en client_notes con source_system=task_completion.',
+  })
   complete(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CompleteTaskDto,
   ) {
-    const user = req.user;
-    return this.service.complete(id, dto, user.id);
+    return this.service.complete(id, dto, req.user.id);
   }
 
-  /* ── Sprint 8 Fase B.5 — checklist + maintenance_log ── */
+  @Patch(':id/complete-ticket-bridge')
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Task))
+  @ApiOperation({
+    summary:
+      'Completar bridge ticket↔task. Delega en module support para resolver/cerrar el ticket vinculado y notificar al cliente.',
+  })
+  completeTicketBridge(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: TicketBridgeCompletionDto,
+  ) {
+    return this.service.completeTicketBridge(id, dto, req.user.id);
+  }
+
+  @Patch(':id/cancel')
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Task))
+  @ApiOperation({
+    summary:
+      'Cancelar task. Si es bridge ticket libera el ticket vinculado salvo `skipTicketRelease` interno.',
+  })
+  cancel(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelTaskDto,
+  ) {
+    return this.service.cancel(id, dto, req.user.id);
+  }
+
+  /* ── Checklist + maintenance log (Sprint 8 Fase B.5 — preservado) ── */
 
   @Get(':id/checklist')
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Task))
-  @ApiOperation({
-    summary:
-      'Listar checklist disponible para una task (items + estado completado)',
-  })
+  @ApiOperation({ summary: 'Listar checklist + completions de la task' })
   async getChecklist(@Param('id', ParseUUIDPipe) id: string) {
     const task = await this.service.findOne(id);
-    // `findOne` usa INCLUDE_RELATIONS_DETAIL que trae `service.product`
-    // anidado (no `product_id` directo). Para los items globales del
-    // producto (fallback cuando no hay snapshot) extraemos el id de ahí.
-    const productId = task.service?.product?.id ?? null;
+    if (task.source_system !== 'support_inside_slot') {
+      return { items: [], completions: [] };
+    }
+    // Resolver `service_id` desde el slot vinculado.
+    const slot = await this.checklist.getSlotForTask(task.source_id);
     const items = await this.checklist.findChecklistForTask(
-      task.service_id ?? null,
-      productId,
+      slot?.service_id ?? null,
+      slot?.product_id ?? null,
     );
     const completions = await this.checklist.findByTask(id);
     return { items, completions };
@@ -134,10 +161,7 @@ export class TasksController {
 
   @Post(':id/checklist/complete')
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Task))
-  @ApiOperation({
-    summary:
-      'Marcar un checklist item como completado dentro de la task (idempotente)',
-  })
+  @ApiOperation({ summary: 'Marcar checklist item como completado' })
   completeChecklistItem(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
@@ -150,7 +174,7 @@ export class TasksController {
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Task))
   @ApiOperation({
     summary:
-      'Cerrar task de mantenimiento: crea maintenance_log + valida items requeridos + emite maintenance.completed',
+      'Cerrar task de mantenimiento: maintenance_log + items requeridos + emit maintenance.completed (atómico).',
   })
   recordMaintenanceLog(
     @Req() req: AuthenticatedRequest,
@@ -160,35 +184,13 @@ export class TasksController {
     return this.maintenanceLog.recordCompletion(id, dto, req.user.id);
   }
 
-  /* ── Sprint 8 Fase B.9 (2026-04-30) — Notas internas inline ── */
+  /* ── Notas asociadas a la task (read-only — la creación es atómica con
+       complete()) ── */
 
   @Get(':id/notes')
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Task))
-  @ApiOperation({
-    summary: 'Listar notas internas (category=technical) asociadas a la task',
-  })
+  @ApiOperation({ summary: 'Listar notas vinculadas a la task' })
   listNotes(@Param('id', ParseUUIDPipe) id: string) {
-    return this.notes.list(id);
-  }
-
-  @Post(':id/notes')
-  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Task))
-  @ApiOperation({
-    summary:
-      'Añadir nota interna (technical) inline durante la ejecución de la tarea',
-  })
-  createNote(
-    @Req() req: AuthenticatedRequest,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: CreateTaskNoteDto,
-  ) {
-    return this.notes.create(id, dto, req.user.id);
-  }
-
-  @Delete(':id')
-  @CheckPolicies((ability) => ability.can(Action.Delete, Subject.Task))
-  @ApiOperation({ summary: 'Delete task (admin only)' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.service.remove(id);
+    return this.clientNotes.findByTask(id);
   }
 }

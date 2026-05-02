@@ -11,7 +11,7 @@ import { seedSampleProducts } from './seeds/sample-products';
 import { seedSampleInvoices } from './seeds/sample-invoices';
 import { seedSampleSupport } from './seeds/sample-support';
 import { seedNotificationTemplates } from './seeds/notification-templates';
-import { seedSampleTaskTags } from './seeds/sample-task-tags';
+import { seedSampleClientNotes } from './seeds/sample-client-notes';
 import { seedSupportInsidePlans } from './seeds/support-inside-plans';
 import { seedSampleSupportInside } from './seeds/sample-support-inside';
 
@@ -53,9 +53,8 @@ async function main() {
     await seedRoles(prisma);
     await seedSettings(prisma);
     await seedNotificationTemplates(prisma);
-    // Sprint 8 Fase B.7 (ADR-073) — catálogo operativo, no datos demo:
-    // se siembra siempre (idempotente vía slug).
-    await seedSampleTaskTags(prisma);
+    // Sprint 16 (ADR-079): el catálogo de tags se eliminó. Las notas demo
+    // se generan en `sample-client-notes` después de los clientes/tickets.
     // Sprint 8 Fase D (ADR-034 + ADR-061 + ADR-075) — los 3 planes
     // canónicos Support Inside. Operación canónica de la empresa, no
     // demo data: se siembra SIEMPRE (incluso en producción) con upsert
@@ -69,6 +68,9 @@ async function main() {
     // Sub-fase 8.D.12.10 — depende de support-inside-plans + sample-products
     // (hosting-pro como servicio cubierto) + test-accounts (cliente Carla).
     await seedSampleSupportInside(prisma);
+    // Sprint 16 (ADR-079) — 2 notas demo para Carla en el ClientNotesTab:
+    // una `source_system='exceptional'` + una `source_system='ticket'`.
+    await seedSampleClientNotes(prisma);
 
     console.log('✅ Seed completed');
   } finally {

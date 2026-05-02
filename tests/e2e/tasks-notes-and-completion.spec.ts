@@ -1,16 +1,19 @@
 /**
- * E2E — Sprint 8 Fase B.9 (2026-04-30).
+ * E2E — Notes + completion canónico Sprint 16 (ADR-079 §3.9).
  *
- * Cubre el refactor de notas y modal de cierre:
- *
- *   B.9.1 — POST /tasks/:id/notes crea ClientNote(category=technical) + task_id.
- *   B.9.2 — GET /tasks/:id/notes devuelve la nota con autor enriquecido (first/last_name).
- *   B.9.3 — Completar contact_client con client_notes → cliente recibe email.
- *   B.9.4 — Completar contact_client SIN client_notes → cierra OK pero NO notifica.
- *   B.9.5 — Completar maintenance sigue requiriendo nota (regresión Fase B.5).
- *   B.9.6 — Completar con internal_notes ya NO crea ClientNote(solution); las notas
- *           internas viven en /notes y persisten antes del cierre.
+ * Cubre la doctrina nueva:
+ *   - La creación de nota es atómica con `PATCH /tasks/:id/complete`. NO
+ *     hay endpoint POST /tasks/:id/notes para crear notas inline durante
+ *     la ejecución (ese flujo se eliminó por ADR-079 §3.8).
+ *   - Completar `client_lifecycle` / `provisioning_manual` / `project`
+ *     EXIGE `note` obligatoria en el body — sin ella → 400.
+ *   - GET /tasks/:id/notes lista las notas con source_system='task_completion'
+ *     vinculadas a la task (read-only — para timeline en card detalle).
+ *   - Listener `task.completed` notifica al cliente para tasks no-bridge
+ *     (excepto support_ticket y support_inside_slot que tienen su propio
+ *     canal canónico).
  */
+
 import { test, expect, type APIRequestContext } from '@playwright/test';
 import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
@@ -21,6 +24,7 @@ import {
   waitForEmail,
   extract2FACode,
 } from './fixtures/mailpit';
+import { insertTask } from './fixtures/tasks';
 
 const SUPERADMIN_PASSWORD =
   process.env.SUPERADMIN_PASSWORD || 'AeliumDev2026!';
@@ -28,6 +32,7 @@ const SUPERADMIN_PASSWORD =
 let pool: Pool;
 let clientUserId: string;
 let clientEmail: string;
+let agentSupportId: string;
 
 async function login2FA(
   request: APIRequestContext,
@@ -103,7 +108,7 @@ async function authed(
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Tasks — notes inline + completion modal (Sprint 8 Fase B.9)', () => {
+test.describe('Tasks — notes + completion canónico Sprint 16 (ADR-079)', () => {
   let superadminToken: string;
 
   test.beforeAll(async ({ request }) => {
@@ -117,6 +122,12 @@ test.describe('Tasks — notes inline + completion modal (Sprint 8 Fase B.9)', (
       lastName: 'B9',
       roleSlug: 'client',
     });
+    agentSupportId = await createUser({
+      email: 'e2e-b9-agent@aelium.test',
+      firstName: 'Sara',
+      lastName: 'B9',
+      roleSlug: 'agent_support',
+    });
 
     superadminToken = await loginSuperadmin(request);
   });
@@ -126,120 +137,104 @@ test.describe('Tasks — notes inline + completion modal (Sprint 8 Fase B.9)', (
     await disconnectDb();
   });
 
-  test('B.9.1/B.9.2 — POST /tasks/:id/notes persiste y GET la devuelve con autor', async ({
+  test('completar client_lifecycle con `note` → ClientNote canónica + email cliente', async ({
     request,
   }) => {
-    const createRes = await authed(request, superadminToken, 'POST', '/tasks', {
-      type: 'custom_work',
-      title: 'B.9 nota inline',
-      priority: 'low',
+    const taskId = await insertTask(pool, {
+      source_system: 'client_lifecycle',
       client_id: clientUserId,
+      assigned_to: agentSupportId,
+      priority: 'medium',
     });
-    expect(createRes.ok()).toBeTruthy();
-    const task = (await createRes.json()) as { id: string };
 
-    const noteRes = await authed(
+    await clearMailbox();
+    const completeRes = await authed(
       request,
       superadminToken,
-      'POST',
-      `/tasks/${task.id}/notes`,
-      { body: 'Esperando respuesta del cliente sobre las credenciales.' },
+      'PATCH',
+      `/tasks/${taskId}/complete`,
+      {
+        note:
+          'Hemos hablado con el cliente y resuelto sus dudas iniciales del onboarding.',
+      },
     );
-    expect(noteRes.ok()).toBeTruthy();
-    const note = (await noteRes.json()) as {
-      id: string;
-      body: string;
-      author: { first_name: string };
-    };
-    expect(note.body).toContain('Esperando respuesta');
-    expect(note.author.first_name).toBeTruthy();
+    expect(
+      completeRes.ok(),
+      `complete: ${completeRes.status()} ${await completeRes.text()}`,
+    ).toBeTruthy();
+
+    // ClientNote canónica con source_system + categoría inferida.
+    const noteRes = await pool.query(
+      `SELECT category, source_system, source_id, triggered_by_action, body
+       FROM client_notes
+       WHERE user_id = $1 AND source_system = 'task_completion' AND source_id = $2`,
+      [clientUserId, taskId],
+    );
+    expect(noteRes.rowCount).toBe(1);
+    expect(noteRes.rows[0].category).toBe('onboarding');
+    expect(noteRes.rows[0].triggered_by_action).toBe('task.completed');
+
+    // Email al cliente vía listener task.completed (excepto bridges).
+    const email = await waitForEmail(clientEmail, {
+      subjectIncludes: 'solicitud',
+      timeoutMs: 15_000,
+    });
+    expect(email).toBeTruthy();
+  });
+
+  test('completar SIN `note` → 400 (la nota es obligatoria por ADR-079 §3.9)', async ({
+    request,
+  }) => {
+    const taskId = await insertTask(pool, {
+      source_system: 'provisioning_manual',
+      client_id: clientUserId,
+      assigned_to: agentSupportId,
+      priority: 'medium',
+    });
+
+    const res = await authed(
+      request,
+      superadminToken,
+      'PATCH',
+      `/tasks/${taskId}/complete`,
+      {},
+    );
+    expect(res.status()).toBe(400);
+    const body = (await res.json()) as { message: string };
+    expect(body.message.toLowerCase()).toMatch(/nota|obligator/);
+  });
+
+  test('GET /tasks/:id/notes lista notas vinculadas (post-completion)', async ({
+    request,
+  }) => {
+    const taskId = await insertTask(pool, {
+      source_system: 'project',
+      client_id: clientUserId,
+      assigned_to: agentSupportId,
+      priority: 'medium',
+    });
+
+    await authed(
+      request,
+      superadminToken,
+      'PATCH',
+      `/tasks/${taskId}/complete`,
+      { note: 'Item del checklist resuelto en sprint actual.' },
+    );
 
     const listRes = await authed(
       request,
       superadminToken,
       'GET',
-      `/tasks/${task.id}/notes`,
+      `/tasks/${taskId}/notes`,
     );
-    const list = (await listRes.json()) as { id: string }[];
+    expect(listRes.ok()).toBeTruthy();
+    const list = (await listRes.json()) as Array<{
+      body: string;
+      author: { first_name: string };
+    }>;
     expect(list).toHaveLength(1);
-    expect(list[0].id).toBe(note.id);
-
-    const dbRow = await pool.query(
-      `SELECT category, task_id, user_id FROM client_notes WHERE id = $1`,
-      [note.id],
-    );
-    expect(dbRow.rows[0].category).toBe('technical');
-    expect(dbRow.rows[0].task_id).toBe(task.id);
-    expect(dbRow.rows[0].user_id).toBe(clientUserId);
-  });
-
-  test('B.9.3 — completar contact_client con client_notes → cliente recibe email', async ({
-    request,
-  }) => {
-    const createRes = await authed(request, superadminToken, 'POST', '/tasks', {
-      type: 'contact_client',
-      title: 'B.9 llamada bienvenida',
-      priority: 'medium',
-      client_id: clientUserId,
-      reason: 'Bienvenida primer servicio',
-    });
-    const task = (await createRes.json()) as { id: string };
-
-    await clearMailbox();
-    const completeRes = await authed(
-      request,
-      superadminToken,
-      'PATCH',
-      `/tasks/${task.id}/complete`,
-      {
-        client_notes:
-          'Hemos hablado con el cliente y resuelto sus dudas iniciales.',
-      },
-    );
-    expect(completeRes.ok()).toBeTruthy();
-
-    const email = await waitForEmail(clientEmail, {
-      subjectIncludes: 'B.9 llamada bienvenida',
-      timeoutMs: 15_000,
-    });
-    expect(email.Subject).toContain('Sobre tu solicitud');
-  });
-
-  test('B.9.4 — completar contact_client SIN client_notes cierra OK y NO notifica', async ({
-    request,
-  }) => {
-    const createRes = await authed(request, superadminToken, 'POST', '/tasks', {
-      type: 'contact_client',
-      title: 'B.9 sin nota cliente',
-      priority: 'low',
-      client_id: clientUserId,
-    });
-    const task = (await createRes.json()) as { id: string };
-
-    await clearMailbox();
-    const completeRes = await authed(
-      request,
-      superadminToken,
-      'PATCH',
-      `/tasks/${task.id}/complete`,
-      {},
-    );
-    expect(completeRes.ok()).toBeTruthy();
-    const completed = (await completeRes.json()) as { status: string };
-    expect(completed.status).toBe('completed');
-
-    // Esperar 2s y verificar que NO ha llegado email de "Sobre tu
-    // solicitud" — el listener no debe disparar si client_notes vacío.
-    let received = false;
-    try {
-      await waitForEmail(clientEmail, {
-        subjectIncludes: 'B.9 sin nota cliente',
-        timeoutMs: 2_500,
-      });
-      received = true;
-    } catch {
-      received = false;
-    }
-    expect(received).toBe(false);
+    expect(list[0].body).toContain('checklist resuelto');
+    expect(list[0].author.first_name).toBeTruthy();
   });
 });

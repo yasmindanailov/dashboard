@@ -4,7 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { SettingsService } from '../../../core/settings/settings.service';
 import {
-  TASK_TYPE_LABELS_ES,
+  TASK_SOURCE_SYSTEM_LABELS_ES,
   TASK_PRIORITY_LABELS_ES,
   formatDueLabel,
 } from '../task-labels';
@@ -69,8 +69,8 @@ export class TasksOverdueService {
       },
       select: {
         id: true,
-        title: true,
-        type: true,
+        source_system: true,
+        source_id: true,
         priority: true,
         assigned_to: true,
         due_date: true,
@@ -113,9 +113,11 @@ export class TasksOverdueService {
 
       this.events.emit('task.overdue', {
         task_id: task.id,
-        task_title: task.title,
-        task_type: task.type,
-        task_type_label: TASK_TYPE_LABELS_ES[task.type] ?? task.type,
+        task_source_system: task.source_system,
+        task_source_id: task.source_id,
+        task_source_system_label:
+          TASK_SOURCE_SYSTEM_LABELS_ES[task.source_system] ??
+          task.source_system,
         task_priority: task.priority,
         task_priority_label:
           TASK_PRIORITY_LABELS_ES[task.priority] ?? task.priority,

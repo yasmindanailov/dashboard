@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
@@ -6,11 +6,10 @@ import { TasksEmailListener } from './tasks-email.listener';
 import { ChecklistCompletionService } from './checklist-completion.service';
 import { MaintenanceLogService } from './maintenance-log.service';
 import { MaintenanceCompletedListener } from './maintenance-completed.listener';
-import { TaskTagsService } from './task-tags.service';
-import { TaskTagsController } from './task-tags.controller';
-import { TaskNotesService } from './task-notes.service';
 import { TaskCompletedListener } from './task-completed.listener';
 import { SupportTicketTaskCreatorListener } from './support-ticket-task-creator.listener';
+import { TasksOnSlotReleasedListener } from './listeners/tasks-on-slot-released.listener';
+import { TasksOnServiceCancelledListener } from './listeners/tasks-on-service-cancelled.listener';
 import { TasksOverdueService } from './crons/tasks-overdue.service';
 import {
   TasksOverdueProcessor,
@@ -32,27 +31,40 @@ import { MaintenanceCriticalListener } from './listeners/maintenance-critical.li
 import { TasksCronsAdminController } from './crons/tasks-crons-admin.controller';
 import { PrismaModule } from '../../core/database/prisma.module';
 import { SupportModule } from '../support/support.module';
+import { ClientsModule } from '../clients/clients.module';
 
 @Module({
-  // Sprint 8 Fase B.10 (2026-04-30) — ADR-074 ticket↔task bridge requiere
-  // que `TasksService.complete()` delegue en `SupportService.updateConversation`
-  // cuando la tarea tiene `conversation_id`. SupportModule NO importa
-  // TasksModule (sin ciclo), pero el listener canónico
-  // `SupportTicketTaskCreatorListener` vive aquí (en `tasks/`) porque su
-  // efecto es crear/reasignar una task — su lugar natural.
-  //
-  // Sprint 8 Fase C (2026-05-01) — registra la cola BullMQ `tasks-overdue`
-  // (ADR-063 patrón canónico, ADR-064 leader election). El processor
-  // delega en `TasksOverdueService` para permitir testeo unitario y
-  // disparo manual desde el endpoint admin de smoke testing.
+  /**
+   * Sprint 16 Fase 16.B (ADR-079) — el módulo se reorganiza en torno al
+   * nuevo modelo bridge unidireccional read-only:
+   *
+   *  - SupportModule (igual que pre-Sprint 16): bridge ticket↔task delega
+   *    en `SupportService.updateConversation`.
+   *  - ClientsModule (nuevo): exporta `ClientNotesService` consolidado;
+   *    `TasksService` y los listeners de cierre persisten ClientNote
+   *    canónico vía sus métodos `createFrom*`.
+   *
+   * Listeners eliminados (legacy del enum TaskType):
+   *   - `task-tags.controller`/`service` — ya no hay tags.
+   *   - `task-notes.service` — la creación de nota interna inline durante
+   *     la task se eliminó; las notas se generan al COMPLETAR vía
+   *     `client-notes.service` con `source_system='task_completion'`.
+   *
+   * Listeners nuevos:
+   *   - `TasksOnSlotReleasedListener` — cancela task al liberar slot.
+   *   - `TasksOnServiceCancelledListener` — cancela task al cancelar
+   *     service. (`ClientLifecycleTaskCreatorListener` vive en ClientsModule
+   *     porque `isFirstService` es helper canónico de clientes.)
+   */
   imports: [
     PrismaModule,
     SupportModule,
+    forwardRef(() => ClientsModule),
     BullModule.registerQueue({ name: TASKS_OVERDUE_QUEUE }),
     BullModule.registerQueue({ name: TASKS_UNASSIGNED_OVERDUE_QUEUE }),
     BullModule.registerQueue({ name: MAINTENANCE_CRITICAL_QUEUE }),
   ],
-  controllers: [TasksController, TaskTagsController, TasksCronsAdminController],
+  controllers: [TasksController, TasksCronsAdminController],
   providers: [
     TasksService,
     ChecklistCompletionService,
@@ -61,8 +73,8 @@ import { SupportModule } from '../support/support.module';
     MaintenanceCompletedListener,
     TaskCompletedListener,
     SupportTicketTaskCreatorListener,
-    TaskTagsService,
-    TaskNotesService,
+    TasksOnSlotReleasedListener,
+    TasksOnServiceCancelledListener,
     TasksOverdueService,
     TasksOverdueProcessor,
     TasksOverdueListener,
@@ -73,6 +85,6 @@ import { SupportModule } from '../support/support.module';
     MaintenanceCriticalProcessor,
     MaintenanceCriticalListener,
   ],
-  exports: [TasksService, TaskTagsService, TaskNotesService],
+  exports: [TasksService],
 })
 export class TasksModule {}

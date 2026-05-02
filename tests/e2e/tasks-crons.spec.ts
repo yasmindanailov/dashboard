@@ -28,6 +28,7 @@ import * as bcrypt from 'bcrypt';
 import { TEST_CONFIG } from './fixtures/test-config';
 import { resetTestData, disconnectDb } from './fixtures/db';
 import { clearMailbox, waitForEmail, extract2FACode } from './fixtures/mailpit';
+import { insertTask } from './fixtures/tasks';
 
 const SUPERADMIN_PASSWORD =
   process.env.SUPERADMIN_PASSWORD || 'AeliumDev2026!';
@@ -165,41 +166,18 @@ test.describe('Tasks crons — Sprint 8 Fase C', () => {
   }) => {
     await clearMailbox();
 
-    // 1. Crear tarea con due_date HOY (la API rechaza fechas pasadas por
-    //    EC-T8-12). Asignamos al agente.
-    const today = new Date();
-    today.setUTCHours(23, 59, 0, 0);
-    const createRes = await authedRequest(
-      request,
-      superadminToken,
-      'POST',
-      '/tasks',
-      {
-        type: 'maintenance',
-        title: 'Tarea vieja para cron overdue (E2E)',
-        priority: 'medium',
-        client_id: clientUserId,
-        assigned_to: agentSupportId,
-        due_date: today.toISOString(),
-      },
-    );
-    expect(
-      createRes.ok(),
-      `Create falló: ${createRes.status()} ${await createRes.text()}`,
-    ).toBeTruthy();
-    const created = (await createRes.json()) as { id: string };
+    // Sprint 16 (ADR-079): insertamos la task vía SQL (las tasks ya no
+    // se crean por API). due_date = hace 10 días supera el threshold
+    // default 7 días.
+    const taskId = await insertTask(pool, {
+      source_system: 'support_inside_slot',
+      client_id: clientUserId,
+      assigned_to: agentSupportId,
+      priority: 'medium',
+      due_date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+    });
 
-    // 2. Envejecer la tarea: due_date = hace 10 días (supera el threshold
-    //    default 7 días). Patch directo en DB para saltarse EC-T8-12.
-    await pool.query(
-      `UPDATE tasks SET due_date = NOW() - INTERVAL '10 days' WHERE id = $1`,
-      [created.id],
-    );
-
-    // Limpiamos mailbox para no contar el email task.assigned.
-    await clearMailbox();
-
-    // 3. Disparar el cron manualmente.
+    // Disparar el cron manualmente.
     const cronRes = await authedRequest(
       request,
       superadminToken,
@@ -218,70 +196,44 @@ test.describe('Tasks crons — Sprint 8 Fase C', () => {
     expect(cronBody.result.processed).toBeGreaterThanOrEqual(1);
     expect(cronBody.result.threshold_days).toBe(7);
 
-    // 4. Verificar status terminal en DB.
+    // Verificar status terminal en DB.
     const statusRes = await pool.query(
       `SELECT status FROM tasks WHERE id = $1`,
-      [created.id],
+      [taskId],
     );
     expect(statusRes.rows[0].status).toBe('not_completed_in_time');
 
-    // 5. Email "Tarea vencida" al agente.
+    // Email "Tarea vencida" al agente.
     const email = await waitForEmail('e2e-cron-agent@aelium.test', {
       subjectIncludes: 'Tarea vencida',
       timeoutMs: 15_000,
     });
-    expect(email.Subject).toContain('Tarea vieja para cron overdue');
+    expect(email.Subject).toMatch(/Tarea vencida/i);
 
-    // 6. Notification interna persistida.
+    // Notification interna persistida con action_url canónica.
     const notifs = await pool.query(
-      `SELECT title, action_url, metadata FROM notifications
+      `SELECT action_url, metadata FROM notifications
        WHERE user_id = $1 AND channel = 'internal'
          AND metadata->>'event' = 'task.overdue'
        ORDER BY created_at DESC LIMIT 1`,
       [agentSupportId],
     );
     expect(notifs.rowCount).toBe(1);
-    expect(notifs.rows[0].title as string).toContain(
-      'Tarea vieja para cron overdue',
-    );
-    expect(notifs.rows[0].action_url).toBe(`/admin/tasks/${created.id}`);
+    expect(notifs.rows[0].action_url).toBe(`/admin/tasks/${taskId}`);
   });
 
   test('cron `unassigned-overdue`: cola pública fuera de SLA → email + notification al superadmin (ADR-072)', async ({
     request,
   }) => {
-    // 1. Crear tarea SIN asignado (ADR-072 cola pública).
-    const today = new Date();
-    today.setUTCHours(23, 59, 0, 0);
-    const createRes = await authedRequest(
-      request,
-      superadminToken,
-      'POST',
-      '/tasks',
-      {
-        type: 'support_setup', // SLA default 4h
-        title: 'Setup pendiente de tomar (E2E)',
-        priority: 'high',
-        client_id: clientUserId,
-        due_date: today.toISOString(),
-        // assigned_to omitido → cola pública.
-      },
-    );
-    expect(
-      createRes.ok(),
-      `Create unassigned falló: ${createRes.status()} ${await createRes.text()}`,
-    ).toBeTruthy();
-    const created = (await createRes.json()) as {
-      id: string;
-      assigned_to: string | null;
-    };
-    expect(created.assigned_to).toBeNull();
-
-    // 2. Envejecer la tarea: created_at = hace 12h (supera SLA support_setup 4h).
-    await pool.query(
-      `UPDATE tasks SET created_at = NOW() - INTERVAL '12 hours' WHERE id = $1`,
-      [created.id],
-    );
+    // Sprint 16 (ADR-079): insertamos vía SQL. Settings key `tasks.unassigned_sla_hours.default`
+    // tiene fallback 24h — created_at = hace 36h supera default.
+    await insertTask(pool, {
+      source_system: 'provisioning_manual',
+      client_id: clientUserId,
+      assigned_to: null, // cola pública
+      priority: 'high',
+      created_at: new Date(Date.now() - 36 * 60 * 60 * 1000),
+    });
 
     await clearMailbox();
 
@@ -299,7 +251,7 @@ test.describe('Tasks crons — Sprint 8 Fase C', () => {
     };
     expect(cronBody.cron).toBe('unassigned-overdue');
     expect(cronBody.result.total).toBeGreaterThanOrEqual(1);
-    expect(cronBody.result.oldest_age_hours).toBeGreaterThanOrEqual(12);
+    expect(cronBody.result.oldest_age_hours).toBeGreaterThanOrEqual(24);
 
     // 4. Email al superadmin.
     const email = await waitForEmail(TEST_CONFIG.superadmin.email, {
