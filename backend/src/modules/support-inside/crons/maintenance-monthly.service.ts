@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { Prisma } from '@prisma/client';
+import { Prisma, SupportInsidePriorityTier } from '@prisma/client';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { TasksService } from '../../tasks/tasks.service';
+import { calculateTaskPriority } from '../../../core/tasks/priority-helper';
+import { calculateTaskDueDate } from '../../../core/tasks/sla-helper';
+import { autoAssignTask } from '../../../core/tasks/auto-assign';
 
 export interface MaintenanceMonthlyRunResult {
   billing_month: string;
@@ -11,35 +14,16 @@ export interface MaintenanceMonthlyRunResult {
 }
 
 /**
- * MaintenanceMonthlyService — Sprint 8 Fase D (2026-05-01).
+ * MaintenanceMonthlyService — Sprint 8 Fase D → Sprint 16 (ADR-079 §2 trigger #2).
  *
- * Lógica del cron `maintenance-monthly` separada del processor BullMQ
- * para permitir testeo unitario sin Redis y disparo manual desde el
- * endpoint admin de smoke testing.
+ * Cron diario `0 6 * * *` UTC. Filtra slots Support Inside cuyo
+ * `anniversary_day = EXTRACT(DAY FROM NOW())` y crea `Task(source_system=
+ * 'support_inside_slot', source_id=slot_id)` por cada uno. La idempotencia
+ * la garantiza el UNIQUE INDEX parcial `tasks_uniq_active_per_source`
+ * (1 task activa por (sistema, source_id)) — no necesitamos el viejo
+ * UNIQUE compuesto por (service_id, billing_month, type).
  *
- * Reglas canónicas (ADR-034 §"Recurrencia del mantenimiento" + Sprint 8
- * Fase D plan + sub-fase 8.D.12.1):
- *   - Se ejecuta **diariamente** a las 06:00 UTC (cron pattern `0 6 * * *`).
- *     Cada día filtra los slots cuyo `anniversary_day` coincide con el día
- *     de hoy — distribuye carga del equipo a lo largo del mes (ADR-034
- *     §recurrencia "no acumular trabajo el día 1"). Pre-D.12.1 era `0 6 1 * *`.
- *   - Por cada slot Support Inside ACTIVO (released_at IS NULL) cuya
- *     subscription está `active` y cuyo `anniversary_day = EXTRACT(DAY FROM NOW())`,
- *     crea una `Task(type=maintenance_management)` vinculada al servicio
- *     que el slot cubre. El día concreto del mes en que se hace el
- *     trabajo lo decide el agente cuando aborda la tarea — el cron sólo
- *     CREA la tarea para ese mes, no la ejecuta.
- *   - **Idempotencia obligatoria** por `(service_id, billing_month)` —
- *     UNIQUE compuesto en `tasks` (ADR-034 §"Idempotencia mensual" +
- *     migración Sprint 8 Fase A). Si el cron se reejecuta el mismo mes
- *     (recovery o disparo manual repetido), la 2ª pasada captura el
- *     P2002 de Prisma y suma a `skipped_idempotent`.
- *   - `assigned_to=null` (cola pública ADR-072) — el agente que tome la
- *     tarea de su scope "Sin asignar" se la auto-asigna. Esto preserva
- *     la doctrina "no asignar arbitrariamente" del ADR-072 §"Triggers
- *     automáticos sin owner determinable".
- *
- * Cumple R1 + R2 + R7 + R13 + ADR-034 + ADR-061 + ADR-072.
+ * Cumple R1 + R2 + R7 + R13 + ADR-034 + ADR-061 + ADR-072 + ADR-079.
  */
 @Injectable()
 export class MaintenanceMonthlyService {
@@ -47,28 +31,13 @@ export class MaintenanceMonthlyService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly events: EventEmitter2,
+    private readonly tasks: TasksService,
   ) {}
 
-  /**
-   * Ejecuta una pasada del cron. Retorna stats agregadas para que el
-   * endpoint admin las muestre y el test E2E las verifique.
-   *
-   * @param now Reloj inyectable para testing.
-   */
   async run(now: Date = new Date()): Promise<MaintenanceMonthlyRunResult> {
     const billingMonth = this.formatBillingMonth(now);
-
-    // Sub-fase 8.D.12.1: filtra `anniversary_day = EXTRACT(DAY FROM NOW())`.
-    // En el día N del mes solo despachamos los slots cuyo aniversario es N
-    // (capado a 28 por CHECK constraint para que febrero no quede vacío).
-    // Cron diario `0 6 * * *` → cada slot dispara una vez al mes en su
-    // día canónico de contratación. ADR-034 §recurrencia.
     const todayDay = Math.min(now.getUTCDate(), 28);
 
-    // 1. Recolectar slots activos en subscriptions activas con anniversary
-    //    de hoy. JOIN profundo para extraer client_id (= subscription.client_id)
-    //    y metadata del servicio para el título de la task.
     const slots = await this.prisma.supportInsideSlot.findMany({
       where: {
         released_at: null,
@@ -77,58 +46,43 @@ export class MaintenanceMonthlyService {
       },
       include: {
         subscription: { select: { client_id: true, id: true } },
-        service: {
-          select: {
-            id: true,
-            label: true,
-            domain: true,
-            status: true,
-            product: { select: { name: true } },
-          },
-        },
+        service: { select: { id: true, status: true } },
       },
     });
 
-    // 2. Filtrar servicios cancelados/suspendidos — el slot puede seguir
-    //    activo administrativamente pero el servicio ya no opera.
     const eligibleSlots = slots.filter((s) => s.service.status === 'active');
-
     let created = 0;
     let skippedIdempotent = 0;
 
     for (const slot of eligibleSlots) {
-      const serviceLabel =
-        slot.service.label || slot.service.domain || slot.service.product.name;
-      const taskTitle = `Mantenimiento ${this.formatMonthLabel(now)} — ${serviceLabel}`;
+      const tier = await this.getClientSITier(slot.subscription.client_id);
+      const priority = calculateTaskPriority('support_inside_slot', tier);
+      const due_date = calculateTaskDueDate('support_inside_slot', tier, now);
+
+      // Auto-asignación canónica V1 — agente con menor carga entre soporte.
+      const assigned_to = await autoAssignTask(
+        this.prisma,
+        'support_inside_slot',
+      );
 
       try {
-        const task = await this.prisma.task.create({
-          data: {
-            type: 'maintenance_management',
-            title: taskTitle,
-            priority: 'medium',
-            client_id: slot.subscription.client_id,
-            service_id: slot.service.id,
-            // assigned_to: null — cola pública ADR-072. El agente que la
-            // tome desde /admin/tasks?scope=unassigned se la auto-asigna.
-            created_by: slot.subscription.client_id, // marcador "creado por sistema en nombre del cliente"
-            billing_month: billingMonth,
-            is_recurring: true,
-            recurrence_day: todayDay,
-            metadata: {
-              source: 'support_inside_monthly_cron',
-              subscription_id: slot.subscription.id,
-              slot_id: slot.id,
-              slot_type: slot.slot_type,
-              anniversary_day: slot.anniversary_day,
-            },
-          },
+        const task = await this.tasks.createFromTrigger({
+          source_system: 'support_inside_slot',
+          source_id: slot.id,
+          client_id: slot.subscription.client_id,
+          assigned_to,
+          priority,
+          due_date,
         });
-        created += 1;
-        this.events.emit('task.created', { task });
+        // `createFromTrigger` ya emite `task.created`/`task.assigned`.
+        // Idempotencia: si ya existía task activa, devuelve la existente
+        // (sin nueva creación). En ese caso contamos como skipped.
+        if (task.created_at.getTime() < now.getTime() - 60_000) {
+          skippedIdempotent += 1;
+        } else {
+          created += 1;
+        }
       } catch (err) {
-        // P2002 = unique constraint violation → ya existe la task de
-        // este mes para este servicio. Idempotencia OK.
         if (
           err instanceof Prisma.PrismaClientKnownRequestError &&
           err.code === 'P2002'
@@ -136,7 +90,6 @@ export class MaintenanceMonthlyService {
           skippedIdempotent += 1;
           continue;
         }
-        // Cualquier otro error: log + relanzar para que BullMQ retry.
         this.logger.error(
           `Failed to create monthly maintenance for slot ${slot.id} (service ${slot.service.id}): ${err instanceof Error ? err.message : String(err)}`,
         );
@@ -162,19 +115,27 @@ export class MaintenanceMonthlyService {
     };
   }
 
-  /** Formato YYYY-MM canónico (coincide con `tasks.billing_month VARCHAR(7)`). */
+  private async getClientSITier(
+    clientId: string,
+  ): Promise<SupportInsidePriorityTier | null> {
+    const sub = await this.prisma.supportInsideSubscription.findUnique({
+      where: { client_id: clientId },
+      select: {
+        status: true,
+        product: {
+          select: {
+            support_inside_config: { select: { priority_tier: true } },
+          },
+        },
+      },
+    });
+    if (!sub || sub.status !== 'active') return null;
+    return sub.product.support_inside_config?.priority_tier ?? null;
+  }
+
   private formatBillingMonth(date: Date): string {
     const y = date.getUTCFullYear();
     const m = String(date.getUTCMonth() + 1).padStart(2, '0');
     return `${y}-${m}`;
-  }
-
-  /** Etiqueta humana "Mayo 2026" para el título de la task. */
-  private formatMonthLabel(date: Date): string {
-    return date.toLocaleDateString('es-ES', {
-      month: 'long',
-      year: 'numeric',
-      timeZone: 'UTC',
-    });
   }
 }

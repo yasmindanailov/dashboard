@@ -24,7 +24,7 @@ import {
   ClientListQueryDto,
   UpdateClientProfileDto,
   AddNoteDto,
-  CreateClientNoteDto,
+  CreateExceptionalNoteDto,
   ClientNoteQueryDto,
 } from './dto/client.dto';
 import {
@@ -106,15 +106,18 @@ export class ClientsController {
     return this.clientsService.listStructuredNotes(id, query);
   }
 
+  /* Sprint 16 (ADR-079 §3.8): única vía de creación libre desde la UI es la
+     "nota excepcional" — `source_system='exceptional'`. El resto de notas las
+     crean los listeners canónicos al cerrar ticket / mantenimiento / task. */
   @Post(':id/structured-notes')
   @CheckPolicies((ability) => ability.can(Action.Create, Subject.ClientNote))
-  createStructuredNote(
+  createExceptionalNote(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: AuthenticatedRequest,
-    @Body() dto: CreateClientNoteDto,
+    @Body() dto: CreateExceptionalNoteDto,
   ) {
     const user = req.user;
-    return this.clientsService.createStructuredNote(id, user.id, dto);
+    return this.clientsService.createExceptionalNote(id, user.id, dto);
   }
 
   @Patch('notes/:noteId/pin')

@@ -2,61 +2,36 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TASK_SOURCE_SYSTEM_LABELS_ES } from './task-labels';
 
 interface TaskCompletedPayload {
   task: {
     id: string;
-    type: string;
-    title: string;
+    source_system: string;
+    source_id: string;
     client_id: string;
-    service_id: string | null;
-    reason: string | null;
   };
   completedBy: string;
-  clientNotes?: string;
-  internalNotes?: string;
-  /**
-   * Sprint 8 Fase B.10 (2026-04-30) — ADR-074. Flag interno del bridge
-   * ticket↔task. Cuando una tarea con `conversation_id` se cierra,
-   * `TasksService.completeAsTicketBridge` delega la notificación al
-   * módulo support (que ya emite `conversation.resolved`/`closed` con
-   * su propio listener al cliente). Sin este flag, el cliente recibiría
-   * dos emails: uno de support (canónico) y otro de tasks (ruido).
-   */
+  /** Flag interno bridge ticket↔task — ADR-074 + ADR-079 §3.6.
+   *  Cuando se completa una task `support_ticket`, la notificación canónica
+   *  al cliente la emite `support` (vía `conversation.resolved/closed`).
+   *  Sin este flag, el cliente recibiría dos emails. */
   __skipClientNotification?: boolean;
 }
 
-const TASK_TYPE_LABELS_ES: Record<string, string> = {
-  contact_client: 'Contactar cliente',
-  maintenance: 'Mantenimiento',
-  maintenance_management: 'Mantenimiento + Gestión',
-  project_task: 'Proyecto',
-  custom_work: 'Personalizada',
-  support_setup: 'Setup soporte',
-};
-
 /**
- * TaskCompletedListener — Sprint 8 Fase B.9 (2026-04-30).
+ * TaskCompletedListener — Sprint 16 Fase 16.B (ADR-079).
  *
- * Consume `task.completed` emitido por `TasksService.complete()` y
- * `TasksService.update({status: completed})`. Notifica al cliente vía
- * `NotificationsService.dispatchToUser` con plantilla `task.completed`
- * (email + campana) **sólo si**:
+ * Notifica al cliente cuando una task se completa **excepto**:
+ *   - bridge ticket↔task (cubierto por module support).
+ *   - support_inside_slot (cubierto por `MaintenanceCompletedListener`
+ *     con plantilla específica `maintenance.completed`).
+ *   - tasks sin `client_id` (defensa — invariante).
  *
- *   1. El payload incluye `clientNotes` no vacío. Sin nota, no hay
- *      mensaje útil que mandar al cliente — silenciamos para no spammear.
- *   2. La tarea NO es de mantenimiento (`maintenance` /
- *      `maintenance_management`). Esos tipos ya tienen su propio
- *      listener `MaintenanceCompletedListener` con plantilla específica
- *      `maintenance.completed`. Doble notificación sería ruido.
- *   3. La tarea tiene `client_id` (siempre cierto por TASK-INV — la
- *      validación queda como salvaguarda).
- *
- * Sprint 8 Fase B.10 (ADR-074) extenderá este listener: cuando
- * `task.conversation_id` esté presente, en lugar de notificar al
- * cliente desde aquí, delegará en el flujo de cierre del ticket
- * vinculado (la notificación canónica al cliente la emite el módulo
- * support, no la duplicamos).
+ * Aplica a `provisioning_manual`, `client_lifecycle` y `project`. La nota
+ * obligatoria al cierre vive en `client_notes` (ADR-079 §3.9), por lo que
+ * NO se incluye en el payload — el email muestra el label del sistema y
+ * un CTA al portal cliente.
  */
 @Injectable()
 export class TaskCompletedListener {
@@ -69,13 +44,12 @@ export class TaskCompletedListener {
 
   @OnEvent('task.completed')
   async handle(payload: TaskCompletedPayload): Promise<void> {
-    const { task, clientNotes } = payload;
-    // Sprint 8 Fase B.10 — ADR-074: el bridge ticket↔task delega la
-    // notificación al cliente en el módulo support. Si el flag está
-    // presente, salimos silenciosamente para evitar email duplicado.
+    const { task } = payload;
     if (payload.__skipClientNotification) return;
-    if (!clientNotes || !clientNotes.trim()) return;
-    if (task.type === 'maintenance' || task.type === 'maintenance_management') {
+    if (
+      task.source_system === 'support_ticket' ||
+      task.source_system === 'support_inside_slot'
+    ) {
       return;
     }
     if (!task.client_id) return;
@@ -89,25 +63,18 @@ export class TaskCompletedListener {
       'task.completed',
       {
         task_id: task.id,
-        task_title: task.title,
-        task_type: task.type,
-        task_type_label: TASK_TYPE_LABELS_ES[task.type] ?? task.type,
-        task_reason: task.reason ?? null,
-        client_notes: clientNotes,
-        // El cliente ve su servicio en el portal cliente; el detalle
-        // de la tarea es interno (no se expone al cliente).
-        action_url: task.service_id
-          ? `/dashboard/services/${task.service_id}`
-          : `/dashboard`,
-        service_url: task.service_id
-          ? `${appUrl}/dashboard/services/${task.service_id}`
-          : `${appUrl}/dashboard`,
+        task_source_system: task.source_system,
+        task_source_system_label:
+          TASK_SOURCE_SYSTEM_LABELS_ES[task.source_system] ??
+          task.source_system,
+        action_url: `/dashboard`,
+        service_url: `${appUrl}/dashboard`,
       },
       task.client_id,
     );
 
     this.logger.log(
-      `task.completed dispatched to client ${task.client_id} (task ${task.id} · type ${task.type})`,
+      `task.completed dispatched to client ${task.client_id} (task ${task.id} · ${task.source_system})`,
     );
   }
 }

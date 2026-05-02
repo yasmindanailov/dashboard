@@ -7,30 +7,29 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../core/database/prisma.service';
 import { ChecklistCompletionService } from './checklist-completion.service';
+import { ClientNotesService } from '../clients/client-notes.service';
 import { RecordMaintenanceLogDto } from './dto/task.dto';
 
 /**
- * MaintenanceLogService — Sprint 8 Fase B.5 (2026-04-29).
+ * MaintenanceLogService — Sprint 8 Fase B.5 → Sprint 16 (ADR-079).
  *
- * Único entrypoint del flujo "Completar y notificar" canónico de UI_SPEC
- * §5.16 para tareas tipo `maintenance` / `maintenance_management`. Hace
- * en una sola transacción atómica:
+ * Único entrypoint del flujo "Completar y notificar" canónico para tasks
+ * `source_system='support_inside_slot'`. Hace en una sola transacción:
  *
- *   1. Aplica completions opcionales del checklist (`checklist_completions`).
- *   2. Valida que todos los items `is_required=true` están completados —
- *      EC-T8-01: si falta alguno, devuelve 422 con la lista bloqueante.
- *      Si la task no es `maintenance`/`maintenance_management`, salta
- *      esta validación (tipos sin checklist canónico).
- *   3. Crea fila `maintenance_logs` (1:1 con la task vía UNIQUE).
- *   4. Marca `task.status = 'completed'` + `completed_at = now()`.
+ *   1. Aplica completions opcionales del checklist.
+ *   2. Valida que items `is_required=true` están completos. Si falta alguno
+ *      devuelve 422 con la lista bloqueante.
+ *   3. Crea `maintenance_logs` (1:1 con la task vía UNIQUE) con
+ *      `client_facing_notes` (renombrado desde `notes` en Sprint 16).
+ *   4. Marca `task.status='completed' + completed_by + completed_at`.
  *   5. Persiste `internal_notes` opcional como `ClientNote` con
- *      `task_id` + `category=solution` (paralelo al fix de `tasks.service.complete`).
+ *      `source_system='maintenance_log'` + `triggered_by_action='maintenance.completed'`
+ *      vía `ClientNotesService.createFromMaintenanceCompletion`.
  *
- * Tras commit emite los eventos `maintenance.completed` (notification al
- * cliente vía Sprint 9 NotificationsService) + `task.completed` (audit).
- * No se emite dentro de la transacción para que un fallo del bus no
- * revierta la persistencia (el flujo Outbox para `maintenance.*` es
- * deuda EC-T8-28 / P-DEPLOY.4 — fuera de scope B.5).
+ * Tras commit emite `maintenance.completed` (notification al cliente vía
+ * Sprint 9 NotificationsService) + `task.completed` (audit). No emite
+ * dentro de la transacción para que un fallo del bus no revierta la
+ * persistencia.
  */
 @Injectable()
 export class MaintenanceLogService {
@@ -40,6 +39,7 @@ export class MaintenanceLogService {
     private readonly prisma: PrismaService,
     private readonly events: EventEmitter2,
     private readonly checklist: ChecklistCompletionService,
+    private readonly clientNotes: ClientNotesService,
   ) {}
 
   async recordCompletion(
@@ -51,12 +51,10 @@ export class MaintenanceLogService {
       where: { id: taskId },
       select: {
         id: true,
-        type: true,
+        source_system: true,
+        source_id: true,
         status: true,
         client_id: true,
-        service_id: true,
-        billing_month: true,
-        service: { select: { product_id: true } },
       },
     });
     if (!task) throw new NotFoundException('Task no encontrada');
@@ -67,82 +65,89 @@ export class MaintenanceLogService {
         `Esta tarea está cerrada (estado ${task.status}). Si necesitas retomar el trabajo, crea una tarea nueva.`,
       );
     }
+    if (task.source_system !== 'support_inside_slot') {
+      throw new BadRequestException(
+        'Maintenance log sólo aplica a tasks `support_inside_slot`.',
+      );
+    }
 
-    const isMaintenance = ['maintenance', 'maintenance_management'].includes(
-      task.type,
-    );
+    // ADR-079: el slot es el `source_id`. Resolvemos el `service_id` desde
+    // el slot para persistir el FK del MaintenanceLog (que sigue apuntando a
+    // services, no a slots).
+    const slot = await this.prisma.supportInsideSlot.findUnique({
+      where: { id: task.source_id },
+      select: { id: true, service_id: true },
+    });
+    if (!slot) {
+      throw new BadRequestException(
+        'El slot vinculado a la task no existe (posiblemente liberado).',
+      );
+    }
 
-    // Aplicar completions del checklist primero (idempotentes — si el item
-    // ya estaba completo, sólo refresca notes). Fuera de la transacción
-    // principal porque cada item lleva su propio upsert + validación
-    // de existencia. Si algo falla aquí, abortamos antes de crear log.
+    // Aplicar completions del checklist primero (idempotentes).
     if (dto.checklist_completions && dto.checklist_completions.length > 0) {
       for (const completion of dto.checklist_completions) {
         await this.checklist.complete(taskId, completion, performerId);
       }
     }
 
-    // EC-T8-01: validar que items requeridos están completados.
-    // Sólo aplica a maintenance/_management — los otros tipos no tienen
-    // checklist canónico y la validación bloquearía indebidamente.
-    if (isMaintenance) {
-      const productId = task.service?.product_id ?? null;
-      const missing = await this.checklist.findMissingRequiredItems(
-        taskId,
-        task.service_id,
-        productId,
-      );
-      if (missing.length > 0) {
-        throw new BadRequestException({
-          message:
-            'Hay items obligatorios del checklist sin completar. No se puede cerrar el mantenimiento.',
-          missing_required: missing,
-        });
-      }
+    // EC-T8-01: validar items obligatorios completos.
+    const productId = await this.resolveProductId(slot.service_id);
+    const missing = await this.checklist.findMissingRequiredItems(
+      taskId,
+      slot.service_id,
+      productId,
+    );
+    if (missing.length > 0) {
+      throw new BadRequestException({
+        message:
+          'Hay items obligatorios del checklist sin completar. No se puede cerrar el mantenimiento.',
+        missing_required: missing,
+      });
     }
 
-    const monthYear =
-      dto.month_year ?? task.billing_month ?? this.currentMonth();
+    const monthYear = dto.month_year ?? this.currentMonth();
 
-    // Transacción atómica: maintenance_log + task.completed + ClientNote.
-    // Si algo falla, todo se revierte. Los eventos se emiten DESPUÉS del
-    // commit para no propagar inconsistencia si un listener falla.
     const result = await this.prisma.$transaction(async (tx) => {
       const log = await tx.maintenanceLog.create({
         data: {
           task_id: taskId,
-          service_id: task.service_id ?? this.requireServiceId(task),
+          service_id: slot.service_id,
           client_id: task.client_id,
           month_year: monthYear,
-          notes: dto.notes,
+          client_facing_notes: dto.client_facing_notes,
           performed_by: performerId,
           metadata: undefined,
         },
       });
-
       const completed = await tx.task.update({
         where: { id: taskId },
-        data: { status: 'completed', completed_at: new Date() },
+        data: {
+          status: 'completed',
+          completed_at: new Date(),
+          completed_by: performerId,
+        },
       });
-
-      let note = null;
-      if (dto.internal_notes) {
-        note = await tx.clientNote.create({
-          data: {
-            user_id: task.client_id,
-            author_id: performerId,
-            category: 'solution',
-            body: dto.internal_notes,
-            is_pinned: false,
-            task_id: taskId,
-          },
-        });
-      }
-
-      return { log, completed, note };
+      return { log, completed };
     });
 
-    // Eventos post-commit
+    // Nota interna canónica → client_notes con source_system='maintenance_log'.
+    if (dto.internal_notes?.trim()) {
+      try {
+        await this.clientNotes.createFromMaintenanceCompletion({
+          user_id: task.client_id,
+          author_id: performerId,
+          slot_id: task.source_id,
+          body: dto.internal_notes,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Failed to persist maintenance internal note for task ${taskId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    // Eventos post-commit.
     this.events.emit('task.completed', {
       task: result.completed,
       completedBy: performerId,
@@ -155,14 +160,21 @@ export class MaintenanceLogService {
       monthYear: result.log.month_year,
       completedBy: performerId,
       completedAt: result.completed.completed_at,
-      notes: dto.notes,
+      notes: dto.client_facing_notes,
     });
 
     this.logger.log(
       `maintenance.completed taskId=${taskId} service=${result.log.service_id} month=${monthYear}`,
     );
-
     return result.log;
+  }
+
+  private async resolveProductId(serviceId: string): Promise<string | null> {
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: { product_id: true },
+    });
+    return service?.product_id ?? null;
   }
 
   private currentMonth(): string {
@@ -170,17 +182,5 @@ export class MaintenanceLogService {
     const y = now.getUTCFullYear();
     const m = String(now.getUTCMonth() + 1).padStart(2, '0');
     return `${y}-${m}`;
-  }
-
-  /**
-   * `maintenance_logs.service_id` es NOT NULL en el schema. Si la task
-   * de tipo maintenance no tiene `service_id` poblado, el flujo no puede
-   * cerrar — es un caso degenerado (mantenimiento sin servicio asociado
-   * no tiene sentido operativo). Devolver 422 con mensaje claro.
-   */
-  private requireServiceId(task: { type: string }): never {
-    throw new BadRequestException(
-      `Task tipo ${task.type} requiere service_id para registrar maintenance_log. Asocia un servicio antes de cerrar.`,
-    );
   }
 }

@@ -1,25 +1,20 @@
 /**
- * Mapeo enum Prisma → label humano (es-ES) — Sprint 8 Fase C (2026-05-01).
+ * Sprint 16 Fase 16.B (ADR-079) — labels canónicos para emails de tareas.
  *
- * Extracción desde `tasks-email.listener.ts` para reuso entre los listeners
- * de notificación de tareas (`task.assigned`, `task.overdue`,
- * `task.unassigned_overdue`). Vive aquí (no en la plantilla) porque las
- * plantillas son contenido editable desde la UI admin (Sprint 9.5) y no
- * deben conocer mapeos internos de enums.
+ * Migrado del enum TaskType (7 valores) al enum TaskSourceSystem (5 valores).
+ * Vive aquí (no en plantillas) porque las plantillas son contenido editable
+ * desde la UI admin (Sprint 9.5) y no deben conocer mapeos internos.
  *
- * Mantiene sincronía con `frontend/app/admin/tasks/types.ts`
- * (`TASK_TYPE_LABELS`, `TASK_PRIORITY_LABELS`). Si cambia el enum hay que
- * actualizar ambos lados.
+ * El frontend mantiene su propio mapping en `frontend/app/_shared/tasks/source-labels.ts`
+ * (Sprint 16 Fase 16.C). Si cambia el enum hay que actualizar ambos lados.
  */
 
-export const TASK_TYPE_LABELS_ES: Record<string, string> = {
-  contact_client: 'Contactar cliente',
-  maintenance: 'Mantenimiento',
-  maintenance_management: 'Mantenimiento + Gestión',
-  project_task: 'Proyecto',
-  custom_work: 'Personalizada',
-  support_setup: 'Setup soporte',
+export const TASK_SOURCE_SYSTEM_LABELS_ES: Record<string, string> = {
   support_ticket: 'Ticket de soporte',
+  support_inside_slot: 'Mantenimiento mensual',
+  provisioning_manual: 'Setup servicio',
+  client_lifecycle: 'Llamada bienvenida',
+  project: 'Proyecto',
 };
 
 export const TASK_PRIORITY_LABELS_ES: Record<string, string> = {

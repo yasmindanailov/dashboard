@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from '../../core/database/prisma.module';
 import { BillingModule } from '../billing/billing.module';
+import { TasksModule } from '../tasks/tasks.module';
 import { SupportInsideService } from './support-inside.service';
 import { SupportInsideController } from './support-inside.controller';
 import { SupportInsidePlansAdminService } from './support-inside-plans-admin.service';
@@ -34,6 +35,7 @@ import { SupportInsideOnServiceProvisionedListener } from './listeners/support-i
   imports: [
     PrismaModule,
     BillingModule,
+    TasksModule,
     BullModule.registerQueue({ name: MAINTENANCE_MONTHLY_QUEUE }),
   ],
   controllers: [

@@ -6,7 +6,7 @@ import {
   ClientListQueryDto,
   UpdateClientProfileDto,
   AddNoteDto,
-  CreateClientNoteDto,
+  CreateExceptionalNoteDto,
   ClientNoteQueryDto,
 } from './dto/client.dto';
 import {
@@ -14,6 +14,7 @@ import {
   UpdateBillingProfileDto,
 } from './dto/billing-profile.dto';
 import { ClientsBillingService } from './clients-billing.service';
+import { ClientNotesService } from './client-notes.service';
 
 /* ═══════════════════════════════════════
    ClientsService — Client CRUD, notes,
@@ -26,6 +27,7 @@ export class ClientsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly billing: ClientsBillingService,
+    private readonly notes: ClientNotesService,
   ) {}
 
   /* ── List ── */
@@ -160,8 +162,10 @@ export class ClientsService {
     });
   }
 
-  /* ── Legacy Note ── */
-
+  /* ── Legacy text-blob note ──
+     Sprint 16 (ADR-079): el campo `client_profiles.notes_internal` sigue
+     existiendo como blob histórico. La nota estructurada paralela ahora va
+     al canal canónico `client_notes` con `source_system='exceptional'`. */
   async addNote(userId: string, dto: AddNoteDto, authorId?: string) {
     const profile = await this.prisma.clientProfile.findUnique({
       where: { user_id: userId },
@@ -183,14 +187,9 @@ export class ClientsService {
 
     if (authorId) {
       try {
-        await this.prisma.clientNote.create({
-          data: {
-            user_id: userId,
-            author_id: authorId,
-            body: dto.note,
-            category: 'general',
-            is_pinned: false,
-          },
+        await this.notes.createExceptional(userId, authorId, {
+          body: dto.note,
+          is_pinned: false,
         });
       } catch (e) {
         console.warn('[ClientsService] structured note sync failed:', e);
@@ -200,102 +199,38 @@ export class ClientsService {
     return result;
   }
 
-  /* ── Structured Notes (7.H19) ── */
+  /* ── Structured notes — delegan en ClientNotesService canónico ── */
 
-  async createStructuredNote(
+  async createExceptionalNote(
     userId: string,
     authorId: string,
-    dto: CreateClientNoteDto,
+    dto: CreateExceptionalNoteDto,
   ) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true },
-    });
-    if (!user) throw new NotFoundException('Cliente no encontrado');
-
-    return this.prisma.clientNote.create({
-      data: {
-        user_id: userId,
-        author_id: authorId,
-        body: dto.body,
-        category: dto.category || 'conversation',
-        conversation_id: dto.conversation_id || null,
-        is_pinned: dto.is_pinned || false,
-      },
-    });
+    return this.notes.createExceptional(userId, authorId, dto);
   }
 
   async listStructuredNotes(userId: string, query: ClientNoteQueryDto) {
-    const { page = 1, limit = 50, category, pinned_only } = query;
-    const skip = (page - 1) * limit;
-    const where: Prisma.ClientNoteWhereInput = { user_id: userId };
-    if (category) where.category = category;
-    if (pinned_only) where.is_pinned = true;
-
-    const [notes, total] = await Promise.all([
-      this.prisma.clientNote.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: [{ is_pinned: 'desc' }, { created_at: 'desc' }],
-      }),
-      this.prisma.clientNote.count({ where }),
-    ]);
-
-    const authorIds = [...new Set(notes.map((n) => n.author_id))];
-    const authors = authorIds.length
-      ? await this.prisma.user.findMany({
-          where: { id: { in: authorIds } },
-          select: { id: true, first_name: true, last_name: true },
-        })
-      : [];
-    const authorMap: Record<string, string> = {};
-    authors.forEach((a) => {
-      authorMap[a.id] = `${a.first_name} ${a.last_name}`;
-    });
-
-    // Sprint 8 Fase B.4 (2026-04-29): enriquecer con título + tipo de la
-    // task de origen cuando `task_id` está poblado. Permite al
-    // ClientNotesTab mostrar "Tarea: WOW call cliente nuevo" como link
-    // clicable, en paralelo a la fila ya existente para `conversation_id`
-    // (UI_SPEC §5.16 + decisión Sprint 8 §3.4: las notas estructuradas
-    // tienen referencia a su origen igual que las de conversaciones).
-    // Una sola query batched en lugar de N+1.
-    const taskIds = [
-      ...new Set(
-        notes.map((n) => n.task_id).filter((id): id is string => !!id),
-      ),
-    ];
-    const tasks = taskIds.length
-      ? await this.prisma.task.findMany({
-          where: { id: { in: taskIds } },
-          select: { id: true, title: true, type: true },
-        })
-      : [];
-    const taskMap: Record<string, { title: string; type: string }> = {};
-    tasks.forEach((t) => {
-      taskMap[t.id] = { title: t.title, type: t.type };
-    });
-
-    const enrichedNotes = notes.map((n) => ({
-      ...n,
-      author_name: authorMap[n.author_id] || 'Desconocido',
-      task_title: n.task_id ? (taskMap[n.task_id]?.title ?? null) : null,
-      task_type: n.task_id ? (taskMap[n.task_id]?.type ?? null) : null,
-    }));
-
-    return paginate(enrichedNotes, total, page, limit);
+    return this.notes.findByClient(userId, query);
   }
 
   async toggleNotePin(noteId: string) {
-    const note = await this.prisma.clientNote.findUnique({
-      where: { id: noteId },
+    return this.notes.togglePin(noteId);
+  }
+
+  /* ── Sprint 16 (ADR-079 §2): helper canónico para detectar primer servicio.
+     Usado por `ClientLifecycleTaskCreatorListener` para decidir si emite
+     una task `client_lifecycle` (bienvenida) cuando un servicio se activa.
+     Devuelve `true` si el cliente solo tiene UN service en estados activos
+     (active|provisioning|pending) — es decir, el que acaba de activar es
+     su primer servicio. ── */
+  async isFirstService(clientId: string, serviceId: string): Promise<boolean> {
+    const count = await this.prisma.service.count({
+      where: {
+        user_id: clientId,
+        id: { not: serviceId },
+      },
     });
-    if (!note) throw new NotFoundException('Nota no encontrada');
-    return this.prisma.clientNote.update({
-      where: { id: noteId },
-      data: { is_pinned: !note.is_pinned },
-    });
+    return count === 0;
   }
 
   /* ── Billing Profile delegates ── */

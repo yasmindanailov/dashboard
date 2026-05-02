@@ -6,7 +6,7 @@ import { getErrorMessage } from '../../../core/common/utils/error.util';
 interface TaskUnassignedOverduePayload {
   total: number;
   oldest_age_hours: number;
-  by_type: Record<string, number>;
+  by_source_system: Record<string, number>;
   task_ids: string[];
   summary: string;
 }

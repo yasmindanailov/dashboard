@@ -14,6 +14,9 @@ import {
   ServiceWithRelations,
 } from '../../core/provisioning/types';
 import { TasksService } from '../tasks/tasks.service';
+import { calculateTaskPriority } from '../../core/tasks/priority-helper';
+import { calculateTaskDueDate } from '../../core/tasks/sla-helper';
+import { autoAssignTask } from '../../core/tasks/auto-assign';
 
 export const PROVISIONING_DISPATCH_QUEUE = 'provisioning-dispatch';
 export const PROVISIONING_DISPATCH_JOB = 'provision-service';
@@ -284,33 +287,52 @@ export class ProvisioningOrchestratorService {
   }
 
   private async createSetupTask(service: ServiceWithRelations): Promise<void> {
-    // Cola pública (assigned_to=null) — ADR-072. El primer agente con
-    // capacidad la auto-asigna. Cuando la complete, el listener
-    // `provisioning-on-task-completed` (Fase 11.C) activará el servicio.
-    //
-    // Creator semántico: el propio cliente que pagó el servicio. Cumple
-    // invariante "creador existe + está activo" sin necesidad de un
-    // user "system" sintético. Patrón canónico replicado del listener
-    // SupportTicketTaskCreator (Sprint 8 B.10).
+    // Sprint 16 (ADR-079 §2 trigger #3): Task `provisioning_manual` con
+    // source_id = service.id. La idempotencia + auto-asignación canónicas
+    // las gestiona `TasksService.createFromTrigger` + `autoAssignTask`. El
+    // listener `provisioning-on-task-completed` activa el servicio al cerrar.
     try {
-      await this.tasks.create(
-        {
-          title: `Configurar ${service.product.name} para ${service.client.first_name ?? service.client.email}`,
-          description: `Provisioning manual del servicio ${service.id}. Cuando se complete esta tarea, el servicio se activará automáticamente (listener provisioning-on-task-completed — Fase 11.C).`,
-          type: 'support_setup' as never,
-          priority: 'high' as never,
-          client_id: service.user_id,
-          service_id: service.id,
-        },
-        service.user_id,
+      const tier = await this.getClientSITier(service.user_id);
+      const now = new Date();
+      const priority = calculateTaskPriority('provisioning_manual', tier);
+      const due_date = calculateTaskDueDate('provisioning_manual', tier, now);
+      const assigned_to = await autoAssignTask(
+        this.prisma,
+        'provisioning_manual',
       );
+
+      await this.tasks.createFromTrigger({
+        source_system: 'provisioning_manual',
+        source_id: service.id,
+        client_id: service.user_id,
+        assigned_to,
+        priority,
+        due_date,
+      });
     } catch (err) {
-      // No romper el provisioning si falla la task — log warn.
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.warn(
-        `Failed to create support_setup task for service ${service.id}: ${msg}`,
+        `Failed to create provisioning_manual task for service ${service.id}: ${msg}`,
       );
     }
+  }
+
+  private async getClientSITier(
+    clientId: string,
+  ): Promise<import('@prisma/client').SupportInsidePriorityTier | null> {
+    const sub = await this.prisma.supportInsideSubscription.findUnique({
+      where: { client_id: clientId },
+      select: {
+        status: true,
+        product: {
+          select: {
+            support_inside_config: { select: { priority_tier: true } },
+          },
+        },
+      },
+    });
+    if (!sub || sub.status !== 'active') return null;
+    return sub.product.support_inside_config?.priority_tier ?? null;
   }
 
   // ──────────────────────────────────────────────────────────────────────

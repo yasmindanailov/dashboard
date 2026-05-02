@@ -66,28 +66,24 @@ export class ProvisioningOnTaskCompletedListener {
   async handle(payload: {
     task: {
       id: string;
-      service_id: string | null;
-      conversation_id: string | null;
-      type?: string;
+      source_system: string;
+      source_id: string;
     };
     completedBy?: string;
   }): Promise<void> {
     const { task } = payload;
 
-    // 1. Filtros baratos primero (sin tocar BD).
-    if (task.conversation_id !== null && task.conversation_id !== undefined) {
-      // Bridge ticket↔task ya gestiona este caso (ADR-074).
-      return;
-    }
-    if (!task.service_id) {
-      // Task sin servicio asociado — irrelevante para provisioning.
-      return;
-    }
+    // Sprint 16 (ADR-079): filtramos por source_system canónico. Sólo las
+    // tasks `provisioning_manual` activan service vía este listener; el
+    // bridge ticket↔task (`source_system='support_ticket'`) lo gestiona
+    // module support y los mantenimientos `support_inside_slot` no
+    // activan services.
+    if (task.source_system !== 'provisioning_manual') return;
 
     try {
-      // 2. Cargar service con product para resolver el plugin.
+      // El `source_id` apunta directamente al service.
       const service = await this.prisma.service.findUnique({
-        where: { id: task.service_id },
+        where: { id: task.source_id },
         select: {
           id: true,
           user_id: true,
@@ -98,7 +94,7 @@ export class ProvisioningOnTaskCompletedListener {
 
       if (!service) {
         this.logger.warn(
-          `task.completed for task=${task.id} references missing service=${task.service_id}; skipping.`,
+          `task.completed for task=${task.id} references missing service=${task.source_id}; skipping.`,
         );
         return;
       }

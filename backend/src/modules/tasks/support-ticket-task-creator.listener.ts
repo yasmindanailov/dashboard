@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { TaskPriority, SupportInsidePriorityTier } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 import { TasksService } from './tasks.service';
-import { TaskTypeDto, TaskPriorityDto, TaskStatusDto } from './dto/task.dto';
+import { calculateTaskPriority } from '../../core/tasks/priority-helper';
+import { calculateTaskDueDate } from '../../core/tasks/sla-helper';
 
 interface ConversationAssignedPayload {
   conversation_id: string;
@@ -18,32 +20,23 @@ interface ConversationUnassignedPayload {
 }
 
 /**
- * SupportTicketTaskCreatorListener — Sprint 8 Fase B.10 (2026-04-30) — ADR-074.
+ * SupportTicketTaskCreatorListener — Sprint 16 Fase 16.B (ADR-079 §2 trigger #1).
  *
- * Consume `conversation.assigned` (emitido por
- * `SupportMessageService.updateConversation` cuando `assigned_agent_id`
- * cambia). Crea o reasigna la `Task(type=support_ticket)` vinculada al
- * ticket — el bloque de trabajo del agente.
+ * Consume `conversation.assigned` (emitido por `SupportMessageService`).
+ * Crea/reasigna la `Task(source_system='support_ticket', source_id=conversation_id)`.
  *
- * Reglas canónicas (§ADR-074):
+ * Reglas canónicas (ADR-079 §2 + §3.4 caso especial):
  *
- *   1. Sólo opera sobre conversaciones de tipo `ticket`. Chats no
- *      generan tasks (su flujo es respuesta directa por mensajes).
- *   2. Si la conversación ya tiene una task activa
- *      (`status in pending|in_progress` con `conversation_id` poblado),
- *      la reasigna en lugar de crear duplicada. Si la task está
- *      cerrada (caso ticket reabierto), crea una nueva.
- *   3. La task hereda subject como title, priority del ticket,
- *      client_id desde `conversation.user_id`. Sin description (el
- *      "trabajo" vive en los mensajes del ticket).
- *   4. La auto-asignación del ticket al crearlo (cuando llega sin
- *      `assigned_to`) la realiza el propio módulo support antes de
- *      emitir el evento — este listener no la implementa.
+ *   1. Sólo opera sobre conversaciones de tipo `ticket` (no `chat`).
+ *   2. Idempotencia vía UNIQUE INDEX parcial — si la task activa ya
+ *      existe con el mismo agente, no hace nada.
+ *   3. La task hereda `assigned_to` del ticket directamente (NO consulta
+ *      `autoAssignTask` — la auto-asignación de tickets vive en module
+ *      support, no aquí). Excepción documentada §3.4.
+ *   4. `priority` y `due_date` se calculan vía helpers canónicos
+ *      según el tier SI del cliente (ADR-079 §3.3 + §3.5).
  *
- * Errores: si la conversación no existe en BD (delete entre el emit y
- * el handle, caso rarísimo) o el agente no es asignable, el listener
- * loguea warning y NO relanza — la operación support principal ya se
- * confirmó. Sin retry: el caso es benigno.
+ * Errores: log warning + no relanza (la operación support ya se confirmó).
  */
 @Injectable()
 export class SupportTicketTaskCreatorListener {
@@ -51,20 +44,14 @@ export class SupportTicketTaskCreatorListener {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tasksService: TasksService,
+    private readonly tasks: TasksService,
   ) {}
 
   @OnEvent('conversation.assigned')
   async handle(payload: ConversationAssignedPayload): Promise<void> {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: payload.conversation_id },
-      select: {
-        id: true,
-        type: true,
-        subject: true,
-        priority: true,
-        user_id: true,
-      },
+      select: { id: true, type: true, user_id: true },
     });
 
     if (!conversation) {
@@ -73,94 +60,80 @@ export class SupportTicketTaskCreatorListener {
       );
       return;
     }
-
-    if (conversation.type !== 'ticket') {
-      // Chats no generan tasks. Salimos silenciosamente — el evento
-      // `conversation.assigned` también se emite en chats para que el
-      // agente reciba la notificación, pero ahí no aplica el bridge.
-      return;
-    }
-
+    if (conversation.type !== 'ticket') return;
     if (!conversation.user_id) {
       this.logger.warn(
-        `ticket ${conversation.id} has no user_id — task not created (anonymous chat escalated unexpectedly)`,
+        `ticket ${conversation.id} has no user_id — task not created`,
       );
       return;
     }
 
-    // ¿Existe ya una task activa vinculada? Reasignar en lugar de duplicar.
+    // Tier SI del cliente para priority + due_date canónicos.
+    const tier = await this.getClientSITier(conversation.user_id);
+
+    // ¿Existe ya una task activa para este ticket? Si sí, reasignar.
     const existing = await this.prisma.task.findFirst({
       where: {
-        conversation_id: conversation.id,
+        source_system: 'support_ticket',
+        source_id: conversation.id,
         status: { in: ['pending', 'in_progress'] },
       },
       select: { id: true, assigned_to: true },
     });
 
     if (existing) {
-      if (existing.assigned_to === payload.agent_id) {
-        // Idempotente: el agente ya es el dueño. Nada que hacer.
-        return;
-      }
+      if (existing.assigned_to === payload.agent_id) return; // idempotente
       try {
-        await this.tasksService.update(
+        await this.tasks.assign(
           existing.id,
           { assigned_to: payload.agent_id },
           payload.assigned_by,
-          true, // isAdmin = true: el listener actúa como sistema
+          true, // isAdmin = true (listener actúa como sistema)
         );
         this.logger.log(
-          `support_ticket task ${existing.id} reassigned to agent ${payload.agent_id} (ticket ${conversation.id})`,
+          `task ${existing.id} reassigned to agent ${payload.agent_id} (ticket ${conversation.id})`,
         );
       } catch (err) {
         this.logger.warn(
-          `failed to reassign task ${existing.id}: ${err instanceof Error ? err.message : String(err)}`,
+          `failed to reassign task ${existing.id}: ${getMsg(err)}`,
         );
       }
       return;
     }
 
     // Nueva task de bridge.
-    const subject = conversation.subject?.trim() ?? 'Ticket de soporte';
-    const reasonPrefix = 'Soporte: ';
-    const reasonMaxBody = 100 - reasonPrefix.length;
-    const reason = `${reasonPrefix}${subject.substring(0, reasonMaxBody)}`;
+    const now = new Date();
+    const priority: TaskPriority = calculateTaskPriority(
+      'support_ticket',
+      tier,
+    );
+    const due_date = calculateTaskDueDate('support_ticket', tier, now);
 
     try {
-      const task = await this.tasksService.create(
-        {
-          type: TaskTypeDto.support_ticket,
-          title: subject,
-          priority: this.mapPriority(conversation.priority),
-          client_id: conversation.user_id,
-          assigned_to: payload.agent_id,
-          conversation_id: conversation.id,
-          reason,
-        },
-        payload.assigned_by,
-      );
+      const task = await this.tasks.createFromTrigger({
+        source_system: 'support_ticket',
+        source_id: conversation.id,
+        client_id: conversation.user_id,
+        assigned_to: payload.agent_id,
+        priority,
+        due_date,
+      });
       this.logger.log(
-        `support_ticket task ${task.id} created for ticket ${conversation.id} → agent ${payload.agent_id}`,
+        `support_ticket task ${task.id} created for ticket ${conversation.id} → agent ${payload.agent_id} (priority=${priority})`,
       );
     } catch (err) {
       this.logger.warn(
-        `failed to create support_ticket task for conversation ${conversation.id}: ${err instanceof Error ? err.message : String(err)}`,
+        `failed to create support_ticket task for conversation ${conversation.id}: ${getMsg(err)}`,
       );
     }
   }
 
   /**
-   * Sprint 8 Fase B.10.fix2 (2026-04-30) — ADR-074 EC#8.
+   * Sprint 16 (ADR-079 §2 trigger #1 — preserva ADR-074 EC#8).
    *
-   * Cuando el admin desasigna un ticket (admin pulsa "Sin asignar" en
-   * el sidebar de support), `support-message.service` emite
-   * `conversation.unassigned`. Aquí cancelamos la task bridge activa
-   * vinculada para mantener coherencia: la tarea ES el trabajo del
-   * agente sobre el ticket; si el ticket pierde dueño, la tarea no
-   * tiene sentido.
-   *
-   * Ciclo evitado con `skipTicketRelease: true` — el cancel ya viene
-   * desde la liberación, no debe re-disparar `updateConversation`.
+   * Cuando el admin desasigna un ticket, cancelamos la task bridge activa.
+   * `skipTicketRelease=true` evita que `TasksService.cancel` re-libere el
+   * ticket (ya está liberado por la operación que disparó este evento).
    */
   @OnEvent('conversation.unassigned')
   async handleUnassigned(
@@ -168,19 +141,19 @@ export class SupportTicketTaskCreatorListener {
   ): Promise<void> {
     const existing = await this.prisma.task.findFirst({
       where: {
-        conversation_id: payload.conversation_id,
+        source_system: 'support_ticket',
+        source_id: payload.conversation_id,
         status: { in: ['pending', 'in_progress'] },
       },
       select: { id: true },
     });
-    if (!existing) return; // sin task activa, nada que hacer
+    if (!existing) return;
 
     try {
-      await this.tasksService.update(
+      await this.tasks.cancel(
         existing.id,
-        { status: TaskStatusDto.cancelled },
+        { reason: 'Ticket desasignado' },
         payload.unassigned_by,
-        true, // isAdmin = true: el listener actúa como sistema
         { skipTicketRelease: true },
       );
       this.logger.log(
@@ -188,22 +161,34 @@ export class SupportTicketTaskCreatorListener {
       );
     } catch (err) {
       this.logger.warn(
-        `failed to cancel task ${existing.id} on ticket unassign: ${err instanceof Error ? err.message : String(err)}`,
+        `failed to cancel task ${existing.id} on ticket unassign: ${getMsg(err)}`,
       );
     }
   }
 
-  /** El enum `ConversationPriority` se mapea 1:1 con `TaskPriorityDto`. */
-  private mapPriority(p: string | null | undefined): TaskPriorityDto {
-    switch (p) {
-      case 'low':
-        return TaskPriorityDto.low;
-      case 'high':
-        return TaskPriorityDto.high;
-      case 'critical':
-        return TaskPriorityDto.critical;
-      default:
-        return TaskPriorityDto.medium;
-    }
+  /**
+   * Devuelve el `priority_tier` (max|high|standard) de la suscripción Support
+   * Inside activa del cliente, o `null` si no tiene SI.
+   */
+  private async getClientSITier(
+    clientId: string,
+  ): Promise<SupportInsidePriorityTier | null> {
+    const sub = await this.prisma.supportInsideSubscription.findUnique({
+      where: { client_id: clientId },
+      select: {
+        status: true,
+        product: {
+          select: {
+            support_inside_config: { select: { priority_tier: true } },
+          },
+        },
+      },
+    });
+    if (!sub || sub.status !== 'active') return null;
+    return sub.product.support_inside_config?.priority_tier ?? null;
   }
+}
+
+function getMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }

@@ -210,23 +210,23 @@ export async function seedNotificationTemplates(
       event_type: 'task.assigned',
       channel: 'email' as const,
       locale: 'es',
-      subject: 'Nueva tarea asignada: {{task_title}}',
+      subject: 'Nueva tarea asignada: Tarea {{task_source_system_label}}',
       body: `
         <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
             <h1 style="color: #fff; margin: 0; font-size: 24px;">Tarea asignada</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_type_label}} · Prioridad {{task_priority_label}}</p>
+            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_source_system_label}} · Prioridad {{task_priority_label}}</p>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Hola {{#if recipient.first_name}}{{recipient.first_name}}{{else}}agente{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Se te ha asignado una nueva tarea: <strong>{{task_title}}</strong>.
+              Se te ha asignado una nueva tarea: <strong>Tarea {{task_source_system_label}}</strong>.
             </p>
             <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0;">
               <table style="width: 100%; font-size: 14px; color: #374151;">
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Tipo:</td><td style="text-align: right; font-weight: 600;">{{task_type_label}}</td></tr>
+                <tr><td style="padding: 4px 0; color: #9ca3af;">Tipo:</td><td style="text-align: right; font-weight: 600;">{{task_source_system_label}}</td></tr>
                 <tr><td style="padding: 4px 0; color: #9ca3af;">Prioridad:</td><td style="text-align: right;">{{task_priority_label}}</td></tr>
                 <tr><td style="padding: 4px 0; color: #9ca3af;">Vence:</td><td style="text-align: right;">{{due_label}}</td></tr>
               </table>
@@ -239,8 +239,8 @@ export async function seedNotificationTemplates(
       `.trim(),
       variables: {
         task_id: 'string',
-        task_title: 'string',
-        task_type_label: 'string',
+        
+        task_source_system_label: 'string',
         task_priority_label: 'string',
         task_url: 'string',
         due_label: 'string',
@@ -253,11 +253,11 @@ export async function seedNotificationTemplates(
       event_type: 'task.assigned',
       channel: 'internal' as const,
       locale: 'es',
-      subject: 'Nueva tarea: {{task_title}}',
-      body: 'Se te ha asignado una tarea de {{task_type_label}} con prioridad {{task_priority_label}}.',
+      subject: 'Nueva tarea: Tarea {{task_source_system_label}}',
+      body: 'Se te ha asignado una tarea de {{task_source_system_label}} con prioridad {{task_priority_label}}.',
       variables: {
-        task_title: 'string',
-        task_type_label: 'string',
+        
+        task_source_system_label: 'string',
         task_priority_label: 'string',
       },
     },
@@ -337,7 +337,7 @@ export async function seedNotificationTemplates(
       event_type: 'task.completed',
       channel: 'email' as const,
       locale: 'es',
-      subject: 'Sobre tu solicitud: {{task_title}}',
+      subject: 'Sobre tu solicitud: Tarea {{task_source_system_label}}',
       body: `
         <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
@@ -349,7 +349,7 @@ export async function seedNotificationTemplates(
               Hola {{#if recipient.first_name}}{{recipient.first_name}}{{else}}cliente{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hemos terminado de trabajar en tu solicitud "<strong>{{task_title}}</strong>". Aquí tienes el detalle:
+              Hemos terminado de trabajar en tu solicitud "<strong>Tarea {{task_source_system_label}}</strong>". Aquí tienes el detalle:
             </p>
             <div style="background: #f9fafb; border-left: 4px solid #635BFF; border-radius: 8px; padding: 16px 20px; margin: 20px 0;">
               <p style="color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin: 0;">{{client_notes}}</p>
@@ -365,9 +365,9 @@ export async function seedNotificationTemplates(
       `.trim(),
       variables: {
         task_id: 'string',
-        task_title: 'string',
-        task_type: 'string',
-        task_type_label: 'string',
+        
+        
+        task_source_system_label: 'string',
         task_reason: 'string?',
         client_notes: 'string',
         service_url: 'string',
@@ -380,11 +380,11 @@ export async function seedNotificationTemplates(
       event_type: 'task.completed',
       channel: 'internal' as const,
       locale: 'es',
-      subject: 'Sobre tu solicitud: {{task_title}}',
+      subject: 'Sobre tu solicitud: Tarea {{task_source_system_label}}',
       body:
         'Hemos completado tu solicitud{{#if task_reason}} ({{task_reason}}){{/if}}. Revisa los detalles desde tu panel.',
       variables: {
-        task_title: 'string',
+        
         task_reason: 'string?',
       },
     },
@@ -492,23 +492,23 @@ last_error: {{last_error}}</pre>
       event_type: 'task.overdue',
       channel: 'email' as const,
       locale: 'es',
-      subject: '⚠ Tarea vencida: {{task_title}}',
+      subject: '⚠ Tarea vencida: Tarea {{task_source_system_label}}',
       body: `
         <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 32px; border-radius: 16px 16px 0 0;">
             <h1 style="color: #fff; margin: 0; font-size: 24px;">⚠ Tarea vencida</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_type_label}} · Prioridad {{task_priority_label}}</p>
+            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_source_system_label}} · Prioridad {{task_priority_label}}</p>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Hola {{#if recipient.first_name}}{{recipient.first_name}}{{else}}agente{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              La tarea <strong>{{task_title}}</strong> ha superado su fecha límite por más de {{days_overdue}} días y se ha marcado automáticamente como <strong>no completada a tiempo</strong>.
+              La tarea <strong>Tarea {{task_source_system_label}}</strong> ha superado su fecha límite por más de {{days_overdue}} días y se ha marcado automáticamente como <strong>no completada a tiempo</strong>.
             </p>
             <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 16px; margin: 20px 0;">
               <table style="width: 100%; font-size: 14px; color: #374151;">
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Tipo:</td><td style="text-align: right; font-weight: 600;">{{task_type_label}}</td></tr>
+                <tr><td style="padding: 4px 0; color: #9ca3af;">Tipo:</td><td style="text-align: right; font-weight: 600;">{{task_source_system_label}}</td></tr>
                 <tr><td style="padding: 4px 0; color: #9ca3af;">Prioridad:</td><td style="text-align: right;">{{task_priority_label}}</td></tr>
                 <tr><td style="padding: 4px 0; color: #9ca3af;">Vencía:</td><td style="text-align: right;">{{due_date_label}}</td></tr>
                 <tr><td style="padding: 4px 0; color: #9ca3af;">Días vencida:</td><td style="text-align: right; color: #991B1B; font-weight: 600;">{{days_overdue}}</td></tr>
@@ -525,9 +525,9 @@ last_error: {{last_error}}</pre>
       `.trim(),
       variables: {
         task_id: 'string',
-        task_title: 'string',
-        task_type: 'string',
-        task_type_label: 'string',
+        
+        
+        task_source_system_label: 'string',
         task_priority_label: 'string',
         task_url: 'string',
         due_date_label: 'string',
@@ -541,11 +541,11 @@ last_error: {{last_error}}</pre>
       event_type: 'task.overdue',
       channel: 'internal' as const,
       locale: 'es',
-      subject: 'Tarea vencida: {{task_title}}',
-      body: 'La tarea {{task_title}} ({{task_type_label}}) superó su fecha límite por {{days_overdue}} días y pasó a estado no completada a tiempo.',
+      subject: 'Tarea vencida: Tarea {{task_source_system_label}}',
+      body: 'La tarea Tarea {{task_source_system_label}} ({{task_source_system_label}}) superó su fecha límite por {{days_overdue}} días y pasó a estado no completada a tiempo.',
       variables: {
-        task_title: 'string',
-        task_type_label: 'string',
+        
+        task_source_system_label: 'string',
         days_overdue: 'number',
       },
     },

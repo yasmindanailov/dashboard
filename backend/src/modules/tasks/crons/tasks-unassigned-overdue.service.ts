@@ -1,27 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { TaskSourceSystem } from '@prisma/client';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { SettingsService } from '../../../core/settings/settings.service';
-import { TASK_TYPE_LABELS_ES } from '../task-labels';
+import { TASK_SOURCE_SYSTEM_LABELS_ES } from '../task-labels';
 
 const MS_PER_HOUR = 3_600_000;
 
-// Tipos cubiertos por SLA. Sigue ADR-072 §"SLA por tipo de tarea". Si se
-// añade un valor nuevo al enum `TaskType` que pueda nacer sin asignar,
-// añadir aquí + setting `tasks.unassigned_sla_hours.<type>`.
-const SLA_TYPES = [
-  'contact_client',
-  'maintenance',
-  'maintenance_management',
-  'custom_work',
-  'support_setup',
-] as const;
+/**
+ * Sprint 16 (ADR-079): los `source_system` que pueden nacer en cola pública
+ * y por tanto son candidatos a SLA "tarea sin asignar". `support_ticket` se
+ * excluye porque el ticket llega siempre asignado al agente desde module
+ * support (auto-asignación canónica) — la task bridge nace con `assigned_to`.
+ */
+const SLA_SOURCE_SYSTEMS: ReadonlyArray<TaskSourceSystem> = [
+  'support_inside_slot',
+  'provisioning_manual',
+  'client_lifecycle',
+  'project',
+];
 
 export interface UnassignedOverdueTaskRef {
   id: string;
-  title: string;
-  type: string;
-  type_label: string;
+  source_system: TaskSourceSystem;
+  source_id: string;
+  source_label: string;
   age_hours: number;
   sla_hours: number;
 }
@@ -29,27 +32,21 @@ export interface UnassignedOverdueTaskRef {
 export interface TasksUnassignedOverdueRunResult {
   total: number;
   oldest_age_hours: number;
-  by_type: Record<string, number>;
+  by_source_system: Record<string, number>;
 }
 
 /**
- * TasksUnassignedOverdueService — Sprint 8 Fase C (2026-05-01).
+ * TasksUnassignedOverdueService — Sprint 8 Fase C → Sprint 16 (ADR-079 §3.1).
  *
- * Implementa la doctrina ADR-072 §"Reglas canónicas" §4: cron diario que
- * recorre la cola pública (`assigned_to=null`) y detecta tareas que han
- * superado su SLA por tipo. Si encuentra ≥1, emite evento agregado
- * `task.unassigned_overdue` (1 alerta resumen por ejecución, no 1 por
- * tarea — coherente con `dlq.job_failed` y `outbox.event_failed`).
+ * Cron diario que recorre la cola pública (`assigned_to=null`) y detecta
+ * tasks que han superado su SLA por `source_system`. Si encuentra ≥1, emite
+ * evento agregado `task.unassigned_overdue` (1 alerta resumen — coherente
+ * con `dlq.job_failed` y `outbox.event_failed`).
  *
- * Por qué resumen agregado y no 1 emit por tarea:
- *   - El destinatario es el `superadmin` (1 humano, no un agente por
- *     tarea). N emails individuales serían ruido.
- *   - Permite render Handlebars con `{{summary}}` pre-renderizado en este
- *     listener (declarativo, editable desde Sprint 9.5 sin iterar arrays
- *     en la plantilla).
- *
- * Cumple R1 (event bus), R2 (cron asíncrono), R7 (alerta operativa al
- * responsable) + ADR-072 §4 + ADR-042/065.
+ * Settings consumidos: `tasks.unassigned_sla_hours.<source_system>` con
+ * fallback a `tasks.unassigned_sla_hours.default`. Los nombres de los keys
+ * cambiaron en Sprint 16 (de `<task_type>` a `<source_system>`); el seed
+ * canónico de settings se actualiza en consecuencia.
  */
 @Injectable()
 export class TasksUnassignedOverdueService {
@@ -62,28 +59,22 @@ export class TasksUnassignedOverdueService {
   ) {}
 
   async run(now: Date = new Date()): Promise<TasksUnassignedOverdueRunResult> {
-    // Fallback global; cada tipo lo override con su entrada específica si
-    // existe en la BD (ADR-072 §4).
     const defaultSla = await this.settings.getNumber(
       'tasks',
       'unassigned_sla_hours.default',
       24,
     );
 
-    // Lee SLA por tipo en paralelo (cada uno hace cache hit tras la 1ª).
-    const slaByType = new Map<string, number>();
-    for (const type of SLA_TYPES) {
+    const slaBySource = new Map<TaskSourceSystem, number>();
+    for (const src of SLA_SOURCE_SYSTEMS) {
       const sla = await this.settings.getNumber(
         'tasks',
-        `unassigned_sla_hours.${type}`,
+        `unassigned_sla_hours.${src}`,
         defaultSla,
       );
-      slaByType.set(type, sla);
+      slaBySource.set(src, sla);
     }
 
-    // Selección base: tareas en cola pública en estado no-terminal. Trae
-    // las mínimas columnas necesarias para evaluar SLA por tipo y armar
-    // el `summary` del evento.
     const candidates = await this.prisma.task.findMany({
       where: {
         assigned_to: null,
@@ -91,18 +82,18 @@ export class TasksUnassignedOverdueService {
       },
       select: {
         id: true,
-        title: true,
-        type: true,
+        source_system: true,
+        source_id: true,
         created_at: true,
       },
       orderBy: { created_at: 'asc' },
     });
 
     const overdue: UnassignedOverdueTaskRef[] = [];
-    const byType: Record<string, number> = {};
+    const bySource: Record<string, number> = {};
 
     for (const task of candidates) {
-      const sla = slaByType.get(task.type) ?? defaultSla;
+      const sla = slaBySource.get(task.source_system) ?? defaultSla;
       const ageHours = Math.floor(
         (now.getTime() - task.created_at.getTime()) / MS_PER_HOUR,
       );
@@ -110,32 +101,30 @@ export class TasksUnassignedOverdueService {
 
       overdue.push({
         id: task.id,
-        title: task.title,
-        type: task.type,
-        type_label: TASK_TYPE_LABELS_ES[task.type] ?? task.type,
+        source_system: task.source_system,
+        source_id: task.source_id,
+        source_label:
+          TASK_SOURCE_SYSTEM_LABELS_ES[task.source_system] ??
+          task.source_system,
         age_hours: ageHours,
         sla_hours: sla,
       });
-      byType[task.type] = (byType[task.type] ?? 0) + 1;
+      bySource[task.source_system] = (bySource[task.source_system] ?? 0) + 1;
     }
 
     if (overdue.length === 0) {
       this.logger.debug(
         `tasks-unassigned-overdue: no candidates (${candidates.length} in queue, none past SLA)`,
       );
-      return { total: 0, oldest_age_hours: 0, by_type: {} };
+      return { total: 0, oldest_age_hours: 0, by_source_system: {} };
     }
 
-    // `summary` pre-renderizado: una línea por tarea con tipo + edad + SLA.
-    // Hasta 20 entradas para evitar emails kilométricos; si hay más, añade
-    // el contador "+ N más". El admin investiga el resto en
-    // `/admin/tasks?scope=unassigned`.
     const MAX_LINES = 20;
     const summaryLines = overdue
       .slice(0, MAX_LINES)
       .map(
         (t) =>
-          `• [${t.type_label}] ${t.title} — ${t.age_hours}h (SLA ${t.sla_hours}h)`,
+          `• [${t.source_label}] ${t.source_id} — ${t.age_hours}h (SLA ${t.sla_hours}h)`,
       );
     if (overdue.length > MAX_LINES) {
       summaryLines.push(`… y ${overdue.length - MAX_LINES} más`);
@@ -150,7 +139,7 @@ export class TasksUnassignedOverdueService {
     this.events.emit('task.unassigned_overdue', {
       total: overdue.length,
       oldest_age_hours: oldest,
-      by_type: byType,
+      by_source_system: bySource,
       task_ids: overdue.map((t) => t.id),
       summary,
     });
@@ -162,12 +151,12 @@ export class TasksUnassignedOverdueService {
     return {
       total: overdue.length,
       oldest_age_hours: oldest,
-      by_type: byType,
+      by_source_system: bySource,
     };
   }
 
-  /** Helper expuesto para tests: la lista canónica de tipos con SLA. */
-  static slaTypes(): ReadonlyArray<string> {
-    return SLA_TYPES;
+  /** Helper expuesto para tests. */
+  static slaSourceSystems(): ReadonlyArray<TaskSourceSystem> {
+    return SLA_SOURCE_SYSTEMS;
   }
 }

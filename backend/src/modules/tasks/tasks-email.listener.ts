@@ -3,7 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
-  TASK_TYPE_LABELS_ES,
+  TASK_SOURCE_SYSTEM_LABELS_ES,
   TASK_PRIORITY_LABELS_ES,
   formatDueLabel,
 } from './task-labels';
@@ -11,25 +11,23 @@ import {
 interface TaskAssignedPayload {
   task: {
     id: string;
-    title: string;
-    type: string;
+    source_system: string;
+    source_id: string;
     priority: string;
     assigned_to: string | null;
     due_date: Date | null;
-    description: string | null;
-    reason?: string | null;
+    client_id: string;
   };
   assignedBy: string;
 }
 
 /**
- * TasksEmailListener — delega a `NotificationsService.dispatchToUser`
- * (Sprint 9 Fase D + ADR-065).
+ * TasksEmailListener — Sprint 16 Fase 16.B (ADR-079).
  *
- * El listener queda en una línea por handler. La plantilla HTML inline
- * previa (P0.1) se ha movido a la tabla `notification_templates` con
- * Handlebars. Email + campana convergen ambos al pasar por la cola
- * `notifications-dispatch`.
+ * Migrado del enum TaskType al nuevo TaskSourceSystem. El payload ya no
+ * trae `title`/`description`/`reason` (eliminados del schema canónico):
+ * el render del email usa el label del sistema de origen y el agente abre
+ * el detalle para ver el contexto vivo del sistema vinculado.
  *
  * Cumple R1 + R2 + R7 + ADR-042 + ADR-065.
  */
@@ -56,20 +54,14 @@ export class TasksEmailListener {
       'task.assigned',
       {
         task_id: task.id,
-        task_title: task.title,
-        task_type: task.type,
-        task_type_label: TASK_TYPE_LABELS_ES[task.type] ?? task.type,
+        task_source_system: task.source_system,
+        task_source_system_label:
+          TASK_SOURCE_SYSTEM_LABELS_ES[task.source_system] ??
+          task.source_system,
+        task_source_id: task.source_id,
         task_priority: task.priority,
         task_priority_label:
           TASK_PRIORITY_LABELS_ES[task.priority] ?? task.priority,
-        task_description: task.description,
-        // Sprint 8 Fase B.7 — ADR-073: el contexto humano (reason) viaja
-        // al payload para que la plantilla pueda mostrar el porqué bajo
-        // el título. Vacío/null = no se renderiza.
-        task_reason: task.reason ?? null,
-        // Tasks viven en el portal staff: ADR-066 + Sprint 9.6 DC.7 movió
-        // `/dashboard/tasks/*` → `/admin/tasks/*` con `git mv`. La campana
-        // del topbar y los emails al agente deben apuntar al portal admin.
         task_url: `${appUrl}/admin/tasks/${task.id}`,
         action_url: `/admin/tasks/${task.id}`,
         due_label: formatDueLabel(task.due_date),
