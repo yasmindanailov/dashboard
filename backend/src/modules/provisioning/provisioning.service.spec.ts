@@ -1,6 +1,18 @@
-/* eslint-disable @typescript-eslint/unbound-method */
-// `unbound-method` falsos positivos en specs Jest. Doctrina TS-ESLint para
-// specs: deshabilitar a nivel de archivo.
+/* eslint-disable
+   @typescript-eslint/unbound-method,
+   @typescript-eslint/no-unsafe-assignment,
+   @typescript-eslint/no-unsafe-member-access
+*/
+// Doctrina canónica TS-ESLint para specs Jest, aplicada a nivel de archivo:
+//
+//  - `unbound-method`: falso positivo cuando se hace
+//    `expect(mock.method).toHaveBeenCalled()`.
+//  - `no-unsafe-assignment` / `no-unsafe-member-access`: falsos positivos
+//    cuando se anidan `expect.objectContaining(...)` (devuelve `any`) o
+//    se accede a `mock.calls[0][0]` (Jest tipa los args como `any`).
+//
+// Estos disables aplican SOLO a este spec; en código de producción las
+// reglas siguen activas con severidad `warn`/`error`.
 
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -48,7 +60,9 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
   let orchestrator: { enqueueProvisioning: jest.Mock };
   let service: ProvisioningService;
 
-  function buildPlugin(over: Partial<ProvisionerPlugin> = {}): ProvisionerPlugin {
+  function buildPlugin(
+    over: Partial<ProvisionerPlugin> = {},
+  ): ProvisionerPlugin {
     return {
       slug: 'internal',
       contractVersion: PROVISIONER_PLUGIN_CONTRACT_VERSION,
@@ -129,9 +143,11 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
           language: 'es',
         }),
       },
-      $transaction: jest.fn().mockImplementation((arr: unknown[]) =>
-        Promise.all(arr.map((promise) => promise as Promise<unknown>)),
-      ),
+      $transaction: jest
+        .fn()
+        .mockImplementation((arr: unknown[]) =>
+          Promise.all(arr.map((promise) => promise as Promise<unknown>)),
+        ),
     };
     registry = {
       get: jest.fn(),
@@ -149,7 +165,9 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
       logChange: jest.fn().mockResolvedValue(undefined),
     };
     settings = { getNumber: jest.fn().mockResolvedValue(60) };
-    orchestrator = { enqueueProvisioning: jest.fn().mockResolvedValue(undefined) };
+    orchestrator = {
+      enqueueProvisioning: jest.fn().mockResolvedValue(undefined),
+    };
 
     service = new ProvisioningService(
       prisma as never,
