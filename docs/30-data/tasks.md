@@ -1,14 +1,22 @@
 # Tasks — Schema
 
-> 📜 **DOCTRINA CANÓNICA POST-ADR-079 (2026-05-02)** — Sprint 16 reemplaza el modelo de datos descrito abajo:
+> 🚧 **SCHEMA YA MIGRADO — Sprint 16 Fase 16.B mergeada (2026-05-02, PR #22)**
 >
-> - Enum `TaskType` (7 valores) → `TaskSourceSystem` (5 valores: `support_ticket`, `support_inside_slot`, `provisioning_manual`, `client_lifecycle`, `project`).
-> - Tabla `tasks` baja de 16 a 11 columnas. Drop de `client_note`, `is_recurring`, `recurrence_day`, `billing_month` (se deriva de `created_at`), `reason`, `metadata`, `title`, `description`, `created_by`, `service_id`, `conversation_id` (estos 2 últimos reemplazados por `source_id` polimórfico).
-> - Tablas `task_tags` + `task_tag_assignments` se eliminan (drop CASCADE).
-> - Tabla `maintenance_logs`: campo `internal_notes` se elimina (va a `client_notes`); `notes` se renombra a `client_facing_notes` (contenido del email al cliente).
-> - UNIQUE `(service_id, billing_month, type)` se reemplaza por UNIQUE `(source_system, source_id) WHERE status IN ('pending', 'in_progress')` (1 task activa por origen).
+> El schema canónico nuevo está vivo en BD desde la migración `sprint16_tasks_notes_refactor`. El contenido §1-§Cross-references de abajo describe el estado **PRE-Sprint 16** y queda como referencia histórica hasta que Fase 16.E lo reescriba.
 >
-> Plan completo en [ADR-079 §3.1 + §4](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md). **Migración Opción B (drop + reseed) durante Sprint 16** según [ADR-069](../10-decisions/adr-069-estrategia-deploy-diferido.md). **Esta página describe el estado VIGENTE pre-Sprint 16**; cuando Sprint 16 cierre, se reescribe completa.
+> **Estado real BD post-migración:**
+> - Enum `TaskSourceSystem` con 5 valores (`support_ticket`, `support_inside_slot`, `provisioning_manual`, `client_lifecycle`, `project`).
+> - Tabla `tasks` con 12 columnas (id + 11 canónicas + updated_at): `id`, `source_system`, `source_id`, `client_id`, `assigned_to`, `priority`, `status`, `due_date`, `completed_at`, `completed_by`, `created_at`, `updated_at`.
+> - **UNIQUE INDEX parcial** `tasks_uniq_active_per_source` ON `(source_system, source_id) WHERE status IN ('pending','in_progress')` — 1 task activa por origen; tasks terminadas no entran al índice (permite re-creación tras cierre).
+> - Tablas `task_tags` + `task_tag_assignments` **DROP CASCADE**.
+> - Tabla `maintenance_logs`: campo `notes` **renombrado** a `client_facing_notes`; sin campo `internal_notes` (las notas internas viven en `client_notes` con `source_system='maintenance_log'`).
+>
+> **`client_notes` schema canónico:**
+> - Drop de `conversation_id` y `task_id` directos.
+> - Añadidos: `source_system` (enum `NoteSourceSystem` — `ticket`/`chat`/`maintenance_log`/`task_completion`/`exceptional`), `source_id` uuid (polimórfico, **sin FK física**), `triggered_by_action` varchar(100).
+> - Enum `NoteCategory` reemplazado: `support`, `maintenance`, `onboarding`, `billing`, `project`, `technical_incident`, `exceptional` (los 5 valores legacy `conversation`/`solution`/`technical`/`general`/`billing` ya no existen).
+>
+> Plan completo en [ADR-079 §3.1 + §3.8 + §4](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md). Migración Opción B (drop + reseed) aplicada según [ADR-069](../10-decisions/adr-069-estrategia-deploy-diferido.md). Reescritura completa de esta página queda en **Sprint 16 Fase 16.E**.
 
 > **Dominio:** tareas internas (operativa diaria del equipo).
 > **Módulo:** [`docs/20-modules/tasks/contract.md`](../20-modules/tasks/contract.md).

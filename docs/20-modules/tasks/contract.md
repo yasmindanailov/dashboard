@@ -1,16 +1,25 @@
 # tasks — Contract
 
-> 📜 **DOCTRINA CANÓNICA POST-ADR-079 (2026-05-02)** — Sprint 16 refactoriza este módulo profundamente. **Toda la sección §1-§17 describe el estado VIGENTE pre-Sprint 16** (lo que hay hoy en código tras Sprint 8 Fases A-D). **Tras Sprint 16 (cuando se mergee), las decisiones canónicas pasan a las definidas en [ADR-079](../../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md):**
+> 🚧 **CONTRATO EN MIGRACIÓN — Sprint 16 Fases 16.A + 16.B mergeadas (2026-05-02)**
 >
-> - Tasks = bridge unidireccional read-only desde 5 triggers automáticos cerrados (`support_ticket`, `support_inside_slot`, `provisioning_manual`, `client_lifecycle`, `project`). NO creación manual.
-> - Enum `TaskType` (7 valores) → enum `TaskSourceSystem` (5 valores).
-> - Modelo de datos: 16 campos → 11 canónicos. Drop de `task_tags`, `Task.client_note`, `is_recurring`/`recurrence_day`/`billing_month`, `reason`, `metadata`, `title`, `description`, `created_by`.
-> - Notas consolidadas en `client_notes` con `source_system` + `source_id` + `triggered_by_action`.
-> - Auto-asignación canónica por carga + rol (V1 hardcoded; V2 settings Sprint 12).
-> - Card simple con accionadores inline contextuales delegando en sistema vinculado.
-> - Widget sidebar + dashboard staff con prioridad cross-sistema.
+> **Backend ya migrado al contrato canónico ADR-079.** El frontend (Fase 16.C) y el cierre documental completo (Fase 16.E) están pendientes — la sección §1-§17 de abajo refleja el estado PRE-Sprint 16 y queda como referencia histórica hasta que la Fase 16.E lo reescriba.
 >
-> **Cuando Sprint 16 cierre, este contract.md se reescribe completo** sustituyendo el contenido pre-refactor por la nueva doctrina. Mientras tanto se preserva como referencia histórica del estado actual del código.
+> **Estado real del backend tras commit `eefa046` (PR #22):**
+> - Tasks = bridge unidireccional read-only desde 5 triggers automáticos cerrados (`support_ticket`, `support_inside_slot`, `provisioning_manual`, `client_lifecycle`, `project`). **NO** existe POST `/tasks` ni PATCH libre.
+> - Enum `TaskType` **eliminado**, reemplazado por `TaskSourceSystem` (5 valores).
+> - Modelo de datos `tasks`: **11 campos canónicos** (id, source_system, source_id, client_id, assigned_to, priority, status, due_date, completed_at, completed_by, created_at, updated_at). Drop completo: `task_tags` + `task_tag_assignments`, `Task.client_note`, `is_recurring`/`recurrence_day`/`billing_month`, `reason`, `metadata`, `title`, `description`, `created_by`, `service_id`, `conversation_id`.
+> - `client_notes` con `source_system` + `source_id` + `triggered_by_action` (sin FK física sobre source_id — polimórfico).
+> - 4 helpers canónicos en `backend/src/core/tasks/`: `priority-helper.ts`, `sla-helper.ts`, `auto-assign.ts`, `list-ordering.ts`.
+> - 3 listeners nuevos: `client-lifecycle-task-creator` (consume `service.activated` + `clientsService.isFirstService`), `tasks-on-slot-released`, `tasks-on-service-cancelled`.
+> - `ClientNotesService` consolidado en `modules/clients/` con 5 entrypoints canónicos (`createFromTicketCompletion`, `createFromMaintenanceCompletion`, `createFromTaskCompletion`, `createExceptional`, `findByClient`/`findByTask`).
+> - CASL: `Subject.TaskTag` eliminado.
+> - Endpoints REST canónicos vivos: `/tasks/:id/assign`, `/complete`, `/complete-ticket-bridge`, `/cancel`, `/checklist`, `/maintenance/log`, `/notes` (GET).
+> - Cobertura: **183/183 unit + 118/118 E2E verde**.
+>
+> **Lo que falta para cerrar Sprint 16:**
+> - Fase 16.C — frontend al nuevo contrato (TaskCard, CompleteTaskModal, TasksWidget, ExceptionalNoteModal, drop NewTaskModal).
+> - Fase 16.D residual — 2 specs E2E nuevos (`client-lifecycle-welcome-task`, `notes`) + smoke testing manual.
+> - Fase 16.E — reescribir este `contract.md` + `30-data/tasks.md` + `30-data/clients.md` + `features/tasks/admin.md`+`agent.md` + retrospectiva `completed/sprint-16-tasks-notes-refactor.md`.
 
 ## 1. Propósito
 
