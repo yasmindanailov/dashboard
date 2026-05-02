@@ -28,7 +28,7 @@
 Instancias de productos contratados por clientes. **El corazón del sistema.**
 
 > **Fuente de verdad:** `backend/prisma/schema.prisma` modelo `Service` + enum `ServiceStatus`.
-> **Nota histórica:** el documento legacy `DATABASE_SCHEMA.md` listaba campos detallados de provisioning (`provisioner_reference`, `subdomain`/`custom_domain` separados, `ssl_expires_at`, `provisioned_at`, `failure_reason`, `resource_config`). **El código actual los consolida** en `provisioner_data` (jsonb) y un único campo `domain`. Los detallados se añadirán al implementar el módulo `provisioning` (Sprint 11).
+> **Nota histórica:** el documento legacy `DATABASE_SCHEMA.md` listaba campos detallados de provisioning (`provisioner_reference`, `subdomain`/`custom_domain` separados, `ssl_expires_at`, `provisioned_at`, `failure_reason`, `resource_config`). El código actual mantiene `provisioner_data` (jsonb) y un único campo `domain` para los detalles operativos. **Sprint 11 Fase 11.B (2026-05-02) añade dos columnas dedicadas con índice** para queries de reconciliación + callbacks: `provisioner_slug` y `provider_reference` (ver tabla abajo).
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
@@ -52,7 +52,9 @@ Instancias de productos contratados por clientes. **El corazón del sistema.**
 | `suspension_reason` | text | NULLABLE | |
 | `paused_at` | timestamptz | NULLABLE | |
 | `pause_max_date` | timestamptz | NULLABLE | Hasta cuándo puede estar pausado (cron `checkPauseExpiration` lo reanuda al pasar) |
-| `provisioner_data` | jsonb | NULLABLE | Datos específicos del provisioner: credenciales, IDs externos, ssl_expires_at, resource_config (RAM/CPU/disco). **Encriptado en reposo si contiene secrets** ([ADR-015](../10-decisions/adr-015-encriptacion-credenciales.md)) |
+| `provisioner_slug` | varchar(100) | NULLABLE | **Sprint 11 Fase 11.B (2026-05-02 — [ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md))**. Denormalizado de `product.provisioner` al momento de provisionar (`ProvisioningOrchestratorService.provisionService()`). **Inmutable tras `service.activated`** — el plugin que provisionó es el dueño del lifecycle aunque el admin cambie luego `product.provisioner` desde Settings. Indexado para queries de reconciliación cron + filtro admin. |
+| `provider_reference` | varchar(500) | NULLABLE | **Sprint 11 Fase 11.B**. ID del recurso en el sistema externo (cPanel account ID, ResellerClub domain ID, Docker container ID, etc.). NULL para plugins `internal`/`manual` (no tienen referencia externa). Indexado para resolver el servicio desde callbacks/webhooks del proveedor (`WHERE provider_reference = X`). |
+| `provisioner_data` | jsonb | NULLABLE | Datos específicos del provisioner adicionales que NO encajan en `provider_reference` ni `metadata`: credenciales encriptadas, ssl_expires_at, resource_config (RAM/CPU/disco). **Encriptado en reposo si contiene secrets** ([ADR-015](../10-decisions/adr-015-encriptacion-credenciales.md)) |
 | `metadata` | jsonb | NULLABLE | Metadatos arbitrarios |
 | `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 | `updated_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
@@ -63,21 +65,29 @@ Instancias de productos contratados por clientes. **El corazón del sistema.**
 - `@@index([billing_profile_id])`
 - `@@index([status])`
 - `@@index([next_due_date])` (cron de renovaciones)
+- `@@index([provisioner_slug])` (**Sprint 11 Fase 11.B** — queries reconciliación cron + filtro admin)
+- `@@index([provider_reference])` (**Sprint 11 Fase 11.B** — resolver service desde callbacks proveedor)
 
 **Campos aspiracionales (NO existen como columnas dedicadas — viven dentro de `provisioner_data` jsonb hoy):**
 
 | Campo aspiracional | Sprint planificado | Notas |
 |--------------------|--------------------|-------|
-| `provisioner_reference` (ID externo en CP/API) | 11 | Se promoverá a columna dedicada con índice cuando exista provisioning real |
-| `ssl_expires_at` | 11 | Útil para alertas de renovación SSL |
-| `provisioned_at` | 11 | Marca técnica del momento de provisión |
-| `failure_reason` | 11 | Detalle si `status` quedara "failed" — hoy `terminated` es el estado de fallo definitivo |
-| `resource_config` (RAM/CPU/disco como columnas) | 11 | Hoy en `provisioner_data` jsonb |
+| ~~`provisioner_reference`~~ | ✅ Sprint 11 Fase 11.B | Promovido a columna dedicada `provider_reference` (varchar 500) con índice. Mergeado `67fd733`. |
+| `ssl_expires_at` | 11 (Fase 11.D potencial) | Útil para alertas de renovación SSL |
+| `provisioned_at` | 11 (Fase 11.C potencial) | Marca técnica del momento de provisión — hoy se infiere de `service.activated` event timestamp |
+| `failure_reason` | 11 ✅ parcial | Hoy se persiste en `cancellation_reason` como `provisioning_failed:<code>` cuando el orquestador marca `cancelled` por error no-retriable. |
+| `resource_config` (RAM/CPU/disco como columnas) | 11 (Fase 15E Docker) | Hoy en `provisioner_data` jsonb |
 | `project_development` (valor del enum status) | 22 ([ADR-046](../10-decisions/adr-046-sistema-proyectos.md)) | Servicio en desarrollo de proyecto, no visible al cliente |
 
 **Estado del enum `ServiceStatus` (real):** `pending` · `provisioning` · `active` · `suspended` · `cancelled` · `terminated`. **No tiene `failed`** (lo equivalente es `terminated`). **No tiene `paused`** todavía como valor enum, pero los campos `paused_at` y `pause_max_date` existen — el "pausado" se infiere de `paused_at != null`.
 
-**Eventos emitidos:** `service.provisioned`, `service.suspended`, `service.cancelled`, `service.failed`, `service.paused`, `service.resumed`, `checkout.completed` — ver [`_events.md`](../20-modules/_events.md). Hoy todos huérfanos esperando módulo `provisioning` (Sprint 11).
+**Eventos emitidos del dominio service:**
+- `service.provisioned` — emitido por `BillingCheckoutService.checkout()` al CREAR el service (legacy histórico). Consumido por `SupportInsideOnServiceProvisionedListener` (Sprint 8 D.12.9 / [ADR-076](../10-decisions/adr-076-checkout-unico-support-inside-via-evento.md)).
+- **`service.activated`** — Sprint 11 Fase 11.B (`67fd733`) — emitido por `ProvisioningOrchestratorService` cuando confirma `services.status='active'` tras `plugin.provision()` exitoso. Plugins reales Sprint 15 consumen este, no `service.provisioned`.
+- **`service.provisioning_failed`** — Sprint 11 Fase 11.B — emitido por orquestador en error no-retriable o plugin no registrado. Listener notifications pendiente Fase 11.E.
+- **`service.metrics_fetched` / `service.action_executed` / `service.sso_opened`** — Sprint 11 Fase 11.B — emitidos por wrappers cross-cutting. Listener audit pendiente Fase 11.E.
+- `service.suspended` / `service.cancelled` / `service.paused` / `service.resumed` — siguen huérfanos (Sprint 11 Fase 11.C-D los enchufa al orquestador para invocar `plugin.deprovision()` o equivalente).
+- Detalle completo en [`_events.md`](../20-modules/_events.md).
 
 ---
 
