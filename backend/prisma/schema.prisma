@@ -417,6 +417,13 @@ model Service {
   suspension_reason   String?
   paused_at           DateTime?     @db.Timestamptz()
   pause_max_date      DateTime?     @db.Timestamptz()
+  // Sprint 11 Fase 11.B (ADR-077): denormalizado de `product.provisioner` al
+  // provisionar. Inmutable tras `service.activated` — el plugin que provisionó
+  // es el dueño del lifecycle aunque el admin cambie luego `product.provisioner`.
+  provisioner_slug    String?       @db.VarChar(100)
+  // Sprint 11 Fase 11.B (ADR-077 §2.2): ID del recurso en el sistema externo.
+  // NULL para plugins `internal`/`manual`. Indexado para reconciliación cron.
+  provider_reference  String?       @db.VarChar(500)
   provisioner_data    Json?
   metadata            Json?
   created_at          DateTime      @default(now()) @db.Timestamptz()
@@ -435,6 +442,12 @@ model Service {
   @@index([billing_profile_id])
   @@index([status])
   @@index([next_due_date])
+  // Sprint 11 Fase 11.B: provisioner_slug indexado para queries de
+  // reconciliación cron y filtro admin (`/admin/services?provisioner=...`).
+  @@index([provisioner_slug])
+  // Sprint 11 Fase 11.B: provider_reference indexado para resolver el servicio
+  // desde callbacks/webhooks del proveedor (`WHERE provider_reference = X`).
+  @@index([provider_reference])
   @@map("services")
 }
 

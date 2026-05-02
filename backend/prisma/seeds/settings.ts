@@ -92,6 +92,12 @@ const SETTINGS: ReadonlyArray<SeedSetting> = [
   // pre-cierre del mantenimiento mensual — Sprint 9 placeholder, sin
   // consumidor todavía).
   { category: 'support', key: 'maintenance_critical_threshold_days', value: '60', description: 'Días sin maintenance_log para alertar al superadmin (Sprint 8 Fase C)' },
+
+  // ── provisioning (Sprint 11 Fase 11.B + ADR-077) ──
+  // Consumidor: getServiceInfoWithCache wrapper — TTL del cache Redis DB 2
+  // donde se cachea el resultado de `plugin.getServiceInfo(service)` por
+  // serviceId. Default 60s (ADR-070 §Mecanismo A).
+  { category: 'provisioning', key: 'service_info_ttl_seconds', value: '60', description: 'TTL en segundos del cache service_info (ADR-077 §5 wrapper getServiceInfoWithCache)' },
 ];
 
 export async function seedSettings(prisma: PrismaClient): Promise<void> {
