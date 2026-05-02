@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BullModule } from '@nestjs/bullmq';
 import { SupportService } from './support.service';
 import { SupportChatService } from './support-chat.service';
 import { SupportTicketService } from './support-ticket.service';
@@ -13,23 +14,29 @@ import { SupportEmailListener } from './support-email.listener';
 import { SupportWebsocketListener } from './support-websocket.listener';
 import { SupportGuestLinkListener } from './support-guest-link.listener';
 import { SupportCleanupWorker } from './support-cleanup.worker';
+import { SupportConversationEventsListener } from './listeners/support-conversation-events.listener';
+import { SupportResolvedAutoCloseService } from './crons/support-resolved-auto-close.service';
+import {
+  SupportResolvedAutoCloseProcessor,
+  SUPPORT_RESOLVED_AUTO_CLOSE_QUEUE,
+} from './crons/support-resolved-auto-close.processor';
 
 /**
  * SupportModule — Core support/conversation system.
  *
  * Phase 1 (Sprint 7.1):  REST API for conversations + messages + emails ✅
  * Phase 2 (Sprint 7.2-3): WebSocket gateway for real-time chat ✅
- * Phase 3 (Sprint 7.4-5): Guest/anonymous chat ← current
+ * Phase 3 (Sprint 7.4-5): Guest/anonymous chat ✅
+ * Phase 4 (Sprint 16):    Lifecycle ticket canónico — `resolved` transitorio
+ *                         con auto-close + `conversation.reactivated` event
+ *                         + endpoint cliente `confirm-resolution`. ADR-079
+ *                         amendment.
  *
- * JwtModule is imported to verify tokens in the WebSocket handshake.
- * PrismaService is global (no need to import PrismaModule).
- * EventEmitter2 is global (registered in AppModule).
+ * JwtModule verifica tokens del WebSocket. PrismaService es global.
+ * EventEmitter2 es global (registrado en AppModule).
+ * BullModule registra la queue del cron `support-resolved-auto-close`.
  *
- * SupportGuestController is a separate controller for unauthenticated
- * guest chat endpoints. It does NOT use JwtAuthGuard/PoliciesGuard.
- * Rate limiting is enforced via @Throttle() on each guest endpoint.
- *
- * Ref: DECISIONS.md §7, §9
+ * Ref: DECISIONS.md §7, §9 + ADR-079.
  */
 @Module({
   imports: [
@@ -40,6 +47,7 @@ import { SupportCleanupWorker } from './support-cleanup.worker';
       }),
       inject: [ConfigService],
     }),
+    BullModule.registerQueue({ name: SUPPORT_RESOLVED_AUTO_CLOSE_QUEUE }),
   ],
   controllers: [SupportController, SupportGuestController],
   providers: [
@@ -56,7 +64,11 @@ import { SupportCleanupWorker } from './support-cleanup.worker';
     SupportWebsocketListener,
     SupportGuestLinkListener,
     SupportCleanupWorker,
+    // Sprint 16 — lifecycle ticket canónico
+    SupportConversationEventsListener,
+    SupportResolvedAutoCloseService,
+    SupportResolvedAutoCloseProcessor,
   ],
-  exports: [SupportService, SupportGateway],
+  exports: [SupportService, SupportGateway, SupportResolvedAutoCloseService],
 })
 export class SupportModule {}

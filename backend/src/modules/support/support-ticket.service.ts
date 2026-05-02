@@ -228,6 +228,11 @@ export class SupportTicketService {
       return `[${time}] ${sender}: ${m.body}`;
     });
 
+    /* Sprint 16 (ADR-079 amendment A3): la "Nota del agente" se omite del
+       system message visible. La nota es interna — vive en `client_notes`
+       con `source_system='chat'` + `triggered_by_action='chat.resolved'`
+       (auditoría completa) y en `chat.resolution_note` (consulta admin).
+       El cliente sólo ve la transcripción + transición. */
     const contextBlock = [
       `── Contexto del chat escalado ──`,
       `Chat ID: ${chatId}`,
@@ -236,7 +241,6 @@ export class SupportTicketService {
       ...contextLines,
       ``,
       `── Fin del contexto del chat ──`,
-      dto.agent_notes ? `\nNotas del agente: ${dto.agent_notes}` : '',
     ]
       .filter(Boolean)
       .join('\n');
@@ -269,8 +273,10 @@ export class SupportTicketService {
 
     const result = await this.assignSequenceAndRefetch(ticket.id);
 
-    // System message on original chat
-    await this.prisma.message.create({
+    /* Sprint 16 (ADR-079 amendment A3): system message en el chat origen +
+       emit `message.created` para que llegue al cliente WS en tiempo real
+       (sin esto, el cliente solo lo veía al refrescar). */
+    const escalationSysMsg = await this.prisma.message.create({
       data: {
         conversation_id: chatId,
         sender_type: 'system',
@@ -278,19 +284,71 @@ export class SupportTicketService {
         is_internal: false,
       },
     });
+    this.eventEmitter.emit('message.created', {
+      conversation_id: chatId,
+      message_id: escalationSysMsg.id,
+      sender_type: 'system',
+      sender_id: null,
+      is_internal: false,
+      user_id: chat.user_id,
+      type: 'chat',
+      message: { ...escalationSysMsg, sender_name: 'Sistema' },
+    });
 
-    // Mark chat as resolved
+    // Mark chat as resolved (estado terminal único del chat — ADR-079 A3).
+    const chatResolutionNote =
+      dto.agent_notes?.trim() ||
+      `Escalado a ticket TK-${String(result.sequence_number).padStart(5, '0')}`;
     await this.prisma.conversation.update({
       where: { id: chatId },
       data: {
         status: 'resolved',
         resolved_at: new Date(),
         resolved_by_id: agentId,
-        resolution_note:
-          dto.agent_notes?.trim() ||
-          `Escalado a ticket TK-${String(result.sequence_number).padStart(5, '0')}`,
+        resolution_note: chatResolutionNote,
       },
     });
+
+    /* Sprint 16 (ADR-079 amendment A3): emit `conversation.resolved` para
+       que `SupportWebsocketListener` broadcastee `conversation:updated` a
+       la room — cliente con widget verá el cambio de estado en vivo y
+       refrescará la conversación para traer `escalated_to` enriquecido. */
+    if (chat.user_id) {
+      this.eventEmitter.emit('conversation.resolved', {
+        conversation_id: chatId,
+        user_id: chat.user_id,
+        sequence_number: null,
+        subject: chat.subject,
+        type: 'chat' as const,
+      });
+    }
+
+    /* Sprint 16 (ADR-079 §3.8 + amendment A3): la escalación cierra el
+       chat con `chat.resolved`. Persistimos ClientNote canónico
+       — espejo del que `support-message.service.updateConversation` haría
+       si la transición pasase por allí. Mantiene trazabilidad uniforme:
+       toda transición terminal del chat genera nota con `source_system='chat'`
+       + `triggered_by_action='chat.resolved'` + categoría `support`. */
+    if (chat.user_id) {
+      try {
+        await this.prisma.clientNote.create({
+          data: {
+            user_id: chat.user_id,
+            author_id: agentId,
+            source_system: 'chat',
+            source_id: chatId,
+            triggered_by_action: 'chat.resolved',
+            body: chatResolutionNote,
+            category: 'support',
+            is_pinned: false,
+          },
+        });
+      } catch (e) {
+        this.logger.warn(
+          `Failed to auto-create ClientNote on chat escalation: ${e}`,
+        );
+      }
+    }
 
     this.logger.log(
       `Chat ${chatId} escalated to ticket TK-${String(result.sequence_number).padStart(5, '0')} by agent ${agentId}`,

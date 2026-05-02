@@ -1,10 +1,16 @@
 'use client';
 
+// TODO(ADR-078, Sprint 13): cuando cierre §13.AUTH, leer permisos +
+// counters server-side (cookies httpOnly) y devolver el sidebar como SC.
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../lib/auth-context';
 import { canAccess, type AppModule } from '../lib/permissions';
 import { PortalBadge } from '../components/ui';
+import { tasksApi } from '../lib/api';
+import type { TaskListResponse, Task } from '../_shared/tasks/types';
 import styles from './admin-sidebar.module.css';
 
 /* ═══════════════════════════════════════
@@ -148,11 +154,79 @@ function getItemsForRole(roleSlug: string): NavItem[] {
   return ALL_ITEMS.filter((item) => canAccess(roleSlug, item.requiredModule));
 }
 
+/* ── Badge "Tareas" — Sprint 16 / ADR-079 §3.11.
+   Counter = tasks `assigned_to=current_user AND status IN ('pending',
+   'in_progress')`. Tono:
+     - rojo  → hay alguna `not_completed_in_time` (vencidas).
+     - naranja → alguna vence en <2h.
+     - neutro → resto.
+   Refresco cada 60s — ligero (1 query con limit 50). */
+const REFRESH_INTERVAL_MS = 60_000;
+const SOON_DUE_MS = 2 * 60 * 60 * 1000;
+
+interface TasksBadge {
+  count: number;
+  tone: 'neutral' | 'warn' | 'danger';
+}
+
+function useTasksBadge(enabled: boolean): TasksBadge {
+  const token =
+    typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
+  const [badge, setBadge] = useState<TasksBadge>({ count: 0, tone: 'neutral' });
+
+  useEffect(() => {
+    if (!enabled || !token) return;
+    let cancelled = false;
+    const load = () => {
+      tasksApi
+        .list(token, { scope: 'mine', limit: 50 })
+        .then((res) => {
+          if (cancelled) return;
+          const list = ((res as TaskListResponse).data ?? []) as Task[];
+          const open = list.filter((t) =>
+            t.status === 'pending' || t.status === 'in_progress',
+          );
+          const overdue = open.some(
+            (t) => t.status === 'not_completed_in_time' || isOverdue(t),
+          );
+          const now = Date.now();
+          const soonDue = open.some(
+            (t) =>
+              t.due_date &&
+              new Date(t.due_date).getTime() - now <= SOON_DUE_MS &&
+              new Date(t.due_date).getTime() > now,
+          );
+          setBadge({
+            count: open.length,
+            tone: overdue ? 'danger' : soonDue ? 'warn' : 'neutral',
+          });
+        })
+        .catch(() => {
+          // Degradación elegante: si falla, simplemente no mostramos el badge.
+        });
+    };
+    load();
+    const id = window.setInterval(load, REFRESH_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [enabled, token]);
+
+  return badge;
+}
+
+function isOverdue(t: Task): boolean {
+  if (!t.due_date) return false;
+  return new Date(t.due_date).getTime() < Date.now();
+}
+
 export default function AdminSidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
   const roleSlug = user?.role?.slug || '';
   const items = getItemsForRole(roleSlug);
+  const tasksBadge = useTasksBadge(STAFF_ROLES.has(roleSlug));
 
   const operacionesItems = items.filter((i) => i.section === 'operaciones');
   const plataformaItems = items.filter((i) => i.section === 'plataforma');
@@ -160,6 +234,8 @@ export default function AdminSidebar() {
   const renderLink = (item: NavItem) => {
     const active =
       pathname === item.href || pathname?.startsWith(`${item.href}/`);
+    const showBadge =
+      item.href === '/admin/tasks' && tasksBadge.count > 0;
     return (
       <li key={item.href}>
         <Link
@@ -169,6 +245,14 @@ export default function AdminSidebar() {
         >
           <span className={styles.icon}>{item.icon}</span>
           <span className={styles.label}>{item.label}</span>
+          {showBadge && (
+            <span
+              className={`${styles.badge} ${styles[`badge_${tasksBadge.tone}`]}`}
+              aria-label={`${tasksBadge.count} tareas pendientes`}
+            >
+              {tasksBadge.count > 99 ? '99+' : tasksBadge.count}
+            </span>
+          )}
         </Link>
       </li>
     );

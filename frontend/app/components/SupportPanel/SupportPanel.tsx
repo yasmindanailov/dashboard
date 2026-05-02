@@ -155,6 +155,7 @@ function SupportPanelInner({
               onMessageChange={w.setMessage}
               onSend={w.handleSend}
               onTyping={w.handleTyping}
+              onClosePanel={onClose}
             />
           )}
         </div>

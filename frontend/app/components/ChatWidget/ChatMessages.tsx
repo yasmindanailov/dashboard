@@ -1,6 +1,7 @@
 'use client';
 
 import { RefObject } from 'react';
+import Link from 'next/link';
 import type { Conversation, Message } from './types';
 import { formatTime } from './types';
 import styles from './chatWidget.module.css';
@@ -32,6 +33,26 @@ export default function ChatMessages({
 }: ChatMessagesProps) {
   return (
     <>
+      {/* Sprint 16 (ADR-079 amendment A3): banner cuando el chat fue
+          escalado a ticket. Link directo al detalle del ticket del cliente. */}
+      {conversation.escalated_to && !isGuest && (
+        <div className={styles.escalationBanner}>
+          <span>
+            Esta conversación se ha trasladado al ticket{' '}
+            <strong>
+              TK-{String(conversation.escalated_to.sequence_number ?? 0).padStart(5, '0')}
+            </strong>
+            . Continúa allí.
+          </span>
+          <Link
+            href={`/dashboard/support/${conversation.escalated_to.id}`}
+            className={styles.escalationBannerLink}
+          >
+            Abrir ticket →
+          </Link>
+        </div>
+      )}
+
       <div className={styles.messagesScroll}>
         {conversation.messages.map((msg) => (
           <WidgetBubble
@@ -50,8 +71,13 @@ export default function ChatMessages({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message input */}
-      {conversation.status !== 'closed' && (
+      {/* Sprint 16 (ADR-079 amendment A3): chats con `resolved` o `closed`
+          son terminales — input bloqueado con notice. */}
+      {conversation.status === 'resolved' || conversation.status === 'closed' ? (
+        <div className={styles.systemMessage}>
+          Este chat ha sido cerrado. Si necesitas seguir hablando, abre una nueva conversación.
+        </div>
+      ) : (
         <div className={styles.inputBar}>
           <input
             className={styles.messageInput}

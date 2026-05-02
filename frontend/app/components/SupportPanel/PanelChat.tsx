@@ -1,6 +1,7 @@
 'use client';
 
 import { RefObject } from 'react';
+import Link from 'next/link';
 import type { Conversation, Message } from '../ChatWidget/types';
 import { formatTime } from '../ChatWidget/types';
 import styles from './SupportPanel.module.css';
@@ -23,15 +24,45 @@ interface PanelChatProps {
   onMessageChange: (value: string) => void;
   onSend: () => void;
   onTyping: () => void;
+  /* Sprint 16 (ADR-079 amendment A3): cerrar el panel al navegar al
+     ticket escalado — UX coherente, evita panel huérfano sobre la
+     página detalle del ticket. */
+  onClosePanel?: () => void;
 }
 
 export default function PanelChat({
   conversation, isGuest, currentUserId,
   typingIndicator, message, sending, messagesEndRef,
-  onMessageChange, onSend, onTyping,
+  onMessageChange, onSend, onTyping, onClosePanel,
 }: PanelChatProps) {
+  /* Sprint 16 (ADR-079 amendment A3): chats con estado terminal
+     (`resolved` | `closed`) bloquean input + muestran notice. Si fue
+     escalado a ticket, banner azul con link al ticket destino. */
+  const isTerminal =
+    conversation.status === 'resolved' || conversation.status === 'closed';
+
   return (
     <>
+      {/* Banner escalación (cuando aplica) */}
+      {conversation.escalated_to && !isGuest && (
+        <div className={styles.escalationBanner}>
+          <span>
+            Esta conversación se ha trasladado al ticket{' '}
+            <strong>
+              TK-{String(conversation.escalated_to.sequence_number ?? 0).padStart(5, '0')}
+            </strong>
+            . Continúa allí.
+          </span>
+          <Link
+            href={`/dashboard/support/${conversation.escalated_to.id}`}
+            className={styles.escalationBannerLink}
+            onClick={() => onClosePanel?.()}
+          >
+            Abrir ticket →
+          </Link>
+        </div>
+      )}
+
       {/* Messages */}
       <div className={styles.messages}>
         {conversation.messages.map((msg) => (
@@ -51,8 +82,12 @@ export default function PanelChat({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      {conversation.status !== 'closed' && (
+      {/* Input — bloqueado si terminal */}
+      {isTerminal ? (
+        <div className={styles.closedNotice}>
+          Este chat ha sido cerrado. Si necesitas seguir hablando, abre una nueva conversación.
+        </div>
+      ) : (
         <div className={styles.inputArea}>
           <input
             value={message}

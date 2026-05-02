@@ -7,30 +7,62 @@ import { Button } from '../../../components/ui';
 import styles from './conversationDetail.module.css';
 
 /* ═══════════════════════════════════════
-   ConversationMessages — Message list + input
-   DS components: Button
-   CSS module: zero inline styles
-   Ref: UI_SPEC §2.5, ROADMAP.md D25
+   ConversationMessages — Message list + input.
+
+   Sprint 16 / ADR-079 §3.8: la entrada manual de "Nota interna" desde el
+   input de mensajes se eliminó. Las notas internas las generan
+   exclusivamente los listeners canónicos al cerrar ticket / mantenimiento /
+   task. Para apuntes libres del agente sobre el cliente existe la nota
+   excepcional desde `/admin/clients/[id]?tab=notas`.
+
+   La lectura de `msg.is_internal=true` permanece para mensajes legacy en
+   el historial — auditoría inmutable.
    ═══════════════════════════════════════ */
+
+/**
+ * Sprint 16 (ADR-079 amendments A1+A3): `lockReason` controla la
+ * visibilidad y el copy del aviso cuando el input está bloqueado:
+ *   - `closed`          → ticket archivado, nadie escribe.
+ *   - `resolved_agent`  → ticket resuelto, el agente debe pulsar "Reabrir"
+ *                         para volver a actuar (vía canónica que crea
+ *                         nueva task bridge). El cliente sí puede escribir
+ *                         (su respuesta reactiva el ticket).
+ *   - `chat_resolved`   → chat resuelto (estado terminal único del chat).
+ *                         Inmutable para ambos lados: si el cliente
+ *                         necesita continuar, abre nueva conversación.
+ *   - `null`            → input visible y editable.
+ */
+type ConversationLockReason =
+  | 'closed'
+  | 'resolved_agent'
+  | 'chat_resolved'
+  | null;
 
 interface ConversationMessagesProps {
   messages: DetailMessage[];
-  isClosed: boolean;
-  isAdmin: boolean;
+  /** Bloqueo del input + notice. Reemplaza al anterior `isClosed` boolean
+      con semántica explícita por contexto del viewer. */
+  lockReason: ConversationLockReason;
   currentUserId?: string;
   newMessage: string;
-  isInternal: boolean;
   sending: boolean;
   messagesEndRef: RefObject<HTMLDivElement | null>;
   onMessageChange: (v: string) => void;
-  onInternalChange: (v: boolean) => void;
   onSend: () => void;
 }
 
+const LOCK_NOTICES: Record<Exclude<ConversationLockReason, null>, string> = {
+  closed: 'Esta conversación está cerrada.',
+  resolved_agent:
+    'Este ticket está resuelto. Pulsa "Reabrir" en la cabecera para volver a actuar.',
+  chat_resolved:
+    'Este chat ha sido cerrado. Si necesitas seguir hablando, abre una nueva conversación.',
+};
+
 export default function ConversationMessages({
-  messages, isClosed, isAdmin, currentUserId,
-  newMessage, isInternal, sending, messagesEndRef,
-  onMessageChange, onInternalChange, onSend,
+  messages, lockReason, currentUserId,
+  newMessage, sending, messagesEndRef,
+  onMessageChange, onSend,
 }: ConversationMessagesProps) {
   return (
     <div className={styles.messagesContainer}>
@@ -49,6 +81,10 @@ export default function ConversationMessages({
             );
           }
 
+          // Lectura legacy: mensajes anteriores a Sprint 16 con
+          // `is_internal=true` mantienen su rendering como nota interna
+          // dentro del historial (auditoría). Los nuevos mensajes nunca
+          // marcan `is_internal=true`.
           const bubbleClass = msg.is_internal
             ? styles.bubbleInternal
             : isMe
@@ -65,9 +101,8 @@ export default function ConversationMessages({
             ? styles.bubbleTimeMine
             : styles.bubbleTimeTheirs;
 
-          // Determine sender label
           let senderLabel = '';
-          if (msg.is_internal) senderLabel = 'Nota interna';
+          if (msg.is_internal) senderLabel = 'Nota interna (legacy)';
           else if (isMe) senderLabel = 'Tú';
           else if (isAgent) senderLabel = 'Agente';
           else if (msg.sender_type === 'client') senderLabel = 'Cliente';
@@ -90,30 +125,16 @@ export default function ConversationMessages({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message input */}
-      {!isClosed && (
-        <div className={`${styles.inputArea} ${isInternal ? styles.inputAreaInternal : ''}`}>
-          {/* Internal toggle (admin only) */}
-          {isAdmin && (
-            <div>
-              <label className={`${styles.internalToggle} ${isInternal ? styles.internalToggleActive : styles.internalToggleInactive}`}>
-                <input
-                  type="checkbox"
-                  checked={isInternal}
-                  onChange={(e) => onInternalChange(e.target.checked)}
-                />
-                Nota interna (solo visible para agentes)
-              </label>
-            </div>
-          )}
-
+      {/* Input público al cliente — visible solo si no hay lockReason. */}
+      {!lockReason && (
+        <div className={styles.inputArea}>
           <div className={styles.inputRow}>
             <textarea
               value={newMessage}
               onChange={(e) => onMessageChange(e.target.value)}
-              placeholder={isInternal ? 'Escribe una nota interna...' : 'Escribe tu mensaje...'}
+              placeholder="Escribe tu mensaje..."
               rows={2}
-              className={`${styles.messageTextarea} ${isInternal ? styles.messageTextareaInternal : ''}`}
+              className={styles.messageTextarea}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -133,11 +154,9 @@ export default function ConversationMessages({
         </div>
       )}
 
-      {/* Closed notice */}
-      {isClosed && (
-        <div className={styles.closedNotice}>
-          Esta conversación está cerrada.
-        </div>
+      {/* Notice contextual cuando el input está bloqueado. */}
+      {lockReason && (
+        <div className={styles.closedNotice}>{LOCK_NOTICES[lockReason]}</div>
       )}
     </div>
   );

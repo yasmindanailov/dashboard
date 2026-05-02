@@ -47,7 +47,6 @@ export function useChatPanel() {
 
   // Messaging
   const [message, setMessage] = useState('');
-  const [internalNote, setInternalNote] = useState(false);
   const [sending, setSending] = useState(false);
   const [typingIndicator, setTypingIndicator] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -181,22 +180,25 @@ export function useChatPanel() {
     setSending(true);
 
     const body = message.trim();
-    const isInt = internalNote;
 
+    // Sprint 16 / ADR-079 §3.8: la entrada de notas internas desde el
+    // input se eliminó. Los mensajes nuevos siempre son públicos.
     if (socket?.connected) {
       socket.emit('message:send', {
         conversationId: activeChat.id,
         body,
-        is_internal: isInt,
+        is_internal: false,
       });
     } else {
       try {
-        await supportApi.addMessage(token, activeChat.id, { body, is_internal: isInt });
+        await supportApi.addMessage(token, activeChat.id, {
+          body,
+          is_internal: false,
+        });
       } catch (e) { console.error('[AgentChat] REST fallback failed:', e); }
     }
 
     setMessage('');
-    setInternalNote(false);
     setSending(false);
   };
 
@@ -283,7 +285,7 @@ export function useChatPanel() {
     chats, activeChat, loadingChats, chatSearch, setChatSearch,
     openChat, leaveChat,
     // Messages
-    message, setMessage, internalNote, setInternalNote,
+    message, setMessage,
     sending, typingIndicator, messagesEndRef,
     handleSend, handleTyping,
     // Client context

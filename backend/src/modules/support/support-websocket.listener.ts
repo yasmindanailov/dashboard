@@ -37,7 +37,18 @@ export class SupportWebsocketListener {
     sender_type: string;
     user_id: string | null;
     is_internal: boolean;
+    message?: Record<string, unknown>;
   }) {
+    /* Sprint 16 (ADR-079 amendment A3): broadcast canónico `message:new`
+       a la room de la conversación. ANTES solo lo emitía el gateway WS
+       cuando el envío llegaba vía socket; los mensajes enviados por REST
+       (página detalle /admin/support/[id]) no llegaban al cliente del
+       widget en tiempo real. Ahora el listener es la ÚNICA fuente —
+       el gateway eliminó su emisión directa para evitar duplicación. */
+    if (payload.message) {
+      this.gateway.broadcastNewMessage(payload.conversation_id, payload.message);
+    }
+
     // Update unread count for the other party
     if (
       payload.sender_type === 'agent' &&
@@ -46,8 +57,6 @@ export class SupportWebsocketListener {
     ) {
       await this.gateway.broadcastUnreadCount(payload.user_id, 'client');
     }
-    // Note: message:new is already broadcasted in the gateway's handleSendMessage
-    // This listener handles messages sent via REST (not WebSocket)
   }
 
   @OnEvent('conversation.assigned')
@@ -59,6 +68,23 @@ export class SupportWebsocketListener {
     this.gateway.broadcastConversationUpdate(payload.conversation_id, {
       assigned_agent_id: payload.agent_id,
       assigned_agent_name: payload.agent_name,
+    });
+  }
+
+  /* Sprint 16 (ADR-079 amendment A3): cuando un chat o ticket pasa a
+     `resolved` (vía updateConversation o vía escalateToTicket), el cliente
+     conectado por WS necesita ver el cambio de estado en tiempo real
+     para que la UI bloquee el input automáticamente sin esperar a un
+     refresh manual. Reusamos el evento `conversation.resolved` que ya
+     emite `SupportMessageService` y añadimos broadcast a la room
+     `conversation:${id}`. */
+  @OnEvent('conversation.resolved')
+  handleConversationResolved(payload: {
+    conversation_id: string;
+    user_id: string | null;
+  }) {
+    this.gateway.broadcastConversationUpdate(payload.conversation_id, {
+      status: 'resolved',
     });
   }
 }

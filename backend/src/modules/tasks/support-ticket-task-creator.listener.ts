@@ -20,6 +20,22 @@ interface ConversationUnassignedPayload {
 }
 
 /**
+ * Sprint 16 (ADR-079 amendment): payload del evento `conversation.reactivated`,
+ * emitido cuando un ticket vuelve de un estado terminal (`resolved`/`closed`)
+ * a vivo:
+ *   - `client_replied`: cliente respondió a un ticket `resolved` → auto-status
+ *     vuelve a `waiting_agent`.
+ *   - `admin_reopened`: admin pulsa "Reabrir" desde el detalle del ticket.
+ * El `agent_id` es el último agente asignado (puede ser null si el ticket
+ * estaba sin asignar). Si null, la nueva task queda en cola pública.
+ */
+interface ConversationReactivatedPayload {
+  conversation_id: string;
+  agent_id: string | null;
+  reason: 'client_replied' | 'admin_reopened';
+}
+
+/**
  * SupportTicketTaskCreatorListener — Sprint 16 Fase 16.B (ADR-079 §2 trigger #1).
  *
  * Consume `conversation.assigned` (emitido por `SupportMessageService`).
@@ -48,15 +64,54 @@ export class SupportTicketTaskCreatorListener {
   ) {}
 
   @OnEvent('conversation.assigned')
-  async handle(payload: ConversationAssignedPayload): Promise<void> {
+  async handleAssigned(payload: ConversationAssignedPayload): Promise<void> {
+    await this.upsertBridgeTask({
+      conversation_id: payload.conversation_id,
+      agent_id: payload.agent_id,
+      actor_id: payload.assigned_by,
+      origin: 'assigned',
+    });
+  }
+
+  /**
+   * Sprint 16 (ADR-079 amendment): consume `conversation.reactivated` cuando
+   * un ticket vuelve de un estado terminal (`resolved`/`closed`) a vivo. Si
+   * el ticket conserva agente, la nueva task lo hereda; si está sin asignar
+   * (`agent_id=null`), la nueva task queda en cola pública. Las tasks
+   * `completed` previas son inmutables (ADR-079 §3.2) — siempre nueva.
+   */
+  @OnEvent('conversation.reactivated')
+  async handleReactivated(
+    payload: ConversationReactivatedPayload,
+  ): Promise<void> {
+    await this.upsertBridgeTask({
+      conversation_id: payload.conversation_id,
+      agent_id: payload.agent_id,
+      // El actor "sistema" para reactivaciones automáticas: el cliente que
+      // respondió, o el admin que reabrió. `assigned_by` se usa solo para
+      // logging interno de la task — pasamos el agente actual (puede ser
+      // null) o un placeholder; el listener interno ya tolera null en
+      // cola pública.
+      actor_id: payload.agent_id ?? null,
+      origin: payload.reason,
+    });
+  }
+
+  /* ── Lógica común de upsert canónica ── */
+  private async upsertBridgeTask(args: {
+    conversation_id: string;
+    agent_id: string | null;
+    actor_id: string | null;
+    origin: 'assigned' | 'client_replied' | 'admin_reopened';
+  }): Promise<void> {
     const conversation = await this.prisma.conversation.findUnique({
-      where: { id: payload.conversation_id },
+      where: { id: args.conversation_id },
       select: { id: true, type: true, user_id: true },
     });
 
     if (!conversation) {
       this.logger.warn(
-        `conversation ${payload.conversation_id} not found — task not created`,
+        `conversation ${args.conversation_id} not found — task not created`,
       );
       return;
     }
@@ -71,7 +126,7 @@ export class SupportTicketTaskCreatorListener {
     // Tier SI del cliente para priority + due_date canónicos.
     const tier = await this.getClientSITier(conversation.user_id);
 
-    // ¿Existe ya una task activa para este ticket? Si sí, reasignar.
+    // ¿Existe ya una task activa para este ticket?
     const existing = await this.prisma.task.findFirst({
       where: {
         source_system: 'support_ticket',
@@ -82,21 +137,26 @@ export class SupportTicketTaskCreatorListener {
     });
 
     if (existing) {
-      if (existing.assigned_to === payload.agent_id) return; // idempotente
-      try {
-        await this.tasks.assign(
-          existing.id,
-          { assigned_to: payload.agent_id },
-          payload.assigned_by,
-          true, // isAdmin = true (listener actúa como sistema)
-        );
-        this.logger.log(
-          `task ${existing.id} reassigned to agent ${payload.agent_id} (ticket ${conversation.id})`,
-        );
-      } catch (err) {
-        this.logger.warn(
-          `failed to reassign task ${existing.id}: ${getMsg(err)}`,
-        );
+      if (existing.assigned_to === args.agent_id) return; // idempotente
+      // En `client_replied` / `admin_reopened` con la misma task activa
+      // (caso raro: la task no se completó cuando se resolvió el ticket
+      // por un legacy path), reasignamos al agente actual del ticket.
+      if (args.agent_id && args.actor_id) {
+        try {
+          await this.tasks.assign(
+            existing.id,
+            { assigned_to: args.agent_id },
+            args.actor_id,
+            true, // isAdmin = true (listener actúa como sistema)
+          );
+          this.logger.log(
+            `task ${existing.id} reassigned to agent ${args.agent_id} (ticket ${conversation.id} · origin=${args.origin})`,
+          );
+        } catch (err) {
+          this.logger.warn(
+            `failed to reassign task ${existing.id}: ${getMsg(err)}`,
+          );
+        }
       }
       return;
     }
@@ -114,12 +174,12 @@ export class SupportTicketTaskCreatorListener {
         source_system: 'support_ticket',
         source_id: conversation.id,
         client_id: conversation.user_id,
-        assigned_to: payload.agent_id,
+        assigned_to: args.agent_id,
         priority,
         due_date,
       });
       this.logger.log(
-        `support_ticket task ${task.id} created for ticket ${conversation.id} → agent ${payload.agent_id} (priority=${priority})`,
+        `support_ticket task ${task.id} created for ticket ${conversation.id} → agent ${args.agent_id ?? 'cola pública'} (priority=${priority}, origin=${args.origin})`,
       );
     } catch (err) {
       this.logger.warn(

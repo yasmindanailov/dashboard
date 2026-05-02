@@ -24,6 +24,13 @@ export interface Chat {
   created_at: string;
   updated_at: string;
   messages: Message[];
+  /* Sprint 16 (ADR-079 amendment A3): si el chat fue escalado a ticket,
+     enriquecido por SupportQueryService.findOne con el ticket destino. */
+  escalated_to?: {
+    id: string;
+    sequence_number: number | null;
+    subject: string;
+  } | null;
 }
 
 export interface ClientProfile {

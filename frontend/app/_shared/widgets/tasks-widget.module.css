@@ -1,0 +1,115 @@
+/* TasksWidget — dashboard /admin (§3.11). */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.viewAll {
+  font-size: var(--font-size-sm);
+  color: var(--brand);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.viewAll:hover {
+  text-decoration: underline;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3);
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: background var(--transition-fast);
+}
+
+.row:hover {
+  background: var(--surface-secondary, #f4f5f7);
+}
+
+.icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.bodyTop {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.system {
+  font-weight: 500;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.dot {
+  color: var(--text-tertiary);
+}
+
+.client {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sla {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.slaSafe {
+  color: var(--success, #15803d);
+}
+
+.slaWarn {
+  color: var(--warning, #c2410c);
+}
+
+.slaDanger {
+  color: var(--danger, #b91c1c);
+}
+
+.empty {
+  margin: var(--space-2) 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}

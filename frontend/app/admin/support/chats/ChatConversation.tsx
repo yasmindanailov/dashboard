@@ -1,15 +1,19 @@
 'use client';
 
 import { RefObject } from 'react';
+import Link from 'next/link';
 import type { Chat, Message } from './types';
 import { STATUS_BADGE, formatTime } from './types';
 import { Button, EmptyState } from '../../../components/ui';
 import styles from './chats.module.css';
 
 /* ═══════════════════════════════════════
-   ChatConversation — Center column
-   Displays chat messages, typing indicator,
-   internal note toggle, and message input.
+   ChatConversation — Center column.
+
+   Sprint 16 / ADR-079 §3.8: la entrada de "Nota interna" desde el input
+   se eliminó. Las notas internas las generan los listeners canónicos al
+   cerrar ticket / mantenimiento / task. La lectura de `msg.is_internal=
+   true` de mensajes legacy permanece para auditoría.
    Ref: DECISIONS.md §43, 7.H1, 7.H13
    ═══════════════════════════════════════ */
 
@@ -18,23 +22,20 @@ interface ChatConversationProps {
   currentUserId: string | undefined;
   typingIndicator: boolean;
   message: string;
-  internalNote: boolean;
   sending: boolean;
   messagesEndRef: RefObject<HTMLDivElement | null>;
   onMessageChange: (value: string) => void;
-  onInternalNoteChange: (checked: boolean) => void;
   onSend: () => void;
   onTyping: () => void;
   onResolve: () => void;
-  onClose: () => void;
   onEscalate: () => void;
 }
 
 export default function ChatConversation({
   activeChat, currentUserId, typingIndicator,
-  message, internalNote, sending, messagesEndRef,
-  onMessageChange, onInternalNoteChange, onSend, onTyping,
-  onResolve, onClose, onEscalate,
+  message, sending, messagesEndRef,
+  onMessageChange, onSend, onTyping,
+  onResolve, onEscalate,
 }: ChatConversationProps) {
   if (!activeChat) {
     return (
@@ -56,7 +57,10 @@ export default function ChatConversation({
 
   return (
     <div className={styles.conversationColumn}>
-      {/* Chat header — topbar actions: Resolver + Cerrar (7.H24) */}
+      {/* Sprint 16 (ADR-079 amendment A3): chats sólo tienen un estado
+          terminal — `resolved`. Botón "Cerrar" eliminado (no aplica al
+          chat). Cuando el chat ya está `resolved`, ocultamos también
+          Resolver/Escalar — estado inmutable. */}
       <div className={styles.conversationHeader}>
         <div className={styles.conversationHeaderInfo}>
           <h3>{activeChat.subject}</h3>
@@ -64,18 +68,38 @@ export default function ChatConversation({
             {typingIndicator ? 'Cliente escribiendo...' : STATUS_BADGE[activeChat.status]?.label || activeChat.status}
           </div>
         </div>
-        <div className={styles.conversationHeaderActions}>
-          <Button variant="ghost" size="sm" onClick={onEscalate} title="Escalar a ticket">
-            Escalar
-          </Button>
-          <Button variant="secondary" size="sm" onClick={onResolve} title="Marcar como resuelto">
-            Resolver
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onClose} title="Cerrar conversación">
-            Cerrar
-          </Button>
-        </div>
+        {activeChat.status !== 'resolved' && activeChat.status !== 'closed' && (
+          <div className={styles.conversationHeaderActions}>
+            <Button variant="secondary" size="sm" onClick={onResolve} title="Marcar como resuelto">
+              Resolver
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onEscalate} title="Escalar a ticket">
+              Escalar a ticket
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* Sprint 16 (ADR-079 amendment A3): banner cuando el chat fue
+          escalado a ticket. Link directo al ticket destino. */}
+      {activeChat.escalated_to && (
+        <div className={styles.escalationBanner}>
+          <span>
+            Esta conversación se escaló al ticket{' '}
+            <strong>
+              TK-
+              {String(activeChat.escalated_to.sequence_number ?? 0).padStart(5, '0')}
+            </strong>
+            . El seguimiento continúa en el ticket.
+          </span>
+          <Link
+            href={`/admin/support/${activeChat.escalated_to.id}`}
+            className={styles.escalationBannerLink}
+          >
+            Abrir ticket →
+          </Link>
+        </div>
+      )}
 
       {/* Messages */}
       <div className={styles.messagesArea}>
@@ -91,26 +115,20 @@ export default function ChatConversation({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      {activeChat.status !== 'closed' && (
+      {/* Input — sólo cuando el chat está vivo. ADR-079 A3: chat resolved
+          es terminal, ambos lados ven notice y no pueden escribir. */}
+      {activeChat.status === 'resolved' || activeChat.status === 'closed' ? (
+        <div className={styles.closedNotice ?? styles.inputArea}>
+          Este chat ha sido cerrado. Si necesitas seguir hablando, abre una nueva conversación.
+        </div>
+      ) : (
         <div className={styles.inputArea}>
-          <div className={styles.internalToggle}>
-            <label className={`${styles.internalLabel} ${internalNote ? styles.internalLabelActive : ''}`}>
-              <input
-                type="checkbox"
-                checked={internalNote}
-                onChange={(e) => onInternalNoteChange(e.target.checked)}
-                className={styles.internalCheckbox}
-              />
-              Nota interna (solo visible para agentes)
-            </label>
-          </div>
           <div className={styles.inputRow}>
             <input
               value={message}
               onChange={(e) => { onMessageChange(e.target.value); onTyping(); }}
-              placeholder={internalNote ? 'Escribe una nota interna...' : 'Escribe un mensaje al cliente...'}
-              className={`${styles.messageInput} ${internalNote ? styles.messageInputInternal : ''}`}
+              placeholder="Escribe un mensaje al cliente..."
+              className={styles.messageInput}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
               }}
@@ -118,9 +136,9 @@ export default function ChatConversation({
             <button
               onClick={onSend}
               disabled={sending || !message.trim()}
-              className={`${styles.sendButton} ${internalNote ? styles.sendButtonInternal : ''}`}
+              className={styles.sendButton}
             >
-              {internalNote ? '↵' : '→'}
+              →
             </button>
           </div>
         </div>
@@ -133,6 +151,9 @@ export default function ChatConversation({
 
 function MessageBubble({ msg, isMe }: { msg: Message; isMe: boolean }) {
   const isSystem = msg.sender_type === 'system';
+  // Lectura legacy: mensajes anteriores a Sprint 16 con `is_internal=true`
+  // mantienen su rendering como "nota interna (legacy)" en el historial
+  // (auditoría inmutable). Los nuevos mensajes nunca marcan is_internal.
   const isInternal = msg.is_internal;
 
   if (isSystem) {
@@ -166,7 +187,7 @@ function MessageBubble({ msg, isMe }: { msg: Message; isMe: boolean }) {
         </div>
       )}
       <div className={`${styles.bubble} ${bubbleClass}`}>
-        {isInternal && <div className={styles.bubbleInternalLabel}>Nota interna</div>}
+        {isInternal && <div className={styles.bubbleInternalLabel}>Nota interna (legacy)</div>}
         <div className={styles.bubbleBody}>{msg.body}</div>
         <div className={`${styles.bubbleMeta} ${metaClass}`}>
           {formatTime(msg.created_at)}
