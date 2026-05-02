@@ -18,7 +18,9 @@ import {
  *  - Plugin válido → registrado y get(slug) lo devuelve.
  *  - getOrThrow con slug no registrado → throw.
  */
-function buildValidPlugin(over: Partial<ProvisionerPlugin> = {}): ProvisionerPlugin {
+function buildValidPlugin(
+  over: Partial<ProvisionerPlugin> = {},
+): ProvisionerPlugin {
   return {
     slug: 'internal',
     contractVersion: PROVISIONER_PLUGIN_CONTRACT_VERSION,
@@ -42,7 +44,9 @@ function buildValidPlugin(over: Partial<ProvisionerPlugin> = {}): ProvisionerPlu
   };
 }
 
-async function buildRegistry(plugins: ProvisionerPlugin[]): Promise<PluginRegistryService> {
+async function buildRegistry(
+  plugins: ProvisionerPlugin[],
+): Promise<PluginRegistryService> {
   const module: TestingModule = await Test.createTestingModule({
     providers: [
       PluginRegistryService,

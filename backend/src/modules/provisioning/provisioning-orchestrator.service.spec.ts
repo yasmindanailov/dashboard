@@ -1,3 +1,8 @@
+/* eslint-disable @typescript-eslint/unbound-method */
+// `unbound-method` produce falsos positivos en specs Jest cuando se hace
+// `expect(mock.method).toHaveBeenCalled()`. Doctrina oficial TS-ESLint para
+// specs: deshabilitar a nivel de archivo. Solo aplica a este `.spec.ts`.
+
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
@@ -35,7 +40,9 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
   let queue: { add: jest.Mock };
   let orchestrator: ProvisioningOrchestratorService;
 
-  function buildPlugin(over: Partial<ProvisionerPlugin> = {}): ProvisionerPlugin {
+  function buildPlugin(
+    over: Partial<ProvisionerPlugin> = {},
+  ): ProvisionerPlugin {
     return {
       slug: 'internal',
       contractVersion: PROVISIONER_PLUGIN_CONTRACT_VERSION,
@@ -120,14 +127,18 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
   });
 
   it('service ya active → skip idempotente', async () => {
-    prisma.service.findUnique.mockResolvedValueOnce(setupServiceRow({ status: 'active' }));
+    prisma.service.findUnique.mockResolvedValueOnce(
+      setupServiceRow({ status: 'active' }),
+    );
     await orchestrator.provisionService('svc-1', 'cor-1');
     expect(prisma.service.update).not.toHaveBeenCalled();
     expect(events.emit).not.toHaveBeenCalled();
   });
 
   it('service en estado terminal (cancelled/terminated) → skip', async () => {
-    prisma.service.findUnique.mockResolvedValueOnce(setupServiceRow({ status: 'cancelled' }));
+    prisma.service.findUnique.mockResolvedValueOnce(
+      setupServiceRow({ status: 'cancelled' }),
+    );
     await orchestrator.provisionService('svc-1', 'cor-1');
     expect(prisma.service.update).not.toHaveBeenCalled();
   });
@@ -207,9 +218,11 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
   it('plugin lanza ProvisionerPluginError(retriable=true) → re-throw para BullMQ retry', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(setupServiceRow());
     const plugin = buildPlugin({
-      provision: jest.fn().mockRejectedValue(
-        new ProvisionerPluginError('timeout', 'PROVIDER_TIMEOUT', true),
-      ),
+      provision: jest
+        .fn()
+        .mockRejectedValue(
+          new ProvisionerPluginError('timeout', 'PROVIDER_TIMEOUT', true),
+        ),
     });
     registry.get.mockReturnValue(plugin);
 
@@ -227,18 +240,26 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
   it('plugin lanza ProvisionerPluginError(retriable=false) → status=cancelled + emit failed', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(setupServiceRow());
     const plugin = buildPlugin({
-      provision: jest.fn().mockRejectedValue(
-        new ProvisionerPluginError('auth fail', 'PROVIDER_AUTH_FAILED', false),
-      ),
+      provision: jest
+        .fn()
+        .mockRejectedValue(
+          new ProvisionerPluginError(
+            'auth fail',
+            'PROVIDER_AUTH_FAILED',
+            false,
+          ),
+        ),
     });
     registry.get.mockReturnValue(plugin);
 
     await orchestrator.provisionService('svc-1', 'cor-1');
 
     // Debe haberse llamado update con status=cancelled tras el fallo.
-    const updateCalls = prisma.service.update.mock.calls;
+    const updateCalls = prisma.service.update.mock.calls as Array<
+      [{ data?: { status?: string } }]
+    >;
     const cancelCall = updateCalls.find(
-      (c) => (c[0] as { data?: { status?: string } }).data?.status === 'cancelled',
+      (c) => c[0].data?.status === 'cancelled',
     );
     expect(cancelCall).toBeDefined();
     expect(events.emit).toHaveBeenCalledWith(
@@ -253,15 +274,23 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
   it('handleInvoicePaid encola un job por cada service en items', async () => {
     prisma.invoice.findUnique.mockResolvedValueOnce({
       id: 'inv-1',
-      items: [{ service_id: 'svc-A' }, { service_id: 'svc-B' }, { service_id: null }],
+      items: [
+        { service_id: 'svc-A' },
+        { service_id: 'svc-B' },
+        { service_id: null },
+      ],
     });
 
-    await orchestrator.handleInvoicePaid({ invoice_id: 'inv-1', user_id: 'user-1' });
+    await orchestrator.handleInvoicePaid({
+      invoice_id: 'inv-1',
+      user_id: 'user-1',
+    });
 
     expect(queue.add).toHaveBeenCalledTimes(2);
-    const enqueuedServiceIds = queue.add.mock.calls
-      .map((c) => (c[1] as { service_id: string }).service_id)
-      .sort();
+    const addCalls = queue.add.mock.calls as Array<
+      [unknown, { service_id: string }]
+    >;
+    const enqueuedServiceIds = addCalls.map((c) => c[1].service_id).sort();
     expect(enqueuedServiceIds).toEqual(['svc-A', 'svc-B']);
   });
 
@@ -271,7 +300,10 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
       items: [{ service_id: null }, { service_id: null }],
     });
 
-    await orchestrator.handleInvoicePaid({ invoice_id: 'inv-2', user_id: 'user-1' });
+    await orchestrator.handleInvoicePaid({
+      invoice_id: 'inv-2',
+      user_id: 'user-1',
+    });
 
     expect(queue.add).not.toHaveBeenCalled();
   });

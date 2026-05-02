@@ -1,3 +1,8 @@
+/* eslint-disable @typescript-eslint/unbound-method */
+// `unbound-method` produce falsos positivos en specs Jest cuando se hace
+// `expect(mock.method).toHaveBeenCalled()`. Doctrina oficial TS-ESLint para
+// specs: deshabilitar a nivel de archivo. Solo aplica a este `.spec.ts`.
+
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import {
@@ -112,9 +117,15 @@ describe('getServiceInfoWithCache — Sprint 11 Fase 11.B', () => {
     const events = buildEvents();
     const plugin = buildPlugin();
 
-    const out = await getServiceInfoWithCache(plugin, mockService, cache, events, {
-      ttlSeconds: 60,
-    });
+    const out = await getServiceInfoWithCache(
+      plugin,
+      mockService,
+      cache,
+      events,
+      {
+        ttlSeconds: 60,
+      },
+    );
 
     expect(out).toBe(cached);
     expect(plugin.getServiceInfo).not.toHaveBeenCalled();
@@ -130,9 +141,15 @@ describe('getServiceInfoWithCache — Sprint 11 Fase 11.B', () => {
       getServiceInfo: jest.fn().mockResolvedValue(fresh),
     });
 
-    const out = await getServiceInfoWithCache(plugin, mockService, cache, events, {
-      ttlSeconds: 90,
-    });
+    const out = await getServiceInfoWithCache(
+      plugin,
+      mockService,
+      cache,
+      events,
+      {
+        ttlSeconds: 90,
+      },
+    );
 
     expect(out).toBe(fresh);
     expect(plugin.getServiceInfo).toHaveBeenCalledWith(mockService);
@@ -154,17 +171,31 @@ describe('getServiceInfoWithCache — Sprint 11 Fase 11.B', () => {
       getServiceInfo: jest
         .fn()
         .mockRejectedValue(
-          new ProvisionerPluginError('auth failed', 'PROVIDER_AUTH_FAILED', false),
+          new ProvisionerPluginError(
+            'auth failed',
+            'PROVIDER_AUTH_FAILED',
+            false,
+          ),
         ),
     });
 
-    const out = await getServiceInfoWithCache(plugin, mockService, cache, events, {
-      ttlSeconds: 60,
-    });
+    const out = await getServiceInfoWithCache(
+      plugin,
+      mockService,
+      cache,
+      events,
+      {
+        ttlSeconds: 60,
+      },
+    );
 
     expect(out.status).toBe('unknown');
     expect(out.statusReason).toBe('Provider unavailable');
-    expect(cache.set).toHaveBeenCalledWith('svc-1', expect.objectContaining({ status: 'unknown' }), 30);
+    expect(cache.set).toHaveBeenCalledWith(
+      'svc-1',
+      expect.objectContaining({ status: 'unknown' }),
+      30,
+    );
   });
 
   it('forceRevalidate salta cache aunque haya hit', async () => {
@@ -176,10 +207,16 @@ describe('getServiceInfoWithCache — Sprint 11 Fase 11.B', () => {
       getServiceInfo: jest.fn().mockResolvedValue(fresh),
     });
 
-    const out = await getServiceInfoWithCache(plugin, mockService, cache, events, {
-      ttlSeconds: 60,
-      forceRevalidate: true,
-    });
+    const out = await getServiceInfoWithCache(
+      plugin,
+      mockService,
+      cache,
+      events,
+      {
+        ttlSeconds: 60,
+        forceRevalidate: true,
+      },
+    );
 
     expect(plugin.getServiceInfo).toHaveBeenCalled();
     expect(out).toBe(fresh);
@@ -191,7 +228,11 @@ describe('getServiceInfoWithCache — Sprint 11 Fase 11.B', () => {
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('executeActionWithCacheInvalidation — Sprint 11 Fase 11.B', () => {
-  const ctx = { actorUserId: 'user-1', ipAddress: '10.0.0.1', userAgent: 'jest' };
+  const ctx = {
+    actorUserId: 'user-1',
+    ipAddress: '10.0.0.1',
+    userAgent: 'jest',
+  };
 
   it('slug no declarado → success=false, no llama plugin', async () => {
     const cache = buildCache();
@@ -270,14 +311,24 @@ describe('executeActionWithCacheInvalidation — Sprint 11 Fase 11.B', () => {
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('getSsoUrlWithAudit — Sprint 11 Fase 11.B', () => {
-  const ctx = { actorUserId: 'user-1', ipAddress: '10.0.0.1', userAgent: 'jest' };
+  const ctx = {
+    actorUserId: 'user-1',
+    ipAddress: '10.0.0.1',
+    userAgent: 'jest',
+  };
 
   it('has_sso_panel=false → null sin llamar plugin', async () => {
     const events = buildEvents();
     const audit = buildAudit();
     const plugin = buildPlugin();
 
-    const out = await getSsoUrlWithAudit(plugin, mockService, ctx, events, audit as never);
+    const out = await getSsoUrlWithAudit(
+      plugin,
+      mockService,
+      ctx,
+      events,
+      audit as never,
+    );
 
     expect(out).toBeNull();
     expect(plugin.getSsoUrl).not.toHaveBeenCalled();
@@ -305,7 +356,13 @@ describe('getSsoUrlWithAudit — Sprint 11 Fase 11.B', () => {
       }),
     });
 
-    const out = await getSsoUrlWithAudit(plugin, mockService, ctx, events, audit as never);
+    const out = await getSsoUrlWithAudit(
+      plugin,
+      mockService,
+      ctx,
+      events,
+      audit as never,
+    );
 
     expect(out?.url).toContain('cpanel.example.com');
     expect(audit.logAccess).toHaveBeenCalledWith(
@@ -337,7 +394,13 @@ describe('getSsoUrlWithAudit — Sprint 11 Fase 11.B', () => {
       getSsoUrl: jest.fn().mockRejectedValue(new Error('connection refused')),
     });
 
-    const out = await getSsoUrlWithAudit(plugin, mockService, ctx, events, audit as never);
+    const out = await getSsoUrlWithAudit(
+      plugin,
+      mockService,
+      ctx,
+      events,
+      audit as never,
+    );
 
     expect(out).toBeNull();
     expect(audit.logAccess).not.toHaveBeenCalled();
