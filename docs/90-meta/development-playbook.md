@@ -35,6 +35,8 @@
 
 ⚠️ **Outbox Pattern (R8)**: **4/25 eventos lo usan** — `invoice.*` (created/paid/failed/overdue) cerrado P0.2 (2026-04-26) vía `OutboxService` + `OutboxWorker` en `backend/src/core/outbox/`. Pendiente extender a `service.*` (4) y `checkout.completed` cuando se implemente provisioning, y a `partner.*` (4 futuros). ADR-033 documenta el patrón canónico. **Bajo P-DEPLOY (no urgente — ADR-069).**
 ✅ **Sprint 8 (Tasks + Support Inside)** — **cerrado 2026-05-01** (~6 sesiones, ~25 commits, 5 ADRs nuevos 072..076). Retrospectiva en [`completed/sprint-8-tasks-support-inside.md`](../60-roadmap/completed/sprint-8-tasks-support-inside.md). Documentación operativa en [`docs/features/tasks/`](../features/tasks/) y [`docs/features/support-inside/`](../features/support-inside/). Cobertura final: 157/157 unit + 117/117 E2E verde, 5 migraciones aplicadas. Eventos task aún huérfanos: `task.created`, `task.completed` (audit Sprint 9 Fase E pendiente — EC-T8-44).
+
+🟡 **Sprint 11 (Provisioning) WIP — Fases 11.A + 11.B mergeadas en master 2026-05-02.** Cola: 11.C (plugins triviales `internal` + `manual` + listener `provisioning-on-task-completed` + tests E2E) → 11.D (frontend Server Components + endpoints REST) → 11.E (cierre documental + retro). [ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) congela el contrato canónico `ProvisionerPlugin` v2; Fase 11.B materializa orquestador + chasis (3 wrappers cross-cutting + cache Redis DB 2 + plugin registry + cola BullMQ `provisioning-dispatch`). Plan canónico completo en [`current.md` §Sprint 11](../60-roadmap/current.md). Cobertura parcial: **183/183 unit verde** (157 base Sprint 8 + 26 nuevos Fase 11.B). Decisión local registrada: el orquestador emite evento NUEVO `service.activated` (coexiste con `service.provisioned` legacy de `BillingCheckoutService` para preservar Sprint 8 D.12.9).
 ⚠️ **DC.6 — Frontend `set-state-in-effect`**: 27 warnings del patrón clásico `useEffect+fetch+setLoading` (regla nueva de eslint-plugin-react-hooks 7.x para React 19). Severidad bajada de `error` a `warn` en `frontend/eslint.config.mjs` con justificación. Plan: migrar fetching a Server Components + `use()`/Suspense en Sprint 7.5 Fase 2 o Sprint 13 Hardening — ver [`backlog.md` DC.6](../60-roadmap/backlog.md). El CI **no bloquea** por estos warnings (sólo por errors).
 ⚠️ **15 eventos huérfanos** (todos clasificados en `_events.md` como hooks aspiracionales para módulos futuros).
 ⚠️ **Sentry preparado, sin DSN configurado** — decisión consciente. Activar al desplegar a producción.
@@ -304,6 +306,7 @@ Cuando vuelvas tras tiempo, lee en este orden:
 > ✅ **P1.2 Sprint 11.5** (MinIO Storage) cerrado 2026-04-26 — [`completed/sprint-11-5-minio-storage.md`](../60-roadmap/completed/sprint-11-5-minio-storage.md).
 > ✅ **Sprint 8** (Tasks + Support Inside, 5 ADRs nuevos 072..076) cerrado **2026-05-01** — [`completed/sprint-8-tasks-support-inside.md`](../60-roadmap/completed/sprint-8-tasks-support-inside.md).
 > 🧹 **Saneamiento documental 2026-05-01**: 4 sprints cerrados que vivían en `current.md` por inercia (9 / 9.5 / 11.5 / 9.6) movidos a `completed/`. `current.md` ahora muestra solo Sprint 7 + 7.5 (paraguas continuos) + punteros cronológicos a los cerrados.
+> 🟡 **Sprint 11 (Provisioning) WIP — Fases 11.A+B mergeadas 2026-05-02** — ADR-077 (contrato canónico) + orquestador + chasis BullMQ + plugin registry + 26 unit tests nuevos (suite full 183/183). Plan canónico en [`current.md` §Sprint 11](../60-roadmap/current.md). Cola: Fase 11.C (plugins triviales + tests E2E) → 11.D (frontend) → 11.E (docs canónicas + retro).
 > 📜 **Política deploy diferido formalizada en [ADR-069](../10-decisions/adr-069-estrategia-deploy-diferido.md)** (2026-04-29): Sprint 14 reclasificado como **gate condicionado P-DEPLOY**, no como cola activa.
 
 ### Política canónica para "qué viene ahora" (post ADR-069)
@@ -326,9 +329,11 @@ El proyecto es **a largo plazo**, sin clientes esperando ni demo pública pendie
 - **Por qué tiene sentido**: emparejado con Sprint 15E (Plugin Docker Engine) en cadena corta — son los únicos consumidores reales de la infra `servers/server_pools`. Si la prioridad es Docker Engine, abrir Sprint 10 antes que Sprint 11 es legítimo.
 - **Por qué no por defecto**: el plan canónico (ADR-070) recomienda **Sprint 11 + Plugin Framework primero**, antes de Sprint 10/15E, para fijar la interfaz extendida `ProvisionerPlugin`. Construir Sprint 10 antes de tener Sprint 11/15A sería YAGNI (módulo sin consumidor real definido).
 
-### Mi voto profesional: Vía 1 (Sprint 11 Provisioning)
+### Mi voto profesional: Vía 1 (Sprint 11 Provisioning) — ya en curso
 
-Razones:
+**Estado 2026-05-02:** Fases 11.A + 11.B mergeadas en master. Próximo paso natural = Fase 11.C (plugins triviales `internal` + `manual` + listener `provisioning-on-task-completed` + tests E2E). Plan canónico completo en [`current.md` §Sprint 11](../60-roadmap/current.md) — incluye mensaje sugerido para arrancar la siguiente sesión con contexto fresco.
+
+Razones por las que Sprint 11 es la cabeza de cola activa P2:
 1. **Sprint 8 cerrado al 100%** (2026-05-01) — sin WIP arrastrado.
 2. **Sprint 11 Provisioning** es la cabeza de cola activa P2 según [ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md): orquestador + interfaz extendida + plugins triviales primero, antes de cualquier plugin concreto.
 3. **Listeners cross-módulo Sprint 8 → Sprint 11**: `tasks-on-service-cancelled`, `service-suspended → maintenance pause`, `provisioning-on-task-completed → activate manual service`, `ContactClientTaskListener` (ADR-073). Contexto Tasks fresco favorece cierre limpio de las relaciones cross-módulo.

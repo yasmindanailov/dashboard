@@ -99,13 +99,21 @@ La mayoría de eventos `auth.*` se emiten "por si acaso" pero ningún listener l
 
 | Evento | Emisor | Consumidores | Payload | Outbox | Estado |
 |--------|--------|--------------|---------|--------|--------|
-| `service.cancelled` | `service-lifecycle.worker.ts:autoCancelServices()` | — | `{ service_id, user_id, reason }` | no | 🟠 huérfano (cuando exista provisioning, lo escuchará para desactivar) |
+| `service.provisioned` | `BillingCheckoutService.checkout()` (legacy histórico — Sprint 8 D.12.9 lo emite al CREAR el service, antes del provisioning real) | `SupportInsideOnServiceProvisionedListener` | `{ service_id, user_id, product_id, product_type }` | no | ✅ consumido (ADR-076 — coexiste con `service.activated` Sprint 11) |
+| `service.activated` | `ProvisioningOrchestratorService.markActive()` (Sprint 11 Fase 11.B — emitido CUANDO `services.status` pasa a `'active'` tras `plugin.provision()` exitoso) | (Fase 11.C: plugins futuros consumen este, NO `service.provisioned`) | `{ service_id, user_id, correlation_id }` | no | 🟢 nuevo Sprint 11 Fase 11.B (`67fd733`) — consumidores reales en Fase 11.C/15A-G |
+| `service.provisioning_failed` | `ProvisioningOrchestratorService.provisionService()` cuando plugin lanza error no-retriable o no está registrado (Sprint 11 Fase 11.B) | (pendiente listener `notifications` — alerta superadmin) | `{ service_id, user_id, provisioner_slug, reason, correlation_id }` | no | 🟡 emitido sin consumidor todavía (Fase 11.E lo cierra cuando se cree el listener notifications) |
+| `service.metrics_fetched` | Wrapper `getServiceInfoWithCache` en cache miss (Sprint 11 Fase 11.B) | (pendiente listener `audit` — RGPD: cliente sabe cuándo se consultó al proveedor) | `{ service_id, user_id, provisioner_slug, fetched_at, source_latency_ms }` | no | 🟡 emitido sin consumidor todavía (Fase 11.D/E) |
+| `service.action_executed` | Wrapper `executeActionWithCacheInvalidation` (Sprint 11 Fase 11.B) | (pendiente listener `audit` + opcional `notifications` para acciones destructivas) | `{ service_id, user_id, actor_user_id, provisioner_slug, action_slug, success, side_effects, destructive, ip }` | no | 🟡 emitido sin consumidor todavía (Fase 11.D/E) |
+| `service.sso_opened` | Wrapper `getSsoUrlWithAudit` tras SSO exitoso (Sprint 11 Fase 11.B) | (pendiente listener `audit` — RGPD) | `{ service_id, user_id, actor_user_id, provisioner_slug, panel_label, ip }` | no | 🟡 emitido sin consumidor todavía (Fase 11.D/E) |
+| `service.cancelled` | `service-lifecycle.worker.ts:autoCancelServices()` | — | `{ service_id, user_id, reason }` | no | 🟠 huérfano (Sprint 11 lo escuchará para invocar `plugin.deprovision`) |
 | `service.paused` | `subscription.service.ts:pauseService()` | — | `{ service_id, user_id, pause_max_date }` | no | 🟠 huérfano (provisioning → pausar instancia) |
 | `service.resumed` | `subscription.service.ts:resumeService()`, `service-lifecycle.worker.ts:checkPauseExpiration()` | — | `{ service_id, user_id, reason }` | no | 🟠 huérfano (provisioning → reactivar) |
 | `service.suspended` | `service-lifecycle.worker.ts:autoSuspendServices()` | — | `{ service_id, invoice_id, reason }` | no | 🟠 huérfano (provisioning → suspender) |
 
-**Análisis del dominio service:**
-Todos huérfanos esperando al módulo `provisioning`. Cuando provisioning se implemente, será su listener principal. Los eventos están bien diseñados: el dominio billing controla el ciclo de vida funcional; provisioning ejecutará la acción técnica externa.
+**Análisis del dominio service (actualizado 2026-05-02 — Sprint 11 Fase 11.B):**
+- **Coexistencia `service.provisioned` ↔ `service.activated`**: el evento histórico `service.provisioned` lo emite `BillingCheckoutService` al CREAR el service (antes del provisioning real); lo consume `SupportInsideOnServiceProvisionedListener` (ADR-076). El evento NUEVO `service.activated` lo emite el orquestador Sprint 11 cuando confirma `services.status='active'` tras `plugin.provision()` exitoso. Plugins reales Sprint 15 consumen `service.activated`, NO `service.provisioned`. Decisión local documentada en docstring de `ProvisioningOrchestratorService` y en `current.md` §Sprint 11 §9.
+- **5 eventos `service.*` nuevos Fase 11.B sin consumidor todavía**: provisioning_failed, metrics_fetched, action_executed, sso_opened. Fase 11.E (cierre) los enchufa al listener `audit` correspondiente — los wrappers ya los emiten correctamente.
+- **`service.cancelled/paused/resumed/suspended` siguen huérfanos** — Sprint 11 Fase 11.C-D los enchufa al orquestador (consumir → invocar `plugin.deprovision()` o equivalente).
 
 ---
 
@@ -177,6 +185,7 @@ Todos huérfanos esperando al módulo `provisioning`. Cuando provisioning se imp
 | `SupportInsidePriorityListener` | `conversation.created` | Si el cliente tiene SI activa, mapea `priority_tier` → `ConversationPriority` con compare-and-swap (sólo escala si `priority='normal'` — preserva elección manual del agente, EC-T8-47) (Sprint 8 Fase D.12.2) |
 | `SupportInsideAuditListener` | `support_inside.subscribed/cancelled/slot_assigned/slot_released` | Delega en `AuditService.logChange()` con `entity_type` distinguiendo subscription vs slot (R3 audit inmutable, alimenta portal transparencia cliente) (Sprint 8 Fase D.12.3) |
 | `SupportInsideOnServiceProvisionedListener` | `service.provisioned` | Si `product.type='support_inside'`: crea/reactiva `SupportInsideSubscription`. Materializa ADR-076 (checkout único vía evento). Filtra defensivamente para coexistir con futuros listeners hosting/docker (Sprint 8 Fase D.12.9) |
+| `ProvisioningOrchestratorService.handleInvoicePaid` | `invoice.paid` | Resuelve `service.product.provisioner` desde `PluginRegistryService` → encola job en cola BullMQ `provisioning-dispatch` por cada `service_id` en `invoice.items`. Idempotente por `services.status` check. Distingue retriable vs non-retriable errors. Emite `service.activated` (followUp `mark_active`), `service.provisioning_failed` (no-retriable), `service.metrics_fetched`/`action_executed`/`sso_opened` (vía wrappers). (Sprint 11 Fase 11.B, `67fd733`) |
 | `notifications-outbox.listener` | `outbox.event_failed` | Alerta superadmin (campana + email) cuando un row Outbox agota retries (Sprint 9 Fase D) |
 | `notifications-dlq.listener` | `dlq.job_failed` | Alerta superadmin cuando un job BullMQ entra en DLQ (Sprint 9 Fase D) |
 | `notifications-system-error.listener` | `system.error` | Alerta superadmin con guard anti-loop hard si `module` proviene del dominio notifications (Sprint 9.5) |

@@ -177,6 +177,12 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 |-----|------|---------|--------|------------|--------|
 | `audit.access_retention_days` | number | 730 | ✅ | `modules/audit/audit-retention.cron.ts` (mínimo legal AEPD: 2 años) | [ADR-017](../10-decisions/adr-017-audit-log-inmutable.md) · seed.ts |
 
+### 🔌 provisioning.* (Sprint 11 Fase 11.B — ADR-077)
+
+| Key | Tipo | Default | Estado | Consumidor | Origen |
+|-----|------|---------|--------|------------|--------|
+| `provisioning.service_info_ttl_seconds` | number | 60 | ✅ | `core/provisioning/plugin-utils.ts:getServiceInfoWithCache()` — TTL del cache Redis DB 2 (`aelium-provisioning:service_info:<id>`). Plugins NO gestionan cache; el wrapper lo hace por ellos. ADR-070 §Mecanismo A. | [ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) · seed.ts (Sprint 11 Fase 11.B) |
+
 ### 🤖 ai.* (agentes IA — Sprint 15 futuro)
 
 | Key | Tipo | Default | Estado | Consumidor | Origen |

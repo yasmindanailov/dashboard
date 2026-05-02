@@ -3,9 +3,9 @@
 > **Catálogo canónico de TODOS los crons y jobs BullMQ.**
 > Si vas a programar trabajo asíncrono → consulta este archivo para no duplicar. Si vas a añadir uno nuevo → añádelo aquí en el mismo PR.
 
-> **Última auditoría:** 2026-05-01 — cierre Sprint 8 Fase D backend (cola nueva BullMQ scheduled: `maintenance-monthly` para crear tasks de mantenimiento por slot Support Inside activo).
+> **Última auditoría:** 2026-05-02 — cierre Sprint 11 Fase 11.B (cola nueva BullMQ on-demand: `provisioning-dispatch` consume `invoice.paid` y delega en `ProvisionerPlugin.provision()` por servicio).
 > **Crons in-process activos:** 9 (`@nestjs/schedule`). El Outbox dispatcher abandonó `@Interval` en Sprint 9 Fase C — ahora es BullMQ scheduled. Sprint 9 Fase E añade `cleanupOldAuditLogs`. Sprint 9.5 añade `cleanupReadNotifications` (única DELETE permitida sobre `notifications` canal `internal`).
-> **Jobs BullMQ implementados:** **7 — `pdf-generation` (Sprint 9 Fase B), `outbox-dispatch` (Sprint 9 Fase C), `notifications-dispatch` (Sprint 9 Fase D), `tasks-overdue` (Sprint 8 Fase C), `tasks-unassigned-overdue` (Sprint 8 Fase C / ADR-072), `maintenance-critical` (Sprint 8 Fase C), `maintenance-monthly` (Sprint 8 Fase D / ADR-034 + ADR-061)** ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) + [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md) + [ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md) + [ADR-034](../10-decisions/adr-034-support-inside-modelo.md)).
+> **Jobs BullMQ implementados:** **8 — `pdf-generation` (Sprint 9 Fase B), `outbox-dispatch` (Sprint 9 Fase C), `notifications-dispatch` (Sprint 9 Fase D), `tasks-overdue` (Sprint 8 Fase C), `tasks-unassigned-overdue` (Sprint 8 Fase C / ADR-072), `maintenance-critical` (Sprint 8 Fase C), `maintenance-monthly` (Sprint 8 Fase D / ADR-034 + ADR-061), `provisioning-dispatch` (Sprint 11 Fase 11.B / ADR-077)** ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) + [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md) + [ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md) + [ADR-034](../10-decisions/adr-034-support-inside-modelo.md) + [ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md)).
 > **Crons aspiracionales:** 1 documentado en ADRs sin implementación todavía (numeración year+1).
 
 ---
@@ -15,7 +15,7 @@
 | Métrica | Valor |
 |---------|-------|
 | Crons `@Cron` activos | 9 (8 billing/support/audit + 1 notifications retention Sprint 9.5) |
-| Jobs BullMQ activos | **7** (`pdf-generation` Sprint 9 Fase B · `outbox-dispatch` Sprint 9 Fase C · `notifications-dispatch` Sprint 9 Fase D · `tasks-overdue` Sprint 8 Fase C · `tasks-unassigned-overdue` Sprint 8 Fase C / ADR-072 · `maintenance-critical` Sprint 8 Fase C · `maintenance-monthly` Sprint 8 Fase D / ADR-034) |
+| Jobs BullMQ activos | **8** (`pdf-generation` Sprint 9 Fase B · `outbox-dispatch` Sprint 9 Fase C · `notifications-dispatch` Sprint 9 Fase D · `tasks-overdue` Sprint 8 Fase C · `tasks-unassigned-overdue` Sprint 8 Fase C / ADR-072 · `maintenance-critical` Sprint 8 Fase C · `maintenance-monthly` Sprint 8 Fase D / ADR-034 · `provisioning-dispatch` Sprint 11 Fase 11.B / ADR-077) |
 | DLQ implementada | ✅ ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) — `DlqService` + tabla `failed_jobs` + emit `dlq.job_failed`) |
 | Outbox dispatcher BullMQ scheduled | ✅ ([ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) — backoff exponencial 30s→480s + emit `outbox.event_failed` + leader election natural) |
 | Notifications full multicanal | ✅ ([ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md) — plantillas editables + Email + InApp + alertas operativas a superadmins) |
@@ -191,6 +191,20 @@ markAsPaid / sendToPending  →  pdfQueue.add('invoice-pdf', { invoice_id }, { j
 | DLQ | ✅ — `DlqService.register('maintenance-monthly')` |
 | Tests | unit `maintenance-monthly.service.spec.ts` (7/7 verde — billing_month canónico, filtros, idempotencia P2002, retry on otros errores), E2E `support-inside.spec.ts:195` (1/1 verde — flujo end-to-end subscribe + slot + cron + idempotencia) |
 
+### Cola `provisioning-dispatch` (Sprint 11 Fase 11.B + [ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md))
+
+| Item | Valor |
+|------|-------|
+| Nombre | `provisioning-dispatch` |
+| Job principal | `provision-service` (payload: `{ service_id, correlation_id }`) |
+| Productor | `ProvisioningOrchestratorService.handleInvoicePaid()` (`@OnEvent('invoice.paid')`) — encola un job por cada `service_id` distinto en `invoice.items`. También productor manual `enqueueProvisioning(serviceId, correlationId)` para endpoint admin `/admin/services/:id/reprovision` (Fase 11.D pendiente) + tests. |
+| Procesador | `ProvisioningDispatchProcessor.process()` → invoca `ProvisioningOrchestratorService.provisionService(serviceId, correlationId)` |
+| Lógica | Resuelve `service.product.provisioner` desde `PluginRegistryService`. Si plugin no registrado → emite `service.provisioning_failed` con `reason='plugin_not_registered'` y skip. Si está registrado: marca `services.status='provisioning'` + `provisioner_slug` denormalizado, llama `plugin.provision(ctx)`, persiste `provider_reference` + `metadata`, procesa `followUp` (`mark_active` → status=active + emit `service.activated`; `wait_for_task_completion` → log + listener Fase 11.C activará; `create_setup_task` → `TasksService.create(type=support_setup)` cola pública). |
+| Idempotencia | Triple guard: (a) jobId estable `provision-${serviceId}-${correlationId}`; (b) check `services.status` al inicio (skip si `active`/`cancelled`/`terminated`); (c) plugin `provision()` debe ser idempotente por `provider_reference` (ADR-077 §1). |
+| Errores | `ProvisionerPluginError(retriable=true)` → re-throw para BullMQ retry con backoff exponencial [30s, 90s, 270s, 810s, ...]. `ProvisionerPluginError(retriable=false)` → marca `services.status='cancelled'` + `cancellation_reason='provisioning_failed:<code>'` + emite `service.provisioning_failed`. |
+| DLQ | ✅ — `DlqService.register('provisioning-dispatch')`. Tras 5 fallos retriables, job entra en `failed_jobs` + alerta superadmin (Fase 11.E listener notifications). |
+| Tests | unit `provisioning-orchestrator.service.spec.ts` (10/10 verde — service no encontrado, idempotente, terminal, plugin no registrado, OK mark_active, OK create_setup_task, retriable re-throw, no-retriable cancela, invoice.paid encola N services, sin services no encola). E2E pendientes Fase 11.C. |
+
 ### Defaults globales (`JobsModule` — [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md))
 
 | Parámetro | Valor | Override por cola |
@@ -210,7 +224,7 @@ markAsPaid / sendToPending  →  pdfQueue.add('invoice-pdf', { invoice_id }, { j
 |--------------|---------|-------|
 | `REDIS_URL` | `redis://localhost:6379` | Lectura única vía `ConfigService.getOrThrow('REDIS_URL')`. **Requerida** para arrancar el backend (cumple ADR-063). |
 | `BULLMQ_PREFIX` | `aelium-jobs` | Prefijo de keys en Redis. Permite múltiples entornos sobre el mismo Redis. |
-| Redis DB | `1` | Reservada para BullMQ. DB 0 queda para cache de `SettingsService` cuando se implemente. |
+| Redis DB | `1` | Reservada para BullMQ. DB 0 cache `SettingsService`. **DB 2 reservada Sprint 11 Fase 11.B** para `ProvisioningCacheService` (cache `service_info:<id>` con prefijo `aelium-provisioning:`). |
 
 ---
 
