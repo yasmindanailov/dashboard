@@ -58,14 +58,16 @@ Filas = módulo origen. Columnas = módulo destino. Celda = tipo de relación.
 > - 3 colas BullMQ scheduled nuevas (`tasks-overdue`, `tasks-unassigned-overdue`, `maintenance-critical`) + 1 cola Support Inside (`maintenance-monthly` con cron diario filtro `anniversary_day`).
 > - 3 listeners transversales SI: `SupportInsidePriorityListener` (consume `conversation.created`), `SupportInsideAuditListener` (consume los 4 eventos `support_inside.*`), `SupportInsideOnServiceProvisionedListener` (consume `service.provisioned`).
 
-> **Sprint 11 Fases 11.A + 11.B (2026-05-02) cambios estructurales:**
-> - `provisioning/` salió de stub a chasis canónico real ([ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md)). Pendiente Fase 11.C-E para plugins concretos + frontend + retro.
-> - `provisioning` invoca `TasksService.create(type=support_setup)` cuando un plugin con `capabilities.completes_via_task=true` (ej. `manual`, Fase 11.C) devuelve `followUp: ['create_setup_task']`. Excepción documentada R1.
+> **Sprint 11 Fases 11.A → 11.E (2026-05-02) — cerrado al 100% — cambios estructurales:**
+> - `provisioning/` salió de stub a **módulo implementado completo** ([ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) + [ADR-078](../10-decisions/adr-078-auth-server-side-cookies-httponly.md)). Orquestador + chasis canónico + plugins triviales (`internal`/`manual`) + listener `provisioning-on-task-completed` + frontend (3 páginas + 5 componentes shared) + 8 endpoints REST (4 cliente + 4 admin) + cierre documental.
+> - `provisioning` invoca `TasksService.create(type=support_setup)` cuando un plugin con `capabilities.completes_via_task=true` (ej. `manual`) devuelve `followUp: ['create_setup_task']`. Excepción documentada R1.
 > - **1 cola BullMQ nueva**: `provisioning-dispatch` con DLQ + retries [30s, 90s, 270s, ...]. Consumida por `ProvisioningDispatchProcessor`.
 > - **1 evento nuevo canónico**: `service.activated` (orquestador post-provision OK). Coexiste con `service.provisioned` legacy (`BillingCheckoutService` al CREAR el service — sigue intacto para Sprint 8 D.12.9). Plugins Sprint 15 consumen `service.activated`.
-> - **4 eventos audit/RGPD nuevos**: `service.provisioning_failed`, `service.metrics_fetched`, `service.action_executed`, `service.sso_opened`. Wrappers cross-cutting los emiten automáticamente. Listener `audit` los engancha en Fase 11.E.
+> - **4 eventos audit/RGPD nuevos**: `service.provisioning_failed`, `service.metrics_fetched`, `service.action_executed`, `service.sso_opened`. Wrappers cross-cutting los emiten automáticamente. Listeners `audit` + `notifications` pendientes para Sprint 12+ (no bloquean cierre — la transparencia ya vive en `/dashboard/transparency` desde Sprint 9).
 > - **Redis DB 2 reservado** para cache `service_info:<id>` con prefijo `aelium-provisioning:` (DB 0 settings, DB 1 BullMQ, DB 2 provisioning cache).
 > - **Schema services**: 2 columnas nuevas (`provisioner_slug`, `provider_reference`) con índice. Inmutables tras `service.activated`.
+> - **ESLint `no-restricted-imports`** enforce R4 sobre `src/plugins/provisioners/**`: plugins importan SOLO de `core/provisioning/types`.
+> - **ADR-078 fija doctrina auth server-side**: Fase 11.D = última excepción permitida del patrón `'use client' + localStorage`. Sprint 12+ requiere Server Components + cookies httpOnly. Marker mecánico `TODO(ADR-078, Sprint 13)` en cada Client Component nuevo.
 > - Sprint 9.5 añade endpoints cliente `/notifications/*` + admin `/admin/notifications/templates`, `NotificationsRetentionCron`, `NotificationBell` Topbar, página admin de plantillas.
 > - Los 3 módulos cumplen R1 (comunicación vía eventos cuando aplica) y R15 (todos sus archivos <300 líneas).
 
@@ -143,10 +145,10 @@ support emits...
   message.created      ─┘└────► support-websocket.listener (push al WS)
 
 (Eventos huérfanos — emitidos sin listener actual:
- auth.* (7 eventos), service.cancelled/suspended/resumed (Sprint 11), task.created/completed (audit Sprint 9 Fase E pendiente), checkout.completed.
+ auth.* (7 eventos), service.cancelled/suspended/resumed (cuando llegue plugin con efecto real, ej. docker_engine Sprint 15E), task.created/completed (audit Sprint 9 Fase E pendiente), checkout.completed.
  Cerrados Sprint 8: task.assigned/overdue/unassigned_overdue + maintenance.completed/critical + 4 support_inside.* + service.provisioned consumido por SI Listener.
- Cerrados Sprint 11 Fase 11.B: invoice.paid consumido por ProvisioningOrchestratorService.
- Pendientes consumidores Sprint 11 Fase 11.C/D/E: service.activated/provisioning_failed/metrics_fetched/action_executed/sso_opened — emitidos por orquestador y wrappers, esperando listeners audit + notifications)
+ Cerrados Sprint 11: invoice.paid consumido por ProvisioningOrchestratorService; service.activated emitido por orquestador (consumidor real cuando llegue Sprint 15A-G plugin con bienvenida).
+ Pendientes consumidores Sprint 12+: service.provisioning_failed/metrics_fetched/action_executed/sso_opened — emitidos por orquestador y wrappers, esperando listeners audit + notifications cuando llegue plugin con coste de fallo significativo)
 ```
 
 ---
@@ -175,7 +177,7 @@ Estos módulos no aparecen en la matriz principal como origen ni destino (más a
 | ~~audit~~ | ✅ **implementado Sprint 9 Fase E** — ver matriz principal | `AuditService.logAccess` via `AuditInterceptor` + endpoint cliente `/audit/access`. Cron retención 730 días |
 | ~~notifications~~ | ✅ **implementado Sprint 9 Fase D MVP** — ver matriz principal | @Global, multicanal (`EmailChannel` + `InAppChannel`), plantillas Handlebars, cola `notifications-dispatch` |
 | ~~error-log~~ | ✅ **implementado Sprint 9 Fase F** — ver matriz principal | Persistido por `GlobalExceptionFilter` (5xx HTTP) + `ErrorLogService.log()` desde jobs/listeners. Endpoint admin `/admin/error-log` |
-| ~~provisioning~~ | 🟡 **chasis Sprint 11 Fase 11.B 2026-05-02** — ver matriz principal. Plugins concretos pendientes Fase 11.C. | Orquestador escucha `invoice.paid`, encola en cola BullMQ `provisioning-dispatch`, resuelve plugin desde `PluginRegistryService`, invoca `plugin.provision(ctx)`, persiste `provider_reference`/`metadata`, emite `service.activated`/`provisioning_failed`. Cache Redis DB 2 con TTL configurable |
+| ~~provisioning~~ | ✅ **implementado Sprint 11 Fases A→E (cerrado 2026-05-02)** — ver matriz principal. Plugins triviales `internal` + `manual` operativos. Plugins reales Sprint 15A-G. | Orquestador escucha `invoice.paid`, encola en cola BullMQ `provisioning-dispatch`, resuelve plugin desde `PluginRegistryService`, invoca `plugin.provision(ctx)`, persiste `provider_reference`/`metadata`, emite `service.activated`/`provisioning_failed`. Cache Redis DB 2 con TTL configurable. Frontend: `/dashboard/services` + `/dashboard/services/[id]` + `/admin/services` |
 | promotions | stub | Listener de `invoice.created` para aplicar descuentos retroactivos |
 | infrastructure | stub | Gestión de servidores físicos / VMs |
 | knowledge-base | stub | Self-service docs para clientes |
@@ -194,7 +196,7 @@ Estos módulos no aparecen en la matriz principal como origen ni destino (más a
 | **support (Conversation/Message)** | dashboard (lee conversations), tasks (bridge ticket↔task ADR-074), support_inside (listener priority) |
 | **tasks (Task)** | dashboard (lee tasks), support_inside (cron `maintenance-monthly` crea tasks) |
 | **support_inside (Subscription/Slot/Config)** | clients (helper findOne enriquecido), support (helper findOne con tier), dashboard (overview con plan), audit (listener cambios) |
-| **provisioning (Orchestrator/PluginRegistry/cache)** | (Fase 11.C: plugins reales + listener `provisioning-on-task-completed`), (Fase 11.D: frontend `/dashboard/services/[id]` + endpoints), (Fase 11.E: listener audit consumiendo los 5 eventos `service.*` nuevos), (Sprint 15A-G: plugins concretos cPanel/Plesk/Enhance/ResellerClub/Docker) |
+| **provisioning (Orchestrator/PluginRegistry/cache)** | Sprint 15A (plugin framework), Sprint 15C/D/E/G (plugins reales cPanel/Plesk/Enhance/ResellerClub/Docker), Sprint 12 (listener `notifications-on-provisioning-failed` + listener `audit-on-service-events` para los 5 eventos audit/RGPD nuevos), Sprint 19 (decisión partner `executeAction` sobre servicios de sus clientes) |
 | **dashboard** | nadie (es módulo de solo lectura) |
 
 > **Si tocas un módulo del que dependen otros**, ejecuta los tests E2E completos (`pnpm test:e2e`). Cubre login + checkout + soporte que tocan los acoplamientos transversales.

@@ -137,7 +137,14 @@ Suscripciones activas. Una por servicio (UQ en `service_id`).
 
 ---
 
-## Tabla: `provisioning_log` ⬜
+## Tabla: `provisioning_log` ⬜ (no materializada — diferida)
+
+> **Nota canónica (2026-05-02 — cierre Sprint 11 Fase 11.E):** la tabla NO se creó en Sprint 11. El historial de intentos de provisioning vive distribuido en **3 fuentes que cubren el mismo caso de uso**:
+> - **Logs estructurados** del backend (`ProvisioningOrchestratorService` + `ProvisioningDispatchProcessor`) con `correlation_id` propagado de extremo a extremo (R9). Consulta vía `pnpm logs:backend | grep <correlation_id>` o panel `/admin/error-log` (Sprint 9 Fase F) para errores capturados.
+> - **Cola BullMQ `provisioning-dispatch`** + `failed_jobs` (DLQ Postgres, Sprint 9 Fase A). Cada intento queda en BullMQ con su payload + retries. Tras agotar reintentos, fila persistente en `failed_jobs` con `last_error` + `attempts_made` (panel `/admin/jobs/failed`).
+> - **`audit_change_log`** (Sprint 9 Fase E) cuando un agente reprovisiona/deprovisiona desde `/admin/services/:id` (acciones manuales).
+>
+> Materializar la tabla `provisioning_log` añadiría una 4ª fuente parcialmente redundante. Decisión Sprint 11 cierre: NO crearla salvo que un caso real lo justifique (auditoría fiscal, dashboard de incidentes por proveedor, etc.). Si se decide crearla, ADR específico + sprint dedicado.
 
 Registro **inmutable** de todos los intentos de provisioning. Solo el admin lo lee — nunca se edita.
 
