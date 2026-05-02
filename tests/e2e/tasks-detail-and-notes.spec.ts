@@ -1,25 +1,19 @@
 /**
- * E2E — Sprint 8 Fase B.2 + B.4 (2026-04-29).
+ * E2E — Tasks detail + notes shape (Sprint 16 Fase 16.B / ADR-079).
  *
- * B.2 (UI_SPEC §5.16 sidebar Servicio + bloque adaptativo de servicio,
- *      generalizado en B.7 ADR-073 a cualquier tipo con service_id):
- *   - GET /tasks/:id devuelve `service` poblado con product/amount/cycle
- *     cuando task.service_id no es null (`INCLUDE_RELATIONS_DETAIL`).
- *   - GET /tasks/:id sin service_id devuelve `service` undefined/null
- *     (degradación elegante para tareas internas tipo `custom_work`).
- *   - GET /tasks (lista) NO incluye `service` para mantener el tablero
- *     ligero (regresión: si la lista empieza a traerlo se pierde el
- *     beneficio de tener INCLUDE separado).
+ * Sprint 16 cambió la doctrina:
+ *  - GET /tasks/:id ya NO trae enrichment de service+product (la doctrina
+ *    ADR-079 §3.6 establece que el "qué hay que hacer" vive en el sistema
+ *    vinculado y se renderiza dinámicamente — la card consulta on-demand).
+ *  - ClientNote ya NO trae `task_title`/`task_type` enriched: cuando una
+ *    nota viene de cierre de task, vive con `source_system='task_completion'`
+ *    + `source_id=task.id` y la UI navega al sistema vinculado para ver el
+ *    contexto vivo.
+ *  - Endpoint POST /admin/clients/:id/structured-notes ahora crea
+ *    `source_system='exceptional'` (única vía pública de creación libre).
  *
- * B.4 (decisión Sprint 8 §3.4 + UI_SPEC §5.16):
- *   - Tras `tasks.complete()` con internal_notes, la `ClientNote`
- *     persistida tiene `task_id` + `category=solution`.
- *   - GET /admin/clients/:id/structured-notes enriquece con
- *     `task_title` + `task_type` cuando `task_id` está poblado.
- *   - Notas creadas SIN task_id (vía endpoint clásico) traen
- *     `task_title=null` + `task_type=null` (no rompe el shape).
- *
- * Spec aislado del resto para que los fixes sean reversibles.
+ * Este spec valida el SHAPE canónico nuevo. Tests anteriores (B.2/B.4)
+ * eliminados porque sus features quedaron superseded por ADR-079.
  */
 
 import { test, expect, type APIRequestContext } from '@playwright/test';
@@ -27,11 +21,8 @@ import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
 import { TEST_CONFIG } from './fixtures/test-config';
 import { resetTestData, disconnectDb } from './fixtures/db';
-import {
-  clearMailbox,
-  waitForEmail,
-  extract2FACode,
-} from './fixtures/mailpit';
+import { clearMailbox, waitForEmail, extract2FACode } from './fixtures/mailpit';
+import { insertTask } from './fixtures/tasks';
 
 const SUPERADMIN_PASSWORD =
   process.env.SUPERADMIN_PASSWORD || 'AeliumDev2026!';
@@ -39,8 +30,6 @@ const SUPERADMIN_PASSWORD =
 let pool: Pool;
 let agentSupportId: string;
 let clientUserId: string;
-let productId: string;
-let serviceId: string;
 
 async function loginSuperadminAPI(
   request: APIRequestContext,
@@ -117,13 +106,12 @@ async function authed(
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Tasks — detail enrichment (B.2) + notes con task origen (B.4)', () => {
+test.describe('Tasks — shape canónico Sprint 16 (ADR-079)', () => {
   let token: string;
 
   test.beforeAll(async ({ request }) => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 2 });
     await resetTestData();
-
     agentSupportId = await createUser({
       email: 'e2e-detail-agent@aelium.test',
       firstName: 'Andrea',
@@ -136,34 +124,6 @@ test.describe('Tasks — detail enrichment (B.2) + notes con task origen (B.4)',
       lastName: 'Detail',
       roleSlug: 'client',
     });
-
-    // Crear producto + servicio mínimo para test B.2 service enrichment.
-    // El módulo tasks NO valida coherencia client/service hoy
-    // (deuda EC-T8-13 pendiente). Aquí lo creamos correctamente alineado
-    // con el schema canónico de `products` (status enum, sin pricing
-    // inline — ProductPricing es tabla aparte que no necesitamos para
-    // este test porque enrichment de Service trae amount inline).
-    //
-    // Slug con timestamp para no colisionar con runs previos en el mismo
-    // entorno dev (resetTestData no purga products — el seed de muestra
-    // los repuebla idempotente). Producto demo aislado por ejecución.
-    const slug = `cloud-office-e2e-${Date.now()}`;
-    const productRes = await pool.query(
-      `INSERT INTO products (name, slug, type, status, created_at, updated_at)
-       VALUES ('Cloud Office Pro (E2E)', $1, 'docker_service', 'active', NOW(), NOW())
-       RETURNING id`,
-      [slug],
-    );
-    productId = productRes.rows[0].id as string;
-
-    const serviceRes = await pool.query(
-      `INSERT INTO services (user_id, product_id, status, label, domain, billing_cycle, amount, currency, created_at, updated_at)
-       VALUES ($1, $2, 'active', 'Cloud Office Carlos', 'carlos.cloud.aelium.net', 'monthly', 49.99, 'EUR', NOW(), NOW())
-       RETURNING id`,
-      [clientUserId, productId],
-    );
-    serviceId = serviceRes.rows[0].id as string;
-
     token = await loginSuperadminAPI(request);
   });
 
@@ -172,206 +132,119 @@ test.describe('Tasks — detail enrichment (B.2) + notes con task origen (B.4)',
     await disconnectDb();
   });
 
-  /* ════════════════════════════════════════════════════════════════
-     B.2 — detail enrichment con service + product
-     ════════════════════════════════════════════════════════════════ */
-
-  test('B.2 — GET /tasks/:id con service_id devuelve service+product', async ({
+  test('GET /tasks/:id devuelve shape canónico (source_system + source_id + sin title/type/description)', async ({
     request,
   }) => {
-    const createRes = await authed(request, token, 'POST', '/tasks', {
-      type: 'contact_client',
-      title: 'B.2 wow call con servicio',
-      priority: 'high',
-      client_id: clientUserId,
-      service_id: serviceId,
-      assigned_to: agentSupportId,
-    });
-    expect(createRes.ok()).toBeTruthy();
-    const created = (await createRes.json()) as { id: string };
-
-    const detailRes = await authed(
-      request,
-      token,
-      'GET',
-      `/tasks/${created.id}`,
-    );
-    expect(detailRes.ok()).toBeTruthy();
-    const task = (await detailRes.json()) as {
-      service: {
-        id: string;
-        label: string | null;
-        domain: string | null;
-        status: string;
-        amount: string | number;
-        billing_cycle: string;
-        currency: string;
-        product: {
-          id: string;
-          name: string;
-          slug: string;
-          type: string;
-        } | null;
-      } | null;
-    };
-    expect(task.service).toBeTruthy();
-    expect(task.service?.id).toBe(serviceId);
-    expect(task.service?.label).toBe('Cloud Office Carlos');
-    expect(task.service?.domain).toBe('carlos.cloud.aelium.net');
-    expect(task.service?.status).toBe('active');
-    expect(task.service?.billing_cycle).toBe('monthly');
-    expect(task.service?.currency).toBe('EUR');
-    expect(task.service?.product).toBeTruthy();
-    expect(task.service?.product?.name).toBe('Cloud Office Pro (E2E)');
-    expect(task.service?.product?.type).toBe('docker_service');
-  });
-
-  test('B.2 — GET /tasks/:id sin service_id: service es null', async ({
-    request,
-  }) => {
-    const createRes = await authed(request, token, 'POST', '/tasks', {
-      type: 'custom_work',
-      title: 'B.2 task sin servicio',
-      priority: 'low',
+    // En `client_lifecycle` la doctrina es source_id=client.id (ADR-079 §2).
+    const taskId = await insertTask(pool, {
+      source_system: 'client_lifecycle',
+      source_id: clientUserId,
       client_id: clientUserId,
       assigned_to: agentSupportId,
-    });
-    const created = (await createRes.json()) as { id: string };
-
-    const detailRes = await authed(
-      request,
-      token,
-      'GET',
-      `/tasks/${created.id}`,
-    );
-    expect(detailRes.ok()).toBeTruthy();
-    const task = (await detailRes.json()) as { service: unknown };
-    // Prisma serializa la relación opcional ausente como `null`.
-    expect(task.service).toBeNull();
-  });
-
-  test('B.2 — GET /tasks (lista) NO incluye service (regresión)', async ({
-    request,
-  }) => {
-    const listRes = await authed(request, token, 'GET', '/tasks?limit=5');
-    expect(listRes.ok()).toBeTruthy();
-    const body = (await listRes.json()) as {
-      data: Array<Record<string, unknown>>;
-    };
-    expect(body.data.length).toBeGreaterThan(0);
-    // INCLUDE_RELATIONS ligero del findAll no trae `service` — la lista
-    // se mantiene barata. Si esto cambia, el tablero pagaría joins
-    // innecesarios y violaría la decisión de Sprint 8 Fase B.2.
-    for (const item of body.data) {
-      expect(item.service).toBeUndefined();
-    }
-  });
-
-  /* ════════════════════════════════════════════════════════════════
-     B.4 — notes con task origen enriched
-     ════════════════════════════════════════════════════════════════ */
-
-  test('B.4 — completar task con internal_notes crea ClientNote con task_id + category=solution', async ({
-    request,
-  }) => {
-    const createRes = await authed(request, token, 'POST', '/tasks', {
-      type: 'maintenance',
-      title: 'B.4 mantenimiento mensual abril',
       priority: 'medium',
-      client_id: clientUserId,
-      service_id: serviceId,
-      assigned_to: agentSupportId,
     });
-    const task = (await createRes.json()) as { id: string };
+
+    const detailRes = await authed(request, token, 'GET', `/tasks/${taskId}`);
+    expect(detailRes.ok()).toBeTruthy();
+    const task = (await detailRes.json()) as Record<string, unknown>;
+
+    // Shape canónico ADR-079 §3.1.
+    expect(task.source_system).toBe('client_lifecycle');
+    expect(task.source_id).toBe(clientUserId);
+    expect(task.client_id).toBe(clientUserId);
+    expect(task.assigned_to).toBe(agentSupportId);
+    expect(task.status).toBe('pending');
+
+    // Campos ELIMINADOS por ADR-079: no deben aparecer en el shape.
+    expect(task.title).toBeUndefined();
+    expect(task.type).toBeUndefined();
+    expect(task.description).toBeUndefined();
+    expect(task.client_note).toBeUndefined();
+    expect(task.is_recurring).toBeUndefined();
+    expect(task.billing_month).toBeUndefined();
+    expect(task.reason).toBeUndefined();
+    expect(task.metadata).toBeUndefined();
+    expect(task.service_id).toBeUndefined();
+    expect(task.conversation_id).toBeUndefined();
+
+    // Relations canónicas presentes.
+    expect((task.assignee as Record<string, unknown>)?.id).toBe(agentSupportId);
+    expect((task.client as Record<string, unknown>)?.id).toBe(clientUserId);
+  });
+
+  test('completar task → ClientNote canónica con source_system=task_completion + source_id=task.id', async ({
+    request,
+  }) => {
+    const taskId = await insertTask(pool, {
+      source_system: 'client_lifecycle',
+      client_id: clientUserId,
+      assigned_to: agentSupportId,
+      priority: 'medium',
+    });
 
     const completeRes = await authed(
       request,
       token,
       'PATCH',
-      `/tasks/${task.id}/complete`,
+      `/tasks/${taskId}/complete`,
       {
-        client_notes: 'Cliente notificado por email — todo OK.',
-        internal_notes:
-          'Actualicé core a v2.5, plugins SSL, backup completo verificado.',
+        note: 'Llamada de bienvenida realizada — cliente recibió onboarding OK.',
       },
     );
     expect(completeRes.ok()).toBeTruthy();
 
-    // Verificar persistencia directa en BD (audit + nota)
+    // Nota canónica creada con source tracking — categoría 'onboarding' por
+    // mapping `client_lifecycle → onboarding` (ADR-079 §3.9).
     const noteRes = await pool.query(
-      `SELECT task_id, category, body
+      `SELECT category, source_system, source_id, triggered_by_action, body
        FROM client_notes
-       WHERE user_id = $1
-       ORDER BY created_at DESC LIMIT 1`,
-      [clientUserId],
+       WHERE user_id = $1 AND source_system = 'task_completion' AND source_id = $2`,
+      [clientUserId, taskId],
     );
-    expect(noteRes.rowCount).toBeGreaterThanOrEqual(1);
-    expect(noteRes.rows[0].task_id).toBe(task.id);
-    expect(noteRes.rows[0].category).toBe('solution');
-    expect(noteRes.rows[0].body).toContain('Actualicé core');
+    expect(noteRes.rowCount).toBe(1);
+    expect(noteRes.rows[0].category).toBe('onboarding');
+    expect(noteRes.rows[0].triggered_by_action).toBe('task.completed');
+    expect(noteRes.rows[0].body).toContain('Llamada de bienvenida');
   });
 
-  test('B.4 — GET /admin/clients/:id/structured-notes enriquece task_title + task_type', async ({
+  test('POST /admin/clients/:id/structured-notes crea nota excepcional (source_system=exceptional)', async ({
     request,
   }) => {
-    const notesRes = await authed(
-      request,
-      token,
-      'GET',
-      `/admin/clients/${clientUserId}/structured-notes?limit=10`,
-    );
-    expect(notesRes.ok()).toBeTruthy();
-    const body = (await notesRes.json()) as {
-      data: Array<{
-        task_id: string | null;
-        task_title: string | null;
-        task_type: string | null;
-        category: string | null;
-      }>;
-    };
-    const noteWithTask = body.data.find((n) => n.task_id !== null);
-    expect(noteWithTask).toBeDefined();
-    expect(noteWithTask?.task_title).toBe('B.4 mantenimiento mensual abril');
-    expect(noteWithTask?.task_type).toBe('maintenance');
-    expect(noteWithTask?.category).toBe('solution');
-  });
-
-  test('B.4 — nota creada SIN task_id (endpoint estructurado clásico) trae task_title=null', async ({
-    request,
-  }) => {
-    // Crear nota directa por el endpoint clásico (no via task.complete)
     const createRes = await authed(
       request,
       token,
       'POST',
       `/admin/clients/${clientUserId}/structured-notes`,
       {
-        body: 'Nota suelta sin task de origen',
-        category: 'general',
+        body: 'Nota libre del agente desde perfil del cliente.',
+        is_pinned: true,
       },
     );
-    expect(createRes.ok()).toBeTruthy();
+    expect(
+      createRes.ok(),
+      `create exceptional: ${createRes.status()} ${await createRes.text()}`,
+    ).toBeTruthy();
 
-    const notesRes = await authed(
+    const listRes = await authed(
       request,
       token,
       'GET',
-      `/admin/clients/${clientUserId}/structured-notes?limit=20`,
+      `/admin/clients/${clientUserId}/structured-notes?source_system=exceptional`,
     );
-    const body = (await notesRes.json()) as {
+    const body = (await listRes.json()) as {
       data: Array<{
         body: string;
-        task_id: string | null;
-        task_title: string | null;
-        task_type: string | null;
+        category: string;
+        source_system: string;
+        triggered_by_action: string;
+        is_pinned: boolean;
       }>;
     };
-    const orphan = body.data.find((n) =>
-      n.body.includes('Nota suelta sin task'),
-    );
-    expect(orphan).toBeDefined();
-    expect(orphan?.task_id).toBeNull();
-    expect(orphan?.task_title).toBeNull();
-    expect(orphan?.task_type).toBeNull();
+    const note = body.data.find((n) => n.body.includes('Nota libre'));
+    expect(note).toBeDefined();
+    expect(note?.category).toBe('exceptional');
+    expect(note?.source_system).toBe('exceptional');
+    expect(note?.triggered_by_action).toBe('manual_entry');
+    expect(note?.is_pinned).toBe(true);
   });
 });

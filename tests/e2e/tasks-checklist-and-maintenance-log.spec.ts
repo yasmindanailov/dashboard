@@ -34,6 +34,7 @@ import {
   waitForEmail,
   extract2FACode,
 } from './fixtures/mailpit';
+import { insertTask } from './fixtures/tasks';
 
 const SUPERADMIN_PASSWORD =
   process.env.SUPERADMIN_PASSWORD || 'AeliumDev2026!';
@@ -43,6 +44,7 @@ let agentSupportId: string;
 let clientUserId: string;
 let productId: string;
 let serviceId: string;
+let slotId: string;
 let requiredItemId: string;
 let optionalItemId: string;
 
@@ -119,22 +121,30 @@ async function authed(
   });
 }
 
+/**
+ * Sprint 16 (ADR-079): inserta una task `support_inside_slot` apuntando al
+ * slot canónico — mismo contrato que el cron `maintenance-monthly`. Cada
+ * test reusa el mismo slotId; cancelamos previas activas para no chocar
+ * contra el UNIQUE INDEX parcial `tasks_uniq_active_per_source`.
+ */
 async function createTaskMaintenance(
-  request: APIRequestContext,
-  token: string,
-  title: string,
+  _request: APIRequestContext,
+  _token: string,
+  _title: string,
 ): Promise<string> {
-  const res = await authed(request, token, 'POST', '/tasks', {
-    type: 'maintenance',
-    title,
-    priority: 'medium',
+  await pool.query(
+    `UPDATE tasks SET status = 'cancelled', completed_at = NOW()
+     WHERE source_system = 'support_inside_slot' AND source_id = $1
+       AND status IN ('pending','in_progress')`,
+    [slotId],
+  );
+  return insertTask(pool, {
+    source_system: 'support_inside_slot',
+    source_id: slotId,
     client_id: clientUserId,
-    service_id: serviceId,
     assigned_to: agentSupportId,
+    priority: 'medium',
   });
-  expect(res.ok()).toBeTruthy();
-  const body = (await res.json()) as { id: string };
-  return body.id;
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -193,6 +203,39 @@ test.describe('Tasks — checklist + maintenance log (Sprint 8 Fase B.5)', () =>
       [clientUserId, productId],
     );
     serviceId = serviceRes.rows[0].id as string;
+
+    // Sprint 16 (ADR-079): las tasks de mantenimiento canónicas tienen
+    // `source_system='support_inside_slot'` y `source_id` = slot ID. El
+    // checklist se resuelve vía slot → service → product. Necesitamos:
+    //   1. producto SI (usamos el seed canónico `support-inside-pro`).
+    //   2. service SI dedicado a la subscription.
+    //   3. SupportInsideSubscription del cliente.
+    //   4. Slot apuntando al `serviceId` cubierto por mantenimiento.
+    const siProductRes = await pool.query(
+      `SELECT id FROM products WHERE slug = 'support-inside-pro' LIMIT 1`,
+    );
+    const siProductId = siProductRes.rows[0].id as string;
+    const siServiceRes = await pool.query(
+      `INSERT INTO services (user_id, product_id, status, label, billing_cycle, amount, currency, created_at, updated_at)
+       VALUES ($1, $2, 'active', 'Support Inside Pro Carmen', 'monthly', 79, 'EUR', NOW(), NOW())
+       RETURNING id`,
+      [clientUserId, siProductId],
+    );
+    const siServiceId = siServiceRes.rows[0].id as string;
+    const subRes = await pool.query(
+      `INSERT INTO support_inside_subscriptions (client_id, product_id, service_id, status, started_at, created_at, updated_at)
+       VALUES ($1, $2, $3, 'active', NOW(), NOW(), NOW())
+       RETURNING id`,
+      [clientUserId, siProductId, siServiceId],
+    );
+    const subscriptionId = subRes.rows[0].id as string;
+    const slotRes = await pool.query(
+      `INSERT INTO support_inside_slots (subscription_id, service_id, slot_type, anniversary_day, assigned_at, created_at)
+       VALUES ($1, $2, 'maintenance', 15, NOW(), NOW())
+       RETURNING id`,
+      [subscriptionId, serviceId],
+    );
+    slotId = slotRes.rows[0].id as string;
 
     token = await loginSuperadminAPI(request);
   });
@@ -304,7 +347,8 @@ test.describe('Tasks — checklist + maintenance log (Sprint 8 Fase B.5)', () =>
       'POST',
       `/tasks/${taskId}/maintenance/log`,
       {
-        notes: 'Core actualizado a v2.5. Backup verificado. Todo correcto.',
+        client_facing_notes:
+          'Core actualizado a v2.5. Backup verificado. Todo correcto.',
         internal_notes: 'Sin incidencias.',
       },
     );
@@ -332,15 +376,17 @@ test.describe('Tasks — checklist + maintenance log (Sprint 8 Fase B.5)', () =>
     expect(taskRes.rows[0].status).toBe('completed');
     expect(taskRes.rows[0].completed_at).not.toBeNull();
 
-    // ClientNote creada con task_id + category=solution
+    // ClientNote canónica Sprint 16 (ADR-079 §3.8): source_system='maintenance_log'
+    // + source_id=slot_id + category='maintenance' + triggered_by_action='maintenance.completed'.
     const noteRes = await pool.query(
-      `SELECT category, task_id, body
+      `SELECT category, source_system, source_id, triggered_by_action, body
        FROM client_notes
-       WHERE user_id = $1 AND task_id = $2`,
-      [clientUserId, taskId],
+       WHERE user_id = $1 AND source_system = 'maintenance_log' AND source_id = $2`,
+      [clientUserId, slotId],
     );
     expect(noteRes.rowCount).toBe(1);
-    expect(noteRes.rows[0].category).toBe('solution');
+    expect(noteRes.rows[0].category).toBe('maintenance');
+    expect(noteRes.rows[0].triggered_by_action).toBe('maintenance.completed');
     expect(noteRes.rows[0].body).toBe('Sin incidencias.');
 
     // Email al cliente vía listener maintenance.completed
@@ -378,7 +424,7 @@ test.describe('Tasks — checklist + maintenance log (Sprint 8 Fase B.5)', () =>
       token,
       'POST',
       `/tasks/${taskId}/maintenance/log`,
-      { notes: 'Intentando cerrar sin required.' },
+      { client_facing_notes: 'Intentando cerrar sin required.' },
     );
     expect(closeRes.status()).toBe(400);
     const body = (await closeRes.json()) as {
@@ -469,7 +515,7 @@ test.describe('Tasks — checklist + maintenance log (Sprint 8 Fase B.5)', () =>
       token,
       'POST',
       `/tasks/${taskId}/maintenance/log`,
-      { notes: 'Primer cierre.' },
+      { client_facing_notes: 'Primer cierre.' },
     );
     expect(ok.ok()).toBeTruthy();
 
@@ -479,7 +525,7 @@ test.describe('Tasks — checklist + maintenance log (Sprint 8 Fase B.5)', () =>
       token,
       'POST',
       `/tasks/${taskId}/maintenance/log`,
-      { notes: 'Intentando cerrar de nuevo.' },
+      { client_facing_notes: 'Intentando cerrar de nuevo.' },
     );
     expect(second.status()).toBe(400);
     const body = (await second.json()) as { message: string };
@@ -505,7 +551,7 @@ test.describe('Tasks — checklist + maintenance log (Sprint 8 Fase B.5)', () =>
       'POST',
       `/tasks/${taskId}/maintenance/log`,
       {
-        notes: 'Cierre atómico en un solo POST.',
+        client_facing_notes: 'Cierre atómico en un solo POST.',
         checklist_completions: [
           { item_id: requiredItemId, item_kind: 'product' },
         ],

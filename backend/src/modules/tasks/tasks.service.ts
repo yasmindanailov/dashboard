@@ -142,7 +142,9 @@ export class TasksService {
           this.logger.debug(
             `Task already active for ${input.source_system}/${input.source_id} → returning existing ${existing.id}`,
           );
-          return existing;
+          // Marcador interno (no persistido) para que callers puedan
+          // distinguir "creación nueva" vs "idempotent hit". Cumple R7.
+          return { ...existing, __idempotent_hit: true as const };
         }
       }
       throw err;

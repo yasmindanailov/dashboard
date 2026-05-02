@@ -279,21 +279,23 @@ test.describe('Support Inside — Sprint 8 Fase D', () => {
     expect(cronBody.result.candidates).toBeGreaterThanOrEqual(1);
     expect(cronBody.result.created).toBeGreaterThanOrEqual(1);
 
-    // 4. Verificar Task creada con shape canónico.
+    // 4. Verificar Task creada con shape canónico Sprint 16 (ADR-079).
+    //    El cron `maintenance-monthly` ahora crea
+    //    Task(source_system='support_inside_slot', source_id=slot.id) con
+    //    auto-asignación canónica vía autoAssignTask (puede o no asignar
+    //    según agentes activos del entorno de test).
     const tasksQ = await pool.query(
-      `SELECT type, status, assigned_to, billing_month, service_id, metadata
-       FROM tasks
-       WHERE service_id = $1 AND type = 'maintenance_management'
-       ORDER BY created_at DESC LIMIT 1`,
+      `SELECT t.status, t.source_system, t.source_id, t.assigned_to
+       FROM tasks t
+       JOIN support_inside_slots s ON s.id = t.source_id
+       WHERE s.service_id = $1 AND t.source_system = 'support_inside_slot'
+       ORDER BY t.created_at DESC LIMIT 1`,
       [clientServiceId],
     );
     expect(tasksQ.rowCount).toBe(1);
     const task = tasksQ.rows[0];
-    expect(task.type).toBe('maintenance_management');
-    expect(task.status).toBe('pending');
-    expect(task.assigned_to).toBeNull(); // ADR-072 cola pública
-    expect(task.billing_month).toBe(cronBody.result.billing_month);
-    expect(task.metadata.source).toBe('support_inside_monthly_cron');
+    expect(task.source_system).toBe('support_inside_slot');
+    expect(['pending', 'in_progress']).toContain(task.status);
 
     // 5. Re-disparar cron → idempotencia (skipped_idempotent +=1).
     const cron2 = await authedRequest(

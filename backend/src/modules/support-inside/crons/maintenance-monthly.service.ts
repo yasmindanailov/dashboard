@@ -66,18 +66,18 @@ export class MaintenanceMonthlyService {
       );
 
       try {
-        const task = await this.tasks.createFromTrigger({
+        const task = (await this.tasks.createFromTrigger({
           source_system: 'support_inside_slot',
           source_id: slot.id,
           client_id: slot.subscription.client_id,
           assigned_to,
           priority,
           due_date,
-        });
-        // `createFromTrigger` ya emite `task.created`/`task.assigned`.
-        // Idempotencia: si ya existía task activa, devuelve la existente
-        // (sin nueva creación). En ese caso contamos como skipped.
-        if (task.created_at.getTime() < now.getTime() - 60_000) {
+        })) as { __idempotent_hit?: boolean };
+        // `createFromTrigger` marca `__idempotent_hit=true` cuando devuelve
+        // una task pre-existente (P2002 capturado). En ese caso contamos
+        // como skipped en lugar de created.
+        if (task.__idempotent_hit) {
           skippedIdempotent += 1;
         } else {
           created += 1;

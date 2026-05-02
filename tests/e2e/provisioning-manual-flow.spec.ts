@@ -167,14 +167,16 @@ async function waitOutboxDone(
 async function findSetupTask(serviceId: string): Promise<{
   id: string;
   status: string;
-  type: string;
+  source_system: string;
+  source_id: string;
   assigned_to: string | null;
-  conversation_id: string | null;
 } | null> {
+  // Sprint 16 (ADR-079): la task de provisioning manual ahora vive con
+  // source_system='provisioning_manual' + source_id=service_id.
   const r = await pool.query(
-    `SELECT id, status, type, assigned_to, conversation_id
+    `SELECT id, status, source_system, source_id, assigned_to
      FROM tasks
-     WHERE service_id = $1 AND type = 'support_setup'
+     WHERE source_system = 'provisioning_manual' AND source_id = $1
      ORDER BY created_at DESC LIMIT 1`,
     [serviceId],
   );
@@ -184,9 +186,9 @@ async function findSetupTask(serviceId: string): Promise<{
 async function waitForSetupTask(serviceId: string): Promise<{
   id: string;
   status: string;
-  type: string;
+  source_system: string;
+  source_id: string;
   assigned_to: string | null;
-  conversation_id: string | null;
 }> {
   const deadline = Date.now() + PROVISION_DEADLINE_MS;
   while (Date.now() < deadline) {
@@ -195,7 +197,7 @@ async function waitForSetupTask(serviceId: string): Promise<{
     await new Promise((r) => setTimeout(r, 500));
   }
   throw new Error(
-    `Timeout esperando que el orquestador cree la support_setup task para service ${serviceId}`,
+    `Timeout esperando que el orquestador cree la provisioning_manual task para service ${serviceId}`,
   );
 }
 
@@ -334,14 +336,15 @@ test.describe('Provisioning — Sprint 11 Fase 11.C plugin manual flow', () => {
     // proceso del outbox.
     await waitOutboxDone(invoiceId, 'invoice.paid');
 
-    // ── 4. Verificar que el orquestador creó support_setup en cola pública ──
-    // El plugin `manual` declaró followUp=['create_setup_task'] —
-    // orquestador.createSetupTask la crea con assigned_to=null y service_id
-    // poblado. conversation_id debe ser null (no es bridge ticket↔task).
+    // ── 4. Verificar que el orquestador creó la task provisioning_manual ──
+    // Sprint 16 (ADR-079): plugin `manual` con followUp=['create_setup_task']
+    // → orquestador.createSetupTask la crea con source_system='provisioning_manual',
+    // source_id=service.id. La auto-asignación canónica selecciona un
+    // agente disponible vía autoAssignTask (puede ser null si no hay
+    // agentes activos al momento del test).
     const setupTask = await waitForSetupTask(serviceId);
-    expect(setupTask.type).toBe('support_setup');
-    expect(setupTask.assigned_to).toBeNull(); // ADR-072 cola pública
-    expect(setupTask.conversation_id).toBeNull(); // EC-P11-07 mutual exclusion
+    expect(setupTask.source_system).toBe('provisioning_manual');
+    expect(setupTask.source_id).toBe(serviceId);
     expect(['pending', 'in_progress']).toContain(setupTask.status);
 
     // El service queda en 'provisioning' tras el plugin.provision() OK
@@ -351,17 +354,20 @@ test.describe('Provisioning — Sprint 11 Fase 11.C plugin manual flow', () => {
     const intermediateStatus = await getServiceStatus(serviceId);
     expect(intermediateStatus).not.toBe('active');
 
-    // ── 5. Agente auto-asigna y completa la support_setup task ──
-    const claimRes = await authedFetch(
+    // ── 5. Agente se asegura asignación + completa la task ──
+    // Si la task ya tiene assigned_to (autoAssignTask seleccionó alguien),
+    // dejamos al admin reasignarla al agente del test para tener
+    // determinismo. Si está en cola pública, el agente la toma.
+    const reassignRes = await authedFetch(
       request,
-      agentToken,
+      superadminToken,
       'PATCH',
-      `/tasks/${setupTask.id}`,
+      `/tasks/${setupTask.id}/assign`,
       { assigned_to: agentFullId },
     );
     expect(
-      claimRes.ok(),
-      `Claim task falló: ${claimRes.status()} ${await claimRes.text()}`,
+      reassignRes.ok(),
+      `assign task: ${reassignRes.status()} ${await reassignRes.text()}`,
     ).toBeTruthy();
 
     const completeRes = await authedFetch(
@@ -370,10 +376,8 @@ test.describe('Provisioning — Sprint 11 Fase 11.C plugin manual flow', () => {
       'PATCH',
       `/tasks/${setupTask.id}/complete`,
       {
-        internal_notes:
+        note:
           'Hosting Pro provisionado manualmente: cuenta cPanel creada, DNS apuntado, SSL activo.',
-        client_notes:
-          'Tu hosting está listo. Te enviamos las credenciales por email aparte.',
       },
     );
     expect(
@@ -384,9 +388,8 @@ test.describe('Provisioning — Sprint 11 Fase 11.C plugin manual flow', () => {
     expect(completed.status).toBe('completed');
 
     // ── 6. Esperar a que el listener active el service ──
-    // ProvisioningOnTaskCompletedListener filtra por:
-    //   task.conversation_id === null (✓)
-    //   task.service_id !== null (✓)
+    // ProvisioningOnTaskCompletedListener Sprint 16 (ADR-079) filtra por:
+    //   task.source_system === 'provisioning_manual'  (✓)
     //   plugin.capabilities.completes_via_task === true (✓ manual lo declara)
     // → services.status = 'active' + emite service.activated.
     await waitForServiceStatus(serviceId, 'active');
@@ -402,29 +405,20 @@ test.describe('Provisioning — Sprint 11 Fase 11.C plugin manual flow', () => {
     expect(finalService.rows[0].provisioner_slug).toBe('manual');
   });
 
-  test('EC-P11-07: bridge ticket↔task no choca con provisioning listener (mutual exclusion)', async () => {
-    // Documentado: si llega un task.completed con conversation_id !== null,
-    // ProvisioningOnTaskCompletedListener debe ignorarlo silenciosamente.
-    // El test unit `provisioning-on-task-completed.listener.spec.ts` ya
-    // cubre la lógica exhaustivamente — aquí dejamos un test smoke que
-    // garantiza que cualquier service que crearíamos en la primera prueba
-    // sigue con su task de bridge separadamente sin que el listener
-    // confunda los flujos.
+  test('EC-P11-07 Sprint 16: support_ticket vs provisioning_manual mutual exclusion', async () => {
+    // Sprint 16 (ADR-079): el filtro del listener es ahora `source_system`.
+    // Una task `support_ticket` no puede ni siquiera apuntar a un service
+    // (su source_id es un conversation_id). Mutual exclusion garantizada
+    // por construcción del enum + UNIQUE INDEX parcial.
     //
-    // Verificación: una task con conversation_id NO debe haber tocado
-    // ningún service.status — query explícita contra DB.
+    // Verificación de baseline: ninguna task `support_ticket` aparece
+    // referenciando un service como source_id (sería corrupción).
     const r = await pool.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count
        FROM tasks t
-       WHERE t.conversation_id IS NOT NULL
-         AND t.service_id IS NOT NULL
-         AND t.status = 'completed'`,
+       JOIN services s ON s.id = t.source_id
+       WHERE t.source_system = 'support_ticket'`,
     );
-    // Hoy 0 — el bridge ticket↔task nunca pobla service_id en esta suite
-    // (los conversation tasks vienen de support, sin service vinculado).
-    // El test queda como guardia: si alguien introduce una task con AMBOS
-    // poblados y la cierra, EC-P11-07 deja de ser mutuamente excluyente
-    // y este test fallaría — punto de detección temprana.
     expect(Number(r.rows[0].count)).toBe(0);
   });
 });

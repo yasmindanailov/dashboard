@@ -21,6 +21,7 @@ import * as bcrypt from 'bcrypt';
 import { TEST_CONFIG } from './fixtures/test-config';
 import { resetTestData, disconnectDb } from './fixtures/db';
 import { clearMailbox, waitForEmail, extract2FACode } from './fixtures/mailpit';
+import { insertTask } from './fixtures/tasks';
 
 const SUPERADMIN_PASSWORD =
   process.env.SUPERADMIN_PASSWORD || 'AeliumDev2026!';
@@ -171,31 +172,37 @@ test.describe.serial('Notifications campana — Sprint 9.5 (ADR-042/065)', () =>
   test('admin asigna tarea → agente ve la notificación, la marca leída y /unread cae a 0', async ({
     request,
   }) => {
-    // 1. Crear tarea asignada al agente vía API admin.
-    const createRes = await request.post(`${TEST_CONFIG.apiUrl}/tasks`, {
-      headers: {
-        Authorization: `Bearer ${staffToken}`,
-        'Content-Type': 'application/json',
-      },
-      data: {
-        type: 'contact_client',
-        title: 'Notificación E2E — verificar campana',
-        description: 'Prueba de campana Topbar',
-        priority: 'high',
-        client_id: clientUserId,
-        assigned_to: agentUserId,
-      },
+    // Sprint 16 (ADR-079): no hay POST /tasks manual. Insertamos la task
+    // en cola pública vía SQL (simula el trigger), luego PATCH /assign
+    // dispara el emit `task.assigned` que alimenta la campana del agente.
+    const taskId = await insertTask(pool, {
+      source_system: 'client_lifecycle',
+      client_id: clientUserId,
+      assigned_to: null,
+      priority: 'high',
     });
+
+    const assignRes = await request.fetch(
+      `${TEST_CONFIG.apiUrl}/tasks/${taskId}/assign`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${staffToken}`,
+          'Content-Type': 'application/json',
+        },
+        data: JSON.stringify({ assigned_to: agentUserId }),
+      },
+    );
     expect(
-      createRes.ok(),
-      `Create task falló: ${createRes.status()} ${await createRes.text()}`,
+      assignRes.ok(),
+      `assign task: ${assignRes.status()} ${await assignRes.text()}`,
     ).toBeTruthy();
 
     // 2. Polling al endpoint `/notifications/unread` hasta ver la fila.
     const unread = await pollUntilUnread(request, agentToken, 1);
     expect(unread.unread_count).toBeGreaterThanOrEqual(1);
     const newest = unread.data[0];
-    expect(newest.title).toContain('Nueva tarea');
+    expect(newest.title?.toLowerCase()).toMatch(/tarea|nueva/i);
     // Sprint 8 Fase B.1.bis (2026-04-29): tasks viven en portal staff
     // `/admin/tasks/*` (ADR-066 + Sprint 9.6 DC.7). El listener
     // `tasks-email.listener.ts` emite `action_url` apuntando al admin.
@@ -264,22 +271,26 @@ test.describe.serial('Notifications campana — Sprint 9.5 (ADR-042/065)', () =>
   test('PATCH /notifications/read-all marca todas como leídas', async ({
     request,
   }) => {
-    // 1. Generamos otra tarea para crear al menos una unread fresca.
-    const createRes = await request.post(`${TEST_CONFIG.apiUrl}/tasks`, {
-      headers: {
-        Authorization: `Bearer ${staffToken}`,
-        'Content-Type': 'application/json',
-      },
-      data: {
-        type: 'contact_client',
-        title: 'Mark-all E2E',
-        description: 'verificación read-all',
-        priority: 'medium',
-        client_id: clientUserId,
-        assigned_to: agentUserId,
-      },
+    // Sprint 16 (ADR-079): generamos otra task vía SQL + assign para que
+    // el listener task.assigned alimente la campana del agente.
+    const taskId = await insertTask(pool, {
+      source_system: 'project',
+      client_id: clientUserId,
+      assigned_to: null,
+      priority: 'medium',
     });
-    expect(createRes.ok()).toBeTruthy();
+    const assignRes = await request.fetch(
+      `${TEST_CONFIG.apiUrl}/tasks/${taskId}/assign`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${staffToken}`,
+          'Content-Type': 'application/json',
+        },
+        data: JSON.stringify({ assigned_to: agentUserId }),
+      },
+    );
+    expect(assignRes.ok()).toBeTruthy();
     await pollUntilUnread(request, agentToken, 1);
 
     const res = await request.patch(

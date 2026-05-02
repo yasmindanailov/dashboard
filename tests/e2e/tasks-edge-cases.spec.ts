@@ -28,6 +28,7 @@ import {
   waitForEmail,
   extract2FACode,
 } from './fixtures/mailpit';
+import { insertTask } from './fixtures/tasks';
 
 const SUPERADMIN_PASSWORD =
   process.env.SUPERADMIN_PASSWORD || 'AeliumDev2026!';
@@ -158,44 +159,45 @@ test.describe('Tasks — edge cases EC-T8-19/20/21/22 (Sprint 8 Fase B.1.bis)', 
   });
 
   /* ════════════════════════════════════════════════════════════════
-     EC-T8-19: transiciones desde estado terminal bloqueadas
+     EC-T8-19: completar dos veces bloqueado
+     Sprint 16 (ADR-079): la API no expone PATCH libre de status. La
+     transición a estados terminales (completed/cancelled) ocurre vía
+     /complete, /complete-ticket-bridge o /cancel — y todas rechazan si
+     la task ya está cerrada.
      ════════════════════════════════════════════════════════════════ */
 
-  test('EC-T8-19 — task completada no admite cambio de status', async ({
+  test('EC-T8-19 — completar una task ya completed devuelve 400', async ({
     request,
   }) => {
-    // Crear y completar una tarea
-    const createRes = await authed(request, superadminToken, 'POST', '/tasks', {
-      type: 'custom_work',
-      title: 'EC-T8-19 task a completar',
-      priority: 'medium',
+    const taskId = await insertTask(pool, {
+      source_system: 'client_lifecycle',
       client_id: clientUserId,
       assigned_to: agentSupportId,
+      priority: 'medium',
     });
-    expect(createRes.ok()).toBeTruthy();
-    const task = (await createRes.json()) as { id: string };
 
-    const completeRes = await authed(
+    const firstClose = await authed(
       request,
       superadminToken,
       'PATCH',
-      `/tasks/${task.id}/complete`,
-      { internal_notes: 'Cerrada para test EC-T8-19' },
+      `/tasks/${taskId}/complete`,
+      { note: 'Cerrada para test EC-T8-19' },
     );
-    expect(completeRes.ok()).toBeTruthy();
+    expect(
+      firstClose.ok(),
+      `first complete: ${firstClose.status()} ${await firstClose.text()}`,
+    ).toBeTruthy();
 
-    // Intentar reabrir cambiando status → 400
-    const reopenRes = await authed(
+    const secondClose = await authed(
       request,
       superadminToken,
       'PATCH',
-      `/tasks/${task.id}`,
-      { status: 'in_progress' },
+      `/tasks/${taskId}/complete`,
+      { note: 'Reintento — debe fallar' },
     );
-    expect(reopenRes.status()).toBe(400);
-    const body = (await reopenRes.json()) as { message: string };
-    expect(body.message).toContain('cerrada');
-    expect(body.message.toLowerCase()).toContain('status');
+    expect(secondClose.status()).toBe(400);
+    const body = (await secondClose.json()) as { message: string };
+    expect(body.message.toLowerCase()).toMatch(/cerrada|completed/);
   });
 
   /* ════════════════════════════════════════════════════════════════
@@ -205,72 +207,65 @@ test.describe('Tasks — edge cases EC-T8-19/20/21/22 (Sprint 8 Fase B.1.bis)', 
   test('EC-T8-20 — task completada no admite cambio de assigned_to', async ({
     request,
   }) => {
-    const createRes = await authed(request, superadminToken, 'POST', '/tasks', {
-      type: 'custom_work',
-      title: 'EC-T8-20 reasignar cerrada',
-      priority: 'medium',
+    const taskId = await insertTask(pool, {
+      source_system: 'client_lifecycle',
       client_id: clientUserId,
       assigned_to: agentSupportId,
+      priority: 'medium',
     });
-    const task = (await createRes.json()) as { id: string };
 
-    await authed(
-      request,
-      superadminToken,
-      'PATCH',
-      `/tasks/${task.id}/complete`,
-      { internal_notes: 'cerrada' },
-    );
+    await authed(request, superadminToken, 'PATCH', `/tasks/${taskId}/complete`, {
+      note: 'cerrada',
+    });
 
     const reassignRes = await authed(
       request,
       superadminToken,
       'PATCH',
-      `/tasks/${task.id}`,
+      `/tasks/${taskId}/assign`,
       { assigned_to: agentBillingId },
     );
     expect(reassignRes.status()).toBe(400);
     const body = (await reassignRes.json()) as { message: string };
-    expect(body.message).toContain('assigned_to');
+    expect(body.message.toLowerCase()).toMatch(/cerrada|completed|reasignar/);
   });
 
   /* ════════════════════════════════════════════════════════════════
-     EC-T8-21: cambiar priority en tarea cancelada bloqueado
+     EC-T8-21: cancelar una task cancelled devuelve 400 (idempotencia
+     dura — Sprint 16 ADR-079: estados terminales no admiten cambios).
+     El cambio de priority ya no existe en la API canónica (la priority
+     la calcula el helper canónico al CREAR — el agente nunca la edita).
      ════════════════════════════════════════════════════════════════ */
 
-  test('EC-T8-21 — task cancelada no admite cambio de priority', async ({
+  test('EC-T8-21 — task cancelada no admite cancelar de nuevo (terminal)', async ({
     request,
   }) => {
-    const createRes = await authed(request, superadminToken, 'POST', '/tasks', {
-      type: 'custom_work',
-      title: 'EC-T8-21 cancel + priority',
-      priority: 'medium',
+    const taskId = await insertTask(pool, {
+      source_system: 'client_lifecycle',
       client_id: clientUserId,
       assigned_to: agentSupportId,
+      priority: 'medium',
     });
-    const task = (await createRes.json()) as { id: string };
 
-    // Cancelar primero (admin puede)
     const cancelRes = await authed(
       request,
       superadminToken,
       'PATCH',
-      `/tasks/${task.id}`,
-      { status: 'cancelled' },
+      `/tasks/${taskId}/cancel`,
+      { reason: 'EC-T8-21 cancel inicial' },
     );
     expect(cancelRes.ok()).toBeTruthy();
 
-    // Intentar cambiar priority sobre tarea cancelada → 400
-    const priRes = await authed(
+    const reCancelRes = await authed(
       request,
       superadminToken,
       'PATCH',
-      `/tasks/${task.id}`,
-      { priority: 'critical' },
+      `/tasks/${taskId}/cancel`,
+      { reason: 'reintento' },
     );
-    expect(priRes.status()).toBe(400);
-    const body = (await priRes.json()) as { message: string };
-    expect(body.message).toContain('priority');
+    expect(reCancelRes.status()).toBe(400);
+    const body = (await reCancelRes.json()) as { message: string };
+    expect(body.message.toLowerCase()).toMatch(/cerrada|cancelada/);
   });
 
   /* ════════════════════════════════════════════════════════════════
@@ -280,78 +275,67 @@ test.describe('Tasks — edge cases EC-T8-19/20/21/22 (Sprint 8 Fase B.1.bis)', 
   test('EC-T8-22a — agent_support se auto-asigna una task sin owner', async ({
     request,
   }) => {
-    // Admin crea task SIN assigned_to (cola pública)
-    const createRes = await authed(request, superadminToken, 'POST', '/tasks', {
-      type: 'custom_work',
-      title: 'EC-T8-22 cola pública',
-      priority: 'medium',
+    const taskId = await insertTask(pool, {
+      source_system: 'project',
       client_id: clientUserId,
-      // sin assigned_to: queda en cola
+      assigned_to: null, // cola pública
+      priority: 'medium',
     });
-    expect(createRes.ok()).toBeTruthy();
-    const task = (await createRes.json()) as {
-      id: string;
-      assigned_to: string | null;
-    };
-    expect(task.assigned_to).toBeNull();
 
-    // agent_support (no admin pleno) toma la tarea para sí
     const claimRes = await authed(
       request,
       agentSupportToken,
       'PATCH',
-      `/tasks/${task.id}`,
+      `/tasks/${taskId}/assign`,
       { assigned_to: agentSupportId },
     );
     expect(
       claimRes.ok(),
       `Auto-claim falló: ${claimRes.status()} ${await claimRes.text()}`,
     ).toBeTruthy();
-    const claimed = (await claimRes.json()) as { assigned_to: string };
+    const claimed = (await claimRes.json()) as {
+      assigned_to: string;
+      status: string;
+    };
     expect(claimed.assigned_to).toBe(agentSupportId);
+    expect(claimed.status).toBe('in_progress');
   });
 
   test('EC-T8-22b — agent NO puede auto-asignarse una task de OTRO agente', async ({
     request,
   }) => {
-    // Admin crea task asignada a agent_support
-    const createRes = await authed(request, superadminToken, 'POST', '/tasks', {
-      type: 'custom_work',
-      title: 'EC-T8-22b task ajena',
-      priority: 'medium',
+    const taskId = await insertTask(pool, {
+      source_system: 'provisioning_manual',
       client_id: clientUserId,
       assigned_to: agentSupportId,
+      priority: 'medium',
     });
-    const task = (await createRes.json()) as { id: string };
 
-    // agent_billing intenta robarla (no admin, no es owner) → 403
     const stealRes = await authed(
       request,
       agentBillingToken,
       'PATCH',
-      `/tasks/${task.id}`,
+      `/tasks/${taskId}/assign`,
       { assigned_to: agentBillingId },
     );
     expect(stealRes.status()).toBe(403);
   });
 
-  test('EC-T8-22c — admin pleno reasigna sin restricción (regla legacy intacta)', async ({
+  test('EC-T8-22c — admin pleno reasigna sin restricción', async ({
     request,
   }) => {
-    const createRes = await authed(request, superadminToken, 'POST', '/tasks', {
-      type: 'custom_work',
-      title: 'EC-T8-22c admin reasigna',
-      priority: 'low',
+    const taskId = await insertTask(pool, {
+      source_system: 'client_lifecycle',
       client_id: clientUserId,
       assigned_to: agentSupportId,
+      priority: 'medium',
     });
-    const task = (await createRes.json()) as { id: string };
 
     const reassignRes = await authed(
       request,
       superadminToken,
       'PATCH',
-      `/tasks/${task.id}`,
+      `/tasks/${taskId}/assign`,
       { assigned_to: agentBillingId },
     );
     expect(reassignRes.ok()).toBeTruthy();
