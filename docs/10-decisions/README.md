@@ -163,6 +163,7 @@ Resultado: la historia queda íntegra.
 - [ADR-075](./adr-075-support-inside-ux-lista-y-aislamiento-productos.md) — Support Inside UX: lista vertical 3 filas (NO comparador) en `/admin/support-inside-plans` + aislamiento del CRUD genérico de productos (Sprint 8 Fase D)
 - [ADR-076](./adr-076-checkout-unico-support-inside-via-evento.md) — Checkout único por dominio billing: Support Inside como consumidor del evento `service.provisioned` emitido por `BillingCheckoutService` (Sprint 8 Fase D.12)
 - [ADR-077](./adr-077-contrato-provisioner-plugin-v2.md) — Contrato canónico `ProvisionerPlugin` v2: firma TypeScript congelada + capability flags + shapes (`ServiceInfo`/`SsoUrl`/`ActionResult`) + pipeline canónico de wrappers + política de versionado (Sprint 11 Fase 11.A)
+- [ADR-078](./adr-078-auth-server-side-cookies-httponly.md) — Auth server-side con cookies httpOnly para Server Components: plan canónico de migración DC.13 + DC.6 + marker `TODO(ADR-078)` para trazabilidad mecánica + Fase 11.D del Sprint 11 como última excepción permitida del patrón `'use client' + localStorage` (Sprint 13 §13.AUTH cierra la deuda)
 
 ---
 
