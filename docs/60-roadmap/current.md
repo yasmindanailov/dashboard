@@ -2,7 +2,7 @@
 
 > **Estado real verificado** contra código en auditoría 2026-04-26 + closures Sprint 8 / 9 / 9.5 / 9.6 / 11.5 (2026-04-26 → 2026-05-01) + Sprint 11 Fases A+B (2026-05-01/02). Cualquier sprint listado aquí está parcialmente avanzado (no es backlog puro — para eso ver [`backlog.md`](./backlog.md)). Los sprints ✅ que aparecen abajo son punteros a `completed/`; viven aquí solo para trazabilidad cronológica de la ola P1.1.
 
-> **Última actualización:** 2026-05-02 — Sprint 11 Fases 11.A (ADR-077) + 11.B (orquestador + chasis canónico) + 11.C (plugins triviales + listener task→active, PR #16) mergeadas. **ADR-078 (auth server-side + DC.28) redactado** como pre-requisito doctrinal de Fase 11.D. Sprint 11 sigue 🟡 WIP — cola Fases 11.D (frontend, última excepción `'use client'` permitida) → 11.E (cierre documental + retro).
+> **Última actualización:** 2026-05-02 — Sprint 11 Fases 11.A (ADR-077) + 11.B (orquestador + chasis canónico) + 11.C (plugins triviales + listener task→active, PR #16) + **11.D (REST endpoints + frontend services pages, PR #18, commit `e5fb67e`)** mergeadas. ADR-078 (auth server-side + DC.28) mergeado vía PR #17. Sprint 11 sigue 🟡 WIP — única fase pendiente: **11.E (cierre documental + retrospectiva + mover Sprint 11 a `completed/`)**.
 > **Cambios estructurales recientes:**
 > - 📜 **[ADR-069 (2026-04-29)](../10-decisions/adr-069-estrategia-deploy-diferido.md)** reclasifica **Sprint 14 Deploy real** como **gate condicionado P-DEPLOY** (no está en cola activa). Se activa sólo con trigger de negocio explícito (cliente real, demo, captación, validación externa). La cola activa post-cierre Sprint 8 son features (Sprint 11 Provisioning como cabeza, Sprint 10 Infrastructure independiente, sub-sprint billing prorrateo cross-plan ADR-077 propuesto, Sprint 12 Settings+KB, Sprint 13 Hardening) según valor funcional.
 > - **Sprint 11 Fases 11.A + 11.B mergeadas en master 2026-05-02** — ADR-077 (contrato canónico `ProvisionerPlugin` v2 congelado) + orquestador + cola BullMQ `provisioning-dispatch` + cache Redis dedicado (DB 2) + plugin registry. **183/183 unit verde** (157 base Sprint 8 + 26 nuevos). Plugins concretos pendientes (Fase 11.C). Plan canónico abajo.
@@ -95,9 +95,9 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ## 🔄 Sprint 11 — Provisioning (P2.1, plan canónico)
 
-**Estado:** 🟡 en curso — Fases 11.A + 11.B mergeadas en master (2026-05-02). Cola: 11.C → 11.D → 11.E.
+**Estado:** 🟡 en curso — Fases 11.A + 11.B + 11.C + 11.D mergeadas en master (2026-05-01 → 2026-05-02). Sólo queda **Fase 11.E** (cierre documental + retro).
 **Inicio:** 2026-05-01 (Fase 11.A — ADR-077 redactado y mergeado vía PR #13).
-**Cierre estimado:** 2-3 sub-sesiones más (11.C ~0.5-1 · 11.D ~1-1.5 · 11.E ~0.5).
+**Cierre estimado:** ~0.5 sub-sesión (sólo Fase 11.E pendiente).
 
 > **Doctrina aplicada:** ADR antes de código (ADR-077 mergeado primero, cero ambigüedad de contrato), sub-fases atómicas con su DoD propio (PR aislados), Server Components nativos en frontend (cierra parte de DC.6). Replica el patrón Sprint 8 que produjo el sprint más robusto del proyecto.
 
@@ -184,8 +184,8 @@ Automatizar el lifecycle de servicios del cliente: cuando una factura se paga, u
 |---|------|--------|
 | **11.A** | **ADR-077 — Contrato canónico `ProvisionerPlugin` v2 congelado** (firma TypeScript + 8 capability flags + shapes exhaustivos + 9 ProvisionerErrorCode + pipeline canónico de wrappers + política de versionado v2 estable + test contract genérico). PR #13 doc-only. | ✅ Mergeado 2026-05-01 (`a23f6bf`) |
 | **11.B** | **Orquestador + chasis canónico** (modules/provisioning + core/provisioning):<br>· `core/provisioning/types.ts` literal del ADR-077 §1+§2.<br>· `core/provisioning/plugin-utils.ts` con 3 wrappers (`getServiceInfoWithCache`, `executeActionWithCacheInvalidation`, `getSsoUrlWithAudit`).<br>· `core/provisioning/provisioning-cache.service.ts` (ioredis Redis DB 2, fail-open).<br>· `core/provisioning/plugin-registry.ts` (token DI multi-injection + 5 validaciones al boot).<br>· `ProvisioningOrchestratorService` con listener `invoice.paid` + processor BullMQ + DLQ.<br>· Schema: 2 columnas + 2 índices.<br>· Setting `provisioning.service_info_ttl_seconds`.<br>· **26 unit tests nuevos** (suite full **183/183 verde**). | ✅ Mergeado 2026-05-02 (`67fd733`) |
-| **11.C** | **Plugins triviales `internal` + `manual`**:<br>· Plugin `internal` en `backend/src/plugins/provisioners/internal/internal.plugin.ts` — `provision()` devuelve `{ providerReference: null, metadata: {}, followUp: ['mark_active'] }`. Para servicios sin proveedor externo (ej. Support Inside).<br>· Plugin `manual` en `backend/src/plugins/provisioners/manual/manual.plugin.ts` — `provision()` devuelve `{ followUp: ['create_setup_task'] }`. Setea `capabilities.completes_via_task=true`.<br>· Listener `provisioning-on-task-completed.listener.ts` filtrado por `capabilities.completes_via_task` (NO por `task.type` hardcoded — diseño abierto a Sprint 22 Projects).<br>· Wirear plugins al `PROVISIONER_PLUGINS` token en `provisioning.module.ts`.<br>· Tests unit cada plugin (4-5 cada uno) + listener (5-6 tests).<br>· **Test E2E `provisioning-manual-flow.spec.ts`**: cliente paga producto manual → orquestador crea task → agente completa task → service activated.<br>· **Extensión `support-inside.spec.ts`** con flujo end-to-end real: cliente compra Plan Pro vía `/dashboard/billing/checkout` → orquestador + plugin `internal` + listener Sprint 8 D.12.9 coordinan → subscription creada → service active. **Hito histórico**: el listener D.12.9 se valida por primera vez en flujo real. | ⬜ |
-| **11.D** | **Frontend `/dashboard/services/[id]` + endpoints REST** — **ÚLTIMA EXCEPCIÓN PERMITIDA del patrón Client Component clásico ([ADR-078](../10-decisions/adr-078-auth-server-side-cookies-httponly.md) §3.2)**:<br>· Endpoints REST cliente (4) + admin (3) en `provisioning.controller.ts` y `admin/provisioning.controller.ts`.<br>· DTOs con class-validator + CASL `Subject.Service` refinado.<br>· Página `/dashboard/services` (listado cliente).<br>· Página `/dashboard/services/[id]` (detalle, condicionado por `capabilities` flags del plugin).<br>· Componentes DS reusables en `_shared/services/`: `<ServiceHeader>`, `<MetricsBar>`, `<ActionsBar>`, `<SsoButton>`, `<AuditLogFeed>`.<br>· Página `/admin/services` (listado admin con filtros).<br>· Slot UI placeholder "Solicitar desarrollo personalizado" (Sprint 22 Projects lo habilitará).<br>· Tests E2E del flujo cliente (ver detalle servicio + asignar slot SI desde el detalle — cierra DC.17).<br>· **Doctrina ADR-078 aplicada**: cada Client Component nuevo lleva `// TODO(ADR-078, Sprint 13): migrar a SC cuando cookies httpOnly estén activas`. La doctrina anti-DC.6 (Server Components nativos) se difiere a Sprint 13 §13.AUTH porque requiere primero auth server-side (DC.28). Ver [ADR-078](../10-decisions/adr-078-auth-server-side-cookies-httponly.md) §3.3 para el patrón canónico de marker. | ⬜ |
+| **11.C** | **Plugins triviales `internal` + `manual`**:<br>· Plugin `internal` en `backend/src/plugins/provisioners/internal/internal.plugin.ts` — `provision()` devuelve `{ providerReference: null, metadata: {}, followUp: ['mark_active'] }`. Para servicios sin proveedor externo (ej. Support Inside).<br>· Plugin `manual` en `backend/src/plugins/provisioners/manual/manual.plugin.ts` — `provision()` devuelve `{ followUp: ['create_setup_task'] }`. Setea `capabilities.completes_via_task=true`.<br>· Listener `provisioning-on-task-completed.listener.ts` filtrado por `capabilities.completes_via_task` (NO por `task.type` hardcoded — diseño abierto a Sprint 22 Projects).<br>· Wirear plugins al `PROVISIONER_PLUGINS` token en `provisioning.module.ts`.<br>· Tests unit cada plugin (4-5 cada uno) + listener (5-6 tests).<br>· **Test E2E `provisioning-manual-flow.spec.ts`**: cliente paga producto manual → orquestador crea task → agente completa task → service activated.<br>· **Extensión `support-inside.spec.ts`** con flujo end-to-end real: cliente compra Plan Pro vía `/dashboard/billing/checkout` → orquestador + plugin `internal` + listener Sprint 8 D.12.9 coordinan → subscription creada → service active. **Hito histórico**: el listener D.12.9 se valida por primera vez en flujo real. | ✅ Mergeado 2026-05-02 (`179d7c4`, PR #16) |
+| **11.D** | **Frontend `/dashboard/services/[id]` + endpoints REST** — **ÚLTIMA EXCEPCIÓN PERMITIDA del patrón Client Component clásico ([ADR-078](../10-decisions/adr-078-auth-server-side-cookies-httponly.md) §3.2)**:<br>· Endpoints REST cliente (4) + admin (3) en `provisioning.controller.ts` y `admin-provisioning.controller.ts`.<br>· DTOs con class-validator + CASL `Subject.Service` refinado.<br>· Página `/dashboard/services` (listado cliente).<br>· Página `/dashboard/services/[id]` (detalle, condicionado por `capabilities` flags del plugin).<br>· Componentes DS reusables en `_shared/services/`: `<ServiceHeader>`, `<MetricsBar>`, `<ActionsBar>`, `<SsoButton>`, `service-status` helpers.<br>· Página `/admin/services` (listado admin con filtros — vista cross-cliente para ops/incidentes; ver DC nueva en Fase 11.E para "bloque Servicios en `/admin/clients/[id]`" como vista relacional cotidiana del agente).<br>· Slot UI placeholder "Solicitar desarrollo personalizado" (Sprint 22 Projects lo habilitará).<br>· `AuditLogFeed` NO entregado en 11.D — diferido a 11.E o sprint posterior (no es bloqueante: la transparencia RGPD ya vive en `/dashboard/transparency` desde Sprint 9).<br>· **Doctrina ADR-078 aplicada**: cada Client Component nuevo lleva `// TODO(ADR-078, Sprint 13): migrar a SC cuando cookies httpOnly estén activas`. La doctrina anti-DC.6 (Server Components nativos) se difiere a Sprint 13 §13.AUTH porque requiere primero auth server-side (DC.28). Ver [ADR-078](../10-decisions/adr-078-auth-server-side-cookies-httponly.md) §3.3 para el patrón canónico de marker.<br>· DC.17 cierre parcial: el endpoint cliente y la vista detalle quedan listos para asignar slot SI desde la card del servicio; UI inline del slot (formulario en `/dashboard/services/[id]`) queda pendiente para Fase 11.E o iteración posterior. | ✅ Mergeado 2026-05-02 (`e5fb67e`, PR #18) + fix lint (`7415c2f`) |
 | **11.E** | **Cierre documental + retrospectiva**:<br>· `docs/features/services/admin.md` + `client.md`.<br>· `docs/features/provisioning/admin.md` (vista interna del módulo).<br>· `docs/20-modules/provisioning/contract.md` → "✅ implementado".<br>· Verificar `_events.md` + `_matrix.md` cubren los 5 eventos nuevos + listeners + módulo desestubeado.<br>· `docs/30-data/billing.md` (services schema) actualizado con `provisioner_slug` + `provider_reference` como columnas reales.<br>· `docs/50-operations/jobs-reference.md` con cola `provisioning-dispatch`.<br>· `docs/50-operations/settings-reference.md` con setting nuevo.<br>· Smoke testing manual punta a punta con Carla.<br>· Retrospectiva `completed/sprint-11-provisioning.md`.<br>· Mover Sprint 11 entero de `current.md` a `completed/`. | ⬜ |
 
 ---
@@ -278,7 +278,7 @@ Automatizar el lifecycle de servicios del cliente: cuando una factura se paga, u
 
 ### 10. Cierre del sprint
 
-> Sprint 11 sigue **WIP**. **Fases 11.A + 11.B mergeadas en master**. Cola restante: 11.C → 11.D → 11.E.
+> Sprint 11 sigue **WIP**. **Fases 11.A + 11.B + 11.C + 11.D mergeadas en master**. Cola restante: **11.E** (cierre documental + retro).
 
 **Cierres registrados:**
 
@@ -287,6 +287,11 @@ Automatizar el lifecycle de servicios del cliente: cuando una factura se paga, u
 | 11.A — ADR-077 contrato canónico | 2026-05-01 | `a23f6bf` | #13 |
 | 11.B — Orquestador + chasis | 2026-05-02 | `67fd733` | #14 |
 | 11.B.fix — Lint specs (prettier + unbound-method + unsafe-access) | 2026-05-02 | (incluido en `67fd733` squash) | #14 amend |
+| 11.B doc closure + plan 11.C-E | 2026-05-02 | `8aa83dd` | #15 |
+| 11.C — Plugins triviales internal + manual + listener task→active | 2026-05-02 | `179d7c4` | #16 |
+| ADR-078 auth server-side cookies httpOnly (pre-requisito 11.D) | 2026-05-02 | `6c3f300` | #17 |
+| 11.D — REST endpoints + frontend services pages | 2026-05-02 | `e5fb67e` | #18 |
+| 11.D.fix — Lint:check verde (prettier + no-unsafe disable canónico Jest) | 2026-05-02 | (incluido en `e5fb67e` squash) | #18 amend |
 
 **Estado DoD parcial al cierre Fase 11.B (2026-05-02):**
 
@@ -297,27 +302,67 @@ Automatizar el lifecycle de servicios del cliente: cuando una factura se paga, u
 - ✅ Token DI multi-injection `PROVISIONER_PLUGINS` en `provisioning.module.ts` con `useValue: []` placeholder.
 - ✅ ADR-077 mergeado y enlazado desde 4 archivos canónicos.
 
+**Estado DoD parcial al cierre Fase 11.C (2026-05-02):**
+
+- ✅ Backend typecheck + lint + build + **228/228 unit tests** (+45 desde 183: internal 7 + manual 7 + listener 9 + contract genérico 22).
+- ✅ E2E suite full **120/120 verde** (+3 desde 117 — provisioning-manual-flow + extensión support-inside con flujo end-to-end real).
+- ✅ Plugins `internal` + `manual` registrados al `PROVISIONER_PLUGINS` token via `useFactory` (NestJS DI no soporta `multi: true` Angular-style — array compuesto manualmente).
+- ✅ Listener `provisioning-on-task-completed` con filtrado canónico por `capabilities.completes_via_task` (NO hardcoded por `task.type`). EC-P11-07 mutuamente excluyente con bridge ticket↔task.
+- ✅ Test contract genérico parametrizado por plugin (ADR-077 §7) — extensible a Sprint 15A/C/D/E/G automáticamente.
+- ✅ ESLint `no-restricted-imports` enforce R4 + EC-P11-10 sobre `src/plugins/provisioners/**`.
+- ✅ Seed `support-inside-plans` migrado a `provisioner='internal'` (ADR-077 §3 mapping canónico).
+- ✅ **Hito histórico**: listener Sprint 8 D.12.9 (`SupportInsideOnServiceProvisionedListener`) validado por primera vez en flujo real (E2E `support-inside.spec.ts` Sprint 11 Fase 11.C).
+
+**Estado DoD parcial al cierre Fase 11.D (2026-05-02):**
+
+- ✅ Backend typecheck + lint:check + build + **241/241 unit tests** (+13 desde 228 — `provisioning.service.spec` cubre listForUser/Admin filtros, ownership 403, reprovision/deprovision con audit, plugin no registrado fallback).
+- ✅ E2E suite full **129/129 verde** (+9 desde 120 — `provisioning-services-rest.spec.ts` cubre los 7 endpoints + ownership 403 + AdminOnlyGuard 403 + audit_change_log filas + service.cancelled).
+- ✅ **7 endpoints REST**: 4 cliente (`GET /services`, `GET /services/:id`, `POST /services/:id/sso`, `POST /services/:id/actions/:slug`) + 3 admin (`GET /admin/services`, `POST /admin/services/:id/reprovision`, `POST /admin/services/:id/deprovision`).
+- ✅ **3 páginas frontend** + **5 componentes shared `_shared/services/`** + AdminSidebar + permissions.ts actualizados.
+- ✅ **SSO endpoint canónico** devuelve `{ sso: SsoUrl | null }` (wrapper profesional vs `null` literal — coherente con clientes JSON).
+- ✅ **ADR-078 marker aplicado**: `grep -r "TODO(ADR-078" frontend/app` → 5 `'use client'` nuevos + 3 SC-compat documentados. Sprint 13 §13.AUTH cerrará la migración bulk.
+- ✅ Frontend lint: **51 warnings DC.6** (27 base + 24 nuevos) — esperados por ADR-078 §3.3, NO bloqueantes en CI.
+- ✅ CI verde tras fix `7415c2f` (prettier + disable canónico `no-unsafe-*` en spec Jest).
+- ⚠️ **Cierres parciales registrados** para resolver en 11.E o backlog:
+  - DC.17 cierre parcial: endpoint + vista detalle listos; UI inline del slot SI en `/dashboard/services/[id]` queda pendiente.
+  - **DC nueva (registrar en Fase 11.E)**: añadir bloque "Servicios contratados" en `/admin/clients/[id]` como vista relacional cotidiana del agente. La actual `/admin/services` queda como vista cross-cliente para ops/incidentes (filtros por estado/plugin), no para atención al cliente.
+  - `<AuditLogFeed>` componente NO entregado — la transparencia RGPD ya vive en `/dashboard/transparency` desde Sprint 9; si Fase 11.E decide replicar feed inline en detalle servicio, se diseña ahí.
+
 ---
 
 ### ✍ Próxima sesión — orden recomendado
 
 > **Frase canónica para arrancar la siguiente sesión con contexto fresco:**
 >
-> *"Lee `docs/90-meta/development-playbook.md`, `docs/10-decisions/adr-077-contrato-provisioner-plugin-v2.md`, `docs/10-decisions/adr-078-auth-server-side-cookies-httponly.md`, `docs/20-modules/provisioning/contract.md`, `docs/60-roadmap/current.md` §Sprint 11. Vamos con Sprint 11 Fase 11.D — frontend `/dashboard/services` + `/admin/services` + 7 endpoints REST. Crea rama `sprint11-fase-d-frontend` desde master. Aplica el marker `TODO(ADR-078)` en cada Client Component nuevo (es la última excepción permitida del patrón viejo)."*
+> *"Lee `docs/90-meta/development-playbook.md`, `docs/10-decisions/adr-077-contrato-provisioner-plugin-v2.md`, `docs/10-decisions/adr-078-auth-server-side-cookies-httponly.md`, `docs/20-modules/provisioning/contract.md`, `docs/60-roadmap/current.md` §Sprint 11. Vamos con Sprint 11 Fase 11.E — cierre documental + retrospectiva + mover Sprint 11 a `completed/`. Crea rama `sprint11-fase-e-cierre-documental` desde master."*
 
-#### Atención al arrancar Fase 11.D
+#### Atención al arrancar Fase 11.E
 
-- **Pre-requisito doctrinal**: ADR-078 mergeado primero (PR doc-only). Si no está en master, abrir PR ADR-078 antes de codear Fase 11.D.
-- **7 endpoints REST**: 4 cliente (`GET /services`, `GET /services/:id`, `POST /services/:id/sso`, `POST /services/:id/actions/:slug`) + 3 admin (`GET /admin/services`, `POST /admin/services/:id/reprovision`, `POST /admin/services/:id/deprovision`). DTOs class-validator + CASL `Subject.Service` refinado por rol.
-- **Frontend cliente**: 1 página listado (`/dashboard/services`) + 1 detalle (`/dashboard/services/[id]`). El detalle ramifica UI por `info.capabilities.*` flags — NO por `provisioner_slug` (ADR-070).
-- **Frontend admin**: 1 página listado con filtros (`/admin/services`).
-- **Componentes shared**: `frontend/app/_shared/services/` con `ServiceHeader`, `MetricsBar`, `ActionsBar`, `SsoButton`, `AuditLogFeed`. Diseño System tokens.
-- **Marker ADR-078 obligatorio**: cada `'use client'` nuevo lleva el TODO canónico §3.3 del ADR. Verificable post-Fase 11.D con `grep -r "TODO(ADR-078" frontend/app | wc -l` — debe coincidir con la lista de archivos creados.
-- **Slot UI placeholder Sprint 22**: en `/dashboard/services/[id]`, sección "Solicitar desarrollo personalizado" como CTA inactiva (Sprint 22 Projects la habilita). Documentar inline.
-- **DC.17 cierra aquí**: cliente puede asignar slot Support Inside desde el detalle del servicio (8.D.12.8 simétrico). E2E lo verifica.
-- **NO migrar páginas existentes** a Server Components — eso es Sprint 13 §13.AUTH (bulk migration). Fase 11.D solo añade páginas nuevas.
-- **NO ampliar enum `services.status`** con `project_development` — Sprint 22.
-- **NO añadir** `localStorage.getItem` nuevo en archivos que NO sean los nuevos de esta fase — el patrón viejo está permitido SOLO en Fase 11.D, no en archivos de otros módulos.
+- **Verificar primero que master está sincronizado** con commits 11.A→11.D (`a23f6bf` → `e5fb67e`). Master limpio, suite full verde (241/241 unit + 129/129 E2E).
+- **Documentación canónica a producir/actualizar** (PR doc-only, sin código):
+  - `docs/features/services/admin.md` + `client.md` — operativa del módulo Services para staff y cliente.
+  - `docs/features/provisioning/admin.md` — vista interna del orquestador (cómo opera el agente la cola `provisioning-dispatch`, qué hace cada plugin, cómo reprovisionar/deprovisionar).
+  - `docs/20-modules/provisioning/contract.md` → marcar **✅ implementado** y completar las 12 secciones canónicas con el estado real.
+  - `docs/20-modules/_events.md` — verificar 5 eventos `service.*` (`activated`, `provisioning_failed`, `metrics_fetched`, `action_executed`, `sso_opened`, `cancelled`) + listener `provisioning-on-task-completed` documentados.
+  - `docs/20-modules/_matrix.md` — desestubear módulo `provisioning` (ya no es ❌ stub).
+  - `docs/30-data/billing.md` — actualizar `services` schema con `provisioner_slug` + `provider_reference` como columnas reales (ya en BD desde 11.B).
+  - `docs/50-operations/jobs-reference.md` — añadir cola `provisioning-dispatch` (BullMQ + DLQ + retries [30s, 90s, 270s]).
+  - `docs/50-operations/settings-reference.md` — añadir setting `provisioning.service_info_ttl_seconds` (default 60).
+- **Backlog DC nuevas a registrar en Fase 11.E** (no son trabajo de esta fase, sólo documentación):
+  - DC nueva: bloque "Servicios contratados" en `/admin/clients/[id]` (vista relacional cotidiana del agente). Justificación arquitectónica: `/admin/services` (vista cross-cliente) sirve para ops/incidentes (filtros por estado/plugin); `/admin/clients/[id]` debe tener bloque relacional para que el agente vea los services del cliente al abrir su ficha.
+  - DC.17 cierre parcial pendiente: UI inline del slot SI desde `/dashboard/services/[id]` (cliente lo solicita desde la card del servicio). El endpoint y la vista listos; falta el formulario inline + tests E2E.
+  - `<AuditLogFeed>` inline en `/dashboard/services/[id]` — diferido (la transparencia RGPD ya vive en `/dashboard/transparency`).
+- **Smoke testing manual** punta a punta con cliente Carla:
+  - Login Carla → `/dashboard/services` → detalle de un service activo → SSO null para `internal`/`manual` (no rompe UI) → ActionsBar vacío para plugins triviales (sí, esperado).
+  - Login superadmin → `/admin/services` → filtra por `provisioner_slug=internal` → reprovision sobre service `pending` → ver audit_change_log.
+- **Retrospectiva** en `docs/60-roadmap/completed/sprint-11-provisioning.md`:
+  - Métricas: 4 PRs (#13, #14, #15, #16, #17, #18) en ~3 sesiones de trabajo activo (2026-05-01 → 2026-05-02).
+  - 2 ADRs nacidos: 077 (contrato canónico) + 078 (auth server-side).
+  - Tests: 157 base Sprint 8 → **241/241 unit** (+84 nuevos en Sprint 11).
+  - E2E: 117 base → **129/129** (+12 nuevos: 2 manual flow + 1 SI extendido + 9 REST).
+  - Lecciones aprendidas: ADR antes de código (077, 078) replicó el patrón Sprint 8 D.0 (075). Marker mecánico `TODO(ADR-078)` cierra deuda futura sin olvido. Backend lint local con `--fix` enmascara drift CI (`lint:check`) — corregido tras fix #18 amend.
+- **Mover Sprint 11 entero** de `current.md` a `completed/sprint-11-provisioning.md` con header puntero.
+- **NO añadir código** en Fase 11.E — es PR doc-only. Si surge una corrección de bug pequeña que se descubre haciendo smoke testing, abrir issue separada o sub-fase 11.E.fix.
 
 ---
 
