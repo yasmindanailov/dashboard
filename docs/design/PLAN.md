@@ -7,14 +7,13 @@
 
 ## Estado actual
 
-- **Fase activa:** 1 — Foundations / Design tokens (**lista para revisión humana**)
+- **Fase activa:** 2.A — Componentes base · Grupo A (formularios)
 - **Modo activo:** diseño
-- **Próxima acción:** revisión humana del `preview.html` final por parte del
-  usuario. Si OK, cierre formal de fase 1 y arranque de fase 2 (componentes
-  base — grupo A: formularios). Si hay cambios, iterar sobre fase 1.
-- **Última actualización:** 2026-05-03 — fase 1 cerrada en draft (HTML +
-  tokens.md + tokens.css + audit.md + NOTES.md). 42 tokens nuevos, 0
-  modificados, 4 deprecados con plan de migración.
+- **Próxima acción:** revisión humana del modelo de spec (Button.md +
+  button.html). Si OK, continúa con Input, Select, Textarea, SearchInput,
+  Dropdown bajo el mismo formato. Si hay cambios, iterar sobre el modelo.
+- **Última actualización:** 2026-05-03 — fase 1 cerrada, montada
+  infraestructura de fase 2 + maqueta viva en `docs/design/mockup/`.
 
 ---
 
@@ -54,8 +53,12 @@ romper la filosofía de minimalismo funcional (D1–D11 de
 | # | Fase | Estado | Entregable principal |
 |---|------|--------|----------------------|
 | 0 | Brief y confirmación | Cerrada | `BRIEF.md` aprobado |
-| 1 | Foundations / Design tokens | Draft completo · revisión humana | `tokens.css` + `tokens.md` + `preview.html` + `audit.md` + `NOTES.md` |
-| 2 | Componentes base (35) | Pendiente | Specs por grupo (formularios, feedback, data, navegación, contenedores) |
+| 1 | Foundations / Design tokens | **Cerrada** | `tokens.css` + `tokens.md` + `preview.html` + `audit.md` + `NOTES.md` aprobados |
+| 2.A | Componentes base · formularios | En curso (modelo en revisión) | Button, Input, Select, Textarea, SearchInput, Dropdown |
+| 2.B | Componentes base · feedback | Pendiente | Badge, StatusDot, Toast, AlertBanner, Tooltip, HelpTip, Skeleton |
+| 2.C | Componentes base · data | Pendiente | Table, Pagination, StatsCard, BulkActionBar, FilterBar |
+| 2.D | Componentes base · navegación | Pendiente | Tabs, Breadcrumb, CommandPalette, NotificationBell, PortalBadge |
+| 2.E | Componentes base · contenedores | Pendiente | Card, Modal, Avatar, EmptyState |
 | 3 | Patrones de página | Pendiente | DetailPage, ListPage, FormPage |
 | 4 | Layout shells | Pendiente | AuthShell, ClientShell, AdminShell, PartnerShell |
 | 5 | Mockups cliente | Pendiente | overview, services, billing, support, transparency, checkout |
@@ -124,6 +127,8 @@ Las fases se cierran en orden. No iniciar la siguiente sin cerrar la anterior
 | `DECISIONS.md` | Log de decisiones cerradas |
 | `REFERENCES.md` | Referentes visuales y de patrón |
 | `SESSION_RULES.md` | Protocolo operativo de sesión |
+| `mockup/` | **Maqueta viva** del dashboard. Crece con cada fase. |
+| `fase-N-*/` | Specs, audits, NOTES por fase. Append-only. |
 | `../DESIGN_SYSTEM.md` | Sistema canónico actual (fuente de verdad) |
 | `../UI_SPEC.md` | Anatomía canónica de páginas (fuente de verdad) |
 | `../../frontend/app/globals.css` | Tokens en código (estado actual) |

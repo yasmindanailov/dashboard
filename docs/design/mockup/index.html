@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium Dashboard · Maqueta viva</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="tokens.css" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="page-eyebrow">Aelium · Mockup vivo</div>
+      <h1 class="page-title">Maqueta del dashboard</h1>
+      <p class="page-lede">
+        Esta maqueta crece fase a fase. Hoy contiene los primeros componentes (fase 2). A medida que avance el programa, se irán incorporando patrones de página, layout shells por portal y mockups completos de las pantallas reales del producto.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Cómo navegar</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">
+        Usa la barra lateral. Los enlaces marcados como pendientes (<span class="tok">·</span>) llevan a una página placeholder amable hasta que la fase correspondiente los entregue. Las páginas activas se actualizan a medida que el programa avanza.
+      </p>
+
+      <div class="spec-grid">
+        <div class="label">Fase 2 · Componentes base
+          <span class="meta">Button, Input, Select, …</span>
+        </div>
+        <div>
+          Cada componente tiene su propia página con <strong>todas las variantes, tamaños y estados</strong>. Anotaciones a la derecha. Tokens consumidos referenciados explícitamente.
+        </div>
+      </div>
+
+      <div class="spec-grid">
+        <div class="label">Fase 3 · Patrones
+          <span class="meta">List · Detail · Form</span>
+        </div>
+        <div>
+          Plantillas reutilizables que componen los componentes en estructuras de página repetibles.
+        </div>
+      </div>
+
+      <div class="spec-grid">
+        <div class="label">Fase 4 · Shells
+          <span class="meta">Auth · Cliente · Admin · Partner</span>
+        </div>
+        <div>
+          Sidebar + topbar + content area por tipo de portal. Densidad por dialecto (cliente respira, admin denso). Acento por portal se decide aquí.
+        </div>
+      </div>
+
+      <div class="spec-grid">
+        <div class="label">Fases 5–9 · Páginas
+          <span class="meta">Mockups completos</span>
+        </div>
+        <div>
+          Cada pantalla del producto en su contexto real (overview, detalle, formulario, auth flow).
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Estado actual</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">
+        Lo único disponible hoy es la primera spec del primer componente: <a href="components/button.html" style="color:var(--brand);font-weight:var(--font-weight-medium);">Button</a>.
+        Sirve de modelo de cómo se documentará el resto. Si te encaja el formato, procedemos con los otros 5 componentes de formularios y luego avanzamos por los demás grupos.
+      </p>
+
+      <div class="note">
+        <strong>Convenciones de la maqueta.</strong> Sin librerías externas. Cero hex hardcoded. Todo via tokens (<a href="tokens.css" style="color:var(--brand);">tokens.css</a>). Estilos compartidos en <a href="styles.css" style="color:var(--brand);">styles.css</a>. Comportamiento compartido en <a href="scripts.js" style="color:var(--brand);">scripts.js</a>.
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="scripts.js"></script>
+</body>
+</html>

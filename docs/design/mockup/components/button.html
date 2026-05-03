@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Button</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  /* Específicos de esta página, en línea con tokens */
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+  .row.tight { gap: var(--space-2); }
+  .legend { font-size: 11px; text-transform: uppercase; color: var(--text-tertiary); letter-spacing: 0.06em; margin-bottom: var(--space-2); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="page-eyebrow">Fase 2.A · Formularios</div>
+      <h1 class="page-title">Button</h1>
+      <p class="page-lede">
+        Cuatro variantes (primary, secondary, ghost, danger) × tres tamaños (sm, md, lg). Ocho estados visibles. Todo via tokens — cero hex hardcoded en esta página.
+      </p>
+      <div class="row" style="margin-top: var(--space-5);">
+        <span class="tok">--brand</span>
+        <span class="tok">--focus-ring</span>
+        <span class="tok">--ease-out</span>
+        <span class="tok">--shadow-danger</span>
+      </div>
+    </header>
+
+    <!-- ─────── Variantes × tamaños ─────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variantes × tamaños</h2>
+        <span class="section-num">01</span>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Primary · sm / md / lg</h3>
+        <div class="preview-canvas">
+          <button class="btn btn-primary btn-sm">Guardar</button>
+          <button class="btn btn-primary btn-md">Guardar cambios</button>
+          <button class="btn btn-primary btn-lg">Confirmar y pagar</button>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Secondary · sm / md / lg</h3>
+        <div class="preview-canvas">
+          <button class="btn btn-secondary btn-sm">Cancelar</button>
+          <button class="btn btn-secondary btn-md">Editar perfil</button>
+          <button class="btn btn-secondary btn-lg">Ver factura</button>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Ghost · sm / md / lg</h3>
+        <div class="preview-canvas">
+          <button class="btn btn-ghost btn-sm">Filtrar</button>
+          <button class="btn btn-ghost btn-md">Más opciones</button>
+          <button class="btn btn-ghost btn-lg">Continuar</button>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Danger · sm / md / lg</h3>
+        <div class="preview-canvas">
+          <button class="btn btn-danger btn-sm">Suspender</button>
+          <button class="btn btn-danger btn-md">Eliminar cliente</button>
+          <button class="btn btn-danger btn-lg">Cancelar suscripción</button>
+        </div>
+        <div class="note">
+          <strong>Solo para acciones irreversibles.</strong> Si la acción es reversible (archivar, ocultar, mover a papelera), usar <span class="tok">secondary</span> con icono.
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────── Estados ─────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Estados</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">
+        Hover y active se demuestran interactivamente — pasa el cursor / haz click sobre los botones de arriba. Lo de abajo son los estados <em>fijos</em> que no se ven sin interacción.
+      </p>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Disabled</h3>
+        <div class="preview-canvas">
+          <button class="btn btn-primary btn-md" disabled>Guardar</button>
+          <button class="btn btn-secondary btn-md" disabled>Cancelar</button>
+          <button class="btn btn-ghost btn-md" disabled>Más opciones</button>
+          <button class="btn btn-danger btn-md" disabled>Eliminar</button>
+        </div>
+        <div class="note">
+          <span class="tok">opacity: 0.5</span> · <span class="tok">cursor: not-allowed</span>. Pierde hover. Para "deshabilitado accesible" usar <span class="mono">aria-disabled</span> + handler que cancele la acción.
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Loading</h3>
+        <div class="preview-canvas">
+          <button class="btn btn-primary btn-md btn-loading">Guardar cambios</button>
+          <button class="btn btn-secondary btn-md btn-loading">Editar</button>
+          <button class="btn btn-danger btn-md btn-loading">Eliminar</button>
+        </div>
+        <div class="note">
+          Contenido oculto, spinner centrado, <span class="mono">pointer-events: none</span> + <span class="mono">aria-busy="true"</span>.
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Focus visible · ring doble</h3>
+        <div class="preview-canvas">
+          <button class="btn btn-primary btn-md" style="box-shadow: var(--focus-ring);">Focus simulado</button>
+          <button class="btn btn-secondary btn-md" style="box-shadow: var(--focus-ring);">Focus simulado</button>
+          <span style="font-size: var(--font-size-sm); color: var(--text-secondary);">↑ visualización · navega con <kbd style="font-family:var(--font-mono);font-size:11px;background:var(--surface-tertiary);padding:1px 5px;border-radius:var(--radius-xs);">Tab</kbd> sobre los botones de arriba para ver el comportamiento real.</span>
+        </div>
+        <div class="note">
+          <strong>Anillo doble:</strong> 2px del color de superficie + 2px de brand. Se mantiene legible sobre cualquier fondo. Definido en <span class="tok">--focus-ring</span>.
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Focus sobre fondo oscuro</h3>
+        <div class="preview-canvas dark">
+          <button class="btn btn-primary btn-md" style="box-shadow: var(--focus-ring-on-dark);">Focus oscuro</button>
+          <button class="btn btn-md" style="background: transparent; color: var(--text-on-dark); border-color: rgba(255,255,255,0.2); box-shadow: var(--focus-ring-on-dark);">Outline en oscuro</button>
+        </div>
+        <div class="note">
+          Para BulkActionBar y Tooltip, usar <span class="tok">--focus-ring-on-dark</span> (anillo claro sobre dark).
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────── Variantes especiales ─────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variantes especiales</h2>
+        <span class="section-num">03</span>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Con iconos · prefijo y sufijo</h3>
+        <div class="preview-canvas">
+          <button class="btn btn-primary btn-md">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </span>
+            Nuevo cliente
+          </button>
+          <button class="btn btn-secondary btn-md">
+            Descargar
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            </span>
+          </button>
+          <button class="btn btn-ghost btn-sm">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </span>
+            Eliminar
+          </button>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Icon-only · sm / md / lg</h3>
+        <div class="preview-canvas">
+          <button class="btn btn-secondary btn-sm btn-icon-only" aria-label="Editar">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+          <button class="btn btn-secondary btn-md btn-icon-only" aria-label="Editar">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+          <button class="btn btn-secondary btn-lg btn-icon-only" aria-label="Editar">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+        </div>
+        <div class="note">
+          Cuadrado (min-width = min-height). <strong>Obligatorio</strong> <span class="mono">aria-label</span> con la acción.
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Full width</h3>
+        <div class="preview-canvas column" style="max-width: 360px;">
+          <button class="btn btn-primary btn-md btn-full">Confirmar y pagar 49,90 €</button>
+          <button class="btn btn-secondary btn-md btn-full">Cancelar</button>
+        </div>
+        <div class="note">
+          Ocupa el ancho del padre. Usar en columnas estrechas: checkout, modal de confirmación, formularios de auth, panel lateral.
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────── Composición ─────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Composición</h2>
+        <span class="section-num">04</span>
+      </div>
+      <p class="section-lede">
+        Patrones canónicos de cómo aparecen los botones agrupados. Una sola <span class="tok">primary</span> por grupo (regla D1).
+      </p>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Modal · acciones canceladora + confirmadora</h3>
+        <div class="preview-canvas tight" style="justify-content: flex-end;">
+          <button class="btn btn-secondary btn-md">Cancelar</button>
+          <button class="btn btn-primary btn-md">Guardar cambios</button>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Modal · acción destructiva</h3>
+        <div class="preview-canvas tight" style="justify-content: flex-end;">
+          <button class="btn btn-secondary btn-md">No, dejar como está</button>
+          <button class="btn btn-danger btn-md">Sí, eliminar</button>
+        </div>
+        <div class="note">
+          Las etiquetas describen <strong>qué pasa al hacer click</strong>, no si es positivo/negativo. "Eliminar" es más claro que "Aceptar".
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">PageHeader · CTA primaria + acciones secundarias</h3>
+        <div class="preview-canvas tight">
+          <button class="btn btn-secondary btn-md btn-icon-only" aria-label="Filtrar">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+          </button>
+          <button class="btn btn-secondary btn-md">Exportar</button>
+          <button class="btn btn-primary btn-md">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </span>
+            Nuevo cliente
+          </button>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Toolbar de tabla · todo ghost</h3>
+        <div class="preview-canvas tight">
+          <button class="btn btn-ghost btn-sm">Editar</button>
+          <button class="btn btn-ghost btn-sm">Duplicar</button>
+          <button class="btn btn-ghost btn-sm">Mover a…</button>
+          <button class="btn btn-ghost btn-sm" style="color: var(--danger);">Eliminar</button>
+        </div>
+        <div class="note">
+          En filas densas, todo ghost. La acción destructiva mantiene el color <span class="tok">--danger</span> aunque sea ghost (señal sin peso visual).
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────── Anti-patrones ─────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Anti-patrones</h2>
+        <span class="section-num">05</span>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Dos primary visibles</h3>
+        <div class="preview-canvas tight">
+          <button class="btn btn-primary btn-md">Guardar</button>
+          <button class="btn btn-primary btn-md">Publicar</button>
+          <span style="font-size: var(--font-size-sm); color: var(--danger); margin-left: var(--space-3);">✗ confunde la acción dominante</span>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Ghost como CTA principal</h3>
+        <div class="preview-canvas tight" style="justify-content: flex-end;">
+          <button class="btn btn-ghost btn-md">Confirmar pedido</button>
+          <span style="font-size: var(--font-size-sm); color: var(--danger);">✗ no se lee como botón decisivo</span>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Texto largo</h3>
+        <div class="preview-canvas tight">
+          <button class="btn btn-primary btn-md">Guardar todos los cambios y volver al inicio</button>
+          <span style="font-size: var(--font-size-sm); color: var(--danger);">✗ probablemente debería ser dos acciones</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────── Drift y deudas ─────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs implementación actual</h2>
+        <span class="section-num">06</span>
+      </div>
+      <p class="section-lede">
+        Lo que cambia respecto a <span class="mono">frontend/app/components/ui/Button/</span> al promocionar la spec. Ver <a href="../../fase-2-componentes/grupo-a-formularios/Button.md" style="color: var(--brand); font-weight: var(--font-weight-medium);">Button.md</a> para detalle.
+      </p>
+
+      <div class="spec-grid">
+        <div class="label">Focus ring
+          <span class="meta">D2A-2</span>
+        </div>
+        <div>Hoy hereda outline global. Cambio: <span class="mono">box-shadow: var(--focus-ring)</span> en <span class="mono">:focus-visible</span>.</div>
+      </div>
+
+      <div class="spec-grid">
+        <div class="label">Hex hardcoded en danger
+          <span class="meta">D2A-5</span>
+        </div>
+        <div><span class="mono">#DC2626</span> → <span class="tok">--danger-hover</span>. <span class="mono">rgba(...)</span> → <span class="tok">--shadow-danger</span> (token nuevo, propuesto DD-019).</div>
+      </div>
+
+      <div class="spec-grid">
+        <div class="label">Easing en transition
+          <span class="meta">DD-007</span>
+        </div>
+        <div>Añadir <span class="tok">var(--ease-out)</span> a cada transition declarada.</div>
+      </div>
+
+      <div class="spec-grid">
+        <div class="label">Mapping de fase 1
+          <span class="meta">D2A-1</span>
+        </div>
+        <div>El mapping decía <span class="tok">--radius-full</span> para Button. Es un error. Corregir mapping (DD-020), el componente mantiene <span class="tok">--radius-sm/md</span>.</div>
+      </div>
+    </section>
+
+    <div class="note" style="margin-top: var(--space-12);">
+      <strong>Modelo pendiente de aprobación.</strong> Si te encaja este formato, los otros 5 componentes del grupo (Input, Select, Textarea, SearchInput, Dropdown) siguen el mismo esqueleto en bloque sin pedir aprobación uno por uno. Si no encaja, dime qué cambia y lo ajusto antes de seguir.
+    </div>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>
