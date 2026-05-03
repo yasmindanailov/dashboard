@@ -40,6 +40,7 @@
       { href: 'components/filter-bar.html',         label: 'FilterBar' },
       { section: 'Navegación' },
       { href: 'components/tabs.html',               label: 'Tabs · StatusTabs' },
+      { href: 'components/tabs-variantes.html',     label: 'Tabs · variantes' },
       { href: 'components/breadcrumb.html',         label: 'Breadcrumb' },
       { href: 'components/command-palette.html',    label: 'CommandPalette' },
       { href: 'components/notification-bell.html',  label: 'NotificationBell' },
