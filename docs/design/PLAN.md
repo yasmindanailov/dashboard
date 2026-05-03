@@ -7,12 +7,14 @@
 
 ## Estado actual
 
-- **Fase activa:** 1 — Foundations / Design tokens
+- **Fase activa:** 1 — Foundations / Design tokens (**lista para revisión humana**)
 - **Modo activo:** diseño
-- **Próxima acción:** auditar `phase-1-tokens.html` (entregado por sesión previa)
-  contra `frontend/app/globals.css`, extraer `tokens.md` + `tokens.css`,
-  identificar gaps frente al alcance acordado.
-- **Última actualización:** sesión inicial — montaje del programa.
+- **Próxima acción:** revisión humana del `preview.html` final por parte del
+  usuario. Si OK, cierre formal de fase 1 y arranque de fase 2 (componentes
+  base — grupo A: formularios). Si hay cambios, iterar sobre fase 1.
+- **Última actualización:** 2026-05-03 — fase 1 cerrada en draft (HTML +
+  tokens.md + tokens.css + audit.md + NOTES.md). 42 tokens nuevos, 0
+  modificados, 4 deprecados con plan de migración.
 
 ---
 
@@ -52,7 +54,7 @@ romper la filosofía de minimalismo funcional (D1–D11 de
 | # | Fase | Estado | Entregable principal |
 |---|------|--------|----------------------|
 | 0 | Brief y confirmación | Cerrada | `BRIEF.md` aprobado |
-| 1 | Foundations / Design tokens | En curso | `tokens.css` + `tokens.md` + `preview.html` |
+| 1 | Foundations / Design tokens | Draft completo · revisión humana | `tokens.css` + `tokens.md` + `preview.html` + `audit.md` + `NOTES.md` |
 | 2 | Componentes base (35) | Pendiente | Specs por grupo (formularios, feedback, data, navegación, contenedores) |
 | 3 | Patrones de página | Pendiente | DetailPage, ListPage, FormPage |
 | 4 | Layout shells | Pendiente | AuthShell, ClientShell, AdminShell, PartnerShell |
@@ -71,9 +73,10 @@ Las fases se cierran en orden. No iniciar la siguiente sin cerrar la anterior
 
 ## Decisiones acumuladas (resumen)
 
-> Ver `DECISIONS.md` para detalle y justificación.
+> Ver `DECISIONS.md` para detalle y justificación. DD-001 a DD-018 cerradas.
 
-- **Brand:** `#3B82F6` con escala 50–950 a derivar.
+- **Brand:** `#3B82F6` curado a 5 puntos (`--brand`, `-hover`, `-active`,
+  `-light`, `-subtle`). No escala 50–950 (DD-013).
 - **Tipografía:** DM Sans 400/500/600. El 600 reservado a números grandes
   (StatsCard), display headings y énfasis fuerte.
 - **Spacing:** escala 4px (estado actual de `globals.css`).
@@ -87,10 +90,14 @@ Las fases se cierran en orden. No iniciar la siguiente sin cerrar la anterior
   sistemática añadida en fase 4 cuando aplican a layouts.
 - **Iconografía:** tokens base (`--icon-size-*`, `--icon-stroke-width`) en
   fase 1; íconos concretos en fase 2.
-- **Firma visual:** extender lenguaje de `GradientMesh` al producto con
-  acento por portal (cliente/agente/admin/partner) sobre brand `#3B82F6`.
-- **Densidad:** cliente baja, agente/admin alta, partner media-baja.
-  Definida formalmente en fase 4 (shells).
+- **Firma visual:** mecanismos entregados en fase 1 (accent indirecto,
+  mesh opacity, densidad raw+resuelta, focus ring doble, tabular nums,
+  motion choreography). **Override por portal diferido a fase 4** (DD-014).
+  `--accent-warm` eliminado (DD-015).
+- **Densidad:** mecanismo entregado (vars resueltas + `[data-density]`).
+  **Asignación por portal diferida a fase 4** (DD-016).
+- **Motion split:** `--transition-*` para CSS simple, `--motion-*` para
+  Framer Motion choreography (DD-017).
 - **Referentes ampliados:** Linear, Stripe, Vercel, Raycast, Attio, Arc,
   Height, Pylon, Cron/Notion Calendar.
 

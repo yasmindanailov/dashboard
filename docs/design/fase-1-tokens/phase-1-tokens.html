@@ -167,12 +167,11 @@
   --icon-size-lg:     20px;
   --icon-stroke-width: 1.5;
 
-  /* ── FIRMA VISUAL — accent por portal ── + */
+  /* ── FIRMA VISUAL — accent (override por portal diferido a fase 4) ── + */
   --accent:        var(--brand);
   --accent-hover:  var(--brand-hover);
   --accent-light:  var(--brand-light);
   --accent-subtle: var(--brand-subtle);
-  --accent-warm:   #F59E0B;
 
   /* ── FIRMA VISUAL — mesh opacity ── + */
   --mesh-opacity-auth:    1;
@@ -205,11 +204,25 @@
   --motion-modal-out:     180ms cubic-bezier(0.7, 0, 0.84, 0);
 }
 
-/* ── Portal accent overrides ── + */
-[data-portal="client"]  { --accent: #3B82F6; --accent-hover: #2563EB; }
-[data-portal="agent"]   { --accent: #2563EB; --accent-hover: #1D4ED8; }
-[data-portal="admin"]   { --accent: #1D4ED8; --accent-hover: #1E40AF; }
-[data-portal="partner"] { --accent: #3B82F6; --accent-hover: #2563EB; }
+/* ── Density resolution ── +
+   Tokens raw "-compact" / "-comfortable" se exponen como variables resueltas
+   vía data-density. Componentes consumen las resueltas (--row-height, --cell-padding,
+   --card-padding, --body-size), no las raw. Asignación por portal en fase 4. */
+:root {
+  --row-height:   var(--row-height-compact);
+  --cell-padding: var(--cell-padding-compact);
+  --card-padding: var(--card-padding-compact);
+  --body-size:    var(--body-size-compact);
+}
+[data-density="comfortable"] {
+  --row-height:   var(--row-height-comfortable);
+  --cell-padding: var(--cell-padding-comfortable);
+  --card-padding: var(--card-padding-comfortable);
+  --body-size:    var(--body-size-comfortable);
+}
+
+/* Portal accent overrides — DIFERIDO a fase 4 (shells).
+   Por ahora --accent === --brand en toda la aplicación. */
 
 /* ═══════════════════════════════════════════════════════════════
    PAGE CHROME
@@ -873,6 +886,7 @@ footer.foot {
   <a href="#layout">Layout</a>
   <a href="#zindex">Z-index</a>
   <a href="#icons">Iconografía</a>
+  <a href="#firma-visual">Firma visual</a>
 
   <div class="nav-section">Aplicación</div>
   <a href="#mapping">Mapping a componentes</a>
@@ -900,7 +914,7 @@ footer.foot {
 <section id="color">
   <div class="section-head">
     <h2 class="section-title">Color</h2>
-    <span class="section-num">01 / 09</span>
+    <span class="section-num">01 / 10</span>
   </div>
   <p class="section-lede">
     Sistema en cuatro capas: <strong>brand</strong> (acción), <strong>semánticos</strong> (estado), <strong>superficies/texto/borde</strong> (neutrales) y <strong>pending</strong> (proceso, púrpura). Todo nombrado por rol — nunca por color literal — para que dark mode no requiera renombrar nada en los componentes.
@@ -1065,6 +1079,14 @@ footer.foot {
     <div class="note">
       <strong>Cuándo usar gris neutral vs color semántico.</strong> Si el dato comunica un <em>estado</em> (resuelto, vencido, urgente, en revisión) → color semántico. Si es <em>metadata descriptiva</em> sin valoración (fecha, autor, ID, contador, tag de categoría) → gris (<span class="tok">--text-secondary</span> o <span class="tok">--text-tertiary</span>). Mismo principio que Stripe: los semánticos cuestan atención del usuario, no se gastan en metadata.
     </div>
+
+    <div class="note">
+      <strong>Surface · cuándo cada nivel.</strong> <span class="tok">--surface-primary</span> (#FFFFFF) es el lienzo de Card y Modal. <span class="tok">--surface-secondary</span> (#F7F7F8) es el fondo de la página detrás de las cards. <span class="tok">--surface-tertiary</span> (#F1F5F9) se reserva a placeholders y áreas inactivas — Skeleton, fondo de tag plano, separador denso. Si dudas entre secondary y tertiary, usa secondary.
+    </div>
+
+    <div class="note">
+      <strong>Border · escala de intensidad por estado, no por elemento.</strong> <span class="tok">--border</span> (default) en reposo. <span class="tok">--border-hover</span> al pasar el cursor sobre Card interactiva, Input, Select, Dropdown trigger. <span class="tok">--border-active</span> en estado presionado o seleccionado (no <span class="tok">--brand</span> — el brand se reserva para focus visible y acento). Nunca cambiar de color de borde a color brand en hover; la transición es de intensidad.
+    </div>
   </div>
 </section>
 
@@ -1072,7 +1094,7 @@ footer.foot {
 <section id="typography">
   <div class="section-head">
     <h2 class="section-title">Tipografía</h2>
-    <span class="section-num">02 / 09</span>
+    <span class="section-num">02 / 10</span>
   </div>
   <p class="section-lede">
     DM Sans (400/500/600) en escala de 11px → 56px. Tres pesos con reglas de uso explícitas. La escala display (3xl/4xl) se reserva para empty states, hero del cliente y números prominentes — no para títulos de sección.
@@ -1178,10 +1200,26 @@ footer.foot {
         <div class="type-sample" style="font-size: 56px; line-height: 1.1; font-weight: 600; letter-spacing: -0.025em;">Display lg · empty state grande</div>
         <div class="type-meta">56 / 62 · -0.025em<br>weight: 600</div>
       </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label-name">mono <span class="new-dot" style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--brand);vertical-align:middle;margin-left:4px;"></span></div>
+          <div class="type-label">--font-mono</div>
+        </div>
+        <div class="type-sample" style="font-family: var(--font-mono); font-size: 13px;">aelium-svc-7f3c · 192.0.2.45 · 2026-05-03T08:30Z</div>
+        <div class="type-meta">JetBrains Mono<br>weight: 400/500</div>
+      </div>
     </div>
 
     <div class="note">
-      <strong>Densidad por audiencia.</strong> Cliente → cuerpo en <span class="tok">body-lg (16px)</span> con line-height 1.5. Agente / Admin → cuerpo en <span class="tok">body (14px)</span> con line-height 1.5. Partner → 14px por defecto, 16px en pantallas comerciales. La escala es la misma — solo cambia qué token consume cada layout.
+      <strong>Densidad por audiencia.</strong> Cliente → cuerpo en <span class="tok">body-lg (16px)</span> con line-height <span class="tok">--line-height-normal</span> (1.5). Agente / Admin → cuerpo en <span class="tok">body (14px)</span> con line-height 1.5. Partner → 14px por defecto, 16px en pantallas comerciales. La escala es la misma — solo cambia qué token consume cada layout.
+    </div>
+
+    <div class="note">
+      <strong>Line-heights.</strong> <span class="tok">--line-height-tight</span> (1.2) → display y h1. <span class="tok new">--line-height-snug</span> (1.35) → h2 y h3 (entre tight y normal, evita títulos demasiado apretados). <span class="tok">--line-height-normal</span> (1.5) → body por defecto. <span class="tok">--line-height-relaxed</span> (1.625) → párrafos largos en empty states o pantallas de auth.
+    </div>
+
+    <div class="note">
+      <strong>Cuándo usar mono.</strong> IDs técnicos, hashes, dominios, IPs, timestamps en logs, tokens en línea dentro del propio dashboard (raros pero existen en error-log y jobs/failed). Nunca en cuerpo narrativo del cliente.
     </div>
   </div>
 </section>
@@ -1190,7 +1228,7 @@ footer.foot {
 <section id="spacing">
   <div class="section-head">
     <h2 class="section-title">Espaciado</h2>
-    <span class="section-num">03 / 09</span>
+    <span class="section-num">03 / 10</span>
   </div>
   <p class="section-lede">
     Escala de 4px (Regla D6). Sin valores arbitrarios. Cada step tiene un uso recomendado — la columna "uso" no es prescriptiva, es la guía por defecto.
@@ -1220,7 +1258,7 @@ footer.foot {
 <section id="radii">
   <div class="section-head">
     <h2 class="section-title">Radios</h2>
-    <span class="section-num">04 / 09</span>
+    <span class="section-num">04 / 10</span>
   </div>
   <p class="section-lede">Escala estricta. Cada componente tiene un radio asignado — no se elige caso a caso.</p>
 
@@ -1249,7 +1287,7 @@ footer.foot {
 <section id="shadows">
   <div class="section-head">
     <h2 class="section-title">Sombras</h2>
-    <span class="section-num">05 / 09</span>
+    <span class="section-num">05 / 10</span>
   </div>
   <p class="section-lede">Light-first dashboard — sombras suaves. Cada nivel = un nivel de elevación. <strong>Card NO usa sombra por defecto</strong> (vive sobre <span class="tok">--surface-secondary</span> con borde). Las sombras se reservan para elementos <em>levantados</em>.</p>
 
@@ -1287,7 +1325,7 @@ footer.foot {
 <section id="motion">
   <div class="section-head">
     <h2 class="section-title">Motion</h2>
-    <span class="section-num">06 / 09</span>
+    <span class="section-num">06 / 10</span>
   </div>
   <p class="section-lede">Tres durations + cuatro easings. Cada combinación tiene un uso. Para coreografías complejas (entry/exit de Modal, ChatWidget) se usa Framer Motion 12 con estas mismas constantes — no easings inventados.</p>
 
@@ -1352,7 +1390,7 @@ footer.foot {
 <section id="layout">
   <div class="section-head">
     <h2 class="section-title">Layout</h2>
-    <span class="section-num">07 / 09</span>
+    <span class="section-num">07 / 10</span>
   </div>
   <p class="section-lede">Tokens de chrome (sidebar/topbar) y de ancho máximo de contenido por tipo de página (UI_SPEC §2). Los containers hacen que las páginas no se vuelvan ilegibles en monitores ultra-anchos.</p>
 
@@ -1393,7 +1431,7 @@ footer.foot {
 <section id="zindex">
   <div class="section-head">
     <h2 class="section-title">Z-index</h2>
-    <span class="section-num">08 / 09</span>
+    <span class="section-num">08 / 10</span>
   </div>
   <p class="section-lede">Escala discreta. Saltos de 100 para meter capas intermedias sin renumerar todo.</p>
 
@@ -1416,7 +1454,7 @@ footer.foot {
 <section id="icons">
   <div class="section-head">
     <h2 class="section-title">Iconografía</h2>
-    <span class="section-num">09 / 09</span>
+    <span class="section-num">09 / 10</span>
   </div>
   <p class="section-lede">SVG inline, sin librería. Tres tamaños y un stroke fijo. Los iconos concretos (sets, taxonomía) se definen en fase 2 — esto solo establece los tokens.</p>
 
@@ -1448,6 +1486,211 @@ footer.foot {
 
     <div class="note">
       <strong>Nota fase 2.</strong> El set de iconos a usar (Lucide, Phosphor, custom) se decide en fase 2 — Componentes. Lo importante de esta fase es que cualquier set elegido se renderiza con <em>estos</em> tokens, no con tamaños inventados.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FIRMA VISUAL ═══════════ -->
+<section id="firma-visual">
+  <div class="section-head">
+    <h2 class="section-title">Firma visual</h2>
+    <span class="section-num">10 / 10</span>
+  </div>
+  <p class="section-lede">
+    Disciplina, no decoración. Seis mecanismos sutiles que hacen reconocible al dashboard sin añadir ruido: <strong>accent</strong>, <strong>mesh</strong>, <strong>densidad</strong>, <strong>focus ring</strong>, <strong>tabular nums</strong> y <strong>motion choreography</strong>. La asignación de accent y densidad por portal se cierra en fase 4 (shells) — esta fase entrega solo los mecanismos.
+  </p>
+
+  <!-- Accent -->
+  <div class="subsection">
+    <h3 class="subsection-title">Accent</h3>
+    <p class="subsection-meta">
+      Variable indirecta que apunta al brand. Permite que componentes consuman <span class="tok">--accent</span> en vez de <span class="tok">--brand</span> directo, preparando el override por portal sin tocar componentes.
+    </p>
+    <div class="kv">
+      <div><span class="tok new">--accent</span></div>
+      <div>Por defecto <span class="tok">var(--brand)</span>. Override en fase 4.</div>
+      <div><span class="tok new">--accent-hover</span></div>
+      <div><span class="tok">var(--brand-hover)</span></div>
+      <div><span class="tok new">--accent-light</span></div>
+      <div><span class="tok">var(--brand-light)</span></div>
+      <div><span class="tok new">--accent-subtle</span></div>
+      <div><span class="tok">var(--brand-subtle)</span></div>
+    </div>
+    <div class="note">
+      <strong>Por qué no override por portal en fase 1.</strong> Decidir acentos sin ver los layouts reales es prematuro. El programa entrega solo el mecanismo (variable indirecta). En fase 4 se decide qué cambia por portal — probablemente <em>no</em> el color base (defensa de marca), sino la intensidad del mesh y la densidad.
+    </div>
+  </div>
+
+  <!-- Mesh -->
+  <div class="subsection">
+    <h3 class="subsection-title">GradientMesh — opacidad por contexto</h3>
+    <p class="subsection-meta">
+      <span class="tok">GradientMesh</span> ya existe y vive en pantallas de auth. La firma extiende su lenguaje al producto pero con opacidad muy reducida — imperceptible al ojo casual, reconocible al lado de otros dashboards. Aparece como fondo de Overview, hero cliente y empty states grandes.
+    </p>
+    <div class="kv">
+      <div><span class="tok new">--mesh-opacity-auth</span> · 1</div>
+      <div>Pantallas de auth. Mesh visible — la primera impresión.</div>
+      <div><span class="tok new">--mesh-opacity-product</span> · 0.04</div>
+      <div>Producto. Imperceptible aislado, reconocible comparado.</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-top: var(--space-4);">
+      <div style="position: relative; height: 180px; border-radius: var(--radius-md); border: 1px solid var(--border); overflow: hidden; background:
+        radial-gradient(at 30% 30%, rgba(59,130,246,0.45), transparent 50%),
+        radial-gradient(at 70% 60%, rgba(139,92,246,0.35), transparent 60%),
+        radial-gradient(at 50% 90%, rgba(99,102,241,0.30), transparent 70%),
+        var(--surface-primary);">
+        <div style="position: absolute; bottom: var(--space-3); left: var(--space-3); background: var(--surface-primary); padding: 4px 10px; border-radius: var(--radius-full); font-size: var(--font-size-xs); font-weight: 500; border: 1px solid var(--border);">opacidad 1 · auth</div>
+      </div>
+      <div style="position: relative; height: 180px; border-radius: var(--radius-md); border: 1px solid var(--border); overflow: hidden; background: var(--surface-primary);">
+        <div style="position: absolute; inset: 0; opacity: 0.04; background:
+          radial-gradient(at 30% 30%, rgba(59,130,246,1), transparent 50%),
+          radial-gradient(at 70% 60%, rgba(139,92,246,1), transparent 60%),
+          radial-gradient(at 50% 90%, rgba(99,102,241,1), transparent 70%);"></div>
+        <div style="position: absolute; bottom: var(--space-3); left: var(--space-3); background: var(--surface-primary); padding: 4px 10px; border-radius: var(--radius-full); font-size: var(--font-size-xs); font-weight: 500; border: 1px solid var(--border);">opacidad 0.04 · producto</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Densidad -->
+  <div class="subsection">
+    <h3 class="subsection-title">Densidad — dos dialectos del mismo sistema</h3>
+    <p class="subsection-meta">
+      Cliente respira; agente y admin trabajan denso. Mismo design system, dos dialectos. Se activa con <span class="mono">[data-density="compact" | "comfortable"]</span> en el shell del portal. Componentes consumen las variables resueltas (<span class="tok">--row-height</span>, <span class="tok">--cell-padding</span>, <span class="tok">--card-padding</span>, <span class="tok">--body-size</span>) — no las raw. La asignación por portal se cierra en fase 4.
+    </p>
+
+    <div class="kv">
+      <div style="font-weight: 500; color: var(--text-primary);">Compact (default raíz)</div>
+      <div style="color: var(--text-tertiary); font-size: 11px;">agente · admin · partner (provisional, se confirma en fase 4)</div>
+      <div><span class="tok new">--row-height-compact</span> · 36px</div>
+      <div>Filas de tabla densas. Más datos por scroll.</div>
+      <div><span class="tok new">--cell-padding-compact</span> · 10px 12px</div>
+      <div>Padding interno celda.</div>
+      <div><span class="tok new">--card-padding-compact</span> · 16px</div>
+      <div>Padding interno Card.</div>
+      <div><span class="tok new">--body-size-compact</span> · 14px</div>
+      <div>Cuerpo del shell denso.</div>
+
+      <div style="font-weight: 500; color: var(--text-primary); margin-top: var(--space-3);">Comfortable</div>
+      <div style="color: var(--text-tertiary); font-size: 11px; margin-top: var(--space-3);">cliente</div>
+      <div><span class="tok new">--row-height-comfortable</span> · 56px</div>
+      <div>Filas espaciadas. Lectura cómoda, audiencia no técnica.</div>
+      <div><span class="tok new">--cell-padding-comfortable</span> · 16px 20px</div>
+      <div>Más aire vertical y horizontal.</div>
+      <div><span class="tok new">--card-padding-comfortable</span> · 24px</div>
+      <div>Card respira. Énfasis en jerarquía sobre densidad.</div>
+      <div><span class="tok new">--body-size-comfortable</span> · 16px</div>
+      <div>Cuerpo body-lg para reducir esfuerzo de lectura.</div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-top: var(--space-5);">
+      <div data-density="compact" style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--card-padding); font-size: var(--body-size);">
+        <div style="font-size: 11px; text-transform: uppercase; color: var(--text-tertiary); letter-spacing: 0.06em; margin-bottom: 6px;">[data-density="compact"]</div>
+        <div style="font-weight: 500; margin-bottom: 6px;">Servicio · hosting-pro-01</div>
+        <div style="color: var(--text-secondary);">Activo · uptime 99,98% · expira en 47 días</div>
+      </div>
+      <div data-density="comfortable" style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--card-padding); font-size: var(--body-size);">
+        <div style="font-size: 11px; text-transform: uppercase; color: var(--text-tertiary); letter-spacing: 0.06em; margin-bottom: 6px;">[data-density="comfortable"]</div>
+        <div style="font-weight: 500; margin-bottom: 6px;">Servicio · hosting-pro-01</div>
+        <div style="color: var(--text-secondary);">Activo · uptime 99,98% · expira en 47 días</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Focus ring -->
+  <div class="subsection">
+    <h3 class="subsection-title">Focus ring — anillo doble</h3>
+    <p class="subsection-meta">
+      Doble anillo: 2px del color de superficie + 2px de brand. Crea separación óptica que se mantiene legible sobre cualquier fondo. Reemplaza el outline nativo en componentes interactivos.
+    </p>
+    <div class="kv">
+      <div><span class="tok new">--focus-ring</span></div>
+      <div><span class="mono">0 0 0 2px var(--surface-primary), 0 0 0 4px var(--brand)</span></div>
+      <div><span class="tok new">--focus-ring-on-dark</span></div>
+      <div><span class="mono">0 0 0 2px var(--surface-dark), 0 0 0 4px var(--brand-light)</span></div>
+    </div>
+    <div style="display: flex; gap: var(--space-4); margin-top: var(--space-5); flex-wrap: wrap; align-items: center;">
+      <button style="padding: 10px 20px; background: var(--brand); color: var(--text-on-brand); border: none; border-radius: var(--radius-full); font-weight: 500; cursor: pointer; box-shadow: 0 0 0 2px var(--surface-primary), 0 0 0 4px var(--brand); font-family: inherit; font-size: var(--font-size-sm);">
+        Focus claro
+      </button>
+      <div style="background: var(--surface-dark); padding: var(--space-4); border-radius: var(--radius-md);">
+        <button style="padding: 10px 20px; background: transparent; color: var(--text-on-dark); border: 1px solid rgba(255,255,255,0.2); border-radius: var(--radius-full); font-weight: 500; cursor: pointer; box-shadow: 0 0 0 2px var(--surface-dark), 0 0 0 4px var(--brand-light); font-family: inherit; font-size: var(--font-size-sm);">
+          Focus oscuro
+        </button>
+      </div>
+    </div>
+    <div class="note">
+      <strong>Aplicación.</strong> Componentes interactivos sobreescriben el outline nativo: <span class="mono">outline: none; box-shadow: var(--focus-ring);</span> en <span class="mono">:focus-visible</span>. Inputs, selects, botones, links. Importantísimo no romper accesibilidad — siempre visible al navegar con teclado.
+    </div>
+  </div>
+
+  <!-- Tabular nums -->
+  <div class="subsection">
+    <h3 class="subsection-title">Tabular numerals</h3>
+    <p class="subsection-meta">
+      DM Sans soporta numerales tabulares. Activarlos en columnas de números (tablas, métricas, listados) hace que las cifras se alineen visualmente sin justificar a la derecha y sin saltos al cambiar de valor.
+    </p>
+    <div class="kv">
+      <div><span class="tok new">--font-feature-numeric</span></div>
+      <div><span class="mono">"tnum" 1, "lnum" 1</span></div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-top: var(--space-4);">
+      <div style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4);">
+        <div style="font-size: 11px; text-transform: uppercase; color: var(--text-tertiary); letter-spacing: 0.06em; margin-bottom: var(--space-2);">Proporcional (default)</div>
+        <div style="font-feature-settings: normal; font-variant-numeric: normal; line-height: 1.7;">
+          <div>1.234,50&nbsp;€</div>
+          <div>987,11&nbsp;€</div>
+          <div>11.111,11&nbsp;€</div>
+        </div>
+      </div>
+      <div style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4);">
+        <div style="font-size: 11px; text-transform: uppercase; color: var(--text-tertiary); letter-spacing: 0.06em; margin-bottom: var(--space-2);">Tabular (--font-feature-numeric)</div>
+        <div style="font-feature-settings: 'tnum' 1, 'lnum' 1; font-variant-numeric: tabular-nums; line-height: 1.7;">
+          <div>1.234,50&nbsp;€</div>
+          <div>987,11&nbsp;€</div>
+          <div>11.111,11&nbsp;€</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <strong>Cuándo aplicar.</strong> Solo en números: importes, métricas, contadores, fechas, IDs. NO en cuerpo de texto narrativo — el ojo lee mejor con espaciado proporcional. Convención: clase utility <span class="mono">.tabular-nums</span> + aplicado por defecto en <span class="mono">&lt;td&gt;</span> con datos numéricos.
+    </div>
+  </div>
+
+  <!-- Motion choreography -->
+  <div class="subsection">
+    <h3 class="subsection-title">Motion choreography</h3>
+    <p class="subsection-meta">
+      Tokens nombrados por <em>tipo de cambio</em>, no por componente. Garantiza que el route change, el modal in y el stack-out se sienten igual en toda la app aunque los implementen componentes distintos. Se consumen desde Framer Motion 12 (variants y transitions).
+    </p>
+
+    <div class="kv">
+      <div style="font-weight: 500; color: var(--text-primary);">Stagger</div>
+      <div style="color: var(--text-tertiary); font-size: 11px;">para listas y grids</div>
+      <div><span class="tok new">--motion-stagger-fast</span> · 30ms</div>
+      <div>Stagger entre items de lista corta (≤ 5 elementos).</div>
+      <div><span class="tok new">--motion-stagger-base</span> · 60ms</div>
+      <div>Stagger para listas largas, grids, columnas de tabla apareciendo.</div>
+
+      <div style="font-weight: 500; color: var(--text-primary); margin-top: var(--space-3);">Transiciones canónicas</div>
+      <div style="color: var(--text-tertiary); font-size: 11px; margin-top: var(--space-3);">para Framer Motion entry/exit</div>
+      <div><span class="tok new">--motion-route</span></div>
+      <div>220ms ease-out. Cambio de ruta entre páginas de la misma sección.</div>
+      <div><span class="tok new">--motion-stack-in</span></div>
+      <div>180ms ease-out. Card / Drawer / Dropdown entrando.</div>
+      <div><span class="tok new">--motion-stack-out</span></div>
+      <div>140ms ease-in. Card / Drawer / Dropdown saliendo (más rápido que entrada).</div>
+      <div><span class="tok new">--motion-modal-in</span></div>
+      <div>240ms ease-out. Modal grande, panel lateral overlay.</div>
+      <div><span class="tok new">--motion-modal-out</span></div>
+      <div>180ms ease-in. Cierre.</div>
+    </div>
+
+    <div class="note">
+      <strong>Regla — qué token con qué tecnología.</strong>
+      <ul style="margin: var(--space-2) 0 0; padding-left: var(--space-5); color: var(--text-secondary);">
+        <li><span class="tok">--transition-fast/normal/slow</span> + <span class="tok">--ease-*</span> → <strong>CSS transitions</strong> de propiedad simple (color, background, opacity, transform sutil). Hover, focus, active.</li>
+        <li><span class="tok new">--motion-*</span> → <strong>Framer Motion</strong> entry/exit choreography. Cualquier elemento que aparece/desaparece o cambia de layout. Si Framer Motion necesita una duración, viene de un token <span class="tok">motion-*</span>, no de un <span class="tok">transition-*</span>.</li>
+      </ul>
     </div>
   </div>
 </section>
@@ -1495,7 +1738,7 @@ footer.foot {
     <h2 class="section-title">Cambios respecto al actual</h2>
     <span class="section-num">·</span>
   </div>
-  <p class="section-lede">22 tokens nuevos, 0 valores existentes modificados. Riesgo de regresión: bajo. Componentes y páginas no requieren refactor — solo los componentes que actualmente hardcodean color de texto sobre fondos -light pasan a consumir el nuevo <span class="tok">-strong</span>.</p>
+  <p class="section-lede">42 tokens nuevos, 0 valores existentes modificados. Riesgo de regresión: bajo. Componentes y páginas no requieren refactor — solo los que actualmente hardcodean color de texto sobre fondos -light pasan a consumir el nuevo <span class="tok">-strong</span>. Toda la firma visual es opt-in: si un componente no consume <span class="tok">--accent</span>, <span class="tok">--card-padding</span> o <span class="tok">--font-feature-numeric</span>, sigue funcionando idéntico.</p>
 
   <div class="subsection">
     <div class="map-table">
@@ -1504,15 +1747,26 @@ footer.foot {
       <div class="map-row"><div class="map-key">Color · pending</div><div><span class="tok new">--pending</span> <span class="tok new">--pending-hover</span> <span class="tok new">--pending-active</span> <span class="tok new">--pending-light</span> <span class="tok new">--pending-border</span> <span class="tok new">--pending-strong</span></div><div>Set completo del púrpura usado por StatusDot. Antes literal.</div></div>
       <div class="map-row"><div class="map-key">Color · -hover semánticos</div><div><span class="tok new">--success-hover</span> <span class="tok new">--danger-hover</span> <span class="tok new">--info-hover</span></div><div>Coherencia con --brand-hover. --warning-hover ya existía.</div></div>
       <div class="map-row"><div class="map-key">Tipografía · display</div><div><span class="tok new">--font-size-3xl</span> <span class="tok new">--font-size-4xl</span></div><div>Empty states, hero cliente, números StatsCard prominentes.</div></div>
-      <div class="map-row"><div class="map-key">Tipografía · familia</div><div><span class="tok new">--font-mono</span></div><div>Para IDs, hashes, dominios, código en línea.</div></div>
+      <div class="map-row"><div class="map-key">Tipografía · familia</div><div><span class="tok new">--font-mono</span></div><div>Para IDs, hashes, dominios, IPs, timestamps técnicos.</div></div>
       <div class="map-row"><div class="map-key">Tipografía · line-height</div><div><span class="tok new">--line-height-snug</span> · 1.35</div><div>H2/H3 — entre tight y normal.</div></div>
       <div class="map-row"><div class="map-key">Motion · easings</div><div><span class="tok new">--ease-out</span> <span class="tok new">--ease-in</span> <span class="tok new">--ease-in-out</span> <span class="tok new">--ease-spring</span></div><div>Antes solo <span class="mono">ease</span> nativo. Necesario para Framer Motion coherente.</div></div>
       <div class="map-row"><div class="map-key">Layout · containers</div><div><span class="tok new">--container-list</span> <span class="tok new">--container-detail</span> <span class="tok new">--container-form</span></div><div>Anchos máximos por tipo de página (UI_SPEC §2).</div></div>
       <div class="map-row"><div class="map-key">Iconos</div><div><span class="tok new">--icon-size-sm</span> <span class="tok new">--icon-size-md</span> <span class="tok new">--icon-size-lg</span> <span class="tok new">--icon-stroke-width</span></div><div>Tokens base — set concreto en fase 2.</div></div>
+      <div class="map-row"><div class="map-key">Firma · accent</div><div><span class="tok new">--accent</span> <span class="tok new">--accent-hover</span> <span class="tok new">--accent-light</span> <span class="tok new">--accent-subtle</span></div><div>Variable indirecta sobre brand. Override por portal en fase 4.</div></div>
+      <div class="map-row"><div class="map-key">Firma · mesh</div><div><span class="tok new">--mesh-opacity-auth</span> <span class="tok new">--mesh-opacity-product</span></div><div>Extiende GradientMesh al producto con opacidad reducida.</div></div>
+      <div class="map-row"><div class="map-key">Firma · densidad raw</div><div><span class="tok new">--row-height-compact/comfortable</span> <span class="tok new">--cell-padding-*</span> <span class="tok new">--card-padding-*</span> <span class="tok new">--body-size-*</span></div><div>Valores brutos de cada dialecto.</div></div>
+      <div class="map-row"><div class="map-key">Firma · densidad resuelta</div><div><span class="tok new">--row-height</span> <span class="tok new">--cell-padding</span> <span class="tok new">--card-padding</span> <span class="tok new">--body-size</span></div><div>Variables que cambian con [data-density]. Componentes consumen estas.</div></div>
+      <div class="map-row"><div class="map-key">Firma · focus ring</div><div><span class="tok new">--focus-ring</span> <span class="tok new">--focus-ring-on-dark</span></div><div>Anillo doble. Reemplaza outline nativo en componentes interactivos.</div></div>
+      <div class="map-row"><div class="map-key">Firma · numerals</div><div><span class="tok new">--font-feature-numeric</span></div><div>Tabular-nums para tablas y métricas.</div></div>
+      <div class="map-row"><div class="map-key">Firma · motion choreography</div><div><span class="tok new">--motion-stagger-fast</span> <span class="tok new">--motion-stagger-base</span> <span class="tok new">--motion-route</span> <span class="tok new">--motion-stack-in</span> <span class="tok new">--motion-stack-out</span> <span class="tok new">--motion-modal-in</span> <span class="tok new">--motion-modal-out</span></div><div>Para Framer Motion. Ver regla "qué token con qué tecnología" en Firma visual.</div></div>
     </div>
 
     <div class="note" style="margin-top: var(--space-6);">
       <strong>Lo que NO se toca:</strong> ningún valor existente. <span class="tok">--brand</span>, <span class="tok">--space-*</span>, <span class="tok">--radius-*</span>, <span class="tok">--shadow-*</span>, durations, sidebar/topbar, z-index — todo intacto. Esto es aditivo.
+    </div>
+
+    <div class="note">
+      <strong>Selectores nuevos.</strong> Solo uno: <span class="mono">[data-density="comfortable"]</span> (el default <em>compact</em> vive en <span class="mono">:root</span>). Override por portal vía <span class="mono">[data-portal]</span> queda <em>diferido a fase 4</em> — actualmente <span class="tok">--accent</span> === <span class="tok">--brand</span> en toda la app.
     </div>
   </div>
 </section>

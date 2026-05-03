@@ -21,11 +21,15 @@ Formato:
 ## DD-001 — Brand color base
 
 - Fase: 0
-- Fecha: 2026-05-03
-- Decisión: Brand color `#3B82F6` con escala 50–950 a derivar en fase 1.
+- Fecha: 2026-05-03 (revisada en fase 1, ver DD-013)
+- Decisión: Brand color `#3B82F6`. **Curado a 5 puntos** (`--brand`,
+  `-hover`, `-active`, `-light`, `-subtle`) en lugar de escala 50–950
+  completa. Ver DD-013 para la revisión.
 - Justificación: Ya es el brand declarado en `docs/SESSION_RULES.md` y en
-  `frontend/app/globals.css`. Coherente con la landing.
-- Materializada en: `BRIEF.md` § Identidad visual actual
+  `frontend/app/globals.css`. Coherente con la landing. La auditoría de
+  fase 1 confirmó que los componentes actuales no consumen una escala de
+  11 puntos.
+- Materializada en: `BRIEF.md` § Identidad visual actual; `tokens.css`
 - Implicaciones: Toda decisión de color en fases posteriores parte de esta
   base. Variantes de portal usan acentos sobre esta base, no la sustituyen.
 
@@ -178,3 +182,109 @@ Formato:
 - Implicaciones: Toda discrepancia entre el draft y los canónicos se marca
   como propuesta de cambio en `DECISIONS.md`. La promoción es un paso
   explícito en modo implementación.
+
+## DD-013 — Brand a 5 puntos curados, no escala 50–950
+
+- Fase: 1
+- Fecha: 2026-05-03
+- Decisión: Mantener `--brand`, `--brand-hover`, `--brand-active`,
+  `--brand-light`, `--brand-subtle` como los 5 puntos del brand. No derivar
+  escala completa 50–950.
+- Justificación: Los componentes actuales no consumen una escala de 11
+  puntos. Derivar tokens sin uso introduce ruido visual en `tokens.css` y
+  obliga a justificar valores intermedios sin caso real. Si un componente
+  futuro necesita un paso intermedio, se añade puntualmente.
+- Materializada en: `tokens.css`, `tokens.md` § 1
+- Implicaciones: DD-001 queda revisada para reflejar esta lectura. Si en
+  fase 2 algún componente pide pasos faltantes, decisión incremental ahí.
+
+## DD-014 — Override de accent por portal diferido a fase 4
+
+- Fase: 1
+- Fecha: 2026-05-03
+- Decisión: La fase 1 entrega solo el mecanismo (variable indirecta
+  `--accent` que apunta a `--brand`). El override por portal
+  (`[data-portal]`) **no se define en fase 1**, se cierra en fase 4
+  cuando los shells reales estén diseñados.
+- Justificación: Decidir acentos por portal sin ver layouts reales es
+  prematuro. La propuesta inicial (cliente=brand, agente=brand-hover,
+  admin=brand-active) era defensiva y sin diferenciación visible — una
+  firma que no se nota no es firma. La decisión robusta requiere ver el
+  contexto. Probable: variar intensidad del mesh y densidad por portal,
+  no el color del accent (defensa de marca).
+- Materializada en: `tokens.css` (sin selector `[data-portal]`),
+  `phase-1-tokens.html` § Firma visual, `tokens.md` § 12
+- Implicaciones: Hasta fase 4, `--accent` ≡ `--brand` en toda la app.
+  Componentes que se diseñen en fase 2 deben consumir `--accent` (no
+  `--brand` directo) cuando vayan a verse afectados por la decisión por
+  portal — típicamente shell, navegación, sidebar item activo.
+
+## DD-015 — Eliminado `--accent-warm`
+
+- Fase: 1
+- Fecha: 2026-05-03
+- Decisión: Eliminar el token `--accent-warm: #F59E0B` propuesto en
+  iteración previa de Claude Design.
+- Justificación: `#F59E0B` es **idéntico a `--warning`**. Usar el color
+  semántico de "advertencia" para indicar dinero ganado (comisiones
+  partner) es un antipatrón — el cerebro lee warning como problema. Si en
+  fase 8 las comisiones requieren un acento cálido, se introduce con un
+  color distinto a warning.
+- Materializada en: `tokens.css` (eliminado), `phase-1-tokens.html`
+- Implicaciones: Partner queda sin acento cálido propio. Decisión
+  reabierta en fase 8 si los mockups lo justifican.
+
+## DD-016 — Densidad: variables resueltas + `[data-density]`
+
+- Fase: 1
+- Fecha: 2026-05-03
+- Decisión: La fase 1 entrega:
+  - Tokens raw (`--row-height-compact`, `--row-height-comfortable`, etc.).
+  - Variables resueltas (`--row-height`, `--cell-padding`, `--card-padding`,
+    `--body-size`) que componentes consumen.
+  - Selector `[data-density="comfortable"]` que reescribe las resueltas.
+    Default `compact` vive en `:root`.
+  - **Asignación por portal diferida a fase 4** (DD-010 ya lo dejaba ahí).
+- Justificación: Sin variables resueltas, cada componente decidiría qué
+  raw consumir y romperíamos la portabilidad. El selector permite que el
+  shell del portal active el dialecto sin tocar componentes.
+- Materializada en: `tokens.css` (selector + vars resueltas),
+  `tokens.md` § 12 (densidad)
+- Implicaciones: Fase 2 actualiza specs de Table, Card, body shell para
+  consumir las resueltas. Fase 4 decide qué portal usa qué dialecto.
+
+## DD-017 — Regla `--transition-*` vs `--motion-*`
+
+- Fase: 1
+- Fecha: 2026-05-03
+- Decisión: Convención para resolver el solapamiento entre familias de
+  motion tokens:
+  - `--transition-fast/normal/slow` + `--ease-*` → **CSS transitions** de
+    propiedad simple (color, background, opacity, transform sutil). Hover,
+    focus, active.
+  - `--motion-*` (route, stack-in/out, modal-in/out, stagger) → **Framer
+    Motion** entry/exit choreography. Cualquier elemento que aparece,
+    desaparece o cambia de layout.
+  - Si Framer Motion necesita una duración, viene de un token `--motion-*`,
+    no de un `--transition-*`.
+- Justificación: Sin esta regla, cada componente acabaría mezclando ambas
+  familias. La separación es por tecnología (CSS nativo vs librería de
+  animación), no por uso, lo que la hace mecánicamente verificable.
+- Materializada en: `phase-1-tokens.html` § Firma visual (regla qué token
+  con qué tecnología), `tokens.md` § 8 y § 12
+- Implicaciones: Specs de fase 2 deben asignar la familia correcta para
+  cada interacción. Auditable con un grep de los tokens en componentes.
+
+## DD-018 — Refinamiento de alpha en `-border` semánticos
+
+- Fase: 1
+- Fecha: 2026-05-03
+- Decisión: Subir el alpha de `--success-border`, `--warning-border`,
+  `--danger-border`, `--info-border` de `0.15` a `0.18`.
+- Justificación: Permite que `AlertBanner` y `Badge` con borde se
+  distingan mejor del fondo `-light` adyacente sin perder sutileza.
+  Diferencia óptica imperceptible aislada; cumple coherencia visual
+  comparada.
+- Materializada en: `tokens.css` (valores actualizados), `audit.md` § 3.2
+- Implicaciones: Único cambio de **valor** en tokens existentes en toda la
+  fase 1. Sin riesgo de regresión funcional. Registrado para trazabilidad.
