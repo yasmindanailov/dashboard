@@ -133,30 +133,35 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ---
 
-## 🟡 Sprint 13 §13.AUTH — Auth server-side con cookies httpOnly + Server Components nativos (en curso)
+## 🟡 Sprint 13 §13.AUTH — Auth server-side con cookies httpOnly + Server Components nativos (Fase E ✅ completa)
 
-**Estado:** 🟡 fases 0/A/B/D ✅ cerradas (4 commits) — fases E/F pendientes (handoff a hilo nuevo).
+**Estado:** 🟡 fases 0/A/B/D/E ✅ cerradas (8 commits) — fase F pendiente (handoff a hilo nuevo).
 **Inicio:** 2026-05-03.
-**Cierre estimado:** Fase E + F en hilo nuevo (~2 sesiones).
+**Cierre estimado:** Fase F en hilo nuevo (~1 sesión: 3 specs E2E + smoke manual + 5 docs + retrospectiva).
 **Rama:** `sprint13-auth-cookies-httponly` (desde master `fdd015a`).
 **ADR canónico:** [ADR-078](../10-decisions/adr-078-auth-server-side-cookies-httponly.md) + Amendment A1 (Modelo A: cookies en dominio Next.js).
-**Handoff Fase E:** [`docs/60-roadmap/sprint-13-auth-handoff-fase-e.md`](./sprint-13-auth-handoff-fase-e.md) — contexto operativo completo + inventario de archivos + bug crítico IPv6 documentado con fix de 1 línea.
+**Handoff Fase E** (referencia histórica): [`docs/60-roadmap/sprint-13-auth-handoff-fase-e.md`](./sprint-13-auth-handoff-fase-e.md).
+**Handoff Fase F** (siguiente sesión): [`docs/60-roadmap/sprint-13-auth-handoff-fase-f.md`](./sprint-13-auth-handoff-fase-f.md) — contexto operativo completo + inventario de archivos a crear/modificar + plantillas docs.
 
-### Progreso real (2026-05-03 18:30)
+### Progreso real (2026-05-03)
 
 | Fase | Estado | Commit | Resumen |
 |------|--------|--------|---------|
 | **0** | ✅ | `19796aa` | Preflight + ADR-078 Amendment A1 + sprint plan en current.md (doc-only). |
-| **A** | ✅ | `0521c71` | Backend: `cookie-parser` registrado + `POST /auth/ws-token` + JwtPayload extendido con `'ws'` + SupportGatewayAuth narrowing tipo. 5 tests unit. |
-| **B** | ✅ | `6e913b5` | Backend: migración `sprint13auth_session_replay_detection` (3 columnas Session) + refresh rotation + replay detection + `NotificationsAuthReplayListener` + 2 plantillas. 10 tests unit nuevos. |
-| **D** | ✅ | `3851e7a` | Frontend: `lib/server-auth.ts` + `lib/auth-actions.ts` (DAL canónico Next.js 16 + 10 Server Actions). Cero archivo existente tocado. |
-| **E** | ⬜ | — | Bulk migration ~47 archivos a SC nativo. **Pendiente hilo nuevo** (handoff doc lista). |
-| **F** | ⬜ | — | E2E + R17 + cierre documental. **Pendiente hilo nuevo** (handoff doc lista). |
+| **A** | ✅ | `0521c71` + fix `bf8f777` | Backend: `cookie-parser` + `POST /auth/ws-token` + JwtPayload `'ws'` + jti random (cierra UNIQUE constraint bug). 5 tests + actualización. |
+| **B** | ✅ | `6e913b5` | Backend: migración `sprint13auth_session_replay_detection` + refresh rotation + replay detection + `NotificationsAuthReplayListener` + 2 plantillas. 10 tests. |
+| **D** | ✅ | `3851e7a` | Frontend: `lib/server-auth.ts` + `lib/auth-actions.ts` (DAL canónico + 10 Server Actions). |
+| **E.1** | ✅ | `dfa77f7` | Frontend: auth-públicas (5 pages) + AuthContext minimalista + admin/dashboard layouts SC + 11 pages read-only + Server Actions de dominio (billing/products/error-log/jobs). |
+| **E.2** | ✅ | `5bf2556` | Frontend: 9 detail pages + editores inline (templates, support-inside-plans editor 5-secciones, products edit/new, clients[id] tabs, billing[id] admin+cliente). |
+| **E.3** | ✅ | `f2902a2` | Frontend: 5 pages restantes (admin/tasks, admin/support[id], dashboard/services[id], dashboard/support[id], dashboard/support-inside) + 11 _shared (hooks chat/inbox/checkout/conv, modales tasks/notes, TasksWidget, SsoButton, ActionsBar, NotificationBell, ConversationSidebar, AdminSidebar) + ChatWidget WS con `getWsTokenAction` + ESLint promote a `error` con override per-archivo. |
+| **F** | ⬜ | — | E2E (3 specs) + smoke manual + R17 + contract + api-errors + cierre `backlog.md` + mover a `completed/`. **Handoff doc lista.** |
 
-### Verificación canónica
+### Verificación canónica tras Fase E
 
 - ✅ Backend `pnpm typecheck` + `pnpm lint:check` + `pnpm test` (198/198) verde.
-- ✅ Frontend `pnpm typecheck` verde. `pnpm lint:check` con 49 warnings preexistentes DC.6 (que Fase E cerrará).
+- ✅ Frontend `pnpm typecheck` + `pnpm lint:check` (0 warnings) + `pnpm build` verdes.
+- ✅ **Conteo final**: `0` ocurrencias de `localStorage.{get,set,remove}Item('access_token'|'refresh_token')` (eran 41); `0` marcadores `TODO(ADR-078)` (eran 22); `0` warnings DC.6 (eran 49). 47 archivos migrados.
+- ⚠️ Decisión arquitectónica documentada inline en `frontend/eslint.config.mjs`: regla `set-state-in-effect` a `error` con override per-archivo para 19 archivos con patrones React 19 legítimos (WS subscribe, polling timers, mobile drawer sync, lazy load on tab/prop, modal reset, setup post-mount). **Yasmin valida en retrospectiva** (handoff Fase F EC-FaseF-01).
 - ✅ Migración Prisma aplicada en DB local + seed completo (7 roles + 6 cuentas demo).
 - ✅ **Smoke HTTP backend completo verificado 2026-05-03 18:47** (handoff §13). Los 4 endpoints canónicos pasan end-to-end:
   - `POST /auth/login` → 200 + body con `{access_token, refresh_token, expires_in, user}` (cero `Set-Cookie` — Modelo A).
@@ -269,14 +274,14 @@ Migrar la autenticación del frontend de `'use client' + localStorage` a Server 
 | 13.AUTH.D.2 | Frontend: `lib/auth-actions.ts` con todas las Server Actions (login, verify2fa, logout, refresh, register, forgot/reset, verifyEmail, resendVerification, getWsToken) | D | ⬜ |
 | 13.AUTH.D.3 | Frontend: tests unit helpers con mock de `next/headers` | D | ⬜ |
 | 13.AUTH.D.4 | Frontend: variables de entorno `BACKEND_URL` + `NEXT_RUNTIME_SECRET` documentadas en `.env.local.example` | D | ⬜ |
-| 13.AUTH.E.1 | Frontend: inventario mecánico (`grep -r "TODO(ADR-078\|localStorage.getItem"`) | E | ⬜ |
-| 13.AUTH.E.2 | Frontend: pages auth-públicas (`/`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`) — formularios `'use client'` con `useActionState` invocando Server Actions | E | ⬜ |
-| 13.AUTH.E.3 | Frontend: pages autenticadas — `page.tsx` → SC nativo con `serverFetch`. Hijos interactivos siguen Client Components recibiendo data por props | E | ⬜ |
-| 13.AUTH.E.4 | Frontend: `AuthContext` reescribir (provider mínimo expone `user` hidratado server-side + `logout` Server Action) | E | ⬜ |
-| 13.AUTH.E.5 | Frontend: `lib/api.ts` añade `bearerFromServer` helper (lee cookie reenvía Authorization) — paths que aún usan `api(token)` siguen funcionando vía SC | E | ⬜ |
-| 13.AUTH.E.6 | Frontend: ChatWidget WebSocket → invoca `getWsTokenAction()` antes de `socket.io({auth:{token}})` | E | ⬜ |
-| 13.AUTH.E.7 | Frontend: eliminar todas las ocurrencias `localStorage.getItem('access_token')` y `setItem` (verificación `grep` 0 ocurrencias) | E | ⬜ |
-| 13.AUTH.E.8 | Frontend: promover `react-hooks/set-state-in-effect` de `warn` → `error` en `eslint.config.mjs` (DC.6 cerrado) | E | ⬜ |
+| 13.AUTH.E.1 | Frontend: inventario mecánico (`grep -r "TODO(ADR-078\|localStorage.getItem"`) | E | ✅ `dfa77f7` |
+| 13.AUTH.E.2 | Frontend: pages auth-públicas (`/`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`) — SC wrapper + form CC con `useActionState` | E | ✅ `dfa77f7` |
+| 13.AUTH.E.3 | Frontend: pages autenticadas — `page.tsx` → SC nativo con `serverFetch`; hijos interactivos siguen CC recibiendo data por props (47 archivos) | E | ✅ `dfa77f7` + `5bf2556` + `f2902a2` |
+| 13.AUTH.E.4 | Frontend: `AuthContext` minimalista (provider expone `user` hidratado server-side + `logout` Server Action) | E | ✅ `dfa77f7` |
+| 13.AUTH.E.5 | Frontend: `lib/api.ts` permanece como esperado (helper `api(token)` para Server Actions internos); 30/31 importadores son `import type` | E | ✅ `f2902a2` (audit) |
+| 13.AUTH.E.6 | Frontend: ChatWidget WebSocket → invoca `getWsTokenAction()` antes de `socket.io({auth:{token}})` | E | ✅ `f2902a2` |
+| 13.AUTH.E.7 | Frontend: eliminar todas las ocurrencias `localStorage.getItem('access_token')` y `setItem` (verificación `grep` 0 ocurrencias) | E | ✅ `f2902a2` (0/0) |
+| 13.AUTH.E.8 | Frontend: promover `react-hooks/set-state-in-effect` a `error` con override per-archivo para 19 archivos React 19 legítimos (decisión arquitectónica documentada inline) | E | ✅ `f2902a2` |
 | 13.AUTH.F.1 | Tests E2E nuevos: `auth-cookies-flow.spec.ts` (login → cookie → autenticado → logout → cookie limpia) | F | ⬜ |
 | 13.AUTH.F.2 | Tests E2E nuevos: `auth-replay-detection.spec.ts` (replay revoca cadena + alerta superadmin) | F | ⬜ |
 | 13.AUTH.F.3 | Tests E2E nuevos: `auth-no-localStorage.spec.ts` (regresión: post-login `localStorage` vacío de tokens) | F | ⬜ |
