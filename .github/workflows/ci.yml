@@ -91,13 +91,28 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────────────────
   # E2E — Tests end-to-end con Playwright
-  # Requiere Postgres, Redis y MailPit como service containers.
-  # Arranca backend (3001) y frontend (3002) y los testea como un usuario real.
+  #
+  # Sprint 13.5.5 Fase A (DC.27): el job corre dentro de la imagen oficial
+  # mcr.microsoft.com/playwright:v1.59.1-noble — Chromium + system libs ya
+  # vienen pre-instalados, eliminando ~60-90s de install + flake de
+  # `apt-get update`. Pin major.minor sincronizado con @playwright/test del
+  # root package.json.
+  #
+  # Cuando el job corre en `container:`, los `services:` se conectan por DNS
+  # del network interno (hostname = service name) sin port mapping. El
+  # backend y frontend que Playwright arranca como `webServer` corren en el
+  # MISMO container del job, por tanto `localhost:3001/3002` siguen siendo
+  # correctos para `NEXT_PUBLIC_API_URL` / `E2E_*_URL`.
   # ─────────────────────────────────────────────────────────────────────────────
   e2e:
     name: E2E
     runs-on: ubuntu-latest
     timeout-minutes: 25
+
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-noble
+      # No `options: --user` — la imagen ya viene con un usuario pwuser
+      # apropiado, y forzar uid puede romper permisos sobre el workspace.
 
     services:
       postgres:
@@ -106,8 +121,8 @@ jobs:
           POSTGRES_USER: aelium
           POSTGRES_PASSWORD: aelium_test
           POSTGRES_DB: aelium_dashboard_test
-        ports:
-          - 5432:5432
+        # Cuando el job corre en container, los services se acceden por
+        # hostname interno del network compartido — sin port mapping.
         options: >-
           --health-cmd pg_isready
           --health-interval 5s
@@ -116,8 +131,6 @@ jobs:
 
       redis:
         image: redis:7-alpine
-        ports:
-          - 6379:6379
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s
@@ -126,22 +139,34 @@ jobs:
 
       mailpit:
         image: axllent/mailpit:latest
-        ports:
-          - 1025:1025
-          - 8025:8025
+        # MailPit no expone healthcheck trivial; los specs verifican
+        # disponibilidad al primer fetch. Si reincide flake, añadir
+        # `--health-cmd "wget --spider -q http://localhost:8025/api/v1/info"`.
 
-      # NOTA: MinIO no se declara aquí como `service:` porque GitHub
-      # Actions services no soporta `command:` y la imagen oficial
-      # `minio/minio` necesita el arg `server /data`. Se arranca como
-      # step explícito más abajo ("Start MinIO"). Ver ADR-062 §C.
+      # MinIO ahora SÍ como service container — `bitnami/minio` arranca
+      # server automáticamente con `MINIO_DEFAULT_BUCKETS` y autocreate
+      # del bucket. Sustituye al step manual `Start MinIO` + `Wait for
+      # MinIO ready` del workflow legacy (Sprint 11.5 / ADR-062 §C).
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+          MINIO_DEFAULT_BUCKETS: aelium-storage
+        options: >-
+          --health-cmd "curl -sf http://localhost:9000/minio/health/live || exit 1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
 
     env:
-      # Conexiones a los services
-      DATABASE_URL: postgresql://aelium:aelium_test@localhost:5432/aelium_dashboard_test?schema=public
+      # Conexiones a los services — service names (DNS interno) en lugar de
+      # localhost. Sprint 13.5.5 Fase A.
+      DATABASE_URL: postgresql://aelium:aelium_test@postgres:5432/aelium_dashboard_test?schema=public
       # REDIS_URL es la canónica desde Sprint 9 Fase A (ADR-063 §B):
       # JobsModule + DlqService leen `ConfigService.getOrThrow('REDIS_URL')`.
-      REDIS_URL: redis://localhost:6379
-      REDIS_HOST: localhost
+      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ''
       # Prefijo BullMQ aislado para CI — evita colisiones si el runner
@@ -149,69 +174,43 @@ jobs:
       # pero más seguro y barato).
       BULLMQ_PREFIX: aelium-jobs-ci
 
-      # Backend
+      # Backend (corre en el MISMO container del job — localhost ok)
       PORT: 3001
       API_PREFIX: api/v1
       JWT_SECRET: ci-test-jwt-access-secret-not-for-production-32chars
       JWT_REFRESH_SECRET: ci-test-jwt-refresh-secret-not-for-production-32chars
       ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd
       MAIL_TRANSPORT: smtp
-      MAIL_HOST: localhost
+      MAIL_HOST: mailpit
       MAIL_PORT: 1025
       MAIL_FROM: 'Aelium CI <noreply@aelium.test>'
       SUPERADMIN_EMAIL: admin@aelium.net
       SUPERADMIN_PASSWORD: AeliumDev2026
       DISABLE_CRON_WORKERS: 'true'
 
-      # MinIO / S3 (Sprint 11.5 + ADR-062). El bucket se autocrea con
-      # `MINIO_DEFAULT_BUCKETS` (bitnami/minio); StorageService.ensureBucket()
-      # actúa como red de seguridad en boot.
-      S3_ENDPOINT: http://localhost:9000
+      # MinIO / S3 (Sprint 11.5 + ADR-062). Service container `minio`.
+      S3_ENDPOINT: http://minio:9000
       S3_ACCESS_KEY: minioadmin
       S3_SECRET_KEY: minioadmin
       S3_BUCKET: aelium-storage
       S3_REGION: eu-west-1
       S3_FORCE_PATH_STYLE: 'true'
 
-      # Frontend
+      # Frontend (corre en el MISMO container del job — localhost ok)
       NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
       NEXT_PUBLIC_APP_URL: http://localhost:3002
 
-      # E2E config
+      # E2E config — backend/frontend en localhost del container; mailpit
+      # via service name.
       E2E_FRONTEND_URL: http://localhost:3002
       E2E_BACKEND_URL: http://localhost:3001
       E2E_API_URL: http://localhost:3001/api/v1
-      E2E_MAILPIT_URL: http://localhost:8025
+      E2E_MAILPIT_URL: http://mailpit:8025
       CI: 'true'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      # MinIO como step (no como service:) porque GitHub Actions services
-      # no acepta `command:` y la imagen oficial `minio/minio` necesita
-      # `server /data` como arg. Mismo puerto y credenciales que en local.
-      - name: Start MinIO
-        run: |
-          docker run -d \
-            --name aelium-minio-ci \
-            -p 9000:9000 -p 9001:9001 \
-            -e MINIO_ROOT_USER=minioadmin \
-            -e MINIO_ROOT_PASSWORD=minioadmin \
-            minio/minio:latest server /data --console-address ":9001"
-
-      - name: Wait for MinIO ready
-        run: |
-          for i in {1..30}; do
-            if curl -sf http://localhost:9000/minio/health/live > /dev/null; then
-              echo "MinIO listo en intento $i"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "MinIO no respondió tras 60s — abortando"
-          docker logs aelium-minio-ci || true
-          exit 1
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -237,20 +236,10 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: frontend
 
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Install Playwright browsers (Chromium only)
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install chromium --with-deps
-
-      - name: Install Playwright system deps (always — kernel libs)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps chromium
+      # NOTA: Sprint 13.5.5 Fase A — eliminados los steps de cache + install
+      # de Playwright browsers/system deps. La imagen oficial
+      # mcr.microsoft.com/playwright:v1.59.1-noble ya los incluye, ahorrando
+      # ~60-90s por run y eliminando flakes intermitentes de `apt-get update`.
 
       - name: Prisma — generate
         run: pnpm prisma generate
