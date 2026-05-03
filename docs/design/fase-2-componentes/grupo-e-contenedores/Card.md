@@ -17,7 +17,7 @@ sea". 5 variantes cubren los casos reales:
 | `static` (default) | Información sin interacción. Detalle de cliente, factura preview, sección informativa. |
 | `action` (DD-023 formalizada) | Card que lleva a detalle. Hover brand-tinted, focus-ring, navegable. |
 | `selectable` | Plan selector, multi-select visual. Checkbox interno, selected con bg brand-subtle. |
-| `featured` | Plan destacado ("Más popular"), recomendado. Border 2px brand + tag rombo. |
+| `featured` | Plan destacado ("Más popular"), recomendado. Border 2px brand + tag pill brand (DD-030 · sin marker rombo en la tag). |
 | `mesh` | Hero del cliente, Overview destacado. `--mesh-opacity-product` aplicado. |
 
 ## 2. Anatomía
@@ -58,7 +58,7 @@ Estado `.selected` con bg `--brand-subtle` + check-circle brand top-right. Click
 
 ### 3.4 Featured
 
-`border: 2px solid var(--brand)`. Tag flotante en top-center con rombo + texto ("Más popular", "Recomendado", "Premium").
+`border: 2px solid var(--brand)`. Tag flotante en top-center: pill `--brand` con texto blanco ("Más popular", "Recomendado", "Premium"). **Sin marker rombo** (DD-030) — la pill brand + texto blanco ya destaca por sí misma.
 
 **Cuándo**: pricing pages, destacar una opción dentro de un grid de planes, plan recomendado.
 

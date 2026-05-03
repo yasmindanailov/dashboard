@@ -798,14 +798,8 @@ a { color: inherit; text-decoration: none; }
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
-.eyebrow::before {
-  content: "";
-  width: 8px; height: 8px;
-  border-radius: 1px;
-  background: var(--brand);
-  transform: rotate(45deg);
-  display: inline-block;
-}
+/* DD-030: eyebrow se mantiene tipográfico (brand · uppercase · spacing).
+   Sin marker rombo decorativo — saturaba el sistema. */
 
 /* ──────── Aelium dot · pequeño marcador de marca ──────── */
 .aelium-dot {
@@ -1343,14 +1337,7 @@ a { color: inherit; text-decoration: none; }
   font-weight: var(--font-weight-medium);
   line-height: 1;
 }
-.stats-card-eyebrow::before {
-  content: "";
-  width: 8px; height: 8px;
-  border-radius: 1px;
-  background: var(--brand);
-  transform: rotate(45deg);
-  flex-shrink: 0;
-}
+/* DD-030: sin marker rombo. Eyebrow se mantiene tipográfico. */
 
 /* Value: display-sm por defecto */
 .stats-card-value {
@@ -2283,13 +2270,8 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
-.card-base.featured-v .card-tag::before {
-  content: "";
-  width: 6px; height: 6px;
-  border-radius: 1px;
-  background: var(--text-on-brand);
-  transform: rotate(45deg);
-}
+/* DD-030: tag featured sin marker rombo decorativo. La tag por sí misma
+   ya destaca con bg brand + color blanco. */
 
 /* Variante 5 · mesh — fondo mesh sutil para hero / overview */
 .card-base.mesh-v {
@@ -2398,13 +2380,7 @@ a { color: inherit; text-decoration: none; }
   font-weight: var(--font-weight-medium);
   margin-bottom: var(--space-1);
 }
-.modal-eyebrow::before {
-  content: "";
-  width: 6px; height: 6px;
-  border-radius: 1px;
-  background: var(--brand);
-  transform: rotate(45deg);
-}
+/* DD-030: modal-eyebrow sin marker. Es text-only Aelium. */
 .modal-title {
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
@@ -2484,9 +2460,11 @@ a { color: inherit; text-decoration: none; }
 .modal-dialog.confirm {
   max-width: 420px;
 }
-.modal-dialog.confirm.destructive {
-  border-left: 3px solid var(--danger);
-}
+/* DD-030: confirm destructive sin border-left.
+   La señal destructiva viene del title concreto + body explicando
+   consecuencias + botón danger. Decorativo redundante eliminado.
+   El accent-stripe-left se reserva a navegación funcional
+   (sidebar, tabs vertical). */
 .modal-dialog.confirm .modal-header {
   border-bottom: none;
   padding-bottom: 0;
@@ -2749,13 +2727,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--brand);
   margin-bottom: var(--space-3);
 }
-.empty-base.first-time .empty-eyebrow::before {
-  content: "";
-  width: 8px; height: 8px;
-  border-radius: 1px;
-  background: var(--brand);
-  transform: rotate(45deg);
-}
+/* DD-030: first-time eyebrow sin marker. Tipográfico Aelium. */
 .empty-base.first-time .empty-title { font-size: var(--font-size-2xl); letter-spacing: -0.015em; }
 .empty-base.first-time .empty-desc { font-size: var(--font-size-md); max-width: 520px; }
 

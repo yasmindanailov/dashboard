@@ -45,8 +45,15 @@ romper la filosofía de minimalismo funcional (D1–D11 de
    disabled/loading/error/empty.
 5. **Motion silenciosa, sistemática**: choreography a nivel de design system,
    no decoración por componente.
-6. **Firma visual recurrente**: extender el lenguaje de `GradientMesh` al
-   producto de forma sutil (acento por portal, manteniendo brand `#3B82F6`).
+6. **Firma visual selectiva (DD-030)**: extender el lenguaje de
+   `GradientMesh` al producto sutilmente. El **rombo es elemento
+   precioso** — se usa solo en momentos funcionales o ilustrativos
+   (logo, loader, timeline markers, empty page illustration, health
+   indicator). NO como decoración rutinaria en eyebrows, tags, headers.
+   El eyebrow es **tipográfico Aelium** (brand color + uppercase +
+   letter-spacing); no necesita marker. Recuadros (cards/modales) sin
+   accent-stripe lateral — esa firma se reserva a navegación funcional
+   (sidebar, tabs vertical).
 7. **Coherencia con los canónicos**: respetar `DESIGN_SYSTEM.md` y `UI_SPEC.md`
    mientras no se promocionen cambios.
 8. **Implementabilidad**: nada que no se pueda construir con Next.js 16 +

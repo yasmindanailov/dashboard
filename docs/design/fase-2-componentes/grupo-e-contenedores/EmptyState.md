@@ -15,7 +15,7 @@ cada contexto tiene UX distinta y voz distinta.
 
 | Variante | Caso de uso | Voz Aelium característica |
 |---|---|---|
-| `inline` | Tabla vacía, dropdown vacío, lista filtrada | Cortita, contextual. "Sin resultados." |
+| `inline` | Tabla vacía, dropdown vacío, lista filtrada | Cortita, contextual. "Sin resultados." (sin decoración rombo · DD-030) |
 | `page` | Página completa sin contenido (overview vacío) | Voz amplia, mesh sutil, rombos brand. |
 | `search` | "No encontramos nada para 'foo'" | Sugerencia constructiva. "Prueba con otra cosa." |
 | `first-time` | Onboarding · primer cliente, primera factura | Eyebrow + invitación + CTA prominente. "Crea el primero o llamamos contigo." |
@@ -37,13 +37,12 @@ cada contexto tiene UX distinta y voz distinta.
 
 ```html
 <div class="empty-base inline">
-  <div class="empty-rombos"><span class="rb"></span><span class="rb"></span><span class="rb"></span></div>
   <h3 class="empty-title">No hay clientes con esos filtros</h3>
   <p class="empty-desc">Quita algún filtro o cambia el término de búsqueda.</p>
 </div>
 ```
 
-Compacto, ~120-160px de altura. Tres rombos pequeños tertiary 0.4 opacity como decoración mínima. Sin CTA prominente — guía a quitar filtros.
+Compacto, ~120-160px de altura. **Sin decoración** — solo title + desc (DD-030 · empty inline no necesita rombos). Sin CTA prominente — guía a quitar filtros.
 
 ### 3.2 Page — overview vacío con mesh sutil
 
@@ -89,7 +88,7 @@ Icono lupa en círculo `--surface-tertiary`. Title `--font-size-lg`. Voz Aelium 
 </div>
 ```
 
-Card con border + radius-lg + mesh muy sutil. Eyebrow brand con marker rombo (firma). Title display-md, desc body-md. Dos CTAs paralelos: la acción directa + la cercanía Aelium ("cuéntanos cómo te ayudamos").
+Card con border + radius-lg + mesh muy sutil. Eyebrow brand **tipográfico** (DD-030 · sin marker rombo). Title display-md, desc body-md. Dos CTAs paralelos: la acción directa + la cercanía Aelium ("cuéntanos cómo te ayudamos").
 
 ## 4. Voz Aelium · matriz por variante
 

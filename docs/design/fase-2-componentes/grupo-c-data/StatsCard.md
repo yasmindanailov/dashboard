@@ -26,7 +26,7 @@
 | Parte | Token / detalle |
 |---|---|
 | `stats-card` | Card surface-primary, border, radius-md. Padding 24/20. Min-height 180px. |
-| `stats-card-eyebrow` | font-xs uppercase letter-spacing 0.08em, color brand, weight medium. **Marker rombo 8×8 girado 45°** como pseudo-element ::before. |
+| `stats-card-eyebrow` | font-xs uppercase letter-spacing 0.08em, color brand, weight medium. **Sin marker rombo** (DD-030 · saturaba el sistema). El eyebrow es tipográfico Aelium — la firma viene del color brand + uppercase + spacing. |
 | `stats-card-value` | **font-3xl (40px)** default · weight semibold · letter-spacing -0.02em · line-height 1.05 · **tabular-nums lining-nums obligatorio**. |
 | `stats-card-closing` | font-sm, color secondary, line-height relaxed. `<strong>` resalta el dato relevante en text-primary weight-medium. |
 | `stats-card-cta` (opcional) | Margin-top auto + border-top + flex space-between. Color brand, flecha "→" anima translateX(4px) en hover. |

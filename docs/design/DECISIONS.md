@@ -332,6 +332,94 @@ Formato:
   4. Si en el futuro la marca evoluciona a v1.7+, esto se reabre con
      misma lógica (marca manda).
 
+## DD-030 — Rombo selectivo + recuadros sin accent-stripe lateral
+
+- Fase: 2 (transversal · refinamiento de DD-023)
+- Fecha: 2026-05-03
+- Decisión: **Refinar la firma visual del rombo** tras detectar saturación
+  en el sistema. Aplica dos reglas combinadas:
+
+  **Regla 1 · Rombo es elemento precioso, usar selectivamente.**
+  El rombo (símbolo de marca) se reserva a momentos donde es
+  **funcional o ilustrativo**, no decorativo. Lista cerrada de
+  ubicaciones permitidas:
+
+  - **Logo** (`nav-brand-mark`) — identidad primaria.
+  - **Aelium loader** (rombos pulsando) — momento de carga distintivo,
+    infrecuente.
+  - **Timeline markers** (DD-027) — funcional, indica eventos
+    cronológicos. Reemplaza al círculo SaaS-genérico.
+  - **EmptyState page · 3 rombos brand** — "ilustración mínima"
+    intencional reemplazando stock SVG.
+  - **StatsCard health · dual-rombo** — indicador de salud funcional
+    (ok/warn/alert).
+  - **Skeleton-rombo** — variante opt-in del Skeleton (DD-023).
+  - **`.aelium-dot`** — utility class disponible, **uso restringido**:
+    solo en momentos puntuales y expresivos. No como decoración rutinaria.
+
+  **NO aplicar rombo en**:
+  - `eyebrow ::before` (page-head, section-head, card eyebrow, modal
+    eyebrow, stats-card eyebrow, empty-state eyebrow). El eyebrow es
+    **tipográfico Aelium** — uppercase brand color con letter-spacing
+    0.08em es identidad suficiente.
+  - Featured tag (`.card-tag::before`) — la tag por sí misma con bg
+    brand + texto blanco ya destaca.
+  - Empty inline (3 rombos tertiary) — empty inline solo título + desc.
+  - Decoraciones inline en cards (acompañando "Ver detalles →" etc.).
+
+  **Regla 2 · Recuadros (cards/modales) sin accent-stripe lateral.**
+  El patrón `border-left: 3px` se reserva a **navegación funcional**:
+  - **Sidebar item activo** — pattern original.
+  - **Tabs vertical activo** (DD-028) — reusa patrón sidebar.
+  - **Applied-filters** (FilterBar) — vertical line indicando filtros
+    aplicados activos (sidebar-like).
+
+  **NO aplicar accent-stripe lateral en**:
+  - Modal confirm destructive (`border-left: 3px solid var(--danger)`
+    eliminado). La señal destructiva viene del title concreto + body
+    explicando consecuencias + botón danger. Decorativo redundante.
+  - Cards en general — featured usa border completo 2px brand, no left
+    stripe.
+
+- Justificación: Tras revisar el sistema completo (eyebrows en
+  page-head + section + card + stats-card + modal + empty-state +
+  featured tag + decoración inline + empty rombos + ...), el rombo
+  perdía valor por sobrexposición. **Disciplina, no decoración** —
+  la regla siempre fue así (DD-023 lo decía), pero la implementación
+  derivó en saturación.
+
+  El eyebrow tipográfico es ya distintivo Aelium: brand color +
+  uppercase + letter-spacing son una elección de marca clara. Añadir
+  rombo a cada uno era redundancia.
+
+  El accent-stripe lateral funciona en navegación porque comunica
+  "estás aquí". En recuadros/modales/cards comunica nada concreto
+  — es decoración. Destructive en Modal queda señalado por title +
+  body + botón danger; el border era redundancia.
+
+- Materializada en:
+  - `mockup/styles.css`: removidos `::before` rombo en `.eyebrow`,
+    `.stats-card-eyebrow`, `.modal-eyebrow`, `.empty-base.first-time
+    .empty-eyebrow`, `.card-base.featured-v .card-tag`. Removido
+    `border-left` en `.modal-dialog.confirm.destructive`.
+  - Limpieza en mockup pages: `aelium-dot` decorativo eliminado de
+    cards y headers donde no aportaba función. `empty-rombos` retirado
+    de empty inline.
+  - Status indicator "Yasmin disponible ahora" en cliente-overview
+    migrado de `.aelium-dot.accent` a `.status-dot.status-dot-success
+    .status-dot-pulse` (cambio funcional: dot circular pulsante = estado
+    online, no decoración).
+
+- Implicaciones:
+  1. Revisión obligatoria de fases siguientes: cualquier propuesta de
+     usar rombo decorativo se contrasta contra la lista cerrada de
+     §Regla 1.
+  2. El eyebrow se documenta como **tipográfico** en specs futuras —
+     sin marker.
+  3. Modales destructivos confían en **title + body + botón danger**.
+     Sin border-left.
+  4. PLAN.md principio 6 actualizado para reflejar selectividad.
+
 ## DD-029 — Metodología "variante por contexto real" + identidad Aelium en cada variante
 
 - Fase: 2 (transversal · principio del sistema)

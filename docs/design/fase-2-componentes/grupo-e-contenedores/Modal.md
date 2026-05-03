@@ -47,7 +47,7 @@ nativas:
 |---|---|
 | `.modal-overlay` | bg `rgba(15, 23, 42, 0.4)` (slate dark de marca) + `backdrop-filter: blur(2px)`. |
 | `.modal-dialog` | `--surface-primary` + `--radius-lg` + `--shadow-xl`. Animación `--motion-modal-in`. |
-| `.modal-eyebrow` | Eyebrow brand + marker rombo (firma). |
+| `.modal-eyebrow` | Eyebrow brand tipográfico (uppercase + letter-spacing). **Sin marker rombo** (DD-030 · saturación). |
 | `.modal-title` | `--font-size-md`, semibold, letter-spacing. |
 | `.modal-close` | 32×32 ghost button con `--focus-ring`. |
 | `.modal-body` | Padding `--space-6`, scroll vertical. |
@@ -64,7 +64,7 @@ Side panel deslizante. Default lateral derecho (`.drawer`), variante `.left`. Wi
 **Cuándo**: ver detalle de cliente sin salir del listado, filtros avanzados, panel de configuración rápida.
 
 ### 3.3 Confirm
-Compacto (max 420px). Para acciones críticas. **Variante `.destructive`** con `border-left: 3px solid var(--danger)` (firma accent-stripe).
+Compacto (max 420px). Para acciones críticas. **Variante `.destructive`** sin border-left (DD-030 · accent-stripe se reserva a navegación funcional). La señal destructiva viene del **title concreto + body explicando consecuencias + botón danger** — los tres juntos comunican criticidad sin necesidad de adornos en el contenedor.
 
 ```html
 <div class="modal-dialog confirm destructive">
