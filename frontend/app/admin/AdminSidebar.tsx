@@ -16,7 +16,8 @@ import styles from './admin-sidebar.module.css';
 /* ═══════════════════════════════════════
    AdminSidebar — Sidebar exclusivo del Portal de Administración
    (`/admin/*`). Sprint 9 Fase F (DC.7) + Sprint 9.6 (split retroactivo)
-   + ADR-066 + ADR-067.
+   + ADR-066 + ADR-067 + Sprint 13.5 Fase D (DC.14 paridad collapse +
+   drawer móvil con Sidebar cliente).
 
    Visibilidad por rol staff vía `canAccess(roleSlug, requiredModule)` —
    misma fuente de verdad que el Sidebar cliente. La granularidad real
@@ -29,6 +30,12 @@ import styles from './admin-sidebar.module.css';
                        + Error Log (NO Settings, NO Plantillas, NO Jobs)
      - agent_billing → Clientes, Facturación, Tareas
      - agent_support → Clientes (read), Soporte, Tareas
+
+   Props canónicas (Sprint 13.5 DC.14, espejo del Sidebar cliente):
+     - collapsed: boolean — desktop colapsado (72px) o expandido (260px)
+     - onToggle: () => void — toggle collapse desde el footer del sidebar
+     - mobileOpen: boolean — drawer móvil abierto/cerrado
+     - onMobileClose: () => void — cerrar drawer (click fuera o navegar)
    ═══════════════════════════════════════ */
 
 interface NavItem {
@@ -221,7 +228,19 @@ function isOverdue(t: Task): boolean {
   return new Date(t.due_date).getTime() < Date.now();
 }
 
-export default function AdminSidebar() {
+interface AdminSidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+}
+
+export default function AdminSidebar({
+  collapsed,
+  onToggle,
+  mobileOpen,
+  onMobileClose,
+}: AdminSidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
   const roleSlug = user?.role?.slug || '';
@@ -240,14 +259,18 @@ export default function AdminSidebar() {
       <li key={item.href}>
         <Link
           href={item.href}
+          onClick={onMobileClose}
           className={`${styles.link} ${active ? styles.linkActive : ''}`}
           aria-current={active ? 'page' : undefined}
+          title={collapsed ? item.label : undefined}
         >
           <span className={styles.icon}>{item.icon}</span>
-          <span className={styles.label}>{item.label}</span>
+          {!collapsed && <span className={styles.label}>{item.label}</span>}
           {showBadge && (
             <span
-              className={`${styles.badge} ${styles[`badge_${tasksBadge.tone}`]}`}
+              className={`${styles.badge} ${styles[`badge_${tasksBadge.tone}`]} ${
+                collapsed ? styles.badgeCollapsed : ''
+              }`}
               aria-label={`${tasksBadge.count} tareas pendientes`}
             >
               {tasksBadge.count > 99 ? '99+' : tasksBadge.count}
@@ -258,30 +281,86 @@ export default function AdminSidebar() {
     );
   };
 
-  return (
+  const sidebarContent = (
     <aside className={styles.sidebar}>
       <div className={styles.brand}>
-        <Link href="/admin" className={styles.brandLink} aria-label="Inicio Portal de Administración">
+        <Link
+          href="/admin"
+          className={styles.brandLink}
+          aria-label="Inicio Portal de Administración"
+          onClick={onMobileClose}
+        >
           <span className={styles.brandMark} aria-hidden="true">A</span>
-          <PortalBadge variant="admin" logo="Aelium" />
+          {!collapsed && <PortalBadge variant="admin" logo="Aelium" />}
         </Link>
       </div>
 
       <nav className={styles.nav}>
         {operacionesItems.length > 0 && (
           <div className={styles.section}>
-            <span className={styles.sectionTitle}>Operaciones</span>
+            {!collapsed && (
+              <span className={styles.sectionTitle}>Operaciones</span>
+            )}
             <ul className={styles.list}>{operacionesItems.map(renderLink)}</ul>
           </div>
         )}
 
         {plataformaItems.length > 0 && (
           <div className={styles.section}>
-            <span className={styles.sectionTitle}>Plataforma</span>
+            {!collapsed && (
+              <span className={styles.sectionTitle}>Plataforma</span>
+            )}
             <ul className={styles.list}>{plataformaItems.map(renderLink)}</ul>
           </div>
         )}
       </nav>
+
+      {/* Collapse toggle (sólo desktop — el drawer móvil se cierra
+          haciendo click en backdrop o seleccionando un item).
+          Espejo del Sidebar cliente §collapseArea. */}
+      <div className={styles.collapseArea}>
+        <button
+          type="button"
+          onClick={onToggle}
+          className={styles.collapseBtn}
+          title={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
+          aria-label={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className={`${styles.collapseIcon} ${
+              collapsed ? styles.collapseIconRotated : ''
+            }`}
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+      </div>
     </aside>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar (toggleable collapse) */}
+      <div
+        className={styles.desktop}
+        style={{ width: collapsed ? '72px' : '260px' }}
+      >
+        {sidebarContent}
+      </div>
+
+      {/* Mobile overlay (drawer + backdrop) — espejo del Sidebar cliente. */}
+      {mobileOpen && (
+        <div className={styles.mobileOverlay}>
+          <div className={styles.mobileBackdrop} onClick={onMobileClose} />
+          <div className={styles.mobileDrawer}>{sidebarContent}</div>
+        </div>
+      )}
+    </>
   );
 }

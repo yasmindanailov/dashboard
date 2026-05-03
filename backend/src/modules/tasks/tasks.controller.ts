@@ -1,8 +1,13 @@
 /* ═══════════════════════════════════════
-   TasksController — Sprint 16 Fase 16.B (ADR-079)
+   TasksController — Sprint 16 Fase 16.B (ADR-079) + Sprint 13.5 Fase C (DC.34)
    API canónica read-only sobre triggers automáticos.
    Sin POST manual ni PATCH libre — sólo: list, findOne, assign, complete,
-   complete-ticket-bridge, cancel, stats, checklist + maintenance log.
+   complete-ticket-bridge, stats, checklist + maintenance log.
+   El endpoint /:id/cancel se eliminó físicamente en Sprint 13.5 Fase C
+   (DC.34). La cancelación es consecuencia mecánica de listeners cross-
+   sistema (`tasks-on-slot-released`, `tasks-on-service-cancelled`,
+   `SupportTicketTaskCreatorListener.handleUnassigned`) que invocan
+   `TasksService.cancel()` directo, sin pasar por HTTP.
    ═══════════════════════════════════════ */
 
 import {
@@ -16,14 +21,12 @@ import {
   Req,
   UseGuards,
   ParseUUIDPipe,
-  ForbiddenException,
 } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
 import {
   AssignTaskDto,
-  CancelTaskDto,
   CompleteChecklistItemDto,
   CompleteTaskDto,
   RecordMaintenanceLogDto,
@@ -124,44 +127,6 @@ export class TasksController {
     @Body() dto: TicketBridgeCompletionDto,
   ) {
     return this.service.completeTicketBridge(id, dto, req.user.id);
-  }
-
-  /**
-   * @deprecated Sprint 16 (ADR-079 amendment A2): la cancelación humana de
-   * tasks queda eliminada de la UI. La doctrina canónica establece que las
-   * tasks son **read-only** respecto al sistema vinculado:
-   *   - Cancelación = consecuencia mecánica de un evento del sistema vinculado
-   *     (slot liberado, servicio cancelado, ticket desasignado, item del
-   *     checklist eliminado). Los listeners cross-sistema (`tasks-on-slot-
-   *     released`, `tasks-on-service-cancelled`, `SupportTicketTaskCreator
-   *     Listener.handleUnassigned`) lo gestionan invocando `service.cancel()`
-   *     directamente, sin pasar por HTTP.
-   *   - Reasignación = decisión humana del superadmin sobre QUIÉN hace el
-   *     trabajo. Vía canónica: `PATCH /tasks/:id/assign` con dropdown UI.
-   *
-   * Este endpoint queda como **interno admin** durante la transición.
-   * Restricted a `superadmin` para evitar uso desde UI cliente/agente.
-   * Pendiente de eliminación física en Fase 16.D cuando se actualicen los
-   * E2E que aún lo invocan (DC documentado en backlog).
-   */
-  @Patch(':id/cancel')
-  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Task))
-  @ApiOperation({
-    summary:
-      '[DEPRECATED admin-only] Cancelar task. La cancelación canónica es automática vía listeners cross-sistema. Sólo accesible a superadmin para casos de debug/migración.',
-    deprecated: true,
-  })
-  cancel(
-    @Req() req: AuthenticatedRequest,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: CancelTaskDto,
-  ) {
-    if (req.user.role.slug !== 'superadmin') {
-      throw new ForbiddenException(
-        'La cancelación humana de tasks ya no se expone (ADR-079 §A2). Para reasignar, usa /tasks/:id/assign.',
-      );
-    }
-    return this.service.cancel(id, dto, req.user.id);
   }
 
   /* ── Checklist + maintenance log (Sprint 8 Fase B.5 — preservado) ── */

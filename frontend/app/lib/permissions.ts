@@ -10,6 +10,17 @@
  * This only controls UI visibility and navigation.
  *
  * Fuente de verdad: backend/src/core/casl/permissions.ts
+ *
+ * Sprint 13.5 Fase E (DC.15): el endpoint canónico
+ * `GET /api/v1/auth/me/permissions` (helper `authApi.myPermissions`)
+ * expone la matriz vigente del usuario. La hidratación al `AuthContext`
+ * post-login (que sustituirá el matrix hardcoded de abajo por el
+ * server-side) queda diferida a **Sprint 13 §13.AUTH** cuando llegue
+ * la migración a Server Components + cookies httpOnly (ADR-078). Hasta
+ * entonces, este matrix sirve como fallback bootstrap pre-hidratación
+ * y como referencia para `AppModule` types. **Si añades un Subject
+ * nuevo, añádelo en backend/permissions.ts y aquí — el endpoint sólo
+ * filtra el subset visible al rol actual.**
  */
 
 // ─── Modules (matches backend Subject enum for sidebar items) ──

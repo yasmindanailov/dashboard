@@ -1,15 +1,17 @@
 'use client';
 
 import { RefObject } from 'react';
-import Link from 'next/link';
-import type { Conversation, Message } from './types';
-import { formatTime } from './types';
+import type { Conversation } from './types';
+import ChatThreadView, {
+  type ChatThreadClasses,
+} from '../../_shared/support/chat/ChatThreadView';
 import styles from './chatWidget.module.css';
 
 /* ═══════════════════════════════════════
-   ChatMessages — Active chat view
-   Renders message bubbles, typing indicator,
-   and message input.
+   ChatMessages — burbuja flotante (ChatWidget).
+   Sprint 13.5 Fase D (DC.38): wrapper minimal sobre `<ChatThreadView>`
+   shared. Mantiene su CSS module propio (chatWidget.module.css) y solo
+   mapea las clases canónicas que el shared espera.
    Ref: DECISIONS.md §9, 7.H1, 7.H13
    ═══════════════════════════════════════ */
 
@@ -26,103 +28,38 @@ interface ChatMessagesProps {
   onTyping: () => void;
 }
 
-export default function ChatMessages({
-  conversation, isGuest, currentUserId,
-  typingIndicator, message, sending, messagesEndRef,
-  onMessageChange, onSend, onTyping,
-}: ChatMessagesProps) {
+const widgetClasses: ChatThreadClasses = {
+  escalationBanner: styles.escalationBanner,
+  escalationBannerLink: styles.escalationBannerLink,
+  messagesScroll: styles.messagesScroll,
+  typingIndicator: styles.typingIndicator,
+  closedNotice: styles.systemMessage,
+  systemBubble: styles.systemMessage,
+  inputBar: styles.inputBar,
+  messageInput: styles.messageInput,
+  sendButton: styles.sendButton,
+  bubbleRow: styles.bubbleRow,
+  bubbleRowMe: styles.bubbleRowMe,
+  bubbleRowOther: styles.bubbleRowOther,
+  bubbleSender: styles.bubbleSender,
+  bubbleSenderMe: styles.bubbleSenderMe,
+  bubbleSenderOther: styles.bubbleSenderOther,
+  bubbleBody: styles.bubbleBody,
+  bubbleMe: styles.bubbleMe,
+  bubbleOther: styles.bubbleOther,
+  bubbleText: styles.bubbleText,
+  bubbleTime: styles.bubbleTime,
+  bubbleTimeMe: styles.bubbleTimeMe,
+  bubbleTimeOther: styles.bubbleTimeOther,
+};
+
+export default function ChatMessages(props: ChatMessagesProps) {
   return (
-    <>
-      {/* Sprint 16 (ADR-079 amendment A3): banner cuando el chat fue
-          escalado a ticket. Link directo al detalle del ticket del cliente. */}
-      {conversation.escalated_to && !isGuest && (
-        <div className={styles.escalationBanner}>
-          <span>
-            Esta conversación se ha trasladado al ticket{' '}
-            <strong>
-              TK-{String(conversation.escalated_to.sequence_number ?? 0).padStart(5, '0')}
-            </strong>
-            . Continúa allí.
-          </span>
-          <Link
-            href={`/dashboard/support/${conversation.escalated_to.id}`}
-            className={styles.escalationBannerLink}
-          >
-            Abrir ticket →
-          </Link>
-        </div>
-      )}
-
-      <div className={styles.messagesScroll}>
-        {conversation.messages.map((msg) => (
-          <WidgetBubble
-            key={msg.id}
-            msg={msg}
-            isMe={isGuest ? msg.sender_type === 'client' : msg.sender_id === currentUserId}
-          />
-        ))}
-
-        {typingIndicator && (
-          <div className={styles.typingIndicator}>
-            Agente escribiendo...
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Sprint 16 (ADR-079 amendment A3): chats con `resolved` o `closed`
-          son terminales — input bloqueado con notice. */}
-      {conversation.status === 'resolved' || conversation.status === 'closed' ? (
-        <div className={styles.systemMessage}>
-          Este chat ha sido cerrado. Si necesitas seguir hablando, abre una nueva conversación.
-        </div>
-      ) : (
-        <div className={styles.inputBar}>
-          <input
-            className={styles.messageInput}
-            value={message}
-            onChange={(e) => { onMessageChange(e.target.value); onTyping(); }}
-            placeholder="Escribe un mensaje..."
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
-            }}
-          />
-          <button
-            className={styles.sendButton}
-            onClick={onSend}
-            disabled={sending || !message.trim()}
-          >
-            Enviar
-          </button>
-        </div>
-      )}
-    </>
-  );
-}
-
-/* ─── Private: Widget Message Bubble ─── */
-
-function WidgetBubble({ msg, isMe }: { msg: Message; isMe: boolean }) {
-  if (msg.sender_type === 'system') {
-    return <div className={styles.systemMessage}>{msg.body}</div>;
-  }
-
-  return (
-    <div className={`${styles.bubbleRow} ${isMe ? styles.bubbleRowMe : styles.bubbleRowOther}`}>
-      {/* 7.H13: Sender name */}
-      {msg.sender_name && (
-        <div className={`${styles.bubbleSender} ${isMe ? styles.bubbleSenderMe : styles.bubbleSenderOther}`}>
-          {isMe ? 'Tú' : msg.sender_name}
-        </div>
-      )}
-      <div className={`${styles.bubbleBody} ${isMe ? styles.bubbleMe : styles.bubbleOther}`}>
-        <div className={styles.bubbleText}>{msg.body}</div>
-        <div className={`${styles.bubbleTime} ${isMe ? styles.bubbleTimeMe : styles.bubbleTimeOther}`}>
-          {formatTime(msg.created_at)}
-          {msg.read_at && ' ✓✓'}
-        </div>
-      </div>
-    </div>
+    <ChatThreadView
+      {...props}
+      classes={widgetClasses}
+      escalationHref={(ticketId) => `/dashboard/support/${ticketId}`}
+      renderSendContent={() => 'Enviar'}
+    />
   );
 }

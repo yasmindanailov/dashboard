@@ -1,15 +1,68 @@
-.sidebar {
+/* ── Desktop sidebar ──
+   Sprint 13.5 DC.14: paridad con Sidebar cliente — `.desktop` envuelve
+   el contenido del aside y se controla con `style.width` desde el TSX
+   (260px expandido / 72px colapsado). El aside interno ya no es fixed
+   (lo es el wrapper). */
+
+.desktop {
   position: fixed;
   top: 0;
   left: 0;
-  bottom: 0;
-  width: 260px;
-  background: var(--surface);
+  height: 100vh;
+  z-index: 40;
+  display: none;
+  flex-direction: column;
+  transition: width var(--transition-normal);
   border-right: 1px solid var(--border);
-  padding: var(--space-6) var(--space-4);
-  z-index: 30;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .desktop {
+    display: flex;
+  }
+}
+
+/* ── Mobile overlay (drawer + backdrop) ── */
+
+.mobileOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+}
+
+@media (min-width: 768px) {
+  .mobileOverlay {
+    display: none !important;
+  }
+}
+
+.mobileBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  transition: opacity var(--transition-normal);
+}
+
+.mobileDrawer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 280px;
+  background: var(--surface);
+  box-shadow: var(--shadow-xl);
+  transition: transform var(--transition-normal);
+}
+
+.sidebar {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: var(--space-6) var(--space-4);
   gap: var(--space-6);
 }
 
@@ -152,6 +205,58 @@
 
 .backLink:hover {
   color: var(--text-secondary);
+}
+
+/* ── Collapse toggle area (footer del sidebar) ── */
+
+.collapseArea {
+  margin-top: auto;
+  padding: var(--space-3) 0 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.collapseBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.collapseBtn:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.collapseIcon {
+  transition: transform var(--transition-normal);
+}
+
+.collapseIconRotated {
+  transform: rotate(180deg);
+}
+
+/* Badge en modo colapsado se posiciona como dot rojo en la esquina del icono. */
+.badgeCollapsed {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 10px;
+}
+
+/* En modo colapsado el link es centrado (sin label). */
+.desktop[style*="72px"] .link {
+  justify-content: center;
+  position: relative;
 }
 
 @media (max-width: 767px) {

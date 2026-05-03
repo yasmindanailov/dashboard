@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import { io, type Socket } from 'socket.io-client';
 import { useAuth } from '../../../lib/auth-context';
 import { supportApi, clientsApi } from '../../../lib/api';
 import { getErrorMessage } from '../../../lib/error';
@@ -21,7 +22,19 @@ import { ADMIN_ROLES } from './types';
    status/priority changes, resolution workflow,
    and client context sidebar data.
    Ref: DECISIONS.md §43, §46, 7.H17
+
+   Sprint 13.5 Fase D (DC.37): integración con WebSocket `/support` para
+   tiempo real (mensajes nuevos + cambios de estado + typing). Espejo del
+   patrón canónico `useChatPanel.ts` (admin/support/chats). Antes de este
+   sprint, la página de detalle (`/admin/support/[id]` y
+   `/dashboard/support/[id]`) usaba REST + reload manual; el cliente y
+   el agente NO veían en vivo nada hasta refrescar. Con esto, ambos
+   lados consumen el mismo flujo `message:new` que ya emite el listener
+   `SupportWebsocketListener` (Sprint 16 Amendment A3 unificó la emisión
+   independientemente del origen REST/WS).
    ═══════════════════════════════════════ */
+
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
 
 export function useConversationDetail() {
   const params = useParams();
@@ -46,7 +59,11 @@ export function useConversationDetail() {
   const [resolutionNote, setResolutionNote] = useState('');
   const [resolutionLoading, setResolutionLoading] = useState(false);
 
+  // Typing indicator del otro lado (Sprint 13.5 DC.37).
+  const [peerTyping, setPeerTyping] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<Socket | null>(null);
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
 
   /* ─── Load conversation ─── */
@@ -61,6 +78,57 @@ export function useConversationDetail() {
   }, [token, conversationId]);
 
   useEffect(() => { loadConversation(); }, [loadConversation]);
+
+  /* ─── WebSocket — tiempo real (Sprint 13.5 DC.37) ───
+     Conecta al gateway `/support` con el JWT del usuario, hace `join`
+     a la conversación abierta, y escucha:
+       - `message:new`: cuando llega un mensaje nuevo, reload (la
+         hidratación canónica vive en `loadConversation` que enriquece
+         relaciones de autor/role).
+       - `conversation:updated`: cambios de estado/priority/asignación
+         (admin reasigna, cron auto-cierra, etc.).
+       - `typing:start`/`typing:stop`: indicador del otro lado.
+     Misma lógica que `useChatPanel.ts` — copy-paste mínimo intencionado
+     (DC.38 unificará ambos en `<ChatThreadView>` shared en sprint
+     siguiente). Limpia el socket al desmontar. */
+  useEffect(() => {
+    if (!token || !conversationId) return;
+
+    const s = io(`${WS_URL}/support`, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+    });
+
+    s.on('connect', () => {
+      s.emit('conversation:join', { conversationId });
+    });
+
+    s.on('message:new', (data: { conversationId: string }) => {
+      if (data.conversationId !== conversationId) return;
+      loadConversation();
+    });
+
+    s.on('conversation:updated', (data: { conversationId: string }) => {
+      if (data.conversationId !== conversationId) return;
+      loadConversation();
+    });
+
+    s.on('typing:start', (data: { conversationId: string }) => {
+      if (data.conversationId === conversationId) setPeerTyping(true);
+    });
+    s.on('typing:stop', (data: { conversationId: string }) => {
+      if (data.conversationId === conversationId) setPeerTyping(false);
+    });
+
+    socketRef.current = s;
+    return () => {
+      s.emit('conversation:leave', { conversationId });
+      s.disconnect();
+      socketRef.current = null;
+    };
+  }, [token, conversationId, loadConversation]);
 
   // Load client context when conversation loads
   useEffect(() => {
@@ -228,5 +296,7 @@ export function useConversationDetail() {
     resolutionLoading, submitResolution, closeResolutionModal,
     // Client context
     clientContext, clientNotes, clientServices, contextLoading,
+    // WebSocket realtime (Sprint 13.5 DC.37)
+    peerTyping,
   };
 }

@@ -384,8 +384,106 @@ export async function seedNotificationTemplates(
       body:
         'Hemos completado tu solicitud{{#if task_reason}} ({{task_reason}}){{/if}}. Revisa los detalles desde tu panel.',
       variables: {
-        
+
         task_reason: 'string?',
+      },
+    },
+
+    // ───────────── conversation.resolved (email cliente) ─────────────
+    // Sprint 16 Amendment A1 + Sprint 13.5 Fase C (DC.33).
+    // Se emite cuando un agente resuelve un ticket. El estado `resolved`
+    // es transitorio: cliente puede confirmar, responder, o esperar el
+    // cron de auto-cierre tras `support.auto_close_resolved_days` (default 7).
+    {
+      event_type: 'conversation.resolved',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Aelium — Tu ticket #{{ticket_sequence}} ha sido resuelto',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 20px;">Ticket resuelto</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">#{{ticket_sequence}}</p>
+          </div>
+          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
+            <p style="color: #374151; font-size: 14px;">Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},</p>
+            <p style="color: #374151; font-size: 14px;">Hemos resuelto tu solicitud. Revisa la respuesta del agente desde tu panel.</p>
+            <p style="color: #374151; font-size: 14px; margin-top: 16px;"><strong>Tienes 3 caminos:</strong></p>
+            <ul style="color: #374151; font-size: 14px; padding-left: 20px;">
+              <li>Si la solución te sirve, confirma desde el panel.</li>
+              <li>Si necesitas seguir, responde al ticket y volveremos a abrirlo.</li>
+              <li>Si no haces nada, el ticket se cerrará automáticamente en {{auto_close_days}} días.</li>
+            </ul>
+            <a href="{{ticket_url}}" style="display: inline-block; background: #2563EB; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Ver ticket</a>
+          </div>
+        </div>
+      `,
+      variables: {
+        ticket_sequence: 'string',
+        ticket_url: 'string',
+        auto_close_days: 'number',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── conversation.resolved (campana cliente) ─────────────
+    {
+      event_type: 'conversation.resolved',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Tu ticket #{{ticket_sequence}} ha sido resuelto',
+      body:
+        'Hemos resuelto tu solicitud. Confirma o responde si necesitas seguir; en caso contrario se cerrará automáticamente en {{auto_close_days}} días.',
+      variables: {
+        ticket_sequence: 'string',
+        auto_close_days: 'number',
+      },
+    },
+
+    // ───────────── conversation.auto_closed (email agente) ─────────────
+    // Sprint 16 Amendment A1 + Sprint 13.5 Fase C (DC.33).
+    // Se emite cuando el cron `support-resolved-auto-close` cierra un
+    // ticket que llevaba >`support.auto_close_resolved_days` en `resolved`
+    // sin respuesta del cliente. Notif al agente que resolvió.
+    {
+      event_type: 'conversation.auto_closed',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Ticket #{{ticket_sequence}} cerrado automáticamente',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #6B7280 0%, #4B5563 100%); padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 20px;">Auto-cierre de ticket</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">#{{ticket_sequence}}</p>
+          </div>
+          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
+            <p style="color: #374151; font-size: 14px;">Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},</p>
+            <p style="color: #374151; font-size: 14px;">El ticket que resolviste el {{resolved_at_label}} se ha cerrado automáticamente tras {{auto_close_days}} días sin respuesta del cliente.</p>
+            <a href="{{ticket_url}}" style="display: inline-block; background: #2563EB; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Ver ticket archivado</a>
+          </div>
+        </div>
+      `,
+      variables: {
+        ticket_sequence: 'string',
+        ticket_url: 'string',
+        auto_close_days: 'number',
+        resolved_at_label: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── conversation.auto_closed (campana agente) ─────────────
+    {
+      event_type: 'conversation.auto_closed',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Ticket #{{ticket_sequence}} cerrado automáticamente',
+      body:
+        'El ticket que resolviste el {{resolved_at_label}} se ha cerrado automáticamente tras {{auto_close_days}} días sin respuesta del cliente.',
+      variables: {
+        ticket_sequence: 'string',
+        auto_close_days: 'number',
+        resolved_at_label: 'string',
       },
     },
 
