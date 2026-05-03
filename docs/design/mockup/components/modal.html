@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Modal · 5 variantes</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.E · Contenedores</div>
+      <h1 class="page-title">Modal · 5 variantes</h1>
+      <p class="page-lede">
+        DD-029: 5 variantes nativas (standard · drawer · confirm · full-screen · bottom-sheet) con voz Aelium en title + body + CTAs. Eyebrow brand con marker rombo. Confirm destructive con accent-stripe.
+      </p>
+    </header>
+
+    <!-- 1. Standard -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">1 · Standard · forms y edición</h2><span class="section-num">01</span></div>
+      <p class="section-lede">Centrado. Sizes sm/md/lg/xl. Animación slide-up + fade.</p>
+
+      <div class="modal-overlay static">
+        <div class="modal-dialog size-md">
+          <div class="modal-header">
+            <div class="modal-header-text">
+              <span class="modal-eyebrow">Crear cliente</span>
+              <h2 class="modal-title">Nuevo cliente</h2>
+            </div>
+            <button class="modal-close" aria-label="Cerrar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+          <div class="modal-body">
+            <p>Cuéntanos lo básico — nombre, NIF, correo. <strong>El resto lo configuramos contigo</strong> en la llamada de bienvenida.</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-4);">
+              <div class="field field-md"><label class="field-label">Nombre del cliente</label><input class="input" type="text" placeholder="Floristería Pérez"></div>
+              <div class="field field-md"><label class="field-label">NIF</label><input class="input" type="text" placeholder="B12345678"></div>
+              <div class="field field-md" style="grid-column: 1 / -1;"><label class="field-label">Correo de contacto</label><input class="input" type="email" placeholder="hola@floripez.com"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <span class="footer-left">Tarda menos de un minuto.</span>
+            <button class="btn btn-secondary btn-md">Cancelar</button>
+            <button class="btn btn-primary btn-md">Crear cliente</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Drawer -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">2 · Drawer · panel lateral</h2><span class="section-num">02</span></div>
+      <p class="section-lede">Slide desde la derecha. Para detalle inline desde listado o filtros avanzados.</p>
+
+      <div class="modal-overlay static" style="padding: 0; min-height: 380px; align-items: stretch; justify-content: flex-end; display: flex;">
+        <div class="modal-dialog" style="max-width: 420px; width: 100%; height: 100%; max-height: none; border-radius: var(--radius-lg) 0 0 var(--radius-lg); animation: none;">
+          <div class="modal-header">
+            <div class="modal-header-text">
+              <span class="modal-eyebrow">Cliente · Floristería Pérez</span>
+              <h2 class="modal-title">Vista rápida</h2>
+            </div>
+            <button class="modal-close" aria-label="Cerrar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+          <div class="modal-body">
+            <p>Datos resumidos sin salir del listado. <strong>5 servicios</strong>, próximo pago en 12 días.</p>
+            <div class="kv">
+              <div>Plan</div><div>Web Pro</div>
+              <div>Estado</div><div><span class="badge badge-success"><span class="status-dot status-dot-success"></span>Activo</span></div>
+              <div>Servicios</div><div class="num">5</div>
+              <div>Importe mes</div><div class="num">49,90&nbsp;€</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary btn-md">Cerrar</button>
+            <button class="btn btn-primary btn-md">Abrir detalle</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Confirm destructive -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">3 · Confirm · destructiva</h2><span class="section-num">03</span></div>
+      <p class="section-lede">Compacto. Variante destructive con accent-stripe danger. Voz Aelium: pregunta concreta, body explica consecuencias, CTAs dicen qué pasa.</p>
+
+      <div class="modal-overlay static">
+        <div class="modal-dialog confirm destructive">
+          <div class="modal-header">
+            <div class="modal-header-text">
+              <h2 class="modal-title">¿Eliminar Floristería Pérez?</h2>
+            </div>
+          </div>
+          <div class="modal-body">
+            <p>Se eliminará el cliente y sus <strong>5 servicios contratados</strong>. También se cancelarán las facturas pendientes y los tickets abiertos.</p>
+            <p>Esta acción <strong>no se puede deshacer</strong>. Si solo quieres pausar el servicio, mejor suspende.</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary btn-md">No, dejar como está</button>
+            <button class="btn btn-danger btn-md">Sí, eliminar cliente</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Voz Aelium en confirm destructive (DD-022).</strong> Title es pregunta concreta. Body explica consecuencias. CTAs en participio: "Sí, eliminar cliente" / "No, dejar como está". NO "Aceptar / Cancelar".
+      </div>
+    </section>
+
+    <!-- 4. Full-screen -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">4 · Full-screen · multi-step</h2><span class="section-num">04</span></div>
+      <p class="section-lede">100% viewport. Sin border-radius. Para wizards (checkout, onboarding).</p>
+
+      <div class="modal-overlay static" style="padding: 0; min-height: 320px;">
+        <div class="modal-dialog" style="max-width: none; width: 100%; height: 100%; max-height: none; border-radius: var(--radius-md); animation: none;">
+          <div class="modal-header">
+            <div class="modal-header-text">
+              <span class="modal-eyebrow">Contratar servicio · paso 2 de 4</span>
+              <h2 class="modal-title">Elige tu plan</h2>
+            </div>
+            <button class="modal-close" aria-label="Cerrar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+          <div class="modal-body" style="display: flex; flex-direction: column; gap: var(--space-4);">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3);">
+              <div class="card-base selectable-v"><div class="eyebrow">Web Inicio</div><h3 style="margin:0;font-size:var(--font-size-lg);font-weight:var(--font-weight-semibold);">19,90 €</h3></div>
+              <div class="card-base selectable-v selected" aria-checked="true"><div class="eyebrow">Web Pro</div><h3 style="margin:0;font-size:var(--font-size-lg);font-weight:var(--font-weight-semibold);">49,90 €</h3></div>
+              <div class="card-base selectable-v"><div class="eyebrow">Web Business</div><h3 style="margin:0;font-size:var(--font-size-lg);font-weight:var(--font-weight-semibold);">99,90 €</h3></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary btn-md">← Atrás</button>
+            <button class="btn btn-primary btn-md">Siguiente →</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Bottom-sheet -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">5 · Bottom-sheet · mobile</h2><span class="section-num">05</span></div>
+      <p class="section-lede">Slide-up desde abajo. Drag handle 4px en top. Para acciones contextuales en mobile.</p>
+
+      <div class="modal-overlay static" style="padding: 0; min-height: 360px; align-items: flex-end;">
+        <div class="modal-dialog" style="max-width: 420px; width: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0; max-height: 85vh; animation: none;">
+          <div style="display: block; width: 40px; height: 4px; background: var(--border-active); border-radius: var(--radius-full); margin: var(--space-2) auto 0;"></div>
+          <div class="modal-header">
+            <div class="modal-header-text">
+              <h2 class="modal-title">Acciones</h2>
+            </div>
+          </div>
+          <div class="modal-body" style="padding: 0;">
+            <button class="dropdown-item" style="padding: var(--space-3) var(--space-5);">Ver detalle</button>
+            <button class="dropdown-item" style="padding: var(--space-3) var(--space-5);">Editar</button>
+            <button class="dropdown-item" style="padding: var(--space-3) var(--space-5);">Reasignar</button>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item danger" style="padding: var(--space-3) var(--space-5);">Suspender servicio</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="../scripts.js"></script>
+</body>
+</html>

@@ -7,18 +7,19 @@
 
 ## Estado actual
 
-- **Fase activa:** 2.D — Componentes base · Grupo D **cerrada con iteraciones**
+- **Fase activa:** 2.E — Componentes base · Grupo E (contenedores) **listos para revisión**
 - **Modo activo:** diseño
-- **Próxima acción:** arrancar **fase 2.E (contenedores)** con
-  metodología DD-029 desde el inicio: Card, Modal, Avatar, EmptyState
-  diseñados nativamente con sus variantes (no como una sola forma
-  genérica).
-- **Última actualización:** 2026-05-03 — fase 2.D cerrada con
-  iteraciones (DD-025 topbar limpio · DD-026 StatusTabs con dot prefix
-  · DD-027 timeline notas) + DD-028 sistema de 5 variantes de Tabs
-  + DD-029 metodología "variante por contexto + identidad Aelium en
-  cada variante" (principio del sistema). Tabs.md reescrita con la
-  matriz completa.
+- **Próxima acción:** revisión humana de Card, Modal, Avatar, EmptyState
+  con variantes nativas + sample cliente-overview. Si OK, arrancar
+  fase 2.F (refresh de variantes pendientes en componentes ya entregados).
+- **Última actualización:** 2026-05-03 — fase 2.E completa aplicando
+  DD-029 nativo. Card 5 variantes (static/action/selectable/featured/mesh).
+  Modal 5 variantes (standard/drawer/confirm/full-screen/bottom-sheet).
+  Avatar refactor crítico de paleta (8 colores random → 5 brand-coherent)
+  + variantes with-status y group + 5 tamaños xs-xl. EmptyState 4
+  variantes (inline/page/search/first-time) con voz Aelium documentada
+  en matriz por variante. Sample page `cliente-overview` compone hero
+  card mesh + stats compact + avatar group + empty first-time.
 
 ---
 
@@ -67,7 +68,7 @@ romper la filosofía de minimalismo funcional (D1–D11 de
 | 2.B | Componentes base · feedback | Cerrada | Badge, StatusDot, Toast, AlertBanner, Tooltip, HelpTip, Skeleton |
 | 2.C | Componentes base · data | Cerrada · iteración StatsCard DD-024 | Table, Pagination, StatsCard, BulkActionBar, FilterBar · sample admin-clientes |
 | 2.D | Componentes base · navegación | **Cerrada con iteraciones DD-025/026/027/028** | Tabs (5 variantes), Breadcrumb, CommandPalette, NotificationBell, PortalBadge · sample admin-cliente-detalle |
-| 2.E | Componentes base · contenedores | **Próxima** · aplicar DD-029 nativo | Card (5 variantes), Modal (5 variantes), Avatar (variantes y tamaños), EmptyState (4 variantes) |
+| 2.E | Componentes base · contenedores | **Listo · revisión humana** | Card 5v · Modal 5v · Avatar refactor paleta + with-status + group · EmptyState 4v · sample cliente-overview |
 | 2.F | Refresh de variantes en componentes ya entregados | Pendiente · aplica DD-029 | Pagination + Dropdown + Badge + Form fields — variantes faltantes documentadas |
 | 2.E | Componentes base · contenedores | Pendiente | Card, Modal, Avatar, EmptyState |
 | 3 | Patrones de página | Pendiente | DetailPage, ListPage, FormPage |

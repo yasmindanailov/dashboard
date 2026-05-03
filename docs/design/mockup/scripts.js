@@ -46,10 +46,10 @@
       { href: 'components/notification-bell.html',  label: 'NotificationBell' },
       { href: 'components/portal-badge.html',       label: 'PortalBadge' },
       { section: 'Contenedores' },
-      { href: 'components/card.html',               label: 'Card',          pending: true },
-      { href: 'components/modal.html',              label: 'Modal',         pending: true },
-      { href: 'components/avatar.html',             label: 'Avatar',        pending: true },
-      { href: 'components/empty-state.html',        label: 'EmptyState',    pending: true },
+      { href: 'components/card.html',               label: 'Card · 5 variantes' },
+      { href: 'components/modal.html',              label: 'Modal · 5 variantes' },
+      { href: 'components/avatar.html',             label: 'Avatar' },
+      { href: 'components/empty-state.html',        label: 'EmptyState · 4 variantes' },
     ]},
     { section: 'Fase 3 · Patrones', items: [
       { href: 'patterns/list-page.html',            label: 'ListPage',      pending: true },
@@ -66,6 +66,7 @@
       { href: 'pages/sample-form.html',             label: 'Formulario · ticket de soporte' },
       { href: 'pages/admin-clientes.html',          label: 'Admin · Listado de clientes' },
       { href: 'pages/admin-cliente-detalle.html',   label: 'Admin · Detalle de cliente' },
+      { href: 'pages/cliente-overview.html',        label: 'Cliente · Bienvenida (Overview)' },
     ]},
     { section: 'Fases 5–9 · Páginas (futuro)', items: [
       { href: 'pages/dashboard-cliente.html',       label: 'Cliente · Overview', pending: true },

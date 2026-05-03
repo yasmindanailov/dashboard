@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Cliente · Bienvenida</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .topbar { display: flex; align-items: center; justify-content: space-between; background: var(--surface-primary); border-bottom: 1px solid var(--border); padding: var(--space-3) var(--space-6); margin: calc(var(--space-12) * -1) calc(var(--space-12) * -1) var(--space-6); }
+  .topbar-search { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--surface-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-tertiary); font-size: var(--font-size-sm); cursor: pointer; min-width: 320px; }
+  .topbar-right { display: flex; align-items: center; gap: var(--space-2); }
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-8); }
+  @media (max-width: 900px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .stats-grid { grid-template-columns: 1fr; } }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+  .section-title-h { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); margin: 0 0 var(--space-1); letter-spacing: -0.01em; }
+  .section-desc { font-size: var(--font-size-sm); color: var(--text-secondary); margin: 0 0 var(--space-4); }
+  .panel { background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+  <main class="main" data-density="comfortable">
+
+    <!-- Topbar simulado -->
+    <div class="topbar">
+      <button class="topbar-search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Buscar en mis servicios o facturas…
+      </button>
+      <div class="topbar-right">
+        <button class="bell" aria-label="Notificaciones"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="bell-badge pulse">2</span></button>
+        <button class="dropdown-trigger" style="padding: var(--space-1_5) var(--space-2); border: none; background: transparent;">
+          <div class="avatar size-sm color-1"><span>MP</span></div>
+          <span style="margin-left: var(--space-2); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">Marina</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-left: var(--space-1); color: var(--text-tertiary);"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Hero card mesh -->
+    <div class="card-base mesh-v" style="padding: var(--space-10) var(--space-8); margin-bottom: var(--space-6);">
+      <div class="eyebrow">Hola, Marina</div>
+      <h1 style="font-size: var(--font-size-3xl); font-weight: var(--font-weight-semibold); letter-spacing: -0.02em; line-height: 1.05; margin: var(--space-3) 0 var(--space-3);">Tu negocio digital está funcionando bien.</h1>
+      <p style="margin: 0 0 var(--space-5); color: var(--text-secondary); font-size: var(--font-size-md); line-height: var(--line-height-relaxed); max-width: 640px;">
+        Todos tus <strong>5 servicios activos</strong>. Uptime del mes: <strong class="num">99,98%</strong>. Si algo cambia, te avisamos antes de que te enteres.
+      </p>
+      <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+        <button class="btn btn-primary btn-md">Ver mis servicios</button>
+        <button class="btn btn-secondary btn-md">Hablar con Yasmin</button>
+        <span style="font-size: var(--font-size-sm); color: var(--text-tertiary); display: inline-flex; align-items: center; gap: var(--space-2);">
+          <span class="aelium-dot accent" style="background: var(--success);"></span>
+          Yasmin disponible ahora
+        </span>
+      </div>
+    </div>
+
+    <!-- Stats compact -->
+    <div class="stats-grid">
+      <div class="stats-card compact health" data-health="ok">
+        <div class="stats-card-eyebrow">
+          <span class="stats-card-health-marker"><span class="r"></span><span class="r"></span></span>
+          Tu uptime mes
+        </div>
+        <p class="stats-card-value">99,98%</p>
+        <p class="stats-card-closing">4 minutos caído. <strong>Te avisamos cada vez.</strong></p>
+      </div>
+      <div class="stats-card compact action" tabindex="0" role="button">
+        <div class="stats-card-eyebrow">Próxima factura</div>
+        <p class="stats-card-value">49,90&nbsp;€</p>
+        <p class="stats-card-closing">Vence el <strong>15 de mayo</strong>. Cargamos automáticamente.</p>
+        <div class="stats-card-cta"><span>Ver detalle</span><span class="arrow">→</span></div>
+      </div>
+      <div class="stats-card compact">
+        <div class="stats-card-eyebrow">Tickets abiertos</div>
+        <p class="stats-card-value">2</p>
+        <p class="stats-card-closing">Yasmin escribió <strong>hace 3 h</strong> en uno.</p>
+      </div>
+    </div>
+
+    <!-- Equipo asignado · Avatar group -->
+    <div class="grid-2" style="margin-bottom: var(--space-8);">
+      <div class="panel">
+        <div class="eyebrow">Tu equipo Aelium</div>
+        <h3 class="section-title-h" style="margin-top: var(--space-2);">3 personas te atienden</h3>
+        <p class="section-desc">Las mismas siempre. Te conocen.</p>
+
+        <div style="display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); background: var(--surface-secondary); border-radius: var(--radius-sm);">
+          <div class="avatar-group size-md">
+            <div class="avatar size-md color-1 with-status" data-status="online"><span>YA</span></div>
+            <div class="avatar size-md color-3"><span>MR</span></div>
+            <div class="avatar size-md color-5"><span>SA</span></div>
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <p style="margin: 0; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">Yasmin · Marcos · Sara</p>
+            <p style="margin: 0; font-size: var(--font-size-xs); color: var(--text-tertiary);">Yasmin disponible ahora · Marcos lleva tu billing</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="eyebrow">Servicios destacados</div>
+        <h3 class="section-title-h" style="margin-top: var(--space-2);">Tus webs gestionadas</h3>
+        <p class="section-desc">Las que tienes activas.</p>
+
+        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+          <div class="card-base action-v" tabindex="0" role="button" style="padding: var(--space-3);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <p style="margin: 0; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">florpez.com</p>
+                <p style="margin: 0; font-size: var(--font-size-xs); color: var(--text-tertiary);">
+                  <span class="status-dot status-dot-success" style="display: inline-block; vertical-align: middle; margin-right: 6px;"></span>
+                  Activo · uptime 99,99%
+                </p>
+              </div>
+              <span style="color: var(--brand); font-size: var(--font-size-sm);">→</span>
+            </div>
+          </div>
+          <div class="card-base action-v" tabindex="0" role="button" style="padding: var(--space-3);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <p style="margin: 0; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">tienda.florpez.com</p>
+                <p style="margin: 0; font-size: var(--font-size-xs); color: var(--text-tertiary);">
+                  <span class="status-dot status-dot-success" style="display: inline-block; vertical-align: middle; margin-right: 6px;"></span>
+                  Activo · uptime 99,98%
+                </p>
+              </div>
+              <span style="color: var(--brand); font-size: var(--font-size-sm);">→</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EmptyState first-time · sección "Tu primera factura" -->
+    <h3 class="section-title-h">Tu facturación</h3>
+    <p class="section-desc">Aún no has recibido ninguna factura — eres cliente desde hace solo un día.</p>
+    <div class="empty-base first-time" style="margin-bottom: var(--space-6);">
+      <span class="empty-eyebrow">Tu primera vez aquí</span>
+      <h3 class="empty-title">Aún no tienes facturas</h3>
+      <p class="empty-desc">Recibirás la primera el día <strong>15 de mayo</strong>, cuando se complete tu primer mes. La cargamos automáticamente — sin sorpresas. <strong>Te avisamos siempre antes de cargar.</strong></p>
+      <div class="empty-action">
+        <button class="btn btn-primary btn-md">Ver detalle del cargo</button>
+        <button class="btn btn-secondary btn-md">Cambiar método de pago</button>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="../scripts.js"></script>
+</body>
+</html>

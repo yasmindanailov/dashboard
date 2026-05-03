@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Card · 5 variantes</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+  @media (max-width: 900px) { .grid-3 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 700px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.E · Contenedores</div>
+      <h1 class="page-title">Card · 5 variantes</h1>
+      <p class="page-lede">
+        Card es el contenedor más usado del producto. DD-029 aplicado: 5 variantes nativas (static · action · selectable · featured · mesh) cada una con caso de uso real, manteniendo identidad Aelium.
+      </p>
+    </header>
+
+    <!-- 1. Static -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">1 · Static (default)</h2><span class="section-num">01</span></div>
+      <p class="section-lede">Información sin interacción. Detalle, sección informativa.</p>
+      <div class="grid-2">
+        <div class="card-base">
+          <div class="eyebrow">Cliente desde</div>
+          <h3 style="margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); letter-spacing: -0.01em;">marzo 2024</h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm); line-height: var(--line-height-relaxed);">14 meses con nosotros. <strong>5 servicios contratados</strong>. Web Pro como plan base.</p>
+        </div>
+        <div class="card-base">
+          <div class="eyebrow">Equipo asignado</div>
+          <h3 style="margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); letter-spacing: -0.01em;">3 personas</h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm); line-height: var(--line-height-relaxed);">Yasmin (soporte) · Marcos (billing) · Sara (admin).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Action -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">2 · Action (DD-023)</h2><span class="section-num">02</span></div>
+      <p class="section-lede">Card navegable. Hover brand-tinted, focus ring. Pasa el cursor.</p>
+      <div class="grid-2">
+        <div class="card-base action-v" tabindex="0" role="button">
+          <div class="eyebrow">Factura</div>
+          <h3 style="margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold);">2026/04 — Hosting Web Pro</h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">Vence en 5 días</p>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: var(--space-3);">
+            <span class="num" style="font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold);">49,90&nbsp;€</span>
+            <span style="color: var(--brand); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">Pagar →</span>
+          </div>
+        </div>
+        <div class="card-base action-v" tabindex="0" role="button">
+          <div class="eyebrow">Servicio</div>
+          <h3 style="margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold);">Hosting Web Business</h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">Activo · 4 webs · uptime 99,99%</p>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: var(--space-3);">
+            <span class="aelium-dot accent"></span>
+            <span style="color: var(--brand); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">Ver detalles →</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Selectable -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">3 · Selectable</h2><span class="section-num">03</span></div>
+      <p class="section-lede">Multi-select visual o plan picker. Click toggle. Selected con bg brand-subtle + check brand top-right.</p>
+      <div class="grid-3">
+        <div class="card-base selectable-v" tabindex="0" role="checkbox">
+          <div class="eyebrow">Web Inicio</div>
+          <h3 style="margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold);">19,90 €<span style="font-size: var(--font-size-sm); font-weight: var(--font-weight-regular); color: var(--text-secondary);">/mes</span></h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">El que empieza. Primera web con todo lo básico.</p>
+        </div>
+        <div class="card-base selectable-v selected" tabindex="0" role="checkbox" aria-checked="true">
+          <div class="eyebrow">Web Pro</div>
+          <h3 style="margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold);">49,90 €<span style="font-size: var(--font-size-sm); font-weight: var(--font-weight-regular); color: var(--text-secondary);">/mes</span></h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">El que crece. Más capacidad, staging, correos.</p>
+        </div>
+        <div class="card-base selectable-v" tabindex="0" role="checkbox">
+          <div class="eyebrow">Web Business</div>
+          <h3 style="margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold);">99,90 €<span style="font-size: var(--font-size-sm); font-weight: var(--font-weight-regular); color: var(--text-secondary);">/mes</span></h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">El que expande. Varias webs, mismo socio tecnológico.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Featured -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">4 · Featured</h2><span class="section-num">04</span></div>
+      <p class="section-lede">Plan destacado. Border 2px brand + tag rombo "Más popular" en top-center.</p>
+      <div class="grid-3">
+        <div class="card-base">
+          <div class="eyebrow">Web Inicio</div>
+          <h3 style="margin: 0; font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold);">19,90 €<span style="font-size: var(--font-size-sm); font-weight: var(--font-weight-regular); color: var(--text-secondary);">/mes</span></h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">El que empieza.</p>
+          <button class="btn btn-secondary btn-md" style="margin-top: var(--space-3);">Empieza con Inicio</button>
+        </div>
+        <div class="card-base featured-v">
+          <span class="card-tag">Más popular</span>
+          <div class="eyebrow">Web Pro</div>
+          <h3 style="margin: 0; font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold);">49,90 €<span style="font-size: var(--font-size-sm); font-weight: var(--font-weight-regular); color: var(--text-secondary);">/mes</span></h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">El que crece. Soporte Inside incluido.</p>
+          <button class="btn btn-primary btn-md" style="margin-top: var(--space-3);">Empieza con Pro</button>
+        </div>
+        <div class="card-base">
+          <div class="eyebrow">Web Business</div>
+          <h3 style="margin: 0; font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold);">99,90 €<span style="font-size: var(--font-size-sm); font-weight: var(--font-weight-regular); color: var(--text-secondary);">/mes</span></h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">El que expande.</p>
+          <button class="btn btn-secondary btn-md" style="margin-top: var(--space-3);">Empieza con Business</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Mesh -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">5 · Mesh</h2><span class="section-num">05</span></div>
+      <p class="section-lede">Hero del cliente · Overview destacado. Mesh sutil con brand + accent-secondary + brand-active.</p>
+      <div class="grid-2">
+        <div class="card-base mesh-v" style="padding: var(--space-8); min-height: 200px;">
+          <div class="eyebrow">Tu negocio digital</div>
+          <h3 style="margin: var(--space-2) 0 var(--space-2); font-size: var(--font-size-2xl); font-weight: var(--font-weight-semibold); letter-spacing: -0.015em;">Funcionando bien.</h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-md); line-height: var(--line-height-relaxed);">Todos tus servicios activos. <strong>Uptime del mes 99,98%.</strong> Si algo cambia, te avisamos antes de que te enteres.</p>
+        </div>
+        <div class="card-base mesh-v mesh-strong" style="padding: var(--space-8); min-height: 200px;">
+          <div class="eyebrow">Empieza hoy</div>
+          <h3 style="margin: var(--space-2) 0 var(--space-2); font-size: var(--font-size-2xl); font-weight: var(--font-weight-semibold); letter-spacing: -0.015em;">Tu primera web, lista en 24h.</h3>
+          <p style="margin: 0 0 var(--space-4); color: var(--text-secondary); font-size: var(--font-size-md);">Te llamamos, te conocemos y la dejamos funcionando. <strong>Sin que toques nada.</strong></p>
+          <button class="btn btn-primary btn-md">Habla con nosotros</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Estados especiales -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">Estados especiales</h2><span class="section-num">06</span></div>
+      <div class="grid-2">
+        <div class="card-base disabled" tabindex="0">
+          <div class="eyebrow">Servicio</div>
+          <h3 style="margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold);">Hosting suspendido</h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">No editable hasta resolver el pago.</p>
+        </div>
+        <div class="card-base loading-v">
+          <div class="eyebrow">Loading</div>
+          <h3 style="margin: 0;">…</h3>
+          <p>…</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="../scripts.js"></script>
+</body>
+</html>
