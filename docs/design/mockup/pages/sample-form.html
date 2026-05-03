@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Sample form</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .sample {
+    max-width: var(--container-form);
+    margin: 0 auto;
+  }
+  .card {
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-8);
+    margin-bottom: var(--space-6);
+  }
+  .card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: var(--space-2);
+  }
+  .card-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-snug);
+    letter-spacing: -0.015em;
+    margin: 0;
+  }
+  .card-step {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+  }
+  .card-lede {
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-6);
+    line-height: var(--line-height-relaxed);
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  .form-row.single { grid-template-columns: 1fr; }
+  @media (max-width: 720px) { .form-row { grid-template-columns: 1fr; } }
+  .form-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--space-6);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--border);
+  }
+  .form-actions .left,
+  .form-actions .right { display: flex; gap: var(--space-2); }
+  .toolbar {
+    display: flex;
+    gap: var(--space-3);
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    align-items: center;
+    margin-bottom: var(--space-3);
+  }
+  .toolbar .search { width: 280px; }
+  .toolbar .right { margin-left: auto; display: flex; gap: var(--space-2); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="page-eyebrow">Maqueta · página de muestra</div>
+      <h1 class="page-title">Abrir un ticket de soporte</h1>
+      <p class="page-lede">
+        Ejemplo composicional que combina los 6 componentes de fase 2.A en una pantalla real. Voz de marca aplicada en cada label, helper, placeholder y botón. Tokens DD-021 (alineados a marca v1.6) ya activos.
+      </p>
+    </header>
+
+    <div class="sample">
+
+      <!-- Toolbar (mostrando SearchInput + Dropdown en contexto admin) -->
+      <div class="toolbar">
+        <div class="search">
+          <span class="search-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input type="search" class="input" placeholder="Buscar en mis tickets…" aria-label="Buscar en mis tickets">
+        </div>
+        <div class="right">
+          <button class="dropdown-trigger">
+            Filtrar
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card: el formulario real -->
+      <form class="card" onsubmit="return false;">
+        <div class="card-head">
+          <h2 class="card-title">Cuéntanos qué necesitas</h2>
+          <span class="card-step">paso 1 / 1</span>
+        </div>
+        <p class="card-lede">
+          Un agente lo verá enseguida y te llama si hace falta. Cuanto más concreto, mejor te podemos ayudar.
+        </p>
+
+        <div class="form-row">
+          <div class="field field-md">
+            <label class="field-label" for="f-cliente">Tu nombre</label>
+            <div class="field-control">
+              <input id="f-cliente" class="input" type="text" placeholder="Como prefieras que te llamemos" value="Yasmin">
+            </div>
+          </div>
+          <div class="field field-md field-icon-left">
+            <label class="field-label" for="f-mail">Tu correo</label>
+            <div class="field-control">
+              <span class="field-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              </span>
+              <input id="f-mail" class="input" type="email" placeholder="hola@mitienda.com" value="hola@aelium.com">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field field-md">
+            <label class="field-label" for="f-prio">Prioridad</label>
+            <select id="f-prio" class="select">
+              <option>Urgente</option>
+              <option selected>Alta</option>
+              <option>Media</option>
+              <option>Baja</option>
+            </select>
+            <p class="field-helper">Marcamos urgente solo si la web está caída o no llegan correos.</p>
+          </div>
+          <div class="field field-md">
+            <label class="field-label" for="f-categoria">¿Sobre qué es?</label>
+            <select id="f-categoria" class="select">
+              <option value="">Elige una</option>
+              <option>Hosting</option>
+              <option>Correo</option>
+              <option>Dominio</option>
+              <option>Facturación</option>
+              <option>Otro</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row single">
+          <div class="field field-md">
+            <label class="field-label" for="f-asunto">¿Qué necesitas?</label>
+            <div class="field-control">
+              <input id="f-asunto" class="input" type="text" placeholder="Una frase corta. Como un título.">
+            </div>
+            <p class="field-helper">Ej. "El correo no envía desde ayer".</p>
+          </div>
+        </div>
+
+        <div class="form-row single">
+          <div class="field field-md">
+            <label class="field-label" for="f-detalle">Cuéntanos qué pasa</label>
+            <textarea id="f-detalle" class="textarea" rows="5" maxlength="2000" placeholder="Lo que veas, lo que necesites. Sin filtro."></textarea>
+            <div class="textarea-footer">
+              <p class="field-helper">Si tienes capturas, las puedes adjuntar después de enviar.</p>
+              <p class="char-count">0/2000</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <div class="left">
+            <button type="button" class="dropdown-trigger">
+              Más opciones
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
+          <div class="right">
+            <button type="button" class="btn btn-secondary btn-md">Guardar borrador</button>
+            <button type="submit" class="btn btn-primary btn-md">Crear ticket</button>
+          </div>
+        </div>
+      </form>
+
+      <!-- Card secundaria: alternativa cercana -->
+      <div class="card" style="background: var(--surface-secondary); border-color: var(--border);">
+        <div class="card-head">
+          <h2 class="card-title" style="font-size: var(--font-size-lg);">¿Prefieres que te llamemos?</h2>
+        </div>
+        <p class="card-lede" style="margin-bottom: var(--space-4);">
+          Si lo cuentas más rápido por teléfono, sin problema. Te llamamos en menos de 24h.
+        </p>
+        <div class="form-row">
+          <div class="field field-md field-icon-left">
+            <label class="field-label" for="t-tel">Tu teléfono</label>
+            <div class="field-control">
+              <span class="field-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              </span>
+              <input id="t-tel" class="input" type="tel" placeholder="600 00 00 00">
+            </div>
+          </div>
+          <div class="field field-md">
+            <label class="field-label" for="t-mejor">Mejor momento</label>
+            <select id="t-mejor" class="select">
+              <option>Mañana (9–14h)</option>
+              <option>Tarde (16–19h)</option>
+              <option>Cuando puedas</option>
+            </select>
+          </div>
+        </div>
+        <div style="text-align: right; margin-top: var(--space-3);">
+          <button class="btn btn-primary btn-md">Llamarme en 24h</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

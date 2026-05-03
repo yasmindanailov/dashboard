@@ -7,13 +7,14 @@
 
 ## Estado actual
 
-- **Fase activa:** 2.A — Componentes base · Grupo A (formularios)
+- **Fase activa:** 2.A — Componentes base · Grupo A (formularios) **listos para revisión completa**
 - **Modo activo:** diseño
-- **Próxima acción:** revisión humana del modelo de spec (Button.md +
-  button.html). Si OK, continúa con Input, Select, Textarea, SearchInput,
-  Dropdown bajo el mismo formato. Si hay cambios, iterar sobre el modelo.
-- **Última actualización:** 2026-05-03 — fase 1 cerrada, montada
-  infraestructura de fase 2 + maqueta viva en `docs/design/mockup/`.
+- **Próxima acción:** revisión humana de los 6 componentes + sample-form
+  en la maqueta. Si OK, cerrar fase 2.A y arrancar fase 2.B (feedback).
+  Si hay cambios, iterar.
+- **Última actualización:** 2026-05-03 — fase 2.A completa con marca
+  aplicada (DD-021 + DD-022). 6 specs + 6 mockups + 1 página de
+  composición. Tokens de fase 1 reabiertos para alinear con marca v1.6.
 
 ---
 
@@ -54,7 +55,7 @@ romper la filosofía de minimalismo funcional (D1–D11 de
 |---|------|--------|----------------------|
 | 0 | Brief y confirmación | Cerrada | `BRIEF.md` aprobado |
 | 1 | Foundations / Design tokens | **Cerrada** | `tokens.css` + `tokens.md` + `preview.html` + `audit.md` + `NOTES.md` aprobados |
-| 2.A | Componentes base · formularios | En curso (modelo en revisión) | Button, Input, Select, Textarea, SearchInput, Dropdown |
+| 2.A | Componentes base · formularios | **Listo · revisión humana** | Button, Input, Select, Textarea, SearchInput, Dropdown · sample-form |
 | 2.B | Componentes base · feedback | Pendiente | Badge, StatusDot, Toast, AlertBanner, Tooltip, HelpTip, Skeleton |
 | 2.C | Componentes base · data | Pendiente | Table, Pagination, StatsCard, BulkActionBar, FilterBar |
 | 2.D | Componentes base · navegación | Pendiente | Tabs, Breadcrumb, CommandPalette, NotificationBell, PortalBadge |

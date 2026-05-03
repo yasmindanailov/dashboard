@@ -17,11 +17,11 @@
     { section: 'Fase 2 · Componentes base', items: [
       { section: 'Formularios' },
       { href: 'components/button.html',             label: 'Button' },
-      { href: 'components/input.html',              label: 'Input',         pending: true },
-      { href: 'components/select.html',             label: 'Select',        pending: true },
-      { href: 'components/textarea.html',           label: 'Textarea',      pending: true },
-      { href: 'components/search-input.html',       label: 'SearchInput',   pending: true },
-      { href: 'components/dropdown.html',           label: 'Dropdown',      pending: true },
+      { href: 'components/input.html',              label: 'Input' },
+      { href: 'components/select.html',             label: 'Select' },
+      { href: 'components/textarea.html',           label: 'Textarea' },
+      { href: 'components/search-input.html',       label: 'SearchInput' },
+      { href: 'components/dropdown.html',           label: 'Dropdown' },
       { section: 'Feedback' },
       { href: 'components/badge.html',              label: 'Badge',         pending: true },
       { href: 'components/status-dot.html',         label: 'StatusDot',     pending: true },
@@ -59,7 +59,10 @@
       { href: 'shells/admin.html',                  label: 'AdminShell',    pending: true },
       { href: 'shells/partner.html',                label: 'PartnerShell',  pending: true },
     ]},
-    { section: 'Fases 5–9 · Páginas', items: [
+    { section: 'Páginas de muestra', items: [
+      { href: 'pages/sample-form.html',             label: 'Formulario · ticket de soporte' },
+    ]},
+    { section: 'Fases 5–9 · Páginas (futuro)', items: [
       { href: 'pages/dashboard-cliente.html',       label: 'Cliente · Overview', pending: true },
       { href: 'pages/admin-overview.html',          label: 'Admin · Overview',   pending: true },
       // crece con cada fase
@@ -96,13 +99,20 @@
     if (!host) return;
     const d = depth();
     const indexHref = rel('index.html', d);
+    const logoSrc = rel('logo.svg', d);
 
+    /*
+     * Marca: símbolo + wordmark según documento de marca.
+     * Si logo.svg está disponible, se usa. Si no, fallback a dos rombos
+     * dibujados en CSS (.nav-brand-mark::before/::after).
+     */
     let html = `
       <a class="nav-brand" href="${indexHref}">
-        <div class="nav-brand-mark"></div>
+        <div class="nav-brand-mark" id="nav-brand-mark"></div>
         <div class="nav-brand-name">aelium</div>
         <div class="nav-brand-tag">mockup</div>
       </a>
+      <div class="nav-tagline">Tu socio digital, a tu lado.</div>
     `;
 
     NAV.forEach((group) => {
@@ -144,8 +154,32 @@
     });
   }
 
+  /*
+   * Try to load logo.svg from mockup/. If present, replace the CSS
+   * fallback rombos. If not, the fallback stays.
+   */
+  function tryLogo() {
+    const mark = document.getElementById('nav-brand-mark');
+    if (!mark) return;
+    const d = depth();
+    const src = rel('logo.svg', d);
+    const img = new Image();
+    img.onload = function () {
+      mark.classList.add('has-logo');
+      mark.innerHTML = '';
+      mark.appendChild(img);
+      img.style.width = '100%';
+      img.style.height = '100%';
+    };
+    img.onerror = function () {
+      // logo.svg not available — keep CSS fallback (rombos)
+    };
+    img.src = src;
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     renderNav();
+    tryLogo();
     bindPendingClicks();
     bindToggles();
   });

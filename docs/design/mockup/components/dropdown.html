@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Dropdown</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .dd-row { display: flex; gap: var(--space-6); align-items: flex-start; flex-wrap: wrap; }
+  .dd-col { display: flex; flex-direction: column; gap: var(--space-3); align-items: flex-start; }
+  .dd-shortcut { margin-left: auto; font-family: var(--font-mono); font-size: var(--font-size-xs); color: var(--text-tertiary); }
+  /* Forzar el menú abierto para visualización (en producto se gestiona con JS) */
+  .dd-static .dropdown-menu { position: relative; top: 0; box-shadow: var(--shadow-md); animation: none; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="page-eyebrow">Fase 2.A · Formularios</div>
+      <h1 class="page-title">Dropdown</h1>
+      <p class="page-lede">
+        Menú contextual de acciones. Trigger ⋯ icon-only, with-text o custom. Items con verbo concreto, atajo opcional, variantes danger. Animación con tokens de motion.
+      </p>
+    </header>
+
+    <!-- Triggers -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Triggers</h2>
+        <span class="section-num">01</span>
+      </div>
+
+      <div class="dd-row">
+        <div class="dd-col">
+          <p class="legend">icon-only · default</p>
+          <button class="dropdown-trigger icon-only" aria-label="Acciones">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+          </button>
+        </div>
+
+        <div class="dd-col">
+          <p class="legend">with-text</p>
+          <button class="dropdown-trigger">
+            Acciones
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+
+        <div class="dd-col">
+          <p class="legend">custom · profile menu</p>
+          <button class="dropdown-trigger" style="padding: var(--space-1_5) var(--space-2); border: none; background: transparent;">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius-full); background: var(--brand-light); color: var(--brand-active); font-size: var(--font-size-xs); font-weight: var(--font-weight-medium);">YA</span>
+            <span style="margin-left: var(--space-2); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">Yasmin</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left: var(--space-1); color: var(--text-tertiary);"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Menu abierto: ejemplos -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Menú abierto · ejemplos producto</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Mostrados aquí en posición estática para visualización (en producto se gestionan con click outside y Esc).</p>
+
+      <div class="dd-row">
+        <div class="dd-col" style="min-width: 220px;">
+          <p class="legend">Row de cliente (⋯)</p>
+          <div class="dropdown dd-static">
+            <div class="dropdown-menu" role="menu">
+              <button class="dropdown-item" role="menuitem">
+                <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
+                Editar
+                <span class="dd-shortcut">⌘E</span>
+              </button>
+              <button class="dropdown-item" role="menuitem">
+                <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+                Añadir nota
+              </button>
+              <button class="dropdown-item" role="menuitem">
+                <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></span>
+                Duplicar
+                <span class="dd-shortcut">⌘D</span>
+              </button>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item danger" role="menuitem">
+                <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+                Eliminar cliente
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dd-col" style="min-width: 220px;">
+          <p class="legend">Row de tarea (⋯)</p>
+          <div class="dropdown dd-static">
+            <div class="dropdown-menu" role="menu">
+              <button class="dropdown-item" role="menuitem">
+                <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                Marcar como hecha
+              </button>
+              <button class="dropdown-item" role="menuitem">
+                <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg></span>
+                Reasignar tarea
+              </button>
+              <button class="dropdown-item" role="menuitem">
+                <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                Aplazar 24h
+              </button>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item danger" role="menuitem">
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dd-col" style="min-width: 220px;">
+          <p class="legend">Profile menu</p>
+          <div class="dropdown dd-static">
+            <div class="dropdown-menu" role="menu">
+              <button class="dropdown-item" role="menuitem">
+                <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+                Mi perfil
+              </button>
+              <button class="dropdown-item" role="menuitem">
+                <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                Configuración
+              </button>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item" role="menuitem">
+                Cambiar de portal
+              </button>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item" role="menuitem">
+                Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Estados de items -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Estados de item</h2>
+        <span class="section-num">03</span>
+      </div>
+
+      <div class="dd-static" style="min-width: 220px; max-width: 240px;">
+        <div class="dropdown-menu" role="menu" style="position: relative;">
+          <button class="dropdown-item" role="menuitem">Default</button>
+          <button class="dropdown-item" role="menuitem" style="background: var(--surface-secondary);">Hover (simulado)</button>
+          <button class="dropdown-item" role="menuitem" style="background: var(--surface-secondary); box-shadow: inset 0 0 0 2px var(--brand);">Focus (simulado)</button>
+          <button class="dropdown-item" role="menuitem" disabled style="opacity: 0.5; cursor: not-allowed;">Disabled</button>
+          <div class="dropdown-divider"></div>
+          <button class="dropdown-item danger" role="menuitem">Danger default</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Anti-patrones -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Anti-patrones</h2>
+        <span class="section-num">04</span>
+      </div>
+
+      <div class="note">
+        <strong>Más de 5 items.</strong> Si el menú crece, no es un menú — es navegación. Considerar página de configuración o pestaña.
+      </div>
+      <div class="note">
+        <strong>Items sin verbo.</strong> "Información", "Detalles" → debe ser "Ver detalles". El item describe la acción.
+      </div>
+      <div class="note">
+        <strong>Submenús anidados.</strong> Aelium no los usa. Si la jerarquía lo requiere, hay un problema de diseño previo.
+      </div>
+    </section>
+
+    <!-- Drift -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs implementación actual</h2>
+        <span class="section-num">05</span>
+      </div>
+      <p class="section-lede">Detalle en <a href="../../fase-2-componentes/grupo-a-formularios/Dropdown.md" style="color: var(--brand);">Dropdown.md</a>.</p>
+
+      <div class="spec-grid">
+        <div class="label">Animación <span class="meta">D2A-6</span></div>
+        <div><span class="mono">fadeIn 100ms ease</span> → <span class="tok">--motion-stack-in</span> (180ms ease-out).</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Keyboard nav <span class="meta">D2A-7</span></div>
+        <div><strong>Falta completa.</strong> Spec exige flechas, Esc, Enter, Home, End. Trabajo de implementación.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Item disabled</div>
+        <div>No existe en código. Añadir si emerge caso real.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Voz <span class="meta">DD-022</span></div>
+        <div>Items con verbo concreto, no genérico.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

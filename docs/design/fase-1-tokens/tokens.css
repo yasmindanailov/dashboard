@@ -9,12 +9,13 @@
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ──────── BRAND ──────── */
-  --brand:           #3B82F6;
-  --brand-hover:     #2563EB;
-  --brand-active:    #1D4ED8;
-  --brand-light:     #DBEAFE;
-  --brand-subtle:    rgba(59, 130, 246, 0.06);
+  /* ──────── BRAND (marca v1.6) ──────── */
+  --brand:             #3B82F6;
+  --brand-hover:       #2563EB;
+  --brand-active:      #1D4ED8;
+  --brand-light:       #DBEAFE;
+  --brand-subtle:      rgba(59, 130, 246, 0.06);
+  --accent-secondary:  #1F8EFA;   /* + marca: azul vivo · uso por definir (DD-021) */
 
   /* ──────── SEMÁNTICOS · success ──────── */
   --success:         #10B981;
@@ -52,23 +53,23 @@
   --pending-border:  rgba(139, 92, 246, 0.18);  /* + */
   --pending-strong:  #6D28D9;            /* + */
 
-  /* ──────── SUPERFICIES ──────── */
+  /* ──────── SUPERFICIES (DD-021 · marca v1.6) ──────── */
   --surface-primary:   #FFFFFF;
-  --surface-secondary: #F7F7F8;
-  --surface-tertiary:  #F1F5F9;
-  --surface-dark:      #0A0A0B;
+  --surface-secondary: #F8FAFF;   /* + marca: azul muy claro · antes #F7F7F8 */
+  --surface-tertiary:  #F1F5F9;   /* slate-100 — alineado a la familia azul-gris */
+  --surface-dark:      #0F172A;   /* + marca: azul muy oscuro · antes #0A0A0B */
 
-  /* ──────── TEXTO ──────── */
-  --text-primary:    #0A0A0B;
-  --text-secondary:  #6B7280;
-  --text-tertiary:   #9CA3AF;
+  /* ──────── TEXTO (DD-021 · marca v1.6) ──────── */
+  --text-primary:    #0F172A;             /* + marca · antes #0A0A0B */
+  --text-secondary:  #64748B;             /* + marca: slate-500 · antes #6B7280 */
+  --text-tertiary:   #94A3B8;             /* alineado: slate-400 · antes #9CA3AF */
   --text-on-brand:   #FFFFFF;
   --text-on-dark:    rgba(255, 255, 255, 0.92);
 
-  /* ──────── BORDES ──────── */
-  --border:          rgba(0, 0, 0, 0.06);
-  --border-hover:    rgba(0, 0, 0, 0.10);
-  --border-active:   rgba(0, 0, 0, 0.15);
+  /* ──────── BORDES (DD-021 · marca v1.6 — slate-200/300/400) ──────── */
+  --border:          #E2E8F0;             /* + marca · antes rgba(0,0,0,0.06) */
+  --border-hover:    #CBD5E1;             /* slate-300 · antes rgba(0,0,0,0.10) */
+  --border-active:   #94A3B8;             /* slate-400 · antes rgba(0,0,0,0.15) */
 
   /* ──────── RADIOS ──────── */
   --radius-xs:   4px;

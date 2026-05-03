@@ -288,3 +288,70 @@ Formato:
 - Materializada en: `tokens.css` (valores actualizados), `audit.md` § 3.2
 - Implicaciones: Único cambio de **valor** en tokens existentes en toda la
   fase 1. Sin riesgo de regresión funcional. Registrado para trazabilidad.
+
+## DD-021 — Marca manda sobre `globals.css` (reapertura acotada de fase 1)
+
+- Fase: 1 (reabierta sobre valores de color, no sobre estructura)
+- Fecha: 2026-05-03
+- Decisión: Cuando el `aelium-documento-de-marca.md` v1.6 y el
+  `frontend/app/globals.css` actual difieren en un valor de color, **manda
+  el documento de marca**. Se actualizan los tokens de fase 1 a los valores
+  de marca. La estructura, nomenclatura y demás decisiones de fase 1
+  (DD-001 a DD-018) NO se reabren — solo los valores.
+- Justificación: El documento de marca v1.6 (Abril 2026) es la decisión
+  más reciente y deliberada de identidad. El `globals.css` arrastra
+  valores heredados de la landing previa al documento. Mantener el código
+  como verdad sería traicionar el rasgo "Riguroso y consecuente" de la
+  personalidad de marca: dice azul, usa azul. Además, fase 1 todavía no
+  se ha promocionado a `globals.css` — todavía es draft, así que la
+  corrección no rompe código en producción.
+- Diferencias específicas que se corrigen:
+
+  | Token | Antes (globals.css) | Después (marca v1.6) |
+  |-------|---------------------|----------------------|
+  | `--surface-secondary` | `#F7F7F8` (gris) | `#F8FAFF` (azul muy claro) |
+  | `--text-primary` | `#0A0A0B` (negro) | `#0F172A` (azul muy oscuro) |
+  | `--text-secondary` | `#6B7280` (gris cálido) | `#64748B` (gris azulado) |
+  | `--text-tertiary` | `#9CA3AF` | `#94A3B8` (slate-400, alineado a la familia) |
+  | `--border` | `rgba(0,0,0,0.06)` | `#E2E8F0` (slate-200) |
+  | `--border-hover` | `rgba(0,0,0,0.10)` | `#CBD5E1` (slate-300) |
+  | `--border-active` | `rgba(0,0,0,0.15)` | `#94A3B8` (slate-400) |
+  | `--accent-secondary` | _no existía_ | `#1F8EFA` (azul vivo, marca) |
+
+- Materializada en: `fase-1-tokens/tokens.css`, `mockup/tokens.css`,
+  `fase-1-tokens/audit.md` § 3.3 (sección nueva), este registro.
+- Implicaciones:
+  1. Cuando se promocione fase 1 a `globals.css` (modo implementación),
+     estos cambios entran. Componentes que dependen de `--surface-secondary`,
+     `--text-primary`, `--text-secondary`, `--border*` se ven afectados
+     visualmente — verificar contraste WCAG y comportamiento sobre fondos.
+  2. La maqueta viva (`mockup/tokens.css`) se actualiza ya, así todo
+     lo que diseñemos a partir de ahora se ve "Aelium real".
+  3. `--accent-secondary` se introduce sin uso definido — registrado en
+     `NOTES.md` para que algún componente o layout decida su caso.
+  4. Si en el futuro la marca evoluciona a v1.7+, esto se reabre con
+     misma lógica (marca manda).
+
+## DD-022 — Voz de marca aplicada a botones (y por extensión, a toda etiqueta interactiva)
+
+- Fase: 2.A
+- Fecha: 2026-05-03
+- Decisión: Aplicar el documento de marca §"Voz de marca" como reglas
+  específicas para etiquetas de botones, links de acción y triggers:
+  - **Verbo concreto** describiendo lo que pasa, no si es positivo o
+    negativo. ("Eliminar cliente", no "Aceptar".)
+  - **Trato individualizado**: la etiqueta nombra el objeto sobre el que
+    actúa cuando es posible. ("Pagar factura", no "Pagar".)
+  - **Frases cortas**: 1–3 palabras ideal, máx. 4. Texto largo es síntoma
+    de que el botón no comunica.
+  - **Tono cercano, no formal**: "Empieza hoy", "Habla con nosotros",
+    "Llamarme en 24h". NO: "Iniciar", "Contactar", "Solicitar llamada".
+  - **Aelium NUNCA usa en botones**: "Aceptar", "OK", "Submit",
+    "Procederemos", "Solicitar", "Estimado", verbos enlatados.
+- Justificación: El documento de marca es explícito sobre voz pero hasta
+  ahora el sistema de diseño no la había aplicado a microcopy de UI. Sin
+  esta regla, los botones parecen genéricos y se pierde identidad.
+- Materializada en: `Button.md` § Voz de marca, `button.html` § Voz de
+  marca, ejemplos en `button.html` con copy real del producto.
+- Implicaciones: aplicable también a Tabs, Dropdown items, link de
+  acción, triggers de Modal. Se hereda en toda la fase 2 y siguientes.

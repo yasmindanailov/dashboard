@@ -114,6 +114,85 @@ Motion
 
 ---
 
+## 5.5 Voz de marca aplicada al botón (DD-022)
+
+> Las etiquetas del botón siguen el documento de marca §"Voz de marca".
+> No es decoración: es identidad. Aplica también a Tabs, Dropdown items
+> y triggers — heredado por todo elemento accionable.
+
+### Reglas de copy
+
+1. **Verbo concreto describiendo qué pasa.** El usuario debe poder
+   leer el botón y saber qué ocurre al hacer click. Sin ambigüedad,
+   sin valoración positiva/negativa.
+2. **Trato individualizado.** La etiqueta nombra el objeto sobre el
+   que actúa cuando es posible. "Eliminar cliente" > "Eliminar".
+   "Pagar factura" > "Pagar".
+3. **Frases cortas.** 1–3 palabras ideal, máximo 4. Texto largo es
+   síntoma de que la acción no está bien definida o el botón hace
+   demasiadas cosas.
+4. **Tono cercano, no formal.** Aelium habla como un socio cercano
+   competente, no como un proveedor pasivo.
+5. **El botón nunca presume.** No "Confirmar", no "Aceptar", no "OK".
+   Estos son verbos enlatados que no comunican.
+
+### Aelium NUNCA usa en botones
+
+| Genérico SaaS | Por qué no |
+|---|---|
+| "Aceptar" / "OK" / "Submit" | No describe qué pasa. Vacío. |
+| "Confirmar" (sin objeto) | Igual: ¿confirmar qué? |
+| "Procederemos" | Voz de proveedor distante. Marca: "Riguroso y consecuente" no es "formal". |
+| "Solicitar llamada" | Burocrático. Marca: "Llamarme". |
+| "Iniciar sesión" | Genérico SaaS. Marca: "Entrar". |
+| "Estimado cliente" | El documento de marca lo prohíbe explícitamente. |
+| "En el menor tiempo posible" | Vacío. Marca: "Lo tenemos en X minutos". |
+
+### Aelium SÍ usa en botones
+
+Ejemplos del producto real:
+
+| Contexto | Etiqueta | Variante |
+|---|---|---|
+| Hero cliente | **Empieza hoy** | primary lg |
+| Hero cliente | **Habla con nosotros** | secondary lg |
+| Hero cliente | **Ver planes** | ghost lg |
+| Servicios cliente | **Activar hosting** | primary md |
+| Servicios cliente | **Renovar dominio** | primary md |
+| Servicios cliente | **Cancelar servicio** | danger md |
+| Onboarding · Momento WOW | **Llamarme en 24h** | primary md |
+| Onboarding | **Ya lo miro yo** | secondary md |
+| Soporte cliente | **Abrir ticket** | primary md |
+| Soporte cliente | **Hablar con soporte** | secondary md |
+| Facturación | **Pagar factura** | primary md |
+| Facturación | **Descargar PDF** | secondary md |
+| Admin · cliente | **Crear cliente** | primary md |
+| Admin · cliente | **Eliminar cliente** | danger md |
+| Admin · tarea | **Marcar como hecha** | primary sm |
+| Admin · tarea | **Reasignar tarea** | secondary sm |
+| Form · destructivo | **Sí, eliminar la cuenta** | danger md |
+| Form · cancelar | **No, dejar como está** | secondary md |
+| Form · genérico | **Guardar cambios** | primary md |
+| Form · genérico | **Cancelar** | secondary md |
+
+### Anti-patrones de copy específicos a Button
+
+- ❌ "Aceptar" en una confirmación destructiva → no comunica gravedad.
+- ❌ "Eliminar" sin nombrar el objeto → ambigüedad peligrosa.
+- ❌ "Click aquí" → vacío.
+- ❌ "Submit" → genérico SaaS.
+- ❌ "Continuar" como CTA principal → ¿continuar a dónde?
+- ❌ "Ok" o "OK" → cero personalidad, cero información.
+
+### El botón es voz de marca, no decoración
+
+Cuando el usuario haga click, debería sentir que **alguien real al otro
+lado lo va a hacer**. No "el sistema procesará la operación". Aelium es
+"socio cercano que gestiona contigo", y eso se transmite incluso en una
+etiqueta de tres palabras.
+
+---
+
 ## 6. Reglas de uso
 
 **Cuándo usar cada variante.**

@@ -235,6 +235,62 @@ imperceptible aislada — registrada para trazabilidad.
 
 **Riesgo:** ninguno conocido. Cambio óptico mínimo.
 
+### 3.3 Reapertura de fase 1 — alineación con documento de marca v1.6 (DD-021)
+
+> Detectado a posteriori del cierre inicial de fase 1: el `globals.css`
+> heredado y el documento de marca difieren. **Marca manda.** Estos son
+> los valores corregidos. Ningún nombre de token cambia — solo valores.
+
+| Token | Antes (globals.css heredado) | Después (marca v1.6) | Tipo de cambio |
+|-------|------------------------------|----------------------|----------------|
+| `--surface-secondary` | `#F7F7F8` (gris) | `#F8FAFF` (azul muy claro) | corrección de valor |
+| `--surface-dark` | `#0A0A0B` | `#0F172A` (alineado a `--text-primary`) | corrección de valor |
+| `--text-primary` | `#0A0A0B` (negro casi puro) | `#0F172A` (azul muy oscuro) | corrección de valor |
+| `--text-secondary` | `#6B7280` (gris cálido) | `#64748B` (gris azulado, slate-500) | corrección de valor |
+| `--text-tertiary` | `#9CA3AF` | `#94A3B8` (slate-400) | alineación a la familia |
+| `--border` | `rgba(0,0,0,0.06)` muy sutil | `#E2E8F0` (slate-200) más visible | corrección de valor |
+| `--border-hover` | `rgba(0,0,0,0.10)` | `#CBD5E1` (slate-300) | alineación |
+| `--border-active` | `rgba(0,0,0,0.15)` | `#94A3B8` (slate-400) | alineación |
+| `--accent-secondary` | _(no existía)_ | `#1F8EFA` (azul vivo) | token nuevo |
+
+**Razón macro.** El documento de marca v1.6 (Abril 2026) es la decisión
+más reciente y deliberada sobre identidad. El `globals.css` arrastra
+valores del proyecto landing previo. Mantener el código como verdad
+contradice "Riguroso y consecuente" (rasgo 2 de personalidad de marca).
+
+**Impacto visual esperado al promocionar a `globals.css`:**
+
+- **Tinte azul en superficies neutrales**: el dashboard pierde la
+  apariencia "gris frío SaaS genérico" y gana el matiz azul-tintado de
+  la identidad Aelium. Especialmente visible en `--surface-secondary`
+  (fondo de página detrás de cards) y en bordes de Card/Input.
+- **Texto principal y secundario** levemente desplazados al azul.
+  Diferencia óptica sutil pero coherente con la marca.
+- **Bordes más visibles**: pasa de alpha 6% a un slate-200 sólido. Las
+  cards y los inputs se "leen" más claros como contenedores. Riesgo:
+  algún componente que confíe en bordes invisibles puede verse afectado.
+
+**Plan de migración (modo implementación, NO ejecutar aquí):**
+
+Paso adicional a los pasos 1–5 del § 5:
+
+```bash
+# Comprobar uso de los hex literales antiguos en componentes:
+cd frontend
+grep -rEn "#0A0A0B|#6B7280|#9CA3AF|#F7F7F8|rgba\\(0,\\s*0,\\s*0,\\s*0\\.0[6-9]\\)|rgba\\(0,\\s*0,\\s*0,\\s*0\\.1[0-5]\\)" \
+  --include="*.tsx" --include="*.css" --include="*.module.css" .
+```
+
+Si aparecen, refactorizar al token correspondiente (no quedarán hex
+literales en el código tras la migración).
+
+**Riesgo:** medio. Cambios visuales reales — no solo aditivos. Verificar
+en `/dashboard/ds-preview` y rutas activas antes de hacer release.
+
+**Reversibilidad:** total. Si tras promocionar algo se rompe visualmente,
+los valores antiguos se pueden restaurar en `globals.css` (decisión
+opuesta a DD-021, registrar en su momento).
+
 ---
 
 ## 4. Selectores CSS nuevos (1)

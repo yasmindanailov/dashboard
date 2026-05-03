@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · SearchInput</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .form-stack { display: flex; flex-direction: column; gap: var(--space-5); }
+  .toolbar {
+    display: flex;
+    gap: var(--space-3);
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    align-items: center;
+  }
+  .toolbar .search { width: 320px; }
+  /* Hide native WebKit cancel button when our custom clear is used */
+  input[type="search"]::-webkit-search-cancel-button { display: none; }
+  /* Spinner */
+  .search-spinner {
+    position: absolute;
+    right: var(--space-3);
+    color: var(--text-tertiary);
+    display: inline-flex;
+    pointer-events: none;
+    width: var(--icon-size-md);
+    height: var(--icon-size-md);
+  }
+  .search-spinner svg { animation: si-spin 1s linear infinite; }
+  @keyframes si-spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="page-eyebrow">Fase 2.A · Formularios</div>
+      <h1 class="page-title">SearchInput</h1>
+      <p class="page-lede">
+        Buscador con icono, clear inline y estado de carga. Pensado para toolbars de tabla y filtros. El placeholder dice qué campos se buscan — Aelium no abandona al usuario en "Buscar…" abstracto.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Tamaños</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">Solo <span class="tok">sm</span> y <span class="tok">md</span>. Un buscador <span class="tok">lg</span> raramente tiene sentido.</p>
+
+      <div class="form-stack" style="max-width: 480px;">
+        <div class="field field-sm">
+          <div class="search">
+            <span class="search-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input type="search" class="input" placeholder="Buscar en mis servicios…" aria-label="Buscar en mis servicios">
+          </div>
+          <p class="field-helper" style="margin-top: var(--space-1);">Tamaño <span class="tok">sm</span> · 32px · filtros densos.</p>
+        </div>
+
+        <div class="field field-md">
+          <div class="search">
+            <span class="search-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input type="search" class="input" placeholder="Buscar cliente, NIF, dominio…" aria-label="Buscar cliente">
+          </div>
+          <p class="field-helper" style="margin-top: var(--space-1);">Tamaño <span class="tok">md</span> · 36px · default.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Estados</h2>
+        <span class="section-num">02</span>
+      </div>
+
+      <div class="form-stack" style="max-width: 480px;">
+        <div>
+          <p class="legend">Default · vacío</p>
+          <div class="search">
+            <span class="search-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input type="search" class="input" placeholder="Buscar cliente, NIF, dominio…">
+          </div>
+        </div>
+
+        <div>
+          <p class="legend">Con valor · clear visible</p>
+          <div class="search">
+            <span class="search-icon" style="color: var(--brand);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input type="search" class="input" value="Floristería Pérez">
+            <button type="button" class="clear-btn" aria-label="Limpiar búsqueda">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <p class="field-helper" style="margin-top: var(--space-1);">Icono pasa a <span class="tok">--brand</span> con focus-within.</p>
+        </div>
+
+        <div>
+          <p class="legend">Loading · buscando</p>
+          <div class="search">
+            <span class="search-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input type="search" class="input" value="Floris">
+            <span class="search-spinner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="100%" height="100%"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+            </span>
+          </div>
+          <p class="field-helper" style="margin-top: var(--space-1);">El spinner reemplaza al clear mientras carga.</p>
+        </div>
+
+        <div>
+          <p class="legend">Focus visible (simulado)</p>
+          <div class="search">
+            <span class="search-icon" style="color: var(--brand);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input type="search" class="input" value="" placeholder="Buscar cliente, NIF, dominio…" style="border-color: var(--brand); box-shadow: var(--focus-ring);">
+          </div>
+        </div>
+
+        <div>
+          <p class="legend">Disabled</p>
+          <div class="search">
+            <span class="search-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input type="search" class="input" placeholder="Búsqueda no disponible" disabled>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">En contexto · toolbar de tabla</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">Uso típico: toolbar superior de un listado, junto con filtros y acciones primarias.</p>
+
+      <div class="toolbar">
+        <div class="search">
+          <span class="search-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input type="search" class="input" placeholder="Buscar cliente, NIF, dominio…" aria-label="Buscar cliente">
+        </div>
+        <button class="btn btn-secondary btn-md">
+          <span class="icon">
+            <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          </span>
+          Filtrar
+        </button>
+        <div style="margin-left: auto;">
+          <button class="btn btn-primary btn-md">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </span>
+            Crear cliente
+          </button>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Sin label visible</strong> cuando vive en toolbar — el placeholder lo cuenta. Aria-label obligatorio para accesibilidad.
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Voz · ejemplos producto</h2>
+        <span class="section-num">04</span>
+      </div>
+
+      <div class="form-stack" style="max-width: 480px;">
+        <div>
+          <p class="legend">Admin · listado clientes</p>
+          <div class="search">
+            <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+            <input type="search" class="input" placeholder="Buscar cliente, NIF, dominio…">
+          </div>
+        </div>
+        <div>
+          <p class="legend">Admin · facturas</p>
+          <div class="search">
+            <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+            <input type="search" class="input" placeholder="Buscar por número o cliente…">
+          </div>
+        </div>
+        <div>
+          <p class="legend">Cliente · servicios</p>
+          <div class="search">
+            <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+            <input type="search" class="input" placeholder="Buscar en mis servicios…">
+          </div>
+        </div>
+        <div>
+          <p class="legend">CommandPalette (Cmd+K)</p>
+          <div class="search">
+            <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+            <input type="search" class="input" placeholder="Empieza a escribir…">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs implementación actual</h2>
+        <span class="section-num">05</span>
+      </div>
+      <p class="section-lede">Detalle en <a href="../../fase-2-componentes/grupo-a-formularios/SearchInput.md" style="color: var(--brand);">SearchInput.md</a>.</p>
+
+      <div class="spec-grid">
+        <div class="label">Focus ring <span class="meta">D2A-2</span></div>
+        <div>Migrar a <span class="tok">--focus-ring</span>.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Border default <span class="meta">D2A-3</span></div>
+        <div>Corregir a <span class="tok">--border</span>.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Webkit cancel <span class="meta">D2A-9</span></div>
+        <div>Añadir <span class="mono">::-webkit-search-cancel-button { display: none; }</span>.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Voz <span class="meta">DD-022</span></div>
+        <div>Refactor placeholders a vocabulario Aelium.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

@@ -123,6 +123,39 @@ en specs de Button (primary) y Tooltip en fase 2.
 
 ---
 
+## Reapertura DD-021 — alineación con documento de marca v1.6
+
+Tras cerrar la fase en draft se detectó drift entre `globals.css` y
+`docs/aelium-documento-de-marca.md` v1.6. La fase se reabrió **sobre
+valores de color** (no estructura) para corregirlo. Ver:
+
+- `audit.md` § 3.3
+- `DECISIONS.md` DD-021
+- `tokens.css` (valores actualizados)
+
+Lo siguiente queda para fase de implementación:
+
+### N-15 · Verificar contraste WCAG con los nuevos valores
+- `--text-primary #0F172A` sobre `--surface-primary #FFFFFF`: alto contraste, sin riesgo.
+- `--text-primary #0F172A` sobre `--surface-secondary #F8FAFF`: verificar AA antes de promocionar.
+- `--text-secondary #64748B` sobre `--surface-secondary #F8FAFF`: caso límite, calcular ratio.
+- Bordes `#E2E8F0` sobre `--surface-primary` y sobre `--surface-secondary`: visibilidad.
+
+### N-16 · Caso de uso de `--accent-secondary` (#1F8EFA)
+Marca lo introduce sin asignarle función. Decidir en fase 2 o 3 si:
+- (a) Se usa para énfasis adicional sobre brand (link "ver más", info-light reforzado).
+- (b) Se usa como acento en alguna superficie específica (StatsCard de éxito, success light variant).
+- (c) Se reserva para cuando aparezca un caso real.
+
+Mi voto: (c) hasta que aparezca uso. Token disponible, sin compromiso.
+
+### N-17 · Posible refactor de hex literales en componentes
+Tras promocionar tokens corregidos, hay que pasar el `grep` del audit § 3.3
+sobre `frontend/` y migrar cualquier hex literal antiguo. Trabajo mecánico
+de refactor, no de diseño.
+
+---
+
 ## Lo que esta fase explícitamente NO entregó
 
 - Specs visuales de los 35 componentes existentes — fase 2.

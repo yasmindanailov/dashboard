@@ -7,10 +7,56 @@
 <link rel="stylesheet" href="../tokens.css" />
 <link rel="stylesheet" href="../styles.css" />
 <style>
-  /* Específicos de esta página, en línea con tokens */
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
   .row.tight { gap: var(--space-2); }
   .legend { font-size: 11px; text-transform: uppercase; color: var(--text-tertiary); letter-spacing: 0.06em; margin-bottom: var(--space-2); }
+  .voz-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+  }
+  .voz-table th {
+    text-align: left;
+    padding: var(--space-2) var(--space-3);
+    background: var(--surface-tertiary);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border);
+  }
+  .voz-table td {
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    line-height: var(--line-height-relaxed);
+  }
+  .voz-table tr:last-child td { border-bottom: none; }
+  .no-mark { color: var(--danger); font-weight: var(--font-weight-medium); }
+  .yes-mark { color: var(--success-strong); font-weight: var(--font-weight-medium); }
+  .voz-table .ctx { color: var(--text-tertiary); font-size: var(--font-size-xs); }
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-4);
+  }
+  .product-tile {
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .product-tile .ctx-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .product-tile .actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 </style>
 </head>
 <body>
@@ -23,7 +69,7 @@
       <div class="page-eyebrow">Fase 2.A · Formularios</div>
       <h1 class="page-title">Button</h1>
       <p class="page-lede">
-        Cuatro variantes (primary, secondary, ghost, danger) × tres tamaños (sm, md, lg). Ocho estados visibles. Todo via tokens — cero hex hardcoded en esta página.
+        Cuatro variantes (primary, secondary, ghost, danger) × tres tamaños (sm, md, lg). Ocho estados visibles. Todo via tokens — cero hex hardcoded. Y, sobre todo, <strong>cada etiqueta habla como Aelium</strong> — directa, concreta, cercana.
       </p>
       <div class="row" style="margin-top: var(--space-5);">
         <span class="tok">--brand</span>
@@ -33,27 +79,204 @@
       </div>
     </header>
 
+    <!-- ─────── Voz de marca aplicada al botón ─────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Voz de marca aplicada al botón</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">
+        Aelium es <strong>"el socio tecnológico de tu negocio"</strong>. La voz no es decoración — es identidad. El botón es el momento más leído de la pantalla. Si suena a SaaS genérico, perdemos identidad ahí mismo.
+      </p>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Reglas de copy</h3>
+        <div class="kv">
+          <div><strong>1. Verbo concreto</strong></div>
+          <div>Describe qué pasa al hacer click. Sin ambigüedad, sin valoración.</div>
+          <div><strong>2. Trato individualizado</strong></div>
+          <div>Nombra el objeto sobre el que actúa. <span class="mono">Eliminar cliente</span>, no <span class="mono">Eliminar</span>.</div>
+          <div><strong>3. Frases cortas</strong></div>
+          <div>1–3 palabras ideal, máximo 4.</div>
+          <div><strong>4. Tono cercano, no formal</strong></div>
+          <div>Aelium habla como un socio cercano competente, no como un proveedor pasivo.</div>
+          <div><strong>5. El botón nunca presume</strong></div>
+          <div>"Confirmar", "Aceptar", "OK" — vacíos. No comunican.</div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Aelium NUNCA usa <span class="no-mark">✗</span> &nbsp;·&nbsp; Aelium SÍ usa <span class="yes-mark">✓</span></h3>
+        <table class="voz-table">
+          <tr>
+            <th>Contexto</th>
+            <th>NO Aelium</th>
+            <th>SÍ Aelium</th>
+          </tr>
+          <tr>
+            <td class="ctx">Confirmación genérica</td>
+            <td><span class="no-mark">"Aceptar"</span> · <span class="no-mark">"OK"</span></td>
+            <td><span class="yes-mark">"Guardar cambios"</span> · verbo concreto</td>
+          </tr>
+          <tr>
+            <td class="ctx">Acción destructiva</td>
+            <td><span class="no-mark">"Eliminar"</span> sin objeto</td>
+            <td><span class="yes-mark">"Eliminar cliente"</span> · objeto explícito</td>
+          </tr>
+          <tr>
+            <td class="ctx">Onboarding · momento WOW</td>
+            <td><span class="no-mark">"Solicitar llamada"</span></td>
+            <td><span class="yes-mark">"Llamarme en 24h"</span></td>
+          </tr>
+          <tr>
+            <td class="ctx">CTA principal del hero</td>
+            <td><span class="no-mark">"Comenzar ahora"</span> · <span class="no-mark">"Empezar"</span></td>
+            <td><span class="yes-mark">"Empieza hoy"</span></td>
+          </tr>
+          <tr>
+            <td class="ctx">CTA secundaria del hero</td>
+            <td><span class="no-mark">"Contactar"</span> · <span class="no-mark">"Información"</span></td>
+            <td><span class="yes-mark">"Habla con nosotros"</span></td>
+          </tr>
+          <tr>
+            <td class="ctx">Pago de factura</td>
+            <td><span class="no-mark">"Procesar pago"</span></td>
+            <td><span class="yes-mark">"Pagar factura"</span></td>
+          </tr>
+          <tr>
+            <td class="ctx">Login</td>
+            <td><span class="no-mark">"Iniciar sesión"</span></td>
+            <td><span class="yes-mark">"Entrar"</span></td>
+          </tr>
+          <tr>
+            <td class="ctx">Cancelar formulario</td>
+            <td><span class="no-mark">"Cancelar"</span> en confirmaciones</td>
+            <td><span class="yes-mark">"No, dejar como está"</span> en confirmaciones críticas</td>
+          </tr>
+          <tr>
+            <td class="ctx">Submit form</td>
+            <td><span class="no-mark">"Submit"</span> · <span class="no-mark">"Enviar formulario"</span></td>
+            <td><span class="yes-mark">"Enviar"</span> · idealmente lo que se envía: <span class="yes-mark">"Crear ticket"</span></td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="note">
+        <strong>El botón es voz de marca, no decoración.</strong> Cuando el usuario hace click, debería sentir que <em>alguien real al otro lado lo va a hacer</em>. No "el sistema procesará la operación". Aelium es socio cercano que gestiona contigo — y eso se transmite incluso en una etiqueta de tres palabras.
+      </div>
+    </section>
+
+    <!-- ─────── Botones en contextos reales del producto ─────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Botones en el producto real</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">
+        Ejemplos extraídos de los flujos reales de Aelium (landing, onboarding, dashboard cliente, panel admin). Estos son los labels que se usan, no genéricos.
+      </p>
+
+      <div class="product-grid">
+        <div class="product-tile">
+          <span class="ctx-label">Landing · hero principal</span>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">El cliente llega y decide. Tres niveles de presión.</p>
+          <div class="actions">
+            <button class="btn btn-primary btn-lg">Empieza hoy</button>
+            <button class="btn btn-secondary btn-lg">Habla con nosotros</button>
+            <button class="btn btn-ghost btn-lg">Ver planes</button>
+          </div>
+        </div>
+
+        <div class="product-tile">
+          <span class="ctx-label">Onboarding · momento WOW</span>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">Primeras 24h. La oferta de Aelium: que alguien te llame.</p>
+          <div class="actions">
+            <button class="btn btn-primary btn-md">Llamarme en 24h</button>
+            <button class="btn btn-ghost btn-md">Ya lo miro yo</button>
+          </div>
+        </div>
+
+        <div class="product-tile">
+          <span class="ctx-label">Cliente · página de servicio</span>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">Acciones sobre el hosting contratado.</p>
+          <div class="actions">
+            <button class="btn btn-primary btn-md">Activar hosting</button>
+            <button class="btn btn-secondary btn-md">Ver detalles</button>
+            <button class="btn btn-ghost btn-md">Renovar dominio</button>
+          </div>
+        </div>
+
+        <div class="product-tile">
+          <span class="ctx-label">Cliente · facturación</span>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">Factura pendiente: pago directo o descarga.</p>
+          <div class="actions">
+            <button class="btn btn-primary btn-md">Pagar factura</button>
+            <button class="btn btn-secondary btn-md">Descargar PDF</button>
+          </div>
+        </div>
+
+        <div class="product-tile">
+          <span class="ctx-label">Cliente · soporte</span>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">Acceso al soporte. Multi-canal.</p>
+          <div class="actions">
+            <button class="btn btn-primary btn-md">Abrir ticket</button>
+            <button class="btn btn-secondary btn-md">Hablar con soporte</button>
+          </div>
+        </div>
+
+        <div class="product-tile">
+          <span class="ctx-label">Admin · detalle de cliente</span>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">Panel staff. Acciones operativas.</p>
+          <div class="actions">
+            <button class="btn btn-primary btn-md">Crear cliente</button>
+            <button class="btn btn-secondary btn-md">Editar perfil</button>
+            <button class="btn btn-ghost btn-md">Añadir nota</button>
+            <button class="btn btn-danger btn-md">Eliminar cliente</button>
+          </div>
+        </div>
+
+        <div class="product-tile">
+          <span class="ctx-label">Admin · tarea del día</span>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">Panel del agente. Cierre y reasignación.</p>
+          <div class="actions">
+            <button class="btn btn-primary btn-sm">Marcar como hecha</button>
+            <button class="btn btn-secondary btn-sm">Reasignar tarea</button>
+            <button class="btn btn-ghost btn-sm">Aplazar 24h</button>
+          </div>
+        </div>
+
+        <div class="product-tile">
+          <span class="ctx-label">Modal · acción destructiva</span>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">Confirmación honesta. La etiqueta dice qué pasa.</p>
+          <div class="actions" style="justify-content: flex-end; width: 100%;">
+            <button class="btn btn-secondary btn-md">No, dejar como está</button>
+            <button class="btn btn-danger btn-md">Sí, cancelar suscripción</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ─────── Variantes × tamaños ─────── -->
     <section class="section">
       <div class="section-head">
         <h2 class="section-title">Variantes × tamaños</h2>
-        <span class="section-num">01</span>
+        <span class="section-num">03</span>
       </div>
 
       <div class="subsection">
         <h3 class="subsection-title">Primary · sm / md / lg</h3>
         <div class="preview-canvas">
           <button class="btn btn-primary btn-sm">Guardar</button>
-          <button class="btn btn-primary btn-md">Guardar cambios</button>
-          <button class="btn btn-primary btn-lg">Confirmar y pagar</button>
+          <button class="btn btn-primary btn-md">Activar hosting</button>
+          <button class="btn btn-primary btn-lg">Empieza hoy</button>
         </div>
       </div>
 
       <div class="subsection">
         <h3 class="subsection-title">Secondary · sm / md / lg</h3>
         <div class="preview-canvas">
-          <button class="btn btn-secondary btn-sm">Cancelar</button>
-          <button class="btn btn-secondary btn-md">Editar perfil</button>
+          <button class="btn btn-secondary btn-sm">Editar</button>
+          <button class="btn btn-secondary btn-md">Habla con nosotros</button>
           <button class="btn btn-secondary btn-lg">Ver factura</button>
         </div>
       </div>
@@ -62,8 +285,8 @@
         <h3 class="subsection-title">Ghost · sm / md / lg</h3>
         <div class="preview-canvas">
           <button class="btn btn-ghost btn-sm">Filtrar</button>
-          <button class="btn btn-ghost btn-md">Más opciones</button>
-          <button class="btn btn-ghost btn-lg">Continuar</button>
+          <button class="btn btn-ghost btn-md">Ya lo miro yo</button>
+          <button class="btn btn-ghost btn-lg">Ver planes</button>
         </div>
       </div>
 
@@ -72,7 +295,7 @@
         <div class="preview-canvas">
           <button class="btn btn-danger btn-sm">Suspender</button>
           <button class="btn btn-danger btn-md">Eliminar cliente</button>
-          <button class="btn btn-danger btn-lg">Cancelar suscripción</button>
+          <button class="btn btn-danger btn-lg">Sí, cancelar suscripción</button>
         </div>
         <div class="note">
           <strong>Solo para acciones irreversibles.</strong> Si la acción es reversible (archivar, ocultar, mover a papelera), usar <span class="tok">secondary</span> con icono.
@@ -84,7 +307,7 @@
     <section class="section">
       <div class="section-head">
         <h2 class="section-title">Estados</h2>
-        <span class="section-num">02</span>
+        <span class="section-num">04</span>
       </div>
       <p class="section-lede">
         Hover y active se demuestran interactivamente — pasa el cursor / haz click sobre los botones de arriba. Lo de abajo son los estados <em>fijos</em> que no se ven sin interacción.
@@ -93,10 +316,10 @@
       <div class="subsection">
         <h3 class="subsection-title">Disabled</h3>
         <div class="preview-canvas">
-          <button class="btn btn-primary btn-md" disabled>Guardar</button>
-          <button class="btn btn-secondary btn-md" disabled>Cancelar</button>
-          <button class="btn btn-ghost btn-md" disabled>Más opciones</button>
-          <button class="btn btn-danger btn-md" disabled>Eliminar</button>
+          <button class="btn btn-primary btn-md" disabled>Activar hosting</button>
+          <button class="btn btn-secondary btn-md" disabled>Editar perfil</button>
+          <button class="btn btn-ghost btn-md" disabled>Renovar dominio</button>
+          <button class="btn btn-danger btn-md" disabled>Eliminar cliente</button>
         </div>
         <div class="note">
           <span class="tok">opacity: 0.5</span> · <span class="tok">cursor: not-allowed</span>. Pierde hover. Para "deshabilitado accesible" usar <span class="mono">aria-disabled</span> + handler que cancele la acción.
@@ -107,8 +330,8 @@
         <h3 class="subsection-title">Loading</h3>
         <div class="preview-canvas">
           <button class="btn btn-primary btn-md btn-loading">Guardar cambios</button>
-          <button class="btn btn-secondary btn-md btn-loading">Editar</button>
-          <button class="btn btn-danger btn-md btn-loading">Eliminar</button>
+          <button class="btn btn-secondary btn-md btn-loading">Editar perfil</button>
+          <button class="btn btn-danger btn-md btn-loading">Eliminar cliente</button>
         </div>
         <div class="note">
           Contenido oculto, spinner centrado, <span class="mono">pointer-events: none</span> + <span class="mono">aria-busy="true"</span>.
@@ -118,8 +341,8 @@
       <div class="subsection">
         <h3 class="subsection-title">Focus visible · ring doble</h3>
         <div class="preview-canvas">
-          <button class="btn btn-primary btn-md" style="box-shadow: var(--focus-ring);">Focus simulado</button>
-          <button class="btn btn-secondary btn-md" style="box-shadow: var(--focus-ring);">Focus simulado</button>
+          <button class="btn btn-primary btn-md" style="box-shadow: var(--focus-ring);">Activar hosting</button>
+          <button class="btn btn-secondary btn-md" style="box-shadow: var(--focus-ring);">Habla con nosotros</button>
           <span style="font-size: var(--font-size-sm); color: var(--text-secondary);">↑ visualización · navega con <kbd style="font-family:var(--font-mono);font-size:11px;background:var(--surface-tertiary);padding:1px 5px;border-radius:var(--radius-xs);">Tab</kbd> sobre los botones de arriba para ver el comportamiento real.</span>
         </div>
         <div class="note">
@@ -130,7 +353,7 @@
       <div class="subsection">
         <h3 class="subsection-title">Focus sobre fondo oscuro</h3>
         <div class="preview-canvas dark">
-          <button class="btn btn-primary btn-md" style="box-shadow: var(--focus-ring-on-dark);">Focus oscuro</button>
+          <button class="btn btn-primary btn-md" style="box-shadow: var(--focus-ring-on-dark);">Confirmar</button>
           <button class="btn btn-md" style="background: transparent; color: var(--text-on-dark); border-color: rgba(255,255,255,0.2); box-shadow: var(--focus-ring-on-dark);">Outline en oscuro</button>
         </div>
         <div class="note">
@@ -143,7 +366,7 @@
     <section class="section">
       <div class="section-head">
         <h2 class="section-title">Variantes especiales</h2>
-        <span class="section-num">03</span>
+        <span class="section-num">05</span>
       </div>
 
       <div class="subsection">
@@ -153,10 +376,10 @@
             <span class="icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </span>
-            Nuevo cliente
+            Crear cliente
           </button>
           <button class="btn btn-secondary btn-md">
-            Descargar
+            Descargar PDF
             <span class="icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             </span>
@@ -191,7 +414,7 @@
       <div class="subsection">
         <h3 class="subsection-title">Full width</h3>
         <div class="preview-canvas column" style="max-width: 360px;">
-          <button class="btn btn-primary btn-md btn-full">Confirmar y pagar 49,90 €</button>
+          <button class="btn btn-primary btn-md btn-full">Pagar factura · 49,90&nbsp;€</button>
           <button class="btn btn-secondary btn-md btn-full">Cancelar</button>
         </div>
         <div class="note">
@@ -200,70 +423,11 @@
       </div>
     </section>
 
-    <!-- ─────── Composición ─────── -->
-    <section class="section">
-      <div class="section-head">
-        <h2 class="section-title">Composición</h2>
-        <span class="section-num">04</span>
-      </div>
-      <p class="section-lede">
-        Patrones canónicos de cómo aparecen los botones agrupados. Una sola <span class="tok">primary</span> por grupo (regla D1).
-      </p>
-
-      <div class="subsection">
-        <h3 class="subsection-title">Modal · acciones canceladora + confirmadora</h3>
-        <div class="preview-canvas tight" style="justify-content: flex-end;">
-          <button class="btn btn-secondary btn-md">Cancelar</button>
-          <button class="btn btn-primary btn-md">Guardar cambios</button>
-        </div>
-      </div>
-
-      <div class="subsection">
-        <h3 class="subsection-title">Modal · acción destructiva</h3>
-        <div class="preview-canvas tight" style="justify-content: flex-end;">
-          <button class="btn btn-secondary btn-md">No, dejar como está</button>
-          <button class="btn btn-danger btn-md">Sí, eliminar</button>
-        </div>
-        <div class="note">
-          Las etiquetas describen <strong>qué pasa al hacer click</strong>, no si es positivo/negativo. "Eliminar" es más claro que "Aceptar".
-        </div>
-      </div>
-
-      <div class="subsection">
-        <h3 class="subsection-title">PageHeader · CTA primaria + acciones secundarias</h3>
-        <div class="preview-canvas tight">
-          <button class="btn btn-secondary btn-md btn-icon-only" aria-label="Filtrar">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-          </button>
-          <button class="btn btn-secondary btn-md">Exportar</button>
-          <button class="btn btn-primary btn-md">
-            <span class="icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            </span>
-            Nuevo cliente
-          </button>
-        </div>
-      </div>
-
-      <div class="subsection">
-        <h3 class="subsection-title">Toolbar de tabla · todo ghost</h3>
-        <div class="preview-canvas tight">
-          <button class="btn btn-ghost btn-sm">Editar</button>
-          <button class="btn btn-ghost btn-sm">Duplicar</button>
-          <button class="btn btn-ghost btn-sm">Mover a…</button>
-          <button class="btn btn-ghost btn-sm" style="color: var(--danger);">Eliminar</button>
-        </div>
-        <div class="note">
-          En filas densas, todo ghost. La acción destructiva mantiene el color <span class="tok">--danger</span> aunque sea ghost (señal sin peso visual).
-        </div>
-      </div>
-    </section>
-
     <!-- ─────── Anti-patrones ─────── -->
     <section class="section">
       <div class="section-head">
         <h2 class="section-title">Anti-patrones</h2>
-        <span class="section-num">05</span>
+        <span class="section-num">06</span>
       </div>
 
       <div class="subsection">
@@ -278,8 +442,18 @@
       <div class="subsection">
         <h3 class="subsection-title">Ghost como CTA principal</h3>
         <div class="preview-canvas tight" style="justify-content: flex-end;">
-          <button class="btn btn-ghost btn-md">Confirmar pedido</button>
+          <button class="btn btn-ghost btn-md">Pagar factura</button>
           <span style="font-size: var(--font-size-sm); color: var(--danger);">✗ no se lee como botón decisivo</span>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">Etiquetas que NO Aelium</h3>
+        <div class="preview-canvas tight">
+          <button class="btn btn-primary btn-md">OK</button>
+          <button class="btn btn-primary btn-md">Aceptar</button>
+          <button class="btn btn-primary btn-md">Submit</button>
+          <span style="font-size: var(--font-size-sm); color: var(--danger);">✗ vacío · no comunica · genérico SaaS</span>
         </div>
       </div>
 
@@ -296,7 +470,7 @@
     <section class="section">
       <div class="section-head">
         <h2 class="section-title">Drift vs implementación actual</h2>
-        <span class="section-num">06</span>
+        <span class="section-num">07</span>
       </div>
       <p class="section-lede">
         Lo que cambia respecto a <span class="mono">frontend/app/components/ui/Button/</span> al promocionar la spec. Ver <a href="../../fase-2-componentes/grupo-a-formularios/Button.md" style="color: var(--brand); font-weight: var(--font-weight-medium);">Button.md</a> para detalle.
@@ -329,11 +503,14 @@
         </div>
         <div>El mapping decía <span class="tok">--radius-full</span> para Button. Es un error. Corregir mapping (DD-020), el componente mantiene <span class="tok">--radius-sm/md</span>.</div>
       </div>
-    </section>
 
-    <div class="note" style="margin-top: var(--space-12);">
-      <strong>Modelo pendiente de aprobación.</strong> Si te encaja este formato, los otros 5 componentes del grupo (Input, Select, Textarea, SearchInput, Dropdown) siguen el mismo esqueleto en bloque sin pedir aprobación uno por uno. Si no encaja, dime qué cambia y lo ajusto antes de seguir.
-    </div>
+      <div class="spec-grid">
+        <div class="label">Voz de marca
+          <span class="meta">DD-022</span>
+        </div>
+        <div>Etiquetas hardcoded genéricas → vocabulario Aelium. Refactor de copy en cada uso de Button en el código.</div>
+      </div>
+    </section>
   </main>
 </div>
 
