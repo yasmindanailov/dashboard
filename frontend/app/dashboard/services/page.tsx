@@ -1,166 +1,48 @@
-'use client';
-
 /**
- * /dashboard/services — Listado de servicios del cliente.
+ * /dashboard/services — Sprint 13 §13.AUTH Fase E (Modelo A).
  *
- * Sprint 11 Fase 11.D (ADR-070 + ADR-077). Cierra parte de la cabeza
- * de cola P2: los clientes ya no necesitan abrir tickets para ver qué
- * servicios tienen contratados; el listado canónico vive aquí.
+ * Server Component nativo: el `dashboard/layout.tsx` (SC) garantiza
+ * sesión; aquí cargamos el listado server-side via `serverFetch`.
+ * Cero useEffect+fetch+setState. ADR-078 Amendment A1.
  *
- * Cada fila enlaza al detalle (`/dashboard/services/[id]`) que el
- * orquestador resuelve server-side con el plugin del producto.
- *
- * TODO(ADR-078, Sprint 13): migrar a Server Component cuando cookies
- * httpOnly estén activas. Ref DC.28. Este archivo es la última excepción
- * permitida del patrón 'use client' + localStorage según ADR-078 §3.2.
+ * Sprint 11 Fase 11.D (ADR-070 + ADR-077): los clientes ven aquí los
+ * servicios contratados. Cada fila enlaza al detalle resuelto por el
+ * orquestador con el plugin del producto.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import {
-  Badge,
-  EmptyState,
-  ListPage,
-  Pagination,
-  Table,
-} from '../../components/ui';
-import type { TableColumn } from '../../components/ui';
-import { servicesApi, type ServiceListItem } from '../../lib/api';
-import { getErrorMessage } from '../../lib/error';
-import {
-  SERVICE_STATUS_LABEL,
-  SERVICE_STATUS_TONE,
-} from '../../_shared/services';
+import { ListPage } from '../../components/ui';
+import { serverFetch, ServerFetchError } from '../../lib/server-auth';
+import type { ServiceListItem, ServiceListResponse } from '../../lib/api';
+import ServicesListView from './_components/ServicesListView';
 
-interface PageMeta {
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+interface PageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-function mapStatusKey(status: string): keyof typeof SERVICE_STATUS_LABEL {
-  switch (status) {
-    case 'active':
-    case 'pending':
-    case 'suspended':
-    case 'expired':
-    case 'failed':
-    case 'cancelled':
-      return status;
-    case 'provisioning':
-      return 'pending';
-    case 'terminated':
-      return 'cancelled';
-    default:
-      return 'unknown';
+function singleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? '';
+  return value ?? '';
+}
+
+export default async function ClientServicesPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const page = Math.max(1, parseInt(singleParam(params.page), 10) || 1);
+
+  let services: ServiceListItem[] = [];
+  let meta = { total: 0, page, limit: 20, totalPages: 1 };
+  let errorMessage: string | null = null;
+  try {
+    const res = await serverFetch<ServiceListResponse>(
+      `/services?page=${page}&limit=20`,
+    );
+    services = res.data;
+    meta = res.meta;
+  } catch (err) {
+    errorMessage =
+      err instanceof ServerFetchError
+        ? err.message
+        : 'No se pudieron cargar tus servicios';
   }
-}
-
-export default function ClientServicesPage() {
-  const [services, setServices] = useState<ServiceListItem[]>([]);
-  const [meta, setMeta] = useState<PageMeta>({
-    total: 0,
-    page: 1,
-    limit: 20,
-    totalPages: 1,
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const token =
-    typeof window !== 'undefined'
-      ? localStorage.getItem('access_token') || ''
-      : '';
-
-  const load = useCallback(
-    async (page = 1) => {
-      if (!token) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await servicesApi.list(token, { page, limit: 20 });
-        setServices(res.data);
-        setMeta(res.meta);
-      } catch (err) {
-        setError(getErrorMessage(err) ?? 'No se pudieron cargar tus servicios');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [token],
-  );
-
-  useEffect(() => {
-    void load(1);
-  }, [load]);
-
-  const columns: TableColumn<ServiceListItem>[] = [
-    {
-      key: 'service',
-      header: 'Servicio',
-      render: (svc) => (
-        <div>
-          <div style={{ fontWeight: 600 }}>
-            <Link
-              href={`/dashboard/services/${svc.id}`}
-              style={{ color: 'var(--text-primary)', textDecoration: 'none' }}
-            >
-              {svc.label ?? svc.domain ?? svc.product.name}
-            </Link>
-          </div>
-          <div
-            style={{
-              fontSize: 12,
-              color: 'var(--text-tertiary)',
-              marginTop: 2,
-            }}
-          >
-            {svc.product.name}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Estado',
-      render: (svc) => {
-        const key = mapStatusKey(svc.status);
-        return (
-          <Badge variant={SERVICE_STATUS_TONE[key]}>
-            {SERVICE_STATUS_LABEL[key]}
-          </Badge>
-        );
-      },
-    },
-    {
-      key: 'created_at',
-      header: 'Contratado',
-      render: (svc) =>
-        new Date(svc.created_at).toLocaleDateString('es-ES', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-        }),
-    },
-    {
-      key: 'actions',
-      header: '',
-      render: (svc) => (
-        <Link
-          href={`/dashboard/services/${svc.id}`}
-          style={{
-            color: 'var(--brand-600)',
-            textDecoration: 'none',
-            fontSize: 13,
-            fontWeight: 600,
-          }}
-        >
-          Ver detalle →
-        </Link>
-      ),
-    },
-  ];
 
   return (
     <ListPage
@@ -172,33 +54,12 @@ export default function ClientServicesPage() {
               meta.total === 1 ? '' : 's'
             }`
       }
-      pagination={
-        meta.totalPages > 1 ? (
-          <Pagination
-            page={meta.page}
-            totalPages={meta.totalPages}
-            onPageChange={(p) => void load(p)}
-            total={meta.total}
-            limit={meta.limit}
-          />
-        ) : undefined
-      }
     >
-      {error ? (
-        <EmptyState
-          title="No se pudieron cargar tus servicios"
-          description={error}
-        />
-      ) : loading ? (
-        <p style={{ color: 'var(--text-secondary)' }}>Cargando…</p>
-      ) : services.length === 0 ? (
-        <EmptyState
-          title="Aún no tienes servicios"
-          description="Cuando contrates un servicio aparecerá aquí con su estado y opciones de gestión."
-        />
-      ) : (
-        <Table columns={columns} data={services} rowKey={(s) => s.id} />
-      )}
+      <ServicesListView
+        services={services}
+        meta={meta}
+        errorMessage={errorMessage}
+      />
     </ListPage>
   );
 }

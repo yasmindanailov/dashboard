@@ -1,172 +1,80 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { authApi, type LoginResponse } from './api';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  type ReactNode,
+} from 'react';
+import { logoutAction } from './auth-actions';
+import type { ServerSessionUser } from './auth-types';
 
-interface User {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: { slug: string; name: string };
-  last_login_at: string;
-}
+/* ═══════════════════════════════════════════════════════════
+   AuthContext — Sprint 13 §13.AUTH Fase E (Modelo A).
+
+   Doctrina ADR-078 Amendment A1:
+   - El `user` lo hidrata server-side el SC `app/layout.tsx` desde la
+     cookie httpOnly via `getServerSession()`, y lo pasa al provider
+     como prop `initialUser`.
+   - El cliente NUNCA guarda tokens. NO hay localStorage. NO hay
+     scheduling de refresh (lo gestiona `refreshAction` server-side
+     bajo demanda cuando `serverFetch` recibe 401).
+   - `logout` invoca el Server Action `logoutAction()` que limpia
+     cookies + `redirect('/')`.
+
+   Backward-compat:
+   - `isLoading` se mantiene por compat (consumido por
+     `app/admin/layout.tsx` y `app/dashboard/layout.tsx`); en Modelo A
+     siempre es `false` porque la sesión ya está hidratada al render.
+     Los layouts admin/dashboard se migrarán a SC en Batch 3.
+   - `isAuthenticated` derivado de `!!user`.
+
+   API removida frente al modelo viejo:
+   - `login(res)` → ya no existe. Las pages auth-públicas usan Server
+     Actions (`loginAction`, `verify2faAction`) que setean cookies y
+     hacen redirect server-side; no hay nada que hidratar client-side.
+   ═══════════════════════════════════════════════════════════ */
 
 interface AuthContextType {
-  user: User | null;
+  user: ServerSessionUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (res: LoginResponse) => void;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Public routes that don't require authentication
-const PUBLIC_ROUTES = ['/', '/register', '/forgot-password', '/reset-password', '/verify-email'];
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
-
-  // Schedule token refresh before expiration.
-  // Usa ref para romper la auto-referencia (la recursión `scheduleRefresh →
-  // setTimeout → scheduleRefresh` confunde al React Compiler de React 19).
-  const scheduleRefreshRef = useRef<(expiresIn: number) => void>(() => {});
-  const scheduleRefresh = useCallback(
-    (expiresIn: number) => scheduleRefreshRef.current(expiresIn),
-    [],
-  );
-
-  useEffect(() => {
-    scheduleRefreshRef.current = (expiresIn: number) => {
-      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-
-      // Refresh 60 seconds before expiration (or at half-life if < 2 min)
-      const refreshMs =
-        expiresIn > 120 ? (expiresIn - 60) * 1000 : (expiresIn / 2) * 1000;
-
-      refreshTimerRef.current = setTimeout(async () => {
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (!refreshToken) return;
-
-        try {
-          const res = await authApi.refresh(refreshToken);
-          if (res.access_token) {
-            localStorage.setItem('access_token', res.access_token);
-            // Recursión vía ref → no atraviesa el analyzer del compiler.
-            scheduleRefreshRef.current(res.expires_in || 900);
-          }
-        } catch (err) {
-          console.warn('[Auth] 401 interceptor refresh failed:', err);
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          setUser(null);
-          router.push('/');
-        }
-      }, refreshMs);
-    };
-  }, [router]);
-
-  // Store tokens after login and set user immediately
-  const login = useCallback((res: LoginResponse) => {
-    if (res.access_token) {
-      localStorage.setItem('access_token', res.access_token);
-      if (res.refresh_token) {
-        localStorage.setItem('refresh_token', res.refresh_token);
-      }
-      if (res.user) {
-        setUser(res.user as User);
-      }
-      scheduleRefresh(res.expires_in || 900);
-    }
-  }, [scheduleRefresh]);
-
-  // Logout
-  const logout = useCallback(async () => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      try { await authApi.logout(token); } catch (err) { console.warn('[Auth] logout notification failed:', err); }
-    }
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-    setUser(null);
-    router.push('/');
-  }, [router]);
-
-  // On mount: check if user is authenticated
-  useEffect(() => {
-    const token = localStorage.getItem('access_token');
-
-    if (!token) {
-      setIsLoading(false);
-      // Redirect to login if on protected route
-      if (!isPublicRoute) {
-        router.replace('/');
-      }
-      return;
-    }
-
-    // Auto-redirect: if on public route with valid token, go to dashboard
-    authApi.me(token)
-      .then((data) => {
-        setUser(data as User);
-        // Schedule refresh based on default 15 min
-        scheduleRefresh(900);
-        // If on a public route (login, register), redirect to dashboard
-        if (isPublicRoute) {
-          router.replace('/dashboard');
-        }
-      })
-      .catch(async () => {
-        // Access token expired — try refresh
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (refreshToken) {
-          try {
-            const res = await authApi.refresh(refreshToken);
-            if (res.access_token) {
-              localStorage.setItem('access_token', res.access_token);
-              const userData = await authApi.me(res.access_token);
-              setUser(userData as User);
-              scheduleRefresh(res.expires_in || 900);
-              if (isPublicRoute) {
-                router.replace('/dashboard');
-              }
-              return;
-            }
-          } catch (err) { console.warn('[Auth] refresh failed:', err); }
-        }
-        // Both tokens invalid
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        setUser(null);
-        if (!isPublicRoute) {
-          router.replace('/');
-        }
-      })
-      .finally(() => setIsLoading(false));
-
-    return () => {
-      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+interface AuthProviderProps {
+  initialUser: ServerSessionUser | null;
+  children: ReactNode;
 }
 
-export function useAuth() {
+export function AuthProvider({ initialUser, children }: AuthProviderProps) {
+  const logout = useCallback(async () => {
+    /*
+     * `logoutAction` server-side limpia cookies + redirect('/').
+     * En CC, llamar el Server Action triggerea el round-trip y la
+     * navegación posterior. No es necesario tocar router cliente
+     * — Next.js maneja la redirección.
+     */
+    await logoutAction();
+  }, []);
+
+  const value = useMemo<AuthContextType>(
+    () => ({
+      user: initialUser,
+      isLoading: false,
+      isAuthenticated: !!initialUser,
+      logout,
+    }),
+    [initialUser, logout],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth(): AuthContextType {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
@@ -184,7 +92,6 @@ export function useAuthOptional(): AuthContextType {
       user: null,
       isLoading: false,
       isAuthenticated: false,
-      login: () => {},
       logout: async () => {},
     }
   );

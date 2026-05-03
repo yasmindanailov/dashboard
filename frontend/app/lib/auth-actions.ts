@@ -8,6 +8,7 @@ import {
   COOKIE_REFRESH,
   readAccessToken,
 } from './server-auth';
+import { landingForRole } from './auth-routing';
 
 /**
  * Server Actions de autenticación — Sprint 13 §13.AUTH Fase D (2026-05-03).
@@ -141,18 +142,6 @@ async function clearAuthCookies(): Promise<void> {
   const store = await cookies();
   store.delete(COOKIE_ACCESS);
   store.delete(COOKIE_REFRESH);
-}
-
-function landingForRole(roleSlug: string): string {
-  if (
-    roleSlug === 'superadmin' ||
-    roleSlug === 'agent_full' ||
-    roleSlug === 'agent_billing' ||
-    roleSlug === 'agent_support'
-  ) {
-    return '/admin';
-  }
-  return '/dashboard';
 }
 
 /**

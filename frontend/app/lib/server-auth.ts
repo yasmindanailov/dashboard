@@ -39,29 +39,14 @@ import { cache } from 'react';
  *     como deuda continua (no bloquea el sprint).
  */
 
+import type { ServerSession, ServerSessionUser } from './auth-types';
+
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001/api/v1';
 
 export const COOKIE_ACCESS = 'aelium_access_token';
 export const COOKIE_REFRESH = 'aelium_refresh_token';
 
-export interface ServerSessionUser {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  status: string;
-  email_verified_at: string | null;
-  language: string;
-  timezone: string;
-  last_login_at: string | null;
-  avatar_url: string | null;
-  role: { slug: string; name: string };
-}
-
-export interface ServerSession {
-  user: ServerSessionUser;
-  accessToken: string;
-}
+export type { ServerSession, ServerSessionUser };
 
 /**
  * Lee el access token de cookie httpOnly. Devuelve `null` si no existe.

@@ -312,6 +312,14 @@
   color: inherit;
 }
 
+/* ── Field-level error (Sprint 13 §13.AUTH Fase E — registerAction fieldErrors) ── */
+.fieldError {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--danger);
+  line-height: var(--line-height-tight);
+}
+
 /* ── Footer links ── */
 .footerText {
   margin-top: var(--space-6);

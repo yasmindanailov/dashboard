@@ -1,71 +1,59 @@
-'use client';
-
-import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../lib/auth-context';
-import { errorLogApi, type ErrorLogItem } from '../../lib/api';
-import { getErrorMessage } from '../../lib/error';
+import { serverFetch, ServerFetchError } from '../../lib/server-auth';
+import type { ErrorLogListResponse, ErrorLogItem } from '../../lib/api';
+import {
+  ErrorLogFilters,
+  PaginationLink,
+  ResolveButton,
+} from './_components';
 
 /* ═══════════════════════════════════════
-   /admin/error-log — Sprint 9 Fase F.
-   Lista paginada de errores operativos. Filtros: level, module,
-   resolved. Acción: marcar como resuelto.
+   /admin/error-log — Sprint 13 §13.AUTH Fase E (Modelo A).
+   Server Component nativo: filtros + paginación viajan por searchParams.
+   Mutación (resolver) via Server Action `resolveErrorAction` que invoca
+   `revalidatePath`. Cero useEffect+fetch+setState. ADR-078 Amendment A1.
    ═══════════════════════════════════════ */
 
 const PAGE_SIZE = 50;
 
-export default function ErrorLogPage() {
-  const { user } = useAuth();
-  const [items, setItems] = useState<ErrorLogItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [filterLevel, setFilterLevel] = useState<string>('');
-  const [filterResolved, setFilterResolved] = useState<string>('');
+interface PageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
 
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+function singleParam(
+  value: string | string[] | undefined,
+): string {
+  if (Array.isArray(value)) return value[0] ?? '';
+  return value ?? '';
+}
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await errorLogApi.list(token, {
-        level: filterLevel || undefined,
-        resolved:
-          filterResolved === ''
-            ? undefined
-            : filterResolved === 'true'
-              ? true
-              : false,
-        page,
-        limit: PAGE_SIZE,
-      });
-      setItems(res.data);
-      setTotal(res.meta.total);
-    } catch (err) {
-      setError(getErrorMessage(err) || 'Error al cargar el log');
-    } finally {
-      setLoading(false);
-    }
-  }, [token, page, filterLevel, filterResolved]);
+export default async function ErrorLogPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const level = singleParam(params.level);
+  const resolved = singleParam(params.resolved);
+  const pageRaw = singleParam(params.page);
+  const page = Math.max(1, parseInt(pageRaw, 10) || 1);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const query = new URLSearchParams();
+  if (level) query.set('level', level);
+  if (resolved !== '') query.set('resolved', resolved);
+  query.set('page', String(page));
+  query.set('limit', String(PAGE_SIZE));
 
-  async function handleResolve(id: string) {
-    if (!token) return;
-    try {
-      await errorLogApi.resolve(token, id);
-      await load();
-    } catch (err) {
-      setError(getErrorMessage(err) || 'No se pudo marcar como resuelto');
-    }
+  let items: ErrorLogItem[] = [];
+  let total = 0;
+  let error: string | null = null;
+  try {
+    const res = await serverFetch<ErrorLogListResponse>(
+      `/admin/error-log?${query.toString()}`,
+    );
+    items = res.data;
+    total = res.meta.total;
+  } catch (err) {
+    error =
+      err instanceof ServerFetchError
+        ? err.message
+        : 'Error al cargar el log';
   }
-
-  if (!user) return null;
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -78,44 +66,7 @@ export default function ErrorLogPage() {
         </p>
       </header>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <select
-          value={filterLevel}
-          onChange={(e) => {
-            setFilterLevel(e.target.value);
-            setPage(1);
-          }}
-          style={{
-            padding: '8px 12px',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            background: 'var(--surface)',
-          }}
-        >
-          <option value="">Todos los niveles</option>
-          <option value="error">error</option>
-          <option value="warn">warn</option>
-          <option value="fatal">fatal</option>
-        </select>
-
-        <select
-          value={filterResolved}
-          onChange={(e) => {
-            setFilterResolved(e.target.value);
-            setPage(1);
-          }}
-          style={{
-            padding: '8px 12px',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            background: 'var(--surface)',
-          }}
-        >
-          <option value="">Todos</option>
-          <option value="false">Sin resolver</option>
-          <option value="true">Resueltos</option>
-        </select>
-      </div>
+      <ErrorLogFilters level={level} resolved={resolved} />
 
       {error && (
         <div
@@ -132,11 +83,9 @@ export default function ErrorLogPage() {
         </div>
       )}
 
-      {loading ? (
-        <p style={{ color: 'var(--text-secondary)' }}>Cargando…</p>
-      ) : items.length === 0 ? (
+      {items.length === 0 && !error ? (
         <p style={{ color: 'var(--text-secondary)' }}>Sin errores registrados.</p>
-      ) : (
+      ) : items.length > 0 ? (
         <div
           style={{
             background: 'var(--surface)',
@@ -159,7 +108,7 @@ export default function ErrorLogPage() {
             </thead>
             <tbody>
               {items.map((item) => {
-                const resolved =
+                const resolvedFlag =
                   item.metadata && (item.metadata.resolved as boolean | undefined);
                 return (
                   <tr key={item.id} style={{ borderTop: '1px solid var(--border)' }}>
@@ -190,7 +139,7 @@ export default function ErrorLogPage() {
                       </code>
                     </td>
                     <td style={cell}>
-                      {resolved ? (
+                      {resolvedFlag ? (
                         <span style={{ color: '#059669', fontWeight: 600 }}>
                           Resuelto
                         </span>
@@ -199,14 +148,7 @@ export default function ErrorLogPage() {
                       )}
                     </td>
                     <td style={cell}>
-                      {!resolved && (
-                        <button
-                          onClick={() => void handleResolve(item.id)}
-                          style={btn}
-                        >
-                          Marcar resuelto
-                        </button>
-                      )}
+                      {!resolvedFlag && <ResolveButton id={item.id} />}
                     </td>
                   </tr>
                 );
@@ -214,29 +156,9 @@ export default function ErrorLogPage() {
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
 
-      {totalPages > 1 && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
-          <button
-            disabled={page === 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            style={btn}
-          >
-            ← Anterior
-          </button>
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Página {page} / {totalPages}
-          </span>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            style={btn}
-          >
-            Siguiente →
-          </button>
-        </div>
-      )}
+      <PaginationLink page={page} totalPages={totalPages} />
     </div>
   );
 }
@@ -255,16 +177,6 @@ const cell: React.CSSProperties = {
   padding: '12px 16px',
   fontSize: 13,
   color: 'var(--text-primary)',
-};
-
-const btn: React.CSSProperties = {
-  padding: '6px 12px',
-  fontSize: 12,
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  background: 'var(--surface)',
-  color: 'var(--text-primary)',
-  cursor: 'pointer',
 };
 
 function levelStyle(level: string): React.CSSProperties {
