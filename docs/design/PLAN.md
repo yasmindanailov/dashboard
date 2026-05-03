@@ -7,21 +7,27 @@
 
 ## Estado actual
 
-- **Fase activa:** 3 — Patrones de página **lista para revisión**
+- **Fase activa:** 4 — Shells por portal **lista para revisión**
 - **Modo activo:** diseño
-- **Próxima acción:** revisión humana de los 3 patterns con sus
-  variantes nativas. Si OK, **fase 3 cerrada**. Próximo arranque:
-  **fase 4 (shells)** — AuthShell, ClientShell, AdminShell, PartnerShell.
-- **Última actualización:** 2026-05-03 — fase 3 completa.
-  Audit drift D3-1..D3-17 documentado en
-  `fase-3-patrones/audit-existing.md`. Specs entregadas para
-  ListPage (4 variantes: standard / grid / timeline / split),
-  DetailPage (3 variantes: standard / with-aside / workspace-lite) y
-  FormPage (3 variantes: standard / wizard / long-form). CSS
-  materializado en `mockup/styles.css` sección "FASE 3 · PATTERNS".
-  Mockups con caso producto real en `mockup/patterns/`. Disciplina
-  DD-029 (variante por contexto) + DD-030 (recuadros sin
-  accent-stripe lateral) verificada en cada variante.
+- **Próxima acción:** revisión humana de los 4 shells con sus
+  densidades aplicadas. Si OK, **fase 4 cerrada**. Próximo arranque:
+  **fase 5 (mockups cliente)** — overview, services, billing, support,
+  transparency, checkout.
+- **Última actualización:** 2026-05-03 — fase 4 completa.
+  Audit drift D4-1..D4-19 documentado en
+  `fase-4-shells/audit-existing.md`. Specs entregadas para AuthShell
+  (2 variantes: split-aurora / centered-status), ClientShell
+  (densidad comfortable), AdminShell (densidad compact),
+  PartnerShell (densidad standard, NUEVO — separación del
+  ClientShell). DD-032 cierra DD-016 con la materialización de
+  densidad por portal vía `data-density="comfortable|standard|compact"`
+  + topbar variantes (cliente / partner / admin). Eyebrow del portal
+  diferencial (`--text-tertiary` cliente · `--info` partner · `--brand`
+  admin). Brand wins — el azul Aelium es el mismo para los 3. CSS
+  materializado en `mockup/styles.css` sección "FASE 4 · SHELLS".
+  Mockups con shell montado y voz Aelium en cada copy. DD-029 (Topbar
+  variants) + DD-030 (sidebar logo rombo SVG real, sin accent-stripe en
+  brand card · permitido en active items) reafirmadas.
 
 ---
 
@@ -79,8 +85,8 @@ romper la filosofía de minimalismo funcional (D1–D11 de
 | 2.D | Componentes base · navegación | **Cerrada con iteraciones DD-025/026/027/028** | Tabs (5 variantes), Breadcrumb, CommandPalette, NotificationBell, PortalBadge · sample admin-cliente-detalle |
 | 2.E | Componentes base · contenedores | Cerrada | Card 5v · Modal 5v · Avatar refactor paleta + with-status + group · EmptyState 4v · sample cliente-overview |
 | 2.F | Refresh de variantes en componentes ya entregados | Cerrada | Pagination +3v · Dropdown +2v · Badge +2v · Input +3v |
-| 3 | Patrones de página | **Listo · revisión humana** | ListPage 4v · DetailPage 3v · FormPage 3v |
-| 4 | Layout shells | Pendiente | AuthShell, ClientShell, AdminShell, PartnerShell |
+| 3 | Patrones de página | Cerrada | ListPage 4v · DetailPage 3v · FormPage 3v |
+| 4 | Layout shells | **Listo · revisión humana** | AuthShell 2v · ClientShell · AdminShell · PartnerShell + densidad por portal (DD-032) |
 | 5 | Mockups cliente | Pendiente | overview, services, billing, support, transparency, checkout |
 | 6 | Mockups agente | Pendiente | clients, support, tasks, billing |
 | 7 | Mockups admin | Pendiente | overview, products, support-inside-plans, jobs, error-log, templates |
@@ -135,6 +141,15 @@ Las fases se cierran en orden. No iniciar la siguiente sin cerrar la anterior
   ListPage 4v · DetailPage 3v · FormPage 3v. Wrappers renderizan
   Breadcrumb/PageHeader e imponen ancho único + ritmo vertical. Las
   páginas nunca improvisan layout.
+- **DD-032 · densidad por portal materializada + topbar variantes
+  (cierre DD-016)**: cliente `comfortable`, partner `standard`, admin
+  `compact`. `data-density` en root del shell resuelve vars CSS
+  escalonadas (`--shell-pad-y`, sidebar-width, topbar-height,
+  nav-item-pad-y). Topbar variants cliente / partner / admin
+  diferencian search palette + SupportButton. Eyebrow del portal
+  diferencia visualmente sin trocear la marca. Sidebar logo = rombo
+  Aelium SVG real, no "A" cuadrada. PartnerShell separado del
+  ClientShell (Sprint 19).
 
 ---
 

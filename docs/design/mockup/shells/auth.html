@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · AuthShell</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .demo-frame {
+    background: var(--surface-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 0;
+    overflow: hidden;
+    margin-top: var(--space-4);
+  }
+  .demo-frame .embed { min-height: 560px; position: relative; }
+  .demo-label {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .demo-label .ctx-tag {
+    background: var(--surface-tertiary);
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 4 · Shells</div>
+      <h1 class="page-title">AuthShell</h1>
+      <p class="page-lede">
+        El caparazón de las pantallas pre-portal: login, registro, recuperar contraseña, verificar email. Dos variantes nativas (DD-029): <strong>split-aurora</strong> (forms con panel de marca a la izquierda) y <strong>centered-status</strong> (confirmaciones sin formulario). Logo Aelium real, slogan oficial v1.6, voz Aelium en cada copy.
+      </p>
+      <div class="row" style="margin-top: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-2);">
+        <span class="tok">grid 55/45</span>
+        <span class="tok">aurora mesh</span>
+        <span class="tok">DD-022 voz</span>
+        <span class="tok">DD-029 variantes</span>
+      </div>
+    </header>
+
+    <!-- ─── 01 · variante split-aurora ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante · split-aurora</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">
+        El default. Aurora a la izquierda con logo + slogan; form a la derecha (login/register/forgot/reset). En móvil la aurora se oculta y el form ocupa todo el ancho con logo arriba.
+      </p>
+
+      <div class="demo-label">
+        <span>AuthShell · variant="split-aurora"</span>
+        <span class="ctx-tag">/login</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="embed">
+          <div class="auth-shell">
+            <div class="auth-shell-aurora">
+              <div class="auth-shell-brand">
+                <div class="auth-shell-logo">
+                  <!-- Rombo Aelium -->
+                  <svg viewBox="0 0 56 56" fill="none" aria-hidden="true">
+                    <rect x="14" y="6" width="20" height="20" rx="3" transform="rotate(45 24 16)" fill="var(--brand)"/>
+                    <rect x="22" y="30" width="14" height="14" rx="2" transform="rotate(45 29 37)" fill="var(--brand)" opacity="0.55"/>
+                  </svg>
+                </div>
+                <p class="auth-shell-slogan">Tu socio digital, a tu lado.</p>
+                <p class="auth-shell-tagline">Hosting, dominios y soporte humano cuando lo necesitas.</p>
+              </div>
+            </div>
+
+            <div class="auth-shell-form">
+              <div class="auth-shell-form-inner">
+                <div class="auth-shell-mobile-logo">
+                  <svg viewBox="0 0 44 44" fill="none" aria-hidden="true">
+                    <rect x="10" y="4" width="16" height="16" rx="2" transform="rotate(45 18 12)" fill="var(--brand)"/>
+                    <rect x="18" y="24" width="11" height="11" rx="2" transform="rotate(45 23.5 29.5)" fill="var(--brand)" opacity="0.55"/>
+                  </svg>
+                </div>
+
+                <h1 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); color: var(--text-primary); letter-spacing: -0.015em; margin: 0 0 var(--space-5);">Bienvenida de nuevo</h1>
+
+                <div class="field field-md" style="margin-bottom: var(--space-3);">
+                  <label class="field-label">Tu correo</label>
+                  <div class="field-control"><input class="input" type="email" placeholder="hola@mitienda.com" /></div>
+                </div>
+
+                <div class="field field-md field-password" style="margin-bottom: var(--space-2);">
+                  <label class="field-label">Contraseña</label>
+                  <div class="field-control"><input class="input" type="password" placeholder="Tu contraseña" /></div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-bottom: var(--space-4);">
+                  <a href="#" style="font-size: var(--font-size-sm); color: var(--brand); text-decoration: none;">¿Olvidaste tu contraseña? Te ayudamos.</a>
+                </div>
+
+                <button class="btn btn-primary btn-lg" style="width: 100%; margin-bottom: var(--space-4);">Entrar</button>
+
+                <div style="text-align: center; font-size: var(--font-size-sm); color: var(--text-secondary);">
+                  ¿Aún no estás con nosotros? <a href="#" style="color: var(--brand); text-decoration: none; font-weight: var(--font-weight-medium);">Empieza aquí.</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: h1 <strong>"Bienvenida de nuevo"</strong> (no "Sign in"), label <strong>"Tu correo"</strong> (no "Email *"), placeholder <strong>"hola@mitienda.com"</strong> (ejemplo, no instrucción), forgot link <strong>"¿Olvidaste tu contraseña? Te ayudamos."</strong>, CTA <strong>"Entrar"</strong>, link a registro <strong>"Empieza aquí."</strong>.
+      </p>
+    </section>
+
+    <!-- ─── 02 · variante centered-status ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante · centered-status</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">
+        Sin form. Confirmación o estado tras una acción del usuario (verify-email, link expirado, welcome). Container centrado vertical + horizontal, icono semántico, mensaje y un único CTA.
+      </p>
+
+      <div class="demo-label">
+        <span>AuthShell · variant="centered-status"</span>
+        <span class="ctx-tag">/verify-email · ok</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="embed">
+          <div class="auth-shell centered-status">
+            <div class="auth-shell-form">
+              <div class="auth-shell-status">
+                <div class="auth-shell-status-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <h1>Tu email está confirmado</h1>
+                <p>Listo, María. Te hemos preparado el portal con tus datos. En el siguiente paso elegimos tu primer servicio.</p>
+                <button class="btn btn-primary btn-lg">Empezar con Aelium</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: h1 <strong>"Tu email está confirmado"</strong> (no "Email verified successfully"), body en primera persona del producto (<strong>"Te hemos preparado..."</strong>), CTA <strong>"Empezar con Aelium"</strong> (verbo de marca).
+      </p>
+
+      <div style="margin-top: var(--space-5); padding: var(--space-4); background: var(--surface-tertiary); border-radius: var(--radius-md); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        <strong style="color: var(--text-primary);">Otros casos · centered-status</strong><br><br>
+        · <strong>Link expirado</strong> · icono warning · "Este enlace ya caducó" · "Pídenos uno nuevo, tarda 30 segundos." · CTA "Pedir enlace nuevo"<br>
+        · <strong>Welcome post-onboarding</strong> · icono success · "Estás dentro" · CTA "Ver tu portal"<br>
+        · <strong>Cuenta suspendida</strong> · icono danger · "Tu cuenta está pausada" · "Habla con nosotros para reactivarla." · CTA "Contactar soporte"
+      </div>
+    </section>
+
+    <!-- ─── 03 · cuándo usar ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Cuándo usar cada variante</h2>
+        <span class="section-num">03</span>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden;">
+        <thead>
+          <tr>
+            <th style="text-align: left; padding: var(--space-2_5) var(--space-3); background: var(--surface-secondary); font-size: var(--font-size-xs); text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.04em; border-bottom: 1px solid var(--border);">Variante</th>
+            <th style="text-align: left; padding: var(--space-2_5) var(--space-3); background: var(--surface-secondary); font-size: var(--font-size-xs); text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.04em; border-bottom: 1px solid var(--border);">Casos</th>
+            <th style="text-align: left; padding: var(--space-2_5) var(--space-3); background: var(--surface-secondary); font-size: var(--font-size-xs); text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.04em; border-bottom: 1px solid var(--border);">Cuándo NO</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);"><strong>split-aurora</strong></td>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">/login · /register · /forgot-password · /reset-password</td>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">No hay form (es solo confirmación)</td>
+          </tr>
+          <tr>
+            <td style="padding: var(--space-3);"><strong>centered-status</strong></td>
+            <td style="padding: var(--space-3);">/verify-email · /welcome · link expirado · cuenta suspendida</td>
+            <td style="padding: var(--space-3);">Hay 1+ campos que rellenar</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ─── 04 · anti-patrones ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Anti-patrones</h2>
+        <span class="section-num">04</span>
+      </div>
+      <ul style="font-size: var(--font-size-sm); line-height: var(--line-height-relaxed); color: var(--text-secondary); padding-left: var(--space-5);">
+        <li>❌ Banners promocionales en la aurora. El panel de marca no es marketing.</li>
+        <li>❌ Forms con &gt;5 campos en login/register. Datos fiscales se piden en /onboarding (FormPage wizard).</li>
+        <li>❌ Subtitle bajo h1 que dice "Inicia sesión para acceder a tu cuenta". Sobrante.</li>
+        <li>❌ Logo placeholder "A" cuadrada. <strong>D4-1</strong>: usar el rombo Aelium real.</li>
+        <li>❌ "Login con Google" + "Login con email" + "Login con SSO" todos apilados igual. Si hay providers, jerarquizar.</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

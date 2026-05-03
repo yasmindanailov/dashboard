@@ -805,3 +805,101 @@ Formato:
     de implementación.
   - Pattern `Workspace` puro (chats) NO entra en fase 3 — fase
     propia cuando se aborde el módulo de chats.
+
+## DD-032 — Densidad por portal materializada + topbar variantes (DD-016 cierre)
+
+- Fase: 4
+- Fecha: 2026-05-03
+- Decisión: **Materializar DD-016** (asignación de densidad por portal,
+  diferida desde fase 1) + diferenciar el topbar por rol. Aplica a los
+  3 shells de portal (cliente, admin, partner). AuthShell queda fuera
+  (no es portal).
+
+  **Densidades por portal:**
+
+  | Portal | data-density | pad-y / pad-x | Sidebar | Topbar | Justificación |
+  |---|---|---|---|---|---|
+  | Cliente | `comfortable` | 32 / 32 | 260px | 60px | No es operativo · respira |
+  | Partner | `standard` | 20 / 20 | 240px | 56px | Uso regular intermedio |
+  | Admin / Agente | `compact` | 16 / 20 | 232px | 52px | Productividad de jornada completa |
+
+  El atributo `data-density` se aplica al **root del shell** (no al body
+  del documento). Resuelve un set de variables CSS escalonadas:
+  `--shell-pad-y`, `--shell-pad-x`, `--shell-gap`,
+  `--shell-sidebar-width`, `--shell-sidebar-collapsed`,
+  `--shell-topbar-height`, `--shell-nav-item-pad-y`. Los componentes
+  internos (Card, Modal, Form, Table) **mantienen su escala propia** —
+  la densidad es de shell, no global.
+
+  **Topbar variantes (DD-029 aplicado a Topbar):**
+
+  | Variant | Search palette | SupportButton | NotificationBell | Profile |
+  |---|---|---|---|---|
+  | `cliente` | — | ✅ | ✅ | ✅ |
+  | `partner` | — | — | ✅ | ✅ |
+  | `admin` | ✅ (sin `<kbd>⌘K</kbd>` · DD-025 reafirmado) | — | ✅ | ✅ |
+
+  El cliente NO tiene CommandPalette en su topbar — su entrada es la
+  nav lateral + Soporte. El admin sí necesita búsqueda rápida cross-
+  módulo. El partner opera en un universo estrecho (sus clientes, sus
+  comisiones) y no la necesita.
+
+  **Diferenciación visual entre los 3 portales:**
+
+  - Eyebrow del portal en el sidebar:
+    - Cliente · `--text-tertiary` (sobrio)
+    - Partner · `--info` (info brand-friendly)
+    - Admin / Agente · `--brand` (autoridad)
+  - **Brand wins**: el azul Aelium es el mismo para los 3. La marca no
+    se trocea por rol (DD-021).
+  - Densidad y eyebrow son los únicos diferenciales. Sin temas
+    distintos, sin acentos por portal.
+
+  **Sidebar logo = rombo Aelium SVG real**: la "A" cuadrada hardcoded
+  actual (drift D4-4) se sustituye por el rombo SVG inline en estado
+  colapsado y expandido. Identidad de marca correcta.
+
+  **Sidebar active item = border-left brand 3px**: confirmado para los
+  3 shells. **DD-030 lo permite explícitamente** en navegación funcional
+  (sidebar, tabs vertical, applied-filters).
+
+  **PartnerShell separado del ClientShell**: hoy comparten layout por
+  pragmatismo histórico (D4-5). Fase 4 establece que NO es lo correcto.
+  PartnerShell propio en `/partner/*` con voz, color, densidad y
+  secciones de sidebar propias. Sprint 19 ya planificado.
+
+- Justificación: DD-016 quedó pendiente en fase 1 ("asignación por
+  portal diferida a fase 4") y los shells la materializan. Sin densidad
+  diferenciada, todos los portales se ven iguales y desperdician el
+  potencial de adaptarse al uso real:
+  - Cliente abre el portal **ocasionalmente** para confirmar que todo
+    va bien · respiro = profesionalismo de socio.
+  - Admin/Agente vive aquí **toda la jornada** · cada píxel ahorrado
+    son más filas, más tickets resueltos.
+  - Partner usa el portal **regularmente** pero no operativamente ·
+    intermedio.
+
+  Topbar variantes resuelven D4-10: hoy el topbar es idéntico para
+  cliente y admin, lo que obliga al cliente a ver un search palette
+  que no usará y al admin a no ver el SupportButton (correcto).
+
+- Materializada en:
+  - `mockup/styles.css` sección "FASE 4 · SHELLS POR PORTAL" con
+    clases `.shell[data-density]`, `.shell-sidebar`, `.shell-topbar`,
+    `.shell-main`, `.auth-shell` y variantes.
+  - Specs: `fase-4-shells/{AuthShell,ClientShell,AdminShell,PartnerShell}.md`.
+  - Mockups: `mockup/shells/{auth,client,admin,partner}.html` con shell
+    montado y voz Aelium aplicada en cada copy.
+  - Audit: `fase-4-shells/audit-existing.md` (D4-1..D4-19).
+  - Implementación TS: registrada en `fase-4-shells/NOTES.md`
+    (N4-1..N4-18) para sprints futuros sobre `frontend/app/{AuthLayout,
+    dashboard,admin,partner,_shared/shell}/`.
+
+- Implicaciones:
+  - Fase 5 (mockups cliente) compone páginas reales con ClientShell +
+    patterns de fase 3.
+  - Fases 6-8 hacen lo mismo para agente, admin y partner.
+  - Sprint 19 (ya planificado en código) ejecuta N4-9 (PartnerShell
+    propio).
+  - DD-016 cerrado. Cualquier cambio futuro de densidad reabre esta
+    decisión.

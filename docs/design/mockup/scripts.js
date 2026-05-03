@@ -57,10 +57,10 @@
       { href: 'patterns/form-page.html',            label: 'FormPage · 3 variantes' },
     ]},
     { section: 'Fase 4 · Shells', items: [
-      { href: 'shells/auth.html',                   label: 'AuthShell',     pending: true },
-      { href: 'shells/client.html',                 label: 'ClientShell',   pending: true },
-      { href: 'shells/admin.html',                  label: 'AdminShell',    pending: true },
-      { href: 'shells/partner.html',                label: 'PartnerShell',  pending: true },
+      { href: 'shells/auth.html',                   label: 'AuthShell · 2 variantes' },
+      { href: 'shells/client.html',                 label: 'ClientShell · comfortable' },
+      { href: 'shells/admin.html',                  label: 'AdminShell · compact' },
+      { href: 'shells/partner.html',                label: 'PartnerShell · standard' },
     ]},
     { section: 'Páginas de muestra', items: [
       { href: 'pages/sample-form.html',             label: 'Formulario · ticket de soporte' },
