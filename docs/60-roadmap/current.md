@@ -133,6 +133,224 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ---
 
+## 🟡 Sprint 13 §13.AUTH — Auth server-side con cookies httpOnly + Server Components nativos (en curso)
+
+**Estado:** 🟡 en curso (preflight cerrado 2026-05-03, ADR-078 Amendment A1 mergeado).
+**Inicio:** 2026-05-03.
+**Cierre estimado:** 2026-05-06 (~3 sesiones).
+**Rama:** `sprint13-auth-cookies-httponly` (desde master `fdd015a`).
+**ADR canónico:** [ADR-078](../10-decisions/adr-078-auth-server-side-cookies-httponly.md) + Amendment A1 (Modelo A: cookies en dominio Next.js).
+
+> Sub-sprint del Sprint 13 Hardening enfocado **exclusivamente** en cerrar `DC.6 + DC.28`. El resto del Sprint 13 (audit trail global, Redis adapter Socket.io, N+1 audit, cursor pagination, caching, R15 restantes) queda fuera de alcance — futuras fases o sprint full según valor funcional.
+
+### 1. Objetivo en una frase
+
+Migrar la autenticación del frontend de `'use client' + localStorage` a Server Components nativos con cookies httpOnly emitidas por Next.js (Modelo A — Amendment A1 ADR-078), eliminando la deuda XSS (DC.28) + cerrando los 27 warnings `set-state-in-effect` (DC.6) sin tocar la cola activa P2.
+
+### 2. Depende de
+
+| # | Dependencia | Estado | Bloquea qué |
+|---|-------------|--------|-------------|
+| 1 | ADR-078 Amendment A1 (Modelo A) mergeado | ✅ 2026-05-03 | Toda la fase A onwards |
+| 2 | Sprint 11 cerrado al 100% (no debe haber WIP en backend auth) | ✅ 2026-05-02 | Todo el sprint |
+| 3 | Cookie-parser instalado y registrado en `main.ts` (bug latente: hoy `auth.controller.refresh` lee `req.cookies` pero el middleware no está activo) | ⬜ Fase 13.AUTH.A | Backend cookies futuras (WS token endpoint) |
+| 4 | Variables de entorno `BACKEND_URL` y `NEXT_RUNTIME_SECRET` documentadas + setadas en `.env.local` dev | ⬜ Fase 13.AUTH.D | Server Actions Next.js |
+
+### 3. Produce (contratos nuevos)
+
+#### 3.1 Endpoints REST nuevos (backend)
+
+- `POST /api/v1/auth/ws-token` — devuelve `{ token: string, expiresIn: 60 }`. Auth: `Authorization: Bearer` o cookie reenviada. Token efímero (claim `type: 'ws'`, expira 60s, secret habitual JWT_SECRET) usado por el browser para handshake `socket.io`. Cumple Amendment A1 §6.
+
+#### 3.2 Eventos nuevos emitidos
+
+- `auth.refresh_replay_detected` — emitido por `AuthTokenService.refresh()` cuando detecta uso repetido de un refresh token ya marcado `used_at`. Payload: `{ user_id, session_id, attempted_at, ip }`. Consumido por `notifications-on-replay-detected.listener` (alerta superadmin vía D12 `NotificationsService.dispatchToSuperadmins`).
+
+#### 3.3 Server Actions nuevas (frontend)
+
+- `loginAction(prevState, formData)` — invoca `POST /auth/login`, recibe body, setea cookies httpOnly Next.js, redirige al landing del rol.
+- `verify2faAction(prevState, formData)` — invoca `POST /auth/verify-2fa` con `temp_token` desde cookie temporal, setea cookies finales, redirige.
+- `logoutAction()` — invoca `POST /auth/logout`, borra cookies httpOnly, redirect `/`.
+- `refreshAction()` — invoca `POST /auth/refresh` con cookie refresh, rota cookies (NO se llama desde UI; lo invoca `serverFetch` cuando recibe 401).
+- `getWsTokenAction()` — invoca `POST /auth/ws-token`, devuelve `{ token, expiresIn }` al Client Component que monta el socket.io.
+- `forgotPasswordAction`, `resetPasswordAction`, `registerAction`, `resendVerificationAction`, `verifyEmailAction` — equivalentes Server Action de los flows públicos (sin cookies, solo proxy al backend + redirect).
+
+#### 3.4 Helpers nuevos (frontend)
+
+- `frontend/app/lib/server-auth.ts`:
+  - `getServerSession(): Promise<ServerSession | null>` — lee cookie `aelium_access_token`, valida vía `/auth/me`, devuelve `{ user, role }` o `null`. Cacheada con `cache()` de React.
+  - `requireServerSession(): Promise<ServerSession>` — `getServerSession()` + `redirect('/')` si vacío.
+  - `serverFetch<T>(path, init?): Promise<T>` — fetch desde Server Component con `Authorization: Bearer <token>` reenviando cookie. `cache: 'no-store'`. Auto-refresh con `refreshAction()` si recibe 401 (transparente).
+  - `serverFetchOrNull<T>(path)` — variante que devuelve `null` en lugar de lanzar (para componentes que toleran ausencia).
+
+#### 3.5 Tablas o campos Prisma nuevos
+
+- Migración `sprint13auth_session_replay_detection`:
+  - `Session.used_at` (`DateTime?`, indexed) — marca cuándo se canjeó el refresh token. NULL = no usado todavía.
+  - `Session.replaced_by_session_id` (`String?` UUID, FK self con `onDelete: SET NULL`) — referencia a la sesión nueva que sustituye a esta cuando refresh rota.
+  - `Session.revoked_reason` (`VarChar(50)?`) — `'logout'`, `'replay_detected'`, `'manual_revoke'`, `'expired'`.
+
+#### 3.6 Settings nuevos
+
+- (ninguno — los TTL existentes en `auth.*` se reutilizan).
+
+#### 3.7 Plantillas notification canónicas nuevas (D12)
+
+- `auth.refresh_replay_detected` × `internal` (admin in-app) + `email` (superadmin email).
+  - Variables: `attacked_user_email`, `attempted_at_label`, `attacker_ip`, `revoked_sessions_count`.
+  - Sin `{{{var}}}` ni `{{& var}}` (cumple guard EC-T8-17).
+
+#### 3.8 Reglas nuevas (rules.md)
+
+- **R17 — JWT en cookies httpOnly de Next.js, NO en localStorage**:
+  > "El JWT del usuario vive en cookies httpOnly del dominio Next.js (frontend). Los Server Components leen la cookie con `cookies()` de `next/headers` y la reenvían al backend NestJS como `Authorization: Bearer <token>`. **Nunca** se lee, escribe ni almacena un JWT en `localStorage`/`sessionStorage`/Web Storage. Cualquier mutación cookie requiere Server Action (`'use server'`)."
+
+### 4. Modifica (contratos existentes)
+
+#### 4.1 Endpoints modificados
+
+- `POST /api/v1/auth/refresh` — sigue aceptando refresh token desde body **o** cookie (el handler ya lee ambos — Sprint 9 lo dejó preparado). Se confirma cookie-parser activo en `main.ts` (Fase A).
+- `POST /api/v1/auth/logout` — sin cambios funcionales backend; el Server Action Next.js es el que borra cookies.
+
+#### 4.2 Servicios modificados
+
+- `AuthTokenService.refresh(refreshToken, ip)` — extiende lógica para validar `session.used_at IS NULL` antes de aceptar; si reuso → revoca cadena (`updateMany where user_id = X SET is_active=false, revoked_reason='replay_detected'`) + emit `auth.refresh_replay_detected`. Crea sesión nueva con `replaced_by_session_id` apuntando a la vieja marcada `used_at=now()`.
+
+#### 4.3 Eventos cambiados
+
+- (ninguno — los `auth.*` existentes se preservan).
+
+#### 4.4 BREAKING changes
+
+- Frontend: tras Fase E, **no existe** `localStorage.getItem('access_token')` en ningún archivo. Cualquier código externo (extensions browser, scripts custom de Yasmin) que dependa del localStorage se rompe. Mitigación: documentado en R17.
+- Backend: `Session` schema cambia (3 columnas nuevas). Migración Prisma forward-only — sin rollback automático. Mitigación: dev local re-seedea, prod aún no desplegado (ADR-069).
+
+### 5. Pasos atómicos
+
+| # | Paso | Fase | Estado |
+|---|------|------|--------|
+| 13.AUTH.0.1 | Preflight: leer Next.js docs (cookies, headers, use-server, authentication, forms, data-security, use-client) | 0 | ✅ 2026-05-03 |
+| 13.AUTH.0.2 | Verificar `cookie-parser` no instalado en backend; verificar CORS `credentials: true`; verificar puerto frontend `:3002` | 0 | ✅ 2026-05-03 |
+| 13.AUTH.0.3 | Mergear ADR-078 Amendment A1 (Modelo A: cookies dominio Next.js) | 0 | ✅ 2026-05-03 |
+| 13.AUTH.0.4 | Redactar este sprint plan en `current.md` | 0 | ✅ 2026-05-03 |
+| 13.AUTH.A.1 | Backend: `pnpm add cookie-parser @types/cookie-parser`, registrar en `main.ts` (cierra bug latente refresh) | A | ⬜ |
+| 13.AUTH.A.2 | Backend: nuevo endpoint `POST /auth/ws-token` (`AuthTokenService.issueWsToken(user)`) + DTO + tests unit | A | ⬜ |
+| 13.AUTH.A.3 | Backend: tests unit `auth-token.service.spec.ts` cubren issueTokens body shape (regresión Modelo A) | A | ⬜ |
+| 13.AUTH.B.1 | Backend: migración Prisma `sprint13auth_session_replay_detection` (3 columnas Session) | B | ⬜ |
+| 13.AUTH.B.2 | Backend: `AuthTokenService.refresh()` reescribir con replay detection + emit `auth.refresh_replay_detected` | B | ⬜ |
+| 13.AUTH.B.3 | Backend: nuevo `NotificationsAuthReplayListener` consume `auth.refresh_replay_detected` → `dispatchToSuperadmins()` | B | ⬜ |
+| 13.AUTH.B.4 | Backend: seed `notification_templates` con `auth.refresh_replay_detected` × {internal, email} | B | ⬜ |
+| 13.AUTH.B.5 | Backend: tests unit replay detection (3 casos: primera ronda OK, replay detectado, sesión expirada) | B | ⬜ |
+| 13.AUTH.D.1 | Frontend: `lib/server-auth.ts` con `getServerSession`, `requireServerSession`, `serverFetch`, `serverFetchOrNull` | D | ⬜ |
+| 13.AUTH.D.2 | Frontend: `lib/auth-actions.ts` con todas las Server Actions (login, verify2fa, logout, refresh, register, forgot/reset, verifyEmail, resendVerification, getWsToken) | D | ⬜ |
+| 13.AUTH.D.3 | Frontend: tests unit helpers con mock de `next/headers` | D | ⬜ |
+| 13.AUTH.D.4 | Frontend: variables de entorno `BACKEND_URL` + `NEXT_RUNTIME_SECRET` documentadas en `.env.local.example` | D | ⬜ |
+| 13.AUTH.E.1 | Frontend: inventario mecánico (`grep -r "TODO(ADR-078\|localStorage.getItem"`) | E | ⬜ |
+| 13.AUTH.E.2 | Frontend: pages auth-públicas (`/`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`) — formularios `'use client'` con `useActionState` invocando Server Actions | E | ⬜ |
+| 13.AUTH.E.3 | Frontend: pages autenticadas — `page.tsx` → SC nativo con `serverFetch`. Hijos interactivos siguen Client Components recibiendo data por props | E | ⬜ |
+| 13.AUTH.E.4 | Frontend: `AuthContext` reescribir (provider mínimo expone `user` hidratado server-side + `logout` Server Action) | E | ⬜ |
+| 13.AUTH.E.5 | Frontend: `lib/api.ts` añade `bearerFromServer` helper (lee cookie reenvía Authorization) — paths que aún usan `api(token)` siguen funcionando vía SC | E | ⬜ |
+| 13.AUTH.E.6 | Frontend: ChatWidget WebSocket → invoca `getWsTokenAction()` antes de `socket.io({auth:{token}})` | E | ⬜ |
+| 13.AUTH.E.7 | Frontend: eliminar todas las ocurrencias `localStorage.getItem('access_token')` y `setItem` (verificación `grep` 0 ocurrencias) | E | ⬜ |
+| 13.AUTH.E.8 | Frontend: promover `react-hooks/set-state-in-effect` de `warn` → `error` en `eslint.config.mjs` (DC.6 cerrado) | E | ⬜ |
+| 13.AUTH.F.1 | Tests E2E nuevos: `auth-cookies-flow.spec.ts` (login → cookie → autenticado → logout → cookie limpia) | F | ⬜ |
+| 13.AUTH.F.2 | Tests E2E nuevos: `auth-replay-detection.spec.ts` (replay revoca cadena + alerta superadmin) | F | ⬜ |
+| 13.AUTH.F.3 | Tests E2E nuevos: `auth-no-localStorage.spec.ts` (regresión: post-login `localStorage` vacío de tokens) | F | ⬜ |
+| 13.AUTH.F.4 | Tests E2E existentes: verificar suite completa pasa sin tocar (header preference se mantiene en backend) | F | ⬜ |
+| 13.AUTH.F.5 | Doc: `docs/00-foundations/rules.md` añade R17 | F | ⬜ |
+| 13.AUTH.F.6 | Doc: `docs/20-modules/auth/contract.md` actualiza §5 endpoints (incluye `/auth/ws-token`) + §11 settings + §14 invariantes nuevos AUTH-INV-8/9 | F | ⬜ |
+| 13.AUTH.F.7 | Doc: `docs/50-operations/api-errors.md` documenta error code `AUTH_REPLAY_DETECTED` | F | ⬜ |
+| 13.AUTH.F.8 | Doc: cerrar DC.6 + DC.28 en `backlog.md` con commit hash | F | ⬜ |
+| 13.AUTH.F.9 | Doc: mover este sprint plan a `completed/sprint-13-auth-cookies-httponly.md` con retrospectiva | F | ⬜ |
+
+### 6. Edge cases anticipados
+
+| ID | Caso | Plan |
+|----|------|------|
+| EC-13AUTH-01 | Tests E2E existentes asumen `Authorization: Bearer` en backend → `JwtStrategy` extractor único garantiza compat | Verificar suite E2E al cerrar Fase A |
+| EC-13AUTH-02 | WebSocket browser no puede leer cookie httpOnly Next.js | Endpoint `/auth/ws-token` + Server Action `getWsTokenAction` (Amendment A1 §6) |
+| EC-13AUTH-03 | Server Action falla con error de red al backend | Server Action devuelve `{ error: 'NETWORK' }` al `useActionState`; UI muestra toast (R14) |
+| EC-13AUTH-04 | Refresh token replay con browser legítimo del usuario (race condition: dos tabs refrescan a la vez) | Aceptado: el primero gana, el segundo recibe `auth.refresh_replay_detected` y sesión revocada. Mitigación frontend: `serverFetch` retry una vez con backoff de 100ms antes de declarar replay |
+| EC-13AUTH-05 | Server Component bajo `/admin/*` recibe usuario que perdió rol admin entre cookie set y page load | `requireServerSession` valida vía `/auth/me` que devuelve rol fresco. CASL guards backend hacen segundo check |
+| EC-13AUTH-06 | Logout dispara error backend (sesión ya revocada) | Server Action `logoutAction` ignora error backend; siempre limpia cookies + redirect (R14: el cliente ve "sesión cerrada" igual) |
+| EC-13AUTH-07 | Cliente sin cookie navega a `/dashboard/*` | `requireServerSession` redirige a `/`. Sin flash, sin client-side check |
+| EC-13AUTH-08 | Cliente con cookie expirada (access expirado, refresh válido) | `serverFetch` recibe 401 → invoca `refreshAction` → reintenta. Transparente |
+| EC-13AUTH-09 | Cliente con ambos tokens expirados | `refreshAction` falla → `logoutAction` → `redirect('/')` |
+| EC-13AUTH-10 | Migración rompe sesiones existentes (todas tienen `used_at IS NULL` pero pueden ser refresh ya canjeados — datos pre-Fase B) | Migración aplica `used_at=NULL` para todas. Aceptado: en peor caso un refresh viejo se acepta una vez, próxima ronda detecta replay si reuso. Pre-producción ADR-069 |
+| EC-13AUTH-11 | Server Action invocada cross-site (CSRF) | Next.js 16 firma action IDs con `NEXT_RUNTIME_SECRET`. Sin secret válido, action rechaza. Fallback: si secret no setado, action funciona en dev pero **debe** setarse para prod (verificar en `.env.example`) |
+| EC-13AUTH-12 | `serverFetch` desde un Server Action (mutación) — necesita CSRF? | No. Server Actions ya están autenticadas vía cookie httpOnly + action ID. El `serverFetch` interno usa `Authorization: Bearer` del backend que NO depende de CSRF (solo applies a flows cookie-only) |
+
+### 7. Definition of Done (literal de ADR-078 §4 + adaptaciones Modelo A)
+
+#### Código backend
+- [ ] `cookie-parser` instalado + registrado en `main.ts` (bug `auth.controller.refresh` cerrado).
+- [ ] `POST /auth/ws-token` operativo + tests unit.
+- [ ] `AuthTokenService.refresh()` con replay detection + tests unit (3 casos).
+- [ ] Migración `sprint13auth_session_replay_detection` aplicada + Prisma client regenerado.
+- [ ] `NotificationsAuthReplayListener` operativo + plantilla seedeada.
+- [ ] `JwtStrategy` SIN cookie extractor (mantiene header único — Amendment A1 §1.3).
+- [ ] CSRF middleware backend NO se construye (Amendment A1 §1.5).
+- [ ] Suite unit backend `pnpm test` 100% verde (sin regresión).
+
+#### Código frontend
+- [ ] `frontend/app/lib/server-auth.ts` y `frontend/app/lib/auth-actions.ts` operativos + tests unit.
+- [ ] Variables `.env.local.example` actualizado con `BACKEND_URL` + `NEXT_RUNTIME_SECRET`.
+- [ ] `grep -r "localStorage.getItem('access_token')\|localStorage.setItem('access_token')" frontend/app` → 0 ocurrencias.
+- [ ] `grep -r "TODO(ADR-078" frontend/app` → 0 ocurrencias (todos migrados).
+- [ ] `react-hooks/set-state-in-effect` regla = `error` en `frontend/eslint.config.mjs` (DC.6 cerrado).
+- [ ] `pnpm lint:check` (frontend, max-warnings=0) verde.
+- [ ] `pnpm typecheck` y `pnpm build` (frontend) verdes.
+
+#### Tests E2E
+- [ ] 3 specs nuevos verdes: `auth-cookies-flow`, `auth-replay-detection`, `auth-no-localStorage`.
+- [ ] Suite E2E completa verde (sin regresión).
+- [ ] CI verde tras último push.
+
+#### Documentación
+- [ ] `docs/00-foundations/rules.md` añade R17.
+- [ ] `docs/20-modules/auth/contract.md` actualiza §5/§11/§14.
+- [ ] `docs/50-operations/api-errors.md` documenta `AUTH_REPLAY_DETECTED`.
+- [ ] `docs/60-roadmap/backlog.md` cierra DC.6 + DC.28 con commit hash.
+- [ ] `current.md` mueve este sprint a `completed/sprint-13-auth-cookies-httponly.md` con retrospectiva.
+
+#### Smoke testing manual (Yasmin)
+- [ ] Login superadmin (con 2FA) en navegador → cookies visibles en DevTools como `httpOnly` ✅, `localStorage` vacío de tokens.
+- [ ] Login agent_full + cliente — landing por rol correcto.
+- [ ] Logout limpia cookies — re-acceso a `/dashboard` redirige a `/`.
+- [ ] WebSocket chat funciona (cliente recibe mensajes en vivo) tras login con cookies httpOnly.
+- [ ] Refresh access token transparente (no se ve flash; sesión sigue activa tras 16 min).
+- [ ] Sin errores en consola del navegador en flows críticos.
+
+### 8. Riesgos identificados
+
+| Riesgo | Impacto si ocurre | Mitigación |
+|--------|-------------------|------------|
+| WS handshake con token efímero introduce latencia (~50ms extra al conectar) | UX widget chat ligeramente más lento al abrir | Aceptado: el token se cachea en memoria del Client Component durante la sesión activa (no se pide a cada mensaje). Patrón `useEffect(() => { fetchToken(); }, [])` único por mount |
+| Server Action falla en prod por `NEXT_RUNTIME_SECRET` no setado | Login no funciona en prod | Verificar en pre-deploy checklist Sprint 14 P-DEPLOY. Backend `JwtStrategy` sin extractor cookie evita que prod-rota silenciosamente al modo viejo |
+| Migración Prisma rompe sesiones activas (devs con tabs abiertas) | Usuarios devs deslogueados | Aceptado: pre-producción ADR-069. Smoke test post-migración limpia cookies y vuelve a loguear |
+| Bulk migration frontend rompe alguna página por edge case no detectado | Página rota en master | Migración archivo por archivo dentro de Fase E con `pnpm typecheck` + `pnpm build` verdes después de cada batch. Si una página rompe, revert atómico de ese archivo + investigar |
+| Tests E2E que mockean JWT directo vía `localStorage.setItem` se rompen | Suite E2E roja | Auditar fixtures Playwright en Fase F.1; reescribir cualquier fixture que use localStorage para usar el flow real de login con cookies |
+| Auto-refresh transparente en `serverFetch` podría infinite-loop si refresh siempre devuelve 401 | Páginas cuelgan en producción | Cap: `serverFetch` reintenta MÁXIMO 1 vez. Segundo 401 → `logoutAction` + redirect `/` |
+
+### 9. Decisiones registradas
+
+- **ADR-078 Amendment A1 (2026-05-03)** — Modelo A: cookies httpOnly viven en dominio Next.js (frontend), no en backend. Reinterpreta §1.1/§1.2/§1.3/§1.5 de ADR-078 para arquitectura cross-origin Next.js + NestJS sin romper el espíritu (XSS no accesible, refresh rotation, replay detection, zero localStorage).
+
+### 10. Cierre del sprint
+
+> Rellenar al cerrar.
+
+**Fecha real de cierre:** YYYY-MM-DD
+**Commit final:** `<sha>`
+**Cambios respecto al plan original:** breve resumen
+**Items movidos a sprints futuros:**
+- DC.13 paralelización local E2E → Sprint 13.5.6 condicionado (ya diferido pre-sprint).
+- Resto Sprint 13 Hardening (audit trail global, Redis adapter Socket.io, N+1, cursor pagination, caching, R15 restantes) → futuras fases o sprint full según valor.
+
+**DoD verificado:** ⬜
+
+---
+
 ## Convenciones de este documento
 
 - **Estado real ≠ estado declarado.** Los símbolos aquí reflejan lo verificado en código a fecha 2026-04-26.

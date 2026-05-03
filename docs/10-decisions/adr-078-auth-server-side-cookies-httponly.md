@@ -356,4 +356,47 @@ Este ADR establece dos invariantes duros:
 
 > Reservado para cambios compatibles hacia atrás post-cierre del ADR.
 
-(ninguno todavía)
+### Amendment A1 (2026-05-03) — Modelo de dominio de cookies en arquitectura cross-origin Next.js + NestJS
+
+**Contexto.** §1 de este ADR fue redactado en Sprint 11 Fase 11.D asumiendo el patrón industrial monolítico (un único dominio sirve frontend + backend). La realidad arquitectónica del proyecto es **frontend Next.js (`:3002`) + backend NestJS (`:3001`) cross-origin** en dev, y reverse-proxied a un único dominio en prod (Sprint 14, P-DEPLOY). Sprint 13 §13.AUTH (preflight 2026-05-03) detectó que la lectura literal de §1.1 ("el backend emite cookies httpOnly") **no funciona en dev cross-origin**: una cookie emitida por backend en `:3001` queda first-party de `:3001` y el Server Component de Next.js (`:3002`) no puede leerla — la cookie nunca llega al server-side render del SC porque el browser sólo envía cookies del dominio que el SC representa.
+
+La doctrina canónica Next.js 16 oficial para este caso (frontend SC + backend REST separado) está en [Next.js 16 Data Security guide §"External HTTP APIs"](../../frontend/node_modules/next/dist/docs/01-app/02-guides/data-security.md): "*continue calling your existing API endpoints from Server Components using fetch... cookies forwarding via header*". Es decir: **cookie httpOnly en dominio Next.js + reenvío al backend vía header `Authorization` o `Cookie`**.
+
+**Decisión refinada (no rompe el espíritu de §1).** Las cookies httpOnly del JWT viven en el **dominio Next.js (frontend)**, no en el backend. Esto cumple el espíritu de §1 (XSS no accesible al JS del cliente) sin la letra (qué proceso setea la cookie). La diferencia es operativa, no de seguridad.
+
+**Cambios concretos respecto a §1 literal:**
+
+1. **§1.1 reinterpretado.** El endpoint backend `POST /auth/login` y `POST /auth/verify-2fa` **NO** emite `Set-Cookie`. Devuelve el par `{access_token, refresh_token}` en el body JSON tal y como hoy. El **Server Action `loginAction()` de Next.js** recibe el body, parsea, y llama `(await cookies()).set('aelium_access_token', body.access_token, { httpOnly, secure, sameSite, maxAge })` en el dominio Next.js. La cookie nunca llega al cliente JS — sólo viaja entre browser y servidor Next.js.
+
+2. **§1.2 reinterpretado.** El **Server Action `logoutAction()` de Next.js** llama `(await cookies()).delete('aelium_access_token')` + `delete('aelium_refresh_token')` + invoca `POST /auth/logout` backend para revocar la `Session` server-side.
+
+3. **§1.3 reinterpretado.** `JwtStrategy` del backend mantiene el extractor **único** `ExtractJwt.fromAuthHeaderAsBearerToken()` — **sin** cookie extractor. Las cookies viven en Next.js, no llegan al backend. El SC Next.js lee la cookie con `(await cookies()).get('aelium_access_token')?.value` y reenvía como `Authorization: Bearer <token>` al backend en cada `serverFetch()`.
+
+4. **§1.4 sin cambios.** Refresh rotation con replay detection sigue siendo backend-stateful sobre `Session.used_at` + `Session.replaced_by_session_id`. El **Server Action `refreshAction()` de Next.js** lee la cookie de refresh, llama `POST /auth/refresh` con el token en body, recibe el par nuevo, setea cookies nuevas, devuelve.
+
+5. **§1.5 reformulado.** **NO se construye CSRF middleware backend.** Las Server Actions de Next.js tienen **CSRF nativo** vía action IDs encriptados (Next.js 16 firma cada action con un secret derivado de `NEXTAUTH_SECRET` o `process.env.NEXT_RUNTIME_SECRET`; el browser no puede falsificar la invocación cross-origin). Los endpoints REST backend que aceptan `Authorization: Bearer` (clientes API directos, tests E2E, futuro Sprint 19 Partner) no necesitan CSRF — el atacante no puede generar el header sin el JWT en plano.
+
+6. **WebSocket (caso nuevo no cubierto en §1).** Cookie httpOnly Next.js no es accesible al `socket.io-client` del browser. Solución canónica: nuevo endpoint `POST /auth/ws-token` (auth `Authorization: Bearer` o cookie Next.js → invocado vía `serverFetch` desde un Server Action `getWsToken()`) que devuelve un token efímero (claim `type: 'ws'`, expira 60s) firmado por backend. El browser pasa este token al handshake `socket.io({ auth: { token } })`. `SupportGatewayAuth.authenticateWithJwt()` no cambia — sigue verificando JWT con el secret habitual.
+
+**Variables de entorno nuevas:**
+- `BACKEND_URL` (server-side, Next.js): URL absoluta del backend para `serverFetch` (`http://localhost:3001/api/v1` en dev). Distinto de `NEXT_PUBLIC_API_URL` que sigue siendo cliente-side.
+- `NEXT_RUNTIME_SECRET` (server-side, Next.js): secret de 32 bytes para firmar Server Action IDs (CSRF nativo). Generar con `openssl rand -base64 32`.
+
+**Mapping nombres canónicos cookie:**
+
+| Cookie | Domain | httpOnly | sameSite | path | maxAge |
+|--------|--------|----------|----------|------|--------|
+| `aelium_access_token` | Next.js | ✅ | `lax` | `/` | 15 min |
+| `aelium_refresh_token` | Next.js | ✅ | `lax` | `/` (no path-restricted, lo necesita el Server Action de refresh global) | 7 días |
+
+Nota: `sameSite=lax` para ambas porque las Server Actions navegan vía POST same-origin. `strict` rompería redirects post-login. CSRF mitigado vía Server Action IDs encriptados (NO double-submit cookie pattern).
+
+**Consecuencias del amendment:**
+- ✅ Funciona idéntico en dev cross-origin y prod reverse-proxied.
+- ✅ Backend permanece stateless sobre `Authorization` header. Tests E2E `Bearer <token>` intactos. Cliente API directo (Sprint 19 Partner) intacto.
+- ✅ Doctrina Vercel oficial Next.js 16 cumplida literalmente.
+- ✅ Cero CSRF middleware backend — Next.js Server Actions lo gestionan nativamente.
+- ⚠️ Deuda nueva: variable de entorno `NEXT_RUNTIME_SECRET` requerida para producción. Documentada en `docs/50-operations/settings-reference.md` cuando Sprint 13 §13.AUTH cierre.
+- 🚪 Cierra: §1.1/§1.2/§1.3/§1.5 leen literalmente "backend emite cookies + cookie extractor + CSRF middleware backend". Este amendment los precisa al modelo cross-origin real del proyecto. El espíritu (httpOnly + refresh rotation + replay detection + zero localStorage) se mantiene íntegro.
+
+**Sprint que aplica:** Sprint 13 §13.AUTH (Fase 13.AUTH.A onwards — el preflight 13.AUTH.0 detectó el desacople y disparó este amendment antes del primer commit de código). Ningún ADR nuevo necesario — este amendment es compatible hacia atrás con la decisión raíz de ADR-078.
