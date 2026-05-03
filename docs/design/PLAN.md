@@ -7,18 +7,18 @@
 
 ## Estado actual
 
-- **Fase activa:** 2.D — Componentes base · Grupo D (navegación) **listos para revisión**
+- **Fase activa:** 2.D — Componentes base · Grupo D **cerrada con iteraciones**
 - **Modo activo:** diseño
-- **Próxima acción:** revisión humana de los 5 componentes navegación
-  en la maqueta + página de muestra "Admin · Detalle de cliente". Si
-  OK, cerrar 2.D y arrancar 2.E (contenedores). Si hay cambios, iterar.
-- **Última actualización:** 2026-05-03 — fase 2.D completa. 5
-  componentes navegación (Tabs, Breadcrumb, CommandPalette,
-  NotificationBell, PortalBadge) + sample admin-cliente-detalle.
-  Drift crítico documentado en NotificationBell (hex Stripe legacy
-  `#635BFF` → `--brand`) y CommandPalette (`--surface-hover`
-  inexistente). PortalBadge con voz canónica por portal. Validación
-  con doc de marca aplicada en cada spec.
+- **Próxima acción:** arrancar **fase 2.E (contenedores)** con
+  metodología DD-029 desde el inicio: Card, Modal, Avatar, EmptyState
+  diseñados nativamente con sus variantes (no como una sola forma
+  genérica).
+- **Última actualización:** 2026-05-03 — fase 2.D cerrada con
+  iteraciones (DD-025 topbar limpio · DD-026 StatusTabs con dot prefix
+  · DD-027 timeline notas) + DD-028 sistema de 5 variantes de Tabs
+  + DD-029 metodología "variante por contexto + identidad Aelium en
+  cada variante" (principio del sistema). Tabs.md reescrita con la
+  matriz completa.
 
 ---
 
@@ -50,6 +50,10 @@ romper la filosofía de minimalismo funcional (D1–D11 de
    mientras no se promocionen cambios.
 8. **Implementabilidad**: nada que no se pueda construir con Next.js 16 +
    CSS Modules + Tailwind 4 + Framer Motion, sin librerías UI externas.
+9. **Variante por contexto + identidad Aelium en cada variante (DD-029)**:
+   donde haya 2+ casos de uso reales, se diseñan las variantes desde el
+   inicio. Cada variante mantiene firma de marca — más variantes ≠ más
+   genérico.
 
 ---
 
@@ -62,7 +66,9 @@ romper la filosofía de minimalismo funcional (D1–D11 de
 | 2.A | Componentes base · formularios | Cerrada · firma visual aplicada | Button, Input, Select, Textarea, SearchInput, Dropdown · sample-form · firma-visual |
 | 2.B | Componentes base · feedback | Cerrada | Badge, StatusDot, Toast, AlertBanner, Tooltip, HelpTip, Skeleton |
 | 2.C | Componentes base · data | Cerrada · iteración StatsCard DD-024 | Table, Pagination, StatsCard, BulkActionBar, FilterBar · sample admin-clientes |
-| 2.D | Componentes base · navegación | **Listo · revisión humana** | Tabs+StatusTabs, Breadcrumb, CommandPalette, NotificationBell, PortalBadge · sample admin-cliente-detalle |
+| 2.D | Componentes base · navegación | **Cerrada con iteraciones DD-025/026/027/028** | Tabs (5 variantes), Breadcrumb, CommandPalette, NotificationBell, PortalBadge · sample admin-cliente-detalle |
+| 2.E | Componentes base · contenedores | **Próxima** · aplicar DD-029 nativo | Card (5 variantes), Modal (5 variantes), Avatar (variantes y tamaños), EmptyState (4 variantes) |
+| 2.F | Refresh de variantes en componentes ya entregados | Pendiente · aplica DD-029 | Pagination + Dropdown + Badge + Form fields — variantes faltantes documentadas |
 | 2.E | Componentes base · contenedores | Pendiente | Card, Modal, Avatar, EmptyState |
 | 3 | Patrones de página | Pendiente | DetailPage, ListPage, FormPage |
 | 4 | Layout shells | Pendiente | AuthShell, ClientShell, AdminShell, PartnerShell |

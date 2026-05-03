@@ -332,6 +332,112 @@ Formato:
   4. Si en el futuro la marca evoluciona a v1.7+, esto se reabre con
      misma lógica (marca manda).
 
+## DD-029 — Metodología "variante por contexto real" + identidad Aelium en cada variante
+
+- Fase: 2 (transversal · principio del sistema)
+- Fecha: 2026-05-03
+- Decisión: Cualquier componente del sistema sigue dos reglas combinadas:
+
+  **Regla 1 · Variante solo donde el contexto la demanda.**
+  - Si un componente tiene 2+ casos de uso reales en el producto que
+    requieren UX distinta, se diseñan las variantes desde el inicio.
+  - Si tiene un solo caso, una sola forma. No inventar variantes para
+    "enriquecer".
+  - Validación: cada variante propuesta debe tener al menos un ejemplo
+    producto real concreto (ej.: "filtros de periodo en `/admin`",
+    "modal de confirmación destructiva", "tabla de servicios densa").
+
+  **Regla 2 · Cada variante mantiene identidad Aelium.**
+  - "Más variantes" NO significa "más genérico". Cada variante carga la
+    misma firma visual: tokens marca (DD-021), voz (DD-022), elementos
+    de firma cuando aplican (DD-023: mesh, rombos, accent stripe,
+    tabular nums, focus ring doble).
+  - Validación industria es referencia para forma/UX, **no para
+    estética**. Un Modal puede tener 5 variantes igual que Material o
+    Stripe — pero el Modal de Aelium se ve Aelium en todas.
+  - Ejemplo: Tabs Vertical (DD-028) reusa el `accent-stripe-left`
+    brand del sidebar — coherencia con la app, no una imitación
+    genérica de "settings sidebar".
+
+- Justificación: El sistema actual mostró drift en componentes que se
+  diseñaron como una sola forma cuando el producto necesitaba más:
+  - Tabs sin variante para Settings → improvisación al llegar.
+  - Card sin variante "action" hasta DD-023 → cards estáticas y
+    navegables idénticas, sin pista visual.
+  - StatsCard inicial cubría un único caso → no servía para Overview
+    cliente con voz, llevó a DD-024.
+
+  La regla "variante por contexto" desde el inicio evita estos
+  refactors. La regla "identidad Aelium en cada variante" evita que el
+  sistema se diluya en "mil patrones genéricos".
+
+- Aplicación inmediata:
+  - **Fase 2.E (contenedores)**: Card, Modal, Avatar, EmptyState se
+    diseñan **nativamente con sus variantes**:
+    - Card: static · action · selectable · featured · mesh
+    - Modal: standard · drawer · confirm · full-screen · bottom-sheet (mobile)
+    - Avatar: single · group · with-status · sizes (xs/sm/md/lg)
+    - EmptyState: inline · page · search · first-time
+  - **Fase 2.F (nueva)**: refresh de variantes faltantes en
+    componentes ya entregados:
+    - Pagination + load more / compact / cursor-based
+    - Dropdown + multi-select / searchable (combobox)
+    - Badge + removable (filter chip) / dot-only
+    - Form fields + password toggle / inline edit / prefix-suffix
+
+- Materializada en: este registro + `PLAN.md` (fase 2.F añadida) +
+  `Tabs.md` (sistema de 5 variantes documentado como caso piloto).
+
+- Implicaciones: Toda decisión futura de componente sigue este
+  principio. Si se diseña un componente nuevo (ej. en fase 3 patrones,
+  o más adelante un FilePicker, DateRange, etc.) se aplica la regla
+  desde el primer borrador. Auditoría de variantes es paso
+  obligatorio de cualquier nuevo componente.
+
+## DD-028 — Sistema de Tabs · 5 variantes (Opción A)
+
+- Fase: 2.D (transversal a 2.E, 3, 4)
+- Fecha: 2026-05-03
+- Decisión: El sistema de Tabs de Aelium tiene **5 variantes** cada
+  una con un caso de uso del producto bien definido:
+
+  | Variante | Caso de uso | Pattern visual |
+  |----------|-------------|----------------|
+  | **Underline** | Navegación entre vistas en página de detalle (cliente, factura, ticket, producto). | Border-bottom 2px brand en activo. |
+  | **Underline + StatusDot** (DD-026) | Filtros de estado en listings. | Underline + StatusDot prefix semántico siempre visible + count plano tabular. |
+  | **Pill / Segmented** (NUEVA) | Toggles binarios o ternarios, period selectors. | Pills agrupados con bg surface-secondary, active surface-primary + shadow-xs. |
+  | **Filled compacto** (NUEVA) | Modales, drawers, side panels. | Active bg brand-subtle + color brand. Sin underline (se pierde en estrecho). |
+  | **Vertical** (NUEVA) | Settings con 8+ secciones, sub-navegación larga. | Accent-stripe-left brand en activo (reusa pattern sidebar DD-023) + bg brand-subtle. |
+
+- Justificación: Análisis industria muestra que los referentes
+  profesionales (Linear 4 patrones, Stripe 3, Notion 2, GitHub 2)
+  tienen 3-4 variantes de tabs porque cada contexto exige una. Tener
+  una sola variante = improvisación cuando llega un caso nuevo
+  (Settings, Modal con tabs, period selector). Cumple DD-029.
+
+  Cada variante mantiene firma Aelium:
+  - Underline + StatusDot reusa el StatusDot de DD-023.
+  - Vertical reusa el accent-stripe-left de DD-023.
+  - Pill / Filled / Vertical respetan tokens marca (no usan grises
+    neutros — sufijos brand-subtle, surface-secondary alineados).
+
+- Materializada en: `mockup/styles.css` (clases `.tabs-pill`,
+  `.tabs-filled`, `.tabs-vertical` añadidas; `.tabs` underline ya
+  existía), `mockup/components/tabs-variantes.html` (página completa
+  con análisis industria + 5 variantes + casos producto + comparativa
+  + decisión).
+
+- Implicaciones:
+  1. `Tabs.md` spec se reescribe con los 5 patterns + matriz "cuándo
+     usar cada uno".
+  2. Refactor del componente real `Tabs.tsx`: añadir prop `variant`
+     que cubra los 5 patterns. Alternativa: 3 componentes separados
+     (Tabs / Pills / VerticalTabs) si la API se complica.
+  3. Cada uso de Tabs en el código pasa a especificar variante
+     explícita. Listar usos actuales en NOTES de implementación.
+  4. Sample pages futuras (fase 4 shells, fase 5+ páginas) usan la
+     variante correcta según el contexto.
+
 ## DD-027 — Timeline pattern para notas, historial y audit log
 
 - Fase: 2.D (transversal)
