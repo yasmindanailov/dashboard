@@ -30,7 +30,7 @@ Filas = módulo origen. Columnas = módulo destino. Celda = tipo de relación.
 | **billing** | read users | read billing_profiles | read products, product_pricing | (sub R15) | — | — | — | — | dispatchToUser via `BillingEmailListener` | — | — | — | prisma, settings, email, casl, **outbox**, **storage**, **jobs** |
 | **support** | read users | read client_notes | — | read services | (sub R15) | read SI subscription via supportQueryService include | — | — | — | — | — | — | prisma, settings, email, casl |
 | **support_inside** | — | — | — | invoke `BillingCheckoutService.checkout()` (subscribe) — emite `service.provisioned` | listener `SupportInsidePriorityListener` consume `conversation.created` | (sub R15) | crea `Task(type=maintenance_management)` via cron `maintenance-monthly` (cola pública ADR-072) | — | — | listener `SupportInsideAuditListener` → `AuditService.logChange` (4 eventos) | — | — | prisma, casl, **events**, **jobs** |
-| **tasks** | read users | write `client_notes` (maintenance_log + technical notes) | — | read services | invoke `SupportService.updateConversation` (bridge ticket↔task ADR-074) | — | (sub R15) | — | dispatchToUser via `TasksEmailListener` + 3 listeners cron (overdue / unassigned / maintenance.critical) | — | — | — | prisma, casl, **events**, **jobs** |
+| **tasks** | read users | write `client_notes` via `ClientNotesService` (Sprint 16: 5 entrypoints canónicos `createFromTicketCompletion`/`createFromChatCompletion`/`createFromMaintenanceCompletion`/`createFromTaskCompletion`/`createExceptional`); listener `ClientLifecycleTaskCreatorListener` consume `service.activated` + helper `clientsService.isFirstService` | — | (no FK directa post Sprint 16; `source_id` polimórfico apunta a `services(id)` cuando `source_system='provisioning_manual'`) | invoke `SupportService.updateConversation` (bridge ticket↔task ADR-074); listener `SupportTicketTaskCreatorListener` consume `conversation.assigned` + `conversation.reactivated` (Sprint 16 Amendment A1) | listener `tasks-on-slot-released` cancela task `support_inside_slot` huérfana (Sprint 16); listener `tasks-on-service-cancelled` cancela task `provisioning_manual` huérfana (Sprint 16) | (sub R15) | — | dispatchToUser via `TasksEmailListener` + 3 listeners cron (overdue / unassigned / maintenance.critical) + 2 listeners conversation lifecycle (`conversation.resolved` cliente + `conversation.auto_closed` agente) | — | — | — | prisma, casl, **events**, **jobs** (5 colas: tasks-overdue + tasks-unassigned-overdue + maintenance-critical + maintenance-monthly + support-resolved-auto-close) |
 | **provisioning** | read users (cargar `client` data en `ProvisionContext`) | — | read products (resolver `provisioner_slug` + `provisioner_config`) | listener `invoice.paid` (BullMQ async) + write `services.status/provisioner_slug/provider_reference/metadata` post-provision | — | indirecto via plugin `internal` (futuro Fase 11.C) consume `service.activated` | invoke `TasksService.create(type=support_setup)` cuando plugin manual followUp=create_setup_task (cola pública ADR-072) | — | (Fase 11.E: emit `service.provisioning_failed` consumible por listener notifications) | wrapper `executeActionWithCacheInvalidation` invoke `AuditService.logChange` + wrapper `getSsoUrlWithAudit` invoke `AuditService.logAccess` | — | — | prisma, casl, **events**, **jobs** (cola `provisioning-dispatch`), **redis DB 2** (cache `service_info`) |
 | **dashboard** | read users | read clients data | — | read invoices, services | read conversations | read SI subscription (helper `getClientOverview` include) | read tasks | — | — | — | — | — | prisma |
 | **notifications** | read users (resolver recipients + superadmins) | — | — | — | — | — | — | — | (sub R15) | — | — | — | prisma, **email**, **jobs** |
@@ -57,6 +57,16 @@ Filas = módulo origen. Columnas = módulo destino. Celda = tipo de relación.
 > - `support_inside` invoca `BillingCheckoutService.checkout()` para `subscribe()` y consume `service.provisioned` para crear `SupportInsideSubscription` ([ADR-076](../10-decisions/adr-076-checkout-unico-support-inside-via-evento.md)) — un único motor de checkout cliente.
 > - 3 colas BullMQ scheduled nuevas (`tasks-overdue`, `tasks-unassigned-overdue`, `maintenance-critical`) + 1 cola Support Inside (`maintenance-monthly` con cron diario filtro `anniversary_day`).
 > - 3 listeners transversales SI: `SupportInsidePriorityListener` (consume `conversation.created`), `SupportInsideAuditListener` (consume los 4 eventos `support_inside.*`), `SupportInsideOnServiceProvisionedListener` (consume `service.provisioned`).
+
+> **Sprint 16 (2026-05-02) — cerrado al 100% — cambios estructurales (ADR-079 + Amendments A1/A2/A3):**
+> - `tasks` refactorizado a **bridge unidireccional read-only**: 5 listeners cross-sistema cierran el flujo (`SupportTicketTaskCreatorListener` consume `conversation.assigned` + `conversation.reactivated`; `ClientLifecycleTaskCreatorListener` consume `service.activated` con `isFirstService`; `tasks-on-slot-released` consume `support_inside.slot_released`; `tasks-on-service-cancelled` consume `service.cancelled`; `ProvisioningOnTaskCompletedListener` filtra por `capabilities.completes_via_task`).
+> - `ClientNotesService` consolidado en `modules/clients/` con 5 entrypoints canónicos. Tabla `client_notes` con source tracking polimórfico (`source_system` + `source_id` + `triggered_by_action`). Drop columns `conversation_id` y `task_id` directos.
+> - **3 eventos `conversation.*` nuevos** (Amendment A1 lifecycle ticket): `conversation.resolved` (cliente), `conversation.reactivated` (substituye patrón legacy ADR-074 EC#3), `conversation.auto_closed` (agente).
+> - **1 cola BullMQ nueva**: `support-resolved-auto-close` 02:30 UTC con setting `support.auto_close_resolved_days` default 7.
+> - **Reasignación humana de tasks restringida a superadmin** (Amendment A2). `agent_full` perdió esta capacidad. Endpoint `PATCH /tasks/:id/cancel` `@deprecated` (DC.34 pendiente eliminación física).
+> - **Lifecycle chat reducido a terminal único `resolved`** (Amendment A3). Backend rechaza `addMessage` en chat `resolved`, bloquea `closed` y reapertura para chats. ClientNote canónica `source_system='chat'` al cerrar/escalar chat.
+> - **Schema tasks** simplificado: 16 → 12 columnas. Drop `task_tags` + `task_tag_assignments`. UNIQUE parcial activo `(source_system, source_id) WHERE status IN ('pending','in_progress')`.
+> - **`MaintenanceLog.notes` → `client_facing_notes`** (DC.32 cerrada). Drop `internal_notes` (va a `client_notes`).
 
 > **Sprint 11 Fases 11.A → 11.E (2026-05-02) — cerrado al 100% — cambios estructurales:**
 > - `provisioning/` salió de stub a **módulo implementado completo** ([ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) + [ADR-078](../10-decisions/adr-078-auth-server-side-cookies-httponly.md)). Orquestador + chasis canónico + plugins triviales (`internal`/`manual`) + listener `provisioning-on-task-completed` + frontend (3 páginas + 5 componentes shared) + 8 endpoints REST (4 cliente + 4 admin) + cierre documental.
@@ -145,9 +155,10 @@ support emits...
   message.created      ─┘└────► support-websocket.listener (push al WS)
 
 (Eventos huérfanos — emitidos sin listener actual:
- auth.* (7 eventos), service.cancelled/suspended/resumed (cuando llegue plugin con efecto real, ej. docker_engine Sprint 15E), task.created/completed (audit Sprint 9 Fase E pendiente), checkout.completed.
+ auth.* (7 eventos), service.suspended/resumed (cuando llegue plugin con efecto real, ej. docker_engine Sprint 15E), task.created (audit Sprint 9 Fase E pendiente), checkout.completed.
  Cerrados Sprint 8: task.assigned/overdue/unassigned_overdue + maintenance.completed/critical + 4 support_inside.* + service.provisioned consumido por SI Listener.
- Cerrados Sprint 11: invoice.paid consumido por ProvisioningOrchestratorService; service.activated emitido por orquestador (consumidor real cuando llegue Sprint 15A-G plugin con bienvenida).
+ Cerrados Sprint 11: invoice.paid consumido por ProvisioningOrchestratorService; service.activated emitido por orquestador.
+ Cerrados Sprint 16 (Amendments A1+A3): conversation.assigned suma SupportTicketTaskCreatorListener; conversation.reactivated nuevo + reuse SupportTicketTaskCreatorListener; conversation.resolved + conversation.auto_closed nuevos con listeners notifications canónicos (DC.33 cerrada); service.activated suma ClientLifecycleTaskCreatorListener; service.cancelled suma tasks-on-service-cancelled.listener; support_inside.slot_released suma tasks-on-slot-released.listener; task.completed suma task-completed.listener.
  Pendientes consumidores Sprint 12+: service.provisioning_failed/metrics_fetched/action_executed/sso_opened — emitidos por orquestador y wrappers, esperando listeners audit + notifications cuando llegue plugin con coste de fallo significativo)
 ```
 
@@ -193,8 +204,8 @@ Estos módulos no aparecen en la matriz principal como origen ni destino (más a
 | **auth (User schema)** | clients, billing, support, tasks, dashboard (todos leen `users`) |
 | **billing (Invoice/Service)** | clients (lee invoices), dashboard (lee invoices y services), support (lee services) |
 | **products (Product/Pricing)** | billing (lee products en checkout), dashboard (futuro) |
-| **support (Conversation/Message)** | dashboard (lee conversations), tasks (bridge ticket↔task ADR-074), support_inside (listener priority) |
-| **tasks (Task)** | dashboard (lee tasks), support_inside (cron `maintenance-monthly` crea tasks) |
+| **support (Conversation/Message)** | dashboard (lee conversations), tasks (bridge ticket↔task ADR-074 + Amendment A1 reactivación + auto-close cron Sprint 16), support_inside (listener priority), clients (`ClientNotesService.createFromTicketCompletion`/`createFromChatCompletion` Sprint 16 Amendment A3) |
+| **tasks (Task)** | dashboard (lee tasks), support_inside (cron `maintenance-monthly` crea tasks `support_inside_slot` + listener `tasks-on-slot-released` Sprint 16), provisioning (orquestador crea tasks `provisioning_manual` + listener `tasks-on-service-cancelled` Sprint 16), clients (listener `ClientLifecycleTaskCreatorListener` consume `service.activated` Sprint 16 + `ClientNotesService` consolidado) |
 | **support_inside (Subscription/Slot/Config)** | clients (helper findOne enriquecido), support (helper findOne con tier), dashboard (overview con plan), audit (listener cambios) |
 | **provisioning (Orchestrator/PluginRegistry/cache)** | Sprint 15A (plugin framework), Sprint 15C/D/E/G (plugins reales cPanel/Plesk/Enhance/ResellerClub/Docker), Sprint 12 (listener `notifications-on-provisioning-failed` + listener `audit-on-service-events` para los 5 eventos audit/RGPD nuevos), Sprint 19 (decisión partner `executeAction` sobre servicios de sus clientes) |
 | **dashboard** | nadie (es módulo de solo lectura) |
@@ -220,7 +231,7 @@ Matriz canónica de qué `Action` tiene cada rol staff sobre cada `Subject` del 
 | `Payment` | Manage | Manage | Manage | — | — | — |
 | `Conversation` | Manage | Manage | — | Manage | Create+Read+List (own) | Read/List (partner_scoped) |
 | `Message` | Manage | Manage | — | Manage | Create+Read | — |
-| `Task` | Manage | Manage | Manage | Manage | — | — |
+| `Task` | Manage | Read+Update (own + cola pública) | Read+Update (own) | Read+Update (own) | — | — |
 | `Maintenance` | Manage | Manage | Manage | Manage | — | — |
 | `Service` | Manage | Manage | Read/List | Read/List | Read+List+Update (own) | Read/List (partner_scoped) |
 | `AuditLog` | Manage | Read/List | — | — | Read/List (own) | — |

@@ -1,187 +1,233 @@
 # Tasks — Guía de administración
 
-> 📜 **DOCTRINA POST-ADR-079 (2026-05-02)** — Esta guía describe el sistema VIGENTE tras Sprint 8 (creación manual + 7 tipos + tags + reason). **Sprint 16 (planificado, ADR-079 mergeado)** lo refactoriza profundamente: tasks pasa a ser bridge unidireccional read-only desde 5 triggers automáticos cerrados; sin creación manual; card simple con accionadores inline; widget en sidebar + dashboard. Cuando Sprint 16 cierre, esta guía se reescribe completa. Mientras tanto, lo descrito aquí refleja el código actual.
+> **Doctrina canónica vigente: [ADR-079](../../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md)** + Amendments A1/A2/A3 (Sprint 16 cerrado 2026-05-02).
+> Tasks es la **cara organizada del trabajo del agente humano**: bridge unidireccional read-only desde 5 triggers automáticos cerrados. NO es un Jira, NO se crea manualmente, NO duplica datos del sistema vinculado.
 
 > Módulo: `tasks`
-> Sprints: 8 (P0.1 + Fase A/B/C/D + sub-fase D.12) · refactor canónico Sprint 16 (planificado — ver [ADR-079](../../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md))
-> Última actualización: 2026-05-02 (banner ADR-079)
-> Documento canónico de operativa diaria del equipo Aelium sobre el sistema interno de tareas.
+> Sprints: 8 (modelo legacy) → 16 (refactor canónico ADR-079 — bridge unidireccional read-only + consolidación notas)
+> Última actualización: 2026-05-03 (post Sprint 16 cierre documental Fase 16.E).
+> Documento canónico de operativa diaria del staff Aelium sobre el sistema de tareas.
 
 ---
 
 ## 1. Resumen
 
-El módulo Tasks es la **herramienta interna del equipo Aelium**. NO es visible al cliente. Centraliza todo el trabajo del equipo en un único tablero: tareas técnicas, gestiones administrativas, mantenimientos programados, llamadas de seguimiento al cliente, tickets de soporte vinculados.
+El módulo Tasks es la **herramienta interna del staff Aelium**. NO es visible al cliente. Centraliza el trabajo del agente trayendo info de los demás sistemas (tickets, slots Support Inside, provisioning manual, ciclo de vida del cliente, proyectos) sin duplicar lógica.
 
-**Cuatro principios canónicos:**
+**Tres invariantes canónicos (ADR-079 §1):**
 
-1. **Tipos cerrados, motivos abiertos** ([ADR-073](../../10-decisions/adr-073-tipos-flexibles-tasks-reason-tags.md)) — el `TaskType` (enum) declara qué bloque/automatización activa la tarea; el porqué humano va en `reason` (texto libre <=100 caracteres) + `tags` extensibles del catálogo `/admin/task-tags`.
-2. **Cola pública para tareas sin asignar** ([ADR-072](../../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md)) — cualquier staff con `Manage.Task` puede auto-asignarse una tarea de la cola; SLA por tipo + cron diario presiona la cola.
-3. **Bridge ticket↔task** ([ADR-074](../../10-decisions/adr-074-ticket-task-bridge.md)) — al asignar un ticket de soporte se crea automáticamente una `Task(type=support_ticket)` con `conversation_id` poblado. El cierre canónico pasa por la tarea (modo bridge del modal) y delega en `SupportService` para resolver/cerrar el ticket.
-4. **Notas estructuradas con FK** ([ADR-038](../../10-decisions/adr-038-notas-estructuradas-cliente.md)) — cada nota cliente persiste con `task_id` para que la timeline cliente trace el origen.
+1. **Toda task viene de un trigger automático canónico.** Catálogo cerrado de 5 (§2). No hay endpoint `POST /tasks` ni botón "crear task". La task es el reflejo organizado de algo que ya pasó en otro sistema.
+2. **La fuente de verdad es el sistema vinculado.** Si el sistema vinculado cambia (ticket cerrado, slot liberado, servicio cancelado), la task refleja ese cambio. Si el agente cierra la task, el cierre se delega al sistema vinculado.
+3. **La task NO duplica datos.** No copia `subject` del ticket, no copia `description` del proyecto. Renderiza dinámicamente en la card lo necesario consultando el sistema vinculado on-demand.
+
+**Cara operativa real (lo que justificaba el sistema en primer lugar — Yasmin):**
+
+- ✅ **Widget en sidebar** con badge numérico — count tasks pendientes del agente actual.
+- ✅ **Widget "Tu trabajo de hoy"** en `/admin` (top de la página) — top 5 tasks del agente ordenadas por regla canónica §3.
+- ✅ **Card simple** con accionadores inline contextuales (máx. 3) que delegan en el sistema vinculado.
+- ✅ **Asignador automático** por carga + rol coherente (helper `core/tasks/auto-assign.ts`).
+- ✅ **Prioridad cross-sistema** declarativa (helper `core/tasks/priority-helper.ts`).
 
 ---
 
-## 2. Arquitectura
+## 2. Catálogo cerrado de triggers (5)
+
+| `source_system` | Trigger | Cuándo nace | Quién la crea | Quién la completa |
+|-----------------|---------|-------------|---------------|-------------------|
+| `support_ticket` | Asignación de ticket (`conversation.assigned`, `type='ticket'`) **+ reactivación** (`conversation.reactivated` — Amendment A1) | Asignar ticket o cliente responde sobre `resolved` | `SupportTicketTaskCreatorListener` | Agente cierra → delega `support.updateConversation(status='resolved')` |
+| `support_inside_slot` | Cron `maintenance-monthly` 06:00 UTC, filtro `anniversary_day = today` | Día aniversario del slot Support Inside | `MaintenanceMonthlyService` | Agente registra `MaintenanceLog` |
+| `provisioning_manual` | Plugin con `capabilities.completes_via_task=true` devuelve `followUp: ['create_setup_task']` | Activación de servicio con setup manual | `ProvisioningOrchestratorService` | Agente completa task → activa servicio |
+| `client_lifecycle` | `service.activated` del **PRIMER** servicio del cliente (helper `clientsService.isFirstService(clientId)`) | Alta del primer servicio del cliente | `ClientLifecycleTaskCreatorListener` | Agente cierra task con nota obligatoria de la llamada de bienvenida |
+| `project` | Promoción manual del superadmin de un item de checklist → task (Sprint 22) | Superadmin externaliza item del checklist a un agente | Endpoint `POST /api/v1/admin/projects/:id/checklist/:itemId/promote-to-task` | Agente completa task → marca item del checklist `completed` |
+
+**Triggers NO existentes (decisión consciente — ADR-079 §2):**
+
+- `invoice.*` — son notificaciones al cliente; el sistema actúa, el equipo no.
+- Renovaciones / retries / suspensiones / dunning — sistema lo resuelve solo.
+- `auth.*` — alertas operativas, no trabajo planificable.
+- Errores 5xx — alertas a superadmin vía notification, no task.
+- Conversaciones tipo `chat` — flujo es respuesta directa por mensajes (Amendment A3 lo refuerza: chats no crean tasks, su único estado terminal es `resolved`).
+
+> **Excepción `manual_admin` rechazada explícitamente** (Yasmin): *"las tareas no quiero que se puedan crear manualmente por ahora. Es sobre trabajo de ese sistema, no quiero un sistema de tareas tipo Jira."* Si en el futuro un caso real requiere creación recurrente, se redacta ADR específico para añadir trigger automático nuevo (no para reabrir creación manual).
+
+---
+
+## 3. Regla canónica de orden — `/admin/tasks` (ADR-079 §3.3)
 
 ```
-TasksService                    → CRUD + transiciones de estado + auto-asignación
-TasksController                 → Endpoints REST staff
-TaskTagsService                 → Catálogo extensible (Sprint 8 Fase B.7 — ADR-073)
-ChecklistCompletionService      → Items de checklist (idempotente upsert)
-MaintenanceLogService           → Cierre maintenance con transacción atómica
-TasksOverdueService             → Cron diario 02:00 UTC (BullMQ)
-TasksUnassignedOverdueService   → Cron diario 09:00 UTC (BullMQ)
-MaintenanceCriticalService      → Cron diario 08:00 UTC (BullMQ)
-SupportTicketTaskCreatorListener → Bridge ticket↔task
-TaskCompletedListener           → Notifica cliente si hay clientNotes y tipo no-maintenance
-MaintenanceCompletedListener    → Notifica cliente con resumen del mantenimiento mensual
+1. Tasks vencidas (status=not_completed_in_time) en banner rojo arriba del todo.
+2. Tickets primero, en bloque, ordenados por:
+   - tier SI del cliente (Pro > Medium > Basic > sin SI)
+   - dentro de cada tier, por antigüedad (FIFO).
+3. Resto agrupado por source_system:
+   - support_inside_slot: por anniversary_day del slot (asc)
+   - provisioning_manual: FIFO por created_at
+   - client_lifecycle: FIFO por created_at (con due_date = +48h)
+   - project: FIFO por created_at
 ```
 
-Los tres crons usan el patrón canónico ADR-063 + ADR-064 (leader election natural via Redis): **service testeable + processor delgado + DLQ + listener que delega en `NotificationsService`**.
+**Por qué esta regla:** la priorización por enum funciona dentro de cada bloque pero no cross-bloque (un mantenimiento mensual con `due_date` mañana NO es "menos urgente" que un ticket SI Pro de hoy — son trabajos distintos). Agrupar por sistema preserva la coherencia operativa: el agente ve todos los tickets de hoy juntos, todos los mantenimientos del día juntos, etc.
+
+Helper canónico: `frontend/app/_shared/tasks/list-ordering.ts` espejo de `backend/src/core/tasks/list-ordering.ts`.
 
 ---
 
-## 3. Tipos de tarea (`TaskType`)
+## 4. Card canónica + accionadores inline (ADR-079 §3.6)
 
-| Tipo | Cuándo nace | Quién lo crea |
-|------|-------------|---------------|
-| `contact_client` | Llamada o seguimiento programado al cliente (renombrado desde el histórico `wow_call` en Fase B.7) | Manual (staff) |
-| `maintenance` | Tarea genérica de mantenimiento programado | Manual (staff) |
-| `maintenance_management` | Mantenimiento mensual gestionado por Support Inside | Cron `maintenance-monthly` (Fase D.7) |
-| `project_task` | Tarea de proyecto Wdify (placeholder Sprint 22) | Manual |
-| `custom_work` | Trabajo bajo demanda fuera del catálogo | Manual |
-| `support_setup` | Alta/configuración inicial de un servicio (provisioner manual) | Sprint 11 Provisioning |
-| `support_ticket` | Ticket de soporte asignado a un agente (bridge ADR-074) | Listener `SupportTicketTaskCreatorListener` |
-
-> Para añadir un contexto operativo nuevo (ej. "renovación hosting") **NO se añade un valor de enum**: se crea un tag desde `/admin/task-tags` y se etiqueta la tarea. El enum solo cambia con migración + ADR explícito.
-
----
-
-## 4. Estados (`TaskStatus`)
+**Una sola línea visible + 1 línea de contexto + accionadores inline.** Sin tabs, sin secciones expandibles dentro de la card.
 
 ```
-pending → in_progress → completed
-                      → cancelled
-                      → not_completed_in_time   (terminal — cron tasks-overdue)
-pending → cancelled
-pending → not_completed_in_time
+┌─────────────────────────────────────────────────────────────────────────┐
+│  🎫 Ticket Support  [SI Pro]  · Carla Fernández · hace 2h · vence 2h  │
+│  "Email no envía desde el panel"                                       │
+│  [Completar]                                  [Abrir ticket completo →]│
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**TASK-INV-2** (canónica): no hay vuelta atrás desde `completed`, `cancelled` o `not_completed_in_time`. Ediciones de `priority`, `due_date` o `assigned_to` sobre tareas terminales devuelven 400 (Sprint 8 Fase B.1.bis cerró EC-T8-19/20/21).
+**Reglas de renderizado (espejo del mapping canónico `_shared/tasks/source-labels.ts`):**
 
-**Excepción cola pública:** cualquier staff puede tomar una tarea con `assigned_to=null` autoasignándose; no requiere ser admin pleno (ADR-072 + EC-T8-22).
+| Elemento | Comportamiento |
+|----------|----------------|
+| Icono + label | `🎫 Ticket Support`, `🔧 Mantenimiento mensual`, `📞 Llamada bienvenida`, `⚙️ Setup servicio`, `📁 Proyecto` |
+| Badge SI | Sólo si `source_system='support_ticket'` Y cliente tiene SI activo. Color: Pro=dorado, Medium=plateado, Basic=neutro. |
+| Cliente | Nombre + apellido. Click → `/admin/clients/[id]` |
+| Edad | Relativo desde `created_at` |
+| SLA visual | Color verde (>50% restante), amarillo (20-50%), rojo (<20% o vencido) |
+| Línea contexto | Subject del ticket / "Mantenimiento octubre 2026" / Nombre del proyecto / Producto del setup. Truncada a 80 chars. |
+| Accionadores | Lista cerrada según `source_system` (§4.1). Máx. 3 botones inline + 1 CTA "Abrir [sistema] completo →". |
 
----
+### 4.1 Accionadores canónicos por `source_system`
 
-## 5. Tablero `/admin/tasks` — segmentación scope
+| Sistema | Accionadores inline | Delegación canónica | CTA "abrir completo" |
+|---------|---------------------|---------------------|---------------------|
+| `support_ticket` | `Completar` (Amendment A1: 1 accionador único — frontend siempre envía `ticket_action='resolve'`) | `support.updateConversation(id, status='resolved', internal_note)` | `/admin/support/[id]` |
+| `support_inside_slot` | `Completar mantenimiento` (abre `MaintenanceLogModal` con checklist) | `MaintenanceLogService.recordCompletion()` (atómico) | `/admin/clients/[clientId]/services/[serviceId]` |
+| `provisioning_manual` | `Marcar setup completado` (modal con nota obligatoria) | `ProvisioningOnTaskCompletedListener` activa servicio | `/admin/services/[serviceId]` |
+| `client_lifecycle` | `Marcar como contactado` (modal con nota obligatoria de la llamada) | `ClientNotesService.createFromTaskCompletion()` + cierra task | `/admin/clients/[clientId]` |
+| `project` | `Marcar item completado` (cierra task + marca item del checklist) | `tasks-on-project-task-completed.listener` (Sprint 22) → `ProjectsService.markChecklistItemCompleted()` | `/admin/projects/[projectId]` |
 
-El tablero está partido en tres scopes mutuamente excluyentes:
-
-| Tab | Filtro | Uso típico |
-|-----|--------|------------|
-| **Mis** | `assigned_to = current_user.id` | El día a día del agente |
-| **Sin asignar** | `assigned_to IS NULL` | Cola pública: el agente que tenga capacidad la coge |
-| **Todas** | sin filtro | Visión transversal (admin + agent_full) |
-
-Cada scope tiene su propio `getStats` honesto (los contadores no mienten al cambiar de tab — bug clásico cerrado en B.1.bis). El `statusFilter` por defecto es `pending` (el default histórico "todas" sembraba la confusión de "ver más estado del que el tab declaraba").
-
-**Bloques adaptativos** ([Fase B.2](../../60-roadmap/current.md)): el detalle muestra UI específica por `TaskType`:
-
-- `contact_client` + tarea con `service_id` → bloque "Datos del cliente y plan" (servicio + plan + producto + cycle + status badge).
-- `maintenance` / `maintenance_management` → bloque Checklist completable con progreso N/M + items requeridos resaltados (rojo cuando faltan).
-- `project_task` → placeholder con link a Sprint 22 Projects (futuro).
-- `custom_work` / `support_setup` → UX simple (sin bloque adaptativo).
-- `support_ticket` → sidebar "Ticket origen" + modal de cierre en modo bridge (resolve/close).
+> **Regla canónica:** *si necesitas más de 3 accionadores inline para un sistema, eso es señal de que la card no es la herramienta — el agente debe ir al sistema completo.*
 
 ---
 
-## 6. Crear una tarea (modal canónico)
+## 5. Lifecycle canónico (ADR-079 §3.2)
 
-Desde `/admin/tasks` → botón "+ Nueva tarea":
+```
+[trigger emite evento]
+        │
+        ▼
+[Listener canónico crea task con priority/due_date calculados + autoAssignTask]
+        │
+        ▼
+   ┌─────────┐  agente toma de cola pública (auto-asignación V1)
+   │ pending │ ─────────────────────────────────────────►  pending (assigned_to poblado)
+   └────┬────┘
+        │ agente abre la task → in_progress
+        ▼
+  ┌────────────────┐
+  │ in_progress    │
+  └────────┬───────┘
+           │
+   ┌───────┴────────────────┬──────────────────────────────┐
+   ▼                        ▼                              ▼
+[Agente completa]      [Cron tasks-overdue]      [Sistema vinculado se cancela]
+   │                        │                              │
+   ▼                        ▼                              ▼
+completed              not_completed_in_time          cancelled
+[delegación al sistema   [emit task.overdue +
+ vinculado]              alerta agente]
+```
 
-**Campos requeridos:**
-- `title` (texto)
-- `type` (uno de los 7 tipos)
-- `priority` (`low`, `normal`, `high`, `urgent`)
+**Inmutabilidad terminal (TASK-INV-2):** `completed` / `cancelled` / `not_completed_in_time` no se reabren. Si el sistema vinculado cambia (ticket reabierto), se crea task NUEVA — patrón `conversation.reactivated` (Amendment A1).
 
-**Campos opcionales:**
-- `description` (markdown ligero, máx. 50.000 caracteres — EC-T8-16)
-- `assigned_to` (selector de agentes; vacío = cola pública)
-- `due_date` (no acepta fechas en el pasado, EC-T8-12; bypass interno `allowOverdue` reservado a crons)
-- `client_id` + `service_id` (validados que `service.user_id === client_id`, EC-T8-13)
-- `reason` (motivo libre <=100 caracteres — el porqué humano)
-- `tag_ids` (multi-select del catálogo + crear inline; máx. 10)
-- `is_recurring` + `recurrence_day` (1..31, validación cruzada `@ValidateIf`, EC-T8-14)
-- `billing_month` (regex `\d{4}-(0[1-9]|1[0-2])`, EC-T8-15)
+**Cancelación humana eliminada (Amendment A2):** la doctrina canónica establece que las tasks son read-only respecto al sistema vinculado; la cancelación es **consecuencia mecánica** de eventos del sistema vinculado, gestionada por listeners cross-sistema. La UI ya NO muestra botón "Cancelar tarea":
 
-**Tras crear:** si `assigned_to` está poblado, se emite `task.assigned` y `tasks-email.listener` envía email + notificación interna al agente. Si nace sin asignar, queda en la cola pública.
-
----
-
-## 7. Completar una tarea
-
-Hay **tres caminos** según el tipo:
-
-### 7.1 Modo simple (`custom_work`, `contact_client`, `project_task`, `support_setup`)
-
-Botón "Completar" en el header → abre `TaskCompletionModal` modo simple → opcionalmente añade nota interna → emite `task.completed`.
-
-Si `clientNotes` queda poblado y la tarea no es de tipo maintenance, `TaskCompletedListener` notifica al cliente vía email + campana (Sprint 8 Fase B.9).
-
-### 7.2 Modo maintenance (`maintenance`, `maintenance_management`)
-
-Botón "Completar y notificar" → exige que **todos los items `is_required=true` del checklist estén marcados** (EC-T8-01).
-
-Si falta alguno: 400 con `missing_required: [{id, label, kind}]` y la UI los resalta en rojo. Si todo está OK:
-
-1. Se persiste `maintenance_log` con resumen del trabajo.
-2. Se cierra la tarea (`status=completed`).
-3. Se crea automáticamente una `ClientNote` con `task_id` + `category=maintenance_summary`.
-4. Se emite `maintenance.completed` → `MaintenanceCompletedListener` notifica al cliente con el resumen mensual.
-
-Todo en una **transacción atómica** (`MaintenanceLogService.recordCompletion`).
-
-### 7.3 Modo bridge (`support_ticket` — ADR-074)
-
-Botón "Completar" → modal en modo bridge con:
-- Selector `ticket_action`: `resolve` (deja el ticket en `resolved`) o `close` (lo cierra).
-- Nota interna **obligatoria** (`resolution_note`).
-
-Al confirmar:
-1. Se cierra la task.
-2. `TasksService.complete` delega en `SupportService.updateConversation` para aplicar la transición al ticket.
-3. Se notifica al cliente vía la plantilla canónica de support (NO de tasks — la flag `__skipClientNotification` evita doble email).
-
-**Cancelar una tarea bridge** libera el ticket (`assigned_agent_id=null`) y muestra toast contextual al agente. Reabrir el ticket re-emite `conversation.assigned` y crea una task nueva (EC bridge #3).
+- `tasks-on-slot-released.listener` cancela task `support_inside_slot` cuando el slot se libera.
+- `tasks-on-service-cancelled.listener` cancela task `provisioning_manual` cuando el servicio se cancela.
+- `SupportTicketTaskCreatorListener.handleUnassigned` cancela task `support_ticket` al desasignar el ticket.
+- (Sprint 22) listener canónico `project` cuando un item del checklist se elimina.
 
 ---
 
-## 8. Notas internas
+## 6. Reasignación canónica (Amendment A2)
 
-Card persistente "Notas internas" en el detalle de la tarea (Sprint 8 Fase B.9):
+**Sólo el superadmin** puede reasignar tasks. Vía única: `PATCH /tasks/:id/assign` con body `{ assigned_to: <uuidAgente> | null }`. El frontend lo expone vía `_shared/tasks/ReassignTaskModal.tsx`:
 
-- Botón "+ Añadir nota" → POST inmediato a `/tasks/:id/notes` (NO se acumula en estado del cliente — persistencia atómica).
-- Cada nota se guarda como `ClientNote` con `category=technical` + `task_id` FK física + `author` FK física a `users`.
-- La timeline del cliente (`/admin/clients/:id` tab Notas) muestra las notas técnicas con badge "Tarea origen" + título de la task que las generó (ADR-038 + Fase B.4).
+- Dropdown de agentes filtrados por `ELIGIBLE_ROLES` del `source_system` (espejo de `core/tasks/auto-assign.ts → ROLES_BY_SOURCE`).
+- Botón secundario "Liberar a cola pública" → `assigned_to=null`.
+- El modal solo es visible si `canReassign={isAdmin}` en `TaskCard`.
+
+**Acciones permitidas por rol:**
+
+| Acción | superadmin | agent_full | agent_billing | agent_support |
+|--------|:---------:|:----------:|:-------------:|:-------------:|
+| Listar tasks (vía scope) | Todas | Mías + cola pública | Mías + cola pública | Mías + cola pública |
+| Asignarse desde cola pública | ✅ | ✅ | ✅ | ✅ |
+| Completar task asignada propia | ✅ | ✅ | ✅ | ✅ |
+| Reasignar a otro agente | ✅ | ❌ | ❌ | ❌ |
+| Liberar a cola pública | ✅ | ❌ | ❌ | ❌ |
+| Cancelar task (deprecated) | ✅ (DC.34 pendiente eliminación) | ❌ | ❌ | ❌ |
+
+> **Bridge ticket:** cancelar/reasignar ticket pasa a ser **competencia exclusiva del módulo support**. Agente en `/admin/support/[id]` cambia el agente asignado del ticket → emite `conversation.assigned` → listener crea/reasigna la task. Si admin desasigna → emite `conversation.unassigned` → listener cancela la task automáticamente. Cero acción manual sobre la task.
 
 ---
 
-## 9. Tags y catálogo extensible
+## 7. Auto-asignación V1 (ADR-079 §3.4)
 
-`/admin/task-tags` (sólo `superadmin` + `agent_full` con `Manage.TaskTag`):
+Helper canónico `autoAssignTask(prisma, task)` en `core/tasks/auto-assign.ts`. Se ejecuta al CREAR la task desde el listener:
 
-| Tag seedeado | Slug | Color sugerido |
-|--------------|------|----------------|
-| Bienvenida | `bienvenida` | brand |
-| Renovación | `renovacion` | success |
-| Incidencia | `incidencia` | danger |
-| Migración | `migracion` | warning |
-| Cortesía | `cortesia` | neutral |
+```typescript
+const ROLES_BY_SOURCE: Record<TaskSourceSystem, RoleSlug[]> = {
+  support_ticket:        ['agent_support', 'agent_full'],
+  support_inside_slot:   ['agent_support', 'agent_full'],
+  provisioning_manual:   ['agent_support', 'agent_full'],
+  client_lifecycle:      ['agent_support', 'agent_full', 'agent_billing'],
+  project:               [],  // sin auto-asignación; cola pública para que superadmin promueva
+};
+```
 
-**Crear tag inline:** desde el modal de "Nueva tarea" se puede crear un tag nuevo escribiendo el label; el slug se auto-genera kebab-case. Si dos labels colisionan: 409.
+**Algoritmo:** SELECT agente activo del rol elegible con menor count de tasks `pending|in_progress`. Empate → desempate aleatorio (no orden alfabético — evita sesgo sistemático).
 
-`agent_billing` y `agent_support` pueden **leer** el catálogo (necesario para etiquetar al crear tareas) pero **no editarlo** (evita proliferación descontrolada).
+**Casos especiales:**
+
+- **`support_ticket`**: hereda `assigned_to` del ticket directamente (el ticket ya viene asignado por el módulo support). NO invoca `autoAssignTask` (excepción documentada en el listener).
+- **`project`**: cola pública pura. Superadmin asigna manualmente al promover.
+
+> **Migración V2 (Sprint 12 — Settings + KB):** el mapping `ROLES_BY_SOURCE` y la fórmula "menor carga" se mueven a settings (`tasks.auto_assign_rules` jsonb). Mismo input/output → cero refactor del resto del sistema.
+
+---
+
+## 8. Priorización canónica (ADR-079 §3.3)
+
+Helper `calculateTaskPriority(sourceSystem, clientSITier)` en `core/tasks/priority-helper.ts`:
+
+```
+support_ticket  + cliente SI Pro       → critical
+support_ticket  + cliente SI Medium    → high
+support_ticket  + cliente SI Basic     → high
+support_ticket  + sin SI               → medium
+resto                                  → medium  (orden lo marca due_date / FIFO)
+```
+
+**Por qué casi todo `medium`:** el enum `TaskPriority` con 4 valores se mantiene PERO sólo `support_ticket` lo usa en práctica. Para el resto, la priorización entre tasks la marca el sistema vinculado (anniversary_day del slot, FIFO de creación, etc.), no un enum.
+
+> **Migración V2 (Sprint 12):** sustituir cuerpo del helper por lectura del setting `tasks.priority_rules` jsonb con mapping `source_system × clientSITier → priority`. Misma firma → cero refactor.
+
+---
+
+## 9. SLA canónico (ADR-079 §3.5)
+
+Helper `calculateTaskDueDate(sourceSystem, clientSITier, createdAt)` en `core/tasks/sla-helper.ts`:
+
+| `source_system` | SLA |
+|-----------------|-----|
+| `support_ticket` | tier SI Pro=4h, Medium=12h, Basic=24h, sin SI=24h (canónico ADR-061) |
+| `support_inside_slot` | fin del día (23:59 UTC del mismo día) — el agente tiene la jornada para completarlo |
+| `provisioning_manual` | 24h |
+| `client_lifecycle` | 48h (cliente nuevo no se siente abandonado — canónico ADR-079) |
+| `project` | null (sin SLA — los proyectos son trabajo de fondo) |
+
+Cron `tasks-overdue` (`0 2 * * *` UTC) consulta `due_date != null AND due_date < now() AND status IN ('pending','in_progress')`. Los proyectos quedan fuera por construcción.
 
 ---
 
@@ -190,35 +236,37 @@ Card persistente "Notas internas" en el detalle de la tarea (Sprint 8 Fase B.9):
 | Cola BullMQ | Schedule UTC | Servicio | Qué hace | Destinatario |
 |-------------|-------------|----------|----------|--------------|
 | `tasks-overdue` | `0 2 * * *` | `TasksOverdueService` | Marca tareas con asignado vencidas como `not_completed_in_time` (terminal) y emite `task.overdue` por cada una | Agente asignado |
-| `tasks-unassigned-overdue` | `0 9 * * *` | `TasksUnassignedOverdueService` | Detecta tareas en cola pública fuera de SLA por tipo (ADR-072 §4); emite **resumen agregado** | Superadmin |
-| `maintenance-critical` | `0 8 * * *` | `MaintenanceCriticalService` | Servicios con `service_checklist_items` lleno sin `maintenance_log` >`support.maintenance_critical_threshold_days` (default 60) | Superadmin |
-| `maintenance-monthly` | `0 6 * * *` | `MaintenanceMonthlyService` (Fase D.7 + D.12.1) | Genera `Task(type=maintenance_management)` por slot Support Inside cuyo `anniversary_day = EXTRACT(DAY FROM NOW())` | — (crea tareas) |
+| `tasks-unassigned-overdue` | `0 9 * * *` | `TasksUnassignedOverdueService` | Detecta tareas en cola pública fuera de SLA por `source_system` (ADR-072 + ADR-079 §3.4); emite resumen agregado | Superadmin |
+| `maintenance-critical` | `0 8 * * *` | `MaintenanceCriticalService` | Servicios con checklist sin `maintenance_log` >`support.maintenance_critical_threshold_days` (default 60) | Superadmin |
+| `maintenance-monthly` | `0 6 * * *` (filtro `anniversary_day = today`) | `MaintenanceMonthlyService` | Crea task `support_inside_slot` por cada slot activo cuyo aniversario es hoy | — (crea tasks) |
+| **`support-resolved-auto-close`** (Amendment A1) | **`30 2 * * *`** | **`SupportResolvedAutoCloseService`** | **Tickets en `resolved` desde >`support.auto_close_resolved_days` (default 7) → `→closed` silencioso. Emite `conversation.auto_closed` (notif al agente que resolvió).** | **Agente que resolvió + cliente notificado del cierre** |
 
-**Endpoint admin de disparo manual** (Sprint 8 Fase C.4):
+**Endpoint admin de disparo manual:**
 
 ```
 POST /api/v1/admin/tasks/cron/:name
-:name ∈ {overdue, unassigned-overdue, maintenance-critical, maintenance-monthly}
+:name ∈ {overdue, unassigned-overdue, maintenance-critical, maintenance-monthly, support-resolved-auto-close}
 ```
 
 Triple guard: `JwtAuthGuard + AdminOnlyGuard + Manage.Job` (sólo superadmin — disparar re-ejecuta side effects globales).
 
-**Casos de uso:**
-- Smoke testing manual antes de un release.
-- Recovery operativo cuando el cron real tuvo un incidente (Redis caído, despliegue tardío, etc.).
-- E2E tests deterministas en CI.
+**Casos de uso:** smoke testing manual, recovery operativo cuando el cron real tuvo un incidente, E2E tests deterministas.
+
+Detalle completo en [`docs/50-operations/jobs-reference.md`](../../50-operations/jobs-reference.md).
 
 ---
 
-## 11. CASL y permisos
+## 11. CASL y permisos (ADR-079 §3.10)
 
 | Subject | superadmin | agent_full | agent_billing | agent_support | client | partner |
 |---------|------------|------------|---------------|---------------|--------|---------|
-| `Task` | manage | manage | manage | manage | — | — |
-| `TaskTag` | manage | manage | read+list | read+list | — | — |
-| `Job` (cron trigger) | manage | — | — | — | — | — |
+| `Task` | Manage | Read+Update (own + cola pública) | Read+Update (own) | Read+Update (own) | — | — |
+| `ClientNote` | Manage | Manage | Read+Create+List | Read+Create+List | — | — |
+| `Job` | Manage | — | — | — | — | — |
 
-> **Nota ADR-067:** la matriz CASL es Opción A (todos los staff pueden gestionar tareas). El refinamiento `agent_billing` ≠ `agent_support` se hace por filtro de UI (algunos botones se ocultan) + filtro en service (los agentes no admin pleno solo ven sus tareas + cola pública). Si en el futuro se requiere split fino real (ej. `agent_billing` no toca tareas técnicas), se crea `Subject.TaskAdmin` aparte. Sprint 13 Hardening.
+> **`Subject.TaskTag` eliminado** en Sprint 16 (la tabla y los endpoints ya no existen).
+
+> **Reasignación entre agentes (Amendment A2):** sólo `superadmin`. `agent_full` perdió esta capacidad — la doctrina lo formaliza: la decisión de "quién hace este trabajo" la toma el superadmin, no cualquier agente con full access.
 
 ---
 
@@ -227,13 +275,14 @@ Triple guard: `JwtAuthGuard + AdminOnlyGuard + Manage.Job` (sólo superadmin —
 | Setting | Default | Cuándo aplica |
 |---------|---------|---------------|
 | `tasks.overdue_to_failure_days` | 7 | Días tras `due_date` para que el cron marque `not_completed_in_time` |
-| `tasks.unassigned_sla_hours.contact_client` | 24 | SLA cola pública por tipo |
-| `tasks.unassigned_sla_hours.maintenance` | 12 | |
-| `tasks.unassigned_sla_hours.maintenance_management` | 12 | |
-| `tasks.unassigned_sla_hours.custom_work` | 48 | |
-| `tasks.unassigned_sla_hours.support_setup` | 4 | Alta prioridad operativa |
+| `tasks.unassigned_sla_hours.support_ticket` | 4 | SLA cola pública por `source_system` |
+| `tasks.unassigned_sla_hours.support_inside_slot` | 12 | |
+| `tasks.unassigned_sla_hours.provisioning_manual` | 4 | Alta prioridad operativa |
+| `tasks.unassigned_sla_hours.client_lifecycle` | 24 | |
+| `tasks.unassigned_sla_hours.project` | 48 | |
 | `tasks.unassigned_sla_hours.default` | 24 | Fallback global |
 | `support.maintenance_critical_threshold_days` | 60 | Umbral crítico de mantenimiento desatendido |
+| **`support.auto_close_resolved_days`** | **7** | **Días que un ticket en `resolved` espera confirmación o respuesta del cliente antes del cierre silencioso (Amendment A1)** |
 
 Editables desde `/admin/settings` cuando Sprint 12 entregue la UI; hoy se editan en BD o vía seed.
 
@@ -241,47 +290,59 @@ Editables desde `/admin/settings` cuando Sprint 12 entregue la UI; hoy se editan
 
 ## 13. Plantillas de notificación
 
-Seedeadas en `prisma/seeds/notification-templates.ts` con guard EC-T8-17 (cero `{{{var}}}` ni `{{& var}}` — auditadas por `notification-templates.security.spec.ts`):
+Seedeadas en `prisma/seeds/notification-templates.ts` con guard EC-T8-17 (cero `{{{var}}}` ni `{{& var}}`):
 
-| Evento | Canales | Destinatario | Plantilla |
-|--------|---------|--------------|-----------|
-| `task.assigned` | email + internal | Agente | "Nueva tarea asignada: {{title}}" |
-| `task.completed` | email + internal | Cliente (si hay clientNotes y tipo ≠ maintenance) | "Tarea completada: {{title}}" |
-| `task.overdue` | email + internal | Agente | "Tarea vencida: {{title}}" |
-| `task.unassigned_overdue` | email + internal | Superadmin | Resumen agregado por tipo (sólo 20 entradas + sufijo "y N más") |
-| `maintenance.completed` | email + internal | Cliente | Resumen mensual del mantenimiento |
+| Evento | Canales | Destinatario | Notas |
+|--------|---------|--------------|-------|
+| `task.assigned` | email + internal | Agente | Subject: "Nueva tarea asignada" |
+| `task.completed` | email + internal | Cliente (si hay clientNotes y `source_system ≠ support_inside_slot`) | "Tarea completada" |
+| `task.overdue` | email + internal | Agente | "Tarea vencida" |
+| `task.unassigned_overdue` | email + internal | Superadmin | Resumen agregado por `source_system` (truncado a 20 entradas) |
+| `maintenance.completed` | email + internal | Cliente | Resumen mensual del mantenimiento (con `client_facing_notes`) |
 | `maintenance.critical` | email + internal | Superadmin | Resumen agregado de servicios sin maintenance_log >threshold |
+| **`conversation.resolved`** (Amendment A1, DC.33) | **email + internal** | **Cliente** | **Explica que el agente resolvió + 3 caminos: responder / confirmar / esperar 7 días** |
+| **`conversation.auto_closed`** (Amendment A1, DC.33) | **email + internal** | **Agente que resolvió** | **Informa el auto-cierre del ticket #X** |
 
-Editables desde `/admin/settings/notifications/templates` (Sprint 9.5 — UX admin de notifications).
-
----
-
-## 14. Eventos emitidos
-
-| Evento | Outbox | Estado |
-|--------|--------|--------|
-| `task.created` | ❌ | 🟡 huérfano (audit futuro Sprint 9 Fase E) |
-| `task.assigned` | ❌ | ✅ → `tasks-email.listener` |
-| `task.completed` | ❌ | ✅ → `task-completed.listener` |
-| `task.overdue` | ❌ operativo | ✅ → `TasksOverdueListener` |
-| `task.unassigned_overdue` | ❌ operativo | ✅ → `TasksUnassignedOverdueListener` |
-| `maintenance.completed` | ❌ pendiente Outbox | ✅ → `MaintenanceCompletedListener` |
-| `maintenance.critical` | ❌ operativo | ✅ → `MaintenanceCriticalListener` |
-
-> **R8 (Outbox):** los eventos task.* siguen sin Outbox. Riesgo bajo (no son críticos vs `invoice.*`). Migración formalizada como **P-DEPLOY.4** ([ADR-069](../../10-decisions/adr-069-estrategia-deploy-diferido.md)).
+Editables desde `/admin/settings/notifications/templates`.
 
 ---
 
-## 15. Dependencias cross-módulo
+## 14. Eventos emitidos / consumidos
+
+| Evento emitido | Outbox | Consumidor |
+|----------------|--------|------------|
+| `task.created` | ❌ | 🟡 huérfano (audit Sprint 9 Fase E) |
+| `task.assigned` | ❌ deuda P-DEPLOY.4 | ✅ `tasks-email.listener` |
+| `task.completed` | ❌ deuda P-DEPLOY.4 | ✅ `task-completed.listener` |
+| `task.overdue` | ❌ operativo | ✅ `TasksOverdueListener` |
+| `task.unassigned_overdue` | ❌ operativo | ✅ `TasksUnassignedOverdueListener` |
+| `maintenance.completed` | ❌ deuda P-DEPLOY.4 | ✅ `MaintenanceCompletedListener` |
+| `maintenance.critical` | ❌ operativo | ✅ `MaintenanceCriticalListener` |
+| **`conversation.resolved`** (Amendment A1) | ❌ deuda futura | ✅ `notifications-conversation-resolved.listener` (Fase 16.E DC.33) |
+| **`conversation.reactivated`** (Amendment A1) | ❌ deuda futura | ✅ `SupportTicketTaskCreatorListener.handleAssigned` (reuse) |
+| **`conversation.auto_closed`** (Amendment A1) | ❌ operativo | ✅ `notifications-conversation-auto-closed.listener` (Fase 16.E DC.33) |
+
+| Evento consumido por tasks | Listener |
+|---------------------------|----------|
+| `conversation.assigned` | `SupportTicketTaskCreatorListener.handleAssigned` — crea / reasigna task `support_ticket` (idempotente) |
+| `conversation.reactivated` (Amendment A1) | `SupportTicketTaskCreatorListener.handleAssigned` (reuse) — crea task NUEVA al reabrir / responder cliente sobre `resolved` |
+| `conversation.unassigned` | `SupportTicketTaskCreatorListener.handleUnassigned` — cancela task bridge con `skipTicketRelease` |
+| `service.activated` | `ClientLifecycleTaskCreatorListener` — si primer servicio del cliente: crea task `client_lifecycle` con SLA 48h |
+| `support_inside.slot_released` | `tasks-on-slot-released.listener` — cancela task `support_inside_slot` huérfana |
+| `service.cancelled` | `tasks-on-service-cancelled.listener` — cancela task `provisioning_manual` huérfana |
+
+---
+
+## 15. Dependencias cross-módulo (excepciones R1)
 
 | Módulo | Dirección | Razón |
 |--------|-----------|-------|
-| `auth (users)` | lectura | Resolver assignee/creator/client + validar `assertAssignableUser` |
+| `auth (users)` | lectura | Resolver assignee/client/completer + `assertAssignableUser` |
 | `notifications` | escritura | Crear notificación interna al agente |
-| `billing (services)` | lectura | Vincular tarea a servicio (contexto opcional) |
-| `support (conversations)` | escritura via `SupportService.updateConversation` | Bridge ticket↔task (ADR-074 — excepción documentada de R1) |
-| `clients (client_notes)` | escritura | Persistir notas técnicas + maintenance_log resumen |
-| `support_inside` | indirecto | Cron `maintenance-monthly` consume `support_inside_slots.anniversary_day` para distribuir carga (Fase D.12.1) |
+| `support (conversations)` | escritura via `SupportService.updateConversation` | Bridge ticket↔task — excepción documentada R1 ([ADR-074](../../10-decisions/adr-074-ticket-task-bridge.md)) |
+| `clients (client_notes)` | escritura via `ClientNotesService` | Persistir notas con source tracking (ADR-079 §3.8) — mismo módulo `clients`, no excepción R1 |
+| `support_inside` | indirecto | Cron `maintenance-monthly` consume `support_inside_slots.anniversary_day` |
+| `provisioning` | listener `provisioning-on-task-completed` | Plugin manual (`provisioning_manual`) — ADR-077 |
 
 Detalle en [`docs/20-modules/_matrix.md`](../../20-modules/_matrix.md).
 
@@ -289,43 +350,50 @@ Detalle en [`docs/20-modules/_matrix.md`](../../20-modules/_matrix.md).
 
 ## 16. Edge cases más relevantes
 
-Lista canónica completa (50 EC) en [`docs/60-roadmap/current.md` §6 Sprint 8](../../60-roadmap/current.md). Resumen operativo:
+Lista canónica completa en [`contract.md` §16](../../20-modules/tasks/contract.md). Resumen operativo:
 
 | ID | Caso | Estado |
 |----|------|--------|
 | EC-T8-01 | Maintenance se cierra sin marcar checklist requerido | ✅ Bloqueado con 400 + `missing_required` |
 | EC-T8-12 | `due_date` en el pasado | ✅ Validación + bypass interno crons |
-| EC-T8-19/20/21 | Reabrir/reasignar/editar prioridad de tarea cerrada | ✅ Bloqueado (TERMINAL_STATES guard) |
-| EC-T8-22 | Auto-asignación cola pública | ✅ ADR-072 |
-| EC-T8-24 | Race condition: dos agentes toman la misma tarea sin asignar | 🟡 Sprint 8 Fase C extendida (compare-and-swap) |
+| EC-T8-19/20/21 | Reabrir/reasignar/editar prioridad de task cerrada | ✅ Bloqueado (TERMINAL_STATES guard) |
+| EC-T8-22 | Auto-asignación cola pública | ✅ ADR-072 + ADR-079 §3.4 |
 | EC-T8-28 | Listener `task.assigned` falla → evento perdido | ⬜ P-DEPLOY.4 (Outbox) |
 | EC-T8-34 | Tabla `tasks` crece indefinidamente | ⬜ Sprint 13 Hardening (archivado >1 año) |
+| **DC.34** | Eliminar físicamente endpoint `/tasks/:id/cancel` | ⬜ Sub-sprint limpieza |
+| **DC.35** | Regenerar task automáticamente al vencer (`task.overdue` → nueva task) | ⬜ Sprint 16 Fase 16.D residual / sub-sprint |
+| **DC.36** | Linkear `task_completion` notes al sistema vinculado original | ⬜ Sprint 22 / Sprint 13 |
 
 ---
 
-## 17. Cómo testear este módulo (manual)
+## 17. Cómo testear este módulo (smoke manual canónico)
 
-1. **Login admin** → `/admin/tasks` → tab "Mis" → debería mostrar tareas asignadas a ti.
-2. **Crear tarea** con `type=contact_client` + cliente + `service_id` → comprobar que el detalle muestra el bloque "Datos del cliente y plan".
-3. **Tab "Sin asignar"** → tomar una tarea (auto-asignación) → debe aparecer ahora en "Mis".
-4. **Login agent_billing** → `/admin/tasks` → no ves tareas asignadas a otros agentes salvo en "Sin asignar".
-5. **Crear tarea `maintenance`** con `service_id` → completar sin marcar checklist requerido → debe rechazar con 400 y resaltar items en rojo.
-6. **Marcar checklist + completar y notificar** → cliente recibe email con el resumen del mantenimiento.
-7. **Asignar un ticket de soporte** → ir a `/admin/tasks` → debe haber una task `support_ticket` nueva con `conversation_id`.
-8. **Completar la task bridge** modo `resolve` → ticket queda en `resolved` + cliente recibe la plantilla de support (no de tasks).
-9. **Disparar cron `tasks-overdue` manualmente** desde superadmin → tareas vencidas pasan a `not_completed_in_time` + agente recibe email.
+1. **Cliente Carla compra primer servicio** → task `client_lifecycle` aparece en widget agente → completar con nota obligatoria → verificar `client_notes` con `source_system='task_completion'` + `triggered_by_action='task.completed'` + `category='onboarding'`.
+2. **Asignar ticket support a Carla** → task `support_ticket` aparece con badge `[SI <tier>]` → completar inline → ticket cerrado + nota en `client_notes` con `source_system='ticket'`.
+3. **Cron `maintenance-monthly` (disparo manual)** crea task `support_inside_slot` → completar con maintenance log → ver email cliente con `client_facing_notes` + nota interna en `client_notes` con `source_system='maintenance_log'`.
+4. **Cliente compra producto manual (plugin `manual`)** → task `provisioning_manual` aparece → marcar setup completado con nota → service activado.
+5. **Widget sidebar** muestra badge numérico correcto (count tasks pendientes del agente).
+6. **Widget dashboard** muestra top 5 tasks ordenadas por regla canónica §3.
+7. **Superadmin toggle "Ver todas las tareas"** muestra tasks de todos los agentes; reasignación funciona vía `ReassignTaskModal`.
+8. **Agente perfil cliente → "Añadir nota excepcional"** → modal → nota creada con `source_system='exceptional'`.
+9. **Cron `support-resolved-auto-close` (Amendment A1)** → ticket en `resolved` >7d pasa a `closed` silencioso + agente recibe email `conversation.auto_closed`.
+10. **Cliente responde sobre ticket `resolved`** → emite `conversation.reactivated` → nueva task bridge nace en cola pública.
 
 ---
 
 ## 18. Referencias
 
-- [ADR-041](../../10-decisions/adr-041-sistema-tareas.md) — Sistema de tareas internas (canónico)
+- [ADR-079](../../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) — **Doctrina canónica vigente** + Amendments A1/A2/A3
+- [ADR-041](../../10-decisions/adr-041-sistema-tareas.md) — Sistema de tareas v1 (parcialmente superseded)
 - [ADR-067](../../10-decisions/adr-067-granularidad-casl-rol-staff.md) — Granularidad CASL por rol staff
-- [ADR-072](../../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md) — Cola pública + SLA
-- [ADR-073](../../10-decisions/adr-073-tipos-flexibles-tasks-reason-tags.md) — Tipos flexibles (reason + tags)
-- [ADR-074](../../10-decisions/adr-074-ticket-task-bridge.md) — Bridge ticket↔task + 12 edge cases
+- [ADR-072](../../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md) — Cola pública + SLA (refinada)
+- [ADR-074](../../10-decisions/adr-074-ticket-task-bridge.md) — Bridge ticket↔task (refinada)
+- [ADR-077](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) — Contrato `ProvisionerPlugin` v2
 - [`docs/20-modules/tasks/contract.md`](../../20-modules/tasks/contract.md) — Contract canónico
 - [`docs/30-data/tasks.md`](../../30-data/tasks.md) — Schema canónico
+- [`docs/features/notes/admin.md`](../notes/admin.md) — Operativa staff sobre notas consolidadas
+- [`docs/features/support/lifecycle.md`](../support/lifecycle.md) — Lifecycle canónico ticket vs chat
 - [`docs/50-operations/jobs-reference.md`](../../50-operations/jobs-reference.md) — Crons + colas
 - [`docs/50-operations/settings-reference.md`](../../50-operations/settings-reference.md) — Settings
-- [`docs/features/tasks/agent.md`](./agent.md) — Vista del agente (operativa diaria)
+- [`docs/features/tasks/agent.md`](./agent.md) — Vista agente (operativa diaria)
+- [`docs/60-roadmap/completed/sprint-16-tasks-notes-refactor.md`](../../60-roadmap/completed/sprint-16-tasks-notes-refactor.md) — Retrospectiva

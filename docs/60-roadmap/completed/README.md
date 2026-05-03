@@ -24,8 +24,9 @@
 | **9.6** | Split admin/cliente + 3 portales raíz (P1.1.6 / DC.7) | [sprint-9-6-split-admin-cliente.md](./sprint-9-6-split-admin-cliente.md) | ✅ (cerrado 2026-04-28) |
 | **11.5** | MinIO Storage local (P1.2) | [sprint-11-5-minio-storage.md](./sprint-11-5-minio-storage.md) | ✅ (cerrado 2026-04-26) |
 | **11** | Provisioning (P2.1 — orquestador + chasis canónico + plugins triviales + frontend) | [sprint-11-provisioning.md](./sprint-11-provisioning.md) | ✅ (cerrado 2026-05-02) |
+| **16** | Tasks refactor + Notes consolidation (P2.1.5 — bridge unidireccional canónico ADR-079 + Amendments A1/A2/A3) | [sprint-16-tasks-notes-refactor.md](./sprint-16-tasks-notes-refactor.md) | ✅ (cerrado 2026-05-02) |
 
-**Total cerrados:** 14 sprints (Sprint 7/7.5 son sprints paraguas continuos, no se cierran formalmente hasta Sprint 14).
+**Total cerrados:** 15 sprints (Sprint 7/7.5 son sprints paraguas continuos, no se cierran formalmente hasta Sprint 14).
 
 ---
 

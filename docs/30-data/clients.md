@@ -18,7 +18,7 @@
 | `client_folders` | ⬜ | 4 | Carpetas opcionales del cliente para organizar sus servicios |
 | `client_service_folders` | ⬜ | 4 | Relación servicio ↔ carpeta |
 | `client_service_tags` | ⬜ | 4 | Etiquetas opcionales del cliente sobre sus servicios |
-| `client_notes` | ✅ | 7 | Notas estructuradas del agente sobre el cliente (categorizadas + pinned) |
+| `client_notes` | ✅ | 7 + refactor 16 | Notas estructuradas con source tracking polimórfico (`source_system` + `source_id` + `triggered_by_action`). Canónico ADR-079 §3.8. |
 
 ---
 
@@ -155,51 +155,57 @@ Etiquetas opcionales del cliente sobre sus servicios. Múltiples por servicio.
 
 ---
 
-## Tabla: `client_notes` ✅ (Sprint 7)
+## Tabla: `client_notes` ✅ (Sprint 7 → refactor canónico Sprint 16)
 
-> 🚧 **SCHEMA YA MIGRADO — Sprint 16 Fase 16.B mergeada (2026-05-02, PR #22)**
->
-> La migración `sprint16_tasks_notes_refactor` aplicó el modelo canónico ADR-079 §3.8 sobre `client_notes`:
-> - Drop de columnas legacy `conversation_id` + `task_id`.
-> - Añadidos: `source_system` enum (`ticket`/`chat`/`maintenance_log`/`task_completion`/`exceptional`), `source_id` uuid (polimórfico, **sin FK física** — el ADR mencionaba FK opcional a Task pero una FK simple en Postgres rechazaba notas con `source_id` apuntando a conversation_id, así que la integridad se valida a nivel listener).
-> - Añadido `triggered_by_action` varchar(100) — acciones canónicas: `ticket.resolved`, `ticket.closed`, `task.completed`, `maintenance.completed`, `manual_entry`.
-> - Enum `NoteCategory` reemplazado completo: ahora `support`, `maintenance`, `onboarding`, `billing`, `project`, `technical_incident`, `exceptional` (los 5 valores legacy ya no existen).
-> - `Task.client_note` y `MaintenanceLog.internal_notes` eliminados; su contenido vive ahora en `client_notes` con su `source_system` correspondiente. `MaintenanceLog.notes` renombrado a `client_facing_notes`.
->
-> El contenido §`client_notes` de abajo refleja el estado PRE-Sprint 16 — Fase 16.E lo reescribe.
+> **Doctrina canónica vigente: [ADR-079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) §3.8** + Amendment A3 (lifecycle chat: ClientNote canónica con `source_system='chat'`).
+> Una sola tabla de notas; todas las acciones del staff sobre el cliente quedan registradas con source tracking polimórfico. Refina ADR-038 §"Categorías" + §"Origen de la nota".
 
-Notas estructuradas del cliente. Reemplaza el campo de texto `client_profiles.notes_internal`. Permite categorización, autoría, vinculación a conversaciones, y pin. Decisión [ADR-038](../10-decisions/adr-038-notas-estructuradas-cliente.md), refinada por [ADR-079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) §3.8.
+Notas estructuradas del cliente. Cada acción significativa del agente sobre un cliente (cerrar ticket, completar mantenimiento, registrar llamada de bienvenida, completar setup manual, marcar item de proyecto, nota libre desde perfil cliente) deja un `client_notes` con `source_system` + `source_id` + `triggered_by_action`. Reemplaza el campo legacy `client_profiles.notes_internal`.
 
-**Enum `NoteCategory` (vigente pre-Sprint 16):** `conversation` · `solution` · `billing` · `technical` · `general`
+**Enum `NoteCategory` (canónico Sprint 16):** `support` · `maintenance` · `onboarding` · `billing` · `project` · `technical_incident` · `exceptional`
+
+**Enum `NoteSourceSystem` (nuevo Sprint 16):** `ticket` · `chat` · `maintenance_log` · `task_completion` · `exceptional`
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
 | `id` | uuid | PK, DEFAULT `gen_random_uuid()` | |
 | `user_id` | uuid | NOT NULL, FK → `users(id)` ON DELETE CASCADE | Cliente al que pertenece la nota |
-| `author_id` | uuid | NOT NULL, FK → `users(id)` | Agente/admin que creó la nota |
-| `conversation_id` | uuid | NULLABLE, FK → `conversations(id)` ON DELETE SET NULL | Conversación de origen (si aplica) |
-| `task_id` | uuid | NULLABLE, FK → `tasks(id)` ON DELETE SET NULL | Sprint 8 Fase A — task que generó la nota (mantenimientos, WOW calls, etc.). Permite agrupar la timeline del cliente por task de origen. |
+| `author_id` | uuid | NOT NULL, FK → `users(id)` ON DELETE RESTRICT | Staff que escribió. RESTRICT para impedir borrado de usuario con notas |
+| `category` | enum `NoteCategory` | NOT NULL | 7 valores canónicos: `support` (tickets/chats) · `maintenance` (mantenimientos) · `onboarding` (bienvenida primer servicio) · `billing` (notas relacionadas con facturación) · `project` (notas de proyectos) · `technical_incident` (notas de incidentes técnicos del cliente) · `exceptional` (nota libre del agente desde perfil cliente, sin actuador) |
 | `body` | text | NOT NULL | Contenido de la nota |
-| `category` | enum `NoteCategory` | NOT NULL, DEFAULT `'general'` | Tipo de nota |
+| **`source_system`** | enum `NoteSourceSystem` | NOT NULL | 5 valores canónicos: `ticket` (ticket cerrado/resolved → nota) · `chat` (Amendment A3 — chat resuelto → nota) · `maintenance_log` (mantenimiento completado) · `task_completion` (task non-bridge completada: `provisioning_manual`/`client_lifecycle`/`project`) · `exceptional` (nota libre desde perfil cliente) |
+| **`source_id`** | uuid | NULLABLE | ID en el sistema vinculado (`conversation_id` para `ticket`/`chat`, `slot_id` para `maintenance_log`, `task_id` para `task_completion`, `project_id` para project notes via task). **Sin FK física** salvo relación opcional declarada Prisma a `Task` (cuando `source_system='task_completion'`) — la integridad la valida el listener emisor. null sólo para `exceptional`. |
+| **`triggered_by_action`** | varchar(100) | NULLABLE | Acciones canónicas: `ticket.resolved` · `ticket.closed` · `chat.resolved` · `task.completed` · `maintenance.completed` · `manual_entry` (alias de `exceptional`). Sirve para audit / filtrado fino. |
 | `is_pinned` | boolean | NOT NULL, DEFAULT `false` | Notas fijadas aparecen primero |
 | `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 
 **Índices:**
-- `idx_client_notes_user_id` — en `user_id`
-- `idx_client_notes_conversation_id` — en `conversation_id`
-- `idx_client_notes_task_id` — en `task_id` (Sprint 8 Fase A)
+- `idx_client_notes_user_created` — `(user_id, created_at DESC)` — listado timeline cliente.
+- `idx_client_notes_author` — `author_id`.
+- `idx_client_notes_source` — `(source_system, source_id)` — para enriquecer con info del sistema vinculado.
+- `idx_client_notes_category` — `category`.
 
-**Auto-creación:**
-- Al enviar mensaje interno (`is_internal = true`) → categoría `conversation`.
-- Al resolver/cerrar una conversación → categoría `solution` (transición obligatoria — [ADR-039](../10-decisions/adr-039-nota-obligatoria-transiciones.md)).
-- Al reabrir una conversación → categoría `general`.
-- Al crear nota desde la ficha → categoría seleccionada por el agente.
-- Al completar una task tipo `maintenance` o `wow_call` (Sprint 8 Fase B) → categoría `solution` con `task_id` populado. La página `/admin/clients/[id]` (`ClientNotesTab`) las agrupa por task en la timeline.
+**Cambios respecto al schema pre-Sprint 16:**
 
-**Coexistencia con `tasks.client_note` (decisión Sprint 8 §3.4):**
-- `tasks.client_note` (text inline) — nota rápida del agente al ejecutar la task.
-- `client_notes.task_id` (FK estructurada) — nota persistida en la timeline del cliente, visible en su ficha.
-- Ambos coexisten con propósitos distintos. Ver [tasks.md](./tasks.md) §`tasks` notas de decisión.
+| Cambio | Tipo |
+|--------|------|
+| Drop columnas `conversation_id` + `task_id` directas | breaking — reemplazadas por `(source_system, source_id)` polimórfico. |
+| Drop enum `NoteCategory` legacy (`conversation`/`solution`/`billing`/`technical`/`general`) | breaking — mapping intencional perdido (Opción B drop+reseed por ADR-069 pre-producción). El enum canónico nuevo no es backward-compatible. |
+| Añadir `source_system` enum `NoteSourceSystem` (NOT NULL) | nuevo |
+| Añadir `source_id` uuid (NULLABLE, sin FK física salvo opcional a `Task`) | nuevo |
+| Añadir `triggered_by_action` varchar(100) (NULLABLE) | nuevo |
+
+**Punto canónico de creación — `ClientNotesService` (consolidado Sprint 16 en `modules/clients/`):**
+
+| Método | Trigger | `source_system` / `category` / `triggered_by_action` |
+|--------|---------|------------------------------------------------------|
+| `createFromTicketCompletion(...)` | Agente resuelve/cierra ticket | `source_system='ticket'`, `category='support'`, `triggered_by_action='ticket.resolved'` o `'ticket.closed'` |
+| `createFromChatCompletion(...)` (Amendment A3) | Chat se resuelve manualmente o por escalación | `source_system='chat'`, `category='support'`, `triggered_by_action='chat.resolved'` |
+| `createFromMaintenanceCompletion(...)` | `MaintenanceLogService.recordCompletion()` (atómico) | `source_system='maintenance_log'`, `category='maintenance'`, `triggered_by_action='maintenance.completed'` |
+| `createFromTaskCompletion(...)` | Agente completa task `provisioning_manual` / `client_lifecycle` / `project` | `source_system='task_completion'`, `category` según `source_system` de la task: `'support'` / `'onboarding'` / `'project'`, `triggered_by_action='task.completed'` |
+| `createExceptional(...)` | Endpoint `POST /admin/clients/:id/structured-notes` (única vía pública libre) | `source_system='exceptional'`, `category='exceptional'`, `triggered_by_action='manual_entry'`. Restringido a `Manage.ClientNote`. |
+
+**Nota obligatoria al completar (ADR-079 §3.9):** los modales de completar task `provisioning_manual` / `client_lifecycle` / `project` exigen nota obligatoria. Para `support_ticket` y `support_inside_slot` la nota la captura el modal del sistema vinculado (`Resolver ticket` con `internal_note` / `Completar mantenimiento` con `internal_notes`).
 
 ---
 
@@ -213,9 +219,15 @@ users (cliente)
   ├── client_folders (1:N)           ← organización personal del cliente
   │     └── client_service_folders (N:1) → services
   ├── client_service_tags (1:N)      ← etiquetas sobre servicios
-  └── client_notes (1:N)             ← notas estructuradas del agente
-        ├── conversation_id (nullable) → conversations
-        └── task_id (nullable, Sprint 8 Fase A) → tasks  (timeline agrupada por task)
+  └── client_notes (1:N)             ← notas estructuradas (canónico Sprint 16)
+        ├── source_system enum (5 valores cerrados)
+        ├── source_id (polimórfico, sin FK física salvo opcional a Task)
+        │     ├── source_system='ticket'         → conversations(id)
+        │     ├── source_system='chat'           → conversations(id)
+        │     ├── source_system='maintenance_log'→ support_inside_slots(id)
+        │     ├── source_system='task_completion'→ tasks(id)  (FK opcional Prisma)
+        │     └── source_system='exceptional'    → null
+        └── triggered_by_action (varchar 100)
 ```
 
 ---
@@ -225,10 +237,10 @@ users (cliente)
 - **Apuntan aquí:**
   - `services.billing_profile_id` → `billing_profiles` ([billing.md](./billing.md))
   - `invoices.billing_profile_id` → `billing_profiles` ([billing.md](./billing.md))
-  - `client_notes.conversation_id` → `conversations` ([support.md](./support.md))
-  - `client_notes.task_id` → `tasks` ([tasks.md](./tasks.md)) — Sprint 8 Fase A.
+  - `client_notes.source_id` (cuando `source_system='task_completion'`) → `tasks` ([tasks.md](./tasks.md)) — FK opcional declarada Prisma como relation `TaskClientNotes`.
 - **Audit:** todo cambio en `client_profiles` o `billing_profiles` genera entrada en `audit.change_log`. Cada acceso a la ficha del cliente queda en `audit.access_log` ([audit.md](./audit.md)).
-- **ADRs principales:** [045](../10-decisions/adr-045-gestion-clientes-crm.md) (CRM ligero), [038](../10-decisions/adr-038-notas-estructuradas-cliente.md) (notas), [039](../10-decisions/adr-039-nota-obligatoria-transiciones.md) (nota obligatoria en transiciones), [060](../10-decisions/adr-060-decisiones-pre-schema.md) (perfiles fiscales múltiples).
+- **ADRs principales:** [045](../10-decisions/adr-045-gestion-clientes-crm.md) (CRM ligero), [038](../10-decisions/adr-038-notas-estructuradas-cliente.md) (notas — parcialmente superseded por ADR-079 §3.8), [039](../10-decisions/adr-039-nota-obligatoria-transiciones.md) (nota obligatoria — refinada por ADR-079 §3.9), [060](../10-decisions/adr-060-decisiones-pre-schema.md), **[079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) (canónico vigente)**.
 - **Eventos:** `client.registered`, `client.wow_pending` — ver [`_events.md`](../20-modules/_events.md).
 - **Settings consumidos:** ninguno directo (los relacionados son de billing y notifications).
 - **Errores API:** `USER_NOT_FOUND`, `BILLING_PROFILE_NOT_FOUND`, `NOTE_NOT_FOUND` — ver [api-errors](../50-operations/api-errors.md).
+- **Operativa staff:** [`docs/features/notes/admin.md`](../features/notes/admin.md) — guía consolidada de operativa de notas (Sprint 16 Fase 16.E).
