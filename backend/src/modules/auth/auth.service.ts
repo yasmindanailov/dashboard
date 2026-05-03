@@ -54,8 +54,8 @@ export class AuthService {
   }
 
   /* ── Tokens & Sessions ── */
-  refresh(refreshToken: string, ip: string) {
-    return this.tokenService.refresh(refreshToken, ip);
+  refresh(refreshToken: string, ip: string, userAgent?: string) {
+    return this.tokenService.refresh(refreshToken, ip, userAgent);
   }
 
   logout(userId: string, accessToken: string) {

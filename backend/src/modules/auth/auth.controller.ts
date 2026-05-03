@@ -68,17 +68,27 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Refresh access token using refresh token' })
+  @ApiOperation({
+    summary:
+      'Refresh tokens (rotación + replay detection — ADR-078 §1.4 + Sprint 13 §13.AUTH Fase B)',
+  })
   async refresh(@Req() req: Request) {
-    // Read refresh token from cookie or body. Express tipa cookies/body como
-    // `any` por defecto — narrowing manual para satisfacer no-unsafe-*.
+    // Read refresh token from cookie (legacy: `refresh_token`) or body. Express
+    // tipa cookies/body como `any` por defecto — narrowing manual para satisfacer
+    // no-unsafe-*. En Modelo A (Amendment A1) la Server Action `refreshAction`
+    // de Next.js lee la cookie httpOnly del dominio Next.js y la envía en body
+    // (`refresh_token`); las cookies del backend se quedan como camino legacy.
     const cookies = req.cookies as Record<string, string> | undefined;
     const body = req.body as { refresh_token?: string } | undefined;
     const refreshToken = cookies?.refresh_token ?? body?.refresh_token;
     if (!refreshToken) {
       throw new Error('Refresh token not provided');
     }
-    return this.authService.refresh(refreshToken, this.getIp(req));
+    return this.authService.refresh(
+      refreshToken,
+      this.getIp(req),
+      req.headers['user-agent'],
+    );
   }
 
   @Post('logout')

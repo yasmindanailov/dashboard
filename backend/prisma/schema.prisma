@@ -105,10 +105,29 @@ model Session {
   expires_at   DateTime @db.Timestamptz()
   created_at   DateTime @default(now()) @db.Timestamptz()
 
+  /// Sprint 13 §13.AUTH Fase B (ADR-078 §1.4) — refresh rotation con replay
+  /// detection. NULL = refresh todavía válido. Cuando se canjea, se marca con
+  /// timestamp y se enlaza a la sesión nueva via `replaced_by_session_id`.
+  /// Si llega un refresh con `used_at IS NOT NULL` → REPLAY → revoca la cadena
+  /// completa del user (`updateMany`) + emit `auth.refresh_replay_detected`.
+  used_at                DateTime? @db.Timestamptz()
+  /// FK self con `onDelete: SetNull` — la sesión vieja apunta a la nueva. Si
+  /// la nueva se borra (cascade del user), esta queda apuntando a NULL.
+  replaced_by_session_id String?   @db.Uuid
+  replaced_by            Session?  @relation("SessionReplay", fields: [replaced_by_session_id], references: [id], onDelete: SetNull)
+  replaces               Session[] @relation("SessionReplay")
+  /// Razón canónica de revocación (cuando `is_active=false`). NULL si la
+  /// sesión sigue activa o caducó por TTL sin acción explícita.
+  /// Valores: 'logout' | 'replay_detected' | 'manual_revoke' | 'expired' | 'rotated'.
+  /// 'rotated' = refresh canjeado en el flow normal (la sesión nueva es la
+  /// referenciada por `replaced_by_session_id` y mantiene la cadena viva).
+  revoked_reason         String?   @db.VarChar(50)
+
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
   @@index([is_active])
+  @@index([used_at])
   @@map("sessions")
 }
 
