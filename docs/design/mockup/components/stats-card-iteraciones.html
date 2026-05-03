@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · StatsCard — iteraciones</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+  @media (max-width: 1100px) { .grid-4, .grid-3 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 700px)  { .grid-4, .grid-3 { grid-template-columns: 1fr; } }
+
+  .section-frame {
+    background: var(--surface-secondary);
+    padding: var(--space-6);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-6);
+    border: 1px solid var(--border);
+  }
+
+  /* ─────────── Alt A · Narrativa ─────────── */
+  .stat-narr {
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .stat-narr .lede {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin: 0;
+  }
+  .stat-narr .lede .num-big {
+    display: block;
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    font-feature-settings: var(--font-feature-numeric);
+    font-variant-numeric: tabular-nums lining-nums;
+    margin: var(--space-2) 0;
+  }
+  .stat-narr .closing {
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-medium);
+    margin: 0;
+  }
+
+  /* ─────────── Alt B · Action-oriented ─────────── */
+  .stat-action {
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    cursor: pointer;
+    transition: border-color var(--transition-fast) var(--ease-out),
+                background var(--transition-fast) var(--ease-out),
+                box-shadow var(--transition-fast) var(--ease-out);
+  }
+  .stat-action:hover {
+    border-color: var(--brand);
+    background: var(--brand-subtle);
+    box-shadow: var(--shadow-xs);
+  }
+  .stat-action:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-color: var(--brand);
+  }
+  .stat-action .head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+  }
+  .stat-action .value {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    font-feature-settings: var(--font-feature-numeric);
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  .stat-action .context { font-size: var(--font-size-xs); color: var(--text-tertiary); margin: 0; }
+  .stat-action .cta {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--brand);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+  }
+  .stat-action .cta .arrow { transition: transform var(--transition-fast) var(--ease-out); }
+  .stat-action:hover .cta .arrow { transform: translateX(4px); }
+
+  /* ─────────── Alt C · Dual-rombo (salud) ─────────── */
+  .stat-rombo {
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .stat-rombo .head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+    margin-bottom: var(--space-1);
+  }
+  .stat-rombo .marker {
+    display: inline-flex;
+    gap: 3px;
+  }
+  .stat-rombo .marker .r {
+    width: 8px; height: 8px;
+    border-radius: 1px;
+    transform: rotate(45deg);
+  }
+  .stat-rombo[data-health="ok"]    .marker .r { background: var(--success); }
+  .stat-rombo[data-health="warn"]  .marker .r { background: var(--warning); }
+  .stat-rombo[data-health="warn"]  .marker .r:nth-child(2) { background: var(--surface-tertiary); }
+  .stat-rombo[data-health="alert"] .marker .r { background: var(--danger); }
+  .stat-rombo[data-health="alert"] .marker .r:nth-child(2) { background: var(--surface-tertiary); }
+  .stat-rombo[data-health="alert"] .marker .r:first-child { animation: rombo-pulse-alert 1.4s var(--ease-in-out) infinite; }
+  @keyframes rombo-pulse-alert {
+    0%, 100% { opacity: 0.4; }
+    50%      { opacity: 1; }
+  }
+  .stat-rombo .value {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    font-feature-settings: var(--font-feature-numeric);
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  .stat-rombo .context { font-size: var(--font-size-sm); color: var(--text-secondary); margin: 0; }
+
+  /* ─────────── Alt D · Big eyebrow + airada ─────────── */
+  .stat-airy {
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-6) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-height: 200px;
+  }
+  .stat-airy .eyebrow-line {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--brand);
+    font-weight: var(--font-weight-medium);
+  }
+  .stat-airy .eyebrow-line::before {
+    content: "";
+    width: 8px; height: 8px;
+    border-radius: 1px;
+    background: var(--brand);
+    transform: rotate(45deg);
+  }
+  .stat-airy .value {
+    font-size: var(--font-size-4xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    font-feature-settings: var(--font-feature-numeric);
+    font-variant-numeric: tabular-nums lining-nums;
+    margin: 0;
+  }
+  .stat-airy .closing {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin: 0;
+  }
+  .stat-airy .closing strong { color: var(--text-primary); font-weight: var(--font-weight-medium); }
+
+  /* Nota labels */
+  .alt-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: var(--font-weight-medium);
+    margin-bottom: var(--space-3);
+  }
+  .alt-label::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 1px;
+    background: var(--text-tertiary);
+    transform: rotate(45deg);
+    opacity: 0.5;
+  }
+  .alt-title { font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); margin: 0 0 var(--space-1); }
+  .alt-desc  { font-size: var(--font-size-sm); color: var(--text-secondary); margin: 0 0 var(--space-4); line-height: var(--line-height-relaxed); }
+
+  /* Voto comparativo */
+  .verdict-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); margin-top: var(--space-4); }
+  .verdict-table th, .verdict-table td { padding: var(--space-3); border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  .verdict-table th { background: var(--surface-secondary); color: var(--text-secondary); font-weight: var(--font-weight-medium); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; }
+  .verdict-table .good { color: var(--success-strong); font-weight: var(--font-weight-medium); }
+  .verdict-table .meh  { color: var(--warning-strong); font-weight: var(--font-weight-medium); }
+  .verdict-table .bad  { color: var(--danger-strong);  font-weight: var(--font-weight-medium); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Iteración · StatsCard</div>
+      <h1 class="page-title">¿Cómo se ve un StatsCard de Aelium?</h1>
+      <p class="page-lede">
+        El StatsCard inicial se sentía SaaS-genérico. Aquí van <strong>4 alternativas</strong> con la misma métrica, distintos enfoques. Compara y dime cuál carga más a Aelium — o qué elementos combinar.
+      </p>
+    </header>
+
+    <!-- ─────────── Versión inicial · referencia ─────────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Referencia · versión inicial</h2>
+        <span class="section-num">00</span>
+      </div>
+      <p class="section-lede">Lo que tenemos hoy — patrón estándar SaaS. Todas las alternativas se comparan contra esto.</p>
+
+      <div class="section-frame">
+        <div class="grid-4">
+          <div class="stats-card accent-success">
+            <div class="stats-card-header">
+              <span class="stats-card-label">Ingresos del mes</span>
+              <span class="stats-card-icon icon-success"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+            </div>
+            <div class="stats-card-value">12.450&nbsp;€</div>
+            <span class="stats-card-trend up"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="100%" height="100%"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span> 12% vs. mes anterior</span>
+          </div>
+          <div class="stats-card accent-brand">
+            <div class="stats-card-header">
+              <span class="stats-card-label">Clientes activos</span>
+            </div>
+            <div class="stats-card-value">147</div>
+            <p class="stats-card-subtext">+8 este mes</p>
+          </div>
+          <div class="stats-card accent-warning">
+            <div class="stats-card-header">
+              <span class="stats-card-label">Tickets abiertos</span>
+            </div>
+            <div class="stats-card-value">12</div>
+            <p class="stats-card-subtext">3 sin asignar</p>
+          </div>
+          <div class="stats-card accent-danger">
+            <div class="stats-card-header">
+              <span class="stats-card-label">Pagos pendientes</span>
+            </div>
+            <div class="stats-card-value">4 · 1.230&nbsp;€</div>
+            <p class="stats-card-subtext">más antiguo: 12 días</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── ALT A · NARRATIVA ─────────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Alt A · Narrativa</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">El número está envuelto en una frase. Voz Aelium completa: el socio te cuenta qué pasó, no te da una métrica seca. La marca anima.</p>
+
+      <div class="section-frame">
+        <div class="grid-4">
+          <div class="stat-narr">
+            <p class="lede">
+              Este mes cobraste
+              <span class="num-big">12.450&nbsp;€</span>
+            </p>
+            <p class="closing">1.380&nbsp;€ más que en abril. Vas mejor.</p>
+          </div>
+          <div class="stat-narr">
+            <p class="lede">
+              Tienes
+              <span class="num-big">147</span>
+              clientes activos.
+            </p>
+            <p class="closing">8 nuevos este mes. Buen ritmo.</p>
+          </div>
+          <div class="stat-narr">
+            <p class="lede">
+              Hay
+              <span class="num-big">12</span>
+              tickets abiertos.
+            </p>
+            <p class="closing">3 sin asignar. Échales un ojo cuando puedas.</p>
+          </div>
+          <div class="stat-narr">
+            <p class="lede">
+              Te deben
+              <span class="num-big">1.230&nbsp;€</span>
+              en 4 facturas.
+            </p>
+            <p class="closing">La más antigua, hace 12 días. Conviene revisarlas hoy.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── ALT B · ACTION-ORIENTED ─────────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Alt B · Action-oriented</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">La card es clickable. Hover brand-tinted, focus ring. Cada métrica te lleva a la lista filtrada o a la siguiente acción. Stats deja de ser pasiva.</p>
+
+      <div class="section-frame">
+        <div class="grid-4">
+          <div class="stat-action" tabindex="0" role="button">
+            <div class="head"><span class="aelium-dot accent"></span>Ingresos del mes</div>
+            <div class="value">12.450&nbsp;€</div>
+            <p class="context">+1.380&nbsp;€ vs. abril</p>
+            <div class="cta"><span>Ver detalle</span><span class="arrow">→</span></div>
+          </div>
+          <div class="stat-action" tabindex="0" role="button">
+            <div class="head"><span class="aelium-dot"></span>Clientes activos</div>
+            <div class="value">147</div>
+            <p class="context">8 nuevos este mes</p>
+            <div class="cta"><span>Ver lista</span><span class="arrow">→</span></div>
+          </div>
+          <div class="stat-action" tabindex="0" role="button">
+            <div class="head"><span class="aelium-dot" style="background: var(--warning);"></span>Tickets abiertos</div>
+            <div class="value">12</div>
+            <p class="context">3 sin asignar</p>
+            <div class="cta"><span>Atender ahora</span><span class="arrow">→</span></div>
+          </div>
+          <div class="stat-action" tabindex="0" role="button">
+            <div class="head"><span class="aelium-dot" style="background: var(--danger);"></span>Pagos pendientes</div>
+            <div class="value">4 · 1.230&nbsp;€</div>
+            <p class="context">más antiguo: 12 días</p>
+            <div class="cta"><span>Ver vencidas</span><span class="arrow">→</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="note">
+        <strong>Pasa el cursor</strong> sobre las cards. Hover brand-tinted + flecha que avanza. Tab para focus ring.
+      </div>
+    </section>
+
+    <!-- ─────────── ALT C · DUAL-ROMBO (SALUD) ─────────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Alt C · Dos rombos como indicador de salud</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">Los dos rombos del logo se vuelven el indicador. Verde = bien. Amarillo (uno apagado) = atención. Rojo pulsante = problema. El símbolo de marca <strong>tiene función</strong>, no es solo decoración.</p>
+
+      <div class="section-frame">
+        <div class="grid-4">
+          <div class="stat-rombo" data-health="ok">
+            <div class="head"><span class="marker"><span class="r"></span><span class="r"></span></span>Ingresos del mes</div>
+            <div class="value">12.450&nbsp;€</div>
+            <p class="context">+1.380&nbsp;€ vs. abril</p>
+          </div>
+          <div class="stat-rombo" data-health="ok">
+            <div class="head"><span class="marker"><span class="r"></span><span class="r"></span></span>Clientes activos</div>
+            <div class="value">147</div>
+            <p class="context">8 nuevos este mes</p>
+          </div>
+          <div class="stat-rombo" data-health="warn">
+            <div class="head"><span class="marker"><span class="r"></span><span class="r"></span></span>Tickets abiertos</div>
+            <div class="value">12</div>
+            <p class="context">3 sin asignar — atención</p>
+          </div>
+          <div class="stat-rombo" data-health="alert">
+            <div class="head"><span class="marker"><span class="r"></span><span class="r"></span></span>Pagos pendientes</div>
+            <div class="value">4 · 1.230&nbsp;€</div>
+            <p class="context">12 días el más antiguo</p>
+          </div>
+        </div>
+      </div>
+      <div class="note">
+        <strong>Los rombos cambian</strong>: ok = ambos verdes / warn = uno apagado / alert = uno rojo pulsando. El símbolo de marca trabaja como indicador funcional. <strong>Limitación</strong>: solo funciona para métricas con estado de salud (no para "MRR" o "Churn rate" que son neutras).
+      </div>
+    </section>
+
+    <!-- ─────────── ALT D · BIG EYEBROW + AIRADA ─────────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Alt D · Eyebrow Aelium + número grande + frase humana</h2>
+        <span class="section-num">04</span>
+      </div>
+      <p class="section-lede">Estructura de tres tiempos: contexto temporal arriba (eyebrow con marker rombo), número en display-lg (56px) muy aireado, frase humana cerrando. Más altura, más respiro. Coherente con "construido para durar" — sin prisas.</p>
+
+      <div class="section-frame">
+        <div class="grid-3">
+          <div class="stat-airy">
+            <div class="eyebrow-line">Este mes</div>
+            <p class="value">12.450&nbsp;€</p>
+            <p class="closing">Cobraste <strong>1.380&nbsp;€ más</strong> que en abril.</p>
+          </div>
+          <div class="stat-airy">
+            <div class="eyebrow-line">En tu cartera</div>
+            <p class="value">147</p>
+            <p class="closing">Clientes activos. <strong>8 nuevos</strong> este mes.</p>
+          </div>
+          <div class="stat-airy">
+            <div class="eyebrow-line">Hoy</div>
+            <p class="value">12</p>
+            <p class="closing">Tickets abiertos. <strong>3 sin asignar.</strong></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── COMPARATIVA ─────────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Comparativa contra rasgos de marca</h2>
+        <span class="section-num">05</span>
+      </div>
+
+      <table class="verdict-table">
+        <tr>
+          <th></th>
+          <th>Voz Aelium</th>
+          <th>Diferenciación visual</th>
+          <th>Escaneabilidad</th>
+          <th>Productividad</th>
+          <th>Reusabilidad</th>
+        </tr>
+        <tr>
+          <th>Inicial</th>
+          <td class="bad">Baja · métrica fría</td>
+          <td class="bad">Genérica</td>
+          <td class="good">Alta</td>
+          <td class="good">Alta</td>
+          <td class="good">Alta</td>
+        </tr>
+        <tr>
+          <th>A · Narrativa</th>
+          <td class="good">Muy alta</td>
+          <td class="meh">Moderada</td>
+          <td class="meh">Media · más texto</td>
+          <td class="meh">Cliente sí, admin con muchas KPIs penaliza</td>
+          <td class="meh">Cuesta plantilla — cada métrica copy distinto</td>
+        </tr>
+        <tr>
+          <th>B · Action</th>
+          <td class="meh">Media</td>
+          <td class="meh">Moderada</td>
+          <td class="good">Alta</td>
+          <td class="good">Muy alta · CTA explícita</td>
+          <td class="good">Alta</td>
+        </tr>
+        <tr>
+          <th>C · Dual-rombo</th>
+          <td class="meh">Media</td>
+          <td class="good">Alta · firma con función</td>
+          <td class="good">Alta</td>
+          <td class="meh">Media · solo métricas con estado</td>
+          <td class="meh">Limitada por tipo de métrica</td>
+        </tr>
+        <tr>
+          <th>D · Eyebrow + airy</th>
+          <td class="good">Alta</td>
+          <td class="good">Alta · marker eyebrow + tipografía</td>
+          <td class="good">Alta · número grande domina</td>
+          <td class="good">Alta cliente · media admin (más altura)</td>
+          <td class="good">Alta</td>
+        </tr>
+      </table>
+
+      <div class="note">
+        <strong>Mi lectura</strong>: la combinación más fuerte es <strong>D + B</strong>. D para visualmente cargar marca (eyebrow rombo + número airado + frase humana), B para que sea navegable cuando aplica. <strong>C como variante específica</strong> para métricas que sí tienen estado de salud (servicios, uptime, alertas) — no como base general.
+      </div>
+    </section>
+
+    <!-- ─────────── COMBINACIÓN PROPUESTA ─────────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Si combinamos D + B (propuesta)</h2>
+        <span class="section-num">06</span>
+      </div>
+      <p class="section-lede">Eyebrow Aelium + número aireado + frase humana + acción opcional cuando lleva a algún sitio. Variante "salud" con dual-rombo solo cuando la métrica tiene estado.</p>
+
+      <div class="section-frame">
+        <div class="grid-3">
+          <!-- D + B mezcla, neutra -->
+          <div class="stat-airy">
+            <div class="eyebrow-line">Este mes</div>
+            <p class="value">12.450&nbsp;€</p>
+            <p class="closing">Cobraste <strong>1.380&nbsp;€ más</strong> que en abril.</p>
+          </div>
+          <!-- D + B + acción -->
+          <div class="stat-action" tabindex="0" role="button" style="padding: var(--space-6) var(--space-5); min-height: 200px;">
+            <div class="eyebrow-line" style="display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.08em; color: var(--brand); font-weight: var(--font-weight-medium);">
+              <span style="width: 8px; height: 8px; border-radius: 1px; background: var(--brand); transform: rotate(45deg);"></span>
+              Pendientes hoy
+            </div>
+            <p class="value" style="font-size: var(--font-size-4xl); margin: var(--space-4) 0;">4 · 1.230&nbsp;€</p>
+            <p class="closing" style="margin: 0;">12 días el más antiguo. Revísalas hoy.</p>
+            <div class="cta"><span>Ver vencidas</span><span class="arrow">→</span></div>
+          </div>
+          <!-- C variante salud -->
+          <div class="stat-rombo" data-health="ok" style="padding: var(--space-6) var(--space-5); min-height: 200px;">
+            <div class="head" style="margin-bottom: var(--space-3);">
+              <span class="marker"><span class="r"></span><span class="r"></span></span>
+              <span style="font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.08em; color: var(--brand); font-weight: var(--font-weight-medium);">Tu uptime mes</span>
+            </div>
+            <p class="value" style="font-size: var(--font-size-4xl); margin: 0 0 var(--space-3);">99,98%</p>
+            <p class="context">Tu web ha estado caída 4 minutos. Te avisamos cada vez.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── DECIDIR ─────────── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">¿Qué dirección tomamos?</h2>
+        <span class="section-num">07</span>
+      </div>
+      <div class="kv">
+        <div><strong>Opción 1</strong></div>
+        <div>Combinar <strong>D + B</strong>: layout aireado con eyebrow Aelium, número grande, frase humana, acción cuando aplica. Variante "salud" con dual-rombo (C) para métricas con estado. Es mi recomendación.</div>
+        <div><strong>Opción 2</strong></div>
+        <div>Quedarte con una sola alternativa pura — A, B, C o D — sin combinar.</div>
+        <div><strong>Opción 3</strong></div>
+        <div>Combinación distinta. Dime qué elementos te gustan de cuál.</div>
+      </div>
+      <div class="note">
+        Cuando decidas, <strong>refactorizo el StatsCard del sistema</strong> con la dirección elegida y propago a la sample admin page y al resto. La idea es que sea <em>el</em> StatsCard de Aelium — uno solo bien resuelto, no varios.
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

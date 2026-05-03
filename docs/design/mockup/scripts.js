@@ -35,6 +35,7 @@
       { href: 'components/table.html',              label: 'Table' },
       { href: 'components/pagination.html',         label: 'Pagination' },
       { href: 'components/stats-card.html',         label: 'StatsCard' },
+      { href: 'components/stats-card-iteraciones.html', label: 'StatsCard · iteraciones' },
       { href: 'components/bulk-action-bar.html',    label: 'BulkActionBar' },
       { href: 'components/filter-bar.html',         label: 'FilterBar' },
       { section: 'Navegación' },
