@@ -551,4 +551,77 @@ Añadir al backlog (`backlog.md`) como **DC nueva** (DC.39 o siguiente número l
 
 ---
 
+## 13. Bug regresión `jti` cerrado durante smoke (2026-05-03 18:47)
+
+### Síntoma
+Tras aplicar el fix IPv6 (§12) y arrancar backend + ejecutar smoke HTTP del Sprint 13:
+- **SMOKE 1** (login) → ✅ 200 + body con tokens.
+- **SMOKE 2** (`/auth/ws-token`) → ✅ 200 + `{token, expiresIn:60}`.
+- **SMOKE 3a** (refresh #1 legítimo) → **❌ 500 Internal Server Error**.
+- **SMOKE 3b** (refresh #2 replay esperado) → ❌ Devuelve 200 con par nuevo (debería ser 401).
+
+### Causa raíz
+Postgres reportó `Unique constraint failed on the fields: (token_hash)` en `tx.session.create()` dentro de `AuthTokenService.refresh()`.
+
+El JWT es **determinístico** sobre `(secret, header, payload, iat-en-segundos)`. Con resolución de `iat` en segundos:
+- Login emite access_token `T1` con `iat=1777826596`.
+- Refresh inmediato (mismo segundo) genera access_token con **payload idéntico** (`{sub, email, role, type:'access'}`) e `iat=1777826596`.
+- Resultado: JWT idéntico a `T1` → mismo `hashToken(T1)` → colisión `sessions.token_hash UNIQUE`.
+
+`SMOKE 3b` parecía "exitoso" porque la transacción de refresh #1 hizo `ROLLBACK` (no marcó `used_at` en la sesión vieja), así que refresh #2 vio `used_at IS NULL` y rotó como flow normal.
+
+### Fix canónico aplicado
+Añadir `jti` (JWT ID, RFC 7519 §4.1.7 — UUID v4 random) al payload de **todos los tokens emitidos**:
+
+```typescript
+// jwt.strategy.ts — JwtPayload extendido
+export interface JwtPayload {
+  sub: string;
+  email: string;
+  role: string;
+  type: 'access' | 'refresh' | 'temp_2fa' | 'ws';
+  jti?: string; // UUID v4 random — garantiza unicidad del token
+}
+```
+
+Aplicado en 4 puntos: `issueTokens` (access + refresh) × `refresh` (access + refresh) × `issueWsToken` × `initiate2fa` (temp_token).
+
+### Verificación tras el fix (2026-05-03 18:47)
+
+```
+=== SMOKE 1 ===  ✅ Login 200 + body (con jti en cada token).
+=== SMOKE 2 ===  ✅ /auth/ws-token 200 + {token (type='ws',jti), expiresIn:60}.
+=== SMOKE 3a ===  ✅ Refresh #1 200 + par nuevo + session_id distinto.
+=== SMOKE 3b ===  ✅ Refresh #2 (replay) 401 + "Sesión comprometida — todas las sesiones revocadas".
+```
+
+Cadena de sesiones tras el flow completo (verificado en DB):
+```
+user_id            | is_active | revoked_reason  | used_at
+-------------------+-----------+-----------------+---------
+cliente@aelium     | f         | replay_detected | NULL    (sesión víctima del replay)
+cliente@aelium     | f         | rotated         | true    (legítima canjeada — refresh #1)
+cliente@aelium     | f         | replay_detected | NULL    (otra víctima)
+cliente@aelium     | f         | rotated         | true    (otra legítima)
+```
+
+Notification superadmin verificada en DB:
+```
+title                                    | body                                                              | recipient
+-----------------------------------------+-------------------------------------------------------------------+------------------
+Sesión comprometida: cliente@aelium.test | Refresh token reutilizado desde IP ::1. 3 sesión(es) revocada(s). | admin@aelium.net
+```
+
+Pipeline E2E confirmado funcional: `replay refresh → updateMany sessions → emit auth.refresh_replay_detected → NotificationsAuthReplayListener → enrich con user email → dispatchToSuperadmins → notification creada en DB`.
+
+### Estado tests post-fix
+- `pnpm typecheck` ✅
+- `pnpm lint:check` ✅
+- `pnpm test` ✅ **198/198** (test unit `issueWsToken` actualizado para validar `jti` con regex UUID v4).
+
+### Lección retroactiva
+El test unit del `refresh` con mocks pasaba (porque mockeaba `jwt.sign` para devolver siempre `'signed.jwt.token'`, sin colisión real). El bug solo se manifestaba contra DB real con UNIQUE constraint activa. Lección canónica: **los unit tests con mocks validan lógica, NO regresiones de schema/timing**. El smoke HTTP es complementario imprescindible — y la decisión de pausar para checkpoint Yasmin antes de Fase E fue correcta porque sin smoke real, el bug habría llegado al frontend bulk migration y se habría confundido con regresión de la migración.
+
+---
+
 > **Cierre canónico:** este documento es la fuente de verdad para el siguiente agente. Junto con `current.md §Sprint 13 §13.AUTH`, `ADR-078 Amendment A1`, los 4 commits ya en rama, este handoff y la sección 12 de bug + fix, no debería necesitar reexplorar nada del backend ni redescubrir el alcance del frontend.

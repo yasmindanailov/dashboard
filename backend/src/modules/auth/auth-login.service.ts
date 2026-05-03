@@ -7,6 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { PrismaService } from '../../core/database/prisma.service';
 import { SettingsService } from '../../core/settings/settings.service';
 import { EmailService } from '../../core/email/email.service';
@@ -171,6 +172,7 @@ export class AuthLoginService {
         email: user.email,
         role: user.role.slug,
         type: 'temp_2fa',
+        jti: crypto.randomUUID(),
       } as JwtPayload,
       { expiresIn: `${expiresMinutes}m` },
     );

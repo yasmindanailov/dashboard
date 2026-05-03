@@ -58,12 +58,14 @@ export class AuthTokenService {
       email: user.email,
       role: user.role.slug,
       type: 'access',
+      jti: crypto.randomUUID(),
     };
     const refreshPayload: JwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.role.slug,
       type: 'refresh',
+      jti: crypto.randomUUID(),
     };
 
     const accessToken = this.jwt.sign(accessPayload, {
@@ -217,18 +219,24 @@ export class AuthTokenService {
       7,
     );
 
-    // Genera par nuevo (rotación completa).
+    // Genera par nuevo (rotación completa). `jti` random garantiza que el
+    // token sea único aunque el resto del payload + iat (en segundos) coincida
+    // con un token previo del mismo user — sin esto, login + refresh inmediato
+    // colisionan en `sessions.token_hash UNIQUE`. Sprint 13 §13.AUTH Fase B
+    // smoke test confirmó la regresión.
     const accessPayload: JwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.role.slug,
       type: 'access',
+      jti: crypto.randomUUID(),
     };
     const refreshPayload: JwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.role.slug,
       type: 'refresh',
+      jti: crypto.randomUUID(),
     };
     const accessToken = this.jwt.sign(accessPayload, {
       expiresIn: `${accessExpiresMin}m`,
@@ -366,6 +374,7 @@ export class AuthTokenService {
       email: user.email,
       role: user.role.slug,
       type: 'ws',
+      jti: crypto.randomUUID(),
     };
     const expiresIn = 60; // seconds
     const token = this.jwt.sign(payload, { expiresIn: `${expiresIn}s` });

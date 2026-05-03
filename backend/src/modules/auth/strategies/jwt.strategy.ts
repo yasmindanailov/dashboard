@@ -17,6 +17,20 @@ export interface JwtPayload {
   // para rechazar el token si llega vía Authorization header al backend
   // (donde solo se aceptan tokens type='access').
   type: 'access' | 'refresh' | 'temp_2fa' | 'ws';
+  /**
+   * JWT ID — UUID v4 random (RFC 7519 §4.1.7) emitido en cada token. Sprint
+   * 13 §13.AUTH Fase B smoke test (2026-05-03) descubrió que sin `jti`, dos
+   * tokens emitidos en el mismo segundo con idéntico payload (login + refresh
+   * inmediato del mismo user) producen el MISMO JWT (determinístico sobre
+   * `header + payload + iat` con resolución segundos), causando colisión en
+   * el índice UNIQUE `sessions.token_hash`. Con `jti` random, cada token es
+   * único independientemente del timing.
+   *
+   * NO se valida en `validate()` — informativo + diferenciador. Si en el
+   * futuro se quiere revocar tokens individuales por jti (ej. blacklist),
+   * la pieza ya está disponible.
+   */
+  jti?: string;
 }
 
 @Injectable()

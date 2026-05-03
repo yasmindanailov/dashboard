@@ -136,12 +136,16 @@ describe('AuthTokenService — Sprint 13 §13.AUTH Fase A+B', () => {
         JwtPayload,
         { expiresIn: string },
       ];
-      expect(payload).toEqual({
+      expect(payload).toMatchObject({
         sub: 'user-uuid-1',
         email: 'cliente@aelium.test',
         role: 'client',
         type: 'ws',
       });
+      // jti: UUID v4 random (Sprint 13 §13.AUTH Fase B fix smoke regression).
+      expect(payload.jti).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
       expect(options.expiresIn).toBe('60s');
     });
 

@@ -158,7 +158,12 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 - ✅ Backend `pnpm typecheck` + `pnpm lint:check` + `pnpm test` (198/198) verde.
 - ✅ Frontend `pnpm typecheck` verde. `pnpm lint:check` con 49 warnings preexistentes DC.6 (que Fase E cerrará).
 - ✅ Migración Prisma aplicada en DB local + seed completo (7 roles + 6 cuentas demo).
-- ⚠️ **Smoke HTTP backend pendiente** — bloqueado por bug IPv6 documentado en handoff §12 (fix de 1 línea: `.env` `localhost` → `127.0.0.1`). Tras aplicar fix, los 3 curl canónicos del handoff §6 validarán login + ws-token + replay detection extremo a extremo.
+- ✅ **Smoke HTTP backend completo verificado 2026-05-03 18:47** (handoff §13). Los 4 endpoints canónicos pasan end-to-end:
+  - `POST /auth/login` → 200 + body con `{access_token, refresh_token, expires_in, user}` (cero `Set-Cookie` — Modelo A).
+  - `POST /auth/ws-token` → 200 + `{token (type='ws',jti), expiresIn:60}`.
+  - `POST /auth/refresh` #1 → 200 + par nuevo + `session_id` + sesión vieja `rotated`.
+  - `POST /auth/refresh` #2 (replay) → 401 "Sesión comprometida" + `updateMany` revoca cadena + `auth.refresh_replay_detected` emit + notification superadmin creada en DB (`internal` channel a `admin@aelium.net`).
+- 🐛 **Bug IPv6 + bug `jti` cerrados durante el smoke** — handoff §12 (fix `.env` `localhost`→`127.0.0.1`) + §13 (`jti` random añadido al `JwtPayload` para evitar colisión `sessions.token_hash UNIQUE` en login + refresh inmediato del mismo segundo). Ambos integrados en commits del sprint.
 
 > Sub-sprint del Sprint 13 Hardening enfocado **exclusivamente** en cerrar `DC.6 + DC.28`. El resto del Sprint 13 (audit trail global, Redis adapter Socket.io, N+1 audit, cursor pagination, caching, R15 restantes) queda fuera de alcance — futuras fases o sprint full según valor funcional.
 
