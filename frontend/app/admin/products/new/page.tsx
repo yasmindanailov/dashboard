@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { productsApi } from '../../../lib/api';
-import { getErrorMessage } from '../../../lib/error';
+import { createProductAction } from '../_actions';
 import { PRODUCT_TYPES, CYCLE_OPTIONS } from './constants';
 import type { PricingRow } from './constants';
 import { Card, Input, Select, Textarea, Button, AlertBanner, FormPage, useToast } from '../../../components/ui';
@@ -11,16 +10,15 @@ import styles from '../productForm.module.css';
 
 /* ═══════════════════════════════════════
    New Product — Multi-step creation form
+   Sprint 13 §13.AUTH Fase E (Modelo A): mutación via `createProductAction`
+   (Server Action). Cero localStorage. ADR-078 Amendment A1.
    Step 1: Type selection → Step 2: Form
    Layout: FormPage (§2.6)
-   Components: Card, Input, Select, Textarea,
-   Button, AlertBanner
    Ref: UI_SPEC.md §2.6, ROADMAP.md D24
    ═══════════════════════════════════════ */
 
 export default function NewProductPage() {
   const router = useRouter();
-  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
 
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -80,35 +78,34 @@ export default function NewProductPage() {
     if (!isCustomService && !pricingRows.some(r => r.price)) { setError('Debe haber al menos un plan de precio.'); return; }
 
     setSaving(true);
-    try {
-      await productsApi.create(token, {
-        name: name.trim(),
-        slug: slug.trim() || undefined,
-        type: selectedType,
-        description: description || undefined,
-        short_description: shortDescription || undefined,
-        badge_text: badgeText || undefined,
-        is_addon: isAddonType,
-        is_global_addon: isSupportInside,
-        requires_existing_product: isSupportInside || isWeDoIt,
-        provisioner,
-        grace_period_days: parseInt(gracePeriod) || 0,
-        suspension_days: parseInt(suspensionDays) || 7,
-        cancellation_days: parseInt(cancellationDays) || 30,
-        client_can_pause: clientCanPause,
-        partner_commission_pct: partnerCommission ? parseFloat(partnerCommission) : undefined,
-        pricing: pricingRows.filter(r => r.price).map(r => ({
-          billing_cycle: r.billing_cycle,
-          price: parseFloat(r.price),
-          setup_fee: parseFloat(r.setup_fee) || 0,
-        })),
-      });
-      router.push('/admin/products');
-    } catch (err) {
-      toast('error', getErrorMessage(err) || 'Error al crear el producto.');
-    } finally {
+    const result = await createProductAction({
+      name: name.trim(),
+      slug: slug.trim() || undefined,
+      type: selectedType,
+      description: description || undefined,
+      short_description: shortDescription || undefined,
+      badge_text: badgeText || undefined,
+      is_addon: isAddonType,
+      is_global_addon: isSupportInside,
+      requires_existing_product: isSupportInside || isWeDoIt,
+      provisioner,
+      grace_period_days: parseInt(gracePeriod) || 0,
+      suspension_days: parseInt(suspensionDays) || 7,
+      cancellation_days: parseInt(cancellationDays) || 30,
+      client_can_pause: clientCanPause,
+      partner_commission_pct: partnerCommission ? parseFloat(partnerCommission) : undefined,
+      pricing: pricingRows.filter((r) => r.price).map((r) => ({
+        billing_cycle: r.billing_cycle,
+        price: parseFloat(r.price),
+        setup_fee: parseFloat(r.setup_fee) || 0,
+      })),
+    });
+    if (!result.ok) {
+      toast('error', result.error);
       setSaving(false);
+      return;
     }
+    router.push('/admin/products');
   };
 
   // Breadcrumb always shows current step

@@ -61,6 +61,19 @@ export async function cancelInvoiceAction(
   }
 }
 
+export async function refundInvoiceAction(
+  id: string,
+): Promise<InvoiceMutationResult> {
+  try {
+    await serverFetch(`/billing/invoices/${id}/refund`, { method: 'PATCH' });
+    revalidatePath('/admin/billing');
+    revalidatePath(`/admin/billing/${id}`);
+    return { ok: true };
+  } catch (err) {
+    return wrapError(err, 'No se pudo reembolsar la factura');
+  }
+}
+
 export type DownloadInvoicePdfResult =
   | { ok: true; url: string; filename: string }
   | { ok: false; error: string };

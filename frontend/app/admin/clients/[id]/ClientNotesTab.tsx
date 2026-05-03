@@ -1,9 +1,8 @@
 'use client';
 
-// TODO(ADR-078, Sprint 13): migrar a Server Component cuando cierre §13.AUTH.
-
 /* ═══════════════════════════════════════
    ClientNotesTab — Sprint 16 / ADR-079 §3.8.
+   Sprint 13 §13.AUTH Fase E (Modelo A): toggleNotePin via Server Action.
 
    Listado canónico de `client_notes` con filtros de:
      - `category` (NoteCategory enum, 7 valores).
@@ -28,13 +27,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '../../../components/ui';
-import { clientsApi } from '../../../lib/api';
 import type {
   ClientNote,
   NoteCategory,
   NoteSourceSystem,
 } from '../../../lib/types';
 import ExceptionalNoteModal from '../../../_shared/notes/ExceptionalNoteModal';
+import { toggleNotePinAction } from './_actions';
 import styles from './clientDetail.module.css';
 
 /**
@@ -270,9 +269,7 @@ export default function ClientNotesTab({
                     </div>
                     <button
                       onClick={async () => {
-                        const token = localStorage.getItem('access_token');
-                        if (!token) return;
-                        await clientsApi.toggleNotePin(token, note.id);
+                        await toggleNotePinAction(note.id, clientId);
                         onRefresh();
                       }}
                       className={`${styles.notePinBtn} ${note.is_pinned ? styles.notePinBtnActive : styles.notePinBtnInactive}`}
