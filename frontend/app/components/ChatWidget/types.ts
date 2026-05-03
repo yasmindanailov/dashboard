@@ -20,6 +20,13 @@ export interface Conversation {
   status: string;
   last_agent_response_at: string | null;
   messages: Message[];
+  /* Sprint 16 (ADR-079 amendment A3): si el chat fue escalado a ticket,
+     el widget cliente muestra banner con link directo al ticket. */
+  escalated_to?: {
+    id: string;
+    sequence_number: number | null;
+    subject: string;
+  } | null;
 }
 
 export const STATUS_LABEL: Record<string, string> = {

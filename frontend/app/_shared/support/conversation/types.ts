@@ -40,6 +40,14 @@ export interface ConversationDetail {
   // Enriquecido por `SupportQueryService.findOne` con la subscription
   // activa del owner. `null` si el cliente no tiene plan o es chat guest.
   client_support_inside?: ConversationSupportInside | null;
+  /* Sprint 16 (ADR-079 amendment A3): si esta conversación es un chat
+     que fue escalado a ticket, el ticket destino. Permite linkar al
+     ticket desde el detalle del chat tanto admin como cliente. */
+  escalated_to?: {
+    id: string;
+    sequence_number: number | null;
+    subject: string;
+  } | null;
 }
 
 export interface ConversationSupportInside {

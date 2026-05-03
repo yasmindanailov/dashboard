@@ -33,7 +33,6 @@ export function useConversationDetail() {
   const [conversation, setConversation] = useState<ConversationDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
-  const [isInternal, setIsInternal] = useState(false);
   const [sending, setSending] = useState(false);
 
   // Client context sidebar
@@ -92,12 +91,13 @@ export function useConversationDetail() {
     if (!token || !newMessage.trim() || !conversationId) return;
     setSending(true);
     try {
+      // Sprint 16 / ADR-079 §3.8: la entrada de notas internas desde el
+       // input se eliminó. Los mensajes nuevos siempre son públicos.
       await supportApi.addMessage(token, conversationId, {
         body: newMessage.trim(),
-        is_internal: isAdmin ? isInternal : false,
+        is_internal: false,
       });
       setNewMessage('');
-      setIsInternal(false);
       loadConversation();
     } catch (e) {
       console.error(e);
@@ -217,7 +217,7 @@ export function useConversationDetail() {
   return {
     user, isAdmin, conversation, loading, conversationId,
     // Messaging
-    newMessage, setNewMessage, isInternal, setIsInternal,
+    newMessage, setNewMessage,
     sending, handleSendMessage, messagesEndRef,
     // Status/priority
     handleStatusChange, handlePriorityChange, handleEscalateToTicket,

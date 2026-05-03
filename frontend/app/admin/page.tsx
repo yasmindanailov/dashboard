@@ -1,11 +1,16 @@
 'use client';
 
+// TODO(ADR-078, Sprint 13): migrar a Server Component cuando cierre §13.AUTH.
+
 import Link from 'next/link';
+import TasksWidget from '../_shared/widgets/TasksWidget';
 
 /* ═══════════════════════════════════════
-   /admin — landing del árbol staff (Sprint 9 Fase F).
-   Lista las herramientas operativas disponibles.
-   Sprint 9.6 ampliará con módulos migrados (clients, tasks, settings).
+   /admin — landing del árbol staff.
+
+   Sprint 16 / ADR-079 §3.11: el widget "Tu trabajo de hoy" abre la página.
+   Top-5 tasks del agente ordenadas por la regla canónica §3.3 (la aplica
+   el backend en `applyCanonicalOrdering`).
    ═══════════════════════════════════════ */
 
 export default function AdminHomePage() {
@@ -14,9 +19,13 @@ export default function AdminHomePage() {
       <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
         Panel de operaciones
       </h1>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: 32 }}>
+      <p style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>
         Herramientas internas para diagnóstico, monitoring y gestión.
       </p>
+
+      <div style={{ marginBottom: 32 }}>
+        <TasksWidget />
+      </div>
 
       <div
         style={{

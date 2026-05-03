@@ -227,6 +227,30 @@ export class SupportController {
     return this.supportService.updateConversation(id, dto, user.id);
   }
 
+  /**
+   * Sprint 16 (ADR-079 amendment): el cliente confirma la resolución de un
+   * ticket en estado `resolved` → cierra explícito (`→closed`). Endpoint
+   * exclusivo del cliente (admin usa el flujo `updateConversation` con
+   * status='closed' + nota). Sólo aplica al propio ticket del cliente.
+   */
+  @Patch('conversations/:id/confirm-resolution')
+  @ApiOperation({
+    summary: 'Cliente confirma resolución del ticket → cerrado explícito.',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Conversation))
+  async confirmResolution(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const user = req.user;
+    if (ADMIN_ROLES.includes(user.role.slug)) {
+      throw new ForbiddenException(
+        'Este endpoint es para clientes. Los agentes cierran via PATCH /conversations/:id con status=closed.',
+      );
+    }
+    return this.supportService.confirmResolution(id, user.id);
+  }
+
   /* ═══════════════════════════════════════
      MESSAGES — Add to conversation (shared)
      ═══════════════════════════════════════ */

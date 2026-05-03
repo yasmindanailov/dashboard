@@ -89,6 +89,15 @@ export class SupportService {
     return this.message.updateConversation(id, dto, actorId);
   }
 
+  /**
+   * Sprint 16 (ADR-079 amendment): el cliente confirma la resolución de un
+   * ticket en estado `resolved` → cierra explícito (`→closed`). No requiere
+   * nota del agente; el system message lo marca como confirmación del cliente.
+   */
+  confirmResolution(conversationId: string, clientId: string) {
+    return this.message.confirmResolutionByClient(conversationId, clientId);
+  }
+
   markAsRead(
     conversationId: string,
     readerId: string,

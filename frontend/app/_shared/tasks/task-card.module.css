@@ -1,0 +1,349 @@
+/* TaskCard — Sprint 16 / ADR-079 §3.6.
+   Una sola línea visible + contexto + accionadores. Sin chrome decorativo. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.card:hover {
+  border-color: var(--border-strong, var(--brand));
+}
+
+.cardClosed {
+  opacity: 0.7;
+}
+
+.row1 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.iconLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.label {
+  font-weight: 600;
+}
+
+.dot {
+  color: var(--text-tertiary);
+  user-select: none;
+}
+
+.client {
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.client:hover {
+  text-decoration: underline;
+  color: var(--brand);
+}
+
+.age {
+  color: var(--text-tertiary);
+}
+
+.sla {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.slaSafe {
+  color: var(--success, #15803d);
+}
+
+.slaWarn {
+  color: var(--warning, #c2410c);
+}
+
+.slaDanger {
+  color: var(--danger, #b91c1c);
+}
+
+.priority {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.priority_critical {
+  background: color-mix(in srgb, var(--danger, #b91c1c) 14%, transparent);
+  color: var(--danger, #b91c1c);
+}
+
+.priority_high {
+  background: color-mix(in srgb, var(--warning, #c2410c) 14%, transparent);
+  color: var(--warning, #c2410c);
+}
+
+.priority_low {
+  background: var(--surface-secondary, #f4f5f7);
+  color: var(--text-tertiary);
+}
+
+.priority_medium {
+  display: none; /* No-op por completitud — la card no muestra "Media". */
+}
+
+.siBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.siBadge_pro {
+  background: color-mix(in srgb, #d4a017 18%, transparent);
+  color: #8a6500;
+  border: 1px solid color-mix(in srgb, #d4a017 30%, transparent);
+}
+
+.siBadge_medium {
+  background: color-mix(in srgb, #94a3b8 18%, transparent);
+  color: #475569;
+  border: 1px solid color-mix(in srgb, #94a3b8 30%, transparent);
+}
+
+.siBadge_basic {
+  background: var(--surface-secondary, #f4f5f7);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.closedBadge {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.context {
+  margin: 0;
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  line-height: 1.4;
+  /* Truncar a 2 líneas máximo (§3.6 dice 80 chars + ellipsis; aquí
+     usamos line-clamp para soportar caracteres anchos sin matemática
+     de chars). */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.row3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cta {
+  font-size: var(--font-size-sm);
+  color: var(--brand);
+  text-decoration: none;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.cta:hover {
+  text-decoration: underline;
+}
+
+/* ── Modal nota (CompleteTaskModal) ── */
+
+.modalDesc {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.modalMeta {
+  margin-top: var(--space-2);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: right;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+/* ── MaintenanceLogModal ── */
+
+.maintBlock {
+  margin: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-secondary, #f4f5f7);
+}
+
+.maintBlockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.maintBlockTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.maintBlockProgress {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.maintList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.maintItem {
+  padding: var(--space-2) 0;
+}
+
+.maintItemDone {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+
+.maintItemMissing {
+  color: var(--danger, #b91c1c);
+  font-weight: 500;
+}
+
+.maintLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.maintLabel input {
+  margin-top: 3px;
+  cursor: pointer;
+}
+
+.maintRequired {
+  color: var(--danger, #b91c1c);
+  font-weight: 600;
+}
+
+.maintEmpty {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.maintField {
+  margin-top: var(--space-3);
+}
+
+.maintFieldLabel {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+/* ── Cancel pill (admin) ── */
+
+.cancelPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.cancelPill:hover {
+  color: var(--danger, #b91c1c);
+  border-color: var(--danger, #b91c1c);
+}
+
+/* ── Assignee badge (scope=all) ── */
+
+.assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--surface-secondary, #f4f5f7);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.assigneeUnassigned {
+  color: var(--text-tertiary);
+  font-style: italic;
+}

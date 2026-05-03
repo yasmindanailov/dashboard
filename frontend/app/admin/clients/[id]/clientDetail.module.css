@@ -117,6 +117,79 @@
   border-color: var(--brand);
 }
 
+/* ── Sprint 16 / ADR-079: header del bloque notas + intro descriptiva. ── */
+.notesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.notesIntro {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.sectionSubtitle {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.noteSourceBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  background-color: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+  border: 1px solid color-mix(in srgb, var(--brand) 28%, transparent);
+}
+
+/* Variante con link al sistema vinculado (Sprint 16 / ADR-079 §3.8):
+   sólo aplica a `source_system` con página de detalle por ID accesible.
+   Underline en hover para señal afordance + cursor pointer. */
+.noteSourceBadgeLink {
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.noteSourceBadgeLink:hover {
+  background-color: color-mix(in srgb, var(--brand) 22%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 50%, transparent);
+  text-decoration: underline;
+}
+
+.noteAction {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.pinnedToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.pinnedToggle input {
+  cursor: pointer;
+  margin: 0;
+}
+
 /* ── Notes: Note item ── */
 .noteItem {
   padding: var(--space-4);

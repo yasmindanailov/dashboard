@@ -33,7 +33,6 @@ import { tasksApi } from '../../../lib/api';
 interface LinkedTaskHint {
   id: string;
   status: string;
-  title: string;
 }
 
 export default function AdminConversationDetailPage() {
@@ -64,28 +63,32 @@ export default function AdminConversationDetailPage() {
     if (!token) return;
     void (async () => {
       try {
+        // Sprint 16 / ADR-079: el bridge ticket↔task se filtra por
+        // `source_system='support_ticket'` + `source_id=conversation.id`.
+        // El listener canónico crea solo una task activa por ticket.
         const res = (await tasksApi.list(token, {
-          conversation_id: conv.id,
+          source_system: 'support_ticket',
+          source_id: conv.id,
           status: 'pending',
           scope: 'all',
           limit: 1,
-        })) as { data?: { id: string; status: string; title: string }[] };
+        })) as { data?: { id: string; status: string }[] };
         const data = res?.data ?? [];
-        // Si la primera está pending, perfecto. Si no, probamos in_progress.
         if (data.length > 0) {
-          setLinkedTask({ id: data[0].id, status: data[0].status, title: data[0].title });
+          setLinkedTask({ id: data[0].id, status: data[0].status });
           return;
         }
         const res2 = (await tasksApi.list(token, {
-          conversation_id: conv.id,
+          source_system: 'support_ticket',
+          source_id: conv.id,
           status: 'in_progress',
           scope: 'all',
           limit: 1,
-        })) as { data?: { id: string; status: string; title: string }[] };
+        })) as { data?: { id: string; status: string }[] };
         const data2 = res2?.data ?? [];
         setLinkedTask(
           data2.length > 0
-            ? { id: data2[0].id, status: data2[0].status, title: data2[0].title }
+            ? { id: data2[0].id, status: data2[0].status }
             : null,
         );
       } catch {
@@ -162,7 +165,19 @@ export default function AdminConversationDetailPage() {
     );
   }
 
-  const isClosed = d.conversation.status === 'closed';
+  /* Sprint 16 (ADR-079 amendments A1+A3):
+     - Ticket `closed` → bloqueado para todos.
+     - Ticket `resolved` → bloqueado para agente (única vía: Reabrir).
+     - Chat `resolved` → bloqueado para ambos (terminal absoluto).
+     - Resto → input editable. */
+  const lockReason: 'closed' | 'resolved_agent' | 'chat_resolved' | null =
+    d.conversation.status === 'closed'
+      ? 'closed'
+      : d.conversation.status === 'resolved' && d.conversation.type === 'ticket'
+        ? 'resolved_agent'
+        : d.conversation.status === 'resolved' && d.conversation.type === 'chat'
+          ? 'chat_resolved'
+          : null;
 
   return (
     <DetailPage
@@ -185,17 +200,36 @@ export default function AdminConversationDetailPage() {
       <div className={styles.twoColumn}>
         {/* Left: Conversation messages (con toggle is_internal) */}
         <div className={styles.mainCol}>
+          {/* Sprint 16 (ADR-079 amendment A3): banner cuando el chat fue
+              escalado a ticket. Link directo al ticket destino. */}
+          {d.conversation.escalated_to && (
+            <div className={styles.escalationBanner}>
+              <span>
+                Esta conversación se escaló al ticket{' '}
+                <strong>
+                  TK-
+                  {String(
+                    d.conversation.escalated_to.sequence_number ?? 0,
+                  ).padStart(5, '0')}
+                </strong>
+                . El seguimiento continúa en el ticket.
+              </span>
+              <Link
+                href={`/admin/support/${d.conversation.escalated_to.id}`}
+                className={styles.escalationBannerLink}
+              >
+                Abrir ticket →
+              </Link>
+            </div>
+          )}
           <ConversationMessages
             messages={d.conversation.messages}
-            isClosed={isClosed}
-            isAdmin={true}
+            lockReason={lockReason}
             currentUserId={d.user?.id}
             newMessage={d.newMessage}
-            isInternal={d.isInternal}
             sending={d.sending}
             messagesEndRef={d.messagesEndRef}
             onMessageChange={d.setNewMessage}
-            onInternalChange={d.setIsInternal}
             onSend={d.handleSendMessage}
           />
         </div>

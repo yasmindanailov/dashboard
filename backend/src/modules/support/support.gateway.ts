@@ -176,18 +176,16 @@ export class SupportGateway
         return;
 
       try {
-        const message = await this.supportService.addMessage(
+        await this.supportService.addMessage(
           data.conversationId,
           'client',
           null,
           { body: data.body.trim(), is_internal: false },
         );
-        this.server
-          .to(`conversation:${data.conversationId}`)
-          .emit('message:new', {
-            conversationId: data.conversationId,
-            message: { ...message, sender_name: userInfo.userName },
-          });
+        /* Sprint 16 (ADR-079 amendment A3): la emisión `message:new` la
+           hace ahora el `SupportWebsocketListener` consumiendo el evento
+           `message.created` (única fuente, REST y WS unificados). Aquí
+           sólo broadcast complementario del cambio de estado al inbox. */
         this.server.to('agent:inbox').emit('conversation:updated', {
           conversationId: data.conversationId,
           status: 'waiting_agent',
@@ -214,19 +212,17 @@ export class SupportGateway
     }
 
     try {
-      const message = await this.supportService.addMessage(
+      await this.supportService.addMessage(
         data.conversationId,
         senderType,
         userInfo.userId,
         { body: data.body.trim(), is_internal: data.is_internal ?? false },
       );
 
-      this.server
-        .to(`conversation:${data.conversationId}`)
-        .emit('message:new', {
-          conversationId: data.conversationId,
-          message: { ...message, sender_name: userInfo.userName },
-        });
+      /* Sprint 16 (ADR-079 amendment A3): emisión `message:new` centralizada
+         en `SupportWebsocketListener` (vía evento `message.created`).
+         El gateway sólo se encarga de broadcasts complementarios (unread,
+         conversation:updated al inbox del agente). */
 
       if (senderType === 'agent' && !data.is_internal) {
         const conv = await this.supportService.findOne(
@@ -313,12 +309,28 @@ export class SupportGateway
     conversationId: string,
     update: Record<string, unknown>,
   ) {
+    if (!this.server) return;
     this.server
-      ?.to(`conversation:${conversationId}`)
+      .to(`conversation:${conversationId}`)
       .emit('conversation:updated', {
         conversationId,
         ...update,
       });
+  }
+
+  /* Sprint 16 (ADR-079 amendment A3): broadcast canónico de mensaje nuevo
+     a la room de la conversación. Llamado desde
+     `SupportWebsocketListener.handleMessageCreated` para que CUALQUIER
+     vía de envío (REST o WebSocket) llegue en tiempo real a los clientes
+     conectados — antes solo el gateway WS lo emitía, dejando al cliente
+     widget sin mensajes en vivo cuando el agente respondía vía REST. */
+  broadcastNewMessage(
+    conversationId: string,
+    message: Record<string, unknown>,
+  ) {
+    this.server
+      ?.to(`conversation:${conversationId}`)
+      .emit('message:new', { conversationId, message });
   }
 
   async broadcastUnreadCount(userId: string, role: 'client' | 'agent') {

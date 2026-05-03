@@ -352,6 +352,39 @@
   gap: 8px;
 }
 
+/* Sprint 16 (ADR-079 amendment A3): banner del widget cuando el chat fue
+   escalado a ticket. Link directo al ticket destino del cliente. */
+.escalationBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  margin: 12px 12px 0;
+  background: color-mix(in srgb, var(--cw-brand) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cw-brand) 32%, transparent);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--cw-text-primary);
+  line-height: 1.4;
+}
+
+.escalationBanner strong {
+  color: var(--cw-brand);
+}
+
+.escalationBannerLink {
+  color: var(--cw-brand);
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.escalationBannerLink:hover {
+  text-decoration: underline;
+}
+
 .typingIndicator {
   font-size: 12px;
   color: var(--cw-text-tertiary);

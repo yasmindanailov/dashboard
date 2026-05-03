@@ -1,285 +1,341 @@
 'use client';
 
+// TODO(ADR-078, Sprint 13): migrar a Server Component cuando cierre §13.AUTH.
+
 /* ═══════════════════════════════════════
-   Tasks Page — List (UI_SPEC §5.15)
-   Layout: Tabs (scope) + ListPage + StatusTabs + FilterBar + Table
-   Sprint 8 Fase B.1.bis (2026-04-29):
-     - Tabs jerárquicos: Mis tareas / Sin asignar / Todas
-     - Filtro de agente cuando scope=all (UI_SPEC §5.15 admin-only)
-     - Empty states diferenciados por scope/rol
-     - Helpers canónicos isStaffRole / isAdminRole (Opción A: los 4 staff
-       pueden reasignar; CTA "Nueva tarea" sólo admin pleno)
-   Ref: DECISIONS.md §10, ADR-066 (portal admin), ADR-067 (CASL roles).
+   /admin/tasks — Tasks list canónica Sprint 16 / ADR-079.
+
+   Vista única (sin tabs scope mine/unassigned/all). Toggle "Ver todas"
+   admin-only para alternar entre `mine` y `all`. La regla de orden
+   canónica §3.3 la aplica el backend en `applyCanonicalOrdering`; el
+   frontend agrupa visualmente por bloques (overdue → support_ticket →
+   resto). Cada item es una `TaskCard` shared con accionadores inline.
+
+   Sin creación manual (POST /tasks no existe — ADR-079 §1).
+   Sin filtros pesados (search/type/priority eliminados — la doctrina
+   §3.6 dice que la card es la herramienta; los filtros que sobreviven
+   son mecánicos: scope + source_system).
    ═══════════════════════════════════════ */
 
-import { useEffect, useState } from 'react';
-import { useTaskList } from './useTaskList';
-import TaskTable from './TaskTable';
-import NewTaskModal from './NewTaskModal';
-import type { StatusTab } from '../../components/ui';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
-  Button, SearchInput, Select,
-  ListPage, FilterBar, StatusTabs, Tabs,
-  EmptyState, Skeleton,
+  ListPage,
+  FilterBar,
+  Select,
+  EmptyState,
+  Skeleton,
+  StatusTabs,
 } from '../../components/ui';
-import styles from './tasks.module.css';
+import type { StatusTab } from '../../components/ui';
 import { useAuth } from '../../lib/auth-context';
 import { isStaffRole, isAdminRole } from '../../lib/portal';
-import { usersApi } from '../../lib/api';
-import type { Agent, Pagination } from '../../lib/types';
+import { tasksApi, type TaskScope } from '../../lib/api';
+import { getErrorMessage } from '../../lib/error';
+import TaskCard from '../../_shared/tasks/TaskCard';
+import { SOURCE_LABELS } from '../../_shared/tasks/source-labels';
+import type {
+  Task,
+  TaskListResponse,
+  TaskStats,
+  TaskSourceSystem,
+} from '../../_shared/tasks/types';
+import styles from './tasks.module.css';
 
-// Sprint 8 Fase B.7 (2026-04-29) — ADR-073: rename `wow_call` → `contact_client`.
-const TYPE_OPTIONS = [
-  { value: '', label: 'Todos los tipos' },
-  { value: 'contact_client', label: 'Contactar cliente' },
-  { value: 'maintenance', label: 'Mantenimiento' },
-  { value: 'maintenance_management', label: 'Mant. + Gestión' },
-  { value: 'custom_work', label: 'Personalizada' },
-  { value: 'support_setup', label: 'Setup soporte' },
+const SOURCE_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Todos los sistemas' },
+  { value: 'support_ticket', label: SOURCE_LABELS.support_ticket.label },
+  {
+    value: 'support_inside_slot',
+    label: SOURCE_LABELS.support_inside_slot.label,
+  },
+  {
+    value: 'provisioning_manual',
+    label: SOURCE_LABELS.provisioning_manual.label,
+  },
+  { value: 'client_lifecycle', label: SOURCE_LABELS.client_lifecycle.label },
+  { value: 'project', label: SOURCE_LABELS.project.label },
 ];
 
-const PRIORITY_OPTIONS = [
-  { value: '', label: 'Todas las prioridades' },
-  { value: 'critical', label: 'Crítica' },
-  { value: 'high', label: 'Alta' },
-  { value: 'medium', label: 'Media' },
-  { value: 'low', label: 'Baja' },
+/* Bloques visuales canónicos §3.3. El orden DB-side ya viene resuelto;
+   aquí solo agrupamos los resultados sin reordenar dentro de cada bloque. */
+const BLOCK_DEFINITIONS: {
+  key: 'support_ticket' | 'rest';
+  title: string;
+  predicate: (t: Task) => boolean;
+}[] = [
+  {
+    key: 'support_ticket',
+    title: 'Tickets de soporte',
+    predicate: (t) => t.source_system === 'support_ticket',
+  },
+  {
+    key: 'rest',
+    title: 'Otras tareas',
+    predicate: (t) => t.source_system !== 'support_ticket',
+  },
 ];
 
 export default function TasksPage() {
-  const list = useTaskList();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const focusId = searchParams?.get('focus') ?? null;
+
   const { user } = useAuth();
-  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
+  const token =
+    typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
   const roleSlug = user?.role?.slug || '';
   const isStaff = isStaffRole(roleSlug);
   const isAdmin = isAdminRole(roleSlug);
 
-  // Lista de agentes para el filtro "Asignado a" — sólo se carga si el
-  // usuario está en scope=all (única vista donde el filtro es visible).
-  // Lazy: evita request si nunca cambia a 'all'.
-  const [agents, setAgents] = useState<Agent[]>([]);
+  const [tasks, setTasks] = useState<TaskListResponse | null>(null);
+  const [stats, setStats] = useState<TaskStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [scope, setScope] = useState<TaskScope>('mine');
+  const [sourceFilter, setSourceFilter] = useState<TaskSourceSystem | ''>('');
+  const [statusFilter, setStatusFilter] = useState<string>('pending');
+  const [page, setPage] = useState(1);
+
+  const fetchTasks = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const params: Parameters<typeof tasksApi.list>[1] = {
+        page,
+        limit: 30,
+        scope,
+      };
+      if (sourceFilter) params.source_system = sourceFilter;
+      // El backend acepta `status` literal del enum. Para el tab
+      // "Pendientes" cubrimos pending|in_progress|not_completed_in_time —
+      // pedimos sin filtro y el frontend descarta completed/cancelled.
+      if (statusFilter === 'completed') params.status = 'completed';
+      const res = (await tasksApi.list(token, params)) as TaskListResponse;
+      // Filtrado adicional para el tab "Pendientes" (cubre los 3 estados
+      // vivos del flujo del agente). El backend no soporta `status IN` en
+      // un solo query — ajuste local sin coste relevante (limit=30).
+      if (statusFilter === 'pending') {
+        res.data = res.data.filter(
+          (t) => t.status !== 'completed' && t.status !== 'cancelled',
+        );
+      }
+      setTasks(res);
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Error al cargar tareas');
+    } finally {
+      setLoading(false);
+    }
+  }, [token, scope, sourceFilter, statusFilter, page]);
+
+  const fetchStats = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = (await tasksApi.getStats(token, scope)) as TaskStats;
+      setStats(res);
+    } catch {
+      // Stats no críticas — no rompemos la página por esto.
+    }
+  }, [token, scope]);
+
   useEffect(() => {
-    if (!token || !isStaff || list.scope !== 'all') return;
-    if (agents.length > 0) return;
-    void usersApi
-      .listAgents(token, { limit: 50 })
-      .then((res) => {
-        const payload = res as Pagination<Agent>;
-        setAgents(payload.data || []);
-      })
-      .catch(() => setAgents([]));
-  }, [token, isStaff, list.scope, agents.length]);
+    fetchTasks();
+  }, [fetchTasks]);
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
-  /* Tabs scope — Sprint 8 Fase B.1.bis (UI_SPEC §5.15 + Opción A CASL).
-     Para staff: las 3 vistas. Para client (no debería llegar aquí por
-     guard, pero defensivo): solo 'mine' visible. */
-  const scopeTabs = isStaff
-    ? [
-        { id: 'mine', label: 'Mis tareas' },
-        { id: 'unassigned', label: 'Sin asignar' },
-        { id: 'all', label: 'Todas' },
-      ]
-    : [{ id: 'mine', label: 'Mis tareas' }];
+  const handleStatusTab = (key: string) => {
+    setStatusFilter(key === 'completed' ? 'completed' : 'pending');
+    setPage(1);
+  };
 
-  /* StatusTabs — §3.2 */
+  const grouped = useMemo(() => {
+    const data = tasks?.data ?? [];
+    const overdue = data.filter((t) => t.status === 'not_completed_in_time');
+    const live = data.filter((t) => t.status !== 'not_completed_in_time');
+    return {
+      overdue,
+      blocks: BLOCK_DEFINITIONS.map((b) => ({
+        ...b,
+        items: live.filter(b.predicate),
+      })).filter((b) => b.items.length > 0),
+    };
+  }, [tasks]);
+
+  const focusedExists =
+    !!focusId && (tasks?.data ?? []).some((t) => t.id === focusId);
+
   const statusTabsArr: StatusTab[] = [
     {
-      label: 'Hoy', value: 'today',
-      count: list.stats?.today ?? 0,
-      variant: (list.stats?.today ?? 0) > 0 ? 'danger' : undefined,
+      label: 'Pendientes',
+      value: 'pending',
+      count: stats?.pending ?? 0,
     },
     {
-      label: 'Esta semana', value: 'week',
-      count: list.stats?.this_week ?? 0,
-      variant: (list.stats?.this_week ?? 0) > 0 ? 'warning' : undefined,
-    },
-    {
-      label: 'Pendientes', value: 'pending',
-      count: list.stats?.pending ?? 0,
-    },
-    {
-      label: 'Completadas', value: 'completed',
-      count: list.stats?.completed ?? 0,
+      label: 'Completadas',
+      value: 'completed',
+      count: stats?.completed ?? 0,
       variant: 'success',
     },
   ];
 
-  const handleTabChange = (key: string) => {
-    if (key === 'today') {
-      list.setTimeRange('today');
-      list.setStatusFilter('');
-    } else if (key === 'week') {
-      list.setTimeRange('week');
-      list.setStatusFilter('');
-    } else if (key === 'pending') {
-      list.setTimeRange('');
-      list.setStatusFilter('pending');
-    } else if (key === 'completed') {
-      list.setTimeRange('');
-      list.setStatusFilter('completed');
-    }
-    list.setPage(1);
-  };
-
-  const handleScopeChange = (newScope: string) => {
-    if (newScope === 'mine' || newScope === 'unassigned' || newScope === 'all') {
-      list.setScope(newScope);
-      // Limpiar filtro de agente al salir de scope=all (donde es el único
-      // sitio que tiene sentido). Evita que un filtro huérfano inviolente
-      // a 'mine' devuelva 0 resultados sin que el usuario sepa por qué.
-      if (newScope !== 'all') list.setAssigneeFilter('');
-      list.setPage(1);
-    }
-  };
-
-  // Sprint 8.B.1.bis — `activeStatusTab` debe reflejar el filtro REAL
-  // (no un fallback que mienta). Si statusFilter='pending' y timeRange='',
-  // estamos en Pendientes. Si nada está activo, ningún tab queda
-  // resaltado (cadena vacía → StatusTabs no marca ninguno como activo).
-  const activeStatusTab = list.timeRange === 'today' ? 'today'
-    : list.timeRange === 'week' ? 'week'
-    : list.statusFilter === 'completed' ? 'completed'
-    : list.statusFilter === 'pending' ? 'pending'
-    : '';
-
-  const hasActiveFilter =
-    !!list.search ||
-    !!list.typeFilter ||
-    !!list.priorityFilter ||
-    !!list.assigneeFilter ||
-    !!list.timeRange ||
-    !!list.statusFilter;
-
-  /* Empty state contextualizado por scope + status (UI_SPEC §5.15 + tono
-     de marca P5: "la cercanía viene de las palabras y el ritmo"). El
-     mensaje cambia según el cruce real, no sólo según un eje. */
-  const emptyStateProps = (() => {
-    // Búsqueda explícita o filtros laterales (tipo, prioridad, agente):
-    // ningún resultado es ruido del filtro, no del scope.
-    if (list.search || list.typeFilter || list.priorityFilter || list.assigneeFilter) {
-      return {
-        title: 'Sin resultados',
-        description: 'Prueba con otros filtros o términos de búsqueda.',
-      };
-    }
-    // Cruce scope × status: mensajes específicos para los pares más
-    // frecuentes; resto cae a un fallback razonable.
-    if (list.scope === 'unassigned') {
-      if (list.statusFilter === 'completed') {
-        return {
-          title: 'Sin tareas sin asignar completadas',
-          description: 'Aún no se ha completado ninguna tarea sin asignar.',
-        };
-      }
-      if (list.statusFilter === 'pending' || hasActiveFilter) {
-        return {
-          title: 'Ninguna tarea sin asignar pendiente',
-          description: 'Toda la cola sin asignar está cerrada o cancelada.',
-        };
-      }
-      return {
-        title: 'No hay tareas sin asignar',
-        description: 'Cuando se cree una tarea sin agente, aparecerá aquí para que la tomes.',
-      };
-    }
-    if (list.scope === 'all') {
-      return {
-        title: 'Sin tareas activas',
-        description: 'No hay tareas que coincidan con los filtros.',
-      };
-    }
-    // scope === 'mine'
-    if (list.statusFilter === 'completed') {
-      return {
-        title: 'Aún no has completado tareas',
-        description: 'Cuando completes alguna, aparecerá aquí.',
-      };
-    }
-    return {
-      title: '¡Buen trabajo!',
-      description: 'No tienes tareas pendientes. Disfruta del momento.',
-    };
-  })();
+  if (!isStaff) {
+    return (
+      <ListPage title="Tareas">
+        <EmptyState
+          title="Sin acceso"
+          description="Solo el equipo Aelium puede ver el tablero de tareas."
+        />
+      </ListPage>
+    );
+  }
 
   return (
     <ListPage
       title="Tareas"
       subtitle={
-        list.scope === 'unassigned' ? 'Tareas sin agente — disponibles para tomar'
-        : list.scope === 'all' ? 'Todas las tareas del equipo'
-        : 'Mis tareas pendientes'
+        scope === 'all'
+          ? 'Todas las tareas del equipo'
+          : 'Mis tareas — bridge unidireccional desde tickets, mantenimientos, setup, llamadas y proyectos'
       }
-      action={isAdmin ? (
-        <Button onClick={() => list.setShowNewModal(true)}>Nueva tarea</Button>
-      ) : undefined}
+      action={
+        isAdmin ? (
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={`${styles.toggleAll} ${scope === 'all' ? styles.toggleAllActive : ''}`}
+              onClick={() => {
+                const next: TaskScope = scope === 'all' ? 'mine' : 'all';
+                setScope(next);
+                setPage(1);
+              }}
+            >
+              {scope === 'all' ? 'Ver mis tareas' : 'Ver todas las tareas'}
+            </button>
+          </div>
+        ) : undefined
+      }
       statusTabs={
-        <div className={styles.scopeStack}>
-          <Tabs
-            tabs={scopeTabs}
-            activeTab={list.scope}
-            onChange={handleScopeChange}
-          />
-          <StatusTabs tabs={statusTabsArr} active={activeStatusTab} onChange={handleTabChange} />
-        </div>
+        <StatusTabs
+          tabs={statusTabsArr}
+          active={statusFilter}
+          onChange={handleStatusTab}
+        />
       }
       filterBar={
         <FilterBar
-          search={
-            <SearchInput
-              value={list.search}
-              onChange={e => list.setSearch(e.target.value)}
-              placeholder="Buscar por título..."
-            />
-          }
+          search={null}
           filters={
-            <>
-              <Select
-                value={list.typeFilter}
-                onChange={e => { list.setTypeFilter(e.target.value); list.setPage(1); }}
-                options={TYPE_OPTIONS}
-              />
-              <Select
-                value={list.priorityFilter}
-                onChange={e => { list.setPriorityFilter(e.target.value); list.setPage(1); }}
-                options={PRIORITY_OPTIONS}
-              />
-              {/* Filtro agente sólo en scope=all (UI_SPEC §5.15) */}
-              {isStaff && list.scope === 'all' && (
-                <Select
-                  value={list.assigneeFilter}
-                  onChange={e => { list.setAssigneeFilter(e.target.value); list.setPage(1); }}
-                  options={[
-                    { value: '', label: agents.length === 0 ? 'Cargando agentes…' : 'Todos los agentes' },
-                    ...agents.map(a => ({ value: a.id, label: a.full_name })),
-                  ]}
-                  disabled={agents.length === 0}
-                />
-              )}
-            </>
+            <Select
+              value={sourceFilter}
+              onChange={(e) => {
+                setSourceFilter(e.target.value as TaskSourceSystem | '');
+                setPage(1);
+              }}
+              options={SOURCE_OPTIONS}
+              aria-label="Filtrar por sistema vinculado"
+            />
           }
         />
       }
     >
-      {list.loading ? (
-        <Skeleton height={400} />
-      ) : list.error ? (
-        <EmptyState title="Error" description={list.error} />
-      ) : !list.tasks?.data?.length ? (
-        <EmptyState {...emptyStateProps} />
-      ) : (
-        <TaskTable
-          data={list.tasks}
-          page={list.page}
-          onPageChange={list.setPage}
-          showAgentColumn={list.scope !== 'mine'}
-        />
+      {focusId && focusedExists && (
+        <div className={styles.focusBanner}>
+          <span>
+            Tarea destacada — proviene del widget del dashboard. Está
+            resaltada en el listado para que la tomes ahora.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const params = new URLSearchParams(searchParams ?? undefined);
+              params.delete('focus');
+              const qs = params.toString();
+              router.replace(qs ? `/admin/tasks?${qs}` : '/admin/tasks');
+            }}
+          >
+            Quitar foco
+          </button>
+        </div>
       )}
 
-      <NewTaskModal
-        open={list.showNewModal}
-        onClose={() => list.setShowNewModal(false)}
-        onCreated={list.refresh}
-      />
+      {loading ? (
+        <Skeleton height={400} />
+      ) : error ? (
+        <EmptyState title="Error" description={error} />
+      ) : !tasks?.data?.length ? (
+        <EmptyState
+          title={
+            scope === 'all'
+              ? 'Sin tareas con estos filtros'
+              : statusFilter === 'completed'
+                ? 'Aún no has completado tareas'
+                : '¡Buen trabajo!'
+          }
+          description={
+            scope === 'all'
+              ? 'Ajusta el sistema vinculado o el estado.'
+              : statusFilter === 'completed'
+                ? 'Cuando cierres alguna, aparecerá aquí.'
+                : 'No tienes tareas pendientes. Disfruta del momento.'
+          }
+        />
+      ) : (
+        <div className={styles.layout}>
+          {grouped.overdue.length > 0 && (
+            <div className={styles.block}>
+              <div className={styles.overdueBanner}>
+                {grouped.overdue.length === 1
+                  ? '1 tarea vencida — atiéndela primero'
+                  : `${grouped.overdue.length} tareas vencidas — atiéndelas primero`}
+              </div>
+              <div className={styles.cards}>
+                {grouped.overdue.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    showAssignee={isAdmin && scope === 'all'}
+                    canReassign={isAdmin}
+                    onChanged={() => {
+                      fetchTasks();
+                      fetchStats();
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {grouped.blocks.map((block) => (
+            <div className={styles.block} key={block.key}>
+              <div className={styles.blockHeader}>
+                <h3 className={styles.blockTitle}>{block.title}</h3>
+                <span className={styles.blockCount}>
+                  {block.items.length}{' '}
+                  {block.items.length === 1 ? 'tarea' : 'tareas'}
+                </span>
+              </div>
+              <div className={styles.cards}>
+                {block.items.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    showAssignee={isAdmin && scope === 'all'}
+                    canReassign={isAdmin}
+                    onChanged={() => {
+                      fetchTasks();
+                      fetchStats();
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </ListPage>
   );
 }

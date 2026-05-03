@@ -160,6 +160,49 @@
   font-size: var(--font-size-sm);
 }
 
+/* Sprint 16 (ADR-079 amendment A3): banner escalación a ticket. */
+.escalationBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-3) var(--space-4) 0;
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 32%, transparent);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.escalationBanner strong {
+  color: var(--brand);
+}
+
+.escalationBannerLink {
+  color: var(--brand);
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+}
+
+.escalationBannerLink:hover {
+  text-decoration: underline;
+}
+
+/* Notice cuando el chat es terminal — input bloqueado. */
+.closedNotice {
+  padding: var(--space-4);
+  text-align: center;
+  background: var(--surface-secondary);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+  border-top: 1px solid var(--border);
+  line-height: 1.4;
+}
+
 /* ── Chat Messages ── */
 .messages {
   flex: 1;

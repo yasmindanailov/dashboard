@@ -3,9 +3,9 @@
 > **Catálogo canónico de TODOS los crons y jobs BullMQ.**
 > Si vas a programar trabajo asíncrono → consulta este archivo para no duplicar. Si vas a añadir uno nuevo → añádelo aquí en el mismo PR.
 
-> **Última auditoría:** 2026-05-02 — cierre Sprint 11 Fase 11.B (cola nueva BullMQ on-demand: `provisioning-dispatch` consume `invoice.paid` y delega en `ProvisionerPlugin.provision()` por servicio).
+> **Última auditoría:** 2026-05-03 — cierre Sprint 16 Fase 16.E (cola nueva BullMQ scheduled: `support-resolved-auto-close` 02:30 UTC consume tickets en `resolved` >`support.auto_close_resolved_days` y los cierra silencioso emitiendo `conversation.auto_closed` — ADR-079 Amendment A1, DC.33 cerrada).
 > **Crons in-process activos:** 9 (`@nestjs/schedule`). El Outbox dispatcher abandonó `@Interval` en Sprint 9 Fase C — ahora es BullMQ scheduled. Sprint 9 Fase E añade `cleanupOldAuditLogs`. Sprint 9.5 añade `cleanupReadNotifications` (única DELETE permitida sobre `notifications` canal `internal`).
-> **Jobs BullMQ implementados:** **8 — `pdf-generation` (Sprint 9 Fase B), `outbox-dispatch` (Sprint 9 Fase C), `notifications-dispatch` (Sprint 9 Fase D), `tasks-overdue` (Sprint 8 Fase C), `tasks-unassigned-overdue` (Sprint 8 Fase C / ADR-072), `maintenance-critical` (Sprint 8 Fase C), `maintenance-monthly` (Sprint 8 Fase D / ADR-034 + ADR-061), `provisioning-dispatch` (Sprint 11 Fase 11.B / ADR-077)** ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) + [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md) + [ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md) + [ADR-034](../10-decisions/adr-034-support-inside-modelo.md) + [ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md)).
+> **Jobs BullMQ implementados:** **9 — `pdf-generation` (Sprint 9 Fase B), `outbox-dispatch` (Sprint 9 Fase C), `notifications-dispatch` (Sprint 9 Fase D), `tasks-overdue` (Sprint 8 Fase C), `tasks-unassigned-overdue` (Sprint 8 Fase C / ADR-072), `maintenance-critical` (Sprint 8 Fase C), `maintenance-monthly` (Sprint 8 Fase D / ADR-034 + ADR-061), `provisioning-dispatch` (Sprint 11 Fase 11.B / ADR-077), `support-resolved-auto-close` (Sprint 16 Amendment A1 / ADR-079)** ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) + [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md) + [ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md) + [ADR-034](../10-decisions/adr-034-support-inside-modelo.md) + [ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) + [ADR-079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md)).
 > **Crons aspiracionales:** 1 documentado en ADRs sin implementación todavía (numeración year+1).
 
 ---
@@ -15,7 +15,7 @@
 | Métrica | Valor |
 |---------|-------|
 | Crons `@Cron` activos | 9 (8 billing/support/audit + 1 notifications retention Sprint 9.5) |
-| Jobs BullMQ activos | **8** (`pdf-generation` Sprint 9 Fase B · `outbox-dispatch` Sprint 9 Fase C · `notifications-dispatch` Sprint 9 Fase D · `tasks-overdue` Sprint 8 Fase C · `tasks-unassigned-overdue` Sprint 8 Fase C / ADR-072 · `maintenance-critical` Sprint 8 Fase C · `maintenance-monthly` Sprint 8 Fase D / ADR-034 · `provisioning-dispatch` Sprint 11 Fase 11.B / ADR-077) |
+| Jobs BullMQ activos | **9** (`pdf-generation` · `outbox-dispatch` · `notifications-dispatch` · `tasks-overdue` · `tasks-unassigned-overdue` · `maintenance-critical` · `maintenance-monthly` · `provisioning-dispatch` · **`support-resolved-auto-close`** Sprint 16 Amendment A1 / ADR-079) |
 | DLQ implementada | ✅ ([ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) — `DlqService` + tabla `failed_jobs` + emit `dlq.job_failed`) |
 | Outbox dispatcher BullMQ scheduled | ✅ ([ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md) — backoff exponencial 30s→480s + emit `outbox.event_failed` + leader election natural) |
 | Notifications full multicanal | ✅ ([ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md) — plantillas editables + Email + InApp + alertas operativas a superadmins) |
@@ -205,6 +205,21 @@ markAsPaid / sendToPending  →  pdfQueue.add('invoice-pdf', { invoice_id }, { j
 | DLQ | ✅ — `DlqService.register('provisioning-dispatch')`. Tras 5 fallos retriables, job entra en `failed_jobs` + alerta superadmin (Fase 11.E listener notifications). |
 | Tests | unit `provisioning-orchestrator.service.spec.ts` (10/10 verde — service no encontrado, idempotente, terminal, plugin no registrado, OK mark_active, OK create_setup_task, retriable re-throw, no-retriable cancela, invoice.paid encola N services, sin services no encola). E2E pendientes Fase 11.C. |
 
+### Cola `support-resolved-auto-close` (Sprint 16 Amendment A1 + [ADR-079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md))
+
+| Item | Valor |
+|------|-------|
+| Nombre | `support-resolved-auto-close` |
+| Job principal | `support-resolved-auto-close-tick` (sin payload — repeat scheduled cron `30 2 * * *` UTC, evita colisión con `tasks-overdue` 02:00) |
+| Productor | `SupportResolvedAutoCloseProcessor.onModuleInit()` registra `queue.upsertJobScheduler('support-resolved-auto-close-tick', { pattern: '30 2 * * *' })` (idempotente por id) |
+| Procesador | `SupportResolvedAutoCloseProcessor.process()` → invoca `SupportResolvedAutoCloseService.run()` |
+| Lógica | `SELECT FROM conversations WHERE type='ticket' AND status='resolved' AND resolved_at < now() - support.auto_close_resolved_days days`. Por cada uno: `UPDATE status='closed', closed_at=now()` + emit `conversation.auto_closed` (consumido por `notifications-conversation-auto-closed.listener` → email + campana al agente que resolvió). Idempotente: ejecutar dos veces el mismo día no doble-cierra. |
+| Por qué este cron | Amendment A1 introduce `resolved` como estado **transitorio** (refina ADR-037). Tres caminos: cliente responde → reactiva, cliente confirma → cierra explícito, este cron cierra silencioso pasados N días. Sin él, los tickets `resolved` se acumularían sin cerrar. |
+| Setting consumido | `support.auto_close_resolved_days` (default `7`). Editable vía `/admin/settings`. |
+| Manual trigger | `POST /api/v1/admin/tasks/cron/support-resolved-auto-close` (JwtAuthGuard + AdminOnlyGuard + `Manage.Job` — sólo superadmin). |
+| DLQ | ✅ — `DlqService.register('support-resolved-auto-close')` |
+| Tests | unit `support-resolved-auto-close.service.spec.ts` (4 specs verde — cutoff, filtros por estado, emit `conversation.auto_closed`, idempotencia). E2E `support-conversation-lifecycle.spec.ts` (1 spec end-to-end del path auto-close). |
+
 ### Defaults globales (`JobsModule` — [ADR-063](../10-decisions/adr-063-bullmq-canonico-dlq-retries.md))
 
 | Parámetro | Valor | Override por cola |
@@ -259,6 +274,7 @@ markAsPaid / sendToPending  →  pdfQueue.add('invoice-pdf', { invoice_id }, { j
 | `task.overdue` | `tasks-overdue` (BullMQ) | `tasks-overdue.listener` → email + campana al agente | ❌ — bajo P-DEPLOY.4 (ADR-069) |
 | `task.unassigned_overdue` | `tasks-unassigned-overdue` (BullMQ) | `tasks-unassigned-overdue.listener` → email + campana superadmin | ❌ — operativo, no de negocio |
 | `maintenance.critical` | `maintenance-critical` (BullMQ) | `maintenance-critical.listener` → email + campana superadmin | ❌ — operativo, no de negocio |
+| **`conversation.auto_closed`** | **`support-resolved-auto-close` (BullMQ)** | **`notifications-conversation-auto-closed.listener` → email + campana al agente que resolvió** | ❌ — operativo (Sprint 16 Amendment A1) |
 
 **Riesgo R8:** los 4 eventos `invoice.*` salen de un cron — si el proceso muere entre commit DB y `emit`, el cliente no se entera de su factura. Por eso `invoice.*` es el primer candidato para Outbox.
 

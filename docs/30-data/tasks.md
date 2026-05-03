@@ -1,28 +1,13 @@
 # Tasks — Schema
 
-> 🚧 **SCHEMA YA MIGRADO — Sprint 16 Fase 16.B mergeada (2026-05-02, PR #22)**
->
-> El schema canónico nuevo está vivo en BD desde la migración `sprint16_tasks_notes_refactor`. El contenido §1-§Cross-references de abajo describe el estado **PRE-Sprint 16** y queda como referencia histórica hasta que Fase 16.E lo reescriba.
->
-> **Estado real BD post-migración:**
-> - Enum `TaskSourceSystem` con 5 valores (`support_ticket`, `support_inside_slot`, `provisioning_manual`, `client_lifecycle`, `project`).
-> - Tabla `tasks` con 12 columnas (id + 11 canónicas + updated_at): `id`, `source_system`, `source_id`, `client_id`, `assigned_to`, `priority`, `status`, `due_date`, `completed_at`, `completed_by`, `created_at`, `updated_at`.
-> - **UNIQUE INDEX parcial** `tasks_uniq_active_per_source` ON `(source_system, source_id) WHERE status IN ('pending','in_progress')` — 1 task activa por origen; tasks terminadas no entran al índice (permite re-creación tras cierre).
-> - Tablas `task_tags` + `task_tag_assignments` **DROP CASCADE**.
-> - Tabla `maintenance_logs`: campo `notes` **renombrado** a `client_facing_notes`; sin campo `internal_notes` (las notas internas viven en `client_notes` con `source_system='maintenance_log'`).
->
-> **`client_notes` schema canónico:**
-> - Drop de `conversation_id` y `task_id` directos.
-> - Añadidos: `source_system` (enum `NoteSourceSystem` — `ticket`/`chat`/`maintenance_log`/`task_completion`/`exceptional`), `source_id` uuid (polimórfico, **sin FK física**), `triggered_by_action` varchar(100).
-> - Enum `NoteCategory` reemplazado: `support`, `maintenance`, `onboarding`, `billing`, `project`, `technical_incident`, `exceptional` (los 5 valores legacy `conversation`/`solution`/`technical`/`general`/`billing` ya no existen).
->
-> Plan completo en [ADR-079 §3.1 + §3.8 + §4](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md). Migración Opción B (drop + reseed) aplicada según [ADR-069](../10-decisions/adr-069-estrategia-deploy-diferido.md). Reescritura completa de esta página queda en **Sprint 16 Fase 16.E**.
+> **Doctrina canónica vigente: [ADR-079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md)** + Amendments A1/A2/A3 (Sprint 16, mergeado 2026-05-02).
+> Schema simplificado: tasks como bridge unidireccional read-only desde 5 triggers automáticos cerrados. Notas consolidadas en `client_notes` con source tracking polimórfico.
 
-> **Dominio:** tareas internas (operativa diaria del equipo).
+> **Dominio:** capa transversal de organización del trabajo del agente humano (operativa diaria del staff).
 > **Módulo:** [`docs/20-modules/tasks/contract.md`](../20-modules/tasks/contract.md).
-> **Sprint origen:** Sprint 8 (en curso — Fase A cerrada 2026-04-29, Fases B-E pendientes).
-> **Estado:** ✅ `tasks` (P0.1) + ✅ `task_checklist_completions` + ✅ `maintenance_logs` + ✅ `service_checklist_items` (Sprint 8 Fase A, 2026-04-29).
-> **ADRs:** [041](../10-decisions/adr-041-sistema-tareas.md) (tareas) · [022](../10-decisions/adr-022-wdify-deprecado-proyectos.md) (WDIFY deprecado) · [046](../10-decisions/adr-046-sistema-proyectos.md) (proyectos como reemplazo de WDIFY) · [061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md) (Support Inside como tier de cuenta) · **[079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) (refactor canónico Sprint 16: bridge unidireccional read-only + 5 source_systems + drop tags + consolidación notas)**.
+> **Sprint origen:** Sprint 8 (modelo legacy) → Sprint 16 (refactor canónico ADR-079).
+> **Estado:** ✅ schema canónico vivo desde migración `sprint16_tasks_notes_refactor` (2026-05-02).
+> **ADRs activos:** [079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) (canónico vigente) · [041](../10-decisions/adr-041-sistema-tareas.md) parcial · [072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md) (cola pública refinada) · [074](../10-decisions/adr-074-ticket-task-bridge.md) (bridge refinado) · [061](../10-decisions/adr-061-support-inside-tier-cuenta-ux.md) (tiers SI consumidos por helpers).
 
 ---
 
@@ -30,60 +15,70 @@
 
 | Tabla | Estado | Propósito |
 |-------|--------|-----------|
-| `tasks` | ✅ | Tareas del equipo (auto o manuales). UNIQUE `(service_id, billing_month, type)` para idempotencia mantenimiento mensual. |
-| `task_checklist_completions` | ✅ Sprint 8 Fase A | Una fila por item de checklist completado dentro de una tarea (idempotente por `(task_id, item_id, item_kind)`) |
-| `maintenance_logs` | ✅ Sprint 8 Fase A | Registro inmutable 1:1 con `tasks` de mantenimiento — historial visible al cliente |
-| `service_checklist_items` | ✅ Sprint 8 Fase A | Snapshot de `product_checklist_items` al provisionar el servicio (cambios futuros del producto no afectan servicios activos) |
+| `tasks` | ✅ Sprint 16 (refactor) | Capa transversal de trabajo del agente. UNIQUE parcial `(source_system, source_id) WHERE status IN ('pending','in_progress')` para idempotencia + permitir re-creación tras cierre. |
+| `task_checklist_completions` | ✅ Sprint 8 Fase A | 1 fila por item de checklist completado dentro de una task `support_inside_slot`. Idempotente por `(task_id, item_id, item_kind)`. |
+| `maintenance_logs` | ✅ Sprint 8 Fase A (refactor Sprint 16) | Registro inmutable 1:1 con tasks `support_inside_slot`. Visible al cliente. Campo `notes` renombrado a `client_facing_notes` en Sprint 16 (DC.32 cerrada). Sin `internal_notes`. |
+| `service_checklist_items` | ✅ Sprint 8 Fase A | Snapshot de `product_checklist_items` al provisionar el servicio. |
+| ~~`task_tags`~~ | 🪦 Eliminada Sprint 16 | DROP CASCADE — tabla muerta. |
+| ~~`task_tag_assignments`~~ | 🪦 Eliminada Sprint 16 | DROP CASCADE — M2M inservible. |
 
 ---
 
-## Tabla: `tasks` ✅
+## Tabla: `tasks` ✅ (refactor Sprint 16)
 
-Tareas del equipo. Generadas automáticamente o manualmente. Asignación 1:1 con un agente ([ADR-041](../10-decisions/adr-041-sistema-tareas.md)).
+Capa transversal de organización del trabajo del agente humano. Cada `Task` es el reflejo organizado de un trigger automático canónico ([ADR-079 §1+§2](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md)). NUNCA es la fuente de verdad — el "qué hay que hacer" vive en el sistema vinculado vía `(source_system, source_id)` polimórfico.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
-| `id` | uuid | PK | |
-| `type` | enum | NOT NULL | `contact_client` · `maintenance` · `maintenance_management` · `project_task` (Sprint 22, [projects.md](./projects.md)) · `custom_work` · `support_setup`. Sprint 8 Fase B.7 ([ADR-073](../10-decisions/adr-073-tipos-flexibles-tasks-reason-tags.md)) renombró `wow_call` → `contact_client`; el contexto histórico se preserva en `reason='Bienvenida primer servicio'`. |
-| `status` | enum | NOT NULL, DEFAULT `'pending'` | `pending` · `in_progress` · `completed` · `not_completed_in_time` · `cancelled` |
-| `priority` | enum | NOT NULL, DEFAULT `'medium'` | `low` · `medium` · `high` · `critical` |
-| `assigned_to` | uuid | NULLABLE, FK → `users(id)` | Agente asignado. Validación FK `assertAssignableUser` (rol staff + status active) cerrada en Sprint 8 P0.1 |
-| `created_by` | uuid | NOT NULL, FK → `users(id)` | Agente que creó la tarea |
-| `client_id` | uuid | NOT NULL, FK → `users(id)` | Cliente sobre el que se ejecuta la tarea |
-| `service_id` | uuid | NULLABLE, FK → `services(id)` ON DELETE SET NULL | Servicio relacionado (si aplica) |
-| `conversation_id` | uuid | NULLABLE | Conversación origen (escalación de soporte) |
-| `title` | varchar(500) | NOT NULL | |
-| `description` | text | NULLABLE | |
-| `client_note` | text | NULLABLE | Nota inline rápida del agente. **Coexiste** con `client_notes.task_id` (notas estructuradas en timeline del cliente, ADR-038 + decisión Sprint 8 §3.4). Ambos campos sirven propósitos distintos. |
-| `due_date` | timestamptz | NULLABLE | |
+| `id` | uuid | PK, DEFAULT `gen_random_uuid()` | |
+| `source_system` | enum `TaskSourceSystem` | NOT NULL | 5 valores cerrados: `support_ticket` · `support_inside_slot` · `provisioning_manual` · `client_lifecycle` · `project`. Reemplaza al enum legacy `TaskType` (eliminado en Sprint 16). |
+| `source_id` | uuid | NOT NULL | ID en el sistema vinculado: `conversation_id` · `slot_id` · `service_id` · `client_id` · `project_id` (polimórfico, **sin FK física**). Se gana 1 columna y se pierde integridad referencial dura — aceptado porque listeners validan existencia antes de crear y las cancelaciones se gestionan vía listeners de cancelación cross-sistema. |
+| `client_id` | uuid | NOT NULL, FK → `users(id)` | Cliente afectado (denormalizado para query rápida + filtros UI). Siempre obligatorio post Sprint 16 (TASK-INV-3). |
+| `assigned_to` | uuid | NULLABLE, FK → `users(id)` | null = cola pública (ADR-072 sigue vigente refinada por ADR-079 §3.4). |
+| `priority` | enum `TaskPriority` | NOT NULL, DEFAULT `'medium'` | `low` · `medium` · `high` · `critical`. Calculada al crear según `core/tasks/priority-helper.ts` (sólo `support_ticket` mapea por tier SI; resto = `medium`). |
+| `status` | enum `TaskStatus` | NOT NULL, DEFAULT `'pending'` | `pending` · `in_progress` · `completed` · `not_completed_in_time` · `cancelled`. Terminales inmutables (TASK-INV-2). |
+| `due_date` | timestamptz | NULLABLE | Calculado al crear según `core/tasks/sla-helper.ts`. `project` queda null (sin SLA). |
 | `completed_at` | timestamptz | NULLABLE | |
-| `is_recurring` | boolean | NOT NULL, DEFAULT `false` | |
-| `recurrence_day` | integer | NULLABLE | Día del mes para tareas recurrentes |
-| `billing_month` | varchar(7) | NULLABLE | YYYY-MM — a qué mes corresponde el mantenimiento. Idempotencia mensual reforzada por UNIQUE `(service_id, billing_month, type)` (Sprint 8 Fase A). Validación regex en DTO (EC-T8-15). |
-| `reason` | varchar(100) | NULLABLE | POR QUÉ humano de la tarea. Texto libre. Sprint 8 Fase B.7 ([ADR-073](../10-decisions/adr-073-tipos-flexibles-tasks-reason-tags.md)). |
-| `metadata` | jsonb | NULLABLE | Datos adicionales del provisioner / listener creador |
+| `completed_by` | uuid | NULLABLE, FK → `users(id)` | Auditoría de quién completó. |
 | `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
-| `updated_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
+| `updated_at` | timestamptz | NOT NULL, DEFAULT `now()` | `@updatedAt` Prisma |
 
 **Índices:**
-- `idx_tasks_assigned_to` — en `assigned_to`
-- `idx_tasks_client_id` — en `client_id`
-- `idx_tasks_status` — en `status`
-- `idx_tasks_due_date` — en `due_date`
-- `idx_tasks_billing_month` — en `billing_month`
-- **UNIQUE `(service_id, billing_month, type)`** — Sprint 8 Fase A. Garantiza idempotencia del cron `MaintenanceMonthlyCron` (EC-T8-02): si el processor se ejecuta dos veces el mismo día por crash recovery, la segunda inserción falla con conflict y el job se marca skipped en lugar de duplicar tarea.
+
+- **`tasks_uniq_active_per_source`** — UNIQUE parcial `(source_system, source_id) WHERE status IN ('pending','in_progress')`. Permite re-crear task tras cierre (patrón `conversation.reactivated` Amendment A1).
+- `idx_tasks_assigned_to`, `idx_tasks_status`, `idx_tasks_client_id`, `idx_tasks_source_idx` (`source_system, source_id`), `idx_tasks_due_date`.
+
+**Campos eliminados respecto al schema pre-Sprint 16** (16 → 12):
+
+| Campo eliminado | Motivo |
+|-----------------|--------|
+| `type` (TaskType enum 7 valores) | Reemplazado por `source_system` (5 valores). El nombre semántico cambia: ya no es "qué clase de tarea es" sino "de qué sistema viene". |
+| `title` (varchar 500) | Se renderiza dinámicamente desde el sistema vinculado (subject del ticket, "Mantenimiento mes X", "Llamada bienvenida cliente Y"). |
+| `description` (text) | El "qué hay que hacer" vive en el sistema vinculado. |
+| `created_by` (uuid) | Siempre cron/listener interno — no aporta info útil al agente. |
+| `client_note` (string en task) | Va a `client_notes` con `source_system='task_completion'`. |
+| `is_recurring`, `recurrence_day` | La recurrencia vive en el sistema vinculado (slot Support Inside). La task es para ESTE mes concreto. |
+| `billing_month` (varchar 7) | Se deriva de `created_at` cuando aplica. No persistido. |
+| `reason` (varchar 100) | No aplica — era texto humano para tasks manuales (ya no existen). |
+| `metadata` (jsonb) | No aplica — no hay datos arbitrarios; el contexto vive en el sistema vinculado. |
+| `service_id`, `conversation_id` (FK directas) | Reemplazados por `source_id` polimórfico con `source_system` que define a qué tabla apunta. |
 
 **Notas de decisión:**
-- Una tarea **completada nunca se reabre** ([ADR-041](../10-decisions/adr-041-sistema-tareas.md)) — auditabilidad. Si hace falta retomar, se crea tarea nueva.
-- `not_completed_in_time` se aplica vía cron `TasksOverdueProcessor` (Sprint 8 Fase C, planificado) — no se elimina la tarea, queda como evidencia.
-- Sprint 8 P0.1 (2026-04-26): listener `task.assigned` + validación FK `assigned_to` cerrados.
-- Sprint 8 Fase A (2026-04-29): UNIQUE compuesto + relaciones inversas hacia `task_checklist_completions`, `maintenance_logs`, `client_notes` añadidos.
+
+- Una task **completada nunca se reabre** (TASK-INV-2). Si el sistema vinculado vuelve a estar vivo (ticket reactivado), se crea task NUEVA — patrón `conversation.reactivated` (Amendment A1). Refuerzo runtime: `TERMINAL_STATES` guard en `TasksService.assertNotTerminal()`.
+- Idempotencia por trigger:
+  - `support_inside_slot`: 1 task activa por slot (UNIQUE parcial). Tras cierre, el slot puede volver a recibir task el mes siguiente.
+  - `support_ticket`: 1 task activa por ticket (UNIQUE parcial). Reapertura emite `conversation.reactivated` → nueva task.
+  - `provisioning_manual`: idempotencia por listener (`__idempotent_hit` flag) + UNIQUE parcial.
+  - `client_lifecycle`: idempotencia por helper `clientsService.isFirstService(clientId)` + UNIQUE parcial.
+  - `project`: idempotencia por endpoint `promote-to-task` (Sprint 22).
+- `not_completed_in_time` se aplica vía cron `tasks-overdue` (BullMQ scheduled `0 2 * * *` UTC) — no se elimina la tarea, queda como evidencia.
 
 ---
 
 ## Tabla: `task_checklist_completions` ✅ Sprint 8 Fase A
 
-Una fila por **item de checklist completado** dentro de una tarea. Idempotente por `(task_id, item_id, item_kind)` — repetir el complete no duplica fila.
+1 fila por **item de checklist completado** dentro de una task `support_inside_slot`. Idempotente por `(task_id, item_id, item_kind)` — repetir el complete no duplica fila.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
@@ -100,41 +95,42 @@ Una fila por **item de checklist completado** dentro de una tarea. Idempotente p
 - `idx_task_checklist_completions_item_id_item_kind`
 - **UNIQUE `(task_id, item_id, item_kind)`** — `task_checklist_completions_uniq`.
 
-**Notas de decisión:**
-- FK polimórfica (`item_id` apunta a 2 tablas según `item_kind`) — alternativa a 2 columnas separadas, más compacta y consistente con la doctrina del proyecto de evitar campos sparse. La integridad referencial se valida en `ChecklistCompletionService` (Sprint 8 Fase B).
-
 ---
 
-## Tabla: `maintenance_logs` ✅ Sprint 8 Fase A
+## Tabla: `maintenance_logs` ✅ Sprint 8 Fase A (refactor Sprint 16)
 
-Registro inmutable de mantenimientos completados. Relación 1:1 con `tasks` de tipo `maintenance` / `maintenance_management`. Visible al cliente en su portal de transparencia (RGPD, [ADR-010](../10-decisions/adr-010-rgpd-retencion-datos.md)).
+Registro inmutable de mantenimientos completados. Relación 1:1 con tasks `support_inside_slot`. Visible al cliente en su portal de transparencia (RGPD, [ADR-010](../10-decisions/adr-010-rgpd-retencion-datos.md)).
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
 | `id` | uuid | PK | |
-| `task_id` | uuid | NOT NULL, FK → `tasks(id)` ON DELETE CASCADE, **UNIQUE** | Una tarea genera **un solo** `maintenance_log`. |
+| `task_id` | uuid | NOT NULL, FK → `tasks(id)` ON DELETE CASCADE, **UNIQUE** | Una task genera **un solo** `maintenance_log`. |
 | `service_id` | uuid | NOT NULL, FK → `services(id)` ON DELETE CASCADE | Servicio sobre el que se ejecutó el mantenimiento. |
 | `client_id` | uuid | NOT NULL, FK → `users(id)` | Cliente — denormalizado para queries rápidas en el portal del cliente. |
 | `month_year` | varchar(7) | NOT NULL | YYYY-MM — mes natural al que corresponde el mantenimiento. |
-| `notes` | text | NOT NULL | Resumen ejecutado. Se inyecta en `notification.template` cuando se emite `maintenance.completed`. |
+| **`client_facing_notes`** | text | NOT NULL | **Renombrado en Sprint 16 (DC.32 cerrada)** — antes era `notes`. Resumen ejecutado VISIBLE al cliente: se inyecta en plantilla `maintenance.completed`. |
 | `performed_by` | uuid | NOT NULL, FK → `users(id)` | Agente que completó. |
 | `performed_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
-| `metadata` | jsonb | NULLABLE | Avisos/observaciones (ej: items opcionales no completados — EC-T8-01). |
+| `metadata` | jsonb | NULLABLE | Avisos/observaciones (ej. items opcionales no completados — EC-T8-01). |
+
+> **Cambios Sprint 16:**
+> - `notes` → `client_facing_notes` (rename canónico — DC.32 ✅).
+> - `internal_notes` **DROP COLUMN** — las notas internas viven ahora en `client_notes` con `source_system='maintenance_log'` + `triggered_by_action='maintenance.completed'` + `category='maintenance'`. La consolidación se hace vía `ClientNotesService.createFromMaintenanceCompletion()` invocada atómicamente por `MaintenanceLogService.recordCompletion()`.
 
 **Índices:**
-- UNIQUE `task_id` (relación 1:1 con `tasks`).
+- UNIQUE `task_id` (relación 1:1 con tasks).
 - `idx_maintenance_logs_service_id`, `idx_maintenance_logs_month_year`, `idx_maintenance_logs_client_id`.
 
 **Notas de decisión:**
 - Append-only de facto — una vez creado, no se edita.
-- Al insertar (vía `MaintenanceLogService.recordCompletion` — Sprint 8 Fase B) → emite `maintenance.completed` → `NotificationsService.dispatchToUser(client_id, 'maintenance.completed', payload)`.
-- Si el agente marca menos del 100% de items obligatorios al cerrar la task → `MaintenanceLogService` registra `metadata.warnings` y la task NO se cierra (devuelve 422). Si los items son opcionales, registra `metadata.warnings` con la lista pero deja completar (EC-T8-01).
+- Al insertar (vía `MaintenanceLogService.recordCompletion`) → emite `maintenance.completed` → `MaintenanceCompletedListener.dispatchToUser(client_id, ...)` → email + campana.
+- Si el agente marca menos del 100% de items obligatorios → 422. Si los items son opcionales, registra `metadata.warnings` con la lista pero deja completar (EC-T8-01).
 
 ---
 
 ## Tabla: `service_checklist_items` ✅ Sprint 8 Fase A
 
-Snapshot de `product_checklist_items` cuando se provisiona un servicio. Permite que cambios futuros del producto **no afecten servicios activos** — el cliente que contrató con un checklist de 5 items mantiene esos 5 items aunque el producto pase a 7 luego.
+Snapshot de `product_checklist_items` cuando se provisiona un servicio. Permite que cambios futuros del producto **no afecten servicios activos**.
 
 | Campo | Tipo | Restricciones | Notas |
 |-------|------|---------------|-------|
@@ -158,85 +154,52 @@ Snapshot de `product_checklist_items` cuando se provisiona un servicio. Permite 
 ## Diagrama de relaciones (tasks)
 
 ```
-tasks
-  ├── assigned_to → users (agente)
-  ├── created_by → users (agente)
-  ├── client_id → users (cliente)
-  ├── service_id (opcional, ON DELETE SET NULL) → services
-  ├── conversation_id (opcional) → conversations  (escalación soporte)
-  ├── checklist_completions (1:N) → task_checklist_completions
-  ├── maintenance_log (1:1, opcional) → maintenance_logs
-  └── structured_notes (1:N) → client_notes  (vía client_notes.task_id, ADR-038)
-
-services
-  ├── tasks (1:N via service_id)
-  │     └── UNIQUE (service_id, billing_month, type)  (idempotencia mantenimiento mensual)
-  ├── maintenance_logs (1:N via service_id)
-  └── checklist_items (1:N) → service_checklist_items  (snapshot al provisionar)
+tasks                                            ← schema canónico ADR-079 §3.1
+  ├── source_system enum (5 valores cerrados)
+  ├── source_id (polimórfico, sin FK física)
+  │     ├── support_ticket           → conversations(id)        (validación listener)
+  │     ├── support_inside_slot      → support_inside_slots(id) (validación listener)
+  │     ├── provisioning_manual      → services(id)             (validación listener)
+  │     ├── client_lifecycle         → users(id) cliente        (validación helper isFirstService)
+  │     └── project                  → projects(id)             (Sprint 22 — placeholder)
+  ├── client_id (FK física users)
+  ├── assigned_to (FK física users, nullable)
+  ├── completed_by (FK física users, nullable)
+  ├── checklist_completions (1:N, solo support_inside_slot) → task_checklist_completions
+  ├── maintenance_log (1:1, solo support_inside_slot) → maintenance_logs
+  └── notes (1:N) → client_notes (vía source_system='task_completion' + source_id=task.id)
 ```
+
+> **Diferencia clave con el modelo pre-Sprint 16:** desaparecen las FK directas `service_id` y `conversation_id` de `tasks`. Lo polimórfico (`source_system, source_id`) las reemplaza. La integridad la valida el listener creador antes de insertar; las cancelaciones cross-sistema las gestionan los 3 listeners (`tasks-on-slot-released`, `tasks-on-service-cancelled`, `support-ticket-task-creator.handleUnassigned`).
 
 ---
 
-## Cron jobs relacionados (aspiracionales — pendientes Sprint 8)
+## Cron jobs relacionados
 
-| Cron | Schedule | Función |
-|------|----------|---------|
-| **Crear tareas mensuales de mantenimiento** | Mensual en `anniversary_day` | Por cada `support_inside_slot` activo, crear `task` tipo `maintenance` o `maintenance_management` con `billing_month` correspondiente |
-| **Detectar tareas no completadas a tiempo** | Diario | `pending` con `due_date < now` → `not_completed_in_time` |
-| **Alertas de mantenimiento crítico** | Diario | Tareas `maintenance` con `due_date - now < support.maintenance_critical_threshold_days` → notificación al agente + admin |
+Detalle completo en [`docs/50-operations/jobs-reference.md`](../50-operations/jobs-reference.md).
 
-Ver [jobs-reference](../50-operations/jobs-reference.md) para más detalles.
+| Cola BullMQ | Schedule UTC | Servicio | Función |
+|-------------|-------------|----------|---------|
+| `tasks-overdue` | `0 2 * * *` | `TasksOverdueService` | Marca tasks con asignado vencidas como `not_completed_in_time` (terminal). Compare-and-swap atómico. |
+| `tasks-unassigned-overdue` | `0 9 * * *` | `TasksUnassignedOverdueService` | Cola pública fuera de SLA por `source_system` (ADR-072 + ADR-079 §3.4). Resumen agregado al superadmin. |
+| `maintenance-critical` | `0 8 * * *` | `MaintenanceCriticalService` | Servicios con checklist sin `maintenance_log` >`support.maintenance_critical_threshold_days` (default 60). |
+| `maintenance-monthly` | `0 6 * * *` (filtro `anniversary_day = today`) | `MaintenanceMonthlyService` | Crea task `support_inside_slot` por slot activo cuyo aniversario es hoy. |
+| **`support-resolved-auto-close`** | **`30 2 * * *`** | **`SupportResolvedAutoCloseService`** | **Sprint 16 Amendment A1: tickets en `resolved` >`support.auto_close_resolved_days` (default 7) → `→closed` silencioso + emite `conversation.auto_closed`.** |
 
 ---
 
 ## Cross-references
 
 - **Apuntan aquí (relaciones inversas):**
-  - `task_checklist_completions.task_id` → `tasks(id)` ON DELETE CASCADE (interno).
-  - `maintenance_logs.task_id` → `tasks(id)` ON DELETE CASCADE, UNIQUE (interno, 1:1).
-  - `client_notes.task_id` → `tasks(id)` ON DELETE SET NULL — Sprint 8 Fase A. Permite vincular notas estructuradas timeline cliente con la task que las generó (ver [clients.md](./clients.md)).
+  - `task_checklist_completions.task_id` → `tasks(id)` ON DELETE CASCADE.
+  - `maintenance_logs.task_id` → `tasks(id)` ON DELETE CASCADE, UNIQUE.
+  - `client_notes.source_id` (cuando `source_system='task_completion'`) → `tasks(id)` polimórfico — FK opcional declarada en Prisma como relation `TaskClientNotes`.
 - **Aquí apuntan:**
-  - `services` ([billing.md](./billing.md)) — vía `service_id` (ON DELETE SET NULL).
-  - `users` ([auth.md](./auth.md)) — vía `assigned_to`, `created_by`, `client_id`.
-- **Eventos emitidos:** `task.created`, `task.assigned` (✅ P0.1), `task.completed`, `task.overdue` (Fase C), `maintenance.completed` (Fase B), `maintenance.critical` (Fase C) — ver [`_events.md`](../20-modules/_events.md).
-- **Plantillas notification (`notification_templates`):** `task.assigned` (✅ P0.1 + migración a Sprint 9 listener); `task.overdue`, `maintenance.completed`, `maintenance.critical` pendientes Sprint 8 Fase C/D.
-- **Settings consumidos:** `tasks.overdue_to_failure_days`, `support.maintenance_critical_threshold_days` (Sprint 8 Fase C/D — pendientes seed) — ver [settings-reference](../50-operations/settings-reference.md).
-- **Errores API:** `TASK_NOT_FOUND`, `CANNOT_EDIT_OTHERS_TASK`, `ASSIGNED_USER_NOT_ASSIGNABLE` (P0.1) — ver [api-errors](../50-operations/api-errors.md).
-- **AI Workers (Sprint 25 — futuro):** tareas `project_task` y `custom_work` podrán asignarse a un AI Worker en lugar de agente humano. El agente humano siempre revisa y aprueba.
-
----
-
-## `task_tags` (Sprint 8 Fase B.7 — [ADR-073](../10-decisions/adr-073-tipos-flexibles-tasks-reason-tags.md))
-
-Catálogo de etiquetas extensibles asignables a tareas. Sustituye al uso del enum `TaskType` para capturar contextos operativos no canónicos ("renovación", "incidencia", "migración"…). El admin con `Manage.TaskTag` (superadmin + agent_full) crea y borra; el resto del staff con `Manage.Task` los lee y asigna.
-
-| Campo | Tipo | Restricciones | Notas |
-|-------|------|---------------|-------|
-| `id` | uuid | PK | |
-| `slug` | varchar(50) | NOT NULL, UNIQUE | Canónico kebab-case (regex `^[a-z0-9]+(?:-[a-z0-9]+)*$`). Estable para listeners/automatizaciones futuras (ej. `ContactClientTaskListener` asigna `slug='bienvenida'`). |
-| `label` | varchar(50) | NOT NULL | Mostrable. Editable sin afectar al slug. |
-| `color` | varchar(7) | NULLABLE | Hex `#RRGGBB` opcional para el chip. |
-| `created_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
-| `created_by` | uuid | NULLABLE, FK → `users(id)` ON DELETE SET NULL | Trazabilidad de autoría. |
-
-**Seed canónico** (`backend/prisma/seeds/sample-task-tags.ts` — idempotente vía slug, ejecuta en cualquier entorno): `bienvenida`, `renovacion`, `incidencia`, `migracion`, `cortesia`.
-
----
-
-## `task_tag_assignments` (Sprint 8 Fase B.7 — ADR-073)
-
-Tabla pivote M2M explícita Task ↔ TaskTag. M2M explícita (no implícita Prisma) para que CASL pueda filtrar por tag y para futuras extensiones (`assigned_by`, contadores, etc.).
-
-| Campo | Tipo | Restricciones | Notas |
-|-------|------|---------------|-------|
-| `task_id` | uuid | FK → `tasks(id)` ON DELETE CASCADE | |
-| `tag_id` | uuid | FK → `task_tags(id)` ON DELETE CASCADE | |
-| `assigned_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
-
-**PK compuesta:** `(task_id, tag_id)` — un mismo tag no puede asignarse dos veces a la misma tarea.
-
-**Índices:** `task_tag_assignments_tag_id_idx` — para listar tareas por tag (filtro de tablero).
-
-**Validación backend (`TasksService.create/update`):** todos los `tag_ids` recibidos del DTO deben existir en `task_tags` (helper `assertTagsExist`). Fail-fast: si alguno no existe, 400 antes de crear/modificar la tarea.
-
-**Límite por tarea:** 10 tags (DTO `@ArrayMaxSize(10)`).
+  - `users` ([auth.md](./auth.md)) — vía `client_id`, `assigned_to`, `completed_by`.
+  - **NO** `services` ni `conversations` directas — se accede vía `(source_system, source_id)`.
+- **Eventos emitidos:** `task.assigned`, `task.completed`, `task.overdue`, `task.unassigned_overdue`, `maintenance.completed`, `maintenance.critical` — ver [`_events.md`](../20-modules/_events.md).
+- **Eventos consumidos:** `conversation.assigned`, `conversation.reactivated` (Amendment A1), `conversation.unassigned`, `service.activated` (primer servicio del cliente), `support_inside.slot_released`, `service.cancelled`.
+- **Plantillas notification:** `task.assigned`, `task.completed`, `task.overdue`, `task.unassigned_overdue`, `maintenance.completed`, `maintenance.critical`, `conversation.resolved` (Amendment A1, DC.33), `conversation.auto_closed` (Amendment A1, DC.33).
+- **Settings consumidos:** `tasks.overdue_to_failure_days`, `tasks.unassigned_sla_hours.*`, `support.maintenance_critical_threshold_days`, `support.auto_close_resolved_days` — ver [settings-reference](../50-operations/settings-reference.md).
+- **Errores API canónicos:** `TASK_NOT_FOUND`, `TASK_TERMINAL_IMMUTABLE` (TASK-INV-2), `MAINTENANCE_REQUIRED_MISSING` (EC-T8-01).
+- **AI Workers (Sprint 25 — futuro):** la promoción explícita checklist→task en proyectos (ADR-079 §3.7) habilita un AI Worker para items NO promovidos; los items promovidos siguen requiriendo agente humano.

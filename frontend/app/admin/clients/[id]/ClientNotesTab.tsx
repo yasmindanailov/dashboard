@@ -1,171 +1,272 @@
 'use client';
 
-import Link from 'next/link';
-import { clientsApi } from '../../../lib/api';
-import type { ClientNote } from '../../../lib/types';
-import styles from './clientDetail.module.css';
+// TODO(ADR-078, Sprint 13): migrar a Server Component cuando cierre §13.AUTH.
 
 /* ═══════════════════════════════════════
-   ClientNotesTab — Structured notes
-   Ref: DECISIONS.md 7.H19
+   ClientNotesTab — Sprint 16 / ADR-079 §3.8.
+
+   Listado canónico de `client_notes` con filtros de:
+     - `category` (NoteCategory enum, 7 valores).
+     - `source_system` (NoteSourceSystem enum, 5 valores).
+     - `pinned_only` (toggle).
+
+   La única vía de creación libre desde aquí es la nota EXCEPCIONAL —
+   abierta vía `ExceptionalNoteModal`. El resto de notas las crean
+   automáticamente los listeners canónicos al cerrar tickets,
+   mantenimientos y tareas.
+
+   Cada nota con `source_system` que tenga página de detalle por ID enlaza
+   directo al detalle (ticket/chat → `/admin/support/[id]`). Los `source_
+   system` que no tienen detalle separado por ID (`maintenance_log` apunta
+   a slot, `task_completion` apunta a task — `/admin/tasks/[id]` eliminada
+   en Sprint 16, `exceptional` no tiene origen) se renderizan como span
+   sin link. Cuando llegue el módulo project (Sprint 22), DC.36 documenta
+   el enriquecimiento de task_completion con task.source_system para
+   permitir link al sistema vinculado de la task.
    ═══════════════════════════════════════ */
 
-const NOTE_CATEGORIES = [
-  { value: '', label: 'Todas' },
-  { value: 'conversation', label: 'Conversación' },
-  { value: 'solution', label: 'Solución' },
-  { value: 'billing', label: 'Facturación' },
-  { value: 'technical', label: 'Técnico' },
-  { value: 'general', label: 'General' },
-];
-
-const CAT_LABELS: Record<string, string> = {
-  conversation: 'Conversación',
-  solution: 'Solución',
-  billing: 'Facturación',
-  technical: 'Técnico',
-  general: 'General',
-};
+import { useState } from 'react';
+import Link from 'next/link';
+import { Button } from '../../../components/ui';
+import { clientsApi } from '../../../lib/api';
+import type {
+  ClientNote,
+  NoteCategory,
+  NoteSourceSystem,
+} from '../../../lib/types';
+import ExceptionalNoteModal from '../../../_shared/notes/ExceptionalNoteModal';
+import styles from './clientDetail.module.css';
 
 /**
- * Sprint 8 Fase B.4 (2026-04-29) — labels canónicos del enum TaskType para
- * el badge "Tarea origen" cuando una `ClientNote` tiene `task_id` poblado.
- * Espejo del mapeo en `frontend/app/admin/tasks/types.ts:TASK_TYPE_LABELS`
- * y del mapeo backend `tasks-email.listener.ts:TASK_TYPE_LABELS_ES`. Si
- * alguno cambia, hay que actualizar los tres a la vez.
+ * Mapping canónico `source_system → href`. Devuelve `null` cuando el
+ * sistema vinculado no tiene página de detalle separada por ID accesible
+ * desde admin. Sólo enlazamos cuando el destino existe — evita 404s.
  */
-const TASK_TYPE_LABELS: Record<string, string> = {
-  contact_client: 'Contactar cliente',
+function noteSourceHref(note: Pick<ClientNote, 'source_system' | 'source_id'>): string | null {
+  if (!note.source_id) return null;
+  switch (note.source_system) {
+    case 'ticket':
+    case 'chat':
+      return `/admin/support/${note.source_id}`;
+    case 'maintenance_log':
+    case 'task_completion':
+    case 'exceptional':
+      return null;
+    default:
+      return null;
+  }
+}
+
+const CATEGORY_OPTIONS: { value: NoteCategory | ''; label: string }[] = [
+  { value: '', label: 'Todas las categorías' },
+  { value: 'support', label: 'Soporte' },
+  { value: 'maintenance', label: 'Mantenimiento' },
+  { value: 'onboarding', label: 'Onboarding' },
+  { value: 'billing', label: 'Facturación' },
+  { value: 'project', label: 'Proyecto' },
+  { value: 'technical_incident', label: 'Incidente técnico' },
+  { value: 'exceptional', label: 'Excepcional' },
+];
+
+const SOURCE_OPTIONS: { value: NoteSourceSystem | ''; label: string }[] = [
+  { value: '', label: 'Todos los sistemas' },
+  { value: 'ticket', label: 'Ticket de soporte' },
+  { value: 'maintenance_log', label: 'Mantenimiento' },
+  { value: 'task_completion', label: 'Cierre de tarea' },
+  { value: 'exceptional', label: 'Nota excepcional' },
+  { value: 'chat', label: 'Chat (futuro)' },
+];
+
+const CATEGORY_LABELS: Record<NoteCategory, string> = {
+  support: 'Soporte',
   maintenance: 'Mantenimiento',
-  maintenance_management: 'Mant. + Gestión',
-  project_task: 'Proyecto',
-  custom_work: 'Personalizada',
-  support_setup: 'Setup soporte',
+  onboarding: 'Onboarding',
+  billing: 'Facturación',
+  project: 'Proyecto',
+  technical_incident: 'Incidente técnico',
+  exceptional: 'Excepcional',
+};
+
+const SOURCE_LABELS: Record<NoteSourceSystem, string> = {
+  ticket: 'Ticket',
+  chat: 'Chat',
+  maintenance_log: 'Mantenimiento',
+  task_completion: 'Cierre de tarea',
+  exceptional: 'Excepcional',
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  'ticket.resolved': 'Ticket resuelto',
+  'ticket.closed': 'Ticket cerrado',
+  'task.completed': 'Tarea completada',
+  'maintenance.completed': 'Mantenimiento registrado',
+  manual_entry: 'Entrada manual',
 };
 
 interface ClientNotesTabProps {
+  clientId: string;
   notes: ClientNote[];
   loading: boolean;
-  noteFilter: string;
-  onFilterChange: (v: string) => void;
-  // Add note
-  noteText: string;
-  noteCategory: string;
-  savingNote: boolean;
-  noteSuccess: boolean;
-  error: string | null;
-  onNoteTextChange: (v: string) => void;
-  onNoteCategoryChange: (v: string) => void;
-  onAddNote: () => void;
+  category: NoteCategory | '';
+  sourceSystem: NoteSourceSystem | '';
+  pinnedOnly: boolean;
+  onCategoryChange: (v: NoteCategory | '') => void;
+  onSourceChange: (v: NoteSourceSystem | '') => void;
+  onPinnedToggle: (v: boolean) => void;
   onRefresh: () => void;
 }
 
 export default function ClientNotesTab({
-  notes, loading, noteFilter, onFilterChange,
-  noteText, noteCategory, savingNote, noteSuccess, error,
-  onNoteTextChange, onNoteCategoryChange, onAddNote, onRefresh,
+  clientId,
+  notes,
+  loading,
+  category,
+  sourceSystem,
+  pinnedOnly,
+  onCategoryChange,
+  onSourceChange,
+  onPinnedToggle,
+  onRefresh,
 }: ClientNotesTabProps) {
+  const [showExceptionalModal, setShowExceptionalModal] = useState(false);
+
   return (
     <div className={styles.stack}>
-      {/* Add note */}
+      {/* Add exceptional note */}
       <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Añadir nota</h2>
-        <textarea
-          value={noteText}
-          onChange={(e) => onNoteTextChange(e.target.value)}
-          placeholder="Escribe una nota interna..."
-          rows={3}
-          className={styles.noteTextarea}
-        />
-        <div className={styles.noteFormRow}>
-          <select value={noteCategory} onChange={(e) => onNoteCategoryChange(e.target.value)}
-            className={styles.noteCategorySelect}>
-            <option value="general">General</option>
-            <option value="conversation">Conversación</option>
-            <option value="solution">Solución</option>
-            <option value="billing">Facturación</option>
-            <option value="technical">Técnico</option>
-          </select>
-          <button onClick={onAddNote} disabled={!noteText.trim() || savingNote}
-            className={styles.noteSubmitBtn}>
-            {savingNote ? 'Guardando...' : 'Añadir nota'}
-          </button>
-          {noteSuccess && <span className={styles.noteSuccessMsg}>Nota guardada</span>}
-          {error && <span className={styles.noteErrorMsg}>{error}</span>}
+        <div className={styles.notesHeader}>
+          <h2 className={styles.sectionTitle}>Notas del cliente</h2>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => setShowExceptionalModal(true)}
+          >
+            + Añadir nota excepcional
+          </Button>
         </div>
+        <p className={styles.notesIntro}>
+          Las notas se crean automáticamente al cerrar tickets, mantenimientos
+          o tareas con su `source_system` correspondiente. Las notas
+          excepcionales son entradas libres del agente sin actuador asociado.
+        </p>
       </div>
 
-      {/* Filter */}
+      {/* Filters */}
       <div className={styles.sectionSm}>
         <div className={styles.filterRow}>
-          <span className={styles.filterLabel}>Filtrar:</span>
-          {NOTE_CATEGORIES.map((f) => (
-            <button key={f.value} onClick={() => onFilterChange(f.value)}
-              className={`${styles.filterBtn} ${noteFilter === f.value ? styles.filterBtnActive : ''}`}>
-              {f.label}
-            </button>
-          ))}
+          <span className={styles.filterLabel}>Categoría:</span>
+          <select
+            value={category}
+            onChange={(e) => onCategoryChange(e.target.value as NoteCategory | '')}
+            className={styles.noteCategorySelect}
+          >
+            {CATEGORY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+
+          <span className={styles.filterLabel}>Sistema:</span>
+          <select
+            value={sourceSystem}
+            onChange={(e) =>
+              onSourceChange(e.target.value as NoteSourceSystem | '')
+            }
+            className={styles.noteCategorySelect}
+          >
+            {SOURCE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+
+          <label className={styles.pinnedToggle}>
+            <input
+              type="checkbox"
+              checked={pinnedOnly}
+              onChange={(e) => onPinnedToggle(e.target.checked)}
+            />
+            <span>Solo fijadas</span>
+          </label>
         </div>
       </div>
 
       {/* Notes list */}
       <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>
-          Notas ({notes.length})
-        </h2>
+        <h3 className={styles.sectionSubtitle}>
+          {notes.length} {notes.length === 1 ? 'nota' : 'notas'}
+        </h3>
         {loading ? (
-          <div className={styles.emptyText}>Cargando notas...</div>
+          <div className={styles.emptyText}>Cargando notas…</div>
         ) : notes.length === 0 ? (
           <p className={styles.emptyText}>
-            No hay notas{noteFilter ? ` de tipo "${noteFilter}"` : ''}
+            No hay notas
+            {category ? ` en categoría "${CATEGORY_LABELS[category]}"` : ''}
+            {sourceSystem ? ` del sistema "${SOURCE_LABELS[sourceSystem]}"` : ''}
+            {pinnedOnly ? ' fijadas' : ''}
+            .
           </p>
         ) : (
           <div className={styles.stackSm}>
             {notes.map((note) => {
               const date = new Date(note.created_at);
-              const dateStr = date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-              const timeStr = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+              const dateStr = date.toLocaleDateString('es-ES', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              });
+              const timeStr = date.toLocaleTimeString('es-ES', {
+                hour: '2-digit',
+                minute: '2-digit',
+              });
               return (
-                <div key={note.id} className={`${styles.noteItem} ${note.is_pinned ? styles.noteItemPinned : styles.noteItemDefault}`}>
-                  {/* Note body — primary content */}
-                  <p className={styles.noteBody}>
-                    {note.body}
-                  </p>
-                  {note.conversation_id && (
-                    <Link href={`/dashboard/support/${note.conversation_id}`}
-                      className={styles.noteConvLink}>
-                      Ver conversación origen
-                    </Link>
-                  )}
-                  {/* Sprint 8 Fase B.4 (2026-04-29): si la nota se generó
-                      al cerrar una task (tasks.complete() persiste con
-                      task_id + category=solution), mostrar link clicable
-                      al detalle de la task con su título. Paralelo a la
-                      fila ya existente para conversation_id. */}
-                  {note.task_id && (
-                    <Link href={`/admin/tasks/${note.task_id}`}
-                      className={styles.noteTaskLink}>
-                      <span className={styles.noteTaskLabel}>Tarea origen:</span>
-                      <span className={styles.noteTaskTitle}>
-                        {note.task_title ?? '(tarea eliminada)'}
-                      </span>
-                      {note.task_type && (
-                        <span className={styles.noteTaskBadge}>
-                          {TASK_TYPE_LABELS[note.task_type] ?? note.task_type}
-                        </span>
-                      )}
-                    </Link>
-                  )}
-                  {/* Metadata row — author · category · date · action */}
+                <div
+                  key={note.id}
+                  className={`${styles.noteItem} ${note.is_pinned ? styles.noteItemPinned : styles.noteItemDefault}`}
+                >
+                  <p className={styles.noteBody}>{note.body}</p>
                   <div className={styles.noteMetaRow}>
                     <div className={styles.noteMetaLeft}>
-                      <span className={styles.noteAuthor}>{note.author_name}</span>
-                      <span className={styles.noteDot}>·</span>
-                      <span className={styles.noteCatBadge}>
-                        {note.category ? (CAT_LABELS[note.category] || note.category) : ''}
+                      <span className={styles.noteAuthor}>
+                        {note.author_name ?? 'Desconocido'}
                       </span>
                       <span className={styles.noteDot}>·</span>
-                      <span className={styles.noteDate}>{dateStr} · {timeStr}</span>
+                      <span className={styles.noteCatBadge}>
+                        {CATEGORY_LABELS[note.category]}
+                      </span>
+                      <span className={styles.noteDot}>·</span>
+                      {(() => {
+                        const href = noteSourceHref(note);
+                        return href ? (
+                          <Link
+                            href={href}
+                            className={`${styles.noteSourceBadge} ${styles.noteSourceBadgeLink}`}
+                            title={`Abrir ${SOURCE_LABELS[note.source_system].toLowerCase()} origen`}
+                          >
+                            {SOURCE_LABELS[note.source_system]} →
+                          </Link>
+                        ) : (
+                          <span className={styles.noteSourceBadge}>
+                            {SOURCE_LABELS[note.source_system]}
+                          </span>
+                        );
+                      })()}
+                      {note.triggered_by_action && (
+                        <>
+                          <span className={styles.noteDot}>·</span>
+                          <span className={styles.noteAction}>
+                            {ACTION_LABELS[note.triggered_by_action] ??
+                              note.triggered_by_action}
+                          </span>
+                        </>
+                      )}
+                      <span className={styles.noteDot}>·</span>
+                      <span className={styles.noteDate}>
+                        {dateStr} · {timeStr}
+                      </span>
                     </div>
                     <button
                       onClick={async () => {
@@ -174,7 +275,8 @@ export default function ClientNotesTab({
                         await clientsApi.toggleNotePin(token, note.id);
                         onRefresh();
                       }}
-                      className={`${styles.notePinBtn} ${note.is_pinned ? styles.notePinBtnActive : styles.notePinBtnInactive}`}>
+                      className={`${styles.notePinBtn} ${note.is_pinned ? styles.notePinBtnActive : styles.notePinBtnInactive}`}
+                    >
                       {note.is_pinned ? 'Desfijar' : 'Fijar'}
                     </button>
                   </div>
@@ -184,6 +286,13 @@ export default function ClientNotesTab({
           </div>
         )}
       </div>
+
+      <ExceptionalNoteModal
+        open={showExceptionalModal}
+        clientId={clientId}
+        onClose={() => setShowExceptionalModal(false)}
+        onCreated={onRefresh}
+      />
     </div>
   );
 }

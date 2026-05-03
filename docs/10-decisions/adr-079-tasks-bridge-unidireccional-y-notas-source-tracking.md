@@ -788,4 +788,101 @@ ALTER TABLE maintenance_logs RENAME COLUMN notes TO client_facing_notes;
 
 > Reservado para cambios compatibles hacia atrás post-cierre del ADR. Cada amendment con fecha + ADR específico que lo justifica.
 
-(ninguno todavía)
+### A1 — Lifecycle ticket: `resolved` transitorio + auto-close + reactivación (2026-05-02)
+
+**Motivación.** Sprint 16 Fase 16.C smoke testing reveló dos agujeros del bridge `support_ticket`:
+
+1. La task quedaba en `completed` cuando se resolvía el ticket; si el cliente volvía a escribir y el ticket pasaba a `waiting_agent`, el agente perdía visibilidad — el ticket vivía en `/admin/support` pero no aparecía en `/admin/tasks`.
+2. Los dos accionadores `[Resolver]` `[Cerrar]` en la TaskCard duplicaban semántica sin aportar valor operativo al agente — distinción que pertenece al lifecycle del ticket, no al cierre del trabajo.
+
+**Cambios canónicos**:
+
+- **§3.6.1 — Accionadores inline `support_ticket`**: simplificado a 1 solo accionador `Completar` (`InlineActionKind = 'bridge_complete'`). El frontend envía siempre `ticket_action='resolve'` al endpoint `/tasks/:id/complete-ticket-bridge`. El cierre archivado manual (`closed`) sigue accesible desde `/admin/support/[id]`.
+- **§3.2 (lifecycle de la task)**: las tasks `completed` siguen siendo inmutables (sin reabrir). Cuando un ticket en `resolved` vuelve a estar vivo (cliente responde o admin reabre), se crea una **task nueva** vía evento `conversation.reactivated`.
+- **Nuevo evento `conversation.reactivated`** emitido por `SupportMessageService`:
+  - `reason: 'client_replied'` cuando cliente envía mensaje a ticket `resolved` (auto-status `→waiting_agent`).
+  - `reason: 'admin_reopened'` cuando admin pulsa "Reabrir" (`closed/resolved → open`). Reemplaza el patrón legacy ADR-074 EC#3 que reusaba `conversation.assigned`.
+  - Payload: `{ conversation_id, agent_id (nullable), reason }`. Si `agent_id=null`, la nueva task queda en cola pública.
+- **`SupportTicketTaskCreatorListener`** consume tanto `conversation.assigned` como `conversation.reactivated` con la misma lógica (`upsertBridgeTask`).
+- **Lifecycle ticket canónico (post Sprint 16 — refina ADR-037)**:
+  - `resolved` = estado **transitorio**. Permite mensajes (cliente puede confirmar o responder), permite cambio de prioridad. Tres caminos posibles:
+    1. Cliente responde → reactiva → nueva task bridge.
+    2. Cliente confirma vía endpoint `PATCH /support/conversations/:id/confirm-resolution` → `→closed` explícito.
+    3. Cron `support-resolved-auto-close` cierra pasados N días (default `support.auto_close_resolved_days = 7`) → `→closed` silencioso al cliente, notif al agente que resolvió.
+  - `closed` = estado **terminal inmutable**. Backend rechaza mensajes nuevos. "Reabrir" disponible para reactivar.
+- **Notificación canónica al cliente**: cuando ticket pasa a `resolved` se emite `conversation.resolved` que dispara notif (campana + email) al cliente con CTA al ticket. Sin email con texto largo — el cliente actúa desde el detalle del ticket.
+- **Endpoint nuevo cliente**: `PATCH /support/conversations/:id/confirm-resolution`. Solo accesible por el cliente propietario, solo aplica si `status='resolved'`. Cierra explícito + system message.
+
+**Compatible hacia atrás**:
+- `tasksApi.completeTicketBridge` mantiene la firma `{ ticket_action, resolution_note }` por preservación de DTO sellado y tests E2E. El frontend siempre envía `'resolve'`. Si en el futuro se necesitara reactivar el cierre archivado desde la card (poco probable), basta con añadir un nuevo accionador.
+- ADR-074 EC#3 ("re-emitir `conversation.assigned` al reabrir") queda **superseded** por el nuevo flujo `conversation.reactivated`. Tests E2E de reapertura ajustan al nuevo evento.
+
+**Riesgos**:
+- Cron `support-resolved-auto-close` ejecuta a las 02:30 UTC (evita colisión con `tasks-overdue` 02:00). Si el horario se ajusta, registrar en jobs-reference.
+
+**Sprint asociado**: Sprint 16 Fase 16.C — descubierto durante smoke testing 2026-05-02. Implementado en mismo PR de la fase.
+
+### A2 — Cancelación humana eliminada · reasignación canónica del superadmin (2026-05-02)
+
+**Motivación.** Smoke testing Fase 16.C reveló disonancia conceptual en el botón "Cancelar tarea" inline:
+
+1. Para `support_ticket`, "cancelar" era en realidad "liberar el ticket a cola pública" (reasignación con `assigned_to=null`). Operación válida pero realizada desde el lugar equivocado — la decisión es del ticket, no de la task.
+2. Para los 4 triggers restantes (`support_inside_slot`, `provisioning_manual`, `client_lifecycle`, `project`), "cancelar" no tenía contraparte canónica en el sistema vinculado: la task se cerraba dejando el trabajo huérfano (servicio sin activar, slot pendiente, item del checklist sin marcar). Era un atajo que camuflaba bugs de listeners cross-sistema.
+3. Yasmin: *"ninguna tarea se puede cancelar como tal. Cada sistema actúa según situaciones de cancelación de un servicio, y esto hace que la tarea esté en estado 'x' según eso. Las tareas lo único que se puede hacer es reasignar — eso es 'cancelar' realmente. Y el único que puede reasignar es el superadmin."*
+
+**Cambios canónicos**:
+
+- **Eliminada la cancelación humana de tasks desde la UI**. La doctrina canónica (ADR-079 §1) establece que las tasks son **read-only** respecto al sistema vinculado. La cancelación es **consecuencia mecánica** de eventos del sistema vinculado, gestionada por listeners cross-sistema:
+  - `tasks-on-slot-released` → cancela task `support_inside_slot` cuando el slot se libera.
+  - `tasks-on-service-cancelled` → cancela task `provisioning_manual` cuando el servicio se cancela.
+  - `SupportTicketTaskCreatorListener.handleUnassigned` → cancela task `support_ticket` al desasignar el ticket.
+  - (Futuro Sprint 22) listener canónico para `project` cuando un item del checklist se elimina.
+- **`PATCH /tasks/:id/cancel`** marcado `@deprecated` y restringido a `superadmin` only. Mantiene compat con E2E existentes durante la transición; eliminación física diferida a Fase 16.D (DC.34 registrado en `backlog.md`).
+- **Acciones humanas válidas sobre tasks** (post Sprint 16):
+  - **Agente**: completar (vía accionador inline → `CompleteTaskModal` o `MaintenanceLogModal`). NO puede cancelar ni reasignar (incluso sus propias tasks).
+  - **Superadmin**: reasignar a cualquier agente elegible o liberar a cola pública (`assigned_to=null`). Vía canónica única: `PATCH /tasks/:id/assign`.
+- **Frontend nuevo**: `_shared/tasks/ReassignTaskModal.tsx`. Dropdown de agentes filtrados por `ELIGIBLE_ROLES` del `source_system` (espejo de `core/tasks/auto-assign.ts → ROLES_BY_SOURCE`). Botón secundario "Liberar a cola pública". Visible solo si `canReassign={isAdmin}` en TaskCard. Reemplaza al botón "Cancelar tarea" anterior.
+- **`tasksApi.cancel`** retirado del cliente frontend (dead code — nadie lo invocaba).
+
+**Consecuencias para el flujo de soporte (refina Amendment A1)**:
+- Bridge ticket cancel/reasignar pasa a ser **competencia exclusiva del módulo support**: agente en `/admin/support/[id]` cambia el agente asignado del ticket → emite `conversation.assigned` → listener crea/reasigna la task. Si admin desasigna el ticket → emite `conversation.unassigned` → listener cancela la task automáticamente. Cero acción manual sobre la task.
+- El bridge anterior `cancel task → libera ticket` queda como funcionalidad legacy del backend service (lo invoca solo el listener `handleUnassigned` con `skipTicketRelease=true`). Sin endpoint público.
+
+**Compatible hacia atrás**:
+- Service `tasks.service.cancel()` permanece intacto — los 3 listeners cross-sistema lo invocan directo.
+- Endpoint `PATCH /tasks/:id/cancel` marcado deprecated, accesible solo a superadmin con guard explícito (`ForbiddenException` para el resto). Tests E2E `tasks-edge-cases.spec.ts` (EC-T8-21) y `tasks-ticket-bridge.spec.ts` ("cancelar task bridge → ticket queda sin asignar") siguen pasando porque usan superadmin.
+
+**Riesgos y mitigaciones**:
+- Si un listener cross-sistema falla y deja una task fantasma, el agente no puede limpiarla desde la UI. Mitigación: registrar el caso (`error-log`), investigar la causa raíz; el superadmin puede usar el endpoint `@deprecated` con el header `Authorization` directamente. La fricción es buena: fuerza diagnóstico en lugar de barrer.
+- Cambio de label en card: "Cancelar tarea" (rojo, semántica de borrado) → "Reasignar" (neutro, semántica de gestión). El usuario que estaba acostumbrado al patrón anterior verá comportamiento distinto. Mitigación: el modal explica claramente la operación + opción "Liberar a cola pública" para preservar el caso de uso real (no quiero hacerla, que la coja otro).
+
+**Sprint asociado**: Sprint 16 Fase 16.C — refinamiento doctrinal post smoke testing 2026-05-02. Implementado en mismo PR.
+
+### A3 — Lifecycle del chat: estado terminal único `resolved` + ClientNote canónica + link al ticket escalado (2026-05-02)
+
+**Motivación.** Smoke testing Fase 16.C reveló asimetría no deseada entre el lifecycle de tickets y chats:
+
+1. Tickets tienen 3 estados terminales accesibles desde UI (`resolved` transitorio + `closed` archivado + `cancelled` por listener cross-sistema). Eso es coherente porque el ticket es asíncrono: el cliente puede tardar días en responder.
+2. Chats heredaban el mismo modelo (mismo enum + mismos botones header), pero el feedback en chat es inmediato — no hay ventana de "espera confirmación cliente". Mantener `resolved` transitorio + `closed` + `Reabrir` no aportaba valor operativo y producía botones que el agente no usaba.
+3. Yasmin: *"el sistema de chat, no abre tarea, que es lo normal — una conversación de chat en sí es algo en el momento. Yo valoro solo tener lo de 'resolver', y si sigue habiendo problemas el cliente vuelve a chatear en nueva conversación. Aquí el estado de 'cerrar' no es necesario, porque el feedback del usuario es inmediato. Cuando se escala a ticket, el chat deberá estar cerrado."*
+4. Adicional: tras escalar, el chat resuelto debía mostrar link al ticket destino para ambos lados (admin + cliente) — facilita seguimiento sin obligar a buscar manualmente el ticket TK-XXXXX.
+
+**Cambios canónicos**:
+
+- **Lifecycle del chat post Sprint 16** — único estado terminal `resolved`. Se mantiene el enum compartido con tickets para no fragmentar el schema, pero las **transiciones permitidas** quedan limitadas:
+  - `open|waiting_*` → `resolved` (acción agente "Resolver" o escalación que pasa el chat a `resolved`).
+  - `resolved` → ninguna (terminal absoluto, inmutable).
+  - `closed` y `open` (reabrir) **prohibidos** en chats. Backend `SupportMessageService.updateConversation` lanza `BadRequestException` con mensaje canónico si se intenta.
+  - Backend `addMessage` rechaza escritura en chat `resolved` para **ambos lados** (cliente + agente). Mensaje canónico: *"Este chat está cerrado. Si necesitas seguir hablando, abre una nueva conversación."*
+  - La rama de auto-status `addMessage → resolved → reactivar` (Amendment A1) queda **restringida a tickets** explícitamente — los chats no se reactivan.
+- **ClientNote canónica al cerrar chat**: al pasar a `resolved` (vía `updateConversation` del agente o vía `escalateToTicket`), se persiste `ClientNote` con `source_system='chat'`, `triggered_by_action='chat.resolved'`, `category='support'`, `source_id=conversation_id`. Mantiene paridad con el flujo de tickets (`source_system='ticket'`) y permite filtrar el historial del cliente por tipo de conversación.
+- **Frontend `ConversationHeader.tsx`** — chats muestran SOLO `Resolver` + `Escalar a ticket` cuando están vivos. Cuando están `resolved`, sin botones (estado inmutable). Sin `Cerrar`, sin `Reabrir`. Tickets mantienen su set completo (Resolver/Cerrar vivos + Reabrir terminal).
+- **Frontend `ConversationMessages.tsx` lockReason `'chat_resolved'`** — copy: *"Este chat ha sido cerrado. Si necesitas seguir hablando, abre una nueva conversación."* Aplica a ambos lados (admin y cliente).
+- **Banner de escalación en `/admin/support/[id]` y `/dashboard/support/[id]`**: si el chat tiene `escalated_to` (lookup inverso enriquecido en `SupportQueryService.findOne`), se muestra banner azul con secuencia del ticket destino + link directo. Admin → `/admin/support/${ticket.id}`; cliente → `/dashboard/support/${ticket.id}`. Permite seguimiento operativo sin buscar el ticket manualmente.
+
+**Compatible hacia atrás**:
+- Schema Prisma intacto: `Conversation.status` mantiene los 5 valores del enum (open/waiting_agent/waiting_client/resolved/closed). Las transiciones inválidas para chats se enforcen a nivel de service.
+- Datos legacy: chats que existan con `status='closed'` (anteriores a Sprint 16) siguen viéndose. La UI los renderiza como cerrados (lockReason='closed') y el backend bloquea escrituras igual. No se migra el dato; futuro chat creado nunca llegará a `closed`.
+- Listeners cross-módulo (`SupportTicketTaskCreatorListener`, etc.) no se ven afectados — los chats no creaban tasks bridge antes y siguen sin crearlas.
+
+**Sprint asociado**: Sprint 16 Fase 16.C — refinamiento doctrinal post smoke testing 2026-05-02. Implementado en mismo PR de los amendments A1+A2.

@@ -241,6 +241,27 @@ export class SupportQueryService {
       if (agent) assigned_agent_name = `${agent.first_name} ${agent.last_name}`;
     }
 
+    /* Sprint 16 (ADR-079 amendment A3): si esta conversación es un chat
+       que fue escalado a ticket, devolvemos el ticket destino para que el
+       frontend pueda enlazar (admin → /admin/support/[id], cliente →
+       /dashboard/support/[id]). El ticket escalado tiene `escalated_from_
+       id = chat.id`. Lookup inverso una sola vez por findOne — coste
+       bajo (índice por escalated_from_id ya existe). */
+    let escalated_to: {
+      id: string;
+      sequence_number: number | null;
+      subject: string;
+    } | null = null;
+    if (conversation.type === 'chat') {
+      const ticket = await this.prisma.conversation.findFirst({
+        where: { escalated_from_id: conversation.id, type: 'ticket' },
+        select: { id: true, sequence_number: true, subject: true },
+      });
+      if (ticket) {
+        escalated_to = ticket;
+      }
+    }
+
     return {
       ...conversation,
       messages: enrichedMessages,
@@ -250,6 +271,7 @@ export class SupportQueryService {
       client_email,
       client_support_inside,
       assigned_agent_name,
+      escalated_to,
     };
   }
 

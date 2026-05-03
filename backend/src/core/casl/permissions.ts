@@ -283,9 +283,14 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       action: [Action.Read, Action.List, Action.Update],
       subject: Subject.Service,
     },
-    // Soporte: crear y ver conversaciones (controller filters by user_id)
+    // Soporte: crear, ver y actuar sobre conversaciones propias.
+    // `Action.Update` cubre el endpoint Sprint 16 (ADR-079 amendment) de
+    // confirmar resolución (`PATCH /support/conversations/:id/confirm-resolution`).
+    // Ownership: el service `SupportMessageService.confirmResolutionByClient`
+    // valida `conversation.user_id === clientId` antes de mutar — patrón
+    // idéntico al de Service / SupportInside / Notification del cliente.
     {
-      action: [Action.Create, Action.Read, Action.List],
+      action: [Action.Create, Action.Read, Action.List, Action.Update],
       subject: Subject.Conversation,
     },
     { action: [Action.Create, Action.Read], subject: Subject.Message },

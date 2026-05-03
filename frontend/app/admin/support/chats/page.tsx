@@ -53,15 +53,12 @@ export default function AgentChatPanel() {
           currentUserId={panel.user?.id}
           typingIndicator={panel.typingIndicator}
           message={panel.message}
-          internalNote={panel.internalNote}
           sending={panel.sending}
           messagesEndRef={panel.messagesEndRef}
           onMessageChange={panel.setMessage}
-          onInternalNoteChange={panel.setInternalNote}
           onSend={panel.handleSend}
           onTyping={panel.handleTyping}
           onResolve={() => panel.openResolutionModal('resolve')}
-          onClose={() => panel.openResolutionModal('close')}
           onEscalate={() => panel.openResolutionModal('escalate')}
         />
 

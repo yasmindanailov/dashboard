@@ -101,7 +101,7 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 | Key | Tipo | Default | Estado | Consumidor | Origen |
 |-----|------|---------|--------|------------|--------|
 | `support.guest_session_ttl_days` | number | 30 | ✅ | `support-cleanup.worker.ts:42` | [ADR-037](../10-decisions/adr-037-arquitectura-dual-chat-tickets.md) · contract.md (sin seed explícito) |
-| `support.auto_close_days` | number | 7 | 🟡 | (feature futura — auto-cerrar conversaciones inactivas) | seed.ts:65 |
+| `support.auto_close_resolved_days` | number | 7 | ✅ | `SupportResolvedAutoCloseService.run()` (Sprint 16 Amendment A1) — tickets en `resolved` >N días → `→closed` silencioso + emit `conversation.auto_closed` (notif al agente que resolvió). Lectura canónica `settingsService.getNumber('support', 'auto_close_resolved_days', 7)`. **Seed actual `seed.ts:32` siembra todavía la key legacy `support.auto_close_days`** — el servicio cae al default 7 hasta que la siembra se renombre (deuda menor — sub-sprint limpieza). | ADR-079 Amendment A1 |
 | `support.ai_filter_enabled` | boolean | true | 🟡 | (feature futura — [ADR-057](../10-decisions/adr-057-agentes-ia.md) Sprint 15) | seed.ts:66 |
 | `support.maintenance_critical_threshold_days` | number | 60 | ✅ | `MaintenanceCriticalService.run()` (Sprint 8 Fase C) — services activos sin `maintenance_log` >N días → emite `maintenance.critical` al superadmin | seed.ts (Sprint 8 Fase C) |
 

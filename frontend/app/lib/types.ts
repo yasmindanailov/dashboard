@@ -90,25 +90,42 @@ export interface Client extends UserSummary {
   created_at?: string;
 }
 
+/* ADR-079 §3.8: shape canónico Sprint 16. La nota lleva `source_system`
+   + `source_id` polimórfico (FK a Conversation/Slot/Task/Project sin
+   integridad referencial dura) + `triggered_by_action` para trazar qué
+   acción del agente la generó. */
+export type NoteCategory =
+  | 'support'
+  | 'maintenance'
+  | 'onboarding'
+  | 'billing'
+  | 'project'
+  | 'technical_incident'
+  | 'exceptional';
+
+export type NoteSourceSystem =
+  | 'ticket'
+  | 'chat'
+  | 'maintenance_log'
+  | 'task_completion'
+  | 'exceptional';
+
 export interface ClientNote {
   id: string;
   user_id: string;
   author_id: string;
-  /** Backend enrichece con nombre del autor (clients.service.ts). */
+  /** Backend enriquece con nombre del autor (client-notes.service.ts). */
   author_name?: string;
   body: string;
-  category: string | null;
+  category: NoteCategory;
+  source_system: NoteSourceSystem;
+  /** ID en el sistema vinculado: conversation_id | slot_id | task_id |
+      project_id. Null para `source_system='exceptional'`. */
+  source_id: string | null;
+  /** Acción que disparó la nota (`ticket.resolved` | `task.completed` |
+      `maintenance.completed` | `manual_entry`). */
+  triggered_by_action: string | null;
   is_pinned: boolean;
-  conversation_id: string | null;
-  task_id?: string | null;
-  /**
-   * Sprint 8 Fase B.4 (2026-04-29): backend enriquece con título y tipo
-   * de la task de origen cuando `task_id` está poblado. Permite al
-   * `ClientNotesTab` mostrar "Tarea: <title>" como link clicable, en
-   * paralelo a la fila ya existente para `conversation_id`.
-   */
-  task_title?: string | null;
-  task_type?: string | null;
   created_at: string;
 }
 
