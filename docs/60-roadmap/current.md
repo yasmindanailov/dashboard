@@ -135,11 +135,30 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ## 🟡 Sprint 13 §13.AUTH — Auth server-side con cookies httpOnly + Server Components nativos (en curso)
 
-**Estado:** 🟡 en curso (preflight cerrado 2026-05-03, ADR-078 Amendment A1 mergeado).
+**Estado:** 🟡 fases 0/A/B/D ✅ cerradas (4 commits) — fases E/F pendientes (handoff a hilo nuevo).
 **Inicio:** 2026-05-03.
-**Cierre estimado:** 2026-05-06 (~3 sesiones).
+**Cierre estimado:** Fase E + F en hilo nuevo (~2 sesiones).
 **Rama:** `sprint13-auth-cookies-httponly` (desde master `fdd015a`).
 **ADR canónico:** [ADR-078](../10-decisions/adr-078-auth-server-side-cookies-httponly.md) + Amendment A1 (Modelo A: cookies en dominio Next.js).
+**Handoff Fase E:** [`docs/60-roadmap/sprint-13-auth-handoff-fase-e.md`](./sprint-13-auth-handoff-fase-e.md) — contexto operativo completo + inventario de archivos + bug crítico IPv6 documentado con fix de 1 línea.
+
+### Progreso real (2026-05-03 18:30)
+
+| Fase | Estado | Commit | Resumen |
+|------|--------|--------|---------|
+| **0** | ✅ | `19796aa` | Preflight + ADR-078 Amendment A1 + sprint plan en current.md (doc-only). |
+| **A** | ✅ | `0521c71` | Backend: `cookie-parser` registrado + `POST /auth/ws-token` + JwtPayload extendido con `'ws'` + SupportGatewayAuth narrowing tipo. 5 tests unit. |
+| **B** | ✅ | `6e913b5` | Backend: migración `sprint13auth_session_replay_detection` (3 columnas Session) + refresh rotation + replay detection + `NotificationsAuthReplayListener` + 2 plantillas. 10 tests unit nuevos. |
+| **D** | ✅ | `3851e7a` | Frontend: `lib/server-auth.ts` + `lib/auth-actions.ts` (DAL canónico Next.js 16 + 10 Server Actions). Cero archivo existente tocado. |
+| **E** | ⬜ | — | Bulk migration ~47 archivos a SC nativo. **Pendiente hilo nuevo** (handoff doc lista). |
+| **F** | ⬜ | — | E2E + R17 + cierre documental. **Pendiente hilo nuevo** (handoff doc lista). |
+
+### Verificación canónica
+
+- ✅ Backend `pnpm typecheck` + `pnpm lint:check` + `pnpm test` (198/198) verde.
+- ✅ Frontend `pnpm typecheck` verde. `pnpm lint:check` con 49 warnings preexistentes DC.6 (que Fase E cerrará).
+- ✅ Migración Prisma aplicada en DB local + seed completo (7 roles + 6 cuentas demo).
+- ⚠️ **Smoke HTTP backend pendiente** — bloqueado por bug IPv6 documentado en handoff §12 (fix de 1 línea: `.env` `localhost` → `127.0.0.1`). Tras aplicar fix, los 3 curl canónicos del handoff §6 validarán login + ws-token + replay detection extremo a extremo.
 
 > Sub-sprint del Sprint 13 Hardening enfocado **exclusivamente** en cerrar `DC.6 + DC.28`. El resto del Sprint 13 (audit trail global, Redis adapter Socket.io, N+1 audit, cursor pagination, caching, R15 restantes) queda fuera de alcance — futuras fases o sprint full según valor funcional.
 
