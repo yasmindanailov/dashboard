@@ -23,6 +23,11 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
 } from './dto/auth.dto';
+import {
+  Action,
+  ROLE_PERMISSIONS,
+  SIDEBAR_PERMISSIONS,
+} from '../../core/casl/permissions';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -139,6 +144,66 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current user profile' })
   async getMe(@Req() req: AuthenticatedRequest) {
     return this.authService.getMe(req.user.id);
+  }
+
+  /**
+   * Sprint 13.5 Fase E (DC.15) — fuente única de verdad para los
+   * permisos del usuario actual. El frontend cacheaba hasta este sprint
+   * la matriz `SIDEBAR_PERMISSIONS` duplicada en `frontend/app/lib/
+   * permissions.ts` con riesgo de drift respecto al backend; ahora lee
+   * este endpoint al login y la cachea en `AuthContext`.
+   *
+   * Devuelve sólo lo que el rol del usuario tiene — NO la matriz global,
+   * para no exponer la estructura completa de Subjects/Actions a roles
+   * inferiores. El payload está pensado para uso UI (sidebar items +
+   * sub-página per-Subject).
+   */
+  @Get('me/permissions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Permisos del usuario actual (Subjects visibles en sidebar + Actions por Subject). Sprint 13.5 DC.15.',
+  })
+  getMyPermissions(@Req() req: AuthenticatedRequest) {
+    const roleSlug = req.user.role.slug;
+    const sidebarSubjects = SIDEBAR_PERMISSIONS[roleSlug] ?? [];
+
+    // Calcula Actions por Subject a partir de ROLE_PERMISSIONS. Para roles
+    // con conditions/fields/inverted, devuelve la lista de Actions que el
+    // rol tiene declaradas (la condición server-side se preserva en los
+    // endpoints; el frontend sólo necesita saber QUÉ puede hacer, no QUÉ
+    // condiciones aplican).
+    const rules = ROLE_PERMISSIONS[roleSlug]
+      ? ROLE_PERMISSIONS[roleSlug](
+          req.user.id,
+          req.user.partner_id ?? undefined,
+        )
+      : [];
+
+    const actionsBySubject: Record<string, Action[]> = {};
+    for (const rule of rules) {
+      if (rule.inverted) continue; // las exclusiones no se exponen
+      const subjectKey = String(rule.subject);
+      const actions = Array.isArray(rule.action) ? rule.action : [rule.action];
+      const existing = actionsBySubject[subjectKey] ?? [];
+      const merged = Array.from(new Set([...existing, ...actions]));
+      actionsBySubject[subjectKey] = merged;
+    }
+
+    // Subjects visibles del sidebar (subset filtrado del global) +
+    // matriz de actions por subject. El frontend renderiza items con
+    // `sidebar_subjects.includes(item.requiredModule)` y comprueba
+    // permisos de acción con `actions_by_subject[subject].includes(action)`.
+    return {
+      role: roleSlug,
+      sidebar_subjects: sidebarSubjects.map((s) => String(s)),
+      actions_by_subject: actionsBySubject,
+      // Subjects que aparecen en alguna regla pero NO en el sidebar:
+      // útil para que el frontend permita acciones específicas sobre
+      // Subjects no-navegables (ej. `Subject.Profile`).
+      all_subjects_with_rules: Object.keys(actionsBySubject),
+    };
   }
 
   private getIp(req: Request): string {

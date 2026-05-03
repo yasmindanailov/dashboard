@@ -5,6 +5,7 @@ import { AuditService } from './audit.service';
 import { AuditController } from './audit.controller';
 import { AuditInterceptor } from './audit.interceptor';
 import { AuditRetentionCron } from './audit-retention.cron';
+import { AuditAuthListener } from './audit-auth.listener';
 
 /**
  * AuditModule — Sprint 9 Fase E (ADR-017 + ADR-010 RGPD).
@@ -22,6 +23,7 @@ import { AuditRetentionCron } from './audit-retention.cron';
   providers: [
     AuditService,
     AuditRetentionCron,
+    AuditAuthListener,
     {
       provide: APP_INTERCEPTOR,
       useClass: AuditInterceptor,

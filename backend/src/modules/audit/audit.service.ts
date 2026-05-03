@@ -7,7 +7,11 @@ import { getErrorMessage } from '../../core/common/utils/error.util';
 export interface AuditAccessEntry {
   user_id: string;
   action: string;
-  ip_address: string;
+  /** IP del request HTTP. Sprint 13.5 Fase E (DC.8): opcional para
+      callers no-HTTP (listeners de eventos asíncronos `auth.*` que
+      no tienen contexto request). Cuando el caller es un controller,
+      siempre debe pasar el IP del cliente. */
+  ip_address?: string | null;
   user_agent?: string | null;
   resource?: string | null;
   metadata?: Record<string, unknown> | null;
@@ -68,7 +72,11 @@ export class AuditService {
         data: {
           user_id: entry.user_id,
           action: entry.action,
-          ip_address: entry.ip_address,
+          // Sprint 13.5 DC.8: callers no-HTTP (listeners async `auth.*`)
+          // pueden no tener IP. El schema acepta string vacío como
+          // fallback canónico — la columna no es NULL pero un valor
+          // vacío señala "registrado fuera de contexto request".
+          ip_address: entry.ip_address ?? '',
           user_agent: entry.user_agent ?? null,
           resource: entry.resource ?? null,
           ...(entry.metadata

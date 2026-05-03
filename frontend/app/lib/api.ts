@@ -99,6 +99,21 @@ export const authApi = {
   me: (token: string) =>
     api('/auth/me', { token }),
 
+  /**
+   * Sprint 13.5 Fase E (DC.15) — fuente única de verdad para los permisos
+   * del usuario actual. Devuelve `{ role, sidebar_subjects, actions_by_subject,
+   * all_subjects_with_rules }`. El frontend puede usarlo para hidratar
+   * `AuthContext` y eliminar el drift respecto a `lib/permissions.ts`
+   * hardcoded. Cierre canónico en Sprint 13 §13.AUTH (SC nativo + cookies).
+   */
+  myPermissions: (token: string) =>
+    api<{
+      role: string;
+      sidebar_subjects: string[];
+      actions_by_subject: Record<string, string[]>;
+      all_subjects_with_rules: string[];
+    }>('/auth/me/permissions', { token }),
+
   logout: (token: string) =>
     api('/auth/logout', { method: 'POST', token }),
 
