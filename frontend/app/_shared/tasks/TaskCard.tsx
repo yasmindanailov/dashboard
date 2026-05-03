@@ -1,10 +1,8 @@
 'use client';
 
-// TODO(ADR-078, Sprint 13): migrar a Server Component cuando cierre
-// §13.AUTH (lectura de token server-side via cookies httpOnly).
-
 /* ═══════════════════════════════════════
    TaskCard — Sprint 16 / ADR-079 §3.6 (amendment A2).
+   Sprint 13 §13.AUTH Fase E (Modelo A): mutaciones via Server Actions.
 
    Una sola línea visible + contexto + accionadores inline.
    Sin tabs, sin pestañas, sin secciones expandibles. Cada accionador
@@ -28,8 +26,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button, useToast } from '../../components/ui';
-import { tasksApi } from '../../lib/api';
-import { getErrorMessage } from '../../lib/error';
 import {
   SOURCE_LABELS,
   INLINE_ACTIONS,
@@ -40,6 +36,10 @@ import { computeSlaTone, type Task } from './types';
 import CompleteTaskModal from './CompleteTaskModal';
 import MaintenanceLogModal from './MaintenanceLogModal';
 import ReassignTaskModal from './ReassignTaskModal';
+import {
+  completeTaskAction,
+  completeTicketBridgeTaskAction,
+} from './_actions';
 import s from './task-card.module.css';
 
 export interface TaskCardProps {
@@ -93,8 +93,6 @@ export default function TaskCard({
   canReassign = false,
   onChanged,
 }: TaskCardProps) {
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
   const { toast } = useToast();
   const labels = SOURCE_LABELS[task.source_system];
   const actions = INLINE_ACTIONS[task.source_system];
@@ -122,33 +120,39 @@ export default function TaskCard({
   };
 
   const handleSubmit = async (note: string) => {
-    if (!token || !pendingAction) return;
+    if (!pendingAction) return;
     setSubmitting(true);
-    try {
-      if (pendingAction === 'bridge_complete') {
-        // Sprint 16 amendment: la task de bridge ticket siempre resuelve
-        // el ticket (`resolved`, transitorio). El cierre archivado lo hace
-        // el cliente al confirmar, el cron auto-close pasados N días, o
-        // el agente desde el detalle del ticket.
-        await tasksApi.completeTicketBridge(token, task.id, {
-          ticket_action: 'resolve',
-          resolution_note: note,
-        });
+    let result: { ok: boolean; error?: string } | null = null;
+    if (pendingAction === 'bridge_complete') {
+      /*
+       * Sprint 16 amendment: la task de bridge ticket siempre resuelve
+       * el ticket (`resolved`, transitorio). El cierre archivado lo
+       * hace el cliente al confirmar, el cron auto-close pasados N
+       * días, o el agente desde el detalle del ticket.
+       */
+      result = await completeTicketBridgeTaskAction(task.id, {
+        ticket_action: 'resolve',
+        resolution_note: note,
+      });
+      if (result.ok) {
         toast(
           'success',
           'Tarea completada. Ticket resuelto — cliente notificado para confirmar.',
         );
-      } else if (pendingAction === 'complete_with_note') {
-        await tasksApi.complete(token, task.id, note);
+      }
+    } else if (pendingAction === 'complete_with_note') {
+      result = await completeTaskAction(task.id, note);
+      if (result.ok) {
         toast('success', 'Tarea completada. Nota registrada en el cliente.');
       }
-      setPendingAction(null);
-      onChanged?.();
-    } catch (err) {
-      toast('error', getErrorMessage(err) || 'No se pudo completar la tarea');
-    } finally {
-      setSubmitting(false);
     }
+    setSubmitting(false);
+    if (!result || !result.ok) {
+      toast('error', result?.error || 'No se pudo completar la tarea');
+      return;
+    }
+    setPendingAction(null);
+    onChanged?.();
   };
 
   const tier = task.client.support_inside_tier ?? null;

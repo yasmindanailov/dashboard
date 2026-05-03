@@ -1,9 +1,8 @@
 'use client';
 
-// TODO(ADR-078, Sprint 13): migrar a Server Action cuando cierre §13.AUTH.
-
 /* ═══════════════════════════════════════
    ReassignTaskModal — Sprint 16 / ADR-079 amendment A2.
+   Sprint 13 §13.AUTH Fase E (Modelo A): assignTaskAction Server Action.
 
    Modal canónico de reasignación de tasks (superadmin only). Doctrina:
      - Las tasks son **read-only** respecto al sistema vinculado. La única
@@ -29,10 +28,9 @@ import {
   Skeleton,
   useToast,
 } from '../../components/ui';
-import { tasksApi, usersApi } from '../../lib/api';
-import { getErrorMessage } from '../../lib/error';
-import type { Agent, Pagination, RoleSlug } from '../../lib/types';
+import type { Agent, RoleSlug } from '../../lib/types';
 import type { Task, TaskSourceSystem } from './types';
+import { assignTaskAction, listAssignableAgentsAction } from './_actions';
 import s from './task-card.module.css';
 
 const ROLE_LABELS: Record<RoleSlug, string> = {
@@ -73,8 +71,6 @@ export default function ReassignTaskModal({
   onClose,
   onReassigned,
 }: ReassignTaskModalProps) {
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
   const { toast } = useToast();
 
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -83,42 +79,60 @@ export default function ReassignTaskModal({
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!open || !token || !task) return;
+    if (!open || !task) return;
     setLoadingAgents(true);
     setSelectedAgent(task.assigned_to ?? '');
-    void usersApi
-      .listAgents(token, { limit: 50 })
-      .then((res) => {
-        const list = (res as Pagination<Agent>).data ?? [];
+    let cancelled = false;
+    void (async () => {
+      const result = await listAssignableAgentsAction({});
+      if (cancelled) return;
+      if (result.ok) {
         const eligible = ELIGIBLE_ROLES[task.source_system];
-        setAgents(list.filter((a) => eligible.includes(a.role)));
-      })
-      .catch(() => setAgents([]))
-      .finally(() => setLoadingAgents(false));
-  }, [open, token, task]);
+        const mapped: Agent[] = result.agents
+          .filter((a) => eligible.includes(a.role.slug as RoleSlug))
+          .map((a) => ({
+            id: a.id,
+            email: a.email,
+            first_name: a.first_name,
+            last_name: a.last_name,
+            full_name: `${a.first_name} ${a.last_name}`.trim(),
+            role: a.role.slug as RoleSlug,
+            status: 'active',
+            avatar_url: null,
+          }));
+        setAgents(mapped);
+      } else {
+        setAgents([]);
+      }
+      setLoadingAgents(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, task]);
 
   if (!task) return null;
 
   const handleSubmit = async (target: string | null) => {
-    if (!token) return;
     if (target === (task.assigned_to ?? null)) {
       toast('info', 'No hay cambios de asignación.');
       return;
     }
     setSubmitting(true);
-    try {
-      await tasksApi.assign(token, task.id, target);
-      toast(
-        'success',
-        target ? 'Tarea reasignada al agente seleccionado.' : 'Tarea liberada a la cola pública.',
-      );
-      onReassigned();
-      onClose();
-    } catch (err) {
-      toast('error', getErrorMessage(err) || 'No se pudo reasignar la tarea');
-    } finally {
-      setSubmitting(false);
+    const result = await assignTaskAction(task.id, target);
+    setSubmitting(false);
+    if (!result.ok) {
+      toast('error', result.error);
+      return;
     }
+    toast(
+      'success',
+      target
+        ? 'Tarea reasignada al agente seleccionado.'
+        : 'Tarea liberada a la cola pública.',
+    );
+    onReassigned();
+    onClose();
   };
 
   const currentLabel = task.assignee

@@ -194,7 +194,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       href: r.href,
       section: 'recent' as const,
     }));
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Filter items by query
   const filteredItems = useMemo(() => {

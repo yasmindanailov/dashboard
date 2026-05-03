@@ -1,8 +1,8 @@
 'use client';
 
-// TODO(ADR-078, Sprint 13): cuando cierre §13.AUTH, lifting de la lectura
-// del usuario actual + token a server-side; este shared se mantiene como
-// presentación pura cliente-side (no toca localStorage).
+/* Sprint 13 §13.AUTH Fase E (Modelo A): componente de presentación
+   puro. No accede a tokens — recibe `currentUserId` por prop desde el
+   page padre (que lo obtiene del AuthContext hidratado server-side). */
 
 import { RefObject } from 'react';
 import Link from 'next/link';

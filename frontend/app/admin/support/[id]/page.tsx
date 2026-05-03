@@ -10,7 +10,7 @@ import ConversationSidebar from '../../../_shared/support/conversation/Conversat
 import DetailResolutionModal from '../../../_shared/support/conversation/DetailResolutionModal';
 import { DetailPage, Card, Skeleton } from '../../../components/ui';
 import styles from '../../../_shared/support/conversation/conversationDetail.module.css';
-import { tasksApi } from '../../../lib/api';
+import { listTasksAction } from '../../../_shared/tasks/_actions';
 
 /* ═══════════════════════════════════════
    Admin Conversation Detail — Portal de Administración
@@ -50,51 +50,45 @@ export default function AdminConversationDetailPage() {
     }
   }, [d.conversation, router]);
 
-  // Carga lazy de la task vinculada (un row máximo). El backend filtra
-  // por `conversation_id` y devuelve solo activas (pending|in_progress)
-  // si el ticket tiene una bridge en curso. Si no hay, queda en null.
+  /*
+   * Carga lazy de la task vinculada (un row máximo). El backend filtra
+   * por `conversation_id` y devuelve solo activas (pending|in_progress)
+   * si el ticket tiene una bridge en curso. Sprint 16 / ADR-079: el
+   * bridge ticket↔task se filtra por `source_system='support_ticket'`
+   * + `source_id=conversation.id`. El listener canónico crea solo una
+   * task activa por ticket. Sprint 13 §13.AUTH: via Server Action.
+   */
   useEffect(() => {
     const conv = d.conversation;
     if (!conv || conv.type !== 'ticket') return;
-    const token =
-      typeof window !== 'undefined'
-        ? localStorage.getItem('access_token') || ''
-        : '';
-    if (!token) return;
+    let cancelled = false;
     void (async () => {
-      try {
-        // Sprint 16 / ADR-079: el bridge ticket↔task se filtra por
-        // `source_system='support_ticket'` + `source_id=conversation.id`.
-        // El listener canónico crea solo una task activa por ticket.
-        const res = (await tasksApi.list(token, {
+      const tryStatus = async (status: 'pending' | 'in_progress') => {
+        const result = await listTasksAction({
           source_system: 'support_ticket',
-          source_id: conv.id,
-          status: 'pending',
+          status,
           scope: 'all',
-          limit: 1,
-        })) as { data?: { id: string; status: string }[] };
-        const data = res?.data ?? [];
-        if (data.length > 0) {
-          setLinkedTask({ id: data[0].id, status: data[0].status });
-          return;
-        }
-        const res2 = (await tasksApi.list(token, {
-          source_system: 'support_ticket',
-          source_id: conv.id,
-          status: 'in_progress',
-          scope: 'all',
-          limit: 1,
-        })) as { data?: { id: string; status: string }[] };
-        const data2 = res2?.data ?? [];
-        setLinkedTask(
-          data2.length > 0
-            ? { id: data2[0].id, status: data2[0].status }
-            : null,
+          limit: 50,
+        });
+        if (!result.ok) return null;
+        const found = (result.tasks.data ?? []).find(
+          (t) => t.source_id === conv.id,
         );
-      } catch {
-        setLinkedTask(null);
+        return found ? { id: found.id, status: found.status } : null;
+      };
+      const pending = await tryStatus('pending');
+      if (cancelled) return;
+      if (pending) {
+        setLinkedTask(pending);
+        return;
       }
+      const inProgress = await tryStatus('in_progress');
+      if (cancelled) return;
+      setLinkedTask(inProgress);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [d.conversation]);
 
   const getDetailDisplayTitle = (conv: { sequence_number?: number | null; subject: string; type: string }) => {

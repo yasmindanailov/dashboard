@@ -1,7 +1,8 @@
 'use client';
 
-// TODO(ADR-078, Sprint 13): cuando cierre §13.AUTH, leer permisos +
-// counters server-side (cookies httpOnly) y devolver el sidebar como SC.
+/* Sprint 13 §13.AUTH Fase E (Modelo A): badge de tareas via Server
+   Action `listTasksAction` (cero localStorage). El sidebar permanece
+   CC porque mantiene state interactivo (hover, collapse, badge polling). */
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -9,8 +10,8 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '../lib/auth-context';
 import { canAccess, type AppModule } from '../lib/permissions';
 import { PortalBadge } from '../components/ui';
-import { tasksApi } from '../lib/api';
-import type { TaskListResponse, Task } from '../_shared/tasks/types';
+import { listTasksAction } from '../_shared/tasks/_actions';
+import type { Task } from '../_shared/tasks/types';
 import styles from './admin-sidebar.module.css';
 
 /* ═══════════════════════════════════════
@@ -177,48 +178,40 @@ interface TasksBadge {
 }
 
 function useTasksBadge(enabled: boolean): TasksBadge {
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
   const [badge, setBadge] = useState<TasksBadge>({ count: 0, tone: 'neutral' });
 
   useEffect(() => {
-    if (!enabled || !token) return;
+    if (!enabled) return;
     let cancelled = false;
-    const load = () => {
-      tasksApi
-        .list(token, { scope: 'mine', limit: 50 })
-        .then((res) => {
-          if (cancelled) return;
-          const list = ((res as TaskListResponse).data ?? []) as Task[];
-          const open = list.filter((t) =>
-            t.status === 'pending' || t.status === 'in_progress',
-          );
-          const overdue = open.some(
-            (t) => t.status === 'not_completed_in_time' || isOverdue(t),
-          );
-          const now = Date.now();
-          const soonDue = open.some(
-            (t) =>
-              t.due_date &&
-              new Date(t.due_date).getTime() - now <= SOON_DUE_MS &&
-              new Date(t.due_date).getTime() > now,
-          );
-          setBadge({
-            count: open.length,
-            tone: overdue ? 'danger' : soonDue ? 'warn' : 'neutral',
-          });
-        })
-        .catch(() => {
-          // Degradación elegante: si falla, simplemente no mostramos el badge.
-        });
+    const load = async () => {
+      const result = await listTasksAction({ scope: 'mine', limit: 50 });
+      if (cancelled || !result.ok) return;
+      const list = (result.tasks.data ?? []) as Task[];
+      const open = list.filter(
+        (t) => t.status === 'pending' || t.status === 'in_progress',
+      );
+      const overdue = open.some(
+        (t) => t.status === 'not_completed_in_time' || isOverdue(t),
+      );
+      const now = Date.now();
+      const soonDue = open.some(
+        (t) =>
+          t.due_date &&
+          new Date(t.due_date).getTime() - now <= SOON_DUE_MS &&
+          new Date(t.due_date).getTime() > now,
+      );
+      setBadge({
+        count: open.length,
+        tone: overdue ? 'danger' : soonDue ? 'warn' : 'neutral',
+      });
     };
-    load();
-    const id = window.setInterval(load, REFRESH_INTERVAL_MS);
+    void load();
+    const id = window.setInterval(() => void load(), REFRESH_INTERVAL_MS);
     return () => {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [enabled, token]);
+  }, [enabled]);
 
   return badge;
 }

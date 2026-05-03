@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import type { NotificationItem } from '../../lib/api';
 import {
-  notificationsApi,
-  type NotificationItem,
-} from '../../lib/api';
-import { getErrorMessage } from '../../lib/error';
+  fetchUnreadNotificationsAction,
+  markAllNotificationsReadAction,
+  markNotificationReadAction,
+} from './_actions';
 import styles from './NotificationBell.module.css';
 
 /* ═══════════════════════════════════════
@@ -44,21 +45,17 @@ export default function NotificationBell({ triggerClassName }: NotificationBellP
   const [error, setError] = useState<string | null>(null);
 
   const fetchUnread = useCallback(async () => {
-    if (typeof window === 'undefined') return;
-    const token = localStorage.getItem('access_token');
-    if (!token) return;
-    try {
-      const res = await notificationsApi.unread(token);
-      setItems(res.data);
-      setUnreadCount(res.unread_count);
-      setError(null);
-    } catch (err) {
-      // 401 transitorio (refresh en curso) o conexión caída — no asustar.
-      const msg = getErrorMessage(err);
-      if (msg && !msg.includes('401')) {
-        console.warn('[NotificationBell] fetch unread failed:', msg);
+    const result = await fetchUnreadNotificationsAction();
+    if (!result.ok) {
+      /* 401 transitorio (sesión expirada) — no asustamos al usuario. */
+      if (result.status !== 401) {
+        console.warn('[NotificationBell] fetch unread failed:', result.error);
       }
+      return;
     }
+    setItems(result.items);
+    setUnreadCount(result.unreadCount);
+    setError(null);
   }, []);
 
   useEffect(() => {
@@ -80,48 +77,41 @@ export default function NotificationBell({ triggerClassName }: NotificationBellP
   }, [open]);
 
   async function handleItemClick(item: NotificationItem): Promise<void> {
-    if (typeof window === 'undefined') return;
-    const token = localStorage.getItem('access_token');
-    if (!token) return;
     setLoading(true);
-    try {
-      if (!item.read_at) {
-        await notificationsApi.markRead(token, item.id);
-        setUnreadCount((c) => Math.max(0, c - 1));
-        setItems((prev) =>
-          prev.map((n) =>
-            n.id === item.id ? { ...n, read_at: new Date().toISOString() } : n,
-          ),
-        );
+    if (!item.read_at) {
+      const result = await markNotificationReadAction(item.id);
+      if (!result.ok) {
+        setError(result.error);
+        setLoading(false);
+        return;
       }
-      if (item.action_url) {
-        setOpen(false);
-        router.push(item.action_url);
-      }
-    } catch (err) {
-      setError(getErrorMessage(err) || 'No se pudo marcar como leída');
-    } finally {
-      setLoading(false);
+      setUnreadCount((c) => Math.max(0, c - 1));
+      setItems((prev) =>
+        prev.map((n) =>
+          n.id === item.id ? { ...n, read_at: new Date().toISOString() } : n,
+        ),
+      );
+    }
+    setLoading(false);
+    if (item.action_url) {
+      setOpen(false);
+      router.push(item.action_url);
     }
   }
 
   async function handleMarkAll(): Promise<void> {
-    if (typeof window === 'undefined') return;
-    const token = localStorage.getItem('access_token');
-    if (!token) return;
     setLoading(true);
-    try {
-      await notificationsApi.markAllRead(token);
-      setUnreadCount(0);
-      const now = new Date().toISOString();
-      setItems((prev) =>
-        prev.map((n) => (n.read_at ? n : { ...n, read_at: now })),
-      );
-    } catch (err) {
-      setError(getErrorMessage(err) || 'No se pudieron marcar como leídas');
-    } finally {
-      setLoading(false);
+    const result = await markAllNotificationsReadAction();
+    setLoading(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
     }
+    setUnreadCount(0);
+    const now = new Date().toISOString();
+    setItems((prev) =>
+      prev.map((n) => (n.read_at ? n : { ...n, read_at: now })),
+    );
   }
 
   function toggleOpen(): void {

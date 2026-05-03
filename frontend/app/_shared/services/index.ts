@@ -3,7 +3,8 @@
  *
  * Componentes shared para `/dashboard/services/*` y `/admin/services/*`.
  * Mezclan presentational puros (Server-component compatible) y Client
- * Components con marker TODO(ADR-078) para Sprint 13 §13.AUTH.
+ * Components que invocan Server Actions (Sprint 13 §13.AUTH Fase E,
+ * ADR-078 Amendment A1).
  */
 export { ServiceHeader } from './ServiceHeader';
 export { MetricsBar } from './MetricsBar';

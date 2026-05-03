@@ -2,17 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  supportInsideApi,
-  type SupportInsidePublicPlan,
-  type SupportInsideSubscriptionPayload,
-  type SupportInsideChannel,
-  type SupportInsideEligibleService,
-  type SupportInsideSlotType,
+import type {
+  SupportInsidePublicPlan,
+  SupportInsideSubscriptionPayload,
+  SupportInsideChannel,
+  SupportInsideEligibleService,
+  SupportInsideSlotType,
 } from '../../lib/api';
 import { fmtCurrency } from '../../_shared/billing/invoice-status-map';
-import { getErrorMessage } from '../../lib/error';
 import { Badge, Button, Modal, Select, Skeleton, useToast } from '../../components/ui';
+import {
+  addSlotAction,
+  cancelSupportInsideAction,
+  listEligibleServicesAction,
+  loadSupportInsideAction,
+  releaseSlotAction,
+} from './_actions';
 import s from './page.module.css';
 
 /* ═══════════════════════════════════════
@@ -102,27 +107,17 @@ export default function SupportInsidePage() {
   const [selectedSlotType, setSelectedSlotType] =
     useState<SupportInsideSlotType>('maintenance');
 
-  const token =
-    typeof window !== 'undefined'
-      ? localStorage.getItem('access_token') || ''
-      : '';
-
   const reload = useCallback(async () => {
-    if (!token) return;
     setLoading(true);
-    try {
-      const [plansRes, statusRes] = await Promise.all([
-        supportInsideApi.listPlans(token),
-        supportInsideApi.getStatus(token),
-      ]);
-      setPlans(plansRes);
-      setSubscription(statusRes);
-    } catch (err) {
-      toast('error', getErrorMessage(err) || 'No se pudo cargar Support Inside.');
-    } finally {
-      setLoading(false);
+    const result = await loadSupportInsideAction();
+    if (!result.ok) {
+      toast('error', result.error || 'No se pudo cargar Support Inside.');
+    } else {
+      setPlans(result.plans);
+      setSubscription(result.subscription);
     }
-  }, [token, toast]);
+    setLoading(false);
+  }, [toast]);
 
   useEffect(() => {
     void reload();
@@ -152,74 +147,73 @@ export default function SupportInsidePage() {
 
   const cancel = useCallback(async () => {
     setSubmitting(true);
-    try {
-      const res = await supportInsideApi.cancel(token, {});
-      toast(
-        'success',
-        `Plan cancelado. ${res.released_slots} slot${res.released_slots !== 1 ? 's' : ''} liberado${res.released_slots !== 1 ? 's' : ''}.`,
-      );
-      setConfirmCancel(false);
-      await reload();
-    } catch (err) {
-      toast('error', getErrorMessage(err) || 'No se pudo cancelar.');
-    } finally {
-      setSubmitting(false);
+    const result = await cancelSupportInsideAction();
+    setSubmitting(false);
+    if (!result.ok) {
+      toast('error', result.error || 'No se pudo cancelar.');
+      return;
     }
-  }, [reload, toast, token]);
+    toast(
+      'success',
+      `Plan cancelado. ${result.releasedSlots} slot${
+        result.releasedSlots !== 1 ? 's' : ''
+      } liberado${result.releasedSlots !== 1 ? 's' : ''}.`,
+    );
+    setConfirmCancel(false);
+    await reload();
+  }, [reload, toast]);
 
   const releaseSlot = useCallback(
     async (slotId: string) => {
       setSubmitting(true);
-      try {
-        await supportInsideApi.releaseSlot(token, slotId);
-        toast('success', 'Slot liberado.');
-        await reload();
-      } catch (err) {
-        toast('error', getErrorMessage(err) || 'No se pudo liberar el slot.');
-      } finally {
-        setSubmitting(false);
+      const result = await releaseSlotAction(slotId);
+      setSubmitting(false);
+      if (!result.ok) {
+        toast('error', result.error || 'No se pudo liberar el slot.');
+        return;
       }
+      toast('success', 'Slot liberado.');
+      await reload();
     },
-    [reload, toast, token],
+    [reload, toast],
   );
 
-  // Sub-fase 8.D.12.8 — abrir modal asignar slot: carga lista elegibles y
-  // pre-selecciona el primer slot_type permitido por el plan del cliente.
+  /*
+   * Sub-fase 8.D.12.8 — abrir modal asignar slot: carga lista elegibles
+   * y pre-selecciona el primer slot_type permitido por el plan.
+   */
   const openAssignSlot = useCallback(async () => {
     if (!subscription) return;
     setAssignSlotOpen(true);
     setSelectedServiceId('');
-    const allowed = subscription.product.support_inside_config?.slot_types_allowed ?? [];
+    const allowed =
+      subscription.product.support_inside_config?.slot_types_allowed ?? [];
     setSelectedSlotType(allowed[0] ?? 'maintenance');
-    try {
-      const list = await supportInsideApi.listEligibleServices(token);
-      setEligibleServices(list);
-      if (list.length > 0) setSelectedServiceId(list[0].id);
-    } catch (err) {
-      toast(
-        'error',
-        getErrorMessage(err) || 'No se pudieron cargar tus servicios.',
-      );
+    const result = await listEligibleServicesAction();
+    if (!result.ok) {
+      toast('error', result.error || 'No se pudieron cargar tus servicios.');
+      return;
     }
-  }, [subscription, token, toast]);
+    setEligibleServices(result.services);
+    if (result.services.length > 0) setSelectedServiceId(result.services[0].id);
+  }, [subscription, toast]);
 
   const confirmAssignSlot = useCallback(async () => {
     if (!selectedServiceId || !selectedSlotType) return;
     setSubmitting(true);
-    try {
-      await supportInsideApi.addSlot(token, {
-        service_id: selectedServiceId,
-        slot_type: selectedSlotType,
-      });
-      toast('success', 'Slot asignado al servicio.');
-      setAssignSlotOpen(false);
-      await reload();
-    } catch (err) {
-      toast('error', getErrorMessage(err) || 'No se pudo asignar el slot.');
-    } finally {
-      setSubmitting(false);
+    const result = await addSlotAction({
+      service_id: selectedServiceId,
+      slot_type: selectedSlotType,
+    });
+    setSubmitting(false);
+    if (!result.ok) {
+      toast('error', result.error || 'No se pudo asignar el slot.');
+      return;
     }
-  }, [reload, selectedServiceId, selectedSlotType, toast, token]);
+    toast('success', 'Slot asignado al servicio.');
+    setAssignSlotOpen(false);
+    await reload();
+  }, [reload, selectedServiceId, selectedSlotType, toast]);
 
   /* ── Loading ── */
   if (loading) {

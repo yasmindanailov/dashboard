@@ -1,26 +1,17 @@
-'use client';
-
 /**
- * /dashboard/services/[id] — Detalle de servicio del cliente.
+ * /dashboard/services/[id] — Sprint 13 §13.AUTH Fase E (Modelo A).
+ * Server Component nativo. ADR-078 Amendment A1.
  *
- * Sprint 11 Fase 11.D (ADR-070 §"Patrón de página" + ADR-077 §1+§2).
- *
- * Una sola plantilla para TODOS los plugins. La UI ramifica por
- * `info.capabilities` — NUNCA por `service.provisioner_slug`. Esto
- * cierra el debate "if (provisioner === 'X')" del frontend (ADR-070
- * §🚪 Cierra).
- *
- * TODO(ADR-078, Sprint 13): migrar a Server Component cuando cookies
- * httpOnly estén activas. Ref DC.28. Este archivo es la última excepción
- * permitida del patrón 'use client' + localStorage según ADR-078 §3.2.
+ * Sprint 11 Fase 11.D (ADR-070 §"Patrón de página" + ADR-077 §1+§2):
+ * una sola plantilla para TODOS los plugins. La UI ramifica por
+ * `info.capabilities` — NUNCA por `service.provisioner_slug`.
+ * SsoButton + ActionsBar son CC interactivos que invocan Server Actions.
  */
 
-import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
 import { Card, EmptyState } from '../../../components/ui';
-import { servicesApi, type ServiceDetailResponse } from '../../../lib/api';
-import { getErrorMessage } from '../../../lib/error';
+import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
+import type { ServiceDetailResponse } from '../../../lib/api';
 import {
   ActionsBar,
   MetricsBar,
@@ -28,51 +19,31 @@ import {
   SsoButton,
 } from '../../../_shared/services';
 
-export default function ClientServiceDetailPage() {
-  const params = useParams<{ id: string }>();
-  const serviceId = params.id;
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
 
-  const [data, setData] = useState<ServiceDetailResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export default async function ClientServiceDetailPage({ params }: PageProps) {
+  const { id } = await params;
 
-  const token =
-    typeof window !== 'undefined'
-      ? localStorage.getItem('access_token') || ''
-      : '';
-
-  const load = useCallback(async () => {
-    if (!token || !serviceId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await servicesApi.detail(token, serviceId);
-      setData(res);
-    } catch (err) {
-      setError(getErrorMessage(err) ?? 'No se pudo cargar el servicio');
-    } finally {
-      setLoading(false);
-    }
-  }, [token, serviceId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  if (loading) {
-    return <p style={{ color: 'var(--text-secondary)' }}>Cargando servicio…</p>;
+  let data: ServiceDetailResponse | null = null;
+  let errorMessage: string | null = null;
+  try {
+    data = await serverFetch<ServiceDetailResponse>(`/services/${id}`);
+  } catch (err) {
+    errorMessage =
+      err instanceof ServerFetchError
+        ? err.message
+        : 'No se pudo cargar el servicio';
   }
 
-  if (error || !data) {
+  if (!data) {
     return (
       <EmptyState
         title="No se pudo cargar el servicio"
-        description={error ?? 'El servicio no existe o no tienes acceso.'}
+        description={errorMessage ?? 'El servicio no existe o no tienes acceso.'}
         action={
-          <Link
-            href="/dashboard/services"
-            style={{ color: 'var(--brand-600)' }}
-          >
+          <Link href="/dashboard/services" style={{ color: 'var(--brand-600)' }}>
             ← Volver al listado
           </Link>
         }
@@ -101,8 +72,10 @@ export default function ClientServiceDetailPage() {
 
       {info.metrics && <MetricsBar metrics={info.metrics} />}
 
-      {/* SSO panel — solo si el plugin lo soporta para esta instancia
-          (ADR-070 §B + ADR-077 §3 capability flag por instancia). */}
+      {/*
+        SSO panel — solo si el plugin lo soporta para esta instancia
+        (ADR-070 §B + ADR-077 §3 capability flag por instancia).
+      */}
       {info.capabilities.hasSsoPanel && info.capabilities.panel_label && (
         <Card>
           <div
@@ -142,20 +115,19 @@ export default function ClientServiceDetailPage() {
       <ActionsBar
         serviceId={service.id}
         actions={info.availableActions}
-        onActionExecuted={() => void load()}
       />
 
-      {/* Slot UI placeholder Sprint 22 Projects (`request_custom_development`).
-          Sprint 11 deja la sección visible pero deshabilitada para que la UI
-          quede preparada — Sprint 22 conectará el endpoint sin tocar este
-          layout. */}
+      {/*
+        Slot UI placeholder Sprint 22 Projects (`request_custom_development`).
+        Sprint 11 deja la sección visible pero deshabilitada para que la
+        UI quede preparada — Sprint 22 conectará el endpoint sin tocar
+        este layout.
+      */}
       <Card>
         <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
           ¿Necesitas un desarrollo a medida?
         </h2>
-        <p
-          style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 8 }}
-        >
+        <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 8 }}>
           Próximamente podrás solicitar un desarrollo personalizado vinculado
           a este servicio. (Función disponible cuando Sprint 22 Projects esté
           activo.)
