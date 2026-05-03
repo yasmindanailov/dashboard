@@ -13,6 +13,7 @@
   const NAV = [
     { section: 'Inicio', items: [
       { href: 'index.html',                         label: 'Bienvenida' },
+      { href: 'firma-visual.html',                  label: 'Firma visual' },
     ]},
     { section: 'Fase 2 · Componentes base', items: [
       { section: 'Formularios' },
@@ -155,26 +156,35 @@
   }
 
   /*
-   * Try to load logo.svg from mockup/. If present, replace the CSS
-   * fallback rombos. If not, the fallback stays.
+   * Try to load the Aelium logo from mockup/. Tries several filenames
+   * in priority order (blue first — matches brand color). If none
+   * exists, the CSS fallback (rombos) stays.
    */
   function tryLogo() {
     const mark = document.getElementById('nav-brand-mark');
     if (!mark) return;
     const d = depth();
-    const src = rel('logo.svg', d);
-    const img = new Image();
-    img.onload = function () {
-      mark.classList.add('has-logo');
-      mark.innerHTML = '';
-      mark.appendChild(img);
-      img.style.width = '100%';
-      img.style.height = '100%';
-    };
-    img.onerror = function () {
-      // logo.svg not available — keep CSS fallback (rombos)
-    };
-    img.src = src;
+    const candidates = [
+      'aelium_logo_blue.svg',
+      'aelium_logo.svg',
+      'aelium_logo_black.svg',
+      'logo.svg',
+    ];
+    function tryNext(i) {
+      if (i >= candidates.length) return; // ran out — keep CSS fallback
+      const src = rel(candidates[i], d);
+      const img = new Image();
+      img.onload = function () {
+        mark.classList.add('has-logo');
+        mark.innerHTML = '';
+        mark.appendChild(img);
+        img.style.width = '100%';
+        img.style.height = '100%';
+      };
+      img.onerror = function () { tryNext(i + 1); };
+      img.src = src;
+    }
+    tryNext(0);
   }
 
   document.addEventListener('DOMContentLoaded', () => {

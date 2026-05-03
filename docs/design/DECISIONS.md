@@ -332,6 +332,58 @@ Formato:
   4. Si en el futuro la marca evoluciona a v1.7+, esto se reabre con
      misma lógica (marca manda).
 
+## DD-023 — Firma visual aplicada a componentes (mecanismos distintivos Aelium)
+
+- Fase: 2.A (transversal a fases siguientes)
+- Fecha: 2026-05-03
+- Decisión: Aplicar **6 mecanismos visuales distintivos** a los
+  componentes y páginas del sistema, materializando la firma de marca
+  más allá del color y la voz:
+
+  1. **Símbolo dos rombos** como elemento visual recurrente:
+     - Logo en nav (SVG cuando exista, fallback CSS).
+     - `.aelium-dot` (8px) como marker en eyebrows y listas importantes.
+  2. **Aelium loader** (dos rombos pulsando alternativamente) reemplaza
+     el spinner circular genérico para loading states de página y
+     sección. Botones siguen usando spinner inline.
+  3. **GradientMesh sutil** (`.mesh-bg`, opacidad 0.04 / 0.08 según
+     contexto) como fondo de Card destacada, hero y empty states grandes.
+     NO en tablas ni filas densas.
+  4. **Numerales tabulares** (`.num`, vía `--font-feature-numeric`)
+     en columnas de cifras: importes, métricas, contadores.
+  5. **Accent stripe** (`.accent-stripe-left`) como patrón compartido
+     entre sidebar activo, tab activo, filtro aplicado, item
+     seleccionado.
+  6. **Card como acción** (`.card-action`) con hover brand-tinted
+     (border `--brand`, bg `--brand-subtle`) — diferencia cards
+     navegables de cards estáticas.
+
+  Más:
+  - **Eyebrow** con mini-rombo del color brand antes del título.
+- Justificación: Los componentes base (Button, Input, etc.) son
+  inherentemente similares entre dashboards — su forma viene de la
+  función. La diferenciación real ocurre en la firma. Sin estos
+  mecanismos, el dashboard se ve "Tailwind/SaaS genérico". Con ellos,
+  cada componente carga marca incluso aislado. Disciplina, no
+  decoración: no se aplica todo a todo.
+- Materializada en: `mockup/styles.css` (clases utility),
+  `mockup/firma-visual.html` (página de demostración).
+- Implicaciones: Toda fase posterior consume estos elementos donde tiene
+  sentido. Específicamente:
+  - Fase 2.B (feedback): Skeleton podría usar `.aelium-loader` para
+    estados grandes; Badge puede llevar `.aelium-dot` cuando aplique.
+  - Fase 2.C (data): StatsCard usa `.num` por defecto en su valor
+    principal; Table usa `.num` en columnas numéricas; FilterBar usa
+    `.accent-stripe-left` cuando un filtro está aplicado.
+  - Fase 2.D (navegación): Tabs usa accent stripe (vertical o
+    underline). PortalBadge puede usar `.aelium-dot.accent`.
+  - Fase 2.E (contenedores): Card decide `.card-action` vs estática;
+    EmptyState puede usar `.aelium-loader.lg` para "cargando" y rombos
+    para ilustración mínima.
+  - Fase 4 (shells): el mesh por portal modula `--mesh-opacity-product`
+    y posiblemente tinta del mesh.
+- Ver `mockup/firma-visual.html` para demostración visual completa.
+
 ## DD-022 — Voz de marca aplicada a botones (y por extensión, a toda etiqueta interactiva)
 
 - Fase: 2.A

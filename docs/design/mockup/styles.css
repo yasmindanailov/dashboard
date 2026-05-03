@@ -656,6 +656,149 @@ a { color: inherit; text-decoration: none; }
   margin: var(--space-1) 0;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   FIRMA VISUAL · elementos distintivos Aelium
+   Mecanismos sutiles que hacen que un componente se sienta "Aelium"
+   en lugar de "SaaS genérico". DD-009 · DD-022 · DD-023.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ──────── Tabular numerals ──────── */
+.num,
+.tabular {
+  font-feature-settings: var(--font-feature-numeric);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* ──────── Mesh sutil como fondo de superficie ──────── */
+/* Aplicar a Card, Section o cualquier surface que merezca firma. */
+.mesh-bg {
+  position: relative;
+  isolation: isolate;
+}
+.mesh-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  opacity: var(--mesh-opacity-product);
+  background:
+    radial-gradient(at 20% 30%, var(--brand) 0%, transparent 50%),
+    radial-gradient(at 80% 70%, var(--accent-secondary) 0%, transparent 60%),
+    radial-gradient(at 50% 100%, var(--brand-active) 0%, transparent 70%);
+  pointer-events: none;
+}
+.mesh-bg.mesh-strong::before { opacity: 0.08; }
+.mesh-bg.mesh-auth::before   { opacity: var(--mesh-opacity-auth); }
+
+/* ──────── Aelium loader · dos rombos pulsando ──────── */
+/* Reemplazo distintivo del spinner genérico circular. */
+.aelium-loader {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  position: relative;
+  flex-shrink: 0;
+}
+.aelium-loader::before,
+.aelium-loader::after {
+  content: "";
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--brand);
+  transform: rotate(45deg);
+  animation: aelium-pulse 1.4s var(--ease-in-out) infinite;
+}
+.aelium-loader::before { top: 0;    left: 4px;  animation-delay: 0s; }
+.aelium-loader::after  { bottom: 0; right: 4px; animation-delay: 0.7s; opacity: 0.6; }
+@keyframes aelium-pulse {
+  0%, 100% { opacity: 0.3; transform: rotate(45deg) scale(0.85); }
+  50%      { opacity: 1;   transform: rotate(45deg) scale(1); }
+}
+.aelium-loader.lg { width: 40px; height: 40px; }
+.aelium-loader.lg::before,
+.aelium-loader.lg::after { width: 18px; height: 18px; }
+.aelium-loader.lg::before { left: 6px; }
+.aelium-loader.lg::after  { right: 6px; }
+.aelium-loader.sm { width: 20px; height: 20px; }
+.aelium-loader.sm::before,
+.aelium-loader.sm::after { width: 9px; height: 9px; }
+.aelium-loader.sm::before { left: 3px; }
+.aelium-loader.sm::after  { right: 3px; }
+
+/* ──────── Accent stripe · barra lateral de elementos activos ──────── */
+/* Patrón ya usado por la sidebar del nav. Se extiende a tabs activos,
+   filtros aplicados, items seleccionados, cards levantadas. */
+.accent-stripe-left {
+  position: relative;
+  padding-left: var(--space-3);
+}
+.accent-stripe-left::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--brand);
+  border-radius: var(--radius-xs);
+}
+
+/* ──────── Card como acción · hover brand-tinted ──────── */
+/* Para cards interactivas que abren detalle. Diferenciador de cards
+   estáticas (que no tienen ningún cambio en hover). */
+.card-action {
+  cursor: pointer;
+  transition: border-color var(--transition-fast) var(--ease-out),
+              background var(--transition-fast) var(--ease-out),
+              box-shadow var(--transition-fast) var(--ease-out);
+}
+.card-action:hover {
+  border-color: var(--brand);
+  background: var(--brand-subtle);
+  box-shadow: var(--shadow-xs);
+}
+.card-action:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-color: var(--brand);
+}
+
+/* ──────── Eyebrow · etiqueta encima del título ──────── */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--brand);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.eyebrow::before {
+  content: "";
+  width: 8px; height: 8px;
+  border-radius: 1px;
+  background: var(--brand);
+  transform: rotate(45deg);
+  display: inline-block;
+}
+
+/* ──────── Aelium dot · pequeño marcador de marca ──────── */
+.aelium-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+  background: var(--brand);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+.aelium-dot.muted { background: var(--text-tertiary); opacity: 0.5; }
+.aelium-dot.accent { background: var(--accent-secondary); }
+
 /* ──────── Pending page placeholder ──────── */
 
 .pending-placeholder {

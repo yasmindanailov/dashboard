@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Firma visual</title>
+<link rel="stylesheet" href="tokens.css" />
+<link rel="stylesheet" href="styles.css" />
+<style>
+  .demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); margin-bottom: var(--space-5); }
+  .demo-tile {
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-5);
+    min-height: 160px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .demo-tile.tall { min-height: 220px; }
+  .demo-label { font-size: var(--font-size-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-top: var(--space-2); }
+  .num-table { width: 100%; border-collapse: collapse; }
+  .num-table th, .num-table td { padding: var(--space-2) var(--space-3); text-align: left; border-bottom: 1px solid var(--border); font-size: var(--font-size-sm); }
+  .num-table th { color: var(--text-secondary); font-weight: var(--font-weight-medium); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; background: var(--surface-secondary); }
+  .num-table td.number { text-align: right; }
+  @media (max-width: 800px) { .demo-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Identidad</div>
+      <h1 class="page-title">Firma visual de Aelium</h1>
+      <p class="page-lede">
+        Mecanismos sutiles que hacen que un componente se sienta <strong>Aelium</strong> en lugar de "SaaS genérico". Disciplina, no decoración. Cada elemento de aquí se aplica a los componentes de los siguientes grupos para que la identidad se herede sin que tengas que pensarla.
+      </p>
+    </header>
+
+    <!-- Logo / símbolo -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Símbolo · dos rombos</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">
+        El símbolo de Aelium son dos rombos superpuestos. Decisión de marca: "dos entidades distintas, juntas, sin fusionarse". El símbolo aparece como logo, como elemento decorativo (.aelium-dot), como loader (loader rombos) y como acento del eyebrow.
+      </p>
+
+      <div class="demo-grid">
+        <div class="demo-tile">
+          <div class="nav-brand-mark" id="firma-mark" style="width: 48px; height: 48px;"></div>
+          <div class="demo-label">El símbolo · 48px</div>
+        </div>
+        <div class="demo-tile">
+          <div style="display: flex; gap: var(--space-3); align-items: center;">
+            <span class="aelium-dot"></span>
+            <span class="aelium-dot accent"></span>
+            <span class="aelium-dot muted"></span>
+          </div>
+          <div class="demo-label">Aelium dot · marker de marca</div>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Cómo se usa.</strong> El <span class="tok">.aelium-dot</span> reemplaza viñetas en listas importantes, separa eyebrows, marca elementos clave. No abusar — pierde su carácter distintivo si está en todas partes.
+      </div>
+    </section>
+
+    <!-- Aelium loader -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Loader Aelium · rombos pulsando</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">
+        Reemplazo distintivo del spinner circular genérico. Los dos rombos pulsan alternativamente — la marca, viva. Para loading states de página, sección o card. Botones siguen usando el spinner inline (escala más pequeña, cambio rápido).
+      </p>
+
+      <div class="demo-grid">
+        <div class="demo-tile">
+          <span class="aelium-loader sm"></span>
+          <div class="demo-label">sm · 20px</div>
+        </div>
+        <div class="demo-tile">
+          <span class="aelium-loader"></span>
+          <div class="demo-label">md · 28px (default)</div>
+        </div>
+      </div>
+      <div class="demo-grid">
+        <div class="demo-tile tall">
+          <span class="aelium-loader lg"></span>
+          <p style="color: var(--text-secondary); margin: var(--space-3) 0 0; font-size: var(--font-size-sm);">Cargando tu hosting…</p>
+          <div class="demo-label">lg · 40px · loading de página</div>
+        </div>
+        <div class="demo-tile tall" style="background: var(--surface-secondary); border-color: var(--border);">
+          <span class="aelium-loader lg"></span>
+          <p style="color: var(--text-secondary); margin: var(--space-3) 0 0; font-size: var(--font-size-sm);">Cargando…</p>
+          <div class="demo-label">Sobre superficie secondary</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Mesh -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">GradientMesh · firma sutil</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">
+        El mismo lenguaje visual de la pantalla de auth, llevado al producto con opacidad muy reducida. Imperceptible aislado, reconocible al lado de otros dashboards. Aplicar con clase <span class="tok">.mesh-bg</span> a Card / Section.
+      </p>
+
+      <div class="demo-grid">
+        <div class="demo-tile mesh-bg tall">
+          <div class="aelium-dot accent"></div>
+          <h3 style="margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold);">Hosting Web Pro</h3>
+          <p style="color: var(--text-secondary); margin: 0; font-size: var(--font-size-sm);">Activo · uptime 99,98% · 47 días para renovar</p>
+          <div class="demo-label">.mesh-bg · opacidad 0.04</div>
+        </div>
+        <div class="demo-tile mesh-bg mesh-strong tall">
+          <div class="aelium-dot"></div>
+          <h3 style="margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold);">Empieza hoy</h3>
+          <p style="color: var(--text-secondary); margin: 0; font-size: var(--font-size-sm);">Tu primera web, en 24h.</p>
+          <button class="btn btn-primary btn-md" style="margin-top: var(--space-2);">Empieza hoy</button>
+          <div class="demo-label">.mesh-bg .mesh-strong · opacidad 0.08 · hero</div>
+        </div>
+      </div>
+      <div class="note">
+        <strong>Dónde aplicar.</strong> Overview de cada portal (cliente, agente, admin), hero del cliente, empty states grandes, cards "destacadas". <strong>Dónde NO:</strong> tablas, filas densas, formularios — añadiría ruido.
+      </div>
+    </section>
+
+    <!-- Tabular numerals -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Numerales tabulares</h2>
+        <span class="section-num">04</span>
+      </div>
+      <p class="section-lede">
+        DM Sans soporta numerales tabulares. Activarlos en columnas de números los alinea visualmente sin justificar a la derecha. Aplicar con clase <span class="tok">.num</span> en cifras. Es un detalle pequeño pero <strong>se nota cuando lo ves al lado de otro dashboard sin él</strong>.
+      </p>
+
+      <div class="demo-grid">
+        <div class="demo-tile" style="padding: 0; align-items: stretch; justify-content: stretch;">
+          <table class="num-table">
+            <tr><th>Cliente</th><th style="text-align: right;">Importe</th></tr>
+            <tr><td>Floristería Pérez</td><td class="number">1.234,50&nbsp;€</td></tr>
+            <tr><td>Bar La Esquina</td><td class="number">987,11&nbsp;€</td></tr>
+            <tr><td>Tienda Marina</td><td class="number">11.111,11&nbsp;€</td></tr>
+            <tr><td>Estudio Foto Sara</td><td class="number">49,90&nbsp;€</td></tr>
+          </table>
+          <div class="demo-label" style="padding: var(--space-3);">Sin tabular · alineación irregular</div>
+        </div>
+        <div class="demo-tile" style="padding: 0; align-items: stretch; justify-content: stretch;">
+          <table class="num-table">
+            <tr><th>Cliente</th><th style="text-align: right;">Importe</th></tr>
+            <tr><td>Floristería Pérez</td><td class="number num">1.234,50&nbsp;€</td></tr>
+            <tr><td>Bar La Esquina</td><td class="number num">987,11&nbsp;€</td></tr>
+            <tr><td>Tienda Marina</td><td class="number num">11.111,11&nbsp;€</td></tr>
+            <tr><td>Estudio Foto Sara</td><td class="number num">49,90&nbsp;€</td></tr>
+          </table>
+          <div class="demo-label" style="padding: var(--space-3);">Con <span class="tok">.num</span> · cifras alineadas</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Accent stripe -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Accent stripe · barra lateral de elementos activos</h2>
+        <span class="section-num">05</span>
+      </div>
+      <p class="section-lede">
+        El patrón "barra lateral azul de 3px" del sidebar activo se extiende a otros elementos seleccionados. Conecta visualmente la app: tab activo, filtro aplicado, item de lista seleccionado.
+      </p>
+
+      <div class="demo-grid">
+        <div class="demo-tile" style="align-items: stretch; padding: 0;">
+          <div style="display: flex; flex-direction: column; padding: var(--space-3) 0;">
+            <div class="nav-link" style="border-left-color: transparent;">Mis servicios</div>
+            <div class="nav-link active" style="background: var(--brand-subtle);">Facturación</div>
+            <div class="nav-link" style="border-left-color: transparent;">Soporte</div>
+            <div class="nav-link" style="border-left-color: transparent;">Transparencia</div>
+          </div>
+          <div class="demo-label" style="padding: var(--space-3);">Sidebar item activo</div>
+        </div>
+        <div class="demo-tile" style="align-items: stretch;">
+          <div class="accent-stripe-left" style="background: var(--brand-subtle); padding: var(--space-3) var(--space-4); padding-left: var(--space-5); border-radius: var(--radius-sm);">
+            <strong style="font-size: var(--font-size-sm);">Filtro aplicado</strong>
+            <p style="margin: 4px 0 0; font-size: var(--font-size-sm); color: var(--text-secondary);">Estado: <span style="color: var(--text-primary);">Activos</span> · Plan: <span style="color: var(--text-primary);">Pro</span></p>
+          </div>
+          <div class="demo-label">Filtro activo en lista</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Card como acción -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Card como acción · hover brand-tinted</h2>
+        <span class="section-num">06</span>
+      </div>
+      <p class="section-lede">
+        Cards que llevan a un detalle (ej. una factura, un cliente, un servicio) tienen un hover distintivo: el borde se vuelve brand y el fondo entra en <span class="tok">--brand-subtle</span>. Diferenciador frente a cards estáticas que no tienen feedback visual.
+      </p>
+
+      <div class="demo-grid">
+        <div class="demo-tile card-action" tabindex="0" style="text-align: left; align-items: stretch; padding: var(--space-5);">
+          <div class="eyebrow">Factura</div>
+          <h3 style="margin: var(--space-2) 0 var(--space-1); font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold);">2026/04 — Hosting Web Pro</h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">Vence en 5 días</p>
+          <div style="margin-top: auto; padding-top: var(--space-3); display: flex; justify-content: space-between; align-items: baseline;">
+            <span class="num" style="font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold);">49,90&nbsp;€</span>
+            <span style="color: var(--brand); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">Pagar →</span>
+          </div>
+        </div>
+        <div class="demo-tile card-action" tabindex="0" style="text-align: left; align-items: stretch; padding: var(--space-5);">
+          <div class="eyebrow">Servicio</div>
+          <h3 style="margin: var(--space-2) 0 var(--space-1); font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold);">Hosting Web Business</h3>
+          <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm);">Activo · 4 webs alojadas · uptime 99,99%</p>
+          <div style="margin-top: auto; padding-top: var(--space-3); display: flex; justify-content: space-between; align-items: baseline;">
+            <span class="aelium-dot accent"></span>
+            <span style="color: var(--brand); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">Ver detalles →</span>
+          </div>
+        </div>
+      </div>
+      <div class="note">
+        <strong>Pasa el cursor</strong> sobre las cards de arriba para ver el hover. <strong>Tab</strong> para ver el focus ring doble.
+      </div>
+    </section>
+
+    <!-- Eyebrow + título -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Eyebrow con marker rombo</h2>
+        <span class="section-num">07</span>
+      </div>
+      <p class="section-lede">
+        El eyebrow (etiqueta encima del título) lleva un mini rombo del color brand. Detalle pequeño, presencia constante en toda la app. Marca cada inicio de sección sin gritar.
+      </p>
+
+      <div class="demo-tile" style="text-align: left; align-items: stretch;">
+        <div class="eyebrow">Cliente · servicios</div>
+        <h2 style="margin: var(--space-3) 0 var(--space-2); font-size: var(--font-size-2xl); font-weight: var(--font-weight-semibold); letter-spacing: -0.015em;">Tus servicios contratados</h2>
+        <p style="margin: 0; color: var(--text-secondary); line-height: var(--line-height-relaxed);">Aquí está todo lo que tienes con nosotros. Si algo falla, lo verás aquí antes que en cualquier otro sitio.</p>
+      </div>
+    </section>
+
+    <!-- Resumen -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Cómo se aplica al resto</h2>
+        <span class="section-num">08</span>
+      </div>
+
+      <div class="kv">
+        <div><strong>StatsCard</strong></div>
+        <div>Número grande con <span class="tok">.num</span>. Icono o <span class="tok">.aelium-dot</span> como marcador del tipo de métrica.</div>
+        <div><strong>Table</strong></div>
+        <div>Columnas numéricas con <span class="tok">.num</span>. Row hover con <span class="tok">--brand-subtle</span> sutil.</div>
+        <div><strong>Card</strong></div>
+        <div>Cards de detalle navegables → <span class="tok">.card-action</span>. Cards de Overview → <span class="tok">.mesh-bg</span>.</div>
+        <div><strong>Tabs</strong></div>
+        <div>Tab activo con <span class="tok">.accent-stripe-left</span> (vertical → underline brand).</div>
+        <div><strong>Loading states</strong></div>
+        <div>Página → <span class="tok">.aelium-loader.lg</span>. Sección → <span class="tok">.aelium-loader</span>. Botón → spinner inline (mantener).</div>
+        <div><strong>PageHeader</strong></div>
+        <div>Eyebrow con marker + título grande con tracking negativo. Patrón fijo.</div>
+        <div><strong>EmptyState</strong></div>
+        <div>Display heading + voz Aelium + ilustración mínima con rombos opcional.</div>
+      </div>
+
+      <div class="note">
+        <strong>Disciplina, no decoración.</strong> Estos elementos se aplican <em>donde tienen sentido</em>, no en todos sitios. La firma vale precisamente porque no satura.
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="scripts.js"></script>
+<script>
+  // Mostrar el símbolo grande también con el logo si existe
+  (function () {
+    var mark = document.getElementById('firma-mark');
+    if (!mark) return;
+    var candidates = ['aelium_logo_blue.svg', 'aelium_logo.svg', 'aelium_logo_black.svg', 'logo.svg'];
+    function tryNext(i) {
+      if (i >= candidates.length) return;
+      var img = new Image();
+      img.onload = function () {
+        mark.classList.add('has-logo');
+        mark.innerHTML = '';
+        mark.appendChild(img);
+        img.style.width = '100%';
+        img.style.height = '100%';
+      };
+      img.onerror = function () { tryNext(i + 1); };
+      img.src = candidates[i];
+    }
+    tryNext(0);
+  })();
+</script>
+</body>
+</html>

@@ -104,7 +104,7 @@
   --space-16:  64px;
 
   /* ──────── TIPOGRAFÍA · familias ──────── */
-  --font-family: var(--font-dm-sans), 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-family: var(--font-dm-sans, 'DM Sans'), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono:   'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;  /* + */
 
   /* ──────── TIPOGRAFÍA · tamaños ──────── */

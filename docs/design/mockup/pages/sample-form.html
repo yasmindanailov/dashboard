@@ -80,10 +80,10 @@
 
   <main class="main">
     <header class="page-head">
-      <div class="page-eyebrow">Maqueta · página de muestra</div>
+      <div class="eyebrow">Cliente · soporte</div>
       <h1 class="page-title">Abrir un ticket de soporte</h1>
       <p class="page-lede">
-        Ejemplo composicional que combina los 6 componentes de fase 2.A en una pantalla real. Voz de marca aplicada en cada label, helper, placeholder y botón. Tokens DD-021 (alineados a marca v1.6) ya activos.
+        Ejemplo composicional. Combina los 6 componentes de fase 2.A en una pantalla real con voz de marca aplicada y los elementos de <a href="../firma-visual.html" style="color: var(--brand); font-weight: var(--font-weight-medium);">firma visual</a> activos: eyebrow con marker rombo, mesh sutil en cards destacadas, numerales tabulares en el importe.
       </p>
     </header>
 
@@ -192,13 +192,16 @@
         </div>
       </form>
 
-      <!-- Card secundaria: alternativa cercana -->
-      <div class="card" style="background: var(--surface-secondary); border-color: var(--border);">
+      <!-- Card secundaria: alternativa cercana CON FIRMA VISUAL · mesh -->
+      <div class="card mesh-bg" style="border-color: var(--border);">
         <div class="card-head">
-          <h2 class="card-title" style="font-size: var(--font-size-lg);">¿Prefieres que te llamemos?</h2>
+          <h2 class="card-title" style="font-size: var(--font-size-lg);">
+            <span class="aelium-dot accent" style="margin-right: var(--space-2); vertical-align: middle;"></span>
+            ¿Prefieres que te llamemos?
+          </h2>
         </div>
         <p class="card-lede" style="margin-bottom: var(--space-4);">
-          Si lo cuentas más rápido por teléfono, sin problema. Te llamamos en menos de 24h.
+          Si lo cuentas más rápido por teléfono, sin problema. Te llamamos en menos de <span class="num">24h</span>.
         </p>
         <div class="form-row">
           <div class="field field-md field-icon-left">
