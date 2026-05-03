@@ -26,8 +26,9 @@
 | **11** | Provisioning (P2.1 — orquestador + chasis canónico + plugins triviales + frontend) | [sprint-11-provisioning.md](./sprint-11-provisioning.md) | ✅ (cerrado 2026-05-02) |
 | **16** | Tasks refactor + Notes consolidation (P2.1.5 — bridge unidireccional canónico ADR-079 + Amendments A1/A2/A3) | [sprint-16-tasks-notes-refactor.md](./sprint-16-tasks-notes-refactor.md) | ✅ (cerrado 2026-05-02) |
 | **13.5** | Hardening + Saneamiento de Deuda Continua (8 DCs cerradas + 2 diferidas a Sprint 13.5.5 CI Infra) | [sprint-13-5-hardening-deuda-continua.md](./sprint-13-5-hardening-deuda-continua.md) | ✅ (cerrado 2026-05-03) |
+| **13.5.5** | CI Infra (DC.27 ✅ imagen oficial Playwright + DC.13 ✅ parcial-canónica sharding CI) | [sprint-13-5-5-ci-infra.md](./sprint-13-5-5-ci-infra.md) | ✅ (cerrado 2026-05-03) |
 
-**Total cerrados:** 16 sprints (Sprint 7/7.5 son sprints paraguas continuos, no se cierran formalmente hasta Sprint 14).
+**Total cerrados:** 17 sprints (Sprint 7/7.5 son sprints paraguas continuos, no se cierran formalmente hasta Sprint 14).
 
 ---
 

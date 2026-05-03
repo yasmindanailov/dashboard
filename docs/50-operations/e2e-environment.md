@@ -114,12 +114,12 @@ El job `e2e` del workflow lo orquesta solo: services efímeros + MinIO step
 
 ---
 
-## 4. Aislamiento entre tests (estado actual + ruta canónica)
+## 4. Aislamiento entre tests (estado actual + ruta futura)
 
-### 4.1 Estado actual (Sprint 9.6 → 13.5)
+### 4.1 Estado actual local (sin cambios desde Sprint 9.6)
 
-`workers=1 + fullyParallel=false` — los specs corren **secuenciales**
-porque comparten:
+`workers=1 + fullyParallel=false` — los specs corren **secuenciales** en
+local porque comparten:
 
 - Postgres BD canónica (1 schema).
 - MailPit (un buzón compartido).
@@ -127,21 +127,56 @@ porque comparten:
 - Redis (BullMQ + JWT refresh).
 
 Cada spec llama `resetTestData()` en `beforeAll` para truncar tablas
-no-seed (ver `tests/e2e/fixtures/db.ts`). Tiempo total suite: ~1 min.
+no-seed (ver `tests/e2e/fixtures/db.ts`). Tiempo total suite local: ~1 min.
 
-### 4.2 Ruta canónica de paralelización (DC.13 — diferida)
+### 4.2 Sharding CI (cerrado parcial-canónica en Sprint 13.5.5)
 
-DC.13 propone **fixtures aisladas por spec**: schema dinámico Postgres
-por worker, MailPit con filtro `to-address`, usuarios `e2e-${uid}-${role}`
-por worker, BullMQ prefix por worker. Beneficio esperado: ~1 min →
-~15 s con `workers=4`.
+> 📜 **DC.13 cerrada parcial-canónica + DC.27 cerrada 100% en Sprint 13.5.5** (2026-05-03).
+> Detalle completo en [`completed/sprint-13-5-5-ci-infra.md`](../60-roadmap/completed/sprint-13-5-5-ci-infra.md).
 
-**Sprint 13.5 difirió DC.13 a sub-sprint propio "Sprint 13.5.5 — CI Infra"**
-por riesgo cross-cutting sobre la suite estable (reescribir
-`fixtures/db.ts` + `auth.ts` + cuentas seed por-worker requiere ~3-4h
-sólidas). DC.27 (migrar CI E2E a imagen oficial Playwright) acompaña
-en el mismo sub-sprint por simetría operativa (cambia el modelo de
-networking del CI completo).
+El job `e2e` del workflow CI usa **`strategy.matrix`** con 3 shards
+paralelos (`matrix.shard: [1, 2, 3]` × `matrix.total: [3]`):
+
+```yaml
+strategy:
+  fail-fast: false
+  matrix:
+    shard: [1, 2, 3]
+    total: [3]
+```
+
+Cada shard:
+
+- Arranca **sus propios services efímeros** (postgres / redis / mailpit
+  / minio) — aislamiento total entre shards: un spec system-wide en el
+  shard 1 NO afecta los datos del shard 2.
+- Arranca **su propio backend NestJS + frontend Next.js** dentro del
+  container del job (vía `webServer` de Playwright).
+- Ejecuta `pnpm exec playwright test --shard=${{ matrix.shard }}/${{ matrix.total }}`.
+  Playwright reparte specs uniformemente por número de tests.
+- Sube su propio artifact con sufijo `-shard-${{ matrix.shard }}` en
+  caso de fallo.
+
+`fail-fast: false` mantiene el resto de shards corriendo aunque uno
+falle — mejor diagnóstico end-to-end.
+
+**Wall-clock CI:** ~25 min baseline → ~10 min con 3 shards.
+
+### 4.3 Paralelización local (`workers > 1`) — DIFERIDA
+
+La paralelización local con `workers > 1` requiere **backend NestJS
+por worker** (puertos 3001/3011/3021/3031, 4× memoria, 4× boot del
+backend) porque `playwright.config.ts:webServer` arranca **un solo
+backend** antes de los workers, y `BULLMQ_PREFIX` + `DATABASE_URL?schema=...`
+se leen del proceso al boot.
+
+**Diferida a sub-sprint futuro condicionado:** abrir
+**Sprint 13.5.6 — E2E parallel local** sólo cuando la suite local
+supere **2 min wall-clock** (hoy ~1 min). Mientras tanto, el cuello
+de botella real está en CI (sharding ya implementado), no en local.
+
+Decisión arquitectónica completa en
+[`completed/sprint-13-5-5-ci-infra.md §4`](../60-roadmap/completed/sprint-13-5-5-ci-infra.md).
 
 ---
 
@@ -155,7 +190,9 @@ networking del CI completo).
 | Tests cancelados al recibir nuevo commit | `concurrency` policy del workflow | Esperado — `cancel-in-progress: true` ahorra minutos CI. Si el run se canceló por error, dispara manualmente desde Actions. |
 | `Container not healthy: postgres` en CI | Healthcheck timeout | Subir `--health-retries` en el service. Antes de tocar, verificar logs del runner para ver si fue un fallo transitorio. |
 | Login test falla con 401 inesperado | Seed sin ejecutar / superadmin con password distinto | `pnpm prisma db seed` desde `backend/`. Si CI: revisar step "Prisma — seed" en el log. |
-| `Workers > 1` produce cascada de fallos | Aislamiento incompleto (DC.13 abierta) | Volver a `workers=1`. La paralelización canónica la entrega Sprint 13.5.5. |
+| `Workers > 1` produce cascada de fallos en local | Aislamiento incompleto — backend único compartido (DC.13 cerrada parcial-canónica: solo CI) | Volver a `workers=1`. La paralelización local con `workers > 1` está diferida a Sprint 13.5.6 condicionado por trigger (suite local > 2 min). Mientras tanto, el cuello CI ya está atacado vía sharding. |
+| 1 shard CI rojo + resto verdes | Aislamiento entre shards funciona — el spec roto es el de ese shard | Descargar artifact `playwright-report-shard-N` del shard rojo (no `playwright-report` global, no existe). Iterar sobre el spec específico. |
+| 2+ shards CI rojos por mismo spec | El spec es no-determinista o depende de orden | Reproducir local con `pnpm exec playwright test path/to/spec.spec.ts --repeat-each=5`. Si flake, abrir DC. |
 
 ---
 
@@ -164,8 +201,9 @@ networking del CI completo).
 - **Cuando se añada una env var nueva** consumida por backend/frontend en
   E2E → añádela aquí y a `.github/workflows/ci.yml` env block en el
   mismo PR.
-- **Cuando se cierre DC.13 + DC.27** (Sprint 13.5.5) → reescribir §4.1
-  para reflejar el modelo paralelizado y eliminar la advertencia.
+- ~~**Cuando se cierre DC.13 + DC.27** (Sprint 13.5.5)~~ → reescritura
+  §4 completada en Sprint 13.5.5 (DC.27 ✅ + DC.13 ✅ parcial-canónica
+  con paralelización local diferida).
 - **Cuando se aborde Sprint 14 deploy real** → añadir §7 con la
   diferenciación entre env vars locales/CI y env vars productivas
   (secrets generados por hosting, no los del repo).

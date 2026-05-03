@@ -2,7 +2,7 @@
 
 > **Estado real verificado** contra código en auditoría 2026-04-26 + closures Sprint 8 / 9 / 9.5 / 9.6 / 11.5 (2026-04-26 → 2026-05-01) + Sprint 11 Fases A+B (2026-05-01/02). Cualquier sprint listado aquí está parcialmente avanzado (no es backlog puro — para eso ver [`backlog.md`](./backlog.md)). Los sprints ✅ que aparecen abajo son punteros a `completed/`; viven aquí solo para trazabilidad cronológica de la ola P1.1.
 
-> **Última actualización:** 2026-05-03 — **Sprint 16 + Sprint 13.5 cerrados al 100%**. Sprint 13.5 (Hardening + Saneamiento de Deuda Continua) cerró 8 DCs en una sesión densa (DC.32/33/34 + DC.14/37/38 + DC.8/11/15 parciales) y difirió DC.13 + DC.27 a sub-sprint propio **Sprint 13.5.5 — CI Infra**. Cobertura final: **183/183 unit + 118/118 E2E verde** sin regresión. Detalle Sprint 16 en [`completed/sprint-16-tasks-notes-refactor.md`](./completed/sprint-16-tasks-notes-refactor.md). Detalle Sprint 13.5 en [`completed/sprint-13-5-hardening-deuda-continua.md`](./completed/sprint-13-5-hardening-deuda-continua.md).
+> **Última actualización:** 2026-05-03 — **Sprint 16 + Sprint 13.5 + Sprint 13.5.5 cerrados al 100%**. Sprint 13.5.5 (CI Infra) cerró DC.27 al 100% (imagen oficial Playwright en CI) + DC.13 parcial-canónica (sharding CI con `--shard=N/M` × 3 shards paralelos, wall-clock CI 25 min → ~10 min). Paralelización local con `workers > 1` diferida a sub-sprint condicionado **Sprint 13.5.6 — E2E parallel local** (trigger: suite local > 2 min). Detalle en [`completed/sprint-13-5-5-ci-infra.md`](./completed/sprint-13-5-5-ci-infra.md).
 > **Cambios estructurales recientes:**
 > - 📜 **[ADR-069 (2026-04-29)](../10-decisions/adr-069-estrategia-deploy-diferido.md)** reclasifica **Sprint 14 Deploy real** como **gate condicionado P-DEPLOY** (no está en cola activa). Se activa sólo con trigger de negocio explícito (cliente real, demo, captación, validación externa). La cola activa post-cierre Sprint 8 son features (Sprint 11 Provisioning como cabeza, Sprint 10 Infrastructure independiente, sub-sprint billing prorrateo cross-plan ADR-077 propuesto, Sprint 12 Settings+KB, Sprint 13 Hardening) según valor funcional.
 > - **Sprint 11 Fases 11.A + 11.B mergeadas en master 2026-05-02** — ADR-077 (contrato canónico `ProvisionerPlugin` v2 congelado) + orquestador + cola BullMQ `provisioning-dispatch` + cache Redis dedicado (DB 2) + plugin registry. **183/183 unit verde** (157 base Sprint 8 + 26 nuevos). Plugins concretos pendientes (Fase 11.C). Plan canónico abajo.
@@ -109,6 +109,12 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 ## ✅ Sprint 13.5 — Hardening + Saneamiento de Deuda Continua (cerrado 2026-05-03)
 
 > Sub-sprint dedicado a cerrar deuda continua acumulada antes de Sprint 15A Plugin Framework. Movido a [`completed/sprint-13-5-hardening-deuda-continua.md`](./completed/sprint-13-5-hardening-deuda-continua.md) con retrospectiva completa, métricas, lecciones aprendidas y plan de Sprint 13.5.5 CI Infra (sub-sprint nacido del aprendizaje). 8 DCs cerradas (DC.32/33/34 + DC.14/37/38 + DC.8/11/15 parciales) + 2 diferidas (DC.13 + DC.27 → Sprint 13.5.5). Cobertura final: **183/183 unit + 118/118 E2E verde** sin regresión.
+
+---
+
+## ✅ Sprint 13.5.5 — CI Infra (cerrado 2026-05-03)
+
+> Sub-sprint cerrado al 100%. Movido a [`completed/sprint-13-5-5-ci-infra.md`](./completed/sprint-13-5-5-ci-infra.md) con retrospectiva completa, métricas, decisión arquitectónica + lecciones aprendidas. **DC.27 ✅** (imagen oficial Playwright `mcr.microsoft.com/playwright:v1.59.1-noble` + service names + MinIO `bitnamilegacy/minio:2025.7.23-debian-12-r5` como service container) + **DC.13 ✅ parcial-canónica** (sharding CI con `--shard=N/M` × 3 shards paralelos, wall-clock CI 25 min → ~10 min). Paralelización local con `workers > 1` **diferida a sub-sprint condicionado** Sprint 13.5.6 (trigger: suite local > 2 min) — el cuello real estaba en CI, no en local. Decisión arquitectónica completa en la retrospectiva §4.
 
 ---
 
