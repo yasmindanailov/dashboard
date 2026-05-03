@@ -143,12 +143,23 @@ jobs:
         # disponibilidad al primer fetch. Si reincide flake, añadir
         # `--health-cmd "wget --spider -q http://localhost:8025/api/v1/info"`.
 
-      # MinIO ahora SÍ como service container — `bitnami/minio` arranca
-      # server automáticamente con `MINIO_DEFAULT_BUCKETS` y autocreate
-      # del bucket. Sustituye al step manual `Start MinIO` + `Wait for
-      # MinIO ready` del workflow legacy (Sprint 11.5 / ADR-062 §C).
+      # MinIO ahora SÍ como service container. Usamos la imagen Bitnami
+      # porque arranca `minio server` automáticamente con
+      # `MINIO_DEFAULT_BUCKETS` (autocrea bucket), evitando el workaround
+      # `docker run` desde step del workflow legacy (Sprint 11.5 / ADR-062
+      # §C) — la oficial `minio/minio` requiere `command: server /data`
+      # como arg posicional, y GHA `services:` no permite sobrescribir
+      # CMD (solo flags vía `options:`).
+      #
+      # Pin a `bitnamilegacy/minio:2025.7.23-debian-12-r5`: Bitnami
+      # retiró `bitnami/minio:latest` del Docker Hub público en agosto
+      # 2025 (https://github.com/bitnami/containers/issues/83267). El
+      # repo `bitnamilegacy/*` mantiene tags fechados de la última
+      # versión funcional con licencia Apache 2.0. Cuando este patrón
+      # deje de mantenerse, evaluar alternativas (imagen custom en GHCR
+      # con CMD precompilado, o seaweedfs) en sub-sprint dedicado.
       minio:
-        image: bitnami/minio:latest
+        image: bitnamilegacy/minio:2025.7.23-debian-12-r5
         env:
           MINIO_ROOT_USER: minioadmin
           MINIO_ROOT_PASSWORD: minioadmin
