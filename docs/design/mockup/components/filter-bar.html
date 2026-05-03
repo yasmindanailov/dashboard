@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · FilterBar</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>.demo { background: var(--surface-secondary); padding: var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); }</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.C · Data</div>
+      <h1 class="page-title">FilterBar</h1>
+      <p class="page-lede">
+        Toolbar de filtros para listados. Search flex-1 a la izquierda, hasta 2 selects a la derecha. Pattern <strong>"filtros aplicados"</strong> con accent stripe que conecta visualmente con el sidebar.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Estándar · sin filtros aplicados</h2>
+        <span class="section-num">01</span>
+      </div>
+
+      <div class="demo">
+        <div class="filter-bar">
+          <div class="search">
+            <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+            <input type="search" class="input" placeholder="Buscar cliente, NIF, dominio…" aria-label="Buscar cliente">
+          </div>
+          <div class="filter-bar-filters">
+            <select class="select" style="min-width: 140px;"><option value="">Estado: todos</option><option>Activo</option><option>Suspendido</option></select>
+            <select class="select" style="min-width: 140px;"><option value="">Plan: todos</option><option>Web Inicio</option><option>Web Pro</option><option>Web Business</option></select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Con filtros aplicados</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Pattern <span class="tok">.applied-filters</span> con <span class="tok">.accent-stripe-left</span>. El usuario ve qué filtros aplican y puede limpiarlos en un click.</p>
+
+      <div class="demo">
+        <div class="filter-bar">
+          <div class="search">
+            <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+            <input type="search" class="input" placeholder="Buscar cliente, NIF, dominio…" aria-label="Buscar cliente">
+          </div>
+          <div class="filter-bar-filters">
+            <select class="select" style="min-width: 140px;"><option>Estado: Activo</option></select>
+            <select class="select" style="min-width: 140px;"><option>Plan: Web Pro</option></select>
+          </div>
+        </div>
+
+        <div class="applied-filters">
+          <div class="applied-list">
+            Filtros: <strong>Activos · Plan Web Pro · Últimos 30 días</strong>
+          </div>
+          <button class="clear-all" type="button">Limpiar</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variantes por listado</h2>
+        <span class="section-num">03</span>
+      </div>
+
+      <p class="legend">Listado de facturas</p>
+      <div class="demo">
+        <div class="filter-bar">
+          <div class="search">
+            <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+            <input type="search" class="input" placeholder="Buscar por número o cliente…">
+          </div>
+          <div class="filter-bar-filters">
+            <select class="select" style="min-width: 140px;"><option>Estado: todas</option></select>
+            <select class="select" style="min-width: 140px;"><option>Periodo: 30 días</option></select>
+          </div>
+        </div>
+      </div>
+
+      <p class="legend">Listado de tickets</p>
+      <div class="demo">
+        <div class="filter-bar">
+          <div class="search">
+            <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+            <input type="search" class="input" placeholder="Buscar ticket o cliente…">
+          </div>
+          <div class="filter-bar-filters">
+            <select class="select" style="min-width: 140px;"><option>Prioridad: todas</option></select>
+            <select class="select" style="min-width: 140px;"><option>Asignado: todos</option></select>
+          </div>
+        </div>
+      </div>
+
+      <p class="legend">Listado de tareas</p>
+      <div class="demo">
+        <div class="filter-bar">
+          <div class="search">
+            <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+            <input type="search" class="input" placeholder="Buscar tarea o cliente…">
+          </div>
+          <div class="filter-bar-filters">
+            <select class="select" style="min-width: 140px;"><option>Estado: pendientes</option></select>
+            <select class="select" style="min-width: 140px;"><option>Asignado a mí</option></select>
+          </div>
+        </div>
+
+        <div class="applied-filters">
+          <div class="applied-list">
+            Filtros: <strong>Pendientes · Asignadas a mí · Vencen esta semana</strong>
+          </div>
+          <button class="clear-all" type="button">Limpiar</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs actual</h2>
+        <span class="section-num">04</span>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Filtros aplicados <span class="meta">D2C-4</span></div>
+        <div>Añadir pattern <span class="tok">.applied-filters</span> con accent-stripe-left.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

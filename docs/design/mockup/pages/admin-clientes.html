@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Admin · Clientes</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); margin-bottom: var(--space-8); }
+  @media (max-width: 1100px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .stats-grid { grid-template-columns: 1fr; } }
+  .page-actions { display: flex; gap: var(--space-2); align-items: center; }
+  .page-head-actions { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main" data-density="compact">
+    <header class="page-head">
+      <div class="page-head-actions">
+        <div>
+          <div class="eyebrow">Admin · Clientes</div>
+          <h1 class="page-title">Clientes</h1>
+          <p class="page-lede">147 activos. 4 con pagos pendientes. 23 renuevan en los próximos 30 días.</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary btn-md">Exportar</button>
+          <button class="btn btn-primary btn-md">
+            <span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+            Crear cliente
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- KPIs -->
+    <div class="stats-grid">
+      <div class="stats-card accent-success">
+        <div class="stats-card-header">
+          <span class="stats-card-label">Ingresos del mes</span>
+          <span class="stats-card-icon icon-success"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+        </div>
+        <div class="stats-card-value">12.450&nbsp;€</div>
+        <span class="stats-card-trend up"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="100%" height="100%"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span> 12% vs. mes anterior</span>
+      </div>
+      <div class="stats-card accent-brand">
+        <div class="stats-card-header">
+          <span class="stats-card-label">Clientes activos</span>
+          <span class="stats-card-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+        </div>
+        <div class="stats-card-value">147</div>
+        <p class="stats-card-subtext">+8 este mes</p>
+      </div>
+      <div class="stats-card accent-pending">
+        <div class="stats-card-header">
+          <span class="stats-card-label">Renuevan en 30 días</span>
+          <span class="stats-card-icon icon-pending"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        </div>
+        <div class="stats-card-value">23</div>
+        <p class="stats-card-subtext">8 sin contacto previo</p>
+      </div>
+      <div class="stats-card accent-danger">
+        <div class="stats-card-header">
+          <span class="stats-card-label">Pagos pendientes</span>
+          <span class="stats-card-icon icon-danger"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+        </div>
+        <div class="stats-card-value">4 · 1.230&nbsp;€</div>
+        <p class="stats-card-subtext">más antiguo: 12 días</p>
+      </div>
+    </div>
+
+    <!-- FilterBar + applied -->
+    <div class="filter-bar">
+      <div class="search">
+        <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+        <input type="search" class="input" placeholder="Buscar cliente, NIF, dominio…" aria-label="Buscar cliente">
+      </div>
+      <div class="filter-bar-filters">
+        <select class="select" style="min-width: 140px;"><option>Estado: Activo</option><option>Suspendido</option><option>Cancelado</option></select>
+        <select class="select" style="min-width: 140px;"><option>Plan: Web Pro</option><option>Web Inicio</option><option>Web Business</option></select>
+      </div>
+    </div>
+
+    <div class="applied-filters">
+      <div class="applied-list">
+        Filtros: <strong>Activos · Plan Web Pro · Últimos 30 días</strong>
+      </div>
+      <button class="clear-all" type="button">Limpiar</button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="checkbox-cell"><input type="checkbox" class="table-checkbox indeterminate" aria-label="Seleccionar todo"></th>
+            <th class="sortable">Cliente <span class="sort-icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></span></th>
+            <th>Plan</th>
+            <th>Estado</th>
+            <th class="sortable numeric">Activos</th>
+            <th class="sortable numeric">Próximo pago</th>
+            <th class="numeric">Importe</th>
+            <th class="center" style="width: 50px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="clickable">
+            <td class="checkbox-cell"><input type="checkbox" class="table-checkbox" aria-label="Seleccionar"></td>
+            <td><strong>Floristería Pérez</strong><div style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: 2px;">florpez · Yasmin · 5 servicios</div></td>
+            <td>Web Pro</td>
+            <td><span class="badge badge-success"><span class="status-dot status-dot-success"></span>Activo</span></td>
+            <td class="numeric">3</td>
+            <td class="numeric">en 12 días</td>
+            <td class="numeric"><strong>49,90&nbsp;€</strong></td>
+            <td class="center"><button class="dropdown-trigger icon-only" aria-label="Acciones"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></td>
+          </tr>
+          <tr class="clickable selected">
+            <td class="checkbox-cell"><input type="checkbox" class="table-checkbox" checked aria-label="Seleccionar"></td>
+            <td><strong>Bar La Esquina</strong><div style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: 2px;">baresquina · Marcos · 2 servicios</div></td>
+            <td>Web Inicio</td>
+            <td><span class="badge badge-warning"><span class="status-dot status-dot-warning"></span>Pendiente</span></td>
+            <td class="numeric">1</td>
+            <td class="numeric">vence hoy</td>
+            <td class="numeric"><strong>19,90&nbsp;€</strong></td>
+            <td class="center"><button class="dropdown-trigger icon-only" aria-label="Acciones"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></td>
+          </tr>
+          <tr class="clickable selected">
+            <td class="checkbox-cell"><input type="checkbox" class="table-checkbox" checked aria-label="Seleccionar"></td>
+            <td><strong>Tienda Marina</strong><div style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: 2px;">marina-store · Yasmin · 8 servicios</div></td>
+            <td>Web Business</td>
+            <td><span class="badge badge-danger"><span class="status-dot status-dot-danger status-dot-pulse"></span>Caída</span></td>
+            <td class="numeric">8</td>
+            <td class="numeric">en 3 días</td>
+            <td class="numeric"><strong>99,90&nbsp;€</strong></td>
+            <td class="center"><button class="dropdown-trigger icon-only" aria-label="Acciones"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></td>
+          </tr>
+          <tr class="clickable selected">
+            <td class="checkbox-cell"><input type="checkbox" class="table-checkbox" checked aria-label="Seleccionar"></td>
+            <td><strong>Estudio Foto Sara</strong><div style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: 2px;">sarafoto · Marcos · 1 servicio</div></td>
+            <td>Web Inicio</td>
+            <td><span class="badge badge-pending"><span class="status-dot status-dot-pending status-dot-pulse"></span>En revisión</span></td>
+            <td class="numeric">1</td>
+            <td class="numeric">en 28 días</td>
+            <td class="numeric"><strong>19,90&nbsp;€</strong></td>
+            <td class="center"><button class="dropdown-trigger icon-only" aria-label="Acciones"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></td>
+          </tr>
+          <tr class="clickable">
+            <td class="checkbox-cell"><input type="checkbox" class="table-checkbox" aria-label="Seleccionar"></td>
+            <td><strong>Hotel Mar Azul</strong><div style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: 2px;">marazul · Sara · 12 servicios</div></td>
+            <td>Web Business</td>
+            <td><span class="badge badge-success"><span class="status-dot status-dot-success"></span>Activo</span></td>
+            <td class="numeric">12</td>
+            <td class="numeric">en 47 días</td>
+            <td class="numeric"><strong>149,90&nbsp;€</strong></td>
+            <td class="center"><button class="dropdown-trigger icon-only" aria-label="Acciones"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+      <span class="pagination-info"><span class="num">1–5</span> de <span class="num">147</span></span>
+      <div class="pagination-controls">
+        <button class="page-btn page-btn-nav" disabled aria-label="Página anterior"><span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></span></button>
+        <button class="page-btn active" aria-current="page">1</button>
+        <button class="page-btn">2</button>
+        <button class="page-btn">3</button>
+        <span class="page-ellipsis">…</span>
+        <button class="page-btn">30</button>
+        <button class="page-btn page-btn-nav" aria-label="Página siguiente"><span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span></button>
+      </div>
+    </div>
+
+    <!-- BulkActionBar (always visible cuando hay selección) -->
+    <div class="bulk-bar">
+      <span class="bulk-bar-count">3 seleccionados</span>
+      <span class="bulk-bar-divider"></span>
+      <div class="bulk-bar-actions">
+        <button class="btn btn-ghost btn-sm">Cambiar plan</button>
+        <button class="btn btn-ghost btn-sm">Añadir nota</button>
+        <button class="btn btn-ghost btn-sm">Exportar</button>
+        <button class="btn btn-ghost btn-sm" style="color: var(--danger);">Suspender</button>
+      </div>
+      <span class="bulk-bar-divider"></span>
+      <button class="bulk-bar-clear">Deseleccionar</button>
+    </div>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

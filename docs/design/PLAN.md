@@ -7,15 +7,16 @@
 
 ## Estado actual
 
-- **Fase activa:** 2.B — Componentes base · Grupo B (feedback) **listos para revisión**
+- **Fase activa:** 2.C — Componentes base · Grupo C (data) **listos para revisión**
 - **Modo activo:** diseño
-- **Próxima acción:** revisión humana de los 7 componentes feedback en
-  la maqueta. Si OK, cerrar 2.B y arrancar 2.C (data). Si hay cambios,
-  iterar.
-- **Última actualización:** 2026-05-03 — fase 2.B completa. Spinner de
-  botón actualizado a rombos pulsando (firma Aelium en escala botón).
-  Aplicada firma visual desde el inicio: pending semántico, .aelium-dot
-  en composiciones, accent en `--{state}-strong` legible.
+- **Próxima acción:** revisión humana de los 5 componentes data en
+  la maqueta + página de muestra "Admin · Listado de clientes". Si OK,
+  cerrar 2.C y arrancar 2.D (navegación). Si hay cambios, iterar.
+- **Última actualización:** 2026-05-03 — fase 2.C completa con firma
+  visual aplicada agresivamente: tabular nums universales, StatsCard
+  display-sm, accent stripe en filtros aplicados, BulkActionBar light
+  con tokens motion. Sample admin page muestra los 5 componentes
+  compuestos en una vista realista del producto.
 
 ---
 
@@ -57,8 +58,8 @@ romper la filosofía de minimalismo funcional (D1–D11 de
 | 0 | Brief y confirmación | Cerrada | `BRIEF.md` aprobado |
 | 1 | Foundations / Design tokens | **Cerrada** | `tokens.css` + `tokens.md` + `preview.html` + `audit.md` + `NOTES.md` aprobados |
 | 2.A | Componentes base · formularios | Cerrada · firma visual aplicada | Button, Input, Select, Textarea, SearchInput, Dropdown · sample-form · firma-visual |
-| 2.B | Componentes base · feedback | **Listo · revisión humana** | Badge, StatusDot, Toast, AlertBanner, Tooltip, HelpTip, Skeleton |
-| 2.C | Componentes base · data | Pendiente | Table, Pagination, StatsCard, BulkActionBar, FilterBar |
+| 2.B | Componentes base · feedback | Cerrada | Badge, StatusDot, Toast, AlertBanner, Tooltip, HelpTip, Skeleton |
+| 2.C | Componentes base · data | **Listo · revisión humana** | Table, Pagination, StatsCard, BulkActionBar, FilterBar · sample admin-clientes |
 | 2.D | Componentes base · navegación | Pendiente | Tabs, Breadcrumb, CommandPalette, NotificationBell, PortalBadge |
 | 2.E | Componentes base · contenedores | Pendiente | Card, Modal, Avatar, EmptyState |
 | 3 | Patrones de página | Pendiente | DetailPage, ListPage, FormPage |

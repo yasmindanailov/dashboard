@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Pagination</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>.demo { background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3) var(--space-5); margin-bottom: var(--space-3); }</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.C · Data</div>
+      <h1 class="page-title">Pagination</h1>
+      <p class="page-lede">
+        Navegación por páginas con info de rango, ellipsis truncation, prev/next. <strong>Tabular nums</strong> en page numbers para que no salten al cambiar.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Estándar · con info de rango</h2>
+        <span class="section-num">01</span>
+      </div>
+
+      <div class="demo">
+        <div class="pagination">
+          <span class="pagination-info"><span class="num">11–20</span> de <span class="num">95</span></span>
+          <div class="pagination-controls">
+            <button class="page-btn page-btn-nav" aria-label="Página anterior"><span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></span></button>
+            <button class="page-btn">1</button>
+            <span class="page-ellipsis">…</span>
+            <button class="page-btn">3</button>
+            <button class="page-btn active" aria-current="page">4</button>
+            <button class="page-btn">5</button>
+            <span class="page-ellipsis">…</span>
+            <button class="page-btn">10</button>
+            <button class="page-btn page-btn-nav" aria-label="Página siguiente"><span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variantes</h2>
+        <span class="section-num">02</span>
+      </div>
+
+      <div class="demo">
+        <div class="pagination">
+          <span></span>
+          <div class="pagination-controls">
+            <button class="page-btn page-btn-nav" disabled><span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></span></button>
+            <button class="page-btn active" aria-current="page">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn page-btn-nav"><span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span></button>
+          </div>
+        </div>
+      </div>
+      <p class="field-helper">Pocas páginas (≤ 5) sin ellipsis. Sin info text si total/limit no se conocen.</p>
+
+      <div class="demo" style="margin-top: var(--space-4);">
+        <div class="pagination">
+          <span class="pagination-info"><span class="num">141–150</span> de <span class="num">150</span></span>
+          <div class="pagination-controls">
+            <button class="page-btn page-btn-nav"><span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></span></button>
+            <button class="page-btn">1</button>
+            <span class="page-ellipsis">…</span>
+            <button class="page-btn">13</button>
+            <button class="page-btn">14</button>
+            <button class="page-btn active" aria-current="page">15</button>
+            <button class="page-btn page-btn-nav" disabled><span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span></button>
+          </div>
+        </div>
+      </div>
+      <p class="field-helper">Última página: next disabled.</p>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Estados de page-btn</h2>
+        <span class="section-num">03</span>
+      </div>
+      <div class="demo">
+        <div class="pagination-controls">
+          <button class="page-btn">default</button>
+          <button class="page-btn" style="background: var(--surface-secondary); color: var(--text-primary);">hover</button>
+          <button class="page-btn" style="box-shadow: var(--focus-ring); border-color: var(--brand);">focus</button>
+          <button class="page-btn active" aria-current="page">active</button>
+          <button class="page-btn" disabled>disabled</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs actual</h2>
+        <span class="section-num">04</span>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Chevrons hardcoded <span class="meta">D2C-F</span></div>
+        <div>Migrar a <span class="tok">--icon-size-md</span>.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Tabular nums</div>
+        <div>Aplicar <span class="tok">--font-feature-numeric</span> al page-btn — evita saltos visuales al cambiar números.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Active shadow</div>
+        <div>Reducir <span class="tok">--shadow-brand</span> en active — el fill brand ya es señal suficiente.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>
