@@ -2,7 +2,7 @@
 
 > **Estado real verificado** contra código en auditoría 2026-04-26 + closures Sprint 8 / 9 / 9.5 / 9.6 / 11.5 (2026-04-26 → 2026-05-01) + Sprint 11 Fases A+B (2026-05-01/02). Cualquier sprint listado aquí está parcialmente avanzado (no es backlog puro — para eso ver [`backlog.md`](./backlog.md)). Los sprints ✅ que aparecen abajo son punteros a `completed/`; viven aquí solo para trazabilidad cronológica de la ola P1.1.
 
-> **Última actualización:** 2026-05-03 — **Sprint 16 + Sprint 13.5 cerrados al 100%**. Sprint 13.5 (Hardening + Saneamiento de Deuda Continua) cerró 8 DCs en una sesión densa (DC.32/33/34 + DC.14/37/38 + DC.8/11/15 parciales) y difirió DC.13 + DC.27 a sub-sprint propio **Sprint 13.5.5 — CI Infra** (en curso, rama `sprint13-5-5-ci-infra`). Cobertura final: **183/183 unit + 118/118 E2E verde** sin regresión. Detalle Sprint 16 en [`completed/sprint-16-tasks-notes-refactor.md`](./completed/sprint-16-tasks-notes-refactor.md). Detalle Sprint 13.5 en [`completed/sprint-13-5-hardening-deuda-continua.md`](./completed/sprint-13-5-hardening-deuda-continua.md).
+> **Última actualización:** 2026-05-03 — **Sprint 16 + Sprint 13.5 + Sprint 13.5.5 cerrados al 100%**. Sprint 13.5.5 (CI Infra) cerró DC.27 al 100% (imagen oficial Playwright en CI) + DC.13 parcial-canónica (sharding CI con `--shard=N/M` × 3 shards paralelos, wall-clock CI 25 min → ~10 min). Paralelización local con `workers > 1` diferida a sub-sprint condicionado **Sprint 13.5.6 — E2E parallel local** (trigger: suite local > 2 min). Detalle en [`completed/sprint-13-5-5-ci-infra.md`](./completed/sprint-13-5-5-ci-infra.md).
 > **Cambios estructurales recientes:**
 > - 📜 **[ADR-069 (2026-04-29)](../10-decisions/adr-069-estrategia-deploy-diferido.md)** reclasifica **Sprint 14 Deploy real** como **gate condicionado P-DEPLOY** (no está en cola activa). Se activa sólo con trigger de negocio explícito (cliente real, demo, captación, validación externa). La cola activa post-cierre Sprint 8 son features (Sprint 11 Provisioning como cabeza, Sprint 10 Infrastructure independiente, sub-sprint billing prorrateo cross-plan ADR-077 propuesto, Sprint 12 Settings+KB, Sprint 13 Hardening) según valor funcional.
 > - **Sprint 11 Fases 11.A + 11.B mergeadas en master 2026-05-02** — ADR-077 (contrato canónico `ProvisionerPlugin` v2 congelado) + orquestador + cola BullMQ `provisioning-dispatch` + cache Redis dedicado (DB 2) + plugin registry. **183/183 unit verde** (157 base Sprint 8 + 26 nuevos). Plugins concretos pendientes (Fase 11.C). Plan canónico abajo.
@@ -112,46 +112,9 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ---
 
-## 🔄 Sprint 13.5.5 — CI Infra (en curso, rama `sprint13-5-5-ci-infra`)
+## ✅ Sprint 13.5.5 — CI Infra (cerrado 2026-05-03)
 
-**Estado:** Fase 0 ✅ (plan + rama). Fase A en arranque.
-**Objetivo en una frase:** cerrar DC.27 al 100% (imagen oficial Playwright en CI) + DC.13 parcial-canónica vía sharding CI, sin tocar la suite local.
-
-### Decisión arquitectónica clave (registrada como contexto operativo, NO requiere ADR)
-
-El plan original de Sprint 13.5 §4.1 mencionaba "schema Postgres dinámico por worker + BullMQ_PREFIX por worker" como vía para `workers=4 + fullyParallel=true` local. Tras inspeccionar los 25 specs E2E reales, esa vía **no es viable sin reescribir `webServer` para arrancar un backend NestJS por worker** (puertos 3001/3011/3021/3031 + 4× memoria + 4× boot), porque:
-
-- 22 de 25 specs hacen login con cuenta seed única `admin@aelium.net` + `clearMailbox()` — un worker borra el mailbox justo cuando otro espera el código 2FA → cascada de fallos.
-- 6 specs son intrínsecamente system-wide (`tasks-crons`, `outbox-invoice`, `notifications`, `audit-portal`, `admin-error-log`, `admin-tree-migration`) y disparan crons / leen logs globales → race conditions garantizadas en paralelo.
-- `playwright.config.ts:webServer` arranca **un solo backend NestJS** antes de los workers; `BULLMQ_PREFIX` y `DATABASE_URL?schema=...` se leen en boot del proceso → no son por-worker sin multi-backend.
-
-**Estrategia adoptada (Opción C — Sharding CI + cuentas seed por-worker como deuda futura):** local mantiene `workers: 1 + fullyParallel: false` (estable). CI parte la suite con `--shard=N/M` en jobs paralelos; cada shard arranca sus propios services efímeros (postgres / redis / mailpit / minio) y su propio backend+frontend. Wall-clock CI esperado: 25 min → ~10 min. DC.13 cierra **parcial-canónica** (CI sí, local no). DC.27 cierra **100%** (imagen oficial Playwright en cada shard).
-
-**Por qué no la Opción B (backend per-worker local):** beneficio marginal (~30-40s/run local) vs coste alto (4× memoria, riesgo de tumbar runner GHA si se aplica también ahí, complejidad webServer dinámica). El cuello real está en CI, no en local. Si en el futuro la suite local crece y el cuello se mueve, sub-sprint dedicado.
-
-### Fases atómicas
-
-| Fase | Salida | Riesgo |
-|------|--------|--------|
-| **Fase 0** ✅ Plan canónico + rama `sprint13-5-5-ci-infra` desde master | Esta sección + rama nueva | Cero (doc-only) |
-| **Fase A** Migrar job E2E del CI a `container: image: mcr.microsoft.com/playwright:v1.59.0-noble` (cierra DC.27): service names en lugar de `localhost`, MinIO como service container `bitnami/minio` (no `docker run` desde step), eliminar cache/install browsers (la imagen ya los trae) | Job E2E corriendo en imagen oficial con Chromium pre-instalado | Medio — requiere verificación CI iterativa, MinIO networking puede fallar |
-| **Fase B** Sharding CI con `--shard=${N}/${M}` (cierra DC.13 parcial-canónica): matrix `shard: [1, 2, 3]` × `total: 3` en el job E2E. Cada shard ejecuta `~33%` de specs en paralelo. Job único de "merge reports" al final agrega los HTML reports | CI wall-clock 25min → ~10min | Bajo — Playwright `--shard` es funcionalidad estándar madura |
-| **Fase C** Cierre documental: backlog DC.13 ✅ parcial / DC.27 ✅, retrospectiva `completed/sprint-13-5-5-ci-infra.md`, mover a `completed/`, actualizar `e2e-environment.md §4.2` | Doc canónica sincronizada con código | Cero |
-
-### DoD Sprint 13.5.5
-
-- [ ] Job E2E corre en imagen oficial Playwright sin steps de cache/install browsers.
-- [ ] MinIO arranca como service container declarado en `services:` (no como step `docker run`).
-- [ ] CI E2E split en 3 shards paralelos con `--shard=N/M`.
-- [ ] Wall-clock CI E2E ≤ 12 min (vs 25 min baseline).
-- [ ] Suite local sigue 118/118 verde con `workers: 1` (sin regresión).
-- [ ] `backlog.md` actualizado: DC.13 → "✅ parcial-canónica (Sprint 13.5.5: sharding CI)" con nota de paralelización local diferida; DC.27 → "✅ Sprint 13.5.5".
-- [ ] `e2e-environment.md §4.2` reescrita reflejando sharding CI.
-- [ ] Retrospectiva en `completed/sprint-13-5-5-ci-infra.md` con métricas + decisión arquitectónica + lecciones.
-
-### Deuda DIFERIDA explícitamente
-
-**Paralelización local con `workers > 1`** queda diferida a sub-sprint futuro condicionado por trigger: si el ratio "specs nuevos por sprint" hace crecer la suite local más allá de 2 min, abrir sub-sprint dedicado **Sprint 13.5.6 — E2E parallel local** que aborde la opción canónica de backend por-worker.
+> Sub-sprint cerrado al 100%. Movido a [`completed/sprint-13-5-5-ci-infra.md`](./completed/sprint-13-5-5-ci-infra.md) con retrospectiva completa, métricas, decisión arquitectónica + lecciones aprendidas. **DC.27 ✅** (imagen oficial Playwright `mcr.microsoft.com/playwright:v1.59.1-noble` + service names + MinIO `bitnamilegacy/minio:2025.7.23-debian-12-r5` como service container) + **DC.13 ✅ parcial-canónica** (sharding CI con `--shard=N/M` × 3 shards paralelos, wall-clock CI 25 min → ~10 min). Paralelización local con `workers > 1` **diferida a sub-sprint condicionado** Sprint 13.5.6 (trigger: suite local > 2 min) — el cuello real estaba en CI, no en local. Decisión arquitectónica completa en la retrospectiva §4.
 
 ---
 
