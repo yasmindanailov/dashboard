@@ -741,3 +741,67 @@ Formato:
   marca, ejemplos en `button.html` con copy real del producto.
 - Implicaciones: aplicable también a Tabs, Dropdown items, link de
   acción, triggers de Modal. Se hereda en toda la fase 2 y siguientes.
+
+## DD-031 — Patterns con variantes nativas y wrappers responsables
+
+- Fase: 3
+- Fecha: 2026-05-03
+- Decisión: Los 3 patterns de página (`ListPage`, `DetailPage`,
+  `FormPage`) se diseñan con variantes nativas desde el inicio
+  (DD-029) y los wrappers son **responsables** de:
+  1. **Renderizar Breadcrumb** (DetailPage, FormPage). La página NUNCA
+     renderiza un Breadcrumb suelto.
+  2. **Renderizar PageHeader** (ListPage). La página solo provee
+     `title`, `subtitle`, `action`, `eyebrow?`.
+  3. **Imponer ancho único** 1200px / 1400px (`wide`). UI_SPEC §2.8
+     reafirmado.
+  4. **Imponer ritmo vertical** vía `gap: var(--space-6)` en el
+     contenedor flex column. Los hijos no fijan margin propio.
+
+  **Variantes nativas registradas:**
+  - `ListPage`: `standard` (tabla) · `grid` (cards) · `timeline`
+    (eventos) · `split` (master-detail).
+  - `DetailPage`: `standard` · `with-aside` (metadata permanente
+    sticky) · `workspace-lite` (3 columnas para triage operativo).
+  - `FormPage`: `standard` · `wizard` (multi-paso ramificado) ·
+    `long-form` (con TOC interno sticky).
+
+  **Heredan disciplina:**
+  - DD-028: DetailPage migra sus tabs hardcoded al componente DS Tabs.
+  - DD-030: ningún card de pattern lleva accent-stripe lateral. Ningún
+    stepper, TOC ni header card lleva rombo decorativo.
+  - DD-022: copy en patterns aplica voz Aelium (eyebrow tipográfico,
+    subtitle que cuenta y orienta, CTAs como "Nuevo cliente" no
+    "+ Add", labels de sección como "Cómo te llamamos" no "Personal
+    info").
+
+- Justificación: Sin patterns, cada página reinventa estructura. Sin
+  variantes nativas, cada página improvisa cuando el caso real no
+  encaja en "default". Sin wrappers responsables, cada página renderiza
+  Breadcrumb, define ancho propio, fija margin manual — el sistema se
+  rompe. Los 3 patterns son el molde único del 95% del producto.
+
+- Materializada en:
+  - Specs: `fase-3-patrones/{ListPage,DetailPage,FormPage}.md` con
+    anatomía + variantes + voz + a11y + drift + composición.
+  - CSS: `mockup/styles.css` sección "FASE 3 · PATTERNS DE PÁGINA"
+    con clases `.list-page`, `.detail-page`, `.form-page` + variantes
+    `.lp-grid`, `.lp-timeline`, `.lp-split`, `.dp-with-aside`,
+    `.dp-workspace-lite`, `.fp-wizard`, `.fp-long-form`.
+  - Mockups: `mockup/patterns/{list-page,detail-page,form-page}.html`
+    con todas las variantes + caso producto real + voz aplicada.
+  - Audit: `fase-3-patrones/audit-existing.md` (D3-1..D3-17).
+  - Implementación TS: registrada en
+    `fase-3-patrones/NOTES.md` (N3-1..N3-16) para sprints futuros
+    sobre `frontend/app/components/ui/`.
+
+- Implicaciones:
+  - Fase 4 (shells) consume estos patterns dentro de los shells por
+    rol (Auth, Client, Admin, Partner).
+  - Fases 5-9 (mockups por rol) componen patterns + componentes con
+    casos producto reales del backlog.
+  - El componente DS Tabs (DD-028) es la fuente única — DetailPage
+    no genera markup propio de tabs. Migración progresiva en sprints
+    de implementación.
+  - Pattern `Workspace` puro (chats) NO entra en fase 3 — fase
+    propia cuando se aborde el módulo de chats.

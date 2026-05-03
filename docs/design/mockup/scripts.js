@@ -52,9 +52,9 @@
       { href: 'components/empty-state.html',        label: 'EmptyState · 4 variantes' },
     ]},
     { section: 'Fase 3 · Patrones', items: [
-      { href: 'patterns/list-page.html',            label: 'ListPage',      pending: true },
-      { href: 'patterns/detail-page.html',          label: 'DetailPage',    pending: true },
-      { href: 'patterns/form-page.html',            label: 'FormPage',      pending: true },
+      { href: 'patterns/list-page.html',            label: 'ListPage · 4 variantes' },
+      { href: 'patterns/detail-page.html',          label: 'DetailPage · 3 variantes' },
+      { href: 'patterns/form-page.html',            label: 'FormPage · 3 variantes' },
     ]},
     { section: 'Fase 4 · Shells', items: [
       { href: 'shells/auth.html',                   label: 'AuthShell',     pending: true },

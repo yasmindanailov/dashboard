@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · ListPage</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .demo-frame {
+    background: var(--surface-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    overflow: hidden;
+  }
+  .demo-frame.tight { padding: var(--space-5); }
+  .demo-label {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-3);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .demo-label .ctx-tag {
+    background: var(--surface-tertiary);
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+  }
+  /* Stub content reusables dentro de mockup */
+  .stub-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .stub-table th, .stub-table td {
+    padding: var(--space-2_5) var(--space-3);
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .stub-table th {
+    background: var(--surface-secondary);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .stub-table tr:last-child td { border-bottom: none; }
+  .stub-table .num { font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+  .stub-card {
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    box-shadow: var(--shadow-sm);
+  }
+  .stub-card .head { display: flex; align-items: center; gap: var(--space-2_5); }
+  .stub-card .icon {
+    width: 36px; height: 36px; border-radius: var(--radius-md);
+    background: var(--brand-subtle); color: var(--brand);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .stub-card .name { font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--text-primary); }
+  .stub-card .meta { font-size: var(--font-size-xs); color: var(--text-tertiary); font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+  .stub-card .desc { font-size: var(--font-size-sm); color: var(--text-secondary); line-height: var(--line-height-normal); }
+  .stub-card .footer { display: flex; align-items: center; justify-content: space-between; padding-top: var(--space-2); border-top: 1px solid var(--border); }
+  .stub-filterbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+  .stub-filterbar .search-stub {
+    flex: 1;
+    min-width: 240px;
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .stub-filterbar .filter-stub {
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    cursor: default;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    white-space: nowrap;
+  }
+  .stub-statustabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .stub-statustabs .tab {
+    padding: var(--space-2_5) var(--space-3);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .stub-statustabs .tab.is-active { color: var(--brand); border-bottom-color: var(--brand); font-weight: var(--font-weight-medium); }
+  .stub-statustabs .tab .count {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    font-feature-settings: var(--font-feature-numeric);
+    font-variant-numeric: tabular-nums;
+  }
+  .stub-statustabs .tab.is-active .count { color: var(--brand); }
+  .stub-pag {
+    display: flex; align-items: center; justify-content: space-between; padding-top: var(--space-3);
+    border-top: 1px solid var(--border);
+    font-size: var(--font-size-xs); color: var(--text-tertiary);
+  }
+  .stub-pag .pag-meta { font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+  .stub-pag .pag-controls { display: flex; gap: var(--space-1); }
+  .stub-pag .pag-btn {
+    width: 28px; height: 28px; border-radius: var(--radius-sm);
+    background: var(--surface-primary); border: 1px solid var(--border);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--text-secondary);
+  }
+  .stub-pag .pag-btn.is-active { background: var(--brand); border-color: var(--brand); color: var(--text-on-brand); }
+  /* Timeline simple stub */
+  .stub-timeline { display: flex; flex-direction: column; gap: var(--space-4); }
+  .stub-timeline .ev { display: grid; grid-template-columns: 100px 1fr; gap: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border); }
+  .stub-timeline .ev:last-child { border-bottom: none; padding-bottom: 0; }
+  .stub-timeline .when { font-size: var(--font-size-xs); color: var(--text-tertiary); font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+  .stub-timeline .what { font-size: var(--font-size-sm); color: var(--text-primary); }
+  .stub-timeline .who { color: var(--text-secondary); }
+  .stub-timeline .meta-row { font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: 4px; }
+  /* Avatar stub */
+  .av {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--brand-subtle); color: var(--brand);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold);
+    flex-shrink: 0;
+  }
+  .av.sm { width: 24px; height: 24px; font-size: 10px; }
+  /* Badge inline stub */
+  .b {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 999px; font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+  }
+  .b.active { background: var(--success-subtle); color: var(--success-strong); }
+  .b.pending { background: var(--pending-subtle); color: var(--pending); }
+  .b.warning { background: var(--warning-subtle); color: var(--warning); }
+  .b.muted { background: var(--surface-tertiary); color: var(--text-secondary); }
+  .b .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 3 · Patrones</div>
+      <h1 class="page-title">ListPage</h1>
+      <p class="page-lede">
+        El patrón que enmarca el 60% de las páginas del dashboard. Cuatro variantes nativas (DD-029): <strong>tabla</strong>, <strong>grid</strong>, <strong>timeline</strong>, <strong>split</strong>. Mismo wrapper, distinta densidad según contexto. Ancho único 1200/1400 (UI_SPEC §2.8). Sin StatsCards en cabecera, sin rombo decorativo (DD-030), voz Aelium en cada copy.
+      </p>
+      <div class="row" style="margin-top: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-2);">
+        <span class="tok">--space-6 · gap</span>
+        <span class="tok">max-width 1200/1400</span>
+        <span class="tok">DD-022 voz</span>
+        <span class="tok">DD-029 variantes</span>
+        <span class="tok">DD-030 sin rombo</span>
+      </div>
+    </header>
+
+    <!-- ─── 01 · variante standard (tabla) ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante · standard (tabla)</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">
+        El default. Listings con &gt;5 atributos comparables, donde el usuario escanea filas y ordena por columna. Densidad alta, productividad de admin/agente.
+        <strong>Caso producto:</strong> <code>/admin/clientes</code> — 142 clientes registrados.
+      </p>
+
+      <div class="demo-label">
+        <span>ListPage · variant="standard"</span>
+        <span class="ctx-tag">Admin · Clientes</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="list-page">
+          <div class="page-header">
+            <div class="ph-titleblock">
+              <span class="ph-eyebrow">Operaciones</span>
+              <h1 class="ph-title">Clientes</h1>
+              <p class="ph-subtitle">142 clientes activos · ordena por última actividad</p>
+            </div>
+            <div class="ph-actions">
+              <button class="btn btn-secondary btn-md">Exportar</button>
+              <button class="btn btn-primary btn-md">Nuevo cliente</button>
+            </div>
+          </div>
+
+          <div class="stub-statustabs">
+            <span class="tab is-active">Todos <span class="count">142</span></span>
+            <span class="tab">Activos <span class="count">128</span></span>
+            <span class="tab">Pendientes <span class="count">9</span></span>
+            <span class="tab">Suspendidos <span class="count">5</span></span>
+          </div>
+
+          <div class="stub-filterbar">
+            <span class="search-stub">🔍 Buscar por nombre, NIF o email…</span>
+            <span class="filter-stub">Plan · todos ▾</span>
+            <span class="filter-stub">Asignado a · cualquiera ▾</span>
+            <span class="filter-stub">Más filtros ▾</span>
+          </div>
+
+          <div class="lp-content">
+            <table class="stub-table">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Plan</th>
+                  <th>Asignado</th>
+                  <th>Último contacto</th>
+                  <th class="num">MRR</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><div style="display:flex; align-items:center; gap:var(--space-2);"><span class="av sm">FP</span> Floristería Pérez</div></td>
+                  <td>Pro</td>
+                  <td><div style="display:flex; align-items:center; gap:var(--space-2); color:var(--text-secondary);"><span class="av sm">JM</span> Julia M.</div></td>
+                  <td style="color:var(--text-tertiary);">hace 2 días</td>
+                  <td class="num">49,90 €</td>
+                  <td><span class="b active"><span class="dot"></span>activo</span></td>
+                </tr>
+                <tr>
+                  <td><div style="display:flex; align-items:center; gap:var(--space-2);"><span class="av sm">CB</span> Carpintería Baeza</div></td>
+                  <td>Esencial</td>
+                  <td style="color:var(--text-tertiary);">—</td>
+                  <td style="color:var(--text-tertiary);">hace 5 días</td>
+                  <td class="num">19,90 €</td>
+                  <td><span class="b active"><span class="dot"></span>activo</span></td>
+                </tr>
+                <tr>
+                  <td><div style="display:flex; align-items:center; gap:var(--space-2);"><span class="av sm">AM</span> Asesoría Martín</div></td>
+                  <td>Pro</td>
+                  <td><div style="display:flex; align-items:center; gap:var(--space-2); color:var(--text-secondary);"><span class="av sm">LR</span> Luis R.</div></td>
+                  <td style="color:var(--text-tertiary);">hoy</td>
+                  <td class="num">49,90 €</td>
+                  <td><span class="b pending"><span class="dot"></span>pendiente</span></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="stub-pag">
+              <span class="pag-meta">Mostrando 1–20 de 142</span>
+              <span class="pag-controls">
+                <span class="pag-btn">‹</span>
+                <span class="pag-btn is-active">1</span>
+                <span class="pag-btn">2</span>
+                <span class="pag-btn">3</span>
+                <span class="pag-btn">›</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: <strong>"Clientes"</strong> sustantivo concreto · subtitle <strong>"142 clientes activos · ordena por última actividad"</strong> cuenta y orienta · CTA <strong>"Nuevo cliente"</strong> sustantivo, no "+ Add".
+      </p>
+    </section>
+
+    <!-- ─── 02 · variante grid (cards) ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante · grid (cards)</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">
+        Cuando el elemento tiene identidad visual (icono, color, avatar) y 1–3 atributos clave. El usuario "busca el suyo", no compara columna a columna.
+        <strong>Caso producto:</strong> <code>/cliente/services</code> — productos contratados como cards.
+      </p>
+
+      <div class="demo-label">
+        <span>ListPage · variant="grid"</span>
+        <span class="ctx-tag">Cliente · Servicios contratados</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="list-page lp-grid">
+          <div class="page-header">
+            <div class="ph-titleblock">
+              <h1 class="ph-title">Tus servicios</h1>
+              <p class="ph-subtitle">8 productos activos · todo en orden</p>
+            </div>
+            <div class="ph-actions">
+              <button class="btn btn-primary btn-md">Añadir servicio</button>
+            </div>
+          </div>
+
+          <div class="stub-filterbar">
+            <span class="search-stub">🔍 Buscar en tus servicios…</span>
+            <span class="filter-stub">Tipo · todos ▾</span>
+            <span class="filter-stub">Estado · todos ▾</span>
+          </div>
+
+          <div class="lp-content">
+            <div class="stub-card">
+              <div class="head"><span class="icon">🌐</span><div><div class="name">mitienda.com</div><div class="meta">Hosting Pro · activo</div></div></div>
+              <div class="desc">Tu web está al aire desde octubre 2024. Última copia hace 12 horas.</div>
+              <div class="footer"><span class="b active"><span class="dot"></span>activo</span><span style="color:var(--text-tertiary); font-size: var(--font-size-xs);">renueva 12 nov</span></div>
+            </div>
+            <div class="stub-card">
+              <div class="head"><span class="icon">✉️</span><div><div class="name">Buzón profesional</div><div class="meta">5 cuentas · activo</div></div></div>
+              <div class="desc">5 buzones <code>@mitienda.com</code> con sincronización móvil.</div>
+              <div class="footer"><span class="b active"><span class="dot"></span>activo</span><span style="color:var(--text-tertiary); font-size: var(--font-size-xs);">renueva 12 nov</span></div>
+            </div>
+            <div class="stub-card">
+              <div class="head"><span class="icon">🛡️</span><div><div class="name">Backup diario</div><div class="meta">Pro · activo</div></div></div>
+              <div class="desc">Copia automática cada noche. Última: ayer 03:14.</div>
+              <div class="footer"><span class="b active"><span class="dot"></span>activo</span><span style="color:var(--text-tertiary); font-size: var(--font-size-xs);">renueva 12 nov</span></div>
+            </div>
+            <div class="stub-card">
+              <div class="head"><span class="icon">🔒</span><div><div class="name">Certificado SSL</div><div class="meta">Wildcard · renovando</div></div></div>
+              <div class="desc">Renovación automática iniciada. Te avisamos cuando termine.</div>
+              <div class="footer"><span class="b pending"><span class="dot"></span>renovando</span><span style="color:var(--text-tertiary); font-size: var(--font-size-xs);">2-3 minutos</span></div>
+            </div>
+          </div>
+
+          <div class="stub-pag">
+            <span class="pag-meta">8 de 8 servicios mostrados</span>
+            <span></span>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: <strong>"Tus servicios"</strong> con posesivo cliente · subtitle <strong>"todo en orden"</strong> tranquiliza · cards con copy concreto, fechas humanas ("renueva 12 nov", "ayer 03:14"), no IDs técnicos.
+      </p>
+    </section>
+
+    <!-- ─── 03 · variante timeline (eventos) ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante · timeline (eventos)</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">
+        Items son eventos en el tiempo: el orden cronológico aporta significado. Pagination preferida: load-more (feeds) o cursor (sin total).
+        <strong>Caso producto:</strong> <code>/cliente/transparency</code> — qué ha hecho Aelium por ti, en directo.
+      </p>
+
+      <div class="demo-label">
+        <span>ListPage · variant="timeline"</span>
+        <span class="ctx-tag">Cliente · Transparencia</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="list-page lp-timeline">
+          <div class="page-header">
+            <div class="ph-titleblock">
+              <h1 class="ph-title">Lo que hemos hecho por ti</h1>
+              <p class="ph-subtitle">Últimos 30 días · todo lo que pasa con tus servicios, sin tecnicismos</p>
+            </div>
+          </div>
+
+          <div class="stub-filterbar">
+            <span class="search-stub">🔍 Filtra por servicio o tipo de evento…</span>
+            <span class="filter-stub">Tipo · todos ▾</span>
+            <span class="filter-stub">Servicio · todos ▾</span>
+          </div>
+
+          <div class="lp-content">
+            <div class="stub-timeline">
+              <div class="ev">
+                <span class="when">hoy · 09:42</span>
+                <div>
+                  <div class="what"><strong>Renovación SSL completada</strong> en <code>mitienda.com</code></div>
+                  <div class="meta-row who">Por <strong>Aelium · automatización</strong> · sin intervención humana</div>
+                </div>
+              </div>
+              <div class="ev">
+                <span class="when">ayer · 03:14</span>
+                <div>
+                  <div class="what"><strong>Copia de seguridad completada</strong> · 2,3 GB · 1 min 12 s</div>
+                  <div class="meta-row who">Por <strong>Aelium · backup diario</strong></div>
+                </div>
+              </div>
+              <div class="ev">
+                <span class="when">hace 3 días</span>
+                <div>
+                  <div class="what"><strong>Julia M.</strong> respondió a tu pregunta sobre el envío de emails</div>
+                  <div class="meta-row who">Equipo de soporte · ticket #00128 resuelto</div>
+                </div>
+              </div>
+              <div class="ev">
+                <span class="when">hace 5 días</span>
+                <div>
+                  <div class="what"><strong>Optimización de la base de datos</strong> · -18% tiempo de carga</div>
+                  <div class="meta-row who">Por <strong>Aelium · mantenimiento programado</strong></div>
+                </div>
+              </div>
+              <div class="ev">
+                <span class="when">hace 8 días</span>
+                <div>
+                  <div class="what"><strong>Tu factura de octubre</strong> está disponible · 49,90 €</div>
+                  <div class="meta-row who">Por <strong>Aelium · facturación</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pagination-load-more" style="border-top: 1px solid var(--border); margin-top: var(--space-4);">
+            <button class="btn btn-secondary btn-md">Cargar más</button>
+            <span class="load-more-meta">Mostrando 5 de 47 eventos</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: <strong>"Lo que hemos hecho por ti"</strong> — la transparencia es el activo de marca. Eventos en lenguaje humano ("Renovación completada", "Julia M. respondió"), no códigos técnicos.
+      </p>
+    </section>
+
+    <!-- ─── 04 · variante split (master-detail) ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante · split (master-detail)</h2>
+        <span class="section-num">04</span>
+      </div>
+      <p class="section-lede">
+        Triage operativo: el agente revisa muchos items y necesita el detalle sin abandonar la página. Activa <code>wide</code> (1400px) por defecto.
+        <strong>Caso producto:</strong> <code>/agente/support</code> — cola de tickets + detalle del ticket activo.
+      </p>
+
+      <div class="demo-label">
+        <span>ListPage · variant="split" · wide</span>
+        <span class="ctx-tag">Agente · Soporte</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="list-page lp-split wide">
+          <div class="page-header">
+            <div class="ph-titleblock">
+              <span class="ph-eyebrow">Operaciones · Soporte</span>
+              <h1 class="ph-title">Tickets en cola</h1>
+              <p class="ph-subtitle">14 abiertos · 3 esperando respuesta tuya</p>
+            </div>
+            <div class="ph-actions">
+              <button class="btn btn-secondary btn-md">Mis filtros</button>
+              <button class="btn btn-primary btn-md">Nuevo ticket</button>
+            </div>
+          </div>
+
+          <div class="stub-filterbar">
+            <span class="search-stub">🔍 Buscar tickets…</span>
+            <span class="filter-stub">Asignado · yo ▾</span>
+            <span class="filter-stub">Prioridad · todas ▾</span>
+            <span class="filter-stub">Plan · todos ▾</span>
+          </div>
+
+          <div class="lp-content">
+            <div class="split-master">
+              <div style="padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: var(--font-size-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em;">14 tickets</span>
+                <span style="font-size: var(--font-size-xs); color: var(--text-tertiary);">Por SLA ▾</span>
+              </div>
+              <div class="split-master-list">
+                <div class="split-master-item is-active">
+                  <div class="smi-row">
+                    <span class="smi-name">Floristería Pérez</span>
+                    <span class="b warning"><span class="dot"></span>SLA 1h</span>
+                  </div>
+                  <div class="smi-snippet">No me llegan los emails desde ayer por la tarde…</div>
+                  <span class="smi-meta">#00142 · hace 38 min · alta</span>
+                </div>
+                <div class="split-master-item">
+                  <div class="smi-row">
+                    <span class="smi-name">Carpintería Baeza</span>
+                    <span class="b active"><span class="dot"></span>OK</span>
+                  </div>
+                  <div class="smi-snippet">Quería preguntar cómo cambio la contraseña…</div>
+                  <span class="smi-meta">#00141 · hace 1h · normal</span>
+                </div>
+                <div class="split-master-item">
+                  <div class="smi-row">
+                    <span class="smi-name">Asesoría Martín</span>
+                    <span class="b muted"><span class="dot"></span>esperando</span>
+                  </div>
+                  <div class="smi-snippet">Sigo esperando que envíes la captura de pantalla.</div>
+                  <span class="smi-meta">#00140 · hace 3h · normal</span>
+                </div>
+                <div class="split-master-item">
+                  <div class="smi-row">
+                    <span class="smi-name">Estudio Bellas Letras</span>
+                    <span class="b warning"><span class="dot"></span>SLA 4h</span>
+                  </div>
+                  <div class="smi-snippet">El SSL del subdominio caduca en 2 días y no se renueva.</div>
+                  <span class="smi-meta">#00139 · hace 4h · urgente</span>
+                </div>
+              </div>
+              <div style="padding: var(--space-2) var(--space-3); border-top: 1px solid var(--border);">
+                <div class="pagination-compact" style="justify-content: space-between; width: 100%;">
+                  <span class="compact-info">1–14 de 14</span>
+                  <span style="display:flex; gap: 4px;">
+                    <span class="page-btn" style="opacity: 0.4;">‹</span>
+                    <span class="page-btn" style="opacity: 0.4;">›</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="split-detail">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: var(--space-3); border-bottom: 1px solid var(--border); margin-bottom: var(--space-4);">
+                <div>
+                  <div style="font-size: var(--font-size-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em;">Ticket #00142 · alta</div>
+                  <h3 style="font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); color: var(--text-primary); margin: 4px 0 0;">No me llegan los emails desde ayer</h3>
+                </div>
+                <div style="display: flex; gap: var(--space-2);">
+                  <button class="btn btn-secondary btn-sm">Marcar resuelto</button>
+                  <button class="btn btn-primary btn-sm">Responder</button>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: var(--space-5); margin-bottom: var(--space-4);">
+                <div><div style="font-size: var(--font-size-xs); color: var(--text-tertiary);">CLIENTE</div><div style="font-size: var(--font-size-sm); color: var(--text-primary);">Floristería Pérez · Plan Pro</div></div>
+                <div><div style="font-size: var(--font-size-xs); color: var(--text-tertiary);">ABRIÓ HACE</div><div style="font-size: var(--font-size-sm); color: var(--text-primary); font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums;">38 min</div></div>
+                <div><div style="font-size: var(--font-size-xs); color: var(--text-tertiary);">SLA</div><div style="font-size: var(--font-size-sm); color: var(--warning);">1h restante</div></div>
+              </div>
+
+              <div style="background: var(--surface-secondary); border-radius: var(--radius-md); padding: var(--space-4); font-size: var(--font-size-sm); color: var(--text-primary); line-height: var(--line-height-relaxed);">
+                <strong>Floristería Pérez</strong> · hace 38 min<br><br>
+                Hola, no me llegan los emails desde ayer por la tarde. He probado a enviar desde mi iPhone y desde el ordenador y nada. Tengo varios pedidos pendientes y necesito recibir las confirmaciones. ¿Podéis revisarlo?
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: <strong>"Tickets en cola"</strong> directo · subtitle cuenta carga real (<strong>"3 esperando respuesta tuya"</strong>) · master con snippets en lenguaje del cliente · detail con badge SLA visible.
+      </p>
+    </section>
+
+    <!-- ─── 05 · cuándo usar / cuándo no ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Cuándo usar cada variante</h2>
+        <span class="section-num">05</span>
+      </div>
+
+      <table class="stub-table" style="margin-top: var(--space-2);">
+        <thead>
+          <tr>
+            <th>Variante</th>
+            <th>Cuándo</th>
+            <th>Cuándo NO</th>
+            <th>Pagination</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>standard</strong></td>
+            <td>&gt;5 atributos por fila · escaneo por columna · admin/agente</td>
+            <td>El elemento tiene identidad visual fuerte → grid</td>
+            <td>standard</td>
+          </tr>
+          <tr>
+            <td><strong>grid</strong></td>
+            <td>1-3 atributos clave · usuario "busca el suyo" · cliente final</td>
+            <td>&gt;5 atributos relevantes · &gt;100 items sin filtros</td>
+            <td>standard / load-more</td>
+          </tr>
+          <tr>
+            <td><strong>timeline</strong></td>
+            <td>Eventos en el tiempo · orden cronológico significativo · transparencia</td>
+            <td>Comparación de atributos · sin dimensión temporal</td>
+            <td>load-more / cursor</td>
+          </tr>
+          <tr>
+            <td><strong>split</strong></td>
+            <td>Triage operativo · detalle compacto · agente/admin</td>
+            <td>Detalle complejo (tabs, sub-secciones) → DetailPage</td>
+            <td>compact en master</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ─── 06 · anti-patrones ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Anti-patrones</h2>
+        <span class="section-num">06</span>
+      </div>
+
+      <ul style="font-size: var(--font-size-sm); line-height: var(--line-height-relaxed); color: var(--text-secondary); padding-left: var(--space-5);">
+        <li>❌ Mezclar StatsCards con la lista. Las cifras viven en Status Tabs (counts) o en Overview, no en la cabecera de la lista.</li>
+        <li>❌ Variar el ancho página a página. <strong>1200 / 1400</strong> son los dos únicos valores permitidos.</li>
+        <li>❌ Re-implementar paginación inline. Usar el componente Pagination con la variante apropiada.</li>
+        <li>❌ Quitar el FilterBar "porque esta página tiene pocos items". Coherencia &gt; excepción.</li>
+        <li>❌ Card list cuando lo correcto es tabla (&gt;5 atributos comparables).</li>
+        <li>❌ Eyebrow con rombo decorativo. <strong>DD-030</strong>: el eyebrow es tipográfico (brand color + uppercase + letter-spacing), nunca con marker.</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

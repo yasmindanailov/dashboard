@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · DetailPage</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .demo-frame {
+    background: var(--surface-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    overflow: hidden;
+  }
+  .demo-label {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-3);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .demo-label .ctx-tag {
+    background: var(--surface-tertiary);
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+  }
+  /* Stub avatar */
+  .av {
+    border-radius: 50%;
+    background: var(--brand-subtle);
+    color: var(--brand);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: var(--font-weight-semibold);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .av.lg { width: 56px; height: 56px; font-size: var(--font-size-md); }
+  .av .av-status {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--success);
+    border: 2px solid var(--surface-primary);
+  }
+  /* Breadcrumb */
+  .stub-bc {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--text-tertiary);
+  }
+  .stub-bc a { color: var(--text-secondary); text-decoration: none; }
+  .stub-bc .sep { color: var(--text-tertiary); }
+  .stub-bc .current { color: var(--text-primary); font-weight: var(--font-weight-medium); }
+  /* Badge */
+  .b {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 999px; font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+  }
+  .b.active { background: var(--success-subtle); color: var(--success-strong); }
+  .b.pending { background: var(--pending-subtle); color: var(--pending); }
+  .b.muted { background: var(--surface-tertiary); color: var(--text-secondary); }
+  .b.warning { background: var(--warning-subtle); color: var(--warning); }
+  .b.info { background: var(--info-subtle); color: var(--info); }
+  .b .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  /* Tabs DS underline (DD-028) */
+  .stub-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .stub-tabs .tab {
+    padding: var(--space-2_5) var(--space-3);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    white-space: nowrap;
+    cursor: default;
+  }
+  .stub-tabs .tab.is-active { color: var(--brand); border-bottom-color: var(--brand); font-weight: var(--font-weight-medium); }
+  /* Stub content panels */
+  .panel {
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5) var(--space-6);
+    box-shadow: var(--shadow-sm);
+  }
+  .panel + .panel { margin-top: var(--space-4); }
+  .panel-title {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin: 0 0 var(--space-3);
+  }
+  .panel-row {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--border);
+    font-size: var(--font-size-sm);
+  }
+  .panel-row:last-child { border-bottom: none; }
+  .panel-row dt { color: var(--text-tertiary); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em; padding-top: 2px; }
+  .panel-row dd { color: var(--text-primary); margin: 0; font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+  /* Workspace lite stub items */
+  .ws-list-item {
+    padding: var(--space-2_5) var(--space-3);
+    border-radius: var(--radius-md);
+    cursor: default;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ws-list-item:hover { background: var(--surface-secondary); }
+  .ws-list-item.is-active { background: var(--brand-subtle); }
+  .ws-list-item .name { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--text-primary); }
+  .ws-list-item .meta { font-size: var(--font-size-xs); color: var(--text-tertiary); font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+  /* Action button mini */
+  .action-mini {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--space-2) var(--space-3);
+    background: var(--surface-secondary);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+  }
+  .action-mini + .action-mini { margin-top: var(--space-1_5); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 3 · Patrones</div>
+      <h1 class="page-title">DetailPage</h1>
+      <p class="page-lede">
+        El patrón que enmarca la ficha de cualquier entidad. Tres variantes nativas (DD-029): <strong>standard</strong> (lineal), <strong>with-aside</strong> (metadata permanente) y <strong>workspace-lite</strong> (3 columnas para triage). Header limpio sin accent-stripe lateral (DD-030) — la firma Aelium la dan avatar with-status, badge tipográfico, eyebrow opcional, tabular-nums. Tabs vía componente DS (DD-028).
+      </p>
+      <div class="row" style="margin-top: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-2);">
+        <span class="tok">--space-6 · gap</span>
+        <span class="tok">grid 2/3 + 1/3</span>
+        <span class="tok">grid 280 + 1fr + 320</span>
+        <span class="tok">DD-028 Tabs</span>
+        <span class="tok">DD-030 sin border-left</span>
+      </div>
+    </header>
+
+    <!-- ─── 01 · variante standard ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante · standard</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">
+        El default. Detalle lineal: el usuario consume top-to-bottom. Las acciones globales viven en el header. Sin metadata densa que requiera estar visible siempre.
+        <strong>Caso producto:</strong> <code>/cliente/billing/[id]</code> — factura individual.
+      </p>
+
+      <div class="demo-label">
+        <span>DetailPage · variant="standard"</span>
+        <span class="ctx-tag">Cliente · Factura</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="detail-page">
+          <nav class="stub-bc" aria-label="Migas de pan">
+            <a href="#">Facturación</a>
+            <span class="sep">›</span>
+            <span class="current">INV-00042</span>
+          </nav>
+
+          <div class="dp-header">
+            <div class="dp-header-row">
+              <div class="dp-header-identity">
+                <div class="dp-header-titleblock">
+                  <div class="dp-header-eyebrow">Factura · octubre 2025</div>
+                  <h1 class="dp-header-title">INV-00042 <span class="b active"><span class="dot"></span>pagada</span></h1>
+                </div>
+              </div>
+              <div class="dp-header-actions">
+                <button class="btn btn-secondary btn-md">Descargar PDF</button>
+                <button class="btn btn-secondary btn-md">Enviar por email</button>
+              </div>
+            </div>
+            <dl class="dp-header-meta">
+              <div class="dp-meta-item"><dt>Total</dt><dd>49,90 €</dd></div>
+              <div class="dp-meta-item"><dt>Emitida</dt><dd>1 oct 2025</dd></div>
+              <div class="dp-meta-item"><dt>Pagada</dt><dd>3 oct 2025</dd></div>
+              <div class="dp-meta-item"><dt>Método</dt><dd>Tarjeta · ····4242</dd></div>
+            </dl>
+          </div>
+
+          <div class="dp-body">
+            <div class="panel">
+              <h2 class="panel-title">Lo que pagas este mes</h2>
+              <div class="panel-row"><dt>Hosting Pro</dt><dd>29,90 € · mensual</dd></div>
+              <div class="panel-row"><dt>5 buzones profesionales</dt><dd>15,00 €</dd></div>
+              <div class="panel-row"><dt>Backup diario</dt><dd>5,00 €</dd></div>
+              <div class="panel-row"><dt><strong>Total</strong></dt><dd><strong>49,90 € · IVA incluido</strong></dd></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: eyebrow <strong>"Factura · octubre 2025"</strong> da contexto temporal · h1 con ID + badge inline · meta inline (no en sub-cards) cubre UI_SPEC §2.5 · panel con copy <strong>"Lo que pagas este mes"</strong> y método humano (<strong>"Tarjeta · ····4242"</strong>).
+      </p>
+    </section>
+
+    <!-- ─── 02 · variante with-aside ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante · with-aside</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">
+        Metadata estructurada visible permanentemente mientras el usuario opera. Aside sticky-top, sigue al scroll. Productividad &gt; respiro: típico de agente y admin.
+        <strong>Caso producto:</strong> <code>/agente/clientes/[id]</code> — ficha cliente operativa con identidad siempre a mano.
+      </p>
+
+      <div class="demo-label">
+        <span>DetailPage · variant="with-aside"</span>
+        <span class="ctx-tag">Agente · Cliente</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="detail-page dp-with-aside">
+          <nav class="stub-bc" aria-label="Migas de pan">
+            <a href="#">Clientes</a>
+            <span class="sep">›</span>
+            <span class="current">Floristería Pérez</span>
+          </nav>
+
+          <div class="dp-header">
+            <div class="dp-header-row">
+              <div class="dp-header-identity">
+                <span class="av lg">FP<span class="av-status"></span></span>
+                <div class="dp-header-titleblock">
+                  <div class="dp-header-eyebrow">Cliente desde octubre 2024</div>
+                  <h1 class="dp-header-title">Floristería Pérez <span class="b active"><span class="dot"></span>activa</span></h1>
+                </div>
+              </div>
+              <div class="dp-header-actions">
+                <button class="btn btn-secondary btn-md">Llamar</button>
+                <button class="btn btn-secondary btn-md">Enviar email</button>
+                <button class="btn btn-primary btn-md">Generar factura</button>
+              </div>
+            </div>
+            <dl class="dp-header-meta">
+              <div class="dp-meta-item"><dt>NIF</dt><dd>B-12345678</dd></div>
+              <div class="dp-meta-item"><dt>Le escribimos a</dt><dd>maria@floristeriaperez.com</dd></div>
+              <div class="dp-meta-item"><dt>Plan</dt><dd>Pro · 49,90 €/mes</dd></div>
+              <div class="dp-meta-item"><dt>MRR acumulado</dt><dd>596,80 €</dd></div>
+            </dl>
+          </div>
+
+          <div class="stub-tabs">
+            <span class="tab is-active">Resumen</span>
+            <span class="tab">Servicios</span>
+            <span class="tab">Facturas</span>
+            <span class="tab">Tickets</span>
+            <span class="tab">Historial</span>
+          </div>
+
+          <div class="dp-body">
+            <div>
+              <div class="panel">
+                <h2 class="panel-title">Última actividad</h2>
+                <div style="font-size: var(--font-size-sm); color: var(--text-secondary); line-height: var(--line-height-relaxed);">
+                  <p style="margin: 0 0 var(--space-3);">📞 <strong>Hablé con María</strong> hace 2 días sobre el problema con el envío de emails. Resuelto, dejé nota en el ticket #00128.</p>
+                  <p style="margin: 0 0 var(--space-3);">💳 <strong>Factura de octubre cobrada</strong> · 3 oct · 49,90 € · sin incidencia.</p>
+                  <p style="margin: 0;">📦 <strong>Renovó el plan Pro</strong> · 12 oct · siguiente renovación 12 nov.</p>
+                </div>
+              </div>
+
+              <div class="panel">
+                <h2 class="panel-title">Notas del equipo</h2>
+                <div style="font-size: var(--font-size-sm); color: var(--text-primary);">
+                  <strong>Julia M.</strong> · hace 2 días<br>
+                  <span style="color: var(--text-secondary);">María se queja un poco cuando algo no funciona. Buena cliente, paga bien. Mejor dar respuesta rápida aunque sea para confirmar que vamos a mirarlo.</span>
+                </div>
+              </div>
+            </div>
+
+            <aside class="dp-aside" aria-label="Ficha del cliente">
+              <div class="dp-aside-card">
+                <h3 class="dp-aside-title">Identidad</h3>
+                <div class="dp-aside-list">
+                  <div class="dp-aside-item"><span class="label">Persona de contacto</span><span class="value">María Pérez</span></div>
+                  <div class="dp-aside-item"><span class="label">Teléfono</span><span class="value">+34 612 34 56 78</span></div>
+                  <div class="dp-aside-item"><span class="label">Asignado a</span><span class="value">Julia M. (tú)</span></div>
+                  <div class="dp-aside-item"><span class="label">Score</span><span class="value">Excelente · paga puntual</span></div>
+                </div>
+              </div>
+
+              <div class="dp-aside-card">
+                <h3 class="dp-aside-title">Servicios activos · 4</h3>
+                <div class="dp-aside-list">
+                  <div class="dp-aside-item"><span class="label">Hosting Pro</span><span class="value">29,90 €/mes</span></div>
+                  <div class="dp-aside-item"><span class="label">5 buzones</span><span class="value">15,00 €/mes</span></div>
+                  <div class="dp-aside-item"><span class="label">Backup diario</span><span class="value">5,00 €/mes</span></div>
+                  <div class="dp-aside-item"><span class="label">SSL wildcard</span><span class="value">incluido</span></div>
+                </div>
+              </div>
+
+              <div class="dp-aside-card">
+                <h3 class="dp-aside-title">Acciones rápidas</h3>
+                <div class="action-mini">Ver últimas facturas <span style="color: var(--text-tertiary);">›</span></div>
+                <div class="action-mini">Asignar a partner <span style="color: var(--text-tertiary);">›</span></div>
+                <div class="action-mini">Suspender servicios <span style="color: var(--text-tertiary);">›</span></div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: header con <strong>"Cliente desde octubre 2024"</strong> · meta con <strong>"Le escribimos a"</strong> en lugar de "Email" · aside <strong>"Identidad"</strong> · notas internas de equipo en lenguaje natural · acciones rápidas como verbos directos.
+      </p>
+    </section>
+
+    <!-- ─── 03 · variante workspace-lite ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante · workspace-lite</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">
+        Triage activo: 3 columnas con scroll independiente — cola → foco → contexto. Para flujos operativos donde el usuario salta entre items sin perder contexto.
+        <strong>Caso producto:</strong> <code>/agente/support/[id]</code> con triage activo · <code>/admin/error-log/[id]</code>.
+      </p>
+
+      <div class="demo-label">
+        <span>DetailPage · variant="workspace-lite" · wide</span>
+        <span class="ctx-tag">Agente · Triage soporte</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="detail-page dp-workspace-lite">
+          <nav class="stub-bc" aria-label="Migas de pan">
+            <a href="#">Soporte</a>
+            <span class="sep">›</span>
+            <span class="current">Ticket #00142</span>
+          </nav>
+
+          <div class="dp-header">
+            <div class="dp-header-row">
+              <div class="dp-header-identity">
+                <div class="dp-header-titleblock">
+                  <div class="dp-header-eyebrow">Ticket abierto · prioridad alta</div>
+                  <h1 class="dp-header-title">No me llegan los emails desde ayer <span class="b warning"><span class="dot"></span>SLA 1h</span></h1>
+                </div>
+              </div>
+              <div class="dp-header-actions">
+                <button class="btn btn-secondary btn-md">Marcar resuelto</button>
+                <button class="btn btn-primary btn-md">Responder</button>
+              </div>
+            </div>
+            <dl class="dp-header-meta">
+              <div class="dp-meta-item"><dt>Cliente</dt><dd>Floristería Pérez · Plan Pro</dd></div>
+              <div class="dp-meta-item"><dt>Abrió hace</dt><dd>38 min</dd></div>
+              <div class="dp-meta-item"><dt>SLA restante</dt><dd>1h</dd></div>
+              <div class="dp-meta-item"><dt>Asignado</dt><dd>Julia M. (tú)</dd></div>
+            </dl>
+          </div>
+
+          <div class="dp-body">
+            <aside class="dp-rail-left" aria-label="Cola de tickets">
+              <div style="font-size: var(--font-size-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-3);">Cola · 14 abiertos</div>
+              <div class="ws-list-item is-active">
+                <span class="name">Floristería Pérez</span>
+                <span class="meta">#00142 · 38 min · alta</span>
+              </div>
+              <div class="ws-list-item">
+                <span class="name">Carpintería Baeza</span>
+                <span class="meta">#00141 · 1h · normal</span>
+              </div>
+              <div class="ws-list-item">
+                <span class="name">Asesoría Martín</span>
+                <span class="meta">#00140 · 3h · normal</span>
+              </div>
+              <div class="ws-list-item">
+                <span class="name">Bellas Letras</span>
+                <span class="meta">#00139 · 4h · urgente</span>
+              </div>
+              <div class="ws-list-item">
+                <span class="name">Talleres Vega</span>
+                <span class="meta">#00138 · 5h · normal</span>
+              </div>
+            </aside>
+
+            <div class="dp-main">
+              <div style="font-size: var(--font-size-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-2);">Mensajes</div>
+
+              <div style="background: var(--surface-secondary); border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-3);">
+                <div style="font-size: var(--font-size-sm); color: var(--text-primary); font-weight: var(--font-weight-medium); margin-bottom: var(--space-1);">María Pérez · hace 38 min</div>
+                <div style="font-size: var(--font-size-sm); color: var(--text-secondary); line-height: var(--line-height-relaxed);">
+                  Hola, no me llegan los emails desde ayer por la tarde. He probado a enviar desde mi iPhone y desde el ordenador y nada. Tengo varios pedidos pendientes y necesito recibir las confirmaciones. ¿Podéis revisarlo?
+                </div>
+              </div>
+
+              <div style="background: var(--brand-subtle); border-radius: var(--radius-md); padding: var(--space-4); border: 1px solid var(--brand-soft);">
+                <div style="font-size: var(--font-size-xs); color: var(--brand-active); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-2); font-weight: var(--font-weight-semibold);">Sugerencia de Aelium · IA</div>
+                <div style="font-size: var(--font-size-sm); color: var(--text-primary); line-height: var(--line-height-relaxed);">
+                  Detectamos que el SMTP de Floristería Pérez está rechazando emails desde ayer 18:42. El registro <code>SPF</code> del dominio caducó. Reactivar el registro toma 2 minutos. ¿Lo aplicamos automáticamente?
+                </div>
+                <div style="display: flex; gap: var(--space-2); margin-top: var(--space-3);">
+                  <button class="btn btn-primary btn-sm">Sí, aplicar</button>
+                  <button class="btn btn-ghost btn-sm">Voy a investigar</button>
+                </div>
+              </div>
+            </div>
+
+            <aside class="dp-rail-right" aria-label="Contexto del cliente">
+              <div style="font-size: var(--font-size-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-3);">Contexto</div>
+
+              <div style="display: flex; align-items: center; gap: var(--space-2_5); margin-bottom: var(--space-4); padding-bottom: var(--space-3); border-bottom: 1px solid var(--border);">
+                <span class="av lg" style="width:40px; height:40px; font-size:var(--font-size-sm);">FP<span class="av-status"></span></span>
+                <div>
+                  <div style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--text-primary);">Floristería Pérez</div>
+                  <div style="font-size: var(--font-size-xs); color: var(--text-tertiary);">Plan Pro · cliente desde oct 2024</div>
+                </div>
+              </div>
+
+              <div style="font-size: var(--font-size-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-2);">Servicios afectados</div>
+              <div style="font-size: var(--font-size-sm); color: var(--text-primary); margin-bottom: var(--space-4);">
+                ✉️ Buzón profesional · 5 cuentas
+              </div>
+
+              <div style="font-size: var(--font-size-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-2);">Últimos tickets</div>
+              <div style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: var(--space-2);">
+                #00128 · resuelto hace 8 días<br>
+                <span style="color: var(--text-tertiary); font-size: var(--font-size-xs);">"problema envío emails"</span>
+              </div>
+
+              <div style="margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--border);">
+                <button class="btn btn-secondary btn-sm" style="width: 100%;">Ver ficha completa</button>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: <strong>"Cola · 14 abiertos"</strong> directo · sugerencia IA con copy en primera persona del producto (<strong>"Detectamos que..."</strong>) y opciones <strong>"Sí, aplicar"</strong> / <strong>"Voy a investigar"</strong> · contexto cliente con histórico relevante.
+      </p>
+    </section>
+
+    <!-- ─── 04 · cuándo usar / cuándo no ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Cuándo usar cada variante</h2>
+        <span class="section-num">04</span>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden;">
+        <thead>
+          <tr>
+            <th style="text-align: left; padding: var(--space-2_5) var(--space-3); background: var(--surface-secondary); font-size: var(--font-size-xs); text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.04em; border-bottom: 1px solid var(--border);">Variante</th>
+            <th style="text-align: left; padding: var(--space-2_5) var(--space-3); background: var(--surface-secondary); font-size: var(--font-size-xs); text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.04em; border-bottom: 1px solid var(--border);">Cuándo</th>
+            <th style="text-align: left; padding: var(--space-2_5) var(--space-3); background: var(--surface-secondary); font-size: var(--font-size-xs); text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.04em; border-bottom: 1px solid var(--border);">Cuándo NO</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);"><strong>standard</strong></td>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">Detalle lineal · acciones globales en header · sin metadata densa permanente</td>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">Hay metadata estructurada que el usuario necesita siempre visible</td>
+          </tr>
+          <tr>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);"><strong>with-aside</strong></td>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">Productividad · acciones rápidas repetidas · agente/admin operativos</td>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">Cliente final navegando (excepción: services con estado de salud)</td>
+          </tr>
+          <tr>
+            <td style="padding: var(--space-3);"><strong>workspace-lite</strong></td>
+            <td style="padding: var(--space-3);">Triage · 3 planos: cola → foco → contexto · agente/admin</td>
+            <td style="padding: var(--space-3);">Cliente final · workspace puro de chats (usar Workspace propio)</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ─── 05 · anti-patrones ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Anti-patrones</h2>
+        <span class="section-num">05</span>
+      </div>
+
+      <ul style="font-size: var(--font-size-sm); line-height: var(--line-height-relaxed); color: var(--text-secondary); padding-left: var(--space-5);">
+        <li>❌ Header con StatsCards "para resaltar el ID y el total". El número va inline en h1 con tabular-nums. StatsCards <strong>solo en Overview</strong>.</li>
+        <li>❌ Border-left brand en el header card. Reservado a navegación. <strong>DD-030</strong> lo prohíbe en recuadros.</li>
+        <li>❌ Doble breadcrumb (uno arriba + otro dentro del header). Solo el de arriba.</li>
+        <li>❌ Tabs hardcoded en el wrapper. Usar siempre el componente DS Tabs (<strong>DD-028</strong>).</li>
+        <li>❌ With-aside con metadata genérica de relleno. Si no aporta, no va.</li>
+        <li>❌ Workspace-lite "porque queda pro". Densidad alta exige justificación operativa real.</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

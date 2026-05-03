@@ -7,20 +7,21 @@
 
 ## Estado actual
 
-- **Fase activa:** 2.F — Refresh de variantes en componentes ya
-  entregados **lista para revisión**
+- **Fase activa:** 3 — Patrones de página **lista para revisión**
 - **Modo activo:** diseño
-- **Próxima acción:** revisión humana de las variantes refresh +
-  iteraciones DD-030 aplicadas. Si OK, **fase 2 cerrada por
-  completo** (componentes base + iteraciones + variantes). Próximo
-  arranque: **fase 3 (patrones)** — DetailPage, ListPage, FormPage.
-- **Última actualización:** 2026-05-03 — fase 2.F completa. DD-030
-  registrada (rombo selectivo + recuadros sin accent-stripe lateral).
-  Refresh de variantes: Pagination +3 (load-more, compact, cursor),
-  Dropdown +2 (multi-select, searchable), Badge +2 (removable, dot-only),
-  Input +3 (password toggle, inline edit, prefix/suffix text). Cada
-  variante con caso producto real, voz Aelium aplicada, tokens, sin
-  rombo decorativo.
+- **Próxima acción:** revisión humana de los 3 patterns con sus
+  variantes nativas. Si OK, **fase 3 cerrada**. Próximo arranque:
+  **fase 4 (shells)** — AuthShell, ClientShell, AdminShell, PartnerShell.
+- **Última actualización:** 2026-05-03 — fase 3 completa.
+  Audit drift D3-1..D3-17 documentado en
+  `fase-3-patrones/audit-existing.md`. Specs entregadas para
+  ListPage (4 variantes: standard / grid / timeline / split),
+  DetailPage (3 variantes: standard / with-aside / workspace-lite) y
+  FormPage (3 variantes: standard / wizard / long-form). CSS
+  materializado en `mockup/styles.css` sección "FASE 3 · PATTERNS".
+  Mockups con caso producto real en `mockup/patterns/`. Disciplina
+  DD-029 (variante por contexto) + DD-030 (recuadros sin
+  accent-stripe lateral) verificada en cada variante.
 
 ---
 
@@ -77,8 +78,8 @@ romper la filosofía de minimalismo funcional (D1–D11 de
 | 2.C | Componentes base · data | Cerrada · iteración StatsCard DD-024 | Table, Pagination, StatsCard, BulkActionBar, FilterBar · sample admin-clientes |
 | 2.D | Componentes base · navegación | **Cerrada con iteraciones DD-025/026/027/028** | Tabs (5 variantes), Breadcrumb, CommandPalette, NotificationBell, PortalBadge · sample admin-cliente-detalle |
 | 2.E | Componentes base · contenedores | Cerrada | Card 5v · Modal 5v · Avatar refactor paleta + with-status + group · EmptyState 4v · sample cliente-overview |
-| 2.F | Refresh de variantes en componentes ya entregados | **Listo · revisión humana** | Pagination +3v · Dropdown +2v · Badge +2v · Input +3v |
-| 3 | Patrones de página | Pendiente | DetailPage, ListPage, FormPage |
+| 2.F | Refresh de variantes en componentes ya entregados | Cerrada | Pagination +3v · Dropdown +2v · Badge +2v · Input +3v |
+| 3 | Patrones de página | **Listo · revisión humana** | ListPage 4v · DetailPage 3v · FormPage 3v |
 | 4 | Layout shells | Pendiente | AuthShell, ClientShell, AdminShell, PartnerShell |
 | 5 | Mockups cliente | Pendiente | overview, services, billing, support, transparency, checkout |
 | 6 | Mockups agente | Pendiente | clients, support, tasks, billing |
@@ -122,6 +123,18 @@ Las fases se cierran en orden. No iniciar la siguiente sin cerrar la anterior
   Framer Motion choreography (DD-017).
 - **Referentes ampliados:** Linear, Stripe, Vercel, Raycast, Attio, Arc,
   Height, Pylon, Cron/Notion Calendar.
+- **DD-029 · variante por contexto + identidad Aelium**: cuando hay 2+
+  casos de uso reales, las variantes se diseñan desde el inicio. Más
+  variantes ≠ más genérico — cada variante mantiene firma de marca.
+- **DD-030 · rombo selectivo + recuadros sin accent-stripe**: rombo
+  reservado a momentos funcionales (logo, loader, timeline markers,
+  empty page, health, skeleton-rombo, .aelium-dot). Border-left brand
+  reservado a navegación (sidebar, tabs vertical, applied-filters).
+  Cards/modales/headers sin accent-stripe.
+- **DD-031 · patterns con variantes nativas y wrappers responsables**:
+  ListPage 4v · DetailPage 3v · FormPage 3v. Wrappers renderizan
+  Breadcrumb/PageHeader e imponen ancho único + ritmo vertical. Las
+  páginas nunca improvisan layout.
 
 ---
 
