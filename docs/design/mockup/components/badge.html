@@ -142,6 +142,57 @@
         <div>Añadir <span class="tok">sm</span>/<span class="tok">md</span>.</div>
       </div>
     </section>
+
+    <!-- Variantes adicionales · DD-029 -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">Variantes adicionales · DD-029 (refresh fase 2.F)</h2><span class="section-num">06</span></div>
+      <p class="section-lede">2 variantes nuevas: removable (filter chip con ✕) y dot-only (ultra-compacto, sin pill).</p>
+
+      <p class="legend">Removable · filter chips aplicados</p>
+      <div class="row" style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4);">
+        <span class="badge badge-neutral removable">
+          Activo
+          <button class="badge-remove" aria-label="Quitar filtro Activo"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </span>
+        <span class="badge badge-neutral removable">
+          Plan Pro
+          <button class="badge-remove" aria-label="Quitar filtro Plan Pro"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </span>
+        <span class="badge badge-neutral removable">
+          Últimos 30 días
+          <button class="badge-remove" aria-label="Quitar filtro Últimos 30 días"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </span>
+      </div>
+
+      <p class="legend" style="margin-top: var(--space-4);">Dot-only · ultra-compacto, sin pill</p>
+      <div class="row" style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4);">
+        <span class="badge-dot success">Activo</span>
+        <span class="badge-dot warning">Pendiente</span>
+        <span class="badge-dot danger">Vencido</span>
+        <span class="badge-dot pending">En revisión</span>
+        <span class="badge-dot brand">Premium</span>
+      </div>
+
+      <p class="legend" style="margin-top: var(--space-4);">En contexto · tabla densa con dot-only</p>
+      <div style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2);">
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border); font-size: var(--font-size-sm);">
+          <span>Floristería Pérez</span>
+          <span class="badge-dot success">Activo</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border); font-size: var(--font-size-sm);">
+          <span>Bar La Esquina</span>
+          <span class="badge-dot warning">Pendiente</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: var(--font-size-sm);">
+          <span>Tienda Marina</span>
+          <span class="badge-dot danger">Caída</span>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Cuándo cada una.</strong> Badge estándar: estado en row de tabla normal. Removable: chips de filtros aplicados. Dot-only: tabla densa o sidebar item donde la pill ocupa demasiado.
+      </div>
+    </section>
   </main>
 </div>
 

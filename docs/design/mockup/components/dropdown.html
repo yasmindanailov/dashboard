@@ -210,6 +210,72 @@
         <div>Items con verbo concreto, no genérico.</div>
       </div>
     </section>
+
+    <!-- Variantes adicionales · DD-029 -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">Variantes adicionales · DD-029 (refresh fase 2.F)</h2><span class="section-num">06</span></div>
+      <p class="section-lede">2 variantes nuevas: multi-select para filtros multi-valor, searchable para listas largas.</p>
+
+      <div class="dd-row">
+        <div class="dd-col" style="min-width: 240px;">
+          <p class="legend">Multi-select · checkboxes</p>
+          <div class="dropdown dd-static">
+            <div class="dropdown-menu dropdown-multi" role="menu">
+              <button class="dropdown-item checked" role="menuitem" aria-checked="true">
+                <span class="multi-check"></span>Yasmin · soporte
+              </button>
+              <button class="dropdown-item checked" role="menuitem" aria-checked="true">
+                <span class="multi-check"></span>Marcos · billing
+              </button>
+              <button class="dropdown-item" role="menuitem" aria-checked="false">
+                <span class="multi-check"></span>Sara · admin
+              </button>
+              <button class="dropdown-item" role="menuitem" aria-checked="false">
+                <span class="multi-check"></span>Juan · soporte
+              </button>
+              <div class="dropdown-footer">
+                <span class="selected-count">2 seleccionados</span>
+                <button class="bell-link">Aplicar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dd-col" style="min-width: 260px;">
+          <p class="legend">Searchable · combobox</p>
+          <div class="dropdown dd-static">
+            <div class="dropdown-menu dropdown-search" role="menu">
+              <div class="dropdown-search-input">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input placeholder="Buscar cliente…" aria-label="Buscar cliente">
+              </div>
+              <button class="dropdown-item" role="menuitem">Floristería Pérez</button>
+              <button class="dropdown-item" role="menuitem">Hotel Mar Azul</button>
+              <button class="dropdown-item" role="menuitem">Tienda Marina</button>
+              <button class="dropdown-item" role="menuitem">Estudio Foto Sara</button>
+              <button class="dropdown-item" role="menuitem">Bar La Esquina</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dd-col" style="min-width: 260px;">
+          <p class="legend">Searchable · empty state</p>
+          <div class="dropdown dd-static">
+            <div class="dropdown-menu dropdown-search" role="menu">
+              <div class="dropdown-search-input">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input value="zxqwer" aria-label="Buscar">
+              </div>
+              <div class="dropdown-empty">No encontramos «zxqwer». Prueba con NIF o dominio.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Cuándo cada una.</strong> Action menu (default): acciones contextuales en row. Multi-select: filtros multi-valor (asignados, tags). Searchable: listas ≥ 10 items donde scroll cansa.
+      </div>
+    </section>
   </main>
 </div>
 

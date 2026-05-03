@@ -95,3 +95,66 @@ Pagination es funcional, sin texto narrativo. Un solo elemento textual:
 ## 10. Materialización
 
 `mockup/components/pagination.html`
+
+---
+
+## 11. Variantes adicionales · DD-029 (fase 2.F refresh)
+
+Tras DD-029 se completó el sistema con 3 variantes nuevas. Cada una
+responde a un caso producto real:
+
+### 11.1 Load more · activity feeds
+
+Un solo botón centrado bajo el listado. Para feeds donde el usuario
+prefiere "ver más" sin paginar.
+
+```html
+<div class="pagination-load-more">
+  <button class="btn btn-secondary btn-md">Cargar 20 más</button>
+  <p class="load-more-meta">Mostrando 40 de 142</p>
+</div>
+```
+
+**Cuándo**: activity feed admin, audit log, transparency feed cliente,
+historial de tickets con scroll natural.
+
+### 11.2 Compact · sidebars y aside
+
+Solo prev/next + "X de Y" tabular. Para listings compactos que conviven
+con otra información (sidebar, widget, aside del cliente).
+
+```html
+<div class="pagination-compact">
+  <button class="page-btn page-btn-nav" aria-label="Anterior">‹</button>
+  <span class="compact-info">3 de 12</span>
+  <button class="page-btn page-btn-nav" aria-label="Siguiente">›</button>
+</div>
+```
+
+**Cuándo**: aside con últimas facturas, widget de tickets en topbar
+expandido, sidebar listings.
+
+### 11.3 Cursor-based · feeds infinitos
+
+Solo prev/next, sin total ni page numbers. Para colas donde no hay total
+conocido o no es relevante.
+
+```html
+<div class="pagination-cursor">
+  <button class="page-btn page-btn-nav" disabled>‹ Anterior</button>
+  <span class="cursor-meta">Más recientes</span>
+  <button class="page-btn page-btn-nav">Más antiguas ›</button>
+</div>
+```
+
+**Cuándo**: historial de chats (sin total contable), notificaciones
+en bell, feed de eventos en tiempo real.
+
+### Matriz cuándo usar cada una
+
+| Caso | Variante |
+|---|---|
+| Listing con total conocido (admin/clients, billing) | Standard |
+| Activity feed con scroll natural | Load more |
+| Sidebar / aside / widget compacto | Compact |
+| Cola sin total conocido (chats, events) | Cursor-based |

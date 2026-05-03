@@ -2731,6 +2731,299 @@ a { color: inherit; text-decoration: none; }
 .empty-base.first-time .empty-title { font-size: var(--font-size-2xl); letter-spacing: -0.015em; }
 .empty-base.first-time .empty-desc { font-size: var(--font-size-md); max-width: 520px; }
 
+/* ═══════════════════════════════════════════════════════════════
+   FASE 2.F · REFRESH DE VARIANTES (DD-029)
+   Variantes nuevas en componentes ya entregados.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ──────── Pagination · load more / compact / cursor ──────── */
+
+/* Load more — un solo botón centrado, para activity feeds */
+.pagination-load-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5) 0;
+}
+.pagination-load-more .load-more-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-feature-settings: var(--font-feature-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Compact — solo prev/next + "X de Y", para sidebars y aside */
+.pagination-compact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+.pagination-compact .compact-info {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-feature-settings: var(--font-feature-numeric);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pagination-compact .page-btn {
+  min-width: 28px;
+  height: 28px;
+}
+
+/* Cursor — solo prev/next, sin info de total. Para feeds infinitos */
+.pagination-cursor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+}
+.pagination-cursor .cursor-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin: 0 var(--space-2);
+}
+
+/* ──────── Dropdown · multi-select / searchable ──────── */
+
+/* Multi-select — items con checkbox visual */
+.dropdown-multi .dropdown-item {
+  padding-left: var(--space-3);
+}
+.dropdown-multi .dropdown-item .multi-check {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-hover);
+  border-radius: var(--radius-xs);
+  background: var(--surface-primary);
+  flex-shrink: 0;
+  position: relative;
+  transition: all var(--transition-fast) var(--ease-out);
+}
+.dropdown-multi .dropdown-item.checked .multi-check {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+.dropdown-multi .dropdown-item.checked .multi-check::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  width: 4px;
+  height: 7px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.dropdown-multi .dropdown-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border);
+  background: var(--surface-secondary);
+}
+.dropdown-multi .dropdown-footer .selected-count {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-feature-settings: var(--font-feature-numeric);
+}
+
+/* Searchable / combobox — search input arriba + items filtrados */
+.dropdown-search .dropdown-search-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-primary);
+}
+.dropdown-search .dropdown-search-input svg {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.dropdown-search .dropdown-search-input input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-family: inherit;
+}
+.dropdown-search .dropdown-search-input input::placeholder {
+  color: var(--text-tertiary);
+}
+.dropdown-search .dropdown-empty {
+  padding: var(--space-5) var(--space-3);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* ──────── Badge · removable / dot-only ──────── */
+
+.badge.removable {
+  padding-right: var(--space-1);
+  gap: var(--space-1);
+}
+.badge.removable .badge-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  font-family: inherit;
+  padding: 0;
+  transition: opacity var(--transition-fast) var(--ease-out),
+              background var(--transition-fast) var(--ease-out);
+}
+.badge.removable .badge-remove:hover {
+  opacity: 1;
+  background: rgba(0,0,0,0.08);
+}
+.badge.removable .badge-remove:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  opacity: 1;
+}
+
+/* Dot-only · ultra-compacto, solo color + texto pequeño opcional */
+.badge-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+.badge-dot::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--text-tertiary);
+}
+.badge-dot.success::before { background: var(--success); }
+.badge-dot.warning::before { background: var(--warning); }
+.badge-dot.danger::before  { background: var(--danger); }
+.badge-dot.info::before    { background: var(--info); }
+.badge-dot.pending::before { background: var(--pending); }
+.badge-dot.brand::before   { background: var(--brand); }
+
+/* ──────── Input · password toggle / inline edit / prefix-suffix text ──────── */
+
+/* Password toggle — botón eye/eye-off al final */
+.field-password .field-control { position: relative; }
+.field-password .input { padding-right: var(--space-10); }
+.field-password .password-toggle {
+  position: absolute;
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  transition: color var(--transition-fast) var(--ease-out),
+              background var(--transition-fast) var(--ease-out);
+}
+.field-password .password-toggle:hover {
+  color: var(--text-secondary);
+  background: var(--surface-secondary);
+}
+.field-password .password-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Prefix / suffix text (€, %, .com, https://) */
+.field-prefix-text .input { padding-left: var(--space-12); }
+.field-suffix-text .input { padding-right: var(--space-12); }
+.field-prefix-text .field-text-affix,
+.field-suffix-text .field-text-affix {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  pointer-events: none;
+  height: 100%;
+  font-feature-settings: var(--font-feature-numeric);
+}
+.field-prefix-text .field-text-affix { left: var(--space-3); }
+.field-suffix-text .field-text-affix { right: var(--space-3); }
+
+/* Inline edit — view (texto + icono lápiz hint) → click → input mode */
+.inline-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1_5) var(--space-2);
+  border-radius: var(--radius-xs);
+  cursor: text;
+  transition: background var(--transition-fast) var(--ease-out);
+  position: relative;
+}
+.inline-edit:hover {
+  background: var(--surface-secondary);
+}
+.inline-edit:hover .inline-edit-hint { opacity: 1; }
+.inline-edit .inline-edit-text {
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+.inline-edit .inline-edit-hint {
+  display: inline-flex;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--transition-fast) var(--ease-out);
+}
+.inline-edit.editing {
+  padding: 0;
+  background: transparent;
+}
+.inline-edit.editing .input {
+  padding: var(--space-1_5) var(--space-2);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  min-height: 0;
+}
+.inline-edit-actions {
+  display: inline-flex;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+}
+.inline-edit-btn {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: var(--surface-primary);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  transition: all var(--transition-fast) var(--ease-out);
+}
+.inline-edit-btn:hover { color: var(--text-primary); border-color: var(--border-hover); }
+.inline-edit-btn.confirm:hover { color: var(--success-strong); border-color: var(--success); }
+.inline-edit-btn.cancel:hover  { color: var(--danger-strong);  border-color: var(--danger); }
+
 /* ──────── Pending page placeholder ──────── */
 
 .pending-placeholder {

@@ -86,3 +86,49 @@ Color        --{state}-light · --{state}-strong (todos los semánticos + pendin
 | **D2B-1** | Sin pending | Añadir variant `pending`. |
 | **D2B-2** | Sin tamaños | Añadir sm/md. |
 | Voz | Variants en código sin reglas de copy | Documentar en spec — sin cambio de código. |
+
+---
+
+## 10. Variantes adicionales · DD-029 (fase 2.F refresh)
+
+### 10.1 Removable (filter chip)
+
+Para filtros aplicados que el usuario puede quitar individualmente con ✕.
+
+```html
+<span class="badge badge-neutral removable">
+  Activo
+  <button class="badge-remove" aria-label="Quitar filtro Activo">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+</span>
+```
+
+**Cuándo**: chips de filtros aplicados en listings ("Activos ✕", "Plan
+Pro ✕", "Últimos 30 días ✕"). Coexiste con applied-filters de FilterBar
+o sustituye al texto plano.
+
+**Anatomía**: badge estándar + botón ✕ con `aria-label` describiendo qué
+se quita. Hover ✕ con bg sutil para indicar interacción.
+
+### 10.2 Dot-only (ultra-compacto)
+
+Sin pill background. Solo dot semántico + texto pequeño. Para cuando
+hay muy poco espacio (tabla densa, sidebar items, inline meta).
+
+```html
+<span class="badge-dot success">Activo</span>
+<span class="badge-dot warning">Pendiente</span>
+<span class="badge-dot danger">Vencido</span>
+```
+
+**Cuándo**: tabla con densidad alta donde la pill ocupa demasiado, item
+de sidebar que muestra estado (`Tickets · 3`), inline meta ligera.
+
+### Matriz
+
+| Caso | Variante |
+|---|---|
+| Estado en row de tabla normal | Badge estándar |
+| Filtro aplicado en banner | Badge removable |
+| Tabla densa o sidebar item | Badge dot-only |

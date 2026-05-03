@@ -189,3 +189,58 @@ Implementado con `useEffect` listener sobre `mousedown` y `keydown`.
 ## 10. Materialización
 
 `docs/design/mockup/components/dropdown.html`
+
+---
+
+## 11. Variantes adicionales · DD-029 (fase 2.F refresh)
+
+### 11.1 Multi-select (checkboxes en items)
+
+Para filtros multi-valor (asignar a varios agentes, etiquetar con
+varios tags). Cada item con check 16×16 que se rellena brand cuando
+checked. Footer con count + "Aplicar".
+
+```html
+<div class="dropdown-menu dropdown-multi" role="menu">
+  <button class="dropdown-item checked" aria-checked="true">
+    <span class="multi-check"></span>Yasmin · soporte
+  </button>
+  <button class="dropdown-item" aria-checked="false">
+    <span class="multi-check"></span>Marcos · billing
+  </button>
+  <div class="dropdown-footer">
+    <span class="selected-count">1 seleccionado</span>
+    <button class="bell-link">Aplicar</button>
+  </div>
+</div>
+```
+
+**Cuándo**: filtrar tickets por asignado(s), etiquetar cliente con tags,
+multi-select genérico.
+
+### 11.2 Searchable / combobox
+
+Para listas ≥ 10 items. Search input arriba filtra por substring. Empty
+con voz Aelium.
+
+```html
+<div class="dropdown-menu dropdown-search">
+  <div class="dropdown-search-input">
+    <svg>…</svg>
+    <input placeholder="Buscar cliente…" aria-label="Buscar">
+  </div>
+  <button class="dropdown-item">Floristería Pérez</button>
+  <button class="dropdown-item">Hotel Mar Azul</button>
+</div>
+```
+
+**Cuándo**: "Asignar a cliente" entre 147 · seleccionar producto del
+catálogo · cualquier select que supere 10 items.
+
+### Matriz
+
+| Caso | Variante |
+|---|---|
+| Acciones contextuales en row | Action (default) |
+| Filtros multi-valor | Multi-select |
+| Listas largas con búsqueda | Searchable |

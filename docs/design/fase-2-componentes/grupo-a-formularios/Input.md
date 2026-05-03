@@ -171,3 +171,89 @@ voz del socio aclarando algo:
 
 `docs/design/mockup/components/input.html` — todos los tamaños, estados,
 con/sin icono, con error/helper, con copy real de Aelium.
+
+---
+
+## 10. Variantes adicionales · DD-029 (fase 2.F refresh)
+
+### 10.1 Password toggle · eye / eye-off
+
+Botón al final que alterna `type="password"` ↔ `type="text"`. Para
+login, registro, reset, cambio de pass.
+
+```html
+<div class="field field-md field-password">
+  <label class="field-label" for="p">Contraseña</label>
+  <div class="field-control">
+    <input id="p" class="input" type="password" placeholder="Tu contraseña">
+    <button class="password-toggle" type="button" aria-label="Mostrar contraseña">
+      <svg width="16" height="16">…eye icon</svg>
+    </button>
+  </div>
+</div>
+```
+
+**Voz**: `aria-label` cambia con estado — "Mostrar contraseña" / "Ocultar
+contraseña". No "Toggle visibility".
+
+### 10.2 Inline edit · click to edit
+
+Patrón "click en texto → se vuelve input". Para editar nombre cliente,
+tags rápidos sin abrir modal.
+
+```html
+<!-- View mode -->
+<span class="inline-edit">
+  <span class="inline-edit-text">Floristería Pérez</span>
+  <span class="inline-edit-hint"><svg>…edit</svg></span>
+</span>
+
+<!-- Edit mode -->
+<span class="inline-edit editing">
+  <input class="input" value="Floristería Pérez">
+  <span class="inline-edit-actions">
+    <button class="inline-edit-btn confirm" aria-label="Confirmar">✓</button>
+    <button class="inline-edit-btn cancel" aria-label="Cancelar">✕</button>
+  </span>
+</span>
+```
+
+**Cuándo**: editar nombre cliente desde detail header sin modal, tags
+inline, valores corregibles in situ.
+
+### 10.3 Prefix / suffix text
+
+Texto fijo dentro del input para unidades, monedas, dominios. Mono,
+tertiary, pointer-events: none.
+
+```html
+<!-- Suffix € -->
+<div class="field field-md field-suffix-text">
+  <label class="field-label">Importe</label>
+  <div class="field-control">
+    <input class="input" type="text" value="49,90">
+    <span class="field-text-affix">€</span>
+  </div>
+</div>
+
+<!-- Prefix https:// -->
+<div class="field field-md field-prefix-text">
+  <label class="field-label">URL del sitio</label>
+  <div class="field-control">
+    <span class="field-text-affix">https://</span>
+    <input class="input" type="text" placeholder="mitienda.com">
+  </div>
+</div>
+```
+
+**Cuándo**: `€`, `%`, números con unidades → suffix. `https://`, `+34`,
+`@` → prefix.
+
+### Matriz
+
+| Caso | Variante |
+|---|---|
+| Login / cambio password | Password toggle |
+| Editar inline en detail page | Inline edit |
+| Importes, porcentajes | Suffix text |
+| URLs, dominios, prefijos tel | Prefix text |
