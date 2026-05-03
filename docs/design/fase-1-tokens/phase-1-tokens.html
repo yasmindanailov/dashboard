@@ -1,0 +1,1583 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium Dashboard — Fase 1 · Design Tokens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   PROPOSED TOKENS — Fase 1
+   Refinamiento sobre frontend/app/globals.css existente.
+   Los nuevos están marcados con un + en los comentarios.
+   Solo valores light en esta fase; nombres preparados para dark.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  /* ── BRAND ── */
+  --brand:           #3B82F6;
+  --brand-hover:     #2563EB;
+  --brand-active:    #1D4ED8;
+  --brand-light:     #DBEAFE;
+  --brand-subtle:    rgba(59, 130, 246, 0.06);
+
+  /* ── SEMÁNTICOS — success ── */
+  --success:         #10B981;
+  --success-hover:   #059669;
+  --success-light:   rgba(16, 185, 129, 0.08);
+  --success-border:  rgba(16, 185, 129, 0.18);
+  --success-strong:  #047857; /* + texto sobre -light */
+
+  /* ── SEMÁNTICOS — warning ── */
+  --warning:         #F59E0B;
+  --warning-hover:   #D97706;
+  --warning-light:   rgba(245, 158, 11, 0.08);
+  --warning-border:  rgba(245, 158, 11, 0.18);
+  --warning-strong:  #92400E; /* + texto sobre -light */
+
+  /* ── SEMÁNTICOS — danger ── */
+  --danger:          #EF4444;
+  --danger-hover:    #DC2626;
+  --danger-light:    rgba(239, 68, 68, 0.08);
+  --danger-border:   rgba(239, 68, 68, 0.18);
+  --danger-strong:   #B91C1C; /* + texto sobre -light */
+
+  /* ── SEMÁNTICOS — info ── */
+  --info:            #3B82F6;
+  --info-hover:      #2563EB;
+  --info-light:      rgba(59, 130, 246, 0.08);
+  --info-border:     rgba(59, 130, 246, 0.18);
+  --info-strong:     #1E40AF; /* + texto sobre -light */
+
+  /* ── SEMÁNTICOS — pending (púrpura, usado por StatusDot) ── + */
+  --pending:         #8B5CF6;
+  --pending-hover:   #7C3AED;
+  --pending-active:  #6D28D9;
+  --pending-light:   rgba(139, 92, 246, 0.08);
+  --pending-border:  rgba(139, 92, 246, 0.18);
+  --pending-strong:  #6D28D9;
+
+  /* ── SUPERFICIES ── */
+  --surface-primary:   #FFFFFF;
+  --surface-secondary: #F7F7F8;
+  --surface-tertiary:  #F1F5F9;
+  --surface-dark:      #0A0A0B;
+
+  /* ── TEXTO ── */
+  --text-primary:    #0A0A0B;
+  --text-secondary:  #6B7280;
+  --text-tertiary:   #9CA3AF;
+  --text-on-brand:   #FFFFFF;
+  --text-on-dark:    rgba(255, 255, 255, 0.92);
+
+  /* ── BORDES ── */
+  --border:          rgba(0, 0, 0, 0.06);
+  --border-hover:    rgba(0, 0, 0, 0.10);
+  --border-active:   rgba(0, 0, 0, 0.15);
+
+  /* ── RADIOS ── */
+  --radius-xs:   4px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-full: 9999px;
+
+  /* ── SOMBRAS ── */
+  --shadow-xs:    0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md:    0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg:    0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-xl:    0 12px 40px rgba(0, 0, 0, 0.12);
+  --shadow-brand: 0 4px 24px rgba(59, 130, 246, 0.12);
+
+  /* ── SPACING (escala 4px) ── */
+  --space-0:   0px;
+  --space-0_5: 2px;
+  --space-1:   4px;
+  --space-1_5: 6px;
+  --space-2:   8px;
+  --space-2_5: 10px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+
+  /* ── TIPOGRAFÍA — familia ── */
+  --font-family: 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono:   'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* ── TIPOGRAFÍA — tamaños ── */
+  --font-size-xs:   11px;
+  --font-size-sm:   13px;
+  --font-size-base: 14px;
+  --font-size-md:   16px;
+  --font-size-lg:   20px;
+  --font-size-xl:   24px;
+  --font-size-2xl:  32px;
+  --font-size-3xl:  40px; /* + display */
+  --font-size-4xl:  56px; /* + display */
+
+  /* ── TIPOGRAFÍA — pesos ── */
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+
+  /* ── TIPOGRAFÍA — line-heights ── */
+  --line-height-tight:    1.2;
+  --line-height-snug:     1.35;
+  --line-height-normal:   1.5;
+  --line-height-relaxed:  1.625;
+
+  /* ── TRANSITIONS — durations ── */
+  --transition-fast:   150ms;
+  --transition-normal: 200ms;
+  --transition-slow:   300ms;
+
+  /* ── TRANSITIONS — easings ── + */
+  --ease-out:        cubic-bezier(0.16, 1, 0.3, 1);     /* entradas */
+  --ease-in:         cubic-bezier(0.7, 0, 0.84, 0);     /* salidas */
+  --ease-in-out:     cubic-bezier(0.65, 0, 0.35, 1);    /* default */
+  --ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1); /* énfasis */
+
+  /* ── LAYOUT ── */
+  --sidebar-width:      260px;
+  --sidebar-collapsed:  72px;
+  --topbar-height:      56px;
+  --container-list:     1280px; /* + List pages */
+  --container-detail:   1040px; /* + Detail pages */
+  --container-form:      720px; /* + Form pages */
+
+  /* ── Z-INDEX ── */
+  --z-dropdown:  100;
+  --z-sticky:    200;
+  --z-overlay:   300;
+  --z-modal:     400;
+  --z-toast:     500;
+  --z-tooltip:   600;
+
+  /* ── ICONS ── + */
+  --icon-size-sm:     14px;
+  --icon-size-md:     16px;
+  --icon-size-lg:     20px;
+  --icon-stroke-width: 1.5;
+
+  /* ── FIRMA VISUAL — accent por portal ── + */
+  --accent:        var(--brand);
+  --accent-hover:  var(--brand-hover);
+  --accent-light:  var(--brand-light);
+  --accent-subtle: var(--brand-subtle);
+  --accent-warm:   #F59E0B;
+
+  /* ── FIRMA VISUAL — mesh opacity ── + */
+  --mesh-opacity-auth:    1;
+  --mesh-opacity-product: 0.04;
+
+  /* ── FIRMA VISUAL — densidad ── + */
+  --row-height-compact:        36px;
+  --row-height-comfortable:    56px;
+  --cell-padding-compact:      10px 12px;
+  --cell-padding-comfortable:  16px 20px;
+  --card-padding-compact:      16px;
+  --card-padding-comfortable:  24px;
+  --body-size-compact:         14px;
+  --body-size-comfortable:     16px;
+
+  /* ── FIRMA VISUAL — focus ring ── + */
+  --focus-ring:         0 0 0 2px var(--surface-primary), 0 0 0 4px var(--brand);
+  --focus-ring-on-dark: 0 0 0 2px var(--surface-dark), 0 0 0 4px var(--brand-light);
+
+  /* ── FIRMA VISUAL — tabular numerals ── + */
+  --font-feature-numeric: "tnum" 1, "lnum" 1;
+
+  /* ── FIRMA VISUAL — motion choreography ── + */
+  --motion-stagger-fast:  30ms;
+  --motion-stagger-base:  60ms;
+  --motion-route:         220ms cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-stack-in:      180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-stack-out:     140ms cubic-bezier(0.7, 0, 0.84, 0);
+  --motion-modal-in:      240ms cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-modal-out:     180ms cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+/* ── Portal accent overrides ── + */
+[data-portal="client"]  { --accent: #3B82F6; --accent-hover: #2563EB; }
+[data-portal="agent"]   { --accent: #2563EB; --accent-hover: #1D4ED8; }
+[data-portal="admin"]   { --accent: #1D4ED8; --accent-hover: #1E40AF; }
+[data-portal="partner"] { --accent: #3B82F6; --accent-hover: #2563EB; }
+
+/* ═══════════════════════════════════════════════════════════════
+   PAGE CHROME
+   ═══════════════════════════════════════════════════════════════ */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--text-primary);
+  background: var(--surface-secondary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+}
+
+/* ── Sidebar nav ── */
+.nav {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--surface-primary);
+  border-right: 1px solid var(--border);
+  padding: var(--space-6) 0;
+}
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-6) var(--space-6);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-4);
+}
+.nav-brand-mark {
+  width: 22px;
+  height: 22px;
+  position: relative;
+}
+.nav-brand-mark::before,
+.nav-brand-mark::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--brand);
+}
+.nav-brand-mark::before { top: 0; left: 0; }
+.nav-brand-mark::after  { bottom: 0; right: 0; opacity: 0.55; }
+.nav-brand-name {
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-md);
+  letter-spacing: -0.01em;
+}
+.nav-brand-tag {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-medium);
+  background: var(--surface-tertiary);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+.nav-section {
+  padding: var(--space-3) var(--space-6) var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.nav a {
+  display: block;
+  padding: 7px var(--space-6);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  border-left: 2px solid transparent;
+  transition: color var(--transition-fast) var(--ease-in-out),
+              background var(--transition-fast) var(--ease-in-out);
+}
+.nav a:hover { color: var(--text-primary); background: var(--surface-secondary); }
+.nav a.active {
+  color: var(--brand);
+  border-left-color: var(--brand);
+  background: var(--brand-subtle);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ── Main ── */
+main {
+  padding: var(--space-12) var(--space-12) 96px;
+  max-width: 1080px;
+}
+.page-head {
+  margin-bottom: var(--space-12);
+}
+.page-eyebrow {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--brand);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-3);
+}
+.page-title {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--space-3);
+}
+.page-lede {
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  line-height: var(--line-height-relaxed);
+  max-width: 680px;
+  margin: 0;
+}
+.page-meta {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  flex-wrap: wrap;
+}
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+}
+.meta-pill .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--success);
+}
+.meta-pill.new .dot { background: var(--brand); }
+.meta-pill.draft .dot { background: var(--warning); }
+
+/* ── Section ── */
+section { margin-bottom: 88px; scroll-margin-top: 24px; }
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-8);
+}
+.section-num {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.section-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+.section-lede {
+  color: var(--text-secondary);
+  margin: var(--space-3) 0 var(--space-6);
+  max-width: 680px;
+  line-height: var(--line-height-relaxed);
+}
+
+.subsection {
+  margin-bottom: var(--space-10);
+}
+.subsection-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  margin: 0 0 var(--space-2);
+  letter-spacing: -0.005em;
+}
+.subsection-meta {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-5);
+  line-height: var(--line-height-relaxed);
+}
+
+.card {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.card + .card { margin-top: var(--space-3); }
+
+/* ── Code chip ── */
+code, .mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: var(--font-weight-regular);
+}
+.tok {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-tertiary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.tok.brand { background: var(--brand-subtle); color: var(--brand-active); }
+.tok.new::before {
+  content: "+";
+  display: inline-block;
+  margin-right: 4px;
+  color: var(--brand);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COLOR
+   ═══════════════════════════════════════════════════════════════ */
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+.swatch {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.swatch-chip {
+  height: 96px;
+  background: var(--c, var(--surface-tertiary));
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.swatch-chip[data-checker="1"] {
+  background-image:
+    linear-gradient(45deg, rgba(0,0,0,0.04) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(0,0,0,0.04) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.04) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.04) 75%),
+    var(--c);
+  background-size: 12px 12px;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+}
+.swatch-body { padding: var(--space-3) var(--space-4) var(--space-4); }
+.swatch-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin-bottom: 2px;
+  display: flex; align-items: center; gap: 6px;
+}
+.swatch-name .new-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--brand);
+}
+.swatch-tok {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  display: block;
+}
+.swatch-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* Contrast stack */
+.contrast-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+}
+.contrast-tile {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  padding: var(--space-4);
+  font-size: var(--font-size-sm);
+  display: flex; flex-direction: column; gap: 6px;
+  min-height: 92px;
+}
+.contrast-tile .label { font-weight: var(--font-weight-medium); }
+.contrast-tile .ratio {
+  margin-top: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  display: flex; align-items: center; gap: 4px;
+}
+.contrast-pass {
+  background: rgba(255,255,255,0.5);
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Neutral block */
+.neutral-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-3);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TYPOGRAPHY
+   ═══════════════════════════════════════════════════════════════ */
+.type-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 220px;
+  align-items: baseline;
+  padding: var(--space-5) 0;
+  border-bottom: 1px solid var(--border);
+  gap: var(--space-6);
+}
+.type-row:last-child { border-bottom: none; }
+.type-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.type-label-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  font-family: var(--font-family);
+}
+.type-sample {
+  color: var(--text-primary);
+}
+.type-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: right;
+  line-height: 1.6;
+}
+
+.weight-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+.weight-tile {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+}
+.weight-tile .num {
+  font-size: var(--font-size-3xl);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-bottom: var(--space-3);
+}
+.weight-tile .label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-1);
+}
+.weight-tile .rule {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  line-height: var(--line-height-relaxed);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SPACING
+   ═══════════════════════════════════════════════════════════════ */
+.space-row {
+  display: grid;
+  grid-template-columns: 100px 80px 1fr 1fr;
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+  gap: var(--space-4);
+  font-size: var(--font-size-sm);
+}
+.space-row:last-child { border-bottom: none; }
+.space-row .tok { font-size: 11px; }
+.space-row .px { font-family: var(--font-mono); color: var(--text-secondary); font-size: 12px; }
+.space-row .bar {
+  height: 8px;
+  background: var(--brand);
+  border-radius: var(--radius-xs);
+  width: var(--w);
+}
+.space-row .use {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RADII & SHADOWS
+   ═══════════════════════════════════════════════════════════════ */
+.radii-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--space-3);
+}
+.radii-tile {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  padding: var(--space-4);
+  text-align: center;
+}
+.radii-tile .demo {
+  width: 64px; height: 64px;
+  background: var(--brand-light);
+  border: 1px solid var(--brand);
+  margin: 0 auto var(--space-3);
+}
+.radii-tile .name { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); }
+.radii-tile .px { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+
+.shadow-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+.shadow-tile {
+  background: var(--surface-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  height: 132px;
+  display: flex; flex-direction: column; justify-content: space-between;
+}
+.shadow-tile .name { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); }
+.shadow-tile .tok { font-size: 11px; }
+.shadow-tile .use { font-size: 12px; color: var(--text-secondary); }
+
+/* ═══════════════════════════════════════════════════════════════
+   MOTION
+   ═══════════════════════════════════════════════════════════════ */
+.motion-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+.motion-tile {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+}
+.motion-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+.motion-name { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); }
+.motion-track {
+  position: relative;
+  height: 4px;
+  background: var(--surface-tertiary);
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-4);
+}
+.motion-dot {
+  position: absolute;
+  top: -6px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--brand);
+  left: 0;
+}
+.motion-tile.t-fast .motion-dot   { animation: slide 1500ms infinite; }
+.motion-tile.t-normal .motion-dot { animation: slide 2000ms infinite; }
+.motion-tile.t-slow .motion-dot   { animation: slide 2400ms infinite; }
+.motion-tile.t-spring .motion-dot { animation: slide 1800ms infinite; }
+.motion-tile.t-fast .motion-dot   { animation-timing-function: var(--ease-out); }
+.motion-tile.t-normal .motion-dot { animation-timing-function: var(--ease-in); }
+.motion-tile.t-slow .motion-dot   { animation-timing-function: var(--ease-in-out); }
+.motion-tile.t-spring .motion-dot { animation-timing-function: var(--ease-spring); }
+@keyframes slide {
+  0%   { left: 0; }
+  45%  { left: calc(100% - 16px); }
+  55%  { left: calc(100% - 16px); }
+  100% { left: 0; }
+}
+.motion-meta {
+  display: flex;
+  gap: var(--space-4);
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+.motion-use { font-size: 12px; color: var(--text-secondary); margin-top: var(--space-2); line-height: var(--line-height-relaxed); }
+
+/* ═══════════════════════════════════════════════════════════════
+   LAYOUT, Z-INDEX, ICONS
+   ═══════════════════════════════════════════════════════════════ */
+.layout-bar {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  height: 56px;
+  display: flex; align-items: center;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  position: relative;
+  overflow: hidden;
+}
+.layout-bar > div {
+  height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  border-right: 1px solid var(--border);
+}
+
+.zindex-list {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.zindex-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 200px;
+  align-items: center;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-size-sm);
+  gap: var(--space-4);
+}
+.zindex-row:last-child { border-bottom: none; }
+.zindex-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.icon-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+.icon-tile {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  display: flex; flex-direction: column; align-items: flex-start;
+}
+.icon-tile svg {
+  stroke: var(--text-primary);
+  stroke-width: var(--icon-stroke-width);
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  margin-bottom: var(--space-3);
+}
+.icon-tile .name { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); }
+.icon-tile .px { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+
+/* ═══════════════════════════════════════════════════════════════
+   MAPPING TABLE
+   ═══════════════════════════════════════════════════════════════ */
+.map-table {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+}
+.map-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 1fr;
+  border-bottom: 1px solid var(--border);
+}
+.map-row:last-child { border-bottom: none; }
+.map-row > div {
+  padding: var(--space-3) var(--space-4);
+  border-right: 1px solid var(--border);
+}
+.map-row > div:last-child { border-right: none; }
+.map-head {
+  background: var(--surface-secondary);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+.map-key { font-weight: var(--font-weight-medium); }
+
+/* ── Inline notes / callouts ── */
+.note {
+  background: var(--brand-subtle);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: var(--space-4) 0;
+  line-height: var(--line-height-relaxed);
+}
+.note strong { color: var(--text-primary); font-weight: var(--font-weight-medium); }
+
+.kv {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2) var(--space-6);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.kv strong { color: var(--text-primary); font-weight: var(--font-weight-medium); }
+
+footer.foot {
+  margin-top: 64px;
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+@media (max-width: 960px) {
+  .layout { grid-template-columns: 1fr; }
+  .nav { position: static; height: auto; }
+  main { padding: var(--space-8); }
+  .neutral-row, .contrast-grid, .radii-grid, .shadow-grid, .motion-grid { grid-template-columns: repeat(2, 1fr); }
+  .type-row { grid-template-columns: 1fr; }
+  .type-meta { text-align: left; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ─────────── SIDEBAR NAV ─────────── -->
+<aside class="nav" id="nav">
+  <div class="nav-brand">
+    <div class="nav-brand-mark"></div>
+    <div class="nav-brand-name">aelium</div>
+    <div class="nav-brand-tag">Fase 1</div>
+  </div>
+
+  <div class="nav-section">Foundations</div>
+  <a href="#color">Color</a>
+  <a href="#typography">Tipografía</a>
+  <a href="#spacing">Espaciado</a>
+  <a href="#radii">Radios</a>
+  <a href="#shadows">Sombras</a>
+  <a href="#motion">Motion</a>
+
+  <div class="nav-section">Sistema</div>
+  <a href="#layout">Layout</a>
+  <a href="#zindex">Z-index</a>
+  <a href="#icons">Iconografía</a>
+
+  <div class="nav-section">Aplicación</div>
+  <a href="#mapping">Mapping a componentes</a>
+  <a href="#changes">Cambios respecto al actual</a>
+  <a href="#darkmode">Preparación dark mode</a>
+</aside>
+
+<!-- ─────────── MAIN ─────────── -->
+<main>
+
+<header class="page-head">
+  <div class="page-eyebrow">Fase 1 · Design tokens</div>
+  <h1 class="page-title">Foundations del dashboard</h1>
+  <p class="page-lede">
+    Refinamiento y normalización de <span class="tok">globals.css</span>. Cubre todos los tokens necesarios para los 35 componentes existentes y deja la arquitectura semántica preparada para dark mode (fase 11). Esto es la fuente única de verdad — para cambiar el aspecto del dashboard, solo se edita este archivo.
+  </p>
+  <div class="page-meta">
+    <span class="meta-pill"><span class="dot"></span>122 tokens definidos</span>
+    <span class="meta-pill new"><span class="dot"></span>22 nuevos</span>
+    <span class="meta-pill draft"><span class="dot"></span>Pendiente de aprobación</span>
+  </div>
+</header>
+
+<!-- ═══════════ COLOR ═══════════ -->
+<section id="color">
+  <div class="section-head">
+    <h2 class="section-title">Color</h2>
+    <span class="section-num">01 / 09</span>
+  </div>
+  <p class="section-lede">
+    Sistema en cuatro capas: <strong>brand</strong> (acción), <strong>semánticos</strong> (estado), <strong>superficies/texto/borde</strong> (neutrales) y <strong>pending</strong> (proceso, púrpura). Todo nombrado por rol — nunca por color literal — para que dark mode no requiera renombrar nada en los componentes.
+  </p>
+
+  <!-- Brand -->
+  <div class="subsection">
+    <h3 class="subsection-title">Brand · azul Aelium</h3>
+    <p class="subsection-meta">
+      <span class="tok">--brand</span> es <span class="mono">#3B82F6</span> según documento de marca. Solo para acción primaria, links y estado activo. Una acción primaria por vista (Regla D2).
+    </p>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="swatch-chip" style="--c: #3B82F6"></div><div class="swatch-body"><div class="swatch-name">Brand</div><span class="swatch-tok">--brand</span><span class="swatch-val">#3B82F6</span></div></div>
+      <div class="swatch"><div class="swatch-chip" style="--c: #2563EB"></div><div class="swatch-body"><div class="swatch-name">Hover</div><span class="swatch-tok">--brand-hover</span><span class="swatch-val">#2563EB</span></div></div>
+      <div class="swatch"><div class="swatch-chip" style="--c: #1D4ED8"></div><div class="swatch-body"><div class="swatch-name">Active</div><span class="swatch-tok">--brand-active</span><span class="swatch-val">#1D4ED8</span></div></div>
+      <div class="swatch"><div class="swatch-chip" style="--c: #DBEAFE"></div><div class="swatch-body"><div class="swatch-name">Light</div><span class="swatch-tok">--brand-light</span><span class="swatch-val">#DBEAFE</span></div></div>
+      <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(59,130,246,0.06)"></div><div class="swatch-body"><div class="swatch-name">Subtle</div><span class="swatch-tok">--brand-subtle</span><span class="swatch-val">rgba(59,130,246,.06)</span></div></div>
+    </div>
+  </div>
+
+  <!-- Semánticos -->
+  <div class="subsection">
+    <h3 class="subsection-title">Semánticos · estado</h3>
+    <p class="subsection-meta">
+      Cuatro estados (success, warning, danger, info) cada uno con cinco variantes: <span class="tok">base</span>, <span class="tok">-hover</span>, <span class="tok">-light</span> (fondo banner/badge), <span class="tok">-border</span> y <span class="tok">-strong</span> (texto sobre <span class="tok">-light</span>, contraste AA).
+    </p>
+
+    <!-- Success -->
+    <div style="margin-top: var(--space-6);">
+      <div style="display:flex; align-items:baseline; gap:var(--space-3); margin-bottom:var(--space-3);">
+        <strong style="font-size: var(--font-size-sm);">Success</strong>
+        <span class="mono" style="color:var(--text-tertiary); font-size:11px;">resuelto, activo, online, pago confirmado</span>
+      </div>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-chip" style="--c: #10B981"></div><div class="swatch-body"><div class="swatch-name">Base</div><span class="swatch-tok">--success</span><span class="swatch-val">#10B981</span></div></div>
+        <div class="swatch"><div class="swatch-chip" style="--c: #059669"></div><div class="swatch-body"><div class="swatch-name"><span class="new-dot"></span>Hover</div><span class="swatch-tok">--success-hover</span><span class="swatch-val">#059669</span></div></div>
+        <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(16,185,129,0.08)"></div><div class="swatch-body"><div class="swatch-name">Light</div><span class="swatch-tok">--success-light</span><span class="swatch-val">rgba(16,185,129,.08)</span></div></div>
+        <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(16,185,129,0.18)"></div><div class="swatch-body"><div class="swatch-name">Border</div><span class="swatch-tok">--success-border</span><span class="swatch-val">rgba(16,185,129,.18)</span></div></div>
+        <div class="swatch"><div class="swatch-chip" style="--c: #047857"></div><div class="swatch-body"><div class="swatch-name"><span class="new-dot"></span>Strong</div><span class="swatch-tok">--success-strong</span><span class="swatch-val">#047857</span></div></div>
+      </div>
+    </div>
+
+    <!-- Warning -->
+    <div style="margin-top: var(--space-6);">
+      <div style="display:flex; align-items:baseline; gap:var(--space-3); margin-bottom:var(--space-3);">
+        <strong style="font-size: var(--font-size-sm);">Warning</strong>
+        <span class="mono" style="color:var(--text-tertiary); font-size:11px;">esperando cliente, vencimiento próximo, ratelimit</span>
+      </div>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-chip" style="--c: #F59E0B"></div><div class="swatch-body"><div class="swatch-name">Base</div><span class="swatch-tok">--warning</span><span class="swatch-val">#F59E0B</span></div></div>
+        <div class="swatch"><div class="swatch-chip" style="--c: #D97706"></div><div class="swatch-body"><div class="swatch-name">Hover</div><span class="swatch-tok">--warning-hover</span><span class="swatch-val">#D97706</span></div></div>
+        <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(245,158,11,0.08)"></div><div class="swatch-body"><div class="swatch-name">Light</div><span class="swatch-tok">--warning-light</span><span class="swatch-val">rgba(245,158,11,.08)</span></div></div>
+        <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(245,158,11,0.18)"></div><div class="swatch-body"><div class="swatch-name">Border</div><span class="swatch-tok">--warning-border</span><span class="swatch-val">rgba(245,158,11,.18)</span></div></div>
+        <div class="swatch"><div class="swatch-chip" style="--c: #92400E"></div><div class="swatch-body"><div class="swatch-name"><span class="new-dot"></span>Strong</div><span class="swatch-tok">--warning-strong</span><span class="swatch-val">#92400E</span></div></div>
+      </div>
+    </div>
+
+    <!-- Danger -->
+    <div style="margin-top: var(--space-6);">
+      <div style="display:flex; align-items:baseline; gap:var(--space-3); margin-bottom:var(--space-3);">
+        <strong style="font-size: var(--font-size-sm);">Danger</strong>
+        <span class="mono" style="color:var(--text-tertiary); font-size:11px;">error, suspendido, factura vencida, urgente</span>
+      </div>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-chip" style="--c: #EF4444"></div><div class="swatch-body"><div class="swatch-name">Base</div><span class="swatch-tok">--danger</span><span class="swatch-val">#EF4444</span></div></div>
+        <div class="swatch"><div class="swatch-chip" style="--c: #DC2626"></div><div class="swatch-body"><div class="swatch-name"><span class="new-dot"></span>Hover</div><span class="swatch-tok">--danger-hover</span><span class="swatch-val">#DC2626</span></div></div>
+        <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(239,68,68,0.08)"></div><div class="swatch-body"><div class="swatch-name">Light</div><span class="swatch-tok">--danger-light</span><span class="swatch-val">rgba(239,68,68,.08)</span></div></div>
+        <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(239,68,68,0.18)"></div><div class="swatch-body"><div class="swatch-name">Border</div><span class="swatch-tok">--danger-border</span><span class="swatch-val">rgba(239,68,68,.18)</span></div></div>
+        <div class="swatch"><div class="swatch-chip" style="--c: #B91C1C"></div><div class="swatch-body"><div class="swatch-name"><span class="new-dot"></span>Strong</div><span class="swatch-tok">--danger-strong</span><span class="swatch-val">#B91C1C</span></div></div>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div style="margin-top: var(--space-6);">
+      <div style="display:flex; align-items:baseline; gap:var(--space-3); margin-bottom:var(--space-3);">
+        <strong style="font-size: var(--font-size-sm);">Info</strong>
+        <span class="mono" style="color:var(--text-tertiary); font-size:11px;">aviso neutro, ayuda contextual</span>
+      </div>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-chip" style="--c: #3B82F6"></div><div class="swatch-body"><div class="swatch-name">Base</div><span class="swatch-tok">--info</span><span class="swatch-val">#3B82F6</span></div></div>
+        <div class="swatch"><div class="swatch-chip" style="--c: #2563EB"></div><div class="swatch-body"><div class="swatch-name"><span class="new-dot"></span>Hover</div><span class="swatch-tok">--info-hover</span><span class="swatch-val">#2563EB</span></div></div>
+        <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(59,130,246,0.08)"></div><div class="swatch-body"><div class="swatch-name">Light</div><span class="swatch-tok">--info-light</span><span class="swatch-val">rgba(59,130,246,.08)</span></div></div>
+        <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(59,130,246,0.18)"></div><div class="swatch-body"><div class="swatch-name">Border</div><span class="swatch-tok">--info-border</span><span class="swatch-val">rgba(59,130,246,.18)</span></div></div>
+        <div class="swatch"><div class="swatch-chip" style="--c: #1E40AF"></div><div class="swatch-body"><div class="swatch-name"><span class="new-dot"></span>Strong</div><span class="swatch-tok">--info-strong</span><span class="swatch-val">#1E40AF</span></div></div>
+      </div>
+      <div class="note"><strong>Nota:</strong> <span class="tok">--info</span> es idéntico a <span class="tok">--brand</span>. Los mantenemos como tokens separados — son distintos roles (acción vs aviso). Si en el futuro info pasa a otro tono, no hay que tocar componentes.</div>
+    </div>
+
+    <!-- Pending -->
+    <div style="margin-top: var(--space-6);">
+      <div style="display:flex; align-items:baseline; gap:var(--space-3); margin-bottom:var(--space-3);">
+        <strong style="font-size: var(--font-size-sm);">Pending <span class="new-dot"></span></strong>
+        <span class="mono" style="color:var(--text-tertiary); font-size:11px;">en proceso, en revisión, pendiente de validación · ya usado por StatusDot</span>
+      </div>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-chip" style="--c: #8B5CF6"></div><div class="swatch-body"><div class="swatch-name"><span class="new-dot"></span>Base</div><span class="swatch-tok">--pending</span><span class="swatch-val">#8B5CF6</span></div></div>
+        <div class="swatch"><div class="swatch-chip" style="--c: #7C3AED"></div><div class="swatch-body"><div class="swatch-name"><span class="new-dot"></span>Hover</div><span class="swatch-tok">--pending-hover</span><span class="swatch-val">#7C3AED</span></div></div>
+        <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(139,92,246,0.08)"></div><div class="swatch-body"><div class="swatch-name"><span class="new-dot"></span>Light</div><span class="swatch-tok">--pending-light</span><span class="swatch-val">rgba(139,92,246,.08)</span></div></div>
+        <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(139,92,246,0.18)"></div><div class="swatch-body"><div class="swatch-name"><span class="new-dot"></span>Border</div><span class="swatch-tok">--pending-border</span><span class="swatch-val">rgba(139,92,246,.18)</span></div></div>
+        <div class="swatch"><div class="swatch-chip" style="--c: #6D28D9"></div><div class="swatch-body"><div class="swatch-name"><span class="new-dot"></span>Strong</div><span class="swatch-tok">--pending-strong</span><span class="swatch-val">#6D28D9</span></div></div>
+      </div>
+    </div>
+
+    <!-- Contrast verification -->
+    <div style="margin-top: var(--space-6);">
+      <h4 style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); margin: 0 0 var(--space-3);">Verificación de contraste · texto <span class="tok">-strong</span> sobre fondo <span class="tok">-light</span></h4>
+      <div class="contrast-grid">
+        <div class="contrast-tile" style="background: #ECFDF5;">
+          <span class="label" style="color: #047857;">Pago confirmado</span>
+          <span style="color: #047857; font-size: var(--font-size-xs);">Sobre #ECFDF5 (success-light opaco)</span>
+          <span class="ratio" style="color: #047857;"><span class="contrast-pass">AA · 5.9:1</span></span>
+        </div>
+        <div class="contrast-tile" style="background: #FFFBEB;">
+          <span class="label" style="color: #92400E;">Esperando cliente</span>
+          <span style="color: #92400E; font-size: var(--font-size-xs);">Sobre #FFFBEB</span>
+          <span class="ratio" style="color: #92400E;"><span class="contrast-pass">AA · 7.1:1</span></span>
+        </div>
+        <div class="contrast-tile" style="background: #FEF2F2;">
+          <span class="label" style="color: #B91C1C;">Servicio suspendido</span>
+          <span style="color: #B91C1C; font-size: var(--font-size-xs);">Sobre #FEF2F2</span>
+          <span class="ratio" style="color: #B91C1C;"><span class="contrast-pass">AA · 6.4:1</span></span>
+        </div>
+        <div class="contrast-tile" style="background: #EFF6FF;">
+          <span class="label" style="color: #1E40AF;">Aviso de mantenimiento</span>
+          <span style="color: #1E40AF; font-size: var(--font-size-xs);">Sobre #EFF6FF</span>
+          <span class="ratio" style="color: #1E40AF;"><span class="contrast-pass">AA · 8.6:1</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Neutrals -->
+  <div class="subsection">
+    <h3 class="subsection-title">Neutrales · superficies, texto, borde</h3>
+    <p class="subsection-meta">Tres niveles de superficie (jerarquía de fondo), tres de texto (jerarquía de información) y tres de borde (intensidad de la separación). Todo en escalas de 3 — fácil de mapear a dark mode invirtiendo.</p>
+
+    <h4 style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); margin: var(--space-5) 0 var(--space-3);">Superficies</h4>
+    <div class="neutral-row">
+      <div class="swatch"><div class="swatch-chip" style="--c: #FFFFFF; border-bottom:1px solid var(--border);"></div><div class="swatch-body"><div class="swatch-name">Primary</div><span class="swatch-tok">--surface-primary</span><span class="swatch-val">#FFFFFF</span></div></div>
+      <div class="swatch"><div class="swatch-chip" style="--c: #F7F7F8"></div><div class="swatch-body"><div class="swatch-name">Secondary</div><span class="swatch-tok">--surface-secondary</span><span class="swatch-val">#F7F7F8</span></div></div>
+      <div class="swatch"><div class="swatch-chip" style="--c: #F1F5F9"></div><div class="swatch-body"><div class="swatch-name">Tertiary</div><span class="swatch-tok">--surface-tertiary</span><span class="swatch-val">#F1F5F9</span></div></div>
+      <div class="swatch"><div class="swatch-chip" style="--c: #0A0A0B"></div><div class="swatch-body"><div class="swatch-name">Dark</div><span class="swatch-tok">--surface-dark</span><span class="swatch-val">#0A0A0B</span></div></div>
+      <div class="swatch"><div class="swatch-chip" style="--c: #DBEAFE"></div><div class="swatch-body"><div class="swatch-name">Brand-light</div><span class="swatch-tok">--brand-light</span><span class="swatch-val">#DBEAFE</span></div></div>
+    </div>
+
+    <h4 style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); margin: var(--space-6) 0 var(--space-3);">Texto</h4>
+    <div class="neutral-row">
+      <div class="swatch"><div class="swatch-chip" style="--c: #0A0A0B"></div><div class="swatch-body"><div class="swatch-name">Primary</div><span class="swatch-tok">--text-primary</span><span class="swatch-val">#0A0A0B</span></div></div>
+      <div class="swatch"><div class="swatch-chip" style="--c: #6B7280"></div><div class="swatch-body"><div class="swatch-name">Secondary</div><span class="swatch-tok">--text-secondary</span><span class="swatch-val">#6B7280</span></div></div>
+      <div class="swatch"><div class="swatch-chip" style="--c: #9CA3AF"></div><div class="swatch-body"><div class="swatch-name">Tertiary</div><span class="swatch-tok">--text-tertiary</span><span class="swatch-val">#9CA3AF</span></div></div>
+      <div class="swatch"><div class="swatch-chip" style="--c: #FFFFFF; border-bottom:1px solid var(--border);"></div><div class="swatch-body"><div class="swatch-name">On-brand</div><span class="swatch-tok">--text-on-brand</span><span class="swatch-val">#FFFFFF</span></div></div>
+      <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(255,255,255,0.92); background-color:#0A0A0B;"></div><div class="swatch-body"><div class="swatch-name">On-dark</div><span class="swatch-tok">--text-on-dark</span><span class="swatch-val">rgba(255,255,255,.92)</span></div></div>
+    </div>
+
+    <h4 style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); margin: var(--space-6) 0 var(--space-3);">Bordes</h4>
+    <div class="neutral-row">
+      <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(0,0,0,0.06)"></div><div class="swatch-body"><div class="swatch-name">Default</div><span class="swatch-tok">--border</span><span class="swatch-val">rgba(0,0,0,.06)</span></div></div>
+      <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(0,0,0,0.10)"></div><div class="swatch-body"><div class="swatch-name">Hover</div><span class="swatch-tok">--border-hover</span><span class="swatch-val">rgba(0,0,0,.10)</span></div></div>
+      <div class="swatch"><div class="swatch-chip" data-checker="1" style="--c: rgba(0,0,0,0.15)"></div><div class="swatch-body"><div class="swatch-name">Active</div><span class="swatch-tok">--border-active</span><span class="swatch-val">rgba(0,0,0,.15)</span></div></div>
+    </div>
+
+    <div class="note">
+      <strong>Cuándo usar gris neutral vs color semántico.</strong> Si el dato comunica un <em>estado</em> (resuelto, vencido, urgente, en revisión) → color semántico. Si es <em>metadata descriptiva</em> sin valoración (fecha, autor, ID, contador, tag de categoría) → gris (<span class="tok">--text-secondary</span> o <span class="tok">--text-tertiary</span>). Mismo principio que Stripe: los semánticos cuestan atención del usuario, no se gastan en metadata.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ TYPOGRAPHY ═══════════ -->
+<section id="typography">
+  <div class="section-head">
+    <h2 class="section-title">Tipografía</h2>
+    <span class="section-num">02 / 09</span>
+  </div>
+  <p class="section-lede">
+    DM Sans (400/500/600) en escala de 11px → 56px. Tres pesos con reglas de uso explícitas. La escala display (3xl/4xl) se reserva para empty states, hero del cliente y números prominentes — no para títulos de sección.
+  </p>
+
+  <!-- Family + weights -->
+  <div class="subsection">
+    <h3 class="subsection-title">Pesos · cuándo usar cada uno</h3>
+    <div class="weight-grid">
+      <div class="weight-tile">
+        <div class="num" style="font-weight: 400;">Aa</div>
+        <div class="label">Regular · 400</div>
+        <div class="rule">Por defecto. Cuerpo, párrafos, labels, descripciones, valores en celdas de tabla.</div>
+      </div>
+      <div class="weight-tile">
+        <div class="num" style="font-weight: 500;">Aa</div>
+        <div class="label">Medium · 500</div>
+        <div class="rule">Botones, headers de tabla, navegación activa, badges, títulos h2/h3, énfasis ligero.</div>
+      </div>
+      <div class="weight-tile">
+        <div class="num" style="font-weight: 600;">Aa</div>
+        <div class="label">Semibold · 600</div>
+        <div class="rule"><strong>Reservado.</strong> Solo: números grandes en StatsCard, display headings (3xl/4xl), h1 de página, énfasis fuerte (no botones).</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scale -->
+  <div class="subsection">
+    <h3 class="subsection-title">Escala</h3>
+    <p class="subsection-meta">Pares <span class="mono">size / line-height / letter-spacing</span> con uso semántico recomendado. Las display (3xl/4xl) son nuevas.</p>
+
+    <div class="card" style="padding: 0 var(--space-5);">
+      <div class="type-row">
+        <div>
+          <div class="type-label-name">caption</div>
+          <div class="type-label">--font-size-xs</div>
+        </div>
+        <div class="type-sample" style="font-size: 11px; line-height: 1.5;">Caption · etiqueta uppercase, metadata muy secundaria, badge interno</div>
+        <div class="type-meta">11 / 16 · 0<br>weight: 400/500</div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label-name">small</div>
+          <div class="type-label">--font-size-sm</div>
+        </div>
+        <div class="type-sample" style="font-size: 13px; line-height: 1.5;">Small · texto secundario, helper de input, items de menú compacto</div>
+        <div class="type-meta">13 / 20 · 0<br>weight: 400/500</div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label-name">body</div>
+          <div class="type-label">--font-size-base</div>
+        </div>
+        <div class="type-sample" style="font-size: 14px; line-height: 1.5;">Body · cuerpo por defecto del dashboard (Admin/Agente), celdas de tabla, formularios</div>
+        <div class="type-meta">14 / 21 · 0<br>weight: 400</div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label-name">body-lg</div>
+          <div class="type-label">--font-size-md</div>
+        </div>
+        <div class="type-sample" style="font-size: 16px; line-height: 1.5;">Body large · cuerpo cliente (densidad baja), descripciones de empty state, lede de página</div>
+        <div class="type-meta">16 / 24 · 0<br>weight: 400</div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label-name">h3</div>
+          <div class="type-label">--font-size-lg</div>
+        </div>
+        <div class="type-sample" style="font-size: 20px; line-height: 1.35; font-weight: 500; letter-spacing: -0.005em;">H3 · título de Card, sección dentro de Detail page</div>
+        <div class="type-meta">20 / 27 · -0.005em<br>weight: 500</div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label-name">h2</div>
+          <div class="type-label">--font-size-xl</div>
+        </div>
+        <div class="type-sample" style="font-size: 24px; line-height: 1.3; font-weight: 500; letter-spacing: -0.01em;">H2 · subtítulo de página, header de Detail</div>
+        <div class="type-meta">24 / 31 · -0.01em<br>weight: 500</div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label-name">h1</div>
+          <div class="type-label">--font-size-2xl</div>
+        </div>
+        <div class="type-sample" style="font-size: 32px; line-height: 1.25; font-weight: 600; letter-spacing: -0.015em;">H1 · título de página</div>
+        <div class="type-meta">32 / 40 · -0.015em<br>weight: 600</div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label-name">display-sm <span class="new-dot" style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--brand);vertical-align:middle;margin-left:4px;"></span></div>
+          <div class="type-label">--font-size-3xl</div>
+        </div>
+        <div class="type-sample" style="font-size: 40px; line-height: 1.2; font-weight: 600; letter-spacing: -0.02em;">Display sm · número StatsCard, hero cliente</div>
+        <div class="type-meta">40 / 48 · -0.02em<br>weight: 600</div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label-name">display-lg <span class="new-dot" style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--brand);vertical-align:middle;margin-left:4px;"></span></div>
+          <div class="type-label">--font-size-4xl</div>
+        </div>
+        <div class="type-sample" style="font-size: 56px; line-height: 1.1; font-weight: 600; letter-spacing: -0.025em;">Display lg · empty state grande</div>
+        <div class="type-meta">56 / 62 · -0.025em<br>weight: 600</div>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>Densidad por audiencia.</strong> Cliente → cuerpo en <span class="tok">body-lg (16px)</span> con line-height 1.5. Agente / Admin → cuerpo en <span class="tok">body (14px)</span> con line-height 1.5. Partner → 14px por defecto, 16px en pantallas comerciales. La escala es la misma — solo cambia qué token consume cada layout.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ SPACING ═══════════ -->
+<section id="spacing">
+  <div class="section-head">
+    <h2 class="section-title">Espaciado</h2>
+    <span class="section-num">03 / 09</span>
+  </div>
+  <p class="section-lede">
+    Escala de 4px (Regla D6). Sin valores arbitrarios. Cada step tiene un uso recomendado — la columna "uso" no es prescriptiva, es la guía por defecto.
+  </p>
+
+  <div class="subsection">
+    <div class="card" style="padding: var(--space-2) var(--space-5);">
+      <div class="space-row" style="--w: 0px;"><span class="tok">--space-0</span><span class="px">0px</span><div class="bar" style="--w: 0px;"></div><span class="use">Reset</span></div>
+      <div class="space-row" style="--w: 2px;"><span class="tok">--space-0_5</span><span class="px">2px</span><div class="bar" style="--w: 2px;"></div><span class="use">Ajustes ópticos en iconos</span></div>
+      <div class="space-row" style="--w: 4px;"><span class="tok">--space-1</span><span class="px">4px</span><div class="bar" style="--w: 4px;"></div><span class="use">Gap label↔valor, ajuste interno de chip</span></div>
+      <div class="space-row" style="--w: 6px;"><span class="tok">--space-1_5</span><span class="px">6px</span><div class="bar" style="--w: 6px;"></div><span class="use">Padding vertical de tag/chip pequeño</span></div>
+      <div class="space-row" style="--w: 8px;"><span class="tok">--space-2</span><span class="px">8px</span><div class="bar" style="--w: 8px;"></div><span class="use">Gap entre botón e icono, padding badge</span></div>
+      <div class="space-row" style="--w: 10px;"><span class="tok">--space-2_5</span><span class="px">10px</span><div class="bar" style="--w: 10px;"></div><span class="use">Padding vertical de Input sm</span></div>
+      <div class="space-row" style="--w: 12px;"><span class="tok">--space-3</span><span class="px">12px</span><div class="bar" style="--w: 12px;"></div><span class="use">Padding Input md, gap entre items en lista</span></div>
+      <div class="space-row" style="--w: 16px;"><span class="tok">--space-4</span><span class="px">16px</span><div class="bar" style="--w: 16px;"></div><span class="use">Padding Card sm, gap horizontal de FilterBar</span></div>
+      <div class="space-row" style="--w: 20px;"><span class="tok">--space-5</span><span class="px">20px</span><div class="bar" style="--w: 20px;"></div><span class="use">Padding Card md, separación entre filas de form</span></div>
+      <div class="space-row" style="--w: 24px;"><span class="tok">--space-6</span><span class="px">24px</span><div class="bar" style="--w: 24px;"></div><span class="use">Padding Card lg, padding interior de PageHeader</span></div>
+      <div class="space-row" style="--w: 32px;"><span class="tok">--space-8</span><span class="px">32px</span><div class="bar" style="--w: 32px;"></div><span class="use">Separación entre secciones dentro de página</span></div>
+      <div class="space-row" style="--w: 40px;"><span class="tok">--space-10</span><span class="px">40px</span><div class="bar" style="--w: 40px;"></div><span class="use">Padding lateral de main, separación PageHeader↔contenido</span></div>
+      <div class="space-row" style="--w: 48px;"><span class="tok">--space-12</span><span class="px">48px</span><div class="bar" style="--w: 48px;"></div><span class="use">Top padding de página, separación entre bloques mayores</span></div>
+      <div class="space-row" style="--w: 64px;"><span class="tok">--space-16</span><span class="px">64px</span><div class="bar" style="--w: 64px;"></div><span class="use">Empty state vertical, separación hero/contenido en cliente</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ RADII ═══════════ -->
+<section id="radii">
+  <div class="section-head">
+    <h2 class="section-title">Radios</h2>
+    <span class="section-num">04 / 09</span>
+  </div>
+  <p class="section-lede">Escala estricta. Cada componente tiene un radio asignado — no se elige caso a caso.</p>
+
+  <div class="subsection">
+    <div class="radii-grid">
+      <div class="radii-tile"><div class="demo" style="border-radius: 4px;"></div><div class="name">xs</div><div class="px">4px</div></div>
+      <div class="radii-tile"><div class="demo" style="border-radius: 8px;"></div><div class="name">sm</div><div class="px">8px</div></div>
+      <div class="radii-tile"><div class="demo" style="border-radius: 12px;"></div><div class="name">md</div><div class="px">12px</div></div>
+      <div class="radii-tile"><div class="demo" style="border-radius: 16px;"></div><div class="name">lg</div><div class="px">16px</div></div>
+      <div class="radii-tile"><div class="demo" style="border-radius: 24px;"></div><div class="name">xl</div><div class="px">24px</div></div>
+      <div class="radii-tile"><div class="demo" style="border-radius: 9999px;"></div><div class="name">full</div><div class="px">9999px</div></div>
+    </div>
+
+    <div class="kv" style="margin-top: var(--space-6);">
+      <div><span class="tok">--radius-xs</span> · 4px</div><div>Code chip, inline tag, kbd, focus ring inset</div>
+      <div><span class="tok">--radius-sm</span> · 8px</div><div>Input, Select, Textarea, AlertBanner</div>
+      <div><span class="tok">--radius-md</span> · 12px</div><div>Card, Modal, Dropdown, Tooltip dark, Toast</div>
+      <div><span class="tok">--radius-lg</span> · 16px</div><div>Modal grande, panel lateral (NotificationBell, SupportPanel)</div>
+      <div><span class="tok">--radius-xl</span> · 24px</div><div>Hero cliente, contenedor de empty state grande</div>
+      <div><span class="tok">--radius-full</span></div><div>Button, Badge, Avatar, StatusDot, Pagination</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ SHADOWS ═══════════ -->
+<section id="shadows">
+  <div class="section-head">
+    <h2 class="section-title">Sombras</h2>
+    <span class="section-num">05 / 09</span>
+  </div>
+  <p class="section-lede">Light-first dashboard — sombras suaves. Cada nivel = un nivel de elevación. <strong>Card NO usa sombra por defecto</strong> (vive sobre <span class="tok">--surface-secondary</span> con borde). Las sombras se reservan para elementos <em>levantados</em>.</p>
+
+  <div class="subsection">
+    <div class="shadow-grid">
+      <div class="shadow-tile" style="box-shadow: var(--shadow-xs);">
+        <div><div class="name">xs</div><span class="tok">--shadow-xs</span></div>
+        <div class="use">Hover sutil de Card interactiva</div>
+      </div>
+      <div class="shadow-tile" style="box-shadow: var(--shadow-sm);">
+        <div><div class="name">sm</div><span class="tok">--shadow-sm</span></div>
+        <div class="use">Topbar al hacer scroll</div>
+      </div>
+      <div class="shadow-tile" style="box-shadow: var(--shadow-md);">
+        <div><div class="name">md</div><span class="tok">--shadow-md</span></div>
+        <div class="use">Dropdown, CommandPalette, Popover</div>
+      </div>
+      <div class="shadow-tile" style="box-shadow: var(--shadow-lg);">
+        <div><div class="name">lg</div><span class="tok">--shadow-lg</span></div>
+        <div class="use">Modal, Toast</div>
+      </div>
+      <div class="shadow-tile" style="box-shadow: var(--shadow-xl);">
+        <div><div class="name">xl</div><span class="tok">--shadow-xl</span></div>
+        <div class="use">ChatWidget flotante, panel lateral overlay</div>
+      </div>
+      <div class="shadow-tile" style="box-shadow: var(--shadow-brand);">
+        <div><div class="name">brand</div><span class="tok">--shadow-brand</span></div>
+        <div class="use">CTA primario destacado en cliente, focus de input importante</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ MOTION ═══════════ -->
+<section id="motion">
+  <div class="section-head">
+    <h2 class="section-title">Motion</h2>
+    <span class="section-num">06 / 09</span>
+  </div>
+  <p class="section-lede">Tres durations + cuatro easings. Cada combinación tiene un uso. Para coreografías complejas (entry/exit de Modal, ChatWidget) se usa Framer Motion 12 con estas mismas constantes — no easings inventados.</p>
+
+  <div class="subsection">
+    <h3 class="subsection-title">Durations</h3>
+    <div class="motion-grid">
+      <div class="motion-tile t-fast">
+        <div class="motion-head">
+          <span class="motion-name">Fast</span>
+          <span class="tok">--transition-fast</span>
+        </div>
+        <div class="motion-track"><div class="motion-dot"></div></div>
+        <div class="motion-meta"><span>150ms</span><span class="mono" style="color:var(--text-tertiary);">+ ease-out</span></div>
+        <div class="motion-use">Hover de botón/link, cambio de color, focus ring, opacidad de chip.</div>
+      </div>
+      <div class="motion-tile t-normal">
+        <div class="motion-head">
+          <span class="motion-name">Normal · default</span>
+          <span class="tok">--transition-normal</span>
+        </div>
+        <div class="motion-track"><div class="motion-dot"></div></div>
+        <div class="motion-meta"><span>200ms</span><span class="mono" style="color:var(--text-tertiary);">+ ease-in-out</span></div>
+        <div class="motion-use">Apertura de Dropdown, transform de Toggle, expand/collapse de fila.</div>
+      </div>
+      <div class="motion-tile t-slow">
+        <div class="motion-head">
+          <span class="motion-name">Slow</span>
+          <span class="tok">--transition-slow</span>
+        </div>
+        <div class="motion-track"><div class="motion-dot"></div></div>
+        <div class="motion-meta"><span>300ms</span><span class="mono" style="color:var(--text-tertiary);">+ ease-in-out</span></div>
+        <div class="motion-use">Modal in/out, panel lateral, cambio de pestaña con animación, layout shifts.</div>
+      </div>
+      <div class="motion-tile t-spring">
+        <div class="motion-head">
+          <span class="motion-name">Spring · énfasis</span>
+          <span class="tok">--ease-spring</span>
+        </div>
+        <div class="motion-track"><div class="motion-dot"></div></div>
+        <div class="motion-meta"><span>200–300ms</span><span class="mono" style="color:var(--text-tertiary);">+ ease-spring</span></div>
+        <div class="motion-use">Toast aparece, badge nuevo, micro-interacción de éxito. <strong>Uso restringido</strong> — no abusar.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">Easings · qué curva con qué cambio</h3>
+    <div class="kv">
+      <div><span class="tok new">--ease-out</span></div>
+      <div><strong>Entradas.</strong> El elemento aparece y "asienta". Modal entrando, dropdown abriendo, toast apareciendo, Card haciendo hover-up.</div>
+      <div><span class="tok new">--ease-in</span></div>
+      <div><strong>Salidas.</strong> El elemento se despide acelerando. Modal cerrando, toast auto-dismiss, item siendo eliminado de lista.</div>
+      <div><span class="tok new">--ease-in-out</span></div>
+      <div><strong>Default.</strong> Cualquier cambio que va y vuelve, o cuando dudas. Hover bidireccional, expand/collapse, swap de contenido.</div>
+      <div><span class="tok new">--ease-spring</span></div>
+      <div><strong>Énfasis.</strong> Solo para feedback positivo puntual. Confirmación de acción, badge de nuevo mensaje, success toast.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ LAYOUT ═══════════ -->
+<section id="layout">
+  <div class="section-head">
+    <h2 class="section-title">Layout</h2>
+    <span class="section-num">07 / 09</span>
+  </div>
+  <p class="section-lede">Tokens de chrome (sidebar/topbar) y de ancho máximo de contenido por tipo de página (UI_SPEC §2). Los containers hacen que las páginas no se vuelvan ilegibles en monitores ultra-anchos.</p>
+
+  <div class="subsection">
+    <h3 class="subsection-title">Chrome</h3>
+    <div class="kv">
+      <div><span class="tok">--sidebar-width</span> · 260px</div><div>Ancho del sidebar expandido en Admin/Agente/Cliente/Partner</div>
+      <div><span class="tok">--sidebar-collapsed</span> · 72px</div><div>Sidebar replegado (solo iconos)</div>
+      <div><span class="tok">--topbar-height</span> · 56px</div><div>Altura del topbar — sticky, separa con shadow-sm al hacer scroll</div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">Containers · ancho máximo de contenido</h3>
+    <p class="subsection-meta">El sidebar es fijo. El <span class="mono">main</span> es fluido pero el contenido se centra dentro del container correspondiente al tipo de página.</p>
+    <div class="layout-bar">
+      <div style="width: 720px;">--container-form · 720px</div>
+      <div style="flex: 1;">spill</div>
+    </div>
+    <div class="layout-bar" style="margin-top: var(--space-2);">
+      <div style="width: 1040px;">--container-detail · 1040px</div>
+      <div style="flex: 1;">spill</div>
+    </div>
+    <div class="layout-bar" style="margin-top: var(--space-2);">
+      <div style="width: 1280px;">--container-list · 1280px</div>
+      <div style="flex: 1;">spill</div>
+    </div>
+    <div class="kv" style="margin-top: var(--space-5);">
+      <div><span class="tok new">--container-form</span> · 720px</div><div>Form pages (D10) — una columna, lectura cómoda</div>
+      <div><span class="tok new">--container-detail</span> · 1040px</div><div>Detail pages — header + tabs, contenido a 2 columnas máximo</div>
+      <div><span class="tok new">--container-list</span> · 1280px</div><div>List pages — tablas con muchas columnas, dashboards</div>
+      <div><span class="mono" style="color:var(--text-tertiary);">(none)</span></div><div>Workspace (chats 3 columnas) → fluid, no container</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ Z-INDEX ═══════════ -->
+<section id="zindex">
+  <div class="section-head">
+    <h2 class="section-title">Z-index</h2>
+    <span class="section-num">08 / 09</span>
+  </div>
+  <p class="section-lede">Escala discreta. Saltos de 100 para meter capas intermedias sin renumerar todo.</p>
+
+  <div class="subsection">
+    <div class="zindex-list">
+      <div class="zindex-row" style="background: var(--surface-secondary); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary);">
+        <div>Valor</div><div>Token</div><div>Uso</div>
+      </div>
+      <div class="zindex-row"><span class="zindex-num">100</span><span><span class="tok">--z-dropdown</span></span><span style="color: var(--text-secondary);">Dropdown, Select abierto, autocomplete</span></div>
+      <div class="zindex-row"><span class="zindex-num">200</span><span><span class="tok">--z-sticky</span></span><span style="color: var(--text-secondary);">Topbar sticky, header de tabla sticky, BulkActionBar</span></div>
+      <div class="zindex-row"><span class="zindex-num">300</span><span><span class="tok">--z-overlay</span></span><span style="color: var(--text-secondary);">Backdrop oscuro de Modal/panel</span></div>
+      <div class="zindex-row"><span class="zindex-num">400</span><span><span class="tok">--z-modal</span></span><span style="color: var(--text-secondary);">Modal, CommandPalette (Cmd+K), panel lateral</span></div>
+      <div class="zindex-row"><span class="zindex-num">500</span><span><span class="tok">--z-toast</span></span><span style="color: var(--text-secondary);">Toast container, ChatWidget flotante</span></div>
+      <div class="zindex-row"><span class="zindex-num">600</span><span><span class="tok">--z-tooltip</span></span><span style="color: var(--text-secondary);">Tooltip, HelpTip — siempre encima de todo</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ ICONS ═══════════ -->
+<section id="icons">
+  <div class="section-head">
+    <h2 class="section-title">Iconografía</h2>
+    <span class="section-num">09 / 09</span>
+  </div>
+  <p class="section-lede">SVG inline, sin librería. Tres tamaños y un stroke fijo. Los iconos concretos (sets, taxonomía) se definen en fase 2 — esto solo establece los tokens.</p>
+
+  <div class="subsection">
+    <div class="icon-row">
+      <div class="icon-tile">
+        <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+        <div class="name">Small</div>
+        <span class="tok new">--icon-size-sm · 14px</span>
+        <div class="px" style="margin-top:6px;">Inline en texto sm/body, dentro de Badge, prefijo de Input</div>
+      </div>
+      <div class="icon-tile">
+        <svg width="16" height="16" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+        <div class="name">Medium · default</div>
+        <span class="tok new">--icon-size-md · 16px</span>
+        <div class="px" style="margin-top:6px;">Botón sm/md, sidebar, navegación, header de tabla</div>
+      </div>
+      <div class="icon-tile">
+        <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+        <div class="name">Large</div>
+        <span class="tok new">--icon-size-lg · 20px</span>
+        <div class="px" style="margin-top:6px;">Botón lg, StatsCard, empty state, AlertBanner</div>
+      </div>
+    </div>
+
+    <div class="kv" style="margin-top: var(--space-6);">
+      <div><span class="tok new">--icon-stroke-width</span> · 1.5</div><div>Stroke uniforme — coherente con DM Sans (humanista, no geométrico). Heredan <span class="tok">currentColor</span>.</div>
+    </div>
+
+    <div class="note">
+      <strong>Nota fase 2.</strong> El set de iconos a usar (Lucide, Phosphor, custom) se decide en fase 2 — Componentes. Lo importante de esta fase es que cualquier set elegido se renderiza con <em>estos</em> tokens, no con tamaños inventados.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ MAPPING ═══════════ -->
+<section id="mapping">
+  <div class="section-head">
+    <h2 class="section-title">Mapping a componentes</h2>
+    <span class="section-num">·</span>
+  </div>
+  <p class="section-lede">Tabla de referencia: cada componente del DS y los tokens que consume. Sirve para auditar la fase 2 — si un componente usa un token que no aparece en su fila, hay drift.</p>
+
+  <div class="subsection">
+    <div class="map-table">
+      <div class="map-row map-head"><div>Componente</div><div>Tokens principales</div><div>Notas</div></div>
+      <div class="map-row"><div class="map-key">Button</div><div><span class="tok">--brand</span> · <span class="tok">--brand-hover</span> · <span class="tok">--text-on-brand</span> · <span class="tok">--radius-full</span> · <span class="tok">--space-3</span> <span class="tok">--space-6</span></div><div>Variantes: primary (brand), secondary (border), ghost (transparent), danger (--danger)</div></div>
+      <div class="map-row"><div class="map-key">Input · Select · Textarea</div><div><span class="tok">--surface-primary</span> · <span class="tok">--border</span> · <span class="tok">--border-hover</span> · <span class="tok">--radius-sm</span> · <span class="tok">--font-size-base</span></div><div>Focus ring usa <span class="tok">--brand</span> via outline:focus-visible</div></div>
+      <div class="map-row"><div class="map-key">Badge</div><div><span class="tok">--{state}-light</span> · <span class="tok">--{state}-strong</span> · <span class="tok">--radius-full</span> · <span class="tok">--font-size-xs</span></div><div><strong>El nuevo -strong reemplaza colores hardcoded</strong> de texto en Badge actual</div></div>
+      <div class="map-row"><div class="map-key">StatusDot</div><div><span class="tok">--{state}</span> · <span class="tok">--pending</span></div><div>Pending nuevo — antes era literal #8B5CF6</div></div>
+      <div class="map-row"><div class="map-key">Card</div><div><span class="tok">--surface-primary</span> · <span class="tok">--border</span> · <span class="tok">--radius-md</span> · <span class="tok">--space-5/6</span></div><div>Sin sombra por defecto. Hover de Card interactiva → <span class="tok">--shadow-xs</span></div></div>
+      <div class="map-row"><div class="map-key">Modal</div><div><span class="tok">--surface-primary</span> · <span class="tok">--radius-lg</span> · <span class="tok">--shadow-lg</span> · <span class="tok">--z-modal</span> · <span class="tok">--ease-out</span></div><div>Backdrop usa <span class="tok">--z-overlay</span> + rgba(0,0,0,0.4)</div></div>
+      <div class="map-row"><div class="map-key">Toast</div><div><span class="tok">--surface-primary</span> · <span class="tok">--radius-md</span> · <span class="tok">--shadow-lg</span> · <span class="tok">--z-toast</span> · <span class="tok">--ease-spring</span></div><div>Color de borde según tipo (success/danger/warning)</div></div>
+      <div class="map-row"><div class="map-key">Avatar</div><div><span class="tok">--radius-full</span> · <span class="tok">--font-size-sm</span> · <span class="tok">--font-weight-medium</span></div><div>Color determinístico — paleta interna mapeada a iniciales</div></div>
+      <div class="map-row"><div class="map-key">Tabs · StatusTabs</div><div><span class="tok">--text-secondary</span> · <span class="tok">--text-primary</span> · <span class="tok">--brand</span> · <span class="tok">--border</span></div><div>Active border usa --brand. Counter en StatusTabs usa --{state}-light + -strong</div></div>
+      <div class="map-row"><div class="map-key">Tooltip</div><div><span class="tok">--surface-dark</span> · <span class="tok">--text-on-dark</span> · <span class="tok">--radius-sm</span> · <span class="tok">--z-tooltip</span></div><div>Bg oscuro fijo — única excepción al light-first</div></div>
+      <div class="map-row"><div class="map-key">Dropdown</div><div><span class="tok">--surface-primary</span> · <span class="tok">--radius-md</span> · <span class="tok">--shadow-md</span> · <span class="tok">--z-dropdown</span> · <span class="tok">--ease-out</span></div><div>Item hover → <span class="tok">--surface-secondary</span></div></div>
+      <div class="map-row"><div class="map-key">Skeleton</div><div><span class="tok">--surface-tertiary</span> · <span class="tok">--radius-sm</span></div><div>Shimmer animado con opacity, no con gradient (más performante)</div></div>
+      <div class="map-row"><div class="map-key">Pagination</div><div><span class="tok">--brand</span> · <span class="tok">--text-secondary</span> · <span class="tok">--radius-full</span></div><div>Página activa: bg --brand-light, text --brand-active</div></div>
+      <div class="map-row"><div class="map-key">StatsCard</div><div><span class="tok">--font-size-3xl</span> · <span class="tok">--font-weight-semibold</span> · <span class="tok">--space-6</span> · <span class="tok">--radius-md</span></div><div>Número grande en display-sm + semibold (regla del peso 600)</div></div>
+      <div class="map-row"><div class="map-key">Breadcrumb</div><div><span class="tok">--text-tertiary</span> · <span class="tok">--text-primary</span> · <span class="tok">--font-size-sm</span></div><div>Separador chevron en --text-tertiary</div></div>
+      <div class="map-row"><div class="map-key">AlertBanner</div><div><span class="tok">--{state}-light</span> · <span class="tok">--{state}-border</span> · <span class="tok">--{state}-strong</span> · <span class="tok">--radius-sm</span></div><div>Icono lg en --{state}, texto en --{state}-strong</div></div>
+      <div class="map-row"><div class="map-key">SearchInput</div><div><span class="tok">--surface-primary</span> · <span class="tok">--radius-sm</span> · <span class="tok">--icon-size-md</span></div><div>Icono prefijo en --text-tertiary</div></div>
+      <div class="map-row"><div class="map-key">CommandPalette</div><div><span class="tok">--surface-primary</span> · <span class="tok">--radius-lg</span> · <span class="tok">--shadow-xl</span> · <span class="tok">--z-modal</span></div><div>Resultado activo: bg --surface-secondary, no --brand-light</div></div>
+      <div class="map-row"><div class="map-key">BulkActionBar</div><div><span class="tok">--surface-dark</span> · <span class="tok">--text-on-dark</span> · <span class="tok">--radius-full</span> · <span class="tok">--shadow-lg</span> · <span class="tok">--z-sticky</span></div><div>Floating, fondo oscuro — destaca sobre lista</div></div>
+      <div class="map-row"><div class="map-key">Sidebar · Topbar</div><div><span class="tok">--surface-primary</span> · <span class="tok">--border</span> · <span class="tok">--sidebar-width</span> · <span class="tok">--topbar-height</span></div><div>Sidebar item activo usa --brand-subtle como fondo, --brand como border-left</div></div>
+      <div class="map-row"><div class="map-key">ChatWidget</div><div><span class="tok">--cw-*</span> que cascadean de tokens base</div><div>Excepción documentada (DESIGN_SYSTEM §Excepción 1) — vive en landing también</div></div>
+      <div class="map-row"><div class="map-key">PageHeader · ListPage · DetailPage · FormPage</div><div><span class="tok">--container-{form,detail,list}</span> · <span class="tok">--space-8/12</span></div><div>Wrappers de layout — sin estilo propio, solo composición y container</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ CHANGES ═══════════ -->
+<section id="changes">
+  <div class="section-head">
+    <h2 class="section-title">Cambios respecto al actual</h2>
+    <span class="section-num">·</span>
+  </div>
+  <p class="section-lede">22 tokens nuevos, 0 valores existentes modificados. Riesgo de regresión: bajo. Componentes y páginas no requieren refactor — solo los componentes que actualmente hardcodean color de texto sobre fondos -light pasan a consumir el nuevo <span class="tok">-strong</span>.</p>
+
+  <div class="subsection">
+    <div class="map-table">
+      <div class="map-row map-head"><div>Categoría</div><div>Tokens nuevos</div><div>Razón</div></div>
+      <div class="map-row"><div class="map-key">Color · -strong</div><div><span class="tok new">--success-strong</span> <span class="tok new">--warning-strong</span> <span class="tok new">--danger-strong</span> <span class="tok new">--info-strong</span></div><div>Texto sobre -light con AA. Antes hardcoded.</div></div>
+      <div class="map-row"><div class="map-key">Color · pending</div><div><span class="tok new">--pending</span> <span class="tok new">--pending-hover</span> <span class="tok new">--pending-active</span> <span class="tok new">--pending-light</span> <span class="tok new">--pending-border</span> <span class="tok new">--pending-strong</span></div><div>Set completo del púrpura usado por StatusDot. Antes literal.</div></div>
+      <div class="map-row"><div class="map-key">Color · -hover semánticos</div><div><span class="tok new">--success-hover</span> <span class="tok new">--danger-hover</span> <span class="tok new">--info-hover</span></div><div>Coherencia con --brand-hover. --warning-hover ya existía.</div></div>
+      <div class="map-row"><div class="map-key">Tipografía · display</div><div><span class="tok new">--font-size-3xl</span> <span class="tok new">--font-size-4xl</span></div><div>Empty states, hero cliente, números StatsCard prominentes.</div></div>
+      <div class="map-row"><div class="map-key">Tipografía · familia</div><div><span class="tok new">--font-mono</span></div><div>Para IDs, hashes, dominios, código en línea.</div></div>
+      <div class="map-row"><div class="map-key">Tipografía · line-height</div><div><span class="tok new">--line-height-snug</span> · 1.35</div><div>H2/H3 — entre tight y normal.</div></div>
+      <div class="map-row"><div class="map-key">Motion · easings</div><div><span class="tok new">--ease-out</span> <span class="tok new">--ease-in</span> <span class="tok new">--ease-in-out</span> <span class="tok new">--ease-spring</span></div><div>Antes solo <span class="mono">ease</span> nativo. Necesario para Framer Motion coherente.</div></div>
+      <div class="map-row"><div class="map-key">Layout · containers</div><div><span class="tok new">--container-list</span> <span class="tok new">--container-detail</span> <span class="tok new">--container-form</span></div><div>Anchos máximos por tipo de página (UI_SPEC §2).</div></div>
+      <div class="map-row"><div class="map-key">Iconos</div><div><span class="tok new">--icon-size-sm</span> <span class="tok new">--icon-size-md</span> <span class="tok new">--icon-size-lg</span> <span class="tok new">--icon-stroke-width</span></div><div>Tokens base — set concreto en fase 2.</div></div>
+    </div>
+
+    <div class="note" style="margin-top: var(--space-6);">
+      <strong>Lo que NO se toca:</strong> ningún valor existente. <span class="tok">--brand</span>, <span class="tok">--space-*</span>, <span class="tok">--radius-*</span>, <span class="tok">--shadow-*</span>, durations, sidebar/topbar, z-index — todo intacto. Esto es aditivo.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ DARKMODE ═══════════ -->
+<section id="darkmode">
+  <div class="section-head">
+    <h2 class="section-title">Preparación dark mode</h2>
+    <span class="section-num">·</span>
+  </div>
+  <p class="section-lede">Fase 11 entregará los valores. Lo que hacemos ahora es asegurarnos de que la <em>arquitectura</em> de nombres no tenga que cambiar.</p>
+
+  <div class="subsection">
+    <div class="kv">
+      <div><strong>Roles, no valores</strong></div>
+      <div>Todo está nombrado por <em>rol</em> (<span class="tok">--surface-primary</span>, <span class="tok">--text-secondary</span>) — nunca por color literal (<span class="mono" style="color:var(--danger);">--white</span>, <span class="mono" style="color:var(--danger);">--gray-500</span>).</div>
+      <div><strong>Capas neutrales en escalones</strong></div>
+      <div>3 niveles de superficie + 3 de texto + 3 de borde = mapping 1:1 al invertir. Ningún componente tendrá que renombrar tokens en dark.</div>
+      <div><strong>Light/strong duales</strong></div>
+      <div>El par <span class="tok">-light</span> + <span class="tok">-strong</span> en cada semántico cambia de valor en dark, pero la función ("fondo suave del estado" + "texto sobre ese fondo") permanece. Banners y badges siguen funcionando.</div>
+      <div><strong>Sombras como variable, no inline</strong></div>
+      <div>En dark las sombras se reducen y a menudo se sustituyen por borde sutil. Como ya son tokens, basta con redefinirlos en <span class="mono">[data-theme="dark"]</span>.</div>
+      <div><strong>Subtle con alpha</strong></div>
+      <div><span class="tok">--brand-subtle</span> y los <span class="tok">-light</span> usan rgba con alfa — funcionan en cualquier fondo. No hay que duplicarlos.</div>
+    </div>
+
+    <div class="note">
+      <strong>Pendiente fase 11.</strong> Definir los valores oscuros (probablemente <span class="mono">--surface-primary: #0A0A0B</span> · <span class="mono">--surface-secondary: #18181B</span> · <span class="mono">--text-primary: rgba(255,255,255,0.92)</span>) y revisar contraste de los <span class="tok">-strong</span> sobre los <span class="tok">-light</span> oscuros. Posible ajuste de <span class="tok">--shadow-*</span> (más sutil o sustituido por <span class="tok">--border-active</span>).
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div>Aelium Dashboard · Fase 1 — Design tokens · Versión propuesta</div>
+  <div>Pendiente de aprobación</div>
+</footer>
+
+</main>
+</div>
+
+<script>
+// Active section highlighting on scroll
+(function () {
+  const links = document.querySelectorAll('.nav a[href^="#"]');
+  const map = new Map();
+  links.forEach(a => {
+    const id = a.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) map.set(id, { link: a, el });
+  });
+  function update() {
+    let active = null;
+    let bestTop = -Infinity;
+    map.forEach(({ el }, id) => {
+      const top = el.getBoundingClientRect().top;
+      if (top <= 80 && top > bestTop) { bestTop = top; active = id; }
+    });
+    links.forEach(l => l.classList.remove('active'));
+    if (active && map.get(active)) map.get(active).link.classList.add('active');
+  }
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('load', update);
+  update();
+})();
+</script>
+
+</body>
+</html>
