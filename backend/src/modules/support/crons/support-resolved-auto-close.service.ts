@@ -46,7 +46,9 @@ export class SupportResolvedAutoCloseService {
     private readonly config: ConfigService,
   ) {}
 
-  async run(now: Date = new Date()): Promise<SupportResolvedAutoCloseRunResult> {
+  async run(
+    now: Date = new Date(),
+  ): Promise<SupportResolvedAutoCloseRunResult> {
     const days = await this.settings.getNumber(
       'support',
       'auto_close_resolved_days',

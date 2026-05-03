@@ -27,9 +27,7 @@ export class SupportResolvedAutoCloseProcessor
   extends WorkerHost
   implements OnModuleInit
 {
-  private readonly logger = new Logger(
-    SupportResolvedAutoCloseProcessor.name,
-  );
+  private readonly logger = new Logger(SupportResolvedAutoCloseProcessor.name);
 
   constructor(
     private readonly service: SupportResolvedAutoCloseService,

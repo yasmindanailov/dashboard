@@ -22,9 +22,7 @@ import { getErrorMessage } from '../../../core/common/utils/error.util';
  */
 @Injectable()
 export class SupportConversationEventsListener {
-  private readonly logger = new Logger(
-    SupportConversationEventsListener.name,
-  );
+  private readonly logger = new Logger(SupportConversationEventsListener.name);
 
   constructor(
     private readonly prisma: PrismaService,

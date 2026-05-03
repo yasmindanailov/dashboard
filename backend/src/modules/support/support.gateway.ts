@@ -310,10 +310,12 @@ export class SupportGateway
     update: Record<string, unknown>,
   ) {
     if (!this.server) return;
-    this.server.to(`conversation:${conversationId}`).emit('conversation:updated', {
-      conversationId,
-      ...update,
-    });
+    this.server
+      .to(`conversation:${conversationId}`)
+      .emit('conversation:updated', {
+        conversationId,
+        ...update,
+      });
   }
 
   /* Sprint 16 (ADR-079 amendment A3): broadcast canónico de mensaje nuevo

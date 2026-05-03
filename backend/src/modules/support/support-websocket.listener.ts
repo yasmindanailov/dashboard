@@ -46,7 +46,10 @@ export class SupportWebsocketListener {
        widget en tiempo real. Ahora el listener es la ÚNICA fuente —
        el gateway eliminó su emisión directa para evitar duplicación. */
     if (payload.message) {
-      this.gateway.broadcastNewMessage(payload.conversation_id, payload.message);
+      this.gateway.broadcastNewMessage(
+        payload.conversation_id,
+        payload.message,
+      );
     }
 
     // Update unread count for the other party

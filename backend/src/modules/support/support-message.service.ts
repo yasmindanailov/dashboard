@@ -83,10 +83,7 @@ export class SupportMessageService {
        Si el cliente necesita continuar, abre una nueva conversación de
        chat. Esta asimetría es intencional: el feedback en chat es
        inmediato, no hay ventana de "espera confirmación" como en tickets. */
-    if (
-      conversation.status === 'resolved' &&
-      conversation.type === 'chat'
-    ) {
+    if (conversation.status === 'resolved' && conversation.type === 'chat') {
       throw new BadRequestException(
         'Este chat está cerrado. Si necesitas seguir hablando, abre una nueva conversación.',
       );
