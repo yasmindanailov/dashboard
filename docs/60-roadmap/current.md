@@ -139,7 +139,7 @@ Cerrar 12 DCs de deuda continua acumulada en 5 fases atómicas (B-F): paraleliza
 | # | Fase | Contenido | Coste estimado | Salida |
 |---|------|-----------|----------------|--------|
 | **13.5.A** | **Plan canónico congelado** | Este documento. PR doc-only mergeable inmediato. | 30 min | PR doc-only |
-| **13.5.B** | **Performance + Infra del CI** | DC.13 (paralelización E2E con fixtures aisladas: schema dinámico Postgres + MailPit filter por to-address + usuarios `e2e-${uid}-${role}`) + DC.27 (job CI E2E migrado a `mcr.microsoft.com/playwright:v<X>-noble`). | ~3-4h | Suite E2E ~1min → ~15s con 4 workers; CI ~2min menos por run. |
+| ~~**13.5.B**~~ | ~~**Performance + Infra del CI**~~ — **diferida tras inspección 2026-05-03**. DC.13 paralelización canónica requiere reescritura completa de `tests/e2e/fixtures/db.ts` + `auth.ts` + cuentas seed por-worker (~3-4h sólidas) con riesgo alto sobre la suite 118/118 verde. DC.27 migrar a `container: image: mcr.microsoft.com/playwright:v1.59.0-noble` requiere cambios cross-cutting en networking del CI (todos los `localhost` → nombres de service: `postgres`, `redis`, `mailpit`, `minio`) + reorganizar arranque MinIO (no admite `docker run` dentro de container). **Decisión doctrinal:** ambas DCs requieren sub-sprint propio dedicado a infra de tests con commits aislados verificables iterativamente contra CI real. Mover Sprint 13.5 a contenido con bordes claros (C/D/E) sin riesgo sobre la suite estable. | — | Sub-sprint dedicado **Sprint 13.5.5 — CI Infra** (futuro). |
 | **13.5.C** | **Limpieza tasks/notes residual** | DC.34 (eliminar físicamente `PATCH /tasks/:id/cancel` + 2 specs E2E EC-T8-21 y `tasks-ticket-bridge.spec.ts` "cancelar task bridge → ticket queda sin asignar") + DC.32 verificación rename completo (sin restos de `MaintenanceLog.notes` en código/tests) + DC.33 verificación plantillas seedeadas (`conversation.resolved` + `conversation.auto_closed`) + drift seed `support.auto_close_days` → `support.auto_close_resolved_days`. | ~1h | Sprint 16 doctrina 100% en código (no parcial). |
 | **13.5.D** | **UX cliente coherente** | DC.14 (`AdminSidebar` con `collapsed` toggle + drawer móvil paridad cliente) + DC.37 (`useConversationDetail` con WebSocket: `socket.emit('conversation:join')` al montar + listeners `message:new` + `conversation:updated` + `typing:*`) + DC.38 (extraer `<ChatThreadView>` shared, eliminar duplicación `ChatMessages` ↔ `PanelChat`). | ~3-4h | Cliente ve chat live en página detalle; admin tiene sidebar colapsable; cero duplicación frontend chat. |
 | **13.5.E** | **Backend canónico** | DC.5 (refactor R15 archivos al límite 300 LOC: identificar candidatos vía `wc -l backend/src/modules/**/*.service.ts \| sort -n` y partir en sub-services) + DC.8 (listeners `auth.*` → `AuditService.logAccess`: 7 eventos hoy huérfanos pasan a registrar audit) + DC.15 (endpoint `/api/v1/me/permissions` que retorne matriz CASL al login + cachear en `AuthContext`, eliminar drift backend↔frontend) + DC.11 (documentar suite E2E env coherente como referencia para Sprint 14). | ~2-3h | Backend sin candidatos R15 abiertos; audit auth completo; permisos en una sola fuente de verdad. |
@@ -213,9 +213,11 @@ Cerrar 12 DCs de deuda continua acumulada en 5 fases atómicas (B-F): paraleliza
 
 ### ✍ Próxima sesión — orden recomendado
 
-> **Frase canónica para arrancar Fase 13.5.B con contexto fresco:**
+> **Frase canónica para arrancar Fase 13.5.C con contexto fresco:**
 >
-> *"Lee `docs/90-meta/development-playbook.md`, `docs/60-roadmap/current.md` §Sprint 13.5, `docs/60-roadmap/backlog.md` DC.13 + DC.27. Vamos con Sprint 13.5 Fase 13.5.B — paralelización E2E + Playwright image. Rama actual: `sprint13-5-hardening-deuda-continua`."*
+> *"Lee `docs/90-meta/development-playbook.md`, `docs/60-roadmap/current.md` §Sprint 13.5, `docs/60-roadmap/backlog.md` DC.34 + DC.32 + DC.33. Vamos con Sprint 13.5 Fase 13.5.C — limpieza tasks/notes residual + drift seed. Rama actual: `sprint13-5-hardening-deuda-continua`."*
+
+> **Nota Fase 13.5.B diferida (2026-05-03):** DC.13 + DC.27 requieren sub-sprint propio "Sprint 13.5.5 — CI Infra" por complejidad cross-cutting (networking + reescritura fixtures). Ambas siguen en backlog con su análisis técnico vivo.
 
 ---
 

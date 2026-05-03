@@ -29,7 +29,7 @@ const SETTINGS: ReadonlyArray<SeedSetting> = [
   { category: 'billing', key: 'payment_due_days', value: '7', description: 'Días hasta vencimiento' },
 
   // ── support ──
-  { category: 'support', key: 'auto_close_days', value: '7', description: 'Días para cerrar conversación inactiva' },
+  { category: 'support', key: 'auto_close_resolved_days', value: '7', description: 'Sprint 16 Amendment A1 / ADR-079: días que un ticket en `resolved` espera confirmación o respuesta del cliente antes del cierre silencioso por cron `support-resolved-auto-close` (02:30 UTC). Renombrado desde `auto_close_days` legacy en Sprint 13.5 Fase C.' },
   { category: 'support', key: 'ai_filter_enabled', value: 'true', description: 'Filtro IA activo' },
 
   // ── referrals ──

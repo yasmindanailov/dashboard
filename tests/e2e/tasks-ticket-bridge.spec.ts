@@ -398,48 +398,15 @@ test.describe('Tasks ↔ Tickets bridge — Sprint 16 (ADR-079)', () => {
     expect(conv.rows[0].status).toBe('closed');
   });
 
-  test('cancelar task bridge vía /cancel → ticket queda sin asignar pero abierto', async ({
-    request,
-  }) => {
-    const ticketId = await createTicketInDb(
-      clientUserId,
-      'Bridge: cancelar libera ticket',
-      'normal',
-    );
-    await authed(
-      request,
-      superadminToken,
-      'PATCH',
-      `/support/conversations/${ticketId}`,
-      { assigned_agent_id: agentSupportId },
-    );
-    const task = await waitForActiveBridgeTask(
-      ticketId,
-      (r) => r.assigned_to === agentSupportId,
-    );
-
-    const cancelRes = await authed(
-      request,
-      superadminToken,
-      'PATCH',
-      `/tasks/${task!.id}/cancel`,
-      { reason: 'Reasignación pendiente' },
-    );
-    expect(cancelRes.ok()).toBeTruthy();
-    const cancelled = (await cancelRes.json()) as {
-      __ticket_released?: boolean;
-      status: string;
-    };
-    expect(cancelled.status).toBe('cancelled');
-    expect(cancelled.__ticket_released).toBe(true);
-
-    const conv = await pool.query(
-      `SELECT assigned_agent_id, status FROM conversations WHERE id = $1`,
-      [ticketId],
-    );
-    expect(conv.rows[0].assigned_agent_id).toBeNull();
-    expect(conv.rows[0].status).toBe('open');
-  });
+  /* ELIMINADO en Sprint 13.5 Fase C (DC.34) — el spec "cancelar task
+     bridge vía /cancel → ticket queda sin asignar" probaba el endpoint
+     PATCH /tasks/:id/cancel que se ha eliminado físicamente del
+     controller. La doctrina canónica establece que cancelar/reasignar
+     pertenece al módulo support (`PATCH /support/conversations/:id` con
+     assigned_agent_id=null) que emite `conversation.unassigned` y el
+     listener `SupportTicketTaskCreatorListener.handleUnassigned` cancela
+     la task bridge automáticamente. El test "desasignar ticket → cancela
+     task bridge" cubre exactamente ese flujo canónico. */
 
   test('desasignar ticket → cancela task bridge activa (EC#8 preservado)', async ({
     request,

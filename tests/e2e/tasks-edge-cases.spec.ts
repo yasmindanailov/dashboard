@@ -231,42 +231,14 @@ test.describe('Tasks — edge cases EC-T8-19/20/21/22 (Sprint 8 Fase B.1.bis)', 
   });
 
   /* ════════════════════════════════════════════════════════════════
-     EC-T8-21: cancelar una task cancelled devuelve 400 (idempotencia
-     dura — Sprint 16 ADR-079: estados terminales no admiten cambios).
-     El cambio de priority ya no existe en la API canónica (la priority
-     la calcula el helper canónico al CREAR — el agente nunca la edita).
+     EC-T8-21: ELIMINADO en Sprint 13.5 Fase C (DC.34) — el endpoint
+     PATCH /tasks/:id/cancel se eliminó físicamente del controller en
+     este sprint. La cancelación es consecuencia mecánica de listeners
+     cross-sistema, NO operación HTTP humana. La inmutabilidad de
+     terminales sigue cubierta por TASK-INV-2 a nivel `service.cancel()`
+     y se ejercita indirectamente vía los listeners (test "desasignar
+     ticket → cancela task bridge" cubre el camino canónico).
      ════════════════════════════════════════════════════════════════ */
-
-  test('EC-T8-21 — task cancelada no admite cancelar de nuevo (terminal)', async ({
-    request,
-  }) => {
-    const taskId = await insertTask(pool, {
-      source_system: 'client_lifecycle',
-      client_id: clientUserId,
-      assigned_to: agentSupportId,
-      priority: 'medium',
-    });
-
-    const cancelRes = await authed(
-      request,
-      superadminToken,
-      'PATCH',
-      `/tasks/${taskId}/cancel`,
-      { reason: 'EC-T8-21 cancel inicial' },
-    );
-    expect(cancelRes.ok()).toBeTruthy();
-
-    const reCancelRes = await authed(
-      request,
-      superadminToken,
-      'PATCH',
-      `/tasks/${taskId}/cancel`,
-      { reason: 'reintento' },
-    );
-    expect(reCancelRes.status()).toBe(400);
-    const body = (await reCancelRes.json()) as { message: string };
-    expect(body.message.toLowerCase()).toMatch(/cerrada|cancelada/);
-  });
 
   /* ════════════════════════════════════════════════════════════════
      EC-T8-22: auto-asignación desde cola pública (ADR-072)
