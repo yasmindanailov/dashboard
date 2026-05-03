@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Tooltip</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .demo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-8); margin: var(--space-6) 0; }
+  .demo-tile { background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-8) var(--space-5); display: flex; flex-direction: column; align-items: center; gap: var(--space-4); }
+  /* Forzar tooltip visible */
+  .force-show .tooltip { display: block; }
+  @media (max-width: 700px) { .demo-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.B · Feedback</div>
+      <h1 class="page-title">Tooltip</h1>
+      <p class="page-lede">
+        Bocadillo flotante para añadir contexto a un elemento. Background dark — única excepción al light-first del dashboard junto con BulkActionBar. Una sola frase, sin punto final.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Posiciones</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">Mostrados aquí en posición forzada para visualización. En producto: hover o focus.</p>
+
+      <div class="demo-grid">
+        <div class="demo-tile">
+          <div class="tooltip-wrapper force-show">
+            <button class="btn btn-secondary btn-md btn-icon-only" aria-label="Editar">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <span class="tooltip tooltip-top">Editar cliente</span>
+          </div>
+          <div class="legend">top (default)</div>
+        </div>
+
+        <div class="demo-tile">
+          <div class="tooltip-wrapper force-show">
+            <button class="btn btn-secondary btn-md btn-icon-only" aria-label="Más acciones">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+            </button>
+            <span class="tooltip tooltip-bottom">Más acciones</span>
+          </div>
+          <div class="legend">bottom</div>
+        </div>
+
+        <div class="demo-tile">
+          <div class="tooltip-wrapper force-show">
+            <span class="status-dot status-dot-success status-dot-pulse" style="margin: 12px;"></span>
+            <span class="tooltip tooltip-right">Yasmin · disponible desde 09:30</span>
+          </div>
+          <div class="legend">right</div>
+        </div>
+
+        <div class="demo-tile">
+          <div class="tooltip-wrapper force-show">
+            <button class="btn btn-secondary btn-md">Filtrar</button>
+            <span class="tooltip tooltip-left">Filtrar por estado, plan, fecha</span>
+          </div>
+          <div class="legend">left</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Multilínea</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Para texto largo. Width fijo 240px, line-height normal. Usado por HelpTip.</p>
+
+      <div class="demo-tile" style="grid-template-columns: 1fr;">
+        <div class="tooltip-wrapper force-show">
+          <button class="btn btn-secondary btn-md">Servicio premium</button>
+          <span class="tooltip tooltip-top multiline">Plan Web Business: hosting aislado por contenedor, staging, SSL gratuito, backups diarios y soporte humano en 24h.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Voz aplicada</h2>
+        <span class="section-num">03</span>
+      </div>
+      <div class="note">
+        <strong>Una sola frase, sin punto final.</strong> "Editar cliente", "Más acciones", "Filtrar por estado, plan, fecha". Sin "Click aquí para...", sin descripciones técnicas.
+      </div>
+      <div class="note">
+        <strong>Anti-patrón:</strong> tooltip que repite el label visible. Si el botón dice "Guardar", su tooltip no debe decir "Guardar" otra vez — añade contexto o no aparece.
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs actual</h2>
+        <span class="section-num">04</span>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Focus trigger <span class="meta">D2B-9</span></div>
+        <div><strong>Falta.</strong> Spec exige focus además de hover. Implementación pendiente.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Animación sin token <span class="meta">D2B-6</span></div>
+        <div>Migrar a <span class="tok">--transition-fast</span> + <span class="tok">--ease-out</span>.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

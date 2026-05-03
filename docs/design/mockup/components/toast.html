@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Toast</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .demo-stack { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-5); align-items: flex-start; }
+  .voz-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); }
+  .voz-table th, .voz-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  .voz-table th { color: var(--text-secondary); font-weight: var(--font-weight-medium); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; background: var(--surface-secondary); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.B · Feedback</div>
+      <h1 class="page-title">Toast</h1>
+      <p class="page-lede">
+        Notificación temporal sobre el viewport. Fondo dark, animación de entrada con tokens motion. Variant <strong>undo</strong> para acciones reversibles. Voz de Aelium siempre.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variantes</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">Toasts se muestran aquí en posición estática para visualización. En producto: fixed bottom-right, apilados.</p>
+
+      <div class="demo-stack">
+        <div class="toast toast-success">
+          <span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></span>
+          <span class="message">Pago confirmado · 49,90&nbsp;€</span>
+          <button class="close" aria-label="Cerrar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+
+        <div class="toast toast-danger">
+          <span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></span>
+          <span class="message">Sin conexión. Revisa y vuelve a intentarlo.</span>
+          <button class="close" aria-label="Cerrar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+
+        <div class="toast toast-warning">
+          <span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+          <span class="message">Faltan campos por rellenar.</span>
+          <button class="close" aria-label="Cerrar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+
+        <div class="toast toast-info">
+          <span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+          <span class="message">Mantenimiento mañana de 4 a 5h.</span>
+          <button class="close" aria-label="Cerrar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variant undo</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Para acciones reversibles. Botón "Deshacer" + countdown bar. Auto-dismiss tras 8s.</p>
+
+      <div class="demo-stack">
+        <div class="toast toast-success has-undo">
+          <span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></span>
+          <span class="message">Cliente creado.</span>
+          <button class="undo">Deshacer</button>
+          <button class="close" aria-label="Cerrar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          <div class="progress-track">
+            <div class="progress-bar" style="animation-duration: 8s;"></div>
+          </div>
+        </div>
+
+        <div class="toast toast-info has-undo">
+          <span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+          <span class="message">Ticket archivado.</span>
+          <button class="undo">Deshacer</button>
+          <button class="close" aria-label="Cerrar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          <div class="progress-track">
+            <div class="progress-bar" style="animation-duration: 8s;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Solo para reversibles.</strong> Acciones destructivas e irreversibles → Modal de confirmación, no Toast con undo.
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Voz de marca</h2>
+        <span class="section-num">03</span>
+      </div>
+      <table class="voz-table">
+        <tr><th>Acción</th><th>NO Aelium</th><th>SÍ Aelium</th></tr>
+        <tr><td>Pago OK</td><td>"Operation completed successfully"</td><td>"Pago confirmado · 49,90&nbsp;€"</td></tr>
+        <tr><td>Error de red</td><td>"Error: Network failure 500"</td><td>"Sin conexión. Revisa y vuelve a intentarlo."</td></tr>
+        <tr><td>Validación</td><td>"Validation error"</td><td>"Faltan campos por rellenar."</td></tr>
+        <tr><td>Cliente creado</td><td>"Client successfully created"</td><td>"Cliente creado." (con undo)</td></tr>
+        <tr><td>Ticket enviado</td><td>"Ticket #1234 has been submitted"</td><td>"Ticket enviado. Yasmin lo verá enseguida."</td></tr>
+      </table>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs actual</h2>
+        <span class="section-num">04</span>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Variant `error` <span class="meta">D2B-8</span></div>
+        <div>Renombrar a <span class="tok">danger</span>.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Backgrounds hex <span class="meta">D2B-A</span></div>
+        <div>Considerar tokens <span class="tok">--{state}-dark</span> si más usos. Por ahora documentado.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Animación <span class="meta">D2B-6</span></div>
+        <div>Migrar a <span class="tok">--motion-stack-in</span>.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

@@ -7,14 +7,15 @@
 
 ## Estado actual
 
-- **Fase activa:** 2.A — Componentes base · Grupo A (formularios) **listos para revisión completa**
+- **Fase activa:** 2.B — Componentes base · Grupo B (feedback) **listos para revisión**
 - **Modo activo:** diseño
-- **Próxima acción:** revisión humana de los 6 componentes + sample-form
-  en la maqueta. Si OK, cerrar fase 2.A y arrancar fase 2.B (feedback).
-  Si hay cambios, iterar.
-- **Última actualización:** 2026-05-03 — fase 2.A completa con marca
-  aplicada (DD-021 + DD-022). 6 specs + 6 mockups + 1 página de
-  composición. Tokens de fase 1 reabiertos para alinear con marca v1.6.
+- **Próxima acción:** revisión humana de los 7 componentes feedback en
+  la maqueta. Si OK, cerrar 2.B y arrancar 2.C (data). Si hay cambios,
+  iterar.
+- **Última actualización:** 2026-05-03 — fase 2.B completa. Spinner de
+  botón actualizado a rombos pulsando (firma Aelium en escala botón).
+  Aplicada firma visual desde el inicio: pending semántico, .aelium-dot
+  en composiciones, accent en `--{state}-strong` legible.
 
 ---
 
@@ -55,8 +56,8 @@ romper la filosofía de minimalismo funcional (D1–D11 de
 |---|------|--------|----------------------|
 | 0 | Brief y confirmación | Cerrada | `BRIEF.md` aprobado |
 | 1 | Foundations / Design tokens | **Cerrada** | `tokens.css` + `tokens.md` + `preview.html` + `audit.md` + `NOTES.md` aprobados |
-| 2.A | Componentes base · formularios | **Listo · revisión humana** | Button, Input, Select, Textarea, SearchInput, Dropdown · sample-form |
-| 2.B | Componentes base · feedback | Pendiente | Badge, StatusDot, Toast, AlertBanner, Tooltip, HelpTip, Skeleton |
+| 2.A | Componentes base · formularios | Cerrada · firma visual aplicada | Button, Input, Select, Textarea, SearchInput, Dropdown · sample-form · firma-visual |
+| 2.B | Componentes base · feedback | **Listo · revisión humana** | Badge, StatusDot, Toast, AlertBanner, Tooltip, HelpTip, Skeleton |
 | 2.C | Componentes base · data | Pendiente | Table, Pagination, StatsCard, BulkActionBar, FilterBar |
 | 2.D | Componentes base · navegación | Pendiente | Tabs, Breadcrumb, CommandPalette, NotificationBell, PortalBadge |
 | 2.E | Componentes base · contenedores | Pendiente | Card, Modal, Avatar, EmptyState |

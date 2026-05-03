@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · StatusDot</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); }
+  .item { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-sm); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.B · Feedback</div>
+      <h1 class="page-title">StatusDot</h1>
+      <p class="page-lede">
+        Marcador de estado de 8px. Siempre acompañado de texto. <strong>Pulse</strong> solo para "vivo ahora", no para estado persistente.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Colores</h2>
+        <span class="section-num">01</span>
+      </div>
+      <div class="row">
+        <span class="item"><span class="status-dot status-dot-success"></span>Activo</span>
+        <span class="item"><span class="status-dot status-dot-warning"></span>Atención</span>
+        <span class="item"><span class="status-dot status-dot-danger"></span>Caído</span>
+        <span class="item"><span class="status-dot status-dot-info"></span>Aviso</span>
+        <span class="item"><span class="status-dot status-dot-pending"></span>En revisión</span>
+        <span class="item"><span class="status-dot status-dot-neutral"></span>Inactivo</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Pulse · "vivo ahora"</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Para indicar actividad en tiempo real (online ahora, ticket nuevo, agente disponible).</p>
+      <div class="row">
+        <span class="item"><span class="status-dot status-dot-success status-dot-pulse"></span>Yasmin · disponible</span>
+        <span class="item"><span class="status-dot status-dot-pending status-dot-pulse"></span>Procesando</span>
+        <span class="item"><span class="status-dot status-dot-danger status-dot-pulse"></span>Caída detectada</span>
+      </div>
+      <div class="note">
+        <strong>Sin abusar.</strong> Si todo pulsa, nada destaca. Pulse solo para eventos nuevos o estados realmente vivos.
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">En contexto</h2>
+        <span class="section-num">03</span>
+      </div>
+
+      <div style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="item"><span class="status-dot status-dot-success"></span>hosting-pro-01.aelium.es</span>
+          <span style="color: var(--text-tertiary); font-size: var(--font-size-sm);" class="num">99,98% · 47 días</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="item"><span class="status-dot status-dot-warning"></span>mail-server-02.aelium.es</span>
+          <span style="color: var(--text-tertiary); font-size: var(--font-size-sm);" class="num">97,12% · 12 días</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="item"><span class="status-dot status-dot-danger status-dot-pulse"></span>backup-03.aelium.es</span>
+          <span style="color: var(--danger-strong); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">Caída · revisando</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs actual</h2>
+        <span class="section-num">04</span>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Variant pending <span class="meta">D2B-1</span></div>
+        <div>Añadir púrpura para coherencia con DD-004.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Color info → brand</div>
+        <div>Migrar a <span class="tok">--info</span> (mismo valor, distinto rol semántico).</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>
