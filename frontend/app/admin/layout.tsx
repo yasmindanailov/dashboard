@@ -10,6 +10,11 @@ import Topbar from '../_shared/shell/Topbar';
 import AdminSidebar from './AdminSidebar';
 import styles from './admin-layout.module.css';
 
+/* Sprint 13.5 DC.14: persistencia del estado collapsed en localStorage
+   (paridad con sidebar cliente). TODO(ADR-078, Sprint 13): cuando cierre
+   §13.AUTH, mover esta preferencia UI a cookie httpOnly + SC nativo. */
+const ADMIN_SIDEBAR_COLLAPSED_KEY = 'admin.sidebar.collapsed';
+
 const STAFF_ROLES = new Set([
   'superadmin',
   'agent_full',
@@ -38,22 +43,54 @@ const STAFF_ROLES = new Set([
         <NoPermission /> si CASL del lado cliente lo deniega (UX
         coherente con dashboard/layout.tsx).
 
-   AdminSidebar es width 260px fijo en esta iteración. El collapse +
-   mobile drawer del Sidebar cliente queda como deuda UX para
-   Sprint 13 Hardening — no bloquea (el portal admin se opera desde
-   desktop por convención del rol staff).
+   Sprint 13.5 DC.14: AdminSidebar ahora soporta collapse desktop +
+   drawer móvil con paridad de props sobre el Sidebar cliente. La
+   preferencia `collapsed` persiste en localStorage durante la sesión;
+   el drawer se cierra al navegar o al hacer click en el backdrop.
    ═══════════════════════════════════════ */
-
-const ADMIN_SIDEBAR_WIDTH = 260;
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const openCmdPalette = useCallback(() => setCmdPaletteOpen(true), []);
   const closeCmdPalette = useCallback(() => setCmdPaletteOpen(false), []);
+
+  /* Hidratar el estado collapse desde localStorage al montar (post-mount
+     para evitar hydration mismatch). */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem(ADMIN_SIDEBAR_COLLAPSED_KEY);
+    if (stored === 'true') setSidebarCollapsed(true);
+  }, []);
+
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(ADMIN_SIDEBAR_COLLAPSED_KEY, String(next));
+      }
+      return next;
+    });
+  }, []);
+
+  /* Cerrar drawer móvil al cambiar de ruta. */
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  /* Cerrar drawer móvil al pasar a desktop por resize. */
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) setMobileMenuOpen(false);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   /* Guard de redirección para usuarios no autenticados / no-staff. */
   useEffect(() => {
@@ -102,22 +139,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <ToastProvider>
       <div className={styles.shell}>
-        <AdminSidebar />
+        <AdminSidebar
+          collapsed={sidebarCollapsed}
+          onToggle={handleToggleSidebar}
+          mobileOpen={mobileMenuOpen}
+          onMobileClose={() => setMobileMenuOpen(false)}
+        />
         {/* Topbar compartido con Portal de Cliente. El SupportButton
             interno se autorrestringe a `isClient` → en admin no se
             renderiza. `onOpenSupportPanel` es noop aquí (no hay panel
-            de soporte cliente en admin). `onMobileMenuOpen` también
-            queda noop hasta que AdminSidebar tenga modo mobile. */}
+            de soporte cliente en admin). Sprint 13.5 DC.14: el botón
+            menú móvil del Topbar ahora abre el drawer del AdminSidebar. */}
         <Topbar
-          sidebarCollapsed={false}
-          onMobileMenuOpen={() => {}}
+          sidebarCollapsed={sidebarCollapsed}
+          onMobileMenuOpen={() => setMobileMenuOpen(true)}
           onOpenSupportPanel={() => {}}
           onOpenCommandPalette={openCmdPalette}
         />
 
         <main
           className={styles.main}
-          style={{ marginLeft: `${ADMIN_SIDEBAR_WIDTH}px` }}
+          style={{ marginLeft: sidebarCollapsed ? '72px' : '260px' }}
         >
           <div className={styles.content}>
             {hasRouteAccess ? children : <NoPermission />}
