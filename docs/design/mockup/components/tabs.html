@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Tabs + StatusTabs</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>.demo { background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5); margin-bottom: var(--space-4); }</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.D · Navegación</div>
+      <h1 class="page-title">Tabs &amp; StatusTabs</h1>
+      <p class="page-lede">
+        Navegación horizontal entre vistas (<strong>Tabs</strong>) o filtros de estado en listings (<strong>StatusTabs</strong>). Activo con border-bottom brand. Count semántico por estado.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Tabs · navegación dentro de detalle</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">Sin counts. Para separar contenido en página de detalle (cliente, factura, ticket).</p>
+
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab" aria-selected="true">Resumen</button>
+          <button class="tab" role="tab">Servicios</button>
+          <button class="tab" role="tab">Facturación</button>
+          <button class="tab" role="tab">Notas</button>
+          <button class="tab" role="tab">Soporte</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Tabs con count · navegación + indicación</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Para vistas donde cada tab tiene una cantidad informativa.</p>
+
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab">Servicios <span class="tab-count">5</span></button>
+          <button class="tab" role="tab">Facturas <span class="tab-count">12</span></button>
+          <button class="tab" role="tab">Tickets <span class="tab-count">2</span></button>
+          <button class="tab" role="tab">Notas <span class="tab-count">3</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">StatusTabs · filtros de estado en listing</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">Count con variante semántica cuando el tab está activo. Reemplaza StatsCards de filtro.</p>
+
+      <p class="legend">Listado de facturas</p>
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab">Todas <span class="tab-count">142</span></button>
+          <button class="tab" role="tab">Pendientes <span class="tab-count warning">5</span></button>
+          <button class="tab" role="tab">Pagadas <span class="tab-count success">130</span></button>
+          <button class="tab" role="tab">Vencidas <span class="tab-count danger">7</span></button>
+        </div>
+      </div>
+
+      <p class="legend">Listado de tickets</p>
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab">Todos <span class="tab-count">87</span></button>
+          <button class="tab active" role="tab">Abiertos <span class="tab-count warning">12</span></button>
+          <button class="tab" role="tab">Sin asignar <span class="tab-count danger">3</span></button>
+          <button class="tab" role="tab">En revisión <span class="tab-count pending">5</span></button>
+          <button class="tab" role="tab">Cerrados <span class="tab-count">67</span></button>
+        </div>
+      </div>
+
+      <p class="legend">Listado de clientes</p>
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab">Todos <span class="tab-count">147</span></button>
+          <button class="tab" role="tab">Activos <span class="tab-count success">139</span></button>
+          <button class="tab" role="tab">Suspendidos <span class="tab-count warning">5</span></button>
+          <button class="tab" role="tab">Cancelados <span class="tab-count">3</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Estados</h2>
+        <span class="section-num">04</span>
+      </div>
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab">Default</button>
+          <button class="tab" role="tab" style="color: var(--text-primary);">Hover (simulado)</button>
+          <button class="tab" role="tab" style="box-shadow: var(--focus-ring); border-radius: var(--radius-xs);">Focus (simulado)</button>
+          <button class="tab active" role="tab">Active</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs actual</h2>
+        <span class="section-num">05</span>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Patrón <span class="meta">D2D-6</span></div>
+        <div>Mantener border-bottom (horizontal). Accent stripe es para verticales.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Keyboard nav <span class="meta">D2D-7</span></div>
+        <div>Falta. Añadir Arrow keys, Home/End.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Tabular nums en count</div>
+        <div>Aplicar para que counts no salten al cambiar.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

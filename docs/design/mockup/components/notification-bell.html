@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · NotificationBell</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .triggers { display: flex; gap: var(--space-6); align-items: center; padding: var(--space-6); background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: var(--space-4); }
+  .panel-demo { display: flex; gap: var(--space-6); align-items: flex-start; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.D · Navegación</div>
+      <h1 class="page-title">NotificationBell</h1>
+      <p class="page-lede">
+        Campana del topbar. Polling 30s. Badge danger con pulse cuando hay nuevas — refuerza "Aelium proactivo: te avisamos antes de que te enteres". Refactor crítico aplicado: hex Stripe legacy migrados a tokens.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Trigger · estados</h2>
+        <span class="section-num">01</span>
+      </div>
+
+      <div class="triggers">
+        <div style="text-align: center;">
+          <button class="bell" aria-label="Notificaciones">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </button>
+          <p class="legend" style="margin-top: var(--space-2); margin-bottom: 0;">Sin nuevas</p>
+        </div>
+
+        <div style="text-align: center;">
+          <button class="bell" aria-label="Notificaciones">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="bell-badge">3</span>
+          </button>
+          <p class="legend" style="margin-top: var(--space-2); margin-bottom: 0;">Con badge</p>
+        </div>
+
+        <div style="text-align: center;">
+          <button class="bell" aria-label="Notificaciones">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="bell-badge pulse">3</span>
+          </button>
+          <p class="legend" style="margin-top: var(--space-2); margin-bottom: 0;">Pulse · nueva entrante</p>
+        </div>
+
+        <div style="text-align: center;">
+          <button class="bell" aria-label="Notificaciones">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="bell-badge">9+</span>
+          </button>
+          <p class="legend" style="margin-top: var(--space-2); margin-bottom: 0;">≥ 10 nuevas</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Panel abierto · ejemplos producto</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Mostrado en posición estática para visualización. En producto: dropdown right-aligned al trigger.</p>
+
+      <div class="panel-demo">
+        <div class="bell-panel static" style="position: relative;">
+          <div class="bell-header">
+            <span class="bell-title">Notificaciones</span>
+            <button class="bell-link">Marcar todas</button>
+          </div>
+          <ul class="bell-list">
+            <li>
+              <button class="bell-item unread">
+                <div class="bell-item-title">Marina escribió en su ticket</div>
+                <div class="bell-item-body">Sigo sin poder enviar correos desde ayer. ¿Sabes algo?</div>
+                <div class="bell-item-meta">
+                  <span>hace 5 min</span>
+                  <span class="unread-dot" aria-hidden="true"></span>
+                </div>
+              </button>
+            </li>
+            <li>
+              <button class="bell-item unread">
+                <div class="bell-item-title">marina-store está caído</div>
+                <div class="bell-item-body">Lleva 12 minutos sin responder. Yasmin lo está mirando.</div>
+                <div class="bell-item-meta">
+                  <span>hace 12 min</span>
+                  <span class="unread-dot" aria-hidden="true"></span>
+                </div>
+              </button>
+            </li>
+            <li>
+              <button class="bell-item unread">
+                <div class="bell-item-title">Nuevo ticket de Floristería Pérez</div>
+                <div class="bell-item-body">El correo no envía desde ayer.</div>
+                <div class="bell-item-meta">
+                  <span>hace 1 h</span>
+                  <span class="unread-dot" aria-hidden="true"></span>
+                </div>
+              </button>
+            </li>
+            <li>
+              <button class="bell-item">
+                <div class="bell-item-title">Pago confirmado</div>
+                <div class="bell-item-body">Floristería Pérez · 49,90 €</div>
+                <div class="bell-item-meta">
+                  <span>hace 2 h</span>
+                </div>
+              </button>
+            </li>
+            <li>
+              <button class="bell-item">
+                <div class="bell-item-title">Tu hosting renueva en 7 días</div>
+                <div class="bell-item-body">49,90 € se cargan automáticamente el día 15.</div>
+                <div class="bell-item-meta">
+                  <span>ayer</span>
+                </div>
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        <div style="flex: 1;">
+          <div class="kv">
+            <div><strong>Voz aplicada</strong></div>
+            <div>"Marina escribió en su ticket" en lugar de "New message in ticket #234". El nombre del cliente siempre.</div>
+            <div><strong>Tiempo relativo en castellano</strong></div>
+            <div>"hace 5 min", "hace 1 h", "hace 2 d". Tras 7 días → fecha absoluta.</div>
+            <div><strong>Unread visible</strong></div>
+            <div>Background <span class="tok">--brand-subtle</span> + dot brand a la derecha del meta. Doble señal.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Empty state</h2>
+        <span class="section-num">03</span>
+      </div>
+
+      <div class="bell-panel static" style="position: relative; max-width: 360px;">
+        <div class="bell-header">
+          <span class="bell-title">Notificaciones</span>
+          <button class="bell-link" disabled>Marcar todas</button>
+        </div>
+        <div class="bell-empty">No tienes notificaciones nuevas.</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift crítico vs actual</h2>
+        <span class="section-num">04</span>
+      </div>
+      <p class="section-lede">El componente actual arrastra hex Stripe legacy. Refactor obligatorio en modo implementación.</p>
+
+      <div class="spec-grid">
+        <div class="label">Hex Stripe `#635BFF` <span class="meta">D2D-1</span></div>
+        <div>3 lugares (linkBtn, itemUnread bg, dot). Migrar TODOS a <span class="tok">--brand</span>.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Badge `#EF4444` <span class="meta">D2D-2</span></div>
+        <div>Migrar a <span class="tok">--danger</span>. Añadir <span class="tok">.pulse</span> opcional para refuerzo proactivo.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Tamaños hardcoded <span class="meta">D2D-10</span></div>
+        <div>12, 13, 14 px → <span class="tok">--font-size-xs/sm</span>.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Box-shadow <span class="meta">D2D-11</span></div>
+        <div><span class="mono">0 12px 32px rgba(0,0,0,0.12)</span> → <span class="tok">--shadow-xl</span>.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Voz</div>
+        <div>Items con voz Aelium siempre. Tiempos relativos en castellano.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

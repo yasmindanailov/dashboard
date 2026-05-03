@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Breadcrumb</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>.demo { background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-3); }</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.D · Navegación</div>
+      <h1 class="page-title">Breadcrumb</h1>
+      <p class="page-lede">
+        Ruta de navegación con chevron separator. Para páginas de profundidad ≥ 2. Nombres reales del recurso, no IDs ni slugs.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Ejemplos producto</h2>
+        <span class="section-num">01</span>
+      </div>
+
+      <p class="legend">Admin · detalle de cliente con sub-página</p>
+      <div class="demo">
+        <nav class="breadcrumb" aria-label="Ruta de navegación">
+          <a href="#">Admin</a>
+          <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+          <a href="#">Clientes</a>
+          <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+          <a href="#">Floristería Pérez</a>
+          <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+          <span class="crumb-current" aria-current="page">Notas</span>
+        </nav>
+      </div>
+
+      <p class="legend">Admin · factura</p>
+      <div class="demo">
+        <nav class="breadcrumb" aria-label="Ruta de navegación">
+          <a href="#">Admin</a>
+          <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+          <a href="#">Facturación</a>
+          <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+          <span class="crumb-current" aria-current="page">INV-00042</span>
+        </nav>
+      </div>
+
+      <p class="legend">Admin · editar producto</p>
+      <div class="demo">
+        <nav class="breadcrumb" aria-label="Ruta de navegación">
+          <a href="#">Admin</a>
+          <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+          <a href="#">Productos</a>
+          <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+          <a href="#">Web Pro</a>
+          <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+          <span class="crumb-current" aria-current="page">Editar</span>
+        </nav>
+      </div>
+
+      <p class="legend">Cliente · servicio contratado</p>
+      <div class="demo">
+        <nav class="breadcrumb" aria-label="Ruta de navegación">
+          <a href="#">Mis servicios</a>
+          <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+          <span class="crumb-current" aria-current="page">hosting-pro-01.aelium.es</span>
+        </nav>
+      </div>
+
+      <p class="legend">Cliente · factura del mes</p>
+      <div class="demo">
+        <nav class="breadcrumb" aria-label="Ruta de navegación">
+          <a href="#">Mis facturas</a>
+          <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+          <span class="crumb-current" aria-current="page">abril 2026</span>
+        </nav>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Truncado</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Current se trunca con ellipsis cuando excede 320px.</p>
+      <div class="demo">
+        <nav class="breadcrumb" aria-label="Ruta de navegación">
+          <a href="#">Admin</a>
+          <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+          <a href="#">Clientes</a>
+          <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+          <span class="crumb-current" aria-current="page">Asociación de Vecinos del Barrio del Carmen y Aledaños — Sala 3 Pruebas</span>
+        </nav>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Reglas y drift</h2>
+        <span class="section-num">03</span>
+      </div>
+      <div class="kv">
+        <div><strong>Profundidad ≥ 2</strong></div>
+        <div>Sin breadcrumb en overview ni listings — ahí basta el sidebar.</div>
+        <div><strong>Nombres reales</strong></div>
+        <div>"Floristería Pérez", no "client_42_xyz".</div>
+        <div><strong>Sin "Inicio"</strong></div>
+        <div>Logo del sidebar lleva al overview.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Link color <span class="meta">D2D-12</span></div>
+        <div>Migrar de tertiary a <span class="tok">--text-secondary</span> para legibilidad.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Aria-label español</div>
+        <div>"Ruta de navegación" en lugar de "Breadcrumb".</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>
