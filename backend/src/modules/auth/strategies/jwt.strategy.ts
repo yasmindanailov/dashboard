@@ -8,7 +8,15 @@ export interface JwtPayload {
   sub: string; // user id
   email: string;
   role: string; // role slug
-  type: 'access' | 'refresh' | 'temp_2fa';
+  // 'ws' añadido en Sprint 13 §13.AUTH Fase A (2026-05-03): token efímero
+  // (60 segundos) usado por el browser para handshake socket.io. Cookie
+  // httpOnly Next.js no es accesible al socket.io-client del cliente JS, así
+  // que un Server Action lee la cookie server-side y devuelve este token
+  // corto al cliente. El gateway `SupportGatewayAuth.authenticateWithJwt`
+  // sigue verificando el JWT estándar; este flag solo se usa en `validate()`
+  // para rechazar el token si llega vía Authorization header al backend
+  // (donde solo se aceptan tokens type='access').
+  type: 'access' | 'refresh' | 'temp_2fa' | 'ws';
 }
 
 @Injectable()

@@ -74,6 +74,11 @@ export class AuthService {
     return this.tokenService.getMe(userId);
   }
 
+  /* ── WebSocket short-lived token (Sprint 13 §13.AUTH Fase A) ── */
+  issueWsToken(userId: string) {
+    return this.tokenService.issueWsToken(userId);
+  }
+
   /* ── Recovery ── */
   forgotPassword(email: string, ip: string) {
     return this.recoveryService.forgotPassword(email, ip);

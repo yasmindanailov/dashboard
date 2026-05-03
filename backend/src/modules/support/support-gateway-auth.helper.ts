@@ -7,6 +7,7 @@ import {
   GUEST_TOKEN_COOKIE_NAME,
 } from '../../core/common/utils/guest-token.util';
 import { getErrorMessage } from '../../core/common/utils/error.util';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 /**
  * ═══════════════════════════════════════
@@ -49,7 +50,16 @@ export class SupportGatewayAuth {
     token: string,
   ): Promise<ConnectedUserInfo | null> {
     try {
-      const payload = this.jwtService.verify<{ sub: string }>(token);
+      const payload = this.jwtService.verify<JwtPayload>(token);
+      // Sprint 13 §13.AUTH Fase A (2026-05-03): el gateway solo acepta tokens
+      // tipo 'access' (clientes API directos / tests E2E con Authorization
+      // Bearer) o 'ws' (Server Action `getWsTokenAction` Modelo A ADR-078 A1).
+      // 'refresh' / 'temp_2fa' se rechazan: estaban entrando hasta ahora por
+      // bug latente — el strategy HTTP exige 'access' pero el gateway no
+      // hacía narrowing del tipo, así que cualquier JWT firmado abría socket.
+      if (payload.type !== 'access' && payload.type !== 'ws') {
+        return null;
+      }
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
         include: { role: true },

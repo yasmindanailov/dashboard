@@ -147,6 +147,31 @@ export class AuthController {
   }
 
   /**
+   * Sprint 13 §13.AUTH Fase A (2026-05-03) — token efímero para handshake WS.
+   *
+   * Llamado server-side por la Server Action `getWsTokenAction` de Next.js,
+   * que reenvía el `Authorization: Bearer` desde la cookie httpOnly del
+   * dominio Next.js (Modelo A — ADR-078 Amendment A1). Devuelve un JWT con
+   * `type: 'ws'` válido durante 60 segundos. El cliente lo pasa al
+   * `socket.io({ auth: { token } })` para abrir el handshake.
+   *
+   * Por qué NO se invoca directo desde el browser: la cookie httpOnly Next.js
+   * no es accesible al `socket.io-client` del cliente JS — ese es el motivo
+   * de que exista este endpoint.
+   */
+  @Post('ws-token')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Issue short-lived (60s) JWT for socket.io handshake (ADR-078 Amendment A1)',
+  })
+  async issueWsToken(@Req() req: AuthenticatedRequest) {
+    return this.authService.issueWsToken(req.user.id);
+  }
+
+  /**
    * Sprint 13.5 Fase E (DC.15) — fuente única de verdad para los
    * permisos del usuario actual. El frontend cacheaba hasta este sprint
    * la matriz `SIDEBAR_PERMISSIONS` duplicada en `frontend/app/lib/

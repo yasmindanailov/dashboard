@@ -213,6 +213,61 @@ export class AuthTokenService {
     return { message: 'Sesión cerrada' };
   }
 
+  /* ── WebSocket short-lived token ── */
+  /**
+   * Sprint 13 §13.AUTH Fase A (2026-05-03) — token efímero para handshake WS.
+   *
+   * Por qué existe: en arquitectura Modelo A (ADR-078 Amendment A1) el JWT
+   * vive en una cookie httpOnly del dominio Next.js que el `socket.io-client`
+   * del browser no puede leer (sin acceso JS). Un Server Action de Next.js
+   * (`getWsTokenAction`) llama a este endpoint server-side reenviando el
+   * `Authorization: Bearer` desde la cookie y devuelve este token corto al
+   * Client Component que monta el socket. El cliente lo pasa al handshake:
+   *   `io('/support', { auth: { token } })`.
+   *
+   * Ámbito y caducidad:
+   *  - Claim `type: 'ws'` (jwt.strategy.ts) — distinto de 'access'.
+   *  - Caducidad fija de 60 segundos. Ventana suficiente para el handshake
+   *    inicial; el socket persiste sin token tras `connect`. Si la conexión
+   *    cae, el cliente vuelve a pedir un token nuevo (Server Action coste
+   *    bajo).
+   *  - Firmado con `JWT_SECRET` igual que el access token — `SupportGatewayAuth`
+   *    lo verifica sin cambios. La únicidad real se da por `type='ws'`: el
+   *    gateway acepta cualquier JWT válido, y el strategy del backend rechaza
+   *    los `type='ws'` en HTTP (validate() exige 'access'), así que un atacante
+   *    que robara este token solo podría abrir un socket — no llamar la API.
+   *
+   * Audit: NO se persiste audit log por cada generación de token WS (ruido
+   * elevado: cada apertura de chat genera uno). El audit del uso real vive
+   * en el gateway (`Connected: ...` log) y en `audit_access_log` cuando el
+   * usuario interactúa con conversaciones.
+   */
+  async issueWsToken(
+    userId: string,
+  ): Promise<{ token: string; expiresIn: number }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    if (user.status !== 'active') {
+      throw new UnauthorizedException('User not active');
+    }
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role.slug,
+      type: 'ws',
+    };
+    const expiresIn = 60; // seconds
+    const token = this.jwt.sign(payload, { expiresIn: `${expiresIn}s` });
+
+    return { token, expiresIn };
+  }
+
   /* ── Get Me ── */
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
