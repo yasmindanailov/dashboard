@@ -27,43 +27,39 @@ const eslintConfig = defineConfig([
         },
       ],
 
-      // ── Sprint 13 §13.AUTH Fase E (cierre 2026-05-03) ──────────────
-      // `react-hooks/set-state-in-effect` (regla nueva en
-      // eslint-plugin-react-hooks 7.x, alineada con React 19 + React
-      // Compiler) marca como warning patrones donde se llama setState
-      // dentro del cuerpo síncrono de un useEffect.
+      // ── Sprint 13 §13.AUTH Fase F (Opción B — 2026-05-03) ─────────
+      // `react-hooks/set-state-in-effect` (eslint-plugin-react-hooks 7.x,
+      // alineada con React 19 + React Compiler) marca como error patrones
+      // donde se llama setState dentro del cuerpo síncrono de un useEffect.
       //
-      // Estado: el antipatrón canónico DC.6
+      // El antipatrón canónico DC.6
       //   `useEffect(() => { setLoading(true); api.X(token).then(setData) }, [])`
       // está completamente erradicado por la migración a Server Components
-      // + Server Actions (ADR-078 Amendment A1). Las pages que cargaban
-      // datos así son ahora SC nativos con `serverFetch`, o invocan
-      // Server Actions desde event handlers (no useEffect).
+      // + Server Actions (ADR-078 Amendment A1).
       //
-      // Promovida a `error` para detectar regresiones del antipatrón.
-      // Los archivos legítimos con sincronización a sistemas externos
-      // (WS subscribe, polling timers, sync UI con route/tab/prop)
-      // están listados en el override de abajo con `off` + justificación.
+      // Doctrina Opción B: la regla queda a `error` GLOBAL, sin override
+      // de archivo. Los call-sites legítimos con patrones React 19
+      // idiomáticos (WS subscribe, polling timers, mobile drawer sync,
+      // lazy load on tab/prop, modal reset post-mount) llevan supresión
+      // PER-LÍNEA con justificación inline:
+      //   // eslint-disable-next-line react-hooks/set-state-in-effect -- <razón>
+      // Beneficio: granularidad real (un bug nuevo en otra línea del
+      // mismo archivo SÍ se caza); auditable; convención estándar React.
       // ──────────────────────────────────────────────────────────────
       "react-hooks/set-state-in-effect": "error",
     },
   },
   /* ─────────────────────────────────────────────────────────────────
-     Override Sprint 13 §13.AUTH Fase E — Patrones React 19 legítimos.
-     React docs: https://react.dev/learn/synchronizing-with-effects
+     Override Sprint 13 §13.AUTH Fase F — `react-hooks/exhaustive-deps`.
 
-     Los archivos listados aquí contienen patrones React 19 idiomáticos
-     donde setState dentro de useEffect es el flujo canónico:
-       - WS subscribe (Socket.IO handlers que mutan state local en
-         respuesta a eventos remotos).
-       - Polling timers (setInterval que actualiza counters).
-       - Mobile drawer / palette sync con cambio de route.
-       - Lazy load on tab/prop change.
-       - Modal reset on close.
-       - Setup post-mount one-shot (keyboard, ref init).
+     Los archivos listados contienen patrones React 19 donde la regla
+     `exhaustive-deps` produce falsos positivos masivos por dependencias
+     que vienen de refs estables (timers, sockets, route params usadas
+     una sola vez por mount). Mantener `off` per-archivo es la convención
+     estándar React para estos casos.
 
-     NO son el antipatrón DC.6 (`fetch+setState en mount`); ese flujo
-     ya está cerrado por la migración SC + Server Actions.
+     NOTA: `set-state-in-effect` se gestiona ahora con supresión
+     per-línea (Opción B), no en este override.
      ───────────────────────────────────────────────────────────────── */
   {
     files: [
@@ -95,10 +91,6 @@ const eslintConfig = defineConfig([
       "app/components/ui/Toast/Toast.tsx",
     ],
     rules: {
-      "react-hooks/set-state-in-effect": "off",
-      /* Toast también usa ref.current dentro de cleanup — pattern
-         válido cuando el ref es una colección de timers que la cleanup
-         debe iterar. */
       "react-hooks/exhaustive-deps": "off",
     },
   },

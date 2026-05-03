@@ -182,13 +182,19 @@ export async function completeChecklistItemAction(
 /**
  * Lista de agentes asignables (superadmin + 3 agentes). Filtrada
  * server-side por `ASSIGNABLE_ROLE_SLUGS` en backend.
+ *
+ * Shape canónico del backend `GET /admin/users` (Sprint 8 Fase A.3 —
+ * `UsersService.findAgents`): `role` es el slug directo (string), NO
+ * un objeto `{ slug, name }`. La etiqueta humana se resuelve client-side
+ * con `ROLE_LABELS[slug]` cuando hace falta.
  */
 export interface AssignableAgent {
   id: string;
   first_name: string;
   last_name: string;
+  full_name: string;
   email: string;
-  role: { slug: string; name: string };
+  role: string;
 }
 
 export type ListAgentsResult =

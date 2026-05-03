@@ -91,6 +91,7 @@ export default function MaintenanceLogModal({
 
   useEffect(() => {
     if (open && task) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy load on open: carga checklist del producto cuando el modal abre + reset on close.
       void fetchChecklist();
     } else if (!open) {
       setClientFacingNotes('');

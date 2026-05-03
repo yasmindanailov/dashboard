@@ -50,6 +50,20 @@ export class TasksEmailListener {
       'http://localhost:3002',
     );
 
+    /*
+     * URL canónica de la task en el frontend (Sprint 13 §13.AUTH Fase F —
+     * Yasmin 2026-05-04). El frontend NO tiene página de detalle por task
+     * (ADR-079: las tasks son un mirror, se ven en lista + modal). La URL
+     * resuelve por sistema vinculado:
+     *   - support_ticket → ticket directo (`/admin/support/<conversationId>`).
+     *     La fuente de verdad es el ticket; abrirlo da contexto completo.
+     *   - resto         → lista `/admin/tasks` con filtro de la propia task.
+     */
+    const taskPath =
+      task.source_system === 'support_ticket'
+        ? `/admin/support/${task.source_id}`
+        : `/admin/tasks`;
+
     await this.notifications.dispatchToUser(
       'task.assigned',
       {
@@ -62,8 +76,8 @@ export class TasksEmailListener {
         task_priority: task.priority,
         task_priority_label:
           TASK_PRIORITY_LABELS_ES[task.priority] ?? task.priority,
-        task_url: `${appUrl}/admin/tasks/${task.id}`,
-        action_url: `/admin/tasks/${task.id}`,
+        task_url: `${appUrl}${taskPath}`,
+        action_url: taskPath,
         due_label: formatDueLabel(task.due_date),
         assigned_by: payload.assignedBy,
       },

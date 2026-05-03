@@ -75,6 +75,7 @@ export default function CompleteTaskModal({
   const [note, setNote] = useState('');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- modal reset on close: limpia el note cuando el padre cierra el modal.
     if (!open) setNote('');
   }, [open]);
 

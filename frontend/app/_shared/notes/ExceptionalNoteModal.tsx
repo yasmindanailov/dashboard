@@ -42,6 +42,7 @@ export default function ExceptionalNoteModal({
 
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- modal reset on close: limpia el form cuando el padre cierra el modal (sync con prop externa).
       setBody('');
       setIsPinned(false);
     }

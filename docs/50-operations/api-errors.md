@@ -85,6 +85,15 @@
 | `SESSION_REVOKED` | "Sesión no encontrada o revocada" | Sesión no existe en tabla `sessions` (se eliminó al cerrar — [ADR-060](../10-decisions/adr-060-decisiones-pre-schema.md)) | `UnauthorizedException` | auth |
 | `ACCOUNT_INACTIVE` | "Tu cuenta está inactiva." | `users.status≠'active'` | `UnauthorizedException` | auth |
 | `JWT_WRONG_TYPE` | "Invalid token type" | JWT `sub` con type distinto del esperado (access vs refresh) | `UnauthorizedException` | auth |
+| `AUTH_REPLAY_DETECTED` | "Sesión comprometida — todas las sesiones se han revocado por seguridad. Vuelve a iniciar sesión." | `POST /auth/refresh` con un refresh token cuya `Session.used_at IS NOT NULL` (reuso post-rotación, [ADR-078](../10-decisions/adr-078-auth-server-side-cookies-httponly.md) §1.4) | `UnauthorizedException` | auth (`AuthTokenService.refresh`) |
+
+> **`AUTH_REPLAY_DETECTED`** — Sprint 13 §13.AUTH.B. La emisión revoca toda la
+> cadena del usuario (`updateMany` con `revoked_reason='replay_detected'`) y
+> dispara el evento `auth.refresh_replay_detected`, consumido por
+> `NotificationsAuthReplayListener` que alerta al superadmin (canal `internal`
+> + `email`). El cliente legítimo NUNCA debería ver este error: si lo ve, su
+> refresh token quedó expuesto. Frontend: tratar como sesión expirada
+> (`logoutAction()` + redirect `/?expired=true`).
 
 **Frontend convención:** ante 401 → redirigir a `/login?expired=true` ([ADR-059](../10-decisions/adr-059-auth-layout-split-screen.md)) excepto en `INVALID_CREDENTIALS` (mostrar inline en form).
 

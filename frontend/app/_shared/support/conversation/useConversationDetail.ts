@@ -69,6 +69,7 @@ export function useConversationDetail() {
   }, [conversationId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial + recarga on conversationId change (prop-driven sync con backend).
     void loadConversation();
   }, [loadConversation]);
 
@@ -133,6 +134,7 @@ export function useConversationDetail() {
   useEffect(() => {
     const userId = conversation?.user_id;
     if (!userId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy load on prop change: el contexto cliente se carga cuando hidrata la conversación (dependent fetch).
     setContextLoading(true);
     let cancelled = false;
     void (async () => {

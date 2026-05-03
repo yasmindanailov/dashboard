@@ -59,6 +59,7 @@ export default function NotificationBell({ triggerClassName }: NotificationBellP
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- polling timer canónico: subscribe a un sistema externo (backend) con setInterval; setState en callback es el patrón React 19 idiomático.
     void fetchUnread();
     const interval = setInterval(() => void fetchUnread(), POLL_INTERVAL_MS);
     return () => clearInterval(interval);
@@ -115,11 +116,16 @@ export default function NotificationBell({ triggerClassName }: NotificationBellP
   }
 
   function toggleOpen(): void {
-    setOpen((prev) => {
-      const next = !prev;
-      if (next) void fetchUnread();
-      return next;
-    });
+    /*
+     * El updater function de setState debe ser puro — disparar el Server Action
+     * desde dentro provoca "Cannot update Router while rendering" porque la
+     * action invalida la cache de Next.js durante el render. Separamos: leemos
+     * el estado previo en este render (open) y disparamos el fetch FUERA del
+     * updater. R14 + ADR-078 Amendment A1.
+     */
+    const willOpen = !open;
+    setOpen(willOpen);
+    if (willOpen) void fetchUnread();
   }
 
   return (

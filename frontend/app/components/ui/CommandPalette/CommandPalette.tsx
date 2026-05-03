@@ -229,6 +229,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   // Reset state when opening
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- modal reset on open: limpia búsqueda + selección al abrir paleta.
       setQuery('');
       setActiveIndex(0);
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -237,6 +238,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   // Clamp activeIndex
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clamp invariante: cuando la lista de items se acorta, fuerza el índice activo dentro de rango.
     if (activeIndex >= flatItems.length) setActiveIndex(Math.max(0, flatItems.length - 1));
   }, [flatItems.length, activeIndex]);
 

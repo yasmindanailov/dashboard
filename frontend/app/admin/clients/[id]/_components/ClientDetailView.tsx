@@ -56,6 +56,7 @@ export default function ClientDetailView({ client, initialTab }: Props) {
   useEffect(() => {
     if (tab !== 'soporte') return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy load on tab change: historial de soporte se baja al cambiar a la tab "Soporte".
     setLoadingSupport(true);
     void (async () => {
       const result = await listClientSupportAction(client.id);
@@ -90,6 +91,7 @@ export default function ClientDetailView({ client, initialTab }: Props) {
   }, [client.id, noteCategory, noteSourceSystem, notePinnedOnly, toast]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy load on tab change: notas estructuradas se cargan al cambiar a la tab "Notas".
     if (tab === 'notas') void loadStructuredNotes();
   }, [tab, loadStructuredNotes]);
 

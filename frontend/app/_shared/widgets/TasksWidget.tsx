@@ -35,6 +35,7 @@ export default function TasksWidget() {
 
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial widget (one-shot post-mount); el cancel flag protege de race conditions on unmount.
     setLoading(true);
     setError(false);
     void (async () => {

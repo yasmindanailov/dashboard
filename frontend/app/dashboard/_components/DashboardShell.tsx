@@ -34,6 +34,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const closeCmdPalette = useCallback(() => setCmdPaletteOpen(false), []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mobile drawer sync con route change (sistema externo: Next.js router).
     setMobileMenuOpen(false);
   }, [pathname]);
 

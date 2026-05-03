@@ -67,6 +67,7 @@ export function useCheckout() {
      effect representa un sistema externo (debounce + fetch). */
   useEffect(() => {
     if (!isAdmin || clientSearch.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- limpia resultados al borrar el filtro de búsqueda; sincroniza UI con state externo (debounce search).
       setClientResults([]);
       return;
     }
@@ -126,6 +127,7 @@ export function useCheckout() {
   }, [prefilledPricingId, isAdmin]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- prefill one-shot post-mount desde query param; lazy load on prop change (prefilledPricingId).
     void prefillFromUrl();
   }, [prefillFromUrl]);
 
@@ -140,9 +142,11 @@ export function useCheckout() {
   }, [targetUserId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial del catálogo (one-shot post-mount); el endpoint vive fuera del control React.
     void loadProducts();
   }, [loadProducts]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- recarga perfiles de facturación cuando cambia el cliente target (prop-driven sync con backend).
     if (targetUserId) void loadProfiles();
   }, [loadProfiles, targetUserId]);
 

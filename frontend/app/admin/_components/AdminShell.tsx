@@ -41,6 +41,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const stored = window.localStorage.getItem(ADMIN_SIDEBAR_COLLAPSED_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hidratación post-mount de preferencia UI (evita hydration mismatch — el server no conoce localStorage).
     if (stored === 'true') setSidebarCollapsed(true);
   }, []);
 
@@ -56,6 +57,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   /* Cerrar drawer móvil al cambiar de ruta. */
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mobile drawer sync con route change (sistema externo: Next.js router).
     setMobileMenuOpen(false);
   }, [pathname]);
 

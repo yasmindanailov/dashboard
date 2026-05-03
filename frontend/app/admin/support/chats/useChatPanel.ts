@@ -74,6 +74,7 @@ export function useChatPanel() {
   }, [chatSearch]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- recarga chats al cambiar filtro de búsqueda (prop-driven sync con backend).
     void loadChats();
   }, [loadChats]);
 

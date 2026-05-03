@@ -297,6 +297,7 @@ export class TasksService {
     dto: AssignTaskDto,
     userId: string,
     isAdmin: boolean,
+    opts: { skipTicketSync?: boolean } = {},
   ) {
     const existing = await this.findOne(id);
 
@@ -326,6 +327,38 @@ export class TasksService {
 
     if (targetAgent !== null) {
       await this.assertAssignableUser(targetAgent);
+    }
+
+    /*
+     * Bridge `support_ticket`: ADR-079 §1 — el sistema vinculado es la única
+     * fuente de verdad. Cuando la operación viene del usuario (NO del listener),
+     * propagamos al ticket vía `support.updateConversation`; el listener
+     * `SupportTicketTaskCreatorListener` actualiza la task de forma idempotente
+     * en respuesta al evento del ticket (handleAssigned upserta con nuevo
+     * `assigned_to`; handleUnassigned cancela la task — ADR-074 EC#8).
+     *
+     * `opts.skipTicketSync=true` rompe el loop cuando el listener nos invoca
+     * (mismo patrón que `cancel` con `skipTicketRelease`). En ese caso
+     * actualizamos la task directamente — el ticket ya está al día, fue su
+     * cambio el que disparó al listener.
+     *
+     * Sprint 13 §13.AUTH Fase F bug #3b (Yasmin 2026-05-03/04).
+     */
+    if (existing.source_system === 'support_ticket' && !opts.skipTicketSync) {
+      try {
+        await this.support.updateConversation(
+          existing.source_id,
+          { assigned_agent_id: targetAgent },
+          userId,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Failed to sync ticket ${existing.source_id} on task assign: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        throw err;
+      }
+      // El listener ya actualizó la task; releemos el estado fresco.
+      return this.findOne(id);
     }
 
     const updated = await this.prisma.task.update({

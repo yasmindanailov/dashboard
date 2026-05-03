@@ -195,6 +195,7 @@ export function useChatWidget() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy load on widget open (lista de conversaciones) + sync de la vista guest cuando arranca sin conversación previa.
     if (isOpen && !isGuest) void loadConversations();
     if (isOpen && isGuest && !guestConversationId) setView('guest-form');
   }, [isOpen, isGuest, guestConversationId, loadConversations]);

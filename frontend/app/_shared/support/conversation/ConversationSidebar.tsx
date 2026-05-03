@@ -69,6 +69,7 @@ export default function ConversationSidebar({
   useEffect(() => {
     if (!isAdmin || !onAssignAgent) return;
     if (agents.length > 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy load on prop change: carga agentes solo cuando isAdmin && onAssignAgent && lista vacía (one-shot por sesión).
     setAgentsLoading(true);
     let cancelled = false;
     void (async () => {
@@ -80,8 +81,8 @@ export default function ConversationSidebar({
           email: a.email,
           first_name: a.first_name,
           last_name: a.last_name,
-          full_name: `${a.first_name} ${a.last_name}`.trim(),
-          role: a.role.slug as RoleSlug,
+          full_name: a.full_name || `${a.first_name} ${a.last_name}`.trim(),
+          role: a.role as RoleSlug,
           status: 'active',
           avatar_url: null,
         }));

@@ -120,6 +120,7 @@ export default function SupportInsidePage() {
   }, [toast]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial planes + suscripción (one-shot post-mount); prop-driven via useCallback identity.
     void reload();
   }, [reload]);
 

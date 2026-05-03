@@ -69,15 +69,18 @@ export function useTicketInbox() {
   }, [isAdmin]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy load on filter/role change (prop-driven sync con backend).
     void loadConversations();
   }, [loadConversations]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga stats inicial admin-only (one-shot post-mount).
     void loadStats();
   }, [loadStats]);
 
   /* Debounced client search admin-only. */
   useEffect(() => {
     if (!isAdmin || clientSearch.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- limpia resultados cuando el filtro queda corto (debounce search reset).
       setClientResults([]);
       return;
     }
