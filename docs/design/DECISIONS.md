@@ -332,6 +332,67 @@ Formato:
   4. Si en el futuro la marca evoluciona a v1.7+, esto se reabre con
      misma lógica (marca manda).
 
+## DD-024 — StatsCard refactor (D+B+C tras iteración)
+
+- Fase: 2.C
+- Fecha: 2026-05-03
+- Decisión: Reemplazar la versión inicial de StatsCard (label + número
+  grande + trend % + icono + accent border-left) por un nuevo diseño
+  combinación de las alternativas D + B + C exploradas en
+  `mockup/components/stats-card-iteraciones.html`:
+  - **Eyebrow** brand con marker rombo 8×8 (contexto temporal o
+    conceptual corto).
+  - **Value** en display-sm (40px) por defecto, display-lg (56px) en
+    variante `large`, xl (24px) en `compact`. **Tabular-nums obligatorio.**
+  - **Closing** en frase humana (voz Aelium) con `<strong>` resaltando
+    el dato relevante.
+  - **CTA opcional** (variante `.action`) para cards navegables — hover
+    brand-tinted, focus-ring, flecha que avanza.
+  - **Variante `.health`** para métricas con estado de salud: dual-rombo
+    como indicador (ok = ambos verdes, warn = uno apagado, alert = uno
+    rojo pulsando, pending = uno púrpura). El símbolo de marca trabaja
+    como indicador funcional, no decoración.
+
+- Justificación: La versión inicial era SaaS-genérica (idéntica a Stripe,
+  Linear, Vercel). No cargaba marca, no acompañaba al usuario, era
+  pasiva. Tras iteración estructurada (4 alternativas comparadas contra
+  rasgos de marca), la combinación D+B+C cumple los 5 criterios:
+  - **Voz Aelium** alta (closing humano, eyebrow contextual).
+  - **Diferenciación visual** alta (eyebrow rombo, dual-rombo de salud,
+    sin icon-corner SaaS-cliché).
+  - **Escaneabilidad** alta (número grande domina la card).
+  - **Productividad** alta (action variant lleva a la siguiente acción).
+  - **Reusabilidad** alta (variantes claras cubren casos producto reales).
+
+- Materializada en:
+  - `mockup/styles.css` — bloque `.stats-card` reescrito con eyebrow,
+    value, closing, cta, variantes (action, health, compact, large,
+    loading).
+  - `mockup/components/stats-card.html` — 6 secciones con todas las
+    variantes y ejemplos producto.
+  - `mockup/components/stats-card-iteraciones.html` — historia del
+    proceso de iteración (referencia + 4 alternativas + comparativa +
+    propuesta).
+  - `mockup/pages/admin-clientes.html` — composición actualizada con
+    2 informativas + 2 navegables.
+  - `fase-2-componentes/grupo-c-data/StatsCard.md` — spec reescrita.
+
+- Implicaciones:
+  1. Refactor completo de `StatsCard.tsx` en modo implementación: props
+     nuevas (eyebrow, closing como ReactNode, cta opcional, health,
+     variant). Props eliminadas (label, icon, trend, subtext,
+     accentColor).
+  2. Refactor de **cada uso de StatsCard en el código** con voz Aelium
+     (closing humano, eyebrow contextual). Trabajo de copy
+     + reestructuración. Documentado en NOTES de fase 2.C.
+  3. Patrón "iteración estructurada" (diagnóstico → reglas marca → casos
+     uso → 4 alternativas → comparativa → combinación) queda como
+     metodología para futuros componentes que no convenzan. Aplicar el
+     mismo proceso si ocurre con otro componente.
+  4. Para fase 4 (shells) y fases 5+ (mockups completos): cualquier
+     pantalla con métricas usa exclusivamente este StatsCard. Revisar
+     copy con voz Aelium en cada uso.
+
 ## DD-023 — Firma visual aplicada a componentes (mecanismos distintivos Aelium)
 
 - Fase: 2.A (transversal a fases siguientes)

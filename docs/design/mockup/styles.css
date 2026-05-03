@@ -1309,88 +1309,179 @@ a { color: inherit; text-decoration: none; }
   user-select: none;
 }
 
-/* ──────── StatsCard ──────── */
+/* ──────── StatsCard (DD-024 · D+B con C como variante) ────────
+   Estructura canónica:
+   - Eyebrow brand con marker rombo (default) o marker dual-rombo (health)
+   - Value en display-sm (40px) default · display-lg (56px) hero · xl (24px) compact
+   - Closing en frase humana con strong opcional
+   - CTA opcional (variante .action) — convierte la card en navegable
+   ───────────────────────────────────────────────────────────── */
 
 .stats-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-5);
   background: var(--surface-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  padding: var(--space-6) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 180px;
   transition: border-color var(--transition-fast) var(--ease-out),
+              background var(--transition-fast) var(--ease-out),
               box-shadow var(--transition-fast) var(--ease-out);
 }
-.stats-card:hover {
-  border-color: var(--border-hover);
-  box-shadow: var(--shadow-sm);
-}
-.stats-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.stats-card-label {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-secondary);
-  line-height: var(--line-height-tight);
-}
-.stats-card-icon {
-  width: 36px;
-  height: 36px;
+
+/* Eyebrow con marker rombo */
+.stats-card-eyebrow {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--brand);
-  background: var(--brand-subtle);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+}
+.stats-card-eyebrow::before {
+  content: "";
+  width: 8px; height: 8px;
+  border-radius: 1px;
+  background: var(--brand);
+  transform: rotate(45deg);
   flex-shrink: 0;
 }
+
+/* Value: display-sm por defecto */
 .stats-card-value {
   font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  line-height: var(--line-height-tight);
   letter-spacing: -0.02em;
-  margin: var(--space-2) 0 0;
+  line-height: 1.05;
+  color: var(--text-primary);
   font-feature-settings: var(--font-feature-numeric);
   font-variant-numeric: tabular-nums lining-nums;
+  margin: 0;
+}
+
+/* Closing en voz Aelium */
+.stats-card-closing {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: var(--line-height-relaxed);
+  margin: 0;
+}
+.stats-card-closing strong {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Variante · large (hero · cliente Overview) */
+.stats-card.large .stats-card-value {
+  font-size: var(--font-size-4xl);
+  letter-spacing: -0.025em;
+}
+.stats-card.large { min-height: 220px; }
+
+/* Variante · compact (sidebar, dashboards densos) */
+.stats-card.compact {
+  padding: var(--space-4);
+  min-height: auto;
+  gap: var(--space-2);
 }
 .stats-card.compact .stats-card-value {
   font-size: var(--font-size-xl);
   letter-spacing: -0.01em;
+  line-height: 1.1;
 }
-.stats-card-trend {
-  display: inline-flex;
+
+/* Variante · action — card navegable */
+.stats-card.action { cursor: pointer; }
+.stats-card.action:hover {
+  border-color: var(--brand);
+  background: var(--brand-subtle);
+  box-shadow: var(--shadow-xs);
+}
+.stats-card.action:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-color: var(--brand);
+}
+.stats-card-cta {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  display: flex;
   align-items: center;
-  gap: 2px;
-  font-size: var(--font-size-xs);
+  justify-content: space-between;
+  color: var(--brand);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  margin-top: var(--space-1);
-  font-feature-settings: var(--font-feature-numeric);
-  font-variant-numeric: tabular-nums;
 }
-.stats-card-trend.up { color: var(--success-strong); }
-.stats-card-trend.down { color: var(--danger-strong); }
-.stats-card-trend .icon { width: 12px; height: 12px; display: inline-flex; }
-.stats-card-subtext {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-  margin: 0;
+.stats-card-cta .arrow {
+  display: inline-flex;
+  transition: transform var(--transition-fast) var(--ease-out);
 }
-/* Variantes con accent border-left semántico */
-.stats-card.accent-brand   { border-left: 3px solid var(--brand); }
-.stats-card.accent-success { border-left: 3px solid var(--success); }
-.stats-card.accent-warning { border-left: 3px solid var(--warning); }
-.stats-card.accent-danger  { border-left: 3px solid var(--danger); }
-.stats-card.accent-pending { border-left: 3px solid var(--pending); }
-/* Icon variants */
-.stats-card-icon.icon-success { color: var(--success-strong); background: var(--success-light); }
-.stats-card-icon.icon-warning { color: var(--warning-strong); background: var(--warning-light); }
-.stats-card-icon.icon-danger  { color: var(--danger-strong);  background: var(--danger-light); }
-.stats-card-icon.icon-pending { color: var(--pending-strong); background: var(--pending-light); }
+.stats-card.action:hover .stats-card-cta .arrow {
+  transform: translateX(4px);
+}
+.stats-card.action:hover .stats-card-cta {
+  border-top-color: var(--brand-light);
+}
+
+/* Variante · health — dual-rombo indicador (reemplaza marker simple) */
+.stats-card.health .stats-card-eyebrow::before { display: none; }
+.stats-card-health-marker {
+  display: inline-flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.stats-card-health-marker .r {
+  width: 8px; height: 8px;
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+.stats-card.health[data-health="ok"]    .stats-card-health-marker .r { background: var(--success); }
+.stats-card.health[data-health="ok"]    .stats-card-eyebrow { color: var(--success-strong); }
+.stats-card.health[data-health="warn"]  .stats-card-health-marker .r:first-child { background: var(--warning); }
+.stats-card.health[data-health="warn"]  .stats-card-health-marker .r:last-child  { background: var(--surface-tertiary); }
+.stats-card.health[data-health="warn"]  .stats-card-eyebrow { color: var(--warning-strong); }
+.stats-card.health[data-health="alert"] .stats-card-health-marker .r:first-child {
+  background: var(--danger);
+  animation: stats-health-pulse 1.4s var(--ease-in-out) infinite;
+}
+.stats-card.health[data-health="alert"] .stats-card-health-marker .r:last-child  { background: var(--surface-tertiary); }
+.stats-card.health[data-health="alert"] .stats-card-eyebrow { color: var(--danger-strong); }
+.stats-card.health[data-health="pending"] .stats-card-health-marker .r:first-child { background: var(--pending); }
+.stats-card.health[data-health="pending"] .stats-card-health-marker .r:last-child  { background: var(--surface-tertiary); }
+.stats-card.health[data-health="pending"] .stats-card-eyebrow { color: var(--pending-strong); }
+
+@keyframes stats-health-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 1; }
+}
+
+/* Loading state */
+.stats-card.loading .stats-card-eyebrow,
+.stats-card.loading .stats-card-value,
+.stats-card.loading .stats-card-closing { visibility: hidden; }
+.stats-card.loading {
+  position: relative;
+}
+.stats-card.loading::after {
+  content: "";
+  position: absolute;
+  inset: var(--space-6) var(--space-5);
+  background: linear-gradient(
+    90deg,
+    var(--surface-secondary) 0%,
+    var(--surface-tertiary) 50%,
+    var(--surface-secondary) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s var(--ease-in-out) infinite;
+  border-radius: var(--radius-sm);
+}
 
 /* ──────── BulkActionBar (light · DD-NEW) ──────── */
 

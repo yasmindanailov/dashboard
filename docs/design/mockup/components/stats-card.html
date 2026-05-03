@@ -7,10 +7,11 @@
 <link rel="stylesheet" href="../tokens.css" />
 <link rel="stylesheet" href="../styles.css" />
 <style>
-  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); margin-bottom: var(--space-5); }
-  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); margin-bottom: var(--space-5); }
-  @media (max-width: 900px) { .grid-4, .grid-3 { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 600px) { .grid-4, .grid-3 { grid-template-columns: 1fr; } }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  @media (max-width: 1100px) { .grid-4 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 700px)  { .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -23,139 +24,225 @@
       <div class="eyebrow">Fase 2.C · Data</div>
       <h1 class="page-title">StatsCard</h1>
       <p class="page-lede">
-        Métrica destacada con label, valor en <strong>display-sm 40px</strong> con tabular nums, trend opcional, subtext con contexto humano, accent border-left semántico.
+        Card de métrica con voz Aelium. Eyebrow con marker rombo, valor en display-sm/lg con tabular nums, frase humana de cierre. Variantes <strong>action</strong> (navegable), <strong>health</strong> (dual-rombo de salud), <strong>compact</strong> y <strong>large</strong>. Decisión <strong>DD-024</strong>.
       </p>
     </header>
 
-    <!-- Default size · Overview admin -->
+    <!-- Default -->
     <section class="section">
       <div class="section-head">
-        <h2 class="section-title">Default size · Overview admin</h2>
+        <h2 class="section-title">Default · Overview admin</h2>
         <span class="section-num">01</span>
       </div>
-      <p class="section-lede">Métricas primarias con value en display-sm. Accent border-left semántico señala dirección de la métrica.</p>
+      <p class="section-lede">Eyebrow contextual + valor display-sm + frase de cierre con voz humana. Sin CTA: la métrica es informativa.</p>
 
       <div class="grid-4">
-        <div class="stats-card accent-success">
-          <div class="stats-card-header">
-            <span class="stats-card-label">Ingresos del mes</span>
-            <span class="stats-card-icon icon-success"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
-          </div>
-          <div class="stats-card-value">12.450&nbsp;€</div>
-          <span class="stats-card-trend up"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="100%" height="100%"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span> 12% vs. mes anterior</span>
-        </div>
-
-        <div class="stats-card accent-brand">
-          <div class="stats-card-header">
-            <span class="stats-card-label">Clientes activos</span>
-            <span class="stats-card-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-          </div>
-          <div class="stats-card-value">147</div>
-          <p class="stats-card-subtext">+8 este mes</p>
-        </div>
-
-        <div class="stats-card accent-warning">
-          <div class="stats-card-header">
-            <span class="stats-card-label">Tickets abiertos</span>
-            <span class="stats-card-icon icon-warning"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>
-          </div>
-          <div class="stats-card-value">12</div>
-          <p class="stats-card-subtext">3 sin asignar</p>
-        </div>
-
-        <div class="stats-card accent-danger">
-          <div class="stats-card-header">
-            <span class="stats-card-label">Pagos pendientes</span>
-            <span class="stats-card-icon icon-danger"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
-          </div>
-          <div class="stats-card-value">4 · 1.230&nbsp;€</div>
-          <p class="stats-card-subtext">más antiguo: 12 días</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Compact size · Overview cliente -->
-    <section class="section">
-      <div class="section-head">
-        <h2 class="section-title">Compact size · Overview cliente</h2>
-        <span class="section-num">02</span>
-      </div>
-      <p class="section-lede">Métricas secundarias o densos. Value en xl (24px) — más sobrio, ocupa menos.</p>
-
-      <div class="grid-3">
-        <div class="stats-card compact">
-          <div class="stats-card-header">
-            <span class="stats-card-label">Tu uptime este mes</span>
-          </div>
-          <div class="stats-card-value">99,98%</div>
-          <p class="stats-card-subtext">4 minutos caído</p>
-        </div>
-        <div class="stats-card compact">
-          <div class="stats-card-header">
-            <span class="stats-card-label">Próxima factura</span>
-          </div>
-          <div class="stats-card-value">49,90&nbsp;€</div>
-          <p class="stats-card-subtext">en 12 días</p>
-        </div>
-        <div class="stats-card compact">
-          <div class="stats-card-header">
-            <span class="stats-card-label">Tickets abiertos</span>
-          </div>
-          <div class="stats-card-value">2</div>
-          <p class="stats-card-subtext">último hace 3h</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Variantes · accent + icon -->
-    <section class="section">
-      <div class="section-head">
-        <h2 class="section-title">Variantes accent · semántico</h2>
-        <span class="section-num">03</span>
-      </div>
-      <div class="grid-3">
-        <div class="stats-card accent-pending">
-          <div class="stats-card-header">
-            <span class="stats-card-label">Renuevan en 30 días</span>
-            <span class="stats-card-icon icon-pending"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
-          </div>
-          <div class="stats-card-value">23</div>
-          <p class="stats-card-subtext">8 sin contacto previo</p>
-        </div>
-        <div class="stats-card accent-success">
-          <div class="stats-card-header">
-            <span class="stats-card-label">Churn trimestre</span>
-            <span class="stats-card-icon icon-success"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg></span>
-          </div>
-          <div class="stats-card-value">1,8%</div>
-          <span class="stats-card-trend up"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="100%" height="100%"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg></span> baja vs. 2,3%</span>
+        <div class="stats-card">
+          <div class="stats-card-eyebrow">Este mes</div>
+          <p class="stats-card-value">12.450&nbsp;€</p>
+          <p class="stats-card-closing">Cobraste <strong>1.380&nbsp;€ más</strong> que en abril.</p>
         </div>
         <div class="stats-card">
-          <div class="stats-card-header">
-            <span class="stats-card-label">MRR</span>
-          </div>
-          <div class="stats-card-value">8.230&nbsp;€</div>
-          <span class="stats-card-trend up"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="100%" height="100%"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span> +5%</span>
+          <div class="stats-card-eyebrow">En tu cartera</div>
+          <p class="stats-card-value">147</p>
+          <p class="stats-card-closing">Clientes activos. <strong>8 nuevos</strong> este mes.</p>
         </div>
+        <div class="stats-card">
+          <div class="stats-card-eyebrow">Trimestre</div>
+          <p class="stats-card-value">1,8%</p>
+          <p class="stats-card-closing">Churn — <strong>baja</strong> desde el 2,3% del trimestre anterior.</p>
+        </div>
+        <div class="stats-card">
+          <div class="stats-card-eyebrow">MRR</div>
+          <p class="stats-card-value">8.230&nbsp;€</p>
+          <p class="stats-card-closing"><strong>+5%</strong> este mes.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Action -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante action · navegable</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Card clickable. Hover brand-tinted, focus ring, flecha que avanza. Para métricas que llevan a una acción concreta (ver lista filtrada, atender pendiente). <strong>Pasa el cursor</strong> para verlo.</p>
+
+      <div class="grid-3">
+        <div class="stats-card action" tabindex="0" role="button">
+          <div class="stats-card-eyebrow">Hoy</div>
+          <p class="stats-card-value">12</p>
+          <p class="stats-card-closing">Tickets abiertos. <strong>3 sin asignar.</strong></p>
+          <div class="stats-card-cta">
+            <span>Atender ahora</span>
+            <span class="arrow">→</span>
+          </div>
+        </div>
+        <div class="stats-card action" tabindex="0" role="button">
+          <div class="stats-card-eyebrow">Pendientes</div>
+          <p class="stats-card-value">4 · 1.230&nbsp;€</p>
+          <p class="stats-card-closing"><strong>12 días</strong> el más antiguo. Conviene revisar hoy.</p>
+          <div class="stats-card-cta">
+            <span>Ver vencidas</span>
+            <span class="arrow">→</span>
+          </div>
+        </div>
+        <div class="stats-card action" tabindex="0" role="button">
+          <div class="stats-card-eyebrow">Próximos 30 días</div>
+          <p class="stats-card-value">23</p>
+          <p class="stats-card-closing">Renuevan. <strong>8 sin contacto</strong> previo — toca llamar.</p>
+          <div class="stats-card-cta">
+            <span>Ver lista</span>
+            <span class="arrow">→</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Health -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante health · dual-rombo de salud</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">Para métricas con estado de salud (uptime, servicios, alertas). Los dos rombos de la marca <strong>cambian de color</strong> según el estado: <strong>ok</strong> (ambos verdes), <strong>warn</strong> (uno apagado), <strong>alert</strong> (uno rojo pulsando). El símbolo de marca trabaja como indicador, no es decoración.</p>
+
+      <div class="grid-4">
+        <div class="stats-card health" data-health="ok">
+          <div class="stats-card-eyebrow">
+            <span class="stats-card-health-marker"><span class="r"></span><span class="r"></span></span>
+            Tu uptime mes
+          </div>
+          <p class="stats-card-value">99,98%</p>
+          <p class="stats-card-closing">Tu web ha estado caída <strong>4 minutos</strong>. Te avisamos cada vez.</p>
+        </div>
+        <div class="stats-card health" data-health="ok">
+          <div class="stats-card-eyebrow">
+            <span class="stats-card-health-marker"><span class="r"></span><span class="r"></span></span>
+            Servicios
+          </div>
+          <p class="stats-card-value">147 / 147</p>
+          <p class="stats-card-closing">Todos funcionando.</p>
+        </div>
+        <div class="stats-card health" data-health="warn">
+          <div class="stats-card-eyebrow">
+            <span class="stats-card-health-marker"><span class="r"></span><span class="r"></span></span>
+            Backups
+          </div>
+          <p class="stats-card-value">2 fallidos</p>
+          <p class="stats-card-closing"><strong>marina-store</strong> y <strong>baresquina</strong>. Reintentamos en 15 min.</p>
+        </div>
+        <div class="stats-card health" data-health="alert">
+          <div class="stats-card-eyebrow">
+            <span class="stats-card-health-marker"><span class="r"></span><span class="r"></span></span>
+            Caídas detectadas
+          </div>
+          <p class="stats-card-value">1</p>
+          <p class="stats-card-closing"><strong>marina-store</strong> caído desde hace 12 min. Yasmin lo está mirando.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Compact -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante compact · sidebar / dashboards densos</h2>
+        <span class="section-num">04</span>
+      </div>
+      <p class="section-lede">Padding reducido, value en xl (24px). Para barras laterales del cliente o listados densos del admin donde StatsCard convive con tablas.</p>
+
+      <div class="grid-3">
+        <div class="stats-card compact">
+          <div class="stats-card-eyebrow">Próxima factura</div>
+          <p class="stats-card-value">49,90&nbsp;€</p>
+          <p class="stats-card-closing">en 12 días</p>
+        </div>
+        <div class="stats-card compact">
+          <div class="stats-card-eyebrow">Tickets abiertos</div>
+          <p class="stats-card-value">2</p>
+          <p class="stats-card-closing">último hace 3h</p>
+        </div>
+        <div class="stats-card compact">
+          <div class="stats-card-eyebrow">Servicios</div>
+          <p class="stats-card-value">5</p>
+          <p class="stats-card-closing">todos activos</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Large -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante large · hero del cliente</h2>
+        <span class="section-num">05</span>
+      </div>
+      <p class="section-lede">Value en display-lg (56px). Para el momento de bienvenida del cliente — la métrica que abre su Overview. Una sola por pantalla.</p>
+
+      <div class="grid-2">
+        <div class="stats-card large health" data-health="ok">
+          <div class="stats-card-eyebrow">
+            <span class="stats-card-health-marker"><span class="r"></span><span class="r"></span></span>
+            Tu negocio digital
+          </div>
+          <p class="stats-card-value">Funcionando</p>
+          <p class="stats-card-closing">Todos tus servicios activos. <strong>Uptime del mes: 99,98%.</strong> Si algo cambia, te avisamos antes de que te enteres.</p>
+        </div>
+        <div class="stats-card large action" tabindex="0" role="button">
+          <div class="stats-card-eyebrow">Tu próxima factura</div>
+          <p class="stats-card-value">49,90&nbsp;€</p>
+          <p class="stats-card-closing">Vence el <strong>15 de mayo</strong>. La cargamos automáticamente — sin sorpresas.</p>
+          <div class="stats-card-cta">
+            <span>Ver detalle</span>
+            <span class="arrow">→</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Loading -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Loading state</h2>
+        <span class="section-num">06</span>
+      </div>
+      <p class="section-lede">Skeleton interno mientras carga el dato. Mantiene altura para evitar layout shift.</p>
+
+      <div class="grid-3">
+        <div class="stats-card loading"></div>
+        <div class="stats-card loading"></div>
+        <div class="stats-card loading"></div>
+      </div>
+    </section>
+
+    <!-- Reglas -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Reglas de uso</h2>
+        <span class="section-num">07</span>
+      </div>
+      <div class="kv">
+        <div><strong>Voz en closing siempre</strong></div>
+        <div>El closing es lo que diferencia a Aelium de un dashboard genérico. Frase corta, contextual, con strong en el dato relevante. NO "vs. mes anterior" — sí "1.380&nbsp;€ más que en abril".</div>
+        <div><strong>Eyebrow contextual</strong></div>
+        <div>Marca el alcance temporal o conceptual: "Este mes", "Hoy", "En tu cartera", "Trimestre". NO repite el label de la métrica.</div>
+        <div><strong>Action solo cuando lleva a algo</strong></div>
+        <div>Si la métrica no tiene "siguiente acción" obvia, no usar variante action. La flecha promete navegación — no la pongas si no cumple.</div>
+        <div><strong>Health solo con estado real</strong></div>
+        <div>Variante health solo en métricas que pueden estar ok / atención / alerta (uptime, backups, servicios). NO en MRR o churn.</div>
+        <div><strong>Mismo grid = mismo tamaño</strong></div>
+        <div>No mezclar default y compact en la misma fila. Large nunca al lado de default.</div>
+        <div><strong>Una large por pantalla</strong></div>
+        <div>Si todo es hero, nada es hero.</div>
       </div>
     </section>
 
     <section class="section">
       <div class="section-head">
-        <h2 class="section-title">Drift vs actual</h2>
-        <span class="section-num">04</span>
+        <h2 class="section-title">Decisión de diseño</h2>
+        <span class="section-num">08</span>
       </div>
-      <div class="spec-grid">
-        <div class="label">Value tipografía <span class="meta">D2C-2</span></div>
-        <div>24px → <strong>40px display-sm</strong> en métricas primarias. Compact mantiene 24px.</div>
-      </div>
-      <div class="spec-grid">
-        <div class="label">Accent semántico <span class="meta">D2C-3</span></div>
-        <div>Variantes nombradas: brand, success, warning, danger, pending.</div>
-      </div>
-      <div class="spec-grid">
-        <div class="label">Tabular nums</div>
-        <div>Aplicar <span class="tok">--font-feature-numeric</span> al value.</div>
+      <div class="note">
+        <strong>DD-024</strong> · Refactor de StatsCard tras iteración. Versión inicial (label + número + trend + icon + accent border-left) era SaaS-genérica. Esta versión combina <strong>D + B + C</strong>: layout aireado con eyebrow rombo + número grande + frase humana, opcional CTA navegable, variante salud con dual-rombo. Ver iteración completa en <a href="stats-card-iteraciones.html" style="color: var(--brand);">StatsCard · iteraciones</a>.
       </div>
     </section>
   </main>

@@ -24,15 +24,41 @@ salten al cambiar de página (1 → 10 → 100).
 Quitar o reducir `--shadow-brand` en `.page-btn.active`. El fill brand
 ya es señal suficiente y la sombra contamina las páginas adyacentes.
 
-### N2C-6 · StatsCard value display-sm (D2C-2)
-24px → `--font-size-3xl` (40px). Variante `compact` mantiene 24px.
+### N2C-6 · StatsCard refactor completo (DD-024)
 
-### N2C-7 · StatsCard accent semánticos (D2C-3)
-Reemplazar prop `accentColor: string` por variantes nombradas:
-`accent="brand|success|warning|danger|pending"`.
+**Sustituye N2C-6/7/8 anteriores.** Tras iteración estructurada
+(`mockup/components/stats-card-iteraciones.html`), el StatsCard se
+rediseña por completo:
 
-### N2C-8 · StatsCard tabular nums en value
-Aplicar `--font-feature-numeric` al value siempre.
+- **Props nuevas en `StatsCard.tsx`:**
+  ```ts
+  interface StatsCardProps {
+    eyebrow: string                                  // antes label
+    value: string | number
+    closing: ReactNode                               // antes subtext + trend
+    cta?: { label: string; onClick: () => void }    // nuevo
+    variant?: 'default' | 'compact' | 'large'        // antes accentColor
+    health?: 'ok' | 'warn' | 'alert' | 'pending'    // nuevo
+    loading?: boolean                                // nuevo
+  }
+  ```
+
+- **Props eliminadas**: `label`, `icon`, `trend`, `subtext`,
+  `accentColor`. La forma cambia — no es retro-compatible. Refactor
+  mecánico de cada uso.
+
+- **Refactor de cada uso de StatsCard en el código** con voz Aelium:
+  - eyebrow contextual ("Este mes", "Hoy", "En tu cartera")
+  - closing humano con `<strong>` en el dato relevante
+  - cta cuando lleva a una acción concreta
+  - health en métricas de uptime/servicios/backups
+  - Trabajo de copy + estructura. Validar con humano antes de mergear.
+
+- **Tabular-nums** sigue obligatorio en value (incluido en spec).
+
+- Spec completa en `StatsCard.md`. Maqueta canónica en
+  `mockup/components/stats-card.html`. Iteración histórica preservada en
+  `stats-card-iteraciones.html`.
 
 ### N2C-9 · BulkActionBar light (D2C-1/G)
 **Decisión cerrada**: light. Si el código ya está light, no hay cambio

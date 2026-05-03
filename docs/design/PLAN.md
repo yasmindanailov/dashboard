@@ -12,11 +12,11 @@
 - **Próxima acción:** revisión humana de los 5 componentes data en
   la maqueta + página de muestra "Admin · Listado de clientes". Si OK,
   cerrar 2.C y arrancar 2.D (navegación). Si hay cambios, iterar.
-- **Última actualización:** 2026-05-03 — fase 2.C completa con firma
-  visual aplicada agresivamente: tabular nums universales, StatsCard
-  display-sm, accent stripe en filtros aplicados, BulkActionBar light
-  con tokens motion. Sample admin page muestra los 5 componentes
-  compuestos en una vista realista del producto.
+- **Última actualización:** 2026-05-03 — fase 2.C completa + iteración
+  StatsCard cerrada (DD-024). Nuevo StatsCard combina eyebrow rombo +
+  voz Aelium en closing + variante action navegable + variante health
+  con dual-rombo. Sample admin page actualizada. Página `stats-card-iteraciones.html`
+  documenta el proceso para futuras iteraciones.
 
 ---
 
