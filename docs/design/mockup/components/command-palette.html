@@ -127,18 +127,23 @@
 
     <section class="section">
       <div class="section-head">
-        <h2 class="section-title">Activación visible</h2>
+        <h2 class="section-title">Trigger en topbar (DD-025)</h2>
         <span class="section-num">03</span>
       </div>
-      <p class="section-lede">Mostrar el atajo en el topbar como hint para descubrimiento.</p>
+      <p class="section-lede">
+        Iteración tras feedback. <strong>Sin kbd-icon Mac-specific</strong> en el topbar — quedaba SaaS-cliché y desorientaba a usuarios Windows. El trigger se queda como un campo limpio que invita a buscar; la discoverability del atajo vive solo dentro de la paleta abierta (footer).
+      </p>
 
-      <div style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); display: flex; align-items: center; gap: var(--space-3);">
-        <button class="dropdown-trigger" style="gap: var(--space-2);">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <span style="color: var(--text-tertiary);">Buscar…</span>
-          <kbd class="cmd-kbd" style="margin-left: var(--space-3);">⌘ K</kbd>
+      <div style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); display: flex; align-items: center; gap: var(--space-4);">
+        <button style="display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--surface-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-tertiary); font-size: var(--font-size-sm); cursor: pointer; min-width: 320px; font-family: inherit; transition: border-color var(--transition-fast) var(--ease-out);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Buscar página, acción o entidad…
         </button>
-        <span style="font-size: var(--font-size-sm); color: var(--text-secondary);">↑ trigger en topbar — invita a usar el atajo</span>
+        <span style="font-size: var(--font-size-sm); color: var(--text-secondary);">↑ trigger en topbar — limpio, sin kbd-box</span>
+      </div>
+
+      <div class="note">
+        <strong>Por qué quitamos el kbd del topbar.</strong> El icono <span class="mono">⌘</span> es Command de Mac. En Windows/Linux es Ctrl, distinto símbolo. Mostrarlo siempre es desinformación. Y aunque se detecte el OS, la pill kbd-style es un cliché SaaS que no aporta a Aelium. El power user descubre el atajo entrando una vez a la paleta — el footer interno lo enseña en contexto.
       </div>
     </section>
 

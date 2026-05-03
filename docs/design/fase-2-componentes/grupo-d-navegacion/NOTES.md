@@ -97,7 +97,21 @@ Aplica a:
 
 ---
 
-## Decisiones cerradas aquí
+## Decisiones cerradas tras iteración (post-revisión humana)
+
+### DD-025 — Topbar search trigger sin kbd-box
+El icono `⌘ K` era Mac-specific y SaaS-cliché. El topbar queda limpio;
+la discoverability vive solo dentro de la paleta abierta.
+
+### DD-026 — StatusTabs con StatusDot prefix
+Pill genérica reemplazada por StatusDot prefix siempre visible + count
+plano. Reusa pattern de marca, comunica estado de un vistazo.
+
+### DD-027 — Timeline pattern para notas
+Cards grises apiladas reemplazadas por timeline vertical con marker
+rombo. Aprovecha símbolo de marca, comunica cronología, distintivo.
+
+## Decisiones cerradas en spec inicial
 
 ### D2D-1: BulkActionBar y NotificationBell — patrones comparados
 Ambos son flotantes. BulkActionBar permanece light (DD ya tomada en

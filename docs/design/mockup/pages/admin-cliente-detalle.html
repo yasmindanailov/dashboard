@@ -23,18 +23,21 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-1_5) var(--space-3);
+    padding: var(--space-2) var(--space-3);
     background: var(--surface-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     color: var(--text-tertiary);
     font-size: var(--font-size-sm);
     cursor: pointer;
-    min-width: 280px;
-    transition: border-color var(--transition-fast) var(--ease-out);
+    min-width: 320px;
+    transition: border-color var(--transition-fast) var(--ease-out),
+                background var(--transition-fast) var(--ease-out);
   }
-  .topbar-search:hover { border-color: var(--border-hover); }
-  .topbar-search .kbd-spacer { margin-left: auto; }
+  .topbar-search:hover {
+    border-color: var(--border-hover);
+    background: var(--surface-primary);
+  }
   /* Header de cliente */
   .client-head {
     display: flex;
@@ -79,7 +82,6 @@
         <button class="topbar-search">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           Buscar página, acción o entidad…
-          <kbd class="cmd-kbd kbd-spacer">⌘ K</kbd>
         </button>
       </div>
       <div class="topbar-right">
@@ -164,40 +166,65 @@
       </div>
     </div>
 
-    <!-- Tab content: Notas -->
+    <!-- Tab content: Notas como timeline (DD-027) -->
     <div class="panel">
-      <h2 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); margin: 0 0 var(--space-1); letter-spacing: -0.01em;">Notas internas</h2>
-      <p style="color: var(--text-secondary); font-size: var(--font-size-sm); margin: 0 0 var(--space-5);">Para el equipo. El cliente no las ve.</p>
+      <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--space-5);">
+        <div>
+          <h2 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); margin: 0 0 var(--space-1); letter-spacing: -0.01em;">Notas internas</h2>
+          <p style="color: var(--text-secondary); font-size: var(--font-size-sm); margin: 0;">Para el equipo. El cliente no las ve.</p>
+        </div>
+        <button class="btn btn-secondary btn-sm">
+          <span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+          Añadir nota
+        </button>
+      </div>
 
-      <div style="display: flex; flex-direction: column; gap: var(--space-3);">
-        <div style="background: var(--surface-secondary); border-radius: var(--radius-sm); padding: var(--space-4); border-left: 3px solid var(--brand);">
-          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--space-2);">
-            <strong style="font-size: var(--font-size-sm);">Yasmin</strong>
-            <span style="font-size: var(--font-size-xs); color: var(--text-tertiary);">hace 2 h</span>
+      <ul class="timeline">
+        <li class="timeline-item">
+          <span class="timeline-marker"></span>
+          <div class="timeline-meta">
+            <span class="timeline-author">Yasmin</span>
+            <span class="timeline-time">hace 2 h</span>
+            <span class="timeline-tag">Llamada</span>
           </div>
-          <p style="margin: 0; color: var(--text-primary); font-size: var(--font-size-sm); line-height: var(--line-height-relaxed);">
-            Marina llamó preocupada por el correo. Le expliqué que estamos revisando el SPF — vuelve a llamar mañana si no se resuelve.
+          <p class="timeline-body">
+            Marina llamó preocupada por el correo. Le expliqué que estamos revisando el <strong>SPF</strong> — vuelve a llamar mañana si no se resuelve.
           </p>
-        </div>
-        <div style="background: var(--surface-secondary); border-radius: var(--radius-sm); padding: var(--space-4);">
-          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--space-2);">
-            <strong style="font-size: var(--font-size-sm);">Marcos</strong>
-            <span style="font-size: var(--font-size-xs); color: var(--text-tertiary);">hace 1 d</span>
+        </li>
+        <li class="timeline-item muted">
+          <span class="timeline-marker"></span>
+          <div class="timeline-meta">
+            <span class="timeline-author">Marcos</span>
+            <span class="timeline-time">hace 1 d</span>
+            <span class="timeline-tag">Comercial</span>
           </div>
-          <p style="margin: 0; color: var(--text-primary); font-size: var(--font-size-sm); line-height: var(--line-height-relaxed);">
-            Cliente prepara expansión a 3 webs nuevas. Recordar ofrecer Web Business antes de junio.
+          <p class="timeline-body">
+            Cliente prepara expansión a <strong>3 webs nuevas</strong>. Recordar ofrecer Web Business antes de junio.
           </p>
-        </div>
-        <div style="background: var(--surface-secondary); border-radius: var(--radius-sm); padding: var(--space-4);">
-          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--space-2);">
-            <strong style="font-size: var(--font-size-sm);">Yasmin</strong>
-            <span style="font-size: var(--font-size-xs); color: var(--text-tertiary);">hace 5 d</span>
+        </li>
+        <li class="timeline-item muted">
+          <span class="timeline-marker"></span>
+          <div class="timeline-meta">
+            <span class="timeline-author">Yasmin</span>
+            <span class="timeline-time">hace 5 d</span>
+            <span class="timeline-tag">Pago</span>
           </div>
-          <p style="margin: 0; color: var(--text-primary); font-size: var(--font-size-sm); line-height: var(--line-height-relaxed);">
+          <p class="timeline-body">
             Pago confirmado de la factura de marzo. Le mandé email de gracias.
           </p>
-        </div>
-      </div>
+        </li>
+        <li class="timeline-item muted">
+          <span class="timeline-marker"></span>
+          <div class="timeline-meta">
+            <span class="timeline-author">Sara</span>
+            <span class="timeline-time">hace 2 sem</span>
+            <span class="timeline-tag">Onboarding</span>
+          </div>
+          <p class="timeline-body">
+            Llamada de bienvenida completada. Cliente entendió bien el panel; no pidió Support Inside todavía.
+          </p>
+        </li>
+      </ul>
     </div>
   </main>
 </div>

@@ -332,6 +332,85 @@ Formato:
   4. Si en el futuro la marca evoluciona a v1.7+, esto se reabre con
      misma lógica (marca manda).
 
+## DD-027 — Timeline pattern para notas, historial y audit log
+
+- Fase: 2.D (transversal)
+- Fecha: 2026-05-03
+- Decisión: Reemplazar el patrón de "rectángulos grises apilados" usado
+  para notas internas y similar, por un **timeline vertical con marker
+  rombo**. Estructura:
+  - Línea vertical 1px en `--border` que conecta los items.
+  - Marker rombo 11×11 girado 45° con `box-shadow` sólido en `--surface-primary` para "respirar" sobre la línea.
+  - Item activo/reciente: marker en `--brand`.
+  - Items pasados: marker en `--text-tertiary` con opacity 0.5 (variante `.muted`).
+  - Item alerta: marker en `--danger` con animación pulse (variante `.alert`).
+  - Cada item: meta (autor, tiempo relativo, tag opcional) + body con voz Aelium.
+- Justificación: Las cards grises genéricas no transmiten cronología ni
+  identidad. El timeline:
+  - **Aprovecha el símbolo de marca** (rombo) como marker funcional, no
+    decorativo. Coherente con DD-023.
+  - **Comunica cronología** que las cards apiladas no transmiten —
+    el usuario lee de arriba abajo entendiendo la historia.
+  - **Diferenciador** — Linear, GitHub, Notion usan círculos en sus
+    timelines. El rombo es Aelium.
+- Materializada en: `mockup/styles.css` (`.timeline`, `.timeline-item`,
+  `.timeline-marker`, `.timeline-meta`, `.timeline-body`),
+  `mockup/pages/admin-cliente-detalle.html` (panel de notas).
+- Implicaciones: El patrón aplica a cualquier feed cronológico:
+  - Notas internas de cliente (ya aplicado).
+  - Historial de cambios del cliente (transparency).
+  - Audit log del admin.
+  - Conversación de ticket (potencial — puede coexistir con ChatWidget).
+  - Activity feed del agente.
+  Componente futuro `<Timeline>` o pattern compartido.
+
+## DD-026 — StatusTabs con StatusDot prefix (no pill)
+
+- Fase: 2.D
+- Fecha: 2026-05-03
+- Decisión: Reemplazar el patrón "tab + count en pill semántico cuando
+  activo" por **tab con StatusDot prefix siempre visible + count plano
+  con tabular-nums**. El border-bottom brand sigue marcando el tab activo.
+- Justificación: La pill clásica solo coloreaba al activar — decorativo,
+  no informativo. El usuario tenía que activar cada filtro para ver de
+  qué color era. Con StatusDot prefix, el estado de cada filtro es
+  legible **siempre**: rojo = atención, verde = OK, ámbar = revisar.
+  Además reusa StatusDot (DD-023, fase 2.B) en lugar de un pattern
+  pill propio. Más Aelium, menos genérico.
+- Materializada en: `mockup/styles.css` (`.tab .tab-dot`, `.tab .tab-num`),
+  `mockup/components/tabs.html` (sección 03 con explicación),
+  `mockup/pages/admin-cliente-detalle.html` (Tabs en cliente),
+  `Tabs.md` spec actualizada.
+- Implicaciones: Refactor del componente StatusTabs en código:
+  - Cambiar `<span class={count_${variant}}>` por `<span class="tab-dot {variant}"></span>` antes del label + `<span class="tab-num">` después.
+  - La pill desaparece. Ahorra CSS y simplifica la API.
+  - Aplicar en cada uso real (admin/billing, admin/clients, admin/support, dashboard/billing). Listing pages ganan claridad inmediata.
+
+## DD-025 — Topbar search trigger sin kbd-box (limpio)
+
+- Fase: 2.D
+- Fecha: 2026-05-03
+- Decisión: Eliminar el indicador de atajo (`⌘ K` con kbd-style) del
+  trigger de búsqueda en el topbar. El trigger queda como un campo de
+  búsqueda limpio. La discoverability del atajo vive **solo dentro de
+  la paleta abierta** (footer hints).
+- Justificación:
+  - El icono `⌘` es Command de Mac. En Windows/Linux es `Ctrl`, símbolo
+    distinto. Mostrar `⌘` siempre = desinformación.
+  - Aunque se detecte el OS, la pill kbd-style es un cliché SaaS
+    (Stripe, Linear, Vercel, Notion). No aporta identidad a Aelium.
+  - El power user descubre el atajo entrando una vez a la paleta — el
+    footer interno lo enseña en contexto. Repetirlo en el topbar es
+    redundancia decorativa.
+- Materializada en: `mockup/pages/admin-cliente-detalle.html` (topbar
+  sin kbd), `mockup/components/command-palette.html` § 03 con
+  justificación. Footer de la paleta mantiene los kbd hints —
+  son discovery contextual cuando ya estás dentro.
+- Implicaciones:
+  - El topbar Sidebar/Topbar (fase 4) compone el trigger sin kbd-box.
+  - Atajo `Cmd+K` / `Ctrl+K` sigue funcionando — solo se quita la
+    representación visual del topbar.
+
 ## DD-024 — StatsCard refactor (D+B+C tras iteración)
 
 - Fase: 2.C

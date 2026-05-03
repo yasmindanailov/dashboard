@@ -41,16 +41,23 @@ Dos componentes hermanos:
 </div>
 ```
 
-### StatusTabs (filtros con count semántico)
+### StatusTabs (filtros con StatusDot prefix · DD-026)
 
 ```html
 <div class="tabs" role="tablist">
-  <button class="tab active" role="tab">Todas <span class="tab-count">142</span></button>
-  <button class="tab" role="tab">Pendientes <span class="tab-count warning">5</span></button>
-  <button class="tab" role="tab">Pagadas <span class="tab-count success">130</span></button>
-  <button class="tab" role="tab">Vencidas <span class="tab-count danger">7</span></button>
+  <button class="tab active" role="tab"><span class="tab-dot"></span>Todas <span class="tab-num">142</span></button>
+  <button class="tab" role="tab"><span class="tab-dot warning"></span>Pendientes <span class="tab-num">5</span></button>
+  <button class="tab" role="tab"><span class="tab-dot success"></span>Pagadas <span class="tab-num">130</span></button>
+  <button class="tab" role="tab"><span class="tab-dot danger"></span>Vencidas <span class="tab-num">7</span></button>
 </div>
 ```
+
+> **Diferencia con la versión inicial** — la primera versión usaba pill
+> con count en color semántico solo cuando el tab estaba activo. Tras
+> iteración (DD-026), el patrón es **StatusDot prefix siempre visible**
+> + count plano con tabular-nums. Razón: el dot semántico comunica el
+> estado del filtro de un vistazo, no solo al activar. Reusa pattern
+> de marca (StatusDot, DD-023). Más Aelium, menos pill genérica.
 
 ---
 

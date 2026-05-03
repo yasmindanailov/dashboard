@@ -59,40 +59,46 @@
 
     <section class="section">
       <div class="section-head">
-        <h2 class="section-title">StatusTabs · filtros de estado en listing</h2>
+        <h2 class="section-title">StatusTabs · filtros con StatusDot prefix (DD-026)</h2>
         <span class="section-num">03</span>
       </div>
-      <p class="section-lede">Count con variante semántica cuando el tab está activo. Reemplaza StatsCards de filtro.</p>
+      <p class="section-lede">
+        Iteración tras feedback. Reemplaza el patrón pill-genérico por <strong>StatusDot prefix</strong> en color semántico (visible siempre, no solo al activar) + count plano con tabular-nums. Más Aelium, reusa pattern de marca, comunica estado de cada filtro de un vistazo.
+      </p>
 
       <p class="legend">Listado de facturas</p>
       <div class="demo">
         <div class="tabs" role="tablist">
-          <button class="tab active" role="tab">Todas <span class="tab-count">142</span></button>
-          <button class="tab" role="tab">Pendientes <span class="tab-count warning">5</span></button>
-          <button class="tab" role="tab">Pagadas <span class="tab-count success">130</span></button>
-          <button class="tab" role="tab">Vencidas <span class="tab-count danger">7</span></button>
+          <button class="tab active" role="tab"><span class="tab-dot"></span>Todas <span class="tab-num">142</span></button>
+          <button class="tab" role="tab"><span class="tab-dot warning"></span>Pendientes <span class="tab-num">5</span></button>
+          <button class="tab" role="tab"><span class="tab-dot success"></span>Pagadas <span class="tab-num">130</span></button>
+          <button class="tab" role="tab"><span class="tab-dot danger"></span>Vencidas <span class="tab-num">7</span></button>
         </div>
       </div>
 
       <p class="legend">Listado de tickets</p>
       <div class="demo">
         <div class="tabs" role="tablist">
-          <button class="tab" role="tab">Todos <span class="tab-count">87</span></button>
-          <button class="tab active" role="tab">Abiertos <span class="tab-count warning">12</span></button>
-          <button class="tab" role="tab">Sin asignar <span class="tab-count danger">3</span></button>
-          <button class="tab" role="tab">En revisión <span class="tab-count pending">5</span></button>
-          <button class="tab" role="tab">Cerrados <span class="tab-count">67</span></button>
+          <button class="tab" role="tab"><span class="tab-dot"></span>Todos <span class="tab-num">87</span></button>
+          <button class="tab active" role="tab"><span class="tab-dot warning"></span>Abiertos <span class="tab-num">12</span></button>
+          <button class="tab" role="tab"><span class="tab-dot danger"></span>Sin asignar <span class="tab-num">3</span></button>
+          <button class="tab" role="tab"><span class="tab-dot pending"></span>En revisión <span class="tab-num">5</span></button>
+          <button class="tab" role="tab"><span class="tab-dot"></span>Cerrados <span class="tab-num">67</span></button>
         </div>
       </div>
 
       <p class="legend">Listado de clientes</p>
       <div class="demo">
         <div class="tabs" role="tablist">
-          <button class="tab active" role="tab">Todos <span class="tab-count">147</span></button>
-          <button class="tab" role="tab">Activos <span class="tab-count success">139</span></button>
-          <button class="tab" role="tab">Suspendidos <span class="tab-count warning">5</span></button>
-          <button class="tab" role="tab">Cancelados <span class="tab-count">3</span></button>
+          <button class="tab active" role="tab"><span class="tab-dot"></span>Todos <span class="tab-num">147</span></button>
+          <button class="tab" role="tab"><span class="tab-dot success"></span>Activos <span class="tab-num">139</span></button>
+          <button class="tab" role="tab"><span class="tab-dot warning"></span>Suspendidos <span class="tab-num">5</span></button>
+          <button class="tab" role="tab"><span class="tab-dot"></span>Cancelados <span class="tab-num">3</span></button>
         </div>
+      </div>
+
+      <div class="note">
+        <strong>Por qué este patrón es más Aelium.</strong> El dot semántico está <em>siempre</em> visible — el usuario ve que "Vencidas" es danger antes de hacer click. La pill clásica solo coloreaba al activar, lo cual es decorativo, no informativo. Aquí el componente <em>habla</em>: rojo = atención, verde = OK, ámbar = revisar.
       </div>
     </section>
 
