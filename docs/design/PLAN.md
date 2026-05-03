@@ -7,13 +7,26 @@
 
 ## Estado actual
 
-- **Fase activa:** 4 — Shells por portal **lista para revisión**
+- **Fase activa:** 5 — Mockups del Portal Cliente **lista para revisión**
 - **Modo activo:** diseño
-- **Próxima acción:** revisión humana de los 4 shells con sus
-  densidades aplicadas. Si OK, **fase 4 cerrada**. Próximo arranque:
-  **fase 5 (mockups cliente)** — overview, services, billing, support,
-  transparency, checkout.
-- **Última actualización:** 2026-05-03 — fase 4 completa.
+- **Próxima acción:** revisión humana de los 7 mockups del cliente
+  componiendo ClientShell + patterns de fase 3 + componentes de
+  fase 2. Si OK, **fase 5 cerrada**. Próximo arranque: **fase 6
+  (mockups agente)** — overview operativo, clientes asignados, tickets,
+  facturas (vista agente).
+- **Última actualización:** 2026-05-03 — fase 5 completa. Audit
+  drift D5-1..D5-12 documentado en `fase-5-cliente/audit-existing.md`
+  (mayoría de copy: "Mis" → "Tus"; overview con tiles humanos en
+  lugar de StatsCards genéricos; transparency con voz Aelium en
+  cada evento). 7 mockups entregados: Inicio (saludo adaptativo +
+  tiles + novedades + atajos), Tus servicios (ListPage grid),
+  Detalle de servicio (DetailPage with-aside con health-rombo dual
+  funcional), Tus facturas (ListPage standard + StatusTabs), Detalle
+  de factura (DetailPage standard), Transparencia (ListPage timeline
+  · activo de marca diferenciador con marker rombo brand), Configuración
+  (FormPage long-form con TOC sticky 6 secciones). Cada mockup compone
+  ClientShell `comfortable` + pattern de fase 3 + voz Aelium aplicada.
+- **Fase 4 cerrada (anterior):** 4 shells
   Audit drift D4-1..D4-19 documentado en
   `fase-4-shells/audit-existing.md`. Specs entregadas para AuthShell
   (2 variantes: split-aurora / centered-status), ClientShell
@@ -86,8 +99,8 @@ romper la filosofía de minimalismo funcional (D1–D11 de
 | 2.E | Componentes base · contenedores | Cerrada | Card 5v · Modal 5v · Avatar refactor paleta + with-status + group · EmptyState 4v · sample cliente-overview |
 | 2.F | Refresh de variantes en componentes ya entregados | Cerrada | Pagination +3v · Dropdown +2v · Badge +2v · Input +3v |
 | 3 | Patrones de página | Cerrada | ListPage 4v · DetailPage 3v · FormPage 3v |
-| 4 | Layout shells | **Listo · revisión humana** | AuthShell 2v · ClientShell · AdminShell · PartnerShell + densidad por portal (DD-032) |
-| 5 | Mockups cliente | Pendiente | overview, services, billing, support, transparency, checkout |
+| 4 | Layout shells | Cerrada | AuthShell 2v · ClientShell · AdminShell · PartnerShell + densidad por portal (DD-032) |
+| 5 | Mockups cliente | **Listo · revisión humana** | Inicio · Tus servicios · Detalle servicio · Tus facturas · Detalle factura · Transparencia · Configuración |
 | 6 | Mockups agente | Pendiente | clients, support, tasks, billing |
 | 7 | Mockups admin | Pendiente | overview, products, support-inside-plans, jobs, error-log, templates |
 | 8 | Mockups partner | Pendiente | referidos, comisiones, comunicación |

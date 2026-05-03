@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Cliente · mitienda.com</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { background: var(--surface-secondary); }
+  .demo-page-banner {
+    background: var(--surface-primary); border-bottom: 1px solid var(--border);
+    padding: var(--space-3) var(--space-5); font-size: var(--font-size-xs);
+    color: var(--text-tertiary); display: flex; align-items: center; gap: var(--space-3);
+  }
+  .demo-page-banner strong { color: var(--text-primary); }
+  .demo-page-banner .tag { background: var(--brand-subtle); color: var(--brand-active); padding: 2px 8px; border-radius: 999px; font-weight: var(--font-weight-medium); }
+  .stub-bc { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-sm); color: var(--text-tertiary); }
+  .stub-bc a { color: var(--text-secondary); text-decoration: none; }
+  .stub-bc .current { color: var(--text-primary); font-weight: var(--font-weight-medium); }
+  .b { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); }
+  .b.active { background: var(--success-subtle); color: var(--success-strong); }
+  .b .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .panel {
+    background: var(--surface-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: var(--space-5) var(--space-6);
+    box-shadow: var(--shadow-sm);
+  }
+  .panel + .panel { margin-top: var(--space-4); }
+  .panel-title {
+    font-size: var(--font-size-md); font-weight: var(--font-weight-semibold);
+    color: var(--text-primary); margin: 0 0 var(--space-3); letter-spacing: -0.01em;
+  }
+  .panel-row {
+    display: grid; grid-template-columns: 200px 1fr; gap: var(--space-3);
+    padding: var(--space-2_5) 0; border-bottom: 1px solid var(--border);
+    font-size: var(--font-size-sm);
+  }
+  .panel-row:last-child { border-bottom: none; }
+  .panel-row dt { color: var(--text-tertiary); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em; padding-top: 2px; }
+  .panel-row dd { color: var(--text-primary); margin: 0; font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+
+  /* Health rombo dual (DD-024 · DD-030 · funcional, no decorativo) */
+  .health-card { text-align: center; padding: var(--space-3) 0; }
+  .health-rombos { display: inline-flex; gap: var(--space-1); margin-bottom: var(--space-3); }
+  .health-rombos .r {
+    width: 14px; height: 14px; transform: rotate(45deg);
+    background: var(--success); border-radius: 2px;
+  }
+  .health-rombos .r.dim { opacity: 0.35; }
+  .health-card .h-status { font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); color: var(--success-strong); margin-bottom: 4px; }
+  .health-card .h-detail { font-size: var(--font-size-xs); color: var(--text-tertiary); }
+
+  .action-mini {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--space-2) var(--space-3); background: var(--surface-secondary);
+    border-radius: var(--radius-sm); font-size: var(--font-size-sm); color: var(--text-primary);
+    text-decoration: none;
+  }
+  .action-mini + .action-mini { margin-top: var(--space-1_5); }
+  .action-mini.danger { color: var(--danger); }
+</style>
+</head>
+<body>
+
+<div class="demo-page-banner">
+  <span class="tag">Fase 5</span>
+  <strong>Cliente · Detalle de servicio</strong>
+  <span>· compone <code>ClientShell</code> + <code>DetailPage variant="with-aside"</code></span>
+  <span style="margin-left: auto;">URL · <code>/dashboard/services/[id]</code></span>
+</div>
+
+<div class="shell" data-density="comfortable">
+  <a class="shell-skip" href="#main">Saltar al contenido</a>
+
+  <aside class="shell-sidebar" aria-label="Navegación principal">
+    <a href="overview.html" class="shell-brand">
+      <span class="shell-brand-logo">
+        <svg viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="6" y="2" width="11" height="11" rx="2" transform="rotate(45 11.5 7.5)" fill="var(--brand)"/>
+          <rect x="11" y="15" width="8" height="8" rx="1.5" transform="rotate(45 15 19)" fill="var(--brand)" opacity="0.55"/>
+        </svg>
+      </span>
+      <span class="shell-brand-text"><span class="shell-brand-name">aelium</span><span class="shell-brand-portal">Portal cliente</span></span>
+    </a>
+    <nav class="shell-nav">
+      <div class="shell-nav-section">
+        <a class="shell-nav-link" href="overview.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span class="nav-label">Inicio</span></a>
+        <a class="shell-nav-link is-active" href="services.html" aria-current="page"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><span class="nav-label">Tus servicios</span></a>
+        <a class="shell-nav-link" href="billing.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span><span class="nav-label">Tus facturas</span></a>
+        <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="nav-label">Soporte</span></a>
+        <a class="shell-nav-link" href="transparency.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span><span class="nav-label">Transparencia</span></a>
+      </div>
+    </nav>
+    <button class="shell-collapse-btn" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 18l-6-6 6-6"/></svg>Colapsar</button>
+  </aside>
+
+  <header class="shell-topbar">
+    <div class="shell-topbar-left"></div>
+    <div class="shell-topbar-right">
+      <button class="shell-icon-btn" title="Soporte"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+      <button class="shell-icon-btn" title="Notificaciones"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="badge-count">2</span></button>
+      <button class="shell-profile"><span class="shell-profile-info"><span class="shell-profile-name">María Pérez</span><span class="shell-profile-role">Cliente</span></span><span class="shell-profile-avatar">MP</span></button>
+    </div>
+  </header>
+
+  <main class="shell-main" id="main">
+    <div class="detail-page dp-with-aside">
+      <nav class="stub-bc" aria-label="Migas de pan">
+        <a href="services.html">Tus servicios</a>
+        <span>›</span>
+        <span class="current">mitienda.com</span>
+      </nav>
+
+      <div class="dp-header">
+        <div class="dp-header-row">
+          <div class="dp-header-identity">
+            <div class="dp-header-titleblock">
+              <div class="dp-header-eyebrow">Hosting Pro · activo desde octubre 2024</div>
+              <h1 class="dp-header-title">mitienda.com <span class="b active"><span class="dot"></span>al aire</span></h1>
+            </div>
+          </div>
+          <div class="dp-header-actions">
+            <button class="btn btn-secondary btn-md">Pedir ayuda</button>
+            <button class="btn btn-secondary btn-md">Ver contrato</button>
+          </div>
+        </div>
+        <dl class="dp-header-meta">
+          <div class="dp-meta-item"><dt>Plan</dt><dd>Hosting Pro</dd></div>
+          <div class="dp-meta-item"><dt>Mensualidad</dt><dd>29,90 €</dd></div>
+          <div class="dp-meta-item"><dt>Próxima renovación</dt><dd>12 nov 2025</dd></div>
+          <div class="dp-meta-item"><dt>Última copia</dt><dd>hace 12 horas</dd></div>
+        </dl>
+      </div>
+
+      <div class="dp-body">
+        <div>
+          <div class="panel">
+            <h2 class="panel-title">Lo que incluye este plan</h2>
+            <div class="panel-row"><dt>Almacenamiento</dt><dd>50 GB usados de 100 GB</dd></div>
+            <div class="panel-row"><dt>Tráfico mensual</dt><dd>240 GB usados de 1 TB</dd></div>
+            <div class="panel-row"><dt>Bases de datos</dt><dd>2 activas · sin límite</dd></div>
+            <div class="panel-row"><dt>Certificado SSL</dt><dd>Wildcard incluido · renovación automática</dd></div>
+            <div class="panel-row"><dt>Soporte</dt><dd>Equipo humano · respondemos en menos de 1 hora</dd></div>
+          </div>
+
+          <div class="panel">
+            <h2 class="panel-title">Lo último en este servicio</h2>
+            <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+              <div style="display: grid; grid-template-columns: 100px 1fr; gap: var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--border);">
+                <span style="font-size: var(--font-size-xs); color: var(--text-tertiary); font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums;">hoy · 09:42</span>
+                <div>
+                  <div style="font-size: var(--font-size-sm); color: var(--text-primary);"><strong>Renovación SSL completada.</strong> El certificado estará vigente hasta el 15 nov 2027.</div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 100px 1fr; gap: var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--border);">
+                <span style="font-size: var(--font-size-xs); color: var(--text-tertiary);">ayer · 03:14</span>
+                <div>
+                  <div style="font-size: var(--font-size-sm); color: var(--text-primary);"><strong>Copia diaria completada.</strong> 2,3 GB · 1 min 12 s.</div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 100px 1fr; gap: var(--space-3);">
+                <span style="font-size: var(--font-size-xs); color: var(--text-tertiary);">hace 5 días</span>
+                <div>
+                  <div style="font-size: var(--font-size-sm); color: var(--text-primary);"><strong>Optimizamos la base de datos.</strong> -18% tiempo de carga.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="dp-aside" aria-label="Estado y acciones del servicio">
+          <!-- Health card · DD-024 dual rombo · uso funcional permitido por DD-030 -->
+          <div class="dp-aside-card health-card">
+            <div class="health-rombos" aria-hidden="true">
+              <span class="r"></span>
+              <span class="r"></span>
+              <span class="r dim"></span>
+            </div>
+            <div class="h-status">Todo en orden</div>
+            <div class="h-detail">Uptime 99,98% · 30 días</div>
+          </div>
+
+          <div class="dp-aside-card">
+            <h3 class="dp-aside-title">Acciones rápidas</h3>
+            <a href="#" class="action-mini">Ver panel técnico (cPanel) <span style="color: var(--text-tertiary);">↗</span></a>
+            <a href="#" class="action-mini">Cambiar de plan <span style="color: var(--text-tertiary);">›</span></a>
+            <a href="#" class="action-mini">Pedir copia bajo demanda <span style="color: var(--text-tertiary);">›</span></a>
+            <a href="#" class="action-mini danger">Cancelar este servicio <span style="color: var(--text-tertiary);">›</span></a>
+          </div>
+
+          <div class="dp-aside-card">
+            <h3 class="dp-aside-title">Tu responsable</h3>
+            <div class="dp-aside-list">
+              <div class="dp-aside-item"><span class="label">Persona asignada</span><span class="value">Julia M.</span></div>
+              <div class="dp-aside-item"><span class="label">Equipo</span><span class="value">Soporte humano</span></div>
+              <div class="dp-aside-item"><span class="label">Tiempo de respuesta</span><span class="value">menos de 1h</span></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

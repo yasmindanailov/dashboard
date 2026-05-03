@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Cliente · Inicio</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { background: var(--surface-secondary); }
+  .demo-page-banner {
+    background: var(--surface-primary);
+    border-bottom: 1px solid var(--border);
+    padding: var(--space-3) var(--space-5);
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    display: flex; align-items: center; gap: var(--space-3);
+  }
+  .demo-page-banner strong { color: var(--text-primary); }
+  .demo-page-banner .tag { background: var(--brand-subtle); color: var(--brand-active); padding: 2px 8px; border-radius: 999px; font-weight: var(--font-weight-medium); }
+  /* Page-specific tiles */
+  .ov-hero {
+    margin-bottom: var(--space-5);
+  }
+  .ov-hero h1 {
+    font-size: 28px; font-weight: var(--font-weight-semibold);
+    color: var(--text-primary); letter-spacing: -0.015em;
+    margin: 0; line-height: 1.2;
+  }
+  .ov-hero p {
+    font-size: var(--font-size-base); color: var(--text-secondary);
+    margin: var(--space-2) 0 0; line-height: 1.5;
+  }
+  .ov-status-tiles {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3);
+    margin-bottom: var(--space-5);
+  }
+  .ov-tile {
+    background: var(--surface-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: var(--space-4) var(--space-5);
+    box-shadow: var(--shadow-sm);
+    display: flex; flex-direction: column; gap: var(--space-2);
+  }
+  .ov-tile .tile-head { display: flex; align-items: center; gap: var(--space-2); }
+  .ov-tile .tile-icon {
+    width: 28px; height: 28px; border-radius: var(--radius-sm);
+    background: var(--success-subtle); color: var(--success);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ov-tile.is-pending .tile-icon { background: var(--pending-subtle); color: var(--pending); }
+  .ov-tile.is-info .tile-icon { background: var(--info-subtle); color: var(--info); }
+  .ov-tile .tile-label {
+    font-size: var(--font-size-xs); color: var(--text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .ov-tile .tile-value {
+    font-size: var(--font-size-md); font-weight: var(--font-weight-medium);
+    color: var(--text-primary); line-height: 1.4;
+  }
+  .ov-tile .tile-meta {
+    font-size: var(--font-size-sm); color: var(--text-secondary);
+    margin-top: 2px;
+  }
+  .ov-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--space-4); }
+  .ov-section {
+    background: var(--surface-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: var(--space-5);
+    box-shadow: var(--shadow-sm);
+  }
+  .ov-section h2 {
+    font-size: var(--font-size-md); font-weight: var(--font-weight-semibold);
+    color: var(--text-primary); margin: 0 0 var(--space-3);
+    letter-spacing: -0.01em;
+  }
+  .ov-news-item {
+    display: flex; gap: var(--space-3); padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .ov-news-item:last-child { border-bottom: none; }
+  .ov-news-item .news-icon {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+    background: var(--brand-subtle); color: var(--brand);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ov-news-item .news-body { flex: 1; min-width: 0; }
+  .ov-news-item .news-title {
+    font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+  }
+  .ov-news-item .news-desc {
+    font-size: var(--font-size-sm); color: var(--text-secondary);
+    margin-top: 2px; line-height: 1.4;
+  }
+  .ov-news-item .news-when {
+    font-size: var(--font-size-xs); color: var(--text-tertiary);
+    margin-top: var(--space-1);
+    font-feature-settings: var(--font-feature-numeric);
+    font-variant-numeric: tabular-nums;
+  }
+  .ov-quick-link {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-3) 0; border-bottom: 1px solid var(--border);
+    text-decoration: none; color: var(--text-primary);
+    transition: background var(--transition-fast);
+  }
+  .ov-quick-link:last-child { border-bottom: none; }
+  .ov-quick-link:hover { background: var(--surface-secondary); margin: 0 calc(var(--space-2) * -1); padding-left: var(--space-2); padding-right: var(--space-2); border-radius: var(--radius-sm); }
+  .ov-quick-link .qa-icon {
+    width: 32px; height: 32px; border-radius: var(--radius-sm);
+    background: var(--brand-subtle); color: var(--brand);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .ov-quick-link .qa-body { flex: 1; min-width: 0; }
+  .ov-quick-link .qa-title { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--text-primary); }
+  .ov-quick-link .qa-desc { font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: 2px; }
+  .ov-quick-link .qa-arrow { color: var(--text-tertiary); }
+  .b {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: var(--font-size-xs); font-weight: var(--font-weight-medium);
+  }
+  .b.active { background: var(--success-subtle); color: var(--success-strong); }
+  .b .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+</style>
+</head>
+<body>
+
+<div class="demo-page-banner">
+  <span class="tag">Fase 5</span>
+  <strong>Cliente · Inicio</strong>
+  <span>· compone <code>ClientShell</code> + tiles propios + sections</span>
+  <span style="margin-left: auto;">URL · <code>/dashboard</code></span>
+</div>
+
+<div class="shell" data-density="comfortable">
+  <a class="shell-skip" href="#main">Saltar al contenido</a>
+
+  <aside class="shell-sidebar" aria-label="Navegación principal">
+    <a href="#" class="shell-brand">
+      <span class="shell-brand-logo">
+        <svg viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="6" y="2" width="11" height="11" rx="2" transform="rotate(45 11.5 7.5)" fill="var(--brand)"/>
+          <rect x="11" y="15" width="8" height="8" rx="1.5" transform="rotate(45 15 19)" fill="var(--brand)" opacity="0.55"/>
+        </svg>
+      </span>
+      <span class="shell-brand-text">
+        <span class="shell-brand-name">aelium</span>
+        <span class="shell-brand-portal">Portal cliente</span>
+      </span>
+    </a>
+
+    <nav class="shell-nav">
+      <div class="shell-nav-section">
+        <a class="shell-nav-link is-active" href="overview.html" aria-current="page">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+          <span class="nav-label">Inicio</span>
+        </a>
+        <a class="shell-nav-link" href="services.html">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+          <span class="nav-label">Tus servicios</span>
+        </a>
+        <a class="shell-nav-link" href="billing.html">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>
+          <span class="nav-label">Tus facturas</span>
+        </a>
+        <a class="shell-nav-link" href="#">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          <span class="nav-label">Soporte</span>
+        </a>
+        <a class="shell-nav-link" href="transparency.html">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+          <span class="nav-label">Transparencia</span>
+        </a>
+      </div>
+    </nav>
+
+    <button class="shell-collapse-btn" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 18l-6-6 6-6"/></svg>
+      Colapsar
+    </button>
+  </aside>
+
+  <header class="shell-topbar">
+    <div class="shell-topbar-left"></div>
+    <div class="shell-topbar-right">
+      <button class="shell-icon-btn" title="Soporte" aria-label="Soporte">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </button>
+      <button class="shell-icon-btn" title="Notificaciones" aria-label="Notificaciones">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="badge-count">2</span>
+      </button>
+      <button class="shell-profile" type="button">
+        <span class="shell-profile-info">
+          <span class="shell-profile-name">María Pérez</span>
+          <span class="shell-profile-role">Cliente</span>
+        </span>
+        <span class="shell-profile-avatar">MP</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="shell-main" id="main">
+    <!-- Hero · saludo adaptativo (D5-5) -->
+    <div class="ov-hero">
+      <h1>Buenos días, María.</h1>
+      <p>Todo en orden con tus servicios. Te resumimos cómo van las cosas.</p>
+    </div>
+
+    <!-- Tiles propios humanos (D5-3 · NO StatsCards genéricos) -->
+    <div class="ov-status-tiles">
+      <div class="ov-tile">
+        <div class="tile-head">
+          <span class="tile-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <span class="tile-label">Tu hosting</span>
+        </div>
+        <div class="tile-value">Está al aire</div>
+        <div class="tile-meta">Última copia hace 12 horas · sin incidencias.</div>
+      </div>
+
+      <div class="ov-tile is-info">
+        <div class="tile-head">
+          <span class="tile-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          </span>
+          <span class="tile-label">Tu próxima factura</span>
+        </div>
+        <div class="tile-value" style="font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums;">49,90 €</div>
+        <div class="tile-meta">Se carga el <strong>12 nov</strong>. Sin sorpresas.</div>
+      </div>
+
+      <div class="ov-tile">
+        <div class="tile-head">
+          <span class="tile-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </span>
+          <span class="tile-label">Lo último</span>
+        </div>
+        <div class="tile-value">Renovación SSL</div>
+        <div class="tile-meta">Hecho automáticamente · hace 2 horas.</div>
+      </div>
+    </div>
+
+    <!-- 2 columnas: novedades + accesos rápidos -->
+    <div class="ov-grid">
+      <section class="ov-section" aria-labelledby="ov-news-title">
+        <h2 id="ov-news-title">Novedades</h2>
+
+        <div class="ov-news-item">
+          <span class="news-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </span>
+          <div class="news-body">
+            <div class="news-title">Tu certificado SSL se renovó solo</div>
+            <div class="news-desc">El certificado de <code>mitienda.com</code> caducaba el 15 nov. Lo renovamos esta mañana — ya no caduca hasta el 15 nov 2027.</div>
+            <div class="news-when">Hoy · 09:42</div>
+          </div>
+        </div>
+
+        <div class="ov-news-item">
+          <span class="news-icon" style="background: var(--info-subtle); color: var(--info);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </span>
+          <div class="news-body">
+            <div class="news-title">Julia M. respondió a tu última pregunta</div>
+            <div class="news-desc">"He revisado el envío de emails desde el iPhone — todo en orden. Si vuelve a fallar, dímelo y miro el SMTP."</div>
+            <div class="news-when">Hace 3 días · ticket #00128 cerrado</div>
+          </div>
+        </div>
+
+        <div class="ov-news-item">
+          <span class="news-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
+          </span>
+          <div class="news-body">
+            <div class="news-title">Optimizamos la base de datos</div>
+            <div class="news-desc">Tu web ahora carga un 18% más rápido. Mantenimiento programado, sin que te enteraras.</div>
+            <div class="news-when">Hace 5 días</div>
+          </div>
+        </div>
+
+        <div style="text-align: center; padding-top: var(--space-3); border-top: 1px solid var(--border); margin-top: var(--space-2);">
+          <a href="transparency.html" style="font-size: var(--font-size-sm); color: var(--brand); text-decoration: none; font-weight: var(--font-weight-medium);">Ver todo lo que hemos hecho por ti →</a>
+        </div>
+      </section>
+
+      <section class="ov-section" aria-labelledby="ov-quick-title">
+        <h2 id="ov-quick-title">Atajos</h2>
+
+        <a class="ov-quick-link" href="services.html">
+          <span class="qa-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg></span>
+          <div class="qa-body">
+            <div class="qa-title">Ver servicios</div>
+            <div class="qa-desc">4 servicios activos</div>
+          </div>
+          <span class="qa-arrow">›</span>
+        </a>
+
+        <a class="ov-quick-link" href="billing.html">
+          <span class="qa-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>
+          <div class="qa-body">
+            <div class="qa-title">Ver facturas</div>
+            <div class="qa-desc">Última pagada · 3 oct</div>
+          </div>
+          <span class="qa-arrow">›</span>
+        </a>
+
+        <a class="ov-quick-link" href="#">
+          <span class="qa-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          <div class="qa-body">
+            <div class="qa-title">Pedir ayuda</div>
+            <div class="qa-desc">Te respondemos en menos de 1 hora</div>
+          </div>
+          <span class="qa-arrow">›</span>
+        </a>
+
+        <a class="ov-quick-link" href="settings.html">
+          <span class="qa-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82M4.6 9a1.65 1.65 0 0 0-.33-1.82"/></svg></span>
+          <div class="qa-body">
+            <div class="qa-title">Configuración</div>
+            <div class="qa-desc">Perfil, notificaciones, datos fiscales</div>
+          </div>
+          <span class="qa-arrow">›</span>
+        </a>
+      </section>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

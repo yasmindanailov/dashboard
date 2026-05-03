@@ -62,16 +62,25 @@
       { href: 'shells/admin.html',                  label: 'AdminShell · compact' },
       { href: 'shells/partner.html',                label: 'PartnerShell · standard' },
     ]},
-    { section: 'Páginas de muestra', items: [
+    { section: 'Fase 5 · Portal Cliente', items: [
+      { href: 'cliente/overview.html',              label: 'Inicio' },
+      { href: 'cliente/services.html',              label: 'Tus servicios · grid' },
+      { href: 'cliente/service-detail.html',        label: 'Detalle de servicio · with-aside' },
+      { href: 'cliente/billing.html',               label: 'Tus facturas · standard' },
+      { href: 'cliente/invoice-detail.html',        label: 'Detalle de factura · standard' },
+      { href: 'cliente/transparency.html',          label: 'Transparencia · timeline' },
+      { href: 'cliente/settings.html',              label: 'Configuración · long-form' },
+    ]},
+    { section: 'Páginas de muestra (legacy)', items: [
       { href: 'pages/sample-form.html',             label: 'Formulario · ticket de soporte' },
       { href: 'pages/admin-clientes.html',          label: 'Admin · Listado de clientes' },
       { href: 'pages/admin-cliente-detalle.html',   label: 'Admin · Detalle de cliente' },
-      { href: 'pages/cliente-overview.html',        label: 'Cliente · Bienvenida (Overview)' },
+      { href: 'pages/cliente-overview.html',        label: 'Cliente · Bienvenida (legacy)' },
     ]},
-    { section: 'Fases 5–9 · Páginas (futuro)', items: [
-      { href: 'pages/dashboard-cliente.html',       label: 'Cliente · Overview', pending: true },
-      { href: 'pages/admin-overview.html',          label: 'Admin · Overview',   pending: true },
-      // crece con cada fase
+    { section: 'Fases 6–9 · Páginas (futuro)', items: [
+      { href: 'agente/overview.html',               label: 'Agente · Overview', pending: true },
+      { href: 'admin/overview.html',                label: 'Admin · Overview',  pending: true },
+      { href: 'partner/overview.html',              label: 'Partner · Overview', pending: true },
     ]},
   ];
 

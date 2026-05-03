@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Cliente · Tus servicios</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { background: var(--surface-secondary); }
+  .demo-page-banner {
+    background: var(--surface-primary); border-bottom: 1px solid var(--border);
+    padding: var(--space-3) var(--space-5); font-size: var(--font-size-xs);
+    color: var(--text-tertiary); display: flex; align-items: center; gap: var(--space-3);
+  }
+  .demo-page-banner strong { color: var(--text-primary); }
+  .demo-page-banner .tag { background: var(--brand-subtle); color: var(--brand-active); padding: 2px 8px; border-radius: 999px; font-weight: var(--font-weight-medium); }
+
+  .svc-card {
+    background: var(--surface-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: var(--space-4) var(--space-5);
+    box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: var(--space-3);
+    text-decoration: none; color: inherit;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .svc-card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-md); }
+  .svc-head { display: flex; align-items: center; gap: var(--space-2_5); }
+  .svc-icon {
+    width: 40px; height: 40px; border-radius: var(--radius-md);
+    background: var(--brand-subtle); color: var(--brand);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .svc-icon svg { width: 22px; height: 22px; stroke-width: 1.5; }
+  .svc-name { font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--text-primary); }
+  .svc-meta { font-size: var(--font-size-xs); color: var(--text-tertiary); }
+  .svc-desc { font-size: var(--font-size-sm); color: var(--text-secondary); line-height: 1.45; }
+  .svc-foot { display: flex; align-items: center; justify-content: space-between; padding-top: var(--space-3); border-top: 1px solid var(--border); }
+  .svc-renewal { font-size: var(--font-size-xs); color: var(--text-tertiary); font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+
+  .b { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); }
+  .b.active { background: var(--success-subtle); color: var(--success-strong); }
+  .b.pending { background: var(--pending-subtle); color: var(--pending); }
+  .b.warning { background: var(--warning-subtle); color: var(--warning); }
+  .b .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .filterbar-stub {
+    display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  }
+  .filterbar-stub .search-stub {
+    flex: 1; min-width: 240px;
+    background: var(--surface-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm); color: var(--text-tertiary);
+    display: flex; align-items: center; gap: var(--space-2);
+  }
+  .filterbar-stub .filter-stub {
+    background: var(--surface-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm); color: var(--text-secondary); cursor: default;
+    display: inline-flex; align-items: center; gap: var(--space-2); white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-page-banner">
+  <span class="tag">Fase 5</span>
+  <strong>Cliente · Tus servicios</strong>
+  <span>· compone <code>ClientShell</code> + <code>ListPage variant="grid"</code></span>
+  <span style="margin-left: auto;">URL · <code>/dashboard/services</code></span>
+</div>
+
+<div class="shell" data-density="comfortable">
+  <a class="shell-skip" href="#main">Saltar al contenido</a>
+
+  <aside class="shell-sidebar" aria-label="Navegación principal">
+    <a href="overview.html" class="shell-brand">
+      <span class="shell-brand-logo">
+        <svg viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="6" y="2" width="11" height="11" rx="2" transform="rotate(45 11.5 7.5)" fill="var(--brand)"/>
+          <rect x="11" y="15" width="8" height="8" rx="1.5" transform="rotate(45 15 19)" fill="var(--brand)" opacity="0.55"/>
+        </svg>
+      </span>
+      <span class="shell-brand-text">
+        <span class="shell-brand-name">aelium</span>
+        <span class="shell-brand-portal">Portal cliente</span>
+      </span>
+    </a>
+
+    <nav class="shell-nav">
+      <div class="shell-nav-section">
+        <a class="shell-nav-link" href="overview.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span class="nav-label">Inicio</span></a>
+        <a class="shell-nav-link is-active" href="services.html" aria-current="page"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><span class="nav-label">Tus servicios</span></a>
+        <a class="shell-nav-link" href="billing.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span><span class="nav-label">Tus facturas</span></a>
+        <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="nav-label">Soporte</span></a>
+        <a class="shell-nav-link" href="transparency.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span><span class="nav-label">Transparencia</span></a>
+      </div>
+    </nav>
+
+    <button class="shell-collapse-btn" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 18l-6-6 6-6"/></svg>
+      Colapsar
+    </button>
+  </aside>
+
+  <header class="shell-topbar">
+    <div class="shell-topbar-left"></div>
+    <div class="shell-topbar-right">
+      <button class="shell-icon-btn" title="Soporte" aria-label="Soporte"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+      <button class="shell-icon-btn" title="Notificaciones" aria-label="Notificaciones"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="badge-count">2</span></button>
+      <button class="shell-profile" type="button"><span class="shell-profile-info"><span class="shell-profile-name">María Pérez</span><span class="shell-profile-role">Cliente</span></span><span class="shell-profile-avatar">MP</span></button>
+    </div>
+  </header>
+
+  <main class="shell-main" id="main">
+    <div class="list-page lp-grid">
+      <div class="page-header">
+        <div class="ph-titleblock">
+          <h1 class="ph-title">Tus servicios</h1>
+          <p class="ph-subtitle">4 servicios activos · todo en orden.</p>
+        </div>
+        <div class="ph-actions">
+          <button class="btn btn-primary btn-md">Añadir servicio</button>
+        </div>
+      </div>
+
+      <div class="filterbar-stub">
+        <span class="search-stub">🔍 Buscar en tus servicios…</span>
+        <span class="filter-stub">Tipo · todos ▾</span>
+        <span class="filter-stub">Estado · todos ▾</span>
+      </div>
+
+      <div class="lp-content">
+        <a href="service-detail.html" class="svc-card">
+          <div class="svc-head">
+            <span class="svc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+            <div>
+              <div class="svc-name">mitienda.com</div>
+              <div class="svc-meta">Hosting Pro · activo</div>
+            </div>
+          </div>
+          <div class="svc-desc">Tu web está al aire desde octubre 2024. Última copia hace 12 horas.</div>
+          <div class="svc-foot">
+            <span class="b active"><span class="dot"></span>activo</span>
+            <span class="svc-renewal">Renueva el 12 nov</span>
+          </div>
+        </a>
+
+        <a href="#" class="svc-card">
+          <div class="svc-head">
+            <span class="svc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+            <div>
+              <div class="svc-name">Buzón profesional</div>
+              <div class="svc-meta">5 cuentas · activo</div>
+            </div>
+          </div>
+          <div class="svc-desc">5 buzones <code>@mitienda.com</code> con sincronización móvil y antispam.</div>
+          <div class="svc-foot">
+            <span class="b active"><span class="dot"></span>activo</span>
+            <span class="svc-renewal">Renueva el 12 nov</span>
+          </div>
+        </a>
+
+        <a href="#" class="svc-card">
+          <div class="svc-head">
+            <span class="svc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2l9 4v6c0 5-3.6 9.3-9 10-5.4-.7-9-5-9-10V6l9-4z"/></svg></span>
+            <div>
+              <div class="svc-name">Backup diario</div>
+              <div class="svc-meta">Pro · activo</div>
+            </div>
+          </div>
+          <div class="svc-desc">Copia automática cada noche. Última: ayer 03:14 · 2,3 GB.</div>
+          <div class="svc-foot">
+            <span class="b active"><span class="dot"></span>activo</span>
+            <span class="svc-renewal">Renueva el 12 nov</span>
+          </div>
+        </a>
+
+        <a href="#" class="svc-card">
+          <div class="svc-head">
+            <span class="svc-icon" style="background: var(--pending-subtle); color: var(--pending);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <div>
+              <div class="svc-name">Certificado SSL</div>
+              <div class="svc-meta">Wildcard · renovando</div>
+            </div>
+          </div>
+          <div class="svc-desc">Renovación automática iniciada esta mañana. Te avisamos cuando termine.</div>
+          <div class="svc-foot">
+            <span class="b pending"><span class="dot"></span>renovando</span>
+            <span class="svc-renewal">2-3 minutos</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>
