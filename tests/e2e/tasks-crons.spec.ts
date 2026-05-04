@@ -219,7 +219,11 @@ test.describe('Tasks crons — Sprint 8 Fase C', () => {
       [agentSupportId],
     );
     expect(notifs.rowCount).toBe(1);
-    expect(notifs.rows[0].action_url).toBe(`/admin/tasks/${taskId}`);
+    // ADR-079 + Sprint 13 §13.AUTH §11.1 B7: el frontend NO tiene
+    // `/admin/tasks/[id]`. Para tasks no-bridge la URL canónica es la
+    // lista `/admin/tasks` (filtros + modal). Bridge `support_ticket`
+    // apunta al ticket; aquí source_system='support_inside_slot'.
+    expect(notifs.rows[0].action_url).toBe('/admin/tasks');
   });
 
   test('cron `unassigned-overdue`: cola pública fuera de SLA → email + notification al superadmin (ADR-072)', async ({

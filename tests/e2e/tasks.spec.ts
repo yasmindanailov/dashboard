@@ -230,7 +230,10 @@ test.describe('Tasks — API canónica Sprint 16 (ADR-079)', () => {
       [agentSupportId],
     );
     expect(notifs.rowCount).toBe(1);
-    expect(notifs.rows[0].action_url).toBe(`/admin/tasks/${task!.id}`);
+    // ADR-079 + Sprint 13 §13.AUTH §11.1 B7: bridge `support_ticket`
+    // apunta al ticket (fuente de verdad), NO a la task. La página
+    // `/admin/tasks/[id]` no existe.
+    expect(notifs.rows[0].action_url).toBe(`/admin/support/${conversationId}`);
     expect(notifs.rows[0].metadata?.event).toBe('task.assigned');
 
     // 4. Reasignar al agent_billing via PATCH /tasks/:id/assign.
