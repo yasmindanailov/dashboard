@@ -1,8 +1,9 @@
 # Sprint 13 §13.AUTH — Auth server-side con cookies httpOnly + Server Components nativos (cerrado)
 
-> **Cierre formal:** 2026-05-03 — Fases 0 / A / B / D / E / F mergeadas en master.
+> **Cierre código (DoD):** 2026-05-03 — Fases 0 / A / B / D / E / F completas en rama `sprint13-auth-cookies-httponly`.
+> **Merge a master:** 2026-05-04 05:52 UTC — squash-merge PR #29 (commit `4ba80c3`) tras 4 runs CI (1 inicial rojo + 3 fixes encadenados B8/B9/B10 documentados en §11.1).
 > **Foco doctrinal:** sub-sprint del Sprint 13 Hardening enfocado **exclusivamente** a cerrar `DC.6 + DC.28`. El JWT abandona `localStorage` (XSS surface) y pasa a cookies httpOnly del dominio Next.js (Modelo A — ADR-078 Amendment A1); el frontend migra de `'use client' + useEffect + fetch` a Server Components nativos consumiendo `serverFetch()` + Server Actions por dominio.
-> **Cobertura final:** **198/198 unit backend verde + frontend `pnpm typecheck` + `pnpm lint:check --max-warnings=0` + `pnpm build` verdes**, tests E2E parseados (3 specs nuevos + fixture migrada), sin regresión en suite preexistente, **11 commits encadenados** en rama `sprint13-auth-cookies-httponly`.
+> **Cobertura final:** **198/198 unit backend verde + frontend `pnpm typecheck` + `pnpm lint:check --max-warnings=0` + `pnpm build` verdes**, **121/121 E2E verde 5/5 jobs CI** (Backend + Frontend + 3 shards E2E con sharding `--shard=N/M`), sin regresión en suite preexistente, **14 commits consolidados** (11 de Fase 0/A/B/D/E/F + 3 fixes post-CI B8/B9/B10) en squash-merge.
 
 ---
 
@@ -18,7 +19,8 @@ Migrar la autenticación del frontend de `'use client' + localStorage` a Server 
 |---------|-------|
 | Sesiones | ~2 sesiones densas (Fase 0/A/B/D/E + Fase F) |
 | Rama | `sprint13-auth-cookies-httponly` (desde master `fdd015a`) |
-| Commits ahead of master | 11 (Fase 0 → Fase F) |
+| Commits consolidados en squash-merge | 14 (11 Fase 0 → F + 3 fixes post-CI B8/B9/B10) |
+| Squash-merge | `4ba80c3` (PR #29, 2026-05-04 05:52 UTC) |
 | Migraciones Prisma | 1 (`sprint13auth_session_replay_detection` — `Session.used_at` + `replaced_by_session_id` + `revoked_reason`) |
 | Endpoints REST nuevos | 1 (`POST /auth/ws-token`) |
 | Server Actions nuevas (frontend) | 10 (`loginAction`, `verify2faAction`, `logoutAction`, `refreshAction`, `getWsTokenAction`, `registerAction`, `forgotPasswordAction`, `resetPasswordAction`, `verifyEmailAction`, `resendVerificationAction`) |
@@ -272,4 +274,4 @@ Confirmada Yasmin 2026-05-04 en este mismo ciclo. Ya está documentada en §5.5 
 
 ---
 
-> **Cierre canónico:** este archivo es la fuente de verdad del Sprint 13 §13.AUTH. ADR-078 + Amendment A1, los 11 commits en master + los fixes post-cierre §11 (PR #19 a master), los helpers `lib/server-auth.ts` + `lib/auth-actions.ts` y los `*-actions.ts` por dominio constituyen el contrato canónico Modelo A vigente. Cualquier desvío requiere ADR-NNN nuevo o Amendment A2.
+> **Cierre canónico:** este archivo es la fuente de verdad del Sprint 13 §13.AUTH. ADR-078 + Amendment A1, los 14 commits consolidados en squash-merge `4ba80c3` (PR #29 a master, 2026-05-04) — 11 de Fase 0/A/B/D/E/F + los 3 fixes post-CI documentados en §11.1 (B8 fixture Playwright, B9 specs URL canónica, B10 reassign bridge agent_full) — los helpers `lib/server-auth.ts` + `lib/auth-actions.ts` y los `*-actions.ts` por dominio constituyen el contrato canónico Modelo A vigente. Cualquier desvío requiere ADR-NNN nuevo o Amendment A2.
