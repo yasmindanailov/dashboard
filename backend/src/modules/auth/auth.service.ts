@@ -54,8 +54,8 @@ export class AuthService {
   }
 
   /* ── Tokens & Sessions ── */
-  refresh(refreshToken: string, ip: string) {
-    return this.tokenService.refresh(refreshToken, ip);
+  refresh(refreshToken: string, ip: string, userAgent?: string) {
+    return this.tokenService.refresh(refreshToken, ip, userAgent);
   }
 
   logout(userId: string, accessToken: string) {
@@ -72,6 +72,11 @@ export class AuthService {
 
   getMe(userId: string) {
     return this.tokenService.getMe(userId);
+  }
+
+  /* ── WebSocket short-lived token (Sprint 13 §13.AUTH Fase A) ── */
+  issueWsToken(userId: string) {
+    return this.tokenService.issueWsToken(userId);
   }
 
   /* ── Recovery ── */

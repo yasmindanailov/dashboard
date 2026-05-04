@@ -1,10 +1,8 @@
 'use client';
 
-// TODO(ADR-078, Sprint 13): migrar a Server Component cuando cierre
-// §13.AUTH (lectura de token server-side via cookies httpOnly).
-
 /* ═══════════════════════════════════════
    TasksWidget — Sprint 16 / ADR-079 §3.11.
+   Sprint 13 §13.AUTH Fase E (Modelo A): listTasksAction Server Action.
 
    Widget en posición prominente del dashboard `/admin`. Top-5 tasks del
    agente ordenadas por la regla canónica §3.3 (la aplica el backend en
@@ -16,11 +14,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, Skeleton } from '../../components/ui';
-import { tasksApi } from '../../lib/api';
-import {
-  SOURCE_LABELS,
-} from '../tasks/source-labels';
-import type { Task, TaskListResponse } from '../tasks/types';
+import { listTasksAction } from '../tasks/_actions';
+import { SOURCE_LABELS } from '../tasks/source-labels';
+import type { Task } from '../tasks/types';
 import { computeSlaTone } from '../tasks/types';
 import s from './tasks-widget.module.css';
 
@@ -33,41 +29,42 @@ const SLA_TONE_CLASS = {
 } as const;
 
 export default function TasksWidget() {
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (!token) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial widget (one-shot post-mount); el cancel flag protege de race conditions on unmount.
     setLoading(true);
     setError(false);
-    tasksApi
-      // Sin filtro de status — el backend solo acepta valor único del enum;
-      // lo descartamos a mano para incluir pending|in_progress|
-      // not_completed_in_time en una sola request.
-      .list(token, { scope: 'mine', limit: WIDGET_LIMIT * 3 })
-      .then((res) => {
-        if (cancelled) return;
-        const all = (res as TaskListResponse).data ?? [];
-        const open = all
-          .filter((t) => t.status !== 'completed' && t.status !== 'cancelled')
-          .slice(0, WIDGET_LIMIT);
-        setTasks(open);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+    void (async () => {
+      /*
+       * Sin filtro de status — el backend solo acepta valor único del
+       * enum; descartamos completed/cancelled a mano para incluir
+       * pending|in_progress|not_completed_in_time en una sola request.
+       */
+      const result = await listTasksAction({
+        scope: 'mine',
+        limit: WIDGET_LIMIT * 3,
       });
+      if (cancelled) return;
+      if (!result.ok) {
+        setError(true);
+        setLoading(false);
+        return;
+      }
+      const all = result.tasks.data ?? [];
+      const open = all
+        .filter((t) => t.status !== 'completed' && t.status !== 'cancelled')
+        .slice(0, WIDGET_LIMIT);
+      setTasks(open);
+      setLoading(false);
+    })();
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, []);
 
   return (
     <Card>

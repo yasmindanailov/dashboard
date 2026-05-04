@@ -755,6 +755,74 @@ last_error: {{last_error}}</pre>
       },
     },
 
+    // ───────────── auth.refresh_replay_detected (campana superadmin — Sprint 13 §13.AUTH Fase B) ─────────────
+    //
+    // Cierra ADR-078 §1.4 (Sprint 13). La emisión la hace `AuthTokenService.refresh()`
+    // al detectar reuso de un refresh token (compromiso de cuenta) y la consume
+    // `NotificationsAuthReplayListener`. Variables enriquecidas:
+    //  - attacked_user_email: email del usuario atacado (puede ser '<email no disponible>'
+    //    si la query Prisma de enriquecimiento falla — degradación elegante).
+    //  - revoked_sessions_count: cuántas sesiones se revocaron en cascada.
+    //  - ip: IP atacante (informativo; X-Forwarded-For si hay proxy).
+    //  - attempted_at: timestamp ISO del intento de replay.
+    //  - original_used_at: cuándo el token original fue canjeado legítimamente.
+    {
+      event_type: 'auth.refresh_replay_detected',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Sesión comprometida: {{attacked_user_email}}',
+      body: 'Refresh token reutilizado desde IP {{ip}}. {{revoked_sessions_count}} sesión(es) revocada(s).',
+      variables: {
+        user_id: 'string',
+        session_id: 'string',
+        original_used_at: 'string',
+        attempted_at: 'string',
+        ip: 'string',
+        revoked_sessions_count: 'number',
+        attacked_user_email: 'string',
+      },
+    },
+
+    // ───────────── auth.refresh_replay_detected (email superadmin — Sprint 13 §13.AUTH Fase B) ─────────────
+    {
+      event_type: 'auth.refresh_replay_detected',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Aelium — Sesión comprometida ({{attacked_user_email}})',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #B91C1C 0%, #991B1B 100%); padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 20px;">Sesión comprometida</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">Auth · Replay de refresh token</p>
+          </div>
+          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
+            <p style="color: #374151; font-size: 14px;">
+              Se ha detectado el reuso de un refresh token ya canjeado. Por seguridad, todas las sesiones del usuario afectado han sido revocadas y se le pedirá iniciar sesión de nuevo.
+            </p>
+            <pre style="background: #f9fafb; border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto;">usuario_email: {{attacked_user_email}}
+user_id: {{user_id}}
+session_id: {{session_id}}
+ip_atacante: {{ip}}
+intento_replay: {{attempted_at}}
+canje_legitimo_original: {{original_used_at}}
+sesiones_revocadas: {{revoked_sessions_count}}</pre>
+            <p style="color: #6b7280; font-size: 12px;">
+              Acción recomendada: contactar al usuario por canal externo para confirmar si reconoce la actividad. Si no la reconoce, resetear su password (forgot-password) y revisar los logs de acceso en /admin/error-log.
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        user_id: 'string',
+        session_id: 'string',
+        original_used_at: 'string',
+        attempted_at: 'string',
+        ip: 'string',
+        revoked_sessions_count: 'number',
+        attacked_user_email: 'string',
+      },
+    },
+
     // ───────────── system.error (email superadmin — Sprint 9.5) ─────────────
     //
     // Cierra ADR-055 §Monitoring. La emisión la hace ErrorLogService.log() y la

@@ -2,25 +2,21 @@
 
 /**
  * ActionsBar — Sprint 11 Fase 11.D (ADR-070 §C — acciones curadas inline).
+ * Sprint 13 §13.AUTH Fase E (Modelo A): Server Action executeServiceActionAction.
  *
  * Renderiza los `info.availableActions` del plugin como botones. Cada
- * acción dispara `executeAction` con confirmación cuando aplique. El
+ * acción dispara executeAction con confirmación cuando aplique. El
  * resultado del plugin se muestra en línea (success.message o
  * data.logs_tail). Cache se invalida por el wrapper canónico backend
  * (ADR-077 §5).
  *
  * Plugins triviales `internal` y `manual` declaran `availableActions=[]`
- * → este componente NO se renderiza por ellos. Útil para Sprint 15
- * (Enhance, ResellerClub, Docker) donde sí hay acciones.
- *
- * TODO(ADR-078, Sprint 13): migrar a Server Action cuando cookies httpOnly
- * estén activas. Ref DC.28. Este archivo es la última excepción permitida
- * del patrón 'use client' + localStorage según ADR-078 §3.2.
+ * → este componente NO se renderiza por ellos.
  */
 import { useState } from 'react';
 import { Button, Card } from '../../components/ui';
-import { servicesApi, type ServiceAction, type ActionResult } from '../../lib/api';
-import { getErrorMessage } from '../../lib/error';
+import type { ActionResult, ServiceAction } from '../../lib/api';
+import { executeServiceActionAction } from './_actions';
 
 interface ActionsBarProps {
   serviceId: string;
@@ -39,13 +35,6 @@ export function ActionsBar({ serviceId, actions, onActionExecuted }: ActionsBarP
   if (actions.length === 0) return null;
 
   const onAction = async (action: ServiceAction) => {
-    if (typeof window === 'undefined') return;
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      setError('Sesión expirada. Vuelve a iniciar sesión.');
-      return;
-    }
-
     if (action.confirmRequired) {
       const text = action.confirmationText ?? `¿Confirmar acción "${action.label}"?`;
       if (!window.confirm(text)) return;
@@ -54,22 +43,18 @@ export function ActionsBar({ serviceId, actions, onActionExecuted }: ActionsBarP
     setRunning(action.slug);
     setError(null);
     setFeedback(null);
-    try {
-      const result = await servicesApi.executeAction(
-        token,
-        serviceId,
-        action.slug,
-        // Acciones triviales sin payload — futuros plugins con payloadSchema
-        // definirán formularios inline propios (Sprint 15+).
-        {},
-      );
-      setFeedback({ actionSlug: action.slug, result });
-      onActionExecuted?.(result);
-    } catch (err) {
-      setError(getErrorMessage(err) ?? 'No se pudo ejecutar la acción');
-    } finally {
-      setRunning(null);
+    /*
+     * Acciones triviales sin payload — futuros plugins con
+     * payloadSchema definirán formularios inline propios (Sprint 15+).
+     */
+    const result = await executeServiceActionAction(serviceId, action.slug, {});
+    setRunning(null);
+    if (!result.ok) {
+      setError(result.error);
+      return;
     }
+    setFeedback({ actionSlug: action.slug, result: result.result });
+    onActionExecuted?.(result.result);
   };
 
   return (
@@ -106,13 +91,7 @@ export function ActionsBar({ serviceId, actions, onActionExecuted }: ActionsBarP
         </p>
       )}
       {error && (
-        <p
-          style={{
-            marginTop: 12,
-            fontSize: 13,
-            color: 'var(--danger-600)',
-          }}
-        >
+        <p style={{ marginTop: 12, fontSize: 13, color: 'var(--danger-600)' }}>
           {error}
         </p>
       )}

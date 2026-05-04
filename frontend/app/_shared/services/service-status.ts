@@ -2,8 +2,8 @@
  * Maps `ServiceInfo.status` (canónico ADR-077) → tono visual del Badge
  * + label ES. Usado por Listado cliente, detalle cliente y admin.
  *
- * NO es un "Client Component" — sólo helper de tipos. No requiere
- * marker TODO(ADR-078) porque es código puro reusable post-migración.
+ * Helper de tipos puro (sin auth, sin fetch). Server-component
+ * compatible. Sprint 13 §13.AUTH Fase E lo mantiene intacto.
  */
 import type { ServiceInfo } from '../../lib/api';
 

@@ -34,6 +34,7 @@
 | [R14](#r14--error-handling-visible-en-el-frontend) | UX errores | Frontend nunca traga errores silenciosamente |
 | [R15](#r15--límites-de-tamaño-y-responsabilidad-única-por-archivo) | Tamaño archivos | Service ≤300, Controller ≤200, Componente ≤200, Página ≤300 |
 | [R16](#r16--toda-interfaz-usa-el-design-system) | Design System | Toda UI con `components/ui/`, no ad-hoc |
+| [R17](#r17--jwt-en-cookies-httponly-de-nextjs-no-en-localstorage) | Auth tokens | JWT en cookies httpOnly del dominio Next.js, jamás en `localStorage` |
 
 ### Diseño / UI / UX
 
@@ -345,6 +346,46 @@ el componente se crea primero en la librería, se documenta en la sección Desig
 (`docs/40-design-system/`), y luego se usa.
 
 > **Excepción documentada:** `ChatWidget` por ser embeddable también en la landing (sin tokens del dashboard). Ver `DESIGN_SYSTEM.md §EXCEPCIONES`.
+
+---
+
+### R17 — JWT en cookies httpOnly de Next.js, NO en localStorage
+
+**Aplicación:** todo el frontend (`frontend/app/`).
+**Doctrina canónica:** [ADR-078 Amendment A1](../10-decisions/adr-078-auth-server-side-cookies-httponly.md) (Modelo A) + Sprint 13 §13.AUTH.
+
+El JWT (access + refresh) vive exclusivamente en cookies `httpOnly` del dominio Next.js,
+seteadas por Server Actions (`loginAction`, `verify2faAction`, `refreshAction`) y
+limpiadas por `logoutAction`. El JavaScript del cliente NUNCA lee tokens — ni de
+`localStorage`, ni de `sessionStorage`, ni de `document.cookie`, ni de variables.
+
+- **Lectura autenticada** desde un Server Component: `getServerSession()` + `serverFetch()`
+  (DAL canónico en `frontend/app/lib/server-auth.ts`).
+- **Mutación de cookies** (login, refresh, logout): solo via Server Action (`'use server'`).
+- **WebSocket browser**: invocar `getWsTokenAction()` para obtener un token efímero
+  (claim `type: 'ws'`, expira 60s) que se pasa al handshake `socket.io({ auth: { token } })`.
+
+**Excepción acotada:** el flujo guest del ChatWidget público usa una cookie de sesión
+backend distinta (no JWT), gestionada por `POST /support/chats/guest` con
+`withCredentials: true`. No es contradicción: nunca hay JWT en `localStorage`.
+
+```
+❌ INCORRECTO — token en localStorage
+const token = localStorage.getItem('access_token');
+fetch('/api/v1/services', { headers: { Authorization: `Bearer ${token}` } });
+
+✅ CORRECTO — Server Component lee la cookie y pasa al backend
+import { serverFetch } from '@/app/lib/server-auth';
+const services = await serverFetch<ServiceList>('/services');
+```
+
+**Verificación mecánica** (debe devolver `0` ocurrencias):
+```bash
+grep -rln "localStorage\.\(get\|set\|remove\)Item('access_token'\|'refresh_token')" frontend/app
+```
+
+**Regresión automatizada:** [`tests/e2e/auth-no-localStorage.spec.ts`](../../tests/e2e/auth-no-localStorage.spec.ts)
+falla si cualquier login deja un token en `localStorage`.
 
 ---
 

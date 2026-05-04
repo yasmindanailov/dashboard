@@ -1,17 +1,15 @@
-'use client';
-
-import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../lib/auth-context';
-import { auditApi, type AuditAccessItem } from '../../lib/api';
-import { getErrorMessage } from '../../lib/error';
+import { serverFetch, ServerFetchError } from '../../lib/server-auth';
+import type { AuditAccessListResponse, AuditAccessItem } from '../../lib/api';
 
 /* ═══════════════════════════════════════
-   /dashboard/transparency — Portal de transparencia (Sprint 9 Fase E).
-   Cumple ADR-017 + ADR-010 RGPD: el cliente ve quién accedió a sus
-   datos personales/financieros.
+   /dashboard/transparency — Sprint 13 §13.AUTH Fase E (Modelo A).
+   Server Component nativo: el `dashboard/layout.tsx` (SC) ya verificó
+   sesión; aquí cargamos el access log server-side via `serverFetch`.
+   Cero useEffect, cero localStorage. ADR-078 Amendment A1.
 
-   El backend filtra por ownership server-side (target_user_id =
-   caller.id). Esta página NO expone otros usuarios.
+   Cumple ADR-017 + ADR-010 RGPD: el cliente ve quién accedió a sus
+   datos personales/financieros. El backend filtra por ownership
+   server-side (target_user_id = caller.id).
    ═══════════════════════════════════════ */
 
 const PAGE_SIZE = 50;
@@ -28,34 +26,20 @@ const RESOURCE_LABEL: Record<string, string> = {
   BillingProfile: 'Perfil fiscal',
 };
 
-export default function TransparencyPage() {
-  const { user } = useAuth();
-  const [items, setItems] = useState<AuditAccessItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await auditApi.myAccessLog(token, { limit: PAGE_SIZE });
-      setItems(res.data);
-    } catch (err) {
-      setError(getErrorMessage(err) || 'No se pudo cargar el portal');
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  if (!user) return null;
+export default async function TransparencyPage() {
+  let items: AuditAccessItem[] = [];
+  let error: string | null = null;
+  try {
+    const res = await serverFetch<AuditAccessListResponse>(
+      `/audit/access?limit=${PAGE_SIZE}`,
+    );
+    items = res.data;
+  } catch (err) {
+    error =
+      err instanceof ServerFetchError
+        ? err.message
+        : 'No se pudo cargar el portal';
+  }
 
   return (
     <div>
@@ -63,9 +47,7 @@ export default function TransparencyPage() {
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>
           Transparencia
         </h1>
-        <p
-          style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 8 }}
-        >
+        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 8 }}>
           Aquí puedes ver quién, dentro de Aelium, ha accedido a tus datos.
           Conservamos este registro durante 2 años conforme al RGPD.
         </p>
@@ -86,9 +68,7 @@ export default function TransparencyPage() {
         </div>
       )}
 
-      {loading ? (
-        <p style={{ color: 'var(--text-secondary)' }}>Cargando…</p>
-      ) : items.length === 0 ? (
+      {items.length === 0 && !error ? (
         <div
           style={{
             padding: 32,
@@ -103,7 +83,7 @@ export default function TransparencyPage() {
             consulte tu información, lo verás aquí.
           </p>
         </div>
-      ) : (
+      ) : items.length > 0 ? (
         <div
           style={{
             background: 'var(--surface)',
@@ -159,12 +139,7 @@ export default function TransparencyPage() {
                       {ACTION_LABEL[item.action] ?? item.action}
                     </td>
                     <td style={cell}>
-                      <code
-                        style={{
-                          fontSize: 11,
-                          color: 'var(--text-tertiary)',
-                        }}
-                      >
+                      <code style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
                         {item.ip_address}
                       </code>
                     </td>
@@ -174,7 +149,7 @@ export default function TransparencyPage() {
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

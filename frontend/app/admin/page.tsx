@@ -1,16 +1,14 @@
-'use client';
-
-// TODO(ADR-078, Sprint 13): migrar a Server Component cuando cierre §13.AUTH.
-
 import Link from 'next/link';
 import TasksWidget from '../_shared/widgets/TasksWidget';
 
 /* ═══════════════════════════════════════
    /admin — landing del árbol staff.
+   Sprint 13 §13.AUTH Fase E (Modelo A): Server Component nativo.
+   El widget "Tu trabajo de hoy" sigue siendo CC con localStorage
+   pendiente de Batch 5 (componentes _shared/* con interactividad).
 
-   Sprint 16 / ADR-079 §3.11: el widget "Tu trabajo de hoy" abre la página.
-   Top-5 tasks del agente ordenadas por la regla canónica §3.3 (la aplica
-   el backend en `applyCanonicalOrdering`).
+   Sprint 16 / ADR-079 §3.11: el widget abre la página de tasks.
+   Top-5 ordenadas por la regla canónica §3.3 (la aplica el backend).
    ═══════════════════════════════════════ */
 
 export default function AdminHomePage() {

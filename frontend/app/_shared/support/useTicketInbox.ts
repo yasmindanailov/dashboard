@@ -2,17 +2,22 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../lib/auth-context';
-import { supportApi, clientsApi } from '../../lib/api';
 import { useToast } from '../../components/ui';
-import type { Client, Pagination } from '../../lib/types';
+import type { Client } from '../../lib/types';
 import type { Ticket, TicketStats } from './types';
 import { ADMIN_ROLES } from './types';
+import {
+  createTicketAction,
+  getTicketStatsAction,
+  listTicketsAction,
+  searchClientsAction,
+} from './_actions';
 
 /* ═══════════════════════════════════════
-   useTicketInbox — state & data loading
-   Handles ticket listing, stats, filtering,
-   pagination, and new ticket creation.
-   Ref: DECISIONS.md §43, §46
+   useTicketInbox — Sprint 13 §13.AUTH Fase E (Modelo A).
+   Reescrito para invocar Server Actions en lugar de
+   `supportApi.X(token, …)` con localStorage. Cero token cliente.
+   Ref: DECISIONS.md §43, §46. ADR-078 Amendment A1.
    ═══════════════════════════════════════ */
 
 export function useTicketInbox() {
@@ -29,7 +34,6 @@ export function useTicketInbox() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // New ticket modal
   const [showNew, setShowNew] = useState(false);
   const [newSubject, setNewSubject] = useState('');
   const [newBody, setNewBody] = useState('');
@@ -37,93 +41,87 @@ export function useTicketInbox() {
   const [newPriority, setNewPriority] = useState('normal');
   const [submitting, setSubmitting] = useState(false);
 
-  // Admin: client selector
   const [clientSearch, setClientSearch] = useState('');
   const [clientResults, setClientResults] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [searchingClients, setSearchingClients] = useState(false);
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
-
-  /* ─── Load data ─── */
-
   const loadConversations = useCallback(async () => {
-    if (!token) return;
     setLoading(true);
-    try {
-      const params: Record<string, string | number> = { page, limit: 20 };
-      if (statusFilter) params.status = statusFilter;
-      if (categoryFilter) params.category = categoryFilter;
-      if (search) params.search = search;
-
-      const res = (await supportApi.listTickets(token, params)) as Pagination<Ticket>;
-      setConversations(res.data);
-      setTotalPages(res.meta?.total_pages || 1);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [token, page, statusFilter, categoryFilter, search]);
+    const result = await listTicketsAction({
+      page,
+      limit: 20,
+      status: statusFilter || undefined,
+      category: categoryFilter || undefined,
+      search: search || undefined,
+    });
+    if (result.ok) {
+      setConversations(result.tickets);
+      setTotalPages(result.totalPages);
+    }
+    setLoading(false);
+  }, [page, statusFilter, categoryFilter, search]);
 
   const loadStats = useCallback(async () => {
-    if (!token || !isAdmin) return;
-    try {
-      const res = await supportApi.getStats(token, 'ticket') as TicketStats;
-      setStats(res);
-    } catch (err) { console.warn('[TicketInbox] loadStats failed:', err); }
-  }, [token, isAdmin]);
+    if (!isAdmin) return;
+    const result = await getTicketStatsAction();
+    if (result.ok) setStats(result.stats);
+  }, [isAdmin]);
 
-  useEffect(() => { loadConversations(); }, [loadConversations]);
-  useEffect(() => { loadStats(); }, [loadStats]);
-
-  // Debounced client search for admin
   useEffect(() => {
-    if (!isAdmin || clientSearch.length < 2 || !token) {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy load on filter/role change (prop-driven sync con backend).
+    void loadConversations();
+  }, [loadConversations]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga stats inicial admin-only (one-shot post-mount).
+    void loadStats();
+  }, [loadStats]);
+
+  /* Debounced client search admin-only. */
+  useEffect(() => {
+    if (!isAdmin || clientSearch.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- limpia resultados cuando el filtro queda corto (debounce search reset).
       setClientResults([]);
       return;
     }
     const timer = setTimeout(async () => {
       setSearchingClients(true);
-      try {
-        const res = (await clientsApi.list(token, { search: clientSearch, limit: 10 })) as Pagination<Client>;
-        setClientResults(res.data || []);
-      } catch (err) { console.warn('[TicketInbox] clientSearch failed:', err); setClientResults([]); }
-      finally { setSearchingClients(false); }
+      const result = await searchClientsAction(clientSearch);
+      if (result.ok) setClientResults(result.clients);
+      else setClientResults([]);
+      setSearchingClients(false);
     }, 300);
     return () => clearTimeout(timer);
-  }, [clientSearch, token, isAdmin]);
-
-  /* ─── Create ticket ─── */
+  }, [clientSearch, isAdmin]);
 
   const handleNewTicket = async () => {
-    if (!token || !newSubject.trim() || !newBody.trim()) return;
+    if (!newSubject.trim() || !newBody.trim()) return;
     if (isAdmin && !selectedClient) return;
     setSubmitting(true);
-    try {
-      await supportApi.createTicket(
-        token,
-        {
-          subject: newSubject.trim(),
-          body: newBody.trim(),
-          category: newCategory,
-          priority: newPriority,
-        },
-        isAdmin && selectedClient ? selectedClient.id : undefined,
-      );
-      // Reset modal
-      setShowNew(false);
-      setNewSubject('');
-      setNewBody('');
-      setNewCategory('support_general');
-      setNewPriority('normal');
-      setSelectedClient(null);
-      setClientSearch('');
-      loadConversations();
-      loadStats();
-      toast('success', 'Ticket creado correctamente.');
-    } catch (e) {
-      console.error(e);
-      toast('error', 'No se pudo crear el ticket.');
+    const result = await createTicketAction(
+      {
+        subject: newSubject.trim(),
+        body: newBody.trim(),
+        category: newCategory,
+        priority: newPriority,
+      },
+      isAdmin && selectedClient ? selectedClient.id : undefined,
+    );
+    setSubmitting(false);
+    if (!result.ok) {
+      toast('error', result.error);
+      return;
     }
-    finally { setSubmitting(false); }
+    setShowNew(false);
+    setNewSubject('');
+    setNewBody('');
+    setNewCategory('support_general');
+    setNewPriority('normal');
+    setSelectedClient(null);
+    setClientSearch('');
+    void loadConversations();
+    void loadStats();
+    toast('success', 'Ticket creado correctamente.');
   };
 
   const selectClient = (client: Client) => {
@@ -138,22 +136,38 @@ export function useTicketInbox() {
   };
 
   return {
-    user, isAdmin,
-    // List
-    conversations, loading, totalPages, page, setPage,
-    // Filters
-    search, setSearch, statusFilter, setStatusFilter,
-    categoryFilter, setCategoryFilter,
-    // Stats
+    user,
+    isAdmin,
+    conversations,
+    loading,
+    totalPages,
+    page,
+    setPage,
+    search,
+    setSearch,
+    statusFilter,
+    setStatusFilter,
+    categoryFilter,
+    setCategoryFilter,
     stats,
-    // New ticket
-    showNew, setShowNew,
-    newSubject, setNewSubject, newBody, setNewBody,
-    newCategory, setNewCategory, newPriority, setNewPriority,
-    submitting, handleNewTicket,
-    // Client selector
-    clientSearch, setClientSearch, clientResults,
-    selectedClient, searchingClients,
-    selectClient, clearSelectedClient,
+    showNew,
+    setShowNew,
+    newSubject,
+    setNewSubject,
+    newBody,
+    setNewBody,
+    newCategory,
+    setNewCategory,
+    newPriority,
+    setNewPriority,
+    submitting,
+    handleNewTicket,
+    clientSearch,
+    setClientSearch,
+    clientResults,
+    selectedClient,
+    searchingClients,
+    selectClient,
+    clearSelectedClient,
   };
 }

@@ -1,8 +1,7 @@
 'use client';
 
-// TODO(ADR-078, Sprint 13): migrar a Server Component cuando cierre §13.AUTH.
-
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useConversationDetail } from '../../../_shared/support/conversation/useConversationDetail';
 import ConversationHeader from '../../../_shared/support/conversation/ConversationHeader';
@@ -15,8 +14,7 @@ import {
   Modal,
   useToast,
 } from '../../../components/ui';
-import { supportApi } from '../../../lib/api';
-import { getErrorMessage } from '../../../lib/error';
+import { confirmResolutionAction } from '../../../_shared/support/_actions';
 import styles from '../../../_shared/support/conversation/conversationDetail.module.css';
 
 /* ═══════════════════════════════════════
@@ -34,6 +32,7 @@ import styles from '../../../_shared/support/conversation/conversationDetail.mod
    ═══════════════════════════════════════ */
 
 export default function ClientConversationDetailPage() {
+  const router = useRouter();
   const d = useConversationDetail();
   const { toast } = useToast();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -51,21 +50,22 @@ export default function ClientConversationDetailPage() {
   };
 
   const handleConfirmResolution = async () => {
-    const token =
-      typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
-    if (!token || !d.conversationId) return;
+    if (!d.conversationId) return;
     setConfirming(true);
-    try {
-      await supportApi.confirmResolution(token, d.conversationId);
-      toast('success', 'Ticket cerrado. ¡Gracias por confirmar!');
-      setShowConfirmModal(false);
-      // Recargamos el detalle para reflejar el nuevo estado.
-      window.location.reload();
-    } catch (err) {
-      toast('error', getErrorMessage(err) || 'No se pudo confirmar la resolución');
-    } finally {
-      setConfirming(false);
+    const result = await confirmResolutionAction(d.conversationId);
+    setConfirming(false);
+    if (!result.ok) {
+      toast('error', result.error || 'No se pudo confirmar la resolución');
+      return;
     }
+    toast('success', 'Ticket cerrado. ¡Gracias por confirmar!');
+    setShowConfirmModal(false);
+    /*
+     * router.refresh() recarga el SC tree (revalidatePath ya invalidó
+     * la ruta server-side en el Server Action). El hook
+     * useConversationDetail re-fetchea la conversación.
+     */
+    router.refresh();
   };
 
   if (d.loading) {

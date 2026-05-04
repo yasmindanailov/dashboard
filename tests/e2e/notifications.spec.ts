@@ -203,10 +203,11 @@ test.describe.serial('Notifications campana — Sprint 9.5 (ADR-042/065)', () =>
     expect(unread.unread_count).toBeGreaterThanOrEqual(1);
     const newest = unread.data[0];
     expect(newest.title?.toLowerCase()).toMatch(/tarea|nueva/i);
-    // Sprint 8 Fase B.1.bis (2026-04-29): tasks viven en portal staff
-    // `/admin/tasks/*` (ADR-066 + Sprint 9.6 DC.7). El listener
-    // `tasks-email.listener.ts` emite `action_url` apuntando al admin.
-    expect(newest.action_url).toMatch(/^\/admin\/tasks\//);
+    // ADR-079 + Sprint 13 §13.AUTH §11.1 B7: el frontend NO tiene
+    // `/admin/tasks/[id]`. Para tasks no-bridge la URL canónica es la
+    // lista `/admin/tasks`; bridge `support_ticket` apunta al ticket.
+    // Aquí la task es `client_lifecycle` (no bridge).
+    expect(newest.action_url).toBe('/admin/tasks');
     // El processor adjunta `event` y `action_url` en metadata (ver
     // notifications-dispatch.processor.ts §channelMetadata).
     expect(

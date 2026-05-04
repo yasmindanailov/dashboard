@@ -1,10 +1,9 @@
 'use client';
 
-// TODO(ADR-078, Sprint 13): migrar a Server Component / Server Action cuando
-// cierre §13.AUTH (cookies httpOnly + lectura server-side de sesión).
-
 /* ═══════════════════════════════════════
    CompleteTaskModal — Sprint 16 / ADR-079 §3.6.1 + §3.9 (amendment).
+   Sprint 13 §13.AUTH Fase E: presentational puro — el submit lo
+   gestiona el padre (TaskCard) via Server Action.
 
    Modal canónico unificado para cerrar una task. Soporta dos modos:
      - `bridge_complete` → `support_ticket`. Llama a
@@ -76,6 +75,7 @@ export default function CompleteTaskModal({
   const [note, setNote] = useState('');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- modal reset on close: limpia el note cuando el padre cierra el modal.
     if (!open) setNote('');
   }, [open]);
 

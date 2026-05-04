@@ -133,6 +133,18 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ---
 
+## ✅ Sprint 13 §13.AUTH — Auth server-side con cookies httpOnly + Server Components nativos (cerrado 2026-05-03)
+
+> Sprint cerrado al 100%. Movido a [`completed/sprint-13-auth-cookies-httponly.md`](./completed/sprint-13-auth-cookies-httponly.md) con retrospectiva completa, métricas, ADR-078 Amendment A1 (Modelo A), 11 commits encadenados en rama `sprint13-auth-cookies-httponly`, lecciones aprendidas (smoke HTTP real desbloqueando bugs IPv6 + jti, decisión arquitectónica Opción B ESLint per-línea, modelo cross-origin cookies httpOnly Next.js + handshake WS via endpoint dedicado). Cobertura final: **198/198 unit backend verde + 3 specs E2E nuevos** (`auth-cookies-flow` + `auth-replay-detection` + `auth-no-localStorage`) + frontend `pnpm typecheck` + `pnpm lint:check --max-warnings=0` + `pnpm build` verdes. Cierra **DC.6 + DC.28**.
+
+> **Documentación canónica del módulo (post-Sprint 13 §13.AUTH):**
+> - [ADR-078 + Amendment A1](../10-decisions/adr-078-auth-server-side-cookies-httponly.md) — Modelo A (cookies httpOnly viven en dominio Next.js).
+> - [`docs/00-foundations/rules.md` §R17](../00-foundations/rules.md#r17--jwt-en-cookies-httponly-de-nextjs-no-en-localstorage) — JWT en cookies httpOnly de Next.js, NO en localStorage.
+> - [`docs/20-modules/auth/contract.md`](../20-modules/auth/contract.md) — §5 (`/auth/ws-token`), §7 (`auth.refresh_replay_detected`), §11 (env vars frontend `BACKEND_URL` + `NEXT_RUNTIME_SECRET`), §14 (AUTH-INV-8/9).
+> - [`docs/50-operations/api-errors.md`](../50-operations/api-errors.md) — `AUTH_REPLAY_DETECTED`.
+
+---
+
 ## Convenciones de este documento
 
 - **Estado real ≠ estado declarado.** Los símbolos aquí reflejan lo verificado en código a fecha 2026-04-26.

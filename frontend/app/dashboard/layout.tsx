@@ -1,118 +1,45 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { useState, useEffect, useCallback } from 'react';
-import { usePathname } from 'next/navigation';
-import { useAuth } from '../lib/auth-context';
-import { canAccessRoute } from '../lib/permissions';
-import NoPermission from '../components/ui/NoPermission';
-import { ToastProvider, CommandPalette } from '../components/ui';
-import dynamic from 'next/dynamic';
-import Sidebar from './Sidebar';
-// Sprint 9.6 Fase F.0: Topbar movido a _shared/shell/ — single source of
-// truth entre Portal de Cliente y Portal de Administración (ADR-066).
-import Topbar from '../_shared/shell/Topbar';
-import styles from './layout.module.css';
-
-const SupportPanel = dynamic(() => import('../components/SupportPanel'), { ssr: false });
+import { getServerSession } from '../lib/server-auth';
+import DashboardShell from './_components/DashboardShell';
 
 /* ═══════════════════════════════════════
-   Dashboard Layout — Shell orchestrator
-   Composes Sidebar, Topbar, main content,
-   and SupportPanel. Handles route-level PBAC.
-   Ref: UI_SPEC.md §2.0, §3.9, ARCHITECTURE.md Regla 15
+   Dashboard Layout — Portal de Cliente (`/dashboard/*`).
+   Sprint 13 §13.AUTH Fase E (Modelo A — ADR-078 Amendment A1).
+
+   Server Component async — guard simétrico al `/admin/layout.tsx`:
+     - Si no hay sesión → redirect a `/?expired=true` (login).
+     - Si rol es staff → redirect a `/admin` (su portal canónico).
+     - Si rol es cliente / partner → hidrata `DashboardShell` (CC).
+
+   ADR-066 §1: tres portales raíz canónicos. `/dashboard/*` es
+   exclusivo del rol `client` (y `partner` hasta Sprint 19 que abrirá
+   `/partner/*`). El staff entra a `/admin/*`. Permitir staff en
+   `/dashboard` deja contadores y stats incoherentes (ven la inbox del
+   cliente, no la suya — Sprint 13 §13.AUTH Fase F bug #4 reportado por
+   Yasmin 2026-05-03).
    ═══════════════════════════════════════ */
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [supportPanelOpen, setSupportPanelOpen] = useState(false);
-  const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
-  const { isLoading, user } = useAuth();
-  const pathname = usePathname();
+const STAFF_ROLES = [
+  'superadmin',
+  'agent_full',
+  'agent_billing',
+  'agent_support',
+] as const;
 
-  const openCmdPalette = useCallback(() => setCmdPaletteOpen(true), []);
-  const closeCmdPalette = useCallback(() => setCmdPaletteOpen(false), []);
-
-  // Close mobile menu on route change
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
-
-  // Close mobile menu on resize to desktop
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 768) setMobileMenuOpen(false);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Global Cmd+K / Ctrl+K shortcut (§4.10)
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setCmdPaletteOpen((prev) => !prev);
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className={styles.loadingScreen}>
-        <div className={styles.loadingInner}>
-          <svg className={styles.spinner} viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <span className={styles.loadingText}>Cargando...</span>
-        </div>
-      </div>
-    );
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await getServerSession();
+  if (!session) {
+    redirect('/?expired=true');
   }
-
-  // Route-level permission check (5.0b)
-  const roleSlug = user?.role?.slug || '';
-  const hasRouteAccess = pathname === '/dashboard' || canAccessRoute(roleSlug, pathname);
-
-  return (
-    <ToastProvider>
-      <div className={styles.shell}>
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          mobileOpen={mobileMenuOpen}
-          onMobileClose={() => setMobileMenuOpen(false)}
-        />
-        <Topbar
-          sidebarCollapsed={sidebarCollapsed}
-          onMobileMenuOpen={() => setMobileMenuOpen(true)}
-          onOpenSupportPanel={() => setSupportPanelOpen(true)}
-          onOpenCommandPalette={openCmdPalette}
-        />
-
-        {/* Main content */}
-        <main
-          className={styles.main}
-          style={{ marginLeft: sidebarCollapsed ? '72px' : '260px' }}
-        >
-          <div className={styles.content}>
-            {hasRouteAccess ? children : <NoPermission />}
-          </div>
-        </main>
-
-        {/* Support panel sidebar (clients only, §3.9) */}
-        <SupportPanel
-          isOpen={supportPanelOpen}
-          onClose={() => setSupportPanelOpen(false)}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-      </div>
-
-      {/* Command Palette (§4.10) */}
-      <CommandPalette open={cmdPaletteOpen} onClose={closeCmdPalette} />
-    </ToastProvider>
-  );
+  if (
+    STAFF_ROLES.includes(session.user.role.slug as (typeof STAFF_ROLES)[number])
+  ) {
+    redirect('/admin');
+  }
+  return <DashboardShell>{children}</DashboardShell>;
 }

@@ -148,6 +148,12 @@ export class SupportTicketTaskCreatorListener {
             { assigned_to: args.agent_id },
             args.actor_id,
             true, // isAdmin = true (listener actúa como sistema)
+            // Sprint 13 §13.AUTH Fase F bug #3b: rompemos el loop bridge.
+            // Aquí ya estamos consumiendo `conversation.assigned` — el
+            // ticket está al día. Si tasks.assign re-propagase al ticket,
+            // emitiría otro `conversation.assigned` que dispararía este
+            // mismo listener en bucle. ADR-074 EC + ADR-079 §1.
+            { skipTicketSync: true },
           );
           this.logger.log(
             `task ${existing.id} reassigned to agent ${args.agent_id} (ticket ${conversation.id} · origin=${args.origin})`,

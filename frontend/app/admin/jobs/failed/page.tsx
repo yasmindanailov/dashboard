@@ -1,13 +1,15 @@
-'use client';
-
-import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../../lib/auth-context';
-import { jobsApi, type FailedJobItem } from '../../../lib/api';
-import { getErrorMessage } from '../../../lib/error';
+import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
+import type { FailedJobsListResponse, FailedJobItem } from '../../../lib/api';
+import {
+  FailedJobsFilters,
+  FailedJobsPagination,
+  RetryButton,
+} from './_components';
 
 /* ═══════════════════════════════════════
-   /admin/jobs/failed — Sprint 9 Fase F.
-   Lista jobs en DLQ (failed_jobs). Permite reintentar manualmente.
+   /admin/jobs/failed — Sprint 13 §13.AUTH Fase E (Modelo A).
+   Server Component nativo. Filtros + paginación via searchParams.
+   Mutación (retry) via Server Action `retryJobAction`.
    ═══════════════════════════════════════ */
 
 const PAGE_SIZE = 50;
@@ -18,59 +20,40 @@ const STATUS_LABEL: Record<string, string> = {
   resolved: 'Resuelto',
 };
 
-export default function JobsFailedPage() {
-  const { user } = useAuth();
-  const [items, setItems] = useState<FailedJobItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [filterQueue, setFilterQueue] = useState<string>('');
-  const [filterStatus, setFilterStatus] = useState<string>('');
-  const [retryingId, setRetryingId] = useState<string | null>(null);
+interface PageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
 
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+function singleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? '';
+  return value ?? '';
+}
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await jobsApi.listFailed(token, {
-        queue: filterQueue || undefined,
-        status: filterStatus || undefined,
-        page,
-        limit: PAGE_SIZE,
-      });
-      setItems(res.data);
-      setTotal(res.meta.total);
-    } catch (err) {
-      setError(getErrorMessage(err) || 'Error al cargar la DLQ');
-    } finally {
-      setLoading(false);
-    }
-  }, [token, page, filterQueue, filterStatus]);
+export default async function JobsFailedPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const queue = singleParam(params.queue);
+  const status = singleParam(params.status);
+  const page = Math.max(1, parseInt(singleParam(params.page), 10) || 1);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const query = new URLSearchParams();
+  if (queue) query.set('queue', queue);
+  if (status) query.set('status', status);
+  query.set('page', String(page));
+  query.set('limit', String(PAGE_SIZE));
 
-  async function handleRetry(id: string) {
-    if (!token) return;
-    if (!confirm('¿Reencolar este job? Se intentará de nuevo con 5 reintentos.')) return;
-    setRetryingId(id);
-    try {
-      await jobsApi.retry(token, id);
-      await load();
-    } catch (err) {
-      setError(getErrorMessage(err) || 'No se pudo reintentar el job');
-    } finally {
-      setRetryingId(null);
-    }
+  let items: FailedJobItem[] = [];
+  let total = 0;
+  let error: string | null = null;
+  try {
+    const res = await serverFetch<FailedJobsListResponse>(
+      `/admin/jobs/failed?${query.toString()}`,
+    );
+    items = res.data;
+    total = res.meta.total;
+  } catch (err) {
+    error =
+      err instanceof ServerFetchError ? err.message : 'Error al cargar la DLQ';
   }
-
-  if (!user) return null;
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -83,35 +66,7 @@ export default function JobsFailedPage() {
         </p>
       </header>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <select
-          value={filterQueue}
-          onChange={(e) => {
-            setFilterQueue(e.target.value);
-            setPage(1);
-          }}
-          style={selectStyle}
-        >
-          <option value="">Todas las colas</option>
-          <option value="pdf-generation">pdf-generation</option>
-          <option value="outbox-dispatch">outbox-dispatch</option>
-          <option value="notifications-dispatch">notifications-dispatch</option>
-        </select>
-
-        <select
-          value={filterStatus}
-          onChange={(e) => {
-            setFilterStatus(e.target.value);
-            setPage(1);
-          }}
-          style={selectStyle}
-        >
-          <option value="">Todos los estados</option>
-          <option value="failed">Fallido</option>
-          <option value="retrying">Reintentando</option>
-          <option value="resolved">Resuelto</option>
-        </select>
-      </div>
+      <FailedJobsFilters queue={queue} status={status} />
 
       {error && (
         <div
@@ -128,13 +83,11 @@ export default function JobsFailedPage() {
         </div>
       )}
 
-      {loading ? (
-        <p style={{ color: 'var(--text-secondary)' }}>Cargando…</p>
-      ) : items.length === 0 ? (
+      {items.length === 0 && !error ? (
         <p style={{ color: 'var(--text-secondary)' }}>
           Sin jobs fallidos. Todo va bien.
         </p>
-      ) : (
+      ) : items.length > 0 ? (
         <div
           style={{
             background: 'var(--surface)',
@@ -186,54 +139,19 @@ export default function JobsFailedPage() {
                     </span>
                   </td>
                   <td style={cell}>
-                    {item.status === 'failed' && (
-                      <button
-                        onClick={() => void handleRetry(item.id)}
-                        disabled={retryingId === item.id}
-                        style={btn}
-                      >
-                        {retryingId === item.id ? 'Reintentando…' : 'Reintentar'}
-                      </button>
-                    )}
+                    {item.status === 'failed' && <RetryButton id={item.id} />}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
 
-      {totalPages > 1 && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
-          <button
-            disabled={page === 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            style={btn}
-          >
-            ← Anterior
-          </button>
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Página {page} / {totalPages}
-          </span>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            style={btn}
-          >
-            Siguiente →
-          </button>
-        </div>
-      )}
+      <FailedJobsPagination page={page} totalPages={totalPages} />
     </div>
   );
 }
-
-const selectStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  background: 'var(--surface)',
-};
 
 const cellHead: React.CSSProperties = {
   padding: '12px 16px',
@@ -249,16 +167,6 @@ const cell: React.CSSProperties = {
   padding: '12px 16px',
   fontSize: 13,
   color: 'var(--text-primary)',
-};
-
-const btn: React.CSSProperties = {
-  padding: '6px 12px',
-  fontSize: 12,
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  background: 'var(--surface)',
-  color: 'var(--text-primary)',
-  cursor: 'pointer',
 };
 
 function statusStyle(status: string): React.CSSProperties {

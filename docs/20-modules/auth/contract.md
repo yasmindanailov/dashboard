@@ -56,6 +56,14 @@ Prefix: `/api/v1/auth`. Todos los endpoints emiten `correlation-id` (R9).
 | `GET` | `/sessions` | Listar sesiones activas del usuario | JWT | — |
 | `DELETE` | `/sessions/:id` | Revocar sesión específica | JWT | — |
 | `GET` | `/me` | Datos del usuario actual | JWT | — |
+| `POST` | `/ws-token` | Token efímero (claim `type: 'ws'`, expira 60s) para handshake socket.io | JWT | 60/min |
+
+> **`/ws-token`** — Sprint 13 §13.AUTH.A (ADR-078 Amendment A1 §6).
+> Body vacío. Response: `{ token: string, expiresIn: 60 }`. Solicitado por
+> Server Action `getWsTokenAction()` desde un Client Component que necesita
+> WebSocket (la cookie httpOnly Next.js no es accesible al `socket.io-client`,
+> y reenviarla al backend por header de handshake violaría el aislamiento del
+> dominio Next.js). Consumo: `io('/support', { auth: { token } })`.
 
 **Validaciones DTO** (class-validator):
 - Password: longitud mínima, mayúscula, minúscula, número (settings configurables)
@@ -83,6 +91,7 @@ N/A — auth no tiene gateway. Las conexiones WS de otros módulos (support) usa
 | `auth.2fa_required` | Cuando se inicia el flow 2FA | no | 🟡 Huérfano |
 | `auth.password_reset` | Tras `resetPassword()` exitoso | no | 🟡 Huérfano (futuro audit) |
 | `auth.session_closed` | Tras `logout()` o `revokeSession()` | no | 🟡 Huérfano (futuro audit) |
+| `auth.refresh_replay_detected` | Tras detectar reuso de un refresh token ya canjeado en `AuthTokenService.refresh()` | no | ✅ Consumido por `NotificationsAuthReplayListener` (alerta superadmin canal `internal` + `email`) — Sprint 13 §13.AUTH.B |
 
 > **Decisión:** los huérfanos NO se eliminan. Son hooks para el módulo `audit` cuando se implemente. Es deuda controlada.
 
@@ -136,6 +145,17 @@ Categoría `auth` (todos configurables desde el dashboard cuando se implemente U
 | `password_reset_expires_hours` | 1 | TTL del token de reset de contraseña |
 | `two_factor_code_expires_minutes` | 5 | TTL del código 2FA |
 
+### Variables de entorno frontend (Sprint 13 §13.AUTH — Modelo A)
+
+| Var | Required | Descripción |
+|-----|----------|-------------|
+| `BACKEND_URL` | ✅ | URL server-side del backend usado por `serverFetch` y por las Server Actions de auth (distinta de `NEXT_PUBLIC_API_URL`, que el cliente JS no consume). Ejemplo dev: `http://localhost:3001/api/v1`. |
+| `NEXT_RUNTIME_SECRET` | ✅ prod | Secret de 32 bytes que Next.js usa para firmar los IDs de Server Actions (CSRF nativo). Generar con `openssl rand -base64 32`. Sin este secret en producción, los Server Actions no validan y el login no completa. |
+
+> **Cookies emitidas por las Server Actions** (`frontend/app/lib/auth-actions.ts`):
+> `aelium_access_token` (httpOnly, sameSite=Lax, path=`/`, maxAge `auth.access_token_expires_minutes` × 60)
+> y `aelium_refresh_token` (httpOnly, sameSite=Lax, path=`/`, maxAge `auth.refresh_token_expires_days` × 86400).
+
 ---
 
 ## 12. Emails enviados
@@ -168,6 +188,8 @@ Ninguno. Auth no tiene tareas programadas. Los tokens caducan por TTL en BD, no 
 - **AUTH-INV-5:** Tokens (verify, reset, refresh) se hash-storean en DB; el token en plano solo existe en el email/cookie del cliente. Verificación es por hash.
 - **AUTH-INV-6:** Al generar un token nuevo (verify/reset), los anteriores del mismo usuario se invalidan (`used_at = now()`). Implementado en Sprint 3.5.2 y 3.5.3.
 - **AUTH-INV-7:** El superadmin pre-seeded (`admin@aelium.net`) no puede eliminarse desde la UI. La cuenta es la "raíz" del sistema.
+- **AUTH-INV-8:** Las cookies `aelium_access_token` + `aelium_refresh_token` (httpOnly, dominio Next.js) son las **únicas portadoras** del JWT en el frontend. El JS del cliente no debe leer ni escribir tokens en `localStorage`/`sessionStorage`/`document.cookie`. Sprint 13 §13.AUTH (ADR-078 Amendment A1 — Modelo A). Verificación mecánica: regla R17 + spec `tests/e2e/auth-no-localStorage.spec.ts`.
+- **AUTH-INV-9:** Cualquier reuso de un refresh token ya canjeado (`Session.used_at IS NOT NULL`) revoca toda la cadena de sesiones del usuario (`updateMany` con `revoked_reason='replay_detected'`) y emite `auth.refresh_replay_detected`. El flujo legítimo nunca debe presentar el mismo refresh dos veces — la rotación lo invalida en cuanto se canjea. Sprint 13 §13.AUTH.B (ADR-078 §1.4).
 
 ---
 
@@ -179,6 +201,7 @@ Ninguno. Auth no tiene tareas programadas. Los tokens caducan por TTL en BD, no 
 - `DECISIONS.md` §5 — Roles del sistema y matriz de permisos
 - `DECISIONS.md` §7 — 2FA por email para superadmin + agentes
 - `DECISIONS.md` §22 — Bloqueo por intentos fallidos configurable
+- [ADR-078](../../10-decisions/adr-078-auth-server-side-cookies-httponly.md) + Amendment A1 — Auth server-side con cookies httpOnly (Modelo A: dominio Next.js). Cierra DC.6 + DC.28 (Sprint 13 §13.AUTH).
 
 ---
 

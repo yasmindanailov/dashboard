@@ -2,11 +2,22 @@
  * Helpers de autenticación para tests E2E.
  *
  * Login a través de la UI (más realista) y a través de API (más rápido).
+ *
+ * Doctrina canónica (ADR-078 Amendment A1, Sprint 13 §13.AUTH Fase F):
+ *   - El JWT vive en cookies httpOnly del dominio Next.js — NUNCA en
+ *     localStorage. El frontend ya no lee `localStorage.getItem('access_token')`.
+ *   - Para acelerar tests que no prueban el flow de login, `injectAuthSession`
+ *     setea las cookies `aelium_access_token` + `aelium_refresh_token`
+ *     directamente en el contexto Playwright (httpOnly visible al servidor
+ *     Next.js, no al JS del cliente — equivalente al flow real).
  */
-
-import { Page, APIRequestContext, expect } from '@playwright/test';
+import { Page, APIRequestContext, BrowserContext, expect } from '@playwright/test';
 import { TEST_CONFIG } from './test-config';
 import { clearMailbox, waitForEmail, extract2FACode } from './mailpit';
+
+/** Nombres canónicos de cookie — alineados con `frontend/app/lib/server-auth.ts`. */
+const COOKIE_ACCESS = 'aelium_access_token';
+const COOKIE_REFRESH = 'aelium_refresh_token';
 
 /**
  * Login del superadmin a través de la UI, gestionando el step de 2FA.
@@ -56,7 +67,7 @@ export async function loginSuperadminUI(page: Page): Promise<void> {
 }
 
 /**
- * Login vía API. Devuelve el access_token.
+ * Login vía API. Devuelve el par de tokens (access + refresh).
  * Más rápido que UI y útil cuando el test no necesita probar el flujo de login.
  */
 export async function loginAPI(
@@ -74,11 +85,43 @@ export async function loginAPI(
 }
 
 /**
- * Inyecta access_token en localStorage del navegador para saltarse el login UI.
- * El frontend lo lee desde 'access_token' (ver lib/api.ts).
+ * Inyecta el par de tokens como cookies httpOnly del dominio Next.js para
+ * saltarse el login UI (ADR-078 Amendment A1 — Modelo A).
+ *
+ * Cookies seteadas: `aelium_access_token` + `aelium_refresh_token` con
+ * `httpOnly=true`, `sameSite=Lax`. Estas son las mismas que setea
+ * `loginAction` server-side; el Server Component las lee con `cookies()` de
+ * `next/headers` y reenvía al backend NestJS como `Authorization: Bearer`.
+ *
+ * Pasar `accessToken` solo (sin refresh) es válido para tests cortos que no
+ * dependen de rotación; pero el patrón canónico es pasar ambos (la cookie
+ * de refresh permite que `serverFetch` invoque `refreshAction` si recibe 401).
+ *
+ * Nota: Playwright (`network.js#rewriteCookies`) rechaza la combinación
+ * `url + path` con el error "Cookie should have either url or path". Pasamos
+ * solo `url` y Playwright deriva `domain` + `path` (`/`) automáticamente.
  */
-export async function injectAuthToken(page: Page, accessToken: string): Promise<void> {
-  await page.addInitScript((token) => {
-    window.localStorage.setItem('access_token', token);
-  }, accessToken);
+export async function injectAuthSession(
+  context: BrowserContext,
+  tokens: { accessToken: string; refreshToken?: string },
+): Promise<void> {
+  const cookieEntries = [
+    {
+      name: COOKIE_ACCESS,
+      value: tokens.accessToken,
+      url: TEST_CONFIG.frontendUrl,
+      httpOnly: true,
+      sameSite: 'Lax' as const,
+    },
+  ];
+  if (tokens.refreshToken) {
+    cookieEntries.push({
+      name: COOKIE_REFRESH,
+      value: tokens.refreshToken,
+      url: TEST_CONFIG.frontendUrl,
+      httpOnly: true,
+      sameSite: 'Lax' as const,
+    });
+  }
+  await context.addCookies(cookieEntries);
 }

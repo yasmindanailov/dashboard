@@ -1,9 +1,8 @@
 'use client';
 
-// TODO(ADR-078, Sprint 13): migrar a Server Action cuando cierre §13.AUTH.
-
 /* ═══════════════════════════════════════
    ExceptionalNoteModal — Sprint 16 / ADR-079 §3.8.
+   Sprint 13 §13.AUTH Fase E (Modelo A): Server Action para crear.
 
    Modal canónico para crear una nota EXCEPCIONAL desde el perfil cliente.
    Es la única vía pública de creación de `client_notes` libre — el resto
@@ -17,9 +16,8 @@
 
 import { useState, useEffect } from 'react';
 import { Modal, Button, Textarea } from '../../components/ui';
-import { clientsApi } from '../../lib/api';
 import { useToast } from '../../components/ui';
-import { getErrorMessage } from '../../lib/error';
+import { createExceptionalNoteAction } from './_actions';
 import s from './exceptional-note-modal.module.css';
 
 const NOTE_MAX_LENGTH = 5000;
@@ -37,8 +35,6 @@ export default function ExceptionalNoteModal({
   onClose,
   onCreated,
 }: ExceptionalNoteModalProps) {
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
   const { toast } = useToast();
   const [body, setBody] = useState('');
   const [isPinned, setIsPinned] = useState(false);
@@ -46,6 +42,7 @@ export default function ExceptionalNoteModal({
 
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- modal reset on close: limpia el form cuando el padre cierra el modal (sync con prop externa).
       setBody('');
       setIsPinned(false);
     }
@@ -53,21 +50,20 @@ export default function ExceptionalNoteModal({
 
   const handleSubmit = async () => {
     const trimmed = body.trim();
-    if (!token || !trimmed) return;
+    if (!trimmed) return;
     setSaving(true);
-    try {
-      await clientsApi.createExceptionalNote(token, clientId, {
-        body: trimmed,
-        is_pinned: isPinned,
-      });
-      toast('success', 'Nota excepcional añadida');
-      onCreated();
-      onClose();
-    } catch (err) {
-      toast('error', getErrorMessage(err) || 'No se pudo guardar la nota');
-    } finally {
-      setSaving(false);
+    const result = await createExceptionalNoteAction(clientId, {
+      body: trimmed,
+      is_pinned: isPinned,
+    });
+    setSaving(false);
+    if (!result.ok) {
+      toast('error', result.error);
+      return;
     }
+    toast('success', 'Nota excepcional añadida');
+    onCreated();
+    onClose();
   };
 
   return (

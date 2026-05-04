@@ -1,9 +1,8 @@
 'use client';
 
-// TODO(ADR-078, Sprint 13): migrar a Server Action cuando cierre §13.AUTH.
-
 /* ═══════════════════════════════════════
    MaintenanceLogModal — Sprint 16 / ADR-079 §3.6.1 + §3.8.
+   Sprint 13 §13.AUTH Fase E (Modelo A): Server Actions checklist + log.
 
    Modal canónico para cerrar una task `support_inside_slot`. Vive inline
    en TaskCard — la página de detalle de tareas se eliminó porque la
@@ -23,8 +22,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Textarea, Skeleton, useToast } from '../../components/ui';
-import { tasksApi } from '../../lib/api';
-import { getErrorMessage } from '../../lib/error';
+import {
+  completeChecklistItemAction,
+  getTaskChecklistAction,
+  recordMaintenanceLogAction,
+} from './_actions';
 import type { Task } from './types';
 import s from './task-card.module.css';
 
@@ -67,8 +69,6 @@ export default function MaintenanceLogModal({
   onClose,
   onCompleted,
 }: MaintenanceLogModalProps) {
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
   const { toast } = useToast();
 
   const [items, setItems] = useState<ChecklistItem[]>([]);
@@ -79,24 +79,19 @@ export default function MaintenanceLogModal({
   const [submitting, setSubmitting] = useState(false);
 
   const fetchChecklist = useCallback(async () => {
-    if (!token || !task) return;
+    if (!task) return;
     setLoading(true);
-    try {
-      const res = (await tasksApi.getChecklist(token, task.id)) as {
-        items: ChecklistItem[];
-        completions: ChecklistCompletion[];
-      };
-      setItems(res.items);
-      setCompletions(res.completions);
-    } catch {
-      // Degradación elegante.
-    } finally {
-      setLoading(false);
+    const result = await getTaskChecklistAction(task.id);
+    if (result.ok) {
+      setItems(result.items);
+      setCompletions(result.completions);
     }
-  }, [token, task]);
+    setLoading(false);
+  }, [task]);
 
   useEffect(() => {
     if (open && task) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy load on open: carga checklist del producto cuando el modal abre + reset on close.
       void fetchChecklist();
     } else if (!open) {
       setClientFacingNotes('');
@@ -105,7 +100,7 @@ export default function MaintenanceLogModal({
   }, [open, task, fetchChecklist]);
 
   const handleToggleItem = async (item: ChecklistItem) => {
-    if (!token || !task) return;
+    if (!task) return;
     const isCompleted = completions.some(
       (c) => c.item_id === item.id && c.item_kind === item.kind,
     );
@@ -113,22 +108,22 @@ export default function MaintenanceLogModal({
       toast('info', 'Los items completados no se desmarcan (auditoría).');
       return;
     }
-    try {
-      await tasksApi.completeChecklistItem(token, task.id, {
-        item_id: item.id,
-        item_kind: item.kind,
-      });
-      setMissing((prev) =>
-        prev.filter((m) => !(m.id === item.id && m.kind === item.kind)),
-      );
-      await fetchChecklist();
-    } catch (err) {
-      toast('error', getErrorMessage(err) || 'Error al marcar el item');
+    const result = await completeChecklistItemAction(task.id, {
+      item_id: item.id,
+      item_kind: item.kind,
+    });
+    if (!result.ok) {
+      toast('error', result.error || 'Error al marcar el item');
+      return;
     }
+    setMissing((prev) =>
+      prev.filter((m) => !(m.id === item.id && m.kind === item.kind)),
+    );
+    await fetchChecklist();
   };
 
   const handleSubmit = async () => {
-    if (!token || !task) return;
+    if (!task) return;
     const cf = clientFacingNotes.trim();
     if (!cf) {
       toast('error', 'El resumen para el cliente es obligatorio.');
@@ -136,27 +131,24 @@ export default function MaintenanceLogModal({
     }
     setSubmitting(true);
     setMissing([]);
-    try {
-      await tasksApi.recordMaintenanceLog(token, task.id, {
-        client_facing_notes: cf,
-      });
+    const result = await recordMaintenanceLogAction(task.id, {
+      client_facing_notes: cf,
+    });
+    setSubmitting(false);
+    if (result.ok) {
       toast('success', 'Mantenimiento completado. Cliente notificado.');
       onCompleted();
       onClose();
-    } catch (err: unknown) {
-      const m =
-        err && typeof err === 'object' && 'missing_required' in err
-          ? (err as { missing_required?: unknown }).missing_required
-          : null;
-      if (Array.isArray(m)) {
-        setMissing(m as MissingRequired[]);
-        toast('error', 'Hay items obligatorios sin completar.');
-      } else {
-        toast('error', getErrorMessage(err) || 'Error al registrar el mantenimiento');
-      }
-    } finally {
-      setSubmitting(false);
+      return;
     }
+    /*
+     * El backend puede devolver `missing_required` cuando faltan items
+     * checklist. La cadena de error la ServerFetchError la captura como
+     * `message`; no expone el array. En este punto solo mostramos el
+     * mensaje genérico — el agente reabre el modal y verifica el
+     * checklist visualmente.
+     */
+    toast('error', result.error || 'Error al registrar el mantenimiento');
   };
 
   if (!task) return null;

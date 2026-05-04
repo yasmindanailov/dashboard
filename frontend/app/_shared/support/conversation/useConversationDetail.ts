@@ -4,34 +4,31 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { io, type Socket } from 'socket.io-client';
 import { useAuth } from '../../../lib/auth-context';
-import { supportApi, clientsApi } from '../../../lib/api';
-import { getErrorMessage } from '../../../lib/error';
+import { getWsTokenAction } from '../../../lib/auth-actions';
+import {
+  addMessageAction,
+  escalateChatToTicketAction,
+  getConversationAction,
+  getConversationClientContextAction,
+  updateConversationAction,
+} from '../_actions';
 import { useToast } from '../../../components/ui';
-import type {
-  Client,
-  ClientNote,
-  Pagination,
-  Service,
-} from '../../../lib/types';
+import type { Client, ClientNote, Service } from '../../../lib/types';
 import type { ConversationDetail, ResolutionType } from './types';
 import { ADMIN_ROLES } from './types';
 
 /* ═══════════════════════════════════════
-   useConversationDetail — state & data hook
-   Handles conversation loading, messaging,
-   status/priority changes, resolution workflow,
-   and client context sidebar data.
-   Ref: DECISIONS.md §43, §46, 7.H17
+   useConversationDetail — Sprint 13 §13.AUTH Fase E (Modelo A).
 
-   Sprint 13.5 Fase D (DC.37): integración con WebSocket `/support` para
-   tiempo real (mensajes nuevos + cambios de estado + typing). Espejo del
-   patrón canónico `useChatPanel.ts` (admin/support/chats). Antes de este
-   sprint, la página de detalle (`/admin/support/[id]` y
-   `/dashboard/support/[id]`) usaba REST + reload manual; el cliente y
-   el agente NO veían en vivo nada hasta refrescar. Con esto, ambos
-   lados consumen el mismo flujo `message:new` que ya emite el listener
-   `SupportWebsocketListener` (Sprint 16 Amendment A3 unificó la emisión
-   independientemente del origen REST/WS).
+   Reescrito ADR-078 Amendment A1:
+     - REST → Server Actions (cero localStorage cliente).
+     - WS handshake → token efímero `getWsTokenAction()` (Sprint
+       13.AUTH.A nuevo endpoint POST /auth/ws-token, claim type='ws',
+       expira 60s). El browser NUNCA accede al access cookie httpOnly.
+
+   Ref: DECISIONS.md §43, §46, 7.H17. Sprint 13.5 Fase D (DC.37) WS
+   tiempo real (mensajes + estado + typing). Sprint 16 Amendment A3
+   unificó la emisión REST/WS server-side.
    ═══════════════════════════════════════ */
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
@@ -48,136 +45,137 @@ export function useConversationDetail() {
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
 
-  // Client context sidebar
   const [clientContext, setClientContext] = useState<Client | null>(null);
   const [clientNotes, setClientNotes] = useState<ClientNote[]>([]);
   const [clientServices, setClientServices] = useState<Service[]>([]);
   const [contextLoading, setContextLoading] = useState(false);
 
-  // Resolution modal (7.H17)
-  const [resolutionModal, setResolutionModal] = useState<{ type: ResolutionType } | null>(null);
+  const [resolutionModal, setResolutionModal] = useState<{ type: ResolutionType } | null>(
+    null,
+  );
   const [resolutionNote, setResolutionNote] = useState('');
   const [resolutionLoading, setResolutionLoading] = useState(false);
 
-  // Typing indicator del otro lado (Sprint 13.5 DC.37).
   const [peerTyping, setPeerTyping] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
-  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
-
-  /* ─── Load conversation ─── */
 
   const loadConversation = useCallback(async () => {
-    if (!token || !conversationId) return;
-    try {
-      const res = await supportApi.getConversation(token, conversationId) as ConversationDetail;
-      setConversation(res);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [token, conversationId]);
+    if (!conversationId) return;
+    const result = await getConversationAction(conversationId);
+    if (result.ok) setConversation(result.conversation);
+    setLoading(false);
+  }, [conversationId]);
 
-  useEffect(() => { loadConversation(); }, [loadConversation]);
-
-  /* ─── WebSocket — tiempo real (Sprint 13.5 DC.37) ───
-     Conecta al gateway `/support` con el JWT del usuario, hace `join`
-     a la conversación abierta, y escucha:
-       - `message:new`: cuando llega un mensaje nuevo, reload (la
-         hidratación canónica vive en `loadConversation` que enriquece
-         relaciones de autor/role).
-       - `conversation:updated`: cambios de estado/priority/asignación
-         (admin reasigna, cron auto-cierra, etc.).
-       - `typing:start`/`typing:stop`: indicador del otro lado.
-     Misma lógica que `useChatPanel.ts` — copy-paste mínimo intencionado
-     (DC.38 unificará ambos en `<ChatThreadView>` shared en sprint
-     siguiente). Limpia el socket al desmontar. */
   useEffect(() => {
-    if (!token || !conversationId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial + recarga on conversationId change (prop-driven sync con backend).
+    void loadConversation();
+  }, [loadConversation]);
 
-    const s = io(`${WS_URL}/support`, {
-      auth: { token },
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-    });
+  /*
+   * WebSocket — tiempo real (Sprint 13.5 DC.37 + Sprint 13 §13.AUTH).
+   * Pide WS token efímero via Server Action (que reenvía al backend
+   * /auth/ws-token con la cookie httpOnly Next.js → access token), y
+   * usa ese token para el handshake socket.io. Modelo A: cero acceso
+   * del cliente JS a tokens persistentes.
+   */
+  useEffect(() => {
+    if (!conversationId) return;
+    let cancelled = false;
+    let socket: Socket | null = null;
 
-    s.on('connect', () => {
-      s.emit('conversation:join', { conversationId });
-    });
+    void (async () => {
+      const wsToken = await getWsTokenAction();
+      if (cancelled || !wsToken) return;
 
-    s.on('message:new', (data: { conversationId: string }) => {
-      if (data.conversationId !== conversationId) return;
-      loadConversation();
-    });
+      socket = io(`${WS_URL}/support`, {
+        auth: { token: wsToken.token },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+      });
 
-    s.on('conversation:updated', (data: { conversationId: string }) => {
-      if (data.conversationId !== conversationId) return;
-      loadConversation();
-    });
+      socket.on('connect', () => {
+        socket?.emit('conversation:join', { conversationId });
+      });
 
-    s.on('typing:start', (data: { conversationId: string }) => {
-      if (data.conversationId === conversationId) setPeerTyping(true);
-    });
-    s.on('typing:stop', (data: { conversationId: string }) => {
-      if (data.conversationId === conversationId) setPeerTyping(false);
-    });
+      socket.on('message:new', (data: { conversationId: string }) => {
+        if (data.conversationId !== conversationId) return;
+        void loadConversation();
+      });
 
-    socketRef.current = s;
+      socket.on('conversation:updated', (data: { conversationId: string }) => {
+        if (data.conversationId !== conversationId) return;
+        void loadConversation();
+      });
+
+      socket.on('typing:start', (data: { conversationId: string }) => {
+        if (data.conversationId === conversationId) setPeerTyping(true);
+      });
+      socket.on('typing:stop', (data: { conversationId: string }) => {
+        if (data.conversationId === conversationId) setPeerTyping(false);
+      });
+
+      socketRef.current = socket;
+    })();
+
     return () => {
-      s.emit('conversation:leave', { conversationId });
-      s.disconnect();
+      cancelled = true;
+      if (socket) {
+        socket.emit('conversation:leave', { conversationId });
+        socket.disconnect();
+      }
       socketRef.current = null;
     };
-  }, [token, conversationId, loadConversation]);
+  }, [conversationId, loadConversation]);
 
-  // Load client context when conversation loads
+  /* Load client context cuando la conversación se hidrata. */
   useEffect(() => {
-    if (!conversation?.user_id || !token) return;
+    const userId = conversation?.user_id;
+    if (!userId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy load on prop change: el contexto cliente se carga cuando hidrata la conversación (dependent fetch).
     setContextLoading(true);
-    const uid = conversation.user_id;
-    Promise.all([
-      clientsApi.get(token, uid).catch(() => null) as Promise<Client | null>,
-      clientsApi.listStructuredNotes(token, uid, { limit: 5 }).catch(() => ({ data: [] })) as Promise<Pagination<ClientNote> | { data: ClientNote[] }>,
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/services?user_id=${uid}&limit=5`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then(r => r.json() as Promise<Pagination<Service> | { data: Service[] }>).catch(() => ({ data: [] })),
-    ]).then(([profile, notesRes, svcRes]) => {
-      setClientContext(profile);
-      setClientNotes(notesRes?.data || []);
-      setClientServices(svcRes?.data || []);
-    }).finally(() => setContextLoading(false));
-  }, [conversation?.user_id, token]);
+    let cancelled = false;
+    void (async () => {
+      const result = await getConversationClientContextAction(userId);
+      if (cancelled) return;
+      if (result.ok) {
+        setClientContext(result.context.client);
+        setClientNotes(result.context.notes);
+        setClientServices(result.context.services);
+      }
+      setContextLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [conversation?.user_id]);
 
-  // Auto-scroll to bottom when messages change
+  /* Auto-scroll al cambiar mensajes. */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation?.messages]);
 
-  /* ─── Send message ─── */
-
   const handleSendMessage = async () => {
-    if (!token || !newMessage.trim() || !conversationId) return;
+    if (!newMessage.trim() || !conversationId) return;
     setSending(true);
-    try {
-      // Sprint 16 / ADR-079 §3.8: la entrada de notas internas desde el
-       // input se eliminó. Los mensajes nuevos siempre son públicos.
-      await supportApi.addMessage(token, conversationId, {
-        body: newMessage.trim(),
-        is_internal: false,
-      });
-      setNewMessage('');
-      loadConversation();
-    } catch (e) {
-      console.error(e);
-      toast('error', 'No se pudo enviar el mensaje.');
+    /*
+     * Sprint 16 / ADR-079 §3.8: la entrada de notas internas desde el
+     * input se eliminó. Los mensajes nuevos siempre son públicos.
+     */
+    const result = await addMessageAction(conversationId, newMessage.trim(), false);
+    setSending(false);
+    if (!result.ok) {
+      toast('error', result.error);
+      return;
     }
-    finally { setSending(false); }
+    setNewMessage('');
+    void loadConversation();
   };
 
-  /* ─── Status & priority changes ─── */
-
   const handleStatusChange = async (status: string) => {
-    if (!token || !conversationId) return;
+    if (!conversationId) return;
     if (['resolved', 'closed'].includes(status)) {
       setResolutionModal({ type: status === 'closed' ? 'close' : 'resolve' });
       setResolutionNote('');
@@ -188,49 +186,44 @@ export function useConversationDetail() {
       setResolutionNote('');
       return;
     }
-    try {
-      await supportApi.updateConversation(token, conversationId, { status });
-      loadConversation();
-    } catch (e) {
-      console.error(e);
-      toast('error', 'No se pudo cambiar el estado.');
+    const result = await updateConversationAction(conversationId, { status });
+    if (!result.ok) {
+      toast('error', result.error);
+      return;
     }
+    void loadConversation();
   };
 
   const handlePriorityChange = async (priority: string) => {
-    if (!token || !conversationId) return;
-    try {
-      await supportApi.updateConversation(token, conversationId, { priority });
-      loadConversation();
-      toast('success', 'Prioridad actualizada.');
-    } catch (e) {
-      console.error(e);
-      toast('error', 'No se pudo cambiar la prioridad.');
+    if (!conversationId) return;
+    const result = await updateConversationAction(conversationId, { priority });
+    if (!result.ok) {
+      toast('error', result.error);
+      return;
     }
+    void loadConversation();
+    toast('success', 'Prioridad actualizada.');
   };
 
   /**
-   * Sprint 8 Fase B.10 (2026-04-30) — ADR-074. Asignar/reasignar agente
-   * dispara el listener `SupportTicketTaskCreatorListener` que crea o
-   * reasigna la `Task(type=support_ticket)` vinculada — única vía UI
-   * canónica para iniciar el bridge ticket↔task. Acepta string vacío
-   * para "Sin asignar" (envía `null` al backend).
+   * Sprint 8 Fase B.10 (2026-04-30) — ADR-074. Asignar/reasignar
+   * agente dispara el listener `SupportTicketTaskCreatorListener`
+   * que crea o reasigna la `Task(type=support_ticket)` vinculada.
    */
   const handleAssignAgent = async (agentId: string) => {
-    if (!token || !conversationId) return;
-    try {
-      await supportApi.updateConversation(token, conversationId, {
-        assigned_agent_id: agentId || null,
-      });
-      loadConversation();
-      toast(
-        'success',
-        agentId ? 'Agente asignado. Tarea creada.' : 'Asignación retirada.',
-      );
-    } catch (e) {
-      console.error(e);
-      toast('error', getErrorMessage(e) || 'No se pudo asignar el agente.');
+    if (!conversationId) return;
+    const result = await updateConversationAction(conversationId, {
+      assigned_agent_id: agentId || null,
+    });
+    if (!result.ok) {
+      toast('error', result.error);
+      return;
     }
+    void loadConversation();
+    toast(
+      'success',
+      agentId ? 'Agente asignado. Tarea creada.' : 'Asignación retirada.',
+    );
   };
 
   const handleEscalateToTicket = () => {
@@ -238,43 +231,42 @@ export function useConversationDetail() {
     setResolutionNote('');
   };
 
-  /* ─── Resolution modal submission ─── */
-
   const submitResolution = async () => {
     if (!resolutionNote.trim()) return;
     setResolutionLoading(true);
-    try {
-      if (resolutionModal?.type === 'escalate') {
-        await supportApi.escalateToTicket(token, conversationId, {
-          category: 'escalated_chat',
-          agent_notes: resolutionNote.trim(),
-        });
-      } else if (resolutionModal?.type === 'reopen') {
-        await supportApi.updateConversation(token, conversationId, {
-          status: 'open',
-          resolution_note: resolutionNote.trim(),
-        });
-      } else {
-        await supportApi.updateConversation(token, conversationId, {
-          status: resolutionModal?.type === 'close' ? 'closed' : 'resolved',
-          resolution_note: resolutionNote.trim(),
-        });
-      }
-      setResolutionModal(null);
-      setResolutionNote('');
-      const labels: Record<string, string> = {
-        resolve: 'Ticket resuelto.',
-        close: 'Ticket cerrado.',
-        escalate: 'Chat escalado a ticket.',
-        reopen: 'Ticket reabierto.',
-      };
-      toast('success', labels[resolutionModal?.type || ''] || 'Acción completada.');
-      loadConversation();
-    } catch (e) {
-      toast('error', getErrorMessage(e) || 'Error al procesar.');
-    } finally {
-      setResolutionLoading(false);
+    const note = resolutionNote.trim();
+    let result: { ok: boolean; error?: string };
+    if (resolutionModal?.type === 'escalate') {
+      result = await escalateChatToTicketAction(conversationId, {
+        category: 'escalated_chat',
+        agent_notes: note,
+      });
+    } else if (resolutionModal?.type === 'reopen') {
+      result = await updateConversationAction(conversationId, {
+        status: 'open',
+        resolution_note: note,
+      });
+    } else {
+      result = await updateConversationAction(conversationId, {
+        status: resolutionModal?.type === 'close' ? 'closed' : 'resolved',
+        resolution_note: note,
+      });
     }
+    setResolutionLoading(false);
+    if (!result.ok) {
+      toast('error', result.error || 'Error al procesar.');
+      return;
+    }
+    setResolutionModal(null);
+    setResolutionNote('');
+    const labels: Record<string, string> = {
+      resolve: 'Ticket resuelto.',
+      close: 'Ticket cerrado.',
+      escalate: 'Chat escalado a ticket.',
+      reopen: 'Ticket reabierto.',
+    };
+    toast('success', labels[resolutionModal?.type || ''] || 'Acción completada.');
+    void loadConversation();
   };
 
   const closeResolutionModal = () => {
@@ -283,20 +275,30 @@ export function useConversationDetail() {
   };
 
   return {
-    user, isAdmin, conversation, loading, conversationId,
-    // Messaging
-    newMessage, setNewMessage,
-    sending, handleSendMessage, messagesEndRef,
-    // Status/priority
-    handleStatusChange, handlePriorityChange, handleEscalateToTicket,
-    // Assignment (Sprint 8 Fase B.10 — ADR-074: dispara bridge ticket→task)
+    user,
+    isAdmin,
+    conversation,
+    loading,
+    conversationId,
+    newMessage,
+    setNewMessage,
+    sending,
+    handleSendMessage,
+    messagesEndRef,
+    handleStatusChange,
+    handlePriorityChange,
+    handleEscalateToTicket,
     handleAssignAgent,
-    // Resolution
-    resolutionModal, resolutionNote, setResolutionNote,
-    resolutionLoading, submitResolution, closeResolutionModal,
-    // Client context
-    clientContext, clientNotes, clientServices, contextLoading,
-    // WebSocket realtime (Sprint 13.5 DC.37)
+    resolutionModal,
+    resolutionNote,
+    setResolutionNote,
+    resolutionLoading,
+    submitResolution,
+    closeResolutionModal,
+    clientContext,
+    clientNotes,
+    clientServices,
+    contextLoading,
     peerTyping,
   };
 }

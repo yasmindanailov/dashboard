@@ -7,13 +7,12 @@ import type {
   Agent,
   Client,
   ClientNote,
-  Pagination,
   RoleSlug,
   Service,
 } from '../../../lib/types';
 import type { ConversationDetail } from './types';
 import { STATUS_CONFIG, CATEGORY_LABELS, formatDate } from './types';
-import { usersApi } from '../../../lib/api';
+import { listAssignableAgentsAction } from '../../tasks/_actions';
 import styles from './conversationDetail.module.css';
 
 const ROLE_LABELS: Record<RoleSlug, string> = {
@@ -70,20 +69,32 @@ export default function ConversationSidebar({
   useEffect(() => {
     if (!isAdmin || !onAssignAgent) return;
     if (agents.length > 0) return;
-    const token =
-      typeof window !== 'undefined'
-        ? localStorage.getItem('access_token') || ''
-        : '';
-    if (!token) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy load on prop change: carga agentes solo cuando isAdmin && onAssignAgent && lista vacía (one-shot por sesión).
     setAgentsLoading(true);
-    void usersApi
-      .listAgents(token, { limit: 50 })
-      .then((res) => {
-        const payload = res as Pagination<Agent>;
-        setAgents(payload.data || []);
-      })
-      .catch(() => setAgents([]))
-      .finally(() => setAgentsLoading(false));
+    let cancelled = false;
+    void (async () => {
+      const result = await listAssignableAgentsAction({});
+      if (cancelled) return;
+      if (result.ok) {
+        const mapped: Agent[] = result.agents.map((a) => ({
+          id: a.id,
+          email: a.email,
+          first_name: a.first_name,
+          last_name: a.last_name,
+          full_name: a.full_name || `${a.first_name} ${a.last_name}`.trim(),
+          role: a.role as RoleSlug,
+          status: 'active',
+          avatar_url: null,
+        }));
+        setAgents(mapped);
+      } else {
+        setAgents([]);
+      }
+      setAgentsLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [isAdmin, onAssignAgent, agents.length]);
   const fromParams = `?from=${encodeURIComponent(`/dashboard/support/${conversation.id}`)}&fromLabel=${encodeURIComponent(conversation.subject)}`;
 

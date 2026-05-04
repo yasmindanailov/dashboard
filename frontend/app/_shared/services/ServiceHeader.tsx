@@ -5,8 +5,8 @@
  * `info.display` + Badge de estado + statusReason cuando aplica.
  *
  * Componente presentacional puro — sin auth, sin fetch. Server-component
- * compatible: NO añade `'use client'` ni marker TODO(ADR-078) — Sprint 13
- * lo seguirá usando intacto.
+ * compatible: NO añade `'use client'`. Sprint 13 §13.AUTH Fase E lo
+ * mantiene intacto.
  */
 import { Badge } from '../../components/ui';
 import type { ServiceInfo } from '../../lib/api';

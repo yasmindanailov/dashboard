@@ -1,186 +1,47 @@
-'use client';
+/**
+ * /admin/tasks — Sprint 13 §13.AUTH Fase E (Modelo A).
+ *
+ * Server Component nativo. Carga lista + stats server-side via
+ * serverFetch; filtros (scope, source, status, focus) viajan en
+ * searchParams. La UI orquesta TaskCards interactivos en
+ * `TasksView` (CC). Sin creación manual (POST /tasks no existe —
+ * ADR-079 §1). ADR-078 Amendment A1.
+ */
 
-// TODO(ADR-078, Sprint 13): migrar a Server Component cuando cierre §13.AUTH.
-
-/* ═══════════════════════════════════════
-   /admin/tasks — Tasks list canónica Sprint 16 / ADR-079.
-
-   Vista única (sin tabs scope mine/unassigned/all). Toggle "Ver todas"
-   admin-only para alternar entre `mine` y `all`. La regla de orden
-   canónica §3.3 la aplica el backend en `applyCanonicalOrdering`; el
-   frontend agrupa visualmente por bloques (overdue → support_ticket →
-   resto). Cada item es una `TaskCard` shared con accionadores inline.
-
-   Sin creación manual (POST /tasks no existe — ADR-079 §1).
-   Sin filtros pesados (search/type/priority eliminados — la doctrina
-   §3.6 dice que la card es la herramienta; los filtros que sobreviven
-   son mecánicos: scope + source_system).
-   ═══════════════════════════════════════ */
-
-import { useEffect, useMemo, useState, useCallback } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import {
-  ListPage,
-  FilterBar,
-  Select,
   EmptyState,
-  Skeleton,
-  StatusTabs,
+  ListPage,
 } from '../../components/ui';
-import type { StatusTab } from '../../components/ui';
-import { useAuth } from '../../lib/auth-context';
+import {
+  requireServerSession,
+  serverFetch,
+  ServerFetchError,
+} from '../../lib/server-auth';
 import { isStaffRole, isAdminRole } from '../../lib/portal';
-import { tasksApi, type TaskScope } from '../../lib/api';
-import { getErrorMessage } from '../../lib/error';
-import TaskCard from '../../_shared/tasks/TaskCard';
-import { SOURCE_LABELS } from '../../_shared/tasks/source-labels';
+import type { TaskScope } from '../../lib/api';
 import type {
-  Task,
   TaskListResponse,
   TaskStats,
   TaskSourceSystem,
 } from '../../_shared/tasks/types';
-import styles from './tasks.module.css';
+import TasksView from './_components/TasksView';
 
-const SOURCE_OPTIONS: { value: string; label: string }[] = [
-  { value: '', label: 'Todos los sistemas' },
-  { value: 'support_ticket', label: SOURCE_LABELS.support_ticket.label },
-  {
-    value: 'support_inside_slot',
-    label: SOURCE_LABELS.support_inside_slot.label,
-  },
-  {
-    value: 'provisioning_manual',
-    label: SOURCE_LABELS.provisioning_manual.label,
-  },
-  { value: 'client_lifecycle', label: SOURCE_LABELS.client_lifecycle.label },
-  { value: 'project', label: SOURCE_LABELS.project.label },
-];
+interface PageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
 
-/* Bloques visuales canónicos §3.3. El orden DB-side ya viene resuelto;
-   aquí solo agrupamos los resultados sin reordenar dentro de cada bloque. */
-const BLOCK_DEFINITIONS: {
-  key: 'support_ticket' | 'rest';
-  title: string;
-  predicate: (t: Task) => boolean;
-}[] = [
-  {
-    key: 'support_ticket',
-    title: 'Tickets de soporte',
-    predicate: (t) => t.source_system === 'support_ticket',
-  },
-  {
-    key: 'rest',
-    title: 'Otras tareas',
-    predicate: (t) => t.source_system !== 'support_ticket',
-  },
-];
+function singleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? '';
+  return value ?? '';
+}
 
-export default function TasksPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const focusId = searchParams?.get('focus') ?? null;
+const VALID_SCOPES: TaskScope[] = ['mine', 'unassigned', 'all'];
 
-  const { user } = useAuth();
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
-  const roleSlug = user?.role?.slug || '';
+export default async function TasksPage({ searchParams }: PageProps) {
+  const session = await requireServerSession();
+  const roleSlug = session.user.role?.slug || '';
   const isStaff = isStaffRole(roleSlug);
   const isAdmin = isAdminRole(roleSlug);
-
-  const [tasks, setTasks] = useState<TaskListResponse | null>(null);
-  const [stats, setStats] = useState<TaskStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [scope, setScope] = useState<TaskScope>('mine');
-  const [sourceFilter, setSourceFilter] = useState<TaskSourceSystem | ''>('');
-  const [statusFilter, setStatusFilter] = useState<string>('pending');
-  const [page, setPage] = useState(1);
-
-  const fetchTasks = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const params: Parameters<typeof tasksApi.list>[1] = {
-        page,
-        limit: 30,
-        scope,
-      };
-      if (sourceFilter) params.source_system = sourceFilter;
-      // El backend acepta `status` literal del enum. Para el tab
-      // "Pendientes" cubrimos pending|in_progress|not_completed_in_time —
-      // pedimos sin filtro y el frontend descarta completed/cancelled.
-      if (statusFilter === 'completed') params.status = 'completed';
-      const res = (await tasksApi.list(token, params)) as TaskListResponse;
-      // Filtrado adicional para el tab "Pendientes" (cubre los 3 estados
-      // vivos del flujo del agente). El backend no soporta `status IN` en
-      // un solo query — ajuste local sin coste relevante (limit=30).
-      if (statusFilter === 'pending') {
-        res.data = res.data.filter(
-          (t) => t.status !== 'completed' && t.status !== 'cancelled',
-        );
-      }
-      setTasks(res);
-    } catch (err) {
-      setError(getErrorMessage(err) || 'Error al cargar tareas');
-    } finally {
-      setLoading(false);
-    }
-  }, [token, scope, sourceFilter, statusFilter, page]);
-
-  const fetchStats = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = (await tasksApi.getStats(token, scope)) as TaskStats;
-      setStats(res);
-    } catch {
-      // Stats no críticas — no rompemos la página por esto.
-    }
-  }, [token, scope]);
-
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
-
-  const handleStatusTab = (key: string) => {
-    setStatusFilter(key === 'completed' ? 'completed' : 'pending');
-    setPage(1);
-  };
-
-  const grouped = useMemo(() => {
-    const data = tasks?.data ?? [];
-    const overdue = data.filter((t) => t.status === 'not_completed_in_time');
-    const live = data.filter((t) => t.status !== 'not_completed_in_time');
-    return {
-      overdue,
-      blocks: BLOCK_DEFINITIONS.map((b) => ({
-        ...b,
-        items: live.filter(b.predicate),
-      })).filter((b) => b.items.length > 0),
-    };
-  }, [tasks]);
-
-  const focusedExists =
-    !!focusId && (tasks?.data ?? []).some((t) => t.id === focusId);
-
-  const statusTabsArr: StatusTab[] = [
-    {
-      label: 'Pendientes',
-      value: 'pending',
-      count: stats?.pending ?? 0,
-    },
-    {
-      label: 'Completadas',
-      value: 'completed',
-      count: stats?.completed ?? 0,
-      variant: 'success',
-    },
-  ];
 
   if (!isStaff) {
     return (
@@ -193,6 +54,37 @@ export default function TasksPage() {
     );
   }
 
+  const params = await searchParams;
+  const scopeRaw = singleParam(params.scope) as TaskScope;
+  const scope: TaskScope = VALID_SCOPES.includes(scopeRaw) ? scopeRaw : 'mine';
+  const source = singleParam(params.source) as TaskSourceSystem | '';
+  const statusFilter =
+    singleParam(params.status) === 'completed' ? 'completed' : 'pending';
+  const focusId = singleParam(params.focus) || null;
+  const page = Math.max(1, parseInt(singleParam(params.page), 10) || 1);
+
+  const query = new URLSearchParams();
+  query.set('page', String(page));
+  query.set('limit', '30');
+  query.set('scope', scope);
+  if (source) query.set('source_system', source);
+  if (statusFilter === 'completed') query.set('status', 'completed');
+
+  let tasks: TaskListResponse | null = null;
+  let stats: TaskStats | null = null;
+  let errorMessage: string | null = null;
+  try {
+    const [list, statsRes] = await Promise.all([
+      serverFetch<TaskListResponse>(`/tasks?${query.toString()}`),
+      serverFetch<TaskStats>(`/tasks/stats?scope=${scope}`).catch(() => null),
+    ]);
+    tasks = list;
+    stats = statsRes;
+  } catch (err) {
+    errorMessage =
+      err instanceof ServerFetchError ? err.message : 'Error al cargar tareas';
+  }
+
   return (
     <ListPage
       title="Tareas"
@@ -201,141 +93,19 @@ export default function TasksPage() {
           ? 'Todas las tareas del equipo'
           : 'Mis tareas — bridge unidireccional desde tickets, mantenimientos, setup, llamadas y proyectos'
       }
-      action={
-        isAdmin ? (
-          <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={`${styles.toggleAll} ${scope === 'all' ? styles.toggleAllActive : ''}`}
-              onClick={() => {
-                const next: TaskScope = scope === 'all' ? 'mine' : 'all';
-                setScope(next);
-                setPage(1);
-              }}
-            >
-              {scope === 'all' ? 'Ver mis tareas' : 'Ver todas las tareas'}
-            </button>
-          </div>
-        ) : undefined
-      }
-      statusTabs={
-        <StatusTabs
-          tabs={statusTabsArr}
-          active={statusFilter}
-          onChange={handleStatusTab}
-        />
-      }
-      filterBar={
-        <FilterBar
-          search={null}
-          filters={
-            <Select
-              value={sourceFilter}
-              onChange={(e) => {
-                setSourceFilter(e.target.value as TaskSourceSystem | '');
-                setPage(1);
-              }}
-              options={SOURCE_OPTIONS}
-              aria-label="Filtrar por sistema vinculado"
-            />
-          }
-        />
-      }
     >
-      {focusId && focusedExists && (
-        <div className={styles.focusBanner}>
-          <span>
-            Tarea destacada — proviene del widget del dashboard. Está
-            resaltada en el listado para que la tomes ahora.
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              const params = new URLSearchParams(searchParams ?? undefined);
-              params.delete('focus');
-              const qs = params.toString();
-              router.replace(qs ? `/admin/tasks?${qs}` : '/admin/tasks');
-            }}
-          >
-            Quitar foco
-          </button>
-        </div>
-      )}
-
-      {loading ? (
-        <Skeleton height={400} />
-      ) : error ? (
-        <EmptyState title="Error" description={error} />
-      ) : !tasks?.data?.length ? (
-        <EmptyState
-          title={
-            scope === 'all'
-              ? 'Sin tareas con estos filtros'
-              : statusFilter === 'completed'
-                ? 'Aún no has completado tareas'
-                : '¡Buen trabajo!'
-          }
-          description={
-            scope === 'all'
-              ? 'Ajusta el sistema vinculado o el estado.'
-              : statusFilter === 'completed'
-                ? 'Cuando cierres alguna, aparecerá aquí.'
-                : 'No tienes tareas pendientes. Disfruta del momento.'
-          }
-        />
-      ) : (
-        <div className={styles.layout}>
-          {grouped.overdue.length > 0 && (
-            <div className={styles.block}>
-              <div className={styles.overdueBanner}>
-                {grouped.overdue.length === 1
-                  ? '1 tarea vencida — atiéndela primero'
-                  : `${grouped.overdue.length} tareas vencidas — atiéndelas primero`}
-              </div>
-              <div className={styles.cards}>
-                {grouped.overdue.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    showAssignee={isAdmin && scope === 'all'}
-                    canReassign={isAdmin}
-                    onChanged={() => {
-                      fetchTasks();
-                      fetchStats();
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {grouped.blocks.map((block) => (
-            <div className={styles.block} key={block.key}>
-              <div className={styles.blockHeader}>
-                <h3 className={styles.blockTitle}>{block.title}</h3>
-                <span className={styles.blockCount}>
-                  {block.items.length}{' '}
-                  {block.items.length === 1 ? 'tarea' : 'tareas'}
-                </span>
-              </div>
-              <div className={styles.cards}>
-                {block.items.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    showAssignee={isAdmin && scope === 'all'}
-                    canReassign={isAdmin}
-                    onChanged={() => {
-                      fetchTasks();
-                      fetchStats();
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <TasksView
+        tasks={tasks}
+        stats={stats}
+        errorMessage={errorMessage}
+        filters={{
+          scope,
+          sourceSystem: source,
+          status: statusFilter,
+          focusId,
+        }}
+        isAdmin={isAdmin}
+      />
     </ListPage>
   );
 }

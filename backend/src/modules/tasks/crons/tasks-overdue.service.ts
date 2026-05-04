@@ -111,6 +111,17 @@ export class TasksOverdueService {
         Math.floor((now.getTime() - dueDate.getTime()) / MS_PER_DAY),
       );
 
+      /*
+       * URL canónica de la task — alineada con `tasks-email.listener.ts`
+       * (Sprint 13 §13.AUTH Fase F). El frontend no tiene `/admin/tasks/[id]`;
+       * las tasks `support_ticket` apuntan al ticket (fuente de verdad) y
+       * el resto a la lista `/admin/tasks` que se navega con filtros + modal.
+       */
+      const taskPath =
+        task.source_system === 'support_ticket'
+          ? `/admin/support/${task.source_id}`
+          : `/admin/tasks`;
+
       this.events.emit('task.overdue', {
         task_id: task.id,
         task_source_system: task.source_system,
@@ -121,8 +132,8 @@ export class TasksOverdueService {
         task_priority: task.priority,
         task_priority_label:
           TASK_PRIORITY_LABELS_ES[task.priority] ?? task.priority,
-        task_url: `${appUrl}/admin/tasks/${task.id}`,
-        action_url: `/admin/tasks/${task.id}`,
+        task_url: `${appUrl}${taskPath}`,
+        action_url: taskPath,
         due_date_label: formatDueLabel(dueDate),
         days_overdue: daysOverdue,
         assigned_to: task.assigned_to,

@@ -34,18 +34,24 @@ import {
   waitForEmail,
   extract2FACode,
 } from './fixtures/mailpit';
+import { injectAuthSession } from './fixtures/auth';
 
 const SUPERADMIN_PASSWORD =
   process.env.SUPERADMIN_PASSWORD || 'AeliumDev2026!';
 const CLIENT_EMAIL = 'cliente@aelium.test';
 const CLIENT_PASSWORD = process.env.SEED_CLIENT_PASSWORD || 'Cliente2026!';
 
-let staffToken = '';
-let clientToken = '';
+interface SessionTokens {
+  accessToken: string;
+  refreshToken: string;
+}
+
+let staffSession: SessionTokens = { accessToken: '', refreshToken: '' };
+let clientSession: SessionTokens = { accessToken: '', refreshToken: '' };
 
 async function loginSuperadminAPI(
   request: APIRequestContext,
-): Promise<string> {
+): Promise<SessionTokens> {
   await clearMailbox();
   const loginRes = await request.post(`${TEST_CONFIG.apiUrl}/auth/login`, {
     data: {
@@ -56,9 +62,12 @@ async function loginSuperadminAPI(
   expect(loginRes.ok()).toBeTruthy();
   const body = (await loginRes.json()) as {
     access_token?: string;
+    refresh_token?: string;
     temp_token?: string;
   };
-  if (body.access_token) return body.access_token;
+  if (body.access_token && body.refresh_token) {
+    return { accessToken: body.access_token, refreshToken: body.refresh_token };
+  }
   if (!body.temp_token) throw new Error('No access_token / temp_token');
 
   const codeMail = await waitForEmail(TEST_CONFIG.superadmin.email, {
@@ -71,11 +80,19 @@ async function loginSuperadminAPI(
     { data: { temp_token: body.temp_token, code } },
   );
   expect(verifyRes.ok()).toBeTruthy();
-  const verifyBody = (await verifyRes.json()) as { access_token: string };
-  return verifyBody.access_token;
+  const verifyBody = (await verifyRes.json()) as {
+    access_token: string;
+    refresh_token: string;
+  };
+  return {
+    accessToken: verifyBody.access_token,
+    refreshToken: verifyBody.refresh_token,
+  };
 }
 
-async function loginClientAPI(request: APIRequestContext): Promise<string> {
+async function loginClientAPI(
+  request: APIRequestContext,
+): Promise<SessionTokens> {
   const res = await request.post(`${TEST_CONFIG.apiUrl}/auth/login`, {
     data: { email: CLIENT_EMAIL, password: CLIENT_PASSWORD },
   });
@@ -83,11 +100,14 @@ async function loginClientAPI(request: APIRequestContext): Promise<string> {
     res.ok(),
     `Client login falló: ${res.status()} ${await res.text()}`,
   ).toBeTruthy();
-  const body = (await res.json()) as { access_token?: string };
-  if (!body.access_token) {
+  const body = (await res.json()) as {
+    access_token?: string;
+    refresh_token?: string;
+  };
+  if (!body.access_token || !body.refresh_token) {
     throw new Error('Cliente no debería requerir 2FA — verificar seed');
   }
-  return body.access_token;
+  return { accessToken: body.access_token, refreshToken: body.refresh_token };
 }
 
 test.describe.serial('Admin tree migration — Sprint 9.6 (DC.7 + ADR-066)', () => {
@@ -95,8 +115,8 @@ test.describe.serial('Admin tree migration — Sprint 9.6 (DC.7 + ADR-066)', () 
     // resetTestData NO borra usuarios — solo tablas transaccionales.
     // Las cuentas demo del seed (test-accounts.ts) sobreviven.
     await resetTestData();
-    staffToken = await loginSuperadminAPI(request);
-    clientToken = await loginClientAPI(request);
+    staffSession = await loginSuperadminAPI(request);
+    clientSession = await loginClientAPI(request);
   });
 
   test.afterAll(async () => {
@@ -111,7 +131,7 @@ test.describe.serial('Admin tree migration — Sprint 9.6 (DC.7 + ADR-066)', () 
     request,
   }) => {
     const res = await request.get(`${TEST_CONFIG.apiUrl}/admin/clients`, {
-      headers: { Authorization: `Bearer ${clientToken}` },
+      headers: { Authorization: `Bearer ${clientSession.accessToken}` },
     });
     expect(res.status()).toBe(403);
     const body = (await res.json()) as { message: string };
@@ -124,7 +144,7 @@ test.describe.serial('Admin tree migration — Sprint 9.6 (DC.7 + ADR-066)', () 
     // POST con body inválido — el AdminOnlyGuard corta antes que la
     // ValidationPipe, así que esperamos 403 (no 400).
     const res = await request.post(`${TEST_CONFIG.apiUrl}/admin/products`, {
-      headers: { Authorization: `Bearer ${clientToken}` },
+      headers: { Authorization: `Bearer ${clientSession.accessToken}` },
       data: {},
     });
     expect(res.status()).toBe(403);
@@ -138,7 +158,7 @@ test.describe.serial('Admin tree migration — Sprint 9.6 (DC.7 + ADR-066)', () 
     request,
   }) => {
     const res = await request.get(`${TEST_CONFIG.apiUrl}/admin/clients`, {
-      headers: { Authorization: `Bearer ${staffToken}` },
+      headers: { Authorization: `Bearer ${staffSession.accessToken}` },
     });
     expect(res.ok()).toBeTruthy();
     expect(res.headers()['deprecation']).toBeUndefined();
@@ -153,11 +173,11 @@ test.describe.serial('Admin tree migration — Sprint 9.6 (DC.7 + ADR-066)', () 
 
   test('cliente UX en /dashboard/billing: subtítulo "Mis facturas"', async ({
     page,
+    context,
   }) => {
-    // Inyectar token cliente sin pasar por UI (más rápido y determinista).
-    await page.addInitScript((t) => {
-      window.localStorage.setItem('access_token', t);
-    }, clientToken);
+    // Inyectar sesión cliente sin pasar por UI (más rápido y determinista).
+    // Modelo A (ADR-078 Amendment A1): cookies httpOnly del dominio Next.js.
+    await injectAuthSession(context, clientSession);
 
     await page.goto('/dashboard/billing');
 
@@ -176,10 +196,9 @@ test.describe.serial('Admin tree migration — Sprint 9.6 (DC.7 + ADR-066)', () 
 
   test('cliente UX en /dashboard/support: NO ve tabs internos del workflow staff', async ({
     page,
+    context,
   }) => {
-    await page.addInitScript((t) => {
-      window.localStorage.setItem('access_token', t);
-    }, clientToken);
+    await injectAuthSession(context, clientSession);
 
     await page.goto('/dashboard/support');
 
@@ -201,16 +220,15 @@ test.describe.serial('Admin tree migration — Sprint 9.6 (DC.7 + ADR-066)', () 
      5. Login como staff aterriza en /admin (landingForRole)
      ════════════════════════════════════════════════════════════════ */
 
-  test('login staff aterriza en /admin (no /dashboard)', async ({ page }) => {
-    await page.addInitScript((t) => {
-      window.localStorage.setItem('access_token', t);
-    }, staffToken);
+  test('login staff aterriza en /admin (no /dashboard)', async ({
+    page,
+    context,
+  }) => {
+    await injectAuthSession(context, staffSession);
 
-    // Ir a la raíz con un token staff válido — el AuthProvider del
-    // RootLayout detecta el token, llama /auth/me, y como la raíz es
-    // ruta pública con sesión activa redirige al dashboard. Pero el
-    // AdminLayout debe atajar y mandar a /admin si el rol es staff.
-    // Validamos directamente que /admin renderiza para staff.
+    // Con la cookie httpOnly válida, el layout `/admin` (Server Component)
+    // valida sesión vía `getServerSession` + rol staff, y renderiza el
+    // PortalBadge canónico. ADR-066 + ADR-078 Amendment A1.
     await page.goto('/admin');
 
     // Debe cargar sin caer en loop infinito ni redirigir a /dashboard.
@@ -226,10 +244,9 @@ test.describe.serial('Admin tree migration — Sprint 9.6 (DC.7 + ADR-066)', () 
 
   test('login cliente aterriza en /dashboard (no /admin) y guard redirige si fuerza /admin', async ({
     page,
+    context,
   }) => {
-    await page.addInitScript((t) => {
-      window.localStorage.setItem('access_token', t);
-    }, clientToken);
+    await injectAuthSession(context, clientSession);
 
     // Cliente intenta forzar /admin manualmente — el AdminLayout debe
     // redirigir a /dashboard automáticamente (defense in depth nivel 2).

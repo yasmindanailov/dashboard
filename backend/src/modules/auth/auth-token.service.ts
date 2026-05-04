@@ -58,12 +58,14 @@ export class AuthTokenService {
       email: user.email,
       role: user.role.slug,
       type: 'access',
+      jti: crypto.randomUUID(),
     };
     const refreshPayload: JwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.role.slug,
       type: 'refresh',
+      jti: crypto.randomUUID(),
     };
 
     const accessToken = this.jwt.sign(accessPayload, {
@@ -118,8 +120,37 @@ export class AuthTokenService {
     };
   }
 
-  /* ── Refresh ── */
-  async refresh(refreshToken: string, ip: string) {
+  /* ── Refresh con rotation + replay detection ── */
+  /**
+   * Sprint 13 §13.AUTH Fase B (2026-05-03) — refresh rotation canónica
+   * (ADR-078 §1.4 + Amendment A1).
+   *
+   * Flow:
+   *   1. Verifica firma del JWT con `JWT_REFRESH_SECRET`.
+   *   2. Busca sesión por `refresh_hash`.
+   *   3. **REPLAY DETECTION:** si `session.used_at IS NOT NULL` → el token ya
+   *      fue canjeado antes. Asumimos compromiso de la cuenta:
+   *        - Revoca TODAS las sesiones activas del user (`is_active=false`,
+   *          `revoked_reason='replay_detected'`).
+   *        - Emite `auth.refresh_replay_detected` con payload completo
+   *          (user_id, session_id, attempted_at, ip, revoked_count) para
+   *          que `NotificationsAuthReplayListener` alerte al superadmin
+   *          (D12 NotificationsService.dispatchToSuperadmins).
+   *        - Devuelve UnauthorizedException con mensaje claro al cliente.
+   *   4. Si la sesión está revocada / no encontrada → throw.
+   *   5. Si el user está bloqueado / inactivo → throw.
+   *   6. Genera **par nuevo** (access + refresh — rotación completa).
+   *   7. Crea sesión nueva, marca la vieja como `used_at=now()` +
+   *      `is_active=false` + `revoked_reason='rotated'` +
+   *      `replaced_by_session_id=<nueva>`. Cadena auditada.
+   *   8. Devuelve `{access_token, refresh_token, expires_in}` — el caller
+   *      (Server Action en Modelo A o body JSON consumer) setea ambas cookies.
+   *
+   * Nota Modelo A (Amendment A1): este service NO toca cookies. La Server
+   * Action `refreshAction` en Next.js recibe el par nuevo y rota las
+   * cookies httpOnly del dominio Next.js. Backend stateless sobre body.
+   */
+  async refresh(refreshToken: string, ip: string, userAgent?: string) {
     let payload: JwtPayload;
     try {
       payload = this.jwt.verify<JwtPayload>(refreshToken, {
@@ -137,8 +168,36 @@ export class AuthTokenService {
       where: { refresh_hash: refreshHash },
     });
 
-    if (!session || !session.is_active)
+    if (!session) {
       throw new UnauthorizedException('Sesión no encontrada o revocada');
+    }
+
+    // ── REPLAY DETECTION ──
+    // Token ya fue canjeado. Asumimos compromiso.
+    if (session.used_at) {
+      const attemptedAt = new Date();
+      const revoked = await this.prisma.session.updateMany({
+        where: { user_id: session.user_id, is_active: true },
+        data: { is_active: false, revoked_reason: 'replay_detected' },
+      });
+
+      this.events.emit('auth.refresh_replay_detected', {
+        user_id: session.user_id,
+        session_id: session.id,
+        original_used_at: session.used_at.toISOString(),
+        attempted_at: attemptedAt.toISOString(),
+        ip,
+        revoked_sessions_count: revoked.count,
+      });
+
+      throw new UnauthorizedException(
+        'Sesión comprometida — todas las sesiones se han revocado por seguridad. Vuelve a iniciar sesión.',
+      );
+    }
+
+    if (!session.is_active) {
+      throw new UnauthorizedException('Sesión revocada');
+    }
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
@@ -154,22 +213,76 @@ export class AuthTokenService {
       'access_token_expires_minutes',
       15,
     );
-    const accessToken = this.jwt.sign(
-      {
-        sub: user.id,
-        email: user.email,
-        role: user.role.slug,
-        type: 'access',
-      } as JwtPayload,
-      { expiresIn: `${accessExpiresMin}m` },
+    const refreshExpiresDays = await this.settings.getNumber(
+      'auth',
+      'refresh_token_expires_days',
+      7,
     );
 
-    await this.prisma.session.update({
-      where: { id: session.id },
-      data: { last_used_at: new Date(), ip_address: ip },
+    // Genera par nuevo (rotación completa). `jti` random garantiza que el
+    // token sea único aunque el resto del payload + iat (en segundos) coincida
+    // con un token previo del mismo user — sin esto, login + refresh inmediato
+    // colisionan en `sessions.token_hash UNIQUE`. Sprint 13 §13.AUTH Fase B
+    // smoke test confirmó la regresión.
+    const accessPayload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role.slug,
+      type: 'access',
+      jti: crypto.randomUUID(),
+    };
+    const refreshPayload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role.slug,
+      type: 'refresh',
+      jti: crypto.randomUUID(),
+    };
+    const accessToken = this.jwt.sign(accessPayload, {
+      expiresIn: `${accessExpiresMin}m`,
+    });
+    const newRefreshToken = this.jwt.sign(refreshPayload, {
+      secret: this.config.get('JWT_REFRESH_SECRET'),
+      expiresIn: `${refreshExpiresDays}d`,
     });
 
-    return { access_token: accessToken, expires_in: accessExpiresMin * 60 };
+    // Transacción: crea sesión nueva, marca vieja como rotated. Patrón
+    // canónico Prisma 7 (idéntico a billing-invoice.service.ts: devolver el
+    // record completo del create() y dejar que TypeScript infiera).
+    const newSession = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.session.create({
+        data: {
+          user_id: user.id,
+          token_hash: this.hashToken(accessToken),
+          refresh_hash: this.hashToken(newRefreshToken),
+          ip_address: ip,
+          user_agent: userAgent ?? session.user_agent,
+          device_label: this.parseDeviceLabel(
+            userAgent ?? session.user_agent ?? undefined,
+          ),
+          expires_at: new Date(Date.now() + refreshExpiresDays * 86400_000),
+        },
+      });
+      await tx.session.update({
+        where: { id: session.id },
+        data: {
+          used_at: new Date(),
+          is_active: false,
+          revoked_reason: 'rotated',
+          replaced_by_session_id: created.id,
+          last_used_at: new Date(),
+          ip_address: ip,
+        },
+      });
+      return created;
+    });
+
+    return {
+      access_token: accessToken,
+      refresh_token: newRefreshToken,
+      expires_in: accessExpiresMin * 60,
+      session_id: newSession.id,
+    };
   }
 
   /* ── Logout ── */
@@ -211,6 +324,62 @@ export class AuthTokenService {
     });
     this.events.emit('auth.session_closed', { userId, sessionId });
     return { message: 'Sesión cerrada' };
+  }
+
+  /* ── WebSocket short-lived token ── */
+  /**
+   * Sprint 13 §13.AUTH Fase A (2026-05-03) — token efímero para handshake WS.
+   *
+   * Por qué existe: en arquitectura Modelo A (ADR-078 Amendment A1) el JWT
+   * vive en una cookie httpOnly del dominio Next.js que el `socket.io-client`
+   * del browser no puede leer (sin acceso JS). Un Server Action de Next.js
+   * (`getWsTokenAction`) llama a este endpoint server-side reenviando el
+   * `Authorization: Bearer` desde la cookie y devuelve este token corto al
+   * Client Component que monta el socket. El cliente lo pasa al handshake:
+   *   `io('/support', { auth: { token } })`.
+   *
+   * Ámbito y caducidad:
+   *  - Claim `type: 'ws'` (jwt.strategy.ts) — distinto de 'access'.
+   *  - Caducidad fija de 60 segundos. Ventana suficiente para el handshake
+   *    inicial; el socket persiste sin token tras `connect`. Si la conexión
+   *    cae, el cliente vuelve a pedir un token nuevo (Server Action coste
+   *    bajo).
+   *  - Firmado con `JWT_SECRET` igual que el access token — `SupportGatewayAuth`
+   *    lo verifica sin cambios. La únicidad real se da por `type='ws'`: el
+   *    gateway acepta cualquier JWT válido, y el strategy del backend rechaza
+   *    los `type='ws'` en HTTP (validate() exige 'access'), así que un atacante
+   *    que robara este token solo podría abrir un socket — no llamar la API.
+   *
+   * Audit: NO se persiste audit log por cada generación de token WS (ruido
+   * elevado: cada apertura de chat genera uno). El audit del uso real vive
+   * en el gateway (`Connected: ...` log) y en `audit_access_log` cuando el
+   * usuario interactúa con conversaciones.
+   */
+  async issueWsToken(
+    userId: string,
+  ): Promise<{ token: string; expiresIn: number }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    if (user.status !== 'active') {
+      throw new UnauthorizedException('User not active');
+    }
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role.slug,
+      type: 'ws',
+      jti: crypto.randomUUID(),
+    };
+    const expiresIn = 60; // seconds
+    const token = this.jwt.sign(payload, { expiresIn: `${expiresIn}s` });
+
+    return { token, expiresIn };
   }
 
   /* ── Get Me ── */

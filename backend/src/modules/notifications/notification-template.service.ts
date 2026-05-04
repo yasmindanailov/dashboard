@@ -76,7 +76,7 @@ const DEFAULT_PREVIEW_SAMPLES: Record<string, Record<string, unknown>> = {
     task_priority: 'high',
     task_priority_label: 'Alta',
     task_reason: 'Bienvenida primer servicio',
-    task_url: 'http://localhost:3002/admin/tasks/preview',
+    task_url: 'http://localhost:3002/admin/tasks',
     due_label: '15 may 2026',
   },
   'outbox.event_failed': {
