@@ -26,6 +26,7 @@ const SUPERADMIN_PASSWORD =
 
 let pool: Pool;
 let agentSupportId: string;
+let agentFullId: string;
 let agentBillingId: string;
 let clientUserId: string;
 
@@ -160,6 +161,12 @@ test.describe('Tasks — API canónica Sprint 16 (ADR-079)', () => {
       lastName: 'Soporte',
       roleSlug: 'agent_support',
     });
+    agentFullId = await createUser({
+      email: 'e2e-agent-full@aelium.test',
+      firstName: 'Fina',
+      lastName: 'Full',
+      roleSlug: 'agent_full',
+    });
     agentBillingId = await createUser({
       email: 'e2e-agent-billing@aelium.test',
       firstName: 'Bruno',
@@ -236,20 +243,25 @@ test.describe('Tasks — API canónica Sprint 16 (ADR-079)', () => {
     expect(notifs.rows[0].action_url).toBe(`/admin/support/${conversationId}`);
     expect(notifs.rows[0].metadata?.event).toBe('task.assigned');
 
-    // 4. Reasignar al agent_billing via PATCH /tasks/:id/assign.
+    // 4. Reasignar a agent_full via PATCH /tasks/:id/assign.
+    //    Sprint 13 §13.AUTH §11.1 B3 hizo que `tasks.assign` para bridge
+    //    `support_ticket` delegue a `support.updateConversation`, que sólo
+    //    acepta {superadmin, agent_full, agent_support} (la cola canónica
+    //    de tickets). `agent_billing` queda fuera por doctrina — billing
+    //    no atiende tickets de soporte.
     await clearMailbox();
     const assignRes = await authedRequest(
       request,
       sharedToken,
       'PATCH',
       `/tasks/${task!.id}/assign`,
-      { assigned_to: agentBillingId },
+      { assigned_to: agentFullId },
     );
     expect(
       assignRes.ok(),
       `reassign: ${assignRes.status()} ${await assignRes.text()}`,
     ).toBeTruthy();
-    await waitForEmail('e2e-agent-billing@aelium.test', {
+    await waitForEmail('e2e-agent-full@aelium.test', {
       subjectIncludes: 'tarea',
       timeoutMs: 15_000,
     });
