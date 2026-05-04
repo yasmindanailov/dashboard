@@ -89,13 +89,17 @@ export async function loginAPI(
  * saltarse el login UI (ADR-078 Amendment A1 — Modelo A).
  *
  * Cookies seteadas: `aelium_access_token` + `aelium_refresh_token` con
- * `httpOnly=true`, `sameSite=Lax`, `path=/`. Estas son las mismas que setea
+ * `httpOnly=true`, `sameSite=Lax`. Estas son las mismas que setea
  * `loginAction` server-side; el Server Component las lee con `cookies()` de
  * `next/headers` y reenvía al backend NestJS como `Authorization: Bearer`.
  *
  * Pasar `accessToken` solo (sin refresh) es válido para tests cortos que no
  * dependen de rotación; pero el patrón canónico es pasar ambos (la cookie
  * de refresh permite que `serverFetch` invoque `refreshAction` si recibe 401).
+ *
+ * Nota: Playwright (`network.js#rewriteCookies`) rechaza la combinación
+ * `url + path` con el error "Cookie should have either url or path". Pasamos
+ * solo `url` y Playwright deriva `domain` + `path` (`/`) automáticamente.
  */
 export async function injectAuthSession(
   context: BrowserContext,
@@ -108,7 +112,6 @@ export async function injectAuthSession(
       url: TEST_CONFIG.frontendUrl,
       httpOnly: true,
       sameSite: 'Lax' as const,
-      path: '/',
     },
   ];
   if (tokens.refreshToken) {
@@ -118,7 +121,6 @@ export async function injectAuthSession(
       url: TEST_CONFIG.frontendUrl,
       httpOnly: true,
       sameSite: 'Lax' as const,
-      path: '/',
     });
   }
   await context.addCookies(cookieEntries);
