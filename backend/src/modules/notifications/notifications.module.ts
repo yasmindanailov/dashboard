@@ -15,6 +15,7 @@ import { NotificationsOutboxListener } from './listeners/notifications-outbox.li
 import { NotificationsDlqListener } from './listeners/notifications-dlq.listener';
 import { NotificationsSystemErrorListener } from './listeners/notifications-system-error.listener';
 import { NotificationsAuthReplayListener } from './listeners/notifications-auth-replay.listener';
+import { NotificationsPluginCircuitListener } from './listeners/notifications-plugin-circuit.listener';
 import { NotificationsRetentionCron } from './notifications-retention.cron';
 
 /**
@@ -42,6 +43,7 @@ import { NotificationsRetentionCron } from './notifications-retention.cron';
     NotificationsDlqListener,
     NotificationsSystemErrorListener,
     NotificationsAuthReplayListener,
+    NotificationsPluginCircuitListener,
     NotificationsRetentionCron,
     {
       provide: NOTIFICATION_CHANNELS,

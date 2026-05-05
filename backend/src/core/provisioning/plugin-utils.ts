@@ -4,6 +4,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { AuditService } from '../../modules/audit/audit.service';
 import { getErrorMessage } from '../common/utils/error.util';
 
+import type { CircuitBreakerRegistry } from './circuit-breaker';
+import { CircuitOpenError } from './circuit-breaker';
 import type { ProvisioningCacheService } from './provisioning-cache.service';
 import {
   ActionResult,
@@ -51,11 +53,18 @@ export interface GetServiceInfoOptions {
  * Lee `getServiceInfo()` con cache Redis + emisión de evento `service.metrics_fetched`
  * en cache miss para auditoría RGPD (cliente sabe cuándo se consultó al proveedor).
  *
+ * Sprint 15A Fase F (ADR-080 §5) — envuelto con circuit breaker:
+ *   - Cache hit → no se invoca al proveedor ni al breaker.
+ *   - Cache miss → ejecuta vía breaker. Si breaker open, devuelve fallback
+ *     `unknown` cacheado 30s (mismo path que ProvisionerPluginError no-retriable).
+ *
  * Estrategia de errores (degradación elegante):
+ *   - Si breaker está open → fallback unknown (sin tocar al proveedor).
  *   - Si plugin lanza ProvisionerPluginError(retriable=false): se cachea
  *     un payload corto con `status='unknown'` por 30s para evitar martillar
  *     al proveedor. UI muestra warning.
- *   - Si plugin lanza otro error: se rethrow (orquestador decide).
+ *   - Si plugin lanza otro error: se rethrow (orquestador decide). El
+ *     breaker contabiliza el fallo internamente.
  *   - Si Redis falla: se llama al plugin igual (cache fail-open).
  */
 export async function getServiceInfoWithCache(
@@ -64,6 +73,7 @@ export async function getServiceInfoWithCache(
   cache: ProvisioningCacheService,
   events: EventEmitter2,
   options: GetServiceInfoOptions,
+  breakers?: CircuitBreakerRegistry,
 ): Promise<ServiceInfo> {
   const logger = new Logger(SPRINT_11_LOGGER_PREFIX);
 
@@ -73,9 +83,12 @@ export async function getServiceInfoWithCache(
   }
 
   const startedAt = Date.now();
+  const breaker = breakers?.getOrCreate(`${plugin.slug}:getServiceInfo`);
 
   try {
-    const info = await plugin.getServiceInfo(service);
+    const info = breaker
+      ? await breaker.execute(() => plugin.getServiceInfo(service))
+      : await plugin.getServiceInfo(service);
     await cache.set(service.id, info, options.ttlSeconds);
 
     events.emit('service.metrics_fetched', {
@@ -88,6 +101,15 @@ export async function getServiceInfoWithCache(
 
     return info;
   } catch (err) {
+    if (err instanceof CircuitOpenError) {
+      logger.warn(
+        `Circuit open for ${plugin.slug}/getServiceInfo (service ${service.id}). Returning unknown fallback.`,
+      );
+      const fallback: ServiceInfo = buildUnknownStateFallback(service, plugin);
+      await cache.set(service.id, fallback, 30);
+      return fallback;
+    }
+
     if (err instanceof ProvisionerPluginError && !err.retriable) {
       logger.warn(
         `Plugin ${plugin.slug} returned non-retriable error for service ${service.id}: ${err.code}`,
@@ -160,6 +182,7 @@ export async function executeActionWithCacheInvalidation(
   cache: ProvisioningCacheService,
   events: EventEmitter2,
   audit: AuditService,
+  breakers?: CircuitBreakerRegistry,
 ): Promise<ActionResult> {
   const logger = new Logger(SPRINT_11_LOGGER_PREFIX);
 
@@ -176,24 +199,43 @@ export async function executeActionWithCacheInvalidation(
     };
   }
 
+  // Sprint 15A Fase F (ADR-080 §5) — envuelto con circuit breaker.
+  // Si breaker open → fail-fast con `action.circuit_open` (mejor UX que
+  // esperar 30s a un timeout del proveedor caído).
+  const breaker = breakers?.getOrCreate(`${plugin.slug}:executeAction`);
+
   let result: ActionResult;
   try {
-    result = await plugin.executeAction(service, actionSlug, payload);
+    result = breaker
+      ? await breaker.execute(() =>
+          plugin.executeAction(service, actionSlug, payload),
+        )
+      : await plugin.executeAction(service, actionSlug, payload);
   } catch (err) {
-    const code =
-      err instanceof ProvisionerPluginError
-        ? err.code
-        : 'PROVIDER_INTERNAL_ERROR';
-    logger.error(
-      `executeAction ${actionSlug} failed for ${plugin.slug}/${service.id}: ${code} — ${getErrorMessage(err)}`,
-    );
-    result = {
-      success: false,
-      message:
-        code === 'INVALID_PAYLOAD'
-          ? 'action.invalid_payload'
-          : 'action.provider_error',
-    };
+    if (err instanceof CircuitOpenError) {
+      logger.warn(
+        `Circuit open for ${plugin.slug}/executeAction (action=${actionSlug}, service=${service.id}). Failing fast.`,
+      );
+      result = {
+        success: false,
+        message: 'action.circuit_open',
+      };
+    } else {
+      const code =
+        err instanceof ProvisionerPluginError
+          ? err.code
+          : 'PROVIDER_INTERNAL_ERROR';
+      logger.error(
+        `executeAction ${actionSlug} failed for ${plugin.slug}/${service.id}: ${code} — ${getErrorMessage(err)}`,
+      );
+      result = {
+        success: false,
+        message:
+          code === 'INVALID_PAYLOAD'
+            ? 'action.invalid_payload'
+            : 'action.provider_error',
+      };
+    }
   }
 
   // Invalidación de cache siempre (incluso si falló — el estado puede haber cambiado parcialmente).

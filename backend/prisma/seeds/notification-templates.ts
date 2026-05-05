@@ -823,6 +823,93 @@ sesiones_revocadas: {{revoked_sessions_count}}</pre>
       },
     },
 
+    // ───────────── plugin.circuit_opened (campana superadmin — Sprint 15A Fase F.2) ─────────────
+    //
+    // Cierra ADR-080 §5. La emisión la hace `HouseCircuitBreaker.transitionTo('open')`
+    // (core/provisioning/circuit-breaker.ts) y la consume
+    // `NotificationsPluginCircuitListener`. Variables enriquecidas:
+    //  - plugin_slug: parseado de breaker_name (ej. 'enhance_cp').
+    //  - operation: parseado de breaker_name (ej. 'getServiceInfo').
+    //  - last_error_code: código semántico ProvisionerPluginError o null.
+    //  - failure_count: cuántos fallos antes de abrir.
+    //  - reset_timeout_ms: cuánto esperará antes de probar half-open.
+    {
+      event_type: 'plugin.circuit_opened',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Plugin {{plugin_slug}} caído — circuito abierto',
+      body: 'Operación {{operation}} desactivada tras {{failure_count}} fallos ({{last_error_code}}). Reintento en ~30s.',
+      variables: {
+        breaker_name: 'string',
+        plugin_slug: 'string',
+        operation: 'string',
+        opened_at: 'string',
+        last_error_code: 'string?',
+        failure_count: 'number',
+        reset_timeout_ms: 'number',
+      },
+    },
+
+    // ───────────── plugin.circuit_opened (email superadmin — Sprint 15A Fase F.2) ─────────────
+    {
+      event_type: 'plugin.circuit_opened',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Aelium — Plugin {{plugin_slug}} caído ({{operation}})',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #EA580C 0%, #C2410C 100%); padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 20px;">Plugin caído</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">{{plugin_slug}} · circuito abierto</p>
+          </div>
+          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
+            <p style="color: #374151; font-size: 14px;">
+              El proveedor del plugin <strong>{{plugin_slug}}</strong> ha fallado repetidamente. El circuit breaker abrió la operación <code>{{operation}}</code> para no martillar al proveedor mientras se recupera. Las lecturas servirán fallback "unknown" desde cache; las acciones inline fallarán con <code>action.circuit_open</code> hasta que el circuito vuelva a cerrarse.
+            </p>
+            <pre style="background: #f9fafb; border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto;">plugin_slug: {{plugin_slug}}
+operation: {{operation}}
+breaker_name: {{breaker_name}}
+opened_at: {{opened_at}}
+failure_count: {{failure_count}}
+last_error_code: {{last_error_code}}
+reset_timeout_ms: {{reset_timeout_ms}}</pre>
+            <p style="color: #6b7280; font-size: 12px;">
+              Acción recomendada: revisar la API del proveedor + logs en <code>/admin/error-log</code>. Si la caída persiste, deshabilitar el plugin desde <code>/admin/settings/plugins</code> (los servicios afectados quedarán en pending hasta restauración).
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        breaker_name: 'string',
+        plugin_slug: 'string',
+        operation: 'string',
+        opened_at: 'string',
+        last_error_code: 'string?',
+        failure_count: 'number',
+        reset_timeout_ms: 'number',
+      },
+    },
+
+    // ───────────── plugin.circuit_closed (campana superadmin — Sprint 15A Fase F.2) ─────────────
+    //
+    // Notif `internal` informativa de resolución. NO se duplica como email
+    // (el superadmin ya recibió el email de open; saber que cerró no merece
+    // otro email).
+    {
+      event_type: 'plugin.circuit_closed',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Plugin {{plugin_slug}} recuperado',
+      body: 'Operación {{operation}} restaurada tras {{downtime_seconds}}s de caída.',
+      variables: {
+        breaker_name: 'string',
+        plugin_slug: 'string',
+        operation: 'string',
+        closed_at: 'string',
+        downtime_seconds: 'number',
+      },
+    },
+
     // ───────────── system.error (email superadmin — Sprint 9.5) ─────────────
     //
     // Cierra ADR-055 §Monitoring. La emisión la hace ErrorLogService.log() y la

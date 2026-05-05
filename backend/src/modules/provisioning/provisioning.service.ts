@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../core/database/prisma.service';
 import { SettingsService } from '../../core/settings/settings.service';
+import { CircuitBreakerRegistry } from '../../core/provisioning/circuit-breaker';
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
 import { ProvisioningCacheService } from '../../core/provisioning/provisioning-cache.service';
 import {
@@ -63,6 +64,7 @@ export class ProvisioningService {
     private readonly audit: AuditService,
     private readonly settings: SettingsService,
     private readonly orchestrator: ProvisioningOrchestratorService,
+    private readonly breakers: CircuitBreakerRegistry,
   ) {}
 
   // ─── Listado ────────────────────────────────────────────────────────
@@ -202,6 +204,7 @@ export class ProvisioningService {
       this.cache,
       this.events,
       { ttlSeconds },
+      this.breakers,
     );
 
     return { service: summary, info };
@@ -267,6 +270,7 @@ export class ProvisioningService {
       this.cache,
       this.events,
       this.audit,
+      this.breakers,
     );
   }
 
