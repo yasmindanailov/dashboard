@@ -87,6 +87,13 @@ export enum Subject {
   // Settings
   Setting = 'Setting',
   Agent = 'Agent', // Gestión de agentes (crear, editar)
+  // Sprint 15A (ADR-080) — Plugin Framework. Habilitar/deshabilitar plugins
+  // de provisioning + editar config + secretos cifrados. Admin-puro: el
+  // patrón es idéntico a `NotificationTemplate` / `Job` (ADR-067) — solo
+  // superadmin puede gestionarlos porque editar la config de un plugin
+  // implica acceso a credenciales del proveedor (Stripe API key, Enhance
+  // CP api_key, etc.).
+  Plugin = 'Plugin',
 
   // Promotions & Discounts
   Promotion = 'Promotion',
@@ -206,6 +213,17 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       subject: Subject.Agent,
       inverted: true,
       reason: 'Solo el superadmin puede crear, editar o eliminar agentes.',
+    },
+    {
+      // Sprint 15A (ADR-080) — Plugin Framework admin-puro. Mismo patrón
+      // canónico que NotificationTemplate / Job: editar la config de un
+      // plugin implica acceso a credenciales del proveedor (api keys
+      // cifradas), por lo que queda exclusivo del superadmin.
+      action: Action.Manage,
+      subject: Subject.Plugin,
+      inverted: true,
+      reason:
+        'Solo el superadmin puede gestionar plugins (ADR-080) — los plugins manejan credenciales sensibles del proveedor.',
     },
   ],
 
@@ -488,6 +506,8 @@ export const SIDEBAR_PERMISSIONS: Record<string, Subject[]> = {
     // ADR-067 — items admin-puro plataforma (solo superadmin).
     Subject.NotificationTemplate,
     Subject.Job,
+    // ADR-080 — Plugin Framework admin-puro (manejan credenciales del proveedor).
+    Subject.Plugin,
     Subject.Partner,
     Subject.Referral,
   ],

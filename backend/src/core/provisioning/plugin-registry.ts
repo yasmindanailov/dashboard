@@ -247,4 +247,15 @@ export class PluginRegistryService implements OnModuleInit {
   listAvailableSlugs(): string[] {
     return [...this.validatedPlugins.keys()];
   }
+
+  /**
+   * Devuelve el plugin VALIDADO (DI + contrato OK) por slug, ignorando si
+   * está enabled o no. Necesario para `/admin/plugins/:slug` donde el
+   * superadmin necesita ver el manifest de plugins disabled para poder
+   * habilitarlos. NO usarlo desde código operativo (orquestador) — usar
+   * `get`/`getOrThrow` que respetan el flag enabled.
+   */
+  getAvailable(slug: string): ProvisionerPlugin | null {
+    return this.validatedPlugins.get(slug) ?? null;
+  }
 }

@@ -60,6 +60,8 @@
     "@sentry/nestjs": "^10.50.0",
     "@sentry/profiling-node": "^10.50.0",
     "@types/pdfkit": "^0.17.6",
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.74.1",
     "class-transformer": "^0.5.1",
