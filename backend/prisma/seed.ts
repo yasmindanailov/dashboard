@@ -5,6 +5,7 @@ import { Pool } from 'pg';
 
 import { seedRoles } from './seeds/roles';
 import { seedSettings } from './seeds/settings';
+import { seedPluginInstalls } from './seeds/plugin-installs';
 import { seedTestAccounts } from './seeds/test-accounts';
 import { seedSampleClients } from './seeds/sample-clients';
 import { seedSampleProducts } from './seeds/sample-products';
@@ -52,6 +53,11 @@ async function main() {
   try {
     await seedRoles(prisma);
     await seedSettings(prisma);
+    // Sprint 15A (ADR-080 §2) — plugins triviales canónicos `internal` y `manual`
+    // habilitados por defecto. Operación canónica de la empresa (NO demo data) —
+    // se siembra siempre, incluso en producción. Plugins reales (Sprint 15B/C/D/E/G)
+    // se instalan desde la UI admin con secrets cifrados.
+    await seedPluginInstalls(prisma);
     await seedNotificationTemplates(prisma);
     // Sprint 16 (ADR-079): el catálogo de tags se eliminó. Las notas demo
     // se generan en `sample-client-notes` después de los clientes/tickets.

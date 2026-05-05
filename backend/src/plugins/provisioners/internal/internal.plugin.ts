@@ -2,8 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import {
   ActionResult,
+  EMPTY_PLUGIN_SCHEMA,
   PROVISIONER_PLUGIN_CONTRACT_VERSION,
   PluginCapabilities,
+  PluginManifest,
   ProvisionContext,
   ProvisionResult,
   ProvisionerPlugin,
@@ -64,6 +66,23 @@ export class InternalProvisionerPlugin implements ProvisionerPlugin {
   };
 
   readonly inlineActions: readonly ServiceAction[] = [];
+
+  /**
+   * Manifest declarativo Sprint 15A — ADR-080 §1.
+   * Plugin trivial sin config ni secrets externos: schemas vacíos canónicos.
+   */
+  readonly manifest: PluginManifest = {
+    slug: 'internal',
+    version: '1.0.0',
+    manifestVersion: 'v1',
+    label: 'plugin.internal.label',
+    description: 'plugin.internal.description',
+    docsUrl: 'docs/features/provisioning/admin.md#plugin-internal',
+    settingsCategory: 'provisioner',
+    configSchema: EMPTY_PLUGIN_SCHEMA,
+    secretsSchema: EMPTY_PLUGIN_SCHEMA,
+    testConnectionMethod: null,
+  };
 
   async provision(ctx: ProvisionContext): Promise<ProvisionResult> {
     this.logger.log(

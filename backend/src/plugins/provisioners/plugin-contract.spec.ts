@@ -1,4 +1,5 @@
 import {
+  PLUGIN_MANIFEST_VERSION,
   PROVISIONER_PLUGIN_CONTRACT_VERSION,
   ProvisionerPlugin,
   ProvisionerPluginError,
@@ -99,6 +100,56 @@ describe.each(REGISTERED_PROVISIONER_PLUGINS.map((p) => [p.slug, p] as const))(
 
     it('declara contractVersion === v2', () => {
       expect(plugin.contractVersion).toBe(PROVISIONER_PLUGIN_CONTRACT_VERSION);
+    });
+
+    // ─── Manifest declarativo (Sprint 15A — ADR-080 §1) ──────────────────
+
+    it('expone manifest declarativo con shape canónico (ADR-080 §1)', () => {
+      const m = plugin.manifest;
+
+      // slug coincide con plugin.slug — invariante crítica para loader desde DB.
+      expect(m.slug).toBe(plugin.slug);
+      expect(m.manifestVersion).toBe(PLUGIN_MANIFEST_VERSION);
+
+      // semver del propio plugin (independiente del contractVersion).
+      expect(m.version).toMatch(/^\d+\.\d+\.\d+(-[a-z0-9.-]+)?$/);
+
+      // i18n keys (no texto literal) — la UI las resuelve por locale.
+      expect(typeof m.label).toBe('string');
+      expect(m.label.length).toBeGreaterThan(0);
+      expect(typeof m.description).toBe('string');
+      expect(m.description.length).toBeGreaterThan(0);
+
+      expect(typeof m.docsUrl).toBe('string');
+      expect(m.docsUrl.length).toBeGreaterThan(0);
+
+      // Categoría canónica acotada (ADR-080 §7).
+      expect(['provisioner', 'payment', 'notification', 'ai']).toContain(
+        m.settingsCategory,
+      );
+
+      // Test-connection: lista cerrada.
+      expect([null, 'getStatus', 'custom']).toContain(m.testConnectionMethod);
+    });
+
+    it('manifest.configSchema y manifest.secretsSchema son JsonSchema7 separados', () => {
+      const m = plugin.manifest;
+
+      for (const schema of [m.configSchema, m.secretsSchema]) {
+        expect(schema.type).toBe('object');
+        expect(schema.properties).toBeDefined();
+        expect(typeof schema.properties).toBe('object');
+
+        // ADR-080 §1 invariante: NO se admite additionalProperties=true en v1.
+        expect(schema.additionalProperties).not.toBe(true);
+
+        // required ⊆ properties — invariante de coherencia.
+        if (schema.required) {
+          for (const requiredKey of schema.required) {
+            expect(schema.properties[requiredKey]).toBeDefined();
+          }
+        }
+      }
     });
 
     it('declara capabilities completas (todos los flags presentes)', () => {

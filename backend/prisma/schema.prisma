@@ -242,6 +242,36 @@ model Setting {
   @@map("settings")
 }
 
+/// Sprint 15A — ADR-080 §2 — Plugin Framework.
+///
+/// Una fila por plugin de provisioning instalado (`internal`, `manual`,
+/// `enhance_cp`, `resellerclub`, `docker_engine`, etc.). Separada de
+/// `settings` por diseño: secrets cifrados NUNCA se mezclan con settings
+/// generales del cliente.
+///
+/// PK natural `slug` (NO UUID) — el slug ES la identidad por contrato
+/// ADR-077 §1, cardinalidad acotada (~15 plugins de por vida), 3NF
+/// aplicado correctamente. Justificación completa en ADR-080 §2.
+///
+/// `secrets` jsonb almacena blobs cifrados por `SecretVaultService`
+/// (AES-256-GCM con `ENCRYPTION_KEY`). Cada campo del shape declarado
+/// por `manifest.secretsSchema` se cifra individualmente con su IV propio.
+/// `key_version` permite rotación futura (Sprint 15A v1: única clave activa).
+model PluginInstall {
+  slug         String   @id @db.VarChar(80)
+  enabled      Boolean  @default(false)
+  config       Json     @default("{}")
+  secrets      Json     @default("{}")
+  key_version  Int      @default(1)
+  installed_at DateTime @default(now()) @db.Timestamptz()
+  installed_by String?  @db.Uuid
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz()
+  updated_by   String?  @db.Uuid
+
+  @@index([enabled])
+  @@map("plugin_installs")
+}
+
 // ─── BLOQUE 4: PRODUCTOS Y CATÁLOGO ───
 
 enum BillingCycle {

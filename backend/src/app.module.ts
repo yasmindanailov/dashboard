@@ -16,6 +16,7 @@ import { CaslModule } from './core/casl/casl.module';
 import { OutboxModule } from './core/outbox/outbox.module';
 import { StorageModule } from './core/storage/storage.module';
 import { JobsModule } from './core/jobs/jobs.module';
+import { SecurityModule } from './core/security/security.module';
 
 // Health
 import { HealthModule } from './health/health.module';
@@ -77,6 +78,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     OutboxModule,
     StorageModule,
     JobsModule,
+    SecurityModule,
     HealthModule,
 
     // ── Business modules ──

@@ -2,9 +2,27 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { PluginRegistryService, PROVISIONER_PLUGINS } from './plugin-registry';
 import {
-  ProvisionerPlugin,
+  EMPTY_PLUGIN_SCHEMA,
+  PluginManifest,
   PROVISIONER_PLUGIN_CONTRACT_VERSION,
+  ProvisionerPlugin,
 } from './types';
+
+/** Manifest mínimo canónico para tests (ADR-080 §1) — derivado del slug. */
+function buildTestManifest(slug: string): PluginManifest {
+  return {
+    slug,
+    version: '0.0.0-test',
+    manifestVersion: 'v1',
+    label: `plugin.${slug}.label`,
+    description: `plugin.${slug}.description`,
+    docsUrl: `docs/test/${slug}.md`,
+    settingsCategory: 'provisioner',
+    configSchema: EMPTY_PLUGIN_SCHEMA,
+    secretsSchema: EMPTY_PLUGIN_SCHEMA,
+    testConnectionMethod: null,
+  };
+}
 
 /**
  * Tests unit PluginRegistryService — Sprint 11 Fase 11.B (ADR-077 §6).
@@ -21,8 +39,9 @@ import {
 function buildValidPlugin(
   over: Partial<ProvisionerPlugin> = {},
 ): ProvisionerPlugin {
+  const slug = over.slug ?? 'internal';
   return {
-    slug: 'internal',
+    slug,
     contractVersion: PROVISIONER_PLUGIN_CONTRACT_VERSION,
     capabilities: {
       has_sso_panel: false,
@@ -34,6 +53,7 @@ function buildValidPlugin(
       supports_reconciliation: false,
     },
     inlineActions: [],
+    manifest: buildTestManifest(slug),
     provision: jest.fn(),
     deprovision: jest.fn(),
     getStatus: jest.fn(),
