@@ -164,6 +164,7 @@ Resultado: la historia queda íntegra.
 - [ADR-076](./adr-076-checkout-unico-support-inside-via-evento.md) — Checkout único por dominio billing: Support Inside como consumidor del evento `service.provisioned` emitido por `BillingCheckoutService` (Sprint 8 Fase D.12)
 - [ADR-077](./adr-077-contrato-provisioner-plugin-v2.md) — Contrato canónico `ProvisionerPlugin` v2: firma TypeScript congelada + capability flags + shapes (`ServiceInfo`/`SsoUrl`/`ActionResult`) + pipeline canónico de wrappers + política de versionado (Sprint 11 Fase 11.A)
 - [ADR-078](./adr-078-auth-server-side-cookies-httponly.md) — Auth server-side con cookies httpOnly para Server Components: plan canónico de migración DC.13 + DC.6 + marker `TODO(ADR-078)` para trazabilidad mecánica + Fase 11.D del Sprint 11 como última excepción permitida del patrón `'use client' + localStorage` (Sprint 13 §13.AUTH cierra la deuda)
+- [ADR-080](./adr-080-plugin-framework.md) — Plugin Framework: manifest declarativo (JSON-Schema 7 config + secrets schema) + tabla `plugin_installs` + `SecretVaultService` AES-256-GCM con `ENCRYPTION_KEY` env var + `key_version` para rotación + loader runtime desde DB + circuit breaker tras interface + 5 eventos canónicos `plugin.*` (Sprint 15A Fase A)
 
 ---
 
