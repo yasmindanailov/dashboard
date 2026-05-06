@@ -83,6 +83,11 @@ Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras
 - `service.action_executed` — payload `{ serviceId, actionSlug, clientId, success, sideEffects }`.
 - `service.sso_opened` — payload `{ serviceId, panelLabel, clientId, ip }`.
 - `service.metrics_fetched` — payload `{ serviceId, fetchedAt, sourceLatencyMs }`.
+- **Sprint 15A — `plugin.*` ([ADR-080](../../10-decisions/adr-080-plugin-framework.md)):**
+  - `plugin.installed` — primer enable de un plugin no-bootstrap.
+  - `plugin.config_changed` — emitido por `AdminPluginsService.update`. Consumido por `PluginRegistryService.handleConfigChanged` (recarga `activePlugins` sin re-validar contrato — ADR-080 §4).
+  - `plugin.uninstalled` — reservado, no emitido en Sprint 15A.
+  - `plugin.circuit_opened` / `plugin.circuit_closed` — emitidos por `HouseCircuitBreaker` cuando un proveedor cae o se recupera. Consumidos por `NotificationsPluginCircuitListener` → notif a superadmin.
 
 ### Consume
 
@@ -107,6 +112,17 @@ Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras
 - `POST /api/v1/admin/services/:id/reprovision` — fuerza re-ejecución (úselo como escotilla cuando un plugin falla y se reparó la causa raíz).
 - `POST /api/v1/admin/services/:id/deprovision` — desactiva servicio (cancelación admin).
 
+### Admin Plugin Framework (`/api/v1/admin/plugins/*` — Sprint 15A, [ADR-080](../../10-decisions/adr-080-plugin-framework.md))
+
+> Acceso exclusivo `superadmin` (CASL `Subject.Plugin` admin-puro, mismo patrón ADR-067 que `NotificationTemplate` / `Job`). El resto de staff recibe 403.
+
+- `GET /api/v1/admin/plugins` — lista plugins disponibles (DI + contrato OK) con manifest + estado de instalación + circuit_state.
+- `GET /api/v1/admin/plugins/:slug` — detalle. Secrets enmascarados como `'***'` (seteado) o `null` (no seteado). NUNCA plaintext.
+- `PATCH /api/v1/admin/plugins/:slug` — actualiza `enabled`/`config`/`secrets`. Validación Ajv contra `manifest.configSchema` y `manifest.secretsSchema`. Secrets cifrados con `SecretVaultService` (AES-256-GCM). Audit `logChange` con secrets enmascarados (`<set>`/`<cleared>`). Emite `plugin.config_changed` + `plugin.installed` (primera vez).
+- `POST /api/v1/admin/plugins/:slug/test-connection` — invoca `plugin.getStatus()` con service sintético. Solo si `manifest.testConnectionMethod === 'getStatus'`. NO persiste cambios.
+
+**Operativa diaria documentada en [`docs/features/provisioning/admin-plugins.md`](../../features/provisioning/admin-plugins.md).**
+
 ## 8. Edge cases relevantes
 
 - **Plugin sin SSO**: `getSsoUrl` devuelve `null` → frontend oculta botón "Abrir panel".
@@ -119,10 +135,11 @@ Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras
 ## 9. Pendientes registrados
 
 - ✅ Sprint 11 cerrado al 100% (2026-05-02). Plugins triviales `internal` + `manual` operativos; orquestador escucha `invoice.paid` y emite los 5 eventos canónicos.
+- ✅ Sprint 15A cerrado al 100% (2026-05-06) — Plugin Framework. Manifest declarativo (JSON-Schema 7) + `SecretVaultService` AES-256-GCM + `plugin_installs` + loader runtime desde DB + circuit breaker tras interface + 5 eventos `plugin.*` + UI admin completa (`/admin/settings/plugins`). Ver [ADR-080](../../10-decisions/adr-080-plugin-framework.md).
 - Listener `notifications-on-provisioning-failed` para alertar superadmin cuando llegue plugin con coste de fallo significativo (Sprint 12 o cuando llegue primer plugin real).
 - Listener `audit-on-service-events` para persistir `service.metrics_fetched` / `service.action_executed` / `service.sso_opened` en `audit_change_log` + portal RGPD cliente (Sprint 12.5 Portal Transparencia o sub-sprint dedicado).
-- Sprint 15A — Plugin framework + UI dinámica desde Settings + helpers `core/provisioning/plugin-utils.ts` extendidos.
-- Sprint 15C/D/E/G — Plugins reales (Enhance CP, ResellerClub, Docker Engine, Plesk Obsidian).
+- Sprint 15C/D/E/G — Plugins reales (Enhance CP, ResellerClub, Docker Engine, Plesk Obsidian) — heredan TODO el framework Sprint 15A; solo declaran 6 métodos del contrato + manifest.
+- Sprint 15A — E2E circuit breaker (Fase J.2 diferida): los unit tests cubren la lógica del breaker exhaustivamente (16/16 verde) con tiempo determinista. El E2E genuino llegará con el primer plugin real (Sprint 15C/D/E) cuando se simule la caída de un proveedor real.
 - Cuando se implemente Sprint 15E (Plugin Docker), añadir a `service_metrics` lectura filtrada por contenedor del cliente.
 - Cuando se implemente Sprint 19 (Partner Module), abrir tema "qué partners pueden invocar `executeAction` de servicios de sus clientes" — decisión pendiente con ADR específico.
 - DC.29 (backlog): bloque "Servicios contratados" en `/admin/clients/[id]` (vista relacional cotidiana del agente).

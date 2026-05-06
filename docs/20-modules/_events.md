@@ -176,6 +176,20 @@ La mayoría de eventos `auth.*` se emiten "por si acaso" pero ningún listener l
 
 ---
 
+### 🔌 plugin.* (Sprint 15A — ADR-080)
+
+| Evento | Emisor | Consumidores | Payload | Outbox | Estado |
+|--------|--------|--------------|---------|--------|--------|
+| `plugin.installed` | `AdminPluginsService.update()` la primera vez que un plugin pasa de no-existente o `enabled=false` a `enabled=true` (Sprint 15A Fase G) | (pendiente listener `audit` por slug — Sprint 15A K.1 lo registra como aspiracional) | `{ slug, installed_by, installed_at }` | no | 🟡 emitido sin consumidor explícito (audit lo cubre vía `logChange` en el service) |
+| `plugin.config_changed` | `AdminPluginsService.update()` tras persistir cualquier cambio (enabled/config/secrets) | **`PluginRegistryService.handleConfigChanged`** (recarga `activePlugins` desde DB sin re-validar contrato — ADR-080 §4) | `{ slug, changed_by, changed_at, secrets_modified }` | no | ✅ consumido |
+| `plugin.uninstalled` | (futuro — no emitido en Sprint 15A; reservado para cuando llegue desinstalación física de un plugin del DI) | (pendiente) | `{ slug, uninstalled_by, uninstalled_at }` | no | 🟡 reservado, no emitido todavía |
+| `plugin.circuit_opened` | `HouseCircuitBreaker.transitionTo('open')` (Sprint 15A Fase F.1) — tras N fallos en ventana en `getServiceInfoWithCache` o `executeActionWithCacheInvalidation` | **`NotificationsPluginCircuitListener.handleCircuitOpened`** → notif `internal` + `email` a superadmins | `{ breaker_name, opened_at, last_error_code, failure_count, reset_timeout_ms }` | no | ✅ consumido |
+| `plugin.circuit_closed` | `HouseCircuitBreaker.transitionTo('closed')` desde half-open OK o `breaker.reset()` manual | **`NotificationsPluginCircuitListener.handleCircuitClosed`** → notif `internal` informativa de resolución (sin email) | `{ breaker_name, closed_at, downtime_seconds }` | no | ✅ consumido |
+
+**Nota canónica**: el `breaker_name` codifica `<plugin_slug>:<operation>` (ej. `enhance_cp:getServiceInfo`). El listener parsea ambos componentes y los enriquece en el payload de la notificación. Plugins reales (Sprint 15C/D/E) no requieren tocar este pipeline — el breaker está cableado en los wrappers `core/provisioning/plugin-utils.ts` que consume `ProvisioningService` (ADR-080 §5).
+
+---
+
 ## Listeners activos (consolidado)
 
 | Listener | Eventos consumidos | Acciones |
@@ -203,6 +217,9 @@ La mayoría de eventos `auth.*` se emiten "por si acaso" pero ningún listener l
 | **`tasks-on-service-cancelled.listener`** (Sprint 16) | `service.cancelled` | Cancela task `provisioning_manual` huérfana cuando el servicio se cancela. |
 | **`notifications-conversation-resolved.listener`** (Sprint 16 Amendment A1, DC.33) | `conversation.resolved` | Cliente recibe email + campana CTA al ticket. Plantilla `conversation.resolved` seedeada Fase 16.E. |
 | **`notifications-conversation-auto-closed.listener`** (Sprint 16 Amendment A1, DC.33) | `conversation.auto_closed` | Agente que resolvió recibe email + campana del cierre silencioso. Plantilla `conversation.auto_closed` seedeada Fase 16.E. |
+| **`PluginRegistryService.handleConfigChanged`** (Sprint 15A Fase E) | `plugin.config_changed` | Recarga `activePlugins` desde `plugin_installs` sin re-validar contrato. Materializa ADR-080 §4 (DB activación, DI disponibilidad). |
+| **`NotificationsPluginCircuitListener.handleCircuitOpened`** (Sprint 15A Fase F.2) | `plugin.circuit_opened` | Notif `internal` + `email` a superadmins con plugin_slug + operation parseados del breaker_name. Plantillas seedeadas Fase F.2. |
+| **`NotificationsPluginCircuitListener.handleCircuitClosed`** (Sprint 15A Fase F.2) | `plugin.circuit_closed` | Notif `internal` informativa de resolución (sin email — el superadmin ya recibió alerta del open). Plantilla seedeada Fase F.2. |
 
 ---
 

@@ -16,6 +16,7 @@ import { CaslModule } from './core/casl/casl.module';
 import { OutboxModule } from './core/outbox/outbox.module';
 import { StorageModule } from './core/storage/storage.module';
 import { JobsModule } from './core/jobs/jobs.module';
+import { SecurityModule } from './core/security/security.module';
 
 // Health
 import { HealthModule } from './health/health.module';
@@ -27,6 +28,7 @@ import { ClientsModule } from './modules/clients/clients.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ProvisioningModule } from './modules/provisioning/provisioning.module';
+import { AdminPluginsModule } from './modules/admin-plugins/admin-plugins.module';
 import { SupportModule } from './modules/support/support.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { SupportInsideModule } from './modules/support-inside/support-inside.module';
@@ -77,6 +79,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     OutboxModule,
     StorageModule,
     JobsModule,
+    SecurityModule,
     HealthModule,
 
     // ── Business modules ──
@@ -86,6 +89,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     BillingModule,
     ProductsModule,
     ProvisioningModule,
+    AdminPluginsModule,
     SupportModule,
     TasksModule,
     SupportInsideModule,

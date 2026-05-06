@@ -416,6 +416,14 @@ export interface ProvisionerPlugin {
     actionSlug: string,
     payload: Record<string, unknown>,
   ): Promise<ActionResult>;
+
+  /**
+   * Manifest declarativo del plugin (Sprint 15A — ADR-080).
+   * Expone label/version/configSchema/secretsSchema para el loader
+   * dinámico, la UI admin (`/admin/settings/plugins`) y el portal RGPD.
+   * Ver §12 abajo.
+   */
+  readonly manifest: PluginManifest;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -428,3 +436,137 @@ export interface ProvisionerPlugin {
  * explícito + alerta admin.
  */
 export const PROVISIONER_PLUGIN_CONTRACT_VERSION = 'v2' as const;
+
+// ────────────────────────────────────────────────────────────────────────────
+// 12. PluginManifest (Sprint 15A — ADR-080) — declaración estática del plugin
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Versión canónica del manifest. Independiente de `contractVersion` (ADR-080 §8):
+ * un plugin puede subir su `manifest.version` (semver del propio plugin) sin
+ * tocar `contractVersion` (versión del contrato).
+ */
+export const PLUGIN_MANIFEST_VERSION = 'v1' as const;
+
+/**
+ * Subset acotado de JSON-Schema 7 (ADR-080 §1).
+ *
+ * Los plugins declaran shapes de `config` y `secrets` con esta gramática.
+ * El orquestador valida payloads con Ajv (peer-dep backend) en PATCH
+ * `/admin/plugins/:slug`. La UI admin (`@rjsf/core` + tema DS) renderiza
+ * el form dinámico desde aquí.
+ *
+ * NO se admite `additionalProperties: true` ni recursión (objects within
+ * objects) en v1 — los plugins reales (Enhance CP, ResellerClub) viven
+ * con shapes planos; cualquier necesidad real de anidación dispara ADR
+ * para extender el subset.
+ */
+export interface JsonSchema7 {
+  type: 'object';
+  properties: Record<string, JsonSchema7Property>;
+  required?: readonly string[];
+  additionalProperties?: false;
+}
+
+export interface JsonSchema7Property {
+  type: 'string' | 'number' | 'boolean' | 'integer';
+  /** i18n key (no texto literal) — la UI lo resuelve por locale del admin. */
+  description?: string;
+  /** Hints de UI para `@rjsf/core` (también usados por validación Ajv `format`). */
+  format?: 'uri' | 'email' | 'password' | 'uuid';
+  enum?: readonly (string | number)[];
+  default?: string | number | boolean;
+  minLength?: number;
+  maxLength?: number;
+  /** Pattern PCRE-compatible (ECMA262) — Ajv lo evalúa con `new RegExp`. */
+  pattern?: string;
+  minimum?: number;
+  maximum?: number;
+}
+
+/**
+ * Categorías canónicas en `/admin/settings`. La página agrupa plugins por
+ * esta categoría. Sprint 12 (P2.7 Settings + KB) extiende con categorías
+ * no-plugin (`brand`, `numbering`, `kb`) sin tocar la lógica de plugins.
+ */
+export type PluginSettingsCategory =
+  | 'provisioner'
+  | 'payment'
+  | 'notification'
+  | 'ai';
+
+/**
+ * Modo de test-connection que el plugin soporta:
+ *   - 'getStatus':  el endpoint `POST /admin/plugins/:slug/test-connection`
+ *                   reusa `plugin.getStatus()` con un service sintético
+ *                   y reporta éxito si no lanza. Default canónico para
+ *                   plugins SaaS sin endpoint dedicado.
+ *   - 'custom':     el plugin expone un método `testConnection()` propio
+ *                   (firma a definir en sub-extensión del contrato cuando
+ *                   llegue el primer plugin que lo necesite).
+ *   - null:         el plugin no soporta test-connection — la UI oculta
+ *                   el botón "Probar conexión".
+ */
+export type PluginTestConnectionMethod = 'getStatus' | 'custom' | null;
+
+/**
+ * PluginManifest — declaración estática que cada plugin expone para que
+ * el orquestador, la UI admin y el portal RGPD entiendan su forma sin
+ * inspeccionar código.
+ *
+ * Materializa ADR-080 §1 literalmente. Cualquier cambio breaking a este
+ * shape requiere bump `PLUGIN_MANIFEST_VERSION` a `v2` + ADR específico.
+ */
+export interface PluginManifest {
+  /** Slug canónico kebab-case. DEBE coincidir con `ProvisionerPlugin.slug`. */
+  readonly slug: string;
+
+  /** Versión semver del plugin (NO del contrato — eso es contractVersion). */
+  readonly version: string;
+
+  /** Versión del manifest implementado. Hoy: 'v1'. */
+  readonly manifestVersion: 'v1';
+
+  /** Etiqueta visible i18n key (ej. "plugin.enhance_cp.label"). */
+  readonly label: string;
+
+  /** Descripción corta i18n key. */
+  readonly description: string;
+
+  /** URL a documentación operativa del plugin (admin.md correspondiente). */
+  readonly docsUrl: string;
+
+  /** Categoría de settings donde aparece el plugin (ADR-080 §7). */
+  readonly settingsCategory: PluginSettingsCategory;
+
+  /**
+   * Schema del shape de `config` (campos NO secretos).
+   * Validado por Ajv en PATCH `/admin/plugins/:slug`. Renderizado por
+   * `@rjsf/core` en `/admin/settings/plugins/[slug]`.
+   */
+  readonly configSchema: JsonSchema7;
+
+  /**
+   * Schema del shape de `secrets` (campos cifrados con `SecretVaultService`).
+   * Separado de `configSchema` para que la UI marque visualmente los campos
+   * sensibles (input type="password" + nunca se muestra el valor existente)
+   * + el portal RGPD (Sprint 12.5) declare qué credenciales del proveedor
+   * Aelium maneja en nombre del cliente.
+   */
+  readonly secretsSchema: JsonSchema7;
+
+  /** Modo de test-connection que el plugin soporta. */
+  readonly testConnectionMethod: PluginTestConnectionMethod;
+}
+
+/**
+ * Schema vacío canónico — usado por plugins sin config y/o sin secrets
+ * (ej. `internal`, `manual`). Evita tener que repetir el shape en cada
+ * plugin trivial.
+ */
+export const EMPTY_PLUGIN_SCHEMA: JsonSchema7 = {
+  type: 'object',
+  properties: {},
+  required: [],
+  additionalProperties: false,
+};

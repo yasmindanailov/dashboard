@@ -7,10 +7,25 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
 import {
+  EMPTY_PLUGIN_SCHEMA,
+  PluginManifest,
   ProvisionerPlugin,
   ProvisionerPluginError,
   PROVISIONER_PLUGIN_CONTRACT_VERSION,
 } from '../../core/provisioning/types';
+
+const TEST_MANIFEST: PluginManifest = {
+  slug: 'internal',
+  version: '0.0.0-test',
+  manifestVersion: 'v1',
+  label: 'plugin.internal.label',
+  description: 'plugin.internal.description',
+  docsUrl: 'docs/test/internal.md',
+  settingsCategory: 'provisioner',
+  configSchema: EMPTY_PLUGIN_SCHEMA,
+  secretsSchema: EMPTY_PLUGIN_SCHEMA,
+  testConnectionMethod: null,
+};
 
 import { ProvisioningOrchestratorService } from './provisioning-orchestrator.service';
 
@@ -58,6 +73,7 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
         supports_reconciliation: false,
       },
       inlineActions: [],
+      manifest: TEST_MANIFEST,
       provision: jest.fn(),
       deprovision: jest.fn(),
       getStatus: jest.fn(),

@@ -38,6 +38,8 @@ export type AppModule =
   // ADR-067 — Subjects admin-puro plataforma (solo superadmin).
   | 'NotificationTemplate'
   | 'Job'
+  // ADR-080 — Plugin Framework admin-puro (manejan credenciales del proveedor).
+  | 'Plugin'
   | 'Promotion'
   | 'KnowledgeBase'
   | 'ErrorLog'
@@ -63,6 +65,8 @@ export const SIDEBAR_PERMISSIONS: Record<string, AppModule[]> = {
     'Setting', 'Promotion', 'KnowledgeBase', 'ErrorLog',
     // ADR-067 — items admin-puro plataforma (solo superadmin).
     'NotificationTemplate', 'Job',
+    // ADR-080 — Plugin Framework admin-puro.
+    'Plugin',
     'Partner', 'Referral',
     // ADR-075 — gestión de planes Support Inside (Manage.SupportInside).
     'SupportInside',
@@ -133,6 +137,8 @@ export const ROUTE_PERMISSIONS: Record<string, AppModule> = {
   '/admin/support/chats': 'Conversation',
   '/admin/tasks': 'Task',
   '/admin/settings': 'Setting',
+  // ADR-080 Sprint 15A — Plugin Framework admin-puro (manejan credenciales).
+  '/admin/settings/plugins': 'Plugin',
   '/admin/error-log': 'ErrorLog',
   '/admin/jobs/failed': 'Job',
   '/admin/notifications/templates': 'NotificationTemplate',

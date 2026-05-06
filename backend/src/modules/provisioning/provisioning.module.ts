@@ -1,6 +1,8 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
+import { CircuitBreakerRegistry } from '../../core/provisioning/circuit-breaker';
 import {
   PluginRegistryService,
   PROVISIONER_PLUGINS,
@@ -77,12 +79,22 @@ import { ProvisioningService } from './provisioning.service';
       ) => [internal, manual],
       inject: [InternalProvisionerPlugin, ManualProvisionerPlugin],
     },
+    // Sprint 15A Fase F (ADR-080 §5) — singleton CircuitBreakerRegistry.
+    // Un único registry por módulo de provisioning gestiona breakers para
+    // todos los plugins. Lazy-creates `<plugin_slug>:<operation>` la primera
+    // vez que se invoca un wrapper.
+    {
+      provide: CircuitBreakerRegistry,
+      useFactory: (events: EventEmitter2) => new CircuitBreakerRegistry(events),
+      inject: [EventEmitter2],
+    },
   ],
   exports: [
     ProvisioningService,
     ProvisioningOrchestratorService,
     PluginRegistryService,
     ProvisioningCacheService,
+    CircuitBreakerRegistry,
   ],
 })
 export class ProvisioningModule {}

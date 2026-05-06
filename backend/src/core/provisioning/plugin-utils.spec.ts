@@ -12,12 +12,27 @@ import {
 } from './plugin-utils';
 import type { ProvisioningCacheService } from './provisioning-cache.service';
 import {
+  EMPTY_PLUGIN_SCHEMA,
+  PluginManifest,
   ProvisionerPlugin,
   ProvisionerPluginError,
   PROVISIONER_PLUGIN_CONTRACT_VERSION,
   ServiceInfo,
   ServiceWithRelations,
 } from './types';
+
+const TEST_MANIFEST: PluginManifest = {
+  slug: 'internal',
+  version: '0.0.0-test',
+  manifestVersion: 'v1',
+  label: 'plugin.internal.label',
+  description: 'plugin.internal.description',
+  docsUrl: 'docs/test/internal.md',
+  settingsCategory: 'provisioner',
+  configSchema: EMPTY_PLUGIN_SCHEMA,
+  secretsSchema: EMPTY_PLUGIN_SCHEMA,
+  testConnectionMethod: null,
+};
 
 /**
  * Tests unit de wrappers cross-cutting — Sprint 11 Fase 11.B (ADR-077 §5).
@@ -60,6 +75,7 @@ function buildPlugin(over: Partial<ProvisionerPlugin> = {}): ProvisionerPlugin {
       supports_reconciliation: false,
     },
     inlineActions: [],
+    manifest: TEST_MANIFEST,
     provision: jest.fn(),
     deprovision: jest.fn(),
     getStatus: jest.fn(),

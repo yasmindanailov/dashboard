@@ -19,9 +19,24 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
 import {
+  EMPTY_PLUGIN_SCHEMA,
+  PluginManifest,
   PROVISIONER_PLUGIN_CONTRACT_VERSION,
   ProvisionerPlugin,
 } from '../../core/provisioning/types';
+
+const TEST_MANIFEST: PluginManifest = {
+  slug: 'internal',
+  version: '0.0.0-test',
+  manifestVersion: 'v1',
+  label: 'plugin.internal.label',
+  description: 'plugin.internal.description',
+  docsUrl: 'docs/test/internal.md',
+  settingsCategory: 'provisioner',
+  configSchema: EMPTY_PLUGIN_SCHEMA,
+  secretsSchema: EMPTY_PLUGIN_SCHEMA,
+  testConnectionMethod: null,
+};
 
 import { DeprovisionReasonDto } from './dto/provisioning.dto';
 import { ProvisioningService } from './provisioning.service';
@@ -76,6 +91,7 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
         supports_reconciliation: false,
       },
       inlineActions: [],
+      manifest: TEST_MANIFEST,
       provision: jest.fn(),
       deprovision: jest.fn(),
       getStatus: jest.fn(),
@@ -168,6 +184,22 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
     orchestrator = {
       enqueueProvisioning: jest.fn().mockResolvedValue(undefined),
     };
+    // Sprint 15A Fase F (ADR-080 §5) — el registry de breakers se mockea
+    // como noop: getOrCreate devuelve un breaker que ejecuta el fn como
+    // closed (passthrough). No queremos test la lógica del breaker aquí
+    // (eso vive en circuit-breaker.spec.ts) — solo que el wrapper acepta
+    // el parámetro sin romper el flujo.
+    const passthroughBreaker = {
+      execute: <T>(fn: () => Promise<T>) => fn(),
+      getState: () => 'closed' as const,
+      reset: jest.fn(),
+    };
+    const breakers = {
+      getOrCreate: jest.fn().mockReturnValue(passthroughBreaker),
+      get: jest.fn().mockReturnValue(passthroughBreaker),
+      listNames: jest.fn().mockReturnValue([]),
+      resetAll: jest.fn(),
+    };
 
     service = new ProvisioningService(
       prisma as never,
@@ -177,6 +209,7 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
       audit as never,
       settings as never,
       orchestrator as never,
+      breakers as never,
     );
   });
 
