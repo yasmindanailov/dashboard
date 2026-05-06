@@ -356,6 +356,15 @@ Patrón arquitectónico ([ADR-071](../10-decisions/adr-071-vista-admin-federada-
 ### ProviderHealthSummary
 DTO devuelto por `plugin.getProviderHealthSummary()` ([ADR-071](../10-decisions/adr-071-vista-admin-federada-infraestructura.md)) con resumen agregado de un proveedor SaaS: `servers_total`, `servers_healthy`, `servers_with_warnings`, `servers_unreachable`, `total_active_services`, `api_status` (`healthy | degraded | down`), `last_sync_at`. Permite mostrar cabecera por proveedor en `/admin/infrastructure` TAB 2 sin abrir cada servidor uno a uno. Cache compartida con `listRemoteServers` (un solo round-trip al proveedor por sync).
 
+### Plugin Manifest
+Declaración estática que cada plugin de provisioning expone para que el orquestador, la UI admin y el portal RGPD entiendan su forma sin inspeccionar código ([ADR-080 §1](../10-decisions/adr-080-plugin-framework.md)). Incluye: `slug`, `version` (semver del plugin), `manifestVersion` (`v1`), `label` y `description` (i18n keys), `docsUrl`, `settingsCategory` (provisioner / payment / notification / ai), `configSchema` (JSON-Schema 7 de campos NO secretos), `secretsSchema` (JSON-Schema 7 de campos cifrados), y `testConnectionMethod` (`getStatus` | `custom` | `null`). Ajv lo valida en backend para los PATCH; `@rjsf/core` con tema DS lo renderiza como form dinámico en el frontend admin.
+
+### Secret Vault (`SecretVaultService`)
+Servicio canónico de cifrado de secretos del backend ([ADR-080 §3](../10-decisions/adr-080-plugin-framework.md)). AES-256-GCM con clave maestra `ENCRYPTION_KEY` (env var dedicada, 32 bytes hex, validada al boot — fail-fast). IV per-secret (12 bytes random), tag GCM (16 bytes) para integridad. `key_version` desde v1 prepara rotación elegante futura. **Es el único componente del backend que toca la clave maestra**; cualquier otro módulo recibe los secretos descifrados como string en memoria. R12: secrets NUNCA en logs / audit / responses GET (audit usa `<set>`/`<cleared>`, GET responde `'***'`/`null`).
+
+### Circuit Breaker
+Patrón de resiliencia aplicado a las invocaciones a plugins de provisioning ([ADR-080 §5](../10-decisions/adr-080-plugin-framework.md)). Implementación canónica `HouseCircuitBreaker` (Sprint 15A, ~200 LOC en `core/provisioning/circuit-breaker.ts`) tras la interface `CircuitBreaker` para permitir migración futura a `opossum` sin tocar call-sites. Estados: `closed` → `open` (≥5 fallos en 60s) → `half-open` (tras 30s reset_timeout) → `closed` (probe OK) o `open` (probe KO). Aplicado EXCLUSIVAMENTE en `getServiceInfoWithCache` y `executeActionWithCacheInvalidation` por cumplir los 3 criterios canónicos: idempotente + frecuente + propagable a UX. NO envuelve `provision()`/`deprovision()` (anti-patrón "blanket protection" — ya tienen retry BullMQ propio). Emite `plugin.circuit_opened` / `plugin.circuit_closed` consumidos por `NotificationsPluginCircuitListener`.
+
 ---
 
 ## Convenciones de uso del glosario

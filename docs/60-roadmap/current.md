@@ -2,7 +2,7 @@
 
 > **Estado real verificado** contra código en auditoría 2026-04-26 + closures Sprint 8 / 9 / 9.5 / 9.6 / 11.5 (2026-04-26 → 2026-05-01) + Sprint 11 Fases A+B (2026-05-01/02). Cualquier sprint listado aquí está parcialmente avanzado (no es backlog puro — para eso ver [`backlog.md`](./backlog.md)). Los sprints ✅ que aparecen abajo son punteros a `completed/`; viven aquí solo para trazabilidad cronológica de la ola P1.1.
 
-> **Última actualización:** 2026-05-03 — **Sprint 16 + Sprint 13.5 + Sprint 13.5.5 cerrados al 100%**. Sprint 13.5.5 (CI Infra) cerró DC.27 al 100% (imagen oficial Playwright en CI) + DC.13 parcial-canónica (sharding CI con `--shard=N/M` × 3 shards paralelos, wall-clock CI 25 min → ~10 min). Paralelización local con `workers > 1` diferida a sub-sprint condicionado **Sprint 13.5.6 — E2E parallel local** (trigger: suite local > 2 min). Detalle en [`completed/sprint-13-5-5-ci-infra.md`](./completed/sprint-13-5-5-ci-infra.md).
+> **Última actualización:** 2026-05-06 — **Sprint 15A Plugin Framework cerrado al 100%**. ADR-080 (manifest declarativo + vault de secretos AES-256-GCM + loader desde DB + circuit breaker tras interface) materializado en 5 commits. Cobertura final: **255/255 unit verde** (+57 nuevos), 7 E2E REST (`admin-plugins.spec.ts`), typecheck + lint verde backend & frontend. Plugins reales 15B/C/D/E/G heredan TODO el framework — solo declaran 6 métodos del contrato + manifest. Detalle en [`completed/sprint-15a-plugin-framework.md`](./completed/sprint-15a-plugin-framework.md). PR [#31](https://github.com/yasmindanailov/dashboard/pull/31).
 > **Cambios estructurales recientes:**
 > - 📜 **[ADR-069 (2026-04-29)](../10-decisions/adr-069-estrategia-deploy-diferido.md)** reclasifica **Sprint 14 Deploy real** como **gate condicionado P-DEPLOY** (no está en cola activa). Se activa sólo con trigger de negocio explícito (cliente real, demo, captación, validación externa). La cola activa post-cierre Sprint 8 son features (Sprint 11 Provisioning como cabeza, Sprint 10 Infrastructure independiente, sub-sprint billing prorrateo cross-plan ADR-077 propuesto, Sprint 12 Settings+KB, Sprint 13 Hardening) según valor funcional.
 > - **Sprint 11 Fases 11.A + 11.B mergeadas en master 2026-05-02** — ADR-077 (contrato canónico `ProvisionerPlugin` v2 congelado) + orquestador + cola BullMQ `provisioning-dispatch` + cache Redis dedicado (DB 2) + plugin registry. **183/183 unit verde** (157 base Sprint 8 + 26 nuevos). Plugins concretos pendientes (Fase 11.C). Plan canónico abajo.
@@ -142,6 +142,20 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 > - [`docs/00-foundations/rules.md` §R17](../00-foundations/rules.md#r17--jwt-en-cookies-httponly-de-nextjs-no-en-localstorage) — JWT en cookies httpOnly de Next.js, NO en localStorage.
 > - [`docs/20-modules/auth/contract.md`](../20-modules/auth/contract.md) — §5 (`/auth/ws-token`), §7 (`auth.refresh_replay_detected`), §11 (env vars frontend `BACKEND_URL` + `NEXT_RUNTIME_SECRET`), §14 (AUTH-INV-8/9).
 > - [`docs/50-operations/api-errors.md`](../50-operations/api-errors.md) — `AUTH_REPLAY_DETECTED`.
+
+---
+
+## ✅ Sprint 15A — Plugin Framework (P2.2) (cerrado 2026-05-06)
+
+> Sprint cerrado al 100%. Movido a [`completed/sprint-15a-plugin-framework.md`](./completed/sprint-15a-plugin-framework.md) con retrospectiva completa, métricas, ADR-080 nacido (Plugin Framework: manifest declarativo + vault de secretos AES-256-GCM + loader desde DB + circuit breaker tras interface + 5 eventos `plugin.*`), 5 commits encadenados en rama `sprint15a-plugin-framework`, 8 lecciones aprendidas. Cobertura final: **255/255 unit verde** (+57 vs base post Sprint 13: 18 vault + 11 registry + 16 breaker + 15 admin-plugins + 2 manifest contract) + **7 E2E nuevos** (`admin-plugins.spec.ts`) + frontend `pnpm typecheck` + `pnpm lint:check --max-warnings=0` + `pnpm build` verdes. Plugins reales 15B/C/D/E/G heredan TODO el framework — solo declaran 6 métodos del contrato + manifest. PR [#31](https://github.com/yasmindanailov/dashboard/pull/31).
+
+> **Documentación canónica del módulo (post-Sprint 15A):**
+> - [ADR-080](../10-decisions/adr-080-plugin-framework.md) — Plugin Framework canónico (manifest declarativo JSON-Schema 7 + tabla `plugin_installs` + `SecretVaultService` AES-256-GCM + loader runtime desde DB + circuit breaker tras interface).
+> - [`docs/30-data/plugin-installs.md`](../30-data/plugin-installs.md) — Schema canónico `plugin_installs` con justificación PK natural slug.
+> - [`docs/features/provisioning/admin-plugins.md`](../features/provisioning/admin-plugins.md) — Operativa diaria del superadmin (4 flujos canónicos + auditoría + errores comunes).
+> - [`docs/20-modules/_events.md` §🔌 plugin.*](../20-modules/_events.md) — 5 eventos `plugin.*` + 3 listeners nuevos.
+> - [`docs/20-modules/provisioning/contract.md` §7 Admin Plugin Framework](../20-modules/provisioning/contract.md) — REST endpoints `/admin/plugins/*` + sección Pendientes actualizada.
+> - [`docs/00-foundations/glossary.md`](../00-foundations/glossary.md) — 3 términos canónicos nuevos: Plugin Manifest, Secret Vault, Circuit Breaker.
 
 ---
 
