@@ -250,6 +250,10 @@ Diferir J.2 fue la decisión profesional correcta tras evaluar coste vs cobertur
 
 A mitad de Fase E (post commit Fases A-D), Yasmin pidió pausar para revisar el PR. La estrategia canónica de "limpia el working tree y guarda el plan en el TODO" permitió reanudar 1 día después sin pérdida de contexto: el TODO tenía detalles autocontenidos (qué archivo tocar, qué invariantes preservar, qué tests añadir). Patrón replicable para sprints largos.
 
+### 9. Unit con mock no detecta incompatibilidades de schema SQL (Amendment A1.2)
+
+Los 15/15 tests unit de `AdminPluginsService` mockean `audit.logChange` y nunca tocan Postgres real. El bug de `entity_id` UUID estricto solo se materializa contra DB real — por eso saltó en CI E2E (shard 1) y no en local unit. **Doctrina canónica reforzada**: cualquier `audit.logChange` con `entity_type` nuevo + `entity_id` no-UUID requiere E2E que toque la DB real. Aplicable a futuros sprints (Sprint 15C/D/E/B) que añadan Subjects admin-puro con identidad natural.
+
 ---
 
 ## Pendientes generados
