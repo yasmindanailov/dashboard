@@ -207,7 +207,11 @@ jobs:
       API_PREFIX: api/v1
       JWT_SECRET: ci-test-jwt-access-secret-not-for-production-32chars
       JWT_REFRESH_SECRET: ci-test-jwt-refresh-secret-not-for-production-32chars
-      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd
+      # ENCRYPTION_KEY canónico para CI — exactamente 64 hex chars (32 bytes)
+      # validados estrictamente por SecretVaultService (Sprint 15A — ADR-080 §3).
+      # Valor sintético determinista: 4 × `0123456789abcdef` = 64 hex chars.
+      # NUNCA usar este valor en producción — generar con `openssl rand -hex 32`.
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       MAIL_TRANSPORT: smtp
       MAIL_HOST: mailpit
       MAIL_PORT: 1025
