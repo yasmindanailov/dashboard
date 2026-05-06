@@ -6,9 +6,46 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import * as crypto from 'crypto';
+
 import { Prisma } from '@prisma/client';
 import Ajv, { ErrorObject, ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
+
+/**
+ * Namespace UUID v5 fijo para derivar entity_id determinístico desde el slug
+ * del plugin (Sprint 15A — ADR-080 + audit_change_log §schema).
+ *
+ * Razón: `audit_change_log.entity_id` es @db.Uuid estricto en Postgres porque
+ * la mayoría de entidades del sistema usan UUID PK. Los plugins son la
+ * excepción canónica con PK natural slug (ADR-080 §2). En lugar de cambiar
+ * el schema de audit (impactaría a todas las tablas), derivamos un UUID
+ * determinístico del slug. El slug real se preserva legible en
+ * `changes_before.slug` / `changes_after.slug` para búsquedas humanas.
+ *
+ * El namespace es un UUID v4 generado UNA vez y congelado aquí. Cambiarlo
+ * rompería la trazabilidad histórica (los audit_change_log antiguos
+ * quedarían huérfanos del nuevo entity_id).
+ *
+ * Implementación RFC 4122 §4.3 nativa con `node:crypto` (sin dep `uuid` para
+ * evitar problemas ESM↔CJS de uuid@14 en ts-jest). Equivalente bit-exact a
+ * `import { v5 } from 'uuid'`.
+ */
+const PLUGIN_AUDIT_NAMESPACE = 'a8f1c4d2-3b5e-4f6a-9c2d-1e7b3f8a5c9d';
+
+function deriveAuditEntityId(slug: string): string {
+  const nsBytes = Buffer.from(PLUGIN_AUDIT_NAMESPACE.replace(/-/g, ''), 'hex');
+  const hash = crypto
+    .createHash('sha1')
+    .update(nsBytes)
+    .update(slug, 'utf8')
+    .digest();
+  // RFC 4122 §4.3: version 5 + variant RFC 4122
+  hash[6] = (hash[6] & 0x0f) | 0x50;
+  hash[8] = (hash[8] & 0x3f) | 0x80;
+  const hex = hash.toString('hex').slice(0, 32);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
 
 import { PrismaService } from '../../core/database/prisma.service';
 import { CircuitBreakerRegistry } from '../../core/provisioning/circuit-breaker';
@@ -205,17 +242,22 @@ export class AdminPluginsService implements OnModuleInit {
     });
 
     // 6. Audit log canónico (R3) — secrets NUNCA en plaintext.
+    //    `entity_id` es @db.Uuid estricto en audit_change_log → derivamos
+    //    UUID v5 determinístico del slug. El slug real va a changes_*.slug
+    //    para búsqueda humana (ver namespace canónico arriba).
     await this.audit.logChange({
       user_id: actorUserId,
       entity_type: 'Plugin',
-      entity_id: slug,
+      entity_id: deriveAuditEntityId(slug),
       action: 'plugin.config_changed',
       changes_before: {
+        slug,
         enabled: wasEnabled,
         config: this.loadConfig(before?.config),
         secrets: this.maskSecretsForAudit(plugin, previousSecrets),
       },
       changes_after: {
+        slug,
         enabled: nextEnabled,
         config: nextConfig,
         secrets: this.maskSecretsForAudit(plugin, nextSecretsEncrypted),

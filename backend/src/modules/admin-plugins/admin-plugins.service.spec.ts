@@ -281,12 +281,15 @@ describe('AdminPluginsService — Sprint 15A Fase G (ADR-080)', () => {
       );
 
       // Audit con secrets enmascarados (NUNCA plaintext en audit).
+      // entity_id es UUID v5 derivado del slug (audit_change_log §schema
+      // strict UUID); el slug real vive en changes_*.slug.
       expect(audit.logChange).toHaveBeenCalledWith(
         expect.objectContaining({
           entity_type: 'Plugin',
-          entity_id: 'enhance-cp',
+          entity_id: expect.stringMatching(/^[0-9a-f-]{36}$/) as unknown,
           action: 'plugin.config_changed',
           changes_after: expect.objectContaining({
+            slug: 'enhance-cp',
             enabled: true,
             secrets: { api_key: '<set>' },
           }),

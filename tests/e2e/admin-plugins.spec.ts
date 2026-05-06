@@ -154,9 +154,13 @@ test.describe.serial('Admin Plugins — Sprint 15A Fase J (ADR-080)', () => {
   test('superadmin PATCH enabled=false → registry recarga + audit fila', async ({
     request,
   }) => {
-    // Limpia audit previo para assert determinista.
+    // Limpia audit previo para assert determinista. El slug real vive en
+    // changes_after->>slug porque entity_id es UUID v5 derivado del slug
+    // (ADR-080 + audit_change_log §schema strict UUID).
     await pool.query(
-      `DELETE FROM audit_change_log WHERE entity_type = 'Plugin' AND entity_id = 'manual'`,
+      `DELETE FROM audit_change_log
+       WHERE entity_type = 'Plugin'
+         AND changes_after->>'slug' = 'manual'`,
     );
 
     const res = await request.patch(
@@ -174,15 +178,17 @@ test.describe.serial('Admin Plugins — Sprint 15A Fase J (ADR-080)', () => {
     await new Promise((r) => setTimeout(r, 200));
     const rows = await pool.query<{
       action: string;
-      changes_after: { enabled: boolean };
+      changes_after: { enabled: boolean; slug: string };
     }>(
       `SELECT action, changes_after FROM audit_change_log
-       WHERE entity_type = 'Plugin' AND entity_id = 'manual'
+       WHERE entity_type = 'Plugin'
+         AND changes_after->>'slug' = 'manual'
        ORDER BY created_at DESC LIMIT 1`,
     );
     expect(rows.rowCount).toBe(1);
     expect(rows.rows[0].action).toBe('plugin.config_changed');
     expect(rows.rows[0].changes_after.enabled).toBe(false);
+    expect(rows.rows[0].changes_after.slug).toBe('manual');
   });
 
   test('superadmin PATCH enabled=true → restaura el plugin manual', async ({
