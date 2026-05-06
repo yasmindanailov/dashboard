@@ -911,6 +911,112 @@ export const notificationTemplatesApi = {
     ),
 };
 
+// ── Admin / Plugins (Sprint 15A — ADR-080) ──
+//
+// Endpoints `/api/v1/admin/plugins` para que el superadmin gestione la
+// configuración de los plugins de provisioning (enabled, config, secrets
+// cifrados, test-connection). Solo accesible vía Server Components +
+// Server Actions con cookies httpOnly Modelo A (ADR-078). NO se exponen
+// estos tipos al cliente.
+
+export type PluginSettingsCategory =
+  | 'provisioner'
+  | 'payment'
+  | 'notification'
+  | 'ai';
+
+export type PluginTestConnectionMethod = 'getStatus' | 'custom' | null;
+
+export type PluginCircuitState = 'closed' | 'open' | 'half-open';
+
+/**
+ * Subset acotado de JSON-Schema 7 que el backend declara en
+ * `core/provisioning/types.ts §12`. Mantener sincronizado al añadir
+ * formats/keywords nuevos al backend.
+ */
+export interface PluginJsonSchemaProperty {
+  type: 'string' | 'number' | 'boolean' | 'integer';
+  description?: string; // i18n key
+  format?: 'uri' | 'email' | 'password' | 'uuid';
+  enum?: ReadonlyArray<string | number>;
+  default?: string | number | boolean;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  minimum?: number;
+  maximum?: number;
+}
+
+export interface PluginJsonSchema {
+  type: 'object';
+  properties: Record<string, PluginJsonSchemaProperty>;
+  required?: ReadonlyArray<string>;
+  additionalProperties?: false;
+}
+
+export interface PluginManifest {
+  slug: string;
+  version: string;
+  manifestVersion: 'v1';
+  label: string;
+  description: string;
+  docsUrl: string;
+  settingsCategory: PluginSettingsCategory;
+  configSchema: PluginJsonSchema;
+  secretsSchema: PluginJsonSchema;
+  testConnectionMethod: PluginTestConnectionMethod;
+}
+
+export interface PluginCircuitStateSummary {
+  getServiceInfo: PluginCircuitState | null;
+  executeAction: PluginCircuitState | null;
+}
+
+/** Item devuelto por `GET /admin/plugins` (lista). */
+export interface AdminPluginListItem {
+  slug: string;
+  manifest: PluginManifest | null;
+  enabled: boolean;
+  updated_at: string | null;
+  circuit_state: PluginCircuitStateSummary;
+}
+
+/**
+ * Detalle devuelto por `GET /admin/plugins/:slug`.
+ * `secrets` es un mapa `{ <field>: '***' | null }` — '***' si está seteado,
+ * null si no. Los plaintexts NUNCA salen del backend (R12 + ADR-080 §3).
+ */
+export interface AdminPluginDetail {
+  slug: string;
+  manifest: PluginManifest;
+  enabled: boolean;
+  installed_at: string | null;
+  updated_at: string | null;
+  config: Record<string, unknown>;
+  secrets: Record<string, '***' | null>;
+  circuit_state: PluginCircuitStateSummary;
+}
+
+/** Body de `PATCH /admin/plugins/:slug`. Todos los campos opcionales. */
+export interface AdminPluginUpdateBody {
+  enabled?: boolean;
+  config?: Record<string, unknown>;
+  /** plaintexts — el backend los cifra antes de persistir. */
+  secrets?: Record<string, string>;
+}
+
+export interface AdminPluginUpdateResponse {
+  slug: string;
+  enabled: boolean;
+  updated_at: string;
+}
+
+export interface AdminPluginTestConnectionResponse {
+  success: boolean;
+  message: string;
+  checked_at: string;
+}
+
 // ── Support Inside (Sprint 8 Fase D — ADR-061 + ADR-075) ──
 //
 // Cliente: `/api/v1/dashboard/support-inside/*` (catálogo público + suscripción).
