@@ -160,7 +160,7 @@ UI completa para que el superadmin gestione plugins desde el navegador:
 | Métrica | Valor |
 |---------|-------|
 | Sesiones de trabajo activo | ~3 |
-| Commits | 5 (`b460c70` ADR + `d884eb9` B-D + `c2ad4f5` E-F + `22ef66b` G + `e0aa9b0` H-I) |
+| Commits | 8 (`b460c70` ADR + `d884eb9` B-D + `c2ad4f5` E-F + `22ef66b` G + `e0aa9b0` H-I + `8134784` J-K cierre + Amendment A1: `cad735b` CI key + `95659fb` audit UUID) |
 | LOC añadidas backend | ~3,000 código + ~540 tests |
 | LOC añadidas frontend | ~1,400 |
 | Tests unit nuevos | +57 (18 vault + 11 registry + 16 breaker + 15 admin-plugins) |
@@ -173,6 +173,46 @@ UI completa para que el superadmin gestione plugins desde el navegador:
 | Subjects CASL nuevos | 1 (`Plugin` admin-puro) |
 | Deps backend nuevas | 2 (ajv 8.18.0, ajv-formats 3.0.1) |
 | Deps frontend nuevas | 3 (@rjsf/core, @rjsf/utils, @rjsf/validator-ajv8 — todos 6.5.2) |
+
+---
+
+## Amendment A1 — Bugs detectados en CI post-cierre (2026-05-06)
+
+Tras marcar el PR como ready-for-review, los 3 shards E2E de CI fallaron en el primer run. Dos bugs reales se detectaron y arreglaron antes del merge a master, sin reabrir el sprint (mismo patrón canónico que ADR-079 Amendments / Sprint 16).
+
+### A1.1 — `ENCRYPTION_KEY` en `ci.yml` con 62 chars en lugar de 64 (commit `cad735b`)
+
+**Síntoma**: 3/3 shards E2E fallan con backend NO arrancando — `Error: ENCRYPTION_KEY must be exactly 64 hex characters`.
+
+**Causa raíz**: el valor heredado de Sprint 13 §13.AUTH (`0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd`) era 62 hex chars. Pasaba con el regex laxo de aquel sprint donde no había validador estricto. Sprint 15A introdujo `SecretVaultService` con bootcheck fail-fast `/^[0-9a-fA-F]{64}$/` (ADR-080 §3) — el backend NO arranca con valor mal formado, los shards fallan en el step `webServer.start` de Playwright.
+
+**Fix**: 4 × `0123456789abcdef` = 64 hex chars exactos en `ci.yml`. Comentario doctrinal añadido inline (NUNCA usar este valor en prod, generar con `openssl rand -hex 32`).
+
+**Lección lateral**: el bootcheck fail-fast de Sprint 15A actuó como auditor retroactivo — descubrió un valor degradado que llevaba meses en CI sin consumidor estricto. **El bootcheck es la inversión correcta**.
+
+### A1.2 — `audit_change_log.entity_id` UUID estricto incompatible con slug (commit `95659fb`)
+
+**Síntoma**: shards 2 y 3 pasan tras fix A1.1, pero shard 1 sigue rojo en 1 test (`superadmin PATCH enabled=false → registry recarga + audit fila`).
+
+**Causa raíz**: `AdminPluginsService.update` pasaba `entity_id: slug` (string `'manual'`) a `audit.logChange`. La columna `audit_change_log.entity_id` es `@db.Uuid` estricto en Postgres (todas las entidades del sistema usan UUID PK). Postgres rechaza el INSERT con `invalid input syntax for type uuid: "manual"`. **El bug no salió en unit tests porque mockean `audit.logChange`** — solo se materializa contra Postgres real.
+
+**Fix canónico (sin migración)**:
+- Derivar UUID v5 determinístico del slug usando un namespace fijo congelado (`a8f1c4d2-3b5e-4f6a-9c2d-1e7b3f8a5c9d`).
+- Implementación RFC 4122 §4.3 nativa con `node:crypto` (~15 LOC) — evita el problema ESM↔CJS de `uuid@14` con ts-jest.
+- El slug real se preserva en `changes_before.slug` / `changes_after.slug` para búsquedas humanas.
+- Spec E2E adaptado para filtrar por `changes_after->>'slug'` en lugar de `entity_id`.
+
+**Decisión arquitectónica**: descarté cambiar el schema de `audit_change_log.entity_id` a `VarChar` por impacto cross-cutting (todas las entidades audit usarían string en lugar de UUID — refactor mayor). El UUID v5 namespace-based es la solución canónica para entidades con PK natural slug. Si en el futuro llegan más Subjects admin-puro con identidad natural (ej. config slugs), reusar el mismo patrón con namespace propio.
+
+### Lección crítica del Amendment
+
+**Los unit tests con mock de `audit.logChange` no detectan incompatibilidades de schema SQL**. Un E2E contra Postgres real es la única forma. La cobertura unit (255/255) era completa funcionalmente pero ciega a este tipo de bug. **Doctrina canónica reforzada**: cualquier `audit.logChange` con `entity_type` nuevo + `entity_id` no-UUID requiere E2E que toque la DB real (no solo mock).
+
+### Estado final
+
+- 5/5 checks CI pasan (Backend + Frontend + 3 shards E2E).
+- Smoke local manual completado por Yasmin OK (login superadmin + lista plugins + toggle + 403 agent_full).
+- `git log master..sprint15a-plugin-framework`: 7 commits encadenados (5 originales + 2 fixes Amendment).
 
 ---
 
@@ -209,6 +249,10 @@ Diferir J.2 fue la decisión profesional correcta tras evaluar coste vs cobertur
 ### 8. Pausa controlada vs continuidad
 
 A mitad de Fase E (post commit Fases A-D), Yasmin pidió pausar para revisar el PR. La estrategia canónica de "limpia el working tree y guarda el plan en el TODO" permitió reanudar 1 día después sin pérdida de contexto: el TODO tenía detalles autocontenidos (qué archivo tocar, qué invariantes preservar, qué tests añadir). Patrón replicable para sprints largos.
+
+### 9. Unit con mock no detecta incompatibilidades de schema SQL (Amendment A1.2)
+
+Los 15/15 tests unit de `AdminPluginsService` mockean `audit.logChange` y nunca tocan Postgres real. El bug de `entity_id` UUID estricto solo se materializa contra DB real — por eso saltó en CI E2E (shard 1) y no en local unit. **Doctrina canónica reforzada**: cualquier `audit.logChange` con `entity_type` nuevo + `entity_id` no-UUID requiere E2E que toque la DB real. Aplicable a futuros sprints (Sprint 15C/D/E/B) que añadan Subjects admin-puro con identidad natural.
 
 ---
 
