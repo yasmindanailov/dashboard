@@ -603,4 +603,116 @@ Este test corre en CI. Cualquier PR que añada un plugin nuevo debe pasar el tes
 
 > Reservado para cambios compatibles hacia atrás post-cierre del ADR. Cada amendment con fecha + ADR específico que lo justifica.
 
-(ninguno todavía)
+### Amendment A1 (2026-05-07) — capability flag `has_dns_management`
+
+> **Justificado por:** [ADR-082](./adr-082-modelo-domain-hosting-dns-doctrine.md) §3 (DNS-as-capability) + §6 (cross-plugin DNS authority resolver).
+> **Sprint:** 15C Fase 15C.A (junto a ADR-082 transversal y ADR-083 Enhance specifics, mismo PR doc-only).
+> **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` — sigue `'v2'`. Plugins existentes (`internal`, `manual`) se actualizan con `has_dns_management: false`. El flag pasa a ser **required** en `PluginCapabilities` — el test contract genérico (§7) lo enforza.
+
+#### A1.1. Cambio canónico en `PluginCapabilities` (§3)
+
+Se añade un flag booleano nuevo, **required**:
+
+```typescript
+export interface PluginCapabilities {
+  // ... flags existentes (has_sso_panel, panel_label, has_metrics, etc.) ...
+
+  /**
+   * Indica si el plugin gestiona zonas DNS authoritative (puede listar
+   * y CRUD records de las zonas asociadas a sus services).
+   *
+   * Plugins con `has_dns_management=true` DEBEN soportar las 4 inline
+   * actions canónicas en `executeAction()`:
+   *   - 'list_dns_records'  → devuelve la lista completa de records de la zona.
+   *   - 'add_dns_record'    → crea un record (payload validado vs schema).
+   *   - 'update_dns_record' → modifica un record existente.
+   *   - 'delete_dns_record' → elimina un record por ID.
+   *
+   * El orquestador `provisioning` invoca estas actions vía
+   * `core/provisioning/dns-authority-resolver.ts` (ADR-082 §6) cuando
+   * sirve `GET/POST/PATCH/DELETE /api/v1/services/{id}/dns/records`.
+   *
+   * Plugins con `has_dns_management=false` NO declaran esos slugs en
+   * `inlineActions` — el resolver los excluye del routing.
+   */
+  has_dns_management: boolean;
+}
+```
+
+#### A1.2. Mapping canónico actualizado (§3)
+
+La tabla del §3 del ADR original se extiende con la columna `has_dns_management`:
+
+| Plugin | has_sso_panel | has_metrics | has_metrics_history | requires_server | provision_mode | completes_via_task | supports_reconciliation | **has_dns_management** |
+|---|---|---|---|---|---|---|---|---|
+| `internal` | ❌ | ❌ | ❌ | ❌ | `sync` | ❌ | ❌ | **❌** |
+| `manual` | ❌ | ❌ | ❌ | ❌ | `sync` | ✅ | ❌ | **❌** |
+| `enhance_cp` (15C) | ✅ | ✅ | ❌ | ❌ | `sync` | ❌ | ✅ | **✅** |
+| `cpanel_whm` (15C bis) | ✅ | ✅ | ❌ | ❌ | `sync` | ❌ | ✅ | **✅** (si Aelium opera DNS authority) |
+| `resellerclub` (15D) | ❌ | ❌ | ❌ | ❌ | `sync` | ❌ | ✅ | **❌** (NS van a Aelium, RC no es authority) |
+| `docker_engine` (15E) | ⚠ condicional | ✅ | ✅ | ✅ | `sync` | ❌ | ✅ | **❌** (delega a Enhance) |
+| `plesk_obsidian` (15G) | ✅ | ✅ | ❌ | ❌ | `sync` | ❌ | ✅ | **⚠ por configuración** |
+
+#### A1.3. Test contract genérico (§7) — invariantes nuevas
+
+El test parametrizado (`backend/src/plugins/provisioners/plugin-contract.spec.ts`) se extiende con tres invariantes:
+
+```typescript
+it('declara has_dns_management como boolean', () => {
+  expect(typeof plugin.capabilities.has_dns_management).toBe('boolean');
+});
+
+it('si has_dns_management=true → declara las 4 inline actions canónicas DNS', () => {
+  if (plugin.capabilities.has_dns_management) {
+    const slugs = plugin.inlineActions.map((a) => a.slug);
+    for (const required of ['list_dns_records', 'add_dns_record', 'update_dns_record', 'delete_dns_record']) {
+      expect(slugs).toContain(required);
+    }
+  }
+});
+
+it('si has_dns_management=false → NO declara las inline actions DNS', () => {
+  if (!plugin.capabilities.has_dns_management) {
+    const slugs = plugin.inlineActions.map((a) => a.slug);
+    for (const dnsSlug of ['list_dns_records', 'add_dns_record', 'update_dns_record', 'delete_dns_record']) {
+      expect(slugs).not.toContain(dnsSlug);
+    }
+  }
+});
+```
+
+#### A1.4. Plugins existentes — actualización requerida
+
+Sprint 15C Fase 15C.C aplica el cambio a los plugins triviales:
+
+```typescript
+// backend/src/plugins/provisioners/internal/internal.plugin.ts
+readonly capabilities: PluginCapabilities = {
+  has_sso_panel: false,
+  has_metrics: false,
+  has_metrics_history: false,
+  requires_server: false,
+  provision_mode: 'sync',
+  completes_via_task: false,
+  supports_reconciliation: false,
+  has_dns_management: false,  // ← NUEVO Amendment A1
+};
+
+// backend/src/plugins/provisioners/manual/manual.plugin.ts — idem (false).
+```
+
+#### A1.5. Pipeline de wrappers (§5) — sin cambios
+
+El flag `has_dns_management` se consume en el **orquestador** (`dns-authority-resolver`) y en el **frontend** (condicional de pestaña DNS), no en los wrappers cross-cutting `getServiceInfoWithCache` / `executeActionWithCacheInvalidation` / `getSsoUrlWithAudit`. Los wrappers existentes funcionan con las inline actions canónicas DNS sin modificación — son `executeAction(slug, payload)` igual que cualquier otra acción.
+
+#### A1.6. Doctrina de adición de capability flags (refuerzo §3)
+
+Este Amendment establece el **patrón canónico** para añadir capability flags futuros sin breaking change:
+
+1. ADR específico (o transversal) que justifique el flag.
+2. Amendment al ADR-077 con: tabla de mapping inicial + invariantes test contract + plugins existentes actualizados + pipeline impact analysis.
+3. Compatible hacia atrás → NO bumpea `contractVersion`.
+4. Test contract genérico ampliado en el mismo PR.
+5. Frontend ramifica por el flag (NUNCA por slug — ADR-070 §"Cero `if (provisioner === 'X')`").
+
+Cualquier flag que NO cumpla los 5 puntos requiere bump a `contractVersion: 'v3'` + ADR específico (§6 política de versionado).

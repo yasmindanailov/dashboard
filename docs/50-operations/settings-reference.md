@@ -177,11 +177,13 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 |-----|------|---------|--------|------------|--------|
 | `audit.access_retention_days` | number | 730 | ✅ | `modules/audit/audit-retention.cron.ts` (mínimo legal AEPD: 2 años) | [ADR-017](../10-decisions/adr-017-audit-log-inmutable.md) · seed.ts |
 
-### 🔌 provisioning.* (Sprint 11 Fase 11.B — ADR-077)
+### 🔌 provisioning.* (Sprint 11 Fase 11.B — ADR-077 + Sprint 15C Fase D — ADR-082/083)
 
 | Key | Tipo | Default | Estado | Consumidor | Origen |
 |-----|------|---------|--------|------------|--------|
 | `provisioning.service_info_ttl_seconds` | number | 60 | ✅ | `core/provisioning/plugin-utils.ts:getServiceInfoWithCache()` — TTL del cache Redis DB 2 (`aelium-provisioning:service_info:<id>`). Plugins NO gestionan cache; el wrapper lo hace por ellos. ADR-070 §Mecanismo A. | [ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) · seed.ts (Sprint 11 Fase 11.B) |
+| `provisioning.default_nameservers` | array&lt;string&gt; | `["ns1.aelium.net","ns2.aelium.net"]` | ⬜ aspiracional Sprint 15C Fase D | NS-sync C3 (fuente de verdad ADR-082 §4). Listener `provisioning.default_nameservers_changed` propaga a C2 vía `EnhanceApiClient.upsertDefaultNsRecords()`. C1 (glue records WHOIS) sigue manual. Plugin RC (Sprint 15D) lo lee al ejecutar `domains/register?ns=...`. Helper `core/provisioning/dns-authority-resolver.ts` lo lee para comparar `service.metadata.nameservers` vs default y decidir authority `aelium`/`external`. | [ADR-082](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md) §4 + [ADR-083](../10-decisions/adr-083-plugin-enhance-cp-specifics.md) §"Settings canónicos NUEVOS" · seed Sprint 15C Fase D |
+| `provisioning.enhance_cp.reconciliation_alert_threshold` | number | 5 | ⬜ aspiracional Sprint 15C Fase H | Cron `reconcile-enhance-services` BullMQ cada 6h. Si nº divergencias detectadas / día (events `service.reconciled_external_change` agregados) > threshold → listener `notifications-on-reconciliation-threshold-exceeded` alerta superadmin (canal internal + email). DH-INV-6 doctrine (ADR-082 §1) — Aelium adopta cambios externos pero notifica si el flujo se vuelve patológico (operator pisando Aelium repetidamente). | [ADR-083](../10-decisions/adr-083-plugin-enhance-cp-specifics.md) §6 decisión 24 + §"Settings canónicos NUEVOS" · seed Sprint 15C Fase H |
 
 ### 🤖 ai.* (agentes IA — Sprint 15 futuro)
 
