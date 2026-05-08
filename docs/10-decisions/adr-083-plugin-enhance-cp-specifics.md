@@ -529,4 +529,46 @@ Ambos eventos **NO requieren Outbox** v1 — son alertas operativas, no transacc
 
 > Reservado para cambios compatibles hacia atrás post-cierre del ADR. Cada amendment con fecha + sprint específico que lo justifica.
 
-(ninguno todavía)
+### Amendment A1 (2026-05-08) — ubicación canónica del MockEnhanceServer
+
+> **Justificado por:** Sprint 15C Fase 15C.B (PR #37). Implementación detectó incompatibilidad entre el path declarado en §7 decisión 25 (`tests/mocks/enhance-server/`) y la configuración de jest del backend.
+> **Sprint:** 15C Fase 15C.B (review pre-merge).
+> **Compatibilidad:** Hacia atrás. NO toca el comportamiento del mock — solo formaliza su ubicación física en el filesystem. La API pública (`startMockEnhanceServer`, `MockEnhanceServerInstance`, `MockEnhanceState`) es idéntica a la declarada en §7.
+
+#### A1.1. Cambio canónico
+
+La decisión 25 original declara:
+
+> *"`MockEnhanceServer`: Express stub local que responde con fixtures JSON capturados durante 15C.B contra Enhance live. **Ubicación: `tests/mocks/enhance-server/`.**"*
+
+Se actualiza a:
+
+> *"`MockEnhanceServer`: Express stub local que responde con shapes canónicos del spec orchd v12.21.3. **Ubicación canónica: `backend/test/mocks/enhance-server/`.** Cada plugin de provisioning con SaaS externo que necesite un mock debe ubicarlo bajo `backend/test/mocks/<plugin-slug>-server/` siguiendo el mismo patrón."*
+
+#### A1.2. Razón técnica
+
+El runtime jest del backend tiene `rootDir: src` y resuelve módulos relativos sin `tsconfig paths` cross-package. Un mock en `tests/mocks/enhance-server/` (raíz del repo) requeriría:
+
+1. Configurar `tsconfig paths` en `backend/tsconfig.json` con un alias `@aelium-mocks/enhance-server` apuntando a `../tests/mocks/enhance-server/`.
+2. Configurar `jest.moduleNameMapper` para resolver el mismo alias.
+3. Configurar `eslint-plugin-import` para reconocer el alias y no marcar el import como `unresolved`.
+
+Este overhead de configuración (~30 minutos por plugin × N plugins) se evita con la ubicación bajo `backend/test/mocks/`. Trade-off: el path canónico declarativo (raíz del repo, "mocks viven en `tests/mocks`") es ligeramente menos descubrible para alguien navegando el repo desde fuera de `backend/`. Aceptado: jest del backend es el único consumidor real de los mocks de plugins SaaS (los mocks de servicios infraestructurales — Postgres, Redis, MinIO, Mailpit — viven en `docker-compose.dev.yml`, no en `tests/mocks/`).
+
+#### A1.3. Patrón canónico para futuros plugins
+
+| Plugin (Sprint) | Ubicación del mock |
+|---|---|
+| `enhance_cp` (Sprint 15C) | `backend/test/mocks/enhance-server/` (este Amendment) |
+| `resellerclub` (Sprint 15D) | `backend/test/mocks/resellerclub-server/` (futuro ADR-081) |
+| `docker_engine` (Sprint 15E) | `backend/test/mocks/docker-engine-server/` (futuro ADR-084 o N/A si Docker SDK ya tiene mocks oficiales) |
+| `plesk_obsidian` (Sprint 15G) | `backend/test/mocks/plesk-server/` (futuro) |
+| `stripe` (Sprint 15B) | usar `stripe-mock` oficial via docker-compose.test.yml — NO mock custom |
+
+**Doctrina canónica**: *"Cada mock de SaaS externo vive bajo `backend/test/mocks/<plugin-slug>-server/` con API pública uniforme: `start{Plugin}MockServer({port?, seed?}) → Promise<{ baseUrl, port, state, reset, stop }>`."*
+
+#### A1.4. Validación
+
+- Implementación PR #37 cumple el patrón ya canonizado por este Amendment.
+- 22 tests integration `client.integration.spec.ts` consumen el mock correctamente vía import relativo `../../../../../test/mocks/enhance-server`.
+- Suite total backend `329/329` verde.
