@@ -26,9 +26,9 @@ export const PROVISIONER_PLUGINS = Symbol('PROVISIONER_PLUGINS');
  *
  * Responsabilidades:
  *  1. Recibir todos los plugins registrados al boot vía DI multi-injection.
- *  2. Validar invariantes del contrato (ADR-077 §6 + §7 + ADR-080 §1):
+ *  2. Validar invariantes del contrato (ADR-077 §6 + §7 + Amendment A2 + ADR-080 §1):
  *     - `contractVersion === 'v2'`
- *     - slug kebab-case
+ *     - slug en snake_case o kebab-case (regex `/^[a-z][a-z0-9_-]*$/`)
  *     - sin duplicados
  *     - `has_sso_panel=true → panel_label` declarado
  *     - inline action slugs únicos

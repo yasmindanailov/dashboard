@@ -116,7 +116,7 @@ El seed canónico [`seedPluginInstalls`](../../backend/prisma/seeds/plugin-insta
 
 | Invariante | Aplicación |
 |------------|------------|
-| `slug` ∈ kebab-case | Validado por `PluginRegistryService.tryValidate` al boot ([ADR-077 §6](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md)). |
+| `slug` ∈ snake_case o kebab-case (regex `/^[a-z][a-z0-9_-]*$/`) | Validado por `PluginRegistryService.tryValidate` al boot ([ADR-077 §6](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) + [Amendment A2](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md#amendments)). Debe empezar por letra minúscula. |
 | `slug` ∈ DI registrado vía `PROVISIONER_PLUGINS` | Si no, `PluginRegistryService.reloadActivation` loguea ERROR + servicios huérfanos en `pending`. NO rompe boot (R7). |
 | `secrets` cifrados con `key_version` actual | `SecretVaultService.decrypt` lanza `KEY_VERSION_MISMATCH` si no coincide. La rotación elegante (multi-key activo) está diferida a sub-sprint condicionado. |
 | Secrets NUNCA en plaintext en logs / audit / responses GET | Audit usa `<set>`/`<cleared>`, GET responde `'***'`/`null`. (R12 + ADR-080 §3). |

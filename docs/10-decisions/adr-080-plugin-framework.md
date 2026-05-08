@@ -73,7 +73,7 @@ A continuación se especifica la firma exhaustiva de cada componente.
  * Cualquier plugin v2 expone `readonly manifest: PluginManifest`.
  */
 export interface PluginManifest {
-  /** Slug canónico kebab-case. Idéntico a `ProvisionerPlugin.slug`. */
+  /** Slug canónico (snake_case o kebab-case, ver [ADR-077 Amendment A2](./adr-077-contrato-provisioner-plugin-v2.md#amendments)). Idéntico a `ProvisionerPlugin.slug`. */
   readonly slug: string;
 
   /** Versión semver del plugin (NO del contrato — eso es contractVersion). */
@@ -148,7 +148,7 @@ La convención UUID PK del resto del schema no es dogma — es la solución por 
 
 ```prisma
 model PluginInstall {
-  /** Slug canónico kebab-case. PK natural — coherente con manifest.slug. */
+  /** Slug canónico (snake_case o kebab-case, ver [ADR-077 Amendment A2](./adr-077-contrato-provisioner-plugin-v2.md#amendments)). PK natural — coherente con manifest.slug. */
   slug         String   @id @db.VarChar(80)
 
   /** Si está habilitado para uso por el orquestador. */
