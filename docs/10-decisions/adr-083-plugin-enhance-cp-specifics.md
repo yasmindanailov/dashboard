@@ -280,7 +280,7 @@ readonly capabilities: PluginCapabilities = {
 };
 ```
 
-**Decisión 17 — Record kinds expuestos v1**: `[A, AAAA, CNAME, MX, TXT, SRV, CAA]` (7 de los 11 disponibles en Enhance — spec línea 18258 `DnsRecordKind` enum).
+**Decisión 17 — Record kinds expuestos v1**: `[A, AAAA, CNAME, MX, TXT, SRV, CAA]` (7 de los 11 disponibles en Enhance — spec línea 18256 `DnsRecordKind` enum).
 
 Diferidos a v1.x con razón:
 - `SPF` — deprecated por RFC 7208 (use TXT con `v=spf1`). Confunde al cliente; NUNCA.
@@ -303,7 +303,7 @@ readonly inlineActions: readonly ServiceAction[] = [
 ```
 
 Implementación de `executeAction` para cada slug:
-- `list_dns_records` → `GET /orgs/{org}/websites/{ws}/domains/{dom}/dns-zone` (spec línea 9656) → mapea `DnsZone.records[]` a shape canónico Aelium.
+- `list_dns_records` → `GET /orgs/{org}/websites/{ws}/domains/{dom}/dns-zone` (spec línea 7487 path / `DnsZone` schema línea 18088) → mapea `DnsZone.records[]` a shape canónico Aelium.
 - `add_dns_record` → `POST .../dns-zone/records` body `NewDnsRecord` (spec línea 18185).
 - `update_dns_record` → `PATCH .../dns-zone/records/{recordId}` body `UpdateDnsRecord`.
 - `delete_dns_record` → `DELETE .../dns-zone/records/{recordId}`.
