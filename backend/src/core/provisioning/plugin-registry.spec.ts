@@ -270,4 +270,52 @@ describe('PluginRegistryService â€” Sprint 15A Fase E (ADR-080 Â§4)', () 
       );
     });
   });
+
+  describe('getByCapability — Sprint 15C Fase 15C.D (ADR-082 §6)', () => {
+    it('devuelve plugin activo que declara la capability=true', async () => {
+      const plain = buildValidPlugin({ slug: 'internal' });
+      const dnsPlugin = buildValidPlugin({
+        slug: 'enhance_cp',
+        capabilities: {
+          has_sso_panel: true,
+          panel_label: 'plugin.enhance_cp.panel_label',
+          has_metrics: true,
+          has_metrics_history: false,
+          requires_server: false,
+          provision_mode: 'sync',
+          completes_via_task: false,
+          supports_reconciliation: true,
+          has_dns_management: true,
+        },
+      });
+      const { registry } = await buildRegistry([plain, dnsPlugin]);
+      expect(registry.getByCapability('has_dns_management')).toBe(dnsPlugin);
+    });
+
+    it('devuelve null si ningún plugin activo declara la capability', async () => {
+      const plain = buildValidPlugin({ slug: 'internal' });
+      const { registry } = await buildRegistry([plain]);
+      expect(registry.getByCapability('has_dns_management')).toBeNull();
+    });
+
+    it('NO devuelve plugin validado pero deshabilitado en DB', async () => {
+      const dnsPlugin = buildValidPlugin({
+        slug: 'enhance_cp',
+        capabilities: {
+          has_sso_panel: true,
+          panel_label: 'plugin.enhance_cp.panel_label',
+          has_metrics: true,
+          has_metrics_history: false,
+          requires_server: false,
+          provision_mode: 'sync',
+          completes_via_task: false,
+          supports_reconciliation: true,
+          has_dns_management: true,
+        },
+      });
+      // enabled=[] → plugin validado pero NO en activePlugins.
+      const { registry } = await buildRegistry([dnsPlugin], []);
+      expect(registry.getByCapability('has_dns_management')).toBeNull();
+    });
+  });
 });

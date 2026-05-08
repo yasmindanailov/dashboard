@@ -52,6 +52,28 @@ export class SettingsService {
     return val === 'true';
   }
 
+  /**
+   * Lee un setting cuyo `value` es un JSON estructurado (objeto o array).
+   *
+   * Sprint 15C Fase 15C.D — ADR-082 §4 introduce el primer setting con
+   * shape JSON array (`provisioning.default_nameservers`). El `get()`
+   * tradicional lo serializaría a `String(...)` y devolvería
+   * `"[object Object]"` o `"ns1.aelium.net,ns2.aelium.net"`. Este método
+   * preserva el shape canónico.
+   *
+   * No cachea (TTL 60s del `get()` no aplica): los settings JSON estructurados
+   * son raros y se leen desde listeners on-event, no en hot paths.
+   */
+  async getJson<T>(category: string, key: string, fallback: T): Promise<T> {
+    const setting = await this.prisma.setting.findUnique({
+      where: { category_key: { category, key } },
+    });
+    if (!setting) return fallback;
+    const raw = setting.value;
+    if (raw === null || raw === undefined) return fallback;
+    return raw as unknown as T;
+  }
+
   invalidateCache(category?: string, key?: string) {
     if (category && key) {
       this.cache.delete(`${category}.${key}`);

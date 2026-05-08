@@ -10,6 +10,10 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 import { SettingsService } from '../../core/settings/settings.service';
 import { CircuitBreakerRegistry } from '../../core/provisioning/circuit-breaker';
+import {
+  DnsAuthorityResolution,
+  resolveDnsAuthority,
+} from '../../core/provisioning/dns-authority-resolver';
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
 import { ProvisioningCacheService } from '../../core/provisioning/provisioning-cache.service';
 import {
@@ -24,6 +28,22 @@ import {
   SsoUrl,
 } from '../../core/provisioning/types';
 import { AuditService } from '../audit/audit.service';
+
+/**
+ * Sprint 15C Fase 15C.D — error semántico canónico que la capa REST
+ * traduce a `HTTP 404 + body { code, message, nameservers, hint, reason }`
+ * cuando la zona DNS del service no vive en un plugin Aelium.
+ *
+ * Vive aquí (módulo provisioning) para mantener `core/provisioning/` puro
+ * de dependencias de NestJS / HttpException. El controller decide cómo
+ * mapearlo a HTTP.
+ */
+export class DnsExternallyManagedError extends Error {
+  constructor(public readonly resolution: DnsAuthorityResolution) {
+    super(`DNS authority for this service is external (${resolution.reason}).`);
+    this.name = 'DnsExternallyManagedError';
+  }
+}
 
 import {
   AdminServiceListQueryDto,
@@ -272,6 +292,177 @@ export class ProvisioningService {
       this.audit,
       this.breakers,
     );
+  }
+
+  // ─── DNS records (Sprint 15C Fase 15C.D — ADR-082 §6) ──────────────────
+
+  /**
+   * Lista los DNS records de la zona del service. Routea al plugin con
+   * `has_dns_management=true` resuelto via `dns-authority-resolver`.
+   */
+  async listDnsRecordsForUser(
+    serviceId: string,
+    userId: string,
+    isAdmin: boolean,
+    ctx: { ipAddress: string; userAgent?: string | null },
+  ): Promise<{ resolution: DnsAuthorityResolution; result: ActionResult }> {
+    const { service, resolution } = await this.loadServiceAndResolveDnsPlugin(
+      serviceId,
+      userId,
+      isAdmin,
+    );
+
+    const result = await executeActionWithCacheInvalidation(
+      resolution.plugin!,
+      service,
+      'list_dns_records',
+      {},
+      {
+        actorUserId: userId,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent ?? null,
+      },
+      this.cache,
+      this.events,
+      this.audit,
+      this.breakers,
+    );
+    return { resolution, result };
+  }
+
+  async addDnsRecordForUser(
+    serviceId: string,
+    payload: Record<string, unknown>,
+    userId: string,
+    isAdmin: boolean,
+    ctx: { ipAddress: string; userAgent?: string | null },
+  ): Promise<{ resolution: DnsAuthorityResolution; result: ActionResult }> {
+    const { service, resolution } = await this.loadServiceAndResolveDnsPlugin(
+      serviceId,
+      userId,
+      isAdmin,
+    );
+
+    const result = await executeActionWithCacheInvalidation(
+      resolution.plugin!,
+      service,
+      'add_dns_record',
+      payload,
+      {
+        actorUserId: userId,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent ?? null,
+      },
+      this.cache,
+      this.events,
+      this.audit,
+      this.breakers,
+    );
+    return { resolution, result };
+  }
+
+  async updateDnsRecordForUser(
+    serviceId: string,
+    recordId: string,
+    payload: Record<string, unknown>,
+    userId: string,
+    isAdmin: boolean,
+    ctx: { ipAddress: string; userAgent?: string | null },
+  ): Promise<{ resolution: DnsAuthorityResolution; result: ActionResult }> {
+    const { service, resolution } = await this.loadServiceAndResolveDnsPlugin(
+      serviceId,
+      userId,
+      isAdmin,
+    );
+
+    const result = await executeActionWithCacheInvalidation(
+      resolution.plugin!,
+      service,
+      'update_dns_record',
+      { ...payload, recordId },
+      {
+        actorUserId: userId,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent ?? null,
+      },
+      this.cache,
+      this.events,
+      this.audit,
+      this.breakers,
+    );
+    return { resolution, result };
+  }
+
+  async deleteDnsRecordForUser(
+    serviceId: string,
+    recordId: string,
+    userId: string,
+    isAdmin: boolean,
+    ctx: { ipAddress: string; userAgent?: string | null },
+  ): Promise<{ resolution: DnsAuthorityResolution; result: ActionResult }> {
+    const { service, resolution } = await this.loadServiceAndResolveDnsPlugin(
+      serviceId,
+      userId,
+      isAdmin,
+    );
+
+    const result = await executeActionWithCacheInvalidation(
+      resolution.plugin!,
+      service,
+      'delete_dns_record',
+      { recordId },
+      {
+        actorUserId: userId,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent ?? null,
+      },
+      this.cache,
+      this.events,
+      this.audit,
+      this.breakers,
+    );
+    return { resolution, result };
+  }
+
+  /**
+   * Pipeline canónico para los 4 endpoints DNS:
+   *   load service + ownership + resolve DNS authority + verify plugin.
+   *
+   * Lanza:
+   *   - NotFoundException(404) si service no existe (loadServiceForView).
+   *   - ForbiddenException(403) si cliente accede a service ajeno.
+   *   - DnsExternallyManagedError si la zona no está en plugin Aelium —
+   *     la capa REST la traduce a HTTP 404 con shape canónico
+   *     `{ code: 'DNS_MANAGED_EXTERNALLY' | 'DNS_NO_AUTHORITY_PLUGIN', ... }`.
+   */
+  private async loadServiceAndResolveDnsPlugin(
+    serviceId: string,
+    userId: string,
+    isAdmin: boolean,
+  ): Promise<{
+    service: ServiceWithRelations;
+    resolution: DnsAuthorityResolution;
+  }> {
+    const service = await this.loadServiceForView(serviceId);
+    if (!isAdmin && service.user_id !== userId) {
+      throw new ForbiddenException('No tienes acceso a este servicio.');
+    }
+
+    const defaultNs = await this.settings.getJson<readonly string[]>(
+      'provisioning',
+      'default_nameservers',
+      ['ns1.aelium.net', 'ns2.aelium.net'],
+    );
+    const resolution = resolveDnsAuthority(
+      service,
+      this.registry,
+      Array.isArray(defaultNs) ? defaultNs : [],
+    );
+
+    if (resolution.authority === 'external' || !resolution.plugin) {
+      throw new DnsExternallyManagedError(resolution);
+    }
+    return { service, resolution };
   }
 
   // â”€â”€â”€ Admin: reprovision â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
