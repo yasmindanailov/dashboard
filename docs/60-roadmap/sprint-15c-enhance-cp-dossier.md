@@ -611,17 +611,17 @@ Aelium v1 supera a WiseCP (el más capaz) en DNS + métricas + audit + cross-plu
 
 ## 7. Estimación esfuerzo Sprint 15C — 9 fases
 
-| Fase | Contenido | Estimación |
-|---|---|---|
-| 15C.A | ADR-082 transversal + ADR-077 Amendment A1 + ADR-083 specifics | 0.5–1 sesión |
-| 15C.B | Cliente HTTP Enhance (`EnhanceApiClient`) + types TypeScript del spec + `MockEnhanceServer` Express + capturar fixtures contra live | 0.5–1 sesión |
-| 15C.C | Plugin core (6 métodos contrato + manifest + DI registration + tabla `enhance_customers` + lazy-create idempotente con search-by-email) | 1–1.5 sesión |
-| 15C.D | Listener `auto-config-dns-on-hosting-provisioned` reconcile defensivo + setting `provisioning.default_nameservers` + propagación cluster + helper `dns-authority-resolver.ts` + endpoints orquestador `/dns/*` | 1–1.5 sesión |
-| 15C.E | Acciones curadas (reset_password + view_disk + view_bandwidth + change_package admin + force_resync admin) + audit completo | 0.5–1 sesión |
-| 15C.F | SSO endpoints (cliente Customer Panel + admin impersonation + evento `service.admin_sso_impersonation` + listener GDPR) | 0.5–1 sesión |
-| 15C.G | DNS records management UI (7 tipos via `@rjsf/core` heredado Sprint 15A) — pieza pesada, frontend `/dashboard/services/[id]/dns` | 1.5–2 sesiones |
-| 15C.H | Cron `reconcile-enhance-services` 6h + setting threshold + evento `service.reconciled_external_change` + listener audit con flag GDPR + tests | 0.5 sesión |
-| 15C.I | E2E (mock server completo + smoke contra live) + cierre documental (`docs/features/provisioning/admin-plugins-enhance.md` + retrospectiva `completed/sprint-15c-plugin-enhance-cp.md`) + actualización `_events.md` con eventos nuevos + `_matrix.md` con dependencias plugin → orquestador → DNS | 1 sesión |
+| Fase | Contenido | Estimación | Estado |
+|---|---|---|---|
+| 15C.A | ADR-082 transversal + ADR-077 Amendment A1 + ADR-083 specifics | 0.5–1 sesión | ✅ cerrada (PR #36, master `0bb83b3`) |
+| 15C.B | Cliente HTTP Enhance (`EnhanceApiClient`) + types TypeScript del spec + `MockEnhanceServer` Express + capturar fixtures contra live | 0.5–1 sesión | ✅ cerrada (PR #37, master `156ea35`) |
+| 15C.C | Plugin core (6 métodos contrato + manifest + DI registration + tabla `enhance_customers` + lazy-create idempotente con search-by-email) | 1–1.5 sesión | ✅ cerrada (PR #38, master `69fed47`) |
+| 15C.D | Listener `auto-config-dns-on-hosting-provisioned` reconcile defensivo + setting `provisioning.default_nameservers` + propagación cluster + helper `dns-authority-resolver.ts` + endpoints orquestador `/dns/*` | 1–1.5 sesión | ✅ cerrada (PR #41, master `a319063`) |
+| 15C.E | Acciones curadas (reset_password + view_disk + view_bandwidth + change_package admin + force_resync admin) + audit completo | 0.5–1 sesión | ⏳ pendiente |
+| 15C.F | SSO endpoints (cliente Customer Panel + admin impersonation + evento `service.admin_sso_impersonation` + listener GDPR) | 0.5–1 sesión | ⏳ pendiente |
+| 15C.G | DNS records management UI (7 tipos via `@rjsf/core` heredado Sprint 15A) — pieza pesada, frontend `/dashboard/services/[id]/dns` | 1.5–2 sesiones | ⏳ pendiente |
+| 15C.H | Cron `reconcile-enhance-services` 6h + setting threshold + evento `service.reconciled_external_change` + listener audit con flag GDPR + tests | 0.5 sesión | ⏳ pendiente |
+| 15C.I | E2E (mock server completo + smoke contra live) + cierre documental (`docs/features/provisioning/admin-plugins-enhance.md` + retrospectiva `completed/sprint-15c-plugin-enhance-cp.md`) + actualización `_events.md` con eventos nuevos + `_matrix.md` con dependencias plugin → orquestador → DNS | 1 sesión | ⏳ pendiente |
 
 **Total: 7–10.5 sesiones.** Mayor que Sprint 15D RC (3-4.5) por: DNS UI completa + listener cross-plugin + lazy customer model con flujo 6 pasos + reconcile drift detection. Hereda TODO el framework Sprint 15A.
 
