@@ -6,32 +6,66 @@ import {
   ServiceWithRelations,
 } from '../../core/provisioning/types';
 
+import { EnhanceProvisionerPlugin } from './enhance_cp/enhance.plugin';
 import { InternalProvisionerPlugin } from './internal/internal.plugin';
 import { ManualProvisionerPlugin } from './manual/manual.plugin';
 
 /**
  * Test contract genérico canónico — Sprint 11 Fase 11.C (ADR-077 §7).
+ * Sprint 15C Fase 15C.C — extendido con modo 'static-only' para plugins
+ * con dependencias externas complejas.
  *
  * Verifica que CUALQUIER plugin registrado al `PROVISIONER_PLUGINS` token
- * cumple los 12 invariantes del contrato v2. Cada plugin nuevo (Sprint
- * 15A/C/D/E/G) debe pasar este test antes de merge — el array
+ * cumple los invariantes canónicos del contrato v2. Cada plugin nuevo
+ * (Sprint 15A/C/D/E/G) debe pasar este test antes de merge — el array
  * `REGISTERED_PROVISIONER_PLUGINS` se extiende con cada plugin nuevo.
  *
- * Cuando se introduzca el manifest declarativo (Sprint 15A), este test
- * se acoplará al loader del manifest en lugar de la lista hardcoded.
- *
- * Doctrina:
+ * Doctrina (extendida en Sprint 15C):
  *   - El test recibe instancias de los plugins (no clases) — verifica
  *     comportamiento, no solo firma TypeScript.
- *   - Los métodos `provision` / `getServiceInfo` se ejecutan con un
- *     ServiceWithRelations sintético mínimo. Plugins reales (Sprint
- *     15+) que requieran datos específicos del proveedor montarán mocks
- *     en sus `*.plugin.spec.ts` propios.
+ *   - **Modo 'full'**: ejecuta `provision`/`deprovision`/`getServiceInfo`/
+ *     `getSsoUrl`/`executeAction` con `ServiceWithRelations` sintético
+ *     mínimo. Aplica a plugins triviales sin dependencias externas
+ *     (`internal`, `manual`).
+ *   - **Modo 'static-only'**: solo valida declaraciones estáticas
+ *     (slug, contractVersion, capabilities, inlineActions, manifest) +
+ *     invariantes ADR-077 Amendment A1 (`has_dns_management` ↔ DNS
+ *     inline actions). Aplica a plugins con dependencias service-level
+ *     (PrismaService, SecretVaultService, etc.) cuyo comportamiento se
+ *     valida exhaustivamente en su propio `<plugin>.plugin.spec.ts`.
+ *
+ *     Ejemplo: `EnhanceProvisionerPlugin` requiere `PluginInstall` con
+ *     config + secrets cifrados — montar ese fixture aquí duplicaría
+ *     la lógica de `enhance.plugin.spec.ts` (41 tests) sin ganancia.
  */
 
-const REGISTERED_PROVISIONER_PLUGINS: readonly ProvisionerPlugin[] = [
-  new InternalProvisionerPlugin(),
-  new ManualProvisionerPlugin(),
+interface ContractTestPlugin {
+  readonly plugin: ProvisionerPlugin;
+  /**
+   * Modo del test. Ver doctrina arriba.
+   */
+  readonly mode: 'full' | 'static-only';
+}
+
+/**
+ * Construye una instancia de `EnhanceProvisionerPlugin` para validar
+ * invariantes estáticas SIN inyectar dependencies reales. Los métodos
+ * runtime (provision/etc.) NO se ejecutan en este modo — ver
+ * `enhance.plugin.spec.ts` para cobertura comportamental.
+ */
+function buildEnhancePluginForStaticContract(): EnhanceProvisionerPlugin {
+  return new EnhanceProvisionerPlugin(
+    null as never, // prisma — NO se invoca en mode='static-only'
+    null as never, // vault   — idem
+    null as never, // customers — idem
+  );
+}
+
+const REGISTERED_PROVISIONER_PLUGINS: readonly ContractTestPlugin[] = [
+  { plugin: new InternalProvisionerPlugin(), mode: 'full' },
+  { plugin: new ManualProvisionerPlugin(), mode: 'full' },
+  // Sprint 15C — primer plugin SaaS real. Modo static-only por dependencias.
+  { plugin: buildEnhancePluginForStaticContract(), mode: 'static-only' },
 ];
 
 function buildSyntheticService(pluginSlug: string): ServiceWithRelations {
@@ -71,7 +105,11 @@ function buildSyntheticService(pluginSlug: string): ServiceWithRelations {
   } as unknown as ServiceWithRelations;
 }
 
-const KEBAB_CASE = /^[a-z][a-z0-9-]*$/;
+// Slug naming canónico — snake_case o kebab-case (alineado con plugin-registry.ts).
+// Doctrina ADR-018/021/070/077/080/082/083 + glossary: slugs multi-palabra son
+// snake_case (`enhance_cp`, `docker_engine`, `resellerclub`). El regex original
+// kebab-only era un bug que habría rechazado `enhance_cp` en boot.
+const SLUG_NAMING = /^[a-z][a-z0-9_-]*$/;
 const ISO8601 =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 
@@ -91,11 +129,24 @@ const ALLOWED_FOLLOWUP: ReadonlyArray<string> = [
   'create_setup_task',
 ];
 
-describe.each(REGISTERED_PROVISIONER_PLUGINS.map((p) => [p.slug, p] as const))(
+describe.each(
+  REGISTERED_PROVISIONER_PLUGINS.map((ctp): [string, ContractTestPlugin] => [
+    ctp.plugin.slug,
+    ctp,
+  ]),
+)(
   'ProvisionerPlugin contract v2 — %s',
-  (_slug, plugin) => {
-    it('declara slug en kebab-case', () => {
-      expect(plugin.slug).toMatch(KEBAB_CASE);
+  (_slug: string, ctp: ContractTestPlugin) => {
+    const plugin = ctp.plugin;
+    const isFullMode = ctp.mode === 'full';
+
+    it('declara slug que cumple naming canónico (snake_case o kebab-case)', () => {
+      expect(plugin.slug).toMatch(SLUG_NAMING);
+    });
+
+    it(`declara mode='${ctp.mode}' en contract test — comportamiento ${isFullMode ? 'verificado aquí' : 'verificado en spec específico'}`, () => {
+      // Test "marcador" para visibilidad: indica claramente el modo en el output.
+      expect(['full', 'static-only']).toContain(ctp.mode);
     });
 
     it('declara contractVersion === v2', () => {
@@ -161,6 +212,38 @@ describe.each(REGISTERED_PROVISIONER_PLUGINS.map((p) => [p.slug, p] as const))(
       expect(['sync', 'async']).toContain(c.provision_mode);
       expect(typeof c.completes_via_task).toBe('boolean');
       expect(typeof c.supports_reconciliation).toBe('boolean');
+      // ADR-077 Amendment A1 — has_dns_management required.
+      expect(typeof c.has_dns_management).toBe('boolean');
+    });
+
+    // ─── ADR-077 Amendment A1 — DNS management invariants ────────────────
+
+    it('si has_dns_management=true → declara las 4 inline actions canónicas DNS (ADR-077 Amendment A1.3)', () => {
+      if (plugin.capabilities.has_dns_management) {
+        const slugs = plugin.inlineActions.map((a) => a.slug);
+        for (const required of [
+          'list_dns_records',
+          'add_dns_record',
+          'update_dns_record',
+          'delete_dns_record',
+        ]) {
+          expect(slugs).toContain(required);
+        }
+      }
+    });
+
+    it('si has_dns_management=false → NO declara inline actions DNS canónicas (ADR-077 Amendment A1.3)', () => {
+      if (!plugin.capabilities.has_dns_management) {
+        const slugs = plugin.inlineActions.map((a) => a.slug);
+        for (const dnsSlug of [
+          'list_dns_records',
+          'add_dns_record',
+          'update_dns_record',
+          'delete_dns_record',
+        ]) {
+          expect(slugs).not.toContain(dnsSlug);
+        }
+      }
     });
 
     it('si has_sso_panel=true → declara panel_label (ADR-077 §3 coherence)', () => {
@@ -176,119 +259,141 @@ describe.each(REGISTERED_PROVISIONER_PLUGINS.map((p) => [p.slug, p] as const))(
       }
     });
 
-    it('inlineActions tienen slugs únicos en kebab-case', () => {
+    it('inlineActions tienen slugs únicos (snake_case o kebab-case)', () => {
       const slugs = plugin.inlineActions.map((a) => a.slug);
       expect(new Set(slugs).size).toBe(slugs.length);
       for (const action of plugin.inlineActions) {
-        expect(action.slug).toMatch(KEBAB_CASE);
+        expect(action.slug).toMatch(SLUG_NAMING);
         expect(typeof action.label).toBe('string');
         expect(typeof action.confirmRequired).toBe('boolean');
         expect(typeof action.destructive).toBe('boolean');
       }
     });
 
-    it('provision() devuelve ProvisionResult con shape canónico', async () => {
-      const service = buildSyntheticService(plugin.slug);
-      const result = await plugin.provision({
-        service,
-        client: service.client,
-        productConfig: {},
-        serverId: null,
-        correlationId: 'cor-contract',
-      });
+    // ─── Tests comportamentales ─ solo en mode='full' ────────────────────
+    // Plugins con dependencias service-level (mode='static-only', ej. enhance_cp)
+    // ven estos como `skipped` — su comportamiento se valida en su propio
+    // `<plugin>.plugin.spec.ts` con mocks específicos.
 
-      expect(result).toEqual(
-        expect.objectContaining({
-          providerReference: expect.any(Object) as unknown,
-          metadata: expect.any(Object) as unknown,
-          followUp: expect.any(Array) as unknown,
-        }),
-      );
-      // providerReference ∈ string | null
-      expect(
-        typeof result.providerReference === 'string' ||
-          result.providerReference === null,
-      ).toBe(true);
-      // followUp ⊆ valores canónicos
-      for (const fu of result.followUp) {
-        expect(ALLOWED_FOLLOWUP).toContain(fu);
-      }
-    });
+    const itFull = isFullMode ? it : it.skip;
 
-    it('deprovision() resuelve sin error (idempotente, no-op si no existe ya)', async () => {
-      const service = buildSyntheticService(plugin.slug);
-      await expect(
-        plugin.deprovision({
+    itFull(
+      'provision() devuelve ProvisionResult con shape canónico',
+      async () => {
+        const service = buildSyntheticService(plugin.slug);
+        const result = await plugin.provision({
           service,
-          reason: 'cancelled',
-          correlationId: 'cor-deprov-contract',
-        }),
-      ).resolves.not.toThrow();
-    });
+          client: service.client,
+          productConfig: {},
+          serverId: null,
+          correlationId: 'cor-contract',
+        });
 
-    it('getServiceInfo() devuelve ServiceInfo con shape canónico', async () => {
-      const service = buildSyntheticService(plugin.slug);
-      const info = await plugin.getServiceInfo(service);
-
-      expect(SERVICE_INFO_STATUS_VALUES).toContain(info.status);
-      expect(info.fetchedAt).toMatch(ISO8601);
-      expect(typeof info.display.primary).toBe('string');
-      expect(info.display.primary.length).toBeGreaterThan(0);
-      expect(typeof info.capabilities.hasSsoPanel).toBe('boolean');
-      expect(Array.isArray(info.capabilities.inlineActions)).toBe(true);
-      expect(Array.isArray(info.availableActions)).toBe(true);
-    });
-
-    it('getSsoUrl() devuelve null o SsoUrl con shape canónico', async () => {
-      const service = buildSyntheticService(plugin.slug);
-      const sso = await plugin.getSsoUrl(service);
-
-      if (sso === null) {
-        // Si capability flag declara has_sso_panel=true, NO debería ser null
-        // por defecto — pero plugins con condicional por instancia (Docker)
-        // pueden devolverlo. No lo enforzamos aquí.
-        return;
-      }
-
-      expect(typeof sso.url).toBe('string');
-      expect(sso.url.length).toBeGreaterThan(0);
-      expect(sso.expiresAt).toMatch(ISO8601);
-      expect(typeof sso.panelLabel).toBe('string');
-      expect(sso.opensIn).toBe('new_tab');
-    });
-
-    it('executeAction() con slug inválido lanza ProvisionerPluginError(INVALID_PAYLOAD)', async () => {
-      const service = buildSyntheticService(plugin.slug);
-      // Si el plugin no tiene inline actions, cualquier slug es inválido.
-      // Si las tiene, usamos un slug nunca declarado.
-      const invalidSlug = '__definitely_unknown_slug__';
-
-      let thrown: unknown;
-      try {
-        await plugin.executeAction(service, invalidSlug, {});
-      } catch (err) {
-        thrown = err;
-      }
-
-      // El plugin puede:
-      //   - Lanzar ProvisionerPluginError(INVALID_PAYLOAD) — preferido.
-      //   - Devolver ActionResult{success:false} — válido para plugins
-      //     que prefieren no lanzar (no es el caso de los triviales hoy
-      //     pero futuros plugins podrían).
-      // Cualquier otra forma de error no es canónica.
-      if (thrown instanceof ProvisionerPluginError) {
-        expect(thrown.code).toBe('INVALID_PAYLOAD');
-        expect(thrown.retriable).toBe(false);
-      } else if (thrown === undefined) {
-        // OK: plugin devolvió ActionResult{success:false} sin lanzar.
-        // No enforzamos su shape — cubierto en spec del plugin.
-      } else {
-        const detail =
-          thrown instanceof Error ? thrown.message : JSON.stringify(thrown);
-        throw new Error(
-          `Plugin ${plugin.slug} executeAction lanzó error no canónico: ${detail}`,
+        expect(result).toEqual(
+          expect.objectContaining({
+            providerReference: expect.any(Object) as unknown,
+            metadata: expect.any(Object) as unknown,
+            followUp: expect.any(Array) as unknown,
+          }),
         );
-      }
-    });
+        // providerReference ∈ string | null
+        expect(
+          typeof result.providerReference === 'string' ||
+            result.providerReference === null,
+        ).toBe(true);
+        // followUp ⊆ valores canónicos
+        for (const fu of result.followUp) {
+          expect(ALLOWED_FOLLOWUP).toContain(fu);
+        }
+      },
+    );
+
+    itFull(
+      'deprovision() resuelve sin error (idempotente, no-op si no existe ya)',
+      async () => {
+        const service = buildSyntheticService(plugin.slug);
+        await expect(
+          plugin.deprovision({
+            service,
+            reason: 'cancelled',
+            correlationId: 'cor-deprov-contract',
+          }),
+        ).resolves.not.toThrow();
+      },
+    );
+
+    itFull(
+      'getServiceInfo() devuelve ServiceInfo con shape canónico',
+      async () => {
+        const service = buildSyntheticService(plugin.slug);
+        const info = await plugin.getServiceInfo(service);
+
+        expect(SERVICE_INFO_STATUS_VALUES).toContain(info.status);
+        expect(info.fetchedAt).toMatch(ISO8601);
+        expect(typeof info.display.primary).toBe('string');
+        expect(info.display.primary.length).toBeGreaterThan(0);
+        expect(typeof info.capabilities.hasSsoPanel).toBe('boolean');
+        expect(Array.isArray(info.capabilities.inlineActions)).toBe(true);
+        expect(Array.isArray(info.availableActions)).toBe(true);
+      },
+    );
+
+    itFull(
+      'getSsoUrl() devuelve null o SsoUrl con shape canónico',
+      async () => {
+        const service = buildSyntheticService(plugin.slug);
+        const sso = await plugin.getSsoUrl(service);
+
+        if (sso === null) {
+          // Si capability flag declara has_sso_panel=true, NO debería ser null
+          // por defecto — pero plugins con condicional por instancia (Docker)
+          // pueden devolverlo. No lo enforzamos aquí.
+          return;
+        }
+
+        expect(typeof sso.url).toBe('string');
+        expect(sso.url.length).toBeGreaterThan(0);
+        expect(sso.expiresAt).toMatch(ISO8601);
+        expect(typeof sso.panelLabel).toBe('string');
+        expect(sso.opensIn).toBe('new_tab');
+      },
+    );
+
+    itFull(
+      'executeAction() con slug inválido lanza ProvisionerPluginError(INVALID_PAYLOAD)',
+      async () => {
+        const service = buildSyntheticService(plugin.slug);
+        // Si el plugin no tiene inline actions, cualquier slug es inválido.
+        // Si las tiene, usamos un slug nunca declarado.
+        const invalidSlug = '__definitely_unknown_slug__';
+
+        let thrown: unknown;
+        try {
+          await plugin.executeAction(service, invalidSlug, {});
+        } catch (err) {
+          thrown = err;
+        }
+
+        // El plugin puede:
+        //   - Lanzar ProvisionerPluginError(INVALID_PAYLOAD) — preferido.
+        //   - Devolver ActionResult{success:false} — válido para plugins
+        //     que prefieren no lanzar (no es el caso de los triviales hoy
+        //     pero futuros plugins podrían).
+        // Cualquier otra forma de error no es canónica.
+        if (thrown instanceof ProvisionerPluginError) {
+          expect(thrown.code).toBe('INVALID_PAYLOAD');
+          expect(thrown.retriable).toBe(false);
+        } else if (thrown === undefined) {
+          // OK: plugin devolvió ActionResult{success:false} sin lanzar.
+          // No enforzamos su shape — cubierto en spec del plugin.
+        } else {
+          const detail =
+            thrown instanceof Error ? thrown.message : JSON.stringify(thrown);
+          throw new Error(
+            `Plugin ${plugin.slug} executeAction lanzó error no canónico: ${detail}`,
+          );
+        }
+      },
+    );
   },
 );

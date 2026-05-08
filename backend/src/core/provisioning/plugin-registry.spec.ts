@@ -1,4 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
+﻿import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../database/prisma.service';
 
@@ -11,31 +11,31 @@ import {
 } from './types';
 
 /**
- * Tests unit PluginRegistryService — Sprint 15A Fase E (ADR-080 §4).
+ * Tests unit PluginRegistryService â€” Sprint 15A Fase E (ADR-080 Â§4).
  *
- * Refactor de Sprint 11 Fase 11.B (validación de contrato) + nueva capa
- * de loader desde DB. La doctrina canónica:
- *   - Validación de contrato: invariantes ADR-077 §6 + §7 + ADR-080 §1.
+ * Refactor de Sprint 11 Fase 11.B (validaciÃ³n de contrato) + nueva capa
+ * de loader desde DB. La doctrina canÃ³nica:
+ *   - ValidaciÃ³n de contrato: invariantes ADR-077 Â§6 + Â§7 + ADR-080 Â§1.
  *     Inmutable durante la vida del proceso.
- *   - Activación desde DB: lee `plugin_installs` con enabled=true,
+ *   - ActivaciÃ³n desde DB: lee `plugin_installs` con enabled=true,
  *     intersecta con plugins validados, llena `activePlugins`.
  *   - Reload runtime: `@OnEvent('plugin.config_changed')` re-filtra el
  *     map sin re-validar el contrato.
  *
- * Cobertura mínima:
- *  Validación contract (heredados de Sprint 11):
- *  - Plugin con contractVersion incorrecto → rechazado.
- *  - Plugin con slug no kebab-case → rechazado.
- *  - Plugin duplicado (mismo slug) → segundo rechazado, primero gana.
- *  - has_sso_panel=true sin panel_label → rechazado.
- *  - Plugin con duplicate inline action slugs → rechazado.
- *  - Plugin con manifest.slug != plugin.slug → rechazado (ADR-080 §1).
- *  - Plugin válido + enabled en DB → registrado y get(slug) lo devuelve.
+ * Cobertura mÃ­nima:
+ *  ValidaciÃ³n contract (heredados de Sprint 11):
+ *  - Plugin con contractVersion incorrecto â†’ rechazado.
+ *  - Plugin con slug no kebab-case â†’ rechazado.
+ *  - Plugin duplicado (mismo slug) â†’ segundo rechazado, primero gana.
+ *  - has_sso_panel=true sin panel_label â†’ rechazado.
+ *  - Plugin con duplicate inline action slugs â†’ rechazado.
+ *  - Plugin con manifest.slug != plugin.slug â†’ rechazado (ADR-080 Â§1).
+ *  - Plugin vÃ¡lido + enabled en DB â†’ registrado y get(slug) lo devuelve.
  *
- *  Activación desde DB (Sprint 15A):
- *  - Plugin válido pero enabled=false en DB → fuera de activePlugins,
- *    listSlugs vacío, listAvailableSlugs incluye slug.
- *  - Plugin enabled=true en DB pero ausente de DI → log error pero NO
+ *  ActivaciÃ³n desde DB (Sprint 15A):
+ *  - Plugin vÃ¡lido pero enabled=false en DB â†’ fuera de activePlugins,
+ *    listSlugs vacÃ­o, listAvailableSlugs incluye slug.
+ *  - Plugin enabled=true en DB pero ausente de DI â†’ log error pero NO
  *    rompe boot.
  *  - handleConfigChanged() recarga activePlugins sin re-validar.
  *  - getOrThrow distingue 'not registered' de 'validated but not enabled'.
@@ -47,7 +47,7 @@ interface MockPrismaPluginInstall {
   };
 }
 
-/** Manifest mínimo canónico para tests (ADR-080 §1) — derivado del slug. */
+/** Manifest mÃ­nimo canÃ³nico para tests (ADR-080 Â§1) â€” derivado del slug. */
 function buildTestManifest(slug: string): PluginManifest {
   return {
     slug,
@@ -78,6 +78,7 @@ function buildValidPlugin(
       provision_mode: 'sync',
       completes_via_task: false,
       supports_reconciliation: false,
+      has_dns_management: false, // ADR-077 Amendment A1
     },
     inlineActions: [],
     manifest: buildTestManifest(slug),
@@ -92,9 +93,9 @@ function buildValidPlugin(
 }
 
 /**
- * Construye registry con mocks canónicos.
- * `enabledInDb` controla qué slugs devuelve el mock de Prisma como activos.
- * Si no se pasa, asume que TODOS los slugs registrados están enabled.
+ * Construye registry con mocks canÃ³nicos.
+ * `enabledInDb` controla quÃ© slugs devuelve el mock de Prisma como activos.
+ * Si no se pasa, asume que TODOS los slugs registrados estÃ¡n enabled.
  */
 async function buildRegistry(
   plugins: ProvisionerPlugin[],
@@ -125,9 +126,9 @@ async function buildRegistry(
   return { registry, prisma };
 }
 
-describe('PluginRegistryService — Sprint 15A Fase E (ADR-080 §4)', () => {
+describe('PluginRegistryService â€” Sprint 15A Fase E (ADR-080 Â§4)', () => {
   describe('contract validation (heredado Sprint 11)', () => {
-    it('registra plugin válido y get(slug) lo devuelve', async () => {
+    it('registra plugin vÃ¡lido y get(slug) lo devuelve', async () => {
       const plugin = buildValidPlugin({ slug: 'internal' });
       const { registry } = await buildRegistry([plugin]);
       expect(registry.get('internal')).toBe(plugin);
@@ -135,7 +136,7 @@ describe('PluginRegistryService — Sprint 15A Fase E (ADR-080 §4)', () => {
       expect(registry.listAvailableSlugs()).toEqual(['internal']);
     });
 
-    it('rechaza plugin con contractVersion incorrecto (ADR-077 §6)', async () => {
+    it('rechaza plugin con contractVersion incorrecto (ADR-077 Â§6)', async () => {
       const bad = buildValidPlugin({
         slug: 'legacy',
         contractVersion: 'v1' as unknown as 'v2',
@@ -170,6 +171,7 @@ describe('PluginRegistryService — Sprint 15A Fase E (ADR-080 §4)', () => {
           provision_mode: 'sync',
           completes_via_task: false,
           supports_reconciliation: false,
+          has_dns_management: false, // ADR-077 Amendment A1
         },
       });
       const { registry } = await buildRegistry([bad]);
@@ -198,7 +200,7 @@ describe('PluginRegistryService — Sprint 15A Fase E (ADR-080 §4)', () => {
       expect(registry.get('dup-actions')).toBeNull();
     });
 
-    it('rechaza plugin con manifest.slug != plugin.slug (ADR-080 §1)', async () => {
+    it('rechaza plugin con manifest.slug != plugin.slug (ADR-080 Â§1)', async () => {
       const bad = buildValidPlugin({
         slug: 'plugin-a',
         manifest: buildTestManifest('plugin-b'),
@@ -210,7 +212,7 @@ describe('PluginRegistryService — Sprint 15A Fase E (ADR-080 §4)', () => {
   });
 
   describe('activation desde DB (Sprint 15A)', () => {
-    it('plugin validado pero enabled=false en DB → fuera de activePlugins', async () => {
+    it('plugin validado pero enabled=false en DB â†’ fuera de activePlugins', async () => {
       const plugin = buildValidPlugin({ slug: 'internal' });
       const { registry } = await buildRegistry([plugin], []);
       expect(registry.get('internal')).toBeNull();
@@ -219,11 +221,11 @@ describe('PluginRegistryService — Sprint 15A Fase E (ADR-080 §4)', () => {
       expect(registry.listAvailableSlugs()).toEqual(['internal']);
     });
 
-    it('plugin enabled=true en DB pero ausente de DI → log error sin romper boot', async () => {
+    it('plugin enabled=true en DB pero ausente de DI â†’ log error sin romper boot', async () => {
       const plugin = buildValidPlugin({ slug: 'internal' });
-      // DB tiene `internal` (válido) y `ghost` (ausente de DI).
+      // DB tiene `internal` (vÃ¡lido) y `ghost` (ausente de DI).
       const { registry } = await buildRegistry([plugin], ['internal', 'ghost']);
-      // El plugin válido entra; el fantasma queda fuera sin tirar el boot.
+      // El plugin vÃ¡lido entra; el fantasma queda fuera sin tirar el boot.
       expect(registry.get('internal')).toBe(plugin);
       expect(registry.get('ghost')).toBeNull();
       expect(registry.listSlugs()).toEqual(['internal']);
@@ -231,16 +233,16 @@ describe('PluginRegistryService — Sprint 15A Fase E (ADR-080 §4)', () => {
 
     it('handleConfigChanged() recarga activePlugins sin re-validar contrato', async () => {
       const plugin = buildValidPlugin({ slug: 'internal' });
-      // Boot: enabled=true → activo.
+      // Boot: enabled=true â†’ activo.
       const { registry, prisma } = await buildRegistry([plugin], ['internal']);
       expect(registry.listSlugs()).toEqual(['internal']);
 
-      // Admin deshabilita: el siguiente findMany devuelve vacío.
+      // Admin deshabilita: el siguiente findMany devuelve vacÃ­o.
       prisma.pluginInstall.findMany.mockResolvedValueOnce([]);
       await registry.handleConfigChanged();
       expect(registry.listSlugs()).toEqual([]);
       expect(registry.get('internal')).toBeNull();
-      // El plugin sigue VALIDADO — no se re-validó, sólo se re-filtró.
+      // El plugin sigue VALIDADO â€” no se re-validÃ³, sÃ³lo se re-filtrÃ³.
       expect(registry.listAvailableSlugs()).toEqual(['internal']);
 
       // Admin re-habilita.

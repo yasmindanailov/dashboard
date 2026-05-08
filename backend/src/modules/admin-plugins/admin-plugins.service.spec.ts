@@ -1,4 +1,4 @@
-/* eslint-disable
+﻿/* eslint-disable
    @typescript-eslint/unbound-method,
    @typescript-eslint/no-unsafe-assignment,
    @typescript-eslint/no-unsafe-member-access,
@@ -75,6 +75,7 @@ function buildPlugin(
       provision_mode: 'sync',
       completes_via_task: false,
       supports_reconciliation: false,
+      has_dns_management: false, // ADR-077 Amendment A1
     },
     inlineActions: [],
     manifest,
@@ -90,7 +91,7 @@ function buildPlugin(
   };
 }
 
-describe('AdminPluginsService — Sprint 15A Fase G (ADR-080)', () => {
+describe('AdminPluginsService â€” Sprint 15A Fase G (ADR-080)', () => {
   let prisma: {
     pluginInstall: {
       findMany: jest.Mock;
@@ -167,7 +168,7 @@ describe('AdminPluginsService — Sprint 15A Fase G (ADR-080)', () => {
       );
     });
 
-    it('plugin disponible sin install row → enabled=false', async () => {
+    it('plugin disponible sin install row â†’ enabled=false', async () => {
       prisma.pluginInstall.findMany.mockResolvedValueOnce([]);
       const result = await service.list();
       expect(result[0].enabled).toBe(false);
@@ -175,7 +176,7 @@ describe('AdminPluginsService — Sprint 15A Fase G (ADR-080)', () => {
   });
 
   describe('findOne(slug)', () => {
-    it('lanza NotFound si el plugin no está validado', async () => {
+    it('lanza NotFound si el plugin no estÃ¡ validado', async () => {
       registry.getAvailable.mockReturnValueOnce(null);
       await expect(service.findOne('ghost')).rejects.toBeInstanceOf(
         NotFoundException,
@@ -198,7 +199,7 @@ describe('AdminPluginsService — Sprint 15A Fase G (ADR-080)', () => {
       expect(detail.config).toEqual({ base_url: 'https://api.example.com' });
     });
 
-    it('plugin sin install row → secrets devueltos como null por campo declarado', async () => {
+    it('plugin sin install row â†’ secrets devueltos como null por campo declarado', async () => {
       prisma.pluginInstall.findUnique.mockResolvedValueOnce(null);
       const detail = await service.findOne('enhance-cp');
       expect(detail.enabled).toBe(false);
@@ -218,7 +219,7 @@ describe('AdminPluginsService — Sprint 15A Fase G (ADR-080)', () => {
       prisma.pluginInstall.findUnique.mockResolvedValueOnce(null);
       try {
         await service.update('enhance-cp', 'admin-1', {
-          // base_url es required → falta.
+          // base_url es required â†’ falta.
           config: { branch_id: 'uk-1' },
         });
         throw new Error('should have thrown');
@@ -237,7 +238,7 @@ describe('AdminPluginsService — Sprint 15A Fase G (ADR-080)', () => {
       prisma.pluginInstall.findUnique.mockResolvedValueOnce(null);
       try {
         await service.update('enhance-cp', 'admin-1', {
-          // api_key minLength=5 → demasiado corto.
+          // api_key minLength=5 â†’ demasiado corto.
           secrets: { api_key: 'abc' },
         });
         throw new Error('should have thrown');
@@ -281,7 +282,7 @@ describe('AdminPluginsService — Sprint 15A Fase G (ADR-080)', () => {
       );
 
       // Audit con secrets enmascarados (NUNCA plaintext en audit).
-      // entity_id es UUID v5 derivado del slug (audit_change_log §schema
+      // entity_id es UUID v5 derivado del slug (audit_change_log Â§schema
       // strict UUID); el slug real vive en changes_*.slug.
       expect(audit.logChange).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -333,7 +334,7 @@ describe('AdminPluginsService — Sprint 15A Fase G (ADR-080)', () => {
         updated_at: new Date('2026-05-05T11:00:00Z'),
       });
 
-      // PATCH solo cambia config — secrets se omiten.
+      // PATCH solo cambia config â€” secrets se omiten.
       await service.update('enhance-cp', 'admin-1', {
         config: { base_url: 'https://api2.example.com', branch_id: 'uk-2' },
       });
@@ -400,7 +401,7 @@ describe('AdminPluginsService — Sprint 15A Fase G (ADR-080)', () => {
       );
     });
 
-    it('success=true si plugin.getStatus reporta status válido', async () => {
+    it('success=true si plugin.getStatus reporta status vÃ¡lido', async () => {
       const result = await service.testConnection('enhance-cp');
       expect(result.success).toBe(true);
       expect(enhancePlugin.getStatus).toHaveBeenCalled();

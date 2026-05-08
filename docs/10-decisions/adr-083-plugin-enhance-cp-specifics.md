@@ -572,3 +572,104 @@ Este overhead de configuración (~30 minutos por plugin × N plugins) se evita c
 - Implementación PR #37 cumple el patrón ya canonizado por este Amendment.
 - 22 tests integration `client.integration.spec.ts` consumen el mock correctamente vía import relativo `../../../../../test/mocks/enhance-server`.
 - Suite total backend `329/329` verde.
+
+---
+
+### Amendment A2 (2026-05-08) — naming SQL del campo PK: `user_id` en lugar de `client_id`
+
+> **Justificado por:** Sprint 15C Fase 15C.C (PR #38). Implementación de la migración `sprint15c_enhance_customers` detectó que el modelo Aelium NO tiene una entidad `Client` separada — `User` es la identidad canónica del cliente final, y todo el schema usa `user_id` con FK a `users.id` consistentemente.
+> **Sprint:** 15C Fase 15C.C (review pre-merge).
+> **Compatibilidad:** Hacia atrás. NO toca el comportamiento del plugin — solo formaliza el naming SQL del campo PK. La doctrina conceptual ("Client Aelium ↔ Customer Org Enhance") permanece intacta. NO bumpea ninguna versión.
+
+#### A2.1. Cambio canónico en §2 decisión 7
+
+La decisión 7 original declara el modelo Prisma con campo PK `client_id` y relación `client Client @relation(...)`:
+
+```prisma
+model EnhanceCustomer {
+  client_id String @id @db.Uuid
+  // ...
+  client Client @relation(fields: [client_id], references: [id], onDelete: Cascade)
+}
+```
+
+Se actualiza a:
+
+```prisma
+model EnhanceCustomer {
+  user_id String @id @db.Uuid
+  // ...
+  user User @relation("UserEnhanceCustomer", fields: [user_id], references: [id], onDelete: Cascade)
+}
+```
+
+#### A2.2. Razón doctrinal — schema Aelium no tiene modelo `Client`
+
+La decisión 7 original asumió implícitamente la existencia de un modelo `Client` separado siguiendo la nomenclatura conceptual del proyecto ("Client Aelium ↔ Customer Org Enhance"). Verificación contra el schema real al implementar la migración:
+
+1. **No existe modelo `Client` en `schema.prisma`.** Lo que se llama "Client Aelium" en la doctrina es el modelo `User` con rol cliente. Existe `ClientProfile` ([schema.prisma:171](../../backend/prisma/schema.prisma#L171)) como tabla de perfil 1-a-1 con `User.id`, pero NO un modelo `Client` con PK propia. La identidad del cliente es `users.id`.
+2. **Convención del schema: `user_id` para FK a `users.id`** (verificado en 15+ tablas: `Session`, `EmailVerification`, `PasswordReset`, `ClientProfile.user_id`, `BillingProfile.user_id`, `Service.user_id`, `Setting.user_id`, `AuditAccessLog.user_id`, etc.). NO existe ninguna tabla en el schema que use `client_id` como FK column name.
+3. **El propio ADR-083 §2 decisión 7 reconoce el linkage**: "el linkage Service ↔ enhance_customers es por `Service.user_id → Client.id → EnhanceCustomer.client_id` (ya existe vía `services.user_id`)". El path real del join en SQL es `services.user_id = enhance_customers.user_id` (sin pasar por una entidad intermedia).
+4. **Consecuencia operativa de respetar el ADR original**: habría requerido un alias artificial `client_id → users.id` o un modelo `Client` adelantado a Sprint X que aún no existe. Ambos rompen la convención del schema sin ganancia funcional.
+
+#### A2.3. Doctrina conceptual intacta
+
+El concepto canónico **"Client Aelium ↔ Customer Org Enhance"** se mantiene inalterado:
+
+- 1 fila en `enhance_customers` por cada cliente Aelium (un `User` con rol `client`) que tiene al menos un hosting Enhance contratado.
+- El docstring del modelo Prisma documenta explícitamente la divergencia naming vs doctrina conceptual ([schema.prisma:290-293](../../backend/prisma/schema.prisma#L290-L293)).
+- El glossary §"Enhance Customer" (añadido en este mismo PR) documenta el término conceptual y enlaza al campo SQL real.
+- El cliente HTTP `EnhanceApiClient` y `EnhanceCustomersService` siguen hablando de "customer org Enhance" en sus signatures + docstrings.
+
+#### A2.4. Cambio canónico en §2 decisión 8 (lazy create + 3-step idempotency)
+
+El pseudocódigo original usa `client.id` como argumento + `client_id` como columna. Se actualiza a `user.id` + `user_id`:
+
+```typescript
+async function ensureEnhanceCustomer(user: UserForEnhance, tx: PrismaTx): Promise<EnhanceCustomer> {
+  // Step 0: advisory lock per-user (cross-process race condition guard).
+  const lockKey = userAdvisoryLockKey(user.id);
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(
+    ${ADVISORY_LOCK_NAMESPACE_ENHANCE_CUSTOMERS}, ${lockKey}
+  )`;
+
+  // Step 1: SELECT FROM enhance_customers WHERE user_id = ?
+  const existing = await tx.enhanceCustomer.findUnique({ where: { user_id: user.id } });
+  if (existing) return existing;
+
+  // Step 2: defensive cross-restart — search Enhance por email.
+  const found = await enhanceClient.searchCustomersByEmail(user.email);
+  if (found.length > 0 && found[0].ownerId && found[0].ownerLoginId) {
+    return tx.enhanceCustomer.create({
+      data: {
+        user_id: user.id,
+        enhance_org_id: found[0].id,
+        enhance_owner_login_id: found[0].ownerLoginId,
+        enhance_owner_member_id: found[0].ownerId,
+      },
+    });
+  }
+
+  // Step 3: ejecutar provision flow steps 1-4 + persistir mapping.
+  const result = await runProvisionFlowCustomerSteps(user);
+  return tx.enhanceCustomer.create({ data: { user_id: user.id, ...result } });
+}
+```
+
+#### A2.5. Cambio canónico en §4 decisión 14 (eventos `service.*`)
+
+El payload del evento `service.admin_sso_impersonation` (decisión 14) declaraba campo `client_id`. Se actualiza a `user_id`:
+
+| Antes | Después |
+|---|---|
+| `{ service_id, client_id, agent_user_id, ... }` | `{ service_id, user_id, agent_user_id, ... }` |
+
+Coherente con [_events.md `service.cancelled`](../20-modules/_events.md), `service.activated`, etc. que usan `user_id`. El catálogo `_events.md` se sincroniza al emitir el evento por primera vez en Fase 15C.F.
+
+#### A2.6. Validación
+
+- Migración `20260508140000_sprint15c_enhance_customers/migration.sql` aplicada con `user_id` UUID NOT NULL PRIMARY KEY + FK CASCADE a `users(id)` ([migration.sql:26-44](../../backend/prisma/migrations/20260508140000_sprint15c_enhance_customers/migration.sql#L26-L44)).
+- Modelo Prisma `EnhanceCustomer` con docstring que cita este Amendment y aclara la divergencia naming SQL ↔ doctrina conceptual ([schema.prisma:276-304](../../backend/prisma/schema.prisma#L276-L304)).
+- `EnhanceCustomersService.ensureCustomer(user)` recibe `UserForEnhance` (subset de `User`) — naming coherente.
+- 8 tests unit `enhance-customers.service.spec.ts` cubren los 3 steps de idempotency + advisory lock con la API real (`user_id`).
+- Suite total backend `395/400` verde + 5 skipped (mode='static-only' del contract test para `enhance_cp`).

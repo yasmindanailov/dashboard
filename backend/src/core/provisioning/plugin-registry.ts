@@ -26,9 +26,9 @@ export const PROVISIONER_PLUGINS = Symbol('PROVISIONER_PLUGINS');
  *
  * Responsabilidades:
  *  1. Recibir todos los plugins registrados al boot vía DI multi-injection.
- *  2. Validar invariantes del contrato (ADR-077 §6 + §7 + ADR-080 §1):
+ *  2. Validar invariantes del contrato (ADR-077 §6 + §7 + Amendment A2 + ADR-080 §1):
  *     - `contractVersion === 'v2'`
- *     - slug kebab-case
+ *     - slug en snake_case o kebab-case (regex `/^[a-z][a-z0-9_-]*$/`)
  *     - sin duplicados
  *     - `has_sso_panel=true → panel_label` declarado
  *     - inline action slugs únicos
@@ -163,9 +163,16 @@ export class PluginRegistryService implements OnModuleInit {
       return;
     }
 
-    if (!/^[a-z][a-z0-9-]*$/.test(plugin.slug)) {
+    // Slug naming convention canónica (Sprint 11 + Sprint 15C):
+    // [a-z][a-z0-9_-]* — admite tanto kebab-case (`docker-engine`) como
+    // snake_case (`enhance_cp`, `resellerclub`). La doctrina del proyecto
+    // (ADR-018/021/070/077/080/082/083 + glossary) usa snake_case para
+    // plugins multi-palabra; el regex original kebab-only era un bug que
+    // habría rechazado `enhance_cp` en boot.
+    if (!/^[a-z][a-z0-9_-]*$/.test(plugin.slug)) {
       this.logger.error(
-        `Plugin slug "${plugin.slug}" rejected: must be kebab-case ([a-z][a-z0-9-]*).`,
+        `Plugin slug "${plugin.slug}" rejected: must match [a-z][a-z0-9_-]* ` +
+          `(snake_case or kebab-case, starting with lowercase letter).`,
       );
       return;
     }

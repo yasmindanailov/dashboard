@@ -71,6 +71,7 @@ describe('InternalProvisionerPlugin — Sprint 11 Fase 11.C', () => {
       provision_mode: 'sync',
       completes_via_task: false,
       supports_reconciliation: false,
+      has_dns_management: false, // ADR-077 Amendment A1
     });
     expect(plugin.inlineActions).toEqual([]);
   });

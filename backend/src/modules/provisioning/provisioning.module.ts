@@ -9,6 +9,8 @@ import {
 } from '../../core/provisioning/plugin-registry';
 import { ProvisioningCacheService } from '../../core/provisioning/provisioning-cache.service';
 import { SettingsModule } from '../../core/settings/settings.module';
+import { EnhanceCpModule } from '../../plugins/provisioners/enhance_cp/enhance.module';
+import { EnhanceProvisionerPlugin } from '../../plugins/provisioners/enhance_cp/enhance.plugin';
 import { InternalProvisionerPlugin } from '../../plugins/provisioners/internal/internal.plugin';
 import { ManualProvisionerPlugin } from '../../plugins/provisioners/manual/manual.plugin';
 import { AuditModule } from '../audit/audit.module';
@@ -56,6 +58,10 @@ import { ProvisioningService } from './provisioning.service';
     SettingsModule,
     AuditModule,
     TasksModule,
+    // Sprint 15C Fase 15C.C — primer plugin SaaS real (Enhance CP).
+    // Sprints 15D/E/G seguirán el mismo patrón: importar `<Plugin>Module` aquí
+    // + añadir su clase al factory `PROVISIONER_PLUGINS` abajo.
+    EnhanceCpModule,
   ],
   controllers: [ProvisioningController, AdminProvisioningController],
   providers: [
@@ -72,12 +78,19 @@ import { ProvisioningService } from './provisioning.service';
     InternalProvisionerPlugin,
     ManualProvisionerPlugin,
     {
+      // Sprint 15C — el plugin Enhance se inyecta vía `EnhanceCpModule` (ya
+      // importado arriba — provee la instancia y sus deps internas).
       provide: PROVISIONER_PLUGINS,
       useFactory: (
         internal: InternalProvisionerPlugin,
         manual: ManualProvisionerPlugin,
-      ) => [internal, manual],
-      inject: [InternalProvisionerPlugin, ManualProvisionerPlugin],
+        enhance: EnhanceProvisionerPlugin,
+      ) => [internal, manual, enhance],
+      inject: [
+        InternalProvisionerPlugin,
+        ManualProvisionerPlugin,
+        EnhanceProvisionerPlugin,
+      ],
     },
     // Sprint 15A Fase F (ADR-080 §5) — singleton CircuitBreakerRegistry.
     // Un único registry por módulo de provisioning gestiona breakers para

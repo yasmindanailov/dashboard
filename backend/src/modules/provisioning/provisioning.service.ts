@@ -1,4 +1,4 @@
-import {
+﻿import {
   ForbiddenException,
   Injectable,
   Logger,
@@ -33,11 +33,11 @@ import {
 import { ProvisioningOrchestratorService } from './provisioning-orchestrator.service';
 
 /**
- * ProvisioningService — Sprint 11 Fase 11.D (ADR-077 §1+§2+§5 + ADR-070 §A/B/C).
+ * ProvisioningService â€” Sprint 11 Fase 11.D (ADR-077 Â§1+Â§2+Â§5 + ADR-070 Â§A/B/C).
  *
  * Capa REST que expone al frontend (cliente + admin) los servicios y las
- * operaciones canónicas del orquestador a través de los wrappers
- * `core/provisioning/plugin-utils`. NO duplica lógica del orquestador
+ * operaciones canÃ³nicas del orquestador a travÃ©s de los wrappers
+ * `core/provisioning/plugin-utils`. NO duplica lÃ³gica del orquestador
  * (Fase 11.B): re-utiliza el registry, los wrappers cross-cutting y el
  * propio `ProvisioningOrchestratorService.enqueueProvisioning(...)` para
  * el path admin de reprovision.
@@ -45,10 +45,10 @@ import { ProvisioningOrchestratorService } from './provisioning-orchestrator.ser
  * Reglas:
  *   - **Ownership cliente**: cualquier endpoint con role `client` filtra
  *     por `services.user_id = req.user.id` server-side. Nunca confiamos
- *     en parámetros de query/path para esto.
+ *     en parÃ¡metros de query/path para esto.
  *   - **Audit obligatorio**: SSO open + executeAction + reprovision +
- *     deprovision dejan trail vía `AuditService.logAccess`/`logChange`
- *     directamente o vía wrappers.
+ *     deprovision dejan trail vÃ­a `AuditService.logAccess`/`logChange`
+ *     directamente o vÃ­a wrappers.
  *   - **Cache fail-open**: si Redis cae, los wrappers degradan a llamada
  *     directa al plugin. UI no se rompe.
  */
@@ -67,11 +67,11 @@ export class ProvisioningService {
     private readonly breakers: CircuitBreakerRegistry,
   ) {}
 
-  // ─── Listado ────────────────────────────────────────────────────────
+  // â”€â”€â”€ Listado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * Lista servicios del cliente autenticado. Ownership impuesto por
-   * `userId` viniendo siempre del JWT — controller nunca pasa un value
+   * `userId` viniendo siempre del JWT â€” controller nunca pasa un value
    * del query.
    */
   async listForUser(userId: string, query: ServiceListQueryDto) {
@@ -101,7 +101,7 @@ export class ProvisioningService {
 
   /**
    * Lista servicios para admin con filtros. Sin ownership (CASL ya
-   * confirmó que es staff).
+   * confirmÃ³ que es staff).
    */
   async listForAdmin(query: AdminServiceListQueryDto) {
     const page = query.page ?? 1;
@@ -139,7 +139,7 @@ export class ProvisioningService {
     };
   }
 
-  // ─── Detalle: getServiceInfo cacheado ───────────────────────────────
+  // â”€â”€â”€ Detalle: getServiceInfo cacheado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * Devuelve el `ServiceInfo` normalizado del plugin para `/dashboard/services/[id]`.
@@ -149,8 +149,8 @@ export class ProvisioningService {
    *   2. Resuelve el plugin del slug denormalizado.
    *   3. Llama wrapper `getServiceInfoWithCache` (cache Redis + audit
    *      `service.metrics_fetched` en cache miss).
-   *   4. Si plugin no registrado → status 'unknown' con statusReason
-   *      explícito (no rompe UI).
+   *   4. Si plugin no registrado â†’ status 'unknown' con statusReason
+   *      explÃ­cito (no rompe UI).
    */
   async getInfoForUser(
     serviceId: string,
@@ -210,7 +210,7 @@ export class ProvisioningService {
     return { service: summary, info };
   }
 
-  // ─── SSO ────────────────────────────────────────────────────────────
+  // â”€â”€â”€ SSO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async getSsoForUser(
     serviceId: string,
@@ -239,7 +239,7 @@ export class ProvisioningService {
     );
   }
 
-  // ─── Acciones inline ────────────────────────────────────────────────
+  // â”€â”€â”€ Acciones inline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async executeActionForUser(
     serviceId: string,
@@ -274,12 +274,12 @@ export class ProvisioningService {
     );
   }
 
-  // ─── Admin: reprovision ─────────────────────────────────────────────
+  // â”€â”€â”€ Admin: reprovision â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
-   * Re-encola provisioning para un service. Útil cuando un plugin falló
+   * Re-encola provisioning para un service. Ãštil cuando un plugin fallÃ³
    * con error retriable y el admin reintenta tras corregir credenciales,
-   * o tras añadir el plugin que faltaba.
+   * o tras aÃ±adir el plugin que faltaba.
    */
   async reprovisionAsAdmin(
     serviceId: string,
@@ -316,15 +316,15 @@ export class ProvisioningService {
     return { enqueued: true };
   }
 
-  // ─── Admin: deprovision ─────────────────────────────────────────────
+  // â”€â”€â”€ Admin: deprovision â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
-   * Cancelación administrativa: marca el service como `cancelled` con
-   * cancellation_reason explícita y emite `service.cancelled` para que
-   * los listeners cross-módulo (support-inside slot release, futuros
+   * CancelaciÃ³n administrativa: marca el service como `cancelled` con
+   * cancellation_reason explÃ­cita y emite `service.cancelled` para que
+   * los listeners cross-mÃ³dulo (support-inside slot release, futuros
    * plugins reales que liberan recursos) reaccionen.
    *
-   * El plugin.deprovision() real se delegará a Sprint 15 (plugins reales);
+   * El plugin.deprovision() real se delegarÃ¡ a Sprint 15 (plugins reales);
    * los plugins triviales `internal`/`manual` son no-op.
    */
   async deprovisionAsAdmin(
@@ -393,7 +393,7 @@ export class ProvisioningService {
     };
   }
 
-  // ─── Helpers ────────────────────────────────────────────────────────
+  // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private serviceSummarySelect() {
     return {
@@ -503,6 +503,7 @@ export class ProvisioningService {
         provision_mode: 'sync',
         completes_via_task: false,
         supports_reconciliation: false,
+        has_dns_management: false, // ADR-077 Amendment A1
         hasSsoPanel: false,
         inlineActions: [],
       },

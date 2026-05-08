@@ -82,7 +82,8 @@ A continuación se especifica de forma exhaustiva la firma, los shapes, los capa
  * compatibilidad requieren ADR explícito + bump a v3 + migración.
  */
 export interface ProvisionerPlugin {
-  /** Identificador canónico del plugin (slug en kebab-case). Inmutable. */
+  /** Identificador canónico del plugin. snake_case o kebab-case
+   *  (regex `/^[a-z][a-z0-9_-]*$/`, ver Amendment A2). Inmutable. */
   readonly slug: string;
 
   /** Versión del contrato implementado. Hoy: 'v2'. */
@@ -280,7 +281,7 @@ export interface SsoUrl {
 
 ```typescript
 export interface ServiceAction {
-  /** Slug canónico (kebab-case) — lista cerrada por plugin. */
+  /** Slug canónico (snake_case o kebab-case, ver Amendment A2) — lista cerrada por plugin. */
   slug: string;
   /** Etiqueta i18n key. */
   label: string;
@@ -516,7 +517,7 @@ Sprint 11 Fase 11.A entrega un test parametrizado que **cualquier plugin nuevo d
 describe.each(REGISTERED_PROVISIONER_PLUGINS)(
   'ProvisionerPlugin contract v2 — %s',
   (plugin) => {
-    it('declara slug en kebab-case', () => { /* ... */ });
+    it('declara slug en snake_case o kebab-case (Amendment A2)', () => { /* ... */ });
     it('declara contractVersion === v2', () => { /* ... */ });
     it('declara capabilities completas', () => { /* ... */ });
     it('todas las inlineActions tienen slug único', () => { /* ... */ });
@@ -716,3 +717,93 @@ Este Amendment establece el **patrón canónico** para añadir capability flags 
 5. Frontend ramifica por el flag (NUNCA por slug — ADR-070 §"Cero `if (provisioner === 'X')`").
 
 Cualquier flag que NO cumpla los 5 puntos requiere bump a `contractVersion: 'v3'` + ADR específico (§6 política de versionado).
+
+---
+
+### Amendment A2 (2026-05-08) — slug naming convention extendida (snake_case + kebab-case)
+
+> **Justificado por:** Sprint 15C Fase 15C.C (PR #38). Implementación detectó que el regex efectivo del registry (`/^[a-z]+(-[a-z]+)*$/`, kebab-only) habría rechazado `enhance_cp` en boot — pese a que `enhance_cp` es el slug declarado por la doctrina canónica del proyecto desde Sprint 11 (ADR-021 §"Mapping productos → drivers", glossary §Provisioner) y desde Sprint 15A (ADR-080 §2 ejemplos `enhance_cp`/`docker_engine`/`cpanel_whm`).
+> **Sprint:** 15C Fase 15C.C (review pre-merge).
+> **Compatibilidad:** Hacia atrás. NO toca el comportamiento de plugins existentes — `internal` y `manual` siguen siendo válidos (cumplen ambos formatos por ser monoword). NO bumpea `contractVersion` — sigue `'v2'`. La invariante semántica del slug ("identificador canónico inmutable, único en el proceso") es idéntica.
+
+#### A2.1. Cambio canónico en §6 política de versionado
+
+El §6 declara que los plugins deben pasar el test contract genérico (§7), que a su vez declara la invariante slug-en-kebab-case. La invariante se reformula:
+
+| Antes | Después |
+|---|---|
+| `slug` matches `/^[a-z]+(-[a-z]+)*$/` (kebab-case puro) | `slug` matches `/^[a-z][a-z0-9_-]*$/` (snake_case **o** kebab-case, debe empezar por letra minúscula) |
+
+Plugins canónicos del proyecto y a qué formato corresponden:
+
+| Slug | Formato | Origen |
+|---|---|---|
+| `internal` | monoword | Sprint 11 Fase 11.C |
+| `manual` | monoword | Sprint 11 Fase 11.C |
+| `enhance_cp` | snake_case | Sprint 15C — ADR-083, dossier 15C, glossary §Provisioner |
+| `docker_engine` | snake_case | Sprint 15E (futuro) — ADR-080 §2 ejemplo, ROADMAP.md, glossary |
+| `cpanel_whm` | snake_case | Sprint 15C bis (futuro) — ADR-080 §2 ejemplo |
+| `plesk_obsidian` | snake_case | Sprint 15G (futuro) — ADR-077 §3 mapping |
+| `claude_api` | snake_case | Sprint 15H (futuro) — `audit_change_log.integration_slug`, `integrations_registry.slug` |
+| `resellerclub` | monoword | Sprint 15D (futuro) — dossier 15D, ADR-077 §3 mapping |
+| `directadmin` | monoword | Sprint 15I (hipotético) — ADR-077 §3 mapping |
+
+#### A2.2. Razón doctrinal — alinear regex con doctrina escrita
+
+El proyecto adoptó snake_case como convención **de facto** para slugs multi-palabra desde el inicio de la cola P2:
+
+1. **ADR-021** (Sprint 8 — provisioners) declaró el ejemplo `enhance_cp` en las tablas mapping productos→drivers.
+2. **ADR-070** (2026-04-29) usa `enhance_cp` literal en su mapping de "Federated Server View".
+3. **ADR-077** este ADR original — §3 tabla de mapping de capabilities lista `enhance_cp`, `docker_engine`, `cpanel_whm`, `plesk_obsidian` (todos snake_case).
+4. **ADR-080 §2** (Sprint 15A) — `plugin_installs.slug` PK natural, ejemplos en docstring incluyen `enhance_cp`/`docker_engine`.
+5. **ADR-082 §3** (Sprint 15C Fase A) — DNS-as-capability mapping enumera `enhance_cp` literal.
+6. **ADR-083** (Sprint 15C Fase A) — slug canónico del plugin Enhance CP es `enhance_cp`.
+7. **glossary.md §Provisioner / §"Driver"** — ejemplos `enhance_cp`, `docker_compose`.
+8. **`audit_change_log.integration_slug`** ([docs/30-data/audit.md](../30-data/audit.md)) — ejemplos `stripe`, `resellerclub`, `enhance_cp`, `claude_api`.
+9. **`integrations_registry.slug`** ([docs/30-data/system.md](../30-data/system.md)) — idéntico.
+10. **ROADMAP.md / DECISIONS.md** — múltiples referencias a `enhance_cp` desde Sprint 8.
+
+El regex kebab-only era un **bug pre-existente** del registry Sprint 11 Fase 11.B que NO había sido detectado porque los únicos plugins registrados eran `internal` y `manual` (monoword, ambos formatos pasan). El primer plugin con slug multi-palabra (`enhance_cp` Sprint 15C) lo expone.
+
+Aceptar el bug y exigir kebab-case (`enhance-cp`) habría requerido tocar 10+ referencias canónicas en ADRs/glossary/data/seeds — churn doctrinal mayor que ampliar el regex. La doctrina escrita gana sobre la implementación accidental.
+
+#### A2.3. Cambio canónico en `PluginRegistryService.tryValidate` (§5)
+
+```typescript
+// backend/src/core/provisioning/plugin-registry.ts
+// Slug naming convention canónica (Sprint 11 + Sprint 15C Amendment A2):
+// [a-z][a-z0-9_-]* — admite tanto kebab-case (`docker-engine`) como
+// snake_case (`enhance_cp`, `resellerclub`). La doctrina del proyecto
+// (ADR-018/021/070/077/080/082/083 + glossary) usa snake_case para
+// plugins multi-palabra; el regex original kebab-only era un bug.
+if (!/^[a-z][a-z0-9_-]*$/.test(plugin.slug)) {
+  this.logger.error(
+    `Plugin slug "${plugin.slug}" rejected: must match [a-z][a-z0-9_-]* ` +
+      `(snake_case or kebab-case, starting with lowercase letter).`,
+  );
+  return;
+}
+```
+
+#### A2.4. Test contract genérico (§7) — invariante actualizada
+
+```typescript
+// backend/src/plugins/provisioners/plugin-contract.spec.ts
+const SLUG_NAMING = /^[a-z][a-z0-9_-]*$/;
+
+it('declara slug en snake_case o kebab-case', () => {
+  expect(plugin.slug).toMatch(SLUG_NAMING);
+});
+```
+
+La constante anterior `KEBAB_CASE` se renombra a `SLUG_NAMING` para no perpetuar el nombre que sugiere kebab-only.
+
+#### A2.5. Pipeline de wrappers (§5) — sin cambios
+
+El slug se usa como clave en `Map<string, ProvisionerPlugin>` (`PluginRegistryService.activePlugins`) y como denormalizador en `services.provisioner_slug` + `plugin_installs.slug`. Ningún wrapper cross-cutting parsea el slug carácter a carácter — solo se compara igualdad de strings. La extensión del regex es transparente para el pipeline.
+
+#### A2.6. Coherencia transversal post-amendment
+
+Tras este amendment, las referencias inline a "kebab-case" en este ADR (§1 línea ~85, §2.5 línea ~283, §7 línea ~519) y en ADR-080 (§1 línea ~76, §2 línea ~151) deben leerse como **histórico** — la convención canónica es ahora `[a-z][a-z0-9_-]*` (snake_case o kebab-case). El cleanup textual de esas líneas se aplica en el PR #38 con cita a este amendment.
+
+[`docs/30-data/plugin-installs.md`](../30-data/plugin-installs.md) §"Reglas de negocio" se actualiza al mismo tiempo (la invariante "`slug` ∈ kebab-case" pasa a "`slug` ∈ snake_case o kebab-case").

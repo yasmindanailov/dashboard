@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/unbound-method */
+﻿/* eslint-disable @typescript-eslint/unbound-method */
 // `unbound-method` produce falsos positivos en specs Jest cuando se hace
 // `expect(mock.method).toHaveBeenCalled()`. Doctrina oficial TS-ESLint para
 // specs: deshabilitar a nivel de archivo. Solo aplica a este `.spec.ts`.
@@ -35,22 +35,22 @@ const TEST_MANIFEST: PluginManifest = {
 };
 
 /**
- * Tests unit de wrappers cross-cutting — Sprint 11 Fase 11.B (ADR-077 §5).
+ * Tests unit de wrappers cross-cutting â€” Sprint 11 Fase 11.B (ADR-077 Â§5).
  *
- * Cobertura mínima:
+ * Cobertura mÃ­nima:
  *   - getServiceInfoWithCache:
- *     · cache hit → no llama plugin.
- *     · cache miss → llama plugin, escribe cache, emite metrics_fetched.
- *     · plugin lanza ProvisionerPluginError(retriable=false) → fallback unknown
+ *     Â· cache hit â†’ no llama plugin.
+ *     Â· cache miss â†’ llama plugin, escribe cache, emite metrics_fetched.
+ *     Â· plugin lanza ProvisionerPluginError(retriable=false) â†’ fallback unknown
  *       cacheado 30s.
- *     · forceRevalidate=true salta cache aunque haya hit.
+ *     Â· forceRevalidate=true salta cache aunque haya hit.
  *   - executeActionWithCacheInvalidation:
- *     · slug no declarado → success=false sin llamar plugin.
- *     · slug válido → invalida cache + emite action_executed + audit logChange.
+ *     Â· slug no declarado â†’ success=false sin llamar plugin.
+ *     Â· slug vÃ¡lido â†’ invalida cache + emite action_executed + audit logChange.
  *   - getSsoUrlWithAudit:
- *     · plugin con has_sso_panel=false → null sin llamar plugin.
- *     · plugin con SSO → emite sso_opened + audit logAccess.
- *     · plugin lanza error → null + log (no relanza).
+ *     Â· plugin con has_sso_panel=false â†’ null sin llamar plugin.
+ *     Â· plugin con SSO â†’ emite sso_opened + audit logAccess.
+ *     Â· plugin lanza error â†’ null + log (no relanza).
  */
 
 const mockService = {
@@ -73,6 +73,7 @@ function buildPlugin(over: Partial<ProvisionerPlugin> = {}): ProvisionerPlugin {
       provision_mode: 'sync',
       completes_via_task: false,
       supports_reconciliation: false,
+      has_dns_management: false, // ADR-077 Amendment A1
     },
     inlineActions: [],
     manifest: TEST_MANIFEST,
@@ -97,6 +98,7 @@ const sampleInfo = (): ServiceInfo => ({
     provision_mode: 'sync',
     completes_via_task: false,
     supports_reconciliation: false,
+    has_dns_management: false, // ADR-077 Amendment A1
     hasSsoPanel: false,
     inlineActions: [],
   },
@@ -121,11 +123,11 @@ function buildAudit(): { logAccess: jest.Mock; logChange: jest.Mock } {
   return { logAccess: jest.fn(), logChange: jest.fn() };
 }
 
-// ───────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // getServiceInfoWithCache
-// ───────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-describe('getServiceInfoWithCache — Sprint 11 Fase 11.B', () => {
+describe('getServiceInfoWithCache â€” Sprint 11 Fase 11.B', () => {
   it('cache hit devuelve sin llamar plugin', async () => {
     const cached = sampleInfo();
     const cache = buildCache();
@@ -179,7 +181,7 @@ describe('getServiceInfoWithCache — Sprint 11 Fase 11.B', () => {
     );
   });
 
-  it('plugin lanza ProvisionerPluginError(retriable=false) → fallback unknown TTL 30s', async () => {
+  it('plugin lanza ProvisionerPluginError(retriable=false) â†’ fallback unknown TTL 30s', async () => {
     const cache = buildCache();
     cache.get.mockResolvedValueOnce(null);
     const events = buildEvents();
@@ -239,18 +241,18 @@ describe('getServiceInfoWithCache — Sprint 11 Fase 11.B', () => {
   });
 });
 
-// ───────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // executeActionWithCacheInvalidation
-// ───────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-describe('executeActionWithCacheInvalidation — Sprint 11 Fase 11.B', () => {
+describe('executeActionWithCacheInvalidation â€” Sprint 11 Fase 11.B', () => {
   const ctx = {
     actorUserId: 'user-1',
     ipAddress: '10.0.0.1',
     userAgent: 'jest',
   };
 
-  it('slug no declarado → success=false, no llama plugin', async () => {
+  it('slug no declarado â†’ success=false, no llama plugin', async () => {
     const cache = buildCache();
     const events = buildEvents();
     const audit = buildAudit();
@@ -272,7 +274,7 @@ describe('executeActionWithCacheInvalidation — Sprint 11 Fase 11.B', () => {
     expect(plugin.executeAction).not.toHaveBeenCalled();
   });
 
-  it('slug válido → invalida cache + emite action_executed + audit logChange', async () => {
+  it('slug vÃ¡lido â†’ invalida cache + emite action_executed + audit logChange', async () => {
     const cache = buildCache();
     const events = buildEvents();
     const audit = buildAudit();
@@ -322,18 +324,18 @@ describe('executeActionWithCacheInvalidation — Sprint 11 Fase 11.B', () => {
   });
 });
 
-// ───────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // getSsoUrlWithAudit
-// ───────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-describe('getSsoUrlWithAudit — Sprint 11 Fase 11.B', () => {
+describe('getSsoUrlWithAudit â€” Sprint 11 Fase 11.B', () => {
   const ctx = {
     actorUserId: 'user-1',
     ipAddress: '10.0.0.1',
     userAgent: 'jest',
   };
 
-  it('has_sso_panel=false → null sin llamar plugin', async () => {
+  it('has_sso_panel=false â†’ null sin llamar plugin', async () => {
     const events = buildEvents();
     const audit = buildAudit();
     const plugin = buildPlugin();
@@ -350,7 +352,7 @@ describe('getSsoUrlWithAudit — Sprint 11 Fase 11.B', () => {
     expect(plugin.getSsoUrl).not.toHaveBeenCalled();
   });
 
-  it('plugin con SSO → emite sso_opened + audit logAccess', async () => {
+  it('plugin con SSO â†’ emite sso_opened + audit logAccess', async () => {
     const events = buildEvents();
     const audit = buildAudit();
     const plugin = buildPlugin({
@@ -363,6 +365,7 @@ describe('getSsoUrlWithAudit — Sprint 11 Fase 11.B', () => {
         provision_mode: 'sync',
         completes_via_task: false,
         supports_reconciliation: true,
+        has_dns_management: false, // ADR-077 Amendment A1
       },
       getSsoUrl: jest.fn().mockResolvedValue({
         url: 'https://cpanel.example.com/?sk=abc',
@@ -393,7 +396,7 @@ describe('getSsoUrlWithAudit — Sprint 11 Fase 11.B', () => {
     );
   });
 
-  it('plugin lanza error → null sin relanzar', async () => {
+  it('plugin lanza error â†’ null sin relanzar', async () => {
     const events = buildEvents();
     const audit = buildAudit();
     const plugin = buildPlugin({
@@ -406,6 +409,7 @@ describe('getSsoUrlWithAudit — Sprint 11 Fase 11.B', () => {
         provision_mode: 'sync',
         completes_via_task: false,
         supports_reconciliation: true,
+        has_dns_management: false, // ADR-077 Amendment A1
       },
       getSsoUrl: jest.fn().mockRejectedValue(new Error('connection refused')),
     });

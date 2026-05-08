@@ -63,6 +63,7 @@ export class InternalProvisionerPlugin implements ProvisionerPlugin {
     provision_mode: 'sync',
     completes_via_task: false,
     supports_reconciliation: false,
+    has_dns_management: false, // ADR-077 Amendment A1
   };
 
   readonly inlineActions: readonly ServiceAction[] = [];

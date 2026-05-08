@@ -56,6 +56,7 @@
 |---------|--------|---------|
 | **Sistema (settings + notif + KB + outbox + errors + integrations)** | `settings`, `notifications`, `notification_templates`, `knowledge_base_articles`, `knowledge_base_tags`, `integrations_registry`, `error_log`, `event_outbox` | [system.md](./system.md) |
 | **Plugin Framework** (Sprint 15A — ADR-080) | `plugin_installs` | [plugin-installs.md](./plugin-installs.md) |
+| **Plugin Enhance CP — multi-tenancy mapping** (Sprint 15C — ADR-083) | `enhance_customers` | [enhance-customers.md](./enhance-customers.md) |
 | **Audit (schema separado, solo INSERT)** | `audit.access_log`, `audit.change_log`, `audit.integration_log`, `audit.service_log` | [audit.md](./audit.md) |
 
 ### Fase 2 — Canales comerciales

@@ -292,6 +292,33 @@ export interface PluginCapabilities {
    * llamando a `getStatus()`. False si la operación es cara para el proveedor.
    */
   supports_reconciliation: boolean;
+  /**
+   * Sprint 15C — ADR-077 Amendment A1 + ADR-082 §3.
+   *
+   * Indica si el plugin gestiona zonas DNS authoritative (puede listar y
+   * CRUD records de las zonas asociadas a sus services).
+   *
+   * Plugins con `has_dns_management=true` DEBEN soportar las 4 inline
+   * actions canónicas en `executeAction()`:
+   *   - `list_dns_records`   → devuelve la lista completa de records de la zona.
+   *   - `add_dns_record`     → crea un record (payload validado vs schema).
+   *   - `update_dns_record`  → modifica un record existente.
+   *   - `delete_dns_record`  → elimina un record por ID.
+   *
+   * El orquestador `provisioning` invoca estas actions vía
+   * `core/provisioning/dns-authority-resolver.ts` (ADR-082 §6) cuando
+   * sirve `GET/POST/PATCH/DELETE /api/v1/services/{id}/dns/records`.
+   *
+   * Plugins con `has_dns_management=false` NO declaran esos slugs en
+   * `inlineActions` — el resolver los excluye del routing.
+   *
+   * Mapping inicial canónico (ADR-077 Amendment A1.2):
+   *   - `internal`, `manual`, `resellerclub`, `docker_engine`: false
+   *   - `enhance_cp` (Sprint 15C): true
+   *   - `cpanel_whm`, `plesk_obsidian`: true (si Aelium opera DNS authority)
+   *   - `cloudflare_dns` (hipotético): true
+   */
+  has_dns_management: boolean;
 }
 
 /**
