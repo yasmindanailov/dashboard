@@ -1,17 +1,18 @@
 /**
  * Sprint 15C Fase 15C.B — `MockEnhanceServer` Express stub canónico.
  *
- * Materializa ADR-083 §7 decisión 25. Express stub local que responde a
- * los endpoints orchd v12.21.3 con shapes canónicos del spec literal
+ * Materializa ADR-083 §7 decisión 25 + Amendment A1 (2026-05-08). Express
+ * stub local que responde a los endpoints orchd v12.21.3 con shapes
+ * canónicos del spec literal
  * (`docs/_research/sprint-15c/orchd-oas3-api.yaml`).
  *
- * NOTA DE UBICACIÓN: ADR-083 §7 decisión 25 declara la ruta canónica como
- * `tests/mocks/enhance-server/`. Implementado como
- * `backend/test/mocks/enhance-server/` por practicalidad del runtime jest
- * del backend (jest moduleResolution sin tsconfig paths cross-package).
- * Si se decide canonizar el path original, requiere amendment al ADR-083 +
- * configurar jest moduleResolution. La diferencia es solo de filesystem
- * layout — la API pública (startMockEnhanceServer) es la misma.
+ * UBICACIÓN CANÓNICA: `backend/test/mocks/enhance-server/`
+ *   (formalizada por ADR-083 Amendment A1 — la decisión 25 original
+ *    declaraba `tests/mocks/enhance-server/` en raíz del repo; la
+ *    implementación detectó que jest del backend resuelve módulos
+ *    relativos sin tsconfig paths cross-package, por lo que el path
+ *    canónico se actualizó a `backend/test/mocks/<plugin-slug>-server/`
+ *    como patrón aplicable también a futuros plugins SaaS).
  *
  * Cubre los 28 endpoints que el cliente Enhance API toca + persistencia
  * in-memory por instancia (seedable + resetable). Para CI E2E (ADR-083

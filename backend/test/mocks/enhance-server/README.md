@@ -2,12 +2,12 @@
 
 Express stub local que responde como `orchd v12.21.3`. Materializa
 [ADR-083](../../../../docs/10-decisions/adr-083-plugin-enhance-cp-specifics.md) §7
-decisión 25.
+decisión 25 + [Amendment A1](../../../../docs/10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a1-2026-05-08--ubicación-canónica-del-mockenhanceserver).
 
-> **Ubicación canónica**: el ADR declara `tests/mocks/enhance-server/`;
-> implementado aquí (`backend/test/mocks/enhance-server/`) por practicalidad
-> del runtime jest del backend (sin tsconfig paths cross-package). API
-> pública idéntica.
+> **Ubicación canónica**: `backend/test/mocks/enhance-server/`. Patrón
+> aplicable a futuros plugins SaaS (RC `backend/test/mocks/resellerclub-server/`,
+> Plesk `backend/test/mocks/plesk-server/`, etc.). Razón técnica + doctrina
+> de patrón en Amendment A1.
 
 ## Cobertura
 
