@@ -1,11 +1,14 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -21,11 +24,15 @@ import type { AuthenticatedRequest } from '../../core/common/types/authenticated
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuditAccess } from '../audit/audit.decorator';
 
+import { CreateDnsRecordDto, UpdateDnsRecordDto } from './dto/dns-records.dto';
 import {
   AdminServiceListQueryDto,
   DeprovisionDto,
 } from './dto/provisioning.dto';
-import { ProvisioningService } from './provisioning.service';
+import {
+  DnsExternallyManagedError,
+  ProvisioningService,
+} from './provisioning.service';
 
 /**
  * AdminProvisioningController — Sprint 11 Fase 11.D (ADR-066 §portal admin).
@@ -103,4 +110,165 @@ export class AdminProvisioningController {
       userAgent: req.headers['user-agent'] ?? null,
     });
   }
+
+  // ─── DNS records (Sprint 15C Fase 15C.D — ADR-082 §6 — admin) ──────────
+
+  @Get(':id/dns/records')
+  @ApiOperation({
+    summary:
+      'List DNS records (admin) — sin filtro ownership. 404 si DNS externo.',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Service))
+  async listDns(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    try {
+      const { resolution, result } =
+        await this.provisioning.listDnsRecordsForUser(id, req.user.id, true, {
+          ipAddress: req.ip ?? '0.0.0.0',
+          userAgent: req.headers['user-agent'] ?? null,
+        });
+      return {
+        authority: resolution.authority,
+        plugin_slug: resolution.plugin?.slug ?? null,
+        nameservers: resolution.nameservers,
+        result,
+      };
+    } catch (err) {
+      if (err instanceof DnsExternallyManagedError) {
+        throw buildDnsExternallyManaged404(err);
+      }
+      throw err;
+    }
+  }
+
+  @Post(':id/dns/records')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Crea DNS record (admin). 404 si DNS externo.',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
+  async createDns(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateDnsRecordDto,
+  ) {
+    try {
+      const { resolution, result } =
+        await this.provisioning.addDnsRecordForUser(
+          id,
+          { ...dto },
+          req.user.id,
+          true,
+          {
+            ipAddress: req.ip ?? '0.0.0.0',
+            userAgent: req.headers['user-agent'] ?? null,
+          },
+        );
+      return {
+        authority: resolution.authority,
+        plugin_slug: resolution.plugin?.slug ?? null,
+        result,
+      };
+    } catch (err) {
+      if (err instanceof DnsExternallyManagedError) {
+        throw buildDnsExternallyManaged404(err);
+      }
+      throw err;
+    }
+  }
+
+  @Patch(':id/dns/records/:recordId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Actualiza DNS record (admin). 404 si DNS externo.',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
+  async updateDns(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('recordId') recordId: string,
+    @Body() dto: UpdateDnsRecordDto,
+  ) {
+    try {
+      const { resolution, result } =
+        await this.provisioning.updateDnsRecordForUser(
+          id,
+          recordId,
+          { ...dto },
+          req.user.id,
+          true,
+          {
+            ipAddress: req.ip ?? '0.0.0.0',
+            userAgent: req.headers['user-agent'] ?? null,
+          },
+        );
+      return {
+        authority: resolution.authority,
+        plugin_slug: resolution.plugin?.slug ?? null,
+        result,
+      };
+    } catch (err) {
+      if (err instanceof DnsExternallyManagedError) {
+        throw buildDnsExternallyManaged404(err);
+      }
+      throw err;
+    }
+  }
+
+  @Delete(':id/dns/records/:recordId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Elimina DNS record (admin). 404 si DNS externo.',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
+  async deleteDns(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('recordId') recordId: string,
+  ) {
+    try {
+      const { resolution, result } =
+        await this.provisioning.deleteDnsRecordForUser(
+          id,
+          recordId,
+          req.user.id,
+          true,
+          {
+            ipAddress: req.ip ?? '0.0.0.0',
+            userAgent: req.headers['user-agent'] ?? null,
+          },
+        );
+      return {
+        authority: resolution.authority,
+        plugin_slug: resolution.plugin?.slug ?? null,
+        result,
+      };
+    } catch (err) {
+      if (err instanceof DnsExternallyManagedError) {
+        throw buildDnsExternallyManaged404(err);
+      }
+      throw err;
+    }
+  }
+}
+
+function buildDnsExternallyManaged404(
+  err: DnsExternallyManagedError,
+): NotFoundException {
+  const code =
+    err.resolution.reason === 'no_dns_authority_plugin_active'
+      ? 'DNS_NO_AUTHORITY_PLUGIN'
+      : 'DNS_MANAGED_EXTERNALLY';
+  return new NotFoundException({
+    code,
+    message:
+      code === 'DNS_NO_AUTHORITY_PLUGIN'
+        ? 'No hay plugin DNS authority activo en el cluster.'
+        : 'DNS gestionado externamente.',
+    reason: err.resolution.reason,
+    nameservers: err.resolution.nameservers,
+    hint: 'modify_ns_to_aelium_to_enable_dns_management',
+  });
 }

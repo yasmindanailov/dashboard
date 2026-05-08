@@ -329,7 +329,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
 
     const planId = extractEnhancePlanId(ctx.productConfig);
 
-    const { client: api, config } = await this.getApi();
+    const { client: api, config } = await this.getApiClient();
     const user = {
       id: ctx.client.id,
       email: ctx.client.email,
@@ -385,7 +385,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
       );
       return;
     }
-    const { client: api } = await this.getApi();
+    const { client: api } = await this.getApiClient();
     try {
       await api.deleteSubscription(refs.orgId, refs.subscriptionId);
       this.logger.log(
@@ -420,7 +420,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
         checkedAt: new Date().toISOString(),
       };
     }
-    const { client: api } = await this.getApi();
+    const { client: api } = await this.getApiClient();
     try {
       const subscription = await api.getSubscription(
         refs.orgId,
@@ -456,7 +456,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     if (!refs) {
       return this.buildUnknownInfo(service, 'service not yet provisioned');
     }
-    const { client: api } = await this.getApi();
+    const { client: api } = await this.getApiClient();
 
     // Lectura paralela: subscription es obligatoria; bandwidth + resources
     // son best-effort (si fallan, devolvemos info sin métricas).
@@ -528,7 +528,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
       return null;
     }
 
-    const { client: api } = await this.getApi();
+    const { client: api } = await this.getApiClient();
     const otpUrl = await api.getMemberSsoOtpUrl(
       mapping.enhance_org_id,
       mapping.enhance_owner_member_id,
@@ -571,7 +571,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
       );
     }
 
-    const { client: api } = await this.getApi();
+    const { client: api } = await this.getApiClient();
 
     switch (actionSlug) {
       case 'reset_account_password':
@@ -620,7 +620,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
         false,
       );
     }
-    const { client: api } = await this.getApi();
+    const { client: api } = await this.getApiClient();
     const newPassword = generateRandomPassword();
     await api.resetLoginPassword(mapping.enhance_owner_login_id, {
       NewPassword: newPassword,
@@ -799,7 +799,21 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
 
   // ─── Internal: API client construction & caching ───────────────────────
 
-  private async getApi(): Promise<{
+  /**
+   * Devuelve el `EnhanceApiClient` construido a partir de
+   * `plugin_installs` + `SecretVaultService`. Cache invalidado por
+   * `updated_at` + `key_version`.
+   *
+   * **Público pero scoping module-internal**: sólo los servicios que viven
+   * en `EnhanceCpModule` (`EnhanceDnsDefaultsService`, listeners
+   * registrados en `ProvisioningModule` que consumen este plugin) deben
+   * llamarlo. Código fuera del módulo Enhance **debe** invocar el plugin
+   * a través del contrato canónico (`provision`/`getStatus`/`executeAction`/...)
+   * — nunca directamente al cliente HTTP. Renombrado de `getApi` (Sprint
+   * 15C Fase 15C.C) a `getApiClient` (Sprint 15C Fase 15C.D) para que el
+   * call-site del listener exprese intent.
+   */
+  async getApiClient(): Promise<{
     client: EnhanceApiClient;
     config: EnhanceConfig;
   }> {
@@ -843,7 +857,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
 
     this.apiClientCache = { client, config, cacheKey };
     this.logger.log(
-      `getApi: built EnhanceApiClient for ${config.baseUrl} (cacheKey=${cacheKey.slice(-30)})`,
+      `getApiClient: built EnhanceApiClient for ${config.baseUrl} (cacheKey=${cacheKey.slice(-30)})`,
     );
     return { client, config };
   }

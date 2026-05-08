@@ -1,11 +1,14 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -19,8 +22,12 @@ import { PoliciesGuard } from '../../core/casl/policies.guard';
 import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+import { CreateDnsRecordDto, UpdateDnsRecordDto } from './dto/dns-records.dto';
 import { ExecuteActionDto, ServiceListQueryDto } from './dto/provisioning.dto';
-import { ProvisioningService } from './provisioning.service';
+import {
+  DnsExternallyManagedError,
+  ProvisioningService,
+} from './provisioning.service';
 
 /**
  * ProvisioningController — Sprint 11 Fase 11.D (ADR-070 + ADR-077 + ADR-066).
@@ -123,4 +130,181 @@ export class ProvisioningController {
       },
     );
   }
+
+  // ─── DNS records (Sprint 15C Fase 15C.D — ADR-082 §6) ──────────────────
+
+  @Get(':id/dns/records')
+  @ApiOperation({
+    summary:
+      'List DNS records de la zona del service (cliente). 404 si DNS gestionado externamente.',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Service))
+  async listDns(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const isAdmin = ADMIN_ROLES.includes(req.user.role.slug);
+    try {
+      const { resolution, result } =
+        await this.provisioning.listDnsRecordsForUser(
+          id,
+          req.user.id,
+          isAdmin,
+          {
+            ipAddress: req.ip ?? '0.0.0.0',
+            userAgent: req.headers['user-agent'] ?? null,
+          },
+        );
+      return {
+        authority: resolution.authority,
+        plugin_slug: resolution.plugin?.slug ?? null,
+        nameservers: resolution.nameservers,
+        result,
+      };
+    } catch (err) {
+      if (err instanceof DnsExternallyManagedError) {
+        throw buildDnsExternallyManaged404(err);
+      }
+      throw err;
+    }
+  }
+
+  @Post(':id/dns/records')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Crea un DNS record en la zona del service (cliente). 404 si DNS externo.',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
+  async createDns(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateDnsRecordDto,
+  ) {
+    const isAdmin = ADMIN_ROLES.includes(req.user.role.slug);
+    try {
+      const { resolution, result } =
+        await this.provisioning.addDnsRecordForUser(
+          id,
+          { ...dto },
+          req.user.id,
+          isAdmin,
+          {
+            ipAddress: req.ip ?? '0.0.0.0',
+            userAgent: req.headers['user-agent'] ?? null,
+          },
+        );
+      return {
+        authority: resolution.authority,
+        plugin_slug: resolution.plugin?.slug ?? null,
+        result,
+      };
+    } catch (err) {
+      if (err instanceof DnsExternallyManagedError) {
+        throw buildDnsExternallyManaged404(err);
+      }
+      throw err;
+    }
+  }
+
+  @Patch(':id/dns/records/:recordId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Actualiza un DNS record de la zona del service (cliente). 404 si DNS externo.',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
+  async updateDns(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('recordId') recordId: string,
+    @Body() dto: UpdateDnsRecordDto,
+  ) {
+    const isAdmin = ADMIN_ROLES.includes(req.user.role.slug);
+    try {
+      const { resolution, result } =
+        await this.provisioning.updateDnsRecordForUser(
+          id,
+          recordId,
+          { ...dto },
+          req.user.id,
+          isAdmin,
+          {
+            ipAddress: req.ip ?? '0.0.0.0',
+            userAgent: req.headers['user-agent'] ?? null,
+          },
+        );
+      return {
+        authority: resolution.authority,
+        plugin_slug: resolution.plugin?.slug ?? null,
+        result,
+      };
+    } catch (err) {
+      if (err instanceof DnsExternallyManagedError) {
+        throw buildDnsExternallyManaged404(err);
+      }
+      throw err;
+    }
+  }
+
+  @Delete(':id/dns/records/:recordId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Elimina un DNS record de la zona del service (cliente). 404 si DNS externo.',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
+  async deleteDns(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('recordId') recordId: string,
+  ) {
+    const isAdmin = ADMIN_ROLES.includes(req.user.role.slug);
+    try {
+      const { resolution, result } =
+        await this.provisioning.deleteDnsRecordForUser(
+          id,
+          recordId,
+          req.user.id,
+          isAdmin,
+          {
+            ipAddress: req.ip ?? '0.0.0.0',
+            userAgent: req.headers['user-agent'] ?? null,
+          },
+        );
+      return {
+        authority: resolution.authority,
+        plugin_slug: resolution.plugin?.slug ?? null,
+        result,
+      };
+    } catch (err) {
+      if (err instanceof DnsExternallyManagedError) {
+        throw buildDnsExternallyManaged404(err);
+      }
+      throw err;
+    }
+  }
+}
+
+/**
+ * Sprint 15C Fase 15C.D — mapea `DnsExternallyManagedError` a HTTP 404
+ * con shape canónico documentado en ADR-082 §6.
+ */
+function buildDnsExternallyManaged404(
+  err: DnsExternallyManagedError,
+): NotFoundException {
+  const code =
+    err.resolution.reason === 'no_dns_authority_plugin_active'
+      ? 'DNS_NO_AUTHORITY_PLUGIN'
+      : 'DNS_MANAGED_EXTERNALLY';
+  return new NotFoundException({
+    code,
+    message:
+      code === 'DNS_NO_AUTHORITY_PLUGIN'
+        ? 'No hay plugin DNS authority activo en el cluster.'
+        : 'DNS gestionado externamente.',
+    reason: err.resolution.reason,
+    nameservers: err.resolution.nameservers,
+    hint: 'modify_ns_to_aelium_to_enable_dns_management',
+  });
 }

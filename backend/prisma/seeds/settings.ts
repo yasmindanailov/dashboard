@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 /**
  * Seed canónico de settings (Sprint 9.6 Fase F.0).
@@ -9,11 +9,17 @@ import { PrismaClient } from '@prisma/client';
  *
  * Cada vez que se introduce un setting nuevo debe registrarse aquí
  * y en `docs/50-operations/settings-reference.md`.
+ *
+ * Sprint 15C Fase 15C.D (ADR-082 §4) — `value` admite cualquier
+ * `Prisma.InputJsonValue` (string, number, boolean, array, objeto). Los
+ * settings históricos siguen pasando strings; los nuevos con shape
+ * estructurado (ej. `provisioning.default_nameservers` array) se leen
+ * vía `SettingsService.getJson<T>()`.
  */
 interface SeedSetting {
   category: string;
   key: string;
-  value: string;
+  value: Prisma.InputJsonValue;
   description: string;
 }
 
@@ -98,6 +104,20 @@ const SETTINGS: ReadonlyArray<SeedSetting> = [
   // donde se cachea el resultado de `plugin.getServiceInfo(service)` por
   // serviceId. Default 60s (ADR-070 §Mecanismo A).
   { category: 'provisioning', key: 'service_info_ttl_seconds', value: '60', description: 'TTL en segundos del cache service_info (ADR-077 §5 wrapper getServiceInfoWithCache)' },
+
+  // ── provisioning · NS-sync C3 (Sprint 15C Fase 15C.D + ADR-082 §4) ──
+  // Fuente de verdad de los nameservers que Aelium ofrece. Consumidores:
+  //   • EnhanceDnsDefaultsService — propaga a C2 (Enhance default records).
+  //   • dns-authority-resolver.ts — comparación NS para flujo F2 vs F3.
+  //   • Plugin RC (futuro Sprint 15D) — `domains/register?ns=...`.
+  // Editado por superadmin desde `/admin/settings` (Sprint 12). Listener
+  // canónico `provisioning.default_nameservers_changed` propagará a C2.
+  { category: 'provisioning', key: 'default_nameservers', value: ['ns1.aelium.net', 'ns2.aelium.net'], description: 'NS-sync C3 (ADR-082 §4) — pareja de nameservers que Aelium ofrece a sus dominios. Fuente de verdad cluster-wide.' },
+
+  // ── provisioning · enhance_cp reconcile (Sprint 15C Fase 15C.H + ADR-083 §6 decisión 24) ──
+  // Threshold de divergencias detectadas por el cron `reconcile-enhance-services`
+  // por día antes de alertar al superadmin. Consumidor: cron L3 (Fase 15C.H).
+  { category: 'provisioning', key: 'enhance_cp.reconciliation_alert_threshold', value: '5', description: 'ADR-083 §6 decisión 24 — divergencias/día detectadas por reconcile-enhance-services antes de alertar al superadmin.' },
 ];
 
 export async function seedSettings(prisma: PrismaClient): Promise<void> {
@@ -105,7 +125,12 @@ export async function seedSettings(prisma: PrismaClient): Promise<void> {
     await prisma.setting.upsert({
       where: { category_key: { category: s.category, key: s.key } },
       update: {},
-      create: s,
+      create: {
+        category: s.category,
+        key: s.key,
+        value: s.value,
+        description: s.description,
+      },
     });
   }
   console.log(`  ✓ ${SETTINGS.length} settings upserted`);

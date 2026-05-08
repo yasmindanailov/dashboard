@@ -71,7 +71,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
   let cache: { get: jest.Mock; set: jest.Mock; invalidate: jest.Mock };
   let events: { emit: jest.Mock };
   let audit: { logAccess: jest.Mock; logChange: jest.Mock };
-  let settings: { getNumber: jest.Mock };
+  let settings: { getNumber: jest.Mock; getJson: jest.Mock };
   let orchestrator: { enqueueProvisioning: jest.Mock };
   let service: ProvisioningService;
 
@@ -171,6 +171,8 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       get: jest.fn(),
       getOrThrow: jest.fn(),
       listSlugs: jest.fn().mockReturnValue(['internal']),
+      // Sprint 15C Fase 15C.D — resolver DNS authority necesita esta lookup.
+      getByCapability: jest.fn().mockReturnValue(null),
     } as unknown as jest.Mocked<PluginRegistryService>;
     cache = {
       get: jest.fn().mockResolvedValue(null),
@@ -182,7 +184,13 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       logAccess: jest.fn().mockResolvedValue(undefined),
       logChange: jest.fn().mockResolvedValue(undefined),
     };
-    settings = { getNumber: jest.fn().mockResolvedValue(60) };
+    settings = {
+      getNumber: jest.fn().mockResolvedValue(60),
+      // Sprint 15C Fase 15C.D — getJson<T> para arrays JSON (NS-sync C3).
+      getJson: jest
+        .fn()
+        .mockResolvedValue(['ns1.aelium.net', 'ns2.aelium.net']),
+    } as unknown as typeof settings;
     orchestrator = {
       enqueueProvisioning: jest.fn().mockResolvedValue(undefined),
     };
@@ -441,5 +449,242 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       ),
     ).rejects.toThrow(NotFoundException);
     expect(prisma.service.update).not.toHaveBeenCalled();
+  });
+
+  // ─── DNS records pipeline (Sprint 15C Fase 15C.D — ADR-082 §6) ─────────
+
+  describe('DNS records — Sprint 15C Fase 15C.D', () => {
+    function buildDnsPlugin(): ProvisionerPlugin {
+      return buildPlugin({
+        slug: 'enhance_cp',
+        capabilities: {
+          has_sso_panel: true,
+          panel_label: 'plugin.enhance_cp.panel_label',
+          has_metrics: true,
+          has_metrics_history: false,
+          requires_server: false,
+          provision_mode: 'sync',
+          completes_via_task: false,
+          supports_reconciliation: true,
+          has_dns_management: true,
+        },
+        inlineActions: [
+          {
+            slug: 'list_dns_records',
+            label: 'list',
+            confirmRequired: false,
+            destructive: false,
+          },
+          {
+            slug: 'add_dns_record',
+            label: 'add',
+            confirmRequired: false,
+            destructive: false,
+          },
+          {
+            slug: 'update_dns_record',
+            label: 'update',
+            confirmRequired: false,
+            destructive: false,
+          },
+          {
+            slug: 'delete_dns_record',
+            label: 'delete',
+            confirmRequired: true,
+            destructive: true,
+          },
+        ],
+        executeAction: jest.fn().mockResolvedValue({
+          success: true,
+          data: { records: [] },
+        }),
+      });
+    }
+
+    it('listDnsRecordsForUser → routea al plugin con has_dns_management=true', async () => {
+      const dnsPlugin = buildDnsPlugin();
+      registry.getByCapability.mockReturnValue(dnsPlugin);
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          product: {
+            id: 'p',
+            slug: 'hosting',
+            name: 'Hosting',
+            type: 'hosting_web',
+            provisioner: 'enhance_cp',
+            provisioner_config: null,
+          },
+        }),
+      );
+
+      const { resolution, result } = await service.listDnsRecordsForUser(
+        'svc-1',
+        'user-1',
+        false,
+        { ipAddress: '1.2.3.4' },
+      );
+
+      expect(registry.getByCapability).toHaveBeenCalledWith(
+        'has_dns_management',
+      );
+      expect(resolution.authority).toBe('aelium');
+      expect(resolution.plugin).toBe(dnsPlugin);
+      expect(dnsPlugin.executeAction).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'svc-1' }),
+        'list_dns_records',
+        {},
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('addDnsRecordForUser → invoca plugin.executeAction(add_dns_record, payload)', async () => {
+      const dnsPlugin = buildDnsPlugin();
+      registry.getByCapability.mockReturnValue(dnsPlugin);
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          product: {
+            id: 'p',
+            slug: 'hosting',
+            name: 'Hosting',
+            type: 'hosting_web',
+            provisioner: 'enhance_cp',
+            provisioner_config: null,
+          },
+        }),
+      );
+
+      const payload = {
+        kind: 'A',
+        name: 'www',
+        value: '1.2.3.4',
+        ttl: 3600,
+      };
+      await service.addDnsRecordForUser('svc-1', payload, 'user-1', false, {
+        ipAddress: '1.2.3.4',
+      });
+
+      expect(dnsPlugin.executeAction).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'svc-1' }),
+        'add_dns_record',
+        payload,
+      );
+    });
+
+    it('updateDnsRecordForUser → injecta recordId al payload', async () => {
+      const dnsPlugin = buildDnsPlugin();
+      registry.getByCapability.mockReturnValue(dnsPlugin);
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          product: {
+            id: 'p',
+            slug: 'hosting',
+            name: 'Hosting',
+            type: 'hosting_web',
+            provisioner: 'enhance_cp',
+            provisioner_config: null,
+          },
+        }),
+      );
+
+      await service.updateDnsRecordForUser(
+        'svc-1',
+        'rec-9',
+        { ttl: 7200 },
+        'user-1',
+        false,
+        { ipAddress: '1.2.3.4' },
+      );
+
+      expect(dnsPlugin.executeAction).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'svc-1' }),
+        'update_dns_record',
+        expect.objectContaining({ recordId: 'rec-9', ttl: 7200 }),
+      );
+    });
+
+    it('deleteDnsRecordForUser → pasa recordId al plugin', async () => {
+      const dnsPlugin = buildDnsPlugin();
+      registry.getByCapability.mockReturnValue(dnsPlugin);
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          product: {
+            id: 'p',
+            slug: 'hosting',
+            name: 'Hosting',
+            type: 'hosting_web',
+            provisioner: 'enhance_cp',
+            provisioner_config: null,
+          },
+        }),
+      );
+
+      await service.deleteDnsRecordForUser('svc-1', 'rec-9', 'user-1', false, {
+        ipAddress: '1.2.3.4',
+      });
+
+      expect(dnsPlugin.executeAction).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'svc-1' }),
+        'delete_dns_record',
+        { recordId: 'rec-9' },
+      );
+    });
+
+    it('cliente que no es dueño del service → 403', async () => {
+      const dnsPlugin = buildDnsPlugin();
+      registry.getByCapability.mockReturnValue(dnsPlugin);
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          user_id: 'OTRO-USER',
+          product: {
+            id: 'p',
+            slug: 'hosting',
+            name: 'Hosting',
+            type: 'hosting_web',
+            provisioner: 'enhance_cp',
+            provisioner_config: null,
+          },
+        }),
+      );
+
+      await expect(
+        service.listDnsRecordsForUser('svc-1', 'user-1', false, {
+          ipAddress: '1.2.3.4',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(dnsPlugin.executeAction).not.toHaveBeenCalled();
+    });
+
+    it('product type domain con NS externos → DnsExternallyManagedError', async () => {
+      const dnsPlugin = buildDnsPlugin();
+      registry.getByCapability.mockReturnValue(dnsPlugin);
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          metadata: {
+            nameservers: ['ns1.cloudflare.com', 'ns2.cloudflare.com'],
+          },
+          product: {
+            id: 'p',
+            slug: 'domain-com',
+            name: 'Dominio',
+            type: 'domain',
+            provisioner: 'resellerclub',
+            provisioner_config: null,
+          },
+        }),
+      );
+
+      await expect(
+        service.listDnsRecordsForUser('svc-1', 'user-1', false, {
+          ipAddress: '1.2.3.4',
+        }),
+      ).rejects.toMatchObject({
+        name: 'DnsExternallyManagedError',
+        resolution: expect.objectContaining({
+          authority: 'external',
+          reason: 'domain_nameservers_external',
+        }),
+      });
+      expect(dnsPlugin.executeAction).not.toHaveBeenCalled();
+    });
   });
 });

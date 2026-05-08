@@ -169,9 +169,10 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       vault as never,
       customers as never,
     );
-    // Inyectamos un cliente HTTP fake reemplazando getApi() — evita
-    // construir un EnhanceApiClient real con HTTP mock global.
-    Object.defineProperty(plugin, 'getApi', {
+    // Inyectamos un cliente HTTP fake reemplazando getApiClient() — evita
+    // construir un EnhanceApiClient real con HTTP mock global. Sprint 15C
+    // Fase 15C.D renombró `getApi` → `getApiClient` (público module-internal).
+    Object.defineProperty(plugin, 'getApiClient', {
       value: jest.fn().mockResolvedValue({
         client: api,
         config: VALID_INSTALL.config,

@@ -17,7 +17,10 @@ import { AuditModule } from '../audit/audit.module';
 import { TasksModule } from '../tasks/tasks.module';
 
 import { AdminProvisioningController } from './admin-provisioning.controller';
+import { BootstrapEnhanceDefaultsOnPluginInstalledListener } from './listeners/bootstrap-enhance-defaults-on-plugin-installed.listener';
 import { ProvisioningOnTaskCompletedListener } from './listeners/provisioning-on-task-completed.listener';
+import { ReconcileDnsDefaultsOnServiceActivatedListener } from './listeners/reconcile-dns-defaults-on-service-activated.listener';
+import { SyncDefaultNameserversToEnhanceListener } from './listeners/sync-default-nameservers-to-enhance.listener';
 import {
   PROVISIONING_DISPATCH_QUEUE,
   ProvisioningOrchestratorService,
@@ -71,6 +74,13 @@ import { ProvisioningService } from './provisioning.service';
     PluginRegistryService,
     ProvisioningCacheService,
     ProvisioningOnTaskCompletedListener,
+    // Sprint 15C Fase 15C.D — listeners de DNS-as-capability (ADR-082 §4 + §5):
+    //   • bootstrap defaults cuando se enable el plugin enhance_cp,
+    //   • reconcile defensivo zone tras service.activated,
+    //   • NS-sync C3→C2 cuando cambia el setting provisioning.default_nameservers.
+    BootstrapEnhanceDefaultsOnPluginInstalledListener,
+    ReconcileDnsDefaultsOnServiceActivatedListener,
+    SyncDefaultNameserversToEnhanceListener,
     // Plugins triviales (Sprint 11 Fase 11.C). Cada plugin se declara como
     // provider individual (NestJS DI gestiona su ciclo de vida) y se compone
     // un array vía `useFactory` que el `PluginRegistryService` recibe en

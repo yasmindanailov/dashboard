@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { EnhanceCustomersService } from './enhance-customers.service';
+import { EnhanceDnsDefaultsService } from './enhance-dns-defaults.service';
 import { EnhanceProvisionerPlugin } from './enhance.plugin';
 
 /**
@@ -30,7 +31,15 @@ import { EnhanceProvisionerPlugin } from './enhance.plugin';
  *     `PROVISIONER_PLUGINS` que resuelve dinámicamente.
  */
 @Module({
-  providers: [EnhanceProvisionerPlugin, EnhanceCustomersService],
-  exports: [EnhanceProvisionerPlugin, EnhanceCustomersService],
+  providers: [
+    EnhanceProvisionerPlugin,
+    EnhanceCustomersService,
+    EnhanceDnsDefaultsService,
+  ],
+  exports: [
+    EnhanceProvisionerPlugin,
+    EnhanceCustomersService,
+    EnhanceDnsDefaultsService,
+  ],
 })
 export class EnhanceCpModule {}

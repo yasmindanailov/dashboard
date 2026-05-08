@@ -5,6 +5,7 @@ import { PrismaService } from '../database/prisma.service';
 
 import {
   PROVISIONER_PLUGIN_CONTRACT_VERSION,
+  PluginCapabilities,
   ProvisionerPlugin,
 } from './types';
 
@@ -264,5 +265,27 @@ export class PluginRegistryService implements OnModuleInit {
    */
   getAvailable(slug: string): ProvisionerPlugin | null {
     return this.validatedPlugins.get(slug) ?? null;
+  }
+
+  /**
+   * Sprint 15C Fase 15C.D — ADR-082 §6 (cross-plugin DNS authority resolver).
+   *
+   * Devuelve el primer plugin ACTIVO que declare la capability `cap=true`.
+   * Hoy típicamente hay un solo plugin activo con `has_dns_management=true`
+   * (`enhance_cp`); si en el futuro hay varios (ej. `cloudflare_dns`
+   * coexistiendo con `enhance_cp`), la resolución necesitará routing
+   * adicional vía settings o metadata del service — hoy seleccionar el
+   * primero es comportamiento aceptable porque el resolver
+   * `dns-authority-resolver.ts` decide independientemente si la zona vive
+   * en Aelium o externa.
+   *
+   * R4 intacto: el helper `dns-authority-resolver` vive en `core/provisioning/`
+   * y consulta este método; los plugins NO se consultan entre sí.
+   */
+  getByCapability(cap: keyof PluginCapabilities): ProvisionerPlugin | null {
+    for (const plugin of this.activePlugins.values()) {
+      if (plugin.capabilities[cap]) return plugin;
+    }
+    return null;
   }
 }
