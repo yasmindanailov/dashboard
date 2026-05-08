@@ -107,6 +107,8 @@ readonly manifest: PluginManifest = {
 
 **Decisión 7 — Tabla nueva `enhance_customers`**:
 
+> ⚠ **Naming SQL del campo PK actualizado por [Amendment A2](#amendments)** (Sprint 15C Fase C, 2026-05-08): el campo SQL real es `user_id` con FK a `users.id`, no `client_id` con FK a `Client`. El schema Aelium NO tiene modelo `Client` separado — `User` es la identidad canónica del cliente. La doctrina conceptual ("Client Aelium ↔ Customer Org Enhance") permanece intacta. El bloque Prisma de abajo refleja la propuesta original; ver Amendment A2 para el shape canónico vigente.
+
 ```prisma
 model EnhanceCustomer {
   /// Sprint 15C — ADR-083 §2 — mapping Client Aelium ↔ Customer Org Enhance.
@@ -121,7 +123,7 @@ model EnhanceCustomer {
   /// `enhance_owner_login_id` y `enhance_owner_member_id` se necesitan para SSO
   /// 2-call OTP (decisión 13). Sin ellos, cada SSO requeriría resolver Org →
   /// ownerId desde la API → 2 calls + 1 resolve = 3 calls. Persistirlos: 2 calls.
-  client_id                      String   @id @db.Uuid
+  client_id                      String   @id @db.Uuid    // ← Amendment A2: ahora es `user_id`
   enhance_org_id                 String   @unique @db.Uuid
   enhance_owner_login_id         String   @db.Uuid
   enhance_owner_member_id        String   @db.Uuid
@@ -129,16 +131,19 @@ model EnhanceCustomer {
   updated_at                     DateTime @default(now()) @updatedAt @db.Timestamptz()
 
   client Client @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  // ↑ Amendment A2: `user User @relation("UserEnhanceCustomer", fields: [user_id], references: [id], onDelete: Cascade)`
 
   @@map("enhance_customers")
 }
 ```
 
-Migración Prisma: `sprint15c_enhance_customers`. **NO** se añade FK reverse en `Service` — el linkage Service ↔ enhance_customers es por `Service.user_id → Client.id → EnhanceCustomer.client_id` (ya existe vía `services.user_id`).
+Migración Prisma: `sprint15c_enhance_customers`. **NO** se añade FK reverse en `Service` — el linkage Service ↔ enhance_customers es por `Service.user_id → User.id → EnhanceCustomer.user_id` (Amendment A2 alinea el naming con la convención del schema). Schema canónico vigente: [`docs/30-data/enhance-customers.md`](../30-data/enhance-customers.md).
 
 **Decisión 8 — Lazy create + idempotencia 3-step**:
 
-El customer se crea en Enhance al primer hosting Aelium provisionado del cliente (NO en el alta del Client — la mayoría de Clients pueden no tener hosting Enhance nunca). Idempotencia robusta vía advisory lock por `client_id`:
+> ⚠ **Pseudocódigo actualizado por [Amendment A2](#amendments)**: `client_id` → `user_id`, `Client` → `User`, `hashFnv32` → `userAdvisoryLockKey` (con namespace dedicado `ADVISORY_LOCK_NAMESPACE_ENHANCE_CUSTOMERS`). Ver Amendment A2 §A2.4 para el shape vigente. El bloque de abajo refleja la propuesta original.
+
+El customer se crea en Enhance al primer hosting Aelium provisionado del cliente (NO en el alta del Client — la mayoría de Clients pueden no tener hosting Enhance nunca). Idempotencia robusta vía advisory lock por `client_id` (Amendment A2: `user_id`):
 
 ```typescript
 async function ensureEnhanceCustomer(client: Client, tx: PrismaTx): Promise<EnhanceCustomer> {
@@ -431,7 +436,7 @@ Dos eventos nuevos en el dominio `service.*` (a registrar en `docs/20-modules/_e
 
 | Evento | Payload | Productor | Consumidor |
 |---|---|---|---|
-| `service.admin_sso_impersonation` | `{ service_id, client_id, agent_user_id, agent_ip, agent_user_agent, panel_label, opened_at, gdpr_visible_to_data_subject: true }` | `getSsoUrlWithAudit` cuando `request.actor.role === 'admin'` y service del cliente | `audit-on-service-events` (futuro) → `audit_change_log`; portal RGPD `/dashboard/transparency` lo lista |
+| `service.admin_sso_impersonation` | `{ service_id, user_id, agent_user_id, agent_ip, agent_user_agent, panel_label, opened_at, gdpr_visible_to_data_subject: true }` ([Amendment A2](#amendments) cambió `client_id` → `user_id` por coherencia con resto de eventos `service.*`) | `getSsoUrlWithAudit` cuando `request.actor.role === 'admin'` y service del cliente | `audit-on-service-events` (futuro) → `audit_change_log`; portal RGPD `/dashboard/transparency` lo lista |
 | `service.reconciled_external_change` | `{ service_id, plugin_slug, change_type: 'subscription_missing'\|'status_divergence'\|'plan_divergence', expected, actual, detected_at }` | Cron `reconcile-enhance-services` | `audit-on-service-reconciled-external-change` (Sprint 15C Fase H, listener nuevo, flag GDPR opcional según `change_type`); `notifications-on-reconciliation-threshold-exceeded` cuenta divergencias / día contra setting threshold |
 
 Ambos eventos **NO requieren Outbox** v1 — son alertas operativas, no transacciones. Reservar Outbox para eventos billing (heredado ADR-033 doctrina).
@@ -451,7 +456,7 @@ Ambos eventos **NO requieren Outbox** v1 — son alertas operativas, no transacc
 
 - ✅ **Ganamos:**
   - **35 decisiones congeladas con razón** → próximos plugins citan `ADR-083 §X.Y` para validar si la decisión aplica también allí (RC tendrá su análogo ADR-081; Docker tendrá ADR-084; etc.).
-  - **Tabla `enhance_customers` con PK natural `client_id`** → coherente con `plugin_installs.slug` PK natural (ADR-080 §2). Joins más rápidos que UUID extra.
+  - **Tabla `enhance_customers` con PK natural `client_id`** ([Amendment A2](#amendments): naming SQL real es `user_id`, doctrina conceptual intacta) → coherente con `plugin_installs.slug` PK natural (ADR-080 §2). Joins más rápidos que UUID extra.
   - **Provision flow 6-step idempotente con advisory lock** → robustez ante reintentos BullMQ + race conditions cross-process.
   - **SSO 2-call OTP cacheable** vía persistir `enhance_owner_member_id` → 1 call por SSO recurrente (vs 3 sin caching).
   - **DH-INV-6 doctrine materializada** → reconcile cron nunca pisa cambios operator/cliente legítimos en panel Enhance; alerta superadmin para divergencias críticas con threshold.
