@@ -1,9 +1,9 @@
-/* eslint-disable
+﻿/* eslint-disable
    @typescript-eslint/unbound-method,
    @typescript-eslint/no-unsafe-assignment,
    @typescript-eslint/no-unsafe-member-access
 */
-// Doctrina canónica TS-ESLint para specs Jest, aplicada a nivel de archivo:
+// Doctrina canÃ³nica TS-ESLint para specs Jest, aplicada a nivel de archivo:
 //
 //  - `unbound-method`: falso positivo cuando se hace
 //    `expect(mock.method).toHaveBeenCalled()`.
@@ -11,7 +11,7 @@
 //    cuando se anidan `expect.objectContaining(...)` (devuelve `any`) o
 //    se accede a `mock.calls[0][0]` (Jest tipa los args como `any`).
 //
-// Estos disables aplican SOLO a este spec; en código de producción las
+// Estos disables aplican SOLO a este spec; en cÃ³digo de producciÃ³n las
 // reglas siguen activas con severidad `warn`/`error`.
 
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
@@ -42,13 +42,13 @@ import { DeprovisionReasonDto } from './dto/provisioning.dto';
 import { ProvisioningService } from './provisioning.service';
 
 /**
- * Tests unit ProvisioningService — Sprint 11 Fase 11.D.
+ * Tests unit ProvisioningService â€” Sprint 11 Fase 11.D.
  *
  * Cobertura:
  *   - listForUser: filtra por user_id (ownership server-side).
  *   - listForAdmin: aplica filtros (provisioner_slug, status, search).
- *   - getInfoForUser: ownership 403 cuando user no es dueño.
- *   - getInfoForUser: plugin no registrado → fallback 'unknown'.
+ *   - getInfoForUser: ownership 403 cuando user no es dueÃ±o.
+ *   - getInfoForUser: plugin no registrado â†’ fallback 'unknown'.
  *   - getInfoForUser: camino feliz invoca wrapper getServiceInfoWithCache.
  *   - getSsoForUser: ownership 403.
  *   - executeActionForUser: ownership 403.
@@ -56,7 +56,7 @@ import { ProvisioningService } from './provisioning.service';
  *   - reprovisionAsAdmin: NotFoundException si service no existe.
  *   - deprovisionAsAdmin: status='cancelled' + emit service.cancelled + audit.
  */
-describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
+describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
   let prisma: {
     service: {
       findUnique: jest.Mock;
@@ -89,6 +89,7 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
         provision_mode: 'sync',
         completes_via_task: false,
         supports_reconciliation: false,
+        has_dns_management: false, // ADR-077 Amendment A1
       },
       inlineActions: [],
       manifest: TEST_MANIFEST,
@@ -106,6 +107,7 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
           provision_mode: 'sync',
           completes_via_task: false,
           supports_reconciliation: false,
+          has_dns_management: false, // ADR-077 Amendment A1
           hasSsoPanel: false,
           inlineActions: [],
         },
@@ -184,11 +186,11 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
     orchestrator = {
       enqueueProvisioning: jest.fn().mockResolvedValue(undefined),
     };
-    // Sprint 15A Fase F (ADR-080 §5) — el registry de breakers se mockea
+    // Sprint 15A Fase F (ADR-080 Â§5) â€” el registry de breakers se mockea
     // como noop: getOrCreate devuelve un breaker que ejecuta el fn como
-    // closed (passthrough). No queremos test la lógica del breaker aquí
-    // (eso vive en circuit-breaker.spec.ts) — solo que el wrapper acepta
-    // el parámetro sin romper el flujo.
+    // closed (passthrough). No queremos test la lÃ³gica del breaker aquÃ­
+    // (eso vive en circuit-breaker.spec.ts) â€” solo que el wrapper acepta
+    // el parÃ¡metro sin romper el flujo.
     const passthroughBreaker = {
       execute: <T>(fn: () => Promise<T>) => fn(),
       getState: () => 'closed' as const,
@@ -213,7 +215,7 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
     );
   });
 
-  // ─── listForUser ────────────────────────────────────────────────────
+  // â”€â”€â”€ listForUser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   it('listForUser: aplica where user_id (ownership server-side)', async () => {
     prisma.service.findMany.mockResolvedValueOnce([]);
@@ -241,7 +243,7 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
     );
   });
 
-  // ─── listForAdmin ───────────────────────────────────────────────────
+  // â”€â”€â”€ listForAdmin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   it('listForAdmin: aplica filtros provisioner_slug + search', async () => {
     prisma.service.findMany.mockResolvedValueOnce([]);
@@ -268,9 +270,9 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
     );
   });
 
-  // ─── getInfoForUser ─────────────────────────────────────────────────
+  // â”€â”€â”€ getInfoForUser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  it('getInfoForUser: lanza ForbiddenException si user no es dueño', async () => {
+  it('getInfoForUser: lanza ForbiddenException si user no es dueÃ±o', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
 
     await expect(
@@ -278,7 +280,7 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
-  it('getInfoForUser: plugin no registrado → fallback con status="unknown"', async () => {
+  it('getInfoForUser: plugin no registrado â†’ fallback con status="unknown"', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
     registry.get.mockReturnValue(null);
 
@@ -316,9 +318,9 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
     );
   });
 
-  // ─── getSsoForUser ──────────────────────────────────────────────────
+  // â”€â”€â”€ getSsoForUser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  it('getSsoForUser: lanza ForbiddenException si user no es dueño', async () => {
+  it('getSsoForUser: lanza ForbiddenException si user no es dueÃ±o', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
 
     await expect(
@@ -328,9 +330,9 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
-  // ─── executeActionForUser ──────────────────────────────────────────
+  // â”€â”€â”€ executeActionForUser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  it('executeActionForUser: lanza ForbiddenException si user no es dueño', async () => {
+  it('executeActionForUser: lanza ForbiddenException si user no es dueÃ±o', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
 
     await expect(
@@ -345,7 +347,7 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
-  // ─── reprovisionAsAdmin ─────────────────────────────────────────────
+  // â”€â”€â”€ reprovisionAsAdmin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   it('reprovisionAsAdmin: enqueue + audit logChange + audit logAccess', async () => {
     prisma.service.findUnique.mockResolvedValueOnce({
@@ -385,7 +387,7 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
     expect(orchestrator.enqueueProvisioning).not.toHaveBeenCalled();
   });
 
-  // ─── deprovisionAsAdmin ────────────────────────────────────────────
+  // â”€â”€â”€ deprovisionAsAdmin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   it('deprovisionAsAdmin: status=cancelled + emit service.cancelled + audit', async () => {
     prisma.service.findUnique.mockResolvedValueOnce({
@@ -397,14 +399,14 @@ describe('ProvisioningService — Sprint 11 Fase 11.D', () => {
     prisma.service.update.mockResolvedValueOnce({
       id: 'svc-1',
       status: 'cancelled',
-      cancellation_reason: 'admin_override: cliente lo solicitó',
+      cancellation_reason: 'admin_override: cliente lo solicitÃ³',
     });
 
     const result = await service.deprovisionAsAdmin(
       'svc-1',
       {
         reason: DeprovisionReasonDto.admin_override,
-        notes: 'cliente lo solicitó',
+        notes: 'cliente lo solicitÃ³',
       },
       'admin-id',
       { ipAddress: '1.2.3.4' },

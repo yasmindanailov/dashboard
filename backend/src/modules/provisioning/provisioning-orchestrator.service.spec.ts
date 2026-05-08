@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/unbound-method */
+﻿/* eslint-disable @typescript-eslint/unbound-method */
 // `unbound-method` produce falsos positivos en specs Jest cuando se hace
 // `expect(mock.method).toHaveBeenCalled()`. Doctrina oficial TS-ESLint para
 // specs: deshabilitar a nivel de archivo. Solo aplica a este `.spec.ts`.
@@ -30,20 +30,20 @@ const TEST_MANIFEST: PluginManifest = {
 import { ProvisioningOrchestratorService } from './provisioning-orchestrator.service';
 
 /**
- * Tests unit ProvisioningOrchestratorService — Sprint 11 Fase 11.B (ADR-077).
+ * Tests unit ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B (ADR-077).
  *
  * Cobertura:
- *   - service no encontrado → skip silencioso.
- *   - service ya 'active' → skip idempotente.
- *   - service 'cancelled'/'terminated' → skip terminal.
- *   - plugin no registrado → emit service.provisioning_failed con reason='plugin_not_registered'.
- *   - provision OK con followUp=['mark_active'] → updates status=active + emit service.activated.
- *   - provision OK con followUp=['create_setup_task'] → llama tasks.create.
- *   - plugin lanza ProvisionerPluginError(retriable=true) → re-throw para BullMQ retry.
- *   - plugin lanza ProvisionerPluginError(retriable=false) → status='cancelled' + emit failed.
+ *   - service no encontrado â†’ skip silencioso.
+ *   - service ya 'active' â†’ skip idempotente.
+ *   - service 'cancelled'/'terminated' â†’ skip terminal.
+ *   - plugin no registrado â†’ emit service.provisioning_failed con reason='plugin_not_registered'.
+ *   - provision OK con followUp=['mark_active'] â†’ updates status=active + emit service.activated.
+ *   - provision OK con followUp=['create_setup_task'] â†’ llama tasks.create.
+ *   - plugin lanza ProvisionerPluginError(retriable=true) â†’ re-throw para BullMQ retry.
+ *   - plugin lanza ProvisionerPluginError(retriable=false) â†’ status='cancelled' + emit failed.
  *   - handleInvoicePaid encola un job por cada service en items.
  */
-describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
+describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
   let prisma: {
     service: { findUnique: jest.Mock; update: jest.Mock };
     user: { findUnique: jest.Mock };
@@ -71,6 +71,7 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
         provision_mode: 'sync',
         completes_via_task: false,
         supports_reconciliation: false,
+        has_dns_management: false, // ADR-077 Amendment A1
       },
       inlineActions: [],
       manifest: TEST_MANIFEST,
@@ -141,14 +142,14 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
     );
   });
 
-  it('service no encontrado → skip silencioso (no throw, no emit)', async () => {
+  it('service no encontrado â†’ skip silencioso (no throw, no emit)', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(null);
     await orchestrator.provisionService('svc-missing', 'cor-1');
     expect(events.emit).not.toHaveBeenCalled();
     expect(prisma.service.update).not.toHaveBeenCalled();
   });
 
-  it('service ya active → skip idempotente', async () => {
+  it('service ya active â†’ skip idempotente', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(
       setupServiceRow({ status: 'active' }),
     );
@@ -157,7 +158,7 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
     expect(events.emit).not.toHaveBeenCalled();
   });
 
-  it('service en estado terminal (cancelled/terminated) → skip', async () => {
+  it('service en estado terminal (cancelled/terminated) â†’ skip', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(
       setupServiceRow({ status: 'cancelled' }),
     );
@@ -165,7 +166,7 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
     expect(prisma.service.update).not.toHaveBeenCalled();
   });
 
-  it('plugin no registrado → emit service.provisioning_failed', async () => {
+  it('plugin no registrado â†’ emit service.provisioning_failed', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(setupServiceRow());
     registry.get.mockReturnValue(null);
 
@@ -180,7 +181,7 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
     );
   });
 
-  it('provision OK followUp=mark_active → status=active + emit service.activated', async () => {
+  it('provision OK followUp=mark_active â†’ status=active + emit service.activated', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(setupServiceRow());
     const plugin = buildPlugin({
       provision: jest.fn().mockResolvedValue({
@@ -194,9 +195,9 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
     await orchestrator.provisionService('svc-1', 'cor-1');
 
     expect(plugin.provision).toHaveBeenCalled();
-    // 1ª update: status=provisioning + provisioner_slug
-    // 2ª update: provider_reference + metadata
-    // 3ª update (mark_active): status=active
+    // 1Âª update: status=provisioning + provisioner_slug
+    // 2Âª update: provider_reference + metadata
+    // 3Âª update (mark_active): status=active
     expect(prisma.service.update).toHaveBeenCalledTimes(3);
     expect(events.emit).toHaveBeenCalledWith(
       'service.activated',
@@ -204,7 +205,7 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
     );
   });
 
-  it('provision OK followUp=create_setup_task → llama tasks.create', async () => {
+  it('provision OK followUp=create_setup_task â†’ llama tasks.create', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(setupServiceRow());
     const plugin = buildPlugin({
       slug: 'manual',
@@ -216,6 +217,7 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
         provision_mode: 'sync',
         completes_via_task: true,
         supports_reconciliation: false,
+        has_dns_management: false, // ADR-077 Amendment A1
       },
       provision: jest.fn().mockResolvedValue({
         providerReference: null,
@@ -236,7 +238,7 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
     );
   });
 
-  it('plugin lanza ProvisionerPluginError(retriable=true) → re-throw para BullMQ retry', async () => {
+  it('plugin lanza ProvisionerPluginError(retriable=true) â†’ re-throw para BullMQ retry', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(setupServiceRow());
     const plugin = buildPlugin({
       provision: jest
@@ -251,14 +253,14 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
       orchestrator.provisionService('svc-1', 'cor-1'),
     ).rejects.toThrow(ProvisionerPluginError);
 
-    // No marca cancelled — el reintento decidirá.
+    // No marca cancelled â€” el reintento decidirÃ¡.
     expect(events.emit).not.toHaveBeenCalledWith(
       'service.provisioning_failed',
       expect.anything(),
     );
   });
 
-  it('plugin lanza ProvisionerPluginError(retriable=false) → status=cancelled + emit failed', async () => {
+  it('plugin lanza ProvisionerPluginError(retriable=false) â†’ status=cancelled + emit failed', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(setupServiceRow());
     const plugin = buildPlugin({
       provision: jest
@@ -315,7 +317,7 @@ describe('ProvisioningOrchestratorService — Sprint 11 Fase 11.B', () => {
     expect(enqueuedServiceIds).toEqual(['svc-A', 'svc-B']);
   });
 
-  it('handleInvoicePaid sin items service → no encola (debug log)', async () => {
+  it('handleInvoicePaid sin items service â†’ no encola (debug log)', async () => {
     prisma.invoice.findUnique.mockResolvedValueOnce({
       id: 'inv-2',
       items: [{ service_id: null }, { service_id: null }],

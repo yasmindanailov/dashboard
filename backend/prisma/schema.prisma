@@ -85,6 +85,7 @@ model User {
   client_notes                ClientNote[]               @relation("ClientNoteUser")
   client_notes_authored       ClientNote[]               @relation("ClientNoteAuthor")
   support_inside_subscription SupportInsideSubscription? @relation("UserSupportInsideSubscription")
+  enhance_customer            EnhanceCustomer?           @relation("UserEnhanceCustomer")
 
   @@index([email])
   @@index([role_id])
@@ -270,6 +271,37 @@ model PluginInstall {
 
   @@index([enabled])
   @@map("plugin_installs")
+}
+
+/// Sprint 15C Fase 15C.C (2026-05-08) — ADR-083 §2 decisión 7.
+///
+/// Mapping canónico Client Aelium ↔ Customer Org Enhance.
+///
+/// PK natural `user_id` (NO UUID extra) — el User Aelium ES la identidad del
+/// customer Enhance. Misma doctrina que `plugin_installs.slug` PK natural
+/// (ADR-080 §2). Cardinalidad: 1 fila por cada cliente Aelium con al menos
+/// un hosting Enhance contratado. Lazy create al primer hosting Enhance
+/// (ADR-083 §2 decisión 8) — NO en alta del User.
+///
+/// `enhance_owner_login_id` + `enhance_owner_member_id` se persisten para
+/// optimizar SSO 2-call OTP (ADR-083 §4 decisión 13): permiten omitir el
+/// GET /orgs/{cust} previo y llamar directo a /sso → 1 call por SSO.
+///
+/// Naming: el ADR-083 describe el campo conceptual como `client_id` por
+/// semántica (Client Aelium ↔ Customer Org Enhance). El campo SQL real es
+/// `user_id` para coherencia con el resto del schema (todos los joins van
+/// a `users.id`). La doctrina conceptual es la misma.
+model EnhanceCustomer {
+  user_id                 String   @id @db.Uuid
+  enhance_org_id          String   @unique @db.Uuid
+  enhance_owner_login_id  String   @db.Uuid
+  enhance_owner_member_id String   @db.Uuid
+  created_at              DateTime @default(now()) @db.Timestamptz()
+  updated_at              DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  user User @relation("UserEnhanceCustomer", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("enhance_customers")
 }
 
 // ─── BLOQUE 4: PRODUCTOS Y CATÁLOGO ───

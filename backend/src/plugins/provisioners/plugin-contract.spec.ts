@@ -161,6 +161,38 @@ describe.each(REGISTERED_PROVISIONER_PLUGINS.map((p) => [p.slug, p] as const))(
       expect(['sync', 'async']).toContain(c.provision_mode);
       expect(typeof c.completes_via_task).toBe('boolean');
       expect(typeof c.supports_reconciliation).toBe('boolean');
+      // ADR-077 Amendment A1 — has_dns_management required.
+      expect(typeof c.has_dns_management).toBe('boolean');
+    });
+
+    // ─── ADR-077 Amendment A1 — DNS management invariants ────────────────
+
+    it('si has_dns_management=true → declara las 4 inline actions canónicas DNS (ADR-077 Amendment A1.3)', () => {
+      if (plugin.capabilities.has_dns_management) {
+        const slugs = plugin.inlineActions.map((a) => a.slug);
+        for (const required of [
+          'list_dns_records',
+          'add_dns_record',
+          'update_dns_record',
+          'delete_dns_record',
+        ]) {
+          expect(slugs).toContain(required);
+        }
+      }
+    });
+
+    it('si has_dns_management=false → NO declara inline actions DNS canónicas (ADR-077 Amendment A1.3)', () => {
+      if (!plugin.capabilities.has_dns_management) {
+        const slugs = plugin.inlineActions.map((a) => a.slug);
+        for (const dnsSlug of [
+          'list_dns_records',
+          'add_dns_record',
+          'update_dns_record',
+          'delete_dns_record',
+        ]) {
+          expect(slugs).not.toContain(dnsSlug);
+        }
+      }
     });
 
     it('si has_sso_panel=true → declara panel_label (ADR-077 §3 coherence)', () => {
