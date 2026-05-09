@@ -133,6 +133,61 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
       />
 
       {/*
+        Sprint 15C Fase 15C.G — link a la sub-página de gestión DNS.
+        Solo se renderiza si el plugin del service declara
+        `has_dns_management=true` (ADR-082 §3 + ADR-077 Amendment A1).
+        El SC `/dashboard/services/[id]/dns/page.tsx` revalida la
+        capability defensivamente + invoca al resolver canónico que
+        decide entre `<DnsRecordsManager>` y `<DnsExternallyBanner>`.
+      */}
+      {info.capabilities.has_dns_management && (
+        <Card>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 16,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div>
+              <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+                DNS de tu dominio
+              </h2>
+              <p
+                style={{
+                  color: 'var(--text-secondary)',
+                  fontSize: 13,
+                  marginTop: 4,
+                }}
+              >
+                Crea, edita o elimina registros DNS (A, AAAA, CNAME, MX, TXT,
+                SRV, CAA) de la zona autoritativa gestionada por Aelium. Los
+                cambios pueden tardar minutos en propagarse.
+              </p>
+            </div>
+            <Link
+              href={`/dashboard/services/${service.id}/dns`}
+              style={{
+                padding: '8px 16px',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Gestionar DNS →
+            </Link>
+          </div>
+        </Card>
+      )}
+
+      {/*
         Slot UI placeholder Sprint 22 Projects (`request_custom_development`).
         Sprint 11 deja la sección visible pero deshabilitada para que la
         UI quede preparada — Sprint 22 conectará el endpoint sin tocar
