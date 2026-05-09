@@ -15,6 +15,7 @@ import { seedNotificationTemplates } from './seeds/notification-templates';
 import { seedSampleClientNotes } from './seeds/sample-client-notes';
 import { seedSupportInsidePlans } from './seeds/support-inside-plans';
 import { seedSampleSupportInside } from './seeds/sample-support-inside';
+import { seedSampleEnhancePluginInstall } from './seeds/sample-enhance-plugin-install';
 
 /**
  * Orquestador del seed de la base de datos — Sprint 9.6 Fase F.0
@@ -58,6 +59,13 @@ async function main() {
     // se siembra siempre, incluso en producción. Plugins reales (Sprint 15B/C/D/E/G)
     // se instalan desde la UI admin con secrets cifrados.
     await seedPluginInstalls(prisma);
+    // Sprint 15C Fase 15C.J — seed dev/QA del plugin install enhance_cp.
+    // Condicional: solo siembra si NODE_ENV !== 'production' Y las 3 env
+    // vars ENHANCE_DEV_BASE_URL/MASTER_ORG_ID/API_TOKEN están completas.
+    // En producción, el plugin Enhance se configura desde la UI admin
+    // (`/admin/settings/plugins`) con secrets cifrados — el seed no
+    // sustituye ese flujo, solo lo automatiza para QA/staging/dev.
+    await seedSampleEnhancePluginInstall(prisma);
     await seedNotificationTemplates(prisma);
     // Sprint 16 (ADR-079): el catálogo de tags se eliminó. Las notas demo
     // se generan en `sample-client-notes` después de los clientes/tickets.

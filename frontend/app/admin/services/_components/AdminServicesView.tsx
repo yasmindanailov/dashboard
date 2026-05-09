@@ -192,7 +192,14 @@ export default function AdminServicesView({
         />
       ) : (
         <>
-          <Table columns={columns} data={services} rowKey={(s) => s.id} />
+          <Table
+            columns={columns}
+            data={services}
+            rowKey={(s) => s.id}
+            onRowClick={(s) =>
+              startTransition(() => router.push(`/admin/services/${s.id}`))
+            }
+          />
           {meta.totalPages > 1 && (
             <Pagination
               page={meta.page}
