@@ -639,7 +639,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
         return this.actionDeleteDnsRecord(api, refs, service, payload);
 
       case 'change_package':
-        return this.actionChangePackage(api, refs, payload);
+        return this.actionChangePackage(api, refs, service, payload);
       case 'force_resync':
         return this.actionForceResync(api, refs);
       case 'list_available_plans':
@@ -818,10 +818,25 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
   private async actionChangePackage(
     api: EnhanceApiClient,
     refs: ServiceEnhanceRefs,
+    service: ServiceWithRelations,
     payload: Record<string, unknown>,
   ): Promise<ActionResult> {
     const planId = payload.planId as number;
     await api.patchSubscription(refs.orgId, refs.subscriptionId, { planId });
+
+    // Sprint 15C Fase 15C.H: actualizar `service.metadata.enhance_plan_id`
+    // tras éxito del PATCH a Enhance. Sin esto, el cron L3
+    // `EnhanceReconciliationCron` detectaría `plan_divergence` cada 6h tras
+    // cualquier change_package admin (false positive: la divergencia es
+    // intencional y reciente, no un cambio externo no autorizado). El
+    // snapshot Aelium-side del plan asignado vive en metadata, NO en
+    // `Product.provisioner_config` (ese es el default de catálogo).
+    const md = (service.metadata as Record<string, unknown> | null) ?? {};
+    await this.prisma.service.update({
+      where: { id: service.id },
+      data: { metadata: { ...md, enhance_plan_id: planId } },
+    });
+
     return {
       success: true,
       message: 'plugin.enhance_cp.actions.change_package.success',

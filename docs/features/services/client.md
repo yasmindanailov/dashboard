@@ -155,6 +155,18 @@ Cuando Aelium provisiona tu hosting, aplica un set de **default DNS records** a 
 
 > Si eliminas accidentalmente un default record y rompe tu sitio, contacta con soporte: el listener `ReconcileDnsDefaultsOnServiceActivatedListener` (Sprint 15C Fase D) los recrea con un re-provisioning manual.
 
+### 7.5.6. Si tu servicio cambia "solo": reconciliación automática (Sprint 15C Fase 15C.H)
+
+Aelium ejecuta cada 6 horas una **reconciliación automática** contra el proveedor (Enhance) que compara el estado real de tu servicio con lo que tenemos registrado nosotros. La doctrina canónica es **"el proveedor gana"** ([DH-INV-6, ADR-082 §1](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md)) — si un agente Aelium hace un cambio operativo dentro del panel del proveedor (suspender, reactivar, cambiar plan), el reconcile lo detecta y lo refleja en tu dashboard sin que tengas que hacer nada.
+
+Casos posibles que verás:
+
+- **Cambio de estado** (`active` ↔ `suspended`): si tu servicio aparece suspendido pero la siguiente vez que entras está activo (o viceversa), es porque la reconciliación detectó el cambio y adoptó el estado del proveedor. Queda registrado en el [audit log](../../00-foundations/glossary.md#audit-log) accesible vía soporte.
+- **Cambio de plan**: si el plan asignado en el proveedor difiere del que tenemos registrado, NO se actualiza automáticamente — implica posible ajuste de factura. Un superadmin lo investiga manualmente y te contacta si procede regularizar.
+- **Servicio "desaparecido"** del proveedor: caso raro (puede ocurrir si fue eliminado fuera de Aelium). Tu `Service.status` en Aelium NO se modifica automáticamente — un superadmin investiga y decide si cancelar o reprovisionar.
+
+Si en 24 horas se detectan más de 5 divergencias (configurable), se alerta automáticamente al equipo de superadmins para investigar el patrón.
+
 ---
 
 ## 8. Preguntas frecuentes

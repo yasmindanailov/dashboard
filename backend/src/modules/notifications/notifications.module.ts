@@ -16,6 +16,7 @@ import { NotificationsDlqListener } from './listeners/notifications-dlq.listener
 import { NotificationsSystemErrorListener } from './listeners/notifications-system-error.listener';
 import { NotificationsAuthReplayListener } from './listeners/notifications-auth-replay.listener';
 import { NotificationsPluginCircuitListener } from './listeners/notifications-plugin-circuit.listener';
+import { NotificationsOnReconciliationThresholdExceededListener } from './listeners/notifications-on-reconciliation-threshold-exceeded.listener';
 import { NotificationsRetentionCron } from './notifications-retention.cron';
 
 /**
@@ -44,6 +45,12 @@ import { NotificationsRetentionCron } from './notifications-retention.cron';
     NotificationsSystemErrorListener,
     NotificationsAuthReplayListener,
     NotificationsPluginCircuitListener,
+    // Sprint 15C Fase 15C.H (ADR-083 §6 decisión 24): consume
+    // `service.reconciled_external_change` y, si el count en últimas
+    // 24h supera `provisioning.enhance_cp.reconciliation_alert_threshold`
+    // (default 5), notifica a superadmins. Dedupe vía setting interno
+    // `enhance_cp.reconciliation_last_alert_at` (24h ventana).
+    NotificationsOnReconciliationThresholdExceededListener,
     NotificationsRetentionCron,
     {
       provide: NOTIFICATION_CHANNELS,

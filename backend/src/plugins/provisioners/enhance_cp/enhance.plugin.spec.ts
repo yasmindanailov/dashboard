@@ -121,6 +121,12 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       enhanceCustomer: {
         findUnique: jest.fn().mockResolvedValue(opts.enhanceCustomer ?? null),
       },
+      // Sprint 15C Fase 15C.H: `actionChangePackage` actualiza
+      // `service.metadata.enhance_plan_id` tras éxito del PATCH a Enhance
+      // para evitar plan_divergence false positive en el cron L3.
+      service: {
+        update: jest.fn().mockResolvedValue({}),
+      },
     };
   }
 
@@ -1004,28 +1010,44 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       );
     });
 
-    it('change_package: PATCH subscription planId', async () => {
+    it('change_package: PATCH subscription planId + actualiza service.metadata.enhance_plan_id (Fase 15C.H bug fix)', async () => {
       const api = buildApiMock();
       api.patchSubscription.mockResolvedValueOnce({
         id: SUB_ID,
         planId: 99,
         planName: 'plan-99',
       });
+      const prismaMock = buildPrismaMock({ install: VALID_INSTALL });
       const plugin = buildPlugin(
-        buildPrismaMock({ install: VALID_INSTALL }),
+        prismaMock,
         buildVaultMock(),
         buildCustomersMock(),
         api,
       );
-      const result = await plugin.executeAction(
-        buildServiceWithRefs(),
-        'change_package',
-        { planId: 99 },
-      );
+      const service = buildServiceWithRefs();
+      const result = await plugin.executeAction(service, 'change_package', {
+        planId: 99,
+      });
       expect(result.success).toBe(true);
       expect(api.patchSubscription).toHaveBeenCalledWith(ORG_ID, SUB_ID, {
         planId: 99,
       });
+      // Fase 15C.H: el plugin DEBE actualizar metadata.enhance_plan_id tras
+      // éxito del PATCH a Enhance. Sin esto, el cron L3
+      // EnhanceReconciliationCron emite plan_divergence false positive.
+      expect(prismaMock.service.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: service.id },
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          data: expect.objectContaining({
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            metadata: expect.objectContaining({
+              enhance_org_id: ORG_ID,
+              enhance_plan_id: 99,
+            }),
+          }),
+        }),
+      );
     });
 
     it('force_resync: side_effect service.metrics_invalidated', async () => {
