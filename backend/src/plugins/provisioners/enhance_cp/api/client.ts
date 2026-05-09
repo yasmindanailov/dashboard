@@ -91,6 +91,7 @@ import {
   EnhanceNewWebsite,
   EnhanceOrg,
   EnhanceOrgOwnerUpdate,
+  EnhancePlansListing,
   EnhanceSsoOtpUrl,
   EnhanceSubscription,
   EnhanceUpdateDefaultDnsRecord,
@@ -366,6 +367,29 @@ export class EnhanceApiClient {
   ): Promise<EnhanceUsedResourcesFullListing> {
     return this.http.put<EnhanceUsedResourcesFullListing>(
       `/orgs/${encodeURIComponent(orgId)}/subscriptions/${subscriptionId}/calculate-resource-usage`,
+    );
+  }
+
+  // ─── 5.5. Plans (Sprint 15C Fase 15C.E — ADR-083 Amendment A3) ──────────
+
+  /**
+   * GET /orgs/{org}/plans — lista planes Enhance disponibles bajo una
+   * org (típicamente Master org Aelium). Spec line 5186, response
+   * `PlansListing` (line 18488). Auth: bearer (público en spec pero el
+   * cliente HTTP siempre añade Authorization header — coherencia).
+   *
+   * Consumido por el plugin (Fase 15C.E commit 4) en el case
+   * `list_available_plans` de `executeAction`. Alimenta el dropdown
+   * admin del modal `change_package` (ADR-083 §8 decisión 30 +
+   * Amendment A3 — la 10ª inline action `list_available_plans` reemplaza
+   * la rama `getServiceInfo admin variant` no implementada).
+   *
+   * Devuelve `PlansListing` completo (items + total) — el plugin
+   * extrae `items` como subset display para el dropdown UI.
+   */
+  async listPlans(orgId: CustomerOrgId): Promise<EnhancePlansListing> {
+    return this.http.get<EnhancePlansListing>(
+      `/orgs/${encodeURIComponent(orgId)}/plans`,
     );
   }
 

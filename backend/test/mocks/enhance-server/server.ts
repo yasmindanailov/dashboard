@@ -689,6 +689,44 @@ function registerSubscriptionRoutes(
       res.json(result);
     },
   );
+
+  // GET /orgs/{org}/plans (Sprint 15C Fase 15C.E — ADR-083 Amendment A3) —
+  // PlansListing canónico para alimentar dropdown admin de change_package.
+  // Fixture in-memory 3 planes (Web Starter / Web Pro / Web Premium); el
+  // mock NO mantiene state.plans, los planes son globales del Master Org
+  // y no se mutan en tests v1 (plan CRUD admin no expuesto en Fase E).
+  app.get('/orgs/:orgId/plans', (req, res) => {
+    if (!state.orgs.has(req.params.orgId)) {
+      res.status(404).json({ code: 'NotFound', message: 'org not found' });
+      return;
+    }
+    res.json({
+      items: [
+        {
+          id: 1,
+          name: 'Web Starter',
+          subscriptionsCount: 12,
+          planType: 'shared',
+          createdAt: '2026-01-15T10:00:00Z',
+        },
+        {
+          id: 2,
+          name: 'Web Pro',
+          subscriptionsCount: 7,
+          planType: 'shared',
+          createdAt: '2026-01-15T10:00:00Z',
+        },
+        {
+          id: 3,
+          name: 'Web Premium',
+          subscriptionsCount: 3,
+          planType: 'dedicated',
+          createdAt: '2026-01-15T10:00:00Z',
+        },
+      ],
+      total: 3,
+    });
+  });
 }
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -229,13 +229,18 @@ const ENHANCE_INLINE_ACTIONS: readonly ServiceAction[] = [
     destructive: true,
     payloadSchema: DELETE_DNS_RECORD_SCHEMA as Record<string, unknown>,
   },
-  // Acciones admin (CASL Subject.Service + scope admin filtra en wrapper, NO en plugin)
+  // Acciones admin-only (Sprint 15C Fase 15C.E — ADR-077 Amendment A3 + ADR-083 Amendment A3)
+  // El wrapper `executeActionWithCacheInvalidation` enforce el flag `adminOnly` con
+  // HTTP 403 + audit + evento `service.action_admin_only_violation` cuando un cliente
+  // no-admin intenta invocarlas. CASL `Subject.Service + Action.Update` es grano grueso;
+  // este flag es grano fino por inline action.
   {
     slug: 'change_package',
     label: 'plugin.enhance_cp.actions.change_package',
     confirmRequired: true,
     confirmationText: 'plugin.enhance_cp.actions.change_package.confirm',
     destructive: false,
+    adminOnly: true,
     payloadSchema: CHANGE_PACKAGE_SCHEMA as Record<string, unknown>,
   },
   {
@@ -243,6 +248,18 @@ const ENHANCE_INLINE_ACTIONS: readonly ServiceAction[] = [
     label: 'plugin.enhance_cp.actions.force_resync',
     confirmRequired: false,
     destructive: false,
+    adminOnly: true,
+  },
+  // 10ª action (ADR-083 Amendment A3): admin-only read-only que alimenta
+  // el dropdown del modal admin `change_package` con la lista de planes
+  // disponibles del Master Org Aelium. Reemplaza la rama
+  // `getServiceInfo admin variant` no implementada (decisión 30 original).
+  {
+    slug: 'list_available_plans',
+    label: 'plugin.enhance_cp.actions.list_available_plans',
+    confirmRequired: false,
+    destructive: false,
+    adminOnly: true,
   },
 ];
 
@@ -594,6 +611,8 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
         return this.actionChangePackage(api, refs, payload);
       case 'force_resync':
         return this.actionForceResync(api, refs);
+      case 'list_available_plans':
+        return this.actionListAvailablePlans();
 
       default:
         // Defensive: shouldn't reach (declared check above).
@@ -794,6 +813,30 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
       sideEffects: [
         'service.metrics_invalidated',
       ] as readonly ActionSideEffect[],
+    };
+  }
+
+  /**
+   * Sprint 15C Fase 15C.E — ADR-083 Amendment A3 (10ª inline action).
+   *
+   * Devuelve la lista de planes disponibles del Master Org Aelium
+   * (`config.masterOrgId`) — alimenta el dropdown del modal admin
+   * `change_package`. Reemplaza la rama `getServiceInfo admin variant`
+   * declarada en la decisión 30 original (no implementada — habría
+   * supuesto extender el contrato canónico ADR-077).
+   *
+   * Read-only desde el punto de vista de Aelium. Audit + cache
+   * invalidation se aplica uniformemente desde el wrapper
+   * `executeActionWithCacheInvalidation` (idempotencia: el cache
+   * service_info NO contiene plans, así que la invalidación no afecta
+   * lecturas relacionadas — coherente con el resto de actions admin).
+   */
+  private async actionListAvailablePlans(): Promise<ActionResult> {
+    const { client: api, config } = await this.getApiClient();
+    const listing = await api.listPlans(config.masterOrgId);
+    return {
+      success: true,
+      data: { plans: listing.items, total: listing.total },
     };
   }
 

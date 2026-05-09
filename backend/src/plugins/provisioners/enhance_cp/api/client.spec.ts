@@ -421,6 +421,48 @@ describe('EnhanceApiClient — Sprint 15C Fase 15C.B', () => {
     });
   });
 
+  // ─── 9. Plans (Sprint 15C Fase 15C.E — ADR-083 Amendment A3) ─────────────
+
+  describe('Plans (Fase 15C.E admin-only — alimenta dropdown change_package)', () => {
+    it('listPlans → GET /orgs/{org}/plans devuelve PlansListing', async () => {
+      const listing = {
+        items: [
+          {
+            id: 1,
+            name: 'Web Starter',
+            subscriptionsCount: 12,
+            planType: 'shared',
+            createdAt: '2026-01-15T10:00:00Z',
+          },
+          {
+            id: 2,
+            name: 'Web Pro',
+            subscriptionsCount: 7,
+            planType: 'shared',
+            createdAt: '2026-01-15T10:00:00Z',
+          },
+        ],
+        total: 2,
+      };
+      fetchMock.mockResolvedValueOnce(json(200, listing));
+      const result = await client.listPlans(MASTER);
+      expect(result).toEqual(listing);
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].id).toBe(1);
+      expect(result.items[0].name).toBe('Web Starter');
+      expectRequest('GET', `/orgs/${MASTER}/plans`);
+    });
+
+    it('listPlans → 404 mapea a INVALID_STATE (org no existe)', async () => {
+      fetchMock.mockResolvedValueOnce(
+        json(404, { code: 'NotFound', message: 'org not found' }),
+      );
+      await expect(
+        client.listPlans('00000000-0000-0000-0000-000000000999'),
+      ).rejects.toMatchObject({ code: 'INVALID_STATE' });
+    });
+  });
+
   // ─── Fixtures + helpers ─────────────────────────────────────────────────
 
   function orgFixture(id: string, over: Record<string, unknown> = {}) {

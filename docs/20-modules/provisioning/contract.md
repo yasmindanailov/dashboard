@@ -123,7 +123,7 @@ Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras
 - `GET /api/v1/services` — lista servicios del cliente autenticado.
 - `GET /api/v1/services/:id` — detalle + `getServiceInfo()` (cached 60s Redis).
 - `POST /api/v1/services/:id/sso` — devuelve `SsoUrl` del plugin si soporta SSO. Audit obligatorio.
-- `POST /api/v1/services/:id/actions/:actionSlug` — ejecuta acción inline. Validación de que `actionSlug` está en `capabilities.inline_actions`. Audit obligatorio.
+- `POST /api/v1/services/:id/actions/:actionSlug` — ejecuta acción inline. Validación de que `actionSlug` está en `capabilities.inline_actions`. Audit obligatorio. **Enforcement `adminOnly` (Sprint 15C Fase 15C.E — [ADR-077 Amendment A3](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md#amendments))**: si la action declara `adminOnly: true` y el actor no tiene rol staff, el wrapper `executeActionWithCacheInvalidation` lanza `HTTP 403 ForbiddenException + body { code: 'ACTION_ADMIN_ONLY', action_slug }` + audit `logAccess(action='service.action_admin_only_violation')` + emite evento `service.action_admin_only_violation`. Defensa profunda — el frontend ya filtra acciones por `adminOnly` para que el cliente NO las vea, pero el backend nunca confía en el frontend.
 - **DNS records (Sprint 15C Fase 15C.D — [ADR-082 §6](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md))**:
   - `GET /api/v1/services/:id/dns/records` — lista records de la zona del service. Routea al plugin con `has_dns_management=true` resuelto via `dns-authority-resolver`.
   - `POST /api/v1/services/:id/dns/records` — crea record (kinds v1: `A | AAAA | CNAME | MX | TXT | SRV | CAA`). DTO validado class-validator + Ajv del plugin (`payloadSchema` de `add_dns_record`).

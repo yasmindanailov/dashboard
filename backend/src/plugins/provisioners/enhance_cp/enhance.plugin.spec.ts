@@ -83,6 +83,7 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       deleteSubscription: jest.fn(),
       getSubscriptionBandwidth: jest.fn(),
       calculateResourceUsage: jest.fn(),
+      listPlans: jest.fn(), // Sprint 15C Fase 15C.E — ADR-083 Amendment A3
       createWebsite: jest.fn(),
       getWebsite: jest.fn(),
       patchWebsite: jest.fn(),
@@ -271,7 +272,7 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(plugin.capabilities.provision_mode).toBe('sync');
     });
 
-    it('inlineActions incluyen los 9 slugs canónicos (ADR-083 §9 decisión 32)', () => {
+    it('inlineActions incluyen los 10 slugs canónicos (ADR-083 §9 dec.32 + Amendment A3)', () => {
       const plugin = buildPlugin(
         buildPrismaMock({ install: VALID_INSTALL }),
         buildVaultMock(),
@@ -290,9 +291,45 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
           'delete_dns_record',
           'change_package',
           'force_resync',
+          'list_available_plans', // ADR-083 Amendment A3 — 10ª action
         ]),
       );
-      expect(slugs).toHaveLength(9);
+      expect(slugs).toHaveLength(10);
+    });
+
+    it('change_package, force_resync, list_available_plans declaran adminOnly=true (ADR-083 Amendment A3)', () => {
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        buildApiMock(),
+      );
+      const adminOnlySlugs = plugin.inlineActions
+        .filter((a) => a.adminOnly === true)
+        .map((a) => a.slug);
+      expect(adminOnlySlugs).toEqual(
+        expect.arrayContaining([
+          'change_package',
+          'force_resync',
+          'list_available_plans',
+        ]),
+      );
+      expect(adminOnlySlugs).toHaveLength(3);
+      // Las 7 cliente NO deben declarar adminOnly=true.
+      const clientSlugs = plugin.inlineActions
+        .filter((a) => a.adminOnly !== true)
+        .map((a) => a.slug);
+      expect(clientSlugs).toEqual(
+        expect.arrayContaining([
+          'reset_account_password',
+          'view_disk_usage',
+          'view_bandwidth_usage',
+          'list_dns_records',
+          'add_dns_record',
+          'update_dns_record',
+          'delete_dns_record',
+        ]),
+      );
     });
 
     it('manifest cumple shape canónico (slug, configSchema required, secretsSchema required)', () => {
@@ -634,7 +671,7 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(info.metrics?.emailAccountsUsed).toBe(3);
       expect(info.metrics?.databasesUsed).toBe(1);
       expect(info.capabilities.hasSsoPanel).toBe(true);
-      expect(info.availableActions.length).toBe(9); // status=active → todas
+      expect(info.availableActions.length).toBe(10); // status=active → 10 (Amendment A3)
     });
 
     it('subscription 404 → unknown info', async () => {
@@ -985,6 +1022,52 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       );
       expect(result.success).toBe(true);
       expect(result.sideEffects).toEqual(['service.metrics_invalidated']);
+    });
+
+    it('list_available_plans (Amendment A3): GET /orgs/{master}/plans + devuelve plans + total', async () => {
+      const api = buildApiMock();
+      api.listPlans.mockResolvedValueOnce({
+        items: [
+          {
+            id: 1,
+            name: 'Web Starter',
+            subscriptionsCount: 12,
+            planType: 'shared',
+            createdAt: '2026-01-15T10:00:00Z',
+          },
+          {
+            id: 2,
+            name: 'Web Pro',
+            subscriptionsCount: 7,
+            planType: 'shared',
+            createdAt: '2026-01-15T10:00:00Z',
+          },
+        ],
+        total: 2,
+      });
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+      const result = await plugin.executeAction(
+        buildServiceWithRefs(),
+        'list_available_plans',
+        {},
+      );
+      expect(result.success).toBe(true);
+      const data = result.data as {
+        plans: readonly { id: number; name: string }[];
+        total: number;
+      };
+      expect(data.plans).toHaveLength(2);
+      expect(data.plans[0].name).toBe('Web Starter');
+      expect(data.total).toBe(2);
+      expect(api.listPlans).toHaveBeenCalledWith(
+        VALID_INSTALL.config.masterOrgId,
+      );
+      expect(result.sideEffects).toBeUndefined();
     });
   });
 

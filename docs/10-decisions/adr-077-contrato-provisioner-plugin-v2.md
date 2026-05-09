@@ -807,3 +807,142 @@ El slug se usa como clave en `Map<string, ProvisionerPlugin>` (`PluginRegistrySe
 Tras este amendment, las referencias inline a "kebab-case" en este ADR (§1 línea ~85, §2.5 línea ~283, §7 línea ~519) y en ADR-080 (§1 línea ~76, §2 línea ~151) deben leerse como **histórico** — la convención canónica es ahora `[a-z][a-z0-9_-]*` (snake_case o kebab-case). El cleanup textual de esas líneas se aplica en el PR #38 con cita a este amendment.
 
 [`docs/30-data/plugin-installs.md`](../30-data/plugin-installs.md) §"Reglas de negocio" se actualiza al mismo tiempo (la invariante "`slug` ∈ kebab-case" pasa a "`slug` ∈ snake_case o kebab-case").
+
+---
+
+### Amendment A3 (2026-05-09) — campo opcional `adminOnly` en `ServiceAction`
+
+> **Justificado por:** [ADR-083 Amendment A3](./adr-083-plugin-enhance-cp-specifics.md#amendments), donde `change_package`, `force_resync` y la nueva 10ª action `list_available_plans` se declararon admin-only. La decisión 32 original de ADR-083 §9 anotaba *"acciones admin (CASL `Subject.Service` + scope admin se verifica en wrapper, no en plugin)"* pero NO existía un mecanismo canónico de scope adminOnly en el contrato `ProvisionerPlugin` v2 — el rol cliente tiene `Action.Update` sobre `Subject.Service` (cf. [`backend/src/core/casl/permissions.ts:299-303`](../../backend/src/core/casl/permissions.ts#L299-L303)), por lo que cualquier cliente podía invocar `POST /services/:id/actions/change_package` sin filtro. **Vulnerabilidad de privilegio real** — la materialización exige formalizar el flag transversal en el contrato.
+> **Sprint:** 15C Fase 15C.E (PR pendiente).
+> **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` — sigue `'v2'`. El campo es **opcional** en `ServiceAction`. Plugins existentes que no lo declaran tienen comportamiento idéntico al actual (default `false` = client-callable). NO toca el shape de `ActionResult`. NO requiere migración de datos.
+
+#### A3.1. Cambio canónico en `ServiceAction` (§3 shapes)
+
+Se añade un campo opcional al shape canónico `ServiceAction`:
+
+```typescript
+export interface ServiceAction {
+  // ... campos existentes (slug, label, description?, confirmRequired,
+  //                       confirmationText?, destructive, payloadSchema?) ...
+
+  /**
+   * Si `true`, la acción solo puede ser invocada por usuarios con rol
+   * admin (`superadmin` / `agent_full` / `agent_billing` / `agent_support`).
+   * El wrapper `executeActionWithCacheInvalidation` la enforce con
+   * HTTP 403 (ForbiddenException) + audit pesado + evento
+   * `service.action_admin_only_violation` cuando un cliente la invoca.
+   *
+   * Default `false` (client-callable). Plugins existentes que no declaran
+   * el campo conservan comportamiento previo.
+   *
+   * Frontend filtra `inlineActions` por rol: el cliente sólo ve acciones
+   * con `adminOnly !== true`; admin ve todas.
+   *
+   * Semántica:
+   *   - `adminOnly: true` → acción operacional admin (cambio de plan que
+   *     requiere ajuste billing manual, force-resync diagnóstico, etc.).
+   *   - `destructive: true` → acción que requiere confirmación visible
+   *     (`confirmRequired: true`) por riesgo de pérdida de datos.
+   *   - Las dos dimensiones son ortogonales: una acción puede ser
+   *     `adminOnly` sin ser destructive (ej. `change_package`, sólo
+   *     impacta billing), o destructive sin ser admin-only (ej.
+   *     `delete_dns_record`, cliente puede borrar su propio record).
+   */
+  adminOnly?: boolean;
+}
+```
+
+#### A3.2. Cambio canónico en wrapper `executeActionWithCacheInvalidation` (§5 pipeline)
+
+El `ExecuteActionContext` añade un campo `actorIsAdmin` y el wrapper enforce el flag antes de invocar al plugin:
+
+```typescript
+export interface ExecuteActionContext {
+  actorUserId: string;
+  ipAddress: string;
+  userAgent?: string | null;
+  /** Sprint 15C Fase 15C.E — flag para enforcement de `ServiceAction.adminOnly`. */
+  actorIsAdmin: boolean;
+}
+
+export async function executeActionWithCacheInvalidation(/* params canónicos */): Promise<ActionResult> {
+  const declared = plugin.inlineActions.find((a) => a.slug === actionSlug);
+  if (!declared) { /* return success=false (acción desconocida) */ }
+
+  // Enforcement adminOnly (Amendment A3):
+  if (declared.adminOnly && !ctx.actorIsAdmin) {
+    await audit.logAccess({
+      user_id: ctx.actorUserId,
+      action: 'service.action_admin_only_violation',
+      ip_address: ctx.ipAddress,
+      user_agent: ctx.userAgent ?? null,
+      resource: 'Service',
+      metadata: {
+        resource_id: service.id,
+        provisioner_slug: plugin.slug,
+        action_slug: actionSlug,
+      },
+    });
+    events.emit('service.action_admin_only_violation', {
+      service_id: service.id,
+      user_id: service.user_id,
+      actor_user_id: ctx.actorUserId,
+      provisioner_slug: plugin.slug,
+      action_slug: actionSlug,
+      ip: ctx.ipAddress,
+    });
+    throw new ForbiddenException({
+      code: 'ACTION_ADMIN_ONLY',
+      message: 'This action requires admin role.',
+      action_slug: actionSlug,
+    });
+  }
+
+  // ... resto del pipeline canónico (circuit breaker, plugin.executeAction,
+  //     cache invalidation, audit OK, evento `service.action_executed`) ...
+}
+```
+
+#### A3.3. Test contract genérico (§7) — invariante nueva
+
+```typescript
+// backend/src/plugins/provisioners/plugin-contract.spec.ts
+it('declara adminOnly como boolean | undefined en cada inline action', () => {
+  for (const action of plugin.inlineActions) {
+    if (action.adminOnly !== undefined) {
+      expect(typeof action.adminOnly).toBe('boolean');
+    }
+  }
+});
+```
+
+#### A3.4. Plugins existentes — sin actualización requerida
+
+Los plugins triviales `internal` y `manual` no declaran `inlineActions` con `adminOnly` (no aplica — sus actions son cliente-callable). NO requieren cambios. El plugin `enhance_cp` aplica el flag a `change_package`, `force_resync` y `list_available_plans` en Sprint 15C Fase 15C.E ([ADR-083 Amendment A3](./adr-083-plugin-enhance-cp-specifics.md#amendments)).
+
+#### A3.5. Frontend — ramificación canónica (patrón aspiracional)
+
+> **Estado real al cierre de Sprint 15C Fase 15C.E**: el frontend hoy NO implementa este filter. El componente `frontend/app/_shared/services/ActionsBar.tsx` recibe `info.availableActions` y los renderiza todos sin discriminar por rol. Esto NO es un bug operativo — el backend enforce con HTTP 403 + audit + evento, así que un cliente que viera un botón admin-only solo recibiría 403 al pulsarlo (defense-in-depth funciona). Pero la UX correcta es ocultar el botón. **Materialización canónica del filter en Sprint 15C Fase 15C.E.2** (frontend acciones curadas — añadida al dossier §7 tras review riguroso 2026-05-09), junto con el form admin de productos extendido para `provisioner_config`. La página `/admin/services/[id]` (modal admin `change_package` operable) llega en **Fase 15C.J** (cierre real).
+
+Patrón canónico para esa fase futura:
+
+```typescript
+// frontend: filtrar inline actions visibles según rol — PATRÓN ASPIRACIONAL
+const visibleActions = serviceInfo.availableActions.filter(
+  (a) => !a.adminOnly || currentUser.isAdmin
+);
+```
+
+NUNCA por slug (mantiene la doctrina ADR-070 §"Cero `if (provisioner === 'X')`"). El campo `adminOnly` es **declarativo** — la UI lo respetará y el wrapper backend ya lo enforce como defense-in-depth (defensa profunda + audit pesado independientemente de que el frontend filtre o no).
+
+#### A3.6. Doctrina de adición de campos opcionales a `ServiceAction`
+
+Este Amendment establece el patrón canónico para añadir flags semánticos a `ServiceAction` sin breaking change:
+
+1. ADR específico (o transversal) que justifique el campo nuevo.
+2. Amendment al ADR-077 con: shape extendido + impacto en wrappers + invariante test contract + plugins existentes (typically sin cambios si el campo es opcional).
+3. Compatible hacia atrás → NO bumpea `contractVersion`.
+4. Frontend ramifica por el campo (NUNCA por slug).
+5. Documentar en `provisioning/contract.md` §7 + `glossary.md` el término canónico.
+
+Cualquier campo nuevo NO opcional o que rompa el shape requiere bump a `contractVersion: 'v3'` + ADR específico (§6 política de versionado).

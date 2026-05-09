@@ -609,7 +609,11 @@ Aelium v1 supera a WiseCP (el más capaz) en DNS + métricas + audit + cross-plu
 
 ---
 
-## 7. Estimación esfuerzo Sprint 15C — 9 fases
+## 7. Estimación esfuerzo Sprint 15C — 11 fases
+
+> **Reformulación 2026-05-09**: el alcance original de 9 fases asumía implícitamente que el frontend admin operativo "se resolvería en otro sprint", pero ningún sprint posterior (Sprint 12 Settings + KB no cubre productos UI ni service detail admin) absorbía el gap. Tras review riguroso de Fase 15C.E (PR #44) Yasmin decidió añadir 2 fases nuevas que cierran el sprint con un plugin Enhance **operable end-to-end** (no solo backend correcto). Total pasa de 7-10.5 sesiones a **9-12.5 sesiones**.
+>
+> **Orden canónico de ejecución** (decisión Yasmin 2026-05-09): `A → B → C → D → E → E.2 → F → G → H → J → I`. La tabla abajo está **ordenada por nombre de fase** para legibilidad; la columna *Estado* indica el estado real. **Siguiente fase tras merge PR #44 es 15C.E.2** (desbloquea contratación operativa real — DC-FORM bloqueante). I es la última fase del sprint (cierre formal: E2E completo + retrospectiva + smoke contra Enhance live + i18n + housekeeping documental). J cierra el alcance operativo (admin page + dev seed) antes del cierre formal.
 
 | Fase | Contenido | Estimación | Estado |
 |---|---|---|---|
@@ -617,13 +621,15 @@ Aelium v1 supera a WiseCP (el más capaz) en DNS + métricas + audit + cross-plu
 | 15C.B | Cliente HTTP Enhance (`EnhanceApiClient`) + types TypeScript del spec + `MockEnhanceServer` Express + capturar fixtures contra live | 0.5–1 sesión | ✅ cerrada (PR #37, master `156ea35`) |
 | 15C.C | Plugin core (6 métodos contrato + manifest + DI registration + tabla `enhance_customers` + lazy-create idempotente con search-by-email) | 1–1.5 sesión | ✅ cerrada (PR #38, master `69fed47`) |
 | 15C.D | Listener `auto-config-dns-on-hosting-provisioned` reconcile defensivo + setting `provisioning.default_nameservers` + propagación cluster + helper `dns-authority-resolver.ts` + endpoints orquestador `/dns/*` | 1–1.5 sesión | ✅ cerrada (PR #41, master `a319063`) |
-| 15C.E | Acciones curadas (reset_password + view_disk + view_bandwidth + change_package admin + force_resync admin) + audit completo | 0.5–1 sesión | ⏳ pendiente |
+| 15C.E | **Acciones curadas backend**: reset_password + view_disk + view_bandwidth + change_package admin + force_resync admin + audit completo + flag canónico `ServiceAction.adminOnly` (ADR-077 A3) + 10ª action `list_available_plans` (ADR-083 A3) + enforcement HTTP 403 backend + evento `service.action_admin_only_violation`. Solo backend canónico — el frontend operativo se aborda en Fase 15C.E.2. | 0.5–1 sesión | 🔄 PR [#44](https://github.com/yasmindanailov/dashboard/pull/44) — 8 commits encadenados + suite 454/459 + 5 skipped + lint:check + build verde |
+| **15C.E.2** ⭐ NUEVO | **Frontend acciones curadas (gap descubierto Fase 15C.E review)**: (1) Form admin productos (`new/page.tsx` + `ProductEditForm.tsx`) extendido con sub-form dinámico `provisioner_config` por provisioner, vía `@rjsf/core` JSON-Schema 7 (patrón heredado Sprint 15A plugin install UI). Para `enhance_cp`: campo `enhance_plan_id: integer` required. **Sin esto, ningún producto Enhance es contratable operativamente**. (2) Filter `adminOnly` en `frontend/app/_shared/services/ActionsBar.tsx` — `actions.filter(a => !a.adminOnly \|\| isAdmin)` con prop `isAdmin` derivado de AuthContext. Frontend filter materializa el patrón aspiracional ADR-077 A3.5 (defense-in-depth backend del wrapper sigue activo). | 1 sesión | ⏳ pendiente |
 | 15C.F | SSO endpoints (cliente Customer Panel + admin impersonation + evento `service.admin_sso_impersonation` + listener GDPR) | 0.5–1 sesión | ⏳ pendiente |
 | 15C.G | DNS records management UI (7 tipos via `@rjsf/core` heredado Sprint 15A) — pieza pesada, frontend `/dashboard/services/[id]/dns` | 1.5–2 sesiones | ⏳ pendiente |
 | 15C.H | Cron `reconcile-enhance-services` 6h + setting threshold + evento `service.reconciled_external_change` + listener audit con flag GDPR + tests | 0.5 sesión | ⏳ pendiente |
-| 15C.I | E2E (mock server completo + smoke contra live) + cierre documental (`docs/features/provisioning/admin-plugins-enhance.md` + retrospectiva `completed/sprint-15c-plugin-enhance-cp.md`) + actualización `_events.md` con eventos nuevos + `_matrix.md` con dependencias plugin → orquestador → DNS | 1 sesión | ⏳ pendiente |
+| 15C.I | **Cierre formal del sprint** — E2E completo flujo Enhance: producto admin con `provisioner_config.enhance_plan_id` → cliente checkout → `invoice.paid` → orchestrator `provision()` 6-step contra mock → `service.activated` → frontend cliente render N botones (filtrados por `adminOnly`) → click `view_disk_usage` → 200 + métricas; click cliente `change_package` → 403 + audit `service.action_admin_only_violation`; click admin → 200 + plan changed via `list_available_plans` dropdown. Spec incluye E2E Playwright + smoke manual contra Enhance live (1-2h Yasmin) + cierre documental (`docs/features/provisioning/admin-plugins-enhance.md` + retrospectiva `completed/sprint-15c-plugin-enhance-cp.md` + actualización `_events.md` con eventos nuevos + `_matrix.md` con dependencias plugin → orquestador → DNS) + i18n strings finales. **Última fase del sprint** — se ejecuta DESPUÉS de J (cierre operativo) según orden de ejecución canónico (cf. nota encima de la tabla). | 1–1.5 sesión | ⏳ pendiente |
+| **15C.J** ⭐ NUEVO | **Cierre real operativo (gap descubierto Fase 15C.E review)**: (1) Página admin `/admin/services/[id]` SC nativo paralelo al detalle cliente con `info` enriquecido + 3 botones admin (`change_package`/`force_resync`/`list_available_plans`) operables + modal `change_package` que invoca primero `list_available_plans` para poblar dropdown + luego `change_package` con `planId` elegido + audit pesado en cada operación. (2) Plugin install seed condicional `NODE_ENV !== 'production'` — pre-crea `plugin_installs` row con baseUrl + masterOrgId desde env + apiToken desde env var dedicada → DX para QA/staging/dev (admin no necesita configurar manualmente cada `pnpm seed`). **Orden de ejecución**: J se aborda DESPUÉS de H y ANTES de I (cf. nota encima de la tabla). | 1 sesión | ⏳ pendiente |
 
-**Total: 7–10.5 sesiones.** Mayor que Sprint 15D RC (3-4.5) por: DNS UI completa + listener cross-plugin + lazy customer model con flujo 6 pasos + reconcile drift detection. Hereda TODO el framework Sprint 15A.
+**Total: 9–12.5 sesiones.** Mayor que Sprint 15D RC (3-4.5) por: DNS UI completa + listener cross-plugin + lazy customer model con flujo 6 pasos + reconcile drift detection + Frontend admin productos provisioner_config UI dinámica + página admin services detalle. Hereda TODO el framework Sprint 15A. **Las 2 fases nuevas (E.2 + J) cierran el gap operativo descubierto en review** — sin ellas el sprint entrega backend correcto pero un primer cliente real es imposible de contratar end-to-end.
 
 ---
 
@@ -650,6 +656,8 @@ Aelium v1 supera a WiseCP (el más capaz) en DNS + métricas + audit + cross-plu
 | **DC.NEW-15C-DB** | CRUD MySQL databases + users | NUNCA cliente. Admin v1.1 si demanda. |
 | **DC.NEW-15C-RESELLER** | Sub-resellers (customers que son resellers) | NUNCA primer cliente real. Solo si Aelium ofrece "reseller hosting". |
 
+> **Nota review 2026-05-09 (Fase 15C.E PR #44)**: review riguroso destapó 5 gaps estructurales del flujo end-to-end (form admin productos sin `provisioner_config` UI ⚠ bloqueante, plugin install no seeded, frontend `ActionsBar` sin filter `adminOnly`, página `/admin/services/[id]` no existe, E2E completo sin spec). **No se añaden como deudas nuevas — se absorben como fases** del Sprint 15C tras decisión doctrinal Yasmin de reformular §7 (era 9 fases, pasa a 11): los 4 gaps estructurales se cubren en las 2 fases nuevas **15C.E.2** (form productos `provisioner_config` UI + filter `ActionsBar`) y **15C.J** (página admin/services/[id] + plugin-seed dev) declaradas en §7 arriba. El gap E2E se absorbe al alcance ampliado de **15C.I** (que ahora declara explícitamente el flujo end-to-end con asserts concretos). Trazabilidad histórica del descubrimiento: commits `22fd093` (5 DCs registradas) → `9271069` (absorción en fases tras decisión doctrinal Yasmin). El listado de DCs originales arriba (1..16 + DNSSEC/EMAIL/DB/RESELLER) son **features diferidas conscientemente** en el dossier original — no gaps estructurales como los 5 descubiertos en review.
+
 ---
 
 ## 9. ADRs futuros que materializan este dossier
@@ -672,9 +680,9 @@ Pasos:
 2. Crear rama `sprint15c-plugin-enhance-cp` desde master sincronizado.
 3. Empezar Fase 15C.A: redactar 3 ADRs (082 transversal + 077 Amendment A1 + 083 specifics) con contenido literal de §3 + §6 de este dossier.
 4. Validar shapes contra spec en cada decisión (líneas exactas del YAML).
-5. Ejecutar fases 15C.B → 15C.I según §7.
+5. Ejecutar fases 15C.B → 15C.J según §7 (11 fases tras reformulación 2026-05-09 — añadidas E.2 + J para cerrar gaps frontend operativos descubiertos en review Fase E).
 6. PR doc-only de ADRs primero (15C.A) → review Yasmin → merge.
-7. PRs siguientes por fase (15C.B → 15C.I), encadenados o en paralelo según dependencia.
+7. PRs siguientes por fase (15C.B → 15C.J), encadenados o en paralelo según dependencia.
 8. Cierre Sprint 15C: actualizar `provisioning/contract.md` §2 con nueva fase, crear retrospectiva `completed/sprint-15c-plugin-enhance-cp.md`, mover sprint a `completed/`.
 9. **Tras merge a master** → desbloquea Sprint 15D RC. Frase de arranque al re-abrir 15D:
    > *"Lee `docs/60-roadmap/sprint-15d-resellerclub-dossier.md` + `docs/10-decisions/adr-082-*.md` + `docs/10-decisions/adr-083-*.md`. Vamos con Sprint 15D — Plugin ResellerClub. Crea rama `sprint15d-plugin-resellerclub` desde master."*

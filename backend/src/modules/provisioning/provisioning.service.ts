@@ -253,6 +253,7 @@ export class ProvisioningService {
         actorUserId: userId,
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent ?? null,
+        actorIsAdmin: isAdmin, // Sprint 15C Fase 15C.E — ADR-077 Amendment A3
       },
       this.events,
       this.audit,
@@ -286,6 +287,7 @@ export class ProvisioningService {
         actorUserId: userId,
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent ?? null,
+        actorIsAdmin: isAdmin, // Sprint 15C Fase 15C.E — ADR-077 Amendment A3
       },
       this.cache,
       this.events,
@@ -321,6 +323,7 @@ export class ProvisioningService {
         actorUserId: userId,
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent ?? null,
+        actorIsAdmin: isAdmin, // Sprint 15C Fase 15C.E — ADR-077 Amendment A3
       },
       this.cache,
       this.events,
@@ -352,6 +355,7 @@ export class ProvisioningService {
         actorUserId: userId,
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent ?? null,
+        actorIsAdmin: isAdmin, // Sprint 15C Fase 15C.E — ADR-077 Amendment A3
       },
       this.cache,
       this.events,
@@ -384,6 +388,7 @@ export class ProvisioningService {
         actorUserId: userId,
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent ?? null,
+        actorIsAdmin: isAdmin, // Sprint 15C Fase 15C.E — ADR-077 Amendment A3
       },
       this.cache,
       this.events,
@@ -415,6 +420,7 @@ export class ProvisioningService {
         actorUserId: userId,
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent ?? null,
+        actorIsAdmin: isAdmin, // Sprint 15C Fase 15C.E — ADR-077 Amendment A3
       },
       this.cache,
       this.events,

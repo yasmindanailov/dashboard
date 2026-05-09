@@ -344,6 +344,9 @@ Acción inline ejecutable desde el dashboard sin salir al panel externo (ej. `re
 ### Capability flag
 Booleano declarado por el plugin en `capabilities` que el frontend usa para condicionar UI sin ramificar por slug. Ejemplos: `has_sso_panel`, `has_metrics_history` (sólo Docker), `has_renewal_link`. Doctrina ADR-070: **el frontend lee capabilities, nunca compara `provisioner_slug`** directamente.
 
+### Admin-only inline action
+Acción curada con flag `adminOnly: true` en `ServiceAction` ([ADR-077 Amendment A3](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md#amendments)). Solo invocable por usuarios con rol staff (`superadmin` / `agent_full` / `agent_billing` / `agent_support`). El frontend la filtra de la lista visible al cliente; el wrapper backend `executeActionWithCacheInvalidation` la enforce con HTTP 403 + audit pesado + evento `service.action_admin_only_violation` cuando un cliente intenta invocarla — defense-in-depth. Ejemplos canónicos (Sprint 15C — [ADR-083 Amendment A3](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendments)): `change_package` (Enhance, requiere ajuste billing manual), `force_resync` (diagnóstico), `list_available_plans` (alimenta dropdown admin del modal change_package). Ortogonal a `destructive` — una action puede ser `adminOnly` sin ser destructive y viceversa.
+
 ### Dashboard como puerta unificada
 Doctrina arquitectónica ([ADR-070](../10-decisions/adr-070-service-info-sso-acciones-curadas.md)): el dashboard de Aelium es **siempre la puerta de entrada y el archivo histórico** del cliente, aunque la operativa profunda (gestionar emails, DBs, instalar apps de cPanel) viva en el panel externo accesible vía SSO. Aelium **no replica** funcionalidad de paneles externos — sólo **delega** (SSO) o **expone acciones curadas** (5 criterios). Antipatrón explícitamente prohibido: implementar "Email Manager / DB Manager / File Manager" replicando cPanel desde el dashboard.
 

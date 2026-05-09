@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { ForbiddenException, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import type { AuditService } from '../../modules/audit/audit.service';
@@ -159,6 +159,18 @@ export interface ExecuteActionContext {
   ipAddress: string;
   /** User-Agent (audit RGPD). */
   userAgent?: string | null;
+  /**
+   * Sprint 15C Fase 15C.E (ADR-077 Amendment A3) — `true` si el actor
+   * tiene rol staff (`superadmin` / `agent_*`). Usado para enforce
+   * `ServiceAction.adminOnly`: si `declared.adminOnly && !actorIsAdmin` →
+   * HTTP 403 + audit `service.action_admin_only_violation`.
+   *
+   * El controller decide el valor (ej. `ADMIN_ROLES.includes(req.user.role.slug)`)
+   * y lo pasa al wrapper. NO se infiere de los permisos CASL — esos son
+   * grano grueso (Action.Update sobre Subject.Service); este flag es
+   * grano fino por inline action.
+   */
+  actorIsAdmin: boolean;
 }
 
 /**
@@ -197,6 +209,41 @@ export async function executeActionWithCacheInvalidation(
       success: false,
       message: 'action.unknown',
     };
+  }
+
+  // Sprint 15C Fase 15C.E (ADR-077 Amendment A3 + ADR-083 Amendment A3) —
+  // enforcement adminOnly. Defense-in-depth: el frontend ya filtra acciones
+  // por rol, pero el backend nunca confía en el frontend. Audit pesado +
+  // evento canónico para visibilidad operativa de intentos.
+  if (declared.adminOnly && !ctx.actorIsAdmin) {
+    logger.warn(
+      `Forbidden: non-admin actor=${ctx.actorUserId} attempted adminOnly action="${actionSlug}" on plugin=${plugin.slug} service=${service.id}`,
+    );
+    await audit.logAccess({
+      user_id: ctx.actorUserId,
+      action: 'service.action_admin_only_violation',
+      ip_address: ctx.ipAddress,
+      user_agent: ctx.userAgent ?? null,
+      resource: 'Service',
+      metadata: {
+        resource_id: service.id,
+        provisioner_slug: plugin.slug,
+        action_slug: actionSlug,
+      },
+    });
+    events.emit('service.action_admin_only_violation', {
+      service_id: service.id,
+      user_id: service.user_id,
+      actor_user_id: ctx.actorUserId,
+      provisioner_slug: plugin.slug,
+      action_slug: actionSlug,
+      ip: ctx.ipAddress,
+    });
+    throw new ForbiddenException({
+      code: 'ACTION_ADMIN_ONLY',
+      message: 'This action requires admin role.',
+      action_slug: actionSlug,
+    });
   }
 
   // Sprint 15A Fase F (ADR-080 §5) — envuelto con circuit breaker.
@@ -278,6 +325,14 @@ export interface GetSsoUrlContext {
   actorUserId: string;
   ipAddress: string;
   userAgent?: string | null;
+  /**
+   * Sprint 15C Fase 15C.E — campo opcional propagado desde el controller
+   * para uniformar el shape del contexto en los 3 wrappers cross-cutting.
+   * `getSsoUrlWithAudit` no enforce el flag (no aplica a SSO), pero
+   * acepta el campo para que callers (`ProvisioningService`) no necesiten
+   * un objeto literal específico por wrapper.
+   */
+  actorIsAdmin?: boolean;
 }
 
 /**

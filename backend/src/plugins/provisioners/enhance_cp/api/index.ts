@@ -48,6 +48,8 @@ export type {
   EnhanceNewWebsite,
   EnhanceOrg,
   EnhanceOrgOwnerUpdate,
+  EnhancePlan,
+  EnhancePlansListing,
   EnhanceRole,
   EnhanceSsoOtpUrl,
   EnhanceStatus,

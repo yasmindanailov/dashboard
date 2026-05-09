@@ -447,6 +447,29 @@ describe('EnhanceApiClient ↔ MockEnhanceServer (integration)', () => {
     });
   });
 
+  // ─── Plans (Sprint 15C Fase 15C.E — ADR-083 Amendment A3) ──────────────
+
+  describe('Plans (Fase 15C.E admin-only — alimenta dropdown change_package)', () => {
+    it('listPlans contra master org devuelve fixture canónico (3 planes)', async () => {
+      const result = await client.listPlans(MASTER);
+      expect(result.total).toBe(3);
+      expect(result.items).toHaveLength(3);
+      expect(result.items.map((p) => p.name)).toEqual([
+        'Web Starter',
+        'Web Pro',
+        'Web Premium',
+      ]);
+      expect(result.items[0].id).toBe(1);
+      expect(result.items[2].planType).toBe('dedicated');
+    });
+
+    it('listPlans contra org inexistente → PROVIDER error 404 → INVALID_STATE', async () => {
+      await expect(
+        client.listPlans('00000000-0000-0000-0000-000000000999'),
+      ).rejects.toMatchObject({ code: 'INVALID_STATE' });
+    });
+  });
+
   // ─── Mock state introspection (defensive testing) ───────────────────────
 
   describe('Mock state introspection', () => {
