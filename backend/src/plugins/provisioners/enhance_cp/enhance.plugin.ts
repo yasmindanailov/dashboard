@@ -128,6 +128,36 @@ const ENHANCE_SECRETS_SCHEMA = {
   additionalProperties: false,
 } as const;
 
+/**
+ * Sprint 15C Fase 15C.E.2 — ADR-080 Amendment B (2026-05-09).
+ *
+ * Schema declarativo del shape de `Product.provisioner_config` para
+ * productos hosting Enhance. Renderizado por `@rjsf/core` en el form admin
+ * de productos (`/admin/products/new` + `/admin/products/[id]/edit`).
+ *
+ * El plugin valida runtime (defense-in-depth) en `provision()` con
+ * `extractEnhancePlanId()` — la validación form-side via Ajv es UX, no
+ * enforcement. Si `productConfig.enhance_plan_id` no es entero ≥1, el plugin
+ * lanza `ProvisionerPluginError('INVALID_PAYLOAD', false)`.
+ *
+ * `enhance_plan_id` apunta a una `plan.id` del Master Org Aelium (ver
+ * `EnhancePlan` en api/types.ts + acción curada admin `list_available_plans`,
+ * ADR-083 Amendment A3, que alimenta el dropdown del modal admin
+ * `change_package` cuando llegue Fase 15C.J).
+ */
+const ENHANCE_PRODUCT_CONFIG_SCHEMA = {
+  type: 'object',
+  properties: {
+    enhance_plan_id: {
+      type: 'integer',
+      minimum: 1,
+      description: 'plugin.enhance_cp.product_config.enhance_plan_id',
+    },
+  },
+  required: ['enhance_plan_id'],
+  additionalProperties: false,
+} as const;
+
 // ────────────────────────────────────────────────────────────────────────────
 // inlineActions payloadSchemas — ADR-083 §9 decisión 32
 // ────────────────────────────────────────────────────────────────────────────
@@ -286,6 +316,7 @@ const ENHANCE_MANIFEST: PluginManifest = {
   configSchema: ENHANCE_CONFIG_SCHEMA,
   secretsSchema: ENHANCE_SECRETS_SCHEMA,
   testConnectionMethod: 'getStatus',
+  productConfigSchema: ENHANCE_PRODUCT_CONFIG_SCHEMA,
 };
 
 // ────────────────────────────────────────────────────────────────────────────

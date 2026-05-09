@@ -1,12 +1,16 @@
 /**
- * /admin/products/[id]/edit — Sprint 13 §13.AUTH Fase E (Modelo A).
- * Server Component. Carga producto server-side y delega al Client
- * `ProductEditForm`. Mutaciones (update + pricing CRUD) via Server
- * Actions con revalidatePath. ADR-078 Amendment A1.
+ * /admin/products/[id]/edit — Sprint 13 §13.AUTH Fase E (Modelo A) +
+ * Sprint 15C Fase 15C.E.2 (ADR-080 Amendment B).
+ *
+ * Server Component. Carga producto + lista de plugins disponibles
+ * server-side y delega al Client `ProductEditForm`. Mutaciones
+ * (update + pricing CRUD) via Server Actions con revalidatePath.
+ * ADR-078 Amendment A1.
  */
 
 import { redirect } from 'next/navigation';
 import { serverFetch, ServerFetchError } from '../../../../lib/server-auth';
+import type { AdminPluginListItem } from '../../../../lib/api';
 import ProductEditForm, { type InitialProduct } from './_components/ProductEditForm';
 
 interface PageProps {
@@ -29,5 +33,17 @@ export default async function EditProductPage({ params }: PageProps) {
     redirect('/admin/products');
   }
 
-  return <ProductEditForm initial={product} />;
+  // Prefetch plugins en paralelo al producto principal (idéntico patrón
+  // a /admin/products/new — alimenta Select provisioner + sub-form
+  // `provisioner_config` via @rjsf/core).
+  let plugins: readonly AdminPluginListItem[] = [];
+  try {
+    plugins = await serverFetch<AdminPluginListItem[]>('/admin/plugins');
+  } catch (err) {
+    if (!(err instanceof ServerFetchError)) {
+      throw err;
+    }
+  }
+
+  return <ProductEditForm initial={product} initialPlugins={plugins} />;
 }

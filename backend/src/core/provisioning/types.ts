@@ -605,6 +605,55 @@ export interface PluginManifest {
 
   /** Modo de test-connection que el plugin soporta. */
   readonly testConnectionMethod: PluginTestConnectionMethod;
+
+  /**
+   * Sprint 15C Fase 15C.E.2 — ADR-080 Amendment B (2026-05-09).
+   *
+   * Schema declarativo del shape de `Product.provisioner_config` para
+   * productos que provisionan a través de este plugin. Renderizado por
+   * `@rjsf/core` en el form admin de productos
+   * (`/admin/products/new` + `/admin/products/[id]/edit`) cuando el admin
+   * selecciona este `provisioner` slug. El JSON resultante se persiste
+   * en `products.provisioner_config` (jsonb) y se inyecta como
+   * `ProvisionContext.productConfig` en `plugin.provision()`.
+   *
+   * Opcional. Plugins triviales (`internal`, `manual`) no lo declaran —
+   * sus servicios no requieren config per-producto. El form admin esconde
+   * la sección sub-form si el manifest del provisioner seleccionado lo
+   * omite.
+   *
+   * Coherente con el patrón Sprint 15A `configSchema`/`secretsSchema`:
+   *   - JSON-Schema 7 subset (gramática `JsonSchema7`).
+   *   - `additionalProperties: false`.
+   *   - Validado por Ajv en `POST/PATCH /admin/products`.
+   *
+   * Diferencia clave vs `configSchema`:
+   *   - `configSchema` configura la INSTALACIÓN del plugin (1 fila por
+   *     plugin en `plugin_installs`).
+   *   - `productConfigSchema` configura cada PRODUCTO que provisiona vía
+   *     el plugin (1 fila por producto en `products.provisioner_config`).
+   *
+   * Ejemplo `enhance_cp`:
+   *   ```ts
+   *   {
+   *     type: 'object',
+   *     properties: {
+   *       enhance_plan_id: {
+   *         type: 'integer', minimum: 1,
+   *         description: 'plugin.enhance_cp.product_config.enhance_plan_id',
+   *       },
+   *     },
+   *     required: ['enhance_plan_id'],
+   *     additionalProperties: false,
+   *   }
+   *   ```
+   *
+   * El plugin valida el payload runtime en `provision()` (defense-in-depth)
+   * — la validación form-side con Ajv es UX, no enforcement. Ej. el plugin
+   * `enhance_cp` lanza `ProvisionerPluginError('INVALID_PAYLOAD', false)`
+   * si `productConfig.enhance_plan_id` no es entero positivo.
+   */
+  readonly productConfigSchema?: JsonSchema7;
 }
 
 /**

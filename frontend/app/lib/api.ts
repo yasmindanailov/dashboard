@@ -965,6 +965,17 @@ export interface PluginManifest {
   configSchema: PluginJsonSchema;
   secretsSchema: PluginJsonSchema;
   testConnectionMethod: PluginTestConnectionMethod;
+  /**
+   * Sprint 15C Fase 15C.E.2 — ADR-080 Amendment B (2026-05-09).
+   *
+   * Schema declarativo del shape de `Product.provisioner_config` para
+   * productos que provisionan a través de este plugin. Renderizado por
+   * `@rjsf/core` en el form admin de productos. Opcional — plugins
+   * triviales (`internal`, `manual`) lo omiten.
+   *
+   * Ver canonical en `backend/src/core/provisioning/types.ts §12`.
+   */
+  productConfigSchema?: PluginJsonSchema;
 }
 
 export interface PluginCircuitStateSummary {
@@ -1384,6 +1395,20 @@ export interface ServiceAction {
   confirmRequired: boolean;
   confirmationText?: string;
   destructive: boolean;
+  /**
+   * Sprint 15C Fase 15C.E (ADR-077 Amendment A3 + ADR-083 Amendment A3).
+   *
+   * Si `true`, la acción solo es invocable por usuarios con rol staff
+   * (`superadmin` / `agent_full` / `agent_billing` / `agent_support`).
+   * Backend wrapper enforce HTTP 403 + audit + evento
+   * `service.action_admin_only_violation` (defense-in-depth).
+   *
+   * Frontend filtra `actions` por `!a.adminOnly || isAdmin` antes de
+   * renderizar — el cliente no-admin ni siquiera ve el botón.
+   *
+   * Ortogonal a `destructive`. Default `false` (client-callable).
+   */
+  adminOnly?: boolean;
   payloadSchema?: Record<string, unknown>;
 }
 

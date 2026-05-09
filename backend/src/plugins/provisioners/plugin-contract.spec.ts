@@ -203,6 +203,29 @@ describe.each(
       }
     });
 
+    // Sprint 15C Fase 15C.E.2 — ADR-080 Amendment B.
+    it('manifest.productConfigSchema (si declarado) es JsonSchema7 válido', () => {
+      const schema = plugin.manifest.productConfigSchema;
+      if (schema === undefined) {
+        // OK: plugins sin config per-producto (internal, manual) lo omiten.
+        return;
+      }
+
+      expect(schema.type).toBe('object');
+      expect(schema.properties).toBeDefined();
+      expect(typeof schema.properties).toBe('object');
+
+      // ADR-080 Amendment B invariante: NO se admite additionalProperties=true.
+      expect(schema.additionalProperties).not.toBe(true);
+
+      // required ⊆ properties.
+      if (schema.required) {
+        for (const requiredKey of schema.required) {
+          expect(schema.properties[requiredKey]).toBeDefined();
+        }
+      }
+    });
+
     it('declara capabilities completas (todos los flags presentes)', () => {
       const c = plugin.capabilities;
       expect(typeof c.has_sso_panel).toBe('boolean');
