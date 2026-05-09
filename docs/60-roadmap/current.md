@@ -161,7 +161,7 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ## 🔄 Sprint 15C — Plugin Enhance CP (P2.3) (Fases A+B+C+D cerradas; E-I pendientes)
 
-> Cabeza de cola activa P2.3 — primer plugin real post Sprint 15A. 9 fases planificadas (15C.A → 15C.I) — 7-10.5 sesiones según [`sprint-15c-enhance-cp-dossier.md` §7](./sprint-15c-enhance-cp-dossier.md#7-estimación-esfuerzo-sprint-15c--9-fases). Bloqueante operacional para Sprint 15D RC (sin DNS authority cluster Enhance, los dominios registrados con NS=Aelium quedarían sin destino).
+> Cabeza de cola activa P2.3 — primer plugin real post Sprint 15A. **11 fases planificadas** (15C.A → 15C.J) — **9-12.5 sesiones** según [`sprint-15c-enhance-cp-dossier.md` §7](./sprint-15c-enhance-cp-dossier.md#7-estimación-esfuerzo-sprint-15c--11-fases). Reformulación 2026-05-09 (Fase 15C.E PR #44 review) añadió 2 fases nuevas (E.2 frontend acciones curadas + J cierre real con admin page) que cierran gaps estructurales del alcance frontend originalmente implícito. Bloqueante operacional para Sprint 15D RC (sin DNS authority cluster Enhance, los dominios registrados con NS=Aelium quedarían sin destino).
 
 ### Fases cerradas
 

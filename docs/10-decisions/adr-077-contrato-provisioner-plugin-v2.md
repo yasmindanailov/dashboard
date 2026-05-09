@@ -922,7 +922,7 @@ Los plugins triviales `internal` y `manual` no declaran `inlineActions` con `adm
 
 #### A3.5. Frontend — ramificación canónica (patrón aspiracional)
 
-> **Estado real al cierre de Sprint 15C Fase 15C.E**: el frontend hoy NO implementa este filter. El componente `frontend/app/_shared/services/ActionsBar.tsx` recibe `info.availableActions` y los renderiza todos sin discriminar por rol. Esto NO es un bug operativo — el backend enforce con HTTP 403 + audit + evento, así que un cliente que viera un botón admin-only solo recibiría 403 al pulsarlo (defense-in-depth funciona). Pero la UX correcta es ocultar el botón. La materialización del filter llega cuando se cree la primera UI admin que necesite acciones admin-only operables (Sprint 15C.G frontend DNS UI sentará el patrón; el modal admin `change_package` necesitará crearse en una fase posterior — `/admin/services/[id]` aún no existe en frontend).
+> **Estado real al cierre de Sprint 15C Fase 15C.E**: el frontend hoy NO implementa este filter. El componente `frontend/app/_shared/services/ActionsBar.tsx` recibe `info.availableActions` y los renderiza todos sin discriminar por rol. Esto NO es un bug operativo — el backend enforce con HTTP 403 + audit + evento, así que un cliente que viera un botón admin-only solo recibiría 403 al pulsarlo (defense-in-depth funciona). Pero la UX correcta es ocultar el botón. **Materialización canónica del filter en Sprint 15C Fase 15C.E.2** (frontend acciones curadas — añadida al dossier §7 tras review riguroso 2026-05-09), junto con el form admin de productos extendido para `provisioner_config`. La página `/admin/services/[id]` (modal admin `change_package` operable) llega en **Fase 15C.J** (cierre real).
 
 Patrón canónico para esa fase futura:
 
