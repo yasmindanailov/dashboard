@@ -26,6 +26,20 @@ export class AuditController {
     private readonly prisma: PrismaService,
   ) {}
 
+  /**
+   * Lista cerrada de actions visibles al cliente en el portal de
+   * transparencia. Sprint 9 Fase E congeló `'read'` (lecturas staff sobre
+   * datos personales/financieros). Sprint 15C Fase 15C.F (ADR-083 §4
+   * decisión 14) añade `'admin_sso_impersonation'` — cuando un agente
+   * Aelium abre el panel del proveedor del cliente, queda registrado y
+   * VISIBLE al data subject. Cualquier action nueva visible al cliente
+   * debe añadirse aquí + en el `RESOURCE_LABEL`/`ACTION_LABEL` del SC
+   * `frontend/app/dashboard/transparency/page.tsx` para que la UI sepa
+   * traducir el slug a etiqueta humana en castellano.
+   */
+  private static readonly TRANSPARENCY_VISIBLE_ACTIONS: ReadonlyArray<string> =
+    ['read', 'admin_sso_impersonation'];
+
   @Get('access')
   @ApiOperation({
     summary: 'Listar accesos staff a tus datos (portal transparencia RGPD)',
@@ -36,21 +50,31 @@ export class AuditController {
     @Query('limit') limit?: string,
   ) {
     // Filtro ownership: solo accesos cuyo `metadata.target_user_id`
-    // coincida con el caller. Combina con `action='read'` para excluir
-    // los registros legacy de `auth.*` (login_failed, etc.) que
-    // contaminarían la vista del cliente.
+    // coincida con el caller, con action ∈ TRANSPARENCY_VISIBLE_ACTIONS
+    // para excluir los registros legacy de `auth.*` (login_failed, etc.)
+    // que contaminarían la vista del cliente.
+    //
+    // `findAccessLog` admite filtro por una sola action — para el set
+    // canónico hacemos un fetch con limit holgado y filtramos in-memory
+    // (cardinalidad pequeña: ≤PAGE_SIZE filas por cliente). Si la lista
+    // crece, mover a `WHERE action IN (...)` en el service.
     const result = await this.auditService.findAccessLog({
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
-      action: 'read',
     });
     const callerId = req.user.id;
-    const filtered = result.data.filter(
-      (entry) =>
+    const filtered = result.data.filter((entry) => {
+      if (
+        !AuditController.TRANSPARENCY_VISIBLE_ACTIONS.includes(entry.action)
+      ) {
+        return false;
+      }
+      return (
         entry.metadata &&
         typeof entry.metadata === 'object' &&
-        (entry.metadata as Record<string, unknown>).target_user_id === callerId,
-    );
+        (entry.metadata as Record<string, unknown>).target_user_id === callerId
+      );
+    });
 
     // Enriquecer con nombre + rol del actor staff (ADR-017 §"Quién puede
     // leer el audit log": el cliente debe VER el nombre real del agente).

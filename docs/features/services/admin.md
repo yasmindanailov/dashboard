@@ -180,7 +180,8 @@ El orquestador funciona solo — el agente sólo interviene cuando algo falla o 
 | `service.provisioning_failed` | Error no-retriable o plugin no registrado | Listener notifications (pendiente — alerta superadmin) |
 | `service.metrics_fetched` | Wrapper `getServiceInfoWithCache` cache-miss | Listener audit (pendiente — RGPD: cliente sabe cuándo se consultó) |
 | `service.action_executed` | Wrapper `executeActionWithCacheInvalidation` | Listener audit (pendiente) |
-| `service.sso_opened` | Wrapper `getSsoUrlWithAudit` post-éxito | Listener audit (pendiente) |
+| `service.sso_opened` | Wrapper `getSsoUrlWithAudit` post-éxito | Listener audit (pendiente — RGPD genérico) |
+| `service.admin_sso_impersonation` ⭐ | Wrapper `getSsoUrlWithAudit` cuando `actorIsAdmin && service.user_id !== actorUserId` (Sprint 15C Fase 15C.F) | **`AuditAdminSsoImpersonationListener`** persiste `audit_access_log` con `metadata.target_user_id = service.user_id` → portal `/dashboard/transparency` lo expone al cliente afectado (ADR-083 §4 decisión 14) |
 | `service.provisioned` | `BillingCheckoutService` al CREAR el service (legacy histórico — coexiste, ver decisión local) | `SupportInsideOnServiceProvisionedListener` (Sprint 8 D.12.9 / ADR-076) |
 
 > **Decisión local canónica:** `service.activated` (nuevo Sprint 11) coexiste con `service.provisioned` (legacy). Plugins reales Sprint 15 consumen `service.activated` — `service.provisioned` se preserva intacto para no romper Sprint 8 D.12.9. Documentado en docstring de `ProvisioningOrchestratorService` y en [`current.md` §Sprint 11 §9 (ahora movido a `completed/sprint-11-provisioning.md`)](../../60-roadmap/completed/sprint-11-provisioning.md).

@@ -18,12 +18,20 @@ const ACTION_LABEL: Record<string, string> = {
   read: 'Acceso de lectura',
   download: 'Descarga',
   update: 'Modificación',
+  // Sprint 15C Fase 15C.F (ADR-083 §4 decisión 14): apertura del panel
+  // del proveedor por un agente Aelium en nombre del cliente. Backend
+  // emite `service.admin_sso_impersonation` + listener
+  // `audit-on-admin-sso-impersonation` lo persiste con esta `action`.
+  admin_sso_impersonation: 'Apertura del panel del proveedor',
 };
 
 const RESOURCE_LABEL: Record<string, string> = {
   Invoice: 'Factura',
   Client: 'Tu ficha de cliente',
   BillingProfile: 'Perfil fiscal',
+  // Sprint 15C Fase 15C.F: el agente abrió el panel del proveedor de
+  // tu servicio (hosting Enhance, Docker, etc.).
+  Service: 'Tu servicio',
 };
 
 export default async function TransparencyPage() {
