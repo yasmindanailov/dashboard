@@ -678,3 +678,119 @@ Coherente con [_events.md `service.cancelled`](../20-modules/_events.md), `servi
 - `EnhanceCustomersService.ensureCustomer(user)` recibe `UserForEnhance` (subset de `User`) — naming coherente.
 - 8 tests unit `enhance-customers.service.spec.ts` cubren los 3 steps de idempotency + advisory lock con la API real (`user_id`).
 - Suite total backend `395/400` verde + 5 skipped (mode='static-only' del contract test para `enhance_cp`).
+
+---
+
+### Amendment A3 (2026-05-09) — 10ª inline action `list_available_plans` + flag `adminOnly` en `change_package` y `force_resync`
+
+> **Justificado por:** Sprint 15C Fase 15C.E (PR pendiente). La implementación detectó dos gaps críticos en la decisión 32 original (`inlineActions`):
+>
+>   1. **Vulnerabilidad de privilegio**: la decisión 32 declaró `change_package` y `force_resync` como *"acciones admin (CASL `Subject.Service` + scope admin se verifica en wrapper, no en plugin)"* pero NO existía un mecanismo canónico de scope adminOnly en el contrato `ProvisionerPlugin` v2 — el rol cliente tiene `Action.Update` sobre `Subject.Service` (cf. [`backend/src/core/casl/permissions.ts:299-303`](../../backend/src/core/casl/permissions.ts#L299-L303)), por lo que cualquier cliente podía invocar `POST /services/:id/actions/change_package` y subirse de plan en Enhance sin que admin aprobara. La materialización exige formalizar el flag `adminOnly?: boolean` en `ServiceAction` (cf. [ADR-077 Amendment A3](./adr-077-contrato-provisioner-plugin-v2.md#amendments)).
+>   2. **Falta de endpoint para listar planes Enhance disponibles**: la decisión 30 declaró que el modal admin `change_package` debe cargar el dropdown de planes via `GET /orgs/{master}/plans` *"en `getServiceInfo` admin variant"*. Cambiar la firma de `getServiceInfo` (single-method del contrato canónico ADR-077) supondría breaking change. Solución canónica: una **10ª inline action read-only** `list_available_plans`, marcada `adminOnly`, que invoca el endpoint Enhance y devuelve la lista en `data.plans` reutilizando el pipeline `executeActionWithCacheInvalidation` (audit + circuit breaker + cache invalidation).
+>
+> **Sprint:** 15C Fase 15C.E (PR pendiente).
+> **Compatibilidad:** Hacia atrás. NO toca shape del contrato (`adminOnly` se introduce como campo opcional en ADR-077 Amendment A3). NO requiere migración de datos. La 10ª action añade slug nuevo — no rompe los 9 existentes ni sus tests.
+
+#### A3.1. Cambio canónico en §9 decisión 32 (`inlineActions` literal)
+
+Se añade una 10ª action y se marcan dos como adminOnly:
+
+```typescript
+readonly inlineActions: readonly ServiceAction[] = [
+  // 3 cliente operativas — intactas:
+  { slug: 'reset_account_password', /* ... */ },
+  { slug: 'view_disk_usage',        /* ... */ },
+  { slug: 'view_bandwidth_usage',   /* ... */ },
+
+  // 4 DNS canónicas (ADR-082 §6 + ADR-077 Amendment A1.3) — intactas:
+  { slug: 'list_dns_records',   /* ... */ },
+  { slug: 'add_dns_record',     /* ... */ },
+  { slug: 'update_dns_record',  /* ... */ },
+  { slug: 'delete_dns_record',  /* ... */ },
+
+  // 8ª: change_package — NOW con adminOnly: true (Amendment A3).
+  {
+    slug: 'change_package',
+    label: 'plugin.enhance_cp.actions.change_package',
+    confirmRequired: true,
+    confirmationText: 'plugin.enhance_cp.actions.change_package.confirm',
+    destructive: false,
+    adminOnly: true,  // ← Amendment A3
+    payloadSchema: { type: 'object', properties: { planId: { type: 'integer', minimum: 1 } }, required: ['planId'], additionalProperties: false },
+  },
+
+  // 9ª: force_resync — NOW con adminOnly: true (Amendment A3).
+  {
+    slug: 'force_resync',
+    label: 'plugin.enhance_cp.actions.force_resync',
+    confirmRequired: false,
+    destructive: false,
+    adminOnly: true,  // ← Amendment A3
+  },
+
+  // 10ª: list_available_plans (NUEVA Amendment A3) — adminOnly read-only,
+  // alimenta el dropdown del modal change_package.
+  {
+    slug: 'list_available_plans',
+    label: 'plugin.enhance_cp.actions.list_available_plans',
+    confirmRequired: false,
+    destructive: false,
+    adminOnly: true,
+  },
+];
+```
+
+Total: **10 inline actions**. 3 cliente operativas + 4 DNS canónicas + 3 admin-only (`change_package`, `force_resync`, `list_available_plans`).
+
+#### A3.2. Cambio canónico en §8 decisión 30 (plan upgrade admin-only)
+
+La decisión 30 declaró el dropdown cargado *"via `GET /orgs/{master}/plans` en `getServiceInfo` admin variant"*. Se actualiza:
+
+| Antes | Después |
+|---|---|
+| Frontend admin invoca `GET /admin/services/:id` → `info.adminContext.availablePlans` (rama no implementada) | Frontend admin invoca `POST /admin/services/:id/actions/list_available_plans` (action 10ª, adminOnly) → wrapper enforce `adminOnly` + audit + cache invalidation + breaker. `data.plans: EnhancePlan[]` alimenta el dropdown del modal `change_package`. |
+
+Razón: respeta el contrato canónico (sin extender `getServiceInfo`), reutiliza el pipeline `executeActionWithCacheInvalidation` ya cableado, y no obliga a tipar admin variants en el shape `ServiceInfo` (que es client-facing por diseño ADR-070).
+
+#### A3.3. Cliente HTTP — método nuevo `EnhanceApiClient.listPlans`
+
+```typescript
+// backend/src/plugins/provisioners/enhance_cp/api/client.ts
+async listPlans(orgId: CustomerOrgId): Promise<readonly EnhancePlan[]> {
+  return this.http.get<EnhancePlan[]>(`/orgs/${orgId}/plans`);
+}
+
+// types.ts
+export interface EnhancePlan {
+  readonly id: number;
+  readonly name: string;
+  readonly resources: readonly { name: string; total: number; unit: string }[];
+  readonly trialDays?: number;
+  readonly isVisible: boolean;
+}
+```
+
+El `MockEnhanceServer` añade handler `GET /orgs/:org/plans` con fixture canónico (3 plans `Web Starter` / `Web Pro` / `Web Premium` para integration tests deterministas).
+
+#### A3.4. Plugin `executeAction` — case `list_available_plans`
+
+```typescript
+case 'list_available_plans': {
+  const { client: api, config } = await this.getApiClient();
+  const plans = await api.listPlans(config.masterOrgId);
+  return { success: true, data: { plans } };
+}
+```
+
+Read-only, sin side effects. El wrapper hace audit (`service.action_executed:list_available_plans`) + invalidate cache + circuit breaker uniformemente.
+
+#### A3.5. Validación
+
+- Suite total backend pre-Fase E: `445/450` verde + 5 skipped.
+- Tests nuevos esperados (Fase 15C.E):
+  - Contract test verifica 10 actions canónicas + invariante `adminOnly` boolean | undefined.
+  - Plugin spec cubre `list_available_plans` (happy path + error 404 desde Enhance).
+  - Cliente HTTP spec cubre `listPlans` (happy path + error 401/403/500).
+  - Cliente HTTP integration spec contra mock cubre fixture poblado.
+  - Wrapper spec cubre enforcement adminOnly: cliente NO admin → ForbiddenException + audit + evento `service.action_admin_only_violation`; admin OK → action ejecuta.
+- Smoke test: cliente con role `client` invoca `POST /services/:id/actions/change_package` → HTTP 403 + audit `service.action_admin_only_violation`. Admin con role `superadmin` invoca `POST /admin/services/:id/actions/list_available_plans` → 200 + `data.plans` poblado desde mock.
