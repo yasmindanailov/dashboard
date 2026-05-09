@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { EnhanceReconciliationCron } from './crons/enhance-reconciliation.cron';
 import { EnhanceCustomersService } from './enhance-customers.service';
 import { EnhanceDnsDefaultsService } from './enhance-dns-defaults.service';
 import { EnhanceProvisionerPlugin } from './enhance.plugin';
@@ -35,6 +36,10 @@ import { EnhanceProvisionerPlugin } from './enhance.plugin';
     EnhanceProvisionerPlugin,
     EnhanceCustomersService,
     EnhanceDnsDefaultsService,
+    // Sprint 15C Fase 15C.H — capa L3 reconciliation cron (ADR-083 §6
+    // decisión 24). Cada 6h compara Enhance vs Aelium-side por servicio
+    // activo/suspended y emite `service.reconciled_external_change`.
+    EnhanceReconciliationCron,
   ],
   exports: [
     EnhanceProvisionerPlugin,
