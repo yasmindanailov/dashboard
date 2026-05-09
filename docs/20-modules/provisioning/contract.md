@@ -62,6 +62,8 @@ Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras
 - [ADR-055](../../10-decisions/adr-055-resiliencia-circuit-breaker.md) — circuit breaker obligatorio en cada plugin (R11).
 - [ADR-063](../../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) — cola `provisioning-dispatch` con DLQ persistente; retries con backoff exponencial.
 - [ADR-066](../../10-decisions/adr-066-tres-portales-raiz-portalbadge.md) — la página de servicio vive en `/dashboard/services/[id]` (portal cliente).
+- **[ADR-082](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md)** — modelo canónico Domain ↔ Hosting + DNS doctrine (transversal: 6 invariantes DH-INV-1..6 + 4 flujos checkout F1-F4 + capability `has_dns_management` + NS-sync 3 capas + listener reconcile defensivo + cross-plugin `dns-authority-resolver`). Materializado en código por Sprint 15C Fase 15C.D — helper `core/provisioning/dns-authority-resolver.ts` (PURO, R4 intacto, vive en core; los plugins NO se importan entre sí), extensión `PluginRegistryService.getByCapability(cap)`, servicio `EnhanceDnsDefaultsService` (NS-sync C3→C2 idempotente + reconcile zone defensivo SIN borrar custom), 3 listeners en `ProvisioningModule`, 8 endpoints REST `/services/:id/dns/records` cliente + admin.
+- **[ADR-083](../../10-decisions/adr-083-plugin-enhance-cp-specifics.md)** — Plugin Enhance CP specifics (35 decisiones frozen + Amendments A1/A2). Materializado en código por Sprint 15C Fases 15C.B + 15C.C + 15C.D.
 
 ## 4. Modelos Prisma propios
 
@@ -100,12 +102,17 @@ Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras
 - **Sprint 15C — `service.*` aspiracionales ([ADR-083](../../10-decisions/adr-083-plugin-enhance-cp-specifics.md)):** declarados en Fase A doc-only, emisores en Fase F + Fase H. Listener `audit-on-service-events` previsto en Sprint 12.5 Portal Transparencia.
   - `service.admin_sso_impersonation` — payload `{ service_id, user_id, agent_user_id, agent_ip, agent_user_agent, panel_label, opened_at, gdpr_visible_to_data_subject: true }`. Emisor previsto: `getSsoUrlWithAudit` cuando `request.actor.role === 'admin'` y service del cliente (Fase 15C.F).
   - `service.reconciled_external_change` — payload `{ service_id, plugin_slug, change_type: 'subscription_missing' | 'status_divergence' | 'plan_divergence', expected, actual, detected_at }`. Emisor previsto: cron `reconcile-enhance-services` 6h cuando detecta drift (Fase 15C.H). Doctrina canónica: [DH-INV-6 ADR-082 §1](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md) (Aelium adopta cambios externos pero notifica si threshold superado, setting `provisioning.enhance_cp.reconciliation_alert_threshold`).
+- **Sprint 15C Fase 15C.D — `provisioning.*` aspiracional ([ADR-082 §4](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md)):**
+  - `provisioning.default_nameservers_changed` — payload `{ newValue: string[], oldValue: string[], changedBy: string }`. Listener `SyncDefaultNameserversToEnhanceListener` ya escrito + testeado en Fase 15C.D; emisor llega con la UI admin de settings (Sprint 12). Propaga NS-sync C3 → C2 idempotentemente al cluster Enhance vía `EnhanceDnsDefaultsService.applyClusterNameservers(...)`.
 
 ### Consume
 
 - `invoice.paid` — dispara provisioning del servicio asociado.
 - `invoice.refunded` (futuro) — puede disparar `deprovision` según política.
 - `task.completed` (cuando el provisioner es `manual`) — listener marca `service.status = active`.
+- **Sprint 15C Fase 15C.D — listeners DNS-as-capability orchestration ([ADR-082 §4 + §5](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md)):**
+  - `plugin.installed` (filtro slug=`enhance_cp`) → `BootstrapEnhanceDefaultsOnPluginInstalledListener` lee setting `provisioning.default_nameservers` y propaga al cluster Enhance vía `EnhanceDnsDefaultsService.applyClusterNameservers(...)`.
+  - `service.activated` (filtro `provisioner_slug=enhance_cp` + refs Enhance presentes en metadata) → `ReconcileDnsDefaultsOnServiceActivatedListener` ejecuta reconcile defensivo de la zona DNS del website (añade NS canónicos faltantes; NUNCA borra records inesperados).
 
 ## 7. API REST expuesta (Sprint 11)
 
@@ -117,12 +124,18 @@ Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras
 - `GET /api/v1/services/:id` — detalle + `getServiceInfo()` (cached 60s Redis).
 - `POST /api/v1/services/:id/sso` — devuelve `SsoUrl` del plugin si soporta SSO. Audit obligatorio.
 - `POST /api/v1/services/:id/actions/:actionSlug` — ejecuta acción inline. Validación de que `actionSlug` está en `capabilities.inline_actions`. Audit obligatorio.
+- **DNS records (Sprint 15C Fase 15C.D — [ADR-082 §6](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md))**:
+  - `GET /api/v1/services/:id/dns/records` — lista records de la zona del service. Routea al plugin con `has_dns_management=true` resuelto via `dns-authority-resolver`.
+  - `POST /api/v1/services/:id/dns/records` — crea record (kinds v1: `A | AAAA | CNAME | MX | TXT | SRV | CAA`). DTO validado class-validator + Ajv del plugin (`payloadSchema` de `add_dns_record`).
+  - `PATCH /api/v1/services/:id/dns/records/:recordId` — actualiza record.
+  - `DELETE /api/v1/services/:id/dns/records/:recordId` — elimina record (destructive — `confirmRequired` en UI).
 
 ### Admin (`/api/v1/admin/services/`)
 
 - `GET /api/v1/admin/services` — vista agente (filtros por cliente, plugin, estado).
 - `POST /api/v1/admin/services/:id/reprovision` — fuerza re-ejecución (úselo como escotilla cuando un plugin falla y se reparó la causa raíz).
 - `POST /api/v1/admin/services/:id/deprovision` — desactiva servicio (cancelación admin).
+- **DNS records admin espejo (Sprint 15C Fase 15C.D)**: `GET / POST /api/v1/admin/services/:id/dns/records` + `PATCH / DELETE /api/v1/admin/services/:id/dns/records/:recordId`. Triple guard `JwtAuthGuard + AdminOnlyGuard + PoliciesGuard` con bypass de ownership. Mismo pipeline que cliente.
 
 ### Admin Plugin Framework (`/api/v1/admin/plugins/*` — Sprint 15A, [ADR-080](../../10-decisions/adr-080-plugin-framework.md))
 
@@ -143,6 +156,9 @@ Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras
 - **Provisioning timeout** (>30s): cola BullMQ retiene el job, retries con backoff [30s, 90s, 270s]; tras 3 fallos → DLQ + `service.provisioning_failed` + alerta admin.
 - **Servicio cancelado mientras provisioning está en cola**: el processor verifica estado actual antes de ejecutar; si `status = cancelled`, marca job como descartado y registra en audit.
 - **Plugin desactivado** (admin lo deshabilitó en Settings tras tener servicios activos): `getStatus` retorna error controlado; frontend muestra warning "Plugin temporalmente inactivo, contacta soporte".
+- **DNS gestionado externamente** ([ADR-082 §6](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md)): cuando el cliente abre `/dashboard/services/[id]/dns` de un dominio cuyos NS no coinciden con `provisioning.default_nameservers`, el resolver devuelve `authority='external'` y la API responde `404 + body { code: 'DNS_MANAGED_EXTERNALLY', reason, nameservers, hint }`. Frontend renderiza banner "DNS externo en `<ns>`" + acción curada `modify_ns` (con `confirm_required: true` + texto explicando impacto).
+- **Cluster sin plugin DNS authority instalado**: caso degenerado tras desinstalar plugin `enhance_cp` con servicios hosting activos. El resolver devuelve `404 + { code: 'DNS_NO_AUTHORITY_PLUGIN' }`. Frontend muestra fallback "Sin gestor DNS — contacta soporte".
+- **Reconcile defensivo NO borra**: el listener `ReconcileDnsDefaultsOnServiceActivatedListener` añade NS canónicos faltantes a la zona pero NUNCA borra records inesperados (CNAME/MX/TXT custom). Doctrina canónica: Aelium NO espeja zone state, sólo aplica defaults faltantes ([ADR-082 §5](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md) + DH-INV-6).
 
 ## 9. Pendientes registrados
 
@@ -150,7 +166,7 @@ Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras
 - ✅ Sprint 15A cerrado al 100% (2026-05-06) — Plugin Framework. Manifest declarativo (JSON-Schema 7) + `SecretVaultService` AES-256-GCM + `plugin_installs` + loader runtime desde DB + circuit breaker tras interface + 5 eventos `plugin.*` + UI admin completa (`/admin/settings/plugins`). Ver [ADR-080](../../10-decisions/adr-080-plugin-framework.md).
 - Listener `notifications-on-provisioning-failed` para alertar superadmin cuando llegue plugin con coste de fallo significativo (Sprint 12 o cuando llegue primer plugin real).
 - Listener `audit-on-service-events` para persistir `service.metrics_fetched` / `service.action_executed` / `service.sso_opened` en `audit_change_log` + portal RGPD cliente (Sprint 12.5 Portal Transparencia o sub-sprint dedicado).
-- **Sprint 15C — Plugin Enhance CP** (P2.3, en curso): Fases A/B/C ✅ cerradas (PRs #36/#37/#38). Fases D-I pendientes (listener reconcile DNS + helper `dns-authority-resolver` + endpoints `/dns/*` + acciones admin curadas + SSO endpoints + UI DNS records 7 tipos + cron 6h + E2E + retrospectiva). Hereda TODO el framework Sprint 15A.
+- **Sprint 15C — Plugin Enhance CP** (P2.3, en curso): Fases A/B/C/D ✅ cerradas (PRs #36/#37/#38/#41). Fase D cerró el bloque transversal **DNS-as-capability orchestration** (helper canónico `dns-authority-resolver` + 3 listeners + 8 endpoints REST + 2 settings + servicio `EnhanceDnsDefaultsService`). Fases E-I pendientes (acciones admin curadas + SSO endpoints + UI DNS records 7 tipos + cron 6h + E2E + retrospectiva). Hereda TODO el framework Sprint 15A.
 - Sprint 15D/E/G — Plugins reales restantes (ResellerClub, Docker Engine, Plesk Obsidian) — desbloqueados tras cierre Sprint 15C (autoridad DNS Enhance operativa). Solo declaran 6 métodos del contrato + manifest + (RC consume `domain.zone_pre_create` handshake con plugin Enhance).
 - Sprint 15A — E2E circuit breaker (Fase J.2 diferida): los unit tests cubren la lógica del breaker exhaustivamente (16/16 verde) con tiempo determinista. El E2E genuino llegará con el primer plugin real (Sprint 15C/D/E) cuando se simule la caída de un proveedor real.
 - Cuando se implemente Sprint 15E (Plugin Docker), añadir a `service_metrics` lectura filtrada por contenedor del cliente.
