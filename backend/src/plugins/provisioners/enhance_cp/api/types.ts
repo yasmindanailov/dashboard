@@ -418,6 +418,42 @@ export interface EnhanceNewPassword {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// 11.5 Plans (Sprint 15C Fase 15C.E — ADR-083 Amendment A3)
+// Spec line 5186 GET /orgs/{org_id}/plans + line 15733 Plan schema +
+// line 18488 PlansListing schema. Subset usado por la 10ª inline action
+// `list_available_plans` que alimenta el dropdown admin del modal
+// `change_package` (decisión 30 + Amendment A3).
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Spec Plan schema (line 15733). Subset usado por el plugin v1:
+ *   - id (integer, NO uuid — coherente con SubscriptionId).
+ *   - name (string display).
+ *   - subscriptionsCount (integer — info display admin).
+ *   - planType (enum opaque, expuesto como string display).
+ *   - createdAt (string).
+ *
+ * Los campos no usados (`resources`, `allowances`, `selections`,
+ * `serverGroupIds`, `cgroupLimits`, `fsQuotaLimit`, `allowedPhpVersions`,
+ * `defaultPhpVersion`, `redisAllowed`, `preinstallWordpressTheme`,
+ * `persistentAppsAllowed`) se ignoran al deserializar — el dropdown
+ * admin solo necesita id + name + display info.
+ */
+export interface EnhancePlan {
+  readonly id: number;
+  readonly name: string;
+  readonly subscriptionsCount: number;
+  readonly planType?: string;
+  readonly createdAt: string;
+}
+
+/** Spec PlansListing line 18488 — response GET /orgs/{org_id}/plans. */
+export interface EnhancePlansListing {
+  readonly items: readonly EnhancePlan[];
+  readonly total: number;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // 12. Generic POST response (id wrapper)
 // ────────────────────────────────────────────────────────────────────────────
 
