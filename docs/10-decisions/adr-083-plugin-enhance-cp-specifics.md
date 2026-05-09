@@ -748,7 +748,7 @@ La decisión 30 declaró el dropdown cargado *"via `GET /orgs/{master}/plans` en
 
 | Antes | Después |
 |---|---|
-| Frontend admin invoca `GET /admin/services/:id` → `info.adminContext.availablePlans` (rama no implementada) | Frontend admin invoca `POST /admin/services/:id/actions/list_available_plans` (action 10ª, adminOnly) → wrapper enforce `adminOnly` + audit + cache invalidation + breaker. `data.plans: EnhancePlan[]` alimenta el dropdown del modal `change_package`. |
+| Frontend admin invoca `GET /admin/services/:id` → `info.adminContext.availablePlans` (rama no implementada) | Frontend admin invoca **`POST /services/:id/actions/list_available_plans`** (action 10ª, adminOnly — **mismo endpoint cliente, NO hay endpoint admin de actions hoy**: `AdminProvisioningController` solo expone reprovision/deprovision/list/detail/DNS records). El controller cliente `ProvisioningController.executeAction` deriva `isAdmin = ADMIN_ROLES.includes(req.user.role.slug)` y propaga `actorIsAdmin: true` al wrapper, que enforce `adminOnly` + audit + cache invalidation + breaker. `data.plans: EnhancePlan[]` alimenta el dropdown del modal `change_package`. **Nota**: la página `/admin/services/[id]` aún NO existe en frontend (solo `/admin/services/page.tsx` lista admin) — el modal `change_package` admin se materializa cuando se cree esa página detalle (fase frontend posterior, no programada en el roadmap actual del Sprint 15C). |
 
 Razón: respeta el contrato canónico (sin extender `getServiceInfo`), reutiliza el pipeline `executeActionWithCacheInvalidation` ya cableado, y no obliga a tipar admin variants en el shape `ServiceInfo` (que es client-facing por diseño ADR-070).
 
@@ -793,4 +793,4 @@ Read-only, sin side effects. El wrapper hace audit (`service.action_executed:lis
   - Cliente HTTP spec cubre `listPlans` (happy path + error 401/403/500).
   - Cliente HTTP integration spec contra mock cubre fixture poblado.
   - Wrapper spec cubre enforcement adminOnly: cliente NO admin → ForbiddenException + audit + evento `service.action_admin_only_violation`; admin OK → action ejecuta.
-- Smoke test: cliente con role `client` invoca `POST /services/:id/actions/change_package` → HTTP 403 + audit `service.action_admin_only_violation`. Admin con role `superadmin` invoca `POST /admin/services/:id/actions/list_available_plans` → 200 + `data.plans` poblado desde mock.
+- Smoke test (mismo endpoint `POST /services/:id/actions/:slug`, controller diferencia por rol): cliente con role `client` invoca `POST /services/:id/actions/change_package` → HTTP 403 + audit `service.action_admin_only_violation`. Admin con role `superadmin` invoca `POST /services/:id/actions/list_available_plans` → 200 + `data.plans` poblado desde mock. Admin atraviesa el bypass de ownership del controller cliente (`isAdmin=true` derivado del `req.user.role.slug`) — NO hay endpoint específico admin para actions.

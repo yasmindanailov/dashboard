@@ -920,16 +920,20 @@ it('declara adminOnly como boolean | undefined en cada inline action', () => {
 
 Los plugins triviales `internal` y `manual` no declaran `inlineActions` con `adminOnly` (no aplica — sus actions son cliente-callable). NO requieren cambios. El plugin `enhance_cp` aplica el flag a `change_package`, `force_resync` y `list_available_plans` en Sprint 15C Fase 15C.E ([ADR-083 Amendment A3](./adr-083-plugin-enhance-cp-specifics.md#amendments)).
 
-#### A3.5. Frontend — ramificación canónica
+#### A3.5. Frontend — ramificación canónica (patrón aspiracional)
+
+> **Estado real al cierre de Sprint 15C Fase 15C.E**: el frontend hoy NO implementa este filter. El componente `frontend/app/_shared/services/ActionsBar.tsx` recibe `info.availableActions` y los renderiza todos sin discriminar por rol. Esto NO es un bug operativo — el backend enforce con HTTP 403 + audit + evento, así que un cliente que viera un botón admin-only solo recibiría 403 al pulsarlo (defense-in-depth funciona). Pero la UX correcta es ocultar el botón. La materialización del filter llega cuando se cree la primera UI admin que necesite acciones admin-only operables (Sprint 15C.G frontend DNS UI sentará el patrón; el modal admin `change_package` necesitará crearse en una fase posterior — `/admin/services/[id]` aún no existe en frontend).
+
+Patrón canónico para esa fase futura:
 
 ```typescript
-// frontend: filtrar inline actions visibles según rol
+// frontend: filtrar inline actions visibles según rol — PATRÓN ASPIRACIONAL
 const visibleActions = serviceInfo.availableActions.filter(
   (a) => !a.adminOnly || currentUser.isAdmin
 );
 ```
 
-NUNCA por slug (mantiene la doctrina ADR-070 §"Cero `if (provisioner === 'X')`"). El campo `adminOnly` es **declarativo** — la UI lo respeta y el wrapper backend lo enforce como defense-in-depth (defensa profunda + audit pesado).
+NUNCA por slug (mantiene la doctrina ADR-070 §"Cero `if (provisioner === 'X')`"). El campo `adminOnly` es **declarativo** — la UI lo respetará y el wrapper backend ya lo enforce como defense-in-depth (defensa profunda + audit pesado independientemente de que el frontend filtre o no).
 
 #### A3.6. Doctrina de adición de campos opcionales a `ServiceAction`
 
