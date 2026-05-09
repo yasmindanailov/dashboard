@@ -3,6 +3,11 @@
 /**
  * ActionsBar — Sprint 11 Fase 11.D (ADR-070 §C — acciones curadas inline).
  * Sprint 13 §13.AUTH Fase E (Modelo A): Server Action executeServiceActionAction.
+ * Sprint 15C Fase 15C.E.2 (ADR-077 Amendment A3 §A3.5) — filter `adminOnly`
+ * con prop `isAdmin` derivada server-side por el caller (SC). El backend
+ * wrapper sigue siendo defense-in-depth (HTTP 403 + audit + evento
+ * `service.action_admin_only_violation`); este filter es UX para no
+ * mostrar al cliente un botón que recibiría 403 si lo pulsara.
  *
  * Renderiza los `info.availableActions` del plugin como botones. Cada
  * acción dispara executeAction con confirmación cuando aplique. El
@@ -11,7 +16,9 @@
  * (ADR-077 §5).
  *
  * Plugins triviales `internal` y `manual` declaran `availableActions=[]`
- * → este componente NO se renderiza por ellos.
+ * → este componente NO se renderiza por ellos. Si tras filtrar por
+ * `adminOnly` la lista queda vacía (cliente ve servicio Enhance con sólo
+ * actions admin), también se oculta.
  */
 import { useState } from 'react';
 import { Button, Card } from '../../components/ui';
@@ -21,10 +28,23 @@ import { executeServiceActionAction } from './_actions';
 interface ActionsBarProps {
   serviceId: string;
   actions: readonly ServiceAction[];
+  /**
+   * `true` si el usuario actual es staff (superadmin / agent_full /
+   * agent_billing / agent_support). El SC parent lo deriva con
+   * `isStaffRole(session.user.role.slug)` desde `getServerSession()`.
+   * Coincide con el set canónico que enforce el backend wrapper
+   * (`provisioning.controller.ts` `ADMIN_ROLES`).
+   */
+  isAdmin: boolean;
   onActionExecuted?: (result: ActionResult) => void;
 }
 
-export function ActionsBar({ serviceId, actions, onActionExecuted }: ActionsBarProps) {
+export function ActionsBar({
+  serviceId,
+  actions,
+  isAdmin,
+  onActionExecuted,
+}: ActionsBarProps) {
   const [running, setRunning] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{
     actionSlug: string;
@@ -32,7 +52,11 @@ export function ActionsBar({ serviceId, actions, onActionExecuted }: ActionsBarP
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (actions.length === 0) return null;
+  // ADR-077 Amendment A3.5 patrón canónico — filter declarativo por flag,
+  // NUNCA por slug (eso rompería ADR-070 "cero `if (provisioner === 'X')`").
+  const visibleActions = actions.filter((a) => !a.adminOnly || isAdmin);
+
+  if (visibleActions.length === 0) return null;
 
   const onAction = async (action: ServiceAction) => {
     if (action.confirmRequired) {
@@ -63,7 +87,7 @@ export function ActionsBar({ serviceId, actions, onActionExecuted }: ActionsBarP
         Acciones rápidas
       </h2>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {actions.map((action) => (
+        {visibleActions.map((action) => (
           <Button
             key={action.slug}
             onClick={() => onAction(action)}

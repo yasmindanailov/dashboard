@@ -10,8 +10,13 @@
 
 import Link from 'next/link';
 import { Card, EmptyState } from '../../../components/ui';
-import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
+import {
+  getServerSession,
+  serverFetch,
+  ServerFetchError,
+} from '../../../lib/server-auth';
 import type { ServiceDetailResponse } from '../../../lib/api';
+import { isStaffRole } from '../../../lib/portal';
 import {
   ActionsBar,
   MetricsBar,
@@ -25,6 +30,15 @@ interface PageProps {
 
 export default async function ClientServiceDetailPage({ params }: PageProps) {
   const { id } = await params;
+
+  // Sprint 15C Fase 15C.E.2 — derivar isAdmin server-side (set canónico
+  // que coincide con `provisioning.controller.ts` ADMIN_ROLES) para
+  // filtrar `availableActions.adminOnly` en `ActionsBar`. Esta página
+  // sirve principalmente al cliente, pero los staff que la abren ven
+  // todos los botones (incluidos los admin-only del plugin enhance_cp:
+  // change_package, force_resync, list_available_plans).
+  const session = await getServerSession();
+  const isAdmin = isStaffRole(session?.user.role.slug);
 
   let data: ServiceDetailResponse | null = null;
   let errorMessage: string | null = null;
@@ -115,6 +129,7 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
       <ActionsBar
         serviceId={service.id}
         actions={info.availableActions}
+        isAdmin={isAdmin}
       />
 
       {/*

@@ -450,6 +450,156 @@ Server Actions con cookies httpOnly Modelo A (ADR-078).
 
 ---
 
+## Amendments
+
+### Amendment B (2026-05-09) — campo opcional `productConfigSchema` en `PluginManifest`
+
+> **Justificado por:** Sprint 15C Fase 15C.E.2 (Frontend acciones curadas — gap descubierto en review Fase 15C.E del PR #44). El plugin `enhance_cp` (Sprint 15C Fase C) ya valida en runtime que `Product.provisioner_config.enhance_plan_id` sea entero ≥1 (`extractEnhancePlanId` en [`enhance.plugin.ts:958-969`](../../backend/src/plugins/provisioners/enhance_cp/enhance.plugin.ts#L958-L969)), pero **el form admin de productos (`/admin/products/new` + `/admin/products/[id]/edit`) no expone ningún campo para editar `provisioner_config`**. Resultado: cualquier producto Enhance creado vía UI quedaba con `provisioner_config: null` → `INVALID_PAYLOAD: enhance_plan_id missing` al provisionar el primer cliente real. **Bloqueante operativo end-to-end** (sin esto ningún producto Enhance es contratable). Para cerrar el gap manteniendo la doctrina manifest-declarativo de Sprint 15A se formaliza un campo opcional `productConfigSchema?: JsonSchema7` en `PluginManifest`.
+> **Sprint:** 15C Fase 15C.E.2 (PR pendiente).
+> **Compatibilidad:** Hacia atrás. NO bumpea `manifestVersion` — sigue `'v1'`. El campo es **opcional**. Plugins existentes (`internal`, `manual`) no lo declaran y conservan comportamiento previo (sub-form ausente en el UI). NO requiere migración de datos. NO toca `Product.provisioner_config` (jsonb existe desde Sprint 6).
+
+#### B.1. Cambio canónico en `PluginManifest` (§1 shape)
+
+Se añade un campo opcional al shape canónico:
+
+```typescript
+export interface PluginManifest {
+  // ... campos existentes (slug, version, manifestVersion, label, description,
+  //                       docsUrl, settingsCategory, configSchema,
+  //                       secretsSchema, testConnectionMethod) ...
+
+  /**
+   * Schema declarativo del shape de `Product.provisioner_config` para
+   * productos que provisionan a través de este plugin. Renderizado por
+   * `@rjsf/core` en el form admin de productos cuando el admin selecciona
+   * este `provisioner` slug.
+   *
+   * Opcional. Plugins triviales (`internal`, `manual`) lo omiten — sus
+   * servicios no requieren config per-producto. El form admin esconde
+   * la sección sub-form si el manifest del provisioner seleccionado lo
+   * omite o si declara `properties: {}`.
+   *
+   * Diferencia clave vs `configSchema`:
+   *   - `configSchema` configura la INSTALACIÓN del plugin (1 fila por
+   *     plugin en `plugin_installs`). Audiencia: superadmin desde
+   *     `/admin/settings/plugins/[slug]`.
+   *   - `productConfigSchema` configura cada PRODUCTO que provisiona vía
+   *     el plugin (1 fila por producto en `products.provisioner_config`).
+   *     Audiencia: admin de productos desde `/admin/products/...`.
+   *
+   * Validación:
+   *   - Form-side via Ajv (UX): @rjsf/core valida + bloquea submit si no cumple.
+   *   - Runtime defense-in-depth: el plugin valida `productConfig` en
+   *     `provision()` y lanza `ProvisionerPluginError('INVALID_PAYLOAD', false)`
+   *     si el shape no coincide. La validación form-side es UX — el plugin
+   *     NUNCA confía en el form (R7).
+   */
+  readonly productConfigSchema?: JsonSchema7;
+}
+```
+
+Ejemplo `enhance_cp` (Sprint 15C Fase 15C.E.2):
+
+```typescript
+const ENHANCE_PRODUCT_CONFIG_SCHEMA = {
+  type: 'object',
+  properties: {
+    enhance_plan_id: {
+      type: 'integer',
+      minimum: 1,
+      description: 'plugin.enhance_cp.product_config.enhance_plan_id',
+    },
+  },
+  required: ['enhance_plan_id'],
+  additionalProperties: false,
+} as const;
+
+const ENHANCE_MANIFEST: PluginManifest = {
+  // ... campos existentes ...
+  productConfigSchema: ENHANCE_PRODUCT_CONFIG_SCHEMA,
+};
+```
+
+#### B.2. Test contract genérico (§7) — invariante nueva
+
+```typescript
+// backend/src/plugins/provisioners/plugin-contract.spec.ts
+it('manifest.productConfigSchema (si declarado) es JsonSchema7 válido', () => {
+  const schema = plugin.manifest.productConfigSchema;
+  if (schema === undefined) return; // OK: plugins sin config per-producto.
+
+  expect(schema.type).toBe('object');
+  expect(schema.additionalProperties).not.toBe(true);
+  if (schema.required) {
+    for (const requiredKey of schema.required) {
+      expect(schema.properties[requiredKey]).toBeDefined();
+    }
+  }
+});
+```
+
+#### B.3. Plugins existentes — sin actualización requerida
+
+| Plugin | Declara `productConfigSchema` | Razón |
+|---|---|---|
+| `internal` | NO | Servicios sin proveedor externo (ej. Support Inside) — no hay config per-producto. |
+| `manual` | NO | El admin gestiona la activación a mano vía Task — no hay config declarativa. |
+| `enhance_cp` | **SÍ** (Sprint 15C Fase 15C.E.2) | Cada producto hosting Enhance referencia un `enhance_plan_id` distinto. |
+| `resellerclub` (futuro Sprint 15D) | TBD | Posiblemente con `tld` + `years` u otros — decisión propia del plugin RC. |
+| `docker_engine` (futuro Sprint 15E) | TBD | Image + ports + envs — schema más rico. |
+
+#### B.4. Frontend — patrón canónico de consumo
+
+Form admin productos hereda el patrón Sprint 15A plugin install UI:
+
+```typescript
+// frontend/app/admin/products/new/page.tsx — SC
+const plugins = await serverFetch<AdminPluginListItem[]>('/admin/plugins');
+return <NewProductForm initialPlugins={plugins} />;
+
+// frontend/app/admin/products/new/_components/NewProductForm.tsx — CC
+import Form from '@rjsf/core';
+import validator from '@rjsf/validator-ajv8';
+import { aeliumDsWidgets } from '../../../../_shared/plugins/rjsf-theme';
+
+const selectedPlugin = plugins.find((p) => p.slug === provisioner);
+const schema = selectedPlugin?.manifest?.productConfigSchema;
+
+{schema && (
+  <Form
+    schema={schema as RJSFSchema}
+    formData={provisionerConfig}
+    widgets={aeliumDsWidgets}
+    validator={validator}
+    onChange={(e) => setProvisionerConfig(e.formData ?? {})}
+    uiSchema={{ 'ui:submitButtonOptions': { norender: true } }}
+    showErrorList={false}
+  />
+)}
+```
+
+R4 intacto: el form admin NO importa el plugin — solo lee el manifest serializado vía REST.
+
+#### B.5. Doctrina de adición de campos opcionales a `PluginManifest`
+
+Este Amendment establece el patrón canónico para extender `PluginManifest` sin breaking change:
+
+1. ADR específico (o transversal) que justifique el campo nuevo.
+2. Amendment a este ADR-080 con: shape extendido + impacto en `AdminPluginsService` (si valida) + invariante test contract + plugins existentes (typically sin cambios si el campo es opcional).
+3. Compatible hacia atrás → NO bumpea `manifestVersion`.
+4. Frontend lee el campo del manifest serializado (cero hardcoding por slug).
+5. Documentar en backlog si se difiere validación backend Ajv.
+
+Cualquier campo nuevo NO opcional o que rompa el shape requiere bump a `manifestVersion: 'v2'` + ADR específico + path de migración.
+
+#### B.6. Deuda explícita generada
+
+| Ref | Item | Cuándo abordar |
+|---|---|---|
+| **DC-AJV-PRODUCT-CONFIG** | Validar `Product.provisioner_config` contra `manifest.productConfigSchema` con Ajv en `AdminProductsService` (paralelo al patrón `AdminPluginsService.validateConfigCache`). Hoy la única defensa es el plugin runtime — suficiente para Fase 15C.E.2 (admin escribe el JSON, no cliente externo). | Cuando llegue plugin con schema rico (RC tld+years o docker image+ports), o si admin reporta error tardío vs validación inmediata UX. |
+
+---
+
 ## Cuándo revisar
 
 - **Si llega un plugin que necesita config dinámica per-cliente** (ej. cada cliente tiene su propia api_key de Stripe Connect). El framework actual asume **config global por plugin**. Revisión: añadir tabla `plugin_install_overrides` con `(slug, scope, scope_id, secrets)` o ADR específico.

@@ -346,6 +346,28 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       );
       expect(plugin.manifest.secretsSchema.required).toEqual(['apiToken']);
     });
+
+    // Sprint 15C Fase 15C.E.2 — ADR-080 Amendment B.
+    it('manifest.productConfigSchema declara enhance_plan_id integer ≥1 required', () => {
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        buildApiMock(),
+      );
+      const schema = plugin.manifest.productConfigSchema;
+      expect(schema).toBeDefined();
+      expect(schema?.type).toBe('object');
+      expect(schema?.required).toEqual(['enhance_plan_id']);
+      expect(schema?.additionalProperties).toBe(false);
+
+      const planIdProp = schema?.properties.enhance_plan_id;
+      expect(planIdProp?.type).toBe('integer');
+      expect(planIdProp?.minimum).toBe(1);
+      expect(planIdProp?.description).toBe(
+        'plugin.enhance_cp.product_config.enhance_plan_id',
+      );
+    });
   });
 
   // ─── provision() ────────────────────────────────────────────────────────

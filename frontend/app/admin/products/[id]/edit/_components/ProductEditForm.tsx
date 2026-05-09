@@ -2,6 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Form from '@rjsf/core';
+import validator from '@rjsf/validator-ajv8';
+import type { IChangeEvent } from '@rjsf/core';
+import type { RJSFSchema } from '@rjsf/utils';
+
 import {
   AlertBanner,
   Button,
@@ -13,6 +18,8 @@ import {
   Textarea,
   useToast,
 } from '../../../../../components/ui';
+import type { AdminPluginListItem } from '../../../../../lib/api';
+import { aeliumDsWidgets } from '../../../../../_shared/plugins/rjsf-theme';
 import {
   addPricingAction,
   deletePricingAction,
@@ -21,12 +28,20 @@ import {
 } from '../../../_actions';
 import styles from '../../../productForm.module.css';
 
-/* ═══════════════════════════════════════
-   ProductEditForm — Sprint 13 §13.AUTH Fase E (Modelo A).
-   Recibe el producto prehidratado por SC. Save → updateProductAction
-   + revalidatePath. Pricing CRUD via add/deletePricingAction. Cero
-   localStorage, cero useEffect+fetch.
-   ═══════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   ProductEditForm — Sprint 13 §13.AUTH Fase E (Modelo A) + Sprint 15C
+   Fase 15C.E.2 (ADR-080 Amendment B).
+
+   Recibe producto + lista plugins prehidratados por SC. Save →
+   updateProductAction + revalidatePath. Pricing CRUD via
+   add/deletePricingAction. Cero localStorage, cero useEffect+fetch.
+
+   Provisioner es un Select alimentado por `initialPlugins` (manifest
+   serializado del backend). Si el plugin seleccionado declara
+   `manifest.productConfigSchema`, se renderiza sub-form dinámico
+   via `@rjsf/core` y el JSON resultante se envía como
+   `provisioner_config` al backend.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 const TYPE_LABELS: Record<string, string> = {
   hosting_web: 'Hosting Web',
@@ -54,6 +69,12 @@ export interface InitialProduct {
   short_description: string | null;
   badge_text: string | null;
   provisioner: string | null;
+  /**
+   * Sprint 15C Fase 15C.E.2 — ADR-080 Amendment B.
+   * Persistido en `Product.provisioner_config` (jsonb). Inyectado en
+   * `ProvisionContext.productConfig` durante `provision()`.
+   */
+  provisioner_config: Record<string, unknown> | null;
   grace_period_days: number;
   suspension_days: number;
   cancellation_days: number;
@@ -64,9 +85,10 @@ export interface InitialProduct {
 
 interface Props {
   initial: InitialProduct;
+  initialPlugins: readonly AdminPluginListItem[];
 }
 
-export default function ProductEditForm({ initial }: Props) {
+export default function ProductEditForm({ initial, initialPlugins }: Props) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -80,6 +102,9 @@ export default function ProductEditForm({ initial }: Props) {
   );
   const [badgeText, setBadgeText] = useState(initial.badge_text ?? '');
   const [provisioner, setProvisioner] = useState(initial.provisioner ?? '');
+  const [provisionerConfig, setProvisionerConfig] = useState<
+    Record<string, unknown>
+  >(initial.provisioner_config ?? {});
   const [gracePeriod, setGracePeriod] = useState(String(initial.grace_period_days));
   const [suspensionDays, setSuspensionDays] = useState(String(initial.suspension_days));
   const [cancellationDays, setCancellationDays] = useState(String(initial.cancellation_days));
@@ -99,6 +124,21 @@ export default function ProductEditForm({ initial }: Props) {
   const isAddon = initial.type === 'support_inside' || initial.type === 'we_do_it';
   const showLifecycle = !isAddon;
 
+  // ADR-080 Amendment B — schema declarativo del provisioner seleccionado.
+  const selectedPlugin = initialPlugins.find((p) => p.slug === provisioner);
+  const productConfigSchema = selectedPlugin?.manifest?.productConfigSchema;
+  const hasProductConfigSchema =
+    productConfigSchema !== undefined &&
+    Object.keys(productConfigSchema.properties ?? {}).length > 0;
+
+  const provisionerOptions = buildProvisionerOptions(initialPlugins, provisioner);
+
+  const handleProvisionerChange = (val: string) => {
+    setProvisioner(val);
+    // Reset config al cambiar de plugin: el schema nuevo puede ser distinto.
+    setProvisionerConfig({});
+  };
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -106,6 +146,24 @@ export default function ProductEditForm({ initial }: Props) {
       setError('El nombre es obligatorio.');
       return;
     }
+
+    // ADR-080 Amendment B — validación form-side (UX) del sub-form
+    // dinámico. Defense-in-depth canónica vive en plugin runtime
+    // (`provision()` lanza `INVALID_PAYLOAD` si el shape no coincide).
+    if (hasProductConfigSchema) {
+      const result = validator.validateFormData(
+        provisionerConfig,
+        productConfigSchema as RJSFSchema,
+      );
+      if (result.errors.length > 0) {
+        const firstError = result.errors[0];
+        setError(
+          `Configuración del provisioner: ${firstError.stack ?? firstError.message ?? 'inválida'}`,
+        );
+        return;
+      }
+    }
+
     setSaving(true);
     const result = await updateProductAction(initial.id, {
       name: name.trim(),
@@ -114,6 +172,10 @@ export default function ProductEditForm({ initial }: Props) {
       short_description: shortDescription || undefined,
       badge_text: badgeText || undefined,
       provisioner: provisioner || undefined,
+      // Si el plugin no declara schema enviamos `null` para limpiar config
+      // residual de un provisioner anterior. Si declara schema enviamos el
+      // JSON validado.
+      provisioner_config: hasProductConfigSchema ? provisionerConfig : null,
       grace_period_days: parseInt(gracePeriod) || 0,
       suspension_days: parseInt(suspensionDays) || 7,
       cancellation_days: parseInt(cancellationDays) || 30,
@@ -251,12 +313,62 @@ export default function ProductEditForm({ initial }: Props) {
               <div className={styles.formSection}>
                 <h3 className={styles.sectionTitle}>Provisioning</h3>
                 <div className={styles.formGrid}>
-                  <Input
+                  <Select
                     label="Provisioner"
                     value={provisioner}
-                    onChange={(e) => setProvisioner(e.target.value)}
+                    onChange={(e) => handleProvisionerChange(e.target.value)}
+                    options={provisionerOptions}
+                    helperText="Plugins disponibles registrados en /admin/settings/plugins"
                   />
                 </div>
+
+                {hasProductConfigSchema && (
+                  <div className={styles.mt4}>
+                    <h4
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        margin: '12px 0 8px',
+                        color: 'var(--text-primary)',
+                      }}
+                    >
+                      Configuración del provisioner
+                    </h4>
+                    <p
+                      style={{
+                        fontSize: 12,
+                        color: 'var(--text-tertiary)',
+                        margin: '0 0 12px',
+                      }}
+                    >
+                      Campos definidos por el manifest del plugin{' '}
+                      <code>{provisioner}</code>. Se persisten en{' '}
+                      <code>products.provisioner_config</code>.
+                    </p>
+                    <Form
+                      // tagName="div" evita que @rjsf/core renderice un
+                      // <form> interno — anidado dentro del <form
+                      // id="edit-product-form"> wrapper rompería la
+                      // hidratación. El submit unitario del wrapper invoca
+                      // a `validator.validateFormData(provisionerConfig,
+                      // schema)` antes del PATCH para enforcement form-side.
+                      tagName="div"
+                      schema={productConfigSchema as RJSFSchema}
+                      formData={provisionerConfig}
+                      widgets={aeliumDsWidgets}
+                      validator={validator}
+                      onChange={(e: IChangeEvent) =>
+                        setProvisionerConfig(
+                          (e.formData ?? {}) as Record<string, unknown>,
+                        )
+                      }
+                      uiSchema={{
+                        'ui:submitButtonOptions': { norender: true },
+                      }}
+                      showErrorList={false}
+                    />
+                  </div>
+                )}
               </div>
             </Card>
           </div>
@@ -413,4 +525,42 @@ export default function ProductEditForm({ initial }: Props) {
       </Modal>
     </FormPage>
   );
+}
+
+/**
+ * Construye las opciones del Select de provisioner desde la lista del
+ * backend. Etiqueta humana del manifest si existe; si no, fallback al slug.
+ *
+ * Si el `currentSlug` no coincide con ningún plugin (ej. plugin removido o
+ * registry caído), se añade igualmente como opción con sufijo "(no
+ * registrado)" para no perder el valor del producto.
+ *
+ * Mantenemos `manual` siempre disponible aunque no llegue del backend
+ * (plugin trivial bootstrap). Defensivo por si la lista llegase vacía.
+ */
+function buildProvisionerOptions(
+  plugins: readonly AdminPluginListItem[],
+  currentSlug: string,
+): { value: string; label: string }[] {
+  const seen = new Set<string>();
+  const options: { value: string; label: string }[] = [];
+  for (const p of plugins) {
+    if (seen.has(p.slug)) continue;
+    seen.add(p.slug);
+    options.push({
+      value: p.slug,
+      label: p.manifest?.label ? `${p.manifest.label} (${p.slug})` : p.slug,
+    });
+  }
+  if (!seen.has('manual')) {
+    options.push({ value: 'manual', label: 'manual' });
+    seen.add('manual');
+  }
+  if (currentSlug && !seen.has(currentSlug)) {
+    options.push({
+      value: currentSlug,
+      label: `${currentSlug} (no registrado)`,
+    });
+  }
+  return options;
 }
