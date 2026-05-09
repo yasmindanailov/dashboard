@@ -233,6 +233,27 @@ export interface ServiceAction {
   /** Si renderizar con estilo destructive. */
   destructive: boolean;
   /**
+   * Sprint 15C Fase 15C.E (ADR-077 Amendment A3 + ADR-083 Amendment A3).
+   *
+   * Si `true`, la acción solo puede ser invocada por usuarios con rol
+   * staff (`superadmin` / `agent_full` / `agent_billing` / `agent_support`).
+   * El wrapper `executeActionWithCacheInvalidation` la enforce con HTTP 403
+   * (ForbiddenException) + audit pesado + evento
+   * `service.action_admin_only_violation` cuando un cliente la invoca.
+   *
+   * Default `false` (client-callable). Plugins existentes que no declaran
+   * el campo conservan comportamiento previo.
+   *
+   * Frontend filtra `inlineActions` por rol: el cliente sólo ve acciones
+   * con `adminOnly !== true`; admin ve todas. El backend nunca confía en
+   * el frontend (defense-in-depth).
+   *
+   * Ortogonal a `destructive`: una action puede ser `adminOnly` sin ser
+   * destructive (ej. `change_package` sólo impacta billing) o destructive
+   * sin ser admin-only (ej. `delete_dns_record` borra record propio).
+   */
+  adminOnly?: boolean;
+  /**
    * Schema de payload (Zod descrito como JSON Schema 7).
    * Usado por frontend para construir el formulario inline.
    */

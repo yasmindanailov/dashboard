@@ -250,6 +250,7 @@ describe('executeActionWithCacheInvalidation â€” Sprint 11 Fase 11.B', () =
     actorUserId: 'user-1',
     ipAddress: '10.0.0.1',
     userAgent: 'jest',
+    actorIsAdmin: false, // Sprint 15C Fase 15C.E — ADR-077 Amendment A3
   };
 
   it('slug no declarado â†’ success=false, no llama plugin', async () => {
@@ -321,6 +322,133 @@ describe('executeActionWithCacheInvalidation â€” Sprint 11 Fase 11.B', () =
         success: true,
       }),
     );
+  });
+
+  // Sprint 15C Fase 15C.E (ADR-077 A3 + ADR-083 A3) — enforcement adminOnly.
+  it('adminOnly + actorIsAdmin=false → ForbiddenException + audit + evento (no llama plugin)', async () => {
+    const cache = buildCache();
+    const events = buildEvents();
+    const audit = buildAudit();
+    const plugin = buildPlugin({
+      inlineActions: [
+        {
+          slug: 'change_package',
+          label: 'plugin.test.actions.change_package',
+          confirmRequired: true,
+          destructive: false,
+          adminOnly: true,
+        },
+      ],
+      executeAction: jest.fn(),
+    });
+
+    await expect(
+      executeActionWithCacheInvalidation(
+        plugin,
+        mockService,
+        'change_package',
+        { planId: 99 },
+        { ...ctx, actorIsAdmin: false },
+        cache,
+        events,
+        audit as never,
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'ACTION_ADMIN_ONLY',
+        action_slug: 'change_package',
+      }),
+      status: 403,
+    });
+
+    expect(plugin.executeAction).not.toHaveBeenCalled();
+    expect(cache.invalidate).not.toHaveBeenCalled();
+    expect(audit.logAccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'service.action_admin_only_violation',
+        resource: 'Service',
+      }),
+    );
+    expect(events.emit).toHaveBeenCalledWith(
+      'service.action_admin_only_violation',
+      expect.objectContaining({
+        service_id: 'svc-1',
+        actor_user_id: 'user-1',
+        action_slug: 'change_package',
+      }),
+    );
+  });
+
+  it('adminOnly + actorIsAdmin=true → procede normalmente (audit OK + action_executed)', async () => {
+    const cache = buildCache();
+    const events = buildEvents();
+    const audit = buildAudit();
+    const plugin = buildPlugin({
+      inlineActions: [
+        {
+          slug: 'force_resync',
+          label: 'plugin.test.actions.force_resync',
+          confirmRequired: false,
+          destructive: false,
+          adminOnly: true,
+        },
+      ],
+      executeAction: jest.fn().mockResolvedValue({
+        success: true,
+        sideEffects: ['service.metrics_invalidated'],
+      }),
+    });
+
+    const result = await executeActionWithCacheInvalidation(
+      plugin,
+      mockService,
+      'force_resync',
+      {},
+      { ...ctx, actorIsAdmin: true },
+      cache,
+      events,
+      audit as never,
+    );
+
+    expect(result.success).toBe(true);
+    expect(plugin.executeAction).toHaveBeenCalled();
+    expect(audit.logAccess).not.toHaveBeenCalled();
+    expect(events.emit).toHaveBeenCalledWith(
+      'service.action_executed',
+      expect.any(Object),
+    );
+  });
+
+  it('action sin adminOnly + actorIsAdmin=false → procede (no enforcement)', async () => {
+    const cache = buildCache();
+    const events = buildEvents();
+    const audit = buildAudit();
+    const plugin = buildPlugin({
+      inlineActions: [
+        {
+          slug: 'view_disk_usage',
+          label: 'plugin.test.actions.view_disk',
+          confirmRequired: false,
+          destructive: false,
+        },
+      ],
+      executeAction: jest.fn().mockResolvedValue({ success: true }),
+    });
+
+    const result = await executeActionWithCacheInvalidation(
+      plugin,
+      mockService,
+      'view_disk_usage',
+      {},
+      { ...ctx, actorIsAdmin: false },
+      cache,
+      events,
+      audit as never,
+    );
+
+    expect(result.success).toBe(true);
+    expect(plugin.executeAction).toHaveBeenCalled();
+    expect(audit.logAccess).not.toHaveBeenCalled();
   });
 });
 
