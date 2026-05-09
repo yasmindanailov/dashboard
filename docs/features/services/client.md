@@ -109,6 +109,54 @@ Cada vez que el dashboard consulta el proveedor para enseñarte tus métricas, a
 
 ---
 
+## 7.5. Gestión DNS (Sprint 15C Fase 15C.G)
+
+> Disponible solo si tu servicio usa un plugin con autoridad DNS (hoy: hosting Enhance). El botón **"Gestionar DNS"** aparece en el detalle del servicio cuando aplica.
+
+### 7.5.1. Página `/dashboard/services/[id]/dns`
+
+UI canónica para crear, editar y eliminar registros DNS de la zona autoritativa de tu dominio. Aelium opera el clúster Enhance como autoridad DNS real (PowerDNS) — los cambios se reflejan en la zona inmediatamente y se propagan en minutos según el TTL.
+
+**Tipos soportados v1 (7 de los 11 que Enhance maneja):**
+
+| Tipo | Para qué se usa | Ejemplo `value` |
+|---|---|---|
+| `A` | IPv4 al apex o subdominio | `192.0.2.42` |
+| `AAAA` | IPv6 al apex o subdominio | `2001:db8::1` |
+| `CNAME` | Alias de hostname (NO en `@`) | `otrodominio.com.` |
+| `MX` | Servidor de correo | `mail.midominio.com` (priority en value) |
+| `TXT` | SPF, DKIM, DMARC, verificaciones | `"v=spf1 include:_spf.google.com ~all"` |
+| `SRV` | Discovery (SIP, XMPP, Matrix) | `10 60 5060 sip.midominio.com.` |
+| `CAA` | Política de issuance SSL | `0 issue "letsencrypt.org"` |
+
+**Diferidos a v1.x con razón canónica** ([ADR-083 §5 decisión 17](../../10-decisions/adr-083-plugin-enhance-cp-specifics.md)): `SPF` (deprecated RFC 7208), `NS` (zone-level, requiere admin), `PTR` (reverse DNS, edge-case), `DS` (DNSSEC, Sprint posterior).
+
+### 7.5.2. Estado: DNS externo vs Aelium
+
+El [resolver canónico](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md#36-cross-plugin-dns-authority-resolver-nuevo-en-15c) (`core/provisioning/dns-authority-resolver.ts`) compara los nameservers de tu dominio con `setting.provisioning.default_nameservers`:
+
+- **Match Aelium** → renderiza la tabla CRUD de records.
+- **No match** → banner explicativo + nameservers actuales + instrucciones para cambiar a `ns1/ns2.aelium.net` desde tu registrar externo.
+
+### 7.5.3. CRUD operativo
+
+- **Crear**: botón "Añadir record" → modal con form (Tipo, Nombre, Valor, TTL opcional, Proxy boolean). Helper-text contextual por tipo (ej. para `A`: "Dirección IPv4. Ejemplo: 192.0.2.42").
+- **Editar**: botón "Editar" en la fila → mismo modal con campos prehidratados. Solo se envían los campos que cambian (PATCH parcial).
+- **Eliminar**: botón "Eliminar" → modal de confirmación obligatoria ([ADR-083 §9 decisión 32](../../10-decisions/adr-083-plugin-enhance-cp-specifics.md) — `delete_dns_record` declarado `destructive=true` + `confirmRequired=true`). El audit pesado (`service.action_executed:delete_dns_record`) queda en tu portal de transparencia.
+
+### 7.5.4. TTL y propagación
+
+- TTL en segundos, rango 60–86400. Vacío = TTL por defecto del proveedor.
+- Tras un cambio, el TTL anterior gobierna cuánto tiempo verán los resolvers el valor antiguo. Si vas a hacer un cambio importante (cambiar A del apex), baja el TTL primero a 60s, espera el TTL viejo, haz el cambio, y luego sube el TTL.
+
+### 7.5.5. Default records de la plataforma
+
+Cuando Aelium provisiona tu hosting, aplica un set de **default DNS records** a tu zona ([ADR-083 §5 decisión 20](../../10-decisions/adr-083-plugin-enhance-cp-specifics.md)): `A @ → server_ip`, `A www → server_ip`, `NS @ → ns1/ns2.aelium.net`, opcionalmente `MX @`. Estos aparecen en la tabla como records normales — puedes editarlos o eliminarlos si quieres customizar tu zona.
+
+> Si eliminas accidentalmente un default record y rompe tu sitio, contacta con soporte: el listener `ReconcileDnsDefaultsOnServiceActivatedListener` (Sprint 15C Fase D) los recrea con un re-provisioning manual.
+
+---
+
 ## 8. Preguntas frecuentes
 
 **¿Por qué no veo el botón "Abrir panel" en mi servicio?**
