@@ -159,7 +159,7 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ---
 
-## 🔄 Sprint 15C — Plugin Enhance CP (P2.3) (Fases A+B+C+D cerradas; E-I pendientes)
+## 🔄 Sprint 15C — Plugin Enhance CP (P2.3) (Fases A+B+C+D cerradas; E en review PR #44; E.2-J pendientes)
 
 > Cabeza de cola activa P2.3 — primer plugin real post Sprint 15A. **11 fases planificadas** (15C.A → 15C.J) — **9-12.5 sesiones** según [`sprint-15c-enhance-cp-dossier.md` §7](./sprint-15c-enhance-cp-dossier.md#7-estimación-esfuerzo-sprint-15c--11-fases). Reformulación 2026-05-09 (Fase 15C.E PR #44 review) añadió 2 fases nuevas (E.2 frontend acciones curadas + J cierre real con admin page) que cierran gaps estructurales del alcance frontend originalmente implícito. Bloqueante operacional para Sprint 15D RC (sin DNS authority cluster Enhance, los dominios registrados con NS=Aelium quedarían sin destino).
 
@@ -174,11 +174,13 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ### Fases pendientes
 
-- ⏳ **15C.E** — Acciones curadas (reset_password, view_disk, view_bandwidth, change_package admin, force_resync admin) + audit completo (0.5-1 sesión).
+- 🔄 **15C.E** — Acciones curadas backend (reset_password + view_disk + view_bandwidth + change_package admin + force_resync admin) + audit completo + flag canónico `ServiceAction.adminOnly` ([ADR-077 Amendment A3](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md#amendments)) + 10ª action `list_available_plans` ([ADR-083 Amendment A3](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendments)) + enforcement HTTP 403 backend + evento `service.action_admin_only_violation`. **En review** PR [#44](https://github.com/yasmindanailov/dashboard/pull/44) — 8 commits + suite 454/459 + 5 skipped + lint:check + build verde (0.5-1 sesión).
+- ⏳ **15C.E.2** ⭐ — **Frontend acciones curadas (NUEVA — gap descubierto Fase E review)**: form admin productos extendido con sub-form dinámico `provisioner_config` via `@rjsf/core` JSON-Schema 7 (patrón heredado Sprint 15A plugin install UI; para `enhance_cp` campo `enhance_plan_id: integer` required) + filter `adminOnly` en `ActionsBar.tsx` con prop `isAdmin` desde AuthContext. **Sin Fase E.2 ningún producto Enhance es contratable operativamente** (1 sesión).
 - ⏳ **15C.F** — SSO endpoints (cliente Customer Panel + admin impersonation + evento `service.admin_sso_impersonation` + listener GDPR) (0.5-1 sesión).
 - ⏳ **15C.G** — DNS records management UI (7 tipos via `@rjsf/core` heredado Sprint 15A) — pieza pesada, frontend `/dashboard/services/[id]/dns` (1.5-2 sesiones).
 - ⏳ **15C.H** — Cron `reconcile-enhance-services` 6h + setting threshold + evento `service.reconciled_external_change` + listener audit con flag GDPR + tests (0.5 sesión).
-- ⏳ **15C.I** — E2E (mock server completo + smoke contra live) + cierre documental + retrospectiva + i18n strings (1 sesión).
+- ⏳ **15C.I** — E2E completo flujo Enhance (producto admin → checkout → orchestrator → service.activated → frontend render N botones filtrados → click cliente adminOnly → 403 + audit; click admin → 200) + smoke manual contra Enhance live (1-2h) + cierre documental (`admin-plugins-enhance.md` + retrospectiva + `_events.md` + `_matrix.md`) + i18n strings finales (1-1.5 sesión).
+- ⏳ **15C.J** ⭐ — **Cierre real operativo (NUEVA — gap descubierto Fase E review)**: página admin `/admin/services/[id]` SC nativo paralelo al detalle cliente con 3 botones admin operables + modal `change_package` (invoca primero `list_available_plans` para dropdown + luego `change_package` con planId elegido) + plugin install seed condicional `NODE_ENV !== 'production'` para DX QA/staging (1 sesión).
 
 ---
 
