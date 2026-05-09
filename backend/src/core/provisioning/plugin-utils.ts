@@ -340,8 +340,21 @@ export interface GetSsoUrlContext {
  *   1. Llama plugin.getSsoUrl(service).
  *   2. Si null → devuelve null (UI oculta botón).
  *   3. Si url → emite `service.sso_opened` + audit log.
+ *   4. Sprint 15C Fase 15C.F (ADR-083 §4 decisión 14 + §6 evento canónico):
+ *      Si el actor es staff Y el service NO le pertenece (impersonation real),
+ *      emite ADEMÁS `service.admin_sso_impersonation` con shape GDPR-flagged.
+ *      Listener `audit-on-admin-sso-impersonation` lo persiste en
+ *      `audit_access_log` con `metadata.target_user_id = service.user_id` para
+ *      que el portal `/dashboard/transparency` del cliente afectado lo exponga.
  *
  * El plugin SOLO genera la URL — no audita ni emite eventos.
+ *
+ * Predicado canónico de impersonation: `actorIsAdmin && service.user_id !== actorUserId`.
+ *   - Admin abriendo SU PROPIO servicio (caso edge raro) → solo `service.sso_opened`.
+ *   - Admin abriendo servicio AJENO → ambos eventos.
+ *   - Cliente abriendo su servicio → solo `service.sso_opened`.
+ *   - Cliente abriendo ajeno → bloqueado en `provisioning.service.getSsoForUser`
+ *     (ForbiddenException antes de llegar aquí).
  */
 export async function getSsoUrlWithAudit(
   plugin: ProvisionerPlugin,
@@ -392,6 +405,25 @@ export async function getSsoUrlWithAudit(
     panel_label: sso.panelLabel,
     ip: ctx.ipAddress,
   });
+
+  // Sprint 15C Fase 15C.F — admin impersonation (ADR-083 §4 decisión 14).
+  // Predicado canónico: staff + service de OTRO usuario. Shape canónico
+  // congelado en ADR-083 §6 — listener `audit-on-admin-sso-impersonation`
+  // lo persiste con `metadata.target_user_id = service.user_id` para que
+  // el portal de transparencia del cliente afectado lo exponga.
+  if (ctx.actorIsAdmin === true && service.user_id !== ctx.actorUserId) {
+    events.emit('service.admin_sso_impersonation', {
+      service_id: service.id,
+      user_id: service.user_id,
+      agent_user_id: ctx.actorUserId,
+      agent_ip: ctx.ipAddress,
+      agent_user_agent: ctx.userAgent ?? null,
+      provisioner_slug: plugin.slug,
+      panel_label: sso.panelLabel,
+      opened_at: new Date().toISOString(),
+      gdpr_visible_to_data_subject: true,
+    });
+  }
 
   return sso;
 }

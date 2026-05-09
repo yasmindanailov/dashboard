@@ -554,4 +554,167 @@ describe('getSsoUrlWithAudit â€” Sprint 11 Fase 11.B', () => {
     expect(audit.logAccess).not.toHaveBeenCalled();
     expect(events.emit).not.toHaveBeenCalled();
   });
+
+  // ─── Sprint 15C Fase 15C.F — admin SSO impersonation ─────────────────
+  // ADR-083 §4 decisión 14: cuando un agente Aelium abre el panel del
+  // proveedor de un servicio AJENO, además de `service.sso_opened` se
+  // emite `service.admin_sso_impersonation` con shape canónico GDPR para
+  // que el portal de transparencia del cliente afectado lo exponga.
+
+  function buildSsoCapablePlugin(): ProvisionerPlugin {
+    return buildPlugin({
+      capabilities: {
+        has_sso_panel: true,
+        panel_label: 'cPanel',
+        has_metrics: false,
+        has_metrics_history: false,
+        requires_server: false,
+        provision_mode: 'sync',
+        completes_via_task: false,
+        supports_reconciliation: true,
+        has_dns_management: false,
+      },
+      getSsoUrl: jest.fn().mockResolvedValue({
+        url: 'https://cpanel.example.com/?sk=abc',
+        expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+        panelLabel: 'cPanel',
+        opensIn: 'new_tab',
+      }),
+    });
+  }
+
+  it('admin abre service AJENO → emite sso_opened + admin_sso_impersonation con shape canónico', async () => {
+    const events = buildEvents();
+    const audit = buildAudit();
+    const plugin = buildSsoCapablePlugin();
+    // mockService.user_id = 'user-1'; agente = 'agent-007' ≠ 'user-1'.
+    const adminCtx = {
+      actorUserId: 'agent-007',
+      ipAddress: '203.0.113.42',
+      userAgent: 'Mozilla/5.0 (admin)',
+      actorIsAdmin: true,
+    };
+
+    const out = await getSsoUrlWithAudit(
+      plugin,
+      mockService,
+      adminCtx,
+      events,
+      audit as never,
+    );
+
+    expect(out?.url).toContain('cpanel.example.com');
+    expect(events.emit).toHaveBeenCalledWith(
+      'service.sso_opened',
+      expect.objectContaining({
+        service_id: 'svc-1',
+        actor_user_id: 'agent-007',
+      }),
+    );
+    expect(events.emit).toHaveBeenCalledWith(
+      'service.admin_sso_impersonation',
+      expect.objectContaining({
+        service_id: 'svc-1',
+        user_id: 'user-1',
+        agent_user_id: 'agent-007',
+        agent_ip: '203.0.113.42',
+        agent_user_agent: 'Mozilla/5.0 (admin)',
+        provisioner_slug: 'internal',
+        panel_label: 'cPanel',
+        gdpr_visible_to_data_subject: true,
+      }),
+    );
+    // `opened_at` debe ser ISO-8601.
+    const calls = (events.emit as jest.Mock).mock.calls as ReadonlyArray<
+      readonly [string, Record<string, unknown>]
+    >;
+    const impersonationCall = calls.find(
+      ([name]) => name === 'service.admin_sso_impersonation',
+    );
+    expect(impersonationCall).toBeDefined();
+    const payload = impersonationCall![1];
+    expect(payload.opened_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  });
+
+  it('admin abre service PROPIO → solo sso_opened (NO impersonation)', async () => {
+    const events = buildEvents();
+    const audit = buildAudit();
+    const plugin = buildSsoCapablePlugin();
+    // mockService.user_id = 'user-1'; agente que ES dueño del service.
+    const adminOwnCtx = {
+      actorUserId: 'user-1',
+      ipAddress: '10.0.0.1',
+      userAgent: 'jest',
+      actorIsAdmin: true,
+    };
+
+    await getSsoUrlWithAudit(
+      plugin,
+      mockService,
+      adminOwnCtx,
+      events,
+      audit as never,
+    );
+
+    expect(events.emit).toHaveBeenCalledWith(
+      'service.sso_opened',
+      expect.any(Object),
+    );
+    expect(events.emit).not.toHaveBeenCalledWith(
+      'service.admin_sso_impersonation',
+      expect.any(Object),
+    );
+  });
+
+  it('cliente (actorIsAdmin=false) → solo sso_opened nunca admin_sso_impersonation', async () => {
+    const events = buildEvents();
+    const audit = buildAudit();
+    const plugin = buildSsoCapablePlugin();
+    const clientCtx = {
+      actorUserId: 'user-1',
+      ipAddress: '10.0.0.2',
+      userAgent: 'browser',
+      actorIsAdmin: false,
+    };
+
+    await getSsoUrlWithAudit(
+      plugin,
+      mockService,
+      clientCtx,
+      events,
+      audit as never,
+    );
+
+    expect(events.emit).toHaveBeenCalledWith(
+      'service.sso_opened',
+      expect.any(Object),
+    );
+    expect(events.emit).not.toHaveBeenCalledWith(
+      'service.admin_sso_impersonation',
+      expect.any(Object),
+    );
+  });
+
+  it('actorIsAdmin omitido (compat hacia atrás) → solo sso_opened', async () => {
+    const events = buildEvents();
+    const audit = buildAudit();
+    const plugin = buildSsoCapablePlugin();
+    // ctx canónico Sprint 11 sin `actorIsAdmin` — invariante backward compat.
+    await getSsoUrlWithAudit(
+      plugin,
+      mockService,
+      { actorUserId: 'agent-007', ipAddress: '10.0.0.3', userAgent: 'jest' },
+      events,
+      audit as never,
+    );
+
+    expect(events.emit).toHaveBeenCalledWith(
+      'service.sso_opened',
+      expect.any(Object),
+    );
+    expect(events.emit).not.toHaveBeenCalledWith(
+      'service.admin_sso_impersonation',
+      expect.any(Object),
+    );
+  });
 });
