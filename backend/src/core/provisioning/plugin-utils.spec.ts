@@ -354,10 +354,10 @@ describe('executeActionWithCacheInvalidation â€” Sprint 11 Fase 11.B', () =
         audit as never,
       ),
     ).rejects.toMatchObject({
-      response: expect.objectContaining({
+      response: {
         code: 'ACTION_ADMIN_ONLY',
         action_slug: 'change_package',
-      }),
+      },
       status: 403,
     });
 

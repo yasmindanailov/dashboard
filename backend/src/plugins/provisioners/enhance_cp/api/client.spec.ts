@@ -457,8 +457,9 @@ describe('EnhanceApiClient — Sprint 15C Fase 15C.B', () => {
       fetchMock.mockResolvedValueOnce(
         json(404, { code: 'NotFound', message: 'org not found' }),
       );
-      await expect(client.listPlans('00000000-0000-0000-0000-000000000999'))
-        .rejects.toMatchObject({ code: 'INVALID_STATE' });
+      await expect(
+        client.listPlans('00000000-0000-0000-0000-000000000999'),
+      ).rejects.toMatchObject({ code: 'INVALID_STATE' });
     });
   });
 
