@@ -136,17 +136,70 @@ Permiten validar:
 
 ```
 backend/prisma/
-├── seed.ts                      ← orquestador (~50 líneas)
+├── seed.ts                            ← orquestador
 └── seeds/
-    ├── roles.ts                 ← 7 roles del enum RoleSlug
-    ├── settings.ts              ← 32 settings categorizados
-    ├── notification-templates.ts ← plantillas Handlebars
-    ├── test-accounts.ts         ← 1 cuenta por rol + guard NODE_ENV
-    ├── sample-clients.ts        ← 2 clientes + billing profiles
-    ├── sample-products.ts       ← 2 productos + pricing rows
-    ├── sample-invoices.ts       ← 2 facturas + items
-    └── sample-support.ts        ← 1 ticket + 1 chat con mensajes
+    ├── roles.ts                       ← 7 roles del enum RoleSlug
+    ├── settings.ts                    ← settings canónicos categorizados
+    ├── plugin-installs.ts             ← bootstrap plugins triviales (Sprint 15A)
+    ├── sample-enhance-plugin-install.ts ← plugin install enhance_cp dev/QA (Sprint 15C Fase J)
+    ├── notification-templates.ts      ← plantillas Handlebars
+    ├── support-inside-plans.ts        ← 3 planes canónicos Support Inside (Sprint 8 D)
+    ├── test-accounts.ts               ← 1 cuenta por rol + guard NODE_ENV
+    ├── sample-clients.ts              ← 2 clientes + billing profiles
+    ├── sample-products.ts             ← 2 productos + pricing rows
+    ├── sample-invoices.ts             ← 2 facturas + items
+    ├── sample-support.ts              ← 1 ticket + 1 chat con mensajes
+    ├── sample-support-inside.ts       ← subscription Support Inside Carla
+    └── sample-client-notes.ts         ← 2 notas demo (Sprint 16)
 ```
+
+### Seed dev/QA del plugin install Enhance CP (Sprint 15C Fase 15C.J)
+
+`seedSampleEnhancePluginInstall` materializa el segundo objetivo de la
+Fase J: pre-crear `plugin_installs.slug='enhance_cp'` con `enabled=true`
++ secrets cifrados, sin requerir que el admin pase por
+`/admin/settings/plugins` en cada `pnpm seed`. DX para QA/staging/dev.
+
+**Activación condicional** (4 condiciones AND, ambigüedad A3 resuelta
+2026-05-09):
+
+1. `NODE_ENV !== 'production'` (skip silencioso en producción).
+2. `process.env.ENHANCE_DEV_BASE_URL` no vacía (tras trim).
+3. `process.env.ENHANCE_DEV_MASTER_ORG_ID` no vacía (tras trim).
+4. `process.env.ENHANCE_DEV_API_TOKEN` no vacía (tras trim).
+
+Si alguna falta → log info "ENHANCE_DEV_* env vars incompletas — saltando
+enhance_cp plugin install" + skip. NO crea fila vacía con `enabled=false`
+(anti-patrón: confunde al admin viendo la UI de plugins y no aporta DX).
+
+**Encrypt del apiToken**: el seed instancia `SecretVaultService`
+([backend/src/core/security/secret-vault.service.ts](../../backend/src/core/security/secret-vault.service.ts))
+con un shim `ConfigService` que delega a `process.env.ENCRYPTION_KEY`.
+Mismo algoritmo AES-256-GCM ([ADR-080 §3](../10-decisions/adr-080-plugin-framework.md))
+que el backend en runtime — el blob cifrado por el seed es descifrable por
+el plugin tras boot. Verificado por spec con round-trip real.
+
+**Idempotente**: si la fila `plugin_installs.slug='enhance_cp'` ya existe
+(admin la creó vía UI o seed previo) → preserved (NO sobreescribe). Loguea
+"preserved (existing — admin config wins)".
+
+```bash
+# .env (dev/QA):
+ENHANCE_DEV_BASE_URL=https://enhance.lab.aelium.net
+ENHANCE_DEV_MASTER_ORG_ID=00000000-0000-0000-0000-00000000aaaa
+ENHANCE_DEV_API_TOKEN=eyJhbG...
+
+# pnpm seed:
+🌱 Seeding database...
+  ...
+  📦 plugin_installs: 0 created, 2 preserved.
+  📦 enhance_cp plugin install: created (enabled=true, baseUrl=https://enhance.lab.aelium.net)
+  ...
+✅ Seed completed
+```
+
+En producción la fila `enhance_cp` se crea desde la UI admin con secrets
+cifrados (mismo `SecretVaultService` runtime — blob format compatible).
 
 Cada módulo es **self-contained** y se ejecuta de forma independiente.
 Para añadir un nuevo bloque de datos demo:

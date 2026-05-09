@@ -9,6 +9,12 @@
  * `service.action_admin_only_violation`); este filter es UX para no
  * mostrar al cliente un botón que recibiría 403 si lo pulsara.
  *
+ * Sprint 15C Fase 15C.J (2026-05-09): blacklist `INTERNAL_HELPER_SLUGS`
+ * para slugs que el backend declara como `inlineActions` por necesidad
+ * del contrato canónico (ADR-077) pero que NO deben renderizarse como
+ * botones standalone — son helpers operados desde modales/UI custom
+ * admin-only en sus respectivas páginas (`/admin/services/[id]`).
+ *
  * Renderiza los `info.availableActions` del plugin como botones. Cada
  * acción dispara executeAction con confirmación cuando aplique. El
  * resultado del plugin se muestra en línea (success.message o
@@ -17,13 +23,33 @@
  *
  * Plugins triviales `internal` y `manual` declaran `availableActions=[]`
  * → este componente NO se renderiza por ellos. Si tras filtrar por
- * `adminOnly` la lista queda vacía (cliente ve servicio Enhance con sólo
- * actions admin), también se oculta.
+ * `adminOnly` + helpers internos la lista queda vacía, también se oculta.
  */
 import { useState } from 'react';
 import { Button, Card } from '../../components/ui';
 import type { ActionResult, ServiceAction } from '../../lib/api';
 import { executeServiceActionAction } from './_actions';
+
+/**
+ * Slugs operados desde UI admin custom (modales propios), NO botones
+ * standalone. Acoplamiento bajo (string array hardcoded — vale la pena
+ * v1 vs introducir un nuevo flag `hidden_in_actions_bar` en el contrato
+ * canónico ProvisionerPlugin solo por esto).
+ *
+ * Sprint 15C Fase 15C.J — ADR-083 §6 decisión 30 + Amendment A3:
+ *   - `change_package`        — operado vía `ChangePackageModal` en
+ *                               `/admin/services/[id]/_components/`.
+ *   - `list_available_plans`  — helper interno del modal change_package
+ *                               (alimenta el dropdown). NO acción
+ *                               standalone que el admin pulse.
+ *
+ * Si llega un futuro plugin con un slug que también deba ocultarse,
+ * añadir aquí + documentar el motivo inline.
+ */
+const INTERNAL_HELPER_SLUGS = new Set<string>([
+  'change_package',
+  'list_available_plans',
+]);
 
 interface ActionsBarProps {
   serviceId: string;
@@ -54,7 +80,13 @@ export function ActionsBar({
 
   // ADR-077 Amendment A3.5 patrón canónico — filter declarativo por flag,
   // NUNCA por slug (eso rompería ADR-070 "cero `if (provisioner === 'X')`").
-  const visibleActions = actions.filter((a) => !a.adminOnly || isAdmin);
+  // El segundo filter (INTERNAL_HELPER_SLUGS, Sprint 15C Fase J) es la
+  // ÚNICA excepción canónica documentada: slugs operados desde UI admin
+  // custom específica (modal) que el contrato declara por necesidad pero
+  // no deben aparecer como botones standalone. Ver doc inline arriba.
+  const visibleActions = actions
+    .filter((a) => !a.adminOnly || isAdmin)
+    .filter((a) => !INTERNAL_HELPER_SLUGS.has(a.slug));
 
   if (visibleActions.length === 0) return null;
 

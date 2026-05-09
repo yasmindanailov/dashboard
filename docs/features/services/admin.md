@@ -37,18 +37,25 @@ Filtros en cabecera: cliente (search-as-you-type), `provisioner_slug` (select), 
 >
 > **Para qué NO sirve:** atención cotidiana al cliente. Cuando un cliente abre ticket sobre su servicio, abre su ficha en `/admin/clients/<id>` (que tendrá bloque "Servicios contratados" — pendiente sprint posterior, **DC.29** en `backlog.md`).
 
-### 2.2 `/admin/services/<id>` (detalle admin) — **futuro Sprint 13**
+### 2.2 `/admin/services/<id>` (detalle admin) — ✅ Sprint 15C Fase 15C.J
 
-Hoy (Sprint 11 Fase 11.D) el detalle vive sólo en cliente (`/dashboard/services/[id]`). Cuando Sprint 13 §13.AUTH cierre el patrón Server Components + cookies httpOnly, se construirá la versión admin con campos extendidos (audit log inline, override de `provisioner_data`, botones reprovision/deprovision). Mientras tanto, las acciones admin se ejecutan vía endpoints REST + script:
+SC nativo paralelo al detalle cliente (`/dashboard/services/[id]/page.tsx`). Llama `GET /admin/services/${id}` que devuelve el mismo `ServiceDetailResponse` shape pero sin filtro ownership (`AdminProvisioningController.detail` con `isAdmin=true`). Reusa `ServiceHeader` + `MetricsBar` + `SsoButton` + `ActionsBar` (con `isAdmin=true`) del `_shared/services/`. Añade:
+
+- **Card "Datos del servicio (admin)"** — info no expuesta al cliente: Service ID, owner link a `/admin/clients/[user_id]`, provisioner_slug, producto (nombre + slug + type), estado canónico Prisma, fecha creación.
+- **SSO panel** — mismo botón que el cliente. Al pulsarlo, el wrapper `getSsoUrlWithAudit` detecta admin sobre service ajeno y emite `service.admin_sso_impersonation` (Sprint 15C Fase F) → portal transparency del cliente afectado lo expone.
+- **`ActionsBar`** — renderiza únicamente las actions cuyo `slug` NO está en `INTERNAL_HELPER_SLUGS = ['change_package', 'list_available_plans']` (blacklist Fase J en `_shared/services/ActionsBar.tsx`). Para `enhance_cp`: solo `force_resync` aparece como botón directo.
+- **Card "Operaciones admin"** — botón "Cambiar plan…" (CC `AdminServiceOperationsCard` colocated en `_components/`) que abre `ChangePackageModal`. El modal:
+  1. Al abrir, invoca `executeAction('list_available_plans')` (10ª inline action `adminOnly=true`, ADR-083 Amendment A3) para poblar dropdown con planes del Master Org Aelium.
+  2. Admin selecciona target + confirma → invoca `executeAction('change_package', {planId})`.
+  3. Backend hace PATCH a Enhance + actualiza `service.metadata.enhance_plan_id` (Sprint 15C Fase H bug fix — evita `plan_divergence` false-positive en cron L3).
+  4. Success → modal cierra + Server Action revalida `/admin/services/${id}`.
+- **Banner DNS gestión** — link condicional si `info.capabilities.has_dns_management=true`. La UI admin nativa de DNS (`/admin/services/[id]/dns`) llegará en sprint futuro; por ahora el admin abre el panel del proveedor vía SSO.
+
+**Reprovision/Deprovision** — endpoints `POST /admin/services/:id/reprovision` y `POST /admin/services/:id/deprovision` siguen disponibles vía REST + script (no son scope de 15C.J — se difieren a sprint futuro de hardening admin):
 
 ```bash
-# Forzar re-ejecución del provisioning (escotilla)
-curl -X POST $API/v1/admin/services/<id>/reprovision \
-  -H "Authorization: Bearer $TOKEN"
-
-# Cancelar admin (cancela y agenda deprovision via plugin)
-curl -X POST $API/v1/admin/services/<id>/deprovision \
-  -H "Authorization: Bearer $TOKEN"
+curl -X POST $API/v1/admin/services/<id>/reprovision -H "Authorization: Bearer $TOKEN"
+curl -X POST $API/v1/admin/services/<id>/deprovision -H "Authorization: Bearer $TOKEN"
 ```
 
 ---
