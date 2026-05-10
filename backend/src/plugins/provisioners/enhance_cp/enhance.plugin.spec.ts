@@ -1,3 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/unbound-method */
+// `unbound-method` + `no-unsafe-*` producen falsos positivos en specs Jest
+// cuando se hace `expect(mock.method).toHaveBeenCalled()` o se accede
+// `mock.calls[0][0]` para introspección. Doctrina oficial TS-ESLint para
+// specs: deshabilitar a nivel de archivo. Solo aplica a este `.spec.ts`.
+
 /**
  * Sprint 15C Fase 15C.C — tests unit `EnhanceProvisionerPlugin`.
  *
@@ -48,12 +56,16 @@
  *     - manifest declarativo cumple shape JsonSchema7 (ADR-080 §1).
  */
 
+import { executeActionWithCacheInvalidation } from '../../../core/provisioning/plugin-utils';
+import type { ProvisioningCacheService } from '../../../core/provisioning/provisioning-cache.service';
 import {
   ProvisionerPluginError,
   ServiceWithRelations,
 } from '../../../core/provisioning/types';
 
 import { EnhanceProvisionerPlugin, mapWebsiteStatus } from './enhance.plugin';
+
+import type { EventEmitter2 } from '@nestjs/event-emitter';
 
 describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
   const ORG_ID = '00000000-0000-0000-0000-00000000bbbb';
@@ -893,10 +905,96 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(result.success).toBe(true);
       expect(result.data?.password).toMatch(/^[0-9a-f]{32}$/);
       expect(api.resetLoginPassword).toHaveBeenCalledWith(LOGIN_ID, {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- jest stringMatching returns any
         NewPassword: expect.stringMatching(/^[0-9a-f]{32}$/),
       });
       expect(result.sideEffects).toEqual(['service.password_reset']);
+    });
+
+    // Sprint 15C.II Fase D (gap G2 — ADR-083 Amendment A4.5): defense-in-depth
+    // integration test que invoca el plugin a través del wrapper canónico
+    // `executeActionWithCacheInvalidation`. Verifica end-to-end que la
+    // password plaintext devuelta por el plugin queda redactada en
+    // `audit_change_log` (R12 compliance) pero conservada en el evento
+    // `service.action_executed` (consumo del listener email Sprint 15C.II
+    // Fase D — `notifications-on-password-reset`).
+    it('reset_account_password vía wrapper: audit redactado + evento plaintext (gap G2 R12)', async () => {
+      const api = buildApiMock();
+      api.resetLoginPassword.mockResolvedValueOnce(undefined);
+      const plugin = buildPlugin(
+        buildPrismaMock({
+          install: VALID_INSTALL,
+          enhanceCustomer: {
+            user_id: USER_ID,
+            enhance_org_id: ORG_ID,
+            enhance_owner_login_id: LOGIN_ID,
+            enhance_owner_member_id: MEMBER_ID,
+          },
+        }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+
+      const cache = {
+        get: jest.fn(),
+        set: jest.fn(),
+        invalidate: jest.fn().mockResolvedValue(undefined),
+        invalidateAll: jest.fn(),
+      } as unknown as ProvisioningCacheService;
+      const events = {
+        emit: jest.fn(),
+      } as unknown as EventEmitter2;
+      const audit = {
+        logChange: jest.fn().mockResolvedValue(undefined),
+        logAccess: jest.fn().mockResolvedValue(undefined),
+      };
+
+      const result = await executeActionWithCacheInvalidation(
+        plugin,
+        buildServiceWithRefs(),
+        'reset_account_password',
+        {},
+        {
+          actorUserId: USER_ID,
+          ipAddress: '10.0.0.1',
+          userAgent: 'jest',
+          actorIsAdmin: false,
+        },
+        cache,
+        events,
+        audit as never,
+      );
+
+      // El wrapper devuelve el ActionResult sin tocar (la sanitización solo
+      // aplica al audit_change_log persistido).
+      expect(result.success).toBe(true);
+      const plaintextPwd = result.data?.password as string;
+      expect(plaintextPwd).toMatch(/^[0-9a-f]{32}$/);
+
+      // Audit fila persistida: data.password = '[REDACTED]' (R12).
+      expect(audit.logChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'service.action_executed:reset_account_password',
+          changes_after: expect.objectContaining({
+            data: { password: '[REDACTED]' },
+          }),
+        }),
+      );
+      const auditCall = audit.logChange.mock.calls[0][0] as {
+        changes_after: { data?: { password?: string } };
+      };
+      expect(auditCall.changes_after.data?.password).not.toBe(plaintextPwd);
+
+      // Evento canónico conserva plaintext (consumido por listener email
+      // in-memory; nunca se persiste con plaintext).
+      expect(events.emit).toHaveBeenCalledWith(
+        'service.action_executed',
+        expect.objectContaining({
+          action_slug: 'reset_account_password',
+          success: true,
+          data: { password: plaintextPwd },
+        }),
+      );
     });
 
     // Sprint 15C.II Fase B: test 'view_bandwidth_usage: read-only sin side effects'
@@ -1044,9 +1142,8 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(prismaMock.service.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: service.id },
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           data: expect.objectContaining({
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             metadata: expect.objectContaining({
               enhance_org_id: ORG_ID,
               enhance_plan_id: 99,

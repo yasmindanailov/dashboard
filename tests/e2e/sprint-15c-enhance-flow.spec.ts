@@ -173,6 +173,18 @@ test.describe.serial(
       if (testProductId) {
         await pool.query(`DELETE FROM products WHERE id = $1`, [testProductId]);
       }
+      // Sprint 15C.II Fase D: el spec test 7 inserta una fila
+      // `enhance_customers` para que `reset_account_password` resuelva el
+      // mapping cliente↔Enhance owner login. Limpieza explícita para que
+      // otros specs E2E partan limpios (no en TABLES_TO_TRUNCATE de
+      // resetTestData → ON DELETE CASCADE de users no cubre cuando los
+      // users del seed se preservan).
+      if (clientUserId) {
+        await pool.query(
+          `DELETE FROM enhance_customers WHERE user_id = $1`,
+          [clientUserId],
+        );
+      }
       // Restaura plugin_installs a estado bootstrap (solo internal + manual
       // habilitados) para que otros specs E2E partan limpios.
       await pool.query(
@@ -484,6 +496,154 @@ test.describe.serial(
       expect(plans.length).toBeGreaterThanOrEqual(3);
       const planIds = plans.map((p) => p.id);
       expect(planIds).toEqual(expect.arrayContaining([1, 2, 3]));
+    });
+
+    // Sprint 15C.II Fase D (DC.NEW-15CII-EMAIL-RESET + ADR-083 Amendment A4.5).
+    //
+    // Flujo end-to-end del par sanitizer (gap G2 R12) + listener email:
+    //   1. Cliente invoca `reset_account_password` → 200 + plugin resetea
+    //      la password en el mock + devuelve plaintext en el toast.
+    //   2. Wrapper canónico `executeActionWithCacheInvalidation` redacta
+    //      `data.password = '[REDACTED]'` en `audit_change_log` antes de
+    //      persistir (compliance R12) — VERIFICA con SQL.
+    //   3. Wrapper emite evento `service.action_executed` CON plaintext
+    //      in-memory para que el listener `notifications-on-password-reset`
+    //      lo consuma y dispatch el email.
+    //   4. `NotificationsService.dispatchToUser('service.password_reset', ...)`
+    //      renderiza la plantilla seedeada del mismo nombre (HTML con
+    //      Handlebars escape EC-T8-17) y entrega via mailpit. VERIFICA con
+    //      mailpit API que llega + contiene la password en el body.
+    //
+    // Scope: cliente self-reset (canónico UI_SPEC §1.2 P5 — empoderar al
+    // cliente). Admin acting-on-behalf (impersonación) cubierto por
+    // `notifications-on-password-reset.listener.spec.ts` unit + audit log.
+    test('7. cliente reset_account_password → 200 + email cliente con password + audit redactado (Fase D)', async ({
+      request,
+    }) => {
+      // Limpia estado previo determinista (idempotente):
+      //   - enhance_customers: el listener+plugin necesita la fila para
+      //     resolver `enhance_owner_login_id`. Re-creamos en este test con
+      //     UUIDs reales del mock (auto-generados al startup del runner).
+      //   - audit_change_log: el assert SQL debajo se hace por LIMIT 1 DESC,
+      //     limpiar previo asegura que leemos el del reset que disparamos.
+      //   - mailbox: garantiza determinismo del waitForEmail.
+      await pool.query(
+        `DELETE FROM enhance_customers WHERE user_id = $1`,
+        [clientUserId],
+      );
+      await pool.query(
+        `DELETE FROM audit_change_log
+         WHERE entity_id = $1
+           AND action = 'service.action_executed:reset_account_password'`,
+        [testServiceId],
+      );
+      await clearMailbox();
+
+      // El runner de mock-enhance generó UUIDs aleatorios para
+      // ownerLoginId + ownerMemberId del customer pre-seedeado al
+      // startup. Lookup vía `GET /orgs/:orgId` (devuelve org con
+      // ownerId + ownerLoginId) — espejo del flujo real del plugin
+      // cuando el provision step 5-6 setea owner.
+      const orgRes = await request.get(
+        `${MOCK_BASE_URL}/orgs/${FIXTURE_CUSTOMER_ORG_ID}`,
+        { headers: { Authorization: `Bearer ${MOCK_API_TOKEN}` } },
+      );
+      expect(
+        orgRes.ok(),
+        `mock GET /orgs/${FIXTURE_CUSTOMER_ORG_ID}: ${orgRes.status()}`,
+      ).toBeTruthy();
+      const org = (await orgRes.json()) as {
+        ownerId?: string;
+        ownerLoginId?: string;
+      };
+      expect(org.ownerId, 'mock org missing ownerId').toBeTruthy();
+      expect(org.ownerLoginId, 'mock org missing ownerLoginId').toBeTruthy();
+
+      await pool.query(
+        `INSERT INTO enhance_customers
+           (user_id, enhance_org_id, enhance_owner_login_id, enhance_owner_member_id)
+         VALUES ($1, $2, $3, $4)`,
+        [clientUserId, FIXTURE_CUSTOMER_ORG_ID, org.ownerLoginId, org.ownerId],
+      );
+
+      // El service insertado en test 4 no tiene `domain` (NULL). Para
+      // verificar el fallback chain del listener (domain → label →
+      // service_id), pobladmos `domain` aquí — el subject del email
+      // resultante será "Tu contraseña ha sido restablecida — mi-cliente.es"
+      // y permite verificar que el dispatcher resuelve la variable.
+      await pool.query(`UPDATE services SET domain = $1 WHERE id = $2`, [
+        'mi-cliente.es',
+        testServiceId,
+      ]);
+
+      // Cliente invoca reset_account_password (NO admin-only por contrato
+      // ADR-083 §9 decisión 32 — la action es self-service).
+      const res = await request.post(
+        `${TEST_CONFIG.apiUrl}/services/${testServiceId}/actions/reset_account_password`,
+        {
+          headers: { Authorization: `Bearer ${clientToken}` },
+          data: { payload: {} },
+        },
+      );
+      expect(
+        res.ok(),
+        `POST reset_account_password (cliente): ${res.status()} ${await res.text()}`,
+      ).toBeTruthy();
+      const actionBody = (await res.json()) as {
+        success?: boolean;
+        data?: { password?: string };
+        sideEffects?: string[];
+      };
+      expect(actionBody.success).toBe(true);
+      // Endpoint cliente devuelve la password EN VIVO al toast (R12 OK —
+      // el plaintext solo viaja al cliente legítimo, audit log redactado).
+      expect(actionBody.data?.password).toMatch(/^[0-9a-f]{32}$/);
+      const plaintextPwd = actionBody.data!.password!;
+
+      // El email se entrega vía BullMQ async (NotificationsDispatchProcessor).
+      // Esperar hasta que mailpit lo reciba — timeout 15s da margen amplio.
+      const email = await waitForEmail(CLIENT_EMAIL, {
+        subjectIncludes: 'restablecida',
+        timeoutMs: 15_000,
+      });
+      expect(email.Subject).toContain('Tu contraseña ha sido restablecida');
+      // El subject incluye `domain` (del UPDATE arriba) — verifica end-to-end
+      // que la variable se resuelve via Handlebars + dispatcher recipient.
+      expect(email.Subject).toContain('mi-cliente.es');
+
+      // El cuerpo HTML contiene la nueva password plaintext (32 hex chars).
+      expect(email.HTML).toContain(plaintextPwd);
+      // Y el panel_url al portal Aelium del servicio.
+      expect(email.HTML).toContain(`/dashboard/services/${testServiceId}`);
+
+      // Audit_change_log persiste con `data.password = '[REDACTED]'`
+      // (R12 compliance, gap G2 ADR-083 Amendment A4.5).
+      // El listener email es async; el audit ya quedó persistido por el
+      // wrapper sync antes del emit, así que no necesitamos polling aquí.
+      const audit = await pool.query<{
+        action: string;
+        changes_after: {
+          provisioner_slug?: string;
+          success?: boolean;
+          data?: { password?: string };
+        };
+      }>(
+        `SELECT action, changes_after FROM audit_change_log
+         WHERE entity_type = 'Service'
+           AND entity_id = $1
+           AND action = 'service.action_executed:reset_account_password'
+         ORDER BY created_at DESC LIMIT 1`,
+        [testServiceId],
+      );
+      expect(audit.rowCount).toBe(1);
+      expect(audit.rows[0].changes_after.provisioner_slug).toBe('enhance_cp');
+      expect(audit.rows[0].changes_after.success).toBe(true);
+      // Verificación clave R12: la password persistida es el placeholder,
+      // NO el plaintext.
+      expect(audit.rows[0].changes_after.data?.password).toBe('[REDACTED]');
+      expect(audit.rows[0].changes_after.data?.password).not.toBe(
+        plaintextPwd,
+      );
     });
   },
 );

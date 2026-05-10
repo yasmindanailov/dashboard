@@ -1,6 +1,9 @@
 ﻿/* eslint-disable @typescript-eslint/unbound-method */
-// `unbound-method` produce falsos positivos en specs Jest cuando se hace
-// `expect(mock.method).toHaveBeenCalled()`. Doctrina oficial TS-ESLint para
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+// `unbound-method` + `no-unsafe-*` producen falsos positivos en specs Jest
+// cuando se hace `expect(mock.method).toHaveBeenCalled()` o se accede
+// `mock.calls[0][0]` para introspección. Doctrina oficial TS-ESLint para
 // specs: deshabilitar a nivel de archivo. Solo aplica a este `.spec.ts`.
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -449,6 +452,212 @@ describe('executeActionWithCacheInvalidation â€” Sprint 11 Fase 11.B', () =
     expect(result.success).toBe(true);
     expect(plugin.executeAction).toHaveBeenCalled();
     expect(audit.logAccess).not.toHaveBeenCalled();
+  });
+
+  // ─── Sprint 15C.II Fase D — gap G2 audit sanitizer (ADR-083 A4.5) ────────
+
+  describe('audit sanitizer integration (Sprint 15C.II Fase D — gap G2)', () => {
+    it('result.data con keys sensibles → audit redactado, evento plaintext', async () => {
+      // Caso real: `actionResetAccountPassword` retorna
+      // `{ password: '<32 hex>' }`. El wrapper:
+      //   1. Persiste audit_change_log con `data.password = '[REDACTED]'`.
+      //   2. Emite event con `data.password = '<32 hex>'` plaintext (los
+      //      listeners async como `notifications-on-password-reset` lo
+      //      consumen para enviar email al cliente).
+      const cache = buildCache();
+      const events = buildEvents();
+      const audit = buildAudit();
+      const PLAINTEXT_PWD = 'abc123def456abc123def456abc12345';
+      const plugin = buildPlugin({
+        inlineActions: [
+          {
+            slug: 'reset_account_password',
+            label: 'plugin.test.actions.reset_password',
+            confirmRequired: true,
+            destructive: false,
+          },
+        ],
+        executeAction: jest.fn().mockResolvedValue({
+          success: true,
+          message: 'plugin.test.reset_password.success',
+          data: { password: PLAINTEXT_PWD },
+          sideEffects: ['service.password_reset'],
+        }),
+      });
+
+      await executeActionWithCacheInvalidation(
+        plugin,
+        mockService,
+        'reset_account_password',
+        {},
+        ctx,
+        cache,
+        events,
+        audit as never,
+      );
+
+      // Audit recibió data sanitizada (R12 compliance).
+      expect(audit.logChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'service.action_executed:reset_account_password',
+          changes_after: expect.objectContaining({
+            data: { password: '[REDACTED]' },
+            success: true,
+          }),
+        }),
+      );
+      // Verifica explícitamente que la audit fila NO contiene la password
+      // plaintext (defensa del compliance R12 — secrets nunca audit).
+      const auditCall = audit.logChange.mock.calls[0][0] as {
+        changes_after: { data?: { password?: string } };
+      };
+      expect(auditCall.changes_after.data?.password).toBe('[REDACTED]');
+      expect(auditCall.changes_after.data?.password).not.toBe(PLAINTEXT_PWD);
+
+      // Evento conserva plaintext para listeners (consumen in-memory + envían
+      // email; nunca persisten).
+      expect(events.emit).toHaveBeenCalledWith(
+        'service.action_executed',
+        expect.objectContaining({
+          action_slug: 'reset_account_password',
+          success: true,
+          data: { password: PLAINTEXT_PWD },
+        }),
+      );
+    });
+
+    it('result.data sin keys sensibles → audit + evento iguales (no-op sanitizer)', async () => {
+      const cache = buildCache();
+      const events = buildEvents();
+      const audit = buildAudit();
+      const plugin = buildPlugin({
+        inlineActions: [
+          {
+            slug: 'list_dns_records',
+            label: 'plugin.test.actions.list_dns_records',
+            confirmRequired: false,
+            destructive: false,
+          },
+        ],
+        executeAction: jest.fn().mockResolvedValue({
+          success: true,
+          data: {
+            zone: {
+              origin: 'cliente.es',
+              records: [{ id: 'r1', kind: 'A', value: '1.2.3.4' }],
+            },
+          },
+        }),
+      });
+
+      await executeActionWithCacheInvalidation(
+        plugin,
+        mockService,
+        'list_dns_records',
+        {},
+        ctx,
+        cache,
+        events,
+        audit as never,
+      );
+
+      const auditCall = audit.logChange.mock.calls[0][0] as {
+        changes_after: { data?: unknown };
+      };
+      expect(auditCall.changes_after.data).toEqual({
+        zone: {
+          origin: 'cliente.es',
+          records: [{ id: 'r1', kind: 'A', value: '1.2.3.4' }],
+        },
+      });
+    });
+
+    it('result.data undefined → audit sin campo data (omitido limpiamente)', async () => {
+      const cache = buildCache();
+      const events = buildEvents();
+      const audit = buildAudit();
+      const plugin = buildPlugin({
+        inlineActions: [
+          {
+            slug: 'restart',
+            label: 'plugin.test.actions.restart',
+            confirmRequired: true,
+            destructive: false,
+          },
+        ],
+        executeAction: jest.fn().mockResolvedValue({
+          success: true,
+          sideEffects: ['service.restarted'],
+          // no `data` field
+        }),
+      });
+
+      await executeActionWithCacheInvalidation(
+        plugin,
+        mockService,
+        'restart',
+        {},
+        ctx,
+        cache,
+        events,
+        audit as never,
+      );
+
+      const auditCall = audit.logChange.mock.calls[0][0] as {
+        changes_after: Record<string, unknown>;
+      };
+      // El campo `data` NO debe aparecer en changes_after cuando el plugin
+      // retorna ActionResult sin `.data` — evita persistir literalmente
+      // `"data": null` que ensucia consultas SQL.
+      expect(auditCall.changes_after).not.toHaveProperty('data');
+      expect(auditCall.changes_after.success).toBe(true);
+    });
+
+    it('allowsSensitiveDataInAudit skip per-key (excepción declarativa ADR-083 A4.5)', async () => {
+      // Plugin declara explícitamente que `metadata_token_id` (identificador,
+      // no secret) es safe en audit. Otras keys sensibles siguen redactadas.
+      // Caso uncommon — requiere ADR específico justificando.
+      const cache = buildCache();
+      const events = buildEvents();
+      const audit = buildAudit();
+      const plugin = buildPlugin({
+        inlineActions: [
+          {
+            slug: 'special_diagnostic',
+            label: 'plugin.test.special',
+            confirmRequired: false,
+            destructive: false,
+            allowsSensitiveDataInAudit: ['metadata_token_id'],
+          },
+        ],
+        executeAction: jest.fn().mockResolvedValue({
+          success: true,
+          data: {
+            metadata_token_id: 'tok-123',
+            password: 'real-pwd',
+          },
+        }),
+      });
+
+      await executeActionWithCacheInvalidation(
+        plugin,
+        mockService,
+        'special_diagnostic',
+        {},
+        ctx,
+        cache,
+        events,
+        audit as never,
+      );
+
+      const auditCall = audit.logChange.mock.calls[0][0] as {
+        changes_after: { data?: Record<string, unknown> };
+      };
+      expect(auditCall.changes_after.data).toEqual({
+        metadata_token_id: 'tok-123', // intacto (allowList)
+        password: '[REDACTED]', // redactado (no en allowList)
+      });
+    });
   });
 });
 

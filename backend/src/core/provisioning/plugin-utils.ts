@@ -4,6 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { AuditService } from '../../modules/audit/audit.service';
 import { getErrorMessage } from '../common/utils/error.util';
 
+import { redactSensitiveFields } from './audit-sanitizer';
 import type { CircuitBreakerRegistry } from './circuit-breaker';
 import { CircuitOpenError } from './circuit-breaker';
 import type { ProvisioningCacheService } from './provisioning-cache.service';
@@ -303,6 +304,27 @@ export async function executeActionWithCacheInvalidation(
   // Invalidación de cache siempre (incluso si falló — el estado puede haber cambiado parcialmente).
   await cache.invalidate(service.id);
 
+  // Sprint 15C.II Fase D (ADR-083 Amendment A4.5 — gap G2): sanitiza
+  // `result.data` antes de persistir audit_change_log. R12 compliance:
+  // secrets nunca audit. El regex canónico
+  // `/(password|secret|token|apiKey|privateKey)/i` matchea las keys
+  // sensibles y las sustituye por '[REDACTED]'. Plugins pueden declarar
+  // `ServiceAction.allowsSensitiveDataInAudit` para excepciones (uncommon
+  // — requiere ADR específico). Heredable a 15D RC, 15E Docker, 15G Plesk.
+  //
+  // El EVENTO emitido abajo conserva `result.data` plaintext para que
+  // listeners async (ej. `notifications-on-password-reset` Sprint 15C.II
+  // Fase D) reciban la password temporal en memoria y la envíen al
+  // cliente por email. La persistencia (audit_change_log) NUNCA ve el
+  // plaintext.
+  const sanitizedDataForAudit =
+    result.data !== undefined
+      ? redactSensitiveFields(
+          result.data,
+          declared.allowsSensitiveDataInAudit ?? [],
+        )
+      : undefined;
+
   // Audit log explícito (R3 + ADR-017).
   await audit.logChange({
     user_id: ctx.actorUserId,
@@ -313,10 +335,17 @@ export async function executeActionWithCacheInvalidation(
       provisioner_slug: plugin.slug,
       success: result.success,
       side_effects: result.sideEffects ?? [],
+      ...(sanitizedDataForAudit !== undefined
+        ? { data: sanitizedDataForAudit }
+        : {}),
     },
   });
 
   // Evento canónico para consumidores async (notifications, métricas).
+  // CONSERVA `result.data` plaintext — los listeners (in-memory, no
+  // persistente) reciben datos sensibles para enviarlos al destinatario
+  // legítimo (ej. password reset email al cliente). La sanitización solo
+  // aplica a la fila persistida en audit_change_log (arriba).
   events.emit('service.action_executed', {
     service_id: service.id,
     user_id: service.user_id,
@@ -327,6 +356,7 @@ export async function executeActionWithCacheInvalidation(
     side_effects: result.sideEffects ?? [],
     destructive: declared.destructive,
     ip: ctx.ipAddress,
+    data: result.data,
   });
 
   return result;

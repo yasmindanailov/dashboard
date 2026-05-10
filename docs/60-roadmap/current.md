@@ -165,7 +165,15 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 >
 > **Estado real 2026-05-10:** Fase 15C.I aplicada en rama `sprint15c-fase-i-cierre-sprint` (E2E spec 6/6 + i18n + doc operativa + retrospectiva). **Smoke real Yasmin reveló 18 issues + 4 decisiones doctrinales** que requieren un **sub-sprint dedicado de hardening**. Fixes valiosos no commiteados en rama (11+ correcciones a `$queryRaw`, `AdminPluginUpdateDto`, `ActionsBar/SsoButton useToast`, mensajes engañosos, INTERNAL_HELPER_SLUGS DNS, `view_disk/bandwidth adminOnly`, `force_resync` description tooltip, `translateSchema()` rjsf, `ServiceHeader` i18n). Suite backend **488/493 unit verde + 5 skipped**. **Sprint 15D RC BLOQUEADO** hasta cierre Sprint 15C.II hardening.
 >
-> **Sub-sprint hardening (próximo en cola):** [`docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md`](./sprint-15c-ii-hardening-enhance-dossier.md) — 6 fases A→F, ~4-5 sesiones, frase de arranque verbatim incluida.
+> **Sub-sprint hardening (en ejecución):** [`docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md`](./sprint-15c-ii-hardening-enhance-dossier.md) — 7 fases A→G.
+>
+> - ✅ **Fase A** (decisiones doctrinales A1-A4 frozen + 8 gaps audit + plan 7 fases) — PR #53.
+> - ✅ **Fase B** (refresh metrics ↻ + reconcile dual) — PR #54.
+> - ✅ **Fase C** (drift UX por rol + i18n + a11y + service detail hardening + 7 rounds smoke real → 8 bugs cerrados) — PR #55. Suite **505/510 unit verde**.
+> - ✅ **Fase D** (audit-sanitizer.ts + listener email password reset + plantilla seedeada `service.password_reset` + i18n + E2E test 7) — PR pendiente. Suite **576/581 unit verde** (+21 tests nuevos). Smoke real Fase D descubrió **6 gaps nuevos** apuntados Fase E/F: BUG-15CII-I (heurística showReprovision), GAP-15CII-J (cancelar servicio UI), GAP-15CII-K (force_resync UI), GAP-15CII-L (DNS records UI admin), GAP-15CII-M (audit timeline per-service), GAP-15CII-N (error_log módulo origen).
+> - ⏳ **Fase E** (próxima — admin DNS UI + BUG-I + GAP-J/K consolidación operaciones admin). Frase de arranque verbatim §A.9.1.
+> - ⏳ **Fase F** (admin overview operativo + suspend/unsuspend G3 + audit timeline GAP-M + error_log módulo GAP-N + G4/G5/G8).
+> - ⏳ **Fase G** (tests críticos + E2E extension + retrospectiva + smoke final + mover a `completed/`).
 >
 > **Detalle completo Sprint 15C original (resumen ejecutivo + métricas + 8 lecciones + commit refs + 18 issues smoke + 4 decisiones doctrinales pendientes):** [`docs/60-roadmap/completed/sprint-15c-plugin-enhance-cp.md`](./completed/sprint-15c-plugin-enhance-cp.md).
 >

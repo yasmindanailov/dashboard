@@ -86,15 +86,17 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
 
   // ── Plugin Enhance CP — Acciones curadas (ADR-070 §C + ADR-077 Amendment A3)
   'plugin.enhance_cp.actions.reset_password': 'Restablecer contraseña',
-  // Sprint 15C.II Fase C (BUG-15CII-13): description del manifest action.
-  // Convención canónica L3 (Fase B): description NO repite el label, aporta
-  // info complementaria sobre flujo o contexto.
+  // Sprint 15C.II Fase D (DC.NEW-15CII-EMAIL-RESET + ADR-083 Amendment A4.5):
+  // listener `notifications-on-password-reset` activo + plantilla seedeada
+  // `service.password_reset`. La nueva password viaja al cliente por email
+  // automático tras el éxito del reset; el admin ya NO necesita compartirla
+  // manualmente.
   'plugin.enhance_cp.actions.reset_password.description':
-    'Genera una contraseña aleatoria nueva en Enhance y la enviará al email del cliente cuando el listener de notificaciones esté activo (Fase D). Cierra la sesión actual del usuario en el panel.',
+    'Genera una contraseña aleatoria nueva en Enhance y la envía al email del cliente. Cierra la sesión actual del usuario en el panel.',
   'plugin.enhance_cp.actions.reset_password.confirm':
     'Se generará una contraseña nueva aleatoria y se enviará al email del cliente. La sesión activa se cerrará. ¿Confirmar?',
   'plugin.enhance_cp.actions.reset_password.success':
-    'Contraseña restablecida en Enhance. Comparte la nueva manualmente con el cliente — el envío automático por email llegará en una próxima versión.',
+    'Contraseña restablecida en Enhance. El cliente recibirá un email automático con la nueva contraseña.',
 
   // Sprint 15C.II Fase B: keys 'plugin.enhance_cp.actions.view_disk[*]' y
   // 'plugin.enhance_cp.actions.view_bandwidth[*]' eliminadas — las inline
