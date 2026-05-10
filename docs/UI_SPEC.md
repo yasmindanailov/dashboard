@@ -1175,6 +1175,62 @@ Próxima renovación ⓘ
 
 ---
 
+### 4.13 Estados de detección externa (drift) — Patrón discriminado por rol
+
+> **Origen doctrinal:** Sprint 15C.II Hardening 2026-05-10 — [ADR-083 Amendment A4 §A4.3](./10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) congela este patrón como canónico para todos los plugins SaaS futuros (15D ResellerClub, 15E Docker, 15G Plesk).
+
+**Principio:** información técnica = solo admin. El cliente recibe un mensaje útil pero no técnico (deriva de §1.2 P5 "voz Aelium" + §1.2 P6 "contenido adaptativo por rol").
+
+**Cuándo aplica este patrón:**
+
+- `service.status` ∈ {`unknown`, `failed`} con `info.statusReason` no nulo
+- Cron L3 reconciliation detecta drift no auto-corregible (`subscription_missing`, `plan_divergence`, etc.)
+- Plugin retorna shape canónico con discrepancia respecto al sistema externo de verdad
+
+**Patrón canónico de render por rol:**
+
+| Rol | Render | Componentes DS | Acciones que se ocultan |
+|---|---|---|---|
+| **Cliente** | Mensaje genérico empático tipo "Tu servicio está temporalmente no disponible. Hemos avisado al equipo técnico." | Texto inline (no banner) | SSO, DNS, métricas detalladas (cualquier acción que requiera metadata técnica corrupta) |
+| **Admin** | `<AlertBanner variant="warning">` arriba del bloque MetricsBar mostrando `statusReason` técnico crudo + CTA "Investigar en panel del proveedor" (link SSO impersonation) | AlertBanner + Link/Button SSO | Ninguna — el admin debe poder operar para diagnosticar |
+
+**Ejemplo concreto** (plugin Enhance CP — referencia canónica):
+
+```
+[Cliente] /dashboard/services/[id]
+  Service: hosting-mi-cliente.es
+  Estado: ⚠ Servicio temporalmente no disponible
+          Hemos avisado al equipo técnico.
+
+[Admin] /admin/services/[id]
+  ┌─────────────────────────────────────────────────────────────┐
+  │ ⚠ Drift detectado · subscription_missing                     │
+  │   Razón: subscription not found in Enhance (drift detected) │
+  │   [Investigar en Enhance UI →]                              │
+  └─────────────────────────────────────────────────────────────┘
+  Service: hosting-mi-cliente.es
+  Estado canónico: active (preservado por DH-INV-6)
+  [resto del detail page...]
+```
+
+**Anti-patrones (violaciones doctrina):**
+
+- ❌ Renderizar `info.statusReason` técnico al cliente (ej. "subscription not found in Enhance") — viola §1.2 P5
+- ❌ Mostrar la misma vista a admin y cliente — viola §1.2 P6
+- ❌ Ocultar al admin la información técnica que necesita para diagnosticar — admin necesita el `statusReason` literal para investigar
+- ❌ Modificar `service.status` automáticamente cuando hay drift — ADR-082 DH-INV-6 dice que el sistema externo gana, Aelium NO auto-corrige status (solo emite eventos)
+
+**Aplicabilidad heredable:**
+
+- `enhance_cp` (ya implementado Sprint 15C.II Fase C) — referencia canónica
+- `resellerclub` (15D) — dominios en `redemptionPeriod`, drift de NS, etc.
+- `docker_engine` (15E) — container OOM, healthcheck failed
+- `plesk` (15G) — subscription suspendida en Plesk sin pasar por Aelium
+
+Cualquier plugin que retorne `info.statusReason` no nulo con `status` distinto a `active` aplica este patrón.
+
+---
+
 **Sección 4 — Decisiones tomadas:**
 
 - ✅ Modal para acciones rápidas (<5 campos), página nueva para flujos complejos
@@ -1189,6 +1245,7 @@ Próxima renovación ⓘ
 - ✅ Command Palette (Cmd+K) como acelerador de navegación/acciones (sprint futuro)
 - ✅ Bulk actions en list pages para admin/agente con checkbox + barra de acciones
 - ✅ Ayuda contextual (tooltips) solo para clientes, tono Aelium, máx 2-3 por página
+- ✅ **Estados drift discriminados por rol** (§4.13) — cliente generic + admin AlertBanner técnico con CTA SSO. Heredable a todos los plugins SaaS
 
 **Siguiente:** Sección 5 — Especificación por página
 

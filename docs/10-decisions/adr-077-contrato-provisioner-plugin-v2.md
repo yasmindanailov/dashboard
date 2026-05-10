@@ -946,3 +946,77 @@ Este Amendment establece el patrón canónico para añadir flags semánticos a `
 5. Documentar en `provisioning/contract.md` §7 + `glossary.md` el término canónico.
 
 Cualquier campo nuevo NO opcional o que rompa el shape requiere bump a `contractVersion: 'v3'` + ADR específico (§6 política de versionado).
+
+---
+
+### Amendment A4 (2026-05-10) — capability flag `supports_suspend`
+
+> **Justificado por:** Audit pre Sprint 15C.II Hardening (gap G3). El plugin `enhance_cp` tiene `patchSubscription({ isSuspended: true|false })` operativo desde Sprint 15C Fase B (`EnhanceApiClient`), pero el manifest NO declara una capability para que el frontend sepa si el plugin soporta suspensión inline. Esto hace que la acción "Suspender servicio" no pueda ramificarse por capability flag (doctrina ADR-070 + §1.2 P6) y queda invisible al admin.
+> **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` — sigue `'v2'`. Plugins existentes (`internal`, `manual`) declaran `supports_suspend: false`; `enhance_cp` lo declara `true`. Pasa a ser **required** en `PluginCapabilities` — el contract test (§7) lo enforza.
+> **Aplicación:** Sprint 15C.II Fase F (admin overview operativo) consume el flag para mostrar/ocultar la acción "Suspender / Reactivar servicio" inline cuando aplica. Heredable a 15D ResellerClub (NO suspende dominios — `false`), 15E Docker Engine (`true` via `docker stop`), 15G Plesk (`true`).
+
+#### A4.1. Shape extendido `PluginCapabilities`
+
+```typescript
+export interface PluginCapabilities {
+  // ... flags existentes (has_sso_panel, panel_label, has_metrics, has_dns_management, etc.) ...
+
+  /**
+   * El plugin soporta suspender / reactivar el servicio sin desprovisionarlo.
+   * Cuando `true`, el frontend admin puede ofrecer la acción inline "Suspender servicio" /
+   * "Reactivar servicio" en `/admin/services/[id]` (ramificación por capability flag,
+   * NUNCA por slug — doctrina ADR-070 §"Cero if(provisioner === 'X')").
+   *
+   * Plugins con `supports_suspend=true` DEBEN implementar `executeAction` para los slugs
+   * `suspend_service` y `unsuspend_service` (idempotentes — invocar dos veces seguidas
+   * no es error). El status canónico del service transiciona a `suspended` /
+   * `active` respectivamente, emitiendo `service.suspended` / `service.unsuspended`.
+   *
+   * Plugins con `supports_suspend=false` NO declaran esos slugs en `inlineActions`.
+   * El contract test (§7) verifica la consistencia bidireccional.
+   */
+  supports_suspend: boolean;
+}
+```
+
+#### A4.2. Tabla actualizada (extiende §3 + Amendments A1, A2, A3)
+
+| Plugin | has_sso_panel | has_metrics | has_dns_management | requires_server | provision_mode | supports_reconciliation | **supports_suspend** |
+|---|---|---|---|---|---|---|---|
+| `internal` | false | false | false | false | sync | false | **false** |
+| `manual` | false | false | false | true | task-completed | false | **false** |
+| `enhance_cp` | true | true | true | false | sync | true | **true** |
+| `resellerclub` (15D) | true | false | false | false | sync | true | **false** |
+| `docker_engine` (15E) | ⚠ template | true | false | true | sync | true | **true** |
+| `plesk` (15G) | true | true | ⚠ TBD | true | sync | true | **true** |
+
+#### A4.3. Test contract genérico
+
+```typescript
+it('declara supports_suspend como boolean', () => {
+  expect(typeof plugin.capabilities.supports_suspend).toBe('boolean');
+});
+
+it('si supports_suspend=true → declara las 2 inline actions canónicas', () => {
+  if (plugin.capabilities.supports_suspend) {
+    const slugs = plugin.inlineActions.map((a) => a.slug);
+    expect(slugs).toContain('suspend_service');
+    expect(slugs).toContain('unsuspend_service');
+  }
+});
+
+it('si supports_suspend=false → NO declara esas inline actions', () => {
+  if (!plugin.capabilities.supports_suspend) {
+    const slugs = plugin.inlineActions.map((a) => a.slug);
+    expect(slugs).not.toContain('suspend_service');
+    expect(slugs).not.toContain('unsuspend_service');
+  }
+});
+```
+
+#### A4.4. Doctrina
+
+- **Idempotencia obligatoria:** `suspend_service` invocado sobre un service ya suspendido retorna `{ success: true }` con `data.alreadySuspended = true` (NO error). Aplica simétricamente a `unsuspend_service`.
+- **Eventos canónicos:** `service.suspended` / `service.unsuspended` emitidos por el wrapper orquestador post-action exitosa, NUNCA por el plugin (regla R8 audit centralizado).
+- **Permisos:** ambas actions DEBEN declarar `adminOnly: true` (Amendment A3) — la suspensión es una operación administrativa, NO cliente self-service. Defense-in-depth: backend wrapper enforce 403 + audit + emite `service.action_admin_only_violation`.
+- **Diferencia con `deprovision`:** `deprovision` destruye recursos en el proveedor (irreversible para el cliente sin re-provision). `suspend_service` preserva los datos en el proveedor — solo desactiva el acceso. Crítico para no-pago temporal vs cancelación definitiva.
