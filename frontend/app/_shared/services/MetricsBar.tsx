@@ -128,7 +128,13 @@ export function MetricsBar({
     }
   }
 
-  if (rows.length === 0) return null;
+  // Sprint 15C.II Fase B fix-up round 3 (2026-05-10): cuando no hay métricas
+  // PERO sí tenemos serviceId, renderizamos la card con un mensaje
+  // explicativo + el botón ↻ Refrescar para que el usuario pueda reintentar
+  // (típicamente porque el plugin reporta status=unknown / drift). Sin
+  // serviceId (legacy call-site sin refresh), mantenemos el comportamiento
+  // original de retornar null.
+  if (rows.length === 0 && !serviceId) return null;
 
   return (
     <Card>
@@ -145,6 +151,20 @@ export function MetricsBar({
           <MetricsRefreshButton serviceId={serviceId} isAdmin={isAdmin} />
         )}
       </div>
+      {rows.length === 0 && (
+        <p
+          style={{
+            color: 'var(--text-secondary)',
+            fontSize: 13,
+            margin: 0,
+            fontStyle: 'italic',
+          }}
+        >
+          Métricas no disponibles ahora — el proveedor no las devuelve.
+          Pulsa &ldquo;↻ Refrescar&rdquo; para reintentar.
+        </p>
+      )}
+      {rows.length > 0 && (
       <div style={{ display: 'grid', gap: 12 }}>
         {rows.map((row) => (
           <div
@@ -176,6 +196,7 @@ export function MetricsBar({
           </div>
         ))}
       </div>
+      )}
       <p style={{ marginTop: 12, fontSize: 11, color: 'var(--text-tertiary)' }}>
         Última lectura: {new Date(metrics.fetchedAt).toLocaleString('es-ES')}
       </p>
