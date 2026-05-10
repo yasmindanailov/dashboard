@@ -1,7 +1,7 @@
 # Sprint 15C.II — Plugin Enhance Hardening · Dossier de pre-sprint
 
-> **Tipo:** Pre-sprint research dossier (preservado como referencia histórica) + **Apéndice A** al final con decisiones doctrinales congeladas + gaps audit técnico + **§A.7 handoff completo Fase B → C** (próximo agente: leer §A.7 antes de codear).
-> **Estado:** ▶ **ACTIVO 2026-05-10** — Fases A + B cerradas. Próxima sesión arranca **Fase C** (drift UX por rol). Pre-condición técnica resuelta: PR [#52](https://github.com/yasmindanailov/dashboard/pull/52) merged `ef7f488` + PR [#53](https://github.com/yasmindanailov/dashboard/pull/53) merged `714c94c` + PR [#54](https://github.com/yasmindanailov/dashboard/pull/54) Fase B pending merge.
+> **Tipo:** Pre-sprint research dossier (preservado como referencia histórica) + **Apéndice A** al final con decisiones doctrinales congeladas + gaps audit técnico + **§A.8 handoff completo Fase C → D** (próximo agente: leer §A.8 antes de codear; §A.7 preserved como referencia histórica del handoff Fase B → C).
+> **Estado:** ▶ **ACTIVO 2026-05-10** — Fases A + B + C cerradas (mergeadas a master). Próxima sesión arranca **Fase D** (audit-sanitizer.ts + email listener notifications-on-password-reset). Pre-condición técnica resuelta: PR [#52](https://github.com/yasmindanailov/dashboard/pull/52) merged `ef7f488` + PR [#53](https://github.com/yasmindanailov/dashboard/pull/53) merged `714c94c` + PR [#54](https://github.com/yasmindanailov/dashboard/pull/54) merged `01ad9a8` + PR [#55](https://github.com/yasmindanailov/dashboard/pull/55) merged Fase C 7 rounds (`5906165` → `f9b4b2f`).
 > **Origen:** Smoke real Yasmin contra mock 2026-05-10 durante cierre Fase 15C.I. Reveló gaps sistémicos, decisiones doctrinales aún no tomadas, y violaciones del UI_SPEC §4.3 que el cierre formal Fase I solo abordó parcialmente.
 > **Pre-condición técnica:** ✅ resuelta — Opción A doctrina §5 ejecutada (commit Fase 15C.I parcial → PR #52 → merge → nueva rama hardening desde master limpio).
 > **Doctrina canónica del usuario (literal 2026-05-10):** "Sobre las deudas pendientes en relación al plugin Enhance, hay que documentarlas, no se da un paso más, hasta que el plugin esté al 100% operativo con los features básicos y necesarios perfectos para producción."
@@ -368,7 +368,7 @@ Plan original era 6 fases (A→F). Tras audit + decisión A4 ("Overview now"), p
 |---|---|---|
 | **A** doc-only | 0.3 sesión | ✅ **CERRADA 2026-05-10** [PR #53](https://github.com/yasmindanailov/dashboard/pull/53) merged `714c94c`. ADR-077 A4 + ADR-083 A4 + UI_SPEC §4.13 + este Apéndice + corrección vaporware admin-plugins-enhance.md §6.2 + sync current.md |
 | **B** refresh + reconcile | 1-1.5 sesión | ✅ **CERRADA 2026-05-10** [PR #54](https://github.com/yasmindanailov/dashboard/pull/54) — 7 commits: 1 feat (`6506615`) + 6 rounds fix-up (`7b2138d`, `4492325`, `a86f162`, `6b0ad8e`, `794b9b2`, `ce0b93d`). A1 (eliminar 2 actions + ↻ MetricsBar + `refreshServiceInfoAction`) + A2 (endpoint `POST /admin/plugins/:slug/reconcile-all` cumpliendo doble rol con G1 + UI settings + rename action local "Reconciliar contra Enhance"). Detalle exhaustivo round-by-round + lecciones técnicas en §A.7 handoff. |
-| **C** drift UX + i18n + a11y | 1-1.5 sesión | A3 (drift UX discriminada por rol — `ServiceHeader` cliente generic + admin AlertBanner) + i18n completo (statusReason keys + reset_password/change_package descriptions) + **G6 PluginConfigForm useToast** + **G6b ChangePackageModal toast** + **G7 Modal a11y (focus trap + aria-labelledby)** |
+| **C** drift UX + i18n + a11y + service detail hardening | 1-1.5 sesión planeada → **3 sesiones reales (7 rounds)** | ✅ **CERRADA 2026-05-10** [PR #55](https://github.com/yasmindanailov/dashboard/pull/55) — 7 commits round-by-round (`5906165` round 1 inicial → `f9b4b2f` round 7 refresh UX por rol). Scope original A3 + i18n + G6/G6b/G7 entregado round 1; rounds 2-7 cerraron 8 bugs doctrinales descubiertos en smoke real (cache wrapper nunca invalidaba, reprovision idempotency, terminal service UX, error codes discriminados, ServiceHeader dedupe terminal, refresh por rol, card admin Cliente/Servicio/Fechas con `<CopyableId>`). Detalle exhaustivo round-by-round + 10 lecciones técnicas heredables en §A.8 handoff. |
 | **D** email listener + sanitizer | 0.7-1 sesión | DC.NEW-15CII-EMAIL-RESET (listener `notifications-on-password-reset` + plantilla email seedeada) + **G2 sanitización `data.password` en wrapper auditor** (CRÍTICO antes del listener — `audit-sanitizer.ts` redacta campos sensibles via regex canónico password\|secret\|token\|apiKey\|privateKey) |
 | **E** UI admin DNS | 0.7-1 sesión | DC.NEW-15CII-DNS-ADMIN-UI (página `/admin/services/[id]/dns` reusando endpoints existentes) + validación DnsRecordForm (TTL min/max + duplicados — gap audit) |
 | **F** admin overview + capabilities + breaker | 1-1.5 sesión | A4 admin overview (stats grid 4 cards + tabla recent drifts + botón reconcile general A2 + Test conexión + form config) + **G3 capability flag `supports_suspend` (ADR-077 A4)** + 2 inline actions `suspend_service`/`unsuspend_service` con audit + **G4 sanity-check cache TTL configurable** + **G5 evaluar breaker EnhanceApiClient** (puede diferirse a v1.1 si no se valida criticidad) |
@@ -668,3 +668,275 @@ Round 4 ya añadió la card básica. Considerar pulir si hace falta:
 - 2026-05-10 (smoke real Yasmin x6 iteraciones) → 6 rounds fix-up sucesivos
 - 2026-05-10 (smoke automatizado curl) → 9 tests passed + descubierto G8 bug pre-existente
 - 2026-05-10 (handoff doc Fase B → C) → este §A.7
+
+---
+
+# Apéndice A.8 — Handoff Fase C → Fase D (próximo agente IA)
+
+> **Audiencia**: el siguiente agente que arranque Sprint 15C.II Fase D.
+> **Pre-condición técnica**: PR #55 mergeado a master.
+> **Tipo**: handoff doc canónico — leer ANTES de tocar nada de código.
+
+## A.8.1. Frase canónica de arranque (verbatim)
+
+> *"Lee `docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md` Apéndice A §A.8 (handoff completo Fase C → D). Vamos con Sprint 15C.II Fase D — Email listener `notifications-on-password-reset` + `audit-sanitizer.ts` (gap G2). El sanitizer es PRE-CONDICIÓN del listener: sin él, activar el listener sería bomba de seguridad (passwords plaintext en `audit_change_log` viola compliance R12). Crea rama `sprint15c-ii-fase-d-email-listener-audit-sanitizer` desde master post merge PR #55. Lee también [ADR-083 Amendment A4.5](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#a45-sanitización-datapassword-en-wrapper-auditor-gap-g2--riesgo-compliance) (audit sanitizer doctrina + regex canónico password|secret|token|apiKey|privateKey + opt-out `ServiceAction.allowsSensitiveDataInAudit`). Procede con rigor — el orden es 1) sanitizer + tests, 2) listener email + plantilla seedeada, 3) e2e flow integral. Procede."*
+
+## A.8.2. Estado real al cierre Fase C
+
+**7 commits Fase C** (todos en PR [#55](https://github.com/yasmindanailov/dashboard/pull/55) — branch `sprint15c-ii-fase-c-drift-ux-i18n`):
+
+| Commit | Tipo | Round | Resumen |
+|---|---|---|---|
+| `5906165` | feat | 1 (inicial) | Drift UX por rol + i18n descriptions + a11y Modal (focus trap + aria-labelledby) + PluginConfigForm/ChangePackageModal a useToast. Cierra scope original A3 + i18n + G6/G6b/G7 |
+| `32ac8c4` | fix | 2 | BUG-15CII-A reprovisión no-op silencioso (idempotency guard) + BUG-15CII-B effective provisioner slug UX (anotación "desde producto") |
+| `5776b9d` | fix | 3 | BUG-15CII-C cache wrapper Redis nunca se invalidaba post provision (UI veía stale 60s) — orquestador + reprovisionAsAdmin invalidan canónicamente. Auto-refresh frontend 5s tras reprovisión |
+| `a8d1ec1` | fix | 4 | BUG-15CII-D + BUG-15CII-E service terminal UX: shortcircuit backend + banner explícito admin/cliente + ocultar acciones futiles + cancellation_reason + cancelled_at expuestos al frontend |
+| `56aa9c8` | fix | 5 | BUG-15CII-F error codes discriminados (INVALID_STATE drift detectable) + Modal DS canonical (reemplaza window.confirm en ActionsBar + AdminDriftBanner) + has_metrics gating |
+| `79c3c94` | fix | 6 | BUG-15CII-G mensajes error split cliente vs admin (UI_SPEC §1.2 P5+P6) + BUG-15CII-H dedupe statusReason terminal en ServiceHeader |
+| `f9b4b2f` | feat | 7 | Refresh metrics UX por rol (cliente pasivo, admin cooldown 10s) + card admin "Detalles operativos" rediseñada (Cliente/Servicio/Fechas) + componente DS `<CopyableId>` reusable + helper `buildClientDisplayName` |
+
+**Suites tests post Fase C:** 505/510 unit verde + 5 skipped + 0 regresiones (+8 tests nuevos vs base Fase B 501/506: shortcircuit terminal `cancelled` + admin_action key + reprovisionAsAdmin reset status + reprovisionAsAdmin cache.invalidate + provision OK cache.invalidate + provision permanent failure cache.invalidate + getInfoForUser product_provisioner exposed + getInfoForUser product_provisioner null fallback). typecheck both verde + lint:check both verde + 5/5 CI checks SUCCESS (Backend, Frontend, E2E shards 1/3 + 2/3 + 3/3).
+
+## A.8.3. Lecciones técnicas críticas (heredables — léelas antes de codear)
+
+### L1 — Cache wrapper SIEMPRE invalidar tras mutación de service
+
+**Problema descubierto en smoke real**: el wrapper canónico `getServiceInfoWithCache` (`backend/src/core/provisioning/plugin-utils.ts:70`) cachea el resultado del plugin en Redis por TTL=60s. El orquestador `provisionService` persistía nueva metadata (`enhance_org_id`, `provider_reference`) tras `plugin.provision()` OK, pero **NUNCA invalidaba la cache**. Resultado: durante 60s tras provision OK, cualquier lectura del wrapper devolvía la versión cacheada `not_yet_provisioned` de antes (cuando metadata estaba vacía). Bug crítico que invalidaba TODO el flujo de provisioning + reprovisión.
+
+**Patrón canónico** (defense-in-depth — invalidar en TODOS los hitos de mutación):
+
+1. **Orquestador `provisionService`** ([provisioning-orchestrator.service.ts:221](../../backend/src/modules/provisioning/provisioning-orchestrator.service.ts#L221)) — `await this.cache.invalidate(serviceId)` tras `prisma.service.update({ provider_reference, metadata })`.
+2. **Orquestador failure path** (línea 258) — invalidar también tras permanent failure (status pasa a cancelled, UI debe ver el cambio inmediato).
+3. **`reprovisionAsAdmin`** (`provisioning.service.ts:548`) — invalidar tras reset `status → 'provisioning'` (defense-in-depth durante ventana del job async).
+4. **Wrapper `executeActionWithCacheInvalidation`** (`plugin-utils.ts:289`) — patrón ya existente desde Sprint 11, sirve de referencia canónica.
+
+**Aplicación heredable**: cualquier plugin futuro (15D RC, 15E Docker, 15G Plesk) cuyo `provision()` modifique `service.metadata` o `service.provider_reference` debe asumir que el orquestador YA invalida cache automáticamente. NO reimplementar invalidate per-plugin — vive en wrapper canónico.
+
+### L2 — Service terminal NO invocar plugin (shortcircuit canónico)
+
+**Problema descubierto en smoke real**: service `aec6a6b5` (demo-carla.aelium.test) con `status='cancelled'` por `cancellation_reason='provisioning_failed:INVALID_PAYLOAD'` mostraba simultáneamente: Badge "Estado desconocido" + AlertBanner drift "Servicio aún no aprovisionado" + botón Re-aprovisionar. Causa: el wrapper `getServiceInfoWithCache` invocaba al plugin, que retornaba `not_yet_provisioned` por metadata vacía, ignorando que el service estaba TERMINAL.
+
+**Doctrina canónica congelada**: cuando `service.status` ∈ `{cancelled, terminated}`, NO se invoca al plugin (cualquier respuesta sería falsa info sobre service que ya no opera). Patrón = banner explícito + ocultar acciones futiles. La cola provisioning ya skipea terminal idempotently ([orquestador:144](../../backend/src/modules/provisioning/provisioning-orchestrator.service.ts#L144)) — la UI debe reflejar la misma doctrina.
+
+**Implementación canónica**: `getInfoForUser` ([provisioning.service.ts:251](../../backend/src/modules/provisioning/provisioning.service.ts#L251)) hace shortcircuit con `buildTerminalServiceFallback(service)` — retorna `info.status='cancelled'` + `statusReason` mapeado desde `cancellation_reason` + `capabilities` sin sso/dns/metrics/inlineActions. El frontend (`AdminServiceDataCard` + páginas admin/cliente) lee `service.status` ∈ `{cancelled, terminated}` y renderiza banner danger/info en lugar de drift.
+
+**Heredable**: cualquier plugin SaaS que reciba un service terminal debe NO ser invocado. La pattern matching vive en `getInfoForUser` (no en cada plugin) — cero acoplamiento per-plugin.
+
+### L3 — Backend retorna keys "base", frontend discrimina por rol
+
+**Problema descubierto en smoke real round 5+6**: cliente al restablecer contraseña veía toast técnico admin: _"drift detectado", "Reconciliar contra Enhance", "metadata desincronizada"_. Viola UI_SPEC §1.2 P5 (voz Aelium) + P6 (contenido adaptativo por rol).
+
+**Doctrina canónica congelada (R-frontend-canonical)**: el backend wrapper retorna **keys "base"** sin sufijo (ej. `action.invalid_state`). El frontend les añade `.client` o `.admin` según `isAdmin` del viewer. Esto evita acoplar el backend con la discriminación frontend — el backend solo conoce **códigos canónicos**, el frontend formatea según rol.
+
+**Implementación canónica**:
+- Backend: `executeActionWithCacheInvalidation` mapea `INVALID_STATE → 'action.invalid_state'` (sin sufijo). `getSsoUrlWithAudit` retorna shape canónico `GetSsoUrlResult = { sso, errorCode }` con códigos crudos.
+- Frontend `_shared/services/ActionsBar.tsx`: helper `selectMessageKey(rawKey, isAdmin)` con `ROLE_DISCRIMINATED_KEYS = new Set(['action.invalid_state'])`. Solo aplica el sufijo a códigos donde el cliente NO debe ver jerga técnica.
+- Frontend `_shared/services/SsoButton.tsx`: helper `selectSsoErrorKey(errorCode, isAdmin)`. Pages cliente/admin pasan `isAdmin` explícitamente.
+- Frontend `admin/services/[id]/_components/AdminDriftBanner.tsx`: usa keys `.admin` directamente (componente admin-only por ubicación).
+
+**Heredable**: cualquier plugin futuro que retorne códigos canónicos automáticamente hereda la discriminación cliente vs admin. NO añadir variantes `.client`/`.admin` per-plugin — solo per-código compartido.
+
+### L4 — `window.confirm()` NUNCA en componentes que requieren UX consistente
+
+**Problema descubierto en smoke real round 5**: reset password abría `window.confirm()` nativo del browser en lugar de Modal DS. Viola UI_SPEC §4.2 — confirmaciones reforzadas usan componente DS canónico (z-index, focus trap, theming, a11y).
+
+**Patrón canónico congelado**: state local `pendingConfirm` + Modal DS componente con confirmación reforzada (botón "Cancelar" + "Confirmar" tipado por `destructive`). Reemplaza el nativo browser. Heredable a futuros plugins.
+
+**Aplicación canónica**: `ActionsBar.tsx` + `AdminDriftBanner.tsx` ya migrados. Cualquier nuevo componente con confirmación destructiva (suspend, delete, reprovision, etc.) usa el mismo patrón. NO usar `window.confirm` ni `window.alert` ni `window.prompt`.
+
+### L5 — Capability flags canónicos gatean rendering — UI ramifica por flags, NO por slug
+
+**Problema descubierto en smoke real round 5**: MetricsBar visible siempre, incluso cuando `info.capabilities.has_metrics=false` (plugins triviales `internal`/`manual` y futuros productos tipo `support_inside`). Card vacía con "Métricas no disponibles" sin sentido.
+
+**Patrón canónico R-070**: la UI ramifica por `info.capabilities.<flag>`, NUNCA por `service.provisioner_slug`. ADR-077 §3 lo declara explícito: "cero `if (provisioner === 'X')`".
+
+**Aplicación canónica**: páginas admin + cliente del service detail leen `info.capabilities.has_metrics` antes de renderizar `<MetricsBar>`. Análogo: `info.capabilities.hasSsoPanel` para `<SsoButton>`, `info.capabilities.has_dns_management` para link DNS.
+
+**Heredable**: cualquier plugin que NO declare métricas (`has_metrics: false` en su `capabilities`) ve la card oculta automáticamente sin tocar el SC. Decisión declarativa.
+
+### L6 — Refresh UX discriminado por rol — cliente pasivo, admin con cooldown
+
+**Patrón canónico congelado (estándar industria Stripe / Vercel / Datadog)**:
+
+- **Cliente** (Stripe customer / Vercel viewer): SIN botón ↻ explícito. UX pasiva con timestamp relativo "Actualizado hace X" + tooltip fecha exacta + hint "Recarga la página para ver los datos más recientes". Razones doctrinales: (1) cliente no debe controlar manualmente la carga al proveedor — riesgo DoS + UX confusa "¿qué refresca el botón?"; (2) cache backend TTL=60s garantiza que recargar la página (F5 universal) obtiene fresh state cuando pasaron >60s; (3) F5 es UX universal cross-app.
+
+- **Admin** (Stripe admin / Datadog): botón ↻ con cooldown VISIBLE 10s tras cada refresh exitoso. Estados del botón: `↻ Refrescar` (idle) → `⏳ Refrescando…` (pending) → `↻ 10s` → `↻ 9s` → ... → `↻ Refrescar` (vuelve idle). Razones doctrinales: (1) evita rate-limit accidental contra el proveedor; (2) DoS por click repetitivo durante debugging; (3) UX clara "ya pulsé, esperando resultado". Si el server action FALLA, el cooldown NO se aplica (admin debe poder reintentar inmediato para diagnosticar transient errors).
+
+**Aplicación canónica**: `MetricsBar.tsx` gating `showRefreshButton = serviceId && isAdmin`. `MetricsRefreshButton.tsx` con `useState(cooldownRemaining)` + `useEffect` con `setTimeout` decrementando cada segundo. Helper `formatRelativeTime(iso)` server-side stable (GitHub/Stripe style — "hace 5 minutos").
+
+**Heredable**: cualquier card de datos refrescable (futuro: stats admin, audit log preview, etc.) sigue el mismo patrón discriminado por rol.
+
+### L7 — IDs UUID secundarios con `<CopyableId>`, info legible primaria
+
+**Patrón canónico congelado (estándar Stripe / Vercel admin)**: información primaria visible (nombre, email, domain, plan, badge estado), IDs técnicos secundarios con click-to-copy + truncate visual. Las páginas admin de detalle agrupan en sub-secciones lógicas (Cliente / Servicio / Fechas) en lugar de listas planas de UUIDs crudos como valor primario.
+
+**Componente DS heredable**: `<CopyableId>` ([components/ui/CopyableId/](../../frontend/app/components/ui/CopyableId/)) — `navigator.clipboard.writeText` + toast confirmación + truncate visual UUIDs (default 8 chars antes/después: `91c0e015-…f278b8`). Iconos copy/check inline SVG (sin dep externa). Reusable en futuros admin pages (clients, products, invoices).
+
+**Patrón composición heredable**: `<AdminServiceDataCard>` ([admin/services/[id]/_components/](../../frontend/app/admin/services/[id]/_components/AdminServiceDataCard.tsx)) — Server Component con secciones jerárquicas. Helper `statusToBadge(rawStatus)` mapea `service.status` (incluye `terminated`, `provisioning` no canónicos en `ServiceInfo['status']`) → Badge tone + label legibles. Helper `formatDateWithRelative(iso)` para fechas amigables ("10 may 2026, 15:38 · hace 25 minutos").
+
+### L8 — Error codes backend canónicos con frontend mapeo per-rol
+
+**Códigos canónicos congelados** (heredables a 15D/15E/15G):
+
+| Código backend (ProvisionerPluginError) | Wrapper backend mapea a | Frontend muestra (cliente / admin) |
+|---|---|---|
+| `INVALID_PAYLOAD` | `action.invalid_payload` (sin sufijo) | Mismo mensaje ambos roles (form/data del usuario) |
+| `INVALID_STATE` | `action.invalid_state` (sin sufijo, role-discriminated) | `.client` empático / `.admin` operacional con CTA reconcile |
+| `PROVIDER_INTERNAL_ERROR` (default unknown) | `action.provider_error` (sin sufijo) | Mismo mensaje (genérico transitorio) |
+| `CIRCUIT_OPEN` (CircuitOpenError) | `action.circuit_open` (sin sufijo) | Mismo mensaje (informativo cooldown) |
+
+**SSO errorCodes** (shape `GetSsoUrlResult.errorCode`):
+
+| Código backend | Frontend SsoButton + AdminDriftBanner |
+|---|---|
+| `INVALID_STATE` | `sso.error.invalid_state.{client,admin}` |
+| `CIRCUIT_OPEN` | `sso.error.circuit_open.{client,admin}` |
+| Default (`PROVIDER_INTERNAL_ERROR`) | `sso.error.provider_internal.{client,admin}` |
+| `null` (caso legítimo: `has_sso_panel=false` o refs missing) | NO mostrar toast (oculto upstream por gating) |
+
+### L9 — Reset status→provisioning antes de enqueue (caso reprovision admin)
+
+**Problema descubierto en smoke real**: el botón "Re-aprovisionar ahora" sobre service con `status='active'` enqueue el job correctamente, el worker levanta, y silently skipea por la guard idempotente del orquestador (`provisioning-orchestrator.service.ts:151` — `if (service.status === 'active') return`). Cero efecto operativo + cero feedback al admin.
+
+**Patrón canónico congelado (Plesk admin "Reset & re-provision" / cPanel WHM "Force re-provisioning" / ResellerClub force-reprovision)**: `reprovisionAsAdmin` ([provisioning.service.ts:530](../../backend/src/modules/provisioning/provisioning.service.ts#L530)) resetea `status → 'provisioning'` ANTES del enqueue. El reset canónico pre-active hace que la guard idempotente pase y el worker invoque `plugin.provision()` real. Coherente con DH-INV-6 (ADR-082): NO se modifica status automáticamente desde cron/listener, solo desde acción explícita admin que firma audit `service.reprovision_requested`.
+
+**Frontend complementa**: `<AdminDriftBanner>` tras toast "enqueued" hace `router.refresh()` inmediato + `setTimeout(refresh, 5000)` para ver resultado del job sin recargar manualmente.
+
+### L10 — Bug crítico smoke: producto sin `enhance_plan_id` → INVALID_PAYLOAD permanente → cancelled
+
+**Caso reproducido en smoke real** (service A `aec6a6b5...`): producto "Hosting Pro" (slug `hosting-pro`) NO tiene `enhance_plan_id` configurado en su `provisioner_config`. Cualquier intento de aprovisionar via plugin enhance_cp lanza `extractEnhancePlanId` → `ProvisionerPluginError(INVALID_PAYLOAD, retriable=false)` → orquestador marca `cancelled` con `cancellation_reason='provisioning_failed:INVALID_PAYLOAD'`.
+
+**Esto NO es bug de código** — es **data issue del seed**. El producto debe tener `provisioner_config.enhance_plan_id = 1` (o el plan_id válido del Master Org). Fix: editar producto desde `/admin/products/[id]/edit` añadiendo `enhance_plan_id` válido. Service quedará cancelled (terminal, irreversible) — el cliente debe contratar uno nuevo (checkout) o el admin debe corregir la causa + crear service nuevo.
+
+**Aplicación heredable**: cualquier plugin futuro que requiera campos en `productConfig` debe declararlos en `manifest.productConfigSchema` (ADR-080 Amendment B) + el admin debe configurarlos al crear el producto. Sin esto, **TODO** service del producto quedará cancelled tras provisioning fail.
+
+## A.8.4. Scope completo Fase 15C.II.D (lo que hay que hacer)
+
+### D.1 — Audit sanitizer (gap G2 — CRÍTICO PRE-CONDICIÓN)
+
+> **Doctrina ADR-083 Amendment A4.5 frozen 2026-05-10** + R12 compliance (secrets nunca en audit log).
+
+Crear `backend/src/core/provisioning/audit-sanitizer.ts`:
+
+- **Función canónica `redactSensitiveFields(data, allowList?)`**: walk recursivo del objeto `data`. Para cada key cuyo nombre matchea el regex canónico **case-insensitive** `/(password|secret|token|apiKey|privateKey)/i`, sustituir el valor por `'[REDACTED]'`. La `allowList?: string[]` opcional permite skip de keys específicas (uncommon — requiere ADR específico justificando, NO aplica a `reset_account_password`).
+
+- **Integración wrapper canónico `executeActionWithCacheInvalidation`** ([plugin-utils.ts:188](../../backend/src/core/provisioning/plugin-utils.ts#L188)): aplicar `redactSensitiveFields(result.data)` ANTES de cualquier `audit.logChange` o `events.emit('service.action_executed', { ..., result.data })`. El admin sigue viendo el campo en la UI (toast/modal) durante la sesión inmediata; solo el log persistido lo enmascara.
+
+- **Test contract genérico nuevo (ADR-077 §7)**: `core/provisioning/audit-sanitizer.spec.ts` cubre:
+  - Redact de `password|secret|token|apiKey|privateKey` (case-insensitive — `Password`, `apiKEY`, `privateKey` deben matchear).
+  - Walk recursivo (objetos anidados, arrays con objetos, mixed).
+  - allowList opcional (campo declarado allowed pasa intacto).
+  - Default `[]` allowList: TODOS los matches se redactan.
+  - Idempotencia (segundo call con data ya redactada no rompe).
+
+- **Test integración `enhance.plugin.spec.ts`** verifica que tras `reset_account_password`, el wrapper sanitiza ANTES de audit emit. El test mockea `audit.logChange` y verifica que `changes_after.data.password` NO contiene la password plaintext (es `'[REDACTED]'` o no existe).
+
+### D.2 — Email listener `notifications-on-password-reset` (DC.NEW-15CII-EMAIL-RESET)
+
+> **PRE-CONDICIÓN**: D.1 sanitizer DEBE estar deployed antes. Sin sanitizer activar listener = bomba seguridad.
+
+Crear `backend/src/modules/notifications/listeners/notifications-on-password-reset.listener.ts`:
+
+- **Listener `@OnEvent('service.action_executed')`** filtra solo `action_slug === 'reset_account_password' && success === true`. Otros action_slugs son no-op silencioso.
+- **Carga el `User` del `service.user_id`** (vía `prisma.user.findUnique({ where: { id }, select: { email, language, first_name } })`). Email del cliente afectado.
+- **Carga el `data.new_password`** del payload del evento (NO del audit_change_log — ese ya está sanitizado). El listener consume el evento ANTES de la persistencia audit, por eso recibe la password plaintext temporal en memoria.
+- **Llama `EmailService.send`** con plantilla seedeada `password_reset_enhance` (subject + body en ES por defecto, EN diferido):
+  - Subject: "Tu contraseña ha sido restablecida — {service.domain}"
+  - Body: nueva password + recomendación de cambiar al primer login + link al panel del proveedor (SSO).
+- **Plantilla seedeada**: añadir migration o seed nuevo con `email_template` row para `password_reset_enhance` (si la tabla `email_templates` ya existe — verificar; si no, hardcoded en `EmailService` por ahora).
+- **Tests**:
+  - `notifications-on-password-reset.listener.spec.ts` — listener invocado con payload válido → llama `email.send` con shape correcto. Filter: action_slug ≠ reset_password → no-op. Filter: success=false → no-op.
+  - Test integración E2E (extender `tests/e2e/sprint-15c-enhance-flow.spec.ts`): admin pulsa reset_password → mailpit API recibe email con subject correcto + nueva password en el body.
+
+### D.3 — i18n keys nuevas
+
+Añadir a `frontend/app/_shared/i18n/translations-es.ts`:
+- `email.password_reset.subject = "Tu contraseña ha sido restablecida — {domain}"`
+- `email.password_reset.body.intro` / `.password_label` / `.recommendation` / `.cta_panel`
+
+(Plantilla puede ser HTML o text. Mantener simple — la riqueza visual del email se enfoca en Sprint 12 KB futuro.)
+
+### D.4 — Update mensaje action.reset_password.success
+
+Hoy ([translations-es.ts:91](../../frontend/app/_shared/i18n/translations-es.ts#L91)):
+> "Contraseña restablecida en Enhance. Comparte la nueva manualmente con el cliente — el envío automático por email llegará en una próxima versión."
+
+Actualizar tras Fase D:
+> "Contraseña restablecida en Enhance. El cliente recibirá un email automático con la nueva contraseña."
+
+## A.8.5. Archivos clave que tocar (line numbers donde aplique)
+
+| Archivo | Acción |
+|---|---|
+| `backend/src/core/provisioning/audit-sanitizer.ts` | **NUEVO** — función `redactSensitiveFields(data, allowList?)` walk recursivo + regex canónico |
+| `backend/src/core/provisioning/audit-sanitizer.spec.ts` | **NUEVO** — tests contract genéricos (regex, walk, allowList, idempotencia) |
+| `backend/src/core/provisioning/plugin-utils.ts:188+` | Integrar `redactSensitiveFields(result.data)` ANTES de `audit.logChange` + `events.emit` en `executeActionWithCacheInvalidation` |
+| `backend/src/modules/notifications/listeners/notifications-on-password-reset.listener.ts` | **NUEVO** — listener `@OnEvent('service.action_executed')` filtra `reset_account_password` + carga User + envía email |
+| `backend/src/modules/notifications/listeners/notifications-on-password-reset.listener.spec.ts` | **NUEVO** — tests unit listener (filters + shape email.send) |
+| `backend/src/modules/notifications/notifications.module.ts` | Registrar `NotificationsOnPasswordResetListener` como provider |
+| `backend/prisma/seed/...` (verificar si existe seed canónico) | Seed plantilla `password_reset_enhance` si la tabla `email_templates` existe |
+| `backend/src/plugins/provisioners/enhance_cp/enhance.plugin.spec.ts` | Test integración: tras `reset_account_password`, audit_change_log NO contiene password plaintext |
+| `frontend/app/_shared/i18n/translations-es.ts` | Update key `plugin.enhance_cp.actions.reset_password.success` + nuevas keys `email.password_reset.*` |
+| `tests/e2e/sprint-15c-enhance-flow.spec.ts` | Extender E2E: admin reset_password → mailpit recibe email con shape correcto |
+
+## A.8.6. Lo que NO está en Fase D (sigue para Fase E-G)
+
+| Fase | Scope |
+|---|---|
+| **E** | UI admin nativa DNS records (`/admin/services/[id]/dns`) reusando endpoints existentes Sprint 15C Fase G + validación TTL min/max + duplicados |
+| **F** | Admin overview operativo plugin (`/admin/settings/plugins/enhance-cp`): stats grid 4 cards (services activos / suspendidos / drifts 24h / circuit breaker state) + tabla recent drifts + botón reconcile general (ya existe Fase B) + capability flag `supports_suspend` (G3 ADR-077 A4) + 2 inline actions `suspend_service`/`unsuspend_service` + cache TTL configurable (G4) + breaker EnhanceApiClient (G5 evaluar) + **G8 bug `test-connection`** synthetic service sin metadata |
+| **G** | Tests críticos faltantes (8 áreas) + E2E spec extension cubriendo refresh metrics + reconcile-all + drift UX por rol + admin overview render + retrospectiva en `completed/sprint-15c-plugin-enhance-cp.md` + smoke final Yasmin contra mock + Enhance live |
+
+## A.8.7. Gaps audit estado actual (post Fase C)
+
+| ID | Estado |
+|---|---|
+| **G1** vaporware endpoint manual cron | ✅ Cerrado Fase B |
+| **G2** sanitización data.password en wrapper auditor | ⏳ **Fase D (CRÍTICO antes del email listener)** |
+| **G3** capability flag `supports_suspend` | ⏳ Fase F |
+| **G4** TTL cache 60s hardcoded | ⏳ Fase F |
+| **G5** CircuitBreaker en EnhanceApiClient | ⏳ Fase F (evaluar criticidad) |
+| **G6** PluginConfigForm useToast inline | ✅ Cerrado Fase C round 1 |
+| **G6b** ChangePackageModal error inline sin toast | ✅ Cerrado Fase C round 1 |
+| **G7** Modal sin aria-labelledby + focus trap | ✅ Cerrado Fase C round 1 |
+| **G8** test-connection synthetic service sin metadata | ⏳ Fase F |
+| **G9** **NUEVO Fase C round 7** — futuras admin pages (clients, products, invoices) deberían adoptar `<CopyableId>` + patrón composición `<AdminServiceDataCard>` (Cliente/Servicio/Fechas). Diferido a sprint Clients refactor |
+
+### Bugs doctrinales NUEVOS descubiertos en smoke real Fase C (todos cerrados rounds 2-7)
+
+| ID | Bug | Round fix | Commit |
+|---|---|---|---|
+| **BUG-15CII-A** | reprovisión no-op silencioso cuando `status='active'` (guard idempotente) | round 2 | `32ac8c4` |
+| **BUG-15CII-B** | UI muestra `provisioner_slug='—'` engañoso cuando service.provisioner_slug=null pero plugin sí actúa | round 2 | `32ac8c4` |
+| **BUG-15CII-C** | Cache wrapper Redis nunca se invalidaba tras provision OK (UI stale 60s) | round 3 | `5776b9d` |
+| **BUG-15CII-D** | UI muestra AlertBanner drift sobre service ya `cancelled` (semánticamente FALSO) | round 4 | `a8d1ec1` |
+| **BUG-15CII-E** | Botón Re-aprovisionar sobre cancelled produce loop infinito | round 4 | `a8d1ec1` |
+| **BUG-15CII-F** | INVALID_STATE colapsa a mensaje genérico "El proveedor no devolvió sesión" | round 5 | `56aa9c8` |
+| **BUG-15CII-G** | Cliente ve mensajes técnicos admin ("ejecuta Reconciliar contra Enhance") | round 6 | `79c3c94` |
+| **BUG-15CII-H** | statusReason duplicado en service cancelled (header + banner) | round 6 | `79c3c94` |
+
+## A.8.8. Validación end-to-end del estado actual (post Fase C)
+
+**Smoke real Yasmin 7 rounds 2026-05-10**:
+
+1. ✅ Round 1 inicial: drift UX cliente generic + admin AlertBanner CTA + Modal a11y + useToast PluginConfigForm/ChangePackageModal
+2. ✅ Round 2: reprovisión force funciona (status reset → provision real) + effective slug "desde producto"
+3. ✅ Round 3: cache invalidation post-provision + auto-refresh 5s tras reprovisión (UI ve resultado real)
+4. ✅ Round 4: service cancelled muestra banner danger explícito (no drift), acciones futiles ocultas
+5. ✅ Round 5: error codes discriminados (INVALID_STATE drift detectable) + Modal DS reemplaza window.confirm + has_metrics gating
+6. ✅ Round 6: mensajes cliente vs admin discriminados + dedupe statusReason terminal
+7. ✅ Round 7: cliente sin botón ↻ (UX pasiva) + admin cooldown 10s visible + card admin "Detalles operativos" rediseñada (Cliente/Servicio/Fechas + CopyableId)
+
+**Suites tests post Fase C:** 505/510 unit verde + 5 skipped + 0 regresiones (+8 tests nuevos vs Fase B baseline). typecheck both verde + lint:check both verde + 5/5 CI checks SUCCESS en PR #55.
+
+**Estado mock Enhance vs Aelium en BD local**:
+- Si reinicias backend y mock Enhance pierde state in-memory, los `member_id`/`login_id` cacheados en `enhance_customers` quedan stale → SSO + reset_password retornan 404 (`INVALID_STATE`).
+- En PRODUCCIÓN esto NO ocurre (Enhance es persistente).
+- Recovery dev: `DELETE FROM enhance_customers;` + reaprovisionar services activos (force_resync action).
+
+## A.8.9. Sesiones origen Fase C
+
+- 2026-05-10 (Fase C round 1 inicial) → 1 commit (scope original)
+- 2026-05-10 (smoke real Yasmin x6 iteraciones, 6 rounds fix-up) → 6 commits cerrando 8 bugs doctrinales
+- 2026-05-10 (push + PR #55 + CI verde 5/5) → ready-to-merge
+- 2026-05-10 (handoff doc Fase C → D) → este §A.8
