@@ -97,11 +97,17 @@ const ENHANCE_CONFIG_SCHEMA = {
     baseUrl: {
       type: 'string',
       format: 'uri',
+      // Sprint 15C.II Fase B fix-up (2026-05-10): smoke real reveló que
+      // rjsf usaba el property name (ej. "masterOrgId") como label cuando
+      // el schema no declara `title`. Ahora cada field declara `title`
+      // con i18n key — `translateSchema()` lo resuelve a ES en el render.
+      title: 'plugin.enhance_cp.config.baseUrl.label',
       description: 'plugin.enhance_cp.config.baseUrl',
     },
     masterOrgId: {
       type: 'string',
       format: 'uuid',
+      title: 'plugin.enhance_cp.config.masterOrgId.label',
       description: 'plugin.enhance_cp.config.masterOrgId',
     },
     reconciliationIntervalHours: {
@@ -109,6 +115,7 @@ const ENHANCE_CONFIG_SCHEMA = {
       default: 6,
       minimum: 1,
       maximum: 168,
+      title: 'plugin.enhance_cp.config.reconciliationIntervalHours.label',
       description: 'plugin.enhance_cp.config.reconciliationIntervalHours',
     },
   },
@@ -123,6 +130,7 @@ const ENHANCE_SECRETS_SCHEMA = {
       type: 'string',
       format: 'password',
       minLength: 16,
+      title: 'plugin.enhance_cp.secrets.apiToken.label',
       description: 'plugin.enhance_cp.secrets.apiToken',
     },
   },
@@ -153,6 +161,7 @@ const ENHANCE_PRODUCT_CONFIG_SCHEMA = {
     enhance_plan_id: {
       type: 'integer',
       minimum: 1,
+      title: 'plugin.enhance_cp.product_config.enhance_plan_id.label',
       description: 'plugin.enhance_cp.product_config.enhance_plan_id',
     },
   },

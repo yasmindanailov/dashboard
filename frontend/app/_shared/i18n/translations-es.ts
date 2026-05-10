@@ -57,18 +57,29 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'plugin.enhance_cp.panel_label': 'panel Enhance',
 
   // ── Plugin Enhance CP — Config (ADR-083 §1 decisiones 1-3)
+  // Sprint 15C.II Fase B fix-up (2026-05-10): añadidas keys `.label` para
+  // que rjsf renderice labels traducidas en lugar del property name crudo
+  // (smoke real Yasmin reveló que "masterOrgId", "apiToken" salían sin
+  // traducir como labels — el schema no declaraba `title`).
+  'plugin.enhance_cp.config.baseUrl.label': 'URL base de la API Enhance',
   'plugin.enhance_cp.config.baseUrl':
     'URL base de la API Enhance (ej. https://enhance.example.com). El plugin añade el prefijo /v2/... según corresponda.',
+  'plugin.enhance_cp.config.masterOrgId.label': 'UUID del Master Org Aelium',
   'plugin.enhance_cp.config.masterOrgId':
     'UUID del Master Org Aelium en Enhance — owner canónico de todos los customers que el plugin cree (multi-tenancy ADR-083 §2).',
+  'plugin.enhance_cp.config.reconciliationIntervalHours.label':
+    'Intervalo de reconciliación (horas)',
   'plugin.enhance_cp.config.reconciliationIntervalHours':
     'Intervalo del cron L3 de reconciliación (default 6h). El cron compara cada servicio Aelium con su Subscription en Enhance y emite service.reconciled_external_change si detecta drift.',
 
   // ── Plugin Enhance CP — Secrets
+  'plugin.enhance_cp.secrets.apiToken.label': 'Bearer token API Enhance',
   'plugin.enhance_cp.secrets.apiToken':
     'Bearer token Super Admin Enhance — revocable desde la UI Enhance. Se cifra con AES-256-GCM antes de persistirse (ADR-080 §3).',
 
   // ── Plugin Enhance CP — Product config (ADR-080 Amendment B + ADR-083 Amendment A3)
+  'plugin.enhance_cp.product_config.enhance_plan_id.label':
+    'ID del plan en Enhance',
   'plugin.enhance_cp.product_config.enhance_plan_id':
     'ID numérico del plan en Enhance que se asociará a este producto Aelium (Subscription.planId). El admin crea los planes en Enhance UI; aquí se referencia por número.',
 
@@ -129,7 +140,15 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'admin.plugins.reconcile_all.tooltip':
     'Invoca el executor reconcile registrado por el plugin (POST /admin/plugins/:slug/reconcile-all).',
   'admin.plugins.reconcile_all.loading': 'Reconciliando…',
+  // Sprint 15C.II Fase B fix-up (2026-05-10): pluralización ES inline para
+  // 1 vs N servicios/drifts (translator local no soporta ICU). Smoke real
+  // reportó toast "1 servicios procesados" — ahora es "1 servicio procesado"
+  // / "5 servicios procesados" según count.
   'admin.plugins.reconcile_all.success':
-    'Reconciliación completada: {processed} servicios procesados, {drifts} drifts detectados ({duration} ms).',
+    'Reconciliación completada: {processed} {services_label}, {drifts} {drifts_label} ({duration} ms).',
+  'admin.plugins.reconcile_all.unit.service.singular': 'servicio procesado',
+  'admin.plugins.reconcile_all.unit.service.plural': 'servicios procesados',
+  'admin.plugins.reconcile_all.unit.drift.singular': 'drift detectado',
+  'admin.plugins.reconcile_all.unit.drift.plural': 'drifts detectados',
   'admin.plugins.reconcile_all.error': 'No se pudo reconciliar el plugin.',
 });

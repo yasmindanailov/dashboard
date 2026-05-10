@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 
+import { ReconcileRegistryModule } from '../../../core/provisioning/reconcile-registry.module';
+
 import { EnhanceReconciliationCron } from './crons/enhance-reconciliation.cron';
 import { EnhanceCustomersService } from './enhance-customers.service';
 import { EnhanceDnsDefaultsService } from './enhance-dns-defaults.service';
@@ -32,6 +34,14 @@ import { EnhanceProvisionerPlugin } from './enhance.plugin';
  *     `PROVISIONER_PLUGINS` que resuelve dinámicamente.
  */
 @Module({
+  imports: [
+    // Sprint 15C.II Fase B (ADR-083 Amendment A4.2): el cron
+    // `EnhanceReconciliationCron` inyecta `ReconcileRegistryService` para
+    // registrar su executor en `onModuleInit()`. El módulo lo provee como
+    // leaf-importable evitando dependencia circular ProvisioningModule ↔
+    // EnhanceCpModule (ProvisioningModule ya importa EnhanceCpModule).
+    ReconcileRegistryModule,
+  ],
   providers: [
     EnhanceProvisionerPlugin,
     EnhanceCustomersService,

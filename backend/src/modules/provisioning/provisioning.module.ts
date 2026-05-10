@@ -8,7 +8,7 @@ import {
   PROVISIONER_PLUGINS,
 } from '../../core/provisioning/plugin-registry';
 import { ProvisioningCacheService } from '../../core/provisioning/provisioning-cache.service';
-import { ReconcileRegistryService } from '../../core/provisioning/reconcile-registry.service';
+import { ReconcileRegistryModule } from '../../core/provisioning/reconcile-registry.module';
 import { SettingsModule } from '../../core/settings/settings.module';
 import { EnhanceCpModule } from '../../plugins/provisioners/enhance_cp/enhance.module';
 import { EnhanceProvisionerPlugin } from '../../plugins/provisioners/enhance_cp/enhance.plugin';
@@ -62,6 +62,11 @@ import { ProvisioningService } from './provisioning.service';
     SettingsModule,
     AuditModule,
     TasksModule,
+    // Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1): registry
+    // genérico para `reconcile-all` admin endpoint. Cada plugin con
+    // supports_reconciliation registra su executor en onModuleInit del
+    // cron correspondiente. Heredable a 15D RC + 15E Docker + 15G Plesk.
+    ReconcileRegistryModule,
     // Sprint 15C Fase 15C.C — primer plugin SaaS real (Enhance CP).
     // Sprints 15D/E/G seguirán el mismo patrón: importar `<Plugin>Module` aquí
     // + añadir su clase al factory `PROVISIONER_PLUGINS` abajo.
@@ -74,12 +79,6 @@ import { ProvisioningService } from './provisioning.service';
     ProvisioningDispatchProcessor,
     PluginRegistryService,
     ProvisioningCacheService,
-    // Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1) — registry
-    // genérico para `reconcile-all` admin endpoint. Cada plugin con
-    // supports_reconciliation registra su executor en onModuleInit del
-    // cron reconciliation correspondiente. Heredable a 15D RC + 15E Docker
-    // + 15G Plesk.
-    ReconcileRegistryService,
     ProvisioningOnTaskCompletedListener,
     // Sprint 15C Fase 15C.D — listeners de DNS-as-capability (ADR-082 §4 + §5):
     //   • bootstrap defaults cuando se enable el plugin enhance_cp,
@@ -125,7 +124,11 @@ import { ProvisioningService } from './provisioning.service';
     PluginRegistryService,
     ProvisioningCacheService,
     CircuitBreakerRegistry,
-    ReconcileRegistryService,
+    // Sprint 15C.II Fase B: re-export del MÓDULO (no del provider) — el
+    // service vive en ReconcileRegistryModule (leaf evita dependencia
+    // circular). AdminPluginsModule importa ProvisioningModule y obtiene
+    // acceso transitivo al ReconcileRegistryService vía esta re-exportación.
+    ReconcileRegistryModule,
   ],
 })
 export class ProvisioningModule {}

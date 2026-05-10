@@ -40,12 +40,23 @@ export function ReconcileAllButton({ slug }: ReconcileAllButtonProps) {
       const result = await reconcileAllPluginAction(slug);
       if (result.ok) {
         const { services_processed, drifts_detected, duration_ms } = result.data;
-        // i18n con interpolación manual (translator local Sprint 15C Fase I no
-        // soporta plurales/ICU). Los placeholders {n} se reemplazan inline.
-        const template = t('admin.plugins.reconcile_all.success');
-        const message = template
+        // Sprint 15C.II Fase B fix-up (2026-05-10): pluralización ES inline
+        // (translator local no soporta ICU/plurales). Patrón canónico: si N=1
+        // singular, sino plural. Smoke real Yasmin reportó "1 servicios".
+        const sLabel =
+          services_processed === 1
+            ? t('admin.plugins.reconcile_all.unit.service.singular')
+            : t('admin.plugins.reconcile_all.unit.service.plural');
+        const dLabel =
+          drifts_detected === 1
+            ? t('admin.plugins.reconcile_all.unit.drift.singular')
+            : t('admin.plugins.reconcile_all.unit.drift.plural');
+        // Templates separados singular/plural compuestos via inline.
+        const message = t('admin.plugins.reconcile_all.success')
           .replace('{processed}', String(services_processed))
+          .replace('{services_label}', sLabel)
           .replace('{drifts}', String(drifts_detected))
+          .replace('{drifts_label}', dLabel)
           .replace('{duration}', String(duration_ms));
         toast(drifts_detected > 0 ? 'info' : 'success', message);
       } else {
