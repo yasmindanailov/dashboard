@@ -1468,6 +1468,19 @@ export interface ServiceDetailResponse {
     user_id: string;
     status: string;
     provisioner_slug: string | null;
+    /**
+     * Sprint 15C.II Fase C round 2 — `product.provisioner` expuesto al
+     * frontend para que la UI admin pueda mostrar el "effective slug"
+     * cuando `service.provisioner_slug` es null. El wrapper canónico
+     * provisioning resuelve el plugin con
+     * `service.provisioner_slug ?? service.product.provisioner` — si el
+     * service no tiene su propio slug (típicamente porque el pipeline
+     * provisioning no llegó a marcarlo, caso `not_yet_provisioned`),
+     * el plugin del producto SÍ se invoca. Sin este campo la UI
+     * admin mostraba "—" — información engañosa para el operador.
+     * Cliente NO lo usa (su UI no muestra esta info técnica).
+     */
+    product_provisioner: string;
     product_slug: string;
     product_name: string;
     product_type: string;

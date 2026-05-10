@@ -314,6 +314,37 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     expect(plugin.getServiceInfo).toHaveBeenCalled();
     expect(result.info.status).toBe('active');
     expect(result.service.product_slug).toBe('support-inside-pro');
+    // Sprint 15C.II Fase C round 2: product_provisioner expone el plugin
+    // del producto al frontend admin para mostrar el "effective slug"
+    // cuando service.provisioner_slug es null (caso not_yet_provisioned).
+    expect(result.service.product_provisioner).toBe('internal');
+  });
+
+  it('getInfoForUser: product_provisioner se expone aunque service.provisioner_slug sea null', async () => {
+    // Caso canónico Sprint 15C.II Fase C round 2: smoke real Yasmin
+    // detectó services con `provisioner_slug=null` pero plugin invocado
+    // via fallback `service.product.provisioner`. La UI admin necesita
+    // poder mostrar el plugin effective ("desde producto") en lugar de
+    // "—" engañoso.
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        provisioner_slug: null,
+        product: {
+          id: 'prod-1',
+          slug: 'hosting-pro',
+          name: 'Hosting Pro',
+          type: 'hosting_web',
+          provisioner: 'enhance_cp',
+          provisioner_config: null,
+        },
+      }),
+    );
+    registry.get.mockReturnValue(null); // plugin no registrado → fallback unknown
+
+    const result = await service.getInfoForUser('svc-1', 'user-1', false);
+
+    expect(result.service.provisioner_slug).toBeNull();
+    expect(result.service.product_provisioner).toBe('enhance_cp');
   });
 
   it('getInfoForUser: admin bypassea ownership (isAdmin=true)', async () => {
@@ -362,18 +393,29 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
 
   // â”€â”€â”€ reprovisionAsAdmin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  it('reprovisionAsAdmin: enqueue + audit logChange + audit logAccess', async () => {
+  it('reprovisionAsAdmin: reset status→provisioning + enqueue + audit logChange + audit logAccess', async () => {
     prisma.service.findUnique.mockResolvedValueOnce({
       id: 'svc-1',
       user_id: 'user-1',
       status: 'cancelled',
     });
+    prisma.service.update.mockResolvedValueOnce({ id: 'svc-1' });
 
     const result = await service.reprovisionAsAdmin('svc-1', 'admin-id', {
       ipAddress: '1.2.3.4',
     });
 
     expect(result).toEqual({ enqueued: true });
+    // Sprint 15C.II Fase C round 2: el reset canónico status→provisioning
+    // antes del enqueue evita la guard idempotente del orquestador
+    // (`provisioning-orchestrator.service.ts:151`) que skipea services
+    // con status='active'. Sin esto, smoke real reveló que el botón
+    // "Re-aprovisionar ahora" era no-op silencioso para drift
+    // not_yet_provisioned con status canónico active.
+    expect(prisma.service.update).toHaveBeenCalledWith({
+      where: { id: 'svc-1' },
+      data: { status: 'provisioning' },
+    });
     expect(orchestrator.enqueueProvisioning).toHaveBeenCalledWith('svc-1');
     expect(audit.logChange).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -389,7 +431,30 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     );
   });
 
-  it('reprovisionAsAdmin: NotFoundException si service no existe', async () => {
+  it('reprovisionAsAdmin: reset funciona también cuando status=active (caso típico drift admin)', async () => {
+    // Sprint 15C.II Fase C round 2: el caso canónico que motivó el fix
+    // — service activo en Aelium pero no aprovisionado realmente en
+    // Enhance (drift not_yet_provisioned). Antes el job se enqueueba
+    // pero la guard idempotente del orquestador lo skipeaba silently.
+    prisma.service.findUnique.mockResolvedValueOnce({
+      id: 'svc-2',
+      user_id: 'user-1',
+      status: 'active',
+    });
+    prisma.service.update.mockResolvedValueOnce({ id: 'svc-2' });
+
+    await service.reprovisionAsAdmin('svc-2', 'admin-id', {
+      ipAddress: '1.2.3.4',
+    });
+
+    expect(prisma.service.update).toHaveBeenCalledWith({
+      where: { id: 'svc-2' },
+      data: { status: 'provisioning' },
+    });
+    expect(orchestrator.enqueueProvisioning).toHaveBeenCalledWith('svc-2');
+  });
+
+  it('reprovisionAsAdmin: NotFoundException si service no existe — NO toca status', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(null);
 
     await expect(
@@ -397,6 +462,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         ipAddress: '1.2.3.4',
       }),
     ).rejects.toThrow(NotFoundException);
+    expect(prisma.service.update).not.toHaveBeenCalled();
     expect(orchestrator.enqueueProvisioning).not.toHaveBeenCalled();
   });
 

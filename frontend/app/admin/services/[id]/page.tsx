@@ -182,7 +182,31 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
 
           <dt style={{ color: 'var(--text-secondary)' }}>Plugin (provisioner)</dt>
           <dd style={{ margin: 0, fontFamily: 'var(--font-mono)' }}>
-            {service.provisioner_slug ?? '—'}
+            {/*
+              Sprint 15C.II Fase C round 2 (smoke real Yasmin 2026-05-10):
+              "effective slug" — si service.provisioner_slug es null
+              (típicamente caso `not_yet_provisioned` con metadata vacía
+              porque el pipeline provisioning nunca terminó), mostramos
+              el del producto con anotación visual "(desde producto)".
+              El wrapper canónico backend usa la misma resolución
+              (`service.provisioner_slug ?? service.product.provisioner`)
+              al invocar el plugin — esto materializa esa lógica en la UI
+              admin para que el operador no vea "—" engañoso.
+            */}
+            {service.provisioner_slug ?? service.product_provisioner}
+            {!service.provisioner_slug && (
+              <span
+                style={{
+                  marginLeft: 8,
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 11,
+                  color: 'var(--text-tertiary)',
+                  fontStyle: 'italic',
+                }}
+              >
+                (desde producto · service sin provisión exitosa aún)
+              </span>
+            )}
           </dd>
 
           <dt style={{ color: 'var(--text-secondary)' }}>Producto</dt>

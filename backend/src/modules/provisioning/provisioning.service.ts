@@ -183,6 +183,18 @@ export class ProvisioningService {
       user_id: string;
       status: string;
       provisioner_slug: string | null;
+      // Sprint 15C.II Fase C round 2 (smoke real Yasmin 2026-05-10): el
+      // wrapper canónico provisioning resuelve el plugin con
+      // `service.provisioner_slug ?? service.product.provisioner` (línea
+      // 247 abajo). Cuando un service no tiene provisioner_slug propio
+      // (típicamente porque el pipeline provisioning no llegó a marcarlo
+      // — caso `not_yet_provisioned`), el plugin del producto SÍ se invoca
+      // y devuelve `info`. La UI admin mostraba "Plugin (provisioner): —"
+      // para esos casos — información engañosa: el plugin SÍ está actuando.
+      // Este campo expone explícitamente el plugin del producto para que
+      // la UI muestre el "effective slug" (con anotación visual "desde
+      // producto" cuando difiere del service slug). Cliente no lo usa.
+      product_provisioner: string;
       product_slug: string;
       product_name: string;
       product_type: string;
@@ -200,6 +212,7 @@ export class ProvisioningService {
       user_id: service.user_id,
       status: String(service.status),
       provisioner_slug: service.provisioner_slug,
+      product_provisioner: service.product.provisioner,
       product_slug: service.product.slug,
       product_name: service.product.name,
       product_type: service.product.type,
@@ -496,6 +509,32 @@ export class ProvisioningService {
     if (!service) {
       throw new NotFoundException('Servicio no encontrado.');
     }
+
+    // Sprint 15C.II Fase C round 2 (smoke real Yasmin 2026-05-10): reset
+    // canónico `status -> provisioning` antes del enqueue. Sin esto, el
+    // worker `provisionService` aplica la guard idempotente
+    // (`provisioning-orchestrator.service.ts:151`) y skipea silently
+    // cualquier service con `status='active'`. Caso canónico que reveló
+    // el bug: drift `not_yet_provisioned` (plugin reporta unknown sin
+    // refs externas) sobre service que vive en Aelium con status canónico
+    // `active`. El admin pulsa "Re-aprovisionar ahora" → enqueue OK pero
+    // worker skip → cero efecto operativo + cero feedback al admin.
+    //
+    // Patrón industria (Plesk admin "Reset & re-provision", cPanel WHM
+    // "Force re-provisioning", ResellerClub admin force-reprovision):
+    // el botón admin admin de re-aprovisión es una **operación deliberada
+    // del operador** que reinicia el ciclo provisioning aunque el state
+    // sea active — el operador asume responsabilidad. La guard idempotente
+    // sigue siendo correcta para el flujo automático
+    // `invoice.paid → enqueueProvisioning` (evita duplicar provisión).
+    //
+    // Coherente con DH-INV-6 (ADR-082): NO modificamos status
+    // automáticamente desde un cron o listener, solo desde una acción
+    // explícita del admin que firma audit `service.reprovision_requested`.
+    await this.prisma.service.update({
+      where: { id: serviceId },
+      data: { status: 'provisioning' },
+    });
 
     await this.orchestrator.enqueueProvisioning(serviceId);
 
