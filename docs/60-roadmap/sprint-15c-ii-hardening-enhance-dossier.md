@@ -1084,23 +1084,46 @@ de cancelar — da al cliente oportunidad de regularizar antes de pérdida total
 correctamente. Pero NO hay ningún componente UI que la dispare — el admin no
 puede usarla desde el panel.
 
+**Re-evaluación 2026-05-10 (smoke real Yasmin Fase D)**: hay TRES capas
+distintas hoy de "refresco" que se confunden — antes de añadir UI evaluar si
+force_resync es REDUNDANTE con las dos que ya existen:
+
+| Acción | Qué hace | Recalcula EN proveedor | UX |
+|---|---|---|---|
+| **F5 navegador** | SC re-render → respeta cache Redis 60s | NO | Default uso normal cliente/admin |
+| **Botón ↻ Refresh metrics** (Fase C round 7, admin-only) | Bypass cache → re-fetch del plugin via `getServiceInfo` forceRevalidate=true | NO (solo re-lee lo que ya hay en proveedor) | Cooldown visible 10s post éxito |
+| **Force resync** (action backend existente) | Bypass cache + dispara `calculate-resource-usage` PUT al proveedor para que recalcule disco/bandwidth en su lado | **SÍ** — pide al proveedor recálculo activo | Sin UI hoy |
+
+**Conclusión doctrinal**: para 95% de los casos, F5 + botón ↻ ya cubren la
+necesidad. Force resync solo aporta valor cuando el proveedor mismo (Enhance)
+no ha recalculado disco/bandwidth en su lado en mucho tiempo y el admin
+necesita forzar el recálculo upstream antes de leer.
+
 **Distinción doctrinal force_resync vs reprovision (frozen 2026-05-10)**:
 
 | | **Force resync** | **Reprovision** |
 |---|---|---|
-| Qué hace | Vuelve a LEER estado del proveedor (bypass cache 60s + recálculo métricas) | Vuelve a CREAR el recurso desde cero (steps 1-6 plugin.provision()) |
-| Llamada plugin | `getServiceInfo()` forceRevalidate + `calculate-resource-usage` | `plugin.provision()` completo |
-| Modifica proveedor | NO (solo lee) | SÍ (crea customer/subscription/website) |
-| Modifica BD | Solo invalida cache | Cambia `provider_reference` + `metadata.enhance_*` + status |
-| Cuándo usar | Métricas obsoletas, cliente reporta "no veo lo último" | Drift `subscription_missing`/`not_yet_provisioned`, primer provision falló |
-| Coste proveedor | Bajo (1-2 GET) | Alto (5-6 mutaciones + posible facturación) |
+| Qué hace | Pide recálculo activo en proveedor (`calculate-resource-usage`) + re-fetch + bypass cache | Vuelve a CREAR el recurso desde cero (steps 1-6 plugin.provision()) |
+| Modifica proveedor | NO destructivo (solo recálculo) | SÍ destructivo (crea customer/subscription/website) |
+| Modifica BD | Solo invalida cache + escribe fresh info | Cambia `provider_reference` + `metadata.enhance_*` + status |
+| Cuándo usar | Métricas del proveedor mismo están desactualizadas (raro) | Drift `subscription_missing`/`not_yet_provisioned`, primer provision falló |
+| Coste proveedor | Medio (1 PUT recálculo + GETs) | Alto (5-6 mutaciones + posible facturación) |
 
-Analogía: force resync = "recarga la página"; reprovision = "vuelve a comprar
-la cuenta".
+Analogía: refresh = "recarga la página"; force resync = "pide al servidor que
+recalcule antes de mandarte"; reprovision = "vuelve a comprar la cuenta".
 
-**Fix Fase E/F**: añadir botón "Forzar resincronización" en
-`AdminServiceOperationsCard` que dispare `executeServiceActionAction(serviceId,
-'force_resync', {})`. Sin confirm modal (es read-only).
+**Decisión Fase E (pendiente confirmar al arrancar Fase E)**: 3 opciones:
+
+1. **NO añadir botón UI** — mantener action solo invocable vía API admin
+   (caso raro). Reduce ruido en `AdminServiceOperationsCard`. Mi recomendación
+   por defecto.
+2. **Incorporar como modo opcional del botón ↻** — checkbox "Forzar recálculo
+   en proveedor" antes de pulsar el botón. UX más densa pero unifica conceptos.
+3. **Renombrar** a `recalculate_provider_metrics` para que el siguiente
+   developer entienda inequívocamente que NO es "refresh local". Mantiene API
+   limpia.
+
+**Tarea Fase E**: re-evaluar este gap con Yasmin antes de implementar.
 
 ### GAP-15CII-L — UI admin NO expone CRUD DNS records
 
@@ -1195,6 +1218,92 @@ queda canónico para 15D RC + 15E Docker + 15G Plesk.
 |---|---|
 | **F** | Admin overview operativo plugin (`/admin/settings/plugins/enhance-cp`) — stats grid + tabla drifts + capability flag `supports_suspend` (G3 ADR-077 A4) + 2 inline actions `suspend_service`/`unsuspend_service` + cache TTL (G4) + breaker EnhanceApiClient (G5 evaluar) + G8 bug test-connection + **GAP-15CII-M `/admin/services/[id]/audit`** + **GAP-15CII-N error_log módulo origen** |
 | **G** | Tests críticos faltantes (8 áreas) + E2E spec extension cubriendo Fase E + retrospectiva en `completed/` + smoke final Yasmin contra mock + Enhance live |
+
+### A.9.6.1. Suspend / Unsuspend — scope detallado Fase F (transversal billing/abuse/GDPR)
+
+> Apuntado expandido 2026-05-10 (smoke real Fase D): `supports_suspend` NO es
+> solo una feature del plugin Enhance — vincula con módulos de **billing**
+> (impago temporal → suspensión automática), **support inside / abuse** (DMCA
+> en investigación), **GDPR** (right-to-restrict art. 18), **maintenance**
+> (cluster en mantenimiento programado). Materialización Fase F debe ser
+> heredable a TODOS los plugins futuros (15D RC, 15E Docker, 15G Plesk) +
+> consumible desde estos módulos transversales.
+
+**Backend contract (Amendment A5 a ADR-077 — NO bump v3):**
+
+- `PluginCapabilities.supports_suspend: boolean` (Amendment A4 ya frozen Fase A).
+- Si `supports_suspend=true`, el plugin DEBE implementar:
+  - `suspendService(service: ServiceWithRelations, reason: string): Promise<void>` — invoca al proveedor para deshabilitar el recurso preservando datos. Idempotente (si ya está suspendido en proveedor, no rompe).
+  - `unsuspendService(service: ServiceWithRelations): Promise<void>` — reanuda el recurso. Idempotente.
+- Si `supports_suspend=false`, los métodos NO son llamables — el wrapper lanza `NotImplementedError` antes de invocar al plugin.
+- 2 inline actions canónicas registradas automáticamente en plugins con `supports_suspend=true`:
+  - `suspend_service` — `adminOnly: true`, `destructive: true`, `confirmRequired: true`, payloadSchema `{reason: string (min 10 chars), internal_note?: string, notify_client?: boolean (default true)}`.
+  - `unsuspend_service` — `adminOnly: true`, `destructive: false`, `confirmRequired: true` (es reversible pero impactante).
+
+**Backend wrapper canónico (nuevo `suspendServiceWithAudit` similar a `executeActionWithCacheInvalidation`):**
+
+1. Valida `service.status === 'active'` (NO se puede suspender lo que ya está suspendido/cancelado).
+2. Invoca `plugin.suspendService(service, reason)`.
+3. `prisma.service.update`: `status='suspended'`, `suspended_at=now()`, `suspension_reason=reason`.
+4. `cache.invalidate(service.id)`.
+5. `audit.logChange({action: 'service.suspended', changes_after: {status, suspended_at, suspension_reason, reason}})`.
+6. `events.emit('service.suspended', {service_id, user_id, actor_user_id, reason, suspended_at, notify_client})`.
+
+Análogo `unsuspendServiceWithAudit`:
+1. Valida `service.status === 'suspended'`.
+2. Invoca `plugin.unsuspendService(service)`.
+3. `prisma.service.update`: `status='active'`, `suspended_at=null`, `suspension_reason=null`.
+4. Resto de pasos análogos.
+
+**Endpoints admin:**
+
+- `POST /admin/services/:id/suspend` con DTO `{reason: string, internal_note?: string, notify_client?: boolean}`.
+- `POST /admin/services/:id/unsuspend` sin DTO (solo audit).
+
+**Listeners email (nuevos, herederos del patrón Fase D L11+L12):**
+
+- `notifications-on-service-suspended` consume `service.suspended` → dispatch `service.suspended` template (email cliente + internal campana). Variables: `domain`, `suspension_reason`, `regularize_url`, `panel_url`. Plantilla email: explicación honesta + CTA "Regulariza tu pago" o "Contacta soporte" según contexto.
+- `notifications-on-service-unsuspended` consume `service.unsuspended` → email "Tu servicio está activo de nuevo".
+
+**Frontend admin (en `AdminServiceOperationsCard`):**
+
+- Si `service.status === 'active'`: botón "Suspender servicio…" (variant warning).
+- Si `service.status === 'suspended'`: botón "Reanudar servicio" (variant primary) + banner amarillo en service detail con `suspension_reason` + `suspended_at` + razón visible.
+- Modal Suspend DS:
+  - Campo razón obligatorio (min 10 chars) seleccionable de presets canónicos: "Impago vencido", "Investigación abuse", "Mantenimiento programado", "GDPR right-to-restrict", "Otro (especificar)".
+  - Campo `internal_note?` opcional (no visible al cliente).
+  - Checkbox `notify_client=true` por defecto. UX: "El cliente recibirá email con la razón seleccionada arriba."
+  - Botón "Suspender" (variant warning, no rojo — es reversible).
+
+**Casos de uso transversales (por qué importa heredable):**
+
+| Módulo | Trigger automático/manual | Acción |
+|---|---|---|
+| **Billing** | Cron `billing-suspend-on-overdue` cuando factura supera grace period (ADR-billing-overdue, Sprint 8 Fase 8.1) | Llama endpoint admin con razón canónica "Impago vencido" + notify_client=true. Reactivación automática cuando paga (listener `billing-on-invoice-paid` → unsuspend si `suspension_reason='Impago vencido'`). |
+| **Support inside** | Manual desde ticket cuando hay abuse confirmado | Admin acción manual desde service detail. |
+| **GDPR** | Cliente solicita right-to-restrict art. 18 (Sprint 12.5) | Acción manual admin con razón "GDPR right-to-restrict". |
+| **Maintenance** | Mantenimiento programado del cluster | Batch suspend desde admin cluster (Sprint 10 / 15E). |
+
+**Schema BD (ya existen):**
+
+- `services.suspended_at` (TIMESTAMPTZ NULL) — ya existe ([schema.prisma:488](../../backend/prisma/schema.prisma#L488) aprox).
+- `services.suspension_reason` (TEXT NULL) — ya existe.
+- `ServiceStatus` enum incluye `suspended` — verificar/añadir si falta.
+
+**Heredable a 15D RC + 15E Docker + 15G Plesk:**
+
+- ResellerClub: `domain.suspend()` API existe. `supports_suspend=true`.
+- cPanel WHM: `suspendacct` / `unsuspendacct`. `supports_suspend=true`.
+- Plesk: `--update-domain -status suspended/active`. `supports_suspend=true`.
+- Docker Engine: stop container preservando volúmenes. `supports_suspend=true`.
+- `internal` / `manual`: `supports_suspend=false` (no aplica).
+
+**Tests Fase F:**
+
+- Contract test genérico `provisioner-plugin-suspend.contract.spec.ts`: todo plugin con `supports_suspend=true` debe implementar suspendService + unsuspendService idempotentes.
+- Unit test wrapper `suspendServiceWithAudit` + `unsuspendServiceWithAudit`: audit + event + cache invalidation + idempotency guards.
+- Unit test plugin enhance specifically.
+- E2E test 8 nuevo: admin suspende → mailpit recibe email cliente con razón → admin reanuda → mailpit recibe email "activo de nuevo".
 
 ## A.9.7. Gaps audit estado actual (post Fase D)
 
