@@ -199,6 +199,18 @@ export class ProvisioningService {
       product_name: string;
       product_type: string;
       created_at: Date;
+      // Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10):
+      // exponer datos canónicos de cancelación al frontend para que la UI
+      // pueda renderizar el banner terminal "Servicio cancelado · {razón}"
+      // en lugar del banner drift (que es semánticamente FALSO sobre un
+      // service terminal — el service NO es un drift, es un estado
+      // operativo final). Smoke real reveló bug crítico: service
+      // `cancelled` por `provisioning_failed:INVALID_PAYLOAD` mostraba
+      // AlertBanner "no aprovisionado en proveedor" + botón Re-aprovisionar
+      // que producía loop infinito (cancelled → reprovisionar → INVALID
+      // PAYLOAD → cancelled).
+      cancellation_reason: string | null;
+      cancelled_at: Date | null;
     };
     info: ServiceInfo;
   }> {
@@ -217,7 +229,35 @@ export class ProvisioningService {
       product_name: service.product.name,
       product_type: service.product.type,
       created_at: service.created_at,
+      cancellation_reason: service.cancellation_reason,
+      cancelled_at: service.cancelled_at,
     };
+
+    // Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10):
+    // shortcircuit canónico para estados terminales. Si `service.status`
+    // es `cancelled` o `terminated`, NO invocamos al plugin — el service
+    // ya no opera contra el proveedor (la cola provisioning incluso
+    // skipea jobs sobre status terminal:
+    // `provisioning-orchestrator.service.ts:144`). Llamar al plugin sería
+    // semánticamente incorrecto y daría falsos positivos de drift (el
+    // plugin retornaría `unknown/not_yet_provisioned` por metadata
+    // perdida en deprovision o provision fail, y la UI mostraría
+    // AlertBanner drift sobre un service que ya está terminal — bug
+    // que reportó Yasmin smoke real).
+    //
+    // El shortcircuit retorna `info.status='cancelled'` (o 'terminated')
+    // canónico con `statusReason` traducible derivada del
+    // `cancellation_reason` técnico (audit trace). El frontend renderiza
+    // un banner danger explícito + oculta acciones futiles (SSO,
+    // operaciones admin, reprovision). Heredable a 15D RC, 15E Docker,
+    // 15G Plesk: cualquier service cancelled aplica el mismo patrón.
+    const TERMINAL_STATUSES = new Set(['cancelled', 'terminated']);
+    if (TERMINAL_STATUSES.has(String(service.status))) {
+      return {
+        service: summary,
+        info: this.buildTerminalServiceFallback(service),
+      };
+    }
 
     const pluginSlug = service.provisioner_slug ?? service.product.provisioner;
     const plugin = this.registry.get(pluginSlug);
@@ -765,6 +805,74 @@ export class ProvisioningService {
       availableActions: [],
       fetchedAt: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Sprint 15C.II Fase C round 4 (UI_SPEC §4.13 + ADR-082 DH-INV-6) —
+   * shortcircuit canónico para services en estado terminal (`cancelled`,
+   * `terminated`). NO se invoca al plugin (cualquier respuesta del plugin
+   * sería falsa info sobre un service que ya no opera) — retornamos
+   * directamente `info.status` canónico, capabilities sin acciones, y
+   * el `statusReason` derivado del `service.cancellation_reason` para
+   * transparencia del audit trail.
+   *
+   * Heredable a todos los plugins SaaS: 15D RC, 15E Docker, 15G Plesk
+   * pueden tener services cancelled por las mismas 3 rutas (admin
+   * deprovision / provision fail permanente / drift+admin decisión).
+   * Patrón canónico = NO renderizar drift UX sobre estado terminal.
+   */
+  private buildTerminalServiceFallback(
+    service: ServiceWithRelations,
+  ): ServiceInfo {
+    // ServiceInfo.status no incluye 'terminated' (solo 'cancelled' como
+    // estado terminal del set canónico ADR-070). Ambos service.status
+    // terminales colapsan a `info.status='cancelled'` para la UI — el
+    // service.status canónico (terminated vs cancelled) sigue disponible
+    // en `summary.status` para diferenciar si un plugin futuro lo necesita.
+    return {
+      status: 'cancelled',
+      // El frontend traduce con `t()` — fallback a la key cruda si no
+      // declarada (compat retro). Las keys son universales (no plugin-
+      // específicas) porque el patrón es canónico cross-plugin.
+      statusReason: this.buildTerminalStatusReasonKey(service),
+      display: {
+        primary: service.label ?? service.domain ?? service.product.name,
+        secondary: service.product.name,
+      },
+      capabilities: {
+        has_sso_panel: false,
+        has_metrics: false,
+        has_metrics_history: false,
+        requires_server: false,
+        provision_mode: 'sync',
+        completes_via_task: false,
+        supports_reconciliation: false,
+        has_dns_management: false,
+        hasSsoPanel: false,
+        inlineActions: [],
+      },
+      availableActions: [],
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Mapea `service.cancellation_reason` (text libre histórico — viene de
+   * `provisioning_failed:CODE`, razones admin, etc.) a una i18n key
+   * canónica frontend. Si no matchea ningún patrón conocido, devuelve la
+   * key generic `service.terminal.cancelled.reason.unknown`. El frontend
+   * decide si mostrar también el reason crudo (admin) vs solo el
+   * mensaje generic empático (cliente — UI_SPEC §1.2 P5 voz Aelium).
+   */
+  private buildTerminalStatusReasonKey(service: ServiceWithRelations): string {
+    const reason = service.cancellation_reason ?? '';
+    if (reason.startsWith('provisioning_failed:')) {
+      return 'service.terminal.cancelled.reason.provisioning_failed';
+    }
+    if (reason.length === 0) {
+      return 'service.terminal.cancelled.reason.unknown';
+    }
+    return 'service.terminal.cancelled.reason.admin_action';
   }
 
   private async resolveServiceInfoTtl(): Promise<number> {

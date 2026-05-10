@@ -320,6 +320,60 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     expect(result.service.product_provisioner).toBe('internal');
   });
 
+  it('getInfoForUser: shortcircuit terminal — service.status=cancelled NO invoca al plugin', async () => {
+    // Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10): caso
+    // canónico que reveló el bug de UI mostrando AlertBanner drift sobre
+    // service ya cancelled. El shortcircuit retorna info.status='cancelled'
+    // directamente con statusReason mapeado desde cancellation_reason.
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        status: 'cancelled',
+        cancellation_reason: 'provisioning_failed:INVALID_PAYLOAD',
+        cancelled_at: new Date('2026-05-10T15:48:38Z'),
+      }),
+    );
+    const plugin = buildPlugin();
+    registry.get.mockReturnValue(plugin);
+
+    const result = await service.getInfoForUser('svc-1', 'user-1', false);
+
+    // El plugin NO debe haberse invocado.
+    expect(plugin.getServiceInfo).not.toHaveBeenCalled();
+    // Shape correcto del shortcircuit canónico.
+    expect(result.info.status).toBe('cancelled');
+    expect(result.info.statusReason).toBe(
+      'service.terminal.cancelled.reason.provisioning_failed',
+    );
+    expect(result.info.availableActions).toEqual([]);
+    expect(result.info.capabilities.hasSsoPanel).toBe(false);
+    // Cancellation fields propagados al frontend para banner explícito.
+    expect(result.service.cancellation_reason).toBe(
+      'provisioning_failed:INVALID_PAYLOAD',
+    );
+    expect(result.service.cancelled_at).toEqual(
+      new Date('2026-05-10T15:48:38Z'),
+    );
+  });
+
+  it('getInfoForUser: shortcircuit terminal — admin_action key cuando cancellation_reason no matchea provisioning_failed', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        status: 'cancelled',
+        cancellation_reason: 'admin_request:cliente solicitó cancelación',
+        cancelled_at: new Date(),
+      }),
+    );
+    const plugin = buildPlugin();
+    registry.get.mockReturnValue(plugin);
+
+    const result = await service.getInfoForUser('svc-1', 'user-1', false);
+
+    expect(plugin.getServiceInfo).not.toHaveBeenCalled();
+    expect(result.info.statusReason).toBe(
+      'service.terminal.cancelled.reason.admin_action',
+    );
+  });
+
   it('getInfoForUser: product_provisioner se expone aunque service.provisioner_slug sea null', async () => {
     // Caso canónico Sprint 15C.II Fase C round 2: smoke real Yasmin
     // detectó services con `provisioner_slug=null` pero plugin invocado

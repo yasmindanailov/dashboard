@@ -193,4 +193,30 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
     'Re-aprovisión enqueued. La cola la procesará en segundos.',
   'service.drift.admin_banner.reprovision_error':
     'No se pudo enqueuear la re-aprovisión. Revisa los logs del backend.',
+
+  // ── Estados terminales — service.status ∈ {cancelled, terminated}
+  //    (UI_SPEC §4.13 + ADR-082 DH-INV-6 — Sprint 15C.II Fase C round 4
+  //    2026-05-10). Doctrina canónica: cuando un service está terminal,
+  //    NO se renderiza drift UX (sería semánticamente falso) — se
+  //    muestra un banner explícito + se ocultan acciones futiles
+  //    (SSO, reprovision, métricas). Heredable a 15D RC, 15E Docker,
+  //    15G Plesk: cualquier service cancelled aplica el mismo patrón.
+  //
+  //    Discriminación cliente vs admin igual que drift UX:
+  //    - Cliente: mensaje empático sin tecnicismos.
+  //    - Admin: razón técnica cruda + fecha + contexto operativo.
+  'service.terminal.cancelled.admin.title': 'Servicio cancelado',
+  'service.terminal.cancelled.admin.body':
+    'Este servicio está en estado terminal. La cola de provisioning skipea cualquier job sobre él. Para reactivarlo, el cliente debe contratar uno nuevo (checkout) o el admin debe corregir la causa y crear un service nuevo.',
+  'service.terminal.cancelled.client.title': 'Servicio cancelado',
+  'service.terminal.cancelled.client.body':
+    'Este servicio fue cancelado y ya no está activo. Si crees que es un error o quieres contratarlo de nuevo, contacta con soporte.',
+  // Razones técnicas mapeadas (lo emite buildTerminalStatusReasonKey
+  // en el backend a partir de `service.cancellation_reason`).
+  'service.terminal.cancelled.reason.provisioning_failed':
+    'No se pudo crear el servicio en el proveedor (fallo permanente — típicamente configuración del producto incompleta o credenciales del plugin inválidas). Revisa la configuración del producto en /admin/products y el plugin en /admin/settings/plugins.',
+  'service.terminal.cancelled.reason.admin_action':
+    'Cancelado manualmente por un admin. Revisa el motivo exacto en el campo "cancellation_reason" del audit log.',
+  'service.terminal.cancelled.reason.unknown':
+    'No se registró razón técnica de la cancelación.',
 });

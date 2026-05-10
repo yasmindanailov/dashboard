@@ -9,7 +9,8 @@
  */
 
 import Link from 'next/link';
-import { Card, EmptyState } from '../../../components/ui';
+import { AlertBanner, Card, EmptyState } from '../../../components/ui';
+import { t } from '../../../_shared/i18n';
 import {
   getServerSession,
   serverFetch,
@@ -67,6 +68,15 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
 
   const { service, info } = data;
 
+  // Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10):
+  // detectar terminal ANTES de drift. Si el cliente abre la página de
+  // un service `cancelled` / `terminated`, debe ver un mensaje empático
+  // explícito + ocultar TODO lo operativo (SSO, DNS, métricas, etc.).
+  // Mostrar drift sobre service terminal sería engañoso (el service
+  // YA NO opera, no es un drift recuperable).
+  const isTerminal =
+    service.status === 'cancelled' || service.status === 'terminated';
+
   // Sprint 15C.II Fase C (UI_SPEC §4.13 + ADR-083 Amendment A4.3): cuando
   // el plugin reporta drift (`status` ∈ {`unknown`, `failed`}), las
   // acciones que dependen de metadata externa (SSO al panel del proveedor,
@@ -75,7 +85,8 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
   // (provisioner === 'X')`, R-070) es ocultarlas para no atrapar al
   // cliente en un loop de errores. El admin sí mantiene visibilidad
   // completa en su página `/admin/services/[id]` para diagnosticar.
-  const isDrift = info.status === 'unknown' || info.status === 'failed';
+  const isDrift =
+    !isTerminal && (info.status === 'unknown' || info.status === 'failed');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -99,13 +110,46 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
       </Card>
 
       {/*
+        Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10):
+        si service terminal, banner empático arriba de "Detalles" +
+        ocultar TODO lo operativo (SSO, DNS, métricas, ActionsBar).
+        El cliente solo ve: identidad del service + cancelled banner +
+        card "¿Necesitas desarrollo a medida?" abajo (siempre visible).
+        UI_SPEC §1.2 P5 voz Aelium — sin tecnicismos al cliente.
+      */}
+      {isTerminal && (
+        <AlertBanner
+          variant="info"
+          title={t('service.terminal.cancelled.client.title')}
+        >
+          <p style={{ margin: 0, fontSize: 13 }}>
+            {t('service.terminal.cancelled.client.body')}
+          </p>
+          {service.cancelled_at && (
+            <p
+              style={{
+                margin: '6px 0 0',
+                fontSize: 12,
+                color: 'var(--text-secondary)',
+              }}
+            >
+              Cancelado el{' '}
+              {new Date(service.cancelled_at).toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+              })}
+            </p>
+          )}
+        </AlertBanner>
+      )}
+
+      {/*
         Sprint 15C.II Fase B fix-up round 3 (2026-05-10): card "Detalles
         del servicio" canónica SIEMPRE visible al cliente — independiente
         de si el plugin reporta drift / unknown / failed. Materializa la
         garantía de que el cliente nunca queda sin información útil
         (smoke real Yasmin reportó páginas vacías al detectar drift).
-        Fase C completará la discriminación AlertBanner por rol +
-        ocultar SSO/DNS cuando metadata corrupta (ADR-083 Amendment A4.3).
       */}
       <Card>
         <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0, marginBottom: 12 }}>
@@ -142,27 +186,26 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
       </Card>
 
       {/*
-        Sprint 15C.II Fase B fix-up round 3 (2026-05-10): renderizamos
-        MetricsBar SIEMPRE (incluso si info.metrics undefined por drift)
-        para que el botón ↻ Refrescar quede visible y el cliente pueda
-        reintentar. El componente muestra un mensaje "Métricas no
-        disponibles" si rows está vacío. Fallback fetchedAt usa el
+        MetricsBar visible SI no terminal (ya no opera contra el
+        proveedor → métricas no aplican). Fallback fetchedAt usa el
         timestamp del response para preservar visual consistente.
       */}
-      <MetricsBar
-        metrics={info.metrics ?? { fetchedAt: info.fetchedAt }}
-        serviceId={service.id}
-        isAdmin={false}
-      />
+      {!isTerminal && (
+        <MetricsBar
+          metrics={info.metrics ?? { fetchedAt: info.fetchedAt }}
+          serviceId={service.id}
+          isAdmin={false}
+        />
+      )}
 
       {/*
         SSO panel — solo si el plugin lo soporta para esta instancia
         (ADR-070 §B + ADR-077 §3 capability flag por instancia).
-        Sprint 15C.II Fase C: ocultamos al cliente cuando hay drift —
-        clickear con metadata externa corrupta produce `provider_error`
-        (UI_SPEC §4.13 + ADR-083 A4.3).
+        Sprint 15C.II Fase C: ocultamos al cliente cuando hay drift o
+        terminal — clickear con metadata corrupta o sobre service
+        cancelled produce `provider_error` (UI_SPEC §4.13 + A4.3).
       */}
-      {!isDrift && info.capabilities.hasSsoPanel && info.capabilities.panel_label && (
+      {!isTerminal && !isDrift && info.capabilities.hasSsoPanel && info.capabilities.panel_label && (
         <Card>
           <div
             style={{
@@ -198,25 +241,24 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
         </Card>
       )}
 
-      <ActionsBar
-        serviceId={service.id}
-        actions={info.availableActions}
-        isAdmin={isAdmin}
-      />
+      {!isTerminal && (
+        <ActionsBar
+          serviceId={service.id}
+          actions={info.availableActions}
+          isAdmin={isAdmin}
+        />
+      )}
 
       {/*
         Sprint 15C Fase 15C.G — link a la sub-página de gestión DNS.
         Solo se renderiza si el plugin del service declara
         `has_dns_management=true` (ADR-082 §3 + ADR-077 Amendment A1).
-        El SC `/dashboard/services/[id]/dns/page.tsx` revalida la
-        capability defensivamente + invoca al resolver canónico que
-        decide entre `<DnsRecordsManager>` y `<DnsExternallyBanner>`.
-        Sprint 15C.II Fase C: ocultamos al cliente cuando hay drift —
-        la sub-página DNS depende de metadata externa válida (`zone_id`,
-        records iniciales fetched de Enhance) que falla con drift
-        (UI_SPEC §4.13 + ADR-083 A4.3).
+        Sprint 15C.II Fase C: ocultamos al cliente cuando hay drift o
+        terminal (la sub-página DNS depende de metadata externa válida
+        — `zone_id`, records iniciales fetched de Enhance — que falla
+        con drift / no existe sobre cancelled).
       */}
-      {!isDrift && info.capabilities.has_dns_management && (
+      {!isTerminal && !isDrift && info.capabilities.has_dns_management && (
         <Card>
           <div
             style={{

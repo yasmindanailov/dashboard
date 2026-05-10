@@ -1485,6 +1485,18 @@ export interface ServiceDetailResponse {
     product_name: string;
     product_type: string;
     created_at: string;
+    /**
+     * Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10) —
+     * cancelación explícita expuesta al frontend. Backend la persiste
+     * en `service.cancellation_reason` (text libre — viene de
+     * `provisioning_failed:CODE` para fail permanente, o text admin
+     * para cancelación manual). El frontend admin la muestra cruda;
+     * el frontend cliente solo la usa para chequear si renderizar el
+     * banner terminal "Servicio cancelado" (sin mostrar el reason
+     * técnico — viola UI_SPEC §1.2 P5 "voz Aelium").
+     */
+    cancellation_reason: string | null;
+    cancelled_at: string | null;
   };
   info: ServiceInfo;
 }
