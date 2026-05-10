@@ -17,6 +17,7 @@ import { NotificationsSystemErrorListener } from './listeners/notifications-syst
 import { NotificationsAuthReplayListener } from './listeners/notifications-auth-replay.listener';
 import { NotificationsPluginCircuitListener } from './listeners/notifications-plugin-circuit.listener';
 import { NotificationsOnReconciliationThresholdExceededListener } from './listeners/notifications-on-reconciliation-threshold-exceeded.listener';
+import { NotificationsOnPasswordResetListener } from './listeners/notifications-on-password-reset.listener';
 import { NotificationsRetentionCron } from './notifications-retention.cron';
 
 /**
@@ -51,6 +52,16 @@ import { NotificationsRetentionCron } from './notifications-retention.cron';
     // (default 5), notifica a superadmins. Dedupe vía setting interno
     // `enhance_cp.reconciliation_last_alert_at` (24h ventana).
     NotificationsOnReconciliationThresholdExceededListener,
+    // Sprint 15C.II Fase D (ADR-083 Amendment A4.5 + DC.NEW-15CII-EMAIL-RESET):
+    // consume `service.action_executed` y, si la action es
+    // `reset_account_password` exitosa, envía email al cliente con la nueva
+    // password. PRE-CONDICIÓN R12: el wrapper canónico
+    // `executeActionWithCacheInvalidation` ya redactó `data.password` en
+    // audit_change_log via `core/provisioning/audit-sanitizer.ts` antes de
+    // que este listener consuma el evento. El evento NestJS in-memory
+    // conserva el plaintext temporal sólo para este listener; nunca se
+    // persiste con plaintext. Heredable a 15D RC + 15G Plesk.
+    NotificationsOnPasswordResetListener,
     NotificationsRetentionCron,
     {
       provide: NOTIFICATION_CHANNELS,

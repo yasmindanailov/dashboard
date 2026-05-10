@@ -940,3 +940,309 @@ Actualizar tras Fase D:
 - 2026-05-10 (smoke real Yasmin x6 iteraciones, 6 rounds fix-up) → 6 commits cerrando 8 bugs doctrinales
 - 2026-05-10 (push + PR #55 + CI verde 5/5) → ready-to-merge
 - 2026-05-10 (handoff doc Fase C → D) → este §A.8
+
+---
+
+# Apéndice A.9 — Cierre Fase D + handoff a Fase E (2026-05-10)
+
+> **Audiencia**: el siguiente agente que arranque Sprint 15C.II Fase E.
+> **Pre-condición técnica**: PR Fase D mergeado a master.
+> **Tipo**: cierre Fase D + hallazgos smoke real Fase D + handoff a E.
+
+## A.9.1. Frase canónica de arranque Fase E (verbatim)
+
+> *"Lee `docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md` Apéndice A §A.9 (cierre Fase D + handoff a Fase E). Vamos con Sprint 15C.II Fase E — UI admin DNS records nativa + consolidación operaciones admin (BUG-15CII-I + GAP-15CII-J/K/L/M/N descubiertos en smoke real Fase D). Crea rama `sprint15c-ii-fase-e-admin-dns-operations` desde master post merge PR Fase D. Lee también ADR-082 §6 (DNS-as-capability + admin endpoints existentes Fase G) + ADR-077 Amendment A1.3 (4 slugs canónicos DNS si has_dns_management=true) + UI_SPEC §1.2 P4 + §4.13 (drift UX por rol). El orden es 1) BUG heurística showReprovision (1 línea), 2) UI admin DNS records reusing endpoints existentes, 3) AdminServiceOperationsCard ampliar con cancel + force_resync. Procede con rigor."*
+
+## A.9.2. Estado real al cierre Fase D
+
+**1 commit Fase D** (PR pendiente — branch `sprint15c-ii-fase-d-email-listener-audit-sanitizer`):
+
+| Commit | Tipo | Resumen |
+|---|---|---|
+| (pendiente) | feat | D.1 audit-sanitizer.ts + tests (53 tests genéricos) + integración wrapper (audit redactado, evento plaintext) + ServiceAction.allowsSensitiveDataInAudit opcional + enhance.plugin.spec.ts integration test (gap G2 R12). D.2 notifications-on-password-reset.listener.ts + 13 tests unit + registrado en NotificationsModule. D.3 seed templates `service.password_reset` (email HTML EC-T8-17 + internal campana sin password expuesta). D.4 i18n keys `plugin.enhance_cp.actions.reset_password.success` + description actualizadas. E2E test 7 con verificación mailpit + audit redactado SQL. |
+
+**Suites tests post Fase D:** 581 unit (576 pass + 5 skipped) backend, 0 regresiones (+21 tests nuevos vs Fase C). typecheck both verde + lint:check both verde. E2E test 7 nuevo pendiente verificación CI.
+
+**Gaps cerrados:**
+
+| Gap | Estado |
+|---|---|
+| **G2** sanitización data.password en wrapper auditor | ✅ Cerrado Fase D |
+| **DC.NEW-15CII-EMAIL-RESET** listener email reset password | ✅ Cerrado Fase D |
+
+## A.9.3. Lecciones técnicas críticas Fase D (heredables — léelas antes de codear Fase E)
+
+### L11 — El wrapper canónico separa "qué se persiste" vs "qué se emite por evento"
+
+**Doctrina canónica frozen 2026-05-10 (Sprint 15C.II Fase D):** el wrapper
+`executeActionWithCacheInvalidation` aplica DOS rutas distintas para `result.data`:
+
+1. **`audit.logChange`** → `data` se sanitiza vía `redactSensitiveFields()` (regex
+   canónico `password|secret|token|apiKey|privateKey` case-insensitive). El log
+   persistido NUNCA contiene plaintext. R12 compliance.
+2. **`events.emit('service.action_executed', { ..., data: result.data })`** →
+   plaintext conservado. Los listeners async (notifications, futuras integraciones)
+   reciben el dato sensible in-memory; nunca lo persisten.
+
+**Aplicable a 15D RC + 15E Docker + 15G Plesk**: cualquier plugin que retorne
+secretos one-time (password reset, API key generation, recovery codes, OTP)
+hereda este patrón automáticamente sin tocar nada.
+
+**Excepción declarativa**: `ServiceAction.allowsSensitiveDataInAudit?: readonly string[]`
+permite skip per-key cuando un campo matchea el regex pero es legítimamente
+auditable (uncommon — requiere ADR específico). NO aplica a `reset_account_password`
+ni equivalentes.
+
+### L12 — Listeners de negocio NUNCA invocan EmailService directo
+
+**Doctrina canónica ADR-065 reforzada Fase D**: `NotificationsOnPasswordResetListener`
+NO llama a `EmailService.send()`. Usa `NotificationsService.dispatchToUser('service.password_reset',
+payload, user_id)` que:
+
+1. Encola job BullMQ `notifications-dispatch`
+2. Processor resuelve recipient completo (email + first_name + language)
+3. Lookup plantilla `(event_type, channel, locale)` con fallback a `es`
+4. Render Handlebars (escape XSS automático EC-T8-17)
+5. Entrega vía `EmailChannel` + `InAppChannel` simultáneamente
+
+Beneficios: locale auto-resuelto, dispatch async (no bloquea el flujo
+provisioning), DLQ + retries automáticos, plantillas editables admin runtime
+(Sprint 9.5).
+
+## A.9.4. Hallazgos smoke real Fase D (2026-05-10) — NUEVOS gaps descubiertos
+
+Durante el smoke real Fase D contra mock-enhance-server fresh (state in-memory
+vacío post-reinicio), Yasmin observó múltiples gaps en la UI admin del service
+detail. Audit completo:
+
+### BUG-15CII-I — Heurística `showReprovision` no detecta `subscription_missing`
+
+**Síntoma**: en `/admin/services/[id]` con `info.statusReason =
+'plugin.enhance_cp.status_reason.subscription_missing'`, el banner drift muestra
+el mensaje técnico pero NO ofrece el botón "Re-aprovisionar ahora".
+
+**Causa**: `admin/services/[id]/page.tsx` activa `showReprovision` solo cuando
+`statusReason.endsWith('.status_reason.not_yet_provisioned')`. La heurística
+fue diseñada para el caso "primer provision no se completó", pero `subscription_missing`
+(recurso borrado externamente del proveedor) requiere IDÉNTICA acción admin
+(re-crear en proveedor) y debería activar el mismo CTA.
+
+**Fix Fase E (1 línea)**: ampliar la heurística a un set de status_reason keys:
+
+```ts
+const REPROVISION_TRIGGER_KEYS = new Set([
+  'plugin.enhance_cp.status_reason.not_yet_provisioned',
+  'plugin.enhance_cp.status_reason.subscription_missing',
+  // Heredable: futuras keys de otros plugins (15D/15E/15G) que indiquen
+  // "recurso ausente en proveedor" se añaden aquí.
+]);
+const showReprovision = isDrift &&
+  typeof info.statusReason === 'string' &&
+  REPROVISION_TRIGGER_KEYS.has(info.statusReason);
+```
+
+### GAP-15CII-J — UI admin NO expone `POST /admin/services/:id/deprovision` (cancelar servicio)
+
+**Síntoma**: el AdminServiceOperationsCard solo tiene el botón "Cambiar plan…".
+No hay forma desde la UI de cancelar / deprovisionar el servicio. Para
+hacerlo, hoy hay que invocar el endpoint manualmente (curl/Postman) o vía SQL
+directo (anti-doctrina).
+
+**Backend existe**: `POST /admin/services/:id/deprovision` con DTO
+`{reason: 'cancelled'|'expired'|'admin_override'}` ya implementado
+(`admin-provisioning.controller.ts:118`) + audit + invocación a
+`plugin.deprovision()` que ejecuta DELETE en el proveedor.
+
+**Fix Fase E/F**: añadir botón "Cancelar servicio…" en `AdminServiceOperationsCard`
+con Modal DS canónico (UI_SPEC §4.2 patrón Fase C round 5) que:
+
+1. Pide razón canónica via dropdown (`cancelled` / `expired` / `admin_override`)
+2. Pide confirmación reforzada con typing del domain (estándar Stripe/Plesk:
+   "escribe `mi-cliente.es` para confirmar")
+3. POST al endpoint con DTO
+4. Tras 200, router.refresh() + toast success
+
+**Distinción doctrinal cancelar vs suspender (frozen 2026-05-10)**:
+
+| | **Suspender** | **Cancelar** |
+|---|---|---|
+| Reversibilidad | Reversible (botón "Reanudar") | Final + irreversible |
+| Recurso proveedor | Sigue existiendo, solo deshabilitado | Eliminado |
+| Datos cliente | Preservados intactos | Pueden quedar irrecuperables |
+| Status BD | `suspended` + `suspended_at` timestamp | `cancelled` o `terminated` |
+| Casos típicos | Impago temporal, DMCA en investigación, abuso bajo evaluación | Fraude confirmado, fin contrato, baja voluntaria cliente |
+| Stripe equivalente | `subscription.pause()` | `subscription.cancel()` |
+| cPanel WHM | `suspendacct` / `unsuspendacct` | `removeacct` |
+
+Estándar SaaS: **ambas obligatorias**. Suspender es la "primera línea" antes
+de cancelar — da al cliente oportunidad de regularizar antes de pérdida total.
+
+### GAP-15CII-K — inline action `force_resync` declarada admin-only pero sin UI
+
+**Síntoma**: la action `force_resync` existe en `ENHANCE_INLINE_ACTIONS` con
+`adminOnly: true` (ADR-083 §9 decisión 32). El backend wrapper la enforce
+correctamente. Pero NO hay ningún componente UI que la dispare — el admin no
+puede usarla desde el panel.
+
+**Distinción doctrinal force_resync vs reprovision (frozen 2026-05-10)**:
+
+| | **Force resync** | **Reprovision** |
+|---|---|---|
+| Qué hace | Vuelve a LEER estado del proveedor (bypass cache 60s + recálculo métricas) | Vuelve a CREAR el recurso desde cero (steps 1-6 plugin.provision()) |
+| Llamada plugin | `getServiceInfo()` forceRevalidate + `calculate-resource-usage` | `plugin.provision()` completo |
+| Modifica proveedor | NO (solo lee) | SÍ (crea customer/subscription/website) |
+| Modifica BD | Solo invalida cache | Cambia `provider_reference` + `metadata.enhance_*` + status |
+| Cuándo usar | Métricas obsoletas, cliente reporta "no veo lo último" | Drift `subscription_missing`/`not_yet_provisioned`, primer provision falló |
+| Coste proveedor | Bajo (1-2 GET) | Alto (5-6 mutaciones + posible facturación) |
+
+Analogía: force resync = "recarga la página"; reprovision = "vuelve a comprar
+la cuenta".
+
+**Fix Fase E/F**: añadir botón "Forzar resincronización" en
+`AdminServiceOperationsCard` que dispare `executeServiceActionAction(serviceId,
+'force_resync', {})`. Sin confirm modal (es read-only).
+
+### GAP-15CII-L — UI admin NO expone CRUD DNS records
+
+**Síntoma**: el detalle service admin tiene banner "Para revisar la zona DNS de
+este servicio, abre el panel del proveedor (Enhance) — la UI admin nativa de
+DNS llegará en un sprint futuro". Backend completo (`GET/POST/PATCH/DELETE
+/admin/services/:id/dns/records` desde `admin-provisioning.controller.ts:138+`),
+faltan SOLO los componentes frontend admin.
+
+**Fix Fase E**: implementar `/admin/services/[id]/dns` reusando los endpoints
+existentes:
+
+- Tabla DNS records con CRUD (kind / name / value / ttl / proxy)
+- Validación TTL min/max (60 / 86400) + dedup canónica de records
+- Modal DS para add / edit / delete con confirm reforzado destructive
+- Heredable: el cliente tiene su UI DNS (Fase C — `/dashboard/services/[id]/dns`);
+  el admin necesita la misma sin filtro ownership
+
+(Este gap ya estaba apuntado en el dossier original §A.3 fila E.)
+
+### GAP-15CII-M — No hay `/admin/services/[id]/audit` ni `/dashboard/services/[id]/audit`
+
+**Síntoma**: no existe pestaña / página dedicada audit per-service. Las tablas
+`audit_change_log` + `audit_access_log` persisten todo (provision events,
+action_executed, sso_opened, admin_sso_impersonation GDPR-flagged Fase F,
+service.password_reset, etc.) pero NO hay UI que lea filtrado por
+`entity_id=service.id`.
+
+**Estándar industria**: Stripe Dashboard "Events tab", AWS CloudTrail "Resource
+history", Plesk "Domain action log", cPanel WHM "Account Logs". Pestaña /
+página dedicada que muestra timeline COMPLETO de un recurso:
+
+- Cuándo se creó (provision success/failure)
+- Cambios de plan / suspensiones / reanudaciones
+- Cuándo cliente abrió SSO
+- Cuándo admin impersonó (audit GDPR-flagged)
+- Cuándo se reseteó contraseña (R12 — sin password en plain)
+- Modificaciones DNS records
+- Drifts detectados y resoluciones admin
+
+**Por qué importa profesionalmente**:
+
+1. **Soporte técnico** — "¿por qué no funciona X?" → timeline en 2 clicks,
+   sin correlacionar logs raw de N módulos.
+2. **Cumplimiento RGPD artículo 15** — cliente solicita "qué información
+   tienes sobre mí" → portal transparencia Sprint 12.5 alimenta de aquí.
+3. **Diagnóstico incidentes** — on-call a las 3am ve "qué pasó con este
+   recurso" en una pantalla.
+4. **Litigios B2B** — demostrar legalmente "este servicio se suspendió el
+   día X por motivo Y porque admin Z lo decidió".
+
+**Fix Fase F**: `/admin/services/[id]/audit` (admin sin filtro) +
+`/dashboard/services/[id]/audit` (cliente con filtro GDPR — solo eventos
+visibles al data subject). Backend query SQL union de
+`audit_change_log` + `audit_access_log` filtrada por `entity_id=service.id`
+o `metadata->>'resource_id'=service.id`. Paginado + ordenado DESC. Renderer
+timeline component reusable.
+
+### GAP-15CII-N — error_log persiste módulo "http" en lugar del módulo origen
+
+**Síntoma**: cuando el wrapper `getServiceInfoWithCache` o
+`executeActionWithCacheInvalidation` rethrow una excepción, el exception
+filter genérico NestJS lo atrapa en la capa HTTP y `ErrorLogService.log()`
+recibe `module='http'`. La tabla `error_log` que alimenta `/admin/error-log`
+muestra "http" como módulo, perdiendo el contexto útil (`provisioning.plugin-utils`,
+`EnhanceProvisionerPlugin`, etc.). El backend stderr SÍ logea el módulo real
+(lo vimos en boot), pero la persistencia para UI lo pierde.
+
+**Fix Fase F**: el wrapper canónico debe invocar `ErrorLogService.log()`
+explícitamente con `module='provisioning.plugin-utils'` (o equivalente) ANTES
+de rethrow al exception filter. Patrón heredable a futuros plugins. Beneficio:
+admin filtra error log por módulo del plugin (`module=enhance_cp`) en lugar
+de buscar entre todos los HTTP 500.
+
+## A.9.5. Plan refinado Fase E (orden de ejecución)
+
+| Paso | Scope | LOC estimado | Tests nuevos |
+|---|---|---|---|
+| **E.1** | BUG-15CII-I fix heurística showReprovision (1 línea + Set de keys) | ~10 | Update test page.tsx existente |
+| **E.2** | UI admin DNS records (`/admin/services/[id]/dns`) — reusa endpoints existentes | ~300 | Component spec + E2E test 8 |
+| **E.3** | AdminServiceOperationsCard ampliar: botón "Cancelar servicio…" + Modal DS reason + typing-confirm | ~150 | Spec component + E2E test 9 |
+| **E.4** | AdminServiceOperationsCard ampliar: botón "Forzar resincronización" (sin confirm) | ~30 | Update spec existente |
+| **E.5** | i18n keys nuevas (12-15 keys) | ~30 | n/a |
+
+**Estimación**: 1 sesión sólida o 2 cortas. Heredable: el patrón de
+"AdminServiceOperationsCard como contenedor de operaciones destructivas/admin"
+queda canónico para 15D RC + 15E Docker + 15G Plesk.
+
+## A.9.6. Lo que NO está en Fase E (sigue para Fase F-G)
+
+| Fase | Scope |
+|---|---|
+| **F** | Admin overview operativo plugin (`/admin/settings/plugins/enhance-cp`) — stats grid + tabla drifts + capability flag `supports_suspend` (G3 ADR-077 A4) + 2 inline actions `suspend_service`/`unsuspend_service` + cache TTL (G4) + breaker EnhanceApiClient (G5 evaluar) + G8 bug test-connection + **GAP-15CII-M `/admin/services/[id]/audit`** + **GAP-15CII-N error_log módulo origen** |
+| **G** | Tests críticos faltantes (8 áreas) + E2E spec extension cubriendo Fase E + retrospectiva en `completed/` + smoke final Yasmin contra mock + Enhance live |
+
+## A.9.7. Gaps audit estado actual (post Fase D)
+
+| ID | Estado |
+|---|---|
+| **G1** vaporware endpoint manual cron | ✅ Cerrado Fase B |
+| **G2** sanitización data.password en wrapper auditor | ✅ Cerrado Fase D |
+| **G3** capability flag `supports_suspend` + suspend/unsuspend actions | ⏳ Fase F |
+| **G4** TTL cache 60s hardcoded | ⏳ Fase F |
+| **G5** CircuitBreaker en EnhanceApiClient | ⏳ Fase F (evaluar criticidad) |
+| **G6** PluginConfigForm useToast inline | ✅ Cerrado Fase C round 1 |
+| **G6b** ChangePackageModal error inline sin toast | ✅ Cerrado Fase C round 1 |
+| **G7** Modal sin aria-labelledby + focus trap | ✅ Cerrado Fase C round 1 |
+| **G8** test-connection synthetic service sin metadata | ⏳ Fase F |
+| **G9** `<CopyableId>` + `<AdminServiceDataCard>` heredables admin pages | Diferido a sprint Clients refactor |
+| **BUG-15CII-I** heurística showReprovision no detecta `subscription_missing` | ⏳ **Fase E (1 línea, smoke real Fase D)** |
+| **GAP-15CII-J** UI admin cancelar servicio (backend existe, falta UI) | ⏳ Fase E |
+| **GAP-15CII-K** UI admin force_resync (action declarada, falta botón) | ⏳ Fase E |
+| **GAP-15CII-L** UI admin DNS records CRUD (backend existe, falta UI) | ⏳ Fase E |
+| **GAP-15CII-M** página `/admin/services/[id]/audit` timeline per-service | ⏳ Fase F |
+| **GAP-15CII-N** error_log persiste módulo origen (no `http`) | ⏳ Fase F |
+
+## A.9.8. Validación end-to-end del estado actual (post Fase D)
+
+**Smoke real Yasmin Fase D 2026-05-10**:
+
+1. ✅ Backend boot limpio con `NotificationsModule` cargando nuevo listener sin
+   error de DI.
+2. ✅ Stack completa levantada: backend (3001) + frontend (3002) + mock-enhance
+   (3099) + Postgres + Redis + Mailpit + MinIO.
+3. ✅ Circuit breaker `enhance_cp:getServiceInfo` ciclo open → half-open →
+   closed verificado en stderr (R11 funcionando).
+4. ✅ Cron L3 manual "Reconciliar contra Enhance" desde settings: detecta 2
+   drifts correctamente (DH-INV-6 respetado — no modifica status).
+5. ⚠️ Service detail admin muestra banner drift `subscription_missing` SIN
+   botón reprovision → BUG-15CII-I descubierto + apuntado Fase E.
+6. ⚠️ UI admin no expone cancelar / force_resync / DNS records → GAP-15CII-J/K/L
+   apuntados Fase E.
+7. ⚠️ No existe `/admin/services/[id]/audit` → GAP-15CII-M apuntado Fase F.
+8. ⚠️ error_log muestra módulo "http" sin contexto plugin → GAP-15CII-N apuntado
+   Fase F.
+
+**Suites tests post Fase D:** 576/581 unit verde + 5 skipped + 0 regresiones
+(+21 tests nuevos vs Fase C). typecheck both verde + lint:check both verde.
+E2E test 7 nuevo (cliente reset_account_password + mailpit + audit redactado SQL)
+pendiente CI green.
+
+## A.9.9. Sesiones origen Fase D
+
+- 2026-05-10 (Fase D inicial — sanitizer + listener + seed + i18n + E2E test 7) → 1 commit pendiente
+- 2026-05-10 (smoke real Yasmin Fase D — 6 gaps doctrinales descubiertos y apuntados Fase E/F) → este §A.9

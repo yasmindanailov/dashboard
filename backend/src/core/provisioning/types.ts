@@ -254,6 +254,28 @@ export interface ServiceAction {
    */
   adminOnly?: boolean;
   /**
+   * Sprint 15C.II Fase D (ADR-083 Amendment A4.5 — gap G2 audit técnico
+   * 2026-05-10). R12 compliance: secrets nunca audit.
+   *
+   * Lista de keys de `ActionResult.data.<key>` cuyo nombre matchea el regex
+   * canónico `/(password|secret|token|apiKey|privateKey)/i` pero que el
+   * plugin DECLARA legítimamente auditables sin redactar (uncommon —
+   * requiere ADR específico justificando). Default `[]` (no allowList:
+   * TODOS los matches del regex se redactan a `'[REDACTED]'` antes de
+   * persistir audit_change_log).
+   *
+   * NO aplica a `reset_account_password` ni equivalentes — esas siempre
+   * redactan. Caso de uso hipotético: una action que retorna un
+   * `metadata.access_token_id` (identificador, no el token en sí) cuyo
+   * nombre matchea por substring pero NO contiene secreto.
+   *
+   * El sanitizer canónico vive en
+   * [`core/provisioning/audit-sanitizer.ts`](./audit-sanitizer.ts) y se
+   * invoca desde `executeActionWithCacheInvalidation` antes de
+   * `audit.logChange`. Heredable a 15D RC, 15E Docker, 15G Plesk.
+   */
+  allowsSensitiveDataInAudit?: readonly string[];
+  /**
    * Schema de payload (Zod descrito como JSON Schema 7).
    * Usado por frontend para construir el formulario inline.
    */

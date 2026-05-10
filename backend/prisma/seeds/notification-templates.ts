@@ -943,6 +943,108 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
         correlation_id: 'string?',
       },
     },
+
+    // ───────────── service.password_reset (email cliente — Sprint 15C.II Fase D) ─────────────
+    //
+    // DC.NEW-15CII-EMAIL-RESET + ADR-083 Amendment A4.5.
+    //
+    // Emitido por `NotificationsOnPasswordResetListener` cuando el wrapper
+    // canónico `executeActionWithCacheInvalidation` ejecuta exitosamente la
+    // action `reset_account_password` de cualquier plugin SaaS (heredable:
+    // 15C enhance_cp, 15D RC, 15G Plesk). El wrapper redacta `data.password`
+    // a `[REDACTED]` en audit_change_log via `core/provisioning/audit-sanitizer.ts`
+    // antes de persistir (R12 compliance — gap G2 audit técnico 2026-05-10).
+    // El listener recibe el plaintext temporal in-memory y lo pasa al
+    // dispatcher; el plaintext NUNCA queda persistido en BD.
+    //
+    // Variables disponibles:
+    //   - service_id: UUID del servicio (link al portal cliente).
+    //   - domain: domain del servicio (display primario — fallback chain
+    //     domain → label → service_id en el listener).
+    //   - new_password: contraseña plaintext NUEVA generada por el plugin
+    //     (32 hex chars en enhance_cp; otros plugins pueden devolver shapes
+    //     equivalentes).
+    //   - panel_url: URL absoluta al detalle del servicio en el portal
+    //     Aelium (NO al panel externo del proveedor — el cliente abre SSO
+    //     desde ahí con audit canónico `service.sso_opened`).
+    //   - provisioner_slug: slug del plugin (ej. 'enhance_cp'). No mostrado
+    //     al cliente; útil si el admin futuro extiende la plantilla con
+    //     panel_label específico.
+    //   - recipient.first_name: opcional, añadido por el dispatcher.
+    //
+    // EC-T8-17: SIEMPRE `{{var}}` con escape automático. NUNCA triple-stash
+    // ni ampersand-stash unescaped. El test guard
+    // `notification-templates.security.spec.ts` falla el build si
+    // introducimos un patrón unsafe.
+    {
+      event_type: 'service.password_reset',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Tu contraseña ha sido restablecida — {{domain}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Contraseña restablecida</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{domain}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hemos restablecido la contraseña de tu cuenta para el servicio
+              <strong>{{domain}}</strong>. Esta es la nueva contraseña temporal:
+            </p>
+            <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: center;">
+              <code style="font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 18px; color: #111827; letter-spacing: 1px; word-break: break-all;">{{new_password}}</code>
+            </div>
+            <div style="background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 12px; padding: 16px 20px; margin: 20px 0;">
+              <p style="color: #92400E; font-size: 14px; margin: 0; line-height: 1.6;">
+                <strong>Cambia esta contraseña al iniciar sesión por primera vez.</strong>
+                Es temporal y no debes reutilizarla en otros servicios.
+              </p>
+            </div>
+            <p style="color: #6b7280; font-size: 13px; line-height: 1.6;">
+              Puedes acceder al panel del proveedor desde tu portal de cliente
+              en Aelium pulsando el botón "Abrir panel".
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ir a mi servicio</a>
+            </p>
+            <p style="color: #9ca3af; font-size: 12px; line-height: 1.6; margin-top: 24px;">
+              Si no solicitaste este cambio, contacta inmediatamente con soporte
+              respondiendo a este correo.
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        domain: 'string',
+        new_password: 'string',
+        panel_url: 'string',
+        provisioner_slug: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── service.password_reset (campana cliente) ─────────────
+    //
+    // Por seguridad la campana NO muestra la nueva password (cualquiera con
+    // acceso al portal verá el feed). El cliente ya recibió la password via
+    // email; la campana solo confirma el evento + enlaza al servicio.
+    {
+      event_type: 'service.password_reset',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Contraseña restablecida — {{domain}}',
+      body: 'Te hemos enviado por email la nueva contraseña de {{domain}}. Cámbiala al iniciar sesión por primera vez.',
+      variables: {
+        service_id: 'string',
+        domain: 'string',
+        provisioner_slug: 'string',
+      },
+    },
   ];
 
   for (const tpl of templates) {
