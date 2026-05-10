@@ -2,6 +2,10 @@
 
 > Validación automática local antes de cada commit y push.
 > Detecta errores en tu máquina antes de que lleguen a GitHub.
+>
+> **Documento maestro del flujo pre-PR:** [`local-ci-playbook.md`](./local-ci-playbook.md).
+> Esta página detalla la mecánica husky/lint-staged; el playbook
+> describe el flujo end-to-end (cuándo ejecutar qué + bypass policy).
 
 ---
 
@@ -12,7 +16,8 @@ Cada vez que ejecutas `git commit` o `git push`, Git ejecuta automáticamente un
 | Hook | Cuándo | Qué ejecuta | Qué pasa si falla |
 |------|--------|-------------|-------------------|
 | `pre-commit` | Antes de `git commit` | `lint-staged` — auto-formatea archivos modificados | El commit se aborta y los cambios siguen en working directory |
-| `pre-push` | Antes de `git push` | Typecheck en backend y frontend | El push se aborta — los commits siguen locales hasta arreglar |
+| `pre-push` | Antes de `git push` | **Smart detection** del subset afectado (typecheck + lint:check + tests del/los subproyecto(s) cambiado(s)) — ver [local-ci-playbook §2](./local-ci-playbook.md#2-pre-push-smart-detection) | El push se aborta — los commits siguen locales hasta arreglar |
+| `commit-msg` | Tras escribir mensaje commit | Commitlint conventional commits | Commit aborta si formato no canónico — ver [`commit-conventions.md`](./commit-conventions.md) |
 
 **Resultado:** la mayoría de errores se atrapan en tu máquina, no en CI. Ahorra ciclos de "subir → CI rojo → arreglar → volver a subir".
 
@@ -22,9 +27,10 @@ Cada vez que ejecutas `git commit` o `git push`, Git ejecuta automáticamente un
 
 | Archivo | Rol |
 |---------|-----|
-| `package.json` (root) | Tooling-only: husky + lint-staged. Backend y frontend siguen siendo proyectos pnpm independientes |
+| `package.json` (root) | Tooling-only: husky + lint-staged + commitlint + scripts `ci:*` orquestador (ver [playbook §1](./local-ci-playbook.md#1-comando-canónico-antes-de-pushear)) |
 | `.husky/pre-commit` | Una sola línea: `pnpm exec lint-staged` |
-| `.husky/pre-push` | Corre typecheck en backend y frontend en orden |
+| `.husky/pre-push` | Smart detection del subset afectado (Sprint 15C.II post-Fase D): typecheck + lint:check + tests solo del/los subproyecto(s) cambiado(s) vs `origin/master`. Si solo cambian docs → skip silencioso |
+| `.husky/commit-msg` | Commitlint validation contra conventional commits config |
 | `.lintstagedrc.cjs` | Configuración con función JS que mapea archivos staged a su proyecto y ejecuta el ESLint correspondiente |
 
 ---

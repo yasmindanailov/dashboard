@@ -1,12 +1,105 @@
-# Bloquea push si typecheck falla en backend o frontend.
-# Evita CI rojo por errores de tipo.
+# Pre-push canónico — Sprint 15C.II Fase D follow-up (2026-05-10).
+#
+# Bloquea push si el CI remoto sería predeciblemente rojo. Diseñado para
+# correr en ~60-120s sobre el subset afectado (smart detection vs origin/master)
+# en lugar de ejecutar siempre el repo entero.
+#
+# Doctrina:
+#   - Detecta archivos cambiados desde `origin/master` y filtra qué jobs ejecutar.
+#   - Si solo cambia backend → backend checks (typecheck + lint:check + test).
+#   - Si solo cambia frontend → frontend checks (typecheck + lint:check).
+#   - Si cambian docs/* / *.md / .github/* sin código → skip silencioso.
+#   - Si cambian ambos → ambos jobs.
+#
+# Emergencias (uso excepcional):
+#   git push --no-verify   # salta este hook
+#
+# Cuándo es legítimo skip:
+#   - Push doc-only correction.
+#   - Push de rama temporal de WIP que NO va a PR.
+#   - Hot-fix urgente con validación local fuera de banda.
+#
+# Cuándo NO skip:
+#   - Push a una rama que abrirá PR sin tener CI verde primero.
+#   - Push a master directo (debería estar protegido por branch rules igualmente).
 
-echo "[pre-push] Typecheck backend..."
-cd backend && pnpm typecheck || exit 1
-cd ..
+set -e
 
-echo "[pre-push] Typecheck frontend..."
-cd frontend && pnpm typecheck || exit 1
-cd ..
+# Si no hay origin/master local (clones nuevos / shallow), fetch primero.
+if ! git rev-parse --verify origin/master >/dev/null 2>&1; then
+  echo "[pre-push] origin/master no encontrado — fetching..."
+  git fetch origin master --depth=1 >/dev/null 2>&1 || true
+fi
 
-echo "[pre-push] OK"
+# Resuelve el merge-base contra origin/master. Si no existe (rama huérfana
+# o repo recién inicializado), cae a HEAD~1 para comparar contra el commit
+# anterior — degradación elegante.
+BASE=$(git merge-base HEAD origin/master 2>/dev/null || git rev-parse HEAD~1 2>/dev/null || echo "")
+
+if [ -z "$BASE" ]; then
+  echo "[pre-push] No hay base de comparación — ejecutando checks completos por seguridad."
+  CHANGED_FILES=$(git ls-files)
+else
+  CHANGED_FILES=$(git diff --name-only "$BASE"..HEAD)
+fi
+
+# Empty diff (sin commits nuevos vs base) — nada que validar.
+if [ -z "$CHANGED_FILES" ]; then
+  echo "[pre-push] Sin cambios vs origin/master — skip."
+  exit 0
+fi
+
+# Detección de subproyectos afectados.
+HAS_BACKEND=0
+HAS_FRONTEND=0
+HAS_CODE=0
+
+while IFS= read -r file; do
+  case "$file" in
+    backend/*)
+      HAS_BACKEND=1
+      HAS_CODE=1
+      ;;
+    frontend/*)
+      HAS_FRONTEND=1
+      HAS_CODE=1
+      ;;
+    tests/e2e/*|playwright.config.ts|package.json|pnpm-lock.yaml|.husky/*|.lintstagedrc.cjs)
+      # Cambios transversales que afectan ambos — corre todo.
+      HAS_BACKEND=1
+      HAS_FRONTEND=1
+      HAS_CODE=1
+      ;;
+    *)
+      # docs/, *.md, .github/, .gitignore, etc. — no afecta runtime.
+      ;;
+  esac
+done <<EOF
+$CHANGED_FILES
+EOF
+
+if [ "$HAS_CODE" -eq 0 ]; then
+  echo "[pre-push] Cambios doc-only — skip checks."
+  exit 0
+fi
+
+START=$(date +%s)
+
+if [ "$HAS_BACKEND" -eq 1 ]; then
+  echo "[pre-push] Backend: typecheck + lint:check + tests..."
+  if ! (cd backend && pnpm typecheck && pnpm lint:check && pnpm test --silent); then
+    echo "[pre-push] ❌ Backend check falló — corrige antes de pushear o usa --no-verify si es emergencia documentada."
+    exit 1
+  fi
+fi
+
+if [ "$HAS_FRONTEND" -eq 1 ]; then
+  echo "[pre-push] Frontend: typecheck + lint:check..."
+  if ! (cd frontend && pnpm typecheck && pnpm lint:check); then
+    echo "[pre-push] ❌ Frontend check falló — corrige antes de pushear o usa --no-verify si es emergencia documentada."
+    exit 1
+  fi
+fi
+
+END=$(date +%s)
+echo "[pre-push] ✅ OK ($((END - START))s) — listo para pushear."
