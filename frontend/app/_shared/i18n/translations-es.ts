@@ -57,31 +57,32 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'plugin.enhance_cp.panel_label': 'panel Enhance',
 
   // ── Plugin Enhance CP — Config (ADR-083 §1 decisiones 1-3)
-  // Sprint 15C.II Fase B fix-up (2026-05-10): añadidas keys `.label` para
-  // que rjsf renderice labels traducidas en lugar del property name crudo
-  // (smoke real Yasmin reveló que "masterOrgId", "apiToken" salían sin
-  // traducir como labels — el schema no declaraba `title`).
+  // Sprint 15C.II Fase B fix-up round 6 (2026-05-10): keys reescritas
+  // para que la description NO repita el label (smoke real Yasmin reportó
+  // duplicación textual cuando label + description aparecen consecutivos).
+  // Convención: label = nombre conciso del campo. Description = info
+  // complementaria SIN repetir el nombre.
   'plugin.enhance_cp.config.baseUrl.label': 'URL base de la API Enhance',
   'plugin.enhance_cp.config.baseUrl':
-    'URL base de la API Enhance (ej. https://enhance.example.com). El plugin añade el prefijo /v2/... según corresponda.',
+    'Ejemplo: https://enhance.example.com. El plugin añade el prefijo /v2/... automáticamente según el endpoint que invoque.',
   'plugin.enhance_cp.config.masterOrgId.label': 'UUID del Master Org Aelium',
   'plugin.enhance_cp.config.masterOrgId':
-    'UUID del Master Org Aelium en Enhance — owner canónico de todos los customers que el plugin cree (multi-tenancy ADR-083 §2).',
+    'Owner canónico de todos los customers que el plugin cree (multi-tenancy ADR-083 §2). Se obtiene desde Enhance UI → Settings → Organization.',
   'plugin.enhance_cp.config.reconciliationIntervalHours.label':
     'Intervalo de reconciliación (horas)',
   'plugin.enhance_cp.config.reconciliationIntervalHours':
-    'Intervalo del cron L3 de reconciliación (default 6h). El cron compara cada servicio Aelium con su Subscription en Enhance y emite service.reconciled_external_change si detecta drift.',
+    'Frecuencia del cron L3 que compara cada servicio Aelium con su Subscription en Enhance. Emite service.reconciled_external_change al detectar drift. Default 6h, recomendado entre 4 y 12.',
 
   // ── Plugin Enhance CP — Secrets
   'plugin.enhance_cp.secrets.apiToken.label': 'Bearer token API Enhance',
   'plugin.enhance_cp.secrets.apiToken':
-    'Bearer token Super Admin Enhance — revocable desde la UI Enhance. Se cifra con AES-256-GCM antes de persistirse (ADR-080 §3).',
+    'Token Super Admin generado en Enhance UI → Settings → API tokens. Revocable en cualquier momento desde Enhance. Se cifra con AES-256-GCM antes de persistirse (ADR-080 §3).',
 
   // ── Plugin Enhance CP — Product config (ADR-080 Amendment B + ADR-083 Amendment A3)
   'plugin.enhance_cp.product_config.enhance_plan_id.label':
     'ID del plan en Enhance',
   'plugin.enhance_cp.product_config.enhance_plan_id':
-    'ID numérico del plan en Enhance que se asociará a este producto Aelium (Subscription.planId). El admin crea los planes en Enhance UI; aquí se referencia por número.',
+    'Identificador numérico que se asociará a este producto Aelium como Subscription.planId. El admin crea los planes en Enhance UI; aquí solo se referencia por número (ej. 1, 2, 3…).',
 
   // ── Plugin Enhance CP — Acciones curadas (ADR-070 §C + ADR-077 Amendment A3)
   'plugin.enhance_cp.actions.reset_password': 'Restablecer contraseña',
