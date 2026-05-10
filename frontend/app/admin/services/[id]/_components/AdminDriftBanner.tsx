@@ -91,12 +91,15 @@ export function AdminDriftBanner({
       return;
     }
     if (!result.sso) {
-      // Sprint 15C.II Fase C round 5: branch por errorCode para mensaje
-      // útil al admin (mismo patrón que SsoButton.tsx).
+      // Sprint 15C.II Fase C round 6: AdminDriftBanner es admin-only
+      // por ubicación → usa keys `.admin` directamente con CTA
+      // operacional (recovery via reconcile / SSO).
       const key =
         result.errorCode === 'INVALID_STATE'
-          ? 'sso.error.invalid_state'
-          : 'sso.error.provider_internal';
+          ? 'sso.error.invalid_state.admin'
+          : result.errorCode === 'CIRCUIT_OPEN'
+            ? 'sso.error.circuit_open.admin'
+            : 'sso.error.provider_internal.admin';
       toast('error', t(key));
       return;
     }

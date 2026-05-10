@@ -77,6 +77,26 @@ const INTERNAL_HELPER_SLUGS = new Set<string>([
   'delete_dns_record',
 ]);
 
+/**
+ * Sprint 15C.II Fase C round 6 (smoke real Yasmin 2026-05-10) — keys
+ * i18n discriminadas por rol (UI_SPEC §1.2 P5 voz Aelium + P6 contenido
+ * adaptativo). Backend wrapper retorna keys "base" tipo
+ * `action.invalid_state` (sin sufijo); el frontend les añade el sufijo
+ * `.client` o `.admin` según el viewer. Solo aplica a códigos donde
+ * el cliente NO debe ver la jerga técnica del admin (drift, recovery
+ * actions, etc). Para `action.invalid_payload` / `action.provider_error`
+ * / `action.circuit_open` los mensajes ya son neutros y safe-for-client
+ * (declarados sin variantes desde Fase I).
+ */
+const ROLE_DISCRIMINATED_KEYS = new Set<string>(['action.invalid_state']);
+
+function selectMessageKey(rawKey: string, isAdmin: boolean): string {
+  if (ROLE_DISCRIMINATED_KEYS.has(rawKey)) {
+    return `${rawKey}.${isAdmin ? 'admin' : 'client'}`;
+  }
+  return rawKey;
+}
+
 interface ActionsBarProps {
   serviceId: string;
   actions: readonly ServiceAction[];
@@ -153,12 +173,12 @@ export function ActionsBar({
     }
     if (result.result.success) {
       const successMsg = result.result.message
-        ? t(result.result.message)
+        ? t(selectMessageKey(result.result.message, isAdmin))
         : `${localizedLabel}: completada.`;
       toast('success', successMsg);
     } else {
       const warnMsg = result.result.message
-        ? t(result.result.message)
+        ? t(selectMessageKey(result.result.message, isAdmin))
         : `${localizedLabel}: no se completó.`;
       toast('error', warnMsg);
     }

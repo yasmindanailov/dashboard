@@ -49,6 +49,14 @@ interface ServiceHeaderProps {
 }
 
 const DRIFT_STATUSES = new Set<ServiceInfo['status']>(['unknown', 'failed']);
+// Sprint 15C.II Fase C round 6 (smoke real Yasmin 2026-05-10): estados
+// terminales tienen banner upstream propio (`AlertBanner danger` admin
+// + `AlertBanner info` cliente en sus respectivas pages). El
+// ServiceHeader NO debe duplicar el `statusReason` ya cubierto por
+// ese banner — duplicación visible reportada en smoke. ServiceInfo
+// tiene `'cancelled'` como único terminal canónico (round 4 colapsa
+// `terminated` → `cancelled` para el shape del plugin).
+const TERMINAL_STATUSES = new Set<ServiceInfo['status']>(['cancelled']);
 
 export function ServiceHeader({
   info,
@@ -57,6 +65,11 @@ export function ServiceHeader({
 }: ServiceHeaderProps) {
   const isDrift =
     DRIFT_STATUSES.has(info.status) && info.statusReason !== null && info.statusReason !== undefined;
+  // Si hay banner upstream (drift O terminal), ServiceHeader cede el
+  // render del statusReason a ese banner. Solo renderiza statusReason
+  // aquí cuando es info contextual no-crítica (estados intermedios
+  // tipo `pending`, `suspended`, `expired` con razón informativa).
+  const hasUpstreamBanner = isDrift || TERMINAL_STATUSES.has(info.status);
 
   return (
     <div
@@ -110,14 +123,14 @@ export function ServiceHeader({
         )}
 
         {/*
-          Estados no-drift (active, suspended, etc.) con statusReason:
-          se renderiza el statusReason traducido a ambos roles porque
-          aporta contexto operativo (ej. `payment_pending`) que no es
-          técnico crudo. Patrón heredable: si el plugin emite una key
-          `*.status_reason.*` y el status no está en DRIFT_STATUSES,
-          se asume safe-for-client.
+          Estados intermedios (suspended, expired, pending) con
+          statusReason informativo: se renderiza el statusReason
+          traducido a ambos roles porque aporta contexto operativo
+          (ej. `payment_pending`) que no es técnico crudo. Para drift
+          y terminal el statusReason vive en el AlertBanner upstream
+          de la página — evitar duplicación.
         */}
-        {!isDrift && info.statusReason && (
+        {!hasUpstreamBanner && info.statusReason && (
           <p
             style={{
               color: 'var(--text-tertiary)',

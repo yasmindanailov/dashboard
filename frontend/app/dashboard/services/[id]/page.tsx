@@ -243,6 +243,7 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
             <SsoButton
               serviceId={service.id}
               panelLabel={info.capabilities.panel_label}
+              isAdmin={isAdmin}
             />
           </div>
         </Card>

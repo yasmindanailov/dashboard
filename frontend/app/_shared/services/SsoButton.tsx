@@ -6,7 +6,12 @@
  * Sprint 15C.II Fase C round 5 (smoke real Yasmin 2026-05-10): error
  * codes discriminados — backend retorna `{ sso, errorCode }` para
  * distinguir caso legítimo (null sin errorCode) de drift detectable
- * (errorCode='INVALID_STATE'). Mostramos toast útil según causa raíz.
+ * (errorCode='INVALID_STATE').
+ * Sprint 15C.II Fase C round 6: discriminación cliente vs admin en los
+ * mensajes de error (UI_SPEC §1.2 P5 voz Aelium + P6 contenido
+ * adaptativo por rol). El cliente NO ve tecnicismos ("drift", "metadata
+ * desincronizada", "Reconciliar contra Enhance"); el admin sí, con CTA
+ * concreto al recovery action.
  *
  * Botón cliente que pide al backend la URL SSO del panel del proveedor
  * y abre la URL en nueva pestaña (canónico ADR-077 §2.4 `opensIn: 'new_tab'`).
@@ -19,9 +24,35 @@ import { requestSsoUrlAction } from './_actions';
 interface SsoButtonProps {
   serviceId: string;
   panelLabel: string;
+  /**
+   * `true` si el viewer es staff. El SC parent lo deriva con
+   * `isStaffRole(session.user.role.slug)`. Default `false` por
+   * seguridad — si el caller olvida pasarlo, el cliente ve mensajes
+   * empáticos sin tecnicismos.
+   */
+  isAdmin?: boolean;
 }
 
-export function SsoButton({ serviceId, panelLabel }: SsoButtonProps) {
+/**
+ * Mapea errorCode canónico (backend wrapper GetSsoUrlResult) +
+ * isAdmin a la i18n key discriminada por rol. Heredable a todos los
+ * plugins SaaS (15D RC, 15E Docker, 15G Plesk).
+ */
+function selectSsoErrorKey(
+  errorCode: string | null,
+  isAdmin: boolean,
+): string {
+  const role = isAdmin ? 'admin' : 'client';
+  if (errorCode === 'INVALID_STATE') return `sso.error.invalid_state.${role}`;
+  if (errorCode === 'CIRCUIT_OPEN') return `sso.error.circuit_open.${role}`;
+  return `sso.error.provider_internal.${role}`;
+}
+
+export function SsoButton({
+  serviceId,
+  panelLabel,
+  isAdmin = false,
+}: SsoButtonProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -34,21 +65,7 @@ export function SsoButton({ serviceId, panelLabel }: SsoButtonProps) {
       return;
     }
     if (!result.sso) {
-      // Sprint 15C.II Fase C round 5: branch por errorCode para mensaje
-      // útil. Mapeo canónico (heredable a 15D RC, 15E, 15G):
-      //   - INVALID_STATE   → drift detectable, sugerencia force_resync.
-      //   - PROVIDER_INTERNAL_ERROR → 5xx / red / unknown.
-      //   - null            → caso legítimo "plugin no soporta SSO" o
-      //                       "refs missing" (typically ya manejado
-      //                       upstream por el banner drift; aquí es
-      //                       defensivo — mostramos genérico).
-      const key =
-        result.errorCode === 'INVALID_STATE'
-          ? 'sso.error.invalid_state'
-          : result.errorCode === null
-            ? 'sso.error.provider_internal'
-            : 'sso.error.provider_internal';
-      toast('error', t(key));
+      toast('error', t(selectSsoErrorKey(result.errorCode, isAdmin)));
       return;
     }
     /* ADR-077 §2.4 — opensIn === 'new_tab' canónico. */

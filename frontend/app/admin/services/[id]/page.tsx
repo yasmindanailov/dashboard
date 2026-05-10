@@ -324,6 +324,7 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
             <SsoButton
               serviceId={service.id}
               panelLabel={info.capabilities.panel_label}
+              isAdmin={true}
             />
           </div>
         </Card>

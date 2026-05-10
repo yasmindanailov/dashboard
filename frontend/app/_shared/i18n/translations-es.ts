@@ -220,23 +220,34 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.terminal.cancelled.reason.unknown':
     'No se registró razón técnica de la cancelación.',
 
-  // ── Action / SSO error code discriminado (Sprint 15C.II Fase C round 5
-  //    — smoke real Yasmin 2026-05-10). Las keys `action.invalid_payload`
-  //    + `action.provider_error` + `action.circuit_open` ya existen desde
-  //    Fase I (líneas 45-51 arriba). Esta nueva key cubre el código
-  //    `INVALID_STATE` que el backend wrapper antes mapeaba a
-  //    `action.provider_error` genérico — ahora útil cuando el plugin
-  //    reporta drift detectable (recurso no existe en el proveedor:
-  //    login_id stale, member missing, subscription eliminada).
+  // ── Action / SSO error code discriminado por rol (Sprint 15C.II Fase
+  //    C round 5+6 — smoke real Yasmin 2026-05-10). Backend wrappers
+  //    distinguen 3 categorías de error (INVALID_PAYLOAD, INVALID_STATE,
+  //    resto). El frontend además discrimina cliente vs admin (UI_SPEC
+  //    §1.2 P5 voz Aelium + P6 contenido adaptativo por rol):
+  //      - Cliente: voz empática sin tecnicismos (no menciona "drift",
+  //        "Reconciliar contra Enhance", "metadata local", etc).
+  //      - Admin:   operacional con CTA concreto al recovery action
+  //        (force_resync vía botón "Reconciliar contra Enhance").
+  //    Las keys `action.invalid_payload` + `action.provider_error` +
+  //    `action.circuit_open` ya existen desde Fase I (líneas 45-51 arriba)
+  //    y NO se duplican aquí — son válidas para ambos roles (errors
+  //    canónicos de form/red/circuit que cliente y admin ven igual).
   //    Heredable a 15D RC, 15E Docker, 15G Plesk.
-  'action.invalid_state':
-    'El proveedor reporta que el recurso ya no existe (drift detectado). Si eres admin, ejecuta "Reconciliar contra Enhance" o investiga en el panel del proveedor. La metadata local puede haber quedado desincronizada.',
-  // SSO error codes (mismo patrón — ver shape GetSsoUrlResult en
-  // backend/src/core/provisioning/plugin-utils.ts).
-  'sso.error.invalid_state':
-    'El proveedor reporta que el usuario o el recurso ya no existe (drift detectado). Si eres admin, ejecuta "Reconciliar contra Enhance" antes de reintentar.',
-  'sso.error.provider_internal':
-    'El proveedor no devolvió una sesión válida. Inténtalo más tarde.',
-  'sso.error.circuit_open':
-    'El proveedor está temporalmente caído. Reintenta en unos minutos.',
+  'action.invalid_state.client':
+    'No se pudo completar la acción ahora mismo. Hemos avisado al equipo técnico — vuelve a intentarlo en unos minutos.',
+  'action.invalid_state.admin':
+    'Drift detectado: el proveedor reporta INVALID_STATE (recurso ausente — login/member/subscription stale en Aelium). Recovery: pulsa "Reconciliar contra Enhance" en /admin/settings/plugins/enhance-cp para refrescar el mapping enhance_customers, o investiga vía SSO al panel del proveedor.',
+  'sso.error.invalid_state.client':
+    'No podemos abrir el panel ahora mismo. Hemos avisado al equipo técnico — vuelve a intentarlo en unos minutos.',
+  'sso.error.invalid_state.admin':
+    'Drift SSO: el proveedor no encuentra el customer/login mapeado en enhance_customers (típicamente borrado en panel del proveedor o mock reseteado en dev). Recovery: pulsa "Reconciliar contra Enhance" para refrescar la metadata; si persiste, considera DELETE FROM enhance_customers WHERE user_id=… + reaprovisionar.',
+  'sso.error.provider_internal.client':
+    'No podemos abrir el panel ahora mismo. Vuelve a intentarlo en unos minutos.',
+  'sso.error.provider_internal.admin':
+    'El proveedor devolvió un error interno o no reachable. Revisa connectivity al endpoint del plugin (/admin/settings/plugins) y los logs backend.',
+  'sso.error.circuit_open.client':
+    'El servicio está temporalmente saturado. Vuelve a intentarlo en unos minutos.',
+  'sso.error.circuit_open.admin':
+    'Circuit breaker open en el plugin (umbral de fallos consecutivos superado). Auto-recovery en ~30s; revisa /admin/observability si persiste.',
 });
