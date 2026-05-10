@@ -103,11 +103,25 @@ jobs:
   # backend y frontend que Playwright arranca como `webServer` corren en el
   # MISMO container del job, por tanto `localhost:3001/3002` siguen siendo
   # correctos para `NEXT_PUBLIC_API_URL` / `E2E_*_URL`.
+  #
+  # Política de ejecución (Sprint 15C.II post-Fase D, 2026-05-10):
+  #   - SIEMPRE en `push` a `master` (post-merge — última red de seguridad).
+  #   - En `pull_request` solo cuando el PR tiene la label `ready-for-e2e`.
+  #     Mientras estás iterando un PR, los 3 shards × ~10-25 min NO consumen
+  #     minutos CI. Añade la label cuando el PR esté listo para merge.
+  #   - Backend + Frontend (rápidos, ~3 min cada uno) siguen en CADA PR.
+  #
+  # Ahorro estimado: ~70% minutos CI mensuales vs ejecutar E2E en cada PR.
+  # Documentación operativa: `docs/90-meta/local-ci-playbook.md` §Workflows remotos.
   # ─────────────────────────────────────────────────────────────────────────────
   e2e:
     name: E2E (shard ${{ matrix.shard }}/${{ matrix.total }})
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'ready-for-e2e'))
 
     # Sprint 13.5.5 Fase B (DC.13 parcial-canónica): sharding CI con
     # Playwright `--shard=N/M`. Cada shard arranca sus propios services

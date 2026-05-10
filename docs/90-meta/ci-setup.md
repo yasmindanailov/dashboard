@@ -2,6 +2,11 @@
 
 > Configuración del pipeline automático que valida cada commit y PR.
 > Documento operativo: explica qué hace, cómo leerlo, y qué hacer cuando falla.
+>
+> **Documento maestro del flujo pre-PR:** [`local-ci-playbook.md`](./local-ci-playbook.md).
+> Esta página detalla los jobs del workflow remoto; el playbook describe el flujo
+> end-to-end local (cuándo ejecutar qué + bypass policy + comandos canónicos
+> `ci:check` / `ci:check:full` / `ci:e2e`).
 
 ---
 
@@ -18,7 +23,19 @@ Cada vez que se sube código a GitHub (commit a `master` o pull request), GitHub
 
 Archivo: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
 
-Dos jobs corren **en paralelo** (uno para backend, otro para frontend) en máquinas Linux limpias.
+**Cinco jobs** corren en paralelo (Backend + Frontend + E2E × 3 shards) en máquinas
+Linux limpias.
+
+### Política de ejecución (Sprint 15C.II post-Fase D, 2026-05-10)
+
+| Job | Ejecuta en | Tiempo típico | Política |
+|---|---|---|---|
+| **Backend** | Cada PR + push a `master` | ~3 min | Siempre |
+| **Frontend** | Cada PR + push a `master` | ~3 min | Siempre |
+| **E2E** (3 shards) | `push` a `master` post-merge **O** PR con label `ready-for-e2e` | ~10-25 min × 3 | Opt-in en PRs |
+
+E2E se restringe en PRs para optimizar consumo del plan Free (2000 min/mes en repos privados).
+Detalle completo + cómo añadir la label: [local-ci-playbook §3](./local-ci-playbook.md#3-política-de-ejecución-ci-remoto-workflows).
 
 ### Backend
 | # | Paso | Bloqueante | Qué verifica |
