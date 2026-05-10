@@ -70,12 +70,24 @@ export function DSTextWidget(props: WidgetProps) {
   const helperText = helperRaw ? t(helperRaw) : undefined;
   const errorText = rawErrors && rawErrors.length > 0 ? rawErrors[0] : undefined;
 
+  // Sprint 15C.II Fase B fix-up round 4 (2026-05-10): rjsf v5 puede
+  // pasar `props.label` vacío o reemplazado para algunos formats (smoke
+  // real Yasmin reportó label faltando solo para format=uri en el primer
+  // field). Defensivo: priorizar `schema.title` (ya traducido por
+  // translateSchema upstream) sobre `props.label` que rjsf manipula.
+  // Fallback a `props.label` si el plugin no declara title (legacy).
+  const labelBase =
+    typeof schema.title === 'string' && schema.title.length > 0
+      ? schema.title
+      : label;
+  const finalLabel = labelBase ? labelBase + (required ? ' *' : '') : '';
+
   return (
     <Input
       id={id}
       name={id}
       type={inputType}
-      label={label + (required ? ' *' : '')}
+      label={finalLabel}
       value={(value ?? '') as string}
       onChange={(e: ChangeEvent<HTMLInputElement>) =>
         onChange(e.target.value === '' ? undefined : e.target.value)
@@ -119,12 +131,20 @@ export function DSNumberWidget(props: WidgetProps) {
   const helperText = helperRaw ? t(helperRaw) : undefined;
   const errorText = rawErrors && rawErrors.length > 0 ? rawErrors[0] : undefined;
 
+  // Sprint 15C.II Fase B fix-up round 4: mismo fix defensivo que DSTextWidget
+  // — priorizar schema.title sobre props.label (rjsf puede vaciarlo).
+  const labelBase =
+    typeof schema.title === 'string' && schema.title.length > 0
+      ? schema.title
+      : label;
+  const finalLabel = labelBase ? labelBase + (required ? ' *' : '') : '';
+
   return (
     <Input
       id={id}
       name={id}
       type="number"
-      label={label + (required ? ' *' : '')}
+      label={finalLabel}
       value={value === undefined || value === null ? '' : (value as number)}
       min={schema.minimum}
       max={schema.maximum}
@@ -205,6 +225,7 @@ export function DSSelectWidget(props: WidgetProps) {
     onBlur,
     onFocus,
     rawErrors,
+    schema,
     options,
   } = props;
 
@@ -214,11 +235,18 @@ export function DSSelectWidget(props: WidgetProps) {
     label: String(opt.label ?? opt.value),
   }));
 
+  // Sprint 15C.II Fase B fix-up round 4: mismo fix defensivo que DSTextWidget.
+  const labelBase =
+    typeof schema.title === 'string' && schema.title.length > 0
+      ? schema.title
+      : label;
+  const finalLabel = labelBase ? labelBase + (required ? ' *' : '') : '';
+
   return (
     <Select
       id={id}
       name={id}
-      label={label + (required ? ' *' : '')}
+      label={finalLabel}
       value={value === undefined || value === null ? '' : String(value)}
       onChange={(e) =>
         onChange(e.target.value === '' ? undefined : e.target.value)
