@@ -108,7 +108,9 @@ describe('EnhanceCustomersService — Sprint 15C Fase 15C.C', () => {
       created_at: new Date(),
       updated_at: new Date(),
     };
-    const { tx, executeRawSpy, findUniqueSpy } = buildPrismaTxMock({ existing });
+    const { tx, executeRawSpy, findUniqueSpy } = buildPrismaTxMock({
+      existing,
+    });
     const service = buildService(tx);
     const api = buildApiClientMock();
 
