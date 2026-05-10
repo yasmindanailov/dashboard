@@ -67,6 +67,16 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
 
   const { service, info } = data;
 
+  // Sprint 15C.II Fase C (UI_SPEC §4.13 + ADR-083 Amendment A4.3): cuando
+  // el plugin reporta drift (`status` ∈ {`unknown`, `failed`}), las
+  // acciones que dependen de metadata externa (SSO al panel del proveedor,
+  // gestión DNS) producen errores `action.provider_error` si el cliente
+  // las dispara — la heurística canónica plugin-agnostic (cero `if
+  // (provisioner === 'X')`, R-070) es ocultarlas para no atrapar al
+  // cliente en un loop de errores. El admin sí mantiene visibilidad
+  // completa en su página `/admin/services/[id]` para diagnosticar.
+  const isDrift = info.status === 'unknown' || info.status === 'failed';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Link
@@ -81,7 +91,11 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
       </Link>
 
       <Card>
-        <ServiceHeader info={info} productName={service.product_name} />
+        <ServiceHeader
+          info={info}
+          productName={service.product_name}
+          isAdmin={false}
+        />
       </Card>
 
       {/*
@@ -144,8 +158,11 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
       {/*
         SSO panel — solo si el plugin lo soporta para esta instancia
         (ADR-070 §B + ADR-077 §3 capability flag por instancia).
+        Sprint 15C.II Fase C: ocultamos al cliente cuando hay drift —
+        clickear con metadata externa corrupta produce `provider_error`
+        (UI_SPEC §4.13 + ADR-083 A4.3).
       */}
-      {info.capabilities.hasSsoPanel && info.capabilities.panel_label && (
+      {!isDrift && info.capabilities.hasSsoPanel && info.capabilities.panel_label && (
         <Card>
           <div
             style={{
@@ -194,8 +211,12 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
         El SC `/dashboard/services/[id]/dns/page.tsx` revalida la
         capability defensivamente + invoca al resolver canónico que
         decide entre `<DnsRecordsManager>` y `<DnsExternallyBanner>`.
+        Sprint 15C.II Fase C: ocultamos al cliente cuando hay drift —
+        la sub-página DNS depende de metadata externa válida (`zone_id`,
+        records iniciales fetched de Enhance) que falla con drift
+        (UI_SPEC §4.13 + ADR-083 A4.3).
       */}
-      {info.capabilities.has_dns_management && (
+      {!isDrift && info.capabilities.has_dns_management && (
         <Card>
           <div
             style={{

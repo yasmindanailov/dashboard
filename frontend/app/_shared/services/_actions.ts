@@ -134,3 +134,45 @@ export async function refreshServiceInfoAction(
     };
   }
 }
+
+/* ═══════════════════════════════════════
+   Sprint 15C.II Fase C (UI_SPEC §4.13 + ADR-083 Amendment A4.3) —
+   reprovision admin desde drift banner
+
+   Materializa el botón "Re-aprovisionar ahora" del `<AdminDriftBanner>`
+   cuando el admin necesita re-crear el service en el proveedor (caso
+   `not_yet_provisioned`: metadata externa perdida o servicio nunca
+   creado realmente). El backend endpoint
+   `POST /admin/services/:id/reprovision` existe desde Sprint 11 Fase D
+   (`AdminProvisioningController.reprovision` → `provisioning.reprovisionAsAdmin`):
+   enqueue + audit `service.reprovision_requested` + access_log
+   `service_reprovision_admin`.
+
+   La cola provisioning consume el job en segundos. El admin verá el
+   nuevo estado al refrescar la página o al pulsar el ↻ del MetricsBar.
+   ═══════════════════════════════════════ */
+
+export type ReprovisionServiceResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function reprovisionServiceAction(
+  serviceId: string,
+): Promise<ReprovisionServiceResult> {
+  try {
+    await serverFetch<unknown>(`/admin/services/${serviceId}/reprovision`, {
+      method: 'POST',
+      body: {},
+    });
+    revalidatePath(`/admin/services/${serviceId}`);
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo enqueuear la re-aprovisión.',
+    };
+  }
+}

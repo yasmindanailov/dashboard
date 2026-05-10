@@ -37,6 +37,7 @@ import { ActionsBar, MetricsBar, ServiceHeader, SsoButton } from '../../../_shar
 import type { ServiceDetailResponse } from '../../../lib/api';
 import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
 
+import { AdminDriftBanner } from './_components/AdminDriftBanner';
 import { AdminServiceOperationsCard } from './_components/AdminServiceOperationsCard';
 
 interface PageProps {
@@ -73,6 +74,30 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
 
   const { service, info } = data;
 
+  // Sprint 15C.II Fase C (UI_SPEC §4.13 + ADR-083 Amendment A4.3 frozen
+  // 2026-05-10): patrón doctrinal "drift UX discriminada por rol". Cuando
+  // el plugin reporta `status` ∈ {`unknown`, `failed`} con `statusReason`
+  // no nulo, el admin necesita un AlertBanner técnico crudo ARRIBA del
+  // MetricsBar con CTA SSO + (si aplica) Re-aprovisionar prominente.
+  // Plugin-agnostic: NO referencia provisioner_slug ni metadata
+  // específica del plugin (R-070 "cero `if (provisioner === 'X')`").
+  //
+  // Heurística reprovision: ofrecer el botón "Re-aprovisionar ahora"
+  // cuando el statusReason matchea `not_yet_provisioned` (caso típico
+  // metadata externa perdida o servicio nunca creado). Para otros
+  // drifts (subscription_missing, plan_divergence) la operación no es
+  // reprovisionar sino investigar en el panel — el botón solo
+  // aparecería confuso. Heredable: cualquier plugin puede emitir keys
+  // `*.status_reason.not_yet_provisioned` para activar el mismo botón.
+  const isDrift =
+    (info.status === 'unknown' || info.status === 'failed') &&
+    info.statusReason !== null &&
+    info.statusReason !== undefined;
+  const showReprovision =
+    isDrift &&
+    typeof info.statusReason === 'string' &&
+    info.statusReason.endsWith('.status_reason.not_yet_provisioned');
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Link
@@ -87,8 +112,29 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
       </Link>
 
       <Card>
-        <ServiceHeader info={info} productName={service.product_name} />
+        <ServiceHeader
+          info={info}
+          productName={service.product_name}
+          isAdmin={true}
+        />
       </Card>
+
+      {/*
+        Sprint 15C.II Fase C: AdminDriftBanner ARRIBA del MetricsBar
+        cuando hay drift. Renderiza statusReason técnico crudo + CTA
+        "Investigar en panel del proveedor" (SSO admin impersonation —
+        ya audita `service.admin_sso_impersonation`) + (cuando aplique)
+        botón Re-aprovisionar prominente. UI_SPEC §4.13 + ADR-083 A4.3.
+      */}
+      {isDrift && info.statusReason && (
+        <AdminDriftBanner
+          serviceId={service.id}
+          statusReason={t(info.statusReason)}
+          hasSsoPanel={info.capabilities.hasSsoPanel}
+          panelLabel={info.capabilities.panel_label ?? undefined}
+          showReprovision={showReprovision}
+        />
+      )}
 
       {/*
         Sprint 15C.II Fase B fix-up round 3 (2026-05-10): MetricsBar

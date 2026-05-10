@@ -38,7 +38,7 @@
 
 import { useState } from 'react';
 
-import { Button, Modal } from '../../../../components/ui';
+import { Button, Modal, useToast } from '../../../../components/ui';
 import { executeServiceActionAction } from '../../../../_shared/services/_actions';
 
 /**
@@ -79,24 +79,29 @@ export function ChangePackageModal({
   loadingPlans,
   loadError,
 }: ChangePackageModalProps) {
+  // Sprint 15C.II Fase C (gap G6b — UI_SPEC §4.3): feedback de submit
+  // (success / error del cambio de plan) migrado de state inline
+  // (`submitError` / `successMessage` con render <p> dentro del modal)
+  // a `useToast()` canónico. Razón: Toast = efímero (success/error
+  // breve), AlertBanner = persistente. El cambio de plan emite un
+  // resultado breve que el admin no necesita revisar continuamente —
+  // toast es la categoría correcta. Tras success cerramos el modal
+  // inmediatamente (antes había `setTimeout(handleClose, 1500)` para
+  // que el admin leyera el `successMessage` inline; con toast el
+  // mensaje permanece visible 5s en su esquina aunque el modal cierre).
+  const { toast } = useToast();
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   function handleClose(): void {
     setSelectedPlanId(null);
     setSubmitting(false);
-    setSubmitError(null);
-    setSuccessMessage(null);
     onClose();
   }
 
   async function handleSubmit(): Promise<void> {
     if (selectedPlanId === null) return;
     setSubmitting(true);
-    setSubmitError(null);
-    setSuccessMessage(null);
     const result = await executeServiceActionAction(
       serviceId,
       'change_package',
@@ -104,20 +109,21 @@ export function ChangePackageModal({
     );
     setSubmitting(false);
     if (!result.ok) {
-      setSubmitError(result.error);
+      toast('error', result.error);
       return;
     }
     if (!result.result.success) {
-      setSubmitError(
+      toast(
+        'error',
         result.result.message ?? 'El proveedor rechazó el cambio de plan.',
       );
       return;
     }
-    setSuccessMessage(
+    toast(
+      'success',
       result.result.message ?? 'Plan actualizado correctamente.',
     );
-    // Pequeño delay para que el admin lea el feedback antes de cerrar.
-    setTimeout(handleClose, 1500);
+    handleClose();
   }
 
   return (
@@ -133,9 +139,7 @@ export function ChangePackageModal({
           </Button>
           <Button
             onClick={() => void handleSubmit()}
-            disabled={
-              selectedPlanId === null || submitting || successMessage !== null
-            }
+            disabled={selectedPlanId === null || submitting}
           >
             {submitting ? 'Aplicando…' : 'Confirmar cambio'}
           </Button>
@@ -201,7 +205,7 @@ export function ChangePackageModal({
                 const value = e.target.value;
                 setSelectedPlanId(value === '' ? null : Number(value));
               }}
-              disabled={submitting || successMessage !== null}
+              disabled={submitting}
               style={{
                 padding: '8px 12px',
                 border: '1px solid var(--border)',
@@ -224,34 +228,6 @@ export function ChangePackageModal({
               {plans.length === 1 ? '' : 's'} en el Master Org.
             </span>
           </label>
-        )}
-
-        {submitError && (
-          <p
-            style={{
-              fontSize: 13,
-              color: 'var(--danger-600)',
-              padding: 8,
-              background: 'var(--danger-50)',
-              borderRadius: 6,
-            }}
-          >
-            {submitError}
-          </p>
-        )}
-
-        {successMessage && (
-          <p
-            style={{
-              fontSize: 13,
-              color: 'var(--success-600)',
-              padding: 8,
-              background: 'var(--success-50)',
-              borderRadius: 6,
-            }}
-          >
-            {successMessage}
-          </p>
         )}
       </div>
     </Modal>
