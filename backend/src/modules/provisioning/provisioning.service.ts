@@ -183,10 +183,49 @@ export class ProvisioningService {
       user_id: string;
       status: string;
       provisioner_slug: string | null;
+      // Sprint 15C.II Fase C round 2 (smoke real Yasmin 2026-05-10): el
+      // wrapper canónico provisioning resuelve el plugin con
+      // `service.provisioner_slug ?? service.product.provisioner` (línea
+      // 247 abajo). Cuando un service no tiene provisioner_slug propio
+      // (típicamente porque el pipeline provisioning no llegó a marcarlo
+      // — caso `not_yet_provisioned`), el plugin del producto SÍ se invoca
+      // y devuelve `info`. La UI admin mostraba "Plugin (provisioner): —"
+      // para esos casos — información engañosa: el plugin SÍ está actuando.
+      // Este campo expone explícitamente el plugin del producto para que
+      // la UI muestre el "effective slug" (con anotación visual "desde
+      // producto" cuando difiere del service slug). Cliente no lo usa.
+      product_provisioner: string;
       product_slug: string;
       product_name: string;
       product_type: string;
       created_at: Date;
+      // Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10):
+      // exponer datos canónicos de cancelación al frontend para que la UI
+      // pueda renderizar el banner terminal "Servicio cancelado · {razón}"
+      // en lugar del banner drift (que es semánticamente FALSO sobre un
+      // service terminal — el service NO es un drift, es un estado
+      // operativo final). Smoke real reveló bug crítico: service
+      // `cancelled` por `provisioning_failed:INVALID_PAYLOAD` mostraba
+      // AlertBanner "no aprovisionado en proveedor" + botón Re-aprovisionar
+      // que producía loop infinito (cancelled → reprovisionar → INVALID
+      // PAYLOAD → cancelled).
+      cancellation_reason: string | null;
+      cancelled_at: Date | null;
+      // Sprint 15C.II Fase C round 7 (smoke real Yasmin 2026-05-10):
+      // Datos canónicos del cliente (nombre + email) para que la UI
+      // admin muestre info legible en lugar de UUIDs crudos. Estándar
+      // industria Stripe/Vercel admin: info primaria visible, UUIDs
+      // secundarios con copy-to-clipboard. El email solo lo expone al
+      // admin (cliente accede a su propia página /dashboard/services/[id]
+      // donde su email es trivialmente conocido). El frontend SC chequea
+      // `isAdmin` antes de renderizar estos campos.
+      client_name: string;
+      client_email: string;
+      // Sprint 15C.II Fase C round 7: domain del service (puede ser
+      // null para products no-hosting tipo support_inside). Cuando
+      // presente, la UI lo muestra como identificador primario del
+      // service (ADR-082 DH-INV-2 — hosting service SIEMPRE tiene FQDN).
+      domain: string | null;
     };
     info: ServiceInfo;
   }> {
@@ -200,11 +239,50 @@ export class ProvisioningService {
       user_id: service.user_id,
       status: String(service.status),
       provisioner_slug: service.provisioner_slug,
+      product_provisioner: service.product.provisioner,
       product_slug: service.product.slug,
       product_name: service.product.name,
       product_type: service.product.type,
       created_at: service.created_at,
+      cancellation_reason: service.cancellation_reason,
+      cancelled_at: service.cancelled_at,
+      // Sprint 15C.II Fase C round 7: client info + domain canónicos.
+      // buildClientDisplayName prioriza company_name > "first_name
+      // last_name" > email (consistente con buildDisplayName del plugin
+      // Enhance CP). client.first_name + last_name vienen de
+      // loadServiceForView (no incluyen company_name — los services
+      // del MVP no tienen company_name asociado en User; se añadirá en
+      // Sprint futuro de Clients refactor).
+      client_name: buildClientDisplayName(service.client),
+      client_email: service.client.email,
+      domain: service.domain,
     };
+
+    // Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10):
+    // shortcircuit canónico para estados terminales. Si `service.status`
+    // es `cancelled` o `terminated`, NO invocamos al plugin — el service
+    // ya no opera contra el proveedor (la cola provisioning incluso
+    // skipea jobs sobre status terminal:
+    // `provisioning-orchestrator.service.ts:144`). Llamar al plugin sería
+    // semánticamente incorrecto y daría falsos positivos de drift (el
+    // plugin retornaría `unknown/not_yet_provisioned` por metadata
+    // perdida en deprovision o provision fail, y la UI mostraría
+    // AlertBanner drift sobre un service que ya está terminal — bug
+    // que reportó Yasmin smoke real).
+    //
+    // El shortcircuit retorna `info.status='cancelled'` (o 'terminated')
+    // canónico con `statusReason` traducible derivada del
+    // `cancellation_reason` técnico (audit trace). El frontend renderiza
+    // un banner danger explícito + oculta acciones futiles (SSO,
+    // operaciones admin, reprovision). Heredable a 15D RC, 15E Docker,
+    // 15G Plesk: cualquier service cancelled aplica el mismo patrón.
+    const TERMINAL_STATUSES = new Set(['cancelled', 'terminated']);
+    if (TERMINAL_STATUSES.has(String(service.status))) {
+      return {
+        service: summary,
+        info: this.buildTerminalServiceFallback(service),
+      };
+    }
 
     const pluginSlug = service.provisioner_slug ?? service.product.provisioner;
     const plugin = this.registry.get(pluginSlug);
@@ -243,7 +321,7 @@ export class ProvisioningService {
     userId: string,
     isAdmin: boolean,
     ctx: { ipAddress: string; userAgent?: string | null },
-  ): Promise<SsoUrl | null> {
+  ): Promise<{ sso: SsoUrl | null; errorCode: string | null }> {
     const service = await this.loadServiceForView(serviceId);
     if (!isAdmin && service.user_id !== userId) {
       throw new ForbiddenException('No tienes acceso a este servicio.');
@@ -252,6 +330,9 @@ export class ProvisioningService {
     const pluginSlug = service.provisioner_slug ?? service.product.provisioner;
     const plugin = this.registry.getOrThrow(pluginSlug);
 
+    // Sprint 15C.II Fase C round 5: shape canónico GetSsoUrlResult
+    // distingue null legítimo (caso "no aplica") de errorCode (drift
+    // detectable — la UI puede dar mensaje útil al admin).
     return getSsoUrlWithAudit(
       plugin,
       service,
@@ -497,6 +578,42 @@ export class ProvisioningService {
       throw new NotFoundException('Servicio no encontrado.');
     }
 
+    // Sprint 15C.II Fase C round 2 (smoke real Yasmin 2026-05-10): reset
+    // canónico `status -> provisioning` antes del enqueue. Sin esto, el
+    // worker `provisionService` aplica la guard idempotente
+    // (`provisioning-orchestrator.service.ts:151`) y skipea silently
+    // cualquier service con `status='active'`. Caso canónico que reveló
+    // el bug: drift `not_yet_provisioned` (plugin reporta unknown sin
+    // refs externas) sobre service que vive en Aelium con status canónico
+    // `active`. El admin pulsa "Re-aprovisionar ahora" → enqueue OK pero
+    // worker skip → cero efecto operativo + cero feedback al admin.
+    //
+    // Patrón industria (Plesk admin "Reset & re-provision", cPanel WHM
+    // "Force re-provisioning", ResellerClub admin force-reprovision):
+    // el botón admin admin de re-aprovisión es una **operación deliberada
+    // del operador** que reinicia el ciclo provisioning aunque el state
+    // sea active — el operador asume responsabilidad. La guard idempotente
+    // sigue siendo correcta para el flujo automático
+    // `invoice.paid → enqueueProvisioning` (evita duplicar provisión).
+    //
+    // Coherente con DH-INV-6 (ADR-082): NO modificamos status
+    // automáticamente desde un cron o listener, solo desde una acción
+    // explícita del admin que firma audit `service.reprovision_requested`.
+    await this.prisma.service.update({
+      where: { id: serviceId },
+      data: { status: 'provisioning' },
+    });
+
+    // Sprint 15C.II Fase C round 3 (smoke real Yasmin 2026-05-10):
+    // invalidar cache `service_info:${id}` ANTES del enqueue. El job
+    // corre async (segundos), y mientras tanto la UI admin re-fetch
+    // (revalidatePath del SC + auto-refresh frontend tras 5s). Sin
+    // esta invalidación, la UI seguiría leyendo cached
+    // `not_yet_provisioned` aunque el status DB ya hubiera cambiado.
+    // El orquestador re-invalida tras provision OK/failure (defense
+    // in depth — la cache se mantiene fresca en cada hito).
+    await this.cache.invalidate(serviceId);
+
     await this.orchestrator.enqueueProvisioning(serviceId);
 
     await this.audit.logChange({
@@ -718,6 +835,74 @@ export class ProvisioningService {
     };
   }
 
+  /**
+   * Sprint 15C.II Fase C round 4 (UI_SPEC §4.13 + ADR-082 DH-INV-6) —
+   * shortcircuit canónico para services en estado terminal (`cancelled`,
+   * `terminated`). NO se invoca al plugin (cualquier respuesta del plugin
+   * sería falsa info sobre un service que ya no opera) — retornamos
+   * directamente `info.status` canónico, capabilities sin acciones, y
+   * el `statusReason` derivado del `service.cancellation_reason` para
+   * transparencia del audit trail.
+   *
+   * Heredable a todos los plugins SaaS: 15D RC, 15E Docker, 15G Plesk
+   * pueden tener services cancelled por las mismas 3 rutas (admin
+   * deprovision / provision fail permanente / drift+admin decisión).
+   * Patrón canónico = NO renderizar drift UX sobre estado terminal.
+   */
+  private buildTerminalServiceFallback(
+    service: ServiceWithRelations,
+  ): ServiceInfo {
+    // ServiceInfo.status no incluye 'terminated' (solo 'cancelled' como
+    // estado terminal del set canónico ADR-070). Ambos service.status
+    // terminales colapsan a `info.status='cancelled'` para la UI — el
+    // service.status canónico (terminated vs cancelled) sigue disponible
+    // en `summary.status` para diferenciar si un plugin futuro lo necesita.
+    return {
+      status: 'cancelled',
+      // El frontend traduce con `t()` — fallback a la key cruda si no
+      // declarada (compat retro). Las keys son universales (no plugin-
+      // específicas) porque el patrón es canónico cross-plugin.
+      statusReason: this.buildTerminalStatusReasonKey(service),
+      display: {
+        primary: service.label ?? service.domain ?? service.product.name,
+        secondary: service.product.name,
+      },
+      capabilities: {
+        has_sso_panel: false,
+        has_metrics: false,
+        has_metrics_history: false,
+        requires_server: false,
+        provision_mode: 'sync',
+        completes_via_task: false,
+        supports_reconciliation: false,
+        has_dns_management: false,
+        hasSsoPanel: false,
+        inlineActions: [],
+      },
+      availableActions: [],
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Mapea `service.cancellation_reason` (text libre histórico — viene de
+   * `provisioning_failed:CODE`, razones admin, etc.) a una i18n key
+   * canónica frontend. Si no matchea ningún patrón conocido, devuelve la
+   * key generic `service.terminal.cancelled.reason.unknown`. El frontend
+   * decide si mostrar también el reason crudo (admin) vs solo el
+   * mensaje generic empático (cliente — UI_SPEC §1.2 P5 voz Aelium).
+   */
+  private buildTerminalStatusReasonKey(service: ServiceWithRelations): string {
+    const reason = service.cancellation_reason ?? '';
+    if (reason.startsWith('provisioning_failed:')) {
+      return 'service.terminal.cancelled.reason.provisioning_failed';
+    }
+    if (reason.length === 0) {
+      return 'service.terminal.cancelled.reason.unknown';
+    }
+    return 'service.terminal.cancelled.reason.admin_action';
+  }
+
   private async resolveServiceInfoTtl(): Promise<number> {
     try {
       const ttl = await this.settings.getNumber(
@@ -735,4 +920,27 @@ export class ProvisioningService {
     }
     return 60;
   }
+}
+
+/**
+ * Sprint 15C.II Fase C round 7 (smoke real Yasmin 2026-05-10) — helper
+ * file-private para nombre legible del cliente, equivalente al
+ * `buildDisplayName` del plugin Enhance CP (espejo en
+ * `enhance.plugin.ts:1013`). Prioridad: company_name > "first_name
+ * last_name" > email. Reutilizable por cualquier shape que exponga
+ * datos del cliente al admin (UI_SPEC: info legible primero, IDs
+ * secundarios). El refactor que centralice esto en `core/clients/`
+ * vendrá en Sprint futuro de Clients (no scope Sprint 15C).
+ */
+function buildClientDisplayName(
+  client: ServiceWithRelations['client'],
+): string {
+  if (client.company_name && client.company_name.trim().length > 0) {
+    return client.company_name.trim();
+  }
+  const parts = [client.first_name, client.last_name]
+    .filter((p): p is string => Boolean(p && p.trim().length > 0))
+    .map((p) => p.trim());
+  if (parts.length > 0) return parts.join(' ');
+  return client.email;
 }

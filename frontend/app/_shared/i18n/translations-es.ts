@@ -86,6 +86,11 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
 
   // ── Plugin Enhance CP — Acciones curadas (ADR-070 §C + ADR-077 Amendment A3)
   'plugin.enhance_cp.actions.reset_password': 'Restablecer contraseña',
+  // Sprint 15C.II Fase C (BUG-15CII-13): description del manifest action.
+  // Convención canónica L3 (Fase B): description NO repite el label, aporta
+  // info complementaria sobre flujo o contexto.
+  'plugin.enhance_cp.actions.reset_password.description':
+    'Genera una contraseña aleatoria nueva en Enhance y la enviará al email del cliente cuando el listener de notificaciones esté activo (Fase D). Cierra la sesión actual del usuario en el panel.',
   'plugin.enhance_cp.actions.reset_password.confirm':
     'Se generará una contraseña nueva aleatoria y se enviará al email del cliente. La sesión activa se cerrará. ¿Confirmar?',
   'plugin.enhance_cp.actions.reset_password.success':
@@ -114,6 +119,9 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
     'Se eliminará este registro DNS de la zona. La operación es irreversible. ¿Confirmar?',
 
   'plugin.enhance_cp.actions.change_package': 'Cambiar plan',
+  // Sprint 15C.II Fase C (BUG-15CII-13): description del manifest action.
+  'plugin.enhance_cp.actions.change_package.description':
+    'Cambia el plan asociado a la suscripción Enhance. Aelium NO genera ajuste automático de invoice — el ajuste prorrateado se emite manualmente desde /admin/billing.',
   'plugin.enhance_cp.actions.change_package.confirm':
     'Se cambiará el plan de la suscripción Enhance. Esto puede afectar la facturación del próximo ciclo. ¿Confirmar?',
   'plugin.enhance_cp.actions.change_package.success':
@@ -154,15 +162,92 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'admin.plugins.reconcile_all.error': 'No se pudo reconciliar el plugin.',
 
   // ── Service status reasons (ADR-070 §"Patrón de página" — discriminados
-  // por rol en Fase C UI_SPEC §4.13). Sprint 15C.II Fase B fix-up: el
-  // backend envía estos como i18n keys; ServiceHeader aplica t(). Los
-  // mensajes actuales son técnicos visibles a todos los roles — Fase C
-  // los discriminará (cliente: mensaje genérico empático sin jerga; admin:
-  // AlertBanner warning con mensaje técnico + CTA SSO investigación).
+  // por rol en Fase C UI_SPEC §4.13). Sprint 15C.II Fase C (2026-05-10):
+  // discriminación cliente vs admin materializada en `ServiceHeader.tsx`
+  // (cliente NO ve estos `statusReason` técnicos, solo el mensaje genérico
+  // `service.drift.client_generic` abajo) y en `AdminDriftBanner.tsx`
+  // (admin ve el `statusReason` técnico crudo dentro de un AlertBanner
+  // warning con CTA SSO + Re-aprovisionar).
   'service.status_reason.plugin_not_registered':
     'No se ha podido contactar con el proveedor (plugin no registrado).',
   'plugin.enhance_cp.status_reason.not_yet_provisioned':
     'Servicio aún no aprovisionado en el proveedor. Reintentaremos automáticamente; si persiste, contacta con soporte.',
   'plugin.enhance_cp.status_reason.subscription_missing':
     'Suscripción no encontrada en el proveedor (drift detectado). Investigaremos el desincronizado.',
+
+  // ── Drift UX discriminada por rol (UI_SPEC §4.13 + ADR-083 Amendment A4.3
+  //    — Sprint 15C.II Fase C 2026-05-10). Heredable a 15D RC, 15E Docker,
+  //    15G Plesk: cualquier plugin SaaS que retorne `info.status` ∈
+  //    {`unknown`, `failed`} con `info.statusReason` no nulo aplica este
+  //    patrón. El frontend NO acopla con `service.provisioner_slug` (R-070
+  //    "cero `if (provisioner === 'X')`"). Las keys son universales.
+  'service.drift.client_generic':
+    'Tu servicio está temporalmente no disponible. Hemos avisado al equipo técnico — no necesitas hacer nada.',
+  'service.drift.admin_banner.title': 'Drift detectado',
+  'service.drift.admin_banner.cta_investigate':
+    'Investigar en panel del proveedor',
+  'service.drift.admin_banner.reprovision_cta': 'Re-aprovisionar ahora',
+  'service.drift.admin_banner.reprovision_help':
+    'Re-aprovisiona el servicio contra el proveedor con la metadata actual del producto Aelium. Útil cuando el plugin reporta `not_yet_provisioned` (metadata externa perdida o servicio nunca creado en el proveedor).',
+  'service.drift.admin_banner.reprovision_success':
+    'Re-aprovisión enqueued. La cola la procesará en segundos.',
+  'service.drift.admin_banner.reprovision_error':
+    'No se pudo enqueuear la re-aprovisión. Revisa los logs del backend.',
+
+  // ── Estados terminales — service.status ∈ {cancelled, terminated}
+  //    (UI_SPEC §4.13 + ADR-082 DH-INV-6 — Sprint 15C.II Fase C round 4
+  //    2026-05-10). Doctrina canónica: cuando un service está terminal,
+  //    NO se renderiza drift UX (sería semánticamente falso) — se
+  //    muestra un banner explícito + se ocultan acciones futiles
+  //    (SSO, reprovision, métricas). Heredable a 15D RC, 15E Docker,
+  //    15G Plesk: cualquier service cancelled aplica el mismo patrón.
+  //
+  //    Discriminación cliente vs admin igual que drift UX:
+  //    - Cliente: mensaje empático sin tecnicismos.
+  //    - Admin: razón técnica cruda + fecha + contexto operativo.
+  'service.terminal.cancelled.admin.title': 'Servicio cancelado',
+  'service.terminal.cancelled.admin.body':
+    'Este servicio está en estado terminal. La cola de provisioning skipea cualquier job sobre él. Para reactivarlo, el cliente debe contratar uno nuevo (checkout) o el admin debe corregir la causa y crear un service nuevo.',
+  'service.terminal.cancelled.client.title': 'Servicio cancelado',
+  'service.terminal.cancelled.client.body':
+    'Este servicio fue cancelado y ya no está activo. Si crees que es un error o quieres contratarlo de nuevo, contacta con soporte.',
+  // Razones técnicas mapeadas (lo emite buildTerminalStatusReasonKey
+  // en el backend a partir de `service.cancellation_reason`).
+  'service.terminal.cancelled.reason.provisioning_failed':
+    'No se pudo crear el servicio en el proveedor (fallo permanente — típicamente configuración del producto incompleta o credenciales del plugin inválidas). Revisa la configuración del producto en /admin/products y el plugin en /admin/settings/plugins.',
+  'service.terminal.cancelled.reason.admin_action':
+    'Cancelado manualmente por un admin. Revisa el motivo exacto en el campo "cancellation_reason" del audit log.',
+  'service.terminal.cancelled.reason.unknown':
+    'No se registró razón técnica de la cancelación.',
+
+  // ── Action / SSO error code discriminado por rol (Sprint 15C.II Fase
+  //    C round 5+6 — smoke real Yasmin 2026-05-10). Backend wrappers
+  //    distinguen 3 categorías de error (INVALID_PAYLOAD, INVALID_STATE,
+  //    resto). El frontend además discrimina cliente vs admin (UI_SPEC
+  //    §1.2 P5 voz Aelium + P6 contenido adaptativo por rol):
+  //      - Cliente: voz empática sin tecnicismos (no menciona "drift",
+  //        "Reconciliar contra Enhance", "metadata local", etc).
+  //      - Admin:   operacional con CTA concreto al recovery action
+  //        (force_resync vía botón "Reconciliar contra Enhance").
+  //    Las keys `action.invalid_payload` + `action.provider_error` +
+  //    `action.circuit_open` ya existen desde Fase I (líneas 45-51 arriba)
+  //    y NO se duplican aquí — son válidas para ambos roles (errors
+  //    canónicos de form/red/circuit que cliente y admin ven igual).
+  //    Heredable a 15D RC, 15E Docker, 15G Plesk.
+  'action.invalid_state.client':
+    'No se pudo completar la acción ahora mismo. Hemos avisado al equipo técnico — vuelve a intentarlo en unos minutos.',
+  'action.invalid_state.admin':
+    'Drift detectado: el proveedor reporta INVALID_STATE (recurso ausente — login/member/subscription stale en Aelium). Recovery: pulsa "Reconciliar contra Enhance" en /admin/settings/plugins/enhance-cp para refrescar el mapping enhance_customers, o investiga vía SSO al panel del proveedor.',
+  'sso.error.invalid_state.client':
+    'No podemos abrir el panel ahora mismo. Hemos avisado al equipo técnico — vuelve a intentarlo en unos minutos.',
+  'sso.error.invalid_state.admin':
+    'Drift SSO: el proveedor no encuentra el customer/login mapeado en enhance_customers (típicamente borrado en panel del proveedor o mock reseteado en dev). Recovery: pulsa "Reconciliar contra Enhance" para refrescar la metadata; si persiste, considera DELETE FROM enhance_customers WHERE user_id=… + reaprovisionar.',
+  'sso.error.provider_internal.client':
+    'No podemos abrir el panel ahora mismo. Vuelve a intentarlo en unos minutos.',
+  'sso.error.provider_internal.admin':
+    'El proveedor devolvió un error interno o no reachable. Revisa connectivity al endpoint del plugin (/admin/settings/plugins) y los logs backend.',
+  'sso.error.circuit_open.client':
+    'El servicio está temporalmente saturado. Vuelve a intentarlo en unos minutos.',
+  'sso.error.circuit_open.admin':
+    'Circuit breaker open en el plugin (umbral de fallos consecutivos superado). Auto-recovery en ~30s; revisa /admin/observability si persiste.',
 });

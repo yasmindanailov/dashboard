@@ -476,7 +476,10 @@ describe('getSsoUrlWithAudit â€” Sprint 11 Fase 11.B', () => {
       audit as never,
     );
 
-    expect(out).toBeNull();
+    // Sprint 15C.II Fase C round 5: shape `{ sso, errorCode }`. Plugin
+    // sin SSO panel → caso legítimo (errorCode=null, no es error).
+    expect(out.sso).toBeNull();
+    expect(out.errorCode).toBeNull();
     expect(plugin.getSsoUrl).not.toHaveBeenCalled();
   });
 
@@ -511,7 +514,9 @@ describe('getSsoUrlWithAudit â€” Sprint 11 Fase 11.B', () => {
       audit as never,
     );
 
-    expect(out?.url).toContain('cpanel.example.com');
+    // Sprint 15C.II Fase C round 5: shape ahora `{ sso, errorCode }`.
+    expect(out.sso?.url).toContain('cpanel.example.com');
+    expect(out.errorCode).toBeNull();
     expect(audit.logAccess).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'sso_panel_open',
@@ -524,7 +529,7 @@ describe('getSsoUrlWithAudit â€” Sprint 11 Fase 11.B', () => {
     );
   });
 
-  it('plugin lanza error â†’ null sin relanzar', async () => {
+  it('plugin lanza error â†’ sso=null + errorCode propagado', async () => {
     const events = buildEvents();
     const audit = buildAudit();
     const plugin = buildPlugin({
@@ -550,7 +555,10 @@ describe('getSsoUrlWithAudit â€” Sprint 11 Fase 11.B', () => {
       audit as never,
     );
 
-    expect(out).toBeNull();
+    // Sprint 15C.II Fase C round 5: shape `{ sso, errorCode }`. error
+    // genérico (no ProvisionerPluginError) → errorCode='PROVIDER_INTERNAL_ERROR'.
+    expect(out.sso).toBeNull();
+    expect(out.errorCode).toBe('PROVIDER_INTERNAL_ERROR');
     expect(audit.logAccess).not.toHaveBeenCalled();
     expect(events.emit).not.toHaveBeenCalled();
   });
@@ -603,7 +611,7 @@ describe('getSsoUrlWithAudit â€” Sprint 11 Fase 11.B', () => {
       audit as never,
     );
 
-    expect(out?.url).toContain('cpanel.example.com');
+    expect(out.sso?.url).toContain('cpanel.example.com');
     expect(events.emit).toHaveBeenCalledWith(
       'service.sso_opened',
       expect.objectContaining({

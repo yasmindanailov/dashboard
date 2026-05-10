@@ -15,6 +15,12 @@
  * botones standalone — son helpers operados desde modales/UI custom
  * admin-only en sus respectivas páginas (`/admin/services/[id]`).
  *
+ * Sprint 15C.II Fase C round 5 (smoke real Yasmin 2026-05-10):
+ * `window.confirm()` nativo del browser → componente DS `<Modal>` con
+ * confirmación reforzada (UI_SPEC §4.2). El nativo browser no respeta
+ * el design system (z-index, focus trap, theming, a11y) y reportaba
+ * "modal del navegador, no de nuestra UI" como bug visual.
+ *
  * Renderiza los `info.availableActions` del plugin como botones. Cada
  * acción dispara executeAction con confirmación cuando aplique. El
  * resultado del plugin se muestra en línea (success.message o
@@ -26,7 +32,7 @@
  * `adminOnly` + helpers internos la lista queda vacía, también se oculta.
  */
 import { useState } from 'react';
-import { Button, Card, useToast } from '../../components/ui';
+import { Button, Card, Modal, useToast } from '../../components/ui';
 import { t } from '../i18n';
 import type { ServiceAction } from '../../lib/api';
 import { executeServiceActionAction } from './_actions';
@@ -71,6 +77,26 @@ const INTERNAL_HELPER_SLUGS = new Set<string>([
   'delete_dns_record',
 ]);
 
+/**
+ * Sprint 15C.II Fase C round 6 (smoke real Yasmin 2026-05-10) — keys
+ * i18n discriminadas por rol (UI_SPEC §1.2 P5 voz Aelium + P6 contenido
+ * adaptativo). Backend wrapper retorna keys "base" tipo
+ * `action.invalid_state` (sin sufijo); el frontend les añade el sufijo
+ * `.client` o `.admin` según el viewer. Solo aplica a códigos donde
+ * el cliente NO debe ver la jerga técnica del admin (drift, recovery
+ * actions, etc). Para `action.invalid_payload` / `action.provider_error`
+ * / `action.circuit_open` los mensajes ya son neutros y safe-for-client
+ * (declarados sin variantes desde Fase I).
+ */
+const ROLE_DISCRIMINATED_KEYS = new Set<string>(['action.invalid_state']);
+
+function selectMessageKey(rawKey: string, isAdmin: boolean): string {
+  if (ROLE_DISCRIMINATED_KEYS.has(rawKey)) {
+    return `${rawKey}.${isAdmin ? 'admin' : 'client'}`;
+  }
+  return rawKey;
+}
+
 interface ActionsBarProps {
   serviceId: string;
   actions: readonly ServiceAction[];
@@ -86,6 +112,11 @@ interface ActionsBarProps {
   onActionExecuted?: () => void;
 }
 
+interface PendingConfirm {
+  action: ServiceAction;
+  confirmText: string;
+}
+
 export function ActionsBar({
   serviceId,
   actions,
@@ -93,12 +124,14 @@ export function ActionsBar({
   onActionExecuted,
 }: ActionsBarProps) {
   // Sprint 15C Fase 15C.I: feedback de acciones via toast canónico
-  // (UI_SPEC §4.3 — esquina superior derecha, efímero 5s). Antes Sprint 11
-  // Fase 11.D usaba feedback inline en la card; ese patrón violaba la
-  // doctrina canónica. Ahora consistente con DnsRecordsManager + el resto
-  // del frontend (productos, billing, support).
+  // (UI_SPEC §4.3 — esquina superior derecha, efímero 5s).
   const { toast } = useToast();
   const [running, setRunning] = useState<string | null>(null);
+  // Sprint 15C.II Fase C round 5: state local para Modal DS
+  // confirmación reforzada (reemplaza window.confirm nativo). El modal
+  // se renderiza al final del Card, controlado por `pendingConfirm`.
+  const [pendingConfirm, setPendingConfirm] =
+    useState<PendingConfirm | null>(null);
 
   // ADR-077 Amendment A3.5 patrón canónico — filter declarativo por flag,
   // NUNCA por slug (eso rompería ADR-070 "cero `if (provisioner === 'X')`").
@@ -112,15 +145,20 @@ export function ActionsBar({
 
   if (visibleActions.length === 0) return null;
 
-  const onAction = async (action: ServiceAction) => {
-    const localizedLabel = t(action.label);
+  const onAction = (action: ServiceAction) => {
     if (action.confirmRequired) {
       const text = action.confirmationText
         ? t(action.confirmationText)
-        : `¿Confirmar acción "${localizedLabel}"?`;
-      if (!window.confirm(text)) return;
+        : `¿Confirmar acción "${t(action.label)}"?`;
+      setPendingConfirm({ action, confirmText: text });
+      return;
     }
+    void executeNow(action);
+  };
 
+  const executeNow = async (action: ServiceAction): Promise<void> => {
+    setPendingConfirm(null);
+    const localizedLabel = t(action.label);
     setRunning(action.slug);
     /*
      * Acciones triviales sin payload — futuros plugins con
@@ -135,12 +173,12 @@ export function ActionsBar({
     }
     if (result.result.success) {
       const successMsg = result.result.message
-        ? t(result.result.message)
+        ? t(selectMessageKey(result.result.message, isAdmin))
         : `${localizedLabel}: completada.`;
       toast('success', successMsg);
     } else {
       const warnMsg = result.result.message
-        ? t(result.result.message)
+        ? t(selectMessageKey(result.result.message, isAdmin))
         : `${localizedLabel}: no se completó.`;
       toast('error', warnMsg);
     }
@@ -165,6 +203,42 @@ export function ActionsBar({
           </Button>
         ))}
       </div>
+
+      {/* Sprint 15C.II Fase C round 5: Modal DS canónico de confirmación
+          reforzada (UI_SPEC §4.2). Reemplaza window.confirm() nativo del
+          browser que no respetaba design system (z-index, focus trap,
+          theming, a11y heredada de Modal componente). Patrón heredable a
+          15D RC, 15E Docker, 15G Plesk. */}
+      {pendingConfirm && (
+        <Modal
+          open={true}
+          onClose={() => setPendingConfirm(null)}
+          title={t(pendingConfirm.action.label)}
+          size="sm"
+          footer={
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <Button
+                variant="secondary"
+                onClick={() => setPendingConfirm(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant={
+                  pendingConfirm.action.destructive ? 'danger' : 'primary'
+                }
+                onClick={() => void executeNow(pendingConfirm.action)}
+              >
+                Confirmar
+              </Button>
+            </div>
+          }
+        >
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
+            {pendingConfirm.confirmText}
+          </p>
+        </Modal>
+      )}
     </Card>
   );
 }

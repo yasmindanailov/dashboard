@@ -1,12 +1,34 @@
 /**
  * ServiceHeader — Sprint 11 Fase 11.D (ADR-070 §"Patrón de página").
  *
- * Header normalizado de la página `/dashboard/services/[id]`. Renderiza
- * `info.display` + Badge de estado + statusReason cuando aplica.
+ * Header normalizado de la página de detalle del service (cliente +
+ * admin). Renderiza `info.display` + Badge de estado + (cuando aplique)
+ * `info.statusReason` discriminado por rol.
+ *
+ * Sprint 15C.II Fase C (UI_SPEC §4.13 + ADR-083 Amendment A4.3 — frozen
+ * 2026-05-10): patrón doctrinal heredable para todos los plugins SaaS
+ * (15D RC, 15E Docker, 15G Plesk). Cuando `info.status` ∈ {`unknown`,
+ * `failed`} con `info.statusReason` no nulo:
+ *
+ *   - **Cliente**: NO se renderiza el `statusReason` técnico crudo
+ *     (violaba UI_SPEC §1.2 P5 "voz Aelium" — el cliente veía mensajes
+ *     tipo `subscription not found in Enhance (drift detected)` sin
+ *     saber qué hacer). Se reemplaza por una línea genérica empática
+ *     con i18n key `service.drift.client_generic`. La página cliente
+ *     adicionalmente oculta SSO + DNS cards porque clickearlas con
+ *     metadata corrupta produce errores `action.provider_error`.
+ *
+ *   - **Admin**: tampoco se renderiza aquí — la página admin lo muestra
+ *     ARRIBA del MetricsBar a través de `<AdminDriftBanner>` (AlertBanner
+ *     warning con `statusReason` técnico crudo + CTA SSO + botón
+ *     Re-aprovisionar). El admin necesita la información literal para
+ *     diagnosticar.
+ *
+ *   - **Estado canónico no se modifica** (DH-INV-6 ADR-082: el sistema
+ *     externo gana en conflicto operacional, Aelium NO auto-corrige).
  *
  * Componente presentacional puro — sin auth, sin fetch. Server-component
- * compatible: NO añade `'use client'`. Sprint 13 §13.AUTH Fase E lo
- * mantiene intacto.
+ * compatible: NO añade `'use client'`.
  */
 import { Badge } from '../../components/ui';
 import { t } from '../i18n';
@@ -16,9 +38,39 @@ import { SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE } from './service-status';
 interface ServiceHeaderProps {
   info: ServiceInfo;
   productName: string;
+  /**
+   * `true` si el viewer es staff (set canónico
+   * `provisioning.controller.ts ADMIN_ROLES`). El SC parent lo deriva
+   * con `isStaffRole(session.user.role.slug)` desde `getServerSession()`.
+   * Default `false` por seguridad — el cliente nunca ve `statusReason`
+   * técnico crudo aunque el caller olvide pasar el flag.
+   */
+  isAdmin?: boolean;
 }
 
-export function ServiceHeader({ info, productName }: ServiceHeaderProps) {
+const DRIFT_STATUSES = new Set<ServiceInfo['status']>(['unknown', 'failed']);
+// Sprint 15C.II Fase C round 6 (smoke real Yasmin 2026-05-10): estados
+// terminales tienen banner upstream propio (`AlertBanner danger` admin
+// + `AlertBanner info` cliente en sus respectivas pages). El
+// ServiceHeader NO debe duplicar el `statusReason` ya cubierto por
+// ese banner — duplicación visible reportada en smoke. ServiceInfo
+// tiene `'cancelled'` como único terminal canónico (round 4 colapsa
+// `terminated` → `cancelled` para el shape del plugin).
+const TERMINAL_STATUSES = new Set<ServiceInfo['status']>(['cancelled']);
+
+export function ServiceHeader({
+  info,
+  productName,
+  isAdmin = false,
+}: ServiceHeaderProps) {
+  const isDrift =
+    DRIFT_STATUSES.has(info.status) && info.statusReason !== null && info.statusReason !== undefined;
+  // Si hay banner upstream (drift O terminal), ServiceHeader cede el
+  // render del statusReason a ese banner. Solo renderiza statusReason
+  // aquí cuando es info contextual no-crítica (estados intermedios
+  // tipo `pending`, `suspended`, `expired` con razón informativa).
+  const hasUpstreamBanner = isDrift || TERMINAL_STATUSES.has(info.status);
+
   return (
     <div
       style={{
@@ -49,7 +101,36 @@ export function ServiceHeader({ info, productName }: ServiceHeaderProps) {
         >
           {info.display.secondary ? t(info.display.secondary) : productName}
         </p>
-        {info.statusReason && (
+
+        {/*
+          Cliente con drift: mensaje genérico empático (i18n key
+          `service.drift.client_generic`). Anti-patrón eliminado:
+          renderizar `info.statusReason` técnico al cliente
+          (UI_SPEC §4.13). Admin no muestra nada aquí porque el
+          AlertBanner upstream tiene la responsabilidad — evita
+          duplicar info técnica en dos sitios de la página.
+        */}
+        {isDrift && !isAdmin && (
+          <p
+            style={{
+              color: 'var(--text-secondary)',
+              fontSize: 13,
+              marginTop: 8,
+            }}
+          >
+            {t('service.drift.client_generic')}
+          </p>
+        )}
+
+        {/*
+          Estados intermedios (suspended, expired, pending) con
+          statusReason informativo: se renderiza el statusReason
+          traducido a ambos roles porque aporta contexto operativo
+          (ej. `payment_pending`) que no es técnico crudo. Para drift
+          y terminal el statusReason vive en el AlertBanner upstream
+          de la página — evitar duplicación.
+        */}
+        {!hasUpstreamBanner && info.statusReason && (
           <p
             style={{
               color: 'var(--text-tertiary)',
@@ -58,17 +139,6 @@ export function ServiceHeader({ info, productName }: ServiceHeaderProps) {
               fontStyle: 'italic',
             }}
           >
-            {/*
-              Sprint 15C.II Fase B fix-up (2026-05-10): el `statusReason`
-              que devuelve el backend ahora es una i18n key (ej.
-              `plugin.enhance_cp.status_reason.subscription_missing`). Lo
-              traducimos con t(); si la key no está declarada o el valor
-              ya es un string literal (legacy), t() devuelve el original.
-              Fase C completará la discriminación cliente vs admin
-              (UI_SPEC §4.13 + ADR-083 Amendment A4.3): cliente verá un
-              mensaje genérico empático, admin verá AlertBanner técnico
-              con CTA "Investigar en panel del proveedor".
-            */}
             {t(info.statusReason)}
           </p>
         )}

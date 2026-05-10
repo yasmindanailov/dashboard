@@ -7,7 +7,7 @@ import type { IChangeEvent } from '@rjsf/core';
 
 import type { RJSFSchema } from '@rjsf/utils';
 
-import { Button } from '../../../../../components/ui';
+import { Button, useToast } from '../../../../../components/ui';
 import { t, translateSchema } from '../../../../../_shared/i18n';
 import type {
   AdminPluginDetail,
@@ -52,11 +52,6 @@ interface Props {
   detail: AdminPluginDetail;
 }
 
-interface FeedbackState {
-  kind: 'success' | 'error' | 'info';
-  message: string;
-}
-
 interface TestConnectionState {
   success: boolean;
   message: string;
@@ -65,6 +60,18 @@ interface TestConnectionState {
 
 export function PluginConfigForm({ detail }: Props) {
   const [, startTransition] = useTransition();
+  // Sprint 15C.II Fase C (gap G6 — UI_SPEC §4.3): feedback de toggle/save
+  // migrado de `<FeedbackInline>` (state local + render junto al botón)
+  // a `useToast()` (esquina superior derecha, 5s, esquema canónico).
+  // Antes: violaba la doctrina (Toast = efímero, AlertBanner = persistente)
+  // y daba feedback poco visible en una página con scroll. Ahora coherente
+  // con ActionsBar.tsx + SsoButton.tsx (Sprint 15C Fase I) + el resto del
+  // frontend (productos, billing, support).
+  // El `<TestConnectionInline>` se mantiene inline (NO toast) porque el
+  // resultado de "Probar conexión" tiene contenido detallado (mensaje +
+  // checkedAt) y el admin necesita revisarlo durante varios segundos —
+  // patrón `AlertBanner persistente` (UI_SPEC §4.3).
+  const { toast } = useToast();
 
   // Config: estado controlado a partir del valor server-side.
   const [configValue, setConfigValue] = useState<Record<string, unknown>>(
@@ -83,7 +90,6 @@ export function PluginConfigForm({ detail }: Props) {
   );
 
   const [enabled, setEnabled] = useState<boolean>(detail.enabled);
-  const [feedback, setFeedback] = useState<FeedbackState | null>(null);
   const [testResult, setTestResult] = useState<TestConnectionState | null>(
     null,
   );
@@ -98,25 +104,20 @@ export function PluginConfigForm({ detail }: Props) {
   function handleToggleEnabled(): void {
     const next = !enabled;
     setSaving(true);
-    setFeedback(null);
     startTransition(async () => {
       const result = await togglePluginAction(detail.slug, next);
       setSaving(false);
       if (result.ok) {
         setEnabled(next);
-        setFeedback({
-          kind: 'success',
-          message: next ? 'Plugin habilitado.' : 'Plugin deshabilitado.',
-        });
+        toast('success', next ? 'Plugin habilitado.' : 'Plugin deshabilitado.');
       } else {
-        setFeedback({ kind: 'error', message: result.error });
+        toast('error', result.error);
       }
     });
   }
 
   function handleSave(): void {
     setSaving(true);
-    setFeedback(null);
 
     // Solo enviamos secrets que el admin ha escrito (no '').
     const secretsToSend: Record<string, string> = {};
@@ -137,13 +138,13 @@ export function PluginConfigForm({ detail }: Props) {
       const result = await updatePluginAction(detail.slug, body);
       setSaving(false);
       if (result.ok) {
-        setFeedback({ kind: 'success', message: 'Cambios guardados.' });
+        toast('success', 'Cambios guardados.');
         // Limpiar drafts de secrets — los valores nuevos ya están cifrados.
         setSecretsDraft((prev) =>
           Object.fromEntries(Object.keys(prev).map((k) => [k, ''])),
         );
       } else {
-        setFeedback({ kind: 'error', message: result.error });
+        toast('error', result.error);
       }
     });
   }
@@ -317,7 +318,6 @@ export function PluginConfigForm({ detail }: Props) {
             {testing ? 'Probando…' : 'Probar conexión'}
           </Button>
         )}
-        {feedback && <FeedbackInline feedback={feedback} />}
       </div>
 
       {testResult && <TestConnectionInline result={testResult} />}
@@ -382,30 +382,6 @@ function SecretsFields({
           </label>
         );
       })}
-    </div>
-  );
-}
-
-function FeedbackInline({ feedback }: { feedback: FeedbackState }) {
-  const colorMap = {
-    success: { bg: '#ECFDF5', border: '#A7F3D0', text: '#065F46' },
-    error: { bg: '#FEF2F2', border: '#FECACA', text: '#991B1B' },
-    info: { bg: '#EFF6FF', border: '#BFDBFE', text: '#1E40AF' },
-  } as const;
-  const c = colorMap[feedback.kind];
-  return (
-    <div
-      role="status"
-      style={{
-        padding: '6px 12px',
-        background: c.bg,
-        border: `1px solid ${c.border}`,
-        color: c.text,
-        borderRadius: 6,
-        fontSize: 13,
-      }}
-    >
-      {feedback.message}
     </div>
   );
 }

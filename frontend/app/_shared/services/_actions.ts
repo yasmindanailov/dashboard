@@ -15,18 +15,24 @@ import type {
    ═══════════════════════════════════════ */
 
 export type SsoActionResult =
-  | { ok: true; sso: SsoUrl | null }
+  | { ok: true; sso: SsoUrl | null; errorCode: string | null }
   | { ok: false; error: string };
 
 export async function requestSsoUrlAction(
   serviceId: string,
 ): Promise<SsoActionResult> {
   try {
-    const res = await serverFetch<{ sso: SsoUrl | null }>(
-      `/services/${serviceId}/sso`,
-      { method: 'POST' },
-    );
-    return { ok: true, sso: res.sso };
+    // Sprint 15C.II Fase C round 5 (smoke real Yasmin 2026-05-10): backend
+    // ahora retorna `{ sso, errorCode }` para distinguir null legítimo
+    // ("plugin no soporta SSO" / "refs missing") de error real
+    // (`INVALID_STATE` drift detectable — ej. member_id stale en
+    // `enhance_customers`). El SsoButton usa errorCode para mostrar
+    // mensaje útil al usuario en lugar del genérico.
+    const res = await serverFetch<{
+      sso: SsoUrl | null;
+      errorCode: string | null;
+    }>(`/services/${serviceId}/sso`, { method: 'POST' });
+    return { ok: true, sso: res.sso, errorCode: res.errorCode };
   } catch (err) {
     return {
       ok: false,
@@ -131,6 +137,48 @@ export async function refreshServiceInfoAction(
         err instanceof ServerFetchError
           ? err.message
           : 'No se pudieron actualizar las métricas.',
+    };
+  }
+}
+
+/* ═══════════════════════════════════════
+   Sprint 15C.II Fase C (UI_SPEC §4.13 + ADR-083 Amendment A4.3) —
+   reprovision admin desde drift banner
+
+   Materializa el botón "Re-aprovisionar ahora" del `<AdminDriftBanner>`
+   cuando el admin necesita re-crear el service en el proveedor (caso
+   `not_yet_provisioned`: metadata externa perdida o servicio nunca
+   creado realmente). El backend endpoint
+   `POST /admin/services/:id/reprovision` existe desde Sprint 11 Fase D
+   (`AdminProvisioningController.reprovision` → `provisioning.reprovisionAsAdmin`):
+   enqueue + audit `service.reprovision_requested` + access_log
+   `service_reprovision_admin`.
+
+   La cola provisioning consume el job en segundos. El admin verá el
+   nuevo estado al refrescar la página o al pulsar el ↻ del MetricsBar.
+   ═══════════════════════════════════════ */
+
+export type ReprovisionServiceResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function reprovisionServiceAction(
+  serviceId: string,
+): Promise<ReprovisionServiceResult> {
+  try {
+    await serverFetch<unknown>(`/admin/services/${serviceId}/reprovision`, {
+      method: 'POST',
+      body: {},
+    });
+    revalidatePath(`/admin/services/${serviceId}`);
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo enqueuear la re-aprovisión.',
     };
   }
 }

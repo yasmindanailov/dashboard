@@ -225,6 +225,7 @@ const ENHANCE_INLINE_ACTIONS: readonly ServiceAction[] = [
   {
     slug: 'reset_account_password',
     label: 'plugin.enhance_cp.actions.reset_password',
+    description: 'plugin.enhance_cp.actions.reset_password.description',
     confirmRequired: true,
     confirmationText: 'plugin.enhance_cp.actions.reset_password.confirm',
     destructive: false,
@@ -275,6 +276,7 @@ const ENHANCE_INLINE_ACTIONS: readonly ServiceAction[] = [
   {
     slug: 'change_package',
     label: 'plugin.enhance_cp.actions.change_package',
+    description: 'plugin.enhance_cp.actions.change_package.description',
     confirmRequired: true,
     confirmationText: 'plugin.enhance_cp.actions.change_package.confirm',
     destructive: false,

@@ -1468,10 +1468,53 @@ export interface ServiceDetailResponse {
     user_id: string;
     status: string;
     provisioner_slug: string | null;
+    /**
+     * Sprint 15C.II Fase C round 2 — `product.provisioner` expuesto al
+     * frontend para que la UI admin pueda mostrar el "effective slug"
+     * cuando `service.provisioner_slug` es null. El wrapper canónico
+     * provisioning resuelve el plugin con
+     * `service.provisioner_slug ?? service.product.provisioner` — si el
+     * service no tiene su propio slug (típicamente porque el pipeline
+     * provisioning no llegó a marcarlo, caso `not_yet_provisioned`),
+     * el plugin del producto SÍ se invoca. Sin este campo la UI
+     * admin mostraba "—" — información engañosa para el operador.
+     * Cliente NO lo usa (su UI no muestra esta info técnica).
+     */
+    product_provisioner: string;
     product_slug: string;
     product_name: string;
     product_type: string;
     created_at: string;
+    /**
+     * Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10) —
+     * cancelación explícita expuesta al frontend. Backend la persiste
+     * en `service.cancellation_reason` (text libre — viene de
+     * `provisioning_failed:CODE` para fail permanente, o text admin
+     * para cancelación manual). El frontend admin la muestra cruda;
+     * el frontend cliente solo la usa para chequear si renderizar el
+     * banner terminal "Servicio cancelado" (sin mostrar el reason
+     * técnico — viola UI_SPEC §1.2 P5 "voz Aelium").
+     */
+    cancellation_reason: string | null;
+    cancelled_at: string | null;
+    /**
+     * Sprint 15C.II Fase C round 7 (smoke real Yasmin 2026-05-10) —
+     * datos canónicos del cliente para que la UI admin muestre info
+     * legible (nombre + email) en lugar de UUIDs crudos. Estándar
+     * industria Stripe/Vercel admin: información primaria visible,
+     * IDs secundarios con copy-to-clipboard. Cliente NO consume estos
+     * campos en su propia página `/dashboard/services/[id]` (su nombre
+     * y email son trivialmente conocidos por sí mismo).
+     */
+    client_name: string;
+    client_email: string;
+    /**
+     * Domain canónico del service (FQDN). Puede ser null para
+     * productos no-hosting (ej. `support_inside`). Cuando presente,
+     * la UI admin lo muestra como identificador primario del service
+     * (ADR-082 DH-INV-2 — hosting service SIEMPRE tiene FQDN).
+     */
+    domain: string | null;
   };
   info: ServiceInfo;
 }
