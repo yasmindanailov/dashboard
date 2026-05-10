@@ -151,4 +151,17 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'admin.plugins.reconcile_all.unit.drift.singular': 'drift detectado',
   'admin.plugins.reconcile_all.unit.drift.plural': 'drifts detectados',
   'admin.plugins.reconcile_all.error': 'No se pudo reconciliar el plugin.',
+
+  // ── Service status reasons (ADR-070 §"Patrón de página" — discriminados
+  // por rol en Fase C UI_SPEC §4.13). Sprint 15C.II Fase B fix-up: el
+  // backend envía estos como i18n keys; ServiceHeader aplica t(). Los
+  // mensajes actuales son técnicos visibles a todos los roles — Fase C
+  // los discriminará (cliente: mensaje genérico empático sin jerga; admin:
+  // AlertBanner warning con mensaje técnico + CTA SSO investigación).
+  'service.status_reason.plugin_not_registered':
+    'No se ha podido contactar con el proveedor (plugin no registrado).',
+  'plugin.enhance_cp.status_reason.not_yet_provisioned':
+    'Servicio aún no aprovisionado en el proveedor. Reintentaremos automáticamente; si persiste, contacta con soporte.',
+  'plugin.enhance_cp.status_reason.subscription_missing':
+    'Suscripción no encontrada en el proveedor (drift detectado). Investigaremos el desincronizado.',
 });

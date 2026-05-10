@@ -693,7 +693,10 @@ export class ProvisioningService {
   ): ServiceInfo {
     return {
       status: 'unknown',
-      statusReason: 'Plugin no registrado',
+      // Sprint 15C.II Fase B fix-up: statusReason como i18n key. El frontend
+      // ServiceHeader aplica t() — fallback a la key cruda si translator no
+      // tiene la entrada (compat retro).
+      statusReason: 'service.status_reason.plugin_not_registered',
       display: {
         primary: service.label ?? service.domain ?? service.product.name,
         secondary: service.product.name,

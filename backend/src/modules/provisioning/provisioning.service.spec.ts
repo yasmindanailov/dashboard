@@ -295,7 +295,12 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     const result = await service.getInfoForUser('svc-1', 'user-1', false);
 
     expect(result.info.status).toBe('unknown');
-    expect(result.info.statusReason).toBe('Plugin no registrado');
+    // Sprint 15C.II Fase B fix-up: statusReason del fallback ahora es i18n
+    // key (frontend ServiceHeader aplica t(); compat retro vía fallback a la
+    // key cruda si el translator no la tiene declarada).
+    expect(result.info.statusReason).toBe(
+      'service.status_reason.plugin_not_registered',
+    );
     expect(result.service.id).toBe('svc-1');
   });
 

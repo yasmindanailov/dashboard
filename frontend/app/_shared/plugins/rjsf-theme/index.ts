@@ -41,3 +41,8 @@ export const aeliumDsWidgets: RegistryWidgetsType = {
   SelectWidget: DSSelectWidget,
   UpDownWidget: DSNumberWidget,
 };
+
+// Sprint 15C.II Fase B fix-up (2026-05-10): templates custom para evitar
+// duplicación visual title/description que el FieldTemplate por defecto
+// de rjsf produce con widgets DS que ya tienen label embebido.
+export { aeliumDsTemplates, AeliumDsFieldTemplate } from './templates';

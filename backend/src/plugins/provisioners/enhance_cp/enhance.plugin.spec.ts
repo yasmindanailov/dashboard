@@ -668,7 +668,11 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       );
       const report = await plugin.getStatus(buildServiceWithRefs());
       expect(report.status).toBe('unknown');
-      expect(report.statusReason).toContain('drift');
+      // Sprint 15C.II Fase B fix-up: statusReason ahora es i18n key
+      // (no string literal). El frontend ServiceHeader aplica t().
+      expect(report.statusReason).toBe(
+        'plugin.enhance_cp.status_reason.subscription_missing',
+      );
     });
   });
 
@@ -726,7 +730,10 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       );
       const info = await plugin.getServiceInfo(buildServiceWithRefs());
       expect(info.status).toBe('unknown');
-      expect(info.statusReason).toContain('drift');
+      // Sprint 15C.II Fase B fix-up: statusReason ahora es i18n key.
+      expect(info.statusReason).toBe(
+        'plugin.enhance_cp.status_reason.subscription_missing',
+      );
     });
 
     it('cancelled: availableActions vacío (no hay acciones útiles)', async () => {

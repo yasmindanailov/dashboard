@@ -496,9 +496,12 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
         err.code === 'INVALID_STATE'
       ) {
         // 404 → reconcile detecta drift: subscription_missing.
+        // Sprint 15C.II Fase B fix-up: statusReason ahora es i18n key (no
+        // string literal en inglés). El frontend ServiceHeader aplica t().
+        // Fase C completará la discriminación cliente vs admin (UI_SPEC §4.13).
         return {
           status: 'unknown',
-          statusReason: 'subscription not found in Enhance (drift detected)',
+          statusReason: 'plugin.enhance_cp.status_reason.subscription_missing',
           checkedAt: new Date().toISOString(),
         };
       }
@@ -511,7 +514,10 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
   async getServiceInfo(service: ServiceWithRelations): Promise<ServiceInfo> {
     const refs = extractServiceRefs(service);
     if (!refs) {
-      return this.buildUnknownInfo(service, 'service not yet provisioned');
+      return this.buildUnknownInfo(
+        service,
+        'plugin.enhance_cp.status_reason.not_yet_provisioned',
+      );
     }
     const { client: api } = await this.getApiClient();
 
@@ -538,7 +544,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     if (!subscription) {
       return this.buildUnknownInfo(
         service,
-        'subscription not found in Enhance (drift detected)',
+        'plugin.enhance_cp.status_reason.subscription_missing',
       );
     }
 

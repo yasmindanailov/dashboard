@@ -936,7 +936,12 @@ export type PluginCircuitState = 'closed' | 'open' | 'half-open';
  */
 export interface PluginJsonSchemaProperty {
   type: 'string' | 'number' | 'boolean' | 'integer';
-  description?: string; // i18n key
+  // Sprint 15C.II Fase B fix-up (2026-05-10): el plugin manifest declara
+  // `title` y `description` por property; ambos son i18n keys que el frontend
+  // resuelve via translateSchema() + el widget DS los renderiza como
+  // <label> + helperText respectivamente.
+  title?: string; // i18n key (rjsf usa esto como label)
+  description?: string; // i18n key (rjsf lo mapea a options.help → DS Input helperText)
   format?: 'uri' | 'email' | 'password' | 'uuid';
   enum?: ReadonlyArray<string | number>;
   default?: string | number | boolean;
