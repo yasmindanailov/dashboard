@@ -38,6 +38,7 @@ import type { ServiceDetailResponse } from '../../../lib/api';
 import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
 
 import { AdminDriftBanner } from './_components/AdminDriftBanner';
+import { AdminServiceDataCard } from './_components/AdminServiceDataCard';
 import { AdminServiceOperationsCard } from './_components/AdminServiceOperationsCard';
 
 interface PageProps {
@@ -207,85 +208,22 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
       )}
 
       {/*
-        Card "Datos del servicio (admin)" — info NO expuesta al cliente.
-        Sección admin-specific con datos técnicos para operativa staff.
+        Sprint 15C.II Fase C round 7 (smoke real Yasmin 2026-05-10):
+        rediseño card "Datos del servicio (admin)" según estándar
+        industria Stripe/Vercel admin: información primaria visible
+        (nombre cliente, email, domain, plan), IDs secundarios con
+        copy-to-clipboard, Badge para estados en lugar de texto crudo,
+        agrupación lógica en 3 secciones (Cliente / Servicio / Fechas)
+        en lugar de una <dl> plana de 6 filas.
       */}
-      <Card>
-        <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0, marginBottom: 12 }}>
-          Datos del servicio (admin)
-        </h2>
-        <dl
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'max-content 1fr',
-            gap: '6px 16px',
-            margin: 0,
-            fontSize: 13,
-          }}
-        >
-          <dt style={{ color: 'var(--text-secondary)' }}>Service ID</dt>
-          <dd style={{ margin: 0, fontFamily: 'var(--font-mono)' }}>
-            {service.id}
-          </dd>
+      <AdminServiceDataCard data={data} />
 
-          <dt style={{ color: 'var(--text-secondary)' }}>Cliente owner</dt>
-          <dd style={{ margin: 0 }}>
-            <Link
-              href={`/admin/clients/${service.user_id}`}
-              style={{ color: 'var(--brand-600)' }}
-            >
-              {service.user_id}
-            </Link>
-          </dd>
-
-          <dt style={{ color: 'var(--text-secondary)' }}>Plugin (provisioner)</dt>
-          <dd style={{ margin: 0, fontFamily: 'var(--font-mono)' }}>
-            {/*
-              Sprint 15C.II Fase C round 2 (smoke real Yasmin 2026-05-10):
-              "effective slug" — si service.provisioner_slug es null
-              (típicamente caso `not_yet_provisioned` con metadata vacía
-              porque el pipeline provisioning nunca terminó), mostramos
-              el del producto con anotación visual "(desde producto)".
-              El wrapper canónico backend usa la misma resolución
-              (`service.provisioner_slug ?? service.product.provisioner`)
-              al invocar el plugin — esto materializa esa lógica en la UI
-              admin para que el operador no vea "—" engañoso.
-            */}
-            {service.provisioner_slug ?? service.product_provisioner}
-            {!service.provisioner_slug && (
-              <span
-                style={{
-                  marginLeft: 8,
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: 11,
-                  color: 'var(--text-tertiary)',
-                  fontStyle: 'italic',
-                }}
-              >
-                (desde producto · service sin provisión exitosa aún)
-              </span>
-            )}
-          </dd>
-
-          <dt style={{ color: 'var(--text-secondary)' }}>Producto</dt>
-          <dd style={{ margin: 0 }}>
-            {service.product_name}{' '}
-            <span style={{ color: 'var(--text-tertiary)' }}>
-              ({service.product_slug} · {service.product_type})
-            </span>
-          </dd>
-
-          <dt style={{ color: 'var(--text-secondary)' }}>Estado canónico</dt>
-          <dd style={{ margin: 0, fontFamily: 'var(--font-mono)' }}>
-            {service.status}
-          </dd>
-
-          <dt style={{ color: 'var(--text-secondary)' }}>Creado</dt>
-          <dd style={{ margin: 0 }}>
-            {new Date(service.created_at).toLocaleString('es-ES')}
-          </dd>
-        </dl>
-      </Card>
+      {/* SSO panel — espejo del detalle cliente. Audit emite
+          `service.admin_sso_impersonation` automáticamente porque
+          `getSsoUrlWithAudit` detecta admin sobre service ajeno
+          (Sprint 15C Fase F). Sprint 15C.II Fase C round 4: oculto
+          si service terminal — abrir panel del proveedor sobre service
+          cancelled puede dar 404 o sesión orfana. */}
 
       {/* SSO panel — espejo del detalle cliente. Audit emite
           `service.admin_sso_impersonation` automáticamente porque

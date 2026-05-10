@@ -211,6 +211,21 @@ export class ProvisioningService {
       // PAYLOAD → cancelled).
       cancellation_reason: string | null;
       cancelled_at: Date | null;
+      // Sprint 15C.II Fase C round 7 (smoke real Yasmin 2026-05-10):
+      // Datos canónicos del cliente (nombre + email) para que la UI
+      // admin muestre info legible en lugar de UUIDs crudos. Estándar
+      // industria Stripe/Vercel admin: info primaria visible, UUIDs
+      // secundarios con copy-to-clipboard. El email solo lo expone al
+      // admin (cliente accede a su propia página /dashboard/services/[id]
+      // donde su email es trivialmente conocido). El frontend SC chequea
+      // `isAdmin` antes de renderizar estos campos.
+      client_name: string;
+      client_email: string;
+      // Sprint 15C.II Fase C round 7: domain del service (puede ser
+      // null para products no-hosting tipo support_inside). Cuando
+      // presente, la UI lo muestra como identificador primario del
+      // service (ADR-082 DH-INV-2 — hosting service SIEMPRE tiene FQDN).
+      domain: string | null;
     };
     info: ServiceInfo;
   }> {
@@ -231,6 +246,16 @@ export class ProvisioningService {
       created_at: service.created_at,
       cancellation_reason: service.cancellation_reason,
       cancelled_at: service.cancelled_at,
+      // Sprint 15C.II Fase C round 7: client info + domain canónicos.
+      // buildClientDisplayName prioriza company_name > "first_name
+      // last_name" > email (consistente con buildDisplayName del plugin
+      // Enhance CP). client.first_name + last_name vienen de
+      // loadServiceForView (no incluyen company_name — los services
+      // del MVP no tienen company_name asociado en User; se añadirá en
+      // Sprint futuro de Clients refactor).
+      client_name: buildClientDisplayName(service.client),
+      client_email: service.client.email,
+      domain: service.domain,
     };
 
     // Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10):
@@ -895,4 +920,27 @@ export class ProvisioningService {
     }
     return 60;
   }
+}
+
+/**
+ * Sprint 15C.II Fase C round 7 (smoke real Yasmin 2026-05-10) — helper
+ * file-private para nombre legible del cliente, equivalente al
+ * `buildDisplayName` del plugin Enhance CP (espejo en
+ * `enhance.plugin.ts:1013`). Prioridad: company_name > "first_name
+ * last_name" > email. Reutilizable por cualquier shape que exponga
+ * datos del cliente al admin (UI_SPEC: info legible primero, IDs
+ * secundarios). El refactor que centralice esto en `core/clients/`
+ * vendrá en Sprint futuro de Clients (no scope Sprint 15C).
+ */
+function buildClientDisplayName(
+  client: ServiceWithRelations['client'],
+): string {
+  if (client.company_name && client.company_name.trim().length > 0) {
+    return client.company_name.trim();
+  }
+  const parts = [client.first_name, client.last_name]
+    .filter((p): p is string => Boolean(p && p.trim().length > 0))
+    .map((p) => p.trim());
+  if (parts.length > 0) return parts.join(' ');
+  return client.email;
 }

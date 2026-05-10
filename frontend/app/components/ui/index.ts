@@ -29,6 +29,7 @@ export { StatsCard, type StatsCardProps, type StatsCardTrend } from './StatsCard
 export { StatusTabs, type StatusTabsProps, type StatusTab, type StatusTabVariant } from './StatusTabs';
 export { Breadcrumb, type BreadcrumbProps, type BreadcrumbItem } from './Breadcrumb';
 export { AlertBanner, type AlertBannerProps, type AlertBannerVariant } from './AlertBanner';
+export { CopyableId, type CopyableIdProps } from './CopyableId';
 
 /* ── Layout Components (UI_SPEC §2-§3) ── */
 export { PageHeader, type PageHeaderProps } from './PageHeader/PageHeader';

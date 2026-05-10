@@ -1497,6 +1497,24 @@ export interface ServiceDetailResponse {
      */
     cancellation_reason: string | null;
     cancelled_at: string | null;
+    /**
+     * Sprint 15C.II Fase C round 7 (smoke real Yasmin 2026-05-10) —
+     * datos canónicos del cliente para que la UI admin muestre info
+     * legible (nombre + email) en lugar de UUIDs crudos. Estándar
+     * industria Stripe/Vercel admin: información primaria visible,
+     * IDs secundarios con copy-to-clipboard. Cliente NO consume estos
+     * campos en su propia página `/dashboard/services/[id]` (su nombre
+     * y email son trivialmente conocidos por sí mismo).
+     */
+    client_name: string;
+    client_email: string;
+    /**
+     * Domain canónico del service (FQDN). Puede ser null para
+     * productos no-hosting (ej. `support_inside`). Cuando presente,
+     * la UI admin lo muestra como identificador primario del service
+     * (ADR-082 DH-INV-2 — hosting service SIEMPRE tiene FQDN).
+     */
+    domain: string | null;
   };
   info: ServiceInfo;
 }
