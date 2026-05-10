@@ -3,6 +3,10 @@
 /**
  * SsoButton — Sprint 11 Fase 11.D (ADR-070 §B).
  * Sprint 13 §13.AUTH Fase E (Modelo A): Server Action requestSsoUrlAction.
+ * Sprint 15C.II Fase C round 5 (smoke real Yasmin 2026-05-10): error
+ * codes discriminados — backend retorna `{ sso, errorCode }` para
+ * distinguir caso legítimo (null sin errorCode) de drift detectable
+ * (errorCode='INVALID_STATE'). Mostramos toast útil según causa raíz.
  *
  * Botón cliente que pide al backend la URL SSO del panel del proveedor
  * y abre la URL en nueva pestaña (canónico ADR-077 §2.4 `opensIn: 'new_tab'`).
@@ -18,9 +22,6 @@ interface SsoButtonProps {
 }
 
 export function SsoButton({ serviceId, panelLabel }: SsoButtonProps) {
-  // Sprint 15C Fase 15C.I: feedback de error via toast canónico
-  // (UI_SPEC §4.3). Antes Sprint 11 Fase 11.D usaba <p> inline; ese
-  // patrón violaba la doctrina y daba feedback poco visible.
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -33,10 +34,21 @@ export function SsoButton({ serviceId, panelLabel }: SsoButtonProps) {
       return;
     }
     if (!result.sso) {
-      toast(
-        'error',
-        'El proveedor no devolvió una sesión válida. Inténtalo más tarde.',
-      );
+      // Sprint 15C.II Fase C round 5: branch por errorCode para mensaje
+      // útil. Mapeo canónico (heredable a 15D RC, 15E, 15G):
+      //   - INVALID_STATE   → drift detectable, sugerencia force_resync.
+      //   - PROVIDER_INTERNAL_ERROR → 5xx / red / unknown.
+      //   - null            → caso legítimo "plugin no soporta SSO" o
+      //                       "refs missing" (typically ya manejado
+      //                       upstream por el banner drift; aquí es
+      //                       defensivo — mostramos genérico).
+      const key =
+        result.errorCode === 'INVALID_STATE'
+          ? 'sso.error.invalid_state'
+          : result.errorCode === null
+            ? 'sso.error.provider_internal'
+            : 'sso.error.provider_internal';
+      toast('error', t(key));
       return;
     }
     /* ADR-077 §2.4 — opensIn === 'new_tab' canónico. */

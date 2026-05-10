@@ -15,18 +15,24 @@ import type {
    ═══════════════════════════════════════ */
 
 export type SsoActionResult =
-  | { ok: true; sso: SsoUrl | null }
+  | { ok: true; sso: SsoUrl | null; errorCode: string | null }
   | { ok: false; error: string };
 
 export async function requestSsoUrlAction(
   serviceId: string,
 ): Promise<SsoActionResult> {
   try {
-    const res = await serverFetch<{ sso: SsoUrl | null }>(
-      `/services/${serviceId}/sso`,
-      { method: 'POST' },
-    );
-    return { ok: true, sso: res.sso };
+    // Sprint 15C.II Fase C round 5 (smoke real Yasmin 2026-05-10): backend
+    // ahora retorna `{ sso, errorCode }` para distinguir null legítimo
+    // ("plugin no soporta SSO" / "refs missing") de error real
+    // (`INVALID_STATE` drift detectable — ej. member_id stale en
+    // `enhance_customers`). El SsoButton usa errorCode para mostrar
+    // mensaje útil al usuario en lugar del genérico.
+    const res = await serverFetch<{
+      sso: SsoUrl | null;
+      errorCode: string | null;
+    }>(`/services/${serviceId}/sso`, { method: 'POST' });
+    return { ok: true, sso: res.sso, errorCode: res.errorCode };
   } catch (err) {
     return {
       ok: false,

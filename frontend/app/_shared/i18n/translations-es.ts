@@ -219,4 +219,24 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
     'Cancelado manualmente por un admin. Revisa el motivo exacto en el campo "cancellation_reason" del audit log.',
   'service.terminal.cancelled.reason.unknown':
     'No se registró razón técnica de la cancelación.',
+
+  // ── Action / SSO error code discriminado (Sprint 15C.II Fase C round 5
+  //    — smoke real Yasmin 2026-05-10). Las keys `action.invalid_payload`
+  //    + `action.provider_error` + `action.circuit_open` ya existen desde
+  //    Fase I (líneas 45-51 arriba). Esta nueva key cubre el código
+  //    `INVALID_STATE` que el backend wrapper antes mapeaba a
+  //    `action.provider_error` genérico — ahora útil cuando el plugin
+  //    reporta drift detectable (recurso no existe en el proveedor:
+  //    login_id stale, member missing, subscription eliminada).
+  //    Heredable a 15D RC, 15E Docker, 15G Plesk.
+  'action.invalid_state':
+    'El proveedor reporta que el recurso ya no existe (drift detectado). Si eres admin, ejecuta "Reconciliar contra Enhance" o investiga en el panel del proveedor. La metadata local puede haber quedado desincronizada.',
+  // SSO error codes (mismo patrón — ver shape GetSsoUrlResult en
+  // backend/src/core/provisioning/plugin-utils.ts).
+  'sso.error.invalid_state':
+    'El proveedor reporta que el usuario o el recurso ya no existe (drift detectado). Si eres admin, ejecuta "Reconciliar contra Enhance" antes de reintentar.',
+  'sso.error.provider_internal':
+    'El proveedor no devolvió una sesión válida. Inténtalo más tarde.',
+  'sso.error.circuit_open':
+    'El proveedor está temporalmente caído. Reintenta en unos minutos.',
 });

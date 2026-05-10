@@ -296,7 +296,7 @@ export class ProvisioningService {
     userId: string,
     isAdmin: boolean,
     ctx: { ipAddress: string; userAgent?: string | null },
-  ): Promise<SsoUrl | null> {
+  ): Promise<{ sso: SsoUrl | null; errorCode: string | null }> {
     const service = await this.loadServiceForView(serviceId);
     if (!isAdmin && service.user_id !== userId) {
       throw new ForbiddenException('No tienes acceso a este servicio.');
@@ -305,6 +305,9 @@ export class ProvisioningService {
     const pluginSlug = service.provisioner_slug ?? service.product.provisioner;
     const plugin = this.registry.getOrThrow(pluginSlug);
 
+    // Sprint 15C.II Fase C round 5: shape canónico GetSsoUrlResult
+    // distingue null legítimo (caso "no aplica") de errorCode (drift
+    // detectable — la UI puede dar mensaje útil al admin).
     return getSsoUrlWithAudit(
       plugin,
       service,

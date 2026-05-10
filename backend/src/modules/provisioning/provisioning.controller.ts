@@ -116,18 +116,16 @@ export class ProvisioningController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     const isAdmin = ADMIN_ROLES.includes(req.user.role.slug);
-    // Wrapper canónico `{ sso: SsoUrl | null }` — el frontend ramifica
-    // por presencia/ausencia del SSO sin parsear `null` literal del body.
-    const sso = await this.provisioning.getSsoForUser(
-      id,
-      req.user.id,
-      isAdmin,
-      {
-        ipAddress: req.ip ?? '0.0.0.0',
-        userAgent: req.headers['user-agent'] ?? null,
-      },
-    );
-    return { sso };
+    // Sprint 15C.II Fase C round 5 (smoke real Yasmin 2026-05-10): shape
+    // ahora `{ sso: SsoUrl | null, errorCode: string | null }` —
+    // el frontend SsoButton ramifica por errorCode para mostrar mensaje
+    // útil cuando el plugin reportó INVALID_STATE (drift detectable —
+    // ej. member_id stale en `enhance_customers`) en lugar del genérico
+    // "El proveedor no devolvió una sesión válida".
+    return this.provisioning.getSsoForUser(id, req.user.id, isAdmin, {
+      ipAddress: req.ip ?? '0.0.0.0',
+      userAgent: req.headers['user-agent'] ?? null,
+    });
   }
 
   @Post(':id/actions/:slug')

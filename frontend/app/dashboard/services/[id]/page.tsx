@@ -186,11 +186,18 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
       </Card>
 
       {/*
-        MetricsBar visible SI no terminal (ya no opera contra el
-        proveedor → métricas no aplican). Fallback fetchedAt usa el
-        timestamp del response para preservar visual consistente.
+        MetricsBar visible SI:
+          - service NO terminal (ya no opera contra el proveedor → métricas
+            no aplican), Y
+          - plugin declara `has_metrics: true` (capability flag canónico
+            ADR-077 §3 — Sprint 15C.II Fase C round 5 smoke real Yasmin
+            2026-05-10). Plugins triviales `internal` + `manual` y
+            futuros productos tipo support_inside (donde la UX correcta
+            es audit log, no métricas) declaran `has_metrics: false` y
+            la card se oculta automáticamente. Heredable: cualquier
+            plugin futuro decide declarativamente sin tocar el SC.
       */}
-      {!isTerminal && (
+      {!isTerminal && info.capabilities.has_metrics && (
         <MetricsBar
           metrics={info.metrics ?? { fetchedAt: info.fetchedAt }}
           serviceId={service.id}

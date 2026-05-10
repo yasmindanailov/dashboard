@@ -275,12 +275,27 @@ export async function executeActionWithCacheInvalidation(
       logger.error(
         `executeAction ${actionSlug} failed for ${plugin.slug}/${service.id}: ${code} — ${getErrorMessage(err)}`,
       );
+      // Sprint 15C.II Fase C round 5 (smoke real Yasmin 2026-05-10):
+      // distinguir 3 categorías de error en lugar de colapsar todo a
+      // `action.provider_error` genérico. La UI puede dar mensajes
+      // útiles según la causa raíz:
+      //   - INVALID_PAYLOAD → form/data del usuario incorrecta.
+      //   - INVALID_STATE → drift detectable (recurso no existe en el
+      //     proveedor — ej. login_id stale, member missing). Admin
+      //     necesita force_resync o investigar en panel.
+      //   - resto → error genérico transitorio (red, 5xx, etc.).
+      // Heredable a 15D RC, 15E Docker, 15G Plesk.
+      let message: string;
+      if (code === 'INVALID_PAYLOAD') {
+        message = 'action.invalid_payload';
+      } else if (code === 'INVALID_STATE') {
+        message = 'action.invalid_state';
+      } else {
+        message = 'action.provider_error';
+      }
       result = {
         success: false,
-        message:
-          code === 'INVALID_PAYLOAD'
-            ? 'action.invalid_payload'
-            : 'action.provider_error',
+        message,
       };
     }
   }
@@ -356,31 +371,60 @@ export interface GetSsoUrlContext {
  *   - Cliente abriendo ajeno → bloqueado en `provisioning.service.getSsoForUser`
  *     (ForbiddenException antes de llegar aquí).
  */
+/**
+ * Sprint 15C.II Fase C round 5 (smoke real Yasmin 2026-05-10) — shape
+ * canónico de retorno del wrapper SSO. Antes retornaba `SsoUrl | null`,
+ * lo que colapsaba 3 escenarios distintos en `null` indistinguible:
+ *   1. Plugin no soporta SSO (`has_sso_panel=false`) → caso legítimo
+ *      "esta funcionalidad no aplica" — la UI puede ocultar el botón.
+ *   2. Plugin retornó `null` por refs missing en metadata (caso típico
+ *      `not_yet_provisioned`) → ya manejado por el banner drift upstream.
+ *   3. Plugin lanzó `INVALID_STATE` (recurso no existe en proveedor —
+ *      ej. login_id stale, member missing) → drift detectable. Admin
+ *      necesita info útil ("considera force_resync" / "investiga panel").
+ *
+ * El nuevo shape `{ sso, errorCode }` permite a la UI dar mensajes
+ * específicos por causa raíz. Heredable a 15D RC, 15E Docker, 15G Plesk.
+ */
+export interface GetSsoUrlResult {
+  sso: SsoUrl | null;
+  /**
+   * `null` (default) si caso legítimo (plugin no soporta SSO o refs
+   * missing). Code canónico ProvisionerPluginError si el plugin lanzó
+   * error real (típicamente `'INVALID_STATE'` para drift detectable).
+   */
+  errorCode: string | null;
+}
+
 export async function getSsoUrlWithAudit(
   plugin: ProvisionerPlugin,
   service: ServiceWithRelations,
   ctx: GetSsoUrlContext,
   events: EventEmitter2,
   audit: AuditService,
-): Promise<SsoUrl | null> {
+): Promise<GetSsoUrlResult> {
   const logger = new Logger(SPRINT_11_LOGGER_PREFIX);
 
   if (!plugin.capabilities.has_sso_panel) {
-    return null;
+    return { sso: null, errorCode: null };
   }
 
   let sso: SsoUrl | null;
   try {
     sso = await plugin.getSsoUrl(service);
   } catch (err) {
+    const code =
+      err instanceof ProvisionerPluginError
+        ? err.code
+        : 'PROVIDER_INTERNAL_ERROR';
     logger.error(
       `getSsoUrl failed for ${plugin.slug}/${service.id}: ${getErrorMessage(err)}`,
     );
-    return null;
+    return { sso: null, errorCode: code };
   }
 
   if (!sso) {
-    return null;
+    return { sso: null, errorCode: null };
   }
 
   // Audit obligatorio (ADR-077 §1, ADR-017).
@@ -425,5 +469,5 @@ export async function getSsoUrlWithAudit(
     });
   }
 
-  return sso;
+  return { sso, errorCode: null };
 }

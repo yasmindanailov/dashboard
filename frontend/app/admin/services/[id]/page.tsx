@@ -190,12 +190,15 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
       )}
 
       {/*
-        MetricsBar: visible siempre EXCEPTO en terminal (no tiene sentido
-        refrescar métricas de un service que ya no existe en el proveedor).
-        Si el plugin reporta drift / unknown sin metrics, se muestra
-        mensaje + botón ↻ Refrescar para que admin pueda reintentar.
+        MetricsBar visible SI:
+          - service NO terminal, Y
+          - plugin declara `has_metrics: true` (capability flag canónico
+            ADR-077 §3 — Sprint 15C.II Fase C round 5). Plugins
+            triviales `internal` + `manual` y futuros productos tipo
+            support_inside declaran `has_metrics: false` → la card se
+            oculta automáticamente sin tocar el SC.
       */}
-      {!isTerminal && (
+      {!isTerminal && info.capabilities.has_metrics && (
         <MetricsBar
           metrics={info.metrics ?? { fetchedAt: info.fetchedAt }}
           serviceId={service.id}

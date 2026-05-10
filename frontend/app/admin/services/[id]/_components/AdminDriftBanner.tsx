@@ -33,7 +33,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { AlertBanner, Button, useToast } from '../../../../components/ui';
+import { AlertBanner, Button, Modal, useToast } from '../../../../components/ui';
 import { t } from '../../../../_shared/i18n';
 import {
   reprovisionServiceAction,
@@ -78,6 +78,9 @@ export function AdminDriftBanner({
   const { toast } = useToast();
   const [openingSso, setOpeningSso] = useState(false);
   const [reprovisioning, setReprovisioning] = useState(false);
+  // Sprint 15C.II Fase C round 5: confirm reforzado con Modal DS
+  // (reemplaza window.confirm nativo — viola UI_SPEC §4.2).
+  const [confirmReprovisionOpen, setConfirmReprovisionOpen] = useState(false);
 
   async function handleSso(): Promise<void> {
     setOpeningSso(true);
@@ -88,23 +91,20 @@ export function AdminDriftBanner({
       return;
     }
     if (!result.sso) {
-      toast(
-        'error',
-        'El proveedor no devolvió una sesión válida. Inténtalo más tarde.',
-      );
+      // Sprint 15C.II Fase C round 5: branch por errorCode para mensaje
+      // útil al admin (mismo patrón que SsoButton.tsx).
+      const key =
+        result.errorCode === 'INVALID_STATE'
+          ? 'sso.error.invalid_state'
+          : 'sso.error.provider_internal';
+      toast('error', t(key));
       return;
     }
     window.open(result.sso.url, '_blank', 'noopener,noreferrer');
   }
 
-  async function handleReprovision(): Promise<void> {
-    if (
-      !window.confirm(
-        '¿Re-aprovisionar este servicio contra el proveedor con la metadata actual? La cola provisioning lo procesará en segundos.',
-      )
-    ) {
-      return;
-    }
+  async function executeReprovision(): Promise<void> {
+    setConfirmReprovisionOpen(false);
     setReprovisioning(true);
     const result = await reprovisionServiceAction(serviceId);
     if (!result.ok) {
@@ -162,7 +162,7 @@ export function AdminDriftBanner({
           {showReprovision && (
             <Button
               variant="primary"
-              onClick={() => void handleReprovision()}
+              onClick={() => setConfirmReprovisionOpen(true)}
               disabled={reprovisioning}
               title={t('service.drift.admin_banner.reprovision_help')}
             >
@@ -173,6 +173,38 @@ export function AdminDriftBanner({
           )}
         </div>
       </div>
+      {/* Sprint 15C.II Fase C round 5: Modal DS canónico (UI_SPEC §4.2)
+          reemplaza window.confirm nativo. Mismo patrón heredable que
+          ActionsBar. */}
+      {confirmReprovisionOpen && (
+        <Modal
+          open={true}
+          onClose={() => setConfirmReprovisionOpen(false)}
+          title={t('service.drift.admin_banner.reprovision_cta')}
+          size="sm"
+          footer={
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <Button
+                variant="secondary"
+                onClick={() => setConfirmReprovisionOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button variant="primary" onClick={() => void executeReprovision()}>
+                Confirmar re-aprovisión
+              </Button>
+            </div>
+          }
+        >
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
+            ¿Re-aprovisionar este servicio contra el proveedor con la
+            metadata actual del producto? La cola provisioning lo procesará
+            en segundos. Si el proveedor reporta fallo permanente
+            (ej. INVALID_PAYLOAD por configuración del producto incompleta),
+            el service quedará marcado como cancelled.
+          </p>
+        </Modal>
+      )}
     </AlertBanner>
   );
 }
