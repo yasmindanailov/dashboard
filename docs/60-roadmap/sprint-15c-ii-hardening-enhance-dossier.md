@@ -1,14 +1,16 @@
 # Sprint 15C.II — Plugin Enhance Hardening · Dossier de pre-sprint
 
-> **Tipo:** Pre-sprint research dossier (preservado como referencia histórica) + **Apéndice A** al final con decisiones doctrinales congeladas + gaps audit técnico.
-> **Estado:** ▶ **ACTIVO 2026-05-10** — pre-condición técnica resuelta (PR [#52](https://github.com/yasmindanailov/dashboard/pull/52) merged como `ef7f488`). Rama de trabajo: `sprint15c-ii-enhance-hardening` desde master. Fase A (doc-only) en curso.
+> **Tipo:** Pre-sprint research dossier (preservado como referencia histórica) + **Apéndice A** al final con decisiones doctrinales congeladas + gaps audit técnico + **§A.7 handoff completo Fase B → C** (próximo agente: leer §A.7 antes de codear).
+> **Estado:** ▶ **ACTIVO 2026-05-10** — Fases A + B cerradas. Próxima sesión arranca **Fase C** (drift UX por rol). Pre-condición técnica resuelta: PR [#52](https://github.com/yasmindanailov/dashboard/pull/52) merged `ef7f488` + PR [#53](https://github.com/yasmindanailov/dashboard/pull/53) merged `714c94c` + PR [#54](https://github.com/yasmindanailov/dashboard/pull/54) Fase B pending merge.
 > **Origen:** Smoke real Yasmin contra mock 2026-05-10 durante cierre Fase 15C.I. Reveló gaps sistémicos, decisiones doctrinales aún no tomadas, y violaciones del UI_SPEC §4.3 que el cierre formal Fase I solo abordó parcialmente.
 > **Pre-condición técnica:** ✅ resuelta — Opción A doctrina §5 ejecutada (commit Fase 15C.I parcial → PR #52 → merge → nueva rama hardening desde master limpio).
 > **Doctrina canónica del usuario (literal 2026-05-10):** "Sobre las deudas pendientes en relación al plugin Enhance, hay que documentarlas, no se da un paso más, hasta que el plugin esté al 100% operativo con los features básicos y necesarios perfectos para producción."
 >
 > **🆕 Las decisiones doctrinales A1-A4 (§3.1-3.4) quedaron CONGELADAS 2026-05-10** vía AskUserQuestion — todas con la recomendación canónica industria (Stripe / Vercel / WCAG 2.1) seleccionada por Yasmin literal. **Audit técnico paralelo (4 agentes) descubrió 8 gaps adicionales NO documentados aquí** — recogidos en **Apéndice A §A.2**. **Plan de fases ampliado a 7 fases (A→G)** — ver §A.3.
 >
-> **Frase canónica de arranque (próxima sesión post-Fase A):** *"Continúa Sprint 15C.II — Fase B (refresh metrics + reconcile dual). Lee Apéndice A del dossier (decisiones congeladas + plan refinado), [ADR-083 Amendment A4](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) y [UI_SPEC §4.13](../UI_SPEC.md#413-estados-de-detección-externa-drift--patrón-discriminado-por-rol). Implementa A4.1 (eliminar 2 actions + ↻ MetricsBar) + A4.2 (endpoint reconcile-all + rename + UI settings)."*
+> **Frase canónica de arranque (Fase C, próxima sesión post-merge PR #54):** *"Lee `docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md` Apéndice A §A.7 (handoff completo Fase B → C). Vamos con Sprint 15C.II Fase C — Drift UX por rol + i18n completo + a11y Modal + PluginConfigForm useToast + ChangePackageModal toast. Crea rama `sprint15c-ii-fase-c-drift-ux-i18n` desde master post merge PR #54. Lee también UI_SPEC §4.13 (patrón canónico drift UX) + ADR-083 Amendment A4.3 (decisión congelada). Procede con rigor."*
+>
+> **Frase histórica (arranque Fase B, ya consumida):** *"Continúa Sprint 15C.II — Fase B (refresh metrics + reconcile dual). Lee Apéndice A del dossier (decisiones congeladas + plan refinado), [ADR-083 Amendment A4](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) y [UI_SPEC §4.13](../UI_SPEC.md#413-estados-de-detección-externa-drift--patrón-discriminado-por-rol). Implementa A4.1 (eliminar 2 actions + ↻ MetricsBar) + A4.2 (endpoint reconcile-all + rename + UI settings)."*
 
 ---
 
@@ -364,8 +366,8 @@ Plan original era 6 fases (A→F). Tras audit + decisión A4 ("Overview now"), p
 
 | Fase | Estimación | Scope (con scope ampliado por audit) |
 |---|---|---|
-| **A** doc-only | 0.3 sesión | ✅ EN CURSO. ADR-077 A4 + ADR-083 A4 + UI_SPEC §4.13 + este Apéndice + corrección vaporware admin-plugins-enhance.md §6.2 + sync current.md |
-| **B** refresh + reconcile | 1-1.5 sesión | A1 (eliminar 2 actions + ↻ MetricsBar + `refreshServiceInfoAction`) + A2 (endpoint `POST /admin/plugins/:slug/reconcile-all` cumpliendo doble rol con G1 + UI settings + rename action local "Reconciliar contra Enhance") |
+| **A** doc-only | 0.3 sesión | ✅ **CERRADA 2026-05-10** [PR #53](https://github.com/yasmindanailov/dashboard/pull/53) merged `714c94c`. ADR-077 A4 + ADR-083 A4 + UI_SPEC §4.13 + este Apéndice + corrección vaporware admin-plugins-enhance.md §6.2 + sync current.md |
+| **B** refresh + reconcile | 1-1.5 sesión | ✅ **CERRADA 2026-05-10** [PR #54](https://github.com/yasmindanailov/dashboard/pull/54) — 7 commits: 1 feat (`6506615`) + 6 rounds fix-up (`7b2138d`, `4492325`, `a86f162`, `6b0ad8e`, `794b9b2`, `ce0b93d`). A1 (eliminar 2 actions + ↻ MetricsBar + `refreshServiceInfoAction`) + A2 (endpoint `POST /admin/plugins/:slug/reconcile-all` cumpliendo doble rol con G1 + UI settings + rename action local "Reconciliar contra Enhance"). Detalle exhaustivo round-by-round + lecciones técnicas en §A.7 handoff. |
 | **C** drift UX + i18n + a11y | 1-1.5 sesión | A3 (drift UX discriminada por rol — `ServiceHeader` cliente generic + admin AlertBanner) + i18n completo (statusReason keys + reset_password/change_package descriptions) + **G6 PluginConfigForm useToast** + **G6b ChangePackageModal toast** + **G7 Modal a11y (focus trap + aria-labelledby)** |
 | **D** email listener + sanitizer | 0.7-1 sesión | DC.NEW-15CII-EMAIL-RESET (listener `notifications-on-password-reset` + plantilla email seedeada) + **G2 sanitización `data.password` en wrapper auditor** (CRÍTICO antes del listener — `audit-sanitizer.ts` redacta campos sensibles via regex canónico password\|secret\|token\|apiKey\|privateKey) |
 | **E** UI admin DNS | 0.7-1 sesión | DC.NEW-15CII-DNS-ADMIN-UI (página `/admin/services/[id]/dns` reusando endpoints existentes) + validación DnsRecordForm (TTL min/max + duplicados — gap audit) |
@@ -411,7 +413,10 @@ pnpm --dir frontend start:dev  # :3002
 - **Rama de trabajo Sprint 15C.II:** `sprint15c-ii-enhance-hardening` (creada desde master post merge PR #52)
 - **PR Fase 15C.I parcial:** [#52](https://github.com/yasmindanailov/dashboard/pull/52) merged como `ef7f488` (32 archivos, +2004/-131, 11 fixes smoke + E2E spec + i18n + dossier hardening)
 - **Hotfix prettier line 111:** commit `2b56319` en branch del PR (auto-fix prettier multiline literal)
-- **Suite pre Fase A Sprint 15C.II:** 488/493 unit verde + 5 skipped + E2E 6/6 verde
+- **PR Fase 15C.II.A doc-only:** [#53](https://github.com/yasmindanailov/dashboard/pull/53) merged como `714c94c` (6 archivos, +339/-7, ADR-077 A4 + ADR-083 A4 + UI_SPEC §4.13 + este Apéndice + corrección vaporware + current.md sync)
+- **PR Fase 15C.II.B:** [#54](https://github.com/yasmindanailov/dashboard/pull/54) (rama `sprint15c-ii-fase-b-refresh-reconcile`). 7 commits + ~30 archivos cambiados ~+1450/-200 LOC. Detalle round-by-round en §A.7.
+- **Suite pre Fase B:** 488/493 unit verde + 5 skipped + E2E 6/6 verde
+- **Suite post Fase B:** 501/506 unit verde + 5 skipped (+13 tests nuevos: ReconcileRegistry + AdminPluginsService.reconcileAll + cron onModuleInit) + 0 regresiones
 
 ## A.6. Sesiones origen
 
@@ -419,3 +424,247 @@ pnpm --dir frontend start:dev  # :3002
 - 2026-05-10 (post merge PR #52, AskUserQuestion) → A1-A4 frozen (§A.1)
 - 2026-05-10 (audit técnico paralelo 4 agentes Explore) → G1-G7 + 8 coverage gaps (§A.2)
 - 2026-05-10 (Fase A doc-only) → este Apéndice + ADRs Amendments + UI_SPEC §4.13
+- 2026-05-10 (Fase B refresh + reconcile + 6 rounds fix-up smoke real) → §A.7 handoff completo
+
+---
+
+# Apéndice A.7 — Handoff Fase B → Fase C (próximo agente IA)
+
+> **Audiencia**: el siguiente agente que arranque Sprint 15C.II Fase C.
+> **Pre-condición técnica**: PR #54 mergeado a master.
+> **Tipo**: handoff doc canónico — leer ANTES de tocar nada de código.
+
+## A.7.1. Frase canónica de arranque (verbatim)
+
+> *"Lee `docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md` Apéndice A §A.7 (handoff completo Fase B → C). Vamos con Sprint 15C.II Fase C — Drift UX por rol + i18n completo + a11y Modal + PluginConfigForm useToast + ChangePackageModal toast. Crea rama `sprint15c-ii-fase-c-drift-ux-i18n` desde master post merge PR #54. Lee también UI_SPEC §4.13 (patrón canónico drift UX) + ADR-083 Amendment A4.3 (decisión congelada). Procede con rigor."*
+
+## A.7.2. Estado real al cierre Fase B
+
+**7 commits Fase B** (todos en PR #54 — branch `sprint15c-ii-fase-b-refresh-reconcile`):
+
+| Commit | Tipo | Round | Resumen |
+|---|---|---|---|
+| `6506615` | feat | 1 (inicial) | Refresh metrics ↻ + reconcile dual entry point + endpoint manual cron + 13 tests nuevos |
+| `7b2138d` | fix | 2 | 4 bugs smoke: DI runtime ReconcileRegistry + apiToken vapor + plural ES + provider_error crudo |
+| `4492325` | fix | 3 | Labels duplicadas templates rjsf + statusReason → i18n keys (3) + ServiceHeader t() |
+| `a86f162` | fix | 4 | Drift UX cliente con metadata canónica + MetricsBar siempre visible con ↻ Refrescar |
+| `6b0ad8e` | fix | 5 | Widget DS prioriza schema.title sobre props.label rjsf (defensivo) |
+| `794b9b2` | fix | 6 | **Refactor radical**: FieldTemplate única fuente de label (widgets sin chrome) |
+| `ce0b93d` | fix | 7 | Descriptions sin repetir el label (UX content writing) |
+
+**Suites tests post Fase B:** 501/506 unit verde + 5 skipped + 0 regresiones. typecheck both verde + lint:check both verde.
+
+## A.7.3. Lecciones técnicas críticas (heredables — léelas antes de codear)
+
+### L1 — DI Nest: módulo leaf para servicios cross-module sin ciclos
+
+**Problema descubierto en runtime**: `ProvisioningModule` importa `EnhanceCpModule` (composición). Si necesitas un servicio singleton (`ReconcileRegistryService`) que ambos módulos consuman, **NO** lo provees en `ProvisioningModule` — el `EnhanceCpModule` no podría inyectarlo de vuelta sin ciclo.
+
+**Patrón canónico**: módulo dedicado leaf en `core/provisioning/` que solo provee + exporta el servicio. Tanto `ProvisioningModule` como `EnhanceCpModule` lo importan independientemente. Re-exportar el **módulo** (no el provider directo) si alguien necesita acceso transitivo.
+
+**Ejemplo canónico**: [`ReconcileRegistryModule`](../../backend/src/core/provisioning/reconcile-registry.module.ts).
+
+### L2 — rjsf v5 manipula `props.label` inconsistentemente por field/format
+
+**Problema descubierto en smoke real**: con `format=uri` (primer field del schema), rjsf v5 puede pasar `props.label` vacío al widget. Otros formats (uuid, integer, password) reciben label correctamente. Imposible de detectar en typecheck.
+
+**Solución defensiva insuficiente**: leer `schema.title` como fallback dentro del widget — pero rjsf también puede mutar el schema en el camino.
+
+**Solución radical canónica** (round 5):
+- **El `FieldTemplate` es la ÚNICA fuente del label visible**. Lee `props.schema.title` (siempre traducido por `translateSchema()` upstream). Renderiza `<label htmlFor={id}>{title}{required && '*'}</label>` arriba del children.
+- **Los widgets DS NO renderizan label propio** — solo el Input core sin chrome. a11y preservada via `htmlFor → id` consistente.
+- Eliminada toda dependencia en cómo rjsf maneja `props.label`.
+
+**Aplicación canónica**: [`AeliumDsFieldTemplate`](../../frontend/app/_shared/plugins/rjsf-theme/templates.tsx) + widgets DS sin label en [widgets.tsx](../../frontend/app/_shared/plugins/rjsf-theme/widgets.tsx). Heredable a 15D RC + 15E + 15G sin modificación.
+
+### L3 — Convención label vs description (UX content writing)
+
+**Problema reportado**: descriptions repitiendo textualmente el nombre del label (ej. label="UUID del Master Org Aelium" + description="UUID del Master Org Aelium en Enhance — owner canónico..."). Visualmente duplicado.
+
+**Convención canónica** (documentada inline en `translations-es.ts`):
+- **Label** = nombre conciso del campo (ej. "URL base de la API Enhance")
+- **Description** = info complementaria SIN repetir el nombre (ej. "Ejemplo: https://...", "Owner canónico de los customers...")
+
+Aplica a todos los plugins. Si añades campo nuevo en 15D/15E/15G, sigue esta convención.
+
+### L4 — `statusReason` SIEMPRE i18n key (no string literal)
+
+**Patrón canónico congelado**: cualquier plugin que retorne `info.statusReason` (o `getStatus().statusReason`) DEBE retornar una **i18n key** (no string literal en inglés). El frontend `ServiceHeader.tsx` aplica `t()` con fallback retro-compat (string literal pasa intacto si no hay traducción).
+
+**Keys canónicas existentes** (translations-es.ts):
+- `service.status_reason.plugin_not_registered` — fallback genérico provisioning service
+- `plugin.enhance_cp.status_reason.not_yet_provisioned`
+- `plugin.enhance_cp.status_reason.subscription_missing`
+
+**Heredable**: 15D RC añadirá `plugin.resellerclub.status_reason.{*}`, 15E Docker `plugin.docker_engine.status_reason.{*}`, etc.
+
+### L5 — MetricsBar SIEMPRE visible si `serviceId` presente
+
+**Patrón canónico congelado**: `MetricsBar` no retorna `null` si recibe `serviceId` aunque no haya métricas. Renderiza header (h2 "Métricas" + botón ↻ Refrescar) + mensaje "Métricas no disponibles ahora — Pulsa ↻ Refrescar para reintentar".
+
+**Razón doctrinal**: el botón refresh es el único path para reintentar tras drift. Si lo ocultas cuando hay drift, el usuario queda atrapado sin solución visual.
+
+Cliente y admin pages pasan `metrics={info.metrics ?? { fetchedAt: info.fetchedAt }}` para garantizar render siempre.
+
+### L6 — Card "Detalles del servicio" cliente con metadata canónica
+
+**Patrón canónico congelado**: cliente service detail page renderiza una card "Detalles del servicio" SIEMPRE visible (independiente de `info.status`). Contiene metadata canónica de `service` (no `info`):
+- Plan (`service.product_name`)
+- Estado de tu servicio (`service.status` capitalizado)
+- Contratado el (`service.created_at` formateado es-ES)
+
+**Razón doctrinal**: cliente nunca queda sin información útil ante drift / unknown status. Garantía profesional.
+
+Admin tiene equivalente "Datos del servicio (admin)" con metadata más técnica (provider_slug, IDs internos). Patrón homogéneo cliente vs admin discriminado por nivel de detalle.
+
+### L7 — Smoke real local: setup canónico
+
+**Pre-requisitos** (validados durante Fase B smoke real):
+
+```bash
+# 1. Docker compose dev up (postgres + redis + mailpit + minio)
+docker compose -f docker/docker-compose.dev.yml up -d
+
+# 2. .env backend con ENHANCE_DEV_* apuntando al mock local
+ENHANCE_DEV_BASE_URL=http://127.0.0.1:3099
+ENHANCE_DEV_MASTER_ORG_ID=00000000-0000-0000-0000-00000000aaaa
+ENHANCE_DEV_API_TOKEN=e2e-mock-token-fixture
+
+# 3. Mock Enhance running (tsconfig específico)
+cd backend && pnpm exec ts-node -P ../tests/e2e/fixtures/tsconfig.mock-runner.json \
+  --transpile-only ../tests/e2e/fixtures/mock-enhance-runner.ts &
+
+# 4. Backend + frontend dev
+cd backend && pnpm start:dev &  # :3001
+cd frontend && pnpm dev &        # :3002
+
+# Auth flow automatizado vía Mailpit API:
+# POST /auth/login → temp_token + 2FA email enviado
+# GET http://127.0.0.1:8025/api/v1/messages?limit=1 → extraer 6-digit code del Subject
+# POST /auth/verify-2fa con temp_token + code → access_token (Bearer)
+```
+
+**Token API expira en ~5 min** — re-auth flow automatizable. Cookies httpOnly del Modelo A viven en dominio Next.js (no son las del API directo).
+
+### L8 — Hot-reload cache caveat Next.js dev
+
+Tras cambios en `lib/api.ts` types o componentes leaf, el HMR de Next.js dev a veces no propaga bien. **Si el frontend no muestra cambios tras edits**, ejecutar:
+
+```bash
+# Kill frontend + clear .next cache + relaunch
+Stop-Process -Id (Get-NetTCPConnection -LocalPort 3002).OwningProcess -Force
+Remove-Item -Recurse -Force frontend/.next
+cd frontend && pnpm dev
+```
+
+Y pedir al usuario `Ctrl+Shift+R` (hard refresh) en el browser.
+
+## A.7.4. Scope completo Fase 15C.II.C (lo que hay que hacer)
+
+### C.1 — Drift UX por rol (decisión A3 + ADR-083 A4.3 + UI_SPEC §4.13)
+
+**Materializar la discriminación cliente vs admin** del `info.statusReason` cuando `info.status` ∈ {`unknown`, `failed`}:
+
+**Cliente** (`/dashboard/services/[id]`):
+- NO renderizar `info.statusReason` técnico crudo (actualmente lo hace `ServiceHeader.tsx:65`).
+- Reemplazar con mensaje genérico empático tipo: _"Tu servicio está temporalmente no disponible. Hemos avisado al equipo técnico."_
+- **Ocultar SSO card + DNS card** cuando metadata corrupta (ej. status=unknown sin `enhance_org_id` en metadata) — porque dar click ahora produce errores `action.provider_error`.
+
+**Admin** (`/admin/services/[id]`):
+- Renderizar `<AlertBanner variant="warning">` ARRIBA de MetricsBar con:
+  - Título: "Drift detectado · {change_type}"
+  - Body: `info.statusReason` técnico crudo (admin necesita información literal)
+  - CTA: botón "Investigar en panel del proveedor" → invoca SSO (admin impersonation)
+- Mantener TODA la info admin visible (incluido SSO, DNS — el admin debe poder operar para diagnosticar).
+- Botón "Re-aprovisionar" prominente cuando status=unknown sin metadata (caso `not_yet_provisioned`).
+
+### C.2 — i18n completo (gap BUG-15CII-13)
+
+Plugin Enhance manifest declara `description` i18n key faltantes para 2 actions:
+- `reset_account_password` → `plugin.enhance_cp.actions.reset_password.description`
+- `change_package` → `plugin.enhance_cp.actions.change_package.description`
+
+Añadir las descriptions al manifest + las keys al `translations-es.ts`.
+
+### C.3 — PluginConfigForm useToast (gap G6)
+
+`frontend/app/admin/settings/plugins/[slug]/_components/PluginConfigForm.tsx`:
+- Eliminar el state local `feedback: FeedbackState | null` + componente `<FeedbackInline>`.
+- Usar `useToast()` igual que `ActionsBar.tsx` y `SsoButton.tsx` ya hacen tras Fase I.
+- Patrón coherente con UI_SPEC §4.3 (Toast = feedback efímero, AlertBanner = persistente).
+
+### C.4 — ChangePackageModal toast (gap G6b)
+
+`frontend/app/admin/services/[id]/_components/ChangePackageModal.tsx`:
+- Mismo patrón que C.3: eliminar `setSubmitError()` + `setSuccessMessage()` inline → `useToast()`.
+
+### C.5 — Modal a11y (gap G7)
+
+`frontend/app/components/ui/Modal/Modal.tsx`:
+- Añadir `aria-labelledby={titleId}` + `id={titleId}` en el `<h2>` título del modal.
+- Implementar **focus trap** (al abrir modal, foco se mueve al primer focusable; Tab cicla dentro del modal; Shift+Tab también).
+- Opciones: usar `<FocusScope>` de Radix UI primitives, o implementación manual (~50 LOC).
+
+### C.6 — Card "Detalles del servicio" cliente — pulir
+
+Round 4 ya añadió la card básica. Considerar pulir si hace falta:
+- Añadir tooltip explicando "Estado de tu servicio" si admin discrimination requiere.
+- Considerar mostrar próxima fecha de renovación si está disponible en el response.
+
+## A.7.5. Archivos clave que tocar (line numbers donde aplique)
+
+| Archivo | Acción |
+|---|---|
+| `frontend/app/_shared/services/ServiceHeader.tsx:52-72` | Añadir prop `isAdmin` + condicional render statusReason según rol |
+| `frontend/app/dashboard/services/[id]/page.tsx:99-194` | Condicional ocultar SSO/DNS cards si status=unknown sin metadata |
+| `frontend/app/admin/services/[id]/page.tsx` | Añadir AlertBanner warning + botón "Re-aprovisionar" |
+| `frontend/app/components/ui/AlertBanner/` | Verificar si existe; si no, crear |
+| `frontend/app/components/ui/Modal/Modal.tsx:17-44` | aria-labelledby + focus trap |
+| `frontend/app/admin/settings/plugins/[slug]/_components/PluginConfigForm.tsx:104-111, 322-379` | useToast migration + eliminar FeedbackInline |
+| `frontend/app/admin/services/[id]/_components/ChangePackageModal.tsx` | useToast migration |
+| `frontend/app/_shared/i18n/translations-es.ts` | Añadir keys nuevas: drift cliente generic + admin investigate + reset_password.description + change_package.description |
+| `backend/src/plugins/provisioners/enhance_cp/enhance.plugin.ts` (manifest sección actions) | Añadir `description` i18n key a 2 actions faltantes |
+
+## A.7.6. Lo que NO está en Fase C (sigue para Fase D-G)
+
+| Fase | Scope |
+|---|---|
+| **D** | Email listener `notifications-on-password-reset` + audit-sanitizer.ts (gap G2 — redact `data.password` antes de audit). **CRÍTICO compliance R12**: sin sanitizer NO se puede activar el email listener. |
+| **E** | UI admin nativa DNS records (`/admin/services/[id]/dns`) + validación TTL min/max + duplicados |
+| **F** | Admin overview operativo plugin (stats grid 4 cards + tabla recent drifts + botón reconcile general) + capability flag `supports_suspend` (G3 ADR-077 A4) + cache TTL configurable (G4) + breaker EnhanceApiClient (G5) + **G8 nuevo: bug `test-connection`** descubierto en smoke automatizado Fase B (synthetic service sin metadata → `getStatus()` falla siempre — ver §A.7.7) |
+| **G** | Tests críticos faltantes (8 áreas) + E2E spec extension + retrospectiva en `completed/sprint-15c-plugin-enhance-cp.md` + smoke final Yasmin contra mock + Enhance live |
+
+## A.7.7. Gaps audit estado actual (post Fase B)
+
+| ID | Estado |
+|---|---|
+| **G1** vaporware endpoint manual cron | ✅ Cerrado Fase B (endpoint `POST /admin/plugins/:slug/reconcile-all` ahora existe) |
+| **G2** sanitización data.password en wrapper auditor | ⏳ Fase D (CRÍTICO antes del email listener) |
+| **G3** capability flag `supports_suspend` | ⏳ Fase F |
+| **G4** TTL cache 60s hardcoded | ⏳ Fase F |
+| **G5** CircuitBreaker en EnhanceApiClient | ⏳ Fase F (evaluar criticidad) |
+| **G6** PluginConfigForm useToast inline | ⏳ Fase C |
+| **G6b** ChangePackageModal error inline sin toast | ⏳ Fase C |
+| **G7** Modal sin aria-labelledby + focus trap | ⏳ Fase C |
+| **G8** **NUEVO** test-connection synthetic service sin metadata | ⏳ Fase F. Bug pre-existente descubierto durante smoke Fase B: `AdminPluginsService.buildSyntheticService(slug)` ([admin-plugins.service.ts:551](../../backend/src/modules/admin-plugins/admin-plugins.service.ts#L551)) construye un service sintético sin metadata, y `enhance.plugin.getStatus()` requiere refs (`enhance_org_id` + `subscription_id`) en metadata. Resultado: el botón "Probar conexión" del UI siempre reporta error aunque el cluster esté OK. Fix Fase F: usar un endpoint del proveedor que NO requiera service refs (ej. `GET /version`). |
+
+## A.7.8. Validación end-to-end del estado actual (smoke automatizado yo, 2026-05-10)
+
+**9 tests passed via curl + node parser**:
+
+1. ✅ Login admin + verify 2FA (auto-extrae código de Mailpit API)
+2. ✅ `GET /admin/plugins` → 3 plugins (internal, manual, enhance_cp), enhance_cp enabled
+3. ✅ `GET /admin/plugins/enhance_cp` → manifest completo con title + description traducibles
+4. ⚠ `POST /admin/plugins/enhance_cp/test-connection` → **bug pre-existente G8** (ver §A.7.7)
+5. ✅ **`POST /admin/plugins/enhance_cp/reconcile-all` (NUEVO Fase B)** → HTTP 201 + shape canónico `{services_processed, drifts_detected, duration_ms, details}`
+6. ✅ `GET /admin/services?provisioner_slug=enhance_cp` → 1 service del seed
+7. ✅ **`POST /admin/services/:id/refresh` (NUEVO Fase B)** → HTTP 200 + service info fresca
+8. ✅ `GET /admin/services/:id` → `availableActions` no incluye `view_disk_usage` ni `view_bandwidth_usage`
+9. ✅ Smoke browser final (Yasmin): config plugin labels OK + descriptions sin duplicar + botón ↻ refresh activo + reconcile-all funcional + plural ES correcto
+
+## A.7.9. Sesiones origen Fase B
+
+- 2026-05-10 (Fase B inicial) → 7 commits round-by-round
+- 2026-05-10 (smoke real Yasmin x6 iteraciones) → 6 rounds fix-up sucesivos
+- 2026-05-10 (smoke automatizado curl) → 9 tests passed + descubierto G8 bug pre-existente
+- 2026-05-10 (handoff doc Fase B → C) → este §A.7

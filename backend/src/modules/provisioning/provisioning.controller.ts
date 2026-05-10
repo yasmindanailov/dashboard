@@ -79,6 +79,32 @@ export class ProvisioningController {
     return this.provisioning.getInfoForUser(id, req.user.id, isAdmin);
   }
 
+  /**
+   * Sprint 15C.II Fase B (ADR-083 Amendment A4.1) — refresh manual del
+   * cache `service_info` (TTL 60s wrapper). Endpoint POST porque tiene
+   * side-effect (invalida cache Redis + re-fetch fresco del proveedor).
+   *
+   * Cliente lo invoca desde el botón "↻ Refrescar" de MetricsBar.tsx
+   * vía server action `refreshServiceInfoAction(serviceId)`. Reusa la
+   * misma ruta de `getInfoForUser` con `forceRevalidate: true`.
+   */
+  @Post(':id/refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Refrescar service info bypasseando cache 60s (ADR-083 A4.1 — botón ↻ MetricsBar)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Service))
+  refresh(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const isAdmin = ADMIN_ROLES.includes(req.user.role.slug);
+    return this.provisioning.getInfoForUser(id, req.user.id, isAdmin, {
+      forceRevalidate: true,
+    });
+  }
+
   @Post(':id/sso')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

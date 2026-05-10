@@ -57,20 +57,32 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'plugin.enhance_cp.panel_label': 'panel Enhance',
 
   // ── Plugin Enhance CP — Config (ADR-083 §1 decisiones 1-3)
+  // Sprint 15C.II Fase B fix-up round 6 (2026-05-10): keys reescritas
+  // para que la description NO repita el label (smoke real Yasmin reportó
+  // duplicación textual cuando label + description aparecen consecutivos).
+  // Convención: label = nombre conciso del campo. Description = info
+  // complementaria SIN repetir el nombre.
+  'plugin.enhance_cp.config.baseUrl.label': 'URL base de la API Enhance',
   'plugin.enhance_cp.config.baseUrl':
-    'URL base de la API Enhance (ej. https://enhance.example.com). El plugin añade el prefijo /v2/... según corresponda.',
+    'Ejemplo: https://enhance.example.com. El plugin añade el prefijo /v2/... automáticamente según el endpoint que invoque.',
+  'plugin.enhance_cp.config.masterOrgId.label': 'UUID del Master Org Aelium',
   'plugin.enhance_cp.config.masterOrgId':
-    'UUID del Master Org Aelium en Enhance — owner canónico de todos los customers que el plugin cree (multi-tenancy ADR-083 §2).',
+    'Owner canónico de todos los customers que el plugin cree (multi-tenancy ADR-083 §2). Se obtiene desde Enhance UI → Settings → Organization.',
+  'plugin.enhance_cp.config.reconciliationIntervalHours.label':
+    'Intervalo de reconciliación (horas)',
   'plugin.enhance_cp.config.reconciliationIntervalHours':
-    'Intervalo del cron L3 de reconciliación (default 6h). El cron compara cada servicio Aelium con su Subscription en Enhance y emite service.reconciled_external_change si detecta drift.',
+    'Frecuencia del cron L3 que compara cada servicio Aelium con su Subscription en Enhance. Emite service.reconciled_external_change al detectar drift. Default 6h, recomendado entre 4 y 12.',
 
   // ── Plugin Enhance CP — Secrets
+  'plugin.enhance_cp.secrets.apiToken.label': 'Bearer token API Enhance',
   'plugin.enhance_cp.secrets.apiToken':
-    'Bearer token Super Admin Enhance — revocable desde la UI Enhance. Se cifra con AES-256-GCM antes de persistirse (ADR-080 §3).',
+    'Token Super Admin generado en Enhance UI → Settings → API tokens. Revocable en cualquier momento desde Enhance. Se cifra con AES-256-GCM antes de persistirse (ADR-080 §3).',
 
   // ── Plugin Enhance CP — Product config (ADR-080 Amendment B + ADR-083 Amendment A3)
+  'plugin.enhance_cp.product_config.enhance_plan_id.label':
+    'ID del plan en Enhance',
   'plugin.enhance_cp.product_config.enhance_plan_id':
-    'ID numérico del plan en Enhance que se asociará a este producto Aelium (Subscription.planId). El admin crea los planes en Enhance UI; aquí se referencia por número.',
+    'Identificador numérico que se asociará a este producto Aelium como Subscription.planId. El admin crea los planes en Enhance UI; aquí solo se referencia por número (ej. 1, 2, 3…).',
 
   // ── Plugin Enhance CP — Acciones curadas (ADR-070 §C + ADR-077 Amendment A3)
   'plugin.enhance_cp.actions.reset_password': 'Restablecer contraseña',
@@ -79,12 +91,20 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'plugin.enhance_cp.actions.reset_password.success':
     'Contraseña restablecida en Enhance. Comparte la nueva manualmente con el cliente — el envío automático por email llegará en una próxima versión.',
 
-  'plugin.enhance_cp.actions.view_disk': 'Ver uso de disco',
-  'plugin.enhance_cp.actions.view_disk.description':
-    'Refresca la cache de métricas de disco. Los valores ya visibles en la card "Métricas" se actualizan al instante (TTL 60 s).',
-  'plugin.enhance_cp.actions.view_bandwidth': 'Ver uso de ancho de banda',
-  'plugin.enhance_cp.actions.view_bandwidth.description':
-    'Refresca la cache de bandwidth. Los valores ya visibles en la card "Métricas" se actualizan al instante (TTL 60 s).',
+  // Sprint 15C.II Fase B: keys 'plugin.enhance_cp.actions.view_disk[*]' y
+  // 'plugin.enhance_cp.actions.view_bandwidth[*]' eliminadas — las inline
+  // actions correspondientes se removieron del manifest del plugin
+  // (ADR-083 Amendment A4.1). Refresh metrics ahora es nativo en MetricsBar
+  // vía botón ↻ + server action refreshServiceInfoAction.
+
+  // Refresh metrics canónico (ADR-083 Amendment A4.1)
+  'metrics.refresh': 'Refrescar',
+  'metrics.refreshing': 'Refrescando…',
+  'metrics.refresh.tooltip':
+    'Vuelve a consultar las métricas al proveedor (bypass cache 60 s).',
+  'metrics.refresh.aria_label': 'Refrescar métricas',
+  'metrics.refresh.success': 'Métricas actualizadas.',
+  'metrics.refresh.error': 'No se pudieron actualizar las métricas.',
 
   'plugin.enhance_cp.actions.list_dns_records': 'Listar registros DNS',
   'plugin.enhance_cp.actions.add_dns_record': 'Añadir registro DNS',
@@ -99,11 +119,50 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'plugin.enhance_cp.actions.change_package.success':
     'Plan cambiado correctamente. La metadata local se actualizó (cron L3 ya no detectará drift).',
 
-  'plugin.enhance_cp.actions.force_resync': 'Forzar resincronización',
+  // Sprint 15C.II Fase B (ADR-083 Amendment A4.2): rename label
+  // "Forzar resincronización" → "Reconciliar contra Enhance" (decisión
+  // doctrinal A2 frozen — naming honesto que refleja la operación real
+  // de comparar cache local vs Enhance ground truth, no un mero refresh
+  // de pantalla).
+  'plugin.enhance_cp.actions.force_resync': 'Reconciliar contra Enhance',
   'plugin.enhance_cp.actions.force_resync.description':
     'Reconcilia este servicio contra Enhance ahora — mismo pipeline que el cron L3 que corre cada 6 h, pero single-shot. Útil tras cambios manuales en la UI Enhance que pudieron generar drift.',
   'plugin.enhance_cp.actions.force_resync.success':
-    'Reconciliación forzada completada.',
+    'Reconciliación completada.',
 
   'plugin.enhance_cp.actions.list_available_plans': 'Listar planes disponibles',
+
+  // Reconcile-all general del plugin (ADR-083 Amendment A4.2 + gap G1)
+  'admin.plugins.reconcile_all.section_title':
+    'Reconciliación contra el proveedor',
+  'admin.plugins.reconcile_all.section_description':
+    'Compara todos los servicios activos contra el proveedor y emite eventos de drift si hay discrepancias. El cron L3 lo hace cada 6 h automáticamente; este botón fuerza una pasada manual ahora (útil tras cambios masivos o smoke testing).',
+  'admin.plugins.reconcile_all.button': 'Reconciliar todos ahora',
+  'admin.plugins.reconcile_all.tooltip':
+    'Invoca el executor reconcile registrado por el plugin (POST /admin/plugins/:slug/reconcile-all).',
+  'admin.plugins.reconcile_all.loading': 'Reconciliando…',
+  // Sprint 15C.II Fase B fix-up (2026-05-10): pluralización ES inline para
+  // 1 vs N servicios/drifts (translator local no soporta ICU). Smoke real
+  // reportó toast "1 servicios procesados" — ahora es "1 servicio procesado"
+  // / "5 servicios procesados" según count.
+  'admin.plugins.reconcile_all.success':
+    'Reconciliación completada: {processed} {services_label}, {drifts} {drifts_label} ({duration} ms).',
+  'admin.plugins.reconcile_all.unit.service.singular': 'servicio procesado',
+  'admin.plugins.reconcile_all.unit.service.plural': 'servicios procesados',
+  'admin.plugins.reconcile_all.unit.drift.singular': 'drift detectado',
+  'admin.plugins.reconcile_all.unit.drift.plural': 'drifts detectados',
+  'admin.plugins.reconcile_all.error': 'No se pudo reconciliar el plugin.',
+
+  // ── Service status reasons (ADR-070 §"Patrón de página" — discriminados
+  // por rol en Fase C UI_SPEC §4.13). Sprint 15C.II Fase B fix-up: el
+  // backend envía estos como i18n keys; ServiceHeader aplica t(). Los
+  // mensajes actuales son técnicos visibles a todos los roles — Fase C
+  // los discriminará (cliente: mensaje genérico empático sin jerga; admin:
+  // AlertBanner warning con mensaje técnico + CTA SSO investigación).
+  'service.status_reason.plugin_not_registered':
+    'No se ha podido contactar con el proveedor (plugin no registrado).',
+  'plugin.enhance_cp.status_reason.not_yet_provisioned':
+    'Servicio aún no aprovisionado en el proveedor. Reintentaremos automáticamente; si persiste, contacta con soporte.',
+  'plugin.enhance_cp.status_reason.subscription_missing':
+    'Suscripción no encontrada en el proveedor (drift detectado). Investigaremos el desincronizado.',
 });

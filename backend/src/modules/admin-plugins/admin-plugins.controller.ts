@@ -84,4 +84,25 @@ export class AdminPluginsController {
   testConnection(@Param('slug') slug: string) {
     return this.service.testConnection(slug);
   }
+
+  /**
+   * Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1) — trigger
+   * manual del executor reconcile registrado por el plugin (ver
+   * `ReconcileRegistryService`). Cumple doble rol:
+   *   1. UX A2: botón "↻ Reconciliar todos contra <Plugin> ahora" desde
+   *      `/admin/settings/plugins/[slug]`.
+   *   2. Gap G1: desbloquea smoke testing manual sin esperar el cron L3.
+   *
+   * Audit canónico (R3): emite `plugin.reconcile_triggered_manually` con
+   * actor + payload normalizado (`ReconcileAllResponse`).
+   */
+  @Post(':slug/reconcile-all')
+  @CheckPolicies((ability) => ability.can(Action.Manage, Subject.Plugin))
+  @ApiOperation({
+    summary:
+      'Trigger manual del executor reconcile del plugin (requiere capabilities.supports_reconciliation=true).',
+  })
+  reconcileAll(@Req() req: AuthenticatedRequest, @Param('slug') slug: string) {
+    return this.service.reconcileAll(slug, req.user.id);
+  }
 }

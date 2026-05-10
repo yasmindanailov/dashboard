@@ -13,7 +13,10 @@ import type {
   AdminPluginDetail,
   PluginJsonSchema,
 } from '../../../../../lib/api';
-import { aeliumDsWidgets } from '../../../../../_shared/plugins/rjsf-theme';
+import {
+  aeliumDsTemplates,
+  aeliumDsWidgets,
+} from '../../../../../_shared/plugins/rjsf-theme';
 import {
   testConnectionAction,
   togglePluginAction,
@@ -241,6 +244,7 @@ export function PluginConfigForm({ detail }: Props) {
             schema={translateSchema(detail.manifest.configSchema as unknown as RJSFSchema)}
             formData={configValue}
             widgets={aeliumDsWidgets}
+            templates={aeliumDsTemplates}
             validator={validator}
             onChange={(e: IChangeEvent) =>
               setConfigValue(
@@ -278,7 +282,11 @@ export function PluginConfigForm({ detail }: Props) {
             vacío para preservar el valor existente (***).
           </p>
           <SecretsFields
-            schema={detail.manifest.secretsSchema}
+            schema={
+              translateSchema(
+                detail.manifest.secretsSchema as unknown as RJSFSchema,
+              ) as unknown as PluginJsonSchema
+            }
             existing={detail.secrets}
             draft={secretsDraft}
             onChange={(field, value) =>
@@ -337,10 +345,17 @@ function SecretsFields({
         const placeholder = isSet
           ? '*** (deja vacío para mantener el valor actual)'
           : 'Sin valor configurado';
+        // Sprint 15C.II Fase B fix-up: el title del schema ya viene traducido
+        // por translateSchema (caller). Si el plugin no declara title (legacy),
+        // fallback al field name. Smoke real Yasmin reportó "apiToken *" crudo.
+        const fieldLabel =
+          typeof prop.title === 'string' && prop.title.length > 0
+            ? prop.title
+            : field;
         return (
           <label key={field} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 13, fontWeight: 500 }}>
-              {field}
+              {fieldLabel}
               {schema.required?.includes(field) ? ' *' : ''}
             </span>
             <input

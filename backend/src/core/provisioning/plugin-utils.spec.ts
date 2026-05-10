@@ -426,8 +426,8 @@ describe('executeActionWithCacheInvalidation â€” Sprint 11 Fase 11.B', () =
     const plugin = buildPlugin({
       inlineActions: [
         {
-          slug: 'view_disk_usage',
-          label: 'plugin.test.actions.view_disk',
+          slug: 'test_read_only_action',
+          label: 'plugin.test.actions.test_read_only',
           confirmRequired: false,
           destructive: false,
         },
@@ -438,7 +438,7 @@ describe('executeActionWithCacheInvalidation â€” Sprint 11 Fase 11.B', () =
     const result = await executeActionWithCacheInvalidation(
       plugin,
       mockService,
-      'view_disk_usage',
+      'test_read_only_action',
       {},
       { ...ctx, actorIsAdmin: false },
       cache,

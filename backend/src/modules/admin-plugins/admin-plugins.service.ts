@@ -50,11 +50,31 @@ function deriveAuditEntityId(slug: string): string {
 import { PrismaService } from '../../core/database/prisma.service';
 import { CircuitBreakerRegistry } from '../../core/provisioning/circuit-breaker';
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
+import {
+  ReconcileRegistryService,
+  ReconcileResult,
+} from '../../core/provisioning/reconcile-registry.service';
 import { SecretVaultService } from '../../core/security/secret-vault.service';
 import { ProvisionerPlugin } from '../../core/provisioning/types';
 import { AuditService } from '../audit/audit.service';
 
 import { AdminPluginUpdateDto } from './dto/admin-plugin-update.dto';
+
+/**
+ * Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1) — shape de
+ * respuesta canónico del endpoint `POST /api/v1/admin/plugins/:slug/reconcile-all`.
+ *
+ * Coherente con `ReconcileResult` interno del registry pero con campos
+ * snake_case + `triggered_at` ISO timestamp para serialización REST canónica.
+ */
+export interface ReconcileAllResponse {
+  readonly slug: string;
+  readonly triggered_at: string;
+  readonly services_processed: number;
+  readonly drifts_detected: number;
+  readonly duration_ms: number;
+  readonly details: Readonly<Record<string, unknown>> | null;
+}
 
 /**
  * AdminPluginsService — Sprint 15A Fase G (ADR-080 §7).
@@ -106,6 +126,11 @@ export class AdminPluginsService implements OnModuleInit {
     private readonly audit: AuditService,
     private readonly events: EventEmitter2,
     private readonly breakers: CircuitBreakerRegistry,
+    // Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1) — registry
+    // genérico de executors `reconcile-all`. Cada plugin con
+    // capabilities.supports_reconciliation registra su executor en
+    // onModuleInit del cron correspondiente.
+    private readonly reconcileRegistry: ReconcileRegistryService,
   ) {
     this.ajv = new Ajv({
       strict: false,
@@ -340,6 +365,104 @@ export class AdminPluginsService implements OnModuleInit {
         checked_at: new Date().toISOString(),
       };
     }
+  }
+
+  /**
+   * Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1) —
+   * `reconcile-all` admin endpoint para plugins SaaS.
+   *
+   * Trigger manual del executor reconcile registrado por el plugin (ver
+   * `ReconcileRegistryService`). Doble propósito doctrinal:
+   *   1. UX A2 — botón "↻ Reconciliar todos los servicios contra <Plugin>
+   *      ahora" en `/admin/settings/plugins/[slug]` (sin esperar el cron).
+   *   2. Gap G1 — desbloquea smoke testing manual sin esperar la próxima
+   *      ventana del cron L3 (típicamente 6h en plugin Enhance).
+   *
+   * Validaciones (defense in depth):
+   *   - Plugin debe estar registrado y validado (DI + contrato OK).
+   *   - Plugin debe declarar `capabilities.supports_reconciliation = true`.
+   *   - Plugin debe haber registrado un executor en el registry global
+   *     (típicamente vía `onModuleInit()` del cron reconciliation).
+   *
+   * Audit canónico (R3): emite `audit_change_log` con
+   * `action='plugin.reconcile_triggered_manually'` + actor_user_id +
+   * payload con el resultado normalizado. Esto cierra la trazabilidad
+   * RGPD del trigger manual (quién, cuándo, qué resultado).
+   *
+   * Heredable a 15D RC (`resellerclub`), 15E Docker, 15G Plesk.
+   */
+  async reconcileAll(
+    slug: string,
+    actorUserId: string,
+  ): Promise<ReconcileAllResponse> {
+    const plugin = this.requireValidatedPlugin(slug);
+
+    if (!plugin.capabilities.supports_reconciliation) {
+      throw new BadRequestException(
+        `Plugin "${slug}" does not declare capabilities.supports_reconciliation=true. ` +
+          `Reconcile-all only applies to plugins that maintain external state synced via cron.`,
+      );
+    }
+
+    if (!this.reconcileRegistry.hasExecutor(slug)) {
+      throw new BadRequestException(
+        `Plugin "${slug}" declares supports_reconciliation=true but has not registered ` +
+          `a reconcile executor. This is a wiring bug — the plugin module should register ` +
+          `via ReconcileRegistryService.register(slug, executor) in onModuleInit().`,
+      );
+    }
+
+    this.logger.log(
+      `Manual reconcile-all triggered for plugin "${slug}" by user=${actorUserId}.`,
+    );
+
+    let result: ReconcileResult;
+    try {
+      result = await this.reconcileRegistry.runFor(slug);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'unexpected reconcile failure';
+      this.logger.error(
+        `reconcile-all failed for plugin "${slug}" (actor=${actorUserId}): ${message}`,
+      );
+      // Audit del fallo (trazabilidad operativa) antes de re-lanzar.
+      await this.audit.logChange({
+        user_id: actorUserId,
+        entity_type: 'Plugin',
+        entity_id: deriveAuditEntityId(slug),
+        action: 'plugin.reconcile_triggered_manually',
+        changes_before: null,
+        changes_after: { slug, success: false, error: message },
+      });
+      throw err;
+    }
+
+    // Audit canónico del éxito + payload normalizado (no contiene secrets,
+    // solo conteos agregados — safe para auditar al completo).
+    await this.audit.logChange({
+      user_id: actorUserId,
+      entity_type: 'Plugin',
+      entity_id: deriveAuditEntityId(slug),
+      action: 'plugin.reconcile_triggered_manually',
+      changes_before: null,
+      changes_after: {
+        slug,
+        success: true,
+        services_processed: result.servicesProcessed,
+        drifts_detected: result.driftsDetected,
+        duration_ms: result.durationMs,
+        details: result.details ?? null,
+      },
+    });
+
+    return {
+      slug,
+      triggered_at: new Date().toISOString(),
+      services_processed: result.servicesProcessed,
+      drifts_detected: result.driftsDetected,
+      duration_ms: result.durationMs,
+      details: result.details ?? null,
+    };
   }
 
   // ─── Helpers privados ───────────────────────────────────────────────

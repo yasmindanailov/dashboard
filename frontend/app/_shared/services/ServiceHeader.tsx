@@ -58,7 +58,18 @@ export function ServiceHeader({ info, productName }: ServiceHeaderProps) {
               fontStyle: 'italic',
             }}
           >
-            {info.statusReason}
+            {/*
+              Sprint 15C.II Fase B fix-up (2026-05-10): el `statusReason`
+              que devuelve el backend ahora es una i18n key (ej.
+              `plugin.enhance_cp.status_reason.subscription_missing`). Lo
+              traducimos con t(); si la key no está declarada o el valor
+              ya es un string literal (legacy), t() devuelve el original.
+              Fase C completará la discriminación cliente vs admin
+              (UI_SPEC §4.13 + ADR-083 Amendment A4.3): cliente verá un
+              mensaje genérico empático, admin verá AlertBanner técnico
+              con CTA "Investigar en panel del proveedor".
+            */}
+            {t(info.statusReason)}
           </p>
         )}
       </div>

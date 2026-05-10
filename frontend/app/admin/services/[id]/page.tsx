@@ -90,7 +90,17 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
         <ServiceHeader info={info} productName={service.product_name} />
       </Card>
 
-      {info.metrics && <MetricsBar metrics={info.metrics} />}
+      {/*
+        Sprint 15C.II Fase B fix-up round 3 (2026-05-10): MetricsBar
+        SIEMPRE visible (mismo patrón que client page). Si el plugin
+        reporta drift / unknown sin metrics, se muestra mensaje + botón
+        ↻ Refrescar para que admin pueda reintentar contra el proveedor.
+      */}
+      <MetricsBar
+        metrics={info.metrics ?? { fetchedAt: info.fetchedAt }}
+        serviceId={service.id}
+        isAdmin={true}
+      />
 
       {/*
         Card "Datos del servicio (admin)" — info NO expuesta al cliente.

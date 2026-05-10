@@ -27,6 +27,7 @@ import { redirect } from 'next/navigation';
 import { EmptyState } from '../../../../components/ui';
 import type { ServiceDetailResponse } from '../../../../lib/api';
 import { serverFetch, ServerFetchError } from '../../../../lib/server-auth';
+import { t } from '../../../../_shared/i18n';
 import { listDnsRecordsAction } from '../../../../_shared/services/dns/_actions';
 
 import { DnsExternallyBanner } from './_components/DnsExternallyBanner';
@@ -111,13 +112,19 @@ export default async function ClientServiceDnsPage({ params }: PageProps) {
   // + link de vuelta. El usuario puede reintentar más tarde o contactar
   // soporte si persiste.
   if (!dnsResult.data.result.success || !dnsResult.data.result.data) {
+    // Sprint 15C.II Fase B fix-up (2026-05-10): el `result.message` que
+    // devuelve el backend wrapper es una i18n key (ej. `action.provider_error`,
+    // `action.circuit_open`). Lo pasamos por `t()` para traducir; si no
+    // hay key declarada o el mensaje ya es una string literal, t() devuelve
+    // el original (compat retro).
+    const rawMessage = dnsResult.data.result.message;
+    const translatedMessage = rawMessage
+      ? t(rawMessage)
+      : 'El plugin DNS authority no pudo completar la lectura de la zona. Reintenta en unos minutos o contacta con soporte si el problema persiste.';
     return (
       <EmptyState
         title="DNS no disponible para este servicio ahora"
-        description={
-          dnsResult.data.result.message ??
-          'El plugin DNS authority no pudo completar la lectura de la zona. Reintenta en unos minutos o contacta con soporte si el problema persiste.'
-        }
+        description={translatedMessage}
         action={
           <Link
             href={`/dashboard/services/${id}`}

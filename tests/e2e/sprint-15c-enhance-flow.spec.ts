@@ -404,7 +404,12 @@ test.describe.serial(
       // change_package está presente con flag `adminOnly: true` (el filter
       // UI lo ocultará al cliente, pero la API la lista igualmente).
       const slugs = actions.map((a) => a.slug);
-      expect(slugs).toContain('view_disk_usage');
+      // Sprint 15C.II Fase B (ADR-083 Amendment A4.1): view_disk_usage y
+      // view_bandwidth_usage eliminadas. Verificamos client-visible action
+      // canónica (reset_account_password) + admin-only present con flag.
+      expect(slugs).toContain('reset_account_password');
+      expect(slugs).not.toContain('view_disk_usage');
+      expect(slugs).not.toContain('view_bandwidth_usage');
 
       const changePackage = actions.find((a) => a.slug === 'change_package');
       expect(

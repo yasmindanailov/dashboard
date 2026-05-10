@@ -20,7 +20,10 @@ import {
 } from '../../../../../components/ui';
 import type { AdminPluginListItem } from '../../../../../lib/api';
 import { t, translateSchema } from '../../../../../_shared/i18n';
-import { aeliumDsWidgets } from '../../../../../_shared/plugins/rjsf-theme';
+import {
+  aeliumDsTemplates,
+  aeliumDsWidgets,
+} from '../../../../../_shared/plugins/rjsf-theme';
 import {
   addPricingAction,
   deletePricingAction,
@@ -357,6 +360,7 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
                       schema={translateSchema(productConfigSchema as RJSFSchema)}
                       formData={provisionerConfig}
                       widgets={aeliumDsWidgets}
+                      templates={aeliumDsTemplates}
                       validator={validator}
                       onChange={(e: IChangeEvent) =>
                         setProvisionerConfig(

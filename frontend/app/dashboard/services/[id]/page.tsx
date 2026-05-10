@@ -84,7 +84,62 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
         <ServiceHeader info={info} productName={service.product_name} />
       </Card>
 
-      {info.metrics && <MetricsBar metrics={info.metrics} />}
+      {/*
+        Sprint 15C.II Fase B fix-up round 3 (2026-05-10): card "Detalles
+        del servicio" canónica SIEMPRE visible al cliente — independiente
+        de si el plugin reporta drift / unknown / failed. Materializa la
+        garantía de que el cliente nunca queda sin información útil
+        (smoke real Yasmin reportó páginas vacías al detectar drift).
+        Fase C completará la discriminación AlertBanner por rol +
+        ocultar SSO/DNS cuando metadata corrupta (ADR-083 Amendment A4.3).
+      */}
+      <Card>
+        <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0, marginBottom: 12 }}>
+          Detalles del servicio
+        </h2>
+        <dl
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'max-content 1fr',
+            gap: '6px 16px',
+            margin: 0,
+            fontSize: 13,
+          }}
+        >
+          {service.provisioner_slug && (
+            <>
+              <dt style={{ color: 'var(--text-secondary)' }}>Plan</dt>
+              <dd style={{ margin: 0 }}>{service.product_name}</dd>
+            </>
+          )}
+          <dt style={{ color: 'var(--text-secondary)' }}>Estado de tu servicio</dt>
+          <dd style={{ margin: 0, textTransform: 'capitalize' }}>
+            {service.status}
+          </dd>
+          <dt style={{ color: 'var(--text-secondary)' }}>Contratado el</dt>
+          <dd style={{ margin: 0 }}>
+            {new Date(service.created_at).toLocaleDateString('es-ES', {
+              day: '2-digit',
+              month: 'long',
+              year: 'numeric',
+            })}
+          </dd>
+        </dl>
+      </Card>
+
+      {/*
+        Sprint 15C.II Fase B fix-up round 3 (2026-05-10): renderizamos
+        MetricsBar SIEMPRE (incluso si info.metrics undefined por drift)
+        para que el botón ↻ Refrescar quede visible y el cliente pueda
+        reintentar. El componente muestra un mensaje "Métricas no
+        disponibles" si rows está vacío. Fallback fetchedAt usa el
+        timestamp del response para preservar visual consistente.
+      */}
+      <MetricsBar
+        metrics={info.metrics ?? { fetchedAt: info.fetchedAt }}
+        serviceId={service.id}
+        isAdmin={false}
+      />
 
       {/*
         SSO panel — solo si el plugin lo soporta para esta instancia
