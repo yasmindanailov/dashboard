@@ -1,12 +1,14 @@
 # Sprint 15C.II — Plugin Enhance Hardening · Dossier de pre-sprint
 
-> **Tipo:** Pre-sprint research dossier (no es plan de sprint activo).
-> **Estado:** ⏸ **En cola P2.3.b — bloqueante para Sprint 15D RC.** Se activa con la próxima conversación.
+> **Tipo:** Pre-sprint research dossier (preservado como referencia histórica) + **Apéndice A** al final con decisiones doctrinales congeladas + gaps audit técnico.
+> **Estado:** ▶ **ACTIVO 2026-05-10** — pre-condición técnica resuelta (PR [#52](https://github.com/yasmindanailov/dashboard/pull/52) merged como `ef7f488`). Rama de trabajo: `sprint15c-ii-enhance-hardening` desde master. Fase A (doc-only) en curso.
 > **Origen:** Smoke real Yasmin contra mock 2026-05-10 durante cierre Fase 15C.I. Reveló gaps sistémicos, decisiones doctrinales aún no tomadas, y violaciones del UI_SPEC §4.3 que el cierre formal Fase I solo abordó parcialmente.
-> **Pre-condición técnica:** rama `sprint15c-fase-i-cierre-sprint` con fixes valiosos sin commit (decisión Yasmin pendiente: commit como Fase I parcial + abrir branch nuevo para hardening, o reset + abordar todo en un branch).
+> **Pre-condición técnica:** ✅ resuelta — Opción A doctrina §5 ejecutada (commit Fase 15C.I parcial → PR #52 → merge → nueva rama hardening desde master limpio).
 > **Doctrina canónica del usuario (literal 2026-05-10):** "Sobre las deudas pendientes en relación al plugin Enhance, hay que documentarlas, no se da un paso más, hasta que el plugin esté al 100% operativo con los features básicos y necesarios perfectos para producción."
 >
-> **Frase canónica de arranque (futuro):** *"Lee `docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md` + `docs/60-roadmap/completed/sprint-15c-plugin-enhance-cp.md` + `docs/features/provisioning/admin-plugins-enhance.md` + `docs/UI_SPEC.md` §4.3. Vamos con Sprint 15C.II — Plugin Enhance Hardening (cierre real pre-producción). Crea rama `sprint15c-ii-enhance-hardening` desde master + lee este dossier completo antes de codear."*
+> **🆕 Las decisiones doctrinales A1-A4 (§3.1-3.4) quedaron CONGELADAS 2026-05-10** vía AskUserQuestion — todas con la recomendación canónica industria (Stripe / Vercel / WCAG 2.1) seleccionada por Yasmin literal. **Audit técnico paralelo (4 agentes) descubrió 8 gaps adicionales NO documentados aquí** — recogidos en **Apéndice A §A.2**. **Plan de fases ampliado a 7 fases (A→G)** — ver §A.3.
+>
+> **Frase canónica de arranque (próxima sesión post-Fase A):** *"Continúa Sprint 15C.II — Fase B (refresh metrics + reconcile dual). Lee Apéndice A del dossier (decisiones congeladas + plan refinado), [ADR-083 Amendment A4](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) y [UI_SPEC §4.13](../UI_SPEC.md#413-estados-de-detección-externa-drift--patrón-discriminado-por-rol). Implementa A4.1 (eliminar 2 actions + ↻ MetricsBar) + A4.2 (endpoint reconcile-all + rename + UI settings)."*
 
 ---
 
@@ -297,5 +299,123 @@ Cola P2 actualizada:
 - [`docs/10-decisions/adr-070-service-info-sso-acciones-curadas.md`](../10-decisions/adr-070-service-info-sso-acciones-curadas.md) — patrón canónico service detail (header inline + métricas + acciones curadas + SSO + DNS).
 - [`docs/10-decisions/adr-077-contrato-provisioner-plugin-v2.md`](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) — contrato canónico ProvisionerPlugin v2 + 8 capability flags + Amendments A1/A2/A3/A3.5.
 - [`docs/10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md`](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md) — modelo Domain↔Hosting + DNS doctrine + DH-INV-6 (Enhance gana en conflicto).
-- [`docs/10-decisions/adr-083-plugin-enhance-cp-specifics.md`](../10-decisions/adr-083-plugin-enhance-cp-specifics.md) — 35 decisiones Enhance specifics frozen + Amendments A1/A2/A3.
+- [`docs/10-decisions/adr-083-plugin-enhance-cp-specifics.md`](../10-decisions/adr-083-plugin-enhance-cp-specifics.md) — 35 decisiones Enhance specifics frozen + Amendments A1/A2/A3 + **A4 (2026-05-10) hardening UX post smoke real**.
 - **Sesión origen smoke real**: Yasmin ↔ agent 2026-05-10 — 18 issues identificados + 4 decisiones doctrinales pendientes documentadas en este dossier.
+
+---
+
+# Apéndice A — Decisiones congeladas + audit técnico + plan refinado (2026-05-10)
+
+> **Tipo:** Adendum post merge PR #52 (`ef7f488`). Preserva el dossier original (§1-§8) como referencia histórica + congela las decisiones doctrinales A1-A4 + recoge 8 gaps técnicos descubiertos en audit paralelo (4 agentes Explore) + refina el plan de fases a 7 (A→G).
+>
+> **Patrón canónico Aelium:** mismo enfoque que el dossier 15C original preservado en `completed/sprint-15c-plugin-enhance-cp.md` con su retrospectiva como anexo. El dossier original arriba refleja el thinking pre-merge; este apéndice refleja las decisiones tras el AskUserQuestion + audit técnico.
+
+## A.1. Decisiones doctrinales A1-A4 — FROZEN 2026-05-10
+
+Yasmin seleccionó la opción **Recommended** de cada AskUserQuestion (referencia canónica industria). Las 4 decisiones quedan congeladas y materializadas en [ADR-083 Amendment A4](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) (§A4.1-A4.4) + [UI_SPEC §4.13](../UI_SPEC.md#413-estados-de-detección-externa-drift--patrón-discriminado-por-rol) + [ADR-077 Amendment A4](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md#amendment-a4-2026-05-10--capability-flag-supports_suspend) (capability flag nueva).
+
+| ID | Decisión congelada | Materialización canónica |
+|---|---|---|
+| **A1** | Eliminar inline actions `view_disk_usage` + `view_bandwidth_usage` del manifest. Añadir botón "↻ Refrescar" en `MetricsBar.tsx` (cliente + admin) → `refreshServiceInfoAction(serviceId)` invalida cache + re-fetch. NO autorrefresh polling. Patrón Stripe/Vercel. | ADR-083 A4.1 + Sprint 15C.II Fase B |
+| **A2** | Dual entry point reconcile + rename "Reconciliar contra Enhance". Endpoint nuevo `POST /api/v1/admin/plugins/:slug/reconcile-all` cumple **doble rol**: A2 (botón general settings plugin) + G1 (trigger manual cron — desbloquea `admin-plugins-enhance.md §6.2 paso 13` que era vaporware). Cliente NUNCA ve botón reconcile. | ADR-083 A4.2 + Sprint 15C.II Fase B |
+| **A3** | Drift UX discriminada por rol — cliente generic ("Tu servicio está temporalmente no disponible. Hemos avisado al equipo técnico.") + admin AlertBanner warning con `statusReason` técnico + CTA "Investigar en Enhance UI" (link SSO impersonation). Service status canónico se mantiene `active` (DH-INV-6). Heredable a 15D RC, 15E Docker, 15G Plesk. | ADR-083 A4.3 + UI_SPEC §4.13 + Sprint 15C.II Fase C |
+| **A4** | Admin overview operativo dentro de Sprint 15C.II como **Fase F nueva** (NO diferir a Sprint 12). Stats grid 4 cards (services activos / suspendidos / drifts 24h / circuit breaker state) + tabla recent drifts + botón reconcile general (A2) + Test conexión (existe) + Form config + secrets (existe). Componente reusable `<PluginOperationalOverview>` heredable. | ADR-083 A4.4 + Sprint 15C.II Fase F |
+
+## A.2. Gaps técnicos descubiertos en audit paralelo — NO documentados originalmente
+
+Audit técnico 2026-05-10 ejecutado por 4 agentes Explore en paralelo (backend + frontend + test coverage + doc-vs-código + tunnel). Resultado: **8 gaps adicionales** que el dossier original NO había capturado.
+
+### Backend (5 gaps)
+
+| ID | Severidad | Archivo:línea | Realidad descubierta | Fase de cierre |
+|---|---|---|---|---|
+| **G1** | 🔴 CRÍTICO | `docs/features/provisioning/admin-plugins-enhance.md §6.2 paso 13` | **Vaporware**. La doc afirma `POST /api/v1/admin/cron/enhance-reconciliation` para trigger manual del cron L3. **No existe** en el código. Sin esto NO es posible smoke testear reconciliación sin esperar 6h. | **Fase B** — endpoint A4.2 cumple doble rol (reconcile-all + trigger manual) |
+| **G2** | 🔴 ALTA | `enhance.plugin.ts:687-693` | `actionResetAccountPassword` retorna `data.password` plaintext. El wrapper auditor canónico `core/provisioning/plugin-utils.ts` persiste `result.data` íntegro en `audit_change_log` SIN sanitización. Riesgo compliance R12 (secrets nunca audit). Prerequisito para listener email Fase D. | **Fase D** — `audit-sanitizer.ts` helper redacta campos sensibles antes de audit emit (ADR-083 A4.5) |
+| **G3** | 🟡 MEDIA | `enhance.plugin.ts` manifest capabilities | Falta declaración capability flag `supports_suspend`. El plugin tiene `patchSubscription({ isSuspended })` operativo desde Sprint 15C.B pero el frontend admin no puede ramificar por capability (doctrina ADR-070). | **Fase F** — ADR-077 Amendment A4 + 2 inline actions nuevas `suspend_service`/`unsuspend_service` |
+| **G4** | 🟡 MEDIA | `core/provisioning/plugin-utils.ts` | TTL cache 60s **hardcoded** mientras `reconciliationIntervalHours` del manifest es configurable. Posible DoS de la propia API Enhance por sobre-polling si Enhance reporta cache interno mayor. | **Fase F** — sanity-check + permitir override declarativo desde manifest opcional |
+| **G5** | 🟡 MEDIA | `EnhanceApiClient` | Sin CircuitBreaker propio en HTTP client — solo el wrapper externo lo tiene sobre `getServiceInfoWithCache` + `executeActionWithCacheInvalidation`. Si Enhance cae, BullMQ reintentará lento (~6 min hasta DLQ) en vez de fail-fast 503. | **Fase F** — evaluar integración (puede diferirse a v1.1 si no hay incidente real) |
+
+### Frontend (3 gaps)
+
+| ID | Severidad | Archivo:línea | Realidad descubierta | Fase de cierre |
+|---|---|---|---|---|
+| **G6** | 🔴 ALTA | `frontend/app/admin/settings/plugins/[slug]/_components/PluginConfigForm.tsx:104-111` | **Mismo bug UI_SPEC §4.3 que ActionsBar/SsoButton** — usa `setFeedback({kind, message})` inline con `<p>`. NO se detectó en smoke porque solo se testeó service detail, no settings plugin. | **Fase C** — migrar a `useToast()` |
+| **G6b** | 🟡 MEDIA | `frontend/app/admin/services/[id]/_components/ChangePackageModal.tsx:85-93` | `setSubmitError()` inline en modal sin toast. Mismo patrón. | **Fase C** — migrar a `useToast()` |
+| **G7** | 🟡 MEDIA | `frontend/app/components/ui/Modal/Modal.tsx:17-30, 44` | Sin `aria-labelledby` (vinculación título) + sin focus trap. WCAG 2.1 básico no cumplido (sí tiene `role="dialog"` + `aria-modal="true"` + Escape listener — falta el resto). | **Fase C** — añadir focus trap + aria-labelledby (refactor compartido) |
+
+### Coverage gaps — paths productivos sin test (8 áreas)
+
+Tests críticos sin coverage que podrían ocultar bugs en producción (la suite reporta 488/493 verde **en superficie** pero **profundidad débil** en escenarios reales):
+
+1. **Concurrent provision del mismo dominio** + advisory lock — exactamente el escenario del bug `$queryRaw` que pasó tests + falló con DB Postgres real. Necesita integration test con transacciones paralelas reales.
+2. **Encryption key rotation** graceful failure (`ENCRYPTION_KEY` cambia → secrets viejos no descifran).
+3. **DNS edge cases** — TTL bounds (0, 99999999), kinds inválidos, shapes inesperados de Enhance, conflicto authority external.
+4. **CircuitBreaker behavior con Enhance** — 5 fallos en 60s → open → fast-fail. Recovery half-open.
+5. **change_package metadata sync rollback** — qué pasa si PATCH a Enhance OK pero `service.update()` falla → plan_divergence false-positive eterno.
+6. **SSO impersonation full flow E2E** — solo unit + smoke manual hoy.
+7. **AdminOnly enforcement E2E** con bypass real curl → 403 + audit emit.
+8. **Threshold race condition** — 2 reconcile concurrent <1s → dedupe correcto vs double alert.
+
+→ **Cierre completo en Fase G** (tests críticos faltantes pre-deploy).
+
+## A.3. Plan de fases refinado — 7 fases A→G
+
+Plan original era 6 fases (A→F). Tras audit + decisión A4 ("Overview now"), pasa a 7:
+
+| Fase | Estimación | Scope (con scope ampliado por audit) |
+|---|---|---|
+| **A** doc-only | 0.3 sesión | ✅ EN CURSO. ADR-077 A4 + ADR-083 A4 + UI_SPEC §4.13 + este Apéndice + corrección vaporware admin-plugins-enhance.md §6.2 + sync current.md |
+| **B** refresh + reconcile | 1-1.5 sesión | A1 (eliminar 2 actions + ↻ MetricsBar + `refreshServiceInfoAction`) + A2 (endpoint `POST /admin/plugins/:slug/reconcile-all` cumpliendo doble rol con G1 + UI settings + rename action local "Reconciliar contra Enhance") |
+| **C** drift UX + i18n + a11y | 1-1.5 sesión | A3 (drift UX discriminada por rol — `ServiceHeader` cliente generic + admin AlertBanner) + i18n completo (statusReason keys + reset_password/change_package descriptions) + **G6 PluginConfigForm useToast** + **G6b ChangePackageModal toast** + **G7 Modal a11y (focus trap + aria-labelledby)** |
+| **D** email listener + sanitizer | 0.7-1 sesión | DC.NEW-15CII-EMAIL-RESET (listener `notifications-on-password-reset` + plantilla email seedeada) + **G2 sanitización `data.password` en wrapper auditor** (CRÍTICO antes del listener — `audit-sanitizer.ts` redacta campos sensibles via regex canónico password\|secret\|token\|apiKey\|privateKey) |
+| **E** UI admin DNS | 0.7-1 sesión | DC.NEW-15CII-DNS-ADMIN-UI (página `/admin/services/[id]/dns` reusando endpoints existentes) + validación DnsRecordForm (TTL min/max + duplicados — gap audit) |
+| **F** admin overview + capabilities + breaker | 1-1.5 sesión | A4 admin overview (stats grid 4 cards + tabla recent drifts + botón reconcile general A2 + Test conexión + form config) + **G3 capability flag `supports_suspend` (ADR-077 A4)** + 2 inline actions `suspend_service`/`unsuspend_service` con audit + **G4 sanity-check cache TTL configurable** + **G5 evaluar breaker EnhanceApiClient** (puede diferirse a v1.1 si no se valida criticidad) |
+| **G** tests críticos + cierre | 1-1.5 sesión | **8 tests críticos faltantes** (concurrent advisory lock real Postgres + CircuitBreaker E2E con Enhance + SSO impersonation E2E + AdminOnly enforcement E2E con bypass curl real + encryption key rotation + DNS edge cases TTL bounds + change_package metadata rollback + threshold race condition concurrent reconciliation) + E2E spec extension cubriendo refresh metrics + reconcile-all + drift UX por rol + admin overview render + smoke real Yasmin contra mock + Enhance live + retrospectiva en `completed/sprint-15c-plugin-enhance-cp.md` |
+
+**Estimación total Sprint 15C.II:** **6-8 sesiones** (vs 4-5 originales — el ampliado es honesto, no negociable para "100% operativo perfecto"). Sprint 15D RC sigue bloqueado en cola hasta cierre 15C.II.
+
+## A.4. Respuesta a la pregunta crítica — ¿necesitamos Cloudflare tunnel / dashboard en internet?
+
+> **Conclusión:** **NO** para smoke testing del plugin Enhance CP en pre-producción. Setup local es 100% suficiente.
+
+Evidencia técnica recogida en audit (agente 4):
+
+1. **Enhance ↔ Aelium = PURE PULL outbound.** El plugin hace HTTP a Enhance vía `EnhanceApiClient` (GET/POST/PATCH/DELETE). Enhance NUNCA llama a dashboard. Cero rutas tipo `/webhooks/enhance` en backend (verificado).
+2. **Enhance v12.21.3 NO expone webhooks push** hacia integraciones (solo Slack push, irrelevante). Confirmado en spec OAS3 + ADR-083.
+3. **DNS provisioning NO valida resolución pública** del FQDN — Enhance crea zona interna fire-and-forget; el cliente configurará NS en su registrador externo después.
+4. **SSO redirect** apunta directo al cluster Enhance (`https://enhance.lab.aelium.net/sso?token=...`); dashboard NO es proxy.
+5. **Stripe webhook live**: NO existe endpoint Stripe receiver hoy en backend (grep limpio). El billing dispara `invoice.paid` desde código interno (admin marca pagado desde `/admin/billing/[id]/mark-paid`). Cuando se integre Stripe real (Sprint 8 territory), entonces sí necesitará tunnel — pero NO bloquea Enhance hoy.
+
+**Setup canónico smoke local 100% operativo** (documentado en `admin-plugins-enhance.md §6.1`):
+
+```bash
+# .env.local backend
+ENHANCE_DEV_BASE_URL=https://enhance.lab.aelium.net
+ENHANCE_DEV_MASTER_ORG_ID=<UUID real Master Org Aelium>
+ENHANCE_DEV_API_TOKEN=<Super Admin token revocable>
+ENCRYPTION_KEY=<openssl rand -hex 32>
+
+docker compose up -d postgres redis mailpit
+pnpm --dir backend prisma migrate deploy && pnpm --dir backend run seed
+pnpm --dir backend start:dev   # :3001
+pnpm --dir frontend start:dev  # :3002
+```
+
+**Casos que SÍ requerirían tunnel a futuro (fuera de scope Enhance CP):**
+- Demo en vivo a cliente externo (acceso desde cualquier IP)
+- Integración Stripe live (webhook receiver público)
+- Callbacks email externos (links de confirmación)
+
+## A.5. Estado del branch + commits — trazabilidad
+
+- **Rama de trabajo Sprint 15C.II:** `sprint15c-ii-enhance-hardening` (creada desde master post merge PR #52)
+- **PR Fase 15C.I parcial:** [#52](https://github.com/yasmindanailov/dashboard/pull/52) merged como `ef7f488` (32 archivos, +2004/-131, 11 fixes smoke + E2E spec + i18n + dossier hardening)
+- **Hotfix prettier line 111:** commit `2b56319` en branch del PR (auto-fix prettier multiline literal)
+- **Suite pre Fase A Sprint 15C.II:** 488/493 unit verde + 5 skipped + E2E 6/6 verde
+
+## A.6. Sesiones origen
+
+- 2026-05-10 (smoke real Yasmin) → 18 issues iniciales documentados en §2
+- 2026-05-10 (post merge PR #52, AskUserQuestion) → A1-A4 frozen (§A.1)
+- 2026-05-10 (audit técnico paralelo 4 agentes Explore) → G1-G7 + 8 coverage gaps (§A.2)
+- 2026-05-10 (Fase A doc-only) → este Apéndice + ADRs Amendments + UI_SPEC §4.13

@@ -794,3 +794,84 @@ Read-only, sin side effects. El wrapper hace audit (`service.action_executed:lis
   - Cliente HTTP integration spec contra mock cubre fixture poblado.
   - Wrapper spec cubre enforcement adminOnly: cliente NO admin → ForbiddenException + audit + evento `service.action_admin_only_violation`; admin OK → action ejecuta.
 - Smoke test (mismo endpoint `POST /services/:id/actions/:slug`, controller diferencia por rol): cliente con role `client` invoca `POST /services/:id/actions/change_package` → HTTP 403 + audit `service.action_admin_only_violation`. Admin con role `superadmin` invoca `POST /services/:id/actions/list_available_plans` → 200 + `data.plans` poblado desde mock. Admin atraviesa el bypass de ownership del controller cliente (`isAdmin=true` derivado del `req.user.role.slug`) — NO hay endpoint específico admin para actions.
+
+---
+
+### Amendment A4 (2026-05-10) — Hardening UX post smoke real Yasmin (Sprint 15C.II)
+
+> **Justificado por:** smoke real Yasmin 2026-05-10 contra mock Enhance reveló 18 issues categorizados + 8 gaps técnicos no documentados (descubiertos en audit técnico paralelo de 4 agentes). Las 4 decisiones doctrinales A1-A4 del dossier `sprint-15c-ii-hardening-enhance-dossier.md` quedaron congeladas tras consulta literal con Yasmin (AskUserQuestion 2026-05-10) — todas seleccionando la recomendación canónica industria (Stripe / Vercel / WCAG 2.1).
+> **Compatibilidad:** Hacia atrás. NO bumpea contractVersion. Eliminación de inline actions (A4.1) reduce surface del manifest (compatible — el wrapper rechaza slugs no declarados con `INVALID_PAYLOAD`). Endpoint REST nuevo (A4.2) es additivo. Renames de labels son cosmetic (ADR-077 §3 los considera display-only).
+> **Materialización:** Sprint 15C.II Fases A→G en rama `sprint15c-ii-enhance-hardening` desde master post merge PR #52 (`ef7f488`).
+> **Doctrina:** este Amendment es **heredable** a futuros plugins SaaS (15D RC, 15E Docker, 15G Plesk). Cualquier plugin que retorne métricas en `getServiceInfo`, soporte reconciliación L3, retorne secretos one-time, o muestre estado externo, aplica los patrones de A4.1-A4.5.
+
+#### A4.1. Refresh metrics pattern (decisión doctrinal A1 frozen)
+
+> **Pregunta literal Yasmin (2026-05-10):** "Para refrescar los stats, simplemente poner un spinner pequeño en un lateral de los stats, para refrescarlos todos. O hacerlo más robusto y profesional."
+> **Respuesta canónica AskUserQuestion (option Recommended seleccionada):** Eliminar 2 actions + ↻ en MetricsBar.
+
+- **Eliminar** las inline actions `view_disk_usage` y `view_bandwidth_usage` del manifest. Razón: violan UI_SPEC §1.2 P4 "acción no contemplación" — son botones que no llevan a una acción del usuario, solo invalidan cache que se invalidaría sola en 60s (TTL wrapper).
+- **Añadir** botón "↻ Refrescar" pequeño en `MetricsBar.tsx` (esquina superior-derecha de la Card), tanto para cliente como admin. Click → server action `refreshServiceInfoAction(serviceId)` → invalida cache wrapper + re-fetch + actualiza render.
+- **NO autorrefresh polling** — el cliente puede irse de la página y volver para refrescar; el admin tiene el botón explícito. Polling consume ancho de banda + complica WS architecture.
+- **Patrón industria:** Stripe Dashboard, Vercel Metrics, Linear (botón ↻ explícito + countdown opcional autorrefresh — el countdown es deuda v2 si demanda).
+- **Aplicación contractual ADR-077:** §2 ServiceAction NO requiere las 2 actions view_metrics — son opcionales. Eliminarlas NO rompe contrato. **Heredable:** ningún plugin SaaS futuro necesita action "view metrics" si el plugin ya expone `metrics` en `getServiceInfo()`.
+
+#### A4.2. Reconcile dual entry point + naming honesto (decisión doctrinal A2 frozen + gap G1)
+
+> **Pregunta literal Yasmin (2026-05-10):** "El 'reconcile' qué es? Si es eso, realmente no debería ser 'forzar reconcile' en el servicio del cliente, sino algo general del plugin."
+> **Respuesta canónica AskUserQuestion:** Dual entry point + rename "Reconciliar contra Enhance".
+
+- **Endpoint REST nuevo:** `POST /api/v1/admin/plugins/:slug/reconcile-all` (controller `AdminPluginsController`). Invoca el método público existente `EnhanceReconciliationCron.runOnce()` (que el cron @Cron(EVERY_6_HOURS) ya invoca cada 6h). Cumple DOBLE rol:
+  - **A2 reconcile general:** botón UI desde `/admin/settings/plugins/enhance-cp` "↻ Reconciliar todos los servicios contra Enhance ahora".
+  - **G1 trigger manual cron:** desbloquea el smoke checklist `admin-plugins-enhance.md §6.2 paso 13` que afirmaba `POST /api/v1/admin/cron/enhance-reconciliation` (vaporware — endpoint nunca existió). Sin esto, smoke real no podía validar reconcile sin esperar 6h.
+- **Action local renombrada:** `force_resync` mantiene el slug (compat) pero el `label` i18n cambia "Forzar resincronización" → "Reconciliar contra Enhance". Tooltip canónico explicando que compara cache local vs Enhance (truth) y emite eventos drift.
+- **Cliente NUNCA ve botón reconcile** — operación admin pura (mantiene `adminOnly: true` Amendment A3).
+- **Patrón heredable:** todo plugin con `supports_reconciliation: true` (ADR-077 §3) DEBE exponer endpoint `POST /admin/plugins/:slug/reconcile-all` consumible desde la página settings del plugin. Convención canónica.
+
+#### A4.3. Drift UX discriminada por rol (decisión doctrinal A3 frozen)
+
+> **Estado observado smoke 2026-05-10:** cliente y admin ven `info.statusReason` crudo tipo "subscription not found in Enhance (drift detected)" mientras `Estado canónico: active`. Mensaje técnico crudo confunde al cliente.
+> **Respuesta canónica AskUserQuestion:** Discriminada por rol — cliente generic + admin AlertBanner.
+
+Patrón doctrinal congelado (heredable, materializado como UI_SPEC §4.13 nuevo):
+
+- **Cliente:** `info.statusReason` técnicos NO se renderizan. Si `status` ∈ {`unknown`, `failed`} con drift → mensaje genérico "Tu servicio está temporalmente no disponible. Hemos avisado al equipo técnico." + ocultar acciones que requieran metadata técnica corrupta (SSO, DNS).
+- **Admin:** `<AlertBanner variant="warning">` arriba de MetricsBar mostrando `statusReason` técnico crudo + CTA "Investigar en Enhance UI" (link SSO admin impersonation).
+- **Service status canónico se mantiene `active`** (DH-INV-6 ADR-082: Enhance gana en conflicto operacional, NO auto-modificar status).
+- **Pattern replicable:** cualquier plugin que retorne status `unknown` con `statusReason` aplica la misma UX. Documentado en UI_SPEC §4.13 como patrón heredable.
+
+#### A4.4. Admin overview operativo del plugin (decisión doctrinal A4 frozen)
+
+> **Estado actual:** `/admin/settings/plugins/enhance-cp` solo permite habilitar/configurar (form rjsf + secrets). Sin estadísticas operativas.
+> **Respuesta canónica AskUserQuestion:** Incluir overview en Sprint 15C.II como Fase F nueva (NO diferir a Sprint 12).
+
+Composición canónica del overview (UI_SPEC §2.3 Overview type):
+
+1. **Stats grid 4 cards:** Services activos | Services suspendidos | Drifts últimas 24h | Estado circuit breaker.
+2. **Tabla recent drifts** (últimos 10 emit `service.reconciled_external_change`) con columnas timestamp + service_id + change_type + CTA "Investigar".
+3. **Botón "↻ Reconciliar todos ahora"** (A4.2 endpoint reconcile-all).
+4. **Botón "Test conexión"** (existe — preservar).
+5. **Form config + secrets** (existe — preservar).
+
+Heredable: cada plugin con `supports_reconciliation: true` puede materializar el mismo overview. Componente reusable `<PluginOperationalOverview slug={...} />` en `frontend/app/_shared/plugins/`.
+
+#### A4.5. Sanitización `data.password` en wrapper auditor (gap G2 — riesgo compliance)
+
+> **Riesgo identificado en audit técnico 2026-05-10:** la action `reset_account_password` retorna la nueva password en `data.password` plaintext (one-time visibility intencional para que admin la comparta con el cliente — ahora vía email listener Sprint 15C.II Fase D). Pero el wrapper auditor canónico (`core/provisioning/plugin-utils.ts executeActionWithCacheInvalidation`) persiste el `result.data` íntegro en `audit_change_log` SIN sanitización. **Riesgo compliance R12:** secrets nunca audit (regla canónica) violada.
+
+Patrón doctrinal congelado (heredable a futuros plugins que retornen secretos one-time):
+
+- **Convención de campos sensibles:** todo `ActionResult.data.<field>` cuyo nombre contenga `password`, `secret`, `token`, `apiKey`, `privateKey` (case-insensitive, regex canónico) DEBE redactarse antes de persistir audit.
+- **Wrapper sanitizer:** `core/provisioning/audit-sanitizer.ts` (helper nuevo Sprint 15C.II Fase D) aplica `redactSensitiveFields(data, allowList?)` antes de cualquier `audit_change_log` emit. El admin sigue viendo el campo en la UI (toast/modal) durante la sesión inmediata; solo el log persistido lo enmascara.
+- **Test contract genérico nuevo (ADR-077 §7):** todo plugin que retorne campo cuyo nombre matchea el regex sensible DEBE pasar el test "wrapper auditor redacta sensitive en audit_change_log".
+- **Excepción declarativa:** un plugin puede declarar `ServiceAction.allowsSensitiveDataInAudit?: string[]` (default `[]`) si tiene razón legítima para auditar plain (uncommon — requiere ADR específico justificando). NO aplica a `reset_account_password` ni equivalentes.
+
+#### A4.6. Validación
+
+- Suite total backend pre Fase A Sprint 15C.II: 488/493 verde + 5 skipped (post merge PR #52).
+- Tests nuevos esperados (Sprint 15C.II.D + 15C.II.G):
+  - `audit-sanitizer.spec.ts` cubre redact de `password|secret|token|apiKey|privateKey` con allowList opcional.
+  - `enhance.plugin.spec.ts` verifica que tras `reset_account_password`, el wrapper sanitiza antes de audit emit.
+  - Contract test genérico verifica patrón sensitive redaction para todos los plugins.
+  - Test integración endpoint `POST /admin/plugins/enhance_cp/reconcile-all` con admin authenticated → 200 + invoca `cron.runOnce()`.
+  - Test integración action `force_resync` con label/tooltip i18n nuevo.
+  - E2E spec extendido cubriendo refresh metrics ↻ + drift UX role discrimination + admin overview render.
