@@ -416,6 +416,12 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       where: { id: 'svc-1' },
       data: { status: 'provisioning' },
     });
+    // Sprint 15C.II Fase C round 3: invalidar cache `service_info:${id}`
+    // tras reset status. El job corre async — sin invalidación, la UI
+    // re-fetch (revalidatePath SC + auto-refresh frontend) seguiría
+    // leyendo cached `not_yet_provisioned` mientras el worker
+    // completa el provision real.
+    expect(cache.invalidate).toHaveBeenCalledWith('svc-1');
     expect(orchestrator.enqueueProvisioning).toHaveBeenCalledWith('svc-1');
     expect(audit.logChange).toHaveBeenCalledWith(
       expect.objectContaining({

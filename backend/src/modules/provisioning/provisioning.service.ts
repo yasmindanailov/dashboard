@@ -536,6 +536,16 @@ export class ProvisioningService {
       data: { status: 'provisioning' },
     });
 
+    // Sprint 15C.II Fase C round 3 (smoke real Yasmin 2026-05-10):
+    // invalidar cache `service_info:${id}` ANTES del enqueue. El job
+    // corre async (segundos), y mientras tanto la UI admin re-fetch
+    // (revalidatePath del SC + auto-refresh frontend tras 5s). Sin
+    // esta invalidación, la UI seguiría leyendo cached
+    // `not_yet_provisioned` aunque el status DB ya hubiera cambiado.
+    // El orquestador re-invalida tras provision OK/failure (defense
+    // in depth — la cache se mantiene fresca en cada hito).
+    await this.cache.invalidate(serviceId);
+
     await this.orchestrator.enqueueProvisioning(serviceId);
 
     await this.audit.logChange({

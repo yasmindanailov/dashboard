@@ -107,16 +107,28 @@ export function AdminDriftBanner({
     }
     setReprovisioning(true);
     const result = await reprovisionServiceAction(serviceId);
-    setReprovisioning(false);
     if (!result.ok) {
+      setReprovisioning(false);
       toast('error', t('service.drift.admin_banner.reprovision_error'));
       return;
     }
     toast('success', t('service.drift.admin_banner.reprovision_success'));
-    // Refresca la página para que el admin vea el nuevo estado tras la
-    // re-aprovisión. La revalidatePath del server action invalida el
-    // cache del SC; router.refresh fuerza el re-render del segment.
+    // Sprint 15C.II Fase C round 3 (smoke real Yasmin 2026-05-10): el
+    // job provisioning corre async (típicamente 1-5 segundos contra
+    // el proveedor real, hasta 30-60s con retries). El primer
+    // `router.refresh()` post-toast NO veía aún el resultado porque
+    // el worker no había terminado. Auto-refresh secuencial: refresh
+    // inmediato (para ver `status=provisioning` del reset round 2) +
+    // refresh diferido a 5s (para ver el resultado del job — success
+    // o failure). El admin ve progresión natural sin tener que
+    // recargar manualmente. El bloqueo del botón se mantiene hasta
+    // el segundo refresh para evitar dobles pulsaciones durante la
+    // ventana del job.
     router.refresh();
+    setTimeout(() => {
+      router.refresh();
+      setReprovisioning(false);
+    }, 5000);
   }
 
   return (

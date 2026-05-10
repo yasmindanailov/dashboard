@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 
 import { PrismaService } from '../../core/database/prisma.service';
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
+import { ProvisioningCacheService } from '../../core/provisioning/provisioning-cache.service';
 import {
   ProvisionContext,
   ProvisionerPluginError,
@@ -59,6 +60,18 @@ export class ProvisioningOrchestratorService {
     private readonly tasks: TasksService,
     private readonly events: EventEmitter2,
     @InjectQueue(PROVISIONING_DISPATCH_QUEUE) private readonly queue: Queue,
+    // Sprint 15C.II Fase C round 3 (smoke real Yasmin 2026-05-10): el
+    // wrapper `getServiceInfoWithCache` cachea el resultado del plugin
+    // por 60s. Tras `provision()` exitoso, la metadata recién persistida
+    // (enhance_org_id, provider_reference) NO se reflejaba en la UI
+    // porque el wrapper devolvía la versión cacheada `not_yet_provisioned`
+    // de antes del provision. Bug crítico de UX que invalidaba el botón
+    // "Re-aprovisionar ahora" — el admin pulsaba, plugin OK, UI seguía
+    // mostrando drift. Fix: invalidar cache canónicamente tras cualquier
+    // mutación de service (provision OK + provision permanent failure +
+    // markActive). Análogo al patrón
+    // `executeActionWithCacheInvalidation` (plugin-utils.ts:289).
+    private readonly cache: ProvisioningCacheService,
   ) {}
 
   // ──────────────────────────────────────────────────────────────────────
@@ -201,6 +214,12 @@ export class ProvisioningOrchestratorService {
         },
       });
 
+      // Sprint 15C.II Fase C round 3 — invalidar cache `service_info:${id}`
+      // tras persistir nueva metadata. Sin esto el wrapper
+      // `getServiceInfoWithCache` devolvía cached `not_yet_provisioned`
+      // hasta TTL (60s) aunque el plugin ya hubiera creado refs externas.
+      await this.cache.invalidate(serviceId);
+
       await this.applyFollowUp(service, result.followUp, correlationId);
 
       this.logger.log(
@@ -232,6 +251,11 @@ export class ProvisioningOrchestratorService {
           cancellation_reason: `provisioning_failed:${code}`,
         },
       });
+
+      // Sprint 15C.II Fase C round 3 — invalidar cache también tras
+      // failure permanente (status pasa a cancelled, UI debe ver el
+      // cambio inmediato sin esperar TTL).
+      await this.cache.invalidate(serviceId);
 
       this.events.emit('service.provisioning_failed', {
         service_id: serviceId,

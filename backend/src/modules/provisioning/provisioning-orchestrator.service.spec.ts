@@ -55,6 +55,7 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
   let tasks: { createFromTrigger: jest.Mock };
   let events: { emit: jest.Mock };
   let queue: { add: jest.Mock };
+  let cache: { invalidate: jest.Mock };
   let orchestrator: ProvisioningOrchestratorService;
 
   function buildPlugin(
@@ -132,6 +133,7 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
     tasks = { createFromTrigger: jest.fn() };
     events = { emit: jest.fn() };
     queue = { add: jest.fn().mockResolvedValue(undefined) };
+    cache = { invalidate: jest.fn().mockResolvedValue(undefined) };
 
     orchestrator = new ProvisioningOrchestratorService(
       prisma as never,
@@ -139,6 +141,7 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
       tasks as never,
       events as unknown as EventEmitter2,
       queue as never,
+      cache as never,
     );
   });
 
@@ -203,6 +206,11 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
       'service.activated',
       expect.objectContaining({ service_id: 'svc-1', user_id: 'user-1' }),
     );
+    // Sprint 15C.II Fase C round 3: invalidar cache `service_info:${id}`
+    // tras persistir nueva metadata (linea ~221 orchestrator). Sin esto
+    // el wrapper getServiceInfoWithCache devolvía cached versión vieja
+    // hasta TTL 60s aunque el plugin ya hubiera creado refs externas.
+    expect(cache.invalidate).toHaveBeenCalledWith('svc-1');
   });
 
   it('provision OK followUp=create_setup_task â†’ llama tasks.create', async () => {
@@ -292,6 +300,10 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
         reason: 'PROVIDER_AUTH_FAILED',
       }),
     );
+    // Sprint 15C.II Fase C round 3: invalidar cache también tras failure
+    // permanente (status pasa a cancelled, UI debe ver el cambio inmediato
+    // sin esperar TTL).
+    expect(cache.invalidate).toHaveBeenCalledWith('svc-1');
   });
 
   it('handleInvoicePaid encola un job por cada service en items', async () => {
