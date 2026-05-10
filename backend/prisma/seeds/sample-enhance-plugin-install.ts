@@ -7,7 +7,7 @@ import { SecretVaultService } from '../../src/core/security/secret-vault.service
  * Sprint 15C Fase 15C.J (2026-05-09) — seed dev/QA del `plugin_installs`
  * row para el plugin Enhance CP.
  *
- * Materializa el segundo objetivo de la Fase J ([dossier 15C §7 fila J](../docs/60-roadmap/sprint-15c-enhance-cp-dossier.md)):
+ * Materializa el segundo objetivo de la Fase J ([dossier 15C §7 fila J](../docs/60-roadmap/completed/sprint-15c-plugin-enhance-cp.md)):
  * "Plugin install seed condicional `NODE_ENV !== 'production'` —
  * pre-crea `plugin_installs` row con baseUrl + masterOrgId desde env +
  * apiToken desde env var dedicada → DX para QA/staging/dev (admin no

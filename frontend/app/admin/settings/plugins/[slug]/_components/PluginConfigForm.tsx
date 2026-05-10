@@ -8,6 +8,7 @@ import type { IChangeEvent } from '@rjsf/core';
 import type { RJSFSchema } from '@rjsf/utils';
 
 import { Button } from '../../../../../components/ui';
+import { t, translateSchema } from '../../../../../_shared/i18n';
 import type {
   AdminPluginDetail,
   PluginJsonSchema,
@@ -237,7 +238,7 @@ export function PluginConfigForm({ detail }: Props) {
           </p>
         ) : (
           <Form
-            schema={detail.manifest.configSchema as unknown as RJSFSchema}
+            schema={translateSchema(detail.manifest.configSchema as unknown as RJSFSchema)}
             formData={configValue}
             widgets={aeliumDsWidgets}
             validator={validator}
@@ -360,7 +361,7 @@ function SecretsFields({
             />
             {prop.description && (
               <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                {prop.description}
+                {t(prop.description)}
               </span>
             )}
           </label>

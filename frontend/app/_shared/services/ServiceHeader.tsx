@@ -9,6 +9,7 @@
  * mantiene intacto.
  */
 import { Badge } from '../../components/ui';
+import { t } from '../i18n';
 import type { ServiceInfo } from '../../lib/api';
 import { SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE } from './service-status';
 
@@ -46,7 +47,7 @@ export function ServiceHeader({ info, productName }: ServiceHeaderProps) {
             marginTop: 6,
           }}
         >
-          {info.display.secondary ?? productName}
+          {info.display.secondary ? t(info.display.secondary) : productName}
         </p>
         {info.statusReason && (
           <p

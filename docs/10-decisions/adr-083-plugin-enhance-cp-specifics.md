@@ -13,7 +13,7 @@
 
 Sprint 15C (P2.3) implementa **Enhance CP** como primer plugin real. Enhance es el control panel que Aelium opera en server propio (PowerDNS como autoridad DNS real, ns1/ns2.aelium.net apuntando al servidor dedicado). Es la pieza que desbloquea Sprint 15D ResellerClub (los dominios registrados con NS=Aelium necesitan zonas DNS reales en algún cluster — Enhance es ese cluster).
 
-El chat Yasmin ↔ Claude del 2026-05-07 (commit master `80492ad`) produjo **35 decisiones técnicas frozen** que son específicas del plugin Enhance, no extrapolables a otros plugins. Todas están validadas contra el spec literal `docs/_research/sprint-15c/orchd-oas3-api.yaml` (orchd v12.21.3, 588 KB / 20.848 líneas / ~280 paths). Vienen del dossier `docs/60-roadmap/sprint-15c-enhance-cp-dossier.md` §6.
+El chat Yasmin ↔ Claude del 2026-05-07 (commit master `80492ad`) produjo **35 decisiones técnicas frozen** que son específicas del plugin Enhance, no extrapolables a otros plugins. Todas están validadas contra el spec literal `docs/_research/sprint-15c/orchd-oas3-api.yaml` (orchd v12.21.3, 588 KB / 20.848 líneas / ~280 paths). Vienen del dossier `docs/60-roadmap/completed/sprint-15c-plugin-enhance-cp.md` §6.
 
 > **¿Qué pasaría si NO tomáramos esta decisión?** Sprint 15C arranca y reabre cada decisión durante la implementación: ¿bearerAuth o sessionCookie? ¿Owner token o Super Admin token? ¿lazy create customer en alta del Client o en primer hosting? ¿qué endpoint para SSO? ¿qué columnas en `enhance_customers`? ¿cron cada hora o cada 6h? Cada respuesta consumiría decisiones reabiertas en el chat de implementación, y algunas se documentarían inline solo en código. Para cuando el plugin Enhance esté operativo, las razones detrás de "¿por qué Super Admin y no Owner?" o "¿por qué `enhance_customers` con PK natural client_id y no UUID?" vivirán en commits dispersos sin findability. El próximo plugin (Sprint 15D RC) las redescubrirá. Mismo antipatrón que ADR-077/080 evitan a nivel transversal — pero ahora a nivel de plugin específico.
 
@@ -526,7 +526,7 @@ Ambos eventos **NO requieren Outbox** v1 — son alertas operativas, no transacc
 - **Glosario:** *Enhance Customer* (a añadir), *Master Org Aelium* (a añadir), *Customer Org Enhance* (a añadir), *OTP SSO URL* (a añadir), *Default DNS records platform-level* (cubierto en ADR-082), *Reconcile drift detection* (a añadir).
 - **Sprint:** 15C Fase A (este ADR) → 15C.B-I (implementación literal de §1-§10).
 - **Spec literal Enhance**: [`docs/_research/sprint-15c/orchd-oas3-api.yaml`](../_research/sprint-15c/orchd-oas3-api.yaml) (orchd v12.21.3, OpenAPI 3.0.3, 588 KB / 20.848 líneas / ~280 paths). Cada decisión cita líneas exactas del YAML.
-- **Dossier de origen:** [`docs/60-roadmap/sprint-15c-enhance-cp-dossier.md`](../60-roadmap/sprint-15c-enhance-cp-dossier.md) §6 (35 decisiones técnicas frozen). Este ADR es la materialización canónica de §6 con razones expandidas.
+- **Dossier de origen:** [`docs/60-roadmap/completed/sprint-15c-plugin-enhance-cp.md`](../60-roadmap/completed/sprint-15c-plugin-enhance-cp.md) §6 (35 decisiones técnicas frozen). Este ADR es la materialización canónica de §6 con razones expandidas.
 
 ---
 

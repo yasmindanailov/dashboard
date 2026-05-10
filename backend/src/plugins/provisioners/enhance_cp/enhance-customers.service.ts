@@ -104,8 +104,15 @@ export class EnhanceCustomersService {
   ): Promise<EnhanceCustomerMapping> {
     return this.prisma.$transaction(async (tx) => {
       // Step 0: advisory lock per-user (auto-released on tx commit/rollback).
+      // Sprint 15C Fase 15C.I bug fix: usar `$executeRaw` (no `$queryRaw`)
+      // porque `pg_advisory_xact_lock(...)` retorna VOID — Prisma rompe al
+      // intentar deserializar un column de type void. `$executeRaw` retorna
+      // row count (0), que es lo correcto para queries sin resultados. Bug
+      // pre-existente Fase C (PR #38) no detectado porque los tests
+      // integration mockean Prisma — solo se manifiesta provisionando
+      // contra Postgres real.
       const lockKey = userAdvisoryLockKey(user.id);
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(${ADVISORY_LOCK_NAMESPACE_ENHANCE_CUSTOMERS}::int4, ${lockKey}::int4)`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ADVISORY_LOCK_NAMESPACE_ENHANCE_CUSTOMERS}::int4, ${lockKey}::int4)`;
 
       // Step 1: cache local.
       const existing = await tx.enhanceCustomer.findUnique({

@@ -14,6 +14,7 @@ import {
   serverFetch,
   ServerFetchError,
 } from '../../../../lib/server-auth';
+import { t } from '../../../../_shared/i18n';
 import { PluginStatusBadge } from '../../../../_shared/plugins/PluginStatusBadge';
 
 import { PluginConfigForm } from './_components/PluginConfigForm';
@@ -57,7 +58,7 @@ export default async function AdminPluginDetailPage({ params }: PageProps) {
       >
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>
-            {detail.manifest.label}
+            {t(detail.manifest.label)}
           </h1>
           <p
             style={{
@@ -67,7 +68,7 @@ export default async function AdminPluginDetailPage({ params }: PageProps) {
               maxWidth: 720,
             }}
           >
-            {detail.manifest.description}
+            {t(detail.manifest.description)}
           </p>
           <div
             style={{

@@ -4,7 +4,7 @@
  * Server Component nativo paralelo al detalle cliente
  * `/dashboard/services/[id]/page.tsx` (Sprint 11 Fase 11.D + Sprint 13
  * §13.AUTH Fase E). Materializa el primer objetivo de Fase 15C.J
- * ([dossier 15C §7 fila J](../../../../docs/60-roadmap/sprint-15c-enhance-cp-dossier.md)):
+ * ([dossier 15C §7 fila J](../../../../docs/60-roadmap/completed/sprint-15c-plugin-enhance-cp.md)):
  * vista admin con `info` enriquecido + operaciones admin.
  *
  * Diferencias canónicas vs el detalle cliente:
@@ -32,6 +32,7 @@
 import Link from 'next/link';
 
 import { Card, EmptyState } from '../../../components/ui';
+import { t } from '../../../_shared/i18n';
 import { ActionsBar, MetricsBar, ServiceHeader, SsoButton } from '../../../_shared/services';
 import type { ServiceDetailResponse } from '../../../lib/api';
 import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
@@ -206,7 +207,7 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
       <AdminServiceOperationsCard
         serviceId={service.id}
         actions={info.availableActions}
-        currentPlanLabel={info.display.secondary}
+        currentPlanLabel={info.display.secondary ? t(info.display.secondary) : undefined}
       />
 
       {/* DNS link — espejo del detalle cliente. Sprint futuro añadirá

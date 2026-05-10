@@ -26,12 +26,13 @@
  * `adminOnly` + helpers internos la lista queda vacía, también se oculta.
  */
 import { useState } from 'react';
-import { Button, Card } from '../../components/ui';
-import type { ActionResult, ServiceAction } from '../../lib/api';
+import { Button, Card, useToast } from '../../components/ui';
+import { t } from '../i18n';
+import type { ServiceAction } from '../../lib/api';
 import { executeServiceActionAction } from './_actions';
 
 /**
- * Slugs operados desde UI admin custom (modales propios), NO botones
+ * Slugs operados desde UI custom (modales o páginas dedicadas), NO botones
  * standalone. Acoplamiento bajo (string array hardcoded — vale la pena
  * v1 vs introducir un nuevo flag `hidden_in_actions_bar` en el contrato
  * canónico ProvisionerPlugin solo por esto).
@@ -43,12 +44,31 @@ import { executeServiceActionAction } from './_actions';
  *                               (alimenta el dropdown). NO acción
  *                               standalone que el admin pulse.
  *
+ * Sprint 15C Fase 15C.I (cierre — bug detectado en smoke 2026-05-10):
+ *   - `list_dns_records`      — la zona DNS se gestiona desde la UI canónica
+ *                               `/dashboard/services/[id]/dns` (Sprint 15C
+ *                               Fase G). El slug existe en el manifest
+ *                               por contrato (ADR-077 Amendment A1.3
+ *                               required si `has_dns_management=true`)
+ *                               pero como botón standalone es redundante
+ *                               con la página dedicada y la ejecución sin
+ *                               payload form rompe (`INVALID_PAYLOAD`).
+ *   - `add_dns_record` / `update_dns_record` / `delete_dns_record` —
+ *                               idem. La UI canónica `DnsRecordsManager`
+ *                               provee form completo + validación por
+ *                               kind. Inline button sin form solo puede
+ *                               fallar.
+ *
  * Si llega un futuro plugin con un slug que también deba ocultarse,
  * añadir aquí + documentar el motivo inline.
  */
 const INTERNAL_HELPER_SLUGS = new Set<string>([
   'change_package',
   'list_available_plans',
+  'list_dns_records',
+  'add_dns_record',
+  'update_dns_record',
+  'delete_dns_record',
 ]);
 
 interface ActionsBarProps {
@@ -62,7 +82,8 @@ interface ActionsBarProps {
    * (`provisioning.controller.ts` `ADMIN_ROLES`).
    */
   isAdmin: boolean;
-  onActionExecuted?: (result: ActionResult) => void;
+  /** Callback opcional invocado cuando una action acaba (success o fail). */
+  onActionExecuted?: () => void;
 }
 
 export function ActionsBar({
@@ -71,12 +92,13 @@ export function ActionsBar({
   isAdmin,
   onActionExecuted,
 }: ActionsBarProps) {
+  // Sprint 15C Fase 15C.I: feedback de acciones via toast canónico
+  // (UI_SPEC §4.3 — esquina superior derecha, efímero 5s). Antes Sprint 11
+  // Fase 11.D usaba feedback inline en la card; ese patrón violaba la
+  // doctrina canónica. Ahora consistente con DnsRecordsManager + el resto
+  // del frontend (productos, billing, support).
+  const { toast } = useToast();
   const [running, setRunning] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<{
-    actionSlug: string;
-    result: ActionResult;
-  } | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   // ADR-077 Amendment A3.5 patrón canónico — filter declarativo por flag,
   // NUNCA por slug (eso rompería ADR-070 "cero `if (provisioner === 'X')`").
@@ -91,26 +113,38 @@ export function ActionsBar({
   if (visibleActions.length === 0) return null;
 
   const onAction = async (action: ServiceAction) => {
+    const localizedLabel = t(action.label);
     if (action.confirmRequired) {
-      const text = action.confirmationText ?? `¿Confirmar acción "${action.label}"?`;
+      const text = action.confirmationText
+        ? t(action.confirmationText)
+        : `¿Confirmar acción "${localizedLabel}"?`;
       if (!window.confirm(text)) return;
     }
 
     setRunning(action.slug);
-    setError(null);
-    setFeedback(null);
     /*
      * Acciones triviales sin payload — futuros plugins con
      * payloadSchema definirán formularios inline propios (Sprint 15+).
      */
     const result = await executeServiceActionAction(serviceId, action.slug, {});
     setRunning(null);
+
     if (!result.ok) {
-      setError(result.error);
+      toast('error', result.error);
       return;
     }
-    setFeedback({ actionSlug: action.slug, result: result.result });
-    onActionExecuted?.(result.result);
+    if (result.result.success) {
+      const successMsg = result.result.message
+        ? t(result.result.message)
+        : `${localizedLabel}: completada.`;
+      toast('success', successMsg);
+    } else {
+      const warnMsg = result.result.message
+        ? t(result.result.message)
+        : `${localizedLabel}: no se completó.`;
+      toast('error', warnMsg);
+    }
+    onActionExecuted?.();
   };
 
   return (
@@ -125,32 +159,12 @@ export function ActionsBar({
             onClick={() => onAction(action)}
             disabled={running === action.slug}
             variant={action.destructive ? 'danger' : 'secondary'}
+            title={action.description ? t(action.description) : undefined}
           >
-            {running === action.slug ? 'Ejecutando…' : action.label}
+            {running === action.slug ? 'Ejecutando…' : t(action.label)}
           </Button>
         ))}
       </div>
-      {feedback && (
-        <p
-          style={{
-            marginTop: 12,
-            fontSize: 13,
-            color: feedback.result.success
-              ? 'var(--success-600)'
-              : 'var(--warning-600)',
-          }}
-        >
-          {feedback.result.message ??
-            (feedback.result.success
-              ? `Acción "${feedback.actionSlug}" completada.`
-              : `Acción "${feedback.actionSlug}" no se completó.`)}
-        </p>
-      )}
-      {error && (
-        <p style={{ marginTop: 12, fontSize: 13, color: 'var(--danger-600)' }}>
-          {error}
-        </p>
-      )}
     </Card>
   );
 }

@@ -4,6 +4,7 @@ import type { ChangeEvent } from 'react';
 import type { WidgetProps } from '@rjsf/utils';
 
 import { Input, Select } from '../../../components/ui';
+import { t } from '../../i18n';
 
 /**
  * Widgets canónicos del tema DS para `@rjsf/core` — Sprint 15A Fase H.1
@@ -60,8 +61,13 @@ export function DSTextWidget(props: WidgetProps) {
   } = props;
 
   const inputType = resolveInputType(schema.format);
-  const helperText =
+  // Sprint 15C Fase 15C.I: rjsf pasa schema.description vía options.help —
+  // los plugins emiten i18n keys (`plugin.<slug>.config.<field>`) que el
+  // translator local resuelve a ES. Si la key no existe, t() devuelve la
+  // string original (compat con descriptions literales no-i18n).
+  const helperRaw =
     typeof options.help === 'string' ? options.help : undefined;
+  const helperText = helperRaw ? t(helperRaw) : undefined;
   const errorText = rawErrors && rawErrors.length > 0 ? rawErrors[0] : undefined;
 
   return (
@@ -108,8 +114,9 @@ export function DSNumberWidget(props: WidgetProps) {
     options,
   } = props;
 
-  const helperText =
+  const helperRaw =
     typeof options.help === 'string' ? options.help : undefined;
+  const helperText = helperRaw ? t(helperRaw) : undefined;
   const errorText = rawErrors && rawErrors.length > 0 ? rawErrors[0] : undefined;
 
   return (
