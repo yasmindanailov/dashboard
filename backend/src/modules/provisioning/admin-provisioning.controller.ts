@@ -76,6 +76,28 @@ export class AdminProvisioningController {
     return this.provisioning.getInfoForUser(id, req.user.id, true);
   }
 
+  /**
+   * Sprint 15C.II Fase B (ADR-083 Amendment A4.1) — refresh manual admin
+   * del cache `service_info` (TTL 60s wrapper). Espejo del endpoint cliente
+   * `POST /services/:id/refresh` pero con isAdmin=true (bypass ownership).
+   * Invocado desde el botón "↻ Refrescar" de `MetricsBar.tsx` cuando renderiza
+   * en `/admin/services/[id]`.
+   */
+  @Post(':id/refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Refrescar service info admin (bypass cache 60s — ADR-083 A4.1)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Service))
+  refresh(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.provisioning.getInfoForUser(id, req.user.id, true, {
+      forceRevalidate: true,
+    });
+  }
+
   @Post(':id/reprovision')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({

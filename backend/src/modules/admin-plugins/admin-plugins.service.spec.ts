@@ -14,6 +14,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { CircuitBreakerRegistry } from '../../core/provisioning/circuit-breaker';
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
+import { ReconcileRegistryService } from '../../core/provisioning/reconcile-registry.service';
 import { SecretVaultService } from '../../core/security/secret-vault.service';
 import {
   EMPTY_PLUGIN_SCHEMA,
@@ -104,6 +105,7 @@ describe('AdminPluginsService â€” Sprint 15A Fase G (ADR-080)', () => {
   let audit: { logChange: jest.Mock };
   let events: { emit: jest.Mock };
   let breakers: jest.Mocked<CircuitBreakerRegistry>;
+  let reconcileRegistry: ReconcileRegistryService;
   let service: AdminPluginsService;
 
   const enhancePlugin = buildPlugin('enhance-cp');
@@ -134,6 +136,10 @@ describe('AdminPluginsService â€” Sprint 15A Fase G (ADR-080)', () => {
       listNames: jest.fn().mockReturnValue([]),
       resetAll: jest.fn(),
     } as unknown as jest.Mocked<CircuitBreakerRegistry>;
+    // Sprint 15C.II Fase B: instancia real (no mock) — el servicio es
+    // pequeño + side-effect-free. Cada test que ejerza reconcileAll
+    // registra/desregistra ad-hoc.
+    reconcileRegistry = new ReconcileRegistryService();
 
     service = new AdminPluginsService(
       prisma as never,
@@ -142,6 +148,7 @@ describe('AdminPluginsService â€” Sprint 15A Fase G (ADR-080)', () => {
       audit as never,
       events as unknown as EventEmitter2,
       breakers,
+      reconcileRegistry,
     );
     service.onModuleInit();
   });
@@ -425,6 +432,122 @@ describe('AdminPluginsService â€” Sprint 15A Fase G (ADR-080)', () => {
       const result = await service.testConnection('enhance-cp');
       expect(result.success).toBe(false);
       expect(result.message).toBe('auth failed');
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // reconcileAll() — Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1)
+  // ─────────────────────────────────────────────────────────────────────
+
+  describe('reconcileAll()', () => {
+    function buildReconcilePlugin(
+      slug: string,
+      supportsReconciliation: boolean,
+    ) {
+      const plugin = buildPlugin(slug);
+      (
+        plugin as { capabilities: { supports_reconciliation: boolean } }
+      ).capabilities.supports_reconciliation = supportsReconciliation;
+      registry.getAvailable.mockImplementation((s: string) =>
+        s === slug ? plugin : null,
+      );
+      return plugin;
+    }
+
+    it('lanza NotFoundException si el plugin no existe', async () => {
+      registry.getAvailable.mockReturnValue(null);
+      await expect(
+        service.reconcileAll('plugin-no-existe', 'admin-1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('lanza BadRequestException si el plugin no declara supports_reconciliation=true', async () => {
+      buildReconcilePlugin('plugin-sin-reconcile', false);
+      await expect(
+        service.reconcileAll('plugin-sin-reconcile', 'admin-1'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('lanza BadRequestException si supports_reconciliation=true pero NO hay executor registrado (bug wiring)', async () => {
+      buildReconcilePlugin('plugin-supports-no-exec', true);
+      // No registramos executor → reconcileRegistry.hasExecutor() = false
+      await expect(
+        service.reconcileAll('plugin-supports-no-exec', 'admin-1'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('happy path: invoca executor + audita éxito + devuelve shape canónico', async () => {
+      buildReconcilePlugin('plugin-ok', true);
+      reconcileRegistry.register('plugin-ok', () =>
+        Promise.resolve({
+          servicesProcessed: 7,
+          driftsDetected: 2,
+          durationMs: 123,
+          details: {
+            subscription_missing: 0,
+            status_divergence: 1,
+            plan_divergence: 1,
+          },
+        }),
+      );
+
+      const result = await service.reconcileAll('plugin-ok', 'admin-1');
+
+      expect(result).toMatchObject({
+        slug: 'plugin-ok',
+        services_processed: 7,
+        drifts_detected: 2,
+        duration_ms: 123,
+        details: {
+          subscription_missing: 0,
+          status_divergence: 1,
+          plan_divergence: 1,
+        },
+      });
+      // triggered_at es ISO timestamp del momento de la ejecución
+      expect(typeof result.triggered_at).toBe('string');
+      expect(new Date(result.triggered_at).toISOString()).toBe(
+        result.triggered_at,
+      );
+
+      // Audit canónico R3 — emit con success=true + payload normalizado
+      expect(audit.logChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: 'admin-1',
+          entity_type: 'Plugin',
+          action: 'plugin.reconcile_triggered_manually',
+          changes_after: expect.objectContaining({
+            slug: 'plugin-ok',
+            success: true,
+            services_processed: 7,
+            drifts_detected: 2,
+          }),
+        }),
+      );
+    });
+
+    it('audita el FALLO + re-lanza si el executor lanza error', async () => {
+      buildReconcilePlugin('plugin-throws', true);
+      reconcileRegistry.register('plugin-throws', () =>
+        Promise.reject(new Error('Enhance API down')),
+      );
+
+      await expect(
+        service.reconcileAll('plugin-throws', 'admin-2'),
+      ).rejects.toThrow('Enhance API down');
+
+      // Audit canónico del fallo — trazabilidad operativa
+      expect(audit.logChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: 'admin-2',
+          action: 'plugin.reconcile_triggered_manually',
+          changes_after: expect.objectContaining({
+            slug: 'plugin-throws',
+            success: false,
+            error: 'Enhance API down',
+          }),
+        }),
+      );
     });
   });
 });

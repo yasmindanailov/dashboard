@@ -8,6 +8,7 @@ import {
   PROVISIONER_PLUGINS,
 } from '../../core/provisioning/plugin-registry';
 import { ProvisioningCacheService } from '../../core/provisioning/provisioning-cache.service';
+import { ReconcileRegistryService } from '../../core/provisioning/reconcile-registry.service';
 import { SettingsModule } from '../../core/settings/settings.module';
 import { EnhanceCpModule } from '../../plugins/provisioners/enhance_cp/enhance.module';
 import { EnhanceProvisionerPlugin } from '../../plugins/provisioners/enhance_cp/enhance.plugin';
@@ -73,6 +74,12 @@ import { ProvisioningService } from './provisioning.service';
     ProvisioningDispatchProcessor,
     PluginRegistryService,
     ProvisioningCacheService,
+    // Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1) — registry
+    // genérico para `reconcile-all` admin endpoint. Cada plugin con
+    // supports_reconciliation registra su executor en onModuleInit del
+    // cron reconciliation correspondiente. Heredable a 15D RC + 15E Docker
+    // + 15G Plesk.
+    ReconcileRegistryService,
     ProvisioningOnTaskCompletedListener,
     // Sprint 15C Fase 15C.D — listeners de DNS-as-capability (ADR-082 §4 + §5):
     //   • bootstrap defaults cuando se enable el plugin enhance_cp,
@@ -118,6 +125,7 @@ import { ProvisioningService } from './provisioning.service';
     PluginRegistryService,
     ProvisioningCacheService,
     CircuitBreakerRegistry,
+    ReconcileRegistryService,
   ],
 })
 export class ProvisioningModule {}

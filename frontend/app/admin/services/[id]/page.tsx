@@ -90,7 +90,13 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
         <ServiceHeader info={info} productName={service.product_name} />
       </Card>
 
-      {info.metrics && <MetricsBar metrics={info.metrics} />}
+      {info.metrics && (
+        <MetricsBar
+          metrics={info.metrics}
+          serviceId={service.id}
+          isAdmin={true}
+        />
+      )}
 
       {/*
         Card "Datos del servicio (admin)" — info NO expuesta al cliente.

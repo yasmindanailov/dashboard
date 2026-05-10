@@ -18,6 +18,7 @@ import { t } from '../../../../_shared/i18n';
 import { PluginStatusBadge } from '../../../../_shared/plugins/PluginStatusBadge';
 
 import { PluginConfigForm } from './_components/PluginConfigForm';
+import { ReconcileAllButton } from './_components/ReconcileAllButton';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -104,7 +105,60 @@ export default async function AdminPluginDetailPage({ params }: PageProps) {
         />
       </header>
 
+      {/*
+        Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1) — botón
+        "↻ Reconciliar todos los servicios contra <Plugin> ahora" para
+        plugins con capabilities.supports_reconciliation = true. Solo se
+        renderiza si está habilitado el plugin (sino reconcile no aplica)
+        + el plugin declara la capability. Heredable a 15D RC + 15E + 15G.
+      */}
+      {detail.enabled && detail.manifest && (
+        <PluginReconcileSection slug={detail.slug} />
+      )}
+
       <PluginConfigForm detail={detail} />
     </div>
+  );
+}
+
+/**
+ * Sub-sección operativa del plugin con el botón de reconcile-all. Server
+ * Component que delega al CC `<ReconcileAllButton>`. Inserto la card aquí
+ * para mantener `page.tsx` con foco SC + delegación a CC para la
+ * interactividad (patrón canónico Sprint 13 §13.AUTH Modelo A).
+ */
+function PluginReconcileSection({ slug }: { slug: string }) {
+  return (
+    <section
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 8,
+        padding: 16,
+        marginBottom: 16,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 16,
+        flexWrap: 'wrap',
+      }}
+    >
+      <div>
+        <h2 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>
+          {t('admin.plugins.reconcile_all.section_title')}
+        </h2>
+        <p
+          style={{
+            fontSize: 12,
+            color: 'var(--text-secondary)',
+            margin: '4px 0 0',
+            maxWidth: 540,
+          }}
+        >
+          {t('admin.plugins.reconcile_all.section_description')}
+        </p>
+      </div>
+      <ReconcileAllButton slug={slug} />
+    </section>
   );
 }

@@ -30,10 +30,12 @@
  *   - has_dns_management: true (Enhance es PowerDNS authority)
  *   - supports_reconciliation: true (cron 6h)
  *
- * inlineActions (ADR-083 §9 decisión 32) — 9 actions:
- *   - cliente: reset_account_password, view_disk_usage, view_bandwidth_usage
+ * inlineActions (ADR-083 §9 decisión 32 + Amendment A3 + Amendment A4.1) — 8 actions:
+ *   - cliente: reset_account_password
  *   - DNS:     list_dns_records, add_dns_record, update_dns_record, delete_dns_record
- *   - admin:   change_package, force_resync
+ *   - admin:   change_package, force_resync, list_available_plans
+ *   (Sprint 15C.II Fase B: view_disk_usage + view_bandwidth_usage eliminados —
+ *    métricas refrescadas via botón ↻ en MetricsBar + forceRevalidate flag)
  *
  * Reglas:
  *   - R4: importa SOLO de `core/provisioning/types`, `core/database`,
@@ -218,29 +220,15 @@ const ENHANCE_INLINE_ACTIONS: readonly ServiceAction[] = [
     confirmationText: 'plugin.enhance_cp.actions.reset_password.confirm',
     destructive: false,
   },
-  // Sprint 15C Fase 15C.I — flagged `adminOnly: true` tras smoke real:
-  // las métricas de disco y bandwidth ya viven en MetricsBar (cliente +
-  // admin) refrescadas via `getServiceInfo` cada 60 s. El cliente NO
-  // necesita un botón para "verlas otra vez" — sería redundante UX.
-  // Útil solo al admin para forzar invalidación de cache (executeAction
-  // wrapper invalida tras success). Si se quisiera UX cliente con render
-  // visual del data, abrir DC.NEW-15C-METRICS-MODAL (v1.1).
-  {
-    slug: 'view_disk_usage',
-    label: 'plugin.enhance_cp.actions.view_disk',
-    description: 'plugin.enhance_cp.actions.view_disk.description',
-    confirmRequired: false,
-    destructive: false,
-    adminOnly: true,
-  },
-  {
-    slug: 'view_bandwidth_usage',
-    label: 'plugin.enhance_cp.actions.view_bandwidth',
-    description: 'plugin.enhance_cp.actions.view_bandwidth.description',
-    confirmRequired: false,
-    destructive: false,
-    adminOnly: true,
-  },
+  // Sprint 15C.II Fase B (2026-05-10) — eliminados `view_disk_usage` y
+  // `view_bandwidth_usage` por decisión doctrinal A1 frozen:
+  // [ADR-083 Amendment A4.1](docs/10-decisions/adr-083-plugin-enhance-cp-specifics.md#a41-refresh-metrics-pattern-decisión-doctrinal-a1-frozen).
+  // Razón: violan UI_SPEC §1.2 P4 "acción no contemplación" — eran botones
+  // que solo invalidaban cache 60s wrapper. Reemplazados por botón "↻
+  // Refrescar" en `MetricsBar.tsx` → server action `refreshServiceInfoAction`
+  // que invalida cache + re-fetch + revalidatePath. Patrón Stripe/Vercel.
+  // Las métricas ya viven en MetricsBar (cliente + admin) refrescadas vía
+  // `getServiceInfo` con `forceRevalidate: true` cuando se pulsa ↻.
   // DNS records (ADR-082 §6 + ADR-077 Amendment A1.3 — 4 slugs canónicos required si has_dns_management=true)
   {
     slug: 'list_dns_records',
@@ -637,10 +625,6 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
       case 'reset_account_password':
         return this.actionResetAccountPassword(service);
 
-      case 'view_disk_usage':
-      case 'view_bandwidth_usage':
-        return this.actionViewMetrics(api, refs, actionSlug);
-
       case 'list_dns_records':
         return this.actionListDnsRecords(api, refs, service);
       case 'add_dns_record':
@@ -695,34 +679,13 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     };
   }
 
-  private async actionViewMetrics(
-    api: EnhanceApiClient,
-    refs: ServiceEnhanceRefs,
-    slug: 'view_disk_usage' | 'view_bandwidth_usage',
-  ): Promise<ActionResult> {
-    if (slug === 'view_bandwidth_usage') {
-      const bandwidth = await api.getSubscriptionBandwidth(
-        refs.orgId,
-        refs.subscriptionId,
-      );
-      return {
-        success: true,
-        data: { bandwidth },
-      };
-    }
-    // view_disk_usage
-    const usage = await api.calculateResourceUsage(
-      refs.orgId,
-      refs.subscriptionId,
-    );
-    const diskItem = usage.items.find((it) =>
-      it.name.toLowerCase().includes('disk'),
-    );
-    return {
-      success: true,
-      data: { disk: diskItem ?? null, fullUsage: usage },
-    };
-  }
+  // Sprint 15C.II Fase B (2026-05-10) — `actionViewMetrics` eliminado.
+  // Las inline actions `view_disk_usage`/`view_bandwidth_usage` se removieron
+  // del manifest (decisión doctrinal A1 frozen — ADR-083 Amendment A4.1).
+  // Las métricas siguen disponibles en `getServiceInfo().metrics` (calculadas
+  // en `getServiceInfo()` con `getSubscriptionBandwidth` + `calculateResourceUsage`)
+  // y se refrescan vía botón "↻ Refrescar" en `MetricsBar.tsx` que invoca el
+  // server action `refreshServiceInfoAction` con `forceRevalidate: true`.
 
   private async actionListDnsRecords(
     api: EnhanceApiClient,

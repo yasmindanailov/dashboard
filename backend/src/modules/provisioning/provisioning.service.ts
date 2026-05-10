@@ -176,6 +176,7 @@ export class ProvisioningService {
     serviceId: string,
     userId: string,
     isAdmin: boolean,
+    options?: { forceRevalidate?: boolean },
   ): Promise<{
     service: {
       id: string;
@@ -218,12 +219,17 @@ export class ProvisioningService {
     }
 
     const ttlSeconds = await this.resolveServiceInfoTtl();
+    // Sprint 15C.II Fase B (ADR-083 Amendment A4.1): si options.forceRevalidate=true,
+    // el wrapper salta el cache Redis 60s y re-fetch fresco del proveedor.
+    // Caso canónico: botón "↻ Refrescar" en `MetricsBar.tsx` → server action
+    // `refreshServiceInfoAction` → endpoint POST /:id/refresh (este service
+    // method con forceRevalidate=true).
     const info = await getServiceInfoWithCache(
       plugin,
       service,
       this.cache,
       this.events,
-      { ttlSeconds },
+      { ttlSeconds, forceRevalidate: options?.forceRevalidate === true },
       this.breakers,
     );
 

@@ -100,6 +100,54 @@ export async function testConnectionAction(
   }
 }
 
+/* ═══════════════════════════════════════
+   Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1) — reconcile-all.
+
+   Materializa la decisión doctrinal A2 frozen 2026-05-10. Doble propósito:
+     1. UX A2: botón "↻ Reconciliar todos los servicios contra <Plugin>
+        ahora" en `/admin/settings/plugins/[slug]` (sin esperar el cron L3).
+     2. Gap G1: desbloquea smoke testing manual sin esperar la próxima
+        ventana del cron L3 (típicamente 6h en plugin Enhance).
+
+   El backend valida que el plugin declare capabilities.supports_reconciliation
+   = true Y haya registrado un executor en `ReconcileRegistryService` (típicamente
+   vía onModuleInit() del cron reconciliation correspondiente).
+   ═══════════════════════════════════════ */
+
+export interface ReconcileAllResponseBody {
+  readonly slug: string;
+  readonly triggered_at: string;
+  readonly services_processed: number;
+  readonly drifts_detected: number;
+  readonly duration_ms: number;
+  readonly details: Readonly<Record<string, unknown>> | null;
+}
+
+export type ReconcileAllResult =
+  | { ok: true; data: ReconcileAllResponseBody }
+  | { ok: false; error: string };
+
+export async function reconcileAllPluginAction(
+  slug: string,
+): Promise<ReconcileAllResult> {
+  try {
+    const data = await serverFetch<ReconcileAllResponseBody>(
+      `/admin/plugins/${slug}/reconcile-all`,
+      { method: 'POST', body: {} },
+    );
+    revalidatePath(`/admin/settings/plugins/${slug}`);
+    return { ok: true, data };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo reconciliar el plugin.',
+    };
+  }
+}
+
 /**
  * Extrae el code semántico (`INVALID_PLUGIN_CONFIG` / `INVALID_PLUGIN_SECRETS`)
  * del error si el backend lo expuso en el body 400. Otros errores devuelven

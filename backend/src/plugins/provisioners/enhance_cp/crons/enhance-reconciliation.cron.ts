@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Service, ServiceStatus } from '@prisma/client';
@@ -6,6 +6,8 @@ import type { Service, ServiceStatus } from '@prisma/client';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { ProvisionerPluginError } from '../../../../core/provisioning/types';
 import type { ServiceInfoStatus } from '../../../../core/provisioning/types';
+import { ReconcileRegistryService } from '../../../../core/provisioning/reconcile-registry.service';
+import type { ReconcileResult } from '../../../../core/provisioning/reconcile-registry.service';
 import { getErrorMessage } from '../../../../core/common/utils/error.util';
 
 import { EnhanceProvisionerPlugin } from '../enhance.plugin';
@@ -67,14 +69,55 @@ import { EnhanceProvisionerPlugin } from '../enhance.plugin';
  *       (`modules/notifications/listeners/`) → SQL count + dispatchToSuperadmins.
  */
 @Injectable()
-export class EnhanceReconciliationCron {
+export class EnhanceReconciliationCron implements OnModuleInit {
   private readonly logger = new Logger(EnhanceReconciliationCron.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly plugin: EnhanceProvisionerPlugin,
     private readonly events: EventEmitter2,
+    private readonly reconcileRegistry: ReconcileRegistryService,
   ) {}
+
+  /**
+   * Sprint 15C.II Fase B (ADR-083 Amendment A4.2): registra el executor
+   * canónico de reconciliation para el slug `enhance_cp` en el registry
+   * global. Esto permite al admin endpoint
+   * `POST /api/v1/admin/plugins/enhance_cp/reconcile-all` invocar el
+   * mismo pipeline que el cron @Cron(EVERY_6_HOURS) sin tener que
+   * importar este servicio directamente desde admin-plugins (R4).
+   *
+   * El executor envuelve `runOnce()` adaptando `ReconciliationSummary`
+   * → `ReconcileResult` (shape canónico genérico) + mide duración.
+   */
+  onModuleInit(): void {
+    this.reconcileRegistry.register('enhance_cp', () => this.runAsExecutor());
+  }
+
+  /**
+   * Versión "executor" de runOnce: devuelve `ReconcileResult` normalizado
+   * en lugar de `ReconciliationSummary` específico del plugin. Heredable
+   * por el patrón canónico Aelium reconcile (15D RC + 15E + 15G).
+   */
+  private async runAsExecutor(): Promise<ReconcileResult> {
+    const startedAt = Date.now();
+    const summary = await this.runOnce();
+    const driftsDetected =
+      summary.subscriptionMissing +
+      summary.statusDivergence +
+      summary.planDivergence;
+    return {
+      servicesProcessed: summary.servicesChecked,
+      driftsDetected,
+      durationMs: Date.now() - startedAt,
+      details: {
+        subscription_missing: summary.subscriptionMissing,
+        status_divergence: summary.statusDivergence,
+        plan_divergence: summary.planDivergence,
+        errors: summary.errors,
+      },
+    };
+  }
 
   /**
    * Ejecutado cada 6h. NO relanza errores — el cron debe seguir vivo

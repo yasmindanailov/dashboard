@@ -84,7 +84,13 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
         <ServiceHeader info={info} productName={service.product_name} />
       </Card>
 
-      {info.metrics && <MetricsBar metrics={info.metrics} />}
+      {info.metrics && (
+        <MetricsBar
+          metrics={info.metrics}
+          serviceId={service.id}
+          isAdmin={false}
+        />
+      )}
 
       {/*
         SSO panel — solo si el plugin lo soporta para esta instancia

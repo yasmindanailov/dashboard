@@ -88,3 +88,49 @@ export async function getServiceDetailAction(
     };
   }
 }
+
+/* ═══════════════════════════════════════
+   Sprint 15C.II Fase B (ADR-083 Amendment A4.1) — refresh metrics ↻
+
+   Materializa la decisión doctrinal A1 frozen 2026-05-10: refresh
+   manual del cache 60s del wrapper backend `getServiceInfoWithCache`.
+   Invocado por el subcomponente client `<MetricsRefreshButton>` embebido
+   en `MetricsBar.tsx` (cliente + admin) cuando el usuario pulsa "↻".
+
+   Reemplaza las inline actions `view_disk_usage` + `view_bandwidth_usage`
+   eliminadas del manifest del plugin Enhance (violaban UI_SPEC §1.2 P4
+   "acción no contemplación"). Patrón estándar industria Stripe/Vercel.
+   ═══════════════════════════════════════ */
+
+export type RefreshServiceInfoResult =
+  | { ok: true; data: ServiceDetailResponse }
+  | { ok: false; error: string };
+
+export async function refreshServiceInfoAction(
+  serviceId: string,
+  isAdmin: boolean,
+): Promise<RefreshServiceInfoResult> {
+  const path = isAdmin
+    ? `/admin/services/${serviceId}/refresh`
+    : `/services/${serviceId}/refresh`;
+  try {
+    const data = await serverFetch<ServiceDetailResponse>(path, {
+      method: 'POST',
+      body: {},
+    });
+    if (isAdmin) {
+      revalidatePath(`/admin/services/${serviceId}`);
+    } else {
+      revalidatePath(`/dashboard/services/${serviceId}`);
+    }
+    return { ok: true, data };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudieron actualizar las métricas.',
+    };
+  }
+}

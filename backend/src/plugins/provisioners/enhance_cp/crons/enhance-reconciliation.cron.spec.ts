@@ -1,7 +1,7 @@
-/**
- * Sprint 15C Fase 15C.H — tests unit `EnhanceReconciliationCron`.
+﻿/**
+ * Sprint 15C Fase 15C.H â€” tests unit `EnhanceReconciliationCron`.
  *
- * Cubre los 3 change_type canónicos (subscription_missing, status_divergence,
+ * Cubre los 3 change_type canÃ³nicos (subscription_missing, status_divergence,
  * plan_divergence) + happy path + edge cases (refs faltantes, status
  * fuera de safe-adopt set, error individual no aborta el cron).
  *
@@ -16,11 +16,12 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { ProvisionerPluginError } from '../../../../core/provisioning/types';
+import { ReconcileRegistryService } from '../../../../core/provisioning/reconcile-registry.service';
 
 import { EnhanceProvisionerPlugin } from '../enhance.plugin';
 import { EnhanceReconciliationCron } from './enhance-reconciliation.cron';
 
-describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decisión 24)', () => {
+describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§6 decisiÃ³n 24)', () => {
   function buildApiMock(opts: {
     subscription?: {
       id: number;
@@ -87,6 +88,17 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
     return { events, emitMock, emitted };
   }
 
+  /**
+   * Sprint 15C.II Fase B (ADR-083 Amendment A4.2): el cron implementa
+   * `OnModuleInit` y se registra en `ReconcileRegistryService` al boot.
+   * Los tests instancian el cron manualmente (no via DI Nest), asÃ­ que
+   * proveemos un registry real â€” `register()` es side-effect free y los
+   * tests no dependen de Ã©l. El test dedicado de registro vive mÃ¡s abajo.
+   */
+  function buildReconcileRegistry(): ReconcileRegistryService {
+    return new ReconcileRegistryService();
+  }
+
   const SAMPLE_SERVICE = {
     id: 'svc-1',
     user_id: 'user-1',
@@ -101,11 +113,11 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
     },
   };
 
-  // ──────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Happy path
-  // ──────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  it('happy path: status active match + planId match → no event, no update', async () => {
+  it('happy path: status active match + planId match â†’ no event, no update', async () => {
     const apiBundle = buildApiMock({
       subscription: { id: 42, planId: 1, status: 'active' },
     });
@@ -115,6 +127,7 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
       prisma,
       buildPlugin(apiBundle),
       events,
+      buildReconcileRegistry(),
     );
 
     const summary = await cron.runOnce();
@@ -130,11 +143,11 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  // ──────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // subscription_missing
-  // ──────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  it('subscription_missing (404 Enhance) → emit evento + NO update status (admin decide)', async () => {
+  it('subscription_missing (404 Enhance) â†’ emit evento + NO update status (admin decide)', async () => {
     const apiBundle = buildApiMock({ throwsNotFound: true });
     const { prisma, updateMock } = buildPrisma([SAMPLE_SERVICE]);
     const { events, emitMock, emitted } = buildEvents();
@@ -142,6 +155,7 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
       prisma,
       buildPlugin(apiBundle),
       events,
+      buildReconcileRegistry(),
     );
 
     const summary = await cron.runOnce();
@@ -162,11 +176,11 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  // ──────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // status_divergence
-  // ──────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  it('status_divergence active→suspended → emit + adopta status (DH-INV-6)', async () => {
+  it('status_divergence activeâ†’suspended â†’ emit + adopta status (DH-INV-6)', async () => {
     const apiBundle = buildApiMock({
       subscription: {
         id: 42,
@@ -181,6 +195,7 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
       prisma,
       buildPlugin(apiBundle),
       events,
+      buildReconcileRegistry(),
     );
 
     const summary = await cron.runOnce();
@@ -201,7 +216,7 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
     });
   });
 
-  it('status_divergence active→cancelled (out of safe-adopt) → emit sin update', async () => {
+  it('status_divergence activeâ†’cancelled (out of safe-adopt) â†’ emit sin update', async () => {
     const apiBundle = buildApiMock({
       subscription: { id: 42, planId: 1, status: 'deleted' },
     });
@@ -211,6 +226,7 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
       prisma,
       buildPlugin(apiBundle),
       events,
+      buildReconcileRegistry(),
     );
 
     const summary = await cron.runOnce();
@@ -219,15 +235,15 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
     const [, payload] = emitted[0] as [string, Record<string, unknown>];
     expect(payload.change_type).toBe('status_divergence');
     expect(payload.actual).toBe('cancelled');
-    // NO update — el caso out-of-safe-adopt-set no se auto-corrige.
+    // NO update â€” el caso out-of-safe-adopt-set no se auto-corrige.
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  // ──────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // plan_divergence
-  // ──────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  it('plan_divergence (Enhance planId 2 vs metadata 1) → emit + NO update (billing implication)', async () => {
+  it('plan_divergence (Enhance planId 2 vs metadata 1) â†’ emit + NO update (billing implication)', async () => {
     const apiBundle = buildApiMock({
       subscription: { id: 42, planId: 2, status: 'active' },
     });
@@ -237,6 +253,7 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
       prisma,
       buildPlugin(apiBundle),
       events,
+      buildReconcileRegistry(),
     );
 
     const summary = await cron.runOnce();
@@ -249,11 +266,11 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  // ──────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // edge cases
-  // ──────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  it('service sin enhance_org_id en metadata → skip silencioso (warn log) sin event', async () => {
+  it('service sin enhance_org_id en metadata â†’ skip silencioso (warn log) sin event', async () => {
     const apiBundle = buildApiMock({
       subscription: { id: 42, planId: 1, status: 'active' },
     });
@@ -265,6 +282,7 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
       prisma,
       buildPlugin(apiBundle),
       events,
+      buildReconcileRegistry(),
     );
 
     const summary = await cron.runOnce();
@@ -278,7 +296,7 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
     expect(apiBundle.getSubscriptionMock).not.toHaveBeenCalled();
   });
 
-  it('error en una iteración no aborta el cron — sigue procesando el resto', async () => {
+  it('error en una iteraciÃ³n no aborta el cron â€” sigue procesando el resto', async () => {
     const getSubscriptionMock = jest
       .fn()
       // primer service: error inesperado
@@ -303,6 +321,7 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
       prisma,
       buildPlugin(apiBundle as unknown as ReturnType<typeof buildApiMock>),
       events,
+      buildReconcileRegistry(),
     );
 
     const summary = await cron.runOnce();
@@ -314,7 +333,7 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
     expect(getSubscriptionMock).toHaveBeenCalledTimes(2);
   });
 
-  it('plan_divergence NO se evalúa si status_divergence ya disparó (excluyentes)', async () => {
+  it('plan_divergence NO se evalÃºa si status_divergence ya disparÃ³ (excluyentes)', async () => {
     const apiBundle = buildApiMock({
       subscription: {
         id: 42,
@@ -329,18 +348,19 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
       prisma,
       buildPlugin(apiBundle),
       events,
+      buildReconcileRegistry(),
     );
 
     const summary = await cron.runOnce();
 
     expect(summary.statusDivergence).toBe(1);
-    expect(summary.planDivergence).toBe(0); // no se evalúa
+    expect(summary.planDivergence).toBe(0); // no se evalÃºa
     expect(emitMock).toHaveBeenCalledTimes(1);
     const [, payload] = emitted[0] as [string, Record<string, unknown>];
     expect(payload.change_type).toBe('status_divergence');
   });
 
-  it('happy path con metadata.enhance_plan_id missing → no plan_divergence', async () => {
+  it('happy path con metadata.enhance_plan_id missing â†’ no plan_divergence', async () => {
     const apiBundle = buildApiMock({
       subscription: { id: 42, planId: 5, status: 'active' },
     });
@@ -349,7 +369,7 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
         ...SAMPLE_SERVICE,
         metadata: {
           enhance_org_id: 'cust-org-uuid',
-          // no enhance_plan_id ⇒ no comparación
+          // no enhance_plan_id â‡’ no comparaciÃ³n
         },
       },
     ]);
@@ -358,6 +378,7 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
       prisma,
       buildPlugin(apiBundle),
       events,
+      buildReconcileRegistry(),
     );
 
     const summary = await cron.runOnce();
@@ -376,8 +397,62 @@ describe('EnhanceReconciliationCron — Sprint 15C Fase 15C.H (ADR-083 §6 decis
       prisma,
       buildPlugin(apiBundle),
       events,
+      buildReconcileRegistry(),
     );
 
     await expect(cron.handleScheduled()).resolves.toBeUndefined();
+  });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1) —
+  // onModuleInit registra executor reconcile-all en el registry global.
+  // ──────────────────────────────────────────────────────────────────────
+
+  it('onModuleInit: registra executor "enhance_cp" en ReconcileRegistryService', () => {
+    const apiBundle = buildApiMock({
+      subscription: { id: 42, planId: 1, status: 'active' },
+    });
+    const { prisma } = buildPrisma([]);
+    const { events } = buildEvents();
+    const reconcileRegistry = buildReconcileRegistry();
+    const cron = new EnhanceReconciliationCron(
+      prisma,
+      buildPlugin(apiBundle),
+      events,
+      reconcileRegistry,
+    );
+
+    expect(reconcileRegistry.hasExecutor('enhance_cp')).toBe(false);
+    cron.onModuleInit();
+    expect(reconcileRegistry.hasExecutor('enhance_cp')).toBe(true);
+    expect(reconcileRegistry.listRegisteredSlugs()).toContain('enhance_cp');
+  });
+
+  it('executor registrado invoca runOnce y devuelve ReconcileResult normalizado', async () => {
+    const apiBundle = buildApiMock({ throwsNotFound: true });
+    const { prisma } = buildPrisma([SAMPLE_SERVICE]);
+    const { events } = buildEvents();
+    const reconcileRegistry = buildReconcileRegistry();
+    const cron = new EnhanceReconciliationCron(
+      prisma,
+      buildPlugin(apiBundle),
+      events,
+      reconcileRegistry,
+    );
+    cron.onModuleInit();
+
+    const result = await reconcileRegistry.runFor('enhance_cp');
+
+    // Forma normalizada del shape canónico ReconcileResult
+    expect(result.servicesProcessed).toBe(1);
+    expect(result.driftsDetected).toBe(1); // 1 subscription_missing por throwsNotFound
+    expect(typeof result.durationMs).toBe('number');
+    expect(result.durationMs).toBeGreaterThanOrEqual(0);
+    expect(result.details).toMatchObject({
+      subscription_missing: 1,
+      status_divergence: 0,
+      plan_divergence: 0,
+      errors: 0,
+    });
   });
 });

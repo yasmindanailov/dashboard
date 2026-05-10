@@ -35,7 +35,8 @@
  *     - slug inválido → INVALID_PAYLOAD.
  *     - sin refs → INVALID_STATE.
  *     - reset_account_password: invoca PUT password + devuelve nueva password en data.
- *     - view_disk_usage / view_bandwidth_usage: lecturas read-only.
+ *     - (Sprint 15C.II Fase B: view_disk_usage / view_bandwidth_usage eliminadas
+ *       — métricas vía MetricsBar refresh button + ADR-083 Amendment A4.1)
  *     - list_dns_records: lee zona + devuelve records.
  *     - add/update/delete dns_record: side_effect 'service.dns_modified'.
  *     - change_package: PATCH subscription planId.
@@ -278,7 +279,7 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(plugin.capabilities.provision_mode).toBe('sync');
     });
 
-    it('inlineActions incluyen los 10 slugs canónicos (ADR-083 §9 dec.32 + Amendment A3)', () => {
+    it('inlineActions incluyen los 8 slugs canónicos (ADR-083 §9 dec.32 + Amendment A3 + Amendment A4.1)', () => {
       const plugin = buildPlugin(
         buildPrismaMock({ install: VALID_INSTALL }),
         buildVaultMock(),
@@ -289,8 +290,6 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(slugs).toEqual(
         expect.arrayContaining([
           'reset_account_password',
-          'view_disk_usage',
-          'view_bandwidth_usage',
           'list_dns_records',
           'add_dns_record',
           'update_dns_record',
@@ -300,17 +299,18 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
           'list_available_plans', // ADR-083 Amendment A3 — 10ª action
         ]),
       );
-      expect(slugs).toHaveLength(10);
+      expect(slugs).toHaveLength(8);
+      // Sprint 15C.II Fase B (ADR-083 Amendment A4.1): view_disk_usage y
+      // view_bandwidth_usage eliminados del manifest. Refresh metrics ahora
+      // vía botón ↻ en MetricsBar + server action refreshServiceInfoAction.
+      expect(slugs).not.toContain('view_disk_usage');
+      expect(slugs).not.toContain('view_bandwidth_usage');
     });
 
-    it('5 actions admin-only declaran adminOnly=true (ADR-083 Amendment A3 + Sprint 15C Fase I refinement)', () => {
-      // Sprint 15C Fase 15C.I (smoke 2026-05-10): view_disk_usage y
-      // view_bandwidth_usage promovidas a `adminOnly: true`. Las métricas
-      // ya viven en MetricsBar (cliente + admin) refrescadas por
-      // `getServiceInfo` cada 60s — la UX cliente no necesita un botón
-      // separado para "verlas otra vez" (sería redundante). Útil solo al
-      // admin para forzar invalidación de cache. Si en el futuro se quiere
-      // UX cliente con render visual del data, abrir DC.NEW-15C-METRICS-MODAL.
+    it('3 actions admin-only declaran adminOnly=true (ADR-083 Amendment A3 + Amendment A4.1 cleanup)', () => {
+      // Sprint 15C.II Fase B: view_disk_usage + view_bandwidth_usage
+      // eliminados — quedan 3 admin-only puros (change_package, force_resync,
+      // list_available_plans).
       const plugin = buildPlugin(
         buildPrismaMock({ install: VALID_INSTALL }),
         buildVaultMock(),
@@ -322,14 +322,12 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
         .map((a) => a.slug);
       expect(adminOnlySlugs).toEqual(
         expect.arrayContaining([
-          'view_disk_usage',
-          'view_bandwidth_usage',
           'change_package',
           'force_resync',
           'list_available_plans',
         ]),
       );
-      expect(adminOnlySlugs).toHaveLength(5);
+      expect(adminOnlySlugs).toHaveLength(3);
       // Las 5 acciones cliente que quedan son reset_password + las 4 DNS
       // (estas últimas ocultas en frontend via INTERNAL_HELPER_SLUGS pero
       // siguen siendo client-callable por contrato canónico ADR-077 A1.3
@@ -710,7 +708,7 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(info.metrics?.emailAccountsUsed).toBe(3);
       expect(info.metrics?.databasesUsed).toBe(1);
       expect(info.capabilities.hasSsoPanel).toBe(true);
-      expect(info.availableActions.length).toBe(10); // status=active → 10 (Amendment A3)
+      expect(info.availableActions.length).toBe(8); // status=active → 8 post Amendment A4.1 (eliminó view_disk + view_bandwidth)
     });
 
     it('subscription 404 → unknown info', async () => {
@@ -855,8 +853,11 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
         ...buildContext().service,
         metadata: null,
       } as ServiceWithRelations;
+      // force_resync requiere refs válidos (orgId + subscriptionId desde
+      // service.metadata + provider_reference) — mismo guard que las
+      // ex-actions view_disk/bandwidth tenían pre Sprint 15C.II Fase B.
       await expect(
-        plugin.executeAction(service, 'view_disk_usage', {}),
+        plugin.executeAction(service, 'force_resync', {}),
       ).rejects.toMatchObject({ code: 'INVALID_STATE' });
     });
 
@@ -891,24 +892,11 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(result.sideEffects).toEqual(['service.password_reset']);
     });
 
-    it('view_bandwidth_usage: read-only sin side effects', async () => {
-      const api = buildApiMock();
-      api.getSubscriptionBandwidth.mockResolvedValueOnce({ usedMb: 500 });
-      const plugin = buildPlugin(
-        buildPrismaMock({ install: VALID_INSTALL }),
-        buildVaultMock(),
-        buildCustomersMock(),
-        api,
-      );
-      const result = await plugin.executeAction(
-        buildServiceWithRefs(),
-        'view_bandwidth_usage',
-        {},
-      );
-      expect(result.success).toBe(true);
-      expect(result.data?.bandwidth).toEqual({ usedMb: 500 });
-      expect(result.sideEffects).toBeUndefined();
-    });
+    // Sprint 15C.II Fase B: test 'view_bandwidth_usage: read-only sin side effects'
+    // eliminado — la action ya no existe en el manifest (decisión doctrinal A1
+    // frozen, ADR-083 Amendment A4.1). Las métricas bandwidth + disk siguen
+    // disponibles en `getServiceInfo().metrics` y se refrescan vía botón ↻ en
+    // MetricsBar + server action refreshServiceInfoAction con forceRevalidate.
 
     it('list_dns_records: lee zona + devuelve records', async () => {
       const api = buildApiMock();

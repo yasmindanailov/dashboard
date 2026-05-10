@@ -79,12 +79,20 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'plugin.enhance_cp.actions.reset_password.success':
     'Contraseña restablecida en Enhance. Comparte la nueva manualmente con el cliente — el envío automático por email llegará en una próxima versión.',
 
-  'plugin.enhance_cp.actions.view_disk': 'Ver uso de disco',
-  'plugin.enhance_cp.actions.view_disk.description':
-    'Refresca la cache de métricas de disco. Los valores ya visibles en la card "Métricas" se actualizan al instante (TTL 60 s).',
-  'plugin.enhance_cp.actions.view_bandwidth': 'Ver uso de ancho de banda',
-  'plugin.enhance_cp.actions.view_bandwidth.description':
-    'Refresca la cache de bandwidth. Los valores ya visibles en la card "Métricas" se actualizan al instante (TTL 60 s).',
+  // Sprint 15C.II Fase B: keys 'plugin.enhance_cp.actions.view_disk[*]' y
+  // 'plugin.enhance_cp.actions.view_bandwidth[*]' eliminadas — las inline
+  // actions correspondientes se removieron del manifest del plugin
+  // (ADR-083 Amendment A4.1). Refresh metrics ahora es nativo en MetricsBar
+  // vía botón ↻ + server action refreshServiceInfoAction.
+
+  // Refresh metrics canónico (ADR-083 Amendment A4.1)
+  'metrics.refresh': 'Refrescar',
+  'metrics.refreshing': 'Refrescando…',
+  'metrics.refresh.tooltip':
+    'Vuelve a consultar las métricas al proveedor (bypass cache 60 s).',
+  'metrics.refresh.aria_label': 'Refrescar métricas',
+  'metrics.refresh.success': 'Métricas actualizadas.',
+  'metrics.refresh.error': 'No se pudieron actualizar las métricas.',
 
   'plugin.enhance_cp.actions.list_dns_records': 'Listar registros DNS',
   'plugin.enhance_cp.actions.add_dns_record': 'Añadir registro DNS',
@@ -99,11 +107,29 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'plugin.enhance_cp.actions.change_package.success':
     'Plan cambiado correctamente. La metadata local se actualizó (cron L3 ya no detectará drift).',
 
-  'plugin.enhance_cp.actions.force_resync': 'Forzar resincronización',
+  // Sprint 15C.II Fase B (ADR-083 Amendment A4.2): rename label
+  // "Forzar resincronización" → "Reconciliar contra Enhance" (decisión
+  // doctrinal A2 frozen — naming honesto que refleja la operación real
+  // de comparar cache local vs Enhance ground truth, no un mero refresh
+  // de pantalla).
+  'plugin.enhance_cp.actions.force_resync': 'Reconciliar contra Enhance',
   'plugin.enhance_cp.actions.force_resync.description':
     'Reconcilia este servicio contra Enhance ahora — mismo pipeline que el cron L3 que corre cada 6 h, pero single-shot. Útil tras cambios manuales en la UI Enhance que pudieron generar drift.',
   'plugin.enhance_cp.actions.force_resync.success':
-    'Reconciliación forzada completada.',
+    'Reconciliación completada.',
 
   'plugin.enhance_cp.actions.list_available_plans': 'Listar planes disponibles',
+
+  // Reconcile-all general del plugin (ADR-083 Amendment A4.2 + gap G1)
+  'admin.plugins.reconcile_all.section_title':
+    'Reconciliación contra el proveedor',
+  'admin.plugins.reconcile_all.section_description':
+    'Compara todos los servicios activos contra el proveedor y emite eventos de drift si hay discrepancias. El cron L3 lo hace cada 6 h automáticamente; este botón fuerza una pasada manual ahora (útil tras cambios masivos o smoke testing).',
+  'admin.plugins.reconcile_all.button': 'Reconciliar todos ahora',
+  'admin.plugins.reconcile_all.tooltip':
+    'Invoca el executor reconcile registrado por el plugin (POST /admin/plugins/:slug/reconcile-all).',
+  'admin.plugins.reconcile_all.loading': 'Reconciliando…',
+  'admin.plugins.reconcile_all.success':
+    'Reconciliación completada: {processed} servicios procesados, {drifts} drifts detectados ({duration} ms).',
+  'admin.plugins.reconcile_all.error': 'No se pudo reconciliar el plugin.',
 });
