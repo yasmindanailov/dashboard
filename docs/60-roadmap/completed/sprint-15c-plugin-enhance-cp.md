@@ -1,3 +1,209 @@
+# Sprint 15C — Plugin Enhance CP 🔄 (90% — hardening pendiente)
+
+> **Estado:** 🔄 **Cerrado al 90%** — Fases A→J + Fase I parcial mergeadas o pendientes commit. Smoke real Yasmin 2026-05-10 reveló 18 issues + 4 decisiones doctrinales pendientes que requieren un **sub-sprint de hardening dedicado** antes de promote a producción.
+> **Sub-sprint hardening:** [`sprint-15c-ii-hardening-enhance-dossier.md`](../sprint-15c-ii-hardening-enhance-dossier.md) — 6 fases A→F + cierre, ~4-5 sesiones estimadas.
+> **Compromiso doctrinal Yasmin (2026-05-10 literal)**: "no se da un paso más, hasta que el plugin esté al 100% operativo con los features básicos y necesarios perfectos para producción." → Sprint 15D ResellerClub bloqueado hasta cierre 15C.II.
+> **Cierre original Fase 15C.I:** 2026-05-10 (parcial — fixes en rama `sprint15c-fase-i-cierre-sprint` pendientes commit) — ~9-10 sesiones de trabajo activo a lo largo de 3 días intensivos, **11 PRs encadenados** mergeados (PRs #36..#51).
+> **Identificadores:** P2.3 — primer plugin SaaS real post Sprint 15A. Hereda TODO el framework `plugin_installs` + `SecretVault` + `CircuitBreaker` + manifest declarativo.
+> **ADRs nacidos durante el sprint:** [ADR-077 Amendment A1](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md#amendments) (capability `has_dns_management`) + [ADR-077 Amendment A3](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md#amendments) (`ServiceAction.adminOnly`) + [ADR-080 Amendment B](../../10-decisions/adr-080-plugin-framework.md#amendments) (`productConfigSchema` opcional) + [ADR-082](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md) modelo Domain↔Hosting transversal + [ADR-083](../../10-decisions/adr-083-plugin-enhance-cp-specifics.md) Enhance CP specifics.
+> **Doc operativa diaria:** [`docs/features/provisioning/admin-plugins-enhance.md`](../../features/provisioning/admin-plugins-enhance.md) — guía superadmin + smoke checklist contra Enhance live + troubleshooting.
+
+---
+
+## Resumen ejecutivo
+
+Sprint 15C entregó el **primer plugin SaaS real** del framework Aelium (post Sprint 15A): `enhance_cp` conecta Aelium con un cluster [Enhance Control Panel](https://www.enhance.com/) v12.21.3 propiedad de Aelium para aprovisionar **hosting compartido web** completamente automático. El alcance pasó de las 9 fases originales del dossier pre-sprint a **11 fases** tras review riguroso de Fase E (PR #44) que destapó 5 gaps estructurales del flujo end-to-end (form admin productos sin `provisioner_config` UI bloqueante, plugin install no seeded, frontend `ActionsBar` sin filter `adminOnly`, página `/admin/services/[id]` no existe, E2E completo sin spec). Los 4 gaps estructurales se absorbieron en las 2 fases nuevas **15C.E.2** + **15C.J**; el gap E2E se materializó como Fase **15C.I** (cierre formal).
+
+El plugin entrega:
+
+- **6 métodos contrato** (ADR-077 v2): `provision`, `deprovision`, `getStatus`, `getServiceInfo`, `executeAction`, `getSsoUrl`. Lazy-create customer Enhance idempotente con search-by-email + insert mapping `enhance_customers`.
+- **10 acciones inline curadas**: 7 cliente (`reset_password`, `view_disk_usage`, `view_bandwidth_usage`, `list/add/update/delete_dns_record`) + 3 admin-only (`change_package`, `force_resync`, helper interno `list_available_plans`).
+- **Capability `has_dns_management=true`**: 9 tipos canónicos DNS (`A, AAAA, CNAME, TXT, SPF, SRV, NS, MX, CAA`) + DNS-as-capability declarativo en lugar de `if (provisioner === 'enhance_cp')`.
+- **DNS records UI cliente** (`/dashboard/services/[id]/dns`) con DS components estándar (Select/Input/Modal) — descartado `@rjsf/core` por UX rica per kind.
+- **SSO admin impersonation** con audit obligatorio (Fase F): emit dual `service.sso_opened` (técnica) + `service.admin_sso_impersonation` (GDPR-flagged) cuando `actorIsAdmin && service.user_id !== actorUserId`. Cliente lo ve en `/dashboard/transparency` vía constante canónica `TRANSPARENCY_VISIBLE_ACTIONS`.
+- **Reconciliation L3 cron** `@Cron(EVERY_6_HOURS)` con 3 sub-tipos drift (subscription_missing / status_divergence / plan_divergence) + listener notif threshold (default 5/24h) + dedupe via setting interno.
+- **Página admin `/admin/services/[id]`** completa (Fase J) con `ChangePackageModal` + `INTERNAL_HELPER_SLUGS` blacklist + plugin install seed condicional dev/QA.
+- **Defense-in-depth `adminOnly`**: filter UI cliente + wrapper backend HTTP 403 + audit fila `service.action_admin_only_violation` (defensa profunda Fase E).
+- **i18n cableado** (Fase I) con translator local minimal cubriendo namespace `plugin.enhance_cp.*` ES (decisión doctrinal: `next-intl` diferido como sub-sprint cuando llegue cliente angloparlante, A6/A7 Fase I).
+- **E2E spec** [`tests/e2e/sprint-15c-enhance-flow.spec.ts`](../../../tests/e2e/sprint-15c-enhance-flow.spec.ts) cubriendo plugin install + filter adminOnly + 403 + audit + change_package admin con `MockEnhanceServer` standalone como tercer webServer Playwright.
+
+---
+
+## Métricas finales
+
+| Métrica | Valor |
+|---|---|
+| Sesiones trabajo activo | ~9-10 (dentro del rango bajo proyectado 9-12.5) |
+| Commits master (squash) | 11 PRs encadenados (`#36`..`#51`) sin desincronización |
+| ADRs nacidos | 2 nuevos (082 + 083) + 3 amendments (077 A1 + 077 A3 + 080 B) |
+| Tests unit añadidos | +233 (suite final **488/493 verde + 5 skipped** vs 255 base post-Sprint 15A) |
+| Tests E2E añadidos | +1 spec nuevo (`sprint-15c-enhance-flow.spec.ts`) con 6 escenarios serial |
+| Migraciones Prisma | 2 (`enhance_customers` Fase C + columnas service Fase D) |
+| Plugins reales nuevos | 1 (`enhance_cp` — primer plugin SaaS real del framework) |
+| Eventos canónicos nuevos | 2 (`service.admin_sso_impersonation` Fase F + `service.reconciled_external_change` Fase H) + 1 evento aspiracional (`provisioning.default_nameservers_changed` Fase D, listener cableado, emisor llega Sprint 12) |
+| Listeners nuevos | 4 (`AuditAdminSsoImpersonationListener`, `AuditOnServiceReconciledExternalChangeListener`, `NotificationsOnReconciliationThresholdExceededListener`, `BootstrapEnhanceDefaultsOnPluginInstalledListener` + reuse `auto-config-dns-on-hosting-provisioned` Fase D) |
+| Crons nuevos | 1 (`EnhanceReconciliationCron` `@Cron(EVERY_6_HOURS)` estático in-process) |
+| Settings nuevos | 2 (`provisioning.default_nameservers` cluster-wide + `provisioning.enhance_cp.reconciliation_alert_threshold`) + 1 setting interno dedupe (`enhance_cp.reconciliation_last_alert_at`) |
+| Páginas frontend nuevas | 3 (`/dashboard/services/[id]/dns` + `/admin/services/[id]` + plugin Enhance detail mejorado) |
+| Componentes shared nuevos | ~6 (DnsRecordForm CC + DnsRecordsManager CC + DnsExternallyBanner SC + ChangePackageModal CC + AdminServiceOperationsCard CC + i18n translator local) |
+| Deudas resueltas | 1 (gap operativo "primer cliente real es imposible de contratar end-to-end" cerrado por Fases E.2 + J) |
+| Deudas diferidas conscientemente | 16+ DC.NEW-15C-* (DNSSEC, EMAIL/DB CRUD admin, importers, sub-resellers, etc.) |
+
+---
+
+## 8 lecciones aprendidas
+
+### 1. Reformular alcance tras review riguroso es la decisión correcta
+
+Fase E review (PR #44) destapó 5 gaps estructurales del flujo end-to-end que el dossier original NO previó. **No se añadieron como deudas nuevas — se absorbieron como fases del sprint** tras decisión doctrinal Yasmin. Resultado: 9 fases → 11 fases, sprint pasa de "backend correcto" a "primer cliente real contratable end-to-end". El coste de las 2 fases nuevas (~2 sesiones extra) es trivial vs. el coste de cerrar el sprint con un plugin operativamente roto. **Patrón replicable**: cualquier sprint donde el review destapa gaps estructurales de scope merece reformular antes que cerrar débil.
+
+### 2. Doc-only Fase A (3 ADRs) ahorró tiempo de re-trabajo en cada fase de código
+
+Fase 15C.A (PR #36) fue exclusivamente documental: ADR-082 transversal + ADR-077 Amendment A1 + ADR-083 specifics congelaron 35 decisiones doctrinales antes del primer commit funcional. Las 10 fases siguientes se construyeron literalmente desde el ADR sin ambigüedad inter-fase. **Mismo patrón canónico que Sprint 8 D.0 / Sprint 11 11.A / Sprint 15A A** — confirmado replicable a futuros plugins (15D RC, 15E Docker, 15G Plesk).
+
+### 3. El patrón "una rama por fase desde master sincronizado" escala hasta 6 PRs/día
+
+Las 11 fases produjeron **6 PRs encadenados sin fricción el 2026-05-09** (Fases E + E.2 + F + G mergeados consecutivos + housekeeping #48 + Fases H + J + housekeeping #51 + cierre Fase I). Pre-condición clave: cada rama parte de master post-merge del PR anterior, NO de la rama hermana — evita conflicts en `current.md` + dossier (los archivos doc-only que se actualizan post-merge). El housekeeping post-merge (PRs #48 + #51) es la sutura que mantiene `current.md` + dossier alineados con master sin reabrir fases cerradas.
+
+### 4. Ambigüedades doctrinales pre-codear en cada fase es ROI muy alto
+
+Cada fase E.2 + F + G + H + J + I incluyó "ambigüedades doctrinales resueltas pre-codear" (3-4 por fase). El tiempo invertido en plantear la ambigüedad + recomendar + obtener decisión Yasmin (típicamente 10 minutos) ahorra horas de re-trabajo. Ejemplos canónicos del sprint:
+
+- **A1 Fase H** cron estático vs BullMQ scheduled — decisión: estático in-process consistente con `AuditRetentionCron`. Sin esto, hubiese gastado ~1 sesión migrando a BullMQ y luego re-migrando.
+- **A4 Fase H** comparar `service.metadata.enhance_plan_id` vs `Product.provisioner_config` — decisión: por-servicio. Sin esto, false-positives `plan_divergence` eternos tras change_package admin.
+- **A1 Fase J** modal location colocated en `/admin/services/[id]/_components/` vs shared. Decisión: colocated (modal admin-only NO debe vivir en `_shared/`). Sin esto, contaminación shared con admin-only logic.
+
+**Patrón replicable explícito**: cada fase nueva DEBE listar 3-4 ambigüedades pre-codear en el plan antes de empezar a codear.
+
+### 5. Defense-in-depth `adminOnly` requiere filter UI + wrapper backend + audit (3 capas)
+
+Fase E introdujo el flag canónico `ServiceAction.adminOnly` (ADR-077 Amendment A3) implementado en 3 capas:
+- **UI cliente** (Fase E.2 `ActionsBar.tsx`): filter declarativo `actions.filter((a) => !a.adminOnly || isAdmin)`. Cliente NO ve botones adminOnly.
+- **Wrapper backend** (Fase E `executeActionWithCacheInvalidation`): rechaza con `ForbiddenException` HTTP 403 si actor no-admin invoca action adminOnly. Defense-in-depth contra bypass UI.
+- **Audit** (Fase E): emite `service.action_admin_only_violation` + `audit.logAccess` con shape canónico `{service_id, user_id, actor_user_id, provisioner_slug, action_slug, ip}`.
+
+Ninguna capa por sí sola es suficiente. Filter UI sin backend = bypass via curl. Backend sin filter UI = mala UX (cliente ve botón que recibe 403). Backend sin audit = defensa silenciosa, sin visibilidad operativa de intentos. **Patrón canónico para futuros plugins**: cualquier action admin-only requiere las 3 capas declaradas y testeadas.
+
+### 6. El cron L3 NO debe modificar `Service.status` directamente
+
+Fase H decisión doctrinal A1: cuando `subscription_missing` (404 Enhance), el cron emit-only — NO cambia `Service.status` a `unknown` (que ni siquiera existe en el enum Prisma) ni a `failed`. Razón: DH-INV-6 (Enhance gana en conflicto) + el cron es **detector**, NO actor. Admin investiga manualmente y decide si cancelar o re-provisionar. El emit `service.reconciled_external_change` + listener notif threshold da visibilidad sin auto-corrección destructiva. **Patrón canónico**: drift detection emit-only + escalación humana, NO auto-correction agresiva.
+
+### 7. Bug fix incluido en la fase que lo descubre, NO en una nueva fase
+
+Fase H descubrió que `actionChangePackage` (Fase E backend) NO actualizaba `service.metadata.enhance_plan_id` tras éxito del PATCH a Enhance. Sin este fix, el cron L3 emitiría `plan_divergence` false-positive eterno tras cualquier change_package admin. **Decisión doctrinal**: el fix se incluyó en el commit de Fase H (no se reabrió Fase E ni se creó una micro-fase nueva). Trazabilidad: cita inline en commit + spec del cron documenta la condición. **Patrón canónico**: bugs descubiertos durante una fase se arreglan **en esa fase** si el alcance lo permite, nunca dejados como deuda silenciosa.
+
+### 8. La doctrina canónica `provisioner !== 'X'` se sostiene incluso cuando es tentador romperla
+
+Fase J introduzo `INTERNAL_HELPER_SLUGS` blacklist hardcoded (`['change_package', 'list_available_plans']`) en `ActionsBar.tsx`. Tentación: añadir flag `hidden_in_actions_bar` al contrato canónico ProvisionerPlugin. Decisión doctrinal: `INTERNAL_HELPER_SLUGS` es **la única excepción canónica documentada** — slugs operados desde modal admin custom. Razón: añadir un nuevo flag al contrato solo para 2 slugs en 1 plugin no justifica el cambio + acoplamiento bajo (string array hardcoded + comentario explicando por qué). Si en el futuro llega un tercer plugin con un slug que también deba ocultarse → re-evaluar si vale la pena introducir el flag entonces. **Patrón canónico**: blacklists locales con comentario explicando por qué son aceptables vs. añadir flags al contrato sin razón estructural.
+
+---
+
+## Commit refs canónicos cronológicos
+
+| Fase | PR | Commit master | Fecha | Contenido |
+|---|---|---|---|---|
+| 15C.A | [#36](https://github.com/yasmindanailov/dashboard/pull/36) | `0bb83b3` | 2026-05-08 | ADR-082 transversal + ADR-077 Amendment A1 + ADR-083 specifics (35 decisiones frozen) |
+| 15C.B | [#37](https://github.com/yasmindanailov/dashboard/pull/37) | `156ea35` | 2026-05-08 | `EnhanceApiClient` + types TypeScript + `MockEnhanceServer` Express stub + fixtures |
+| 15C.C | [#38](https://github.com/yasmindanailov/dashboard/pull/38) | `69fed47` | 2026-05-08 | Plugin core (6 métodos contrato + manifest + DI + tabla `enhance_customers`) |
+| 15C.D | [#41](https://github.com/yasmindanailov/dashboard/pull/41) | `a319063` | 2026-05-08 | Listener `auto-config-dns-on-hosting-provisioned` + setting `provisioning.default_nameservers` + cluster propagation + `dns-authority-resolver.ts` + endpoints orquestador `/dns/*` |
+| 15C.E | [#44](https://github.com/yasmindanailov/dashboard/pull/44) | `8de99fd` | 2026-05-09 | Acciones curadas backend + flag canónico `ServiceAction.adminOnly` + 10ª action `list_available_plans` + enforcement HTTP 403 + evento `service.action_admin_only_violation` |
+| 15C.E.2 ⭐ | [#45](https://github.com/yasmindanailov/dashboard/pull/45) | `99f4a0c` | 2026-05-09 | Frontend acciones curadas (form admin productos `provisioner_config` UI + filter `adminOnly` `ActionsBar`) — gap descubierto Fase E review |
+| 15C.F | [#46](https://github.com/yasmindanailov/dashboard/pull/46) | `801e748` | 2026-05-09 | SSO endpoints + admin impersonation + listener GDPR + transparency UI |
+| 15C.G | [#47](https://github.com/yasmindanailov/dashboard/pull/47) | `5207ff1` | 2026-05-09 | DNS records management UI cliente con CRUD completo (9 tipos canónicos) |
+| 15C — housekeeping | [#48](https://github.com/yasmindanailov/dashboard/pull/48) | `9806528` | 2026-05-09 | Housekeeping post-merge Fases E + E.2 + F + G — commit refs + plan Fase H |
+| 15C.H | [#49](https://github.com/yasmindanailov/dashboard/pull/49) | `1efeb83` | 2026-05-09 | L3 reconciliation cron `EVERY_6_HOURS` + listeners audit/notifications + bug fix `actionChangePackage` actualiza metadata |
+| 15C.J | [#50](https://github.com/yasmindanailov/dashboard/pull/50) | `c1c9f41` | 2026-05-09 | Admin services detail page + change_package modal + plugin install seed condicional dev/QA + hotfix `a34bb93` row click |
+| 15C — housekeeping | [#51](https://github.com/yasmindanailov/dashboard/pull/51) | `0f2c15b` | 2026-05-09 | Housekeeping post-merge Fases H + J — commit refs + plan Fase I (cierre formal) |
+| **15C.I** | TBD | TBD | 2026-05-10 | **Cierre formal** — i18n local namespace `plugin.enhance_cp` + E2E spec `sprint-15c-enhance-flow.spec.ts` 6/6 verde + doc operativa `admin-plugins-enhance.md` + smoke checklist + retrospectiva (este archivo). **Smoke real Yasmin descubrió 4 bugs adicionales** (todos arreglados in-fase): (B1) `$queryRaw`→`$executeRaw` en `enhance-customers.service.ts` (bug pre-existente Fase C, manifestaba `prisma:error: Failed to deserialize column of type 'void'` solo contra Postgres real, los unit tests mockean Prisma); (B2) `translateSchema()` walk-recursive + aplicado en 3 call-sites rjsf `<Form>` para traducir `description`/`title` del JSON Schema (los widgets `aeliumDsWidgets` solo cubrían `helperText` interior, NO el FieldTemplate); (B3) `info.display.secondary` y plugin manifest labels renderizados crudos en `ServiceHeader.tsx` + `admin/services/[id]/page.tsx` — fix con `t()`; (B4) `INTERNAL_HELPER_SLUGS` extendido con 4 DNS slugs (`list/add/update/delete_dns_record`) — eran botones standalone redundantes con la UI canónica DNS Fase G y al ejecutarse sin payload form fallaban con `INVALID_PAYLOAD`. (B5) traducciones ES de keys wrapper backend (`action.unknown/circuit_open/invalid_payload/provider_error`) añadidas al translator local. **Bug fix DTO ya documentado**: `AdminPluginUpdateDto` removió `@ValidateNested + @Type(() => Object)` que combinado con `forbidNonWhitelisted` global rechazaba props internas de `config`/`secrets` — descubierto por el spec E2E nuevo (Sprint 15A test admin-plugins solo enviaba `enabled` así que no se detectó). Suite final **488/493 unit verde + 5 skipped** sin regresiones. |
+
+---
+
+## Deuda diferida v1+
+
+| Ref | Item | Cuándo abordar |
+|---|---|---|
+| **DC.NEW-15C-1** | UI cliente `change_package` bloqueada hasta cierre sub-sprint billing prorrateo cross-plan | Cuando cierre sub-sprint billing |
+| **DC.NEW-15C-i18n** | EN locale + provider real (`next-intl` o equivalente) reemplazando translator local Fase I | Cuando llegue cliente angloparlante |
+| **DC.NEW-15C-2** | DNS records `PTR` (reverse DNS) — power-user | v1.1 si demanda |
+| **DC.NEW-15C-3** | Métricas time-series Enhance — Prometheus + recharts | v2 si demanda |
+| **DC.NEW-15C-4** | Webhook receiver Aelium — solo si Enhance añade webhooks push en futura versión orchd | Cuando Enhance los exponga |
+| **DC.NEW-15C-5** | WordPress install/staging/clone inline — feature comercial fuerte | v1.x si decisión comercial |
+| **DC.NEW-15C-6** | SSO webmail directo (`/orgs/.../emails/{e}/sso`) | v1.x UX brillante |
+| **DC.NEW-15C-7** | SSO phpMyAdmin directo (`/orgs/.../mysql-dbs/{db}/sso`) | v1.x UX brillante |
+| **DC.NEW-15C-8** | SSO wp-admin directo (`/orgs/.../wordpress/users/{u}/sso`) | v1.x UX brillante |
+| **DC.NEW-15C-9** | Backup CRUD + restore inline | v1.1 si demanda real |
+| **DC.NEW-15C-10** | SSL CRUD inline (LE auto + custom cert upload) | v1.1 |
+| **DC.NEW-15C-11** | App templates / WordPress instalación inline | v1.x — feature comercial |
+| **DC.NEW-15C-12** | Importers cPanel/Plesk → Enhance | v2 si migración real de clientes legacy |
+| **DC.NEW-15C-DNSSEC** | DNSSEC enable/disable + DS records | v1.1 |
+| **DC.NEW-15C-EMAIL** | CRUD email accounts + forwards + autoresponders | NUNCA cliente. Admin v1.1 si demanda. |
+| **DC.NEW-15C-DB** | CRUD MySQL databases + users | NUNCA cliente. Admin v1.1 si demanda. |
+| **DC.NEW-15C-RESELLER** | Sub-resellers (customers que son resellers) | NUNCA primer cliente real. Solo si Aelium ofrece "reseller hosting". |
+| **DC.NEW-15C-E2E** | E2E DNS UI cliente CRUD + SSO impersonation full flow Playwright | Sub-sprint dedicado a E2E coverage si demanda CI/regression |
+| **DC.NEW-15C-EMAIL-RESET** | Listener `notifications-on-password-reset` que envía email al cliente con la nueva password tras `reset_account_password` | v1.1 — descubierto smoke 2026-05-10 (Yasmin esperaba email automático tras reset, plugin solo rota la password en Enhance) |
+| **DC.NEW-15C-METRICS-MODAL** | Modal admin que renderiza `result.data` formateado tras `view_disk_usage` / `view_bandwidth_usage`. Alternativa: sustituir las acciones por un botón único "Refrescar métricas" que invalide solo el cache 60s (las métricas ya viven en `MetricsBar` cliente y admin) | v1.1 — descubierto smoke 2026-05-10 (UX feedback genérico "Acción completada" sin mostrar la data) |
+| **DC.NEW-15C-CATALOG-SYNC** | Sync automático catálogo planes Enhance ↔ catálogo productos Aelium (admin actualmente debe crear N productos manualmente cuando Enhance añade N planes nuevos) | v2 si demanda — el `change_package` runtime ya consume `list_available_plans` dinámico, el catálogo es donde queda manual |
+| **DC.NEW-15C-DNS-ADMIN-UI** | UI admin nativa de DNS records en `/admin/services/[id]/dns` (paralela a la cliente Fase G) reusando endpoints `/admin/services/:id/dns/records*` ya implementados | v1.1 — backend ya listo, solo falta frontend admin (banner actual: "la UI admin nativa de DNS llegará en un sprint futuro") |
+
+---
+
+## Hardening Sprint 15C.II — bloqueante pre-producción
+
+> Smoke real Yasmin 2026-05-10 reveló que el plugin Enhance NO está listo para producción a pesar de las 11 fases cerradas. 18 issues clasificados + 4 decisiones doctrinales pendientes. **Sprint 15D ResellerClub queda bloqueado en cola hasta cierre 15C.II.**
+>
+> Detalle exhaustivo en dossier canónico [`sprint-15c-ii-hardening-enhance-dossier.md`](../sprint-15c-ii-hardening-enhance-dossier.md).
+
+### Issues clasificados (18 totales)
+
+| Categoría | # items | Estado |
+|---|---|---|
+| **A. Bugs reales** | 3 (BUG-15CII-1..3) | 2 ✅ fix in-branch (commits pendientes), 1 ⏳ pendiente |
+| **B. UI_SPEC §4.3 violaciones** | 3 (BUG-15CII-4..6) | 2 ✅ fix in-branch, 1 ⏳ decisión doctrinal §3.1 |
+| **C. Mensajes engañosos** | 3 (BUG-15CII-7..9) | 2 ✅ fix in-branch, 1 ⏳ pendiente §3.3 drift UX |
+| **D. UX redundante** | 2 (BUG-15CII-10..11) | 2 ✅ fix in-branch (parcial), naming pendiente §3.2 |
+| **E. i18n parcial** | 3 (BUG-15CII-12..14) | 1 ✅ fix in-branch (cache-clean verifier), 2 ⏳ pendientes |
+| **F. Funcionalidades NO impl.** | 4 (DC.NEW-15CII-*) | 4 ⏳ pendientes Sprint 15C.II |
+
+### Decisiones doctrinales pendientes (4)
+
+1. **§3.1 Refresh metrics pattern** — eliminar 2 inline actions vs spinner refresh inline en MetricsBar.
+2. **§3.2 Reconcile UX dual** — botón general (settings) + granular (service) con naming "Reconciliar contra Enhance".
+3. **§3.3 Drift UX discriminada por rol** — cliente generic + admin AlertBanner con CTA SSO investigación.
+4. **§3.4 Admin overview operativo** — ¿incluir dashboard estadístico plugin ahora o diferir Sprint 12?
+
+### Branch actual `sprint15c-fase-i-cierre-sprint` — fixes valiosos sin commit
+
+11+ fixes aplicados durante Fase 15C.I + smoke real (ver dossier hardening §5):
+- $queryRaw bug fix backend.
+- DTO refactor backend.
+- ActionsBar + SsoButton useToast.
+- Mensaje reset_password honesto.
+- INTERNAL_HELPER_SLUGS extendido DNS.
+- view_disk/bandwidth adminOnly.
+- force_resync description tooltip.
+- translateSchema() walk-recursive.
+- ServiceHeader + admin/services/[id] + product forms i18n.
+- E2E spec sprint-15c-enhance-flow 6/6 verde.
+- Mock runner + i18n local minimal.
+
+**Recomendación próximo agente** (dossier hardening §5 Opción A):
+1. Commit + PR rama actual como **Fase 15C.I parcial** (fixes valiosos + E2E + docs).
+2. Mergear a master.
+3. Abrir nueva rama `sprint15c-ii-enhance-hardening` desde master post-merge.
+4. Ejecutar Fase 15C.II.A (decisiones doctrinales frozen) → A→F → cierre.
+
+---
+
+## Frase de arranque post-cierre 15C → Sprint 15D
+
+> *"Lee `docs/60-roadmap/sprint-15d-resellerclub-dossier.md` + `docs/10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md` + `docs/10-decisions/adr-083-plugin-enhance-cp-specifics.md` + `docs/60-roadmap/completed/sprint-15c-plugin-enhance-cp.md` (retrospectiva del sprint hermano que comparte ADRs 082+083). Vamos con Sprint 15D — Plugin ResellerClub. Crea rama `sprint15d-plugin-resellerclub` desde master."*
+
+---
+
+# Anexo — Dossier de pre-sprint (preservado para trazabilidad)
+
+> A continuación se preserva el dossier de pre-sprint completo redactado el 2026-05-07 antes del primer commit funcional. Mantenerlo permite trazar **qué se decidió ANTES de codear** vs. qué se ajustó durante la implementación. Los enlaces relativos del dossier original se mantienen apuntando a `60-roadmap/` (donde vivía pre-mover); algunos pueden quedar rotos tras el move — se conservan tal cual como reflejo histórico del thinking original.
+
 # Sprint 15C — Plugin Enhance CP · Dossier de pre-sprint
 
 > **Tipo:** Pre-sprint research dossier (no es plan de sprint activo).

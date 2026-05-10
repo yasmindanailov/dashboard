@@ -7,7 +7,7 @@
  *     localmente (defensive).
  *   - Step 2 customer huérfano (sin ownerId): falla a Step 3.
  *   - Step 3: ejecuta flow 6-step (steps 1-4) e inserta mapping.
- *   - Advisory lock se ejecuta (verificado vía $queryRaw spy).
+ *   - Advisory lock se ejecuta (verificado vía $executeRaw spy).
  *   - userAdvisoryLockKey es determinístico para mismo UUID.
  *   - userAdvisoryLockKey produce signed int32 válido para PostgreSQL.
  *   - displayName se pasa correctamente a createCustomer + createLogin + addMember.
@@ -43,12 +43,12 @@ describe('EnhanceCustomersService — Sprint 15C Fase 15C.C', () => {
     } | null;
     onCreate?: (data: Record<string, unknown>) => Record<string, unknown>;
   }): {
-    queryRawSpy: jest.Mock;
+    executeRawSpy: jest.Mock;
     findUniqueSpy: jest.Mock;
     createSpy: jest.Mock;
     tx: Record<string, unknown>;
   } {
-    const queryRawSpy = jest.fn().mockResolvedValue([]);
+    const executeRawSpy = jest.fn().mockResolvedValue([]);
     const findUniqueSpy = jest.fn().mockResolvedValue(opts.existing ?? null);
     const createSpy = jest.fn().mockImplementation((args: unknown) => {
       const data = (args as { data: Record<string, unknown> }).data;
@@ -61,13 +61,13 @@ describe('EnhanceCustomersService — Sprint 15C Fase 15C.C', () => {
     });
 
     const tx = {
-      $queryRaw: queryRawSpy,
+      $executeRaw: executeRawSpy,
       enhanceCustomer: {
         findUnique: findUniqueSpy,
         create: createSpy,
       },
     };
-    return { queryRawSpy, findUniqueSpy, createSpy, tx };
+    return { executeRawSpy, findUniqueSpy, createSpy, tx };
   }
 
   function buildService(prismaTxMock: Record<string, unknown>) {
@@ -108,7 +108,9 @@ describe('EnhanceCustomersService — Sprint 15C Fase 15C.C', () => {
       created_at: new Date(),
       updated_at: new Date(),
     };
-    const { tx, queryRawSpy, findUniqueSpy } = buildPrismaTxMock({ existing });
+    const { tx, executeRawSpy, findUniqueSpy } = buildPrismaTxMock({
+      existing,
+    });
     const service = buildService(tx);
     const api = buildApiClientMock();
 
@@ -119,7 +121,7 @@ describe('EnhanceCustomersService — Sprint 15C Fase 15C.C', () => {
     );
 
     expect(result).toEqual(existing);
-    expect(queryRawSpy).toHaveBeenCalledTimes(1); // advisory lock
+    expect(executeRawSpy).toHaveBeenCalledTimes(1); // advisory lock
     expect(findUniqueSpy).toHaveBeenCalledWith({
       where: { user_id: USER_ID },
     });
@@ -275,7 +277,7 @@ describe('EnhanceCustomersService — Sprint 15C Fase 15C.C', () => {
   // ─── Advisory lock ──────────────────────────────────────────────────────
 
   it('siempre adquiere advisory lock antes de cualquier query (Step 0)', async () => {
-    const { tx, queryRawSpy } = buildPrismaTxMock({ existing: null });
+    const { tx, executeRawSpy } = buildPrismaTxMock({ existing: null });
     const service = buildService(tx);
     const api = buildApiClientMock();
 
@@ -292,10 +294,10 @@ describe('EnhanceCustomersService — Sprint 15C Fase 15C.C', () => {
     await service.ensureCustomer(SAMPLE_USER, api as never, MASTER);
 
     // queryRaw se llama 1 vez (advisory lock).
-    expect(queryRawSpy).toHaveBeenCalledTimes(1);
-    // El primer arg de $queryRaw es un TemplateStringsArray con el SQL —
+    expect(executeRawSpy).toHaveBeenCalledTimes(1);
+    // El primer arg de $executeRaw es un TemplateStringsArray con el SQL —
     // verificamos que contiene el namespace canónico.
-    const callArgs = queryRawSpy.mock.calls[0] as unknown[];
+    const callArgs = executeRawSpy.mock.calls[0] as unknown[];
     const sqlParts = callArgs[0] as TemplateStringsArray;
     const sqlString = Array.isArray(sqlParts)
       ? sqlParts.join('?')

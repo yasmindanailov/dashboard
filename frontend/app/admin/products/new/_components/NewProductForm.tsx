@@ -21,6 +21,7 @@ import {
   useToast,
 } from '../../../../components/ui';
 import type { AdminPluginListItem } from '../../../../lib/api';
+import { t, translateSchema } from '../../../../_shared/i18n';
 import { aeliumDsWidgets } from '../../../../_shared/plugins/rjsf-theme';
 import styles from '../../productForm.module.css';
 
@@ -464,7 +465,7 @@ export default function NewProductForm({ initialPlugins }: Props) {
                         // `validator.validateFormData(provisionerConfig, schema)`
                         // antes del POST/PATCH para enforcement form-side.
                         tagName="div"
-                        schema={productConfigSchema as RJSFSchema}
+                        schema={translateSchema(productConfigSchema as RJSFSchema)}
                         formData={provisionerConfig}
                         widgets={aeliumDsWidgets}
                         validator={validator}
@@ -579,7 +580,7 @@ function buildProvisionerOptions(
     seen.add(p.slug);
     options.push({
       value: p.slug,
-      label: p.manifest?.label ? `${p.manifest.label} (${p.slug})` : p.slug,
+      label: p.manifest?.label ? `${t(p.manifest.label)} (${p.slug})` : p.slug,
     });
   }
   if (!seen.has('manual')) {

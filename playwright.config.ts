@@ -1,4 +1,37 @@
 import { defineConfig, devices } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+/**
+ * Sprint 15C Fase 15C.I — carga manual del `.env` raíz para que los
+ * specs E2E (que no son procesos NestJS/Next.js) tengan acceso a
+ * `DATABASE_URL` + otras vars necesarias en `fixtures/db.ts` y similares.
+ * NestJS y Next.js ya cargan su propio `.env` al boot via dotenv interno;
+ * este parsing solo afecta al proceso Playwright en sí + sus webServers
+ * heredan via spawn.
+ *
+ * Sin deps externas (dotenv no está en root package.json) — parser
+ * minimal compatible con líneas `KEY=value`. Ignora comentarios y
+ * variables ya seteadas en el shell (precedence shell > .env).
+ */
+function loadDotEnv(filePath: string): void {
+  try {
+    const content = readFileSync(resolve(filePath), 'utf8');
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const match = trimmed.match(/^([A-Z_][A-Z_0-9]*)=(.*)$/);
+      if (match && !process.env[match[1]]) {
+        // Strip optional surrounding quotes (single or double).
+        const value = match[2].replace(/^["'](.*)["']$/, '$1');
+        process.env[match[1]] = value;
+      }
+    }
+  } catch {
+    /* .env no existe — ignorar (CI lo provee via secrets/inputs). */
+  }
+}
+loadDotEnv('.env');
 
 /**
  * Playwright config para Aelium Dashboard.
@@ -14,6 +47,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 const FRONTEND_URL = process.env.E2E_FRONTEND_URL || 'http://localhost:3002';
 const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:3001';
+const MOCK_ENHANCE_PORT = process.env.E2E_MOCK_ENHANCE_PORT || '3099';
+const MOCK_ENHANCE_URL = `http://127.0.0.1:${MOCK_ENHANCE_PORT}`;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -105,6 +140,23 @@ export default defineConfig({
       url: FRONTEND_URL,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      // Sprint 15C Fase 15C.I — MockEnhanceServer standalone para el spec
+      // `sprint-15c-enhance-flow.spec.ts`. El backend está configurado vía
+      // PATCH /admin/plugins/enhance_cp en el `beforeAll` del describe para
+      // apuntar a este mock (ver header del spec). Otros specs E2E que NO
+      // tocan enhance_cp ignoran este servidor — su lifecycle no afecta.
+      //
+      // Patrón replicable: 15D RC añadirá `mock-resellerclub-runner.ts` en
+      // un cuarto webServer cuando llegue su Fase de cierre.
+      command:
+        'pnpm --dir backend exec ts-node --transpile-only --project ../tests/e2e/fixtures/tsconfig.mock-runner.json ../tests/e2e/fixtures/mock-enhance-runner.ts',
+      url: `${MOCK_ENHANCE_URL}/version`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
       stdout: 'pipe',
       stderr: 'pipe',
     },

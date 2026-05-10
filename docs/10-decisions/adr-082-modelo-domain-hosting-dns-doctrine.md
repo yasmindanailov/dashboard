@@ -327,7 +327,7 @@ export function resolveDnsAuthority(
   - [ADR-066](./adr-066-tres-portales-raiz-portalbadge.md) — endpoints `/api/v1/services/{id}/dns/*` viven en portal cliente; admin tiene espejo `/api/v1/admin/services/{id}/dns/*`.
 - **Glosario:** *DH-INV-N* (a añadir: 6 invariantes), *NS-sync 3 capas* (a añadir: C1/C2/C3), *DNS authority resolver* (a añadir), *Default DNS records platform-level* (a añadir), *F1/F2/F3/F4 checkout flows* (a añadir).
 - **Sprint:** 15C Fase 15C.A (este ADR) → 15C.D (implementación §4/§5/§6 en código).
-- **Dossier de origen:** [`docs/60-roadmap/sprint-15c-enhance-cp-dossier.md`](../60-roadmap/sprint-15c-enhance-cp-dossier.md) — §3 (modelo Domain↔Hosting), §6.5 (DNS doctrine), §6.10 (DH-INV-6 operational doctrine). Este ADR es la materialización canónica de esas secciones.
+- **Dossier de origen:** [`docs/60-roadmap/completed/sprint-15c-plugin-enhance-cp.md`](../60-roadmap/completed/sprint-15c-plugin-enhance-cp.md) — §3 (modelo Domain↔Hosting), §6.5 (DNS doctrine), §6.10 (DH-INV-6 operational doctrine). Este ADR es la materialización canónica de esas secciones.
 
 ---
 

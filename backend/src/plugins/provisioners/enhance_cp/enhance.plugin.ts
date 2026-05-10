@@ -218,17 +218,28 @@ const ENHANCE_INLINE_ACTIONS: readonly ServiceAction[] = [
     confirmationText: 'plugin.enhance_cp.actions.reset_password.confirm',
     destructive: false,
   },
+  // Sprint 15C Fase 15C.I — flagged `adminOnly: true` tras smoke real:
+  // las métricas de disco y bandwidth ya viven en MetricsBar (cliente +
+  // admin) refrescadas via `getServiceInfo` cada 60 s. El cliente NO
+  // necesita un botón para "verlas otra vez" — sería redundante UX.
+  // Útil solo al admin para forzar invalidación de cache (executeAction
+  // wrapper invalida tras success). Si se quisiera UX cliente con render
+  // visual del data, abrir DC.NEW-15C-METRICS-MODAL (v1.1).
   {
     slug: 'view_disk_usage',
     label: 'plugin.enhance_cp.actions.view_disk',
+    description: 'plugin.enhance_cp.actions.view_disk.description',
     confirmRequired: false,
     destructive: false,
+    adminOnly: true,
   },
   {
     slug: 'view_bandwidth_usage',
     label: 'plugin.enhance_cp.actions.view_bandwidth',
+    description: 'plugin.enhance_cp.actions.view_bandwidth.description',
     confirmRequired: false,
     destructive: false,
+    adminOnly: true,
   },
   // DNS records (ADR-082 §6 + ADR-077 Amendment A1.3 — 4 slugs canónicos required si has_dns_management=true)
   {
@@ -276,6 +287,7 @@ const ENHANCE_INLINE_ACTIONS: readonly ServiceAction[] = [
   {
     slug: 'force_resync',
     label: 'plugin.enhance_cp.actions.force_resync',
+    description: 'plugin.enhance_cp.actions.force_resync.description',
     confirmRequired: false,
     destructive: false,
     adminOnly: true,

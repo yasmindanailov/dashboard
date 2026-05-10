@@ -1,10 +1,4 @@
-import { Type } from 'class-transformer';
-import {
-  IsBoolean,
-  IsObject,
-  IsOptional,
-  ValidateNested,
-} from 'class-validator';
+import { IsBoolean, IsObject, IsOptional } from 'class-validator';
 
 /**
  * DTO canónico para `PATCH /admin/plugins/:slug` — Sprint 15A Fase G (ADR-080).
@@ -20,6 +14,13 @@ import {
  *     lo cifra con `SecretVaultService.encryptRecord` antes de persistir.
  *     Si un campo declarado en `secretsSchema` se OMITE en el payload,
  *     se preserva su valor cifrado anterior (parcial-update).
+ *
+ * Sprint 15C Fase 15C.I — bug fix: removido `@ValidateNested() + @Type(() => Object)`
+ * de `config`/`secrets`. La combinación con `forbidNonWhitelisted: true`
+ * (main.ts ValidationPipe global) rechazaba props internas de `config`/`secrets`
+ * con 400 Bad Request — el spec E2E Sprint 15A solo enviaba `enabled` así que
+ * no se detectó. Validación profunda de campos vive en Ajv contra el manifest
+ * (canónico R0) — class-validator solo necesita confirmar shape de alto nivel.
  */
 export class AdminPluginUpdateDto {
   @IsOptional()
@@ -29,8 +30,6 @@ export class AdminPluginUpdateDto {
   /** Campos NO secretos. Validados contra `manifest.configSchema` con Ajv. */
   @IsOptional()
   @IsObject()
-  @ValidateNested()
-  @Type(() => Object)
   config?: Record<string, unknown>;
 
   /**
@@ -41,7 +40,5 @@ export class AdminPluginUpdateDto {
    */
   @IsOptional()
   @IsObject()
-  @ValidateNested()
-  @Type(() => Object)
   secrets?: Record<string, string>;
 }

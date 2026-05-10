@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { Card } from '../../components/ui';
+import { t } from '../i18n';
 import type { AdminPluginListItem } from '../../lib/api';
 
 import { PluginStatusBadge } from './PluginStatusBadge';
@@ -60,7 +61,7 @@ export function PluginCard({ item }: Props) {
             }}
           >
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
-              {manifest.label}
+              {t(manifest.label)}
             </h3>
             <PluginStatusBadge enabled={enabled} circuitState={circuit_state} />
           </div>
@@ -72,7 +73,7 @@ export function PluginCard({ item }: Props) {
               minHeight: '2.6em',
             }}
           >
-            {manifest.description}
+            {t(manifest.description)}
           </p>
           <div
             style={{

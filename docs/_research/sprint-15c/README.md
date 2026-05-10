@@ -1,6 +1,6 @@
 # Sprint 15C — Material de research (Enhance CP)
 
-> Carpeta de **research** (no canónica). Contiene insumos brutos consultados durante el pre-sprint para diseñar el plugin Enhance CP. Cuando Sprint 15C cierre, lo canónico vive en `docs/60-roadmap/sprint-15c-enhance-cp-dossier.md` + ADRs (077 Amendment A1, 082, 083) + `docs/features/provisioning/admin-plugins-enhance.md`.
+> Carpeta de **research** (no canónica). Contiene insumos brutos consultados durante el pre-sprint para diseñar el plugin Enhance CP. Cuando Sprint 15C cierre, lo canónico vive en `docs/60-roadmap/completed/sprint-15c-plugin-enhance-cp.md` + ADRs (077 Amendment A1, 082, 083) + `docs/features/provisioning/admin-plugins-enhance.md`.
 
 ## Contenidos
 

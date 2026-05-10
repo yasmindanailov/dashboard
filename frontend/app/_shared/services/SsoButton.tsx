@@ -8,7 +8,8 @@
  * y abre la URL en nueva pestaña (canónico ADR-077 §2.4 `opensIn: 'new_tab'`).
  */
 import { useState } from 'react';
-import { Button } from '../../components/ui';
+import { Button, useToast } from '../../components/ui';
+import { t } from '../i18n';
 import { requestSsoUrlAction } from './_actions';
 
 interface SsoButtonProps {
@@ -17,20 +18,25 @@ interface SsoButtonProps {
 }
 
 export function SsoButton({ serviceId, panelLabel }: SsoButtonProps) {
+  // Sprint 15C Fase 15C.I: feedback de error via toast canónico
+  // (UI_SPEC §4.3). Antes Sprint 11 Fase 11.D usaba <p> inline; ese
+  // patrón violaba la doctrina y daba feedback poco visible.
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const onClick = async () => {
     setLoading(true);
-    setError(null);
     const result = await requestSsoUrlAction(serviceId);
     setLoading(false);
     if (!result.ok) {
-      setError(result.error);
+      toast('error', result.error);
       return;
     }
     if (!result.sso) {
-      setError('El proveedor no devolvió una sesión válida. Inténtalo más tarde.');
+      toast(
+        'error',
+        'El proveedor no devolvió una sesión válida. Inténtalo más tarde.',
+      );
       return;
     }
     /* ADR-077 §2.4 — opensIn === 'new_tab' canónico. */
@@ -38,15 +44,8 @@ export function SsoButton({ serviceId, panelLabel }: SsoButtonProps) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <Button onClick={onClick} disabled={loading} variant="primary">
-        {loading ? 'Abriendo…' : `Abrir ${panelLabel}`}
-      </Button>
-      {error && (
-        <p style={{ fontSize: 12, color: 'var(--danger-600)', margin: 0 }}>
-          {error}
-        </p>
-      )}
-    </div>
+    <Button onClick={onClick} disabled={loading} variant="primary">
+      {loading ? 'Abriendo…' : `Abrir ${t(panelLabel)}`}
+    </Button>
   );
 }

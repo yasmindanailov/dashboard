@@ -303,7 +303,14 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(slugs).toHaveLength(10);
     });
 
-    it('change_package, force_resync, list_available_plans declaran adminOnly=true (ADR-083 Amendment A3)', () => {
+    it('5 actions admin-only declaran adminOnly=true (ADR-083 Amendment A3 + Sprint 15C Fase I refinement)', () => {
+      // Sprint 15C Fase 15C.I (smoke 2026-05-10): view_disk_usage y
+      // view_bandwidth_usage promovidas a `adminOnly: true`. Las métricas
+      // ya viven en MetricsBar (cliente + admin) refrescadas por
+      // `getServiceInfo` cada 60s — la UX cliente no necesita un botón
+      // separado para "verlas otra vez" (sería redundante). Útil solo al
+      // admin para forzar invalidación de cache. Si en el futuro se quiere
+      // UX cliente con render visual del data, abrir DC.NEW-15C-METRICS-MODAL.
       const plugin = buildPlugin(
         buildPrismaMock({ install: VALID_INSTALL }),
         buildVaultMock(),
@@ -315,27 +322,31 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
         .map((a) => a.slug);
       expect(adminOnlySlugs).toEqual(
         expect.arrayContaining([
+          'view_disk_usage',
+          'view_bandwidth_usage',
           'change_package',
           'force_resync',
           'list_available_plans',
         ]),
       );
-      expect(adminOnlySlugs).toHaveLength(3);
-      // Las 7 cliente NO deben declarar adminOnly=true.
+      expect(adminOnlySlugs).toHaveLength(5);
+      // Las 5 acciones cliente que quedan son reset_password + las 4 DNS
+      // (estas últimas ocultas en frontend via INTERNAL_HELPER_SLUGS pero
+      // siguen siendo client-callable por contrato canónico ADR-077 A1.3
+      // si has_dns_management=true).
       const clientSlugs = plugin.inlineActions
         .filter((a) => a.adminOnly !== true)
         .map((a) => a.slug);
       expect(clientSlugs).toEqual(
         expect.arrayContaining([
           'reset_account_password',
-          'view_disk_usage',
-          'view_bandwidth_usage',
           'list_dns_records',
           'add_dns_record',
           'update_dns_record',
           'delete_dns_record',
         ]),
       );
+      expect(clientSlugs).toHaveLength(5);
     });
 
     it('manifest cumple shape canónico (slug, configSchema required, secretsSchema required)', () => {
