@@ -4,7 +4,8 @@ import type { ChangeEvent } from 'react';
 import type { WidgetProps } from '@rjsf/utils';
 
 import { Input, Select } from '../../../components/ui';
-import { t } from '../../i18n';
+// Sprint 15C.II Fase B round 5: `t()` ya no se usa aquí. Label +
+// description ahora viven en AeliumDsFieldTemplate (templates.tsx).
 
 /**
  * Widgets canónicos del tema DS para `@rjsf/core` — Sprint 15A Fase H.1
@@ -46,9 +47,7 @@ function resolveInputType(format?: string): string {
 export function DSTextWidget(props: WidgetProps) {
   const {
     id,
-    label,
     value,
-    required,
     disabled,
     readonly,
     placeholder,
@@ -61,33 +60,23 @@ export function DSTextWidget(props: WidgetProps) {
   } = props;
 
   const inputType = resolveInputType(schema.format);
-  // Sprint 15C Fase 15C.I: rjsf pasa schema.description vía options.help —
-  // los plugins emiten i18n keys (`plugin.<slug>.config.<field>`) que el
-  // translator local resuelve a ES. Si la key no existe, t() devuelve la
-  // string original (compat con descriptions literales no-i18n).
-  const helperRaw =
-    typeof options.help === 'string' ? options.help : undefined;
-  const helperText = helperRaw ? t(helperRaw) : undefined;
+  // Sprint 15C Fase 15C.I: rjsf pasa schema.description vía options.help.
+  // Sprint 15C.II Fase B round 5: el FieldTemplate (AeliumDsFieldTemplate)
+  // renderiza `description` como nodo encima del widget. NO renderizamos
+  // helperText debajo del Input para evitar duplicación. Errores SÍ via
+  // helperText fallback porque el FieldTemplate los renderiza fuera.
+  void options;
   const errorText = rawErrors && rawErrors.length > 0 ? rawErrors[0] : undefined;
 
-  // Sprint 15C.II Fase B fix-up round 4 (2026-05-10): rjsf v5 puede
-  // pasar `props.label` vacío o reemplazado para algunos formats (smoke
-  // real Yasmin reportó label faltando solo para format=uri en el primer
-  // field). Defensivo: priorizar `schema.title` (ya traducido por
-  // translateSchema upstream) sobre `props.label` que rjsf manipula.
-  // Fallback a `props.label` si el plugin no declara title (legacy).
-  const labelBase =
-    typeof schema.title === 'string' && schema.title.length > 0
-      ? schema.title
-      : label;
-  const finalLabel = labelBase ? labelBase + (required ? ' *' : '') : '';
-
+  // Sprint 15C.II Fase B round 5 (2026-05-10): label movido al
+  // FieldTemplate (única fuente). Pasamos `undefined` al Input para evitar
+  // que renderice su propio <label> (causaba duplicación / inconsistencia
+  // con format=uri donde rjsf vacía props.label).
   return (
     <Input
       id={id}
       name={id}
       type={inputType}
-      label={finalLabel}
       value={(value ?? '') as string}
       onChange={(e: ChangeEvent<HTMLInputElement>) =>
         onChange(e.target.value === '' ? undefined : e.target.value)
@@ -98,7 +87,6 @@ export function DSTextWidget(props: WidgetProps) {
       disabled={disabled || readonly}
       autoComplete={inputType === 'password' ? 'new-password' : 'off'}
       error={errorText}
-      helperText={helperText}
     />
   );
 }
@@ -112,9 +100,7 @@ export function DSPasswordWidget(props: WidgetProps) {
 export function DSNumberWidget(props: WidgetProps) {
   const {
     id,
-    label,
     value,
-    required,
     disabled,
     readonly,
     placeholder,
@@ -126,25 +112,16 @@ export function DSNumberWidget(props: WidgetProps) {
     options,
   } = props;
 
-  const helperRaw =
-    typeof options.help === 'string' ? options.help : undefined;
-  const helperText = helperRaw ? t(helperRaw) : undefined;
+  // Sprint 15C.II Fase B round 5: label + description movidos al
+  // FieldTemplate (única fuente). Sin label/helperText aquí.
+  void options;
   const errorText = rawErrors && rawErrors.length > 0 ? rawErrors[0] : undefined;
-
-  // Sprint 15C.II Fase B fix-up round 4: mismo fix defensivo que DSTextWidget
-  // — priorizar schema.title sobre props.label (rjsf puede vaciarlo).
-  const labelBase =
-    typeof schema.title === 'string' && schema.title.length > 0
-      ? schema.title
-      : label;
-  const finalLabel = labelBase ? labelBase + (required ? ' *' : '') : '';
 
   return (
     <Input
       id={id}
       name={id}
       type="number"
-      label={finalLabel}
       value={value === undefined || value === null ? '' : (value as number)}
       min={schema.minimum}
       max={schema.maximum}
@@ -160,7 +137,6 @@ export function DSNumberWidget(props: WidgetProps) {
       placeholder={placeholder}
       disabled={disabled || readonly}
       error={errorText}
-      helperText={helperText}
     />
   );
 }
@@ -215,9 +191,7 @@ export function DSCheckboxWidget(props: WidgetProps) {
 export function DSSelectWidget(props: WidgetProps) {
   const {
     id,
-    label,
     value,
-    required,
     disabled,
     readonly,
     placeholder,
@@ -225,7 +199,6 @@ export function DSSelectWidget(props: WidgetProps) {
     onBlur,
     onFocus,
     rawErrors,
-    schema,
     options,
   } = props;
 
@@ -235,18 +208,11 @@ export function DSSelectWidget(props: WidgetProps) {
     label: String(opt.label ?? opt.value),
   }));
 
-  // Sprint 15C.II Fase B fix-up round 4: mismo fix defensivo que DSTextWidget.
-  const labelBase =
-    typeof schema.title === 'string' && schema.title.length > 0
-      ? schema.title
-      : label;
-  const finalLabel = labelBase ? labelBase + (required ? ' *' : '') : '';
-
+  // Sprint 15C.II Fase B round 5: label movido al FieldTemplate.
   return (
     <Select
       id={id}
       name={id}
-      label={finalLabel}
       value={value === undefined || value === null ? '' : String(value)}
       onChange={(e) =>
         onChange(e.target.value === '' ? undefined : e.target.value)
