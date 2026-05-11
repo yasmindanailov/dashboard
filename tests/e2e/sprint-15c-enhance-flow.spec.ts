@@ -33,6 +33,19 @@
  *      `change_package` con planId=2 → 200 + service.metadata.enhance_plan_id
  *      actualizado a 2 (Fase 15C.H bug fix `actionChangePackage` actualiza
  *      metadata para que el cron L3 NO emita plan_divergence false-positive).
+ *   7. Cliente `reset_account_password` → 200 + email cliente con password +
+ *      audit redactado `[REDACTED]` (Sprint 15C.II Fase D — gap G2 R12).
+ *   8. Admin DNS records CRUD nativo `/admin/services/:id/dns/records`
+ *      (Sprint 15C.II Fase E — GAP-15CII-L): list zona auto-poblada del mock
+ *      + add TXT marcador + delete. Reusa los componentes shared + el
+ *      resolver `dns-authority-resolver`.
+ *   9. Admin `recalculate_provider_metrics` (Sprint 15C.II Fase E — GAP-15CII-K,
+ *      renombrada desde `force_resync` por Amendment A5.1) → 200 + sideEffect
+ *      `service.metrics_invalidated` (ejecuta `PUT calculate-resource-usage`).
+ *  10. Admin `POST /admin/services/:id/deprovision` con `notify_client: true`
+ *      (Sprint 15C.II Fase E — GAP-15CII-J) → status `cancelled` + email
+ *      `service.cancelled` al cliente (genérico, sin motivo interno ni nota
+ *      del admin) + audit `service.deprovisioned_admin` con `notify_client=true`.
  *
  * Lo NO cubierto por este spec (cubierto por unit + integration + smoke
  * manual contra Enhance live):
@@ -40,7 +53,11 @@
  *     por `enhance.plugin.spec.ts` + `client.integration.spec.ts` (Jest
  *     in-process con MockEnhanceServer).
  *   - DNS records UI cliente CRUD (escenario 5 dossier): cubierto por
- *     unit (`enhance.plugin.spec.ts` DNS section) + smoke manual.
+ *     unit (`enhance.plugin.spec.ts` DNS section) + el test 8 admin (mismo
+ *     plugin path, distinta ruta backend) + smoke manual. La validación
+ *     client-side por kind / TTL presets / dedup viven en el componente
+ *     `DnsRecordForm` (cubierto por tipos TS estrictos — frontend sin
+ *     framework de unit tests).
  *   - SSO impersonation full flow (escenario 6 dossier): cubierto por
  *     `audit-admin-sso-impersonation.listener.spec.ts` + smoke manual.
  *
@@ -644,6 +661,213 @@ test.describe.serial(
       expect(audit.rows[0].changes_after.data?.password).not.toBe(
         plaintextPwd,
       );
+    });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Sprint 15C.II Fase E (2026-05-11) — GAP-15CII-J/K/L + ADR-077/083 A5
+    // ─────────────────────────────────────────────────────────────────────
+
+    test('8. admin DNS records CRUD nativo (GAP-15CII-L) → list + add + delete contra el mock', async ({
+      request,
+    }) => {
+      // El service de test 4 tiene `enhance_website_id = FIXTURE_WEBSITE_ID`
+      // pero el mock NO tiene una zona para ese wsId (test 4 lo insertó por
+      // SQL sin crear el website en el mock). Creamos el website ahora — el
+      // mock auto-crea la zona DNS con los default records aplicados (espejo
+      // de Enhance real). Luego apuntamos el service a ese wsId.
+      const wsRes = await request.post(
+        `${MOCK_BASE_URL}/orgs/${FIXTURE_CUSTOMER_ORG_ID}/websites`,
+        {
+          headers: { Authorization: `Bearer ${MOCK_API_TOKEN}` },
+          data: { domain: 'mi-cliente.es', subscriptionId: FIXTURE_SUBSCRIPTION_ID },
+        },
+      );
+      expect(
+        wsRes.ok(),
+        `mock POST website: ${wsRes.status()} ${await wsRes.text()}`,
+      ).toBeTruthy();
+      const ws = (await wsRes.json()) as { id: string };
+      expect(ws.id).toBeTruthy();
+
+      await pool.query(
+        `UPDATE services
+           SET metadata = jsonb_set(metadata, '{enhance_website_id}', to_jsonb($1::text)),
+               domain = 'mi-cliente.es'
+         WHERE id = $2`,
+        [ws.id, testServiceId],
+      );
+
+      // GET admin DNS records — endpoint `/admin/services/:id/dns/records`
+      // (sin filtro ownership). El resolver `dns-authority-resolver` ve un
+      // producto hosting → authority='aelium', plugin=enhance_cp.
+      const listRes = await request.get(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/dns/records`,
+        { headers: { Authorization: `Bearer ${superadminToken}` } },
+      );
+      expect(
+        listRes.ok(),
+        `GET /admin/services/:id/dns/records: ${listRes.status()} ${await listRes.text()}`,
+      ).toBeTruthy();
+      const listBody = (await listRes.json()) as {
+        authority: string;
+        plugin_slug: string;
+        nameservers: string[];
+        result: { success: boolean; data?: { zone: { origin: string; records: Array<{ id: string; kind: string; name: string }> } } };
+      };
+      expect(listBody.authority).toBe('aelium');
+      expect(listBody.plugin_slug).toBe('enhance_cp');
+      expect(listBody.result.success).toBe(true);
+      expect(listBody.result.data?.zone.origin).toBe('mi-cliente.es');
+      const recordsBefore = listBody.result.data!.zone.records.length;
+
+      // POST — añade un TXT record marcador.
+      const addRes = await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/dns/records`,
+        {
+          headers: { Authorization: `Bearer ${superadminToken}` },
+          data: { kind: 'TXT', name: '_e2e-dns-marker', value: '"e2e-fase-e"', ttl: 3600 },
+        },
+      );
+      expect(
+        addRes.ok(),
+        `POST /admin/services/:id/dns/records: ${addRes.status()} ${await addRes.text()}`,
+      ).toBeTruthy();
+      const addBody = (await addRes.json()) as {
+        result: { success: boolean; data?: { recordId?: string } };
+      };
+      expect(addBody.result.success).toBe(true);
+
+      // GET again — el TXT marcador aparece + el id para borrarlo.
+      const list2Res = await request.get(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/dns/records`,
+        { headers: { Authorization: `Bearer ${superadminToken}` } },
+      );
+      const list2Body = (await list2Res.json()) as {
+        result: { data?: { zone: { records: Array<{ id: string; kind: string; name: string }> } } };
+      };
+      const records2 = list2Body.result.data!.zone.records;
+      expect(records2.length).toBe(recordsBefore + 1);
+      const marker = records2.find(
+        (r) => r.kind === 'TXT' && r.name === '_e2e-dns-marker',
+      );
+      expect(marker, 'TXT marcador debe aparecer tras el POST').toBeDefined();
+
+      // DELETE — borra el marcador.
+      const delRes = await request.delete(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/dns/records/${marker!.id}`,
+        { headers: { Authorization: `Bearer ${superadminToken}` } },
+      );
+      expect(
+        delRes.ok(),
+        `DELETE /admin/services/:id/dns/records/:recordId: ${delRes.status()}`,
+      ).toBeTruthy();
+
+      // GET final — el marcador ya no está.
+      const list3Res = await request.get(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/dns/records`,
+        { headers: { Authorization: `Bearer ${superadminToken}` } },
+      );
+      const list3Body = (await list3Res.json()) as {
+        result: { data?: { zone: { records: Array<{ kind: string; name: string }> } } };
+      };
+      expect(
+        list3Body.result.data!.zone.records.some(
+          (r) => r.kind === 'TXT' && r.name === '_e2e-dns-marker',
+        ),
+      ).toBe(false);
+    });
+
+    test('9. admin recalculate_provider_metrics (GAP-15CII-K — renombrada desde force_resync) → 200 + sideEffect service.metrics_invalidated', async ({
+      request,
+    }) => {
+      // El slug `recalculate_provider_metrics` es `adminOnly: true`. Lo
+      // invocamos vía el endpoint cliente `POST /services/:id/actions/:slug`
+      // con token superadmin → el wrapper enforce adminOnly y, como el actor
+      // ES admin, lo deja pasar. Ejecuta `PUT calculate-resource-usage` en el
+      // mock y devuelve el resultado fresco + sideEffect que invalida cache.
+      const res = await request.post(
+        `${TEST_CONFIG.apiUrl}/services/${testServiceId}/actions/recalculate_provider_metrics`,
+        {
+          headers: { Authorization: `Bearer ${superadminToken}` },
+          data: { payload: {} },
+        },
+      );
+      expect(
+        res.ok(),
+        `POST recalculate_provider_metrics (admin): ${res.status()} ${await res.text()}`,
+      ).toBeTruthy();
+      const body = (await res.json()) as {
+        success?: boolean;
+        message?: string;
+        sideEffects?: string[];
+      };
+      expect(body.success).toBe(true);
+      expect(body.message).toBe(
+        'plugin.enhance_cp.actions.recalculate_provider_metrics.success',
+      );
+      expect(body.sideEffects).toEqual(['service.metrics_invalidated']);
+    });
+
+    test('10. admin deprovision con notify_client → status cancelled + email service.cancelled al cliente + audit notify_client=true (GAP-15CII-J)', async ({
+      request,
+    }) => {
+      // Limpia estado previo determinista.
+      await pool.query(
+        `DELETE FROM audit_change_log
+         WHERE entity_id = $1 AND action = 'service.deprovisioned_admin'`,
+        [testServiceId],
+      );
+      await clearMailbox();
+
+      const res = await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/deprovision`,
+        {
+          headers: { Authorization: `Bearer ${superadminToken}` },
+          data: { reason: 'cancelled', notes: 'e2e fase E', notify_client: true },
+        },
+      );
+      expect(
+        res.ok(),
+        `POST /admin/services/:id/deprovision: ${res.status()} ${await res.text()}`,
+      ).toBeTruthy();
+      const body = (await res.json()) as { status?: string; cancellation_reason?: string };
+      expect(body.status).toBe('cancelled');
+      expect(body.cancellation_reason).toContain('cancelled');
+
+      // DB: status terminal.
+      const svc = await pool.query<{ status: string }>(
+        `SELECT status FROM services WHERE id = $1`,
+        [testServiceId],
+      );
+      expect(svc.rows[0].status).toBe('cancelled');
+
+      // Email `service.cancelled` al cliente (async vía BullMQ → mailpit).
+      const email = await waitForEmail(CLIENT_EMAIL, {
+        subjectIncludes: 'cancelado',
+        timeoutMs: 15_000,
+      });
+      expect(email.Subject).toContain('Tu servicio ha sido cancelado');
+      expect(email.Subject).toContain('mi-cliente.es');
+      // El body NO debe contener el motivo interno (taxonomía billing
+      // no customer-facing) ni la nota interna del admin.
+      expect(email.HTML).not.toContain('admin_override');
+      expect(email.HTML).not.toContain('e2e fase E');
+      // Sí debe contener el link al portal de soporte.
+      expect(email.HTML).toContain('/dashboard/support');
+
+      // Audit: changes_after.notify_client === true (Sprint 15C.II Fase E).
+      const audit = await pool.query<{
+        changes_after: { notify_client?: boolean; reason_code?: string };
+      }>(
+        `SELECT changes_after FROM audit_change_log
+         WHERE entity_type = 'Service' AND entity_id = $1
+           AND action = 'service.deprovisioned_admin'
+         ORDER BY created_at DESC LIMIT 1`,
+        [testServiceId],
+      );
+      expect(audit.rowCount).toBe(1);
+      expect(audit.rows[0].changes_after.notify_client).toBe(true);
+      expect(audit.rows[0].changes_after.reason_code).toBe('cancelled');
     });
   },
 );

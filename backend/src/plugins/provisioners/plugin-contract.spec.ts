@@ -358,6 +358,19 @@ describe.each(
         expect(typeof info.capabilities.hasSsoPanel).toBe('boolean');
         expect(Array.isArray(info.capabilities.inlineActions)).toBe(true);
         expect(Array.isArray(info.availableActions)).toBe(true);
+
+        // ADR-077 Amendment A5 — `recoveryHint` opcional. Si presente: ∈ enum
+        // canónico Y coherente con un status de drift (no tiene sentido sobre
+        // `active`). El plugin es la única autoridad — el frontend ramifica
+        // por este campo, NUNCA por matching de `statusReason`.
+        if (info.recoveryHint !== undefined) {
+          expect(['reprovision', 'reconcile', 'contact_support']).toContain(
+            info.recoveryHint,
+          );
+          expect(['unknown', 'failed', 'suspended', 'expired']).toContain(
+            info.status,
+          );
+        }
       },
     );
 

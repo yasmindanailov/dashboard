@@ -18,6 +18,7 @@ import { NotificationsAuthReplayListener } from './listeners/notifications-auth-
 import { NotificationsPluginCircuitListener } from './listeners/notifications-plugin-circuit.listener';
 import { NotificationsOnReconciliationThresholdExceededListener } from './listeners/notifications-on-reconciliation-threshold-exceeded.listener';
 import { NotificationsOnPasswordResetListener } from './listeners/notifications-on-password-reset.listener';
+import { NotificationsOnServiceCancelledListener } from './listeners/notifications-on-service-cancelled.listener';
 import { NotificationsRetentionCron } from './notifications-retention.cron';
 
 /**
@@ -62,6 +63,11 @@ import { NotificationsRetentionCron } from './notifications-retention.cron';
     // conserva el plaintext temporal sólo para este listener; nunca se
     // persiste con plaintext. Heredable a 15D RC + 15G Plesk.
     NotificationsOnPasswordResetListener,
+    // Sprint 15C.II Fase E: consume `service.cancelled` (emitido por
+    // `ProvisioningService.deprovisionAsAdmin`) y, si `notify_client !== false`,
+    // despacha email + campana `service.cancelled` al dueño del servicio.
+    // Plantilla genérica heredable a 15D RC + 15E Docker + 15G Plesk.
+    NotificationsOnServiceCancelledListener,
     NotificationsRetentionCron,
     {
       provide: NOTIFICATION_CHANNELS,

@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsObject,
@@ -111,9 +112,22 @@ export class DeprovisionDto {
   @IsEnum(DeprovisionReasonDto)
   reason: DeprovisionReasonDto;
 
-  /** Texto libre opcional para el audit log. */
+  /**
+   * Nota interna opcional para el audit log (NO se muestra al cliente —
+   * solo va a `audit_change_log.changes_after` + `cancellation_reason`).
+   */
   @IsOptional()
   @IsString()
   @MaxLength(500)
   notes?: string;
+
+  /**
+   * Sprint 15C.II Fase E — si `false`, NO se envía el email de cancelación
+   * al cliente (caso fraude confirmado donde no queremos avisar, cuentas de
+   * test, etc.). Default `true` (comportamiento canónico: el cliente recibe
+   * el email + campana vía listener `notifications-on-service-cancelled`).
+   */
+  @IsOptional()
+  @IsBoolean()
+  notify_client?: boolean;
 }

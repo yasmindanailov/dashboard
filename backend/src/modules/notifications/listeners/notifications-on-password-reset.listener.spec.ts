@@ -87,10 +87,10 @@ describe('NotificationsOnPasswordResetListener — Sprint 15C.II Fase D', () => 
       expect(dispatchToUser).not.toHaveBeenCalled();
     });
 
-    it('action_slug=force_resync → no-op', async () => {
+    it('action_slug=recalculate_provider_metrics → no-op', async () => {
       await listener.handlePasswordReset({
         ...PAYLOAD_OK,
-        action_slug: 'force_resync',
+        action_slug: 'recalculate_provider_metrics',
       });
       expect(dispatchToUser).not.toHaveBeenCalled();
     });

@@ -212,9 +212,16 @@ describe('getServiceInfoWithCache â€” Sprint 11 Fase 11.B', () => {
 
     expect(out.status).toBe('unknown');
     expect(out.statusReason).toBe('Provider unavailable');
+    // Sprint 15C.II Fase E — ADR-077 Amendment A5: el fallback del wrapper
+    // (proveedor caído / circuit open) NO es re-aprovisionable — el plugin ni
+    // respondió. La UI no debe ofrecer CTA de recuperación accionable.
+    expect(out.recoveryHint).toBe('contact_support');
     expect(cache.set).toHaveBeenCalledWith(
       'svc-1',
-      expect.objectContaining({ status: 'unknown' }),
+      expect.objectContaining({
+        status: 'unknown',
+        recoveryHint: 'contact_support',
+      }),
       30,
     );
   });

@@ -4,7 +4,8 @@
  * Cubre TODOS los endpoints que las Fases 15C.C-H necesitarán:
  *   - Fase C plugin core: provision flow 6-step + SSO + getServiceInfo + reconcile.
  *   - Fase D listeners DNS: bootstrap default records + reconcile defensivo.
- *   - Fase E acciones curadas: reset_account_password + force_resync.
+ *   - Fase E acciones curadas: reset_account_password + recalculate_provider_metrics
+ *     (renombrada desde `force_resync` en Sprint 15C.II Fase E — Amendment A5.1).
  *   - Fase F SSO: cliente + admin impersonation.
  *   - Fase G UI DNS: zone CRUD + records CRUD.
  *   - Fase H reconcile cron: getSubscription + getWebsite drift detection.
@@ -357,9 +358,10 @@ export class EnhanceApiClient {
   }
 
   /**
-   * PUT /orgs/{org}/subscriptions/{id}/calculate-resource-usage — fuerza
-   * resync de resources tras cambio externo. Acción admin `force_resync`
-   * (ADR-083 §9 decisión 32).
+   * PUT /orgs/{org}/subscriptions/{id}/calculate-resource-usage — pide a
+   * Enhance que recalcule disco + ancho de banda de la subscription en su
+   * lado. Backing de la acción admin `recalculate_provider_metrics`
+   * (ADR-083 §9 decisión 32 + Amendment A5.1 — renombrada desde `force_resync`).
    */
   async calculateResourceUsage(
     orgId: CustomerOrgId,

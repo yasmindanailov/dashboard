@@ -1,7 +1,7 @@
 # Sprint 15C.II — Plugin Enhance Hardening · Dossier de pre-sprint
 
-> **Tipo:** Pre-sprint research dossier (preservado como referencia histórica) + **Apéndice A** al final con decisiones doctrinales congeladas + gaps audit técnico + **§A.8 handoff completo Fase C → D** (próximo agente: leer §A.8 antes de codear; §A.7 preserved como referencia histórica del handoff Fase B → C).
-> **Estado:** ▶ **ACTIVO 2026-05-10** — Fases A + B + C cerradas (mergeadas a master). Próxima sesión arranca **Fase D** (audit-sanitizer.ts + email listener notifications-on-password-reset). Pre-condición técnica resuelta: PR [#52](https://github.com/yasmindanailov/dashboard/pull/52) merged `ef7f488` + PR [#53](https://github.com/yasmindanailov/dashboard/pull/53) merged `714c94c` + PR [#54](https://github.com/yasmindanailov/dashboard/pull/54) merged `01ad9a8` + PR [#55](https://github.com/yasmindanailov/dashboard/pull/55) merged Fase C 7 rounds (`5906165` → `f9b4b2f`).
+> **Tipo:** Pre-sprint research dossier (preservado como referencia histórica) + **Apéndice A** al final con decisiones doctrinales congeladas + gaps audit técnico + **§A.10 handoff completo Fase E → F** (próximo agente: leer §A.10 antes de codear — y §A.9.6.1 para el scope detallado de suspend/unsuspend; §A.7/§A.8/§A.9 preserved como referencia histórica de los handoffs anteriores).
+> **Estado:** ▶ **ACTIVO 2026-05-11** — Fases A + B + C + D cerradas (mergeadas a master) + **Fase E en PR [#60](https://github.com/yasmindanailov/dashboard/pull/60)** (abierto, NO mergeado — CI GitHub bloqueada por incidente billing externo §A.9.10, bypass policy §6 cumplido). Próxima sesión arranca **Fase F** (admin overview operativo + suspend/unsuspend + audit timeline GAP-M + error_log módulo GAP-N + G4/G5/G8) — frase canónica verbatim §A.10.1. Pre-condición técnica Fase F: verificar si PR #60 está en master (si no, Yasmin decide bypass-merge o esperar). PRs mergeados: #52 `ef7f488` + #53 `714c94c` (Fase A) + #54 `01ad9a8` (Fase B) + #55 Fase C 7 rounds + #56 housekeeping + #57 `c3b519e` (Fase D, bypass CI §A.9.10) + #58/#59 housekeeping.
 > **Origen:** Smoke real Yasmin contra mock 2026-05-10 durante cierre Fase 15C.I. Reveló gaps sistémicos, decisiones doctrinales aún no tomadas, y violaciones del UI_SPEC §4.3 que el cierre formal Fase I solo abordó parcialmente.
 > **Pre-condición técnica:** ✅ resuelta — Opción A doctrina §5 ejecutada (commit Fase 15C.I parcial → PR #52 → merge → nueva rama hardening desde master limpio).
 > **Doctrina canónica del usuario (literal 2026-05-10):** "Sobre las deudas pendientes en relación al plugin Enhance, hay que documentarlas, no se da un paso más, hasta que el plugin esté al 100% operativo con los features básicos y necesarios perfectos para producción."
@@ -1412,3 +1412,138 @@ operativa cuenta GitHub):
 1. Resolver method of payment en https://github.com/settings/billing/payment_information
 2. Revisar spending limit en https://github.com/settings/billing/spending_limit
 3. Considerar optimización workflows: mover E2E (3 shards × ~10-20 min) a corrida solo en master (post-merge), no en cada PR — ahorra ~70% minutos CI dentro de los 2000 free/mes plan Free.
+
+---
+
+# Apéndice A.10 — Cierre Fase E + handoff a Fase F (2026-05-11)
+
+> **Audiencia**: el siguiente agente que arranque Sprint 15C.II Fase F.
+> **Pre-condición técnica**: PR Fase E ([#60](https://github.com/yasmindanailov/dashboard/pull/60)) mergeado a master.
+> ⚠ **Estado al cierre de Fase E (2026-05-11):** PR #60 **abierto, NO mergeado** — CI GitHub Actions bloqueada por el incidente billing externo (§A.9.10), bypass policy §6 cumplido (las 3 condiciones — `pnpm ci:check:full` verde + boot real backend + documentación formal en los comentarios del PR), label `ready-for-e2e` añadida. **El primer paso de Fase F es verificar si #60 ya está en master**: si NO, Yasmin decide (bypass-merge como en PR #57, o esperar a que se resuelva el billing GitHub y re-disparar CI). Fase F arranca DESDE master post merge de #60.
+> **Tipo**: cierre Fase E (gold standard — decisión Yasmin "cada punto al más alto estándar") + handoff a F.
+
+## A.10.1. Frase canónica de arranque Fase F (verbatim)
+
+> *"Lee `docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md` Apéndice A §A.10 (cierre Fase E + handoff a Fase F). Vamos con Sprint 15C.II Fase F — admin overview operativo del plugin Enhance (`/admin/settings/plugins/enhance-cp`): stats grid + tabla drifts + capability flag `supports_suspend` (ADR-077 Amendment A4 ya frozen) + 2 inline actions `suspend_service`/`unsuspend_service` + wrappers `suspendServiceWithAudit`/`unsuspendServiceWithAudit` + endpoints `/admin/services/:id/suspend|unsuspend` + listeners email `notifications-on-service-suspended`/`-unsuspended` + UI `AdminServiceOperationsCard` botón suspender/reanudar + banner amarillo suspended + cache TTL configurable (G4) + breaker EnhanceApiClient (G5 evaluar) + G8 bug test-connection + GAP-15CII-M `/admin/services/[id]/audit` + `/dashboard/services/[id]/audit` timeline per-service + GAP-15CII-N error_log persiste módulo origen. Lee §A.9.6.1 (suspend/unsuspend scope detallado transversal billing/abuse/GDPR). Crea rama `sprint15c-ii-fase-f-admin-overview-suspend` desde master post merge PR Fase E. Procede con rigor."*
+
+## A.10.2. Estado real al cierre Fase E
+
+**Alcance gold standard** (Yasmin pidió "cada punto al más alto estándar, profesional, riguroso y robusto" → se subió el listón sobre el plan acotado del dossier original: `recoveryHint` estructurado en vez de lista hardcoded; typing-confirm en cancelar; rename honesto `force_resync` → `recalculate_provider_metrics` con progressive disclosure; DNS UI nivel "console" con TTL presets + validación por kind + dedup + DNSSEC read-only; email de cancelación incluido en Fase E aunque el dossier lo había puesto en F).
+
+**ADRs (2 amendments, backward-compatible, NO bump `contractVersion`):**
+
+| Amendment | Resumen |
+|---|---|
+| **ADR-077 Amendment A5** | Campo opcional `recoveryHint?: 'reprovision' \| 'reconcile' \| 'contact_support'` en `ServiceInfo`. El plugin clasifica su drift; la UI ramifica por el contrato, NUNCA por `statusReason.endsWith(...)`. Cierra BUG-15CII-I por construcción. Invariante test contract. |
+| **ADR-083 Amendment A5** | A5.1: rename slug `force_resync` → `recalculate_provider_metrics` + label "Recalcular métricas en el proveedor" + reubicación a `AdminServiceOperationsCard` (progressive disclosure) — **corrige A4.2** (que decía inexactamente "Reconciliar contra Enhance / comparar cache vs ground truth"; la acción hace `PUT calculate-resource-usage`, no reconcilia). A5.2: `getServiceInfo()` puebla `recoveryHint` (mapping table — incluye detección de `plan_divergence` → `'reconcile'`). A5.3: `list_dns_records` expone estado DNSSEC read-only en `result.data.zone.dnssec`. |
+
+**Backend:**
+
+| Área | Cambio |
+|---|---|
+| `core/provisioning/types.ts` | + tipo `ServiceRecoveryHint` + `ServiceInfo.recoveryHint?` |
+| `core/provisioning/plugin-utils.ts` | fallback `buildUnknownStateFallback` declara `recoveryHint: 'contact_support'` (proveedor caído / circuit open → no re-aprovisionable) |
+| `modules/provisioning/provisioning.service.ts` | `buildPluginNotRegisteredFallback` → `recoveryHint: 'contact_support'`. `deprovisionAsAdmin` → evento `service.cancelled` lleva `notify_client` (default true) + audit `changes_after.notify_client` |
+| `modules/provisioning/dto/provisioning.dto.ts` | `DeprovisionDto` + `notify_client?: boolean` |
+| `plugins/provisioners/enhance_cp/enhance.plugin.ts` | `getServiceInfo` puebla `recoveryHint` (reprovision para not_yet_provisioned/subscription_missing; reconcile para plan_divergence). rename `force_resync` → `recalculate_provider_metrics` (manifest + switch + método `actionRecalculateProviderMetrics`). `actionListDnsRecords` mapea `dnssec` cuando la zona lo trae. helper `readPositiveIntConfig` |
+| `plugins/provisioners/enhance_cp/api/client.ts` | docstring `calculateResourceUsage` corregido |
+| `modules/notifications/listeners/notifications-on-service-cancelled.listener.ts` (NUEVO) | consume `service.cancelled`; si `notify_client !== false` → `dispatchToUser('service.cancelled', {service_id, domain, support_url}, user_id)`. Patrón L11+L12 Fase D. Degradación elegante R7 |
+| `modules/notifications/notifications.module.ts` | + registro del listener nuevo |
+| `prisma/seeds/notification-templates.ts` | + templates `service.cancelled` (email HTML + campana interna) — genéricos, sin motivo interno ni nota del admin |
+
+**Frontend:**
+
+| Área | Cambio |
+|---|---|
+| `app/lib/api.ts` | + `ServiceRecoveryHint` + `ServiceInfo.recoveryHint?` + `DnsZoneDnssec` + `DnsZone.dnssec?` |
+| `app/admin/services/[id]/page.tsx` (E.1) | `showReprovision = isDrift && info.recoveryHint === 'reprovision'` (era `statusReason.endsWith(...)`). DNS placeholder banner → `Card` con `Link` real a `/admin/services/[id]/dns`. `AdminServiceOperationsCard` recibe `serviceDisplayName`. Comentarios actualizados |
+| `app/_shared/services/dns/_components/` (E.2 — **movidos** desde `dashboard/services/[id]/dns/_components/` vía `git mv`) | `DnsRecordsManager`, `DnsRecordForm`, `DnsExternallyBanner` ahora compartidos cliente/admin con prop `isAdmin` (back-links + paths de acción). `DnsRecordForm`: TTL presets dropdown + "Personalizado…" + validación client-side por kind (A=IPv4, AAAA=IPv6, CNAME/MX=FQDN, MX/SRV/CAA formato) + dedup (kind+name+value) + conflicto CNAME (RFC 1034 §3.6.2). `DnsRecordsManager`: Badge DNSSEC + nota propagación post-mutación + empty state pulido |
+| `app/_shared/services/dns/_actions.ts` (E.2) | 4 acciones DNS + param `isAdmin` (helpers `dnsBasePath` / `dnsPagePath`) |
+| `app/admin/services/[id]/dns/page.tsx` (NUEVO, E.2) | SC paralelo: `serverFetch('/admin/services/:id')` + `listDnsRecordsAction(id, true)` + delega a `<DnsRecordsManager isAdmin>` |
+| `app/dashboard/services/[id]/dns/page.tsx` (E.2) | imports actualizados al nuevo path `_shared` |
+| `app/_shared/services/_actions.ts` (E.3) | + `deprovisionServiceAction(serviceId, {reason, notes?, notify_client?})` |
+| `app/admin/services/[id]/_components/CancelServiceModal.tsx` (NUEVO, E.3) | Modal DS: AlertBanner advertencia (irreversible, recurso eliminado, distinto de suspender) + `<Select>` motivo (3 valores canónicos) + `<Textarea>` nota interna + checkbox "Notificar al cliente" (default ON) + typing-confirm del `serviceDisplayName` + botón danger deshabilitado hasta match. Tras OK: toast + `router.refresh()` (NO redirect — el SC re-renderiza con banner terminal) |
+| `app/admin/services/[id]/_components/AdminServiceOperationsCard.tsx` (E.3 — **reescrito**) | Se renderiza siempre (parent solo lo monta si `!isTerminal`). Botones: "Cambiar plan…" (si action disponible), "Recalcular métricas en el proveedor" (si action `recalculate_provider_metrics` disponible — con tooltip que la distingue de ↻ Refrescar y del cron L3), "Cancelar servicio…" (danger, siempre → `CancelServiceModal`). Recibe `serviceDisplayName` |
+| `app/_shared/services/ActionsBar.tsx` (E.4) | `INTERNAL_HELPER_SLUGS` += `recalculate_provider_metrics` (ya no aparece como botón standalone en "Acciones rápidas" — se opera desde `AdminServiceOperationsCard`) |
+| `app/_shared/i18n/translations-es.ts` (E.5) | `plugin.enhance_cp.actions.recalculate_provider_metrics` + `.description` + `.success` (reemplazan `force_resync*`). + `plugin.enhance_cp.status_reason.plan_divergence`. Recovery messages `action.invalid_state.admin` / `sso.error.invalid_state.admin` apuntan ahora a "Reconciliar todos los servicios ahora" en la página settings del plugin (= cron L3, lo correcto — `recalculate_provider_metrics` NO re-sincroniza el mapping enhance_customers) |
+
+**Suites tests post Fase E:** backend **591/596 unit verde** + 5 skipped (+10 vs Fase D: 4 recoveryHint en enhance.plugin.spec + 1 DNSSEC en enhance.plugin.spec + 1 recalculate rename test + 1 plugin-utils fallback recoveryHint + 1 plugin-contract recoveryHint invariant + 8 notifications-on-service-cancelled.listener.spec (1 suite nueva) + 1 provisioning.service.spec notify_client — descontando ajustes). typecheck both verde + lint:check both verde. Frontend NO tiene framework de unit tests (solo Playwright e2e en `tests/e2e/`) — la cobertura de la lógica nueva del frontend la dan: (a) los tipos TS estrictos, (b) la extensión del E2E `sprint-15c-enhance-flow.spec.ts` (admin DNS CRUD + cancelar + recalcular), opt-in label `ready-for-e2e`.
+
+**Gaps cerrados Fase E:**
+
+| Gap | Estado |
+|---|---|
+| **BUG-15CII-I** heurística showReprovision no detecta `subscription_missing` | ✅ Cerrado Fase E (por contrato — `recoveryHint`, no heurística de string) |
+| **GAP-15CII-J** UI admin cancelar servicio | ✅ Cerrado Fase E (`CancelServiceModal` + `deprovisionServiceAction` + email cliente) |
+| **GAP-15CII-K** UI admin force_resync sin botón | ✅ Cerrado Fase E (renombrada `recalculate_provider_metrics` + reubicada a `AdminServiceOperationsCard` con etiquetado preciso — corrige Amendment A4.2) |
+| **GAP-15CII-L** UI admin DNS records CRUD | ✅ Cerrado Fase E (`/admin/services/[id]/dns` reusando componentes shared + endpoints existentes; + gold-standard TTL presets + validación por kind + dedup + DNSSEC read-only) |
+
+## A.10.3. Lecciones técnicas críticas Fase E (heredables — léelas antes de codear Fase F)
+
+### L13 — La UI ramifica por contrato del plugin, NUNCA por display strings (`recoveryHint` doctrine)
+
+**Doctrina canónica frozen 2026-05-11 (ADR-077 Amendment A5):** cuando la UI necesita decidir "qué acción de recuperación ofrecer para este drift", **el plugin clasifica** (campo declarativo `ServiceInfo.recoveryHint`) y **la UI ramifica por ese campo**. Está PROHIBIDO matchear `statusReason` por string (`endsWith('.status_reason.X')`) — `statusReason` es i18n display, no contrato de comportamiento. El anti-patrón "fix de 1 línea: un Set de claves i18n hardcodeado en el frontend" traslada el problema (cada plugin nuevo tiene que recordar añadir su clave a una lista en otro paquete). El patrón correcto vive en el contrato. Heredable: 15D RC (`redemptionPeriod` → `reprovision`?), 15E Docker (container OOM → `reconcile`?), 15G Plesk — cada plugin clasifica su drift al implementar `getServiceInfo()`.
+
+### L14 — Naming honesto sobre conveniencia: renombrar slugs de inline action es seguro
+
+**Doctrina canónica frozen 2026-05-11 (ADR-083 Amendment A5.1):** los slugs de `inlineActions` son **plugin-internos**, NO contrato externo estable (solo `ProvisionerPlugin.slug` es inmutable — ADR-077 §4+§6). Si un slug miente sobre lo que hace (`force_resync` → en realidad `calculate-resource-usage`), renombrarlo es la decisión correcta — se actualiza en el mismo PR el manifest + el switch + el método + `INTERNAL_HELPER_SLUGS` (frontend) + las claves i18n + los specs. Un Amendment A4.2 "renombramos el label pero mantenemos el slug por compat" fue una mala decisión — el label mentía igual de mal y el slug seguía sin reflejar la operación. Cuando descubras que algo está mal nombrado, corrígelo de raíz.
+
+### L15 — "Demote, don't delete": progressive disclosure para operaciones de power-user
+
+**Doctrina canónica frozen 2026-05-11:** cuando una operación FUNCIONA pero es de power-user / raro (`recalculate_provider_metrics`: pedir al proveedor que recalcule sus métricas internas — útil en el ~5% de casos), el estándar profesional NO es borrarla del UI ni dejarla solo-API. Es **progressive disclosure**: vive en la sección de operaciones avanzadas (`AdminServiceOperationsCard`), con etiquetado preciso + tooltip que la distingue inequívocamente de operaciones similares (↻ Refrescar = re-lee lo último; reconciliación cron L3 = detecta drift). El usuario que la necesita la encuentra; el que no, no tropieza con ella. Heredable a cualquier acción admin "rara pero legítima" de futuros plugins.
+
+### L16 — Componentes compartidos cliente/admin: `_shared/` + prop `isAdmin`, NO duplicación
+
+**Patrón canónico (Sprint 15C.II Fase E):** cuando una funcionalidad existe para cliente y admin con la misma UX pero distinta ruta de backend (`/services/:id/...` vs `/admin/services/:id/...`) y distintos back-links, la solución es: (1) componentes en `app/_shared/<dominio>/_components/`, (2) prop `isAdmin: boolean` que el SC parent deriva server-side y pasa hacia abajo, (3) server actions con param `isAdmin` que discrimina path + `revalidatePath` (igual que `refreshServiceInfoAction`). CERO duplicación de componentes. El backend es defense-in-depth: el endpoint `/admin/...` saltea ownership con `isAdmin=true`; el `/services/...` deriva `isAdmin` del rol y aplica el filtro. Heredable: 15D RC dominios, 15E Docker, cualquier feature cliente↔admin compartida.
+
+### L17 — Flujo destructivo de grado profesional: el checklist completo
+
+**Doctrina canónica frozen 2026-05-11 (`CancelServiceModal` como referencia):** una acción **irreversible y destructiva** en el panel admin lleva, en orden: (1) `AlertBanner` de advertencia honesta (qué se pierde, que es irreversible, alternativa menos drástica — "suspende en vez de cancelar"); (2) motivo canónico obligatorio (dropdown — taxonomía que va al audit log, NO se muestra al cliente); (3) nota interna opcional (audit log, NO cliente); (4) toggle "notificar al cliente" (default ON — desactivar solo casos especiales: fraude, test); (5) **typing-confirm** del identificador del recurso (estándar GitHub/AWS/Vercel/Stripe — botón danger deshabilitado hasta match exacto); (6) tras OK: toast + re-render (NO redirect — el detalle del recurso cancelado sigue siendo útil para el audit trail). Heredable a `suspend_service` (Fase F — aunque suspender NO necesita typing-confirm por ser reversible: variant warning, no danger), deprovision de futuros plugins, cualquier acción admin destructiva.
+
+## A.10.4. Lo que NO está en Fase E (sigue para Fase F-G)
+
+| Fase | Scope |
+|---|---|
+| **F** | Admin overview operativo plugin (`/admin/settings/plugins/enhance-cp`) — stats grid 4 cards + tabla recent drifts + componente reusable `<PluginOperationalOverview slug>` (ADR-083 A4.4). Capability flag `supports_suspend` (ADR-077 Amendment A4 ya frozen) + 2 inline actions `suspend_service`/`unsuspend_service` + wrappers `suspendServiceWithAudit`/`unsuspendServiceWithAudit` + endpoints `/admin/services/:id/suspend\|unsuspend` + listeners email `notifications-on-service-suspended`/`-unsuspended` + templates `service.suspended`/`service.unsuspended` + UI `AdminServiceOperationsCard` botón "Suspender servicio…" (variant warning) / "Reanudar servicio" + banner amarillo suspended con `suspension_reason` + `suspended_at`. **Todo el detalle transversal billing/abuse/GDPR/maintenance está en §A.9.6.1 — léelo entero.** + cache TTL configurable (G4) + breaker EnhanceApiClient (G5 evaluar criticidad) + G8 bug test-connection synthetic service sin metadata + **GAP-15CII-M** `/admin/services/[id]/audit` (admin sin filtro) + `/dashboard/services/[id]/audit` (cliente con filtro GDPR) timeline per-service union de `audit_change_log` + `audit_access_log` filtrado por `entity_id=service.id` + **GAP-15CII-N** wrapper canónico invoca `ErrorLogService.log()` con `module='provisioning.plugin-utils'` (o equiv.) antes de rethrow al exception filter |
+| **G** | Tests críticos faltantes (8 áreas — ver §A.2 coverage gaps) + E2E spec extension cubriendo Fase E + Fase F + retrospectiva en `completed/sprint-15c-ii-hardening-enhance.md` (patrón canónico: header retrospectiva + dossier original como anexo) + smoke final Yasmin contra mock + Enhance live |
+
+**Nota Fase F sobre `recoveryHint`:** `getServiceInfo()` ya detecta `plan_divergence` → `recoveryHint: 'reconcile'`. El `AdminDriftBanner` (frontend) ramifica hoy solo `'reprovision'` (botón "Re-aprovisionar"). Fase F (que añade el endpoint reconcile-all + el overview) puede cablear el botón "Reconciliar este servicio" cuando `recoveryHint === 'reconcile'` (invoca el cron L3 single-shot). El contrato ya está; falta solo el wiring del CTA.
+
+## A.10.5. Gaps audit estado actual (post Fase E)
+
+| ID | Estado |
+|---|---|
+| **G1** vaporware endpoint manual cron | ✅ Cerrado Fase B |
+| **G2** sanitización data.password en wrapper auditor | ✅ Cerrado Fase D |
+| **G3** capability flag `supports_suspend` + suspend/unsuspend actions | ⏳ Fase F |
+| **G4** TTL cache 60s hardcoded | ⏳ Fase F |
+| **G5** CircuitBreaker en EnhanceApiClient | ⏳ Fase F (evaluar criticidad) |
+| **G6 / G6b / G7** | ✅ Cerrados Fase C round 1 |
+| **G8** test-connection synthetic service sin metadata | ⏳ Fase F |
+| **G9** `<CopyableId>` + `<AdminServiceDataCard>` heredables admin pages | Diferido a sprint Clients refactor |
+| **BUG-15CII-I** heurística showReprovision | ✅ **Cerrado Fase E** (por contrato `recoveryHint`) |
+| **GAP-15CII-J** UI admin cancelar servicio | ✅ **Cerrado Fase E** (modal + email cliente) |
+| **GAP-15CII-K** UI admin force_resync | ✅ **Cerrado Fase E** (renombrada `recalculate_provider_metrics` + reubicada — corrige A4.2) |
+| **GAP-15CII-L** UI admin DNS records CRUD | ✅ **Cerrado Fase E** (gold standard: presets + validación por kind + dedup + DNSSEC read-only) |
+| **GAP-15CII-M** página `/admin/services/[id]/audit` timeline per-service | ⏳ Fase F |
+| **GAP-15CII-N** error_log persiste módulo origen (no `http`) | ⏳ Fase F |
+| **DC.NEW-15C-DNSSEC** gestión DNSSEC (activar/rotar) | Diferido v1.x (Fase E añade solo visibilidad read-only del estado) |
+
+## A.10.6. Validación end-to-end del estado actual (post Fase E)
+
+**Validación local ejecutada (timestamp 2026-05-11) — bar del [`local-ci-playbook`](../90-meta/local-ci-playbook.md) §4 (cierre de fase) + §6 (bypass policy):**
+
+| Check | Resultado | Comando |
+|---|---|---|
+| `pnpm ci:check:full` (raíz — backend typecheck+lint+tests+build, frontend typecheck+lint+build) | ✅ | `pnpm run ci:check:full` |
+| └ Backend unit tests | ✅ **591/596 verde** + 5 skipped (45 suites, +1 nueva: notifications-on-service-cancelled.listener.spec) | (incluido en ci:check:full) |
+| └ Backend `nest build` | ✅ | (incluido) |
+| └ Frontend `next build` | ✅ "✓ Compiled successfully" (incl. ruta nueva `/admin/services/[id]/dns`) | (incluido) |
+| Boot real backend | ✅ `Nest application successfully started`, DI sin errores de resolución (incl. listener nuevo `NotificationsOnServiceCancelledListener`), 4 rutas admin DNS mapeadas | `cd backend && npm run start` |
+| E2E spec carga | ✅ 10 tests listados (`playwright test --list tests/e2e/sprint-15c-enhance-flow.spec.ts`) — +3 nuevos (8 admin DNS CRUD, 9 recalculate metrics, 10 deprovision + mailpit `service.cancelled` + audit `notify_client`) | `npx playwright test --list ...` |
+
+**Estado CI / E2E:** el workflow GitHub Actions sigue bloqueado por el incidente billing externo (§A.9.10) — los jobs Backend/Frontend mueren en ~4 s sin logs (misma firma que PR #57). El PR #60 lleva la **label `ready-for-e2e`** (creada en el repo en Fase E — no existía); cuando se resuelva el billing, la CI arranca Backend + Frontend + los 3 shards E2E. Bypass policy §6 cumplido (las 3 condiciones — ver comentarios del PR #60). **NO mergeado** — queda a criterio de Yasmin (igual que el bypass de PR #57). Smoke real Yasmin contra mock-enhance-server + Enhance live recomendado antes de cerrar Sprint 15C.II en Fase G; corrida E2E local opcional vía `pnpm ci:e2e` (~10-15 min, requiere stack Docker levantado).
+
+## A.10.7. Sesiones origen Fase E
+
+- 2026-05-11 (Fase E gold standard — decisión Yasmin "cada punto al más alto estándar": ADR-077 A5 + ADR-083 A5 + recoveryHint + rename recalculate_provider_metrics + DNS UI hardening + CancelServiceModal con typing-confirm + email cancelación + tests + lint + typecheck verde) → este §A.10

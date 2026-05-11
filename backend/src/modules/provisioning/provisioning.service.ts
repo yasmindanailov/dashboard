@@ -673,12 +673,17 @@ export class ProvisioningService {
       select: { id: true, status: true, cancellation_reason: true },
     });
 
+    // Sprint 15C.II Fase E: `notify_client` (default true) controla si el
+    // listener `notifications-on-service-cancelled` despacha el email +
+    // campana al cliente. El listener consume este flag del payload.
+    const notifyClient = dto.notify_client !== false;
     this.events.emit('service.cancelled', {
       service_id: serviceId,
       user_id: service.user_id,
       provisioner_slug: service.provisioner_slug,
       reason: dto.reason,
       actor_user_id: actorUserId,
+      notify_client: notifyClient,
     });
 
     await this.audit.logChange({
@@ -691,6 +696,7 @@ export class ProvisioningService {
         status: 'cancelled',
         cancellation_reason: reasonText,
         reason_code: dto.reason,
+        notify_client: notifyClient,
       },
     });
     await this.audit.logAccess({
@@ -814,6 +820,10 @@ export class ProvisioningService {
       // ServiceHeader aplica t() — fallback a la key cruda si translator no
       // tiene la entrada (compat retro).
       statusReason: 'service.status_reason.plugin_not_registered',
+      // Sprint 15C.II Fase E — ADR-077 Amendment A5: plugin no registrado
+      // (disabled / desinstalado). NO es re-aprovisionable hasta que el admin
+      // re-instale el plugin — la UI no ofrece CTA accionable.
+      recoveryHint: 'contact_support',
       display: {
         primary: service.label ?? service.domain ?? service.product.name,
         secondary: service.product.name,

@@ -35,9 +35,11 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
   // Sprint 15C Fase 15C.E.2 — derivar isAdmin server-side (set canónico
   // que coincide con `provisioning.controller.ts` ADMIN_ROLES) para
   // filtrar `availableActions.adminOnly` en `ActionsBar`. Esta página
-  // sirve principalmente al cliente, pero los staff que la abren ven
-  // todos los botones (incluidos los admin-only del plugin enhance_cp:
-  // change_package, force_resync, list_available_plans).
+  // sirve principalmente al cliente, pero los staff que la abren ven los
+  // botones admin-only no-blacklisted del plugin enhance_cp. (Las admin
+  // ops `change_package`, `list_available_plans` y `recalculate_provider_metrics`
+  // están en `INTERNAL_HELPER_SLUGS` — se operan desde `/admin/services/[id]`,
+  // no desde aquí.)
   const session = await getServerSession();
   const isAdmin = isStaffRole(session?.user.role.slug);
 

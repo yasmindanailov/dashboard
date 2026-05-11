@@ -162,6 +162,36 @@ export interface ServiceMetrics {
   fetchedAt: string;
 }
 
+/**
+ * Sprint 15C.II Fase E — ADR-077 Amendment A5 (2026-05-11).
+ *
+ * Pista de recuperación canónica que el plugin emite cuando reporta un
+ * `status` de drift / proveedor inaccesible. La UI ramifica por este valor
+ * para ofrecer el CTA de remediación correcto — NUNCA matchea `statusReason`
+ * por string (ese campo es i18n display, no contrato de comportamiento).
+ *
+ *   - `'reprovision'`     → el recurso no existe en el proveedor (nunca se
+ *                            creó, o se borró externamente). Remediación:
+ *                            `POST /admin/services/:id/reprovision`
+ *                            (re-ejecuta `plugin.provision()` steps 1-N).
+ *   - `'reconcile'`       → el recurso existe pero la metadata local
+ *                            divergió (plan, refs, etc.). Remediación:
+ *                            reconciliación single-shot del plugin (cron L3
+ *                            manual) que re-lee el ground truth del proveedor
+ *                            y actualiza Aelium (ADR-082 DH-INV-6).
+ *   - `'contact_support'` → drift no auto-remediable por el admin (estado del
+ *                            proveedor incoherente o proveedor caído). La UI
+ *                            no ofrece CTA accionable.
+ *
+ * Extensible: futuras clases de remediación se añaden a esta unión + se
+ * documentan en ADR-077 Amendment A5 + el frontend las ramifica
+ * explícitamente (`AdminDriftBanner`).
+ */
+export type ServiceRecoveryHint =
+  | 'reprovision'
+  | 'reconcile'
+  | 'contact_support';
+
 export interface ServiceInfo {
   /**
    * Estado real del servicio en el proveedor.
@@ -169,6 +199,18 @@ export interface ServiceInfo {
    */
   status: ServiceInfoStatus;
   statusReason?: string;
+
+  /**
+   * Sprint 15C.II Fase E — ADR-077 Amendment A5 (2026-05-11).
+   *
+   * Solo relevante cuando `status` ∈ {`unknown`, `failed`, `suspended`,
+   * `expired`} (drift). Si presente, indica la clase de remediación canónica
+   * que la UI debe ofrecer al admin. Si ausente (incluyendo cuando
+   * `status === 'active'`), la UI no ofrece CTA de recuperación.
+   * Ver `ServiceRecoveryHint`. El plugin es la única autoridad sobre qué
+   * drift es recuperable y cómo — el frontend NUNCA matchea `statusReason`.
+   */
+  recoveryHint?: ServiceRecoveryHint;
 
   display: {
     /** Ej. "miweb.com" / "cliente1.aelium.net" / "miempresa.es". */

@@ -29,9 +29,8 @@ import type { ServiceDetailResponse } from '../../../../lib/api';
 import { serverFetch, ServerFetchError } from '../../../../lib/server-auth';
 import { t } from '../../../../_shared/i18n';
 import { listDnsRecordsAction } from '../../../../_shared/services/dns/_actions';
-
-import { DnsExternallyBanner } from './_components/DnsExternallyBanner';
-import { DnsRecordsManager } from './_components/DnsRecordsManager';
+import { DnsExternallyBanner } from '../../../../_shared/services/dns/_components/DnsExternallyBanner';
+import { DnsRecordsManager } from '../../../../_shared/services/dns/_components/DnsRecordsManager';
 
 interface PageProps {
   params: Promise<{ id: string }>;

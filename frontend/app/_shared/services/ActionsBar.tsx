@@ -65,12 +65,25 @@ import { executeServiceActionAction } from './_actions';
  *                               kind. Inline button sin form solo puede
  *                               fallar.
  *
+ * Sprint 15C.II Fase E — ADR-083 Amendment A5.1:
+ *   - `recalculate_provider_metrics` (renombrada desde `force_resync`) —
+ *                               operación admin de power-user ("pide al
+ *                               proveedor que recalcule disco/ancho-de-banda
+ *                               en su lado"). Vive en
+ *                               `AdminServiceOperationsCard` con etiquetado
+ *                               preciso (progressive disclosure), NO como
+ *                               botón standalone en la barra genérica de
+ *                               "Acciones rápidas" — su semántica se confunde
+ *                               con el ↻ Refrescar del MetricsBar y con la
+ *                               reconciliación periódica si no tiene contexto.
+ *
  * Si llega un futuro plugin con un slug que también deba ocultarse,
  * añadir aquí + documentar el motivo inline.
  */
 const INTERNAL_HELPER_SLUGS = new Set<string>([
   'change_package',
   'list_available_plans',
+  'recalculate_provider_metrics',
   'list_dns_records',
   'add_dns_record',
   'update_dns_record',
