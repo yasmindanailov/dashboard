@@ -1530,18 +1530,18 @@ operativa cuenta GitHub):
 
 ## A.10.6. Validación end-to-end del estado actual (post Fase E)
 
-**Validación local ejecutada (timestamp 2026-05-11):**
+**Validación local ejecutada (timestamp 2026-05-11) — bar del [`local-ci-playbook`](../90-meta/local-ci-playbook.md) §4 (cierre de fase) + §6 (bypass policy):**
 
 | Check | Resultado | Comando |
 |---|---|---|
-| Backend unit tests | ✅ **591/596 verde** + 5 skipped (45 suites, +1 nueva: notifications-on-service-cancelled.listener.spec) | `cd backend && npm test` |
-| Backend lint:check | ✅ | `cd backend && npm run lint:check` |
-| Backend typecheck | ✅ | `cd backend && npm run typecheck` |
-| Frontend lint:check | ✅ `--max-warnings=0` | `cd frontend && npm run lint:check` |
-| Frontend typecheck | ✅ | `cd frontend && npm run typecheck` |
-| `pnpm ci:check` (raíz — canónico pre-PR) | ✅ (ver §local-ci-playbook.md) | `pnpm run ci:check` |
+| `pnpm ci:check:full` (raíz — backend typecheck+lint+tests+build, frontend typecheck+lint+build) | ✅ | `pnpm run ci:check:full` |
+| └ Backend unit tests | ✅ **591/596 verde** + 5 skipped (45 suites, +1 nueva: notifications-on-service-cancelled.listener.spec) | (incluido en ci:check:full) |
+| └ Backend `nest build` | ✅ | (incluido) |
+| └ Frontend `next build` | ✅ "✓ Compiled successfully" (incl. ruta nueva `/admin/services/[id]/dns`) | (incluido) |
+| Boot real backend | ✅ `Nest application successfully started`, DI sin errores de resolución (incl. listener nuevo `NotificationsOnServiceCancelledListener`), 4 rutas admin DNS mapeadas | `cd backend && npm run start` |
+| E2E spec carga | ✅ 10 tests listados (`playwright test --list tests/e2e/sprint-15c-enhance-flow.spec.ts`) — +3 nuevos (8 admin DNS CRUD, 9 recalculate metrics, 10 deprovision + mailpit `service.cancelled` + audit `notify_client`) | `npx playwright test --list ...` |
 
-**Pendiente CI / E2E:** la extensión del E2E `sprint-15c-enhance-flow.spec.ts` (admin DNS CRUD nativo + cancelar servicio con verificación mailpit del email `service.cancelled` + recalcular métricas desde `AdminServiceOperationsCard`) se ejecuta en CI con label `ready-for-e2e` (opt-in — local-ci-playbook §E2E). Smoke real Yasmin recomendado contra mock-enhance-server + Enhance live antes de cerrar Sprint 15C.II en Fase G.
+**Estado CI / E2E:** el workflow GitHub Actions sigue bloqueado por el incidente billing externo (§A.9.10) — los jobs Backend/Frontend mueren en ~4 s sin logs (misma firma que PR #57). El PR #60 lleva la **label `ready-for-e2e`** (creada en el repo en Fase E — no existía); cuando se resuelva el billing, la CI arranca Backend + Frontend + los 3 shards E2E. Bypass policy §6 cumplido (las 3 condiciones — ver comentarios del PR #60). **NO mergeado** — queda a criterio de Yasmin (igual que el bypass de PR #57). Smoke real Yasmin contra mock-enhance-server + Enhance live recomendado antes de cerrar Sprint 15C.II en Fase G; corrida E2E local opcional vía `pnpm ci:e2e` (~10-15 min, requiere stack Docker levantado).
 
 ## A.10.7. Sesiones origen Fase E
 
