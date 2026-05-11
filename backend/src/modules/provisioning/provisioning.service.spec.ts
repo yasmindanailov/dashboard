@@ -559,12 +559,40 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         service_id: 'svc-1',
         reason: 'admin_override',
         actor_user_id: 'admin-id',
+        // Sprint 15C.II Fase E: notify_client default true (sin flag explícito).
+        notify_client: true,
       }),
     );
     expect(audit.logChange).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'service.deprovisioned_admin',
       }),
+    );
+  });
+
+  it('deprovisionAsAdmin: notify_client=false → evento lleva notify_client=false (Sprint 15C.II Fase E)', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce({
+      id: 'svc-2',
+      user_id: 'user-2',
+      status: 'active',
+      provisioner_slug: 'enhance_cp',
+    });
+    prisma.service.update.mockResolvedValueOnce({
+      id: 'svc-2',
+      status: 'cancelled',
+      cancellation_reason: 'admin_override',
+    });
+
+    await service.deprovisionAsAdmin(
+      'svc-2',
+      { reason: DeprovisionReasonDto.admin_override, notify_client: false },
+      'admin-id',
+      { ipAddress: '1.2.3.4' },
+    );
+
+    expect(events.emit).toHaveBeenCalledWith(
+      'service.cancelled',
+      expect.objectContaining({ notify_client: false }),
     );
   });
 

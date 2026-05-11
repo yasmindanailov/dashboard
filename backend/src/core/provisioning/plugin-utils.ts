@@ -135,6 +135,11 @@ function buildUnknownStateFallback(
   return {
     status: 'unknown',
     statusReason: 'Provider unavailable',
+    // Sprint 15C.II Fase E — ADR-077 Amendment A5: el proveedor no respondió
+    // (circuit open / timeout / error de red). NO es un drift re-aprovisionable
+    // — el plugin ni siquiera pudo leer. La UI muestra el estado pero no ofrece
+    // CTA de recuperación (re-aprovisionar sobre un proveedor caído fallaría).
+    recoveryHint: 'contact_support',
     display: {
       primary: service.label ?? service.domain ?? service.id,
       secondary: service.product.name,

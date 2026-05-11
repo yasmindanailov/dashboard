@@ -1045,6 +1045,81 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
         provisioner_slug: 'string',
       },
     },
+
+    // ───────────── service.cancelled (email cliente — Sprint 15C.II Fase E) ─────────────
+    //
+    // Emitido por `NotificationsOnServiceCancelledListener` cuando un admin
+    // cancela / desprovisiona un servicio vía `POST /admin/services/:id/deprovision`
+    // (provisioning.service.deprovisionAsAdmin → evento `service.cancelled`).
+    // Solo se despacha si `payload.notify_client !== false` (toggle "Notificar
+    // al cliente" del modal admin, default ON). Heredable a todos los plugins
+    // SaaS — la plantilla es genérica (no menciona el motivo interno
+    // cancelled/expired/admin_override, que es taxonomía de billing no
+    // customer-facing; ni la nota interna del admin).
+    //
+    // Variables:
+    //   - service_id: UUID del servicio.
+    //   - domain: domain del servicio (display primario — fallback chain
+    //     domain → label → service_id en el listener).
+    //   - support_url: URL absoluta al portal de soporte del cliente.
+    //   - recipient.first_name: opcional, añadido por el dispatcher.
+    //
+    // EC-T8-17: SIEMPRE `{{var}}` con escape automático.
+    {
+      event_type: 'service.cancelled',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Tu servicio ha sido cancelado — {{domain}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #6B7280 0%, #4B5563 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Servicio cancelado</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{domain}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Te confirmamos que el servicio <strong>{{domain}}</strong> ha sido
+              cancelado y ya no está activo.
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Si crees que se trata de un error, o si quieres volver a contratar
+              este u otro servicio, escríbenos — estaremos encantados de ayudarte.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{support_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Contactar con soporte</a>
+            </p>
+            <p style="color: #9ca3af; font-size: 12px; line-height: 1.6; margin-top: 24px;">
+              Si tenías datos en este servicio que necesitas recuperar, contacta
+              con soporte cuanto antes — algunos datos pueden no estar disponibles
+              tras la cancelación.
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        domain: 'string',
+        support_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── service.cancelled (campana cliente) ─────────────
+    {
+      event_type: 'service.cancelled',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Servicio cancelado — {{domain}}',
+      body: 'El servicio {{domain}} ha sido cancelado y ya no está activo. Si crees que es un error o quieres volver a contratarlo, contacta con soporte.',
+      variables: {
+        service_id: 'string',
+        domain: 'string',
+        support_url: 'string',
+      },
+    },
   ];
 
   for (const tpl of templates) {

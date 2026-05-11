@@ -10,8 +10,9 @@
  * Sprint 15C.II Fase C round 6: discriminación cliente vs admin en los
  * mensajes de error (UI_SPEC §1.2 P5 voz Aelium + P6 contenido
  * adaptativo por rol). El cliente NO ve tecnicismos ("drift", "metadata
- * desincronizada", "Reconciliar contra Enhance"); el admin sí, con CTA
- * concreto al recovery action.
+ * desincronizada", "reconciliar"); el admin sí, con CTA concreto al
+ * recovery action ("Reconciliar todos los servicios" en la página settings
+ * del plugin).
  *
  * Botón cliente que pide al backend la URL SSO del panel del proveedor
  * y abre la URL en nueva pestaña (canónico ADR-077 §2.4 `opensIn: 'new_tab'`).

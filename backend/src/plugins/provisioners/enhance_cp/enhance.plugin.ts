@@ -30,12 +30,14 @@
  *   - has_dns_management: true (Enhance es PowerDNS authority)
  *   - supports_reconciliation: true (cron 6h)
  *
- * inlineActions (ADR-083 §9 decisión 32 + Amendment A3 + Amendment A4.1) — 8 actions:
+ * inlineActions (ADR-083 §9 decisión 32 + Amendments A3 + A4.1 + A5.1) — 8 actions:
  *   - cliente: reset_account_password
  *   - DNS:     list_dns_records, add_dns_record, update_dns_record, delete_dns_record
- *   - admin:   change_package, force_resync, list_available_plans
+ *   - admin:   change_package, recalculate_provider_metrics, list_available_plans
  *   (Sprint 15C.II Fase B: view_disk_usage + view_bandwidth_usage eliminados —
- *    métricas refrescadas via botón ↻ en MetricsBar + forceRevalidate flag)
+ *    métricas refrescadas via botón ↻ en MetricsBar + forceRevalidate flag.
+ *    Sprint 15C.II Fase E: `force_resync` → `recalculate_provider_metrics`
+ *    — naming honesto, Amendment A5.1.)
  *
  * Reglas:
  *   - R4: importa SOLO de `core/provisioning/types`, `core/database`,
@@ -68,6 +70,7 @@ import {
   ServiceInfo,
   ServiceInfoStatus,
   ServiceMetrics,
+  ServiceRecoveryHint,
   ServiceStatusReport,
   ServiceWithRelations,
   SsoUrl,
@@ -283,10 +286,18 @@ const ENHANCE_INLINE_ACTIONS: readonly ServiceAction[] = [
     adminOnly: true,
     payloadSchema: CHANGE_PACKAGE_SCHEMA as Record<string, unknown>,
   },
+  // Sprint 15C.II Fase E — ADR-083 Amendment A5.1: rename `force_resync` →
+  // `recalculate_provider_metrics` (naming honesto — la acción NO reconcilia
+  // nada; hace `PUT calculate-resource-usage` para que Enhance recalcule
+  // disco/ancho-de-banda en SU lado, distinto del cron L3 reconcile y del
+  // botón ↻ Refrescar). Se renderiza en `AdminServiceOperationsCard` (no en
+  // la barra genérica "Acciones rápidas") — el frontend la añade a
+  // `INTERNAL_HELPER_SLUGS`. Corrige Amendment A4.2 (que era inexacto).
   {
-    slug: 'force_resync',
-    label: 'plugin.enhance_cp.actions.force_resync',
-    description: 'plugin.enhance_cp.actions.force_resync.description',
+    slug: 'recalculate_provider_metrics',
+    label: 'plugin.enhance_cp.actions.recalculate_provider_metrics',
+    description:
+      'plugin.enhance_cp.actions.recalculate_provider_metrics.description',
     confirmRequired: false,
     destructive: false,
     adminOnly: true,
@@ -547,6 +558,9 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
       return this.buildUnknownInfo(
         service,
         'plugin.enhance_cp.status_reason.subscription_missing',
+        // ADR-083 Amendment A5.2: recurso borrado externamente del proveedor
+        // → re-aprovisionable (re-crea customer/subscription/website).
+        'reprovision',
       );
     }
 
@@ -554,11 +568,37 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     const metrics = buildMetrics(bandwidth, resources);
     const availableActions = filterActionsByStatus(this.inlineActions, status);
 
+    // Sprint 15C.II Fase E — ADR-083 Amendment A5.2 (drift de plan): si el
+    // `planId` en Enhance (ground truth) ≠ el `enhance_plan_id` del producto
+    // Aelium, hay divergencia. Doctrina ADR-082 DH-INV-6: Enhance gana — el
+    // status canónico NO cambia (sigue `active`), pero exponemos
+    // `recoveryHint: 'reconcile'` para que la UI admin pueda ofrecer el
+    // re-sync del cron L3 manual que actualiza la metadata local. NO se
+    // bloquea la lectura: `display.secondary` ya muestra el `planName` real
+    // del proveedor. Heredable a 15D/15E/15G.
+    const productPlanId = readPositiveIntConfig(
+      service.product.provisioner_config,
+      'enhance_plan_id',
+    );
+    const planDiverged =
+      status === 'active' &&
+      productPlanId !== null &&
+      typeof subscription.planId === 'number' &&
+      productPlanId !== subscription.planId;
+
+    const recoveryHint: ServiceRecoveryHint | undefined = planDiverged
+      ? 'reconcile'
+      : undefined;
+    const statusReason = subscription.suspendedBy
+      ? `suspended by ${subscription.suspendedBy}`
+      : planDiverged
+        ? 'plugin.enhance_cp.status_reason.plan_divergence'
+        : undefined;
+
     return {
       status,
-      statusReason: subscription.suspendedBy
-        ? `suspended by ${subscription.suspendedBy}`
-        : undefined,
+      statusReason,
+      recoveryHint,
       display: {
         primary: service.domain ?? subscription.friendlyName,
         secondary: subscription.planName,
@@ -653,8 +693,8 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
 
       case 'change_package':
         return this.actionChangePackage(api, refs, service, payload);
-      case 'force_resync':
-        return this.actionForceResync(api, refs);
+      case 'recalculate_provider_metrics':
+        return this.actionRecalculateProviderMetrics(api, refs);
       case 'list_available_plans':
         return this.actionListAvailablePlans();
 
@@ -719,10 +759,31 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
       );
     }
     const zone = await api.getDnsZone(refs.orgId, websiteId, domain);
+    // Sprint 15C.II Fase E — ADR-083 Amendment A5.3: estado DNSSEC read-only.
+    // PowerDNS (vía Enhance) expone los DS/DNSKEY records cuando la zona tiene
+    // DNSSEC firmado. Aelium NO gestiona DNSSEC (activar/rotar = panel Enhance,
+    // DC.NEW-15C-DNSSEC) — solo lo refleja para que la UI muestre un Badge.
+    const dnssecActive =
+      typeof zone.dnssecDsRecords === 'string' &&
+      zone.dnssecDsRecords.length > 0 &&
+      typeof zone.dnssecDnskeyRecords === 'string' &&
+      zone.dnssecDnskeyRecords.length > 0;
     return {
       success: true,
       data: {
-        zone: { origin: zone.origin, soa: zone.soa, records: zone.records },
+        zone: {
+          origin: zone.origin,
+          soa: zone.soa,
+          records: zone.records,
+          ...(dnssecActive
+            ? {
+                dnssec: {
+                  dsRecords: zone.dnssecDsRecords,
+                  dnskeyRecords: zone.dnssecDnskeyRecords,
+                },
+              }
+            : {}),
+        },
       },
     };
   }
@@ -836,7 +897,18 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     };
   }
 
-  private async actionForceResync(
+  /**
+   * Sprint 15C.II Fase E — ADR-083 Amendment A5.1 (rename de `force_resync`).
+   *
+   * Pide a Enhance que recalcule activamente disco + ancho de banda de la
+   * subscription en SU lado (`PUT /orgs/{org}/subscriptions/{sub}/calculate-resource-usage`),
+   * y devuelve el resultado fresco. NO reconcilia metadata local, NO emite
+   * eventos drift — eso es el cron L3 (`EnhanceReconciliationCron`). Tampoco
+   * es el botón ↻ Refrescar (que solo re-lee lo último ya calculado). El
+   * `sideEffect` `service.metrics_invalidated` hace que el wrapper invalide
+   * el cache `service_info` para que la siguiente lectura traiga lo recalculado.
+   */
+  private async actionRecalculateProviderMetrics(
     api: EnhanceApiClient,
     refs: ServiceEnhanceRefs,
   ): Promise<ActionResult> {
@@ -846,7 +918,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     );
     return {
       success: true,
-      message: 'plugin.enhance_cp.actions.force_resync.success',
+      message: 'plugin.enhance_cp.actions.recalculate_provider_metrics.success',
       data: { resources: usage },
       sideEffects: [
         'service.metrics_invalidated',
@@ -946,10 +1018,17 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
   private buildUnknownInfo(
     service: ServiceWithRelations,
     reason: string,
+    // Sprint 15C.II Fase E — ADR-077 Amendment A5 + ADR-083 Amendment A5.2:
+    // el plugin clasifica su drift al campo declarativo `recoveryHint`. La UI
+    // ramifica por este valor (NUNCA matchea `reason`/`statusReason` por
+    // string) para ofrecer el CTA de remediación correcto. `not_yet_provisioned`
+    // y `subscription_missing` → 'reprovision' (re-crear el recurso).
+    recoveryHint: ServiceRecoveryHint = 'reprovision',
   ): ServiceInfo {
     return {
       status: 'unknown',
       statusReason: reason,
+      recoveryHint,
       display: {
         primary: service.domain ?? service.label ?? 'Hosting Enhance',
         secondary: 'plugin.enhance_cp.label',
@@ -1004,6 +1083,24 @@ function extractEnhancePlanId(productConfig: Record<string, unknown>): number {
     );
   }
   return raw;
+}
+
+/**
+ * Lectura no-lanzante de un entero positivo en `product.provisioner_config`.
+ * Devuelve `null` si la config es `null`, el campo no existe, o no es un
+ * entero positivo. Usado por `getServiceInfo()` para detectar drift de plan
+ * sin romper si la config está incompleta (a diferencia de `extractEnhancePlanId`
+ * que SÍ lanza — ese se usa en `provision()` donde el config es obligatorio).
+ */
+function readPositiveIntConfig(
+  config: Record<string, unknown> | null | undefined,
+  key: string,
+): number | null {
+  if (!config) return null;
+  const raw = config[key];
+  return typeof raw === 'number' && Number.isInteger(raw) && raw > 0
+    ? raw
+    : null;
 }
 
 /**

@@ -1,32 +1,30 @@
 /**
- * /admin/services/[id] — Sprint 15C Fase 15C.J (2026-05-09).
+ * /admin/services/[id] — Sprint 15C Fase 15C.J (2026-05-09) + Sprint 15C.II
+ * Fase E (2026-05-11 — admin DNS + operaciones consolidadas).
  *
  * Server Component nativo paralelo al detalle cliente
  * `/dashboard/services/[id]/page.tsx` (Sprint 11 Fase 11.D + Sprint 13
- * §13.AUTH Fase E). Materializa el primer objetivo de Fase 15C.J
- * ([dossier 15C §7 fila J](../../../../docs/60-roadmap/completed/sprint-15c-plugin-enhance-cp.md)):
- * vista admin con `info` enriquecido + operaciones admin.
+ * §13.AUTH Fase E). Vista admin con `info` enriquecido + operaciones admin.
  *
  * Diferencias canónicas vs el detalle cliente:
  *   - Llama `GET /admin/services/${id}` (sin filtro ownership — el
  *     `AdminProvisioningController` saltea el check con `isAdmin=true`).
  *   - `isAdmin = true` siempre (la ruta /admin/* ya está protegida por
  *     middleware staff; el SC defense-in-depth derivaría lo mismo).
- *   - Sección "Datos del servicio (admin)" con info no expuesta al
- *     cliente: owner link a `/admin/clients/[user_id]`, provisioner_slug,
- *     provider_reference, fechas técnicas.
- *   - Sección "Operaciones admin" con botón "Cambiar plan" que abre
- *     `ChangePackageModal` (CC). Los slugs `change_package` y
- *     `list_available_plans` están ocultos del `ActionsBar` por la
- *     blacklist `INTERNAL_HELPER_SLUGS` (Sprint 15C Fase J) — el modal
- *     los invoca directamente desde su flow.
- *   - El `ActionsBar` reusado renderiza únicamente `force_resync` (botón
- *     directo, sin modal — operación read-side que invalida cache).
- *
- * Reprovision/deprovision se difieren a un sprint futuro de hardening
- * admin (los endpoints `POST /admin/services/:id/reprovision` y
- * `POST /admin/services/:id/deprovision` existen desde Sprint 11 Fase D
- * pero la UI no es scope de 15C.J).
+ *   - Sección "Datos del servicio (admin)" con info no expuesta al cliente.
+ *   - Sección "Operaciones admin" (`AdminServiceOperationsCard`): "Cambiar
+ *     plan…" (modal `ChangePackageModal`), "Recalcular métricas en el
+ *     proveedor" (action `recalculate_provider_metrics` — Amendment A5.1,
+ *     renombrada desde `force_resync`), "Cancelar servicio…" (modal
+ *     `CancelServiceModal` — typing-confirm + motivo + nota + toggle
+ *     notificar). Los slugs `change_package`, `list_available_plans` y
+ *     `recalculate_provider_metrics` están en `INTERNAL_HELPER_SLUGS` del
+ *     `ActionsBar` — se operan desde esta card, no como botones standalone.
+ *   - Sección "Gestión DNS" con link a `/admin/services/[id]/dns` (UI admin
+ *     DNS nativa — GAP-15CII-L). Ramifica por `has_dns_management`.
+ *   - El CTA "Re-aprovisionar" del `AdminDriftBanner` se gatea por
+ *     `info.recoveryHint === 'reprovision'` (ADR-077 Amendment A5 — el
+ *     plugin clasifica su drift, NO matcheamos `statusReason` por string).
  */
 
 import Link from 'next/link';
@@ -99,10 +97,16 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
     (info.status === 'unknown' || info.status === 'failed') &&
     info.statusReason !== null &&
     info.statusReason !== undefined;
-  const showReprovision =
-    isDrift &&
-    typeof info.statusReason === 'string' &&
-    info.statusReason.endsWith('.status_reason.not_yet_provisioned');
+  // Sprint 15C.II Fase E — BUG-15CII-I (smoke real Yasmin Fase D 2026-05-10)
+  // resuelto por contrato, no por heurística de string. El plugin clasifica
+  // su drift al campo declarativo `info.recoveryHint` (ADR-077 Amendment A5);
+  // el CTA "Re-aprovisionar ahora" se ofrece SOLO cuando el plugin dice que
+  // el recurso es re-creable (`recoveryHint === 'reprovision'` — caso enhance
+  // `not_yet_provisioned` y `subscription_missing`, antes faltaba el segundo).
+  // `reconcile`/`contact_support` no ofrecen este CTA (el banner ramifica el
+  // resto de clases — ver AdminDriftBanner). NUNCA matcheamos `statusReason`
+  // por string: eso es i18n display, no comportamiento. Heredable 15D/15E/15G.
+  const showReprovision = isDrift && info.recoveryHint === 'reprovision';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -269,13 +273,14 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
       )}
 
       {/* ActionsBar reusado — isAdmin=true. Renderiza únicamente las
-          actions cuyo slug NO está en INTERNAL_HELPER_SLUGS (Fase J:
-          change_package y list_available_plans están en blacklist y se
-          operan vía AdminServiceOperationsCard abajo). Para enhance_cp
-          esto deja: force_resync (botón directo). Sprint 15C.II Fase C
-          round 4: oculto si terminal — `info.availableActions` viene
-          vacío del backend shortcircuit, pero el guard explícito
-          documenta la doctrina. */}
+          actions cuyo slug NO está en INTERNAL_HELPER_SLUGS. Para enhance_cp
+          eso deja `reset_account_password` (botón directo). `change_package`,
+          `list_available_plans` y `recalculate_provider_metrics` (Sprint
+          15C.II Fase E — Amendment A5.1, renombrada desde `force_resync`)
+          están en la blacklist y se operan desde `AdminServiceOperationsCard`
+          abajo. Sprint 15C.II Fase C round 4: oculto si terminal —
+          `info.availableActions` viene vacío del backend shortcircuit, pero
+          el guard explícito documenta la doctrina. */}
       {!isTerminal && (
         <ActionsBar
           serviceId={service.id}
@@ -284,42 +289,70 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
         />
       )}
 
-      {/* Sección admin dedicada con modal change_package. Solo se
-          renderiza si el plugin declara la action change_package en
-          availableActions. Patrón canónico: componente colocated en
-          _components/ por ser admin-specific Enhance CP. Sprint 15C.II
-          Fase C round 4: oculta si terminal — change_package contra un
-          service cancelled retornaría action.provider_error. */}
+      {/* Sección "Operaciones admin" — contenedor canónico de operaciones
+          administrativas del service detail (Sprint 15C.II Fase E):
+          "Cambiar plan…" (modal), "Recalcular métricas en el proveedor"
+          (action `recalculate_provider_metrics` si está disponible),
+          "Cancelar servicio…" (modal con typing-confirm — GAP-15CII-J).
+          Siempre se renderiza si el service NO está terminal (el guard
+          `!isTerminal` evita ofrecer operaciones futiles sobre service
+          cancelled — el orquestador las skipearía). */}
       {!isTerminal && (
         <AdminServiceOperationsCard
           serviceId={service.id}
           actions={info.availableActions}
           currentPlanLabel={info.display.secondary ? t(info.display.secondary) : undefined}
+          serviceDisplayName={info.display.primary}
         />
       )}
 
-      {/* DNS link — espejo del detalle cliente. Sprint futuro añadirá
-          `/admin/services/[id]/dns` con la misma lógica de la página
-          cliente (Fase G) pero reusando endpoints `/admin/...`. Por ahora
-          link vacío para no engañar al admin. Sprint 15C.II Fase C round
-          4: oculto si terminal (no hay zona DNS contra subscription
-          cancelled). */}
+      {/* DNS link — espejo del detalle cliente. Sprint 15C.II Fase E
+          (GAP-15CII-L): UI admin DNS nativa en `/admin/services/[id]/dns`
+          reusando los endpoints `/admin/services/:id/dns/records` + los
+          mismos componentes que el cliente (`DnsRecordsManager` con
+          `isAdmin`). Ramifica por capability flag `has_dns_management`
+          (NUNCA por slug — ADR-070 + ADR-077 Amendment A1). Sprint 15C.II
+          Fase C round 4: oculto si terminal (no hay zona DNS contra
+          subscription cancelled). */}
       {!isTerminal && info.capabilities.has_dns_management && (
         <Card>
-          <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-            Gestión DNS
-          </h2>
-          <p
+          <div
             style={{
-              color: 'var(--text-secondary)',
-              fontSize: 13,
-              marginTop: 4,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 16,
+              flexWrap: 'wrap',
             }}
           >
-            Para revisar la zona DNS de este servicio, abre el panel del
-            proveedor (Enhance) — la UI admin nativa de DNS llegará en un
-            sprint futuro.
-          </p>
+            <div>
+              <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+                Gestión DNS
+              </h2>
+              <p
+                style={{
+                  color: 'var(--text-secondary)',
+                  fontSize: 13,
+                  marginTop: 4,
+                }}
+              >
+                Revisa y edita los registros DNS de la zona de este servicio.
+                Los cambios se aplican directamente en el proveedor.
+              </p>
+            </div>
+            <Link
+              href={`/admin/services/${service.id}/dns`}
+              style={{
+                color: 'var(--brand-600)',
+                fontSize: 14,
+                fontWeight: 600,
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Gestionar DNS →
+            </Link>
+          </div>
         </Card>
       )}
 

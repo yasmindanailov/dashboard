@@ -1,5 +1,8 @@
 /**
  * DnsExternallyBanner — Sprint 15C Fase 15C.G (ADR-082 §6).
+ * Sprint 15C.II Fase E: movido a `_shared/services/dns/_components/` + prop
+ * `isAdmin` (back-link adaptativo cliente/admin). Componente compartido por
+ * `/dashboard/services/[id]/dns` y `/admin/services/[id]/dns`.
  *
  * Server Component. Render del estado canónico cuando el resolver
  * `core/provisioning/dns-authority-resolver.ts` determina que el DNS NO
@@ -15,25 +18,30 @@
  */
 
 import Link from 'next/link';
-import { AlertBanner, Card } from '../../../../../components/ui';
-import type { DnsExternallyManagedError } from '../../../../../lib/api';
+import { AlertBanner, Card } from '../../../../components/ui';
+import type { DnsExternallyManagedError } from '../../../../lib/api';
 
 interface Props {
   serviceId: string;
   error: DnsExternallyManagedError;
+  /** `true` cuando se renderiza en `/admin/services/[id]/dns`. Ajusta el back-link. */
+  isAdmin?: boolean;
 }
 
 const NO_AUTHORITY_TITLE = 'No hay plugin DNS activo en el cluster';
-const EXTERNALLY_TITLE = 'Tu DNS está gestionado fuera de Aelium';
+const EXTERNALLY_TITLE = 'Este DNS está gestionado fuera de Aelium';
 
-export function DnsExternallyBanner({ serviceId, error }: Props) {
+export function DnsExternallyBanner({ serviceId, error, isAdmin = false }: Props) {
   const isExternal = error.code === 'DNS_MANAGED_EXTERNALLY';
   const title = isExternal ? EXTERNALLY_TITLE : NO_AUTHORITY_TITLE;
+  const backHref = isAdmin
+    ? `/admin/services/${serviceId}`
+    : `/dashboard/services/${serviceId}`;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Link
-        href={`/dashboard/services/${serviceId}`}
+        href={backHref}
         style={{
           color: 'var(--text-secondary)',
           fontSize: 13,
@@ -51,8 +59,8 @@ export function DnsExternallyBanner({ serviceId, error }: Props) {
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <p style={{ margin: 0, fontSize: 14, color: 'var(--text-primary)' }}>
             {isExternal
-              ? 'Los registros DNS de tu dominio se gestionan en el proveedor donde están delegados los nameservers. Aelium no puede crear, modificar ni eliminar registros mientras los NS apunten fuera.'
-              : 'Estado inesperado: los nameservers del dominio apuntan a Aelium pero no hay ningún plugin DNS authority activo en el cluster. Por favor contacta con soporte — el equipo lo revisará.'}
+              ? 'Los registros DNS de este dominio se gestionan en el proveedor donde están delegados los nameservers. Aelium no puede crear, modificar ni eliminar registros mientras los NS apunten fuera.'
+              : 'Estado inesperado: los nameservers del dominio apuntan a Aelium pero no hay ningún plugin DNS authority activo en el cluster. Revisa la configuración del plugin en /admin/settings/plugins.'}
           </p>
 
           {error.nameservers.length > 0 && (
@@ -95,11 +103,17 @@ export function DnsExternallyBanner({ serviceId, error }: Props) {
           {isExternal && (
             <section style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
               <p style={{ margin: '0 0 8px' }}>
-                <strong>¿Quieres que Aelium gestione tu DNS?</strong>
+                <strong>
+                  {isAdmin
+                    ? '¿Quieres que Aelium gestione el DNS de este dominio?'
+                    : '¿Quieres que Aelium gestione tu DNS?'}
+                </strong>
               </p>
               <ol style={{ margin: 0, paddingLeft: 20, lineHeight: 1.7 }}>
                 <li>
-                  Entra al panel del registrar donde compraste el dominio.
+                  {isAdmin
+                    ? 'Pide al cliente que entre al panel del registrar donde compró el dominio.'
+                    : 'Entra al panel del registrar donde compraste el dominio.'}
                 </li>
                 <li>
                   Cambia los nameservers a{' '}

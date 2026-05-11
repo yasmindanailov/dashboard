@@ -875,3 +875,77 @@ Patrón doctrinal congelado (heredable a futuros plugins que retornen secretos o
   - Test integración endpoint `POST /admin/plugins/enhance_cp/reconcile-all` con admin authenticated → 200 + invoca `cron.runOnce()`.
   - Test integración action `force_resync` con label/tooltip i18n nuevo.
   - E2E spec extendido cubriendo refresh metrics ↻ + drift UX role discrimination + admin overview render.
+
+---
+
+### Amendment A5 (2026-05-11) — Sprint 15C.II Fase E: `recoveryHint` populate + `force_resync` → `recalculate_provider_metrics` (corrige A4.2) + DNSSEC read-only en `list_dns_records`
+
+> **Justificado por:** smoke real Yasmin Fase D 2026-05-10 (gaps BUG-15CII-I + GAP-15CII-K) + decisión "cada punto al más alto estándar" (2026-05-11). Tres cambios al plugin `enhance_cp`, todos heredables a 15D RC / 15E Docker / 15G Plesk.
+> **Compatibilidad:** Hacia atrás a nivel de contrato (`contractVersion` sigue `'v2'`). A5.1 renombra un **slug de inline action** (`force_resync` → `recalculate_provider_metrics`) — los slugs de inline action son **plugin-internos**, no contrato externo estable (ADR-077 §4 + §6: solo `ProvisionerPlugin.slug` es inmutable; los slugs de `inlineActions` son catálogo cerrado por plugin que el wrapper enforce por matching exacto). El rename es seguro porque hoy NO hay UI ni código externo que dependa del literal `'force_resync'` salvo `INTERNAL_HELPER_SLUGS` (frontend) + specs del propio plugin — todo se actualiza en el mismo PR. A5.2 (`recoveryHint`) consume el campo opcional añadido en [ADR-077 Amendment A5](./adr-077-contrato-provisioner-plugin-v2.md#amendments). A5.3 (DNSSEC) es additivo al `result.data.zone` que `list_dns_records` ya devuelve.
+> **Materialización:** Sprint 15C.II Fase E en rama `sprint15c-ii-fase-e-admin-dns-operations`.
+
+#### A5.1. `force_resync` → `recalculate_provider_metrics` — naming honesto + reubicación (corrige A4.2)
+
+**Corrección a A4.2 (2026-05-10):** A4.2 renombró el `label` i18n de `force_resync` a *"Reconciliar contra Enhance"* con un tooltip que decía *"compara cache local vs Enhance (truth) y emite eventos drift"*. **Esto es incorrecto.** La implementación real (`EnhanceProvisionerPlugin.actionForceResync`) hace:
+
+```typescript
+const usage = await api.calculateResourceUsage(refs.orgId, refs.subscriptionId);
+return { success: true, message: '...', data: { resources: usage },
+         sideEffects: ['service.metrics_invalidated'] };
+```
+
+`api.calculateResourceUsage` es un `PUT /orgs/{org}/subscriptions/{sub}/calculate-resource-usage` que **pide a Enhance que recalcule activamente disco/ancho-de-banda en su lado** — NO compara nada contra Aelium, NO emite eventos drift, NO toca metadata local. Es una operación de "fuerza al proveedor a refrescar sus propias métricas antes de que las leamos". La reconciliación real (comparar Aelium vs Enhance, emitir `service.reconciled_external_change`) es el **cron L3** (`EnhanceReconciliationCron.runOnce()`) — operación distinta, ya expuesta vía `POST /admin/plugins/:slug/reconcile-all` (A4.2 endpoint, que se mantiene).
+
+**Decisión canónica (más alto estándar — opción 3 del dossier §A.9.4 + progressive disclosure):**
+
+| | Antes (A4.2) | Ahora (A5.1) |
+|---|---|---|
+| slug | `force_resync` | `recalculate_provider_metrics` |
+| label i18n | `plugin.enhance_cp.actions.force_resync` = "Reconciliar contra Enhance" ❌ | `plugin.enhance_cp.actions.recalculate_provider_metrics` = "Recalcular métricas en el proveedor" ✅ |
+| description i18n | (sugería reconcile) | "Pide a Enhance que recalcule disco y ancho de banda en su lado y refresca la lectura. Distinto de ↻ Refrescar (que solo re-lee lo último ya calculado) y de la reconciliación periódica (cron L3 que detecta drift)." |
+| `adminOnly` | `true` | `true` (sin cambio) |
+| `confirmRequired` / `destructive` | `false` / `false` | `false` / `false` (sin cambio — no destructiva) |
+| Dónde se renderiza | `ActionsBar` genérico ("Acciones rápidas") | `AdminServiceOperationsCard` (junto a "Cambiar plan…" y "Cancelar servicio…") — se añade el nuevo slug a `INTERNAL_HELPER_SLUGS` del frontend |
+
+**Por qué reubicar (no borrar):** la operación es legítima pero del ~5% de casos (el proveedor no ha recalculado en mucho tiempo). El estándar profesional para una operación que funciona pero es de power-user es *progressive disclosure* (vive en la sección de operaciones avanzadas, etiquetada con precisión) — NO eliminarla del UI ni dejarla solo-API. El `AdminServiceOperationsCard` es el contenedor canónico de operaciones admin del service detail; ahí va, con tooltip que la distingue inequívocamente de las otras dos formas de "refresco".
+
+**Heredable:** cualquier plugin futuro con una operación "pide al proveedor que recalcule sus métricas internas" usa el slug canónico `recalculate_provider_metrics` con esta semántica exacta. Si un plugin no la soporta, simplemente no la declara.
+
+#### A5.2. `getServiceInfo()` puebla `recoveryHint` (consume ADR-077 Amendment A5)
+
+`EnhanceProvisionerPlugin.getServiceInfo()` clasifica su drift al campo `ServiceInfo.recoveryHint` (ADR-077 Amendment A5). Mapping canónico:
+
+| Situación detectada por el plugin | `status` reportado | `statusReason` (i18n key) | `recoveryHint` |
+|---|---|---|---|
+| Service sin `enhance_subscription_id` en metadata (nunca se provisionó realmente, o seed manual incompleto) | `unknown` | `plugin.enhance_cp.status_reason.not_yet_provisioned` | `'reprovision'` |
+| `enhance_subscription_id` presente pero `GET /subscriptions/:id` → 404 (recurso borrado externamente del proveedor) | `unknown` | `plugin.enhance_cp.status_reason.subscription_missing` | `'reprovision'` |
+| Subscription existe pero su `planId` ≠ `service.metadata.enhance_plan_id` (divergencia de plan) | `active` (DH-INV-6: Enhance gana, status canónico no cambia) | `plugin.enhance_cp.status_reason.plan_divergence` | `'reconcile'` |
+| Circuit breaker open / proveedor timeout / error de red al leer | `unknown` | (el wrapper inyecta su statusReason de fallback) | `'contact_support'` (lo inyecta el wrapper — el plugin ni respondió) |
+| Cualquier otro estado incoherente del proveedor no auto-remediable | `unknown` / `failed` | (i18n key específica) | `'contact_support'` |
+| Todo correcto | `active` | — (undefined) | — (undefined) |
+
+El frontend `admin/services/[id]/page.tsx` gatea el CTA "Re-aprovisionar ahora" por `info.recoveryHint === 'reprovision'` (NO por `statusReason.endsWith(...)`). **BUG-15CII-I queda cerrado por construcción** — `subscription_missing` ahora ofrece el CTA correcto sin heurísticas de string. (Nota: `plan_divergence` con `recoveryHint: 'reconcile'` deja el `AdminDriftBanner` preparado para ofrecer en el futuro un botón "Reconciliar" que invoque el cron L3 manual — no se cablea en Fase E, solo se documenta el contrato.)
+
+#### A5.3. `list_dns_records` expone estado DNSSEC (read-only)
+
+El backend `EnhanceDnsZone` ya trae `dnssecDsRecords?: string` y `dnssecDnskeyRecords?: string` (Enhance corre PowerDNS con DNSSEC, decisión §5 + DC.NEW-15C-DNSSEC). `EnhanceProvisionerPlugin.actionListDnsRecords` mapea esos campos al `result.data.zone` que devuelve, bajo un sub-objeto opcional:
+
+```typescript
+// shape canónico de result.data.zone tras Amendment A5.3:
+{
+  origin: string;
+  soa: { ... };
+  records: DnsRecord[];
+  dnssec?: { dsRecords: string; dnskeyRecords: string };  // ← NUEVO, presente solo si la zona tiene DNSSEC activo
+}
+```
+
+El frontend (`DnsRecordsManager`, compartido cliente+admin) renderiza un `Badge` "DNSSEC activo" / "DNSSEC inactivo" en la cabecera de la zona. **Gestión** de DNSSEC (activar/desactivar/rotar keys) sigue siendo el panel Enhance (DC.NEW-15C-DNSSEC apuntado como deuda v1.x) — aquí solo visibilidad. Heredable: cualquier plugin DNS-authority que exponga estado DNSSEC lo añade al mismo sub-objeto `dnssec` del shape de la zona.
+
+#### A5.4. Validación
+
+- Specs del plugin actualizados: `enhance.plugin.spec.ts` — `getServiceInfo` retorna `recoveryHint` correcto por cada caso de drift; `executeAction('recalculate_provider_metrics')` (slug nuevo) sigue invocando `calculateResourceUsage`; `actionListDnsRecords` mapea `dnssec` cuando la zona lo trae.
+- Contract test genérico (ADR-077 §7 Amendment A5.3): `recoveryHint` ∈ enum | undefined; consistencia con `status` de drift.
+- `INTERNAL_HELPER_SLUGS` (frontend `ActionsBar.tsx`) incluye `recalculate_provider_metrics` (ya no `force_resync` — el slug viejo desaparece).
+- E2E spec extendido (Fase E): admin DNS CRUD nativo + cancelar servicio (con email mailpit) + recalcular métricas desde `AdminServiceOperationsCard`.
+- i18n: `plugin.enhance_cp.actions.recalculate_provider_metrics` (+ `.description`, `.success`) reemplazan `plugin.enhance_cp.actions.force_resync*`.

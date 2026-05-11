@@ -129,16 +129,19 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'plugin.enhance_cp.actions.change_package.success':
     'Plan cambiado correctamente. La metadata local se actualizó (cron L3 ya no detectará drift).',
 
-  // Sprint 15C.II Fase B (ADR-083 Amendment A4.2): rename label
-  // "Forzar resincronización" → "Reconciliar contra Enhance" (decisión
-  // doctrinal A2 frozen — naming honesto que refleja la operación real
-  // de comparar cache local vs Enhance ground truth, no un mero refresh
-  // de pantalla).
-  'plugin.enhance_cp.actions.force_resync': 'Reconciliar contra Enhance',
-  'plugin.enhance_cp.actions.force_resync.description':
-    'Reconcilia este servicio contra Enhance ahora — mismo pipeline que el cron L3 que corre cada 6 h, pero single-shot. Útil tras cambios manuales en la UI Enhance que pudieron generar drift.',
-  'plugin.enhance_cp.actions.force_resync.success':
-    'Reconciliación completada.',
+  // Sprint 15C.II Fase E (ADR-083 Amendment A5.1): rename slug
+  // `force_resync` → `recalculate_provider_metrics` + naming honesto. La
+  // acción NO reconcilia nada (eso es el cron L3) — hace `PUT calculate-
+  // resource-usage` para que el proveedor recalcule disco/ancho-de-banda en
+  // SU lado, y refresca la lectura. Corrige Amendment A4.2 (que era inexacto:
+  // decía "Reconciliar contra Enhance / comparar cache vs ground truth").
+  // Se opera desde `AdminServiceOperationsCard` (no la barra genérica).
+  'plugin.enhance_cp.actions.recalculate_provider_metrics':
+    'Recalcular métricas en el proveedor',
+  'plugin.enhance_cp.actions.recalculate_provider_metrics.description':
+    'Pide a Enhance que recalcule disco y ancho de banda de esta suscripción en su lado, y refresca la lectura. Distinto de "↻ Refrescar" (que solo re-lee la última métrica ya calculada) y de la reconciliación periódica (cron cada 6 h que detecta drift entre Aelium y Enhance).',
+  'plugin.enhance_cp.actions.recalculate_provider_metrics.success':
+    'Recálculo solicitado al proveedor. Las métricas se actualizarán en breve.',
 
   'plugin.enhance_cp.actions.list_available_plans': 'Listar planes disponibles',
 
@@ -176,6 +179,12 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
     'Servicio aún no aprovisionado en el proveedor. Reintentaremos automáticamente; si persiste, contacta con soporte.',
   'plugin.enhance_cp.status_reason.subscription_missing':
     'Suscripción no encontrada en el proveedor (drift detectado). Investigaremos el desincronizado.',
+  // Sprint 15C.II Fase E (ADR-083 Amendment A5.2): el plan en Enhance
+  // (ground truth) difiere del `enhance_plan_id` del producto Aelium.
+  // DH-INV-6: Enhance gana — el status canónico no cambia; el admin puede
+  // reconciliar la metadata local vía el cron L3 manual.
+  'plugin.enhance_cp.status_reason.plan_divergence':
+    'El plan en el proveedor no coincide con el plan del producto en Aelium (drift de plan). El proveedor manda — reconcilia para actualizar la metadata local.',
 
   // ── Drift UX discriminada por rol (UI_SPEC §4.13 + ADR-083 Amendment A4.3
   //    — Sprint 15C.II Fase C 2026-05-10). Heredable a 15D RC, 15E Docker,
@@ -228,9 +237,10 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   //    resto). El frontend además discrimina cliente vs admin (UI_SPEC
   //    §1.2 P5 voz Aelium + P6 contenido adaptativo por rol):
   //      - Cliente: voz empática sin tecnicismos (no menciona "drift",
-  //        "Reconciliar contra Enhance", "metadata local", etc).
+  //        "reconciliar", "metadata local", etc).
   //      - Admin:   operacional con CTA concreto al recovery action
-  //        (force_resync vía botón "Reconciliar contra Enhance").
+  //        ("Reconciliar todos los servicios ahora" en la página settings
+  //        del plugin — el cron L3 manual que re-sincroniza el mapping).
   //    Las keys `action.invalid_payload` + `action.provider_error` +
   //    `action.circuit_open` ya existen desde Fase I (líneas 45-51 arriba)
   //    y NO se duplican aquí — son válidas para ambos roles (errors
@@ -239,11 +249,11 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'action.invalid_state.client':
     'No se pudo completar la acción ahora mismo. Hemos avisado al equipo técnico — vuelve a intentarlo en unos minutos.',
   'action.invalid_state.admin':
-    'Drift detectado: el proveedor reporta INVALID_STATE (recurso ausente — login/member/subscription stale en Aelium). Recovery: pulsa "Reconciliar contra Enhance" en /admin/settings/plugins/enhance-cp para refrescar el mapping enhance_customers, o investiga vía SSO al panel del proveedor.',
+    'Drift detectado: el proveedor reporta INVALID_STATE (recurso ausente — login/member/subscription stale en Aelium). Recovery: pulsa "Reconciliar todos los servicios ahora" en /admin/settings/plugins/enhance-cp para re-sincronizar el mapping enhance_customers, o investiga vía SSO al panel del proveedor.',
   'sso.error.invalid_state.client':
     'No podemos abrir el panel ahora mismo. Hemos avisado al equipo técnico — vuelve a intentarlo en unos minutos.',
   'sso.error.invalid_state.admin':
-    'Drift SSO: el proveedor no encuentra el customer/login mapeado en enhance_customers (típicamente borrado en panel del proveedor o mock reseteado en dev). Recovery: pulsa "Reconciliar contra Enhance" para refrescar la metadata; si persiste, considera DELETE FROM enhance_customers WHERE user_id=… + reaprovisionar.',
+    'Drift SSO: el proveedor no encuentra el customer/login mapeado en enhance_customers (típicamente borrado en panel del proveedor o mock reseteado en dev). Recovery: pulsa "Reconciliar todos los servicios ahora" en /admin/settings/plugins/enhance-cp para re-sincronizar la metadata; si persiste, considera DELETE FROM enhance_customers WHERE user_id=… + reaprovisionar.',
   'sso.error.provider_internal.client':
     'No podemos abrir el panel ahora mismo. Vuelve a intentarlo en unos minutos.',
   'sso.error.provider_internal.admin':

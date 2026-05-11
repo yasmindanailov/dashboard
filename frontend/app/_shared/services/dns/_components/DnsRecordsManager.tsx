@@ -10,34 +10,27 @@ import {
   Card,
   Modal,
   useToast,
-} from '../../../../../components/ui';
-import type { DnsRecord, DnsZone } from '../../../../../lib/api';
-import {
-  deleteDnsRecordAction,
-  listDnsRecordsAction,
-} from '../../../../../_shared/services/dns/_actions';
+} from '../../../../components/ui';
+import type { DnsRecord, DnsZone } from '../../../../lib/api';
+import { deleteDnsRecordAction, listDnsRecordsAction } from '../_actions';
 
 import { DnsRecordForm } from './DnsRecordForm';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DnsRecordsManager — Sprint 15C Fase 15C.G (ADR-082 §6 + ADR-083 §5).
+   Sprint 15C.II Fase E: movido a `_shared/services/dns/_components/` +
+   compartido cliente/admin (`isAdmin` prop) + gold-standard hardening:
+     - Badge estado DNSSEC (read-only — gestión = panel del proveedor).
+     - Pasa `existingRecords` al form para detección de duplicados/conflictos.
+     - Back-link adaptativo cliente (`/dashboard/...`) vs admin (`/admin/...`).
 
-   Orquestador del flujo CRUD de DNS records. Recibe `initialZone` desde
-   el SC parent (prefetch GET /services/:id/dns/records) y orquesta:
+   Orquestador del flujo CRUD de DNS records. Recibe `initialZone` desde el
+   SC parent (prefetch GET /{admin/}services/:id/dns/records) y orquesta:
      - Tabla de records actuales (kind, name, value, ttl, proxy).
      - Botón "Añadir record" → modal create.
      - Botón "Editar" por fila → modal edit con record prehidratado.
      - Botón "Eliminar" por fila → modal confirm + delete.
      - Refresh in-place tras cada mutación (re-llama listDnsRecordsAction).
-
-   Doctrina:
-     - El SC parent ya garantizó que el DNS es autoridad Aelium (resolver
-       devolvió 200 + zone). Si llegase 404 mid-session, el caller refresca
-       la página y el SC re-resuelve.
-     - El ttl se muestra como "default" cuando es undefined (Enhance aplica
-       el TTL por defecto de la zona).
-     - `proxy=true` se pinta como Badge `Proxy on` (verde) por consistencia
-       visual con el StatusDot del proyecto.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 interface Props {
@@ -45,6 +38,8 @@ interface Props {
   domain: string;
   nameservers: readonly string[];
   initialZone: DnsZone;
+  /** `true` cuando se renderiza en `/admin/services/[id]/dns`. */
+  isAdmin?: boolean;
 }
 
 type ModalState =
@@ -58,6 +53,7 @@ export function DnsRecordsManager({
   domain,
   nameservers,
   initialZone,
+  isAdmin = false,
 }: Props) {
   const [zone, setZone] = useState<DnsZone>(initialZone);
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
@@ -66,21 +62,23 @@ export function DnsRecordsManager({
   const [, startTransition] = useTransition();
   const { toast } = useToast();
 
+  const backHref = isAdmin
+    ? `/admin/services/${serviceId}`
+    : `/dashboard/services/${serviceId}`;
+
   function refreshZone(): void {
     setRefreshing(true);
     startTransition(async () => {
-      const result = await listDnsRecordsAction(serviceId);
+      const result = await listDnsRecordsAction(serviceId, isAdmin);
       setRefreshing(false);
       if (!result.ok) {
-        const message = 'externallyManaged' in result
-          ? 'El dominio ha pasado a DNS externo. Recarga la página.'
-          : result.error;
+        const message =
+          'externallyManaged' in result
+            ? 'El dominio ha pasado a DNS externo. Recarga la página.'
+            : result.error;
         toast('error', message);
         return;
       }
-      // Plugin devolvió success=false (ej. drift de metadata, circuit open):
-      // no actualizamos zone; mostramos mensaje y mantenemos UI con datos
-      // últimos conocidos. El usuario puede reintentar.
       const inner = result.data.result;
       if (!inner.success || !inner.data) {
         toast(
@@ -97,7 +95,9 @@ export function DnsRecordsManager({
   function handleSaved(action: 'create' | 'edit'): void {
     toast(
       'success',
-      action === 'create' ? 'Record creado.' : 'Record actualizado.',
+      action === 'create'
+        ? 'Record creado. Puede tardar unos minutos en propagarse.'
+        : 'Record actualizado. Puede tardar unos minutos en propagarse.',
     );
     refreshZone();
   }
@@ -105,20 +105,20 @@ export function DnsRecordsManager({
   function handleDelete(record: DnsRecord): void {
     setDeleting(true);
     startTransition(async () => {
-      const result = await deleteDnsRecordAction(serviceId, record.id);
+      const result = await deleteDnsRecordAction(serviceId, record.id, isAdmin);
       setDeleting(false);
       if (!result.ok) {
         toast('error', result.error);
         return;
       }
-      toast('success', 'Record eliminado.');
+      toast('success', 'Record eliminado. Puede tardar unos minutos en propagarse.');
       setModal({ kind: 'closed' });
       refreshZone();
     });
   }
 
-  // Records ordenados: primero por kind canónico (A → AAAA → CNAME → MX →
-  // TXT → SRV → CAA), luego por name (apex "@" antes que subdominios).
+  // Records ordenados: primero por kind canónico, luego por name (apex "@"
+  // antes que subdominios).
   const sorted = [...zone.records].sort((a, b) => {
     if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
     if (a.name === '@' && b.name !== '@') return -1;
@@ -129,7 +129,7 @@ export function DnsRecordsManager({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Link
-        href={`/dashboard/services/${serviceId}`}
+        href={backHref}
         style={{
           color: 'var(--text-secondary)',
           fontSize: 13,
@@ -151,9 +151,16 @@ export function DnsRecordsManager({
             }}
           >
             <div>
-              <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
-                DNS de {zone.origin}
-              </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
+                  DNS de {zone.origin}
+                </h1>
+                {zone.dnssec ? (
+                  <Badge variant="success">DNSSEC activo</Badge>
+                ) : (
+                  <Badge variant="neutral">DNSSEC inactivo</Badge>
+                )}
+              </div>
               <p
                 style={{
                   margin: '6px 0 0',
@@ -161,16 +168,13 @@ export function DnsRecordsManager({
                   color: 'var(--text-secondary)',
                 }}
               >
-                Aelium gestiona la zona DNS autoritativa de tu dominio. Los
-                cambios pueden tardar minutos en propagarse.
+                {isAdmin
+                  ? 'Zona DNS autoritativa gestionada por Aelium. Los cambios se aplican directamente en el proveedor y pueden tardar minutos en propagarse.'
+                  : 'Aelium gestiona la zona DNS autoritativa de tu dominio. Los cambios pueden tardar minutos en propagarse.'}
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <Button
-                variant="secondary"
-                onClick={refreshZone}
-                disabled={refreshing}
-              >
+              <Button variant="secondary" onClick={refreshZone} disabled={refreshing}>
                 {refreshing ? 'Actualizando…' : 'Refrescar'}
               </Button>
               <Button onClick={() => setModal({ kind: 'create' })}>
@@ -195,6 +199,24 @@ export function DnsRecordsManager({
               {nameservers.join(' · ')}
             </section>
           )}
+
+          {zone.dnssec && (
+            <section
+              style={{
+                padding: 8,
+                background: 'var(--surface-secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                fontSize: 12,
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <strong style={{ fontWeight: 600 }}>DNSSEC:</strong> esta zona
+              está firmada. Los registros DS deben estar publicados en el
+              registrar del dominio. La gestión (activar/rotar) se hace desde
+              el panel del proveedor.
+            </section>
+          )}
         </div>
       </Card>
 
@@ -202,15 +224,21 @@ export function DnsRecordsManager({
         {sorted.length === 0 ? (
           <div
             style={{
-              padding: 32,
+              padding: 40,
               textAlign: 'center',
               color: 'var(--text-secondary)',
             }}
           >
-            <p style={{ margin: 0, fontSize: 14 }}>
-              No hay records DNS en esta zona. Añade el primero con el botón de
-              arriba.
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>
+              Esta zona no tiene records DNS todavía
             </p>
+            <p style={{ margin: '6px 0 16px', fontSize: 13 }}>
+              Añade el primero con el botón de arriba — por ejemplo un record A
+              apuntando el apex (<code>@</code>) a la IP del servidor.
+            </p>
+            <Button onClick={() => setModal({ kind: 'create' })}>
+              Añadir el primer record
+            </Button>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
@@ -227,10 +255,7 @@ export function DnsRecordsManager({
               </thead>
               <tbody>
                 {sorted.map((record) => (
-                  <tr
-                    key={record.id}
-                    style={{ borderTop: '1px solid var(--border)' }}
-                  >
+                  <tr key={record.id} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={td}>
                       <Badge variant="neutral">{record.kind}</Badge>
                     </td>
@@ -284,11 +309,10 @@ export function DnsRecordsManager({
       </Card>
 
       <AlertBanner variant="info">
-        <strong>Cambios DNS son operacionalmente sensibles.</strong> Si tienes
-        dudas sobre qué record afecta a qué servicio (web, email, etc.),
-        consulta la documentación o contacta con soporte antes de modificar.
-        El dominio ({domain}) y los nameservers actuales se muestran arriba
-        como referencia.
+        <strong>Los cambios DNS son operacionalmente sensibles.</strong> Si
+        tienes dudas sobre qué record afecta a qué servicio (web, email,
+        verificaciones, etc.), revisa la documentación o consulta antes de
+        modificar. Dominio: <code>{domain}</code>.
       </AlertBanner>
 
       {/* ── Modal create ─────────────────────────────────────────────────── */}
@@ -296,6 +320,8 @@ export function DnsRecordsManager({
         <DnsRecordForm
           mode="create"
           serviceId={serviceId}
+          isAdmin={isAdmin}
+          existingRecords={zone.records}
           open={true}
           onClose={() => setModal({ kind: 'closed' })}
           onSaved={() => handleSaved('create')}
@@ -307,6 +333,8 @@ export function DnsRecordsManager({
         <DnsRecordForm
           mode="edit"
           serviceId={serviceId}
+          isAdmin={isAdmin}
+          existingRecords={zone.records}
           record={modal.record}
           open={true}
           onClose={() => setModal({ kind: 'closed' })}

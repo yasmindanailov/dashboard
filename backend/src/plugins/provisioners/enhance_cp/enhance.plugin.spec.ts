@@ -48,7 +48,8 @@
  *     - list_dns_records: lee zona + devuelve records.
  *     - add/update/delete dns_record: side_effect 'service.dns_modified'.
  *     - change_package: PATCH subscription planId.
- *     - force_resync: calculate-resource-usage + side_effect 'service.metrics_invalidated'.
+ *     - recalculate_provider_metrics (antes force_resync, Amendment A5.1):
+ *       PUT calculate-resource-usage + side_effect 'service.metrics_invalidated'.
  *
  *   Static contract:
  *     - capabilities frozen incluyen has_dns_management=true (ADR-077 Amendment A1).
@@ -307,7 +308,7 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
           'update_dns_record',
           'delete_dns_record',
           'change_package',
-          'force_resync',
+          'recalculate_provider_metrics',
           'list_available_plans', // ADR-083 Amendment A3 — 10ª action
         ]),
       );
@@ -321,8 +322,8 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
 
     it('3 actions admin-only declaran adminOnly=true (ADR-083 Amendment A3 + Amendment A4.1 cleanup)', () => {
       // Sprint 15C.II Fase B: view_disk_usage + view_bandwidth_usage
-      // eliminados — quedan 3 admin-only puros (change_package, force_resync,
-      // list_available_plans).
+      // eliminados — quedan 3 admin-only puros (change_package,
+      // recalculate_provider_metrics, list_available_plans).
       const plugin = buildPlugin(
         buildPrismaMock({ install: VALID_INSTALL }),
         buildVaultMock(),
@@ -335,7 +336,7 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(adminOnlySlugs).toEqual(
         expect.arrayContaining([
           'change_package',
-          'force_resync',
+          'recalculate_provider_metrics',
           'list_available_plans',
         ]),
       );
@@ -789,6 +790,89 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(info.status).toBe('active');
       expect(info.metrics).toBeUndefined();
     });
+
+    // ─── recoveryHint (ADR-077 Amendment A5 + ADR-083 Amendment A5.2) ────
+    it('sin refs en metadata → recoveryHint=reprovision (not_yet_provisioned)', async () => {
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        buildApiMock(),
+      );
+      // service sin enhance_org_id / provider_reference → extractServiceRefs null.
+      const info = await plugin.getServiceInfo(buildContext().service);
+      expect(info.status).toBe('unknown');
+      expect(info.statusReason).toBe(
+        'plugin.enhance_cp.status_reason.not_yet_provisioned',
+      );
+      expect(info.recoveryHint).toBe('reprovision');
+    });
+
+    it('subscription 404 → recoveryHint=reprovision (subscription_missing)', async () => {
+      const api = buildApiMock();
+      api.getSubscription.mockRejectedValueOnce(
+        new ProvisionerPluginError('404', 'INVALID_STATE', false),
+      );
+      api.getSubscriptionBandwidth.mockRejectedValueOnce(new Error('any'));
+      api.calculateResourceUsage.mockRejectedValueOnce(new Error('any'));
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.recoveryHint).toBe('reprovision');
+    });
+
+    it('plan en Enhance ≠ enhance_plan_id del producto → recoveryHint=reconcile + statusReason=plan_divergence (DH-INV-6: status sigue active)', async () => {
+      const api = buildApiMock();
+      api.getSubscription.mockResolvedValueOnce({
+        id: SUB_ID,
+        planId: 99, // ≠ product.provisioner_config.enhance_plan_id (7)
+        status: 'active',
+        planName: 'Web Enterprise',
+        friendlyName: 'mi-cliente.es',
+      });
+      api.getSubscriptionBandwidth.mockResolvedValueOnce(null);
+      api.calculateResourceUsage.mockResolvedValueOnce(null);
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.status).toBe('active'); // DH-INV-6: no auto-modificamos status
+      expect(info.statusReason).toBe(
+        'plugin.enhance_cp.status_reason.plan_divergence',
+      );
+      expect(info.recoveryHint).toBe('reconcile');
+      // El display muestra el plan REAL del proveedor (ground truth).
+      expect(info.display.secondary).toBe('Web Enterprise');
+    });
+
+    it('plan coincide → sin recoveryHint, sin statusReason', async () => {
+      const api = buildApiMock();
+      api.getSubscription.mockResolvedValueOnce({
+        id: SUB_ID,
+        planId: 7, // === product.provisioner_config.enhance_plan_id
+        status: 'active',
+        planName: 'Web Pro',
+        friendlyName: 'mi-cliente.es',
+      });
+      api.getSubscriptionBandwidth.mockResolvedValueOnce(null);
+      api.calculateResourceUsage.mockResolvedValueOnce(null);
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.recoveryHint).toBeUndefined();
+      expect(info.statusReason).toBeUndefined();
+    });
   });
 
   // ─── getSsoUrl() ────────────────────────────────────────────────────────
@@ -872,11 +956,11 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
         ...buildContext().service,
         metadata: null,
       } as ServiceWithRelations;
-      // force_resync requiere refs válidos (orgId + subscriptionId desde
+      // recalculate_provider_metrics requiere refs válidos (orgId + subscriptionId desde
       // service.metadata + provider_reference) — mismo guard que las
       // ex-actions view_disk/bandwidth tenían pre Sprint 15C.II Fase B.
       await expect(
-        plugin.executeAction(service, 'force_resync', {}),
+        plugin.executeAction(service, 'recalculate_provider_metrics', {}),
       ).rejects.toMatchObject({ code: 'INVALID_STATE' });
     });
 
@@ -1031,9 +1115,52 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
         {},
       );
       expect(result.success).toBe(true);
-      const data = result.data as { zone: { records: unknown[] } };
+      const data = result.data as {
+        zone: { records: unknown[]; dnssec?: unknown };
+      };
       expect(data.zone.records).toHaveLength(1);
+      // Zona sin DNSSEC firmado → el sub-objeto `dnssec` NO está presente.
+      expect(data.zone.dnssec).toBeUndefined();
       expect(api.getDnsZone).toHaveBeenCalledWith(ORG_ID, WEBSITE_ID, DOMAIN);
+    });
+
+    it('list_dns_records: zona con DNSSEC firmado → result.data.zone.dnssec presente (Amendment A5.3)', async () => {
+      const api = buildApiMock();
+      api.getDnsZone.mockResolvedValueOnce({
+        origin: DOMAIN,
+        soa: {
+          adminEmail: 'h@aelium.net',
+          nameServer: 'ns1.aelium.net',
+          expire: 1,
+          refresh: 1,
+          retry: 1,
+          ttl: 1,
+        },
+        records: [
+          { id: 'rec-1', kind: 'A', name: '@', value: '1.2.3.4', proxy: false },
+        ],
+        dnssecDsRecords: '12345 13 2 ABCDEF...',
+        dnssecDnskeyRecords: '257 3 13 AwEAA...',
+      });
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+      const result = await plugin.executeAction(
+        buildServiceWithRefs(),
+        'list_dns_records',
+        {},
+      );
+      expect(result.success).toBe(true);
+      const data = result.data as {
+        zone: { dnssec?: { dsRecords: string; dnskeyRecords: string } };
+      };
+      expect(data.zone.dnssec).toEqual({
+        dsRecords: '12345 13 2 ABCDEF...',
+        dnskeyRecords: '257 3 13 AwEAA...',
+      });
     });
 
     it('add_dns_record: side_effect service.dns_modified', async () => {
@@ -1153,7 +1280,7 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       );
     });
 
-    it('force_resync: side_effect service.metrics_invalidated', async () => {
+    it('recalculate_provider_metrics (Amendment A5.1, antes force_resync): PUT calculate-resource-usage + side_effect service.metrics_invalidated', async () => {
       const api = buildApiMock();
       api.calculateResourceUsage.mockResolvedValueOnce({ items: [] });
       const plugin = buildPlugin(
@@ -1164,11 +1291,15 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       );
       const result = await plugin.executeAction(
         buildServiceWithRefs(),
-        'force_resync',
+        'recalculate_provider_metrics',
         {},
       );
       expect(result.success).toBe(true);
+      expect(result.message).toBe(
+        'plugin.enhance_cp.actions.recalculate_provider_metrics.success',
+      );
       expect(result.sideEffects).toEqual(['service.metrics_invalidated']);
+      expect(api.calculateResourceUsage).toHaveBeenCalledTimes(1);
     });
 
     it('list_available_plans (Amendment A3): GET /orgs/{master}/plans + devuelve plans + total', async () => {

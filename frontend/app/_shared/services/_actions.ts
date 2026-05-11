@@ -182,3 +182,57 @@ export async function reprovisionServiceAction(
     };
   }
 }
+
+/* ═══════════════════════════════════════
+   Sprint 15C.II Fase E (GAP-15CII-J) — cancelar / desprovisionar servicio (admin)
+
+   Materializa el botón "Cancelar servicio…" del `<AdminServiceOperationsCard>`.
+   El backend endpoint `POST /admin/services/:id/deprovision` existe desde
+   Sprint 11 Fase D (`AdminProvisioningController.deprovision` →
+   `provisioning.deprovisionAsAdmin`): marca status `cancelled` + audit +
+   emite `service.cancelled`. Sprint 15C.II Fase E añade el flag `notify_client`
+   (toggle del modal, default ON) que el listener `notifications-on-service-cancelled`
+   consume para enviar email + campana al cliente.
+
+   Distinto de suspender: cancelar es FINAL e irreversible (el recurso se
+   elimina en el proveedor vía `plugin.deprovision()`). Suspender (Fase F)
+   es reversible. Tras OK el SC parent re-renderiza con el banner terminal
+   `service.terminal.cancelled.admin`.
+   ═══════════════════════════════════════ */
+
+export type DeprovisionServiceReason = 'cancelled' | 'expired' | 'admin_override';
+
+export type DeprovisionServiceResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function deprovisionServiceAction(
+  serviceId: string,
+  payload: {
+    reason: DeprovisionServiceReason;
+    notes?: string;
+    notify_client?: boolean;
+  },
+): Promise<DeprovisionServiceResult> {
+  try {
+    await serverFetch<unknown>(`/admin/services/${serviceId}/deprovision`, {
+      method: 'POST',
+      body: {
+        reason: payload.reason,
+        ...(payload.notes ? { notes: payload.notes } : {}),
+        ...(payload.notify_client === false ? { notify_client: false } : {}),
+      },
+    });
+    revalidatePath(`/admin/services/${serviceId}`);
+    revalidatePath('/admin/services');
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo cancelar el servicio.',
+    };
+  }
+}

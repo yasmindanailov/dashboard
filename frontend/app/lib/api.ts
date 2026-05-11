@@ -1440,6 +1440,18 @@ export interface ServiceMetrics {
   fetchedAt: string;
 }
 
+/**
+ * Sprint 15C.II Fase E — ADR-077 Amendment A5. Pista de recuperación
+ * canónica que el plugin emite cuando `status` ∈ {`unknown`, `failed`,
+ * `suspended`, `expired`} (drift). La UI ramifica por este valor para
+ * ofrecer el CTA de remediación correcto — NUNCA matchea `statusReason`
+ * por string (eso es i18n display, no contrato de comportamiento).
+ *   - `reprovision`     → recurso ausente en el proveedor → botón "Re-aprovisionar".
+ *   - `reconcile`       → metadata local divergió → re-sync del cron L3 manual.
+ *   - `contact_support` → drift no auto-remediable → sin CTA accionable.
+ */
+export type ServiceRecoveryHint = 'reprovision' | 'reconcile' | 'contact_support';
+
 export interface ServiceInfo {
   status:
     | 'active'
@@ -1450,6 +1462,12 @@ export interface ServiceInfo {
     | 'cancelled'
     | 'unknown';
   statusReason?: string;
+  /**
+   * Sprint 15C.II Fase E — ADR-077 Amendment A5. Solo relevante si `status`
+   * es de drift. Si presente, indica la clase de remediación que la UI debe
+   * ofrecer al admin. Ver `ServiceRecoveryHint`.
+   */
+  recoveryHint?: ServiceRecoveryHint;
   display: {
     primary: string;
     secondary?: string;
@@ -1583,10 +1601,24 @@ export interface DnsSoa {
   readonly ttl: number;
 }
 
+/**
+ * Estado DNSSEC read-only de la zona — Sprint 15C.II Fase E (ADR-083
+ * Amendment A5.3). Presente SOLO si la zona tiene DNSSEC firmado en el
+ * proveedor (PowerDNS vía Enhance). Aelium NO gestiona DNSSEC (activar /
+ * rotar keys = panel del proveedor, DC.NEW-15C-DNSSEC) — la UI solo lo
+ * refleja con un Badge informativo. Heredable a cualquier plugin DNS-authority.
+ */
+export interface DnsZoneDnssec {
+  readonly dsRecords: string;
+  readonly dnskeyRecords: string;
+}
+
 export interface DnsZone {
   readonly origin: string;
   readonly soa: DnsSoa;
   readonly records: readonly DnsRecord[];
+  /** Sprint 15C.II Fase E — presente solo si la zona tiene DNSSEC activo. */
+  readonly dnssec?: DnsZoneDnssec;
 }
 
 /** Shape canónico de `result.data` que devuelve `list_dns_records`. */

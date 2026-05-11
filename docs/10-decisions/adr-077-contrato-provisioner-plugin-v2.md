@@ -1020,3 +1020,104 @@ it('si supports_suspend=false → NO declara esas inline actions', () => {
 - **Eventos canónicos:** `service.suspended` / `service.unsuspended` emitidos por el wrapper orquestador post-action exitosa, NUNCA por el plugin (regla R8 audit centralizado).
 - **Permisos:** ambas actions DEBEN declarar `adminOnly: true` (Amendment A3) — la suspensión es una operación administrativa, NO cliente self-service. Defense-in-depth: backend wrapper enforce 403 + audit + emite `service.action_admin_only_violation`.
 - **Diferencia con `deprovision`:** `deprovision` destruye recursos en el proveedor (irreversible para el cliente sin re-provision). `suspend_service` preserva los datos en el proveedor — solo desactiva el acceso. Crítico para no-pago temporal vs cancelación definitiva.
+
+---
+
+### Amendment A5 (2026-05-11) — campo opcional `recoveryHint` en `ServiceInfo`
+
+> **Justificado por:** Sprint 15C.II Fase E (BUG-15CII-I — smoke real Yasmin Fase D 2026-05-10) + [ADR-083 Amendment A5](./adr-083-plugin-enhance-cp-specifics.md#amendments). El detalle admin de servicio (`/admin/services/[id]`) gateaba el CTA "Re-aprovisionar ahora" del `AdminDriftBanner` por una heurística de string (`info.statusReason.endsWith('.status_reason.not_yet_provisioned')`). El smoke real detectó que `subscription_missing` (recurso borrado externamente del proveedor) requiere IDÉNTICA acción admin pero NO activaba el CTA. El fix "1 línea" propuesto en el dossier §A.9.4 (un `Set` de claves i18n hardcodeado en el frontend) traslada el problema: cada plugin SaaS futuro (15D RC, 15E Docker, 15G Plesk) tendría que recordar añadir sus claves a una lista que vive en otro paquete. La solución robusta es que el **plugin clasifique su propio drift** y la UI ramifique por un campo declarativo del contrato, NUNCA por matching de strings.
+> **Sprint:** 15C.II Fase E (PR pendiente).
+> **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` — sigue `'v2'`. El campo es **opcional** en `ServiceInfo`. Plugins existentes que no lo declaran tienen comportamiento idéntico al actual (el frontend trata `recoveryHint` ausente como "sin acción de recuperación canónica"). NO toca ningún otro shape. NO requiere migración de datos.
+
+#### A5.1. Cambio canónico en `ServiceInfo` (§2 shapes — `getServiceInfo()` output)
+
+Se añade un tipo enum + un campo opcional al shape canónico `ServiceInfo`:
+
+```typescript
+/**
+ * Pista de recuperación canónica que el plugin emite cuando reporta un
+ * `status` ∈ {`unknown`, `failed`} (drift / proveedor inaccesible). La
+ * UI ramifica por este valor para ofrecer el CTA de remediación correcto
+ * — NUNCA matchea `statusReason` por string (ese es i18n display, no
+ * contrato de comportamiento).
+ *
+ *   - `'reprovision'`     → el recurso no existe en el proveedor (nunca se
+ *                            creó, o se borró externamente). Remediación:
+ *                            `POST /admin/services/:id/reprovision`
+ *                            (re-ejecuta `plugin.provision()` steps 1-N).
+ *                            Caso enhance_cp: `not_yet_provisioned`,
+ *                            `subscription_missing`.
+ *   - `'reconcile'`       → el recurso existe pero la metadata local
+ *                            divergió (plan, refs, etc.). Remediación:
+ *                            reconciliación single-shot del plugin (cron L3
+ *                            manual) que re-lee el ground truth del
+ *                            proveedor y actualiza Aelium (DH-INV-6).
+ *   - `'contact_support'` → drift no auto-remediable por el admin (estado
+ *                            del proveedor incoherente, requiere
+ *                            intervención manual fuera de Aelium). La UI
+ *                            no ofrece CTA accionable, solo el statusReason
+ *                            técnico (admin) o el mensaje genérico (cliente).
+ *
+ * Extensible: futuras clases de remediación se añaden a esta unión + se
+ * documentan aquí + el frontend las ramifica explícitamente (`AdminDriftBanner`).
+ */
+export type ServiceRecoveryHint = 'reprovision' | 'reconcile' | 'contact_support';
+
+export interface ServiceInfo {
+  // ... campos existentes (status, statusReason?, display, metrics?,
+  //                        capabilities, availableActions, fetchedAt) ...
+
+  /**
+   * Solo relevante cuando `status` ∈ {`unknown`, `failed`}. Si presente,
+   * indica la clase de remediación canónica que la UI debe ofrecer al
+   * admin. Si ausente (incluyendo cuando `status === 'active'`), la UI no
+   * ofrece CTA de recuperación. Ver `ServiceRecoveryHint`.
+   */
+  recoveryHint?: ServiceRecoveryHint;
+}
+```
+
+#### A5.2. Impacto en wrappers (§5 pipeline) — passthrough transparente
+
+`getServiceInfoWithCache` (`core/provisioning/plugin-utils.ts`) cachea/devuelve el `ServiceInfo` completo tal cual lo retorna el plugin — `recoveryHint` viaja en el mismo objeto serializado a Redis sin tratamiento especial. La rama de fallback del wrapper (cuando el plugin lanza o el circuit está open → devuelve un `ServiceInfo` sintético con `status: 'unknown'` + `statusReason: 'service.status_reason.plugin_not_registered'` o equivalente) declara `recoveryHint: 'contact_support'` (no es algo que el admin pueda re-aprovisionar — el plugin ni siquiera respondió). Ningún otro wrapper se ve afectado.
+
+#### A5.3. Test contract genérico (§7) — invariante nueva
+
+```typescript
+// backend/src/plugins/provisioners/plugin-contract.spec.ts
+it('declara recoveryHint como ServiceRecoveryHint | undefined en getServiceInfo()', async () => {
+  const info = await plugin.getServiceInfo(syntheticService);
+  if (info.recoveryHint !== undefined) {
+    expect(['reprovision', 'reconcile', 'contact_support']).toContain(info.recoveryHint);
+  }
+  // Invariante de consistencia: si el plugin emite recoveryHint, el status
+  // debe ser uno de los estados de drift (no tiene sentido sobre `active`).
+  if (info.recoveryHint !== undefined) {
+    expect(['unknown', 'failed', 'suspended', 'expired']).toContain(info.status);
+  }
+});
+```
+
+#### A5.4. Frontend — ramificación canónica
+
+```typescript
+// admin/services/[id]/page.tsx — gateado por el contrato, NO por strings:
+const showReprovision = isDrift && info.recoveryHint === 'reprovision';
+
+// AdminDriftBanner.tsx — preparado para ramificar todas las clases:
+//   'reprovision'     → botón "Re-aprovisionar ahora"
+//   'reconcile'       → botón "Reconciliar contra el proveedor" (cron L3 manual)
+//   'contact_support' → sin CTA accionable, solo statusReason técnico
+```
+
+NUNCA por slug ni por `statusReason.endsWith(...)` (mantiene ADR-070 §"Cero `if (provisioner === 'X')`" + desacopla display i18n de comportamiento). El campo `recoveryHint` es **declarativo** — la UI lo respeta; el plugin es la única autoridad sobre qué drift es recuperable y cómo.
+
+#### A5.5. Plugins existentes — actualización
+
+- `internal`, `manual`: `getServiceInfo()` nunca reporta drift (status siempre `active`) → no declaran `recoveryHint`. Sin cambios.
+- `enhance_cp` (Sprint 15C.II Fase E): `getServiceInfo()` mapea su lógica de drift a `recoveryHint` ([ADR-083 Amendment A5](./adr-083-plugin-enhance-cp-specifics.md#amendments)): `not_yet_provisioned` / `subscription_missing` → `'reprovision'`; `plan_divergence` / drift de refs → `'reconcile'`; resto de estados incoherentes → `'contact_support'`.
+- Plugins futuros (15D/15E/15G): heredan el patrón — clasifican su drift al implementar `getServiceInfo()`.
+
+#### A5.6. Doctrina de adición de campos opcionales a `ServiceInfo` (refuerzo §3 + Amendment A3.6)
+
+Mismo patrón canónico que `ServiceAction.adminOnly` (Amendment A3.6) y `ServiceAction.allowsSensitiveDataInAudit` (Amendment A4.5): ADR justificante → Amendment ADR-077 con shape + impacto wrappers + invariante test contract + plugins existentes → compatible hacia atrás (NO bumpea `contractVersion`) → frontend ramifica por el campo (NUNCA por slug ni por display strings) → documentar en `provisioning/contract.md` §"shapes" + `glossary.md`.
