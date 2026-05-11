@@ -1,7 +1,7 @@
 # Sprint 15C.II — Plugin Enhance Hardening · Dossier de pre-sprint
 
-> **Tipo:** Pre-sprint research dossier (preservado como referencia histórica) + **Apéndice A** al final con decisiones doctrinales congeladas + gaps audit técnico + **§A.8 handoff completo Fase C → D** (próximo agente: leer §A.8 antes de codear; §A.7 preserved como referencia histórica del handoff Fase B → C).
-> **Estado:** ▶ **ACTIVO 2026-05-10** — Fases A + B + C cerradas (mergeadas a master). Próxima sesión arranca **Fase D** (audit-sanitizer.ts + email listener notifications-on-password-reset). Pre-condición técnica resuelta: PR [#52](https://github.com/yasmindanailov/dashboard/pull/52) merged `ef7f488` + PR [#53](https://github.com/yasmindanailov/dashboard/pull/53) merged `714c94c` + PR [#54](https://github.com/yasmindanailov/dashboard/pull/54) merged `01ad9a8` + PR [#55](https://github.com/yasmindanailov/dashboard/pull/55) merged Fase C 7 rounds (`5906165` → `f9b4b2f`).
+> **Tipo:** Pre-sprint research dossier (preservado como referencia histórica) + **Apéndice A** al final con decisiones doctrinales congeladas + gaps audit técnico + **§A.10 handoff completo Fase E → F** (próximo agente: leer §A.10 antes de codear — y §A.9.6.1 para el scope detallado de suspend/unsuspend; §A.7/§A.8/§A.9 preserved como referencia histórica de los handoffs anteriores).
+> **Estado:** ▶ **ACTIVO 2026-05-11** — Fases A + B + C + D cerradas (mergeadas a master) + **Fase E en PR [#60](https://github.com/yasmindanailov/dashboard/pull/60)** (abierto, NO mergeado — CI GitHub bloqueada por incidente billing externo §A.9.10, bypass policy §6 cumplido). Próxima sesión arranca **Fase F** (admin overview operativo + suspend/unsuspend + audit timeline GAP-M + error_log módulo GAP-N + G4/G5/G8) — frase canónica verbatim §A.10.1. Pre-condición técnica Fase F: verificar si PR #60 está en master (si no, Yasmin decide bypass-merge o esperar). PRs mergeados: #52 `ef7f488` + #53 `714c94c` (Fase A) + #54 `01ad9a8` (Fase B) + #55 Fase C 7 rounds + #56 housekeeping + #57 `c3b519e` (Fase D, bypass CI §A.9.10) + #58/#59 housekeeping.
 > **Origen:** Smoke real Yasmin contra mock 2026-05-10 durante cierre Fase 15C.I. Reveló gaps sistémicos, decisiones doctrinales aún no tomadas, y violaciones del UI_SPEC §4.3 que el cierre formal Fase I solo abordó parcialmente.
 > **Pre-condición técnica:** ✅ resuelta — Opción A doctrina §5 ejecutada (commit Fase 15C.I parcial → PR #52 → merge → nueva rama hardening desde master limpio).
 > **Doctrina canónica del usuario (literal 2026-05-10):** "Sobre las deudas pendientes en relación al plugin Enhance, hay que documentarlas, no se da un paso más, hasta que el plugin esté al 100% operativo con los features básicos y necesarios perfectos para producción."
@@ -1418,7 +1418,8 @@ operativa cuenta GitHub):
 # Apéndice A.10 — Cierre Fase E + handoff a Fase F (2026-05-11)
 
 > **Audiencia**: el siguiente agente que arranque Sprint 15C.II Fase F.
-> **Pre-condición técnica**: PR Fase E mergeado a master.
+> **Pre-condición técnica**: PR Fase E ([#60](https://github.com/yasmindanailov/dashboard/pull/60)) mergeado a master.
+> ⚠ **Estado al cierre de Fase E (2026-05-11):** PR #60 **abierto, NO mergeado** — CI GitHub Actions bloqueada por el incidente billing externo (§A.9.10), bypass policy §6 cumplido (las 3 condiciones — `pnpm ci:check:full` verde + boot real backend + documentación formal en los comentarios del PR), label `ready-for-e2e` añadida. **El primer paso de Fase F es verificar si #60 ya está en master**: si NO, Yasmin decide (bypass-merge como en PR #57, o esperar a que se resuelva el billing GitHub y re-disparar CI). Fase F arranca DESDE master post merge de #60.
 > **Tipo**: cierre Fase E (gold standard — decisión Yasmin "cada punto al más alto estándar") + handoff a F.
 
 ## A.10.1. Frase canónica de arranque Fase F (verbatim)
