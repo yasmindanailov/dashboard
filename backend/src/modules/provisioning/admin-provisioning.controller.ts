@@ -78,6 +78,34 @@ export class AdminProvisioningController {
   }
 
   /**
+   * Sprint 15C.II Fase F.3 (GAP-15CII-M) — timeline de auditoría del
+   * servicio para admin: UNION change-log + access-log filtrado por el
+   * servicio, **sin filtro** (admin ve `changes_*`, `correlation_id`, IP del
+   * staff, metadata íntegra). Cursor pagination `(created_at, id)` DESC vía
+   * `?cursor=&limit=`. `@AuditAccess('Service')` deja el trail "agente X
+   * consultó la auditoría del servicio Y" (coherente con el resto de
+   * lecturas staff sobre datos del cliente).
+   */
+  @Get(':id/audit')
+  @ApiOperation({
+    summary:
+      'Timeline de auditoría del servicio (vista admin — sin filtro, cursor pagination)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Service))
+  @AuditAccess('Service')
+  audit(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.provisioning.getServiceTimelineForUser(id, req.user.id, true, {
+      cursor,
+      limit: limit && /^\d+$/.test(limit) ? parseInt(limit, 10) : undefined,
+    });
+  }
+
+  /**
    * Sprint 15C.II Fase B (ADR-083 Amendment A4.1) — refresh manual admin
    * del cache `service_info` (TTL 60s wrapper). Espejo del endpoint cliente
    * `POST /services/:id/refresh` pero con isAdmin=true (bypass ownership).

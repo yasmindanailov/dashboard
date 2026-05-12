@@ -80,6 +80,38 @@ export class ProvisioningController {
   }
 
   /**
+   * Sprint 15C.II Fase F.3 (GAP-15CII-M) — timeline de auditoría del
+   * servicio para el cliente: UNION change-log + access-log filtrado por el
+   * servicio, **whitelist GDPR** (solo acciones cliente-seguras; sin
+   * `changes_*`/`correlation_id`/IP del staff; impersonación admin con
+   * detalle — nombre del agente + panel — decisión Yasmin 2026-05-12).
+   * Cursor pagination `(created_at, id)` DESC vía `?cursor=&limit=`.
+   */
+  @Get(':id/audit')
+  @ApiOperation({
+    summary:
+      'Timeline de auditoría del servicio (vista cliente — whitelist GDPR, cursor pagination)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Service))
+  audit(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const isAdmin = ADMIN_ROLES.includes(req.user.role.slug);
+    return this.provisioning.getServiceTimelineForUser(
+      id,
+      req.user.id,
+      isAdmin,
+      {
+        cursor,
+        limit: limit && /^\d+$/.test(limit) ? parseInt(limit, 10) : undefined,
+      },
+    );
+  }
+
+  /**
    * Sprint 15C.II Fase B (ADR-083 Amendment A4.1) — refresh manual del
    * cache `service_info` (TTL 60s wrapper). Endpoint POST porque tiene
    * side-effect (invalida cache Redis + re-fetch fresco del proveedor).

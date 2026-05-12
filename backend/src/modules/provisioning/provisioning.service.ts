@@ -1087,6 +1087,38 @@ export class ProvisioningService {
     } satisfies Prisma.ServiceSelect;
   }
 
+  /**
+   * Sprint 15C.II Fase F.3 (GAP-15CII-M) — timeline de auditoría de un
+   * servicio. Carga el servicio (solo `id`/`user_id`), aplica ownership
+   * (`ForbiddenException` si cliente accede a servicio ajeno; admin sin
+   * filtro), y delega a `AuditService.getServiceTimeline` que aplica el
+   * recorte GDPR cuando `!isAdmin`. El `@AuditAccess('Service')` del
+   * controller admin deja el trail "agente X consultó la auditoría del
+   * servicio Y" (coherente con el resto de lecturas staff).
+   */
+  async getServiceTimelineForUser(
+    serviceId: string,
+    userId: string,
+    isAdmin: boolean,
+    opts: { cursor?: string | null; limit?: number },
+  ) {
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: { id: true, user_id: true },
+    });
+    if (!service) {
+      throw new NotFoundException('Servicio no encontrado.');
+    }
+    if (!isAdmin && service.user_id !== userId) {
+      throw new ForbiddenException('No tienes acceso a este servicio.');
+    }
+    return this.audit.getServiceTimeline(serviceId, {
+      isAdmin,
+      cursor: opts.cursor ?? null,
+      limit: opts.limit,
+    });
+  }
+
   private async loadServiceForView(
     serviceId: string,
   ): Promise<ServiceWithRelations> {
