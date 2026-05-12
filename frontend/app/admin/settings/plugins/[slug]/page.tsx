@@ -17,6 +17,8 @@ import {
 import { t } from '../../../../_shared/i18n';
 import { PluginStatusBadge } from '../../../../_shared/plugins/PluginStatusBadge';
 
+import { PluginOperationalOverview } from '../../../../_shared/plugins/PluginOperationalOverview';
+
 import { PluginConfigForm } from './_components/PluginConfigForm';
 import { ReconcileAllButton } from './_components/ReconcileAllButton';
 
@@ -104,6 +106,15 @@ export default async function AdminPluginDetailPage({ params }: PageProps) {
           circuitState={detail.circuit_state}
         />
       </header>
+
+      {/*
+        Sprint 15C.II Fase F.2 (ADR-083 Amendment A4.4) — resumen operativo
+        del plugin (`<PluginOperationalOverview>`, reusable/heredable):
+        badge de salud + stats grid + última/próxima reconciliación + tabla
+        de drifts 24 h. Server Component autocontenido — si su fetch falla
+        degrada con aviso inline sin romper el resto de la página.
+      */}
+      <PluginOperationalOverview slug={detail.slug} />
 
       {/*
         Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1) — botón

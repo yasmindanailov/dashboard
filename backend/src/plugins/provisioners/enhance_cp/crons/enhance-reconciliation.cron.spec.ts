@@ -404,6 +404,76 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
   });
 
   // ──────────────────────────────────────────────────────────────────────
+  // Sprint 15C.II Fase F.2 — rollup `plugin.reconcile_completed` emitido
+  // por el cron (trigger='cron') y por el executor manual (trigger='manual').
+  // ──────────────────────────────────────────────────────────────────────
+
+  it('handleScheduled emite plugin.reconcile_completed con trigger=cron', async () => {
+    const apiBundle = buildApiMock({
+      subscription: { id: 42, planId: 1, status: 'active' },
+    });
+    const { prisma } = buildPrisma([SAMPLE_SERVICE]);
+    const { events, emitted } = buildEvents();
+    const cron = new EnhanceReconciliationCron(
+      prisma,
+      buildPlugin(apiBundle),
+      events,
+      buildReconcileRegistry(),
+    );
+
+    await cron.handleScheduled();
+
+    const rollup = emitted.find(
+      ([name]) => name === 'plugin.reconcile_completed',
+    ) as [string, Record<string, unknown>] | undefined;
+    expect(rollup).toBeDefined();
+    expect(rollup![1]).toEqual(
+      expect.objectContaining({
+        plugin_slug: 'enhance_cp',
+        trigger: 'cron',
+        services_processed: 1,
+        drifts_detected: 0,
+        errors: 0,
+      }),
+    );
+    expect(typeof rollup![1].duration_ms).toBe('number');
+    expect(typeof rollup![1].completed_at).toBe('string');
+  });
+
+  it('executor manual emite plugin.reconcile_completed con trigger=manual + intervalo declarado al registry', async () => {
+    const apiBundle = buildApiMock({ throwsNotFound: true });
+    const { prisma } = buildPrisma([SAMPLE_SERVICE]);
+    const { events, emitted } = buildEvents();
+    const reconcileRegistry = buildReconcileRegistry();
+    const cron = new EnhanceReconciliationCron(
+      prisma,
+      buildPlugin(apiBundle),
+      events,
+      reconcileRegistry,
+    );
+    cron.onModuleInit();
+
+    expect(reconcileRegistry.getScheduleMeta('enhance_cp')).toEqual({
+      intervalSeconds: 6 * 60 * 60,
+    });
+
+    await reconcileRegistry.runFor('enhance_cp');
+
+    const rollup = emitted.find(
+      ([name]) => name === 'plugin.reconcile_completed',
+    ) as [string, Record<string, unknown>] | undefined;
+    expect(rollup).toBeDefined();
+    expect(rollup![1]).toEqual(
+      expect.objectContaining({
+        plugin_slug: 'enhance_cp',
+        trigger: 'manual',
+        services_processed: 1,
+        drifts_detected: 1,
+      }),
+    );
+  });
+
+  // ──────────────────────────────────────────────────────────────────────
   // Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1) —
   // onModuleInit registra executor reconcile-all en el registry global.
   // ──────────────────────────────────────────────────────────────────────

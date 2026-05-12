@@ -551,4 +551,205 @@ describe('AdminPluginsService â€” Sprint 15A Fase G (ADR-080)', () => {
       );
     });
   });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // getOperationalOverview() — Sprint 15C.II Fase F.2 (ADR-083 A4.4)
+  // ──────────────────────────────────────────────────────────────────────
+  describe('getOperationalOverview(slug)', () => {
+    function buildOverviewPlugin(
+      slug: string,
+      supportsReconciliation: boolean,
+    ) {
+      const plugin = buildPlugin(slug);
+      (
+        plugin as { capabilities: { supports_reconciliation: boolean } }
+      ).capabilities.supports_reconciliation = supportsReconciliation;
+      registry.getAvailable.mockImplementation((s: string) =>
+        s === slug ? plugin : null,
+      );
+      return plugin;
+    }
+
+    function auditChangeLogMock() {
+      return (
+        prisma as unknown as {
+          auditChangeLog: { findFirst: jest.Mock; findMany: jest.Mock };
+        }
+      ).auditChangeLog;
+    }
+
+    beforeEach(() => {
+      (prisma as Record<string, unknown>).service = {
+        count: jest.fn((args: { where: { status: string } }) =>
+          Promise.resolve(args.where.status === 'active' ? 3 : 1),
+        ),
+      };
+      (prisma as Record<string, unknown>).auditChangeLog = {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+      };
+    });
+
+    it('plugin habilitado, sin secrets faltantes ni circuit abierto → operational', async () => {
+      buildOverviewPlugin('ov-cp', false);
+      prisma.pluginInstall.findUnique.mockResolvedValueOnce({
+        slug: 'ov-cp',
+        enabled: true,
+        secrets: { api_key: vault.encrypt('sk_live') },
+      });
+
+      const ov = await service.getOperationalOverview('ov-cp');
+      expect(ov.slug).toBe('ov-cp');
+      expect(ov.enabled).toBe(true);
+      expect(ov.health.status).toBe('operational');
+      expect(ov.health.reasons).toContain(
+        'admin.plugins.overview.health_reason.all_clear',
+      );
+      expect(ov.services).toEqual({ active: 3, suspended: 1 });
+      expect(ov.secrets).toEqual({ required: 1, configured: 1, missing: [] });
+      expect(ov.reconciliation.supported).toBe(false);
+      expect(ov.reconciliation.next_scheduled_at).toBeNull();
+      expect(ov.recent_drifts).toEqual([]);
+    });
+
+    it('plugin deshabilitado (sin install row) → health.status=disabled', async () => {
+      buildOverviewPlugin('ov-cp', false);
+      prisma.pluginInstall.findUnique.mockResolvedValueOnce(null);
+      const ov = await service.getOperationalOverview('ov-cp');
+      expect(ov.enabled).toBe(false);
+      expect(ov.health.status).toBe('disabled');
+      expect(ov.health.reasons).toEqual([
+        'admin.plugins.overview.health_reason.disabled',
+      ]);
+    });
+
+    it('secret requerido sin configurar → health.status=down + reason missing_secrets', async () => {
+      buildOverviewPlugin('ov-cp', false);
+      prisma.pluginInstall.findUnique.mockResolvedValueOnce({
+        slug: 'ov-cp',
+        enabled: true,
+        secrets: {},
+      });
+      const ov = await service.getOperationalOverview('ov-cp');
+      expect(ov.secrets.missing).toEqual(['api_key']);
+      expect(ov.health.status).toBe('down');
+      expect(ov.health.reasons).toContain(
+        'admin.plugins.overview.health_reason.missing_secrets',
+      );
+    });
+
+    it('circuit getServiceInfo=open → health.status=down + reason circuit_open', async () => {
+      buildOverviewPlugin('ov-cp', false);
+      prisma.pluginInstall.findUnique.mockResolvedValueOnce({
+        slug: 'ov-cp',
+        enabled: true,
+        secrets: { api_key: vault.encrypt('sk_live') },
+      });
+      breakers.get.mockImplementation((name: string) =>
+        name === 'ov-cp:getServiceInfo'
+          ? ({ getState: () => 'open' } as never)
+          : null,
+      );
+      const ov = await service.getOperationalOverview('ov-cp');
+      expect(ov.circuit.getServiceInfo).toBe('open');
+      expect(ov.health.status).toBe('down');
+      expect(ov.health.reasons).toContain(
+        'admin.plugins.overview.health_reason.circuit_open',
+      );
+    });
+
+    it('reconciliable con executor + intervalo → next_scheduled_at no nulo; last desde audit; errores → degraded', async () => {
+      buildOverviewPlugin('ov-rec', true);
+      prisma.pluginInstall.findUnique.mockResolvedValueOnce({
+        slug: 'ov-rec',
+        enabled: true,
+        secrets: { api_key: vault.encrypt('sk_live') },
+      });
+      reconcileRegistry.register(
+        'ov-rec',
+        () =>
+          Promise.resolve({
+            servicesProcessed: 0,
+            driftsDetected: 0,
+            durationMs: 1,
+          }),
+        { intervalSeconds: 6 * 60 * 60 },
+      );
+      auditChangeLogMock().findFirst.mockResolvedValueOnce({
+        changes_after: {
+          slug: 'ov-rec',
+          trigger: 'cron',
+          services_processed: 5,
+          drifts_detected: 1,
+          errors: 2,
+          duration_ms: 999,
+          completed_at: '2026-05-12T12:00:00.000Z',
+        },
+        created_at: new Date('2026-05-12T12:00:00.000Z'),
+      });
+
+      const ov = await service.getOperationalOverview('ov-rec');
+      expect(ov.reconciliation.supported).toBe(true);
+      expect(ov.reconciliation.next_scheduled_at).not.toBeNull();
+      expect(ov.reconciliation.last).toEqual({
+        completed_at: '2026-05-12T12:00:00.000Z',
+        trigger: 'cron',
+        services_processed: 5,
+        drifts_detected: 1,
+        errors: 2,
+      });
+      expect(ov.health.status).toBe('degraded');
+      expect(ov.health.reasons).toContain(
+        'admin.plugins.overview.health_reason.reconcile_errors',
+      );
+    });
+
+    it('recent_drifts filtra por _meta.plugin_slug y mapea change_type/detected_at', async () => {
+      buildOverviewPlugin('ov-cp', false);
+      prisma.pluginInstall.findUnique.mockResolvedValueOnce({
+        slug: 'ov-cp',
+        enabled: true,
+        secrets: { api_key: vault.encrypt('sk_live') },
+      });
+      auditChangeLogMock().findMany.mockResolvedValueOnce([
+        {
+          entity_id: 'svc-1',
+          changes_after: {
+            value: 'suspended',
+            _meta: {
+              plugin_slug: 'ov-cp',
+              change_type: 'status_divergence',
+              detected_at: '2026-05-12T09:00:00.000Z',
+            },
+          },
+          created_at: new Date('2026-05-12T09:00:00.000Z'),
+        },
+        {
+          entity_id: 'svc-other',
+          changes_after: {
+            value: 'x',
+            _meta: { plugin_slug: 'other-plugin' },
+          },
+          created_at: new Date('2026-05-12T08:00:00.000Z'),
+        },
+      ]);
+
+      const ov = await service.getOperationalOverview('ov-cp');
+      expect(ov.reconciliation.drifts_24h).toBe(1);
+      expect(ov.recent_drifts).toEqual([
+        {
+          service_id: 'svc-1',
+          change_type: 'status_divergence',
+          detected_at: '2026-05-12T09:00:00.000Z',
+        },
+      ]);
+    });
+
+    it('lanza NotFoundException si el plugin no está validado', async () => {
+      registry.getAvailable.mockReturnValue(null);
+      await expect(
+        service.getOperationalOverview('ghost'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
 });

@@ -8,6 +8,7 @@ import { AuditRetentionCron } from './audit-retention.cron';
 import { AuditAuthListener } from './audit-auth.listener';
 import { AuditAdminSsoImpersonationListener } from './audit-admin-sso-impersonation.listener';
 import { AuditOnServiceReconciledExternalChangeListener } from './audit-on-service-reconciled-external-change.listener';
+import { AuditOnPluginReconcileCompletedListener } from './audit-on-plugin-reconcile-completed.listener';
 
 /**
  * AuditModule — Sprint 9 Fase E (ADR-017 + ADR-010 RGPD).
@@ -37,6 +38,11 @@ import { AuditOnServiceReconciledExternalChangeListener } from './audit-on-servi
     // discrimina visibilidad data-subject (subscription_missing y
     // status_divergence visibles; plan_divergence solo admin).
     AuditOnServiceReconciledExternalChangeListener,
+    // Sprint 15C.II Fase F.2 (ADR-083 §6 Amendment): rollup por pasada de
+    // reconciliación (`plugin.reconcile_completed`) → `audit_change_log`
+    // `entity_type='Plugin'` `action='reconcile_completed'`. Fuente de
+    // verdad de "última reconciliación" para el admin overview operativo.
+    AuditOnPluginReconcileCompletedListener,
     {
       provide: APP_INTERCEPTOR,
       useClass: AuditInterceptor,

@@ -187,6 +187,59 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'admin.plugins.reconcile_all.unit.drift.plural': 'drifts detectados',
   'admin.plugins.reconcile_all.error': 'No se pudo reconciliar el plugin.',
 
+  // ── Resumen operativo del plugin — Sprint 15C.II Fase F.2
+  //    (ADR-083 Amendment A4.4 — `<PluginOperationalOverview>`).
+  'admin.plugins.overview.section_title': 'Resumen operativo',
+  'admin.plugins.overview.section_description':
+    'Estado en esta instancia del backend. Los estados de circuit breaker son in-process y no se comparten entre instancias.',
+  'admin.plugins.overview.load_error':
+    'No se pudo cargar el resumen operativo del plugin.',
+  'admin.plugins.overview.health.operational': 'Operativo',
+  'admin.plugins.overview.health.degraded': 'Degradado',
+  'admin.plugins.overview.health.down': 'Caído',
+  'admin.plugins.overview.health.disabled': 'Deshabilitado',
+  'admin.plugins.overview.health_reason.all_clear':
+    'Sin incidencias detectadas.',
+  'admin.plugins.overview.health_reason.disabled':
+    'El plugin está deshabilitado.',
+  'admin.plugins.overview.health_reason.circuit_open':
+    'Un circuit breaker está abierto — las llamadas al proveedor están bloqueadas temporalmente.',
+  'admin.plugins.overview.health_reason.circuit_recovering':
+    'Un circuit breaker está en recuperación (half-open).',
+  'admin.plugins.overview.health_reason.missing_secrets':
+    'Faltan credenciales requeridas por el manifest del plugin.',
+  'admin.plugins.overview.health_reason.reconcile_errors':
+    'La última reconciliación terminó con errores.',
+  'admin.plugins.overview.stat.services_active': 'Servicios activos',
+  'admin.plugins.overview.stat.services_suspended': 'Servicios suspendidos',
+  'admin.plugins.overview.stat.drifts_24h': 'Drifts (24 h)',
+  'admin.plugins.overview.stat.circuit': 'Circuit breaker',
+  'admin.plugins.overview.circuit.state.idle': 'Sin actividad',
+  'admin.plugins.overview.circuit.state.closed': 'OK',
+  'admin.plugins.overview.circuit.state.open': 'Abierto',
+  'admin.plugins.overview.circuit.state.half_open': 'Recuperando',
+  'admin.plugins.overview.reconcile.last': 'Última reconciliación',
+  'admin.plugins.overview.reconcile.never':
+    'Aún no se ha ejecutado ninguna reconciliación.',
+  'admin.plugins.overview.reconcile.next': 'Próxima programada',
+  'admin.plugins.overview.reconcile.trigger.cron': 'automática',
+  'admin.plugins.overview.reconcile.trigger.manual': 'manual',
+  'admin.plugins.overview.reconcile.services': 'servicios',
+  'admin.plugins.overview.reconcile.drifts': 'drifts',
+  'admin.plugins.overview.reconcile.errors': 'errores',
+  'admin.plugins.overview.reconcile.not_supported':
+    'Este plugin no mantiene estado externo sincronizado por cron.',
+  'admin.plugins.overview.drifts.title': 'Drifts recientes (24 h)',
+  'admin.plugins.overview.drifts.empty':
+    'Sin divergencias detectadas en las últimas 24 horas.',
+  'admin.plugins.overview.drifts.col.service': 'Servicio',
+  'admin.plugins.overview.drifts.col.type': 'Tipo',
+  'admin.plugins.overview.drifts.col.detected': 'Detectado',
+  'admin.plugins.overview.drift.subscription_missing':
+    'Suscripción ausente en el proveedor',
+  'admin.plugins.overview.drift.status_divergence': 'Divergencia de estado',
+  'admin.plugins.overview.drift.plan_divergence': 'Divergencia de plan',
+
   // ── Service status reasons (ADR-070 §"Patrón de página" — discriminados
   // por rol en Fase C UI_SPEC §4.13). Sprint 15C.II Fase C (2026-05-10):
   // discriminación cliente vs admin materializada en `ServiceHeader.tsx`

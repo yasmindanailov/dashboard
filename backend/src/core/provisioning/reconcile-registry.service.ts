@@ -53,6 +53,20 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 export type ReconcileExecutor = () => Promise<ReconcileResult>;
 
 /**
+ * Metadatos opcionales del schedule del plugin, declarados al registrar el
+ * executor. Permiten al admin overview (Fase F.2) calcular "próxima
+ * reconciliación" sin acoplarse al cron concreto del plugin.
+ */
+export interface ReconcileScheduleMeta {
+  /**
+   * Intervalo del cron del plugin en segundos (ej. 6h → 21600). El cálculo
+   * de "próxima ejecución" asume ticks alineados a múltiplos del intervalo
+   * desde epoch UTC — coincide con `CronExpression.EVERY_*` de @nestjs/schedule.
+   */
+  readonly intervalSeconds: number;
+}
+
+/**
  * Resultado normalizado de una pasada de reconciliation. Cada plugin
  * lo construye a partir de su propio shape interno (ej. `EnhanceReconciliationCron`
  * lo deriva de `ReconciliationSummary`).
@@ -72,6 +86,7 @@ export interface ReconcileResult {
 export class ReconcileRegistryService {
   private readonly logger = new Logger(ReconcileRegistryService.name);
   private readonly executors = new Map<string, ReconcileExecutor>();
+  private readonly scheduleMeta = new Map<string, ReconcileScheduleMeta>();
 
   /**
    * Registra un executor para un plugin slug. Típicamente invocado desde
@@ -80,8 +95,15 @@ export class ReconcileRegistryService {
    * Si ya existe un executor para ese slug, el nuevo lo reemplaza pero
    * se loguea WARN — es síntoma de doble registro (bug). El caso legítimo
    * es solo el primer onModuleInit del proceso.
+   *
+   * `scheduleMeta` (opcional): intervalo del cron del plugin, usado por el
+   * admin overview (Fase F.2) para calcular "próxima reconciliación".
    */
-  register(slug: string, executor: ReconcileExecutor): void {
+  register(
+    slug: string,
+    executor: ReconcileExecutor,
+    scheduleMeta?: ReconcileScheduleMeta,
+  ): void {
     if (this.executors.has(slug)) {
       this.logger.warn(
         `Reconcile executor for plugin "${slug}" already registered — overwriting. ` +
@@ -89,7 +111,15 @@ export class ReconcileRegistryService {
       );
     }
     this.executors.set(slug, executor);
+    if (scheduleMeta) {
+      this.scheduleMeta.set(slug, scheduleMeta);
+    }
     this.logger.log(`Registered reconcile executor for plugin "${slug}".`);
+  }
+
+  /** Metadatos de schedule declarados al registrar el executor, o `null`. */
+  getScheduleMeta(slug: string): ReconcileScheduleMeta | null {
+    return this.scheduleMeta.get(slug) ?? null;
   }
 
   /**

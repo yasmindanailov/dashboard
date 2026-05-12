@@ -949,3 +949,43 @@ El frontend (`DnsRecordsManager`, compartido cliente+admin) renderiza un `Badge`
 - `INTERNAL_HELPER_SLUGS` (frontend `ActionsBar.tsx`) incluye `recalculate_provider_metrics` (ya no `force_resync` — el slug viejo desaparece).
 - E2E spec extendido (Fase E): admin DNS CRUD nativo + cancelar servicio (con email mailpit) + recalcular métricas desde `AdminServiceOperationsCard`.
 - i18n: `plugin.enhance_cp.actions.recalculate_provider_metrics` (+ `.description`, `.success`) reemplazan `plugin.enhance_cp.actions.force_resync*`.
+
+---
+
+### Amendment A6 (2026-05-12) — Sprint 15C.II Fase F.2: materialización del admin overview operativo (A4.4) + evento rollup `plugin.reconcile_completed`
+
+> **Contexto:** Fase F del dossier se partió en F.1/F.2/F.3 (decisión Yasmin 2026-05-12). F.1 cerró suspend/unsuspend (ADR-077 Amendment A4.5). **F.2 materializa A4.4** (admin overview operativo). Este Amendment documenta las decisiones de materialización + un evento nuevo necesario para que el overview muestre estado **observado** (no inferido).
+>
+> **Compatibilidad:** Hacia atrás. NO bumpea contractVersion. Evento nuevo `plugin.reconcile_completed` es additivo (extiende los eventos `plugin.*` de ADR-080 / el catálogo §6). Endpoint REST nuevo `GET /admin/plugins/:slug/operational-overview` es additivo. Sin migración de datos.
+
+#### A6.1. Evento rollup `plugin.reconcile_completed` (nuevo)
+
+`§6` (decisión 24) ya define `service.reconciled_external_change` — un evento **por drift individual** a nivel `Service`. Para el overview operativo se necesitaba además un rollup **por pasada de reconciliación** a nivel `Plugin`: "el plugin X corrió, procesó N servicios, detectó M drifts, K errores, en D ms, gatillada por cron|manual". El cron L3 solo logueaba a stderr → no había fuente persistida de "última reconciliación".
+
+- **Evento canónico nuevo:** `plugin.reconcile_completed` con shape genérico (plugin-agnóstico): `{ plugin_slug, trigger: 'cron' | 'manual', services_processed, drifts_detected, errors, duration_ms, completed_at /* ISO */ }`.
+- **Emisor:** el cron reconciliation del plugin lo emite tras cada pasada — tanto el `@Cron(EVERY_6_HOURS)` (`trigger: 'cron'`) como el executor invocado por `reconcile-all` manual (`trigger: 'manual'`). En `enhance_cp`: `EnhanceReconciliationCron.emitReconcileCompleted()`. Heredable: cualquier plugin con `supports_reconciliation: true` emite el mismo evento.
+- **Listener canónico:** `AuditOnPluginReconcileCompletedListener` (`modules/audit/`) → 1 fila `audit_change_log` con `user_id=null` (sistema), `entity_type='Plugin'`, `entity_id=deriveAuditEntityId(slug)` (mismo UUID v5 determinístico que `plugin.config_changed` / `plugin.reconcile_triggered_manually` — extraído a `core/provisioning/plugin-audit-id.util.ts`), `action='reconcile_completed'`, `changes_after` = el rollup. R7: si el audit falla, el listener NO relanza (el cron sigue vivo). No toca `audit_access_log` ni flags GDPR — un rollup operativo es admin-only por naturaleza; los drifts individuales visibles al cliente ya los maneja `AuditOnServiceReconciledExternalChangeListener`.
+- **Coexistencia con `plugin.reconcile_triggered_manually`:** el path manual produce ambos audit rows — `plugin.reconcile_triggered_manually` (escrito por `AdminPluginsService.reconcileAll`, con el actor humano real) registra "quién gatilló"; `reconcile_completed` (escrito por el listener) registra "qué resultado y cuándo terminó". El overview consulta `reconcile_completed` porque cubre cron + manual uniformemente.
+
+#### A6.2. Endpoint + shape del overview
+
+- **Endpoint REST nuevo:** `GET /api/v1/admin/plugins/:slug/operational-overview` (controller `AdminPluginsController`, mismo guard triple + `@CheckPolicies(Manage Plugin)`). Backed por `AdminPluginsService.getOperationalOverview(slug)`.
+- **Shape `PluginOperationalOverview`** (`modules/admin-plugins/dto/plugin-operational-overview.dto.ts`) — **plugin-agnóstico**, heredable 15D/15E/15G: `{ slug, label, enabled, health: { status, reasons[] }, circuit: { getServiceInfo, executeAction }, secrets: { required, configured, missing[] }, services: { active, suspended }, reconciliation: { supported, last | null, next_scheduled_at | null, drifts_24h }, recent_drifts: [{ service_id, change_type, detected_at }], generated_at }`.
+- **Derivación de `health.status`** (∈ `operational | degraded | down | disabled`):
+  - `disabled` si el plugin no está habilitado.
+  - `down` si algún circuit breaker está `open`, **o** falta algún secret requerido por el manifest.
+  - `degraded` si algún circuit está `half-open`, **o** la última reconciliación terminó con `errors > 0`.
+  - `operational` en otro caso. `reasons[]` lleva ≥1 clave i18n explicativa siempre (`admin.plugins.overview.health_reason.*`).
+- **`reconciliation.last`:** se lee del audit `reconcile_completed` más reciente (`findFirst` por `entity_type='Plugin'` + `entity_id` + `action`, índice `[entity_type, entity_id]`). `null` si nunca corrió desde que existe el evento (F.2 en adelante). Estado **observado**, no inferido.
+- **`reconciliation.next_scheduled_at`:** se deriva del intervalo que el plugin declara al registrar su executor — `ReconcileRegistryService.register(slug, executor, { intervalSeconds })` (campo opcional nuevo; `EnhanceReconciliationCron` declara `21600` = 6 h). Cálculo: siguiente múltiplo del intervalo desde epoch UTC (coincide con los ticks de `CronExpression.EVERY_*`). `null` si el plugin no soporta reconciliación o no declaró intervalo. NO se acopla al cron concreto.
+- **`recent_drifts` / `drifts_24h`:** query `audit_change_log WHERE entity_type='Service' AND action='reconciled_external_change' AND created_at > now()-24h` (ventana acotada por el índice `created_at`), filtrado por `changes_after._meta.plugin_slug` en memoria (un único plugin SaaS hoy; aun con varios, 24 h de drifts es un conjunto pequeño; `take: 500` como tope duro defensivo). `change_type` y `detected_at` salen de `changes_after._meta`. Hasta 20 filas en `recent_drifts`.
+  > **Corrección del apuntado del dossier (§A.11):** el dossier §A.11.1/§A.11.3 escribió el query como `action LIKE 'service.reconciled%'`. Eso es incorrecto: `service.reconciled_external_change` es el nombre del **evento** (`EventEmitter2`), no el `action` persistido. El `AuditOnServiceReconciledExternalChangeListener` escribe `action='reconciled_external_change'` (sin prefijo `service.`) con `entity_type='Service'`. Esta ADR es la fuente de verdad: A4.4 ya decía "emit `service.reconciled_external_change`" (refiriéndose al evento) — el query SQL correcto filtra por `action='reconciled_external_change'`. (Lección L18 §A.11.5: gana el código real / el ADR sobre el apuntado exploratorio del dossier.)
+
+#### A6.3. Componente frontend
+
+`<PluginOperationalOverview slug={...} />` — Server Component **reusable** en `frontend/app/_shared/plugins/PluginOperationalOverview.tsx` (ubicación canónica que A4.4 ya fijaba). Hace su propio `serverFetch` (autocontenido) y degrada con aviso inline si la llamada falla — no rompe el config form / reconcile-all / test-conexión que ya viven en la página. Montado en `/admin/settings/plugins/[slug]/page.tsx` entre el header y la sección de reconcile-all. Los estados de circuit breaker se etiquetan como "estado en esta instancia" (in-process). Cada fila de la tabla de drifts enlaza a `/admin/services/[id]` (la página de detalle que ya existe); en **F.3**, cuando llegue el timeline `/admin/services/[id]/audit` (GAP-15CII-M), basta repuntar el helper `serviceDetailHref` — una línea. (Decisión Yasmin 2026-05-12: estándar profesional = cero enlaces muertos en estados intermedios; enlazar a destino existente y repuntar después.)
+
+#### A6.4. Validación
+
+- Backend: `admin-plugins.service.spec` (`getOperationalOverview` — operational / disabled / down-por-secret-faltante / down-por-circuit-open / degraded-por-reconcile-errors / filtrado de `recent_drifts` por `_meta.plugin_slug` / NotFound); `audit-on-plugin-reconcile-completed.listener.spec` (persiste Plugin/`reconcile_completed` con `user_id=null` + R7 no-relanza); `enhance-reconciliation.cron.spec` (`handleScheduled` emite `plugin.reconcile_completed` `trigger='cron'`; executor manual emite `trigger='manual'`; `getScheduleMeta('enhance_cp')` = `{ intervalSeconds: 21600 }`). Suite total `pnpm ci:check` verde (637 passed + 5 skipped, 48 suites).
+- Frontend: `tsc --noEmit` + `eslint --max-warnings=0` verdes. i18n `admin.plugins.overview.*` añadidas a `translations-es.ts`.

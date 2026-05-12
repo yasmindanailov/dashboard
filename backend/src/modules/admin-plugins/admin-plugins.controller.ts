@@ -96,6 +96,23 @@ export class AdminPluginsController {
    * Audit canónico (R3): emite `plugin.reconcile_triggered_manually` con
    * actor + payload normalizado (`ReconcileAllResponse`).
    */
+  /**
+   * Sprint 15C.II Fase F.2 (ADR-083 Amendment A4.4) — resumen operativo del
+   * plugin para `/admin/settings/plugins/[slug]` (`<PluginOperationalOverview>`):
+   * salud derivada (operational/degraded/down/disabled) + circuit breakers +
+   * counts de servicios (active/suspended) + última reconciliación + próxima
+   * programada + drifts en 24h. Shape plugin-agnóstico (heredable 15D/15E/15G).
+   */
+  @Get(':slug/operational-overview')
+  @CheckPolicies((ability) => ability.can(Action.Manage, Subject.Plugin))
+  @ApiOperation({
+    summary:
+      'Resumen operativo del plugin: salud, circuit breakers, servicios, reconciliación y drifts 24h.',
+  })
+  operationalOverview(@Param('slug') slug: string) {
+    return this.service.getOperationalOverview(slug);
+  }
+
   @Post(':slug/reconcile-all')
   @CheckPolicies((ability) => ability.can(Action.Manage, Subject.Plugin))
   @ApiOperation({
