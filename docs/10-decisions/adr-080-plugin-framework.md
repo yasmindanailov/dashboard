@@ -603,6 +603,43 @@ Cualquier campo nuevo NO opcional o que rompa el shape requiere bump a `manifest
 
 ---
 
+### Amendment C (2026-05-12) — campo opcional `serviceInfoCacheTtlSeconds` en `PluginManifest` (Sprint 15C.II Fase F.3)
+
+> **Justificado por:** Sprint 15C.II Fase F.3 (GAP-15CII-G4) + [ADR-083 Amendment A7.4](./adr-083-plugin-enhance-cp-specifics.md#amendments). El TTL del cache L1 `service_info` (§5) era un único valor: el `setting` global `provisioning.service_info_ttl_seconds` (default 60s). Distintos proveedores tienen distinta tolerancia a la latencia/coste de re-fetch (un panel que cambia rápido quiere TTL bajo; uno estable, alto) — la **recomendación del autor del plugin** debe poder viajar en el manifest, sin obligar al operador a tunear un setting global por plugin. Sigue el patrón canónico B.5 ("doctrina de adición de campos opcionales a `PluginManifest`").
+> **Sprint:** 15C.II Fase F.3 (PR pendiente).
+> **Compatibilidad:** Hacia atrás. NO bumpea `manifestVersion` — sigue `'v1'`. El campo es **opcional**. Plugins existentes (`internal`, `manual`, `enhance_cp`) no lo declaran → usan el setting global / default exactamente como hoy. NO requiere migración.
+
+#### C.1. Cambio canónico en `PluginManifest` (§1 shape)
+
+```typescript
+export interface PluginManifest {
+  // ... campos existentes (slug, version, manifestVersion, label, description,
+  //                       docsUrl, settingsCategory, configSchema, secretsSchema,
+  //                       testConnectionMethod, productConfigSchema?) ...
+
+  /**
+   * Recomendación del autor del plugin para el TTL (segundos) del cache L1
+   * `service_info` (resultado de `getServiceInfo()`, ver [ADR-077 §5](./adr-077-contrato-provisioner-plugin-v2.md)).
+   * Opcional — si ausente, se usa el setting global `provisioning.service_info_ttl_seconds`
+   * (default 60s). El runtime aplica un *sanity floor* de 5s (`Math.max(...,5)`):
+   * un valor menor martillaría al proveedor. Es una recomendación, no un
+   * mandato — el operador siempre puede override con el setting.
+   */
+  readonly serviceInfoCacheTtlSeconds?: number;
+}
+```
+
+#### C.2. Impacto en runtime
+
+`ProvisioningService.resolveServiceInfoTtl(plugin)` — precedencia **`manifest.serviceInfoCacheTtlSeconds` > setting global `provisioning.service_info_ttl_seconds` > 60s**, con *sanity floor* de **5s** aplicado en runtime (`Math.max(Math.floor(ttl), 5)` — un plugin puede declarar `2` y el runtime lo sube a `5`). El valor resuelto se pasa a `getServiceInfoWithCache(..., { ttlSeconds })`. `AdminPluginsService` no lo valida con Ajv (es un entero del manifest, no input externo) — el contract test (§7) solo exige "entero positivo si declarado". `enhance_cp` no lo declara.
+
+#### C.3. Plugins existentes — actualización
+
+- `internal`, `manual`, `enhance_cp`: no declaran `serviceInfoCacheTtlSeconds` → comportamiento idéntico al actual (setting global / 60s).
+- Plugins futuros (15D/15E/15G): lo declaran si el panel del proveedor tiene una cadencia de cambio distinta del default (RC: TLD/registrar muta poco → TTL alto; Docker: métricas de contenedor mutan rápido → TTL bajo).
+
+---
+
 ## Cuándo revisar
 
 - **Si llega un plugin que necesita config dinámica per-cliente** (ej. cada cliente tiene su propia api_key de Stripe Connect). El framework actual asume **config global por plugin**. Revisión: añadir tabla `plugin_install_overrides` con `(slug, scope, scope_id, secrets)` o ADR específico.
