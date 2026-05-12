@@ -388,6 +388,9 @@ El circuit breaker se aplica EXCLUSIVAMENTE a operaciones que cumplen los **3 cr
 | `plugin.uninstalled` | `{ slug, uninstalled_by, uninstalled_at }` | `AdminPluginsService.uninstall` | audit |
 | `plugin.circuit_opened` | `{ plugin_slug, reason, opened_at, last_error_code }` | `CircuitBreaker` | `notifications-on-plugin-circuit-opened`, audit |
 | `plugin.circuit_closed` | `{ plugin_slug, closed_at, downtime_seconds }` | `CircuitBreaker` | audit, notifications |
+| `plugin.reconcile_completed` | `{ plugin_slug, trigger: 'cron' \| 'manual', services_processed, drifts_detected, errors, duration_ms, completed_at /* ISO */ }` | cron de reconciliación del plugin (Enhance: `EnhanceReconciliationCron.emitReconcileCompleted`; patrón heredable a todo plugin con `supports_reconciliation`) tras cada pasada cron L3 o `reconcile-all` manual | `AuditOnPluginReconcileCompletedListener` (→ `audit_change_log` `Plugin`/`reconcile_completed`, `user_id=null`); el admin overview operativo lo lee como "última reconciliación hace Xh" — estado observado, no inferido |
+
+> **Nota (Sprint 15C.II Fase F.2 — [ADR-083 Amendment A6.1](adr-083-plugin-enhance-cp-specifics.md#amendments)):** `plugin.reconcile_completed` se añadió como rollup por pasada de reconciliación (complemento agregado de `service.reconciled_external_change`, que registra cada drift individual a nivel `Service`). Admin-only por naturaleza — no toca `audit_access_log` ni flags GDPR. NB: `plugin.reconcile_triggered_manually` **no** está en esta tabla porque no es un evento del bus — es un `action` de `audit_change_log` que `AdminPluginsService.reconcileAll` escribe síncronamente (registra "quién gatilló el manual"; el "qué resultado" lo registra `reconcile_completed`).
 
 Registrados en [`docs/20-modules/_events.md`](../20-modules/_events.md) en cierre del Sprint (Fase K).
 
@@ -597,6 +600,43 @@ Cualquier campo nuevo NO opcional o que rompa el shape requiere bump a `manifest
 | Ref | Item | Cuándo abordar |
 |---|---|---|
 | **DC-AJV-PRODUCT-CONFIG** | Validar `Product.provisioner_config` contra `manifest.productConfigSchema` con Ajv en `AdminProductsService` (paralelo al patrón `AdminPluginsService.validateConfigCache`). Hoy la única defensa es el plugin runtime — suficiente para Fase 15C.E.2 (admin escribe el JSON, no cliente externo). | Cuando llegue plugin con schema rico (RC tld+years o docker image+ports), o si admin reporta error tardío vs validación inmediata UX. |
+
+---
+
+### Amendment C (2026-05-12) — campo opcional `serviceInfoCacheTtlSeconds` en `PluginManifest` (Sprint 15C.II Fase F.3)
+
+> **Justificado por:** Sprint 15C.II Fase F.3 (GAP-15CII-G4) + [ADR-083 Amendment A7.4](./adr-083-plugin-enhance-cp-specifics.md#amendments). El TTL del cache L1 `service_info` (§5) era un único valor: el `setting` global `provisioning.service_info_ttl_seconds` (default 60s). Distintos proveedores tienen distinta tolerancia a la latencia/coste de re-fetch (un panel que cambia rápido quiere TTL bajo; uno estable, alto) — la **recomendación del autor del plugin** debe poder viajar en el manifest, sin obligar al operador a tunear un setting global por plugin. Sigue el patrón canónico B.5 ("doctrina de adición de campos opcionales a `PluginManifest`").
+> **Sprint:** 15C.II Fase F.3 (PR pendiente).
+> **Compatibilidad:** Hacia atrás. NO bumpea `manifestVersion` — sigue `'v1'`. El campo es **opcional**. Plugins existentes (`internal`, `manual`, `enhance_cp`) no lo declaran → usan el setting global / default exactamente como hoy. NO requiere migración.
+
+#### C.1. Cambio canónico en `PluginManifest` (§1 shape)
+
+```typescript
+export interface PluginManifest {
+  // ... campos existentes (slug, version, manifestVersion, label, description,
+  //                       docsUrl, settingsCategory, configSchema, secretsSchema,
+  //                       testConnectionMethod, productConfigSchema?) ...
+
+  /**
+   * Recomendación del autor del plugin para el TTL (segundos) del cache L1
+   * `service_info` (resultado de `getServiceInfo()`, ver [ADR-077 §5](./adr-077-contrato-provisioner-plugin-v2.md)).
+   * Opcional — si ausente, se usa el setting global `provisioning.service_info_ttl_seconds`
+   * (default 60s). El runtime aplica un *sanity floor* de 5s (`Math.max(...,5)`):
+   * un valor menor martillaría al proveedor. Es una recomendación, no un
+   * mandato — el operador siempre puede override con el setting.
+   */
+  readonly serviceInfoCacheTtlSeconds?: number;
+}
+```
+
+#### C.2. Impacto en runtime
+
+`ProvisioningService.resolveServiceInfoTtl(plugin)` — precedencia **`manifest.serviceInfoCacheTtlSeconds` > setting global `provisioning.service_info_ttl_seconds` > 60s**, con *sanity floor* de **5s** aplicado en runtime (`Math.max(Math.floor(ttl), 5)` — un plugin puede declarar `2` y el runtime lo sube a `5`). El valor resuelto se pasa a `getServiceInfoWithCache(..., { ttlSeconds })`. `AdminPluginsService` no lo valida con Ajv (es un entero del manifest, no input externo) — el contract test (§7) solo exige "entero positivo si declarado". `enhance_cp` no lo declara.
+
+#### C.3. Plugins existentes — actualización
+
+- `internal`, `manual`, `enhance_cp`: no declaran `serviceInfoCacheTtlSeconds` → comportamiento idéntico al actual (setting global / 60s).
+- Plugins futuros (15D/15E/15G): lo declaran si el panel del proveedor tiene una cadencia de cambio distinta del default (RC: TLD/registrar muta poco → TTL alto; Docker: métricas de contenedor mutan rápido → TTL bajo).
 
 ---
 

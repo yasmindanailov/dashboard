@@ -500,6 +500,14 @@ export type ProvisionerErrorCode =
  * no `Error` plano. El orquestador usa `error.retriable` para decidir si
  * reintentar (con backoff [30s, 90s, 270s]) o ir directo a DLQ + emitir
  * `service.provisioning_failed`.
+ *
+ * `module` (Sprint 15C.II Fase F.3 — GAP-15CII-N): origen lógico del error
+ * (p.ej. `provisioning.enhance_cp`), leído por `GlobalExceptionFilter` para
+ * que `error_log.module` refleje el módulo real en vez del genérico `'http'`.
+ * Mutable a propósito: los plugins lanzan `new ProvisionerPluginError(msg,
+ * code, retriable)` sin conocer su contexto de invocación; el **wrapper**
+ * (`plugin-utils`), que sí sabe el slug, lo setea antes de re-lanzar. También
+ * vale pasarlo en el constructor cuando el caller ya lo conoce.
  */
 export class ProvisionerPluginError extends Error {
   constructor(
@@ -507,6 +515,7 @@ export class ProvisionerPluginError extends Error {
     public readonly code: ProvisionerErrorCode,
     public readonly retriable: boolean,
     public readonly cause?: unknown,
+    public module?: string,
   ) {
     super(message);
     this.name = 'ProvisionerPluginError';
@@ -590,6 +599,20 @@ export interface ProvisionerPlugin {
     actionSlug: string,
     payload: Record<string, unknown>,
   ): Promise<ActionResult>;
+
+  /**
+   * Test de conectividad **independiente de cualquier servicio** (Sprint
+   * 15C.II Fase F.3 — GAP-15CII-G8). **Obligatorio** si
+   * `manifest.testConnectionMethod === 'custom'`; ignorado en otro caso.
+   *
+   * A diferencia de `getStatus()` (que requiere un `provider_reference`
+   * real), esto hace un *probe* ligero contra el proveedor con las
+   * credenciales configuradas — p.ej. `GET /version` (alive) + `GET /orgs/{master}`
+   * (auth + RBAC) en Enhance. NO debe tener side-effects. Captura sus
+   * propios errores y los reporta como `{ ok: false, message }` —
+   * `AdminPluginsService.testConnection` no espera que lance.
+   */
+  testConnection?(): Promise<{ ok: boolean; message: string }>;
 
   /**
    * Manifest declarativo del plugin (Sprint 15A — ADR-080).
@@ -731,6 +754,17 @@ export interface PluginManifest {
 
   /** Modo de test-connection que el plugin soporta. */
   readonly testConnectionMethod: PluginTestConnectionMethod;
+
+  /**
+   * Sprint 15C.II Fase F.3 (GAP-15CII-G4) — TTL (segundos) del cache L1
+   * Redis de `service_info` para los servicios de este plugin. Opcional;
+   * si se omite, vale el setting global `provisioning.service_info_ttl_seconds`
+   * (default 60s). Se aplica un *sanity floor* de 5s — un TTL más bajo
+   * martillaría al proveedor sin beneficio real (la mayoría de paneles
+   * cambian estado en minutos, no segundos). Plugins cuyo proveedor reporta
+   * estado muy estable pueden subirlo (p.ej. 300s); los muy volátiles, a 5s.
+   */
+  readonly serviceInfoCacheTtlSeconds?: number;
 
   /**
    * Sprint 15C Fase 15C.E.2 — ADR-080 Amendment B (2026-05-09).

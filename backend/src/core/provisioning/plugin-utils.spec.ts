@@ -251,6 +251,66 @@ describe('getServiceInfoWithCache â€” Sprint 11 Fase 11.B', () => {
     expect(plugin.getServiceInfo).toHaveBeenCalled();
     expect(out).toBe(fresh);
   });
+
+  // GAP-15CII-N (Sprint 15C.II Fase F.3): al re-lanzar un error, el wrapper
+  // marca `module = provisioning.<slug>` para que `GlobalExceptionFilter`
+  // registre el `error_log` con el módulo real en vez del genérico `'http'`.
+  it('error retriable → re-lanza con `module = provisioning.<slug>`', async () => {
+    const cache = buildCache();
+    cache.get.mockResolvedValueOnce(null);
+    const events = buildEvents();
+    const plugin = buildPlugin({
+      getServiceInfo: jest
+        .fn()
+        .mockRejectedValue(
+          new ProvisionerPluginError('timeout', 'PROVIDER_TIMEOUT', true),
+        ),
+    });
+
+    let caught: unknown;
+    try {
+      await getServiceInfoWithCache(plugin, mockService, cache, events, {
+        ttlSeconds: 60,
+      });
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(ProvisionerPluginError);
+    expect((caught as ProvisionerPluginError).module).toBe(
+      `provisioning.${plugin.slug}`,
+    );
+  });
+
+  it('error con `module` ya seteado → el wrapper NO lo sobreescribe', async () => {
+    const cache = buildCache();
+    cache.get.mockResolvedValueOnce(null);
+    const events = buildEvents();
+    const plugin = buildPlugin({
+      getServiceInfo: jest
+        .fn()
+        .mockRejectedValue(
+          new ProvisionerPluginError(
+            'oops',
+            'PROVIDER_INTERNAL_ERROR',
+            true,
+            undefined,
+            'provisioning.custom-origin',
+          ),
+        ),
+    });
+
+    let caught: unknown;
+    try {
+      await getServiceInfoWithCache(plugin, mockService, cache, events, {
+        ttlSeconds: 60,
+      });
+    } catch (e) {
+      caught = e;
+    }
+    expect((caught as ProvisionerPluginError).module).toBe(
+      'provisioning.custom-origin',
+    );
+  });
 });
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

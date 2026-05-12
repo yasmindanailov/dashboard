@@ -124,6 +124,12 @@ export async function getServiceInfoWithCache(
     logger.error(
       `getServiceInfo failed for ${plugin.slug}/${service.id}: ${getErrorMessage(err)}`,
     );
+    // GAP-15CII-N: el wrapper conoce el slug → marca el `module` del error
+    // antes de propagar, para que `GlobalExceptionFilter` registre el
+    // `error_log` con el módulo real (`provisioning.<slug>`) y no `'http'`.
+    if (err instanceof ProvisionerPluginError && !err.module) {
+      err.module = `provisioning.${plugin.slug}`;
+    }
     throw err;
   }
 }

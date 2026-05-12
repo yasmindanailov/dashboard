@@ -24,6 +24,7 @@ import {
 } from '../../core/provisioning/plugin-utils';
 import {
   ActionResult,
+  ProvisionerPlugin,
   ServiceInfo,
   ServiceWithRelations,
   SsoUrl,
@@ -53,6 +54,17 @@ import {
   SuspendServiceDto,
 } from './dto/provisioning.dto';
 import { ProvisioningOrchestratorService } from './provisioning-orchestrator.service';
+
+/**
+ * Sprint 15C.II Fase F.3 (B.1) — ventana (segundos) del cooldown server-side
+ * del force-refresh manual de `service_info` por servicio. El `MetricsRefreshButton`
+ * del frontend ya impone 10s de cooldown visible; éste es el guardado
+ * server-side (el endpoint `POST /:id/refresh` es martilleable directamente),
+ * ligeramente más conservador que el del cliente. Dentro de la ventana el
+ * refresh degrada a una lectura cacheada normal (coalescing), no a un error.
+ * Constante por ahora (no setting): cambiar el valor sería un follow-up trivial.
+ */
+const REFRESH_COOLDOWN_SECONDS = 15;
 
 /**
  * ProvisioningService â€” Sprint 11 Fase 11.D (ADR-077 Â§1+Â§2+Â§5 + ADR-070 Â§A/B/C).
@@ -309,18 +321,48 @@ export class ProvisioningService {
       };
     }
 
-    const ttlSeconds = await this.resolveServiceInfoTtl();
-    // Sprint 15C.II Fase B (ADR-083 Amendment A4.1): si options.forceRevalidate=true,
-    // el wrapper salta el cache Redis 60s y re-fetch fresco del proveedor.
+    const ttlSeconds = await this.resolveServiceInfoTtl(plugin);
+
+    // Sprint 15C.II Fase B (ADR-083 Amendment A4.1): si options.forceRevalidate,
+    // el wrapper salta el cache `service_info` y re-fetch fresco del proveedor.
     // Caso canónico: botón "↻ Refrescar" en `MetricsBar.tsx` → server action
-    // `refreshServiceInfoAction` → endpoint POST /:id/refresh (este service
-    // method con forceRevalidate=true).
+    // `refreshServiceInfoAction` → endpoint POST /:id/refresh (este método con
+    // `forceRevalidate=true`).
+    //
+    // Sprint 15C.II Fase F.3 (B.1) — cooldown server-side per-servicio: el
+    // cooldown de 10s de `MetricsRefreshButton` es solo cliente; el endpoint
+    // es martilleable directamente y el TTL del cache mitiga el *coste* (sirve
+    // cacheado) pero no el *abuso* (N clientes distintos forzando refresh del
+    // mismo servicio = N llamadas al proveedor). Adquirimos una ventana Redis
+    // `SET NX EX` por servicio; si ya hay una activa, degradamos a una lectura
+    // cacheada normal (coalescing — el usuario recibe el valor actual, ≤
+    // REFRESH_COOLDOWN_SECONDS de antigüedad cuando el cache está caliente, sin
+    // tocar al proveedor y sin error). Cuando el cache está frío el wrapper hace
+    // un fetch igualmente (cache miss → fetch), que es lo correcto: quieres
+    // datos cuando no hay ninguno. Cliente y admin comparten la misma ventana
+    // (es "cuántas veces se re-consulta al proveedor por servicio", no "por
+    // usuario") — un admin depurando tampoco gana martilleando: orchd responde
+    // <5s y el cache retiene `ttlSeconds`.
+    let forceRevalidate = options?.forceRevalidate === true;
+    if (forceRevalidate) {
+      const acquired = await this.cache.tryAcquireRefreshCooldown(
+        service.id,
+        REFRESH_COOLDOWN_SECONDS,
+      );
+      if (!acquired) {
+        forceRevalidate = false;
+        this.logger.debug(
+          `Refresh for service ${service.id} within ${REFRESH_COOLDOWN_SECONDS}s cooldown window — serving cached value`,
+        );
+      }
+    }
+
     const info = await getServiceInfoWithCache(
       plugin,
       service,
       this.cache,
       this.events,
-      { ttlSeconds, forceRevalidate: options?.forceRevalidate === true },
+      { ttlSeconds, forceRevalidate },
       this.breakers,
     );
 
@@ -1087,6 +1129,38 @@ export class ProvisioningService {
     } satisfies Prisma.ServiceSelect;
   }
 
+  /**
+   * Sprint 15C.II Fase F.3 (GAP-15CII-M) — timeline de auditoría de un
+   * servicio. Carga el servicio (solo `id`/`user_id`), aplica ownership
+   * (`ForbiddenException` si cliente accede a servicio ajeno; admin sin
+   * filtro), y delega a `AuditService.getServiceTimeline` que aplica el
+   * recorte GDPR cuando `!isAdmin`. El `@AuditAccess('Service')` del
+   * controller admin deja el trail "agente X consultó la auditoría del
+   * servicio Y" (coherente con el resto de lecturas staff).
+   */
+  async getServiceTimelineForUser(
+    serviceId: string,
+    userId: string,
+    isAdmin: boolean,
+    opts: { cursor?: string | null; limit?: number },
+  ) {
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: { id: true, user_id: true },
+    });
+    if (!service) {
+      throw new NotFoundException('Servicio no encontrado.');
+    }
+    if (!isAdmin && service.user_id !== userId) {
+      throw new ForbiddenException('No tienes acceso a este servicio.');
+    }
+    return this.audit.getServiceTimeline(serviceId, {
+      isAdmin,
+      cursor: opts.cursor ?? null,
+      limit: opts.limit,
+    });
+  }
+
   private async loadServiceForView(
     serviceId: string,
   ): Promise<ServiceWithRelations> {
@@ -1251,14 +1325,28 @@ export class ProvisioningService {
     return 'service.terminal.cancelled.reason.admin_action';
   }
 
-  private async resolveServiceInfoTtl(): Promise<number> {
+  /**
+   * Resuelve el TTL (segundos) del cache L1 `service_info` para un plugin.
+   * Precedencia (Sprint 15C.II Fase F.3 — GAP-15CII-G4):
+   *   1. `plugin.manifest.serviceInfoCacheTtlSeconds` si lo declara.
+   *   2. setting global `provisioning.service_info_ttl_seconds`.
+   *   3. default 60s.
+   * Siempre con *sanity floor* de 5s (un TTL menor martillaría al proveedor).
+   */
+  private async resolveServiceInfoTtl(
+    plugin: ProvisionerPlugin,
+  ): Promise<number> {
+    const manifestTtl = plugin.manifest.serviceInfoCacheTtlSeconds;
+    if (typeof manifestTtl === 'number' && Number.isFinite(manifestTtl)) {
+      return Math.max(Math.floor(manifestTtl), 5);
+    }
     try {
       const ttl = await this.settings.getNumber(
         'provisioning',
         'service_info_ttl_seconds',
         60,
       );
-      if (Number.isFinite(ttl) && ttl > 0) return ttl;
+      if (Number.isFinite(ttl) && ttl > 0) return Math.max(Math.floor(ttl), 5);
     } catch (err) {
       this.logger.warn(
         `Failed to read provisioning.service_info_ttl_seconds setting: ${

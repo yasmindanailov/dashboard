@@ -1132,3 +1132,56 @@ NUNCA por slug ni por `statusReason.endsWith(...)` (mantiene ADR-070 §"Cero `if
 #### A5.6. Doctrina de adición de campos opcionales a `ServiceInfo` (refuerzo §3 + Amendment A3.6)
 
 Mismo patrón canónico que `ServiceAction.adminOnly` (Amendment A3.6) y `ServiceAction.allowsSensitiveDataInAudit` (Amendment A4.5): ADR justificante → Amendment ADR-077 con shape + impacto wrappers + invariante test contract + plugins existentes → compatible hacia atrás (NO bumpea `contractVersion`) → frontend ramifica por el campo (NUNCA por slug ni por display strings) → documentar en `provisioning/contract.md` §"shapes" + `glossary.md`.
+
+---
+
+### Amendment A6 (2026-05-12) — método opcional `testConnection?()` + campo opcional `module?` en `ProvisionerPluginError` (Sprint 15C.II Fase F.3)
+
+> **Justificado por:** Sprint 15C.II Fase F.3 (GAP-15CII-G8 + GAP-15CII-N) + [ADR-083 Amendment A7](./adr-083-plugin-enhance-cp-specifics.md#amendments). (a) **G8** — el botón "Probar conexión" del admin ([ADR-080 §3/§7](./adr-080-plugin-framework.md)) tenía dos modos: `testConnectionMethod === 'getStatus'` (invoca `plugin.getStatus(servicioSintético)`) y `'custom'` (sin mecanismo de contrato — no había forma de implementarlo). El modo `'getStatus'` no sirve para plugins cuyo `getStatus()` exige `provider_reference` real (Enhance): un servicio sintético siempre reporta "sin metadata" → falso negativo. La solución correcta es un **probe dedicado** contra el proveedor, lo que requiere un método de contrato. (b) **N** — `ProvisionerPluginError` no llevaba el módulo de origen → `GlobalExceptionFilter` registraba `error_log.module = 'http'` (inútil para triage) en vez del módulo real (`provisioning.<slug>`).
+> **Sprint:** 15C.II Fase F.3 (PR pendiente).
+> **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` — sigue `'v2'`. Método **opcional** (`testConnection?()`) — plugins existentes que no lo declaran conservan comportamiento previo. Campo **opcional** (`ProvisionerPluginError.module?`) — el wrapper lo setea; los consumidores que no lo leen no se ven afectados. NO toca ningún otro shape. NO requiere migración.
+
+#### A6.1. Método opcional `testConnection?()` en `ProvisionerPlugin` (§1 interfaz)
+
+Se añade un **7º método, opcional**, a la interfaz canónica `ProvisionerPlugin` (los 6 obligatorios — `provision`, `deprovision`, `getStatus`, `getServiceInfo`, `getSsoUrl`, `executeAction` — no cambian):
+
+```typescript
+export interface ProvisionerPlugin {
+  // ... slug, contractVersion, capabilities, inlineActions, manifest,
+  //     provision, deprovision, getStatus, getServiceInfo, getSsoUrl, executeAction ...
+
+  /**
+   * Probe ligero de conectividad/credenciales contra el proveedor — invocado
+   * por el admin desde "Probar conexión" (`POST /admin/plugins/:slug/test-connection`).
+   *
+   * OBLIGATORIO si `manifest.testConnectionMethod === 'custom'` (ver
+   * [ADR-080 §3](./adr-080-plugin-framework.md)). Para `'getStatus'` o `null`
+   * el plugin no lo implementa (el framework usa el path sintético / 400).
+   *
+   * Contrato del probe:
+   *   - Usa las credenciales configuradas del plugin (secret vault).
+   *   - NO opera sobre ningún servicio (no recibe `service`).
+   *   - SIN side-effects (read-only contra el proveedor).
+   *   - Captura sus propios errores y los traduce a `{ ok: false, message }`
+   *     — NUNCA lanza (el framework no envuelve esto en try/catch defensivo
+   *     más allá de un guard genérico).
+   */
+  testConnection?(): Promise<{ ok: boolean; message: string }>;
+}
+```
+
+`AdminPluginsService.testConnection`: rama `'custom'` → invoca `plugin.testConnection()` (devuelve `400` si el manifest lo declara pero el plugin no lo implementa — bug de wiring del plugin); rama `'getStatus'` → servicio sintético `buildSyntheticService(...)` ahora con `metadata: {}` defensivo (ningún plugin que lea `service.metadata` en `getStatus` debe romper ante el sintético); `testConnectionMethod === null` ⇒ `400`. Invariante del test contract genérico (§7): `manifest.testConnectionMethod === 'custom'` ⇒ `typeof plugin.testConnection === 'function'`.
+
+#### A6.2. Campo opcional `module?` en `ProvisionerPluginError` (§"errores semánticos" — R7)
+
+`ProvisionerPluginError` gana un campo **mutable opcional** `module?: string`. Los plugins lanzan `new ProvisionerPluginError(message, code, retriable)` **sin** conocer su contexto de invocación; el wrapper cross-cutting que sí sabe el slug (`getServiceInfoWithCache`, §5) lo setea antes de re-lanzar: `err.module ??= 'provisioning.<slug>'`. `GlobalExceptionFilter.resolveErrorModule(exception)` recorre el error y su cadena `cause` (máx. 5 niveles, defensivo contra ciclos) buscando el primer `module` string — **duck-typed**: el filtro NO importa `ProvisionerPluginError`, sigue genérico — y lo registra en `error_log.module`. Scope: solo el path HTTP (`getServiceInfo` re-lanza al filtro; `executeAction`/`getSsoUrl` swallow; los jobs BullMQ del orquestador no pasan por el filtro HTTP).
+
+#### A6.3. Plugins existentes — actualización
+
+- `internal`, `manual`: `testConnectionMethod` sigue `'getStatus'` (o `null`) → no implementan `testConnection()`. Sin cambios.
+- `enhance_cp` (Sprint 15C.II Fase F.3): `testConnectionMethod` `'getStatus'` → `'custom'` + `testConnection()` = probe canónico de [ADR-083 §1 dec.5 / Amendment A7.3](./adr-083-plugin-enhance-cp-specifics.md#amendments) (`GET /version` vivo + `GET /orgs/{masterOrgId}` token válido + RBAC del master org).
+- Plugins futuros (15D/15E/15G): si su `getStatus()` necesita `provider_reference` real, declaran `testConnectionMethod: 'custom'` + implementan `testConnection()` (probe sin servicio). Si su `getStatus()` funciona sin metadata, pueden quedarse en `'getStatus'`.
+
+#### A6.4. Nota — `manifest.serviceInfoCacheTtlSeconds?` (GAP-15CII-G4)
+
+F.3 también añadió un campo opcional al **manifest** (`PluginManifest.serviceInfoCacheTtlSeconds?`) — vive en [ADR-080 Amendment C](./adr-080-plugin-framework.md#amendments) (es manifest, no contrato). Relevante aquí solo porque el TTL resultante lo consume `getServiceInfoWithCache` (§5) vía `ProvisioningService.resolveServiceInfoTtl(plugin)` con precedencia `manifest > setting global > 60s` y *sanity floor* 5s en runtime.

@@ -65,6 +65,19 @@ interface AdminDriftBannerProps {
    * parent decide la heurística (ver `admin/services/[id]/page.tsx`).
    */
   showReprovision: boolean;
+  /**
+   * Sprint 15C.II Fase F.3 — `true` si el banner debe ofrecer el CTA
+   * "Reconciliar contra el proveedor". Se activa cuando
+   * `info.recoveryHint === 'reconcile'` (p.ej. `plan_divergence` detectado
+   * por `getServiceInfo` — ADR-077 Amendment A5). El CTA lleva a la página
+   * de settings del plugin, donde vive el botón canónico
+   * "Reconciliar todos los servicios contra <Plugin> ahora" (= trigger
+   * manual del cron L3, ADR-083 A4.2) + el overview operativo (Fase F.2).
+   * Una reconciliación per-servicio single-shot queda diferida (backlog).
+   */
+  showReconcile?: boolean;
+  /** Slug del plugin del servicio — destino del CTA de reconciliación. */
+  pluginSlug?: string | null;
 }
 
 export function AdminDriftBanner({
@@ -73,6 +86,8 @@ export function AdminDriftBanner({
   hasSsoPanel,
   panelLabel,
   showReprovision,
+  showReconcile,
+  pluginSlug,
 }: AdminDriftBannerProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -172,6 +187,17 @@ export function AdminDriftBanner({
               {reprovisioning
                 ? 'Enqueueing…'
                 : t('service.drift.admin_banner.reprovision_cta')}
+            </Button>
+          )}
+          {showReconcile && pluginSlug && (
+            <Button
+              variant="primary"
+              onClick={() =>
+                router.push(`/admin/settings/plugins/${pluginSlug}`)
+              }
+              title={t('service.drift.admin_banner.reconcile_help')}
+            >
+              {t('service.drift.admin_banner.reconcile_cta')}
             </Button>
           )}
         </div>

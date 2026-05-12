@@ -1013,6 +1013,39 @@ export interface AdminPluginDetail {
   circuit_state: PluginCircuitStateSummary;
 }
 
+/**
+ * Sprint 15C.II Fase F.3 (GAP-15CII-M) — timeline de auditoría per-servicio.
+ * Espejo de `ServiceTimelinePage`/`ServiceTimelineEntry` del backend
+ * (`modules/audit/dto/service-timeline.dto.ts`). En vista cliente,
+ * `changes_*`/`correlation_id`/`ip_address` vienen `undefined` (recorte GDPR)
+ * y `metadata` es un subconjunto cliente-seguro por acción.
+ */
+export type ServiceTimelineSource = 'change' | 'access';
+
+export interface ServiceTimelineActor {
+  user_id: string | null;
+  name: string | null;
+  role: string | null;
+}
+
+export interface ServiceTimelineEntry {
+  id: string;
+  source: ServiceTimelineSource;
+  action: string;
+  actor: ServiceTimelineActor | null;
+  created_at: string;
+  changes_before?: unknown;
+  changes_after?: unknown;
+  correlation_id?: string | null;
+  ip_address?: string;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface ServiceTimelinePage {
+  items: ServiceTimelineEntry[];
+  next_cursor: string | null;
+}
+
 export type PluginHealthStatus =
   | 'operational'
   | 'degraded'

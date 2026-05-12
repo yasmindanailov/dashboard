@@ -434,6 +434,53 @@ describe('AdminPluginsService â€” Sprint 15A Fase G (ADR-080)', () => {
       expect(result.success).toBe(false);
       expect(result.message).toBe('auth failed');
     });
+
+    // Sprint 15C.II Fase F.3 (GAP-15CII-G8) — modo 'custom'.
+    function buildCustomTestPlugin(
+      testConnectionImpl?: () => Promise<{ ok: boolean; message: string }>,
+    ) {
+      const p = buildPlugin('custom-cp', { testConnectionMethod: 'custom' });
+      if (testConnectionImpl) {
+        (p as { testConnection?: unknown }).testConnection =
+          jest.fn(testConnectionImpl);
+      }
+      registry.getAvailable.mockImplementation((slug: string) =>
+        slug === 'custom-cp' ? p : null,
+      );
+      return p;
+    }
+
+    it("'custom' + testConnection() → { ok: true } ⇒ success=true", async () => {
+      buildCustomTestPlugin(() =>
+        Promise.resolve({ ok: true, message: 'orchd v1 alcanzable' }),
+      );
+      const result = await service.testConnection('custom-cp');
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('orchd v1 alcanzable');
+    });
+
+    it("'custom' + testConnection() → { ok: false } ⇒ success=false", async () => {
+      buildCustomTestPlugin(() =>
+        Promise.resolve({ ok: false, message: 'token inválido' }),
+      );
+      const result = await service.testConnection('custom-cp');
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('token inválido');
+    });
+
+    it("'custom' + testConnection() lanza ⇒ success=false (no relanza)", async () => {
+      buildCustomTestPlugin(() => Promise.reject(new Error('boom')));
+      const result = await service.testConnection('custom-cp');
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('boom');
+    });
+
+    it("'custom' sin testConnection() implementado ⇒ BadRequest (wiring bug)", async () => {
+      buildCustomTestPlugin(); // sin impl
+      await expect(service.testConnection('custom-cp')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────

@@ -75,9 +75,18 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     $transaction: jest.Mock;
   };
   let registry: jest.Mocked<PluginRegistryService>;
-  let cache: { get: jest.Mock; set: jest.Mock; invalidate: jest.Mock };
+  let cache: {
+    get: jest.Mock;
+    set: jest.Mock;
+    invalidate: jest.Mock;
+    tryAcquireRefreshCooldown: jest.Mock;
+  };
   let events: { emit: jest.Mock };
-  let audit: { logAccess: jest.Mock; logChange: jest.Mock };
+  let audit: {
+    logAccess: jest.Mock;
+    logChange: jest.Mock;
+    getServiceTimeline: jest.Mock;
+  };
   let settings: { getNumber: jest.Mock; getJson: jest.Mock };
   let orchestrator: { enqueueProvisioning: jest.Mock };
   let service: ProvisioningService;
@@ -187,11 +196,17 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       get: jest.fn().mockResolvedValue(null),
       set: jest.fn().mockResolvedValue(undefined),
       invalidate: jest.fn().mockResolvedValue(undefined),
+      // Sprint 15C.II Fase F.3 (B.1): por defecto la ventana se adquiere
+      // (camino común — primer force-refresh tras el cooldown).
+      tryAcquireRefreshCooldown: jest.fn().mockResolvedValue(true),
     };
     events = { emit: jest.fn() };
     audit = {
       logAccess: jest.fn().mockResolvedValue(undefined),
       logChange: jest.fn().mockResolvedValue(undefined),
+      getServiceTimeline: jest
+        .fn()
+        .mockResolvedValue({ items: [], next_cursor: null }),
     };
     settings = {
       getNumber: jest.fn().mockResolvedValue(60),
@@ -327,6 +342,93 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     // del producto al frontend admin para mostrar el "effective slug"
     // cuando service.provisioner_slug es null (caso not_yet_provisioned).
     expect(result.service.product_provisioner).toBe('internal');
+  });
+
+  // Sprint 15C.II Fase F.3 (GAP-15CII-G4) — TTL del cache service_info.
+  it('getInfoForUser: el TTL del cache viene del manifest si lo declara', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    registry.get.mockReturnValue(
+      buildPlugin({
+        manifest: { ...TEST_MANIFEST, serviceInfoCacheTtlSeconds: 10 },
+      }),
+    );
+    cache.get.mockResolvedValue(null); // miss → fetch + set
+
+    await service.getInfoForUser('svc-1', 'user-1', false);
+
+    expect(cache.set).toHaveBeenCalledWith('svc-1', expect.anything(), 10);
+  });
+
+  it('getInfoForUser: TTL del manifest < 5 → sanity floor 5s', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    registry.get.mockReturnValue(
+      buildPlugin({
+        manifest: { ...TEST_MANIFEST, serviceInfoCacheTtlSeconds: 2 },
+      }),
+    );
+    cache.get.mockResolvedValue(null);
+
+    await service.getInfoForUser('svc-1', 'user-1', false);
+
+    expect(cache.set).toHaveBeenCalledWith('svc-1', expect.anything(), 5);
+  });
+
+  it('getInfoForUser: sin TTL en manifest → usa el setting global (60s)', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    registry.get.mockReturnValue(buildPlugin());
+    cache.get.mockResolvedValue(null);
+
+    await service.getInfoForUser('svc-1', 'user-1', false);
+
+    expect(cache.set).toHaveBeenCalledWith('svc-1', expect.anything(), 60);
+  });
+
+  // Sprint 15C.II Fase F.3 (B.1) — cooldown server-side del force-refresh.
+  it('getInfoForUser: forceRevalidate con ventana adquirida → re-fetch fresco (salta el cache)', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    const plugin = buildPlugin();
+    registry.get.mockReturnValue(plugin);
+
+    await service.getInfoForUser('svc-1', 'user-1', false, {
+      forceRevalidate: true,
+    });
+
+    // 15 = REFRESH_COOLDOWN_SECONDS.
+    expect(cache.tryAcquireRefreshCooldown).toHaveBeenCalledWith('svc-1', 15);
+    // forceRevalidate llega al wrapper como true → NO consulta el cache, re-fetch.
+    expect(cache.get).not.toHaveBeenCalled();
+    expect(plugin.getServiceInfo).toHaveBeenCalled();
+  });
+
+  it('getInfoForUser: forceRevalidate dentro de la ventana → degrada a lectura cacheada (coalescing, sin error)', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    const plugin = buildPlugin();
+    registry.get.mockReturnValue(plugin);
+    // ventana ya activa → el caller debe servir el valor cacheado.
+    cache.tryAcquireRefreshCooldown.mockResolvedValueOnce(false);
+    cache.get.mockResolvedValueOnce({
+      status: 'active',
+      display: { primary: 'desde-cache', secondary: 'Plan Pro' },
+      availableActions: [],
+      fetchedAt: new Date().toISOString(),
+    });
+
+    const result = await service.getInfoForUser('svc-1', 'user-1', false, {
+      forceRevalidate: true,
+    });
+
+    // coalescing: NO se consulta al proveedor; se devuelve el valor cacheado.
+    expect(plugin.getServiceInfo).not.toHaveBeenCalled();
+    expect(result.info.display.primary).toBe('desde-cache');
+  });
+
+  it('getInfoForUser: GET normal (sin forceRevalidate) NO consume el cooldown', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    registry.get.mockReturnValue(buildPlugin());
+
+    await service.getInfoForUser('svc-1', 'user-1', false);
+
+    expect(cache.tryAcquireRefreshCooldown).not.toHaveBeenCalled();
   });
 
   it('getInfoForUser: shortcircuit terminal — service.status=cancelled NO invoca al plugin', async () => {
@@ -1092,6 +1194,61 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         }),
       });
       expect(dnsPlugin.executeAction).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── getServiceTimelineForUser — Sprint 15C.II Fase F.3 (GAP-15CII-M) ───
+
+  describe('getServiceTimelineForUser', () => {
+    it('NotFoundException si el servicio no existe', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(null);
+      await expect(
+        service.getServiceTimelineForUser('svc-x', 'user-1', false, {}),
+      ).rejects.toThrow(NotFoundException);
+      expect(audit.getServiceTimeline).not.toHaveBeenCalled();
+    });
+
+    it('ForbiddenException si cliente accede a servicio ajeno', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce({
+        id: 'svc-1',
+        user_id: 'owner-1',
+      });
+      await expect(
+        service.getServiceTimelineForUser('svc-1', 'other-user', false, {}),
+      ).rejects.toThrow(ForbiddenException);
+      expect(audit.getServiceTimeline).not.toHaveBeenCalled();
+    });
+
+    it('dueño: delega a audit.getServiceTimeline con isAdmin=false', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce({
+        id: 'svc-1',
+        user_id: 'user-1',
+      });
+      const page = await service.getServiceTimelineForUser(
+        'svc-1',
+        'user-1',
+        false,
+        { cursor: 'c1', limit: 10 },
+      );
+      expect(page).toEqual({ items: [], next_cursor: null });
+      expect(audit.getServiceTimeline).toHaveBeenCalledWith('svc-1', {
+        isAdmin: false,
+        cursor: 'c1',
+        limit: 10,
+      });
+    });
+
+    it('admin: ignora ownership (servicio ajeno) y delega con isAdmin=true', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce({
+        id: 'svc-1',
+        user_id: 'owner-1',
+      });
+      await service.getServiceTimelineForUser('svc-1', 'admin-1', true, {});
+      expect(audit.getServiceTimeline).toHaveBeenCalledWith('svc-1', {
+        isAdmin: true,
+        cursor: null,
+        limit: undefined,
+      });
     });
   });
 });

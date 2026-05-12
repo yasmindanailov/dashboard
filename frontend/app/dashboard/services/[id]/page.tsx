@@ -315,6 +315,54 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
         </Card>
       )}
 
+      {/* Historial de auditoría — Sprint 15C.II Fase F.3 (GAP-15CII-M).
+          Siempre visible (también si drift/terminal): el cliente debe poder
+          consultar el historial de su servicio. El backend
+          (`GET /services/:id/audit`) aplica la whitelist GDPR — incluye los
+          accesos de staff a su panel del proveedor (ADR-083 §4 dec.14). */}
+      <Card>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 16,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+              {t('service.audit.title')}
+            </h2>
+            <p
+              style={{
+                color: 'var(--text-secondary)',
+                fontSize: 13,
+                marginTop: 4,
+              }}
+            >
+              {t('service.audit.subtitle_client')}
+            </p>
+          </div>
+          <Link
+            href={`/dashboard/services/${service.id}/audit`}
+            style={{
+              padding: '8px 16px',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {t('service.audit.link')} →
+          </Link>
+        </div>
+      </Card>
+
       {/*
         Slot UI placeholder Sprint 22 Projects (`request_custom_development`).
         Sprint 11 deja la sección visible pero deshabilitada para que la

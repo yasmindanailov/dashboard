@@ -240,6 +240,45 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'admin.plugins.overview.drift.status_divergence': 'Divergencia de estado',
   'admin.plugins.overview.drift.plan_divergence': 'Divergencia de plan',
 
+  // ── Timeline de auditoría per-servicio — Sprint 15C.II Fase F.3 (GAP-15CII-M).
+  'service.audit.title': 'Historial de auditoría',
+  'service.audit.subtitle_admin':
+    'Todos los eventos registrados sobre este servicio: cambios de estado, acciones ejecutadas, accesos del equipo y reconciliaciones contra el proveedor.',
+  'service.audit.subtitle_client':
+    'Eventos registrados sobre tu servicio que te conciernen, incluidos los accesos de nuestro equipo al panel de tu proveedor.',
+  'service.audit.back_admin': 'Volver al servicio',
+  'service.audit.back_client': 'Volver al servicio',
+  'service.audit.empty': 'Sin eventos registrados todavía.',
+  'service.audit.load_more': 'Cargar más eventos',
+  'service.audit.system': 'Sistema',
+  'service.audit.link': 'Ver historial de auditoría',
+  'service.audit.detail.panel': 'Panel',
+  'service.audit.detail.change_type': 'Tipo de cambio',
+  'service.audit.detail.changes': 'Ver detalles del cambio',
+  'service.audit.change_type.subscription_missing':
+    'Suscripción ausente en el proveedor',
+  'service.audit.change_type.status_divergence': 'Divergencia de estado',
+  'service.audit.change_type.plan_divergence': 'Divergencia de plan',
+  'service.audit.action.read': 'Acceso de un agente al servicio',
+  'service.audit.action.admin_sso_impersonation':
+    'Un agente abrió el panel del proveedor de tu servicio',
+  'service.audit.action.service.provisioned': 'Servicio aprovisionado',
+  'service.audit.action.service.activated': 'Servicio activado',
+  'service.audit.action.service.suspended': 'Servicio suspendido',
+  'service.audit.action.service.unsuspended': 'Servicio reanudado',
+  'service.audit.action.service.deprovisioned_admin': 'Servicio cancelado',
+  'service.audit.action.service.reprovision_requested':
+    'Re-aprovisionamiento solicitado',
+  'service.audit.action.reconciled_external_change':
+    'Cambio detectado en el proveedor',
+  // Roles (etiqueta legible del actor en el timeline; fallback al slug).
+  'role.superadmin': 'Superadmin',
+  'role.agent_full': 'Agente',
+  'role.agent_billing': 'Agente de facturación',
+  'role.agent_support': 'Agente de soporte',
+  'role.client': 'Cliente',
+  'role.partner': 'Partner',
+
   // ── Service status reasons (ADR-070 §"Patrón de página" — discriminados
   // por rol en Fase C UI_SPEC §4.13). Sprint 15C.II Fase C (2026-05-10):
   // discriminación cliente vs admin materializada en `ServiceHeader.tsx`
@@ -298,6 +337,13 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
     'Re-aprovisión enqueued. La cola la procesará en segundos.',
   'service.drift.admin_banner.reprovision_error':
     'No se pudo enqueuear la re-aprovisión. Revisa los logs del backend.',
+  // Sprint 15C.II Fase F.3 — CTA cuando `recoveryHint === 'reconcile'`
+  // (p.ej. plan_divergence): lleva a la página de settings del plugin, donde
+  // está el botón "Reconciliar todos los servicios contra <Plugin> ahora"
+  // (trigger manual del cron L3) + el overview operativo.
+  'service.drift.admin_banner.reconcile_cta': 'Reconciliar contra el proveedor',
+  'service.drift.admin_banner.reconcile_help':
+    'Abre la configuración del plugin, donde puedes lanzar una reconciliación contra el proveedor ahora (sin esperar al cron periódico) y revisar el estado operativo del plugin.',
 
   // ── Estados terminales — service.status ∈ {cancelled, terminated}
   //    (UI_SPEC §4.13 + ADR-082 DH-INV-6 — Sprint 15C.II Fase C round 4

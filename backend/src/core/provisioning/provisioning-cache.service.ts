@@ -9,7 +9,9 @@ import { getErrorMessage } from '../common/utils/error.util';
  *
  * Cache Redis dedicado a `service_info:<id>` (resultado de `getServiceInfo()`
  * por servicio). TTL configurable por setting `provisioning.service_info_ttl_seconds`
- * (default 60s).
+ * (default 60s). Sprint 15C.II Fase F.3 (B.1): aloja también la clave de
+ * cooldown del force-refresh manual `refresh_cooldown:<id>` (ver
+ * `tryAcquireRefreshCooldown`).
  *
  * Convenciones:
  *  - Redis DB 2 (DB 0 settings, DB 1 BullMQ — ver `JobsModule`).
@@ -126,7 +128,49 @@ export class ProvisioningCacheService implements OnModuleDestroy {
     }
   }
 
+  /**
+   * Sprint 15C.II Fase F.3 (B.1) — cooldown server-side per-servicio del
+   * force-refresh manual (`POST /services/:id/refresh`, cliente y admin).
+   *
+   * El cooldown de 10s de `MetricsRefreshButton` es solo cliente; el endpoint
+   * es martilleable directamente. El TTL del cache `service_info` mitiga el
+   * *coste* de un re-fetch (sirve cacheado) pero no el *abuso*: N clientes
+   * distintos forzando refresh del mismo servicio dispararían N llamadas al
+   * proveedor. Esta clave acota "cuántas veces se re-consulta al proveedor por
+   * servicio" — independiente de quién lo pida (cliente y admin comparten la
+   * misma ventana; un admin depurando tampoco gana martilleando: orchd
+   * responde <5s y el cache retiene su TTL).
+   *
+   * Semántica `SET key 1 EX ttl NX`:
+   *   - `true`  → ventana adquirida; el caller procede con el re-fetch fresco.
+   *   - `false` → ventana ya activa; el caller debe degradar a una lectura
+   *     cacheada normal (coalescing — NO es un error visible al usuario).
+   * Fail-OPEN si Redis falla (devuelve `true`): no bloqueamos el refresh por
+   * un fallo de cache — coherente con `get`/`set`/`invalidate` (y, si esta
+   * conexión Redis está caída, `get` también falla → cache miss → el wrapper
+   * consulta al proveedor igualmente; el cooldown no empeora nada).
+   */
+  async tryAcquireRefreshCooldown(
+    serviceId: string,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    const key = this.buildRefreshCooldownKey(serviceId);
+    try {
+      const res = await this.redis.set(key, '1', 'EX', ttlSeconds, 'NX');
+      return res === 'OK';
+    } catch (err) {
+      this.logger.warn(
+        `Refresh cooldown acquire failed for ${key}: ${getErrorMessage(err)} (fail-open)`,
+      );
+      return true;
+    }
+  }
+
   private buildKey(serviceId: string): string {
     return `${this.keyPrefix}:${serviceId}`;
+  }
+
+  private buildRefreshCooldownKey(serviceId: string): string {
+    return `refresh_cooldown:${serviceId}`;
   }
 }

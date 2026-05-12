@@ -379,7 +379,12 @@ const ENHANCE_MANIFEST: PluginManifest = {
   settingsCategory: 'provisioner',
   configSchema: ENHANCE_CONFIG_SCHEMA,
   secretsSchema: ENHANCE_SECRETS_SCHEMA,
-  testConnectionMethod: 'getStatus',
+  // Sprint 15C.II Fase F.3 (GAP-15CII-G8): `'custom'` — el `getStatus` de
+  // Enhance requiere un `provider_reference` real (subscription_id), así que
+  // un servicio sintético siempre reportaba "sin metadata" (falso negativo).
+  // `testConnection()` hace el probe canónico ADR-083 §1 dec.5: `GET /version`
+  // (vivo) + `GET /orgs/{master}` (token válido + RBAC).
+  testConnectionMethod: 'custom',
   productConfigSchema: ENHANCE_PRODUCT_CONFIG_SCHEMA,
 };
 
@@ -561,6 +566,34 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
         };
       }
       throw err;
+    }
+  }
+
+  /**
+   * Sprint 15C.II Fase F.3 (GAP-15CII-G8) — test-connection canónico
+   * (ADR-083 §1 decisión 5), independiente de cualquier servicio:
+   *   1. `GET /version` (sin auth) → Enhance está vivo y alcanzable.
+   *   2. `GET /orgs/{masterOrgId}` → el token es válido y tiene RBAC sobre
+   *      el master org (401/403 ⇒ credenciales/permisos mal).
+   * Sin side-effects. Captura sus propios errores — devuelve `{ ok, message }`
+   * (incluye el caso de credenciales ausentes, que falla ya en `getApiClient`).
+   */
+  async testConnection(): Promise<{ ok: boolean; message: string }> {
+    try {
+      const { client: api, config } = await this.getApiClient();
+      const version = await api.getVersion();
+      await api.getOrg(config.masterOrgId);
+      return {
+        ok: true,
+        message: `Enhance orchd v${version} alcanzable; el token tiene acceso al master org.`,
+      };
+    } catch (err) {
+      const reason =
+        err instanceof Error ? err.message : 'error inesperado del proveedor';
+      return {
+        ok: false,
+        message: `No se pudo conectar con Enhance: ${reason}`,
+      };
     }
   }
 
