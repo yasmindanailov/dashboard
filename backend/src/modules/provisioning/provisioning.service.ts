@@ -416,8 +416,8 @@ export class ProvisioningService {
     //      el proveedor).
     //   3. Cuando Aelium lo tiene `suspended`, fuerza `info.status='suspended'`
     //      para que el banner cliente + el header + el badge sean coherentes
-    //      (también si el proveedor reporta `cancelled`/`expired` por una
-    //      desincronización — el aviso de desync admin lo explica). NO baja
+    //      (también si el proveedor reporta `active`/`cancelled`/`expired` por
+    //      una desincronización — el aviso de desync admin lo explica). NO baja
     //      `info.status` cuando Aelium lo tiene `active` y el proveedor reporta
     //      algo MÁS restrictivo (`suspended`/`cancelled`/`expired`): el cliente
     //      realmente no puede usar el servicio ahora mismo — no lo ocultamos;
@@ -425,48 +425,72 @@ export class ProvisioningService {
     //      (con "Realinear" si es suspensión; re-aprovisionar / cancelar
     //      formalmente si el proveedor lo da por eliminado).
     //
-    // Solo aplica a plugins con `supports_suspend` (los demás no modelan la
-    // suspensión — `services.status='suspended'` sería bookkeeping puro de
-    // Aelium), solo cuando `services.status ∈ {active, suspended}`, y solo
-    // cuando el proveedor está *accesible* (`info.status ∉ {unknown, failed}`):
-    // si está caído / circuit open no afirmamos desync — no lo sabemos — y
-    // dejamos `info.status` tal cual para que el admin vea el `AdminDriftBanner`
-    // de "proveedor inaccesible". NO se hace shortcircuit del plugin (a un
-    // servicio suspendido sí le pedimos `getServiceInfo` — queremos las
-    // métricas). Caso real que motivó cubrir también `cancelled`/`expired`:
-    // el `MockEnhanceServer` in-memory reiniciado tras una suspensión deja la
+    // El override de `info.status='suspended'` (cuando `services.status` lo
+    // está) y la re-derivación de `availableActions` aplican a **todos** los
+    // plugins (no solo los `supports_suspend`): un servicio `internal`/`manual`
+    // suspendido por impago (cron de billing — Fase F.5) debe verse suspendido
+    // por el cliente igual que uno de un plugin que sí lo modela. El **flag**
+    // `provider_state_desync`, en cambio, solo tiene sentido para plugins que
+    // modelan la suspensión (los demás no tienen "estado de proveedor" con el
+    // que estar en sync). Y todo esto solo cuando el proveedor está *accesible*
+    // (`info.status ∉ {unknown, failed}`): si está caído / circuit open no
+    // tocamos nada — el admin ve el `AdminDriftBanner` de "proveedor
+    // inaccesible". NO se hace shortcircuit del plugin (a un servicio
+    // suspendido sí le pedimos `getServiceInfo` — queremos las métricas). Caso
+    // real que motivó cubrir también `cancelled`/`expired`: el
+    // `MockEnhanceServer` in-memory reiniciado tras una suspensión deja la
     // suscripción reportando `deleted` (→ `info.status='cancelled'`) mientras
-    // `services.status` sigue `suspended` — antes la página mezclaba badges
-    // ("Cancelado" en el header, "Suspendido" en el banner) y no ofrecía
-    // ninguna acción de salida.
-    if (plugin.capabilities.supports_suspend) {
+    // `services.status` sigue `suspended`.
+    {
       const adminStatus = String(service.status);
-      const adminSuspended = adminStatus === 'suspended';
+      const providerStatus = info.status; // antes de cualquier override
       const providerReachable =
-        info.status !== 'unknown' && info.status !== 'failed';
+        providerStatus !== 'unknown' && providerStatus !== 'failed';
       if (
-        (adminStatus === 'active' || adminStatus === 'suspended') &&
         providerReachable &&
-        info.status !== adminStatus
+        (adminStatus === 'active' || adminStatus === 'suspended') &&
+        providerStatus !== adminStatus
       ) {
-        summary.provider_state_desync = true;
-        const reconciledActions = filterActionsByStatus(
-          plugin.inlineActions,
-          adminSuspended ? 'suspended' : 'active',
-        );
-        info = {
-          ...info,
-          // Si Aelium lo tiene `suspended` ⇒ `info.status='suspended'` (página
-          // coherente). Si Aelium lo tiene `active` ⇒ conservamos lo que
-          // reportó el proveedor (no bajamos severidad — el cliente no puede
-          // usarlo si el proveedor lo bloqueó/eliminó; el admin lo resuelve).
-          status: adminSuspended ? 'suspended' : info.status,
-          availableActions: reconciledActions,
-          capabilities: {
-            ...info.capabilities,
-            inlineActions: reconciledActions,
-          },
-        };
+        if (adminStatus === 'suspended') {
+          // Aelium manda: la UI muestra `suspended` (banner cliente + header +
+          // badge coherentes) y `availableActions` se re-deriva del estado
+          // administrativo (incluye `unsuspend_service` si el plugin lo modela).
+          const reconciledActions = filterActionsByStatus(
+            plugin.inlineActions,
+            'suspended',
+          );
+          info = {
+            ...info,
+            status: 'suspended',
+            availableActions: reconciledActions,
+            capabilities: {
+              ...info.capabilities,
+              inlineActions: reconciledActions,
+            },
+          };
+        } else {
+          // `adminStatus === 'active'`: NO bajamos `info.status` a `active`
+          // (el cliente no puede usar el servicio si el proveedor lo bloqueó /
+          // eliminó). Re-derivamos `availableActions` del estado administrativo
+          // (`active`) para que los botones coincidan con lo que aceptan los
+          // guards — y es auto-curativo (clicar "Suspender" re-suspende en el
+          // proveedor de forma idempotente).
+          const reconciledActions = filterActionsByStatus(
+            plugin.inlineActions,
+            'active',
+          );
+          info = {
+            ...info,
+            availableActions: reconciledActions,
+            capabilities: {
+              ...info.capabilities,
+              inlineActions: reconciledActions,
+            },
+          };
+        }
+        if (plugin.capabilities.supports_suspend) {
+          summary.provider_state_desync = true;
+        }
       }
     }
 
@@ -933,15 +957,28 @@ export class ProvisioningService {
    *   8. Audit `service.suspended` (cambio de estado) + `service_suspend_admin`
    *      (acceso staff con `target_user_id`).
    *
-   * Diseñado para ser invocable internamente por el cron billing
-   * `billing-suspend-on-overdue` (Sprint 8 Fase 8.1) cuando llegue. Heredable a
-   * 15E Docker / 15G Plesk (15D RC no aplica — `supports_suspend=false`).
+   * Sprint 15C.II Fase F.5 (`DC.44` billing-suspend-unify) — punto único de
+   * transición de estado para la suspensión, también desde el cron de impago
+   * (`ServiceLifecycleWorker.autoSuspendServices`). `actorUserId` puede ser
+   * `null` (actor sistema — sin actor humano): en ese caso `opts.actorLabel`
+   * lo identifica en el audit (taxonomía `system:<dominio>-<cron|job>`) y NO se
+   * escribe `audit_access_log` (no hay "lectura staff" que registrar — solo el
+   * cambio de estado en `audit_change_log`). `opts.allowUnsupported` permite
+   * suspender servicios cuyo plugin **no** declara `supports_suspend`
+   * (`internal`/`manual`): en ese caso no hay inline action `suspend_service`
+   * que invocar — la suspensión es solo del lado de Aelium (BD + evento +
+   * audit), igual que hacía el worker antes de F.5 (el cliente la ve igual:
+   * `getInfoForUser` fuerza `info.status='suspended'` cuando `services.status`
+   * lo está). Para el caso humano (admin vía `POST /admin/services/:id/suspend`)
+   * `allowUnsupported` se omite → 409 `SUSPEND_NOT_SUPPORTED` (el frontend ya
+   * ramifica por el flag, ADR-070). Heredable a 15E Docker / 15G Plesk.
    */
   async suspendAsAdmin(
     serviceId: string,
     dto: SuspendServiceDto,
-    actorUserId: string,
-    ctx: { ipAddress: string; userAgent?: string | null },
+    actorUserId: string | null,
+    ctx?: { ipAddress?: string; userAgent?: string | null },
+    opts?: { actorLabel?: string; allowUnsupported?: boolean },
   ): Promise<{
     id: string;
     status: string;
@@ -981,36 +1018,44 @@ export class ProvisioningService {
         message: `El plugin "${pluginSlug}" no está registrado.`,
       });
     }
-    if (!plugin.capabilities.supports_suspend) {
+    const pluginModelsSuspend = plugin.capabilities.supports_suspend === true;
+    if (!pluginModelsSuspend && !opts?.allowUnsupported) {
       throw new ConflictException({
         code: 'SUSPEND_NOT_SUPPORTED',
         message: `El plugin "${pluginSlug}" no soporta suspensión de servicios.`,
       });
     }
 
-    const result = await executeActionWithCacheInvalidation(
-      plugin,
-      service,
-      'suspend_service',
-      { reason: dto.reason },
-      {
-        actorUserId,
-        ipAddress: ctx.ipAddress,
-        userAgent: ctx.userAgent ?? null,
-        actorIsAdmin: true,
-      },
-      this.cache,
-      this.events,
-      this.audit,
-      this.breakers,
-    );
-    if (!result.success) {
-      throw new ConflictException({
-        code: 'SUSPEND_PROVIDER_FAILED',
-        message:
-          'No se pudo suspender el servicio en el proveedor. Inténtalo de nuevo o contacta con el equipo técnico.',
-        provider_message_key: result.message ?? null,
-      });
+    // Solo invocamos la inline action `suspend_service` si el plugin modela la
+    // suspensión. Para `internal`/`manual` (con `allowUnsupported`) la
+    // suspensión es solo del lado de Aelium — no hay nada que hacer en el
+    // proveedor.
+    if (pluginModelsSuspend) {
+      const result = await executeActionWithCacheInvalidation(
+        plugin,
+        service,
+        'suspend_service',
+        { reason: dto.reason },
+        {
+          actorUserId,
+          actorLabel: opts?.actorLabel,
+          ipAddress: ctx?.ipAddress ?? '',
+          userAgent: ctx?.userAgent ?? null,
+          actorIsAdmin: true,
+        },
+        this.cache,
+        this.events,
+        this.audit,
+        this.breakers,
+      );
+      if (!result.success) {
+        throw new ConflictException({
+          code: 'SUSPEND_PROVIDER_FAILED',
+          message:
+            'No se pudo suspender el servicio en el proveedor. Inténtalo de nuevo o contacta con el equipo técnico.',
+          provider_message_key: result.message ?? null,
+        });
+      }
     }
 
     const suspensionReason = dto.internal_note
@@ -1041,6 +1086,9 @@ export class ProvisioningService {
       provisioner_slug: service.provisioner_slug,
       reason: dto.reason,
       actor_user_id: actorUserId,
+      ...(actorUserId === null && opts?.actorLabel
+        ? { actor: opts.actorLabel }
+        : {}),
       suspended_at: suspendedAt.toISOString(),
       notify_client: notifyClient,
     });
@@ -1057,20 +1105,28 @@ export class ProvisioningService {
         reason_code: dto.reason,
         ...(dto.internal_note ? { internal_note: dto.internal_note } : {}),
         notify_client: notifyClient,
+        ...(actorUserId === null && opts?.actorLabel
+          ? { actor: opts.actorLabel }
+          : {}),
       },
     });
-    await this.audit.logAccess({
-      user_id: actorUserId,
-      action: 'service_suspend_admin',
-      ip_address: ctx.ipAddress,
-      user_agent: ctx.userAgent ?? null,
-      resource: 'Service',
-      metadata: {
-        resource_id: serviceId,
-        target_user_id: service.user_id,
-        reason_code: dto.reason,
-      },
-    });
+    // `audit_access_log` solo para actores humanos (es "lectura staff sobre
+    // datos del cliente"). El actor sistema (cron/job) deja solo el
+    // `audit_change_log` con `actor:'system:...'`.
+    if (actorUserId !== null) {
+      await this.audit.logAccess({
+        user_id: actorUserId,
+        action: 'service_suspend_admin',
+        ip_address: ctx?.ipAddress ?? '',
+        user_agent: ctx?.userAgent ?? null,
+        resource: 'Service',
+        metadata: {
+          resource_id: serviceId,
+          target_user_id: service.user_id,
+          reason_code: dto.reason,
+        },
+      });
+    }
 
     return {
       id: updated.id,
@@ -1094,11 +1150,18 @@ export class ProvisioningService {
    * previo a la suspensión). El cliente siempre recibe email + campana
    * `service.unsuspended` (reactivar es buena noticia — no hay toggle de
    * supresión, a diferencia de `suspend`).
+   *
+   * Sprint 15C.II Fase F.5: `actorUserId` puede ser `null` (actor sistema —
+   * ej. `reactivar al pagar`, `pause expirado`) con `opts.actorLabel`; sin
+   * `audit_access_log` en ese caso. `opts.allowUnsupported` para plugins sin
+   * `supports_suspend` (espejo de `suspendAsAdmin`) — no hay inline action que
+   * invocar, solo la transición de estado del lado de Aelium.
    */
   async unsuspendAsAdmin(
     serviceId: string,
-    actorUserId: string,
-    ctx: { ipAddress: string; userAgent?: string | null },
+    actorUserId: string | null,
+    ctx?: { ipAddress?: string; userAgent?: string | null },
+    opts?: { actorLabel?: string; allowUnsupported?: boolean },
   ): Promise<{ id: string; status: string; alreadyActive?: true }> {
     const service = await this.loadServiceForView(serviceId);
 
@@ -1124,36 +1187,40 @@ export class ProvisioningService {
         message: `El plugin "${pluginSlug}" no está registrado.`,
       });
     }
-    if (!plugin.capabilities.supports_suspend) {
+    const pluginModelsSuspend = plugin.capabilities.supports_suspend === true;
+    if (!pluginModelsSuspend && !opts?.allowUnsupported) {
       throw new ConflictException({
         code: 'SUSPEND_NOT_SUPPORTED',
         message: `El plugin "${pluginSlug}" no soporta suspensión de servicios.`,
       });
     }
 
-    const result = await executeActionWithCacheInvalidation(
-      plugin,
-      service,
-      'unsuspend_service',
-      {},
-      {
-        actorUserId,
-        ipAddress: ctx.ipAddress,
-        userAgent: ctx.userAgent ?? null,
-        actorIsAdmin: true,
-      },
-      this.cache,
-      this.events,
-      this.audit,
-      this.breakers,
-    );
-    if (!result.success) {
-      throw new ConflictException({
-        code: 'UNSUSPEND_PROVIDER_FAILED',
-        message:
-          'No se pudo reactivar el servicio en el proveedor. Inténtalo de nuevo o contacta con el equipo técnico.',
-        provider_message_key: result.message ?? null,
-      });
+    if (pluginModelsSuspend) {
+      const result = await executeActionWithCacheInvalidation(
+        plugin,
+        service,
+        'unsuspend_service',
+        {},
+        {
+          actorUserId,
+          actorLabel: opts?.actorLabel,
+          ipAddress: ctx?.ipAddress ?? '',
+          userAgent: ctx?.userAgent ?? null,
+          actorIsAdmin: true,
+        },
+        this.cache,
+        this.events,
+        this.audit,
+        this.breakers,
+      );
+      if (!result.success) {
+        throw new ConflictException({
+          code: 'UNSUSPEND_PROVIDER_FAILED',
+          message:
+            'No se pudo reactivar el servicio en el proveedor. Inténtalo de nuevo o contacta con el equipo técnico.',
+          provider_message_key: result.message ?? null,
+        });
+      }
     }
 
     const previousReason = service.suspension_reason;
@@ -1170,6 +1237,9 @@ export class ProvisioningService {
       user_id: service.user_id,
       provisioner_slug: service.provisioner_slug,
       actor_user_id: actorUserId,
+      ...(actorUserId === null && opts?.actorLabel
+        ? { actor: opts.actorLabel }
+        : {}),
       previous_suspension_reason: previousReason,
     });
 
@@ -1182,18 +1252,68 @@ export class ProvisioningService {
         status: 'suspended',
         suspension_reason: previousReason,
       },
-      changes_after: { status: 'active' },
+      changes_after: {
+        status: 'active',
+        ...(actorUserId === null && opts?.actorLabel
+          ? { actor: opts.actorLabel }
+          : {}),
+      },
     });
-    await this.audit.logAccess({
-      user_id: actorUserId,
-      action: 'service_unsuspend_admin',
-      ip_address: ctx.ipAddress,
-      user_agent: ctx.userAgent ?? null,
-      resource: 'Service',
-      metadata: { resource_id: serviceId, target_user_id: service.user_id },
-    });
+    if (actorUserId !== null) {
+      await this.audit.logAccess({
+        user_id: actorUserId,
+        action: 'service_unsuspend_admin',
+        ip_address: ctx?.ipAddress ?? '',
+        user_agent: ctx?.userAgent ?? null,
+        resource: 'Service',
+        metadata: { resource_id: serviceId, target_user_id: service.user_id },
+      });
+    }
 
     return { id: updated.id, status: String(updated.status) };
+  }
+
+  /**
+   * Sprint 15C.II Fase F.5.3 — auto-reactivación al pagar. El listener
+   * `reactivate-services-on-invoice-paid` (en `ProvisioningModule`) resuelve
+   * los `service_id` de la factura pagada y llama a este método por cada uno.
+   * Reactiva el servicio **solo si** está `suspended` con el motivo `overdue_payment`
+   * (la suspensión por impago es la que el pago cancela — NO se des-suspende un
+   * servicio suspendido por abuso, RGPD o mantenimiento porque el cliente pague
+   * otra factura). Idempotente: si ya está `active` (alguien lo reactivó a mano),
+   * no-op. Actor sistema (`actorUserId: null` + `actorLabel`).
+   */
+  async reactivateSuspendedServiceOnPayment(serviceId: string): Promise<void> {
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: { id: true, status: true, suspension_reason: true },
+    });
+    if (!service) {
+      this.logger.warn(
+        `reactivateSuspendedServiceOnPayment: service ${serviceId} not found — skipping.`,
+      );
+      return;
+    }
+    if (String(service.status) !== 'suspended') {
+      return; // No suspendido — nada que reactivar.
+    }
+    if (
+      this.parseSuspensionReasonCode(service.suspension_reason) !==
+      'overdue_payment'
+    ) {
+      this.logger.log(
+        `reactivateSuspendedServiceOnPayment: service ${serviceId} suspended for a non-overdue reason ` +
+          `(${service.suspension_reason ?? 'unknown'}) — leaving suspended (a paid invoice does not undo it).`,
+      );
+      return;
+    }
+    await this.unsuspendAsAdmin(serviceId, null, undefined, {
+      actorLabel: 'system:billing-on-invoice-paid',
+      allowUnsupported: true,
+    });
+    this.logger.log(
+      `reactivateSuspendedServiceOnPayment: service ${serviceId} reactivated (overdue invoice paid).`,
+    );
   }
 
   /**
