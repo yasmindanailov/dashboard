@@ -272,8 +272,7 @@ export class AuditService {
         u.id,
         {
           user_id: u.id,
-          name:
-            `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email,
+          name: `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email,
           role: u.role?.slug ?? null,
         } as ServiceTimelineActor,
       ]),
@@ -382,9 +381,7 @@ function resolveActor(
   actorMap: Map<string, ServiceTimelineActor>,
 ): ServiceTimelineActor | null {
   if (!actorId) return null; // sistema
-  return (
-    actorMap.get(actorId) ?? { user_id: actorId, name: null, role: null }
-  );
+  return actorMap.get(actorId) ?? { user_id: actorId, name: null, role: null };
 }
 
 function buildAdminTimelineEntry(
@@ -428,7 +425,8 @@ function buildClientTimelineEntry(
   } else if (row.action === 'reconciled_external_change') {
     const meta = getReconciledMeta(row.changes_after);
     const changeType = meta?.change_type;
-    metadata = typeof changeType === 'string' ? { change_type: changeType } : null;
+    metadata =
+      typeof changeType === 'string' ? { change_type: changeType } : null;
   }
   return {
     id: String(row.id),

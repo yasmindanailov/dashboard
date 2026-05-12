@@ -175,7 +175,10 @@ describe('AuditService', () => {
       changes_before: { value: 'active' },
       changes_after: {
         value: 'suspended',
-        _meta: { change_type: 'status_divergence', gdpr_visible_to_data_subject: true },
+        _meta: {
+          change_type: 'status_divergence',
+          gdpr_visible_to_data_subject: true,
+        },
       },
       correlation_id: null,
       metadata: null,
@@ -190,7 +193,10 @@ describe('AuditService', () => {
       changes_before: { value: 1 },
       changes_after: {
         value: 2,
-        _meta: { change_type: 'plan_divergence', gdpr_visible_to_data_subject: false },
+        _meta: {
+          change_type: 'plan_divergence',
+          gdpr_visible_to_data_subject: false,
+        },
       },
       correlation_id: null,
       metadata: null,
@@ -250,7 +256,9 @@ describe('AuditService', () => {
       expect(chg.correlation_id).toBe('cor-1');
       const acc = page.items.find((e) => e.source === 'access')!;
       expect(acc.ip_address).toBe('203.0.113.1');
-      expect(acc.metadata).toMatchObject({ panel_label: 'Enhance Control Panel' });
+      expect(acc.metadata).toMatchObject({
+        panel_label: 'Enhance Control Panel',
+      });
       expect(acc.actor).toEqual({
         user_id: 'agent-1',
         name: 'Ana Soporte',
@@ -268,7 +276,9 @@ describe('AuditService', () => {
         internalRow, // service.reprovision_requested → omitido
       ]);
 
-      const page = await service.getServiceTimeline('svc-1', { isAdmin: false });
+      const page = await service.getServiceTimeline('svc-1', {
+        isAdmin: false,
+      });
 
       const actions = page.items.map((e) => e.action).sort();
       expect(actions).toEqual([
@@ -283,9 +293,13 @@ describe('AuditService', () => {
         expect(entry).not.toHaveProperty('correlation_id');
         expect(entry).not.toHaveProperty('ip_address');
       }
-      const imp = page.items.find((e) => e.action === 'admin_sso_impersonation')!;
+      const imp = page.items.find(
+        (e) => e.action === 'admin_sso_impersonation',
+      )!;
       expect(imp.metadata).toEqual({ panel_label: 'Enhance Control Panel' });
-      const rec = page.items.find((e) => e.action === 'reconciled_external_change')!;
+      const rec = page.items.find(
+        (e) => e.action === 'reconciled_external_change',
+      )!;
       expect(rec.metadata).toEqual({ change_type: 'status_divergence' });
       const susp = page.items.find((e) => e.action === 'service.suspended')!;
       expect(susp.metadata).toBeNull();
@@ -296,7 +310,11 @@ describe('AuditService', () => {
     it('cursor pagination: next_cursor cuando hay limit+1 filas; null cuando no', async () => {
       mockUsers();
       // 3 filas con limit=2 → page = 2, hay más
-      prisma.$queryRaw.mockResolvedValueOnce([changeRow, accessRow, reconciledVisible]);
+      prisma.$queryRaw.mockResolvedValueOnce([
+        changeRow,
+        accessRow,
+        reconciledVisible,
+      ]);
       const p1 = await service.getServiceTimeline('svc-1', {
         isAdmin: true,
         limit: 2,
@@ -318,7 +336,10 @@ describe('AuditService', () => {
 
     it('cursor malformado → BadRequestException (no llega a consultar)', async () => {
       await expect(
-        service.getServiceTimeline('svc-1', { isAdmin: true, cursor: 'garbage' }),
+        service.getServiceTimeline('svc-1', {
+          isAdmin: true,
+          cursor: 'garbage',
+        }),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.$queryRaw).not.toHaveBeenCalled();
     });
@@ -328,9 +349,13 @@ describe('AuditService', () => {
       prisma.$queryRaw.mockResolvedValue([changeRow, reconciledVisible]);
 
       const page = await service.getServiceTimeline('svc-1', { isAdmin: true });
-      const chg = page.items.find((e) => e.source === 'change' && e.action === 'service.suspended')!;
+      const chg = page.items.find(
+        (e) => e.source === 'change' && e.action === 'service.suspended',
+      )!;
       expect(chg.actor).toEqual({ user_id: 'admin-1', name: null, role: null });
-      const rec = page.items.find((e) => e.action === 'reconciled_external_change')!;
+      const rec = page.items.find(
+        (e) => e.action === 'reconciled_external_change',
+      )!;
       expect(rec.actor).toBeNull();
     });
   });
