@@ -237,6 +237,8 @@ describe.each(
       expect(typeof c.supports_reconciliation).toBe('boolean');
       // ADR-077 Amendment A1 — has_dns_management required.
       expect(typeof c.has_dns_management).toBe('boolean');
+      // ADR-077 Amendment A4 — supports_suspend required.
+      expect(typeof c.supports_suspend).toBe('boolean');
     });
 
     // ─── ADR-077 Amendment A1 — DNS management invariants ────────────────
@@ -266,6 +268,34 @@ describe.each(
         ]) {
           expect(slugs).not.toContain(dnsSlug);
         }
+      }
+    });
+
+    // ─── ADR-077 Amendment A4 — suspend/unsuspend invariants ────────────
+
+    it('si supports_suspend=true → declara las 2 inline actions canónicas, ambas adminOnly (ADR-077 Amendment A4)', () => {
+      if (plugin.capabilities.supports_suspend) {
+        const bySlug = new Map(
+          plugin.inlineActions.map((a) => [a.slug, a] as const),
+        );
+        for (const slug of ['suspend_service', 'unsuspend_service']) {
+          const action = bySlug.get(slug);
+          expect(action).toBeDefined();
+          // La suspensión es operación administrativa — NUNCA cliente self-service.
+          expect(action?.adminOnly).toBe(true);
+        }
+        // Coherencia semántica: suspender es destructivo (corta el acceso),
+        // reactivar no lo es (lo restaura) — espejo de `deprovision` vs los DNS.
+        expect(bySlug.get('suspend_service')?.destructive).toBe(true);
+        expect(bySlug.get('unsuspend_service')?.destructive).toBe(false);
+      }
+    });
+
+    it('si supports_suspend=false → NO declara esas inline actions (ADR-077 Amendment A4)', () => {
+      if (!plugin.capabilities.supports_suspend) {
+        const slugs = plugin.inlineActions.map((a) => a.slug);
+        expect(slugs).not.toContain('suspend_service');
+        expect(slugs).not.toContain('unsuspend_service');
       }
     });
 

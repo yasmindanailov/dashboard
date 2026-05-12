@@ -14,7 +14,11 @@
 // Estos disables aplican SOLO a este spec; en cÃ³digo de producciÃ³n las
 // reglas siguen activas con severidad `warn`/`error`.
 
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
@@ -38,7 +42,10 @@ const TEST_MANIFEST: PluginManifest = {
   testConnectionMethod: null,
 };
 
-import { DeprovisionReasonDto } from './dto/provisioning.dto';
+import {
+  DeprovisionReasonDto,
+  SuspensionReasonDto,
+} from './dto/provisioning.dto';
 import { ProvisioningService } from './provisioning.service';
 
 /**
@@ -90,6 +97,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         completes_via_task: false,
         supports_reconciliation: false,
         has_dns_management: false, // ADR-077 Amendment A1
+        supports_suspend: false, // ADR-077 Amendment A4
       },
       inlineActions: [],
       manifest: TEST_MANIFEST,
@@ -108,6 +116,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
           completes_via_task: false,
           supports_reconciliation: false,
           has_dns_management: false, // ADR-077 Amendment A1
+          supports_suspend: false, // ADR-077 Amendment A4
           hasSsoPanel: false,
           inlineActions: [],
         },
@@ -610,6 +619,244 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     expect(prisma.service.update).not.toHaveBeenCalled();
   });
 
+  // ─── suspendAsAdmin / unsuspendAsAdmin — Sprint 15C.II Fase F (ADR-077 A4) ───
+
+  describe('suspendAsAdmin / unsuspendAsAdmin', () => {
+    /** Plugin con `supports_suspend=true` + las 2 inline actions canónicas. */
+    function buildSuspendablePlugin(
+      executeAction: jest.Mock = jest
+        .fn()
+        .mockResolvedValue({ success: true, data: { suspended: true } }),
+    ): ProvisionerPlugin {
+      return buildPlugin({
+        slug: 'enhance_cp',
+        capabilities: {
+          has_sso_panel: false,
+          has_metrics: false,
+          has_metrics_history: false,
+          requires_server: false,
+          provision_mode: 'sync',
+          completes_via_task: false,
+          supports_reconciliation: true,
+          has_dns_management: false,
+          supports_suspend: true,
+        },
+        inlineActions: [
+          {
+            slug: 'suspend_service',
+            label: 'plugin.x.suspend',
+            confirmRequired: true,
+            destructive: true,
+            adminOnly: true,
+          },
+          {
+            slug: 'unsuspend_service',
+            label: 'plugin.x.unsuspend',
+            confirmRequired: true,
+            destructive: false,
+            adminOnly: true,
+          },
+        ],
+        executeAction: executeAction as never,
+      });
+    }
+
+    it('suspendAsAdmin: active → suspended, invoca plugin executeAction(suspend_service), emite service.suspended + audit', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({ status: 'active', provisioner_slug: 'enhance_cp' }),
+      );
+      const executeAction = jest.fn().mockResolvedValue({
+        success: true,
+        message: 'plugin.enhance_cp.actions.suspend_service.success',
+        data: { suspended: true },
+      });
+      registry.get.mockReturnValue(buildSuspendablePlugin(executeAction));
+      prisma.service.update.mockResolvedValueOnce({
+        id: 'svc-1',
+        status: 'suspended',
+        suspension_reason: 'overdue_payment: 3 avisos sin respuesta',
+        suspended_at: new Date('2026-05-11T10:00:00Z'),
+      });
+
+      const result = await service.suspendAsAdmin(
+        'svc-1',
+        {
+          reason: SuspensionReasonDto.overdue_payment,
+          internal_note: '3 avisos sin respuesta',
+          notify_client: true,
+        },
+        'admin-id',
+        { ipAddress: '1.2.3.4', userAgent: 'jest' },
+      );
+
+      expect(executeAction).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'svc-1' }),
+        'suspend_service',
+        { reason: 'overdue_payment' },
+      );
+      expect(prisma.service.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'svc-1' },
+          data: expect.objectContaining({
+            status: 'suspended',
+            suspension_reason: 'overdue_payment: 3 avisos sin respuesta',
+          }),
+        }),
+      );
+      expect(cache.invalidate).toHaveBeenCalledWith('svc-1');
+      expect(events.emit).toHaveBeenCalledWith(
+        'service.suspended',
+        expect.objectContaining({
+          service_id: 'svc-1',
+          reason: 'overdue_payment',
+          actor_user_id: 'admin-id',
+          notify_client: true,
+        }),
+      );
+      expect(audit.logChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'service.suspended',
+          changes_after: expect.objectContaining({
+            status: 'suspended',
+            reason_code: 'overdue_payment',
+            internal_note: '3 avisos sin respuesta',
+          }),
+        }),
+      );
+      expect(result.status).toBe('suspended');
+    });
+
+    it('suspendAsAdmin: ya suspended → no-op idempotente (alreadySuspended), sin plugin call ni evento', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          status: 'suspended',
+          provisioner_slug: 'enhance_cp',
+          suspension_reason: 'overdue_payment',
+          suspended_at: new Date('2026-05-10T00:00:00Z'),
+        }),
+      );
+      const executeAction = jest.fn();
+      registry.get.mockReturnValue(buildSuspendablePlugin(executeAction));
+
+      const result = await service.suspendAsAdmin(
+        'svc-1',
+        { reason: SuspensionReasonDto.abuse_investigation },
+        'admin-id',
+        { ipAddress: '1.2.3.4' },
+      );
+
+      expect(result.alreadySuspended).toBe(true);
+      expect(result.status).toBe('suspended');
+      expect(executeAction).not.toHaveBeenCalled();
+      expect(prisma.service.update).not.toHaveBeenCalled();
+      expect(events.emit).not.toHaveBeenCalled();
+    });
+
+    it('suspendAsAdmin: estado no-active (pending) → ConflictException', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({ status: 'pending', provisioner_slug: 'enhance_cp' }),
+      );
+      registry.get.mockReturnValue(buildSuspendablePlugin());
+
+      await expect(
+        service.suspendAsAdmin(
+          'svc-1',
+          { reason: SuspensionReasonDto.scheduled_maintenance },
+          'admin-id',
+          { ipAddress: '1.2.3.4' },
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(prisma.service.update).not.toHaveBeenCalled();
+    });
+
+    it('suspendAsAdmin: plugin sin supports_suspend → ConflictException SUSPEND_NOT_SUPPORTED', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({ status: 'active', provisioner_slug: 'internal' }),
+      );
+      // buildPlugin() por defecto: supports_suspend=false.
+      registry.get.mockReturnValue(buildPlugin());
+
+      await expect(
+        service.suspendAsAdmin(
+          'svc-1',
+          { reason: SuspensionReasonDto.other },
+          'admin-id',
+          { ipAddress: '1.2.3.4' },
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(prisma.service.update).not.toHaveBeenCalled();
+    });
+
+    it('unsuspendAsAdmin: suspended → active, invoca plugin executeAction(unsuspend_service), emite service.unsuspended + audit', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          status: 'suspended',
+          provisioner_slug: 'enhance_cp',
+          suspension_reason: 'overdue_payment: nota interna',
+          suspended_at: new Date('2026-05-10T00:00:00Z'),
+        }),
+      );
+      const executeAction = jest
+        .fn()
+        .mockResolvedValue({ success: true, data: { suspended: false } });
+      registry.get.mockReturnValue(buildSuspendablePlugin(executeAction));
+      prisma.service.update.mockResolvedValueOnce({
+        id: 'svc-1',
+        status: 'active',
+      });
+
+      const result = await service.unsuspendAsAdmin('svc-1', 'admin-id', {
+        ipAddress: '1.2.3.4',
+      });
+
+      expect(executeAction).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'svc-1' }),
+        'unsuspend_service',
+        {},
+      );
+      expect(prisma.service.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'svc-1' },
+          data: {
+            status: 'active',
+            suspended_at: null,
+            suspension_reason: null,
+          },
+        }),
+      );
+      expect(cache.invalidate).toHaveBeenCalledWith('svc-1');
+      expect(events.emit).toHaveBeenCalledWith(
+        'service.unsuspended',
+        expect.objectContaining({
+          service_id: 'svc-1',
+          actor_user_id: 'admin-id',
+          previous_suspension_reason: 'overdue_payment: nota interna',
+        }),
+      );
+      expect(audit.logChange).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'service.unsuspended' }),
+      );
+      expect(result.status).toBe('active');
+    });
+
+    it('unsuspendAsAdmin: ya active → no-op idempotente (alreadyActive), sin plugin call', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({ status: 'active', provisioner_slug: 'enhance_cp' }),
+      );
+      const executeAction = jest.fn();
+      registry.get.mockReturnValue(buildSuspendablePlugin(executeAction));
+
+      const result = await service.unsuspendAsAdmin('svc-1', 'admin-id', {
+        ipAddress: '1.2.3.4',
+      });
+
+      expect(result.alreadyActive).toBe(true);
+      expect(executeAction).not.toHaveBeenCalled();
+      expect(prisma.service.update).not.toHaveBeenCalled();
+      expect(events.emit).not.toHaveBeenCalled();
+    });
+  });
+
   // ─── DNS records pipeline (Sprint 15C Fase 15C.D — ADR-082 §6) ─────────
 
   describe('DNS records — Sprint 15C Fase 15C.D', () => {
@@ -626,6 +873,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
           completes_via_task: false,
           supports_reconciliation: true,
           has_dns_management: true,
+          supports_suspend: false, // ADR-077 Amendment A4
         },
         inlineActions: [
           {

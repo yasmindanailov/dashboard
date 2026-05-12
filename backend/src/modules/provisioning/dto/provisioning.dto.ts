@@ -131,3 +131,51 @@ export class DeprovisionDto {
   @IsBoolean()
   notify_client?: boolean;
 }
+
+/**
+ * Sprint 15C.II Fase F — ADR-077 Amendment A4 (`POST /admin/services/:id/suspend`).
+ *
+ * Taxonomía canónica del motivo de suspensión. DEBE coincidir 1:1 con el tipo
+ * `SuspensionReason` de [`core/provisioning/types.ts`](../../../core/provisioning/types.ts)
+ * (la duplicación es inevitable: class-validator `@IsEnum` necesita un objeto
+ * enum runtime, el contrato es una unión TS pura). Es **cliente-segura**: la UI
+ * muestra al cliente la etiqueta localizada del enum, NUNCA la `internal_note`.
+ */
+export enum SuspensionReasonDto {
+  overdue_payment = 'overdue_payment',
+  abuse_investigation = 'abuse_investigation',
+  scheduled_maintenance = 'scheduled_maintenance',
+  gdpr_restriction = 'gdpr_restriction',
+  other = 'other',
+}
+
+export class SuspendServiceDto {
+  /**
+   * Motivo canónico de la suspensión. Se muestra al cliente como etiqueta
+   * localizada (email + banner). Para `other`, la etiqueta cliente es genérica
+   * — el email dirige a soporte para los detalles.
+   */
+  @IsEnum(SuspensionReasonDto)
+  reason: SuspensionReasonDto;
+
+  /**
+   * Nota interna opcional (audit log + banner admin). NUNCA se incluye en
+   * comunicaciones al cliente (ni siquiera para `reason='other'`). Se persiste
+   * combinada en `services.suspension_reason` como `"<reason>: <internal_note>"`
+   * (mismo patrón que `services.cancellation_reason`) — el frontend cliente
+   * solo renderiza la parte `<reason>` (etiqueta localizada).
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  internal_note?: string;
+
+  /**
+   * Si `false`, NO se envía el email de suspensión al cliente (fraude
+   * confirmado, cuentas de test, etc.). Default `true` (el cliente recibe
+   * email + campana vía listener `notifications-on-service-suspended`).
+   */
+  @IsOptional()
+  @IsBoolean()
+  notify_client?: boolean;
+}

@@ -79,6 +79,7 @@ function buildValidPlugin(
       completes_via_task: false,
       supports_reconciliation: false,
       has_dns_management: false, // ADR-077 Amendment A1
+      supports_suspend: false, // ADR-077 Amendment A4
     },
     inlineActions: [],
     manifest: buildTestManifest(slug),
@@ -172,6 +173,7 @@ describe('PluginRegistryService â€” Sprint 15A Fase E (ADR-080 Â§4)', () 
           completes_via_task: false,
           supports_reconciliation: false,
           has_dns_management: false, // ADR-077 Amendment A1
+          supports_suspend: false, // ADR-077 Amendment A4
         },
       });
       const { registry } = await buildRegistry([bad]);
@@ -286,6 +288,7 @@ describe('PluginRegistryService â€” Sprint 15A Fase E (ADR-080 Â§4)', () 
           completes_via_task: false,
           supports_reconciliation: true,
           has_dns_management: true,
+          supports_suspend: false, // ADR-077 Amendment A4
         },
       });
       const { registry } = await buildRegistry([plain, dnsPlugin]);
@@ -311,6 +314,7 @@ describe('PluginRegistryService â€” Sprint 15A Fase E (ADR-080 Â§4)', () 
           completes_via_task: false,
           supports_reconciliation: true,
           has_dns_management: true,
+          supports_suspend: false, // ADR-077 Amendment A4
         },
       });
       // enabled=[] → plugin validado pero NO en activePlugins.
