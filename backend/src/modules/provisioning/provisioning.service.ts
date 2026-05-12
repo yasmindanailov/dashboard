@@ -24,6 +24,7 @@ import {
 } from '../../core/provisioning/plugin-utils';
 import {
   ActionResult,
+  ProvisionerPlugin,
   ServiceInfo,
   ServiceWithRelations,
   SsoUrl,
@@ -309,7 +310,7 @@ export class ProvisioningService {
       };
     }
 
-    const ttlSeconds = await this.resolveServiceInfoTtl();
+    const ttlSeconds = await this.resolveServiceInfoTtl(plugin);
     // Sprint 15C.II Fase B (ADR-083 Amendment A4.1): si options.forceRevalidate=true,
     // el wrapper salta el cache Redis 60s y re-fetch fresco del proveedor.
     // Caso canónico: botón "↻ Refrescar" en `MetricsBar.tsx` → server action
@@ -1283,14 +1284,28 @@ export class ProvisioningService {
     return 'service.terminal.cancelled.reason.admin_action';
   }
 
-  private async resolveServiceInfoTtl(): Promise<number> {
+  /**
+   * Resuelve el TTL (segundos) del cache L1 `service_info` para un plugin.
+   * Precedencia (Sprint 15C.II Fase F.3 — GAP-15CII-G4):
+   *   1. `plugin.manifest.serviceInfoCacheTtlSeconds` si lo declara.
+   *   2. setting global `provisioning.service_info_ttl_seconds`.
+   *   3. default 60s.
+   * Siempre con *sanity floor* de 5s (un TTL menor martillaría al proveedor).
+   */
+  private async resolveServiceInfoTtl(
+    plugin: ProvisionerPlugin,
+  ): Promise<number> {
+    const manifestTtl = plugin.manifest.serviceInfoCacheTtlSeconds;
+    if (typeof manifestTtl === 'number' && Number.isFinite(manifestTtl)) {
+      return Math.max(Math.floor(manifestTtl), 5);
+    }
     try {
       const ttl = await this.settings.getNumber(
         'provisioning',
         'service_info_ttl_seconds',
         60,
       );
-      if (Number.isFinite(ttl) && ttl > 0) return ttl;
+      if (Number.isFinite(ttl) && ttl > 0) return Math.max(Math.floor(ttl), 5);
     } catch (err) {
       this.logger.warn(
         `Failed to read provisioning.service_info_ttl_seconds setting: ${

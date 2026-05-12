@@ -6,8 +6,16 @@
  *   - Headers canónicos: `Authorization: Bearer <apiToken>` + `Accept: application/json`
  *     + `Content-Type: application/json` (en POST/PATCH/PUT) + User-Agent
  *     identificativo (ADR-083 §1 decisión 6).
- *   - Timeout configurable por request via `AbortController`. Default 30s
- *     (suficiente para Enhance — provisión real toma <5s típicamente).
+ *   - Timeout configurable por request via `AbortController`. Default 15s
+ *     (Sprint 15C.II Fase F.3 — GAP-15CII-G5, bajado de 30s): fail-fast en
+ *     los workers BullMQ — la API de orchd responde en <5s típicamente; 15s
+ *     cubre cualquier pico razonable sin retener un worker medio minuto si el
+ *     proveedor se cuelga. La protección ante fallos *repetidos* la da el
+ *     circuit breaker del wrapper (`getServiceInfoWithCache` /
+ *     `executeActionWithCacheInvalidation`) — deliberadamente NO se anida un
+ *     segundo breaker dentro de este HTTP client (anti-patrón "blanket
+ *     protection"; envolver el client en su propio breaker queda diferido a
+ *     v1.1 si una operación lo justificara — ADR-080 circuit breaker doctrine).
  *   - Mapeo errores HTTP / network / timeout → `ProvisionerPluginError`
  *     con código semántico (errors.ts). NUNCA lanza `Error` plano.
  *   - Logging estructurado (NestJS Logger) con masking automático del
@@ -54,7 +62,7 @@ export interface EnhanceHttpClientConfig {
    */
   readonly apiToken: string;
 
-  /** Timeout por request en milisegundos. Default 30000 (30s). */
+  /** Timeout por request en milisegundos. Default 15000 (15s) — GAP-15CII-G5. */
   readonly timeoutMs?: number;
 
   /**
@@ -108,7 +116,7 @@ export class EnhanceHttpClient {
     }
     this.baseUrl = config.baseUrl.replace(/\/+$/, '');
     this.apiToken = config.apiToken;
-    this.timeoutMs = config.timeoutMs ?? 30_000;
+    this.timeoutMs = config.timeoutMs ?? 15_000;
     this.userAgent =
       config.userAgent ?? 'Aelium-Dashboard/1.0 EnhanceProvisionerPlugin/1.0.0';
   }

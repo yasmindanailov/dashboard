@@ -336,6 +336,45 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     expect(result.service.product_provisioner).toBe('internal');
   });
 
+  // Sprint 15C.II Fase F.3 (GAP-15CII-G4) — TTL del cache service_info.
+  it('getInfoForUser: el TTL del cache viene del manifest si lo declara', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    registry.get.mockReturnValue(
+      buildPlugin({
+        manifest: { ...TEST_MANIFEST, serviceInfoCacheTtlSeconds: 10 },
+      }),
+    );
+    cache.get.mockResolvedValue(null); // miss → fetch + set
+
+    await service.getInfoForUser('svc-1', 'user-1', false);
+
+    expect(cache.set).toHaveBeenCalledWith('svc-1', expect.anything(), 10);
+  });
+
+  it('getInfoForUser: TTL del manifest < 5 → sanity floor 5s', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    registry.get.mockReturnValue(
+      buildPlugin({
+        manifest: { ...TEST_MANIFEST, serviceInfoCacheTtlSeconds: 2 },
+      }),
+    );
+    cache.get.mockResolvedValue(null);
+
+    await service.getInfoForUser('svc-1', 'user-1', false);
+
+    expect(cache.set).toHaveBeenCalledWith('svc-1', expect.anything(), 5);
+  });
+
+  it('getInfoForUser: sin TTL en manifest → usa el setting global (60s)', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    registry.get.mockReturnValue(buildPlugin());
+    cache.get.mockResolvedValue(null);
+
+    await service.getInfoForUser('svc-1', 'user-1', false);
+
+    expect(cache.set).toHaveBeenCalledWith('svc-1', expect.anything(), 60);
+  });
+
   it('getInfoForUser: shortcircuit terminal — service.status=cancelled NO invoca al plugin', async () => {
     // Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10): caso
     // canónico que reveló el bug de UI mostrando AlertBanner drift sobre

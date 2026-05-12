@@ -186,6 +186,12 @@ describe.each(
       if (m.testConnectionMethod === 'custom') {
         expect(typeof plugin.testConnection).toBe('function');
       }
+      // Sprint 15C.II Fase F.3 (GAP-15CII-G4): si declara TTL de cache, debe
+      // ser un entero positivo (el sanity floor de 5s lo aplica el runtime).
+      if (m.serviceInfoCacheTtlSeconds !== undefined) {
+        expect(Number.isInteger(m.serviceInfoCacheTtlSeconds)).toBe(true);
+        expect(m.serviceInfoCacheTtlSeconds).toBeGreaterThan(0);
+      }
     });
 
     it('manifest.configSchema y manifest.secretsSchema son JsonSchema7 separados', () => {

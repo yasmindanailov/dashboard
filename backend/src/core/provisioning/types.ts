@@ -756,6 +756,17 @@ export interface PluginManifest {
   readonly testConnectionMethod: PluginTestConnectionMethod;
 
   /**
+   * Sprint 15C.II Fase F.3 (GAP-15CII-G4) — TTL (segundos) del cache L1
+   * Redis de `service_info` para los servicios de este plugin. Opcional;
+   * si se omite, vale el setting global `provisioning.service_info_ttl_seconds`
+   * (default 60s). Se aplica un *sanity floor* de 5s — un TTL más bajo
+   * martillaría al proveedor sin beneficio real (la mayoría de paneles
+   * cambian estado en minutos, no segundos). Plugins cuyo proveedor reporta
+   * estado muy estable pueden subirlo (p.ej. 300s); los muy volátiles, a 5s.
+   */
+  readonly serviceInfoCacheTtlSeconds?: number;
+
+  /**
    * Sprint 15C Fase 15C.E.2 — ADR-080 Amendment B (2026-05-09).
    *
    * Schema declarativo del shape de `Product.provisioner_config` para
