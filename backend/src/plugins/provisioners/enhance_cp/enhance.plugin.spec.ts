@@ -375,11 +375,50 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
         buildApiMock(),
       );
       expect(plugin.manifest.slug).toBe('enhance_cp');
-      expect(plugin.manifest.testConnectionMethod).toBe('getStatus');
+      // Sprint 15C.II Fase F.3 (GAP-15CII-G8): `'custom'` — el getStatus de
+      // Enhance requiere un provider_reference real; el test-connection usa
+      // `testConnection()` (probe `GET /version` + `GET /orgs/{master}`).
+      expect(plugin.manifest.testConnectionMethod).toBe('custom');
+      expect(typeof plugin.testConnection).toBe('function');
       expect(plugin.manifest.configSchema.required).toEqual(
         expect.arrayContaining(['baseUrl', 'masterOrgId']),
       );
       expect(plugin.manifest.secretsSchema.required).toEqual(['apiToken']);
+    });
+
+    // Sprint 15C.II Fase F.3 (GAP-15CII-G8) — test-connection canónico.
+    it('testConnection(): GET /version + GET /orgs/{master} OK → { ok: true }', async () => {
+      const api = buildApiMock();
+      api.getVersion.mockResolvedValue('12.21.3');
+      api.getOrg.mockResolvedValue({ id: 'master-org' });
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+
+      const result = await plugin.testConnection();
+      expect(result.ok).toBe(true);
+      expect(result.message).toContain('12.21.3');
+      expect(api.getVersion).toHaveBeenCalledTimes(1);
+      expect(api.getOrg).toHaveBeenCalledWith(VALID_INSTALL.config.masterOrgId);
+    });
+
+    it('testConnection(): si el probe lanza (token inválido, etc.) → { ok: false } + mensaje', async () => {
+      const api = buildApiMock();
+      api.getVersion.mockResolvedValue('12.21.3');
+      api.getOrg.mockRejectedValue(new Error('401 Unauthorized'));
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+
+      const result = await plugin.testConnection();
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('401 Unauthorized');
     });
 
     // Sprint 15C Fase 15C.E.2 — ADR-080 Amendment B.

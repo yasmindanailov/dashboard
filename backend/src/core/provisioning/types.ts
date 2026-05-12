@@ -601,6 +601,20 @@ export interface ProvisionerPlugin {
   ): Promise<ActionResult>;
 
   /**
+   * Test de conectividad **independiente de cualquier servicio** (Sprint
+   * 15C.II Fase F.3 — GAP-15CII-G8). **Obligatorio** si
+   * `manifest.testConnectionMethod === 'custom'`; ignorado en otro caso.
+   *
+   * A diferencia de `getStatus()` (que requiere un `provider_reference`
+   * real), esto hace un *probe* ligero contra el proveedor con las
+   * credenciales configuradas — p.ej. `GET /version` (alive) + `GET /orgs/{master}`
+   * (auth + RBAC) en Enhance. NO debe tener side-effects. Captura sus
+   * propios errores y los reporta como `{ ok: false, message }` —
+   * `AdminPluginsService.testConnection` no espera que lance.
+   */
+  testConnection?(): Promise<{ ok: boolean; message: string }>;
+
+  /**
    * Manifest declarativo del plugin (Sprint 15A — ADR-080).
    * Expone label/version/configSchema/secretsSchema para el loader
    * dinámico, la UI admin (`/admin/settings/plugins`) y el portal RGPD.

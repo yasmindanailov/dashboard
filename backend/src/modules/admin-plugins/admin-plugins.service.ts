@@ -58,8 +58,10 @@ export interface ReconcileAllResponse {
  *  3. PATCH: actualiza `enabled`/`config`/`secrets` con validación Ajv
  *     contra `manifest.configSchema`/`manifest.secretsSchema`. Cifra
  *     secrets nuevos. Preserva secrets omitidos (parcial-update).
- *  4. Test-connection: invoca `plugin.getStatus()` con un service sintético
- *     y reporta éxito/error. Solo si `manifest.testConnectionMethod === 'getStatus'`.
+ *  4. Test-connection: según `manifest.testConnectionMethod` — `'custom'`
+ *     invoca `plugin.testConnection()` (probe ligero contra el proveedor,
+ *     sin servicio); `'getStatus'` invoca `plugin.getStatus()` con un service
+ *     sintético; `null` ⇒ 400. Sprint 15C.II Fase F.3 (GAP-15CII-G8).
  *
  * Doctrina canónica:
  *   - **Secrets nunca salen del backend** (R12). GET no devuelve plaintext;
@@ -300,9 +302,20 @@ export class AdminPluginsService implements OnModuleInit {
   }
 
   /**
-   * Test-connection: invoca `plugin.getStatus()` con un service sintético
-   * mínimo. Solo si el manifest declara `testConnectionMethod === 'getStatus'`.
-   * Si declara otro modo o `null`, devuelve 400.
+   * Test-connection. Dos modos según `manifest.testConnectionMethod`:
+   *
+   *  - `'custom'` (Sprint 15C.II Fase F.3 — GAP-15CII-G8): invoca
+   *    `plugin.testConnection()` — un *probe* ligero contra el proveedor con
+   *    las credenciales configuradas, **independiente de cualquier servicio**.
+   *    Es el modo correcto para plugins cuyo `getStatus()` requiere un
+   *    `provider_reference` real (Enhance: `getStatus` sobre un servicio
+   *    sintético siempre reportaba "sin metadata" — falso negativo).
+   *  - `'getStatus'`: invoca `plugin.getStatus()` con un servicio sintético
+   *    mínimo (incluye `metadata: {}` para no romper plugins que lo lean).
+   *    Reservado para plugins cuyo `getStatus` no depende de estado externo
+   *    por servicio.
+   *
+   * `null` (o `'custom'` sin `testConnection()` implementado) → 400.
    */
   async testConnection(slug: string): Promise<{
     success: boolean;
@@ -310,32 +323,67 @@ export class AdminPluginsService implements OnModuleInit {
     checked_at: string;
   }> {
     const plugin = this.requireValidatedPlugin(slug);
-    if (plugin.manifest.testConnectionMethod !== 'getStatus') {
-      throw new BadRequestException(
-        `Plugin "${slug}" does not support test-connection (manifest.testConnectionMethod=${plugin.manifest.testConnectionMethod ?? 'null'}).`,
-      );
+    const method = plugin.manifest.testConnectionMethod;
+
+    if (method === 'custom') {
+      if (typeof plugin.testConnection !== 'function') {
+        throw new BadRequestException(
+          `Plugin "${slug}" declares testConnectionMethod='custom' but does not implement testConnection(). ` +
+            `This is a wiring bug — the plugin must implement the contract method.`,
+        );
+      }
+      try {
+        const result = await plugin.testConnection();
+        if (!result.ok) {
+          this.logger.warn(
+            `test-connection failed for plugin "${slug}": ${result.message}`,
+          );
+        }
+        return {
+          success: result.ok,
+          message: result.message,
+          checked_at: new Date().toISOString(),
+        };
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'unexpected error from plugin';
+        this.logger.warn(
+          `test-connection threw for plugin "${slug}": ${message}`,
+        );
+        return {
+          success: false,
+          message,
+          checked_at: new Date().toISOString(),
+        };
+      }
     }
 
-    const syntheticService = this.buildSyntheticService(slug);
-    try {
-      const report = await plugin.getStatus(syntheticService);
-      return {
-        success: report.status !== 'unknown' && report.status !== 'failed',
-        message: report.statusReason ?? `Status reported: ${report.status}`,
-        checked_at: report.checkedAt,
-      };
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'unexpected error from plugin';
-      this.logger.warn(
-        `test-connection failed for plugin "${slug}": ${message}`,
-      );
-      return {
-        success: false,
-        message,
-        checked_at: new Date().toISOString(),
-      };
+    if (method === 'getStatus') {
+      const syntheticService = this.buildSyntheticService(slug);
+      try {
+        const report = await plugin.getStatus(syntheticService);
+        return {
+          success: report.status !== 'unknown' && report.status !== 'failed',
+          message: report.statusReason ?? `Status reported: ${report.status}`,
+          checked_at: report.checkedAt,
+        };
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'unexpected error from plugin';
+        this.logger.warn(
+          `test-connection failed for plugin "${slug}": ${message}`,
+        );
+        return {
+          success: false,
+          message,
+          checked_at: new Date().toISOString(),
+        };
+      }
     }
+
+    throw new BadRequestException(
+      `Plugin "${slug}" does not support test-connection (manifest.testConnectionMethod=${method ?? 'null'}).`,
+    );
   }
 
   /**
@@ -815,6 +863,12 @@ export class AdminPluginsService implements OnModuleInit {
       server_id: null,
       provisioner_slug: slug,
       provider_reference: null,
+      // Sprint 15C.II Fase F.3 (GAP-15CII-G8): objeto vacío, no `undefined` —
+      // los plugins que lean `service.metadata` en `getStatus` no deben
+      // romper ante el servicio sintético del test-connection. (Plugins cuyo
+      // `getStatus` requiere refs reales del proveedor deberían declarar
+      // `testConnectionMethod: 'custom'` + `testConnection()` — ver Enhance.)
+      metadata: {},
       client: {
         id: 'test-connection',
         email: 'test-connection@aelium.test',

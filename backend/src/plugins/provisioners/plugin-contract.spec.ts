@@ -181,6 +181,11 @@ describe.each(
 
       // Test-connection: lista cerrada.
       expect([null, 'getStatus', 'custom']).toContain(m.testConnectionMethod);
+      // Sprint 15C.II Fase F.3 (GAP-15CII-G8): `'custom'` ⇒ el plugin DEBE
+      // implementar el método `testConnection()` del contrato.
+      if (m.testConnectionMethod === 'custom') {
+        expect(typeof plugin.testConnection).toBe('function');
+      }
     });
 
     it('manifest.configSchema y manifest.secretsSchema son JsonSchema7 separados', () => {
