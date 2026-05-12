@@ -319,6 +319,45 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
     'Restricción del tratamiento (RGPD art. 18)',
   'service.suspension_reason.other': 'Otros motivos',
 
+  // ── Banner de suspensión del cliente (Sprint 15C.II Fase F.4.2). El cliente
+  //    ve el motivo cliente-seguro (etiqueta `service.suspension_reason.*` —
+  //    NUNCA la nota interna del admin) + un CTA según el motivo: impago →
+  //    regularizar pago; resto → soporte. Mientras esté suspendido se ocultan
+  //    SSO + acciones inline + DNS en `/dashboard/services/[id]`.
+  'service.suspended.client.title': 'Tu servicio está suspendido',
+  'service.suspended.client.body':
+    'El acceso a este servicio está temporalmente suspendido. Tus datos se conservan; en cuanto se resuelva, lo reactivaremos.',
+  'service.suspended.client.reason_label': 'Motivo',
+  'service.suspended.client.cta_pay': 'Regularizar el pago',
+  'service.suspended.client.cta_support': 'Contactar con soporte',
+
+  // ── Aviso de desincronización del estado de suspensión (Sprint 15C.II Fase
+  //    F.4.1+F.4.3). Solo admin (`/admin/services/[id]`): `services.status`
+  //    (autoritativo para el lifecycle administrativo) no coincide con el que
+  //    reporta el proveedor. Informa, no bloquea — ofrece el realineado
+  //    idempotente (`POST /admin/services/:id/resync-provider-state`), que NO
+  //    es una transición de lifecycle (no escribe la BD, no notifica al
+  //    cliente, no emite `service.suspended`/`unsuspended`).
+  'service.provider_state_desync.admin.title':
+    'El proveedor no refleja el estado de suspensión',
+  'service.provider_state_desync.admin.body':
+    'El estado de suspensión registrado en Aelium no coincide con el del proveedor. Puede pasar tras un cambio directo en el panel del proveedor, un reinicio del entorno de pruebas o un proceso interno a medias. No bloquea nada, pero conviene realinearlo.',
+  'service.provider_state_desync.admin.aelium_state': 'Estado en Aelium',
+  'service.provider_state_desync.admin.target_suspended': 'suspendido',
+  'service.provider_state_desync.admin.target_active': 'activo',
+  'service.provider_state_desync.admin.resync_cta':
+    'Realinear estado del proveedor',
+  'service.provider_state_desync.admin.resync_help':
+    'Re-aplica en el proveedor el estado de suspensión que Aelium tiene registrado. Acción idempotente — no cambia el lifecycle del servicio, no notifica al cliente, no registra una nueva transición.',
+  'service.provider_state_desync.admin.resync_success':
+    'Estado del proveedor realineado.',
+  'service.provider_state_desync.admin.resync_error':
+    'No se pudo realinear el estado del proveedor. Revisa los logs del backend.',
+  'service.provider_state_desync.admin.confirm_suspend':
+    '¿Re-aplicar la suspensión en el proveedor? El servicio quedará suspendido también en el proveedor, coincidiendo con el registro de Aelium. No se notifica al cliente ni se registra una nueva transición de lifecycle.',
+  'service.provider_state_desync.admin.confirm_active':
+    '¿Reactivar el servicio en el proveedor? El servicio quedará activo también en el proveedor, coincidiendo con el registro de Aelium. No se notifica al cliente ni se registra una nueva transición de lifecycle.',
+
   // ── Drift UX discriminada por rol (UI_SPEC §4.13 + ADR-083 Amendment A4.3
   //    — Sprint 15C.II Fase C 2026-05-10). Heredable a 15D RC, 15E Docker,
   //    15G Plesk: cualquier plugin SaaS que retorne `info.status` ∈

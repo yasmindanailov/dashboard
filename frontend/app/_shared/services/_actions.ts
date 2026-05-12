@@ -317,3 +317,43 @@ export async function unsuspendServiceAction(
     };
   }
 }
+
+/* ═══════════════════════════════════════
+   Sprint 15C.II Fase F.4.3 — realinear el estado de suspensión del proveedor
+
+   Materializa el botón "Realinear estado del proveedor" del
+   `<AdminProviderStateDesyncBanner>` (se muestra cuando
+   `service.provider_state_desync === true`, ver `getInfoForUser` F.4.1).
+   Endpoint `POST /admin/services/:id/resync-provider-state` →
+   `ProvisioningService.resyncProviderStateAsAdmin`: re-aplica la inline
+   action canónica `suspend_service` / `unsuspend_service` del plugin para
+   que el proveedor coincida con `services.status` — SIN transición de
+   lifecycle, sin escribir la BD, sin emitir `service.suspended`/`unsuspended`.
+   Idempotente. Tras OK el SC parent re-renderiza sin el banner de desync.
+   ═══════════════════════════════════════ */
+
+export type ResyncProviderStateResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function resyncProviderStateAction(
+  serviceId: string,
+): Promise<ResyncProviderStateResult> {
+  try {
+    await serverFetch<unknown>(
+      `/admin/services/${serviceId}/resync-provider-state`,
+      { method: 'POST', body: {} },
+    );
+    revalidatePath(`/admin/services/${serviceId}`);
+    revalidatePath('/admin/services');
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo realinear el estado del proveedor.',
+    };
+  }
+}

@@ -1251,4 +1251,314 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       });
     });
   });
+
+  // ─── Fase F.4 — robustez del status de suspensión ────────────────────────
+  describe('Fase F.4 — reconciliación del status administrativo + resync', () => {
+    const SUSPEND_ACTION = {
+      slug: 'suspend_service',
+      label: 'plugin.x.suspend',
+      confirmRequired: true,
+      destructive: true,
+      adminOnly: true,
+    } as const;
+    const UNSUSPEND_ACTION = {
+      slug: 'unsuspend_service',
+      label: 'plugin.x.unsuspend',
+      confirmRequired: true,
+      destructive: false,
+      adminOnly: true,
+    } as const;
+
+    /**
+     * Plugin con `supports_suspend=true`, las 2 inline actions canónicas, y un
+     * `getServiceInfo` que reporta `providerStatus` (lo que el proveedor "ve").
+     */
+    function buildSuspendablePlugin(
+      providerStatus:
+        | 'active'
+        | 'suspended'
+        | 'cancelled'
+        | 'unknown' = 'active',
+      executeAction: jest.Mock = jest
+        .fn()
+        .mockResolvedValue({ success: true, data: {} }),
+    ): ProvisionerPlugin {
+      return buildPlugin({
+        slug: 'enhance_cp',
+        capabilities: {
+          has_sso_panel: false,
+          has_metrics: false,
+          has_metrics_history: false,
+          requires_server: false,
+          provision_mode: 'sync',
+          completes_via_task: false,
+          supports_reconciliation: true,
+          has_dns_management: false,
+          supports_suspend: true,
+        },
+        inlineActions: [SUSPEND_ACTION, UNSUSPEND_ACTION],
+        getServiceInfo: jest.fn().mockResolvedValue({
+          status: providerStatus,
+          display: { primary: 'mi-web.com', secondary: 'Plan Pro' },
+          capabilities: {
+            has_sso_panel: false,
+            has_metrics: false,
+            has_metrics_history: false,
+            requires_server: false,
+            provision_mode: 'sync',
+            completes_via_task: false,
+            supports_reconciliation: true,
+            has_dns_management: false,
+            supports_suspend: true,
+            hasSsoPanel: false,
+            inlineActions:
+              providerStatus === 'suspended' ? [UNSUSPEND_ACTION] : [],
+          },
+          availableActions:
+            providerStatus === 'active'
+              ? [SUSPEND_ACTION]
+              : providerStatus === 'suspended'
+                ? [UNSUSPEND_ACTION]
+                : [],
+          fetchedAt: new Date().toISOString(),
+        }) as never,
+        executeAction: executeAction as never,
+      });
+    }
+
+    // ── F.4.1 — getInfoForUser ──────────────────────────────────────────
+    it('getInfoForUser: BD suspended + proveedor active → override status=suspended, availableActions=[unsuspend_service], provider_state_desync=true', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          status: 'suspended',
+          provisioner_slug: 'enhance_cp',
+          suspension_reason: 'overdue_payment: nota interna',
+          suspended_at: new Date('2026-05-11T00:00:00Z'),
+        }),
+      );
+      registry.get.mockReturnValue(buildSuspendablePlugin('active'));
+
+      const result = await service.getInfoForUser('svc-1', 'user-1', true);
+
+      expect(result.info.status).toBe('suspended');
+      expect(result.info.availableActions.map((a) => a.slug)).toEqual([
+        'unsuspend_service',
+      ]);
+      expect(result.info.capabilities.inlineActions.map((a) => a.slug)).toEqual(
+        ['unsuspend_service'],
+      );
+      expect(result.service.provider_state_desync).toBe(true);
+    });
+
+    it('getInfoForUser: BD active + proveedor suspended → conserva status=suspended (cliente bloqueado de verdad), availableActions=[suspend_service], provider_state_desync=true', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({ status: 'active', provisioner_slug: 'enhance_cp' }),
+      );
+      registry.get.mockReturnValue(buildSuspendablePlugin('suspended'));
+
+      const result = await service.getInfoForUser('svc-1', 'user-1', true);
+
+      expect(result.info.status).toBe('suspended');
+      expect(result.info.availableActions.map((a) => a.slug)).toEqual([
+        'suspend_service',
+      ]);
+      expect(result.service.provider_state_desync).toBe(true);
+    });
+
+    it('getInfoForUser: BD suspended + proveedor cancelled (mock reiniciado → suscripción "deleted") → override status=suspended, availableActions=[unsuspend_service], provider_state_desync=true', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          status: 'suspended',
+          provisioner_slug: 'enhance_cp',
+          suspension_reason: 'overdue_payment',
+          suspended_at: new Date('2026-05-12T07:24:09Z'),
+        }),
+      );
+      registry.get.mockReturnValue(buildSuspendablePlugin('cancelled'));
+
+      const result = await service.getInfoForUser('svc-1', 'user-1', true);
+
+      expect(result.info.status).toBe('suspended');
+      expect(result.info.availableActions.map((a) => a.slug)).toEqual([
+        'unsuspend_service',
+      ]);
+      expect(result.service.provider_state_desync).toBe(true);
+    });
+
+    it('getInfoForUser: BD active + proveedor active → sin override, provider_state_desync=false', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({ status: 'active', provisioner_slug: 'enhance_cp' }),
+      );
+      registry.get.mockReturnValue(buildSuspendablePlugin('active'));
+
+      const result = await service.getInfoForUser('svc-1', 'user-1', true);
+
+      expect(result.info.status).toBe('active');
+      expect(result.service.provider_state_desync).toBe(false);
+    });
+
+    it('getInfoForUser: BD suspended + proveedor unknown (caído) → NO afirma desync, deja info.status tal cual (el admin ve el drift banner)', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          status: 'suspended',
+          provisioner_slug: 'enhance_cp',
+          suspension_reason: 'overdue_payment',
+          suspended_at: new Date('2026-05-11T00:00:00Z'),
+        }),
+      );
+      registry.get.mockReturnValue(buildSuspendablePlugin('unknown'));
+
+      const result = await service.getInfoForUser('svc-1', 'user-1', true);
+
+      expect(result.info.status).toBe('unknown');
+      expect(result.service.provider_state_desync).toBe(false);
+    });
+
+    it('getInfoForUser: plugin sin supports_suspend → no toca info ni el flag aunque la BD diga suspended', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          status: 'suspended',
+          provisioner_slug: 'internal',
+          suspension_reason: 'other: bookkeeping legacy',
+        }),
+      );
+      // buildPlugin() por defecto: supports_suspend=false, getServiceInfo → active.
+      registry.get.mockReturnValue(buildPlugin());
+
+      const result = await service.getInfoForUser('svc-1', 'user-1', true);
+
+      expect(result.info.status).toBe('active');
+      expect(result.service.provider_state_desync).toBe(false);
+    });
+
+    // ── F.4.3 — resyncProviderStateAsAdmin ──────────────────────────────
+    it('resyncProviderStateAsAdmin: BD suspended → invoca executeAction(suspend_service) + audit, SIN service.suspended/unsuspended ni prisma.update', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          status: 'suspended',
+          provisioner_slug: 'enhance_cp',
+          suspension_reason: 'abuse_investigation: DMCA pendiente',
+          suspended_at: new Date('2026-05-11T00:00:00Z'),
+        }),
+      );
+      const executeAction = jest
+        .fn()
+        .mockResolvedValue({ success: true, data: {} });
+      registry.get.mockReturnValue(
+        buildSuspendablePlugin('active', executeAction),
+      );
+
+      const result = await service.resyncProviderStateAsAdmin(
+        'svc-1',
+        'admin-id',
+        { ipAddress: '1.2.3.4', userAgent: 'jest' },
+      );
+
+      expect(executeAction).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'svc-1' }),
+        'suspend_service',
+        { reason: 'abuse_investigation' },
+      );
+      expect(prisma.service.update).not.toHaveBeenCalled();
+      expect(events.emit).not.toHaveBeenCalledWith(
+        'service.suspended',
+        expect.anything(),
+      );
+      expect(events.emit).not.toHaveBeenCalledWith(
+        'service.unsuspended',
+        expect.anything(),
+      );
+      expect(audit.logAccess).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'service_provider_state_resync_admin',
+          metadata: expect.objectContaining({
+            resource_id: 'svc-1',
+            target_state: 'suspended',
+            action_slug: 'suspend_service',
+          }),
+        }),
+      );
+      expect(result).toEqual({
+        id: 'svc-1',
+        target_state: 'suspended',
+        aligned: true,
+      });
+    });
+
+    it('resyncProviderStateAsAdmin: BD active → invoca executeAction(unsuspend_service)', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({ status: 'active', provisioner_slug: 'enhance_cp' }),
+      );
+      const executeAction = jest
+        .fn()
+        .mockResolvedValue({ success: true, data: {} });
+      registry.get.mockReturnValue(
+        buildSuspendablePlugin('suspended', executeAction),
+      );
+
+      const result = await service.resyncProviderStateAsAdmin(
+        'svc-1',
+        'admin-id',
+        { ipAddress: '1.2.3.4' },
+      );
+
+      expect(executeAction).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'svc-1' }),
+        'unsuspend_service',
+        {},
+      );
+      expect(result.target_state).toBe('active');
+    });
+
+    it('resyncProviderStateAsAdmin: estado no realineables (pending) → ConflictException SERVICE_STATE_NOT_RESYNCABLE', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({ status: 'pending', provisioner_slug: 'enhance_cp' }),
+      );
+      registry.get.mockReturnValue(buildSuspendablePlugin('active'));
+
+      await expect(
+        service.resyncProviderStateAsAdmin('svc-1', 'admin-id', {
+          ipAddress: '1.2.3.4',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('resyncProviderStateAsAdmin: plugin sin supports_suspend → ConflictException SUSPEND_NOT_SUPPORTED', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({ status: 'suspended', provisioner_slug: 'internal' }),
+      );
+      registry.get.mockReturnValue(buildPlugin());
+
+      await expect(
+        service.resyncProviderStateAsAdmin('svc-1', 'admin-id', {
+          ipAddress: '1.2.3.4',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('resyncProviderStateAsAdmin: la inline action del plugin falla → ConflictException PROVIDER_RESYNC_FAILED', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          status: 'suspended',
+          provisioner_slug: 'enhance_cp',
+          suspension_reason: 'other',
+        }),
+      );
+      registry.get.mockReturnValue(
+        buildSuspendablePlugin(
+          'active',
+          jest.fn().mockResolvedValue({
+            success: false,
+            message: 'action.provider_error',
+          }),
+        ),
+      );
+
+      await expect(
+        service.resyncProviderStateAsAdmin('svc-1', 'admin-id', {
+          ipAddress: '1.2.3.4',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
 });

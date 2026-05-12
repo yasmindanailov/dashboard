@@ -1658,6 +1658,17 @@ export interface ServiceDetailResponse {
      * (ADR-082 DH-INV-2 — hosting service SIEMPRE tiene FQDN).
      */
     domain: string | null;
+    /**
+     * Sprint 15C.II Fase F.4.1 — `true` cuando el estado de suspensión
+     * registrado en Aelium (`services.status`, autoritativo para el
+     * lifecycle administrativo) no coincide con el que reporta el
+     * proveedor (dimensión operativa — DH-INV-6). Lo calcula el
+     * orquestador (`getInfoForUser`). La UI admin lo usa para mostrar el
+     * `<AdminProviderStateDesyncBanner>` con el botón "Realinear estado
+     * del proveedor con Aelium" (`POST /admin/services/:id/resync-provider-state`).
+     * El cliente no lo consume.
+     */
+    provider_state_desync: boolean;
   };
   info: ServiceInfo;
 }

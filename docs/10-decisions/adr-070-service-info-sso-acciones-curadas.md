@@ -270,6 +270,16 @@ return (
 
 ---
 
+## Amendments
+
+> Cambios compatibles hacia atrás post-cierre. Cada uno con fecha + ADR/sprint que lo justifica.
+
+### Amendment A1 — El "gateway curado" reconcilia el status administrativo en read-time (Sprint 15C.II Fase F.4, 2026-05-12)
+
+Como **puerta auditada** (no mirror del panel del proveedor), Aelium debe presentar al cliente y al admin un estado coherente del servicio incluso cuando el proveedor y `services.status` discrepan en la dimensión de suspensión. `ProvisioningService.getInfoForUser` (capa orquestador): si `services.status === 'suspended'` ⇒ `info.status='suspended'` (override del valor que reportó el plugin) + `availableActions` re-derivado del estado administrativo + `summary.provider_state_desync` cuando hay desfase (ambas direcciones). El cliente ve un banner de suspensión con CTA por motivo y **no puede operar "como si nada"** (se ocultan SSO + acciones inline + DNS mientras suspendido — coherente con la doctrina de este ADR: las acciones curadas existen para servicios operativos). El admin ve un aviso de desync con el botón "Realinear estado del proveedor" (`POST /admin/services/:id/resync-provider-state`) — realinea el *proveedor* con `services.status`, nunca al revés (eso desharía la decisión administrativa). No toca el contrato `ProvisionerPlugin` (ADR-077). Detalle de la doctrina "lifecycle administrativo vs operacional" en [ADR-082 Amendment A1](./adr-082-modelo-domain-hosting-dns-doctrine.md#amendments) y en el dossier Sprint 15C.II §A.11.10.1.
+
+---
+
 ## Referencias
 
 - **Módulos afectados:**

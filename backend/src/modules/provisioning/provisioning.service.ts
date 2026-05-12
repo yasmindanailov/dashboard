@@ -19,6 +19,7 @@ import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
 import { ProvisioningCacheService } from '../../core/provisioning/provisioning-cache.service';
 import {
   executeActionWithCacheInvalidation,
+  filterActionsByStatus,
   getServiceInfoWithCache,
   getSsoUrlWithAudit,
 } from '../../core/provisioning/plugin-utils';
@@ -28,6 +29,7 @@ import {
   ServiceInfo,
   ServiceWithRelations,
   SsoUrl,
+  SuspensionReason,
 } from '../../core/provisioning/types';
 import { AuditService } from '../audit/audit.service';
 
@@ -52,6 +54,7 @@ import {
   DeprovisionDto,
   ServiceListQueryDto,
   SuspendServiceDto,
+  SuspensionReasonDto,
 } from './dto/provisioning.dto';
 import { ProvisioningOrchestratorService } from './provisioning-orchestrator.service';
 
@@ -248,6 +251,16 @@ export class ProvisioningService {
       // presente, la UI lo muestra como identificador primario del
       // service (ADR-082 DH-INV-2 — hosting service SIEMPRE tiene FQDN).
       domain: string | null;
+      // Sprint 15C.II Fase F.4.1 — desincronización del estado de
+      // suspensión entre `services.status` (autoritativo para el lifecycle
+      // *administrativo*, decisión de Aelium) y el estado *operacional* que
+      // reporta el plugin/proveedor (DH-INV-6 — dimensión distinta). `true`
+      // cuando uno dice "suspended" y el otro no. Vive en este summary
+      // (contrato frontend), NO en `ServiceInfo` (contrato plugin) — es una
+      // observación del orquestador, no algo que el plugin puede conocer.
+      // La UI admin lo usa para avisar y ofrecer el botón "Realinear estado
+      // del proveedor con Aelium" (`POST /admin/services/:id/resync-provider-state`).
+      provider_state_desync: boolean;
     };
     info: ServiceInfo;
   }> {
@@ -281,6 +294,11 @@ export class ProvisioningService {
       client_name: buildClientDisplayName(service.client),
       client_email: service.client.email,
       domain: service.domain,
+      // Sprint 15C.II Fase F.4.1: se recalcula abajo (solo en el path normal,
+      // tras consultar al plugin). En los shortcircuits — terminal /
+      // plugin-no-registrado — no hay estado de proveedor con el que
+      // comparar, así que queda `false`.
+      provider_state_desync: false,
     };
 
     // Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10):
@@ -357,7 +375,7 @@ export class ProvisioningService {
       }
     }
 
-    const info = await getServiceInfoWithCache(
+    let info = await getServiceInfoWithCache(
       plugin,
       service,
       this.cache,
@@ -365,6 +383,92 @@ export class ProvisioningService {
       { ttlSeconds, forceRevalidate },
       this.breakers,
     );
+
+    // ─── Sprint 15C.II Fase F.4.1 — reconciliación del status administrativo ──
+    //
+    // `services.status` es **autoritativo** para el lifecycle *administrativo*
+    // (suspended / cancelled — decisión de Aelium sobre si el cliente puede
+    // operar el servicio). DH-INV-6 (ADR-082 — "el proveedor gana en
+    // conflicto") aplica al estado *operacional* (plan, refs, métricas, drift):
+    // son dimensiones distintas. El plugin deriva `info.status` de lo que ve en
+    // el proveedor (`mapSubscriptionStatus`). Si Aelium tiene el servicio
+    // `suspended` pero el proveedor reporta `active` (típico: el flujo F.1 a
+    // medio terminar, el `MockEnhanceServer` in-memory reiniciado, el cron de
+    // billing, o un cambio directo en el panel de Enhance) la UI mostraba el
+    // banner amarillo de suspensión PERO sin el botón "Reanudar" (el plugin
+    // no devolvía `unsuspend_service` en `availableActions` porque cree que
+    // está activo) → estado roto sin salida. El desync inverso (BD `active`,
+    // proveedor `suspended`) mostraba "Reanudar" que devolvía
+    // `409 SERVICE_NOT_SUSPENDED`.
+    //
+    // Esta capa del orquestador (heredable a TODOS los plugins, sin que cada
+    // uno lo implemente):
+    //   1. Detecta el desfase de la dimensión de suspensión y lo expone en
+    //      `summary.provider_state_desync` (contrato frontend — NO en
+    //      `ServiceInfo`, que es contrato del plugin; el plugin no puede
+    //      conocer este desfase, solo ve su lado).
+    //   2. Re-deriva `availableActions` desde `services.status` (el estado
+    //      administrativo): los botones siempre coinciden con lo que aceptan
+    //      los guards de `suspendAsAdmin`/`unsuspendAsAdmin` — y, además, es
+    //      auto-curativo (clicar "Suspender" sobre un servicio que el proveedor
+    //      ya tiene suspendido es idempotente; clicar "Reanudar" sobre uno que
+    //      Aelium tiene suspendido aplica el `unsuspend_service` que realinea
+    //      el proveedor).
+    //   3. Cuando Aelium lo tiene `suspended`, fuerza `info.status='suspended'`
+    //      para que el banner cliente + el header + el badge sean coherentes
+    //      (también si el proveedor reporta `cancelled`/`expired` por una
+    //      desincronización — el aviso de desync admin lo explica). NO baja
+    //      `info.status` cuando Aelium lo tiene `active` y el proveedor reporta
+    //      algo MÁS restrictivo (`suspended`/`cancelled`/`expired`): el cliente
+    //      realmente no puede usar el servicio ahora mismo — no lo ocultamos;
+    //      dejamos el estado del proveedor visible y el admin lo resuelve
+    //      (con "Realinear" si es suspensión; re-aprovisionar / cancelar
+    //      formalmente si el proveedor lo da por eliminado).
+    //
+    // Solo aplica a plugins con `supports_suspend` (los demás no modelan la
+    // suspensión — `services.status='suspended'` sería bookkeeping puro de
+    // Aelium), solo cuando `services.status ∈ {active, suspended}`, y solo
+    // cuando el proveedor está *accesible* (`info.status ∉ {unknown, failed}`):
+    // si está caído / circuit open no afirmamos desync — no lo sabemos — y
+    // dejamos `info.status` tal cual para que el admin vea el `AdminDriftBanner`
+    // de "proveedor inaccesible". NO se hace shortcircuit del plugin (a un
+    // servicio suspendido sí le pedimos `getServiceInfo` — queremos las
+    // métricas). Caso real que motivó cubrir también `cancelled`/`expired`:
+    // el `MockEnhanceServer` in-memory reiniciado tras una suspensión deja la
+    // suscripción reportando `deleted` (→ `info.status='cancelled'`) mientras
+    // `services.status` sigue `suspended` — antes la página mezclaba badges
+    // ("Cancelado" en el header, "Suspendido" en el banner) y no ofrecía
+    // ninguna acción de salida.
+    if (plugin.capabilities.supports_suspend) {
+      const adminStatus = String(service.status);
+      const adminSuspended = adminStatus === 'suspended';
+      const providerReachable =
+        info.status !== 'unknown' && info.status !== 'failed';
+      if (
+        (adminStatus === 'active' || adminStatus === 'suspended') &&
+        providerReachable &&
+        info.status !== adminStatus
+      ) {
+        summary.provider_state_desync = true;
+        const reconciledActions = filterActionsByStatus(
+          plugin.inlineActions,
+          adminSuspended ? 'suspended' : 'active',
+        );
+        info = {
+          ...info,
+          // Si Aelium lo tiene `suspended` ⇒ `info.status='suspended'` (página
+          // coherente). Si Aelium lo tiene `active` ⇒ conservamos lo que
+          // reportó el proveedor (no bajamos severidad — el cliente no puede
+          // usarlo si el proveedor lo bloqueó/eliminó; el admin lo resuelve).
+          status: adminSuspended ? 'suspended' : info.status,
+          availableActions: reconciledActions,
+          capabilities: {
+            ...info.capabilities,
+            inlineActions: reconciledActions,
+          },
+        };
+      }
+    }
 
     return { service: summary, info };
   }
@@ -1090,6 +1194,143 @@ export class ProvisioningService {
     });
 
     return { id: updated.id, status: String(updated.status) };
+  }
+
+  /**
+   * Sprint 15C.II Fase F.4.3 — realinea el estado de **suspensión** en el
+   * proveedor con `services.status` (autoritativo para el lifecycle
+   * administrativo), **sin tocar la BD ni emitir eventos de lifecycle**. Es
+   * una operación de RECONCILIACIÓN idempotente, no una transición de estado:
+   *   - `services.status === 'suspended'` → asegura el servicio suspendido en
+   *     el proveedor (inline action `suspend_service`).
+   *   - `services.status === 'active'`    → asegura el servicio activo en el
+   *     proveedor (inline action `unsuspend_service`).
+   *   - cualquier otro estado → 409 (esta operación solo cubre la dimensión de
+   *     suspensión; un servicio `pending`/`failed`/`cancelled`/`terminated` no
+   *     tiene "estado de suspensión del proveedor" que realinear).
+   *
+   * Pensada para el botón "Realinear estado del proveedor con Aelium" del
+   * banner de desync de `/admin/services/[id]` (cuando
+   * `summary.provider_state_desync === true`, ver `getInfoForUser` F.4.1).
+   * Reutiliza `executeActionWithCacheInvalidation` (circuit breaker +
+   * invalidación de cache `service_info` + audit `service.action_executed` +
+   * evento `service.action_executed`) — esto es legítimo: "se ejecutó la
+   * acción inline X" SÍ ocurrió. Lo que NO se emite es `service.suspended` /
+   * `service.unsuspended` (no es un cambio de lifecycle — el lifecycle ya
+   * estaba en `services.status`; aquí solo el proveedor se pone al día), ni se
+   * escribe `services.status` / `suspended_at` / `suspension_reason`. Audit de
+   * acceso staff propio: `service_provider_state_resync_admin`.
+   *
+   * Idempotente: si el proveedor ya está en el estado destino, la inline
+   * action es un no-op inofensivo (Enhance `patchSubscription({ isSuspended })`
+   * sobre el mismo valor). Heredable a 15E Docker / 15G Plesk (15D RC no
+   * aplica — `supports_suspend=false`).
+   */
+  async resyncProviderStateAsAdmin(
+    serviceId: string,
+    actorUserId: string,
+    ctx: { ipAddress: string; userAgent?: string | null },
+  ): Promise<{
+    id: string;
+    target_state: 'active' | 'suspended';
+    aligned: true;
+  }> {
+    const service = await this.loadServiceForView(serviceId);
+
+    const adminStatus = String(service.status);
+    if (adminStatus !== 'active' && adminStatus !== 'suspended') {
+      throw new ConflictException({
+        code: 'SERVICE_STATE_NOT_RESYNCABLE',
+        message: `Solo se puede realinear el estado del proveedor para servicios activos o suspendidos (estado actual: ${adminStatus}).`,
+        current_status: adminStatus,
+      });
+    }
+
+    const pluginSlug = service.provisioner_slug ?? service.product.provisioner;
+    const plugin = this.registry.get(pluginSlug);
+    if (!plugin) {
+      throw new ConflictException({
+        code: 'PLUGIN_NOT_REGISTERED',
+        message: `El plugin "${pluginSlug}" no está registrado.`,
+      });
+    }
+    if (!plugin.capabilities.supports_suspend) {
+      throw new ConflictException({
+        code: 'SUSPEND_NOT_SUPPORTED',
+        message: `El plugin "${pluginSlug}" no gestiona la suspensión de servicios — no hay estado de proveedor que realinear.`,
+      });
+    }
+
+    const targetSuspended = adminStatus === 'suspended';
+    const actionSlug = targetSuspended
+      ? 'suspend_service'
+      : 'unsuspend_service';
+    const payload: Record<string, unknown> = targetSuspended
+      ? { reason: this.parseSuspensionReasonCode(service.suspension_reason) }
+      : {};
+
+    const result = await executeActionWithCacheInvalidation(
+      plugin,
+      service,
+      actionSlug,
+      payload,
+      {
+        actorUserId,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent ?? null,
+        actorIsAdmin: true,
+      },
+      this.cache,
+      this.events,
+      this.audit,
+      this.breakers,
+    );
+    if (!result.success) {
+      throw new ConflictException({
+        code: 'PROVIDER_RESYNC_FAILED',
+        message:
+          'No se pudo realinear el estado del servicio en el proveedor. Inténtalo de nuevo o contacta con el equipo técnico.',
+        provider_message_key: result.message ?? null,
+      });
+    }
+
+    await this.cache.invalidate(serviceId);
+
+    await this.audit.logAccess({
+      user_id: actorUserId,
+      action: 'service_provider_state_resync_admin',
+      ip_address: ctx.ipAddress,
+      user_agent: ctx.userAgent ?? null,
+      resource: 'Service',
+      metadata: {
+        resource_id: serviceId,
+        target_user_id: service.user_id,
+        target_state: adminStatus,
+        action_slug: actionSlug,
+      },
+    });
+
+    return {
+      id: service.id,
+      target_state: adminStatus,
+      aligned: true,
+    };
+  }
+
+  /**
+   * Sprint 15C.II Fase F.4 — extrae el código `SuspensionReason` canónico de
+   * `services.suspension_reason`, que se persiste combinado como `"<reason>"`
+   * o `"<reason>: <internal_note>"` (mismo patrón que `cancellation_reason`).
+   * Si la parte previa al `": "` no es un código conocido, devuelve `'other'`.
+   * (Fase F.6 desacoplará el motivo-enum de la nota libre; mientras tanto este
+   * helper es la fuente única de parseo.)
+   */
+  private parseSuspensionReasonCode(combined: string | null): SuspensionReason {
+    if (!combined) return 'other';
+    const code = combined.split(': ', 1)[0]?.trim();
+    return (Object.values(SuspensionReasonDto) as string[]).includes(code)
+      ? (code as SuspensionReason)
+      : 'other';
   }
 
   // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
