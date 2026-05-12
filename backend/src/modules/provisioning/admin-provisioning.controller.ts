@@ -111,6 +111,12 @@ export class AdminProvisioningController {
    * `POST /services/:id/refresh` pero con isAdmin=true (bypass ownership).
    * Invocado desde el botón "↻ Refrescar" de `MetricsBar.tsx` cuando renderiza
    * en `/admin/services/[id]`.
+   *
+   * Sprint 15C.II Fase F.3 (B.1) — el cooldown server-side per-servicio vive
+   * en `ProvisioningService.getInfoForUser` y aplica también aquí: cliente y
+   * admin comparten la misma ventana (≈15s) — un admin depurando recibe el
+   * valor cacheado dentro de la ventana, lo cual no impide depurar (orchd
+   * responde <5s, el cache retiene su TTL).
    */
   @Post(':id/refresh')
   @HttpCode(HttpStatus.OK)

@@ -75,7 +75,12 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     $transaction: jest.Mock;
   };
   let registry: jest.Mocked<PluginRegistryService>;
-  let cache: { get: jest.Mock; set: jest.Mock; invalidate: jest.Mock };
+  let cache: {
+    get: jest.Mock;
+    set: jest.Mock;
+    invalidate: jest.Mock;
+    tryAcquireRefreshCooldown: jest.Mock;
+  };
   let events: { emit: jest.Mock };
   let audit: {
     logAccess: jest.Mock;
@@ -191,6 +196,9 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       get: jest.fn().mockResolvedValue(null),
       set: jest.fn().mockResolvedValue(undefined),
       invalidate: jest.fn().mockResolvedValue(undefined),
+      // Sprint 15C.II Fase F.3 (B.1): por defecto la ventana se adquiere
+      // (camino común — primer force-refresh tras el cooldown).
+      tryAcquireRefreshCooldown: jest.fn().mockResolvedValue(true),
     };
     events = { emit: jest.fn() };
     audit = {
@@ -373,6 +381,54 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     await service.getInfoForUser('svc-1', 'user-1', false);
 
     expect(cache.set).toHaveBeenCalledWith('svc-1', expect.anything(), 60);
+  });
+
+  // Sprint 15C.II Fase F.3 (B.1) — cooldown server-side del force-refresh.
+  it('getInfoForUser: forceRevalidate con ventana adquirida → re-fetch fresco (salta el cache)', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    const plugin = buildPlugin();
+    registry.get.mockReturnValue(plugin);
+
+    await service.getInfoForUser('svc-1', 'user-1', false, {
+      forceRevalidate: true,
+    });
+
+    // 15 = REFRESH_COOLDOWN_SECONDS.
+    expect(cache.tryAcquireRefreshCooldown).toHaveBeenCalledWith('svc-1', 15);
+    // forceRevalidate llega al wrapper como true → NO consulta el cache, re-fetch.
+    expect(cache.get).not.toHaveBeenCalled();
+    expect(plugin.getServiceInfo).toHaveBeenCalled();
+  });
+
+  it('getInfoForUser: forceRevalidate dentro de la ventana → degrada a lectura cacheada (coalescing, sin error)', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    const plugin = buildPlugin();
+    registry.get.mockReturnValue(plugin);
+    // ventana ya activa → el caller debe servir el valor cacheado.
+    cache.tryAcquireRefreshCooldown.mockResolvedValueOnce(false);
+    cache.get.mockResolvedValueOnce({
+      status: 'active',
+      display: { primary: 'desde-cache', secondary: 'Plan Pro' },
+      availableActions: [],
+      fetchedAt: new Date().toISOString(),
+    });
+
+    const result = await service.getInfoForUser('svc-1', 'user-1', false, {
+      forceRevalidate: true,
+    });
+
+    // coalescing: NO se consulta al proveedor; se devuelve el valor cacheado.
+    expect(plugin.getServiceInfo).not.toHaveBeenCalled();
+    expect(result.info.display.primary).toBe('desde-cache');
+  });
+
+  it('getInfoForUser: GET normal (sin forceRevalidate) NO consume el cooldown', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    registry.get.mockReturnValue(buildPlugin());
+
+    await service.getInfoForUser('svc-1', 'user-1', false);
+
+    expect(cache.tryAcquireRefreshCooldown).not.toHaveBeenCalled();
   });
 
   it('getInfoForUser: shortcircuit terminal — service.status=cancelled NO invoca al plugin', async () => {
