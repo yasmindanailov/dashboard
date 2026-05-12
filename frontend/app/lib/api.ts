@@ -1013,6 +1013,64 @@ export interface AdminPluginDetail {
   circuit_state: PluginCircuitStateSummary;
 }
 
+export type PluginHealthStatus =
+  | 'operational'
+  | 'degraded'
+  | 'down'
+  | 'disabled';
+
+export type PluginReconcileChangeType =
+  | 'subscription_missing'
+  | 'status_divergence'
+  | 'plan_divergence';
+
+/**
+ * Devuelto por `GET /admin/plugins/:slug/operational-overview` — Sprint 15C.II
+ * Fase F.2 (ADR-083 Amendment A4.4). Shape plugin-agnóstico; espejo de
+ * `PluginOperationalOverview` del backend
+ * (`modules/admin-plugins/dto/plugin-operational-overview.dto.ts`).
+ * `circuit.*` es estado in-process — la UI lo etiqueta como tal.
+ */
+export interface PluginOperationalOverview {
+  slug: string;
+  /** i18n key (de `manifest.label`). */
+  label: string;
+  enabled: boolean;
+  health: {
+    status: PluginHealthStatus;
+    /** i18n keys que explican el estado (≥1). */
+    reasons: string[];
+  };
+  circuit: PluginCircuitStateSummary;
+  secrets: {
+    required: number;
+    configured: number;
+    missing: string[];
+  };
+  services: {
+    active: number;
+    suspended: number;
+  };
+  reconciliation: {
+    supported: boolean;
+    last: {
+      completed_at: string;
+      trigger: 'cron' | 'manual';
+      services_processed: number;
+      drifts_detected: number;
+      errors: number;
+    } | null;
+    next_scheduled_at: string | null;
+    drifts_24h: number;
+  };
+  recent_drifts: Array<{
+    service_id: string;
+    change_type: PluginReconcileChangeType;
+    detected_at: string;
+  }>;
+  generated_at: string;
+}
+
 /** Body de `PATCH /admin/plugins/:slug`. Todos los campos opcionales. */
 export interface AdminPluginUpdateBody {
   enabled?: boolean;

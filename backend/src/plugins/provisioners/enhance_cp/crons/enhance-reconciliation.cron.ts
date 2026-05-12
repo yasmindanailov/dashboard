@@ -72,6 +72,14 @@ import { EnhanceProvisionerPlugin } from '../enhance.plugin';
 export class EnhanceReconciliationCron implements OnModuleInit {
   private readonly logger = new Logger(EnhanceReconciliationCron.name);
 
+  /**
+   * Intervalo del cron — fuente de verdad única. `EVERY_6_HOURS` ⇒ ticks a
+   * las 00/06/12/18 UTC, alineados a múltiplos de 6h desde epoch. Se
+   * declara también al registry (`onModuleInit`) para que el admin overview
+   * (Fase F.2) calcule "próxima reconciliación".
+   */
+  private static readonly INTERVAL_SECONDS = 6 * 60 * 60;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly plugin: EnhanceProvisionerPlugin,
@@ -89,9 +97,12 @@ export class EnhanceReconciliationCron implements OnModuleInit {
    *
    * El executor envuelve `runOnce()` adaptando `ReconciliationSummary`
    * → `ReconcileResult` (shape canónico genérico) + mide duración.
+   * Declara también `intervalSeconds` al registry para el admin overview.
    */
   onModuleInit(): void {
-    this.reconcileRegistry.register('enhance_cp', () => this.runAsExecutor());
+    this.reconcileRegistry.register('enhance_cp', () => this.runAsExecutor(), {
+      intervalSeconds: EnhanceReconciliationCron.INTERVAL_SECONDS,
+    });
   }
 
   /**
@@ -102,6 +113,8 @@ export class EnhanceReconciliationCron implements OnModuleInit {
   private async runAsExecutor(): Promise<ReconcileResult> {
     const startedAt = Date.now();
     const summary = await this.runOnce();
+    const durationMs = Date.now() - startedAt;
+    this.emitReconcileCompleted('manual', summary, durationMs);
     const driftsDetected =
       summary.subscriptionMissing +
       summary.statusDivergence +
@@ -109,7 +122,7 @@ export class EnhanceReconciliationCron implements OnModuleInit {
     return {
       servicesProcessed: summary.servicesChecked,
       driftsDetected,
-      durationMs: Date.now() - startedAt,
+      durationMs,
       details: {
         subscription_missing: summary.subscriptionMissing,
         status_divergence: summary.statusDivergence,
@@ -117,6 +130,34 @@ export class EnhanceReconciliationCron implements OnModuleInit {
         errors: summary.errors,
       },
     };
+  }
+
+  /**
+   * Sprint 15C.II Fase F.2 — emite el rollup `plugin.reconcile_completed`
+   * (shape genérico, plugin-agnóstico) tras cada pasada (cron o manual).
+   * Consumido por `AuditOnPluginReconcileCompletedListener` (modules/audit/)
+   * → 1 fila `audit_change_log` con `entity_type='Plugin'`,
+   * `action='reconcile_completed'`. El admin overview lee la más reciente
+   * para mostrar "última reconciliación hace Xh". NO se relanza si el emit
+   * falla — el cron debe seguir vivo (R7).
+   */
+  private emitReconcileCompleted(
+    trigger: 'cron' | 'manual',
+    summary: ReconciliationSummary,
+    durationMs: number,
+  ): void {
+    this.events.emit('plugin.reconcile_completed', {
+      plugin_slug: 'enhance_cp',
+      trigger,
+      services_processed: summary.servicesChecked,
+      drifts_detected:
+        summary.subscriptionMissing +
+        summary.statusDivergence +
+        summary.planDivergence,
+      errors: summary.errors,
+      duration_ms: durationMs,
+      completed_at: new Date().toISOString(),
+    });
   }
 
   /**
@@ -131,7 +172,9 @@ export class EnhanceReconciliationCron implements OnModuleInit {
   })
   async handleScheduled(): Promise<void> {
     try {
+      const startedAt = Date.now();
       const summary = await this.runOnce();
+      this.emitReconcileCompleted('cron', summary, Date.now() - startedAt);
       this.logger.log(
         `reconcileEnhanceServices done: ` +
           `services=${summary.servicesChecked} ` +

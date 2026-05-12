@@ -6,50 +6,16 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import * as crypto from 'crypto';
 
 import { Prisma } from '@prisma/client';
 import Ajv, { ErrorObject, ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 
-/**
- * Namespace UUID v5 fijo para derivar entity_id determinístico desde el slug
- * del plugin (Sprint 15A — ADR-080 + audit_change_log §schema).
- *
- * Razón: `audit_change_log.entity_id` es @db.Uuid estricto en Postgres porque
- * la mayoría de entidades del sistema usan UUID PK. Los plugins son la
- * excepción canónica con PK natural slug (ADR-080 §2). En lugar de cambiar
- * el schema de audit (impactaría a todas las tablas), derivamos un UUID
- * determinístico del slug. El slug real se preserva legible en
- * `changes_before.slug` / `changes_after.slug` para búsquedas humanas.
- *
- * El namespace es un UUID v4 generado UNA vez y congelado aquí. Cambiarlo
- * rompería la trazabilidad histórica (los audit_change_log antiguos
- * quedarían huérfanos del nuevo entity_id).
- *
- * Implementación RFC 4122 §4.3 nativa con `node:crypto` (sin dep `uuid` para
- * evitar problemas ESM↔CJS de uuid@14 en ts-jest). Equivalente bit-exact a
- * `import { v5 } from 'uuid'`.
- */
-const PLUGIN_AUDIT_NAMESPACE = 'a8f1c4d2-3b5e-4f6a-9c2d-1e7b3f8a5c9d';
-
-function deriveAuditEntityId(slug: string): string {
-  const nsBytes = Buffer.from(PLUGIN_AUDIT_NAMESPACE.replace(/-/g, ''), 'hex');
-  const hash = crypto
-    .createHash('sha1')
-    .update(nsBytes)
-    .update(slug, 'utf8')
-    .digest();
-  // RFC 4122 §4.3: version 5 + variant RFC 4122
-  hash[6] = (hash[6] & 0x0f) | 0x50;
-  hash[8] = (hash[8] & 0x3f) | 0x80;
-  const hex = hash.toString('hex').slice(0, 32);
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-}
-
 import { PrismaService } from '../../core/database/prisma.service';
 import { CircuitBreakerRegistry } from '../../core/provisioning/circuit-breaker';
+import type { CircuitBreakerState } from '../../core/provisioning/circuit-breaker';
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
+import { deriveAuditEntityId } from '../../core/provisioning/plugin-audit-id.util';
 import {
   ReconcileRegistryService,
   ReconcileResult,
@@ -59,6 +25,11 @@ import { ProvisionerPlugin } from '../../core/provisioning/types';
 import { AuditService } from '../audit/audit.service';
 
 import { AdminPluginUpdateDto } from './dto/admin-plugin-update.dto';
+import {
+  PluginHealthStatus,
+  PluginOperationalOverview,
+  PluginReconcileChangeType,
+} from './dto/plugin-operational-overview.dto';
 
 /**
  * Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1) — shape de
@@ -465,7 +436,164 @@ export class AdminPluginsService implements OnModuleInit {
     };
   }
 
+  /**
+   * Sprint 15C.II Fase F.2 (ADR-083 Amendment A4.4) — resumen operativo del
+   * plugin para `/admin/settings/plugins/[slug]` (`<PluginOperationalOverview>`).
+   *
+   * Construye un shape **plugin-agnóstico** (heredable a 15D RC / 15E / 15G)
+   * a partir de:
+   *  - manifest (label, secrets requeridos),
+   *  - capabilities (`supports_reconciliation`),
+   *  - circuit breakers in-process (`getServiceInfo` + `executeAction`),
+   *  - `services` count (active / suspended) por `provisioner_slug`,
+   *  - audit `reconcile_completed` (última pasada — estado observado),
+   *  - audit `reconciled_external_change` (drifts 24h — ventana vía índice
+   *    `created_at`, filtrado por `_meta.plugin_slug` en memoria).
+   *
+   * La salud (`operational | degraded | down | disabled`) se deriva de:
+   *  - `disabled`  si el plugin no está habilitado.
+   *  - `down`      si algún circuit está `open`, o falta un secret requerido.
+   *  - `degraded`  si algún circuit está `half-open`, o la última pasada de
+   *                reconciliación tuvo errores.
+   *  - `operational` en otro caso.
+   * `reasons` siempre tiene ≥1 clave i18n explicativa.
+   */
+  async getOperationalOverview(
+    slug: string,
+  ): Promise<PluginOperationalOverview> {
+    const plugin = this.requireValidatedPlugin(slug);
+    const install = await this.prisma.pluginInstall.findUnique({
+      where: { slug },
+    });
+    const enabled = install?.enabled ?? false;
+
+    const circuit = this.collectCircuitState(slug) as {
+      getServiceInfo: CircuitBreakerState | null;
+      executeAction: CircuitBreakerState | null;
+    };
+    const secrets = this.collectSecretsStatus(plugin, install?.secrets);
+
+    const supportsReconciliation =
+      plugin.capabilities.supports_reconciliation === true &&
+      this.reconcileRegistry.hasExecutor(slug);
+
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const [activeCount, suspendedCount, lastReconcileRow, driftRows] =
+      await Promise.all([
+        this.prisma.service.count({
+          where: { provisioner_slug: slug, status: 'active' },
+        }),
+        this.prisma.service.count({
+          where: { provisioner_slug: slug, status: 'suspended' },
+        }),
+        this.prisma.auditChangeLog.findFirst({
+          where: {
+            entity_type: 'Plugin',
+            entity_id: deriveAuditEntityId(slug),
+            action: 'reconcile_completed',
+          },
+          orderBy: { created_at: 'desc' },
+          select: { changes_after: true, created_at: true },
+        }),
+        // Ventana 24h acotada por el índice `created_at`; filtramos por
+        // `_meta.plugin_slug` en memoria (un único plugin SaaS hoy; aun con
+        // varios, 24h de drifts es un conjunto pequeño). `take` como tope
+        // duro defensivo ante un proveedor que degrade en bucle.
+        this.prisma.auditChangeLog.findMany({
+          where: {
+            entity_type: 'Service',
+            action: 'reconciled_external_change',
+            created_at: { gte: since24h },
+          },
+          orderBy: { created_at: 'desc' },
+          take: 500,
+          select: { entity_id: true, changes_after: true, created_at: true },
+        }),
+      ]);
+
+    const pluginDrifts = driftRows.filter(
+      (row) => readMetaString(row.changes_after, 'plugin_slug') === slug,
+    );
+    const recentDrifts = pluginDrifts.slice(0, 20).map((row) => ({
+      service_id: row.entity_id,
+      change_type: normalizeChangeType(
+        readMetaString(row.changes_after, 'change_type'),
+      ),
+      detected_at:
+        readMetaString(row.changes_after, 'detected_at') ??
+        row.created_at.toISOString(),
+    }));
+
+    const last = lastReconcileRow
+      ? readReconcileSummary(
+          lastReconcileRow.changes_after,
+          lastReconcileRow.created_at,
+        )
+      : null;
+
+    const scheduleMeta = supportsReconciliation
+      ? this.reconcileRegistry.getScheduleMeta(slug)
+      : null;
+    const nextScheduledAt =
+      scheduleMeta && scheduleMeta.intervalSeconds > 0
+        ? new Date(
+            Math.ceil(Date.now() / (scheduleMeta.intervalSeconds * 1000)) *
+              scheduleMeta.intervalSeconds *
+              1000,
+          ).toISOString()
+        : null;
+
+    const health = deriveHealth({
+      enabled,
+      circuit,
+      missingSecrets: secrets.missing,
+      lastReconcileErrors: last?.errors ?? 0,
+      supportsReconciliation,
+    });
+
+    return {
+      slug,
+      label: plugin.manifest.label,
+      enabled,
+      health,
+      circuit,
+      secrets,
+      services: { active: activeCount, suspended: suspendedCount },
+      reconciliation: {
+        supported: supportsReconciliation,
+        last,
+        next_scheduled_at: nextScheduledAt,
+        drifts_24h: pluginDrifts.length,
+      },
+      recent_drifts: recentDrifts,
+      generated_at: new Date().toISOString(),
+    };
+  }
+
   // ─── Helpers privados ───────────────────────────────────────────────
+
+  /**
+   * Estado de cobertura de los secrets **requeridos** por el manifest:
+   * cuántos pide, cuántos están seteados (cifrados en BD), y los nombres de
+   * los que faltan. NO devuelve valores — solo presencia (R12).
+   */
+  private collectSecretsStatus(
+    plugin: ProvisionerPlugin,
+    encryptedRaw: unknown,
+  ): { required: number; configured: number; missing: string[] } {
+    const schema = plugin.manifest.secretsSchema as {
+      required?: string[];
+    } | null;
+    const required = Array.isArray(schema?.required) ? schema.required : [];
+    const encrypted = this.parseSecretsRecord(encryptedRaw);
+    const missing = required.filter((field) => !encrypted[field]);
+    return {
+      required: required.length,
+      configured: required.length - missing.length,
+      missing,
+    };
+  }
 
   /**
    * Devuelve el plugin si está validado (DI + contrato OK), aunque NO esté
@@ -708,4 +836,122 @@ export class AdminPluginsService implements OnModuleInit {
     };
     return synthetic as never;
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Helpers file-private del overview operativo (Fase F.2)
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Lee `changes_after._meta.<key>` como string, o `null` si no aplica. */
+function readMetaString(changesAfter: unknown, key: string): string | null {
+  if (!changesAfter || typeof changesAfter !== 'object') return null;
+  const meta = (changesAfter as Record<string, unknown>)._meta;
+  if (!meta || typeof meta !== 'object') return null;
+  const value = (meta as Record<string, unknown>)[key];
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+/** Lee un número de un objeto JSON arbitrario; `0` si no aplica. */
+function readNumber(obj: unknown, key: string): number {
+  if (!obj || typeof obj !== 'object') return 0;
+  const value = (obj as Record<string, unknown>)[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function normalizeChangeType(raw: string | null): PluginReconcileChangeType {
+  return raw === 'subscription_missing' ||
+    raw === 'status_divergence' ||
+    raw === 'plan_divergence'
+    ? raw
+    : 'status_divergence';
+}
+
+/**
+ * Reconstruye el resumen de la última pasada desde el `changes_after` del
+ * audit `reconcile_completed`. Tolera filas legacy/malformadas devolviendo
+ * el `created_at` como `completed_at` y `trigger='cron'` por defecto.
+ */
+function readReconcileSummary(
+  changesAfter: unknown,
+  createdAt: Date,
+): {
+  completed_at: string;
+  trigger: 'cron' | 'manual';
+  services_processed: number;
+  drifts_detected: number;
+  errors: number;
+} {
+  const obj =
+    changesAfter && typeof changesAfter === 'object'
+      ? (changesAfter as Record<string, unknown>)
+      : {};
+  const trigger = obj.trigger === 'manual' ? 'manual' : 'cron';
+  const completedAt =
+    typeof obj.completed_at === 'string' && obj.completed_at.length > 0
+      ? obj.completed_at
+      : createdAt.toISOString();
+  return {
+    completed_at: completedAt,
+    trigger,
+    services_processed: readNumber(obj, 'services_processed'),
+    drifts_detected: readNumber(obj, 'drifts_detected'),
+    errors: readNumber(obj, 'errors'),
+  };
+}
+
+/**
+ * Deriva la salud del plugin + las claves i18n que la explican. Ver
+ * docstring de `getOperationalOverview` para la doctrina de transiciones.
+ */
+function deriveHealth(input: {
+  enabled: boolean;
+  circuit: {
+    getServiceInfo: CircuitBreakerState | null;
+    executeAction: CircuitBreakerState | null;
+  };
+  missingSecrets: readonly string[];
+  lastReconcileErrors: number;
+  supportsReconciliation: boolean;
+}): { status: PluginHealthStatus; reasons: string[] } {
+  if (!input.enabled) {
+    return {
+      status: 'disabled',
+      reasons: ['admin.plugins.overview.health_reason.disabled'],
+    };
+  }
+
+  const reasons: string[] = [];
+  let down = false;
+  let degraded = false;
+
+  const circuitOpen =
+    input.circuit.getServiceInfo === 'open' ||
+    input.circuit.executeAction === 'open';
+  const circuitRecovering =
+    input.circuit.getServiceInfo === 'half-open' ||
+    input.circuit.executeAction === 'half-open';
+
+  if (circuitOpen) {
+    down = true;
+    reasons.push('admin.plugins.overview.health_reason.circuit_open');
+  }
+  if (input.missingSecrets.length > 0) {
+    down = true;
+    reasons.push('admin.plugins.overview.health_reason.missing_secrets');
+  }
+  if (circuitRecovering) {
+    degraded = true;
+    reasons.push('admin.plugins.overview.health_reason.circuit_recovering');
+  }
+  if (input.supportsReconciliation && input.lastReconcileErrors > 0) {
+    degraded = true;
+    reasons.push('admin.plugins.overview.health_reason.reconcile_errors');
+  }
+
+  if (down) return { status: 'down', reasons };
+  if (degraded) return { status: 'degraded', reasons };
+  return {
+    status: 'operational',
+    reasons: ['admin.plugins.overview.health_reason.all_clear'],
+  };
 }
