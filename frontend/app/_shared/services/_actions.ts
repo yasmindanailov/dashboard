@@ -236,3 +236,84 @@ export async function deprovisionServiceAction(
     };
   }
 }
+
+/* ═══════════════════════════════════════
+   Sprint 15C.II Fase F (ADR-077 Amendment A4) — suspender / reactivar servicio (admin)
+
+   Materializa los botones "Suspender servicio…" / "Reanudar servicio" del
+   `<AdminServiceOperationsCard>`. Endpoints `POST /admin/services/:id/suspend`
+   (DTO `{reason, internal_note?, notify_client?}`) y `/unsuspend` (sin DTO).
+   El backend `ProvisioningService.suspendAsAdmin`/`unsuspendAsAdmin` transiciona
+   `services.status` (active ⇄ suspended), invoca la inline action canónica del
+   plugin, invalida cache, emite `service.suspended`/`service.unsuspended` (→
+   listeners email cliente) y audita.
+
+   Distinto de cancelar (irreversible — `deprovisionServiceAction`): suspender
+   preserva los datos en el proveedor. Por eso el modal usa variant `warning`
+   (no `danger`) y NO exige typing-confirm (L17). Tras OK el SC parent
+   re-renderiza con el banner amarillo "Servicio suspendido" / sin banner.
+   ═══════════════════════════════════════ */
+
+export type SuspendServiceReason =
+  | 'overdue_payment'
+  | 'abuse_investigation'
+  | 'scheduled_maintenance'
+  | 'gdpr_restriction'
+  | 'other';
+
+export type SuspendServiceResult = { ok: true } | { ok: false; error: string };
+
+export async function suspendServiceAction(
+  serviceId: string,
+  payload: {
+    reason: SuspendServiceReason;
+    internal_note?: string;
+    notify_client?: boolean;
+  },
+): Promise<SuspendServiceResult> {
+  try {
+    await serverFetch<unknown>(`/admin/services/${serviceId}/suspend`, {
+      method: 'POST',
+      body: {
+        reason: payload.reason,
+        ...(payload.internal_note
+          ? { internal_note: payload.internal_note }
+          : {}),
+        ...(payload.notify_client === false ? { notify_client: false } : {}),
+      },
+    });
+    revalidatePath(`/admin/services/${serviceId}`);
+    revalidatePath('/admin/services');
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo suspender el servicio.',
+    };
+  }
+}
+
+export async function unsuspendServiceAction(
+  serviceId: string,
+): Promise<SuspendServiceResult> {
+  try {
+    await serverFetch<unknown>(`/admin/services/${serviceId}/unsuspend`, {
+      method: 'POST',
+      body: {},
+    });
+    revalidatePath(`/admin/services/${serviceId}`);
+    revalidatePath('/admin/services');
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo reactivar el servicio.',
+    };
+  }
+}

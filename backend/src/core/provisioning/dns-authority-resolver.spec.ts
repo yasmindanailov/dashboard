@@ -40,6 +40,7 @@ describe('dns-authority-resolver (ADR-082 §6)', () => {
       completes_via_task: false,
       supports_reconciliation: false,
       has_dns_management: true,
+      supports_suspend: false, // ADR-077 Amendment A4 (override per test si aplica)
       ...overrides,
     };
     return {

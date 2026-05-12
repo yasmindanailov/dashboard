@@ -192,6 +192,39 @@ export type ServiceRecoveryHint =
   | 'reconcile'
   | 'contact_support';
 
+/**
+ * Sprint 15C.II Fase F — ADR-077 Amendment A4 (capability `supports_suspend`,
+ * frozen 2026-05-10) materialización.
+ *
+ * Taxonomía canónica del motivo de una suspensión administrativa. Es una
+ * lista cerrada **cliente-segura**: la UI muestra al cliente la etiqueta
+ * localizada del enum (NUNCA texto libre del admin — eso es la `internal_note`
+ * que va solo al audit log + banner admin). Heredable a todos los plugins con
+ * `supports_suspend=true` (15D RC no aplica, 15E Docker, 15G Plesk) y a los
+ * módulos transversales que disparan suspensiones:
+ *
+ *   - `'overdue_payment'`        → impago vencido (cron billing-suspend-on-overdue,
+ *                                   Sprint 8 Fase 8.1). Reactivación automática al pagar.
+ *   - `'abuse_investigation'`    → uso indebido / DMCA en investigación (support inside).
+ *   - `'scheduled_maintenance'`  → mantenimiento programado del cluster (Sprint 10 / 15E).
+ *   - `'gdpr_restriction'`       → derecho a limitación del tratamiento, RGPD art. 18
+ *                                   (Sprint 12.5, a petición del interesado).
+ *   - `'other'`                  → cualquier otro motivo. La etiqueta cliente es genérica
+ *                                   ("Otros motivos") — el email de suspensión dirige al
+ *                                   cliente a soporte para los detalles (la nota interna
+ *                                   NUNCA se incluye en comunicaciones al cliente).
+ *
+ * El plugin recibe el motivo en `executeAction('suspend_service', { reason })`
+ * por si su API de proveedor lo acepta (ej. cPanel `suspendacct` reason) — los
+ * que no lo usan (Enhance `patchSubscription({ isSuspended })`) lo ignoran.
+ */
+export type SuspensionReason =
+  | 'overdue_payment'
+  | 'abuse_investigation'
+  | 'scheduled_maintenance'
+  | 'gdpr_restriction'
+  | 'other';
+
 export interface ServiceInfo {
   /**
    * Estado real del servicio en el proveedor.
@@ -404,6 +437,35 @@ export interface PluginCapabilities {
    *   - `cloudflare_dns` (hipotético): true
    */
   has_dns_management: boolean;
+
+  /**
+   * Sprint 15C.II Fase F — ADR-077 Amendment A4 (2026-05-10).
+   *
+   * El plugin soporta suspender / reactivar el servicio sin desprovisionarlo
+   * (preserva los datos en el proveedor — solo desactiva el acceso). Distinto
+   * de `deprovision`, que destruye recursos. Crítico para impago temporal vs
+   * cancelación definitiva, abuse en investigación, RGPD art. 18, mantenimiento.
+   *
+   * Plugins con `supports_suspend=true` DEBEN declarar en `inlineActions` los
+   * 2 slugs canónicos `suspend_service` y `unsuspend_service` (ambos
+   * `adminOnly: true` — suspensión es operación administrativa, NO cliente
+   * self-service) e implementarlos idempotentes en `executeAction()`. El
+   * `services.status` canónico transiciona a `suspended` / `active` y el
+   * **orquestador** (`ProvisioningService.suspendAsAdmin` / `unsuspendAsAdmin`)
+   * emite `service.suspended` / `service.unsuspended` post-action — NUNCA el
+   * plugin (R8 audit centralizado).
+   *
+   * Plugins con `supports_suspend=false` NO declaran esos slugs. El contract
+   * test `provisioner-plugin-suspend.contract.spec.ts` verifica la consistencia
+   * bidireccional.
+   *
+   * Mapping inicial (ADR-077 Amendment A4.2):
+   *   - `internal`, `manual`, `resellerclub`: false
+   *   - `enhance_cp` (Sprint 15C.II Fase F): true (via `patchSubscription({ isSuspended })`)
+   *   - `docker_engine` (15E): true (`docker stop` preservando volúmenes)
+   *   - `plesk` (15G): true (`--update-domain -status suspended/active`)
+   */
+  supports_suspend: boolean;
 }
 
 /**

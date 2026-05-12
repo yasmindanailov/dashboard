@@ -73,6 +73,7 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
         completes_via_task: false,
         supports_reconciliation: false,
         has_dns_management: false, // ADR-077 Amendment A1
+        supports_suspend: false, // ADR-077 Amendment A4
       },
       inlineActions: [],
       manifest: TEST_MANIFEST,
@@ -226,6 +227,7 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
         completes_via_task: true,
         supports_reconciliation: false,
         has_dns_management: false, // ADR-077 Amendment A1
+        supports_suspend: false, // ADR-077 Amendment A4
       },
       provision: jest.fn().mockResolvedValue({
         providerReference: null,

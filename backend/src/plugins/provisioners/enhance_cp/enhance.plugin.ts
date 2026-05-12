@@ -24,20 +24,26 @@
  *   - Steps 1-4 del provision flow 6-step → `EnhanceCustomersService`
  *     (idempotency cross-process con advisory lock).
  *
- * Capabilities estáticas frozen (ADR-083 §9 decisión 31):
+ * Capabilities estáticas frozen (ADR-083 §9 decisión 31 + ADR-077 Amendment A4):
  *   - has_sso_panel: true (Customer Panel via OTP)
  *   - has_metrics: true (disk + bandwidth + email + db counts)
  *   - has_dns_management: true (Enhance es PowerDNS authority)
  *   - supports_reconciliation: true (cron 6h)
+ *   - supports_suspend: true (patchSubscription({ isSuspended }) — Sprint 15C.II Fase F)
  *
- * inlineActions (ADR-083 §9 decisión 32 + Amendments A3 + A4.1 + A5.1) — 8 actions:
+ * inlineActions (ADR-083 §9 decisión 32 + Amendments A3 + A4.1 + A5.1 + ADR-077 A4) — 10 actions:
  *   - cliente: reset_account_password
  *   - DNS:     list_dns_records, add_dns_record, update_dns_record, delete_dns_record
- *   - admin:   change_package, recalculate_provider_metrics, list_available_plans
+ *   - admin:   change_package, recalculate_provider_metrics, list_available_plans,
+ *              suspend_service, unsuspend_service
  *   (Sprint 15C.II Fase B: view_disk_usage + view_bandwidth_usage eliminados —
  *    métricas refrescadas via botón ↻ en MetricsBar + forceRevalidate flag.
  *    Sprint 15C.II Fase E: `force_resync` → `recalculate_provider_metrics`
- *    — naming honesto, Amendment A5.1.)
+ *    — naming honesto, Amendment A5.1.
+ *    Sprint 15C.II Fase F: `suspend_service` + `unsuspend_service` añadidas
+ *    — ADR-077 Amendment A4. El orquestador transiciona `services.status` y
+ *    emite `service.suspended` / `service.unsuspended`; el plugin solo llama
+ *    a `patchSubscription({ isSuspended })`.)
  *
  * Reglas:
  *   - R4: importa SOLO de `core/provisioning/types`, `core/database`,
@@ -313,6 +319,37 @@ const ENHANCE_INLINE_ACTIONS: readonly ServiceAction[] = [
     destructive: false,
     adminOnly: true,
   },
+  // Sprint 15C.II Fase F — ADR-077 Amendment A4: suspender / reactivar el
+  // servicio sin desprovisionarlo (preserva datos en el proveedor). Ambas
+  // adminOnly (la suspensión es operación administrativa, NO cliente self-
+  // service). El plugin solo invoca `patchSubscription({ isSuspended })`; el
+  // orquestador (`ProvisioningService.suspendAsAdmin` / `unsuspendAsAdmin`)
+  // transiciona `services.status` (active ⇄ suspended), escribe `suspended_at`
+  // / `suspension_reason` y emite `service.suspended` / `service.unsuspended`.
+  // NO declaran `payloadSchema`: el flujo va por el endpoint dedicado
+  // `POST /admin/services/:id/suspend|unsuspend` con su propio `SuspendServiceDto`
+  // — el `{ reason }` se pasa al plugin por si una API de proveedor lo acepta
+  // (Enhance no lo usa). Frontend las trata como helper internas
+  // (`INTERNAL_HELPER_SLUGS` de `ActionsBar`) — se operan desde
+  // `AdminServiceOperationsCard`, no desde la barra de acciones rápidas (L15).
+  {
+    slug: 'suspend_service',
+    label: 'plugin.enhance_cp.actions.suspend_service',
+    description: 'plugin.enhance_cp.actions.suspend_service.description',
+    confirmRequired: true,
+    confirmationText: 'plugin.enhance_cp.actions.suspend_service.confirm',
+    destructive: true,
+    adminOnly: true,
+  },
+  {
+    slug: 'unsuspend_service',
+    label: 'plugin.enhance_cp.actions.unsuspend_service',
+    description: 'plugin.enhance_cp.actions.unsuspend_service.description',
+    confirmRequired: true,
+    confirmationText: 'plugin.enhance_cp.actions.unsuspend_service.confirm',
+    destructive: false,
+    adminOnly: true,
+  },
 ];
 
 const ENHANCE_CAPABILITIES: PluginCapabilities = {
@@ -325,6 +362,11 @@ const ENHANCE_CAPABILITIES: PluginCapabilities = {
   completes_via_task: false,
   supports_reconciliation: true,
   has_dns_management: true, // ADR-077 Amendment A1 + ADR-082 §3
+  // Sprint 15C.II Fase F — ADR-077 Amendment A4: Enhance soporta suspender /
+  // reactivar subscriptions vía `patchSubscription({ isSuspended })` (operativo
+  // desde Sprint 15C Fase B). Declara las 2 inline actions `suspend_service` /
+  // `unsuspend_service` (ambas adminOnly) abajo.
+  supports_suspend: true,
 };
 
 const ENHANCE_MANIFEST: PluginManifest = {
@@ -589,8 +631,16 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     const recoveryHint: ServiceRecoveryHint | undefined = planDiverged
       ? 'reconcile'
       : undefined;
+    // Sprint 15C.II Fase F (ADR-077 Amendment A4): para una subscription
+    // suspendida en Enhance (`suspendedBy` set), `statusReason` es la i18n key
+    // genérica `plugin.enhance_cp.status_reason.suspended` (el ServiceHeader
+    // la traduce — cliente-segura, no expone el member ID del operador Enhance).
+    // El motivo REAL de la suspensión (la taxonomía canónica `SuspensionReason`
+    // + nota interna) vive en `services.suspension_reason` (Aelium-side) y el
+    // admin lo ve en el banner amarillo de `/admin/services/[id]`. NUNCA es un
+    // drift re-aprovisionable — no se emite `recoveryHint`.
     const statusReason = subscription.suspendedBy
-      ? `suspended by ${subscription.suspendedBy}`
+      ? 'plugin.enhance_cp.status_reason.suspended'
       : planDiverged
         ? 'plugin.enhance_cp.status_reason.plan_divergence'
         : undefined;
@@ -697,6 +747,10 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
         return this.actionRecalculateProviderMetrics(api, refs);
       case 'list_available_plans':
         return this.actionListAvailablePlans();
+      case 'suspend_service':
+        return this.actionSuspendService(api, refs);
+      case 'unsuspend_service':
+        return this.actionUnsuspendService(api, refs);
 
       default:
         // Defensive: shouldn't reach (declared check above).
@@ -947,6 +1001,57 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     return {
       success: true,
       data: { plans: listing.items, total: listing.total },
+    };
+  }
+
+  /**
+   * Sprint 15C.II Fase F — ADR-077 Amendment A4 (`suspend_service`).
+   *
+   * Suspende la subscription en Enhance (`patchSubscription({ isSuspended: true })`).
+   * Idempotente en el lado del proveedor: PATCH sobre una subscription ya
+   * suspendida es no-op. El orquestador (`ProvisioningService.suspendAsAdmin`)
+   * ya gateó por `services.status === 'active'` antes de llegar aquí, así que
+   * en la práctica solo se invoca sobre servicios activos; si hubiera drift
+   * (Enhance ya suspendido pero Aelium `active`), el PATCH es inofensivo y la
+   * transición a `suspended` en Aelium resuelve el drift.
+   *
+   * NO transiciona `services.status` ni emite eventos — eso es responsabilidad
+   * del orquestador (R8 audit centralizado). NO usa el `{ reason }` del payload
+   * (Enhance no acepta motivo en `patchSubscription`); se conserva en la firma
+   * para plugins futuros cuya API sí lo soporte (cPanel `suspendacct` reason).
+   */
+  private async actionSuspendService(
+    api: EnhanceApiClient,
+    refs: ServiceEnhanceRefs,
+  ): Promise<ActionResult> {
+    await api.patchSubscription(refs.orgId, refs.subscriptionId, {
+      isSuspended: true,
+    });
+    return {
+      success: true,
+      message: 'plugin.enhance_cp.actions.suspend_service.success',
+      data: { suspended: true },
+    };
+  }
+
+  /**
+   * Sprint 15C.II Fase F — ADR-077 Amendment A4 (`unsuspend_service`).
+   *
+   * Reactiva la subscription en Enhance (`patchSubscription({ isSuspended: false })`).
+   * Idempotente. NO transiciona `services.status` ni emite eventos — el
+   * orquestador (`ProvisioningService.unsuspendAsAdmin`) lo hace.
+   */
+  private async actionUnsuspendService(
+    api: EnhanceApiClient,
+    refs: ServiceEnhanceRefs,
+  ): Promise<ActionResult> {
+    await api.patchSubscription(refs.orgId, refs.subscriptionId, {
+      isSuspended: false,
+    });
+    return {
+      success: true,
+      message: 'plugin.enhance_cp.actions.unsuspend_service.success',
+      data: { suspended: false },
     };
   }
 
@@ -1202,12 +1307,23 @@ function buildMetrics(
  * Filtra `inlineActions` por `ServiceInfoStatus`. Acciones que no tienen
  * sentido en estado terminal (cancelled) o transitorio (pending/failed/unknown)
  * no aparecen en la UI.
+ *
+ * Sprint 15C.II Fase F — ADR-077 Amendment A4: `suspend_service` solo aplica
+ * a servicios `active` (no se puede suspender lo ya suspendido); `unsuspend_service`
+ * solo a `suspended`. El catálogo estático `inlineActions` declara ambas (lo
+ * exige el contract test); `availableActions` (este filtro) expone solo la que
+ * corresponde al estado actual.
  */
 function filterActionsByStatus(
   actions: readonly ServiceAction[],
   status: ServiceInfoStatus,
 ): readonly ServiceAction[] {
-  if (status === 'active' || status === 'suspended') return actions;
+  if (status === 'active') {
+    return actions.filter((a) => a.slug !== 'unsuspend_service');
+  }
+  if (status === 'suspended') {
+    return actions.filter((a) => a.slug !== 'suspend_service');
+  }
   // En todos los demás estados (pending/cancelled/failed/expired/unknown)
   // las acciones inline no aplican — el cliente debe esperar reconcile o
   // contactar soporte.

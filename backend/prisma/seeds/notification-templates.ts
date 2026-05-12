@@ -1120,6 +1120,172 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
         support_url: 'string',
       },
     },
+
+    // ───────────── service.suspended (email cliente — Sprint 15C.II Fase F) ─────────────
+    //
+    // ADR-077 Amendment A4. Emitido por `NotificationsOnServiceSuspendedListener`
+    // cuando un admin suspende un servicio vía `POST /admin/services/:id/suspend`
+    // (o el futuro cron `billing-suspend-on-overdue`). Solo se despacha si
+    // `payload.notify_client !== false` (toggle del modal admin, default ON).
+    // Heredable a 15E Docker + 15G Plesk.
+    //
+    // Variables:
+    //   - service_id: UUID del servicio.
+    //   - domain: domain del servicio (display primario — fallback domain → label → service_id).
+    //   - reason_label: etiqueta localizada del motivo canónico (undefined para
+    //     `reason='other'` — el listener lo omite; entonces no se muestra la
+    //     línea "Motivo:"). NUNCA es la nota interna del admin (esa no viaja al cliente).
+    //   - is_overdue_payment / is_maintenance: flags para ramificar el CTA.
+    //   - billing_url: URL absoluta a /dashboard/billing (CTA cuando overdue).
+    //   - support_url: URL absoluta a /dashboard/support (CTA por defecto).
+    //   - recipient.first_name: opcional, añadido por el dispatcher.
+    //
+    // EC-T8-17: SIEMPRE `{{var}}` con escape automático.
+    {
+      event_type: 'service.suspended',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Tu servicio ha sido suspendido — {{domain}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Servicio suspendido</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{domain}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              El servicio <strong>{{domain}}</strong> ha sido suspendido temporalmente.
+              Tus datos se conservan — la suspensión solo desactiva el acceso al servicio.
+            </p>
+            {{#if reason_label}}
+            <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 16px 20px; margin: 20px 0;">
+              <p style="color: #92400E; font-size: 14px; margin: 0; line-height: 1.6;">
+                <strong>Motivo:</strong> {{reason_label}}
+              </p>
+            </div>
+            {{/if}}
+            {{#if is_overdue_payment}}
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Para reactivar el servicio, regulariza el pago pendiente desde tu panel.
+              En cuanto registremos el pago, el servicio volverá a estar activo.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{billing_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ir a facturación</a>
+            </p>
+            {{else}}
+            {{#if is_maintenance}}
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              El servicio volverá a estar disponible automáticamente cuando finalice
+              el mantenimiento programado. No necesitas hacer nada.
+            </p>
+            {{else}}
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Para más información sobre esta suspensión, contacta con nuestro
+              equipo de soporte — estaremos encantados de ayudarte.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{support_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Contactar con soporte</a>
+            </p>
+            {{/if}}
+            {{/if}}
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        domain: 'string',
+        reason_label: 'string?',
+        is_overdue_payment: 'boolean?',
+        is_maintenance: 'boolean?',
+        billing_url: 'string',
+        support_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── service.suspended (campana cliente) ─────────────
+    {
+      event_type: 'service.suspended',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Servicio suspendido — {{domain}}',
+      body: 'El servicio {{domain}} ha sido suspendido temporalmente.{{#if reason_label}} Motivo: {{reason_label}}.{{/if}} Tus datos se conservan. {{#if is_overdue_payment}}Regulariza el pago pendiente para reactivarlo.{{else}}{{#if is_maintenance}}Volverá a estar disponible cuando finalice el mantenimiento.{{else}}Contacta con soporte para más información.{{/if}}{{/if}}',
+      variables: {
+        service_id: 'string',
+        domain: 'string',
+        reason_label: 'string?',
+        is_overdue_payment: 'boolean?',
+        is_maintenance: 'boolean?',
+        billing_url: 'string',
+        support_url: 'string',
+      },
+    },
+
+    // ───────────── service.unsuspended (email cliente — Sprint 15C.II Fase F) ─────────────
+    //
+    // ADR-077 Amendment A4. Emitido por `NotificationsOnServiceUnsuspendedListener`
+    // cuando un admin reactiva un servicio suspendido vía
+    // `POST /admin/services/:id/unsuspend`. Se despacha SIEMPRE (reactivar es
+    // buena noticia — no hay toggle de supresión, a diferencia de `suspend`).
+    //
+    // Variables:
+    //   - service_id: UUID del servicio.
+    //   - domain: domain del servicio.
+    //   - panel_url: URL absoluta al detalle del servicio en el portal Aelium.
+    //   - recipient.first_name: opcional.
+    {
+      event_type: 'service.unsuspended',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Tu servicio vuelve a estar activo — {{domain}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Servicio reactivado</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{domain}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              ¡Buenas noticias! El servicio <strong>{{domain}}</strong> vuelve a estar
+              activo. Ya puedes usarlo con normalidad — tus datos se mantuvieron intactos
+              durante la suspensión.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ir a mi servicio</a>
+            </p>
+            <p style="color: #9ca3af; font-size: 12px; line-height: 1.6; margin-top: 24px;">
+              Si tienes cualquier duda, responde a este correo y te ayudamos.
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        domain: 'string',
+        panel_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── service.unsuspended (campana cliente) ─────────────
+    {
+      event_type: 'service.unsuspended',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Servicio reactivado — {{domain}}',
+      body: 'El servicio {{domain}} vuelve a estar activo. Ya puedes usarlo con normalidad.',
+      variables: {
+        service_id: 'string',
+        domain: 'string',
+        panel_url: 'string',
+      },
+    },
   ];
 
   for (const tpl of templates) {

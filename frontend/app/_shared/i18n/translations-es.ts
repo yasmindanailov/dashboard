@@ -145,6 +145,27 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
 
   'plugin.enhance_cp.actions.list_available_plans': 'Listar planes disponibles',
 
+  // Sprint 15C.II Fase F (ADR-077 Amendment A4): suspend/unsuspend. Las 2
+  // inline actions canónicas (adminOnly) que materializan la capability
+  // `supports_suspend`. Se operan desde `AdminServiceOperationsCard`
+  // ("Suspender servicio…" / "Reanudar servicio") vía el endpoint dedicado
+  // `POST /admin/services/:id/suspend|unsuspend` — están en `INTERNAL_HELPER_SLUGS`
+  // del `ActionsBar`. El cliente nunca las ve.
+  'plugin.enhance_cp.actions.suspend_service': 'Suspender servicio',
+  'plugin.enhance_cp.actions.suspend_service.description':
+    'Desactiva la suscripción en el proveedor preservando los datos (reversible). Para impago temporal, abuso en investigación, mantenimiento programado o restricción RGPD.',
+  'plugin.enhance_cp.actions.suspend_service.confirm':
+    '¿Suspender este servicio? El cliente perderá el acceso, pero sus datos se conservan. Es reversible.',
+  'plugin.enhance_cp.actions.suspend_service.success':
+    'Servicio suspendido en el proveedor.',
+  'plugin.enhance_cp.actions.unsuspend_service': 'Reanudar servicio',
+  'plugin.enhance_cp.actions.unsuspend_service.description':
+    'Reactiva una suscripción suspendida — el cliente recupera el acceso.',
+  'plugin.enhance_cp.actions.unsuspend_service.confirm':
+    '¿Reanudar este servicio? El cliente recuperará el acceso.',
+  'plugin.enhance_cp.actions.unsuspend_service.success':
+    'Servicio reactivado en el proveedor.',
+
   // Reconcile-all general del plugin (ADR-083 Amendment A4.2 + gap G1)
   'admin.plugins.reconcile_all.section_title':
     'Reconciliación contra el proveedor',
@@ -185,6 +206,26 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   // reconciliar la metadata local vía el cron L3 manual.
   'plugin.enhance_cp.status_reason.plan_divergence':
     'El plan en el proveedor no coincide con el plan del producto en Aelium (drift de plan). El proveedor manda — reconcilia para actualizar la metadata local.',
+  // Sprint 15C.II Fase F (ADR-077 Amendment A4): subscription suspendida en el
+  // proveedor. Cliente-segura — el ServiceHeader la muestra al cliente; el
+  // motivo REAL (taxonomía canónica + nota interna) lo ve el admin en el banner
+  // amarillo de `/admin/services/[id]` (campo `services.suspension_reason`).
+  'plugin.enhance_cp.status_reason.suspended':
+    'Servicio suspendido temporalmente. El equipo de soporte tiene el detalle — contacta con nosotros si necesitas más información.',
+
+  // ── Motivos de suspensión — taxonomía canónica `SuspensionReason`
+  //    (ADR-077 Amendment A4, Sprint 15C.II Fase F). Cliente-segura: la UI
+  //    muestra estas etiquetas (en el email al cliente — backend
+  //    `SUSPENSION_REASON_LABEL_ES` del listener — y en el banner admin de
+  //    `/admin/services/[id]`). NUNCA se muestra la nota interna del admin.
+  //    Para `other` el cliente recibe un email genérico que dirige a soporte.
+  'service.suspension_reason.overdue_payment': 'Falta de pago',
+  'service.suspension_reason.abuse_investigation':
+    'Revisión de seguridad en curso',
+  'service.suspension_reason.scheduled_maintenance': 'Mantenimiento programado',
+  'service.suspension_reason.gdpr_restriction':
+    'Restricción del tratamiento (RGPD art. 18)',
+  'service.suspension_reason.other': 'Otros motivos',
 
   // ── Drift UX discriminada por rol (UI_SPEC §4.13 + ADR-083 Amendment A4.3
   //    — Sprint 15C.II Fase C 2026-05-10). Heredable a 15D RC, 15E Docker,

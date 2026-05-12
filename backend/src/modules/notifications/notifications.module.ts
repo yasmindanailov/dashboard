@@ -19,6 +19,8 @@ import { NotificationsPluginCircuitListener } from './listeners/notifications-pl
 import { NotificationsOnReconciliationThresholdExceededListener } from './listeners/notifications-on-reconciliation-threshold-exceeded.listener';
 import { NotificationsOnPasswordResetListener } from './listeners/notifications-on-password-reset.listener';
 import { NotificationsOnServiceCancelledListener } from './listeners/notifications-on-service-cancelled.listener';
+import { NotificationsOnServiceSuspendedListener } from './listeners/notifications-on-service-suspended.listener';
+import { NotificationsOnServiceUnsuspendedListener } from './listeners/notifications-on-service-unsuspended.listener';
 import { NotificationsRetentionCron } from './notifications-retention.cron';
 
 /**
@@ -68,6 +70,17 @@ import { NotificationsRetentionCron } from './notifications-retention.cron';
     // despacha email + campana `service.cancelled` al dueño del servicio.
     // Plantilla genérica heredable a 15D RC + 15E Docker + 15G Plesk.
     NotificationsOnServiceCancelledListener,
+    // Sprint 15C.II Fase F (ADR-077 Amendment A4): consume `service.suspended`
+    // (emitido por `ProvisioningService.suspendAsAdmin`) y, si
+    // `notify_client !== false`, despacha email + campana `service.suspended`
+    // con el motivo canónico localizado + CTA ramificado (regulariza pago /
+    // soporte / nada para mantenimiento). NUNCA incluye la nota interna del
+    // admin. Heredable a 15E Docker + 15G Plesk.
+    NotificationsOnServiceSuspendedListener,
+    // Sprint 15C.II Fase F: consume `service.unsuspended` (emitido por
+    // `ProvisioningService.unsuspendAsAdmin`) y despacha siempre email +
+    // campana `service.unsuspended` ("tu servicio vuelve a estar activo").
+    NotificationsOnServiceUnsuspendedListener,
     NotificationsRetentionCron,
     {
       provide: NOTIFICATION_CHANNELS,

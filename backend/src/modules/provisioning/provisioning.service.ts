@@ -1,4 +1,5 @@
 ﻿import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -49,6 +50,7 @@ import {
   AdminServiceListQueryDto,
   DeprovisionDto,
   ServiceListQueryDto,
+  SuspendServiceDto,
 } from './dto/provisioning.dto';
 import { ProvisioningOrchestratorService } from './provisioning-orchestrator.service';
 
@@ -211,6 +213,14 @@ export class ProvisioningService {
       // PAYLOAD → cancelled).
       cancellation_reason: string | null;
       cancelled_at: Date | null;
+      // Sprint 15C.II Fase F (ADR-077 Amendment A4): datos canónicos de
+      // suspensión para el banner amarillo "Servicio suspendido" del frontend.
+      // `suspension_reason` es la cadena combinada `"<reason>"` o
+      // `"<reason>: <internal_note>"` (mismo patrón que `cancellation_reason`)
+      // — el frontend cliente solo renderiza la parte `<reason>` (etiqueta
+      // localizada); el admin ve la cadena completa.
+      suspended_at: Date | null;
+      suspension_reason: string | null;
       // Sprint 15C.II Fase C round 7 (smoke real Yasmin 2026-05-10):
       // Datos canónicos del cliente (nombre + email) para que la UI
       // admin muestre info legible en lugar de UUIDs crudos. Estándar
@@ -246,6 +256,9 @@ export class ProvisioningService {
       created_at: service.created_at,
       cancellation_reason: service.cancellation_reason,
       cancelled_at: service.cancelled_at,
+      // Sprint 15C.II Fase F (ADR-077 Amendment A4): suspensión canónica.
+      suspended_at: service.suspended_at,
+      suspension_reason: service.suspension_reason,
       // Sprint 15C.II Fase C round 7: client info + domain canónicos.
       // buildClientDisplayName prioriza company_name > "first_name
       // last_name" > email (consistente con buildDisplayName del plugin
@@ -357,6 +370,28 @@ export class ProvisioningService {
     isAdmin: boolean,
     ctx: { ipAddress: string; userAgent?: string | null },
   ): Promise<ActionResult> {
+    // Sprint 15C.II Fase F — ADR-077 Amendment A4: `suspend_service` /
+    // `unsuspend_service` NO se invocan por el endpoint genérico de acciones
+    // inline (`POST /services/:id/actions/:slug`) — transicionan
+    // `services.status` y requieren el motivo canónico del `SuspendServiceDto`.
+    // El camino sancionado es `POST /admin/services/:id/suspend|unsuspend` →
+    // `suspendAsAdmin` / `unsuspendAsAdmin` (que sí invocan la inline action
+    // internamente vía `executeActionWithCacheInvalidation`). Defense-in-depth:
+    // sin esto un admin podría suspender en el proveedor sin transicionar el
+    // estado en Aelium (drift que el cron L3 acabaría reconciliando, pero
+    // mejor no permitir el medio-estado).
+    if (
+      actionSlug === 'suspend_service' ||
+      actionSlug === 'unsuspend_service'
+    ) {
+      throw new ForbiddenException({
+        code: 'USE_DEDICATED_SUSPEND_ENDPOINT',
+        message:
+          'Usa POST /admin/services/:id/suspend o /unsuspend para suspender / reactivar un servicio.',
+        action_slug: actionSlug,
+      });
+    }
+
     const service = await this.loadServiceForView(serviceId);
     if (!isAdmin && service.user_id !== userId) {
       throw new ForbiddenException('No tienes acceso a este servicio.');
@@ -719,6 +754,302 @@ export class ProvisioningService {
     };
   }
 
+  // ─── Admin: suspend / unsuspend (Sprint 15C.II Fase F — ADR-077 Amendment A4) ───
+
+  /**
+   * Suspende un servicio: lo desactiva en el proveedor **preservando los datos**
+   * (distinto de `deprovisionAsAdmin`, que destruye recursos). Pensado para
+   * impago temporal, uso indebido en investigación, RGPD art. 18, mantenimiento
+   * del cluster. Reversible vía `unsuspendAsAdmin`.
+   *
+   * Pipeline canónico (espejo del patrón `executeActionForUser` + transición de
+   * estado, análogo a `deprovisionAsAdmin`):
+   *   1. Carga service + relations (404 si no existe).
+   *   2. Guard de estado:
+   *      - ya `suspended` → no-op idempotente, retorna `alreadySuspended: true`
+   *        (ADR-077 A4.4) sin invocar al plugin, sin evento, sin audit.
+   *      - distinto de `active` → 409 (no se suspende un service
+   *        pending/provisioning/failed/cancelled/terminated).
+   *   3. Resuelve plugin; 409 si no registrado o `!capabilities.supports_suspend`
+   *      (defense-in-depth — el frontend ya ramifica por el flag, ADR-070).
+   *   4. Invoca la inline action canónica `suspend_service` vía
+   *      `executeActionWithCacheInvalidation` (breaker + invalidación cache +
+   *      audit `service.action_executed:suspend_service` + evento
+   *      `service.action_executed` + enforcement `adminOnly`). 409 si falla.
+   *   5. Transición `services.status -> 'suspended'`, `suspended_at = now()`,
+   *      `suspension_reason` combinado (`"<reason>"` o `"<reason>: <internal_note>"`,
+   *      mismo patrón que `cancellation_reason`).
+   *   6. Re-invalida cache `service_info:<id>` (defense-in-depth tras el cambio
+   *      de status; el wrapper ya invalidó tras la action).
+   *   7. Emite `service.suspended` (consumido por
+   *      `notifications-on-service-suspended` → email + campana al cliente si
+   *      `notify_client !== false`).
+   *   8. Audit `service.suspended` (cambio de estado) + `service_suspend_admin`
+   *      (acceso staff con `target_user_id`).
+   *
+   * Diseñado para ser invocable internamente por el cron billing
+   * `billing-suspend-on-overdue` (Sprint 8 Fase 8.1) cuando llegue. Heredable a
+   * 15E Docker / 15G Plesk (15D RC no aplica — `supports_suspend=false`).
+   */
+  async suspendAsAdmin(
+    serviceId: string,
+    dto: SuspendServiceDto,
+    actorUserId: string,
+    ctx: { ipAddress: string; userAgent?: string | null },
+  ): Promise<{
+    id: string;
+    status: string;
+    suspension_reason: string | null;
+    suspended_at: string | null;
+    alreadySuspended?: true;
+  }> {
+    const service = await this.loadServiceForView(serviceId);
+
+    if (String(service.status) === 'suspended') {
+      this.logger.log(
+        `suspendAsAdmin: service=${serviceId} already suspended — no-op (ADR-077 A4.4 idempotency).`,
+      );
+      return {
+        id: service.id,
+        status: 'suspended',
+        suspension_reason: service.suspension_reason,
+        suspended_at: service.suspended_at
+          ? service.suspended_at.toISOString()
+          : null,
+        alreadySuspended: true,
+      };
+    }
+    if (String(service.status) !== 'active') {
+      throw new ConflictException({
+        code: 'SERVICE_NOT_SUSPENDABLE',
+        message: `Solo se puede suspender un servicio activo (estado actual: ${service.status}).`,
+        current_status: String(service.status),
+      });
+    }
+
+    const pluginSlug = service.provisioner_slug ?? service.product.provisioner;
+    const plugin = this.registry.get(pluginSlug);
+    if (!plugin) {
+      throw new ConflictException({
+        code: 'PLUGIN_NOT_REGISTERED',
+        message: `El plugin "${pluginSlug}" no está registrado.`,
+      });
+    }
+    if (!plugin.capabilities.supports_suspend) {
+      throw new ConflictException({
+        code: 'SUSPEND_NOT_SUPPORTED',
+        message: `El plugin "${pluginSlug}" no soporta suspensión de servicios.`,
+      });
+    }
+
+    const result = await executeActionWithCacheInvalidation(
+      plugin,
+      service,
+      'suspend_service',
+      { reason: dto.reason },
+      {
+        actorUserId,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent ?? null,
+        actorIsAdmin: true,
+      },
+      this.cache,
+      this.events,
+      this.audit,
+      this.breakers,
+    );
+    if (!result.success) {
+      throw new ConflictException({
+        code: 'SUSPEND_PROVIDER_FAILED',
+        message:
+          'No se pudo suspender el servicio en el proveedor. Inténtalo de nuevo o contacta con el equipo técnico.',
+        provider_message_key: result.message ?? null,
+      });
+    }
+
+    const suspensionReason = dto.internal_note
+      ? `${dto.reason}: ${dto.internal_note}`
+      : dto.reason;
+    const suspendedAt = new Date();
+    const updated = await this.prisma.service.update({
+      where: { id: serviceId },
+      data: {
+        status: 'suspended',
+        suspended_at: suspendedAt,
+        suspension_reason: suspensionReason,
+      },
+      select: {
+        id: true,
+        status: true,
+        suspension_reason: true,
+        suspended_at: true,
+      },
+    });
+
+    await this.cache.invalidate(serviceId);
+
+    const notifyClient = dto.notify_client !== false;
+    this.events.emit('service.suspended', {
+      service_id: serviceId,
+      user_id: service.user_id,
+      provisioner_slug: service.provisioner_slug,
+      reason: dto.reason,
+      actor_user_id: actorUserId,
+      suspended_at: suspendedAt.toISOString(),
+      notify_client: notifyClient,
+    });
+
+    await this.audit.logChange({
+      user_id: actorUserId,
+      entity_type: 'Service',
+      entity_id: serviceId,
+      action: 'service.suspended',
+      changes_before: { status: String(service.status) },
+      changes_after: {
+        status: 'suspended',
+        suspension_reason: suspensionReason,
+        reason_code: dto.reason,
+        ...(dto.internal_note ? { internal_note: dto.internal_note } : {}),
+        notify_client: notifyClient,
+      },
+    });
+    await this.audit.logAccess({
+      user_id: actorUserId,
+      action: 'service_suspend_admin',
+      ip_address: ctx.ipAddress,
+      user_agent: ctx.userAgent ?? null,
+      resource: 'Service',
+      metadata: {
+        resource_id: serviceId,
+        target_user_id: service.user_id,
+        reason_code: dto.reason,
+      },
+    });
+
+    return {
+      id: updated.id,
+      status: String(updated.status),
+      suspension_reason: updated.suspension_reason,
+      suspended_at: updated.suspended_at
+        ? updated.suspended_at.toISOString()
+        : suspendedAt.toISOString(),
+    };
+  }
+
+  /**
+   * Reactiva un servicio suspendido (espejo de `suspendAsAdmin`):
+   *   - ya `active` → no-op idempotente (`alreadyActive: true`).
+   *   - distinto de `suspended` → 409.
+   *   - invoca `unsuspend_service` → transición `status -> 'active'`,
+   *     `suspended_at = null`, `suspension_reason = null` → cache invalidate →
+   *     emite `service.unsuspended` → audit.
+   *
+   * Sin DTO: la reactivación no requiere motivo (solo se restaura el estado
+   * previo a la suspensión). El cliente siempre recibe email + campana
+   * `service.unsuspended` (reactivar es buena noticia — no hay toggle de
+   * supresión, a diferencia de `suspend`).
+   */
+  async unsuspendAsAdmin(
+    serviceId: string,
+    actorUserId: string,
+    ctx: { ipAddress: string; userAgent?: string | null },
+  ): Promise<{ id: string; status: string; alreadyActive?: true }> {
+    const service = await this.loadServiceForView(serviceId);
+
+    if (String(service.status) === 'active') {
+      this.logger.log(
+        `unsuspendAsAdmin: service=${serviceId} already active — no-op (ADR-077 A4.4 idempotency).`,
+      );
+      return { id: service.id, status: 'active', alreadyActive: true };
+    }
+    if (String(service.status) !== 'suspended') {
+      throw new ConflictException({
+        code: 'SERVICE_NOT_SUSPENDED',
+        message: `Solo se puede reactivar un servicio suspendido (estado actual: ${service.status}).`,
+        current_status: String(service.status),
+      });
+    }
+
+    const pluginSlug = service.provisioner_slug ?? service.product.provisioner;
+    const plugin = this.registry.get(pluginSlug);
+    if (!plugin) {
+      throw new ConflictException({
+        code: 'PLUGIN_NOT_REGISTERED',
+        message: `El plugin "${pluginSlug}" no está registrado.`,
+      });
+    }
+    if (!plugin.capabilities.supports_suspend) {
+      throw new ConflictException({
+        code: 'SUSPEND_NOT_SUPPORTED',
+        message: `El plugin "${pluginSlug}" no soporta suspensión de servicios.`,
+      });
+    }
+
+    const result = await executeActionWithCacheInvalidation(
+      plugin,
+      service,
+      'unsuspend_service',
+      {},
+      {
+        actorUserId,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent ?? null,
+        actorIsAdmin: true,
+      },
+      this.cache,
+      this.events,
+      this.audit,
+      this.breakers,
+    );
+    if (!result.success) {
+      throw new ConflictException({
+        code: 'UNSUSPEND_PROVIDER_FAILED',
+        message:
+          'No se pudo reactivar el servicio en el proveedor. Inténtalo de nuevo o contacta con el equipo técnico.',
+        provider_message_key: result.message ?? null,
+      });
+    }
+
+    const previousReason = service.suspension_reason;
+    const updated = await this.prisma.service.update({
+      where: { id: serviceId },
+      data: { status: 'active', suspended_at: null, suspension_reason: null },
+      select: { id: true, status: true },
+    });
+
+    await this.cache.invalidate(serviceId);
+
+    this.events.emit('service.unsuspended', {
+      service_id: serviceId,
+      user_id: service.user_id,
+      provisioner_slug: service.provisioner_slug,
+      actor_user_id: actorUserId,
+      previous_suspension_reason: previousReason,
+    });
+
+    await this.audit.logChange({
+      user_id: actorUserId,
+      entity_type: 'Service',
+      entity_id: serviceId,
+      action: 'service.unsuspended',
+      changes_before: {
+        status: 'suspended',
+        suspension_reason: previousReason,
+      },
+      changes_after: { status: 'active' },
+    });
+    await this.audit.logAccess({
+      user_id: actorUserId,
+      action: 'service_unsuspend_admin',
+      ip_address: ctx.ipAddress,
+      user_agent: ctx.userAgent ?? null,
+      resource: 'Service',
+      metadata: { resource_id: serviceId, target_user_id: service.user_id },
+    });
+
+    return { id: updated.id, status: String(updated.status) };
+  }
+
   // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private serviceSummarySelect() {
@@ -748,6 +1079,11 @@ export class ProvisioningService {
       ...this.serviceSummarySelect(),
       cancelled_at: true,
       cancellation_reason: true,
+      // Sprint 15C.II Fase F (ADR-077 Amendment A4): el listado admin muestra
+      // el estado de suspensión por fila (badge + motivo) — paralelo a
+      // cancelled_at/cancellation_reason.
+      suspended_at: true,
+      suspension_reason: true,
     } satisfies Prisma.ServiceSelect;
   }
 
@@ -837,6 +1173,7 @@ export class ProvisioningService {
         completes_via_task: false,
         supports_reconciliation: false,
         has_dns_management: false, // ADR-077 Amendment A1
+        supports_suspend: false, // ADR-077 Amendment A4
         hasSsoPanel: false,
         inlineActions: [],
       },
@@ -886,6 +1223,7 @@ export class ProvisioningService {
         completes_via_task: false,
         supports_reconciliation: false,
         has_dns_management: false,
+        supports_suspend: false, // ADR-077 Amendment A4
         hasSsoPanel: false,
         inlineActions: [],
       },

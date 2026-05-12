@@ -64,6 +64,7 @@ export class InternalProvisionerPlugin implements ProvisionerPlugin {
     completes_via_task: false,
     supports_reconciliation: false,
     has_dns_management: false, // ADR-077 Amendment A1
+    supports_suspend: false, // ADR-077 Amendment A4 — servicios internos no se suspenden
   };
 
   readonly inlineActions: readonly ServiceAction[] = [];

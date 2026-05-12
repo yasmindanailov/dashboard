@@ -277,7 +277,7 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(plugin.contractVersion).toBe('v2');
     });
 
-    it('capabilities incluyen has_dns_management=true (ADR-077 Amendment A1)', () => {
+    it('capabilities incluyen has_dns_management=true (ADR-077 A1) + supports_suspend=true (ADR-077 A4)', () => {
       const plugin = buildPlugin(
         buildPrismaMock({ install: VALID_INSTALL }),
         buildVaultMock(),
@@ -288,11 +288,12 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(plugin.capabilities.has_sso_panel).toBe(true);
       expect(plugin.capabilities.has_metrics).toBe(true);
       expect(plugin.capabilities.supports_reconciliation).toBe(true);
+      expect(plugin.capabilities.supports_suspend).toBe(true); // ADR-077 Amendment A4
       expect(plugin.capabilities.requires_server).toBe(false);
       expect(plugin.capabilities.provision_mode).toBe('sync');
     });
 
-    it('inlineActions incluyen los 8 slugs canónicos (ADR-083 §9 dec.32 + Amendment A3 + Amendment A4.1)', () => {
+    it('inlineActions incluyen los 10 slugs canónicos (ADR-083 §9 dec.32 + Amendment A3 + A4.1 + ADR-077 A4)', () => {
       const plugin = buildPlugin(
         buildPrismaMock({ install: VALID_INSTALL }),
         buildVaultMock(),
@@ -309,10 +310,12 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
           'delete_dns_record',
           'change_package',
           'recalculate_provider_metrics',
-          'list_available_plans', // ADR-083 Amendment A3 — 10ª action
+          'list_available_plans', // ADR-083 Amendment A3
+          'suspend_service', // ADR-077 Amendment A4 (Sprint 15C.II Fase F)
+          'unsuspend_service', // ADR-077 Amendment A4 (Sprint 15C.II Fase F)
         ]),
       );
-      expect(slugs).toHaveLength(8);
+      expect(slugs).toHaveLength(10);
       // Sprint 15C.II Fase B (ADR-083 Amendment A4.1): view_disk_usage y
       // view_bandwidth_usage eliminados del manifest. Refresh metrics ahora
       // vía botón ↻ en MetricsBar + server action refreshServiceInfoAction.
@@ -320,10 +323,12 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(slugs).not.toContain('view_bandwidth_usage');
     });
 
-    it('3 actions admin-only declaran adminOnly=true (ADR-083 Amendment A3 + Amendment A4.1 cleanup)', () => {
-      // Sprint 15C.II Fase B: view_disk_usage + view_bandwidth_usage
-      // eliminados — quedan 3 admin-only puros (change_package,
-      // recalculate_provider_metrics, list_available_plans).
+    it('5 actions admin-only declaran adminOnly=true (ADR-083 A3 + A4.1 + ADR-077 A4)', () => {
+      // Sprint 15C.II Fase B: view_disk_usage + view_bandwidth_usage eliminados.
+      // Fase F (ADR-077 A4): + suspend_service / unsuspend_service (operación
+      // administrativa, NUNCA cliente self-service). Quedan 5 admin-only:
+      // change_package, recalculate_provider_metrics, list_available_plans,
+      // suspend_service, unsuspend_service.
       const plugin = buildPlugin(
         buildPrismaMock({ install: VALID_INSTALL }),
         buildVaultMock(),
@@ -338,9 +343,11 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
           'change_package',
           'recalculate_provider_metrics',
           'list_available_plans',
+          'suspend_service',
+          'unsuspend_service',
         ]),
       );
-      expect(adminOnlySlugs).toHaveLength(3);
+      expect(adminOnlySlugs).toHaveLength(5);
       // Las 5 acciones cliente que quedan son reset_password + las 4 DNS
       // (estas últimas ocultas en frontend via INTERNAL_HELPER_SLUGS pero
       // siguen siendo client-callable por contrato canónico ADR-077 A1.3
@@ -725,7 +732,12 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(info.metrics?.emailAccountsUsed).toBe(3);
       expect(info.metrics?.databasesUsed).toBe(1);
       expect(info.capabilities.hasSsoPanel).toBe(true);
-      expect(info.availableActions.length).toBe(8); // status=active → 8 post Amendment A4.1 (eliminó view_disk + view_bandwidth)
+      // status=active → 9 acciones: 8 post Amendment A4.1 (sin view_disk/view_bandwidth)
+      // + `suspend_service` (ADR-077 A4); `unsuspend_service` se filtra (solo `suspended`).
+      expect(info.availableActions.length).toBe(9);
+      const slugs = info.availableActions.map((a) => a.slug);
+      expect(slugs).toContain('suspend_service');
+      expect(slugs).not.toContain('unsuspend_service');
     });
 
     it('subscription 404 → unknown info', async () => {
@@ -1346,6 +1358,88 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
         VALID_INSTALL.config.masterOrgId,
       );
       expect(result.sideEffects).toBeUndefined();
+    });
+
+    // ─── suspend / unsuspend (Sprint 15C.II Fase F — ADR-077 Amendment A4) ──
+
+    it('suspend_service: PATCH subscription { isSuspended: true } + message; el plugin NO transiciona status ni emite eventos', async () => {
+      const api = buildApiMock();
+      api.patchSubscription.mockResolvedValueOnce({ id: SUB_ID });
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+      const result = await plugin.executeAction(
+        buildServiceWithRefs(),
+        'suspend_service',
+        { reason: 'overdue_payment' },
+      );
+      expect(result.success).toBe(true);
+      expect(result.message).toBe(
+        'plugin.enhance_cp.actions.suspend_service.success',
+      );
+      expect(result.data).toEqual({ suspended: true });
+      expect(api.patchSubscription).toHaveBeenCalledWith(ORG_ID, SUB_ID, {
+        isSuspended: true,
+      });
+      // R8 audit centralizado: el plugin solo toca el proveedor; el cambio de
+      // `services.status` + el evento `service.suspended` los hace el
+      // orquestador (ProvisioningService.suspendAsAdmin).
+      expect(result.sideEffects).toBeUndefined();
+    });
+
+    it('unsuspend_service: PATCH subscription { isSuspended: false } + message', async () => {
+      const api = buildApiMock();
+      api.patchSubscription.mockResolvedValueOnce({ id: SUB_ID });
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+      const result = await plugin.executeAction(
+        buildServiceWithRefs(),
+        'unsuspend_service',
+        {},
+      );
+      expect(result.success).toBe(true);
+      expect(result.message).toBe(
+        'plugin.enhance_cp.actions.unsuspend_service.success',
+      );
+      expect(result.data).toEqual({ suspended: false });
+      expect(api.patchSubscription).toHaveBeenCalledWith(ORG_ID, SUB_ID, {
+        isSuspended: false,
+      });
+    });
+  });
+
+  // ─── getServiceInfo: servicio suspendido (ADR-077 A4 — availableActions) ──
+
+  describe('getServiceInfo() — servicio suspendido', () => {
+    it('suspendedBy presente → status=suspended + availableActions incluye unsuspend_service, no suspend_service', async () => {
+      const api = buildApiMock();
+      api.getSubscription.mockResolvedValueOnce({
+        id: SUB_ID,
+        status: 'active',
+        planName: 'Web Pro',
+        friendlyName: 'mi-cliente.es',
+        suspendedBy: 'admin-uuid',
+      });
+      api.getSubscriptionBandwidth.mockResolvedValueOnce({ usedMb: 0 });
+      api.calculateResourceUsage.mockResolvedValueOnce({ items: [] });
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.status).toBe('suspended');
+      const slugs = info.availableActions.map((a) => a.slug);
+      expect(slugs).toContain('unsuspend_service');
+      expect(slugs).not.toContain('suspend_service');
     });
   });
 

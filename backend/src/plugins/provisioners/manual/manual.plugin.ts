@@ -64,6 +64,7 @@ export class ManualProvisionerPlugin implements ProvisionerPlugin {
     completes_via_task: true,
     supports_reconciliation: false,
     has_dns_management: false, // ADR-077 Amendment A1
+    supports_suspend: false, // ADR-077 Amendment A4 — provisioning manual sin suspensión inline
   };
 
   readonly inlineActions: readonly ServiceAction[] = [];

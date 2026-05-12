@@ -28,6 +28,7 @@ import { CreateDnsRecordDto, UpdateDnsRecordDto } from './dto/dns-records.dto';
 import {
   AdminServiceListQueryDto,
   DeprovisionDto,
+  SuspendServiceDto,
 } from './dto/provisioning.dto';
 import {
   DnsExternallyManagedError,
@@ -128,6 +129,40 @@ export class AdminProvisioningController {
     @Body() dto: DeprovisionDto,
   ) {
     return this.provisioning.deprovisionAsAdmin(id, dto, req.user.id, {
+      ipAddress: req.ip ?? '0.0.0.0',
+      userAgent: req.headers['user-agent'] ?? null,
+    });
+  }
+
+  // ─── Suspend / unsuspend (Sprint 15C.II Fase F — ADR-077 Amendment A4) ──
+
+  @Post(':id/suspend')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Suspender servicio (reversible — preserva datos en el proveedor) con motivo canónico',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
+  suspend(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SuspendServiceDto,
+  ) {
+    return this.provisioning.suspendAsAdmin(id, dto, req.user.id, {
+      ipAddress: req.ip ?? '0.0.0.0',
+      userAgent: req.headers['user-agent'] ?? null,
+    });
+  }
+
+  @Post(':id/unsuspend')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reactivar servicio suspendido' })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
+  unsuspend(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.provisioning.unsuspendAsAdmin(id, req.user.id, {
       ipAddress: req.ip ?? '0.0.0.0',
       userAgent: req.headers['user-agent'] ?? null,
     });
