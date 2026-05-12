@@ -410,6 +410,48 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
         </Card>
       )}
 
+      {/* Historial de auditoría — Sprint 15C.II Fase F.3 (GAP-15CII-M).
+          Siempre visible (también si terminal: ahí es donde más interesa ver
+          qué pasó). Vista admin sin filtro en `/admin/services/[id]/audit`. */}
+      <Card>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 16,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+              {t('service.audit.title')}
+            </h2>
+            <p
+              style={{
+                color: 'var(--text-secondary)',
+                fontSize: 13,
+                marginTop: 4,
+              }}
+            >
+              {t('service.audit.subtitle_admin')}
+            </p>
+          </div>
+          <Link
+            href={`/admin/services/${service.id}/audit`}
+            style={{
+              color: 'var(--brand-600)',
+              fontSize: 14,
+              fontWeight: 600,
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {t('service.audit.link')} →
+          </Link>
+        </div>
+      </Card>
+
       <p style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
         Última lectura del proveedor:{' '}
         {new Date(info.fetchedAt).toLocaleString('es-ES')}

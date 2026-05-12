@@ -260,13 +260,13 @@ export async function PluginOperationalOverview({ slug }: Props) {
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Ruta canónica al detalle de un servicio desde el overview de un plugin.
- * Fase F.2 enlaza a la página de detalle del servicio (que ya existe); en
- * Fase F.3, cuando llegue el timeline `/admin/services/[id]/audit`
- * (GAP-15CII-M), basta repuntar aquí — una sola línea.
+ * Ruta desde una fila de drift del overview al timeline de auditoría de ese
+ * servicio. Fase F.3 (GAP-15CII-M) ya entregó `/admin/services/[id]/audit`:
+ * el admin llega al timeline filtrado por el servicio donde verá el
+ * `reconciled_external_change` que generó la fila.
  */
 function serviceDetailHref(serviceId: string): string {
-  return `/admin/services/${serviceId}`;
+  return `/admin/services/${serviceId}/audit`;
 }
 
 function StatCard({
