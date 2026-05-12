@@ -631,8 +631,16 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     const recoveryHint: ServiceRecoveryHint | undefined = planDiverged
       ? 'reconcile'
       : undefined;
+    // Sprint 15C.II Fase F (ADR-077 Amendment A4): para una subscription
+    // suspendida en Enhance (`suspendedBy` set), `statusReason` es la i18n key
+    // genérica `plugin.enhance_cp.status_reason.suspended` (el ServiceHeader
+    // la traduce — cliente-segura, no expone el member ID del operador Enhance).
+    // El motivo REAL de la suspensión (la taxonomía canónica `SuspensionReason`
+    // + nota interna) vive en `services.suspension_reason` (Aelium-side) y el
+    // admin lo ve en el banner amarillo de `/admin/services/[id]`. NUNCA es un
+    // drift re-aprovisionable — no se emite `recoveryHint`.
     const statusReason = subscription.suspendedBy
-      ? `suspended by ${subscription.suspendedBy}`
+      ? 'plugin.enhance_cp.status_reason.suspended'
       : planDiverged
         ? 'plugin.enhance_cp.status_reason.plan_divergence'
         : undefined;

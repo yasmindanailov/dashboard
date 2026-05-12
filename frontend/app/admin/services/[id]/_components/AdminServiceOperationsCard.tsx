@@ -19,6 +19,15 @@
  *     aquí (no en la barra genérica "Acciones rápidas") — operación de
  *     power-user con etiquetado preciso (progressive disclosure). Sin
  *     confirmación (no destructiva).
+ *   - **Suspender servicio… / Reanudar servicio** — Sprint 15C.II Fase F
+ *     (ADR-077 Amendment A4): abre `SuspendServiceModal`. Ramifica por las
+ *     inline actions canónicas que `getServiceInfo` expone según el estado:
+ *     `suspend_service` (si `status='active'`) → "Suspender servicio…"
+ *     (modal con motivo canónico + nota interna + toggle notificar — reversible,
+ *     sin typing-confirm); `unsuspend_service` (si `status='suspended'`) →
+ *     "Reanudar servicio" (confirmación simple). Solo aparece si el plugin
+ *     declara `supports_suspend=true` (implícito: sin el flag esas actions no
+ *     están en el catálogo → no llegan a `availableActions`).
  *   - **Cancelar servicio…** — abre `CancelServiceModal` (Sprint 15C.II
  *     Fase E, GAP-15CII-J): flujo destructivo de grado profesional
  *     (advertencia + motivo + nota interna + toggle notificar + typing-confirm).
@@ -41,6 +50,7 @@ import { executeServiceActionAction } from '../../../../_shared/services/_action
 
 import { ChangePackageModal, type EnhancePlanOption } from './ChangePackageModal';
 import { CancelServiceModal } from './CancelServiceModal';
+import { SuspendServiceModal } from './SuspendServiceModal';
 
 interface AdminServiceOperationsCardProps {
   serviceId: string;
@@ -74,8 +84,20 @@ export function AdminServiceOperationsCard({
   // ── cancel modal state ───────────────────────────────────────────────────
   const [cancelOpen, setCancelOpen] = useState(false);
 
+  // ── suspend / unsuspend modal state (Sprint 15C.II Fase F — ADR-077 A4) ──
+  const [suspendMode, setSuspendMode] = useState<'suspend' | 'unsuspend' | null>(
+    null,
+  );
+
   const recalcAction = actions.find((a) => a.slug === RECALCULATE_SLUG);
   const hasChangePackage = actions.some((a) => a.slug === 'change_package');
+  // Las 2 inline actions canónicas de suspensión solo están en `availableActions`
+  // si (a) el plugin declara `supports_suspend=true` y (b) el estado actual lo
+  // permite (`suspend_service` ⇔ active, `unsuspend_service` ⇔ suspended) —
+  // `getServiceInfo` ya hace ese filtrado. Ramificamos por su presencia, NUNCA
+  // por slug del provisioner (ADR-070).
+  const canSuspend = actions.some((a) => a.slug === 'suspend_service');
+  const canUnsuspend = actions.some((a) => a.slug === 'unsuspend_service');
 
   async function handleOpenChangePlan(): Promise<void> {
     setChangePlanOpen(true);
@@ -175,6 +197,25 @@ export function AdminServiceOperationsCard({
             </Button>
           )}
 
+          {canSuspend && (
+            <Button
+              variant="secondary"
+              onClick={() => setSuspendMode('suspend')}
+              title="Desactiva el servicio en el proveedor preservando los datos (reversible). Para impago temporal, abuso en investigación, mantenimiento o restricción RGPD."
+            >
+              Suspender servicio…
+            </Button>
+          )}
+          {canUnsuspend && (
+            <Button
+              variant="secondary"
+              onClick={() => setSuspendMode('unsuspend')}
+              title="Reactiva un servicio suspendido — el cliente recupera el acceso."
+            >
+              Reanudar servicio
+            </Button>
+          )}
+
           <Button variant="danger" onClick={() => setCancelOpen(true)}>
             Cancelar servicio…
           </Button>
@@ -204,6 +245,14 @@ export function AdminServiceOperationsCard({
         onClose={() => setCancelOpen(false)}
         serviceId={serviceId}
         serviceDisplayName={serviceDisplayName}
+      />
+
+      <SuspendServiceModal
+        open={suspendMode !== null}
+        onClose={() => setSuspendMode(null)}
+        serviceId={serviceId}
+        serviceDisplayName={serviceDisplayName}
+        mode={suspendMode ?? 'suspend'}
       />
     </>
   );

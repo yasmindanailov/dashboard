@@ -86,14 +86,27 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
   const isTerminal =
     service.status === 'cancelled' || service.status === 'terminated';
 
+  // Sprint 15C.II Fase F (ADR-077 Amendment A4): estado `suspended` — banner
+  // amarillo informativo (NO drift, NO terminal: es un estado operativo
+  // reversible). Usamos `service.status` (la verdad canónica de Aelium) — si
+  // hay drift con el proveedor (Enhance dice active pero Aelium suspended), el
+  // cron L3 reconcilia; aquí mostramos lo que Aelium tiene registrado. El
+  // motivo + nota interna viven en `service.suspension_reason` (cadena
+  // combinada `"<reason>: <internal_note>"`); el admin ve ambos.
+  const isSuspended = !isTerminal && service.status === 'suspended';
+  const suspension = isSuspended
+    ? parseSuspensionReason(service.suspension_reason)
+    : null;
+
   // Sprint 15C.II Fase C (UI_SPEC §4.13 + ADR-083 Amendment A4.3 frozen
   // 2026-05-10): patrón doctrinal "drift UX discriminada por rol". Cuando
   // el plugin reporta `status` ∈ {`unknown`, `failed`} con `statusReason`
   // no nulo, el admin necesita un AlertBanner técnico crudo ARRIBA del
   // MetricsBar con CTA SSO + (si aplica) Re-aprovisionar prominente.
-  // NO se aplica si el service está terminal (handled arriba).
+  // NO se aplica si el service está terminal ni suspended (handled arriba).
   const isDrift =
     !isTerminal &&
+    !isSuspended &&
     (info.status === 'unknown' || info.status === 'failed') &&
     info.statusReason !== null &&
     info.statusReason !== undefined;
@@ -172,6 +185,47 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
                 <code>{service.cancellation_reason}</code>
                 {service.cancelled_at &&
                   ` · ${new Date(service.cancelled_at).toLocaleString('es-ES')}`}
+              </p>
+            )}
+          </div>
+        </AlertBanner>
+      )}
+
+      {/*
+        Sprint 15C.II Fase F (ADR-077 Amendment A4): banner amarillo
+        "Servicio suspendido" — estado operativo reversible (NO drift, NO
+        terminal). Muestra el motivo canónico localizado + (si hay) la nota
+        interna del admin + cuándo se suspendió. La reactivación se opera desde
+        `AdminServiceOperationsCard` ("Reanudar servicio"). El cliente ve una
+        versión genérica de esto en su `/dashboard/services/[id]` (ServiceHeader
+        con `statusReason` i18n) — aquí el admin ve el detalle real.
+      */}
+      {isSuspended && suspension && (
+        <AlertBanner variant="warning" title="Servicio suspendido">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p style={{ margin: 0, fontSize: 13 }}>
+              Este servicio está suspendido — el cliente no tiene acceso, pero
+              sus datos se conservan en el proveedor. Reactívalo desde
+              «Operaciones admin» cuando proceda.
+            </p>
+            <p style={{ margin: 0, fontSize: 13 }}>
+              <strong>Motivo:</strong> {suspension.label}
+              {suspension.note ? (
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  {' — '}
+                  {suspension.note}
+                </span>
+              ) : null}
+            </p>
+            {service.suspended_at && (
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 12,
+                  color: 'var(--text-tertiary)',
+                }}
+              >
+                Suspendido el {new Date(service.suspended_at).toLocaleString('es-ES')}
               </p>
             )}
           </div>
@@ -362,4 +416,26 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
       </p>
     </div>
   );
+}
+
+/**
+ * Sprint 15C.II Fase F (ADR-077 Amendment A4) — parsea `service.suspension_reason`
+ * (cadena combinada `"<reason>"` o `"<reason>: <internal_note>"`, mismo patrón
+ * que `cancellation_reason`) en su etiqueta localizada cliente-segura
+ * (`service.suspension_reason.<reason>`) + la nota interna (admin-only). Si el
+ * prefijo no es uno de los 5 motivos canónicos (datos legacy / manuales), `t()`
+ * devuelve la key cruda — aceptable como degradación.
+ */
+function parseSuspensionReason(raw: string | null): {
+  label: string;
+  note: string | null;
+} {
+  if (!raw) return { label: t('service.suspension_reason.other'), note: null };
+  const sep = raw.indexOf(': ');
+  const prefix = (sep >= 0 ? raw.slice(0, sep) : raw).trim();
+  const note = sep >= 0 ? raw.slice(sep + 2).trim() : '';
+  return {
+    label: t(`service.suspension_reason.${prefix}`),
+    note: note.length > 0 ? note : null,
+  };
 }

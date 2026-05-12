@@ -1396,9 +1396,33 @@ export interface ServiceInfoCapabilities {
    * añade el link "Gestionar DNS" condicional en `/dashboard/services/[id]`.
    */
   has_dns_management: boolean;
+  /**
+   * Sprint 15C.II Fase F — ADR-077 Amendment A4. `true` si el plugin soporta
+   * suspender / reactivar el servicio sin desprovisionarlo. La UI admin
+   * ramifica por este flag (NUNCA por slug) para ofrecer "Suspender / Reanudar
+   * servicio" en `AdminServiceOperationsCard`. Implícitamente, los plugins con
+   * `supports_suspend=true` exponen las inline actions `suspend_service` (si
+   * `status='active'`) / `unsuspend_service` (si `status='suspended'`) en
+   * `availableActions` — ocultas en `ActionsBar` (`INTERNAL_HELPER_SLUGS`),
+   * operadas desde la card de operaciones admin.
+   */
+  supports_suspend: boolean;
   hasSsoPanel: boolean;
   inlineActions: ServiceAction[];
 }
+
+/**
+ * Sprint 15C.II Fase F — ADR-077 Amendment A4. Taxonomía canónica del motivo
+ * de una suspensión administrativa (cliente-segura — la UI muestra la etiqueta
+ * localizada `service.suspension_reason.<reason>`, NUNCA la nota interna del
+ * admin). DEBE coincidir con el tipo `SuspensionReason` del backend.
+ */
+export type SuspensionReason =
+  | 'overdue_payment'
+  | 'abuse_investigation'
+  | 'scheduled_maintenance'
+  | 'gdpr_restriction'
+  | 'other';
 
 export interface ServiceAction {
   slug: string;
@@ -1515,6 +1539,16 @@ export interface ServiceDetailResponse {
      */
     cancellation_reason: string | null;
     cancelled_at: string | null;
+    /**
+     * Sprint 15C.II Fase F (ADR-077 Amendment A4) — suspensión canónica.
+     * `suspension_reason` es la cadena combinada `"<reason>"` o
+     * `"<reason>: <internal_note>"` (mismo patrón que `cancellation_reason`):
+     * el frontend admin muestra la cadena completa; el frontend cliente solo
+     * la parte `<reason>` (etiqueta localizada `service.suspension_reason.*`).
+     * Ambos `null` cuando el service no está suspendido.
+     */
+    suspended_at: string | null;
+    suspension_reason: string | null;
     /**
      * Sprint 15C.II Fase C round 7 (smoke real Yasmin 2026-05-10) —
      * datos canónicos del cliente para que la UI admin muestre info

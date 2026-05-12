@@ -77,6 +77,17 @@ import { executeServiceActionAction } from './_actions';
  *                               con el ↻ Refrescar del MetricsBar y con la
  *                               reconciliación periódica si no tiene contexto.
  *
+ * Sprint 15C.II Fase F — ADR-077 Amendment A4:
+ *   - `suspend_service` / `unsuspend_service` — transicionan `services.status`
+ *                               y exigen el motivo canónico del modal. Se
+ *                               operan desde `AdminServiceOperationsCard`
+ *                               ("Suspender servicio…" / "Reanudar servicio")
+ *                               vía el endpoint dedicado
+ *                               `POST /admin/services/:id/suspend|unsuspend` —
+ *                               NUNCA como botón inline (un suspend sin motivo
+ *                               y sin transición de estado sería un medio-estado).
+ *                               El cliente nunca las ve (`adminOnly: true`).
+ *
  * Si llega un futuro plugin con un slug que también deba ocultarse,
  * añadir aquí + documentar el motivo inline.
  */
@@ -88,6 +99,8 @@ const INTERNAL_HELPER_SLUGS = new Set<string>([
   'add_dns_record',
   'update_dns_record',
   'delete_dns_record',
+  'suspend_service',
+  'unsuspend_service',
 ]);
 
 /**
