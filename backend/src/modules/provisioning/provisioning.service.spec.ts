@@ -77,7 +77,11 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
   let registry: jest.Mocked<PluginRegistryService>;
   let cache: { get: jest.Mock; set: jest.Mock; invalidate: jest.Mock };
   let events: { emit: jest.Mock };
-  let audit: { logAccess: jest.Mock; logChange: jest.Mock };
+  let audit: {
+    logAccess: jest.Mock;
+    logChange: jest.Mock;
+    getServiceTimeline: jest.Mock;
+  };
   let settings: { getNumber: jest.Mock; getJson: jest.Mock };
   let orchestrator: { enqueueProvisioning: jest.Mock };
   let service: ProvisioningService;
@@ -192,6 +196,9 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     audit = {
       logAccess: jest.fn().mockResolvedValue(undefined),
       logChange: jest.fn().mockResolvedValue(undefined),
+      getServiceTimeline: jest
+        .fn()
+        .mockResolvedValue({ items: [], next_cursor: null }),
     };
     settings = {
       getNumber: jest.fn().mockResolvedValue(60),
@@ -1092,6 +1099,61 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         }),
       });
       expect(dnsPlugin.executeAction).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── getServiceTimelineForUser — Sprint 15C.II Fase F.3 (GAP-15CII-M) ───
+
+  describe('getServiceTimelineForUser', () => {
+    it('NotFoundException si el servicio no existe', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(null);
+      await expect(
+        service.getServiceTimelineForUser('svc-x', 'user-1', false, {}),
+      ).rejects.toThrow(NotFoundException);
+      expect(audit.getServiceTimeline).not.toHaveBeenCalled();
+    });
+
+    it('ForbiddenException si cliente accede a servicio ajeno', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce({
+        id: 'svc-1',
+        user_id: 'owner-1',
+      });
+      await expect(
+        service.getServiceTimelineForUser('svc-1', 'other-user', false, {}),
+      ).rejects.toThrow(ForbiddenException);
+      expect(audit.getServiceTimeline).not.toHaveBeenCalled();
+    });
+
+    it('dueño: delega a audit.getServiceTimeline con isAdmin=false', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce({
+        id: 'svc-1',
+        user_id: 'user-1',
+      });
+      const page = await service.getServiceTimelineForUser(
+        'svc-1',
+        'user-1',
+        false,
+        { cursor: 'c1', limit: 10 },
+      );
+      expect(page).toEqual({ items: [], next_cursor: null });
+      expect(audit.getServiceTimeline).toHaveBeenCalledWith('svc-1', {
+        isAdmin: false,
+        cursor: 'c1',
+        limit: 10,
+      });
+    });
+
+    it('admin: ignora ownership (servicio ajeno) y delega con isAdmin=true', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce({
+        id: 'svc-1',
+        user_id: 'owner-1',
+      });
+      await service.getServiceTimelineForUser('svc-1', 'admin-1', true, {});
+      expect(audit.getServiceTimeline).toHaveBeenCalledWith('svc-1', {
+        isAdmin: true,
+        cursor: null,
+        limit: undefined,
+      });
     });
   });
 });
