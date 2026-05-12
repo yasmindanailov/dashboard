@@ -337,6 +337,13 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
     'Re-aprovisión enqueued. La cola la procesará en segundos.',
   'service.drift.admin_banner.reprovision_error':
     'No se pudo enqueuear la re-aprovisión. Revisa los logs del backend.',
+  // Sprint 15C.II Fase F.3 — CTA cuando `recoveryHint === 'reconcile'`
+  // (p.ej. plan_divergence): lleva a la página de settings del plugin, donde
+  // está el botón "Reconciliar todos los servicios contra <Plugin> ahora"
+  // (trigger manual del cron L3) + el overview operativo.
+  'service.drift.admin_banner.reconcile_cta': 'Reconciliar contra el proveedor',
+  'service.drift.admin_banner.reconcile_help':
+    'Abre la configuración del plugin, donde puedes lanzar una reconciliación contra el proveedor ahora (sin esperar al cron periódico) y revisar el estado operativo del plugin.',
 
   // ── Estados terminales — service.status ∈ {cancelled, terminated}
   //    (UI_SPEC §4.13 + ADR-082 DH-INV-6 — Sprint 15C.II Fase C round 4

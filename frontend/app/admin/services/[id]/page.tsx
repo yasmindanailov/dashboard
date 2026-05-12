@@ -245,6 +245,8 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
           hasSsoPanel={info.capabilities.hasSsoPanel}
           panelLabel={info.capabilities.panel_label ?? undefined}
           showReprovision={showReprovision}
+          showReconcile={isDrift && info.recoveryHint === 'reconcile'}
+          pluginSlug={service.provisioner_slug ?? service.product_provisioner}
         />
       )}
 
