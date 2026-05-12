@@ -388,6 +388,9 @@ El circuit breaker se aplica EXCLUSIVAMENTE a operaciones que cumplen los **3 cr
 | `plugin.uninstalled` | `{ slug, uninstalled_by, uninstalled_at }` | `AdminPluginsService.uninstall` | audit |
 | `plugin.circuit_opened` | `{ plugin_slug, reason, opened_at, last_error_code }` | `CircuitBreaker` | `notifications-on-plugin-circuit-opened`, audit |
 | `plugin.circuit_closed` | `{ plugin_slug, closed_at, downtime_seconds }` | `CircuitBreaker` | audit, notifications |
+| `plugin.reconcile_completed` | `{ plugin_slug, trigger: 'cron' \| 'manual', services_processed, drifts_detected, errors, duration_ms, completed_at /* ISO */ }` | cron de reconciliación del plugin (Enhance: `EnhanceReconciliationCron.emitReconcileCompleted`; patrón heredable a todo plugin con `supports_reconciliation`) tras cada pasada cron L3 o `reconcile-all` manual | `AuditOnPluginReconcileCompletedListener` (→ `audit_change_log` `Plugin`/`reconcile_completed`, `user_id=null`); el admin overview operativo lo lee como "última reconciliación hace Xh" — estado observado, no inferido |
+
+> **Nota (Sprint 15C.II Fase F.2 — [ADR-083 Amendment A6.1](adr-083-plugin-enhance-cp-specifics.md#amendments)):** `plugin.reconcile_completed` se añadió como rollup por pasada de reconciliación (complemento agregado de `service.reconciled_external_change`, que registra cada drift individual a nivel `Service`). Admin-only por naturaleza — no toca `audit_access_log` ni flags GDPR. NB: `plugin.reconcile_triggered_manually` **no** está en esta tabla porque no es un evento del bus — es un `action` de `audit_change_log` que `AdminPluginsService.reconcileAll` escribe síncronamente (registra "quién gatilló el manual"; el "qué resultado" lo registra `reconcile_completed`).
 
 Registrados en [`docs/20-modules/_events.md`](../20-modules/_events.md) en cierre del Sprint (Fase K).
 
