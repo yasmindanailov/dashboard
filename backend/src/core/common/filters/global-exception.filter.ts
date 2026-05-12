@@ -45,7 +45,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         await this.prisma.errorLog.create({
           data: {
             level: 'error',
-            module: 'http',
+            // GAP-15CII-N (Sprint 15C.II Fase F.3): si el error — o algún
+            // eslabón de su cadena `cause` — trae un `module` string (p.ej.
+            // `ProvisionerPluginError` marcado por el wrapper de provisioning
+            // con `provisioning.<slug>`), regístralo en vez del genérico
+            // `'http'`. Duck-typed: el filtro no se acopla a ningún módulo.
+            module: resolveErrorModule(exception),
             message: message,
             stack_trace:
               exception instanceof Error ? exception.stack : undefined,
@@ -99,4 +104,22 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       ...extraBody,
     });
   }
+}
+
+/**
+ * Resuelve el `module` para `error_log`: recorre el error y su cadena `cause`
+ * (máx. 5 niveles, defensivo contra ciclos) buscando el primer objeto con un
+ * `module` string. Si ninguno lo trae, `'http'` (origen genérico HTTP).
+ * GAP-15CII-N (Sprint 15C.II Fase F.3).
+ */
+export function resolveErrorModule(exception: unknown): string {
+  let current: unknown = exception;
+  for (let depth = 0; depth < 5 && current; depth++) {
+    const mod = (current as { module?: unknown }).module;
+    if (typeof mod === 'string' && mod.length > 0) {
+      return mod;
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
+  return 'http';
 }
