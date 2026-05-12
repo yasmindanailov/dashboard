@@ -420,12 +420,23 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
 
 /**
  * Sprint 15C.II Fase F (ADR-077 Amendment A4) — parsea `service.suspension_reason`
- * (cadena combinada `"<reason>"` o `"<reason>: <internal_note>"`, mismo patrón
- * que `cancellation_reason`) en su etiqueta localizada cliente-segura
- * (`service.suspension_reason.<reason>`) + la nota interna (admin-only). Si el
- * prefijo no es uno de los 5 motivos canónicos (datos legacy / manuales), `t()`
- * devuelve la key cruda — aceptable como degradación.
+ * en su etiqueta + la nota interna (admin-only). El campo tiene 2 formas:
+ *   - Canónica (`suspendAsAdmin`): `"<reason>"` o `"<reason>: <internal_note>"`
+ *     donde `<reason>` ∈ taxonomía `SuspensionReason` → etiqueta localizada
+ *     `service.suspension_reason.<reason>` + (si hay) la nota.
+ *   - Legacy (`ServiceLifecycleWorker.autoSuspendServices`, suspensión por
+ *     impago): texto libre tipo `"Impago — Factura INV-123"` → se muestra
+ *     tal cual (ya es informativo). Mismo patrón de coexistencia que
+ *     `cancellation_reason` (`buildTerminalStatusReasonKey`).
  */
+const KNOWN_SUSPENSION_REASONS = new Set([
+  'overdue_payment',
+  'abuse_investigation',
+  'scheduled_maintenance',
+  'gdpr_restriction',
+  'other',
+]);
+
 function parseSuspensionReason(raw: string | null): {
   label: string;
   note: string | null;
@@ -434,8 +445,13 @@ function parseSuspensionReason(raw: string | null): {
   const sep = raw.indexOf(': ');
   const prefix = (sep >= 0 ? raw.slice(0, sep) : raw).trim();
   const note = sep >= 0 ? raw.slice(sep + 2).trim() : '';
-  return {
-    label: t(`service.suspension_reason.${prefix}`),
-    note: note.length > 0 ? note : null,
-  };
+  if (KNOWN_SUSPENSION_REASONS.has(prefix)) {
+    return {
+      label: t(`service.suspension_reason.${prefix}`),
+      note: note.length > 0 ? note : null,
+    };
+  }
+  // Forma legacy / motivo no canónico: el `suspension_reason` completo ya es
+  // legible — lo mostramos tal cual, sin nota separada.
+  return { label: raw, note: null };
 }

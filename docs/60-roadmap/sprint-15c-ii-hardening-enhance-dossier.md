@@ -1221,6 +1221,18 @@ queda canónico para 15D RC + 15E Docker + 15G Plesk.
 
 ### A.9.6.1. Suspend / Unsuspend — scope detallado Fase F (transversal billing/abuse/GDPR)
 
+> ⚠ **Materializado en Fase F.1 (2026-05-12) — RECONCILIACIÓN en §A.11.2.** Lo
+> de abajo es el apuntado original (2026-05-10). Al implementar se siguió
+> **ADR-077 Amendment A4.4 (frozen)** en vez de la propuesta de "métodos
+> dedicados del contrato `suspendService`/`unsuspendService` + wrappers
+> `suspendServiceWithAudit`": se materializó como **inline actions**
+> `suspend_service`/`unsuspend_service` (NO métodos del contrato — sería breaking)
+> + orquestador `ProvisioningService.suspendAsAdmin`/`unsuspendAsAdmin` (NO un
+> wrapper en `plugin-utils.ts`) + `reason` como **enum canónico `SuspensionReason`**
+> (NO string libre — mejora documentada en ADR-077 Amendment A4.5). El resto del
+> apuntado (endpoints, listeners email, frontend modal+banner, casos transversales
+> billing/abuse/GDPR/maintenance, schema BD ya existente) sigue vigente.
+
 > Apuntado expandido 2026-05-10 (smoke real Fase D): `supports_suspend` NO es
 > solo una feature del plugin Enhance — vincula con módulos de **billing**
 > (impago temporal → suspensión automática), **support inside / abuse** (DMCA
@@ -1547,3 +1559,90 @@ operativa cuenta GitHub):
 ## A.10.7. Sesiones origen Fase E
 
 - 2026-05-11 (Fase E gold standard — decisión Yasmin "cada punto al más alto estándar": ADR-077 A5 + ADR-083 A5 + recoveryHint + rename recalculate_provider_metrics + DNS UI hardening + CancelServiceModal con typing-confirm + email cancelación + tests + lint + typecheck verde) → este §A.10
+
+---
+
+# Apéndice A.11 — Fase F partida en F.1/F.2/F.3 + cierre F.1 + handoff a F.2 (2026-05-12)
+
+> **Audiencia**: el siguiente agente que arranque Sprint 15C.II Fase F.2.
+> **Decisión Yasmin (2026-05-12, vía AskUserQuestion):** Fase F es grande
+> (suspend/unsuspend transversal + overview operativo + audit timeline GAP-M +
+> GAP-N + G4/G5/G8 + wiring `recoveryHint`); se entrega en **3 sub-PRs
+> encadenados** F.1 → F.2 → F.3 (NO un solo PR ni la rama monolítica
+> `sprint15c-ii-fase-f-admin-overview-suspend` del handoff §A.10.1). También
+> decidió: en el timeline GDPR del cliente, los eventos de impersonación admin
+> se muestran **con detalle** (nombre del agente + motivo) — máxima transparencia.
+
+## A.11.1. Fase F → F.1 / F.2 / F.3
+
+| Sub-PR | Scope | Estado |
+|---|---|---|
+| **F.1** | suspend/unsuspend completo (capability `supports_suspend` materializada como **inline actions** + plugin Enhance + orquestador `suspendAsAdmin`/`unsuspendAsAdmin` + endpoints `POST /admin/services/:id/suspend\|unsuspend` + listeners email + 4 plantillas + frontend `SuspendServiceModal` + banner amarillo + i18n + contract test + `getInfoForUser` summary `suspended_at`/`suspension_reason` + `getServiceInfo` statusReason i18n key). | ✅ **CERRADA** — rama `sprint15c-ii-fase-f1-suspend-unsuspend`, commits: round 1 `f5414fb` (backend) + round 2 `88594bd` (frontend) + round 3 (doc-sync + listener defensivo legacy + dossier) |
+| **F.2** | admin overview operativo `/admin/settings/plugins/[slug]` (página existente — hoy solo config form + reconcile-all): componente reusable `<PluginOperationalOverview slug>` (ADR-083 A4.4) + badge salud top-line ("Operativo / Degradado / Caído" derivado de `CircuitBreakerRegistry.getState()` + última reconciliación OK + secret válido) + stats grid 4 cards (services activos / suspendidos / drifts 24h / circuit breaker state) + "última reconciliación hace Xh · próxima en Yh" + tabla recent drifts (query `audit_change_log WHERE action LIKE 'service.reconciled%' AND created_at > now()-24h` — no hay tabla `plugin_drift_log`, v1.x; cada fila enlaza a `/admin/services/[id]/audit` de F.3) + reconcile-all (ya existe) + test conexión (ya existe) + form config/secrets (ya existe). El breaker state vía `getState()` es in-process — etiquetar "estado en esta instancia". | ⏳ próxima |
+| **F.3** | cierre Fase F: **GAP-15CII-M** `/admin/services/[id]/audit` (admin sin filtro) + `/dashboard/services/[id]/audit` (cliente con whitelist explícita de `action`s; **incluye `service.admin_sso_impersonation` con detalle** — decisión Yasmin 2026-05-12; cursor pagination `created_at`+`id`; renderer timeline reusable; **migración: índice de expresión `audit_access_log ((metadata->>'resource_id'))`** — la mitad access-log del union filtra hoy por path JSONB sin índice; `audit_change_log.entity_id` ya está indexado) + **GAP-15CII-N** (`ProvisionerPluginError.module?` opcional leído por `GlobalExceptionFilter` → log-once con el módulo correcto, no `module='http'`; el orquestador/wrapper setea `module` al construir/rethrow) + **G4** cache TTL configurable desde manifest opcional (sanity floor ~5s) + **G5** NO breaker anidado en `EnhanceApiClient` (ya tiene timeout 30s `AbortController` — evaluar bajarlo a ~15s para fail-fast BullMQ + documentar; mover el breaker único a envolver el HTTP client es refactor con blast-radius → diferido v1.1) + **G8** bug test-connection synthetic service sin metadata + **wiring CTA** "Reconciliar este servicio" en `AdminDriftBanner` cuando `info.recoveryHint === 'reconcile'` (el contrato ya está — `getServiceInfo` detecta `plan_divergence` → `'reconcile'`; falta el wiring del CTA single-shot del cron L3). | ⏳ |
+
+## A.11.2. Reconciliación con §A.9.6.1 — inline actions, NO métodos dedicados (frozen 2026-05-12)
+
+§A.9.6.1 (2026-05-10) proponía métodos dedicados del contrato `suspendService`/
+`unsuspendService` + wrappers `suspendServiceWithAudit`/`unsuspendServiceWithAudit`
++ `reason` string libre. **Al materializar F.1 se siguió ADR-077 Amendment A4.4
+(frozen 2026-05-10 — "inline actions"):**
+
+1. **Inline actions, NO métodos dedicados del contrato** — añadir `suspendService`/
+   `unsuspendService` a la interfaz `ProvisionerPlugin` sería un cambio breaking del
+   shape. Las inline actions `suspend_service`/`unsuspend_service` (vía `executeAction`,
+   ambas `adminOnly: true`, idempotentes) son la materialización canónica — coherente
+   con cómo `has_dns_management` exige las 4 DNS actions.
+2. **NO `suspendServiceWithAudit` en `plugin-utils.ts`** — la transición de estado vive
+   en el **orquestador** (`ProvisioningService.suspendAsAdmin`/`unsuspendAsAdmin`, igual
+   que `deprovisionAsAdmin`/`reprovisionAsAdmin`), NO en `plugin-utils.ts` (librería pura
+   sin `prisma`). El método del orquestador invoca la inline action vía
+   `executeActionWithCacheInvalidation` (reusa breaker + cache invalidate + audit
+   `service.action_executed:<slug>` + enforcement adminOnly) y además hace el `prisma.update`
+   + emite `service.suspended`/`service.unsuspended` + audit del cambio de estado.
+3. **`reason` como enum canónico `SuspensionReason`, NO string libre** — mejora sobre el
+   apuntado: i18n-limpio, analytics-limpio, defendible legalmente, coherente con L13. El
+   `internal_note` (free text) va al audit + `services.suspension_reason` combinado
+   `"<reason>: <internal_note>"` (mismo patrón que `cancellation_reason`), NUNCA al cliente.
+4. **`services.suspended_at`/`suspension_reason` ya existían en el schema** (no migración —
+   confirmado contra `prisma/schema.prisma`).
+5. **`DC.NEW-15CII-BILLING-SUSPEND-UNIFY`** (diferido): `ServiceLifecycleWorker.autoSuspendServices`
+   (impago vencido — Sprint 6.5) emite `service.suspended` con forma reducida
+   `{service_id, invoice_id, reason: 'payment_exhausted'}`. F.1 NO lo migra (toca billing);
+   el listener `notifications-on-service-suspended` tolera ambas formas (deriva `user_id`,
+   normaliza `reason` legacy → `'overdue_payment'`). Cuando se toque billing: migrar
+   `autoSuspendServices` para que llame a `suspendAsAdmin` con `reason: 'overdue_payment'` +
+   actor "sistema" (también `service.resumed` ↔ `service.unsuspended` podrían unificarse).
+
+## A.11.3. Frase canónica de arranque Fase F.2 (verbatim)
+
+> *"Lee `docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md` Apéndice A §A.11 (Fase F partida + cierre F.1 + handoff F.2) y §A.10 (cierre Fase E). Vamos con Sprint 15C.II Fase F.2 — admin overview operativo del plugin Enhance en `/admin/settings/plugins/[slug]` (página existente, hoy solo config form + reconcile-all button): componente reusable `<PluginOperationalOverview slug>` (ADR-083 A4.4) con badge de salud top-line (Operativo / Degradado / Caído derivado de `CircuitBreakerRegistry.getState()` + última reconciliación OK + secret válido) + stats grid 4 cards (services activos / suspendidos / drifts en 24h / circuit breaker state) + 'última reconciliación hace Xh · próxima en Yh' + tabla recent drifts (query `audit_change_log WHERE action LIKE 'service.reconciled%' AND created_at > now()-24h`, cada fila enlaza a `/admin/services/[id]/audit` que llega en F.3) + reconcile-all (ya existe) + test conexión (ya existe) + form config/secrets (ya existe). Crea rama `sprint15c-ii-fase-f2-admin-overview` desde master post merge PR F.1. Procede con rigor."*
+
+## A.11.4. Estado real al cierre F.1
+
+**ADR**: [ADR-077 Amendment A4.5](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md#a45-materialización-sprint-15cii-fase-f1-2026-05-12) (materialización de A4 — inline actions, no métodos dedicados; `SuspensionReason` enum; orquestador `suspendAsAdmin`/`unsuspendAsAdmin`; reconciliación con §A.9.6.1).
+
+**Backend**: `core/provisioning/types.ts` (+ `PluginCapabilities.supports_suspend` + `SuspensionReason`); `enhance.plugin.ts` (`supports_suspend: true` + 2 inline actions + `actionSuspendService`/`actionUnsuspendService` vía `patchSubscription({isSuspended})` + `filterActionsByStatus` + `getServiceInfo` statusReason → `plugin.enhance_cp.status_reason.suspended`); `internal`/`manual` plugins + `provisioning.service.ts` fallbacks (`supports_suspend: false`); `provisioning.service.ts` (`suspendAsAdmin`/`unsuspendAsAdmin` + summary `suspended_at`/`suspension_reason` + `adminServiceSummarySelect` + `executeActionForUser` rechaza los 2 slugs); `dto/provisioning.dto.ts` (`SuspensionReasonDto` + `SuspendServiceDto`); `admin-provisioning.controller.ts` (`POST /admin/services/:id/suspend|unsuspend`); listeners `notifications-on-service-suspended`/`-unsuspended` (NUEVOS, patrón L11+L12, R7; el suspended tolera la forma legacy del `ServiceLifecycleWorker`) + `notifications.module.ts`; `prisma/seeds/notification-templates.ts` (+ 4 plantillas, email ramifica CTA por motivo con `{{#if}}`).
+
+**Frontend**: `app/lib/api.ts` (+ `ServiceInfoCapabilities.supports_suspend` + `SuspensionReason` + `ServiceDetailResponse.service.suspended_at`/`suspension_reason`); `_actions.ts` (`suspendServiceAction`/`unsuspendServiceAction`); `SuspendServiceModal.tsx` (NUEVO, `mode: 'suspend' | 'unsuspend'`); `AdminServiceOperationsCard.tsx` (botones suspender/reanudar — ramifica por presencia de las inline actions en `availableActions`); `admin/services/[id]/page.tsx` (banner amarillo + `isDrift` excluye `suspended` + helper `parseSuspensionReason`); `ActionsBar.tsx` (`INTERNAL_HELPER_SLUGS += suspend_service, unsuspend_service`); `translations-es.ts` (+ `plugin.enhance_cp.actions.suspend_service*`/`unsuspend_service*` + `plugin.enhance_cp.status_reason.suspended` + `service.suspension_reason.*` ×5).
+
+**Tests/build**: contract spec extendido (invariantes A4 — corre ×3 plugins) + `provisioning.service.spec` (6 tests) + 2 listener specs nuevos (incl. forma legacy) + `enhance.plugin.spec` (suspend/unsuspend executeAction + getServiceInfo suspended) + literales `PluginCapabilities` de specs actualizados. Suite **625/630 unit verde + 5 skipped** (47 suites). `pnpm ci:check:full` verde + boot real backend verificado (DI sin errores incl. 2 listeners nuevos; rutas admin suspend/unsuspend mapeadas).
+
+**Gaps**: G3 ✅ cerrado F.1. Abiertos (F.2/F.3): G4 / G5 / G8 / GAP-15CII-M / GAP-15CII-N + wiring CTA `recoveryHint === 'reconcile'`. Diferido nuevo: `DC.NEW-15CII-BILLING-SUSPEND-UNIFY`.
+
+## A.11.5. Lección heredable F.1 — el ADR frozen gana sobre el apuntado del dossier
+
+**Doctrina canónica (frozen 2026-05-12):** cuando un apuntado de trabajo del dossier
+(escrito antes de codear, exploratorio) propone una materialización que contradice un
+Amendment de ADR ya **frozen**, **gana el ADR frozen** — salvo que se abra un Amendment
+nuevo que lo modifique conscientemente. En F.1: §A.9.6.1 (2026-05-10) decía "métodos
+dedicados + `suspendServiceWithAudit`"; ADR-077 A4.4 (frozen 2026-05-10) decía "inline
+actions" → se siguió el ADR + se añadió Amendment A4.5 documentando la materialización
+(incluida la mejora `reason` string→enum). El dossier es el *thinking*; el ADR es el
+*contrato*. Si al implementar descubres una mejora real sobre el ADR, materialízala como
+Amendment (no como desvío silencioso). Heredable: cualquier fase futura que arranque de un
+apuntado de dossier debe cotejarlo contra los ADRs frozen relevantes ANTES de codear.
+
+## A.11.6. Sesiones origen F.1
+
+- 2026-05-12 (Fase F.1 — decisión Yasmin: partir Fase F en F.1/F.2/F.3 + impersonación admin con detalle en timeline cliente; valoración pre-código "¿es estándar de industria? qué mejorar" → 9 refinamientos, 4 implementados [reason enum / GAP-N log-once approach / índice expresión audit / breaker no anidado], resto diferidos a F.2/F.3): ADR-077 A4.5 + contrato + plugin Enhance + orquestador + endpoints + listeners + plantillas + frontend + tests + doc-sync → este §A.11

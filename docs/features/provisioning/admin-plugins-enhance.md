@@ -179,6 +179,20 @@ UI cliente: `/dashboard/services/[id]/dns` (Sprint 15C Fase 15C.G).
 
 Endpoints admin paralelos (`/api/v1/admin/services/:id/dns/records*`) operan con permission `Subject.Service` admin pero igual al cliente — el SC parent decide qué UI mostrar según role.
 
+### 4.5. Suspender / reactivar un servicio (Sprint 15C.II Fase F — ADR-077 Amendment A4.5)
+
+> ⚠ Distinto de **cancelar** (`Cancelar servicio…` en la misma card — FINAL e irreversible, `plugin.deprovision()` destruye la subscription). **Suspender** es **reversible**: la subscription se desactiva en Enhance (`patchSubscription({ isSuspended: true })`) — el cliente pierde el acceso pero **sus datos se conservan**. Casos de uso: impago temporal, uso indebido en investigación, mantenimiento programado, restricción RGPD art. 18.
+
+1. **Suspender** — en `/admin/services/[id]`, sección "Operaciones admin" → botón "Suspender servicio…" (solo aparece si el servicio está `active` y el plugin declara `capabilities.supports_suspend=true` — `enhance_cp` ✅, `internal`/`manual` ✗). Abre `SuspendServiceModal`:
+   - **Motivo** (obligatorio, dropdown): `overdue_payment` (Falta de pago) · `abuse_investigation` (Revisión de seguridad) · `scheduled_maintenance` (Mantenimiento programado) · `gdpr_restriction` (Restricción RGPD art. 18) · `other` (Otro motivo). Es la **taxonomía canónica cliente-segura** — el cliente verá la etiqueta localizada del motivo en su email; para `other` el email es genérico y dirige a soporte.
+   - **Nota interna** (opcional, máx 1000) — solo audit log + banner admin. NUNCA viaja al cliente (ni siquiera para `other`).
+   - **Notificar al cliente** (checkbox, default ON) — controla si el listener `notifications-on-service-suspended` envía email + campana. El email ramifica el CTA por motivo: `overdue_payment` → "Regulariza el pago" (→ `/dashboard/billing`); `scheduled_maintenance` → sin CTA ("volverá a estar disponible automáticamente"); resto → "Contactar con soporte". Desactívalo solo en casos especiales (cuentas de test, fraude confirmado).
+   - **NO hay typing-confirm** — la suspensión es reversible (a diferencia de `Cancelar servicio…`, que sí lo exige).
+   - Tras OK: el servicio pasa a `status='suspended'` (Aelium + Enhance), se escribe `services.suspended_at`/`suspension_reason` (combinado `"<reason>: <internal_note>"`), se emite `service.suspended`, se audita (`logChange` + `logAccess`). La página re-renderiza con un **banner amarillo "Servicio suspendido"** que muestra el motivo localizado + la nota interna + cuándo se suspendió.
+2. **Reactivar** — botón "Reanudar servicio" (solo aparece si el servicio está `suspended`). Confirmación simple (sin motivo ni notas) → `patchSubscription({ isSuspended: false })` → `status='active'`, `suspended_at`/`suspension_reason` a `null`, emite `service.unsuspended`, audita. El cliente recibe siempre email "tu servicio vuelve a estar activo" (no hay toggle de supresión — reactivar es buena noticia).
+3. **Endpoints** (REST): `POST /api/v1/admin/services/:id/suspend` (DTO `{reason, internal_note?, notify_client?}`) + `POST /api/v1/admin/services/:id/unsuspend` (sin body). Triple guard `Jwt + AdminOnly + Policies` (`Action.Update` sobre `Subject.Service` → solo `superadmin`/`agent_full`). Idempotentes: suspender un servicio ya suspendido → 200 `{alreadySuspended: true}` (no-op); 409 `SERVICE_NOT_SUSPENDABLE` si el estado no lo permite (pending/provisioning/failed/cancelled/terminated); 409 `SUSPEND_NOT_SUPPORTED` si el plugin no tiene la capability.
+4. **CLI / cron**: el endpoint `suspendAsAdmin` está diseñado para ser invocable internamente por el futuro cron billing `billing-suspend-on-overdue` (Sprint 8 Fase 8.1). Hoy el worker histórico `ServiceLifecycleWorker.autoSuspendServices` (impago vencido, cron diario 03:00) hace su propio `prisma.update` + emite `service.suspended` con forma reducida `{service_id, invoice_id, reason: 'payment_exhausted'}` — el listener email lo tolera (deriva `user_id`, normaliza `reason` → `overdue_payment`). Unificar ambos flujos es un diferido (`DC.NEW-15CII-BILLING-SUSPEND-UNIFY`).
+
 ---
 
 ## 5. Reconciliación L3 + alertas threshold

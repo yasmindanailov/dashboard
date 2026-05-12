@@ -55,6 +55,7 @@ describe('NotificationsOnServiceSuspendedListener — Sprint 15C.II Fase F', () 
     serviceFindUnique = jest.fn().mockResolvedValue({
       domain: 'mi-cliente.es',
       label: null,
+      user_id: USER_ID,
     });
     configGet = jest
       .fn()
@@ -163,6 +164,7 @@ describe('NotificationsOnServiceSuspendedListener — Sprint 15C.II Fase F', () 
     serviceFindUnique.mockResolvedValueOnce({
       domain: null,
       label: 'Web Demo',
+      user_id: USER_ID,
     });
     await listener.handleServiceSuspended(payload());
     expect(dispatchToUser).toHaveBeenCalledWith(
@@ -172,7 +174,7 @@ describe('NotificationsOnServiceSuspendedListener — Sprint 15C.II Fase F', () 
     );
   });
 
-  it('service no encontrado → fallback a service_id como display', async () => {
+  it('service no encontrado pero payload trae user_id → fallback a service_id como display', async () => {
     serviceFindUnique.mockResolvedValueOnce(null);
     await listener.handleServiceSuspended(payload());
     expect(dispatchToUser).toHaveBeenCalledWith(
@@ -180,6 +182,43 @@ describe('NotificationsOnServiceSuspendedListener — Sprint 15C.II Fase F', () 
       expect.objectContaining({ domain: SERVICE_ID }),
       USER_ID,
     );
+  });
+
+  // ─── Emisor legacy `ServiceLifecycleWorker.autoSuspendServices` (Sprint 6.5) ───
+
+  it('forma legacy {service_id, invoice_id, reason: payment_exhausted} sin user_id → deriva user_id del service + mapea a overdue_payment', async () => {
+    serviceFindUnique.mockResolvedValueOnce({
+      domain: 'cliente-impago.es',
+      label: null,
+      user_id: USER_ID,
+    });
+    await listener.handleServiceSuspended({
+      service_id: SERVICE_ID,
+      invoice_id: 'inv-123',
+      reason: 'payment_exhausted',
+    });
+    expect(dispatchToUser).toHaveBeenCalledWith(
+      'service.suspended',
+      expect.objectContaining({
+        domain: 'cliente-impago.es',
+        reason_label: 'Falta de pago',
+        is_overdue_payment: true,
+        is_maintenance: false,
+      }),
+      USER_ID,
+    );
+  });
+
+  it('forma legacy sin user_id y service no encontrado → no dispatch (no hay destinatario), no relanza', async () => {
+    serviceFindUnique.mockResolvedValueOnce(null);
+    await expect(
+      listener.handleServiceSuspended({
+        service_id: SERVICE_ID,
+        invoice_id: 'inv-123',
+        reason: 'payment_exhausted',
+      }),
+    ).resolves.toBeUndefined();
+    expect(dispatchToUser).not.toHaveBeenCalled();
   });
 
   it('respeta NEXT_PUBLIC_APP_URL', async () => {
