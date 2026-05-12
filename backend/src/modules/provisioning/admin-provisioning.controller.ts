@@ -202,6 +202,32 @@ export class AdminProvisioningController {
     });
   }
 
+  /**
+   * Sprint 15C.II Fase F.4.3 — realinea el estado de suspensión en el
+   * proveedor con `services.status` (autoritativo para el lifecycle
+   * administrativo) sin tocar la BD ni emitir eventos de lifecycle. Es la
+   * remediación del aviso de desync de `/admin/services/[id]` (cuando
+   * `getInfoForUser` reporta `summary.provider_state_desync === true`).
+   * Reusa la inline action canónica `suspend_service` / `unsuspend_service`
+   * del plugin (idempotente). Ver `ProvisioningService.resyncProviderStateAsAdmin`.
+   */
+  @Post(':id/resync-provider-state')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Realinear el estado de suspensión del proveedor con services.status (sin transición de lifecycle)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
+  resyncProviderState(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.provisioning.resyncProviderStateAsAdmin(id, req.user.id, {
+      ipAddress: req.ip ?? '0.0.0.0',
+      userAgent: req.headers['user-agent'] ?? null,
+    });
+  }
+
   // ─── DNS records (Sprint 15C Fase 15C.D — ADR-082 §6 — admin) ──────────
 
   @Get(':id/dns/records')

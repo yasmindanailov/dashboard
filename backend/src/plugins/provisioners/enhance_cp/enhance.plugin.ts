@@ -46,9 +46,11 @@
  *    a `patchSubscription({ isSuspended })`.)
  *
  * Reglas:
- *   - R4: importa SOLO de `core/provisioning/types`, `core/database`,
- *     `core/security` (vault), Y los archivos del propio plugin
- *     (`./api`, `./enhance-customers.service`). NO importa orquestador.
+ *   - R4: importa SOLO de `core/provisioning/types` (contrato),
+ *     `core/provisioning/plugin-utils` (librería de helpers cross-cutting —
+ *     ej. `filterActionsByStatus`), `core/database`, `core/security` (vault),
+ *     Y los archivos del propio plugin (`./api`, `./enhance-customers.service`).
+ *     NO importa el orquestador (`modules/provisioning`).
  *   - R7: errores semánticos vía `ProvisionerPluginError`.
  *   - R12: `apiToken` se descifra en memoria, NUNCA se persiste en
  *     `services.metadata` ni en logs.
@@ -81,6 +83,7 @@ import {
   ServiceWithRelations,
   SsoUrl,
 } from '../../../core/provisioning/types';
+import { filterActionsByStatus } from '../../../core/provisioning/plugin-utils';
 import {
   EncryptedSecret,
   SecretVaultService,
@@ -1336,32 +1339,10 @@ function buildMetrics(
   return metrics;
 }
 
-/**
- * Filtra `inlineActions` por `ServiceInfoStatus`. Acciones que no tienen
- * sentido en estado terminal (cancelled) o transitorio (pending/failed/unknown)
- * no aparecen en la UI.
- *
- * Sprint 15C.II Fase F — ADR-077 Amendment A4: `suspend_service` solo aplica
- * a servicios `active` (no se puede suspender lo ya suspendido); `unsuspend_service`
- * solo a `suspended`. El catálogo estático `inlineActions` declara ambas (lo
- * exige el contract test); `availableActions` (este filtro) expone solo la que
- * corresponde al estado actual.
- */
-function filterActionsByStatus(
-  actions: readonly ServiceAction[],
-  status: ServiceInfoStatus,
-): readonly ServiceAction[] {
-  if (status === 'active') {
-    return actions.filter((a) => a.slug !== 'unsuspend_service');
-  }
-  if (status === 'suspended') {
-    return actions.filter((a) => a.slug !== 'suspend_service');
-  }
-  // En todos los demás estados (pending/cancelled/failed/expired/unknown)
-  // las acciones inline no aplican — el cliente debe esperar reconcile o
-  // contactar soporte.
-  return [];
-}
+// `filterActionsByStatus` se movió a `core/provisioning/plugin-utils.ts`
+// (Sprint 15C.II Fase F.4) para que el orquestador la reutilice al re-derivar
+// `availableActions` desde el estado administrativo. El plugin lo importa de
+// ahí (ver el bloque de imports arriba).
 
 function parseEnhanceConfig(raw: unknown): EnhanceConfig {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {

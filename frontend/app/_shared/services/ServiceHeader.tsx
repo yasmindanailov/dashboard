@@ -56,7 +56,16 @@ const DRIFT_STATUSES = new Set<ServiceInfo['status']>(['unknown', 'failed']);
 // ese banner — duplicación visible reportada en smoke. ServiceInfo
 // tiene `'cancelled'` como único terminal canónico (round 4 colapsa
 // `terminated` → `cancelled` para el shape del plugin).
-const TERMINAL_STATUSES = new Set<ServiceInfo['status']>(['cancelled']);
+//
+// Sprint 15C.II Fase F.4.2: `'suspended'` se añade a esta lista — ambas
+// páginas (cliente `AlertBanner warning` "Tu servicio está suspendido" + CTA;
+// admin `AlertBanner warning` "Servicio suspendido — Motivo: …" + el aviso de
+// desync) tienen ahora banner upstream propio, así que el ServiceHeader cede
+// el render del `statusReason` de suspensión a ese banner (evita duplicación).
+const STATUSES_WITH_UPSTREAM_BANNER = new Set<ServiceInfo['status']>([
+  'cancelled',
+  'suspended',
+]);
 
 export function ServiceHeader({
   info,
@@ -65,11 +74,12 @@ export function ServiceHeader({
 }: ServiceHeaderProps) {
   const isDrift =
     DRIFT_STATUSES.has(info.status) && info.statusReason !== null && info.statusReason !== undefined;
-  // Si hay banner upstream (drift O terminal), ServiceHeader cede el
-  // render del statusReason a ese banner. Solo renderiza statusReason
-  // aquí cuando es info contextual no-crítica (estados intermedios
-  // tipo `pending`, `suspended`, `expired` con razón informativa).
-  const hasUpstreamBanner = isDrift || TERMINAL_STATUSES.has(info.status);
+  // Si hay banner upstream (drift, terminal o suspended), ServiceHeader cede
+  // el render del statusReason a ese banner. Solo renderiza statusReason aquí
+  // cuando es info contextual no-crítica (estados intermedios tipo `pending`,
+  // `expired` con razón informativa).
+  const hasUpstreamBanner =
+    isDrift || STATUSES_WITH_UPSTREAM_BANNER.has(info.status);
 
   return (
     <div

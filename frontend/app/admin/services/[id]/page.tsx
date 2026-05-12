@@ -36,6 +36,7 @@ import type { ServiceDetailResponse } from '../../../lib/api';
 import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
 
 import { AdminDriftBanner } from './_components/AdminDriftBanner';
+import { AdminProviderStateDesyncBanner } from './_components/AdminProviderStateDesyncBanner';
 import { AdminServiceDataCard } from './_components/AdminServiceDataCard';
 import { AdminServiceOperationsCard } from './_components/AdminServiceOperationsCard';
 
@@ -97,6 +98,18 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
   const suspension = isSuspended
     ? parseSuspensionReason(service.suspension_reason)
     : null;
+
+  // Sprint 15C.II Fase F.4.1 — desincronización del estado de suspensión
+  // entre `services.status` (autoritativo para el lifecycle administrativo) y
+  // el estado operativo que reporta el proveedor. El backend lo detecta y lo
+  // expone en `service.provider_state_desync`. La UI admin avisa y ofrece el
+  // botón "Realinear estado del proveedor con Aelium". Solo se muestra para
+  // servicios `active`/`suspended` (los demás no tienen estado de suspensión
+  // del proveedor que realinear — el backend tampoco lo marcaría).
+  const showProviderStateDesync =
+    !isTerminal &&
+    service.provider_state_desync === true &&
+    (service.status === 'active' || service.status === 'suspended');
 
   // Sprint 15C.II Fase C (UI_SPEC §4.13 + ADR-083 Amendment A4.3 frozen
   // 2026-05-10): patrón doctrinal "drift UX discriminada por rol". Cuando
@@ -230,6 +243,23 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
             )}
           </div>
         </AlertBanner>
+      )}
+
+      {/*
+        Sprint 15C.II Fase F.4.1+F.4.3 — aviso de desincronización entre el
+        estado de suspensión de Aelium y el del proveedor. Independiente del
+        banner de suspensión: cubre las DOS direcciones (BD `suspended` /
+        proveedor `active` → también `isSuspended`; BD `active` / proveedor
+        `suspended` → `isSuspended` false). Ofrece el realineado idempotente
+        (sin transición de lifecycle). El banner amarillo de suspensión + el
+        botón "Reanudar" de «Operaciones admin» ya funcionan correctamente
+        gracias al override de `getInfoForUser` (F.4.1).
+      */}
+      {showProviderStateDesync && (
+        <AdminProviderStateDesyncBanner
+          serviceId={service.id}
+          adminStatus={service.status === 'suspended' ? 'suspended' : 'active'}
+        />
       )}
 
       {/*

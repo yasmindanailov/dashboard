@@ -90,6 +90,19 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
   const isDrift =
     !isTerminal && (info.status === 'unknown' || info.status === 'failed');
 
+  // Sprint 15C.II Fase F.4.2 — servicio suspendido. `info.status` ya viene
+  // reconciliado con el estado administrativo (`getInfoForUser` F.4.1: si
+  // Aelium lo tiene `suspended`, fuerza `info.status='suspended'`). Cuando lo
+  // está, el cliente ve un banner explícito con el motivo cliente-seguro (la
+  // etiqueta localizada del enum `SuspensionReason` — NUNCA la nota interna
+  // del admin) + un CTA según el motivo, y se ocultan las acciones que no
+  // tienen sentido sobre un servicio suspendido (SSO al panel, acciones
+  // inline, gestión DNS) — el cliente no debería poder operar como si nada.
+  const isSuspended = !isTerminal && info.status === 'suspended';
+  const suspensionReasonCode = isSuspended
+    ? parseSuspensionReasonCode(service.suspension_reason)
+    : null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Link
@@ -143,6 +156,82 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
               })}
             </p>
           )}
+        </AlertBanner>
+      )}
+
+      {/*
+        Sprint 15C.II Fase F.4.2 — banner de suspensión para el cliente.
+        Estado reversible (NO terminal). Muestra el motivo cliente-seguro
+        (etiqueta localizada del enum — NUNCA la nota interna del admin) +
+        un CTA según el motivo: impago → regularizar pago; resto → soporte.
+        Mientras esté suspendido se ocultan SSO + acciones + DNS (más abajo).
+      */}
+      {isSuspended && suspensionReasonCode && (
+        <AlertBanner
+          variant="warning"
+          title={t('service.suspended.client.title')}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <p style={{ margin: 0, fontSize: 13 }}>
+              {t('service.suspended.client.body')}
+            </p>
+            <p style={{ margin: 0, fontSize: 13 }}>
+              <strong>{t('service.suspended.client.reason_label')}:</strong>{' '}
+              {t(`service.suspension_reason.${suspensionReasonCode}`)}
+            </p>
+            <div>
+              {suspensionReasonCode === 'overdue_payment' ? (
+                <Link
+                  href="/dashboard/billing"
+                  style={{
+                    display: 'inline-block',
+                    padding: '8px 16px',
+                    background: 'var(--brand-600)',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: '#fff',
+                    textDecoration: 'none',
+                  }}
+                >
+                  {t('service.suspended.client.cta_pay')}
+                </Link>
+              ) : (
+                <Link
+                  href="/dashboard/support"
+                  style={{
+                    display: 'inline-block',
+                    padding: '8px 16px',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                    textDecoration: 'none',
+                  }}
+                >
+                  {t('service.suspended.client.cta_support')}
+                </Link>
+              )}
+            </div>
+            {service.suspended_at && (
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 12,
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                Suspendido el{' '}
+                {new Date(service.suspended_at).toLocaleDateString('es-ES', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </p>
+            )}
+          </div>
         </AlertBanner>
       )}
 
@@ -214,7 +303,7 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
         terminal — clickear con metadata corrupta o sobre service
         cancelled produce `provider_error` (UI_SPEC §4.13 + A4.3).
       */}
-      {!isTerminal && !isDrift && info.capabilities.hasSsoPanel && info.capabilities.panel_label && (
+      {!isTerminal && !isSuspended && !isDrift && info.capabilities.hasSsoPanel && info.capabilities.panel_label && (
         <Card>
           <div
             style={{
@@ -251,7 +340,7 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
         </Card>
       )}
 
-      {!isTerminal && (
+      {!isTerminal && !isSuspended && (
         <ActionsBar
           serviceId={service.id}
           actions={info.availableActions}
@@ -268,7 +357,7 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
         — `zone_id`, records iniciales fetched de Enhance — que falla
         con drift / no existe sobre cancelled).
       */}
-      {!isTerminal && !isDrift && info.capabilities.has_dns_management && (
+      {!isTerminal && !isSuspended && !isDrift && info.capabilities.has_dns_management && (
         <Card>
           <div
             style={{
@@ -386,4 +475,39 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
       </p>
     </div>
   );
+}
+
+/**
+ * Sprint 15C.II Fase F.4.2 — extrae SOLO el código `SuspensionReason` canónico
+ * de `service.suspension_reason` (cadena combinada `"<reason>"` o
+ * `"<reason>: <internal_note>"`). El cliente NUNCA ve la nota interna del
+ * admin — solo la etiqueta localizada del enum (`service.suspension_reason.*`).
+ * Si la parte previa al `": "` no es un código conocido, devuelve `'other'`
+ * (etiqueta genérica "Otros motivos" + CTA a soporte). Espejo cliente del
+ * `parseSuspensionReason` de `/admin/services/[id]` (que sí muestra la nota).
+ */
+type ClientSuspensionReasonCode =
+  | 'overdue_payment'
+  | 'abuse_investigation'
+  | 'scheduled_maintenance'
+  | 'gdpr_restriction'
+  | 'other';
+
+const KNOWN_SUSPENSION_REASON_CODES = new Set<ClientSuspensionReasonCode>([
+  'overdue_payment',
+  'abuse_investigation',
+  'scheduled_maintenance',
+  'gdpr_restriction',
+  'other',
+]);
+
+function parseSuspensionReasonCode(
+  raw: string | null,
+): ClientSuspensionReasonCode {
+  if (!raw) return 'other';
+  const sep = raw.indexOf(': ');
+  const prefix = (sep >= 0 ? raw.slice(0, sep) : raw).trim();
+  return KNOWN_SUSPENSION_REASON_CODES.has(prefix as ClientSuspensionReasonCode)
+    ? (prefix as ClientSuspensionReasonCode)
+    : 'other';
 }

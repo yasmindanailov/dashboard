@@ -14,6 +14,7 @@ import {
   ProvisionerPluginError,
   ServiceAction,
   ServiceInfo,
+  ServiceInfoStatus,
   ServiceWithRelations,
   SsoUrl,
 } from './types';
@@ -371,6 +372,47 @@ export async function executeActionWithCacheInvalidation(
   });
 
   return result;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 3b. Helper: filtrado de acciones inline por estado del servicio
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Filtra `inlineActions` por `ServiceInfoStatus`. Acciones que no tienen
+ * sentido en estado terminal (cancelled) o transitorio (pending/failed/unknown)
+ * no aparecen en la UI.
+ *
+ * Sprint 15C.II Fase F — ADR-077 Amendment A4: `suspend_service` solo aplica
+ * a servicios `active` (no se puede suspender lo ya suspendido);
+ * `unsuspend_service` solo a `suspended`. El catálogo estático `inlineActions`
+ * declara ambas (lo exige el contract test); este filtro expone solo la que
+ * corresponde al estado actual.
+ *
+ * Sprint 15C.II Fase F.4 — promovido a `plugin-utils` (antes vivía privado en
+ * `enhance.plugin.ts`): el wrapper canónico del orquestador
+ * (`ProvisioningService.getInfoForUser`) lo reutiliza para **re-derivar**
+ * `availableActions` desde el estado *administrativo* (`services.status`,
+ * autoritativo para el lifecycle suspend/cancel — distinto del estado
+ * *operacional* del proveedor, DH-INV-6) cuando ambos divergen. Así los
+ * botones de la UI siempre coinciden con lo que aceptan los guards de
+ * `suspendAsAdmin`/`unsuspendAsAdmin`. Heredable a 15D RC / 15E Docker /
+ * 15G Plesk — el plugin lo importa de aquí, ya no lo re-implementa.
+ */
+export function filterActionsByStatus(
+  actions: readonly ServiceAction[],
+  status: ServiceInfoStatus,
+): readonly ServiceAction[] {
+  if (status === 'active') {
+    return actions.filter((a) => a.slug !== 'unsuspend_service');
+  }
+  if (status === 'suspended') {
+    return actions.filter((a) => a.slug !== 'suspend_service');
+  }
+  // En todos los demás estados (pending/cancelled/failed/expired/unknown)
+  // las acciones inline no aplican — el cliente debe esperar reconcile o
+  // contactar soporte.
+  return [];
 }
 
 // ────────────────────────────────────────────────────────────────────────────
