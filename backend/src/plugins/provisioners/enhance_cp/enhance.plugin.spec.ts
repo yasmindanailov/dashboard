@@ -64,7 +64,13 @@ import {
   ServiceWithRelations,
 } from '../../../core/provisioning/types';
 
-import { EnhanceProvisionerPlugin, mapWebsiteStatus } from './enhance.plugin';
+import {
+  EnhanceProvisionerPlugin,
+  SSL_EXPIRING_SOON_MS,
+  detectAutoRenew,
+  mapWebsiteStatus,
+  parseEnhanceCertDate,
+} from './enhance.plugin';
 
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -72,6 +78,8 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
   const ORG_ID = '00000000-0000-0000-0000-00000000bbbb';
   const SUB_ID = 4242;
   const WEBSITE_ID = '00000000-0000-0000-0000-00000000eeee';
+  // Sprint 15C.II Fase F.7 — domain.id (UUID interno del EnhanceWebsiteDomain).
+  const DOMAIN_ID = '00000000-0000-0000-0000-00000000ffff';
   const LOGIN_ID = '00000000-0000-0000-0000-00000000dddd';
   const MEMBER_ID = '00000000-0000-0000-0000-00000000cccc';
   const USER_ID = '11111111-2222-3333-4444-555555555555';
@@ -99,7 +107,11 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       calculateResourceUsage: jest.fn(),
       listPlans: jest.fn(), // Sprint 15C Fase 15C.E — ADR-083 Amendment A3
       createWebsite: jest.fn(),
-      getWebsite: jest.fn(),
+      // Sprint 15C.II Fase F.7: defaults resolved-null para los métodos que
+      // ahora participan en el Promise.all de getServiceInfo() — el .catch
+      // sobre un jest.fn() no-mockeado rompe (devuelve `undefined`, no Promise).
+      // Los tests específicos sobreescriben con mockResolvedValueOnce.
+      getWebsite: jest.fn().mockResolvedValue(null),
       patchWebsite: jest.fn(),
       deleteWebsite: jest.fn(),
       getDnsZone: jest.fn(),
@@ -110,6 +122,9 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       addDefaultDnsRecord: jest.fn(),
       updateDefaultDnsRecord: jest.fn(),
       deleteDefaultDnsRecord: jest.fn(),
+      // Sprint 15C.II Fase F.7 — ADR-083 A8 (getDomainSsl)
+      // Default null = "sin cert" (mismo criterio que getWebsite arriba).
+      getDomainSsl: jest.fn().mockResolvedValue(null),
     };
   }
 
@@ -923,6 +938,218 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       const info = await plugin.getServiceInfo(buildServiceWithRefs());
       expect(info.recoveryHint).toBeUndefined();
       expect(info.statusReason).toBeUndefined();
+    });
+
+    // ─── ssl (ADR-077 Amendment A7 + ADR-083 Amendment A8) ───────────────
+    //
+    // Helper compartido: setup getServiceInfo() con un cert SSL mockeado.
+    // El `getWebsite` se mockea para devolver un website con `domain.id =
+    // DOMAIN_ID`; el `getDomainSsl` recibe ese DOMAIN_ID y devuelve el cert
+    // o lanza/null según el caso. `now` es inyectable para tests deterministas
+    // del threshold (los 14 días son fijos, ADR-077 A7.4).
+    function setupSslTest(opts: {
+      readonly cert: {
+        expires: string;
+        issuer: string;
+        issued?: string;
+        cn?: string;
+        forceHttps?: boolean;
+      } | null;
+      readonly websiteFails?: boolean;
+      readonly sslThrows?: Error;
+    }) {
+      const api = buildApiMock();
+      api.getSubscription.mockResolvedValueOnce({
+        id: SUB_ID,
+        planId: 7,
+        status: 'active',
+        planName: 'Web Pro',
+        friendlyName: 'mi-cliente.es',
+      });
+      api.getSubscriptionBandwidth.mockResolvedValueOnce(null);
+      api.calculateResourceUsage.mockResolvedValueOnce(null);
+      if (opts.websiteFails) {
+        api.getWebsite.mockRejectedValueOnce(new Error('boom'));
+      } else {
+        api.getWebsite.mockResolvedValueOnce({
+          id: WEBSITE_ID,
+          domain: { id: DOMAIN_ID, domain: DOMAIN },
+          aliases: [],
+          status: 'active',
+          orgId: ORG_ID,
+          subscriptionId: SUB_ID,
+          createdAt: '2026-01-01T00:00:00Z',
+        });
+      }
+      if (opts.sslThrows) {
+        api.getDomainSsl.mockRejectedValueOnce(opts.sslThrows);
+      } else {
+        api.getDomainSsl.mockResolvedValueOnce(
+          opts.cert
+            ? {
+                cn: opts.cert.cn ?? DOMAIN,
+                expires: opts.cert.expires,
+                issued: opts.cert.issued ?? '2026-01-01T00:00:00Z',
+                issuer: opts.cert.issuer,
+                forceHttps: opts.cert.forceHttps ?? true,
+              }
+            : null,
+        );
+      }
+      return buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+    }
+
+    it('cert expira en 60d → ssl.status=valid + autoRenew=true (LE) + issuer + expiresAt ISO', async () => {
+      const now = new Date('2026-06-01T00:00:00Z');
+      const expires = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+      jest.useFakeTimers().setSystemTime(now);
+      const plugin = setupSslTest({
+        cert: {
+          expires: expires.toISOString(),
+          issuer: "Let's Encrypt Authority X3",
+        },
+      });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      jest.useRealTimers();
+      expect(info.ssl).toEqual({
+        status: 'valid',
+        expiresAt: expires.toISOString(),
+        autoRenew: true,
+        issuer: "Let's Encrypt Authority X3",
+      });
+    });
+
+    it('cert expira en 10d → ssl.status=expiring_soon', async () => {
+      const now = new Date('2026-06-01T00:00:00Z');
+      const expires = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
+      jest.useFakeTimers().setSystemTime(now);
+      const plugin = setupSslTest({
+        cert: {
+          expires: expires.toISOString(),
+          issuer: "Let's Encrypt R3",
+        },
+      });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      jest.useRealTimers();
+      expect(info.ssl?.status).toBe('expiring_soon');
+      expect(info.ssl?.autoRenew).toBe(true);
+    });
+
+    it('cert expira exactamente en 14d (boundary inclusive) → expiring_soon', async () => {
+      const now = new Date('2026-06-01T00:00:00Z');
+      const expires = new Date(now.getTime() + SSL_EXPIRING_SOON_MS);
+      jest.useFakeTimers().setSystemTime(now);
+      const plugin = setupSslTest({
+        cert: {
+          expires: expires.toISOString(),
+          issuer: "Let's Encrypt Authority X3",
+        },
+      });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      jest.useRealTimers();
+      expect(info.ssl?.status).toBe('expiring_soon');
+    });
+
+    it('cert expira hace 1d → ssl.status=expired', async () => {
+      const now = new Date('2026-06-01T00:00:00Z');
+      const expires = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      jest.useFakeTimers().setSystemTime(now);
+      const plugin = setupSslTest({
+        cert: {
+          expires: expires.toISOString(),
+          issuer: 'DigiCert SHA2 Secure Server CA',
+        },
+      });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      jest.useRealTimers();
+      expect(info.ssl?.status).toBe('expired');
+      expect(info.ssl?.autoRenew).toBe(false);
+    });
+
+    it('getDomainSsl devuelve null (404) → ssl.status=none + sin expiresAt', async () => {
+      const plugin = setupSslTest({ cert: null });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.ssl).toEqual({ status: 'none' });
+    });
+
+    it('getWebsite falla → ssl=undefined (sin card, no exponer parcial)', async () => {
+      const plugin = setupSslTest({
+        websiteFails: true,
+        cert: null,
+      });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.ssl).toBeUndefined();
+    });
+
+    it('getDomainSsl lanza error no-INVALID_STATE → ssl=undefined', async () => {
+      const plugin = setupSslTest({
+        cert: null,
+        sslThrows: new ProvisionerPluginError(
+          'orchd 5xx',
+          'PROVIDER_INTERNAL_ERROR',
+          true,
+        ),
+      });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.ssl).toBeUndefined();
+    });
+
+    it('cert con expires ilegible → ssl=undefined (no exponer parcial)', async () => {
+      const plugin = setupSslTest({
+        cert: {
+          expires: 'not-a-date',
+          issuer: "Let's Encrypt Authority X3",
+        },
+      });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.ssl).toBeUndefined();
+    });
+  });
+
+  // ─── Helpers SSL (ADR-083 Amendment A8.4) ─────────────────────────────
+
+  describe('detectAutoRenew', () => {
+    it("true para issuers Let's Encrypt (X3, R3, E1, sin apóstrofe)", () => {
+      expect(detectAutoRenew("Let's Encrypt Authority X3")).toBe(true);
+      expect(detectAutoRenew("Let's Encrypt R3")).toBe(true);
+      expect(detectAutoRenew("Let's Encrypt E1")).toBe(true);
+      expect(detectAutoRenew('Lets Encrypt R10')).toBe(true); // sin apóstrofe
+    });
+
+    it('false para custom issuers (DigiCert, ZeroSSL, GoDaddy)', () => {
+      expect(detectAutoRenew('DigiCert SHA2 Secure Server CA')).toBe(false);
+      expect(detectAutoRenew('ZeroSSL RSA Domain Secure Site CA')).toBe(false);
+      expect(
+        detectAutoRenew('Go Daddy Secure Certificate Authority - G2'),
+      ).toBe(false);
+    });
+
+    it('false para emisor vacío o string genérico', () => {
+      expect(detectAutoRenew('')).toBe(false);
+      expect(detectAutoRenew('Unknown CA')).toBe(false);
+    });
+  });
+
+  describe('parseEnhanceCertDate', () => {
+    it('parsea ISO-8601 válido', () => {
+      const d = parseEnhanceCertDate('2026-08-15T12:34:56Z');
+      expect(d?.toISOString()).toBe('2026-08-15T12:34:56.000Z');
+    });
+
+    it('parsea RFC-2822', () => {
+      const d = parseEnhanceCertDate('Sat, 15 Aug 2026 12:34:56 GMT');
+      expect(d).not.toBeNull();
+      expect(d!.getUTCFullYear()).toBe(2026);
+    });
+
+    it('devuelve null para strings ilegibles o vacíos', () => {
+      expect(parseEnhanceCertDate('not-a-date')).toBeNull();
+      expect(parseEnhanceCertDate('')).toBeNull();
     });
   });
 
