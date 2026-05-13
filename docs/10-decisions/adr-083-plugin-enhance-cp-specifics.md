@@ -1054,3 +1054,238 @@ El evento se materializó y documentó en [Amendment A6.1](#amendments) (F.2) pe
 - **Boot real** verificado (`node dist/src/main.js`): `Nest application successfully started`, sin errores de DI; rutas mapeadas — `GET /api/v1/services/:id/audit`, `POST /api/v1/services/:id/refresh`, `GET /api/v1/admin/services/:id/audit`, `POST /api/v1/admin/services/:id/refresh`.
 - `migrate deploy` aplicado contra la BD dev (índice de expresión `audit_access_log`).
 - Tests nuevos/ampliados: `audit.service.spec` (timeline — admin full / cliente whitelist / cursor parse `BadRequestException` / next_cursor / actor desconocido) · `provisioning.service.spec` (timeline ownership ×4 + TTL ×3 + cooldown del force-refresh ×3) · `global-exception.filter.spec` (NUEVO, 4) · `plugin-utils.spec` (+2) · `enhance.plugin.spec` (testConnection) · `admin-plugins.service.spec` (+4 rama `'custom'`) · `plugin-contract.spec` (invariantes G4/G8).
+
+---
+
+### Amendment A8 (2026-05-13) — probe SSL de Enhance (Sprint 15C.II Fase F.7)
+
+> **Justificado por:** Sprint 15C.II Fase F.7 + [ADR-077 Amendment A7](./adr-077-contrato-provisioner-plugin-v2.md#amendments). El campo opcional `ServiceInfo.ssl?` (A7) se materializa en `enhance_cp` leyendo el cert del **primary domain** del website vía el endpoint `GET /v2/domains/{domain_id}/ssl` de orchd v12.21.3.
+> **Sprint:** 15C.II Fase F.7 (PR pendiente).
+> **Compatibilidad:** Hacia atrás. El campo es opcional — clientes que no lo lean no se ven afectados. NO toca ningún otro shape ni endpoint del plugin. NO requiere migración.
+
+#### A8.1. Endpoint OAS + shape de respuesta
+
+`GET /v2/domains/{domain_id}/ssl` ([orchd OAS v12.21.3 line 8452](../_research/sprint-15c/orchd-oas3-api.yaml)) — operationId `getWebsiteDomainSslCert`, tags `[orgs, websites, ssl]` — devuelve `DomainSslCert`:
+
+```yaml
+DomainSslCert:
+  required: [cn, expires, issued, issuer, sans, forceHttps]
+  properties:
+    cn:         string      # Common Name del cert (el dominio)
+    expires:    string      # fecha — formato implementation-defined; el cliente la normaliza a ISO-8601
+    issued:    string
+    issuer:     string      # ej. "Let's Encrypt Authority X3"
+    sans:       string[]    # Subject Alternative Names (no usado por el summary v1)
+    forceHttps: boolean     # display-only para nosotros (gestión del flag vía SSO al panel)
+```
+
+Códigos de error relevantes:
+
+- `200` → cert disponible → mapear con `buildSslSummary` (A8.4).
+- `404` → el dominio no tiene cert configurado → `ssl: { status: 'none' }`.
+- `401`/`403` → credenciales / RBAC inválidos. El cliente HTTP los traduce a `ProvisionerPluginError` con `code='AUTH_FAILED'`. El plugin lo captura en el path SSL (best-effort) → `ssl: undefined`.
+- 5xx / red → el cliente HTTP los traduce a `ProvisionerPluginError`. El plugin lo captura → `ssl: undefined`.
+
+> **Decisión (NO re-litigar) — endpoint `getWebsiteDomainSslCert`, NO `getWebsiteMailDomainSslCert`.** OAS expone también `GET /v2/domains/{domain_id}/mail_ssl` (cert del subdominio `mail.<dominio>`). v1 cubre solo el website primary cert — el cert del mail es una capability mail-server propia (Enhance admin la gestiona aparte) y mezclarla con el "SSL del sitio" confundiría al cliente. Si emerge la demanda, se añade como sub-shape extra (`ssl.mail?`) sin tocar A7. Mismo criterio para los aliases (`website.aliases[]`): v1 solo expone el primary; el cliente puede tener varios certs por website pero el panel del proveedor los gestiona — exponer todos sería un *card explosion* sin valor v1.
+
+#### A8.2. Localización del `domain_id`
+
+El plugin persiste `enhance_org_id` y `enhance_website_id` en `services.metadata`, **NO** `domain_id` (es un detalle interno de Enhance — `domain` es entidad embebida de `website`). Para resolverlo en `getServiceInfo`:
+
+1. `getWebsite(orgId, websiteId)` → `EnhanceWebsite { domain: { id, domain }, aliases: [...] }`.
+2. `getDomainSsl(domain.id)` → cert del primary domain.
+
+(NO se persiste `enhance_domain_id` en provision para optimizar — añadirlo requeriría una migración de datos para servicios existentes + un cambio del provision flow + un fallback durante la transición. El sub-fetch en `getServiceInfo` cuesta 1 round-trip que el cache 60s absorbe. Si el coste se vuelve material en el futuro, se promueve a persistencia con su propio Amendment.)
+
+#### A8.3. Performance — sub-fetch encadenado dentro del `Promise.all` ya existente
+
+El `getServiceInfo` actual paraleliza `[getSubscription, getSubscriptionBandwidth, calculateResourceUsage]`. F.7 añade `getWebsite` al `Promise.all` (4ª lectura paralela) y encadena `getDomainSsl(website.domain.id)` como sub-fetch best-effort **fuera del Promise.all** (depende del primero):
+
+```typescript
+const websiteId = extractWebsiteId(service);
+const [subscription, bandwidth, resources, website] = await Promise.all([
+  api.getSubscription(refs.orgId, refs.subscriptionId).catch((err) => {
+    if (err instanceof ProvisionerPluginError && err.code === 'INVALID_STATE') return null;
+    throw err;
+  }),
+  api.getSubscriptionBandwidth(refs.orgId, refs.subscriptionId).catch(() => null),
+  api.calculateResourceUsage(refs.orgId, refs.subscriptionId).catch(() => null),
+  websiteId ? api.getWebsite(refs.orgId, websiteId).catch(() => null) : Promise.resolve(null),
+]);
+
+const ssl = await buildSslSummary(api, website);  // best-effort, devuelve undefined en error
+```
+
+Coste: 1 round-trip paralelo extra (websites) + 1 round-trip secuencial (ssl) **solo en cache miss**. El cache 60s (manifest `serviceInfoCacheTtlSeconds` resuelve a 60s vía precedencia ADR-080 Amendment C) absorbe el coste — la página de servicio no se carga 100x/min. El circuit breaker del cliente HTTP (`EnhanceHttpClient`) protege contra orchd inalcanzable. Si `websiteId` no está en `services.metadata` (servicio legacy mal aprovisionado) → `website=null` → `ssl=undefined` → no card (degradación silenciosa, mismo patrón que `bandwidth`/`resources`).
+
+#### A8.4. Mapeo de campos del cert → `ServiceSslSummary`
+
+```typescript
+const SSL_EXPIRING_SOON_MS = 14 * 24 * 60 * 60 * 1000;  // 14 días (ADR-077 A7.4)
+
+async function buildSslSummary(
+  api: EnhanceApiClient,
+  website: EnhanceWebsite | null,
+  now: Date = new Date(),
+): Promise<ServiceSslSummary | undefined> {
+  if (!website) return undefined;  // sin website → no podemos resolver domainId
+
+  let cert: EnhanceDomainSslCert | null;
+  try {
+    cert = await api.getDomainSsl(website.domain.id);
+  } catch {
+    return undefined;  // error de red / auth — no exponer parcial
+  }
+  if (cert === null) return { status: 'none' };  // 404 = sin cert
+
+  const expiresAt = parseEnhanceCertDate(cert.expires);
+  if (!expiresAt) return undefined;  // fecha ilegible — no exponer parcial
+
+  const msUntilExpiry = expiresAt.getTime() - now.getTime();
+  const status: ServiceSslStatus =
+    msUntilExpiry <= 0 ? 'expired'
+    : msUntilExpiry <= SSL_EXPIRING_SOON_MS ? 'expiring_soon'
+    : 'valid';
+
+  return {
+    status,
+    expiresAt: expiresAt.toISOString(),
+    autoRenew: detectAutoRenew(cert.issuer),
+    issuer: cert.issuer,
+  };
+}
+
+/**
+ * Heurística de auto-renovación. Enhance auto-renueva los certs Let's
+ * Encrypt (política orchd built-in, ~30 días antes de expirar). Los certs
+ * subidos por el cliente vía `POST /v2/domains/{domain_id}/ssl` son
+ * custom y NO se auto-renuevan. La distinción no viaja explícita en
+ * `DomainSslCert.issuer`, pero es derivable porque el `issuer` LE es
+ * estable: "Let's Encrypt Authority X3", "Let's Encrypt R3", "Let's
+ * Encrypt E1"… todos contienen "Let's Encrypt" (apostrofado o no).
+ *
+ * Si emerge un proveedor adicional de auto-renovación integrado en Enhance
+ * (p.ej. ZeroSSL como issuer auto-renewing), se añade al matcher;
+ * mientras tanto, la heurística cubre 99% de casos reales. Cualquier cert
+ * NO LE devuelve `false` (no `undefined`) — el cliente lo subió sabiendo
+ * que es manual y queremos mostrarle "renovación manual" explícito.
+ */
+function detectAutoRenew(issuer: string): boolean {
+  return /let'?s\s*encrypt/i.test(issuer);
+}
+```
+
+`parseEnhanceCertDate` es defensivo: el campo `expires` en orchd OAS es `string` sin formato especificado — en la práctica suele ser ISO-8601, pero defensemos contra RFC-2822 u otros. El helper hace `new Date(raw)` y verifica `!isNaN(getTime())`; si falla → devuelve `null` y el plugin omite el `ssl` para no exponer datos parciales.
+
+#### A8.5. `EnhanceApiClient.getDomainSsl()` — nuevo método
+
+```typescript
+// backend/src/plugins/provisioners/enhance_cp/api/client.ts (nueva sección "Domains / SSL")
+/**
+ * GET /v2/domains/{domain_id}/ssl — lee el cert SSL del dominio.
+ *
+ * Devuelve `null` si el endpoint responde 404 (no hay cert configurado).
+ * Re-lanza `ProvisionerPluginError` en otros errores (autenticación, red,
+ * 5xx). Sin side-effects.
+ *
+ * Consumido por `getServiceInfo()` para poblar `ServiceInfo.ssl?`
+ * ([ADR-077 A7](./adr-077-contrato-provisioner-plugin-v2.md#amendments)).
+ */
+async getDomainSsl(domainId: string): Promise<EnhanceDomainSslCert | null> {
+  try {
+    return await this.http.get<EnhanceDomainSslCert>(
+      `/v2/domains/${encodeURIComponent(domainId)}/ssl`,
+    );
+  } catch (err) {
+    if (err instanceof ProvisionerPluginError && err.code === 'NOT_FOUND') {
+      return null;
+    }
+    throw err;
+  }
+}
+```
+
+Tipo correspondiente en `api/types.ts` (sección 7bis "Domains / SSL"):
+
+```typescript
+/**
+ * Spec DomainSslCert line 20385 — subset usado por el plugin (omitimos
+ * `sans` y `cert`/`key` que están solo en `DomainSslCertWithData`, no
+ * necesarios para el summary v1).
+ */
+export interface EnhanceDomainSslCert {
+  readonly cn: string;
+  readonly expires: string;
+  readonly issued: string;
+  readonly issuer: string;
+  readonly forceHttps: boolean;
+}
+```
+
+#### A8.6. MockEnhanceServer — endpoint `/v2/domains/:domainId/ssl`
+
+`backend/test/mocks/enhance-server/server.ts` gana:
+
+- Tabla `state.domainSsls: Map<domainId, EnhanceDomainSslCert>` (la **ausencia** de entrada equivale a 404 = sin cert; no se almacena `null` explícito).
+- Endpoint `GET /v2/domains/:domainId/ssl` → `200 cert` si la tabla tiene la entrada, `404 NOT_FOUND` si no.
+- Helper `seed.domainSsls?: Record<domainId, EnhanceDomainSslCert>` para que los tests pre-siembren certs determinísticos.
+- **Default behaviour** al crear un website (`POST /orgs/{org}/websites`): auto-siembra un cert "Let's Encrypt Authority X3" para el `domain.id` recién creado, `expires` = `now + 60d`, `issued` = `now`, `forceHttps: true`, `cn` = `domain.domain`. Simula el behaviour real de orchd (LE issuance al provision). Tests que quieran probar otros estados (`expiring_soon`, `expired`, `none`, custom issuer) sobreescriben con `state.domainSsls.set(domainId, customCert)` antes del test o con `seed.domainSsls`.
+
+#### A8.7. Tests F.7
+
+- `enhance.plugin.spec.ts` (+8 casos en describe `getServiceInfo > ssl`):
+  - `valid` cuando `expires = now + 60d`.
+  - `expiring_soon` cuando `expires = now + 10d`.
+  - `expiring_soon` cuando `expires = now + 14d` (boundary inclusive).
+  - `expired` cuando `expires = now - 1d`.
+  - `none` cuando el endpoint devuelve 404.
+  - `ssl=undefined` cuando `getWebsite` falla.
+  - `ssl=undefined` cuando `getDomainSsl` lanza no-404.
+  - `ssl=undefined` cuando `cert.expires` ilegible.
+- `enhance.plugin.spec.ts` (+3 casos en describe `detectAutoRenew`):
+  - `true` para "Let's Encrypt Authority X3", "Let's Encrypt R3", "Let's Encrypt E1".
+  - `false` para "DigiCert SHA2 Secure Server CA", "ZeroSSL RSA Domain Secure Site CA".
+  - `false` para emisor vacío.
+- `plugin-contract.spec.ts`: invariante A7.3 (ssl opcional + status enum + consistencia `status='none'` sin `expiresAt`).
+- `client.integration.spec.ts`: `getDomainSsl` lee del MockEnhanceServer (200, 404, 500).
+- `client.spec.ts`: `getDomainSsl` mapea 404 → `null`; otros errores re-lanzan.
+
+#### A8.8. UI — `SslStatusCard` (F.7.2)
+
+`frontend/app/_shared/services/SslStatusCard.tsx`:
+
+```typescript
+interface Props {
+  ssl: ServiceSslSummary;
+  isAdmin?: boolean;
+  /** Si el plugin/instancia soporta SSO, link al panel del proveedor (CTA admin). */
+  ssoPanelHref?: string;
+}
+```
+
+Renderiza:
+
+- Badge según `status` (verde `valid` / ámbar `expiring_soon` / rojo `expired` / gris `none`).
+- Línea principal (i18n):
+  - `valid`: "SSL activo — expira en X días"
+  - `expiring_soon`: "Tu certificado SSL caduca pronto — expira en X días"
+  - `expired`: "SSL caducado — el sitio aparecerá como 'No seguro' en navegadores"
+  - `none`: "Sin certificado SSL — el sitio aparecerá como 'No seguro' en navegadores"
+- Sub-textos (opcionales, solo si presentes en el shape):
+  - `autoRenew === true`: "Renovación automática activa"
+  - `autoRenew === false`: "Renovación manual — recuerda renovar antes del vencimiento"
+  - `issuer`: "Emitido por <issuer>"
+- Admin extras (cuando `isAdmin === true`):
+  - Tooltip en el badge mostrando `expiresAt` ISO exacto.
+  - CTA footer "Gestionar SSL en el panel del proveedor →" (link `ssoPanelHref`, abre nueva pestaña). Si `ssoPanelHref` no se pasa (plugin sin SSO o capability `hasSsoPanel=false` en la instancia), no se muestra el CTA.
+
+Wire en `/dashboard/services/[id]/page.tsx` y `/admin/services/[id]/page.tsx`: render `<SslStatusCard ssl={info.ssl} isAdmin={isAdmin} ssoPanelHref={...} />` SOLO si `info.ssl` está presente. La ubicación exacta en el árbol queda formalizada en F.12 (layout canónico) — interinamente, junto a `<MetricsBar>` (sección de "estado del recurso") con margen coherente con las cards existentes.
+
+#### A8.9. i18n keys nuevas (`frontend/app/_i18n/`)
+
+- `service.ssl.card_title`
+- `service.ssl.status.valid` / `.expiring_soon` / `.expired` / `.none`
+- `service.ssl.expires_in_days` (con plural — `{ count: number }`)
+- `service.ssl.auto_renew_on` / `.auto_renew_off`
+- `service.ssl.issuer_label`
+- `service.ssl.admin_cta_manage_in_provider`
