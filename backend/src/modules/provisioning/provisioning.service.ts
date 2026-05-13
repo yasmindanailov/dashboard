@@ -1,4 +1,5 @@
 ﻿import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -32,6 +33,7 @@ import {
   SuspensionReason,
 } from '../../core/provisioning/types';
 import { AuditService } from '../audit/audit.service';
+import { ClientNotesService } from '../clients/client-notes.service';
 
 /**
  * Sprint 15C Fase 15C.D — error semántico canónico que la capa REST
@@ -55,6 +57,7 @@ import {
   ServiceListQueryDto,
   SuspendServiceDto,
   SuspensionReasonDto,
+  UnsuspendServiceDto,
 } from './dto/provisioning.dto';
 import { ProvisioningOrchestratorService } from './provisioning-orchestrator.service';
 
@@ -102,6 +105,10 @@ export class ProvisioningService {
     private readonly settings: SettingsService,
     private readonly orchestrator: ProvisioningOrchestratorService,
     private readonly breakers: CircuitBreakerRegistry,
+    // Sprint 15C.II F.6: las transiciones admin (suspend/unsuspend/deprovision)
+    // crean un `ClientNote` direct-call dentro de la `$transaction` del cambio
+    // de status (R3 §A.11.10.3.2 — ambas ops o ninguna).
+    private readonly clientNotes: ClientNotesService,
   ) {}
 
   // â”€â”€â”€ Listado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -865,17 +872,52 @@ export class ProvisioningService {
     if (!service) {
       throw new NotFoundException('Servicio no encontrado.');
     }
+    // Sprint 15C.II F.6 — R2 (dossier §A.11.10.3.2): el path admin/manual
+    // exige nota. Hoy `deprovisionAsAdmin` solo se invoca con `actorUserId`
+    // string (no hay path sistema — DC.46 auto-cancel lo introduciría en
+    // fase aparte). Naming `notes` vs `internal_note` viene heredado de
+    // `DeprovisionDto`; alinearlo con `Suspend` está en el backlog
+    // post-15C.II — fuera de scope F.6.
+    if (!dto.notes?.trim()) {
+      throw new BadRequestException({
+        code: 'NOTE_REQUIRED',
+        message:
+          'La nota interna es obligatoria para acciones manuales de lifecycle.',
+      });
+    }
 
-    const reasonText = dto.notes ? `${dto.reason}: ${dto.notes}` : dto.reason;
-
-    const updated = await this.prisma.service.update({
-      where: { id: serviceId },
-      data: {
-        status: 'cancelled',
-        cancelled_at: new Date(),
-        cancellation_reason: reasonText,
-      },
-      select: { id: true, status: true, cancellation_reason: true },
+    // F.6.2: `cancellation_reason` guarda solo el motivo-enum. La narrativa
+    // libre vive en `ClientNote.body` — mantiene la separación enum/nota
+    // coherente con `suspension_reason` (también F.6.2). El audit_log
+    // preserva ambas piezas (defense-in-depth de trazabilidad).
+    const reasonText = dto.reason;
+    const cancelledAt = new Date();
+    const noteBody = dto.notes.trim();
+    // R3 (dossier §A.11.10.3.2): `service.update` + `clientNote.create` en
+    // la misma transacción Prisma — el plugin call (si lo hubiera) NO está
+    // aún implementado para `deprovisionAsAdmin` (sigue siendo solo lado
+    // Aelium hoy; `DC.46`/`plugin.deprovision()` está deferido).
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.service.update({
+        where: { id: serviceId },
+        data: {
+          status: 'cancelled',
+          cancelled_at: cancelledAt,
+          cancellation_reason: reasonText,
+        },
+        select: { id: true, status: true, cancellation_reason: true },
+      });
+      await this.clientNotes.createFromServiceLifecycleAction(
+        {
+          user_id: service.user_id,
+          author_id: actorUserId,
+          service_id: serviceId,
+          triggered_by_action: 'service.cancelled',
+          body: noteBody,
+        },
+        tx,
+      );
+      return u;
     });
 
     // Sprint 15C.II Fase E: `notify_client` (default true) controla si el
@@ -901,6 +943,7 @@ export class ProvisioningService {
         status: 'cancelled',
         cancellation_reason: reasonText,
         reason_code: dto.reason,
+        internal_note: noteBody,
         notify_client: notifyClient,
       },
     });
@@ -1009,6 +1052,19 @@ export class ProvisioningService {
         current_status: String(service.status),
       });
     }
+    // Sprint 15C.II F.6 — R2 (dossier §A.11.10.3.2): defense-in-depth de
+    // "nota obligatoria para acciones manuales". El frontend ya valida el
+    // textarea como `required`; este guard cierra el path bypass con curl.
+    // Para actor sistema (`actorUserId === null`, p.ej. cron de billing) la
+    // nota es opcional — el caller la compone con contexto canónico
+    // (nº de factura, etc.) y la pasa por `dto.internal_note`.
+    if (actorUserId !== null && !dto.internal_note?.trim()) {
+      throw new BadRequestException({
+        code: 'NOTE_REQUIRED',
+        message:
+          'La nota interna es obligatoria para acciones manuales de lifecycle.',
+      });
+    }
 
     const pluginSlug = service.provisioner_slug ?? service.product.provisioner;
     const plugin = this.registry.get(pluginSlug);
@@ -1058,23 +1114,59 @@ export class ProvisioningService {
       }
     }
 
-    const suspensionReason = dto.internal_note
-      ? `${dto.reason}: ${dto.internal_note}`
-      : dto.reason;
+    // F.6.2 (dossier §A.11.10.3): `services.suspension_reason` guarda solo el
+    // motivo-enum (separación categórico/narrativa). La narrativa libre
+    // (`dto.internal_note`) vive en `ClientNote.body` — el banner cliente
+    // localiza el enum y la UI admin enriquece con la nota del ClientNote.
+    const suspensionReason = dto.reason;
     const suspendedAt = new Date();
-    const updated = await this.prisma.service.update({
-      where: { id: serviceId },
-      data: {
-        status: 'suspended',
-        suspended_at: suspendedAt,
-        suspension_reason: suspensionReason,
-      },
-      select: {
-        id: true,
-        status: true,
-        suspension_reason: true,
-        suspended_at: true,
-      },
+    // F.6 — `triggered_by_action` diferencia el auto-suspend por impago del
+    // suspend manual admin, para que la UI los pueda mostrar distintos en el
+    // timeline del cliente (icono / etiqueta).
+    const triggeredByAction:
+      | 'service.suspended'
+      | 'service.auto_suspended_overdue' =
+      actorUserId === null && opts?.actorLabel?.startsWith('system:billing-')
+        ? 'service.auto_suspended_overdue'
+        : 'service.suspended';
+    // El caller del modal admin pasa la nota libre; el cron de billing pasa
+    // el body ya compuesto ("Suspendido automáticamente por impago — Factura N").
+    // R2 garantiza que para admin `internal_note` no es vacío; el `??` cubre
+    // el path sistema cuando el caller no compone body (defensivo).
+    const noteBody = dto.internal_note?.trim() ?? '<sin nota>';
+    // R3 (dossier §A.11.10.3.2): `service.update` + `clientNote.create` viven
+    // en la misma transacción Prisma — si la nota falla, el status no transita
+    // (un retry del admin es seguro: `suspendAsAdmin` es idempotente por el
+    // guard `'suspended' → no-op`, A4.4 ADR-077). Plugin call + cache +
+    // eventos + audit quedan FUERA (asimétricos por naturaleza — provider call
+    // idempotente, listeners consumen estado committed, audit con su propia
+    // política).
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.service.update({
+        where: { id: serviceId },
+        data: {
+          status: 'suspended',
+          suspended_at: suspendedAt,
+          suspension_reason: suspensionReason,
+        },
+        select: {
+          id: true,
+          status: true,
+          suspension_reason: true,
+          suspended_at: true,
+        },
+      });
+      await this.clientNotes.createFromServiceLifecycleAction(
+        {
+          user_id: service.user_id,
+          author_id: actorUserId,
+          service_id: serviceId,
+          triggered_by_action: triggeredByAction,
+          body: noteBody,
+        },
+        tx,
+      );
+      return u;
     });
 
     await this.cache.invalidate(serviceId);
@@ -1159,6 +1251,7 @@ export class ProvisioningService {
    */
   async unsuspendAsAdmin(
     serviceId: string,
+    dto: UnsuspendServiceDto,
     actorUserId: string | null,
     ctx?: { ipAddress?: string; userAgent?: string | null },
     opts?: { actorLabel?: string; allowUnsupported?: boolean },
@@ -1176,6 +1269,17 @@ export class ProvisioningService {
         code: 'SERVICE_NOT_SUSPENDED',
         message: `Solo se puede reactivar un servicio suspendido (estado actual: ${service.status}).`,
         current_status: String(service.status),
+      });
+    }
+    // Sprint 15C.II F.6 — R2 (dossier §A.11.10.3.2): defense-in-depth.
+    // Para actor sistema (`actorUserId === null`, p.ej. listener auto-reactivar
+    // al pagar) la nota es opcional — el caller la compone con el nº de
+    // factura: "Reactivado automáticamente al pagar la factura N".
+    if (actorUserId !== null && !dto.internal_note?.trim()) {
+      throw new BadRequestException({
+        code: 'NOTE_REQUIRED',
+        message:
+          'La nota interna es obligatoria para acciones manuales de lifecycle.',
       });
     }
 
@@ -1224,10 +1328,35 @@ export class ProvisioningService {
     }
 
     const previousReason = service.suspension_reason;
-    const updated = await this.prisma.service.update({
-      where: { id: serviceId },
-      data: { status: 'active', suspended_at: null, suspension_reason: null },
-      select: { id: true, status: true },
+    // F.6 — `triggered_by_action` discrimina el auto-unsuspend del listener
+    // de billing-on-invoice-paid del unsuspend manual admin.
+    const triggeredByAction:
+      | 'service.unsuspended'
+      | 'service.auto_unsuspended_overdue' =
+      actorUserId === null &&
+      opts?.actorLabel === 'system:billing-on-invoice-paid'
+        ? 'service.auto_unsuspended_overdue'
+        : 'service.unsuspended';
+    const noteBody = dto.internal_note?.trim() ?? '<sin nota>';
+    // R3 (dossier §A.11.10.3.2): cambio de status + `ClientNote` en una sola
+    // transacción Prisma. Plugin call (provider) ya completó arriba.
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.service.update({
+        where: { id: serviceId },
+        data: { status: 'active', suspended_at: null, suspension_reason: null },
+        select: { id: true, status: true },
+      });
+      await this.clientNotes.createFromServiceLifecycleAction(
+        {
+          user_id: service.user_id,
+          author_id: actorUserId,
+          service_id: serviceId,
+          triggered_by_action: triggeredByAction,
+          body: noteBody,
+        },
+        tx,
+      );
+      return u;
     });
 
     await this.cache.invalidate(serviceId);
@@ -1282,8 +1411,17 @@ export class ProvisioningService {
    * servicio suspendido por abuso, RGPD o mantenimiento porque el cliente pague
    * otra factura). Idempotente: si ya está `active` (alguien lo reactivó a mano),
    * no-op. Actor sistema (`actorUserId: null` + `actorLabel`).
+   *
+   * Sprint 15C.II F.6: el listener pasa el `invoiceNumber` para que este
+   * método componga el body del `ClientNote` con el contexto canónico
+   * ("Reactivado automáticamente al pagar la factura N"). Patrón simétrico
+   * al cron de `autoSuspendServices` que compone el body con la factura
+   * impagada antes de llamar a `suspendAsAdmin`.
    */
-  async reactivateSuspendedServiceOnPayment(serviceId: string): Promise<void> {
+  async reactivateSuspendedServiceOnPayment(
+    serviceId: string,
+    invoiceNumber: string,
+  ): Promise<void> {
     const service = await this.prisma.service.findUnique({
       where: { id: serviceId },
       select: { id: true, status: true, suspension_reason: true },
@@ -1307,10 +1445,18 @@ export class ProvisioningService {
       );
       return;
     }
-    await this.unsuspendAsAdmin(serviceId, null, undefined, {
-      actorLabel: 'system:billing-on-invoice-paid',
-      allowUnsupported: true,
-    });
+    await this.unsuspendAsAdmin(
+      serviceId,
+      {
+        internal_note: `Reactivado automáticamente al pagar la factura ${invoiceNumber}`,
+      },
+      null,
+      undefined,
+      {
+        actorLabel: 'system:billing-on-invoice-paid',
+        allowUnsupported: true,
+      },
+    );
     this.logger.log(
       `reactivateSuspendedServiceOnPayment: service ${serviceId} reactivated (overdue invoice paid).`,
     );
@@ -1442,8 +1588,17 @@ export class ProvisioningService {
    * `services.suspension_reason`, que se persiste combinado como `"<reason>"`
    * o `"<reason>: <internal_note>"` (mismo patrón que `cancellation_reason`).
    * Si la parte previa al `": "` no es un código conocido, devuelve `'other'`.
-   * (Fase F.6 desacoplará el motivo-enum de la nota libre; mientras tanto este
-   * helper es la fuente única de parseo.)
+   *
+   * Sprint 15C.II Fase F.6 (F.6.2): el formato canónico de `suspension_reason`
+   * pasa a ser **solo el enum** (sin `": <nota>"`). Este helper sigue siendo
+   * útil porque:
+   *   - es robusto a ambos formatos (split por `": "` devuelve el string
+   *     completo cuando no hay `": "`, que coincide con el enum),
+   *   - la migración data F.6.4 (one-shot) limpia las filas viejas que
+   *     todavía tienen el formato combinado.
+   * Tras F.6.4 aplicada, este helper podría simplificarse a un
+   * `Object.values(...).includes(combined)`, pero el coste es mínimo y
+   * mantenerlo defensivo blinda contra rollbacks parciales.
    */
   private parseSuspensionReasonCode(combined: string | null): SuspensionReason {
     if (!combined) return 'other';

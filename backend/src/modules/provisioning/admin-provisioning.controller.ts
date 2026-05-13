@@ -23,12 +23,14 @@ import { AdminOnlyGuard } from '../../core/common/guards/admin-only.guard';
 import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuditAccess } from '../audit/audit.decorator';
+import { ClientNotesService } from '../clients/client-notes.service';
 
 import { CreateDnsRecordDto, UpdateDnsRecordDto } from './dto/dns-records.dto';
 import {
   AdminServiceListQueryDto,
   DeprovisionDto,
   SuspendServiceDto,
+  UnsuspendServiceDto,
 } from './dto/provisioning.dto';
 import {
   DnsExternallyManagedError,
@@ -50,7 +52,13 @@ import {
 @Controller('admin/services')
 @UseGuards(JwtAuthGuard, AdminOnlyGuard, PoliciesGuard)
 export class AdminProvisioningController {
-  constructor(private readonly provisioning: ProvisioningService) {}
+  constructor(
+    private readonly provisioning: ProvisioningService,
+    // Sprint 15C.II F.6 — endpoint `GET /admin/services/:id/notes` para que
+    // la página `/admin/services/[id]` renderice las notas operativas inline
+    // (`source_system='service' AND source_id=:id`).
+    private readonly clientNotes: ClientNotesService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -75,6 +83,32 @@ export class AdminProvisioningController {
     // Admin puede ver cualquier service — pasamos isAdmin=true para
     // saltar el check de ownership.
     return this.provisioning.getInfoForUser(id, req.user.id, true);
+  }
+
+  /**
+   * Sprint 15C.II Fase F.6 (§F.6.3) — listado de notas operativas del
+   * servicio. Devuelve los `ClientNote` con `source_system='service' AND
+   * source_id=:id` ordenados por `(is_pinned desc, created_at desc)`.
+   *
+   * Por defecto sin límite (la lista por servicio rara vez crece más allá
+   * de unas decenas — cancelaciones / suspensiones / reactivaciones); si
+   * en el futuro fuera necesario, paginar reutilizando `ClientNoteQueryDto`.
+   * El path canónico de "ver todas las notas del cliente" es
+   * `/admin/clients/:userId` → tab Notas (que usa `findByClient` con
+   * filtros completos).
+   */
+  @Get(':id/notes')
+  @ApiOperation({
+    summary: 'List operational notes of a service (admin) — F.6 §F.6.3',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Service))
+  // F.6 §F.6.3: lectura staff sobre datos del cliente — coherente con
+  // `detail()` + `audit()` (ambos `@AuditAccess('Service')`). Las notas
+  // contienen contexto operativo del cliente (motivo de suspensión, etc.)
+  // — su lectura debe quedar en el log GDPR de transparencia.
+  @AuditAccess('Service')
+  notes(@Param('id', ParseUUIDPipe) id: string) {
+    return this.clientNotes.findByService(id);
   }
 
   /**
@@ -195,8 +229,9 @@ export class AdminProvisioningController {
   unsuspend(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UnsuspendServiceDto,
   ) {
-    return this.provisioning.unsuspendAsAdmin(id, req.user.id, {
+    return this.provisioning.unsuspendAsAdmin(id, dto, req.user.id, {
       ipAddress: req.ip ?? '0.0.0.0',
       userAgent: req.headers['user-agent'] ?? null,
     });

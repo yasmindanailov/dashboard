@@ -693,6 +693,7 @@ enum NoteCategory {
   project // notas de proyectos
   technical_incident // notas de incidentes técnicos del cliente
   exceptional // nota libre del agente desde perfil cliente, sin actuador
+  lifecycle // Sprint 15C.II F.6: transiciones canónicas de lifecycle de servicio (cancel/suspend/unsuspend)
 }
 
 enum NoteSourceSystem {
@@ -701,27 +702,38 @@ enum NoteSourceSystem {
   maintenance_log // mantenimiento completado
   task_completion // task completada (cubre client_lifecycle, project promotion, etc.)
   exceptional // nota libre desde perfil cliente
+  service // Sprint 15C.II F.6: nota desde acción de lifecycle de servicio (source_id = service.id)
 }
 
 model ClientNote {
   id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id             String           @db.Uuid
-  author_id           String           @db.Uuid
+  // Sprint 15C.II F.6: NULLABLE para soportar "actor sistema" (auto-suspend
+  // por impago, listener auto-reactivar al pagar). Convención heredable
+  // ya establecida en F.5 para `audit_change_log.user_id` y para los eventos
+  // `service.*` con `actor_user_id: string|null`. `onDelete: SetNull` para
+  // preservar el historial operativo del cliente cuando un admin se elimina
+  // (el autor queda NULL, no se borra la nota).
+  author_id           String?          @db.Uuid
   category            NoteCategory
   body                String
   source_system       NoteSourceSystem
   // ID en el sistema vinculado: conversation_id | slot_id | task_id |
-  // project_id según `source_system`. Sin FK dura excepto opcional a Task
-  // (cuando `source_system='task_completion'`). Validación a nivel listener.
+  // project_id | service_id según `source_system`. Sin FK dura excepto
+  // opcional a Task (cuando `source_system='task_completion'`).
+  // Validación a nivel listener.
   source_id           String?          @db.Uuid
   // Acción canónica que disparó la nota: 'ticket.resolved', 'ticket.closed',
-  // 'task.completed', 'maintenance.completed', 'manual_entry'. Texto libre <=100.
+  // 'task.completed', 'maintenance.completed', 'manual_entry',
+  // 'service.cancelled', 'service.suspended', 'service.unsuspended',
+  // 'service.auto_suspended_overdue', 'service.auto_unsuspended_overdue'.
+  // Texto libre <=100.
   triggered_by_action String?          @db.VarChar(100)
   is_pinned           Boolean          @default(false)
   created_at          DateTime         @default(now()) @db.Timestamptz()
 
-  user   User @relation("ClientNoteUser", fields: [user_id], references: [id], onDelete: Cascade)
-  author User @relation("ClientNoteAuthor", fields: [author_id], references: [id])
+  user   User  @relation("ClientNoteUser", fields: [user_id], references: [id], onDelete: Cascade)
+  author User? @relation("ClientNoteAuthor", fields: [author_id], references: [id], onDelete: SetNull)
   // Sprint 16 (ADR-079 §3.8): NO FK formal sobre `source_id`. El campo es
   // polimórfico y apunta a entidades distintas según `source_system`
   // (Task | Conversation | Slot | Project). La integridad referencial

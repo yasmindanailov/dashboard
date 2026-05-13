@@ -56,11 +56,14 @@ describe('ServiceLifecycleWorker — Fase F.5 (autoSuspendServices → suspendAs
     await worker.autoSuspendServices();
 
     expect(provisioning.suspendAsAdmin).toHaveBeenCalledTimes(1);
+    // Sprint 15C.II F.6: el `internal_note` lleva el body self-descriptive
+    // que aterriza en `ClientNote.body` vía `createFromServiceLifecycleAction`.
     expect(provisioning.suspendAsAdmin).toHaveBeenCalledWith(
       'svc-1',
       {
         reason: SuspensionReasonDto.overdue_payment,
-        internal_note: 'Factura INV-2026-1',
+        internal_note:
+          'Suspendido automáticamente por impago — Factura INV-2026-1',
         notify_client: true,
       },
       null,

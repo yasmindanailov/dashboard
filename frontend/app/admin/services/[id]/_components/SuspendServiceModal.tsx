@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * SuspendServiceModal — Sprint 15C.II Fase F (ADR-077 Amendment A4).
+ * SuspendServiceModal — Sprint 15C.II Fase F (ADR-077 Amendment A4) +
+ * Fase F.6 (notas operativas vía `ClientNote`).
  *
  * CC admin-only que materializa los botones "Suspender servicio…" /
  * "Reanudar servicio" del `<AdminServiceOperationsCard>`. Dos modos:
@@ -12,17 +13,19 @@
  *          reversible + cuándo usarlo en vez de cancelar.
  *       2. Motivo canónico obligatorio (dropdown — taxonomía `SuspensionReason`,
  *          va al audit log y se muestra al cliente como etiqueta localizada).
- *       3. Nota interna opcional (no se muestra al cliente — solo audit log +
- *          banner admin).
+ *       3. **Nota interna OBLIGATORIA** (F.6 §F.6.1 + R2 §A.11.10.3.2). No se
+ *          muestra al cliente. Vive en `ClientNote.body` para que aparezca en
+ *          el timeline `/admin/clients/[id]` → "Notas".
  *       4. Toggle "Notificar al cliente" (default ON) → controla si el listener
  *          `notifications-on-service-suspended` envía email + campana.
  *       NO usa typing-confirm (la suspensión es reversible — L17: solo las
  *       acciones irreversibles destructivas lo exigen). Botón variant `warning`.
  *
- *   - `mode='unsuspend'`: confirmación simple (`confirmRequired: true` en el
- *       contrato, pero reversible y de bajo impacto) — sin motivo ni notas;
- *       el cliente siempre recibe email "tu servicio vuelve a estar activo".
- *       Botón variant `primary`.
+ *   - `mode='unsuspend'` (F.6): confirmación + **nota interna OBLIGATORIA**.
+ *       Toda transición manual de lifecycle deja traza con razón humana —
+ *       coherencia con `suspend`/`cancel`. El path auto (listener
+ *       `reactivate-services-on-invoice-paid`) NO pasa por este modal:
+ *       compone el body con el nº de factura backend-side.
  *
  * Tras OK: toast success + `router.refresh()` → el SC parent re-renderiza
  * (banner amarillo "Servicio suspendido" / sin banner). NO redirige.
@@ -30,7 +33,8 @@
  * Auth: invocar este componente requiere staff (filtrado server-side por el SC
  * parent). Los endpoints `POST /admin/services/:id/suspend|unsuspend` están
  * protegidos por triple guard (Jwt + AdminOnly + Policies — `Action.Update`
- * sobre `Subject.Service`, solo superadmin/agent_full).
+ * sobre `Subject.Service`, solo superadmin/agent_full). Validación R2 backend
+ * cierra el path bypass con curl.
  */
 
 import { useState } from 'react';
@@ -98,16 +102,29 @@ export function SuspendServiceModal({
     onClose();
   }
 
+  // F.6 + R2: la nota es obligatoria en ambos modos para admin/manual.
+  // Defense-in-depth: el backend lo refuerza; este guard local mejora UX
+  // (botón disabled, sin viaje al backend para un 400 evitable).
+  const noteValid = internalNote.trim().length > 0;
+
   async function handleSubmit(): Promise<void> {
+    if (!noteValid) {
+      // Salvaguarda — el botón ya queda disabled, pero defendemos contra un
+      // submit programático.
+      toast('error', 'La nota interna es obligatoria.');
+      return;
+    }
     setSubmitting(true);
     const result =
       mode === 'suspend'
         ? await suspendServiceAction(serviceId, {
             reason,
-            internal_note: internalNote.trim() || undefined,
+            internal_note: internalNote.trim(),
             notify_client: notifyClient,
           })
-        : await unsuspendServiceAction(serviceId);
+        : await unsuspendServiceAction(serviceId, {
+            internal_note: internalNote.trim(),
+          });
     setSubmitting(false);
     if (!result.ok) {
       toast('error', result.error);
@@ -133,7 +150,7 @@ export function SuspendServiceModal({
         open={open}
         onClose={handleClose}
         title="Reanudar servicio"
-        size="sm"
+        size="md"
         footer={
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <Button variant="secondary" onClick={handleClose} disabled={submitting}>
@@ -141,7 +158,7 @@ export function SuspendServiceModal({
             </Button>
             <Button
               onClick={() => void handleSubmit()}
-              disabled={submitting}
+              disabled={submitting || !noteValid}
               loading={submitting}
             >
               {submitting ? 'Reanudando…' : 'Reanudar servicio'}
@@ -149,10 +166,23 @@ export function SuspendServiceModal({
           </div>
         }
       >
-        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6 }}>
-          El servicio <strong>{serviceDisplayName}</strong> volverá a estar
-          activo y el cliente recuperará el acceso. Se le notificará por email.
-        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6 }}>
+            El servicio <strong>{serviceDisplayName}</strong> volverá a estar
+            activo y el cliente recuperará el acceso. Se le notificará por
+            email.
+          </p>
+          <Textarea
+            label="Nota interna *"
+            value={internalNote}
+            onChange={(e) => setInternalNote(e.target.value)}
+            maxLength={1000}
+            rows={3}
+            placeholder="Motivo de la reactivación — p. ej. cliente regularizó pago en banco, llamada confirmada con factura X, etc."
+            helperText="Obligatoria. No se muestra al cliente — queda como traza en el historial del servicio. (máx 1000 caracteres)."
+            disabled={submitting}
+          />
+        </div>
       </Modal>
     );
   }
@@ -171,7 +201,7 @@ export function SuspendServiceModal({
           <Button
             variant="danger"
             onClick={() => void handleSubmit()}
-            disabled={submitting}
+            disabled={submitting || !noteValid}
             loading={submitting}
           >
             {submitting ? 'Suspendiendo…' : 'Suspender servicio'}
@@ -199,13 +229,13 @@ export function SuspendServiceModal({
         />
 
         <Textarea
-          label="Nota interna (opcional)"
+          label="Nota interna *"
           value={internalNote}
           onChange={(e) => setInternalNote(e.target.value)}
           maxLength={1000}
           rows={3}
           placeholder="Contexto para el equipo — p. ej. número de ticket, decisión, etc."
-          helperText="No se muestra al cliente (ni siquiera para «Otro motivo»). Se añade al registro de auditoría (máx 1000 caracteres)."
+          helperText="Obligatoria. No se muestra al cliente (ni siquiera para «Otro motivo»). Queda como traza en el historial del servicio y en el audit log (máx 1000 caracteres)."
           disabled={submitting}
         />
 

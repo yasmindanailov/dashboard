@@ -54,7 +54,15 @@ export class ReactivateServicesOnInvoicePaidListener {
     try {
       const invoice = await this.prisma.invoice.findUnique({
         where: { id: payload.invoice_id },
-        include: { items: { select: { service_id: true } } },
+        // Sprint 15C.II F.6: cargamos `invoice_number` para componer el body
+        // del `ClientNote` que `reactivateSuspendedServiceOnPayment` crea
+        // (vía `unsuspendAsAdmin`): "Reactivado automáticamente al pagar la
+        // factura N". Paralelo a `autoSuspendServices` que ya compone el
+        // body con el nº de factura al suspender.
+        select: {
+          invoice_number: true,
+          items: { select: { service_id: true } },
+        },
       });
       if (!invoice) {
         // El orquestador ya loguea este caso; aquí solo salimos.
@@ -74,6 +82,7 @@ export class ReactivateServicesOnInvoicePaidListener {
         try {
           await this.provisioning.reactivateSuspendedServiceOnPayment(
             serviceId,
+            invoice.invoice_number,
           );
         } catch (err) {
           this.logger.error(

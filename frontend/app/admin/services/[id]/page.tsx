@@ -39,6 +39,7 @@ import { AdminDriftBanner } from './_components/AdminDriftBanner';
 import { AdminProviderStateDesyncBanner } from './_components/AdminProviderStateDesyncBanner';
 import { AdminServiceDataCard } from './_components/AdminServiceDataCard';
 import { AdminServiceOperationsCard } from './_components/AdminServiceOperationsCard';
+import { ServiceNotesCard } from './_components/ServiceNotesCard';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -391,6 +392,16 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
           serviceDisplayName={info.display.primary}
         />
       )}
+
+      {/* Sprint 15C.II Fase F.6 (§F.6.3) — historial de notas operativas del
+          servicio (cancel/suspend/unsuspend, manual o automático del cron).
+          Siempre visible (también si terminal: ahí es donde más interesa ver
+          por qué se canceló). Vista federada por cliente en
+          `/admin/clients/[id]` → tab Notas. */}
+      <ServiceNotesCard
+        serviceId={service.id}
+        clientUserId={service.user_id}
+      />
 
       {/* DNS link — espejo del detalle cliente. Sprint 15C.II Fase E
           (GAP-15CII-L): UI admin DNS nativa en `/admin/services/[id]/dns`

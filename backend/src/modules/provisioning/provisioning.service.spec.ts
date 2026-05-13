@@ -89,6 +89,9 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
   };
   let settings: { getNumber: jest.Mock; getJson: jest.Mock };
   let orchestrator: { enqueueProvisioning: jest.Mock };
+  // Sprint 15C.II F.6: ClientNotesService mockeado a nivel de describe para
+  // que los tests puedan verificar `clientNotes.createFromServiceLifecycleAction`.
+  let clientNotes: { createFromServiceLifecycleAction: jest.Mock };
   let service: ProvisioningService;
 
   function buildPlugin(
@@ -179,11 +182,21 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
           language: 'es',
         }),
       },
-      $transaction: jest
-        .fn()
-        .mockImplementation((arr: unknown[]) =>
-          Promise.all(arr.map((promise) => promise as Promise<unknown>)),
-        ),
+      // Sprint 15C.II F.6 — `$transaction` soporta ambas formas: array
+      // (`[$promise1, $promise2]`) y callback (`(tx) => ...`). El refactor
+      // F.6 R3 de `suspend/unsuspend/deprovisionAsAdmin` usa la callback
+      // form para encajar `service.update` + `clientNote.create` en un
+      // solo commit; `tx === prisma` en el mock para que `tx.service.update`
+      // siga apuntando al mismo `jest.fn()`.
+      $transaction: jest.fn().mockImplementation(async (input: unknown) => {
+        if (Array.isArray(input)) {
+          return Promise.all(input.map((p) => p as Promise<unknown>));
+        }
+        if (typeof input === 'function') {
+          return (input as (tx: typeof prisma) => Promise<unknown>)(prisma);
+        }
+        throw new Error('Unexpected $transaction input');
+      }),
     };
     registry = {
       get: jest.fn(),
@@ -235,6 +248,15 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       resetAll: jest.fn(),
     };
 
+    // Sprint 15C.II F.6 — `ClientNotesService` mockeado. El servicio real
+    // se testa en `client-notes.service.spec.ts`; aquí solo verificamos que
+    // las transiciones admin lo invocan con los argumentos correctos.
+    clientNotes = {
+      createFromServiceLifecycleAction: jest
+        .fn()
+        .mockResolvedValue({ id: 'note-mock' }),
+    };
+
     service = new ProvisioningService(
       prisma as never,
       registry,
@@ -244,6 +266,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       settings as never,
       orchestrator as never,
       breakers as never,
+      clientNotes as never,
     );
   });
 
@@ -696,7 +719,12 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
 
     await service.deprovisionAsAdmin(
       'svc-2',
-      { reason: DeprovisionReasonDto.admin_override, notify_client: false },
+      {
+        reason: DeprovisionReasonDto.admin_override,
+        // Sprint 15C.II F.6 — R2: nota obligatoria para acciones admin.
+        notes: 'cuenta de test',
+        notify_client: false,
+      },
       'admin-id',
       { ipAddress: '1.2.3.4' },
     );
@@ -796,14 +824,28 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         'suspend_service',
         { reason: 'overdue_payment' },
       );
+      // Sprint 15C.II F.6.2: `suspension_reason` guarda solo el enum.
+      // La narrativa libre (`internal_note`) vive en `ClientNote.body`.
       expect(prisma.service.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'svc-1' },
           data: expect.objectContaining({
             status: 'suspended',
-            suspension_reason: 'overdue_payment: 3 avisos sin respuesta',
+            suspension_reason: 'overdue_payment',
           }),
         }),
+      );
+      // Sprint 15C.II F.6: el orquestador crea el `ClientNote` en la misma
+      // tx con `triggered_by_action='service.suspended'` y body con la nota.
+      expect(clientNotes.createFromServiceLifecycleAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: 'user-1',
+          author_id: 'admin-id',
+          service_id: 'svc-1',
+          triggered_by_action: 'service.suspended',
+          body: '3 avisos sin respuesta',
+        }),
+        prisma, // tx === prisma en el mock $transaction
       );
       expect(cache.invalidate).toHaveBeenCalledWith('svc-1');
       expect(events.emit).toHaveBeenCalledWith(
@@ -881,7 +923,13 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       await expect(
         service.suspendAsAdmin(
           'svc-1',
-          { reason: SuspensionReasonDto.other },
+          {
+            reason: SuspensionReasonDto.other,
+            // Sprint 15C.II F.6 — R2: nota obligatoria. El guard de plugin
+            // (SUSPEND_NOT_SUPPORTED) corre después, y este es el path que
+            // este test ejercita.
+            internal_note: 'probando plugin sin supports_suspend',
+          },
           'admin-id',
           { ipAddress: '1.2.3.4' },
         ),
@@ -907,9 +955,12 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         status: 'active',
       });
 
-      const result = await service.unsuspendAsAdmin('svc-1', 'admin-id', {
-        ipAddress: '1.2.3.4',
-      });
+      const result = await service.unsuspendAsAdmin(
+        'svc-1',
+        { internal_note: 'cliente regularizó pago en banco' },
+        'admin-id',
+        { ipAddress: '1.2.3.4' },
+      );
 
       expect(executeAction).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'svc-1' }),
@@ -948,9 +999,12 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       const executeAction = jest.fn();
       registry.get.mockReturnValue(buildSuspendablePlugin(executeAction));
 
-      const result = await service.unsuspendAsAdmin('svc-1', 'admin-id', {
-        ipAddress: '1.2.3.4',
-      });
+      const result = await service.unsuspendAsAdmin(
+        'svc-1',
+        { internal_note: 'reactivación manual de prueba' },
+        'admin-id',
+        { ipAddress: '1.2.3.4' },
+      );
 
       expect(result.alreadyActive).toBe(true);
       expect(executeAction).not.toHaveBeenCalled();
@@ -1676,10 +1730,19 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         status: 'active',
       });
 
-      const result = await service.unsuspendAsAdmin('svc-1', null, undefined, {
-        actorLabel: 'system:billing-on-invoice-paid',
-        allowUnsupported: true,
-      });
+      const result = await service.unsuspendAsAdmin(
+        'svc-1',
+        {
+          internal_note:
+            'Reactivado automáticamente al pagar la factura INV-2026-1',
+        },
+        null,
+        undefined,
+        {
+          actorLabel: 'system:billing-on-invoice-paid',
+          allowUnsupported: true,
+        },
+      );
 
       expect(plugin.executeAction).not.toHaveBeenCalled();
       expect(prisma.service.update).toHaveBeenCalledWith(
@@ -1723,7 +1786,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         status: 'active',
       });
 
-      await service.reactivateSuspendedServiceOnPayment('svc-1');
+      await service.reactivateSuspendedServiceOnPayment('svc-1', 'INV-2026-1');
 
       expect(prisma.service.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1750,7 +1813,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         suspension_reason: 'abuse_investigation: DMCA pendiente',
       });
 
-      await service.reactivateSuspendedServiceOnPayment('svc-1');
+      await service.reactivateSuspendedServiceOnPayment('svc-1', 'INV-2026-1');
 
       expect(prisma.service.update).not.toHaveBeenCalled();
     });
@@ -1762,7 +1825,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         suspension_reason: null,
       });
 
-      await service.reactivateSuspendedServiceOnPayment('svc-1');
+      await service.reactivateSuspendedServiceOnPayment('svc-1', 'INV-2026-1');
 
       expect(prisma.service.update).not.toHaveBeenCalled();
     });
@@ -1771,7 +1834,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       prisma.service.findUnique.mockResolvedValueOnce(null);
 
       await expect(
-        service.reactivateSuspendedServiceOnPayment('svc-missing'),
+        service.reactivateSuspendedServiceOnPayment('svc-missing', 'INV-X'),
       ).resolves.toBeUndefined();
       expect(prisma.service.update).not.toHaveBeenCalled();
     });

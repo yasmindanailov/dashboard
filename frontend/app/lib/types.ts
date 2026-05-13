@@ -101,20 +101,29 @@ export type NoteCategory =
   | 'billing'
   | 'project'
   | 'technical_incident'
-  | 'exceptional';
+  | 'exceptional'
+  /** Sprint 15C.II F.6: transiciones canónicas de lifecycle de servicio
+      (cancel/suspend/unsuspend, manual admin o automático del cron). */
+  | 'lifecycle';
 
 export type NoteSourceSystem =
   | 'ticket'
   | 'chat'
   | 'maintenance_log'
   | 'task_completion'
-  | 'exceptional';
+  | 'exceptional'
+  /** Sprint 15C.II F.6: nota desde acción de lifecycle de servicio
+      (`source_id = service.id`). */
+  | 'service';
 
 export interface ClientNote {
   id: string;
   user_id: string;
-  author_id: string;
-  /** Backend enriquece con nombre del autor (client-notes.service.ts). */
+  /** Sprint 15C.II F.6: nullable para soportar "actor sistema"
+      (cron, listeners). Backend enriquece `author_name = 'Sistema'` cuando
+      es null. */
+  author_id: string | null;
+  /** Backend enriquece con nombre del autor o 'Sistema' (client-notes.service.ts). */
   author_name?: string;
   body: string;
   category: NoteCategory;
