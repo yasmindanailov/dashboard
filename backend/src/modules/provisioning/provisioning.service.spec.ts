@@ -1414,20 +1414,21 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       expect(result.service.provider_state_desync).toBe(false);
     });
 
-    it('getInfoForUser: plugin sin supports_suspend → no toca info ni el flag aunque la BD diga suspended', async () => {
+    it('getInfoForUser: plugin SIN supports_suspend + BD suspended (impago, Fase F.5) → fuerza info.status=suspended (el cliente lo ve suspendido) PERO provider_state_desync=false (no hay estado de proveedor con el que sincronizar)', async () => {
       prisma.service.findUnique.mockResolvedValueOnce(
         buildServiceRow({
           status: 'suspended',
           provisioner_slug: 'internal',
-          suspension_reason: 'other: bookkeeping legacy',
+          suspension_reason: 'overdue_payment: Factura INV-2026-1',
         }),
       );
-      // buildPlugin() por defecto: supports_suspend=false, getServiceInfo → active.
+      // buildPlugin() por defecto: supports_suspend=false, getServiceInfo → active, inlineActions [].
       registry.get.mockReturnValue(buildPlugin());
 
       const result = await service.getInfoForUser('svc-1', 'user-1', true);
 
-      expect(result.info.status).toBe('active');
+      expect(result.info.status).toBe('suspended');
+      expect(result.info.availableActions).toEqual([]);
       expect(result.service.provider_state_desync).toBe(false);
     });
 
@@ -1559,6 +1560,220 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
           ipAddress: '1.2.3.4',
         }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    // ── F.5 — billing-suspend-unify (actor sistema + allowUnsupported + reactivar al pagar) ──
+
+    it('suspendAsAdmin: actor sistema (actorUserId=null + actorLabel) → audit.logChange con user_id=null + changes_after.actor; SIN audit.logAccess; evento service.suspended con actor + actor_user_id=null', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({ status: 'active', provisioner_slug: 'enhance_cp' }),
+      );
+      const executeAction = jest
+        .fn()
+        .mockResolvedValue({ success: true, data: { suspended: true } });
+      registry.get.mockReturnValue(
+        buildSuspendablePlugin('active', executeAction),
+      );
+      prisma.service.update.mockResolvedValueOnce({
+        id: 'svc-1',
+        status: 'suspended',
+        suspension_reason: 'overdue_payment: Factura INV-2026-1',
+        suspended_at: new Date(),
+      });
+
+      await service.suspendAsAdmin(
+        'svc-1',
+        {
+          reason: SuspensionReasonDto.overdue_payment,
+          internal_note: 'Factura INV-2026-1',
+          notify_client: true,
+        },
+        null,
+        undefined,
+        { actorLabel: 'system:billing-overdue-cron' },
+      );
+
+      expect(executeAction).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'svc-1' }),
+        'suspend_service',
+        { reason: 'overdue_payment' },
+      );
+      expect(audit.logChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'service.suspended',
+          user_id: null,
+          changes_after: expect.objectContaining({
+            status: 'suspended',
+            reason_code: 'overdue_payment',
+            actor: 'system:billing-overdue-cron',
+          }),
+        }),
+      );
+      expect(audit.logAccess).not.toHaveBeenCalled();
+      expect(events.emit).toHaveBeenCalledWith(
+        'service.suspended',
+        expect.objectContaining({
+          service_id: 'svc-1',
+          actor_user_id: null,
+          actor: 'system:billing-overdue-cron',
+          reason: 'overdue_payment',
+        }),
+      );
+    });
+
+    it('suspendAsAdmin: allowUnsupported=true sobre plugin SIN supports_suspend → transición de estado en BD sin invocar inline action', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({ status: 'active', provisioner_slug: 'internal' }),
+      );
+      const plugin = buildPlugin(); // supports_suspend=false
+      registry.get.mockReturnValue(plugin);
+      prisma.service.update.mockResolvedValueOnce({
+        id: 'svc-1',
+        status: 'suspended',
+        suspension_reason: 'overdue_payment: Factura INV-2026-1',
+        suspended_at: new Date(),
+      });
+
+      const result = await service.suspendAsAdmin(
+        'svc-1',
+        {
+          reason: SuspensionReasonDto.overdue_payment,
+          internal_note: 'Factura INV-2026-1',
+          notify_client: true,
+        },
+        null,
+        undefined,
+        { actorLabel: 'system:billing-overdue-cron', allowUnsupported: true },
+      );
+
+      expect(plugin.executeAction).not.toHaveBeenCalled();
+      expect(prisma.service.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'suspended' }),
+        }),
+      );
+      expect(events.emit).toHaveBeenCalledWith(
+        'service.suspended',
+        expect.objectContaining({ actor_user_id: null }),
+      );
+      expect(audit.logAccess).not.toHaveBeenCalled();
+      expect(result.status).toBe('suspended');
+    });
+
+    it('unsuspendAsAdmin: actor sistema + allowUnsupported sobre plugin SIN supports_suspend → transición a active sin inline action, sin logAccess', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({
+          status: 'suspended',
+          provisioner_slug: 'internal',
+          suspension_reason: 'overdue_payment: Factura INV-2026-1',
+          suspended_at: new Date(),
+        }),
+      );
+      const plugin = buildPlugin();
+      registry.get.mockReturnValue(plugin);
+      prisma.service.update.mockResolvedValueOnce({
+        id: 'svc-1',
+        status: 'active',
+      });
+
+      const result = await service.unsuspendAsAdmin('svc-1', null, undefined, {
+        actorLabel: 'system:billing-on-invoice-paid',
+        allowUnsupported: true,
+      });
+
+      expect(plugin.executeAction).not.toHaveBeenCalled();
+      expect(prisma.service.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            status: 'active',
+            suspended_at: null,
+            suspension_reason: null,
+          },
+        }),
+      );
+      expect(events.emit).toHaveBeenCalledWith(
+        'service.unsuspended',
+        expect.objectContaining({
+          actor_user_id: null,
+          actor: 'system:billing-on-invoice-paid',
+        }),
+      );
+      expect(audit.logAccess).not.toHaveBeenCalled();
+      expect(result.status).toBe('active');
+    });
+
+    it('reactivateSuspendedServiceOnPayment: servicio suspendido por overdue_payment → reactiva (status→active)', async () => {
+      prisma.service.findUnique
+        .mockResolvedValueOnce({
+          id: 'svc-1',
+          status: 'suspended',
+          suspension_reason: 'overdue_payment: Factura INV-2026-1',
+        })
+        .mockResolvedValueOnce(
+          buildServiceRow({
+            status: 'suspended',
+            provisioner_slug: 'internal',
+            suspension_reason: 'overdue_payment: Factura INV-2026-1',
+            suspended_at: new Date(),
+          }),
+        );
+      registry.get.mockReturnValue(buildPlugin());
+      prisma.service.update.mockResolvedValueOnce({
+        id: 'svc-1',
+        status: 'active',
+      });
+
+      await service.reactivateSuspendedServiceOnPayment('svc-1');
+
+      expect(prisma.service.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            status: 'active',
+            suspended_at: null,
+            suspension_reason: null,
+          },
+        }),
+      );
+      expect(events.emit).toHaveBeenCalledWith(
+        'service.unsuspended',
+        expect.objectContaining({
+          actor_user_id: null,
+          actor: 'system:billing-on-invoice-paid',
+        }),
+      );
+    });
+
+    it('reactivateSuspendedServiceOnPayment: servicio suspendido por OTRO motivo (abuse) → NO reactiva (un pago no deshace una suspensión por abuso)', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce({
+        id: 'svc-1',
+        status: 'suspended',
+        suspension_reason: 'abuse_investigation: DMCA pendiente',
+      });
+
+      await service.reactivateSuspendedServiceOnPayment('svc-1');
+
+      expect(prisma.service.update).not.toHaveBeenCalled();
+    });
+
+    it('reactivateSuspendedServiceOnPayment: servicio ya active → no-op idempotente', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce({
+        id: 'svc-1',
+        status: 'active',
+        suspension_reason: null,
+      });
+
+      await service.reactivateSuspendedServiceOnPayment('svc-1');
+
+      expect(prisma.service.update).not.toHaveBeenCalled();
+    });
+
+    it('reactivateSuspendedServiceOnPayment: servicio no encontrado → no-op (log warn), no relanza', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.reactivateSuspendedServiceOnPayment('svc-missing'),
+      ).resolves.toBeUndefined();
+      expect(prisma.service.update).not.toHaveBeenCalled();
     });
   });
 });

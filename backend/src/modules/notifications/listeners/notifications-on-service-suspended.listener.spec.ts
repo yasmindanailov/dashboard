@@ -184,9 +184,9 @@ describe('NotificationsOnServiceSuspendedListener — Sprint 15C.II Fase F', () 
     );
   });
 
-  // ─── Emisor legacy `ServiceLifecycleWorker.autoSuspendServices` (Sprint 6.5) ───
+  // ─── Actor sistema (cron de impago — Fase F.5: `suspendAsAdmin` con actor null) ───
 
-  it('forma legacy {service_id, invoice_id, reason: payment_exhausted} sin user_id → deriva user_id del service + mapea a overdue_payment', async () => {
+  it('forma canónica del actor sistema {user_id, reason: overdue_payment, actor_user_id: null, actor} → dispatch al dueño con etiqueta "Falta de pago" + CTA pago', async () => {
     serviceFindUnique.mockResolvedValueOnce({
       domain: 'cliente-impago.es',
       label: null,
@@ -194,8 +194,13 @@ describe('NotificationsOnServiceSuspendedListener — Sprint 15C.II Fase F', () 
     });
     await listener.handleServiceSuspended({
       service_id: SERVICE_ID,
-      invoice_id: 'inv-123',
-      reason: 'payment_exhausted',
+      user_id: USER_ID,
+      provisioner_slug: 'enhance_cp',
+      reason: 'overdue_payment',
+      actor_user_id: null,
+      actor: 'system:billing-overdue-cron',
+      suspended_at: new Date().toISOString(),
+      notify_client: true,
     });
     expect(dispatchToUser).toHaveBeenCalledWith(
       'service.suspended',
@@ -209,16 +214,20 @@ describe('NotificationsOnServiceSuspendedListener — Sprint 15C.II Fase F', () 
     );
   });
 
-  it('forma legacy sin user_id y service no encontrado → no dispatch (no hay destinatario), no relanza', async () => {
-    serviceFindUnique.mockResolvedValueOnce(null);
-    await expect(
-      listener.handleServiceSuspended({
-        service_id: SERVICE_ID,
-        invoice_id: 'inv-123',
-        reason: 'payment_exhausted',
+  it('reason inesperado (fuera de la taxonomía) → cae a "other" (sin etiqueta, CTA soporte)', async () => {
+    await listener.handleServiceSuspended({
+      ...payload(),
+      reason: 'something_weird',
+    });
+    expect(dispatchToUser).toHaveBeenCalledWith(
+      'service.suspended',
+      expect.objectContaining({
+        reason_label: undefined,
+        is_overdue_payment: false,
+        is_maintenance: false,
       }),
-    ).resolves.toBeUndefined();
-    expect(dispatchToUser).not.toHaveBeenCalled();
+      USER_ID,
+    );
   });
 
   it('respeta NEXT_PUBLIC_APP_URL', async () => {

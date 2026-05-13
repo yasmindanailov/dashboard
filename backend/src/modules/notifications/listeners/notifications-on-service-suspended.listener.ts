@@ -36,43 +36,35 @@ const CANONICAL_REASONS = new Set<SuspensionReason>([
 
 /**
  * Normaliza el `reason` del payload a la taxonomía canónica `SuspensionReason`.
- * `ProvisioningService.suspendAsAdmin` (Fase F) ya emite uno de los 5 valores
- * canónicos; pero el emisor histórico `ServiceLifecycleWorker.autoSuspendServices`
- * (suspensión por impago vencido — Sprint 6.5) emite `reason: 'payment_exhausted'`
- * con un `invoice_id`. Mapeamos esa forma legacy a `'overdue_payment'` (es
- * semánticamente lo mismo — impago) para que el cliente reciba el CTA correcto
- * ("regulariza tu pago"). Cualquier `reason` desconocido sin `invoice_id` cae a
- * `'other'`. Heredable: cuando se unifique el flujo de suspensión por impago
- * (DC.NEW-15CII-BILLING-SUSPEND-UNIFY — que el worker llame a `suspendAsAdmin`),
- * este normalizador se simplifica.
+ * Desde Sprint 15C.II Fase F.5 (`DC.44` billing-suspend-unify) **todos** los
+ * emisores de `service.suspended` pasan por `ProvisioningService.suspendAsAdmin`
+ * — el admin (`POST /admin/services/:id/suspend`) y el cron de impago
+ * (`ServiceLifecycleWorker.autoSuspendServices`, que ahora delega en
+ * `suspendAsAdmin` con `reason: 'overdue_payment'`) — así que `reason` siempre
+ * llega como uno de los 5 valores canónicos. Esta función queda como guarda
+ * defensiva: cualquier valor inesperado cae a `'other'` (el email dirige a
+ * soporte). Heredable a 15E Docker / 15G Plesk.
  */
-function normalizeReason(
-  rawReason: unknown,
-  hasInvoiceId: boolean,
-): SuspensionReason {
-  if (
-    typeof rawReason === 'string' &&
+function normalizeReason(rawReason: unknown): SuspensionReason {
+  return typeof rawReason === 'string' &&
     CANONICAL_REASONS.has(rawReason as SuspensionReason)
-  ) {
-    return rawReason as SuspensionReason;
-  }
-  return hasInvoiceId ? 'overdue_payment' : 'other';
+    ? (rawReason as SuspensionReason)
+    : 'other';
 }
 
 /**
- * NotificationsOnServiceSuspendedListener — Sprint 15C.II Fase F (ADR-077 A4).
+ * NotificationsOnServiceSuspendedListener — Sprint 15C.II Fase F (ADR-077 A4),
+ * unificado en Fase F.5 (`DC.44`).
  *
- * Consume `service.suspended`. Dos emisores hoy (ver §A4.4/A4.5 ADR-077 +
- * `_events.md`):
- *   1. `ProvisioningService.suspendAsAdmin` (Fase F) — admin suspende vía
- *      `POST /admin/services/:id/suspend`. Payload canónico
- *      `{service_id, user_id, provisioner_slug, reason, actor_user_id, suspended_at, notify_client}`.
- *   2. `ServiceLifecycleWorker.autoSuspendServices` (Sprint 6.5) — cron diario
- *      03:00 suspende por impago vencido (retries agotados). Payload legacy
- *      `{service_id, invoice_id, reason: 'payment_exhausted'}` (sin `user_id`).
- * Este listener tolera ambas formas (deriva `user_id` del service si falta;
- * normaliza `reason` legacy → `overdue_payment`). Si `notify_client !== false`
- * (default ON — el emisor #2 no lo trae → notifica), despacha la plantilla
+ * Consume `service.suspended`. Desde Fase F.5 hay un **único camino canónico**
+ * de emisión — `ProvisioningService.suspendAsAdmin` — invocado tanto por el
+ * admin (`POST /admin/services/:id/suspend`) como por el cron de impago
+ * (`ServiceLifecycleWorker.autoSuspendServices`, que delega en `suspendAsAdmin`
+ * con `reason: 'overdue_payment'` + actor sistema). Payload canónico:
+ * `{service_id, user_id, provisioner_slug, reason, actor_user_id|null, actor?, suspended_at, notify_client}`.
+ * Se conserva el fallback `user_id ?? service.user_id` y `normalizeReason` como
+ * defensa (callers fuera de contrato), pero ya no hay forma legacy. Si
+ * `notify_client !== false` (default ON), despacha la plantilla
  * `service.suspended` (email + campana) al dueño.
  *
  * Doctrina canónica (heredada de Fase D/E L11+L12):
@@ -112,11 +104,13 @@ export class NotificationsOnServiceSuspendedListener {
     service_id: string;
     user_id?: string;
     provisioner_slug?: string | null;
-    /** Canónico (suspendAsAdmin): un `SuspensionReason`. Legacy (autoSuspendServices): `'payment_exhausted'`. Normalizado por `normalizeReason`. */
+    /** Un `SuspensionReason` canónico (todos los emisores pasan por `suspendAsAdmin`). `normalizeReason` lo valida defensivamente. */
     reason?: string;
-    actor_user_id?: string;
+    /** `string` (admin) o `null` (actor sistema — cron). */
+    actor_user_id?: string | null;
+    /** Etiqueta del actor sistema cuando `actor_user_id === null` (`'system:billing-overdue-cron'`). */
+    actor?: string;
     suspended_at?: string;
-    invoice_id?: string;
     notify_client?: boolean;
   }): Promise<void> {
     if (payload.notify_client === false) {
@@ -128,8 +122,8 @@ export class NotificationsOnServiceSuspendedListener {
     }
 
     try {
-      // El payload canónico (suspendAsAdmin) trae `user_id`. El legacy
-      // (autoSuspendServices) no — lo derivamos del service.
+      // Defensa: el payload canónico trae `user_id`; si faltara, lo derivamos
+      // del service.
       const service = await this.prisma.service.findUnique({
         where: { id: payload.service_id },
         select: { domain: true, label: true, user_id: true },
@@ -143,10 +137,7 @@ export class NotificationsOnServiceSuspendedListener {
       }
       const displayDomain =
         service?.domain ?? service?.label ?? payload.service_id;
-      const reason = normalizeReason(
-        payload.reason,
-        Boolean(payload.invoice_id),
-      );
+      const reason = normalizeReason(payload.reason);
 
       const appUrl = this.config.get<string>(
         'NEXT_PUBLIC_APP_URL',

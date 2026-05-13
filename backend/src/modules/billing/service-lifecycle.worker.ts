@@ -3,13 +3,29 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { getErrorMessage } from '../../core/common/utils/error.util';
+import { ProvisioningService } from '../provisioning/provisioning.service';
 import { BillingCalculatorService } from './billing-calculator.service';
+import { SuspensionReasonDto } from '../provisioning/dto/provisioning.dto';
+
+/**
+ * Etiqueta canónica del actor sistema del cron de impago (Sprint 15C.II Fase
+ * F.5 — taxonomía `system:<dominio>-<cron|job>`). Va a
+ * `audit_change_log.changes_after.actor` cuando `suspendAsAdmin` se invoca
+ * sin un actor humano.
+ */
+const BILLING_OVERDUE_CRON_ACTOR = 'system:billing-overdue-cron';
 
 /**
  * ServiceLifecycleWorker — Scheduled jobs for service status automation.
  *
  * Handles:
- * - Auto-suspension after exhausted payment retries (6.5)
+ * - Auto-suspension after exhausted payment retries (6.5) — Sprint 15C.II
+ *   Fase F.5: delega en `ProvisioningService.suspendAsAdmin` (punto único de
+ *   transición de estado) en vez de hacer su propio `prisma.update`, para que
+ *   la BD y el proveedor no divergan (pasa por la inline action
+ *   `suspend_service` del plugin) y el camino sea idéntico al de la suspensión
+ *   manual del admin (mismo evento `service.suspended` forma completa, mismo
+ *   audit, mismo email al cliente vía `notifications-on-service-suspended`).
  * - Auto-cancellation after suspension period (6.5)
  * - Auto-resume of paused services past max date (6.7)
  *
@@ -23,6 +39,7 @@ export class ServiceLifecycleWorker {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly calculator: BillingCalculatorService,
+    private readonly provisioning: ProvisioningService,
   ) {}
 
   /* ── 6.5 — Auto-suspension (daily 03:00) ── */
@@ -57,24 +74,41 @@ export class ServiceLifecycleWorker {
 
       for (const serviceId of serviceIds) {
         try {
-          await this.prisma.service.update({
-            where: { id: serviceId },
-            data: {
-              status: 'suspended',
-              suspended_at: new Date(),
-              suspension_reason: `Impago — Factura ${invoice.invoice_number}`,
+          // Sprint 15C.II Fase F.5: punto único de transición de estado.
+          // `suspendAsAdmin` resuelve el plugin, invoca su inline action
+          // `suspend_service` (`patchSubscription({isSuspended:true})` en
+          // Enhance), transiciona `services.status`, emite `service.suspended`
+          // con la forma completa, y audita — todo bajo el actor sistema
+          // (`actorUserId: null` + `actorLabel`). `allowUnsupported: true` para
+          // que los plugins `internal`/`manual` (sin `supports_suspend`) se
+          // sigan suspendiendo solo del lado de Aelium (como antes). El motivo
+          // es el enum canónico `overdue_payment`; el nº de factura va en la
+          // nota interna (→ `services.suspension_reason = 'overdue_payment: Factura N'`).
+          // Idempotente: si el servicio ya está `suspended` → no-op; si está
+          // `cancelled` → 409 que el `catch` registra (antes el `prisma.update`
+          // crudo revivía un servicio cancelado a `suspended` — bug que esto
+          // arregla de paso).
+          const result = await this.provisioning.suspendAsAdmin(
+            serviceId,
+            {
+              reason: SuspensionReasonDto.overdue_payment,
+              internal_note: `Factura ${invoice.invoice_number}`,
+              notify_client: true,
             },
-          });
-
-          this.eventEmitter.emit('service.suspended', {
-            service_id: serviceId,
-            invoice_id: invoice.id,
-            reason: 'payment_exhausted',
-          });
-
-          this.logger.warn(
-            `Service ${serviceId} suspended due to unpaid invoice ${invoice.invoice_number}`,
+            null,
+            undefined,
+            { actorLabel: BILLING_OVERDUE_CRON_ACTOR, allowUnsupported: true },
           );
+
+          if (result.alreadySuspended) {
+            this.logger.log(
+              `Service ${serviceId} already suspended — skipping (unpaid invoice ${invoice.invoice_number}).`,
+            );
+          } else {
+            this.logger.warn(
+              `Service ${serviceId} suspended due to unpaid invoice ${invoice.invoice_number}`,
+            );
+          }
         } catch (error) {
           this.logger.error(
             `Failed to suspend service ${serviceId}: ${getErrorMessage(error)}`,

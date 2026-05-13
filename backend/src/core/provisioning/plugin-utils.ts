@@ -166,16 +166,31 @@ function buildUnknownStateFallback(
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface ExecuteActionContext {
-  /** ID del usuario que dispara la acción (cliente final, normalmente). */
-  actorUserId: string;
-  /** IP de la request (audit RGPD). */
+  /**
+   * ID del usuario que dispara la acción (cliente final, normalmente; o un
+   * admin). `null` cuando la acción la dispara el orquestador sin un actor
+   * humano (cron / job — ej. el cron de impago de Sprint 15C.II Fase F.5
+   * vía `ProvisioningService.suspendAsAdmin`); en ese caso `actorLabel`
+   * identifica al actor sistema en el audit y NO se escribe `audit_access_log`
+   * (no hay "lectura staff" que registrar — solo el cambio de estado).
+   */
+  actorUserId: string | null;
+  /**
+   * Etiqueta del actor sistema cuando `actorUserId === null` (taxonomía
+   * `system:<dominio>-<cron|job>`, ej. `'system:billing-overdue-cron'`).
+   * Se incluye en `audit_change_log.changes_after.actor`. Ignorada si hay
+   * `actorUserId`.
+   */
+  actorLabel?: string;
+  /** IP de la request (audit RGPD). `''` para callers no-HTTP (cron/job). */
   ipAddress: string;
   /** User-Agent (audit RGPD). */
   userAgent?: string | null;
   /**
    * Sprint 15C Fase 15C.E (ADR-077 Amendment A3) — `true` si el actor
-   * tiene rol staff (`superadmin` / `agent_*`). Usado para enforce
-   * `ServiceAction.adminOnly`: si `declared.adminOnly && !actorIsAdmin` →
+   * tiene rol staff (`superadmin` / `agent_*`) o es el orquestador (actor
+   * sistema — full rights). Usado para enforce `ServiceAction.adminOnly`:
+   * si `declared.adminOnly && !actorIsAdmin` →
    * HTTP 403 + audit `service.action_admin_only_violation`.
    *
    * El controller decide el valor (ej. `ADMIN_ROLES.includes(req.user.role.slug)`)
@@ -233,7 +248,10 @@ export async function executeActionWithCacheInvalidation(
       `Forbidden: non-admin actor=${ctx.actorUserId} attempted adminOnly action="${actionSlug}" on plugin=${plugin.slug} service=${service.id}`,
     );
     await audit.logAccess({
-      user_id: ctx.actorUserId,
+      // Este path solo se alcanza con `actorIsAdmin === false`, que implica un
+      // actor humano real (un cliente intentando una acción admin-only) — el
+      // actor sistema siempre pasa `actorIsAdmin: true`. El `?? ''` es defensa.
+      user_id: ctx.actorUserId ?? '',
       action: 'service.action_admin_only_violation',
       ip_address: ctx.ipAddress,
       user_agent: ctx.userAgent ?? null,
@@ -337,7 +355,9 @@ export async function executeActionWithCacheInvalidation(
         )
       : undefined;
 
-  // Audit log explícito (R3 + ADR-017).
+  // Audit log explícito (R3 + ADR-017). Sprint 15C.II Fase F.5: cuando el
+  // actor es el orquestador (cron/job), `actorUserId` es null y `actorLabel`
+  // lo identifica en `changes_after.actor` (taxonomía `system:<dominio>-<cron|job>`).
   await audit.logChange({
     user_id: ctx.actorUserId,
     entity_type: 'Service',
@@ -347,6 +367,9 @@ export async function executeActionWithCacheInvalidation(
       provisioner_slug: plugin.slug,
       success: result.success,
       side_effects: result.sideEffects ?? [],
+      ...(ctx.actorUserId === null && ctx.actorLabel
+        ? { actor: ctx.actorLabel }
+        : {}),
       ...(sanitizedDataForAudit !== undefined
         ? { data: sanitizedDataForAudit }
         : {}),

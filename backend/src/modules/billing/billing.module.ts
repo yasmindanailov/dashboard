@@ -16,6 +16,7 @@ import {
   PdfGenerationProcessor,
   PDF_GENERATION_QUEUE,
 } from './pdf-generation.processor';
+import { ProvisioningModule } from '../provisioning/provisioning.module';
 
 @Module({
   imports: [
@@ -23,6 +24,11 @@ import {
     // Hereda los defaults del JobsModule global (attempts=5, backoff
     // exponencial 30s→480s, removeOnFail:false). ADR-063.
     BullModule.registerQueue({ name: PDF_GENERATION_QUEUE }),
+    // Sprint 15C.II Fase F.5 — `ServiceLifecycleWorker.autoSuspendServices`
+    // delega en `ProvisioningService.suspendAsAdmin` (punto único de
+    // transición de estado). `ProvisioningModule` no importa `BillingModule`
+    // (consume sus eventos vía `@OnEvent`, no por import) → no hay ciclo.
+    ProvisioningModule,
   ],
   controllers: [BillingController, SubscriptionController],
   providers: [

@@ -20,6 +20,7 @@ import { TasksModule } from '../tasks/tasks.module';
 import { AdminProvisioningController } from './admin-provisioning.controller';
 import { BootstrapEnhanceDefaultsOnPluginInstalledListener } from './listeners/bootstrap-enhance-defaults-on-plugin-installed.listener';
 import { ProvisioningOnTaskCompletedListener } from './listeners/provisioning-on-task-completed.listener';
+import { ReactivateServicesOnInvoicePaidListener } from './listeners/reactivate-services-on-invoice-paid.listener';
 import { ReconcileDnsDefaultsOnServiceActivatedListener } from './listeners/reconcile-dns-defaults-on-service-activated.listener';
 import { SyncDefaultNameserversToEnhanceListener } from './listeners/sync-default-nameservers-to-enhance.listener';
 import {
@@ -87,6 +88,9 @@ import { ProvisioningService } from './provisioning.service';
     BootstrapEnhanceDefaultsOnPluginInstalledListener,
     ReconcileDnsDefaultsOnServiceActivatedListener,
     SyncDefaultNameserversToEnhanceListener,
+    // Sprint 15C.II Fase F.5.3 — auto-reactivación al pagar (`invoice.paid`
+    // → reactivar los servicios suspendidos por impago de la factura).
+    ReactivateServicesOnInvoicePaidListener,
     // Plugins triviales (Sprint 11 Fase 11.C). Cada plugin se declara como
     // provider individual (NestJS DI gestiona su ciclo de vida) y se compone
     // un array vía `useFactory` que el `PluginRegistryService` recibe en
