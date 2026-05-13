@@ -225,6 +225,66 @@ export type SuspensionReason =
   | 'gdpr_restriction'
   | 'other';
 
+/**
+ * Sprint 15C.II Fase F.7 — ADR-077 Amendment A7 (2026-05-13).
+ *
+ * Estado canónico del certificado SSL/TLS del recurso. La UI ramifica por
+ * este valor (NUNCA por matching de strings sobre `issuer` ni por
+ * aritmética de fechas en cliente — el cálculo vive server-side en el
+ * plugin, ver A7.4).
+ *
+ *   - `'valid'`          → cert presente, expira en > 14 días naturales.
+ *   - `'expiring_soon'`  → cert presente, expira en ≤ 14 días pero todavía
+ *                            no expirado. Aviso ámbar; el plugin puede
+ *                            declarar `autoRenew: true` para señalar que
+ *                            el proveedor renovará a tiempo (LE típico).
+ *   - `'expired'`        → cert presente pero `expiresAt <= now`. Aviso
+ *                            rojo — el sitio aparecerá como "No seguro"
+ *                            en navegadores hasta que se renueve.
+ *   - `'none'`           → no hay cert configurado para el dominio (caso
+ *                            de dominios añadidos antes de issuance, tras
+ *                            revocación, o sitios servidos solo por HTTP).
+ *                            Aviso gris informativo + CTA SSO al panel.
+ */
+export type ServiceSslStatus = 'valid' | 'expiring_soon' | 'expired' | 'none';
+
+/**
+ * Sprint 15C.II Fase F.7 — ADR-077 Amendment A7 (2026-05-13).
+ *
+ * Sub-shape del campo opcional `ServiceInfo.ssl?`. Read-only — Aelium no
+ * gestiona el cert (ADR-082 DH-INV-6 — el proveedor es authoritative);
+ * este shape existe solo para que la UI exponga el estado al cliente /
+ * admin.
+ */
+export interface ServiceSslSummary {
+  /** Estado canónico — ver `ServiceSslStatus`. */
+  status: ServiceSslStatus;
+
+  /**
+   * ISO-8601. Solo presente cuando `status` ∈ {`valid`, `expiring_soon`,
+   * `expired`} (en `none` no hay cert, no hay fecha). El frontend lo
+   * renderiza como "expira en X días" (formato relativo); admin puede
+   * mostrar la fecha exacta en tooltip.
+   */
+  expiresAt?: string;
+
+  /**
+   * Si el proveedor renueva el cert automáticamente (típico LetsEncrypt) o
+   * lo dejó manual (custom upload del cliente). `undefined` si el plugin
+   * no puede determinarlo. El frontend renderiza la línea "renovación
+   * automática: sí/no" solo si el valor está definido (no inventa "no").
+   */
+  autoRenew?: boolean;
+
+  /**
+   * Emisor del cert ("Let's Encrypt Authority X3", "DigiCert", "ZeroSSL"…).
+   * Display-only — la UI lo muestra como texto. El frontend NUNCA ramifica
+   * comportamiento por este valor (eso lo hace `status` + `autoRenew`); el
+   * plugin sí puede usarlo internamente para derivar `autoRenew`.
+   */
+  issuer?: string;
+}
+
 export interface ServiceInfo {
   /**
    * Estado real del servicio en el proveedor.
@@ -257,6 +317,20 @@ export interface ServiceInfo {
 
   /** undefined si plugin no expone métricas. */
   metrics?: ServiceMetrics;
+
+  /**
+   * Sprint 15C.II Fase F.7 — ADR-077 Amendment A7 (2026-05-13).
+   *
+   * Solo presente si el plugin puede leer el estado del cert SSL/TLS del
+   * recurso. Si ausente (incluyendo cuando el plugin sabe leerlo pero la
+   * lectura falló o devolvió datos parciales/ilegibles), la UI no
+   * renderiza la card SSL. Ver `ServiceSslSummary`.
+   *
+   * La presencia del campo es la **señal de capability** — no se añade un
+   * flag nuevo a `PluginCapabilities` (mismo patrón que `metrics?` y
+   * `recoveryHint?`, Amendment A5).
+   */
+  ssl?: ServiceSslSummary;
 
   /**
    * Capability flags por instancia de servicio. Override estáticos por

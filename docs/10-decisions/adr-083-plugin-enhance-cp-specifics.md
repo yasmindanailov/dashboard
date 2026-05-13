@@ -1082,9 +1082,9 @@ DomainSslCert:
 Códigos de error relevantes:
 
 - `200` → cert disponible → mapear con `buildSslSummary` (A8.4).
-- `404` → el dominio no tiene cert configurado → `ssl: { status: 'none' }`.
-- `401`/`403` → credenciales / RBAC inválidos. El cliente HTTP los traduce a `ProvisionerPluginError` con `code='AUTH_FAILED'`. El plugin lo captura en el path SSL (best-effort) → `ssl: undefined`.
-- 5xx / red → el cliente HTTP los traduce a `ProvisionerPluginError`. El plugin lo captura → `ssl: undefined`.
+- `404` → el dominio no tiene cert configurado → `ssl: { status: 'none' }`. (El cliente HTTP Enhance mapea 404 → `code='INVALID_STATE'` — ver `enhance_cp/api/errors.ts:74-83`; mismo criterio que `getSubscription` en `enhance.plugin.ts`; `getDomainSsl` lo captura y devuelve `null`.)
+- `401`/`403` → credenciales / RBAC inválidos. El cliente HTTP los traduce a `ProvisionerPluginError` con `code='PROVIDER_AUTH_FAILED'`. El plugin lo captura en el path SSL (best-effort) → `ssl: undefined`.
+- 5xx / red → el cliente HTTP los traduce a `ProvisionerPluginError` (`PROVIDER_INTERNAL_ERROR` / `PROVIDER_TIMEOUT` / `NETWORK_ERROR`). El plugin lo captura → `ssl: undefined`.
 
 > **Decisión (NO re-litigar) — endpoint `getWebsiteDomainSslCert`, NO `getWebsiteMailDomainSslCert`.** OAS expone también `GET /v2/domains/{domain_id}/mail_ssl` (cert del subdominio `mail.<dominio>`). v1 cubre solo el website primary cert — el cert del mail es una capability mail-server propia (Enhance admin la gestiona aparte) y mezclarla con el "SSL del sitio" confundiría al cliente. Si emerge la demanda, se añade como sub-shape extra (`ssl.mail?`) sin tocar A7. Mismo criterio para los aliases (`website.aliases[]`): v1 solo expone el primary; el cliente puede tener varios certs por website pero el panel del proveedor los gestiona — exponer todos sería un *card explosion* sin valor v1.
 
@@ -1197,7 +1197,11 @@ async getDomainSsl(domainId: string): Promise<EnhanceDomainSslCert | null> {
       `/v2/domains/${encodeURIComponent(domainId)}/ssl`,
     );
   } catch (err) {
-    if (err instanceof ProvisionerPluginError && err.code === 'NOT_FOUND') {
+    // El cliente HTTP mapea 404 → INVALID_STATE (errors.ts §74-83;
+    // mismo criterio que `getSubscription` en enhance.plugin.ts). En este
+    // endpoint específico (GET puro), INVALID_STATE solo puede venir de
+    // 404 (no hay cert) o 409 (no aplica semánticamente a un GET; defensivo).
+    if (err instanceof ProvisionerPluginError && err.code === 'INVALID_STATE') {
       return null;
     }
     throw err;

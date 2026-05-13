@@ -36,6 +36,7 @@ export type {
   EnhanceDnsRecordKindV1,
   EnhanceDnsSoa,
   EnhanceDnsZone,
+  EnhanceDomainSslCert,
   EnhanceLoginCreated,
   EnhanceLoginInfo,
   EnhanceMember,

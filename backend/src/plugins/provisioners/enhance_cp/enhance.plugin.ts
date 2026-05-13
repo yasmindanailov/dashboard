@@ -79,6 +79,8 @@ import {
   ServiceInfoStatus,
   ServiceMetrics,
   ServiceRecoveryHint,
+  ServiceSslStatus,
+  ServiceSslSummary,
   ServiceStatusReport,
   ServiceWithRelations,
   SsoUrl,
@@ -92,9 +94,11 @@ import {
 import {
   EnhanceApiClient,
   EnhanceBandwidth,
+  EnhanceDomainSslCert,
   EnhanceStatus,
   EnhanceSubscription,
   EnhanceUsedResourcesFullListing,
+  EnhanceWebsite,
   EnhanceWebsiteStatus,
 } from './api';
 import { EnhanceCustomersService } from './enhance-customers.service';
@@ -610,11 +614,15 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
         'plugin.enhance_cp.status_reason.not_yet_provisioned',
       );
     }
+    const websiteId = extractWebsiteId(service);
     const { client: api } = await this.getApiClient();
 
-    // Lectura paralela: subscription es obligatoria; bandwidth + resources
-    // son best-effort (si fallan, devolvemos info sin métricas).
-    const [subscription, bandwidth, resources] = await Promise.all([
+    // Lectura paralela: subscription es obligatoria; bandwidth + resources +
+    // website son best-effort (si fallan, devolvemos info sin métricas y/o
+    // sin ssl). Sprint 15C.II Fase F.7 (ADR-083 A8.3): `getWebsite` se añade
+    // al Promise.all para luego encadenar `getDomainSsl(website.domain.id)`
+    // — el sub-fetch SSL depende del website y va fuera del Promise.all.
+    const [subscription, bandwidth, resources, website] = await Promise.all([
       api.getSubscription(refs.orgId, refs.subscriptionId).catch((err) => {
         if (
           err instanceof ProvisionerPluginError &&
@@ -630,6 +638,9 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
       api
         .calculateResourceUsage(refs.orgId, refs.subscriptionId)
         .catch(() => null),
+      websiteId
+        ? api.getWebsite(refs.orgId, websiteId).catch(() => null)
+        : Promise.resolve(null),
     ]);
 
     if (!subscription) {
@@ -644,6 +655,11 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
 
     const status = mapSubscriptionStatus(subscription);
     const metrics = buildMetrics(bandwidth, resources);
+    // Sub-fetch SSL — depende de `website` (necesita `domain.id`). Best-effort
+    // — devuelve `undefined` en cualquier error de red/auth (no exponer parcial).
+    // Si el endpoint orchd responde 404 (no hay cert), devuelve
+    // `{ status: 'none' }` para que la UI lo muestre como estado real.
+    const ssl = await buildSslSummary(api, website);
     const availableActions = filterActionsByStatus(this.inlineActions, status);
 
     // Sprint 15C.II Fase E — ADR-083 Amendment A5.2 (drift de plan): si el
@@ -690,6 +706,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
         secondary: subscription.planName,
       },
       metrics,
+      ssl,
       capabilities: {
         ...this.capabilities,
         hasSsoPanel: true,
@@ -1337,6 +1354,94 @@ function buildMetrics(
     }
   }
   return metrics;
+}
+
+// ─── F.7 SSL helpers (Sprint 15C.II — ADR-077 A7 + ADR-083 A8) ──────────
+
+/**
+ * Umbral canónico entre `valid` y `expiring_soon` — 14 días naturales.
+ * ADR-077 A7.4: fijo (NO setting), industry standard ACME/LE (LE auto-renueva
+ * 30d antes → 14d da margen para detectar fallos de renovación). Cálculo
+ * server-side; el frontend NUNCA hace aritmética de fechas (races UTC/local
+ * + permite tests deterministas con `now` inyectable).
+ */
+export const SSL_EXPIRING_SOON_MS = 14 * 24 * 60 * 60 * 1000;
+
+/**
+ * Parser defensivo de la fecha `expires` del cert (orchd OAS la declara
+ * `string` sin formato — en la práctica ISO-8601, pero defensemos contra
+ * RFC-2822 u otros). Devuelve `null` si el string es ilegible — el caller
+ * omite el `ssl` para no exponer parciales.
+ */
+export function parseEnhanceCertDate(raw: string): Date | null {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+/**
+ * Heurística de auto-renovación — ADR-083 A8.4.
+ *
+ * Enhance auto-renueva los certs Let's Encrypt (~30 días antes de expirar,
+ * política orchd built-in). Los certs subidos por el cliente vía
+ * `POST /v2/domains/{domain_id}/ssl` son custom y NO se auto-renuevan.
+ * La distinción no viaja explícita en `DomainSslCert.issuer`, pero es
+ * derivable: el `issuer` LE es estable ("Let's Encrypt Authority X3",
+ * "Let's Encrypt R3", "Let's Encrypt E1"…) — todos contienen "Let's Encrypt"
+ * (apostrofado o no).
+ *
+ * Cualquier cert NO LE devuelve `false` (no `undefined`) — el cliente lo
+ * subió sabiendo que es manual; queremos mostrarle "renovación manual"
+ * explícito, no omitir la línea.
+ */
+export function detectAutoRenew(issuer: string): boolean {
+  return /let'?s\s*encrypt/i.test(issuer);
+}
+
+/**
+ * Mapeo cert orchd → `ServiceSslSummary` — ADR-083 A8.4.
+ *
+ *   - `website === null`           → `undefined` (no podemos resolver `domain.id`).
+ *   - `getDomainSsl` throws        → `undefined` (red/auth — no exponer parcial).
+ *   - `getDomainSsl` devuelve null → `{ status: 'none' }` (404 = sin cert).
+ *   - cert con `expires` ilegible  → `undefined` (no exponer parcial).
+ *   - cert válido → cálculo server-side (expired / expiring_soon / valid).
+ *
+ * `now` es inyectable para tests deterministas.
+ */
+export async function buildSslSummary(
+  api: EnhanceApiClient,
+  website: EnhanceWebsite | null,
+  now: Date = new Date(),
+): Promise<ServiceSslSummary | undefined> {
+  if (!website) return undefined;
+
+  let cert: EnhanceDomainSslCert | null;
+  try {
+    cert = await api.getDomainSsl(website.domain.id);
+  } catch {
+    return undefined;
+  }
+  if (cert === null) return { status: 'none' };
+
+  const expiresAt = parseEnhanceCertDate(cert.expires);
+  if (!expiresAt) return undefined;
+
+  const msUntilExpiry = expiresAt.getTime() - now.getTime();
+  const status: ServiceSslStatus =
+    msUntilExpiry <= 0
+      ? 'expired'
+      : msUntilExpiry <= SSL_EXPIRING_SOON_MS
+        ? 'expiring_soon'
+        : 'valid';
+
+  return {
+    status,
+    expiresAt: expiresAt.toISOString(),
+    autoRenew: detectAutoRenew(cert.issuer),
+    issuer: cert.issuer,
+  };
 }
 
 // `filterActionsByStatus` se movió a `core/provisioning/plugin-utils.ts`
