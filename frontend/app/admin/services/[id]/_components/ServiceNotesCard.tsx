@@ -13,6 +13,8 @@
  * servicio sigue siendo útil para el admin).
  */
 
+import Link from 'next/link';
+
 import { Card } from '../../../../components/ui';
 import { serverFetch, ServerFetchError } from '../../../../lib/server-auth';
 import type { ClientNote } from '../../../../lib/types';
@@ -79,7 +81,7 @@ export async function ServiceNotesCard({
             modal admin o al disparar el cron de billing.
           </p>
         </div>
-        <a
+        <Link
           href={`/admin/clients/${clientUserId}?tab=notes`}
           style={{
             color: 'var(--brand-600)',
@@ -90,7 +92,7 @@ export async function ServiceNotesCard({
           }}
         >
           Ver historial completo del cliente →
-        </a>
+        </Link>
       </div>
 
       {errorMessage && (

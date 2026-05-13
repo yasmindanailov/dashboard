@@ -102,6 +102,11 @@ export class AdminProvisioningController {
     summary: 'List operational notes of a service (admin) — F.6 §F.6.3',
   })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Service))
+  // F.6 §F.6.3: lectura staff sobre datos del cliente — coherente con
+  // `detail()` + `audit()` (ambos `@AuditAccess('Service')`). Las notas
+  // contienen contexto operativo del cliente (motivo de suspensión, etc.)
+  // — su lectura debe quedar en el log GDPR de transparencia.
+  @AuditAccess('Service')
   notes(@Param('id', ParseUUIDPipe) id: string) {
     return this.clientNotes.findByService(id);
   }
