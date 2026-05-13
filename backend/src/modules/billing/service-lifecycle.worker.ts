@@ -82,8 +82,10 @@ export class ServiceLifecycleWorker {
           // (`actorUserId: null` + `actorLabel`). `allowUnsupported: true` para
           // que los plugins `internal`/`manual` (sin `supports_suspend`) se
           // sigan suspendiendo solo del lado de Aelium (como antes). El motivo
-          // es el enum canónico `overdue_payment`; el nº de factura va en la
-          // nota interna (→ `services.suspension_reason = 'overdue_payment: Factura N'`).
+          // es el enum canónico `overdue_payment`; el `internal_note` viaja al
+          // body del `ClientNote` que F.6 crea con `triggered_by_action=
+          // 'service.auto_suspended_overdue'` — el body es self-descriptive
+          // para que la nota tenga sentido fuera del contexto del banner.
           // Idempotente: si el servicio ya está `suspended` → no-op; si está
           // `cancelled` → 409 que el `catch` registra (antes el `prisma.update`
           // crudo revivía un servicio cancelado a `suspended` — bug que esto
@@ -92,7 +94,7 @@ export class ServiceLifecycleWorker {
             serviceId,
             {
               reason: SuspensionReasonDto.overdue_payment,
-              internal_note: `Factura ${invoice.invoice_number}`,
+              internal_note: `Suspendido automáticamente por impago — Factura ${invoice.invoice_number}`,
               notify_client: true,
             },
             null,

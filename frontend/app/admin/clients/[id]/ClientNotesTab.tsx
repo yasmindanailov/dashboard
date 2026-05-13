@@ -47,6 +47,10 @@ function noteSourceHref(note: Pick<ClientNote, 'source_system' | 'source_id'>): 
     case 'ticket':
     case 'chat':
       return `/admin/support/${note.source_id}`;
+    // Sprint 15C.II F.6: las notas de lifecycle de servicio enlazan al
+    // detalle admin del servicio (con la nota inline visible allí también).
+    case 'service':
+      return `/admin/services/${note.source_id}`;
     case 'maintenance_log':
     case 'task_completion':
     case 'exceptional':
@@ -65,6 +69,7 @@ const CATEGORY_OPTIONS: { value: NoteCategory | ''; label: string }[] = [
   { value: 'project', label: 'Proyecto' },
   { value: 'technical_incident', label: 'Incidente técnico' },
   { value: 'exceptional', label: 'Excepcional' },
+  { value: 'lifecycle', label: 'Lifecycle de servicio' },
 ];
 
 const SOURCE_OPTIONS: { value: NoteSourceSystem | ''; label: string }[] = [
@@ -73,6 +78,7 @@ const SOURCE_OPTIONS: { value: NoteSourceSystem | ''; label: string }[] = [
   { value: 'maintenance_log', label: 'Mantenimiento' },
   { value: 'task_completion', label: 'Cierre de tarea' },
   { value: 'exceptional', label: 'Nota excepcional' },
+  { value: 'service', label: 'Servicio (lifecycle)' },
   { value: 'chat', label: 'Chat (futuro)' },
 ];
 
@@ -84,6 +90,7 @@ const CATEGORY_LABELS: Record<NoteCategory, string> = {
   project: 'Proyecto',
   technical_incident: 'Incidente técnico',
   exceptional: 'Excepcional',
+  lifecycle: 'Lifecycle',
 };
 
 const SOURCE_LABELS: Record<NoteSourceSystem, string> = {
@@ -92,6 +99,7 @@ const SOURCE_LABELS: Record<NoteSourceSystem, string> = {
   maintenance_log: 'Mantenimiento',
   task_completion: 'Cierre de tarea',
   exceptional: 'Excepcional',
+  service: 'Servicio',
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -100,6 +108,12 @@ const ACTION_LABELS: Record<string, string> = {
   'task.completed': 'Tarea completada',
   'maintenance.completed': 'Mantenimiento registrado',
   manual_entry: 'Entrada manual',
+  // Sprint 15C.II F.6 — triggered_by_action canónicos del lifecycle de servicio.
+  'service.cancelled': 'Servicio cancelado',
+  'service.suspended': 'Servicio suspendido',
+  'service.unsuspended': 'Servicio reactivado',
+  'service.auto_suspended_overdue': 'Suspendido por impago (auto)',
+  'service.auto_unsuspended_overdue': 'Reactivado al pagar (auto)',
 };
 
 interface ClientNotesTabProps {

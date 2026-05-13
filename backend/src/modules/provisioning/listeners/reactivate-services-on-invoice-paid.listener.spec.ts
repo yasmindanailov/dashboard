@@ -26,9 +26,10 @@ describe('ReactivateServicesOnInvoicePaidListener', () => {
     );
   });
 
-  it('resuelve los service_id de la factura y llama a reactivateSuspendedServiceOnPayment por cada uno (dedup)', async () => {
+  it('resuelve los service_id de la factura y llama a reactivateSuspendedServiceOnPayment por cada uno (dedup) — Sprint 15C.II F.6: pasa el invoice_number', async () => {
     prisma.invoice.findUnique.mockResolvedValueOnce({
       id: 'inv-1',
+      invoice_number: 'INV-2026-1',
       items: [
         { service_id: 'svc-1' },
         { service_id: 'svc-2' },
@@ -42,17 +43,21 @@ describe('ReactivateServicesOnInvoicePaidListener', () => {
     expect(
       provisioning.reactivateSuspendedServiceOnPayment,
     ).toHaveBeenCalledTimes(2);
+    // F.6: el listener pasa el `invoice_number` para que el servicio
+    // componga el body del `ClientNote` ("Reactivado automáticamente al
+    // pagar la factura N").
     expect(
       provisioning.reactivateSuspendedServiceOnPayment,
-    ).toHaveBeenCalledWith('svc-1');
+    ).toHaveBeenCalledWith('svc-1', 'INV-2026-1');
     expect(
       provisioning.reactivateSuspendedServiceOnPayment,
-    ).toHaveBeenCalledWith('svc-2');
+    ).toHaveBeenCalledWith('svc-2', 'INV-2026-1');
   });
 
   it('factura sin items de servicio → no llama a nada', async () => {
     prisma.invoice.findUnique.mockResolvedValueOnce({
       id: 'inv-1',
+      invoice_number: 'INV-2026-2',
       items: [{ service_id: null }],
     });
 
@@ -77,6 +82,7 @@ describe('ReactivateServicesOnInvoicePaidListener', () => {
   it('si reactivar un servicio lanza, lo registra y sigue con el resto; no relanza', async () => {
     prisma.invoice.findUnique.mockResolvedValueOnce({
       id: 'inv-1',
+      invoice_number: 'INV-2026-3',
       items: [{ service_id: 'svc-bad' }, { service_id: 'svc-ok' }],
     });
     provisioning.reactivateSuspendedServiceOnPayment

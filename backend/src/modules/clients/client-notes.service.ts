@@ -17,7 +17,7 @@ import { paginate } from '../../common/dto/pagination.dto';
 import { ClientNoteQueryDto, CreateExceptionalNoteDto } from './dto/client.dto';
 
 /**
- * Toda creación canónica de nota viene de uno de los 5 source_system:
+ * Toda creación canónica de nota viene de uno de los 6 source_system:
  *
  *   - `ticket`           → al resolver/cerrar un ticket (módulo support).
  *   - `chat`             → mensaje interno en chat (futuro, no Sprint 16).
@@ -25,6 +25,11 @@ import { ClientNoteQueryDto, CreateExceptionalNoteDto } from './dto/client.dto';
  *   - `task_completion`  → al completar una task no-bridge (cubre
  *                          provisioning_manual / client_lifecycle / project).
  *   - `exceptional`      → nota libre del agente desde el perfil cliente.
+ *   - `service`          → Sprint 15C.II F.6 — al ejecutar una transición de
+ *                          lifecycle de servicio (cancel/suspend/unsuspend,
+ *                          tanto manual admin como automática del cron de
+ *                          billing o del listener auto-reactivar al pagar).
+ *                          Categoría siempre `lifecycle`.
  *
  * Cada flujo tiene su entrypoint dedicado para que la firma sea explícita
  * y los listeners no compartan `createGeneric`. Cumple R7 (errores
@@ -110,6 +115,45 @@ export class ClientNotesService {
     });
   }
 
+  /* ── Crear nota desde transición de lifecycle de servicio (Sprint 15C.II F.6) ──
+     Invocado direct-call por `ProvisioningService.suspendAsAdmin` /
+     `unsuspendAsAdmin` / `deprovisionAsAdmin` desde dentro de la
+     `$transaction` del orquestador (R3 §A.11.10.3.2): pasar `tx` para que la
+     creación de la nota encaje en el mismo commit que la transición de
+     `services.status`. `author_id: null` para actor sistema (cron de
+     `autoSuspendServices`, listener auto-reactivar al pagar — convención
+     heredable de F.5). `body` ya compuesto en el call site (incluye el
+     `internal_note` del admin o el contexto del sistema con el nº de factura). */
+  async createFromServiceLifecycleAction(
+    input: {
+      user_id: string;
+      author_id: string | null;
+      service_id: string;
+      triggered_by_action:
+        | 'service.cancelled'
+        | 'service.suspended'
+        | 'service.unsuspended'
+        | 'service.auto_suspended_overdue'
+        | 'service.auto_unsuspended_overdue';
+      body: string;
+    },
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.clientNote.create({
+      data: {
+        user_id: input.user_id,
+        author_id: input.author_id,
+        category: NoteCategory.lifecycle,
+        source_system: NoteSourceSystem.service,
+        source_id: input.service_id,
+        triggered_by_action: input.triggered_by_action,
+        body: input.body,
+        is_pinned: false,
+      },
+    });
+  }
+
   /* ── Crear nota excepcional (libre desde perfil cliente) ──
      `category='exceptional'`, `source_id=null`, `triggered_by_action='manual_entry'`. */
   async createExceptional(
@@ -169,7 +213,13 @@ export class ClientNotesService {
       this.prisma.clientNote.count({ where }),
     ]);
 
-    const authorIds = [...new Set(notes.map((n) => n.author_id))];
+    // Sprint 15C.II F.6: `author_id` es nullable (actor sistema). Filtramos
+    // los null antes del findMany y la UI los renderiza como 'Sistema'.
+    const authorIds = [
+      ...new Set(
+        notes.map((n) => n.author_id).filter((id): id is string => id !== null),
+      ),
+    ];
     const authors = authorIds.length
       ? await this.prisma.user.findMany({
           where: { id: { in: authorIds } },
@@ -183,7 +233,10 @@ export class ClientNotesService {
 
     const enriched = notes.map((n) => ({
       ...n,
-      author_name: authorMap[n.author_id] ?? 'Desconocido',
+      author_name:
+        n.author_id === null
+          ? 'Sistema'
+          : (authorMap[n.author_id] ?? 'Desconocido'),
     }));
 
     return paginate(enriched, total, page, limit);
@@ -214,5 +267,50 @@ export class ClientNotesService {
         author: { select: { id: true, first_name: true, last_name: true } },
       },
     });
+  }
+
+  /* ── Listar notas asociadas a un servicio (Sprint 15C.II F.6) ──
+     Filtra por `source_system='service' AND source_id=serviceId`. La vista
+     `/admin/services/[id]` la usa para mostrar el historial operativo
+     (cancel/suspend/unsuspend, manual o auto) inline en la card "Notas
+     operativas del servicio". El listing global de notas del cliente
+     (`/admin/clients/[id]` → "Notas") usa `findByClient` y enriquece con
+     el `triggered_by_action` + link al servicio. */
+  async findByService(serviceId: string, options?: { limit?: number }) {
+    const limit = options?.limit;
+    const notes = await this.prisma.clientNote.findMany({
+      where: {
+        source_system: NoteSourceSystem.service,
+        source_id: serviceId,
+      },
+      orderBy: [{ is_pinned: 'desc' }, { created_at: 'desc' }],
+      ...(limit ? { take: limit } : {}),
+    });
+
+    // Enriquece con `author_name` igual que `findByClient` (consistente con
+    // la API de listings) — author_id null se renderiza como 'Sistema'.
+    const authorIds = [
+      ...new Set(
+        notes.map((n) => n.author_id).filter((id): id is string => id !== null),
+      ),
+    ];
+    const authors = authorIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: authorIds } },
+          select: { id: true, first_name: true, last_name: true },
+        })
+      : [];
+    const authorMap: Record<string, string> = {};
+    authors.forEach((a) => {
+      authorMap[a.id] = `${a.first_name} ${a.last_name}`;
+    });
+
+    return notes.map((n) => ({
+      ...n,
+      author_name:
+        n.author_id === null
+          ? 'Sistema'
+          : (authorMap[n.author_id] ?? 'Desconocido'),
+    }));
   }
 }

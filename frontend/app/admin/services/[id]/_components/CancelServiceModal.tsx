@@ -64,7 +64,11 @@ export function CancelServiceModal({
   const [submitting, setSubmitting] = useState(false);
 
   const typedMatches = typed.trim() === serviceDisplayName.trim();
-  const canSubmit = typedMatches && !submitting;
+  // Sprint 15C.II F.6 — R2 (`§A.11.10.3.2`): nota obligatoria para todas las
+  // acciones manuales de lifecycle. Defense-in-depth con backend
+  // (`deprovisionAsAdmin` valida también).
+  const noteValid = notes.trim().length > 0;
+  const canSubmit = typedMatches && noteValid && !submitting;
 
   function handleClose(): void {
     setReason('cancelled');
@@ -76,11 +80,11 @@ export function CancelServiceModal({
   }
 
   async function handleSubmit(): Promise<void> {
-    if (!typedMatches) return;
+    if (!typedMatches || !noteValid) return;
     setSubmitting(true);
     const result = await deprovisionServiceAction(serviceId, {
       reason,
-      notes: notes.trim() || undefined,
+      notes: notes.trim(),
       notify_client: notifyClient,
     });
     setSubmitting(false);
@@ -141,13 +145,13 @@ export function CancelServiceModal({
         />
 
         <Textarea
-          label="Nota interna (opcional)"
+          label="Nota interna *"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           maxLength={500}
           rows={3}
           placeholder="Contexto para el equipo — p. ej. número de ticket, decisión, etc."
-          helperText="No se muestra al cliente. Se añade al registro de auditoría (máx 500 caracteres)."
+          helperText="Obligatoria. No se muestra al cliente. Queda como traza en el historial del servicio y en el audit log (máx 500 caracteres)."
           disabled={submitting}
         />
 

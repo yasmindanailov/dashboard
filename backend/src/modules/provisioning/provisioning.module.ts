@@ -15,6 +15,7 @@ import { EnhanceProvisionerPlugin } from '../../plugins/provisioners/enhance_cp/
 import { InternalProvisionerPlugin } from '../../plugins/provisioners/internal/internal.plugin';
 import { ManualProvisionerPlugin } from '../../plugins/provisioners/manual/manual.plugin';
 import { AuditModule } from '../audit/audit.module';
+import { ClientsModule } from '../clients/clients.module';
 import { TasksModule } from '../tasks/tasks.module';
 
 import { AdminProvisioningController } from './admin-provisioning.controller';
@@ -63,6 +64,12 @@ import { ProvisioningService } from './provisioning.service';
     SettingsModule,
     AuditModule,
     TasksModule,
+    // Sprint 15C.II F.6: `ProvisioningService` invoca `ClientNotesService`
+    // direct-call dentro de la `$transaction` de las transiciones admin
+    // (suspend/unsuspend/deprovision) para dejar el `ClientNote` en el
+    // mismo commit que el cambio de status. Sin ciclo: ClientsModule no
+    // depende de ProvisioningModule.
+    ClientsModule,
     // Sprint 15C.II Fase B (ADR-083 Amendment A4.2 + gap G1): registry
     // genérico para `reconcile-all` admin endpoint. Cada plugin con
     // supports_reconciliation registra su executor en onModuleInit del

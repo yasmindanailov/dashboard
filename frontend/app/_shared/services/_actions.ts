@@ -298,11 +298,17 @@ export async function suspendServiceAction(
 
 export async function unsuspendServiceAction(
   serviceId: string,
+  payload: { internal_note: string },
 ): Promise<SuspendServiceResult> {
   try {
     await serverFetch<unknown>(`/admin/services/${serviceId}/unsuspend`, {
       method: 'POST',
-      body: {},
+      // Sprint 15C.II F.6 — R1 (`UnsuspendServiceDto`): el body lleva la
+      // nota interna obligatoria del modal admin. El backend valida R2:
+      // si el actor es admin (garantizado por JWT en este endpoint),
+      // `internal_note` no puede estar vacío. El path auto-reactivar al
+      // pagar NO pasa por este action — vive en el listener backend.
+      body: { internal_note: payload.internal_note },
     });
     revalidatePath(`/admin/services/${serviceId}`);
     revalidatePath('/admin/services');

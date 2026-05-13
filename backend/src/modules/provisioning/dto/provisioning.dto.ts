@@ -179,3 +179,24 @@ export class SuspendServiceDto {
   @IsBoolean()
   notify_client?: boolean;
 }
+
+/**
+ * Sprint 15C.II Fase F.6 — R1 (dossier §A.11.10.3.2): firma simétrica con
+ * `SuspendServiceDto` / `DeprovisionDto`. `internal_note` opcional a nivel
+ * DTO porque el mismo DTO sirve a dos paths: admin/modal (donde la nota es
+ * obligatoria por R2 — validación en el servicio) y sistema (listener
+ * auto-reactivar al pagar, que compone el body internamente).
+ */
+export class UnsuspendServiceDto {
+  /**
+   * Nota interna del admin que reactiva el servicio (audit log + `ClientNote`
+   * vía `createFromServiceLifecycleAction`). En el path admin/modal es
+   * **obligatoria** — la validación R2 vive en `ProvisioningService` (no en
+   * el DTO) porque el mismo DTO sirve al path sistema con `actorUserId: null`
+   * donde el body lo compone el listener.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  internal_note?: string;
+}
