@@ -2063,11 +2063,13 @@ Decisión final entre "inline `clientNote.create` en la tx" vs "pasar `tx` al he
    - `backend/src/plugins/provisioners/enhance_cp/api/client.spec.ts` — `getDomainSsl` 404 → null + otros re-lanzan.
    - `backend/src/plugins/provisioners/enhance_cp/api/client.integration.spec.ts` — `getDomainSsl` lee del mock (200, 404, 500).
 4. **Commit 4 — `feat(sprint-15c-ii): F.7 frontend — SslStatusCard + wire en /dashboard|/admin/services/[id]`**.
-   - `frontend/app/_shared/services/SslStatusCard.tsx` — componente nuevo (badge + texto + admin extras).
-   - `frontend/app/_shared/services/SslStatusCard.test.tsx` — tests RTL: badge variant por status + admin extras condicionales + ausencia `ssl` no testado aquí (lo testa el wire de las páginas con `info.ssl == null → no card`).
-   - `frontend/app/dashboard/services/[id]/page.tsx` — wire `<SslStatusCard ssl={info.ssl} />` condicional.
-   - `frontend/app/admin/services/[id]/page.tsx` — wire `<SslStatusCard ssl={info.ssl} isAdmin ssoPanelHref={...} />` condicional.
-   - `frontend/app/_i18n/{es,en}.json` — 9 keys nuevas (A8.9).
+   - `frontend/app/_shared/services/SslStatusCard.tsx` — componente nuevo (badge + texto + admin extras). Server-component compatible (sin hooks).
+   - `frontend/app/_shared/services/index.ts` — barrel exporta `SslStatusCard`.
+   - `frontend/app/lib/api.ts` — añade `ServiceSslStatus`, `ServiceSslSummary`, `ServiceInfo.ssl?` (espejo del backend types.ts).
+   - `frontend/app/dashboard/services/[id]/page.tsx` — wire `<SslStatusCard ssl={info.ssl} />` condicional (gateado por `!isTerminal && info.ssl`).
+   - `frontend/app/admin/services/[id]/page.tsx` — wire `<SslStatusCard ssl={info.ssl} isAdmin />` condicional. `ssoPanelHref` se deja para F.12 (el admin ya tiene `<SsoButton>` general más abajo; F.12 evaluará si compactar SSL+SSO en una "card de operaciones de cert").
+   - **Sin tests RTL nuevos:** el frontend NO tiene runner Jest/Vitest (verificación = `tsc --noEmit` + `eslint --max-warnings=0` + `next build`). El comportamiento visual del card se cubre en G.2 (E2E spec extension — flujos cliente/admin con `info.ssl` en cada estado). El typecheck enforce el shape, el lint enforce las reglas a11y/react.
+   - **i18n vía `t()` (`frontend/app/_shared/i18n/translations-es.ts`):** sigue el patrón canónico Sprint 15C Fase 15C.I (verificado contra `AdminDriftBanner.tsx`). 13 keys nuevas en el bloque `service.ssl.*` (card_title + 4 status labels + 5 message variants + 2 auto_renew + issuer_prefix + expires_tooltip_prefix + admin_cta_manage_in_provider). El sufijo dinámico "en N días"/"hace N horas" se compone en el componente (sin templating) — `formatRelativeExpiry` devuelve string libre que se concatena al prefijo i18n. Compatible con la futura migración a `next-intl`/EN sub-sprint (`t()` tiene firma estable).
 5. **Commit 5 — `chore(sprint-15c-ii): F.7 validación — ci:check:full + boot smoke`**.
    - Bumps de fixtures si los integration tests piden nuevos UUIDs determinísticos.
    - Notas de boot smoke (no es un cambio de código en sí, pero el commit puede incluir el `wc -l` updates de `MEMORY.md`/`project-state.md` si la métrica de cobertura cambia material).

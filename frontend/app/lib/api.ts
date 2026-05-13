@@ -1567,6 +1567,30 @@ export interface ServiceMetrics {
  */
 export type ServiceRecoveryHint = 'reprovision' | 'reconcile' | 'contact_support';
 
+/**
+ * Sprint 15C.II Fase F.7 — ADR-077 Amendment A7. Estado canónico del
+ * certificado SSL/TLS del recurso. La UI ramifica por este valor (NUNCA
+ * por matching de strings sobre `issuer` ni por aritmética de fechas en
+ * cliente — eso vive server-side en el plugin).
+ */
+export type ServiceSslStatus = 'valid' | 'expiring_soon' | 'expired' | 'none';
+
+/**
+ * Sprint 15C.II Fase F.7 — ADR-077 Amendment A7. Sub-shape del campo
+ * opcional `ServiceInfo.ssl?`. Read-only — Aelium no gestiona el cert
+ * (DH-INV-6 — el proveedor es authoritative); este shape solo existe
+ * para que la UI exponga el estado al cliente / admin.
+ */
+export interface ServiceSslSummary {
+  status: ServiceSslStatus;
+  /** ISO-8601. Solo presente si `status !== 'none'`. */
+  expiresAt?: string;
+  /** Si el proveedor renueva automáticamente; `undefined` si no determinable. */
+  autoRenew?: boolean;
+  /** Display-only. La UI NUNCA ramifica comportamiento por este valor. */
+  issuer?: string;
+}
+
 export interface ServiceInfo {
   status:
     | 'active'
@@ -1590,6 +1614,13 @@ export interface ServiceInfo {
     autoRenew?: boolean;
   };
   metrics?: ServiceMetrics;
+  /**
+   * Sprint 15C.II Fase F.7 — ADR-077 Amendment A7. Solo presente si el
+   * plugin puede leer el estado del cert SSL/TLS. Si ausente, la UI no
+   * renderiza la card SSL. La presencia del campo es la señal de
+   * capability — no se añade flag nuevo a `ServiceInfoCapabilities`.
+   */
+  ssl?: ServiceSslSummary;
   capabilities: ServiceInfoCapabilities;
   availableActions: readonly ServiceAction[];
   fetchedAt: string;

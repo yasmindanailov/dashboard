@@ -31,7 +31,13 @@ import Link from 'next/link';
 
 import { AlertBanner, Card, EmptyState } from '../../../components/ui';
 import { t } from '../../../_shared/i18n';
-import { ActionsBar, MetricsBar, ServiceHeader, SsoButton } from '../../../_shared/services';
+import {
+  ActionsBar,
+  MetricsBar,
+  ServiceHeader,
+  SslStatusCard,
+  SsoButton,
+} from '../../../_shared/services';
 import type { ServiceDetailResponse } from '../../../lib/api';
 import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
 
@@ -296,6 +302,19 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
           serviceId={service.id}
           isAdmin={true}
         />
+      )}
+
+      {/*
+        Sprint 15C.II Fase F.7 (ADR-077 Amendment A7 + ADR-083 A8) — card
+        SSL read-only. Capability-driven (presencia de `info.ssl` = señal
+        de capability). Admin gana tooltip con fecha exacta en el badge.
+        El CTA "Gestionar SSL en el panel" no se cablea aquí — el admin
+        usa el `<SsoButton>` general (sección "Panel del proveedor" abajo);
+        cuando F.12 (layout canónico) compacte cards, evaluará si el card
+        SSL gana su propio link directo a la sección SSL del panel.
+      */}
+      {!isTerminal && info.ssl && (
+        <SslStatusCard ssl={info.ssl} isAdmin={true} />
       )}
 
       {/*
