@@ -1819,6 +1819,111 @@ apuntado de dossier debe cotejarlo contra los ADRs frozen relevantes ANTES de co
 
 **Decisión adicional sobre el `body` del actor sistema** (no estaba en el apuntado original): para el auto-suspend por impago, el `body` se compone en el call site del cron — `\`Suspendido automáticamente por impago — Factura ${invoice.invoice_number}\`` (la misma cadena del antiguo `suspension_reason`, ahora alojada en el `ClientNote` en vez de en la columna combinada). El llamador es `ServiceLifecycleWorker.autoSuspendServices` → pasa el body en el DTO `internal_note` (que ya viaja a `suspendAsAdmin` desde F.5) → `suspendAsAdmin` invoca `clientNotesService.createFromServiceLifecycleAction({ body: dto.internal_note ?? '<sin nota>', author_id: actorUserId, ... })`. Para `unsuspendAsAdmin` (que hoy no tiene DTO), F.6 le añade un parámetro `internal_note?: string` opcional (obligatorio en el path admin/modal — el modal pide la nota; ausente en el path auto-reactivación al pagar, donde el body lo compone el listener: `\`Reactivado automáticamente al pagar la factura ${invoice.invoice_number}\``).
 
+#### A.11.10.3.2. Refinamientos pre-código F.6 — Amendment (sesión 2026-05-13, post-handoff `9c9a639`)
+
+> Tres refinamientos al apuntado original consolidados como **Amendment** (L18 — el dossier debe estar al día con las decisiones consolidadas ANTES de abrir la rama F.6, sin desvío silencioso). Sesión continuación del handoff F.5→F.6 sobre la misma rama de docsync `sprint15c-ii-fase-f5-postmerge-docsync`.
+
+**R1 — Firma `unsuspendAsAdmin` con DTO (simetría con `suspend`/`deprovision`).**
+
+El handoff propuso "añadir parámetro `internal_note?: string` opcional a `unsuspendAsAdmin`". Refinamiento: **crear `UnsuspendServiceDto`** y pasar el DTO posicional como en sus dos hermanos. Razón: hoy [`suspendAsAdmin(serviceId, dto, actorUserId, ctx?, opts?)`](../../backend/src/modules/provisioning/provisioning.service.ts#L976) y [`deprovisionAsAdmin(serviceId, dto, actorUserId, ctx)`](../../backend/src/modules/provisioning/provisioning.service.ts#L855) reciben DTO; añadir un parámetro suelto `internal_note` a `unsuspend` rompe la simetría de las tres firmas paralelas y dispersa la validación (`class-validator` viviría en dos sitios distintos). Firma resultante:
+
+```ts
+class UnsuspendServiceDto {
+  @IsOptional() @IsString() @MaxLength(1000) internal_note?: string;
+}
+
+unsuspendAsAdmin(
+  serviceId: string,
+  dto: UnsuspendServiceDto,
+  actorUserId: string | null,
+  ctx?: { ipAddress?: string; userAgent?: string | null },
+  opts?: { actorLabel?: string; allowUnsupported?: boolean },
+)
+```
+
+El path auto-reactivar al pagar ([`reactivateSuspendedServiceOnPayment` línea 1310](../../backend/src/modules/provisioning/provisioning.service.ts#L1310)) pasa `{ internal_note: \`Reactivado automáticamente al pagar la factura ${invoice.invoice_number}\` }` — el listener resuelve el `invoice_number` de la factura pagada y compone el body en el call site (paralelo perfecto a `autoSuspendServices` de F.5). El path admin/modal pasa el `internal_note` del modal directamente.
+
+**R2 — Validación backend "nota obligatoria" (defense-in-depth).**
+
+La obligatoriedad de la nota NO puede vivir solo en el modal: alguien con curl saltándose el modal llegaría al endpoint con `internal_note` vacío. Regla canónica:
+
+| Path | `actorUserId` | `internal_note` obligatorio en backend |
+|------|---------------|---------------------------------------|
+| Admin/modal (`suspendAsAdmin`/`unsuspendAsAdmin`/`deprovisionAsAdmin`) | `string` (admin) | **Sí** |
+| Sistema (cron `autoSuspendServices`, listener auto-reactivar) | `null` | **No** (el listener/cron compone el body con datos canónicos) |
+
+Materialización: la validación vive **en el método de servicio**, no en el DTO (el mismo DTO sirve para ambos paths; no podemos marcar `@IsNotEmpty()` global). Patrón:
+
+```ts
+if (actorUserId !== null && !dto.internal_note?.trim()) {
+  throw new BadRequestException({
+    code: 'NOTE_REQUIRED',
+    message: 'La nota interna es obligatoria para acciones manuales de lifecycle.',
+  });
+}
+```
+
+Aplica a las tres operaciones admin (`suspend`/`unsuspend`/`deprovision`). El frontend modal sigue validando `required` antes de submit (UX); el backend lo refuerza (R7 — defense-in-depth). NOTA: `deprovisionAsAdmin` hoy usa [`DeprovisionDto.notes?`](../../backend/src/modules/provisioning/dto/provisioning.dto.ts#L119-L122) (naming distinto a `internal_note`); F.6 NO toca ese nombre (scope creep — apunte separado al backlog: alinear naming `notes`↔`internal_note` en una pasada post-15C.II), pero la misma regla aplica.
+
+**R3 — Atomicidad: `service.update` + `ClientNote.create` en `$transaction`.**
+
+Hoy `suspendAsAdmin` ejecuta: invoca plugin → `prisma.service.update` (status + suspension_reason + suspended_at) → cache invalidate → emit evento → audit. F.6 añade un 6º paso (crear `ClientNote`). Si la nota falla (BD caída, FK rota, validación), **el status YA cambió + el plugin YA suspendió + el cliente YA recibió email** — el `ClientNote` quedaría como eslabón débil y el timeline de `/admin/clients/[id]` → "Notas" tendría huecos sin explicación.
+
+Decisión: envolver **`service.update` + `clientNote.create` en `prisma.$transaction([...])`**. Ambas ops o ninguna — son del mismo modelo (`Service`/`ClientNote`) en la misma BD, baratas (sin I/O externo dentro). Si la nota falla, el status no transita; un retry del admin (`suspendAsAdmin` es idempotente por el guard `'suspended' → no-op`) re-aplica el `suspend_service` en el proveedor (el provider call es idempotente por contrato — A4.4 ADR-077).
+
+Lo que queda **fuera** de la transacción:
+
+| Paso | ¿En tx? | Razón |
+|------|--------|-------|
+| `plugin.executeAction('suspend_service')` | No | I/O externo (HTTP al proveedor); puede tardar segundos; bloquearía el row lock. Idempotente por contrato A4.4. |
+| `prisma.service.update` | **Sí** | Transición de estado canónica. |
+| `clientNote.create` (vía `ClientNotesService.createFromServiceLifecycleAction`) | **Sí** | Traza de la transición. |
+| `cache.invalidate` | No | Side effect en Redis; se ejecuta tras commit. |
+| `events.emit('service.suspended')` | No | Side effect; los listeners (notificaciones) consumen el estado ya committed. |
+| `audit.logChange` + `audit.logAccess` | No | Tabla separada con su propia política de consistencia (mismo patrón que F.1-F.5). |
+
+Si el evento/audit/cache fallan post-commit: log-warn (no revierte — el estado es la fuente de verdad operacional). Patrón canónico Sprint 15C.II — aceptado en F.1-F.5.
+
+**Implicación para `ClientNotesService`:** `createFromServiceLifecycleAction` debe poder ejecutarse dentro de una `$transaction` ajena. Patrón: el método acepta un `tx?: Prisma.TransactionClient` opcional y, si viene, usa `tx.clientNote.create(...)` en vez de `this.prisma.clientNote.create(...)`. Los otros 4 `createFromXxx` siguen funcionando sin cambio (no necesitan transacción). Ejemplo:
+
+```ts
+async createFromServiceLifecycleAction(
+  input: { user_id; author_id: string | null; service_id; triggered_by_action; body; category },
+  tx?: Prisma.TransactionClient,
+) {
+  const client = tx ?? this.prisma;
+  return client.clientNote.create({ data: { ... } });
+}
+```
+
+Y en `suspendAsAdmin`:
+
+```ts
+const [updated, _note] = await this.prisma.$transaction([
+  this.prisma.service.update({ where: { id }, data: { status: 'suspended', ... } }),
+  // Se prepara la creación de la nota inline en lugar de delegar al service
+  // helper para mantener una sola statement por op en la tx — alternativa:
+  // pasar el `tx` al helper. Decidir en codificación.
+]);
+```
+
+Decisión final entre "inline `clientNote.create` en la tx" vs "pasar `tx` al helper" — decidir en la implementación. Lo invariante es: ambas operaciones bajo el mismo commit.
+
+**Lección heredable candidata (L19, a confirmar en G.4):** *"Las transiciones de lifecycle de un service + la traza operativa correspondiente (`ClientNote`, `audit_change_log` no — su consistencia es más laxa) viven en la misma transacción Prisma. Plugin calls + eventos + cache invalidations quedan fuera (asimétricos por naturaleza: el provider call es idempotente por contrato; los listeners consumen estado ya committed)."*
+
+**Recap de las 5 decisiones pre-código + 3 refinamientos (consolidado final F.6):**
+
+| # | Decisión | Origen |
+|---|----------|--------|
+| 1 | `ClientNotesService.createFromServiceLifecycleAction` invocado **direct-call** desde `ProvisioningService` | handoff §A.11.10.3.1 |
+| 2 | `ClientNote.author_id` **nullable** (`String? @db.Uuid` + `onDelete: SetNull`) | handoff §A.11.10.3.1 |
+| 3 | `unsuspend` con **nota obligatoria** en path admin/modal | handoff §A.11.10.3.1 |
+| 4 | `NoteCategory.lifecycle` (8º valor) | handoff §A.11.10.3.1 |
+| 5 | Schema migration + **ADR-079 amendment** "actor sistema = `author_id: null`" + `NoteSourceSystem.service` + `NoteCategory.lifecycle` | handoff §A.11.10.3.1 |
+| **R1** | **`UnsuspendServiceDto`** + firma simétrica `unsuspendAsAdmin(id, dto, actor, ctx?, opts?)` | refinamiento §A.11.10.3.2 |
+| **R2** | **Validación backend `internal_note` obligatorio si `actorUserId !== null`** (defense-in-depth) en `suspend`/`unsuspend`/`deprovision` | refinamiento §A.11.10.3.2 |
+| **R3** | **`$transaction([service.update, clientNote.create])`** (plugin + eventos + cache + audit fuera) — `createFromServiceLifecycleAction` acepta `tx?: Prisma.TransactionClient` opcional | refinamiento §A.11.10.3.2 |
+
 ### A.11.10.4. Fase F.7 — SSL/TLS status read-only
 
 **Tema:** cliente y admin ven el estado del certificado que el proveedor gestiona, read-only — sin que Aelium lo gestione (DH-INV-6).
