@@ -1185,3 +1185,153 @@ export interface ProvisionerPlugin {
 #### A6.4. Nota — `manifest.serviceInfoCacheTtlSeconds?` (GAP-15CII-G4)
 
 F.3 también añadió un campo opcional al **manifest** (`PluginManifest.serviceInfoCacheTtlSeconds?`) — vive en [ADR-080 Amendment C](./adr-080-plugin-framework.md#amendments) (es manifest, no contrato). Relevante aquí solo porque el TTL resultante lo consume `getServiceInfoWithCache` (§5) vía `ProvisioningService.resolveServiceInfoTtl(plugin)` con precedencia `manifest > setting global > 60s` y *sanity floor* 5s en runtime.
+
+---
+
+### Amendment A7 (2026-05-13) — campo opcional `ssl?` en `ServiceInfo` (Sprint 15C.II Fase F.7)
+
+> **Justificado por:** Sprint 15C.II Fase F.7 + [ADR-083 Amendment A8](./adr-083-plugin-enhance-cp-specifics.md#amendments). `/dashboard/services/[id]` y `/admin/services/[id]` no exponen hoy el estado del certificado SSL/TLS del sitio — un dato que cualquier panel reseller profesional muestra junto a las métricas (el cliente necesita saber si su sitio aparecerá como "No seguro" en el navegador; el admin necesita anticipar renovaciones de los certs custom que no auto-renuevan). La doctrina **DH-INV-6** ([ADR-082](./adr-082-modelo-domain-hosting-dns-doctrine.md)) prohíbe que Aelium **gestione** el cert — pero NO prohíbe **leerlo** y exponer el estado al usuario; la gestión real (renovar, reemplazar, configurar `force_https`) sigue viviendo en el panel del proveedor vía SSO.
+> **Sprint:** 15C.II Fase F.7 (PR pendiente).
+> **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` — sigue `'v2'`. El campo es **opcional** en `ServiceInfo`. Plugins existentes que no lo declaran tienen comportamiento idéntico al actual (el frontend trata `ssl` ausente como "el plugin no expone el estado del cert" → no card). Mismo patrón canónico que `metrics?` y `recoveryHint?` (Amendment A5). NO toca ningún otro shape. NO requiere migración de datos.
+
+#### A7.1. Cambio canónico en `ServiceInfo` (§2 shapes — `getServiceInfo()` output)
+
+Se añade un tipo enum + un sub-shape + un campo opcional al shape canónico `ServiceInfo`:
+
+```typescript
+/**
+ * Estado canónico del certificado SSL/TLS del recurso. La UI ramifica por
+ * este valor (NUNCA por matching de strings sobre `issuer` o por aritmética
+ * de fechas en cliente — eso vive server-side, ver A7.4).
+ *
+ *   - `'valid'`          → cert presente, expira en > 14 días naturales.
+ *   - `'expiring_soon'`  → cert presente, expira en ≤ 14 días pero todavía
+ *                            no expirado. Aviso ámbar al usuario; el plugin
+ *                            puede declarar `autoRenew: true` para señalar
+ *                            que el proveedor renovará a tiempo (LetsEncrypt).
+ *   - `'expired'`        → cert presente pero `expiresAt <= now`. Aviso rojo
+ *                            — el sitio aparecerá como "No seguro" en
+ *                            navegadores hasta que se renueve.
+ *   - `'none'`           → no hay cert configurado para el dominio (caso
+ *                            de dominios añadidos antes de issuance, tras
+ *                            revocación, o sitios servidos solo por HTTP).
+ *                            Aviso gris informativo + CTA SSO al panel.
+ *
+ * Extensible: futuras clases (p.ej. `'invalid_chain'`, `'self_signed'`,
+ * `'untrusted_root'`) se añaden a esta unión + se documentan aquí + el
+ * frontend las ramifica explícitamente. El plugin es la única autoridad
+ * sobre el estado — el cálculo (comparación de fechas + heurística de
+ * auto-renew) vive **server-side** (en el plugin), NUNCA en el frontend.
+ */
+export type ServiceSslStatus = 'valid' | 'expiring_soon' | 'expired' | 'none';
+
+/**
+ * Sub-shape del campo opcional `ServiceInfo.ssl?`. Read-only — Aelium no
+ * gestiona el cert (DH-INV-6 — el proveedor es authoritative); este shape
+ * existe solo para que la UI exponga el estado al cliente / admin.
+ */
+export interface ServiceSslSummary {
+  /** Estado canónico — ver `ServiceSslStatus`. */
+  status: ServiceSslStatus;
+
+  /**
+   * ISO-8601. Solo presente cuando `status` ∈ {`valid`, `expiring_soon`,
+   * `expired`} (en `none` no hay cert, no hay fecha). El frontend lo
+   * renderiza como "expira en X días" (formato relativo); admin puede
+   * mostrar la fecha exacta en tooltip.
+   */
+  expiresAt?: string;
+
+  /**
+   * Si el proveedor renueva el cert automáticamente (típico LetsEncrypt) o
+   * lo dejó manual (custom upload del cliente). `undefined` si el plugin
+   * no puede determinarlo. El frontend renderiza la línea "renovación
+   * automática: sí/no" solo si el valor está definido (no inventa "no").
+   */
+  autoRenew?: boolean;
+
+  /**
+   * Emisor del cert ("Let's Encrypt Authority X3", "DigiCert", "ZeroSSL"…).
+   * Display-only — la UI lo muestra como texto. El frontend NUNCA ramifica
+   * comportamiento por este valor (eso lo hace `status` + `autoRenew`); el
+   * plugin sí puede usarlo internamente para derivar `autoRenew` (ver A7.4).
+   */
+  issuer?: string;
+}
+
+export interface ServiceInfo {
+  // ... campos existentes (status, statusReason?, recoveryHint?, display,
+  //                        metrics?, capabilities, availableActions, fetchedAt) ...
+
+  /**
+   * Solo presente si el plugin puede leer el estado del cert SSL/TLS del
+   * recurso. Si ausente (incluyendo cuando el plugin sabe leerlo pero la
+   * lectura falló o devolvió datos parciales/ilegibles), la UI no
+   * renderiza la card SSL. Ver `ServiceSslSummary`.
+   *
+   * La presencia del campo es la **señal de capability** — no se añade un
+   * flag nuevo a `PluginCapabilities` (mismo patrón que `metrics?` y
+   * `recoveryHint?`, Amendments A5).
+   */
+  ssl?: ServiceSslSummary;
+}
+```
+
+#### A7.2. Impacto en wrappers (§5 pipeline) — passthrough transparente
+
+`getServiceInfoWithCache` (`core/provisioning/plugin-utils.ts`) cachea/devuelve el `ServiceInfo` completo tal cual lo retorna el plugin — `ssl` viaja en el mismo objeto serializado a Redis sin tratamiento especial. La rama de fallback del wrapper (plugin lanza / circuit open → `ServiceInfo` sintético con `status: 'unknown'`) **no** declara `ssl` (no es algo que podamos saber sin contactar al proveedor — coherente con el patrón de no fabricar datos en fallback; mismo criterio que `metrics` y `recoveryHint`). Ningún otro wrapper se ve afectado.
+
+#### A7.3. Test contract genérico (§7) — invariante nueva
+
+```typescript
+// backend/src/plugins/provisioners/plugin-contract.spec.ts
+it('declara ssl como ServiceSslSummary | undefined en getServiceInfo()', async () => {
+  const info = await plugin.getServiceInfo(syntheticService);
+  if (info.ssl !== undefined) {
+    expect(['valid', 'expiring_soon', 'expired', 'none']).toContain(info.ssl.status);
+    if (info.ssl.expiresAt !== undefined) {
+      expect(() => new Date(info.ssl!.expiresAt!).toISOString()).not.toThrow();
+    }
+    // Invariante de consistencia: status='none' implica no hay cert →
+    // no hay fecha de expiración.
+    if (info.ssl.status === 'none') {
+      expect(info.ssl.expiresAt).toBeUndefined();
+    }
+  }
+});
+```
+
+Plugins que no expongan SSL omiten el campo — el test no falla (es opcional). Como `getServiceInfo()` con `syntheticService` puede no llegar a contactar al proveedor (plugins sin metadata válida devuelven `ssl: undefined`), el test es robusto en modo `'static-only'` (`enhance_cp`) — la invariante solo aprieta cuando el plugin elige exponerlo.
+
+#### A7.4. Umbral canónico de `expiring_soon` (decisión)
+
+El umbral entre `valid` y `expiring_soon` es **fijo: 14 días naturales** antes de `expiresAt`. Razón:
+
+- **Industry standard.** Let's Encrypt y la mayoría de ACME emiten certs de 90 días con auto-renovación 30 días antes; un umbral de 14d da ~2 semanas de aviso antes de cualquier expiración real (LE no debería llegar nunca a `expiring_soon` salvo fallo de renovación — útil precisamente para detectar esos fallos).
+- **NO setting per-plugin.** Introducir un setting `provisioning.<plugin>.ssl_expiring_soon_days` complica el contrato sin caso de uso real (YAGNI). Si un plugin necesita un umbral distinto en el futuro, se promueve a setting con su propio Amendment.
+- **Cálculo server-side.** El plugin compara `expires` vs `now` y decide el `status` — el frontend NUNCA hace aritmética de fechas (evita races UTC/local + permite tests deterministas con `MockDate`).
+
+#### A7.5. Frontend — ramificación canónica
+
+```typescript
+// _shared/services/SslStatusCard.tsx — gateado por el contrato, NO por strings:
+if (!info.ssl) return null;  // capability-driven (ADR-070)
+
+const badgeVariant =
+  info.ssl.status === 'valid' ? 'success' :
+  info.ssl.status === 'expiring_soon' ? 'warning' :
+  info.ssl.status === 'expired' ? 'destructive' :
+  'neutral';  // 'none'
+```
+
+NUNCA por `issuer.includes("Let's Encrypt")` ni por matching de strings en `statusReason` (mantiene ADR-070 §"Cero `if (provisioner === 'X')`" + Amendment A5.4). El card vive en `frontend/app/_shared/services/` con prop `isAdmin?: boolean` — cliente y admin renderizan el mismo card (L16 — no duplicación); admin gana solo extras display-only (fecha exacta en `title` del badge + CTA "Gestionar SSL en el panel del proveedor" — SSO al panel del proveedor, coherente con DH-INV-6).
+
+#### A7.6. Plugins existentes — actualización
+
+- `internal`, `manual`: `getServiceInfo()` no expone SSL (concepto no aplicable a estos plugins) → no declaran `ssl`. Sin cambios.
+- `enhance_cp` (Sprint 15C.II Fase F.7): `getServiceInfo()` lee el cert del primary domain del website vía `EnhanceApiClient.getDomainSsl(domainId)` (precedido de `getWebsite(orgId, websiteId)` para obtener `domain.id`) y mapea a `ssl` ([ADR-083 Amendment A8](./adr-083-plugin-enhance-cp-specifics.md#amendments)).
+- Plugins futuros (15D RC, 15E Docker, 15G Plesk): heredan el patrón — si su API expone el cert, poblan `ssl` en `getServiceInfo()`; si no, lo omiten.
+
+#### A7.7. Doctrina de adición de campos opcionales a `ServiceInfo` (refuerzo §3 + Amendments A3.6/A5.6)
+
+Mismo patrón canónico que `ServiceAction.adminOnly` (A3.6), `ServiceInfo.recoveryHint?` (A5.6) y `ServiceAction.allowsSensitiveDataInAudit` (A4.5): ADR justificante → Amendment ADR-077 con shape + impacto wrappers + invariante test contract + plugins existentes → compatible hacia atrás (NO bumpea `contractVersion`) → frontend ramifica por el campo (NUNCA por slug ni por display strings) → cálculo server-side (no aritmética en el frontend) → documentar en `provisioning/contract.md` §"shapes" + `glossary.md`.

@@ -472,6 +472,72 @@ describe('EnhanceApiClient ↔ MockEnhanceServer (integration)', () => {
 
   // ─── Mock state introspection (defensive testing) ───────────────────────
 
+  describe('Domains / SSL (Sprint 15C.II Fase F.7 — ADR-083 A8)', () => {
+    it('al crear website, el mock auto-siembra cert LE → getDomainSsl devuelve el cert', async () => {
+      mock.reset();
+      const customer = await client.createCustomer(MASTER, {
+        name: 'ACME SSL Test',
+      });
+      const sub = await client.createSubscription(MASTER, customer.id, {
+        planId: 7,
+      });
+      const ws = await client.createWebsite(customer.id, {
+        domain: 'ssl-test.aelium.test',
+        subscriptionId: sub.id,
+      });
+      const wsFresh = await client.getWebsite(customer.id, ws.id);
+
+      const cert = await client.getDomainSsl(wsFresh.domain.id);
+      expect(cert).not.toBeNull();
+      expect(cert!.cn).toBe('ssl-test.aelium.test');
+      expect(cert!.issuer).toBe("Let's Encrypt Authority X3");
+      expect(cert!.forceHttps).toBe(true);
+      // expires debe parsear como Date válida.
+      expect(Number.isFinite(new Date(cert!.expires).getTime())).toBe(true);
+    });
+
+    it('getDomainSsl devuelve null si el domainId no tiene cert (404)', async () => {
+      const unknownDomainId = '99999999-9999-9999-9999-999999999999';
+      const cert = await client.getDomainSsl(unknownDomainId);
+      expect(cert).toBeNull();
+    });
+
+    it('seed.domainSsls pre-siembra cert custom (issuer non-LE)', async () => {
+      const seededDomainId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+      const mockWithSeed = await startMockEnhanceServer({
+        seed: {
+          apiToken: 'integration-token-fixture',
+          masterOrgId: MASTER,
+          domainSsls: {
+            [seededDomainId]: {
+              cn: 'seeded.aelium.test',
+              expires: '2026-09-01T00:00:00Z',
+              issued: '2026-06-03T00:00:00Z',
+              issuer: 'DigiCert SHA2 Secure Server CA',
+              forceHttps: false,
+            },
+          },
+        },
+      });
+      try {
+        const seededClient = new EnhanceApiClient({
+          baseUrl: mockWithSeed.baseUrl,
+          apiToken: 'integration-token-fixture',
+        });
+        const cert = await seededClient.getDomainSsl(seededDomainId);
+        expect(cert).toEqual({
+          cn: 'seeded.aelium.test',
+          expires: '2026-09-01T00:00:00Z',
+          issued: '2026-06-03T00:00:00Z',
+          issuer: 'DigiCert SHA2 Secure Server CA',
+          forceHttps: false,
+        });
+      } finally {
+        await mockWithSeed.stop();
+      }
+    });
+  });
+
   describe('Mock state introspection', () => {
     it('requestLog acumula todas las requests del test', async () => {
       mock.state.requestLog.length = 0; // limpia para aserción precisa

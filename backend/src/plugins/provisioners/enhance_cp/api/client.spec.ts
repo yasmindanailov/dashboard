@@ -21,6 +21,8 @@
  * exhaustivamente en `http-client.spec.ts`.
  */
 
+import { ProvisionerPluginError } from '../../../../core/provisioning/types';
+
 import { EnhanceApiClient } from './client';
 
 type FetchMock = jest.Mock<Promise<Response>, [string | URL, RequestInit?]>;
@@ -313,6 +315,48 @@ describe('EnhanceApiClient — Sprint 15C Fase 15C.B', () => {
       fetchMock.mockResolvedValueOnce(emptyResponse(204));
       await client.deleteWebsite(CUST, WEBSITE);
       expectRequest('DELETE', `/orgs/${CUST}/websites/${WEBSITE}`);
+    });
+  });
+
+  // ─── 6bis. Domains / SSL (Sprint 15C.II Fase F.7 — ADR-083 A8) ──────────
+
+  describe('Domains / SSL', () => {
+    const DOMAIN_UUID = '00000000-0000-0000-0000-00000000ffff';
+    const certFixture = {
+      cn: 'mi-cliente.es',
+      expires: '2026-08-15T12:00:00Z',
+      issued: '2026-05-15T12:00:00Z',
+      issuer: "Let's Encrypt Authority X3",
+      forceHttps: true,
+    };
+
+    it('getDomainSsl → GET con domainId en path; mapea 200 al cert', async () => {
+      fetchMock.mockResolvedValueOnce(json(200, certFixture));
+      const result = await client.getDomainSsl(DOMAIN_UUID);
+      expect(result).toEqual(certFixture);
+      expectRequest('GET', `/v2/domains/${DOMAIN_UUID}/ssl`);
+    });
+
+    it('getDomainSsl 404 → null (mapeo cliente HTTP: 404 → INVALID_STATE; el método lo absorbe)', async () => {
+      fetchMock.mockResolvedValueOnce(
+        json(404, { code: 'NotFound', message: 'ssl cert not found' }),
+      );
+      const result = await client.getDomainSsl(DOMAIN_UUID);
+      expect(result).toBeNull();
+    });
+
+    it('getDomainSsl 500 → re-lanza ProvisionerPluginError (no es 404, debe propagar)', async () => {
+      fetchMock.mockResolvedValueOnce(json(500, { code: 'InternalError' }));
+      await expect(client.getDomainSsl(DOMAIN_UUID)).rejects.toThrow(
+        ProvisionerPluginError,
+      );
+    });
+
+    it('getDomainSsl 401 → re-lanza ProvisionerPluginError(PROVIDER_AUTH_FAILED)', async () => {
+      fetchMock.mockResolvedValueOnce(json(401, { code: 'Unauthorized' }));
+      await expect(client.getDomainSsl(DOMAIN_UUID)).rejects.toMatchObject({
+        code: 'PROVIDER_AUTH_FAILED',
+      });
     });
   });
 

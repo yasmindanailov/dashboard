@@ -2003,6 +2003,88 @@ Decisión final entre "inline `clientNote.create` en la tx" vs "pasar `tx` al he
 - **DoD F.7:** card SSL cliente + admin (badge + expiry + autoRenew + issuer); tests (`getServiceInfo` puebla `ssl`; el card discrimina por estado; ausencia de `ssl` → no card); contract test (invariante `ssl` opcional); `pnpm ci:check:full` + boot; PR + post-merge sync.
 - **Valoración pre-código:** (1) ¿el threshold de "expiring_soon" es fijo (≤14d) o configurable (setting)? (2) ¿el card admin muestra algo más que el cliente (issuer técnico, fecha exacta) o es idéntico? (3) ¿`status: 'none'` (sin cert) merece un aviso o solo el badge gris?
 
+#### A.11.10.4.1. Refinamientos pre-código F.7 — R1/R2/R3 (Amendment al dossier, 2026-05-13)
+
+> **Sesión pre-código 2026-05-13 sesión 1** — Yasmin aprueba arrancar F.7. Patrón heredado de F.6 §A.11.10.3.2 (refinamientos pre-código formalizados como Amendment al dossier antes de codear; mejoras detectadas al cotejar el apuntado contra los ADRs frozen — L18). Las 3 valoraciones pre-código del bloque anterior se resuelven a continuación con razón doctrinal explícita.
+
+**R1 — Threshold `expiring_soon` fijo: 14 días naturales (NO setting per-plugin).**
+
+- **Decisión:** umbral canónico **14 días** entre `valid` y `expiring_soon`, definido como constante `SSL_EXPIRING_SOON_MS = 14 * 24 * 60 * 60 * 1000` en el plugin (NO setting en `/admin/settings/plugins/enhance-cp`, NO entrada en `PluginManifest`).
+- **Razón doctrinal:**
+  - **Industry standard.** LetsEncrypt + ACME emiten certs de 90 días con auto-renovación 30 días antes; un umbral de 14d da ~2 semanas de aviso antes de cualquier expiración real (LE no debería llegar nunca a `expiring_soon` salvo fallo de renovación — útil precisamente para detectar esos fallos).
+  - **YAGNI.** F.8 ya introducirá un setting per-plugin (`provisioning.enhance_cp.quota_alert_threshold_pct`); añadir un 2º setting aquí sin caso de uso real complica el contrato (regla "don't design for hypothetical future requirements"). Si un plugin pide un umbral distinto en el futuro, se promueve a setting con su propio Amendment.
+  - **Cálculo server-side.** El plugin compara `expires` vs `now` y decide el `status` — el frontend NUNCA hace aritmética de fechas (evita races UTC/local + permite tests deterministas con `MockDate` mockeando `Date` o pasando `now` como parámetro testable a `buildSslSummary`).
+- **Materialización:** `ADR-077 A7.4` + constante en `enhance.plugin.ts`.
+
+**R2 — Card admin vs cliente: mismo componente `_shared/`, admin gana solo extras display-only.**
+
+- **Decisión:** `frontend/app/_shared/services/SslStatusCard.tsx` con prop `isAdmin?: boolean`. Cliente y admin renderizan el mismo card (L16 — NO duplicación). Admin extras:
+  - Tooltip en el badge (`<span title={ssl.expiresAt}>`) mostrando `expiresAt` ISO exacto (cliente solo ve "expira en X días" relativo).
+  - CTA footer "Gestionar SSL en el panel del proveedor →" (link `ssoPanelHref`, abre nueva pestaña) — solo si el caller pasa el href (capability `hasSsoPanel` true).
+- **Razón doctrinal:**
+  - L16 (Fase F.3, doctrina F) — `_shared/` + prop `isAdmin`, no duplicación; coherente con `<MetricsBar>` y `<ActionsBar>` (mismo patrón).
+  - El cliente no necesita la fecha exacta (relativo "en 12 días" cubre 99% del entendimiento). El admin sí (auditoría / planificación).
+  - El CTA de gestión vive en admin porque DH-INV-6 — el cliente típico NO entra en el panel del proveedor (UX simplificada Aelium); el admin sí (mantenimiento operativo). Si emerge demanda de exponer el CTA al cliente, se evalúa fase aparte.
+- **Materialización:** `ADR-077 A7.5` + `ADR-083 A8.8` + componente nuevo.
+
+**R3 — `status='none'` muestra card visible (badge gris) + texto informativo, NO `AlertBanner` aparte.**
+
+- **Decisión:** cuando `ssl.status === 'none'` (cert ausente), el `SslStatusCard` SE RENDERIZA (no se oculta) con badge gris + línea "Sin certificado SSL — el sitio aparecerá como 'No seguro' en navegadores". NO se crea un `AlertBanner` independiente (UI_SPEC §4.3).
+- **Razón doctrinal:**
+  - El cliente DEBE enterarse (seguridad / SEO — Chrome marca HTTP como "No seguro" desde 2018). Silenciarlo sería una mala práctica profesional.
+  - NO es feedback efímero (no Toast) ni aviso persistente independiente (no AlertBanner aparte) — es **estado del recurso**, vive en el card SSL como un estado más (paralelo a "expirado" pero con causa distinta). Coherente con el patrón `MetricsBar`: nunca se "oculta" si no hay datos; muestra el estado real (incluso cuando es "sin datos").
+  - La diferencia con `ssl: undefined` (card no renderiza) es clara: `undefined` = el plugin **no pudo leer** el cert (error técnico, no exponer parcial); `status: 'none'` = el plugin leyó OK y **confirmó que no hay cert** (estado real, exponer al usuario).
+- **Materialización:** `ADR-077 A7.1` (enum `'none'`) + `ADR-083 A8.4` (`cert === null → { status: 'none' }`; `cert ilegible → undefined`) + `ADR-083 A8.8` (línea i18n `service.ssl.status.none`).
+
+**Decisiones derivadas (NO re-litigar):**
+
+- **D.7.1** — Endpoint orchd: `GET /v2/domains/{domain_id}/ssl` (operationId `getWebsiteDomainSslCert`), NO `mail_ssl` ni listado de aliases (ver `ADR-083 A8.1` decisión).
+- **D.7.2** — `domain_id` NO se persiste en `services.metadata` — se resuelve runtime vía `getWebsite(orgId, websiteId).domain.id` (cache 60s absorbe; ver `ADR-083 A8.2`).
+- **D.7.3** — `autoRenew` se deriva por heurística sobre `issuer` (LE → true, resto → false). Determinístico, sin `undefined` salvo emisor vacío (no se inventa "no" sin razón).
+- **D.7.4** — MockEnhanceServer extiende `state.domainSsls` Map + auto-siembra cert LE al `POST /websites` (60d, `forceHttps:true`).
+
+#### A.11.10.4.2. Commit-plan F.7
+
+> Orden estricto. 1 rama `sprint15c-ii-fase-f7-ssl-status` desde `master` post-merge de F.6 (commit `109f7f7`). Patrón heredado de F.6: doc-only Amendment opcionalmente separado del code; aquí se hace **todo en un PR** porque el código es de tamaño contenido (~400 LOC backend + ~250 LOC frontend + tests) y los Amendments son strictly additive — separarlos añadiría overhead sin valor (heredable: L18 dice "ADR amendments dentro de la fase").
+
+1. **Commit 1 — `docs(sprint-15c-ii): refinamientos pre-código F.7 — R1/R2/R3 + ADR amendments`** (este commit). Doc-only.
+   - `docs/10-decisions/adr-077-contrato-provisioner-plugin-v2.md` — Amendment A7 (campo `ssl?` opcional).
+   - `docs/10-decisions/adr-083-plugin-enhance-cp-specifics.md` — Amendment A8 (probe SSL Enhance).
+   - `docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md` — §A.11.10.4.1/§A.11.10.4.2 (este Amendment + commit-plan).
+2. **Commit 2 — `feat(sprint-15c-ii): F.7 backend — ServiceInfo.ssl? + EnhanceApiClient.getDomainSsl`**.
+   - `backend/src/core/provisioning/types.ts` — `ServiceSslStatus` + `ServiceSslSummary` + `ServiceInfo.ssl?`.
+   - `backend/src/plugins/provisioners/enhance_cp/api/types.ts` — `EnhanceDomainSslCert`.
+   - `backend/src/plugins/provisioners/enhance_cp/api/client.ts` — `getDomainSsl()`.
+   - `backend/src/plugins/provisioners/enhance_cp/enhance.plugin.ts` — `getServiceInfo` añade `getWebsite` al `Promise.all` + `buildSslSummary` + `detectAutoRenew` + `parseEnhanceCertDate`.
+   - `backend/test/mocks/enhance-server/server.ts` — `state.domainSsls` Map + endpoint `GET /v2/domains/:domainId/ssl` + auto-seed LE al `POST /websites` + `seed.domainSsls` opcional.
+3. **Commit 3 — `test(sprint-15c-ii): F.7 backend tests — ssl en getServiceInfo + contract invariant + client + mock`**.
+   - `backend/src/plugins/provisioners/enhance_cp/enhance.plugin.spec.ts` — +8 casos `getServiceInfo > ssl` + +3 casos `detectAutoRenew`.
+   - `backend/src/plugins/provisioners/plugin-contract.spec.ts` — invariante A7.3.
+   - `backend/src/plugins/provisioners/enhance_cp/api/client.spec.ts` — `getDomainSsl` 404 → null + otros re-lanzan.
+   - `backend/src/plugins/provisioners/enhance_cp/api/client.integration.spec.ts` — `getDomainSsl` lee del mock (200, 404, 500).
+4. **Commit 4 — `feat(sprint-15c-ii): F.7 frontend — SslStatusCard + wire en /dashboard|/admin/services/[id]`**.
+   - `frontend/app/_shared/services/SslStatusCard.tsx` — componente nuevo (badge + texto + admin extras). Server-component compatible (sin hooks).
+   - `frontend/app/_shared/services/index.ts` — barrel exporta `SslStatusCard`.
+   - `frontend/app/lib/api.ts` — añade `ServiceSslStatus`, `ServiceSslSummary`, `ServiceInfo.ssl?` (espejo del backend types.ts).
+   - `frontend/app/dashboard/services/[id]/page.tsx` — wire `<SslStatusCard ssl={info.ssl} />` condicional (gateado por `!isTerminal && info.ssl`).
+   - `frontend/app/admin/services/[id]/page.tsx` — wire `<SslStatusCard ssl={info.ssl} isAdmin />` condicional. `ssoPanelHref` se deja para F.12 (el admin ya tiene `<SsoButton>` general más abajo; F.12 evaluará si compactar SSL+SSO en una "card de operaciones de cert").
+   - **Sin tests RTL nuevos:** el frontend NO tiene runner Jest/Vitest (verificación = `tsc --noEmit` + `eslint --max-warnings=0` + `next build`). El comportamiento visual del card se cubre en G.2 (E2E spec extension — flujos cliente/admin con `info.ssl` en cada estado). El typecheck enforce el shape, el lint enforce las reglas a11y/react.
+   - **i18n vía `t()` (`frontend/app/_shared/i18n/translations-es.ts`):** sigue el patrón canónico Sprint 15C Fase 15C.I (verificado contra `AdminDriftBanner.tsx`). 13 keys nuevas en el bloque `service.ssl.*` (card_title + 4 status labels + 5 message variants + 2 auto_renew + issuer_prefix + expires_tooltip_prefix + admin_cta_manage_in_provider). El sufijo dinámico "en N días"/"hace N horas" se compone en el componente (sin templating) — `formatRelativeExpiry` devuelve string libre que se concatena al prefijo i18n. Compatible con la futura migración a `next-intl`/EN sub-sprint (`t()` tiene firma estable).
+5. **Commit 5 — `chore(sprint-15c-ii): F.7 validación — ci:check:full + boot smoke`**.
+   - Bumps de fixtures si los integration tests piden nuevos UUIDs determinísticos.
+   - Notas de boot smoke (no es un cambio de código en sí, pero el commit puede incluir el `wc -l` updates de `MEMORY.md`/`project-state.md` si la métrica de cobertura cambia material).
+6. **PR + post-merge sync** (patrón canónico F.6): PR `feat(sprint-15c-ii): Fase F.7 — SSL/TLS status read-only (ADR-077 A7 + ADR-083 A8)` con label `ready-for-e2e` (toca contract types) + bypass CI §6 si Actions sigue caído (10ª aplicación — añadir nota explícita en el PR). Tras merge, post-merge sync separado `docs(sprint-15c-ii): post-merge sync Fase F.7 — PR #N mergeado a master`.
+
+**DoD F.7 actualizado (sustituye al de §A.11.10.4):**
+
+- ADR-077 A7 + ADR-083 A8 frozen.
+- Backend: `ServiceSslStatus`/`ServiceSslSummary`/`ServiceInfo.ssl?` declarados + `EnhanceApiClient.getDomainSsl` + `getServiceInfo` puebla `ssl` con los 4 estados + cálculo server-side (umbral 14d) + heurística `detectAutoRenew`.
+- MockEnhanceServer: endpoint SSL + auto-seed LE + `seed.domainSsls` opcional.
+- Frontend: `SslStatusCard` cliente (mismo card sin extras) + admin (tooltip + CTA SSO) wired en ambas páginas; ausencia de `info.ssl` → no card.
+- Tests: 8 casos plugin SSL + 3 casos `detectAutoRenew` + contract invariant + client unit + client integration + RTL del card.
+- `pnpm ci:check:full` verde + boot real verificado.
+- PR mergeado + post-merge sync.
+
 ### A.11.10.5. Fase F.8 — Alertas de cuota (disco / ancho de banda)
 
 **Tema:** el cliente recibe aviso — visual y por notificación — antes de quedarse sin recursos.

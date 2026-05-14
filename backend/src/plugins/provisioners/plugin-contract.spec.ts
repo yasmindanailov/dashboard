@@ -412,6 +412,22 @@ describe.each(
             info.status,
           );
         }
+
+        // ADR-077 Amendment A7 — `ssl` opcional. Si presente: status ∈ enum
+        // canónico, expiresAt parseable, e invariante de consistencia:
+        // status='none' implica no hay cert → no hay fecha de expiración.
+        if (info.ssl !== undefined) {
+          expect(['valid', 'expiring_soon', 'expired', 'none']).toContain(
+            info.ssl.status,
+          );
+          if (info.ssl.expiresAt !== undefined) {
+            const parsed = new Date(info.ssl.expiresAt);
+            expect(Number.isFinite(parsed.getTime())).toBe(true);
+          }
+          if (info.ssl.status === 'none') {
+            expect(info.ssl.expiresAt).toBeUndefined();
+          }
+        }
       },
     );
 

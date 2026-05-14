@@ -441,4 +441,32 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
     'El servicio está temporalmente saturado. Vuelve a intentarlo en unos minutos.',
   'sso.error.circuit_open.admin':
     'Circuit breaker open en el plugin (umbral de fallos consecutivos superado). Auto-recovery en ~30s; revisa /admin/observability si persiste.',
+
+  // ── Sprint 15C.II Fase F.7 (ADR-077 Amendment A7 + ADR-083 A8) ─────────
+  //    Card SSL `_shared/services/SslStatusCard.tsx`. Estados canónicos:
+  //    valid (verde) / expiring_soon (ámbar) / expired (rojo) / none (gris).
+  //    Cliente y admin renderizan el mismo card (L16, prop `isAdmin`);
+  //    admin gana tooltip con fecha ISO + CTA al panel del proveedor.
+  //    R3 (refinamiento pre-código): `none` muestra card visible — NO
+  //    AlertBanner aparte (es estado del recurso, no aviso ortogonal).
+  'service.ssl.card_title': 'SSL',
+  'service.ssl.status.valid': 'SSL activo',
+  'service.ssl.status.expiring_soon': 'SSL caduca pronto',
+  'service.ssl.status.expired': 'SSL caducado',
+  'service.ssl.status.none': 'Sin certificado SSL',
+  'service.ssl.message.valid_prefix': 'SSL activo — expira ',
+  'service.ssl.message.expiring_soon_prefix':
+    'Tu certificado SSL caduca pronto — expira ',
+  'service.ssl.message.expired':
+    'SSL caducado — el sitio aparecerá como "No seguro" en navegadores hasta que se renueve.',
+  'service.ssl.message.none':
+    'Sin certificado SSL — el sitio aparecerá como "No seguro" en navegadores.',
+  'service.ssl.message.fallback_when': 'en breve',
+  'service.ssl.auto_renew_on': 'Renovación automática activa.',
+  'service.ssl.auto_renew_off':
+    'Renovación manual — recuerda renovar antes del vencimiento.',
+  'service.ssl.issuer_prefix': 'Emitido por ',
+  'service.ssl.expires_tooltip_prefix': 'Expira: ',
+  'service.ssl.admin_cta_manage_in_provider':
+    'Gestionar SSL en el panel del proveedor →',
 });

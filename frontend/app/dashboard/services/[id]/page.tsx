@@ -22,6 +22,7 @@ import {
   ActionsBar,
   MetricsBar,
   ServiceHeader,
+  SslStatusCard,
   SsoButton,
 } from '../../../_shared/services';
 
@@ -295,6 +296,18 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
           isAdmin={false}
         />
       )}
+
+      {/*
+        Sprint 15C.II Fase F.7 (ADR-077 Amendment A7) — card SSL read-only.
+        Capability-driven: SOLO se renderiza si `info.ssl` está presente
+        (presencia = señal de capability; no hay flag nuevo en
+        ServiceInfoCapabilities). Plugins que no exponen SSL omiten el
+        campo y el card no aparece. NO se muestra en servicios terminales
+        (cancelled/expired) — el cert ya no aplica al recurso. L16: mismo
+        componente `_shared/` para cliente y admin; aquí omitimos `isAdmin`
+        (cliente) y no pasamos `ssoPanelHref` (no es CTA cliente).
+      */}
+      {!isTerminal && info.ssl && <SslStatusCard ssl={info.ssl} />}
 
       {/*
         SSO panel — solo si el plugin lo soporta para esta instancia

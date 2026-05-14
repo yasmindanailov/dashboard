@@ -268,6 +268,31 @@ export interface EnhanceUpdateWebsite {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// 7bis. Domains / SSL (line 8452) — GET /v2/domains/{domain_id}/ssl
+//       Sprint 15C.II Fase F.7 — ADR-083 Amendment A8 (2026-05-13).
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Spec DomainSslCert line 20385 — subset usado por el plugin (omitimos
+ * `sans` y los campos `cert`/`key` que están solo en
+ * `DomainSslCertWithData`, no necesarios para el summary v1).
+ *
+ * El plugin lo lee vía `EnhanceApiClient.getDomainSsl(domainId)` y lo
+ * mapea a `ServiceSslSummary` ([ADR-077 A7](../../../../core/provisioning/types.ts) +
+ * ADR-083 A8.4). El campo `expires` viene como `string` sin formato
+ * especificado por el OAS — el plugin lo parsea defensivo (`new Date(raw)`
+ * + `isFinite(.getTime())`) y si falla devuelve `ssl: undefined` (no
+ * expone parcial).
+ */
+export interface EnhanceDomainSslCert {
+  readonly cn: string;
+  readonly expires: string;
+  readonly issued: string;
+  readonly issuer: string;
+  readonly forceHttps: boolean;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // 8. SSO (line 5039) — GET /orgs/{org}/members/{m}/sso
 // ────────────────────────────────────────────────────────────────────────────
 

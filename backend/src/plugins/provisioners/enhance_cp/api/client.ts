@@ -70,6 +70,7 @@
 
 import { Logger } from '@nestjs/common';
 
+import { ProvisionerPluginError } from '../../../../core/provisioning/types';
 import { EnhanceHttpClient, EnhanceHttpClientConfig } from './http-client';
 import {
   CustomerOrgId,
@@ -80,6 +81,7 @@ import {
   EnhanceCustomersListing,
   EnhanceDefaultDnsRecord,
   EnhanceDnsZone,
+  EnhanceDomainSslCert,
   EnhanceLoginCreated,
   EnhanceLoginInfo,
   EnhanceMember,
@@ -444,6 +446,40 @@ export class EnhanceApiClient {
     await this.http.delete<void>(
       `/orgs/${encodeURIComponent(orgId)}/websites/${encodeURIComponent(websiteId)}`,
     );
+  }
+
+  // ─── 6bis. Domains / SSL (Sprint 15C.II Fase F.7 — ADR-083 A8) ──────────
+
+  /**
+   * GET /v2/domains/{domain_id}/ssl — lee el cert SSL del dominio.
+   *
+   * Devuelve `null` si el endpoint responde 404 (no hay cert configurado
+   * para el dominio — caso `ServiceSslStatus = 'none'`). Re-lanza
+   * `ProvisionerPluginError` en otros errores (autenticación, red, 5xx)
+   * para que el caller los capture en su rama best-effort y degrade a
+   * `ssl: undefined`. Sin side-effects.
+   *
+   * Consumido por `getServiceInfo()` para poblar `ServiceInfo.ssl?`
+   * ([ADR-077 Amendment A7](../../../../../docs/10-decisions/adr-077-contrato-provisioner-plugin-v2.md)).
+   */
+  async getDomainSsl(domainId: string): Promise<EnhanceDomainSslCert | null> {
+    try {
+      return await this.http.get<EnhanceDomainSslCert>(
+        `/v2/domains/${encodeURIComponent(domainId)}/ssl`,
+      );
+    } catch (err) {
+      // El cliente HTTP mapea 404 → INVALID_STATE (errors.ts §74-83;
+      // mismo criterio que `getSubscription` en enhance.plugin.ts). En este
+      // endpoint específico (GET puro), INVALID_STATE solo puede venir de
+      // 404 (no hay cert) o 409 (no aplica semánticamente a un GET; defensivo).
+      if (
+        err instanceof ProvisionerPluginError &&
+        err.code === 'INVALID_STATE'
+      ) {
+        return null;
+      }
+      throw err;
+    }
   }
 
   // ─── 7. DNS records per-zone (Fase G UI 7 record kinds) ─────────────────

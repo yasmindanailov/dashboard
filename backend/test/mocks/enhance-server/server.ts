@@ -61,6 +61,7 @@ import {
   EnhanceUpdateDefaultDnsRecord,
   EnhanceUpdateDnsRecord,
   EnhanceUpdateSubscription,
+  EnhanceDomainSslCert,
   EnhanceUpdateWebsite,
   EnhanceUsedResourcesFullListing,
   EnhanceWebsite,
@@ -106,6 +107,22 @@ export interface MockEnhanceSeed {
    * versión del spec literal capturado).
    */
   readonly version?: string;
+
+  /**
+   * Sprint 15C.II Fase F.7 — ADR-083 Amendment A8.6.
+   *
+   * Certs SSL pre-sembrados por `domainId` (UUID del `EnhanceWebsiteDomain`).
+   * **No** se necesita sembrarlos manualmente para el flujo nominal — al
+   * crear un website (`POST /orgs/{org}/websites`), el mock auto-siembra un
+   * cert LetsEncrypt con `expires = now + 60d` para el `domain.id` recién
+   * creado (espejo del behaviour real de orchd con LE auto-issuance).
+   *
+   * Útil para tests que quieran probar otros estados (`expiring_soon`,
+   * `expired`, `none`, custom issuer) — el seed sobreescribe el default,
+   * o el test usa `state.domainSsls.set(domainId, customCert)` /
+   * `state.domainSsls.delete(domainId)` antes del test.
+   */
+  readonly domainSsls?: Readonly<Record<string, EnhanceDomainSslCert>>;
 }
 
 export interface MockEnhanceServerOptions {
@@ -188,6 +205,13 @@ export interface MockEnhanceState {
   websites: Map<string, EnhanceWebsite>;
   /** zoneKey (= `${websiteId}|${domain}`) → DnsZone. */
   zones: Map<string, EnhanceDnsZone>;
+  /**
+   * Sprint 15C.II Fase F.7 — ADR-083 Amendment A8.6.
+   * `domainId` (UUID del `EnhanceWebsiteDomain`) → cert SSL.
+   * La **ausencia** de entrada equivale a 404 = sin cert. Las routes nunca
+   * almacenan `null` aquí — `state.domainSsls.delete(domainId)` para "sin cert".
+   */
+  domainSsls: Map<string, EnhanceDomainSslCert>;
   /** recordId cluster-wide → DefaultDnsRecord. */
   defaultDnsRecords: Map<string, EnhanceDefaultDnsRecord>;
   /** Counter para subscription IDs (integer). */
@@ -209,6 +233,7 @@ function createInitialState(seed: MockEnhanceSeed): MockEnhanceState {
     subscriptions: new Map(),
     websites: new Map(),
     zones: new Map(),
+    domainSsls: new Map(Object.entries(seed.domainSsls ?? {})),
     defaultDnsRecords: new Map(),
     nextSubscriptionId: 1000,
     requestLog: [],
@@ -307,6 +332,7 @@ function buildApp(state: MockEnhanceState): express.Express {
   registerWebsiteRoutes(app, state);
   registerDnsZoneRoutes(app, state);
   registerDefaultDnsRoutes(app, state);
+  registerSslRoutes(app, state);
 
   // Catch-all 404.
   app.use((_req: Request, res: Response) => {
@@ -751,9 +777,10 @@ function registerWebsiteRoutes(
       return;
     }
     const wsId = randomUUID();
+    const domainId = randomUUID();
     const newWs: EnhanceWebsite = {
       id: wsId,
-      domain: { id: randomUUID(), domain: body.domain },
+      domain: { id: domainId, domain: body.domain },
       aliases: [],
       status: 'active',
       subscriptionId: body.subscriptionId,
@@ -764,6 +791,22 @@ function registerWebsiteRoutes(
     // Crear zona DNS automáticamente al crear website (espejo de Enhance real).
     const zoneKey = `${wsId}|${body.domain}`;
     state.zones.set(zoneKey, buildAutoZone(body.domain, state));
+    // Sprint 15C.II Fase F.7 (ADR-083 A8.6): auto-seed de cert LetsEncrypt
+    // al crear el website — espejo del behaviour real de orchd (LE issuance
+    // al provision). Tests que no lo quieran usan
+    // `state.domainSsls.delete(domain.id)` antes de la aserción; tests que
+    // quieran otro estado sobreescriben con `state.domainSsls.set(...)`.
+    if (!state.domainSsls.has(domainId)) {
+      const issuedAt = new Date();
+      const expiresAt = new Date(issuedAt.getTime() + 60 * 24 * 60 * 60 * 1000);
+      state.domainSsls.set(domainId, {
+        cn: body.domain,
+        issued: issuedAt.toISOString(),
+        expires: expiresAt.toISOString(),
+        issuer: "Let's Encrypt Authority X3",
+        forceHttps: true,
+      });
+    }
     res.status(201).json({ id: wsId });
   });
 
@@ -813,7 +856,34 @@ function registerWebsiteRoutes(
     for (const key of state.zones.keys()) {
       if (key.startsWith(prefix)) state.zones.delete(key);
     }
+    // Sprint 15C.II Fase F.7 (ADR-083 A8.6): cleanup del cert SSL del
+    // primary domain del website al borrar — coherente con el behaviour
+    // real (orchd elimina el cert con el dominio).
+    state.domainSsls.delete(ws.domain.id);
     res.status(204).send();
+  });
+}
+
+/**
+ * Sprint 15C.II Fase F.7 — ADR-083 Amendment A8.1/A8.6.
+ *
+ * `GET /v2/domains/{domain_id}/ssl` → 200 cert | 404 sin cert.
+ * Match real con orchd v12.21.3 (line 8452). Sin POST/PUT/DELETE — el
+ * mock cubre el path read-only consumido por `getDomainSsl` v1; las
+ * mutaciones (upload cert custom, set force_ssl) viven en el panel
+ * Enhance real y no se gestionan desde Aelium (DH-INV-6).
+ */
+function registerSslRoutes(
+  app: express.Express,
+  state: MockEnhanceState,
+): void {
+  app.get('/v2/domains/:domainId/ssl', (req, res) => {
+    const cert = state.domainSsls.get(req.params.domainId);
+    if (!cert) {
+      res.status(404).json({ code: 'NotFound', message: 'ssl cert not found' });
+      return;
+    }
+    res.json(cert);
   });
 }
 
