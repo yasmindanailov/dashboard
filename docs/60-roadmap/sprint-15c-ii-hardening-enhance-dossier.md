@@ -2413,7 +2413,7 @@ git checkout -b sprint15c-ii-fase-f9-reconcile-single
 **Contexto:** §A.11.10.6.1 mergeado a master vía PR [#81](https://github.com/yasmindanailov/dashboard/pull/81) squash `b45d946` 2026-05-16. Las Q1..Q6 de la valoración pre-código se resolvieron con Yasmin en la sesión inaugural de la rama `sprint15c-ii-fase-f9-reconcile-single`. Este bloque congela R1..R6 antes del primer commit feat (L18 frozen — mejoras como Amendment, no desvío silencioso; patrón heredado del refinamiento pre-código F.6 [#74](https://github.com/yasmindanailov/dashboard/pull/74) R1/R2/R3).
 
 **R1 (resolución Q1) — `reconcileOne` estrictamente opcional, capability-driven.**
-- Firma frozen: `reconcileOne?(service: ServiceWithRelations): Promise<ReconcileResult>` (additivo al contrato, mismo patrón que A6 `testConnection?()` y A7 `ServiceInfo.ssl?`). **ADR-077 Amendment A8** — NO bumpea `contractVersion`.
+- Firma frozen: `reconcileOne?(service: ServiceWithRelations): Promise<ServiceReconcileResult>` (additivo al contrato, mismo patrón que A6 `testConnection?()` y A7 `ServiceInfo.ssl?`). **ADR-077 Amendment A8** — NO bumpea `contractVersion`.
 - Backend: `ReconcileRegistryService.reconcileOne(slug, service)` valida la presencia del método; si falta, lanza `ProvisionerPluginError({ code: 'RECONCILE_ONE_NOT_SUPPORTED', module: 'reconcile', http: 400 })` (módulo set explícito — heredable de A6 + GAP-N F.3).
 - Frontend: el CTA "Reconciliar contra el proveedor" en `<AdminDriftBanner>` (cuando `info.recoveryHint === 'reconcile'`) y los botones por fila de `<PluginOperationalOverview>` (F.2) se gatean leyendo la capability del manifest derivada del admin overview (sin flag explícito en `PluginCapabilities` — la capability se infiere por presencia del método; coherente con A6/A7).
 - Contract test (invariante en `provisioner-contract.spec.ts`): cualquier plugin que declare la capability en el manifest expone el método; los que no lo expongan NO declaran la capability.
@@ -2435,7 +2435,7 @@ git checkout -b sprint15c-ii-fase-f9-reconcile-single
 - Razón canónica de category **NUEVO** (vs reusar `lifecycle`): separación granular — facilita filtrar el historial sin mezclar con suspensiones/cancelaciones humanas que llevan intención del usuario; al admin le permite auditar "qué reconciliaciones manuales han generado cambios" de un vistazo.
 
 **R4 (resolución Q4) — Doctrina safe-to-adopt espejo del cron L3 (DH-INV-6 + F.4 A1).**
-- `ReconcileResult` frozen: `{ driftsDetected: ServiceDrift[]; driftsApplied: ServiceDrift[]; reconciledAt: Date }` (separación explícita — `driftsApplied ⊆ driftsDetected`).
+- `ServiceReconcileResult` frozen: `{ driftsDetected: ServiceDrift[]; driftsApplied: ServiceDrift[]; reconciledAt: Date }` (separación explícita — `driftsApplied ⊆ driftsDetected`). **Nombre frozen tras Amendment al final de esta sección** — colisión descubierta con `ReconcileResult` agregado del reconcile-all (`reconcile-registry.service.ts:74`) que NO se renombra.
 - Set safe-adopt: status del proveedor `active` o `suspended` → auto-adopt sobre `services.status` (alineado a la doctrina F.4 A1 "lifecycle administrativo vs operacional"). Cualquier otro status (`cancelled`, `subscription_missing`, `terminated`, `expired`) → drift detectado y emitido en `driftsDetected`, **NO mutado** sobre `services.status` (transiciones destructivas requieren intención humana explícita vía `deprovisionAsAdmin` — `DC.46`).
 - Drift `plan_divergence`: auto-adopt sobre `services.metadata.plan_id` / `product_id` (drift de catálogo, no destructivo, espejo del cron L3).
 - Drift `subscription_missing` (proveedor reporta 404 para el `subscription_id` del service): SOLO emit-only — el cron L3 no lo adopta automáticamente y `reconcileOne` mantiene la doctrina. Admin decide vía botón explícito de cancelación.
@@ -2446,32 +2446,32 @@ git checkout -b sprint15c-ii-fase-f9-reconcile-single
 - Caso `driftsApplied === 0 && driftsDetected === 0`: toast neutro **"Sin cambios — el servicio está sincronizado con el proveedor"** + `router.refresh()` (re-poblar UI por si la cache de `getServiceInfo` cambió).
 - Caso `driftsApplied > 0`: toast éxito **"Reconciliación completada · N cambio(s) aplicado(s)"** + CTA secundario **"Ver detalle en timeline"** → `/admin/services/[id]/audit` (F.3 GAP-M) + `router.refresh()`.
 - Caso `driftsApplied === 0 && driftsDetected > 0` (todos los drifts detectados son `cancelled`/`subscription_missing` no aplicables): toast warning **"N drift(s) detectado(s) · ninguno aplicado automáticamente (revisar timeline)"** + CTA "Ver detalle en timeline" (forzar revisión humana).
-- Implementación: extender el handler del botón `<AdminDriftBanner>` (y filas drift de `<PluginOperationalOverview>`) para llamar `POST /admin/services/:id/reconcile` vía la action federada del frontend, capturar el `ReconcileResult`, y switchear el toast según los 3 casos.
+- Implementación: extender el handler del botón `<AdminDriftBanner>` (y filas drift de `<PluginOperationalOverview>`) para llamar `POST /admin/services/:id/reconcile` vía la action federada del frontend, capturar el `ServiceReconcileResult`, y switchear el toast según los 3 casos.
 
 **R6 (resolución Q6 — confirmada por defecto del dossier) — Cooldown 30s Redis `SET NX EX` per-`serviceId` con coalescing a cache.**
 - Método nuevo: `ProvisioningCacheService.tryAcquireReconcileSingleCooldown(serviceId: number, ttlSeconds: number = 30): Promise<boolean>` (paralelo a `tryAcquireRefreshCooldown` introducido en F.3 B.1).
-- Almacenamiento del `ReconcileResult` por servicio: `ProvisioningCacheService.cacheReconcileResult(serviceId, result, ttlSeconds = 30)` + `getCachedReconcileResult(serviceId): Promise<ReconcileResult | null>`.
+- Almacenamiento del `ServiceReconcileResult` por servicio: `ProvisioningCacheService.cacheServiceReconcileResult(serviceId, result, ttlSeconds = 30)` + `getCachedServiceReconcileResult(serviceId): Promise<ServiceReconcileResult | null>`.
 - Comportamiento en ventana activa:
-  - Si hay `ReconcileResult` cacheado → **devolverlo** (coalescing, alineado a F.3 force-refresh) + flag `coalesced: true` en respuesta HTTP para el frontend (toast neutro especial: "Resultado en caché — reconciliación reciente").
+  - Si hay `ServiceReconcileResult` cacheado → **devolverlo** (coalescing, alineado a F.3 force-refresh) + flag `coalesced: true` en respuesta HTTP para el frontend (toast neutro especial: "Resultado en caché — reconciliación reciente").
   - Si NO hay cacheado (primera llamada en curso, race) → `429 RECONCILE_IN_PROGRESS` con `Retry-After: <segundos restantes>`.
 - TTL 30s vs F.3 B.1 force-refresh 15s: `reconcileOne` implica más calls al proveedor (re-leer subscription + comparar metadata + posibles mutaciones); el cooldown más generoso protege del N×load por martilleo del admin.
 - Estrategia fail-OPEN: si Redis no responde, el endpoint procede (igual que F.3 B.1) — la disponibilidad del endpoint admin no debe depender del cooldown.
 - Heredable a 15D RC / 15E Docker / 15G Plesk — mismo patrón.
 
 **ADR amendments consolidados de F.9** (todos dentro de la fase, patrón heredado desde Fase E):
-- **[ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) Amendment A8** — `reconcileOne?(service): Promise<ReconcileResult>` opcional capability-driven + shapes `ReconcileResult` + `ServiceDrift` + nuevo `ProvisionerErrorCode.RECONCILE_ONE_NOT_SUPPORTED`. Additivo, NO bumpea `contractVersion`.
+- **[ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) Amendment A8** — `reconcileOne?(service): Promise<ServiceReconcileResult>` opcional capability-driven + shapes `ServiceReconcileResult` + `ServiceDrift` + `ServiceDriftType` + nuevo `ProvisionerErrorCode.RECONCILE_ONE_NOT_SUPPORTED`. Additivo, NO bumpea `contractVersion`. **Nombre `ServiceReconcileResult` frozen tras Amendment** — ver bloque al final de esta sección.
 - **[ADR-079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) Amendment A5** — `NoteCategory.reconciliation` (9º del enum) + `triggered_by_action.service.reconciled_single` (6º del enum) + reutilización de `createFromServiceLifecycleAction(tx?)` (helper F.6, sin cambios de firma).
 - **ADR-080** — SIN amendment. Reusamos evento existente `service.reconciled_external_change`; el discriminador `trigger: 'manual_single' | 'cron'` es payload-level.
 - **[ADR-083](../10-decisions/adr-083-plugin-enhance-cp-specifics.md) posible Amendment A9** — specifics del `reconcileOne` Enhance (decidir al implementar F.9.3 según si se descubre lógica frozen-worthy del provider en el smoke real; sino, NO se materializa).
 
 **Mapa de implementación derivado de R1..R6** (orden tentativo de commits feat — no exhaustivo):
 1. **Schema + migration**: `prisma/migrations/*_add_reconciliation_note_category` (enum `NoteCategory.reconciliation` + enum `triggered_by_action.service.reconciled_single`).
-2. **Tipos backend** (`backend/src/core/provisioning/contracts/`): `ServiceDrift`, `ReconcileResult`, `ProvisionerErrorCode.RECONCILE_ONE_NOT_SUPPORTED`; ampliación de `ProvisionerPlugin` interface con `reconcileOne?()`.
+2. **Tipos backend** (`backend/src/core/provisioning/types.ts`): `ServiceDriftType`, `ServiceDrift`, `ServiceReconcileResult`, `ProvisionerErrorCode.RECONCILE_ONE_NOT_SUPPORTED`; ampliación de `ProvisionerPlugin` interface con `reconcileOne?()`.
 3. **ADRs amendments** (commit doc dentro de la fase, paralelo al schema): ADR-077 A8 + ADR-079 A5.
 4. **Contract test invariante** (`provisioner-contract.spec.ts`): capability-driven invariant.
 5. **`ReconcileRegistryService.reconcileOne(slug, service)`**: delega al plugin con guard 400.
-6. **`ProvisioningCacheService.tryAcquireReconcileSingleCooldown` + `cacheReconcileResult`/`getCachedReconcileResult`**: cooldown 30s + coalescing.
-7. **`ProvisioningService.reconcileServiceAsAdmin(serviceId, actorUserId)`**: carga service (NotFound), shortcircuit terminal (`cancelled`/`terminated`), cooldown (R6), delega a `reconcileRegistry.reconcileOne`, dentro de `$transaction` aplica drifts + `createFromServiceLifecycleAction` si `driftsApplied>0` (R3), invalida cache `service_info`, emite `service.reconciled_external_change` con `trigger:'manual_single'` (R2), retorna `ReconcileResult` con flag `coalesced` si aplica.
+6. **`ProvisioningCacheService.tryAcquireReconcileSingleCooldown` + `cacheServiceReconcileResult`/`getCachedServiceReconcileResult`**: cooldown 30s + coalescing.
+7. **`ProvisioningService.reconcileServiceAsAdmin(serviceId, actorUserId)`**: carga service (NotFound), shortcircuit terminal (`cancelled`/`terminated`), cooldown (R6), delega a `reconcileRegistry.reconcileOne`, dentro de `$transaction` aplica drifts + `createFromServiceLifecycleAction` si `driftsApplied>0` (R3), invalida cache `service_info`, emite `service.reconciled_external_change` con `trigger:'manual_single'` (R2), retorna `ServiceReconcileResult` con flag `coalesced` si aplica.
 8. **Endpoint** `POST /admin/services/:id/reconcile` con `@CheckPolicies(Update Service)` + `@AuditAccess('Service')`.
 9. **Tests backend**: `ReconcileRegistryService.reconcileOne` (plugin sin soporte → 400; con soporte → delega correctamente), `ProvisioningService.reconcileServiceAsAdmin` (NotFound + shortcircuit terminal + cooldown 429 + happy path con `driftsApplied>0` → `ClientNote` creada + cooldown coalesced → último resultado cacheado), Enhance plugin `reconcileOne` (mocks `EnhanceApiClient.getSubscription` con drifts simulados).
 10. **Enhance plugin** (`backend/src/integrations/enhance/plugins/enhance.plugin.ts`): implementa `reconcileOne(service)` espejo del cron L3 — re-lee `getSubscription`, compara contra `services.metadata.subscription_id` + `product.provisioner_config.subscription_plan_id`, aplica safe-adopt según R4.
@@ -2481,6 +2481,20 @@ git checkout -b sprint15c-ii-fase-f9-reconcile-single
 **Decisiones explícitas adicionales tomadas en pre-código** (apuntadas aquí para no perder trazabilidad):
 - **DC.49 NO arrastrado a F.9**: el smoke real de F.9 sigue con el patrón "edit `mock-enhance-server.ts` + reiniciar el runner". DC.49 (seed dinámico del mock) sigue diferido como housekeeping post-15C.II — promocionable a fase aparte cuando el coste de no tenerlo sea mayor que el de implementarlo (probablemente cuando se materialicen los tests E2E de la Fase G).
 - **Bypass §6 anticipado**: si CI GitHub Actions sigue billing-bloqueada al cerrar F.9, será la **12ª aplicación** del bypass (suma sobre #57/#60/#63/#65/#67/#70/#72/#74/#75/#77/#79). El handoff doc-only PR #81 no contó como bypass porque NO toca código (no requiere CI verde por construcción).
+
+**Amendment 2026-05-16 — naming clash discovery (post-init implementación F.9.2)**
+
+Durante el arranque del commit feat 2 (tipos backend) se descubre que el nombre `ReconcileResult` que R4 usaba para el shape per-servicio **ya estaba en uso** en el codebase: existe en `backend/src/core/provisioning/reconcile-registry.service.ts:74` como el shape agregado del reconcile-all (`{ servicesProcessed: number; driftsDetected: number; durationMs: number; details: unknown }`), exportado y referenciado en 5 archivos (16 ocurrencias totales: `reconcile-registry.service.ts`, `enhance-reconciliation.cron.ts`, `admin-plugins.service.ts` + 2 specs). L18 frozen — mejora descubierta = Amendment, no desvío silencioso.
+
+**Resolución frozen (Yasmin 2026-05-16)**: opción B — renombrar el shape per-servicio a **`ServiceReconcileResult`**; el `ReconcileResult` agregado existente NO se toca. Razón canónica:
+
+- **Cero refactor del cron L3**: el `ReconcileResult` agregado es contrato canónico del registry de reconcile-all (heredable por 15D RC / 15E Docker / 15G Plesk para sus crons propios). Renombrar a `ReconcileAllResult` introduciría breaking interno en 5 archivos sin valor añadido.
+- **Naming más descriptivo**: `ServiceReconcileResult` deja explícita la dimensión "per-servicio" vs el agregado. Coherente con el sufijo de `ServiceAction`, `ServiceCapabilities`, `ServiceInfo`, `ServiceWithRelations` ya canónicos del contrato.
+- **Sin colisión semántica**: `ReconcileResult` (agregado) y `ServiceReconcileResult` (per-servicio) son shapes con propósitos distintos — el cron L3 produce el primero, `reconcileOne` el segundo; no hay relación de herencia o composición.
+
+**Aplicación en este §A.11.10.6.2**: todas las referencias a `ReconcileResult` en los párrafos R1, R4, R5, R6, ADR amendments y mapa de implementación se han actualizado a `ServiceReconcileResult` tras este Amendment. Los métodos del cache (`cacheServiceReconcileResult` + `getCachedServiceReconcileResult`) usan el sufijo coherente con el tipo. El frontend Server Action devuelve `ServiceReconcileResult` (no `ReconcileResult`).
+
+**Heredable a fases futuras**: cualquier plugin que añada un método "per-servicio" con resultado tipado (ej. `getBackupStatus(service)` futuro) debe usar el sufijo `Service*` para el shape. El reconcile-all existente queda como referencia del patrón "agregado" sin prefijo.
 
 ### A.11.10.7. Fase F.10 — Deep-links curados al panel del proveedor
 
