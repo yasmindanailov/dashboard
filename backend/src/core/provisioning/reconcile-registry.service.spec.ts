@@ -221,14 +221,26 @@ describe('ReconcileRegistryService — Sprint 15C.II Fase B (ADR-083 Amendment A
     it('reconcileOne: invoca executor + devuelve ServiceReconcileResult', async () => {
       const expected: ServiceReconcileResult = {
         driftsDetected: [
-          { type: 'status_divergence', before: 'active', after: 'suspended', applied: true },
+          {
+            type: 'status_divergence',
+            before: 'active',
+            after: 'suspended',
+            applied: true,
+          },
         ],
         driftsApplied: [
-          { type: 'status_divergence', before: 'active', after: 'suspended', applied: true },
+          {
+            type: 'status_divergence',
+            before: 'active',
+            after: 'suspended',
+            applied: true,
+          },
         ],
         reconciledAt: new Date('2026-05-16T13:30:00Z'),
       };
-      registry.registerReconcileOne('plugin-x', () => Promise.resolve(expected));
+      registry.registerReconcileOne('plugin-x', () =>
+        Promise.resolve(expected),
+      );
 
       const result = await registry.reconcileOne('plugin-x', FAKE_SERVICE);
       expect(result).toEqual(expected);
@@ -290,7 +302,9 @@ describe('ReconcileRegistryService — Sprint 15C.II Fase B (ADR-083 Amendment A
         ],
       };
 
-      registry.register('enhance_cp', () => Promise.resolve(reconcileAllResult));
+      registry.register('enhance_cp', () =>
+        Promise.resolve(reconcileAllResult),
+      );
       registry.registerReconcileOne('enhance_cp', () =>
         Promise.resolve(reconcileOneResult),
       );

@@ -1964,7 +1964,9 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         driftsApplied: FAKE_RECONCILE_RESULT_WITH_DRIFTS.driftsApplied,
       });
       expect(reconcileRegistry.reconcileOne).not.toHaveBeenCalled();
-      expect(clientNotes.createFromServiceLifecycleAction).not.toHaveBeenCalled();
+      expect(
+        clientNotes.createFromServiceLifecycleAction,
+      ).not.toHaveBeenCalled();
       expect(events.emit).not.toHaveBeenCalled();
     });
 
@@ -2068,7 +2070,9 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
 
       expect(result).toEqual(FAKE_RECONCILE_RESULT_EMPTY);
       // R3 frozen: SIN cambios aplicados, NO hay nota.
-      expect(clientNotes.createFromServiceLifecycleAction).not.toHaveBeenCalled();
+      expect(
+        clientNotes.createFromServiceLifecycleAction,
+      ).not.toHaveBeenCalled();
       // Pero SÍ hay evento + audit + cache (rastro operativo del intento).
       expect(events.emit).toHaveBeenCalled();
       expect(audit.logChange).toHaveBeenCalled();
@@ -2086,7 +2090,9 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         service.reconcileServiceAsAdmin('svc-1', 'admin-1', CTX),
       ).rejects.toMatchObject({ code: 'RECONCILE_ONE_NOT_SUPPORTED' });
       // El service NO debe haber creado nota ni audit (el error sucedió antes).
-      expect(clientNotes.createFromServiceLifecycleAction).not.toHaveBeenCalled();
+      expect(
+        clientNotes.createFromServiceLifecycleAction,
+      ).not.toHaveBeenCalled();
       expect(audit.logChange).not.toHaveBeenCalled();
     });
   });
