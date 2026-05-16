@@ -2519,6 +2519,90 @@ Razón canónica:
 
 **Heredable a fases futuras**: cualquier nuevo método opcional del contrato `ProvisionerPlugin` que requiera invocación per-servicio desde un servicio leaf-importable (`core/provisioning/`) debe seguir el patrón "executor registrado por el cron del plugin" antes que inyectar el `PluginRegistryService`. Esto preserva la regla de no-ciclos canónica de la arquitectura módulo del backend.
 
+#### A.11.10.6.3. Handoff F.9 — mid-implementación (frozen 2026-05-16)
+
+**Propósito**: documentar el progreso mid-implementación de F.9 (13 de los 12+1 hitos canónicos completados — backend completo + tests) para que una conversación nueva del agente cierre los 3 hitos restantes (feat 10 plugin Enhance + feat 11 frontend wire + feat 12 smoke real + PR + post-merge sync) con rigor profesional, leyendo SOLO §A.11.10.6 + §A.11.10.6.1 (handoff arranque) + §A.11.10.6.2 (R1..R6 frozen + Amendment naming clash + Amendment II DI) + este bloque. Patrón heredado de §A.11.10.6.1 (a su vez heredado de §A.11.9 handoff F.3).
+
+**Estado del repo al cierre de la sesión 1** (2026-05-16 13:30 UTC):
+
+- Rama `sprint15c-ii-fase-f9-reconcile-single` partida desde master `b45d946` (post-handoff PR [#81](https://github.com/yasmindanailov/dashboard/pull/81) squash).
+- **13 commits hechos en local + pusheados a origin** (4 docs + 7 feats + 2 chore prettier):
+
+| # | SHA | Hito (referencia §A.11.10.6.2) |
+|---|-----|------|
+| 1 | `da15ac8` | doc R1..R6 frozen |
+| 2 | `7425acf` | F.9.1 schema + migration `NoteCategory.reconciliation` (9º) |
+| 3 | `d3be27b` | doc Amendment naming clash → `ServiceReconcileResult` |
+| 4 | `9a33b32` | F.9.2 tipos contrato (`ServiceDrift*`, `ProvisionerPlugin.reconcileOne?()`, `ProvisionerErrorCode.RECONCILE_ONE_NOT_SUPPORTED`) |
+| 5 | `055a64f` | F.9.3 ADR-077 Amendment A8 + ADR-079 Amendment A5 |
+| 6 | `e9e3023` | F.9.4 contract test invariante capability-driven |
+| 7 | `e97b521` | F.9.5 `ReconcileRegistryService.reconcileOne` + Amendment II (DI clash) |
+| 8 | `abe530d` | F.9.6 `ProvisioningCacheService` cooldown 30s + result coalescing |
+| 9 | `307be35` | chore prettier (registry) |
+| 10 | `0ba780f` | F.9.7 orquestador `ProvisioningService.reconcileServiceAsAdmin` |
+| 11 | `d11fce6` | F.9.8 endpoint `POST /admin/services/:id/reconcile` |
+| 12 | `29016f5` | F.9.9 tests backend (6 registry + 8 orquestador) |
+| 13 | `2225d2e` | chore prettier (specs) |
+
+- Cobertura backend post-feat-9: **53 suites / 747 passed + 6 skipped** (+14 vs master 733+5 — los 6 nuevos del registry F.9 + 8 nuevos del orquestador F.9, todos en describes nuevos).
+- **2 Amendments doctrinales** descubiertos durante implementación y frozen en §A.11.10.6.2:
+  - **Amendment 2026-05-16** (naming clash): `ReconcileResult` ya existía en el codebase para el reconcile-all agregado (`reconcile-registry.service.ts:74`). El shape per-servicio de R4 frozen pasa a llamarse `ServiceReconcileResult` (sufijo `Service*` heredable a fases futuras).
+  - **Amendment 2026-05-16 (II)** (DI clash): `ReconcileRegistryModule` es leaf-importable para evitar ciclo con `ProvisioningModule` (provee `PluginRegistryService`). Inyectar `PluginRegistryService` en el registry crearía exactamente ese ciclo. Resolución: el registry NO conoce instancias de plugins — cada plugin que implemente `reconcileOne` registra un `ReconcileOneExecutor` (closure capturando la instancia) en el `onModuleInit` del cron, paralelo al `register()` existente del reconcile-all. Implementación: `registerReconcileOne(slug, executor)` + `reconcileOne(slug, service)` + `hasReconcileOneExecutor(slug)`.
+
+**Lo que queda — 4 hitos** (todos referenciados por número en §A.11.10.6.2 mapa de implementación):
+
+- **Hito 10 — `EnhancePlugin.reconcileOne(service)` + registro en cron L3** (`backend/src/plugins/provisioners/enhance_cp/enhance.plugin.ts` + `crons/enhance-reconciliation.cron.ts`). Espejo per-servicio de la lógica del cron L3 actual (`reconcileService` método privado línea ~257). Re-lee `getSubscription` via `EnhanceApiClient`, compara contra `services.metadata.subscription_id` + `product.provisioner_config.subscription_plan_id`, aplica safe-adopt R4. En el `onModuleInit` del cron añadir `this.reconcileRegistry.registerReconcileOne('enhance_cp', (service) => this.plugin.reconcileOne!(service))` paralelo al `register()` ya existente (línea 113). Tests: extender `enhance.plugin.spec.ts` con casos de `reconcileOne` (mocks de `getSubscription` simulando los 3 drift types). **Decisión a tomar pre-código** (Q8 abajo).
+- **Hito 11 — Frontend wire** (`frontend/src/_shared/services/` + `frontend/src/admin/`). Extender `<AdminDriftBanner>` con handler del botón "Reconciliar contra el proveedor" cuando `info.recoveryHint === 'reconcile'` (hoy linka a settings — placeholder F.3). Extender filas drift de `<PluginOperationalOverview>` (F.2) con botón inline "Reconciliar". Server Action federada que invoca `POST /api/v1/admin/services/:id/reconcile` y captura el `ServiceReconcileResult & { coalesced?: true }`. Toast UX según R5 frozen (3 ramas: sin cambios / N aplicados / N detectados sin aplicar) + redirect al timeline F.3 cuando `driftsApplied > 0`. Gating del CTA: capability del manifest enriquecido en admin overview F.2 (`supportsReconcileOne` derivado de la presencia del executor en el registry — exponer vía la API admin existente).
+- **Hito 12 — Smoke real contra `MockEnhanceServer`** + `pnpm ci:check:full` + boot smoke. Edit + restart del mock para simular cada drift type (subscription_missing, status_divergence, plan_divergence). Verificar el Toast UX en navegador. Confirmar audit timeline F.3 muestra el evento `service.reconciled_external_change` con `trigger:'manual_single'` + el `ClientNote` con categoría `reconciliation` aparece en `<ClientNotesTab>` federada con etiqueta "Reconciliación".
+- **PR + post-merge sync** — Apertura del PR (bypass §6 si CI Actions sigue billing-bloqueada — **12ª aplicación** previsible). Post-merge doc-sync patrón heredado (#61/#64/#66/#68/#71/#73/#76/#78/#80) — flip §A.11.1 fila F.9 a ✅ + `current.md` + `backlog.md` + `MEMORY.md` + `project-state.md`.
+
+**Q7..Q9 — Decisiones pre-código a resolver con Yasmin en sesión nueva** (descubiertas durante implementación sesión 1):
+
+- **Q7** — `ConflictException(RECONCILE_IN_PROGRESS)` del orquestador: el filter global lo mapea a HTTP 409 por defecto. **¿Re-mapearlo a HTTP 429 con header `Retry-After` explícito** en el endpoint admin (commit feat 8 actualmente devuelve 409)? La semántica "Too Many Requests" es más estándar para cooldowns. **Recomendación**: SÍ, mejor adherencia al estándar HTTP — modificar el `reconcileOne` handler del controller para `try/catch` la `ConflictException` con code `RECONCILE_IN_PROGRESS` y re-throw como `HttpException(..., 429)` con header. Coste: ~10 líneas. Decidir.
+
+- **Q8** — Doctrina del Enhance plugin `reconcileOne` vs el cron L3 actual. El cron L3 (`enhance-reconciliation.cron.ts:reconcileService`) **ya aplica drifts safe-adopt directamente** (muta `services.status` / `services.metadata` plugin-side, vía `prisma.service.update`). El nuevo `reconcileOne` per-servicio puede:
+  - **Opción A (recomendada)**: refactorizar `reconcileService` privado del cron a `reconcileOneInternal(service)` reutilizable, y exponer `EnhancePlugin.reconcileOne(service) = this.cron.reconcileOneInternal(service)`. DRY — el cron L3 y el endpoint admin invocan la misma lógica. Cambio interno aceptable (es código del propio módulo plugin). Tests del cron siguen pasando.
+  - **Opción B**: implementar `reconcileOne` independiente, duplicando la lógica del cron (drift detection + safe-adopt). Coste: duplicación, riesgo divergencia futura.
+  - **Sub-amendment a §A.11.10.6.2 A8.5 ADR-077** que decía "el orquestador aplica los drifts en su `$transaction`" — la realidad es que el cron L3 actual aplica drifts plugin-side, y `reconcileOne` debe ser consistente (opción A). El orquestador F.9.7 NO aplica drifts — solo invoca al plugin que ya los aplicó + maneja `ClientNote` + audit + evento + cache. **Aplicar Amendment III** en el commit feat 10 para frozen la doctrina (matiz a L19 candidato F.6: cuando hay plugin call que muta estado, la nota se crea POST plugin call en su propia tx; L19 puro aplica solo a transiciones admin lifecycle sin plugin call). Decidir.
+
+- **Q9** — Capability detection en frontend para gatear el CTA. R1 frozen dice "frontend gatea leyendo la capability del manifest enriquecido vía admin overview F.2". **Pero la presencia de `reconcileOne` NO está hoy en el manifest** — el manifest declara `testConnectionMethod`, `serviceInfoCacheTtlSeconds`, capabilities (suspend/dns/etc), pero no expone si el plugin implementa `reconcileOne?()`. Opciones:
+  - **Opción A**: añadir un campo derivado al admin overview response `supportsReconcileOne: boolean` calculado server-side (`typeof plugin.reconcileOne === 'function'` O `registry.hasReconcileOneExecutor(slug)` — ambos equivalentes). NO afecta el manifest declarativo (`PluginManifest` queda intacto). El frontend lee el campo derivado.
+  - **Opción B**: el frontend invoca el endpoint y maneja el 400 RECONCILE_ONE_NOT_SUPPORTED renderizando un mensaje de error. UX peor (el usuario pulsa un botón que falla siempre).
+  - **Opción C**: añadir flag explícito `supports_reconcile_one` a `PluginCapabilities`. Rompe la doctrina capability-driven por presencia (A6/A7).
+  - **Recomendación**: Opción A — derivado server-side en la admin API. Coste: ~5 líneas en `admin-plugins.service.ts` (suma de un flag al payload del plugin instance) + lectura en el frontend. Decidir.
+
+**Patrón heredado de cierre F.1→F.8** (aplicable a la sesión 2):
+
+1. Resolver Q7..Q9 con Yasmin pre-código.
+2. (Opcional pero recomendado) Commit doc-only con sub-amendments al §A.11.10.6.2 (similar al `d3be27b` naming clash + el `e97b521` Amendment II): "Amendment III — plugin aplica drifts vs orquestador (Q8 frozen)" + cualquier otro sub-amendment de Q7/Q9.
+3. Commit feat 10 — Enhance plugin (espejo cron L3 según opción A Q8).
+4. Commit feat 11 — Frontend wire.
+5. Commit feat 12 — Smoke real + `pnpm ci:check:full` + boot smoke.
+6. PR único con bypass §6 si CI Actions sigue billing-bloqueada (12ª aplicación previsible — sumando sobre #57/#60/#63/#65/#67/#70/#72/#74/#75/#77/#79).
+7. Post-merge doc-sync PR (patrón heredado #61/#64/#66/#68/#71/#73/#76/#78/#80) — flip de §A.11.1 fila F.9 a ✅ con commit SHA del squash + `current.md` + `backlog.md` (cerrar `DC.45`) + `MEMORY.md` + `project-state.md`.
+
+**Comandos exactos para arrancar la sesión 2**:
+
+```bash
+cd /c/Users/yasmi/Desktop/proyectos_tecnologiasdigital/aelium/dashboard
+git checkout sprint15c-ii-fase-f9-reconcile-single
+git pull --ff-only  # traer este handoff (commit pendiente al cerrar sesión 1)
+# Leer §A.11.10.6 + §A.11.10.6.1 + §A.11.10.6.2 + §A.11.10.6.3 (este handoff).
+# Resolver Q7..Q9 con Yasmin pre-código.
+# Materializar sub-amendments + commits feat 10/11/12 + PR + post-merge sync.
+```
+
+**Frase canónica de continuación** (Yasmin pega esto en chat nuevo):
+
+> *"Lee `docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md` §A.11.10.6 (plan F.9) + §A.11.10.6.1 (handoff arranque) + §A.11.10.6.2 (R1..R6 frozen + Amendments I y II) + §A.11.10.6.3 (este handoff mid-implementación). Backend completo end-to-end en la rama `sprint15c-ii-fase-f9-reconcile-single` (13 commits + 14 tests F.9 verdes, 747 passed + 6 skipped). Resta: feat 10 Enhance plugin reconcileOne + feat 11 frontend wire + feat 12 smoke real + PR + post-merge sync. **Resuelve Q7..Q9 con Yasmin ANTES de codear** (decisiones pre-código descubiertas durante sesión 1: HTTP 429 vs 409 + plugin aplica drifts vs orquestador + capability detection frontend). Patrón heredado: commits feat + bypass §6 si CI Actions billing-bloqueada (12ª aplicación previsible) + post-merge sync. Sé riguroso y profesional."*
+
+**Notas críticas operativas para la sesión 2** (extendido §A.11.10.6.1 "Notas críticas"):
+
+- **Prisma client regenerado** post-feat-1 — `pnpm prisma generate` ya ejecutado en sesión 1 (necesario para que `NoteCategory.reconciliation` esté disponible en TS). Si la rama se borra/recrea, re-ejecutar.
+- **Pre-push hook prettier**: ya disparado 2 veces en sesión 1 (commits chore `307be35` + `2225d2e`). Recomendación para sesión 2: ejecutar `pnpm exec prettier --write` sobre los archivos editados ANTES del commit feat (no tras el push fail) para evitar el extra commit chore.
+- **Constructor de `ProvisioningService` ahora tiene 10 args** (commit feat 7) — tests futuros que instancian `new ProvisionerService(...)` deben pasar 10 args. El spec actual (`provisioning.service.spec.ts`) ya está actualizado.
+- **`PluginManifest` NO declara `reconcileOne` capability** — gating del CTA frontend requiere derivar la señal server-side (Q9 a resolver). NO añadir flag al manifest sin decidirlo.
+
 ### A.11.10.7. Fase F.10 — Deep-links curados al panel del proveedor
 
 **Tema:** en vez del único "Abrir panel del proveedor" genérico, atajos curados a las secciones más usadas — estándar de panel reseller.
