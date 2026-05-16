@@ -567,7 +567,8 @@ export type ProvisionerErrorCode =
   | 'INVALID_STATE' // retriable=false (servicio en estado incompatible)
   | 'NOT_IMPLEMENTED' // retriable=false (capability declarada pero no soportada — bug)
   | 'PROVIDER_INTERNAL_ERROR' // retriable=true por defecto
-  | 'NETWORK_ERROR'; // retriable=true
+  | 'NETWORK_ERROR' // retriable=true
+  | 'RECONCILE_ONE_NOT_SUPPORTED'; // retriable=false (F.9 — plugin no implementa reconcileOne?())
 
 /**
  * Error semántico canónico — todos los plugins lanzan instancias de esta clase,
@@ -594,6 +595,80 @@ export class ProvisionerPluginError extends Error {
     super(message);
     this.name = 'ProvisionerPluginError';
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 9.5. Reconciliation shapes (per-servicio)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Sprint 15C.II Fase F.9 — ADR-077 Amendment A8 (dossier §A.11.10.6.2).
+ *
+ * Tipos canónicos del flujo "reconcile per-servicio" (`reconcileOne?()` opcional
+ * en `ProvisionerPlugin`). Conviven con `ReconcileResult` agregado del
+ * reconcile-all en `reconcile-registry.service.ts:74` — son shapes distintos
+ * con propósitos distintos: `ReconcileResult` (agregado) lo produce el cron
+ * L3 con conteos sumarizados; `ServiceReconcileResult` (per-servicio) lo
+ * produce `reconcileOne` con detalle por drift. Naming clash resuelto en
+ * Amendment 2026-05-16 § A.11.10.6.2 — sufijo `Service*` heredable a fases
+ * futuras (15D RC / 15E Docker / 15G Plesk) para cualquier shape per-servicio.
+ */
+
+/**
+ * Tipo de drift detectado al comparar el estado local Aelium contra el ground
+ * truth del proveedor. Alineado con los 3 casos del cron L3 (Enhance
+ * `ReconcileChangeType`) para que `reconcileOne` use el mismo vocabulario
+ * canónico — heredable a otros plugins (los específicos del proveedor pueden
+ * mapear sus diferencias a uno de estos 3).
+ *
+ *   - `subscription_missing`: el proveedor reporta 404 para el
+ *     `provider_reference` (subscription/orden/contenedor) del service. El
+ *     plugin lo detecta como drift; el orquestador F.9 NO lo aplica
+ *     automáticamente (R4 frozen — protege contra desyncs transitorios
+ *     destructivos como `MockEnhanceServer` reiniciado).
+ *   - `status_divergence`: el status real del proveedor difiere del
+ *     `services.status` administrativo. Auto-adopt solo si el status del
+ *     proveedor es `active` o `suspended` (R4 + DH-INV-6 + F.4 A1).
+ *   - `plan_divergence`: el plan/recursos asignados en el proveedor difieren
+ *     del `product.provisioner_config` esperado. Auto-adopt sobre
+ *     `services.metadata` (drift de catálogo, no destructivo).
+ */
+export type ServiceDriftType =
+  | 'subscription_missing'
+  | 'status_divergence'
+  | 'plan_divergence';
+
+/**
+ * Drift individual detectado al reconciliar un servicio. Shape genérico
+ * heredable — los valores `before`/`after` son `unknown` para que cada plugin
+ * los serialice según su modelo (p.ej. Enhance pone strings de status, ints
+ * de plan_id, null para subscription_missing).
+ */
+export interface ServiceDrift {
+  /** Categoría canónica del drift. */
+  readonly type: ServiceDriftType;
+  /** Valor que tenía Aelium antes (estado local). */
+  readonly before: unknown;
+  /** Valor que reporta el proveedor (ground truth). */
+  readonly after: unknown;
+  /** Si el orquestador aplicó este drift sobre el estado local (R4 safe-adopt). */
+  readonly applied: boolean;
+  /** Mensaje humano opcional para audit/timeline. */
+  readonly message?: string;
+}
+
+/**
+ * Resultado de `reconcileOne(service)` per-servicio. Separa explícitamente los
+ * drifts detectados de los aplicados — `driftsApplied ⊆ driftsDetected`. R4
+ * frozen — los drifts NO aplicados (típicamente status `cancelled`/
+ * `subscription_missing` del proveedor) quedan en `driftsDetected` pero NO
+ * mutan `services.status` (transiciones destructivas requieren intención
+ * humana explícita vía `deprovisionAsAdmin` — `DC.46`).
+ */
+export interface ServiceReconcileResult {
+  readonly driftsDetected: readonly ServiceDrift[];
+  readonly driftsApplied: readonly ServiceDrift[];
+  readonly reconciledAt: Date;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -687,6 +762,44 @@ export interface ProvisionerPlugin {
    * `AdminPluginsService.testConnection` no espera que lance.
    */
   testConnection?(): Promise<{ ok: boolean; message: string }>;
+
+  /**
+   * Reconcilia un único servicio contra el ground truth del proveedor (Sprint
+   * 15C.II Fase F.9 — ADR-077 Amendment A8, dossier §A.11.10.6.2 R1 frozen).
+   * Análogo per-servicio al cron L3 de reconcile-all (`ReconcileRegistryService
+   * .reconcileAll`), pensado para que el admin pulse el CTA "Reconciliar
+   * contra el proveedor" en `<AdminDriftBanner>` (cuando `info.recoveryHint
+   * === 'reconcile'`) o por fila en `<PluginOperationalOverview>` (F.2) y
+   * cierre el drift puntualmente sin esperar a la siguiente pasada del cron.
+   *
+   * **Estrictamente opcional** — capability-driven por presencia del método
+   * (mismo patrón que A6 `testConnection?()` y A7 `ServiceInfo.ssl?`). Plugins
+   * que NO lo implementen → `ReconcileRegistryService.reconcileOne(slug,
+   * service)` lanza `ProvisionerPluginError({ code:
+   * 'RECONCILE_ONE_NOT_SUPPORTED', module: 'reconcile', http: 400 })` y el
+   * frontend gatea el CTA leyendo la capability del manifest (NO se añade
+   * flag explícito en `PluginCapabilities` — consistencia con A6/A7).
+   *
+   * **Doctrina safe-to-adopt** (R4 frozen) — espejo del cron L3 +
+   * DH-INV-6 + F.4 A1:
+   *   - Status del proveedor `active`/`suspended` → auto-adopt sobre
+   *     `services.status` (alineado al lifecycle administrativo).
+   *   - Cualquier otro status (`cancelled`, `subscription_missing`,
+   *     `terminated`, `expired`) → drift detectado y emitido en
+   *     `driftsDetected`, **NO mutado** sobre `services.status` (transiciones
+   *     destructivas requieren intención humana explícita vía
+   *     `deprovisionAsAdmin` — `DC.46`).
+   *   - Drift `plan_divergence` → auto-adopt sobre `services.metadata`
+   *     (drift de catálogo, no destructivo).
+   *
+   * El plugin SOLO devuelve el `ServiceReconcileResult`; el orquestador
+   * (`ProvisioningService.reconcileServiceAsAdmin`) gestiona transacción,
+   * cache invalidation, audit, evento `service.reconciled_external_change`
+   * con `trigger: 'manual_single'` (R2), y la creación opcional de
+   * `ClientNote` vía F.6 si `driftsApplied > 0` (R3) — el plugin NUNCA
+   * toca esos canales (R8 audit centralizado).
+   */
+  reconcileOne?(service: ServiceWithRelations): Promise<ServiceReconcileResult>;
 
   /**
    * Manifest declarativo del plugin (Sprint 15A — ADR-080).
