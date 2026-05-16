@@ -72,6 +72,11 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
     'Intervalo de reconciliación (horas)',
   'plugin.enhance_cp.config.reconciliationIntervalHours':
     'Frecuencia del cron L3 que compara cada servicio Aelium con su Subscription en Enhance. Emite service.reconciled_external_change al detectar drift. Default 6h, recomendado entre 4 y 12.',
+  // Sprint 15C.II Fase F.8 (frozen 2026-05-16 — dossier §A.11.10.5.1 R4).
+  'plugin.enhance_cp.config.quota_alert_threshold_pct.label':
+    'Umbral de alerta de cuota de disco (%)',
+  'plugin.enhance_cp.config.quota_alert_threshold_pct':
+    'Porcentaje a partir del cual el cron L3 detecta el cruce y notifica al cliente que está cerca de llenar su almacenamiento (un solo email por transición, sin spam). Default 85, recomendado entre 80 y 90. Valores ≥95% se reservan al aviso crítico hardcoded (no configurable).',
 
   // ── Plugin Enhance CP — Secrets
   'plugin.enhance_cp.secrets.apiToken.label': 'Bearer token API Enhance',

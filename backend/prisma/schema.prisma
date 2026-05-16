@@ -477,6 +477,22 @@ enum ServiceStatus {
   terminated
 }
 
+// Sprint 15C.II Fase F.8 (ADR §A.11.10.5.1 frozen 2026-05-16) — Alertas de cuota.
+//
+// `QuotaAlertResource` y `QuotaAlertKind` modelan el state-tracking
+// edge-triggered del detector `QuotaThresholdDetectorService`
+// (core/provisioning/). F.8 entrega solo `disk` (cuota dura); `bandwidth`
+// queda fuera porque su reset mensual rompe el edge-trigger sin handler
+// especial — promoción futura F.8.x. Patrón Prometheus/AlertManager.
+enum QuotaAlertResource {
+  disk
+}
+
+enum QuotaAlertKind {
+  crossed_up
+  crossed_down
+}
+
 model Service {
   id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id             String        @db.Uuid
@@ -520,6 +536,12 @@ model Service {
   checklist_items             ServiceChecklistItem[]     @relation("ServiceChecklistItems")
   support_inside_subscription SupportInsideSubscription? @relation("ServiceSupportInsideSubscription")
   support_inside_slots        SupportInsideSlot[]        @relation("ServiceSupportInsideSlots")
+  // Sprint 15C.II Fase F.8 — historial edge-triggered de alertas de cuota.
+  // Solo se popula para plugins con `has_metrics`; el detector inserta
+  // `crossed_up`/`crossed_down` en `$transaction` serializable. FK
+  // `ON DELETE Cascade` — si el service se elimina físicamente, su historial
+  // de alertas no tiene sentido aislado.
+  quota_alerts                ServiceQuotaAlert[]        @relation("ServiceQuotaAlerts")
 
   @@index([user_id])
   @@index([product_id])
@@ -533,6 +555,39 @@ model Service {
   // desde callbacks/webhooks del proveedor (`WHERE provider_reference = X`).
   @@index([provider_reference])
   @@map("services")
+}
+
+// Sprint 15C.II Fase F.8 (frozen 2026-05-16 — dossier §A.11.10.5.1 R1).
+//
+// State-tracking edge-triggered de alertas de cuota por (service, resource).
+// El detector (`QuotaThresholdDetectorService` en core/provisioning/) inserta:
+//   - `crossed_up`   cuando `pct >= threshold` Y la última fila previa era
+//                    `crossed_down` (o no había fila) → dispara email vía
+//                    evento `service.quota_threshold_crossed`.
+//   - `crossed_down` cuando `pct <  threshold` Y la última fila previa era
+//                    `crossed_up` → solo state-tracking, sin emit.
+//
+// La inserción ocurre en `$transaction` serializable junto a la lectura del
+// estado previo (M2 — idempotency operativa). El emit del evento queda
+// fuera de la tx (R7 — degradación elegante: si el dispatch falla, la fila
+// ya capturó el estado y la siguiente pasada NO re-emite).
+//
+// Diseño heredable a todo plugin con `has_metrics` (15E Docker / 15G Plesk).
+// 15D RC no aplica (sin métricas).
+model ServiceQuotaAlert {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  service_id    String             @db.Uuid
+  resource      QuotaAlertResource
+  kind          QuotaAlertKind
+  used_pct      Decimal            @db.Decimal(5, 2)
+  threshold_pct Decimal            @db.Decimal(5, 2)
+  detected_at   DateTime           @default(now()) @db.Timestamptz()
+
+  service Service @relation("ServiceQuotaAlerts", fields: [service_id], references: [id], onDelete: Cascade)
+
+  // Lookup canónico: `findFirst({ where: {service_id, resource}, orderBy: {detected_at:'desc'} })`.
+  @@index([service_id, resource, detected_at])
+  @@map("service_quota_alerts")
 }
 
 // ─── BLOQUE 6: FACTURACIÓN ───
