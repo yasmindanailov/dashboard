@@ -572,4 +572,152 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       errors: 0,
     });
   });
+
+  // ─── Sprint 15C.II Fase F.9 — reconcileOneInternal (R8 frozen) ────────
+  // Refactor del antiguo `reconcileOne` privado a método público con shape
+  // canónico ServiceReconcileResult. DRY entre cron L3 (runOnce) y endpoint
+  // admin (ReconcileRegistryService.reconcileOne via executor registrado).
+
+  describe('reconcileOneInternal F.9 (R8 frozen — shape ServiceReconcileResult)', () => {
+    function buildCron(opts: {
+      apiBundle: ReturnType<typeof buildApiMock>;
+      service?: Record<string, unknown>;
+    }) {
+      const { prisma, updateMock } = buildPrisma([
+        opts.service ?? SAMPLE_SERVICE,
+      ]);
+      const { events, emitted } = buildEvents();
+      const cron = new EnhanceReconciliationCron(
+        prisma,
+        buildPlugin(opts.apiBundle),
+        events,
+        buildReconcileRegistry(),
+        buildQuotaDetector(),
+      );
+      return { cron, updateMock, emitted };
+    }
+
+    it('happy path: no drift → driftsDetected=[] + driftsApplied=[]', async () => {
+      const apiBundle = buildApiMock({
+        subscription: { id: 42, planId: 1, status: 'active' },
+      });
+      const { cron, updateMock, emitted } = buildCron({ apiBundle });
+
+      const result = await cron.reconcileOneInternal(SAMPLE_SERVICE as never);
+
+      expect(result.driftsDetected).toEqual([]);
+      expect(result.driftsApplied).toEqual([]);
+      expect(result.reconciledAt).toBeInstanceOf(Date);
+      expect(updateMock).not.toHaveBeenCalled();
+      expect(emitted).toEqual([]);
+    });
+
+    it('subscription_missing → applied=false (emit-only, DH-INV-6)', async () => {
+      const apiBundle = buildApiMock({ throwsNotFound: true });
+      const { cron, updateMock } = buildCron({ apiBundle });
+
+      const result = await cron.reconcileOneInternal(SAMPLE_SERVICE as never);
+
+      expect(result.driftsDetected).toHaveLength(1);
+      expect(result.driftsApplied).toEqual([]);
+      expect(result.driftsDetected[0]).toMatchObject({
+        type: 'subscription_missing',
+        applied: false,
+      });
+      expect(updateMock).not.toHaveBeenCalled();
+    });
+
+    it('status_divergence active→suspended (safe-adopt set) → applied=true + prisma.update', async () => {
+      const apiBundle = buildApiMock({
+        subscription: {
+          id: 42,
+          planId: 1,
+          status: 'active',
+          suspendedBy: 'admin-enhance',
+        },
+      });
+      const { cron, updateMock } = buildCron({ apiBundle });
+
+      const result = await cron.reconcileOneInternal(SAMPLE_SERVICE as never);
+
+      expect(result.driftsDetected).toHaveLength(1);
+      expect(result.driftsApplied).toHaveLength(1);
+      expect(result.driftsDetected[0]).toMatchObject({
+        type: 'status_divergence',
+        before: 'active',
+        after: 'suspended',
+        applied: true,
+      });
+      expect(result.driftsApplied[0]).toBe(result.driftsDetected[0]);
+      expect(updateMock).toHaveBeenCalledWith({
+        where: { id: 'svc-1' },
+        data: { status: 'suspended' },
+      });
+    });
+
+    it('status_divergence active→cancelled (out of safe-adopt) → applied=false + NO update', async () => {
+      const apiBundle = buildApiMock({
+        subscription: { id: 42, planId: 1, status: 'deleted' },
+      });
+      const { cron, updateMock } = buildCron({ apiBundle });
+
+      const result = await cron.reconcileOneInternal(SAMPLE_SERVICE as never);
+
+      expect(result.driftsDetected).toHaveLength(1);
+      expect(result.driftsApplied).toEqual([]);
+      expect(result.driftsDetected[0]).toMatchObject({
+        type: 'status_divergence',
+        before: 'active',
+        after: 'cancelled',
+        applied: false,
+      });
+      expect(updateMock).not.toHaveBeenCalled();
+    });
+
+    it('plan_divergence → applied=false (matiz R4.1: billing implication, admin decide)', async () => {
+      const apiBundle = buildApiMock({
+        subscription: { id: 42, planId: 2, status: 'active' },
+      });
+      const { cron, updateMock } = buildCron({ apiBundle });
+
+      const result = await cron.reconcileOneInternal(SAMPLE_SERVICE as never);
+
+      expect(result.driftsDetected).toHaveLength(1);
+      expect(result.driftsApplied).toEqual([]);
+      expect(result.driftsDetected[0]).toMatchObject({
+        type: 'plan_divergence',
+        before: 1,
+        after: 2,
+        applied: false,
+      });
+      // NO update: billing implication, admin decide upgrade/downgrade real.
+      expect(updateMock).not.toHaveBeenCalled();
+    });
+
+    it('onModuleInit registra el executor per-servicio (R8 + Amendment II DI)', () => {
+      const apiBundle = buildApiMock({
+        subscription: { id: 42, planId: 1, status: 'active' },
+      });
+      const { prisma } = buildPrisma([SAMPLE_SERVICE]);
+      const { events } = buildEvents();
+      const reconcileRegistry = buildReconcileRegistry();
+      const cron = new EnhanceReconciliationCron(
+        prisma,
+        buildPlugin(apiBundle),
+        events,
+        reconcileRegistry,
+        buildQuotaDetector(),
+      );
+
+      expect(reconcileRegistry.hasReconcileOneExecutor('enhance_cp')).toBe(
+        false,
+      );
+      cron.onModuleInit();
+      expect(reconcileRegistry.hasReconcileOneExecutor('enhance_cp')).toBe(
+        true,
+      );
+      // Tambien preserva el register() del reconcile-all existente.
+      expect(reconcileRegistry.hasExecutor('enhance_cp')).toBe(true);
+    });
+  });
 });

@@ -2437,7 +2437,7 @@ git checkout -b sprint15c-ii-fase-f9-reconcile-single
 **R4 (resolución Q4) — Doctrina safe-to-adopt espejo del cron L3 (DH-INV-6 + F.4 A1).**
 - `ServiceReconcileResult` frozen: `{ driftsDetected: ServiceDrift[]; driftsApplied: ServiceDrift[]; reconciledAt: Date }` (separación explícita — `driftsApplied ⊆ driftsDetected`). **Nombre frozen tras Amendment al final de esta sección** — colisión descubierta con `ReconcileResult` agregado del reconcile-all (`reconcile-registry.service.ts:74`) que NO se renombra.
 - Set safe-adopt: status del proveedor `active` o `suspended` → auto-adopt sobre `services.status` (alineado a la doctrina F.4 A1 "lifecycle administrativo vs operacional"). Cualquier otro status (`cancelled`, `subscription_missing`, `terminated`, `expired`) → drift detectado y emitido en `driftsDetected`, **NO mutado** sobre `services.status` (transiciones destructivas requieren intención humana explícita vía `deprovisionAsAdmin` — `DC.46`).
-- Drift `plan_divergence`: auto-adopt sobre `services.metadata.plan_id` / `product_id` (drift de catálogo, no destructivo, espejo del cron L3).
+- Drift `plan_divergence`: en el plugin Enhance es **emit-only** (matiz R4.1 descubierto durante implementación commit feat 10c — ver Amendment IV abajo). El R4 original asumía "auto-adopt sobre `services.metadata.plan_id`" pero el cron L3 actual mantiene emit-only por implicación billing (cambiar `services.metadata.plan_id` sin sincronizar `product.provisioner_config` rompe la coherencia billing-provisioning). El refactor del cron L3 (R8 frozen) preserva esta doctrina — `reconcileOneInternal` retorna `applied: false` para `plan_divergence`. Plugins futuros pueden optar por auto-adopt si su billing no se ve afectado por el plan declarado en el provider.
 - Drift `subscription_missing` (proveedor reporta 404 para el `subscription_id` del service): SOLO emit-only — el cron L3 no lo adopta automáticamente y `reconcileOne` mantiene la doctrina. Admin decide vía botón explícito de cancelación.
 - El frontend (R5) muestra `"X drifts detectados, Y aplicados"` — admin entiende qué se hizo y qué no; los no aplicados quedan en el audit timeline (F.3 GAP-M) para revisión humana.
 - Razón canónica: la doctrina DH-INV-6 + F.4 A1 protege contra desyncs transitorios destructivos (caso `MockEnhanceServer` reiniciado perdiendo `patchSubscription` → `subscription_missing` espurio); el admin NO debe poder cancelar un servicio activo solo por pulsar "reconciliar".
@@ -2559,6 +2559,23 @@ Tras el handoff §A.11.10.6.3 (commit `02f18f3`), Yasmin decide continuar la imp
 - **Commit feat 12 — Smoke real**: contra MockEnhanceServer (edit + restart simulando los 3 drift types) + `pnpm ci:check:full` + boot smoke verificado.
 
 **Heredable a fases futuras**: el patrón "plugin aplica drifts safe-adopt + orquestador maneja transversales" se aplica a cualquier futuro método opcional del contrato `ProvisionerPlugin` que mute estado (`detectAbuse?()`, `reapplyDnsZone?()`, etc.). La separación es clara: el plugin sabe el shape específico del proveedor (qué adoptar y cómo); el orquestador sabe los transversales (cache + audit + eventos + notas).
+
+**Amendment 2026-05-16 (IV) — R4.1 plan_divergence emit-only para Enhance (descubierto en commit feat 10c)**
+
+Durante el refactor del cron L3 (`enhance-reconciliation.cron.ts:reconcileOneInternal` — commit feat 10c materializando R8) se descubre que el R4 frozen ("plan_divergence auto-adopt sobre `services.metadata`") **contradice** la doctrina ya implementada del cron L3 actual, que mantiene `plan_divergence` como **emit-only** con razón canónica documentada inline (línea 305-308 del cron original — "NO auto-corrige Aelium — billing implication, admin decide"). L18 frozen — mejora descubierta = Amendment, no desvío silencioso.
+
+**Resolución frozen (2026-05-16)**: aplicar el matiz **R4.1** al R4 frozen sin renegar de R4 (R4 sigue válido como doctrina genérica para plugins que NO tienen implicación billing por el plan declarado en el proveedor):
+
+- **R4 genérico (sin cambios)**: el plugin aplica drifts safe-adopt según el set `{active, suspended}` para status, `subscription_missing` emit-only.
+- **R4.1 Enhance specifics (nuevo matiz)**: `plan_divergence` para `enhance_cp` es **emit-only** (`applied: false` en el `ServiceDrift` retornado). Razón canónica: cambiar `services.metadata.plan_id` sin sincronizar `product.provisioner_config` rompe la coherencia billing-provisioning (Aelium cobraría el plan declarado en el product, pero el provider entregaría recursos del plan distinto). El admin decide qué hacer: upgrade real del plan en Aelium (vía `change_package` action), downgrade en el provider, o no hacer nada (drift conocido).
+- **Heredable a plugins futuros**: cualquier plugin SaaS cuyo `plan_id` esté acoplado a su modelo billing (15D RC, 15G Plesk) seguirá R4.1 — `plan_divergence` emit-only. Plugins cuyo plan sea puro catálogo sin implicación billing (raro) pueden seguir R4 genérico y auto-adoptar.
+
+**Aplicación en código** (commit feat 10c):
+- `enhance-reconciliation.cron.ts:reconcileOneInternal` construye el `ServiceDrift` de tipo `plan_divergence` con `applied: false` + `message: 'plan divergence — admin decide upgrade/downgrade real (billing implication)'`.
+- El docstring del método explícitamente referencia R4.1 ("matiz al R4 frozen original").
+- Tests del cron (`enhance-reconciliation.cron.spec.ts`) verifican que `plan_divergence` retorna `applied: false` (test "plan_divergence → applied=false matiz R4.1: billing implication, admin decide").
+
+**Sin cambio en el comportamiento observable**: el cron L3 anterior ya hacía emit-only para `plan_divergence`. R4.1 formaliza la doctrina sin alterar nada — solo documenta lo que el código ya hacía y lo extiende per-servicio (endpoint admin reconcile-single también lo respeta vía DRY R8).
 
 #### A.11.10.6.3. Handoff F.9 — mid-implementación (frozen 2026-05-16)
 
