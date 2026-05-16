@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
 import { getErrorMessage } from '../common/utils/error.util';
+import type { ServiceReconcileResult } from './types';
 
 /**
  * ProvisioningCacheService — Sprint 11 Fase 11.B (ADR-077 §5).
@@ -166,11 +167,108 @@ export class ProvisioningCacheService implements OnModuleDestroy {
     }
   }
 
+  /**
+   * Sprint 15C.II Fase F.9 (R6 frozen dossier §A.11.10.6.2) — cooldown
+   * server-side per-servicio del endpoint admin `POST /admin/services/:id/reconcile`.
+   *
+   * Paralelo a `tryAcquireRefreshCooldown` (F.3 B.1) con TTL más generoso
+   * (default 30s vs 15s del refresh): la pasada `reconcileOne` implica más
+   * calls al proveedor (re-leer subscription + comparar metadata + posibles
+   * mutaciones) — el cooldown más largo protege del N×load por martilleo del
+   * admin. Heredable a 15D RC / 15E Docker / 15G Plesk.
+   *
+   * Semántica `SET key 1 EX ttl NX`:
+   *   - `true`  → ventana adquirida; el caller procede con `reconcileOne`.
+   *   - `false` → ventana ya activa; el caller degrada a `getCachedServiceReconcileResult`
+   *     (coalescing) o, si no hay cacheado, responde 429 `RECONCILE_IN_PROGRESS`
+   *     con `Retry-After`.
+   * Fail-OPEN si Redis falla (devuelve `true`) — coherente con el resto del
+   * servicio.
+   */
+  async tryAcquireReconcileSingleCooldown(
+    serviceId: string,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    const key = this.buildReconcileSingleCooldownKey(serviceId);
+    try {
+      const res = await this.redis.set(key, '1', 'EX', ttlSeconds, 'NX');
+      return res === 'OK';
+    } catch (err) {
+      this.logger.warn(
+        `Reconcile single cooldown acquire failed for ${key}: ${getErrorMessage(err)} (fail-open)`,
+      );
+      return true;
+    }
+  }
+
+  /**
+   * Sprint 15C.II Fase F.9 (R6 frozen) — almacena el último `ServiceReconcileResult`
+   * por servicio para coalescing en la ventana de cooldown. Si Redis falla,
+   * log + continúa (no bloquea la respuesta — el caller decidirá cómo degradar).
+   *
+   * Serialización: `JSON.stringify` convierte `Date` (reconciledAt) a ISO 8601.
+   * El lector (`getCachedServiceReconcileResult`) re-hidrata el `Date` antes
+   * de devolver.
+   */
+  async cacheServiceReconcileResult(
+    serviceId: string,
+    result: ServiceReconcileResult,
+    ttlSeconds: number,
+  ): Promise<void> {
+    const key = this.buildReconcileSingleResultKey(serviceId);
+    try {
+      await this.redis.set(key, JSON.stringify(result), 'EX', ttlSeconds);
+    } catch (err) {
+      this.logger.warn(
+        `Reconcile single result cache failed for ${key}: ${getErrorMessage(err)}`,
+      );
+    }
+  }
+
+  /**
+   * Sprint 15C.II Fase F.9 (R6 frozen) — lee el último `ServiceReconcileResult`
+   * cacheado para un servicio. Devuelve `null` si miss, error o JSON corrupto
+   * (degradación silenciosa, fail-open).
+   *
+   * Re-hidrata `reconciledAt` de ISO 8601 a `Date` para mantener el contrato
+   * del shape declarado en `types.ts §9.5`.
+   */
+  async getCachedServiceReconcileResult(
+    serviceId: string,
+  ): Promise<ServiceReconcileResult | null> {
+    const key = this.buildReconcileSingleResultKey(serviceId);
+    try {
+      const raw = await this.redis.get(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as ServiceReconcileResult & {
+        reconciledAt: string | Date;
+      };
+      // Re-hidrata Date — JSON.stringify lo serializa como ISO 8601 string.
+      return {
+        ...parsed,
+        reconciledAt: new Date(parsed.reconciledAt),
+      };
+    } catch (err) {
+      this.logger.warn(
+        `Reconcile single result cache read failed for ${key}: ${getErrorMessage(err)} (fail-open)`,
+      );
+      return null;
+    }
+  }
+
   private buildKey(serviceId: string): string {
     return `${this.keyPrefix}:${serviceId}`;
   }
 
   private buildRefreshCooldownKey(serviceId: string): string {
     return `refresh_cooldown:${serviceId}`;
+  }
+
+  private buildReconcileSingleCooldownKey(serviceId: string): string {
+    return `reconcile_single_cooldown:${serviceId}`;
+  }
+
+  private buildReconcileSingleResultKey(serviceId: string): string {
+    return `reconcile_single_result:${serviceId}`;
   }
 }
