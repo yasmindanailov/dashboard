@@ -268,6 +268,17 @@ export class ProvisioningService {
       // La UI admin lo usa para avisar y ofrecer el botón "Realinear estado
       // del proveedor con Aelium" (`POST /admin/services/:id/resync-provider-state`).
       provider_state_desync: boolean;
+      // Sprint 15C.II Fase F.8 — umbral de alerta de cuota de disco que el
+      // frontend usa para colorear la barra de almacenamiento (ámbar al
+      // ≥threshold, rojo ≥95% hardcoded). Patrón paralelo a
+      // `provider_state_desync`: vive en el summary (contrato frontend), NO
+      // en `ServiceInfo` (contrato plugin) — el plugin no necesita conocer
+      // este setting de UX. Lo poblamos leyendo `plugin_installs.config
+      // .quota_alert_threshold_pct` cuando el plugin declara `has_metrics`;
+      // `null` cuando el plugin no es relevante o el admin no editó el
+      // setting (frontend cae al comportamiento legacy sin coloreo —
+      // capability-driven, heredable).
+      quota_alert_threshold_pct: number | null;
     };
     info: ServiceInfo;
   }> {
@@ -306,6 +317,10 @@ export class ProvisioningService {
       // plugin-no-registrado — no hay estado de proveedor con el que
       // comparar, así que queda `false`.
       provider_state_desync: false,
+      // Sprint 15C.II Fase F.8: se pobla abajo en el path normal (tras
+      // resolver el plugin, si declara `has_metrics`). En shortcircuits
+      // terminales el `MetricsBar` no se renderiza — queda `null`.
+      quota_alert_threshold_pct: null as number | null,
     };
 
     // Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10):
@@ -344,6 +359,15 @@ export class ProvisioningService {
         service: summary,
         info: this.buildPluginNotRegisteredFallback(service),
       };
+    }
+
+    // Sprint 15C.II Fase F.8 — populamos el threshold del install si el
+    // plugin declara `has_metrics`. Patrón paralelo a `provider_state_desync`:
+    // capa orquestador, no toca contrato del plugin. Heredable a cualquier
+    // plugin futuro con `has_metrics` (15E Docker / 15G Plesk).
+    if (plugin.capabilities.has_metrics) {
+      summary.quota_alert_threshold_pct =
+        await this.loadQuotaAlertThresholdFromInstall(pluginSlug);
     }
 
     const ttlSeconds = await this.resolveServiceInfoTtl(plugin);
@@ -1871,6 +1895,56 @@ export class ProvisioningService {
       );
     }
     return 60;
+  }
+
+  /**
+   * Sprint 15C.II Fase F.8 (dossier §A.11.10.5.1 R4/R7).
+   *
+   * Lee `quota_alert_threshold_pct` del install config (ADR-080 — manifest
+   * declarativo persistido en `plugin_installs.config`). Devuelve `null`
+   * cuando:
+   *   - la install no existe (plugin no habilitado),
+   *   - el setting no está editado (frontend cae al comportamiento legacy
+   *     sin coloreo),
+   *   - el valor está fuera del rango canónico `[50, 95]` (defensa contra
+   *     corrupción del config — el manifest validó al guardar, pero
+   *     defendemos contra escritura directa al DB).
+   *
+   * NO devuelve el default 85 cuando es null — eso es trabajo del frontend:
+   * el SC del page recibe `null` y simplemente no pasa la prop al
+   * `MetricsBar`, manteniendo capability-driven (cualquier plugin con
+   * `has_metrics` que no haya configurado el setting no colorea — heredable).
+   */
+  private async loadQuotaAlertThresholdFromInstall(
+    slug: string,
+  ): Promise<number | null> {
+    try {
+      const install = await this.prisma.pluginInstall.findUnique({
+        where: { slug },
+        select: { config: true },
+      });
+      const raw = (install?.config as Record<string, unknown> | null)?.[
+        'quota_alert_threshold_pct'
+      ];
+      if (
+        typeof raw === 'number' &&
+        Number.isInteger(raw) &&
+        raw >= 50 &&
+        raw <= 95
+      ) {
+        return raw;
+      }
+    } catch (err) {
+      // R7 — degradación elegante: si la lectura del install falla, el
+      // frontend cae al comportamiento legacy sin coloreo, mejor eso que
+      // 500 el endpoint completo.
+      this.logger.warn(
+        `Failed to load quota_alert_threshold_pct for plugin "${slug}": ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+    return null;
   }
 }
 

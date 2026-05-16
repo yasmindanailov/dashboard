@@ -1286,6 +1286,78 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
         panel_url: 'string',
       },
     },
+
+    // ───────────── service.quota_threshold_crossed (email cliente — Sprint 15C.II Fase F.8) ─────────────
+    // Edge-triggered upstream — `QuotaThresholdDetectorService` garantiza un
+    // solo email por transición `<threshold → ≥threshold` (dossier §A.11.10.5.1
+    // R1/R6). El listener `NotificationsOnServiceQuotaThresholdCrossedListener`
+    // re-renderiza fresco con el contexto actual (display domain del service +
+    // appUrl del ConfigService). Heredable a cualquier plugin con `has_metrics`.
+    // EC-T8-17: solo `{{var}}` (escape Handlebars) — `notification-templates
+    // .security.spec.ts` falla el build si introduce triple-stash.
+    {
+      event_type: 'service.quota_threshold_crossed',
+      channel: 'email' as const,
+      locale: 'es',
+      subject:
+        '⚠ Estás al {{used_pct}}% de almacenamiento en {{domain}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">⚠ Almacenamiento próximo al límite</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{domain}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Tu servicio <strong>{{domain}}</strong> está al <strong>{{used_pct}}%</strong> de su cuota de almacenamiento. Si llega al 100%, dejará de aceptar nuevos archivos (uploads, copias de seguridad, registros del sitio) hasta que liberes espacio o amplíes el plan.
+            </p>
+            <div style="background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 12px; padding: 20px; margin: 20px 0;">
+              <table style="width: 100%; font-size: 14px; color: #374151;">
+                <tr><td style="padding: 4px 0; color: #92400E;">Uso actual:</td><td style="text-align: right; font-weight: 600;">{{used_mb_label}}</td></tr>
+                <tr><td style="padding: 4px 0; color: #92400E;">Cuota total:</td><td style="text-align: right; font-weight: 600;">{{total_mb_label}}</td></tr>
+                <tr><td style="padding: 4px 0; color: #92400E;">Porcentaje:</td><td style="text-align: right; font-weight: 600;">{{used_pct}}%</td></tr>
+              </table>
+            </div>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{service_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver detalles del servicio</a>
+            </p>
+            <p style="color: #6b7280; font-size: 13px;">
+              Si necesitas ayuda para liberar espacio o ampliar tu plan, contacta con <a href="{{support_url}}" style="color: #635BFF;">soporte</a>.
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        domain: 'string',
+        used_pct: 'string',
+        used_mb_label: 'string',
+        total_mb_label: 'string',
+        service_url: 'string',
+        support_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── service.quota_threshold_crossed (campana cliente) ─────────────
+    {
+      event_type: 'service.quota_threshold_crossed',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Almacenamiento al {{used_pct}}% en {{domain}}',
+      body: 'Tu servicio {{domain}} está al {{used_pct}}% de su cuota de almacenamiento ({{used_mb_label}} de {{total_mb_label}}). Considera liberar espacio o ampliar el plan.',
+      variables: {
+        service_id: 'string',
+        domain: 'string',
+        used_pct: 'string',
+        used_mb_label: 'string',
+        total_mb_label: 'string',
+        service_url: 'string',
+      },
+    },
   ];
 
   for (const tpl of templates) {

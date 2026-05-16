@@ -134,6 +134,24 @@ const ENHANCE_CONFIG_SCHEMA = {
       title: 'plugin.enhance_cp.config.reconciliationIntervalHours.label',
       description: 'plugin.enhance_cp.config.reconciliationIntervalHours',
     },
+    // Sprint 15C.II Fase F.8 (frozen 2026-05-16 — dossier §A.11.10.5.1 R4) —
+    // Umbral de alerta de cuota de disco. Cuando `pct = used / total * 100`
+    // cruza este valor en una pasada del cron L3 (`EnhanceReconciliationCron
+    // .runAsExecutor` → `QuotaThresholdDetectorService.detectAndNotify`), el
+    // detector emite `service.quota_threshold_crossed` (una sola vez por
+    // transición, edge-triggered con la tabla `service_quota_alerts`).
+    // Default 85 = industry standard. `minimum: 50` evita desactivarlo de
+    // facto; `maximum: 95` evita pisar el umbral crítico hardcoded (≥95% =
+    // rojo en la UI). 95% NO es configurable — `L18 + YAGNI` (si un plugin
+    // pide un 2º umbral configurable en el futuro, se promueve).
+    quota_alert_threshold_pct: {
+      type: 'integer',
+      default: 85,
+      minimum: 50,
+      maximum: 95,
+      title: 'plugin.enhance_cp.config.quota_alert_threshold_pct.label',
+      description: 'plugin.enhance_cp.config.quota_alert_threshold_pct',
+    },
   },
   required: ['baseUrl', 'masterOrgId'],
   additionalProperties: false,

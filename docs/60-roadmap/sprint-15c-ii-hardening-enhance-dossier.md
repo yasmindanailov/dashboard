@@ -1586,7 +1586,7 @@ operativa cuenta GitHub):
 | **F.5** | **`DC.44` billing-suspend-unify** — `ServiceLifecycleWorker.autoSuspendServices` (cron impago) → `ProvisioningService.suspendAsAdmin(serviceId,{reason:'overdue_payment'},<actor sistema>,{notify_client:true})` en vez de su propio `prisma.update` + forma reducida; convención "actor sistema" (`actor_user_id:null` + `metadata.actor:'system:billing-overdue-cron'`); auto-reactivación al pagar (`billing-on-invoice-paid` listener → `unsuspendAsAdmin`); decidir si `suspendAsAdmin` permite plugins `supports_suspend=false` para el caso impago. Toca el módulo billing — separada de F.4. Detalle §A.11.10.2. | ✅ **CERRADA, mergeada a master** — PR [#72](https://github.com/yasmindanailov/dashboard/pull/72) squash-merge `72a8b0f` 2026-05-13 (bypass policy §6, 7ª aplicación — CI GitHub billing-bloqueada §A.9.10; `pnpm ci:check:full` verde [51 suites, 691 passed + 5 skipped] + boot real verificado [`BillingModule`→`ProvisioningModule` sin ciclo; `ReactivateServicesOnInvoicePaidListener` registrado] + doc formal en el cuerpo del PR; rama temporal eliminada; label `ready-for-e2e`) → post-merge doc-sync (patrón #61/#64/#66/#68/#71). **Materializado**: F.5.1 worker→`suspendAsAdmin` (idempotente; arregla de paso el bug del `prisma.update` crudo que revivía servicios cancelados) ✅ + F.5.2 convención "actor sistema" (plumbing en `suspendAsAdmin`/`unsuspendAsAdmin`/`ExecuteActionContext`: `actorUserId: string \| null` + `actorLabel?`; sin `audit_access_log`; `notifications-on-service-suspended` sin path legacy) ✅ + F.5.3 `reactivateSuspendedServiceOnPayment` (solo reactiva si motivo `overdue_payment`) + `ReactivateServicesOnInvoicePaidListener` ✅ + decisión pre-código `allowUnsupported: true` (punto único de transición de estado) ✅ + refinamiento F.4.1 (override `info.status='suspended'` para todo plugin; flag `provider_state_desync` sigue gated en `supports_suspend`) ✅ + tests (`provisioning.service.spec` +7; `service-lifecycle.worker.spec` NUEVO ×5; `reactivate-services-on-invoice-paid.listener.spec` NUEVO ×4; `notifications-on-service-suspended.spec` actualizado). **ADR-077 sin cambios.** Detalle/decisiones en §A.11.10.2. Commit en la rama: `dbf5a3a`. (`DC.44` materializado; `backlog.md` actualizado.) Diferidos apuntados (fuera de scope F.5 — L18): `autoCancelServices`→`deprovisionAsAdmin` (sería destructivo; candidato a fase aparte) + unificar `service.resumed`↔`service.unsuspended` (conceptos distintos). |
 | **F.6** | **Notas operativas vía `ClientNote`** (sistema transversal Sprint 16 / ADR-079) — cancelar/suspender/reactivar manual → nota **obligatoria** en el modal → `ClientNote` `source_system='service'` + `source_id=serviceId` + `triggered_by_action='service.cancelled'\|'service.suspended'\|'service.unsuspended'`; auto-suspensión por impago (F.5) → `ClientNote` auto (`triggered_by_action='service.auto_suspended_overdue'`); el motivo-enum sigue como **campo** del banner del servicio (categórico); el detalle del servicio renderiza sus notas inline + salen en `/admin/clients/[id]` → "Notas" como las de los demás módulos; "añadir nota" del admin = `ClientNote` `triggered_by_action='manual_entry'`. **Supersede el `service_notes` table** (no se crea tabla nueva). Detalle §A.11.10.3. | ✅ **CERRADA, mergeada a master** — PR [#75](https://github.com/yasmindanailov/dashboard/pull/75) squash-merge `c9802e4` 2026-05-13 (bypass policy §6, **9ª aplicación** — CI GitHub billing-bloqueada §A.9.10; las 3 condiciones cumplidas: motivo externo + `pnpm ci:check:full` verde [backend 51 suites, 691 passed + 5 skipped + `nest build`; frontend typecheck + lint + `next build`] + boot real backend verificado [rutas `POST /api/v1/admin/services/:id/(suspend\|unsuspend)` aceptan el nuevo `internal_note` obligatorio, `GET /api/v1/admin/services/:id/notes` mapeada, `ClientsModule` importado en `ProvisioningModule` sin ciclo, `ReactivateServicesOnInvoicePaidListener` carga `invoice_number`, `DI` sin errores] + sección formal en el cuerpo del PR; rama temporal eliminada; label `ready-for-e2e`) → post-merge doc-sync (patrón #61/#64/#66/#68/#71/#73). **Materializado**: F.6.1 `ClientNote` para las 4 transiciones (`createFromServiceLifecycleAction(input, tx?)` direct-call desde `ProvisioningService.suspend\|unsuspend\|deprovisionAsAdmin` — patrón canónico Sprint 16; `source_system='service'`, `category='lifecycle'`, `triggered_by_action` ∈ 5 valores nuevos) ✅ + F.6.2 separación enum↔narrativa (`services.suspension_reason`/`cancellation_reason` guardan **solo** el motivo-enum; la nota libre vive en `ClientNote.body`; `parseSuspensionReasonCode` defensivo a ambos formatos) ✅ + F.6.3 dos vistas, una entidad (`<ServiceNotesCard>` SC nuevo inline en `/admin/services/[id]` consumiendo `GET /admin/services/:id/notes` con `@AuditAccess('Service')` — GDPR transparency; `<ClientNotesTab>` federada renderiza `service`/`lifecycle` + link `/admin/services/[id]`) ✅ + F.6.4 migración data one-shot (`20260513090001_..._data` split del `"<motivo>: <nota>"` legacy + `ClientNote` retroactivos con `author_id=NULL` + sufijo `[Migración 2026-05-13 — autor original no registrado]` + `created_at` preservado de `suspended_at\|cancelled_at`; idempotente — filas sin `": "` se ignoran) ✅ + **R1 firma simétrica** (`UnsuspendServiceDto { internal_note?: string }` + `unsuspendAsAdmin(id, dto, actor, ctx?, opts?)` paralela a sus hermanos; `unsuspendServiceAction` frontend pasa el body) ✅ + **R2 validación backend defense-in-depth** (`internal_note`/`notes` obligatorios si `actorUserId !== null` en `suspend`/`unsuspend`/`deprovisionAsAdmin`; path sistema exento — cron + listener auto-reactivar) ✅ + **R3 atomicidad** (`prisma.$transaction(async (tx) => { service.update + clientNote.create })`; plugin call + cache + eventos + audit quedan FUERA — asimétricos por naturaleza; `createFromServiceLifecycleAction` acepta `tx?: Prisma.TransactionClient` opcional) ✅. **Schema**: `NoteSourceSystem.service` (6º) + `NoteCategory.lifecycle` (8º) + `ClientNote.author_id` NULLABLE con FK `ON DELETE SET NULL` — convención "actor sistema = NULL" heredada de F.5 (`audit_change_log.user_id`). **Frontend**: `<SuspendServiceModal>` extendido modo `unsuspend` con nota obligatoria + modo `suspend` con nota obligatoria (antes opcional); `<CancelServiceModal>` regla `canSubmit = typedMatches && noteValid && !submitting`; `<ServiceNotesCard>` fail-soft (try/catch del fetch) + `<Link>` Next App Router. **Endpoint nuevo**: `GET /admin/services/:id/notes` (triple guard + `@CheckPolicies(Read Service)` + `@AuditAccess('Service')`). **Listener**: `ReactivateServicesOnInvoicePaidListener` carga `invoice.invoice_number` + `reactivateSuspendedServiceOnPayment(serviceId, invoiceNumber)` compone el body como `"Reactivado automáticamente al pagar la factura N"`. **Cron** `autoSuspendServices` pasa body self-descriptive `"Suspendido automáticamente por impago — Factura N"` que aterriza directo en `ClientNote.body`. **ADRs**: [ADR-079 Amendment A4](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md#a4--notas-operativas-de-lifecycle-de-servicio--actor-sistema-nullable-2026-05-13) (formaliza enums + `author_id` nullable + 5 nuevos `triggered_by_action` + `createFromServiceLifecycleAction(input, tx?)` + `findByService` + endpoint + separación enum↔narrativa + migración data + L19 candidata). **ADR-077 sin cambios** (R1/R2/R3 son capa orquestador + DTOs; el contrato `ProvisionerPlugin` intacto). **Lección heredable candidata L19** (a confirmar en G.4 retro): *"Las transiciones de lifecycle de un servicio + su `ClientNote` correspondiente viven en la misma transacción Prisma. Plugin call + eventos + cache invalidations + audit quedan FUERA (asimétricos por naturaleza: provider call idempotente por contrato A4.4, listeners consumen estado committed, audit con política propia). Heredable a cualquier futuro plugin que añada operaciones de lifecycle admin."* Cierre commit-by-commit + decisiones reales tomadas en **§A.11.10.3.3**. Backlog: `DC.46` apuntado (auto-cancel-unify deferido — destructivo, decisión Yasmin 2026-05-13) + naming `notes`↔`internal_note` (`DeprovisionDto`) apuntado para alineación post-15C.II. Commits originales en la rama: `e308b19` (feat F.6) + `eb5fd8b` (chore fixes auditoría — `@AuditAccess` en endpoint notes + Next `<Link>` en ServiceNotesCard). |
 | **F.7** | **SSL/TLS status read-only** — `EnhanceApiClient` lee el estado del cert que Enhance gestiona (path orchd a verificar en el OAS); `getServiceInfo` gana `ssl?: { status: 'valid'\|'expiring_soon'\|'expired'\|'none'; expiresAt?; autoRenew?; issuer? }` (additivo opcional, mismo patrón que `metrics`/`recoveryHint`) + card en el detalle cliente/admin (`_shared/services/SslStatusCard.tsx`, prop `isAdmin` — L16) con badge verde/ámbar/rojo. Read-only — Aelium NO gestiona el cert (DH-INV-6); para renovar/cambiar → SSO al panel. Detalle §A.11.10.4. | ✅ **CERRADA, mergeada a master** — PR [#77](https://github.com/yasmindanailov/dashboard/pull/77) squash-merge `8b8bc47` 2026-05-14 (bypass policy §6, **10ª aplicación** — CI GitHub billing-bloqueada §A.9.10; las 3 condiciones cumplidas: motivo externo + `pnpm ci:check:full` verde [backend 51 suites, **712 passed + 5 skipped** = +21 vs F.6, + `nest build`; frontend `tsc --noEmit` + `eslint --max-warnings=0` + `next build`] + boot real backend verificado [`Nest application successfully started`, DI sin errores] + **smoke real Yasmin** verificado contra `MockEnhanceServer` (3/3 escenarios visuales: card `valid` cliente con LE auto-seedeado 60d + admin tooltip ISO + servicio terminal sin card) + sección formal en el cuerpo del PR; rama temporal eliminada; label `ready-for-e2e`) → post-merge doc-sync (patrón #61/#64/#66/#68/#71/#73/#76). **Materializado**: F.7.1 backend (`ServiceSslStatus`/`ServiceSslSummary`/`ServiceInfo.ssl?` en `core/provisioning/types.ts` + `EnhanceApiClient.getDomainSsl(domainId)` que captura `INVALID_STATE` 404 → `null` y re-lanza el resto + `getServiceInfo` añade `getWebsite` al `Promise.all` + helpers exportados `buildSslSummary`/`detectAutoRenew`/`parseEnhanceCertDate` + constante `SSL_EXPIRING_SOON_MS = 14 * 24 * 60 * 60 * 1000` server-side; `MockEnhanceServer` extendido con `state.domainSsls` Map + endpoint `GET /v2/domains/:domainId/ssl` + auto-seed LE 60d con `forceHttps:true` al `POST /websites` + `seed.domainSsls` opcional + cleanup en `DELETE /websites/:id`) ✅ + F.7.2 frontend (`<SslStatusCard>` SC nuevo en `_shared/services/` con prop `isAdmin` — L16 NO duplicación; server-component compatible sin hooks ni estado, patrón `<MetricsBar>` puro; badge variant por status; auto-renew sólo si definido; issuer display-only; admin extras condicionales [tooltip con fecha ISO + CTA SSO opcional `ssoPanelHref`]; +13 keys `service.ssl.*` en `translations-es.ts` patrón canónico Sprint 15C Fase 15C.I `t()`; barrel `_shared/services/index.ts`; types espejo en `lib/api.ts`; wired en `/dashboard/services/[id]` y `/admin/services/[id]` gateado `!isTerminal && info.ssl`) ✅ + **R1** umbral fijo 14d (industry standard ACME/LE; YAGNI vs setting per-plugin; cálculo server-side) ✅ + **R2** card único `_shared/` con prop `isAdmin` (admin gana tooltip ISO + CTA SSO opcional) ✅ + **R3** `status='none'` muestra card visible (badge gris + texto informativo "Sin certificado SSL — el sitio aparecerá como 'No seguro' en navegadores"); NO `AlertBanner` aparte (UI_SPEC §4.3) ✅ + tests (+21 casos: 8 `getServiceInfo > ssl` deterministas con `jest.useFakeTimers()` cubriendo `valid`/`expiring_soon`/`boundary 14d`/`expired`/`none`/`website-fails`/`ssl-throws-no-INVALID_STATE`/`expires-ilegible` + 3 `detectAutoRenew` + 3 `parseEnhanceCertDate` + 1 invariante de contrato A7.3 [`status ∈ enum + expiresAt parseable + status='none' ⇒ sin expiresAt`] + 4 client unit [200/404→null/500→throws/401→PROVIDER_AUTH_FAILED] + 3 client integration [auto-seed LE end-to-end + unknown domainId → null + seed.domainSsls custom DigiCert]) ✅. **ADRs**: [ADR-077 Amendment A7](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md#amendments) (`ServiceInfo.ssl?` opcional, mismo patrón A5/A6 — additivo, NO bumpea `contractVersion`) + [ADR-083 Amendment A8](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendments) (probe SSL Enhance — endpoint OAS line 8452 + mapeo de campos + heurística `detectAutoRenew` regex `/let'?s\s*encrypt/i` + threshold canónico 14d). **ADR-077 A7 + ADR-083 A8 frozen 2026-05-13.** **Tests RTL ausentes por diseño**: frontend NO tiene runner Jest/Vitest (verificación = `tsc --noEmit` + `eslint --max-warnings=0` + `next build`); comportamiento visual del card se cubre en G.2 (E2E spec extension). **Decisión**: commit 5 (validación) plegado en el PR body porque no requirió bumps de fixtures ni updates `wc -l` material; el patrón heredable (ver §A.11.10.4.3) es "commit 5 opcional cuando ci:check:full + boot smoke no requieren cambios de archivos". **Heredable** a 15D RC / 15E Docker / 15G Plesk: cualquier plugin que pueda leer el cert puebla `ssl?`; los que no, lo omiten y el card no aparece (capability-driven sin flag nuevo en `PluginCapabilities`). Cierre commit-by-commit + decisiones reales en **§A.11.10.4.3**. Commits originales en la rama: `849ba51` (docs) + `492bd8a` (feat backend) + `32fd353` (test backend) + `46c9cf4` (feat frontend). |
-| **F.8** | **Alertas de cuota** — setting `provisioning.enhance_cp.quota_alert_threshold_pct` (default 85, editable en `/admin/settings/plugins/enhance-cp`) + aviso visual en `MetricsBar` cuando un recurso (disco/ancho-banda) cruza el umbral (barra ámbar/roja + "estás al X% de tu cuota de disco") + notificación al cliente al cruzar (el reconcile L3 o un cron detecta el cruce; persiste "última notif por recurso" para no spamear → emite `service.quota_threshold_crossed` → listener `notifications-on-service-quota-threshold` → email + campana + plantilla seedeada). Heredable a cualquier plugin con `has_metrics`. Detalle §A.11.10.5. | ⏳ — rama `sprint15c-ii-fase-f8-quota-alerts`. Posible tabla `service_quota_alerts` o campo en `services.metadata` (decidir pre-código). |
+| **F.8** | **Alertas de cuota** — setting `provisioning.enhance_cp.quota_alert_threshold_pct` (default 85, editable en `/admin/settings/plugins/enhance-cp`) + aviso visual en `MetricsBar` cuando un recurso (disco/ancho-banda) cruza el umbral (barra ámbar/roja + "estás al X% de tu cuota de disco") + notificación al cliente al cruzar (el reconcile L3 o un cron detecta el cruce; persiste "última notif por recurso" para no spamear → emite `service.quota_threshold_crossed` → listener `notifications-on-service-quota-threshold` → email + campana + plantilla seedeada). Heredable a cualquier plugin con `has_metrics`. Detalle §A.11.10.5. | ⏳ → ✅ **CERRADA en rama, pendiente PR + post-merge sync** — rama `sprint15c-ii-fase-f8-quota-alerts` con 4 commits (`abf0240` doc / `0dae9dc` schema / `bbeab4d` lógica backend + tests / `78df064` frontend + summary). **Decisiones reales** (refinamiento pre-código §A.11.10.5.1 frozen 2026-05-16): R1 tabla dedicada `service_quota_alerts` (edge-triggered `crossed_up`/`crossed_down`, patrón Prometheus/AlertManager) sobre `services.metadata` — historial trazable + FK `ON DELETE Cascade`. R2 detector `QuotaThresholdDetectorService` transversal en `core/provisioning/` (heredable) invocado al final de `EnhanceReconciliationCron.runAsExecutor()` tras `runOnce()`; lectura per-service vía `api.calculateResourceUsage` (1 endpoint vs 5 de `getServiceInfo` — lean); `$transaction` con `isolationLevel: Serializable` (M2 — idempotency operativa explícita). R3 scope F.8 = solo disco; bandwidth diferido (reset mensual rompe edge-trigger sin handler especial, YAGNI). R4 setting en `configSchema` del manifest Enhance (`quota_alert_threshold_pct: integer, default:85, minimum:50, maximum:95`) — 95% hardcoded crítico. R5 evento `service.quota_threshold_crossed` registrado en `docs/20-modules/_events.md` + `provisioning/contract.md` §6, NO en ADR-080 §6 (corrige el apuntado: `service.*` ≠ framework `plugin.*`). R6 listener `NotificationsOnServiceQuotaThresholdCrossedListener` + plantilla seedeada (email + campana, EC-T8-17). R7 **mejora profesional sobre el dossier literal**: el threshold viaja por `summary.quota_alert_threshold_pct` de `getInfoForUser` (patrón paralelo a `provider_state_desync` F.4.1) en vez de endpoint nuevo — capa orquestador, **`ADR-077` contrato `ProvisionerPlugin` intacto**. `MetricsBar.tsx` Server Component puro con prop opcional capability-driven; coloreo solo en disco con `<QuotaIndicatorBlock>` (`role="progressbar"` + aria-label + advisory ámbar/rojo); colores DS coherentes con `invoice.paid/failed/overdue`. **+20 tests F.8** (12 detector + 8 listener; verificados patrones M2 serializable, M4 inclusivo, M8 sin total, R7 emit-fail-tras-persist, DoD anti-spam dos pasadas seguidas, re-cross genera 2º email). **ADRs**: ninguno (todo additivo a capa orquestador). Heredable a 15D RC / 15E Docker / 15G Plesk: el detector + listener + summary field se reutilizan; cada plugin solo añade su hook en su cron L3. Flip a ✅ definitivo en post-merge sync con commit SHA del squash. |
 | **F.9** | **Reconciliación per-servicio (`DC.45`)** — `ProvisionerPlugin.reconcileOne?(service)` opcional (ADR-077 amendment, mismo patrón que A6 `testConnection?()`) + `ReconcileRegistryService.reconcileOne(slug,service)` + `ProvisioningService.reconcileServiceAsAdmin` + endpoint `POST /admin/services/:id/reconcile` + Enhance implementa `reconcileOne` + **wire del CTA**: el botón "Reconciliar contra el proveedor" del `AdminDriftBanner` (cuando `recoveryHint==='reconcile'`) y cada fila de drift del `<PluginOperationalOverview>` (F.2) → endpoint single-shot in-place — cierra el cabo de F.3 (hoy el CTA linka a la página de settings = reconcile-all). Detalle §A.11.10.6. | ⏳ — rama `sprint15c-ii-fase-f9-reconcile-single`. ADR-077 amendment (`reconcileOne?()`) + posible ADR-083 amendment. (`DC.45` promovido del backlog.) |
 | **F.10** | **Deep-links curados al panel del proveedor** — en vez del único "Abrir panel del proveedor", un grupo de atajos curados ("Gestionar email", "Gestionar bases de datos", "Administrador de archivos", "Logs del sitio"…, las que orchd exponga vía SSO) — materialización a decidir pre-código: nuevas inline actions plugin-internas (`sso_email`/`sso_databases`/… — slugs plugin-internos, sin ADR, L14) o `getSsoUrl` gana parámetro `section?` (ADR-077 amendment + ADR-083). Cliente + admin (`_shared/`); capability-driven (si una sección no existe → no se muestra; ADR-070). Detalle §A.11.10.7. | ⏳ — rama `sprint15c-ii-fase-f10-curated-deeplinks`. ADR amendment según la materialización elegida. |
 | **F.11** | **Conveniencias operativas del detalle de servicio + plugins** — mini-badge de salud del proveedor en `/admin/services/[id]` ("Proveedor: operativo/degradado/caído" del `CircuitBreakerRegistry.getState()`, etiquetado "en esta instancia", link al `<PluginOperationalOverview>` completo) + reenviar notificación al cliente (`/admin/services/[id]` → modal con selector de plantilla [whitelist de las de service-lifecycle] → `POST /admin/services/:id/notifications/resend` + audit; reusa el historial de `notifications`) + cross-link a billing en la página del servicio (cliente + admin: "Próxima renovación: X · €Y · [Ver factura]" leyendo la subscription/invoice del service → link a `/dashboard/billing/[id]` o admin). Detalle §A.11.10.8. | ⏳ — rama `sprint15c-ii-fase-f11-service-conveniences`. |
@@ -2158,6 +2158,181 @@ Decisión final entre "inline `clientNote.create` en la tx" vs "pasar `tx` al he
 - **ADR amendments:** ninguno del contrato (es comportamiento + setting + evento + listener). Doc: el evento `service.quota_threshold_crossed` al catálogo de eventos de `provisioning`; dossier.
 - **DoD F.8:** setting; aviso visual en `MetricsBar`; notificación sin spam (con persistencia de "última enviada por recurso", verificada con un test de "cruza el umbral dos pasadas seguidas → un solo email"); plantilla seedeada; tests; `pnpm ci:check:full` + boot; PR + post-merge sync.
 - **Valoración pre-código:** (1) persistencia de "última notif por recurso": ¿`services.metadata` o tabla dedicada `service_quota_alerts`? — recomendado tabla dedicada si se quiere historial de alertas. (2) ¿quién detecta el cruce: el reconcile L3 (ya corre cada 6h) o un cron dedicado más frecuente? — reutilizar el reconcile L3. (3) ¿el aviso de cuota aplica a ancho de banda (mensual) o solo a disco?
+
+#### A.11.10.5.1. Refinamientos pre-código F.8 (frozen 2026-05-16)
+
+Resolución de las 3 valoraciones del dossier + 4 decisiones adicionales que el código real exige congelar antes de tocar nada. Mismo patrón que §A.11.10.3.2 R1/R2/R3 de F.6 y §A.11.10.4.1 R1/R2/R3 de F.7. Citas canónicas: `ADR-077`, `ADR-080`, `ADR-083`, `R7`, `L13`/`L14`/`L16`/`L18`, doctrina §A.10.3. L18 aplicado: el catálogo canónico del evento `service.quota_threshold_crossed` va en `docs/20-modules/_events.md` + `docs/20-modules/provisioning/contract.md` (eventos de **provisioning**, no de framework de plugins) — el catálogo `plugin.*` de ADR-080 §6 NO se toca en F.8, contrario al apuntado original.
+
+##### R1 — Persistencia "última notif por recurso": tabla dedicada `ServiceQuotaAlert`, NO `services.metadata`
+
+Schema canónico:
+
+```prisma
+enum QuotaAlertResource {
+  disk
+  // 'bandwidth' fuera de scope F.8 — ver R3. Cuando se promocione, se añadirá aquí.
+}
+
+enum QuotaAlertKind {
+  crossed_up   // pasa de <threshold a ≥threshold — dispara email
+  crossed_down // pasa de ≥threshold a <threshold — solo state, sin email
+}
+
+model ServiceQuotaAlert {
+  id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  service_id    String              @db.Uuid
+  resource      QuotaAlertResource
+  kind          QuotaAlertKind
+  used_pct      Decimal             @db.Decimal(5,2)
+  threshold_pct Decimal             @db.Decimal(5,2)
+  detected_at   DateTime            @default(now()) @db.Timestamptz()
+
+  service       Service             @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@index([service_id, resource, detected_at])
+  @@map("service_quota_alerts")
+}
+```
+
+**Por qué tabla dedicada (vs `services.metadata.quotaAlerts`)**:
+
+- (a) **Edge-triggered alerting canónico** (patrón Prometheus/AlertManager): `crossed_up` cuando el snapshot pasa de `<threshold` a `≥threshold`; `crossed_down` cuando vuelve por debajo. Solo se emite email en `crossed_up`. Si dos pasadas consecutivas siguen por encima → la última fila es `crossed_up`, no se re-emite. Cumple el DoD literal F.8 ("cruza el umbral dos pasadas seguidas → un solo email"). Sin la fila `crossed_down`, no se podría distinguir "estamos above por primera vez" de "ya notificado y seguimos above".
+- (b) **Historial trazable + auditable** (patrón establecido en el codebase — `AuditChangeLog` / `FailedJob`). `services.metadata` se sobreescribe en cada ciclo y pierde historial; G.1 (tests críticos del sprint) querrá tests sobre la traza.
+- (c) **Foreign key + `onDelete: Cascade`** garantiza integridad referencial cuando un servicio se elimina físicamente (no operación normal — los servicios se marcan `cancelled`/`terminated`, no se borran; pero la garantía cuesta cero declararla). Con `metadata` Json esto no es posible.
+
+##### R2 — Detector del cruce: extender `EnhanceReconciliationCron` + servicio transversal `QuotaThresholdDetectorService`
+
+El cron Enhance ([enhance-reconciliation.cron.ts:113](../../backend/src/plugins/provisioners/enhance_cp/crons/enhance-reconciliation.cron.ts#L113) — `runAsExecutor`) añade un paso final tras el `runOnce()`: por cada service procesado, llama `plugin.getServiceInfo(service)` con `forceRevalidate: true` (lectura fresca; el cache L1=60s se ignora porque la siguiente pasada del cron son 6h después de todos modos) y delega a `QuotaThresholdDetectorService.detectAndNotify(service, info.metrics, thresholdPct)`.
+
+`QuotaThresholdDetectorService` vive en `backend/src/core/provisioning/` (transversal — heredable a 15E Docker / 15G Plesk; 15D RC no aplica, sin métricas). Lógica edge-trigger:
+
+1. Si `metrics.diskTotalMb` no está definido o es `<= 0` → no-op (sin total no hay umbral; **M8**).
+2. `pct = (metrics.diskUsedMb / metrics.diskTotalMb) * 100`.
+3. `lastAlert = prisma.serviceQuotaAlert.findFirst({ where: { service_id, resource: 'disk' }, orderBy: { detected_at: 'desc' } })`.
+4. **`pct >= threshold` (umbral inclusivo, M4)** AND (`lastAlert == null` OR `lastAlert.kind === 'crossed_down'`) → insertar `crossed_up` + emitir `service.quota_threshold_crossed` (en la misma `$transaction`).
+5. `pct < threshold` AND `lastAlert?.kind === 'crossed_up'` → insertar `crossed_down` (solo state, sin emit).
+6. Resto de casos → no-op (idempotente).
+
+**M2 — Idempotency operativa: `$transaction` con isolation `Serializable`** alrededor del par `findFirst` + `create` para que dos detectores concurrentes (cron + `runOnce()` manual del admin) no inserten dos `crossed_up` consecutivos. El cron no tiene concurrencia natural (`@Cron` instancia única), pero el grado profesional exige defensa explícita.
+
+**Por qué reconcile L3 (vs cron dedicado o detección en `getServiceInfo` on-demand)**:
+
+- El reconcile L3 ya tiene cadencia controlada (6h, sin "doble disparo" cuando el cliente recarga su página 10 veces).
+- Detectar en `getServiceInfo` on-demand introduce races con el cache L1=60s y posibles emisiones múltiples bajo carga concurrente. **L18**: no inventar mecanismo nuevo cuando el existente encaja.
+- **Heredable**: cada plugin con métricas extiende su propio cron de reconciliación con el mismo hook al servicio transversal. Mismo patrón que F.5 `actorLabel` (capa orquestador agnóstica al plugin).
+
+##### R3 — Scope F.8: solo disco. Bandwidth queda fuera (visual y notif)
+
+**Por qué solo disco**:
+
+- Disco es **cuota dura**: llenarlo cuelga el servicio (no se pueden escribir logs, DB, uploads).
+- Bandwidth es **mensual con reset el 1º del mes**. Notificar al 85% el día 28 da 2 días de margen — alerta sin acción posible. Edge-triggered alerting con reset mensual requiere lógica adicional (¿qué hacer cuando el reset hace `crossed_down` artificial? ¿se considera transición real?) — YAGNI hoy (regla doctrinal "Don't design for hypothetical future requirements"). 
+- **L18**: F.8 entrega valor inmediato sobre el caso que más impacta al cliente (disco). Si en el futuro se quiere bandwidth, se promueve como F.8.x con la semántica del reset mensual resuelta entonces (añadir `bandwidth` al enum `QuotaAlertResource` + handler especial en el detector que ignore `crossed_down` artificial por reset).
+
+**Implicación visual**: `MetricsBar` colorea **solo la barra de disco** (ámbar `≥threshold` / rojo `≥95%`). Bandwidth, RAM, CPU, email/DB cuentas → sin coloreo (igual que hoy). Heredable: cuando se promocione bandwidth, se añadirá la lógica al componente.
+
+##### R4 — Setting `quota_alert_threshold_pct`: manifest del plugin Enhance (`configSchema` ADR-080), default 85
+
+Añadido a `ENHANCE_CONFIG_SCHEMA` en [enhance.plugin.ts:110](../../backend/src/plugins/provisioners/enhance_cp/enhance.plugin.ts#L110):
+
+```typescript
+quota_alert_threshold_pct: {
+  type: 'integer',
+  default: 85,
+  minimum: 50,
+  maximum: 95,
+  title: 'plugin.enhance_cp.config.quota_alert_threshold_pct.label',
+  description: 'plugin.enhance_cp.config.quota_alert_threshold_pct',
+},
+```
+
+- Vive en el manifest del plugin Enhance, NO en `ConfigService` global. Razón canónica: el dossier dice "editable en `/admin/settings/plugins/enhance-cp`" — esa página solo edita el `configSchema` del manifest (ADR-080 §1 "Manifest declarativo JSON-Schema 7"). Si fuera setting global, se editaría en otra UI.
+- `minimum: 50, maximum: 95` evitan que el admin desactive el aviso o pise el umbral crítico hardcoded (95% rojo, ver R7).
+- Persistencia: `plugin_installs.config` ya cubre esto (ADR-080).
+- **95% hardcoded como umbral crítico (rojo)** — no configurable. **L18 + YAGNI**: si en el futuro algún plugin pide un 2º umbral configurable, se promueve.
+- **Heredable**: cualquier plugin con `has_metrics` declara su propio `quota_alert_threshold_pct` en su manifest (mismo nombre canónico, distinto default si quisiera).
+
+##### R5 — Shape del evento `service.quota_threshold_crossed` + catálogo canónico
+
+Shape:
+
+```typescript
+{
+  service_id: string,
+  user_id: string,
+  plugin_slug: string,                    // 'enhance_cp'
+  resource: 'disk',                       // R3 — solo disk en F.8
+  used_pct: number,                       // ej. 87.4
+  threshold_pct: number,                  // ej. 85 (snapshot del setting al detectar)
+  used_mb: number,                        // ej. 8740
+  total_mb: number,                       // ej. 10000
+  detected_at: string                     // ISO-8601
+}
+```
+
+- **R5.1**: nombre del evento literal del dossier — `service.quota_threshold_crossed`. `resource` singular (alineado con el listener y la plantilla que procesan un único recurso por evento).
+- **R5.2 — corrección sobre el apuntado**: el evento se registra en `docs/20-modules/_events.md` (catálogo `service.*` del módulo provisioning, donde viven `service.suspended`, `service.unsuspended`, `service.reconciled_external_change`, etc.) + `docs/20-modules/provisioning/contract.md` §6 "Emite". **NO va en ADR-080 §6** — esa tabla es exclusiva del framework de plugins (`plugin.installed`/`config_changed`/`uninstalled`/`circuit_opened`/`circuit_closed`/`reconcile_completed`). El apuntado original era incorrecto; L18 lo corrige.
+- **R5.3 — R7**: el listener no relanza excepciones; el detector tampoco. Cualquier fallo del dispatch a la cola NO debe deshacer el state-tracking (la fila `ServiceQuotaAlert` se inserta antes del `emit` dentro de la `$transaction`; si el `emit` post-tx falla, la fila queda y la siguiente pasada NO re-emite por el edge-trigger — el cliente pierde un email pero el sistema no se desincroniza).
+
+##### R6 — Listener + plantilla seedeada
+
+**Listener** `NotificationsOnServiceQuotaThresholdCrossedListener` en `backend/src/modules/notifications/listeners/` — patrón idéntico a `NotificationsOnServiceSuspendedListener` ([notifications-on-service-suspended.listener.ts:90](../../backend/src/modules/notifications/listeners/notifications-on-service-suspended.listener.ts#L90)):
+
+- `@OnEvent('service.quota_threshold_crossed')`.
+- `@Injectable()` con `NotificationsService` + `PrismaService` + `ConfigService` inyectados.
+- `try/catch` que loguea + traga (R7); la fila `ServiceQuotaAlert` ya capturó el estado.
+- Llama `this.notifications.dispatchToUser('service.quota_threshold_crossed', { service_id, domain, used_pct, used_mb_label, total_mb_label, service_url, support_url }, user_id)`. La firma canónica de `dispatchToUser` ([notifications.service.ts:60](../../backend/src/modules/notifications/notifications.service.ts#L60)) encola en BullMQ `notifications-dispatch`; el processor resuelve recipient + plantilla.
+
+**Plantilla seedeada** en [notification-templates.ts](../../backend/prisma/seeds/notification-templates.ts) (email + campana, locale `es`):
+
+- Subject: `⚠ Estás al {{used_pct}}% de almacenamiento en {{domain}}`.
+- Variables: `service_id`, `domain`, `used_pct`, `used_mb_label`, `total_mb_label`, `service_url` (→ `/dashboard/services/[id]`), `support_url`, `recipient.first_name?`.
+- CTA primario: "Ver detalles del servicio" → `service_url`.
+- **EC-T8-17 (seed guard)**: solo `{{var}}` (escape Handlebars), nunca triple-stash. El test `notification-templates.security.spec.ts` falla el build si no.
+- Solo se seedea **disco** (R3). Cuando se promocione bandwidth, se añadirá su plantilla o se ramifica con `{{#if resource_is_disk}}` (decisión al promocionar).
+
+##### R7 — Frontend `MetricsBar`: gradación visual capability-driven, sin duplicar el componente
+
+[MetricsBar.tsx](../../frontend/app/_shared/services/MetricsBar.tsx) gana props **`quotaThresholdPct?: number`** (opcional — si `undefined`, comportamiento legacy sin coloreo). La página `/dashboard/services/[id]` y `/admin/services/[id]` leen el threshold del manifest del plugin (vía `plugin_installs.config.quota_alert_threshold_pct`) y lo pasan como prop. Para plugins que NO declaran el setting, el prop queda `undefined` y `MetricsBar` no colorea (capability-driven, heredable).
+
+Solo la barra de disco recibe el coloreo (R3). Lógica server-side (el componente sigue siendo Server Component puro — sin hooks, sin state, patrón `<SslStatusCard>` heredado de F.7):
+
+- `pct < threshold` → verde (actual, sin cambio).
+- `threshold ≤ pct < 95` → ámbar + texto auxiliar "Estás al X% de tu cuota de disco — considera ampliar o liberar espacio".
+- `pct ≥ 95` → rojo + mismo texto + énfasis (font-weight 600).
+
+**Accesibilidad (estándar profesional, mejora añadida)**: la barra coloreada recibe `role="progressbar"` + `aria-valuenow={pct}` + `aria-valuemin={0}` + `aria-valuemax={100}` + `aria-label` localizado ("Almacenamiento al 87% — alerta"). Hoy `MetricsBar` no expone ningún `aria-*` (es texto puro `used / total`); F.8 lo arregla solo para la fila de disco coloreada — el resto se cubrirá en F.12 al refactorizar layout.
+
+**L13** — la UI ramifica por el **valor numérico de `pct`**, NUNCA por matching de `statusReason` ni strings del proveedor. **L16** — `_shared/` + prop `isAdmin` (ya existe en el componente desde Sprint 15C.II Fase C), no duplicado en `admin/` y `client/`. Coherente con el patrón F.7 (`SslStatusCard` con prop `isAdmin`).
+
+Frontend AGENTS.md ("This is NOT the Next.js you know"): se leerá `node_modules/next/dist/docs/` para confirmar Server Components conventions antes de tocar el componente — el patrón actual del archivo es ya correcto Server Component (sin hooks, sin `"use client"`), F.8 mantiene esa naturaleza.
+
+##### ADR amendments F.8 — ninguno
+
+- **`ProvisionerPlugin` (ADR-077)**: ningún cambio. F.8 es comportamiento + setting + evento + listener + tabla — todo additivo al orquestador, sin tocar el contrato del plugin.
+- **`ADR-080` (Plugin Framework)**: ningún cambio. El catálogo §6 es exclusivo de eventos `plugin.*` framework — `service.quota_threshold_crossed` es del módulo provisioning. Corrige el apuntado original (L18).
+- **`ADR-083` (Plugin Enhance specifics)**: ningún cambio. El setting `quota_alert_threshold_pct` se añade al `configSchema` del manifest y es operación rutinaria de configuración del plugin, no decisión arquitectónica.
+
+##### Plan de commits F.8 (Opción A — todo en una rama, patrón F.7)
+
+Rama: `sprint15c-ii-fase-f8-quota-alerts` (creada desde `master` `2258fdb`).
+
+1. **Commit 1** (doc-only): este refinamiento + fila `service.quota_threshold_crossed` en `_events.md` + entrada en `provisioning/contract.md` §6.
+2. **Commit 2** (schema): migración Prisma `service_quota_alerts` + enums + relación inversa `Service.quota_alerts` + manifest `quota_alert_threshold_pct`.
+3. **Commit 3** (backend lógica): `QuotaThresholdDetectorService` (transversal en `core/provisioning/`) + listener + plantilla seedeada + wire en `EnhanceReconciliationCron.runAsExecutor()` + tests unit (edge-trigger two-pass + serializable lock + sin-total = no-op + threshold inclusivo `>=`).
+4. **Commit 4** (frontend): `MetricsBar` prop `quotaThresholdPct` + coloreo disco + `role="progressbar"` + aria-label + i18n keys + wire en cliente/admin.
+5. **Commit 5** (cierre, opcional según patrón F.7): `pnpm ci:check:full` + boot smoke + dossier §A.11.1 flip F.8 ✅ + memory.
+
+PR único; bypass policy §6 si CI GitHub Actions sigue billing-bloqueada (11ª aplicación si aplica); post-merge doc-sync (patrón heredado).
+
+##### DoD F.8 (refinado de §A.11.10.5)
+
+- Setting en manifest Enhance + UI admin funcionando vía ADR-080.
+- Aviso visual ámbar/rojo en `MetricsBar` (solo disco) + accesibilidad ARIA.
+- Notif anti-spam vía edge-triggered en `ServiceQuotaAlert`.
+- Plantilla seedeada (email + campana) con guard EC-T8-17.
+- Tests unit: (1) edge-trigger "cruza umbral dos pasadas seguidas → un solo email"; (2) "above → below → above → 2º email"; (3) `pct >= threshold` boundary inclusivo; (4) sin `diskTotalMb` → no-op; (5) `$transaction` serializable previene doble emit; (6) listener despacha con variables correctas; (7) seed test cubre la nueva plantilla.
+- `pnpm ci:check:full` verde + boot smoke + PR + post-merge sync.
 
 ### A.11.10.6. Fase F.9 — Reconciliación per-servicio (`DC.45`) + cierre del cabo del CTA reconcile
 
