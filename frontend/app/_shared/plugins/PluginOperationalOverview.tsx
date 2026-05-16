@@ -228,7 +228,9 @@ export async function PluginOperationalOverview({ slug }: Props) {
                   {/* Sprint 15C.II F.9 (R9): columna acción inline reconcile-single.
                       Solo se renderiza si el plugin soporta reconcileOne. */}
                   {overview.reconciliation.supports_reconcile_one && (
-                    <th style={thStyle}>Acción</th>
+                    <th style={thStyle}>
+                      {t('plugin.overview.recent_drifts.action_column')}
+                    </th>
                   )}
                 </tr>
               </thead>

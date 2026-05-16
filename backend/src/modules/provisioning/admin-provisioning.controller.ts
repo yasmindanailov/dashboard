@@ -39,6 +39,7 @@ import {
 import {
   DnsExternallyManagedError,
   ProvisioningService,
+  RECONCILE_SINGLE_COOLDOWN_SECONDS,
 } from './provisioning.service';
 
 /**
@@ -329,7 +330,10 @@ export class AdminProvisioningController {
           typeof response === 'object' &&
           response.code === 'RECONCILE_IN_PROGRESS'
         ) {
-          const retryAfter = response.retry_after_seconds ?? 30;
+          // B2 review polish: usamos la constante canónica del service en
+          // lugar del literal `30` para evitar drift si la ventana cambia.
+          const retryAfter =
+            response.retry_after_seconds ?? RECONCILE_SINGLE_COOLDOWN_SECONDS;
           res.setHeader('Retry-After', String(retryAfter));
           throw new HttpException(response, HttpStatus.TOO_MANY_REQUESTS);
         }

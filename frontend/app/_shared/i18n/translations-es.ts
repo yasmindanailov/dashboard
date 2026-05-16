@@ -389,6 +389,38 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.drift.admin_banner.reconcile_help':
     'Abre la configuración del plugin, donde puedes lanzar una reconciliación contra el proveedor ahora (sin esperar al cron periódico) y revisar el estado operativo del plugin.',
 
+  // ── Sprint 15C.II Fase F.9 polish (review F1) — i18n del reconcile
+  //    single-shot. R5 frozen (Toast UX 3 ramas) + R6 (coalesced prefix) +
+  //    R7 (in-progress retry-after). Las keys con `{count}` se interpolan en
+  //    runtime via `replace('{count}', ...)` — el `t()` actual no soporta
+  //    ICU plural, decisión consciente para v1 (cuando llegue el sub-sprint
+  //    EN se reemplaza por `next-intl` sin tocar call-sites).
+  'service.reconcile.button.label': 'Reconciliar',
+  'service.reconcile.button.loading': 'Reconciliando…',
+  'service.reconcile.row_button.loading': '…',
+  'service.reconcile.coalesced_prefix': 'Resultado en caché · ',
+  'service.reconcile.toast.success_singular_with_timeline':
+    'Reconciliación completada · 1 cambio aplicado. Ver detalle en timeline.',
+  'service.reconcile.toast.success_plural_with_timeline':
+    'Reconciliación completada · {count} cambios aplicados. Ver detalle en timeline.',
+  'service.reconcile.toast.success_singular_no_timeline':
+    'Reconciliación completada · 1 cambio aplicado.',
+  'service.reconcile.toast.success_plural_no_timeline':
+    'Reconciliación completada · {count} cambios aplicados.',
+  'service.reconcile.toast.warning_singular_with_timeline':
+    '1 drift detectado · no aplicado automáticamente (revisar timeline).',
+  'service.reconcile.toast.warning_plural_with_timeline':
+    '{count} drifts detectados · ninguno aplicado automáticamente (revisar timeline).',
+  'service.reconcile.toast.warning_singular_no_timeline':
+    '1 drift detectado · no aplicado automáticamente.',
+  'service.reconcile.toast.warning_plural_no_timeline':
+    '{count} drifts detectados · ninguno aplicado automáticamente.',
+  'service.reconcile.toast.no_changes':
+    'Sin cambios — el servicio está sincronizado con el proveedor.',
+  'service.reconcile.toast.in_progress':
+    'Reconciliación en curso. Inténtalo de nuevo en {seconds}s.',
+  'plugin.overview.recent_drifts.action_column': 'Acción',
+
   // ── Estados terminales — service.status ∈ {cancelled, terminated}
   //    (UI_SPEC §4.13 + ADR-082 DH-INV-6 — Sprint 15C.II Fase C round 4
   //    2026-05-10). Doctrina canónica: cuando un service está terminal,

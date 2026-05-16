@@ -266,13 +266,32 @@ describe('ReconcileRegistryService — Sprint 15C.II Fase B (ADR-083 Amendment A
       expect(err.message).toContain('plugin-no-existe');
     });
 
-    it('reconcileOne: propaga error del executor sin enmascarar', async () => {
-      registry.registerReconcileOne('plugin-broken', () =>
-        Promise.reject(new Error('upstream provider down')),
+    it('reconcileOne: propaga error del executor sin enmascarar (ProvisionerPluginError canónico)', async () => {
+      // Polish F.9 (review T1): el path canónico es `ProvisionerPluginError`
+      // (el plugin/wrapper rethrow contractuales — ADR-077 + GAP-N F.3).
+      // Verificamos el shape completo: `code`, `module`, `retriable` y que
+      // el registry NO enmascara el error añadiendo capas.
+      const pluginErr = new ProvisionerPluginError(
+        'upstream provider down',
+        'PROVIDER_TIMEOUT',
+        true, // retriable
+        undefined, // cause
+        'reconcile',
       );
-      await expect(
-        registry.reconcileOne('plugin-broken', FAKE_SERVICE),
-      ).rejects.toThrow('upstream provider down');
+      registry.registerReconcileOne('plugin-broken', () =>
+        Promise.reject(pluginErr),
+      );
+      let caught: unknown;
+      try {
+        await registry.reconcileOne('plugin-broken', FAKE_SERVICE);
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBe(pluginErr);
+      expect(caught).toBeInstanceOf(ProvisionerPluginError);
+      expect((caught as ProvisionerPluginError).code).toBe('PROVIDER_TIMEOUT');
+      expect((caught as ProvisionerPluginError).module).toBe('reconcile');
+      expect((caught as ProvisionerPluginError).retriable).toBe(true);
     });
 
     it('reconcileOne y runFor coexisten sin interferir (mappings independientes)', async () => {

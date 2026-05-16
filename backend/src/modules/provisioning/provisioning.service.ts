@@ -85,7 +85,34 @@ const REFRESH_COOLDOWN_SECONDS = 15;
  * responde `429 RECONCILE_IN_PROGRESS` con `Retry-After` si no hay resultado
  * cacheado todavía.
  */
-const RECONCILE_SINGLE_COOLDOWN_SECONDS = 30;
+export const RECONCILE_SINGLE_COOLDOWN_SECONDS = 30;
+
+/**
+ * Sprint 15C.II Fase F.9 polish (review B1 — drift types localizados).
+ *
+ * Mapea cada `ServiceDriftType` (enum técnico) a una etiqueta humana en
+ * español para componer el `body` del `ClientNote` que genera
+ * `reconcileServiceAsAdmin` cuando `driftsApplied > 0`. Sin este helper la
+ * nota mostraría strings crudos del enum (`status_divergence, plan_divergence`)
+ * al admin/cliente en `<ServiceNotesCard>` y `<ClientNotesTab>`.
+ *
+ * Heredable a plugins futuros: si 15D RC / 15E Docker / 15G Plesk añaden
+ * nuevos `ServiceDriftType`, deben extender este switch. El default `'otro
+ * cambio detectado'` evita exponer el enum técnico aunque la traducción
+ * falte.
+ */
+function humanizeServiceDriftType(type: string): string {
+  switch (type) {
+    case 'status_divergence':
+      return 'estado del servicio';
+    case 'plan_divergence':
+      return 'plan del producto';
+    case 'subscription_missing':
+      return 'suscripción del proveedor ausente';
+    default:
+      return 'otro cambio detectado';
+  }
+}
 
 /**
  * ProvisioningService â€” Sprint 11 Fase 11.D (ADR-077 Â§1+Â§2+Â§5 + ADR-070 Â§A/B/C).
@@ -1712,7 +1739,17 @@ export class ProvisioningService {
       });
     }
 
+    // B3 review: guard defensivo para servicios pre-Sprint 15A (legado) que
+    // no tienen plugin slug resoluble — devolvemos NotFound con mensaje
+    // explícito en lugar de propagar RECONCILE_ONE_NOT_SUPPORTED confuso.
     const pluginSlug = service.provisioner_slug ?? service.product.provisioner;
+    if (!pluginSlug) {
+      throw new NotFoundException({
+        code: 'SERVICE_HAS_NO_PROVISIONER',
+        message: `El servicio ${serviceId} no tiene un plugin de aprovisionamiento asociado. Reconcile no es aplicable.`,
+      });
+    }
+
     const result = await this.reconcileRegistry.reconcileOne(
       pluginSlug,
       service,
@@ -1729,9 +1766,25 @@ export class ProvisioningService {
     await this.cache.invalidate(serviceId);
 
     // R3 frozen: ClientNote automática si driftsApplied > 0 (categoría nueva
-    // `reconciliation`, ADR-079 Amendment A5).
+    // `reconciliation`, ADR-079 Amendment A5). B1 review polish: usamos
+    // `humanizeServiceDriftType` para no exponer el enum técnico al admin/
+    // cliente en `<ServiceNotesCard>`/`<ClientNotesTab>`.
+    //
+    // Atomicidad (review B2): el plugin ya aplicó las mutaciones de
+    // `services.status`/`services.metadata` ANTES de este punto (R8 +
+    // Sub-amendment III A8.5: plugin aplica drifts, orquestador maneja
+    // transversales). Por construcción la nota se crea POST-mutación y NO en
+    // la misma `$transaction` que la mutación del plugin (asimétrica con F.5/
+    // F.6 donde la transición admin del lifecycle + la nota van juntas). Un
+    // fallo aquí dejaría el drift aplicado sin nota; el cron L3 retry NO
+    // recreará la nota retroactivamente — queda como evento auditable vía
+    // `service.reconciled_single` (logChange líneas 1758+). Aceptable: la
+    // pérdida es la NARRATIVA, no el ESTADO; cron L3 igual habría aplicado el
+    // mismo drift sin nota.
     if (result.driftsApplied.length > 0) {
-      const appliedTypes = result.driftsApplied.map((d) => d.type).join(', ');
+      const appliedTypes = result.driftsApplied
+        .map((d) => humanizeServiceDriftType(d.type))
+        .join(', ');
       const noteBody = `Reconciliación manual contra el proveedor — ${result.driftsApplied.length} cambio(s) aplicado(s): ${appliedTypes}.`;
       await this.clientNotes.createFromServiceLifecycleAction({
         user_id: service.user_id,

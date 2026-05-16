@@ -415,8 +415,11 @@ export async function reconcileServiceAction(
       ...raw,
       reconciledAt: new Date(raw.reconciledAt),
     };
-    // Solo invalidar cache si hubo cambios aplicados (sino el servidor ya lo
-    // hizo via cache.invalidate y el router.refresh del cliente refresca UI).
+    // Invalidar siempre: defensa de coherencia. El backend invalida
+    // `service_info:<id>` en `cache.invalidate(serviceId)` cuando aplica
+    // drifts; aquí refrescamos el Next cache de la ruta admin para que el
+    // SC re-renderice con el nuevo estado en su siguiente fetch — coherente
+    // con `router.refresh()` que el caller invoca tras este action.
     revalidatePath(`/admin/services/${serviceId}`);
     return { ok: true, result };
   } catch (err) {

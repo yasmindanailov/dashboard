@@ -1420,13 +1420,13 @@ async reconcileOne(slug: string, service: ServiceWithRelations): Promise<Service
 }
 ```
 
-**Gating en frontend** — el admin overview F.2 (`/admin/settings/plugins`) ya lista las capabilities derivadas del manifest del plugin. El frontend deriva `supportsReconcileOne` leyendo si el plugin instalado expone el método (la admin API expone esta señal a través del manifest enriquecido). El `AdminDriftBanner` (cuando `recoveryHint === 'reconcile'`) y las filas drift de `<PluginOperationalOverview>` solo renderizan el botón "Reconciliar contra el proveedor" si la capability está presente.
+**Gating en frontend** — frozen R9 (§A.11.10.6.2 Amendment III, commit `8939a97`): el admin overview F.2 (`GET /api/v1/admin/plugins/:slug/operational-overview`) expone `reconciliation.supports_reconcile_one: boolean` **derivado server-side** vía `reconcileRegistry.hasReconcileOneExecutor(slug)` — refleja la presencia real del executor registrado por el cron del plugin en su `onModuleInit` (Amendment II, executor map paralelo). El `<AdminDriftBanner>` (cuando `recoveryHint === 'reconcile'`) y las filas drift de `<PluginOperationalOverview>` solo renderizan el botón si el flag está a `true`.
 
-**Contract test invariant** (`provisioner-contract.spec.ts`): para todo plugin loaded:
-- Si `manifest.declaresReconcileOneSupport === true` (o equivalente) → `typeof plugin.reconcileOne === 'function'`.
-- Si `typeof plugin.reconcileOne === 'function'` → invocar contra un mock service debe devolver un `ServiceReconcileResult` válido (no throw).
+**Doctrina canónica: capability-driven por presencia, NO por flag del manifest.** Coherente con A6 (`testConnection?()`) y A7 (`ServiceInfo.ssl?`). El `PluginManifest` declarativo NO declara `reconcileOne` — la "capability" se infiere observando si el plugin (o su cron) registra un executor en el `ReconcileRegistryService`. Razón: facilita los plugins futuros (15D RC / 15E Docker / 15G Plesk) sin contaminar `PluginCapabilities` con flags redundantes; un plugin que añada `reconcileOne` simplemente expone el método + se auto-registra, sin tocar su manifest.
 
-(El nombre exacto del flag del manifest se decide en commit feat 4 — contract test — junto al patrón existente de `testConnectionMethod`.)
+**Contract test invariant** (`provisioner-contract.spec.ts`): para todo plugin loaded la única invariante canónica es:
+- Si `typeof plugin.reconcileOne === 'function'` → invocar contra un mock service devuelve un `ServiceReconcileResult` válido (no throw, shape ADR-077 A8.2: `driftsDetected: ServiceDrift[]` + `driftsApplied: ServiceDrift[]` ⊆ `driftsDetected` + `reconciledAt: Date`, con `applied=true` para cada drift en `driftsApplied`).
+- NO se valida ningún flag del manifest (R9 — la capability está implícita por la presencia del método).
 
 #### A8.4. Doctrina safe-to-adopt (R4 frozen) — espejo del cron L3
 

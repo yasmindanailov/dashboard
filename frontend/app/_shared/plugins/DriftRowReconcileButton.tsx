@@ -28,7 +28,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Button, useToast } from '../../components/ui';
+import { t } from '../i18n';
 import { reconcileServiceAction } from '../services/_actions';
+import {
+  reconcileInProgressMessage,
+  reconcileToastFor,
+} from '../services/_reconcile-toast';
 
 interface Props {
   serviceId: string;
@@ -54,40 +59,28 @@ export function DriftRowReconcileButton({
     if (!response.ok) {
       setReconciling(false);
       if (response.inProgress) {
-        const retry = response.retryAfterSeconds ?? 30;
-        toast(
-          'info',
-          `Reconciliación en curso. Inténtalo de nuevo en ${retry}s.`,
-        );
+        toast('info', reconcileInProgressMessage(response.retryAfterSeconds ?? 30));
       } else {
         toast('error', response.error);
       }
       return;
     }
     const { result } = response;
-    const prefix = result.coalesced ? 'Resultado en caché · ' : '';
-    const appliedCount = result.driftsApplied.length;
-    const detectedCount = result.driftsDetected.length;
 
-    if (appliedCount > 0) {
-      toast(
-        'success',
-        `${prefix}Reconciliación completada · ${appliedCount} cambio${appliedCount === 1 ? '' : 's'} aplicado${appliedCount === 1 ? '' : 's'}.`,
-      );
-      router.refresh();
-    } else if (detectedCount > 0) {
-      toast(
-        'warning',
-        `${prefix}${detectedCount} drift${detectedCount === 1 ? '' : 's'} detectado${detectedCount === 1 ? '' : 's'} · ninguno aplicado automáticamente.`,
-      );
-      router.refresh();
-    } else {
-      toast(
-        'info',
-        `${prefix}Sin cambios — el servicio está sincronizado con el proveedor.`,
-      );
-      router.refresh();
-    }
+    // Polish F.9 (review F1+F3): helper canónico — `withTimelineCta=false`
+    // documenta explícitamente la divergencia intencional con
+    // `<AdminDriftBanner>` (que pasa `true`). Razón: aquí estamos en la vista
+    // del plugin `/admin/settings/plugins/[slug]`, el admin ya ve la tabla
+    // de drifts y `router.refresh()` la re-poblará con el nuevo estado.
+    // Navegar al timeline rompería el flujo "reconciliar en bloque".
+    const { variant, text } = reconcileToastFor({
+      coalesced: result.coalesced,
+      appliedCount: result.driftsApplied.length,
+      detectedCount: result.driftsDetected.length,
+      withTimelineCta: false,
+    });
+    toast(variant, text);
+    router.refresh();
     setReconciling(false);
   }
 
@@ -96,9 +89,12 @@ export function DriftRowReconcileButton({
       variant="secondary"
       onClick={() => void handleClick()}
       disabled={reconciling}
+      aria-busy={reconciling}
       style={{ fontSize: 11, padding: '4px 8px' }}
     >
-      {reconciling ? '…' : 'Reconciliar'}
+      {reconciling
+        ? t('service.reconcile.row_button.loading')
+        : t('service.reconcile.button.label')}
     </Button>
   );
 }

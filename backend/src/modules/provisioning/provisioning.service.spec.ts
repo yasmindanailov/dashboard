@@ -27,6 +27,7 @@ import {
   PluginManifest,
   PROVISIONER_PLUGIN_CONTRACT_VERSION,
   ProvisionerPlugin,
+  ProvisionerPluginError,
 } from '../../core/provisioning/types';
 
 const TEST_MANIFEST: PluginManifest = {
@@ -1946,7 +1947,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       });
     });
 
-    it('cooldown denegado + cached result → devuelve coalesced:true sin invocar registry', async () => {
+    it('cooldown denegado + cached result → devuelve coalesced:true con TODOS los campos del result cacheado', async () => {
       prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
       cache.tryAcquireReconcileSingleCooldown.mockResolvedValueOnce(false);
       cache.getCachedServiceReconcileResult.mockResolvedValueOnce(
@@ -1959,15 +1960,25 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         CTX,
       );
 
-      expect(result).toMatchObject({
+      // Polish F.9 (review T2): assertion estricta — el coalesced debe
+      // exponer TODOS los campos del result cacheado (driftsDetected,
+      // driftsApplied, reconciledAt) + el flag `coalesced:true`. Si el
+      // orquestador rompiese el spread (`{ ...cached, coalesced: true }`)
+      // perdiendo algún campo, este test lo detecta.
+      expect(result).toEqual({
+        ...FAKE_RECONCILE_RESULT_WITH_DRIFTS,
         coalesced: true,
-        driftsApplied: FAKE_RECONCILE_RESULT_WITH_DRIFTS.driftsApplied,
       });
       expect(reconcileRegistry.reconcileOne).not.toHaveBeenCalled();
       expect(
         clientNotes.createFromServiceLifecycleAction,
       ).not.toHaveBeenCalled();
       expect(events.emit).not.toHaveBeenCalled();
+      // Cache NO debe haber sido re-escrita (es el flujo de lectura del cooldown).
+      expect(cache.cacheServiceReconcileResult).not.toHaveBeenCalled();
+      // Audit NO debe registrar el coalesced — solo el flujo fresh genera audit.
+      expect(audit.logChange).not.toHaveBeenCalled();
+      expect(audit.logAccess).not.toHaveBeenCalled();
     });
 
     it('cooldown denegado + sin cached result → 409 RECONCILE_IN_PROGRESS con retry_after_seconds', async () => {
@@ -2080,20 +2091,41 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       expect(cache.cacheServiceReconcileResult).toHaveBeenCalled();
     });
 
-    it('plugin sin reconcileOne → propaga ProvisionerPluginError(RECONCILE_ONE_NOT_SUPPORTED)', async () => {
+    it('plugin sin reconcileOne → propaga ProvisionerPluginError(RECONCILE_ONE_NOT_SUPPORTED) con module=reconcile', async () => {
+      // Polish F.9 (review T1): el path canónico desde el registry es un
+      // `ProvisionerPluginError` con `module='reconcile'` (ADR-077 +
+      // GAP-N F.3). El test legacy usaba un `Error` plano + `.code` ad-hoc
+      // que NO refleja el comportamiento real — si el wrap canónico se
+      // rompiese, el test legacy no lo detectaba.
       prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
-      const err = new Error('not supported');
-      (err as Error & { code: string }).code = 'RECONCILE_ONE_NOT_SUPPORTED';
-      reconcileRegistry.reconcileOne.mockRejectedValueOnce(err);
+      const pluginErr = new ProvisionerPluginError(
+        'Plugin "internal" does not implement reconcileOne',
+        'RECONCILE_ONE_NOT_SUPPORTED',
+        false, // retriable
+        undefined, // cause
+        'reconcile',
+      );
+      reconcileRegistry.reconcileOne.mockRejectedValueOnce(pluginErr);
 
-      await expect(
-        service.reconcileServiceAsAdmin('svc-1', 'admin-1', CTX),
-      ).rejects.toMatchObject({ code: 'RECONCILE_ONE_NOT_SUPPORTED' });
+      let caught: unknown;
+      try {
+        await service.reconcileServiceAsAdmin('svc-1', 'admin-1', CTX);
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(ProvisionerPluginError);
+      expect((caught as ProvisionerPluginError).code).toBe(
+        'RECONCILE_ONE_NOT_SUPPORTED',
+      );
+      expect((caught as ProvisionerPluginError).module).toBe('reconcile');
+      expect((caught as ProvisionerPluginError).retriable).toBe(false);
       // El service NO debe haber creado nota ni audit (el error sucedió antes).
       expect(
         clientNotes.createFromServiceLifecycleAction,
       ).not.toHaveBeenCalled();
       expect(audit.logChange).not.toHaveBeenCalled();
+      expect(audit.logAccess).not.toHaveBeenCalled();
+      expect(events.emit).not.toHaveBeenCalled();
     });
   });
 });

@@ -40,6 +40,10 @@ import {
   reprovisionServiceAction,
   requestSsoUrlAction,
 } from '../../../../_shared/services/_actions';
+import {
+  reconcileInProgressMessage,
+  reconcileToastFor,
+} from '../../../../_shared/services/_reconcile-toast';
 
 interface AdminDriftBannerProps {
   serviceId: string;
@@ -177,53 +181,45 @@ export function AdminDriftBanner({
     if (!response.ok) {
       setReconciling(false);
       if (response.inProgress) {
-        const retry = response.retryAfterSeconds ?? 30;
-        toast(
-          'info',
-          `Reconciliación en curso. Inténtalo de nuevo en ${retry}s.`,
-        );
+        toast('info', reconcileInProgressMessage(response.retryAfterSeconds ?? 30));
       } else {
         toast('error', response.error);
       }
       return;
     }
     const { result } = response;
-    const prefix = result.coalesced ? 'Resultado en caché · ' : '';
     const appliedCount = result.driftsApplied.length;
     const detectedCount = result.driftsDetected.length;
 
-    if (appliedCount > 0) {
-      // R5 rama 2: cambios aplicados — toast éxito + CTA timeline.
-      toast(
-        'success',
-        `${prefix}Reconciliación completada · ${appliedCount} cambio${appliedCount === 1 ? '' : 's'} aplicado${appliedCount === 1 ? '' : 's'}. Ver detalle en timeline.`,
-      );
-      router.refresh();
-      // Redirect al timeline F.3 GAP-M tras 1.5s (deja ver el toast).
-      setTimeout(() => {
-        router.push(`/admin/services/${serviceId}/audit`);
-      }, 1500);
-    } else if (detectedCount > 0) {
-      // R5 rama 3: drifts detectados pero ninguno aplicable automáticamente
-      // (típicamente subscription_missing, status fuera de safe-adopt set,
-      // plan_divergence — admin debe revisar el timeline + decidir manualmente).
-      toast(
-        'warning',
-        `${prefix}${detectedCount} drift${detectedCount === 1 ? '' : 's'} detectado${detectedCount === 1 ? '' : 's'} · ninguno aplicado automáticamente (revisar timeline).`,
-      );
-      router.refresh();
+    // Polish F.9 (review F1+F3): helper canónico — `withTimelineCta=true`
+    // documenta explícitamente la divergencia intencional con
+    // `<DriftRowReconcileButton>` (que pasa `false`).
+    const { variant, text } = reconcileToastFor({
+      coalesced: result.coalesced,
+      appliedCount,
+      detectedCount,
+      withTimelineCta: true,
+    });
+    toast(variant, text);
+    router.refresh();
+
+    // Redirect al timeline F.3 GAP-M tras 1.5s SOLO cuando hay drifts (los
+    // 2 ramas R5 success/warning ofrecen el CTA timeline; la rama info de
+    // "sin cambios" se queda in-place).
+    //
+    // Polish F.9 (review F2): NO llamamos `setReconciling(false)` antes del
+    // setTimeout. Si lo hiciéramos, el botón volvería a estar clickable
+    // durante el delay → doble-disparo si el admin reacciona rápido. Al
+    // mantenerlo `true` el botón sigue deshabilitado hasta que el redirect
+    // desmonta el componente. La rama "sin cambios" sí libera el botón
+    // (el admin se queda en la misma vista).
+    if (appliedCount > 0 || detectedCount > 0) {
       setTimeout(() => {
         router.push(`/admin/services/${serviceId}/audit`);
       }, 1500);
     } else {
-      // R5 rama 1: sin cambios — servicio sincronizado.
-      toast(
-        'info',
-        `${prefix}Sin cambios — el servicio está sincronizado con el proveedor.`,
-      );
-      router.refresh();
+      setReconciling(false);
     }
-    setReconciling(false);
   }
 
   async function executeReprovision(): Promise<void> {
@@ -302,7 +298,7 @@ export function AdminDriftBanner({
               title={t('service.drift.admin_banner.reconcile_help')}
             >
               {reconciling
-                ? 'Reconciliando…'
+                ? t('service.reconcile.button.loading')
                 : t('service.drift.admin_banner.reconcile_cta')}
             </Button>
           )}
