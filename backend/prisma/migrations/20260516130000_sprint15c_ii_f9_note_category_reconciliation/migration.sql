@@ -1,0 +1,37 @@
+-- Sprint 15C.II Fase F.9 (2026-05-16) — Reconcile per-servicio (`DC.45`).
+--
+-- Añade el 9º valor `reconciliation` al enum `NoteCategory` para soportar
+-- las notas automáticas que `ProvisioningService.reconcileServiceAsAdmin`
+-- creará via `ClientNotesService.createFromServiceLifecycleAction(tx)` cuando
+-- el admin pulse el CTA "Reconciliar contra el proveedor" (AdminDriftBanner
+-- F.3 + filas drift de PluginOperationalOverview F.2) y la pasada aplique
+-- al menos un drift sobre `services.status` o `services.metadata`.
+--
+-- Razón canónica de category NUEVO (vs reusar `lifecycle` de F.6): separación
+-- granular entre transiciones lifecycle con intención humana directa
+-- (suspend/unsuspend/cancel) y reconciliaciones que sincronizan estado contra
+-- el proveedor (admin pulsó "reconciliar"). Facilita filtrar el historial
+-- por intención en `<ClientNotesTab>` y auditar reconciliaciones manuales sin
+-- mezclar con cambios de status humano. R3 frozen — dossier §A.11.10.6.2.
+--
+-- Doctrina safe-to-adopt (R4 frozen — dossier §A.11.10.6.2): solo se crea la
+-- nota si `result.driftsApplied > 0`. Los drifts detectados pero NO aplicados
+-- (status `cancelled`/`subscription_missing` del proveedor — protegidos por
+-- DH-INV-6 + F.4 A1) NO generan nota; quedan en el audit timeline F.3 para
+-- revisión humana.
+--
+-- ADR-079 Amendment A5 (commit doc-only dentro de la fase) registra el 9º
+-- valor del enum + el nuevo `triggered_by_action.service.reconciled_single`
+-- (6º valor canónico del campo VARCHAR(100) — no requiere migration porque
+-- es validación a nivel app, no enum Postgres).
+--
+-- IMPORTANTE: Postgres permite `ALTER TYPE ... ADD VALUE` dentro de la
+-- transacción de la migración SIEMPRE QUE el valor nuevo NO se use en la
+-- misma transacción. Esta migración solo añade el valor — no hay data
+-- migration acompañando (F.9 NO necesita backfill: el evento
+-- `service.reconciled_single` no existía antes y NO hay notas legacy a
+-- reclasificar; las notas `lifecycle` retroactivas creadas por F.6.4 NO se
+-- tocan — siguen pertenenciendo a su category canónica).
+
+-- ─── Enum value addition ─────────────────────────────────────────────────
+ALTER TYPE "NoteCategory" ADD VALUE 'reconciliation';
