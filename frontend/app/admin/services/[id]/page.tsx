@@ -65,6 +65,27 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
         : 'No se pudo cargar el servicio';
   }
 
+  // Sprint 15C.II Fase F.9 (R9 frozen §A.11.10.6.2): capability detection
+  // per-plugin para gatear el CTA "Reconciliar contra el proveedor" del
+  // AdminDriftBanner. Fetch del admin overview F.2 fail-soft (si falla,
+  // el banner pasa a fallback F.3 — redirect a settings reconcile-all).
+  // El overview tiene cache server-side ~600s (F.2 doctrine).
+  let supportsReconcileOne = false;
+  const reconcileSlug =
+    data?.service.provisioner_slug ?? data?.service.product_provisioner ?? null;
+  if (reconcileSlug) {
+    try {
+      const overview = await serverFetch<{
+        reconciliation: { supports_reconcile_one: boolean };
+      }>(`/admin/plugins/${reconcileSlug}/operational-overview`);
+      supportsReconcileOne =
+        overview.reconciliation?.supports_reconcile_one === true;
+    } catch {
+      // fail-soft: el banner usa fallback F.3 (redirect a settings).
+      supportsReconcileOne = false;
+    }
+  }
+
   if (!data) {
     return (
       <EmptyState
@@ -284,6 +305,7 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
           showReprovision={showReprovision}
           showReconcile={isDrift && info.recoveryHint === 'reconcile'}
           pluginSlug={service.provisioner_slug ?? service.product_provisioner}
+          supportsReconcileOne={supportsReconcileOne}
         />
       )}
 

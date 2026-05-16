@@ -5,6 +5,7 @@ import { serverFetch, ServerFetchError } from '../../lib/server-auth';
 import type {
   ActionResult,
   ServiceDetailResponse,
+  ServiceReconcileResult,
   SsoUrl,
 } from '../../lib/api';
 
@@ -360,6 +361,87 @@ export async function resyncProviderStateAction(
         err instanceof ServerFetchError
           ? err.message
           : 'No se pudo realinear el estado del proveedor.',
+    };
+  }
+}
+
+/* ═══════════════════════════════════════
+   Sprint 15C.II Fase F.9 (`DC.45` — ADR-077 Amendment A8 + §A.11.10.6.2
+   R1..R6 frozen + Amendment III R7..R9 + Amendment IV R4.1) — reconcile
+   per-servicio (admin).
+
+   Materializa el CTA "Reconciliar contra el proveedor" del
+   `<AdminDriftBanner>` (cuando `info.recoveryHint === 'reconcile'`) y por
+   fila drift del `<PluginOperationalOverview>` (F.2). Single-shot — vs el
+   cron L3 que recorre todos los services del plugin cada 6h.
+
+   El backend devuelve `ServiceReconcileResult & { coalesced?: true }`:
+   - `coalesced: true` → la ventana de cooldown estaba activa y el backend
+     devolvió el último resultado cacheado (R6 frozen).
+   - Sin coalesced → pasada nueva ejecutada al proveedor.
+
+   Errores canónicos:
+   - 429 RECONCILE_IN_PROGRESS (R7 frozen, retry_after_seconds en body) →
+     cooldown activo sin cached result; UI muestra mensaje retry-after.
+   - 400 RECONCILE_ONE_NOT_SUPPORTED → bug del frontend (debería haber
+     gateado el CTA leyendo `supports_reconcile_one` del admin overview F.2).
+   - 409 SERVICE_TERMINAL_NOT_RECONCILABLE → service cancelled/terminated;
+     UI muestra estado terminal.
+   ═══════════════════════════════════════ */
+
+export type ReconcileServiceResult =
+  | {
+      ok: true;
+      result: ServiceReconcileResult & { coalesced?: true };
+    }
+  | {
+      ok: false;
+      error: string;
+      /** True si el backend respondió 429 RECONCILE_IN_PROGRESS (R7 frozen). */
+      inProgress?: true;
+      /** Segundos restantes del cooldown server-side (header Retry-After). */
+      retryAfterSeconds?: number;
+    };
+
+export async function reconcileServiceAction(
+  serviceId: string,
+): Promise<ReconcileServiceResult> {
+  try {
+    const raw = await serverFetch<
+      ServiceReconcileResult & { coalesced?: true; reconciledAt: string }
+    >(`/admin/services/${serviceId}/reconcile`, { method: 'POST', body: {} });
+    // Re-hidratar reconciledAt como Date (server devuelve ISO 8601 string).
+    const result: ServiceReconcileResult & { coalesced?: true } = {
+      ...raw,
+      reconciledAt: new Date(raw.reconciledAt),
+    };
+    // Invalidar siempre: defensa de coherencia. El backend invalida
+    // `service_info:<id>` en `cache.invalidate(serviceId)` cuando aplica
+    // drifts; aquí refrescamos el Next cache de la ruta admin para que el
+    // SC re-renderice con el nuevo estado en su siguiente fetch — coherente
+    // con `router.refresh()` que el caller invoca tras este action.
+    revalidatePath(`/admin/services/${serviceId}`);
+    return { ok: true, result };
+  } catch (err) {
+    if (err instanceof ServerFetchError) {
+      // R7 frozen: 429 con retry_after_seconds (orquestador → endpoint admin
+      // re-mapea ConflictException RECONCILE_IN_PROGRESS).
+      if (err.status === 429) {
+        const body = err.body as
+          | { retry_after_seconds?: number; message?: string }
+          | undefined;
+        return {
+          ok: false,
+          error: body?.message ?? err.message,
+          inProgress: true,
+          retryAfterSeconds: body?.retry_after_seconds,
+        };
+      }
+      return { ok: false, error: err.message };
+    }
+    return {
+      ok: false,
+      error: 'No se pudo reconciliar el servicio contra el proveedor.',
     };
   }
 }

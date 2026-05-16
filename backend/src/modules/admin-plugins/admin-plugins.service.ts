@@ -610,6 +610,12 @@ export class AdminPluginsService implements OnModuleInit {
       services: { active: activeCount, suspended: suspendedCount },
       reconciliation: {
         supported: supportsReconciliation,
+        // Sprint 15C.II F.9 (R9 frozen §A.11.10.6.2 Amendment III):
+        // capability-driven por presencia del executor en el registry — el
+        // frontend gatea el CTA "Reconciliar contra el proveedor" leyendo
+        // este flag sin tocar PluginManifest declarativo (coherente A6/A7).
+        supports_reconcile_one:
+          this.reconcileRegistry.hasReconcileOneExecutor(slug),
         last,
         next_scheduled_at: nextScheduledAt,
         drifts_24h: pluginDrifts.length,

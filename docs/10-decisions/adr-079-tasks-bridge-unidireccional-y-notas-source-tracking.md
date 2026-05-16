@@ -918,3 +918,106 @@ ALTER TABLE maintenance_logs RENAME COLUMN notes TO client_facing_notes;
 **Sprint asociado**: Sprint 15C.II Fase F.6 (dossier `sprint-15c-ii-hardening-enhance-dossier.md` §A.11.10.3 + §A.11.10.3.1 + §A.11.10.3.2 — refinamientos pre-código R1/R2/R3).
 
 **Lección heredable candidata** (a confirmar en G.4): **L19** — *"Las transiciones de lifecycle de un servicio + su `ClientNote` correspondiente viven en la misma transacción Prisma. Plugin call + eventos + cache invalidations + audit quedan FUERA (asimétricos por naturaleza: provider call idempotente por contrato A4.4, listeners consumen estado committed, audit con política propia). Heredable a cualquier futuro plugin que añada operaciones de lifecycle admin."*
+
+---
+
+### Amendment A5 (2026-05-16) — `NoteCategory.reconciliation` (9º) + `triggered_by_action.service.reconciled_single` (6º) — Sprint 15C.II Fase F.9
+
+**Contexto.** Sprint 15C.II Fase F.9 (`DC.45` — reconciliación per-servicio): el admin pulsa el CTA "Reconciliar contra el proveedor" en `<AdminDriftBanner>` (cuando `info.recoveryHint === 'reconcile'`) o por fila drift en `<PluginOperationalOverview>` (F.2) → endpoint `POST /admin/services/:id/reconcile` → `ProvisioningService.reconcileServiceAsAdmin` (commit feat 7 F.9) ejecuta la reconciliación dentro de una `$transaction` Prisma y crea una `ClientNote` automática si `result.driftsApplied > 0` (R3 frozen dossier `sprint-15c-ii-hardening-enhance-dossier.md` §A.11.10.6.2). Reutiliza el helper canónico `ClientNotesService.createFromServiceLifecycleAction(input, tx?)` introducido en Amendment A4 — sin cambios de firma. Compatible hacia atrás. NO bumpea el contrato de `ClientNotesService`.
+
+> **Compatibilidad:** Hacia atrás. Migration Prisma `20260516130000_sprint15c_ii_f9_note_category_reconciliation` solo añade el 9º valor al enum `NoteCategory` (PostgreSQL `ALTER TYPE ADD VALUE` aislado — el valor nuevo NO se usa en la misma transacción). Sin data migration acompañando (F.9 NO genera notas retroactivas — el evento `service.reconciled_single` no existía antes; las notas `lifecycle` retroactivas creadas por la data migration F.6.4 NO se tocan). El campo `triggered_by_action` (VARCHAR(100)) NO requiere migration — la validación es a nivel app.
+
+#### A5.1. Motivación
+
+Tres razones convergentes a 2026-05-16:
+
+1. **Trazabilidad operativa del CTA admin.** Cuando el admin pulsa el botón "Reconciliar" y la pasada aplica cambios sobre `services.status` o `services.metadata`, la `ClientNote` registra qué se reconcilió + qué cambios se aplicaron + quién lo hizo. Sin la nota, el cambio quedaría visible solo en el audit timeline (F.3) sin un registro humano-leíble inline en el perfil del cliente.
+
+2. **Granularidad de filtrado en `<ClientNotesTab>`.** La doctrina F.6 introdujo `NoteCategory.lifecycle` para las 3 transiciones admin (suspend/unsuspend/cancel) — agrupadas porque son "intención humana directa sobre el lifecycle". La reconciliación es semánticamente distinta: el admin NO transiciona el lifecycle conscientemente, sino que sincroniza el estado contra el proveedor (el proveedor es la fuente de verdad operacional — DH-INV-6). Categoría separada permite filtrar el historial por intención: "qué transiciones lifecycle hizo el admin" (lifecycle) vs "qué reconciliaciones manuales han generado cambios" (reconciliation).
+
+3. **Coherencia con el discriminador del evento (R2 frozen F.9).** El evento `service.reconciled_external_change` reutilizado por F.9 lleva `trigger: 'manual_single' | 'cron'` en el payload (vs duplicar evento). El `triggered_by_action` de la `ClientNote` espeja la dimensión "manual single" con el valor canónico `service.reconciled_single` (6º del campo VARCHAR(100), tras los 5 lifecycle valores: `service.cancelled`, `service.suspended`, `service.unsuspended`, `service.auto_suspended_overdue`, `service.auto_unsuspended_overdue`).
+
+#### A5.2. Cambios concretos al schema
+
+**Enum Prisma `NoteCategory`** (`backend/prisma/schema.prisma` línea 743):
+
+```prisma
+enum NoteCategory {
+  support
+  maintenance
+  onboarding
+  billing
+  project
+  technical_incident
+  exceptional
+  lifecycle       // ← Amendment A4 (Sprint 15C.II F.6)
+  reconciliation  // ← NUEVO Amendment A5 (Sprint 15C.II F.9)
+}
+```
+
+**Campo `client_notes.triggered_by_action`** (VARCHAR(100), NO enum Postgres — validación a nivel app):
+
+```prisma
+  // Acción canónica que disparó la nota: 'ticket.resolved', 'ticket.closed',
+  // 'task.completed', 'maintenance.completed', 'manual_entry',
+  // 'service.cancelled', 'service.suspended', 'service.unsuspended',
+  // 'service.auto_suspended_overdue', 'service.auto_unsuspended_overdue',
+  // 'service.reconciled_single' (Sprint 15C.II F.9 — reconcile manual per-servicio).
+  // Texto libre <=100. NO es enum Postgres; validación a nivel app.
+  triggered_by_action String?          @db.VarChar(100)
+```
+
+**Migration**: `backend/prisma/migrations/20260516130000_sprint15c_ii_f9_note_category_reconciliation/migration.sql` con cabecera doctrinal completa citando R3/R4 frozen + razón canónica de category NUEVO. Patrón heredado de F.6 — solo `ALTER TYPE ADD VALUE` aislado, sin uso del valor nuevo en la misma transacción (regla Postgres). SIN data migration acompañando.
+
+#### A5.3. Uso desde `ClientNotesService.createFromServiceLifecycleAction`
+
+El helper canónico introducido en Amendment A4 NO cambia su firma. F.9 lo invoca con los 3 campos canónicos:
+
+```ts
+await this.clientNotes.createFromServiceLifecycleAction(
+  {
+    userId: service.user_id,
+    authorId: actorUserId,                          // admin que pulsó el CTA (nunca null en F.9 — el cron L3 NO crea notas)
+    category: 'reconciliation',                      // ← 9º valor del enum, NUEVO Amendment A5
+    body: composeReconciliationNoteBody(result),    // ej. "Reconciliación manual contra el proveedor — 2 cambios aplicados: plan_divergence, status_divergence"
+    sourceSystem: 'service',                         // 6º valor del enum NoteSourceSystem (Amendment A4)
+    sourceId: service.id,                            // → href /admin/services/[id] en <ClientNotesTab>
+    triggeredByAction: 'service.reconciled_single',  // ← 6º valor del campo, NUEVO Amendment A5
+  },
+  tx,  // dentro de la $transaction de reconcileServiceAsAdmin (L19 candidata G.4)
+);
+```
+
+**Solo se crea la nota si `result.driftsApplied > 0`** (R3 frozen) — sin cambios aplicados, NO hay nota. Los drifts detectados pero NO aplicados (status `cancelled`/`subscription_missing` del proveedor — protegidos por R4 + DH-INV-6 + F.4 A1) quedan en el audit timeline F.3 para revisión humana, sin generar ruido en la tab de notas del cliente.
+
+#### A5.4. Renderizado en `<ClientNotesTab>` federada
+
+`<ClientNotesTab>` (Sprint 15C.II F.6) renderiza la nueva categoría sin cambios estructurales:
+
+- **Etiqueta en español**: `"Reconciliación"` (constante `NOTE_CATEGORY_LABELS_ES.reconciliation`).
+- **Color del badge**: variant `neutral` (a diferencia de `lifecycle` que es `warning` por su asociación con suspensiones) — la reconciliación es informativa, no requiere atención del agente.
+- **Filtros UI**: el dropdown de filtros gana el nuevo valor "Reconciliación".
+- **Href**: cuando `source_system === 'service'` y `category === 'reconciliation'` → `/admin/services/[source_id]` (mismo destino que las notas `lifecycle` del mismo `source_system`).
+
+El renderizado del `triggered_by_action: 'service.reconciled_single'` añade la etiqueta operativa "Reconciliación manual per-servicio" en el tooltip del badge (paralelo a las 5 etiquetas de Amendment A4: "Cancelación", "Suspensión", "Reactivación", "Suspensión automática por impago", "Reactivación automática al pagar").
+
+#### A5.5. Compatibilidad hacia atrás
+
+- **Notas legacy** (Sprint 16 → F.6 → F.7 → F.8): intactas. La nueva categoría es additiva — el `<ClientNotesTab>` y `findByClient` filtran/agrupan por enum value sin asumir un set cerrado.
+- **Notas `lifecycle` F.6**: NO se reclasifican como `reconciliation`. La distinción es semántica (intención humana directa vs sync contra proveedor) — las suspensiones/cancelaciones del admin siguen siendo `lifecycle`.
+- **Cron L3 `enhance-reconciliation.cron.ts`**: NO crea notas de cliente — solo emite el evento `service.reconciled_external_change` (con `trigger: 'cron'`) consumido por listeners de audit + notif. La doctrina "el cron L3 NO genera ClientNote" se preserva en F.9 (R3 frozen — solo el caller manual del CTA admin genera nota; la pasada automática del cron es transparente al cliente).
+- **Endpoint `POST /admin/services/:id/reconcile`**: nuevo en F.9, sin endpoint legacy a depreciar. El CTA del `<AdminDriftBanner>` que en F.3 linkaba a settings del plugin (reconcile-all) ahora invoca el endpoint single-shot (commits feat 8 + 11 F.9).
+
+#### A5.6. Doctrina de adición de valores al enum `NoteCategory` (refuerzo Amendment A4.6)
+
+Mismo patrón canónico que `lifecycle` (Amendment A4): cada valor nuevo del enum debe:
+
+1. **Reflejar una dimensión semántica distinta** (no granularidad del mismo concepto). `reconciliation` es categoría aparte de `lifecycle` porque la intención del actor es distinta — sync vs transición. Si fuese el mismo concepto (ej. "reactivación automática al pagar" vs "reactivación manual del admin"), seguiría siendo `lifecycle` con `triggered_by_action` distinto.
+2. **Tener un caller canónico** (helper de `ClientNotesService` o `createExceptional`). F.9 reutiliza `createFromServiceLifecycleAction` ya canónico — no se introduce nuevo helper. El category lo determina el caller del `triggered_by_action`.
+3. **Tener etiqueta en español + color de badge + filtro UI** en `<ClientNotesTab>`.
+4. **Tener migration Prisma aislada** (sin data migration acompañando si NO hay datos legacy a reclasificar).
+5. **Documentarse como Amendment al ADR-079** (este §) con motivación + cambio + uso + compatibilidad + doctrina.
+
+Convención de naming: snake_case (alineado con los 8 valores previos del enum). Plurales/singulares según el campo conceptual — `reconciliation` (singular abstracto, no `reconciliations`).
+
+**Sprint asociado**: Sprint 15C.II Fase F.9 (dossier `sprint-15c-ii-hardening-enhance-dossier.md` §A.11.10.6 + refinamiento §A.11.10.6.2 R1..R6 frozen + Amendment naming clash 2026-05-16). Materializado en commits `7425acf` (schema + migration F.9.1) + commit feat 3 F.9 (este Amendment + ADR-077 A8). Plugin Enhance implementa `reconcileOne` en commit feat 10. Frontend wire en commit feat 11.

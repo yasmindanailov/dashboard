@@ -749,6 +749,7 @@ enum NoteCategory {
   technical_incident // notas de incidentes técnicos del cliente
   exceptional // nota libre del agente desde perfil cliente, sin actuador
   lifecycle // Sprint 15C.II F.6: transiciones canónicas de lifecycle de servicio (cancel/suspend/unsuspend)
+  reconciliation // Sprint 15C.II F.9: reconciliación manual contra el proveedor (admin pulsó CTA) con driftsApplied>0 — separado de `lifecycle` para auditar reconciliaciones automáticas
 }
 
 enum NoteSourceSystem {
@@ -781,8 +782,9 @@ model ClientNote {
   // Acción canónica que disparó la nota: 'ticket.resolved', 'ticket.closed',
   // 'task.completed', 'maintenance.completed', 'manual_entry',
   // 'service.cancelled', 'service.suspended', 'service.unsuspended',
-  // 'service.auto_suspended_overdue', 'service.auto_unsuspended_overdue'.
-  // Texto libre <=100.
+  // 'service.auto_suspended_overdue', 'service.auto_unsuspended_overdue',
+  // 'service.reconciled_single' (Sprint 15C.II F.9 — reconcile manual per-servicio).
+  // Texto libre <=100. NO es enum Postgres; validación a nivel app.
   triggered_by_action String?          @db.VarChar(100)
   is_pinned           Boolean          @default(false)
   created_at          DateTime         @default(now()) @db.Timestamptz()

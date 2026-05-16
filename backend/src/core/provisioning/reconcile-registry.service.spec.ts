@@ -14,9 +14,51 @@ import { BadRequestException } from '@nestjs/common';
 
 import {
   ReconcileExecutor,
+  ReconcileOneExecutor,
   ReconcileRegistryService,
   ReconcileResult,
 } from './reconcile-registry.service';
+import {
+  ProvisionerPluginError,
+  ServiceReconcileResult,
+  ServiceWithRelations,
+} from './types';
+
+const FAKE_SERVICE = {
+  id: 'svc-test',
+  user_id: 'user-test',
+  product_id: 'prod-test',
+  status: 'active',
+  label: 'Test',
+  domain: null,
+  server_id: null,
+  provisioner_slug: 'plugin-x',
+  provider_reference: '123',
+  client: {
+    id: 'user-test',
+    email: 'test@aelium.test',
+    first_name: 'Test',
+    last_name: 'User',
+    company_name: null,
+    phone: null,
+    locale: 'es',
+    country_code: null,
+  },
+  product: {
+    id: 'prod-test',
+    slug: 'product-test',
+    name: 'Product Test',
+    type: 'hosting_web',
+    provisioner: 'plugin-x',
+    provisioner_config: null,
+  },
+} as unknown as ServiceWithRelations;
+
+const EMPTY_RECONCILE_RESULT: ServiceReconcileResult = {
+  driftsDetected: [],
+  driftsApplied: [],
+  reconciledAt: new Date('2026-05-16T13:00:00Z'),
+};
 
 describe('ReconcileRegistryService — Sprint 15C.II Fase B (ADR-083 Amendment A4.2)', () => {
   let registry: ReconcileRegistryService;
@@ -131,5 +173,169 @@ describe('ReconcileRegistryService — Sprint 15C.II Fase B (ADR-083 Amendment A
 
   it('listRegisteredSlugs: vacío al inicio', () => {
     expect(registry.listRegisteredSlugs()).toEqual([]);
+  });
+
+  // ─── Sprint 15C.II Fase F.9 — reconcileOne (ADR-077 Amendment A8) ─────
+  // R1 frozen + Amendment II DI (executor registrado por el cron del plugin).
+
+  describe('reconcileOne F.9 (per-servicio)', () => {
+    it('registerReconcileOne: primer registro queda activo + hasReconcileOneExecutor true', () => {
+      expect(registry.hasReconcileOneExecutor('enhance_cp')).toBe(false);
+      const exec: ReconcileOneExecutor = () =>
+        Promise.resolve(EMPTY_RECONCILE_RESULT);
+      registry.registerReconcileOne('enhance_cp', exec);
+      expect(registry.hasReconcileOneExecutor('enhance_cp')).toBe(true);
+    });
+
+    it('registerReconcileOne: re-register reemplaza + loguea warning (idempotente)', async () => {
+      const exec1: ReconcileOneExecutor = () =>
+        Promise.resolve(EMPTY_RECONCILE_RESULT);
+      const exec2: ReconcileOneExecutor = () =>
+        Promise.resolve({
+          ...EMPTY_RECONCILE_RESULT,
+          driftsDetected: [
+            {
+              type: 'plan_divergence',
+              before: 1,
+              after: 2,
+              applied: true,
+            },
+          ],
+          driftsApplied: [
+            {
+              type: 'plan_divergence',
+              before: 1,
+              after: 2,
+              applied: true,
+            },
+          ],
+        });
+
+      registry.registerReconcileOne('enhance_cp', exec1);
+      registry.registerReconcileOne('enhance_cp', exec2); // overwrite
+
+      const result = await registry.reconcileOne('enhance_cp', FAKE_SERVICE);
+      expect(result.driftsApplied).toHaveLength(1);
+    });
+
+    it('reconcileOne: invoca executor + devuelve ServiceReconcileResult', async () => {
+      const expected: ServiceReconcileResult = {
+        driftsDetected: [
+          {
+            type: 'status_divergence',
+            before: 'active',
+            after: 'suspended',
+            applied: true,
+          },
+        ],
+        driftsApplied: [
+          {
+            type: 'status_divergence',
+            before: 'active',
+            after: 'suspended',
+            applied: true,
+          },
+        ],
+        reconciledAt: new Date('2026-05-16T13:30:00Z'),
+      };
+      registry.registerReconcileOne('plugin-x', () =>
+        Promise.resolve(expected),
+      );
+
+      const result = await registry.reconcileOne('plugin-x', FAKE_SERVICE);
+      expect(result).toEqual(expected);
+    });
+
+    it('reconcileOne: plugin sin executor → ProvisionerPluginError(RECONCILE_ONE_NOT_SUPPORTED) con module=reconcile', async () => {
+      // Otros plugins registrados pero NO el target — no debe afectar.
+      registry.registerReconcileOne('enhance_cp', () =>
+        Promise.resolve(EMPTY_RECONCILE_RESULT),
+      );
+
+      let caught: unknown;
+      try {
+        await registry.reconcileOne('plugin-no-existe', FAKE_SERVICE);
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(ProvisionerPluginError);
+      const err = caught as ProvisionerPluginError;
+      expect(err.code).toBe('RECONCILE_ONE_NOT_SUPPORTED');
+      expect(err.retriable).toBe(false);
+      expect(err.module).toBe('reconcile'); // GAP-N F.3
+      expect(err.message).toContain('plugin-no-existe');
+    });
+
+    it('reconcileOne: propaga error del executor sin enmascarar (ProvisionerPluginError canónico)', async () => {
+      // Polish F.9 (review T1): el path canónico es `ProvisionerPluginError`
+      // (el plugin/wrapper rethrow contractuales — ADR-077 + GAP-N F.3).
+      // Verificamos el shape completo: `code`, `module`, `retriable` y que
+      // el registry NO enmascara el error añadiendo capas.
+      const pluginErr = new ProvisionerPluginError(
+        'upstream provider down',
+        'PROVIDER_TIMEOUT',
+        true, // retriable
+        undefined, // cause
+        'reconcile',
+      );
+      registry.registerReconcileOne('plugin-broken', () =>
+        Promise.reject(pluginErr),
+      );
+      let caught: unknown;
+      try {
+        await registry.reconcileOne('plugin-broken', FAKE_SERVICE);
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBe(pluginErr);
+      expect(caught).toBeInstanceOf(ProvisionerPluginError);
+      expect((caught as ProvisionerPluginError).code).toBe('PROVIDER_TIMEOUT');
+      expect((caught as ProvisionerPluginError).module).toBe('reconcile');
+      expect((caught as ProvisionerPluginError).retriable).toBe(true);
+    });
+
+    it('reconcileOne y runFor coexisten sin interferir (mappings independientes)', async () => {
+      // El mismo slug puede tener executor reconcile-all Y reconcileOne — son maps separados.
+      const reconcileAllResult: ReconcileResult = {
+        servicesProcessed: 3,
+        driftsDetected: 1,
+        durationMs: 100,
+      };
+      const reconcileOneResult: ServiceReconcileResult = {
+        ...EMPTY_RECONCILE_RESULT,
+        driftsDetected: [
+          {
+            type: 'plan_divergence',
+            before: 'starter',
+            after: 'pro',
+            applied: true,
+          },
+        ],
+        driftsApplied: [
+          {
+            type: 'plan_divergence',
+            before: 'starter',
+            after: 'pro',
+            applied: true,
+          },
+        ],
+      };
+
+      registry.register('enhance_cp', () =>
+        Promise.resolve(reconcileAllResult),
+      );
+      registry.registerReconcileOne('enhance_cp', () =>
+        Promise.resolve(reconcileOneResult),
+      );
+
+      expect(registry.hasExecutor('enhance_cp')).toBe(true);
+      expect(registry.hasReconcileOneExecutor('enhance_cp')).toBe(true);
+
+      const all = await registry.runFor('enhance_cp');
+      expect(all.servicesProcessed).toBe(3);
+
+      const single = await registry.reconcileOne('enhance_cp', FAKE_SERVICE);
+      expect(single.driftsApplied).toHaveLength(1);
+    });
   });
 });

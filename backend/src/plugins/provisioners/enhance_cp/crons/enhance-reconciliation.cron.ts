@@ -6,8 +6,10 @@ import type { Service, ServiceStatus } from '@prisma/client';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { ProvisionerPluginError } from '../../../../core/provisioning/types';
 import type {
+  ServiceDrift,
   ServiceInfoStatus,
   ServiceMetrics,
+  ServiceReconcileResult,
 } from '../../../../core/provisioning/types';
 import { QuotaThresholdDetectorService } from '../../../../core/provisioning/quota-threshold-detector.service';
 import { ReconcileRegistryService } from '../../../../core/provisioning/reconcile-registry.service';
@@ -113,6 +115,17 @@ export class EnhanceReconciliationCron implements OnModuleInit {
     this.reconcileRegistry.register('enhance_cp', () => this.runAsExecutor(), {
       intervalSeconds: EnhanceReconciliationCron.INTERVAL_SECONDS,
     });
+    // Sprint 15C.II Fase F.9 (R8 frozen §A.11.10.6.2 Amendment III): registra
+    // el executor per-servicio para `ReconcileRegistryService.reconcileOne`
+    // (invocado por el endpoint admin `POST /admin/services/:id/reconcile`).
+    // DRY: el cron L3 (`runFor` reconcile-all) y el endpoint admin invocan
+    // exactamente la misma lógica per-service (`reconcileOneInternal`).
+    // Capability detection (R9): el admin overview F.2 lee
+    // `reconcileRegistry.hasReconcileOneExecutor('enhance_cp')` → expone
+    // `supports_reconcile_one: true` al frontend.
+    this.reconcileRegistry.registerReconcileOne('enhance_cp', (service) =>
+      this.reconcileOneInternal(service),
+    );
   }
 
   /**
@@ -238,14 +251,26 @@ export class EnhanceReconciliationCron implements OnModuleInit {
 
     for (const service of services) {
       try {
-        const detected = await this.reconcileOne(service);
-        if (detected === 'subscription_missing') summary.subscriptionMissing++;
-        else if (detected === 'status_divergence') summary.statusDivergence++;
-        else if (detected === 'plan_divergence') summary.planDivergence++;
+        const result = await this.reconcileOneInternal(service);
+        // Sprint 15C.II F.9 (R8 frozen): el shape ServiceReconcileResult sustituye
+        // al ReconcileChangeType | null antiguo. Para preservar el agregado
+        // ReconciliationSummary canónico (consumido por el evento
+        // `plugin.reconcile_completed` y el admin overview F.2), contamos los
+        // drifts detectados por su `type`. Mismas garantías mutuamente
+        // excluyentes que antes — driftsDetected.length ∈ {0, 1} per pasada.
+        for (const drift of result.driftsDetected) {
+          if (drift.type === 'subscription_missing') {
+            summary.subscriptionMissing++;
+          } else if (drift.type === 'status_divergence') {
+            summary.statusDivergence++;
+          } else if (drift.type === 'plan_divergence') {
+            summary.planDivergence++;
+          }
+        }
       } catch (err) {
         summary.errors++;
         this.logger.error(
-          `reconcileOne service=${service.id} failed: ${getErrorMessage(err)}`,
+          `reconcileOneInternal service=${service.id} failed: ${getErrorMessage(err)}`,
         );
       }
     }
@@ -254,23 +279,60 @@ export class EnhanceReconciliationCron implements OnModuleInit {
   }
 
   /**
-   * Reconcilia un único servicio. Devuelve el `change_type` detectado
-   * (o `null` si no hay drift). Los 3 tipos son mutuamente excluyentes
-   * para una pasada: si la subscription falta, no comparamos status;
-   * si status diverge, NO comparamos plan (el adopt de status ya generó
-   * un evento — añadir plan_divergence en la misma pasada confundiría
-   * al admin sobre la causa raíz). En la siguiente ejecución del cron,
-   * si el plan sigue divergiendo, se emitirá entonces.
+   * Sprint 15C.II Fase F.9 (R8 frozen §A.11.10.6.2 Amendment III + ADR-077
+   * Amendment A8). Refactor del antiguo `reconcileOne` privado a método
+   * público con shape canónico `ServiceReconcileResult` (per-servicio).
+   *
+   * Invocado por:
+   *   1. `runOnce()` (cron L3 reconcile-all + trigger manual admin reconcile-all)
+   *      — itera todos los services Enhance, agrega counts al `ReconciliationSummary`.
+   *   2. `ReconcileRegistryService.reconcileOne('enhance_cp', service)` vía el
+   *      executor registrado en `onModuleInit` — invocado por
+   *      `ProvisioningService.reconcileServiceAsAdmin` (endpoint admin
+   *      `POST /admin/services/:id/reconcile`, single-shot per CTA).
+   *
+   * DRY frozen: AMBOS paths (cron L3 + endpoint admin) invocan exactamente
+   * esta misma lógica per-service. Cualquier cambio futuro en la detección
+   * o adopt de drifts afecta a ambos paths sin divergencia posible.
+   *
+   * Doctrina de detección (sin cambios vs versión anterior):
+   *   - Los 3 tipos son mutuamente excluyentes por pasada: si subscription
+   *     falta, no comparamos status; si status diverge, NO comparamos plan.
+   *     `driftsDetected.length ∈ {0, 1}` siempre. (Razón histórica:
+   *     evitar que el adopt de status genere un evento + plan_divergence
+   *     en la misma pasada confunda al admin sobre la causa raíz.)
+   *
+   * Doctrina safe-adopt (R4 frozen + matiz R4.1 — sub-bullet del dossier
+   * §A.11.10.6.2):
+   *   - `subscription_missing` → `applied: false` (emit-only — DH-INV-6
+   *     literal: el flujo de cancellation tiene side-effects billing que
+   *     este path automático NO debe pisar; admin decide reprovision vs
+   *     cancel).
+   *   - `status_divergence` con target ∈ {active, suspended} →
+   *     `applied: true` + `prisma.service.update({status: target})`
+   *     (DH-INV-6: Enhance gana cuando el status es safe-to-adopt).
+   *   - `status_divergence` con target fuera del set (cancelled/expired/
+   *     failed/unknown) → `applied: false` (emit-only — mismas razones
+   *     que subscription_missing).
+   *   - `plan_divergence` → `applied: false` (emit-only — billing
+   *     implication, admin decide upgrade/downgrade real). Matiz R4.1
+   *     al R4 frozen original: este sub-tipo NO es safe-to-adopt
+   *     automático en Enhance porque cambiar `services.metadata.plan_id`
+   *     sin sincronizar `product.provisioner_config` rompe la coherencia
+   *     billing-provisioning.
    */
-  private async reconcileOne(
+  async reconcileOneInternal(
     service: ReconcileServiceRow,
-  ): Promise<ReconcileChangeType | null> {
+  ): Promise<ServiceReconcileResult> {
+    const reconciledAt = new Date();
+    const driftsDetected: ServiceDrift[] = [];
+
     const refs = extractServiceRefs(service);
     if (!refs) {
       this.logger.warn(
-        `reconcileOne service=${service.id}: missing enhance refs in metadata — skipping`,
+        `reconcileOneInternal service=${service.id}: missing enhance refs in metadata — skipping`,
       );
-      return null;
+      return { driftsDetected, driftsApplied: [], reconciledAt };
     }
 
     const { client: api } = await this.plugin.getApiClient();
@@ -285,7 +347,14 @@ export class EnhanceReconciliationCron implements OnModuleInit {
         err.code === 'INVALID_STATE'
       ) {
         this.handleSubscriptionMissing(service);
-        return 'subscription_missing';
+        driftsDetected.push({
+          type: 'subscription_missing',
+          before: { status: service.status },
+          after: { status: 'missing_in_provider' },
+          applied: false, // emit-only (DH-INV-6 + side-effects billing)
+          message: 'Subscription no encontrada en el proveedor — admin decide',
+        });
+        return { driftsDetected, driftsApplied: [], reconciledAt };
       }
       throw err;
     }
@@ -294,8 +363,27 @@ export class EnhanceReconciliationCron implements OnModuleInit {
     const enhanceStatus = mapSubscriptionStatusContract(subscription);
     const aeliumStatus = service.status;
     if (statusesDiverge(aeliumStatus, enhanceStatus)) {
+      const target = mapContractToPrismaStatus(enhanceStatus);
       await this.handleStatusDivergence(service, aeliumStatus, enhanceStatus);
-      return 'status_divergence';
+      const applied = target !== null;
+      const drift: ServiceDrift = {
+        type: 'status_divergence',
+        before: aeliumStatus,
+        // Cuando aplicamos, `after` es el nuevo `services.status`. Cuando NO
+        // aplicamos (out of safe-adopt set), `after` es lo que reporta el
+        // proveedor — útil para el audit timeline + UI admin.
+        after: applied ? target : enhanceStatus,
+        applied,
+        message: applied
+          ? `status adoptado ${aeliumStatus}→${target} (DH-INV-6)`
+          : `status divergence ${aeliumStatus}→${enhanceStatus} fuera del set safe-adopt (admin decide)`,
+      };
+      driftsDetected.push(drift);
+      return {
+        driftsDetected,
+        driftsApplied: applied ? [drift] : [],
+        reconciledAt,
+      };
     }
 
     // plan_divergence (compara contra metadata, NO contra product.provisioner_config — A4)
@@ -303,11 +391,20 @@ export class EnhanceReconciliationCron implements OnModuleInit {
     const enhancePlanId = subscription.planId;
     if (aeliumPlanId !== null && aeliumPlanId !== enhancePlanId) {
       this.emitChange(service, 'plan_divergence', aeliumPlanId, enhancePlanId);
-      // NO auto-corrige Aelium — billing implication, admin decide.
-      return 'plan_divergence';
+      // NO auto-corrige Aelium — billing implication, admin decide
+      // (R4.1 matiz al R4 frozen — ver docstring del método).
+      driftsDetected.push({
+        type: 'plan_divergence',
+        before: aeliumPlanId,
+        after: enhancePlanId,
+        applied: false,
+        message:
+          'plan divergence — admin decide upgrade/downgrade real (billing implication)',
+      });
+      return { driftsDetected, driftsApplied: [], reconciledAt };
     }
 
-    return null;
+    return { driftsDetected, driftsApplied: [], reconciledAt };
   }
 
   // ─── Handlers por change_type ──────────────────────────────────────────

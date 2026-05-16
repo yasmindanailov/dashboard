@@ -1,9 +1,11 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
   HttpCode,
+  HttpException,
   HttpStatus,
   NotFoundException,
   Param,
@@ -12,8 +14,10 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Action, Subject } from '../../core/casl/permissions';
@@ -35,6 +39,7 @@ import {
 import {
   DnsExternallyManagedError,
   ProvisioningService,
+  RECONCILE_SINGLE_COOLDOWN_SECONDS,
 } from './provisioning.service';
 
 /**
@@ -261,6 +266,80 @@ export class AdminProvisioningController {
       ipAddress: req.ip ?? '0.0.0.0',
       userAgent: req.headers['user-agent'] ?? null,
     });
+  }
+
+  /**
+   * Sprint 15C.II Fase F.9 (`DC.45` — dossier §A.11.10.6 + refinamiento
+   * §A.11.10.6.2 R1..R6 frozen + Amendments naming clash + DI).
+   *
+   * Reconcile per-servicio admin — cierra el cabo del CTA "Reconciliar
+   * contra el proveedor" del `<AdminDriftBanner>` (F.3 — cuando
+   * `info.recoveryHint === 'reconcile'`) y por fila drift del
+   * `<PluginOperationalOverview>` (F.2). Single-shot — vs el cron L3 que
+   * recorre todos los services del plugin cada 6h.
+   *
+   * El servicio (`ProvisioningService.reconcileServiceAsAdmin`) gestiona
+   * el pipeline canónico: 404 → shortcircuit terminal → cooldown 30s
+   * Redis SET NX EX (con coalescing al último `ServiceReconcileResult`
+   * cacheado si la ventana está activa, o 409 `RECONCILE_IN_PROGRESS` si
+   * no hay cacheado) → delegación a `ReconcileRegistryService.reconcileOne`
+   * (que invoca el executor del plugin, throw 400
+   * `RECONCILE_ONE_NOT_SUPPORTED` si no soporta) → invalidate cache
+   * service_info → `ClientNote` automática si `driftsApplied > 0` (R3
+   * frozen, categoría nueva `reconciliation` ADR-079 A5) → evento
+   * `service.reconciled_external_change` con `trigger: 'manual_single'`
+   * (R2 — reuso) → audit `service.reconciled_single` change_log +
+   * `service_reconcile_admin` access_log (target_user_id para portal
+   * RGPD F.3 GAP-M).
+   *
+   * NO acepta body — toda la información necesaria viene del path param
+   * + actor del JWT + ctx del request. El servicio devuelve
+   * `ServiceReconcileResult & { coalesced?: true }` que el frontend usa
+   * para el Toast UX (R5 frozen).
+   */
+  @Post(':id/reconcile')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Reconciliar un único servicio contra el ground truth del proveedor (single-shot vs cron L3)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
+  async reconcileOne(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      return await this.provisioning.reconcileServiceAsAdmin(id, req.user.id, {
+        ipAddress: req.ip ?? '0.0.0.0',
+        userAgent: req.headers['user-agent'] ?? null,
+      });
+    } catch (err) {
+      // R7 frozen (§A.11.10.6.2 Amendment III): re-mapear el
+      // `ConflictException(RECONCILE_IN_PROGRESS)` del orquestador a HTTP 429
+      // Too Many Requests con header Retry-After explícito. Más estándar HTTP
+      // que el 409 default — el frontend (y clientes CLI/automatización) pueden
+      // leer Retry-After automáticamente. El ConflictException original del
+      // orquestador queda intacto (es la única transformación REST específica
+      // del endpoint admin — los demás errores se propagan sin tocar).
+      if (err instanceof ConflictException) {
+        const response = err.getResponse() as
+          | { code?: string; retry_after_seconds?: number }
+          | string;
+        if (
+          typeof response === 'object' &&
+          response.code === 'RECONCILE_IN_PROGRESS'
+        ) {
+          // B2 review polish: usamos la constante canónica del service en
+          // lugar del literal `30` para evitar drift si la ventana cambia.
+          const retryAfter =
+            response.retry_after_seconds ?? RECONCILE_SINGLE_COOLDOWN_SECONDS;
+          res.setHeader('Retry-After', String(retryAfter));
+          throw new HttpException(response, HttpStatus.TOO_MANY_REQUESTS);
+        }
+      }
+      throw err;
+    }
   }
 
   // ─── DNS records (Sprint 15C Fase 15C.D — ADR-082 §6 — admin) ──────────

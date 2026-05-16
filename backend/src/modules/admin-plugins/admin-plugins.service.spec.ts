@@ -656,7 +656,32 @@ describe('AdminPluginsService â€” Sprint 15A Fase G (ADR-080)', () => {
       expect(ov.secrets).toEqual({ required: 1, configured: 1, missing: [] });
       expect(ov.reconciliation.supported).toBe(false);
       expect(ov.reconciliation.next_scheduled_at).toBeNull();
+      // Sprint 15C.II F.9 R9 frozen: capability-driven por presencia del
+      // executor en el registry. Sin executor registrado → false.
+      expect(ov.reconciliation.supports_reconcile_one).toBe(false);
       expect(ov.recent_drifts).toEqual([]);
+    });
+
+    it('plugin con reconcileOne executor registrado → supports_reconcile_one=true (R9 F.9)', async () => {
+      buildOverviewPlugin('ov-cp', false);
+      prisma.pluginInstall.findUnique.mockResolvedValueOnce({
+        slug: 'ov-cp',
+        enabled: true,
+        secrets: { api_key: vault.encrypt('sk_live') },
+      });
+      // R9 frozen: el cron del plugin registra el executor per-servicio
+      // en su onModuleInit (Amendment II DI). El overview derive el flag
+      // del registry, sin tocar PluginManifest declarativo.
+      reconcileRegistry.registerReconcileOne('ov-cp', () =>
+        Promise.resolve({
+          driftsDetected: [],
+          driftsApplied: [],
+          reconciledAt: new Date(),
+        }),
+      );
+
+      const ov = await service.getOperationalOverview('ov-cp');
+      expect(ov.reconciliation.supports_reconcile_one).toBe(true);
     });
 
     it('plugin deshabilitado (sin install row) → health.status=disabled', async () => {

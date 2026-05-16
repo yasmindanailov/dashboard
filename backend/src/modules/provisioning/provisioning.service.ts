@@ -24,14 +24,17 @@ import {
   getServiceInfoWithCache,
   getSsoUrlWithAudit,
 } from '../../core/provisioning/plugin-utils';
+import { ReconcileRegistryService } from '../../core/provisioning/reconcile-registry.service';
 import {
   ActionResult,
   ProvisionerPlugin,
   ServiceInfo,
+  ServiceReconcileResult,
   ServiceWithRelations,
   SsoUrl,
   SuspensionReason,
 } from '../../core/provisioning/types';
+import { NoteCategory } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { ClientNotesService } from '../clients/client-notes.service';
 
@@ -73,6 +76,45 @@ import { ProvisioningOrchestratorService } from './provisioning-orchestrator.ser
 const REFRESH_COOLDOWN_SECONDS = 15;
 
 /**
+ * Sprint 15C.II Fase F.9 (R6 frozen dossier §A.11.10.6.2) — ventana del
+ * cooldown server-side per-`serviceId` del endpoint admin
+ * `POST /admin/services/:id/reconcile`. Más generoso que `REFRESH_COOLDOWN_SECONDS`
+ * (15s) porque la pasada `reconcileOne` implica más calls al proveedor (re-leer
+ * subscription + comparar metadata + posibles mutaciones). Dentro de la ventana
+ * el endpoint degrada a `getCachedServiceReconcileResult` (coalescing) o
+ * responde `429 RECONCILE_IN_PROGRESS` con `Retry-After` si no hay resultado
+ * cacheado todavía.
+ */
+export const RECONCILE_SINGLE_COOLDOWN_SECONDS = 30;
+
+/**
+ * Sprint 15C.II Fase F.9 polish (review B1 — drift types localizados).
+ *
+ * Mapea cada `ServiceDriftType` (enum técnico) a una etiqueta humana en
+ * español para componer el `body` del `ClientNote` que genera
+ * `reconcileServiceAsAdmin` cuando `driftsApplied > 0`. Sin este helper la
+ * nota mostraría strings crudos del enum (`status_divergence, plan_divergence`)
+ * al admin/cliente en `<ServiceNotesCard>` y `<ClientNotesTab>`.
+ *
+ * Heredable a plugins futuros: si 15D RC / 15E Docker / 15G Plesk añaden
+ * nuevos `ServiceDriftType`, deben extender este switch. El default `'otro
+ * cambio detectado'` evita exponer el enum técnico aunque la traducción
+ * falte.
+ */
+function humanizeServiceDriftType(type: string): string {
+  switch (type) {
+    case 'status_divergence':
+      return 'estado del servicio';
+    case 'plan_divergence':
+      return 'plan del producto';
+    case 'subscription_missing':
+      return 'suscripción del proveedor ausente';
+    default:
+      return 'otro cambio detectado';
+  }
+}
+
+/**
  * ProvisioningService â€” Sprint 11 Fase 11.D (ADR-077 Â§1+Â§2+Â§5 + ADR-070 Â§A/B/C).
  *
  * Capa REST que expone al frontend (cliente + admin) los servicios y las
@@ -109,6 +151,10 @@ export class ProvisioningService {
     // crean un `ClientNote` direct-call dentro de la `$transaction` del cambio
     // de status (R3 §A.11.10.3.2 — ambas ops o ninguna).
     private readonly clientNotes: ClientNotesService,
+    // Sprint 15C.II F.9 (ADR-077 Amendment A8 — §A.11.10.6.2 R1 + R6 frozen):
+    // delegación al executor per-servicio del plugin (`reconcileOne?()`) +
+    // guard 400 RECONCILE_ONE_NOT_SUPPORTED para plugins sin la capability.
+    private readonly reconcileRegistry: ReconcileRegistryService,
   ) {}
 
   // â”€â”€â”€ Listado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1605,6 +1651,192 @@ export class ProvisioningService {
       target_state: adminStatus,
       aligned: true,
     };
+  }
+
+  // ─── Admin: reconcile per-servicio (Sprint 15C.II Fase F.9 — DC.45) ───
+
+  /**
+   * Sprint 15C.II Fase F.9 (`DC.45` — dossier §A.11.10.6 + refinamiento
+   * §A.11.10.6.2 R1..R6 frozen + Amendment II DI).
+   *
+   * Reconcilia un único servicio contra el ground truth del proveedor.
+   * Endpoint admin para cerrar el cabo del CTA "Reconciliar contra el
+   * proveedor" del `<AdminDriftBanner>` (F.3) y por fila drift del
+   * `<PluginOperationalOverview>` (F.2). Single-shot — vs el cron L3 que
+   * recorre todos los services del plugin cada 6h.
+   *
+   * Pipeline canónico:
+   *   1. Carga service (404 `NotFoundException` si no existe).
+   *   2. Shortcircuit terminal: `status ∈ {cancelled, terminated}` → 409
+   *      `SERVICE_TERMINAL_NOT_RECONCILABLE` (sin invocar plugin — nada que
+   *      reconciliar de un servicio destruido o pendiente de borrado).
+   *   3. Cooldown server-side per-`serviceId` (R6 frozen): `SET NX EX`
+   *      Redis 30s. Si ventana activa:
+   *        a) `getCachedServiceReconcileResult(serviceId)` → si existe,
+   *           devolverlo con `coalesced: true` (alineado a F.3 B.1 force-refresh).
+   *        b) Si null (primera llamada en curso, race): `409 RECONCILE_IN_PROGRESS`
+   *           con metadata `retry_after_seconds` (el endpoint la mapea a
+   *           HTTP 429 + header `Retry-After`).
+   *   4. Delegación a `ReconcileRegistryService.reconcileOne(slug, service)`
+   *      vía executor registrado por el cron del plugin (R1 + Amendment II).
+   *      Si el plugin NO soporta → `ProvisionerPluginError` con código
+   *      `RECONCILE_ONE_NOT_SUPPORTED` (módulo `'reconcile'` — heredable de
+   *      GAP-N F.3) que el filter global mapea a HTTP 400.
+   *   5. Cache del `ServiceReconcileResult` (R6 frozen, 30s TTL) para
+   *      coalescing en re-invocaciones dentro de la ventana.
+   *   6. Invalida cache `service_info:<id>` (defense-in-depth — el plugin
+   *      pudo mutar status/metadata; el wrapper `getServiceInfoWithCache`
+   *      necesita re-leer al proveedor en la próxima request).
+   *   7. **`ClientNote` automática** (R3 frozen) si `driftsApplied > 0`:
+   *      vía `ClientNotesService.createFromServiceLifecycleAction` con
+   *      `category: 'reconciliation'` (9º del enum, NUEVO Amendment A5
+   *      ADR-079) + `triggered_by_action: 'service.reconciled_single'`
+   *      (6º del enum) + body autogenerado. Sin tx wrapper: el plugin ya
+   *      commiteó su mutación en su tx propia — la nota es metadata
+   *      operativa POST-mutación (matiz a L19 candidato F.6 — ver A8.5
+   *      del ADR-077 Amendment A8).
+   *   8. Emite `service.reconciled_external_change` con `trigger:
+   *      'manual_single'` (R2 frozen — reuso del evento existente +
+   *      discriminador payload-level vs duplicar evento).
+   *   9. Audit `service.reconciled_single` (`logChange`) + `service_reconcile_admin`
+   *      (`logAccess` con `target_user_id` para portal RGPD F.3 GAP-M).
+   */
+  async reconcileServiceAsAdmin(
+    serviceId: string,
+    actorUserId: string,
+    ctx: { ipAddress: string; userAgent?: string | null },
+  ): Promise<ServiceReconcileResult & { coalesced?: true }> {
+    const service = await this.loadServiceForView(serviceId);
+
+    const status = String(service.status);
+    if (status === 'cancelled' || status === 'terminated') {
+      throw new ConflictException({
+        code: 'SERVICE_TERMINAL_NOT_RECONCILABLE',
+        message: `No se puede reconciliar un servicio en estado terminal (estado actual: ${status}). El servicio ya no tiene un recurso vivo en el proveedor.`,
+        current_status: status,
+      });
+    }
+
+    // Cooldown server-side R6 — protege del N×load por martilleo del admin
+    // (caso "admin pulsa 10 veces porque no ve feedback inmediato").
+    const acquired = await this.cache.tryAcquireReconcileSingleCooldown(
+      serviceId,
+      RECONCILE_SINGLE_COOLDOWN_SECONDS,
+    );
+    if (!acquired) {
+      const cached =
+        await this.cache.getCachedServiceReconcileResult(serviceId);
+      if (cached) {
+        this.logger.log(
+          `reconcileServiceAsAdmin: service=${serviceId} cooldown active — returning cached result (coalesced).`,
+        );
+        return { ...cached, coalesced: true };
+      }
+      throw new ConflictException({
+        code: 'RECONCILE_IN_PROGRESS',
+        message: `Reconciliación en curso para este servicio. Inténtalo de nuevo en unos segundos.`,
+        retry_after_seconds: RECONCILE_SINGLE_COOLDOWN_SECONDS,
+      });
+    }
+
+    // B3 review: guard defensivo para servicios pre-Sprint 15A (legado) que
+    // no tienen plugin slug resoluble — devolvemos NotFound con mensaje
+    // explícito en lugar de propagar RECONCILE_ONE_NOT_SUPPORTED confuso.
+    const pluginSlug = service.provisioner_slug ?? service.product.provisioner;
+    if (!pluginSlug) {
+      throw new NotFoundException({
+        code: 'SERVICE_HAS_NO_PROVISIONER',
+        message: `El servicio ${serviceId} no tiene un plugin de aprovisionamiento asociado. Reconcile no es aplicable.`,
+      });
+    }
+
+    const result = await this.reconcileRegistry.reconcileOne(
+      pluginSlug,
+      service,
+    );
+
+    // Cache del resultado para coalescing dentro de la ventana.
+    await this.cache.cacheServiceReconcileResult(
+      serviceId,
+      result,
+      RECONCILE_SINGLE_COOLDOWN_SECONDS,
+    );
+
+    // Invalida `service_info:<id>` — el plugin pudo mutar status/metadata.
+    await this.cache.invalidate(serviceId);
+
+    // R3 frozen: ClientNote automática si driftsApplied > 0 (categoría nueva
+    // `reconciliation`, ADR-079 Amendment A5). B1 review polish: usamos
+    // `humanizeServiceDriftType` para no exponer el enum técnico al admin/
+    // cliente en `<ServiceNotesCard>`/`<ClientNotesTab>`.
+    //
+    // Atomicidad (review B2): el plugin ya aplicó las mutaciones de
+    // `services.status`/`services.metadata` ANTES de este punto (R8 +
+    // Sub-amendment III A8.5: plugin aplica drifts, orquestador maneja
+    // transversales). Por construcción la nota se crea POST-mutación y NO en
+    // la misma `$transaction` que la mutación del plugin (asimétrica con F.5/
+    // F.6 donde la transición admin del lifecycle + la nota van juntas). Un
+    // fallo aquí dejaría el drift aplicado sin nota; el cron L3 retry NO
+    // recreará la nota retroactivamente — queda como evento auditable vía
+    // `service.reconciled_single` (logChange líneas 1758+). Aceptable: la
+    // pérdida es la NARRATIVA, no el ESTADO; cron L3 igual habría aplicado el
+    // mismo drift sin nota.
+    if (result.driftsApplied.length > 0) {
+      const appliedTypes = result.driftsApplied
+        .map((d) => humanizeServiceDriftType(d.type))
+        .join(', ');
+      const noteBody = `Reconciliación manual contra el proveedor — ${result.driftsApplied.length} cambio(s) aplicado(s): ${appliedTypes}.`;
+      await this.clientNotes.createFromServiceLifecycleAction({
+        user_id: service.user_id,
+        author_id: actorUserId,
+        service_id: serviceId,
+        triggered_by_action: 'service.reconciled_single',
+        body: noteBody,
+        category: NoteCategory.reconciliation,
+      });
+    }
+
+    // R2 frozen: reusar evento existente + discriminador payload-level.
+    this.events.emit('service.reconciled_external_change', {
+      service_id: serviceId,
+      user_id: service.user_id,
+      plugin_slug: pluginSlug,
+      trigger: 'manual_single',
+      drifts_detected: result.driftsDetected.length,
+      drifts_applied: result.driftsApplied.length,
+      drift_types_applied: result.driftsApplied.map((d) => d.type),
+      actor_user_id: actorUserId,
+    });
+
+    await this.audit.logChange({
+      user_id: actorUserId,
+      entity_type: 'Service',
+      entity_id: serviceId,
+      action: 'service.reconciled_single',
+      changes_before: {},
+      changes_after: {
+        drifts_detected: result.driftsDetected.length,
+        drifts_applied: result.driftsApplied.length,
+        drift_types_applied: result.driftsApplied.map((d) => d.type),
+        drift_types_detected: result.driftsDetected.map((d) => d.type),
+      },
+    });
+    await this.audit.logAccess({
+      user_id: actorUserId,
+      action: 'service_reconcile_admin',
+      ip_address: ctx.ipAddress,
+      user_agent: ctx.userAgent ?? null,
+      resource: 'Service',
+      metadata: {
+        resource_id: serviceId,
+        target_user_id: service.user_id,
+        plugin_slug: pluginSlug,
+        drifts_detected: result.driftsDetected.length,
+        drifts_applied: result.driftsApplied.length,
+      },
+    });
+
+    return result;
   }
 
   /**

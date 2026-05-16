@@ -1,5 +1,11 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 
+import {
+  ProvisionerPluginError,
+  ServiceReconcileResult,
+  ServiceWithRelations,
+} from './types';
+
 /**
  * Sprint 15C.II Fase B (2026-05-10) — `ReconcileRegistryService`.
  *
@@ -53,6 +59,24 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 export type ReconcileExecutor = () => Promise<ReconcileResult>;
 
 /**
+ * Sprint 15C.II Fase F.9 (ADR-077 Amendment A8 — dossier §A.11.10.6.2 R1
+ * frozen): executor per-servicio que delega al método opcional
+ * `plugin.reconcileOne(service)`. Registrado por el cron del propio plugin
+ * (typeically en `onModuleInit` paralelo a `register()` del reconcile-all)
+ * para evitar inyectar `PluginRegistryService` aquí (rompería el
+ * `ReconcileRegistryModule` leaf-importable — ciclo con `ProvisioningModule`
+ * que provee `PluginRegistryService`).
+ *
+ * Convención: el cron del plugin captura su instancia `plugin` y registra
+ * `(service) => plugin.reconcileOne!(service)`. Si el plugin NO implementa
+ * `reconcileOne`, el cron NO debe llamar a `registerReconcileOne` — la
+ * ausencia del executor en el map = capability ausente.
+ */
+export type ReconcileOneExecutor = (
+  service: ServiceWithRelations,
+) => Promise<ServiceReconcileResult>;
+
+/**
  * Metadatos opcionales del schedule del plugin, declarados al registrar el
  * executor. Permiten al admin overview (Fase F.2) calcular "próxima
  * reconciliación" sin acoplarse al cron concreto del plugin.
@@ -87,6 +111,19 @@ export class ReconcileRegistryService {
   private readonly logger = new Logger(ReconcileRegistryService.name);
   private readonly executors = new Map<string, ReconcileExecutor>();
   private readonly scheduleMeta = new Map<string, ReconcileScheduleMeta>();
+
+  /**
+   * Sprint 15C.II Fase F.9 (ADR-077 Amendment A8): mapping paralelo per-servicio.
+   * Patrón heredado del `executors` (reconcile-all) para preservar el
+   * `ReconcileRegistryModule` leaf-importable (sin ciclo con `ProvisioningModule`
+   * que provee `PluginRegistryService`). Cada plugin con `reconcileOne?()`
+   * registra su executor en el `onModuleInit` del cron L3 (`enhance_cp`:
+   * commit feat 10) — capturing la instancia del plugin en una closure.
+   */
+  private readonly reconcileOneExecutors = new Map<
+    string,
+    ReconcileOneExecutor
+  >();
 
   /**
    * Registra un executor para un plugin slug. Típicamente invocado desde
@@ -152,5 +189,74 @@ export class ReconcileRegistryService {
   /** Lista slugs con executor registrado. Útil para diagnóstico + tests. */
   listRegisteredSlugs(): string[] {
     return Array.from(this.executors.keys()).sort();
+  }
+
+  /**
+   * Sprint 15C.II Fase F.9 (ADR-077 Amendment A8 — `reconcileOne?(service)`
+   * capability-driven, dossier §A.11.10.6.2 R1 frozen).
+   *
+   * Registra el executor per-servicio del plugin. Típicamente invocado desde
+   * el `onModuleInit()` del cron del plugin (mismo lugar que `register()` del
+   * reconcile-all). Solo lo invocan los plugins que implementan `reconcileOne`
+   * — los demás omiten esta llamada (la ausencia en el map = capability
+   * ausente).
+   *
+   * Idempotencia + warning en re-register (mismo criterio que `register()`).
+   */
+  registerReconcileOne(slug: string, executor: ReconcileOneExecutor): void {
+    if (this.reconcileOneExecutors.has(slug)) {
+      this.logger.warn(
+        `ReconcileOne executor for plugin "${slug}" already registered — overwriting. ` +
+          `This is unexpected outside hot-reload dev scenarios.`,
+      );
+    }
+    this.reconcileOneExecutors.set(slug, executor);
+    this.logger.log(`Registered reconcileOne executor for plugin "${slug}".`);
+  }
+
+  /**
+   * Sprint 15C.II Fase F.9 (ADR-077 Amendment A8 — dossier §A.11.10.6.2 R1
+   * frozen).
+   *
+   * Reconcilia un único servicio invocando el executor registrado del plugin.
+   * Garantiza:
+   *
+   *   - El plugin registró un `ReconcileOneExecutor` (vía
+   *     `registerReconcileOne` en su `onModuleInit`). Si no, lanza
+   *     `ProvisionerPluginError({ code: 'RECONCILE_ONE_NOT_SUPPORTED',
+   *     module: 'reconcile', retriable: false })`. El frontend gatea el CTA
+   *     preventivamente leyendo la capability del manifest enriquecido vía
+   *     admin overview F.2 — si llega aquí sin soporte es bug del frontend.
+   *
+   * NO maneja transacciones, cache, audit, eventos ni `ClientNote` — todo eso
+   * vive en el orquestador (`ProvisioningService.reconcileServiceAsAdmin`,
+   * commit feat 7 F.9). Este registry solo delega y valida la capability.
+   *
+   * El plugin devuelve el `ServiceReconcileResult` sin tocar `services.status`
+   * directamente (el orquestador es la única autoridad para mutar la BD); el
+   * shape contiene los drifts detectados + cuáles serían aplicables según R4
+   * doctrine (safe-adopt) — el orquestador es quien materializa la mutación.
+   */
+  async reconcileOne(
+    slug: string,
+    service: ServiceWithRelations,
+  ): Promise<ServiceReconcileResult> {
+    const executor = this.reconcileOneExecutors.get(slug);
+    if (!executor) {
+      throw new ProvisionerPluginError(
+        `Plugin "${slug}" no implementa reconcileOne() — la capability per-servicio no está disponible para este proveedor. ` +
+          `Frontend debería ocultar el CTA "Reconciliar contra el proveedor" leyendo la capability del manifest.`,
+        'RECONCILE_ONE_NOT_SUPPORTED',
+        false, // no retriable — es invocación incorrecta del caller (bug frontend)
+        undefined,
+        'reconcile', // GAP-N F.3: módulo set explícito para error_log.module correcto
+      );
+    }
+    return executor(service);
+  }
+
+  /** True si el slug registró executor per-servicio. Útil para tests + diagnóstico. */
+  hasReconcileOneExecutor(slug: string): boolean {
+    return this.reconcileOneExecutors.has(slug);
   }
 }
