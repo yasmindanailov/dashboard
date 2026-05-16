@@ -70,6 +70,18 @@ export interface PluginOperationalOverview {
 
   readonly reconciliation: {
     readonly supported: boolean;
+    /**
+     * Sprint 15C.II Fase F.9 (R9 frozen §A.11.10.6.2 Amendment III): true si el
+     * plugin implementa `reconcileOne?(service)` (capability detectada por
+     * presencia del executor en `ReconcileRegistryService.reconcileOneExecutors`
+     * — capability-driven A6/A7, NO declarado en `PluginCapabilities`).
+     * Lo lee el frontend para gatear el CTA "Reconciliar contra el proveedor"
+     * (`<AdminDriftBanner>` cuando `info.recoveryHint === 'reconcile'` + filas
+     * drift de `<PluginOperationalOverview>` F.2). Si `false`, el CTA se oculta
+     * preventivamente (sin invocar el endpoint que respondería 400
+     * `RECONCILE_ONE_NOT_SUPPORTED`).
+     */
+    readonly supports_reconcile_one: boolean;
     readonly last: {
       readonly completed_at: string;
       readonly trigger: 'cron' | 'manual';
