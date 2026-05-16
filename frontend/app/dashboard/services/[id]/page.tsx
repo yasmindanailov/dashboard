@@ -294,6 +294,11 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
           metrics={info.metrics ?? { fetchedAt: info.fetchedAt }}
           serviceId={service.id}
           isAdmin={false}
+          // Sprint 15C.II Fase F.8: threshold del manifest install que el
+          // backend expone en el summary (capability-driven — `null` si
+          // el plugin no es relevante o el admin no editó). MetricsBar
+          // colorea la barra de disco si está presente.
+          quotaAlertThresholdPct={service.quota_alert_threshold_pct}
         />
       )}
 

@@ -1700,6 +1700,16 @@ export interface ServiceDetailResponse {
      * El cliente no lo consume.
      */
     provider_state_desync: boolean;
+    /**
+     * Sprint 15C.II Fase F.8 — umbral de alerta de cuota de disco que el
+     * frontend usa para colorear la barra de almacenamiento del `MetricsBar`
+     * (ámbar ≥threshold, rojo ≥95% hardcoded). El orquestador lo lee de
+     * `plugin_installs.config.quota_alert_threshold_pct` cuando el plugin
+     * declara `has_metrics`. `null` cuando el plugin no es relevante o el
+     * setting no está editado → el frontend cae al comportamiento legacy
+     * (sin coloreo). Heredable a todo plugin con `has_metrics`.
+     */
+    quota_alert_threshold_pct: number | null;
   };
   info: ServiceInfo;
 }

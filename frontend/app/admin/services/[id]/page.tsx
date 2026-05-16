@@ -301,6 +301,10 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
           metrics={info.metrics ?? { fetchedAt: info.fetchedAt }}
           serviceId={service.id}
           isAdmin={true}
+          // Sprint 15C.II Fase F.8: threshold del manifest install que el
+          // backend expone en el summary. Mismo prop que cliente — `_shared/`
+          // + capability-driven (L16, ningún ramificado admin vs cliente).
+          quotaAlertThresholdPct={service.quota_alert_threshold_pct}
         />
       )}
 
