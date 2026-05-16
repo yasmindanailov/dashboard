@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { QuotaThresholdDetectorService } from './quota-threshold-detector.service';
 import { ReconcileRegistryService } from './reconcile-registry.service';
 
 /**
@@ -24,8 +25,15 @@ import { ReconcileRegistryService } from './reconcile-registry.service';
  * importa este mismo módulo y registra su executor con slug
  * `resellerclub` en su onModuleInit.
  */
+// Sprint 15C.II Fase F.8 (dossier §A.11.10.5.1 R2 frozen 2026-05-16):
+// `QuotaThresholdDetectorService` también vive aquí — mismo razonamiento que
+// `ReconcileRegistryService`: el cron de cada plugin (Enhance: cron L3) lo
+// inyecta para detectar el cruce de cuota al final de su pasada. Si el
+// provider viviera en `ProvisioningModule`, `EnhanceCpModule` tendría que
+// importar `ProvisioningModule` → ciclo. Como leaf-importable se mantiene
+// la regla R4 (plugins NO importan modules/provisioning).
 @Module({
-  providers: [ReconcileRegistryService],
-  exports: [ReconcileRegistryService],
+  providers: [ReconcileRegistryService, QuotaThresholdDetectorService],
+  exports: [ReconcileRegistryService, QuotaThresholdDetectorService],
 })
 export class ReconcileRegistryModule {}

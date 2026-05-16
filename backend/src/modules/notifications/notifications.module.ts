@@ -19,6 +19,7 @@ import { NotificationsPluginCircuitListener } from './listeners/notifications-pl
 import { NotificationsOnReconciliationThresholdExceededListener } from './listeners/notifications-on-reconciliation-threshold-exceeded.listener';
 import { NotificationsOnPasswordResetListener } from './listeners/notifications-on-password-reset.listener';
 import { NotificationsOnServiceCancelledListener } from './listeners/notifications-on-service-cancelled.listener';
+import { NotificationsOnServiceQuotaThresholdCrossedListener } from './listeners/notifications-on-service-quota-threshold-crossed.listener';
 import { NotificationsOnServiceSuspendedListener } from './listeners/notifications-on-service-suspended.listener';
 import { NotificationsOnServiceUnsuspendedListener } from './listeners/notifications-on-service-unsuspended.listener';
 import { NotificationsRetentionCron } from './notifications-retention.cron';
@@ -81,6 +82,12 @@ import { NotificationsRetentionCron } from './notifications-retention.cron';
     // `ProvisioningService.unsuspendAsAdmin`) y despacha siempre email +
     // campana `service.unsuspended` ("tu servicio vuelve a estar activo").
     NotificationsOnServiceUnsuspendedListener,
+    // Sprint 15C.II Fase F.8 (dossier §A.11.10.5.1 R6): consume
+    // `service.quota_threshold_crossed` emitido por
+    // `QuotaThresholdDetectorService.detectAndNotify` (edge-triggered
+    // upstream — el listener NO aplica anti-spam adicional). Plantilla
+    // genérica heredable a cualquier plugin con `has_metrics`.
+    NotificationsOnServiceQuotaThresholdCrossedListener,
     NotificationsRetentionCron,
     {
       provide: NOTIFICATION_CHANNELS,

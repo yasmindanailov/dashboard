@@ -16,6 +16,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { ProvisionerPluginError } from '../../../../core/provisioning/types';
+import { QuotaThresholdDetectorService } from '../../../../core/provisioning/quota-threshold-detector.service';
 import { ReconcileRegistryService } from '../../../../core/provisioning/reconcile-registry.service';
 
 import { EnhanceProvisionerPlugin } from '../enhance.plugin';
@@ -47,9 +48,21 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
     } else {
       getSubscriptionMock.mockResolvedValue(opts.subscription);
     }
+    // Sprint 15C.II Fase F.8: `runAsExecutor()` también invoca
+    // `api.calculateResourceUsage` en la pasada de detección de cuota.
+    // Los tests del cron de F-anteriores NO verifican F.8 — basta con
+    // un mock que devuelve listado vacío (el detector hará no-op por
+    // M8 al no encontrar disco con total).
+    const calculateResourceUsageMock = jest
+      .fn()
+      .mockResolvedValue({ items: [] });
     return {
-      api: { getSubscription: getSubscriptionMock },
+      api: {
+        getSubscription: getSubscriptionMock,
+        calculateResourceUsage: calculateResourceUsageMock,
+      },
       getSubscriptionMock,
+      calculateResourceUsageMock,
     };
   }
 
@@ -69,12 +82,18 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
   function buildPrisma(servicesRows: Array<Record<string, unknown>>) {
     const updateMock = jest.fn().mockResolvedValue({});
     const findManyMock = jest.fn().mockResolvedValue(servicesRows);
+    // Sprint 15C.II Fase F.8: `detectQuotaThresholds()` lee el threshold
+    // del `plugin_installs.config`. Mock devuelve null (el detector cae
+    // al default 85 — coherente con el manifest).
+    const pluginInstallFindUniqueMock = jest.fn().mockResolvedValue(null);
     return {
       prisma: {
         service: { findMany: findManyMock, update: updateMock },
+        pluginInstall: { findUnique: pluginInstallFindUniqueMock },
       } as unknown as PrismaService,
       updateMock,
       findManyMock,
+      pluginInstallFindUniqueMock,
     };
   }
 
@@ -97,6 +116,22 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
    */
   function buildReconcileRegistry(): ReconcileRegistryService {
     return new ReconcileRegistryService();
+  }
+
+  /**
+   * Sprint 15C.II Fase F.8: el cron inyecta `QuotaThresholdDetectorService`
+   * para la pasada adicional de detección de cuota en `runAsExecutor()`.
+   * Los tests del cron de F-anteriores invocan `runOnce()` directamente —
+   * NO pasan por `runAsExecutor()` — así que el detector no se invoca y
+   * basta con un stub mínimo. La cobertura específica de F.8 vive en
+   * `quota-threshold-detector.service.spec.ts`.
+   */
+  function buildQuotaDetector(): QuotaThresholdDetectorService {
+    return {
+      detectAndNotify: jest
+        .fn()
+        .mockResolvedValue({ action: 'no_transition' }),
+    } as unknown as QuotaThresholdDetectorService;
   }
 
   const SAMPLE_SERVICE = {
@@ -128,6 +163,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle),
       events,
       buildReconcileRegistry(),
+      buildQuotaDetector(),
     );
 
     const summary = await cron.runOnce();
@@ -156,6 +192,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle),
       events,
       buildReconcileRegistry(),
+      buildQuotaDetector(),
     );
 
     const summary = await cron.runOnce();
@@ -196,6 +233,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle),
       events,
       buildReconcileRegistry(),
+      buildQuotaDetector(),
     );
 
     const summary = await cron.runOnce();
@@ -227,6 +265,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle),
       events,
       buildReconcileRegistry(),
+      buildQuotaDetector(),
     );
 
     const summary = await cron.runOnce();
@@ -254,6 +293,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle),
       events,
       buildReconcileRegistry(),
+      buildQuotaDetector(),
     );
 
     const summary = await cron.runOnce();
@@ -283,6 +323,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle),
       events,
       buildReconcileRegistry(),
+      buildQuotaDetector(),
     );
 
     const summary = await cron.runOnce();
@@ -322,6 +363,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle as unknown as ReturnType<typeof buildApiMock>),
       events,
       buildReconcileRegistry(),
+      buildQuotaDetector(),
     );
 
     const summary = await cron.runOnce();
@@ -349,6 +391,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle),
       events,
       buildReconcileRegistry(),
+      buildQuotaDetector(),
     );
 
     const summary = await cron.runOnce();
@@ -379,6 +422,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle),
       events,
       buildReconcileRegistry(),
+      buildQuotaDetector(),
     );
 
     const summary = await cron.runOnce();
@@ -398,6 +442,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle),
       events,
       buildReconcileRegistry(),
+      buildQuotaDetector(),
     );
 
     await expect(cron.handleScheduled()).resolves.toBeUndefined();
@@ -419,6 +464,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle),
       events,
       buildReconcileRegistry(),
+      buildQuotaDetector(),
     );
 
     await cron.handleScheduled();
@@ -450,6 +496,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle),
       events,
       reconcileRegistry,
+      buildQuotaDetector(),
     );
     cron.onModuleInit();
 
@@ -490,6 +537,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle),
       events,
       reconcileRegistry,
+      buildQuotaDetector(),
     );
 
     expect(reconcileRegistry.hasExecutor('enhance_cp')).toBe(false);
@@ -508,6 +556,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
       buildPlugin(apiBundle),
       events,
       reconcileRegistry,
+      buildQuotaDetector(),
     );
     cron.onModuleInit();
 

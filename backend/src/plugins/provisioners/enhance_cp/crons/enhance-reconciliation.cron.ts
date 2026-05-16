@@ -5,7 +5,11 @@ import type { Service, ServiceStatus } from '@prisma/client';
 
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { ProvisionerPluginError } from '../../../../core/provisioning/types';
-import type { ServiceInfoStatus } from '../../../../core/provisioning/types';
+import type {
+  ServiceInfoStatus,
+  ServiceMetrics,
+} from '../../../../core/provisioning/types';
+import { QuotaThresholdDetectorService } from '../../../../core/provisioning/quota-threshold-detector.service';
 import { ReconcileRegistryService } from '../../../../core/provisioning/reconcile-registry.service';
 import type { ReconcileResult } from '../../../../core/provisioning/reconcile-registry.service';
 import { getErrorMessage } from '../../../../core/common/utils/error.util';
@@ -85,6 +89,12 @@ export class EnhanceReconciliationCron implements OnModuleInit {
     private readonly plugin: EnhanceProvisionerPlugin,
     private readonly events: EventEmitter2,
     private readonly reconcileRegistry: ReconcileRegistryService,
+    // Sprint 15C.II Fase F.8 (dossier §A.11.10.5.1 R2 frozen 2026-05-16):
+    // tras cada pasada del cron L3, una pasada adicional dedicada a la
+    // detección edge-triggered de cuota de disco. El detector vive en
+    // `core/provisioning/` (transversal) y se invoca per-service tras
+    // leer las métricas frescas vía `api.calculateResourceUsage`.
+    private readonly quotaDetector: QuotaThresholdDetectorService,
   ) {}
 
   /**
@@ -113,6 +123,14 @@ export class EnhanceReconciliationCron implements OnModuleInit {
   private async runAsExecutor(): Promise<ReconcileResult> {
     const startedAt = Date.now();
     const summary = await this.runOnce();
+    // Sprint 15C.II Fase F.8: detección edge-triggered de cuota de disco.
+    // Pasada adicional tras la reconciliación de drift — usa su propia
+    // query Prisma + endpoint API `calculateResourceUsage` (no reusa
+    // `getServiceInfo` que dispararía 5 calls por service; aquí solo nos
+    // interesa el disco — más lean). Fail-soft: si un service falla, los
+    // demás siguen + la próxima pasada (6h) reintenta. NO relanza al
+    // caller para no marcar la reconciliación como fallida por F.8.
+    await this.detectQuotaThresholds();
     const durationMs = Date.now() - startedAt;
     this.emitReconcileCompleted('manual', summary, durationMs);
     const driftsDetected =
@@ -367,6 +385,169 @@ export class EnhanceReconciliationCron implements OnModuleInit {
       detected_at: new Date().toISOString(),
     });
   }
+
+  // ─── F.8 — Detección edge-triggered de cuota de disco ──────────────────
+
+  /**
+   * Sprint 15C.II Fase F.8 (dossier §A.11.10.5.1 R2 frozen 2026-05-16).
+   *
+   * Pasada dedicada a la detección de cruce de cuota de disco. Se ejecuta
+   * tras `runOnce()` en `runAsExecutor()` (cron + trigger manual admin).
+   *
+   *   1. Lee el threshold del manifest del plugin (`plugin_installs.config
+   *      .quota_alert_threshold_pct`, default 85; R4).
+   *   2. Itera services Enhance con status `active` (los suspendidos no
+   *      consumen disco activamente — el cliente no podría liberar nada
+   *      hasta unsuspender; YAGNI alert).
+   *   3. Por cada service, lee métricas frescas vía
+   *      `api.calculateResourceUsage(orgId, subscriptionId)` (PUT que
+   *      pide a Enhance recalcular — más caro pero garantiza ground truth
+   *      al momento de la pasada, mismo coste que el cron L3 acepta para
+   *      drift detection).
+   *   4. Compone `ServiceMetrics` mínimo (disco only — R3) y delega al
+   *      detector transversal `QuotaThresholdDetectorService`.
+   *
+   * Fail-soft (R7): cada service en su try/catch; un fallo individual
+   * NO aborta la pasada. La siguiente ejecución del cron (6h después)
+   * reintentará. Cualquier excepción del top-level se traga + loguea.
+   */
+  private async detectQuotaThresholds(): Promise<void> {
+    let thresholdPct: number;
+    try {
+      thresholdPct = await this.loadThresholdFromManifest();
+    } catch (err) {
+      this.logger.error(
+        `quota threshold load failed (plugin install): ${getErrorMessage(err)}`,
+      );
+      return;
+    }
+
+    const services = await this.prisma.service.findMany({
+      where: {
+        provisioner_slug: 'enhance_cp',
+        // `active` solo: los `suspended` no pueden actuar sobre la cuota
+        // hasta unsuspender; alertarles sería ruido. Heredable.
+        status: 'active',
+      },
+      // `status` se incluye porque `extractServiceRefs` (compartido con la
+      // reconciliación principal) lo tipa como required en `ReconcileServiceRow`.
+      select: {
+        id: true,
+        user_id: true,
+        status: true,
+        provider_reference: true,
+        metadata: true,
+      },
+    });
+
+    let processed = 0;
+    let triggered = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    const { client: api } = await this.plugin.getApiClient();
+
+    for (const service of services) {
+      try {
+        const refs = extractServiceRefs(service);
+        if (!refs) {
+          skipped++;
+          continue;
+        }
+        const resources = await api.calculateResourceUsage(
+          refs.orgId,
+          refs.subscriptionId,
+        );
+        const metrics = buildQuotaMetrics(resources);
+        if (metrics === null) {
+          // Enhance no devolvió `disk` con `total` para este service —
+          // tratado como no-op (el detector también haría no-op por M8,
+          // pero saltamos antes para no contar como "processed").
+          skipped++;
+          continue;
+        }
+        const result = await this.quotaDetector.detectAndNotify({
+          serviceId: service.id,
+          userId: service.user_id,
+          pluginSlug: 'enhance_cp',
+          metrics,
+          thresholdPct,
+        });
+        processed++;
+        if (result.action === 'crossed_up') triggered++;
+      } catch (err) {
+        errors++;
+        this.logger.error(
+          `quota detect service=${service.id} failed: ${getErrorMessage(err)}`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `quotaThresholdDetect done: services=${services.length} ` +
+        `processed=${processed} triggered=${triggered} ` +
+        `skipped=${skipped} errors=${errors} threshold=${thresholdPct}%`,
+    );
+  }
+
+  /**
+   * Lee `quota_alert_threshold_pct` del install config (ADR-080 — manifest
+   * declarativo persistido en `plugin_installs.config`). Defensa: si la
+   * install no existe o el valor está fuera del rango canónico
+   * `[50, 95]`, cae al default 85 (mismo que el `default` del manifest).
+   * Esto cubre el caso edge del seed inicial sin admin edit + corrupción
+   * defensiva (R12 / R7).
+   */
+  private async loadThresholdFromManifest(): Promise<number> {
+    const install = await this.prisma.pluginInstall.findUnique({
+      where: { slug: 'enhance_cp' },
+      select: { config: true },
+    });
+    const raw = (install?.config as Record<string, unknown> | null)?.[
+      'quota_alert_threshold_pct'
+    ];
+    if (typeof raw === 'number' && Number.isInteger(raw) && raw >= 50 && raw <= 95) {
+      return raw;
+    }
+    return 85;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// F.8 — helpers file-private
+// ────────────────────────────────────────────────────────────────────────────
+
+interface EnhanceUsedResourcesItem {
+  readonly name: string;
+  readonly usage: number;
+  readonly total?: number;
+}
+
+interface EnhanceUsedResourcesFullListing {
+  readonly items: readonly EnhanceUsedResourcesItem[];
+}
+
+/**
+ * F.8 — extrae disco de la respuesta `calculateResourceUsage`. Devuelve
+ * `null` si Enhance no expone disco con total (sin cuota dura no hay
+ * umbral — el detector también haría no-op por M8, pero esta pre-check
+ * evita el round-trip a la BD).
+ */
+function buildQuotaMetrics(
+  resources: EnhanceUsedResourcesFullListing,
+): ServiceMetrics | null {
+  for (const item of resources.items) {
+    const lower = item.name.toLowerCase();
+    if (lower === 'disk' || lower === 'diskspace') {
+      if (item.total === undefined || item.total <= 0) return null;
+      return {
+        diskUsedMb: item.usage,
+        diskTotalMb: item.total,
+        fetchedAt: new Date().toISOString(),
+      };
+    }
+  }
+  return null;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
