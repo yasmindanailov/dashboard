@@ -120,7 +120,10 @@ export class ReconcileRegistryService {
    * registra su executor en el `onModuleInit` del cron L3 (`enhance_cp`:
    * commit feat 10) — capturing la instancia del plugin en una closure.
    */
-  private readonly reconcileOneExecutors = new Map<string, ReconcileOneExecutor>();
+  private readonly reconcileOneExecutors = new Map<
+    string,
+    ReconcileOneExecutor
+  >();
 
   /**
    * Registra un executor para un plugin slug. Típicamente invocado desde
@@ -208,9 +211,7 @@ export class ReconcileRegistryService {
       );
     }
     this.reconcileOneExecutors.set(slug, executor);
-    this.logger.log(
-      `Registered reconcileOne executor for plugin "${slug}".`,
-    );
+    this.logger.log(`Registered reconcileOne executor for plugin "${slug}".`);
   }
 
   /**
