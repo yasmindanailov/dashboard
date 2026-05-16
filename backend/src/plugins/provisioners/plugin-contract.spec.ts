@@ -192,6 +192,13 @@ describe.each(
         expect(Number.isInteger(m.serviceInfoCacheTtlSeconds)).toBe(true);
         expect(m.serviceInfoCacheTtlSeconds).toBeGreaterThan(0);
       }
+      // Sprint 15C.II Fase F.9 (ADR-077 Amendment A8 — dossier §A.11.10.6.2 R1
+      // frozen): `reconcileOne?(service)` opcional capability-driven por
+      // presencia. Plugins que lo declaran lo exponen como función; los que
+      // NO lo declaran omiten el método entero (el frontend gatea el CTA
+      // leyendo la capability del manifest enriquecido vía admin overview F.2).
+      // Mismo patrón canónico que A6 `testConnection?()` y A7 `ServiceInfo.ssl?`.
+      expect(['undefined', 'function']).toContain(typeof plugin.reconcileOne);
     });
 
     it('manifest.configSchema y manifest.secretsSchema son JsonSchema7 separados', () => {
@@ -449,6 +456,61 @@ describe.each(
         expect(sso.expiresAt).toMatch(ISO8601);
         expect(typeof sso.panelLabel).toBe('string');
         expect(sso.opensIn).toBe('new_tab');
+      },
+    );
+
+    // ─── ADR-077 Amendment A8 (Sprint 15C.II Fase F.9): reconcileOne?() ──
+    // Invariante comportamental: si el plugin declara la capability (método
+    // presente), invocarlo con un service sintético debe devolver un
+    // `ServiceReconcileResult` con shape canónico, O lanzar
+    // `ProvisionerPluginError` con código semántico (los plugins triviales
+    // typeically NO declaran `reconcileOne` — no tienen proveedor externo
+    // que reconciliar; este test se activa solo si algún plugin nuevo lo
+    // declara y queda en mode='full'). Para plugins en mode='static-only'
+    // (Enhance) el shape se valida exhaustivamente en su `*.plugin.spec.ts`.
+
+    itFull(
+      'reconcileOne?() — si declarado, devuelve ServiceReconcileResult con shape canónico',
+      async () => {
+        if (typeof plugin.reconcileOne !== 'function') {
+          // Plugin no declara la capability — invariante trivialmente OK.
+          return;
+        }
+        const service = buildSyntheticService(plugin.slug);
+        let result;
+        try {
+          result = await plugin.reconcileOne(service);
+        } catch (err) {
+          // Plugin con dependencias que el contract test no monta (ej. API
+          // client externo) puede lanzar — debe ser ProvisionerPluginError
+          // canónico, no error plano.
+          expect(err).toBeInstanceOf(ProvisionerPluginError);
+          return;
+        }
+
+        expect(result).toBeDefined();
+        expect(Array.isArray(result.driftsDetected)).toBe(true);
+        expect(Array.isArray(result.driftsApplied)).toBe(true);
+        // R4 frozen: driftsApplied ⊆ driftsDetected.
+        expect(result.driftsApplied.length).toBeLessThanOrEqual(
+          result.driftsDetected.length,
+        );
+        expect(result.reconciledAt).toBeInstanceOf(Date);
+        expect(Number.isFinite(result.reconciledAt.getTime())).toBe(true);
+
+        const DRIFT_TYPES: ReadonlyArray<string> = [
+          'subscription_missing',
+          'status_divergence',
+          'plan_divergence',
+        ];
+        for (const drift of result.driftsDetected) {
+          expect(DRIFT_TYPES).toContain(drift.type);
+          expect(typeof drift.applied).toBe('boolean');
+        }
+        // Coherencia R4: cada drift en driftsApplied debe tener applied=true.
+        for (const applied of result.driftsApplied) {
+          expect(applied.applied).toBe(true);
+        }
       },
     );
 
