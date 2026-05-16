@@ -2519,6 +2519,47 @@ Razón canónica:
 
 **Heredable a fases futuras**: cualquier nuevo método opcional del contrato `ProvisionerPlugin` que requiera invocación per-servicio desde un servicio leaf-importable (`core/provisioning/`) debe seguir el patrón "executor registrado por el cron del plugin" antes que inyectar el `PluginRegistryService`. Esto preserva la regla de no-ciclos canónica de la arquitectura módulo del backend.
 
+**Amendment 2026-05-16 (III) — R7..R9 frozen (Q7..Q9 resueltas post-handoff §A.11.10.6.3, sesión 2 mismo día)**
+
+Tras el handoff §A.11.10.6.3 (commit `02f18f3`), Yasmin decide continuar la implementación en la misma sesión. Las Q7..Q9 declaradas en el handoff se resuelven aquí — congeladas como R7..R9 extensión natural de R1..R6 (manteniendo la nomenclatura R/Q heredada de F.6).
+
+**R7 (resolución Q7) — Endpoint admin re-mapea `409 RECONCILE_IN_PROGRESS` → `HTTP 429 Too Many Requests` con header `Retry-After`.**
+- Más estándar HTTP: el frontend (y cualquier cliente CLI/automatización) puede leer `Retry-After` automáticamente.
+- Implementación en `admin-provisioning.controller.ts:reconcileOne`: `try/catch` sobre `ConflictException`; si `getResponse().code === 'RECONCILE_IN_PROGRESS'` → `throw new HttpException(payload, HttpStatus.TOO_MANY_REQUESTS)`. Header `Retry-After: 30` vía `@Header()` decorator condicional o response interceptor.
+- El `ConflictException` original del orquestador permanece intacto — la transformación a 429 es responsabilidad del endpoint REST (capa de presentación). El orquestador no cambia → tests del service siguen pasando sin modificación.
+- Cambia el contrato HTTP público del endpoint (NO hay clientes pre-existentes — el endpoint es nuevo en F.9). Documentar en `provisioning/contract.md` + Swagger.
+
+**R8 (resolución Q8) — Enhance plugin: refactor del cron L3 a `reconcileOneInternal` reutilizable + `EnhancePlugin.reconcileOne` thin wrapper.**
+- DRY: el cron L3 (`runFor`) y el endpoint admin (`reconcileOne`) invocan la **misma lógica per-service**. Cero duplicación. Cambio interno aceptable (es código del propio módulo plugin — R4 boundaries).
+- Cambios concretos:
+  - `enhance-reconciliation.cron.ts`: extraer el método `reconcileService(service)` privado a `reconcileOneInternal(service): Promise<ServiceReconcileResult>` público (`async` con visibilidad expandida). La lógica interna (extractServiceRefs + getSubscription + detectar drift + aplicar safe-adopt) se mantiene; el shape de retorno cambia de `ReconcileChangeType | null` a `ServiceReconcileResult` completo.
+  - `enhance-reconciliation.cron.ts:onModuleInit`: añadir `this.reconcileRegistry.registerReconcileOne('enhance_cp', (service) => this.reconcileOneInternal(service))` paralelo al `register()` ya existente (línea 113).
+  - `enhance.plugin.ts`: nuevo método `reconcileOne(service): Promise<ServiceReconcileResult>` thin wrapper que delega a `this.cron.reconcileOneInternal(service)`. Requiere inyectar `EnhanceReconciliationCron` en el plugin (sin ciclo: el cron ya inyecta el plugin para acceder al API client — bidirectional injection vía `forwardRef()` si Nest lo requiere; sino, directo).
+  - El método `runFor` (reconcile-all) del cron itera todos los services y para cada uno llama a `reconcileOneInternal` (refactor interno, mismo resultado externo). Conteo agregado en `ReconciliationSummary` se construye sumando los `ServiceReconcileResult` per-service.
+
+**Sub-amendment III a §A.11.10.6.2 A8.5 ADR-077** (frozen aquí — formalizado en commit feat 10c): la doctrina canónica del Amendment A8.5 que escribimos originalmente — *"el orquestador (`ProvisioningService.reconcileServiceAsAdmin`) aplica los drifts safe-adopt sobre `services.status`/`services.metadata` dentro de su `$transaction`"* — **se matiza**:
+
+- **El plugin** (en su método `reconcileOne`) **aplica los drifts safe-adopt directamente** (mismo patrón que el cron L3 actual — `prisma.service.update` plugin-side). Esto preserva DRY (R8) y la consistencia entre los 2 paths (cron L3 reconcile-all + endpoint admin reconcile-single).
+- **El orquestador** (`ProvisioningService.reconcileServiceAsAdmin`) gestiona TODO lo transversal: cooldown + cache invalidation + audit + evento + `ClientNote` (R8 del Amendment A4 — R8 audit centralizado).
+- **L19 candidato heredable F.6** (lifecycle + nota en misma tx Prisma) se preserva PARCIALMENTE: cuando hay plugin call que muta estado, la nota se crea POST plugin call en su propia tx (compatibilidad de eventual consistency aceptable — el plugin commitea su mutación, el orquestador commitea la nota inmediatamente después; el caso de fallo del orquestador entre ambas tx es teóricamente posible pero recuperable vía cron L3 + nota retroactiva). L19 puro aplica solo a transiciones admin lifecycle SIN plugin call que mute estado (suspend/unsuspend/cancel cuando el plugin call es idempotente A4.4 y muta el proveedor pero NO Aelium).
+- **Implicación para el orquestador F.9.7** (commit `0ba780f`): el código ya implementado es **correcto** — el orquestador NO aplica drifts (no hay lógica `prisma.service.update` ni `services.status` mutation en `reconcileServiceAsAdmin`); solo invoca `reconcileRegistry.reconcileOne` (que invoca al plugin que aplica los drifts) + crea `ClientNote` + cache + emit + audit. Sin cambios al commit feat 7. ✓
+
+**R9 (resolución Q9) — Capability gating del CTA frontend: derivado `supports_reconcile_one: boolean` server-side en admin overview.**
+- `admin-plugins.service.ts:listForOverview` (o el método análogo que devuelve el payload del admin overview F.2) suma `supports_reconcile_one: this.reconcileRegistry.hasReconcileOneExecutor(plugin.slug)` por cada plugin del array de respuesta.
+- NO toca `PluginManifest` declarativo — coherente con capability-driven por presencia (A6 `testConnection?()` / A7 `ServiceInfo.ssl?`). El flag es **derivado**, no declarado.
+- Frontend (`<AdminDriftBanner>`, `<PluginOperationalOverview>`): lee `plugin.supports_reconcile_one` del overview ya disponible y gatea el CTA. Sin nueva llamada de capability descubierta.
+- Inyectar `ReconcileRegistryService` en `AdminPluginsService` es legítimo — `AdminPluginsModule` ya importa `ProvisioningModule` que re-exporta `ReconcileRegistryModule` (line 142 `provisioning.module.ts`). Sin ciclo.
+
+**Aplicación en código** (commits feat 10a/10b/10c + 11 + 12 + PR):
+
+- **Commit feat 10a — Q7**: endpoint admin `reconcileOne` handler en `admin-provisioning.controller.ts` re-mapea `409 RECONCILE_IN_PROGRESS` → `429 Too Many Requests` con header `Retry-After: 30`. Test del controller añadido si applicable.
+- **Commit feat 10b — Q9**: `AdminPluginsService` (o el service de overview F.2) expone `supports_reconcile_one` derivado en el payload del admin overview. Inyectar `ReconcileRegistryService` con `forwardRef()` si Nest lo requiere. Tests actualizados.
+- **Commit feat 10c — Q8 + Sub-amendment III**: refactor cron L3 + EnhancePlugin.reconcileOne thin wrapper + registerReconcileOne en onModuleInit + tests del plugin extendidos + Sub-amendment III a ADR-077 A8.5 (commit doc plegado en el mismo commit feat según patrón heredado).
+- **Commit feat 11 — Frontend wire**: AdminDriftBanner + PluginOperationalOverview filas + Server Action federada + Toast UX R5 (3 ramas) + redirect timeline F.3 cuando `driftsApplied > 0`. Gate por `plugin.supports_reconcile_one`.
+- **Commit feat 12 — Smoke real**: contra MockEnhanceServer (edit + restart simulando los 3 drift types) + `pnpm ci:check:full` + boot smoke verificado.
+
+**Heredable a fases futuras**: el patrón "plugin aplica drifts safe-adopt + orquestador maneja transversales" se aplica a cualquier futuro método opcional del contrato `ProvisionerPlugin` que mute estado (`detectAbuse?()`, `reapplyDnsZone?()`, etc.). La separación es clara: el plugin sabe el shape específico del proveedor (qué adoptar y cómo); el orquestador sabe los transversales (cache + audit + eventos + notas).
+
 #### A.11.10.6.3. Handoff F.9 — mid-implementación (frozen 2026-05-16)
 
 **Propósito**: documentar el progreso mid-implementación de F.9 (13 de los 12+1 hitos canónicos completados — backend completo + tests) para que una conversación nueva del agente cierre los 3 hitos restantes (feat 10 plugin Enhance + feat 11 frontend wire + feat 12 smoke real + PR + post-merge sync) con rigor profesional, leyendo SOLO §A.11.10.6 + §A.11.10.6.1 (handoff arranque) + §A.11.10.6.2 (R1..R6 frozen + Amendment naming clash + Amendment II DI) + este bloque. Patrón heredado de §A.11.10.6.1 (a su vez heredado de §A.11.9 handoff F.3).
