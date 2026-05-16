@@ -37,7 +37,10 @@ describe('QuotaThresholdDetectorService — Sprint 15C.II Fase F.8', () => {
   const PLUGIN_SLUG = 'enhance_cp';
   const THRESHOLD = 85;
 
-  function metrics(diskUsedMb: number, diskTotalMb: number | undefined): ServiceMetrics {
+  function metrics(
+    diskUsedMb: number,
+    diskTotalMb: number | undefined,
+  ): ServiceMetrics {
     const m: ServiceMetrics = { fetchedAt: '2026-05-16T12:00:00.000Z' };
     if (diskUsedMb !== undefined) m.diskUsedMb = diskUsedMb;
     if (diskTotalMb !== undefined) m.diskTotalMb = diskTotalMb;
@@ -138,6 +141,7 @@ describe('QuotaThresholdDetectorService — Sprint 15C.II Fase F.8', () => {
     expect(result.pct).toBeCloseTo(87, 5);
     // Insert canónico
     expect(txContext.create).toHaveBeenCalledWith({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- `expect.objectContaining` retorna `any` por su firma Jest.
       data: expect.objectContaining({
         service_id: SERVICE_ID,
         resource: 'disk',
@@ -156,7 +160,7 @@ describe('QuotaThresholdDetectorService — Sprint 15C.II Fase F.8', () => {
         threshold_pct: THRESHOLD,
         used_mb: 8700,
         total_mb: 10000,
-        detected_at: expect.any(String),
+        detected_at: expect.any(String) as unknown,
       }),
     );
   });
@@ -190,6 +194,7 @@ describe('QuotaThresholdDetectorService — Sprint 15C.II Fase F.8', () => {
     });
     expect(result.action).toBe('crossed_down');
     expect(txContext.create).toHaveBeenCalledWith({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- `expect.objectContaining` retorna `any` por su firma Jest.
       data: expect.objectContaining({
         service_id: SERVICE_ID,
         resource: 'disk',

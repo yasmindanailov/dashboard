@@ -506,7 +506,12 @@ export class EnhanceReconciliationCron implements OnModuleInit {
     const raw = (install?.config as Record<string, unknown> | null)?.[
       'quota_alert_threshold_pct'
     ];
-    if (typeof raw === 'number' && Number.isInteger(raw) && raw >= 50 && raw <= 95) {
+    if (
+      typeof raw === 'number' &&
+      Number.isInteger(raw) &&
+      raw >= 50 &&
+      raw <= 95
+    ) {
       return raw;
     }
     return 85;

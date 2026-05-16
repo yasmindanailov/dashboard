@@ -128,9 +128,7 @@ describe('EnhanceReconciliationCron â€” Sprint 15C Fase 15C.H (ADR-083 Â§
    */
   function buildQuotaDetector(): QuotaThresholdDetectorService {
     return {
-      detectAndNotify: jest
-        .fn()
-        .mockResolvedValue({ action: 'no_transition' }),
+      detectAndNotify: jest.fn().mockResolvedValue({ action: 'no_transition' }),
     } as unknown as QuotaThresholdDetectorService;
   }
 

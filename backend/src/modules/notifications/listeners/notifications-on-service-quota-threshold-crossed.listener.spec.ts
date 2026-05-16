@@ -80,6 +80,16 @@ describe('NotificationsOnServiceQuotaThresholdCrossedListener — Sprint 15C.II 
     jest.restoreAllMocks();
   });
 
+  // Helper tipado para extraer el payload del último dispatch — evita
+  // `mock.calls[0][1] as Record<...>` que ESLint marca como unsafe member
+  // access sobre `any` (Jest `mock.calls` queda untyped tras `jest.fn()`).
+  function lastDispatchPayload(): Record<string, string> {
+    const calls = dispatchToUser.mock.calls as Array<
+      [string, Record<string, string>, string]
+    >;
+    return calls[calls.length - 1][1];
+  }
+
   // ─── Dispatch canónico ────────────────────────────────────────────────
 
   it('despacha con variables canónicas (domain + URLs + formatos GB)', async () => {
@@ -104,7 +114,7 @@ describe('NotificationsOnServiceQuotaThresholdCrossedListener — Sprint 15C.II 
     await listener.handle(
       payload({ used_mb: 512, total_mb: 1024, used_pct: 50 }),
     );
-    const arg = dispatchToUser.mock.calls[0][1] as Record<string, string>;
+    const arg = lastDispatchPayload();
     expect(arg.used_mb_label).toBe('512 MB');
     expect(arg.total_mb_label).toBe('1.00 GB'); // 1024 MB = 1.00 GB
   });
@@ -117,21 +127,21 @@ describe('NotificationsOnServiceQuotaThresholdCrossedListener — Sprint 15C.II 
       label: 'Tienda de Juan',
     });
     await listener.handle(payload());
-    const arg = dispatchToUser.mock.calls[0][1] as Record<string, string>;
+    const arg = lastDispatchPayload();
     expect(arg.domain).toBe('Tienda de Juan');
   });
 
   it('service sin domain ni label → fallback service_id', async () => {
     serviceFindUnique.mockResolvedValueOnce({ domain: null, label: null });
     await listener.handle(payload());
-    const arg = dispatchToUser.mock.calls[0][1] as Record<string, string>;
+    const arg = lastDispatchPayload();
     expect(arg.domain).toBe(SERVICE_ID);
   });
 
   it('service no existe → findUnique returns null → fallback service_id', async () => {
     serviceFindUnique.mockResolvedValueOnce(null);
     await listener.handle(payload());
-    const arg = dispatchToUser.mock.calls[0][1] as Record<string, string>;
+    const arg = lastDispatchPayload();
     expect(arg.domain).toBe(SERVICE_ID);
   });
 
@@ -153,7 +163,7 @@ describe('NotificationsOnServiceQuotaThresholdCrossedListener — Sprint 15C.II 
   it('NEXT_PUBLIC_APP_URL ausente → URLs usan el default localhost', async () => {
     configGet.mockImplementation((_key: string, fallback: string) => fallback);
     await listener.handle(payload());
-    const arg = dispatchToUser.mock.calls[0][1] as Record<string, string>;
+    const arg = lastDispatchPayload();
     expect(arg.service_url).toBe(
       `http://localhost:3002/dashboard/services/${SERVICE_ID}`,
     );
