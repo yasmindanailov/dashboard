@@ -80,6 +80,10 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     set: jest.Mock;
     invalidate: jest.Mock;
     tryAcquireRefreshCooldown: jest.Mock;
+    // Sprint 15C.II F.9 — cooldown + cache per-servicio (commit feat 6).
+    tryAcquireReconcileSingleCooldown: jest.Mock;
+    cacheServiceReconcileResult: jest.Mock;
+    getCachedServiceReconcileResult: jest.Mock;
   };
   let events: { emit: jest.Mock };
   let audit: {
@@ -223,6 +227,11 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       // Sprint 15C.II Fase F.3 (B.1): por defecto la ventana se adquiere
       // (camino común — primer force-refresh tras el cooldown).
       tryAcquireRefreshCooldown: jest.fn().mockResolvedValue(true),
+      // Sprint 15C.II Fase F.9 (R6): cooldown + cache per-servicio.
+      // Por defecto la ventana se adquiere (camino común — primer reconcile).
+      tryAcquireReconcileSingleCooldown: jest.fn().mockResolvedValue(true),
+      cacheServiceReconcileResult: jest.fn().mockResolvedValue(undefined),
+      getCachedServiceReconcileResult: jest.fn().mockResolvedValue(null),
     };
     events = { emit: jest.fn() };
     audit = {
@@ -1863,6 +1872,222 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         service.reactivateSuspendedServiceOnPayment('svc-missing', 'INV-X'),
       ).resolves.toBeUndefined();
       expect(prisma.service.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Sprint 15C.II Fase F.9 — reconcileServiceAsAdmin (DC.45) ────────
+  // Materializa R1..R6 frozen + Amendments naming clash + DI.
+
+  describe('reconcileServiceAsAdmin F.9 (DC.45)', () => {
+    const FAKE_RECONCILE_RESULT_EMPTY = {
+      driftsDetected: [],
+      driftsApplied: [],
+      reconciledAt: new Date('2026-05-16T13:30:00Z'),
+    };
+    const FAKE_RECONCILE_RESULT_WITH_DRIFTS = {
+      driftsDetected: [
+        {
+          type: 'plan_divergence' as const,
+          before: 'starter',
+          after: 'pro',
+          applied: true,
+        },
+        {
+          type: 'status_divergence' as const,
+          before: 'cancelled',
+          after: 'cancelled',
+          applied: false,
+        },
+      ],
+      driftsApplied: [
+        {
+          type: 'plan_divergence' as const,
+          before: 'starter',
+          after: 'pro',
+          applied: true,
+        },
+      ],
+      reconciledAt: new Date('2026-05-16T13:30:00Z'),
+    };
+    const CTX = { ipAddress: '127.0.0.1', userAgent: 'Mozilla/5.0 Test' };
+
+    it('404 NotFoundException si service no existe (loadServiceForView)', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(null);
+      await expect(
+        service.reconcileServiceAsAdmin('svc-missing', 'admin-1', CTX),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(reconcileRegistry.reconcileOne).not.toHaveBeenCalled();
+    });
+
+    it('409 SERVICE_TERMINAL_NOT_RECONCILABLE si service cancelled', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({ status: 'cancelled' }),
+      );
+      await expect(
+        service.reconcileServiceAsAdmin('svc-1', 'admin-1', CTX),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'SERVICE_TERMINAL_NOT_RECONCILABLE',
+        }),
+      });
+      expect(reconcileRegistry.reconcileOne).not.toHaveBeenCalled();
+    });
+
+    it('409 SERVICE_TERMINAL_NOT_RECONCILABLE si service terminated', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(
+        buildServiceRow({ status: 'terminated' }),
+      );
+      await expect(
+        service.reconcileServiceAsAdmin('svc-1', 'admin-1', CTX),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'SERVICE_TERMINAL_NOT_RECONCILABLE',
+        }),
+      });
+    });
+
+    it('cooldown denegado + cached result → devuelve coalesced:true sin invocar registry', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+      cache.tryAcquireReconcileSingleCooldown.mockResolvedValueOnce(false);
+      cache.getCachedServiceReconcileResult.mockResolvedValueOnce(
+        FAKE_RECONCILE_RESULT_WITH_DRIFTS,
+      );
+
+      const result = await service.reconcileServiceAsAdmin(
+        'svc-1',
+        'admin-1',
+        CTX,
+      );
+
+      expect(result).toMatchObject({
+        coalesced: true,
+        driftsApplied: FAKE_RECONCILE_RESULT_WITH_DRIFTS.driftsApplied,
+      });
+      expect(reconcileRegistry.reconcileOne).not.toHaveBeenCalled();
+      expect(clientNotes.createFromServiceLifecycleAction).not.toHaveBeenCalled();
+      expect(events.emit).not.toHaveBeenCalled();
+    });
+
+    it('cooldown denegado + sin cached result → 409 RECONCILE_IN_PROGRESS con retry_after_seconds', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+      cache.tryAcquireReconcileSingleCooldown.mockResolvedValueOnce(false);
+      cache.getCachedServiceReconcileResult.mockResolvedValueOnce(null);
+
+      await expect(
+        service.reconcileServiceAsAdmin('svc-1', 'admin-1', CTX),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'RECONCILE_IN_PROGRESS',
+          retry_after_seconds: 30,
+        }),
+      });
+      expect(reconcileRegistry.reconcileOne).not.toHaveBeenCalled();
+    });
+
+    it('happy path con driftsApplied > 0: aplica + ClientNote + cache + emit + audit', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+      reconcileRegistry.reconcileOne.mockResolvedValueOnce(
+        FAKE_RECONCILE_RESULT_WITH_DRIFTS,
+      );
+
+      const result = await service.reconcileServiceAsAdmin(
+        'svc-1',
+        'admin-1',
+        CTX,
+      );
+
+      expect(result).toEqual(FAKE_RECONCILE_RESULT_WITH_DRIFTS);
+      expect(reconcileRegistry.reconcileOne).toHaveBeenCalledWith(
+        'internal',
+        expect.objectContaining({ id: 'svc-1' }),
+      );
+      // Cache R6: resultado cacheado + service_info invalidado.
+      expect(cache.cacheServiceReconcileResult).toHaveBeenCalledWith(
+        'svc-1',
+        FAKE_RECONCILE_RESULT_WITH_DRIFTS,
+        30,
+      );
+      expect(cache.invalidate).toHaveBeenCalledWith('svc-1');
+      // R3: ClientNote creada con category=reconciliation + triggered_by_action canónico.
+      expect(clientNotes.createFromServiceLifecycleAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: 'user-1',
+          author_id: 'admin-1',
+          service_id: 'svc-1',
+          triggered_by_action: 'service.reconciled_single',
+          category: 'reconciliation',
+        }),
+      );
+      // R2: evento reusado con trigger='manual_single' discriminador.
+      expect(events.emit).toHaveBeenCalledWith(
+        'service.reconciled_external_change',
+        expect.objectContaining({
+          service_id: 'svc-1',
+          plugin_slug: 'internal',
+          trigger: 'manual_single',
+          drifts_detected: 2,
+          drifts_applied: 1,
+          actor_user_id: 'admin-1',
+        }),
+      );
+      // Audit completo: change_log + access_log con target_user_id.
+      expect(audit.logChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entity_type: 'Service',
+          entity_id: 'svc-1',
+          action: 'service.reconciled_single',
+          changes_after: expect.objectContaining({
+            drifts_detected: 2,
+            drifts_applied: 1,
+          }),
+        }),
+      );
+      expect(audit.logAccess).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'service_reconcile_admin',
+          resource: 'Service',
+          metadata: expect.objectContaining({
+            resource_id: 'svc-1',
+            target_user_id: 'user-1',
+          }),
+        }),
+      );
+    });
+
+    it('happy path con driftsApplied === 0: cache + emit + audit, SIN ClientNote (R3 frozen)', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+      reconcileRegistry.reconcileOne.mockResolvedValueOnce(
+        FAKE_RECONCILE_RESULT_EMPTY,
+      );
+
+      const result = await service.reconcileServiceAsAdmin(
+        'svc-1',
+        'admin-1',
+        CTX,
+      );
+
+      expect(result).toEqual(FAKE_RECONCILE_RESULT_EMPTY);
+      // R3 frozen: SIN cambios aplicados, NO hay nota.
+      expect(clientNotes.createFromServiceLifecycleAction).not.toHaveBeenCalled();
+      // Pero SÍ hay evento + audit + cache (rastro operativo del intento).
+      expect(events.emit).toHaveBeenCalled();
+      expect(audit.logChange).toHaveBeenCalled();
+      expect(audit.logAccess).toHaveBeenCalled();
+      expect(cache.cacheServiceReconcileResult).toHaveBeenCalled();
+    });
+
+    it('plugin sin reconcileOne → propaga ProvisionerPluginError(RECONCILE_ONE_NOT_SUPPORTED)', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+      const err = new Error('not supported');
+      (err as Error & { code: string }).code = 'RECONCILE_ONE_NOT_SUPPORTED';
+      reconcileRegistry.reconcileOne.mockRejectedValueOnce(err);
+
+      await expect(
+        service.reconcileServiceAsAdmin('svc-1', 'admin-1', CTX),
+      ).rejects.toMatchObject({ code: 'RECONCILE_ONE_NOT_SUPPORTED' });
+      // El service NO debe haber creado nota ni audit (el error sucedió antes).
+      expect(clientNotes.createFromServiceLifecycleAction).not.toHaveBeenCalled();
+      expect(audit.logChange).not.toHaveBeenCalled();
     });
   });
 });
