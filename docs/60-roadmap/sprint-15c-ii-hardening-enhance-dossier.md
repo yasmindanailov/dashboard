@@ -2408,6 +2408,80 @@ git checkout -b sprint15c-ii-fase-f9-reconcile-single
 - **`MockEnhanceServer`**: corre vía `pnpm --dir backend exec ts-node -P ../tests/e2e/fixtures/tsconfig.mock-runner.json --transpile-only ../tests/e2e/fixtures/mock-enhance-runner.ts`. Para semillar dinámicamente la respuesta de `getSubscription` (caso F.9 — el smoke real necesitará simular drifts), HOY hay que editar el archivo + reiniciar (DC.49 promociona la mejora futura; F.9 puede arrastrarla si conviene — decidir en pre-código).
 - **Bypass §6**: protocolo en `docs/90-meta/local-ci-playbook.md` §6. Las 3 condiciones canónicas + sección formal en el PR body. 11 aplicaciones a 2026-05-16 (#57/#60/#63/#65/#67/#70/#72/#74/#75/#77/#79).
 
+#### A.11.10.6.2. Refinamiento pre-código F.9 — R1..R6 frozen (2026-05-16)
+
+**Contexto:** §A.11.10.6.1 mergeado a master vía PR [#81](https://github.com/yasmindanailov/dashboard/pull/81) squash `b45d946` 2026-05-16. Las Q1..Q6 de la valoración pre-código se resolvieron con Yasmin en la sesión inaugural de la rama `sprint15c-ii-fase-f9-reconcile-single`. Este bloque congela R1..R6 antes del primer commit feat (L18 frozen — mejoras como Amendment, no desvío silencioso; patrón heredado del refinamiento pre-código F.6 [#74](https://github.com/yasmindanailov/dashboard/pull/74) R1/R2/R3).
+
+**R1 (resolución Q1) — `reconcileOne` estrictamente opcional, capability-driven.**
+- Firma frozen: `reconcileOne?(service: ServiceWithRelations): Promise<ReconcileResult>` (additivo al contrato, mismo patrón que A6 `testConnection?()` y A7 `ServiceInfo.ssl?`). **ADR-077 Amendment A8** — NO bumpea `contractVersion`.
+- Backend: `ReconcileRegistryService.reconcileOne(slug, service)` valida la presencia del método; si falta, lanza `ProvisionerPluginError({ code: 'RECONCILE_ONE_NOT_SUPPORTED', module: 'reconcile', http: 400 })` (módulo set explícito — heredable de A6 + GAP-N F.3).
+- Frontend: el CTA "Reconciliar contra el proveedor" en `<AdminDriftBanner>` (cuando `info.recoveryHint === 'reconcile'`) y los botones por fila de `<PluginOperationalOverview>` (F.2) se gatean leyendo la capability del manifest derivada del admin overview (sin flag explícito en `PluginCapabilities` — la capability se infiere por presencia del método; coherente con A6/A7).
+- Contract test (invariante en `provisioner-contract.spec.ts`): cualquier plugin que declare la capability en el manifest expone el método; los que no lo expongan NO declaran la capability.
+- Razón canónica: consistencia A6/A7 — capability-driven por presencia facilita los plugins futuros (15D RC / 15E Docker / 15G Plesk) sin contaminar `PluginCapabilities` con flags redundantes.
+
+**R2 (resolución Q2) — Reusar evento `service.reconciled_external_change` + nuevo discriminador `trigger` en payload.**
+- Payload extendido: `{ serviceId, pluginSlug, trigger: 'manual_single' | 'cron', driftsDetected: ServiceDrift[], driftsApplied: ServiceDrift[], actorUserId: number | null }`. El campo `actorUserId` es `null` para `trigger:'cron'` (sistema), populado para `trigger:'manual_single'` (admin que pulsó el botón).
+- Heredable de la convención `plugin.reconcile_completed.trigger: 'cron' | 'manual'` introducida en F.2 (ADR-083 Amendment A6).
+- Listeners actuales de `service.reconciled_external_change` (audit + notif F.3 GAP-M) siguen funcionando sin cambios; el `trigger` es discriminador opcional para los que necesiten diferenciar (ej. audit con actor real vs cron, notif solo en `manual_single` para no spammear).
+- Cero contrato nuevo en catálogo §6 [ADR-080](../10-decisions/adr-080-plugin-framework.md). Sin amendment.
+
+**R3 (resolución Q3) — `ClientNote` automática vía F.6 con `NoteCategory.reconciliation` NUEVA.**
+- Disparo: dentro de la `$transaction` de `reconcileServiceAsAdmin` (R3 F.6: "transiciones lifecycle + `ClientNote` en misma tx Prisma; plugin/eventos/cache/audit FUERA"); solo si `result.driftsApplied > 0` (sin cambios aplicados, NO hay nota).
+- Helper: `ClientNotesService.createFromServiceLifecycleAction(input, tx?: Prisma.TransactionClient)` ya canónico (F.6) — reutilizado tal cual.
+- Migration Prisma `*_add_reconciliation_note_category`: añade `reconciliation` al enum `NoteCategory` (9º valor) + añade `service.reconciled_single` al enum `triggered_by_action` (6º valor). **ADR-079 Amendment A5** registra ambos.
+- Body autogenerado: `"Reconciliación manual contra el proveedor — N cambio(s) aplicado(s): <change_types separados por coma>"` (ej. `"Reconciliación manual contra el proveedor — 1 cambio aplicado: plan_divergence"`).
+- `triggered_by_action: 'service.reconciled_single'` (6º del enum) — coherente con el discriminador del evento (R2 `trigger:'manual_single'`).
+- `<ClientNotesTab>` federada (F.6) renderiza la nueva categoría con etiqueta en español **"Reconciliación"**; filtros UI ganan el nuevo valor; href de la nota → `/admin/services/[id]` (igual que `source_system:'service'` de F.6).
+- Razón canónica de category **NUEVO** (vs reusar `lifecycle`): separación granular — facilita filtrar el historial sin mezclar con suspensiones/cancelaciones humanas que llevan intención del usuario; al admin le permite auditar "qué reconciliaciones manuales han generado cambios" de un vistazo.
+
+**R4 (resolución Q4) — Doctrina safe-to-adopt espejo del cron L3 (DH-INV-6 + F.4 A1).**
+- `ReconcileResult` frozen: `{ driftsDetected: ServiceDrift[]; driftsApplied: ServiceDrift[]; reconciledAt: Date }` (separación explícita — `driftsApplied ⊆ driftsDetected`).
+- Set safe-adopt: status del proveedor `active` o `suspended` → auto-adopt sobre `services.status` (alineado a la doctrina F.4 A1 "lifecycle administrativo vs operacional"). Cualquier otro status (`cancelled`, `subscription_missing`, `terminated`, `expired`) → drift detectado y emitido en `driftsDetected`, **NO mutado** sobre `services.status` (transiciones destructivas requieren intención humana explícita vía `deprovisionAsAdmin` — `DC.46`).
+- Drift `plan_divergence`: auto-adopt sobre `services.metadata.plan_id` / `product_id` (drift de catálogo, no destructivo, espejo del cron L3).
+- Drift `subscription_missing` (proveedor reporta 404 para el `subscription_id` del service): SOLO emit-only — el cron L3 no lo adopta automáticamente y `reconcileOne` mantiene la doctrina. Admin decide vía botón explícito de cancelación.
+- El frontend (R5) muestra `"X drifts detectados, Y aplicados"` — admin entiende qué se hizo y qué no; los no aplicados quedan en el audit timeline (F.3 GAP-M) para revisión humana.
+- Razón canónica: la doctrina DH-INV-6 + F.4 A1 protege contra desyncs transitorios destructivos (caso `MockEnhanceServer` reiniciado perdiendo `patchSubscription` → `subscription_missing` espurio); el admin NO debe poder cancelar un servicio activo solo por pulsar "reconciliar".
+
+**R5 (resolución Q5 — confirmada por defecto del dossier) — Toast simple + redirect condicional al timeline.**
+- Caso `driftsApplied === 0 && driftsDetected === 0`: toast neutro **"Sin cambios — el servicio está sincronizado con el proveedor"** + `router.refresh()` (re-poblar UI por si la cache de `getServiceInfo` cambió).
+- Caso `driftsApplied > 0`: toast éxito **"Reconciliación completada · N cambio(s) aplicado(s)"** + CTA secundario **"Ver detalle en timeline"** → `/admin/services/[id]/audit` (F.3 GAP-M) + `router.refresh()`.
+- Caso `driftsApplied === 0 && driftsDetected > 0` (todos los drifts detectados son `cancelled`/`subscription_missing` no aplicables): toast warning **"N drift(s) detectado(s) · ninguno aplicado automáticamente (revisar timeline)"** + CTA "Ver detalle en timeline" (forzar revisión humana).
+- Implementación: extender el handler del botón `<AdminDriftBanner>` (y filas drift de `<PluginOperationalOverview>`) para llamar `POST /admin/services/:id/reconcile` vía la action federada del frontend, capturar el `ReconcileResult`, y switchear el toast según los 3 casos.
+
+**R6 (resolución Q6 — confirmada por defecto del dossier) — Cooldown 30s Redis `SET NX EX` per-`serviceId` con coalescing a cache.**
+- Método nuevo: `ProvisioningCacheService.tryAcquireReconcileSingleCooldown(serviceId: number, ttlSeconds: number = 30): Promise<boolean>` (paralelo a `tryAcquireRefreshCooldown` introducido en F.3 B.1).
+- Almacenamiento del `ReconcileResult` por servicio: `ProvisioningCacheService.cacheReconcileResult(serviceId, result, ttlSeconds = 30)` + `getCachedReconcileResult(serviceId): Promise<ReconcileResult | null>`.
+- Comportamiento en ventana activa:
+  - Si hay `ReconcileResult` cacheado → **devolverlo** (coalescing, alineado a F.3 force-refresh) + flag `coalesced: true` en respuesta HTTP para el frontend (toast neutro especial: "Resultado en caché — reconciliación reciente").
+  - Si NO hay cacheado (primera llamada en curso, race) → `429 RECONCILE_IN_PROGRESS` con `Retry-After: <segundos restantes>`.
+- TTL 30s vs F.3 B.1 force-refresh 15s: `reconcileOne` implica más calls al proveedor (re-leer subscription + comparar metadata + posibles mutaciones); el cooldown más generoso protege del N×load por martilleo del admin.
+- Estrategia fail-OPEN: si Redis no responde, el endpoint procede (igual que F.3 B.1) — la disponibilidad del endpoint admin no debe depender del cooldown.
+- Heredable a 15D RC / 15E Docker / 15G Plesk — mismo patrón.
+
+**ADR amendments consolidados de F.9** (todos dentro de la fase, patrón heredado desde Fase E):
+- **[ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) Amendment A8** — `reconcileOne?(service): Promise<ReconcileResult>` opcional capability-driven + shapes `ReconcileResult` + `ServiceDrift` + nuevo `ProvisionerErrorCode.RECONCILE_ONE_NOT_SUPPORTED`. Additivo, NO bumpea `contractVersion`.
+- **[ADR-079](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) Amendment A5** — `NoteCategory.reconciliation` (9º del enum) + `triggered_by_action.service.reconciled_single` (6º del enum) + reutilización de `createFromServiceLifecycleAction(tx?)` (helper F.6, sin cambios de firma).
+- **ADR-080** — SIN amendment. Reusamos evento existente `service.reconciled_external_change`; el discriminador `trigger: 'manual_single' | 'cron'` es payload-level.
+- **[ADR-083](../10-decisions/adr-083-plugin-enhance-cp-specifics.md) posible Amendment A9** — specifics del `reconcileOne` Enhance (decidir al implementar F.9.3 según si se descubre lógica frozen-worthy del provider en el smoke real; sino, NO se materializa).
+
+**Mapa de implementación derivado de R1..R6** (orden tentativo de commits feat — no exhaustivo):
+1. **Schema + migration**: `prisma/migrations/*_add_reconciliation_note_category` (enum `NoteCategory.reconciliation` + enum `triggered_by_action.service.reconciled_single`).
+2. **Tipos backend** (`backend/src/core/provisioning/contracts/`): `ServiceDrift`, `ReconcileResult`, `ProvisionerErrorCode.RECONCILE_ONE_NOT_SUPPORTED`; ampliación de `ProvisionerPlugin` interface con `reconcileOne?()`.
+3. **ADRs amendments** (commit doc dentro de la fase, paralelo al schema): ADR-077 A8 + ADR-079 A5.
+4. **Contract test invariante** (`provisioner-contract.spec.ts`): capability-driven invariant.
+5. **`ReconcileRegistryService.reconcileOne(slug, service)`**: delega al plugin con guard 400.
+6. **`ProvisioningCacheService.tryAcquireReconcileSingleCooldown` + `cacheReconcileResult`/`getCachedReconcileResult`**: cooldown 30s + coalescing.
+7. **`ProvisioningService.reconcileServiceAsAdmin(serviceId, actorUserId)`**: carga service (NotFound), shortcircuit terminal (`cancelled`/`terminated`), cooldown (R6), delega a `reconcileRegistry.reconcileOne`, dentro de `$transaction` aplica drifts + `createFromServiceLifecycleAction` si `driftsApplied>0` (R3), invalida cache `service_info`, emite `service.reconciled_external_change` con `trigger:'manual_single'` (R2), retorna `ReconcileResult` con flag `coalesced` si aplica.
+8. **Endpoint** `POST /admin/services/:id/reconcile` con `@CheckPolicies(Update Service)` + `@AuditAccess('Service')`.
+9. **Tests backend**: `ReconcileRegistryService.reconcileOne` (plugin sin soporte → 400; con soporte → delega correctamente), `ProvisioningService.reconcileServiceAsAdmin` (NotFound + shortcircuit terminal + cooldown 429 + happy path con `driftsApplied>0` → `ClientNote` creada + cooldown coalesced → último resultado cacheado), Enhance plugin `reconcileOne` (mocks `EnhanceApiClient.getSubscription` con drifts simulados).
+10. **Enhance plugin** (`backend/src/integrations/enhance/plugins/enhance.plugin.ts`): implementa `reconcileOne(service)` espejo del cron L3 — re-lee `getSubscription`, compara contra `services.metadata.subscription_id` + `product.provisioner_config.subscription_plan_id`, aplica safe-adopt según R4.
+11. **Frontend**: extender `<AdminDriftBanner>` con handler del botón + extender filas drift de `<PluginOperationalOverview>` con botón inline + Server Action federada para el endpoint + Toast UX según R5.
+12. **Smoke real** contra `MockEnhanceServer`: simular drifts vía edit + restart del mock (DC.49 NO arrastrado — confirmado en pre-código; F.9 ya tiene blast radius suficiente sin housekeeping del mock).
+
+**Decisiones explícitas adicionales tomadas en pre-código** (apuntadas aquí para no perder trazabilidad):
+- **DC.49 NO arrastrado a F.9**: el smoke real de F.9 sigue con el patrón "edit `mock-enhance-server.ts` + reiniciar el runner". DC.49 (seed dinámico del mock) sigue diferido como housekeeping post-15C.II — promocionable a fase aparte cuando el coste de no tenerlo sea mayor que el de implementarlo (probablemente cuando se materialicen los tests E2E de la Fase G).
+- **Bypass §6 anticipado**: si CI GitHub Actions sigue billing-bloqueada al cerrar F.9, será la **12ª aplicación** del bypass (suma sobre #57/#60/#63/#65/#67/#70/#72/#74/#75/#77/#79). El handoff doc-only PR #81 no contó como bypass porque NO toca código (no requiere CI verde por construcción).
+
 ### A.11.10.7. Fase F.10 — Deep-links curados al panel del proveedor
 
 **Tema:** en vez del único "Abrir panel del proveedor" genérico, atajos curados a las secciones más usadas — estándar de panel reseller.
