@@ -2414,7 +2414,7 @@ git checkout -b sprint15c-ii-fase-f9-reconcile-single
 
 **R1 (resolución Q1) — `reconcileOne` estrictamente opcional, capability-driven.**
 - Firma frozen: `reconcileOne?(service: ServiceWithRelations): Promise<ServiceReconcileResult>` (additivo al contrato, mismo patrón que A6 `testConnection?()` y A7 `ServiceInfo.ssl?`). **ADR-077 Amendment A8** — NO bumpea `contractVersion`.
-- Backend: `ReconcileRegistryService.reconcileOne(slug, service)` valida la presencia del método; si falta, lanza `ProvisionerPluginError({ code: 'RECONCILE_ONE_NOT_SUPPORTED', module: 'reconcile', http: 400 })` (módulo set explícito — heredable de A6 + GAP-N F.3).
+- Backend: `ReconcileRegistryService.reconcileOne(slug, service)` busca un `ReconcileOneExecutor` en un map paralelo (`reconcileOneExecutors`); si no existe, lanza `ProvisionerPluginError({ code: 'RECONCILE_ONE_NOT_SUPPORTED', module: 'reconcile', http: 400 })` (módulo set explícito — heredable de A6 + GAP-N F.3). El executor lo registra el cron del propio plugin en su `onModuleInit` vía `registerReconcileOne(slug, (service) => plugin.reconcileOne!(service))` — capturando la instancia del plugin en una closure. Patrón heredado del `ReconcileExecutor` (reconcile-all) existente — evita inyectar `PluginRegistryService` en el `ReconcileRegistryModule` leaf-importable (Amendment II abajo).
 - Frontend: el CTA "Reconciliar contra el proveedor" en `<AdminDriftBanner>` (cuando `info.recoveryHint === 'reconcile'`) y los botones por fila de `<PluginOperationalOverview>` (F.2) se gatean leyendo la capability del manifest derivada del admin overview (sin flag explícito en `PluginCapabilities` — la capability se infiere por presencia del método; coherente con A6/A7).
 - Contract test (invariante en `provisioner-contract.spec.ts`): cualquier plugin que declare la capability en el manifest expone el método; los que no lo expongan NO declaran la capability.
 - Razón canónica: consistencia A6/A7 — capability-driven por presencia facilita los plugins futuros (15D RC / 15E Docker / 15G Plesk) sin contaminar `PluginCapabilities` con flags redundantes.
@@ -2495,6 +2495,29 @@ Durante el arranque del commit feat 2 (tipos backend) se descubre que el nombre 
 **Aplicación en este §A.11.10.6.2**: todas las referencias a `ReconcileResult` en los párrafos R1, R4, R5, R6, ADR amendments y mapa de implementación se han actualizado a `ServiceReconcileResult` tras este Amendment. Los métodos del cache (`cacheServiceReconcileResult` + `getCachedServiceReconcileResult`) usan el sufijo coherente con el tipo. El frontend Server Action devuelve `ServiceReconcileResult` (no `ReconcileResult`).
 
 **Heredable a fases futuras**: cualquier plugin que añada un método "per-servicio" con resultado tipado (ej. `getBackupStatus(service)` futuro) debe usar el sufijo `Service*` para el shape. El reconcile-all existente queda como referencia del patrón "agregado" sin prefijo.
+
+**Amendment 2026-05-16 (II) — DI clash con `ReconcileRegistryModule` leaf-importable (post-init implementación F.9.5)**
+
+Durante el arranque del commit feat 5 (`ReconcileRegistryService.reconcileOne`) se descubre que la formulación literal de R1 — *"el registry valida la presencia del método del plugin"* — requeriría inyectar `PluginRegistryService` en `ReconcileRegistryService`, pero `PluginRegistryService` vive en `ProvisioningModule` que importa `EnhanceCpModule` que importa `ReconcileRegistryModule` (leaf, ver docstring `reconcile-registry.module.ts:7-27`). Inyectarlo crearía exactamente el ciclo que el módulo leaf está diseñado para evitar.
+
+**Resolución frozen (2026-05-16)**: aplicar el patrón canónico ya existente de `ReconcileExecutor` (reconcile-all) — el registry NO conoce instancias de plugins. Cada plugin que implemente `reconcileOne` registra un `ReconcileOneExecutor` (closure que captura su instancia) en el `onModuleInit` de su cron L3, paralelo al `register()` existente del reconcile-all. El registry mantiene dos mappings:
+
+- `executors: Map<string, ReconcileExecutor>` — reconcile-all (existente).
+- `reconcileOneExecutors: Map<string, ReconcileOneExecutor>` — per-servicio (NUEVO Amendment II).
+
+Razón canónica:
+
+- **Cero ciclo DI**: `ReconcileRegistryModule` sigue como leaf importable por `EnhanceCpModule` + `ProvisioningModule` sin crear dependencia inversa hacia el registry de plugins.
+- **Coherencia con el patrón existente**: el registry sigue siendo "plugin-agnostic broker de executors" — los plugins se auto-registran (boundaries limpios R4). NO se introduce un patrón nuevo de DI lookup.
+- **Capability detection sin referencia al manifest**: la presencia del executor en el map = capability presente. Plugins que NO implementen `reconcileOne` simplemente NO llaman `registerReconcileOne` — coherente con la doctrina capability-driven por presencia (R1 + A6/A7).
+
+**Aplicación en código**:
+
+- `reconcile-registry.service.ts` exporta `ReconcileOneExecutor` (type) + `registerReconcileOne(slug, executor)` + `reconcileOne(slug, service)` + `hasReconcileOneExecutor(slug)`. Sin inyectar `PluginRegistryService` ni romper el módulo leaf.
+- `enhance-reconciliation.cron.ts:onModuleInit` (commit feat 10) llamará `this.reconcileRegistry.registerReconcileOne('enhance_cp', (service) => this.plugin.reconcileOne!(service))` paralelo al `this.reconcileRegistry.register('enhance_cp', () => this.runAsExecutor(), {...})` ya existente.
+- Frontend capability check: el admin overview F.2 (`/admin/settings/plugins`) ya derive la capability del manifest enriquecido — añadir un flag derivado `supportsReconcileOne` en la API admin será trabajo del commit feat 8 (endpoint), no del registry.
+
+**Heredable a fases futuras**: cualquier nuevo método opcional del contrato `ProvisionerPlugin` que requiera invocación per-servicio desde un servicio leaf-importable (`core/provisioning/`) debe seguir el patrón "executor registrado por el cron del plugin" antes que inyectar el `PluginRegistryService`. Esto preserva la regla de no-ciclos canónica de la arquitectura módulo del backend.
 
 ### A.11.10.7. Fase F.10 — Deep-links curados al panel del proveedor
 
