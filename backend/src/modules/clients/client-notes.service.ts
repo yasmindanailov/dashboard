@@ -129,13 +129,24 @@ export class ClientNotesService {
       user_id: string;
       author_id: string | null;
       service_id: string;
+      // Sprint 15C.II F.6: 5 valores canónicos del lifecycle admin.
+      // Sprint 15C.II F.9 (ADR-079 Amendment A5): + `service.reconciled_single`
+      // para reconcile manual per-servicio (driftsApplied > 0).
       triggered_by_action:
         | 'service.cancelled'
         | 'service.suspended'
         | 'service.unsuspended'
         | 'service.auto_suspended_overdue'
-        | 'service.auto_unsuspended_overdue';
+        | 'service.auto_unsuspended_overdue'
+        | 'service.reconciled_single';
       body: string;
+      /**
+       * Sprint 15C.II F.9 (ADR-079 Amendment A5): override opcional de la
+       * categoría. Default `NoteCategory.lifecycle` (compat F.6). F.9 pasa
+       * `NoteCategory.reconciliation` para el caller manual del CTA admin.
+       * Plugins futuros pueden pasar otras categorías sin cambiar este helper.
+       */
+      category?: NoteCategory;
     },
     tx?: Prisma.TransactionClient,
   ) {
@@ -144,7 +155,7 @@ export class ClientNotesService {
       data: {
         user_id: input.user_id,
         author_id: input.author_id,
-        category: NoteCategory.lifecycle,
+        category: input.category ?? NoteCategory.lifecycle,
         source_system: NoteSourceSystem.service,
         source_id: input.service_id,
         triggered_by_action: input.triggered_by_action,

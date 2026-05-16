@@ -92,6 +92,17 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
   // Sprint 15C.II F.6: ClientNotesService mockeado a nivel de describe para
   // que los tests puedan verificar `clientNotes.createFromServiceLifecycleAction`.
   let clientNotes: { createFromServiceLifecycleAction: jest.Mock };
+  // Sprint 15C.II F.9 — registry per-servicio (commit feat 7).
+  let reconcileRegistry: {
+    reconcileOne: jest.Mock;
+    registerReconcileOne: jest.Mock;
+    register: jest.Mock;
+    runFor: jest.Mock;
+    hasExecutor: jest.Mock;
+    hasReconcileOneExecutor: jest.Mock;
+    getScheduleMeta: jest.Mock;
+    listRegisteredSlugs: jest.Mock;
+  };
   let service: ProvisioningService;
 
   function buildPlugin(
@@ -257,6 +268,20 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         .mockResolvedValue({ id: 'note-mock' }),
     };
 
+    // Sprint 15C.II F.9 — `ReconcileRegistryService` mockeado. Los tests del
+    // registry viven en `reconcile-registry.service.spec.ts`. Tests de
+    // `reconcileServiceAsAdmin` overridean este mock con per-test behavior.
+    reconcileRegistry = {
+      reconcileOne: jest.fn(),
+      registerReconcileOne: jest.fn(),
+      register: jest.fn(),
+      runFor: jest.fn(),
+      hasExecutor: jest.fn().mockReturnValue(false),
+      hasReconcileOneExecutor: jest.fn().mockReturnValue(false),
+      getScheduleMeta: jest.fn().mockReturnValue(null),
+      listRegisteredSlugs: jest.fn().mockReturnValue([]),
+    };
+
     service = new ProvisioningService(
       prisma as never,
       registry,
@@ -267,6 +292,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       orchestrator as never,
       breakers as never,
       clientNotes as never,
+      reconcileRegistry as never,
     );
   });
 
