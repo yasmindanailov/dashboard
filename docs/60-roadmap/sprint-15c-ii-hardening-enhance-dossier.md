@@ -2346,6 +2346,68 @@ PR único; bypass policy §6 si CI GitHub Actions sigue billing-bloqueada (11ª 
 - **DoD F.9:** contrato extendido + Enhance implementa + endpoint + CTA wired (banner + overview); tests (contract invariant, `reconcileServiceAsAdmin` incl. shortcircuit terminal + NotFound, Enhance `reconcileOne`); `pnpm ci:check:full` + boot; PR + post-merge sync.
 - **Valoración pre-código:** (1) ¿`reconcileOne` estrictamente opcional u obligatorio si `supports_reconciliation: true`? (2) nombre del evento (`service.reconciled_single` vs reusar `service.reconciled_external_change` con un marcador). (3) ¿el resultado de la reconciliación per-servicio también deja un `ClientNote` (vía F.6) si aplicó cambios? — evaluar.
 
+#### A.11.10.6.1. Handoff F.9 — arranque pre-código en conversación nueva (frozen 2026-05-16)
+
+**Propósito**: esta sección permite que una conversación nueva del agente arranque F.9 con rigor profesional leyendo SOLO este bloque + §A.11.10.6 (plan canónico arriba). Patrón heredado de §A.11.9 (handoff F.3 — sirvió como modelo).
+
+**Estado del repo al arranque** (master 2026-05-16 post PR #80 mergeado):
+
+- Master HEAD: PR #80 (`docs(sprint-15c-ii): post-merge sync Fase F.8`) sobre PR #79 squash `46d2888` (`feat(sprint-15c-ii): Fase F.8 — Alertas de cuota (disco) edge-triggered`).
+- Sprint 15C.II Hardening A→F mergeada: F.1 (suspend/unsuspend) + F.2 (admin overview) + F.3 (audit timeline + cierre Fase F) + F.4 (robustez status suspensión) + F.5 (`DC.44` billing-suspend-unify) + F.6 (notas `ClientNote`) + F.7 (SSL status read-only) + F.8 (alertas de cuota disco edge-triggered).
+- Cobertura backend master: **53 suites / 731 passed + 5 skipped** (+19 vs F.7 — detector + listener F.8).
+- Frontend: `tsc --noEmit` + `eslint --max-warnings=0` + `next build` verde.
+- ADRs frozen en master relevantes para F.9: [ADR-077 v2 contrato `ProvisionerPlugin`](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) con Amendments A1-A7 (último: A7 `ServiceInfo.ssl?` F.7); [ADR-080 Plugin Framework](../10-decisions/adr-080-plugin-framework.md) con Amendments B+C; [ADR-083 Plugin Enhance specifics](../10-decisions/adr-083-plugin-enhance-cp-specifics.md) con Amendments A1-A8 (último: A8 probe SSL F.7); [ADR-082 Domain↔Hosting + DNS doctrine](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md) con A1 (lifecycle administrativo vs operacional F.4); [ADR-079 ClientNote source-tracking](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) con A4 (lifecycle de servicio F.6).
+- Diferidos vigentes en `backlog.md`: `DC.46` (`autoCancelServices`→`deprovisionAsAdmin` destructivo), `DC.47` (naming `notes`↔`internal_note` `DeprovisionDto` housekeeping), **`DC.48` bandwidth como F.8.x** (apuntado en F.8 post-merge), **`DC.49` `MockEnhanceServer` seed dinámico** (apuntado en F.8 post-merge).
+
+**Resumen del plan F.9 (§A.11.10.6)**: 4 piezas — F.9.1 contrato (`ProvisionerPlugin.reconcileOne?(service)` opcional, **ADR-077 Amendment A8** del contrato — primer amendment de F.9 a F.12 que toca contrato) + F.9.2 backend orquestador (`ReconcileRegistryService.reconcileOne` + `ProvisioningService.reconcileServiceAsAdmin` + endpoint `POST /admin/services/:id/reconcile`) + F.9.3 Enhance implementa `reconcileOne` (espejo de la lógica `runOnce` del cron L3 pero per-service) + F.9.4 wire del CTA (`AdminDriftBanner` con `recoveryHint==='reconcile'` cierra el cabo de F.3 + filas drift del `<PluginOperationalOverview>` F.2 ganan botón).
+
+**Q1..Q6 — Valoración pre-código que la conversación nueva DEBE resolver con Yasmin ANTES de codear** (L18 frozen — mejoras como Amendment, no desvío silencioso). Las 3 primeras vienen del dossier original (§A.11.10.6); las 3 siguientes son refinamientos detectados a partir de las lecciones operativas de F.8:
+
+- **Q1** — ¿`reconcileOne` estrictamente opcional o obligatorio si `manifest.supportsReconciliation === true`? **Recomendación**: estrictamente opcional (mismo patrón A6 `testConnection?()` y A7 `ServiceInfo.ssl?` — capability-driven por presencia, no por flag); plugins que NO lo implementen, el endpoint admin devuelve `400 RECONCILE_ONE_NOT_SUPPORTED` con mensaje claro al admin. Razón canónica: la consistencia con A6/A7 facilita los plugins futuros (15D RC / 15E Docker / 15G Plesk) — si un plugin tiene el método, lo expone; si no, el frontend oculta el CTA via capability. Decidir.
+
+- **Q2** — Nombre del evento: `service.reconciled_single` (nuevo) vs reusar `service.reconciled_external_change` con marcador `trigger: 'manual_single'`. **Recomendación**: reusar el existente con marcador (heredable de la convención `plugin.reconcile_completed.trigger: 'cron' | 'manual'` que ya tenemos en F.2). Razón: evita duplicar listeners de audit/notif; el `change_type` (subscription_missing/status_divergence/plan_divergence) ya distingue por sub-tipo; el `trigger: 'manual_single' | 'cron'` añade dimensión sin contrato nuevo. Decidir.
+
+- **Q3** — ¿`reconcileOne` genera `ClientNote` automática si aplicó cambios? **Recomendación**: SÍ, vía `ClientNotesService.createFromServiceLifecycleAction(input, tx?)` reutilizando el patrón F.6 — `triggered_by_action: 'service.reconciled_single'` (6º valor del enum) + `body: "Reconciliación manual contra el proveedor — N cambios aplicados: <plan_divergence|status_divergence|...>"`. Razón: el admin pulsa el botón con intención clara de "fix this drift" — la nota es el registro de esa intención + de qué se cambió. Pero solo si `result.driftsApplied > 0` — sin cambios, no hay nota. Decidir (afecta a `NoteCategory` — ¿`lifecycle` o nuevo `reconciliation`?).
+
+- **Q4 (refinamiento nuevo F.9)** — Doctrina safe-to-adopt para `reconcileOne` cuando el proveedor reporta status fuera del set `{active, suspended}` (típicamente `cancelled`/`subscription_missing`). El cron L3 actual emite evento SIN actualizar `services.status` (DH-INV-6 con respeto al lifecycle administrativo — F.4 A1). `reconcileOne` debe seguir la **misma doctrina** o el admin pulsa el botón sobre un servicio en drift y termina con un `cancelled` automático que no quería. **Recomendación**: `reconcileOne` aplica los mismos checks que el cron L3 + el mismo set de safe-adopt (`active`/`suspended` auto-adopt, resto emit-only) + devuelve `ReconcileResult.driftsDetected` con TODOS los drifts detectados y `driftsApplied` con solo los aplicados. El frontend muestra "X drifts detectados, Y aplicados" en el toast — admin entiende qué se hizo y qué no. Decidir.
+
+- **Q5 (refinamiento nuevo F.9)** — UX del toast post-reconcile. Opciones: (a) toast simple "Reconciliación completada · sin cambios" / "Reconciliación completada · 2 cambios aplicados" + `router.refresh()`; (b) toast con detalle ("plan_divergence aplicado: Web Starter→Web Pro · status: sin cambios"); (c) toast simple + redirect al timeline del service (`/admin/services/:id/audit` — F.3) para ver el rastro detallado. **Recomendación**: (a) por defecto + (c) si `driftsApplied > 0` (admin recibe feedback inmediato + tiene 1 clic al detalle). Decidir.
+
+- **Q6 (refinamiento nuevo F.9)** — Rate-limit del endpoint. Patrón canónico Aelium: el admin puede martillar el endpoint (caso "el admin pulsa el botón 10 veces porque no ve feedback"). F.3 B.1 introdujo cooldown `SET NX EX` per-`serviceId` Redis para `force-refresh` (15s). **Recomendación**: aplicar el mismo patrón a `reconcileOne` — `ProvisioningCacheService.tryAcquireReconcileSingleCooldown(serviceId, 30)` (más generoso que force-refresh porque la pasada implica más calls al proveedor); si ventana activa, devolver el último `ReconcileResult` cacheado (también Redis, 30s TTL) o `429 RECONCILE_IN_PROGRESS` con `Retry-After`. Heredable a 15D RC / 15E Docker / 15G Plesk. Decidir.
+
+**Patrón heredado de cierre F.1→F.8** (aplicable a F.9):
+
+1. **1 rama por fase**: `sprint15c-ii-fase-f9-reconcile-single`.
+2. **Commit 1 doc-only** (refinamiento pre-código §A.11.10.6.2 — frozen R1..R6 = resolución de Q1..Q6).
+3. **Commits 2..N código** (schema si aplica → backend lógica + tests → frontend + wire).
+4. **`pnpm ci:check:full`** verde + boot smoke + smoke real Yasmin contra `MockEnhanceServer`.
+5. **PR** único (bypass policy §6 si CI Actions sigue billing-bloqueada — **12ª aplicación** previsible; las 3 condiciones canónicas: motivo externo + `ci:check:full` verde + sección formal en el body).
+6. **Post-merge sync PR** doc-only (patrón heredado #61/#64/#66/#68/#71/#73/#76/#78/#80) — flip §A.11.1 fila F.9 a ✅ con commit SHA del squash + `current.md` + `backlog.md` + `MEMORY.md` + `project-state.md`.
+
+**Comandos exactos para arrancar la conversación nueva**:
+
+```bash
+cd /c/Users/yasmi/Desktop/proyectos_tecnologiasdigital/aelium/dashboard
+git checkout master && git pull --ff-only
+git checkout -b sprint15c-ii-fase-f9-reconcile-single
+# Leer dossier §A.11.10.6 + §A.11.10.6.1 (este handoff).
+# Resolver Q1..Q6 con Yasmin pre-código.
+# Materializar §A.11.10.6.2 con R1..R6 frozen (commit 1 doc-only).
+# Proceder con commits feat según patrón heredado.
+```
+
+**Frase canónica de continuación** (Yasmin pega esto en chat nuevo):
+
+> *"Lee `docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md` §A.11.10.6 (plan F.9) + §A.11.10.6.1 (handoff). Fase F.8 cerrada en master (PR [#79](https://github.com/yasmindanailov/dashboard/pull/79) squash `46d2888` + post-merge sync [#80](https://github.com/yasmindanailov/dashboard/pull/80) `8f92dbf`). Próxima fase F.9 — reconcile per-servicio (`DC.45`): `ProvisionerPlugin.reconcileOne?(service)` opcional como **ADR-077 Amendment A8** + endpoint `POST /admin/services/:id/reconcile` + Enhance implementa + wire del CTA en `AdminDriftBanner` (cierra el cabo de F.3) + filas drift del `<PluginOperationalOverview>` F.2. **Resuelve Q1..Q6 de la valoración pre-código con Yasmin ANTES de codear** (frozen R1..R6 en §A.11.10.6.2). Patrón heredado: rama `sprint15c-ii-fase-f9-reconcile-single` + commit 1 doc-only (refinamiento) + commits feat + tests + `pnpm ci:check:full` + boot smoke + smoke real contra `MockEnhanceServer` + PR (bypass §6 si CI Actions billing-bloqueada — 12ª aplicación) + post-merge sync. Sé riguroso y profesional."*
+
+**Notas críticas para la conversación nueva** (sin las cuales el smoke real F.8 se complicó):
+
+- **`pnpm seed`** post-`pnpm prisma migrate deploy` si la fase añade plantillas nuevas a `notification-templates.ts` (el `upsert update:{}` solo inserta si no existe). F.9 NO añade plantilla nueva (reusa la convención del catálogo de eventos existentes), pero F.10/F.11 podrían — anotar.
+- **Backend dist desfasado**: si hay un proceso `node dist/src/main` corriendo desde antes del `nest build`, reiniciar manualmente antes del smoke (el watch `nest start --watch` puede no estar sirviendo el puerto en dev — verificar con `Get-NetTCPConnection -LocalPort 3001`).
+- **2FA admin**: TODOS los admins en seed tienen 2FA habilitado (superadmin + agent_full + agent_billing). Curl-login con código TOTP es frágil por chat (TOTP rota cada 30s) — preferir que Yasmin haga los disparos autenticados en navegador y el agente verifique vía `psql` + Mailpit API + audit log.
+- **`MockEnhanceServer`**: corre vía `pnpm --dir backend exec ts-node -P ../tests/e2e/fixtures/tsconfig.mock-runner.json --transpile-only ../tests/e2e/fixtures/mock-enhance-runner.ts`. Para semillar dinámicamente la respuesta de `getSubscription` (caso F.9 — el smoke real necesitará simular drifts), HOY hay que editar el archivo + reiniciar (DC.49 promociona la mejora futura; F.9 puede arrastrarla si conviene — decidir en pre-código).
+- **Bypass §6**: protocolo en `docs/90-meta/local-ci-playbook.md` §6. Las 3 condiciones canónicas + sección formal en el PR body. 11 aplicaciones a 2026-05-16 (#57/#60/#63/#65/#67/#70/#72/#74/#75/#77/#79).
+
 ### A.11.10.7. Fase F.10 — Deep-links curados al panel del proveedor
 
 **Tema:** en vez del único "Abrir panel del proveedor" genérico, atajos curados a las secciones más usadas — estándar de panel reseller.
