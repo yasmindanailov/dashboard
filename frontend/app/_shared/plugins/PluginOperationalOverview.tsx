@@ -11,6 +11,7 @@ import type {
 import { serverFetch } from '../../lib/server-auth';
 import { t } from '../i18n';
 import { Badge, type BadgeVariant } from '../../components/ui';
+import { DriftRowReconcileButton } from './DriftRowReconcileButton';
 
 /**
  * PluginOperationalOverview — Sprint 15C.II Fase F.2 (ADR-083 Amendment A4.4).
@@ -224,6 +225,11 @@ export async function PluginOperationalOverview({ slug }: Props) {
                   <th style={thStyle}>
                     {t('admin.plugins.overview.drifts.col.detected')}
                   </th>
+                  {/* Sprint 15C.II F.9 (R9): columna acción inline reconcile-single.
+                      Solo se renderiza si el plugin soporta reconcileOne. */}
+                  {overview.reconciliation.supports_reconcile_one && (
+                    <th style={thStyle}>Acción</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -244,6 +250,16 @@ export async function PluginOperationalOverview({ slug }: Props) {
                     <td style={tdStyle}>
                       {new Date(drift.detected_at).toLocaleString('es-ES')}
                     </td>
+                    {overview.reconciliation.supports_reconcile_one && (
+                      <td style={tdStyle}>
+                        <DriftRowReconcileButton
+                          serviceId={drift.service_id}
+                          supportsReconcileOne={
+                            overview.reconciliation.supports_reconcile_one
+                          }
+                        />
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

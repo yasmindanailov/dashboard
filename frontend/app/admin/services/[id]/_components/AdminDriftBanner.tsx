@@ -36,6 +36,7 @@ import { useRouter } from 'next/navigation';
 import { AlertBanner, Button, Modal, useToast } from '../../../../components/ui';
 import { t } from '../../../../_shared/i18n';
 import {
+  reconcileServiceAction,
   reprovisionServiceAction,
   requestSsoUrlAction,
 } from '../../../../_shared/services/_actions';
@@ -69,15 +70,29 @@ interface AdminDriftBannerProps {
    * Sprint 15C.II Fase F.3 — `true` si el banner debe ofrecer el CTA
    * "Reconciliar contra el proveedor". Se activa cuando
    * `info.recoveryHint === 'reconcile'` (p.ej. `plan_divergence` detectado
-   * por `getServiceInfo` — ADR-077 Amendment A5). El CTA lleva a la página
-   * de settings del plugin, donde vive el botón canónico
-   * "Reconciliar todos los servicios contra <Plugin> ahora" (= trigger
-   * manual del cron L3, ADR-083 A4.2) + el overview operativo (Fase F.2).
-   * Una reconciliación per-servicio single-shot queda diferida (backlog).
+   * por `getServiceInfo` — ADR-077 Amendment A5).
+   *
+   * **Sprint 15C.II Fase F.9 (DC.45, ADR-077 Amendment A8)** — cierre del
+   * cabo del CTA: si `supportsReconcileOne` (deriva del admin overview F.2
+   * `reconciliation.supports_reconcile_one`) → invoca el endpoint admin
+   * single-shot `POST /admin/services/:id/reconcile` con Toast UX R5
+   * frozen (3 ramas según `driftsDetected`/`driftsApplied`) + redirect al
+   * timeline F.3 cuando hay drifts aplicados. Si NO `supportsReconcileOne`
+   * (plugin sin la capability) → fallback al comportamiento F.3 anterior
+   * (redirect a settings del plugin, donde vive el botón reconcile-all
+   * ADR-083 A4.2).
    */
   showReconcile?: boolean;
   /** Slug del plugin del servicio — destino del CTA de reconciliación. */
   pluginSlug?: string | null;
+  /**
+   * Sprint 15C.II Fase F.9 (R9 frozen §A.11.10.6.2 Amendment III) —
+   * `reconciliation.supports_reconcile_one` del admin overview F.2.
+   * Capability detection per-servicio: si `true` el CTA invoca el
+   * endpoint single-shot; si `false` (o undefined) fallback al
+   * reconcile-all del plugin (comportamiento F.3 anterior).
+   */
+  supportsReconcileOne?: boolean;
 }
 
 export function AdminDriftBanner({
@@ -88,11 +103,16 @@ export function AdminDriftBanner({
   showReprovision,
   showReconcile,
   pluginSlug,
+  supportsReconcileOne,
 }: AdminDriftBannerProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [openingSso, setOpeningSso] = useState(false);
   const [reprovisioning, setReprovisioning] = useState(false);
+  // Sprint 15C.II F.9 (R5 frozen): pasada single-shot del endpoint admin
+  // (con coalescing al último resultado cacheado dentro de la ventana
+  // cooldown 30s R6). Bloquea el botón durante la request + el refresh.
+  const [reconciling, setReconciling] = useState(false);
   // Sprint 15C.II Fase C round 5: confirm reforzado con Modal DS
   // (reemplaza window.confirm nativo — viola UI_SPEC §4.2).
   const [confirmReprovisionOpen, setConfirmReprovisionOpen] = useState(false);
@@ -119,6 +139,91 @@ export function AdminDriftBanner({
       return;
     }
     window.open(result.sso.url, '_blank', 'noopener,noreferrer');
+  }
+
+  /**
+   * Sprint 15C.II Fase F.9 (R5 frozen §A.11.10.6.2 — Toast UX 3 ramas):
+   * invoca el endpoint admin single-shot `POST /admin/services/:id/reconcile`.
+   * Discrimina el Toast según el `ServiceReconcileResult`:
+   *
+   *   - `driftsApplied > 0` → toast éxito "N cambio(s) aplicado(s)" +
+   *     CTA secundario "Ver timeline" (push a /admin/services/[id]/audit
+   *     F.3 GAP-M).
+   *   - `driftsApplied === 0 && driftsDetected > 0` → toast warning
+   *     "N drift(s) detectado(s) · ninguno aplicado automáticamente
+   *     (revisar timeline)".
+   *   - `driftsApplied === 0 && driftsDetected === 0` → toast neutro
+   *     "Sin cambios — el servicio está sincronizado con el proveedor".
+   *
+   * Caso especial: si el backend devuelve `coalesced: true` (cooldown
+   * activo, resultado cacheado servido — R6 frozen) → prefija el mensaje
+   * "Resultado en caché ·" para que el admin sepa que NO es una pasada
+   * fresca.
+   *
+   * Errores: 429 RECONCILE_IN_PROGRESS (cooldown sin cached) → toast
+   * informativo con retry_after_seconds. Otros errores → toast error.
+   */
+  async function executeReconcileSingle(): Promise<void> {
+    if (!supportsReconcileOne) {
+      // Fallback F.3: redirect a settings reconcile-all (NO debería pasar si
+      // el caller gateó correctamente, defense-in-depth).
+      if (pluginSlug) {
+        router.push(`/admin/settings/plugins/${pluginSlug}`);
+      }
+      return;
+    }
+    setReconciling(true);
+    const response = await reconcileServiceAction(serviceId);
+    if (!response.ok) {
+      setReconciling(false);
+      if (response.inProgress) {
+        const retry = response.retryAfterSeconds ?? 30;
+        toast(
+          'info',
+          `Reconciliación en curso. Inténtalo de nuevo en ${retry}s.`,
+        );
+      } else {
+        toast('error', response.error);
+      }
+      return;
+    }
+    const { result } = response;
+    const prefix = result.coalesced ? 'Resultado en caché · ' : '';
+    const appliedCount = result.driftsApplied.length;
+    const detectedCount = result.driftsDetected.length;
+
+    if (appliedCount > 0) {
+      // R5 rama 2: cambios aplicados — toast éxito + CTA timeline.
+      toast(
+        'success',
+        `${prefix}Reconciliación completada · ${appliedCount} cambio${appliedCount === 1 ? '' : 's'} aplicado${appliedCount === 1 ? '' : 's'}. Ver detalle en timeline.`,
+      );
+      router.refresh();
+      // Redirect al timeline F.3 GAP-M tras 1.5s (deja ver el toast).
+      setTimeout(() => {
+        router.push(`/admin/services/${serviceId}/audit`);
+      }, 1500);
+    } else if (detectedCount > 0) {
+      // R5 rama 3: drifts detectados pero ninguno aplicable automáticamente
+      // (típicamente subscription_missing, status fuera de safe-adopt set,
+      // plan_divergence — admin debe revisar el timeline + decidir manualmente).
+      toast(
+        'warning',
+        `${prefix}${detectedCount} drift${detectedCount === 1 ? '' : 's'} detectado${detectedCount === 1 ? '' : 's'} · ninguno aplicado automáticamente (revisar timeline).`,
+      );
+      router.refresh();
+      setTimeout(() => {
+        router.push(`/admin/services/${serviceId}/audit`);
+      }, 1500);
+    } else {
+      // R5 rama 1: sin cambios — servicio sincronizado.
+      toast(
+        'info',
+        `${prefix}Sin cambios — el servicio está sincronizado con el proveedor.`,
+      );
+      router.refresh();
+    }
+    setReconciling(false);
   }
 
   async function executeReprovision(): Promise<void> {
@@ -192,12 +297,13 @@ export function AdminDriftBanner({
           {showReconcile && pluginSlug && (
             <Button
               variant="primary"
-              onClick={() =>
-                router.push(`/admin/settings/plugins/${pluginSlug}`)
-              }
+              onClick={() => void executeReconcileSingle()}
+              disabled={reconciling}
               title={t('service.drift.admin_banner.reconcile_help')}
             >
-              {t('service.drift.admin_banner.reconcile_cta')}
+              {reconciling
+                ? 'Reconciliando…'
+                : t('service.drift.admin_banner.reconcile_cta')}
             </Button>
           )}
         </div>

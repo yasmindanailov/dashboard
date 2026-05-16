@@ -1086,6 +1086,15 @@ export interface PluginOperationalOverview {
   };
   reconciliation: {
     supported: boolean;
+    /**
+     * Sprint 15C.II Fase F.9 (R9 frozen §A.11.10.6.2 Amendment III): el
+     * backend deriva este flag de `reconcileRegistry.hasReconcileOneExecutor(slug)`.
+     * El frontend lo lee para gatear el CTA "Reconciliar contra el proveedor"
+     * (AdminDriftBanner + filas drift de PluginOperationalOverview). Espejo
+     * del DTO backend `plugin-operational-overview.dto.ts`. Coherente con
+     * capability-driven por presencia A6/A7 — NO en PluginManifest.
+     */
+    supports_reconcile_one: boolean;
     last: {
       completed_at: string;
       trigger: 'cron' | 'manual';
@@ -1726,6 +1735,37 @@ export interface ActionResult {
   message?: string;
   sideEffects?: readonly string[];
   data?: Record<string, unknown>;
+}
+
+/* ═══════════════════════════════════════
+   Sprint 15C.II Fase F.9 (ADR-077 Amendment A8 + §A.11.10.6.2 R1..R6 frozen)
+   — shapes per-servicio del flujo reconcile-single. Espejo del backend
+   `backend/src/core/provisioning/types.ts §9.5`. Duplicación canónica por
+   R4 (frontend vive en otro paquete que el backend).
+   ═══════════════════════════════════════ */
+
+export type ServiceDriftType =
+  | 'subscription_missing'
+  | 'status_divergence'
+  | 'plan_divergence';
+
+export interface ServiceDrift {
+  readonly type: ServiceDriftType;
+  readonly before: unknown;
+  readonly after: unknown;
+  readonly applied: boolean;
+  readonly message?: string;
+}
+
+export interface ServiceReconcileResult {
+  readonly driftsDetected: readonly ServiceDrift[];
+  readonly driftsApplied: readonly ServiceDrift[];
+  /**
+   * Server devuelve ISO 8601 string; el action lo re-hidrata a Date para
+   * el consumidor frontend (espejo del re-hidrato en backend
+   * ProvisioningCacheService.getCachedServiceReconcileResult).
+   */
+  readonly reconciledAt: Date;
 }
 
 // ── DNS records (Sprint 15C Fase 15C.G — ADR-082 §6 + ADR-083 §5 decisiones 16-21) ──
