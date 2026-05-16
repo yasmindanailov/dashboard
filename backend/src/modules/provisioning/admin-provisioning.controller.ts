@@ -1,9 +1,11 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
   HttpCode,
+  HttpException,
   HttpStatus,
   NotFoundException,
   Param,
@@ -12,8 +14,10 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Action, Subject } from '../../core/casl/permissions';
@@ -299,14 +303,39 @@ export class AdminProvisioningController {
       'Reconciliar un único servicio contra el ground truth del proveedor (single-shot vs cron L3)',
   })
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
-  reconcileOne(
+  async reconcileOne(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return this.provisioning.reconcileServiceAsAdmin(id, req.user.id, {
-      ipAddress: req.ip ?? '0.0.0.0',
-      userAgent: req.headers['user-agent'] ?? null,
-    });
+    try {
+      return await this.provisioning.reconcileServiceAsAdmin(id, req.user.id, {
+        ipAddress: req.ip ?? '0.0.0.0',
+        userAgent: req.headers['user-agent'] ?? null,
+      });
+    } catch (err) {
+      // R7 frozen (§A.11.10.6.2 Amendment III): re-mapear el
+      // `ConflictException(RECONCILE_IN_PROGRESS)` del orquestador a HTTP 429
+      // Too Many Requests con header Retry-After explícito. Más estándar HTTP
+      // que el 409 default — el frontend (y clientes CLI/automatización) pueden
+      // leer Retry-After automáticamente. El ConflictException original del
+      // orquestador queda intacto (es la única transformación REST específica
+      // del endpoint admin — los demás errores se propagan sin tocar).
+      if (err instanceof ConflictException) {
+        const response = err.getResponse() as
+          | { code?: string; retry_after_seconds?: number }
+          | string;
+        if (
+          typeof response === 'object' &&
+          response.code === 'RECONCILE_IN_PROGRESS'
+        ) {
+          const retryAfter = response.retry_after_seconds ?? 30;
+          res.setHeader('Retry-After', String(retryAfter));
+          throw new HttpException(response, HttpStatus.TOO_MANY_REQUESTS);
+        }
+      }
+      throw err;
+    }
   }
 
   // ─── DNS records (Sprint 15C Fase 15C.D — ADR-082 §6 — admin) ──────────
