@@ -2671,6 +2671,70 @@ git pull --ff-only  # traer este handoff (commit pendiente al cerrar sesión 1)
 - **DoD F.10:** atajos curados (cliente + admin, capability-driven); tests; `pnpm ci:check:full` + boot; PR + post-merge sync.
 - **Valoración pre-código:** (1) ¿qué secciones del panel Enhance soportan SSO directo (OAS)? (2) ¿materialización (a) inline actions o (b) `getSsoUrl({section})`? (3) ¿los atajos van en una card "Atajos al panel" propia o integrados en la card SSO existente?
 
+#### A.11.10.7.1. Handoff F.10 — arranque pre-código en conversación nueva (frozen 2026-05-17)
+
+**Propósito**: esta sección permite que una conversación nueva del agente arranque F.10 con rigor profesional leyendo SOLO este bloque + §A.11.10.7 (plan canónico arriba). Patrón heredado de §A.11.10.6.1 (handoff F.9 — sirvió como modelo, a su vez heredado de §A.11.9 handoff F.3).
+
+**Estado del repo al arranque** (master 2026-05-17 post PR [#83](https://github.com/yasmindanailov/dashboard/pull/83) mergeado):
+
+- Master HEAD: PR #83 (`docs(sprint-15c-ii): post-merge sync Fase F.9`) sobre PR [#82](https://github.com/yasmindanailov/dashboard/pull/82) squash `55b3f86` (`feat(sprint-15c-ii): Fase F.9 — Reconciliación per-servicio DC.45 + cierre del cabo del CTA reconcile`).
+- Sprint 15C.II Hardening A→F mergeada: F.1 (suspend/unsuspend) + F.2 (admin overview) + F.3 (audit timeline + cierre Fase F) + F.4 (robustez status suspensión) + F.5 (`DC.44` billing-suspend-unify) + F.6 (notas `ClientNote`) + F.7 (SSL status read-only) + F.8 (alertas de cuota disco edge-triggered) + F.9 (reconcile per-servicio `DC.45`).
+- Cobertura backend master: **53 suites / 754 passed + 6 skipped** (+23 vs F.8 — 13 registry + 8 orquestador + 6 cron L3 + 1 contract + 1 admin overview de F.9).
+- Frontend: `tsc --noEmit` + `eslint --max-warnings=0` + `next build` verde (32 static pages + 13 dynamic routes).
+- ADRs frozen en master relevantes para F.10: [ADR-077 v2 contrato `ProvisionerPlugin`](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) con Amendments A1-A8 (último: A8 `reconcileOne?()` capability-driven F.9 + Sub-amendment A8.5 "plugin aplica drifts + orquestador maneja transversales"); [ADR-070 Dashboard puerta unificada](../10-decisions/adr-070-service-info-sso-acciones-curadas.md) con A1 (gateway curado reconcilia status read-time F.4 — clave para F.10 por la doctrina "cero `if (provisioner === 'X')` en el frontend, todo capability-driven"); [ADR-080 Plugin Framework](../10-decisions/adr-080-plugin-framework.md) con Amendments B+C; [ADR-083 Plugin Enhance specifics](../10-decisions/adr-083-plugin-enhance-cp-specifics.md) con Amendments A1-A8 (último: A8 probe SSL F.7); [ADR-082 Domain↔Hosting + DNS doctrine](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md) con A1 (lifecycle administrativo vs operacional F.4); [ADR-079 ClientNote source-tracking](../10-decisions/adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) con Amendments A4 (lifecycle F.6) + A5 (reconciliation F.9).
+- **Patrones heredables F.9 aplicables a F.10**: (a) **"plugin aplica drifts + orquestador maneja transversales"** Sub-amendment III A8.5 — el plugin sabe el shape específico del proveedor (qué exponer y cómo), el orquestador sabe los transversales (cache + audit + eventos + notas); (b) **capability-driven por presencia** (A6/A7/A8 — `testConnection?()` / `ServiceInfo.ssl?` / `reconcileOne?()`) sin flag declarativo en `PluginCapabilities`; (c) **sufijo `Service*` para shapes per-servicio** vs agregado sin prefijo; (d) **capability gating UI vía flag derivado** en admin overview F.2 (NO en manifest). F.10 aplica (b) y (d) si va por la materialización (b) `getSsoUrl({section})`.
+- Diferidos vigentes en `backlog.md`: `DC.46` (`autoCancelServices`→`deprovisionAsAdmin` destructivo, candidato a fase aparte), `DC.47` (naming `notes`↔`internal_note` `DeprovisionDto` housekeeping), `DC.48` (bandwidth como F.8.x cuando se resuelva semántica reset mensual), `DC.49` (`MockEnhanceServer` seed dinámico `usedResources` per-subscriptionId — housekeeping pre-G.2 E2E spec).
+
+**Resumen del plan F.10 (§A.11.10.7)**: 2 piezas — F.10.1 atajos curados ("Gestionar email", "Gestionar bases de datos", "Administrador de archivos", "Logs del sitio"… — secciones que orchd exponga vía SSO; cliente + admin en `_shared/`; capability-driven ADR-070 cero `if (provisioner === 'X')`) + F.10.2 materialización a decidir pre-código entre (a) nuevas inline actions plugin-internas `sso_email`/`sso_databases`/`sso_files`/… que internamente generan la URL SSO apuntando a la sección — slugs **plugin-internos** NO contrato externo estable (L14 naming honesto), NO requiere ADR; o (b) `getSsoUrl` gana un parámetro `section?: string` — esto SÍ es cambio del contrato (**ADR-077 amendment A9**) + posible **ADR-083 amendment A9** documentando qué secciones del OAS de orchd soportan SSO directo.
+
+**Q1..Q5 — Valoración pre-código que la conversación nueva DEBE resolver con Yasmin ANTES de codear** (L18 frozen — mejoras como Amendment, no desvío silencioso). Las 3 primeras vienen del dossier original (§A.11.10.7); las 2 siguientes son refinamientos detectados a partir de las lecciones operativas de F.9 + L14 naming honesto:
+
+- **Q1** — ¿qué secciones del panel Enhance soportan SSO directo (OAS)? Investigar `docs/_research/sprint-15c/orchd-oas3-api.yaml` los endpoints `GET /orgs/:orgId/members/:memberId/sso` (ya usado por `getSsoUrl` actual — devuelve URL del panel home) + posibles variantes con `?section=`/`?target=`/`?return_to=` o endpoints dedicados (`/sso/email`/`/sso/databases`/…). **Recomendación**: leer el OAS completo del panel Enhance + listar las secciones disponibles vía SSO directo + las que requieren landing en home + navegación manual. Si el SSO de orchd acepta `?section=` o equivalente → opción (b) trivial; si solo soporta home → opción (a) plugin-internal inline actions que generen URLs construidas. Decidir.
+
+- **Q2** — ¿Materialización (a) inline actions plugin-internas vs (b) `getSsoUrl` gana parámetro `section?`? **Recomendación**: (a) si orchd NO soporta SSO con section, (b) si SÍ soporta. La (a) preserva el contrato `ProvisionerPlugin` intacto (slugs `sso_email`/`sso_databases`/... son plugin-internos, no contrato externo — L14 + heredable a futuros plugins con sus propias secciones); la (b) es más limpia conceptualmente pero requiere bumpear ADR-077 (additivo, A9 amendment) + ADR-083 documentando las secciones soportadas por Enhance. Si la decisión es (b), aplicar el patrón canónico capability-driven por presencia (mismo molde A6/A7/A8) — el plugin que soporte secciones expone `getSsoUrl({section})`; los que no, las omiten y el frontend oculta los atajos. Decidir.
+
+- **Q3** — ¿Los atajos van en una card "Atajos al panel" propia o integrados en la card SSO existente (`<SsoButton>`)? **Recomendación**: card propia `<ProviderShortcutsCard>` en `_shared/services/` (paralelo a `<SslStatusCard>` F.7 + `<ServiceNotesCard>` F.6) — agrupa los atajos visualmente como sección destacada; el botón principal "Abrir panel del proveedor" sigue en su card (compat con la doctrina existente). Razón: separación visual + cada card es plug-in compositional para F.12 layout canónico (slots con nombre); UX más clara que un dropdown desde el SSO button. Decidir (afecta UI_SPEC futuro F.12).
+
+- **Q4 (refinamiento nuevo F.10)** — Orden / agrupación de los atajos. ¿Sigue convención canónica por dominio (email → DBs → files → logs → otros) o por frecuencia de uso (lo más-clicado primero)? **Recomendación**: orden canónico por dominio (predecible, heredable; cualquier plugin que añada `sso_files` aterriza en su slot natural) — la frecuencia de uso es un nice-to-have que requiere analytics + setting per-usuario, fuera de scope F.10. Decidir.
+
+- **Q5 (refinamiento nuevo F.10)** — ¿El cliente ve los mismos atajos que admin, o un subset (admin tiene atajos a "Logs" / "Backups" / áreas técnicas, cliente solo email/DBs)? **Recomendación**: misma lista capability-driven, pero un atajo puede declararse `adminOnly: true` (patrón A3 inline actions ya existente — `change_package`/`recalculate_provider_metrics`/`suspend_service` son `adminOnly: true`); el plugin declara cada atajo con su flag, el frontend filtra. Razón: heredabilidad a 15D RC / 15E Docker / 15G Plesk — cada plugin decide qué atajos son admin-only sin hardcoding en el frontend (ADR-070 cero `if (provisioner === 'X')`). Decidir.
+
+**Patrón heredado de cierre F.1→F.9** (aplicable a F.10):
+
+1. **1 rama por fase**: `sprint15c-ii-fase-f10-curated-deeplinks`.
+2. **Commit 1 doc-only** (refinamiento pre-código §A.11.10.7.2 — frozen R1..R5 = resolución de Q1..Q5).
+3. **Commits 2..N código** (si (a) inline actions: backend plugin + frontend wire; si (b) `getSsoUrl({section})`: ADR-077 amendment + tipos backend + plugin Enhance + frontend wire + tests).
+4. **`pnpm ci:check:full`** verde + boot smoke + smoke real Yasmin contra `MockEnhanceServer` (verificar que SSO con cada atajo abre la sección correcta en el panel real — sin esto el smoke es ciego).
+5. **PR** único (bypass policy §6 si CI Actions sigue billing-bloqueada — **13ª aplicación** previsible; las 3 condiciones canónicas: motivo externo + `ci:check:full` verde + sección formal en el body).
+6. **Post-merge sync PR** doc-only (patrón heredado #61/#64/#66/#68/#71/#73/#76/#78/#80/#83) — flip §A.11.1 fila F.10 a ✅ con commit SHA del squash + `current.md` + `backlog.md` (si aplica nuevo `DC.NEW-*` apuntado) + `MEMORY.md` + `project-state.md`.
+
+**Comandos exactos para arrancar la conversación nueva**:
+
+```bash
+cd /c/Users/yasmi/Desktop/proyectos_tecnologiasdigital/aelium/dashboard
+git checkout master && git pull --ff-only
+git checkout -b sprint15c-ii-fase-f10-curated-deeplinks
+# Leer dossier §A.11.10.7 + §A.11.10.7.1 (este handoff).
+# Investigar el OAS de orchd para Q1 (qué secciones soportan SSO directo).
+# Resolver Q1..Q5 con Yasmin pre-código.
+# Materializar §A.11.10.7.2 con R1..R5 frozen (commit 1 doc-only).
+# Proceder con commits feat según patrón heredado.
+```
+
+**Frase canónica de continuación** (Yasmin pega esto en chat nuevo):
+
+> *"Lee `docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md` §A.11.10.7 (plan F.10) + §A.11.10.7.1 (handoff). Fase F.9 cerrada en master (PR [#82](https://github.com/yasmindanailov/dashboard/pull/82) squash `55b3f86` + post-merge sync [#83](https://github.com/yasmindanailov/dashboard/pull/83)). Próxima fase F.10 — deep-links curados al panel del proveedor: atajos 'Gestionar email'/'DBs'/'Files'/'Logs' capability-driven (ADR-070 cero `if (provisioner === 'X')`); materialización a decidir pre-código entre (a) inline actions plugin-internas `sso_email`/`sso_databases`/... [L14 naming honesto, sin ADR] o (b) `getSsoUrl` gana `section?` [ADR-077 amendment A9 + ADR-083 amendment]. **Resuelve Q1..Q5 de la valoración pre-código con Yasmin ANTES de codear — incluido Q1 que requiere investigar el OAS de orchd** (frozen R1..R5 en §A.11.10.7.2). Patrón heredado: rama `sprint15c-ii-fase-f10-curated-deeplinks` + commit 1 doc-only (refinamiento) + commits feat + tests + `pnpm ci:check:full` + boot smoke + smoke real contra `MockEnhanceServer` (cada atajo abre la sección correcta) + PR (bypass §6 si CI Actions billing-bloqueada — 13ª aplicación) + post-merge sync. Sé riguroso y profesional."*
+
+**Notas críticas para la conversación nueva** (heredadas + nuevas):
+
+- **OAS de orchd**: leer `docs/_research/sprint-15c/orchd-oas3-api.yaml` para Q1 (qué secciones soportan SSO directo). Buscar endpoints `*/sso*` + parámetros `section`/`target`/`return_to`. Si el OAS no es claro, el smoke real contra el panel Enhance live (no mock) revelará qué URLs aceptan y cuáles llevan a 404.
+- **`MockEnhanceServer`**: si Q2 → (b) `getSsoUrl({section})`, hay que extender el mock para devolver URLs distintas según `section` (`POST /orgs/.../members/.../sso?section=email` → URL `/panel/email/...`). Si Q2 → (a) inline actions plugin-internas, el mock NO requiere cambios — el plugin construye la URL desde `panel_url + section_path`.
+- **2FA admin**: TODOS los admins en seed tienen 2FA habilitado (superadmin + agent_full + agent_billing). Para el smoke real F.9 funcionó el flow `login → leer código Mailpit → verify-2fa → curl al endpoint` (smoke automatizado 7/10 escenarios verificado end-to-end) — heredable a F.10 si los atajos requieren testing de la URL generada vía curl. Para clicks visuales (verificar la URL del atajo es correcta en el HTML del frontend), preferir navegador.
+- **Bypass §6**: protocolo en `docs/90-meta/local-ci-playbook.md` §6. Las 3 condiciones canónicas + sección formal en el PR body. **12 aplicaciones a 2026-05-17** (#57/#60/#63/#65/#67/#70/#72/#74/#75/#77/#79/#82) — F.10 sería la 13ª previsible si CI Actions sigue billing-bloqueada.
+- **Backend dist desfasado**: si hay un proceso `node dist/src/main` corriendo desde antes del `nest build`, reiniciar manualmente antes del smoke (heredado F.9 — `Stop-Process` + `pnpm --dir backend start:prod` en background; verificar con `Get-NetTCPConnection -LocalPort 3001`).
+- **Setup local F.9 sigue válido**: Docker containers UP (postgres :5432 + redis :6379 + mailpit :1025/:8025 + minio :9000-9001 healthy); frontend :3002 listening; mock Enhance :3099 listening. F.10 hereda este setup; reiniciar backend tras añadir nuevas inline actions / extender `getSsoUrl`.
+- **L18 frozen**: cualquier mejora descubierta durante implementación que diverja del apuntado original del dossier se documenta como **Amendment** dentro de la fase (no desvío silencioso). F.9 produjo 4 Amendments doctrinales (I naming clash + II DI clash + III R7..R9 post-handoff + IV R4.1 emit-only specifics) — F.10 probablemente produzca al menos 1 si la decisión Q2 cambia entre opciones (a)↔(b) durante la implementación.
+
 ### A.11.10.8. Fase F.11 — Conveniencias operativas del detalle de servicio + plugins
 
 **Tema:** las conveniencias admin que esperarías de un panel reseller profesional, agrupadas (cada una pequeña).
