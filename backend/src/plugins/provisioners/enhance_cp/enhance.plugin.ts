@@ -1282,11 +1282,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     }
 
     if (app.app === 'joomla') {
-      const joomlaInfo = await api.getJoomlaInfo(
-        refs.orgId,
-        websiteId,
-        app.id,
-      );
+      const joomlaInfo = await api.getJoomlaInfo(refs.orgId, websiteId, app.id);
       // Normaliza trailing slash + concatena /administrator (URL canónica
       // del CMS Joomla desde 2005 — ADR-083 A9.1 doctrina).
       const baseUrl = joomlaInfo.site_url.replace(/\/$/, '');

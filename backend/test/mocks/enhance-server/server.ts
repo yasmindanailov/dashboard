@@ -157,7 +157,9 @@ export interface MockEnhanceSeed {
    * `WebsiteApp`, `site_url` derivado del primary domain del website
    * que contenga la app, counts sintéticos).
    */
-  readonly wordpressInfoByAppId?: Readonly<Record<string, EnhanceWordPressInfo>>;
+  readonly wordpressInfoByAppId?: Readonly<
+    Record<string, EnhanceWordPressInfo>
+  >;
   readonly joomlaInfoByAppId?: Readonly<Record<string, EnhanceJoomlaInfo>>;
 }
 

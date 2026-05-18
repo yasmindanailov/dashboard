@@ -1300,18 +1300,28 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       if (args.joomlaInfo !== undefined) {
         api.getJoomlaInfo.mockResolvedValue(args.joomlaInfo);
       }
-      return { plugin: buildPlugin(
-        buildPrismaMock({ install: VALID_INSTALL }),
-        buildVaultMock(),
-        buildCustomersMock(),
+      return {
+        plugin: buildPlugin(
+          buildPrismaMock({ install: VALID_INSTALL }),
+          buildVaultMock(),
+          buildCustomersMock(),
+          api,
+        ),
         api,
-      ), api };
+      };
     }
 
     it('WP con default user → invoca getWordpressUserSsoUrl + returns {url, appKind:wordpress, urlKind:sso}', async () => {
       const SSO_URL = 'https://panel.test/wp-admin/index.php?token=abc';
       const { plugin, api } = setupOpenAppAdminTest({
-        apps: [{ id: 'wp-id', app: 'wordpress', version: '6.4.2', defaultWpUserId: 42 }],
+        apps: [
+          {
+            id: 'wp-id',
+            app: 'wordpress',
+            version: '6.4.2',
+            defaultWpUserId: 42,
+          },
+        ],
         defaultUser: { id: 42, username: 'admin', email: 'admin@test' },
         ssoUrl: SSO_URL,
       });
@@ -1393,7 +1403,14 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
 
     it('appId no existe en website → throws INVALID_STATE', async () => {
       const { plugin } = setupOpenAppAdminTest({
-        apps: [{ id: 'other-app', app: 'wordpress', version: '6.4.2', defaultWpUserId: 1 }],
+        apps: [
+          {
+            id: 'other-app',
+            app: 'wordpress',
+            version: '6.4.2',
+            defaultWpUserId: 1,
+          },
+        ],
       });
       await expect(
         plugin.executeAction(buildServiceWithRefs(), 'open_app_admin', {

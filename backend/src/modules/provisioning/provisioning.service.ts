@@ -688,15 +688,16 @@ export class ProvisioningService {
       service.user_id !== userId &&
       result.success === true
     ) {
-      const appId =
-        typeof payload?.appId === 'string' ? payload.appId : null;
+      const appId = typeof payload?.appId === 'string' ? payload.appId : null;
       const appKind =
-        result.data && typeof (result.data as { appKind?: unknown }).appKind === 'string'
-          ? ((result.data as { appKind: string }).appKind)
+        result.data &&
+        typeof (result.data as { appKind?: unknown }).appKind === 'string'
+          ? (result.data as { appKind: string }).appKind
           : null;
       const urlKind =
-        result.data && typeof (result.data as { urlKind?: unknown }).urlKind === 'string'
-          ? ((result.data as { urlKind: string }).urlKind)
+        result.data &&
+        typeof (result.data as { urlKind?: unknown }).urlKind === 'string'
+          ? (result.data as { urlKind: string }).urlKind
           : null;
       await this.audit.logAccess({
         user_id: userId,
