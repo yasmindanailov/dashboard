@@ -1376,7 +1376,8 @@ async function executeOpenAppAdmin(
       success: true,
       data: {
         url: ssoUrl,
-        kind: 'sso',
+        appKind: 'wordpress',
+        urlKind: 'sso',
         opensIn: 'new_tab',
       },
     };
@@ -1394,7 +1395,8 @@ async function executeOpenAppAdmin(
       success: true,
       data: {
         url: `${baseUrl}/administrator`,
-        kind: 'canonical',
+        appKind: 'joomla',
+        urlKind: 'canonical',
         opensIn: 'new_tab',
       },
     };
@@ -1533,3 +1535,48 @@ Patrón canónico Sprint 15C.II Fase F.10 establecido:
 6. **Audit per-app via `metadata.app_id`** — cero schema change, coherente A9.7 ADR-077.
 
 15D RC NO tiene apps instalables (registro de dominios — no aplica). 15E Docker SÍ — un container puede tener apps web instaladas (WordPress en container, etc.) — heredará el patrón. 15G Plesk SÍ — Plesk Application Vault tiene catálogo extensivo (WordPress, Joomla, Drupal, MediaWiki, PrestaShop, ...) — heredará el patrón con kinds adicionales sin amendment del contrato.
+
+#### A9.10. Amendment I — naming clarity `kind` → `appKind` + `urlKind` (Sprint 15C.II Fase F.10 commit 4)
+
+Refinamiento doctrinal descubierto durante implementación del audit per-app (R6 frozen — `ProvisioningService.executeActionForUser` añade `audit_access_log` enriquecido con `metadata.app_id` + `metadata.app_kind`): el shape original del `ActionResult.data` del plugin tenía un solo campo `kind: 'sso' | 'canonical'` que mezclaba dos conceptos distintos:
+
+- **Qué app** se abrió (WordPress / Joomla / futuros) — necesario para audit per-app y para el toast UX del frontend.
+- **Cómo se generó la URL** (SSO contractual / URL canónica) — útil para audit (distinguir SSO real vs URL "abierta sin auth") y para tooltip UX ("inicio sesión automático" vs "te pedirá login").
+
+Materialización: renombrar `kind` → `appKind` (valor canónico igual al de `AppPresence.kind`: `'wordpress'`/`'joomla'`/futuros) + añadir campo nuevo `urlKind: 'sso' | 'canonical'` (semántica preserved del valor anterior). Compatible hacia atrás SOLO si esta es la primera implementación que consume el shape (es el caso — Sprint 15C.II Fase F.10 es el primer feature que usa `open_app_admin`). No requiere cambio del contrato genérico ADR-077 (el campo vive en `ActionResult.data: Record<string, unknown>` libre).
+
+Patrón heredable a futuros plugins: cuando una action canónica devuelve URL + metadata, el shape rigoroso es `{ url, <subject>Kind, urlKind?, opensIn }` — separar el QUÉ del CÓMO.
+
+#### A9.11. Audit per-app — implementación concreta (R6 frozen — Sprint 15C.II Fase F.10 commit 4)
+
+`ProvisioningService.executeActionForUser` añade `audit_access_log` adicional cuando se cumplen TODAS estas condiciones:
+
+1. `actionSlug === 'open_app_admin'` (Sprint 15C.II Fase F.10 — extensible a futuras actions sub-recurso `DC.NEW-53`).
+2. `isAdmin === true` (actor es staff).
+3. `service.user_id !== actorUserId` (actor opera sobre service ajeno — mismo predicado canónico que `AuditInterceptor` automático).
+4. `result.success === true` (la action funcionó; si falló, el `audit_change_log` del wrapper ya capturó `success: false`).
+
+Shape del entry:
+
+```typescript
+{
+  user_id: actor_id,
+  action: 'service.app_admin_opened',
+  resource: 'Service:<service_uuid>',
+  metadata: {
+    resource_type: 'Service',
+    resource_id: service.id,
+    target_user_id: service.user_id,    // GDPR portal visibility
+    actor_role: 'admin',
+    provisioner_slug: 'enhance_cp',
+    action_slug: 'open_app_admin',
+    app_id: <appId del payload>,         // ← R6 frozen
+    app_kind: <result.data.appKind>,     // ← R6 frozen — 'wordpress'|'joomla'
+    url_kind: <result.data.urlKind>,     // 'sso'|'canonical'
+  },
+}
+```
+
+El `audit_access_log` es ADITIVO al `audit_change_log` que el wrapper `executeActionWithCacheInvalidation` genera para TODAS las actions — no duplicación, distinta dimensión (read vs change). El portal de transparencia del cliente afectado lo ve como "El admin X abrió el WP-admin de tu app appId el día Y" (vs el log de change "El admin X ejecutó la action open_app_admin sobre el service Z").
+
+Cuando F.10.x sume actions admin sobre apps (DC.NEW-53 — update_app_version, install_plugin, set_default_wp_sso_user), el predicado canónico se generaliza a "cualquier action que opere sobre sub-recurso identificado por `payload.appId`". Patrón heredable.

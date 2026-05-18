@@ -1274,7 +1274,8 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
         message: 'plugin.enhance_cp.actions.open_app_admin.success',
         data: {
           url: ssoUrl,
-          kind: 'sso',
+          appKind: 'wordpress',
+          urlKind: 'sso',
           opensIn: 'new_tab',
         },
       };
@@ -1294,7 +1295,8 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
         message: 'plugin.enhance_cp.actions.open_app_admin.success',
         data: {
           url: `${baseUrl}/administrator`,
-          kind: 'canonical',
+          appKind: 'joomla',
+          urlKind: 'canonical',
           opensIn: 'new_tab',
         },
       };
