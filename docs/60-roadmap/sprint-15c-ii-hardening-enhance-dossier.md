@@ -2912,22 +2912,11 @@ git checkout -b sprint15c-ii-fase-f11-service-conveniences
 - Razón doctrinal del "peor estado" agregado: el badge resume CUALQUIER problema operativo del plugin para este service. Si `executeAction` está open pero `getServiceInfo` cerrado, las acciones del admin fallarán fail-fast — el badge dice "caído" para que el admin abra el detalle F.2 y decida (esperar reset, reset manual, investigar plugin config).
 
 **R4 (resolución Q4) — Whitelist de plantillas declarada EN EL BACKEND (defense-in-depth).**
-- Constante exportada canónica: `NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE` en `backend/src/modules/notifications/notification-resend.constants.ts` (módulo dedicado para que la importen tanto el service como el spec sin atravesar boundaries arbitrarios). Contenido frozen:
-  ```ts
-  export const NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE = [
-    'service.suspended',
-    'service.unsuspended',
-    'service.cancelled',
-    'service.password_reset',
-    'service.quota_threshold_crossed',
-  ] as const;
-  export type ServiceLifecycleTemplateKey =
-    typeof NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE[number];
-  ```
+- Constante exportada canónica: `NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE` en `backend/src/modules/notifications/notification-resend.constants.ts` (módulo dedicado para que la importen tanto el service como el spec sin atravesar boundaries arbitrarios).
+- **Whitelist V1 frozen (post Amendment I — ver al final §A.11.10.8.2)**: 3 plantillas — `service.suspended`, `service.unsuspended`, `service.cancelled`. **NO incluye `service.password_reset` ni `service.quota_threshold_crossed`** (ver Amendment I para razones rigurosas).
 - El endpoint `POST /admin/services/:id/notifications/resend` valida vía `class-validator` (`@IsIn(NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE)`); cualquier `template_key` fuera de la lista → `400 INVALID_TEMPLATE_KEY` con mensaje "Plantilla no permitida para reenvío admin". El frontend solo refleja la misma lista (hardcoded en el modal) pero **el enforce real vive en el backend**: un cliente con curl al endpoint NO puede enviar plantillas arbitrarias (ej. `task.assigned` → spam al cliente con contexto inválido, o `auth.refresh_replay_detected` → expone telemetría interna).
 - Razón canónica: separación frontend ↔ backend rigurosa (defense-in-depth). El frontend es UX, no enforcement. La lista frozen R4 deriva de los listeners de service-lifecycle existentes (Fase F.1-F.8); plantillas como `service.action_executed` quedan fuera porque son transaccionales sin sentido de reenvío manual; `service.admin_sso_impersonation` queda fuera porque es admin-only (audit interno, NO se reenvía al cliente).
-- **NO incluida**: `service.password_reset` ES reenviable (admin puede ayudar al cliente que perdió el email original) PERO requiere que el orquestador re-genere un OTP fresh — el endpoint resend para esa plantilla específica delega en el flow canónico de reset password (Sprint 15C.II Fase D), NO solo re-renderiza con OTP histórico expirado. Decisión frozen: F.11.2 **incluye `service.password_reset` en la whitelist** porque coherente UX ("admin reenvía la última notificación") pero la lógica de payload re-fetch en el endpoint cubre el caso especial (re-emite invocando el listener canónico de password_reset si la plantilla lo es, sino re-renderiza directamente). Mapeo de payload "fresh" per template lo gestiona el endpoint vía un dispatcher interno con un map `{ template_key → buildPayloadFn(service) }`.
-- Razón secundaria: tests del enforce. El spec `notification-resend.security.spec.ts` puede verificar el rechazo de plantillas no whitelisted con bypass curl-style (heredado patrón `notification-templates.security.spec.ts`).
+- Razón secundaria: tests del enforce. El spec `notification-resend.service.spec.ts` verifica el rechazo de plantillas no whitelisted con curl-style bypass (test `R4 defense-in-depth → 400 INVALID_TEMPLATE_KEY`).
 
 **R5 (resolución Q5) — Audit per-template en `audit_access_log.metadata` (cero schema change).**
 - Endpoint anotado con `@AuditAccess('Service')` (interceptor canónico Sprint 9 Fase E). El interceptor produce una fila base con `entity_type='Service'`, `entity_id=service.id`, `actor_user_id`, `action='resend_notification'`, `metadata = { ... }`. F.11.2 enriquece `metadata` con:
@@ -2978,6 +2967,29 @@ git checkout -b sprint15c-ii-fase-f11-service-conveniences
 - **Audit `metadata.<key>` JSON path es el patrón canónico** para sub-recursos identificables sin schema change (ADR-077 A9.7 frozen en F.10 R6, extendido en F.11 R5 a "múltiples sub-recursos en el mismo audit row"). Heredable a 15D RC / 15E Docker / 15G Plesk.
 - **Defense-in-depth en endpoints admin**: enforcement de whitelist/policies SIEMPRE en backend, NUNCA solo en frontend. Coherente con doctrina general (R5 ADR-078 cookies httpOnly, ADR-017 audit per-access, ADR-080 framework de plugins).
 - **Reenvío de notificación NO crea ClientNote**: ClientNote captura intención humana persistente del lifecycle (ADR-079 — F.6 frozen). Reenviar una notificación es operativo/audit (ya existente lifecycle, sin nueva intención humana). El audit log canónico (R5) es la fuente de verdad. Heredable: cualquier feature admin tipo "re-dispatch operativo" sigue el patrón audit-only.
+
+**Amendment I 2026-05-18 — whitelist V1 con 3 plantillas en vez de 5 (descubierto durante implementación)**
+
+Durante la implementación del `NotificationResendService` (commit feat F.11.2 [`94ecca0`](https://github.com/yasmindanailov/dashboard/commit/94ecca0)) se descubrió que las 2 plantillas adicionales del R4 original (5 plantillas) requieren tratamiento especial que excedería el scope F.11. L18 frozen — mejora descubierta = Amendment, no desvío silencioso.
+
+**Whitelist V1 frozen (3 plantillas)** que reemplaza el R4 original:
+```ts
+export const NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE = [
+  'service.suspended',
+  'service.unsuspended',
+  'service.cancelled',
+] as const;
+```
+
+**Plantillas EXCLUIDAS de V1 con razones rigurosas**:
+
+- **`service.password_reset` excluida** — esta plantilla cabalga sobre un flow propio con generación de OTP fresh (Sprint 15C.II Fase D). El admin que quiera "ayudar al cliente que perdió el email original" debe disparar la **action `reset_account_password`** sobre el servicio (que ya regenera OTP fresh end-to-end). Re-renderizar la plantilla con OTP histórico expirado degradaría UX ("código no válido"). Coherente con doctrina F.4 A1 (lifecycle administrativo vs operacional).
+
+- **`service.quota_threshold_crossed` excluida** — el payload canónico requiere snapshot in-flight de `used_pct` / `used_mb` / `total_mb` del proveedor que NO deriva del Service entity (vive en la lectura `getServiceInfo.metrics` cacheada o en la última fila `ServiceQuotaAlert`, ambas con TTL distintos al evento original). Reenviar con datos desactualizados ("87% lleno" cuando ahora está al 92%) confundiría al cliente. Apuntado como sub-feature futura **DC.NEW-55**: reusar el último `ServiceQuotaAlert(kind='crossed_up')` como snapshot persistido + dispatcher per template, sin tocar el contrato whitelist.
+
+**Apuntado al backlog DC.NEW-55** durante post-merge sync (housekeeping post-15C.II): Quota threshold reenvío con snapshot persistido (extiende whitelist V1).
+
+**Heredabilidad de la doctrina**: L18 frozen — la whitelist V1 frozen está pensada para escalar additivamente. Cualquier plantilla de service-lifecycle nueva que cumpla "payload deriva trivialmente del Service entity" puede sumar a la constante sin tocar la lógica del dispatcher. Plantillas con side-effects (OTP, snapshots) requieren handling especial y NO se añaden directamente.
 
 ### A.11.10.9. Fase F.12 — Layout canónico (página de servicio + páginas de plugins)
 
