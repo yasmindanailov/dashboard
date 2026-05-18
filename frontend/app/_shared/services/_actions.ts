@@ -519,3 +519,50 @@ export async function reconcileServiceAction(
     };
   }
 }
+
+/* ═══════════════════════════════════════
+   Sprint 15C.II Fase F.11.2 (R2+R4+R5 frozen §A.11.10.8.2 + Amendment I) —
+   reenviar al cliente notificación de service-lifecycle desde admin.
+
+   Whitelist canónica de 3 plantillas (re-render fresh contra el estado
+   actual del Service; defense-in-depth backend valida @IsIn → 400 si
+   plantilla no whitelisted; audit metadata enriquecida sin PII).
+   ═══════════════════════════════════════ */
+
+export type ServiceLifecycleTemplateKey =
+  | 'service.suspended'
+  | 'service.unsuspended'
+  | 'service.cancelled';
+
+export type ResendNotificationResult =
+  | {
+      ok: true;
+      template_key: ServiceLifecycleTemplateKey;
+      dispatched_to_user_id: string;
+    }
+  | { ok: false; error: string };
+
+export async function resendNotificationAction(
+  serviceId: string,
+  templateKey: ServiceLifecycleTemplateKey,
+): Promise<ResendNotificationResult> {
+  try {
+    const result = await serverFetch<{
+      ok: true;
+      template_key: ServiceLifecycleTemplateKey;
+      dispatched_to_user_id: string;
+    }>(`/admin/services/${serviceId}/notifications/resend`, {
+      method: 'POST',
+      body: { template_key: templateKey },
+    });
+    return result;
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo reenviar la notificación.',
+    };
+  }
+}

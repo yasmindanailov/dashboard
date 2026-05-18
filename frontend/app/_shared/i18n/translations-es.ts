@@ -548,4 +548,31 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
     'Estado del breaker en esta instancia del backend',
   'service.provider_health.tooltip_no_breakers':
     'Sin actividad reciente — las operaciones cross-cutting del plugin no se han invocado en esta instancia.',
+
+  // ── Sprint 15C.II Fase F.11.2 (R2+R4+R5 frozen §A.11.10.8.2 + Amendment I) ──
+  //    Card admin "Reenviar notificación al cliente" + modal con select de
+  //    whitelist canónica de 3 plantillas de service-lifecycle.
+  'service.notifications.resend.card_title': 'Reenviar notificación al cliente',
+  'service.notifications.resend.card_description':
+    'Envía de nuevo al cliente la última notificación de cambio de estado (suspensión, reactivación o cancelación). Re-renderizada con el estado actual del servicio.',
+  'service.notifications.resend.card_button': 'Reenviar notificación…',
+  'service.notifications.resend.modal_title': 'Reenviar notificación al cliente',
+  'service.notifications.resend.modal_help_prefix':
+    'Se enviará al cliente la plantilla seleccionada con el contexto actual del servicio ',
+  'service.notifications.resend.modal_help_suffix':
+    '. Útil cuando el cliente reporta no haber recibido el email original o necesita una copia.',
+  'service.notifications.resend.template_field_label': 'Plantilla a reenviar *',
+  'service.notifications.resend.template_field_help':
+    'Solo se permiten plantillas de cambio de estado del servicio. El contenido se re-renderiza con los datos actuales.',
+  'service.notifications.resend.template_label.suspended':
+    'Servicio suspendido',
+  'service.notifications.resend.template_label.unsuspended':
+    'Servicio reactivado',
+  'service.notifications.resend.template_label.cancelled':
+    'Servicio cancelado',
+  'service.notifications.resend.cancel': 'Cancelar',
+  'service.notifications.resend.submit': 'Reenviar al cliente',
+  'service.notifications.resend.submitting': 'Reenviando…',
+  'service.notifications.resend.toast_success_prefix':
+    'Notificación reenviada al cliente · plantilla: ',
 });

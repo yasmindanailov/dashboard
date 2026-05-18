@@ -50,6 +50,7 @@ import { AdminProviderStateDesyncBanner } from './_components/AdminProviderState
 import { AdminServiceDataCard } from './_components/AdminServiceDataCard';
 import { AdminServiceOperationsCard } from './_components/AdminServiceOperationsCard';
 import { ProviderHealthBadge } from './_components/ProviderHealthBadge';
+import { ResendNotificationCard } from './_components/ResendNotificationCard';
 import { ServiceNotesCard } from './_components/ServiceNotesCard';
 
 interface PageProps {
@@ -494,6 +495,17 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
           serviceDisplayName={info.display.primary}
         />
       )}
+
+      {/* Sprint 15C.II Fase F.11.2 (R2+R4+R5 frozen §A.11.10.8.2 + Amendment I):
+          reenviar al cliente notificación de service-lifecycle (whitelist
+          canónica de 3 plantillas; re-render fresh). Admin-only — el cliente
+          no tiene este botón. Visible incluso si terminal (ahí también puede
+          interesar reenviar el "tu servicio fue cancelado" si el cliente
+          reclama no haber recibido el original). */}
+      <ResendNotificationCard
+        serviceId={service.id}
+        serviceDisplayName={info.display.primary}
+      />
 
       {/* Sprint 15C.II Fase F.6 (§F.6.3) — historial de notas operativas del
           servicio (cancel/suspend/unsuspend, manual o automático del cron).
