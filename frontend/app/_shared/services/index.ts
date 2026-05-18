@@ -11,6 +11,8 @@ export { MetricsBar } from './MetricsBar';
 export { ActionsBar } from './ActionsBar';
 export { SsoButton } from './SsoButton';
 export { SslStatusCard } from './SslStatusCard';
+export { AppShortcutsCard } from './AppShortcutsCard';
+export { AppShortcutButton } from './AppShortcutButton';
 export {
   SERVICE_STATUS_LABEL,
   SERVICE_STATUS_TONE,

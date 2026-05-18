@@ -479,6 +479,100 @@ export interface EnhancePlansListing {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// 11.6 Apps CMS instaladas (Sprint 15C.II Fase F.10 — ADR-083 Amendment A9)
+// Spec line 9408 GET /orgs/{org}/websites/{w}/apps + line 19179 WebsiteApp
+// schema + line 18859 WebsiteAppsFullListing + line 10280 getWordpressInfo +
+// line 9838 getDefaultWpSsoUser + line 9945 getWordpressUserSsoUrl + line
+// 10255 getJoomlaInfo. Subset usado por la inline action canónica
+// `open_app_admin` (ADR-077 Amendment A9 + ADR-083 Amendment A9).
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Spec line 18683 — `WebsiteAppKind` enum cerrado en orchd actualmente:
+ * solo `'wordpress'` y `'joomla'`. El plugin lo mapea a `AppPresence.kind`
+ * string libre plugin-internal (ADR-077 Amendment A9.3 — el `kind` del
+ * contrato genérico es string libre para heredabilidad a futuros plugins
+ * con kinds adicionales). Para uniformidad con el enum del proveedor,
+ * el plugin Enhance solo emite estos dos hoy.
+ */
+export type EnhanceWebsiteAppKind = 'wordpress' | 'joomla';
+
+/**
+ * Spec WebsiteApp line 19179 — subset usado por el plugin v1 (Sprint
+ * 15C.II Fase F.10).
+ *
+ * Campos:
+ *   - `id` UUID de la app instalada (estable, sirve como `AppPresence.appId`).
+ *   - `app` enum del kind (WordPress / Joomla).
+ *   - `version` versión instalada (display-only).
+ *   - `path` subdirectorio si la app NO está en raíz; omitido si raíz (e.g.
+ *     WP en `/` no expone `path`; WP en `/blog` expone `path: 'blog'`).
+ *   - `defaultWpUserId` integer del WP user marcado como default SSO; solo
+ *     presente si está configurado (omitido si no hay default). Permite al
+ *     plugin omitir la action `open_app_admin` en `getServiceInfo()` sin
+ *     hacer una call extra a `getDefaultWpSsoUser` per-app (optimización
+ *     heredada de ADR-083 §4 decisión 13 — ownerMemberId cacheado).
+ */
+export interface EnhanceWebsiteApp {
+  readonly id: string;
+  readonly app: EnhanceWebsiteAppKind;
+  readonly version: string;
+  readonly path?: string;
+  readonly defaultWpUserId?: number;
+}
+
+/** Spec WebsiteAppsFullListing line 18859 — response GET /websites/{w}/apps. */
+export interface EnhanceWebsiteAppsFullListing {
+  readonly items: readonly EnhanceWebsiteApp[];
+}
+
+/**
+ * Spec WordPressInfo line 18993 — snapshot per-WP instalación.
+ * F.10 NO consume estos campos directamente (los stats UI son F.10.x —
+ * DC.NEW-51); el type se añade ahora al cliente para uso futuro sin refactor.
+ */
+export interface EnhanceWordPressInfo {
+  readonly version: string;
+  readonly site_url: string;
+  readonly plugin_count: number;
+  readonly user_count: number;
+  readonly has_woocommerce: boolean;
+}
+
+/**
+ * Spec JoomlaInfo line 18976 — snapshot per-Joomla instalación.
+ * F.10 consume `site_url` para construir la URL canónica
+ * `${site_url}/administrator`. Los detalles `plugin_count`/`user_count`
+ * se reservan para F.10.x stats UI (DC.NEW-51).
+ */
+export interface EnhanceJoomlaInfo {
+  readonly version: string;
+  readonly site_url: string;
+  readonly plugin_count: number;
+  readonly user_count: number;
+}
+
+/**
+ * Spec WpUser schema (referenced from line 9859 + line 9883) — subset usado:
+ * solo `id` para encadenar el flow `getDefaultWpSsoUser` →
+ * `getWordpressUserSsoUrl(userId)`. Los demás campos del schema (username,
+ * email, role, capabilities) son F.10.x stats UI.
+ */
+export interface EnhanceWpUser {
+  readonly id: number;
+  readonly username?: string;
+  readonly email?: string;
+}
+
+/**
+ * Spec response GET /apps/{appId}/wordpress/users/{userId}/sso (line 9945).
+ * Devuelve string plano: la URL SSO completa al WP-admin del user.
+ *
+ * El plugin NO la cachea (one-shot/short-TTL — gestionado por Enhance).
+ */
+export type EnhanceWordpressUserSsoUrl = string;
+
+// ────────────────────────────────────────────────────────────────────────────
 // 12. Generic POST response (id wrapper)
 // ────────────────────────────────────────────────────────────────────────────
 

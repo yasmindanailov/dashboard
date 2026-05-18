@@ -104,6 +104,11 @@ import {
   EnhanceUsedResourcesFullListing,
   EnhanceVersionResponse,
   EnhanceWebsite,
+  EnhanceWebsiteAppsFullListing,
+  EnhanceWordPressInfo,
+  EnhanceWpUser,
+  EnhanceWordpressUserSsoUrl,
+  EnhanceJoomlaInfo,
   LoginId,
   MasterOrgId,
   MemberId,
@@ -480,6 +485,114 @@ export class EnhanceApiClient {
       }
       throw err;
     }
+  }
+
+  // ─── 6ter. Apps CMS instaladas (Sprint 15C.II Fase F.10 — ADR-083 A9) ───
+
+  /**
+   * GET /orgs/{org}/websites/{ws}/apps — lista apps CMS instaladas en una
+   * website. Sirve para poblar `ServiceInfo.apps?: AppPresence[]` en
+   * `getServiceInfo()` ([ADR-077 Amendment A9](../../../../../docs/10-decisions/adr-077-contrato-provisioner-plugin-v2.md)).
+   *
+   * Returns `WebsiteAppsFullListing { items: WebsiteApp[] }`. Si el website
+   * NO tiene apps instaladas, el response es `{ items: [] }` (200, NO 404).
+   *
+   * El campo opcional `WebsiteApp.defaultWpUserId?` permite al plugin
+   * decidir si la action `'open_app_admin'` está disponible para una
+   * instalación WP sin hacer una call extra a `getDefaultWpSsoUser`
+   * (optimización heredada de ADR-083 §4 decisión 13 — ownerMemberId
+   * cacheado en `enhance_customers`).
+   */
+  async getWebsiteApps(
+    orgId: CustomerOrgId,
+    websiteId: WebsiteId,
+  ): Promise<EnhanceWebsiteAppsFullListing> {
+    return this.http.get<EnhanceWebsiteAppsFullListing>(
+      `/orgs/${encodeURIComponent(orgId)}/websites/${encodeURIComponent(websiteId)}/apps`,
+    );
+  }
+
+  /**
+   * GET /orgs/{org}/websites/{ws}/apps/{appId}/wordpress/info — snapshot
+   * per-WP instalación. Sprint 15C.II Fase F.10 NO consume el resultado
+   * directamente (los stats UI son F.10.x — `DC.NEW-51`); el método se
+   * añade ahora al cliente para uso futuro sin refactor.
+   */
+  async getWordpressInfo(
+    orgId: CustomerOrgId,
+    websiteId: WebsiteId,
+    appId: string,
+  ): Promise<EnhanceWordPressInfo> {
+    return this.http.get<EnhanceWordPressInfo>(
+      `/orgs/${encodeURIComponent(orgId)}/websites/${encodeURIComponent(websiteId)}/apps/${encodeURIComponent(appId)}/wordpress/info`,
+    );
+  }
+
+  /**
+   * GET /orgs/{org}/websites/{ws}/apps/{appId}/wordpress/users/default —
+   * devuelve el WP user marcado como default SSO. Returns `null` si el
+   * endpoint responde 404 (no hay default user configurado — caso "WP sin
+   * default user", el frontend renderiza el atajo disabled con tooltip).
+   *
+   * Re-lanza `ProvisionerPluginError` en otros errores (autenticación, red,
+   * 5xx) para que el caller los capture y degrade. Mismo patrón defensivo
+   * que `getDomainSsl` (Sprint 15C.II Fase F.7 — ADR-083 Amendment A8).
+   */
+  async getDefaultWpSsoUser(
+    orgId: CustomerOrgId,
+    websiteId: WebsiteId,
+    appId: string,
+  ): Promise<EnhanceWpUser | null> {
+    try {
+      return await this.http.get<EnhanceWpUser>(
+        `/orgs/${encodeURIComponent(orgId)}/websites/${encodeURIComponent(websiteId)}/apps/${encodeURIComponent(appId)}/wordpress/users/default`,
+      );
+    } catch (err) {
+      if (
+        err instanceof ProvisionerPluginError &&
+        err.code === 'INVALID_STATE'
+      ) {
+        return null;
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * GET /orgs/{org}/websites/{ws}/apps/{appId}/wordpress/users/{userId}/sso
+   * — devuelve URL SSO al WP-admin del user específico. Returns string
+   * plano (la URL completa con token de session WP).
+   *
+   * El plugin NO la cachea (one-shot/short-TTL — gestionado por Enhance).
+   * Llamado fresh on-demand dentro de `executeAction('open_app_admin')`
+   * cuando el cliente clickea el atajo del frontend.
+   */
+  async getWordpressUserSsoUrl(
+    orgId: CustomerOrgId,
+    websiteId: WebsiteId,
+    appId: string,
+    userId: number,
+  ): Promise<EnhanceWordpressUserSsoUrl> {
+    return this.http.get<EnhanceWordpressUserSsoUrl>(
+      `/orgs/${encodeURIComponent(orgId)}/websites/${encodeURIComponent(websiteId)}/apps/${encodeURIComponent(appId)}/wordpress/users/${encodeURIComponent(String(userId))}/sso`,
+    );
+  }
+
+  /**
+   * GET /orgs/{org}/websites/{ws}/apps/{appId}/joomla/info — snapshot
+   * per-Joomla instalación. Sprint 15C.II Fase F.10 consume `site_url`
+   * para construir la URL canónica `${site_url}/administrator` (no hay
+   * SSO Joomla documentado en orchd). Los detalles plugin_count/user_count
+   * se reservan para F.10.x stats UI (`DC.NEW-51`).
+   */
+  async getJoomlaInfo(
+    orgId: CustomerOrgId,
+    websiteId: WebsiteId,
+    appId: string,
+  ): Promise<EnhanceJoomlaInfo> {
+    return this.http.get<EnhanceJoomlaInfo>(
+      `/orgs/${encodeURIComponent(orgId)}/websites/${encodeURIComponent(websiteId)}/apps/${encodeURIComponent(appId)}/joomla/info`,
+    );
   }
 
   // ─── 7. DNS records per-zone (Fase G UI 7 record kinds) ─────────────────

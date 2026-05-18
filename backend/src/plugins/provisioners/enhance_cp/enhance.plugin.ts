@@ -65,6 +65,7 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import {
   ActionResult,
   ActionSideEffect,
+  AppPresence,
   ClientPublicData,
   DeprovisionContext,
   PROVISIONER_PLUGIN_CONTRACT_VERSION,
@@ -99,6 +100,7 @@ import {
   EnhanceSubscription,
   EnhanceUsedResourcesFullListing,
   EnhanceWebsite,
+  EnhanceWebsiteApp,
   EnhanceWebsiteStatus,
 } from './api';
 import { EnhanceCustomersService } from './enhance-customers.service';
@@ -375,6 +377,25 @@ const ENHANCE_INLINE_ACTIONS: readonly ServiceAction[] = [
     destructive: false,
     adminOnly: true,
   },
+  // Sprint 15C.II Fase F.10 — ADR-077 Amendment A9 + ADR-083 Amendment A9
+  // (2026-05-18). Action canónica `open_app_admin` con slug fijo + payload
+  // discriminator `{ appId }`. El plugin internamente discrimina por kind:
+  //   - kind='wordpress' → SSO contractual via getWordpressUserSsoUrl
+  //   - kind='joomla'    → URL canónica ${site_url}/administrator
+  // El plugin emite la URL fresh on-demand en ActionResult.data — NO se
+  // cachea (SSO one-shot, canónicas re-generadas para consistencia).
+  // NO destructive, NO confirmRequired, NO adminOnly (cliente self-service:
+  // abrir admin de SU app). El frontend renderiza el atajo per-app desde
+  // `info.apps[].actions[]` (NO desde `info.availableActions[]` — D4 frozen
+  // §A.11.10.7.2 — separación entre acciones del servicio entero y acciones
+  // de una instalación específica).
+  {
+    slug: 'open_app_admin',
+    label: 'plugin.enhance_cp.actions.open_app_admin.label',
+    description: 'plugin.enhance_cp.actions.open_app_admin.description',
+    confirmRequired: false,
+    destructive: false,
+  },
 ];
 
 const ENHANCE_CAPABILITIES: PluginCapabilities = {
@@ -640,26 +661,41 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     // sin ssl). Sprint 15C.II Fase F.7 (ADR-083 A8.3): `getWebsite` se añade
     // al Promise.all para luego encadenar `getDomainSsl(website.domain.id)`
     // — el sub-fetch SSL depende del website y va fuera del Promise.all.
-    const [subscription, bandwidth, resources, website] = await Promise.all([
-      api.getSubscription(refs.orgId, refs.subscriptionId).catch((err) => {
-        if (
-          err instanceof ProvisionerPluginError &&
-          err.code === 'INVALID_STATE'
-        ) {
-          return null;
-        }
-        throw err;
-      }),
-      api
-        .getSubscriptionBandwidth(refs.orgId, refs.subscriptionId)
-        .catch(() => null),
-      api
-        .calculateResourceUsage(refs.orgId, refs.subscriptionId)
-        .catch(() => null),
-      websiteId
-        ? api.getWebsite(refs.orgId, websiteId).catch(() => null)
-        : Promise.resolve(null),
-    ]);
+    // Sprint 15C.II Fase F.10 (ADR-083 Amendment A9.3): se añade
+    // `getWebsiteApps` al Promise.all. Fail-soft: si el endpoint falla, las
+    // apps NO bloquean el resto del getServiceInfo (heredado patrón de
+    // bandwidth/resources/website). El plugin omite el campo `apps` cuando
+    // el resultado es `null` o `items.length === 0` (capability-driven por
+    // presencia — ADR-077 Amendment A9.4).
+    const [subscription, bandwidth, resources, website, websiteAppsListing] =
+      await Promise.all([
+        api.getSubscription(refs.orgId, refs.subscriptionId).catch((err) => {
+          if (
+            err instanceof ProvisionerPluginError &&
+            err.code === 'INVALID_STATE'
+          ) {
+            return null;
+          }
+          throw err;
+        }),
+        api
+          .getSubscriptionBandwidth(refs.orgId, refs.subscriptionId)
+          .catch(() => null),
+        api
+          .calculateResourceUsage(refs.orgId, refs.subscriptionId)
+          .catch(() => null),
+        websiteId
+          ? api.getWebsite(refs.orgId, websiteId).catch(() => null)
+          : Promise.resolve(null),
+        websiteId
+          ? api.getWebsiteApps(refs.orgId, websiteId).catch((err) => {
+              this.logger.warn(
+                `getWebsiteApps service=${service.id} websiteId=${websiteId} failed: ${err instanceof Error ? err.message : 'unknown error'}`,
+              );
+              return null;
+            })
+          : Promise.resolve(null),
+      ]);
 
     if (!subscription) {
       return this.buildUnknownInfo(
@@ -678,6 +714,17 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     // Si el endpoint orchd responde 404 (no hay cert), devuelve
     // `{ status: 'none' }` para que la UI lo muestre como estado real.
     const ssl = await buildSslSummary(api, website);
+
+    // Sprint 15C.II Fase F.10 (ADR-077 Amendment A9 + ADR-083 Amendment A9):
+    // construir `AppPresence[]` desde el listado del proveedor. Capability-
+    // driven por presencia: si el listado es null (fail-soft del Promise.all)
+    // o vacío, el plugin OMITE el campo `apps` del ServiceInfo (NO emite
+    // array vacío misleading).
+    const apps: readonly AppPresence[] | undefined =
+      websiteAppsListing && websiteAppsListing.items.length > 0
+        ? websiteAppsListing.items.map((app) => buildAppPresence(app))
+        : undefined;
+
     const availableActions = filterActionsByStatus(this.inlineActions, status);
 
     // Sprint 15C.II Fase E — ADR-083 Amendment A5.2 (drift de plan): si el
@@ -725,6 +772,7 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
       },
       metrics,
       ssl,
+      apps,
       capabilities: {
         ...this.capabilities,
         hasSsoPanel: true,
@@ -822,6 +870,10 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
         return this.actionSuspendService(api, refs);
       case 'unsuspend_service':
         return this.actionUnsuspendService(api, refs);
+
+      // Sprint 15C.II Fase F.10 — ADR-077 Amendment A9 + ADR-083 Amendment A9
+      case 'open_app_admin':
+        return this.actionOpenAppAdmin(api, refs, service, payload);
 
       default:
         // Defensive: shouldn't reach (declared check above).
@@ -1126,6 +1178,134 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     };
   }
 
+  /**
+   * Sprint 15C.II Fase F.10 — ADR-077 Amendment A9 + ADR-083 Amendment A9.
+   *
+   * Abre el admin de una app CMS instalada (WordPress o Joomla) en una
+   * pestaña nueva. Slug fijo `'open_app_admin'` + payload discriminator
+   * `{ appId: string }`. Dispatcher interno por `app.app` kind:
+   *
+   *   - kind='wordpress' → SSO contractual via getDefaultWpSsoUser +
+   *     getWordpressUserSsoUrl. Returns ActionResult.data con
+   *     { url: <SSO URL>, kind: 'sso', opensIn: 'new_tab' }.
+   *
+   *   - kind='joomla' → URL canónica `${site_url}/administrator` derivada
+   *     de getJoomlaInfo. Returns ActionResult.data con
+   *     { url: <URL canónica>, kind: 'canonical', opensIn: 'new_tab' }.
+   *
+   * Errores semánticos:
+   *   - App `appId` no existe en la website → INVALID_STATE.
+   *   - WP sin default user configurado (404 defensive) → INVALID_STATE
+   *     (esto NO debería pasar — el frontend filtra el botón disabled
+   *     leyendo `actions: []` de getServiceInfo; este path solo se alcanza
+   *     si el cliente fuerza el call vía curl).
+   *   - Kind no soportado (defensive — futuros kinds desconocidos) →
+   *     NOT_IMPLEMENTED.
+   *
+   * El plugin NO emite eventos ni invalida cache — la action es read-only
+   * desde el punto de vista del proveedor (genera URL fresh on-demand) y
+   * NO requiere cache invalidation. Audit per-app (R6 frozen — ADR-077
+   * A9.7) se añade en la capa orquestador (ProvisioningService.executeAction
+   * o capa equivalente del flow admin).
+   */
+  private async actionOpenAppAdmin(
+    api: EnhanceApiClient,
+    refs: ServiceEnhanceRefs,
+    service: ServiceWithRelations,
+    payload: Record<string, unknown>,
+  ): Promise<ActionResult> {
+    // 1. Validar payload `{ appId: string }`.
+    const appId = payload?.appId;
+    if (typeof appId !== 'string' || appId.length === 0) {
+      throw new ProvisionerPluginError(
+        `action "open_app_admin" requires payload.appId (string).`,
+        'INVALID_PAYLOAD',
+        false,
+      );
+    }
+
+    // 2. Resolver websiteId desde metadata (sin ello no podemos enumerar apps).
+    const websiteId = extractWebsiteId(service);
+    if (!websiteId) {
+      throw new ProvisionerPluginError(
+        `Service ${service.id} has no enhance_website_id in metadata — cannot open app admin.`,
+        'INVALID_STATE',
+        false,
+      );
+    }
+
+    // 3. Re-query las apps del website para localizar `appId` (no cacheamos
+    //    — las apps pueden cambiar runtime; el listado es ligero).
+    const appsListing = await api.getWebsiteApps(refs.orgId, websiteId);
+    const app = appsListing.items.find((a) => a.id === appId);
+    if (!app) {
+      throw new ProvisionerPluginError(
+        `App ${appId} not found in website ${websiteId}.`,
+        'INVALID_STATE',
+        false,
+      );
+    }
+
+    // 4. Dispatcher por kind (ADR-083 Amendment A9.2).
+    if (app.app === 'wordpress') {
+      const defaultUser = await api.getDefaultWpSsoUser(
+        refs.orgId,
+        websiteId,
+        app.id,
+      );
+      if (!defaultUser) {
+        // Defensive: el frontend ya gateó el botón disabled (getServiceInfo
+        // emite `actions: []` cuando `defaultWpUserId` está ausente del
+        // listado). Este path solo si el cliente forzó el call vía curl.
+        throw new ProvisionerPluginError(
+          `WordPress default SSO user not configured for app ${appId}.`,
+          'INVALID_STATE',
+          false,
+        );
+      }
+      const ssoUrl = await api.getWordpressUserSsoUrl(
+        refs.orgId,
+        websiteId,
+        app.id,
+        defaultUser.id,
+      );
+      return {
+        success: true,
+        message: 'plugin.enhance_cp.actions.open_app_admin.success',
+        data: {
+          url: ssoUrl,
+          appKind: 'wordpress',
+          urlKind: 'sso',
+          opensIn: 'new_tab',
+        },
+      };
+    }
+
+    if (app.app === 'joomla') {
+      const joomlaInfo = await api.getJoomlaInfo(refs.orgId, websiteId, app.id);
+      // Normaliza trailing slash + concatena /administrator (URL canónica
+      // del CMS Joomla desde 2005 — ADR-083 A9.1 doctrina).
+      const baseUrl = joomlaInfo.site_url.replace(/\/$/, '');
+      return {
+        success: true,
+        message: 'plugin.enhance_cp.actions.open_app_admin.success',
+        data: {
+          url: `${baseUrl}/administrator`,
+          appKind: 'joomla',
+          urlKind: 'canonical',
+          opensIn: 'new_tab',
+        },
+      };
+    }
+
+    // 5. Kind desconocido (defensive — futuros kinds soportados por orchd).
+    throw new ProvisionerPluginError(
+      `App kind "${String(app.app)}" not supported by open_app_admin (Enhance F.10).`,
+      'NOT_IMPLEMENTED',
+      false,
+    );
+  }
+
   // ─── Internal: API client construction & caching ───────────────────────
 
   /**
@@ -1340,6 +1520,79 @@ export function mapWebsiteStatus(ws: EnhanceWebsiteStatus): ServiceInfoStatus {
     default:
       return 'unknown';
   }
+}
+
+// ─── F.10 Apps helpers (Sprint 15C.II — ADR-077 A9 + ADR-083 A9) ────────
+
+/**
+ * Mapea un `EnhanceWebsiteApp` del listado del proveedor a `AppPresence`
+ * (shape contractual genérico de ADR-077 Amendment A9).
+ *
+ * Decide si la action `'open_app_admin'` está disponible para esta
+ * instalación según el kind:
+ *   - WordPress: requiere `defaultWpUserId` presente en el listado.
+ *     Si falta (i.e. el cliente NO ha configurado un default SSO user
+ *     en el panel) → `actions: []` → frontend renderiza atajo DISABLED
+ *     con tooltip + CTA al panel via `SsoButton` existente.
+ *   - Joomla: siempre disponible (URL canónica `${site_url}/administrator`
+ *     no requiere user configurado — el cliente entra con sus credenciales).
+ *   - Kinds futuros (no presentes hoy en orchd): default sin actions
+ *     (defensive — heredabilidad sin breaking changes).
+ *
+ * Heredabilidad (ADR-077 A9.9 §"plugins futuros"): plugins SaaS que añadan
+ * apps suman cases aquí o copian el patrón con sus propios kinds. El shape
+ * genérico `AppPresence` queda intacto.
+ */
+function buildAppPresence(app: EnhanceWebsiteApp): AppPresence {
+  const baseLabel =
+    app.app === 'wordpress'
+      ? 'plugin.enhance_cp.apps.wordpress'
+      : app.app === 'joomla'
+        ? 'plugin.enhance_cp.apps.joomla'
+        : 'plugin.enhance_cp.apps.unknown';
+
+  // El kind del contrato genérico es string libre plugin-internal (D2/R3
+  // frozen §A.11.10.7.2). Aquí solo emitimos los kinds que orchd reporta
+  // hoy ('wordpress' | 'joomla'); futuros se añaden sin amendment.
+  const kind: string = app.app;
+
+  // Determinar si 'open_app_admin' está disponible per kind.
+  const openAdminAction: ServiceAction = {
+    slug: 'open_app_admin',
+    label: 'plugin.enhance_cp.actions.open_app_admin.label',
+    description: 'plugin.enhance_cp.actions.open_app_admin.description',
+    confirmRequired: false,
+    destructive: false,
+  };
+
+  let actions: readonly ServiceAction[] = [];
+  if (app.app === 'wordpress') {
+    // WP: requiere default user configurado (optimización ADR-083 A9.3 —
+    // el field opcional del listado evita call extra a getDefaultWpSsoUser
+    // per-app en getServiceInfo).
+    if (app.defaultWpUserId !== undefined) {
+      actions = [openAdminAction];
+    }
+  } else if (app.app === 'joomla') {
+    // Joomla: siempre disponible (URL canónica del CMS Joomla desde 2005).
+    actions = [openAdminAction];
+  }
+  // Kinds futuros: default `actions: []` defensive — el frontend renderiza
+  // disabled state hasta que el plugin se actualice para soportar el kind.
+
+  const presence: AppPresence = {
+    appId: app.id,
+    kind,
+    label: baseLabel,
+    version: app.version,
+    actions,
+  };
+
+  // Path opcional (omitido si la app está en raíz — el OAS lo declara así).
+  if (app.path !== undefined && app.path.length > 0) {
+    return { ...presence, path: app.path };
+  }
+  return presence;
 }
 
 function buildMetrics(

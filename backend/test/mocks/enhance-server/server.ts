@@ -46,6 +46,7 @@ import {
   EnhanceDnsRecord,
   EnhanceDnsRecordKind,
   EnhanceDnsZone,
+  EnhanceJoomlaInfo,
   EnhanceLoginInfo,
   EnhanceMember,
   EnhanceNewCustomer,
@@ -65,6 +66,9 @@ import {
   EnhanceUpdateWebsite,
   EnhanceUsedResourcesFullListing,
   EnhanceWebsite,
+  EnhanceWebsiteApp,
+  EnhanceWordPressInfo,
+  EnhanceWpUser,
 } from '../../../src/plugins/provisioners/enhance_cp/api/types';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -123,6 +127,40 @@ export interface MockEnhanceSeed {
    * `state.domainSsls.delete(domainId)` antes del test.
    */
   readonly domainSsls?: Readonly<Record<string, EnhanceDomainSslCert>>;
+
+  /**
+   * Sprint 15C.II Fase F.10 — ADR-083 Amendment A9.4.
+   *
+   * Apps CMS instaladas pre-sembradas por `websiteId`. La **ausencia** de
+   * entrada para un websiteId equivale a "el website existe pero no tiene
+   * apps instaladas" → GET /apps responde 200 con `{items: []}`.
+   *
+   * NO se auto-siembra en `POST /websites` — las apps las instala el
+   * cliente explícitamente en el panel (o via F.10.y futuro install desde
+   * dashboard, `DC.NEW-52`). Tests que necesiten apps las semillan con
+   * `seed.websiteApps[websiteId] = [...]` o las añaden runtime via
+   * `state.websiteApps.set(websiteId, [...])`.
+   *
+   * Mapa también de WP users por `appId` cuando aplique — el mock devuelve
+   * el primer user del array como "default SSO user" si el `WebsiteApp`
+   * lleva `defaultWpUserId` (espejo del listado de orchd).
+   */
+  readonly websiteApps?: Readonly<Record<string, readonly EnhanceWebsiteApp[]>>;
+
+  /**
+   * Sprint 15C.II Fase F.10 — ADR-083 Amendment A9.4 (overrides
+   * opcionales).
+   *
+   * Snapshots per-kind pre-sembrados por `appId` para los endpoints
+   * `getWordpressInfo` / `getJoomlaInfo`. Si no se siembran, el mock
+   * devuelve defaults sintéticos (version coherente con la del
+   * `WebsiteApp`, `site_url` derivado del primary domain del website
+   * que contenga la app, counts sintéticos).
+   */
+  readonly wordpressInfoByAppId?: Readonly<
+    Record<string, EnhanceWordPressInfo>
+  >;
+  readonly joomlaInfoByAppId?: Readonly<Record<string, EnhanceJoomlaInfo>>;
 }
 
 export interface MockEnhanceServerOptions {
@@ -212,6 +250,22 @@ export interface MockEnhanceState {
    * almacenan `null` aquí — `state.domainSsls.delete(domainId)` para "sin cert".
    */
   domainSsls: Map<string, EnhanceDomainSslCert>;
+  /**
+   * Sprint 15C.II Fase F.10 — ADR-083 Amendment A9.4.
+   * `websiteId` → lista de apps CMS instaladas (WordPress / Joomla).
+   * La **ausencia** de entrada equivale a "website sin apps" → GET /apps
+   * responde 200 con `{items: []}`. Las routes NO almacenan array vacío
+   * aquí; semantic equivalence — el GET handler normaliza.
+   */
+  websiteApps: Map<string, EnhanceWebsiteApp[]>;
+  /**
+   * Sprint 15C.II Fase F.10 — overrides opcionales per-app de WordPressInfo
+   * / JoomlaInfo. Si no hay entry para un `appId`, el handler devuelve un
+   * default sintético derivado del `WebsiteApp.version` + site_url del
+   * website padre.
+   */
+  wordpressInfoByAppId: Map<string, EnhanceWordPressInfo>;
+  joomlaInfoByAppId: Map<string, EnhanceJoomlaInfo>;
   /** recordId cluster-wide → DefaultDnsRecord. */
   defaultDnsRecords: Map<string, EnhanceDefaultDnsRecord>;
   /** Counter para subscription IDs (integer). */
@@ -234,6 +288,18 @@ function createInitialState(seed: MockEnhanceSeed): MockEnhanceState {
     websites: new Map(),
     zones: new Map(),
     domainSsls: new Map(Object.entries(seed.domainSsls ?? {})),
+    // Sprint 15C.II Fase F.10 — websiteApps + per-app info maps (seed opt-in).
+    // Convertimos readonly arrays a mutables (Map.set) — semantic-preserved.
+    websiteApps: new Map(
+      Object.entries(seed.websiteApps ?? {}).map(([websiteId, apps]) => [
+        websiteId,
+        [...apps],
+      ]),
+    ),
+    wordpressInfoByAppId: new Map(
+      Object.entries(seed.wordpressInfoByAppId ?? {}),
+    ),
+    joomlaInfoByAppId: new Map(Object.entries(seed.joomlaInfoByAppId ?? {})),
     defaultDnsRecords: new Map(),
     nextSubscriptionId: 1000,
     requestLog: [],
@@ -333,6 +399,7 @@ function buildApp(state: MockEnhanceState): express.Express {
   registerDnsZoneRoutes(app, state);
   registerDefaultDnsRoutes(app, state);
   registerSslRoutes(app, state);
+  registerWebsiteAppsRoutes(app, state);
 
   // Catch-all 404.
   app.use((_req: Request, res: Response) => {
@@ -860,6 +927,14 @@ function registerWebsiteRoutes(
     // primary domain del website al borrar — coherente con el behaviour
     // real (orchd elimina el cert con el dominio).
     state.domainSsls.delete(ws.domain.id);
+    // Sprint 15C.II Fase F.10 (ADR-083 A9.4): cleanup de las apps CMS
+    // instaladas en el website + sus info caches per-app.
+    const appsOfWebsite = state.websiteApps.get(ws.id) ?? [];
+    for (const app of appsOfWebsite) {
+      state.wordpressInfoByAppId.delete(app.id);
+      state.joomlaInfoByAppId.delete(app.id);
+    }
+    state.websiteApps.delete(ws.id);
     res.status(204).send();
   });
 }
@@ -885,6 +960,201 @@ function registerSslRoutes(
     }
     res.json(cert);
   });
+}
+
+/**
+ * Sprint 15C.II Fase F.10 — ADR-083 Amendment A9.4.
+ *
+ * 5 endpoints orchd para enumerar apps CMS instaladas en una website +
+ * snapshots per-kind + SSO contractual WordPress:
+ *
+ *   GET    /orgs/{org}/websites/{w}/apps                                → getWebsiteApps
+ *   GET    /orgs/{org}/websites/{w}/apps/{appId}/wordpress/info         → getWordpressInfo
+ *   GET    /orgs/{org}/websites/{w}/apps/{appId}/wordpress/users/default → getDefaultWpSsoUser (404 si no configurado)
+ *   GET    /orgs/{org}/websites/{w}/apps/{appId}/wordpress/users/{userId}/sso → getWordpressUserSsoUrl
+ *   GET    /orgs/{org}/websites/{w}/apps/{appId}/joomla/info            → getJoomlaInfo
+ *
+ * NO se auto-siembran apps al `POST /websites` — las apps las instala el
+ * cliente explícitamente (o via F.10.y futuro install desde dashboard,
+ * `DC.NEW-52`). Tests semillan via `seed.websiteApps` o runtime
+ * `state.websiteApps.set(websiteId, [...])`.
+ *
+ * Defaults sintéticos:
+ *   - Si NO hay override en `state.wordpressInfoByAppId`, devuelve un
+ *     shape con `version` del WebsiteApp + `site_url` derivado del primary
+ *     domain del website + counts (`plugin_count: 5, user_count: 1,
+ *     has_woocommerce: false`).
+ *   - Si NO hay override en `state.joomlaInfoByAppId`, análogo
+ *     (sin `has_woocommerce`).
+ *
+ * Manejo 404:
+ *   - App no encontrada en el listado del website → 404 NotFound.
+ *   - WP `getDefaultWpSsoUser` cuando el `WebsiteApp.defaultWpUserId` no
+ *     está definido → 404 NotFound (match real orchd — permite testing
+ *     del path "WP sin default user configurado" canónico).
+ */
+function registerWebsiteAppsRoutes(
+  app: express.Express,
+  state: MockEnhanceState,
+): void {
+  // Helper: resolver la app por orgId/websiteId/appId. Devuelve null si no
+  // encontrada (route emite 404 — match shape orchd).
+  const resolveApp = (
+    orgId: string,
+    websiteId: string,
+    appId: string,
+  ): EnhanceWebsiteApp | null => {
+    const ws = state.websites.get(websiteId);
+    if (!ws || ws.orgId !== orgId) return null;
+    const apps = state.websiteApps.get(websiteId) ?? [];
+    return apps.find((a) => a.id === appId) ?? null;
+  };
+
+  // Helper: site_url default derivado del primary domain del website.
+  const defaultSiteUrl = (websiteId: string, appPath?: string): string => {
+    const ws = state.websites.get(websiteId);
+    const host = ws?.domain.domain ?? 'mock.example';
+    const pathSuffix =
+      appPath !== undefined && appPath.length > 0 ? `/${appPath}` : '';
+    return `https://${host}${pathSuffix}`;
+  };
+
+  // GET /orgs/{org}/websites/{w}/apps
+  app.get('/orgs/:orgId/websites/:websiteId/apps', (req, res) => {
+    const ws = state.websites.get(req.params.websiteId);
+    if (!ws || ws.orgId !== req.params.orgId) {
+      res.status(404).json({ code: 'NotFound', message: 'website not found' });
+      return;
+    }
+    const items = state.websiteApps.get(ws.id) ?? [];
+    res.json({ items });
+  });
+
+  // GET /orgs/{org}/websites/{w}/apps/{appId}/wordpress/info
+  app.get(
+    '/orgs/:orgId/websites/:websiteId/apps/:appId/wordpress/info',
+    (req, res) => {
+      const app = resolveApp(
+        req.params.orgId,
+        req.params.websiteId,
+        req.params.appId,
+      );
+      if (!app || app.app !== 'wordpress') {
+        res.status(404).json({
+          code: 'NotFound',
+          message: 'wordpress app not found',
+        });
+        return;
+      }
+      const override = state.wordpressInfoByAppId.get(app.id);
+      if (override) {
+        res.json(override);
+        return;
+      }
+      const wpInfo: EnhanceWordPressInfo = {
+        version: app.version,
+        site_url: defaultSiteUrl(req.params.websiteId, app.path),
+        plugin_count: 5,
+        user_count: 1,
+        has_woocommerce: false,
+      };
+      res.json(wpInfo);
+    },
+  );
+
+  // GET /orgs/{org}/websites/{w}/apps/{appId}/wordpress/users/default
+  app.get(
+    '/orgs/:orgId/websites/:websiteId/apps/:appId/wordpress/users/default',
+    (req, res) => {
+      const app = resolveApp(
+        req.params.orgId,
+        req.params.websiteId,
+        req.params.appId,
+      );
+      if (!app || app.app !== 'wordpress') {
+        res.status(404).json({
+          code: 'NotFound',
+          message: 'wordpress app not found',
+        });
+        return;
+      }
+      if (app.defaultWpUserId === undefined) {
+        // Match real orchd: 404 si no hay default user configurado.
+        // Permite testing del path "WP sin default user" → cliente
+        // renderiza atajo disabled con tooltip.
+        res.status(404).json({
+          code: 'NotFound',
+          message: 'no default sso user configured',
+        });
+        return;
+      }
+      const wpUser: EnhanceWpUser = {
+        id: app.defaultWpUserId,
+        username: `admin-${app.defaultWpUserId}`,
+        email: `admin-${app.defaultWpUserId}@mock.example`,
+      };
+      res.json(wpUser);
+    },
+  );
+
+  // GET /orgs/{org}/websites/{w}/apps/{appId}/wordpress/users/{userId}/sso
+  app.get(
+    '/orgs/:orgId/websites/:websiteId/apps/:appId/wordpress/users/:userId/sso',
+    (req, res) => {
+      const app = resolveApp(
+        req.params.orgId,
+        req.params.websiteId,
+        req.params.appId,
+      );
+      if (!app || app.app !== 'wordpress') {
+        res.status(404).json({
+          code: 'NotFound',
+          message: 'wordpress app not found',
+        });
+        return;
+      }
+      // Match shape del endpoint `/orgs/.../members/.../sso` existente
+      // (text/plain string JSON-encoded). El user real podría no existir
+      // en el state, pero el mock no enforce eso — devuelve URL siempre
+      // que la app exista (suficiente para test del flow Aelium-side).
+      const otp = randomUUID();
+      res
+        .type('text/plain')
+        .send(
+          `"http://mock-panel.aelium.test/wp-admin/index.php?token=${otp}"`,
+        );
+    },
+  );
+
+  // GET /orgs/{org}/websites/{w}/apps/{appId}/joomla/info
+  app.get(
+    '/orgs/:orgId/websites/:websiteId/apps/:appId/joomla/info',
+    (req, res) => {
+      const app = resolveApp(
+        req.params.orgId,
+        req.params.websiteId,
+        req.params.appId,
+      );
+      if (!app || app.app !== 'joomla') {
+        res
+          .status(404)
+          .json({ code: 'NotFound', message: 'joomla app not found' });
+        return;
+      }
+      const override = state.joomlaInfoByAppId.get(app.id);
+      if (override) {
+        res.json(override);
+        return;
+      }
+      const joomlaInfo: EnhanceJoomlaInfo = {
+        version: app.version,
+        site_url: defaultSiteUrl(req.params.websiteId, app.path),
+        plugin_count: 3,
+        user_count: 1,
+      };
+      res.json(joomlaInfo);
+    },
+  );
 }
 
 /**

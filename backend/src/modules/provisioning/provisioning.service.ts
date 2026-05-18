@@ -647,7 +647,7 @@ export class ProvisioningService {
     const pluginSlug = service.provisioner_slug ?? service.product.provisioner;
     const plugin = this.registry.getOrThrow(pluginSlug);
 
-    return executeActionWithCacheInvalidation(
+    const result = await executeActionWithCacheInvalidation(
       plugin,
       service,
       actionSlug,
@@ -663,6 +663,63 @@ export class ProvisioningService {
       this.audit,
       this.breakers,
     );
+
+    // Sprint 15C.II Fase F.10 — ADR-077 Amendment A9.7 (R6 frozen
+    // §A.11.10.7.2). Audit per-app enriquecido cuando un admin ejecuta una
+    // action sobre un sub-recurso del service identificado por payload
+    // (típicamente `{ appId, ... }`). Patrón heredable a futuras actions
+    // que operen sobre sub-recursos (DNS records, app users, etc.).
+    //
+    // Solo se loguea cuando:
+    //   - el actor es admin actuando sobre service ajeno (GDPR portal
+    //     visibilidad — mismo predicado canónico que AuditInterceptor).
+    //   - la action es `open_app_admin` (F.10).
+    //   - el plugin devolvió éxito con `data.appKind` (defensive: si
+    //     fallo, ya hay audit_change_log del wrapper con success:false).
+    //
+    // El audit_access_log entry es ADITIVO al audit_change_log que el
+    // wrapper ya genera — no duplicación, distinta dimensión (read vs
+    // change). Heredable: cuando F.10.x sume actions admin sobre apps
+    // (DC.NEW-53), el predicado matchea por slug y la action loguea
+    // automáticamente.
+    if (
+      actionSlug === 'open_app_admin' &&
+      isAdmin &&
+      service.user_id !== userId &&
+      result.success === true
+    ) {
+      const appId = typeof payload?.appId === 'string' ? payload.appId : null;
+      const appKind =
+        result.data &&
+        typeof (result.data as { appKind?: unknown }).appKind === 'string'
+          ? (result.data as { appKind: string }).appKind
+          : null;
+      const urlKind =
+        result.data &&
+        typeof (result.data as { urlKind?: unknown }).urlKind === 'string'
+          ? (result.data as { urlKind: string }).urlKind
+          : null;
+      await this.audit.logAccess({
+        user_id: userId,
+        action: 'service.app_admin_opened',
+        ip_address: ctx.ipAddress,
+        user_agent: ctx.userAgent ?? null,
+        resource: `Service:${service.id}`,
+        metadata: {
+          resource_type: 'Service',
+          resource_id: service.id,
+          target_user_id: service.user_id,
+          actor_role: isAdmin ? 'admin' : 'client',
+          provisioner_slug: plugin.slug,
+          action_slug: actionSlug,
+          app_id: appId,
+          app_kind: appKind,
+          url_kind: urlKind,
+        },
+      });
+    }
+
+    return result;
   }
 
   // ─── DNS records (Sprint 15C Fase 15C.D — ADR-082 §6) ──────────────────

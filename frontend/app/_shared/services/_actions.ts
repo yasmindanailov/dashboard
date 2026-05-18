@@ -45,6 +45,80 @@ export async function requestSsoUrlAction(
   }
 }
 
+/**
+ * Sprint 15C.II Fase F.10 — ADR-077 Amendment A9 + ADR-083 Amendment A9.
+ *
+ * Server Action canónica para `executeAction('open_app_admin', { appId })`.
+ * Tipada estrictamente para que `<AppShortcutsCard>` consuma el resultado
+ * sin assertions. Patrón paralelo a `requestSsoUrlAction` (Sprint 15C
+ * Fase 15C.D) — devuelve la URL en `result.data` para que el cliente la
+ * abra con `window.open`. NO usa revalidatePath (la action es read-only
+ * desde el punto de vista del recurso — abre admin externo).
+ */
+export interface OpenAppAdminData {
+  /** URL completa (SSO con token para WP, canónica para Joomla). */
+  url: string;
+  /** Kind canónico de la app — `'wordpress'` | `'joomla'` | futuros. */
+  appKind: string;
+  /** Cómo se generó la URL — discriminator UX para tooltip/log. */
+  urlKind: 'sso' | 'canonical';
+  /** Siempre `'new_tab'` (canónico — preservar el dashboard). */
+  opensIn: 'new_tab';
+}
+
+export type OpenAppAdminResult =
+  | { ok: true; data: OpenAppAdminData; success: true }
+  | { ok: true; success: false; message?: string }
+  | { ok: false; error: string };
+
+export async function openAppAdminAction(
+  serviceId: string,
+  appId: string,
+): Promise<OpenAppAdminResult> {
+  try {
+    const result = await serverFetch<ActionResult>(
+      `/services/${serviceId}/actions/open_app_admin`,
+      { method: 'POST', body: { payload: { appId } } },
+    );
+    if (result.success === true && result.data) {
+      const data = result.data as Record<string, unknown>;
+      const url = typeof data.url === 'string' ? data.url : null;
+      const appKind = typeof data.appKind === 'string' ? data.appKind : null;
+      const urlKindRaw =
+        typeof data.urlKind === 'string' ? data.urlKind : null;
+      if (
+        !url ||
+        !appKind ||
+        (urlKindRaw !== 'sso' && urlKindRaw !== 'canonical')
+      ) {
+        return {
+          ok: false,
+          error: 'El proveedor devolvió una respuesta incompleta.',
+        };
+      }
+      return {
+        ok: true,
+        success: true,
+        data: {
+          url,
+          appKind,
+          urlKind: urlKindRaw,
+          opensIn: 'new_tab',
+        },
+      };
+    }
+    return { ok: true, success: false, message: result.message };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo abrir el admin de la aplicación',
+    };
+  }
+}
+
 export type ExecuteServiceActionResult =
   | { ok: true; result: ActionResult }
   | { ok: false; error: string };
