@@ -285,6 +285,92 @@ export interface ServiceSslSummary {
   issuer?: string;
 }
 
+/**
+ * Sprint 15C.II Fase F.10 — ADR-077 Amendment A9 (2026-05-18).
+ *
+ * Representa una "aplicación instalada" dentro del recurso del proveedor
+ * (típicamente una website/hosting): WordPress, Joomla, futuros CMS
+ * (drupal, mediawiki, prestashop, nodejs, python, ...).
+ *
+ * Shape mínimo contractual genérico. Los detalles per-kind (WordPressInfo,
+ * JoomlaInfo, ...) son plugin-internal y viven en endpoints/actions
+ * plugin-internos invocados on-demand cuando F.10.x stats UI lo requiera
+ * ([ADR-077 Amendment A9.5](../../../docs/10-decisions/adr-077-contrato-provisioner-plugin-v2.md)).
+ *
+ * Capability-driven por presencia (mismo molde A5/A6/A7/A8): plugins
+ * que NO soporten apps instalables OMITEN el campo `ServiceInfo.apps`.
+ *
+ * Multi-instancia: una misma website puede tener N apps del mismo kind
+ * en distintos paths (ej: WP en `/` + WP en `/blog`). Cada `AppPresence`
+ * lleva su propio `appId` + `path` para diferenciar.
+ */
+export interface AppPresence {
+  /**
+   * ID estable provisto por el proveedor (UUID en Enhance; string libre
+   * en general). Sirve como discriminator del payload en
+   * `executeAction('open_app_admin', { appId })`.
+   */
+  appId: string;
+
+  /**
+   * String libre plugin-internal (mismo patrón `ServiceAction.slug`).
+   * Convención: lowercase + snake_case si compuesto.
+   *
+   * Valores actuales (Sprint 15C.II Fase F.10):
+   *   - 'wordpress' — WP app, SSO contractual orchd via `getWordpressUserSsoUrl`.
+   *   - 'joomla'    — Joomla app, URL canónica `${site_url}/administrator`.
+   *
+   * Valores futuros (heredabilidad): 'nodejs', 'python', 'drupal',
+   * 'mediawiki', 'prestashop', etc. — añadidos sin amendment del
+   * contrato cuando un plugin los soporte.
+   */
+  kind: string;
+
+  /**
+   * i18n key (translatable en el frontend). El plugin emite la key
+   * canónica; el frontend traduce. Ejemplos:
+   *   - 'plugin.enhance_cp.apps.wordpress'
+   *   - 'plugin.enhance_cp.apps.joomla'
+   */
+  label: string;
+
+  /**
+   * Subdirectorio si la app NO está instalada en la raíz del recurso.
+   * Si está en raíz (path conceptual `/`), omitido. Permite multi-instancia:
+   * 2 WP en una misma website (uno en `/`, otro en `/blog`) → 2 entries
+   * diferenciadas por `path`.
+   */
+  path?: string;
+
+  /** Versión instalada de la app (informativo, display-only). */
+  version?: string;
+
+  /**
+   * Acciones disponibles per-instalación. Mismo shape `ServiceAction`
+   * que las acciones del servicio entero (incluye `adminOnly`).
+   *
+   * Sprint 15C.II Fase F.10 declara una sola acción canónica:
+   *   - `'open_app_admin'` — abre el admin de la app (SSO o URL canónica
+   *     según kind; payload `{ appId }`; returns `ActionResult.data`
+   *     con `{ url, kind: 'sso'|'canonical', opensIn: 'new_tab' }`).
+   *
+   * Acciones futuras (heredabilidad — additivas a `actions[]`):
+   *   - `'update_app_version'` (DC.NEW-53)
+   *   - `'install_app_plugin'` (DC.NEW-53, WP-only)
+   *   - `'set_default_wp_sso_user'` (DC.NEW-53, WP-only)
+   *   - `'uninstall_app'` (DC.NEW-52)
+   *   - ...
+   *
+   * Si la action está ausente del array, el frontend NO renderiza el
+   * botón (capability-driven por presencia). Ejemplo concreto Sprint
+   * 15C.II Fase F.10: WordPress sin default user → plugin omite
+   * `'open_app_admin'` de `actions[]` → frontend renderiza el atajo
+   * DISABLED con tooltip "Configura un usuario WP por defecto en el
+   * panel" + CTA "Abrir panel".
+   */
+  actions: readonly ServiceAction[];
+}
+
 export interface ServiceInfo {
   /**
    * Estado real del servicio en el proveedor.
@@ -331,6 +417,27 @@ export interface ServiceInfo {
    * `recoveryHint?`, Amendment A5).
    */
   ssl?: ServiceSslSummary;
+
+  /**
+   * Sprint 15C.II Fase F.10 — ADR-077 Amendment A9 (2026-05-18).
+   *
+   * Apps CMS instaladas dentro del recurso del proveedor (websites con
+   * WordPress / Joomla / etc.). Capability-driven por presencia (mismo
+   * molde A5/A6/A7/A8): plugins que NO soporten apps instalables OMITEN
+   * el campo; plugins que sí lo soporten lo emiten (vacío permitido si
+   * no hay instalaciones — el frontend gatea por `length > 0` para
+   * renderizar el card).
+   *
+   * El frontend renderiza `<AppShortcutsCard>` solo si
+   * `info.apps !== undefined && info.apps.length > 0`. NUNCA ramifica
+   * por `provisioner_slug` (ADR-070).
+   *
+   * Shape mínimo contractual (`AppPresence`); los detalles per-kind
+   * (`WordPressInfo`/`JoomlaInfo`/futuros) son plugin-internal y viven
+   * en endpoints/actions plugin-internos invocados on-demand cuando
+   * F.10.x stats UI lo requiera (DC.NEW-51).
+   */
+  apps?: readonly AppPresence[];
 
   /**
    * Capability flags por instancia de servicio. Override estáticos por
