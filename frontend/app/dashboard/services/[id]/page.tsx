@@ -20,6 +20,7 @@ import type { ServiceDetailResponse } from '../../../lib/api';
 import { isStaffRole } from '../../../lib/portal';
 import {
   ActionsBar,
+  AppShortcutsCard,
   MetricsBar,
   ServiceHeader,
   SslStatusCard,
@@ -313,6 +314,27 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
         (cliente) y no pasamos `ssoPanelHref` (no es CTA cliente).
       */}
       {!isTerminal && info.ssl && <SslStatusCard ssl={info.ssl} />}
+
+      {/*
+        Sprint 15C.II Fase F.10 (ADR-077 Amendment A9 + ADR-083 A9) —
+        card de atajos al admin de apps CMS instaladas (WordPress / Joomla /
+        futuros). Capability-driven por presencia: SOLO se renderiza si
+        info.apps está definido Y no vacío (presencia = señal de capability;
+        plugins sin apps instalables omiten el campo). NO se muestra en
+        servicios terminales ni suspended (no aplica abrir un admin si el
+        servicio está cancelled/expired/suspended). L16: mismo componente
+        cliente y admin; isAdmin aporta tooltip extra display-only.
+      */}
+      {!isTerminal &&
+        !isSuspended &&
+        info.apps !== undefined &&
+        info.apps.length > 0 && (
+          <AppShortcutsCard
+            apps={info.apps}
+            serviceId={service.id}
+            isAdmin={isAdmin}
+          />
+        )}
 
       {/*
         SSO panel — solo si el plugin lo soporta para esta instancia

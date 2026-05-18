@@ -33,6 +33,7 @@ import { AlertBanner, Card, EmptyState } from '../../../components/ui';
 import { t } from '../../../_shared/i18n';
 import {
   ActionsBar,
+  AppShortcutsCard,
   MetricsBar,
   ServiceHeader,
   SslStatusCard,
@@ -341,6 +342,25 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
       */}
       {!isTerminal && info.ssl && (
         <SslStatusCard ssl={info.ssl} isAdmin={true} />
+      )}
+
+      {/*
+        Sprint 15C.II Fase F.10 (ADR-077 Amendment A9 + ADR-083 A9) —
+        card de atajos al admin de apps CMS instaladas, vista admin.
+        Capability-driven por presencia. NO se muestra en servicios
+        terminales (cancelled/expired) — los recursos del proveedor ya
+        no aplican. Para suspended SÍ se permite mostrar (admin puede
+        querer abrir WP-admin durante investigación). L16 prop isAdmin
+        aporta tooltip extra display-only. El audit per-app (R6 frozen
+        + ADR-077 A9.7) vive en el orquestador backend — frontend NO
+        toca audit aquí.
+      */}
+      {!isTerminal && info.apps !== undefined && info.apps.length > 0 && (
+        <AppShortcutsCard
+          apps={info.apps}
+          serviceId={service.id}
+          isAdmin={true}
+        />
       )}
 
       {/*

@@ -1600,6 +1600,60 @@ export interface ServiceSslSummary {
   issuer?: string;
 }
 
+/**
+ * Sprint 15C.II Fase F.10 — ADR-077 Amendment A9 (2026-05-18).
+ *
+ * Representa una "aplicación instalada" dentro del recurso del proveedor
+ * (típicamente una website/hosting): WordPress, Joomla, futuros CMS.
+ * Espejo del shape del backend (`backend/src/core/provisioning/types.ts`).
+ *
+ * Shape mínimo contractual genérico. Los detalles per-kind (WordPressInfo,
+ * JoomlaInfo, ...) son plugin-internal y viven en endpoints/actions
+ * plugin-internos invocados on-demand cuando F.10.x stats UI lo requiera
+ * (DC.NEW-51).
+ *
+ * Capability-driven por presencia (mismo molde A5/A6/A7/A8): plugins que
+ * NO soporten apps instalables OMITEN `ServiceInfo.apps`. El frontend
+ * renderiza `<AppShortcutsCard>` solo si `info.apps !== undefined &&
+ * info.apps.length > 0` — NUNCA ramifica por `provisioner_slug` (ADR-070).
+ */
+export interface AppPresence {
+  /**
+   * ID estable provisto por el proveedor (UUID en Enhance; string libre
+   * en general). Sirve como discriminator del payload en
+   * `executeAction('open_app_admin', { appId })`.
+   */
+  appId: string;
+  /**
+   * String libre plugin-internal (mismo patrón `ServiceAction.slug`).
+   * Valores actuales (Sprint 15C.II Fase F.10): `'wordpress'` | `'joomla'`.
+   * Valores futuros (heredabilidad): `'nodejs'`, `'drupal'`, etc. — sin
+   * amendment del contrato.
+   */
+  kind: string;
+  /**
+   * i18n key (translatable en el frontend).
+   * Ejemplos: `'plugin.enhance_cp.apps.wordpress'`, `'plugin.enhance_cp.apps.joomla'`.
+   */
+  label: string;
+  /**
+   * Subdirectorio si la app NO está instalada en la raíz. Permite
+   * multi-instancia (WP en `/` + WP en `/blog` → 2 entries diferenciadas).
+   */
+  path?: string;
+  /** Versión instalada de la app (informativo, display-only). */
+  version?: string;
+  /**
+   * Acciones disponibles per-instalación. Sprint 15C.II Fase F.10 declara
+   * una sola acción canónica: `'open_app_admin'` (slug fijo + payload
+   * `{ appId }` — discriminator interno del plugin por kind).
+   *
+   * Si `actions` está vacío (ej. WP sin default user configurado), el
+   * frontend renderiza el atajo DISABLED con tooltip + CTA al panel.
+   */
+  actions: readonly ServiceAction[];
+}
+
 export interface ServiceInfo {
   status:
     | 'active'
@@ -1630,6 +1684,12 @@ export interface ServiceInfo {
    * capability — no se añade flag nuevo a `ServiceInfoCapabilities`.
    */
   ssl?: ServiceSslSummary;
+  /**
+   * Sprint 15C.II Fase F.10 — ADR-077 Amendment A9. Apps CMS instaladas
+   * dentro del recurso del proveedor (websites con WordPress / Joomla /
+   * etc.). Capability-driven por presencia (mismo molde A5/A6/A7/A8).
+   */
+  apps?: readonly AppPresence[];
   capabilities: ServiceInfoCapabilities;
   availableActions: readonly ServiceAction[];
   fetchedAt: string;

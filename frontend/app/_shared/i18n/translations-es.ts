@@ -506,4 +506,33 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.ssl.expires_tooltip_prefix': 'Expira: ',
   'service.ssl.admin_cta_manage_in_provider':
     'Gestionar SSL en el panel del proveedor →',
+
+  // ── Sprint 15C.II Fase F.10 (ADR-077 Amendment A9 + ADR-083 A9) ─────────
+  //    Card AppShortcuts `_shared/services/AppShortcutsCard.tsx`. Apps CMS
+  //    instaladas (WordPress / Joomla + futuros). Capability-driven por
+  //    presencia: el card se renderiza solo si info.apps && info.apps.length>0.
+  //    R6 audit per-app via audit_access_log.metadata.app_id (cero schema
+  //    change). Multi-instancia: 1 atajo por AppPresence con label
+  //    diferenciado por path (ej. "(/blog)").
+  'service.apps.card_title': 'Aplicaciones instaladas',
+  'service.apps.open_app_admin.label_prefix': 'Abrir ',
+  'service.apps.open_app_admin.title.sso':
+    'Inicio de sesión automático en el admin de la app',
+  'service.apps.open_app_admin.title.canonical':
+    'Abre el admin de la app en una pestaña nueva (te pedirá tus credenciales)',
+  'service.apps.disabled_no_default_user':
+    'Configura un usuario por defecto en el panel para activar este atajo',
+  'service.apps.disabled_no_default_user.cta_label': 'Abrir panel',
+  'service.apps.path_prefix': 'Subdirectorio: ',
+  'service.apps.version_prefix': 'Versión ',
+  'service.apps.error_opening':
+    'No se pudo abrir el admin de la aplicación. Intenta de nuevo o abre el panel del proveedor.',
+  'service.apps.opening_tooltip': 'Abriendo en una pestaña nueva…',
+  // Plugin Enhance — labels de los kinds soportados hoy.
+  'plugin.enhance_cp.apps.wordpress': 'WordPress',
+  'plugin.enhance_cp.apps.joomla': 'Joomla',
+  'plugin.enhance_cp.apps.unknown': 'Aplicación',
+  'plugin.enhance_cp.actions.open_app_admin.label': 'Abrir admin',
+  'plugin.enhance_cp.actions.open_app_admin.description':
+    'Abre el panel de administración de la aplicación en una pestaña nueva',
 });
