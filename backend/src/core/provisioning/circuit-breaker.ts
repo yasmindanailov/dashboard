@@ -264,6 +264,76 @@ export class HouseCircuitBreaker implements CircuitBreaker {
 }
 
 /**
+ * Sprint 15C.II Fase F.11 (R3 frozen §A.11.10.8.2) — agregado canónico
+ * del estado de los breakers in-process de un plugin para el mini-badge
+ * de salud en `/admin/services/[id]`.
+ *
+ * Doctrina:
+ *   - `operational` — todos los breakers cerrados, o el plugin no tiene
+ *     breakers registrados (las operaciones cross-cutting `getServiceInfo`
+ *     / `executeAction` nunca se han llamado en esta instancia).
+ *   - `degraded`   — al menos un breaker en `half-open`, ninguno `open`.
+ *   - `down`       — al menos un breaker `open`.
+ *
+ * El badge dice "estado en esta instancia" (los breakers son in-process
+ * — ADR-080 §5). Heredable a 15D RC / 15E Docker / 15G Plesk.
+ */
+export type PluginHealthState = 'operational' | 'degraded' | 'down';
+
+export interface PluginHealthBreaker {
+  /** Operación sin prefijo del slug (`getServiceInfo`, `executeAction`, …). */
+  readonly operation: string;
+  /** Estado del breaker. Solo se incluyen breakers ya creados (`getOrCreate` en algún call site previo). */
+  readonly state: CircuitBreakerState;
+}
+
+export interface PluginHealthSummary {
+  readonly pluginSlug: string;
+  readonly state: PluginHealthState;
+  readonly breakers: readonly PluginHealthBreaker[];
+}
+
+/**
+ * Deriva el `PluginHealthSummary` agregado del plugin a partir de los
+ * breakers registrados en el registry. Worst-case aggregation
+ * (`open > half-open > closed`).
+ *
+ * Lazy: solo recorre breakers ya creados (vía `getOrCreate` en algún
+ * call site previo). Plugin sin breakers → `operational` por default
+ * (las operaciones cross-cutting nunca se han invocado, NO hay evidencia
+ * de fallo).
+ *
+ * NO crea breakers nuevos (no llama `getOrCreate`) — el badge es
+ * read-only.
+ */
+export function derivePluginHealth(
+  pluginSlug: string,
+  registry: CircuitBreakerRegistry,
+): PluginHealthSummary {
+  const prefix = `${pluginSlug}:`;
+  const breakers: PluginHealthBreaker[] = [];
+  for (const name of registry.listNames()) {
+    if (!name.startsWith(prefix)) continue;
+    const breaker = registry.get(name);
+    if (!breaker) continue;
+    breakers.push({
+      operation: name.slice(prefix.length),
+      state: breaker.getState(),
+    });
+  }
+
+  const anyOpen = breakers.some((b) => b.state === 'open');
+  const anyHalfOpen = breakers.some((b) => b.state === 'half-open');
+  const state: PluginHealthState = anyOpen
+    ? 'down'
+    : anyHalfOpen
+      ? 'degraded'
+      : 'operational';
+
+  return { pluginSlug, state, breakers };
+}
+
+/**
  * Registry de breakers por nombre. Lazy-creates un breaker la primera
  * vez que se solicita por nombre.
  *

@@ -11,7 +11,11 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../core/database/prisma.service';
 import { SettingsService } from '../../core/settings/settings.service';
-import { CircuitBreakerRegistry } from '../../core/provisioning/circuit-breaker';
+import {
+  CircuitBreakerRegistry,
+  derivePluginHealth,
+  type PluginHealthSummary,
+} from '../../core/provisioning/circuit-breaker';
 import {
   DnsAuthorityResolution,
   resolveDnsAuthority,
@@ -1708,6 +1712,46 @@ export class ProvisioningService {
       target_state: adminStatus,
       aligned: true,
     };
+  }
+
+  // ─── Admin: salud del plugin del servicio (Sprint 15C.II Fase F.11) ───
+
+  /**
+   * Sprint 15C.II Fase F.11 (R3 frozen §A.11.10.8.2) — devuelve el agregado
+   * canónico de salud del plugin asignado al servicio para el mini-badge en
+   * `/admin/services/[id]`. Read-only — NO crea breakers ni invoca al plugin.
+   *
+   * Resolución del plugin slug coherente con `getInfoForUser` /
+   * `getServiceTimelineForUser` / cualquier wrapper canónico:
+   *   `service.provisioner_slug ?? service.product.provisioner`
+   *
+   * Estado agregado worst-case (`open > half-open > closed`). Plugin sin
+   * breakers registrados (operaciones cross-cutting nunca invocadas en
+   * esta instancia) → `operational` por default. Los breakers son
+   * in-process — el badge se etiqueta "estado en esta instancia"
+   * (ADR-080 §5).
+   *
+   * Servicios sin plugin asociado (orphan / legacy / pending no
+   * provisionados) → devolvemos `pluginSlug: ''` + `state: 'operational'`
+   * con array vacío de breakers. La UI puede ramificar por presencia del
+   * slug pero el endpoint no falla por construcción.
+   */
+  async getPluginHealthForService(
+    serviceId: string,
+  ): Promise<PluginHealthSummary> {
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: {
+        provisioner_slug: true,
+        product: { select: { provisioner: true } },
+      },
+    });
+    if (!service) {
+      throw new NotFoundException(`Service ${serviceId} no encontrado`);
+    }
+    const pluginSlug =
+      service.provisioner_slug ?? service.product.provisioner ?? '';
+    return derivePluginHealth(pluginSlug, this.breakers);
   }
 
   // ─── Admin: reconcile per-servicio (Sprint 15C.II Fase F.9 — DC.45) ───

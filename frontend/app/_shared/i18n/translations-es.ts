@@ -535,4 +535,17 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'plugin.enhance_cp.actions.open_app_admin.label': 'Abrir admin',
   'plugin.enhance_cp.actions.open_app_admin.description':
     'Abre el panel de administración de la aplicación en una pestaña nueva',
+
+  // ── Sprint 15C.II Fase F.11.1 (R3 frozen §A.11.10.8.2) ─────────────────
+  //    Mini-badge de salud del plugin in-process en `/admin/services/[id]`.
+  //    Admin-only (R1 frozen — cliente NO ve este indicador técnico).
+  'service.provider_health.label': 'Proveedor:',
+  'service.provider_health.operational': 'operativo',
+  'service.provider_health.degraded': 'degradado',
+  'service.provider_health.down': 'caído',
+  'service.provider_health.link_to_overview': 'Ver detalle del plugin',
+  'service.provider_health.tooltip_in_process':
+    'Estado del breaker en esta instancia del backend',
+  'service.provider_health.tooltip_no_breakers':
+    'Sin actividad reciente — las operaciones cross-cutting del plugin no se han invocado en esta instancia.',
 });

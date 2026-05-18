@@ -39,13 +39,17 @@ import {
   SslStatusCard,
   SsoButton,
 } from '../../../_shared/services';
-import type { ServiceDetailResponse } from '../../../lib/api';
+import type {
+  PluginHealthSummary,
+  ServiceDetailResponse,
+} from '../../../lib/api';
 import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
 
 import { AdminDriftBanner } from './_components/AdminDriftBanner';
 import { AdminProviderStateDesyncBanner } from './_components/AdminProviderStateDesyncBanner';
 import { AdminServiceDataCard } from './_components/AdminServiceDataCard';
 import { AdminServiceOperationsCard } from './_components/AdminServiceOperationsCard';
+import { ProviderHealthBadge } from './_components/ProviderHealthBadge';
 import { ServiceNotesCard } from './_components/ServiceNotesCard';
 
 interface PageProps {
@@ -84,6 +88,21 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
     } catch {
       // fail-soft: el banner usa fallback F.3 (redirect a settings).
       supportsReconcileOne = false;
+    }
+  }
+
+  // Sprint 15C.II Fase F.11.1 (R3 frozen §A.11.10.8.2): mini-badge de
+  // salud del plugin in-process. Fetch fail-soft (admin-only, NO crítico:
+  // si falla, el badge no se renderiza pero el resto de la página
+  // funciona). NO crea breakers — read-only sobre el registry.
+  let pluginHealth: PluginHealthSummary | null = null;
+  if (data) {
+    try {
+      pluginHealth = await serverFetch<PluginHealthSummary>(
+        `/admin/services/${id}/plugin-health`,
+      );
+    } catch {
+      pluginHealth = null;
     }
   }
 
@@ -165,16 +184,34 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Link
-        href="/admin/services"
+      <div
         style={{
-          color: 'var(--text-secondary)',
-          fontSize: 13,
-          textDecoration: 'none',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 16,
+          flexWrap: 'wrap',
         }}
       >
-        ← Servicios
-      </Link>
+        <Link
+          href="/admin/services"
+          style={{
+            color: 'var(--text-secondary)',
+            fontSize: 13,
+            textDecoration: 'none',
+          }}
+        >
+          ← Servicios
+        </Link>
+        {/*
+          Sprint 15C.II Fase F.11.1 (R1+R3 frozen §A.11.10.8.2) — mini-badge
+          de salud del plugin in-process. Admin-only puro (cliente NO ve
+          este indicador técnico — su detalle ya tiene drift banner +
+          recoveryHint + statusReason). Read-only — fail-soft si el fetch
+          del endpoint /plugin-health falla.
+        */}
+        {pluginHealth && <ProviderHealthBadge health={pluginHealth} />}
+      </div>
 
       <Card>
         <ServiceHeader

@@ -342,6 +342,27 @@ export class AdminProvisioningController {
     }
   }
 
+  /**
+   * Sprint 15C.II Fase F.11.1 (R3 frozen §A.11.10.8.2) — mini-badge de
+   * salud del proveedor en `/admin/services/[id]`. Devuelve el agregado
+   * canónico in-process de los breakers del plugin del servicio
+   * (`operational` / `degraded` / `down`) + breakers individuales para
+   * el tooltip.
+   *
+   * Read-only — sin `@AuditAccess` (la lectura del estado de los breakers
+   * NO toca datos del cliente; sigue la misma doctrina que el admin
+   * overview F.2 expuesto en `/admin/plugins/:slug/operational-overview`).
+   */
+  @Get(':id/plugin-health')
+  @ApiOperation({
+    summary:
+      'Devuelve el agregado canónico de salud del plugin in-process del servicio (badge admin F.11.1)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Service))
+  pluginHealth(@Param('id', ParseUUIDPipe) id: string) {
+    return this.provisioning.getPluginHealthForService(id);
+  }
+
   // ─── DNS records (Sprint 15C Fase 15C.D — ADR-082 §6 — admin) ──────────
 
   @Get(':id/dns/records')

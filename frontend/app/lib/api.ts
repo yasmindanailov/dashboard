@@ -930,6 +930,34 @@ export type PluginTestConnectionMethod = 'getStatus' | 'custom' | null;
 export type PluginCircuitState = 'closed' | 'open' | 'half-open';
 
 /**
+ * Sprint 15C.II Fase F.11.1 (R3 frozen §A.11.10.8.2) — agregado canónico
+ * de salud del plugin in-process del service, expuesto en
+ * `GET /admin/services/:id/plugin-health`.
+ *
+ * Doctrina:
+ *   - `operational` — todos los breakers cerrados (o sin breakers
+ *     registrados — operaciones cross-cutting nunca invocadas).
+ *   - `degraded`   — al menos un breaker `half-open`, ninguno `open`.
+ *   - `down`       — al menos un breaker `open`.
+ *
+ * El badge dice "estado en esta instancia" — el breaker es in-process
+ * (ADR-080 §5). Read-only — no crea breakers ni invoca al plugin.
+ */
+export type PluginHealthState = 'operational' | 'degraded' | 'down';
+
+export interface PluginHealthBreaker {
+  /** Operación sin prefijo del slug (`getServiceInfo`, `executeAction`, ...). */
+  operation: string;
+  state: PluginCircuitState;
+}
+
+export interface PluginHealthSummary {
+  pluginSlug: string;
+  state: PluginHealthState;
+  breakers: PluginHealthBreaker[];
+}
+
+/**
  * Subset acotado de JSON-Schema 7 que el backend declara en
  * `core/provisioning/types.ts §12`. Mantener sincronizado al añadir
  * formats/keywords nuevos al backend.
