@@ -125,6 +125,15 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       // Sprint 15C.II Fase F.7 — ADR-083 A8 (getDomainSsl)
       // Default null = "sin cert" (mismo criterio que getWebsite arriba).
       getDomainSsl: jest.fn().mockResolvedValue(null),
+      // Sprint 15C.II Fase F.10 — ADR-083 A9 (Apps CMS instaladas).
+      // Defaults: null (resolved-null) para getWebsiteApps — equivalente a
+      // "website sin apps" → getServiceInfo omite info.apps (capability-driven
+      // por presencia). Tests específicos sobreescriben.
+      getWebsiteApps: jest.fn().mockResolvedValue(null),
+      getWordpressInfo: jest.fn(),
+      getDefaultWpSsoUser: jest.fn().mockResolvedValue(null),
+      getWordpressUserSsoUrl: jest.fn(),
+      getJoomlaInfo: jest.fn(),
     };
   }
 
@@ -308,7 +317,7 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(plugin.capabilities.provision_mode).toBe('sync');
     });
 
-    it('inlineActions incluyen los 10 slugs canónicos (ADR-083 §9 dec.32 + Amendment A3 + A4.1 + ADR-077 A4)', () => {
+    it('inlineActions incluyen los 11 slugs canónicos (ADR-083 §9 + A3 + A4.1 + ADR-077 A4 + Fase F.10 A9)', () => {
       const plugin = buildPlugin(
         buildPrismaMock({ install: VALID_INSTALL }),
         buildVaultMock(),
@@ -328,9 +337,10 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
           'list_available_plans', // ADR-083 Amendment A3
           'suspend_service', // ADR-077 Amendment A4 (Sprint 15C.II Fase F)
           'unsuspend_service', // ADR-077 Amendment A4 (Sprint 15C.II Fase F)
+          'open_app_admin', // ADR-077 Amendment A9 (Sprint 15C.II Fase F.10)
         ]),
       );
-      expect(slugs).toHaveLength(10);
+      expect(slugs).toHaveLength(11);
       // Sprint 15C.II Fase B (ADR-083 Amendment A4.1): view_disk_usage y
       // view_bandwidth_usage eliminados del manifest. Refresh metrics ahora
       // vía botón ↻ en MetricsBar + server action refreshServiceInfoAction.
@@ -338,12 +348,14 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(slugs).not.toContain('view_bandwidth_usage');
     });
 
-    it('5 actions admin-only declaran adminOnly=true (ADR-083 A3 + A4.1 + ADR-077 A4)', () => {
+    it('5 actions admin-only declaran adminOnly=true (ADR-083 A3 + A4.1 + ADR-077 A4) — open_app_admin NO es admin-only (Fase F.10)', () => {
       // Sprint 15C.II Fase B: view_disk_usage + view_bandwidth_usage eliminados.
       // Fase F (ADR-077 A4): + suspend_service / unsuspend_service (operación
       // administrativa, NUNCA cliente self-service). Quedan 5 admin-only:
       // change_package, recalculate_provider_metrics, list_available_plans,
       // suspend_service, unsuspend_service.
+      // Fase F.10 (ADR-077 A9): open_app_admin es CLIENTE self-service
+      // (cliente abre admin de SU app) → NO declara adminOnly.
       const plugin = buildPlugin(
         buildPrismaMock({ install: VALID_INSTALL }),
         buildVaultMock(),
@@ -363,10 +375,10 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
         ]),
       );
       expect(adminOnlySlugs).toHaveLength(5);
-      // Las 5 acciones cliente que quedan son reset_password + las 4 DNS
-      // (estas últimas ocultas en frontend via INTERNAL_HELPER_SLUGS pero
-      // siguen siendo client-callable por contrato canónico ADR-077 A1.3
-      // si has_dns_management=true).
+      // Las 6 acciones cliente: reset_password + 4 DNS + open_app_admin
+      // (Fase F.10). DNS están ocultas en frontend via INTERNAL_HELPER_SLUGS
+      // pero siguen siendo client-callable por contrato canónico ADR-077
+      // A1.3 si has_dns_management=true.
       const clientSlugs = plugin.inlineActions
         .filter((a) => a.adminOnly !== true)
         .map((a) => a.slug);
@@ -377,9 +389,10 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
           'add_dns_record',
           'update_dns_record',
           'delete_dns_record',
+          'open_app_admin',
         ]),
       );
-      expect(clientSlugs).toHaveLength(5);
+      expect(clientSlugs).toHaveLength(6);
     });
 
     it('manifest cumple shape canónico (slug, configSchema required, secretsSchema required)', () => {
@@ -786,12 +799,14 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       expect(info.metrics?.emailAccountsUsed).toBe(3);
       expect(info.metrics?.databasesUsed).toBe(1);
       expect(info.capabilities.hasSsoPanel).toBe(true);
-      // status=active → 9 acciones: 8 post Amendment A4.1 (sin view_disk/view_bandwidth)
-      // + `suspend_service` (ADR-077 A4); `unsuspend_service` se filtra (solo `suspended`).
-      expect(info.availableActions.length).toBe(9);
+      // status=active → 10 acciones: 8 post Amendment A4.1 + suspend_service
+      // (ADR-077 A4) + open_app_admin (ADR-077 A9 Fase F.10). unsuspend_service
+      // se filtra (solo aplica si status='suspended').
+      expect(info.availableActions.length).toBe(10);
       const slugs = info.availableActions.map((a) => a.slug);
       expect(slugs).toContain('suspend_service');
       expect(slugs).not.toContain('unsuspend_service');
+      expect(slugs).toContain('open_app_admin');
     });
 
     it('subscription 404 → unknown info', async () => {
@@ -1108,6 +1123,290 @@ describe('EnhanceProvisionerPlugin — Sprint 15C Fase 15C.C', () => {
       });
       const info = await plugin.getServiceInfo(buildServiceWithRefs());
       expect(info.ssl).toBeUndefined();
+    });
+  });
+
+  // ─── Sprint 15C.II Fase F.10 — apps CMS instaladas ────────────────────
+  //    ADR-077 Amendment A9 + ADR-083 Amendment A9. Capability-driven por
+  //    presencia: getServiceInfo enumera apps via getWebsiteApps (fail-soft)
+  //    y construye AppPresence[]. WP requiere defaultWpUserId presente para
+  //    declarar la action 'open_app_admin' (D5 frozen); Joomla siempre la
+  //    declara (URL canónica). buildApiMock default `getWebsiteApps: null`
+  //    → info.apps undefined; tests sobreescriben con apps explícitas.
+
+  describe('getServiceInfo() — apps F.10', () => {
+    const APP_WP_WITH_DEFAULT = {
+      id: 'app-uuid-wp-1',
+      app: 'wordpress' as const,
+      version: '6.4.2',
+      defaultWpUserId: 42,
+    };
+    const APP_WP_NO_DEFAULT = {
+      id: 'app-uuid-wp-2',
+      app: 'wordpress' as const,
+      version: '6.4.2',
+    };
+    const APP_WP_BLOG_PATH = {
+      id: 'app-uuid-wp-3',
+      app: 'wordpress' as const,
+      version: '6.3.1',
+      path: 'blog',
+      defaultWpUserId: 99,
+    };
+    const APP_JOOMLA = {
+      id: 'app-uuid-joomla-1',
+      app: 'joomla' as const,
+      version: '5.0.0',
+    };
+
+    function setupAppsTest(args: { apps: unknown[] | null }) {
+      const api = buildApiMock();
+      api.getSubscription.mockResolvedValue({
+        id: SUB_ID,
+        status: 'active',
+        planName: 'Web Pro',
+        friendlyName: 'mi-cliente.es',
+      });
+      api.getSubscriptionBandwidth.mockResolvedValue({ usedMb: 100 });
+      api.calculateResourceUsage.mockResolvedValue({ items: [] });
+      api.getWebsite.mockResolvedValue({
+        id: WEBSITE_ID,
+        domain: { id: 'domain-uuid', domain: DOMAIN },
+        aliases: [],
+        status: 'active',
+        orgId: ORG_ID,
+        createdAt: '2026-01-01T00:00:00Z',
+      });
+      api.getDomainSsl.mockResolvedValue(null);
+      if (args.apps === null) {
+        api.getWebsiteApps.mockResolvedValue(null);
+      } else {
+        api.getWebsiteApps.mockResolvedValue({ items: args.apps });
+      }
+      return buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+    }
+
+    it('website sin apps (getWebsiteApps null) → info.apps undefined (capability-driven por presencia)', async () => {
+      const plugin = setupAppsTest({ apps: null });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.apps).toBeUndefined();
+    });
+
+    it('getWebsiteApps responde array vacío → info.apps undefined (NO array vacío misleading)', async () => {
+      const plugin = setupAppsTest({ apps: [] });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.apps).toBeUndefined();
+    });
+
+    it('WP con defaultWpUserId → AppPresence con action open_app_admin', async () => {
+      const plugin = setupAppsTest({ apps: [APP_WP_WITH_DEFAULT] });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.apps).toHaveLength(1);
+      const app = info.apps![0];
+      expect(app.appId).toBe('app-uuid-wp-1');
+      expect(app.kind).toBe('wordpress');
+      expect(app.label).toBe('plugin.enhance_cp.apps.wordpress');
+      expect(app.version).toBe('6.4.2');
+      expect(app.path).toBeUndefined();
+      expect(app.actions).toHaveLength(1);
+      expect(app.actions[0].slug).toBe('open_app_admin');
+    });
+
+    it('WP sin defaultWpUserId → AppPresence con actions=[] (frontend renderiza disabled)', async () => {
+      const plugin = setupAppsTest({ apps: [APP_WP_NO_DEFAULT] });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.apps).toHaveLength(1);
+      expect(info.apps![0].actions).toEqual([]);
+    });
+
+    it('Joomla → AppPresence con action open_app_admin (siempre disponible — URL canónica)', async () => {
+      const plugin = setupAppsTest({ apps: [APP_JOOMLA] });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.apps).toHaveLength(1);
+      const app = info.apps![0];
+      expect(app.kind).toBe('joomla');
+      expect(app.label).toBe('plugin.enhance_cp.apps.joomla');
+      expect(app.actions).toHaveLength(1);
+      expect(app.actions[0].slug).toBe('open_app_admin');
+    });
+
+    it('multi-instancia: 2 WP (root + /blog) + 1 Joomla → 3 entries diferenciadas por path', async () => {
+      const plugin = setupAppsTest({
+        apps: [APP_WP_WITH_DEFAULT, APP_WP_BLOG_PATH, APP_JOOMLA],
+      });
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      expect(info.apps).toHaveLength(3);
+      expect(info.apps![0].path).toBeUndefined(); // root
+      expect(info.apps![1].path).toBe('blog');
+      expect(info.apps![2].kind).toBe('joomla');
+    });
+
+    it('fail-soft: getWebsiteApps lanza → info.apps undefined (NO bloquea getServiceInfo)', async () => {
+      const api = buildApiMock();
+      api.getSubscription.mockResolvedValue({
+        id: SUB_ID,
+        status: 'active',
+        planName: 'Web Pro',
+        friendlyName: 'mi-cliente.es',
+      });
+      api.getSubscriptionBandwidth.mockResolvedValue({ usedMb: 100 });
+      api.calculateResourceUsage.mockResolvedValue({ items: [] });
+      api.getWebsite.mockResolvedValue(null);
+      api.getWebsiteApps.mockRejectedValue(new Error('boom orchd'));
+      const plugin = buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      );
+      const info = await plugin.getServiceInfo(buildServiceWithRefs());
+      // El status sigue activo + métricas presentes (SSL/quota/status no bloqueados).
+      expect(info.status).toBe('active');
+      expect(info.apps).toBeUndefined();
+    });
+  });
+
+  // ─── executeAction('open_app_admin') — Sprint 15C.II Fase F.10 ──────
+  //    ADR-077 Amendment A9 + ADR-083 Amendment A9. Dispatcher por kind:
+  //    WP → SSO contractual getDefaultWpSsoUser + getWordpressUserSsoUrl.
+  //    Joomla → URL canónica ${site_url}/administrator.
+
+  describe("executeAction('open_app_admin')", () => {
+    function setupOpenAppAdminTest(args: {
+      apps: unknown[];
+      defaultUser?: unknown;
+      ssoUrl?: string;
+      joomlaInfo?: unknown;
+    }) {
+      const api = buildApiMock();
+      api.getSubscription.mockResolvedValue({
+        id: SUB_ID,
+        status: 'active',
+        planName: 'Web Pro',
+        friendlyName: 'mi-cliente.es',
+      });
+      api.getWebsiteApps.mockResolvedValue({ items: args.apps });
+      if (args.defaultUser !== undefined) {
+        api.getDefaultWpSsoUser.mockResolvedValue(args.defaultUser);
+      }
+      if (args.ssoUrl !== undefined) {
+        api.getWordpressUserSsoUrl.mockResolvedValue(args.ssoUrl);
+      }
+      if (args.joomlaInfo !== undefined) {
+        api.getJoomlaInfo.mockResolvedValue(args.joomlaInfo);
+      }
+      return { plugin: buildPlugin(
+        buildPrismaMock({ install: VALID_INSTALL }),
+        buildVaultMock(),
+        buildCustomersMock(),
+        api,
+      ), api };
+    }
+
+    it('WP con default user → invoca getWordpressUserSsoUrl + returns {url, appKind:wordpress, urlKind:sso}', async () => {
+      const SSO_URL = 'https://panel.test/wp-admin/index.php?token=abc';
+      const { plugin, api } = setupOpenAppAdminTest({
+        apps: [{ id: 'wp-id', app: 'wordpress', version: '6.4.2', defaultWpUserId: 42 }],
+        defaultUser: { id: 42, username: 'admin', email: 'admin@test' },
+        ssoUrl: SSO_URL,
+      });
+      const result = await plugin.executeAction(
+        buildServiceWithRefs(),
+        'open_app_admin',
+        { appId: 'wp-id' },
+      );
+      expect(result.success).toBe(true);
+      expect(api.getWordpressUserSsoUrl).toHaveBeenCalledWith(
+        ORG_ID,
+        WEBSITE_ID,
+        'wp-id',
+        42,
+      );
+      expect(result.data).toEqual({
+        url: SSO_URL,
+        appKind: 'wordpress',
+        urlKind: 'sso',
+        opensIn: 'new_tab',
+      });
+    });
+
+    it('WP sin default user (404 defensive) → throws INVALID_STATE', async () => {
+      const { plugin } = setupOpenAppAdminTest({
+        apps: [{ id: 'wp-id', app: 'wordpress', version: '6.4.2' }],
+        defaultUser: null, // getDefaultWpSsoUser devuelve null (404)
+      });
+      await expect(
+        plugin.executeAction(buildServiceWithRefs(), 'open_app_admin', {
+          appId: 'wp-id',
+        }),
+      ).rejects.toMatchObject({ code: 'INVALID_STATE' });
+    });
+
+    it('Joomla → returns URL canónica ${site_url}/administrator + appKind:joomla + urlKind:canonical', async () => {
+      const { plugin } = setupOpenAppAdminTest({
+        apps: [{ id: 'joomla-id', app: 'joomla', version: '5.0.0' }],
+        joomlaInfo: {
+          version: '5.0.0',
+          site_url: 'https://mi-cliente.es',
+          plugin_count: 3,
+          user_count: 1,
+        },
+      });
+      const result = await plugin.executeAction(
+        buildServiceWithRefs(),
+        'open_app_admin',
+        { appId: 'joomla-id' },
+      );
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({
+        url: 'https://mi-cliente.es/administrator',
+        appKind: 'joomla',
+        urlKind: 'canonical',
+        opensIn: 'new_tab',
+      });
+    });
+
+    it('Joomla site_url con trailing slash → normaliza (no double slash)', async () => {
+      const { plugin } = setupOpenAppAdminTest({
+        apps: [{ id: 'joomla-id', app: 'joomla', version: '5.0.0' }],
+        joomlaInfo: {
+          version: '5.0.0',
+          site_url: 'https://mi-cliente.es/',
+          plugin_count: 3,
+          user_count: 1,
+        },
+      });
+      const result = await plugin.executeAction(
+        buildServiceWithRefs(),
+        'open_app_admin',
+        { appId: 'joomla-id' },
+      );
+      expect((result.data as { url: string }).url).toBe(
+        'https://mi-cliente.es/administrator',
+      );
+    });
+
+    it('appId no existe en website → throws INVALID_STATE', async () => {
+      const { plugin } = setupOpenAppAdminTest({
+        apps: [{ id: 'other-app', app: 'wordpress', version: '6.4.2', defaultWpUserId: 1 }],
+      });
+      await expect(
+        plugin.executeAction(buildServiceWithRefs(), 'open_app_admin', {
+          appId: 'wp-nonexistent',
+        }),
+      ).rejects.toMatchObject({ code: 'INVALID_STATE' });
+    });
+
+    it('payload sin appId → throws INVALID_PAYLOAD', async () => {
+      const { plugin } = setupOpenAppAdminTest({ apps: [] });
+      await expect(
+        plugin.executeAction(buildServiceWithRefs(), 'open_app_admin', {}),
+      ).rejects.toMatchObject({ code: 'INVALID_PAYLOAD' });
     });
   });
 
