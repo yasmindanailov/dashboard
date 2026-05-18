@@ -1293,3 +1293,243 @@ Wire en `/dashboard/services/[id]/page.tsx` y `/admin/services/[id]/page.tsx`: r
 - `service.ssl.auto_renew_on` / `.auto_renew_off`
 - `service.ssl.issuer_label`
 - `service.ssl.admin_cta_manage_in_provider`
+
+---
+
+### Amendment A9 (2026-05-18) — Apps CMS instaladas: WordPress SSO contractual + Joomla URL canónica (Sprint 15C.II Fase F.10)
+
+**Contexto.** Sprint 15C.II Fase F.10 — capa base de App Management. El plugin Enhance materializa la primera implementación concreta del shape genérico `AppPresence` introducido en [ADR-077 Amendment A9](./adr-077-contrato-provisioner-plugin-v2.md#amendments). Enhance soporta dos kinds canónicos hoy (Sprint 15C.II): `wordpress` (SSO contractual documentado en OAS) y `joomla` (URL canónica sin SSO). Heredable a fases futuras F.10.x (stats UI per-app `DC.NEW-51`) y F.10.y (install/uninstall desde dashboard `DC.NEW-52`). Dossier [§A.11.10.7](../60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md) re-redactado post-pivot + refinamiento [§A.11.10.7.2](../60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md) R1..R6 frozen pre-código.
+
+> **Justificado por:** sprint hardening 15C.II Fase F.10 — capa base App Management con endpoints orchd contractuales documentados.
+> **Sprint:** 15C.II Fase F.10 (rama `sprint15c-ii-fase-f10-curated-deeplinks`).
+> **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` de ADR-077 (sigue `'v2'`). 4 nuevos métodos en `EnhanceApiClient` (additivos). Plugin Enhance declara `'open_app_admin'` en `inlineActions` (additivo). `getServiceInfo()` añade `apps` al `Promise.all` paralelizado existente (additivo, fail-soft — apps NO bloquean SSL/quota/status existentes).
+
+#### A9.1. Endpoints orchd consumidos (verificados contra OAS)
+
+Cuatro endpoints contractuales del [OAS de orchd](../_research/sprint-15c/orchd-oas3-api.yaml):
+
+- [`GET /orgs/{org}/websites/{w}/apps`](../_research/sprint-15c/orchd-oas3-api.yaml#L9408) (`getWebsiteApps`) — lista apps `{ id, app: 'wordpress'|'joomla', version, path?, defaultWpUserId? }`. Returns `WebsiteAppsFullListing { items: WebsiteApp[] }`.
+- [`GET /orgs/{org}/websites/{w}/apps/{appId}/wordpress/info`](../_research/sprint-15c/orchd-oas3-api.yaml#L10280) (`getWordpressInfo`) — snapshot per-WP `{ version, site_url, plugin_count, user_count, has_woocommerce }`. F.10 NO lo consume directamente (los detalles per-kind son F.10.x — DC.NEW-51); el método se añade ahora al cliente para uso futuro sin refactor.
+- [`GET /orgs/{org}/websites/{w}/apps/{appId}/wordpress/users/default`](../_research/sprint-15c/orchd-oas3-api.yaml#L9838) (`getDefaultWpSsoUser`) — devuelve `WpUser` del default SSO; **404 si NO hay default user configurado** (manejo defensivo crítico — A9.2).
+- [`GET /orgs/{org}/websites/{w}/apps/{appId}/wordpress/users/{userId}/sso`](../_research/sprint-15c/orchd-oas3-api.yaml#L9945) (`getWordpressUserSsoUrl`) — **SSO contractual a WP-admin** del user específico. Returns URL string. Acepta `?shouldRedirect=true` para 307 redirect en vez de JSON; Aelium consume la variante JSON (default).
+- [`GET /orgs/{org}/websites/{w}/apps/{appId}/joomla/info`](../_research/sprint-15c/orchd-oas3-api.yaml#L10255) (`getJoomlaInfo`) — snapshot per-Joomla `{ version, site_url, plugin_count, user_count }`. F.10 consume `site_url` para construir la URL canónica `${site_url}/administrator`. Los detalles plugin_count/user_count se reservan para F.10.x.
+
+**NO existe `getJoomlaUserSsoUrl`** en el OAS — verificación rigurosa contra todas las rutas `joomla` del OAS. Decisión doctrinal: Joomla usa URL canónica `${site_url}/administrator` (estándar del CMS Joomla desde su versión 1.0 en 2005 — estable a nivel del CMS, NO del panel; orchd no la puede romper porque no es suya). UX: cliente entra con sus credenciales Joomla (standard reseller — cPanel/Plesk se comportan igual).
+
+#### A9.2. Flow `executeAction('open_app_admin', { appId })` — discriminator por kind
+
+```typescript
+// Pseudocódigo del dispatch interno (enhance.plugin.ts):
+async function executeOpenAppAdmin(
+  service: ServiceWithRelations,
+  payload: { appId: string },
+): Promise<ActionResult> {
+  const refs = extractServiceRefs(service);
+  // refs.enhance_org_id + refs.enhance_website_id ya disponibles en metadata
+  const { client: api } = await this.getApiClient();
+
+  // 1. Localizar la app por appId (re-query, no cache — apps pueden cambiar runtime)
+  const appsResponse = await api.getWebsiteApps(refs.enhance_org_id, refs.enhance_website_id);
+  const app = appsResponse.items.find(a => a.id === payload.appId);
+  if (!app) {
+    throw new ProvisionerPluginError(
+      `App ${payload.appId} not found in website ${refs.enhance_website_id}`,
+      'INVALID_STATE',
+      false,
+    );
+  }
+
+  // 2. Discriminator por kind
+  if (app.app === 'wordpress') {
+    // 2a. Resolver default SSO user (404 si no configurado)
+    let defaultUser;
+    try {
+      defaultUser = await api.getDefaultWpSsoUser(
+        refs.enhance_org_id,
+        refs.enhance_website_id,
+        app.id,
+      );
+    } catch (err) {
+      if (err.code === 'NOT_FOUND' /* 404 */) {
+        // Esto NO debería pasar — el plugin filtra apps WP sin default user
+        // en getServiceInfo() (action 'open_app_admin' OMITIDA del actions[]).
+        // Defensive: el frontend ya gateó el botón disabled; este path solo
+        // si el usuario fuerza el call via curl.
+        throw new ProvisionerPluginError(
+          'WordPress default SSO user not configured for this installation',
+          'INVALID_STATE',
+          false,
+        );
+      }
+      throw err;
+    }
+
+    // 2b. Generar SSO URL fresh on-demand (one-shot, NO cacheable)
+    const ssoUrl = await api.getWordpressUserSsoUrl(
+      refs.enhance_org_id,
+      refs.enhance_website_id,
+      app.id,
+      defaultUser.id,
+    );
+
+    return {
+      success: true,
+      data: {
+        url: ssoUrl,
+        kind: 'sso',
+        opensIn: 'new_tab',
+      },
+    };
+  } else if (app.app === 'joomla') {
+    // 3. Joomla: URL canónica desde site_url
+    const joomlaInfo = await api.getJoomlaInfo(
+      refs.enhance_org_id,
+      refs.enhance_website_id,
+      app.id,
+    );
+
+    // site_url puede o no terminar con '/', normalizar
+    const baseUrl = joomlaInfo.site_url.replace(/\/$/, '');
+    return {
+      success: true,
+      data: {
+        url: `${baseUrl}/administrator`,
+        kind: 'canonical',
+        opensIn: 'new_tab',
+      },
+    };
+  } else {
+    // 4. Kind no soportado (defensive — shouldn't reach si getServiceInfo
+    // filtra correctamente; pero permite futuros kinds añadirse sin error)
+    throw new ProvisionerPluginError(
+      `App kind "${app.app}" not supported by open_app_admin (Enhance F.10)`,
+      'NOT_IMPLEMENTED',
+      false,
+    );
+  }
+}
+```
+
+#### A9.3. Flow `getServiceInfo()` — enumera apps paralelo a SSL/quota/status existentes
+
+`getServiceInfo` extiende su `Promise.all` con `getWebsiteApps` (fail-soft: si lanza, log warn + devuelve `null` → `apps: undefined`). Por cada `WebsiteApp` se construye un `AppPresence` con:
+
+- `appId`, `kind`, `label` i18n, `path` opcional, `version` opcional.
+- `actions`: si `kind='wordpress'` requiere `defaultWpUserId` presente en el listado (campo opcional del OAS `WebsiteApp.defaultWpUserId?` línea 19199); si ausente → `actions: []` → frontend renderiza disabled state. Si `kind='joomla'` → `actions: [{ slug: 'open_app_admin', adminOnly: false, label: 'plugin.enhance_cp.actions.open_app_admin.label' }]` siempre disponible.
+- Kinds futuros: añadir cases sin amendment del contrato genérico ADR-077 A9.
+
+**Optimización heredable**: `app.defaultWpUserId` del listado evita call extra a `getDefaultWpSsoUser` per-WP-app en `getServiceInfo`. Solo se invoca defensivamente en `executeAction` (path "el cliente forzó el call sin que el frontend lo gateara"). Patrón heredado del SSO optimization de ADR-083 §4 decisión 13.
+
+#### A9.4. Mock `MockEnhanceServer` — extensión Sprint 15C.II Fase F.10
+
+`backend/test/mocks/enhance-server/server.ts` + `backend/test/mocks/enhance-server/types.ts`:
+
+- **State nuevo**: `state.websiteApps: Map<websiteId, WebsiteApp[]>` (Map keyed por `websiteId`).
+- **Seed opt-in**: `MockEnhanceSeed.websiteApps?: Map<websiteId, WebsiteApp[]>` — si presente, pre-puebla el state. Si ausente, websites arrancan sin apps (NO se auto-siembra al `POST /websites` — las apps las instala el cliente explícitamente; cuando F.10.y materialice install desde dashboard, el flow las crea via `POST /websites/{w}/apps`).
+- **5 endpoints simulados**:
+  - `GET /orgs/:orgId/websites/:websiteId/apps` → returns `{ items: state.websiteApps.get(websiteId) || [] }`.
+  - `GET /orgs/:orgId/websites/:websiteId/apps/:appId/wordpress/info` → returns `WordPressInfo` simulado (seed-overridable).
+  - `GET /orgs/:orgId/websites/:websiteId/apps/:appId/wordpress/users/default` → returns default user simulado; **404 si la WP app no tiene `defaultWpUserId` en el state** (permite testing del path "WP sin default user").
+  - `GET /orgs/:orgId/websites/:websiteId/apps/:appId/wordpress/users/:userId/sso` → returns `"http://mock-panel.aelium.test/wp-admin/index.php?token=<uuid>"` (JSON-encoded string, mismo patrón que `/sso` existente del mock).
+  - `GET /orgs/:orgId/websites/:websiteId/apps/:appId/joomla/info` → returns `JoomlaInfo` simulado (seed-overridable, `site_url` por defecto = website primary domain).
+
+**Cleanup canónico**: `DELETE /websites/:id` borra las apps del state (`state.websiteApps.delete(websiteId)`) — coherente con el cleanup SSL F.7.
+
+#### A9.5. UI — `<AppShortcutsCard>` SC (F.10.3)
+
+`frontend/app/_shared/services/AppShortcutsCard.tsx` (paralela a `<SslStatusCard>` A8.8):
+
+```typescript
+interface Props {
+  apps: readonly AppPresence[];
+  serviceId: string;
+  isAdmin?: boolean;
+}
+```
+
+Renderiza:
+
+- Título card "Aplicaciones instaladas" (i18n key `service.apps.card_title`).
+- Lista de N botones, uno por `AppPresence`. Cada botón:
+  - Label: traduce `app.label` + sufijo `(path)` si `app.path` está definido y no es `/`.
+  - Subtexto: `version` si presente.
+  - Icono por kind (WordPress logo / Joomla logo / icono genérico para kinds futuros).
+- Estado del botón:
+  - `actions: []` → DISABLED con tooltip "Configura un usuario WP por defecto en el panel para activar este atajo" (i18n key `service.apps.disabled_no_default_user`) + CTA "Abrir panel" via `SsoButton` existente del card SSO padre.
+  - `actions: [{ slug: 'open_app_admin' }]` → enabled, click invoca server action `openAppAdminAction(serviceId, appId)`.
+
+Click handler:
+
+```typescript
+async function handleOpenAppAdmin(appId: string) {
+  const result = await openAppAdminAction(serviceId, appId);
+  if (result.success) {
+    window.open(result.data.url, '_blank');
+  } else {
+    showToast({ type: 'error', message: result.message });
+  }
+}
+```
+
+Wire en `/dashboard/services/[id]/page.tsx` y `/admin/services/[id]/page.tsx`: render `<AppShortcutsCard apps={info.apps} serviceId={service.id} isAdmin={isAdmin} />` SOLO si `info.apps !== undefined && info.apps.length > 0`. Ubicación exacta en el árbol formalizada en F.12 — interinamente junto a `<SslStatusCard>` (sección "estado del recurso").
+
+#### A9.6. Telemetry/audit per-app (R6 frozen — `metadata.app_id`)
+
+Cuando admin ejecuta `open_app_admin` sobre service ajeno (`AuditInterceptor` filtra: actor staff + `target_user_id !== actor.id`), el orquestador o capa equivalente del flow admin añade audit enriquecido en `audit_access_log.metadata` JSON path:
+
+```json
+{
+  "resource_type": "Service",
+  "resource_id": "<service_uuid>",
+  "target_user_id": "<service_owner_user_uuid>",
+  "actor_role": "superadmin",
+  "app_id": "<app_uuid>",
+  "app_kind": "wordpress"
+}
+```
+
+**Decisión doctrinal R6**: `metadata.app_id` JSON path (cero schema change) en lugar de columna `app_id` nullable. Justificación rigurosa en [ADR-077 Amendment A9.7](./adr-077-contrato-provisioner-plugin-v2.md#amendments) — coherente con `target_user_id` que ya vive como JSON path desde Sprint 9 Fase E.
+
+#### A9.7. i18n keys nuevas (`frontend/app/_i18n/`)
+
+- `service.apps.card_title` — "Aplicaciones instaladas"
+- `service.apps.open_app_admin.label` — "Abrir admin"
+- `service.apps.disabled_no_default_user` — "Configura un usuario WP por defecto en el panel para activar este atajo"
+- `service.apps.disabled_no_default_user.cta_label` — "Abrir panel"
+- `plugin.enhance_cp.apps.wordpress` — "WordPress"
+- `plugin.enhance_cp.apps.joomla` — "Joomla"
+- `plugin.enhance_cp.actions.open_app_admin.label` — "Abrir admin"
+- `plugin.enhance_cp.actions.open_app_admin.description` — "Abre el panel de administración de la aplicación en una pestaña nueva"
+
+#### A9.8. Tests Sprint 15C.II Fase F.10
+
+- `enhance.plugin.spec.ts` — `getServiceInfo > apps`:
+  - Website sin apps → `apps: undefined` (capability-driven por presencia, NO emitir array vacío).
+  - WP con `defaultWpUserId` → `apps[].actions = [{ slug: 'open_app_admin' }]`.
+  - WP sin `defaultWpUserId` → `apps[].actions = []` (disabled state).
+  - Joomla → `apps[].actions = [{ slug: 'open_app_admin' }]`.
+  - Multi-instancia: 2 WP (root + /blog) + 1 Joomla → 3 entries diferenciadas por `path`.
+  - Fail-soft: `getWebsiteApps` lanza → `apps: undefined` (NO bloquea getServiceInfo).
+- `enhance.plugin.spec.ts` — `executeAction('open_app_admin')`:
+  - WP con default → llama `getWordpressUserSsoUrl(defaultUserId)` + returns `{ url, kind: 'sso' }`.
+  - WP sin default (404 defensive) → throws `ProvisionerPluginError('INVALID_STATE')`.
+  - Joomla → llama `getJoomlaInfo` + returns `{ url: '${site_url}/administrator', kind: 'canonical' }`.
+  - Kind desconocido (defensive) → throws `ProvisionerPluginError('NOT_IMPLEMENTED')`.
+  - App `appId` no existe en website → throws `INVALID_STATE`.
+- `client.integration.spec.ts` — los 4 nuevos métodos cliente contra mock.
+- `client.spec.ts` — manejo de errores (`getDefaultWpSsoUser` 404 → mapea a `NOT_FOUND` semánticamente).
+- `plugin-contract.spec.ts` — invariante A9 capability-driven: si plugin declara `'open_app_admin'` en `inlineActions` → `getServiceInfo` DEBE emitir `apps?: AppPresence[]` (consistencia bidireccional).
+- `admin-provisioning.controller.e2e` o equivalente — audit per-app: ejecutar `open_app_admin` admin sobre service ajeno → fila persistida en `audit_access_log` con `metadata.app_id` + `metadata.app_kind`.
+
+#### A9.9. Heredabilidad a 15D RC / 15E Docker / 15G Plesk
+
+Patrón canónico Sprint 15C.II Fase F.10 establecido:
+
+1. **Plugin enumera apps en `getServiceInfo()`** — si el upstream expone "aplicaciones instaladas dentro del recurso" (websites con CMS para Enhance/Plesk; containers con apps para Docker; etc.), el plugin las mapea a `AppPresence[]` con sus kinds plugin-internos.
+2. **Action canónica `open_app_admin`** declarada en `inlineActions` con payload `{ appId }`. El plugin discrimina por kind internamente.
+3. **URLs fresh on-demand** — el plugin emite la URL en `ActionResult.data` cada vez (NO se cachean — SSO one-shot, canónicas re-generadas por consistencia).
+4. **Mock extendido análogamente** — endpoints simulados para `getWebsiteApps` (o equivalente) + flow SSO per-kind.
+5. **Capability gating por presencia** — frontend renderiza `<AppShortcutsCard>` solo si `info.apps !== undefined && info.apps.length > 0`. NUNCA ramifica por `provisioner_slug`.
+6. **Audit per-app via `metadata.app_id`** — cero schema change, coherente A9.7 ADR-077.
+
+15D RC NO tiene apps instalables (registro de dominios — no aplica). 15E Docker SÍ — un container puede tener apps web instaladas (WordPress en container, etc.) — heredará el patrón. 15G Plesk SÍ — Plesk Application Vault tiene catálogo extensivo (WordPress, Joomla, Drupal, MediaWiki, PrestaShop, ...) — heredará el patrón con kinds adicionales sin amendment del contrato.

@@ -1467,3 +1467,231 @@ R8 audit centralizado — el plugin NUNCA emite eventos ni invalida cache (mismo
 Mismo patrón canónico que A6 `testConnection?()` (refuerzo §"capability-driven por presencia"): ADR justificante → Amendment ADR-077 con firma + shapes asociados + impacto orquestador + invariante test contract + plugins existentes → compatible hacia atrás (NO bumpea `contractVersion`) → frontend gatea el CTA por presencia de la capability (NUNCA por slug — ADR-070) → orquestador maneja transversales (tx + cache + audit + evento + ClientNote) → documentar en `provisioning/contract.md` §"métodos" + `glossary.md`.
 
 Convención de naming: el shape de retorno usa sufijo `Service*` cuando el resultado es per-servicio (`ServiceReconcileResult`, vs `ReconcileResult` agregado del reconcile-all en `reconcile-registry.service.ts:74`). Heredable a métodos futuros — `getBackupStatus(service)` futuro devolvería `ServiceBackupStatus`, no `BackupStatus`.
+
+---
+
+### Amendment A9 (2026-05-18) — campo opcional `ServiceInfo.apps?: AppPresence[]` + shape `AppPresence` + acción canónica `open_app_admin` (Sprint 15C.II Fase F.10)
+
+**Contexto.** Sprint 15C.II Fase F.10 — capa base de App Management con deep-links a apps CMS instaladas (WordPress SSO contractual / Joomla URL canónica). El plan original "deep-links curados al panel del proveedor (email/DBs/files/logs)" se pivotó pre-código tras la investigación rigurosa del OAS de orchd (`docs/_research/sprint-15c/orchd-oas3-api.yaml`) — los endpoints SSO del panel ([`getOrgMemberLogin`](../_research/sprint-15c/orchd-oas3-api.yaml#L5039) emisor del OTP + [`createOtpSession`](../_research/sprint-15c/orchd-oas3-api.yaml#L3626) consumidor) son agnósticos a sección y construir sobre `?next=` no documentado violaría la doctrina de robustez heredable. En cambio, el OAS SÍ documenta endpoints contractuales para apps CMS instaladas dentro de un website ([`getWebsiteApps`](../_research/sprint-15c/orchd-oas3-api.yaml#L9408) + [`getWordpressUserSsoUrl`](../_research/sprint-15c/orchd-oas3-api.yaml#L9945)). Dossier [§A.11.10.7](../60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md) re-redactado + handoff [§A.11.10.7.1](../60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md) pivot + refinamiento [§A.11.10.7.2](../60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md) R1..R6 frozen pre-código + [ADR-083 Amendment A9](./adr-083-plugin-enhance-cp-specifics.md#amendments) (Enhance specifics).
+
+> **Justificado por:** sprint hardening 15C.II Fase F.10 — capa base App Management heredable a 15D RC / 15E Docker / 15G Plesk + futuros features F.10.x (stats UI per-app `DC.NEW-51`) y F.10.y (install/uninstall desde dashboard `DC.NEW-52`).
+> **Sprint:** 15C.II Fase F.10 (PR doc-only commit 1 + commits feat 2..N rama `sprint15c-ii-fase-f10-curated-deeplinks`).
+> **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` — sigue `'v2'`. Plugins existentes (`internal`, `manual`) omiten `ServiceInfo.apps` (concepto no aplicable — internal/manual no tienen apps CMS instalables). `enhance_cp` lo expone (Sprint 15C.II Fase F.10). Capability-driven por presencia: el frontend gatea el card por `info.apps !== undefined && info.apps.length > 0`, NUNCA por `provisioner_slug` — ADR-070. Mismo molde A5/A6/A7/A8.
+
+#### A9.1. Motivación
+
+Estándar profesional de paneles reseller (cPanel/Softaculous + Plesk/Application Vault como referentes, ~10 años en producción): el cliente espera ver "qué apps tengo instaladas en mi hosting" + atajo directo al admin de cada una. orchd cubre ~80% del estándar (catalog vía `getInstallableApps`, install/uninstall, deep-link WP SSO documentado, version management WP, users management WP+Joomla, themes/plugins management WP). El sprint 15C.II hardening promueve este feature al alcance de F.10 — capa base read-only — preservando heredabilidad a fases futuras de mutación.
+
+Sin el shape contractual `AppPresence`, cada plugin con apps tendría que inventar su propio modelo + UI per-plugin → violación ADR-070 (cero `if (provisioner === 'X')` en frontend). Con `AppPresence` + action canónica `open_app_admin`, el frontend renderiza N atajos diferenciados sin saber el kind del proveedor; el plugin internamente decide cómo emitir la URL (SSO real / URL canónica / futuras).
+
+#### A9.2. Shape `AppPresence` (en `backend/src/core/provisioning/types.ts`)
+
+```typescript
+/**
+ * Sprint 15C.II Fase F.10 — ADR-077 Amendment A9.
+ *
+ * Representa una "aplicación instalada" dentro del recurso del proveedor
+ * (típicamente una website/hosting): WordPress, Joomla, futuros CMS.
+ *
+ * Shape mínimo contractual genérico. Detalles per-kind (WordPressInfo,
+ * JoomlaInfo, etc.) son plugin-internal y viven en endpoints/actions
+ * plugin-internos invocados on-demand cuando la UI dedicada lo requiera
+ * (A9.5 doctrina).
+ *
+ * Capability-driven por presencia (mismo molde A5/A6/A7/A8): plugins
+ * que NO soporten apps instalables OMITEN el campo `ServiceInfo.apps`.
+ */
+export interface AppPresence {
+  /**
+   * ID estable provisto por el proveedor (UUID en Enhance; string libre
+   * en general). Sirve como discriminator del payload en
+   * `executeAction('open_app_admin', { appId })`.
+   */
+  appId: string;
+
+  /**
+   * String libre plugin-internal (mismo patrón `ServiceAction.slug`).
+   * Convención: lowercase + snake_case si compuesto.
+   *
+   * Valores actuales (Sprint 15C.II Fase F.10):
+   *   - 'wordpress' — WP app, SSO contractual orchd
+   *   - 'joomla'    — Joomla app, URL canónica /administrator
+   *
+   * Valores futuros (heredabilidad): 'nodejs', 'python', 'drupal',
+   * 'mediawiki', 'prestashop', etc. — añadidos sin amendment del
+   * contrato cuando un plugin los soporte.
+   */
+  kind: string;
+
+  /**
+   * i18n key (translatable en el frontend). El plugin emite la key
+   * canónica; el frontend traduce. Ejemplos: 'plugin.enhance_cp.apps.wordpress',
+   * 'plugin.enhance_cp.apps.joomla'.
+   */
+  label: string;
+
+  /**
+   * Subdirectorio si la app NO está instalada en la raíz del recurso.
+   * Si está en raíz, omitido. Permite multi-instancia: 2 WP en una
+   * misma website (uno en '/', otro en '/blog') → 2 entries de
+   * `AppPresence` diferenciadas por `path`.
+   */
+  path?: string;
+
+  /** Versión instalada de la app (informativo). */
+  version?: string;
+
+  /**
+   * Acciones disponibles per-instalación. Mismo shape `ServiceAction`
+   * que las acciones del servicio entero (incluye `adminOnly`).
+   *
+   * Sprint 15C.II Fase F.10 declara una sola acción canónica:
+   *   - 'open_app_admin' — abre el admin de la app (SSO o URL canónica
+   *     según kind, payload `{ appId }`, returns `ActionResult.data`
+   *     con `{ url, kind: 'sso'|'canonical', opensIn: 'new_tab' }`).
+   *
+   * Acciones futuras (heredabilidad — additivas a `actions[]`):
+   *   - 'update_app_version' (DC.NEW-53)
+   *   - 'install_app_plugin' (DC.NEW-53, WP-only)
+   *   - 'set_default_wp_sso_user' (DC.NEW-53, WP-only)
+   *   - 'uninstall_app' (DC.NEW-52)
+   *   - …
+   *
+   * Si la action está ausente del array, el frontend NO renderiza el
+   * botón (capability-driven por presencia). Ejemplo concreto Sprint
+   * 15C.II Fase F.10: WordPress sin default user → `getDefaultWpSsoUser`
+   * 404 → plugin omite 'open_app_admin' de `actions[]` → frontend
+   * renderiza el atajo DISABLED con tooltip "Configura un usuario WP
+   * por defecto en el panel" + CTA al panel via `SsoButton` existente.
+   */
+  actions: readonly ServiceAction[];
+}
+```
+
+`ServiceInfo` extendida (A9.3):
+
+```typescript
+export interface ServiceInfo {
+  // ...campos existentes A5/A6/A7/A8...
+
+  /**
+   * Sprint 15C.II Fase F.10 — Amendment A9.
+   *
+   * Apps CMS instaladas dentro del recurso del proveedor (websites con
+   * WordPress / Joomla / etc.). Capability-driven por presencia
+   * (mismo molde A5/A6/A7/A8): plugins que NO soporten apps OMITEN
+   * el campo; plugins que sí lo soporten lo emiten (vacío si no hay
+   * apps instaladas, array si hay).
+   *
+   * El frontend renderiza `<AppShortcutsCard>` solo si
+   * `info.apps !== undefined && info.apps.length > 0`. NUNCA ramifica
+   * por `provisioner_slug` (ADR-070).
+   */
+  apps?: readonly AppPresence[];
+}
+```
+
+#### A9.3. Acción canónica `open_app_admin` (slug fijo + payload discriminator)
+
+Slug fijo declarado en `plugin.inlineActions` (NO compuesto). Payload dinámico `{ appId: string }` discrimina la instalación específica. El plugin internamente discrimina por kind y emite URL fresh on-demand (NO cacheable — las URLs SSO son one-shot/short-TTL, las canónicas se generan fresh para consistencia).
+
+```typescript
+// En plugin.inlineActions del plugin Enhance (Sprint 15C.II Fase F.10):
+{
+  slug: 'open_app_admin',
+  label: 'plugin.enhance_cp.actions.open_app_admin.label',
+  description: 'plugin.enhance_cp.actions.open_app_admin.description',
+  adminOnly: false,  // Cliente self-service: abrir admin de SU app
+  // ...resto de campos ServiceAction estándar...
+}
+
+// Invocación desde el orquestador (heredada del flow F.9):
+await plugin.executeAction(service, 'open_app_admin', { appId: '...' });
+
+// Return ActionResult:
+{
+  success: true,
+  data: {
+    url: 'https://mi-website.com/wp-admin/index.php?token=...',  // o '${site_url}/administrator' para Joomla
+    kind: 'sso' | 'canonical',  // discriminator para UX (mostrar "abrir con SSO" vs "abrir admin")
+    opensIn: 'new_tab',  // siempre new_tab para no perder el dashboard
+  },
+}
+```
+
+**Manejo defensivo `404 NotFound`** (WP sin default user configurado): el plugin omite `'open_app_admin'` de `AppPresence.actions[]` para esa instalación; frontend renderiza el atajo disabled con tooltip + CTA al panel via `SsoButton` existente. NO se lanza error desde `executeAction` (la action ni se invoca — el frontend la oculta por capability-driven).
+
+`ActionResult.data: Record<string, unknown>` ya existe en el contrato (Sprint 11 Fase 11.A) — cero amendment al shape de `ActionResult`.
+
+#### A9.4. Doctrina capability-driven por presencia (R2 frozen §A.11.10.7.2)
+
+Mismo patrón canónico A5/A6/A7/A8: plugins que soporten apps instalables emiten `ServiceInfo.apps?: AppPresence[]` (vacío si no hay instalaciones, array si hay); plugins que NO las soporten OMITEN el campo. Frontend gatea el card por presencia + length:
+
+```tsx
+// <ServiceDetailPage> (cliente o admin):
+{info.apps && info.apps.length > 0 && (
+  <AppShortcutsCard apps={info.apps} serviceId={service.id} isAdmin={isAdmin} />
+)}
+```
+
+**Test contract genérico** (verificable en `plugin-contract.spec.ts`):
+
+- Si un plugin declara `'open_app_admin'` en `inlineActions` → DEBE emitir `ServiceInfo.apps?: AppPresence[]` en `getServiceInfo()` (consistencia bidireccional).
+- Si un plugin NO declara `'open_app_admin'` → DEBE omitir `ServiceInfo.apps` (no emitir array vacío misleading).
+- Si `info.apps` está definido → cada `AppPresence` DEBE tener `appId` string no-vacío + `kind` string no-vacío + `label` i18n key + `actions: readonly ServiceAction[]` (vacío permitido para WP sin default user).
+
+#### A9.5. Doctrina "detalles per-kind FUERA del contrato genérico" (R3 frozen)
+
+`WordPressInfo`, `JoomlaInfo`, y futuros shapes per-kind NO entran en `AppPresence`. Razón:
+
+- **Tamaño razonable de `getServiceInfo` response**: `getWordpressInfo` per-app suma 5+ fields adicionales × N apps × M services → respuesta hinchada. Cache TTL global de `getServiceInfo` (ADR-080 §C `serviceInfoCacheTtlSeconds`) no permite TTL independiente per-detalle.
+- **Plugin-specific vs contractual genérico**: el contrato `ProvisionerPlugin` v2 modela conceptos transversales (servicio, acción, capability, drift, app). Los detalles per-kind son específicos del provisioner — pertenecen al plugin, NO al contrato.
+- **Heredabilidad**: 15D RC / 15E Docker / 15G Plesk pueden añadir sus propios kinds (nodejs/python/...) con sus propios shapes específicos sin amendment del contrato.
+
+Cuando F.10.x stats UI lo requiera, los detalles per-kind viven en:
+
+- **Opción A** — endpoints REST dedicados: `GET /admin/services/:id/apps/:appId/details` que el frontend invoca cuando el usuario abre la tab "Detalles" de una app. Backend dispatch al plugin via método nuevo `plugin.getAppDetails?(service, appId)` opcional capability-driven.
+- **Opción B** — inline action plugin-internal: `executeAction('get_app_details', { appId })` que devuelve `ActionResult.data: { wordpress?: WordPressInfo, joomla?: JoomlaInfo, ... }` discriminator por kind.
+- **Decisión final**: se materializa en F.10.x con un Amendment ADR-077 A10 o A11 cuando se acometa.
+
+#### A9.6. Extensibilidad futura (additiva, sin breaking changes)
+
+El shape `AppPresence` está diseñado para crecer additivamente:
+
+- **Acciones futuras**: cualquier action plugin-internal nueva (`update_app_version`, `install_app_plugin`, `uninstall_app`, `set_default_wp_sso_user`, ...) se suma a `AppPresence.actions[]` con su slug + label + adminOnly. Cero refactor.
+- **Status del ciclo de vida**: cuando F.10.y materialice install/uninstall desde dashboard, `AppPresence` gana `status?: 'installed' | 'installing' | 'installing_failed' | 'uninstalling'` opcional (default 'installed' si campo ausente). Compatible hacia atrás — plugins que solo enumeran apps instaladas no añaden el campo.
+- **Detalles per-kind fresh**: como se decida en A9.5 cuando F.10.x lo materialice (endpoint dedicado o inline action).
+- **Cross-references**: si un plugin necesita exponer relación entre apps (ej: WP + WooCommerce plugin instalado), lo modela via `AppPresence.metadata?: Record<string, unknown>` plugin-internal — campo opcional libre añadido como sub-amendment cuando demanda emerja.
+
+#### A9.7. Doctrina audit per-sub-recurso (R6 frozen — telemetry per-app)
+
+Cuando admin ejecuta una action plugin-internal que opera sobre un **sub-recurso del service identificado por payload** (típicamente `{ appId, ... }`), el orquestador `ProvisioningService.executeAction` (o capa equivalente que maneje el flow admin) añade audit enriquecido con el ID del sub-recurso en `audit_access_log.metadata` JSON path:
+
+```json
+{
+  "resource_type": "Service",
+  "resource_id": "<service_uuid>",
+  "target_user_id": "<service_owner_user_uuid>",
+  "actor_role": "superadmin",
+  "app_id": "<app_uuid>",
+  "app_kind": "wordpress"
+}
+```
+
+- **Cero schema change** — el `metadata Json?` existente en `AuditAccessLog` (Sprint 9 Fase E + ADR-017) permite tracking arbitrario. Coherente con `target_user_id` que ya vive como JSON path desde su creación.
+- **Queryable hoy** via `metadata->'app_id'` Postgres operator. GIN index si volumen lo justifica.
+- **Heredable a F.10.y futuro**: cuando install/uninstall desde dashboard emita `app.installed`/`app.uninstalled` en `audit_change_log`, lleva `changes_after: { app_id, app_kind, path, version }` JSON path. Cero refactor.
+
+Generalización: cualquier action plugin-internal futura (DNS records, files, databases, futuras app sub-operations) que opere sobre sub-recurso identificable sigue el mismo patrón — `metadata.<resource_kind>_id` + `metadata.<resource_kind>_kind` cuando aplique.
+
+#### A8.8. Plugins existentes — actualización
+
+- `internal`, `manual`: `getServiceInfo()` NO emite `apps` (concepto no aplicable — internal/manual no tienen apps CMS instalables). Sin cambios. El frontend NO renderiza `<AppShortcutsCard>` para estos plugins.
+- `enhance_cp` (Sprint 15C.II Fase F.10): `getServiceInfo()` emite `apps` via 4 nuevos métodos cliente Enhance (`getWebsiteApps` + `getWordpressInfo` + `getDefaultWpSsoUser` + `getJoomlaInfo`); declara `'open_app_admin'` en `inlineActions` + implementa `executeAction('open_app_admin', { appId })` dispatch por kind ([ADR-083 Amendment A9](./adr-083-plugin-enhance-cp-specifics.md#amendments)).
+- Plugins futuros (15D RC / 15E Docker / 15G Plesk): heredan el patrón — si su API permite enumerar apps instalables dentro del recurso, declaran `'open_app_admin'` + emiten `apps` con kinds plugin-internos; si no, omiten el campo.
+
+#### A9.9. Doctrina de adición de shapes contractuales nuevos a `ServiceInfo` (refuerzo §3 + Amendments A3.6/A5.6/A7.7)
+
+Mismo patrón canónico que `ServiceInfo.recoveryHint?` (A5.7), `ServiceInfo.ssl?` (A7.7) y `ServiceAction.adminOnly?` (A3.6): ADR justificante → Amendment ADR-077 con shape mínimo contractual + impacto wrappers + invariante test contract + plugins existentes → compatible hacia atrás (NO bumpea `contractVersion`) → frontend ramifica por presencia (NUNCA por slug ni por display strings) → cálculo server-side (no aritmética en el frontend) → detalles per-kind fuera del contrato genérico (A9.5 doctrina) → documentar en `provisioning/contract.md` §"shapes" + `glossary.md`.
+
+Cuando un sub-recurso del service emerge como entidad contractual con identidad propia (`appId` aquí), las acciones del sub-recurso viven en su propio `actions[]` array, NO en `ServiceInfo.availableActions[]` del servicio entero (D4 frozen §A.11.10.7.2). Heredable a futuros sub-recursos (DNS records, files, databases, ...).
