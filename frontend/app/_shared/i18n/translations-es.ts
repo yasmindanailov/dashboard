@@ -575,4 +575,22 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.notifications.resend.submitting': 'Reenviando…',
   'service.notifications.resend.toast_success_prefix':
     'Notificación reenviada al cliente · plantilla: ',
+
+  // ── Sprint 15C.II Fase F.11.3 (R3-derivado §A.11.10.8.2 + L16) ──────────
+  //    Card cross-link Service↔billing. Visible cliente y admin (L16 SÍ
+  //    aplica: misma info, solo el href ramifica). Capability-driven por
+  //    presencia: si no hay nextDueDate ni lastInvoice → no se renderiza.
+  'service.billing_cross_link.card_title': 'Facturación',
+  'service.billing_cross_link.next_renewal_prefix': 'Próxima renovación: ',
+  'service.billing_cross_link.last_invoice_prefix': 'Última factura: ',
+  'service.billing_cross_link.due_prefix': 'vence ',
+  'service.billing_cross_link.view_invoice': 'Ver factura',
+  'service.billing_cross_link.no_invoice_yet':
+    'Sin facturas emitidas todavía para este servicio.',
+  'service.billing_cross_link.invoice_status.draft': 'Borrador',
+  'service.billing_cross_link.invoice_status.pending': 'Pendiente',
+  'service.billing_cross_link.invoice_status.paid': 'Pagada',
+  'service.billing_cross_link.invoice_status.overdue': 'Vencida',
+  'service.billing_cross_link.invoice_status.cancelled': 'Cancelada',
+  'service.billing_cross_link.invoice_status.refunded': 'Reembolsada',
 });

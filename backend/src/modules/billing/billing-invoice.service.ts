@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -16,7 +17,7 @@ import {
   MarkAsPaidDto,
   InvoiceListQueryDto,
 } from './dto/billing.dto';
-import { Prisma, Invoice } from '@prisma/client';
+import { Prisma, Invoice, InvoiceStatus } from '@prisma/client';
 import {
   PaymentProviderInterface,
   ManualPaymentProvider,
@@ -28,6 +29,31 @@ import {
   INVOICE_PDF_JOB,
   type InvoicePdfJobPayload,
 } from './pdf-generation.processor';
+
+/**
+ * Sprint 15C.II Fase F.11.3 (§A.11.10.8.2 R3-derivado) — shape canónico
+ * del cross-link entre un Service y su billing (próxima renovación +
+ * última factura asociada vía `InvoiceItem.service_id`). Capability-
+ * driven por presencia: si el service no tiene `next_due_date` ni
+ * facturas asociadas, el card no se renderiza en el frontend.
+ *
+ * Razón de la separación cross-link vs Invoice CRUD: el cliente/admin
+ * en la página del Service necesita una vista resumen no-paginada con
+ * 1 invoice (la última) — distinta del listado paginado `findByUser`.
+ */
+export interface ServiceBillingCrossLink {
+  nextDueDate: string | null;
+  amount: string | null;
+  currency: string;
+  lastInvoice: {
+    id: string;
+    invoice_number: string;
+    status: InvoiceStatus;
+    total: string;
+    due_date: string;
+    paid_at: string | null;
+  } | null;
+}
 
 /* BillingInvoiceService — Invoice CRUD, lifecycle, stats & numbering. Ref: Regla 15 */
 
@@ -375,6 +401,78 @@ export class BillingInvoiceService {
 
   async findByUser(userId: string, query: InvoiceListQueryDto) {
     return this.findAll({ ...query, user_id: userId });
+  }
+
+  /**
+   * Sprint 15C.II Fase F.11.3 (§A.11.10.8.2) — cross-link Service↔billing
+   * para mostrar en `/dashboard/services/[id]` (cliente) y
+   * `/admin/services/[id]` (admin) la próxima renovación + link a la
+   * última factura asociada.
+   *
+   * Owner check canónico espejo de `ProvisioningService.getInfoForUser`:
+   * si `!isAdmin && service.user_id !== userId` → 403. El controller
+   * admin pasa `isAdmin=true` (saltea check, garantizado por
+   * `AdminOnlyGuard` upstream).
+   *
+   * Last invoice lookup: `Invoice` ordered by `created_at DESC` que tenga
+   * al menos un `InvoiceItem.service_id === serviceId`. Si ninguno → null
+   * (service todavía no facturado / service legacy sin invoice asociado).
+   *
+   * Decimals serializados como string (coherente patrón Prisma) — el
+   * frontend los formatea con `Intl.NumberFormat`.
+   */
+  async getServiceBillingCrossLink(
+    serviceId: string,
+    userId: string,
+    isAdmin: boolean,
+  ): Promise<ServiceBillingCrossLink> {
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: {
+        id: true,
+        user_id: true,
+        next_due_date: true,
+        amount: true,
+        currency: true,
+      },
+    });
+    if (!service) {
+      throw new NotFoundException(`Service ${serviceId} no encontrado`);
+    }
+    if (!isAdmin && service.user_id !== userId) {
+      throw new ForbiddenException(
+        'No tienes acceso al billing de este servicio.',
+      );
+    }
+
+    const lastInvoice = await this.prisma.invoice.findFirst({
+      where: { items: { some: { service_id: serviceId } } },
+      orderBy: { created_at: 'desc' },
+      select: {
+        id: true,
+        invoice_number: true,
+        status: true,
+        total: true,
+        due_date: true,
+        paid_at: true,
+      },
+    });
+
+    return {
+      nextDueDate: service.next_due_date?.toISOString() ?? null,
+      amount: service.amount.toString(),
+      currency: service.currency,
+      lastInvoice: lastInvoice
+        ? {
+            id: lastInvoice.id,
+            invoice_number: lastInvoice.invoice_number,
+            status: lastInvoice.status,
+            total: lastInvoice.total.toString(),
+            due_date: lastInvoice.due_date.toISOString(),
+            paid_at: lastInvoice.paid_at?.toISOString() ?? null,
+          }
+        : null,
+    };
   }
 
   /* ── Update ── */

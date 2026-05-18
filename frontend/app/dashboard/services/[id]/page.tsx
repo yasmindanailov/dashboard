@@ -16,11 +16,15 @@ import {
   serverFetch,
   ServerFetchError,
 } from '../../../lib/server-auth';
-import type { ServiceDetailResponse } from '../../../lib/api';
+import type {
+  ServiceBillingCrossLink,
+  ServiceDetailResponse,
+} from '../../../lib/api';
 import { isStaffRole } from '../../../lib/portal';
 import {
   ActionsBar,
   AppShortcutsCard,
+  BillingCrossLinkCard,
   MetricsBar,
   ServiceHeader,
   SslStatusCard,
@@ -54,6 +58,22 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
       err instanceof ServerFetchError
         ? err.message
         : 'No se pudo cargar el servicio';
+  }
+
+  // Sprint 15C.II Fase F.11.3 (§A.11.10.8.2 + L16): cross-link
+  // Service↔billing. Endpoint unificado cliente/admin (el backend deriva
+  // isAdmin del JWT y aplica owner check si !isAdmin). Fail-soft: si el
+  // fetch falla, el card no se renderiza pero el resto de la página
+  // funciona.
+  let billingCrossLink: ServiceBillingCrossLink | null = null;
+  if (data) {
+    try {
+      billingCrossLink = await serverFetch<ServiceBillingCrossLink>(
+        `/billing/services/${id}/cross-link`,
+      );
+    } catch {
+      billingCrossLink = null;
+    }
   }
 
   if (!data) {
@@ -335,6 +355,16 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
             isAdmin={isAdmin}
           />
         )}
+
+      {/*
+        Sprint 15C.II Fase F.11.3 (§A.11.10.8.2 + L16) — card cross-link
+        Service↔billing. Capability-driven por presencia (el componente
+        retorna null si no hay nextDueDate ni lastInvoice). Visible
+        también si terminal — cliente cancelado puede querer ver la
+        última factura emitida. El link "Ver factura" apunta a
+        /dashboard/billing/[id] (isAdmin omitido = false).
+      */}
+      {billingCrossLink && <BillingCrossLinkCard data={billingCrossLink} />}
 
       {/*
         SSO panel — solo si el plugin lo soporta para esta instancia
