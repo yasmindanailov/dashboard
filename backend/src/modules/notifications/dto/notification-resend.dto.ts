@@ -15,6 +15,8 @@ import {
  */
 export class ResendNotificationDto {
   @IsString()
-  @IsIn(NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE as unknown as string[])
+  @IsIn(
+    NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE as unknown as string[],
+  )
   template_key!: ServiceLifecycleTemplateKey;
 }

@@ -93,11 +93,13 @@ export class NotificationResendService {
   }> {
     // Defensa: aunque el DTO ya valida @IsIn, re-chequeamos aquí —
     // el endpoint admin podría refactorizarse a aceptar params dinámicos
-    // y la guardia no se debe descansar en el DTO.
+    // y la guardia no se debe descansar en el DTO. TS narrow lo reduce
+    // a `never` dentro del if; usamos `String()` para serializar
+    // defensivamente en el mensaje sin asumir el tipo.
     if (!isServiceLifecycleTemplateKey(templateKey)) {
       throw new BadRequestException({
         code: 'INVALID_TEMPLATE_KEY',
-        message: `Plantilla "${templateKey}" no está en la whitelist de service-lifecycle.`,
+        message: `Plantilla "${String(templateKey)}" no está en la whitelist de service-lifecycle.`,
       });
     }
 
@@ -121,8 +123,7 @@ export class NotificationResendService {
       'NEXT_PUBLIC_APP_URL',
       'http://localhost:3002',
     );
-    const displayDomain =
-      service.domain ?? service.label ?? service.id;
+    const displayDomain = service.domain ?? service.label ?? service.id;
 
     const payload = this.buildFreshPayload(
       templateKey,

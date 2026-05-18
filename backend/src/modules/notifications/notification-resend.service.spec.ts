@@ -293,9 +293,10 @@ describe('NotificationResendService — Sprint 15C.II Fase F.11.2', () => {
         CTX,
       );
 
-      const auditCall = logAccess.mock.calls[0][0] as {
-        metadata: Record<string, unknown>;
-      };
+      const calls = logAccess.mock.calls as Array<
+        Array<{ metadata: Record<string, unknown> }>
+      >;
+      const auditCall = calls[0][0];
       expect(auditCall.metadata).not.toHaveProperty('rendered_subject');
       expect(auditCall.metadata).not.toHaveProperty('rendered_body');
     });

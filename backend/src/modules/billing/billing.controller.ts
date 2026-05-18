@@ -114,11 +114,7 @@ export class BillingController {
   ) {
     const user = req.user;
     const isAdmin = ADMIN_ROLES.includes(user.role.slug);
-    return this.billingService.getServiceBillingCrossLink(
-      id,
-      user.id,
-      isAdmin,
-    );
+    return this.billingService.getServiceBillingCrossLink(id, user.id, isAdmin);
   }
 
   @Get('invoices/:id')

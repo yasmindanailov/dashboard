@@ -195,7 +195,7 @@ describe('BillingInvoiceService.getServiceBillingCrossLink — Sprint 15C.II Fas
         total: true,
         due_date: true,
         paid_at: true,
-      }),
+      }) as Record<string, boolean>,
     });
   });
 });
