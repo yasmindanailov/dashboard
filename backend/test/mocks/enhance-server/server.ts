@@ -129,6 +129,23 @@ export interface MockEnhanceSeed {
   readonly domainSsls?: Readonly<Record<string, EnhanceDomainSslCert>>;
 
   /**
+   * Sprint 15C.II Fase F.10 — smoke real (2026-05-18) — `DC.49` parcial.
+   *
+   * Websites pre-sembrados por `websiteId`. Útil para smokes E2E que
+   * necesitan apps instaladas sin pasar por el flujo de provisioning real
+   * (que requiere `POST /websites`). Sin pre-seed de websites, el endpoint
+   * `GET /websites/:id/apps` responde 404 NotFound por la check
+   * `state.websites.get(websiteId)` — apps no se pueden testear aisladamente.
+   *
+   * Pre-condición canónica: si seedeas `websiteApps[wsId]` también debes
+   * seedear `websites` con un `EnhanceWebsite` cuyo `id === wsId` (la
+   * route handler `resolveApp` verifica `ws.orgId === orgId` también, así
+   * que el `orgId` debe coincidir con el del request — típicamente el
+   * customer seedeado `customers[].orgId`).
+   */
+  readonly websites?: readonly EnhanceWebsite[];
+
+  /**
    * Sprint 15C.II Fase F.10 — ADR-083 Amendment A9.4.
    *
    * Apps CMS instaladas pre-sembradas por `websiteId`. La **ausencia** de
@@ -349,6 +366,14 @@ function createInitialState(seed: MockEnhanceSeed): MockEnhanceState {
 
   for (const record of seed.defaultDnsRecords ?? []) {
     state.defaultDnsRecords.set(record.id, record);
+  }
+
+  // Sprint 15C.II Fase F.10 — pre-seed de websites (smoke E2E sin flujo
+  // de provisioning real). Si `websiteApps` se siembra contra un `wsId` que
+  // NO está en `seed.websites` ni se crea via `POST /websites`, el endpoint
+  // `GET /websites/:id/apps` responderá 404 NotFound y los smokes fallarán.
+  for (const ws of seed.websites ?? []) {
+    state.websites.set(ws.id, ws);
   }
 
   return state;

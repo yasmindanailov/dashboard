@@ -45,6 +45,35 @@ const MASTER_ORG_ID =
   '00000000-0000-0000-0000-00000000aaaa';
 
 /**
+ * Sprint 15C.II Fase F.10 — smoke real (2026-05-18).
+ *
+ * Env vars opcionales para seedear websites + apps CMS sin pasar por el
+ * flujo de provisioning real (que requiere `POST /websites` + Aelium-side
+ * orchestration). Parsea JSON parseable; si falta o malformed → no-op
+ * (el mock arranca sin seed extra).
+ *
+ *   - `E2E_MOCK_ENHANCE_SEED_WEBSITES_JSON` — `EnhanceWebsite[]` array.
+ *   - `E2E_MOCK_ENHANCE_SEED_WEBSITE_APPS_JSON` — `Record<websiteId, WebsiteApp[]>`.
+ *
+ * Útil para smoke tests del flow F.10 (`getServiceInfo > apps` +
+ * `executeAction('open_app_admin')`) sin tener que provisionar un website
+ * real — el script `scripts/smoke-f10.ts` los usa.
+ */
+function parseJsonEnv<T>(name: string, fallback: T): T {
+  const raw = process.env[name];
+  if (!raw || raw.length === 0) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch (err) {
+    // eslint-disable-next-line no-console -- runner console output
+    console.warn(
+      `[mock-enhance-server] failed to parse env ${name} as JSON: ${err instanceof Error ? err.message : 'unknown error'}; using fallback`,
+    );
+    return fallback;
+  }
+}
+
+/**
  * Customer org pre-sembrado — UUID determinístico para que el spec
  * pueda referenciarlo en `services.metadata.enhance_customer_org_id`
  * sin depender de la generación runtime del mock. Coincide con
@@ -97,6 +126,12 @@ void (async () => {
             overrideConflicting: false,
           },
         ],
+        // Sprint 15C.II Fase F.10 — seed opt-in via env vars JSON.
+        websites: parseJsonEnv('E2E_MOCK_ENHANCE_SEED_WEBSITES_JSON', []),
+        websiteApps: parseJsonEnv(
+          'E2E_MOCK_ENHANCE_SEED_WEBSITE_APPS_JSON',
+          {},
+        ),
       },
     });
     // eslint-disable-next-line no-console -- runner console output is the only signal Playwright sees
