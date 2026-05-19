@@ -2216,6 +2216,114 @@ Página **admin-only** — sin contenido adaptativo por rol. Si un agente o clie
 
 ---
 
+### 5.19 Plugin Detail (`/admin/settings/plugins/[slug]`) — Detail
+
+> **Origen doctrinal:** Sprint 15A Fase I.1 ([ADR-080 §7](./10-decisions/adr-080-plugin-framework.md#7-ui-de-administración)) + Sprint 15C.II Fase F.2 ([ADR-083 Amendment A4.4](./10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) — `<PluginOperationalOverview>` overview operativo). Re-formalizada en Sprint 15C.II Fase F.12 — layout canónico (2026-05-19) · [dossier §A.11.10.9 + §A.11.10.9.2 R1..R6 frozen](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md#a11109-fase-f12--layout-canónico-página-de-servicio--páginas-de-plugins).
+
+**Tipo:** Detail (§2.5) — variante con form en lugar de tabs (el contenido principal es el form dinámico `rjsf` de configuración, no contenido categorizado por tabs).
+**Pregunta:** "¿Está sano este plugin y cómo lo configuro?"
+**Roles:** Admin (superadmin) **exclusivamente** — mismo gating que §5.18 lista.
+**Ref:** [ADR-080 Plugin Framework](./10-decisions/adr-080-plugin-framework.md) (§4 manifest `configSchema` + `secretsSchema` separados + Amendments B `productConfigSchema?` + C `serviceInfoCacheTtlSeconds?`; §5 SecretVault AES-256-GCM; §6 catálogo 6 eventos `plugin.*`; §7 UI `@rjsf/core` tema DS custom), [ADR-083 Amendment A4.4 + A6 + A8](./10-decisions/adr-083-plugin-enhance-cp-specifics.md), [F.2 admin overview operativo](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md), [F.9 reconcile per-servicio](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md).
+
+#### Anatomía
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ BREADCRUMB                                                       │
+│   ← Volver a Plugins                                             │
+├─────────────────────────────────────────────────────────────────┤
+│ DETAIL HEADER                                                    │
+│   h1: Enhance Control Panel        ─────  ┌─────────────────┐   │
+│   p:  Hosting compartido + DNS…           │ PluginStatusBadge│   │
+│   slug · category · v2.1.3 · updated…     │ ⬤ Healthy · ON  │   │
+│                                            └─────────────────┘   │
+├─────────────────────────────────────────────────────────────────┤
+│ PluginOperationalOverview (Card composite — F.2 ADR-083 A4.4)    │
+│   ┌─ Badge salud arriba derecha (CircuitBreaker state)         ┐ │
+│   │ ⬤ Healthy · open: 0 · closed: 4                            │ │
+│   │                                                              │ │
+│   │ STATS GRID                                                  │ │
+│   │   Services activos: 47  ·  Errores 24h: 3  ·  …             │ │
+│   │                                                              │ │
+│   │ RECONCILIATIONS                                              │ │
+│   │   Última: hace 12 min · Próxima: en 48 min                  │ │
+│   │                                                              │ │
+│   │ DRIFTS 24h (tabla compacta — F.3 audit timeline)            │ │
+│   │   svc-001 · subscription_missing · hace 2h · [Reconciliar]  │ │
+│   │   svc-073 · plan_divergence applied=true · hace 8h          │ │
+│   │   ─ vacío: "Sin drifts en las últimas 24 horas" ─           │ │
+│   └────────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────┤
+│ PluginReconcileSection (Card) — solo si enabled + supports_recon │
+│   h2: Reconciliar todos los servicios contra <Plugin> ahora      │
+│   p:  "Compara el estado de cada servicio contra el proveedor…"  │
+│                                          [↻ Reconciliar todos]   │
+├─────────────────────────────────────────────────────────────────┤
+│ PluginConfigForm (CC dinámico — rjsf + tema DS)                   │
+│   ┌─ Card · Configuración general (configSchema) ──────────────┐ │
+│   │  [Input: API URL] [Input: Timeout ms] [Select: Region]      │ │
+│   │  …                                                          │ │
+│   └────────────────────────────────────────────────────────────┘ │
+│   ┌─ Card · Secretos (secretsSchema — masked) ──────────────────┐ │
+│   │  [Password: API Token] (••••••• [Editar])                   │ │
+│   │  …                                                          │ │
+│   └────────────────────────────────────────────────────────────┘ │
+│   ┌─ Card · Toggle "Habilitado" + "Probar conexión" ────────────┐ │
+│   │  [Switch enabled]   [Probar conexión]   [Guardar cambios]   │ │
+│   └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Bloques canónicos
+
+| Bloque | Obligatorio | Regla |
+|---|---|---|
+| **Breadcrumb** | ✅ | `← Volver a Plugins` (mismo patrón §5.x detail pages — usa el componente `<Breadcrumb>` DS cuando F.12.2 lo migre; hoy es `<Link>` inline). |
+| **Detail header** | ✅ | h1 = `t(manifest.label)` · p = `t(manifest.description)` (maxWidth 720) · metadata inline (slug en monospace + settingsCategory + `v${manifest.version}` + "Actualizado {updated_at}" si existe) · `<PluginStatusBadge>` top-right con `enabled` + `circuit_state`. **NO en cards separadas** (§2.5 regla "información de cabecera inline"). |
+| **`<PluginOperationalOverview>`** (F.2 A4.4) | ✅ | SC autocontenido reusable/heredable (heredado en `_shared/plugins/`). Compone: badge salud (CircuitBreaker `open` / `half_open` / `closed`) + stats grid (services activos / errores 24h / latency p50/p99) + última/próxima reconciliación + tabla drifts 24h con CTAs reconcile per-servicio (F.9 R5 toast UX). Fail-soft: si su fetch interno falla, degrada con aviso inline sin romper la página. |
+| **`<PluginReconcileSection>`** | Condicional | Solo si `detail.enabled === true` **Y** `manifest.capabilities.supports_reconciliation === true`. Botón `<ReconcileAllButton slug>` (CC) que dispara `POST /admin/plugins/:slug/reconcile-all`. Heredable a 15D RC / 15E Docker / 15G Plesk. |
+| **`<PluginConfigForm>`** (CC dinámico) | ✅ | Form construido con `@rjsf/core` + tema DS custom (ADR-080 §7). Renderiza 3 sub-cards: **(a)** `configSchema` no-secret · **(b)** `secretsSchema` (campos masked con re-edit lifecycle SecretVault AES-256-GCM) · **(c)** toggle `enabled` + botón "Probar conexión" (`testConnection?()` opcional ADR-077 A6 + obligatorio si `manifest.testConnectionMethod === 'custom'`) + "Guardar cambios" primary. |
+
+#### Componentes nuevos (R1 — sin cambios estructurales en F.12)
+
+`<AdminPluginDetailLayout>` SC ligero (`frontend/app/_shared/plugins/AdminPluginDetailLayout.tsx`) — encapsula breadcrumb + header + delegación a los 3 sub-bloques. Page actual ~135 LOC se reduce a wrapper ~25 LOC. **NO registry declarativo** — la estructura es lineal y fija; los componentes ya son autocontenidos (`PluginOperationalOverview` + `PluginConfigForm` se gestionan ellos mismos).
+
+#### Estados empty/error/loading
+
+- **404 (`ServerFetchError` status 404)**: `notFound()` de Next.js → 404 page nativa (heredado, no se cambia).
+- **Otros errores `serverFetch`**: throw (heredado) — la error boundary de Next.js renderiza el error.
+- **Loading**: streaming Next.js (SC bloquea hasta resolver `serverFetch`). `<PluginOperationalOverview>` y `<PluginConfigForm>` tienen sus propios estados internos.
+- **`detail.enabled === false`**: NO se renderiza `<PluginReconcileSection>` (deshabilitar reconcile sobre plugin off). El form sí se muestra (admin debe poder configurarlo antes de habilitar).
+- **`manifest.capabilities.supports_reconciliation === false`**: NO se renderiza `<PluginReconcileSection>` aunque enabled (capability-driven — ADR-077).
+
+#### Responsive
+
+`<DetailPage>` layout container `max-width: 1200px` (§2.8). Header colapsa metadata inline a wrap en mobile. Tabla drifts 24h (`<PluginOperationalOverview>` interno) hace overflow horizontal en mobile estrecho. Form rjsf hereda responsive del tema DS custom.
+
+#### Interacciones clave (§4.x)
+
+- **Toggle `Habilitado`**: Switch + autosave o Save button (heredado del rjsf actual — congelar al iterar wireframes).
+- **Probar conexión**: botón `<Button>` que dispara `POST /admin/plugins/:slug/test-connection` → Toast feedback success/error (§4.3).
+- **Guardar cambios**: Button primary del form → `POST /admin/plugins/:slug/config` → Toast success "Configuración guardada" + reload SC para refrescar `circuit_state` si cambia.
+- **Reconciliar todos**: `<ReconcileAllButton>` (CC) — Toast "Reconciliación iniciada · ver overview en N segundos" + invalidación cache server-side del overview.
+- **Reconcile per-servicio** (desde tabla drifts): F.9 R5 toast UX 3 ramas (rama-redirect-timeline / coalesced / 429 RECONCILE_IN_PROGRESS).
+- **Editar secret enmascarado**: pattern `[Editar]` reveal → input editable → Save → re-mascarado (heredado SecretVault flow ADR-080 §3).
+
+#### Variaciones por rol (matriz §1.2 P6.1)
+
+Página **admin-only puro** — sin contenido adaptativo por rol (igual que §5.18). Middleware admin + backend 403 defense-in-depth.
+
+#### Decisiones y deferrals — F.12 alcance
+
+- **Cero cambio funcional**: composición refactor puro de extracción a `<AdminPluginDetailLayout>` SC. `<PluginOperationalOverview>` + `<PluginConfigForm>` + `<ReconcileAllButton>` se preservan sin cambios.
+- **NO se introducen tabs** para separar overview/config: la página es lineal scroll vertical. Si en el futuro se añaden secciones (audit timeline del plugin, logs estructurados, etc.) reconsiderar §2.5 tabs condicional >2 secciones.
+- **NO se promociona `<PluginOperationalOverview>` a Tier 1 DS**: hoy es específico al módulo plugins (`_shared/plugins/`). Si en 15E Docker o 15G Plesk se decide reusar para overview de proveedores no-plugins (p.ej. dashboard de Docker daemon), evaluar promoción.
+- **DC.NEW-51..54 NO se abordan** (App Management futuros — stats UI / install-uninstall / ops mutación / modelo BD).
+
+**Estado:** ✅ Implementado Sprint 15A I.1 (base) + Sprint 15B (Enhance config), F.2 (`<PluginOperationalOverview>`), F.9 (reconcile per-servicio integrado en tabla drifts). Refactor compositivo en Sprint 15C.II F.12.2.
+
+---
+
 **Sección 5 — Decisiones tomadas:**
 
 - ✅ 13 páginas especificadas con anatomía exacta
