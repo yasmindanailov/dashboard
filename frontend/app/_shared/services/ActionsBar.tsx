@@ -101,6 +101,19 @@ const INTERNAL_HELPER_SLUGS = new Set<string>([
   'delete_dns_record',
   'suspend_service',
   'unsuspend_service',
+  // Sprint 15C.II Fase F.10 — ADR-077 Amendment A9 (smoke real Yasmin
+  // 2026-05-19 detectó el bug post-merge). `open_app_admin` requiere
+  // payload `{ appId }` específico de una instalación; se opera SOLO
+  // desde `<AppShortcutsCard>` (per-app button con el appId concreto).
+  // En `<ActionsBar>` genérico se invocaría con `payload: {}` → el
+  // plugin lanza INVALID_PAYLOAD ("Los datos enviados no cumplen el
+  // esquema esperado por la acción"). Doctrina D4 frozen §A.11.10.7.2 R4:
+  // las acciones de una instalación viven en `AppPresence.actions[]`,
+  // NO en `ServiceInfo.availableActions[]` — pero el plugin Enhance las
+  // expone en ambos para que `executeAction('open_app_admin')` siga
+  // siendo callable. Heredable a 15D/15E/15G — cualquier slug que
+  // requiera payload no-trivial debe entrar a esta blacklist.
+  'open_app_admin',
 ]);
 
 /**
