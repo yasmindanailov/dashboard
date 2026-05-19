@@ -2129,6 +2129,93 @@ Componentes que el DS necesitaba para implementar S5. Todos los de prioridad alt
 
 ---
 
+### 5.18 Plugins List (`/admin/settings/plugins`) — List (variante card grid)
+
+> **Origen doctrinal:** Sprint 15A Fase I.1 ([ADR-080 §7](./10-decisions/adr-080-plugin-framework.md#7-ui-de-administración) — Plugin Framework). Re-formalizada en Sprint 15C.II Fase F.12 — layout canónico (2026-05-19) · [dossier §A.11.10.9 + §A.11.10.9.2 R1..R6 frozen](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md#a11109-fase-f12--layout-canónico-página-de-servicio--páginas-de-plugins).
+
+**Tipo:** List (§2.4), variante **card grid** (§3.3 — *"Card list cuando el dataset es pequeño + cada item tiene mucha info estructurada"*). NO tabla — el manifest del plugin (label + descripción + version + circuit state + enabled badge) es información estructurada compuesta que encaja mejor en card que en celda.
+**Pregunta:** "¿Qué plugins de provisioning están disponibles y cuál está sano?"
+**Roles:** Admin (superadmin) **exclusivamente**. `Subject.Plugin` es admin-puro (ADR-080 + patrón ADR-067 Subject por rol). El middleware admin redirige otros roles; backend rechaza con 403 defense-in-depth.
+**Ref:** [ADR-080 Plugin Framework](./10-decisions/adr-080-plugin-framework.md) (manifest JSON-Schema 7 + `plugin_installs` PK natural slug + `SecretVaultService` AES-256-GCM + CircuitBreaker), [ADR-077 v2 contrato `ProvisionerPlugin`](./10-decisions/adr-077-contrato-provisioner-plugin-v2.md), [ADR-083 Enhance specifics](./10-decisions/adr-083-plugin-enhance-cp-specifics.md), [§3.3 Table vs Card list](#33-table-o-card-list).
+
+#### Anatomía
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ PAGEHEADER (sin breadcrumb — top-level admin route)              │
+│   h1: Plugins de provisioning                                    │
+│   p:  4 plugins disponibles. Habilita, configura o prueba la     │
+│       conexión de cada plugin desde su detalle. Los secretos se  │
+│       cifran con AES-256-GCM antes de persistirse (ADR-080 §3).  │
+├─────────────────────────────────────────────────────────────────┤
+│ ALERTBANNER (variant danger) — solo si listError != null         │
+│   "Error al cargar la lista de plugins."                         │
+├─────────────────────────────────────────────────────────────────┤
+│ EMPTY STATE — solo si items.length === 0 y NO listError           │
+│   "No hay plugins disponibles. Si esperabas ver alguno, verifica │
+│    los logs del boot (los plugins que fallan contract validation │
+│    no aparecen aquí)."                                           │
+├─────────────────────────────────────────────────────────────────┤
+│ GRID auto-fill minmax(320px, 1fr), gap 16                        │
+│   ┌────────────────┐  ┌────────────────┐  ┌────────────────┐    │
+│   │ PluginCard     │  │ PluginCard     │  │ PluginCard     │    │
+│   │  Logo · Label  │  │  enhance_cp    │  │  resellerclub  │    │
+│   │  Descripción   │  │  Hosting CMS   │  │  Domains/DNS   │    │
+│   │  v1.2 · slug   │  │  v2.1.3 · …    │  │  v0.9 · …      │    │
+│   │  Badge state   │  │  ✅ Habilitado  │  │  ⬜ Deshab.     │    │
+│   │  [Ver detalle] │  │  [Ver detalle] │  │  [Ver detalle] │    │
+│   └────────────────┘  └────────────────┘  └────────────────┘    │
+│   ┌────────────────┐                                             │
+│   │ PluginCard     │                                             │
+│   │  internal      │                                             │
+│   │  ...           │                                             │
+│   └────────────────┘                                             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Bloques canónicos
+
+| Bloque | Obligatorio | Regla |
+|---|---|---|
+| **PageHeader** | ✅ | `<PageHeader title="Plugins de provisioning" subtitle="…">` — sin CTA primario (los plugins no se crean desde la UI; son descubiertos del filesystem). Subtitle dinámico con `items.length`. |
+| **AlertBanner danger** | Condicional | Solo si fetch del backend (`GET /admin/plugins`) falla. Patrón heredado §4.5 manejo de errores. Texto del error literal del backend; cero leak de stack. |
+| **EmptyState** | Condicional | Solo si la lista carga OK pero está vacía (caso patológico: ningún plugin pasó contract validation). Tono Aelium honesto (§4.8) — guía hacia los logs. |
+| **PluginCard grid** | ✅ | Grid `auto-fill minmax(320px, 1fr)` gap 16. Componente actual `_shared/plugins/PluginCard` (reusable cliente nunca lo usa — vive en `_shared/` por convención namespacing). Cada card linka a `/admin/settings/plugins/[slug]` (§5.19). |
+
+#### Componentes nuevos (R1 — sin cambios estructurales en F.12)
+
+**`<AdminPluginsListLayout>` SC** ligero (`frontend/app/_shared/plugins/AdminPluginsListLayout.tsx`) — encapsula header + states + grid. La page `frontend/app/admin/settings/plugins/page.tsx` se convierte en wrapper ~15 LOC: resuelve `serverFetch` + delega. **NO se introduce registry declarativo** (R3 no aplica — la página tiene solo 3 estados mutuamente excluyentes y un grid uniforme; el over-engineering no se justifica).
+
+#### Estados empty/error/loading
+
+- **Loading**: streaming nativo Next.js (SC bloquea hasta resolver `serverFetch`).
+- **Empty**: copy heredado actual con tono Aelium (P5) — apunta a logs del boot, no esconde el problema.
+- **Error fetch**: AlertBanner con mensaje literal del backend (`ServerFetchError`) + fallback `'Error al cargar la lista de plugins.'` heredado.
+
+#### Responsive
+
+Grid `auto-fill minmax(320px, 1fr)` colapsa de N columnas a 1 según ancho disponible. Sin breakpoints específicos — el grid CSS maneja todo. Sin overflow horizontal en mobile.
+
+#### Interacciones clave
+
+- **Click en PluginCard** → navegación SSR a `/admin/settings/plugins/[slug]` (§5.19).
+- **No hay acciones desde la lista** — toda mutación (habilitar/deshabilitar/configurar/probar) vive en el detalle. Coherente con §3.5 PageHeader "sin CTA" + §4.11 (NO bulk actions — el set es pequeño y las operaciones son por-plugin, no por-lote).
+
+#### Variaciones por rol (matriz §1.2 P6.1)
+
+Página **admin-only** — sin contenido adaptativo por rol. Si un agente o cliente intenta abrir la URL, el middleware admin redirige; el backend además rechaza con 403. NO se renderiza un EmptyState "no autorizado" — la ruta entera no existe para no-admins.
+
+#### Decisiones y deferrals — F.12 alcance
+
+- **Cero cambio funcional**: la lista se preserva exactamente como hoy. `<AdminPluginsListLayout>` SC nuevo es pure refactor de extracción del JSX inline del `page.tsx`.
+- **No se añade filtro/búsqueda**: el dataset esperado son ~5-10 plugins (cobertura cabecera, hosting, DNS, soporte interno, manual). FilterBar (§3.4) sería over-engineering. Si crece >20 plugins en el futuro, evaluar.
+- **No se añade ordenación**: el grid orden de inserción del backend (alfabético por label hoy). Estable y predecible.
+- **No se añade "+ Crear plugin"**: los plugins se descubren del filesystem (ADR-080 §2) — no se crean desde la UI. Tampoco "Importar plugin" — fuera de alcance Sprint 15C.II.
+
+**Estado:** ✅ Implementado Sprint 15A I.1; refactor compositivo en Sprint 15C.II F.12.2 (cero cambio funcional).
+
+---
+
 **Sección 5 — Decisiones tomadas:**
 
 - ✅ 13 páginas especificadas con anatomía exacta
