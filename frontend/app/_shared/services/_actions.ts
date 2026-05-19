@@ -540,7 +540,17 @@ export type ResendNotificationResult =
       template_key: ServiceLifecycleTemplateKey;
       dispatched_to_user_id: string;
     }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      /**
+       * Sprint 15C.II Fase F.11.2 Amendment II (P1 rate limiting frozen
+       * 2026-05-19) — rate limit activo. El frontend muestra toast
+       * accionable "Espera N segundos antes de reintentar".
+       */
+      rateLimited?: true;
+      retryAfterSeconds?: number;
+    };
 
 export async function resendNotificationAction(
   serviceId: string,
@@ -557,6 +567,21 @@ export async function resendNotificationAction(
     });
     return result;
   } catch (err) {
+    // Amendment II — capturar 429 RESEND_TOO_FREQUENT con retry_after_seconds
+    // para que el modal renderice un toast con cuenta atrás (UX accionable).
+    if (err instanceof ServerFetchError && err.status === 429) {
+      const body = err.body as
+        | { code?: string; retry_after_seconds?: number; message?: string }
+        | undefined;
+      if (body?.code === 'RESEND_TOO_FREQUENT') {
+        return {
+          ok: false,
+          error: body.message ?? err.message,
+          rateLimited: true,
+          retryAfterSeconds: body.retry_after_seconds,
+        };
+      }
+    }
     return {
       ok: false,
       error:

@@ -1,12 +1,22 @@
-import { BadRequestException, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../../core/database/prisma.service';
+import { ProvisioningCacheService } from '../../core/provisioning/provisioning-cache.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from './notifications.service';
 
-import { NotificationResendService } from './notification-resend.service';
+import {
+  NotificationResendService,
+  RESEND_NOTIFICATION_COOLDOWN_SECONDS,
+} from './notification-resend.service';
 
 /**
  * Tests unit `NotificationResendService` — Sprint 15C.II Fase F.11.2
@@ -38,6 +48,8 @@ describe('NotificationResendService — Sprint 15C.II Fase F.11.2', () => {
   let dispatchToUser: jest.Mock;
   let serviceFindUnique: jest.Mock;
   let logAccess: jest.Mock;
+  let tryAcquireResendNotificationCooldown: jest.Mock;
+  let getResendNotificationCooldownRemainingSeconds: jest.Mock;
 
   const SERVICE_ID = '11111111-1111-1111-1111-111111111111';
   const USER_ID = '22222222-2222-2222-2222-222222222222';
@@ -60,6 +72,12 @@ describe('NotificationResendService — Sprint 15C.II Fase F.11.2', () => {
       suspension_reason: 'overdue_payment',
       provisioner_slug: 'enhance_cp',
     });
+    // Amendment II default: cooldown libre → permite el dispatch. Los
+    // tests que quieran simular rate-limit lo overridean.
+    tryAcquireResendNotificationCooldown = jest.fn().mockResolvedValue(true);
+    getResendNotificationCooldownRemainingSeconds = jest
+      .fn()
+      .mockResolvedValue(RESEND_NOTIFICATION_COOLDOWN_SECONDS);
 
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
@@ -85,6 +103,13 @@ describe('NotificationResendService — Sprint 15C.II Fase F.11.2', () => {
         {
           provide: AuditService,
           useValue: { logAccess },
+        },
+        {
+          provide: ProvisioningCacheService,
+          useValue: {
+            tryAcquireResendNotificationCooldown,
+            getResendNotificationCooldownRemainingSeconds,
+          },
         },
       ],
     }).compile();
@@ -315,6 +340,139 @@ describe('NotificationResendService — Sprint 15C.II Fase F.11.2', () => {
       ).rejects.toThrow(NotFoundException);
       expect(dispatchToUser).not.toHaveBeenCalled();
       expect(logAccess).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Sprint 15C.II Fase F.11.2 Amendment II (P1 rate limiting frozen
+  //     2026-05-19) — cooldown per (actor, service, template) 60s. ───
+  describe('Amendment II — P1 rate limiting', () => {
+    it('cooldown libre → cache.tryAcquire llamado con args canónicos + dispatch', async () => {
+      await service.resendServiceLifecycleNotification(
+        SERVICE_ID,
+        'service.suspended',
+        ACTOR_USER_ID,
+        CTX,
+      );
+
+      expect(tryAcquireResendNotificationCooldown).toHaveBeenCalledWith(
+        ACTOR_USER_ID,
+        SERVICE_ID,
+        'service.suspended',
+        RESEND_NOTIFICATION_COOLDOWN_SECONDS,
+      );
+      expect(dispatchToUser).toHaveBeenCalled();
+      expect(logAccess).toHaveBeenCalled();
+    });
+
+    it('cooldown activo → 429 RESEND_TOO_FREQUENT + Retry-After + NO dispatch + NO audit', async () => {
+      tryAcquireResendNotificationCooldown.mockResolvedValue(false);
+      getResendNotificationCooldownRemainingSeconds.mockResolvedValue(42);
+
+      let caught: unknown;
+      try {
+        await service.resendServiceLifecycleNotification(
+          SERVICE_ID,
+          'service.suspended',
+          ACTOR_USER_ID,
+          CTX,
+        );
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(HttpException);
+      const httpErr = caught as HttpException;
+      expect(httpErr.getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+      const body = httpErr.getResponse() as {
+        code: string;
+        retry_after_seconds: number;
+      };
+      expect(body.code).toBe('RESEND_TOO_FREQUENT');
+      expect(body.retry_after_seconds).toBe(42);
+
+      // Defense-in-depth: el dispatch y el audit NO deben ejecutarse
+      // cuando el cooldown rechaza.
+      expect(dispatchToUser).not.toHaveBeenCalled();
+      expect(logAccess).not.toHaveBeenCalled();
+    });
+
+    it('granularidad per (actor, service, template) — distintas combinaciones NO contaminan', async () => {
+      const OTHER_ACTOR = '44444444-4444-4444-4444-444444444444';
+      await service.resendServiceLifecycleNotification(
+        SERVICE_ID,
+        'service.suspended',
+        ACTOR_USER_ID,
+        CTX,
+      );
+      await service.resendServiceLifecycleNotification(
+        SERVICE_ID,
+        'service.cancelled',
+        ACTOR_USER_ID,
+        CTX,
+      );
+      await service.resendServiceLifecycleNotification(
+        SERVICE_ID,
+        'service.suspended',
+        OTHER_ACTOR,
+        CTX,
+      );
+
+      // Cada combinación adquiere su propia ventana de cooldown — el
+      // cache mock devuelve true siempre, pero verificamos que la clave
+      // canónica se compone con las 3 dimensiones (actor/service/template).
+      const calls = tryAcquireResendNotificationCooldown.mock.calls as Array<
+        [string, string, string, number]
+      >;
+      expect(calls).toHaveLength(3);
+      expect(calls[0]).toEqual([
+        ACTOR_USER_ID,
+        SERVICE_ID,
+        'service.suspended',
+        RESEND_NOTIFICATION_COOLDOWN_SECONDS,
+      ]);
+      expect(calls[1]).toEqual([
+        ACTOR_USER_ID,
+        SERVICE_ID,
+        'service.cancelled',
+        RESEND_NOTIFICATION_COOLDOWN_SECONDS,
+      ]);
+      expect(calls[2]).toEqual([
+        OTHER_ACTOR,
+        SERVICE_ID,
+        'service.suspended',
+        RESEND_NOTIFICATION_COOLDOWN_SECONDS,
+      ]);
+    });
+
+    it('cooldown chequeado DESPUÉS del NotFound (orden defensivo)', async () => {
+      serviceFindUnique.mockResolvedValue(null);
+      await expect(
+        service.resendServiceLifecycleNotification(
+          SERVICE_ID,
+          'service.suspended',
+          ACTOR_USER_ID,
+          CTX,
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      // El cooldown NO debe consumirse si el service no existe — evita
+      // que un atacante mapee servicios existentes vía rate-limit timing.
+      expect(tryAcquireResendNotificationCooldown).not.toHaveBeenCalled();
+    });
+
+    it('cooldown chequeado DESPUÉS del INVALID_TEMPLATE_KEY (orden defensivo)', async () => {
+      await expect(
+        service.resendServiceLifecycleNotification(
+          SERVICE_ID,
+          'task.assigned' as never,
+          ACTOR_USER_ID,
+          CTX,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      // Defense-in-depth: una plantilla inválida no debe consumir cuota
+      // de rate limit (sería un vector para mapear el comportamiento del
+      // backend desde fuera).
+      expect(tryAcquireResendNotificationCooldown).not.toHaveBeenCalled();
     });
   });
 });

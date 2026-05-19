@@ -2991,6 +2991,43 @@ export const NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE = [
 
 **Heredabilidad de la doctrina**: L18 frozen — la whitelist V1 frozen está pensada para escalar additivamente. Cualquier plantilla de service-lifecycle nueva que cumpla "payload deriva trivialmente del Service entity" puede sumar a la constante sin tocar la lógica del dispatcher. Plantillas con side-effects (OTP, snapshots) requieren handling especial y NO se añaden directamente.
 
+**Amendment II 2026-05-19 — P1 rate limiting (frozen post-PR original, pre-merge)**
+
+Durante el self-review profesional posterior al PR #90 original, se detectó un **gap real de seguridad**: el endpoint `POST /admin/services/:id/notifications/resend` permitía spam vector — un admin con curl/script podía disparar N reenvíos al cliente sin protección server-side. L18 frozen — mejora descubierta = Amendment, no desvío silencioso.
+
+**Cooldown server-side per `(actor_user_id, service_id, template_key)` — TTL 60s frozen**:
+
+- **Granularidad doctrinal canónica**: la 3-tupla `(actor, service, template)` protege al cliente del spam burst sin frustrar coordinación legítima (otros admins pueden reenviar otra plantilla; el mismo admin no puede repetir la misma plantilla al mismo cliente en <60s).
+- **TTL 60s**: corto para no frustrar al admin legítimo que se equivoca y reintenta tras un rato, pero suficiente para bloquear doble-click accidental y scripts de spam. Más restrictivo que F.9 reconcile (30s) porque reenviar es side-effect sobre el cliente (mailbox + campana), mientras `reconcileOne` es read-mostly.
+- **Implementación canónica heredada de F.3 B.1 + F.9**:
+  - `ProvisioningCacheService.tryAcquireResendNotificationCooldown(actor, service, template, ttl)` — `SET NX EX` Redis.
+  - `ProvisioningCacheService.getResendNotificationCooldownRemainingSeconds(actor, service, template, fallback)` — `TTL` Redis para componer `Retry-After` exacto.
+  - **Fail-OPEN si Redis cae** (devuelve `true`/`fallback`): coherente con `getInfoForUser` cooldown — el endpoint NO debe depender de Redis para responder.
+- **Defense-in-depth orden de checks**:
+  1. `INVALID_TEMPLATE_KEY` (DTO `@IsIn` → 400) **antes** del cooldown — plantilla inválida NO debe consumir cuota de rate limit (sería vector para mapear comportamiento del backend desde fuera).
+  2. `NotFoundException` del service (Prisma) **antes** del cooldown — service inexistente tampoco debe consumir cuota (timing attack para mapear servicios).
+  3. Cooldown check (R7 fail-OPEN).
+  4. Dispatch + audit.
+- **HTTP 429 RESEND_TOO_FREQUENT** con header `Retry-After: <segundos>` (estándar HTTP) — clientes CLI/automation lo leen automáticamente sin parsear body. Mismo patrón canónico que F.9 `RECONCILE_IN_PROGRESS`.
+- **Frontend UX accionable**: Server Action captura `429` y devuelve shape estructurado `{ rateLimited: true, retryAfterSeconds }`. El modal muestra toast "Esta misma plantilla se reenvió hace pocos segundos. Reintenta en N s." — UX accionable vs error genérico.
+
+**+5 tests Amendment II** (en `notification-resend.service.spec.ts`):
+- Cooldown libre → cache.tryAcquire llamado con args canónicos (actor, service, template, ttl) + dispatch + audit.
+- Cooldown activo → 429 RESEND_TOO_FREQUENT con shape canónico (code + retry_after_seconds) + NO dispatch + NO audit.
+- Granularidad per (actor, service, template) — 3 combinaciones distintas adquieren ventanas separadas.
+- Cooldown chequeado DESPUÉS del NotFound (defense — no consume cuota si service no existe).
+- Cooldown chequeado DESPUÉS del INVALID_TEMPLATE_KEY (defense — no consume cuota si template inválido).
+
+**Cobertura post-Amendment II**: 55 suites · 798 passed + 6 skipped (vs 793/6 pre-Amendment).
+
+**ADR amendments**: ninguno (el rate limit es uso del framework canónico ProvisioningCacheService — no toca contratos).
+
+**Heredable a 15D RC / 15E Docker / 15G Plesk**: cualquier endpoint admin futuro que dispare side-effects al cliente (reenviar invoice, regenerar credencial, etc.) sigue el mismo patrón:
+1. Constante `<FEATURE>_COOLDOWN_SECONDS` exportada del service.
+2. Cooldown per `(actor, target_resource, action_dimension)` via Redis `SET NX EX`.
+3. 429 + `Retry-After` header en el controller.
+4. Frontend captura 429 y muestra toast con cuenta atrás.
+
 ### A.11.10.9. Fase F.12 — Layout canónico (página de servicio + páginas de plugins)
 
 **Tema:** componer `/services/[id]` (admin + cliente), la lista de plugins (`/admin/settings/plugins`) y el detalle de plugin (`/admin/settings/plugins/[slug]`) en un layout canónico documentado en `UI_SPEC.md` — última fase de features, refactoriza la composición de todo lo que F.4-F.11 fueron añadiendo. **Fase con freeze gate.**

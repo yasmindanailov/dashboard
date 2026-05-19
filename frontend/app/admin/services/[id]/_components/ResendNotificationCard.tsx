@@ -85,6 +85,17 @@ export function ResendNotificationCard({ serviceId, serviceDisplayName }: Props)
     const result = await resendNotificationAction(serviceId, templateKey);
     setSubmitting(false);
     if (!result.ok) {
+      // Amendment II (P1 rate limiting frozen 2026-05-19) — toast
+      // accionable con segundos restantes cuando el backend devuelve
+      // 429 RESEND_TOO_FREQUENT (cooldown per (actor, service, template)
+      // todavía activo). Mejor UX que un error genérico.
+      if (result.rateLimited && result.retryAfterSeconds !== undefined) {
+        toast(
+          'error',
+          `${t('service.notifications.resend.toast_rate_limited_prefix')}${result.retryAfterSeconds}${t('service.notifications.resend.toast_rate_limited_suffix')}`,
+        );
+        return;
+      }
       toast('error', result.error);
       return;
     }

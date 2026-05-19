@@ -1,10 +1,13 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ProvisioningCacheService } from '../../core/provisioning/provisioning-cache.service';
 import type { SuspensionReason } from '../../core/provisioning/types';
 
 import { PrismaService } from '../../core/database/prisma.service';
@@ -14,6 +17,26 @@ import {
   isServiceLifecycleTemplateKey,
   type ServiceLifecycleTemplateKey,
 } from './notification-resend.constants';
+
+/**
+ * Sprint 15C.II Fase F.11.2 — Amendment II frozen 2026-05-19 (P1 rate
+ * limiting post-PR original).
+ *
+ * Ventana del cooldown server-side per `(actor_user_id, service_id,
+ * template_key)` del endpoint admin `POST /admin/services/:id/notifications/resend`.
+ *
+ * **60s default** — corto pero defensivo: protege contra el spam burst
+ * (doble-click accidental del admin o script con bucle) sin frustrar al
+ * admin legítimo que reenvía la misma plantilla al mismo servicio tras
+ * un rato razonable. Más restrictivo que `RECONCILE_SINGLE_COOLDOWN_SECONDS`
+ * (30s) porque `reconcileOne` es read-mostly mientras que reenviar
+ * notificación es side-effect sobre el cliente (mailbox + campana).
+ *
+ * Heredable a 15D RC / 15E Docker / 15G Plesk: cualquier endpoint admin
+ * que dispare side-effects al cliente reutiliza este patrón cambiando
+ * el slug de la clave Redis.
+ */
+export const RESEND_NOTIFICATION_COOLDOWN_SECONDS = 60;
 
 /**
  * Sprint 15C.II Fase F.11.2 (R2+R4 frozen §A.11.10.8.2 + Amendment I).
@@ -62,6 +85,10 @@ export class NotificationResendService {
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
     private readonly audit: AuditService,
+    // Sprint 15C.II Fase F.11.2 Amendment II (P1 rate limiting) — cooldown
+    // server-side per `(actor_user_id, service_id, template_key)` con TTL 60s.
+    // Patrón canónico heredado de F.3 B.1 + F.9. Fail-OPEN si Redis cae.
+    private readonly cache: ProvisioningCacheService,
   ) {}
 
   /**
@@ -117,6 +144,39 @@ export class NotificationResendService {
     });
     if (!service) {
       throw new NotFoundException(`Service ${serviceId} no encontrado`);
+    }
+
+    // Sprint 15C.II Fase F.11.2 Amendment II (P1 rate limiting, frozen
+    // 2026-05-19) — cooldown server-side per `(actor, service, template)`
+    // con TTL 60s. Protege al cliente del spam (mailbox + campana)
+    // independientemente del frontend. Heredable.
+    const acquired = await this.cache.tryAcquireResendNotificationCooldown(
+      actorUserId,
+      serviceId,
+      templateKey,
+      RESEND_NOTIFICATION_COOLDOWN_SECONDS,
+    );
+    if (!acquired) {
+      const retryAfter =
+        await this.cache.getResendNotificationCooldownRemainingSeconds(
+          actorUserId,
+          serviceId,
+          templateKey,
+          RESEND_NOTIFICATION_COOLDOWN_SECONDS,
+        );
+      this.logger.warn(
+        `Admin resend rate-limited: actor=${actorUserId} service=${serviceId} ` +
+          `template=${templateKey} retry_after=${retryAfter}s`,
+      );
+      throw new HttpException(
+        {
+          code: 'RESEND_TOO_FREQUENT',
+          message:
+            'Ya se envió esta plantilla a este servicio hace pocos segundos. Espera antes de reintentarlo.',
+          retry_after_seconds: retryAfter,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const appUrl = this.config.get<string>(

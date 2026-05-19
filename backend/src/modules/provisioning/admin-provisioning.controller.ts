@@ -400,16 +400,44 @@ export class AdminProvisioningController {
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ResendNotificationDto,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return this.notificationResend.resendServiceLifecycleNotification(
-      id,
-      dto.template_key,
-      req.user.id,
-      {
-        ipAddress: req.ip ?? '0.0.0.0',
-        userAgent: req.headers['user-agent'] ?? null,
-      },
-    );
+    try {
+      return await this.notificationResend.resendServiceLifecycleNotification(
+        id,
+        dto.template_key,
+        req.user.id,
+        {
+          ipAddress: req.ip ?? '0.0.0.0',
+          userAgent: req.headers['user-agent'] ?? null,
+        },
+      );
+    } catch (err) {
+      // Sprint 15C.II Fase F.11.2 Amendment II (P1 rate limiting) — re-mapear
+      // el `HttpException(TOO_MANY_REQUESTS)` para añadir el header HTTP
+      // estándar `Retry-After` derivado del payload (clientes CLI/automation
+      // lo leen automáticamente sin parsear el body). Mismo patrón canónico
+      // que F.9 reconcile single (`RECONCILE_IN_PROGRESS`).
+      if (
+        err instanceof HttpException &&
+        // `getStatus()` devuelve `number`; el cast explícito a `number`
+        // de `HttpStatus.TOO_MANY_REQUESTS` evita el warning ESLint
+        // `no-unsafe-enum-comparison` (ambos lados ya son `number`).
+        err.getStatus() === (HttpStatus.TOO_MANY_REQUESTS as number)
+      ) {
+        const response = err.getResponse() as
+          | { code?: string; retry_after_seconds?: number }
+          | string;
+        if (
+          typeof response === 'object' &&
+          response.code === 'RESEND_TOO_FREQUENT' &&
+          typeof response.retry_after_seconds === 'number'
+        ) {
+          res.setHeader('Retry-After', String(response.retry_after_seconds));
+        }
+      }
+      throw err;
+    }
   }
 
   // ─── DNS records (Sprint 15C Fase 15C.D — ADR-082 §6 — admin) ──────────

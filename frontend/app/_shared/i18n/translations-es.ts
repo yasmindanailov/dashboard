@@ -575,6 +575,12 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.notifications.resend.submitting': 'Reenviando…',
   'service.notifications.resend.toast_success_prefix':
     'Notificación reenviada al cliente · plantilla: ',
+  // Sprint 15C.II Fase F.11.2 Amendment II (P1 rate limiting frozen
+  // 2026-05-19) — toast accionable cuando el backend devuelve
+  // 429 RESEND_TOO_FREQUENT con retry_after_seconds.
+  'service.notifications.resend.toast_rate_limited_prefix':
+    'Esta misma plantilla se reenvió hace pocos segundos. Reintenta en ',
+  'service.notifications.resend.toast_rate_limited_suffix': ' s.',
 
   // ── Sprint 15C.II Fase F.11.3 (R3-derivado §A.11.10.8.2 + L16) ──────────
   //    Card cross-link Service↔billing. Visible cliente y admin (L16 SÍ
