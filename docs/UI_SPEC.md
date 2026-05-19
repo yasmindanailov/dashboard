@@ -1706,6 +1706,216 @@ app/
 
 ---
 
+### 5.14 Servicio Detail (`/dashboard/services/[id]` + `/admin/services/[id]`) — Detail
+
+> **Origen doctrinal:** Sprint 15C.II Fase F.12 — layout canónico (2026-05-19) · [dossier §A.11.10.9 / §A.11.10.9.2 R1..R6 frozen](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md#a11109-fase-f12--layout-canónico-página-de-servicio--páginas-de-plugins). Refactoriza la composición de las fases F.4 (suspend/desync) · F.5 (billing-suspend-unify) · F.6 (notas) · F.7 (SSL) · F.8 (alertas de cuota) · F.9 (reconcile per-servicio) · F.10 (App Management) · F.11 (mini-badge salud + reenviar notif + cross-link billing). **Cero cambio funcional** — el contenido y comportamiento existente se preserva; solo cambia la **forma de orquestación** (registry declarativo + layout único).
+
+**Tipo:** Detail (§2.5)
+**Pregunta:** "¿En qué estado está mi servicio y qué puedo hacer con él?" (cliente) / "¿Cómo está operativamente y qué necesita?" (admin)
+**Roles:** Cliente (su propio servicio), Agente (sin acceso a `/admin/services/*` — el rol agente no contiene `Subject.Service` admin), Admin (todos los servicios + operaciones administrativas)
+**Capability-driven (ADR-077):** todo lo que cuelga del `info.capabilities.*` se decide por flags del plugin — cero `if (provisioner === 'X')` en el frontend.
+**Ref:** [ADR-070 dashboard puerta unificada](./10-decisions/adr-070-service-info-sso-acciones-curadas.md), [ADR-077 contrato ProvisionerPlugin v2 + Amendments A1-A9](./10-decisions/adr-077-contrato-provisioner-plugin-v2.md), [ADR-078 A1 Modelo A SC + cookies httpOnly](./10-decisions/adr-078-aelium-app-y-arquitectura-frontend.md), [ADR-082 Domain↔Hosting + DNS doctrine](./10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md), [ADR-083 Enhance specifics + Amendments A1-A9](./10-decisions/adr-083-plugin-enhance-cp-specifics.md), [§1.2 P6 contenido adaptativo](#p6-páginas-compartidas-entre-roles--contenido-adaptativo), [§4.13 drift por rol](#413-estados-de-detección-externa-drift--patrón-discriminado-por-rol).
+
+#### Arquitectura canónica (R2 + R3 frozen)
+
+Una sola plantilla `<ServiceDetailLayout ctx={ctx} />` (`frontend/app/_shared/services/ServiceDetailLayout.tsx`) discriminada por rol mediante el contexto `ServiceDetailContext` (que incluye `isAdmin: boolean` + `forceAdminRoute: boolean` además de `service`/`info`/`billingCrossLink` + flags derivados `isTerminal`/`isDrift`/`isSuspended`/`suspensionReasonCode`).
+
+Las páginas `/dashboard/services/[id]` y `/admin/services/[id]` son **wrappers finos ~30 LOC** que: (1) resuelven `id` del `params`; (2) hacen `Promise.all` de `serverFetch` para `data` + `billingCrossLink` + (admin) `overview` + `pluginHealth`; (3) componen `ctx`; (4) delegan a `<ServiceDetailLayout>`.
+
+El layout itera **`SERVICE_DETAIL_SECTIONS`** (catálogo declarativo de descriptores `{ id, label, scope, priority, shouldRender, component }` en `frontend/app/_shared/services/service-detail-sections.tsx`) — filtra por `scope` + `shouldRender(ctx)` y ordena por `priority` descendente (1000 = arriba, 1 = abajo). Cero condiciones inline en el padre.
+
+#### Anatomía — vista cliente (`/dashboard/services/[id]`, estado activo)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ ← Mis servicios                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│ ServiceHeader (Card)                                             │
+│   Icono ── Nombre servicio ── Badge estado                       │
+│   "Plan Pro · hosting-micliente.es"                              │
+├─────────────────────────────────────────────────────────────────┤
+│ Card · Detalles del servicio                                     │
+│   Plan:                Hosting Pro                               │
+│   Estado:              Activo                                    │
+│   Contratado el:       12 de marzo de 2026                       │
+├─────────────────────────────────────────────────────────────────┤
+│ MetricsBar (Card)                                                │
+│   Disco 4.2 / 10 GB · CPU 12% · RAM 410 / 1024 MB                │
+│   Última lectura: hace 2 min · [↻ Actualizar métricas]           │
+├─────────────────────────────────────────────────────────────────┤
+│ SslStatusCard (Card)                                             │
+│   SSL activo — expira en 60 días                                 │
+│   Renovación automática activa · Emitido por Let's Encrypt       │
+├─────────────────────────────────────────────────────────────────┤
+│ AppShortcutsCard (Card)                                          │
+│   Apps instaladas: WordPress 6.5 (admin) · Joomla 5 (panel)      │
+│   [Abrir WP-admin →]   [Abrir Joomla →]                          │
+├─────────────────────────────────────────────────────────────────┤
+│ BillingCrossLinkCard (Card)                                      │
+│   Próxima factura: 12 de junio · 19,99 €                         │
+│   Última factura pagada: INV-00042 · [Ver factura →]             │
+├─────────────────────────────────────────────────────────────────┤
+│ Card · Panel del proveedor                                       │
+│   "Accede al panel especializado para gestión avanzada…"         │
+│                                            [Abrir panel →]       │
+├─────────────────────────────────────────────────────────────────┤
+│ ActionsBar (sin Card propio — botones inline filtrados)          │
+│   [Reiniciar servicio]   [Reset cache]   …                       │
+├─────────────────────────────────────────────────────────────────┤
+│ Card · DNS de tu dominio                                         │
+│   "Crea, edita o elimina registros DNS…"     [Gestionar DNS →]   │
+├─────────────────────────────────────────────────────────────────┤
+│ Card · Historial                                                 │
+│   "Consulta los eventos registrados de tu servicio"  [Ver →]     │
+├─────────────────────────────────────────────────────────────────┤
+│ Card · ¿Necesitas un desarrollo a medida?  (placeholder Sprint 22)│
+├─────────────────────────────────────────────────────────────────┤
+│ Footer: Última lectura del proveedor: 19/05/2026, 22:31          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Anatomía — vista admin (`/admin/services/[id]`, estado activo con drift)
+
+```
+┌──────────────────────────────────────────────────┬──────────────┐
+│ ← Servicios                                       │ ⬤ Healthy 2m │  ← ProviderHealthBadge top-right
+├──────────────────────────────────────────────────┴──────────────┤
+│ ServiceHeader (Card)                                             │
+│   Icono ── Nombre ── Badge estado (admin: tooltip ISO)           │
+├─────────────────────────────────────────────────────────────────┤
+│ AdminDriftBanner (AlertBanner warning) ← solo si isDrift         │
+│   ⚠ Drift detectado · subscription_missing                       │
+│   Razón técnica: subscription not found in Enhance               │
+│   [Investigar en Enhance →]  [↻ Reconciliar]  [Re-aprovisionar]  │
+├─────────────────────────────────────────────────────────────────┤
+│ AdminProviderStateDesyncBanner ← solo si provider_state_desync    │
+├─────────────────────────────────────────────────────────────────┤
+│ MetricsBar (admin: tooltip exacto + threshold quota)             │
+├─────────────────────────────────────────────────────────────────┤
+│ SslStatusCard (admin: tooltip fecha ISO + emisor)                │
+├─────────────────────────────────────────────────────────────────┤
+│ AppShortcutsCard (admin: tooltip app_id)                         │
+├─────────────────────────────────────────────────────────────────┤
+│ BillingCrossLinkCard (admin: link → /admin/billing/[id])         │
+├─────────────────────────────────────────────────────────────────┤
+│ AdminServiceDataCard ← admin-only                                │
+│   Cliente · Servicio · IDs · Fechas (3 sub-grupos)               │
+├─────────────────────────────────────────────────────────────────┤
+│ Card · Panel del proveedor (admin: nota GDPR impersonation)      │
+├─────────────────────────────────────────────────────────────────┤
+│ ActionsBar (admin: incluye actions adminOnly no-blacklisted)     │
+├─────────────────────────────────────────────────────────────────┤
+│ AdminServiceOperationsCard ← admin-only                          │
+│   [Cambiar plan…]  [Recalcular métricas]  [Cancelar servicio…]   │
+├─────────────────────────────────────────────────────────────────┤
+│ ResendNotificationCard ← admin-only (whitelist 3 plantillas)     │
+├─────────────────────────────────────────────────────────────────┤
+│ ServiceNotesCard ← admin-only                                    │
+│   Historial de notas operativas + author + timestamp             │
+├─────────────────────────────────────────────────────────────────┤
+│ Card · Gestión DNS  (admin: sin descripción cliente-amigable)    │
+├─────────────────────────────────────────────────────────────────┤
+│ Card · Historial de auditoría (admin: subtitle admin + sin filtro)│
+├─────────────────────────────────────────────────────────────────┤
+│ Footer: Última lectura: 19/05/2026, 22:31                        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Variaciones de estado (deltas respecto a las anatomías arriba)
+
+| Estado | `ctx` flag | Banner top | Secciones ocultadas | Secciones añadidas |
+|---|---|---|---|---|
+| **Terminal** (`cancelled` / `terminated`) | `isTerminal=true` | `<AlertBanner variant="info">` (cliente) o `variant="danger"` (admin) con razón + fecha de cancelación | MetricsBar, SSO panel, ActionsBar, AdminServiceOperationsCard, DNS link, App shortcuts | BillingCrossLinkCard se mantiene (admin puede consultar última factura) |
+| **Drift** (`info.status ∈ {unknown, failed}` + `statusReason ≠ null`) | `isDrift=true` (no aplica si `isTerminal` o `isSuspended`) | Cliente: ServiceHeader con statusReason i18n empático · Admin: `<AdminDriftBanner>` técnico con CTAs SSO + Reconcile + Re-aprovisionar | Cliente: SSO panel, DNS, ActionsBar (acciones que requieren metadata externa) · Admin: ninguna | Admin: opciones extra en el banner (recoveryHint) |
+| **Suspended** (`info.status='suspended'` reconciliado F.4.1) | `isSuspended=true` (no aplica si `isTerminal`) | Cliente: `<AlertBanner variant="warning">` con motivo localizado + CTA según motivo (overdue_payment → `/dashboard/billing`; resto → `/dashboard/support`) · Admin: `<AlertBanner variant="warning">` con motivo + nota interna | Cliente: SSO panel, ActionsBar, DNS, App shortcuts (no operar como si nada) · Admin: ninguna (puede reactivar desde Operations) | Admin: `<AdminProviderStateDesyncBanner>` si `provider_state_desync=true` |
+| **Loading** (initial fetch) | — | Next.js streaming (sin SC explícito) | — | — |
+| **Error fetch principal** (`data=null`) | — | — | TODO | `<EmptyState>` con "No se pudo cargar el servicio" + `← Volver al listado` |
+| **Error fetch side** (billing/overview/pluginHealth `null`) | — | — | La sección correspondiente | Resto de la página funciona (fail-soft heredado F.7/F.11) |
+
+#### Registry canónico — `SERVICE_DETAIL_SECTIONS` (R3 frozen materializado)
+
+Esta es la pieza nuclear de F.12.2 — se implementa literalmente como un array `readonly SectionDescriptor[]`. Cada fila documenta el descriptor exacto: `id` estable, `scope`, `priority`, `shouldRender` resumido en pseudocódigo, componente que monta, y notas.
+
+| `id` (estable) | `scope` | `priority` | `shouldRender(ctx)` | Componente | Notas |
+|---|---|---:|---|---|---|
+| `header-back-link` | `both` | 2000 | `true` | `<BackLink href={isAdmin ? '/admin/services' : '/dashboard/services'} />` | Top breadcrumb-like link. Branches por `isAdmin`. |
+| `admin-provider-health-badge` | `admin` | 1950 | `ctx.pluginHealth !== null` | `<ProviderHealthBadge health={ctx.pluginHealth} />` | Tier 4 admin-only puro (`_components/`). Renderiza en cabecera junto al back-link (layout-level slot top-right). |
+| `service-header` | `both` | 1900 | `true` | `<ServiceHeader info={info} productName={service.product_name} isAdmin={ctx.isAdmin} />` | Siempre presente. |
+| `banner-terminal` | `both` | 1800 | `ctx.isTerminal` | `<TerminalBanner isAdmin={ctx.isAdmin} service={service} info={info} />` | Tier 2 nuevo (encapsula AlertBanner variant condicionado). |
+| `banner-suspended-client` | `client` | 1750 | `ctx.isSuspended && ctx.suspensionReasonCode !== null` | `<ClientSuspendedBanner reasonCode={ctx.suspensionReasonCode} suspendedAt={service.suspended_at} />` | Cliente NUNCA ve nota interna del admin. CTA por motivo. |
+| `banner-suspended-admin` | `admin` | 1750 | `ctx.isSuspended` | `<AdminSuspendedBanner suspension={parseSuspensionReason(service.suspension_reason)} suspendedAt={service.suspended_at} />` | Admin ve nota interna completa. |
+| `banner-provider-state-desync` | `admin` | 1700 | `ctx.forceAdminRoute && !ctx.isTerminal && service.provider_state_desync === true && (service.status === 'active' || service.status === 'suspended')` | `<AdminProviderStateDesyncBanner serviceId={service.id} adminStatus={…} />` | F.4.1 (admin-only). |
+| `banner-drift-admin` | `admin` | 1650 | `ctx.isDrift && info.statusReason !== null && ctx.forceAdminRoute` | `<AdminDriftBanner serviceId={…} statusReason={…} hasSsoPanel={…} panelLabel={…} showReprovision={…} showReconcile={…} pluginSlug={…} supportsReconcileOne={…} />` | F.3 + F.9. Tier 4 admin-only puro. |
+| `client-details-card` | `client` | 800 | `true` | `<ClientServiceDetailsCard service={service} />` | Tier 2 nuevo (encapsula el `<dl>` Plan/Estado/Contratado el). Siempre visible — garantía heredada Fase B fix-up. |
+| `metrics-bar` | `both` | 600 | `!ctx.isTerminal && info.capabilities.has_metrics` | `<MetricsBar metrics={info.metrics ?? {fetchedAt:info.fetchedAt}} serviceId={service.id} isAdmin={ctx.isAdmin} quotaAlertThresholdPct={service.quota_alert_threshold_pct} />` | Capability-driven. F.8 threshold prop. |
+| `ssl-card` | `both` | 500 | `!ctx.isTerminal && Boolean(info.ssl)` | `<SslStatusCard ssl={info.ssl!} isAdmin={ctx.isAdmin} />` | F.7. L16 SÍ aplica (admin tooltip ISO display-only). |
+| `apps-card` | `both` | 400 | `!ctx.isTerminal && !ctx.isSuspended && info.apps !== undefined && info.apps.length > 0` | `<AppShortcutsCard apps={info.apps} serviceId={service.id} isAdmin={ctx.isAdmin} />` | F.10. Cliente oculta si suspended; admin sí ve si suspended (durante investigación) — gestionado dentro del componente o con dos descriptores `apps-card-client` / `apps-card-admin`. **A congelar en iteración v2.** |
+| `billing-cross-link-card` | `both` | 350 | `ctx.billingCrossLink !== null` | `<BillingCrossLinkCard data={ctx.billingCrossLink!} isAdmin={ctx.isAdmin} />` | F.11.3. Visible también si terminal. L16 SÍ aplica. |
+| `admin-service-data-card` | `admin` | 300 | `true` | `<AdminServiceDataCard data={data} />` | Tier 4 admin-only puro (`_components/`). |
+| `sso-panel-card` | `both` | 90 | `!ctx.isTerminal && !ctx.isSuspended && !ctx.isDrift && info.capabilities.hasSsoPanel && info.capabilities.panel_label !== null` | `<SsoPanelCard serviceId={…} panelLabel={…} isAdmin={ctx.isAdmin} />` | Tier 2 nuevo (encapsula Card + texto + `<SsoButton>`). Admin gana copy GDPR impersonation. |
+| `actions-bar` | `both` | 80 | `!ctx.isTerminal && !ctx.isSuspended` | `<ActionsBar serviceId={service.id} actions={info.availableActions} isAdmin={ctx.isAdmin} />` | F.10 ya hereda `INTERNAL_HELPER_SLUGS` blacklist. |
+| `admin-service-operations-card` | `admin` | 70 | `!ctx.isTerminal` | `<AdminServiceOperationsCard serviceId={…} actions={info.availableActions} currentPlanLabel={…} serviceDisplayName={…} />` | Tier 4 admin-only puro. |
+| `resend-notification-card` | `admin` | 60 | `true` | `<ResendNotificationCard serviceId={service.id} serviceDisplayName={info.display.primary} />` | F.11.2. Tier 4 admin-only puro. Visible incluso si terminal. |
+| `service-notes-card` | `admin` | 50 | `true` | `<ServiceNotesCard serviceId={service.id} clientUserId={service.user_id} />` | F.6. Tier 4 admin-only puro. Visible incluso si terminal. |
+| `dns-link-card` | `both` | 40 | `!ctx.isTerminal && !ctx.isSuspended && (ctx.isAdmin || !ctx.isDrift) && info.capabilities.has_dns_management` | `<DnsLinkCard serviceId={service.id} isAdmin={ctx.isAdmin} />` | Tier 2 nuevo (encapsula Card + texto cliente-amigable o admin-seco según `isAdmin`). Cliente oculta si drift; admin NO. |
+| `audit-link-card` | `both` | 30 | `true` | `<ServiceAuditLinkCard serviceId={service.id} isAdmin={ctx.isAdmin} />` | Tier 2 nuevo (encapsula Card + i18n subtitle). Siempre visible. |
+| `client-dev-custom-placeholder` | `client` | 20 | `true` | `<ClientDevCustomPlaceholderCard />` | Tier 2 nuevo (estático, Sprint 22 prep). Solo cliente. |
+| `footer-fetched-at` | `both` | 1 | `true` | `<FetchedAtFooter fetchedAt={info.fetchedAt} />` | Tier 2 nuevo (texto plano `<p>`). |
+
+**Total: 23 descriptores** (10 `both` + 3 `client` + 10 `admin`). El padre `<ServiceDetailLayout>` post-R3 son ~30 LOC. Los componentes nuevos Tier 2 encapsulan JSX hoy inline en `page.tsx` (sin lógica nueva — refactor puro).
+
+**Ambigüedades pendientes a resolver durante F.12.1 iteración** (NO bloquean v1):
+- **`apps-card` admin si suspended**: en el admin page actual, AppShortcutsCard se renderiza si `!isTerminal && info.apps.length > 0` (admin SÍ ve si suspended para investigación); en el cliente page se renderiza si `!isTerminal && !isSuspended && info.apps.length > 0`. **2 descriptores separados (`apps-card-client` scope:`client` + `apps-card-admin` scope:`admin`)** o **1 descriptor con `shouldRender` ramificado por `scope` interno**? — recomendación dossier: 2 descriptores (más simple, más testeable).
+- **`banner-drift-admin` cuando `/dashboard/services/[id]` la abre un staff (isAdmin=true pero NO `forceAdminRoute`)**: hoy el cliente page NO renderiza AdminDriftBanner aunque el viewer sea staff (UX cliente-first del page cliente). Mantener este comportamiento → el descriptor incluye `ctx.forceAdminRoute` en `shouldRender`. Confirmar en iteración.
+- **`actions-bar` cuando `isAdmin=true` en /dashboard**: hoy SÍ renderiza acciones admin-only no-blacklisted. Mantener (heredado). El descriptor solo gatea por `!isTerminal && !isSuspended`.
+
+#### Variaciones por rol (matriz §1.2 P6.1)
+
+| Página | Elemento | Cliente | Admin |
+|---|---|---|---|
+| `/services/[id]` | Endpoint backend | `GET /services/:id` (filtra ownership) | `GET /admin/services/:id` (sin filtro) |
+| `/services/[id]` | Subtitle ServiceHeader | "Tu hosting Plan Pro" (info.display.secondary i18n) | Mismo + tooltip estado ISO |
+| `/services/[id]` | Drift | Mensaje empático en ServiceHeader; oculta SSO/DNS/Actions | `<AdminDriftBanner>` técnico crudo arriba; mantiene TODO operativo para diagnosticar |
+| `/services/[id]` | Suspended | Banner con motivo localizado (NUNCA nota interna) + CTA por motivo | Banner con motivo + nota interna; mantiene operaciones (reactivar) |
+| `/services/[id]` | Datos del servicio | Card simple "Plan / Estado / Contratado el" | `<AdminServiceDataCard>` con sub-grupos Cliente/Servicio/IDs/Fechas |
+| `/services/[id]` | Audit subtitle | `service.audit.subtitle_client` (acotado a su scope GDPR) | `service.audit.subtitle_admin` (vista completa) |
+| `/services/[id]` | Operaciones administrativas | ❌ Oculto | `<AdminServiceOperationsCard>` visible (Cambiar plan / Recalcular / Cancelar) |
+| `/services/[id]` | Reenviar notificación | ❌ Oculto | `<ResendNotificationCard>` visible (whitelist 3 plantillas + cooldown 60s) |
+| `/services/[id]` | Notas del servicio | ❌ Oculto | `<ServiceNotesCard>` visible (historial completo + author) |
+| `/services/[id]` | Mini-badge salud plugin | ❌ Oculto | `<ProviderHealthBadge>` top-right si fetch OK (fail-soft) |
+| `/services/[id]` | Placeholder Sprint 22 | ✅ Visible | ❌ Oculto |
+| `/services/[id]` | DNS link copy | Cliente-amigable: "Crea, edita o elimina registros DNS… Los cambios pueden tardar minutos en propagarse." | Admin-seco: "Revisa y edita los registros DNS de la zona…" |
+| `/services/[id]` | SSO panel copy | Cliente-amigable: "Accede al panel especializado para gestión avanzada (email, BD, archivos…). Sesión registrada en tu portal de transparencia." | Admin con nota GDPR: "Abrir como admin se registra automáticamente como impersonation en el log del cliente afectado" |
+
+#### Estados empty/error/loading
+
+- **Empty (`data === null`)**: `<EmptyState title="No se pudo cargar el servicio" description={errorMessage ?? 'El servicio no existe o no tienes acceso.'} action={<BackLink />} />` (heredado del page actual cliente; admin mismo patrón con "El servicio no existe").
+- **Loading**: streaming nativo de Next.js (RSC + Suspense del wrapper). NO se introduce skeleton custom — el SC bloquea hasta resolver `serverFetch` (patrón heredado F.1..F.11).
+- **Error fetch side-data**: fail-soft. Si `billingCrossLink` falla → descriptor `billing-cross-link-card` retorna false en `shouldRender` (no se renderiza). Mismo patrón heredado F.7/F.11.
+- **Error fetch overview/pluginHealth (admin)**: fail-soft. El descriptor correspondiente no renderiza pero el resto de la página funciona. F.11 doctrine.
+
+#### Responsive (heredado §2.0 Dashboard Shell)
+
+`<DetailPage>` layout container `max-width: 1200px` (§2.8). Cada Card descriptor ocupa 100% del ancho dentro de la columna principal. Cards con sub-bloques (MetricsBar, SslStatusCard, AppShortcutsCard, BillingCrossLinkCard) gestionan su responsive interno via flexbox/grid. Sin breakpoints específicos a `/services/[id]` — herencia completa del shell.
+
+#### Interacciones clave (§4.x)
+
+- **Modal**: `ChangePackageModal`, `CancelServiceModal` (typing-confirm — §4.2 nivel 3 reforzado), `SuspendServiceModal` (modo `suspend`/`unsuspend` con nota obligatoria — F.6 R2 defense-in-depth backend).
+- **Toast**: feedback de Server Actions (`actions.success` / `actions.error`) — §4.3. ResendNotificationCard usa toast con cuenta atrás si 429 RESEND_TOO_FREQUENT (F.11.2 Amendment II).
+- **AlertBanner**: terminal / suspended / drift / provider_state_desync (§4.3 estado contextual persistente).
+- **Confirmaciones**: Cancelar servicio = reforzada (typing-confirm). Cambiar plan = modal. Suspender = modal con nota. Acciones del ActionsBar inline (sin confirmación si "no destructiva", con confirmación si destructiva — heredado F.10).
+- **Empty states**: data=null → `<EmptyState>` con icono + texto empático + CTA "Volver al listado" (§4.8).
+
+#### Decisiones y deferrals — F.12 alcance
+
+- **Cero cambio funcional**: la lista de 23 descriptores arriba refleja el comportamiento actual del page cliente+admin (no se añade ni quita funcionalidad). E2E spec Playwright (si existe) DEBE pasar sin cambios.
+- **Adopción `<PageSectionGroup>` (Tier 1 DS si se confirma)**: solo aplica si encapsula consistentemente el cromo de las Cards (h2 + spacing + bordes). Decisión final al congelar — si solo aplica a F.12 sin reutilización clara fuera, baja a Tier 3 `_shared/services/_components/SectionGroup.tsx`.
+- **No se introduce paginación de secciones** (tabs / accordion / "ver más"): hoy es scroll vertical único y F.12 lo preserva. Si en el futuro la página supera ~8 secciones visibles simultáneamente, considerar Tabs (§2.5 condicional >2 secciones).
+- **No se adopta `<PageSectionGroup>` en otras detail pages** (Clients §5.3, Products §5.5, Invoices §5.8, Tickets §5.11, Tasks §5.16) en F.12 — trabajo futuro si se promociona a Tier 1.
+- **DC.46..49 + DC.NEW-51..58 NO se abordan** (housekeeping post-15C.II).
+
+---
+
 ### 5.15 Tareas (`/dashboard/tasks`) — List
 
 **Tipo:** List (§2.4)
