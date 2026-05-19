@@ -3107,6 +3107,212 @@ git checkout -b sprint15c-ii-fase-f12-canonical-layout
 - **L18 frozen**: cualquier mejora descubierta durante implementación que diverja del apuntado original del dossier se documenta como **Amendment** dentro de la fase (no desvío silencioso). F.10 produjo pivot doctrinal pre-código + Amendment I durante implementación (rename `kind`→`appKind`+`urlKind`); F.11 produjo Amendment I durante implementación (whitelist 3 plantillas vs 5) + Amendment II post-PR self-review (P1 rate limiting) + hot-fix DI clash (módulo leaf canónico). F.12 probablemente produzca 0-1 Amendments dada la naturaleza doc-first con freeze gate — el freeze se produce al final de la iteración de diseño, así que las divergencias se resuelven en el documento ANTES de codear.
 - **F.12.2 cero cambio funcional**: refactor de composición debe preservar comportamiento exacto. E2E spec Playwright (si existe) DEBE pasar sin cambios. Tests unit ajustados solo si imports cambian de location. Heredable: cualquier futuro refactor de layout puro sigue el patrón "tests as ground truth — si cambian, hay regresión funcional encubierta".
 
+#### A.11.10.9.2. Refinamiento pre-código F.12.1 — R1..R6 frozen (2026-05-19)
+
+**Propósito**: congelar las 6 decisiones doctrinales pre-código de F.12 antes de tocar `UI_SPEC.md` o cualquier archivo de `frontend/`. Patrón heredado §A.11.10.7.2 (F.10 R1..R3 OAS rigor) + §A.11.10.8.2 (F.11 Q1..Q5 → R1..R5). Cada R cita la fuente de verdad doctrinal (UI_SPEC §X, ADR-NNN, regla R*/D*, patrón heredado F.N) que la fundamenta. Resolución de [§A.11.10.9.1 Q1..Q5 + Q6 derivada]. Cualquier divergencia durante F.12.1 (iteración de wireframes) o F.12.2 (implementación) requiere **Amendment** explícito en esta sub-sección (L18 frozen).
+
+##### R1 — Ubicación de los componentes nuevos (resuelve Q1)
+
+**Decisión**: caso a caso según alcance funcional, en 4 tiers:
+
+| Tier | Ubicación | Criterio | Documentación |
+|---|---|---|---|
+| **Tier 1 — DS canónico** | `frontend/app/components/ui/` | Componente de **propósito general** reutilizable a cualquier detail page del proyecto (no solo F.12). Mínimo 2 consumidores reales actuales o claramente previstos en `current.md`. | §N en `UI_SPEC.md` + entrada en `DESIGN_SYSTEM.md`. |
+| **Tier 2 — Compartido cliente+admin del módulo Servicios** | `frontend/app/_shared/services/` | Card o SC visible en **ambos** roles (con o sin prop `isAdmin` para diferencias display-only). Patrón heredado: `SslStatusCard`, `AppShortcutsCard`, `BillingCrossLinkCard`, `ActionsBar`, `MetricsBar`. | Doc inline (JSDoc del componente). |
+| **Tier 3 — Subcomponente interno de `_shared/services/`** | `frontend/app/_shared/services/_components/` | Sub-bloque de un componente Tier 2 (no importado desde `page.tsx`, sino desde otro Tier 2). Patrón heredado: `_components/ServiceAuditTimeline.tsx`. | Doc inline. |
+| **Tier 4 — Admin-only puro** | `frontend/app/admin/services/[id]/_components/` (o equivalente admin route) | Componente **exclusivamente admin**, sin variante cliente conceptualmente posible. Patrón heredado F.11: `<ProviderHealthBadge>` (doctrina **L16 NO universal** §A.11.10.8.2 (a)). | Doc inline. |
+
+**Componentes nuevos previstos para F.12** (lista provisional — se congela en F.12.1 al final de la iteración de wireframes):
+
+| Componente | Tier propuesto | Justificación |
+|---|---|---|
+| `<ServiceDetailLayout>` SC | Tier 2 (`_shared/services/`) | Orquestador del registry (R2+R3). Compartido cliente+admin. |
+| `<PageSectionGroup>` | Tier 1 (DS) **solo si** ROI 2+ consumidores | Cromo consistente entre secciones (`<h2>` + spacing + Card opcional). Si no se justifica reutilización fuera de F.12, baja a Tier 3 como `_shared/services/_components/SectionGroup.tsx`. **Decisión final en F.12.1 al congelar wireframes.** |
+| `<DriftBannerStack>` | Tier 2 | Apilamiento ordenado de banners (terminal, drift, suspended). Compartido cliente+admin con shape distinto por rol (§4.13). |
+| Catálogo `service-detail-sections.tsx` (R3) | Tier 2 | Registry declarativo (no es componente sino módulo). |
+
+**Anti-decisión explícita** (NO se crean): `<AdminOnlyGuard>` SC abstracto — la doctrina §1.2 P6 + ADR-070 + CASL ya filtran en backend; el frontend usa `scope: 'admin'` del descriptor (R3) que es más explícito y testeable que un guard wrapper opaco.
+
+**Fuentes**: UI_SPEC §1.2 P6 contenido adaptativo por rol · ADR-070 dashboard puerta unificada · doctrina L16 NO universal heredada F.11 §A.11.10.8.2 (a) · patrón Next.js `_components/` underscore folder (no route).
+
+##### R2 — Layout único discriminado por rol (resuelve Q2)
+
+**Decisión**: `frontend/app/_shared/services/ServiceDetailLayout.tsx` SC **único**, con prop `isAdmin: boolean` derivada server-side de `getServerSession()` + `isStaffRole(session?.user.role.slug)`. Las dos páginas `frontend/app/dashboard/services/[id]/page.tsx` y `frontend/app/admin/services/[id]/page.tsx` se convierten en wrappers finos (~20-30 LOC) que:
+
+1. Resuelven `id` del `params`.
+2. Cargan `data: ServiceDetailResponse` via `serverFetch` (cliente fail-soft `null` → `<EmptyState>`; admin fail-soft idéntico).
+3. Cargan side-data (`billingCrossLink`, etc.) via `Promise.all` para evitar waterfall.
+4. Componen el `ServiceDetailContext` (ver R3) — incluye `isAdmin`, `isTerminal`, `isDrift`, `isSuspended`, `suspensionReasonCode`.
+5. Delegan render a `<ServiceDetailLayout ctx={ctx} />`.
+
+**Contrato del SC** (frozen):
+
+```typescript
+interface ServiceDetailLayoutProps {
+  ctx: ServiceDetailContext;
+}
+
+export default function ServiceDetailLayout({ ctx }: ServiceDetailLayoutProps): JSX.Element;
+```
+
+**Convención `isAdmin` cliente-page**: las pages `/dashboard/services/[id]` pueden devolver `isAdmin: true` si quien la abre es staff (patrón actual: `const isAdmin = isStaffRole(session?.user.role.slug)`). Las pages `/admin/services/[id]` SIEMPRE pasan `isAdmin: true` + un flag adicional `forceAdminRoute: true` en el contexto, que activa secciones admin-route-only (drift banner técnico, audit completo, controles destructivos). El registry decide via `scope` + `shouldRender(ctx)` con acceso al flag.
+
+**Justificación**: hoy hay ~70% de código compartido vía `_shared/services/`. Consolidar a 1 SC elimina drift accidental entre `/dashboard/services/[id]` y `/admin/services/[id]`. Trade-off conocido: el padre tendrá N condiciones de scope, pero R3 (router declarativo) las encapsula en descriptores aislados — el padre NO crece.
+
+**Fuentes**: UI_SPEC §1.2 P6 (contenido adaptativo por rol — Stripe/Hostinger pattern) · UI_SPEC §4.13 (drift por rol) · ADR-070 (separación admin/cliente como capability del layout, no como duplicación) · ADR-078 A1 (Modelo A — SC + Server Actions cookies httpOnly) · ADR-077 (capability flags `info.capabilities.*` ya determinan QUÉ se renderiza sin condicionar por `provisioner_slug`).
+
+##### R3 — Router de secciones declarativo (resuelve Q3 — propuesta cementada y aceptada)
+
+**Decisión**: catálogo declarativo `frontend/app/_shared/services/service-detail-sections.tsx` que exporta una constante `SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[]`. El `<ServiceDetailLayout>` (R2) **solo itera** ordenando por `priority` descendente (mayor número = más arriba) y filtrando por `scope` + `shouldRender(ctx)`. Cero condiciones inline en el padre.
+
+**Tipos exactos del contrato** (frozen — viven en `_shared/services/service-detail-sections.tsx`):
+
+```typescript
+import type { ComponentType } from 'react';
+import type {
+  Service,
+  ServiceInfo,
+  ServiceBillingCrossLink,
+} from '../../lib/api';
+
+export type SectionScope = 'admin' | 'client' | 'both';
+
+export interface ServiceDetailContext {
+  /** Datos crudos del backend (`GET /services/:id`). */
+  service: Service;
+  info: ServiceInfo;
+  /** Side-data fetched en paralelo en el wrapper page. */
+  billingCrossLink: ServiceBillingCrossLink | null;
+  /** Rol efectivo del usuario que abre la página. */
+  isAdmin: boolean;
+  /** True si la ruta es `/admin/services/[id]` (no `/dashboard/services/[id]` con isAdmin=true). */
+  forceAdminRoute: boolean;
+  /** Estados derivados canónicos (heredados del page actual). */
+  isTerminal: boolean;
+  isDrift: boolean;
+  isSuspended: boolean;
+  suspensionReasonCode: SuspensionReasonCode | null;
+}
+
+export interface SectionDescriptor {
+  /** Identificador estable y único — usado en tests + analytics + claves React. */
+  id: string;
+  /** Etiqueta humana en español (para devtools + futuro analytics). NO se renderiza. */
+  label: string;
+  /** Quién puede ver esta sección. `both` = visible cliente y admin (con o sin variación interna). */
+  scope: SectionScope;
+  /**
+   * Prioridad de render. Descendente: 1000 = arriba, 1 = abajo.
+   * Convención de rangos:
+   *   - 1000..1999: banners de estado crítico (terminal, drift admin, suspended)
+   *   - 500..999:   identidad del servicio (header, detalles canónicos)
+   *   - 100..499:   métricas y estado del recurso (MetricsBar, SSL, apps, billing cross-link)
+   *   - 50..99:     operativas (SSO panel, ActionsBar, DNS link, App admin shortcuts)
+   *   - 1..49:      histórico y meta (audit timeline, dev custom placeholder, fetchedAt footer)
+   */
+  priority: number;
+  /** Predicado de visibilidad. Acceso completo al contexto. Server-evaluable (puro). */
+  shouldRender: (ctx: ServiceDetailContext) => boolean;
+  /** El componente que renderiza la sección. Recibe `ctx` completo. */
+  component: ComponentType<{ ctx: ServiceDetailContext }>;
+}
+
+export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
+  // poblado en F.12.2 — mapping completo de cards actuales a descriptores
+];
+```
+
+**Reglas inmutables del registry** (frozen):
+
+1. **Descriptores son objetos puros**: `shouldRender` no hace side-effects, no fetcha, no usa hooks. Solo lee `ctx`.
+2. **Render order determinista**: el padre hace `SERVICE_DETAIL_SECTIONS.filter(s => matchesScope(s.scope, ctx) && s.shouldRender(ctx)).sort((a,b) => b.priority - a.priority)`. NUNCA se introduce randomización ni reordenamiento dinámico.
+3. **Empate de `priority`**: en colisión, gana el orden de declaración en el array (estable). Sirve para grupos lógicos consecutivos (ej. dos secciones admin con `priority: 100`).
+4. **`scope` strict**: helper `matchesScope(scope: SectionScope, ctx: ServiceDetailContext): boolean` = `scope === 'both' || (scope === 'admin' && ctx.isAdmin) || (scope === 'client' && !ctx.isAdmin)`. Documentado + testeado.
+5. **`forceAdminRoute`** se chequea **dentro** de `shouldRender` cuando aplica (ej. banner drift técnico crudo solo en `/admin/services/[id]`, no en `/dashboard/services/[id]` con staff abriendo). NO se duplica como `scope` nuevo.
+6. **Heredable**: plugins futuros (Sprint 15D RC, 15E Docker, 15G Plesk) **registran descriptores adicionales** en el mismo array (o en arrays plugin-specific concatenados). Cero modificación del padre. Documentar en cada Amendment de ADR-077 si un plugin añade descriptor.
+
+**Justificación doctrinal** (multifuente):
+
+- **UI_SPEC §1.2 P6** materializado explícitamente: `scope` + `shouldRender` son la explicitación frontend del filtrado por rol que CASL hace en backend.
+- **UI_SPEC §4.13 drift por rol** materializado como descriptor único con `scope: 'both'` + `shouldRender` que ramifica el `component` interno según `ctx.isAdmin` (renderiza banner técnico admin vs mensaje empático cliente — patrón heredado §4.13 frozen).
+- **ADR-070 puerta unificada**: el dashboard agrega secciones según contribución del plugin (apps, SSL, quota, DNS) — la extensibilidad natural es vía registry de descriptores.
+- **ADR-077 capability-driven**: `shouldRender(ctx) = !ctx.isTerminal && Boolean(ctx.info.ssl)` es el mismo predicado declarativo que hoy vive como `{!isTerminal && info.ssl && <SslStatusCard ssl={info.ssl} />}` — la diferencia es que ahora vive registrado en un sitio único en lugar de cableado en el padre.
+- **Estándar industria**: Stripe Dashboard, Vercel Project Settings, Linear Issue View — section/tab registries son patrón canónico para detail pages extensibles.
+- **ROI medible**: el padre actual `/dashboard/services/[id]/page.tsx` tiene **~580 LOC** con **~6 condiciones inline cableadas** + JSX repetitivo de cards. El padre post-R3 son ~30 LOC (wrapper + ctx + delegación). Cada sección encapsulada testeable de forma aislada.
+
+##### R4 — Wireframes ASCII inline en UI_SPEC §N (resuelve Q4 — default razonado)
+
+**Decisión por defecto**: wireframes ASCII **inline** dentro de cada sección §5.14/§5.18/§5.19 del propio `UI_SPEC.md`. Mismo patrón canónico que §2.3..§2.7 (Anatomía: Overview/List/Detail/Form/Workspace) que tienen ASCII inline. UI_SPEC actual ~1946 líneas; estimación post-F.12 ~2300 líneas (margen aceptable — el documento es el manifiesto canónico, debe ser denso).
+
+**Trigger de revisión a sub-archivo**: si tras la v1 del primer wireframe queda claro que **algún** wireframe individual supera ~70 líneas ASCII (3 vistas: cliente normal + admin normal + admin con drift), se mueve a `docs/40-design/wireframes-f12-services.md` linkado desde UI_SPEC §5.14. Decisión por wireframe individual (no por todos).
+
+**Fuentes**: UI_SPEC §2.3..§2.7 patrón canónico inline · §5.13 Auth wireframe inline 16 líneas (referencia de densidad aceptable) · principio de **doc maestra cohesionada** sobre fragmentación.
+
+##### R5 — PR único monolítico F.12 (resuelve Q5 — default razonado)
+
+**Decisión por defecto**: **1 PR único** F.12 incluyendo ambas sub-fases (F.12.1 doc-only iterativo + commits FREEZE + F.12.2 refactor). Patrón heredado §A.11.10.7 (F.10 PR único #85) + §A.11.10.8 (F.11 PR único #90). Coherencia del refactor entre las 3 familias de páginas requiere review unificado de los componentes nuevos (`<ServiceDetailLayout>`, `<PageSectionGroup>` si aplica, registry).
+
+**Trigger de partición a sub-PRs**: si tras congelar wireframes la estimación LOC del refactor F.12.2 supera **2000 LOC netos**, partir en 3 sub-PRs por familia con commits ordenados:
+
+- `F.12.2.a` componentes base (`<ServiceDetailLayout>` + registry + `<PageSectionGroup>` si aplica) + refactor `/services/[id]` cliente + admin
+- `F.12.2.b` refactor `/admin/settings/plugins` lista
+- `F.12.2.c` refactor `/admin/settings/plugins/[slug]` detalle
+
+Cada sub-PR auto-suficiente (review independiente posible), tests verdes, sin breaking entre ellos.
+
+**Fuentes**: patrón heredado fases F.4..F.11 (todas PR único + post-merge sync separado) · trade-off review ergonomics vs coherencia atómica.
+
+##### R6 — Numeración §5.X en UI_SPEC para las 3 secciones nuevas (Q6 derivada, no incluida en §A.11.10.9.1 original)
+
+**Decisión derivada** (no estaba en Q1..Q5 — descubierta al cotejar UI_SPEC líneas 1646..1709 antes de empezar a redactar wireframes):
+
+| Sección F.12 | Numeración | Justificación |
+|---|---|---|
+| **§5.14 — Servicio Detail (`/dashboard/services/[id]` + `/admin/services/[id]`)** | Aprovecha el **gap §5.14 ausente** (entre §5.13 Auth y §5.15 Tareas — sección histórica eliminada en un commit previo, gap nunca rellenado). Detail page nuclear del sprint — orden de lectura natural junto al resto de Detail pages del doc. | Cero renumeración. Posición semántica razonable (después de Auth, antes de Tasks; en un futuro reorder semántico la sección puede moverse junto a Productos §5.4-§5.6 + Billing §5.7-§5.9 con una nueva R, pero F.12 NO renumera para no romper anchors externos). |
+| **§5.18 — Plugins List (`/admin/settings/plugins`)** | Tras §5.17 actual ("Resumen de componentes nuevos requeridos"). Admin tooling especializado — orden cronológico de adición (Sprint 15A). | Mantiene §5.17 como cierre histórico pre-F.12. Anchor `#section-5-18-plugins-list` estable a futuro. |
+| **§5.19 — Plugin Detail (`/admin/settings/plugins/[slug]`)** | Tras §5.18. Admin tooling especializado. | Consecutivo a §5.18, agrupa visualmente el módulo Plugins. |
+| **§5.20 — Resumen de componentes nuevos F.12** (opcional) | Tras §5.19. Anexo a §5.17 pre-F.12. | Solo si se crean componentes Tier 1 DS (R1) que necesiten entry en el resumen. Si todos los componentes nuevos son Tier 2/3/4 (`_shared/`), el resumen se omite y se documenta inline en los componentes. **Decisión final al congelar F.12.1.** |
+
+**Anti-decisión explícita** (NO se hace): renumeración de §5.13..§5.17. Romper anchors externos (PRs anteriores, dossiers de sprints cerrados, ADRs) sin necesidad funcional viola la regla canónica de **estabilidad de identificadores doctrinales**.
+
+**Convención adoptada** (heredable): cuando aparezca un gap §5.X disponible y la nueva sección encaje semánticamente o sea minoritaria, **aprovechar el gap** antes que añadir al final. Cuando la nueva sección sea estructuralmente posterior (módulo nuevo, admin tooling), añadir al final.
+
+**Fuentes**: cotejo UI_SPEC.md líneas 1646..1709 (vacío post-§5.13) · principio de **estabilidad de identificadores doctrinales** (ADRs, §, regla R*/D* no se renumeran salvo necesidad funcional) · regla heredable nueva (a documentar en `docs/90-meta/development-playbook.md` si se confirma utilidad).
+
+##### Aplicación de R1..R6 al pipeline F.12.1 → F.12.2
+
+| Etapa | Acción concreta | Artefactos producidos |
+|---|---|---|
+| **F.12.1 commit 2** | v1 wireframes ASCII §5.14 + §5.18 + §5.19 según R4 inline. Cada wireframe: jerarquía componentes (árbol) + bloques (siguiendo §2.5 Detail Page) + estados (empty/error/loading) + variaciones por rol (§1.2 P6) + drift (§4.13) + responsive. | 3 secciones nuevas en `UI_SPEC.md` + posible §5.20 anexo R1. |
+| **F.12.1 commits 3..N** | Iteración con Yasmin sobre wireframes. Cada commit = `docs(sprint-15c-ii): F.12.1 wireframe iteración N — <cambio concreto>`. | Wireframes refinados. |
+| **F.12.1 commit FREEZE** | Yasmin confirma. Commit dedicado `docs(sprint-15c-ii): F.12.1 — wireframes FREEZE 2026-XX-XX (Yasmin)`. Marca el punto de no-retorno al diseño. | Wireframes congelados. |
+| **F.12.2 commits 1..N** | Orden canónico: (a) `_shared/services/service-detail-sections.tsx` registry vacío + tipos R3 + helpers `matchesScope`. (b) Descriptores migrando JSX inline actual del page cliente uno a uno (preserva comportamiento — cada migración verificable visualmente). (c) `<ServiceDetailLayout>` SC orquestador. (d) `<PageSectionGroup>` / `<DriftBannerStack>` si R1 los justifica. (e) Refactor `frontend/app/dashboard/services/[id]/page.tsx` a wrapper ~30 LOC. (f) Refactor `frontend/app/admin/services/[id]/page.tsx` idem (puede compartir helper de carga de `ctx`). (g) Refactor `/admin/settings/plugins` lista + `[slug]` detalle. (h) Ajuste tests unit por imports cambiados. | `ServiceDetailLayout` + registry + 3 familias de páginas refactorizadas. |
+| **F.12.2 validación** | `pnpm ci:check:full` + boot smoke + smoke real Yasmin contra `MockEnhanceServer` 5 escenarios: (1) cliente activo · (2) cliente suspended · (3) admin con drift · (4) admin terminal cancelled · (5) admin con apps + SSL + quota threshold. | Suite verde + smoke verde. |
+| **F.12.2 PR** | PR único F.12 (R5 default). Body incluye bypass §6 15ª aplicación si CI Actions sigue billing-bloqueada. Tras merge → post-merge sync PR doc-only (patrón heredado). | PR mergeado a master + sync. |
+
+##### Riesgos identificados y mitigaciones
+
+| Riesgo | Probabilidad | Mitigación |
+|---|---|---|
+| Algún descriptor migra mal y rompe render condicional sutil (ej. orden de bullets en card de detalles) | Media | Cada descriptor migrado en commit aislado en F.12.2; verificación visual incremental. Smoke real Yasmin 5 escenarios obligatorio antes del PR. |
+| `<PageSectionGroup>` no se justifica como Tier 1 (DS) — solo 1 consumidor real | Alta | R1 baja a Tier 3 (`_shared/services/_components/`) al congelar F.12.1. No es regresión doctrinal. |
+| Wireframe individual supera 70 líneas ASCII (drift visual complejo) | Media | R4 trigger explícito — mover ese wireframe a `docs/40-design/`. Decisión por wireframe, no global. |
+| LOC neto F.12.2 supera 2000 → partir | Baja | R5 trigger explícito — sub-PRs F.12.2.a/b/c. Patrón canónico. |
+| Algún descriptor necesita acceso a estado React (no puro) | Baja | Si aparece, el descriptor encapsula un client component `'use client'` que hace el hooking; el descriptor sigue siendo puro porque solo declara `component: <ClientWrapper>`. Documentar como Amendment si se necesita. |
+| `forceAdminRoute: true` en `/admin/services/[id]` se filtra mal a algún descriptor | Media | Test unit del helper `matchesScope` + tests de los descriptores que dependen del flag (drift técnico admin, audit completo). |
+| Tests existentes que importan `<ActionsBar>` / `<SsoButton>` etc. desde el page rompen | Baja | Mantener exports actuales en `_shared/services/index.ts` (barrel). Cambian las páginas, no el contrato exportado. |
+
+##### Lo que F.12 NO aborda (alcance frozen)
+
+- `DC.46` `autoCancelServices` → `deprovisionAsAdmin` (destructivo, candidato fase aparte).
+- `DC.47` naming `notes` ↔ `internal_note` `DeprovisionDto` (housekeeping).
+- `DC.48` bandwidth como F.8.x (semántica reset mensual sin resolver).
+- `DC.49` `MockEnhanceServer` seed dinámico `usedResources` per-subscriptionId (housekeeping pre-G.2).
+- `DC.NEW-51..54` App Management futuros (stats UI / install-uninstall / ops mutación / modelo BD).
+- `DC.NEW-55..58` F.11 housekeeping (whitelist V2 quota / supertest E2E resend / Idempotency-Key / reconcile enhance_customers).
+- Mejoras funcionales en cualquier card existente (SSL detail expandido, métricas drill-down, etc.) — **cero cambio funcional** es invariante de F.12.2.
+- Adopción de `<PageSectionGroup>` en otras detail pages del proyecto (Clients / Products / Billing / Tickets / Tasks) — solo si se promociona a Tier 1; trabajo futuro fuera de F.12.
+
 ### A.11.10.10. Fase G — Cierre Sprint 15C.II
 
 **Tema:** DoD del sprint completo — tests críticos, E2E, smoke real, retrospectiva, desbloqueo de Sprint 15D RC.
