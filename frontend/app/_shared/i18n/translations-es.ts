@@ -535,4 +535,68 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'plugin.enhance_cp.actions.open_app_admin.label': 'Abrir admin',
   'plugin.enhance_cp.actions.open_app_admin.description':
     'Abre el panel de administración de la aplicación en una pestaña nueva',
+
+  // ── Sprint 15C.II Fase F.11.1 (R3 frozen §A.11.10.8.2) ─────────────────
+  //    Mini-badge de salud del plugin in-process en `/admin/services/[id]`.
+  //    Admin-only (R1 frozen — cliente NO ve este indicador técnico).
+  'service.provider_health.label': 'Proveedor:',
+  'service.provider_health.operational': 'operativo',
+  'service.provider_health.degraded': 'degradado',
+  'service.provider_health.down': 'caído',
+  'service.provider_health.link_to_overview': 'Ver detalle del plugin',
+  'service.provider_health.tooltip_in_process':
+    'Estado del breaker en esta instancia del backend',
+  'service.provider_health.tooltip_no_breakers':
+    'Sin actividad reciente — las operaciones cross-cutting del plugin no se han invocado en esta instancia.',
+
+  // ── Sprint 15C.II Fase F.11.2 (R2+R4+R5 frozen §A.11.10.8.2 + Amendment I) ──
+  //    Card admin "Reenviar notificación al cliente" + modal con select de
+  //    whitelist canónica de 3 plantillas de service-lifecycle.
+  'service.notifications.resend.card_title': 'Reenviar notificación al cliente',
+  'service.notifications.resend.card_description':
+    'Envía de nuevo al cliente la última notificación de cambio de estado (suspensión, reactivación o cancelación). Re-renderizada con el estado actual del servicio.',
+  'service.notifications.resend.card_button': 'Reenviar notificación…',
+  'service.notifications.resend.modal_title': 'Reenviar notificación al cliente',
+  'service.notifications.resend.modal_help_prefix':
+    'Se enviará al cliente la plantilla seleccionada con el contexto actual del servicio ',
+  'service.notifications.resend.modal_help_suffix':
+    '. Útil cuando el cliente reporta no haber recibido el email original o necesita una copia.',
+  'service.notifications.resend.template_field_label': 'Plantilla a reenviar *',
+  'service.notifications.resend.template_field_help':
+    'Solo se permiten plantillas de cambio de estado del servicio. El contenido se re-renderiza con los datos actuales.',
+  'service.notifications.resend.template_label.suspended':
+    'Servicio suspendido',
+  'service.notifications.resend.template_label.unsuspended':
+    'Servicio reactivado',
+  'service.notifications.resend.template_label.cancelled':
+    'Servicio cancelado',
+  'service.notifications.resend.cancel': 'Cancelar',
+  'service.notifications.resend.submit': 'Reenviar al cliente',
+  'service.notifications.resend.submitting': 'Reenviando…',
+  'service.notifications.resend.toast_success_prefix':
+    'Notificación reenviada al cliente · plantilla: ',
+  // Sprint 15C.II Fase F.11.2 Amendment II (P1 rate limiting frozen
+  // 2026-05-19) — toast accionable cuando el backend devuelve
+  // 429 RESEND_TOO_FREQUENT con retry_after_seconds.
+  'service.notifications.resend.toast_rate_limited_prefix':
+    'Esta misma plantilla se reenvió hace pocos segundos. Reintenta en ',
+  'service.notifications.resend.toast_rate_limited_suffix': ' s.',
+
+  // ── Sprint 15C.II Fase F.11.3 (R3-derivado §A.11.10.8.2 + L16) ──────────
+  //    Card cross-link Service↔billing. Visible cliente y admin (L16 SÍ
+  //    aplica: misma info, solo el href ramifica). Capability-driven por
+  //    presencia: si no hay nextDueDate ni lastInvoice → no se renderiza.
+  'service.billing_cross_link.card_title': 'Facturación',
+  'service.billing_cross_link.next_renewal_prefix': 'Próxima renovación: ',
+  'service.billing_cross_link.last_invoice_prefix': 'Última factura: ',
+  'service.billing_cross_link.due_prefix': 'vence ',
+  'service.billing_cross_link.view_invoice': 'Ver factura',
+  'service.billing_cross_link.no_invoice_yet':
+    'Sin facturas emitidas todavía para este servicio.',
+  'service.billing_cross_link.invoice_status.draft': 'Borrador',
+  'service.billing_cross_link.invoice_status.pending': 'Pendiente',
+  'service.billing_cross_link.invoice_status.paid': 'Pagada',
+  'service.billing_cross_link.invoice_status.overdue': 'Vencida',
+  'service.billing_cross_link.invoice_status.cancelled': 'Cancelada',
+  'service.billing_cross_link.invoice_status.refunded': 'Reembolsada',
 });

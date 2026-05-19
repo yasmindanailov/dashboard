@@ -2128,4 +2128,50 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       expect(events.emit).not.toHaveBeenCalled();
     });
   });
+
+  // ─── Sprint 15C.II Fase F.11.1 (R3 frozen §A.11.10.8.2) ───────────────
+  describe('getPluginHealthForService F.11.1', () => {
+    it('404 NotFound si service no existe', async () => {
+      prisma.service.findUnique.mockResolvedValue(null);
+      await expect(
+        service.getPluginHealthForService('svc-404'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('service con provisioner_slug propio → derivePluginHealth con ese slug', async () => {
+      prisma.service.findUnique.mockResolvedValue({
+        provisioner_slug: 'enhance_cp',
+        product: { provisioner: 'internal' },
+      });
+
+      const result = await service.getPluginHealthForService('svc-1');
+
+      // Sin breakers conocidos (mock listNames=[]) → operational + array vacío.
+      expect(result.pluginSlug).toBe('enhance_cp');
+      expect(result.state).toBe('operational');
+      expect(result.breakers).toEqual([]);
+    });
+
+    it('service sin provisioner_slug → fallback a product.provisioner', async () => {
+      prisma.service.findUnique.mockResolvedValue({
+        provisioner_slug: null,
+        product: { provisioner: 'docker' },
+      });
+
+      const result = await service.getPluginHealthForService('svc-1');
+      expect(result.pluginSlug).toBe('docker');
+    });
+
+    it('service sin slug ni product.provisioner → pluginSlug=""', async () => {
+      prisma.service.findUnique.mockResolvedValue({
+        provisioner_slug: null,
+        product: { provisioner: null },
+      });
+
+      const result = await service.getPluginHealthForService('svc-1');
+      expect(result.pluginSlug).toBe('');
+      // El estado sigue siendo operational (sin breakers para slug vacío).
+      expect(result.state).toBe('operational');
+    });
+  });
 });

@@ -34,18 +34,25 @@ import { t } from '../../../_shared/i18n';
 import {
   ActionsBar,
   AppShortcutsCard,
+  BillingCrossLinkCard,
   MetricsBar,
   ServiceHeader,
   SslStatusCard,
   SsoButton,
 } from '../../../_shared/services';
-import type { ServiceDetailResponse } from '../../../lib/api';
+import type {
+  PluginHealthSummary,
+  ServiceBillingCrossLink,
+  ServiceDetailResponse,
+} from '../../../lib/api';
 import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
 
 import { AdminDriftBanner } from './_components/AdminDriftBanner';
 import { AdminProviderStateDesyncBanner } from './_components/AdminProviderStateDesyncBanner';
 import { AdminServiceDataCard } from './_components/AdminServiceDataCard';
 import { AdminServiceOperationsCard } from './_components/AdminServiceOperationsCard';
+import { ProviderHealthBadge } from './_components/ProviderHealthBadge';
+import { ResendNotificationCard } from './_components/ResendNotificationCard';
 import { ServiceNotesCard } from './_components/ServiceNotesCard';
 
 interface PageProps {
@@ -84,6 +91,38 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
     } catch {
       // fail-soft: el banner usa fallback F.3 (redirect a settings).
       supportsReconcileOne = false;
+    }
+  }
+
+  // Sprint 15C.II Fase F.11.1 (R3 frozen §A.11.10.8.2): mini-badge de
+  // salud del plugin in-process. Fetch fail-soft (admin-only, NO crítico:
+  // si falla, el badge no se renderiza pero el resto de la página
+  // funciona). NO crea breakers — read-only sobre el registry.
+  let pluginHealth: PluginHealthSummary | null = null;
+  if (data) {
+    try {
+      pluginHealth = await serverFetch<PluginHealthSummary>(
+        `/admin/services/${id}/plugin-health`,
+      );
+    } catch {
+      pluginHealth = null;
+    }
+  }
+
+  // Sprint 15C.II Fase F.11.3 (§A.11.10.8.2 + L16): cross-link
+  // Service↔billing. Endpoint unificado cliente/admin
+  // (`/billing/services/:id/cross-link`) — el backend deriva isAdmin del
+  // role del JWT. Fail-soft: si el fetch falla (service sin billing
+  // asociado, error transitorio), el card no se renderiza pero el resto
+  // de la página funciona.
+  let billingCrossLink: ServiceBillingCrossLink | null = null;
+  if (data) {
+    try {
+      billingCrossLink = await serverFetch<ServiceBillingCrossLink>(
+        `/billing/services/${id}/cross-link`,
+      );
+    } catch {
+      billingCrossLink = null;
     }
   }
 
@@ -165,16 +204,34 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Link
-        href="/admin/services"
+      <div
         style={{
-          color: 'var(--text-secondary)',
-          fontSize: 13,
-          textDecoration: 'none',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 16,
+          flexWrap: 'wrap',
         }}
       >
-        ← Servicios
-      </Link>
+        <Link
+          href="/admin/services"
+          style={{
+            color: 'var(--text-secondary)',
+            fontSize: 13,
+            textDecoration: 'none',
+          }}
+        >
+          ← Servicios
+        </Link>
+        {/*
+          Sprint 15C.II Fase F.11.1 (R1+R3 frozen §A.11.10.8.2) — mini-badge
+          de salud del plugin in-process. Admin-only puro (cliente NO ve
+          este indicador técnico — su detalle ya tiene drift banner +
+          recoveryHint + statusReason). Read-only — fail-soft si el fetch
+          del endpoint /plugin-health falla.
+        */}
+        {pluginHealth && <ProviderHealthBadge health={pluginHealth} />}
+      </div>
 
       <Card>
         <ServiceHeader
@@ -364,6 +421,18 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
       )}
 
       {/*
+        Sprint 15C.II Fase F.11.3 (§A.11.10.8.2 + L16) — card cross-link
+        Service↔billing. Capability-driven por presencia: si no hay
+        nextDueDate ni lastInvoice el componente retorna null. Visible
+        también si service terminal — admin necesita ver la última
+        factura aunque el servicio esté cancelado. Prop isAdmin=true
+        para que el link "Ver factura" apunte a /admin/billing/[id].
+      */}
+      {billingCrossLink && (
+        <BillingCrossLinkCard data={billingCrossLink} isAdmin={true} />
+      )}
+
+      {/*
         Sprint 15C.II Fase C round 7 (smoke real Yasmin 2026-05-10):
         rediseño card "Datos del servicio (admin)" según estándar
         industria Stripe/Vercel admin: información primaria visible
@@ -457,6 +526,17 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
           serviceDisplayName={info.display.primary}
         />
       )}
+
+      {/* Sprint 15C.II Fase F.11.2 (R2+R4+R5 frozen §A.11.10.8.2 + Amendment I):
+          reenviar al cliente notificación de service-lifecycle (whitelist
+          canónica de 3 plantillas; re-render fresh). Admin-only — el cliente
+          no tiene este botón. Visible incluso si terminal (ahí también puede
+          interesar reenviar el "tu servicio fue cancelado" si el cliente
+          reclama no haber recibido el original). */}
+      <ResendNotificationCard
+        serviceId={service.id}
+        serviceDisplayName={info.display.primary}
+      />
 
       {/* Sprint 15C.II Fase F.6 (§F.6.3) — historial de notas operativas del
           servicio (cancel/suspend/unsuspend, manual o automático del cron).

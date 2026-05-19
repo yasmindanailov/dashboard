@@ -81,6 +81,42 @@ export class BillingController {
     return this.billingService.getStats(isAdmin ? undefined : user.id);
   }
 
+  /**
+   * Sprint 15C.II Fase F.11.3 (§A.11.10.8.2) — cross-link Service↔billing
+   * para el card "Próxima renovación + última factura" en
+   * `/dashboard/services/[id]` (cliente) y `/admin/services/[id]` (admin).
+   *
+   * Endpoint unificado cliente/admin (mismo path /billing/services/:id/cross-link)
+   * — el service backing aplica owner check si !isAdmin (espejo
+   * `BillingController.findOne` invoice). Devuelve `ServiceBillingCrossLink`:
+   *   - `nextDueDate` + `amount` + `currency` del Service
+   *   - `lastInvoice` (Invoice ordered by created_at DESC con
+   *     InvoiceItem.service_id === serviceId), o null si no hay invoice
+   *     asociada todavía (service legacy / pending no facturado).
+   *
+   * Capability-driven por presencia: el frontend ramifica si
+   * `nextDueDate === null && lastInvoice === null` → no renderiza la card.
+   * NO @AuditAccess — es read-only sobre billing del propio cliente
+   * (cliente lee su propio service; admin lee billing service ajeno: el
+   * @AuditAccess('Invoice') ya cubre el caso vía findOne cuando el admin
+   * navega al invoice; el cross-link es una vista resumen que NO toca
+   * Invoice individualmente).
+   */
+  @Get('services/:id/cross-link')
+  @ApiOperation({
+    summary:
+      'Cross-link Service↔billing (próxima renovación + última factura asociada — F.11.3)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Invoice))
+  getServiceBillingCrossLink(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
+    return this.billingService.getServiceBillingCrossLink(id, user.id, isAdmin);
+  }
+
   @Get('invoices/:id')
   @ApiOperation({
     summary: 'Get invoice detail — ownership enforced for clients',

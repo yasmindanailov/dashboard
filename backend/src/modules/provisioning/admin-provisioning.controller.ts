@@ -28,6 +28,8 @@ import type { AuthenticatedRequest } from '../../core/common/types/authenticated
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuditAccess } from '../audit/audit.decorator';
 import { ClientNotesService } from '../clients/client-notes.service';
+import { NotificationResendService } from '../notifications/notification-resend.service';
+import { ResendNotificationDto } from '../notifications/dto/notification-resend.dto';
 
 import { CreateDnsRecordDto, UpdateDnsRecordDto } from './dto/dns-records.dto';
 import {
@@ -63,6 +65,10 @@ export class AdminProvisioningController {
     // la página `/admin/services/[id]` renderice las notas operativas inline
     // (`source_system='service' AND source_id=:id`).
     private readonly clientNotes: ClientNotesService,
+    // Sprint 15C.II F.11.2 (R2+R4+R5 frozen §A.11.10.8.2 + Amendment I):
+    // reenvío admin de notificaciones de service-lifecycle (whitelist canónica
+    // de 3 plantillas; re-render fresh; audit metadata enriquecida).
+    private readonly notificationResend: NotificationResendService,
   ) {}
 
   @Get()
@@ -336,6 +342,98 @@ export class AdminProvisioningController {
             response.retry_after_seconds ?? RECONCILE_SINGLE_COOLDOWN_SECONDS;
           res.setHeader('Retry-After', String(retryAfter));
           throw new HttpException(response, HttpStatus.TOO_MANY_REQUESTS);
+        }
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Sprint 15C.II Fase F.11.1 (R3 frozen §A.11.10.8.2) — mini-badge de
+   * salud del proveedor en `/admin/services/[id]`. Devuelve el agregado
+   * canónico in-process de los breakers del plugin del servicio
+   * (`operational` / `degraded` / `down`) + breakers individuales para
+   * el tooltip.
+   *
+   * Read-only — sin `@AuditAccess` (la lectura del estado de los breakers
+   * NO toca datos del cliente; sigue la misma doctrina que el admin
+   * overview F.2 expuesto en `/admin/plugins/:slug/operational-overview`).
+   */
+  @Get(':id/plugin-health')
+  @ApiOperation({
+    summary:
+      'Devuelve el agregado canónico de salud del plugin in-process del servicio (badge admin F.11.1)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Service))
+  pluginHealth(@Param('id', ParseUUIDPipe) id: string) {
+    return this.provisioning.getPluginHealthForService(id);
+  }
+
+  /**
+   * Sprint 15C.II Fase F.11.2 (R2+R4+R5 frozen §A.11.10.8.2 + Amendment I) —
+   * reenvía al cliente una de las notificaciones de service-lifecycle
+   * (whitelist canónica `NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE`:
+   * `service.suspended` / `service.unsuspended` / `service.cancelled`).
+   * Re-renderiza fresh contra el estado actual del Service (R2) — NO re-
+   * encola el render histórico del `notification_log`.
+   *
+   * Defense-in-depth (R4): el DTO valida `@IsIn(whitelist)`; cualquier
+   * `template_key` arbitrario → 400 antes de tocar el service. Curl
+   * bypass del frontend NO puede enviar plantillas no whitelisted.
+   *
+   * Audit R5: el service (`NotificationResendService`) llama
+   * `auditService.logAccess` con action `'resend_notification'` +
+   * metadata `{resource_type: 'Service', resource_id, target_user_id,
+   * template_key}` (sin `rendered_subject`/`rendered_body` — cero PII en
+   * audit log). NO usamos `@AuditAccess('Service')` aquí porque el
+   * interceptor canónico es para reads (action='read'); el resend es un
+   * side-effect admin con action específica.
+   */
+  @Post(':id/notifications/resend')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Reenviar notificación de service-lifecycle al cliente (whitelist 3 plantillas — F.11.2)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
+  async resendNotification(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ResendNotificationDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      return await this.notificationResend.resendServiceLifecycleNotification(
+        id,
+        dto.template_key,
+        req.user.id,
+        {
+          ipAddress: req.ip ?? '0.0.0.0',
+          userAgent: req.headers['user-agent'] ?? null,
+        },
+      );
+    } catch (err) {
+      // Sprint 15C.II Fase F.11.2 Amendment II (P1 rate limiting) — re-mapear
+      // el `HttpException(TOO_MANY_REQUESTS)` para añadir el header HTTP
+      // estándar `Retry-After` derivado del payload (clientes CLI/automation
+      // lo leen automáticamente sin parsear el body). Mismo patrón canónico
+      // que F.9 reconcile single (`RECONCILE_IN_PROGRESS`).
+      if (
+        err instanceof HttpException &&
+        // `getStatus()` devuelve `number`; el cast explícito a `number`
+        // de `HttpStatus.TOO_MANY_REQUESTS` evita el warning ESLint
+        // `no-unsafe-enum-comparison` (ambos lados ya son `number`).
+        err.getStatus() === (HttpStatus.TOO_MANY_REQUESTS as number)
+      ) {
+        const response = err.getResponse() as
+          | { code?: string; retry_after_seconds?: number }
+          | string;
+        if (
+          typeof response === 'object' &&
+          response.code === 'RESEND_TOO_FREQUENT' &&
+          typeof response.retry_after_seconds === 'number'
+        ) {
+          res.setHeader('Retry-After', String(response.retry_after_seconds));
         }
       }
       throw err;

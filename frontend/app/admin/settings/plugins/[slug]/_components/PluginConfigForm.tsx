@@ -149,12 +149,24 @@ export function PluginConfigForm({ detail }: Props) {
     });
   }
 
-  function handleTestConnection(): void {
+  // Sprint 15C.II Fase F.11.x hot-fix (smoke real Yasmin 2026-05-19):
+  // antes el handler envolvía `await testConnectionAction(...)` dentro de
+  // `startTransition(async () => ...)` — anti-pattern conocido de React
+  // 18: pasar una función `async` a `startTransition` NO marca los
+  // `setState` posteriores como transition (silenciosamente), y peor,
+  // según versión de React/Next, el setState puede llegar a perderse en
+  // race conditions con el unmount/re-render. Yasmin reportó "no devuelve
+  // nada, no hay feedback" — efecto exacto.
+  //
+  // Refactor canónico: async function plain, sin `useTransition`. El
+  // estado `testing` ya gestiona la UX de loading (botón disabled +
+  // "Probando…"). Heredable: cualquier handler con `await + setState`
+  // sigue el mismo patrón.
+  async function handleTestConnection(): Promise<void> {
     setTesting(true);
     setTestResult(null);
-    startTransition(async () => {
+    try {
       const result = await testConnectionAction(detail.slug);
-      setTesting(false);
       if (result.ok) {
         setTestResult({
           success: result.data.success,
@@ -168,7 +180,19 @@ export function PluginConfigForm({ detail }: Props) {
           checkedAt: new Date().toISOString(),
         });
       }
-    });
+    } catch (err) {
+      // Defense-in-depth: si la Server Action lanza una excepción no
+      // capturada (network drop, etc.), el panel inline igualmente
+      // refleja el error en vez de quedarse vacío. Patrón heredable.
+      setTestResult({
+        success: false,
+        message:
+          err instanceof Error ? err.message : 'Error inesperado al probar la conexión.',
+        checkedAt: new Date().toISOString(),
+      });
+    } finally {
+      setTesting(false);
+    }
   }
 
   return (
@@ -312,7 +336,15 @@ export function PluginConfigForm({ detail }: Props) {
         {supportsTestConnection && (
           <Button
             variant="secondary"
-            onClick={handleTestConnection}
+            // Sprint 15C.II hot-fix 2026-05-19 (smoke real Yasmin): patrón
+            // canónico para handlers async en onClick — envoltura sync con
+            // void para que React pase exactamente `() => void` (vs
+            // `Promise<void>` ambiguo). Algunas combinaciones React+Next
+            // dev (HMR + cliente components) ignoraban el handler async
+            // pasado directo.
+            onClick={() => {
+              void handleTestConnection();
+            }}
             disabled={testing}
           >
             {testing ? 'Probando…' : 'Probar conexión'}

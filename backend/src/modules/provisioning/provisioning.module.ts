@@ -7,7 +7,7 @@ import {
   PluginRegistryService,
   PROVISIONER_PLUGINS,
 } from '../../core/provisioning/plugin-registry';
-import { ProvisioningCacheService } from '../../core/provisioning/provisioning-cache.service';
+import { ProvisioningCacheModule } from '../../core/provisioning/provisioning-cache.module';
 import { ReconcileRegistryModule } from '../../core/provisioning/reconcile-registry.module';
 import { SettingsModule } from '../../core/settings/settings.module';
 import { EnhanceCpModule } from '../../plugins/provisioners/enhance_cp/enhance.module';
@@ -75,6 +75,11 @@ import { ProvisioningService } from './provisioning.service';
     // supports_reconciliation registra su executor en onModuleInit del
     // cron correspondiente. Heredable a 15D RC + 15E Docker + 15G Plesk.
     ReconcileRegistryModule,
+    // Sprint 15C.II Fase F.11.2 Amendment II hot-fix (DI clash 2026-05-19):
+    // ProvisioningCacheService extraído a módulo leaf canónico para que
+    // NotificationsModule (Global) lo pueda importar sin acoplarse a todo
+    // ProvisioningModule. Mismo patrón que ReconcileRegistryModule arriba.
+    ProvisioningCacheModule,
     // Sprint 15C Fase 15C.C — primer plugin SaaS real (Enhance CP).
     // Sprints 15D/E/G seguirán el mismo patrón: importar `<Plugin>Module` aquí
     // + añadir su clase al factory `PROVISIONER_PLUGINS` abajo.
@@ -86,7 +91,11 @@ import { ProvisioningService } from './provisioning.service';
     ProvisioningOrchestratorService,
     ProvisioningDispatchProcessor,
     PluginRegistryService,
-    ProvisioningCacheService,
+    // ProvisioningCacheService viene de ProvisioningCacheModule (imports)
+    // — extraído a módulo leaf en Amendment II hot-fix 2026-05-19 (DI clash
+    // post-PR original — NotificationsModule lo necesita para el cooldown
+    // de resend; importar ProvisioningModule completo desde Notifications
+    // sería acoplamiento estructural innecesario).
     ProvisioningOnTaskCompletedListener,
     // Sprint 15C Fase 15C.D — listeners de DNS-as-capability (ADR-082 §4 + §5):
     //   • bootstrap defaults cuando se enable el plugin enhance_cp,
@@ -133,13 +142,19 @@ import { ProvisioningService } from './provisioning.service';
     ProvisioningService,
     ProvisioningOrchestratorService,
     PluginRegistryService,
-    ProvisioningCacheService,
     CircuitBreakerRegistry,
     // Sprint 15C.II Fase B: re-export del MÓDULO (no del provider) — el
     // service vive en ReconcileRegistryModule (leaf evita dependencia
     // circular). AdminPluginsModule importa ProvisioningModule y obtiene
     // acceso transitivo al ReconcileRegistryService vía esta re-exportación.
     ReconcileRegistryModule,
+    // Sprint 15C.II Fase F.11.2 Amendment II hot-fix 2026-05-19: re-export
+    // del módulo leaf que aloja ProvisioningCacheService. Mismo patrón
+    // canónico que ReconcileRegistryModule — quien importe ProvisioningModule
+    // obtiene acceso transitivo al cache service vía esta re-exportación
+    // (cero breaking para módulos que ya inyectaban ProvisioningCacheService
+    // sin saber del refactor de ubicación).
+    ProvisioningCacheModule,
   ],
 })
 export class ProvisioningModule {}

@@ -79,6 +79,19 @@ export class BillingService {
     return this.invoiceService.getStats(userId);
   }
 
+  /* ── Sprint 15C.II Fase F.11.3 — cross-link Service↔billing ── */
+  getServiceBillingCrossLink(
+    serviceId: string,
+    userId: string,
+    isAdmin: boolean,
+  ) {
+    return this.invoiceService.getServiceBillingCrossLink(
+      serviceId,
+      userId,
+      isAdmin,
+    );
+  }
+
   /* ── Checkout ── */
   checkout(
     userId: string,

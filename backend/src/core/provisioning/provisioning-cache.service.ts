@@ -271,4 +271,92 @@ export class ProvisioningCacheService implements OnModuleDestroy {
   private buildReconcileSingleResultKey(serviceId: string): string {
     return `reconcile_single_result:${serviceId}`;
   }
+
+  /**
+   * Sprint 15C.II Fase F.11.2 (Amendment II — P1 rate limiting post-PR
+   * original, frozen 2026-05-19) — cooldown server-side per
+   * `(actor_user_id, service_id, template_key)` del endpoint admin
+   * `POST /admin/services/:id/notifications/resend`.
+   *
+   * Mismo patrón canónico que `tryAcquireRefreshCooldown` (F.3 B.1) y
+   * `tryAcquireReconcileSingleCooldown` (F.9). Default TTL 60s — corto
+   * porque protege contra el spam burst (admin con script o doble-click
+   * accidental) sin frustrar a un admin legítimo que reenvía la misma
+   * plantilla al mismo servicio tras un rato razonable.
+   *
+   * Granularidad doctrinal:
+   *   - **per actor**: el responsable del spam es quien dispara — otros
+   *     admins coordinando pueden reenviar sin friction.
+   *   - **per service**: limita un cliente concreto.
+   *   - **per template**: distintas plantillas son intencionalmente
+   *     distintas (suspended/unsuspended/cancelled).
+   *
+   * Heredable a 15D RC / 15E Docker / 15G Plesk si su panel admin añade
+   * features tipo "reenviar notif" similares.
+   *
+   * Semántica `SET key 1 EX ttl NX`:
+   *   - `true`  → ventana adquirida; el caller procede con el dispatch.
+   *   - `false` → ventana ya activa; el caller responde 429
+   *     `RESEND_TOO_FREQUENT` con `Retry-After` derivado del TTL pendiente.
+   * Fail-OPEN si Redis falla — coherente con el resto del módulo.
+   */
+  async tryAcquireResendNotificationCooldown(
+    actorUserId: string,
+    serviceId: string,
+    templateKey: string,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    const key = this.buildResendNotificationCooldownKey(
+      actorUserId,
+      serviceId,
+      templateKey,
+    );
+    try {
+      const res = await this.redis.set(key, '1', 'EX', ttlSeconds, 'NX');
+      return res === 'OK';
+    } catch (err) {
+      this.logger.warn(
+        `Resend notification cooldown acquire failed for ${key}: ${getErrorMessage(err)} (fail-open)`,
+      );
+      return true;
+    }
+  }
+
+  /**
+   * Sprint 15C.II Fase F.11.2 (Amendment II) — devuelve los segundos
+   * restantes de la ventana de cooldown activa para componer el header
+   * HTTP `Retry-After` exacto. Si no hay TTL (clave expirada race) o
+   * Redis falla, devuelve el `ttlSeconds` completo como fallback
+   * conservador.
+   */
+  async getResendNotificationCooldownRemainingSeconds(
+    actorUserId: string,
+    serviceId: string,
+    templateKey: string,
+    fallbackTtlSeconds: number,
+  ): Promise<number> {
+    const key = this.buildResendNotificationCooldownKey(
+      actorUserId,
+      serviceId,
+      templateKey,
+    );
+    try {
+      const ttl = await this.redis.ttl(key);
+      if (ttl > 0) return ttl;
+      return fallbackTtlSeconds;
+    } catch (err) {
+      this.logger.warn(
+        `Resend cooldown TTL read failed for ${key}: ${getErrorMessage(err)} (fallback to ${fallbackTtlSeconds}s)`,
+      );
+      return fallbackTtlSeconds;
+    }
+  }
+
+  private buildResendNotificationCooldownKey(
+    actorUserId: string,
+    serviceId: string,
+    templateKey: string,
+  ): string {
+    return `resend_notification_cooldown:${actorUserId}:${serviceId}:${templateKey}`;
+  }
 }

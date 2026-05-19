@@ -2887,6 +2887,147 @@ git checkout -b sprint15c-ii-fase-f11-service-conveniences
 - **Setup local F.10 sigue válido**: Docker containers UP (postgres :5432 + redis :6379 + mailpit :1025/:8025 + minio :9000-9001 healthy); frontend :3002 listening; mock Enhance :3099 listening. F.11 hereda este setup.
 - **L18 frozen**: cualquier mejora descubierta durante implementación que diverja del apuntado original del dossier se documenta como **Amendment** dentro de la fase (no desvío silencioso). F.10 produjo 1 Amendment doctrinal I (naming clarity `kind`→`appKind`+`urlKind`) + 1 pivot doctrinal pre-código (App Management base vs deep-links panel). F.11 probablemente produzca 0-1 Amendments dado el alcance menor + ausencia de cambios contractuales `ProvisionerPlugin`.
 
+#### A.11.10.8.2. Refinamiento pre-código F.11 — R1..R5 frozen (2026-05-18)
+
+**Propósito**: cerrar las 5 decisiones doctrinales pre-código antes de los commits feat. Patrón heredado de §A.11.10.7.2 (F.10 R1..R6 frozen) y §A.11.10.6.2 (F.9 R1..R6 frozen). Cada R* responde a una Q* del handoff §A.11.10.8.1 con la justificación rigurosa final.
+
+**R1 (resolución Q1) — Mini-badge de salud SOLO en `/admin/services/[id]`.**
+- El cliente NO ve un indicador de breaker en `/dashboard/services/[id]`. La capa cliente ya tiene los señalizadores funcionales canónicos: banner de drift discriminado por rol ([UI_SPEC §4.13](../../UI_SPEC.md) — ADR-077 Amendment A5 `recoveryHint`), banner de suspensión (F.4), banner desync provider state (F.4.1), y `info.statusReason` localizado en `ServiceHeader`. Un indicador técnico tipo "breaker open" filtraría detalles operacionales (estado in-process del wrapper de plugin) que el cliente no necesita ni puede accionar — el cliente espera que Aelium se las arregle internamente con el proveedor caído.
+- Razón canónica: la doctrina ADR-070 (Dashboard como puerta unificada) define que el cliente ve **estado funcional curado** (active/suspended/drift con `recoveryHint`); el admin ve **estado operativo crudo** (drift técnico + `statusReason` literal + ahora breaker state). F.11.1 mantiene esa separación.
+- Consecuencia doctrinal R3 abajo: componente `<ProviderHealthBadge>` es **admin-puro** (sin prop `isAdmin`).
+
+**R2 (resolución Q2) — Reenviar notificación re-renderiza fresco con el contexto actual del service.**
+- El endpoint `POST /admin/services/:id/notifications/resend` re-construye el payload del evento desde el estado actual del `Service` (status, `domain`, `suspension_reason`, `suspended_at`, `cancellation_reason`, `cancelled_at`, etc.) y llama `NotificationsService.dispatchToUser(template_key, payload, service.user_id)`. El dispatch processor BullMQ resuelve la plantilla por `(event_type, channel, locale)` y la renderiza fresca contra el payload **actual** — exactamente como lo hace el flow nativo del listener original.
+- NO se re-encola el render histórico cacheado del `notification_log` (campo `body` de la fila persistida). Razones rigurosas:
+  - El contexto del service puede haber cambiado desde el envío original (estado, plan, dominio). Re-encolar el render histórico daría al cliente info desactualizada → confusión.
+  - El campo `body` del `notification_log` es el render del momento — no es un cache canónico para reuso. La fuente canónica del render es **la plantilla viva** en `NotificationTemplate` (admin pudo editarla post-envío vía Sprint 9.5 templates admin).
+  - Coherente con la doctrina F.4 A1 ("lifecycle administrativo vs operacional"): el reenvío es una acción admin sobre el state ACTUAL del lifecycle del service, no una re-emisión de un evento histórico.
+- Audit: la fila de `audit_access_log` resultante (R5) registra el `template_key` reenviado + el `notification_id` resultante; un humano que investigue puede correlacionar el `notification_log` original (timestamp anterior) con el reenvío (timestamp nuevo) por `service_id` + `user_id` + diferencia de payload.
+
+**R3 (resolución Q3) — Componente `<ProviderHealthBadge>` admin-puro (consecuencia natural de R1).**
+- Dado R1 (badge solo en admin), el componente vive en `frontend/app/admin/services/[id]/_components/ProviderHealthBadge.tsx` (admin-only path) **sin** prop `isAdmin`. NO entra en `_shared/services/` porque no hay variante cliente.
+- **Doctrina heredable nueva (Lección F.11)** — el patrón L16 ("un solo componente `_shared/` con prop `isAdmin`") aplica cuando hay UNA UI que ramifica capa cliente/admin (SslStatusCard F.7, AppShortcutsCard F.10, MetricsBar F.8). Cuando un componente es **admin-only por contrato** (no hay variante cliente y nunca la habrá per ADR-070 alcance funcional), L16 NO aplica — `_components/` admin-only directo es la ubicación canónica.
+- Server Component nativo (sin hooks ni client state). Recibe `pluginSlug: string` + se hidrata leyendo `ProvisioningService.getPluginHealth(pluginSlug)` server-side desde el SC padre. NO consume el endpoint público — el SC `/admin/services/[id]/page.tsx` ya tiene server-fetch del overview F.2; F.11.1 añade un fetch específico `GET /admin/services/:id/plugin-health` (path consistente con scope: la health relevante es la del plugin **de este service**, no la del plugin abstracto).
+- Etiquetado canónico: "operativo" (todos los breakers cerrados o sin breakers registrados) / "degradado" (al menos un breaker half-open, ninguno open) / "caído" (al menos un breaker open). i18n keys: `service.provider_health.operational` / `service.provider_health.degraded` / `service.provider_health.down` + `service.provider_health.tooltip_in_process` ("Estado del breaker en esta instancia del backend"). Link → `/admin/settings/plugins/[slug]` (el `<PluginOperationalOverview>` completo F.2).
+- Razón doctrinal del "peor estado" agregado: el badge resume CUALQUIER problema operativo del plugin para este service. Si `executeAction` está open pero `getServiceInfo` cerrado, las acciones del admin fallarán fail-fast — el badge dice "caído" para que el admin abra el detalle F.2 y decida (esperar reset, reset manual, investigar plugin config).
+
+**R4 (resolución Q4) — Whitelist de plantillas declarada EN EL BACKEND (defense-in-depth).**
+- Constante exportada canónica: `NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE` en `backend/src/modules/notifications/notification-resend.constants.ts` (módulo dedicado para que la importen tanto el service como el spec sin atravesar boundaries arbitrarios).
+- **Whitelist V1 frozen (post Amendment I — ver al final §A.11.10.8.2)**: 3 plantillas — `service.suspended`, `service.unsuspended`, `service.cancelled`. **NO incluye `service.password_reset` ni `service.quota_threshold_crossed`** (ver Amendment I para razones rigurosas).
+- El endpoint `POST /admin/services/:id/notifications/resend` valida vía `class-validator` (`@IsIn(NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE)`); cualquier `template_key` fuera de la lista → `400 INVALID_TEMPLATE_KEY` con mensaje "Plantilla no permitida para reenvío admin". El frontend solo refleja la misma lista (hardcoded en el modal) pero **el enforce real vive en el backend**: un cliente con curl al endpoint NO puede enviar plantillas arbitrarias (ej. `task.assigned` → spam al cliente con contexto inválido, o `auth.refresh_replay_detected` → expone telemetría interna).
+- Razón canónica: separación frontend ↔ backend rigurosa (defense-in-depth). El frontend es UX, no enforcement. La lista frozen R4 deriva de los listeners de service-lifecycle existentes (Fase F.1-F.8); plantillas como `service.action_executed` quedan fuera porque son transaccionales sin sentido de reenvío manual; `service.admin_sso_impersonation` queda fuera porque es admin-only (audit interno, NO se reenvía al cliente).
+- Razón secundaria: tests del enforce. El spec `notification-resend.service.spec.ts` verifica el rechazo de plantillas no whitelisted con curl-style bypass (test `R4 defense-in-depth → 400 INVALID_TEMPLATE_KEY`).
+
+**R5 (resolución Q5) — Audit per-template en `audit_access_log.metadata` (cero schema change).**
+- Endpoint anotado con `@AuditAccess('Service')` (interceptor canónico Sprint 9 Fase E). El interceptor produce una fila base con `entity_type='Service'`, `entity_id=service.id`, `actor_user_id`, `action='resend_notification'`, `metadata = { ... }`. F.11.2 enriquece `metadata` con:
+  ```json
+  {
+    "template_key": "service.suspended",
+    "notification_id": "00000000-0000-0000-0000-000000000000",
+    "target_user_id": "<service.user_id>"
+  }
+  ```
+- **NO** se incluye `rendered_subject` ni `rendered_body` en `metadata`. Razón rigurosa: el contenido renderizado puede contener PII (dominio del cliente, OTP, número de factura, recovery hints técnicos). El audit log es referencial, no un mirror del contenido — la trazabilidad rigurosa se logra con `template_key` (qué se reenvió) + `notification_id` (apuntador al `notification_log` donde sí vive el contenido para investigación on-demand con `READ` ACL).
+- Coherente con doctrina ADR-077 A9.7 (F.10 R6 frozen) — "acciones que operan sobre sub-recurso del service identificado por payload deben registrar el sub-recurso en `audit_access_log.metadata.<resource_kind>_id` cuando se invocan desde admin". Aquí el sub-recurso es la **notification reenviada**, identificada por `template_key` + `notification_id`. Heredable: cualquier endpoint admin futuro que actúe sobre un sub-recurso identificable del service (ej. reenviar invoice, regenerar SSL cert, rotar credencial) sigue el mismo patrón JSON path → cero schema migration.
+- **Doctrina heredable ADR-077 A9.7 (extensión)**: el JSON path `audit_access_log.metadata.<key>` admite múltiples sub-recursos del mismo audit row (ej. `{ app_id, template_key, notification_id }` si el flow combinara features). Postgres `metadata->>'template_key'` queryable hoy; GIN index opcional cuando volumen lo justifique (mismo criterio F.10).
+
+**ADR amendments consolidados de F.11**: **ninguno**.
+- ADR-077 — sin cambios. F.11 NO modifica el contrato `ProvisionerPlugin`. Solo añade endpoints admin (composición sobre features existentes) + un componente frontend.
+- ADR-079 — sin cambios. F.11 NO crea `ClientNote` automáticas (el reenvío de notificación es un dispatch operativo, no una transición de lifecycle ni una intención humana persistente — vive en audit, no en ClientNote).
+- ADR-080 — sin cambios. F.11 NO añade evento al catálogo §6 (el reenvío usa el mismo `NotificationsService.dispatchToUser` con el `event_type` whitelisted; el listener de ese event_type NO se re-dispara → el endpoint llama directamente al dispatch).
+- ADR-083 — sin cambios. F.11 NO toca plugin Enhance ni mock; el badge salud lee del registry global de breakers (cualquier plugin lo expone igual).
+
+**Mapa de implementación derivado de R1..R5** (orden tentativo de commits feat — no exhaustivo):
+
+1. **Constante whitelist + tipo**: `backend/src/modules/notifications/notification-resend.constants.ts` (R4).
+2. **DTO**: `backend/src/modules/notifications/dto/notification-resend.dto.ts` (`ResendNotificationDto { template_key: ServiceLifecycleTemplateKey }` con `@IsIn(NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE)`).
+3. **NotificationsService.resendServiceLifecycleNotification(serviceId, templateKey, actorUserId)**: carga service (NotFound), guard `service.user_id` no null (sin destinatario → 400), dispatcher map `{ template_key → buildPayloadFn(service) }` que construye payload fresh per template (espejo de los listeners F.1-F.8), llama `dispatchToUser(template_key, payload, service.user_id)`, devuelve `{ ok: true, dispatched_to: user_id, template_key }` (sin `notification_id` porque dispatch es asíncrono via BullMQ — el id se conoce solo tras processor consume; opcional ampliar a `pending: true` y dejar al frontend pollear si UX lo requiere — diferir).
+4. **Endpoint `POST /admin/services/:id/notifications/resend`**: en `AdminProvisioningController` (donde ya vive `POST /admin/services/:id/suspend` etc.) — `@CheckPolicies(Update Service)` + `@AuditAccess('Service')` con metadata enriquecida R5. Devuelve `{ ok: true }`.
+5. **ProvisioningService.getPluginHealth(pluginSlug)**: agrega breakers in-process (`getServiceInfo` + `executeAction` heredados, `reconcileOne` si futuro plugin lo añade) → estado canónico worst-case. Devuelve `{ state: 'operational' | 'degraded' | 'down', breakers: Array<{ name, state }> }`. Reusa `CircuitBreakerRegistry.get(name)?.getState()` sin crear breakers nuevos (no llamar `getOrCreate` aquí — el badge es read-only).
+6. **Endpoint `GET /admin/services/:id/plugin-health`**: deriva el `pluginSlug` del service (`service.provisioner_slug ?? product.provisioner`) + delega a `getPluginHealth`. `@CheckPolicies(Read Service)` (admin policy ya enforced por ruta `/admin/*`). NO audit per-action (es read-only no sensible — siguiendo doctrina F.2 admin overview sin `@AuditAccess`).
+7. **Service `billing-cross-link.service` (alt: método en `BillingService`/`BillingInvoiceService`) `getServiceBillingCrossLink(serviceId)`**: devuelve `{ nextDueDate: ISO | null, amount: Decimal | null, currency: string, lastInvoice: { id, invoice_number, status, total, due_date, paid_at | null } | null }`. Implementación: lee `services.next_due_date / amount / currency`; lookup `Invoice` ordered by `created_at DESC` filtrado por `InvoiceItem.service_id = serviceId`. Si no hay items → `lastInvoice: null` (cliente todavía no facturado / service legacy sin invoice asociado).
+8. **Endpoint `GET /services/:id/billing-cross-link`** (cliente, owner-checked) + **endpoint `GET /admin/services/:id/billing-cross-link`** (admin sin owner check). Mismo service backing — el endpoint admin saltea `service.user_id === actor.id`. Devuelven el mismo shape; el frontend ramifica el href del link según rol (`/dashboard/billing/[id]` vs `/admin/billing/[id]`).
+9. **Frontend SC `<ProviderHealthBadge>`** (admin-only — R3) en `frontend/app/admin/services/[id]/_components/ProviderHealthBadge.tsx`. Hidrata desde el SC padre vía server-fetch del endpoint #6. Sin client state.
+10. **Frontend `<ResendNotificationButton>` + `<ResendNotificationModal>`** (admin-only) en `frontend/app/admin/services/[id]/_components/`. Botón → modal con `<select>` de las 5 plantillas whitelisted (i18n keys `service.notifications.resend.template_label.<key>`) + textarea preview opcional (NO requiere fetch del preview en F.11 — diferible). Server Action federada que llama el endpoint #4. Toast UX 2 estados: éxito ("Notificación reenviada al cliente · plantilla X") / error ("No se pudo reenviar la notificación: <message>").
+11. **Frontend `<BillingCrossLinkCard>`** (`_shared/services/` con prop `isAdmin`) — aquí SÍ L16 aplica porque ambos cliente y admin ven el cross-link. Renderiza: "Próxima renovación: <fecha localizada> · €<amount> · <link 'Ver última factura' si lastInvoice no null>". `href` derivado de `isAdmin` (admin → `/admin/billing/[id]`; cliente → `/dashboard/billing/[id]`). Si `nextDueDate === null && lastInvoice === null` → no se muestra (early-return `null` — coherente patrón SslStatusCard / AppShortcutsCard capability-driven por presencia).
+12. **Wire** en `/admin/services/[id]/page.tsx` (badge + modal + cross-link) y `/dashboard/services/[id]/page.tsx` (cross-link cliente solo).
+13. **i18n keys ES**: `service.provider_health.{operational,degraded,down,tooltip_in_process,link_to_overview}` + `service.notifications.resend.{button_label,modal_title,template_field_label,template_label.<5 keys>,submit,cancel,success,error}` + `service.billing_cross_link.{title,next_renewal_label,view_last_invoice}`.
+14. **Tests backend**: `NotificationsService.resendServiceLifecycleNotification` (happy path con todas las 5 plantillas; fallo `INVALID_TEMPLATE_KEY` para plantilla fuera de whitelist; service NotFound; service sin `user_id` → BadRequest). `notification-resend.security.spec.ts` (enforce defense-in-depth: curl con `template_key='task.assigned'` → 400). `ProvisioningService.getPluginHealth` (agregado worst-case con combinaciones closed/half-open/open; sin breakers → operational). `BillingCrossLinkService.getServiceBillingCrossLink` (sin invoices → `null`; con invoices → última ordered by created_at desc).
+15. **Smoke real Yasmin** (automatizable contra MockEnhanceServer + Mailpit): (a) admin abre `/admin/services/[id]` → badge "operativo" verde + cross-link "Próxima renovación X · €Y · Ver última factura" si existe; (b) admin pulsa "Reenviar notificación" → selecciona "service.suspended" → Mailpit recibe el email + `audit_access_log` registra `template_key='service.suspended'`; (c) curl con `template_key='task.assigned'` → 400; (d) provocar `getServiceInfo` breaker open via Enhance mock 500 5 veces → badge "caído" rojo + link al overview F.2.
+
+**Decisiones explícitas adicionales tomadas en pre-código** (apuntadas aquí para no perder trazabilidad):
+
+- **Reenvío de `service.password_reset` con OTP fresh**: dispatcher map en `NotificationsService.resendServiceLifecycleNotification` distingue plantillas que requieren generación de side-effect (password_reset → re-issue OTP) de las puramente notificación (suspended → solo render). Si la complejidad excede ~30 LOC de mapping, **partir el endpoint** en 2 (`POST /admin/services/:id/notifications/resend-lifecycle` para las 4 simples + `POST /admin/services/:id/password-reset/reissue` para la especial) y eliminar `service.password_reset` de la whitelist canónica. Decisión durante implementación L18.
+- **Sin paginación de `notification_log` en el endpoint admin**: F.11 NO añade vista admin del historial de notificaciones reenviadas (eso es G.4 retrospectiva / nuevo apuntado backlog si demanda admin lo justifica). El cross-check rigoroso post-reenvío vive en `audit_access_log` (R5) + Mailpit en desarrollo + el `notification_log` interno que ya pueblan los canales.
+- **Bypass §6 14ª aplicación previsible**: si CI GitHub Actions sigue billing-bloqueada al cerrar F.11, será la 14ª aplicación (suma sobre #57/#60/#63/#65/#67/#70/#72/#74/#75/#77/#79/#82/#85). Patrón canónico — sección formal en el PR body cumpliendo las 3 condiciones.
+
+**Notas operativas heredables descubiertas en pre-código 2026-05-18**:
+
+- **L16 NO es universal**: hay componentes admin-only por contrato (sin variante cliente y sin posibilidad funcional de tenerla per ADR-070) donde L16 ("`_shared/` con prop `isAdmin`") fuerza acoplamiento artificial. F.11.1 `<ProviderHealthBadge>` es admin-only puro → vive en `_components/` admin-only. F.11.3 `<BillingCrossLinkCard>` SÍ tiene variante cliente → vive en `_shared/` con `isAdmin`. La decisión es **por feature**, no por convención ciega.
+- **Audit `metadata.<key>` JSON path es el patrón canónico** para sub-recursos identificables sin schema change (ADR-077 A9.7 frozen en F.10 R6, extendido en F.11 R5 a "múltiples sub-recursos en el mismo audit row"). Heredable a 15D RC / 15E Docker / 15G Plesk.
+- **Defense-in-depth en endpoints admin**: enforcement de whitelist/policies SIEMPRE en backend, NUNCA solo en frontend. Coherente con doctrina general (R5 ADR-078 cookies httpOnly, ADR-017 audit per-access, ADR-080 framework de plugins).
+- **Reenvío de notificación NO crea ClientNote**: ClientNote captura intención humana persistente del lifecycle (ADR-079 — F.6 frozen). Reenviar una notificación es operativo/audit (ya existente lifecycle, sin nueva intención humana). El audit log canónico (R5) es la fuente de verdad. Heredable: cualquier feature admin tipo "re-dispatch operativo" sigue el patrón audit-only.
+
+**Amendment I 2026-05-18 — whitelist V1 con 3 plantillas en vez de 5 (descubierto durante implementación)**
+
+Durante la implementación del `NotificationResendService` (commit feat F.11.2 [`94ecca0`](https://github.com/yasmindanailov/dashboard/commit/94ecca0)) se descubrió que las 2 plantillas adicionales del R4 original (5 plantillas) requieren tratamiento especial que excedería el scope F.11. L18 frozen — mejora descubierta = Amendment, no desvío silencioso.
+
+**Whitelist V1 frozen (3 plantillas)** que reemplaza el R4 original:
+```ts
+export const NOTIFICATION_TEMPLATE_WHITELIST_SERVICE_LIFECYCLE = [
+  'service.suspended',
+  'service.unsuspended',
+  'service.cancelled',
+] as const;
+```
+
+**Plantillas EXCLUIDAS de V1 con razones rigurosas**:
+
+- **`service.password_reset` excluida** — esta plantilla cabalga sobre un flow propio con generación de OTP fresh (Sprint 15C.II Fase D). El admin que quiera "ayudar al cliente que perdió el email original" debe disparar la **action `reset_account_password`** sobre el servicio (que ya regenera OTP fresh end-to-end). Re-renderizar la plantilla con OTP histórico expirado degradaría UX ("código no válido"). Coherente con doctrina F.4 A1 (lifecycle administrativo vs operacional).
+
+- **`service.quota_threshold_crossed` excluida** — el payload canónico requiere snapshot in-flight de `used_pct` / `used_mb` / `total_mb` del proveedor que NO deriva del Service entity (vive en la lectura `getServiceInfo.metrics` cacheada o en la última fila `ServiceQuotaAlert`, ambas con TTL distintos al evento original). Reenviar con datos desactualizados ("87% lleno" cuando ahora está al 92%) confundiría al cliente. Apuntado como sub-feature futura **DC.NEW-55**: reusar el último `ServiceQuotaAlert(kind='crossed_up')` como snapshot persistido + dispatcher per template, sin tocar el contrato whitelist.
+
+**Apuntado al backlog DC.NEW-55** durante post-merge sync (housekeeping post-15C.II): Quota threshold reenvío con snapshot persistido (extiende whitelist V1).
+
+**Heredabilidad de la doctrina**: L18 frozen — la whitelist V1 frozen está pensada para escalar additivamente. Cualquier plantilla de service-lifecycle nueva que cumpla "payload deriva trivialmente del Service entity" puede sumar a la constante sin tocar la lógica del dispatcher. Plantillas con side-effects (OTP, snapshots) requieren handling especial y NO se añaden directamente.
+
+**Amendment II 2026-05-19 — P1 rate limiting (frozen post-PR original, pre-merge)**
+
+Durante el self-review profesional posterior al PR #90 original, se detectó un **gap real de seguridad**: el endpoint `POST /admin/services/:id/notifications/resend` permitía spam vector — un admin con curl/script podía disparar N reenvíos al cliente sin protección server-side. L18 frozen — mejora descubierta = Amendment, no desvío silencioso.
+
+**Cooldown server-side per `(actor_user_id, service_id, template_key)` — TTL 60s frozen**:
+
+- **Granularidad doctrinal canónica**: la 3-tupla `(actor, service, template)` protege al cliente del spam burst sin frustrar coordinación legítima (otros admins pueden reenviar otra plantilla; el mismo admin no puede repetir la misma plantilla al mismo cliente en <60s).
+- **TTL 60s**: corto para no frustrar al admin legítimo que se equivoca y reintenta tras un rato, pero suficiente para bloquear doble-click accidental y scripts de spam. Más restrictivo que F.9 reconcile (30s) porque reenviar es side-effect sobre el cliente (mailbox + campana), mientras `reconcileOne` es read-mostly.
+- **Implementación canónica heredada de F.3 B.1 + F.9**:
+  - `ProvisioningCacheService.tryAcquireResendNotificationCooldown(actor, service, template, ttl)` — `SET NX EX` Redis.
+  - `ProvisioningCacheService.getResendNotificationCooldownRemainingSeconds(actor, service, template, fallback)` — `TTL` Redis para componer `Retry-After` exacto.
+  - **Fail-OPEN si Redis cae** (devuelve `true`/`fallback`): coherente con `getInfoForUser` cooldown — el endpoint NO debe depender de Redis para responder.
+- **Defense-in-depth orden de checks**:
+  1. `INVALID_TEMPLATE_KEY` (DTO `@IsIn` → 400) **antes** del cooldown — plantilla inválida NO debe consumir cuota de rate limit (sería vector para mapear comportamiento del backend desde fuera).
+  2. `NotFoundException` del service (Prisma) **antes** del cooldown — service inexistente tampoco debe consumir cuota (timing attack para mapear servicios).
+  3. Cooldown check (R7 fail-OPEN).
+  4. Dispatch + audit.
+- **HTTP 429 RESEND_TOO_FREQUENT** con header `Retry-After: <segundos>` (estándar HTTP) — clientes CLI/automation lo leen automáticamente sin parsear body. Mismo patrón canónico que F.9 `RECONCILE_IN_PROGRESS`.
+- **Frontend UX accionable**: Server Action captura `429` y devuelve shape estructurado `{ rateLimited: true, retryAfterSeconds }`. El modal muestra toast "Esta misma plantilla se reenvió hace pocos segundos. Reintenta en N s." — UX accionable vs error genérico.
+
+**+5 tests Amendment II** (en `notification-resend.service.spec.ts`):
+- Cooldown libre → cache.tryAcquire llamado con args canónicos (actor, service, template, ttl) + dispatch + audit.
+- Cooldown activo → 429 RESEND_TOO_FREQUENT con shape canónico (code + retry_after_seconds) + NO dispatch + NO audit.
+- Granularidad per (actor, service, template) — 3 combinaciones distintas adquieren ventanas separadas.
+- Cooldown chequeado DESPUÉS del NotFound (defense — no consume cuota si service no existe).
+- Cooldown chequeado DESPUÉS del INVALID_TEMPLATE_KEY (defense — no consume cuota si template inválido).
+
+**Cobertura post-Amendment II**: 55 suites · 798 passed + 6 skipped (vs 793/6 pre-Amendment).
+
+**ADR amendments**: ninguno (el rate limit es uso del framework canónico ProvisioningCacheService — no toca contratos).
+
+**Heredable a 15D RC / 15E Docker / 15G Plesk**: cualquier endpoint admin futuro que dispare side-effects al cliente (reenviar invoice, regenerar credencial, etc.) sigue el mismo patrón:
+1. Constante `<FEATURE>_COOLDOWN_SECONDS` exportada del service.
+2. Cooldown per `(actor, target_resource, action_dimension)` via Redis `SET NX EX`.
+3. 429 + `Retry-After` header en el controller.
+4. Frontend captura 429 y muestra toast con cuenta atrás.
+
 ### A.11.10.9. Fase F.12 — Layout canónico (página de servicio + páginas de plugins)
 
 **Tema:** componer `/services/[id]` (admin + cliente), la lista de plugins (`/admin/settings/plugins`) y el detalle de plugin (`/admin/settings/plugins/[slug]`) en un layout canónico documentado en `UI_SPEC.md` — última fase de features, refactoriza la composición de todo lo que F.4-F.11 fueron añadiendo. **Fase con freeze gate.**

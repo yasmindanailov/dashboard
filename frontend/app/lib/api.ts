@@ -930,6 +930,69 @@ export type PluginTestConnectionMethod = 'getStatus' | 'custom' | null;
 export type PluginCircuitState = 'closed' | 'open' | 'half-open';
 
 /**
+ * Sprint 15C.II Fase F.11.1 (R3 frozen §A.11.10.8.2) — agregado canónico
+ * de salud del plugin in-process del service, expuesto en
+ * `GET /admin/services/:id/plugin-health`.
+ *
+ * Doctrina:
+ *   - `operational` — todos los breakers cerrados (o sin breakers
+ *     registrados — operaciones cross-cutting nunca invocadas).
+ *   - `degraded`   — al menos un breaker `half-open`, ninguno `open`.
+ *   - `down`       — al menos un breaker `open`.
+ *
+ * El badge dice "estado en esta instancia" — el breaker es in-process
+ * (ADR-080 §5). Read-only — no crea breakers ni invoca al plugin.
+ */
+export type PluginHealthState = 'operational' | 'degraded' | 'down';
+
+export interface PluginHealthBreaker {
+  /** Operación sin prefijo del slug (`getServiceInfo`, `executeAction`, ...). */
+  operation: string;
+  state: PluginCircuitState;
+}
+
+export interface PluginHealthSummary {
+  pluginSlug: string;
+  state: PluginHealthState;
+  breakers: PluginHealthBreaker[];
+}
+
+/**
+ * Sprint 15C.II Fase F.11.3 (§A.11.10.8.2) — cross-link Service↔billing.
+ * Endpoint unificado `GET /billing/services/:id/cross-link` (cliente +
+ * admin con isAdmin derivado del role). Devuelve la próxima renovación
+ * del Service + la última factura asociada (vía InvoiceItem.service_id).
+ *
+ * Capability-driven por presencia: el card del frontend NO se renderiza
+ * cuando `nextDueDate === null && lastInvoice === null` (service legacy
+ * sin invoice asociada y sin renovación programada).
+ *
+ * Decimals serializados como string desde Prisma (`amount`, `total`) —
+ * el frontend los formatea con `Intl.NumberFormat`.
+ */
+export type InvoiceStatus =
+  | 'draft'
+  | 'pending'
+  | 'paid'
+  | 'overdue'
+  | 'cancelled'
+  | 'refunded';
+
+export interface ServiceBillingCrossLink {
+  nextDueDate: string | null;
+  amount: string | null;
+  currency: string;
+  lastInvoice: {
+    id: string;
+    invoice_number: string;
+    status: InvoiceStatus;
+    total: string;
+    due_date: string;
+    paid_at: string | null;
+  } | null;
+}
+
+/**
  * Subset acotado de JSON-Schema 7 que el backend declara en
  * `core/provisioning/types.ts §12`. Mantener sincronizado al añadir
  * formats/keywords nuevos al backend.
