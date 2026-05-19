@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
+import { ProvisioningCacheModule } from '../../core/provisioning/provisioning-cache.module';
 import { NotificationsService } from './notifications.service';
 import { NotificationResendService } from './notification-resend.service';
 import { NotificationsController } from './notifications.controller';
@@ -38,7 +39,15 @@ import { NotificationsRetentionCron } from './notifications-retention.cron';
  */
 @Global()
 @Module({
-  imports: [BullModule.registerQueue({ name: NOTIFICATIONS_DISPATCH_QUEUE })],
+  imports: [
+    BullModule.registerQueue({ name: NOTIFICATIONS_DISPATCH_QUEUE }),
+    // Sprint 15C.II Fase F.11.2 Amendment II hot-fix 2026-05-19 (DI clash):
+    // NotificationResendService usa ProvisioningCacheService para el
+    // cooldown del endpoint resend (P1 rate limiting). El cache vive en
+    // un módulo leaf canónico para evitar acoplar Notifications (Global)
+    // a todo ProvisioningModule.
+    ProvisioningCacheModule,
+  ],
   controllers: [NotificationsController, NotificationTemplatesAdminController],
   providers: [
     NotificationsService,
