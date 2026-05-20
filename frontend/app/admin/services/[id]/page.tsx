@@ -32,10 +32,15 @@ import { ADMIN_SERVICE_DETAIL_SECTIONS } from './_sections';
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }
 
-export default async function AdminServiceDetailPage({ params }: PageProps) {
+export default async function AdminServiceDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { id } = await params;
+  const { tab } = await searchParams;
 
   let data: ServiceDetailResponse | null = null;
   let errorMessage: string | null = null;
@@ -143,6 +148,7 @@ export default async function AdminServiceDetailPage({ params }: PageProps) {
   return (
     <ServiceDetailLayout
       ctx={ctx}
+      activeTab={tab ?? 'summary'}
       extraSections={ADMIN_SERVICE_DETAIL_SECTIONS}
     />
   );

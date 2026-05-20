@@ -39,10 +39,12 @@ import {
 } from './_components/service-detail-blocks';
 
 export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
+  // ── Zona cabecera (siempre visible, fuera de tabs) ──
   {
     id: 'header-back-link',
     label: 'Back link cliente',
     scope: 'client',
+    group: 'header',
     priority: 2000,
     shouldRender: () => true,
     component: ClientBackLinkSection,
@@ -51,6 +53,7 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'service-header',
     label: 'Cabecera del servicio',
     scope: 'both',
+    group: 'header',
     priority: 1900,
     shouldRender: () => true,
     component: ServiceHeaderSection,
@@ -59,6 +62,7 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'banner-terminal',
     label: 'Banner servicio terminal',
     scope: 'both',
+    group: 'header',
     priority: 1800,
     shouldRender: (ctx) => ctx.isTerminal,
     component: TerminalBannerSection,
@@ -67,14 +71,17 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'banner-suspended-client',
     label: 'Banner suspensión (cliente)',
     scope: 'client',
+    group: 'header',
     priority: 1750,
     shouldRender: (ctx) => ctx.isSuspended && ctx.suspensionReasonCode !== null,
     component: ClientSuspendedBannerSection,
   },
+  // ── Tab "Resumen" ──
   {
     id: 'client-details-card',
     label: 'Detalles del servicio (cliente)',
     scope: 'client',
+    group: 'summary',
     priority: 800,
     shouldRender: () => true,
     component: ClientServiceDetailsCardSection,
@@ -83,6 +90,7 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'metrics-bar',
     label: 'Métricas',
     scope: 'both',
+    group: 'summary',
     priority: 600,
     shouldRender: (ctx) => !ctx.isTerminal && ctx.info.capabilities.has_metrics,
     component: MetricsBarSection,
@@ -91,6 +99,7 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'ssl-card',
     label: 'Estado SSL',
     scope: 'both',
+    group: 'summary',
     priority: 500,
     shouldRender: (ctx) => !ctx.isTerminal && Boolean(ctx.info.ssl),
     component: SslStatusCardSection,
@@ -99,6 +108,7 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'apps-card-client',
     label: 'Apps instaladas (cliente)',
     scope: 'client',
+    group: 'summary',
     priority: 400,
     shouldRender: (ctx) =>
       !ctx.isTerminal &&
@@ -111,14 +121,17 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'billing-cross-link-card',
     label: 'Cross-link facturación',
     scope: 'both',
+    group: 'summary',
     priority: 350,
     shouldRender: (ctx) => ctx.billingCrossLink !== null,
     component: BillingCrossLinkCardSection,
   },
+  // ── Tab "Gestión" ──
   {
     id: 'sso-panel-card',
     label: 'Panel del proveedor (SSO)',
     scope: 'both',
+    group: 'management',
     priority: 90,
     // Cliente: !terminal && !suspended && !drift. Admin: solo !terminal
     // (Amendment I — preserva la divergencia de gating entre ambos pages).
@@ -134,6 +147,7 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'actions-bar',
     label: 'Acciones del servicio',
     scope: 'both',
+    group: 'management',
     priority: 80,
     // Cliente: !terminal && !suspended. Admin: solo !terminal.
     shouldRender: (ctx) =>
@@ -144,6 +158,7 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'dns-link-card',
     label: 'Gestión DNS',
     scope: 'both',
+    group: 'management',
     priority: 40,
     // Cliente: !terminal && !suspended && !drift. Admin: solo !terminal.
     shouldRender: (ctx) =>
@@ -152,18 +167,22 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
       (ctx.forceAdminRoute || (!ctx.isSuspended && !ctx.isDrift)),
     component: DnsLinkCardSection,
   },
+  // ── Tab "Actividad" ──
   {
     id: 'audit-link-card',
     label: 'Historial de auditoría',
     scope: 'both',
+    group: 'activity',
     priority: 30,
     shouldRender: () => true,
     component: ServiceAuditLinkCardSection,
   },
+  // ── Zona pie (siempre visible, fuera de tabs) ──
   {
     id: 'client-dev-custom-placeholder',
     label: 'Placeholder desarrollo a medida (Sprint 22)',
     scope: 'client',
+    group: 'footer',
     priority: 20,
     shouldRender: () => true,
     component: ClientDevCustomPlaceholderSection,
@@ -172,6 +191,7 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'footer-fetched-at',
     label: 'Footer última lectura',
     scope: 'both',
+    group: 'footer',
     priority: 1,
     shouldRender: () => true,
     component: FetchedAtFooterSection,

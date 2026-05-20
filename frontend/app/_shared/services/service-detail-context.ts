@@ -30,6 +30,23 @@ export type ServiceData = ServiceDetailResponse['service'];
 export type SectionScope = 'admin' | 'client' | 'both';
 
 /**
+ * Zona de la página donde se monta la sección (Sprint 15C.II Fase F.12.3 —
+ * tabs adaptativas, Amendment III):
+ *   - `header` / `footer`: SIEMPRE visibles (fuera de las tabs). Identidad,
+ *     banners críticos (header) · meta (footer).
+ *   - `summary` / `management` / `activity`: contenido de las 3 tabs. Una tab
+ *     que quede vacía (todas sus secciones filtradas) se oculta; si solo
+ *     sobrevive una tab, el layout NO muestra tabs (§2.5 — si solo hay una
+ *     sección no hacen falta tabs).
+ */
+export type SectionGroup =
+  | 'header'
+  | 'summary'
+  | 'management'
+  | 'activity'
+  | 'footer';
+
+/**
  * Contexto inmutable que el wrapper page compone y pasa al layout. Los
  * descriptores leen de aquí en `shouldRender` (predicado puro) y los
  * componentes lo reciben completo.
@@ -68,6 +85,8 @@ export interface SectionDescriptor {
   label: string;
   /** Route-scope. `both` = visible en ambas rutas (con o sin variación interna por `isAdmin`). */
   scope: SectionScope;
+  /** Zona/tab donde se monta la sección (F.12.3). */
+  group: SectionGroup;
   /**
    * Prioridad de render. Descendente: 1000+ = arriba, 1 = abajo.
    * Rangos canónicos R3: 1000..1999 banners críticos · 500..999 identidad ·

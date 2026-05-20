@@ -19,6 +19,7 @@ import type {
   ServiceDetailContext,
 } from '../../../_shared/services/service-detail-context';
 import { AppShortcutsCardSection } from '../../../_shared/services/_components/service-detail-blocks';
+import styles from '../../../_shared/services/service-detail.module.css';
 
 import { AdminDriftBanner } from './_components/AdminDriftBanner';
 import { AdminProviderStateDesyncBanner } from './_components/AdminProviderStateDesyncBanner';
@@ -35,24 +36,9 @@ import { ServiceNotesCard } from './_components/ServiceNotesCard';
  *  (Amendment I — el freeze los listaba como descriptores separados). */
 function AdminHeaderRowSection({ ctx }: { ctx: ServiceDetailContext }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 16,
-        flexWrap: 'wrap',
-      }}
-    >
-      <Link
-        href="/admin/services"
-        style={{
-          color: 'var(--text-secondary)',
-          fontSize: 13,
-          textDecoration: 'none',
-        }}
-      >
-        ← Servicios
+    <div className={styles.splitRow}>
+      <Link href="/admin/services" className={styles.backLink}>
+        ← {t('service.detail.back_admin')}
       </Link>
       {ctx.pluginHealth && <ProviderHealthBadge health={ctx.pluginHealth} />}
     </div>
@@ -134,10 +120,12 @@ function ServiceNotesCardSection({ ctx }: { ctx: ServiceDetailContext }) {
 }
 
 export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
+  // ── Zona cabecera (siempre visible) ──
   {
     id: 'header-admin-row',
     label: 'Cabecera admin (back-link + salud plugin)',
     scope: 'admin',
+    group: 'header',
     priority: 2000,
     shouldRender: () => true,
     component: AdminHeaderRowSection,
@@ -146,6 +134,7 @@ export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'banner-suspended-admin',
     label: 'Banner suspensión (admin)',
     scope: 'admin',
+    group: 'header',
     priority: 1750,
     shouldRender: (ctx) => ctx.isSuspended,
     component: AdminSuspendedBanner,
@@ -154,6 +143,7 @@ export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'banner-provider-state-desync',
     label: 'Banner desync estado proveedor',
     scope: 'admin',
+    group: 'header',
     priority: 1700,
     shouldRender: (ctx) =>
       !ctx.isTerminal &&
@@ -165,6 +155,7 @@ export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'banner-drift-admin',
     label: 'Banner drift técnico (admin)',
     scope: 'admin',
+    group: 'header',
     priority: 1650,
     shouldRender: (ctx) =>
       ctx.isDrift &&
@@ -172,10 +163,12 @@ export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
       ctx.info.statusReason !== undefined,
     component: AdminDriftBannerSection,
   },
+  // ── Tab "Resumen" ──
   {
     id: 'apps-card-admin',
     label: 'Apps instaladas (admin)',
     scope: 'admin',
+    group: 'summary',
     priority: 400,
     shouldRender: (ctx) =>
       !ctx.isTerminal &&
@@ -187,14 +180,17 @@ export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'admin-service-data-card',
     label: 'Datos del servicio (admin)',
     scope: 'admin',
+    group: 'summary',
     priority: 300,
     shouldRender: () => true,
     component: AdminServiceDataCardSection,
   },
+  // ── Tab "Gestión" ──
   {
     id: 'admin-service-operations-card',
     label: 'Operaciones admin',
     scope: 'admin',
+    group: 'management',
     priority: 70,
     shouldRender: (ctx) => !ctx.isTerminal,
     component: AdminServiceOperationsCardSection,
@@ -203,14 +199,17 @@ export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'resend-notification-card',
     label: 'Reenviar notificación',
     scope: 'admin',
+    group: 'management',
     priority: 60,
     shouldRender: () => true,
     component: ResendNotificationCardSection,
   },
+  // ── Tab "Actividad" ──
   {
     id: 'service-notes-card',
     label: 'Notas del servicio',
     scope: 'admin',
+    group: 'activity',
     priority: 50,
     shouldRender: () => true,
     component: ServiceNotesCardSection,

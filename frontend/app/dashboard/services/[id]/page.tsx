@@ -29,10 +29,15 @@ import { parseSuspensionReasonCode } from '../../../_shared/services/suspension-
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }
 
-export default async function ClientServiceDetailPage({ params }: PageProps) {
+export default async function ClientServiceDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { id } = await params;
+  const { tab } = await searchParams;
 
   // Sprint 15C Fase 15C.E.2 — derivar isAdmin server-side (set canónico que
   // coincide con `provisioning.controller.ts` ADMIN_ROLES) para filtrar
@@ -111,5 +116,5 @@ export default async function ClientServiceDetailPage({ params }: PageProps) {
     supportsReconcileOne: false,
   };
 
-  return <ServiceDetailLayout ctx={ctx} />;
+  return <ServiceDetailLayout ctx={ctx} activeTab={tab ?? 'summary'} />;
 }

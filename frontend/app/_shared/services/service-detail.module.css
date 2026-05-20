@@ -1,0 +1,180 @@
+/* ═══════════════════════════════════════
+   Service Detail — layout canónico (Sprint 15C.II Fase F.12.3)
+
+   Estilos del frame del detalle de servicio + sus bloques de seccion.
+   Reemplaza los estilos inline del modulo de servicios (unico modulo del
+   proyecto que no tenia CSS module). Tokens only — zero hardcoded values.
+   Usa `--brand`/`--text-on-brand` (el codigo previo usaba `--brand-600`,
+   token NO definido en globals.css = enlaces sin color; F.12.3 lo corrige).
+
+   Ref: UI_SPEC.md §2.5 (Detail), §2.8 (no inline), §1.2 P5 (voz),
+        DESIGN_SYSTEM.md, globals.css (tokens).
+   ═══════════════════════════════════════ */
+
+/* ── Frame ── */
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Cabecera ── */
+.backLink {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+}
+.backLink:hover {
+  color: var(--text-primary);
+}
+.splitRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+/* ── Bloque "Card con titulo + descripcion + accion a la derecha"
+      (Panel del proveedor, DNS, Historial) ── */
+.sectionHeading {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+.sectionDesc {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-1);
+}
+
+/* ── CTAs / enlaces ── */
+.ctaButton {
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ctaButton:hover {
+  border-color: var(--border-hover);
+}
+.ctaText {
+  color: var(--brand);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ctaPrimary {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  background: var(--brand);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-on-brand);
+  text-decoration: none;
+}
+.ctaPrimary:hover {
+  background: var(--brand-hover);
+}
+.ctaSecondary {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.ctaSecondary:hover {
+  border-color: var(--border-hover);
+}
+
+/* ── Card "Detalles del servicio" (cliente) ── */
+.detailsHeading {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  margin: 0 0 var(--space-3);
+}
+.detailsList {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1_5) var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.detailsTerm {
+  color: var(--text-secondary);
+}
+.detailsValue {
+  margin: 0;
+}
+.detailsValueStatus {
+  margin: 0;
+  text-transform: capitalize;
+}
+
+/* ── Banners (contenido interno; el contenedor es <AlertBanner> DS) ── */
+.bannerStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.bannerStackTight {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1_5);
+}
+.bannerText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.bannerReasonNote {
+  color: var(--text-secondary);
+}
+.bannerMeta {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.bannerMetaTertiary {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.terminalReason {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-style: italic;
+  color: var(--text-secondary);
+}
+.terminalCode {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono, monospace);
+  color: var(--text-tertiary);
+}
+
+/* ── Placeholder Sprint 22 + footer ── */
+.placeholderBody {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-2);
+}
+.footer {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}

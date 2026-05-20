@@ -14,32 +14,36 @@
  * Presentacional puro — Server-component compatible (sin `'use client'`).
  */
 import { AlertBanner } from '../../../../components/ui';
+import { t } from '../../../../_shared/i18n';
 import { parseSuspensionReason } from '../../../../_shared/services/suspension-reason';
 import type { ServiceDetailContext } from '../../../../_shared/services/service-detail-context';
+import styles from '../../../../_shared/services/service-detail.module.css';
 
 export function AdminSuspendedBanner({ ctx }: { ctx: ServiceDetailContext }) {
   const { service } = ctx;
   const suspension = parseSuspensionReason(service.suspension_reason);
   return (
-    <AlertBanner variant="warning" title="Servicio suspendido">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <p style={{ margin: 0, fontSize: 13 }}>
-          Este servicio está suspendido — el cliente no tiene acceso, pero sus
-          datos se conservan en el proveedor. Reactívalo desde «Operaciones
-          admin» cuando proceda.
+    <AlertBanner
+      variant="warning"
+      title={t('service.detail.suspended_admin.title')}
+    >
+      <div className={styles.bannerStackTight}>
+        <p className={styles.bannerText}>
+          {t('service.detail.suspended_admin.body')}
         </p>
-        <p style={{ margin: 0, fontSize: 13 }}>
-          <strong>Motivo:</strong> {suspension.label}
+        <p className={styles.bannerText}>
+          <strong>{t('service.detail.suspended_admin.reason_label')}:</strong>{' '}
+          {suspension.label}
           {suspension.note ? (
-            <span style={{ color: 'var(--text-secondary)' }}>
+            <span className={styles.bannerReasonNote}>
               {' — '}
               {suspension.note}
             </span>
           ) : null}
         </p>
         {service.suspended_at && (
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-tertiary)' }}>
-            Suspendido el{' '}
+          <p className={styles.bannerMetaTertiary}>
+            {t('service.detail.suspended_at')}{' '}
             {new Date(service.suspended_at).toLocaleString('es-ES')}
           </p>
         )}

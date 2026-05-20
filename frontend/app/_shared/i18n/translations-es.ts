@@ -336,6 +336,42 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.suspended.client.cta_pay': 'Regularizar el pago',
   'service.suspended.client.cta_support': 'Contactar con soporte',
 
+  // ── Layout canónico del detalle de servicio (Sprint 15C.II Fase F.12.3).
+  //    Copys del frame (tabs + cabecera + secciones genéricas) — voz de marca
+  //    centralizada (UI_SPEC §1.2 P5 + regla D11). Provisioner-agnóstico: las
+  //    secciones se gatean por capability, no por tipo de producto.
+  'service.detail.tab.summary': 'Resumen',
+  'service.detail.tab.management': 'Gestión',
+  'service.detail.tab.activity': 'Actividad',
+  'service.detail.back_client': 'Mis servicios',
+  'service.detail.back_admin': 'Servicios',
+  'service.detail.details.title': 'Detalles del servicio',
+  'service.detail.details.plan': 'Plan',
+  'service.detail.details.status': 'Estado de tu servicio',
+  'service.detail.details.created': 'Contratado el',
+  'service.detail.sso.title': 'Panel del proveedor',
+  'service.detail.sso.desc_client':
+    'Accede al panel especializado para operaciones avanzadas (gestión de email, bases de datos, archivos…). La sesión se abre en una nueva pestaña con un token temporal y queda registrada en tu portal de transparencia.',
+  'service.detail.sso.desc_admin':
+    'Abrir el panel del proveedor como admin se registra automáticamente como impersonation en el log GDPR del cliente afectado (portal de transparencia).',
+  'service.detail.dns.title_client': 'DNS de tu dominio',
+  'service.detail.dns.title_admin': 'Gestión DNS',
+  'service.detail.dns.desc_client':
+    'Crea, edita o elimina registros DNS (A, AAAA, CNAME, MX, TXT, SRV, CAA) de la zona autoritativa gestionada por Aelium. Los cambios pueden tardar minutos en propagarse.',
+  'service.detail.dns.desc_admin':
+    'Revisa y edita los registros DNS de la zona de este servicio. Los cambios se aplican directamente en el proveedor.',
+  'service.detail.dns.cta': 'Gestionar DNS',
+  'service.detail.dev_custom.title': '¿Necesitas un desarrollo a medida?',
+  'service.detail.dev_custom.body':
+    'Próximamente podrás solicitar un desarrollo personalizado vinculado a este servicio. (Función disponible cuando Sprint 22 Projects esté activo.)',
+  'service.detail.fetched_at': 'Última lectura del proveedor:',
+  'service.detail.cancelled_at': 'Cancelado el',
+  'service.detail.suspended_at': 'Suspendido el',
+  'service.detail.suspended_admin.title': 'Servicio suspendido',
+  'service.detail.suspended_admin.body':
+    'Este servicio está suspendido — el cliente no tiene acceso, pero sus datos se conservan en el proveedor. Reactívalo desde «Operaciones admin» cuando proceda.',
+  'service.detail.suspended_admin.reason_label': 'Motivo',
+
   // ── Aviso de desincronización del estado de suspensión (Sprint 15C.II Fase
   //    F.4.1+F.4.3). Solo admin (`/admin/services/[id]`): `services.status`
   //    (autoritativo para el lifecycle administrativo) no coincide con el que

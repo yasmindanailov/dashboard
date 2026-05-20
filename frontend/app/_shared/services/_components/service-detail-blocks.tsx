@@ -5,17 +5,17 @@
  * que viven en `_shared/services/` (scope `both` + `client`). Cada uno recibe
  * el `ServiceDetailContext` completo y monta la sección correspondiente.
  *
- * **Cero cambio funcional** (F.12.2): el JSX está portado literalmente de
- * `app/dashboard/services/[id]/page.tsx` y `app/admin/services/[id]/page.tsx`.
- * Los bloques `both` con gating o copy divergente por ruta ramifican por
- * `ctx.forceAdminRoute` (NO por rol — Amendment I) para preservar el
- * comportamiento exacto de ambas páginas.
+ * F.12.3 (Amendment III): migrados a **DS + CSS module + i18n** (UI_SPEC §1.2
+ * P5 voz de marca · §2.8 sin estilos inline). Los copys viven en
+ * `service.detail.*` / `service.*` (translations-es.ts); los estilos en
+ * `service-detail.module.css` (tokens). El comportamiento se preserva: los
+ * bloques `both` con gating/copy divergente por ruta ramifican por
+ * `ctx.forceAdminRoute` (NO por rol — Amendment I).
  *
- * Componentes presentacionales puros — Server-component compatible (sin
- * `'use client'`). Los sub-componentes interactivos (SsoButton, ActionsBar)
- * son CC que ya gestionan su propia interactividad.
+ * Presentacional puro — Server-component compatible (sin `'use client'`).
  */
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 import { AlertBanner, Card } from '../../../components/ui';
 import { t } from '../../i18n';
@@ -27,6 +27,7 @@ import { AppShortcutsCard } from '../AppShortcutsCard';
 import { BillingCrossLinkCard } from '../BillingCrossLinkCard';
 import { ActionsBar } from '../ActionsBar';
 import { SsoButton } from '../SsoButton';
+import styles from '../service-detail.module.css';
 
 function formatLongDate(iso: string): string {
   return new Date(iso).toLocaleDateString('es-ES', {
@@ -36,28 +37,42 @@ function formatLongDate(iso: string): string {
   });
 }
 
-/** Back-link de la página cliente (`← Mis servicios`). El admin tiene su
- *  propia fila con el ProviderHealthBadge — ver `_sections.tsx`. */
+/** Chrome compartido "Card con título + descripción + acción a la derecha"
+ *  (Panel del proveedor, DNS, Historial). DRY de los 3 bloques. */
+function SectionLinkCard({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description: string;
+  action: ReactNode;
+}) {
+  return (
+    <Card>
+      <div className={styles.splitRow}>
+        <div>
+          <h2 className={styles.sectionHeading}>{title}</h2>
+          <p className={styles.sectionDesc}>{description}</p>
+        </div>
+        {action}
+      </div>
+    </Card>
+  );
+}
+
+/** Back-link de la página cliente. El admin tiene su propia fila con el
+ *  ProviderHealthBadge — ver `_sections.tsx`. */
 export function ClientBackLinkSection() {
   return (
-    <Link
-      href="/dashboard/services"
-      style={{
-        color: 'var(--text-secondary)',
-        fontSize: 13,
-        textDecoration: 'none',
-      }}
-    >
-      ← Mis servicios
+    <Link href="/dashboard/services" className={styles.backLink}>
+      ← {t('service.detail.back_client')}
     </Link>
   );
 }
 
 /** Header normalizado del servicio (Card + ServiceHeader). scope both.
- *  `isAdmin` = `forceAdminRoute` (NO el rol): el page cliente previo pasaba
- *  `isAdmin={false}` hardcoded a ServiceHeader incluso para staff (un staff en
- *  la página cliente ve el mensaje de drift cliente-genérico). Cero cambio
- *  funcional. */
+ *  `isAdmin` = `forceAdminRoute` (chrome display-only — Amendment I). */
 export function ServiceHeaderSection({ ctx }: { ctx: ServiceDetailContext }) {
   return (
     <Card>
@@ -80,31 +95,15 @@ export function TerminalBannerSection({ ctx }: { ctx: ServiceDetailContext }) {
         variant="danger"
         title={t('service.terminal.cancelled.admin.title')}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <p style={{ margin: 0, fontSize: 13 }}>
+        <div className={styles.bannerStack}>
+          <p className={styles.bannerText}>
             {t('service.terminal.cancelled.admin.body')}
           </p>
           {info.statusReason && (
-            <p
-              style={{
-                margin: 0,
-                fontSize: 13,
-                fontStyle: 'italic',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              {t(info.statusReason)}
-            </p>
+            <p className={styles.terminalReason}>{t(info.statusReason)}</p>
           )}
           {service.cancellation_reason && (
-            <p
-              style={{
-                margin: 0,
-                fontSize: 12,
-                fontFamily: 'var(--font-mono)',
-                color: 'var(--text-tertiary)',
-              }}
-            >
+            <p className={styles.terminalCode}>
               cancellation_reason: <code>{service.cancellation_reason}</code>
               {service.cancelled_at &&
                 ` · ${new Date(service.cancelled_at).toLocaleString('es-ES')}`}
@@ -119,18 +118,12 @@ export function TerminalBannerSection({ ctx }: { ctx: ServiceDetailContext }) {
       variant="info"
       title={t('service.terminal.cancelled.client.title')}
     >
-      <p style={{ margin: 0, fontSize: 13 }}>
+      <p className={styles.bannerText}>
         {t('service.terminal.cancelled.client.body')}
       </p>
       {service.cancelled_at && (
-        <p
-          style={{
-            margin: '6px 0 0',
-            fontSize: 12,
-            color: 'var(--text-secondary)',
-          }}
-        >
-          Cancelado el {formatLongDate(service.cancelled_at)}
+        <p className={styles.bannerMeta}>
+          {t('service.detail.cancelled_at')} {formatLongDate(service.cancelled_at)}
         </p>
       )}
     </AlertBanner>
@@ -148,53 +141,27 @@ export function ClientSuspendedBannerSection({
   if (!suspensionReasonCode) return null;
   return (
     <AlertBanner variant="warning" title={t('service.suspended.client.title')}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <p style={{ margin: 0, fontSize: 13 }}>
-          {t('service.suspended.client.body')}
-        </p>
-        <p style={{ margin: 0, fontSize: 13 }}>
+      <div className={styles.bannerStack}>
+        <p className={styles.bannerText}>{t('service.suspended.client.body')}</p>
+        <p className={styles.bannerText}>
           <strong>{t('service.suspended.client.reason_label')}:</strong>{' '}
           {t(`service.suspension_reason.${suspensionReasonCode}`)}
         </p>
         <div>
           {suspensionReasonCode === 'overdue_payment' ? (
-            <Link
-              href="/dashboard/billing"
-              style={{
-                display: 'inline-block',
-                padding: '8px 16px',
-                background: 'var(--brand-600)',
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 600,
-                color: '#fff',
-                textDecoration: 'none',
-              }}
-            >
+            <Link href="/dashboard/billing" className={styles.ctaPrimary}>
               {t('service.suspended.client.cta_pay')}
             </Link>
           ) : (
-            <Link
-              href="/dashboard/support"
-              style={{
-                display: 'inline-block',
-                padding: '8px 16px',
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                textDecoration: 'none',
-              }}
-            >
+            <Link href="/dashboard/support" className={styles.ctaSecondary}>
               {t('service.suspended.client.cta_support')}
             </Link>
           )}
         </div>
         {service.suspended_at && (
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>
-            Suspendido el {formatLongDate(service.suspended_at)}
+          <p className={styles.bannerMeta}>
+            {t('service.detail.suspended_at')}{' '}
+            {formatLongDate(service.suspended_at)}
           </p>
         )}
       </div>
@@ -202,7 +169,7 @@ export function ClientSuspendedBannerSection({
   );
 }
 
-/** Card "Detalles del servicio" cliente — `<dl>` Plan/Estado/Contratado el.
+/** Card "Detalles del servicio" cliente — Plan/Estado/Contratado el.
  *  Siempre visible (garantía heredada Fase B fix-up). scope client. */
 export function ClientServiceDetailsCardSection({
   ctx,
@@ -212,37 +179,34 @@ export function ClientServiceDetailsCardSection({
   const { service } = ctx;
   return (
     <Card>
-      <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0, marginBottom: 12 }}>
-        Detalles del servicio
+      <h2 className={styles.detailsHeading}>
+        {t('service.detail.details.title')}
       </h2>
-      <dl
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'max-content 1fr',
-          gap: '6px 16px',
-          margin: 0,
-          fontSize: 13,
-        }}
-      >
+      <dl className={styles.detailsList}>
         {service.provisioner_slug && (
           <>
-            <dt style={{ color: 'var(--text-secondary)' }}>Plan</dt>
-            <dd style={{ margin: 0 }}>{service.product_name}</dd>
+            <dt className={styles.detailsTerm}>
+              {t('service.detail.details.plan')}
+            </dt>
+            <dd className={styles.detailsValue}>{service.product_name}</dd>
           </>
         )}
-        <dt style={{ color: 'var(--text-secondary)' }}>Estado de tu servicio</dt>
-        <dd style={{ margin: 0, textTransform: 'capitalize' }}>
-          {service.status}
+        <dt className={styles.detailsTerm}>
+          {t('service.detail.details.status')}
+        </dt>
+        <dd className={styles.detailsValueStatus}>{service.status}</dd>
+        <dt className={styles.detailsTerm}>
+          {t('service.detail.details.created')}
+        </dt>
+        <dd className={styles.detailsValue}>
+          {formatLongDate(service.created_at)}
         </dd>
-        <dt style={{ color: 'var(--text-secondary)' }}>Contratado el</dt>
-        <dd style={{ margin: 0 }}>{formatLongDate(service.created_at)}</dd>
       </dl>
     </Card>
   );
 }
 
-/** MetricsBar — adapter ctx → props. scope both. `isAdmin` = `forceAdminRoute`
- *  (display-chrome: el page cliente previo pasaba `isAdmin={false}` hardcoded). */
+/** MetricsBar — adapter. `isAdmin` = `forceAdminRoute` (chrome — Amendment I). */
 export function MetricsBarSection({ ctx }: { ctx: ServiceDetailContext }) {
   return (
     <MetricsBar
@@ -254,16 +218,14 @@ export function MetricsBarSection({ ctx }: { ctx: ServiceDetailContext }) {
   );
 }
 
-/** SslStatusCard — adapter. scope both (admin gana tooltip ISO display-only).
- *  `isAdmin` = `forceAdminRoute` (el page cliente previo omitía el prop → default
- *  false, también para staff). */
+/** SslStatusCard — adapter. `isAdmin` = `forceAdminRoute` (tooltip ISO admin). */
 export function SslStatusCardSection({ ctx }: { ctx: ServiceDetailContext }) {
   if (!ctx.info.ssl) return null;
   return <SslStatusCard ssl={ctx.info.ssl} isAdmin={ctx.forceAdminRoute} />;
 }
 
-/** AppShortcutsCard — adapter compartido (lo usan apps-card-client en base y
- *  apps-card-admin en la extensión admin). */
+/** AppShortcutsCard — adapter compartido (apps-card-client base +
+ *  apps-card-admin extensión). `isAdmin` = `ctx.isAdmin` (tooltip + acciones). */
 export function AppShortcutsCardSection({
   ctx,
 }: {
@@ -279,10 +241,8 @@ export function AppShortcutsCardSection({
   );
 }
 
-/** BillingCrossLinkCard — adapter. scope both. `isAdmin` = `forceAdminRoute`:
- *  el link "Ver factura" apunta a `/admin/billing/[id]` (admin) o
- *  `/dashboard/billing/[id]` (cliente) según la RUTA, no el rol — el page
- *  cliente previo omitía el prop (default false) también para staff. */
+/** BillingCrossLinkCard — adapter. `isAdmin` = `forceAdminRoute` (link a
+ *  /admin o /dashboard billing según ruta — Amendment I). */
 export function BillingCrossLinkCardSection({
   ctx,
 }: {
@@ -297,49 +257,31 @@ export function BillingCrossLinkCardSection({
   );
 }
 
-/** Card "Panel del proveedor" (Card + texto + SsoButton). scope both —
- *  copy cliente-amigable vs nota GDPR impersonation admin. */
+/** Card "Panel del proveedor" (SSO). scope both — copy cliente-amigable vs
+ *  nota GDPR impersonation admin. `isAdmin` del SsoButton = `ctx.isAdmin`. */
 export function SsoPanelCardSection({ ctx }: { ctx: ServiceDetailContext }) {
   const { info, service, isAdmin, forceAdminRoute } = ctx;
   if (!info.capabilities.panel_label) return null;
   return (
-    <Card>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div>
-          <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-            Panel del proveedor
-          </h2>
-          <p
-            style={{
-              color: 'var(--text-secondary)',
-              fontSize: 13,
-              marginTop: 4,
-            }}
-          >
-            {forceAdminRoute
-              ? 'Abrir el panel del proveedor como admin se registra automáticamente como impersonation en el log GDPR del cliente afectado (`service.admin_sso_impersonation`, portal transparency).'
-              : 'Accede al panel especializado para operaciones avanzadas (gestión de email, bases de datos, archivos…). La sesión se abre en una nueva pestaña con un token temporal y queda registrada en tu portal de transparencia.'}
-          </p>
-        </div>
+    <SectionLinkCard
+      title={t('service.detail.sso.title')}
+      description={
+        forceAdminRoute
+          ? t('service.detail.sso.desc_admin')
+          : t('service.detail.sso.desc_client')
+      }
+      action={
         <SsoButton
           serviceId={service.id}
           panelLabel={info.capabilities.panel_label}
           isAdmin={isAdmin}
         />
-      </div>
-    </Card>
+      }
+    />
   );
 }
 
-/** ActionsBar — adapter. scope both. */
+/** ActionsBar — adapter. `isAdmin` = `ctx.isAdmin` (acciones admin-no-blacklisted). */
 export function ActionsBarSection({ ctx }: { ctx: ServiceDetailContext }) {
   return (
     <ActionsBar
@@ -350,74 +292,40 @@ export function ActionsBarSection({ ctx }: { ctx: ServiceDetailContext }) {
   );
 }
 
-/** Card "DNS" (Card + texto + link). scope both — copy cliente-amigable vs
- *  admin-seco + link a /dashboard o /admin + estilo distinto. */
+/** Card "DNS". scope both — copy cliente-amigable vs admin-seco + link a
+ *  /dashboard o /admin + estilo distinto. */
 export function DnsLinkCardSection({ ctx }: { ctx: ServiceDetailContext }) {
   const { service, forceAdminRoute } = ctx;
   return (
-    <Card>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div>
-          <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-            {forceAdminRoute ? 'Gestión DNS' : 'DNS de tu dominio'}
-          </h2>
-          <p
-            style={{
-              color: 'var(--text-secondary)',
-              fontSize: 13,
-              marginTop: 4,
-            }}
-          >
-            {forceAdminRoute
-              ? 'Revisa y edita los registros DNS de la zona de este servicio. Los cambios se aplican directamente en el proveedor.'
-              : 'Crea, edita o elimina registros DNS (A, AAAA, CNAME, MX, TXT, SRV, CAA) de la zona autoritativa gestionada por Aelium. Los cambios pueden tardar minutos en propagarse.'}
-          </p>
-        </div>
+    <SectionLinkCard
+      title={
+        forceAdminRoute
+          ? t('service.detail.dns.title_admin')
+          : t('service.detail.dns.title_client')
+      }
+      description={
+        forceAdminRoute
+          ? t('service.detail.dns.desc_admin')
+          : t('service.detail.dns.desc_client')
+      }
+      action={
         <Link
           href={
             forceAdminRoute
               ? `/admin/services/${service.id}/dns`
               : `/dashboard/services/${service.id}/dns`
           }
-          style={
-            forceAdminRoute
-              ? {
-                  color: 'var(--brand-600)',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
-                }
-              : {
-                  padding: '8px 16px',
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: 'var(--text-primary)',
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
-                }
-          }
+          className={forceAdminRoute ? styles.ctaText : styles.ctaButton}
         >
-          Gestionar DNS →
+          {t('service.detail.dns.cta')} →
         </Link>
-      </div>
-    </Card>
+      }
+    />
   );
 }
 
-/** Card "Historial de auditoría" (Card + texto + link). scope both — subtitle
- *  cliente vs admin + link a /dashboard o /admin + estilo distinto. */
+/** Card "Historial de auditoría". scope both — subtitle cliente vs admin +
+ *  link a /dashboard o /admin + estilo distinto. */
 export function ServiceAuditLinkCardSection({
   ctx,
 }: {
@@ -425,64 +333,26 @@ export function ServiceAuditLinkCardSection({
 }) {
   const { service, forceAdminRoute } = ctx;
   return (
-    <Card>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div>
-          <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-            {t('service.audit.title')}
-          </h2>
-          <p
-            style={{
-              color: 'var(--text-secondary)',
-              fontSize: 13,
-              marginTop: 4,
-            }}
-          >
-            {forceAdminRoute
-              ? t('service.audit.subtitle_admin')
-              : t('service.audit.subtitle_client')}
-          </p>
-        </div>
+    <SectionLinkCard
+      title={t('service.audit.title')}
+      description={
+        forceAdminRoute
+          ? t('service.audit.subtitle_admin')
+          : t('service.audit.subtitle_client')
+      }
+      action={
         <Link
           href={
             forceAdminRoute
               ? `/admin/services/${service.id}/audit`
               : `/dashboard/services/${service.id}/audit`
           }
-          style={
-            forceAdminRoute
-              ? {
-                  color: 'var(--brand-600)',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
-                }
-              : {
-                  padding: '8px 16px',
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: 'var(--text-primary)',
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
-                }
-          }
+          className={forceAdminRoute ? styles.ctaText : styles.ctaButton}
         >
           {t('service.audit.link')} →
         </Link>
-      </div>
-    </Card>
+      }
+    />
   );
 }
 
@@ -490,13 +360,11 @@ export function ServiceAuditLinkCardSection({
 export function ClientDevCustomPlaceholderSection() {
   return (
     <Card>
-      <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-        ¿Necesitas un desarrollo a medida?
+      <h2 className={styles.sectionHeading}>
+        {t('service.detail.dev_custom.title')}
       </h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 8 }}>
-        Próximamente podrás solicitar un desarrollo personalizado vinculado a
-        este servicio. (Función disponible cuando Sprint 22 Projects esté
-        activo.)
+      <p className={styles.placeholderBody}>
+        {t('service.detail.dev_custom.body')}
       </p>
     </Card>
   );
@@ -505,8 +373,8 @@ export function ClientDevCustomPlaceholderSection() {
 /** Footer "Última lectura del proveedor". scope both. */
 export function FetchedAtFooterSection({ ctx }: { ctx: ServiceDetailContext }) {
   return (
-    <p style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-      Última lectura del proveedor:{' '}
+    <p className={styles.footer}>
+      {t('service.detail.fetched_at')}{' '}
       {new Date(ctx.info.fetchedAt).toLocaleString('es-ES')}
     </p>
   );
