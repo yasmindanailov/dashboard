@@ -1,0 +1,26 @@
+/* ═══════════════════════════════════════
+   AdminServiceDataCard — "Datos técnicos" (Sprint 15C.II F.12.5)
+   Rediseño a <SectionCard> + <DescriptionList> + <CopyableId>.
+   Tokens only (corrige el bug --brand-600 = enlaces sin color).
+   ═══════════════════════════════════════ */
+
+.link {
+  color: var(--brand);
+  text-decoration: none;
+}
+.link:hover {
+  text-decoration: underline;
+}
+
+.mutedMono {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono, monospace);
+}
+
+.statusValue {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}

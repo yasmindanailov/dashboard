@@ -3107,6 +3107,404 @@ git checkout -b sprint15c-ii-fase-f12-canonical-layout
 - **L18 frozen**: cualquier mejora descubierta durante implementación que diverja del apuntado original del dossier se documenta como **Amendment** dentro de la fase (no desvío silencioso). F.10 produjo pivot doctrinal pre-código + Amendment I durante implementación (rename `kind`→`appKind`+`urlKind`); F.11 produjo Amendment I durante implementación (whitelist 3 plantillas vs 5) + Amendment II post-PR self-review (P1 rate limiting) + hot-fix DI clash (módulo leaf canónico). F.12 probablemente produzca 0-1 Amendments dada la naturaleza doc-first con freeze gate — el freeze se produce al final de la iteración de diseño, así que las divergencias se resuelven en el documento ANTES de codear.
 - **F.12.2 cero cambio funcional**: refactor de composición debe preservar comportamiento exacto. E2E spec Playwright (si existe) DEBE pasar sin cambios. Tests unit ajustados solo si imports cambian de location. Heredable: cualquier futuro refactor de layout puro sigue el patrón "tests as ground truth — si cambian, hay regresión funcional encubierta".
 
+#### A.11.10.9.2. Refinamiento pre-código F.12.1 — R1..R6 frozen (2026-05-19)
+
+**Propósito**: congelar las 6 decisiones doctrinales pre-código de F.12 antes de tocar `UI_SPEC.md` o cualquier archivo de `frontend/`. Patrón heredado §A.11.10.7.2 (F.10 R1..R3 OAS rigor) + §A.11.10.8.2 (F.11 Q1..Q5 → R1..R5). Cada R cita la fuente de verdad doctrinal (UI_SPEC §X, ADR-NNN, regla R*/D*, patrón heredado F.N) que la fundamenta. Resolución de [§A.11.10.9.1 Q1..Q5 + Q6 derivada]. Cualquier divergencia durante F.12.1 (iteración de wireframes) o F.12.2 (implementación) requiere **Amendment** explícito en esta sub-sección (L18 frozen).
+
+##### R1 — Ubicación de los componentes nuevos (resuelve Q1)
+
+**Decisión**: caso a caso según alcance funcional, en 4 tiers:
+
+| Tier | Ubicación | Criterio | Documentación |
+|---|---|---|---|
+| **Tier 1 — DS canónico** | `frontend/app/components/ui/` | Componente de **propósito general** reutilizable a cualquier detail page del proyecto (no solo F.12). Mínimo 2 consumidores reales actuales o claramente previstos en `current.md`. | §N en `UI_SPEC.md` + entrada en `DESIGN_SYSTEM.md`. |
+| **Tier 2 — Compartido cliente+admin del módulo Servicios** | `frontend/app/_shared/services/` | Card o SC visible en **ambos** roles (con o sin prop `isAdmin` para diferencias display-only). Patrón heredado: `SslStatusCard`, `AppShortcutsCard`, `BillingCrossLinkCard`, `ActionsBar`, `MetricsBar`. | Doc inline (JSDoc del componente). |
+| **Tier 3 — Subcomponente interno de `_shared/services/`** | `frontend/app/_shared/services/_components/` | Sub-bloque de un componente Tier 2 (no importado desde `page.tsx`, sino desde otro Tier 2). Patrón heredado: `_components/ServiceAuditTimeline.tsx`. | Doc inline. |
+| **Tier 4 — Admin-only puro** | `frontend/app/admin/services/[id]/_components/` (o equivalente admin route) | Componente **exclusivamente admin**, sin variante cliente conceptualmente posible. Patrón heredado F.11: `<ProviderHealthBadge>` (doctrina **L16 NO universal** §A.11.10.8.2 (a)). | Doc inline. |
+
+**Componentes nuevos previstos para F.12** (lista provisional — se congela en F.12.1 al final de la iteración de wireframes):
+
+| Componente | Tier propuesto | Justificación |
+|---|---|---|
+| `<ServiceDetailLayout>` SC | Tier 2 (`_shared/services/`) | Orquestador del registry (R2+R3). Compartido cliente+admin. |
+| `<PageSectionGroup>` | Tier 1 (DS) **solo si** ROI 2+ consumidores | Cromo consistente entre secciones (`<h2>` + spacing + Card opcional). Si no se justifica reutilización fuera de F.12, baja a Tier 3 como `_shared/services/_components/SectionGroup.tsx`. **Decisión final en F.12.1 al congelar wireframes.** |
+| `<DriftBannerStack>` | Tier 2 | Apilamiento ordenado de banners (terminal, drift, suspended). Compartido cliente+admin con shape distinto por rol (§4.13). |
+| Catálogo `service-detail-sections.tsx` (R3) | Tier 2 | Registry declarativo (no es componente sino módulo). |
+
+**Anti-decisión explícita** (NO se crean): `<AdminOnlyGuard>` SC abstracto — la doctrina §1.2 P6 + ADR-070 + CASL ya filtran en backend; el frontend usa `scope: 'admin'` del descriptor (R3) que es más explícito y testeable que un guard wrapper opaco.
+
+**Fuentes**: UI_SPEC §1.2 P6 contenido adaptativo por rol · ADR-070 dashboard puerta unificada · doctrina L16 NO universal heredada F.11 §A.11.10.8.2 (a) · patrón Next.js `_components/` underscore folder (no route).
+
+##### R2 — Layout único discriminado por rol (resuelve Q2)
+
+**Decisión**: `frontend/app/_shared/services/ServiceDetailLayout.tsx` SC **único**, con prop `isAdmin: boolean` derivada server-side de `getServerSession()` + `isStaffRole(session?.user.role.slug)`. Las dos páginas `frontend/app/dashboard/services/[id]/page.tsx` y `frontend/app/admin/services/[id]/page.tsx` se convierten en wrappers finos (~20-30 LOC) que:
+
+1. Resuelven `id` del `params`.
+2. Cargan `data: ServiceDetailResponse` via `serverFetch` (cliente fail-soft `null` → `<EmptyState>`; admin fail-soft idéntico).
+3. Cargan side-data (`billingCrossLink`, etc.) via `Promise.all` para evitar waterfall.
+4. Componen el `ServiceDetailContext` (ver R3) — incluye `isAdmin`, `isTerminal`, `isDrift`, `isSuspended`, `suspensionReasonCode`.
+5. Delegan render a `<ServiceDetailLayout ctx={ctx} />`.
+
+**Contrato del SC** (frozen):
+
+```typescript
+interface ServiceDetailLayoutProps {
+  ctx: ServiceDetailContext;
+}
+
+export default function ServiceDetailLayout({ ctx }: ServiceDetailLayoutProps): JSX.Element;
+```
+
+**Convención `isAdmin` cliente-page**: las pages `/dashboard/services/[id]` pueden devolver `isAdmin: true` si quien la abre es staff (patrón actual: `const isAdmin = isStaffRole(session?.user.role.slug)`). Las pages `/admin/services/[id]` SIEMPRE pasan `isAdmin: true` + un flag adicional `forceAdminRoute: true` en el contexto, que activa secciones admin-route-only (drift banner técnico, audit completo, controles destructivos). El registry decide via `scope` + `shouldRender(ctx)` con acceso al flag.
+
+**Justificación**: hoy hay ~70% de código compartido vía `_shared/services/`. Consolidar a 1 SC elimina drift accidental entre `/dashboard/services/[id]` y `/admin/services/[id]`. Trade-off conocido: el padre tendrá N condiciones de scope, pero R3 (router declarativo) las encapsula en descriptores aislados — el padre NO crece.
+
+**Fuentes**: UI_SPEC §1.2 P6 (contenido adaptativo por rol — Stripe/Hostinger pattern) · UI_SPEC §4.13 (drift por rol) · ADR-070 (separación admin/cliente como capability del layout, no como duplicación) · ADR-078 A1 (Modelo A — SC + Server Actions cookies httpOnly) · ADR-077 (capability flags `info.capabilities.*` ya determinan QUÉ se renderiza sin condicionar por `provisioner_slug`).
+
+##### R3 — Router de secciones declarativo (resuelve Q3 — propuesta cementada y aceptada)
+
+**Decisión**: catálogo declarativo `frontend/app/_shared/services/service-detail-sections.tsx` que exporta una constante `SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[]`. El `<ServiceDetailLayout>` (R2) **solo itera** ordenando por `priority` descendente (mayor número = más arriba) y filtrando por `scope` + `shouldRender(ctx)`. Cero condiciones inline en el padre.
+
+**Tipos exactos del contrato** (frozen — viven en `_shared/services/service-detail-sections.tsx`):
+
+```typescript
+import type { ComponentType } from 'react';
+import type {
+  Service,
+  ServiceInfo,
+  ServiceBillingCrossLink,
+} from '../../lib/api';
+
+export type SectionScope = 'admin' | 'client' | 'both';
+
+export interface ServiceDetailContext {
+  /** Datos crudos del backend (`GET /services/:id`). */
+  service: Service;
+  info: ServiceInfo;
+  /** Side-data fetched en paralelo en el wrapper page. */
+  billingCrossLink: ServiceBillingCrossLink | null;
+  /** Rol efectivo del usuario que abre la página. */
+  isAdmin: boolean;
+  /** True si la ruta es `/admin/services/[id]` (no `/dashboard/services/[id]` con isAdmin=true). */
+  forceAdminRoute: boolean;
+  /** Estados derivados canónicos (heredados del page actual). */
+  isTerminal: boolean;
+  isDrift: boolean;
+  isSuspended: boolean;
+  suspensionReasonCode: SuspensionReasonCode | null;
+}
+
+export interface SectionDescriptor {
+  /** Identificador estable y único — usado en tests + analytics + claves React. */
+  id: string;
+  /** Etiqueta humana en español (para devtools + futuro analytics). NO se renderiza. */
+  label: string;
+  /** Quién puede ver esta sección. `both` = visible cliente y admin (con o sin variación interna). */
+  scope: SectionScope;
+  /**
+   * Prioridad de render. Descendente: 1000 = arriba, 1 = abajo.
+   * Convención de rangos:
+   *   - 1000..1999: banners de estado crítico (terminal, drift admin, suspended)
+   *   - 500..999:   identidad del servicio (header, detalles canónicos)
+   *   - 100..499:   métricas y estado del recurso (MetricsBar, SSL, apps, billing cross-link)
+   *   - 50..99:     operativas (SSO panel, ActionsBar, DNS link, App admin shortcuts)
+   *   - 1..49:      histórico y meta (audit timeline, dev custom placeholder, fetchedAt footer)
+   */
+  priority: number;
+  /** Predicado de visibilidad. Acceso completo al contexto. Server-evaluable (puro). */
+  shouldRender: (ctx: ServiceDetailContext) => boolean;
+  /** El componente que renderiza la sección. Recibe `ctx` completo. */
+  component: ComponentType<{ ctx: ServiceDetailContext }>;
+}
+
+export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
+  // poblado en F.12.2 — mapping completo de cards actuales a descriptores
+];
+```
+
+**Reglas inmutables del registry** (frozen):
+
+1. **Descriptores son objetos puros**: `shouldRender` no hace side-effects, no fetcha, no usa hooks. Solo lee `ctx`.
+2. **Render order determinista**: el padre hace `SERVICE_DETAIL_SECTIONS.filter(s => matchesScope(s.scope, ctx) && s.shouldRender(ctx)).sort((a,b) => b.priority - a.priority)`. NUNCA se introduce randomización ni reordenamiento dinámico.
+3. **Empate de `priority`**: en colisión, gana el orden de declaración en el array (estable). Sirve para grupos lógicos consecutivos (ej. dos secciones admin con `priority: 100`).
+4. **`scope` strict**: helper `matchesScope(scope: SectionScope, ctx: ServiceDetailContext): boolean` = `scope === 'both' || (scope === 'admin' && ctx.isAdmin) || (scope === 'client' && !ctx.isAdmin)`. Documentado + testeado.
+5. **`forceAdminRoute`** se chequea **dentro** de `shouldRender` cuando aplica (ej. banner drift técnico crudo solo en `/admin/services/[id]`, no en `/dashboard/services/[id]` con staff abriendo). NO se duplica como `scope` nuevo.
+6. **Heredable**: plugins futuros (Sprint 15D RC, 15E Docker, 15G Plesk) **registran descriptores adicionales** en el mismo array (o en arrays plugin-specific concatenados). Cero modificación del padre. Documentar en cada Amendment de ADR-077 si un plugin añade descriptor.
+
+**Justificación doctrinal** (multifuente):
+
+- **UI_SPEC §1.2 P6** materializado explícitamente: `scope` + `shouldRender` son la explicitación frontend del filtrado por rol que CASL hace en backend.
+- **UI_SPEC §4.13 drift por rol** materializado como descriptor único con `scope: 'both'` + `shouldRender` que ramifica el `component` interno según `ctx.isAdmin` (renderiza banner técnico admin vs mensaje empático cliente — patrón heredado §4.13 frozen).
+- **ADR-070 puerta unificada**: el dashboard agrega secciones según contribución del plugin (apps, SSL, quota, DNS) — la extensibilidad natural es vía registry de descriptores.
+- **ADR-077 capability-driven**: `shouldRender(ctx) = !ctx.isTerminal && Boolean(ctx.info.ssl)` es el mismo predicado declarativo que hoy vive como `{!isTerminal && info.ssl && <SslStatusCard ssl={info.ssl} />}` — la diferencia es que ahora vive registrado en un sitio único en lugar de cableado en el padre.
+- **Estándar industria**: Stripe Dashboard, Vercel Project Settings, Linear Issue View — section/tab registries son patrón canónico para detail pages extensibles.
+- **ROI medible**: el padre actual `/dashboard/services/[id]/page.tsx` tiene **~580 LOC** con **~6 condiciones inline cableadas** + JSX repetitivo de cards. El padre post-R3 son ~30 LOC (wrapper + ctx + delegación). Cada sección encapsulada testeable de forma aislada.
+
+##### R4 — Wireframes ASCII inline en UI_SPEC §N (resuelve Q4 — default razonado)
+
+**Decisión por defecto**: wireframes ASCII **inline** dentro de cada sección §5.14/§5.18/§5.19 del propio `UI_SPEC.md`. Mismo patrón canónico que §2.3..§2.7 (Anatomía: Overview/List/Detail/Form/Workspace) que tienen ASCII inline. UI_SPEC actual ~1946 líneas; estimación post-F.12 ~2300 líneas (margen aceptable — el documento es el manifiesto canónico, debe ser denso).
+
+**Trigger de revisión a sub-archivo**: si tras la v1 del primer wireframe queda claro que **algún** wireframe individual supera ~70 líneas ASCII (3 vistas: cliente normal + admin normal + admin con drift), se mueve a `docs/40-design/wireframes-f12-services.md` linkado desde UI_SPEC §5.14. Decisión por wireframe individual (no por todos).
+
+**Fuentes**: UI_SPEC §2.3..§2.7 patrón canónico inline · §5.13 Auth wireframe inline 16 líneas (referencia de densidad aceptable) · principio de **doc maestra cohesionada** sobre fragmentación.
+
+##### R5 — PR único monolítico F.12 (resuelve Q5 — default razonado)
+
+**Decisión por defecto**: **1 PR único** F.12 incluyendo ambas sub-fases (F.12.1 doc-only iterativo + commits FREEZE + F.12.2 refactor). Patrón heredado §A.11.10.7 (F.10 PR único #85) + §A.11.10.8 (F.11 PR único #90). Coherencia del refactor entre las 3 familias de páginas requiere review unificado de los componentes nuevos (`<ServiceDetailLayout>`, `<PageSectionGroup>` si aplica, registry).
+
+**Trigger de partición a sub-PRs**: si tras congelar wireframes la estimación LOC del refactor F.12.2 supera **2000 LOC netos**, partir en 3 sub-PRs por familia con commits ordenados:
+
+- `F.12.2.a` componentes base (`<ServiceDetailLayout>` + registry + `<PageSectionGroup>` si aplica) + refactor `/services/[id]` cliente + admin
+- `F.12.2.b` refactor `/admin/settings/plugins` lista
+- `F.12.2.c` refactor `/admin/settings/plugins/[slug]` detalle
+
+Cada sub-PR auto-suficiente (review independiente posible), tests verdes, sin breaking entre ellos.
+
+**Fuentes**: patrón heredado fases F.4..F.11 (todas PR único + post-merge sync separado) · trade-off review ergonomics vs coherencia atómica.
+
+##### R6 — Numeración §5.X en UI_SPEC para las 3 secciones nuevas (Q6 derivada, no incluida en §A.11.10.9.1 original)
+
+**Decisión derivada** (no estaba en Q1..Q5 — descubierta al cotejar UI_SPEC líneas 1646..1709 antes de empezar a redactar wireframes):
+
+| Sección F.12 | Numeración | Justificación |
+|---|---|---|
+| **§5.14 — Servicio Detail (`/dashboard/services/[id]` + `/admin/services/[id]`)** | Aprovecha el **gap §5.14 ausente** (entre §5.13 Auth y §5.15 Tareas — sección histórica eliminada en un commit previo, gap nunca rellenado). Detail page nuclear del sprint — orden de lectura natural junto al resto de Detail pages del doc. | Cero renumeración. Posición semántica razonable (después de Auth, antes de Tasks; en un futuro reorder semántico la sección puede moverse junto a Productos §5.4-§5.6 + Billing §5.7-§5.9 con una nueva R, pero F.12 NO renumera para no romper anchors externos). |
+| **§5.18 — Plugins List (`/admin/settings/plugins`)** | Tras §5.17 actual ("Resumen de componentes nuevos requeridos"). Admin tooling especializado — orden cronológico de adición (Sprint 15A). | Mantiene §5.17 como cierre histórico pre-F.12. Anchor `#section-5-18-plugins-list` estable a futuro. |
+| **§5.19 — Plugin Detail (`/admin/settings/plugins/[slug]`)** | Tras §5.18. Admin tooling especializado. | Consecutivo a §5.18, agrupa visualmente el módulo Plugins. |
+| **§5.20 — Resumen de componentes nuevos F.12** (opcional) | Tras §5.19. Anexo a §5.17 pre-F.12. | Solo si se crean componentes Tier 1 DS (R1) que necesiten entry en el resumen. Si todos los componentes nuevos son Tier 2/3/4 (`_shared/`), el resumen se omite y se documenta inline en los componentes. **Decisión final al congelar F.12.1.** |
+
+**Anti-decisión explícita** (NO se hace): renumeración de §5.13..§5.17. Romper anchors externos (PRs anteriores, dossiers de sprints cerrados, ADRs) sin necesidad funcional viola la regla canónica de **estabilidad de identificadores doctrinales**.
+
+**Convención adoptada** (heredable): cuando aparezca un gap §5.X disponible y la nueva sección encaje semánticamente o sea minoritaria, **aprovechar el gap** antes que añadir al final. Cuando la nueva sección sea estructuralmente posterior (módulo nuevo, admin tooling), añadir al final.
+
+**Fuentes**: cotejo UI_SPEC.md líneas 1646..1709 (vacío post-§5.13) · principio de **estabilidad de identificadores doctrinales** (ADRs, §, regla R*/D* no se renumeran salvo necesidad funcional) · regla heredable nueva (a documentar en `docs/90-meta/development-playbook.md` si se confirma utilidad).
+
+##### Aplicación de R1..R6 al pipeline F.12.1 → F.12.2
+
+| Etapa | Acción concreta | Artefactos producidos |
+|---|---|---|
+| **F.12.1 commit 2** | v1 wireframes ASCII §5.14 + §5.18 + §5.19 según R4 inline. Cada wireframe: jerarquía componentes (árbol) + bloques (siguiendo §2.5 Detail Page) + estados (empty/error/loading) + variaciones por rol (§1.2 P6) + drift (§4.13) + responsive. | 3 secciones nuevas en `UI_SPEC.md` + posible §5.20 anexo R1. |
+| **F.12.1 commits 3..N** | Iteración con Yasmin sobre wireframes. Cada commit = `docs(sprint-15c-ii): F.12.1 wireframe iteración N — <cambio concreto>`. | Wireframes refinados. |
+| **F.12.1 commit FREEZE** | Yasmin confirma. Commit dedicado `docs(sprint-15c-ii): F.12.1 — wireframes FREEZE 2026-XX-XX (Yasmin)`. Marca el punto de no-retorno al diseño. | Wireframes congelados. |
+| **F.12.2 commits 1..N** | Orden canónico: (a) `_shared/services/service-detail-sections.tsx` registry vacío + tipos R3 + helpers `matchesScope`. (b) Descriptores migrando JSX inline actual del page cliente uno a uno (preserva comportamiento — cada migración verificable visualmente). (c) `<ServiceDetailLayout>` SC orquestador. (d) `<PageSectionGroup>` / `<DriftBannerStack>` si R1 los justifica. (e) Refactor `frontend/app/dashboard/services/[id]/page.tsx` a wrapper ~30 LOC. (f) Refactor `frontend/app/admin/services/[id]/page.tsx` idem (puede compartir helper de carga de `ctx`). (g) Refactor `/admin/settings/plugins` lista + `[slug]` detalle. (h) Ajuste tests unit por imports cambiados. | `ServiceDetailLayout` + registry + 3 familias de páginas refactorizadas. |
+| **F.12.2 validación** | `pnpm ci:check:full` + boot smoke + smoke real Yasmin contra `MockEnhanceServer` 5 escenarios: (1) cliente activo · (2) cliente suspended · (3) admin con drift · (4) admin terminal cancelled · (5) admin con apps + SSL + quota threshold. | Suite verde + smoke verde. |
+| **F.12.2 PR** | PR único F.12 (R5 default). Body incluye bypass §6 15ª aplicación si CI Actions sigue billing-bloqueada. Tras merge → post-merge sync PR doc-only (patrón heredado). | PR mergeado a master + sync. |
+
+##### FREEZE gate — wireframes congelados (2026-05-20, Yasmin)
+
+**FREEZE confirmado por Yasmin el 2026-05-20.** Las 3 secciones `UI_SPEC.md` §5.14 (Servicio Detail, 24 descriptores) + §5.18 (Plugins List) + §5.19 (Plugin Detail) quedan **congeladas** tras la iteración v2 (3 ambigüedades resueltas). A partir de este punto arranca F.12.2 (implementación pura composición). Cualquier divergencia del diseño congelado durante la implementación requiere **Amendment** explícito en esta sub-sección (L18 frozen). Commits de diseño F.12.1: `1837da3` (R1..R6) · `b3a0830` (§5.14 v1) · `3edd954` (§5.18 v1) · `bd992cc` (§5.19 v1) · `fa66b71` (§5.14 v2 ambigüedades).
+
+##### Amendments durante F.12.2 (implementación — L18 frozen)
+
+Divergencias del diseño congelado descubiertas al implementar contra el código real de los dos pages, todas en servicio de **cero cambio funcional** (preservar el comportamiento exacto de `/dashboard/services/[id]` y `/admin/services/[id]`). Documentadas aquí (no desvío silencioso).
+
+**Amendment I — refinamientos del registry R3** (commit `feat F.12.2`):
+
+1. **`matchesScope` se basa en `ctx.forceAdminRoute` (la RUTA), NO en `ctx.isAdmin` (el rol).** El freeze §A.11.10.9.2 R3 regla 4 indicaba `isAdmin`. Pero un staff puede abrir `/dashboard/services/[id]` (cliente) y debe ver la experiencia CLIENTE — el page cliente actual NO ramifica su composición por rol, solo pasa `isAdmin` a ciertos componentes. `matchesScope` con `isAdmin` rompía ese caso (un staff vería las secciones admin en la página cliente). Corregido: `scope === 'both' || (scope === 'admin' && forceAdminRoute) || (scope === 'client' && !forceAdminRoute)`. `isAdmin` se conserva en el contexto para uso DENTRO de componentes (tooltips, acciones admin-no-blacklisted) y `shouldRender`.
+2. **Registry dividido base + extensión admin.** En lugar de un único array global `SERVICE_DETAIL_SECTIONS`, se divide en base (`_shared/services/service-detail-sections.tsx`, 15 descriptores both+client) + extensión (`app/admin/services/[id]/_sections.tsx`, 9 descriptores admin) inyectada vía la prop `extraSections` del `<ServiceDetailLayout>`. Razón: los componentes admin-only (Tier 4 R1) viven en `app/admin/services/[id]/_components/`; un array único en `_shared/` los importaría → acoplaría `_shared/` a `app/admin/`. La división materializa la **regla 6 de R3** (concatenación de arrays — heredable a plugins futuros 15D/15E/15G que registran su extensión).
+3. **`sso-panel-card` / `actions-bar` / `dns-link-card`: `shouldRender` ramifica por `forceAdminRoute`.** El freeze listaba el gating CLIENTE (`!isSuspended`/`!isDrift`). El page admin gatea solo `!isTerminal` para estos 3. Para preservar ambas conductas: `!isTerminal && … && (forceAdminRoute || (!isSuspended && !isDrift))` (sso/dns) y `!isTerminal && (forceAdminRoute || !isSuspended)` (actions).
+4. **`isAdmin` vs `forceAdminRoute` por componente.** Los pages previos pasaban `isAdmin` de forma heterogénea: `false` hardcoded a ServiceHeader/MetricsBar/SslStatusCard/BillingCrossLink (chrome display-only) incluso para staff en la página cliente; pero el `isAdmin` derivado de staff a AppShortcuts/SsoButton/ActionsBar (acciones + tooltips relevantes a staff). Replicado: los 4 de chrome usan `ctx.forceAdminRoute`; los 3 con acciones usan `ctx.isAdmin`.
+5. **`ProviderHealthBadge` fusionado en la fila de cabecera admin** (`header-admin-row`) en lugar de descriptor separado `admin-provider-health-badge` (freeze) — preserva el layout `flex justify-between` (badge top-right en la misma fila que el back-link). El conteo total sigue siendo 24 descriptores (15 base + 9 admin; el back-link cliente y la fila admin son 2 descriptores route-exclusivos).
+6. **`ServiceDetailContext` extendido** con `pluginHealth: PluginHealthSummary | null` + `supportsReconcileOne: boolean` (admin fetcha; cliente deja `null`/`false`) — el freeze ya refería `ctx.pluginHealth`. Y `SectionDescriptor.component` admite **async Server Components** (`ReactNode | Promise<ReactNode>`) porque `ServiceNotesCard` es async.
+
+**Amendment II — plugins detail layout con slots inyectados:** `<AdminPluginDetailLayout>` (`_shared/plugins/`) recibe los CC route-local (`PluginConfigForm`, sección reconcile-all) como slots `ReactNode` en lugar de importarlos. Mismo principio que `extraSections` — evita acoplar `_shared/` a `app/admin/settings/plugins/[slug]/_components/`. El `<AdminPluginsListLayout>` no necesita slots (solo usa `PluginCard`, ya en `_shared/plugins/`).
+
+**Validación F.12.2:** `pnpm typecheck` + `pnpm lint:check` (`--max-warnings=0`) + `pnpm build` (32 páginas) verdes. El frontend NO tiene runner de tests propio (heredado handoff) → la validación es tsc+eslint+build. Orden de secciones verificado idéntico al de ambos pages previos por inspección de `priority` (cliente 15 secciones · admin 19). Commit implementación: `feat(sprint-15c-ii): F.12.2 — layout canónico servicio + plugins`.
+
+##### Sub-fase F.12.3 — Rediseño visual a estándar profesional (Amendment III, 2026-05-20)
+
+**Origen:** tras F.12.2 (registry, *cero cambio funcional*), Yasmin observó que F.12 había **documentado + reorganizado el código** pero NO mejorado el visual — la página seguía siendo un scroll plano de ~15-19 tarjetas, que no cumple del todo UI_SPEC §2.5 (Detail con tabs cuando hay >2 secciones). Decisión Yasmin (2026-05-20): **rediseño visual real**, "inteligente, robusto, profesional, válido para diferentes tipos de servicio / provisioners, con componentes/CSS/copys según UI_SPEC.md". Esto es una **ampliación de scope** de F.12 — ya **NO es cero cambio funcional** (cambia presentación; preserva datos/comportamiento/gating). Se documenta como Amendment III (L18 frozen).
+
+**Q (re-valoración pre-código)** — Yasmin eligió: (a) organización **tabs para cliente y admin** (canónico §2.5) sobre scroll-agrupado / adaptativo-por-rol; (b) alcance **tratamiento completo UI_SPEC** (frame + i18n + CSS module + DS + copys genéricos) sobre versiones parciales.
+
+**Implementación (commit `cbcc718`):**
+
+1. **Tabs adaptativas provisioner-agnósticas.** Nuevo `SectionGroup = 'header'|'summary'|'management'|'activity'|'footer'` + campo `group` en los 24 descriptores. `<ServiceDetailLayout>` organiza en **zonas**: `header`/`footer` siempre visibles (identidad + banners críticos + meta); `summary`/`management`/`activity` en tabs (DS `<Tabs>`). **Tab vacía se oculta**; **si solo sobrevive 1 grupo → SIN tabs** (§2.5). Robustez: un servicio mínimo (`support_inside` sin métricas/SSL/DNS/apps) colapsa a Resumen+Actividad o sin tabs; uno rico (`enhance_cp`) muestra las 3. El frame es uno solo; lo que aparece y cuántas tabs lo decide la **capability**, nunca el `provisioner_slug` (ADR-070/077).
+2. **`<ServiceDetailTabs>` (CC).** Reusa el DS `<Tabs>` + `useState` (patrón heredado `ClientDetailView`). Paneles SC pre-renderizados (incl. async SC `ServiceNotesCard`) conmutados sin re-fetch — el wrapper SC ya cargó todo en `ServiceDetailContext`. `initialTab` de `?tab=` (deep-link). Layout monta el CC solo si ≥2 tabs; con 1, render directo.
+3. **i18n completo (§1.2 P5 + regla D11).** +36 keys `service.detail.*` (tabs, back-links, detalles, SSO, DNS, dev-custom, footer, fechas, suspended admin). Migra TODOS los copys hardcodeados de los bloques a `translations-es.ts` (antes vivían a pelo en el JSX).
+4. **CSS module + DS + tokens (§2.8).** Nuevo `_shared/services/service-detail.module.css` (tokens only) — el módulo de servicios era el **único del proyecto sin CSS module** (usaba estilos inline). Bloques reescritos con clases del módulo + DS `Card`/`AlertBanner`. Helper `SectionLinkCard` DRY-fica el chrome "Card título+descripción+acción" (SSO/DNS/Audit).
+5. **Bug latente arreglado.** El módulo de servicios usaba `var(--brand-600)` en 16 sitios — token **NO definido** en `globals.css` (los enlaces/CTAs renderizaban sin color de marca, heredando el color del texto). Migrado a `--brand` / `--text-on-brand` (tokens reales). Mejora visual real (los enlaces ahora muestran color de marca).
+
+**Boundary de F.12.3:** cubre el **frame** + los **bloques creados en F.12.2** (`service-detail-blocks.tsx`) + `AdminSuspendedBanner`. Los componentes admin-only **pre-existentes** (`AdminDriftBanner`, `AdminServiceDataCard`, `AdminServiceOperationsCard`, `ResendNotificationCard`, `ServiceNotesCard`, `ProviderHealthBadge`) **conservan sus estilos/copys internos** — son componentes separados ya validados; su migración i18n/CSS sería housekeeping aparte (candidato backlog `DC.NEW-*`).
+
+**Validación F.12.3:** `pnpm typecheck` + `pnpm lint:check` (`--max-warnings=0`) + `pnpm build` (32 páginas) verdes (commit `cbcc718`). Pendiente: smoke real Yasmin (5 escenarios + verificar adaptación de tabs + colapso de servicio mínimo).
+
+##### Sub-fase F.12.4 — Arquitectura de información profesional (Amendment IV, 2026-05-20)
+
+**Origen:** tras F.12.3 (tabs), Yasmin observó que "poner tabs no es suficiente" — dentro de cada tab las cards se apilaban una bajo otra sin jerarquía, los botones estaban dispersos (SSO en una card, ActionsBar suelto, DNS/operaciones/audit cada uno en su card), copys y CTAs sin convención, y nada de eso respeta UI_SPEC. Encargó un **audit exhaustivo** (UI_SPEC + estándar del sector + DESIGN_SYSTEM) y reorganizar TODA la información y botones del service detail. Amendment IV (L18 frozen).
+
+**Audit — violaciones halladas** (vs UI_SPEC §2.5/§3.1/§3.5/§4.2/§4.3 + DESIGN_SYSTEM Reglas D2/D5 + detail pages canónicos clientes/productos/factura):
+1. Botones dispersos (~14 superficies sin jerarquía) — viola **D2** (1 primaria + máx 2 secundarias + resto ⋯) + anti-patrón #4 (3+ botones al mismo nivel).
+2. Destructivas como botones permanentes — viola **D5** (destructivas en ⋯ → modal).
+3. Metadata en card "Detalles" separada — viola **§3.1** (en detail, metadata inline en header).
+4. Cards apiladas columna única — vs canónico grid 2-col de Cards con título de sección.
+5. Botones como `<Link>` con estilo inline — vs DS `<Button variant>`.
+6. NO usa `<DetailPage>` (el resto de detail pages sí).
+7. Copys de CTAs sin convención de voz de marca.
+
+**Decisiones frozen (Yasmin 2026-05-20):**
+- **D1 — Adoptar el DS `<DetailPage>`** (breadcrumb + headerCard + tabBar canónicos). El tab state vive en un wrapper cliente `<ServiceDetailView>` (patrón `ClientDetailView`); el SC pre-renderiza header + banners + paneles (incl. async SC) y los pasa como `ReactNode`.
+- **D2 — Metadata inline en el header** (Plan · Dominio · Contratado · Renovación), se elimina la card "Detalles del servicio" (§3.1).
+- **D3 — Clúster de acciones en el header** (Regla D2): **primaria** = Abrir panel (SSO, si `hasSsoPanel`); **secundaria** = Gestionar DNS (si `has_dns_management`); **menú ⋯** = SOLO acciones rápidas/reversibles del plugin (`info.availableActions` filtradas, igual que ActionsBar). Banners (terminal/suspendido/drift/desync) full-width bajo el header, siempre visibles.
+- **D4 — Operaciones admin consecuentes en card "Operaciones" (tab Gestión)**, NO en el menú: Cambiar plan / Recalcular / Suspender / Reanudar / Cancelar — cada una abre modal (se reusa `AdminServiceOperationsCard` existente). `Reenviar notificación` = card propia (tiene selector). Patrón "zona de operaciones" visible+organizada (no escondida en menú), reconciliable con D5 porque cada destructiva sigue abriendo modal.
+- **D5 — Tabs con grid 2-columnas de Cards** (no apilado): Resumen (Recursos = métricas+SSL · Facturación · Aplicaciones · admin Datos técnicos) · Gestión (Operaciones · Reenviar notif) · Actividad (Notas · Auditoría).
+- **D6 — Todo a DS `<Button variant>` + `<Dropdown>`** + copys i18n; modales con copy §4.2 ("Sí, cancelar el servicio" / "No, volver").
+
+**Clúster por rol×estado (frozen):** cliente activo → primaria SSO + secundaria DNS + ⋯ (acciones plugin cliente) · cliente suspendido/drift/terminal → sin clúster (banners) · admin activo → SSO + DNS + ⋯ (restablecer contraseña…) · admin suspendido → primaria Reanudar + secundaria SSO · admin drift → SSO + DNS + ⋯ (banner drift con remediación) · admin terminal → sin clúster. Operaciones consecuentes siempre en card "Operaciones" (Gestión), no en el clúster.
+
+**Acciones que NO entran al clúster** (contextuales a su card): refrescar métricas (MetricsBar) · abrir app (Aplicaciones) · ver factura (Facturación) · reenviar notif (card propia) · remediación drift/desync (banners) · CTA suspensión cliente (banner).
+
+**Reutilización (no reescritura de internals):** `SsoButton` (primaria), `AdminServiceOperationsCard` (card Operaciones), `ResendNotificationCard` (card), banners existentes, métricas/SSL/apps/billing/notes/audit (re-agrupados en grids). Código NUEVO: `ServiceActionCluster` (CC: SSO + DNS + ⋯ Dropdown reusando `executeServiceActionAction`), `ServiceHeaderCard` (identidad + metadata inline + cluster), `ServiceDetailView` (CC: `<DetailPage>` + tab state) + restructura del registry + CSS grids.
+
+**Estado F.12.4:** mergeable en PR [#94](https://github.com/yasmindanailov/dashboard/pull/94) (commit `66bb2aa`); tsc+lint+build verdes + boot smoke. Pendiente smoke real Yasmin.
+
+##### Sub-fase F.12.5 — Densidad profesional según estándar del sector (Amendment V, frozen 2026-05-20 · NO implementada)
+
+**Origen:** tras F.12.4, Yasmin pidió un audit del inventario real de service/[id] por plugin + una comparativa con cómo organizan los grandes del sector, y valorar qué componentes faltan en el DS para la complejidad operativa de la página. F.12.5 es el **diseño congelado de la siguiente iteración** — se documenta aquí pero **se implementa en una conversación nueva** (decisión Yasmin 2026-05-20).
+
+**Audit del inventario (por plugin, vía `enhance.plugin.ts` + `internal/manual.plugin.ts` + ADR-077):**
+- **`enhance_cp`** (rico): capabilities `has_sso_panel`/`has_metrics`/`has_dns_management`/`supports_suspend`/`supports_reconciliation` = true; **11 acciones** (`reset_account_password` cliente · DNS CRUD · `change_package`+`list_available_plans`+`recalculate_provider_metrics`+`suspend_service`+`unsuspend_service` admin · `open_app_admin` per-app); `ServiceInfo` puebla `display` + `metrics` (disco/BW/email/BD) + `ssl` + `apps` (WP/Joomla) + `statusReason`/`recoveryHint`.
+- **`internal`** / **`manual`** (mínimos): todas las capabilities false (manual: `completes_via_task=true`); 0 acciones; `ServiceInfo` solo `display` + status (manual: + statusReason "pendiente agente"). → la página es identidad + estado + facturación + auditoría.
+- **Carga**: enhance admin activo ≈ 16 superficies de acción + ~10 bloques de datos; internal/manual ≈ 3 acciones + ~4 datos. El marco debe escalar de mínimo a denso.
+
+**Comparativa del sector (patrones canónicos extraídos):** Hostinger hPanel (KPIs de recursos arriba + launchpad de tools), OVH Manager (info-general en **main+aside**, facturación/renovación en rail derecho), cPanel/Plesk (launchpad por dominio funcional), Stripe/Vercel/DigitalOcean (header limpio + aside de metadata + **métricas prominentes** + tabs por área), GitHub/DO (**Danger Zone** roja aislada). Síntesis: (1) liderar con estado+recursos; (2) overview **main+aside**; (3) agrupar por dominio funcional; (4) destructivas en zona de peligro aislada; (5) progressive disclosure; (6) densidad progresiva.
+
+**Gap de componentes DS (decisión: construir los 4 + el layout):**
+- **`<Meter>`** — medidor usado/total + % + color por umbral (disco/BW/email/BD). Hoy `MetricsBar` improvisa barras; `StatsCard` es número+tendencia. Primitiva reutilizable (billing, cuotas…).
+- **`<SectionCard>`** — título + subtítulo + **slot de acciones** + body, **read-only** (≠ `EditorSectionCard`, que es para forms con "Guardar"). Cromo de sección canónico.
+- **`<DescriptionList>`** — pares etiqueta-valor responsive (metadata header + Datos técnicos, con `CopyableId` para IDs).
+- **`<DangerZone>`** — sección borde rojo para destructivas (patrón GitHub/DO).
+- **Layout `main + aside`** (2fr/1fr) — helper/CSS para el overview; si MAIN vacío, ASIDE fluye full-width.
+
+**Decisiones de IA frozen (re-valoración):**
+1. **Header**: identidad + Badge + metadata inline (`DescriptionList` horizontal: Plan·Dominio·Contratado·Renueva) + clúster (primaria SSO · secundaria DNS · ⋯) + (admin) badge salud. (igual que F.12.4.)
+2. **Tab Resumen → `main+aside`**: MAIN = `[SC]`Recursos (medidores `[M]`) · `[SC]`SSL · `[SC]`Aplicaciones (tiles). ASIDE = `[SC]`Facturación · (admin) `[SC]`Datos técnicos (`[DL]`+`CopyableId`) · (cliente) `[SC]`Ayuda + placeholder Sprint 22.
+3. **Tab Gestión (admin)**: `[SC]`Operaciones (seguras: Cambiar plan · Recalcular) · `[SC]`Reenviar notificación · **`[DZ]` Zona de peligro full-width al fondo** (Suspender · Cancelar → modal). Separa destructivas de operaciones seguras (Regla D5 + patrón danger-zone).
+4. **Tab Actividad**: `[SC]`Notas (admin) · `[SC]`Auditoría.
+5. **Recursos → medidores** prominentes (no barra plana) — lidera el overview (patrón #1 sector).
+6. **Robustez**: cada `[SC]` aparece por capability; MAIN vacío → ASIDE full-width; DangerZone al fondo; aside baja bajo main en <900px. Provisioner-agnóstico.
+
+**Wireframes frozen por rol×estado:** documentados en `UI_SPEC.md §5.14` (cliente activo · admin activo · suspendido cliente/admin · admin drift · terminal · servicio mínimo). Son el deliverable doctrinal de F.12.5.
+
+**Boundary:** F.12.5 recablea el overview + introduce las 4 primitivas DS. Reutiliza la lógica de acciones/operaciones/banners de F.12.4 (no reescribe Server Actions ni modales). Los componentes admin-only pre-existentes conservan sus internals (housekeeping aparte).
+
+**Estado:** **frozen, NO implementada.** Se implementa en conversación nueva (handoff §A.11.10.9.3). Las 4 primitivas, al construirse, se añaden a `components/ui/` + `DESIGN_SYSTEM.md` (convención DS).
+
+##### Riesgos identificados y mitigaciones
+
+| Riesgo | Probabilidad | Mitigación |
+|---|---|---|
+| Algún descriptor migra mal y rompe render condicional sutil (ej. orden de bullets en card de detalles) | Media | Cada descriptor migrado en commit aislado en F.12.2; verificación visual incremental. Smoke real Yasmin 5 escenarios obligatorio antes del PR. |
+| `<PageSectionGroup>` no se justifica como Tier 1 (DS) — solo 1 consumidor real | Alta | R1 baja a Tier 3 (`_shared/services/_components/`) al congelar F.12.1. No es regresión doctrinal. |
+| Wireframe individual supera 70 líneas ASCII (drift visual complejo) | Media | R4 trigger explícito — mover ese wireframe a `docs/40-design/`. Decisión por wireframe, no global. |
+| LOC neto F.12.2 supera 2000 → partir | Baja | R5 trigger explícito — sub-PRs F.12.2.a/b/c. Patrón canónico. |
+| Algún descriptor necesita acceso a estado React (no puro) | Baja | Si aparece, el descriptor encapsula un client component `'use client'` que hace el hooking; el descriptor sigue siendo puro porque solo declara `component: <ClientWrapper>`. Documentar como Amendment si se necesita. |
+| `forceAdminRoute: true` en `/admin/services/[id]` se filtra mal a algún descriptor | Media | Test unit del helper `matchesScope` + tests de los descriptores que dependen del flag (drift técnico admin, audit completo). |
+| Tests existentes que importan `<ActionsBar>` / `<SsoButton>` etc. desde el page rompen | Baja | Mantener exports actuales en `_shared/services/index.ts` (barrel). Cambian las páginas, no el contrato exportado. |
+
+##### Lo que F.12 NO aborda (alcance frozen)
+
+- `DC.46` `autoCancelServices` → `deprovisionAsAdmin` (destructivo, candidato fase aparte).
+- `DC.47` naming `notes` ↔ `internal_note` `DeprovisionDto` (housekeeping).
+- `DC.48` bandwidth como F.8.x (semántica reset mensual sin resolver).
+- `DC.49` `MockEnhanceServer` seed dinámico `usedResources` per-subscriptionId (housekeeping pre-G.2).
+- `DC.NEW-51..54` App Management futuros (stats UI / install-uninstall / ops mutación / modelo BD).
+- `DC.NEW-55..58` F.11 housekeeping (whitelist V2 quota / supertest E2E resend / Idempotency-Key / reconcile enhance_customers).
+- Mejoras funcionales en cualquier card existente (SSL detail expandido, métricas drill-down, etc.) — **cero cambio funcional** es invariante de F.12.2.
+- Adopción de `<PageSectionGroup>` en otras detail pages del proyecto (Clients / Products / Billing / Tickets / Tasks) — solo si se promociona a Tier 1; trabajo futuro fuera de F.12.
+
+#### A.11.10.9.3. Handoff F.12.5 — implementación en conversación nueva (frozen 2026-05-20)
+
+**Propósito**: arrancar la implementación de F.12.5 (densidad profesional — Amendment V) en una conversación nueva con rigor, leyendo SOLO este bloque + el Amendment V (§A.11.10.9.2) + `UI_SPEC.md §5.14`. Patrón heredado de los handoffs §A.11.10.9.1 (F.12) / §A.11.10.8.1 (F.11).
+
+**Estado del repo al arranque:**
+- Rama `sprint15c-ii-fase-f12-canonical-layout` con F.12.1→F.12.4 en PR [#94](https://github.com/yasmindanailov/dashboard/pull/94) (último commit de código `66bb2aa` + docs F.12.5). tsc+lint+build verdes; boot smoke OK. **Pendiente: smoke real Yasmin de F.12.4 + decidir si F.12.5 va sobre la misma rama/PR o tras mergear #94.**
+- F.12.4 implementado: `<DetailPage>` + `<ServiceHeaderCard>` (identidad+metadata+clúster) + `<ServiceActionCluster>` + `<ServiceDetailView>` + registry reagrupado (banner/summary/management/activity/footer) + grids 2-col auto-fit + `quick-actions.ts`. Eliminados `ServiceDetailTabs`/`ActionsBar`.
+
+**Qué construye F.12.5** (diseño congelado, Amendment V + UI_SPEC §5.14):
+1. **4 primitivas DS nuevas** en `frontend/app/components/ui/` (+ barrel `index.ts` + `DESIGN_SYSTEM.md`):
+   - **`<Meter>`** — `{ label, used, total?, unit, percent?, thresholdPct? }` → barra/ring usado/total + % + color por umbral (ámbar ≥threshold, rojo ≥95%, heredando la doctrina F.8). Tokens only.
+   - **`<SectionCard>`** — `{ title, subtitle?, actions?: ReactNode, children }` read-only (≠ `EditorSectionCard`). Reemplaza el `Card`+`<h2>` ad-hoc.
+   - **`<DescriptionList>`** — `{ items: { term, value }[] , layout?: 'inline'|'stacked' }` para metadata + datos técnicos (con `CopyableId` en los IDs).
+   - **`<DangerZone>`** — `{ title, children }` sección borde rojo para destructivas.
+   - **Layout `main+aside`** — helper CSS (`grid 2fr/1fr`, colapsa <900px; si MAIN vacío, ASIDE full-width). Puede ser una clase del `service-detail.module.css` o un `<SplitLayout>` DS si se reutiliza.
+2. **Recablear el overview** (Resumen) a `main+aside`: MAIN = Recursos (medidores `<Meter>`) · SSL · Aplicaciones; ASIDE = Facturación · (admin) Datos técnicos · (cliente) Ayuda + placeholder.
+3. **`MetricsBar` → medidores `<Meter>`** (sustituye las barras improvisadas).
+4. **Gestión**: separar `AdminServiceOperationsCard` en Operaciones seguras (Cambiar plan/Recalcular) + **`<DangerZone>`** (Suspender/Cancelar). Reenviar notif como card.
+5. **Unificar cromo** de todas las secciones en `<SectionCard>` + `<DescriptionList>`.
+
+**Orden de implementación sugerido:** (a) primitivas DS (`Meter`/`SectionCard`/`DescriptionList`/`DangerZone`) + tests si el DS los tuviera (no hay runner frontend → tsc+lint+build) → (b) layout main+aside → (c) `<Meter>` en Recursos → (d) recablear Resumen a main+aside → (e) split Operaciones/DangerZone en Gestión → (f) unificar `<SectionCard>` → (g) UI_SPEC §5.14 ya está; ajustar si diverge → (h) `ci:frontend:full` + boot smoke + smoke real Yasmin.
+
+**Decisiones congeladas** (NO re-abrir sin Amendment): los 4 componentes + main+aside (Yasmin 2026-05-20); recursos como medidores; overview main+aside; DangerZone aislada; agrupación por dominio funcional; provisioner-agnóstico. Wireframes por rol×estado en UI_SPEC §5.14.
+
+**ADR amendments esperados:** ninguno (UI_SPEC + DESIGN_SYSTEM son el deliverable; las primitivas DS no tocan contratos backend).
+
+**Frase canónica de continuación** (Yasmin pega en chat nuevo):
+> *"Implementa F.12.5 (densidad profesional) leyendo el dossier §A.11.10.9.2 Amendment V + §A.11.10.9.3 (handoff) + `UI_SPEC.md §5.14`. Construye las 4 primitivas DS (`<Meter>`, `<SectionCard>`, `<DescriptionList>`, `<DangerZone>`) + layout main+aside, recablea el overview de service/[id] (recursos=medidores, main+aside facturación/datos/soporte, Gestión con zona de peligro aislada). Frozen 2026-05-20: no re-abrir las decisiones de IA; cualquier divergencia = Amendment. Reutiliza la lógica de acciones/operaciones/banners de F.12.4 (no reescribir Server Actions). Valida tsc+lint:check+build + boot smoke. Sé riguroso y profesional."*
+
+#### A.11.10.9.4. F.12.5 — implementación (Amendment VI, 2026-05-20)
+
+**Estado:** **implementada** sobre la rama `sprint15c-ii-fase-f12-canonical-layout`. Cero re-apertura de las decisiones de IA frozen (Amendment V): las 4 primitivas + main+aside + recursos=medidores + DangerZone aislada + provisioner-agnóstico se materializan tal cual. Las divergencias abajo son mecanismos de implementación o conductas heredadas de F.12.4 — documentadas aquí (L18 frozen), no desvíos de diseño.
+
+**Artefactos producidos:**
+- **4 primitivas DS** (`frontend/app/components/ui/`, tokens only, SC-compatible, + barrel + `DESIGN_SYSTEM.md`): `<Meter>` (medidor usado/total + % + coloreo por umbral; cálculo robusto total→percent→sin barra), `<SectionCard>` (cromo read-only título+subtítulo+slot acciones+cuerpo; ≠ `EditorSectionCard`), `<DescriptionList>` (`stacked` rejilla término|valor con `display:contents` + `inline` con `·`), `<DangerZone>` (borde+tinte `--danger`).
+- **Layout main+aside**: clases `.summaryGrid` (2fr/1fr) / `.summaryMain` / `.summaryAside` / `.summarySingle` en `service-detail.module.css`; colapsa a 1 col <900px; si una columna queda vacía → la otra full-width (`.summarySingle`). Solo aplica al grupo `summary`; `management`/`activity` siguen en grid con soporte `fullWidth`.
+- **`MetricsBar` → "Recursos"** con `<Meter>` por fila (i18n + tokens; migra los copys hardcodeados; preserva refresh-por-rol F.C y coloreo de cuota F.8 — solo disco recibe `thresholdPct`+advisory).
+- **Cromo unificado** en `<SectionCard>`: `SslStatusCard`, `BillingCrossLinkCard`, `AppShortcutsCard` (badge/acciones → slot `actions`); `AdminServiceDataCard` → "Datos técnicos" con `<DescriptionList>`+`<CopyableId>`; audit/placeholder/ayuda cliente → `<SectionCard>`.
+- **Gestión split**: `AdminServiceOperationsCard` se reduce a operaciones seguras (Cambiar plan / Recalcular) en `<SectionCard>`; nuevo **`ServiceDangerZoneCard`** (`<DangerZone>` full-width al fondo) con Suspender/Reanudar/Cancelar — reutiliza los modales de F.12.4 (no reescribe Server Actions ni modales).
+- **Nueva card cliente "¿Necesitas ayuda?"** (aside, CTA a `/dashboard/support`); header metadata → `<DescriptionList layout="inline">`.
+
+**Amendment VI — divergencias del freeze (todas en servicio del diseño congelado):**
+1. **Campos `column?: 'main'|'aside'` + `fullWidth?: boolean` en `SectionDescriptor`** (`service-detail-context.ts`). El freeze (R3) no los listaba; son el **mecanismo** que materializa el main+aside (Amendment V decisión 2) y la DangerZone al fondo (decisión 3). `column` solo se lee en el grupo `summary`; `fullWidth` fuera de él. Heredable a plugins futuros que registren secciones en el overview.
+2. **`AdminServiceDataCard` + `AdminServiceOperationsCard` se reescriben** pese al boundary "admin-only conserva internals". Razón: el handoff §A.11.10.9.3 los lista explícitamente (puntos 2/4/5: Datos técnicos con `<DescriptionList>`, split Operaciones/DangerZone, unificar cromo). El handoff (más específico) prevalece sobre el boundary general. **Copy de etiquetas admin se mantiene literal ES** (no se migra a i18n) — esa migración sí es housekeeping aparte (boundary respetado en la capa copy). De paso se corrige el bug `--brand-600` (token inexistente) en sus enlaces → `--brand`.
+3. **"Reanudar servicio" vive en la `<DangerZone>`** (decisión Amendment V "Admin suspendido → Reanudar en DangerZone + Cancelar") pero con `<Button>` variante por defecto (no `danger`) — es recuperación, no destrucción; la zona roja agrupa transiciones consecuentes, no implica que todas sean rojas.
+4. **`resend-notification-card` permanece visible en estado terminal** (`shouldRender: () => true`, heredado F.12.4 — reenviar la notificación de cancelación es legítimo). Por eso "Gestión" puede seguir apareciendo con solo Resend cuando el servicio está cancelado, en vez de ocultarse por completo como sugería la anatomía frozen. Preserva la lógica de F.12.4 ("reutiliza la lógica de operaciones de F.12.4").
+5. **Cards cliente always-on (`client-help-card` gated `!isTerminal`; `client-dev-custom-placeholder` siempre)** aparecen también en servicios mínimos (`internal`/`manual`), de modo que el ASIDE mínimo cliente es Facturación + Ayuda + Desarrollo, no "solo Facturación" como ilustraba la anatomía. La robustez clave (MAIN vacío → 1 columna elegante) se respeta; las cards añadidas son útiles en cualquier servicio y heredan la conducta F.12.4 del placeholder.
+
+**Cero ADR amendments** (UI_SPEC + DESIGN_SYSTEM son el deliverable; las primitivas no tocan contratos backend — confirmado).
+
+**Validación F.12.5:** `pnpm --dir frontend typecheck` + `lint:check` (`--max-warnings=0`) + `next build` (32 páginas) verdes. Pendiente: boot smoke del stack + smoke real Yasmin (cliente activo · suspendido · admin drift · terminal · servicio mínimo + verificar colapso main→aside y la DangerZone). Commit: `feat(sprint-15c-ii): F.12.5 — densidad profesional (4 primitivas DS + main+aside + DangerZone)`.
+
+#### A.11.10.9.5. F.12.5 — re-evaluación profesional (Amendment VII, 2026-05-20)
+
+**Origen:** tras el primer corte de F.12.5, Yasmin revisó la página y pidió mejorar 7 puntos de IA/UX. Re-valoración con preguntas previas (4 decisiones resueltas con previews); Yasmin eligió en todas la opción recomendada. No reabre la doctrina DS (las 4 primitivas siguen); reorganiza superficie de acciones + tabs + densidad. Amendment VII (L18 frozen).
+
+**Decisiones frozen (Yasmin 2026-05-20) + implementación:**
+
+1. **Salud del plugin reubicada** (punto 1). El `<ProviderHealthBadge>` deja la zona de banners y pasa a una **fila de la card "Datos técnicos"** ("Salud del plugin: [badge] · Ver detalle →"). Es metadata operativa, no una alerta. `ProviderHealthBadge` se reescribe a contenido inline (sin el prefijo "Salud del proveedor:", que ahora lo da el término de la fila) + corrige `--brand-600`→`--brand`. Se elimina el descriptor `admin-provider-health-badge`.
+2. **Recalcular junto a Refrescar** (punto 2). Nuevo `<MetricsRecalculateButton>` (`_shared/`) en el slot de acciones de la card **Recursos**, al lado del `↻ Refrescar`, **cada uno con su `<HelpTip>` ⓘ**. Aclaración doctrinal (Yasmin lo tenía casi): **Refrescar** = re-lee del proveedor los últimos valores ya calculados (rápido); **Recalcular** = pide al proveedor que **recompute** disco/BW desde cero en su lado (lento). i18n para ambos textos + ⓘ. `canRecalculate` por presencia de la action `recalculate_provider_metrics` (capability-driven).
+3. **Menú "Más acciones" profesional + tab "Gestión" eliminada** (punto 3). Aclaración: NO se crea un "Select" (ese DS es para forms); se **mejora el `<Dropdown>`** con `description` por ítem (línea gris de contexto — patrón Stripe/Linear; decisión Yasmin sobre "ⓘ por ítem") + trigger con chevron. Todas las operaciones admin (cambiar plan · reenviar notif · suspender/reanudar · cancelar) + las quick-actions del plugin viven ahora en **un solo menú** (Regla D5 "destructivas en menú contextual"). Arquitectura: `<ServiceActionsMenu>` (`_shared/`, genérico: quick-actions + slots `extraItems`/`extraModals`) + `<AdminServiceActionsMenu>` (admin: provee las operaciones + posee el estado de los modales; reutiliza los modales de F.12.4 + `<ResendNotificationModal>` extraído de la card). Se inyecta en el header vía `headerActionsMenu` (page → layout → `ServiceHeaderCard` → cluster). **Confirmado a Yasmin: la tab "Gestión" desaparece** (card Operaciones + DangerZone + card Reenviar eliminadas).
+4. **Tab "Actividad" → tab "Notas"** (punto 4). El grupo `activity` se divide; `service-notes-card` pasa a `group: 'notes'` (admin-only → el cliente no ve este tab).
+5. **Tab "Auditoría" dedicado** (punto 5). Nuevo `<ServiceAuditTabSection>` (async SC, `group: 'audit'`): **preview** de las últimas ~15 entradas (reusa `<ServiceAuditTimeline>`) + enlace "Ver historial completo →" a la página dedicada (`/services/[id]/audit`, que se conserva con filtros/paginación). Patrón Stripe "Events". Coste: 1 fetch eager por carga (fail-soft con try/catch).
+6. **Menos badges** (punto 6). Se elimina la fila "Estado" duplicada de "Datos técnicos" (el estado ya vive en el badge del header — Regla D4). Resultado: 1 badge de estado primario en el header; SSL/factura en su card (de su recurso); salud del plugin reubicada (punto 1).
+7. **Servicios mínimos enriquecidos** (punto 7). Nueva `<ServiceOverviewCardSection>` "Información del servicio" en el MAIN, que **aparece SOLO cuando no hay métricas/SSL/apps** (servicios `internal`/`manual`/`support_inside`): estado (badge + narrativa por estado×rol) + datos clave (plan · alta · renovación). Da contenido al MAIN → el overview tiene 2 columnas también en servicios simples. Capability-agnóstico (cero `provisioner_slug`).
+
+**Estructura de tabs resultante:** Cliente → **Resumen · Auditoría**. Admin → **Resumen · Notas · Auditoría**.
+
+**Notas de implementación:**
+- `SectionGroup`: `management`/`activity` → `notes`/`audit`. `TAB_ORDER` actualizado. El campo `fullWidth` queda sin uso actual (la DangerZone se fue) pero se conserva para futuros tabs.
+- **Componentes eliminados** (consolidados): `AdminServiceOperationsCard`, `ServiceDangerZoneCard`, `ResendNotificationCard` (+ su CSS). La primitiva DS **`<DangerZone>` se conserva** en `components/ui/` (documentada como disponible) aunque su único consumidor (la zona de Gestión) desapareció — patrón canónico reutilizable para futuras settings pages.
+- **Reutilización**: los modales `ChangePackageModal`/`SuspendServiceModal`/`CancelServiceModal` se mantienen intactos (solo cambia su parent). `ResendNotificationModal` extrae el modal de la antigua card sin cambios funcionales (whitelist V1 + rate-limit F.11.2 conservados).
+
+**Cero ADR amendments** (UI_SPEC + DESIGN_SYSTEM son el deliverable). **Validación:** `pnpm run ci:frontend:full` (typecheck + `lint:check --max-warnings=0` + build) verde. Pendiente: smoke real Yasmin (cliente activo · mínimo support_inside · admin drift · suspendido · terminal + verificar el menú consolidado, los tabs Notas/Auditoría y la card Información). Commit: `feat(sprint-15c-ii): F.12.5 Amendment VII — menú de acciones unificado + tabs Notas/Auditoría + densidad`.
+
+#### A.11.10.9.6. F.12.5 — fixes post-smoke (Amendment VIII, 2026-05-20)
+
+**Origen:** smoke de Yasmin tras Amendment VII detectó (a) un error de hidratación `<button>` anidado y (b) el layout incoherente de servicios cancelados/suspendidos. Fixes:
+
+1. **Bug `<button>` dentro de `<button>` (hidratación).** El `<Dropdown>` envolvía SIEMPRE el `trigger` custom en su propio `<button>`; al pasarle un DS `<Button>` (menú "Más acciones") salían botones anidados (HTML inválido). Fix: nueva prop **`triggerAsChild`** en `<Dropdown>` — cuando es `true` y el trigger es un elemento válido, se le **inyecta `onClick` + aria vía `cloneElement`** en lugar de envolverlo (patrón Radix asChild). `ServiceActionsMenu` la usa. El modo por defecto (envolver) se conserva → `Topbar` (trigger = `<div>` avatar) intacto. Heredable a cualquier menú con trigger interactivo.
+2. **Servicio cancelado/suspendido: layout de 1 columna → 2 columnas.** En terminal, las cards rich (métricas/SSL/apps) están gateadas `!isTerminal` → MAIN vacío → el overview caía a 1 columna. Fix: el `shouldRender` de la card **"Información del servicio"** pasa a `isTerminal || !hasRichMain` → llena el MAIN en cancelado/terminado (y en suspendido mínimo) garantizando 2 columnas. En terminal la card omite la narrativa (la da el banner) y muestra hechos: plan · alta · **fecha de cancelación**.
+3. **Coherencia "Renueva/Próxima renovación" en cancelado.** Un servicio cancelado NO renueva; mostrar fecha de renovación era incoherente. Fix en 3 sitios, gateados por `isTerminal`: (a) metadata del **header** oculta "Renueva"; (b) card **"Información"** oculta la fila Renovación (y muestra "Cancelado" en su lugar); (c) **`BillingCrossLinkCard`** oculta "Próxima renovación" (conserva la última factura como histórico; nueva prop `isTerminal`). Suspendido conserva la renovación (puede reactivarse — no es incoherente).
+4. **Limpieza menor:** el placeholder "Desarrollo a medida (Sprint 22)" se gatea `!isTerminal` (sin teaser en un servicio cancelado).
+
+**Segunda tanda post-smoke (mismos commit/Amendment):**
+5. **Scrollbar vertical espurio en la barra de tabs.** `.tabBar` (DS `<DetailPage>`) tenía `overflow-x: auto`, que por spec CSS promueve `overflow-y` a `auto`; junto al `margin-bottom: -1px` de las pestañas generaba un scrollbar vertical a la derecha. Fix: `overflow-y: hidden` (+ `scrollbar-width: thin` para el scroll horizontal real con muchos tabs). DS-wide (beneficia a todas las detail pages).
+6. **Banner sin margen en cancelado/suspendido.** `.bannersZone` no tenía `margin-bottom` → el banner quedaba pegado a las cards de la tab. Fix: `margin-bottom: var(--space-6)` (solo aplica cuando hay banners; sin banners el div no se renderiza).
+7. **CTA del tab "Notas" homogéneo con "Auditoría".** `ServiceNotesCard` migrado a `<SectionCard>`; el CTA "Ver historial completo del cliente →" pasa al **slot de acciones** (top-right) con el **mismo css** (`.link` = réplica de `ctaText`) que el CTA "Ver historial completo" del tab Auditoría. Corrige de paso los tokens inexistentes `--brand-600`/`--border-default`/`--surface-elevated` del componente (enlaces/bordes que no pintaban).
+8. **Tab "Auditoría" cliente vacío pese a haber historial (endpoint ≠ ruta).** `ServiceAuditTabSection` fetchaba `${base}/audit` con `base = /dashboard/services/:id` (cliente) — eso es la **ruta de Next**, no el **endpoint del API**. El backend cliente es `/services/:id/audit` (sin `/dashboard`); el fetch 404 → fail-soft → "Sin eventos". El admin no lo sufría porque su ruta y su endpoint coinciden (`/admin/services/:id/audit`). Fix: separar `apiPath` (admin `/admin/services/:id/audit` · cliente `/services/:id/audit`) del `fullHref` del enlace (admin `/admin/...` · cliente `/dashboard/...`). El enlace "Ver historial completo" funcionaba porque navega a la ruta de Next correcta — de ahí la incoherencia "preview vacío / página llena".
+
+**Validación:** `pnpm run ci:frontend:full` verde (las tres tandas). Pendiente smoke de confirmación (cancelado/suspendido cliente+admin · menú ⋯ sin error de hidratación · barra de tabs sin scrollbar · banner con margen · CTA de notas alineado con auditoría). Commit: `fix(sprint-15c-ii): F.12.5 Amendment VIII — Dropdown asChild + layout cancelado/suspendido + coherencia renovación + scrollbar tabs + margen banner + CTA notas`.
+
 ### A.11.10.10. Fase G — Cierre Sprint 15C.II
 
 **Tema:** DoD del sprint completo — tests críticos, E2E, smoke real, retrospectiva, desbloqueo de Sprint 15D RC.

@@ -1,0 +1,37 @@
+/* ═══════════════════════════════════════
+   DangerZone — Sprint 15C.II Fase F.12.5 (Amendment V)
+   Sección aislada para operaciones consecuentes/destructivas
+   (patrón GitHub/DO): borde + tinte rojo sutil. Tokens only.
+   ═══════════════════════════════════════ */
+
+.zone {
+  background: var(--danger-light);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+}
+
+.header {
+  margin-bottom: var(--space-4);
+}
+
+.title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--danger);
+  margin: 0;
+}
+
+.description {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: var(--space-1) 0 0;
+  line-height: var(--line-height-normal);
+}
+
+.body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}

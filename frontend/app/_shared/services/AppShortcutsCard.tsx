@@ -34,9 +34,10 @@
  */
 import type { ReactNode } from 'react';
 
-import { Card } from '../../components/ui';
+import { SectionCard } from '../../components/ui';
 import { t } from '../../_shared/i18n';
 import type { AppPresence } from '../../lib/api';
+import styles from './service-detail.module.css';
 
 import { AppShortcutButton } from './AppShortcutButton';
 
@@ -70,18 +71,8 @@ export function AppShortcutsCard({
   }
 
   return (
-    <Card>
-      <h2 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 8px 0' }}>
-        {t('service.apps.card_title')}
-      </h2>
-
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-        }}
-      >
+    <SectionCard title={t('service.apps.card_title')}>
+      <div className={styles.appsList}>
         {apps.map((app) => {
           // Determinar si la action 'open_app_admin' está disponible para
           // esta instalación (canónico: WP con default user, Joomla
@@ -109,6 +100,6 @@ export function AppShortcutsCard({
           );
         })}
       </div>
-    </Card>
+    </SectionCard>
   );
 }

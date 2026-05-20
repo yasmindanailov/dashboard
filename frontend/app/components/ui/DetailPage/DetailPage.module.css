@@ -29,6 +29,13 @@
   margin-bottom: var(--space-6);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
+  /* `overflow-x: auto` promueve `overflow-y` a `auto` (spec CSS); junto al
+     `margin-bottom: -1px` de las pestañas eso generaba un scrollbar VERTICAL
+     espurio. Lo fijamos a `hidden` (el scroll horizontal sigue para muchos
+     tabs). Sprint 15C.II F.12.5 (Amendment VIII). */
+  overflow-y: hidden;
+  /* Sin scroll-chaining ni barra fina si el SO la dibuja siempre. */
+  scrollbar-width: thin;
 }
 
 .tab {

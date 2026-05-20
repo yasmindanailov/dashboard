@@ -1,0 +1,327 @@
+/* ═══════════════════════════════════════
+   Service Detail — layout canónico (Sprint 15C.II Fase F.12.3)
+
+   Estilos del frame del detalle de servicio + sus bloques de seccion.
+   Reemplaza los estilos inline del modulo de servicios (unico modulo del
+   proyecto que no tenia CSS module). Tokens only — zero hardcoded values.
+   Usa `--brand`/`--text-on-brand` (el codigo previo usaba `--brand-600`,
+   token NO definido en globals.css = enlaces sin color; F.12.3 lo corrige).
+
+   Ref: UI_SPEC.md §2.5 (Detail), §2.8 (no inline), §1.2 P5 (voz),
+        DESIGN_SYSTEM.md, globals.css (tokens).
+   ═══════════════════════════════════════ */
+
+/* ── Frame ── */
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── F.12.4: Header card (identidad + metadata inline + clúster de acciones) ── */
+.headerCard {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.headerIdentity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.headerTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.headerTitle {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+  word-break: break-word;
+}
+/* (headerMeta/headerMetaSep retirados en F.12.5 — la metadata usa la primitiva
+   DS <DescriptionList layout="inline">.) */
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ── F.12.4: Banners zone (full-width, siempre visible bajo el header) ── */
+.bannersZone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  /* Separa la zona de alertas (terminal/suspendido/drift) del contenido de la
+     tab de abajo — sin esto el banner quedaba pegado a las cards. Sprint
+     15C.II F.12.5 (Amendment VIII). */
+  margin-bottom: var(--space-6);
+}
+
+/* ── F.12.4: Grid 2-col de cards dentro de cada tab (auto-fit responsive) ── */
+.tabGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+/* Card que ocupa toda la fila del grid (operaciones, notas anchas). */
+.tabGridFull {
+  grid-column: 1 / -1;
+}
+
+/* ── F.12.5 (Amendment V/VI): tab "Resumen" en layout main + aside ──
+   MAIN (2fr) = recursos/SSL/apps · ASIDE (1fr) = facturación/datos/ayuda.
+   Si una columna queda vacía, el layout cae a `.summarySingle` (1 columna a
+   ancho completo) desde el `<ServiceDetailLayout>`. Colapsa a 1 col <900px. */
+.summaryGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+.summaryMain,
+.summaryAside,
+.summarySingle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+@media (max-width: 900px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Cabecera ── */
+.backLink {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+}
+.backLink:hover {
+  color: var(--text-primary);
+}
+
+/* (splitRow/sectionHeading retirados en F.12.5 — las cards de navegación usan
+   la primitiva DS <SectionCard>; el cromo título+acción vive en su header.) */
+.sectionDesc {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-1);
+}
+
+/* ── CTAs / enlaces ── */
+.ctaButton {
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ctaButton:hover {
+  border-color: var(--border-hover);
+}
+.ctaText {
+  color: var(--brand);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ctaPrimary {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  background: var(--brand);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-on-brand);
+  text-decoration: none;
+}
+.ctaPrimary:hover {
+  background: var(--brand-hover);
+}
+.ctaSecondary {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.ctaSecondary:hover {
+  border-color: var(--border-hover);
+}
+
+/* ── Card "Detalles del servicio" (cliente) ── */
+.detailsHeading {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  margin: 0 0 var(--space-3);
+}
+.detailsList {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1_5) var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.detailsTerm {
+  color: var(--text-secondary);
+}
+.detailsValue {
+  margin: 0;
+}
+.detailsValueStatus {
+  margin: 0;
+  text-transform: capitalize;
+}
+
+/* ── Banners (contenido interno; el contenedor es <AlertBanner> DS) ── */
+.bannerStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.bannerStackTight {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1_5);
+}
+.bannerText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.bannerReasonNote {
+  color: var(--text-secondary);
+}
+.bannerMeta {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.bannerMetaTertiary {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.terminalReason {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-style: italic;
+  color: var(--text-secondary);
+}
+.terminalCode {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono, monospace);
+  color: var(--text-tertiary);
+}
+
+/* ── Placeholder Sprint 22 + footer ── */
+.placeholderBody {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-2);
+}
+.footer {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+/* ── F.12.5: Recursos (card MetricsBar con medidores <Meter>) ── */
+.metersList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+/* Acciones de la card Recursos: Recalcular + Refrescar, cada uno con su ⓘ. */
+.metricsActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.actionWithTip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.resourcesEmpty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-style: italic;
+}
+.resourcesUpdated {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.resourcesUpdatedHint {
+  color: var(--text-tertiary);
+}
+
+/* ── F.12.5: Ayuda (card cliente del aside) ── */
+.helpBody {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+/* ── F.12.5: cuerpos genéricos de cards (SSL, billing, apps, datos) ── */
+.cardText {
+  margin: 0;
+  font-size: var(--font-size-base);
+}
+.cardTextMuted {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.cardTextSubtle {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.inlineRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: var(--font-size-sm);
+}
+.pushEnd {
+  margin-left: auto;
+}
+.strongPrimary {
+  color: var(--text-primary);
+}
+
+/* ── F.12.5: lista de atajos a apps (tiles WP/Joomla) ── */
+.appsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}

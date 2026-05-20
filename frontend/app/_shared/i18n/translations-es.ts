@@ -336,6 +336,45 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.suspended.client.cta_pay': 'Regularizar el pago',
   'service.suspended.client.cta_support': 'Contactar con soporte',
 
+  // ── Layout canónico del detalle de servicio (Sprint 15C.II Fase F.12.3).
+  //    Copys del frame (tabs + cabecera + secciones genéricas) — voz de marca
+  //    centralizada (UI_SPEC §1.2 P5 + regla D11). Provisioner-agnóstico: las
+  //    secciones se gatean por capability, no por tipo de producto.
+  'service.detail.tab.summary': 'Resumen',
+  'service.detail.tab.management': 'Gestión',
+  'service.detail.tab.activity': 'Actividad',
+  'service.detail.back_client': 'Mis servicios',
+  'service.detail.back_admin': 'Servicios',
+  'service.detail.details.title': 'Detalles del servicio',
+  'service.detail.details.plan': 'Plan',
+  'service.detail.details.status': 'Estado de tu servicio',
+  'service.detail.details.created': 'Contratado el',
+  'service.detail.sso.title': 'Panel del proveedor',
+  'service.detail.sso.desc_client':
+    'Accede al panel especializado para operaciones avanzadas (gestión de email, bases de datos, archivos…). La sesión se abre en una nueva pestaña con un token temporal y queda registrada en tu portal de transparencia.',
+  'service.detail.sso.desc_admin':
+    'Abrir el panel del proveedor como admin se registra automáticamente como impersonation en el log GDPR del cliente afectado (portal de transparencia).',
+  'service.detail.dns.title_client': 'DNS de tu dominio',
+  'service.detail.dns.title_admin': 'Gestión DNS',
+  'service.detail.dns.desc_client':
+    'Crea, edita o elimina registros DNS (A, AAAA, CNAME, MX, TXT, SRV, CAA) de la zona autoritativa gestionada por Aelium. Los cambios pueden tardar minutos en propagarse.',
+  'service.detail.dns.desc_admin':
+    'Revisa y edita los registros DNS de la zona de este servicio. Los cambios se aplican directamente en el proveedor.',
+  'service.detail.dns.cta': 'Gestionar DNS',
+  'service.detail.dev_custom.title': '¿Necesitas un desarrollo a medida?',
+  'service.detail.dev_custom.body':
+    'Próximamente podrás solicitar un desarrollo personalizado vinculado a este servicio. (Función disponible cuando Sprint 22 Projects esté activo.)',
+  'service.detail.meta.contracted': 'Contratado',
+  'service.detail.meta.renews': 'Renueva',
+  'service.detail.actions.more': 'Más acciones',
+  'service.detail.fetched_at': 'Última lectura del proveedor:',
+  'service.detail.cancelled_at': 'Cancelado el',
+  'service.detail.suspended_at': 'Suspendido el',
+  'service.detail.suspended_admin.title': 'Servicio suspendido',
+  'service.detail.suspended_admin.body':
+    'Este servicio está suspendido — el cliente no tiene acceso, pero sus datos se conservan en el proveedor. Reactívalo desde «Operaciones admin» cuando proceda.',
+  'service.detail.suspended_admin.reason_label': 'Motivo',
+
   // ── Aviso de desincronización del estado de suspensión (Sprint 15C.II Fase
   //    F.4.1+F.4.3). Solo admin (`/admin/services/[id]`): `services.status`
   //    (autoritativo para el lifecycle administrativo) no coincide con el que
@@ -599,4 +638,85 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.billing_cross_link.invoice_status.overdue': 'Vencida',
   'service.billing_cross_link.invoice_status.cancelled': 'Cancelada',
   'service.billing_cross_link.invoice_status.refunded': 'Reembolsada',
+
+  // ── Sprint 15C.II Fase F.12.5 (Amendment V — densidad profesional) ──────────
+  //    Card "Recursos" (medidores <Meter>). Migra a i18n los copys que la
+  //    MetricsBar tenía hardcodeados (regla D11 + §1.2 P5). Provisioner-agnóstico.
+  'service.resources.card_title': 'Recursos',
+  'service.resources.disk': 'Almacenamiento',
+  'service.resources.bandwidth': 'Ancho de banda',
+  'service.resources.ram': 'Memoria RAM',
+  'service.resources.cpu': 'Uso de CPU',
+  'service.resources.email': 'Cuentas de email',
+  'service.resources.databases': 'Bases de datos',
+  'service.resources.empty_admin':
+    'Métricas no disponibles ahora — el proveedor no las devuelve. Pulsa «↻ Refrescar» para reintentar.',
+  'service.resources.empty_client':
+    'Métricas no disponibles ahora. Vuelve a esta página en unos minutos para ver datos actualizados.',
+  'service.resources.updated_prefix': 'Actualizado ',
+  'service.resources.updated_client_hint':
+    '· Recarga la página para ver los datos más recientes.',
+  'service.resources.fetched_tooltip_prefix': 'Última lectura del proveedor: ',
+  'service.resources.relative.just_now': 'hace unos segundos',
+  'service.resources.relative.ago': 'hace',
+  'service.resources.relative.minute': 'minuto',
+  'service.resources.relative.minutes': 'minutos',
+  'service.resources.relative.hour': 'hora',
+  'service.resources.relative.hours': 'horas',
+  'service.resources.relative.day': 'día',
+  'service.resources.relative.days': 'días',
+  'service.resources.quota_advisory.at': 'Estás al',
+  'service.resources.quota_advisory.warning':
+    'de tu cuota de disco — considera liberar espacio o ampliar el plan.',
+  'service.resources.quota_advisory.critical':
+    'de tu cuota de disco — el servicio puede dejar de funcionar si llega al 100%. Considera liberar espacio o ampliar el plan urgentemente.',
+  // Botones de métricas (admin) + sus ⓘ — F.12.5 punto 2.
+  'service.resources.recalculate': 'Recalcular',
+  'service.resources.recalculating': 'Recalculando…',
+  'service.resources.recalculate_help':
+    'Pide al proveedor que recompute disco y ancho de banda desde cero en su lado (puede tardar). Úsalo si las cifras parecen desactualizadas.',
+  'service.resources.refresh_help':
+    'Vuelve a leer del proveedor los últimos valores ya calculados (rápido). No fuerza un recálculo.',
+
+  // ── F.12.5 — Card "¿Necesitas ayuda?" (aside, solo cliente) ──
+  'service.help.card_title': '¿Necesitas ayuda?',
+  'service.help.body':
+    'Nuestro equipo de soporte puede ayudarte con cualquier duda o incidencia sobre este servicio.',
+  'service.help.cta': 'Contactar con soporte',
+
+  // ── F.12.5 (Amendment VII) — tabs Notas + Auditoría ──
+  'service.detail.tab.notes': 'Notas',
+  'service.detail.tab.audit': 'Auditoría',
+  'service.audit.view_full': 'Ver historial completo',
+
+  // ── F.12.5 (Amendment VII) — Card "Información del servicio" (servicios
+  //    mínimos): da contenido al MAIN del overview cuando no hay métricas/SSL/
+  //    apps. Narrativa por estado y por rol (cliente cálido / admin neutro). ──
+  'service.overview.card_title': 'Información del servicio',
+  'service.overview.plan': 'Plan',
+  'service.overview.contracted': 'Contratado',
+  'service.overview.renewal': 'Renovación',
+  'service.overview.cancelled': 'Cancelado',
+  'service.overview.narrative.client.active':
+    'Tu servicio está activo y funcionando correctamente.',
+  'service.overview.narrative.client.pending':
+    'Tu servicio se está activando. Estará listo en breve.',
+  'service.overview.narrative.client.suspended':
+    'Tu servicio está suspendido temporalmente.',
+  'service.overview.narrative.client.expired': 'Tu servicio ha expirado.',
+  'service.overview.narrative.client.failed':
+    'Ha habido un problema con tu servicio. Nuestro equipo está al tanto.',
+  'service.overview.narrative.client.cancelled': 'Este servicio está cancelado.',
+  'service.overview.narrative.client.unknown':
+    'Estamos comprobando el estado de tu servicio.',
+  'service.overview.narrative.admin.active': 'El servicio está activo y operativo.',
+  'service.overview.narrative.admin.pending':
+    'El servicio se está aprovisionando.',
+  'service.overview.narrative.admin.suspended': 'El servicio está suspendido.',
+  'service.overview.narrative.admin.expired': 'El servicio ha expirado.',
+  'service.overview.narrative.admin.failed':
+    'El servicio reportó un fallo en el proveedor.',
+  'service.overview.narrative.admin.cancelled': 'El servicio está cancelado.',
+  'service.overview.narrative.admin.unknown':
+    'Estado del servicio sin confirmar por el proveedor.',
 });

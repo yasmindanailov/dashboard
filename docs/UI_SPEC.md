@@ -1706,6 +1706,228 @@ app/
 
 ---
 
+### 5.14 Servicio Detail (`/dashboard/services/[id]` + `/admin/services/[id]`) — Detail
+
+> **Origen doctrinal:** Sprint 15C.II Fase F.12 — layout canónico (2026-05-19) · [dossier §A.11.10.9 / §A.11.10.9.2 R1..R6 frozen](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md#a11109-fase-f12--layout-canónico-página-de-servicio--páginas-de-plugins). Refactoriza la composición de las fases F.4 (suspend/desync) · F.5 (billing-suspend-unify) · F.6 (notas) · F.7 (SSL) · F.8 (alertas de cuota) · F.9 (reconcile per-servicio) · F.10 (App Management) · F.11 (mini-badge salud + reenviar notif + cross-link billing). **Cero cambio funcional** — el contenido y comportamiento existente se preserva; solo cambia la **forma de orquestación** (registry declarativo + layout único).
+
+**Tipo:** Detail (§2.5)
+**Pregunta:** "¿En qué estado está mi servicio y qué puedo hacer con él?" (cliente) / "¿Cómo está operativamente y qué necesita?" (admin)
+**Roles:** Cliente (su propio servicio), Agente (sin acceso a `/admin/services/*` — el rol agente no contiene `Subject.Service` admin), Admin (todos los servicios + operaciones administrativas)
+**Capability-driven (ADR-077):** todo lo que cuelga del `info.capabilities.*` se decide por flags del plugin — cero `if (provisioner === 'X')` en el frontend.
+**Ref:** [ADR-070 dashboard puerta unificada](./10-decisions/adr-070-service-info-sso-acciones-curadas.md), [ADR-077 contrato ProvisionerPlugin v2 + Amendments A1-A9](./10-decisions/adr-077-contrato-provisioner-plugin-v2.md), [ADR-078 A1 Modelo A SC + cookies httpOnly](./10-decisions/adr-078-aelium-app-y-arquitectura-frontend.md), [ADR-082 Domain↔Hosting + DNS doctrine](./10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md), [ADR-083 Enhance specifics + Amendments A1-A9](./10-decisions/adr-083-plugin-enhance-cp-specifics.md), [§1.2 P6 contenido adaptativo](#p6-páginas-compartidas-entre-roles--contenido-adaptativo), [§4.13 drift por rol](#413-estados-de-detección-externa-drift--patrón-discriminado-por-rol).
+
+#### Arquitectura canónica (R2 + R3 frozen)
+
+Una sola plantilla `<ServiceDetailLayout ctx={ctx} />` (`frontend/app/_shared/services/ServiceDetailLayout.tsx`) discriminada por rol mediante el contexto `ServiceDetailContext` (que incluye `isAdmin: boolean` + `forceAdminRoute: boolean` además de `service`/`info`/`billingCrossLink` + flags derivados `isTerminal`/`isDrift`/`isSuspended`/`suspensionReasonCode`).
+
+Las páginas `/dashboard/services/[id]` y `/admin/services/[id]` son **wrappers finos ~30 LOC** que: (1) resuelven `id` del `params`; (2) hacen `Promise.all` de `serverFetch` para `data` + `billingCrossLink` + (admin) `overview` + `pluginHealth`; (3) componen `ctx`; (4) delegan a `<ServiceDetailLayout>`.
+
+El layout itera **`SERVICE_DETAIL_SECTIONS`** (catálogo declarativo de descriptores `{ id, label, scope, group, priority, shouldRender, component }` en `frontend/app/_shared/services/service-detail-sections.tsx`) — filtra por `scope` + `shouldRender(ctx)`, agrupa por `group` y ordena por `priority` descendente. Cero condiciones inline en el padre.
+
+> **F.12.4 (Amendment IV) — arquitectura de información profesional.** Adopta el DS **`<DetailPage>`** (breadcrumb + headerCard + tabBar canónicos, como clientes/productos) vía el CC `<ServiceDetailView>` (estado de tab). El **headerCard** es `<ServiceHeaderCard>`: identidad (nombre + Badge) + **metadata inline** (Plan · Dominio · Contratado · Renueva — §3.1) + **clúster de acciones** `<ServiceActionCluster>` (Regla D2: primaria SSO + secundaria DNS + menú ⋯ de acciones rápidas; DS `Button`/`Dropdown`). Las **operaciones admin consecuentes** (Cambiar plan/Recalcular/Suspender/Cancelar) viven en la card "Operaciones" de la tab Gestión (cada una → modal, Regla D5). El **registry** cubre: `banner` (alertas siempre visibles bajo el header) · `summary`/`management`/`activity` (tabs, **grid 2-col de Cards**) · `footer` (meta). Tab vacía se oculta; con una sola, sin barra (§2.5). Provisioner-agnóstico: la capability decide qué aparece y cuántas tabs (ADR-070/077). Ver dossier §A.11.10.9.2 Amendment IV.
+
+#### Anatomía — vista cliente (`/dashboard/services/[id]`, estado activo, hosting completo)
+
+```
+Mis servicios › mihosting.es                            ← breadcrumb (DetailPage)
+┌─────────────────────────────────────────────────────────────────┐
+│ 🌐 mihosting.es  [● Activo]      [Abrir panel] [Gestionar DNS] [⋯]│  ← headerCard
+│ Hosting Pro · mihosting.es · Contratado 12 mar · Renueva 12 jun  │   identidad+metadata+clúster
+└─────────────────────────────────────────────────────────────────┘
+   [⋯]: acciones rápidas del plugin (reiniciar, restablecer…)
+┌ [ Resumen ] ── Actividad ───────────────────────────────────────┐  ← tabBar (sin "Gestión":
+│ RESUMEN — grid 2-col de Cards:                                  │     cliente sin ops admin)
+│   ┌ Métricas ─────────┐  ┌ SSL ───────────────┐                 │
+│   │ disco/CPU/RAM      │  │ activo · 60 días   │                 │
+│   └────────────────────┘  └────────────────────┘                 │
+│   ┌ Aplicaciones ─────┐  ┌ Facturación ───────┐                 │
+│   │ WP · Joomla        │  │ Próx · [Ver factura]│                 │
+│   └────────────────────┘  └────────────────────┘                 │
+│   ┌ ¿Desarrollo a medida? (Sprint 22) ────────┐                 │
+└─────────────────────────────────────────────────────────────────┘
+  Última lectura del proveedor: 20/05/2026, 10:31                    ← footer (siempre)
+
+Servicio mínimo (support_inside, sin métricas/SSL/DNS/apps): solo
+  Resumen (facturación) + Actividad; si quedara 1 tab, sin barra (§2.5).
+```
+
+#### Anatomía — vista admin (`/admin/services/[id]`, estado activo con drift)
+
+```
+Servicios › mihosting.es                                ← breadcrumb (DetailPage)
+┌─────────────────────────────────────────────────────────────────┐
+│ 🌐 mihosting.es  [● Activo]      [Abrir panel] [Gestionar DNS] [⋯]│  ← headerCard
+│ Hosting Pro · mihosting.es · Contratado 12 mar · Renueva 12 jun  │   [⋯]: restablecer contraseña…
+└─────────────────────────────────────────────────────────────────┘
+ ⬤ Healthy · AdminDriftBanner (si drift) · DesyncBanner (si desync) ← zona banner (siempre)
+┌ [ Resumen ] ── Gestión ── Actividad ────────────────────────────┐  ← tabBar
+│ RESUMEN — grid 2-col: Métricas · SSL · Aplicaciones ·           │
+│   Facturación (→/admin/billing) · Datos técnicos (cliente/IDs)  │
+│ GESTIÓN — grid 2-col:                                           │
+│   ┌ Operaciones ──────────────────────────────┐ (card, Regla D4)│
+│   │ [Cambiar plan…] [Recalcular] [Suspender…]  │  cada una→modal │
+│   │ [Cancelar servicio…] (danger)              │                 │
+│   └────────────────────────────────────────────┘                 │
+│   ┌ Reenviar notificación (selector + cooldown)┐                 │
+│ ACTIVIDAD — grid 2-col: Notas · Historial de auditoría          │
+└─────────────────────────────────────────────────────────────────┘
+  Última lectura: 20/05/2026, 10:31                                  ← footer (siempre)
+
+Terminal (cancelled): headerCard sin clúster + banner danger; Resumen
+  (datos admin + billing) + Actividad (notas + audit). "Gestión" se oculta.
+```
+
+#### Variaciones de estado (deltas respecto a las anatomías arriba)
+
+| Estado | `ctx` flag | Banner top | Secciones ocultadas | Secciones añadidas |
+|---|---|---|---|---|
+| **Terminal** (`cancelled` / `terminated`) | `isTerminal=true` | `<AlertBanner variant="info">` (cliente) o `variant="danger"` (admin) con razón + fecha de cancelación | MetricsBar, SSO panel, ActionsBar, AdminServiceOperationsCard, DNS link, App shortcuts | BillingCrossLinkCard se mantiene (admin puede consultar última factura) |
+| **Drift** (`info.status ∈ {unknown, failed}` + `statusReason ≠ null`) | `isDrift=true` (no aplica si `isTerminal` o `isSuspended`) | Cliente: ServiceHeader con statusReason i18n empático · Admin: `<AdminDriftBanner>` técnico con CTAs SSO + Reconcile + Re-aprovisionar | Cliente: SSO panel, DNS, ActionsBar (acciones que requieren metadata externa) · Admin: ninguna | Admin: opciones extra en el banner (recoveryHint) |
+| **Suspended** (`info.status='suspended'` reconciliado F.4.1) | `isSuspended=true` (no aplica si `isTerminal`) | Cliente: `<AlertBanner variant="warning">` con motivo localizado + CTA según motivo (overdue_payment → `/dashboard/billing`; resto → `/dashboard/support`) · Admin: `<AlertBanner variant="warning">` con motivo + nota interna | Cliente: SSO panel, ActionsBar, DNS, App shortcuts (no operar como si nada) · Admin: ninguna (puede reactivar desde Operations) | Admin: `<AdminProviderStateDesyncBanner>` si `provider_state_desync=true` |
+| **Loading** (initial fetch) | — | Next.js streaming (sin SC explícito) | — | — |
+| **Error fetch principal** (`data=null`) | — | — | TODO | `<EmptyState>` con "No se pudo cargar el servicio" + `← Volver al listado` |
+| **Error fetch side** (billing/overview/pluginHealth `null`) | — | — | La sección correspondiente | Resto de la página funciona (fail-soft heredado F.7/F.11) |
+
+#### Registry canónico — `SERVICE_DETAIL_SECTIONS` (R3 frozen materializado)
+
+> ⚠️ **La tabla siguiente documenta el baseline de F.12.2** (24 descriptores en scroll vertical). **F.12.4 (Amendment IV) la superó**: SSO/DNS/acciones-rápidas se movieron al clúster del header, la metadata a inline, y los descriptores `service-header`/`client-details-card`/`sso-panel-card`/`actions-bar`/`dns-link-card`/`header-back-link`/`header-admin-row` fueron **eliminados** del registry. El registro autoritativo vivo es el código (`service-detail-sections.tsx` + `_sections.tsx`); ver la nota de zonas/`group` arriba. La tabla se conserva como trazabilidad del baseline.
+
+Esta es la pieza nuclear de F.12.2 — se implementa literalmente como un array `readonly SectionDescriptor[]`. Cada fila documenta el descriptor exacto: `id` estable, `scope`, `priority`, `shouldRender` resumido en pseudocódigo, componente que monta, y notas.
+
+> **F.12.4 (Amendment IV) — campo `group` + headerCard separado.** La identidad + metadata + clúster de acciones NO son secciones del registry: viven en el `headerCard` (`<ServiceHeaderCard>`). El registry (`group`) cubre el resto: **banner** = mini-badge salud admin · banners terminal/suspended/desync/drift (siempre visibles bajo el header) · **summary** = métricas · ssl · apps · billing-cross-link · dev-custom-placeholder · admin-data-card · **management** = admin-operations (card "Operaciones") · resend-notification · **activity** = service-notes · audit-link · **footer** = fetched-at. SSO/DNS/acciones-rápidas se movieron al clúster del header; sso-panel-card / dns-link-card / actions-bar / client-details-card / service-header / back-link fueron **eliminados** del registry. El layout filtra+ordena por zona; las 3 tabs aparecen solo si tienen ≥1 sección.
+
+| `id` (estable) | `scope` | `priority` | `shouldRender(ctx)` | Componente | Notas |
+|---|---|---:|---|---|---|
+| `header-back-link` | `both` | 2000 | `true` | `<BackLink href={isAdmin ? '/admin/services' : '/dashboard/services'} />` | Top breadcrumb-like link. Branches por `isAdmin`. |
+| `admin-provider-health-badge` | `admin` | 1950 | `ctx.pluginHealth !== null` | `<ProviderHealthBadge health={ctx.pluginHealth} />` | Tier 4 admin-only puro (`_components/`). Renderiza en cabecera junto al back-link (layout-level slot top-right). |
+| `service-header` | `both` | 1900 | `true` | `<ServiceHeader info={info} productName={service.product_name} isAdmin={ctx.isAdmin} />` | Siempre presente. |
+| `banner-terminal` | `both` | 1800 | `ctx.isTerminal` | `<TerminalBanner isAdmin={ctx.isAdmin} service={service} info={info} />` | Tier 2 nuevo (encapsula AlertBanner variant condicionado). |
+| `banner-suspended-client` | `client` | 1750 | `ctx.isSuspended && ctx.suspensionReasonCode !== null` | `<ClientSuspendedBanner reasonCode={ctx.suspensionReasonCode} suspendedAt={service.suspended_at} />` | Cliente NUNCA ve nota interna del admin. CTA por motivo. |
+| `banner-suspended-admin` | `admin` | 1750 | `ctx.isSuspended` | `<AdminSuspendedBanner suspension={parseSuspensionReason(service.suspension_reason)} suspendedAt={service.suspended_at} />` | Admin ve nota interna completa. |
+| `banner-provider-state-desync` | `admin` | 1700 | `ctx.forceAdminRoute && !ctx.isTerminal && service.provider_state_desync === true && (service.status === 'active' || service.status === 'suspended')` | `<AdminProviderStateDesyncBanner serviceId={service.id} adminStatus={…} />` | F.4.1 (admin-only). |
+| `banner-drift-admin` | `admin` | 1650 | `ctx.isDrift && info.statusReason !== null && ctx.forceAdminRoute` | `<AdminDriftBanner serviceId={…} statusReason={…} hasSsoPanel={…} panelLabel={…} showReprovision={…} showReconcile={…} pluginSlug={…} supportsReconcileOne={…} />` | F.3 + F.9. Tier 4 admin-only puro. |
+| `client-details-card` | `client` | 800 | `true` | `<ClientServiceDetailsCard service={service} />` | Tier 2 nuevo (encapsula el `<dl>` Plan/Estado/Contratado el). Siempre visible — garantía heredada Fase B fix-up. |
+| `metrics-bar` | `both` | 600 | `!ctx.isTerminal && info.capabilities.has_metrics` | `<MetricsBar metrics={info.metrics ?? {fetchedAt:info.fetchedAt}} serviceId={service.id} isAdmin={ctx.isAdmin} quotaAlertThresholdPct={service.quota_alert_threshold_pct} />` | Capability-driven. F.8 threshold prop. |
+| `ssl-card` | `both` | 500 | `!ctx.isTerminal && Boolean(info.ssl)` | `<SslStatusCard ssl={info.ssl!} isAdmin={ctx.isAdmin} />` | F.7. L16 SÍ aplica (admin tooltip ISO display-only). |
+| `apps-card-client` | `client` | 400 | `!ctx.isTerminal && !ctx.isSuspended && info.apps !== undefined && info.apps.length > 0` | `<AppShortcutsCard apps={info.apps} serviceId={service.id} isAdmin={false} />` | F.10. Cliente oculta apps si suspended (no operar sobre servicio suspendido). **Resuelto v2**: 2 descriptores separados (recomendación dossier — más testeable que ramificar `shouldRender` por scope interno). |
+| `apps-card-admin` | `admin` | 400 | `!ctx.isTerminal && info.apps !== undefined && info.apps.length > 0` | `<AppShortcutsCard apps={info.apps} serviceId={service.id} isAdmin={true} />` | F.10. Admin SÍ ve apps si suspended (puede abrir WP-admin durante investigación). **Resuelto v2**: descriptor admin propio sin gate `!isSuspended`. |
+| `billing-cross-link-card` | `both` | 350 | `ctx.billingCrossLink !== null` | `<BillingCrossLinkCard data={ctx.billingCrossLink!} isAdmin={ctx.isAdmin} />` | F.11.3. Visible también si terminal. L16 SÍ aplica. |
+| `admin-service-data-card` | `admin` | 300 | `true` | `<AdminServiceDataCard data={data} />` | Tier 4 admin-only puro (`_components/`). |
+| `sso-panel-card` | `both` | 90 | `!ctx.isTerminal && !ctx.isSuspended && !ctx.isDrift && info.capabilities.hasSsoPanel && info.capabilities.panel_label !== null` | `<SsoPanelCard serviceId={…} panelLabel={…} isAdmin={ctx.isAdmin} />` | Tier 2 nuevo (encapsula Card + texto + `<SsoButton>`). Admin gana copy GDPR impersonation. |
+| `actions-bar` | `both` | 80 | `!ctx.isTerminal && !ctx.isSuspended` | `<ActionsBar serviceId={service.id} actions={info.availableActions} isAdmin={ctx.isAdmin} />` | F.10 ya hereda `INTERNAL_HELPER_SLUGS` blacklist. |
+| `admin-service-operations-card` | `admin` | 70 | `!ctx.isTerminal` | `<AdminServiceOperationsCard serviceId={…} actions={info.availableActions} currentPlanLabel={…} serviceDisplayName={…} />` | Tier 4 admin-only puro. |
+| `resend-notification-card` | `admin` | 60 | `true` | `<ResendNotificationCard serviceId={service.id} serviceDisplayName={info.display.primary} />` | F.11.2. Tier 4 admin-only puro. Visible incluso si terminal. |
+| `service-notes-card` | `admin` | 50 | `true` | `<ServiceNotesCard serviceId={service.id} clientUserId={service.user_id} />` | F.6. Tier 4 admin-only puro. Visible incluso si terminal. |
+| `dns-link-card` | `both` | 40 | `!ctx.isTerminal && !ctx.isSuspended && (ctx.isAdmin || !ctx.isDrift) && info.capabilities.has_dns_management` | `<DnsLinkCard serviceId={service.id} isAdmin={ctx.isAdmin} />` | Tier 2 nuevo (encapsula Card + texto cliente-amigable o admin-seco según `isAdmin`). Cliente oculta si drift; admin NO. |
+| `audit-link-card` | `both` | 30 | `true` | `<ServiceAuditLinkCard serviceId={service.id} isAdmin={ctx.isAdmin} />` | Tier 2 nuevo (encapsula Card + i18n subtitle). Siempre visible. |
+| `client-dev-custom-placeholder` | `client` | 20 | `true` | `<ClientDevCustomPlaceholderCard />` | Tier 2 nuevo (estático, Sprint 22 prep). Solo cliente. |
+| `footer-fetched-at` | `both` | 1 | `true` | `<FetchedAtFooter fetchedAt={info.fetchedAt} />` | Tier 2 nuevo (texto plano `<p>`). |
+
+**Total: 24 descriptores** (9 `both` + 4 `client` + 11 `admin`). El padre `<ServiceDetailLayout>` post-R3 son ~30 LOC. Los componentes nuevos Tier 2 encapsulan JSX hoy inline en `page.tsx` (sin lógica nueva — refactor puro).
+
+**Decisiones resueltas durante F.12.1 iteración v2** (2026-05-20):
+- **`apps-card` admin si suspended** → **RESUELTO**: 2 descriptores separados `apps-card-client` (scope `client`, gate `!isSuspended`) + `apps-card-admin` (scope `admin`, sin gate `!isSuspended`). Recomendación dossier (más simple + más testeable que ramificar `shouldRender` por scope interno). Preserva exactamente el comportamiento actual de ambos pages.
+- **`banner-drift-admin` cuando un staff abre `/dashboard/services/[id]`** → **RESUELTO**: el descriptor incluye `ctx.forceAdminRoute` en `shouldRender`. Un staff que abre la página cliente ve la UX cliente-first (ServiceHeader con `statusReason` empático), NO el banner técnico. El banner técnico solo en `/admin/services/[id]`. Preserva el comportamiento actual (`banner-provider-state-desync` aplica el mismo gate `forceAdminRoute`).
+- **`actions-bar` cuando un staff abre `/dashboard/services/[id]`** → **RESUELTO**: el descriptor gatea solo por `!ctx.isTerminal && !ctx.isSuspended` (sin `forceAdminRoute`). Un staff en la página cliente sí ve sus acciones admin-only no-blacklisted (heredado — coherente con el page cliente actual que pasa `isAdmin` derivado a `<ActionsBar>`).
+
+#### Variaciones por rol (matriz §1.2 P6.1)
+
+| Página | Elemento | Cliente | Admin |
+|---|---|---|---|
+| `/services/[id]` | Endpoint backend | `GET /services/:id` (filtra ownership) | `GET /admin/services/:id` (sin filtro) |
+| `/services/[id]` | Subtitle ServiceHeader | "Tu hosting Plan Pro" (info.display.secondary i18n) | Mismo + tooltip estado ISO |
+| `/services/[id]` | Drift | Mensaje empático en ServiceHeader; oculta SSO/DNS/Actions | `<AdminDriftBanner>` técnico crudo arriba; mantiene TODO operativo para diagnosticar |
+| `/services/[id]` | Suspended | Banner con motivo localizado (NUNCA nota interna) + CTA por motivo | Banner con motivo + nota interna; mantiene operaciones (reactivar) |
+| `/services/[id]` | Datos del servicio | Card simple "Plan / Estado / Contratado el" | `<AdminServiceDataCard>` con sub-grupos Cliente/Servicio/IDs/Fechas |
+| `/services/[id]` | Audit subtitle | `service.audit.subtitle_client` (acotado a su scope GDPR) | `service.audit.subtitle_admin` (vista completa) |
+| `/services/[id]` | Operaciones administrativas | ❌ Oculto | `<AdminServiceOperationsCard>` visible (Cambiar plan / Recalcular / Cancelar) |
+| `/services/[id]` | Reenviar notificación | ❌ Oculto | `<ResendNotificationCard>` visible (whitelist 3 plantillas + cooldown 60s) |
+| `/services/[id]` | Notas del servicio | ❌ Oculto | `<ServiceNotesCard>` visible (historial completo + author) |
+| `/services/[id]` | Mini-badge salud plugin | ❌ Oculto | `<ProviderHealthBadge>` top-right si fetch OK (fail-soft) |
+| `/services/[id]` | Placeholder Sprint 22 | ✅ Visible | ❌ Oculto |
+| `/services/[id]` | DNS link copy | Cliente-amigable: "Crea, edita o elimina registros DNS… Los cambios pueden tardar minutos en propagarse." | Admin-seco: "Revisa y edita los registros DNS de la zona…" |
+| `/services/[id]` | SSO panel copy | Cliente-amigable: "Accede al panel especializado para gestión avanzada (email, BD, archivos…). Sesión registrada en tu portal de transparencia." | Admin con nota GDPR: "Abrir como admin se registra automáticamente como impersonation en el log del cliente afectado" |
+
+#### Estados empty/error/loading
+
+- **Empty (`data === null`)**: `<EmptyState title="No se pudo cargar el servicio" description={errorMessage ?? 'El servicio no existe o no tienes acceso.'} action={<BackLink />} />` (heredado del page actual cliente; admin mismo patrón con "El servicio no existe").
+- **Loading**: streaming nativo de Next.js (RSC + Suspense del wrapper). NO se introduce skeleton custom — el SC bloquea hasta resolver `serverFetch` (patrón heredado F.1..F.11).
+- **Error fetch side-data**: fail-soft. Si `billingCrossLink` falla → descriptor `billing-cross-link-card` retorna false en `shouldRender` (no se renderiza). Mismo patrón heredado F.7/F.11.
+- **Error fetch overview/pluginHealth (admin)**: fail-soft. El descriptor correspondiente no renderiza pero el resto de la página funciona. F.11 doctrine.
+
+#### Responsive (heredado §2.0 Dashboard Shell)
+
+`<DetailPage>` layout container `max-width: 1200px` (§2.8). Cada Card descriptor ocupa 100% del ancho dentro de la columna principal. Cards con sub-bloques (MetricsBar, SslStatusCard, AppShortcutsCard, BillingCrossLinkCard) gestionan su responsive interno via flexbox/grid. Sin breakpoints específicos a `/services/[id]` — herencia completa del shell.
+
+#### Interacciones clave (§4.x)
+
+- **Modal**: `ChangePackageModal`, `CancelServiceModal` (typing-confirm — §4.2 nivel 3 reforzado), `SuspendServiceModal` (modo `suspend`/`unsuspend` con nota obligatoria — F.6 R2 defense-in-depth backend).
+- **Toast**: feedback de Server Actions (`actions.success` / `actions.error`) — §4.3. ResendNotificationCard usa toast con cuenta atrás si 429 RESEND_TOO_FREQUENT (F.11.2 Amendment II).
+- **AlertBanner**: terminal / suspended / drift / provider_state_desync (§4.3 estado contextual persistente).
+- **Confirmaciones**: Cancelar servicio = reforzada (typing-confirm). Cambiar plan = modal. Suspender = modal con nota. Acciones del ActionsBar inline (sin confirmación si "no destructiva", con confirmación si destructiva — heredado F.10).
+- **Empty states**: data=null → `<EmptyState>` con icono + texto empático + CTA "Volver al listado" (§4.8).
+
+#### Decisiones y deferrals — F.12 alcance
+
+- **Cero cambio funcional**: la lista de 23 descriptores arriba refleja el comportamiento actual del page cliente+admin (no se añade ni quita funcionalidad). E2E spec Playwright (si existe) DEBE pasar sin cambios.
+- **Adopción `<PageSectionGroup>` (Tier 1 DS si se confirma)**: solo aplica si encapsula consistentemente el cromo de las Cards (h2 + spacing + bordes). Decisión final al congelar — si solo aplica a F.12 sin reutilización clara fuera, baja a Tier 3 `_shared/services/_components/SectionGroup.tsx`.
+- **Tabs adaptativas** (F.12.3 — Amendment III): el contenido se pagina en tabs Resumen/Gestión/Actividad (§2.5), con cabecera/pie siempre visibles. Tab vacía oculta; si solo sobrevive una, sin tabs. *(Histórico: F.12.1/F.12.2 mantuvieron scroll vertical único; F.12.3 lo elevó a tabs por decisión Yasmin 2026-05-20 — estándar profesional + provisioner-agnóstico.)*
+- **No se adopta `<PageSectionGroup>` en otras detail pages** (Clients §5.3, Products §5.5, Invoices §5.8, Tickets §5.11, Tasks §5.16) en F.12 — trabajo futuro si se promociona a Tier 1.
+- **DC.46..49 + DC.NEW-51..58 NO se abordan** (housekeeping post-15C.II).
+
+#### Diseño objetivo F.12.5 — densidad profesional (✅ implementado — Sprint 15C.II F.12.5)
+
+> Evolución de F.12.4 según el estándar del sector (Hostinger/OVH/cPanel/Plesk/Stripe/Vercel/DigitalOcean/GitHub). Diseño **congelado** (2026-05-20) e **implementado** sobre la rama `sprint15c-ii-fase-f12-canonical-layout` — dossier §A.11.10.9.2 Amendment V (diseño) + §A.11.10.9.4 Amendment VI (1ª implementación) + **§A.11.10.9.5 Amendment VII (re-evaluación: estructura vigente)**. Las 4 primitivas viven en `components/ui/` (ver `DESIGN_SYSTEM.md`); el layout main+aside usa `column?: 'main'|'aside'` en `SectionDescriptor`.
+>
+> **⚠️ Estructura vigente (Amendment VII)** — la anatomía de abajo describe el 1er corte (F.12.4/VI) y se conserva como trazabilidad; la versión viva es:
+> - **Tabs**: Cliente = **Resumen · Auditoría**; Admin = **Resumen · Notas · Auditoría**. (La tab "Gestión" se eliminó; "Actividad" se dividió en "Notas" + "Auditoría".)
+> - **Acciones**: TODAS las operaciones admin (cambiar plan · reenviar notif · suspender/reanudar · cancelar) + las quick-actions del plugin viven en el **menú "Más acciones" (⋯)** del header (`<ServiceActionsMenu>` / `<AdminServiceActionsMenu>`), cada ítem con **descripción de contexto** (Regla D5). El `<DangerZone>` ya no se usa en services (se conserva como primitiva DS disponible).
+> - **Recursos**: la card lleva **Recalcular + ↻ Refrescar** juntos, cada uno con un `<HelpTip>` ⓘ que explica la diferencia.
+> - **Datos técnicos**: incluye la fila "Salud del plugin" (reubicada desde los banners); sin fila "Estado" (ya está en el header — dedup de badges).
+> - **Auditoría**: tab con **preview** (últimas ~15 entradas) + "Ver historial completo →" a la página dedicada.
+> - **Servicios mínimos**: card "Información del servicio" en el MAIN (estado + plan/alta/renovación) cuando no hay métricas/SSL/apps → 2 columnas también en `support_inside`/`internal`/`manual`.
+
+**Componentes DS nuevos requeridos** (reutilizables más allá de services → `components/ui/` + `DESIGN_SYSTEM.md`):
+
+| Componente | Props (resumen) | Por qué |
+|---|---|---|
+| `<Meter>` | `label, used, total?, unit, percent?, thresholdPct?` | Recursos como medidores usado/total + % + color por umbral (sustituye barras ad-hoc de `MetricsBar`). Patrón #1 del sector. |
+| `<SectionCard>` | `title, subtitle?, actions?, children` (read-only) | Cromo de sección canónico (≠ `EditorSectionCard`, que es para forms con "Guardar"). |
+| `<DescriptionList>` | `items: {term, value}[], layout?: 'inline'\|'stacked'` | Metadata header + datos técnicos (con `CopyableId` en IDs). |
+| `<DangerZone>` | `title, children` | Sección borde rojo para destructivas aisladas (patrón GitHub/DO). |
+| Layout `main+aside` | grid `2fr/1fr`, colapsa <900px; MAIN vacío → ASIDE full-width | Overview con rail derecho (patrón OVH/Stripe). |
+
+**Anatomía objetivo (cliente activo, enhance completo):**
+
+```
+Mis servicios › miweb.com
+┌─ headerCard: 🌐 miweb.com [● Activo]   [Abrir panel] [Gestionar DNS] [⋯] ─┐
+│ Plan Pro · miweb.com · Contratado 12 mar · Renueva 12 jun   (DescriptionList)│
+└──────────────────────────────────────────────────────────────────────────────┘
+┌ [ Resumen ] ── Actividad ──────────────────────────────── (sin Gestión cliente)┐
+│ ┌ MAIN (2fr) ───────────────────────────┐ ┌ ASIDE (1fr) ───────────────────┐ │
+│ │ <SectionCard> Recursos                 │ │ <SectionCard> Facturación       │ │
+│ │   <Meter> Disco 4,2/10 GB (42%)        │ │   Próxima · última · [Ver fact.]│ │
+│ │   <Meter> Ancho banda · Email · BD     │ │ <SectionCard> ¿Ayuda? [Soporte] │ │
+│ │ <SectionCard> SSL (estado+emisor)      │ │ <SectionCard> Desarrollo a medida│ │
+│ │ <SectionCard> Aplicaciones (tiles WP/J)│ │   (placeholder Sprint 22)       │ │
+│ └────────────────────────────────────────┘ └─────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────┘
+  Última lectura del proveedor: …                                          (footer)
+```
+
+**Anatomía objetivo (admin):** Resumen = MAIN (Recursos `<Meter>` · SSL · Aplicaciones) + ASIDE (Facturación → /admin/billing · `<SectionCard>` Datos técnicos con `<DescriptionList>` + `<CopyableId>` para Service/Subscription/Org IDs). **Gestión** = `<SectionCard>` Operaciones (Cambiar plan · Recalcular) · `<SectionCard>` Reenviar notificación · **`<DangerZone>`** full-width al fondo (Suspender · Cancelar → modal). **Actividad** = Notas + Auditoría.
+
+**Variaciones por estado (frozen):**
+- **Suspendido** (Amendment VIII): header sin clúster (acciones en ⋯); banner (cliente: motivo + [Regularizar pago]; admin: motivo+nota + desync). Enhance: Recursos/SSL read-only en MAIN; Apps ocultas. Mínimo: card "Información del servicio" en MAIN. **2 columnas**. Admin: **Reanudar**/Cancelar en el menú ⋯.
+- **Drift**: admin → `AdminDriftBanner` (Investigar/Reconciliar/Re-aprovisionar) + resto operativo; cliente → header empático, SSO/DNS/acciones ocultas.
+- **Terminal (cancelled)** (Amendment VIII): header sin clúster + **sin "Renueva"**; banner (info cliente / danger admin + razón). **MAIN = card "Información del servicio"** (estado + plan/alta/cancelado, **sin renovación**) → ASIDE = Facturación (**solo última factura, sin "Próxima renovación"** — cancelado no renueva) + admin Datos técnicos. **2 columnas**.
+- **Servicio mínimo (`internal`/`manual`/`support_inside`)**: sin clúster (salvo acciones disponibles en ⋯); Resumen = MAIN con la card "Información del servicio" (estado + plan/alta/renovación) + ASIDE (Facturación · Ayuda cliente / Datos técnicos admin) → **2 columnas** (Amendment VII punto 7). Colapsa con elegancia si falta una columna.
+
+**Robustez:** cada `<SectionCard>` aparece por capability (provisioner-agnóstico, ADR-070/077); `main+aside` colapsa a 1 columna si MAIN vacío o en móvil; las acciones destructivas viven en el menú ⋯ con confirmación por modal (Regla D5).
+
+---
+
 ### 5.15 Tareas (`/dashboard/tasks`) — List
 
 **Tipo:** List (§2.4)
@@ -1919,9 +2141,204 @@ Componentes que el DS necesitaba para implementar S5. Todos los de prioridad alt
 
 ---
 
+### 5.18 Plugins List (`/admin/settings/plugins`) — List (variante card grid)
+
+> **Origen doctrinal:** Sprint 15A Fase I.1 ([ADR-080 §7](./10-decisions/adr-080-plugin-framework.md#7-ui-de-administración) — Plugin Framework). Re-formalizada en Sprint 15C.II Fase F.12 — layout canónico (2026-05-19) · [dossier §A.11.10.9 + §A.11.10.9.2 R1..R6 frozen](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md#a11109-fase-f12--layout-canónico-página-de-servicio--páginas-de-plugins).
+
+**Tipo:** List (§2.4), variante **card grid** (§3.3 — *"Card list cuando el dataset es pequeño + cada item tiene mucha info estructurada"*). NO tabla — el manifest del plugin (label + descripción + version + circuit state + enabled badge) es información estructurada compuesta que encaja mejor en card que en celda.
+**Pregunta:** "¿Qué plugins de provisioning están disponibles y cuál está sano?"
+**Roles:** Admin (superadmin) **exclusivamente**. `Subject.Plugin` es admin-puro (ADR-080 + patrón ADR-067 Subject por rol). El middleware admin redirige otros roles; backend rechaza con 403 defense-in-depth.
+**Ref:** [ADR-080 Plugin Framework](./10-decisions/adr-080-plugin-framework.md) (manifest JSON-Schema 7 + `plugin_installs` PK natural slug + `SecretVaultService` AES-256-GCM + CircuitBreaker), [ADR-077 v2 contrato `ProvisionerPlugin`](./10-decisions/adr-077-contrato-provisioner-plugin-v2.md), [ADR-083 Enhance specifics](./10-decisions/adr-083-plugin-enhance-cp-specifics.md), [§3.3 Table vs Card list](#33-table-o-card-list).
+
+#### Anatomía
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ PAGEHEADER (sin breadcrumb — top-level admin route)              │
+│   h1: Plugins de provisioning                                    │
+│   p:  4 plugins disponibles. Habilita, configura o prueba la     │
+│       conexión de cada plugin desde su detalle. Los secretos se  │
+│       cifran con AES-256-GCM antes de persistirse (ADR-080 §3).  │
+├─────────────────────────────────────────────────────────────────┤
+│ ALERTBANNER (variant danger) — solo si listError != null         │
+│   "Error al cargar la lista de plugins."                         │
+├─────────────────────────────────────────────────────────────────┤
+│ EMPTY STATE — solo si items.length === 0 y NO listError           │
+│   "No hay plugins disponibles. Si esperabas ver alguno, verifica │
+│    los logs del boot (los plugins que fallan contract validation │
+│    no aparecen aquí)."                                           │
+├─────────────────────────────────────────────────────────────────┤
+│ GRID auto-fill minmax(320px, 1fr), gap 16                        │
+│   ┌────────────────┐  ┌────────────────┐  ┌────────────────┐    │
+│   │ PluginCard     │  │ PluginCard     │  │ PluginCard     │    │
+│   │  Logo · Label  │  │  enhance_cp    │  │  resellerclub  │    │
+│   │  Descripción   │  │  Hosting CMS   │  │  Domains/DNS   │    │
+│   │  v1.2 · slug   │  │  v2.1.3 · …    │  │  v0.9 · …      │    │
+│   │  Badge state   │  │  ✅ Habilitado  │  │  ⬜ Deshab.     │    │
+│   │  [Ver detalle] │  │  [Ver detalle] │  │  [Ver detalle] │    │
+│   └────────────────┘  └────────────────┘  └────────────────┘    │
+│   ┌────────────────┐                                             │
+│   │ PluginCard     │                                             │
+│   │  internal      │                                             │
+│   │  ...           │                                             │
+│   └────────────────┘                                             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Bloques canónicos
+
+| Bloque | Obligatorio | Regla |
+|---|---|---|
+| **PageHeader** | ✅ | `<PageHeader title="Plugins de provisioning" subtitle="…">` — sin CTA primario (los plugins no se crean desde la UI; son descubiertos del filesystem). Subtitle dinámico con `items.length`. |
+| **AlertBanner danger** | Condicional | Solo si fetch del backend (`GET /admin/plugins`) falla. Patrón heredado §4.5 manejo de errores. Texto del error literal del backend; cero leak de stack. |
+| **EmptyState** | Condicional | Solo si la lista carga OK pero está vacía (caso patológico: ningún plugin pasó contract validation). Tono Aelium honesto (§4.8) — guía hacia los logs. |
+| **PluginCard grid** | ✅ | Grid `auto-fill minmax(320px, 1fr)` gap 16. Componente actual `_shared/plugins/PluginCard` (reusable cliente nunca lo usa — vive en `_shared/` por convención namespacing). Cada card linka a `/admin/settings/plugins/[slug]` (§5.19). |
+
+#### Componentes nuevos (R1 — sin cambios estructurales en F.12)
+
+**`<AdminPluginsListLayout>` SC** ligero (`frontend/app/_shared/plugins/AdminPluginsListLayout.tsx`) — encapsula header + states + grid. La page `frontend/app/admin/settings/plugins/page.tsx` se convierte en wrapper ~15 LOC: resuelve `serverFetch` + delega. **NO se introduce registry declarativo** (R3 no aplica — la página tiene solo 3 estados mutuamente excluyentes y un grid uniforme; el over-engineering no se justifica).
+
+#### Estados empty/error/loading
+
+- **Loading**: streaming nativo Next.js (SC bloquea hasta resolver `serverFetch`).
+- **Empty**: copy heredado actual con tono Aelium (P5) — apunta a logs del boot, no esconde el problema.
+- **Error fetch**: AlertBanner con mensaje literal del backend (`ServerFetchError`) + fallback `'Error al cargar la lista de plugins.'` heredado.
+
+#### Responsive
+
+Grid `auto-fill minmax(320px, 1fr)` colapsa de N columnas a 1 según ancho disponible. Sin breakpoints específicos — el grid CSS maneja todo. Sin overflow horizontal en mobile.
+
+#### Interacciones clave
+
+- **Click en PluginCard** → navegación SSR a `/admin/settings/plugins/[slug]` (§5.19).
+- **No hay acciones desde la lista** — toda mutación (habilitar/deshabilitar/configurar/probar) vive en el detalle. Coherente con §3.5 PageHeader "sin CTA" + §4.11 (NO bulk actions — el set es pequeño y las operaciones son por-plugin, no por-lote).
+
+#### Variaciones por rol (matriz §1.2 P6.1)
+
+Página **admin-only** — sin contenido adaptativo por rol. Si un agente o cliente intenta abrir la URL, el middleware admin redirige; el backend además rechaza con 403. NO se renderiza un EmptyState "no autorizado" — la ruta entera no existe para no-admins.
+
+#### Decisiones y deferrals — F.12 alcance
+
+- **Cero cambio funcional**: la lista se preserva exactamente como hoy. `<AdminPluginsListLayout>` SC nuevo es pure refactor de extracción del JSX inline del `page.tsx`.
+- **No se añade filtro/búsqueda**: el dataset esperado son ~5-10 plugins (cobertura cabecera, hosting, DNS, soporte interno, manual). FilterBar (§3.4) sería over-engineering. Si crece >20 plugins en el futuro, evaluar.
+- **No se añade ordenación**: el grid orden de inserción del backend (alfabético por label hoy). Estable y predecible.
+- **No se añade "+ Crear plugin"**: los plugins se descubren del filesystem (ADR-080 §2) — no se crean desde la UI. Tampoco "Importar plugin" — fuera de alcance Sprint 15C.II.
+
+**Estado:** ✅ Implementado Sprint 15A I.1; refactor compositivo en Sprint 15C.II F.12.2 (cero cambio funcional).
+
+---
+
+### 5.19 Plugin Detail (`/admin/settings/plugins/[slug]`) — Detail
+
+> **Origen doctrinal:** Sprint 15A Fase I.1 ([ADR-080 §7](./10-decisions/adr-080-plugin-framework.md#7-ui-de-administración)) + Sprint 15C.II Fase F.2 ([ADR-083 Amendment A4.4](./10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) — `<PluginOperationalOverview>` overview operativo). Re-formalizada en Sprint 15C.II Fase F.12 — layout canónico (2026-05-19) · [dossier §A.11.10.9 + §A.11.10.9.2 R1..R6 frozen](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md#a11109-fase-f12--layout-canónico-página-de-servicio--páginas-de-plugins).
+
+**Tipo:** Detail (§2.5) — variante con form en lugar de tabs (el contenido principal es el form dinámico `rjsf` de configuración, no contenido categorizado por tabs).
+**Pregunta:** "¿Está sano este plugin y cómo lo configuro?"
+**Roles:** Admin (superadmin) **exclusivamente** — mismo gating que §5.18 lista.
+**Ref:** [ADR-080 Plugin Framework](./10-decisions/adr-080-plugin-framework.md) (§4 manifest `configSchema` + `secretsSchema` separados + Amendments B `productConfigSchema?` + C `serviceInfoCacheTtlSeconds?`; §5 SecretVault AES-256-GCM; §6 catálogo 6 eventos `plugin.*`; §7 UI `@rjsf/core` tema DS custom), [ADR-083 Amendment A4.4 + A6 + A8](./10-decisions/adr-083-plugin-enhance-cp-specifics.md), [F.2 admin overview operativo](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md), [F.9 reconcile per-servicio](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md).
+
+#### Anatomía
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ BREADCRUMB                                                       │
+│   ← Volver a Plugins                                             │
+├─────────────────────────────────────────────────────────────────┤
+│ DETAIL HEADER                                                    │
+│   h1: Enhance Control Panel        ─────  ┌─────────────────┐   │
+│   p:  Hosting compartido + DNS…           │ PluginStatusBadge│   │
+│   slug · category · v2.1.3 · updated…     │ ⬤ Healthy · ON  │   │
+│                                            └─────────────────┘   │
+├─────────────────────────────────────────────────────────────────┤
+│ PluginOperationalOverview (Card composite — F.2 ADR-083 A4.4)    │
+│   ┌─ Badge salud arriba derecha (CircuitBreaker state)         ┐ │
+│   │ ⬤ Healthy · open: 0 · closed: 4                            │ │
+│   │                                                              │ │
+│   │ STATS GRID                                                  │ │
+│   │   Services activos: 47  ·  Errores 24h: 3  ·  …             │ │
+│   │                                                              │ │
+│   │ RECONCILIATIONS                                              │ │
+│   │   Última: hace 12 min · Próxima: en 48 min                  │ │
+│   │                                                              │ │
+│   │ DRIFTS 24h (tabla compacta — F.3 audit timeline)            │ │
+│   │   svc-001 · subscription_missing · hace 2h · [Reconciliar]  │ │
+│   │   svc-073 · plan_divergence applied=true · hace 8h          │ │
+│   │   ─ vacío: "Sin drifts en las últimas 24 horas" ─           │ │
+│   └────────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────┤
+│ PluginReconcileSection (Card) — solo si enabled + supports_recon │
+│   h2: Reconciliar todos los servicios contra <Plugin> ahora      │
+│   p:  "Compara el estado de cada servicio contra el proveedor…"  │
+│                                          [↻ Reconciliar todos]   │
+├─────────────────────────────────────────────────────────────────┤
+│ PluginConfigForm (CC dinámico — rjsf + tema DS)                   │
+│   ┌─ Card · Configuración general (configSchema) ──────────────┐ │
+│   │  [Input: API URL] [Input: Timeout ms] [Select: Region]      │ │
+│   │  …                                                          │ │
+│   └────────────────────────────────────────────────────────────┘ │
+│   ┌─ Card · Secretos (secretsSchema — masked) ──────────────────┐ │
+│   │  [Password: API Token] (••••••• [Editar])                   │ │
+│   │  …                                                          │ │
+│   └────────────────────────────────────────────────────────────┘ │
+│   ┌─ Card · Toggle "Habilitado" + "Probar conexión" ────────────┐ │
+│   │  [Switch enabled]   [Probar conexión]   [Guardar cambios]   │ │
+│   └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Bloques canónicos
+
+| Bloque | Obligatorio | Regla |
+|---|---|---|
+| **Breadcrumb** | ✅ | `← Volver a Plugins` (mismo patrón §5.x detail pages — usa el componente `<Breadcrumb>` DS cuando F.12.2 lo migre; hoy es `<Link>` inline). |
+| **Detail header** | ✅ | h1 = `t(manifest.label)` · p = `t(manifest.description)` (maxWidth 720) · metadata inline (slug en monospace + settingsCategory + `v${manifest.version}` + "Actualizado {updated_at}" si existe) · `<PluginStatusBadge>` top-right con `enabled` + `circuit_state`. **NO en cards separadas** (§2.5 regla "información de cabecera inline"). |
+| **`<PluginOperationalOverview>`** (F.2 A4.4) | ✅ | SC autocontenido reusable/heredable (heredado en `_shared/plugins/`). Compone: badge salud (CircuitBreaker `open` / `half_open` / `closed`) + stats grid (services activos / errores 24h / latency p50/p99) + última/próxima reconciliación + tabla drifts 24h con CTAs reconcile per-servicio (F.9 R5 toast UX). Fail-soft: si su fetch interno falla, degrada con aviso inline sin romper la página. |
+| **`<PluginReconcileSection>`** | Condicional | Solo si `detail.enabled === true` **Y** `manifest.capabilities.supports_reconciliation === true`. Botón `<ReconcileAllButton slug>` (CC) que dispara `POST /admin/plugins/:slug/reconcile-all`. Heredable a 15D RC / 15E Docker / 15G Plesk. |
+| **`<PluginConfigForm>`** (CC dinámico) | ✅ | Form construido con `@rjsf/core` + tema DS custom (ADR-080 §7). Renderiza 3 sub-cards: **(a)** `configSchema` no-secret · **(b)** `secretsSchema` (campos masked con re-edit lifecycle SecretVault AES-256-GCM) · **(c)** toggle `enabled` + botón "Probar conexión" (`testConnection?()` opcional ADR-077 A6 + obligatorio si `manifest.testConnectionMethod === 'custom'`) + "Guardar cambios" primary. |
+
+#### Componentes nuevos (R1 — sin cambios estructurales en F.12)
+
+`<AdminPluginDetailLayout>` SC ligero (`frontend/app/_shared/plugins/AdminPluginDetailLayout.tsx`) — encapsula breadcrumb + header + delegación a los 3 sub-bloques. Page actual ~135 LOC se reduce a wrapper ~25 LOC. **NO registry declarativo** — la estructura es lineal y fija; los componentes ya son autocontenidos (`PluginOperationalOverview` + `PluginConfigForm` se gestionan ellos mismos).
+
+#### Estados empty/error/loading
+
+- **404 (`ServerFetchError` status 404)**: `notFound()` de Next.js → 404 page nativa (heredado, no se cambia).
+- **Otros errores `serverFetch`**: throw (heredado) — la error boundary de Next.js renderiza el error.
+- **Loading**: streaming Next.js (SC bloquea hasta resolver `serverFetch`). `<PluginOperationalOverview>` y `<PluginConfigForm>` tienen sus propios estados internos.
+- **`detail.enabled === false`**: NO se renderiza `<PluginReconcileSection>` (deshabilitar reconcile sobre plugin off). El form sí se muestra (admin debe poder configurarlo antes de habilitar).
+- **`manifest.capabilities.supports_reconciliation === false`**: NO se renderiza `<PluginReconcileSection>` aunque enabled (capability-driven — ADR-077).
+
+#### Responsive
+
+`<DetailPage>` layout container `max-width: 1200px` (§2.8). Header colapsa metadata inline a wrap en mobile. Tabla drifts 24h (`<PluginOperationalOverview>` interno) hace overflow horizontal en mobile estrecho. Form rjsf hereda responsive del tema DS custom.
+
+#### Interacciones clave (§4.x)
+
+- **Toggle `Habilitado`**: Switch + autosave o Save button (heredado del rjsf actual — congelar al iterar wireframes).
+- **Probar conexión**: botón `<Button>` que dispara `POST /admin/plugins/:slug/test-connection` → Toast feedback success/error (§4.3).
+- **Guardar cambios**: Button primary del form → `POST /admin/plugins/:slug/config` → Toast success "Configuración guardada" + reload SC para refrescar `circuit_state` si cambia.
+- **Reconciliar todos**: `<ReconcileAllButton>` (CC) — Toast "Reconciliación iniciada · ver overview en N segundos" + invalidación cache server-side del overview.
+- **Reconcile per-servicio** (desde tabla drifts): F.9 R5 toast UX 3 ramas (rama-redirect-timeline / coalesced / 429 RECONCILE_IN_PROGRESS).
+- **Editar secret enmascarado**: pattern `[Editar]` reveal → input editable → Save → re-mascarado (heredado SecretVault flow ADR-080 §3).
+
+#### Variaciones por rol (matriz §1.2 P6.1)
+
+Página **admin-only puro** — sin contenido adaptativo por rol (igual que §5.18). Middleware admin + backend 403 defense-in-depth.
+
+#### Decisiones y deferrals — F.12 alcance
+
+- **Cero cambio funcional**: composición refactor puro de extracción a `<AdminPluginDetailLayout>` SC. `<PluginOperationalOverview>` + `<PluginConfigForm>` + `<ReconcileAllButton>` se preservan sin cambios.
+- **NO se introducen tabs** para separar overview/config: la página es lineal scroll vertical. Si en el futuro se añaden secciones (audit timeline del plugin, logs estructurados, etc.) reconsiderar §2.5 tabs condicional >2 secciones.
+- **NO se promociona `<PluginOperationalOverview>` a Tier 1 DS**: hoy es específico al módulo plugins (`_shared/plugins/`). Si en 15E Docker o 15G Plesk se decide reusar para overview de proveedores no-plugins (p.ej. dashboard de Docker daemon), evaluar promoción.
+- **DC.NEW-51..54 NO se abordan** (App Management futuros — stats UI / install-uninstall / ops mutación / modelo BD).
+
+**Estado:** ✅ Implementado Sprint 15A I.1 (base) + Sprint 15B (Enhance config), F.2 (`<PluginOperationalOverview>`), F.9 (reconcile per-servicio integrado en tabla drifts). Refactor compositivo en Sprint 15C.II F.12.2.
+
+---
+
 **Sección 5 — Decisiones tomadas:**
 
-- ✅ 13 páginas especificadas con anatomía exacta
+- ✅ 16 páginas especificadas con anatomía exacta (incl. §5.14 Servicio Detail + §5.18 Plugins List + §5.19 Plugin Detail — Sprint 15C.II F.12)
 - ✅ Variaciones por rol documentadas para cada página compartida (P6)
 - ✅ Empty states con tono Aelium para cada página (P5, §4.8)
 - ✅ Estado por página actualizado post-migración (D20, D21, D22-D28)
@@ -1939,7 +2356,7 @@ Componentes que el DS necesitaba para implementar S5. Todos los de prioridad alt
 | S2. Anatomía de páginas (6 tipos) | ✅ Cerrada |
 | S3. Reglas de contenido | ✅ Cerrada |
 | S4. Patrones de interacción (12 patrones) | ✅ Cerrada |
-| S5. Especificación por página (15 páginas) | ✅ Cerrada |
+| S5. Especificación por página (16 páginas) | ✅ Cerrada |
 
 > Este documento es la fuente de verdad para la interfaz del dashboard Aelium.
 > Toda página nueva debe clasificarse en un tipo (S2), seguir sus reglas (S3-S4),

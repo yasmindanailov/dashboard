@@ -29,9 +29,10 @@
  */
 import type { ReactNode } from 'react';
 
-import { Badge, Card, type BadgeVariant } from '../../components/ui';
+import { Badge, SectionCard, type BadgeVariant } from '../../components/ui';
 import { t } from '../../_shared/i18n';
 import type { ServiceSslStatus, ServiceSslSummary } from '../../lib/api';
+import styles from './service-detail.module.css';
 
 interface SslStatusCardProps {
   ssl: ServiceSslSummary;
@@ -127,73 +128,42 @@ export function SslStatusCard({
       : undefined;
 
   return (
-    <Card>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 12,
-        }}
-      >
-        <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-          {t('service.ssl.card_title')}
-        </h2>
+    <SectionCard
+      title={t('service.ssl.card_title')}
+      actions={
         <span title={badgeTitle}>
           <Badge variant={badgeVariant}>{statusLabel}</Badge>
         </span>
-      </div>
-
-      <p style={{ margin: '0 0 8px 0', fontSize: 14 }}>{primary}</p>
+      }
+    >
+      <p className={styles.cardText}>{primary}</p>
 
       {ssl.autoRenew === true && (
-        <p
-          style={{
-            margin: '0 0 4px 0',
-            color: 'var(--text-secondary)',
-            fontSize: 13,
-          }}
-        >
-          {t('service.ssl.auto_renew_on')}
-        </p>
+        <p className={styles.cardTextMuted}>{t('service.ssl.auto_renew_on')}</p>
       )}
       {ssl.autoRenew === false && (
-        <p
-          style={{
-            margin: '0 0 4px 0',
-            color: 'var(--text-secondary)',
-            fontSize: 13,
-          }}
-        >
-          {t('service.ssl.auto_renew_off')}
-        </p>
+        <p className={styles.cardTextMuted}>{t('service.ssl.auto_renew_off')}</p>
       )}
 
       {ssl.issuer && (
-        <p
-          style={{
-            margin: 0,
-            color: 'var(--text-tertiary)',
-            fontSize: 12,
-          }}
-        >
+        <p className={styles.cardTextSubtle}>
           {t('service.ssl.issuer_prefix')}
           {ssl.issuer}
         </p>
       )}
 
       {isAdmin && ssoPanelHref && (
-        <p style={{ marginTop: 12, marginBottom: 0, fontSize: 13 }}>
+        <p className={styles.cardText}>
           <a
             href={ssoPanelHref}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: 'var(--brand)', textDecoration: 'none' }}
+            className={styles.ctaText}
           >
             {t('service.ssl.admin_cta_manage_in_provider')}
           </a>
         </p>
       )}
-    </Card>
+    </SectionCard>
   );
 }

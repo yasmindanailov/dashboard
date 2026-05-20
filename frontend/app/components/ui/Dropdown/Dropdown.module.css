@@ -35,7 +35,8 @@
 .menu {
   position: absolute;
   top: calc(100% + 4px);
-  min-width: 180px;
+  min-width: 200px;
+  max-width: 340px;
   background: var(--surface-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -63,11 +64,35 @@
   transition: background var(--transition-fast);
 }
 .item:hover { background: var(--surface-secondary); }
+.item:disabled { opacity: 0.5; cursor: not-allowed; }
+.item:disabled:hover { background: transparent; }
+
+/* Ítem con descripción (label + línea gris) — Sprint 15C.II F.12.5. */
+.itemRich {
+  align-items: flex-start;
+  padding: var(--space-2_5) var(--space-3);
+}
+.itemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.itemLabel {
+  font-weight: var(--font-weight-medium);
+}
+.itemDescription {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  line-height: var(--line-height-tight);
+  white-space: normal;
+}
+.danger .itemDescription { color: var(--text-tertiary); }
 
 .danger { color: var(--danger); }
 .danger:hover { background: var(--danger-light); }
 
-.icon { display: flex; color: var(--text-tertiary); }
+.icon { display: flex; color: var(--text-tertiary); margin-top: 2px; }
 .danger .icon { color: var(--danger); }
 
 .divider {
