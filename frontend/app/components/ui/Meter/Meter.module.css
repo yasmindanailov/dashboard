@@ -1,0 +1,78 @@
+/* ═══════════════════════════════════════
+   Meter — Sprint 15C.II Fase F.12.5 (Amendment V)
+   Medidor usado/total con barra accesible + coloreo por umbral.
+   Tokens only. El ancho del fill llega como custom property
+   `--meter-value` (dato dinámico, no literal de diseño).
+   ═══════════════════════════════════════ */
+
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1_5);
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  text-align: right;
+}
+.value_normal {
+  color: var(--text-primary);
+}
+.value_warning {
+  color: var(--warning-hover);
+}
+.value_critical {
+  color: var(--danger);
+}
+
+.track {
+  width: 100%;
+  height: 6px;
+  background: var(--surface-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  width: var(--meter-value, 0%);
+  border-radius: var(--radius-full);
+  transition: width var(--transition-normal);
+}
+.fill_normal {
+  background: var(--brand);
+}
+.fill_warning {
+  background: var(--warning);
+}
+.fill_critical {
+  background: var(--danger);
+}
+
+.advisory {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.advisory_warning {
+  color: var(--warning-hover);
+  font-weight: var(--font-weight-medium);
+}
+.advisory_critical {
+  color: var(--danger);
+  font-weight: var(--font-weight-semibold);
+}

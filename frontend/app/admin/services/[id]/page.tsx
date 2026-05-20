@@ -24,10 +24,12 @@ import type {
   ServiceDetailResponse,
 } from '../../../lib/api';
 import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
+import { t } from '../../../_shared/i18n';
 import { ServiceDetailLayout } from '../../../_shared/services/ServiceDetailLayout';
 import type { ServiceDetailContext } from '../../../_shared/services/service-detail-context';
 import { parseSuspensionReasonCode } from '../../../_shared/services/suspension-reason';
 
+import { AdminServiceActionsMenu } from './_components/AdminServiceActionsMenu';
 import { ADMIN_SERVICE_DETAIL_SECTIONS } from './_sections';
 
 interface PageProps {
@@ -145,11 +147,27 @@ export default async function AdminServiceDetailPage({
     supportsReconcileOne,
   };
 
+  // F.12.5 (Amendment VII): todas las operaciones admin viven en el menú "Más
+  // acciones" del header (la tab "Gestión" desapareció). Se inyecta como slot
+  // para no acoplar `_shared/` a `app/admin/`.
+  const headerActionsMenu = (
+    <AdminServiceActionsMenu
+      serviceId={service.id}
+      serviceDisplayName={info.display.primary}
+      actions={info.availableActions}
+      currentPlanLabel={
+        info.display.secondary ? t(info.display.secondary) : undefined
+      }
+      isTerminal={isTerminal}
+    />
+  );
+
   return (
     <ServiceDetailLayout
       ctx={ctx}
       activeTab={tab ?? 'summary'}
       extraSections={ADMIN_SERVICE_DETAIL_SECTIONS}
+      headerActionsMenu={headerActionsMenu}
     />
   );
 }

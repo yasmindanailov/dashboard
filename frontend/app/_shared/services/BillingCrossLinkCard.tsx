@@ -26,9 +26,10 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Badge, Card, type BadgeVariant } from '../../components/ui';
+import { Badge, SectionCard, type BadgeVariant } from '../../components/ui';
 import { t } from '../../_shared/i18n';
 import type { InvoiceStatus, ServiceBillingCrossLink } from '../../lib/api';
+import styles from './service-detail.module.css';
 
 interface BillingCrossLinkCardProps {
   data: ServiceBillingCrossLink;
@@ -37,6 +38,13 @@ interface BillingCrossLinkCardProps {
    * `false` (default), apunta a `/dashboard/billing/[id]`. L16.
    */
   isAdmin?: boolean;
+  /**
+   * Sprint 15C.II F.12.5 (Amendment VIII): si el servicio es terminal
+   * (cancelado/terminado), se oculta "Próxima renovación" — un servicio
+   * cancelado no renueva (sería incoherente). Se conserva la última factura
+   * (histórico). Default `false`.
+   */
+  isTerminal?: boolean;
 }
 
 const INVOICE_STATUS_TO_BADGE_VARIANT: Record<InvoiceStatus, BadgeVariant> = {
@@ -88,12 +96,15 @@ function formatCurrency(amount: string | null, currency: string): string | null 
 export function BillingCrossLinkCard({
   data,
   isAdmin = false,
+  isTerminal = false,
 }: BillingCrossLinkCardProps): ReactNode {
   const nextDateLabel = formatDate(data.nextDueDate);
   const nextAmountLabel = formatCurrency(data.amount, data.currency);
-  const hasNextRenewal = nextDateLabel && nextAmountLabel;
+  // Servicio terminal: NO mostramos próxima renovación (no renueva — Amendment
+  // VIII); solo el histórico de la última factura.
+  const showNextRenewal = Boolean(nextDateLabel && nextAmountLabel) && !isTerminal;
 
-  if (!hasNextRenewal && !data.lastInvoice) {
+  if (!showNextRenewal && !data.lastInvoice) {
     // Capability-driven por presencia: nada que mostrar.
     return null;
   }
@@ -112,13 +123,9 @@ export function BillingCrossLinkCard({
     : null;
 
   return (
-    <Card>
-      <h2 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 12px 0' }}>
-        {t('service.billing_cross_link.card_title')}
-      </h2>
-
-      {hasNextRenewal && (
-        <p style={{ margin: '0 0 8px 0', fontSize: 14 }}>
+    <SectionCard title={t('service.billing_cross_link.card_title')}>
+      {showNextRenewal && (
+        <p className={styles.cardText}>
           {t('service.billing_cross_link.next_renewal_prefix')}
           <strong>{nextDateLabel}</strong>
           {' · '}
@@ -127,24 +134,16 @@ export function BillingCrossLinkCard({
       )}
 
       {data.lastInvoice && invoiceHref && invoiceTotal && (
-        <div
-          style={{
-            marginTop: 8,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            flexWrap: 'wrap',
-            fontSize: 13,
-          }}
-        >
-          <span style={{ color: 'var(--text-secondary)' }}>
+        <div className={styles.inlineRow}>
+          <span className={styles.cardTextMuted}>
             {t('service.billing_cross_link.last_invoice_prefix')}
-            <strong style={{ color: 'var(--text-primary)' }}>
+            <strong className={styles.strongPrimary}>
               {data.lastInvoice.invoice_number}
             </strong>
             {invoiceDueLabel && (
-              <span style={{ marginLeft: 6 }}>
-                ({t('service.billing_cross_link.due_prefix')}
+              <span>
+                {' ('}
+                {t('service.billing_cross_link.due_prefix')}
                 {invoiceDueLabel})
               </span>
             )}
@@ -154,16 +153,10 @@ export function BillingCrossLinkCard({
               {t(INVOICE_STATUS_TO_LABEL_KEY[invoiceStatus])}
             </Badge>
           )}
-          <span style={{ color: 'var(--text-secondary)' }}>{invoiceTotal}</span>
+          <span className={styles.cardTextMuted}>{invoiceTotal}</span>
           <Link
             href={invoiceHref}
-            style={{
-              color: 'var(--brand-600)',
-              fontWeight: 600,
-              textDecoration: 'none',
-              whiteSpace: 'nowrap',
-              marginLeft: 'auto',
-            }}
+            className={`${styles.ctaText} ${styles.pushEnd}`}
           >
             {t('service.billing_cross_link.view_invoice')} →
           </Link>
@@ -171,16 +164,10 @@ export function BillingCrossLinkCard({
       )}
 
       {!data.lastInvoice && (
-        <p
-          style={{
-            margin: 0,
-            color: 'var(--text-tertiary)',
-            fontSize: 12,
-          }}
-        >
+        <p className={styles.cardTextSubtle}>
           {t('service.billing_cross_link.no_invoice_yet')}
         </p>
       )}
-    </Card>
+    </SectionCard>
   );
 }

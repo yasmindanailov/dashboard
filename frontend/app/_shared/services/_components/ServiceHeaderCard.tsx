@@ -9,11 +9,14 @@
  *
  * Server-component compatible (el clúster es un CC island).
  */
-import { Badge } from '../../../components/ui';
+import type { ReactNode } from 'react';
+
+import { Badge, DescriptionList, type DescriptionItem } from '../../../components/ui';
 import { t } from '../../i18n';
 import type { ServiceDetailContext } from '../service-detail-context';
 import { filterQuickActions } from '../quick-actions';
 import { SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE } from '../service-status';
+import { ServiceActionsMenu } from '../ServiceActionsMenu';
 import { ServiceActionCluster } from './ServiceActionCluster';
 import styles from '../service-detail.module.css';
 
@@ -25,7 +28,17 @@ function formatLongDate(iso: string): string {
   });
 }
 
-export function ServiceHeaderCard({ ctx }: { ctx: ServiceDetailContext }) {
+interface ServiceHeaderCardProps {
+  ctx: ServiceDetailContext;
+  /**
+   * Menú "Más acciones" (⋯) inyectado por la ruta admin
+   * (`<AdminServiceActionsMenu>`). Si se omite (cliente), el header monta el
+   * `<ServiceActionsMenu>` por defecto con las quick-actions del plugin.
+   */
+  actionsMenu?: ReactNode;
+}
+
+export function ServiceHeaderCard({ ctx, actionsMenu }: ServiceHeaderCardProps) {
   const {
     service,
     info,
@@ -63,16 +76,28 @@ export function ServiceHeaderCard({ ctx }: { ctx: ServiceDetailContext }) {
     ? filterQuickActions(info.availableActions, isAdmin)
     : [];
 
-  const metaParts: string[] = [];
-  if (service.product_name) metaParts.push(service.product_name);
-  if (service.domain) metaParts.push(service.domain);
-  metaParts.push(
-    `${t('service.detail.meta.contracted')} ${formatLongDate(service.created_at)}`,
-  );
-  if (billingCrossLink?.nextDueDate) {
-    metaParts.push(
-      `${t('service.detail.meta.renews')} ${formatLongDate(billingCrossLink.nextDueDate)}`,
-    );
+  // Metadata inline (§3.1) sobre la primitiva DS `<DescriptionList>`:
+  // "Plan · Dominio · Contratado <fecha> · Renueva <fecha>".
+  const metaItems: DescriptionItem[] = [];
+  if (service.product_name) {
+    metaItems.push({ key: 'plan', value: service.product_name });
+  }
+  if (service.domain) {
+    metaItems.push({ key: 'domain', value: service.domain });
+  }
+  metaItems.push({
+    key: 'contracted',
+    term: t('service.detail.meta.contracted'),
+    value: formatLongDate(service.created_at),
+  });
+  // "Renueva" NO en servicios terminales (cancelado/terminado no renueva —
+  // Amendment VIII, coherencia).
+  if (billingCrossLink?.nextDueDate && !isTerminal) {
+    metaItems.push({
+      key: 'renews',
+      term: t('service.detail.meta.renews'),
+      value: formatLongDate(billingCrossLink.nextDueDate),
+    });
   }
 
   return (
@@ -84,14 +109,7 @@ export function ServiceHeaderCard({ ctx }: { ctx: ServiceDetailContext }) {
             {SERVICE_STATUS_LABEL[info.status]}
           </Badge>
         </div>
-        <p className={styles.headerMeta}>
-          {metaParts.map((part, i) => (
-            <span key={i}>
-              {i > 0 && <span className={styles.headerMetaSep}>· </span>}
-              {part}
-            </span>
-          ))}
-        </p>
+        <DescriptionList layout="inline" items={metaItems} />
         {/* Cliente con drift: mensaje empático (UI_SPEC §4.13 — el cliente no
             ve jerga técnica; el admin tiene el AdminDriftBanner). */}
         {!forceAdminRoute && isDrift && (
@@ -103,8 +121,16 @@ export function ServiceHeaderCard({ ctx }: { ctx: ServiceDetailContext }) {
         serviceId={service.id}
         ssoPanelLabel={ssoPanelLabel}
         dnsHref={dnsHref}
-        quickActions={quickActions}
         isAdmin={isAdmin}
+        menu={
+          actionsMenu ?? (
+            <ServiceActionsMenu
+              serviceId={service.id}
+              isAdmin={isAdmin}
+              quickActions={quickActions}
+            />
+          )
+        }
       />
     </div>
   );

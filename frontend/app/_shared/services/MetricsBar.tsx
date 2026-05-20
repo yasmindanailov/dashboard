@@ -1,61 +1,64 @@
 /**
- * MetricsBar — Sprint 11 Fase 11.D (ADR-070 §"Patrón de página") +
- * Sprint 15C.II Fase B (ADR-083 Amendment A4.1 — botón ↻ Refrescar) +
- * Sprint 15C.II Fase C round 7 (smoke real Yasmin 2026-05-10):
- * discriminación cliente vs admin del refresh UX.
+ * MetricsBar — "Recursos" del detalle de servicio.
  *
- * Renderiza las métricas que el plugin expone vía
- * `ServiceInfo.metrics`. Soporta unidades canónicas (disk, bandwidth,
- * RAM, CPU, email accounts, databases) + campos `custom` libres.
+ * Sprint 11 11.D (ADR-070) → 15C.II F.B (botón ↻) → F.C round 7 (refresh UX por
+ * rol) → F.8 (alertas de cuota) → **F.12.5 (Amendment V — densidad profesional)**:
+ * rediseño a medidores `<Meter>` dentro de un `<SectionCard>` "Recursos". Lidera
+ * el overview (patrón #1 del sector: Hostinger/cPanel/DigitalOcean). Sustituye
+ * las barras improvisadas inline por la primitiva DS `<Meter>` (tokens + i18n).
  *
- * Refresh UX por rol (estándar industria — Stripe, Vercel, Datadog):
- *   - **Cliente**: SIN botón ↻ explícito. La info se muestra pasiva
- *     con timestamp relativo "Actualizado hace X" + tooltip con la
- *     fecha exacta. El cliente no necesita controlar manualmente la
- *     carga al proveedor (riesgo DoS + UX confusa "¿qué refresca el
- *     botón?"). El cache backend TTL=60s garantiza que al recargar la
- *     página (F5 universal) el cliente obtiene fresh state cuando
- *     pasaron >60s. Patrón canónico Stripe customer / Vercel viewer.
- *   - **Admin**: botón ↻ con cooldown visible 10s
- *     (`<MetricsRefreshButton>`). El admin SÍ necesita refresh manual
- *     ocasional para debugging / smoke; el cooldown previene
- *     rate-limit accidental. Patrón Stripe admin / Datadog.
+ * Refresh UX por rol (heredado F.C round 7 — estándar Stripe/Vercel/Datadog):
+ *   - **Cliente**: SIN botón ↻; timestamp relativo + tooltip. UX pasiva (el
+ *     cache backend TTL=60s da fresh al recargar; evita DoS y UX confusa).
+ *   - **Admin**: botón ↻ con cooldown en el slot `actions` del SectionCard.
+ *
+ * Coloreo de cuota (heredado F.8): SOLO la fila de disco recibe `thresholdPct`
+ * (del manifest del plugin vía el orquestador) → barra ámbar ≥ umbral, roja
+ * ≥95% + texto advisory. El resto de filas son informativas (barra neutra). El
+ * umbral crítico 95% no es configurable (manifest `maximum: 95` lo garantiza).
+ *
+ * Provisioner-agnóstico: las filas se construyen por presencia de campos en
+ * `ServiceInfo.metrics` (capability-driven, ADR-077) — cero `if (provisioner)`.
+ *
+ * Server-component compatible (el botón ↻ es un CC island).
  */
-import { Card } from '../../components/ui';
+import { HelpTip, Meter, SectionCard } from '../../components/ui';
+import { t } from '../../_shared/i18n';
 import type { ServiceMetrics } from '../../lib/api';
 
+import { MetricsRecalculateButton } from './MetricsRecalculateButton';
 import { MetricsRefreshButton } from './MetricsRefreshButton';
+import styles from './service-detail.module.css';
 
 interface MetricsBarProps {
   metrics: ServiceMetrics;
   /**
-   * Sprint 15C.II Fase B: si se proporciona, MetricsBar renderiza el
-   * subcomponente `<MetricsRefreshButton>` que invoca el endpoint
-   * POST /services/:id/refresh (o admin). Sin este prop, el botón NO
-   * se renderiza (retro-compat con call-sites Sprint 11/15A).
+   * Sprint 15C.II Fase B: si se proporciona, se renderiza el
+   * `<MetricsRefreshButton>` (admin) que invoca POST /services/:id/refresh. Sin
+   * este prop, el botón NO se renderiza (retro-compat call-sites Sprint 11/15A).
    */
   serviceId?: string;
-  /** True si la página es admin (`/admin/services/[id]`). Default false.
-   *  Sprint 15C.II Fase C round 7: cliente NO ve botón ↻ aunque
-   *  serviceId esté presente (UX pasiva industry standard). */
+  /** True si la página es admin (`/admin/services/[id]`). Default false. F.C
+   *  round 7: cliente NO ve botón ↻ aunque haya serviceId (UX pasiva). */
   isAdmin?: boolean;
   /**
-   * Sprint 15C.II Fase F.8 — umbral de alerta de cuota de disco. Vive
-   * en el manifest del plugin (`plugin_installs.config.quota_alert_threshold_pct`,
-   * default 85, rango `[50, 95]`); el orquestador lo expone en el summary
-   * de `getInfoForUser` (no en `ServiceInfo` — capa orquestador, ADR-077
-   * intacto). Si `undefined`/`null`, MetricsBar mantiene el comportamiento
-   * legacy (sin coloreo) — capability-driven, heredable a todo plugin con
-   * `has_metrics`. SOLO afecta la fila "Almacenamiento" (R3 — bandwidth
-   * fuera de scope F.8 por el reset mensual). Threshold ámbar = este
-   * valor; threshold rojo = 95% hardcoded.
+   * Sprint 15C.II Fase F.8 — umbral de alerta de cuota de disco (manifest del
+   * plugin, `[50, 95]`, default 85; expuesto por el orquestador en el summary).
+   * Si `undefined`/`null`, sin coloreo (comportamiento legacy). SOLO afecta la
+   * fila "Almacenamiento" (R3 — bandwidth fuera de scope por el reset mensual).
    */
   quotaAlertThresholdPct?: number | null;
+  /**
+   * Sprint 15C.II Fase F.12.5 (punto 2): si el plugin declara la action
+   * `recalculate_provider_metrics` Y la página es admin, se muestra el botón
+   * "Recalcular" junto a "Refrescar" (cada uno con su ⓘ). El caller (adapter)
+   * resuelve la presencia de la action; aquí solo se combina con `isAdmin`.
+   */
+  canRecalculate?: boolean;
 }
 
-// Sprint 15C.II Fase F.8 — umbral crítico hardcoded (no configurable; L18 +
-// YAGNI — si un plugin pide un 2º umbral configurable en el futuro, se
-// promueve). El manifest `maximum: 95` impide que el admin pise este valor.
+// Sprint 15C.II Fase F.8 — umbral crítico hardcoded (rojo). No configurable
+// (L18 + YAGNI). El manifest `maximum: 95` impide que el admin lo pise.
 const QUOTA_CRITICAL_PCT = 95;
 
 type DiskQuotaSeverity = 'ok' | 'warning' | 'critical';
@@ -70,15 +73,18 @@ function deriveDiskSeverity(
 }
 
 interface MetricRow {
+  key: string;
   label: string;
   used?: number;
   total?: number;
-  unit: string;
-  format?: (n: number) => string;
-  // Sprint 15C.II Fase F.8 — cuando presente, se renderiza una progress bar
-  // ARIA + texto advisory bajo la fila. Lo poblamos solo para la fila de
-  // disco cuando hay threshold válido (R3 — solo disco en F.8).
-  quotaIndicator?: { pct: number; severity: DiskQuotaSeverity };
+  unit?: string;
+  percent?: number;
+  /** Texto de valor pre-formateado para el `<Meter>`. */
+  valueText: string;
+  /** Umbral de cuota (solo disco). */
+  thresholdPct?: number;
+  /** Advisory de cuota (solo disco, cuando severity ≠ ok). */
+  advisory?: string;
 }
 
 function formatMb(mb: number): string {
@@ -87,37 +93,53 @@ function formatMb(mb: number): string {
 }
 
 function formatPct(n: number): string {
-  return `${n.toFixed(1)}%`;
+  return `${n.toFixed(1)} %`;
+}
+
+/** "X / Y unidad" robusto a campos ausentes (— para el lado que falta). */
+function pairText(
+  used: number | undefined,
+  total: number | undefined,
+  format: (n: number) => string = (n) => String(n),
+): string {
+  const u = used !== undefined ? format(used) : '—';
+  if (total === undefined) return u;
+  return `${u} / ${format(total)}`;
 }
 
 /**
- * Sprint 15C.II Fase C round 7 — formato de tiempo relativo amigable
- * (Stripe / GitHub / Twitter style). Server-side render del valor
- * inicial; el cliente puede recargar para refresh. Es estable para
- * SSR (no usa Date.now() durante hidratación — usa el `fetchedAt` ISO
- * que viene del backend).
- *
- * Casos:
- *   - <1 minuto → "hace unos segundos"
- *   - <60 minutos → "hace N minuto(s)"
- *   - <24 horas → "hace N hora(s)"
- *   - >=24 horas → "hace N día(s)"
+ * Sprint 15C.II Fase C round 7 — tiempo relativo amigable (Stripe/GitHub).
+ * SSR-stable: usa `fetchedAt` del backend, no `Date.now()` en hidratación
+ * (el valor se calcula una vez en el render del servidor).
  */
 function formatRelativeTime(isoTimestamp: string): string {
   const then = new Date(isoTimestamp).getTime();
   const now = Date.now();
   const diffSec = Math.max(0, Math.round((now - then) / 1000));
-  if (diffSec < 60) return 'hace unos segundos';
+  if (diffSec < 60) return t('service.resources.relative.just_now');
   if (diffSec < 3600) {
     const m = Math.round(diffSec / 60);
-    return `hace ${m} minuto${m === 1 ? '' : 's'}`;
+    return `${t('service.resources.relative.ago')} ${m} ${m === 1 ? t('service.resources.relative.minute') : t('service.resources.relative.minutes')}`;
   }
   if (diffSec < 86400) {
     const h = Math.round(diffSec / 3600);
-    return `hace ${h} hora${h === 1 ? '' : 's'}`;
+    return `${t('service.resources.relative.ago')} ${h} ${h === 1 ? t('service.resources.relative.hour') : t('service.resources.relative.hours')}`;
   }
   const d = Math.round(diffSec / 86400);
-  return `hace ${d} día${d === 1 ? '' : 's'}`;
+  return `${t('service.resources.relative.ago')} ${d} ${d === 1 ? t('service.resources.relative.day') : t('service.resources.relative.days')}`;
+}
+
+function buildDiskAdvisory(
+  pct: number,
+  severity: DiskQuotaSeverity,
+): string | undefined {
+  if (severity === 'ok') return undefined;
+  const pctRounded = Math.round(pct * 10) / 10;
+  const tail =
+    severity === 'critical'
+      ? t('service.resources.quota_advisory.critical')
+      : t('service.resources.quota_advisory.warning');
+  return `${t('service.resources.quota_advisory.at')} ${pctRounded}% ${tail}`;
 }
 
 export function MetricsBar({
@@ -125,14 +147,13 @@ export function MetricsBar({
   serviceId,
   isAdmin = false,
   quotaAlertThresholdPct,
+  canRecalculate = false,
 }: MetricsBarProps) {
   const rows: MetricRow[] = [];
 
-  // Sprint 15C.II Fase F.8 — solo la barra de disco recibe el coloreo del
-  // threshold de cuota (R3 — bandwidth fuera de scope por el reset
-  // mensual). Calculamos `pct` y severity solo cuando el plugin reporta
-  // ambos `used` y `total` Y el orquestador exportó un threshold válido
-  // (capability-driven — si no, comportamiento legacy sin coloreo).
+  // Sprint 15C.II Fase F.8 — solo el disco recibe coloreo del threshold de
+  // cuota (R3 — bandwidth fuera por reset mensual). Calculamos pct/severity
+  // solo cuando hay used+total Y el orquestador exportó un threshold válido.
   let diskSeverity: DiskQuotaSeverity = 'ok';
   let diskPct: number | null = null;
   if (
@@ -147,13 +168,18 @@ export function MetricsBar({
 
   if (metrics.diskUsedMb !== undefined || metrics.diskTotalMb !== undefined) {
     rows.push({
-      label: 'Almacenamiento',
+      key: 'disk',
+      label: t('service.resources.disk'),
       used: metrics.diskUsedMb,
       total: metrics.diskTotalMb,
       unit: 'MB',
-      format: formatMb,
-      quotaIndicator:
-        diskPct !== null ? { pct: diskPct, severity: diskSeverity } : undefined,
+      valueText: pairText(metrics.diskUsedMb, metrics.diskTotalMb, formatMb),
+      thresholdPct:
+        typeof quotaAlertThresholdPct === 'number'
+          ? quotaAlertThresholdPct
+          : undefined,
+      advisory:
+        diskPct !== null ? buildDiskAdvisory(diskPct, diskSeverity) : undefined,
     });
   }
   if (
@@ -161,28 +187,35 @@ export function MetricsBar({
     metrics.bandwidthTotalMb !== undefined
   ) {
     rows.push({
-      label: 'Ancho de banda',
+      key: 'bandwidth',
+      label: t('service.resources.bandwidth'),
       used: metrics.bandwidthUsedMb,
       total: metrics.bandwidthTotalMb,
       unit: 'MB',
-      format: formatMb,
+      valueText: pairText(
+        metrics.bandwidthUsedMb,
+        metrics.bandwidthTotalMb,
+        formatMb,
+      ),
     });
   }
   if (metrics.ramUsedMb !== undefined || metrics.ramTotalMb !== undefined) {
     rows.push({
-      label: 'Memoria RAM',
+      key: 'ram',
+      label: t('service.resources.ram'),
       used: metrics.ramUsedMb,
       total: metrics.ramTotalMb,
       unit: 'MB',
-      format: formatMb,
+      valueText: pairText(metrics.ramUsedMb, metrics.ramTotalMb, formatMb),
     });
   }
   if (metrics.cpuUsagePercent !== undefined) {
     rows.push({
-      label: 'Uso de CPU',
-      used: metrics.cpuUsagePercent,
+      key: 'cpu',
+      label: t('service.resources.cpu'),
+      percent: metrics.cpuUsagePercent,
       unit: '%',
-      format: formatPct,
+      valueText: formatPct(metrics.cpuUsagePercent),
     });
   }
   if (
@@ -190,10 +223,11 @@ export function MetricsBar({
     metrics.emailAccountsTotal !== undefined
   ) {
     rows.push({
-      label: 'Cuentas de email',
+      key: 'email',
+      label: t('service.resources.email'),
       used: metrics.emailAccountsUsed,
       total: metrics.emailAccountsTotal,
-      unit: '',
+      valueText: pairText(metrics.emailAccountsUsed, metrics.emailAccountsTotal),
     });
   }
   if (
@@ -201,250 +235,91 @@ export function MetricsBar({
     metrics.databasesTotal !== undefined
   ) {
     rows.push({
-      label: 'Bases de datos',
+      key: 'databases',
+      label: t('service.resources.databases'),
       used: metrics.databasesUsed,
       total: metrics.databasesTotal,
-      unit: '',
+      valueText: pairText(metrics.databasesUsed, metrics.databasesTotal),
     });
   }
   if (metrics.custom) {
     for (const [key, value] of Object.entries(metrics.custom)) {
       rows.push({
+        key: `custom-${key}`,
         label: key,
         used: typeof value === 'number' ? value : undefined,
-        unit: typeof value === 'string' ? value : '',
+        valueText: String(value),
       });
     }
   }
 
-  // Sprint 15C.II Fase B fix-up round 3 (2026-05-10): cuando no hay métricas
-  // PERO sí tenemos serviceId, renderizamos la card con un mensaje
-  // explicativo. Sin serviceId (legacy call-site sin refresh), mantenemos
-  // el comportamiento original de retornar null.
+  // Sprint 15C.II Fase B fix-up round 3: sin métricas pero con serviceId,
+  // renderizamos la card con mensaje explicativo. Sin serviceId (legacy
+  // call-site), null.
   if (rows.length === 0 && !serviceId) return null;
 
-  // Sprint 15C.II Fase C round 7: botón refresh SOLO admin (UX pasiva
-  // estándar industria para cliente).
-  const showRefreshButton = serviceId !== undefined && isAdmin;
+  // F.C round 7: botones de métricas (↻ Refrescar + Recalcular) SOLO admin
+  // (UX pasiva estándar para cliente). F.12.5 punto 2: recalcular junto a
+  // refrescar, cada uno con su ⓘ explicando la diferencia. La condición inline
+  // (no const) permite a TS estrechar `serviceId` a string en la rama true.
+  const metricsActions =
+    serviceId !== undefined && isAdmin ? (
+      <div className={styles.metricsActions}>
+        {canRecalculate && (
+          <span className={styles.actionWithTip}>
+            <MetricsRecalculateButton serviceId={serviceId} />
+            <HelpTip text={t('service.resources.recalculate_help')} />
+          </span>
+        )}
+        <span className={styles.actionWithTip}>
+          <MetricsRefreshButton serviceId={serviceId} isAdmin={isAdmin} />
+          <HelpTip text={t('service.resources.refresh_help')} />
+        </span>
+      </div>
+    ) : undefined;
 
-  // Mensaje vacío contextual por rol — el cliente no debe ver
-  // referencia a un botón que no tiene.
   const emptyMessage = isAdmin
-    ? 'Métricas no disponibles ahora — el proveedor no las devuelve. Pulsa "↻ Refrescar" para reintentar.'
-    : 'Métricas no disponibles ahora. Vuelve a esta página en unos minutos para ver datos actualizados.';
+    ? t('service.resources.empty_admin')
+    : t('service.resources.empty_client');
 
   const fetchedAtIso = metrics.fetchedAt;
   const relativeTime = formatRelativeTime(fetchedAtIso);
   const exactTime = new Date(fetchedAtIso).toLocaleString('es-ES');
 
   return (
-    <Card>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 12,
-        }}
-      >
-        <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Métricas</h2>
-        {showRefreshButton && (
-          <MetricsRefreshButton serviceId={serviceId} isAdmin={isAdmin} />
-        )}
-      </div>
-      {rows.length === 0 && (
-        <p
-          style={{
-            color: 'var(--text-secondary)',
-            fontSize: 13,
-            margin: 0,
-            fontStyle: 'italic',
-          }}
-        >
-          {emptyMessage}
-        </p>
-      )}
-      {rows.length > 0 && (
-        <div style={{ display: 'grid', gap: 12 }}>
+    <SectionCard title={t('service.resources.card_title')} actions={metricsActions}>
+      {rows.length === 0 ? (
+        <p className={styles.resourcesEmpty}>{emptyMessage}</p>
+      ) : (
+        <div className={styles.metersList}>
           {rows.map((row) => (
-            <div key={row.label}>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                  borderBottom: row.quotaIndicator
-                    ? 'none'
-                    : '1px solid var(--border)',
-                  paddingBottom: row.quotaIndicator ? 4 : 8,
-                }}
-              >
-                <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-                  {row.label}
-                </span>
-                <span
-                  style={{
-                    fontWeight: 600,
-                    fontSize: 13,
-                    // F.8 — color del texto numérico solo si hay severidad
-                    // (la barra ARIA refuerza visualmente con un fill
-                    // coloreado por debajo).
-                    color: row.quotaIndicator
-                      ? severityTextColor(row.quotaIndicator.severity)
-                      : undefined,
-                  }}
-                >
-                  {row.used !== undefined && row.format
-                    ? row.format(row.used)
-                    : row.used ?? '—'}
-                  {row.total !== undefined && (
-                    <span
-                      style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}
-                    >
-                      {' / '}
-                      {row.format ? row.format(row.total) : row.total}
-                    </span>
-                  )}
-                </span>
-              </div>
-              {row.quotaIndicator && (
-                <QuotaIndicatorBlock
-                  pct={row.quotaIndicator.pct}
-                  severity={row.quotaIndicator.severity}
-                  label={row.label}
-                />
-              )}
-            </div>
+            <Meter
+              key={row.key}
+              label={row.label}
+              used={row.used}
+              total={row.total}
+              percent={row.percent}
+              unit={row.unit}
+              valueText={row.valueText}
+              thresholdPct={row.thresholdPct}
+              advisory={row.advisory}
+            />
           ))}
         </div>
       )}
-      {/*
-        Sprint 15C.II Fase C round 7: timestamp con formato relativo
-        (Stripe / GitHub style — "hace 5 minutos") + tooltip con la
-        fecha exacta. El cliente entiende que la info está fresca sin
-        necesidad de un botón explícito; si quiere fresh urgente,
-        recarga la página (F5 universal). El admin además tiene el
-        botón ↻ con cooldown.
-      */}
       <p
-        style={{ marginTop: 12, fontSize: 11, color: 'var(--text-tertiary)' }}
-        title={`Última lectura del proveedor: ${exactTime}`}
+        className={styles.resourcesUpdated}
+        title={`${t('service.resources.fetched_tooltip_prefix')}${exactTime}`}
       >
-        Actualizado {relativeTime}
+        {t('service.resources.updated_prefix')}
+        {relativeTime}
         {!isAdmin && (
-          <span style={{ marginLeft: 4 }}>
-            · Recarga la página para ver los datos más recientes.
+          <span className={styles.resourcesUpdatedHint}>
+            {' '}
+            {t('service.resources.updated_client_hint')}
           </span>
         )}
       </p>
-    </Card>
-  );
-}
-
-// Sprint 15C.II Fase F.8 — helpers de rendering del indicador de cuota.
-// SOLO se aplica a la fila "Almacenamiento" cuando el orquestador ha
-// poblado `summary.quota_alert_threshold_pct` (capability-driven —
-// plugins sin `has_metrics` o sin el setting omiten el bloque).
-
-function severityTextColor(severity: DiskQuotaSeverity): string | undefined {
-  switch (severity) {
-    case 'critical':
-      // Rojo crítico — coherente con `invoice.overdue` (#DC2626).
-      return '#DC2626';
-    case 'warning':
-      // Ámbar — coherente con `invoice.failed` (#D97706).
-      return '#D97706';
-    case 'ok':
-    default:
-      return undefined;
-  }
-}
-
-function severityBarColor(severity: DiskQuotaSeverity): string {
-  switch (severity) {
-    case 'critical':
-      return '#DC2626';
-    case 'warning':
-      return '#F59E0B';
-    case 'ok':
-    default:
-      // Verde DS — coherente con `invoice.paid` (#10B981).
-      return '#10B981';
-  }
-}
-
-/**
- * Bloque visual + accesible bajo la fila de almacenamiento. Renderiza:
- *   - Progress bar `role="progressbar"` con `aria-valuenow/min/max` +
- *     `aria-label` localizado (lectores de pantalla anuncian el porcentaje).
- *   - Texto advisory cuando `severity !== 'ok'` (cliente/admin ven el
- *     mismo mensaje — la diferencia operativa la añade `<MetricsRefreshButton>`
- *     en el header).
- *
- * Server Component puro (sin hooks, sin estado) — patrón `<SslStatusCard>`
- * heredado de F.7.
- */
-function QuotaIndicatorBlock({
-  pct,
-  severity,
-  label,
-}: {
-  pct: number;
-  severity: DiskQuotaSeverity;
-  label: string;
-}) {
-  // `pct` puede exceder 100 si el proveedor reporta `used > total` por
-  // race de su lado — clamp para la barra visual (la cifra numérica
-  // arriba ya se muestra cruda). `pctRounded` es 1 decimal para el
-  // aria-label / advisory.
-  const pctClamped = Math.min(Math.max(pct, 0), 100);
-  const pctRounded = Math.round(pct * 10) / 10;
-  const advisory =
-    severity === 'critical'
-      ? `Estás al ${pctRounded}% de tu cuota de disco — el servicio puede dejar de funcionar si llega al 100%. Considera liberar espacio o ampliar el plan urgentemente.`
-      : severity === 'warning'
-        ? `Estás al ${pctRounded}% de tu cuota de disco — considera liberar espacio o ampliar el plan.`
-        : null;
-  return (
-    <div
-      style={{ marginTop: 4, borderBottom: '1px solid var(--border)', paddingBottom: 8 }}
-    >
-      <div
-        role="progressbar"
-        aria-valuenow={pctRounded}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={`${label} al ${pctRounded}%`}
-        style={{
-          width: '100%',
-          height: 6,
-          background: 'var(--bg-secondary, #F3F4F6)',
-          borderRadius: 3,
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            width: `${pctClamped}%`,
-            height: '100%',
-            background: severityBarColor(severity),
-            transition: 'width 200ms ease',
-          }}
-        />
-      </div>
-      {advisory && (
-        <p
-          style={{
-            marginTop: 6,
-            marginBottom: 0,
-            fontSize: 12,
-            color: severityTextColor(severity),
-            fontWeight: severity === 'critical' ? 600 : 500,
-          }}
-        >
-          {advisory}
-        </p>
-      )}
-    </div>
+    </SectionCard>
   );
 }

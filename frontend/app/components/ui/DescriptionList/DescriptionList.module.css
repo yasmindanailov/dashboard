@@ -1,0 +1,58 @@
+/* ═══════════════════════════════════════
+   DescriptionList — Sprint 15C.II Fase F.12.5 (Amendment V)
+   Pares etiqueta-valor. `stacked` (rejilla término|valor) e
+   `inline` (fluyo horizontal · separado). Tokens only.
+   ═══════════════════════════════════════ */
+
+/* ── stacked ── */
+.stacked {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+/* `display: contents` deja que dt/dd participen como hijos directos del grid
+   conservando el wrapper con key. */
+.row {
+  display: contents;
+}
+.term {
+  color: var(--text-secondary);
+}
+.value {
+  margin: 0;
+  color: var(--text-primary);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── inline ── */
+.inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.inlineItem {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.inlineItem:not(:first-child)::before {
+  content: '·';
+  color: var(--text-tertiary);
+  margin-right: var(--space-1);
+}
+.inlineTerm {
+  color: var(--text-secondary);
+}
+.inlineValue {
+  margin: 0;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}

@@ -13,15 +13,24 @@
  * Presentacional puro — Server-component compatible (sin `'use client'`).
  */
 import Link from 'next/link';
-import type { ReactNode } from 'react';
 
-import { AlertBanner, Card } from '../../../components/ui';
+import {
+  AlertBanner,
+  Badge,
+  DescriptionList,
+  SectionCard,
+  type DescriptionItem,
+} from '../../../components/ui';
 import { t } from '../../i18n';
+import type { ServiceTimelinePage } from '../../../lib/api';
+import { serverFetch } from '../../../lib/server-auth';
 import type { ServiceDetailContext } from '../service-detail-context';
 import { MetricsBar } from '../MetricsBar';
 import { SslStatusCard } from '../SslStatusCard';
 import { AppShortcutsCard } from '../AppShortcutsCard';
 import { BillingCrossLinkCard } from '../BillingCrossLinkCard';
+import { SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE } from '../service-status';
+import { ServiceAuditTimeline } from './ServiceAuditTimeline';
 import styles from '../service-detail.module.css';
 
 function formatLongDate(iso: string): string {
@@ -32,27 +41,71 @@ function formatLongDate(iso: string): string {
   });
 }
 
-/** Chrome compartido "Card con título + descripción + acción a la derecha"
- *  (Historial; reusable por futuras cards de navegación). */
-function SectionLinkCard({
-  title,
-  description,
-  action,
+/**
+ * Card "Información del servicio" (F.12.5 punto 7, Amendment VII). Aparece SOLO
+ * en servicios mínimos (sin métricas/SSL/apps) para dar contenido al MAIN del
+ * overview y lograr el layout main+aside también en `internal`/`manual`/
+ * `support_inside`. Capability-agnóstico (no ramifica por provisioner): estado
+ * (badge + narrativa) + datos clave (plan/alta/renovación). scope both.
+ */
+export function ServiceOverviewCardSection({
+  ctx,
 }: {
-  title: string;
-  description: string;
-  action: ReactNode;
+  ctx: ServiceDetailContext;
 }) {
+  const { info, service, billingCrossLink, forceAdminRoute, isTerminal } = ctx;
+  const items: DescriptionItem[] = [];
+  if (info.display.secondary) {
+    items.push({
+      key: 'plan',
+      term: t('service.overview.plan'),
+      value: t(info.display.secondary),
+    });
+  }
+  items.push({
+    key: 'contracted',
+    term: t('service.overview.contracted'),
+    value: formatLongDate(service.created_at),
+  });
+  // Renovación: NO en servicios terminales (cancelado/terminado no renueva —
+  // sería incoherente, Amendment VIII). Para terminal, fecha de cancelación.
+  const renewal = billingCrossLink?.nextDueDate ?? info.display.expiresAt;
+  if (renewal && !isTerminal) {
+    items.push({
+      key: 'renewal',
+      term: t('service.overview.renewal'),
+      value: formatLongDate(renewal),
+    });
+  }
+  if (isTerminal && service.cancelled_at) {
+    items.push({
+      key: 'cancelled',
+      term: t('service.overview.cancelled'),
+      value: formatLongDate(service.cancelled_at),
+    });
+  }
+  const role = forceAdminRoute ? 'admin' : 'client';
   return (
-    <Card>
-      <div className={styles.splitRow}>
-        <div>
-          <h2 className={styles.sectionHeading}>{title}</h2>
-          <p className={styles.sectionDesc}>{description}</p>
-        </div>
-        {action}
-      </div>
-    </Card>
+    <SectionCard
+      title={t('service.overview.card_title')}
+      actions={
+        <Badge variant={SERVICE_STATUS_TONE[info.status]}>
+          {SERVICE_STATUS_LABEL[info.status]}
+        </Badge>
+      }
+    >
+      {/* En terminal, el banner ya da el estado + motivo: la card se queda con
+          los hechos (plan/alta/cancelado) para no duplicar. */}
+      {!isTerminal && (
+        <p className={styles.cardText}>
+          {t(`service.overview.narrative.${role}.${info.status}`)}
+        </p>
+      )}
+      {!isTerminal && info.statusReason && (
+        <p className={styles.cardTextMuted}>{t(info.statusReason)}</p>
+      )}
+      <DescriptionList items={items} />
+    </SectionCard>
   );
 }
 
@@ -143,7 +196,8 @@ export function ClientSuspendedBannerSection({
 
 /* ── Cards de tab ── */
 
-/** MetricsBar — adapter. `isAdmin` = `forceAdminRoute` (chrome). */
+/** MetricsBar ("Recursos") — adapter. `isAdmin` = `forceAdminRoute` (chrome).
+ *  `canRecalculate` por presencia de la action (F.12.5 punto 2). */
 export function MetricsBarSection({ ctx }: { ctx: ServiceDetailContext }) {
   return (
     <MetricsBar
@@ -151,6 +205,9 @@ export function MetricsBarSection({ ctx }: { ctx: ServiceDetailContext }) {
       serviceId={ctx.service.id}
       isAdmin={ctx.forceAdminRoute}
       quotaAlertThresholdPct={ctx.service.quota_alert_threshold_pct}
+      canRecalculate={ctx.info.availableActions.some(
+        (a) => a.slug === 'recalculate_provider_metrics',
+      )}
     />
   );
 }
@@ -190,52 +247,95 @@ export function BillingCrossLinkCardSection({
     <BillingCrossLinkCard
       data={ctx.billingCrossLink}
       isAdmin={ctx.forceAdminRoute}
+      isTerminal={ctx.isTerminal}
     />
   );
 }
 
-/** Card "Historial de auditoría" (navegación a sub-página). scope both. */
-export function ServiceAuditLinkCardSection({
+/**
+ * Tab "Auditoría" (F.12.5 punto 5, Amendment VII). Async Server Component:
+ * fetcha la primera página del timeline y muestra un **preview** (últimas ~15
+ * entradas, reusa `<ServiceAuditTimeline>`) + enlace "Ver historial completo →"
+ * a la página dedicada (filtros + paginación profunda). Fail-soft: si el fetch
+ * falla, degrada a solo el enlace. scope both (cliente ve su scope GDPR).
+ */
+const AUDIT_PREVIEW_LIMIT = 15;
+
+export async function ServiceAuditTabSection({
   ctx,
 }: {
   ctx: ServiceDetailContext;
 }) {
   const { service, forceAdminRoute } = ctx;
+  const base = forceAdminRoute
+    ? `/admin/services/${service.id}`
+    : `/dashboard/services/${service.id}`;
+  const fullHref = `${base}/audit`;
+  const subtitle = forceAdminRoute
+    ? t('service.audit.subtitle_admin')
+    : t('service.audit.subtitle_client');
+  const fullLink = (
+    <Link href={fullHref} className={styles.ctaText}>
+      {t('service.audit.view_full')} →
+    </Link>
+  );
+
+  let page: ServiceTimelinePage | null = null;
+  try {
+    page = await serverFetch<ServiceTimelinePage>(`${base}/audit`);
+  } catch {
+    page = null;
+  }
+
+  if (!page || page.items.length === 0) {
+    return (
+      <SectionCard title={t('service.audit.title')} subtitle={subtitle} actions={fullLink}>
+        <p className={styles.cardTextMuted}>{t('service.audit.empty')}</p>
+      </SectionCard>
+    );
+  }
+
+  // Preview: primeras N entradas, sin "Cargar más" propio del timeline (lo
+  // sustituye el enlace "Ver historial completo" del header de la card).
+  const previewPage: ServiceTimelinePage = {
+    ...page,
+    items: page.items.slice(0, AUDIT_PREVIEW_LIMIT),
+    next_cursor: null,
+  };
+
   return (
-    <SectionLinkCard
-      title={t('service.audit.title')}
-      description={
-        forceAdminRoute
-          ? t('service.audit.subtitle_admin')
-          : t('service.audit.subtitle_client')
-      }
-      action={
-        <Link
-          href={
-            forceAdminRoute
-              ? `/admin/services/${service.id}/audit`
-              : `/dashboard/services/${service.id}/audit`
-          }
-          className={forceAdminRoute ? styles.ctaText : styles.ctaButton}
-        >
-          {t('service.audit.link')} →
+    <SectionCard title={t('service.audit.title')} subtitle={subtitle} actions={fullLink}>
+      <ServiceAuditTimeline
+        page={previewPage}
+        isAdmin={forceAdminRoute}
+        loadMoreHref={() => fullHref}
+      />
+    </SectionCard>
+  );
+}
+
+/** Card "¿Necesitas ayuda?" (aside, solo cliente). CTA a soporte. F.12.5. */
+export function ClientHelpCardSection() {
+  return (
+    <SectionCard title={t('service.help.card_title')}>
+      <p className={styles.helpBody}>{t('service.help.body')}</p>
+      <div>
+        <Link href="/dashboard/support" className={styles.ctaSecondary}>
+          {t('service.help.cta')}
         </Link>
-      }
-    />
+      </div>
+    </SectionCard>
   );
 }
 
 /** Card placeholder Sprint 22 Projects. scope client. */
 export function ClientDevCustomPlaceholderSection() {
   return (
-    <Card>
-      <h2 className={styles.sectionHeading}>
-        {t('service.detail.dev_custom.title')}
-      </h2>
+    <SectionCard title={t('service.detail.dev_custom.title')}>
       <p className={styles.placeholderBody}>
         {t('service.detail.dev_custom.body')}
       </p>
-    </Card>
+    </SectionCard>
   );
 }
 

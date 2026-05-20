@@ -1,72 +1,45 @@
 /**
- * AdminServiceDataCard — Sprint 15C.II Fase C round 7 (smoke real
- * Yasmin 2026-05-10).
+ * AdminServiceDataCard — "Datos técnicos" del detalle de servicio (admin).
  *
- * Rediseño de la card "Datos del servicio (admin)" según estándar
- * industria Stripe / Vercel admin:
- *   - Información primaria visible (nombre cliente, email, domain,
- *     plan, badge estado).
- *   - IDs técnicos secundarios con click-to-copy (`<CopyableId>`).
- *   - Badges para estados en lugar de texto crudo.
- *   - Agrupación lógica en 3 sub-secciones: Cliente / Servicio / Fechas.
+ * Sprint 15C.II Fase C round 7 → F.12.5 (Amendment V + VII): rediseño a las
+ * primitivas DS `<SectionCard>` + `<DescriptionList>` + `<CopyableId>`. Vive en
+ * el ASIDE del overview (rail 1fr). Estándar Stripe/Vercel admin: info legible
+ * primero (cliente/email/dominio/plan), IDs técnicos con click-to-copy.
  *
- * Server Component (NO `'use client'`) — solo CopyableId child es CC.
- * Composición pura sin auth/fetch — el SC parent ya validó isAdmin via
- * route protection middleware (`/admin/*`).
+ * Amendment VII:
+ *   - **Salud del plugin reubicada aquí** (antes badge suelto en la zona de
+ *     banners — punto 1): es metadata operativa, su sitio son los datos
+ *     técnicos. Se renderiza con `<ProviderHealthBadge>` (inline) si hay datos.
+ *   - **Sin fila "Estado"** (punto 6, Regla D4): el estado del servicio ya está
+ *     en el badge del header; no se duplica aquí.
  *
- * Heredable a futuros admin detail pages (clients, products, invoices)
- * — el patrón "Cliente / Servicio / Fechas" + CopyableId es reusable
- * por cualquier entity del admin con UUID + relaciones.
+ * Server Component (NO `'use client'`) — `CopyableId`/`ProviderHealthBadge` SC.
  */
 
 import Link from 'next/link';
 
-import { Badge, Card, CopyableId } from '../../../../components/ui';
 import {
-  SERVICE_STATUS_LABEL,
-  SERVICE_STATUS_TONE,
-  type StatusTone,
-} from '../../../../_shared/services/service-status';
-import type { ServiceDetailResponse, ServiceInfo } from '../../../../lib/api';
+  CopyableId,
+  DescriptionList,
+  SectionCard,
+  type DescriptionItem,
+} from '../../../../components/ui';
+import type {
+  PluginHealthSummary,
+  ServiceDetailResponse,
+} from '../../../../lib/api';
+import styles from './AdminServiceDataCard.module.css';
+import { ProviderHealthBadge } from './ProviderHealthBadge';
 
 interface AdminServiceDataCardProps {
   data: ServiceDetailResponse;
+  /** Salud del plugin (fail-soft `null`). Si presente, se muestra como fila. */
+  pluginHealth?: PluginHealthSummary | null;
 }
 
 /**
- * Mapea `service.status` (text libre del backend, incluye terminados
- * canonicos `cancelled` / `terminated` y posibles intermedios) al
- * Badge tone + label legibles. Si el status no está en el set canónico
- * de `ServiceInfo['status']`, se trata como `unknown` (neutral).
- */
-function statusToBadge(rawStatus: string): { label: string; tone: StatusTone } {
-  const known = SERVICE_STATUS_LABEL[rawStatus as ServiceInfo['status']];
-  if (known) {
-    return {
-      label: known,
-      tone: SERVICE_STATUS_TONE[rawStatus as ServiceInfo['status']],
-    };
-  }
-  // service.status puede ser `terminated` (no en ServiceInfo['status']).
-  if (rawStatus === 'terminated') {
-    return { label: 'Terminado', tone: 'neutral' };
-  }
-  if (rawStatus === 'provisioning') {
-    return { label: 'Aprovisionando', tone: 'info' };
-  }
-  // Fallback defensivo: capitaliza el status crudo.
-  return {
-    label:
-      rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase(),
-    tone: 'neutral',
-  };
-}
-
-/**
- * Formato fecha amigable + tiempo relativo (Stripe / GitHub style).
- * SSR-stable (no usa Date.now() en hidratación; calcula relativo
- * server-side y el usuario puede recargar si está viendo la página
- * mucho rato).
+ * Formato fecha amigable + tiempo relativo (Stripe/GitHub). SSR-stable: calcula
+ * el relativo server-side (no usa Date.now() en hidratación).
  */
 function formatDateWithRelative(iso: string): string {
   const d = new Date(iso);
@@ -98,167 +71,104 @@ function formatDateWithRelative(iso: string): string {
   return `${dateStr}, ${timeStr} · ${relative}`;
 }
 
-const SECTION_STYLE: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
-  paddingBottom: 16,
-  borderBottom: '1px solid var(--border)',
-};
-
-const SECTION_LAST_STYLE: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
-};
-
-const SECTION_TITLE_STYLE: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 600,
-  color: 'var(--text-tertiary)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
-  margin: 0,
-  marginBottom: 4,
-};
-
-const PRIMARY_VALUE_STYLE: React.CSSProperties = {
-  fontSize: 14,
-  fontWeight: 600,
-  color: 'var(--text-primary)',
-  margin: 0,
-};
-
-const SECONDARY_VALUE_STYLE: React.CSSProperties = {
-  fontSize: 13,
-  color: 'var(--text-secondary)',
-  margin: 0,
-};
-
-const ROW_INLINE_STYLE: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-  flexWrap: 'wrap',
-};
-
-export function AdminServiceDataCard({ data }: AdminServiceDataCardProps) {
+export function AdminServiceDataCard({
+  data,
+  pluginHealth,
+}: AdminServiceDataCardProps) {
   const { service } = data;
-  const badge = statusToBadge(service.status);
   const isFromProductPlugin = !service.provisioner_slug;
   const effectiveProvisioner =
     service.provisioner_slug ?? service.product_provisioner;
 
+  const items: DescriptionItem[] = [
+    {
+      key: 'client',
+      term: 'Cliente',
+      value: (
+        <Link href={`/admin/clients/${service.user_id}`} className={styles.link}>
+          {service.client_name}
+        </Link>
+      ),
+    },
+    {
+      key: 'email',
+      term: 'Email',
+      value: (
+        <a href={`mailto:${service.client_email}`} className={styles.link}>
+          {service.client_email}
+        </a>
+      ),
+    },
+    {
+      key: 'user-id',
+      term: 'ID cliente',
+      value: <CopyableId id={service.user_id} label="ID cliente" />,
+    },
+  ];
+
+  if (service.domain) {
+    items.push({ key: 'domain', term: 'Dominio', value: service.domain });
+  }
+
+  items.push(
+    {
+      key: 'product',
+      term: 'Producto',
+      value: (
+        <>
+          {service.product_name}{' '}
+          <span className={styles.mutedMono}>
+            ({service.product_slug} · {service.product_type})
+          </span>
+        </>
+      ),
+    },
+    {
+      key: 'plugin',
+      term: 'Plugin',
+      value: (
+        <span className={styles.mutedMono}>
+          {effectiveProvisioner}
+          {isFromProductPlugin && ' · desde producto'}
+        </span>
+      ),
+    },
+  );
+
+  // Salud del plugin (reubicada desde la zona de banners — punto 1). Solo si el
+  // fetch fail-soft trajo datos y hay plugin asociado.
+  if (pluginHealth && pluginHealth.pluginSlug) {
+    items.push({
+      key: 'plugin-health',
+      term: 'Salud del plugin',
+      value: <ProviderHealthBadge health={pluginHealth} />,
+    });
+  }
+
+  items.push(
+    {
+      key: 'service-id',
+      term: 'ID servicio',
+      value: <CopyableId id={service.id} label="ID servicio" />,
+    },
+    {
+      key: 'created',
+      term: 'Creado',
+      value: formatDateWithRelative(service.created_at),
+    },
+  );
+
+  if (service.cancelled_at) {
+    items.push({
+      key: 'cancelled',
+      term: 'Cancelado',
+      value: formatDateWithRelative(service.cancelled_at),
+    });
+  }
+
   return (
-    <Card>
-      <h2
-        style={{
-          fontSize: 16,
-          fontWeight: 600,
-          margin: 0,
-          marginBottom: 16,
-        }}
-      >
-        Detalles operativos
-      </h2>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* ── Cliente ─────────────────────────────────────────────── */}
-        <section style={SECTION_STYLE} aria-label="Cliente">
-          <h3 style={SECTION_TITLE_STYLE}>Cliente</h3>
-          <p style={PRIMARY_VALUE_STYLE}>
-            <Link
-              href={`/admin/clients/${service.user_id}`}
-              style={{ color: 'var(--brand-600)', textDecoration: 'none' }}
-            >
-              {service.client_name}
-            </Link>
-          </p>
-          <p style={SECONDARY_VALUE_STYLE}>
-            <a
-              href={`mailto:${service.client_email}`}
-              style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}
-            >
-              {service.client_email}
-            </a>
-          </p>
-          <div style={ROW_INLINE_STYLE}>
-            <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-              user_id
-            </span>
-            <CopyableId id={service.user_id} label="ID cliente" />
-          </div>
-        </section>
-
-        {/* ── Servicio ────────────────────────────────────────────── */}
-        <section style={SECTION_STYLE} aria-label="Servicio">
-          <h3 style={SECTION_TITLE_STYLE}>Servicio</h3>
-          {service.domain && (
-            <p style={PRIMARY_VALUE_STYLE}>{service.domain}</p>
-          )}
-          <p style={SECONDARY_VALUE_STYLE}>
-            {service.product_name}{' '}
-            <span
-              style={{
-                fontSize: 11,
-                color: 'var(--text-tertiary)',
-                fontFamily: 'var(--font-mono)',
-              }}
-            >
-              ({service.product_slug} · {service.product_type})
-            </span>
-          </p>
-          <div style={ROW_INLINE_STYLE}>
-            <Badge variant={badge.tone}>{badge.label}</Badge>
-            <span
-              style={{
-                fontSize: 11,
-                color: 'var(--text-tertiary)',
-                fontFamily: 'var(--font-mono)',
-              }}
-              title={
-                isFromProductPlugin
-                  ? `Plugin del producto (service.provisioner_slug=null — el pipeline provisioning aún no asignó el slug). Effective: ${effectiveProvisioner}`
-                  : `Plugin: ${effectiveProvisioner}`
-              }
-            >
-              {effectiveProvisioner}
-              {isFromProductPlugin && (
-                <span style={{ marginLeft: 4 }}>· desde producto</span>
-              )}
-            </span>
-          </div>
-          <div style={ROW_INLINE_STYLE}>
-            <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-              service_id
-            </span>
-            <CopyableId id={service.id} label="ID servicio" />
-          </div>
-        </section>
-
-        {/* ── Fechas ──────────────────────────────────────────────── */}
-        <section style={SECTION_LAST_STYLE} aria-label="Fechas">
-          <h3 style={SECTION_TITLE_STYLE}>Fechas</h3>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'max-content 1fr',
-              gap: '6px 16px',
-              fontSize: 13,
-            }}
-          >
-            <span style={{ color: 'var(--text-secondary)' }}>Creado</span>
-            <span>{formatDateWithRelative(service.created_at)}</span>
-
-            {service.cancelled_at && (
-              <>
-                <span style={{ color: 'var(--text-secondary)' }}>Cancelado</span>
-                <span>{formatDateWithRelative(service.cancelled_at)}</span>
-              </>
-            )}
-          </div>
-        </section>
-      </div>
-    </Card>
+    <SectionCard title="Datos técnicos">
+      <DescriptionList items={items} />
+    </SectionCard>
   );
 }

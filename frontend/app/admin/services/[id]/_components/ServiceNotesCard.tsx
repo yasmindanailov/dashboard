@@ -1,23 +1,26 @@
 /**
- * ServiceNotesCard — Sprint 15C.II Fase F.6 (dossier §F.6.3).
+ * ServiceNotesCard — Sprint 15C.II Fase F.6 → F.12.5 (Amendment VIII).
  *
- * Server Component que renderiza el historial de notas operativas del
- * servicio (cancel/suspend/unsuspend, manual o auto). Es la vista por
- * servicio de los `ClientNote` con `source_system='service' AND
- * source_id=:serviceId`. La vista federada por cliente
- * (`/admin/clients/[id]` → "Notas") usa el mismo dato pero sin filtrar por
- * servicio + con filtros adicionales (categoría / sistema / fijadas).
+ * Server Component que renderiza el historial de notas operativas del servicio
+ * (cancel/suspend/unsuspend, manual o auto): los `ClientNote` con
+ * `source_system='service' AND source_id=:serviceId`. La vista federada por
+ * cliente (`/admin/clients/[id]` → "Notas") usa el mismo dato sin filtrar.
  *
- * Fail-soft: si el fetch falla, NO rompe la página — un mensaje discreto
- * indica que las notas no se pudieron cargar (el resto del detalle del
- * servicio sigue siendo útil para el admin).
+ * F.12.5 (Amendment VIII): migrado a `<SectionCard>` + tokens. El CTA "Ver
+ * historial completo del cliente" se posiciona en el **slot de acciones** del
+ * SectionCard con el **mismo estilo `.link`** (réplica de `ctaText`) que el CTA
+ * "Ver historial completo" del tab Auditoría. Corrige los tokens inexistentes
+ * (`--brand-600`/`--border-default`/`--surface-elevated`).
+ *
+ * Fail-soft: si el fetch falla, NO rompe la página (mensaje discreto).
  */
 
 import Link from 'next/link';
 
-import { Card } from '../../../../components/ui';
+import { SectionCard } from '../../../../components/ui';
 import { serverFetch, ServerFetchError } from '../../../../lib/server-auth';
 import type { ClientNote } from '../../../../lib/types';
+import styles from './ServiceNotesCard.module.css';
 
 /* Etiquetas locales del componente. Coherentes con `ClientNotesTab` —
    duplicación intencional porque los maps allá son client-side; aquí
@@ -54,61 +57,28 @@ export async function ServiceNotesCard({
   }
 
   return (
-    <Card>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 16,
-          flexWrap: 'wrap',
-          marginBottom: 12,
-        }}
-      >
-        <div>
-          <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-            Notas operativas
-          </h2>
-          <p
-            style={{
-              color: 'var(--text-secondary)',
-              fontSize: 13,
-              marginTop: 4,
-            }}
-          >
-            Razones humanas de cada cancel / suspend / reactivación de este
-            servicio. Se crean automáticamente al ejecutar la acción desde el
-            modal admin o al disparar el cron de billing.
-          </p>
-        </div>
+    <SectionCard
+      title="Notas operativas"
+      subtitle="Razones humanas de cada cancel / suspend / reactivación de este servicio. Se crean automáticamente al ejecutar la acción desde el modal admin o al disparar el cron de billing."
+      actions={
         <Link
           href={`/admin/clients/${clientUserId}?tab=notes`}
-          style={{
-            color: 'var(--brand-600)',
-            fontSize: 14,
-            fontWeight: 600,
-            textDecoration: 'none',
-            whiteSpace: 'nowrap',
-          }}
+          className={styles.link}
         >
           Ver historial completo del cliente →
         </Link>
-      </div>
-
-      {errorMessage && (
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-tertiary)' }}>
-          {errorMessage}
-        </p>
-      )}
+      }
+    >
+      {errorMessage && <p className={styles.muted}>{errorMessage}</p>}
 
       {notes !== null && notes.length === 0 && (
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-tertiary)' }}>
+        <p className={styles.muted}>
           Aún no hay notas registradas para este servicio.
         </p>
       )}
 
       {notes !== null && notes.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className={styles.notesList}>
           {notes.map((note) => {
             const date = new Date(note.created_at);
             const dateStr = date.toLocaleDateString('es-ES', {
@@ -127,35 +97,11 @@ export async function ServiceNotesCard({
             return (
               <div
                 key={note.id}
-                style={{
-                  border: '1px solid var(--border-default)',
-                  borderRadius: 6,
-                  padding: 12,
-                  background: note.is_pinned
-                    ? 'var(--surface-elevated)'
-                    : 'transparent',
-                }}
+                className={`${styles.note} ${note.is_pinned ? styles.notePinned : ''}`}
               >
-                <p
-                  style={{
-                    margin: '0 0 6px',
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                    whiteSpace: 'pre-wrap',
-                  }}
-                >
-                  {note.body}
-                </p>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: 8,
-                    fontSize: 12,
-                    color: 'var(--text-tertiary)',
-                  }}
-                >
-                  <span style={{ fontWeight: 600 }}>
+                <p className={styles.noteBody}>{note.body}</p>
+                <div className={styles.noteMeta}>
+                  <span className={styles.noteAuthor}>
                     {note.author_name ?? 'Desconocido'}
                   </span>
                   {actionLabel && (
@@ -174,6 +120,6 @@ export async function ServiceNotesCard({
           })}
         </div>
       )}
-    </Card>
+    </SectionCard>
   );
 }

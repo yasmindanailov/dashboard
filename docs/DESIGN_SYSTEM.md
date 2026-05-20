@@ -407,12 +407,17 @@ components/ui/
 | `Tabs` | Underline style. Active con border-bottom brand. Para contenido en detail pages. |
 | `StatusTabs` | Tabs con contadores de estado para list pages. Variantes semánticas (success/warning/danger). Reemplaza StatsCards en listados. |
 | `Tooltip` | Hover. Dark bg, white text, radius sm. |
-| `Dropdown` | Trigger (⋯) + menu items + separadores. Acepta `trigger` custom (sin forzar 32×32). |
+| `Dropdown` | Trigger (⋯) + menu items + separadores. Acepta `trigger` custom. Ítems con `description` opcional (línea de contexto), `danger` y `disabled` (Sprint 15C.II F.12.5). |
 | `Skeleton` | Shimmer animation. Forma del contenido real. |
 | `Pagination` | Números de página, ellipsis, prev/next, info de resultados. |
 | `StatsCard` | Tarjeta de métrica: label, valor, icono, trend, subtext, accent color. Solo en Overview pages. |
 | `Breadcrumb` | Navegación con chevron separators. Items con href opcionales. |
 | `AlertBanner` | Banner inline: info, success, warning, danger. Título opcional, close button. |
+| `CopyableId` | UUID/ID técnico en monospace + click-to-copy con feedback toast. Para detail pages admin. |
+| `Meter` | Medidor usado/total + % + barra con coloreo por umbral (ámbar/rojo). Recursos, cuotas. Read-only. |
+| `SectionCard` | Cromo de sección read-only: título + subtítulo + slot acciones + cuerpo. ≠ `EditorSectionCard` (forms con Guardar). |
+| `DescriptionList` | Pares etiqueta-valor (`<dl>`). Layouts `stacked` (metadata vertical) e `inline` (header · separado). |
+| `DangerZone` | Sección aislada borde/tinte rojo para operaciones consecuentes/destructivas (patrón GitHub/DO). |
 | **Layout** | **Responsabilidad** |
 | `PageHeader` | Título h1 + subtitle + CTA action slot. Estructura fija §3.5. Responsive. |
 | `FilterBar` | Search (flex-1) + selects (derecha). Sin Card. Estructura fija §3.4. |
@@ -447,6 +452,11 @@ components/ui/
 | AlertBanner | `components/ui/AlertBanner/` | ✅ Implementado |
 | StatusTabs | `components/ui/StatusTabs/` | ✅ Implementado — tabs con contadores por estado (§3.2) |
 | HelpTip | `components/ui/HelpTip/` | ✅ Implementado — ⓘ + tooltip contextual (§4.12) |
+| CopyableId | `components/ui/CopyableId/` | ✅ Implementado — UUID monospace + click-to-copy (Sprint 15C.II F.C) |
+| Meter | `components/ui/Meter/` | ✅ Implementado — medidor usado/total + umbral (Sprint 15C.II F.12.5) |
+| SectionCard | `components/ui/SectionCard/` | ✅ Implementado — cromo de sección read-only (Sprint 15C.II F.12.5) |
+| DescriptionList | `components/ui/DescriptionList/` | ✅ Implementado — pares etiqueta-valor stacked/inline (Sprint 15C.II F.12.5) |
+| DangerZone | `components/ui/DangerZone/` | ✅ Implementado — zona destructiva aislada (Sprint 15C.II F.12.5) |
 | **Layout** | **Directorio** | **Estado** |
 | PageHeader | `components/ui/PageHeader/` | ✅ Implementado |
 | FilterBar | `components/ui/FilterBar/` | ✅ Implementado |

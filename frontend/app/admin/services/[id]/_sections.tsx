@@ -1,15 +1,20 @@
 /**
- * _sections — Sprint 15C.II Fase F.12 (extensión admin del registry).
+ * _sections — Sprint 15C.II Fase F.12 → F.12.5 (extensión admin del registry).
  *
  * Descriptores admin-only del detalle de servicio (R3 + Amendment I). Viven
  * aquí porque referencian componentes admin-only de `./_components/` (Tier 4
  * R1). El wrapper admin los inyecta vía `extraSections` del
- * `<ServiceDetailLayout>` (evita acoplar `_shared/` a `app/admin/` +
- * materializa R3 regla 6).
+ * `<ServiceDetailLayout>` (evita acoplar `_shared/` a `app/admin/`).
  *
- * F.12.4 (Amendment IV): el back-link se fue (lo da el breadcrumb del
- * DetailPage); queda el mini-badge de salud en la zona banner. Operaciones +
- * reenviar notif son cards de la tab Gestión; notas en Actividad.
+ * F.12.5 (Amendment VII): se elimina la tab "Gestión" — todas las operaciones
+ * admin (cambiar plan / reenviar / suspender / cancelar) viven en el menú "Más
+ * acciones" del header (`<AdminServiceActionsMenu>`, inyectado vía
+ * `headerActionsMenu`). El recalcular vive en la card "Recursos". La salud del
+ * plugin se reubicó a la card "Datos técnicos" (ya no es un banner). Las notas
+ * pasan a su tab dedicado (`group: 'notes'`).
+ *
+ * Quedan aquí: banners admin (suspendido / desync / drift) + apps + datos
+ * técnicos (summary) + notas (tab propio).
  */
 import { t } from '../../../_shared/i18n';
 import type {
@@ -21,17 +26,8 @@ import { AppShortcutsCardSection } from '../../../_shared/services/_components/s
 import { AdminDriftBanner } from './_components/AdminDriftBanner';
 import { AdminProviderStateDesyncBanner } from './_components/AdminProviderStateDesyncBanner';
 import { AdminServiceDataCard } from './_components/AdminServiceDataCard';
-import { AdminServiceOperationsCard } from './_components/AdminServiceOperationsCard';
 import { AdminSuspendedBanner } from './_components/AdminSuspendedBanner';
-import { ProviderHealthBadge } from './_components/ProviderHealthBadge';
-import { ResendNotificationCard } from './_components/ResendNotificationCard';
 import { ServiceNotesCard } from './_components/ServiceNotesCard';
-
-/** Mini-badge de salud del plugin (admin). Zona banner (arriba). */
-function AdminHealthBadgeSection({ ctx }: { ctx: ServiceDetailContext }) {
-  if (!ctx.pluginHealth) return null;
-  return <ProviderHealthBadge health={ctx.pluginHealth} />;
-}
 
 function AdminProviderStateDesyncBannerSection({
   ctx,
@@ -64,38 +60,7 @@ function AdminDriftBannerSection({ ctx }: { ctx: ServiceDetailContext }) {
 }
 
 function AdminServiceDataCardSection({ ctx }: { ctx: ServiceDetailContext }) {
-  return <AdminServiceDataCard data={ctx.data} />;
-}
-
-function AdminServiceOperationsCardSection({
-  ctx,
-}: {
-  ctx: ServiceDetailContext;
-}) {
-  const { service, info } = ctx;
-  return (
-    <AdminServiceOperationsCard
-      serviceId={service.id}
-      actions={info.availableActions}
-      currentPlanLabel={
-        info.display.secondary ? t(info.display.secondary) : undefined
-      }
-      serviceDisplayName={info.display.primary}
-    />
-  );
-}
-
-function ResendNotificationCardSection({
-  ctx,
-}: {
-  ctx: ServiceDetailContext;
-}) {
-  return (
-    <ResendNotificationCard
-      serviceId={ctx.service.id}
-      serviceDisplayName={ctx.info.display.primary}
-    />
-  );
+  return <AdminServiceDataCard data={ctx.data} pluginHealth={ctx.pluginHealth} />;
 }
 
 function ServiceNotesCardSection({ ctx }: { ctx: ServiceDetailContext }) {
@@ -109,15 +74,6 @@ function ServiceNotesCardSection({ ctx }: { ctx: ServiceDetailContext }) {
 
 export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
   // ── Zona banner ──
-  {
-    id: 'admin-provider-health-badge',
-    label: 'Mini-badge salud del plugin',
-    scope: 'admin',
-    group: 'banner',
-    priority: 1950,
-    shouldRender: (ctx) => ctx.pluginHealth !== null,
-    component: AdminHealthBadgeSection,
-  },
   {
     id: 'banner-suspended-admin',
     label: 'Banner suspensión (admin)',
@@ -157,6 +113,7 @@ export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     label: 'Apps instaladas (admin)',
     scope: 'admin',
     group: 'summary',
+    column: 'main',
     priority: 400,
     shouldRender: (ctx) =>
       !ctx.isTerminal &&
@@ -166,38 +123,20 @@ export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
   },
   {
     id: 'admin-service-data-card',
-    label: 'Datos del servicio (admin)',
+    label: 'Datos técnicos (admin)',
     scope: 'admin',
     group: 'summary',
+    column: 'aside',
     priority: 300,
     shouldRender: () => true,
     component: AdminServiceDataCardSection,
   },
-  // ── Tab "Gestión" ──
-  {
-    id: 'admin-service-operations-card',
-    label: 'Operaciones',
-    scope: 'admin',
-    group: 'management',
-    priority: 70,
-    shouldRender: (ctx) => !ctx.isTerminal,
-    component: AdminServiceOperationsCardSection,
-  },
-  {
-    id: 'resend-notification-card',
-    label: 'Reenviar notificación',
-    scope: 'admin',
-    group: 'management',
-    priority: 60,
-    shouldRender: () => true,
-    component: ResendNotificationCardSection,
-  },
-  // ── Tab "Actividad" ──
+  // ── Tab "Notas" ──
   {
     id: 'service-notes-card',
     label: 'Notas del servicio',
     scope: 'admin',
-    group: 'activity',
+    group: 'notes',
     priority: 50,
     shouldRender: () => true,
     component: ServiceNotesCardSection,

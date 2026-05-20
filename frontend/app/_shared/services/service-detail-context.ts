@@ -31,22 +31,32 @@ export type SectionScope = 'admin' | 'client' | 'both';
 
 /**
  * Zona de la página donde se monta la sección (Sprint 15C.II Fase F.12.3 →
- * F.12.4, Amendment III+IV). La identidad + metadata + clúster de acciones NO
- * son secciones del registry: viven en el `headerCard` del `<DetailPage>`
- * (`<ServiceHeaderCard>`). El registry cubre:
+ * F.12.5). La identidad + metadata + menú de acciones NO son secciones del
+ * registry: viven en el `headerCard` del `<DetailPage>` (`<ServiceHeaderCard>`
+ * + `<ServiceActionsMenu>`). El registry cubre:
  *   - `banner`: alertas/estado siempre visibles BAJO el headerCard y SOBRE las
- *     tabs (terminal, suspendido, drift, desync) + el mini-badge de salud admin.
+ *     tabs (terminal, suspendido, drift, desync).
  *   - `footer`: meta siempre visible bajo las tabs (última lectura).
- *   - `summary` / `management` / `activity`: contenido de las 3 tabs (grid
- *     2-col). Una tab vacía se oculta; si solo sobrevive una, sin barra de tabs
- *     (§2.5).
+ *   - `summary` / `notes` / `audit`: contenido de las tabs. F.12.5 (Amendment
+ *     VII): "Gestión" se eliminó (operaciones → menú del header); "Actividad" se
+ *     dividió en "Notas" (admin) + "Auditoría" (preview + enlace). Una tab vacía
+ *     se oculta; si solo sobrevive una, sin barra de tabs (§2.5).
  */
 export type SectionGroup =
   | 'banner'
   | 'summary'
-  | 'management'
-  | 'activity'
+  | 'notes'
+  | 'audit'
   | 'footer';
+
+/**
+ * Columna del layout `main + aside` (Sprint 15C.II Fase F.12.5, Amendment VI).
+ * Solo se aplica al grupo `summary` (overview); el resto de grupos lo ignoran.
+ * `main` = columna 2fr (recursos/SSL/apps); `aside` = rail 1fr (facturación,
+ * datos técnicos, ayuda). Si una columna queda vacía, la otra fluye a ancho
+ * completo (ver `<ServiceDetailLayout>`). Default `main`.
+ */
+export type SectionColumn = 'main' | 'aside';
 
 /**
  * Contexto inmutable que el wrapper page compone y pasa al layout. Los
@@ -89,6 +99,16 @@ export interface SectionDescriptor {
   scope: SectionScope;
   /** Zona/tab donde se monta la sección (F.12.3). */
   group: SectionGroup;
+  /**
+   * Columna del layout `main + aside` del grupo `summary` (F.12.5, Amendment
+   * VI). Ignorado fuera de `summary`. Default `main`.
+   */
+  column?: SectionColumn;
+  /**
+   * Si `true`, la sección ocupa toda la fila del grid de su tab. Ignorado en
+   * `summary` (que usa main+aside). Default `false`. (F.12.5, Amendment VI.)
+   */
+  fullWidth?: boolean;
   /**
    * Prioridad de render. Descendente: 1000+ = arriba, 1 = abajo.
    * Rangos canónicos R3: 1000..1999 banners críticos · 500..999 identidad ·

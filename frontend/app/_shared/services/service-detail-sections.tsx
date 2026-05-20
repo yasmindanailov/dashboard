@@ -16,10 +16,12 @@ import {
   AppShortcutsCardSection,
   BillingCrossLinkCardSection,
   ClientDevCustomPlaceholderSection,
+  ClientHelpCardSection,
   ClientSuspendedBannerSection,
   FetchedAtFooterSection,
   MetricsBarSection,
-  ServiceAuditLinkCardSection,
+  ServiceAuditTabSection,
+  ServiceOverviewCardSection,
   SslStatusCardSection,
   TerminalBannerSection,
 } from './_components/service-detail-blocks';
@@ -44,12 +46,37 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     shouldRender: (ctx) => ctx.isSuspended && ctx.suspensionReasonCode !== null,
     component: ClientSuspendedBannerSection,
   },
-  // ── Tab "Resumen" ──
+  // ── Tab "Resumen" — layout main + aside (F.12.5) ──
+  // MAIN (2fr): recursos, SSL, aplicaciones (lo que "lidera" el overview).
+  // Card "Información del servicio": llena el MAIN cuando no hay cards "rich"
+  // (métricas/SSL/apps) — servicios mínimos (`internal`/`manual`/`support_inside`)
+  // Y servicios terminales/suspendidos sin métricas, donde el MAIN quedaría
+  // vacío. Garantiza el layout de 2 columnas (punto 7 + Amendment VIII).
   {
-    id: 'metrics-bar',
-    label: 'Métricas',
+    id: 'service-overview-card',
+    label: 'Información del servicio',
     scope: 'both',
     group: 'summary',
+    column: 'main',
+    priority: 650,
+    shouldRender: (ctx) => {
+      const hasRichMain =
+        ctx.info.capabilities.has_metrics ||
+        Boolean(ctx.info.ssl) ||
+        (ctx.info.apps !== undefined && ctx.info.apps.length > 0);
+      // Terminal: las cards rich están ocultas (gateadas !terminal) → MAIN
+      // vacío → esta card lo llena. No-terminal: solo si el plugin no aporta
+      // métricas/SSL/apps (servicio mínimo).
+      return ctx.isTerminal || !hasRichMain;
+    },
+    component: ServiceOverviewCardSection,
+  },
+  {
+    id: 'metrics-bar',
+    label: 'Recursos',
+    scope: 'both',
+    group: 'summary',
+    column: 'main',
     priority: 600,
     shouldRender: (ctx) => !ctx.isTerminal && ctx.info.capabilities.has_metrics,
     component: MetricsBarSection,
@@ -59,6 +86,7 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     label: 'Estado SSL',
     scope: 'both',
     group: 'summary',
+    column: 'main',
     priority: 500,
     shouldRender: (ctx) => !ctx.isTerminal && Boolean(ctx.info.ssl),
     component: SslStatusCardSection,
@@ -68,6 +96,7 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     label: 'Apps instaladas (cliente)',
     scope: 'client',
     group: 'summary',
+    column: 'main',
     priority: 400,
     shouldRender: (ctx) =>
       !ctx.isTerminal &&
@@ -76,33 +105,47 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
       ctx.info.apps.length > 0,
     component: AppShortcutsCardSection,
   },
+  // ASIDE (1fr): facturación, ayuda (cliente), placeholder, datos técnicos (admin).
   {
     id: 'billing-cross-link-card',
     label: 'Cross-link facturación',
     scope: 'both',
     group: 'summary',
+    column: 'aside',
     priority: 350,
     shouldRender: (ctx) => ctx.billingCrossLink !== null,
     component: BillingCrossLinkCardSection,
+  },
+  {
+    id: 'client-help-card',
+    label: 'Ayuda / soporte (cliente)',
+    scope: 'client',
+    group: 'summary',
+    column: 'aside',
+    priority: 30,
+    shouldRender: (ctx) => !ctx.isTerminal,
+    component: ClientHelpCardSection,
   },
   {
     id: 'client-dev-custom-placeholder',
     label: 'Placeholder desarrollo a medida (Sprint 22)',
     scope: 'client',
     group: 'summary',
+    column: 'aside',
     priority: 20,
-    shouldRender: () => true,
+    // No tiene sentido el teaser de Sprint 22 en un servicio cancelado.
+    shouldRender: (ctx) => !ctx.isTerminal,
     component: ClientDevCustomPlaceholderSection,
   },
-  // ── Tab "Actividad" ──
+  // ── Tab "Auditoría" (preview + enlace a la página completa) ──
   {
-    id: 'audit-link-card',
+    id: 'audit-tab',
     label: 'Historial de auditoría',
     scope: 'both',
-    group: 'activity',
+    group: 'audit',
     priority: 30,
     shouldRender: () => true,
-    component: ServiceAuditLinkCardSection,
+    component: ServiceAuditTabSection,
   },
   // ── Zona footer (siempre visible bajo las tabs) ──
   {

@@ -36,6 +36,7 @@ import type {
   PluginHealthState,
   PluginHealthSummary,
 } from '../../../../lib/api';
+import styles from './ProviderHealthBadge.module.css';
 
 interface ProviderHealthBadgeProps {
   health: PluginHealthSummary;
@@ -74,29 +75,17 @@ export function ProviderHealthBadge({
           .map((b) => `${b.operation}=${b.state}`)
           .join(' · ')}`;
 
+  // F.12.5 (Amendment VII): contenido inline (badge + enlace) usado como valor
+  // de la fila "Salud del plugin" en la card Datos técnicos. El término de la
+  // fila ya provee la etiqueta, así que aquí no se repite el prefijo.
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 8,
-        fontSize: 13,
-      }}
-    >
-      <span style={{ color: 'var(--text-secondary)' }}>
-        {t('service.provider_health.label')}
-      </span>
+    <span className={styles.row}>
       <span title={tooltip}>
         <Badge variant={variant}>{stateLabel}</Badge>
       </span>
       <Link
         href={`/admin/settings/plugins/${health.pluginSlug}`}
-        style={{
-          color: 'var(--brand-600)',
-          fontSize: 13,
-          textDecoration: 'none',
-          whiteSpace: 'nowrap',
-        }}
+        className={styles.link}
       >
         {t('service.provider_health.link_to_overview')} →
       </Link>

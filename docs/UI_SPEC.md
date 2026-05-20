@@ -1875,9 +1875,17 @@ Esta es la pieza nuclear de F.12.2 — se implementa literalmente como un array 
 - **No se adopta `<PageSectionGroup>` en otras detail pages** (Clients §5.3, Products §5.5, Invoices §5.8, Tickets §5.11, Tasks §5.16) en F.12 — trabajo futuro si se promociona a Tier 1.
 - **DC.46..49 + DC.NEW-51..58 NO se abordan** (housekeeping post-15C.II).
 
-#### Diseño objetivo F.12.5 — densidad profesional (frozen 2026-05-20, pendiente de implementar)
+#### Diseño objetivo F.12.5 — densidad profesional (✅ implementado — Sprint 15C.II F.12.5)
 
-> Evolución de F.12.4 según el estándar del sector (Hostinger/OVH/cPanel/Plesk/Stripe/Vercel/DigitalOcean/GitHub). Diseño **congelado**; se implementa en conversación nueva (dossier §A.11.10.9.2 Amendment V + §A.11.10.9.3 handoff). F.12.4 sigue siendo el baseline implementado en PR #94.
+> Evolución de F.12.4 según el estándar del sector (Hostinger/OVH/cPanel/Plesk/Stripe/Vercel/DigitalOcean/GitHub). Diseño **congelado** (2026-05-20) e **implementado** sobre la rama `sprint15c-ii-fase-f12-canonical-layout` — dossier §A.11.10.9.2 Amendment V (diseño) + §A.11.10.9.4 Amendment VI (1ª implementación) + **§A.11.10.9.5 Amendment VII (re-evaluación: estructura vigente)**. Las 4 primitivas viven en `components/ui/` (ver `DESIGN_SYSTEM.md`); el layout main+aside usa `column?: 'main'|'aside'` en `SectionDescriptor`.
+>
+> **⚠️ Estructura vigente (Amendment VII)** — la anatomía de abajo describe el 1er corte (F.12.4/VI) y se conserva como trazabilidad; la versión viva es:
+> - **Tabs**: Cliente = **Resumen · Auditoría**; Admin = **Resumen · Notas · Auditoría**. (La tab "Gestión" se eliminó; "Actividad" se dividió en "Notas" + "Auditoría".)
+> - **Acciones**: TODAS las operaciones admin (cambiar plan · reenviar notif · suspender/reanudar · cancelar) + las quick-actions del plugin viven en el **menú "Más acciones" (⋯)** del header (`<ServiceActionsMenu>` / `<AdminServiceActionsMenu>`), cada ítem con **descripción de contexto** (Regla D5). El `<DangerZone>` ya no se usa en services (se conserva como primitiva DS disponible).
+> - **Recursos**: la card lleva **Recalcular + ↻ Refrescar** juntos, cada uno con un `<HelpTip>` ⓘ que explica la diferencia.
+> - **Datos técnicos**: incluye la fila "Salud del plugin" (reubicada desde los banners); sin fila "Estado" (ya está en el header — dedup de badges).
+> - **Auditoría**: tab con **preview** (últimas ~15 entradas) + "Ver historial completo →" a la página dedicada.
+> - **Servicios mínimos**: card "Información del servicio" en el MAIN (estado + plan/alta/renovación) cuando no hay métricas/SSL/apps → 2 columnas también en `support_inside`/`internal`/`manual`.
 
 **Componentes DS nuevos requeridos** (reutilizables más allá de services → `components/ui/` + `DESIGN_SYSTEM.md`):
 
@@ -1911,12 +1919,12 @@ Mis servicios › miweb.com
 **Anatomía objetivo (admin):** Resumen = MAIN (Recursos `<Meter>` · SSL · Aplicaciones) + ASIDE (Facturación → /admin/billing · `<SectionCard>` Datos técnicos con `<DescriptionList>` + `<CopyableId>` para Service/Subscription/Org IDs). **Gestión** = `<SectionCard>` Operaciones (Cambiar plan · Recalcular) · `<SectionCard>` Reenviar notificación · **`<DangerZone>`** full-width al fondo (Suspender · Cancelar → modal). **Actividad** = Notas + Auditoría.
 
 **Variaciones por estado (frozen):**
-- **Suspendido**: header sin clúster; banner (cliente: motivo + [Regularizar pago]; admin: motivo+nota + desync). Recursos/SSL read-only; Apps ocultas. Admin Gestión: **Reanudar** en DangerZone + Cancelar.
+- **Suspendido** (Amendment VIII): header sin clúster (acciones en ⋯); banner (cliente: motivo + [Regularizar pago]; admin: motivo+nota + desync). Enhance: Recursos/SSL read-only en MAIN; Apps ocultas. Mínimo: card "Información del servicio" en MAIN. **2 columnas**. Admin: **Reanudar**/Cancelar en el menú ⋯.
 - **Drift**: admin → `AdminDriftBanner` (Investigar/Reconciliar/Re-aprovisionar) + resto operativo; cliente → header empático, SSO/DNS/acciones ocultas.
-- **Terminal (cancelled)**: header sin clúster; banner (info cliente / danger admin + razón). MAIN vacío → ASIDE (Facturación + admin Datos técnicos) full-width. Gestión NO aparece.
-- **Servicio mínimo (`internal`/`manual`)**: sin clúster; Resumen = solo Facturación (1 columna); Actividad = Auditoría. Colapsa con elegancia.
+- **Terminal (cancelled)** (Amendment VIII): header sin clúster + **sin "Renueva"**; banner (info cliente / danger admin + razón). **MAIN = card "Información del servicio"** (estado + plan/alta/cancelado, **sin renovación**) → ASIDE = Facturación (**solo última factura, sin "Próxima renovación"** — cancelado no renueva) + admin Datos técnicos. **2 columnas**.
+- **Servicio mínimo (`internal`/`manual`/`support_inside`)**: sin clúster (salvo acciones disponibles en ⋯); Resumen = MAIN con la card "Información del servicio" (estado + plan/alta/renovación) + ASIDE (Facturación · Ayuda cliente / Datos técnicos admin) → **2 columnas** (Amendment VII punto 7). Colapsa con elegancia si falta una columna.
 
-**Robustez:** cada `<SectionCard>` aparece por capability (provisioner-agnóstico, ADR-070/077); `main+aside` colapsa a 1 columna si MAIN vacío o en móvil; DangerZone siempre al fondo, aislada (Regla D5).
+**Robustez:** cada `<SectionCard>` aparece por capability (provisioner-agnóstico, ADR-070/077); `main+aside` colapsa a 1 columna si MAIN vacío o en móvil; las acciones destructivas viven en el menú ⋯ con confirmación por modal (Regla D5).
 
 ---
 

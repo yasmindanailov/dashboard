@@ -49,18 +49,8 @@
   margin: 0;
   word-break: break-word;
 }
-.headerMeta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-2);
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  margin: 0;
-}
-.headerMetaSep {
-  color: var(--text-tertiary);
-}
+/* (headerMeta/headerMetaSep retirados en F.12.5 — la metadata usa la primitiva
+   DS <DescriptionList layout="inline">.) */
 .headerActions {
   display: flex;
   align-items: center;
@@ -73,6 +63,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  /* Separa la zona de alertas (terminal/suspendido/drift) del contenido de la
+     tab de abajo — sin esto el banner quedaba pegado a las cards. Sprint
+     15C.II F.12.5 (Amendment VIII). */
+  margin-bottom: var(--space-6);
 }
 
 /* ── F.12.4: Grid 2-col de cards dentro de cada tab (auto-fit responsive) ── */
@@ -87,6 +81,30 @@
   grid-column: 1 / -1;
 }
 
+/* ── F.12.5 (Amendment V/VI): tab "Resumen" en layout main + aside ──
+   MAIN (2fr) = recursos/SSL/apps · ASIDE (1fr) = facturación/datos/ayuda.
+   Si una columna queda vacía, el layout cae a `.summarySingle` (1 columna a
+   ancho completo) desde el `<ServiceDetailLayout>`. Colapsa a 1 col <900px. */
+.summaryGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+.summaryMain,
+.summaryAside,
+.summarySingle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+@media (max-width: 900px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Cabecera ── */
 .backLink {
   color: var(--text-secondary);
@@ -96,21 +114,9 @@
 .backLink:hover {
   color: var(--text-primary);
 }
-.splitRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
 
-/* ── Bloque "Card con titulo + descripcion + accion a la derecha"
-      (Panel del proveedor, DNS, Historial) ── */
-.sectionHeading {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  margin: 0;
-}
+/* (splitRow/sectionHeading retirados en F.12.5 — las cards de navegación usan
+   la primitiva DS <SectionCard>; el cromo título+acción vive en su header.) */
 .sectionDesc {
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
@@ -241,4 +247,81 @@
 .footer {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
+}
+
+/* ── F.12.5: Recursos (card MetricsBar con medidores <Meter>) ── */
+.metersList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+/* Acciones de la card Recursos: Recalcular + Refrescar, cada uno con su ⓘ. */
+.metricsActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.actionWithTip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.resourcesEmpty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-style: italic;
+}
+.resourcesUpdated {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.resourcesUpdatedHint {
+  color: var(--text-tertiary);
+}
+
+/* ── F.12.5: Ayuda (card cliente del aside) ── */
+.helpBody {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+/* ── F.12.5: cuerpos genéricos de cards (SSL, billing, apps, datos) ── */
+.cardText {
+  margin: 0;
+  font-size: var(--font-size-base);
+}
+.cardTextMuted {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.cardTextSubtle {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.inlineRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: var(--font-size-sm);
+}
+.pushEnd {
+  margin-left: auto;
+}
+.strongPrimary {
+  color: var(--text-primary);
+}
+
+/* ── F.12.5: lista de atajos a apps (tiles WP/Joomla) ── */
+.appsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }

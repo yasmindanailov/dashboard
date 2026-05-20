@@ -31,6 +31,16 @@ export { Breadcrumb, type BreadcrumbProps, type BreadcrumbItem } from './Breadcr
 export { AlertBanner, type AlertBannerProps, type AlertBannerVariant } from './AlertBanner';
 export { CopyableId, type CopyableIdProps } from './CopyableId';
 
+/* ── Detail-page density primitives (Sprint 15C.II Fase F.12.5 — UI_SPEC §5.14) ── */
+export { Meter, type MeterProps } from './Meter';
+export { SectionCard, type SectionCardProps } from './SectionCard';
+export {
+  DescriptionList,
+  type DescriptionListProps,
+  type DescriptionItem,
+} from './DescriptionList';
+export { DangerZone, type DangerZoneProps } from './DangerZone';
+
 /* ── Layout Components (UI_SPEC §2-§3) ── */
 export { PageHeader, type PageHeaderProps } from './PageHeader/PageHeader';
 export { FilterBar, type FilterBarProps } from './FilterBar/FilterBar';
