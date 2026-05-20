@@ -3290,6 +3290,10 @@ Cada sub-PR auto-suficiente (review independiente posible), tests verdes, sin br
 | **F.12.2 validación** | `pnpm ci:check:full` + boot smoke + smoke real Yasmin contra `MockEnhanceServer` 5 escenarios: (1) cliente activo · (2) cliente suspended · (3) admin con drift · (4) admin terminal cancelled · (5) admin con apps + SSL + quota threshold. | Suite verde + smoke verde. |
 | **F.12.2 PR** | PR único F.12 (R5 default). Body incluye bypass §6 15ª aplicación si CI Actions sigue billing-bloqueada. Tras merge → post-merge sync PR doc-only (patrón heredado). | PR mergeado a master + sync. |
 
+##### FREEZE gate — wireframes congelados (2026-05-20, Yasmin)
+
+**FREEZE confirmado por Yasmin el 2026-05-20.** Las 3 secciones `UI_SPEC.md` §5.14 (Servicio Detail, 24 descriptores) + §5.18 (Plugins List) + §5.19 (Plugin Detail) quedan **congeladas** tras la iteración v2 (3 ambigüedades resueltas). A partir de este punto arranca F.12.2 (implementación pura composición). Cualquier divergencia del diseño congelado durante la implementación requiere **Amendment** explícito en esta sub-sección (L18 frozen). Commits de diseño F.12.1: `1837da3` (R1..R6) · `b3a0830` (§5.14 v1) · `3edd954` (§5.18 v1) · `bd992cc` (§5.19 v1) · `fa66b71` (§5.14 v2 ambigüedades).
+
 ##### Riesgos identificados y mitigaciones
 
 | Riesgo | Probabilidad | Mitigación |
