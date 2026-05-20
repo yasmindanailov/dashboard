@@ -1722,62 +1722,59 @@ Una sola plantilla `<ServiceDetailLayout ctx={ctx} />` (`frontend/app/_shared/se
 
 Las páginas `/dashboard/services/[id]` y `/admin/services/[id]` son **wrappers finos ~30 LOC** que: (1) resuelven `id` del `params`; (2) hacen `Promise.all` de `serverFetch` para `data` + `billingCrossLink` + (admin) `overview` + `pluginHealth`; (3) componen `ctx`; (4) delegan a `<ServiceDetailLayout>`.
 
-El layout itera **`SERVICE_DETAIL_SECTIONS`** (catálogo declarativo de descriptores `{ id, label, scope, group, priority, shouldRender, component }` en `frontend/app/_shared/services/service-detail-sections.tsx`) — filtra por `scope` + `shouldRender(ctx)`, agrupa por `group` y ordena por `priority` descendente (1000 = arriba, 1 = abajo). Cero condiciones inline en el padre.
+El layout itera **`SERVICE_DETAIL_SECTIONS`** (catálogo declarativo de descriptores `{ id, label, scope, group, priority, shouldRender, component }` en `frontend/app/_shared/services/service-detail-sections.tsx`) — filtra por `scope` + `shouldRender(ctx)`, agrupa por `group` y ordena por `priority` descendente. Cero condiciones inline en el padre.
 
-> **F.12.3 (Amendment III) — tabs adaptativas.** El frame se organiza en **zonas** vía el campo `group`: `header`/`footer` siempre visibles (identidad + banners críticos + meta); `summary`/`management`/`activity` en **tabs** (DS `<Tabs>` vía el CC `<ServiceDetailTabs>`). **Una tab vacía se oculta**; **si solo sobrevive una tab → se renderiza sin tabs** (§2.5). Provisioner-agnóstico: el frame es uno solo y la capability del servicio decide qué aparece y cuántas tabs salen (ADR-070/077) — un `support_inside` mínimo colapsa, un `enhance_cp` muestra las 3. Deep-link `?tab=`. Ver dossier §A.11.10.9.2 Amendment III.
+> **F.12.4 (Amendment IV) — arquitectura de información profesional.** Adopta el DS **`<DetailPage>`** (breadcrumb + headerCard + tabBar canónicos, como clientes/productos) vía el CC `<ServiceDetailView>` (estado de tab). El **headerCard** es `<ServiceHeaderCard>`: identidad (nombre + Badge) + **metadata inline** (Plan · Dominio · Contratado · Renueva — §3.1) + **clúster de acciones** `<ServiceActionCluster>` (Regla D2: primaria SSO + secundaria DNS + menú ⋯ de acciones rápidas; DS `Button`/`Dropdown`). Las **operaciones admin consecuentes** (Cambiar plan/Recalcular/Suspender/Cancelar) viven en la card "Operaciones" de la tab Gestión (cada una → modal, Regla D5). El **registry** cubre: `banner` (alertas siempre visibles bajo el header) · `summary`/`management`/`activity` (tabs, **grid 2-col de Cards**) · `footer` (meta). Tab vacía se oculta; con una sola, sin barra (§2.5). Provisioner-agnóstico: la capability decide qué aparece y cuántas tabs (ADR-070/077). Ver dossier §A.11.10.9.2 Amendment IV.
 
 #### Anatomía — vista cliente (`/dashboard/services/[id]`, estado activo, hosting completo)
 
 ```
+Mis servicios › mihosting.es                            ← breadcrumb (DetailPage)
 ┌─────────────────────────────────────────────────────────────────┐
-│ ← Mis servicios                                                  │  ← zona header
-│ ServiceHeader (Card): Nombre · Badge estado · "Plan Pro · …"     │     (siempre)
-├─────────────────────────────────────────────────────────────────┤
-│ ┌[ Resumen ]── Gestión ── Actividad ──────────────────────────┐ │  ← DS Tabs
-│ │ RESUMEN (default)                                            │ │
-│ │   Card · Detalles del servicio (Plan/Estado/Contratado)      │ │
-│ │   MetricsBar (disco/CPU/RAM + [↻ Actualizar])                │ │
-│ │   SslStatusCard · AppShortcutsCard · BillingCrossLinkCard    │ │
-│ └──────────────────────────────────────────────────────────────┘ │
-│   Gestión   → Panel proveedor (SSO) · ActionsBar · DNS           │
-│   Actividad → Historial de auditoría                             │
-├─────────────────────────────────────────────────────────────────┤
-│ Card · ¿Necesitas un desarrollo a medida? (placeholder Sprint 22)│  ← zona footer
-│ Footer: Última lectura del proveedor: 20/05/2026, 10:31          │     (siempre)
+│ 🌐 mihosting.es  [● Activo]      [Abrir panel] [Gestionar DNS] [⋯]│  ← headerCard
+│ Hosting Pro · mihosting.es · Contratado 12 mar · Renueva 12 jun  │   identidad+metadata+clúster
 └─────────────────────────────────────────────────────────────────┘
+   [⋯]: acciones rápidas del plugin (reiniciar, restablecer…)
+┌ [ Resumen ] ── Actividad ───────────────────────────────────────┐  ← tabBar (sin "Gestión":
+│ RESUMEN — grid 2-col de Cards:                                  │     cliente sin ops admin)
+│   ┌ Métricas ─────────┐  ┌ SSL ───────────────┐                 │
+│   │ disco/CPU/RAM      │  │ activo · 60 días   │                 │
+│   └────────────────────┘  └────────────────────┘                 │
+│   ┌ Aplicaciones ─────┐  ┌ Facturación ───────┐                 │
+│   │ WP · Joomla        │  │ Próx · [Ver factura]│                 │
+│   └────────────────────┘  └────────────────────┘                 │
+│   ┌ ¿Desarrollo a medida? (Sprint 22) ────────┐                 │
+└─────────────────────────────────────────────────────────────────┘
+  Última lectura del proveedor: 20/05/2026, 10:31                    ← footer (siempre)
 
-Servicio mínimo (ej. support_inside, sin métricas/SSL/DNS/apps):
-  Resumen (facturación) · Actividad — la tab "Gestión" no aparece;
-  si solo quedara una tab, se renderiza sin barra de tabs (§2.5).
+Servicio mínimo (support_inside, sin métricas/SSL/DNS/apps): solo
+  Resumen (facturación) + Actividad; si quedara 1 tab, sin barra (§2.5).
 ```
 
 #### Anatomía — vista admin (`/admin/services/[id]`, estado activo con drift)
 
 ```
-┌──────────────────────────────────────────────────┬──────────────┐
-│ ← Servicios                                       │ ⬤ Healthy 2m │  ← zona header (siempre)
-├──────────────────────────────────────────────────┴──────────────┤     back-link + ProviderHealthBadge
-│ ServiceHeader (Card): Nombre · Badge estado (tooltip ISO)        │
-│ AdminDriftBanner ← si isDrift (técnico + CTAs SSO/Reconcile/Re-aprov)│  banners críticos
-│ AdminProviderStateDesyncBanner ← si provider_state_desync        │  siempre en cabecera
-├─────────────────────────────────────────────────────────────────┤
-│ ┌ Resumen ── Gestión ── [ Actividad ]────────────────────────┐  │  ← DS Tabs
-│ │ RESUMEN                                                      │  │
-│ │   MetricsBar · SslStatusCard · AppShortcutsCard ·           │  │
-│ │   BillingCrossLinkCard (→ /admin/billing) · AdminServiceDataCard│
-│ │ GESTIÓN                                                      │  │
-│ │   Panel proveedor (nota GDPR) · ActionsBar (adminOnly) ·    │  │
-│ │   AdminServiceOperationsCard · ResendNotificationCard · DNS │  │
-│ │ ACTIVIDAD                                                    │  │
-│ │   ServiceNotesCard · Historial de auditoría                 │  │
-│ └──────────────────────────────────────────────────────────────┘ │
-├─────────────────────────────────────────────────────────────────┤
-│ Footer: Última lectura: 20/05/2026, 10:31                        │  ← zona footer (siempre)
+Servicios › mihosting.es                                ← breadcrumb (DetailPage)
+┌─────────────────────────────────────────────────────────────────┐
+│ 🌐 mihosting.es  [● Activo]      [Abrir panel] [Gestionar DNS] [⋯]│  ← headerCard
+│ Hosting Pro · mihosting.es · Contratado 12 mar · Renueva 12 jun  │   [⋯]: restablecer contraseña…
 └─────────────────────────────────────────────────────────────────┘
+ ⬤ Healthy · AdminDriftBanner (si drift) · DesyncBanner (si desync) ← zona banner (siempre)
+┌ [ Resumen ] ── Gestión ── Actividad ────────────────────────────┐  ← tabBar
+│ RESUMEN — grid 2-col: Métricas · SSL · Aplicaciones ·           │
+│   Facturación (→/admin/billing) · Datos técnicos (cliente/IDs)  │
+│ GESTIÓN — grid 2-col:                                           │
+│   ┌ Operaciones ──────────────────────────────┐ (card, Regla D4)│
+│   │ [Cambiar plan…] [Recalcular] [Suspender…]  │  cada una→modal │
+│   │ [Cancelar servicio…] (danger)              │                 │
+│   └────────────────────────────────────────────┘                 │
+│   ┌ Reenviar notificación (selector + cooldown)┐                 │
+│ ACTIVIDAD — grid 2-col: Notas · Historial de auditoría          │
+└─────────────────────────────────────────────────────────────────┘
+  Última lectura: 20/05/2026, 10:31                                  ← footer (siempre)
 
-Estado terminal (cancelled): cabecera (banner danger) + Resumen
-  (datos admin + billing) + Actividad (notas + audit). La tab
-  "Gestión" desaparece (operaciones futiles sobre service cancelado).
+Terminal (cancelled): headerCard sin clúster + banner danger; Resumen
+  (datos admin + billing) + Actividad (notas + audit). "Gestión" se oculta.
 ```
 
 #### Variaciones de estado (deltas respecto a las anatomías arriba)
@@ -1793,9 +1790,11 @@ Estado terminal (cancelled): cabecera (banner danger) + Resumen
 
 #### Registry canónico — `SERVICE_DETAIL_SECTIONS` (R3 frozen materializado)
 
+> ⚠️ **La tabla siguiente documenta el baseline de F.12.2** (24 descriptores en scroll vertical). **F.12.4 (Amendment IV) la superó**: SSO/DNS/acciones-rápidas se movieron al clúster del header, la metadata a inline, y los descriptores `service-header`/`client-details-card`/`sso-panel-card`/`actions-bar`/`dns-link-card`/`header-back-link`/`header-admin-row` fueron **eliminados** del registry. El registro autoritativo vivo es el código (`service-detail-sections.tsx` + `_sections.tsx`); ver la nota de zonas/`group` arriba. La tabla se conserva como trazabilidad del baseline.
+
 Esta es la pieza nuclear de F.12.2 — se implementa literalmente como un array `readonly SectionDescriptor[]`. Cada fila documenta el descriptor exacto: `id` estable, `scope`, `priority`, `shouldRender` resumido en pseudocódigo, componente que monta, y notas.
 
-> **F.12.3 (Amendment III) — campo `group`.** Cada descriptor lleva además `group: 'header'|'summary'|'management'|'activity'|'footer'` que lo asigna a una zona/tab. Mapeo: **header** = back-link/header-admin-row · service-header · banners (terminal/suspended/desync/drift) · **summary** = client-details / admin-data-card · metrics · ssl · apps · billing-cross-link · **management** = sso-panel · actions-bar · admin-operations · resend-notification · dns-link · **activity** = service-notes · audit-link · **footer** = dev-custom-placeholder · fetched-at. El layout filtra+ordena dentro de cada zona; las 3 tabs solo aparecen si tienen ≥1 sección (ver Amendment III).
+> **F.12.4 (Amendment IV) — campo `group` + headerCard separado.** La identidad + metadata + clúster de acciones NO son secciones del registry: viven en el `headerCard` (`<ServiceHeaderCard>`). El registry (`group`) cubre el resto: **banner** = mini-badge salud admin · banners terminal/suspended/desync/drift (siempre visibles bajo el header) · **summary** = métricas · ssl · apps · billing-cross-link · dev-custom-placeholder · admin-data-card · **management** = admin-operations (card "Operaciones") · resend-notification · **activity** = service-notes · audit-link · **footer** = fetched-at. SSO/DNS/acciones-rápidas se movieron al clúster del header; sso-panel-card / dns-link-card / actions-bar / client-details-card / service-header / back-link fueron **eliminados** del registry. El layout filtra+ordena por zona; las 3 tabs aparecen solo si tienen ≥1 sección.
 
 | `id` (estable) | `scope` | `priority` | `shouldRender(ctx)` | Componente | Notas |
 |---|---|---:|---|---|---|

@@ -1,26 +1,24 @@
 /**
  * ServiceDetailLayout — Sprint 15C.II Fase F.12 (layout canónico, R2+R3 frozen).
  *
- * Plantilla ÚNICA del detalle de servicio, compartida por
- * `/dashboard/services/[id]` (cliente) y `/admin/services/[id]` (admin). Las
- * páginas son wrappers finos que componen el `ServiceDetailContext` y delegan
- * aquí (ADR-070 · UI_SPEC §1.2 P6).
+ * Compositor (SC) del detalle de servicio, compartido por
+ * `/dashboard/services/[id]` y `/admin/services/[id]`. Construye breadcrumb +
+ * headerCard (`<ServiceHeaderCard>`) + zona banner + paneles de tab (grid
+ * 2-col) + footer, y delega el chrome + estado de tab al DS `<DetailPage>` vía
+ * el CC `<ServiceDetailView>`.
  *
- * F.12.3 (Amendment III): el frame se organiza en **zonas + tabs adaptativas**
- * (UI_SPEC §2.5). Itera el registry declarativo (base `SERVICE_DETAIL_SECTIONS`
- * + `extraSections` admin), filtra por `matchesScope` + `shouldRender(ctx)`,
- * ordena por `priority` desc, y agrupa por `group`:
- *   - `header` / `footer` → siempre visibles (fuera de tabs).
- *   - `summary` / `management` / `activity` → tabs. Una tab vacía se oculta; si
- *     solo sobrevive una tab, se renderiza sin tabs (§2.5 — provisioner-agnóstico:
- *     un servicio mínimo colapsa con elegancia).
+ * F.12.4 (Amendment IV): adopta `<DetailPage>`; identidad+metadata+acciones en
+ * el headerCard; banners en zona propia siempre visible; tabs Resumen/Gestión/
+ * Actividad con grid 2-col de Cards (no apilado). Provisioner-agnóstico: las
+ * secciones se gatean por capability (`matchesScope` + `shouldRender`); una tab
+ * vacía se oculta; con una sola tab, sin barra de tabs.
  *
- * Server-component compatible: los descriptores son datos puros; la conmutación
- * de tabs vive en el CC `<ServiceDetailTabs>` (reusa el DS `<Tabs>`).
+ * Server-component compatible: descriptores puros; interactividad en CCs.
  */
 import type { ReactNode } from 'react';
 
 import { t } from '../i18n';
+import type { BreadcrumbItem } from '../../components/ui';
 import type {
   SectionDescriptor,
   SectionGroup,
@@ -28,14 +26,15 @@ import type {
 } from './service-detail-context';
 import { matchesScope } from './service-detail-context';
 import { SERVICE_DETAIL_SECTIONS } from './service-detail-sections';
-import { ServiceDetailTabs } from './ServiceDetailTabs';
+import { ServiceDetailView } from './ServiceDetailView';
+import { ServiceHeaderCard } from './_components/ServiceHeaderCard';
 import styles from './service-detail.module.css';
 
 interface ServiceDetailLayoutProps {
   ctx: ServiceDetailContext;
-  /** Tab inicial (de `?tab=`). Default `summary`. Si es inválida cae a la 1ª. */
+  /** Tab inicial (de `?tab=`). Default `summary`. */
   activeTab?: string;
-  /** Descriptores admin concatenados al registry base (R3 regla 6 · Amendment I). */
+  /** Descriptores admin concatenados al registry base (R3 regla 6). */
   extraSections?: readonly SectionDescriptor[];
 }
 
@@ -68,30 +67,47 @@ export function ServiceDetailLayout({
       return <SectionComponent key={section.id} ctx={ctx} />;
     });
 
-  const tabs = TAB_ORDER.map((tabDef) => ({
-    id: tabDef.id,
+  const breadcrumb: BreadcrumbItem[] = [
+    {
+      label: ctx.forceAdminRoute
+        ? t('service.detail.back_admin')
+        : t('service.detail.back_client'),
+      href: ctx.forceAdminRoute ? '/admin/services' : '/dashboard/services',
+    },
+    { label: ctx.info.display.primary },
+  ];
+
+  const bannerSections = inGroup('banner');
+  const banners =
+    bannerSections.length > 0 ? (
+      <div className={styles.bannersZone}>{render(bannerSections)}</div>
+    ) : null;
+
+  const footerSections = inGroup('footer');
+  const footer = footerSections.length > 0 ? render(footerSections) : null;
+
+  const tabDefs = TAB_ORDER.map((tabDef) => ({
+    key: tabDef.id,
     label: t(tabDef.labelKey),
     sections: inGroup(tabDef.id),
-  })).filter((tab) => tab.sections.length > 0);
+  })).filter((tabDef) => tabDef.sections.length > 0);
+
+  const tabs = tabDefs.map((tabDef) => ({ key: tabDef.key, label: tabDef.label }));
+  const panels = tabDefs.map((tabDef) => ({
+    key: tabDef.key,
+    node: <div className={styles.tabGrid}>{render(tabDef.sections)}</div>,
+  }));
 
   return (
-    <div className={styles.layout}>
-      {render(inGroup('header'))}
-
-      {tabs.length > 1 ? (
-        <ServiceDetailTabs
-          tabs={tabs.map((tab) => ({ id: tab.id, label: tab.label }))}
-          initialTab={activeTab}
-          panels={tabs.map((tab) => ({
-            id: tab.id,
-            node: <div className={styles.tabPanel}>{render(tab.sections)}</div>,
-          }))}
-        />
-      ) : tabs.length === 1 ? (
-        <div className={styles.tabPanel}>{render(tabs[0].sections)}</div>
-      ) : null}
-
-      {render(inGroup('footer'))}
-    </div>
+    <ServiceDetailView
+      breadcrumb={breadcrumb}
+      wide
+      header={<ServiceHeaderCard ctx={ctx} />}
+      banners={banners}
+      footer={footer}
+      tabs={tabs}
+      panels={panels}
+      initialTab={activeTab}
+    />
   );
 }

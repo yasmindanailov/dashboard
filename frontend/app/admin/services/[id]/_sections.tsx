@@ -1,25 +1,22 @@
 /**
- * _sections — Sprint 15C.II Fase F.12 (layout canónico, extensión admin del registry).
+ * _sections — Sprint 15C.II Fase F.12 (extensión admin del registry).
  *
- * Descriptores admin-only del detalle de servicio (R3 frozen + Amendment I).
- * Viven aquí —y NO en `_shared/services/`— porque referencian componentes
- * admin-only que viven en `./_components/` (Tier 4 R1). El wrapper admin
- * (`page.tsx`) los inyecta vía `extraSections` del `<ServiceDetailLayout>`.
- * Así `_shared/` no depende de `app/admin/` y se materializa la regla 6 de R3
- * (concatenación de arrays — heredable a plugins futuros 15D/15E/15G).
+ * Descriptores admin-only del detalle de servicio (R3 + Amendment I). Viven
+ * aquí porque referencian componentes admin-only de `./_components/` (Tier 4
+ * R1). El wrapper admin los inyecta vía `extraSections` del
+ * `<ServiceDetailLayout>` (evita acoplar `_shared/` a `app/admin/` +
+ * materializa R3 regla 6).
  *
- * **Cero cambio funcional** (F.12.2): cada adapter reproduce la invocación y el
- * guard inline del `/admin/services/[id]/page.tsx` actual.
+ * F.12.4 (Amendment IV): el back-link se fue (lo da el breadcrumb del
+ * DetailPage); queda el mini-badge de salud en la zona banner. Operaciones +
+ * reenviar notif son cards de la tab Gestión; notas en Actividad.
  */
-import Link from 'next/link';
-
 import { t } from '../../../_shared/i18n';
 import type {
   SectionDescriptor,
   ServiceDetailContext,
 } from '../../../_shared/services/service-detail-context';
 import { AppShortcutsCardSection } from '../../../_shared/services/_components/service-detail-blocks';
-import styles from '../../../_shared/services/service-detail.module.css';
 
 import { AdminDriftBanner } from './_components/AdminDriftBanner';
 import { AdminProviderStateDesyncBanner } from './_components/AdminProviderStateDesyncBanner';
@@ -30,19 +27,10 @@ import { ProviderHealthBadge } from './_components/ProviderHealthBadge';
 import { ResendNotificationCard } from './_components/ResendNotificationCard';
 import { ServiceNotesCard } from './_components/ServiceNotesCard';
 
-/** Fila de cabecera admin: back-link "← Servicios" + ProviderHealthBadge
- *  (top-right, misma fila flex). Fusiona el back-link y el badge en una sola
- *  sección para preservar el layout `justify-between` del page actual
- *  (Amendment I — el freeze los listaba como descriptores separados). */
-function AdminHeaderRowSection({ ctx }: { ctx: ServiceDetailContext }) {
-  return (
-    <div className={styles.splitRow}>
-      <Link href="/admin/services" className={styles.backLink}>
-        ← {t('service.detail.back_admin')}
-      </Link>
-      {ctx.pluginHealth && <ProviderHealthBadge health={ctx.pluginHealth} />}
-    </div>
-  );
+/** Mini-badge de salud del plugin (admin). Zona banner (arriba). */
+function AdminHealthBadgeSection({ ctx }: { ctx: ServiceDetailContext }) {
+  if (!ctx.pluginHealth) return null;
+  return <ProviderHealthBadge health={ctx.pluginHealth} />;
 }
 
 function AdminProviderStateDesyncBannerSection({
@@ -120,21 +108,21 @@ function ServiceNotesCardSection({ ctx }: { ctx: ServiceDetailContext }) {
 }
 
 export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
-  // ── Zona cabecera (siempre visible) ──
+  // ── Zona banner ──
   {
-    id: 'header-admin-row',
-    label: 'Cabecera admin (back-link + salud plugin)',
+    id: 'admin-provider-health-badge',
+    label: 'Mini-badge salud del plugin',
     scope: 'admin',
-    group: 'header',
-    priority: 2000,
-    shouldRender: () => true,
-    component: AdminHeaderRowSection,
+    group: 'banner',
+    priority: 1950,
+    shouldRender: (ctx) => ctx.pluginHealth !== null,
+    component: AdminHealthBadgeSection,
   },
   {
     id: 'banner-suspended-admin',
     label: 'Banner suspensión (admin)',
     scope: 'admin',
-    group: 'header',
+    group: 'banner',
     priority: 1750,
     shouldRender: (ctx) => ctx.isSuspended,
     component: AdminSuspendedBanner,
@@ -143,7 +131,7 @@ export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'banner-provider-state-desync',
     label: 'Banner desync estado proveedor',
     scope: 'admin',
-    group: 'header',
+    group: 'banner',
     priority: 1700,
     shouldRender: (ctx) =>
       !ctx.isTerminal &&
@@ -155,7 +143,7 @@ export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'banner-drift-admin',
     label: 'Banner drift técnico (admin)',
     scope: 'admin',
-    group: 'header',
+    group: 'banner',
     priority: 1650,
     shouldRender: (ctx) =>
       ctx.isDrift &&
@@ -188,7 +176,7 @@ export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
   // ── Tab "Gestión" ──
   {
     id: 'admin-service-operations-card',
-    label: 'Operaciones admin',
+    label: 'Operaciones',
     scope: 'admin',
     group: 'management',
     priority: 70,

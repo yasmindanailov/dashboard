@@ -8,7 +8,6 @@
  */
 export { ServiceHeader } from './ServiceHeader';
 export { MetricsBar } from './MetricsBar';
-export { ActionsBar } from './ActionsBar';
 export { SsoButton } from './SsoButton';
 export { SslStatusCard } from './SslStatusCard';
 export { AppShortcutsCard } from './AppShortcutsCard';

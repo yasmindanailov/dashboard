@@ -23,6 +23,70 @@
   gap: var(--space-4);
 }
 
+/* ── F.12.4: Header card (identidad + metadata inline + clúster de acciones) ── */
+.headerCard {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.headerIdentity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.headerTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.headerTitle {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+  word-break: break-word;
+}
+.headerMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+.headerMetaSep {
+  color: var(--text-tertiary);
+}
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ── F.12.4: Banners zone (full-width, siempre visible bajo el header) ── */
+.bannersZone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ── F.12.4: Grid 2-col de cards dentro de cada tab (auto-fit responsive) ── */
+.tabGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+/* Card que ocupa toda la fila del grid (operaciones, notas anchas). */
+.tabGridFull {
+  grid-column: 1 / -1;
+}
+
 /* ── Cabecera ── */
 .backLink {
   color: var(--text-secondary);

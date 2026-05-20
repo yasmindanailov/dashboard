@@ -364,6 +364,9 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.detail.dev_custom.title': '¿Necesitas un desarrollo a medida?',
   'service.detail.dev_custom.body':
     'Próximamente podrás solicitar un desarrollo personalizado vinculado a este servicio. (Función disponible cuando Sprint 22 Projects esté activo.)',
+  'service.detail.meta.contracted': 'Contratado',
+  'service.detail.meta.renews': 'Renueva',
+  'service.detail.actions.more': 'Más acciones',
   'service.detail.fetched_at': 'Última lectura del proveedor:',
   'service.detail.cancelled_at': 'Cancelado el',
   'service.detail.suspended_at': 'Suspendido el',

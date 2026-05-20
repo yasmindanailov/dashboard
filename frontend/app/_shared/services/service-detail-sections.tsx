@@ -1,68 +1,36 @@
 /**
  * service-detail-sections — Sprint 15C.II Fase F.12 (layout canónico, R3 frozen).
  *
- * Registry BASE declarativo del detalle de servicio. Contiene los descriptores
- * cuyos componentes viven en `_shared/services/` (scope `both` + `client`). Los
- * descriptores admin-only (componentes en `app/admin/services/[id]/_components/`)
- * viven en la extensión `app/admin/services/[id]/_sections.tsx` y se concatenan
- * via la prop `extraSections` del `<ServiceDetailLayout>` (Amendment I —
- * materializa la regla 6 de R3: "concatenación de arrays" + evita que `_shared/`
- * dependa de `app/admin/`).
+ * Registry BASE declarativo del detalle de servicio: descriptores cuyos
+ * componentes viven en `_shared/services/` (scope `both` + `client`). Los
+ * admin-only viven en `app/admin/services/[id]/_sections.tsx` (extensión
+ * inyectada vía `extraSections` — Amendment I).
  *
- * El `<ServiceDetailLayout>` itera `[...SERVICE_DETAIL_SECTIONS, ...extra]`,
- * filtra por `matchesScope` + `shouldRender(ctx)` y ordena por `priority`
- * descendente. Cero condiciones inline en el padre.
- *
- * **Cero cambio funcional** (F.12.2): cada `shouldRender` reproduce el guard
- * inline del page actual. Los guards route-divergentes (sso/actions/dns)
- * ramifican por `ctx.forceAdminRoute` para preservar el comportamiento exacto
- * de cliente y admin (Amendment I — el page cliente gatea
- * `!isSuspended`/`!isDrift`, el admin solo `!isTerminal`).
+ * F.12.4 (Amendment IV): identidad + metadata + clúster de acciones se movieron
+ * al `<ServiceHeaderCard>`; el registry cubre banners + cards de tab + footer.
+ * El `<ServiceDetailLayout>` agrupa por `group`, filtra por `matchesScope` +
+ * `shouldRender(ctx)` y ordena por `priority`.
  */
 import type { SectionDescriptor } from './service-detail-context';
 import {
-  ActionsBarSection,
   AppShortcutsCardSection,
   BillingCrossLinkCardSection,
-  ClientBackLinkSection,
   ClientDevCustomPlaceholderSection,
-  ClientServiceDetailsCardSection,
   ClientSuspendedBannerSection,
-  DnsLinkCardSection,
   FetchedAtFooterSection,
   MetricsBarSection,
   ServiceAuditLinkCardSection,
-  ServiceHeaderSection,
   SslStatusCardSection,
-  SsoPanelCardSection,
   TerminalBannerSection,
 } from './_components/service-detail-blocks';
 
 export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
-  // ── Zona cabecera (siempre visible, fuera de tabs) ──
-  {
-    id: 'header-back-link',
-    label: 'Back link cliente',
-    scope: 'client',
-    group: 'header',
-    priority: 2000,
-    shouldRender: () => true,
-    component: ClientBackLinkSection,
-  },
-  {
-    id: 'service-header',
-    label: 'Cabecera del servicio',
-    scope: 'both',
-    group: 'header',
-    priority: 1900,
-    shouldRender: () => true,
-    component: ServiceHeaderSection,
-  },
+  // ── Zona banner (siempre visible bajo el headerCard, sobre las tabs) ──
   {
     id: 'banner-terminal',
     label: 'Banner servicio terminal',
     scope: 'both',
-    group: 'header',
+    group: 'banner',
     priority: 1800,
     shouldRender: (ctx) => ctx.isTerminal,
     component: TerminalBannerSection,
@@ -71,21 +39,12 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     id: 'banner-suspended-client',
     label: 'Banner suspensión (cliente)',
     scope: 'client',
-    group: 'header',
+    group: 'banner',
     priority: 1750,
     shouldRender: (ctx) => ctx.isSuspended && ctx.suspensionReasonCode !== null,
     component: ClientSuspendedBannerSection,
   },
   // ── Tab "Resumen" ──
-  {
-    id: 'client-details-card',
-    label: 'Detalles del servicio (cliente)',
-    scope: 'client',
-    group: 'summary',
-    priority: 800,
-    shouldRender: () => true,
-    component: ClientServiceDetailsCardSection,
-  },
   {
     id: 'metrics-bar',
     label: 'Métricas',
@@ -126,46 +85,14 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     shouldRender: (ctx) => ctx.billingCrossLink !== null,
     component: BillingCrossLinkCardSection,
   },
-  // ── Tab "Gestión" ──
   {
-    id: 'sso-panel-card',
-    label: 'Panel del proveedor (SSO)',
-    scope: 'both',
-    group: 'management',
-    priority: 90,
-    // Cliente: !terminal && !suspended && !drift. Admin: solo !terminal
-    // (Amendment I — preserva la divergencia de gating entre ambos pages).
-    shouldRender: (ctx) =>
-      !ctx.isTerminal &&
-      ctx.info.capabilities.hasSsoPanel &&
-      ctx.info.capabilities.panel_label !== undefined &&
-      ctx.info.capabilities.panel_label !== null &&
-      (ctx.forceAdminRoute || (!ctx.isSuspended && !ctx.isDrift)),
-    component: SsoPanelCardSection,
-  },
-  {
-    id: 'actions-bar',
-    label: 'Acciones del servicio',
-    scope: 'both',
-    group: 'management',
-    priority: 80,
-    // Cliente: !terminal && !suspended. Admin: solo !terminal.
-    shouldRender: (ctx) =>
-      !ctx.isTerminal && (ctx.forceAdminRoute || !ctx.isSuspended),
-    component: ActionsBarSection,
-  },
-  {
-    id: 'dns-link-card',
-    label: 'Gestión DNS',
-    scope: 'both',
-    group: 'management',
-    priority: 40,
-    // Cliente: !terminal && !suspended && !drift. Admin: solo !terminal.
-    shouldRender: (ctx) =>
-      !ctx.isTerminal &&
-      ctx.info.capabilities.has_dns_management &&
-      (ctx.forceAdminRoute || (!ctx.isSuspended && !ctx.isDrift)),
-    component: DnsLinkCardSection,
+    id: 'client-dev-custom-placeholder',
+    label: 'Placeholder desarrollo a medida (Sprint 22)',
+    scope: 'client',
+    group: 'summary',
+    priority: 20,
+    shouldRender: () => true,
+    component: ClientDevCustomPlaceholderSection,
   },
   // ── Tab "Actividad" ──
   {
@@ -177,16 +104,7 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     shouldRender: () => true,
     component: ServiceAuditLinkCardSection,
   },
-  // ── Zona pie (siempre visible, fuera de tabs) ──
-  {
-    id: 'client-dev-custom-placeholder',
-    label: 'Placeholder desarrollo a medida (Sprint 22)',
-    scope: 'client',
-    group: 'footer',
-    priority: 20,
-    shouldRender: () => true,
-    component: ClientDevCustomPlaceholderSection,
-  },
+  // ── Zona footer (siempre visible bajo las tabs) ──
   {
     id: 'footer-fetched-at',
     label: 'Footer última lectura',

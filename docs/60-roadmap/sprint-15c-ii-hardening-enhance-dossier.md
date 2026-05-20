@@ -3329,6 +3329,33 @@ Divergencias del diseño congelado descubiertas al implementar contra el código
 
 **Validación F.12.3:** `pnpm typecheck` + `pnpm lint:check` (`--max-warnings=0`) + `pnpm build` (32 páginas) verdes (commit `cbcc718`). Pendiente: smoke real Yasmin (5 escenarios + verificar adaptación de tabs + colapso de servicio mínimo).
 
+##### Sub-fase F.12.4 — Arquitectura de información profesional (Amendment IV, 2026-05-20)
+
+**Origen:** tras F.12.3 (tabs), Yasmin observó que "poner tabs no es suficiente" — dentro de cada tab las cards se apilaban una bajo otra sin jerarquía, los botones estaban dispersos (SSO en una card, ActionsBar suelto, DNS/operaciones/audit cada uno en su card), copys y CTAs sin convención, y nada de eso respeta UI_SPEC. Encargó un **audit exhaustivo** (UI_SPEC + estándar del sector + DESIGN_SYSTEM) y reorganizar TODA la información y botones del service detail. Amendment IV (L18 frozen).
+
+**Audit — violaciones halladas** (vs UI_SPEC §2.5/§3.1/§3.5/§4.2/§4.3 + DESIGN_SYSTEM Reglas D2/D5 + detail pages canónicos clientes/productos/factura):
+1. Botones dispersos (~14 superficies sin jerarquía) — viola **D2** (1 primaria + máx 2 secundarias + resto ⋯) + anti-patrón #4 (3+ botones al mismo nivel).
+2. Destructivas como botones permanentes — viola **D5** (destructivas en ⋯ → modal).
+3. Metadata en card "Detalles" separada — viola **§3.1** (en detail, metadata inline en header).
+4. Cards apiladas columna única — vs canónico grid 2-col de Cards con título de sección.
+5. Botones como `<Link>` con estilo inline — vs DS `<Button variant>`.
+6. NO usa `<DetailPage>` (el resto de detail pages sí).
+7. Copys de CTAs sin convención de voz de marca.
+
+**Decisiones frozen (Yasmin 2026-05-20):**
+- **D1 — Adoptar el DS `<DetailPage>`** (breadcrumb + headerCard + tabBar canónicos). El tab state vive en un wrapper cliente `<ServiceDetailView>` (patrón `ClientDetailView`); el SC pre-renderiza header + banners + paneles (incl. async SC) y los pasa como `ReactNode`.
+- **D2 — Metadata inline en el header** (Plan · Dominio · Contratado · Renovación), se elimina la card "Detalles del servicio" (§3.1).
+- **D3 — Clúster de acciones en el header** (Regla D2): **primaria** = Abrir panel (SSO, si `hasSsoPanel`); **secundaria** = Gestionar DNS (si `has_dns_management`); **menú ⋯** = SOLO acciones rápidas/reversibles del plugin (`info.availableActions` filtradas, igual que ActionsBar). Banners (terminal/suspendido/drift/desync) full-width bajo el header, siempre visibles.
+- **D4 — Operaciones admin consecuentes en card "Operaciones" (tab Gestión)**, NO en el menú: Cambiar plan / Recalcular / Suspender / Reanudar / Cancelar — cada una abre modal (se reusa `AdminServiceOperationsCard` existente). `Reenviar notificación` = card propia (tiene selector). Patrón "zona de operaciones" visible+organizada (no escondida en menú), reconciliable con D5 porque cada destructiva sigue abriendo modal.
+- **D5 — Tabs con grid 2-columnas de Cards** (no apilado): Resumen (Recursos = métricas+SSL · Facturación · Aplicaciones · admin Datos técnicos) · Gestión (Operaciones · Reenviar notif) · Actividad (Notas · Auditoría).
+- **D6 — Todo a DS `<Button variant>` + `<Dropdown>`** + copys i18n; modales con copy §4.2 ("Sí, cancelar el servicio" / "No, volver").
+
+**Clúster por rol×estado (frozen):** cliente activo → primaria SSO + secundaria DNS + ⋯ (acciones plugin cliente) · cliente suspendido/drift/terminal → sin clúster (banners) · admin activo → SSO + DNS + ⋯ (restablecer contraseña…) · admin suspendido → primaria Reanudar + secundaria SSO · admin drift → SSO + DNS + ⋯ (banner drift con remediación) · admin terminal → sin clúster. Operaciones consecuentes siempre en card "Operaciones" (Gestión), no en el clúster.
+
+**Acciones que NO entran al clúster** (contextuales a su card): refrescar métricas (MetricsBar) · abrir app (Aplicaciones) · ver factura (Facturación) · reenviar notif (card propia) · remediación drift/desync (banners) · CTA suspensión cliente (banner).
+
+**Reutilización (no reescritura de internals):** `SsoButton` (primaria), `AdminServiceOperationsCard` (card Operaciones), `ResendNotificationCard` (card), banners existentes, métricas/SSL/apps/billing/notes/audit (re-agrupados en grids). Código NUEVO: `ServiceActionCluster` (CC: SSO + DNS + ⋯ Dropdown reusando `executeServiceActionAction`), `ServiceHeaderCard` (identidad + metadata inline + cluster), `ServiceDetailView` (CC: `<DetailPage>` + tab state) + restructura del registry + CSS grids.
+
 ##### Riesgos identificados y mitigaciones
 
 | Riesgo | Probabilidad | Mitigación |

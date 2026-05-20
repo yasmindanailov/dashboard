@@ -30,17 +30,19 @@ export type ServiceData = ServiceDetailResponse['service'];
 export type SectionScope = 'admin' | 'client' | 'both';
 
 /**
- * Zona de la página donde se monta la sección (Sprint 15C.II Fase F.12.3 —
- * tabs adaptativas, Amendment III):
- *   - `header` / `footer`: SIEMPRE visibles (fuera de las tabs). Identidad,
- *     banners críticos (header) · meta (footer).
- *   - `summary` / `management` / `activity`: contenido de las 3 tabs. Una tab
- *     que quede vacía (todas sus secciones filtradas) se oculta; si solo
- *     sobrevive una tab, el layout NO muestra tabs (§2.5 — si solo hay una
- *     sección no hacen falta tabs).
+ * Zona de la página donde se monta la sección (Sprint 15C.II Fase F.12.3 →
+ * F.12.4, Amendment III+IV). La identidad + metadata + clúster de acciones NO
+ * son secciones del registry: viven en el `headerCard` del `<DetailPage>`
+ * (`<ServiceHeaderCard>`). El registry cubre:
+ *   - `banner`: alertas/estado siempre visibles BAJO el headerCard y SOBRE las
+ *     tabs (terminal, suspendido, drift, desync) + el mini-badge de salud admin.
+ *   - `footer`: meta siempre visible bajo las tabs (última lectura).
+ *   - `summary` / `management` / `activity`: contenido de las 3 tabs (grid
+ *     2-col). Una tab vacía se oculta; si solo sobrevive una, sin barra de tabs
+ *     (§2.5).
  */
 export type SectionGroup =
-  | 'header'
+  | 'banner'
   | 'summary'
   | 'management'
   | 'activity'
