@@ -267,10 +267,18 @@ export async function ServiceAuditTabSection({
   ctx: ServiceDetailContext;
 }) {
   const { service, forceAdminRoute } = ctx;
-  const base = forceAdminRoute
-    ? `/admin/services/${service.id}`
-    : `/dashboard/services/${service.id}`;
-  const fullHref = `${base}/audit`;
+  // OJO: el endpoint del API NO es la ruta de Next.
+  //   - API backend: admin `/admin/services/:id/audit` · cliente `/services/:id/audit`.
+  //   - Ruta de Next (enlace "Ver historial completo"): admin `/admin/services/:id/audit`
+  //     · cliente `/dashboard/services/:id/audit`.
+  // (En admin coinciden; en cliente NO — confundirlos hacía que el preview
+  //  fetchara `/dashboard/...` inexistente → 404 → fail-soft → "sin eventos".)
+  const apiPath = forceAdminRoute
+    ? `/admin/services/${service.id}/audit`
+    : `/services/${service.id}/audit`;
+  const fullHref = forceAdminRoute
+    ? `/admin/services/${service.id}/audit`
+    : `/dashboard/services/${service.id}/audit`;
   const subtitle = forceAdminRoute
     ? t('service.audit.subtitle_admin')
     : t('service.audit.subtitle_client');
@@ -282,7 +290,7 @@ export async function ServiceAuditTabSection({
 
   let page: ServiceTimelinePage | null = null;
   try {
-    page = await serverFetch<ServiceTimelinePage>(`${base}/audit`);
+    page = await serverFetch<ServiceTimelinePage>(apiPath);
   } catch {
     page = null;
   }
