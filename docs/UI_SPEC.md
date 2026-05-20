@@ -1849,7 +1849,8 @@ Esta es la pieza nuclear de F.12.2 — se implementa literalmente como un array 
 | `client-details-card` | `client` | 800 | `true` | `<ClientServiceDetailsCard service={service} />` | Tier 2 nuevo (encapsula el `<dl>` Plan/Estado/Contratado el). Siempre visible — garantía heredada Fase B fix-up. |
 | `metrics-bar` | `both` | 600 | `!ctx.isTerminal && info.capabilities.has_metrics` | `<MetricsBar metrics={info.metrics ?? {fetchedAt:info.fetchedAt}} serviceId={service.id} isAdmin={ctx.isAdmin} quotaAlertThresholdPct={service.quota_alert_threshold_pct} />` | Capability-driven. F.8 threshold prop. |
 | `ssl-card` | `both` | 500 | `!ctx.isTerminal && Boolean(info.ssl)` | `<SslStatusCard ssl={info.ssl!} isAdmin={ctx.isAdmin} />` | F.7. L16 SÍ aplica (admin tooltip ISO display-only). |
-| `apps-card` | `both` | 400 | `!ctx.isTerminal && !ctx.isSuspended && info.apps !== undefined && info.apps.length > 0` | `<AppShortcutsCard apps={info.apps} serviceId={service.id} isAdmin={ctx.isAdmin} />` | F.10. Cliente oculta si suspended; admin sí ve si suspended (durante investigación) — gestionado dentro del componente o con dos descriptores `apps-card-client` / `apps-card-admin`. **A congelar en iteración v2.** |
+| `apps-card-client` | `client` | 400 | `!ctx.isTerminal && !ctx.isSuspended && info.apps !== undefined && info.apps.length > 0` | `<AppShortcutsCard apps={info.apps} serviceId={service.id} isAdmin={false} />` | F.10. Cliente oculta apps si suspended (no operar sobre servicio suspendido). **Resuelto v2**: 2 descriptores separados (recomendación dossier — más testeable que ramificar `shouldRender` por scope interno). |
+| `apps-card-admin` | `admin` | 400 | `!ctx.isTerminal && info.apps !== undefined && info.apps.length > 0` | `<AppShortcutsCard apps={info.apps} serviceId={service.id} isAdmin={true} />` | F.10. Admin SÍ ve apps si suspended (puede abrir WP-admin durante investigación). **Resuelto v2**: descriptor admin propio sin gate `!isSuspended`. |
 | `billing-cross-link-card` | `both` | 350 | `ctx.billingCrossLink !== null` | `<BillingCrossLinkCard data={ctx.billingCrossLink!} isAdmin={ctx.isAdmin} />` | F.11.3. Visible también si terminal. L16 SÍ aplica. |
 | `admin-service-data-card` | `admin` | 300 | `true` | `<AdminServiceDataCard data={data} />` | Tier 4 admin-only puro (`_components/`). |
 | `sso-panel-card` | `both` | 90 | `!ctx.isTerminal && !ctx.isSuspended && !ctx.isDrift && info.capabilities.hasSsoPanel && info.capabilities.panel_label !== null` | `<SsoPanelCard serviceId={…} panelLabel={…} isAdmin={ctx.isAdmin} />` | Tier 2 nuevo (encapsula Card + texto + `<SsoButton>`). Admin gana copy GDPR impersonation. |
@@ -1862,12 +1863,12 @@ Esta es la pieza nuclear de F.12.2 — se implementa literalmente como un array 
 | `client-dev-custom-placeholder` | `client` | 20 | `true` | `<ClientDevCustomPlaceholderCard />` | Tier 2 nuevo (estático, Sprint 22 prep). Solo cliente. |
 | `footer-fetched-at` | `both` | 1 | `true` | `<FetchedAtFooter fetchedAt={info.fetchedAt} />` | Tier 2 nuevo (texto plano `<p>`). |
 
-**Total: 23 descriptores** (10 `both` + 3 `client` + 10 `admin`). El padre `<ServiceDetailLayout>` post-R3 son ~30 LOC. Los componentes nuevos Tier 2 encapsulan JSX hoy inline en `page.tsx` (sin lógica nueva — refactor puro).
+**Total: 24 descriptores** (9 `both` + 4 `client` + 11 `admin`). El padre `<ServiceDetailLayout>` post-R3 son ~30 LOC. Los componentes nuevos Tier 2 encapsulan JSX hoy inline en `page.tsx` (sin lógica nueva — refactor puro).
 
-**Ambigüedades pendientes a resolver durante F.12.1 iteración** (NO bloquean v1):
-- **`apps-card` admin si suspended**: en el admin page actual, AppShortcutsCard se renderiza si `!isTerminal && info.apps.length > 0` (admin SÍ ve si suspended para investigación); en el cliente page se renderiza si `!isTerminal && !isSuspended && info.apps.length > 0`. **2 descriptores separados (`apps-card-client` scope:`client` + `apps-card-admin` scope:`admin`)** o **1 descriptor con `shouldRender` ramificado por `scope` interno**? — recomendación dossier: 2 descriptores (más simple, más testeable).
-- **`banner-drift-admin` cuando `/dashboard/services/[id]` la abre un staff (isAdmin=true pero NO `forceAdminRoute`)**: hoy el cliente page NO renderiza AdminDriftBanner aunque el viewer sea staff (UX cliente-first del page cliente). Mantener este comportamiento → el descriptor incluye `ctx.forceAdminRoute` en `shouldRender`. Confirmar en iteración.
-- **`actions-bar` cuando `isAdmin=true` en /dashboard**: hoy SÍ renderiza acciones admin-only no-blacklisted. Mantener (heredado). El descriptor solo gatea por `!isTerminal && !isSuspended`.
+**Decisiones resueltas durante F.12.1 iteración v2** (2026-05-20):
+- **`apps-card` admin si suspended** → **RESUELTO**: 2 descriptores separados `apps-card-client` (scope `client`, gate `!isSuspended`) + `apps-card-admin` (scope `admin`, sin gate `!isSuspended`). Recomendación dossier (más simple + más testeable que ramificar `shouldRender` por scope interno). Preserva exactamente el comportamiento actual de ambos pages.
+- **`banner-drift-admin` cuando un staff abre `/dashboard/services/[id]`** → **RESUELTO**: el descriptor incluye `ctx.forceAdminRoute` en `shouldRender`. Un staff que abre la página cliente ve la UX cliente-first (ServiceHeader con `statusReason` empático), NO el banner técnico. El banner técnico solo en `/admin/services/[id]`. Preserva el comportamiento actual (`banner-provider-state-desync` aplica el mismo gate `forceAdminRoute`).
+- **`actions-bar` cuando un staff abre `/dashboard/services/[id]`** → **RESUELTO**: el descriptor gatea solo por `!ctx.isTerminal && !ctx.isSuspended` (sin `forceAdminRoute`). Un staff en la página cliente sí ve sus acciones admin-only no-blacklisted (heredado — coherente con el page cliente actual que pasa `isAdmin` derivado a `<ActionsBar>`).
 
 #### Variaciones por rol (matriz §1.2 P6.1)
 
@@ -2326,7 +2327,7 @@ Página **admin-only puro** — sin contenido adaptativo por rol (igual que §5.
 
 **Sección 5 — Decisiones tomadas:**
 
-- ✅ 13 páginas especificadas con anatomía exacta
+- ✅ 16 páginas especificadas con anatomía exacta (incl. §5.14 Servicio Detail + §5.18 Plugins List + §5.19 Plugin Detail — Sprint 15C.II F.12)
 - ✅ Variaciones por rol documentadas para cada página compartida (P6)
 - ✅ Empty states con tono Aelium para cada página (P5, §4.8)
 - ✅ Estado por página actualizado post-migración (D20, D21, D22-D28)
@@ -2344,7 +2345,7 @@ Página **admin-only puro** — sin contenido adaptativo por rol (igual que §5.
 | S2. Anatomía de páginas (6 tipos) | ✅ Cerrada |
 | S3. Reglas de contenido | ✅ Cerrada |
 | S4. Patrones de interacción (12 patrones) | ✅ Cerrada |
-| S5. Especificación por página (15 páginas) | ✅ Cerrada |
+| S5. Especificación por página (16 páginas) | ✅ Cerrada |
 
 > Este documento es la fuente de verdad para la interfaz del dashboard Aelium.
 > Toda página nueva debe clasificarse en un tipo (S2), seguir sus reglas (S3-S4),
