@@ -3505,6 +3505,12 @@ Divergencias del diseño congelado descubiertas al implementar contra el código
 
 **Validación:** `pnpm run ci:frontend:full` verde (las tres tandas). Pendiente smoke de confirmación (cancelado/suspendido cliente+admin · menú ⋯ sin error de hidratación · barra de tabs sin scrollbar · banner con margen · CTA de notas alineado con auditoría). Commit: `fix(sprint-15c-ii): F.12.5 Amendment VIII — Dropdown asChild + layout cancelado/suspendido + coherencia renovación + scrollbar tabs + margen banner + CTA notas`.
 
+##### Estado F.12 — cerrada y mergeada (2026-05-20)
+
+F.12 completa (toda la fase: F.12.1 registry declarativo → F.12.5 densidad profesional, **Amendments I–VIII**) **mergeada a `master`** vía PR [#94](https://github.com/yasmindanailov/dashboard/pull/94) squash-merge `c381e68`. **Bypass §6 — 15ª aplicación**: (1) motivo externo (GitHub Actions billing-bloqueada; jobs fallan a ~4s sin arrancar — pendiente de pago, decisión de negocio), (2) `pnpm run ci:check:full` verde local [backend **55 suites · 798 passed + 6 skipped** sin cambios — F.12 es frontend-only — + frontend `tsc --noEmit` + `lint:check --max-warnings=0` + `next build` 32 páginas] + smoke visual Yasmin "todo ok", (3) doc formal en el cuerpo del PR. Rama `sprint15c-ii-fase-f12-canonical-layout` eliminada (local + remota); post-merge doc-sync vía rama `sprint15c-ii-fase-f12-postmerge-docsync` (este cambio + `current.md`). **Cero ADR amendments** (ADR-077/079/080/082/083 intactos — UI_SPEC §5.14 + `DESIGN_SYSTEM.md` son el deliverable). **Con esto la Fase F (F.1→F.12) queda COMPLETA**; resta únicamente **Fase G** (abajo) para cerrar el Sprint 15C.II y **desbloquear Sprint 15D RC**.
+
+> Deuda de proceso (heredada): 15 aplicaciones del bypass §6 por el billing de GitHub Actions. Conviene que el desbloqueo tenga **dueño + fecha** y no se vuelva permanente.
+
 ### A.11.10.10. Fase G — Cierre Sprint 15C.II
 
 **Tema:** DoD del sprint completo — tests críticos, E2E, smoke real, retrospectiva, desbloqueo de Sprint 15D RC.
