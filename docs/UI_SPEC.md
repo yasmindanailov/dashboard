@@ -1722,103 +1722,62 @@ Una sola plantilla `<ServiceDetailLayout ctx={ctx} />` (`frontend/app/_shared/se
 
 Las páginas `/dashboard/services/[id]` y `/admin/services/[id]` son **wrappers finos ~30 LOC** que: (1) resuelven `id` del `params`; (2) hacen `Promise.all` de `serverFetch` para `data` + `billingCrossLink` + (admin) `overview` + `pluginHealth`; (3) componen `ctx`; (4) delegan a `<ServiceDetailLayout>`.
 
-El layout itera **`SERVICE_DETAIL_SECTIONS`** (catálogo declarativo de descriptores `{ id, label, scope, priority, shouldRender, component }` en `frontend/app/_shared/services/service-detail-sections.tsx`) — filtra por `scope` + `shouldRender(ctx)` y ordena por `priority` descendente (1000 = arriba, 1 = abajo). Cero condiciones inline en el padre.
+El layout itera **`SERVICE_DETAIL_SECTIONS`** (catálogo declarativo de descriptores `{ id, label, scope, group, priority, shouldRender, component }` en `frontend/app/_shared/services/service-detail-sections.tsx`) — filtra por `scope` + `shouldRender(ctx)`, agrupa por `group` y ordena por `priority` descendente (1000 = arriba, 1 = abajo). Cero condiciones inline en el padre.
 
-#### Anatomía — vista cliente (`/dashboard/services/[id]`, estado activo)
+> **F.12.3 (Amendment III) — tabs adaptativas.** El frame se organiza en **zonas** vía el campo `group`: `header`/`footer` siempre visibles (identidad + banners críticos + meta); `summary`/`management`/`activity` en **tabs** (DS `<Tabs>` vía el CC `<ServiceDetailTabs>`). **Una tab vacía se oculta**; **si solo sobrevive una tab → se renderiza sin tabs** (§2.5). Provisioner-agnóstico: el frame es uno solo y la capability del servicio decide qué aparece y cuántas tabs salen (ADR-070/077) — un `support_inside` mínimo colapsa, un `enhance_cp` muestra las 3. Deep-link `?tab=`. Ver dossier §A.11.10.9.2 Amendment III.
+
+#### Anatomía — vista cliente (`/dashboard/services/[id]`, estado activo, hosting completo)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ ← Mis servicios                                                  │
+│ ← Mis servicios                                                  │  ← zona header
+│ ServiceHeader (Card): Nombre · Badge estado · "Plan Pro · …"     │     (siempre)
 ├─────────────────────────────────────────────────────────────────┤
-│ ServiceHeader (Card)                                             │
-│   Icono ── Nombre servicio ── Badge estado                       │
-│   "Plan Pro · hosting-micliente.es"                              │
+│ ┌[ Resumen ]── Gestión ── Actividad ──────────────────────────┐ │  ← DS Tabs
+│ │ RESUMEN (default)                                            │ │
+│ │   Card · Detalles del servicio (Plan/Estado/Contratado)      │ │
+│ │   MetricsBar (disco/CPU/RAM + [↻ Actualizar])                │ │
+│ │   SslStatusCard · AppShortcutsCard · BillingCrossLinkCard    │ │
+│ └──────────────────────────────────────────────────────────────┘ │
+│   Gestión   → Panel proveedor (SSO) · ActionsBar · DNS           │
+│   Actividad → Historial de auditoría                             │
 ├─────────────────────────────────────────────────────────────────┤
-│ Card · Detalles del servicio                                     │
-│   Plan:                Hosting Pro                               │
-│   Estado:              Activo                                    │
-│   Contratado el:       12 de marzo de 2026                       │
-├─────────────────────────────────────────────────────────────────┤
-│ MetricsBar (Card)                                                │
-│   Disco 4.2 / 10 GB · CPU 12% · RAM 410 / 1024 MB                │
-│   Última lectura: hace 2 min · [↻ Actualizar métricas]           │
-├─────────────────────────────────────────────────────────────────┤
-│ SslStatusCard (Card)                                             │
-│   SSL activo — expira en 60 días                                 │
-│   Renovación automática activa · Emitido por Let's Encrypt       │
-├─────────────────────────────────────────────────────────────────┤
-│ AppShortcutsCard (Card)                                          │
-│   Apps instaladas: WordPress 6.5 (admin) · Joomla 5 (panel)      │
-│   [Abrir WP-admin →]   [Abrir Joomla →]                          │
-├─────────────────────────────────────────────────────────────────┤
-│ BillingCrossLinkCard (Card)                                      │
-│   Próxima factura: 12 de junio · 19,99 €                         │
-│   Última factura pagada: INV-00042 · [Ver factura →]             │
-├─────────────────────────────────────────────────────────────────┤
-│ Card · Panel del proveedor                                       │
-│   "Accede al panel especializado para gestión avanzada…"         │
-│                                            [Abrir panel →]       │
-├─────────────────────────────────────────────────────────────────┤
-│ ActionsBar (sin Card propio — botones inline filtrados)          │
-│   [Reiniciar servicio]   [Reset cache]   …                       │
-├─────────────────────────────────────────────────────────────────┤
-│ Card · DNS de tu dominio                                         │
-│   "Crea, edita o elimina registros DNS…"     [Gestionar DNS →]   │
-├─────────────────────────────────────────────────────────────────┤
-│ Card · Historial                                                 │
-│   "Consulta los eventos registrados de tu servicio"  [Ver →]     │
-├─────────────────────────────────────────────────────────────────┤
-│ Card · ¿Necesitas un desarrollo a medida?  (placeholder Sprint 22)│
-├─────────────────────────────────────────────────────────────────┤
-│ Footer: Última lectura del proveedor: 19/05/2026, 22:31          │
+│ Card · ¿Necesitas un desarrollo a medida? (placeholder Sprint 22)│  ← zona footer
+│ Footer: Última lectura del proveedor: 20/05/2026, 10:31          │     (siempre)
 └─────────────────────────────────────────────────────────────────┘
+
+Servicio mínimo (ej. support_inside, sin métricas/SSL/DNS/apps):
+  Resumen (facturación) · Actividad — la tab "Gestión" no aparece;
+  si solo quedara una tab, se renderiza sin barra de tabs (§2.5).
 ```
 
 #### Anatomía — vista admin (`/admin/services/[id]`, estado activo con drift)
 
 ```
 ┌──────────────────────────────────────────────────┬──────────────┐
-│ ← Servicios                                       │ ⬤ Healthy 2m │  ← ProviderHealthBadge top-right
-├──────────────────────────────────────────────────┴──────────────┤
-│ ServiceHeader (Card)                                             │
-│   Icono ── Nombre ── Badge estado (admin: tooltip ISO)           │
+│ ← Servicios                                       │ ⬤ Healthy 2m │  ← zona header (siempre)
+├──────────────────────────────────────────────────┴──────────────┤     back-link + ProviderHealthBadge
+│ ServiceHeader (Card): Nombre · Badge estado (tooltip ISO)        │
+│ AdminDriftBanner ← si isDrift (técnico + CTAs SSO/Reconcile/Re-aprov)│  banners críticos
+│ AdminProviderStateDesyncBanner ← si provider_state_desync        │  siempre en cabecera
 ├─────────────────────────────────────────────────────────────────┤
-│ AdminDriftBanner (AlertBanner warning) ← solo si isDrift         │
-│   ⚠ Drift detectado · subscription_missing                       │
-│   Razón técnica: subscription not found in Enhance               │
-│   [Investigar en Enhance →]  [↻ Reconciliar]  [Re-aprovisionar]  │
+│ ┌ Resumen ── Gestión ── [ Actividad ]────────────────────────┐  │  ← DS Tabs
+│ │ RESUMEN                                                      │  │
+│ │   MetricsBar · SslStatusCard · AppShortcutsCard ·           │  │
+│ │   BillingCrossLinkCard (→ /admin/billing) · AdminServiceDataCard│
+│ │ GESTIÓN                                                      │  │
+│ │   Panel proveedor (nota GDPR) · ActionsBar (adminOnly) ·    │  │
+│ │   AdminServiceOperationsCard · ResendNotificationCard · DNS │  │
+│ │ ACTIVIDAD                                                    │  │
+│ │   ServiceNotesCard · Historial de auditoría                 │  │
+│ └──────────────────────────────────────────────────────────────┘ │
 ├─────────────────────────────────────────────────────────────────┤
-│ AdminProviderStateDesyncBanner ← solo si provider_state_desync    │
-├─────────────────────────────────────────────────────────────────┤
-│ MetricsBar (admin: tooltip exacto + threshold quota)             │
-├─────────────────────────────────────────────────────────────────┤
-│ SslStatusCard (admin: tooltip fecha ISO + emisor)                │
-├─────────────────────────────────────────────────────────────────┤
-│ AppShortcutsCard (admin: tooltip app_id)                         │
-├─────────────────────────────────────────────────────────────────┤
-│ BillingCrossLinkCard (admin: link → /admin/billing/[id])         │
-├─────────────────────────────────────────────────────────────────┤
-│ AdminServiceDataCard ← admin-only                                │
-│   Cliente · Servicio · IDs · Fechas (3 sub-grupos)               │
-├─────────────────────────────────────────────────────────────────┤
-│ Card · Panel del proveedor (admin: nota GDPR impersonation)      │
-├─────────────────────────────────────────────────────────────────┤
-│ ActionsBar (admin: incluye actions adminOnly no-blacklisted)     │
-├─────────────────────────────────────────────────────────────────┤
-│ AdminServiceOperationsCard ← admin-only                          │
-│   [Cambiar plan…]  [Recalcular métricas]  [Cancelar servicio…]   │
-├─────────────────────────────────────────────────────────────────┤
-│ ResendNotificationCard ← admin-only (whitelist 3 plantillas)     │
-├─────────────────────────────────────────────────────────────────┤
-│ ServiceNotesCard ← admin-only                                    │
-│   Historial de notas operativas + author + timestamp             │
-├─────────────────────────────────────────────────────────────────┤
-│ Card · Gestión DNS  (admin: sin descripción cliente-amigable)    │
-├─────────────────────────────────────────────────────────────────┤
-│ Card · Historial de auditoría (admin: subtitle admin + sin filtro)│
-├─────────────────────────────────────────────────────────────────┤
-│ Footer: Última lectura: 19/05/2026, 22:31                        │
+│ Footer: Última lectura: 20/05/2026, 10:31                        │  ← zona footer (siempre)
 └─────────────────────────────────────────────────────────────────┘
+
+Estado terminal (cancelled): cabecera (banner danger) + Resumen
+  (datos admin + billing) + Actividad (notas + audit). La tab
+  "Gestión" desaparece (operaciones futiles sobre service cancelado).
 ```
 
 #### Variaciones de estado (deltas respecto a las anatomías arriba)
@@ -1835,6 +1794,8 @@ El layout itera **`SERVICE_DETAIL_SECTIONS`** (catálogo declarativo de descript
 #### Registry canónico — `SERVICE_DETAIL_SECTIONS` (R3 frozen materializado)
 
 Esta es la pieza nuclear de F.12.2 — se implementa literalmente como un array `readonly SectionDescriptor[]`. Cada fila documenta el descriptor exacto: `id` estable, `scope`, `priority`, `shouldRender` resumido en pseudocódigo, componente que monta, y notas.
+
+> **F.12.3 (Amendment III) — campo `group`.** Cada descriptor lleva además `group: 'header'|'summary'|'management'|'activity'|'footer'` que lo asigna a una zona/tab. Mapeo: **header** = back-link/header-admin-row · service-header · banners (terminal/suspended/desync/drift) · **summary** = client-details / admin-data-card · metrics · ssl · apps · billing-cross-link · **management** = sso-panel · actions-bar · admin-operations · resend-notification · dns-link · **activity** = service-notes · audit-link · **footer** = dev-custom-placeholder · fetched-at. El layout filtra+ordena dentro de cada zona; las 3 tabs solo aparecen si tienen ≥1 sección (ver Amendment III).
 
 | `id` (estable) | `scope` | `priority` | `shouldRender(ctx)` | Componente | Notas |
 |---|---|---:|---|---|---|
@@ -1911,7 +1872,7 @@ Esta es la pieza nuclear de F.12.2 — se implementa literalmente como un array 
 
 - **Cero cambio funcional**: la lista de 23 descriptores arriba refleja el comportamiento actual del page cliente+admin (no se añade ni quita funcionalidad). E2E spec Playwright (si existe) DEBE pasar sin cambios.
 - **Adopción `<PageSectionGroup>` (Tier 1 DS si se confirma)**: solo aplica si encapsula consistentemente el cromo de las Cards (h2 + spacing + bordes). Decisión final al congelar — si solo aplica a F.12 sin reutilización clara fuera, baja a Tier 3 `_shared/services/_components/SectionGroup.tsx`.
-- **No se introduce paginación de secciones** (tabs / accordion / "ver más"): hoy es scroll vertical único y F.12 lo preserva. Si en el futuro la página supera ~8 secciones visibles simultáneamente, considerar Tabs (§2.5 condicional >2 secciones).
+- **Tabs adaptativas** (F.12.3 — Amendment III): el contenido se pagina en tabs Resumen/Gestión/Actividad (§2.5), con cabecera/pie siempre visibles. Tab vacía oculta; si solo sobrevive una, sin tabs. *(Histórico: F.12.1/F.12.2 mantuvieron scroll vertical único; F.12.3 lo elevó a tabs por decisión Yasmin 2026-05-20 — estándar profesional + provisioner-agnóstico.)*
 - **No se adopta `<PageSectionGroup>` en otras detail pages** (Clients §5.3, Products §5.5, Invoices §5.8, Tickets §5.11, Tasks §5.16) en F.12 — trabajo futuro si se promociona a Tier 1.
 - **DC.46..49 + DC.NEW-51..58 NO se abordan** (housekeeping post-15C.II).
 

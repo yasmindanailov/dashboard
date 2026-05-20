@@ -3311,6 +3311,24 @@ Divergencias del diseño congelado descubiertas al implementar contra el código
 
 **Validación F.12.2:** `pnpm typecheck` + `pnpm lint:check` (`--max-warnings=0`) + `pnpm build` (32 páginas) verdes. El frontend NO tiene runner de tests propio (heredado handoff) → la validación es tsc+eslint+build. Orden de secciones verificado idéntico al de ambos pages previos por inspección de `priority` (cliente 15 secciones · admin 19). Commit implementación: `feat(sprint-15c-ii): F.12.2 — layout canónico servicio + plugins`.
 
+##### Sub-fase F.12.3 — Rediseño visual a estándar profesional (Amendment III, 2026-05-20)
+
+**Origen:** tras F.12.2 (registry, *cero cambio funcional*), Yasmin observó que F.12 había **documentado + reorganizado el código** pero NO mejorado el visual — la página seguía siendo un scroll plano de ~15-19 tarjetas, que no cumple del todo UI_SPEC §2.5 (Detail con tabs cuando hay >2 secciones). Decisión Yasmin (2026-05-20): **rediseño visual real**, "inteligente, robusto, profesional, válido para diferentes tipos de servicio / provisioners, con componentes/CSS/copys según UI_SPEC.md". Esto es una **ampliación de scope** de F.12 — ya **NO es cero cambio funcional** (cambia presentación; preserva datos/comportamiento/gating). Se documenta como Amendment III (L18 frozen).
+
+**Q (re-valoración pre-código)** — Yasmin eligió: (a) organización **tabs para cliente y admin** (canónico §2.5) sobre scroll-agrupado / adaptativo-por-rol; (b) alcance **tratamiento completo UI_SPEC** (frame + i18n + CSS module + DS + copys genéricos) sobre versiones parciales.
+
+**Implementación (commit `cbcc718`):**
+
+1. **Tabs adaptativas provisioner-agnósticas.** Nuevo `SectionGroup = 'header'|'summary'|'management'|'activity'|'footer'` + campo `group` en los 24 descriptores. `<ServiceDetailLayout>` organiza en **zonas**: `header`/`footer` siempre visibles (identidad + banners críticos + meta); `summary`/`management`/`activity` en tabs (DS `<Tabs>`). **Tab vacía se oculta**; **si solo sobrevive 1 grupo → SIN tabs** (§2.5). Robustez: un servicio mínimo (`support_inside` sin métricas/SSL/DNS/apps) colapsa a Resumen+Actividad o sin tabs; uno rico (`enhance_cp`) muestra las 3. El frame es uno solo; lo que aparece y cuántas tabs lo decide la **capability**, nunca el `provisioner_slug` (ADR-070/077).
+2. **`<ServiceDetailTabs>` (CC).** Reusa el DS `<Tabs>` + `useState` (patrón heredado `ClientDetailView`). Paneles SC pre-renderizados (incl. async SC `ServiceNotesCard`) conmutados sin re-fetch — el wrapper SC ya cargó todo en `ServiceDetailContext`. `initialTab` de `?tab=` (deep-link). Layout monta el CC solo si ≥2 tabs; con 1, render directo.
+3. **i18n completo (§1.2 P5 + regla D11).** +36 keys `service.detail.*` (tabs, back-links, detalles, SSO, DNS, dev-custom, footer, fechas, suspended admin). Migra TODOS los copys hardcodeados de los bloques a `translations-es.ts` (antes vivían a pelo en el JSX).
+4. **CSS module + DS + tokens (§2.8).** Nuevo `_shared/services/service-detail.module.css` (tokens only) — el módulo de servicios era el **único del proyecto sin CSS module** (usaba estilos inline). Bloques reescritos con clases del módulo + DS `Card`/`AlertBanner`. Helper `SectionLinkCard` DRY-fica el chrome "Card título+descripción+acción" (SSO/DNS/Audit).
+5. **Bug latente arreglado.** El módulo de servicios usaba `var(--brand-600)` en 16 sitios — token **NO definido** en `globals.css` (los enlaces/CTAs renderizaban sin color de marca, heredando el color del texto). Migrado a `--brand` / `--text-on-brand` (tokens reales). Mejora visual real (los enlaces ahora muestran color de marca).
+
+**Boundary de F.12.3:** cubre el **frame** + los **bloques creados en F.12.2** (`service-detail-blocks.tsx`) + `AdminSuspendedBanner`. Los componentes admin-only **pre-existentes** (`AdminDriftBanner`, `AdminServiceDataCard`, `AdminServiceOperationsCard`, `ResendNotificationCard`, `ServiceNotesCard`, `ProviderHealthBadge`) **conservan sus estilos/copys internos** — son componentes separados ya validados; su migración i18n/CSS sería housekeeping aparte (candidato backlog `DC.NEW-*`).
+
+**Validación F.12.3:** `pnpm typecheck` + `pnpm lint:check` (`--max-warnings=0`) + `pnpm build` (32 páginas) verdes (commit `cbcc718`). Pendiente: smoke real Yasmin (5 escenarios + verificar adaptación de tabs + colapso de servicio mínimo).
+
 ##### Riesgos identificados y mitigaciones
 
 | Riesgo | Probabilidad | Mitigación |
