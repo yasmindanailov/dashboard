@@ -1875,6 +1875,49 @@ Esta es la pieza nuclear de F.12.2 — se implementa literalmente como un array 
 - **No se adopta `<PageSectionGroup>` en otras detail pages** (Clients §5.3, Products §5.5, Invoices §5.8, Tickets §5.11, Tasks §5.16) en F.12 — trabajo futuro si se promociona a Tier 1.
 - **DC.46..49 + DC.NEW-51..58 NO se abordan** (housekeeping post-15C.II).
 
+#### Diseño objetivo F.12.5 — densidad profesional (frozen 2026-05-20, pendiente de implementar)
+
+> Evolución de F.12.4 según el estándar del sector (Hostinger/OVH/cPanel/Plesk/Stripe/Vercel/DigitalOcean/GitHub). Diseño **congelado**; se implementa en conversación nueva (dossier §A.11.10.9.2 Amendment V + §A.11.10.9.3 handoff). F.12.4 sigue siendo el baseline implementado en PR #94.
+
+**Componentes DS nuevos requeridos** (reutilizables más allá de services → `components/ui/` + `DESIGN_SYSTEM.md`):
+
+| Componente | Props (resumen) | Por qué |
+|---|---|---|
+| `<Meter>` | `label, used, total?, unit, percent?, thresholdPct?` | Recursos como medidores usado/total + % + color por umbral (sustituye barras ad-hoc de `MetricsBar`). Patrón #1 del sector. |
+| `<SectionCard>` | `title, subtitle?, actions?, children` (read-only) | Cromo de sección canónico (≠ `EditorSectionCard`, que es para forms con "Guardar"). |
+| `<DescriptionList>` | `items: {term, value}[], layout?: 'inline'\|'stacked'` | Metadata header + datos técnicos (con `CopyableId` en IDs). |
+| `<DangerZone>` | `title, children` | Sección borde rojo para destructivas aisladas (patrón GitHub/DO). |
+| Layout `main+aside` | grid `2fr/1fr`, colapsa <900px; MAIN vacío → ASIDE full-width | Overview con rail derecho (patrón OVH/Stripe). |
+
+**Anatomía objetivo (cliente activo, enhance completo):**
+
+```
+Mis servicios › miweb.com
+┌─ headerCard: 🌐 miweb.com [● Activo]   [Abrir panel] [Gestionar DNS] [⋯] ─┐
+│ Plan Pro · miweb.com · Contratado 12 mar · Renueva 12 jun   (DescriptionList)│
+└──────────────────────────────────────────────────────────────────────────────┘
+┌ [ Resumen ] ── Actividad ──────────────────────────────── (sin Gestión cliente)┐
+│ ┌ MAIN (2fr) ───────────────────────────┐ ┌ ASIDE (1fr) ───────────────────┐ │
+│ │ <SectionCard> Recursos                 │ │ <SectionCard> Facturación       │ │
+│ │   <Meter> Disco 4,2/10 GB (42%)        │ │   Próxima · última · [Ver fact.]│ │
+│ │   <Meter> Ancho banda · Email · BD     │ │ <SectionCard> ¿Ayuda? [Soporte] │ │
+│ │ <SectionCard> SSL (estado+emisor)      │ │ <SectionCard> Desarrollo a medida│ │
+│ │ <SectionCard> Aplicaciones (tiles WP/J)│ │   (placeholder Sprint 22)       │ │
+│ └────────────────────────────────────────┘ └─────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────┘
+  Última lectura del proveedor: …                                          (footer)
+```
+
+**Anatomía objetivo (admin):** Resumen = MAIN (Recursos `<Meter>` · SSL · Aplicaciones) + ASIDE (Facturación → /admin/billing · `<SectionCard>` Datos técnicos con `<DescriptionList>` + `<CopyableId>` para Service/Subscription/Org IDs). **Gestión** = `<SectionCard>` Operaciones (Cambiar plan · Recalcular) · `<SectionCard>` Reenviar notificación · **`<DangerZone>`** full-width al fondo (Suspender · Cancelar → modal). **Actividad** = Notas + Auditoría.
+
+**Variaciones por estado (frozen):**
+- **Suspendido**: header sin clúster; banner (cliente: motivo + [Regularizar pago]; admin: motivo+nota + desync). Recursos/SSL read-only; Apps ocultas. Admin Gestión: **Reanudar** en DangerZone + Cancelar.
+- **Drift**: admin → `AdminDriftBanner` (Investigar/Reconciliar/Re-aprovisionar) + resto operativo; cliente → header empático, SSO/DNS/acciones ocultas.
+- **Terminal (cancelled)**: header sin clúster; banner (info cliente / danger admin + razón). MAIN vacío → ASIDE (Facturación + admin Datos técnicos) full-width. Gestión NO aparece.
+- **Servicio mínimo (`internal`/`manual`)**: sin clúster; Resumen = solo Facturación (1 columna); Actividad = Auditoría. Colapsa con elegancia.
+
+**Robustez:** cada `<SectionCard>` aparece por capability (provisioner-agnóstico, ADR-070/077); `main+aside` colapsa a 1 columna si MAIN vacío o en móvil; DangerZone siempre al fondo, aislada (Regla D5).
+
 ---
 
 ### 5.15 Tareas (`/dashboard/tasks`) — List

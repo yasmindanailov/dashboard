@@ -3356,6 +3356,40 @@ Divergencias del diseño congelado descubiertas al implementar contra el código
 
 **Reutilización (no reescritura de internals):** `SsoButton` (primaria), `AdminServiceOperationsCard` (card Operaciones), `ResendNotificationCard` (card), banners existentes, métricas/SSL/apps/billing/notes/audit (re-agrupados en grids). Código NUEVO: `ServiceActionCluster` (CC: SSO + DNS + ⋯ Dropdown reusando `executeServiceActionAction`), `ServiceHeaderCard` (identidad + metadata inline + cluster), `ServiceDetailView` (CC: `<DetailPage>` + tab state) + restructura del registry + CSS grids.
 
+**Estado F.12.4:** mergeable en PR [#94](https://github.com/yasmindanailov/dashboard/pull/94) (commit `66bb2aa`); tsc+lint+build verdes + boot smoke. Pendiente smoke real Yasmin.
+
+##### Sub-fase F.12.5 — Densidad profesional según estándar del sector (Amendment V, frozen 2026-05-20 · NO implementada)
+
+**Origen:** tras F.12.4, Yasmin pidió un audit del inventario real de service/[id] por plugin + una comparativa con cómo organizan los grandes del sector, y valorar qué componentes faltan en el DS para la complejidad operativa de la página. F.12.5 es el **diseño congelado de la siguiente iteración** — se documenta aquí pero **se implementa en una conversación nueva** (decisión Yasmin 2026-05-20).
+
+**Audit del inventario (por plugin, vía `enhance.plugin.ts` + `internal/manual.plugin.ts` + ADR-077):**
+- **`enhance_cp`** (rico): capabilities `has_sso_panel`/`has_metrics`/`has_dns_management`/`supports_suspend`/`supports_reconciliation` = true; **11 acciones** (`reset_account_password` cliente · DNS CRUD · `change_package`+`list_available_plans`+`recalculate_provider_metrics`+`suspend_service`+`unsuspend_service` admin · `open_app_admin` per-app); `ServiceInfo` puebla `display` + `metrics` (disco/BW/email/BD) + `ssl` + `apps` (WP/Joomla) + `statusReason`/`recoveryHint`.
+- **`internal`** / **`manual`** (mínimos): todas las capabilities false (manual: `completes_via_task=true`); 0 acciones; `ServiceInfo` solo `display` + status (manual: + statusReason "pendiente agente"). → la página es identidad + estado + facturación + auditoría.
+- **Carga**: enhance admin activo ≈ 16 superficies de acción + ~10 bloques de datos; internal/manual ≈ 3 acciones + ~4 datos. El marco debe escalar de mínimo a denso.
+
+**Comparativa del sector (patrones canónicos extraídos):** Hostinger hPanel (KPIs de recursos arriba + launchpad de tools), OVH Manager (info-general en **main+aside**, facturación/renovación en rail derecho), cPanel/Plesk (launchpad por dominio funcional), Stripe/Vercel/DigitalOcean (header limpio + aside de metadata + **métricas prominentes** + tabs por área), GitHub/DO (**Danger Zone** roja aislada). Síntesis: (1) liderar con estado+recursos; (2) overview **main+aside**; (3) agrupar por dominio funcional; (4) destructivas en zona de peligro aislada; (5) progressive disclosure; (6) densidad progresiva.
+
+**Gap de componentes DS (decisión: construir los 4 + el layout):**
+- **`<Meter>`** — medidor usado/total + % + color por umbral (disco/BW/email/BD). Hoy `MetricsBar` improvisa barras; `StatsCard` es número+tendencia. Primitiva reutilizable (billing, cuotas…).
+- **`<SectionCard>`** — título + subtítulo + **slot de acciones** + body, **read-only** (≠ `EditorSectionCard`, que es para forms con "Guardar"). Cromo de sección canónico.
+- **`<DescriptionList>`** — pares etiqueta-valor responsive (metadata header + Datos técnicos, con `CopyableId` para IDs).
+- **`<DangerZone>`** — sección borde rojo para destructivas (patrón GitHub/DO).
+- **Layout `main + aside`** (2fr/1fr) — helper/CSS para el overview; si MAIN vacío, ASIDE fluye full-width.
+
+**Decisiones de IA frozen (re-valoración):**
+1. **Header**: identidad + Badge + metadata inline (`DescriptionList` horizontal: Plan·Dominio·Contratado·Renueva) + clúster (primaria SSO · secundaria DNS · ⋯) + (admin) badge salud. (igual que F.12.4.)
+2. **Tab Resumen → `main+aside`**: MAIN = `[SC]`Recursos (medidores `[M]`) · `[SC]`SSL · `[SC]`Aplicaciones (tiles). ASIDE = `[SC]`Facturación · (admin) `[SC]`Datos técnicos (`[DL]`+`CopyableId`) · (cliente) `[SC]`Ayuda + placeholder Sprint 22.
+3. **Tab Gestión (admin)**: `[SC]`Operaciones (seguras: Cambiar plan · Recalcular) · `[SC]`Reenviar notificación · **`[DZ]` Zona de peligro full-width al fondo** (Suspender · Cancelar → modal). Separa destructivas de operaciones seguras (Regla D5 + patrón danger-zone).
+4. **Tab Actividad**: `[SC]`Notas (admin) · `[SC]`Auditoría.
+5. **Recursos → medidores** prominentes (no barra plana) — lidera el overview (patrón #1 sector).
+6. **Robustez**: cada `[SC]` aparece por capability; MAIN vacío → ASIDE full-width; DangerZone al fondo; aside baja bajo main en <900px. Provisioner-agnóstico.
+
+**Wireframes frozen por rol×estado:** documentados en `UI_SPEC.md §5.14` (cliente activo · admin activo · suspendido cliente/admin · admin drift · terminal · servicio mínimo). Son el deliverable doctrinal de F.12.5.
+
+**Boundary:** F.12.5 recablea el overview + introduce las 4 primitivas DS. Reutiliza la lógica de acciones/operaciones/banners de F.12.4 (no reescribe Server Actions ni modales). Los componentes admin-only pre-existentes conservan sus internals (housekeeping aparte).
+
+**Estado:** **frozen, NO implementada.** Se implementa en conversación nueva (handoff §A.11.10.9.3). Las 4 primitivas, al construirse, se añaden a `components/ui/` + `DESIGN_SYSTEM.md` (convención DS).
+
 ##### Riesgos identificados y mitigaciones
 
 | Riesgo | Probabilidad | Mitigación |
@@ -3378,6 +3412,35 @@ Divergencias del diseño congelado descubiertas al implementar contra el código
 - `DC.NEW-55..58` F.11 housekeeping (whitelist V2 quota / supertest E2E resend / Idempotency-Key / reconcile enhance_customers).
 - Mejoras funcionales en cualquier card existente (SSL detail expandido, métricas drill-down, etc.) — **cero cambio funcional** es invariante de F.12.2.
 - Adopción de `<PageSectionGroup>` en otras detail pages del proyecto (Clients / Products / Billing / Tickets / Tasks) — solo si se promociona a Tier 1; trabajo futuro fuera de F.12.
+
+#### A.11.10.9.3. Handoff F.12.5 — implementación en conversación nueva (frozen 2026-05-20)
+
+**Propósito**: arrancar la implementación de F.12.5 (densidad profesional — Amendment V) en una conversación nueva con rigor, leyendo SOLO este bloque + el Amendment V (§A.11.10.9.2) + `UI_SPEC.md §5.14`. Patrón heredado de los handoffs §A.11.10.9.1 (F.12) / §A.11.10.8.1 (F.11).
+
+**Estado del repo al arranque:**
+- Rama `sprint15c-ii-fase-f12-canonical-layout` con F.12.1→F.12.4 en PR [#94](https://github.com/yasmindanailov/dashboard/pull/94) (último commit de código `66bb2aa` + docs F.12.5). tsc+lint+build verdes; boot smoke OK. **Pendiente: smoke real Yasmin de F.12.4 + decidir si F.12.5 va sobre la misma rama/PR o tras mergear #94.**
+- F.12.4 implementado: `<DetailPage>` + `<ServiceHeaderCard>` (identidad+metadata+clúster) + `<ServiceActionCluster>` + `<ServiceDetailView>` + registry reagrupado (banner/summary/management/activity/footer) + grids 2-col auto-fit + `quick-actions.ts`. Eliminados `ServiceDetailTabs`/`ActionsBar`.
+
+**Qué construye F.12.5** (diseño congelado, Amendment V + UI_SPEC §5.14):
+1. **4 primitivas DS nuevas** en `frontend/app/components/ui/` (+ barrel `index.ts` + `DESIGN_SYSTEM.md`):
+   - **`<Meter>`** — `{ label, used, total?, unit, percent?, thresholdPct? }` → barra/ring usado/total + % + color por umbral (ámbar ≥threshold, rojo ≥95%, heredando la doctrina F.8). Tokens only.
+   - **`<SectionCard>`** — `{ title, subtitle?, actions?: ReactNode, children }` read-only (≠ `EditorSectionCard`). Reemplaza el `Card`+`<h2>` ad-hoc.
+   - **`<DescriptionList>`** — `{ items: { term, value }[] , layout?: 'inline'|'stacked' }` para metadata + datos técnicos (con `CopyableId` en los IDs).
+   - **`<DangerZone>`** — `{ title, children }` sección borde rojo para destructivas.
+   - **Layout `main+aside`** — helper CSS (`grid 2fr/1fr`, colapsa <900px; si MAIN vacío, ASIDE full-width). Puede ser una clase del `service-detail.module.css` o un `<SplitLayout>` DS si se reutiliza.
+2. **Recablear el overview** (Resumen) a `main+aside`: MAIN = Recursos (medidores `<Meter>`) · SSL · Aplicaciones; ASIDE = Facturación · (admin) Datos técnicos · (cliente) Ayuda + placeholder.
+3. **`MetricsBar` → medidores `<Meter>`** (sustituye las barras improvisadas).
+4. **Gestión**: separar `AdminServiceOperationsCard` en Operaciones seguras (Cambiar plan/Recalcular) + **`<DangerZone>`** (Suspender/Cancelar). Reenviar notif como card.
+5. **Unificar cromo** de todas las secciones en `<SectionCard>` + `<DescriptionList>`.
+
+**Orden de implementación sugerido:** (a) primitivas DS (`Meter`/`SectionCard`/`DescriptionList`/`DangerZone`) + tests si el DS los tuviera (no hay runner frontend → tsc+lint+build) → (b) layout main+aside → (c) `<Meter>` en Recursos → (d) recablear Resumen a main+aside → (e) split Operaciones/DangerZone en Gestión → (f) unificar `<SectionCard>` → (g) UI_SPEC §5.14 ya está; ajustar si diverge → (h) `ci:frontend:full` + boot smoke + smoke real Yasmin.
+
+**Decisiones congeladas** (NO re-abrir sin Amendment): los 4 componentes + main+aside (Yasmin 2026-05-20); recursos como medidores; overview main+aside; DangerZone aislada; agrupación por dominio funcional; provisioner-agnóstico. Wireframes por rol×estado en UI_SPEC §5.14.
+
+**ADR amendments esperados:** ninguno (UI_SPEC + DESIGN_SYSTEM son el deliverable; las primitivas DS no tocan contratos backend).
+
+**Frase canónica de continuación** (Yasmin pega en chat nuevo):
+> *"Implementa F.12.5 (densidad profesional) leyendo el dossier §A.11.10.9.2 Amendment V + §A.11.10.9.3 (handoff) + `UI_SPEC.md §5.14`. Construye las 4 primitivas DS (`<Meter>`, `<SectionCard>`, `<DescriptionList>`, `<DangerZone>`) + layout main+aside, recablea el overview de service/[id] (recursos=medidores, main+aside facturación/datos/soporte, Gestión con zona de peligro aislada). Frozen 2026-05-20: no re-abrir las decisiones de IA; cualquier divergencia = Amendment. Reutiliza la lógica de acciones/operaciones/banners de F.12.4 (no reescribir Server Actions). Valida tsc+lint:check+build + boot smoke. Sé riguroso y profesional."*
 
 ### A.11.10.10. Fase G — Cierre Sprint 15C.II
 
