@@ -1062,10 +1062,40 @@ export class EnhanceProvisionerPlugin implements ProvisionerPlugin {
     // snapshot Aelium-side del plan asignado vive en metadata, NO en
     // `Product.provisioner_config` (ese es el default de catálogo).
     const md = (service.metadata as Record<string, unknown> | null) ?? {};
-    await this.prisma.service.update({
-      where: { id: service.id },
-      data: { metadata: { ...md, enhance_plan_id: planId } },
-    });
+    try {
+      await this.prisma.service.update({
+        where: { id: service.id },
+        data: { metadata: { ...md, enhance_plan_id: planId } },
+      });
+    } catch (dbErr) {
+      // Sprint 15C.II Fase G.1.b (§A.2 área 5 — ADR-083 Amendment A10).
+      // El PATCH a Enhance YA tuvo éxito (Enhance es ground truth y queda en
+      // el plan nuevo), pero la sincronización del snapshot local falló. NO
+      // compensamos revirtiendo el PATCH: una 2ª llamada externa también
+      // puede fallar y no cubre un crash del proceso entre PATCH y update.
+      // En su lugar fallamos con un error SEMÁNTICO y retriable:
+      //   - la operación es idempotente — re-ejecutar change_package con el
+      //     mismo planId re-aplica el PATCH (no-op en Enhance) y reintenta el
+      //     update local, convergiendo el snapshot;
+      //   - mientras tanto el cron L3 (`EnhanceReconciliationCron`) detecta la
+      //     `plan_divergence` transitoria y la expone en el `AdminDriftBanner`,
+      //     coherente con la doctrina reconcile emit-only de F.9 (Amendment IV).
+      // Reusa el code `PROVIDER_INTERNAL_ERROR` (retriable) — NO añade un code
+      // al contrato ADR-077 (frozen). El detalle accionable vive en el mensaje
+      // (logueado por el wrapper) y en el amendment ADR-083 A10.
+      const cause = dbErr instanceof Error ? dbErr.message : String(dbErr);
+      throw new ProvisionerPluginError(
+        `change_package: Enhance subscription ${refs.subscriptionId} (org ${refs.orgId}) ` +
+          `was patched to plan ${planId}, but the local metadata sync failed. ` +
+          `The operation is idempotent — retry change_package to reconcile the local ` +
+          `snapshot; the L3 cron will flag the transient plan_divergence until then. ` +
+          `Cause: ${cause}`,
+        'PROVIDER_INTERNAL_ERROR',
+        true,
+        dbErr,
+        'enhance_cp',
+      );
+    }
 
     return {
       success: true,
