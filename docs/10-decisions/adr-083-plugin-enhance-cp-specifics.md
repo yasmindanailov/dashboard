@@ -1580,3 +1580,22 @@ Shape del entry:
 El `audit_access_log` es ADITIVO al `audit_change_log` que el wrapper `executeActionWithCacheInvalidation` genera para TODAS las actions — no duplicación, distinta dimensión (read vs change). El portal de transparencia del cliente afectado lo ve como "El admin X abrió el WP-admin de tu app appId el día Y" (vs el log de change "El admin X ejecutó la action open_app_admin sobre el service Z").
 
 Cuando F.10.x sume actions admin sobre apps (DC.NEW-53 — update_app_version, install_plugin, set_default_wp_sso_user), el predicado canónico se generaliza a "cualquier action que opere sobre sub-recurso identificado por `payload.appId`". Patrón heredable.
+
+### Amendment A10 (2026-05-21) — change_package: sincronización local fail-safe (Sprint 15C.II Fase G.1.b)
+
+**Contexto.** §A.2 área 5 del dossier de hardening identificó un coverage gap: `actionChangePackage` ejecuta `api.patchSubscription(...)` (PATCH a Enhance — ground truth del plan) y **después** `prisma.service.update(...)` para sincronizar el snapshot local `metadata.enhance_plan_id` (Sprint 15C Fase 15C.H, evita `plan_divergence` false-positive en el cron L3). El happy path estaba testeado, pero NO el escenario en que el PATCH tiene éxito y el `service.update()` local falla (disco, conflicto de tx, etc.).
+
+**Comportamiento previo (deficiente).** El error crudo de Prisma se propagaba; el wrapper `executeActionWithCacheInvalidation` lo colapsaba al genérico `action.provider_error`, sin indicar que el PATCH ya había ocurrido (Enhance = plan nuevo) ni que el retry era seguro. El operador no tenía señal accionable y la `plan_divergence` resultante parecía un cambio externo no autorizado.
+
+**Decisión (Yasmin 2026-05-21 — "error semántico + retry idempotente").** Se descartó la compensación/saga (revertir el PATCH): añade una 2ª llamada externa que también puede fallar y NO cubre un crash del proceso entre el PATCH y el update. En su lugar, `actionChangePackage` envuelve el `service.update()` en try/catch y, ante fallo, lanza un `ProvisionerPluginError` **semántico y retriable**:
+
+- **Mensaje accionable** (logueado por el wrapper): indica que Enhance ya está en el plan nuevo y que la operación es **idempotente** — re-ejecutar `change_package` con el mismo `planId` re-aplica el PATCH (no-op en Enhance) y reintenta el update local, convergiendo el snapshot.
+- **`retriable = true`** — el retry converge.
+- **`module = 'enhance_cp'`** — origen lógico (GAP-15CII-N / Fase F.3).
+- **Reusa el code `PROVIDER_INTERNAL_ERROR`** — NO añade un code al contrato `ProvisionerErrorCode` de [ADR-077](./adr-077-contrato-provisioner-plugin-v2.md) (frozen). El detalle accionable vive en el mensaje + log + este amendment; el code es secundario (branching/i18n). Trade-off consciente: la etiqueta dice "provider" aunque el fallo sea local; el mensaje desambigua.
+
+**Coherencia doctrinal.** La `plan_divergence` transitoria (Enhance=nuevo, local=viejo) la detecta el cron L3 (`EnhanceReconciliationCron`) y la expone en el `AdminDriftBanner` — coherente con la doctrina reconcile **emit-only** de la Fase F.9 ([ADR-077 Amendment A8](./adr-077-contrato-provisioner-plugin-v2.md#amendments) — el reconcile NO auto-muta el plan por su implicación de billing). La divergencia NO es estado corrupto: el snapshot local sigue en un valor válido (el plan viejo) y el billing usa el precio del producto, no `metadata.enhance_plan_id`.
+
+**Cobertura.** `backend/test/integration/change-package-rollback.e2e-spec.ts` (Fase G.1.b) prueba contra Postgres real: fase 1 fuerza el fallo del update (`mockRejectedValueOnce`) → `ProvisionerPluginError(PROVIDER_INTERNAL_ERROR, retriable, /idempotent/)` + fila real intacta en el plan viejo; fase 2 reintenta con el update real → la fila converge al plan nuevo.
+
+**Heredable** a 15D RC / 15E Docker / 15G Plesk: toda action de plugin que mute el proveedor (ground truth) y luego sincronice un snapshot local debe envolver la escritura local y, ante fallo, lanzar un error semántico retriable en vez de propagar el error crudo de persistencia — confiando en la idempotencia del retry + la detección de divergencia del reconcile, no en compensación.
