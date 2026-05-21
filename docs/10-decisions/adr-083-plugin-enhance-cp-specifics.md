@@ -683,12 +683,12 @@ Coherente con [_events.md `service.cancelled`](../20-modules/_events.md), `servi
 
 ### Amendment A3 (2026-05-09) — 10ª inline action `list_available_plans` + flag `adminOnly` en `change_package` y `force_resync`
 
-> **Justificado por:** Sprint 15C Fase 15C.E (PR pendiente). La implementación detectó dos gaps críticos en la decisión 32 original (`inlineActions`):
+> **Justificado por:** Sprint 15C Fase 15C.E (mergeado). La implementación detectó dos gaps críticos en la decisión 32 original (`inlineActions`):
 >
 >   1. **Vulnerabilidad de privilegio**: la decisión 32 declaró `change_package` y `force_resync` como *"acciones admin (CASL `Subject.Service` + scope admin se verifica en wrapper, no en plugin)"* pero NO existía un mecanismo canónico de scope adminOnly en el contrato `ProvisionerPlugin` v2 — el rol cliente tiene `Action.Update` sobre `Subject.Service` (cf. [`backend/src/core/casl/permissions.ts:299-303`](../../backend/src/core/casl/permissions.ts#L299-L303)), por lo que cualquier cliente podía invocar `POST /services/:id/actions/change_package` y subirse de plan en Enhance sin que admin aprobara. La materialización exige formalizar el flag `adminOnly?: boolean` en `ServiceAction` (cf. [ADR-077 Amendment A3](./adr-077-contrato-provisioner-plugin-v2.md#amendments)).
 >   2. **Falta de endpoint para listar planes Enhance disponibles**: la decisión 30 declaró que el modal admin `change_package` debe cargar el dropdown de planes via `GET /orgs/{master}/plans` *"en `getServiceInfo` admin variant"*. Cambiar la firma de `getServiceInfo` (single-method del contrato canónico ADR-077) supondría breaking change. Solución canónica: una **10ª inline action read-only** `list_available_plans`, marcada `adminOnly`, que invoca el endpoint Enhance y devuelve la lista en `data.plans` reutilizando el pipeline `executeActionWithCacheInvalidation` (audit + circuit breaker + cache invalidation).
 >
-> **Sprint:** 15C Fase 15C.E (PR pendiente).
+> **Sprint:** 15C Fase 15C.E (mergeado).
 > **Compatibilidad:** Hacia atrás. NO toca shape del contrato (`adminOnly` se introduce como campo opcional en ADR-077 Amendment A3). NO requiere migración de datos. La 10ª action añade slug nuevo — no rompe los 9 existentes ni sus tests.
 
 #### A3.1. Cambio canónico en §9 decisión 32 (`inlineActions` literal)
@@ -1060,7 +1060,7 @@ El evento se materializó y documentó en [Amendment A6.1](#amendments) (F.2) pe
 ### Amendment A8 (2026-05-13) — probe SSL de Enhance (Sprint 15C.II Fase F.7)
 
 > **Justificado por:** Sprint 15C.II Fase F.7 + [ADR-077 Amendment A7](./adr-077-contrato-provisioner-plugin-v2.md#amendments). El campo opcional `ServiceInfo.ssl?` (A7) se materializa en `enhance_cp` leyendo el cert del **primary domain** del website vía el endpoint `GET /v2/domains/{domain_id}/ssl` de orchd v12.21.3.
-> **Sprint:** 15C.II Fase F.7 (PR pendiente).
+> **Sprint:** 15C.II Fase F.7 (mergeado).
 > **Compatibilidad:** Hacia atrás. El campo es opcional — clientes que no lo lean no se ven afectados. NO toca ningún otro shape ni endpoint del plugin. NO requiere migración.
 
 #### A8.1. Endpoint OAS + shape de respuesta

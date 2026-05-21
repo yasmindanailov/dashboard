@@ -1,7 +1,7 @@
-# Sprint 15C — Plugin Enhance CP 🔄 (90% — hardening pendiente)
+# Sprint 15C — Plugin Enhance CP ✅ (15C.I 90% + hardening 15C.II ✅ CERRADO 2026-05-21)
 
 > **Estado:** 🔄 **Cerrado al 90%** — Fases A→J + Fase I parcial mergeadas o pendientes commit. Smoke real Yasmin 2026-05-10 reveló 18 issues + 4 decisiones doctrinales pendientes que requieren un **sub-sprint de hardening dedicado** antes de promote a producción.
-> **Sub-sprint hardening:** [`sprint-15c-ii-hardening-enhance-dossier.md`](../sprint-15c-ii-hardening-enhance-dossier.md) — 6 fases A→F + cierre, ~4-5 sesiones estimadas.
+> **Sub-sprint hardening 15C.II ✅ CERRADO (2026-05-21):** retrospectiva en [`completed/sprint-15c-ii-hardening-enhance.md`](sprint-15c-ii-hardening-enhance.md); plan + cierre commit-by-commit (anexo) en [`sprint-15c-ii-hardening-enhance-dossier.md`](../sprint-15c-ii-hardening-enhance-dossier.md). Fases A→F.12 (features) + G (G.1 tests críticos §A.2 + G.2 E2E + G.3 smoke + G.4/G.5 cierre). **Sprint 15D RC DESBLOQUEADO.**
 > **Compromiso doctrinal Yasmin (2026-05-10 literal)**: "no se da un paso más, hasta que el plugin esté al 100% operativo con los features básicos y necesarios perfectos para producción." → Sprint 15D ResellerClub bloqueado hasta cierre 15C.II.
 > **Cierre original Fase 15C.I:** 2026-05-10 (parcial — fixes en rama `sprint15c-fase-i-cierre-sprint` pendientes commit) — ~9-10 sesiones de trabajo activo a lo largo de 3 días intensivos, **11 PRs encadenados** mergeados (PRs #36..#51).
 > **Identificadores:** P2.3 — primer plugin SaaS real post Sprint 15A. Hereda TODO el framework `plugin_installs` + `SecretVault` + `CircuitBreaker` + manifest declarativo.
