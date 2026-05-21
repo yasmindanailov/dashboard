@@ -3561,6 +3561,16 @@ F.12 completa (toda la fase: F.12.1 registry declarativo → F.12.5 densidad pro
 
 **DoD G.1:** specs nuevos de G.1.a/b/c verdes + `pnpm --dir backend test:e2e` verde (integración) + `pnpm ci:check:full` verde + **cero regresión** sobre el baseline 798+6 + esta matriz cerrada (áreas 4/6/7e trazadas a G.2). Las 8 áreas §A.2 quedan cubiertas entre G.1 (1,2,3,5,7u,8) y G.2 (4,6,7e).
 
+##### Estado G.1 — CERRADA (2026-05-21, rama `sprint15c-ii-fase-g1-freeze`)
+
+Implementada en 5 commits (PRs pequeños sobre la misma rama de fase):
+- **G.1.0** `aa9c6bc` — freeze doc-only de esta matriz.
+- **G.1.a** `25ede79` — harness de integración `backend/test/integration/` (`_helpers.ts` arranca `PrismaService` real contra `docker-compose.dev`) + advisory lock concurrente (#1) + threshold race Serializable (#8). Los logs confirman el camino real (cache-hit tras el lock; `TransactionWriteConflict` SQLSTATE 40001 → `tx_failed`).
+- **G.1.b** `6935c7c` (key rotation #2, `plugin_installs.secrets` round-trip) + `053c581` (change_package fail-safe #5 — **hardening**: `actionChangePackage` envuelve el update local y lanza `ProvisionerPluginError` semántico retriable; decisión Yasmin "error semántico + retry idempotente"; **ADR-083 Amendment A10**).
+- **G.1.c** `93a4185` — unit gaps: `dns-records.dto.spec` (TTL bounds + kind IsIn) + extensión `dns-authority-resolver.spec` (shapes rotos de nameservers) (#3) + `admin-only.guard.spec` (#7u) + `client-notes.service.spec` (F.6).
+
+**Resultados:** integración 4 suites · 8 passed (`pnpm --dir backend test:e2e`, requiere docker dev arriba) + unit **58 suites · 852 passed + 6 skipped** (+3 suites / +54 tests vs baseline 798+6, **cero regresión**) + `typecheck` + `lint:check` verdes. **Cero cambios de contrato ADR-077** (el hardening reusa `PROVIDER_INTERNAL_ERROR`). **Pendiente:** merge a master (bypass §6 — decisión de negocio) + áreas 4/6/7e en **G.2**.
+
 ### A.11.11. Sesiones origen del re-plan F.4→G
 
 - 2026-05-12 (sesión 2 — post-merge de F.3 #67/#68; el testing de F.1 destapó el agujero de robustez del status de suspensión; decisión Yasmin: traer los apuntados de backlog [`DC.44`, `DC.45`, deep-links, notas, mini-badge, reenviar notif, cross-link billing] al sprint; auditoría "qué falta a estándar alto en el plugin Enhance + módulo de servicios cliente/admin"; refinamiento posterior — (a) integrar las acciones críticas de servicio con el sistema transversal `ClientNote` [no un `service_notes` table propio], (b) fase de layout canónico al final, (c) "más fases, más pequeñas" → este §A.11.10 reescrito con **10 fases ordenadas por prioridad: F.4 robustez del status de suspensión · F.5 `DC.44` billing-suspend-unify · F.6 notas `ClientNote` · F.7 SSL status · F.8 alertas de cuota · F.9 reconcile per-servicio `DC.45` · F.10 deep-links curados · F.11 conveniencias operativas · F.12 layout canónico · G cierre**).
