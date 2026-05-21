@@ -808,6 +808,136 @@ test.describe.serial(
       expect(body.sideEffects).toEqual(['service.metrics_invalidated']);
     });
 
+    // ─────────────────────────────────────────────────────────────────────
+    // Sprint 15C.II Fase G.2.a — cierre §A.2 áreas 6 + 7e (E2E REST+DB).
+    // Van ANTES del test 10 porque éste cancela el servicio (terminal) y el
+    // SSO requiere un servicio activo.
+    // ─────────────────────────────────────────────────────────────────────
+
+    test('G.2.a (§A.2 #6) — admin SSO sobre servicio ajeno → audit impersonation + visible en portal del cliente', async ({
+      request,
+    }) => {
+      // Re-seed idempotente de enhance_customers: el plugin resuelve el
+      // owner login/member del mapping para el SSO 2-call OTP (mismo patrón
+      // que el test 7). El mock generó los UUIDs del owner al startup.
+      await pool.query(`DELETE FROM enhance_customers WHERE user_id = $1`, [
+        clientUserId,
+      ]);
+      const orgRes = await request.get(
+        `${MOCK_BASE_URL}/orgs/${FIXTURE_CUSTOMER_ORG_ID}`,
+        { headers: { Authorization: `Bearer ${MOCK_API_TOKEN}` } },
+      );
+      expect(orgRes.ok(), `mock GET /orgs: ${orgRes.status()}`).toBeTruthy();
+      const org = (await orgRes.json()) as {
+        ownerId?: string;
+        ownerLoginId?: string;
+      };
+      expect(org.ownerId && org.ownerLoginId, 'mock org sin owner').toBeTruthy();
+      await pool.query(
+        `INSERT INTO enhance_customers
+           (user_id, enhance_org_id, enhance_owner_login_id, enhance_owner_member_id)
+         VALUES ($1, $2, $3, $4)`,
+        [clientUserId, FIXTURE_CUSTOMER_ORG_ID, org.ownerLoginId, org.ownerId],
+      );
+
+      // Audit determinista: limpia impersonaciones previas de este cliente.
+      await pool.query(
+        `DELETE FROM audit_access_log
+         WHERE action = 'admin_sso_impersonation'
+           AND (metadata->>'target_user_id') = $1`,
+        [clientUserId],
+      );
+
+      // El ADMIN (superadmin) abre SSO sobre el servicio del CLIENTE.
+      const ssoRes = await request.post(
+        `${TEST_CONFIG.apiUrl}/services/${testServiceId}/sso`,
+        { headers: { Authorization: `Bearer ${superadminToken}` }, data: {} },
+      );
+      expect(
+        ssoRes.ok(),
+        `POST /services/:id/sso (admin): ${ssoRes.status()} ${await ssoRes.text()}`,
+      ).toBeTruthy();
+      const ssoBody = (await ssoRes.json()) as {
+        sso?: unknown;
+        errorCode?: string | null;
+      };
+      expect(ssoBody.errorCode ?? null).toBeNull();
+      expect(ssoBody.sso, 'admin debe recibir una SSO URL').toBeTruthy();
+
+      // El evento → listener → audit es async; margen breve.
+      await new Promise((r) => setTimeout(r, 400));
+
+      // (1) audit_access_log registra la impersonación: actor=agente,
+      //     target_user_id=cliente (data subject — filtro GDPR del portal).
+      const audit = await pool.query<{
+        user_id: string;
+        metadata: { target_user_id?: string } | null;
+      }>(
+        `SELECT user_id, metadata FROM audit_access_log
+         WHERE action = 'admin_sso_impersonation'
+           AND (metadata->>'target_user_id') = $1
+         ORDER BY created_at DESC LIMIT 1`,
+        [clientUserId],
+      );
+      expect(
+        audit.rowCount,
+        'debe existir 1 fila admin_sso_impersonation',
+      ).toBe(1);
+      expect(audit.rows[0].metadata?.target_user_id).toBe(clientUserId);
+
+      // (2) el CLIENTE ve la impersonación en su portal de transparencia
+      //     (GET /audit/access filtra por metadata.target_user_id === caller).
+      const portalRes = await request.get(`${TEST_CONFIG.apiUrl}/audit/access`, {
+        headers: { Authorization: `Bearer ${clientToken}` },
+      });
+      expect(
+        portalRes.ok(),
+        `GET /audit/access (cliente): ${portalRes.status()}`,
+      ).toBeTruthy();
+      const portalJson = (await portalRes.json()) as
+        | { data?: Array<{ action: string }> }
+        | Array<{ action: string }>;
+      const entries = Array.isArray(portalJson)
+        ? portalJson
+        : (portalJson.data ?? []);
+      expect(
+        entries.some((e) => e.action === 'admin_sso_impersonation'),
+        'el cliente debe ver la impersonación en su portal GDPR',
+      ).toBe(true);
+    });
+
+    test('G.2.a (§A.2 #7e) — cliente → ruta /admin/* → 403 AdminOnlyGuard (sin mutación)', async ({
+      request,
+    }) => {
+      // El cliente intenta una ruta staff (`/admin/services/:id/suspend`). El
+      // AdminOnlyGuard rechaza con 403 ANTES del controller. Distinción
+      // doctrinal: el guard NO emite audit (sin contexto de service); la
+      // variante con audit (`service.action_admin_only_violation`) es del
+      // wrapper sobre actions adminOnly en ruta cliente, ya cubierta por el
+      // test 5. Aquí verificamos el corte de entrada + ausencia de mutación.
+      const res = await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/suspend`,
+        {
+          headers: { Authorization: `Bearer ${clientToken}` },
+          data: {
+            reason_code: 'abuse_investigation',
+            internal_note: 'e2e bypass attempt',
+          },
+        },
+      );
+      expect(
+        res.status(),
+        `cliente en ruta /admin/* debe recibir 403, got ${res.status()}`,
+      ).toBe(403);
+
+      // Defense-in-depth: el guard cortó antes → el servicio NO se suspendió.
+      const row = await pool.query<{ status: string }>(
+        `SELECT status FROM services WHERE id = $1`,
+        [testServiceId],
+      );
+      expect(row.rows[0].status).not.toBe('suspended');
+    });
+
     test('10. admin deprovision con notify_client → status cancelled + email service.cancelled al cliente + audit notify_client=true (GAP-15CII-J)', async ({
       request,
     }) => {
