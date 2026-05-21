@@ -3590,6 +3590,18 @@ Implementada en 5 commits (PRs pequeños sobre la misma rama de fase):
 
 **DoD G.2:** specs nuevos verdes vía `pnpm ci:e2e` (build + Playwright + mock + docker) + label `ready-for-e2e` + cero regresión sobre G.1 (58 suites/852+6 unit · 4/8 integración) + las áreas §A.2 4/6/7e resueltas (E2E o unit-covered+smoke según decisión #4) + matriz cerrada. Tras G.2 → **G.3** smoke real.
 
+##### Estado G.2 — implementada (2026-05-21, rama `sprint15c-ii-fase-g2-e2e`)
+
+`tests/e2e/sprint-15c-enhance-flow.spec.ts` ampliado a **16 tests · 16/16 passed** (`pnpm exec playwright test sprint-15c-enhance-flow`, mock fresco). Commits: G.2.0 freeze + post-merge sync G.1 (`d4234cb`, `1b6241a`); **G.2.a** (`5bcdc25`) #6 SSO impersonation + #7e AdminOnly bypass; **G.2.b** (`38d7839` lifecycle F.4/F.5/F.6 + reconcile F.9; `0e7c1c1` SSL F.7 + cuota F.8 + endpoint mock `POST /__test__/seed`).
+
+- **§A.2 cerrado del todo**: #4 (breaker) unit-covered + smoke G.3 (decisión Yasmin); #6 + #7e en E2E.
+- **Flujos F en E2E**: suspend/unsuspend + banner + ClientNote (F.4/F.5/F.6), reconcile per-servicio (F.9), SSL card (F.7), aviso de cuota edge-trigger (F.8).
+- **Infra mock nueva** (heredable 15D RC): `POST /__test__/seed` para sembrar `websites`/`domainSsls`/`websiteApps`/`usedResources` en runtime desde el proceso del spec Playwright + `usedResourcesBySubId` seedable en `calculate-resource-usage`.
+- **Lección operativa**: el spec asume **mock con estado fresco** (contador subscription 1000); un `MockEnhanceServer` arrancado manualmente y reusado por Playwright (`reuseExistingServer`) arrastra estado y rompe el test 4 → arrancar el mock fresco por corrida E2E.
+- **Diferido — `DC.NEW-59`**: F.10 deep-links (`open_app_admin`) en E2E. Bloqueado por una interacción del estado del mock con `executeAction`/`availableActions` (la app sembrada se ve por GET directo al mock pero el dispatch devuelve `INVALID_STATE`) pese a varias hipótesis (orgId verificado correcto, seed persistido verificado, refresh de `availableActions`). **Ya unit-covered** (`enhance.plugin.spec.ts` ×20: WP-con-default / WP-sin-default / Joomla / fallback) → se cubre por unit + smoke G.3. NO bloquea §A.2 (cerrado) ni el cierre de G.2.
+
+**Pendiente G.2**: merge de la rama a master (bypass §6 — decisión de negocio) + post-merge doc-sync.
+
 ### A.11.11. Sesiones origen del re-plan F.4→G
 
 - 2026-05-12 (sesión 2 — post-merge de F.3 #67/#68; el testing de F.1 destapó el agujero de robustez del status de suspensión; decisión Yasmin: traer los apuntados de backlog [`DC.44`, `DC.45`, deep-links, notas, mini-badge, reenviar notif, cross-link billing] al sprint; auditoría "qué falta a estándar alto en el plugin Enhance + módulo de servicios cliente/admin"; refinamiento posterior — (a) integrar las acciones críticas de servicio con el sistema transversal `ClientNote` [no un `service_notes` table propio], (b) fase de layout canónico al final, (c) "más fases, más pequeñas" → este §A.11.10 reescrito con **10 fases ordenadas por prioridad: F.4 robustez del status de suspensión · F.5 `DC.44` billing-suspend-unify · F.6 notas `ClientNote` · F.7 SSL status · F.8 alertas de cuota · F.9 reconcile per-servicio `DC.45` · F.10 deep-links curados · F.11 conveniencias operativas · F.12 layout canónico · G cierre**).
