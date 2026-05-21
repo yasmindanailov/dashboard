@@ -938,6 +938,149 @@ test.describe.serial(
       expect(row.rows[0].status).not.toBe('suspended');
     });
 
+    // ─────────────────────────────────────────────────────────────────────
+    // Sprint 15C.II Fase G.2.b — flujos lifecycle/UX (Fase E/F) E2E REST+DB.
+    // Van ANTES del test 10 (deprovision terminal). El ciclo suspend→unsuspend
+    // deja el servicio activo para el test 10.
+    // ─────────────────────────────────────────────────────────────────────
+
+    test('G.2.b (F.4/F.5/F.6) — suspend → banner cliente + ClientNote · unsuspend → ClientNote', async ({
+      request,
+    }) => {
+      // Estado determinista para los asserts.
+      await pool.query(
+        `DELETE FROM client_notes WHERE source_system = 'service' AND source_id = $1`,
+        [testServiceId],
+      );
+      await pool.query(
+        `DELETE FROM audit_access_log
+         WHERE action = 'service_suspend_admin'
+           AND (metadata->>'target_user_id') = $1`,
+        [clientUserId],
+      );
+
+      // ── Suspender (admin) ──
+      const suspRes = await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/suspend`,
+        {
+          headers: { Authorization: `Bearer ${superadminToken}` },
+          data: {
+            reason: 'abuse_investigation',
+            internal_note: 'E2E G.2.b — investigación interna',
+          },
+        },
+      );
+      expect(
+        suspRes.ok(),
+        `suspend: ${suspRes.status()} ${await suspRes.text()}`,
+      ).toBeTruthy();
+
+      // status local = suspended + suspension_reason poblado ("<reason>: <nota>").
+      const afterSusp = await pool.query<{
+        status: string;
+        suspension_reason: string | null;
+      }>(`SELECT status, suspension_reason FROM services WHERE id = $1`, [
+        testServiceId,
+      ]);
+      expect(afterSusp.rows[0].status).toBe('suspended');
+      expect(afterSusp.rows[0].suspension_reason).toContain(
+        'abuse_investigation',
+      );
+
+      // Banner cliente: GET /services/:id refleja el estado suspendido.
+      const clientView = await request.get(
+        `${TEST_CONFIG.apiUrl}/services/${testServiceId}`,
+        { headers: { Authorization: `Bearer ${clientToken}` } },
+      );
+      expect(clientView.ok()).toBeTruthy();
+      const cv = (await clientView.json()) as { service: { status: string } };
+      expect(cv.service.status).toBe('suspended');
+
+      // ClientNote automática (F.6): source_system='service' + service.suspended.
+      const suspNote = await pool.query(
+        `SELECT 1 FROM client_notes
+         WHERE source_system = 'service' AND source_id = $1
+           AND triggered_by_action = 'service.suspended'`,
+        [testServiceId],
+      );
+      expect(
+        suspNote.rowCount,
+        'debe crearse ClientNote de suspensión (F.6)',
+      ).toBe(1);
+
+      // audit_access con target_user_id (visibilidad portal GDPR del cliente).
+      await new Promise((r) => setTimeout(r, 200));
+      const suspAudit = await pool.query(
+        `SELECT 1 FROM audit_access_log
+         WHERE action = 'service_suspend_admin'
+           AND (metadata->>'target_user_id') = $1`,
+        [clientUserId],
+      );
+      expect(suspAudit.rowCount).toBe(1);
+
+      // ── Reanudar (admin) ──
+      const unsuspRes = await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/unsuspend`,
+        {
+          headers: { Authorization: `Bearer ${superadminToken}` },
+          data: { internal_note: 'E2E G.2.b — reactivación' },
+        },
+      );
+      expect(
+        unsuspRes.ok(),
+        `unsuspend: ${unsuspRes.status()} ${await unsuspRes.text()}`,
+      ).toBeTruthy();
+
+      const afterUnsusp = await pool.query<{ status: string }>(
+        `SELECT status FROM services WHERE id = $1`,
+        [testServiceId],
+      );
+      expect(afterUnsusp.rows[0].status).toBe('active');
+
+      // ClientNote de reactivación (F.6).
+      const unsuspNote = await pool.query(
+        `SELECT 1 FROM client_notes
+         WHERE source_system = 'service' AND source_id = $1
+           AND triggered_by_action = 'service.unsuspended'`,
+        [testServiceId],
+      );
+      expect(
+        unsuspNote.rowCount,
+        'debe crearse ClientNote de reactivación (F.6)',
+      ).toBe(1);
+    });
+
+    test('G.2.b (F.9) — reconcile per-servicio admin → 200 + audit_access service_reconcile_admin', async ({
+      request,
+    }) => {
+      await pool.query(
+        `DELETE FROM audit_access_log
+         WHERE action = 'service_reconcile_admin'
+           AND (metadata->>'target_user_id') = $1`,
+        [clientUserId],
+      );
+
+      const res = await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/reconcile`,
+        { headers: { Authorization: `Bearer ${superadminToken}` }, data: {} },
+      );
+      expect(
+        res.ok(),
+        `reconcile: ${res.status()} ${await res.text()}`,
+      ).toBeTruthy();
+
+      // El reconcile per-servicio registra audit_access con target_user_id
+      // (portal GDPR) aun cuando no haya drift que aplicar (driftsApplied=0).
+      await new Promise((r) => setTimeout(r, 250));
+      const audit = await pool.query(
+        `SELECT 1 FROM audit_access_log
+         WHERE action = 'service_reconcile_admin'
+           AND (metadata->>'target_user_id') = $1`,
+        [clientUserId],
+      );
+      expect(audit.rowCount, 'reconcile debe dejar audit_access').toBe(1);
+    });
+
     test('10. admin deprovision con notify_client → status cancelled + email service.cancelled al cliente + audit notify_client=true (GAP-15CII-J)', async ({
       request,
     }) => {
