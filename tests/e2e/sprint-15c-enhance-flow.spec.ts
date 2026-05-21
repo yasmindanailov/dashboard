@@ -808,6 +808,374 @@ test.describe.serial(
       expect(body.sideEffects).toEqual(['service.metrics_invalidated']);
     });
 
+    // ─────────────────────────────────────────────────────────────────────
+    // Sprint 15C.II Fase G.2.a — cierre §A.2 áreas 6 + 7e (E2E REST+DB).
+    // Van ANTES del test 10 porque éste cancela el servicio (terminal) y el
+    // SSO requiere un servicio activo.
+    // ─────────────────────────────────────────────────────────────────────
+
+    test('G.2.a (§A.2 #6) — admin SSO sobre servicio ajeno → audit impersonation + visible en portal del cliente', async ({
+      request,
+    }) => {
+      // Re-seed idempotente de enhance_customers: el plugin resuelve el
+      // owner login/member del mapping para el SSO 2-call OTP (mismo patrón
+      // que el test 7). El mock generó los UUIDs del owner al startup.
+      await pool.query(`DELETE FROM enhance_customers WHERE user_id = $1`, [
+        clientUserId,
+      ]);
+      const orgRes = await request.get(
+        `${MOCK_BASE_URL}/orgs/${FIXTURE_CUSTOMER_ORG_ID}`,
+        { headers: { Authorization: `Bearer ${MOCK_API_TOKEN}` } },
+      );
+      expect(orgRes.ok(), `mock GET /orgs: ${orgRes.status()}`).toBeTruthy();
+      const org = (await orgRes.json()) as {
+        ownerId?: string;
+        ownerLoginId?: string;
+      };
+      expect(org.ownerId && org.ownerLoginId, 'mock org sin owner').toBeTruthy();
+      await pool.query(
+        `INSERT INTO enhance_customers
+           (user_id, enhance_org_id, enhance_owner_login_id, enhance_owner_member_id)
+         VALUES ($1, $2, $3, $4)`,
+        [clientUserId, FIXTURE_CUSTOMER_ORG_ID, org.ownerLoginId, org.ownerId],
+      );
+
+      // Audit determinista: limpia impersonaciones previas de este cliente.
+      await pool.query(
+        `DELETE FROM audit_access_log
+         WHERE action = 'admin_sso_impersonation'
+           AND (metadata->>'target_user_id') = $1`,
+        [clientUserId],
+      );
+
+      // El ADMIN (superadmin) abre SSO sobre el servicio del CLIENTE.
+      const ssoRes = await request.post(
+        `${TEST_CONFIG.apiUrl}/services/${testServiceId}/sso`,
+        { headers: { Authorization: `Bearer ${superadminToken}` }, data: {} },
+      );
+      expect(
+        ssoRes.ok(),
+        `POST /services/:id/sso (admin): ${ssoRes.status()} ${await ssoRes.text()}`,
+      ).toBeTruthy();
+      const ssoBody = (await ssoRes.json()) as {
+        sso?: unknown;
+        errorCode?: string | null;
+      };
+      expect(ssoBody.errorCode ?? null).toBeNull();
+      expect(ssoBody.sso, 'admin debe recibir una SSO URL').toBeTruthy();
+
+      // El evento → listener → audit es async; margen breve.
+      await new Promise((r) => setTimeout(r, 400));
+
+      // (1) audit_access_log registra la impersonación: actor=agente,
+      //     target_user_id=cliente (data subject — filtro GDPR del portal).
+      const audit = await pool.query<{
+        user_id: string;
+        metadata: { target_user_id?: string } | null;
+      }>(
+        `SELECT user_id, metadata FROM audit_access_log
+         WHERE action = 'admin_sso_impersonation'
+           AND (metadata->>'target_user_id') = $1
+         ORDER BY created_at DESC LIMIT 1`,
+        [clientUserId],
+      );
+      expect(
+        audit.rowCount,
+        'debe existir 1 fila admin_sso_impersonation',
+      ).toBe(1);
+      expect(audit.rows[0].metadata?.target_user_id).toBe(clientUserId);
+
+      // (2) el CLIENTE ve la impersonación en su portal de transparencia
+      //     (GET /audit/access filtra por metadata.target_user_id === caller).
+      const portalRes = await request.get(`${TEST_CONFIG.apiUrl}/audit/access`, {
+        headers: { Authorization: `Bearer ${clientToken}` },
+      });
+      expect(
+        portalRes.ok(),
+        `GET /audit/access (cliente): ${portalRes.status()}`,
+      ).toBeTruthy();
+      const portalJson = (await portalRes.json()) as
+        | { data?: Array<{ action: string }> }
+        | Array<{ action: string }>;
+      const entries = Array.isArray(portalJson)
+        ? portalJson
+        : (portalJson.data ?? []);
+      expect(
+        entries.some((e) => e.action === 'admin_sso_impersonation'),
+        'el cliente debe ver la impersonación en su portal GDPR',
+      ).toBe(true);
+    });
+
+    test('G.2.a (§A.2 #7e) — cliente → ruta /admin/* → 403 AdminOnlyGuard (sin mutación)', async ({
+      request,
+    }) => {
+      // El cliente intenta una ruta staff (`/admin/services/:id/suspend`). El
+      // AdminOnlyGuard rechaza con 403 ANTES del controller. Distinción
+      // doctrinal: el guard NO emite audit (sin contexto de service); la
+      // variante con audit (`service.action_admin_only_violation`) es del
+      // wrapper sobre actions adminOnly en ruta cliente, ya cubierta por el
+      // test 5. Aquí verificamos el corte de entrada + ausencia de mutación.
+      const res = await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/suspend`,
+        {
+          headers: { Authorization: `Bearer ${clientToken}` },
+          data: {
+            reason_code: 'abuse_investigation',
+            internal_note: 'e2e bypass attempt',
+          },
+        },
+      );
+      expect(
+        res.status(),
+        `cliente en ruta /admin/* debe recibir 403, got ${res.status()}`,
+      ).toBe(403);
+
+      // Defense-in-depth: el guard cortó antes → el servicio NO se suspendió.
+      const row = await pool.query<{ status: string }>(
+        `SELECT status FROM services WHERE id = $1`,
+        [testServiceId],
+      );
+      expect(row.rows[0].status).not.toBe('suspended');
+    });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Sprint 15C.II Fase G.2.b — flujos lifecycle/UX (Fase E/F) E2E REST+DB.
+    // Van ANTES del test 10 (deprovision terminal). El ciclo suspend→unsuspend
+    // deja el servicio activo para el test 10.
+    // ─────────────────────────────────────────────────────────────────────
+
+    test('G.2.b (F.4/F.5/F.6) — suspend → banner cliente + ClientNote · unsuspend → ClientNote', async ({
+      request,
+    }) => {
+      // Estado determinista para los asserts.
+      await pool.query(
+        `DELETE FROM client_notes WHERE source_system = 'service' AND source_id = $1`,
+        [testServiceId],
+      );
+      await pool.query(
+        `DELETE FROM audit_access_log
+         WHERE action = 'service_suspend_admin'
+           AND (metadata->>'target_user_id') = $1`,
+        [clientUserId],
+      );
+
+      // ── Suspender (admin) ──
+      const suspRes = await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/suspend`,
+        {
+          headers: { Authorization: `Bearer ${superadminToken}` },
+          data: {
+            reason: 'abuse_investigation',
+            internal_note: 'E2E G.2.b — investigación interna',
+          },
+        },
+      );
+      expect(
+        suspRes.ok(),
+        `suspend: ${suspRes.status()} ${await suspRes.text()}`,
+      ).toBeTruthy();
+
+      // status local = suspended + suspension_reason poblado ("<reason>: <nota>").
+      const afterSusp = await pool.query<{
+        status: string;
+        suspension_reason: string | null;
+      }>(`SELECT status, suspension_reason FROM services WHERE id = $1`, [
+        testServiceId,
+      ]);
+      expect(afterSusp.rows[0].status).toBe('suspended');
+      expect(afterSusp.rows[0].suspension_reason).toContain(
+        'abuse_investigation',
+      );
+
+      // Banner cliente: GET /services/:id refleja el estado suspendido.
+      const clientView = await request.get(
+        `${TEST_CONFIG.apiUrl}/services/${testServiceId}`,
+        { headers: { Authorization: `Bearer ${clientToken}` } },
+      );
+      expect(clientView.ok()).toBeTruthy();
+      const cv = (await clientView.json()) as { service: { status: string } };
+      expect(cv.service.status).toBe('suspended');
+
+      // ClientNote automática (F.6): source_system='service' + service.suspended.
+      const suspNote = await pool.query(
+        `SELECT 1 FROM client_notes
+         WHERE source_system = 'service' AND source_id = $1
+           AND triggered_by_action = 'service.suspended'`,
+        [testServiceId],
+      );
+      expect(
+        suspNote.rowCount,
+        'debe crearse ClientNote de suspensión (F.6)',
+      ).toBe(1);
+
+      // audit_access con target_user_id (visibilidad portal GDPR del cliente).
+      await new Promise((r) => setTimeout(r, 200));
+      const suspAudit = await pool.query(
+        `SELECT 1 FROM audit_access_log
+         WHERE action = 'service_suspend_admin'
+           AND (metadata->>'target_user_id') = $1`,
+        [clientUserId],
+      );
+      expect(suspAudit.rowCount).toBe(1);
+
+      // ── Reanudar (admin) ──
+      const unsuspRes = await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/unsuspend`,
+        {
+          headers: { Authorization: `Bearer ${superadminToken}` },
+          data: { internal_note: 'E2E G.2.b — reactivación' },
+        },
+      );
+      expect(
+        unsuspRes.ok(),
+        `unsuspend: ${unsuspRes.status()} ${await unsuspRes.text()}`,
+      ).toBeTruthy();
+
+      const afterUnsusp = await pool.query<{ status: string }>(
+        `SELECT status FROM services WHERE id = $1`,
+        [testServiceId],
+      );
+      expect(afterUnsusp.rows[0].status).toBe('active');
+
+      // ClientNote de reactivación (F.6).
+      const unsuspNote = await pool.query(
+        `SELECT 1 FROM client_notes
+         WHERE source_system = 'service' AND source_id = $1
+           AND triggered_by_action = 'service.unsuspended'`,
+        [testServiceId],
+      );
+      expect(
+        unsuspNote.rowCount,
+        'debe crearse ClientNote de reactivación (F.6)',
+      ).toBe(1);
+    });
+
+    test('G.2.b (F.9) — reconcile per-servicio admin → 200 + audit_access service_reconcile_admin', async ({
+      request,
+    }) => {
+      await pool.query(
+        `DELETE FROM audit_access_log
+         WHERE action = 'service_reconcile_admin'
+           AND (metadata->>'target_user_id') = $1`,
+        [clientUserId],
+      );
+
+      const res = await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/reconcile`,
+        { headers: { Authorization: `Bearer ${superadminToken}` }, data: {} },
+      );
+      expect(
+        res.ok(),
+        `reconcile: ${res.status()} ${await res.text()}`,
+      ).toBeTruthy();
+
+      // El reconcile per-servicio registra audit_access con target_user_id
+      // (portal GDPR) aun cuando no haya drift que aplicar (driftsApplied=0).
+      await new Promise((r) => setTimeout(r, 250));
+      const audit = await pool.query(
+        `SELECT 1 FROM audit_access_log
+         WHERE action = 'service_reconcile_admin'
+           AND (metadata->>'target_user_id') = $1`,
+        [clientUserId],
+      );
+      expect(audit.rowCount, 'reconcile debe dejar audit_access').toBe(1);
+    });
+
+    test('G.2.b (F.7) — SSL card: cert válido sembrado en el mock → info.ssl.status=valid', async ({
+      request,
+    }) => {
+      const SSL_DOMAIN_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+      const now = Date.now();
+      const DAY = 86_400_000;
+      // Siembra el website (con domain.id) + un cert LE válido (expira en 90d).
+      const seedRes = await request.post(`${MOCK_BASE_URL}/__test__/seed`, {
+        headers: { Authorization: `Bearer ${MOCK_API_TOKEN}` },
+        data: {
+          websites: [
+            {
+              id: FIXTURE_WEBSITE_ID,
+              domain: { id: SSL_DOMAIN_ID, domain: 'mi-cliente.es' },
+              aliases: [],
+              status: 'active',
+              orgId: FIXTURE_CUSTOMER_ORG_ID,
+              subscriptionId: FIXTURE_SUBSCRIPTION_ID,
+              createdAt: new Date(now).toISOString(),
+            },
+          ],
+          domainSsls: {
+            [SSL_DOMAIN_ID]: {
+              cn: 'mi-cliente.es',
+              issued: new Date(now - 5 * DAY).toISOString(),
+              expires: new Date(now + 90 * DAY).toISOString(),
+              issuer: "Let's Encrypt",
+              forceHttps: true,
+            },
+          },
+        },
+      });
+      expect(seedRes.ok(), `seed ssl: ${seedRes.status()}`).toBeTruthy();
+
+      // Fuerza lectura fresca (invalida el cache service_info) y consulta.
+      await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/refresh`,
+        { headers: { Authorization: `Bearer ${superadminToken}` }, data: {} },
+      );
+      const res = await request.get(
+        `${TEST_CONFIG.apiUrl}/services/${testServiceId}`,
+        { headers: { Authorization: `Bearer ${clientToken}` } },
+      );
+      expect(res.ok()).toBeTruthy();
+      const body = (await res.json()) as {
+        info: { ssl?: { status?: string; issuer?: string } };
+      };
+      expect(
+        body.info.ssl?.status,
+        `info.ssl inesperado: ${JSON.stringify(body.info.ssl)}`,
+      ).toBe('valid');
+    });
+
+    test('G.2.b (F.8) — aviso de cuota: usedResources 90% + reconcile-all → service_quota_alerts crossed_up', async ({
+      request,
+    }) => {
+      await pool.query(
+        `DELETE FROM service_quota_alerts WHERE service_id = $1`,
+        [testServiceId],
+      );
+      // Siembra disco al 90% (9000/10000) > umbral 85% para la subscription.
+      const seedRes = await request.post(`${MOCK_BASE_URL}/__test__/seed`, {
+        headers: { Authorization: `Bearer ${MOCK_API_TOKEN}` },
+        data: {
+          usedResources: {
+            [String(FIXTURE_SUBSCRIPTION_ID)]: [
+              { name: 'disk', total: 10000, usage: 9000 },
+            ],
+          },
+        },
+      });
+      expect(seedRes.ok(), `seed quota: ${seedRes.status()}`).toBeTruthy();
+
+      // reconcile-all dispara el detector edge-triggered (F.8) tras la pasada.
+      const res = await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/plugins/enhance_cp/reconcile-all`,
+        { headers: { Authorization: `Bearer ${superadminToken}` }, data: {} },
+      );
+      expect(
+        res.ok(),
+        `reconcile-all: ${res.status()} ${await res.text()}`,
+      ).toBeTruthy();
+
+      await new Promise((r) => setTimeout(r, 600));
+      const alert = await pool.query(
+        `SELECT 1 FROM service_quota_alerts
+         WHERE service_id = $1 AND kind = 'crossed_up' AND resource = 'disk'`,
+        [testServiceId],
+      );
+      expect(
+        alert.rowCount,
+        'debe crearse alerta crossed_up (edge-trigger F.8)',
+      ).toBe(1);
+    });
+
     test('10. admin deprovision con notify_client → status cancelled + email service.cancelled al cliente + audit notify_client=true (GAP-15CII-J)', async ({
       request,
     }) => {

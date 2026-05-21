@@ -64,6 +64,7 @@ import {
   EnhanceUpdateSubscription,
   EnhanceDomainSslCert,
   EnhanceUpdateWebsite,
+  EnhanceUsedResource,
   EnhanceUsedResourcesFullListing,
   EnhanceWebsite,
   EnhanceWebsiteApp,
@@ -283,6 +284,13 @@ export interface MockEnhanceState {
    */
   wordpressInfoByAppId: Map<string, EnhanceWordPressInfo>;
   joomlaInfoByAppId: Map<string, EnhanceJoomlaInfo>;
+  /**
+   * Sprint 15C.II Fase G.2.b — usedResources seedable por `subscriptionId`
+   * para los E2E de cuota. La ausencia de entrada → default sintético del
+   * handler `calculate-resource-usage` (disco al 25%, por debajo del umbral).
+   * Se siembra runtime via `POST /__test__/seed`.
+   */
+  usedResourcesBySubId: Map<number, readonly EnhanceUsedResource[]>;
   /** recordId cluster-wide → DefaultDnsRecord. */
   defaultDnsRecords: Map<string, EnhanceDefaultDnsRecord>;
   /** Counter para subscription IDs (integer). */
@@ -317,6 +325,7 @@ function createInitialState(seed: MockEnhanceSeed): MockEnhanceState {
       Object.entries(seed.wordpressInfoByAppId ?? {}),
     ),
     joomlaInfoByAppId: new Map(Object.entries(seed.joomlaInfoByAppId ?? {})),
+    usedResourcesBySubId: new Map(),
     defaultDnsRecords: new Map(),
     nextSubscriptionId: 1000,
     requestLog: [],
@@ -425,6 +434,7 @@ function buildApp(state: MockEnhanceState): express.Express {
   registerDefaultDnsRoutes(app, state);
   registerSslRoutes(app, state);
   registerWebsiteAppsRoutes(app, state);
+  registerTestSeedRoutes(app, state);
 
   // Catch-all 404.
   app.use((_req: Request, res: Response) => {
@@ -797,8 +807,12 @@ function registerSubscriptionRoutes(
           .json({ code: 'NotFound', message: 'subscription not found' });
         return;
       }
+      // Sprint 15C.II Fase G.2.b: si el test sembró usedResources para este
+      // subscriptionId (via POST /__test__/seed), se devuelven; si no, el
+      // default sintético (disco al 25%, por debajo del umbral de cuota).
+      const seeded = state.usedResourcesBySubId.get(Number(req.params.subId));
       const result: EnhanceUsedResourcesFullListing = {
-        items: [
+        items: seeded ?? [
           { name: 'disk', total: 10000, usage: 2500 },
           { name: 'emailAccounts', total: 50, usage: 3 },
           { name: 'databases', total: 10, usage: 1 },
@@ -984,6 +998,42 @@ function registerSslRoutes(
       return;
     }
     res.json(cert);
+  });
+}
+
+/**
+ * Sprint 15C.II Fase G.2.b — endpoint test-only para sembrar estado del mock
+ * en RUNTIME desde el proceso del spec Playwright (que NO comparte memoria con
+ * este servidor — a diferencia de los tests integration in-process que usan
+ * `state.*.set()` directo). Merge no-destructivo en los Maps de estado.
+ *
+ * NO existe en orchd real — el namespace `/__test__/` lo aísla de las rutas
+ * canónicas y deja explícito que es andamiaje de test. Heredable a 15D RC.
+ */
+function registerTestSeedRoutes(
+  app: express.Express,
+  state: MockEnhanceState,
+): void {
+  app.post('/__test__/seed', (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as {
+      websites?: EnhanceWebsite[];
+      domainSsls?: Record<string, EnhanceDomainSslCert>;
+      websiteApps?: Record<string, EnhanceWebsiteApp[]>;
+      usedResources?: Record<string, EnhanceUsedResource[]>;
+    };
+    for (const ws of body.websites ?? []) {
+      state.websites.set(ws.id, ws);
+    }
+    for (const [domainId, cert] of Object.entries(body.domainSsls ?? {})) {
+      state.domainSsls.set(domainId, cert);
+    }
+    for (const [wsId, apps] of Object.entries(body.websiteApps ?? {})) {
+      state.websiteApps.set(wsId, [...apps]);
+    }
+    for (const [subId, items] of Object.entries(body.usedResources ?? {})) {
+      state.usedResourcesBySubId.set(Number(subId), items);
+    }
+    res.json({ ok: true });
   });
 }
 
