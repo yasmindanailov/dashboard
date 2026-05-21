@@ -458,7 +458,7 @@ Server Actions con cookies httpOnly Modelo A (ADR-078).
 ### Amendment B (2026-05-09) — campo opcional `productConfigSchema` en `PluginManifest`
 
 > **Justificado por:** Sprint 15C Fase 15C.E.2 (Frontend acciones curadas — gap descubierto en review Fase 15C.E del PR #44). El plugin `enhance_cp` (Sprint 15C Fase C) ya valida en runtime que `Product.provisioner_config.enhance_plan_id` sea entero ≥1 (`extractEnhancePlanId` en [`enhance.plugin.ts:958-969`](../../backend/src/plugins/provisioners/enhance_cp/enhance.plugin.ts#L958-L969)), pero **el form admin de productos (`/admin/products/new` + `/admin/products/[id]/edit`) no expone ningún campo para editar `provisioner_config`**. Resultado: cualquier producto Enhance creado vía UI quedaba con `provisioner_config: null` → `INVALID_PAYLOAD: enhance_plan_id missing` al provisionar el primer cliente real. **Bloqueante operativo end-to-end** (sin esto ningún producto Enhance es contratable). Para cerrar el gap manteniendo la doctrina manifest-declarativo de Sprint 15A se formaliza un campo opcional `productConfigSchema?: JsonSchema7` en `PluginManifest`.
-> **Sprint:** 15C Fase 15C.E.2 (PR pendiente).
+> **Sprint:** 15C Fase 15C.E.2 (mergeado).
 > **Compatibilidad:** Hacia atrás. NO bumpea `manifestVersion` — sigue `'v1'`. El campo es **opcional**. Plugins existentes (`internal`, `manual`) no lo declaran y conservan comportamiento previo (sub-form ausente en el UI). NO requiere migración de datos. NO toca `Product.provisioner_config` (jsonb existe desde Sprint 6).
 
 #### B.1. Cambio canónico en `PluginManifest` (§1 shape)
@@ -606,7 +606,7 @@ Cualquier campo nuevo NO opcional o que rompa el shape requiere bump a `manifest
 ### Amendment C (2026-05-12) — campo opcional `serviceInfoCacheTtlSeconds` en `PluginManifest` (Sprint 15C.II Fase F.3)
 
 > **Justificado por:** Sprint 15C.II Fase F.3 (GAP-15CII-G4) + [ADR-083 Amendment A7.4](./adr-083-plugin-enhance-cp-specifics.md#amendments). El TTL del cache L1 `service_info` (§5) era un único valor: el `setting` global `provisioning.service_info_ttl_seconds` (default 60s). Distintos proveedores tienen distinta tolerancia a la latencia/coste de re-fetch (un panel que cambia rápido quiere TTL bajo; uno estable, alto) — la **recomendación del autor del plugin** debe poder viajar en el manifest, sin obligar al operador a tunear un setting global por plugin. Sigue el patrón canónico B.5 ("doctrina de adición de campos opcionales a `PluginManifest`").
-> **Sprint:** 15C.II Fase F.3 (PR pendiente).
+> **Sprint:** 15C.II Fase F.3 (mergeado).
 > **Compatibilidad:** Hacia atrás. NO bumpea `manifestVersion` — sigue `'v1'`. El campo es **opcional**. Plugins existentes (`internal`, `manual`, `enhance_cp`) no lo declaran → usan el setting global / default exactamente como hoy. NO requiere migración.
 
 #### C.1. Cambio canónico en `PluginManifest` (§1 shape)

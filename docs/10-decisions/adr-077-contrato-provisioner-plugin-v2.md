@@ -813,7 +813,7 @@ Tras este amendment, las referencias inline a "kebab-case" en este ADR (§1 lín
 ### Amendment A3 (2026-05-09) — campo opcional `adminOnly` en `ServiceAction`
 
 > **Justificado por:** [ADR-083 Amendment A3](./adr-083-plugin-enhance-cp-specifics.md#amendments), donde `change_package`, `force_resync` y la nueva 10ª action `list_available_plans` se declararon admin-only. La decisión 32 original de ADR-083 §9 anotaba *"acciones admin (CASL `Subject.Service` + scope admin se verifica en wrapper, no en plugin)"* pero NO existía un mecanismo canónico de scope adminOnly en el contrato `ProvisionerPlugin` v2 — el rol cliente tiene `Action.Update` sobre `Subject.Service` (cf. [`backend/src/core/casl/permissions.ts:299-303`](../../backend/src/core/casl/permissions.ts#L299-L303)), por lo que cualquier cliente podía invocar `POST /services/:id/actions/change_package` sin filtro. **Vulnerabilidad de privilegio real** — la materialización exige formalizar el flag transversal en el contrato.
-> **Sprint:** 15C Fase 15C.E (PR pendiente).
+> **Sprint:** 15C Fase 15C.E (mergeado).
 > **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` — sigue `'v2'`. El campo es **opcional** en `ServiceAction`. Plugins existentes que no lo declaran tienen comportamiento idéntico al actual (default `false` = client-callable). NO toca el shape de `ActionResult`. NO requiere migración de datos.
 
 #### A3.1. Cambio canónico en `ServiceAction` (§3 shapes)
@@ -1037,7 +1037,7 @@ it('si supports_suspend=false → NO declara esas inline actions', () => {
 ### Amendment A5 (2026-05-11) — campo opcional `recoveryHint` en `ServiceInfo`
 
 > **Justificado por:** Sprint 15C.II Fase E (BUG-15CII-I — smoke real Yasmin Fase D 2026-05-10) + [ADR-083 Amendment A5](./adr-083-plugin-enhance-cp-specifics.md#amendments). El detalle admin de servicio (`/admin/services/[id]`) gateaba el CTA "Re-aprovisionar ahora" del `AdminDriftBanner` por una heurística de string (`info.statusReason.endsWith('.status_reason.not_yet_provisioned')`). El smoke real detectó que `subscription_missing` (recurso borrado externamente del proveedor) requiere IDÉNTICA acción admin pero NO activaba el CTA. El fix "1 línea" propuesto en el dossier §A.9.4 (un `Set` de claves i18n hardcodeado en el frontend) traslada el problema: cada plugin SaaS futuro (15D RC, 15E Docker, 15G Plesk) tendría que recordar añadir sus claves a una lista que vive en otro paquete. La solución robusta es que el **plugin clasifique su propio drift** y la UI ramifique por un campo declarativo del contrato, NUNCA por matching de strings.
-> **Sprint:** 15C.II Fase E (PR pendiente).
+> **Sprint:** 15C.II Fase E (mergeado).
 > **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` — sigue `'v2'`. El campo es **opcional** en `ServiceInfo`. Plugins existentes que no lo declaran tienen comportamiento idéntico al actual (el frontend trata `recoveryHint` ausente como "sin acción de recuperación canónica"). NO toca ningún otro shape. NO requiere migración de datos.
 
 #### A5.1. Cambio canónico en `ServiceInfo` (§2 shapes — `getServiceInfo()` output)
@@ -1138,7 +1138,7 @@ Mismo patrón canónico que `ServiceAction.adminOnly` (Amendment A3.6) y `Servic
 ### Amendment A6 (2026-05-12) — método opcional `testConnection?()` + campo opcional `module?` en `ProvisionerPluginError` (Sprint 15C.II Fase F.3)
 
 > **Justificado por:** Sprint 15C.II Fase F.3 (GAP-15CII-G8 + GAP-15CII-N) + [ADR-083 Amendment A7](./adr-083-plugin-enhance-cp-specifics.md#amendments). (a) **G8** — el botón "Probar conexión" del admin ([ADR-080 §3/§7](./adr-080-plugin-framework.md)) tenía dos modos: `testConnectionMethod === 'getStatus'` (invoca `plugin.getStatus(servicioSintético)`) y `'custom'` (sin mecanismo de contrato — no había forma de implementarlo). El modo `'getStatus'` no sirve para plugins cuyo `getStatus()` exige `provider_reference` real (Enhance): un servicio sintético siempre reporta "sin metadata" → falso negativo. La solución correcta es un **probe dedicado** contra el proveedor, lo que requiere un método de contrato. (b) **N** — `ProvisionerPluginError` no llevaba el módulo de origen → `GlobalExceptionFilter` registraba `error_log.module = 'http'` (inútil para triage) en vez del módulo real (`provisioning.<slug>`).
-> **Sprint:** 15C.II Fase F.3 (PR pendiente).
+> **Sprint:** 15C.II Fase F.3 (mergeado).
 > **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` — sigue `'v2'`. Método **opcional** (`testConnection?()`) — plugins existentes que no lo declaran conservan comportamiento previo. Campo **opcional** (`ProvisionerPluginError.module?`) — el wrapper lo setea; los consumidores que no lo leen no se ven afectados. NO toca ningún otro shape. NO requiere migración.
 
 #### A6.1. Método opcional `testConnection?()` en `ProvisionerPlugin` (§1 interfaz)
@@ -1191,7 +1191,7 @@ F.3 también añadió un campo opcional al **manifest** (`PluginManifest.service
 ### Amendment A7 (2026-05-13) — campo opcional `ssl?` en `ServiceInfo` (Sprint 15C.II Fase F.7)
 
 > **Justificado por:** Sprint 15C.II Fase F.7 + [ADR-083 Amendment A8](./adr-083-plugin-enhance-cp-specifics.md#amendments). `/dashboard/services/[id]` y `/admin/services/[id]` no exponen hoy el estado del certificado SSL/TLS del sitio — un dato que cualquier panel reseller profesional muestra junto a las métricas (el cliente necesita saber si su sitio aparecerá como "No seguro" en el navegador; el admin necesita anticipar renovaciones de los certs custom que no auto-renuevan). La doctrina **DH-INV-6** ([ADR-082](./adr-082-modelo-domain-hosting-dns-doctrine.md)) prohíbe que Aelium **gestione** el cert — pero NO prohíbe **leerlo** y exponer el estado al usuario; la gestión real (renovar, reemplazar, configurar `force_https`) sigue viviendo en el panel del proveedor vía SSO.
-> **Sprint:** 15C.II Fase F.7 (PR pendiente).
+> **Sprint:** 15C.II Fase F.7 (mergeado).
 > **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` — sigue `'v2'`. El campo es **opcional** en `ServiceInfo`. Plugins existentes que no lo declaran tienen comportamiento idéntico al actual (el frontend trata `ssl` ausente como "el plugin no expone el estado del cert" → no card). Mismo patrón canónico que `metrics?` y `recoveryHint?` (Amendment A5). NO toca ningún otro shape. NO requiere migración de datos.
 
 #### A7.1. Cambio canónico en `ServiceInfo` (§2 shapes — `getServiceInfo()` output)
