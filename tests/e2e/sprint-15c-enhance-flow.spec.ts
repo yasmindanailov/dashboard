@@ -1081,6 +1081,101 @@ test.describe.serial(
       expect(audit.rowCount, 'reconcile debe dejar audit_access').toBe(1);
     });
 
+    test('G.2.b (F.7) — SSL card: cert válido sembrado en el mock → info.ssl.status=valid', async ({
+      request,
+    }) => {
+      const SSL_DOMAIN_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+      const now = Date.now();
+      const DAY = 86_400_000;
+      // Siembra el website (con domain.id) + un cert LE válido (expira en 90d).
+      const seedRes = await request.post(`${MOCK_BASE_URL}/__test__/seed`, {
+        headers: { Authorization: `Bearer ${MOCK_API_TOKEN}` },
+        data: {
+          websites: [
+            {
+              id: FIXTURE_WEBSITE_ID,
+              domain: { id: SSL_DOMAIN_ID, domain: 'mi-cliente.es' },
+              aliases: [],
+              status: 'active',
+              orgId: FIXTURE_CUSTOMER_ORG_ID,
+              subscriptionId: FIXTURE_SUBSCRIPTION_ID,
+              createdAt: new Date(now).toISOString(),
+            },
+          ],
+          domainSsls: {
+            [SSL_DOMAIN_ID]: {
+              cn: 'mi-cliente.es',
+              issued: new Date(now - 5 * DAY).toISOString(),
+              expires: new Date(now + 90 * DAY).toISOString(),
+              issuer: "Let's Encrypt",
+              forceHttps: true,
+            },
+          },
+        },
+      });
+      expect(seedRes.ok(), `seed ssl: ${seedRes.status()}`).toBeTruthy();
+
+      // Fuerza lectura fresca (invalida el cache service_info) y consulta.
+      await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/services/${testServiceId}/refresh`,
+        { headers: { Authorization: `Bearer ${superadminToken}` }, data: {} },
+      );
+      const res = await request.get(
+        `${TEST_CONFIG.apiUrl}/services/${testServiceId}`,
+        { headers: { Authorization: `Bearer ${clientToken}` } },
+      );
+      expect(res.ok()).toBeTruthy();
+      const body = (await res.json()) as {
+        info: { ssl?: { status?: string; issuer?: string } };
+      };
+      expect(
+        body.info.ssl?.status,
+        `info.ssl inesperado: ${JSON.stringify(body.info.ssl)}`,
+      ).toBe('valid');
+    });
+
+    test('G.2.b (F.8) — aviso de cuota: usedResources 90% + reconcile-all → service_quota_alerts crossed_up', async ({
+      request,
+    }) => {
+      await pool.query(
+        `DELETE FROM service_quota_alerts WHERE service_id = $1`,
+        [testServiceId],
+      );
+      // Siembra disco al 90% (9000/10000) > umbral 85% para la subscription.
+      const seedRes = await request.post(`${MOCK_BASE_URL}/__test__/seed`, {
+        headers: { Authorization: `Bearer ${MOCK_API_TOKEN}` },
+        data: {
+          usedResources: {
+            [String(FIXTURE_SUBSCRIPTION_ID)]: [
+              { name: 'disk', total: 10000, usage: 9000 },
+            ],
+          },
+        },
+      });
+      expect(seedRes.ok(), `seed quota: ${seedRes.status()}`).toBeTruthy();
+
+      // reconcile-all dispara el detector edge-triggered (F.8) tras la pasada.
+      const res = await request.post(
+        `${TEST_CONFIG.apiUrl}/admin/plugins/enhance_cp/reconcile-all`,
+        { headers: { Authorization: `Bearer ${superadminToken}` }, data: {} },
+      );
+      expect(
+        res.ok(),
+        `reconcile-all: ${res.status()} ${await res.text()}`,
+      ).toBeTruthy();
+
+      await new Promise((r) => setTimeout(r, 600));
+      const alert = await pool.query(
+        `SELECT 1 FROM service_quota_alerts
+         WHERE service_id = $1 AND kind = 'crossed_up' AND resource = 'disk'`,
+        [testServiceId],
+      );
+      expect(
+        alert.rowCount,
+        'debe crearse alerta crossed_up (edge-trigger F.8)',
+      ).toBe(1);
+    });
+
     test('10. admin deprovision con notify_client → status cancelled + email service.cancelled al cliente + audit notify_client=true (GAP-15CII-J)', async ({
       request,
     }) => {
