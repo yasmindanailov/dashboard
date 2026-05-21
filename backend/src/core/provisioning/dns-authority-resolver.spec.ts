@@ -152,6 +152,70 @@ describe('dns-authority-resolver (ADR-082 §6)', () => {
       );
       expect(extractServiceNameservers(buildService('domain', {}))).toEqual([]);
     });
+
+    // Sprint 15C.II Fase G.1.c (§A.2 área 3) — shapes inesperados del proveedor.
+    // El resolver es defensivo: ante basura, devuelve [] o filtra lo inválido
+    // sin lanzar (un dominio con metadata corrupta cae a 'external', nunca
+    // rompe la resolución).
+    describe('shapes defensivos (§A.2 área 3)', () => {
+      it('returns [] si nameservers es un number', () => {
+        expect(
+          extractServiceNameservers(
+            buildService('domain', { nameservers: 12345 }),
+          ),
+        ).toEqual([]);
+      });
+
+      it('returns [] si nameservers es un objeto (no array, no string)', () => {
+        expect(
+          extractServiceNameservers(
+            buildService('domain', { nameservers: { host: 'ns1.aelium.net' } }),
+          ),
+        ).toEqual([]);
+      });
+
+      it('returns [] si los items son objetos sin `host`', () => {
+        expect(
+          extractServiceNameservers(
+            buildService('domain', { nameservers: [{ foo: 'bar' }, {}] }),
+          ),
+        ).toEqual([]);
+      });
+
+      it('returns [] si `host` no es string', () => {
+        expect(
+          extractServiceNameservers(
+            buildService('domain', { nameservers: [{ host: 123 }] }),
+          ),
+        ).toEqual([]);
+      });
+
+      it('filtra basura mezclada y conserva solo los NS válidos', () => {
+        expect(
+          extractServiceNameservers(
+            buildService('domain', {
+              nameservers: [
+                null,
+                123,
+                '',
+                '   ',
+                { host: 'ns1.aelium.net' },
+                'NS2.Aelium.net',
+                { foo: 'bar' },
+              ],
+            }),
+          ),
+        ).toEqual(['ns1.aelium.net', 'ns2.aelium.net']);
+      });
+
+      it('returns [] si nameservers es string de solo comas/espacios', () => {
+        expect(
+          extractServiceNameservers(
+            buildService('domain', { nameservers: '  ,  , ' }),
+          ),
+        ).toEqual([]);
+      });
+    });
   });
 
   // ──────────────────────────────────────────────────────────────────────
