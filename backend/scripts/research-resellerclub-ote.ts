@@ -59,13 +59,16 @@ function buildQuery(params: Record<string, unknown>): string {
   return usp.toString();
 }
 
-/** RC devuelve HTTP 200 con { status: 'ERROR', message } en errores de negocio. */
+/**
+ * RC devuelve HTTP 200 con dos envoltorios de error de negocio
+ * (verificado empiricamente OT&E 2026-05-22):
+ *   - { status: 'ERROR', message }  (mayuscula — la mayoria de comandos)
+ *   - { status: 'error', error }    (minuscula — p. ej. domains/register)
+ */
 function isRcError(resp: unknown): boolean {
-  return (
-    !!resp &&
-    typeof resp === 'object' &&
-    (resp as Record<string, unknown>).status === 'ERROR'
-  );
+  if (!resp || typeof resp !== 'object') return false;
+  const status = (resp as Record<string, unknown>).status;
+  return typeof status === 'string' && status.toLowerCase() === 'error';
 }
 
 function extractId(resp: unknown): string | undefined {
@@ -73,9 +76,26 @@ function extractId(resp: unknown): string | undefined {
   if (typeof resp === 'string' && /^\d+$/.test(resp.trim())) return resp.trim();
   if (resp && typeof resp === 'object') {
     const o = resp as Record<string, unknown>;
-    for (const key of ['entityid', 'entity.id', 'eaqid', 'customerid', 'contactid', 'id']) {
+    for (const key of [
+      'entityid',
+      'entity.id',
+      'eaqid',
+      'customerid',
+      'contactid',
+      'id',
+    ]) {
       if (o[key] != null && /^\d+$/.test(String(o[key]))) return String(o[key]);
     }
+  }
+  return undefined;
+}
+
+/** Epoch del vencimiento actual (`endtime`) — requerido por domains/renew (DOM-INV-4). */
+function extractExpDate(resp: unknown): string | undefined {
+  if (resp && typeof resp === 'object') {
+    const o = resp as Record<string, unknown>;
+    if (o.endtime != null && /^\d+$/.test(String(o.endtime)))
+      return String(o.endtime);
   }
   return undefined;
 }
@@ -104,10 +124,16 @@ async function callRc(
     };
     const res =
       method === 'GET'
-        ? await fetch(`${url}?${buildQuery(authed)}`, { headers: browserHeaders, signal: controller.signal })
+        ? await fetch(`${url}?${buildQuery(authed)}`, {
+            headers: browserHeaders,
+            signal: controller.signal,
+          })
         : await fetch(url, {
             method: 'POST',
-            headers: { ...browserHeaders, 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: {
+              ...browserHeaders,
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
             body: buildQuery(authed),
             signal: controller.signal,
           });
@@ -124,16 +150,37 @@ async function callRc(
   } finally {
     clearTimeout(timer);
   }
-  const finding: Finding = { step, command, method, requestParams: params, httpStatus, ok, response };
+  const finding: Finding = {
+    step,
+    command,
+    method,
+    requestParams: params,
+    httpStatus,
+    ok,
+    response,
+  };
   findings.push(finding);
   const preview = JSON.stringify(response, null, 2);
-  console.log(`\n[${ok ? 'OK ' : 'ERR'}] ${step} — ${method} ${command}.json (HTTP ${httpStatus})`);
-  console.log(preview.length > 1500 ? `${preview.slice(0, 1500)}\n…(truncado)` : preview);
+  console.log(
+    `\n[${ok ? 'OK ' : 'ERR'}] ${step} — ${method} ${command}.json (HTTP ${httpStatus})`,
+  );
+  console.log(
+    preview.length > 1500 ? `${preview.slice(0, 1500)}\n…(truncado)` : preview,
+  );
   return finding;
 }
 
 function skip(step: string, command: string, note: string): void {
-  findings.push({ step, command, method: 'POST', requestParams: {}, httpStatus: null, ok: false, response: null, note });
+  findings.push({
+    step,
+    command,
+    method: 'POST',
+    requestParams: {},
+    httpStatus: null,
+    ok: false,
+    response: null,
+    note,
+  });
   console.log(`\n[SKIP] ${step} — ${note}`);
 }
 
@@ -145,74 +192,228 @@ async function main(): Promise<void> {
   const demoEmail = `ote.${ts}@aelium.test`;
 
   // ─── 1. Pre-venta: availability + suggest + pricing ───────────────────────
-  await callRc('avail_free', 'domains/available', { 'domain-name': label, tlds: ['com', 'net', 'org', 'es', 'eu'] }, 'GET');
-  await callRc('avail_taken', 'domains/available', { 'domain-name': 'google', tlds: ['com'] }, 'GET');
-  await callRc('suggest_names', 'domains/suggest-names', { keyword: 'aelium hosting', tlds: ['com'], 'no-of-results': 5 }, 'GET');
+  await callRc(
+    'avail_free',
+    'domains/available',
+    { 'domain-name': label, tlds: ['com', 'net', 'org', 'es', 'eu'] },
+    'GET',
+  );
+  await callRc(
+    'avail_taken',
+    'domains/available',
+    { 'domain-name': 'google', tlds: ['com'] },
+    'GET',
+  );
+  await callRc(
+    'suggest_names',
+    'domains/suggest-names',
+    { keyword: 'aelium hosting', tlds: ['com'], 'no-of-results': 5 },
+    'GET',
+  );
   // Pricing: probar ambos endpoints conocidos (coste reseller + precio customer)
   await callRc('reseller_price', 'products/reseller-price', {}, 'GET');
   await callRc('customer_price', 'products/customer-price', {}, 'GET');
 
   // ─── 2. Customer lazy: details (existe?) -> signup ────────────────────────
-  await callRc('customer_details_miss', 'customers/details', { username: demoEmail }, 'GET');
-  const signup = await callRc('customer_signup', 'customers/signup', {
-    username: demoEmail, passwd: 'AeliumOte2026!', name: 'Aelium OTE', company: 'Aelium Test S.L.',
-    'address-line-1': 'Calle de Prueba 123', city: 'Madrid', state: 'Madrid', country: 'ES',
-    zipcode: '28001', 'phone-cc': '34', phone: '600000000', 'lang-pref': 'en',
-  }, 'POST');
+  await callRc(
+    'customer_details_miss',
+    'customers/details',
+    { username: demoEmail },
+    'GET',
+  );
+  const signup = await callRc(
+    'customer_signup',
+    'customers/signup',
+    {
+      username: demoEmail,
+      passwd: 'AeliumOte2026!',
+      name: 'Aelium OTE',
+      company: 'Aelium Test S.L.',
+      'address-line-1': 'Calle de Prueba 123',
+      city: 'Madrid',
+      state: 'Madrid',
+      country: 'ES',
+      zipcode: '28001',
+      'phone-cc': '34',
+      phone: '600000000',
+      'lang-pref': 'en',
+    },
+    'POST',
+  );
   const customerId = extractId(signup.response);
 
   // ─── 3. Contact handle (.com generico) ────────────────────────────────────
   let contactId: string | undefined;
   if (customerId) {
-    const contact = await callRc('contact_add', 'contacts/add', {
-      name: 'Aelium OTE', company: 'Aelium Test S.L.', email: demoEmail,
-      'address-line-1': 'Calle de Prueba 123', city: 'Madrid', state: 'Madrid', country: 'ES',
-      zipcode: '28001', 'phone-cc': '34', phone: '600000000', 'customer-id': customerId, type: 'Contact',
-    }, 'POST');
+    const contact = await callRc(
+      'contact_add',
+      'contacts/add',
+      {
+        name: 'Aelium OTE',
+        company: 'Aelium Test S.L.',
+        email: demoEmail,
+        'address-line-1': 'Calle de Prueba 123',
+        city: 'Madrid',
+        state: 'Madrid',
+        country: 'ES',
+        zipcode: '28001',
+        'phone-cc': '34',
+        phone: '600000000',
+        'customer-id': customerId,
+        type: 'Contact',
+      },
+      'POST',
+    );
     contactId = extractId(contact.response);
   } else {
-    skip('contact_add', 'contacts/add', 'sin customer-id (signup no devolvio id)');
+    skip(
+      'contact_add',
+      'contacts/add',
+      'sin customer-id (signup no devolvio id)',
+    );
   }
 
   // ─── 4. Register .com ─────────────────────────────────────────────────────
+  // HALLAZGO OT&E (2026-05-22): RC exige que los nameservers esten REGISTRADOS
+  // como host objects en la cuenta (no basta con que resuelvan): rechaza tanto
+  // ns1/ns2.aelium.net (produccion, ADR-082) como los de IANA con
+  // { status:'error', error:'NameServer ... is not a valid Nameserver' }.
+  // Prerequisito para el smoke (Fase G) / produccion (P-DEPLOY): registrar los
+  // NS de Aelium en la cuenta RC (Settings -> Child/Registered Nameservers) y
+  // pasarlos por RESELLERCLUB_OTE_NS para capturar register/details/gestion.
+  const OTE_NS = (
+    process.env.RESELLERCLUB_OTE_NS ?? 'ns1.aelium.net,ns2.aelium.net'
+  )
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   let orderId: string | undefined;
   if (customerId && contactId) {
-    const reg = await callRc('register', 'domains/register', {
-      'domain-name': `${label}.com`, years: 1, ns: ['ns1.aelium.net', 'ns2.aelium.net'],
-      'customer-id': customerId, 'reg-contact-id': contactId, 'admin-contact-id': contactId,
-      'tech-contact-id': contactId, 'billing-contact-id': contactId,
-      'invoice-option': 'NoInvoice', 'protect-privacy': false,
-    }, 'POST');
+    const reg = await callRc(
+      'register',
+      'domains/register',
+      {
+        'domain-name': `${label}.com`,
+        years: 1,
+        ns: OTE_NS,
+        'customer-id': customerId,
+        'reg-contact-id': contactId,
+        'admin-contact-id': contactId,
+        'tech-contact-id': contactId,
+        'billing-contact-id': contactId,
+        'invoice-option': 'NoInvoice',
+        'protect-privacy': false,
+      },
+      'POST',
+    );
     orderId = extractId(reg.response);
   } else {
     skip('register', 'domains/register', 'sin customer-id/contact-id');
   }
 
-  // ─── 5. Details (shape de getServiceInfo) ─────────────────────────────────
-  await callRc('details_by_name', 'domains/details-by-name', { 'domain-name': `${label}.com`, options: 'All' }, 'GET');
+  // ─── 5. Details (shape de getServiceInfo + expires_at) ─────────────────────
+  await callRc(
+    'details_by_name',
+    'domains/details-by-name',
+    { 'domain-name': `${label}.com`, options: 'All' },
+    'GET',
+  );
+  let expDate: string | undefined;
+  if (orderId) {
+    const det = await callRc(
+      'details_by_id',
+      'domains/details',
+      { 'order-id': orderId, options: 'All' },
+      'GET',
+    );
+    expDate = extractExpDate(det.response);
+  }
 
   // ─── 6. Gestion + renew + suspend/unsuspend (requieren order-id) ──────────
   if (orderId) {
-    await callRc('modify_ns', 'domains/modify-ns', { 'order-id': orderId, ns: ['ns1.aelium.net', 'ns2.aelium.net'] }, 'POST');
-    await callRc('modify_auth_code', 'domains/modify-auth-code', { 'order-id': orderId, 'auth-code': `Ae${ts}Xz!` }, 'POST');
-    await callRc('theft_protection_enable', 'domains/enable-theft-protection', { 'order-id': orderId }, 'POST');
-    await callRc('theft_protection_disable', 'domains/disable-theft-protection', { 'order-id': orderId }, 'POST');
-    await callRc('renew', 'domains/renew', { 'order-id': orderId, years: 1, 'invoice-option': 'NoInvoice' }, 'POST');
-    await callRc('suspend', 'orders/suspend', { 'order-id': orderId, reason: 'OTE research test' }, 'POST');
-    await callRc('unsuspend', 'orders/unsuspend', { 'order-id': orderId }, 'POST');
+    await callRc(
+      'modify_ns',
+      'domains/modify-ns',
+      { 'order-id': orderId, ns: OTE_NS },
+      'POST',
+    );
+    await callRc(
+      'modify_auth_code',
+      'domains/modify-auth-code',
+      { 'order-id': orderId, 'auth-code': `Ae${ts}Xz!` },
+      'POST',
+    );
+    await callRc(
+      'theft_protection_enable',
+      'domains/enable-theft-protection',
+      { 'order-id': orderId },
+      'POST',
+    );
+    await callRc(
+      'theft_protection_disable',
+      'domains/disable-theft-protection',
+      { 'order-id': orderId },
+      'POST',
+    );
+    await callRc(
+      'renew',
+      'domains/renew',
+      {
+        'order-id': orderId,
+        years: 1,
+        'exp-date': expDate,
+        'invoice-option': 'NoInvoice',
+      },
+      'POST',
+    );
+    await callRc(
+      'suspend',
+      'orders/suspend',
+      { 'order-id': orderId, reason: 'OTE research test' },
+      'POST',
+    );
+    await callRc(
+      'unsuspend',
+      'orders/unsuspend',
+      { 'order-id': orderId },
+      'POST',
+    );
   } else {
-    skip('management+renew+suspend', 'domains/* + orders/*', 'sin order-id (register no completo)');
+    skip(
+      'management+renew+suspend',
+      'domains/* + orders/*',
+      'sin order-id (register no completo)',
+    );
   }
 
   // ─── Persistir captura cruda (datos demo, SIN credenciales) ───────────────
-  const outPath = join(__dirname, '..', '..', 'docs', '_research', 'sprint-15d', 'ote-raw-capture.json');
+  const outPath = join(
+    __dirname,
+    '..',
+    '..',
+    'docs',
+    '_research',
+    'sprint-15d',
+    'ote-raw-capture.json',
+  );
   writeFileSync(
     outPath,
-    JSON.stringify({ capturedAt: new Date().toISOString(), sandbox: SANDBOX_URL, total: findings.length, findings }, null, 2),
+    JSON.stringify(
+      {
+        capturedAt: new Date().toISOString(),
+        sandbox: SANDBOX_URL,
+        total: findings.length,
+        findings,
+      },
+      null,
+      2,
+    ),
     'utf8',
   );
   const okCount = findings.filter((f) => f.ok).length;
-  console.log(`\n=== ${findings.length} llamadas · OK ${okCount}/${findings.length} → ${outPath} ===`);
+  console.log(
+    `\n=== ${findings.length} llamadas · OK ${okCount}/${findings.length} → ${outPath} ===`,
+  );
 }
 
 void main().catch((e: unknown) => {
