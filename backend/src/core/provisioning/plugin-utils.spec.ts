@@ -78,6 +78,7 @@ function buildPlugin(over: Partial<ProvisionerPlugin> = {}): ProvisionerPlugin {
       supports_reconciliation: false,
       has_dns_management: false, // ADR-077 Amendment A1
       supports_suspend: false, // ADR-077 Amendment A4
+      is_domain_registrar: false, // ADR-077 Amendment A10
     },
     inlineActions: [],
     manifest: TEST_MANIFEST,
@@ -104,6 +105,7 @@ const sampleInfo = (): ServiceInfo => ({
     supports_reconciliation: false,
     has_dns_management: false, // ADR-077 Amendment A1
     supports_suspend: false, // ADR-077 Amendment A4
+    is_domain_registrar: false, // ADR-077 Amendment A10
     hasSsoPanel: false,
     inlineActions: [],
   },
@@ -776,6 +778,7 @@ describe('getSsoUrlWithAudit â€” Sprint 11 Fase 11.B', () => {
         supports_reconciliation: true,
         has_dns_management: false, // ADR-077 Amendment A1
         supports_suspend: false, // ADR-077 Amendment A4
+        is_domain_registrar: false, // ADR-077 Amendment A10
       },
       getSsoUrl: jest.fn().mockResolvedValue({
         url: 'https://cpanel.example.com/?sk=abc',
@@ -823,6 +826,7 @@ describe('getSsoUrlWithAudit â€” Sprint 11 Fase 11.B', () => {
         supports_reconciliation: true,
         has_dns_management: false, // ADR-077 Amendment A1
         supports_suspend: false, // ADR-077 Amendment A4
+        is_domain_registrar: false, // ADR-077 Amendment A10
       },
       getSsoUrl: jest.fn().mockRejectedValue(new Error('connection refused')),
     });
@@ -862,6 +866,7 @@ describe('getSsoUrlWithAudit â€” Sprint 11 Fase 11.B', () => {
         supports_reconciliation: true,
         has_dns_management: false,
         supports_suspend: false, // ADR-077 Amendment A4
+        is_domain_registrar: false, // ADR-077 Amendment A10
       },
       getSsoUrl: jest.fn().mockResolvedValue({
         url: 'https://cpanel.example.com/?sk=abc',

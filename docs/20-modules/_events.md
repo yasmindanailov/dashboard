@@ -213,6 +213,24 @@ El listener `BootstrapEnhanceDefaultsOnPluginInstalledListener` (`@OnEvent('plug
 
 ---
 
+### 🌍 domain.* (Sprint 15D — ADR-084 §5)
+
+> **Declarados (doc-only) antes de emitir** — Fase 15D.B doc-sync. La emisión llega faseada: `domain.registered` (Fase B/F), `domain.renewed` + lifecycle de expiración (Fase E), gestión `domain.*_changed` (Fase F), `domain.transfer_*` (Sprint 15D.II). Todos los de **dinero/estado** vía **Outbox** (R8) — emitidos transaccionalmente por el orquestador.
+
+| Evento | Emisor | Consumidores | Payload | Outbox | Estado |
+|--------|--------|--------------|---------|--------|--------|
+| `domain.registered` | orquestador `provisioning` tras `register` OK (Fase B/F) | notifs (confirmación), audit, **listener `ensure-dns-zone-on-domain-activated`** (zona DNS post-register — [ADR-082 A2.2](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md)) | `{ service_id, user_id, fqdn, years, expires_at, correlation_id }` | **sí** | ⬜ aspiracional (emisor Fase B/F) |
+| `domain.renewed` | orquestador tras `renew` **verificado** (DOM-INV-4 — `expires_at` avanzó, [ADR-084 A1](../10-decisions/adr-084-comercio-dominios-registrar.md)) | notifs, audit | `{ service_id, user_id, fqdn, new_expires_at, correlation_id }` | **sí** | ⬜ aspiracional (emisor Fase E) |
+| `domain.expiring_soon` | cron de avisos (lee `services.expires_at`) | notifs (email 30/14/7/1 días) | `{ service_id, user_id, fqdn, days_left }` | no (alerta) | ⬜ aspiracional (emisor Fase E) |
+| `domain.expired` | reconcile cron RC (`domains/search`, 6h) | notifs, audit | `{ service_id, user_id, fqdn }` | **sí** | ⬜ aspiracional (emisor Fase E) |
+| `domain.entered_redemption` | reconcile cron RC | notifs, audit | `{ service_id, user_id, fqdn }` | **sí** | ⬜ aspiracional (emisor Fase E) |
+| `domain.nameservers_changed` / `domain.contacts_changed` / `domain.privacy_changed` / `domain.lock_changed` | `executeAction` (inline gestión, Fase F) | audit; notifs si aplica | `{ service_id, user_id, fqdn, ... }` | no (post-action) | ⬜ aspiracional (emisor Fase F) |
+| `domain.transfer_initiated` / `domain.transfer_completed` / `domain.transfer_failed` | FSM de transfer ([ADR-084 §4](../10-decisions/adr-084-comercio-dominios-registrar.md)) | notifs, audit, zona DNS (en `completed`) | `{ service_id, user_id, fqdn, ... }` | **sí** | ⬜ aspiracional (Sprint 15D.II) |
+
+**Nota canónica (ADR-084 §5):** auto-renew con **cobro automático** se difiere por dependencia de método de pago guardado (Stripe, P3); en v1 la renovación es factura + avisos (`domain.expiring_soon`). Los `domain.*` se registran aquí antes de emitirse (regla del playbook §6).
+
+---
+
 ## Listeners activos (consolidado)
 
 | Listener | Eventos consumidos | Acciones |

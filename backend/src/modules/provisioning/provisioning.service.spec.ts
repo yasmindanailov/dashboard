@@ -126,6 +126,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         supports_reconciliation: false,
         has_dns_management: false, // ADR-077 Amendment A1
         supports_suspend: false, // ADR-077 Amendment A4
+        is_domain_registrar: false, // ADR-077 Amendment A10
       },
       inlineActions: [],
       manifest: TEST_MANIFEST,
@@ -145,6 +146,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
           supports_reconciliation: false,
           has_dns_management: false, // ADR-077 Amendment A1
           supports_suspend: false, // ADR-077 Amendment A4
+          is_domain_registrar: false, // ADR-077 Amendment A10
           hasSsoPanel: false,
           inlineActions: [],
         },
@@ -806,6 +808,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
           supports_reconciliation: true,
           has_dns_management: false,
           supports_suspend: true,
+          is_domain_registrar: false, // ADR-077 Amendment A10
         },
         inlineActions: [
           {
@@ -1066,6 +1069,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
           supports_reconciliation: true,
           has_dns_management: true,
           supports_suspend: false, // ADR-077 Amendment A4
+          is_domain_registrar: false, // ADR-077 Amendment A10
         },
         inlineActions: [
           {
@@ -1385,6 +1389,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
           supports_reconciliation: true,
           has_dns_management: false,
           supports_suspend: true,
+          is_domain_registrar: false, // ADR-077 Amendment A10
         },
         inlineActions: [SUSPEND_ACTION, UNSUSPEND_ACTION],
         getServiceInfo: jest.fn().mockResolvedValue({
@@ -1400,6 +1405,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
             supports_reconciliation: true,
             has_dns_management: false,
             supports_suspend: true,
+            is_domain_registrar: false, // ADR-077 Amendment A10
             hasSsoPanel: false,
             inlineActions:
               providerStatus === 'suspended' ? [UNSUSPEND_ACTION] : [],
