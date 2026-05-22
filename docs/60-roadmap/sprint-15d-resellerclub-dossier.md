@@ -1,10 +1,18 @@
 # Sprint 15D — Plugin ResellerClub · Dossier de pre-sprint
 
 > **Tipo:** Pre-sprint research dossier (no es plan de sprint activo).
-> **Estado:** ⏸ **Diferido**. Sprint 15D NO se aborda hasta cerrar **Sprint 15C — Plugin Enhance CP**. Razón documentada en §2.
+> **Estado:** 🚀 **PROMOVIDO A SPRINT ACTIVO (2026-05-21).** Fase 15D.A (doctrina) ✅ mergeada (PR #100) + Fase 15D.B0 (research) ✅ documental (PR #101). Estado vivo en [`current.md` §Sprint 15D](./current.md). Siguiente paso: **Fase 15D.B** (código).
 > **Origen:** Sesión Yasmin ↔ Claude del 2026-05-07 (post merge Sprint 15A `bee90d8`).
-> **Cuándo se promueve a sprint activo:** cuando Sprint 15C cierre y deje en producción el plugin Enhance + listener auto-config DNS + ADR-082 (Domain↔Hosting).
-> **Frase canónica de arranque (futuro):** *"Lee `docs/60-roadmap/sprint-15d-resellerclub-dossier.md` + `docs/10-decisions/adr-082-*.md` + `docs/10-decisions/adr-080-plugin-framework.md` + `docs/20-modules/provisioning/contract.md`. Vamos con Sprint 15D — Plugin ResellerClub. Crea rama `sprint15d-plugin-resellerclub` desde master."*
+>
+> ⚠️ **DOCTRINA VIGENTE = los ADRs, NO este dossier.** Esto es *research de pre-sprint* (2026-05-07). El **cotejo de planificación 2026-05-21** refinó varias decisiones; los ADRs **[077 A10](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) · [082 A2](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md) · [084](../10-decisions/adr-084-comercio-dominios-registrar.md) · [081](../10-decisions/adr-081-plugin-resellerclub-specifics.md)** ganan sobre lo apuntado aquí (Lección L18). **Correcciones clave** (el dossier NO se reescribe; se anotan):
+> - **Pre-register handshake `domain.zone_pre_create` (dec. 11, T10, fase 15D.E) → DESCARTADO.** La zona DNS se crea **post-register vía orquestador** (decisión D1, [ADR-082 §A2.2](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md)).
+> - **"Cinco invariantes DH-INV-1..5" (§3.1) → SON SEIS** (DH-INV-6 "Enhance gana en conflicto", ADR-082) + nuevo flujo **F5** "solo dominio".
+> - **Mapping de estado (dec. 13) → `ServiceInfoStatus`** (no el enum `ServiceStatus`; valores `…|unknown`) — [ADR-081 §6](../10-decisions/adr-081-plugin-resellerclub-specifics.md).
+> - **Tablas `resellerclub_*` → PK natural `user_id`** + lazy create con advisory lock — [ADR-081 §3/§4](../10-decisions/adr-081-plugin-resellerclub-specifics.md).
+> - **Empaquetado → 2 sprints por madurez**: 15D core (register+renew+gestión) → 15D.II (transfer-in FSM + premium + DOM-INV-3/4); + robustez **DOM-INV-1..5** y contrato de registrar canónico `is_domain_registrar` ([ADR-077 A10](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md), [ADR-084](../10-decisions/adr-084-comercio-dominios-registrar.md)).
+> - **Hallazgo B0**: la API está tras **Cloudflare WAF** (IP whitelist obligatoria) — ver [`docs/_research/sprint-15d/`](../_research/sprint-15d/).
+>
+> **Para retomar:** lee los 4 ADRs de arriba + [`current.md` §Sprint 15D](./current.md) (plan de fases) + [`docs/_research/sprint-15d/`](../_research/sprint-15d/). El research empírico OT&E queda pendiente de IP estable (DC.NEW-62).
 
 ---
 
