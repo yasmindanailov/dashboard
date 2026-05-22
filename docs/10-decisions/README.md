@@ -164,7 +164,12 @@ Resultado: la historia queda íntegra.
 - [ADR-076](./adr-076-checkout-unico-support-inside-via-evento.md) — Checkout único por dominio billing: Support Inside como consumidor del evento `service.provisioned` emitido por `BillingCheckoutService` (Sprint 8 Fase D.12)
 - [ADR-077](./adr-077-contrato-provisioner-plugin-v2.md) — Contrato canónico `ProvisionerPlugin` v2: firma TypeScript congelada + capability flags + shapes (`ServiceInfo`/`SsoUrl`/`ActionResult`) + pipeline canónico de wrappers + política de versionado (Sprint 11 Fase 11.A)
 - [ADR-078](./adr-078-auth-server-side-cookies-httponly.md) — Auth server-side con cookies httpOnly para Server Components: plan canónico de migración DC.13 + DC.6 + marker `TODO(ADR-078)` para trazabilidad mecánica + Fase 11.D del Sprint 11 como última excepción permitida del patrón `'use client' + localStorage` (Sprint 13 §13.AUTH cierra la deuda)
+- [ADR-079](./adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md) — Tasks bridge unidireccional read-only + consolidación de notas con `source_system`/`source_id`/`triggered_by_action` (Sprint 16)
 - [ADR-080](./adr-080-plugin-framework.md) — Plugin Framework: manifest declarativo (JSON-Schema 7 config + secrets schema) + tabla `plugin_installs` + `SecretVaultService` AES-256-GCM con `ENCRYPTION_KEY` env var + `key_version` para rotación + loader runtime desde DB + circuit breaker tras interface + 5 eventos canónicos `plugin.*` (Sprint 15A Fase A)
+- [ADR-081](./adr-081-plugin-resellerclub-specifics.md) — Plugin ResellerClub specifics: auth `userid+api-key`, customer/contact lazy (PK `user_id` + advisory lock), renewal idempotente, mapping de estado→`ServiceInfoStatus` y errores RC→canónicos, sandbox OT&E, scope v1 por madurez (Sprint 15D)
+- [ADR-082](./adr-082-modelo-domain-hosting-dns-doctrine.md) — Modelo Domain↔Hosting + DNS doctrine: 6 invariantes DH-INV + flujos de checkout F1–F5 + capability `has_dns_management` + NS-sync 3 capas + cross-plugin DNS authority resolver + (A2) zona post-register vía orquestador + lifecycle de expiración (Sprint 15C + 15D)
+- [ADR-083](./adr-083-plugin-enhance-cp-specifics.md) — Plugin Enhance CP specifics: provisioning 6-step + customer lazy + reconcile defensivo + 35 decisiones frozen + amendments A1–A10 (Sprint 15C / 15C.II)
+- [ADR-084](./adr-084-comercio-dominios-registrar.md) — Comercio de dominios: tabla `domain_tld_pricing` (TLD×operación×años) + checkout multi-ítem + invariantes de robustez DOM-INV-1..5 + FSM de transfer + catálogo de eventos `domain.*` (Sprint 15D)
 
 ---
 

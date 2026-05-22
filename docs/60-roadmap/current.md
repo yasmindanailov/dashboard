@@ -2,7 +2,9 @@
 
 > **Estado real verificado** contra código en auditoría 2026-04-26 + closures Sprint 8 / 9 / 9.5 / 9.6 / 11.5 (2026-04-26 → 2026-05-01) + Sprint 11 Fases A+B (2026-05-01/02). Cualquier sprint listado aquí está parcialmente avanzado (no es backlog puro — para eso ver [`backlog.md`](./backlog.md)). Los sprints ✅ que aparecen abajo son punteros a `completed/`; viven aquí solo para trazabilidad cronológica de la ola P1.1.
 
-> **Última actualización:** 2026-05-21 — **Sprint 15C.II Hardening — Plugin Enhance CP ✅ CERRADO.** Fase G completa: **G.2** (extensión E2E — §A.2 #6 SSO impersonation + #7e AdminOnly bypass + flujos F.4/F.5/F.6 lifecycle + F.9 reconcile + F.7 SSL + F.8 cuota; spec `sprint-15c-enhance-flow` **16/16**) mergeada vía PR [#98](https://github.com/yasmindanailov/dashboard/pull/98) squash [`d1f7e8b`](https://github.com/yasmindanailov/dashboard/commit/d1f7e8b) (bypass §6, **17ª aplicación**; `pnpm ci:check:full` verde + 16/16 E2E + `POST /__test__/seed` nuevo en el mock); **G.3** smoke real Yasmin **VALIDADO** (2026-05-21, fixture `enhance_cp` activo con refs reales — SSL/cuota/deep-links/suspender/SSO — sin bugs); **G.4** retrospectiva ejecutiva + métricas + lecciones (L13–L23) en [`completed/sprint-15c-ii-hardening-enhance.md`](completed/sprint-15c-ii-hardening-enhance.md) (dossier preservado in-situ como **anexo de trazabilidad**); **G.5** este doc-sync de cierre. **Las 8 áreas §A.2** cubiertas (G.1: 1,2,3,5,7u,8 + F.6 · G.2: 6,7e E2E · #4 unit-covered + smoke). **Cobertura final**: **58 suites · 852 passed + 6 skipped** unit + **4/8** integración + **16/16** E2E spec. Deudas: **DC.44/DC.45 cerradas** (F.5/F.9), **DC.49 materializada** (G.2 mock seed), **DC.NEW-59** apuntada (deep-links E2E diferido — unit-covered). **Compromiso doctrinal Yasmin cumplido** ("100% operativo, features básicos perfectos para producción"). **🔓 Sprint 15D ResellerClub DESBLOQUEADO** — cola P2.4 activa.
+> **Última actualización:** 2026-05-21 — **🚀 Sprint 15D — Plugin ResellerClub + Fundación de comercio de dominios: ARRANCADO (Fase 15D.A — doctrina).** Cotejo de planificación + valoración de modelo y robustez (sesión 2026-05-21) → **4 piezas de doctrina** en rama `sprint15d-fase-a-doctrina`: **[ADR-077](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) Amendment A10** (contrato de registrar: capability `is_domain_registrar` + sub-contrato en 3 planos [pre-venta `checkDomainAvailability`/`getTldPricing` + ciclo de vida `register`/`renew`/`transfer_in` vía `ProvisionContext.operation` + 5 inline actions de gestión] + 7 códigos de error de dominio); **[ADR-082](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md) Amendment A2** (flujo **F5** "solo dominio" + **zona DNS post-register vía orquestador** [decisión D1, descarta el handshake pre-register del dossier] + lifecycle de expiración + `services.expires_at`); **[ADR-084](../10-decisions/adr-084-comercio-dominios-registrar.md) NUEVO** (comercio de dominios: tabla `domain_tld_pricing` + checkout multi-ítem + invariantes **DOM-INV-1..5** + FSM de transfer + eventos `domain.*`); **[ADR-081](../10-decisions/adr-081-plugin-resellerclub-specifics.md) NUEVO** (ResellerClub specifics, con correcciones del cotejo: PK `user_id`, `ServiceInfoStatus`, mapeo de errores RC→canónicos). **Empaquetado en dos sprints por madurez**: **15D core** (register+renew+gestión, ~4-5 sesiones) → **15D.II avanzado** (transfer-in FSM + premium + buscador rico + DOM-INV-3/4, ~3-4 sesiones). Doctrina completa ahora, implementación faseada. **Plan de sprint abajo** (§ Sprint 15D). Pendiente: revisión Yasmin de la doctrina antes de Fase 15D.B (código).
+>
+> **Anterior:** 2026-05-21 — **Sprint 15C.II Hardening — Plugin Enhance CP ✅ CERRADO.** Fase G completa: **G.2** (extensión E2E — §A.2 #6 SSO impersonation + #7e AdminOnly bypass + flujos F.4/F.5/F.6 lifecycle + F.9 reconcile + F.7 SSL + F.8 cuota; spec `sprint-15c-enhance-flow` **16/16**) mergeada vía PR [#98](https://github.com/yasmindanailov/dashboard/pull/98) squash [`d1f7e8b`](https://github.com/yasmindanailov/dashboard/commit/d1f7e8b) (bypass §6, **17ª aplicación**; `pnpm ci:check:full` verde + 16/16 E2E + `POST /__test__/seed` nuevo en el mock); **G.3** smoke real Yasmin **VALIDADO** (2026-05-21, fixture `enhance_cp` activo con refs reales — SSL/cuota/deep-links/suspender/SSO — sin bugs); **G.4** retrospectiva ejecutiva + métricas + lecciones (L13–L23) en [`completed/sprint-15c-ii-hardening-enhance.md`](completed/sprint-15c-ii-hardening-enhance.md) (dossier preservado in-situ como **anexo de trazabilidad**); **G.5** este doc-sync de cierre. **Las 8 áreas §A.2** cubiertas (G.1: 1,2,3,5,7u,8 + F.6 · G.2: 6,7e E2E · #4 unit-covered + smoke). **Cobertura final**: **58 suites · 852 passed + 6 skipped** unit + **4/8** integración + **16/16** E2E spec. Deudas: **DC.44/DC.45 cerradas** (F.5/F.9), **DC.49 materializada** (G.2 mock seed), **DC.NEW-59** apuntada (deep-links E2E diferido — unit-covered). **Compromiso doctrinal Yasmin cumplido** ("100% operativo, features básicos perfectos para producción"). **🔓 Sprint 15D ResellerClub DESBLOQUEADO** — cola P2.4 activa.
 >
 > **Anterior:** 2026-05-21 — **Sprint 15C.II Hardening — Fase G.1 (tests críticos faltantes del audit §A.2) cerrada y mergeada a master — PR [#97](https://github.com/yasmindanailov/dashboard/pull/97) squash-merge [`983adca`](https://github.com/yasmindanailov/dashboard/commit/983adca)** (bypass policy §6, **16ª aplicación** — patrón heredado #57…#94; CI GitHub billing-bloqueada §A.9.10; las 3 condiciones cumplidas: motivo externo + `pnpm ci:check:full` verde [backend **58 suites · 852 passed + 6 skipped** = +54 tests vs F.12 + `nest build`; frontend `tsc --noEmit` + `eslint --max-warnings=0` + `next build` 32 páginas] + integración `pnpm --dir backend test:e2e` **4 suites · 8 passed** + sección formal en el PR). **Tema**: primer bloque de la **Fase G** — cierra los coverage gaps del audit §A.2 que **escapaban a los mocks** (lección §A.2: verde en superficie, profundidad débil contra infra real). **Contenido**: harness de integración NUEVO `backend/test/integration/*.e2e-spec.ts` (`_helpers.ts` arranca un `PrismaService` real contra `docker-compose.dev` — Regla R-IPv6 — corre con `pnpm --dir backend test:e2e`) — **G.1.a** advisory lock concurrente (§A.2 #1, `pg_advisory_xact_lock` real) + threshold race Serializable (§A.2 #8) [los logs confirman el camino real: cache-hit tras esperar el lock + `TransactionWriteConflict` SQLSTATE 40001 → `tx_failed`]; **G.1.b** key rotation graceful (§A.2 #2, round-trip de `plugin_installs.secrets`) + **change_package fail-safe** (§A.2 #5 — *hardening*: `actionChangePackage` envuelve el update local y lanza `ProvisionerPluginError` semántico retriable en vez del error crudo de Prisma; decisión Yasmin "error semántico + retry idempotente"; **ADR-083 Amendment A10**); **G.1.c** unit gaps `dns-records.dto.spec` (TTL bounds + kind `@IsIn`, §A.2 #3) + extensión `dns-authority-resolver.spec` (shapes rotos de `metadata.nameservers`) + `admin-only.guard.spec` (§A.2 #7u) + `client-notes.service.spec` (F.6 `createFromServiceLifecycleAction` aislado). **Cero cambios de contrato ADR-077** (el hardening reusa `PROVIDER_INTERNAL_ERROR`). Matriz frozen en dossier **§A.11.10.10.1**. **Tras este merge**: G.1 cubre §A.2 áreas **1, 2, 3, 5, 7u, 8 + F.6**; restan **G.2** (extensión E2E Playwright — áreas 4 breaker recovery / 6 SSO impersonation / 7e AdminOnly bypass + flujos Fase E/F) → **G.3** smoke real Yasmin → **G.4** retrospectiva + mover dossier a `completed/` → **G.5** doc-sync de cierre. **Sprint 15D RC sigue BLOQUEADO** hasta cerrar la Fase G completa.
 >
@@ -66,6 +68,104 @@ Verificada completa contra código en `frontend/components/ui/`:
 ### ⏳ Fase 2 — Migración de páginas existentes (parcial)
 
 Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, clients, products). Otras pendientes — el playbook no enumera el % exacto. Acción: **cuando se aborde una página por trabajo de feature, migrarla al DS en el mismo PR** (oportunismo) en lugar de un sprint dedicado de migración masiva.
+
+---
+
+## 🚀 Sprint 15D — Plugin ResellerClub + Fundación de comercio de dominios (P2.4)
+
+**Estado:** 🟡 en curso — **Fase 15D.A (doctrina) ✅** · siguiente **15D.B0 (research + verificación OT&E)** · luego 15D.B→G (15D core) + Sprint 15D.II.
+**Inicio:** 2026-05-21. **Cierre estimado:** 15D core ~4-5 sesiones · 15D.II ~3-4 sesiones.
+**Rama Fase A:** `sprint15d-fase-a-doctrina` (doc-only).
+
+> Cabeza de la cola activa **P2.4**, desbloqueada tras cerrar Sprint 15C.II (2026-05-21). Empaquetado en **dos sprints por madurez** (decisión sesión 2026-05-21): **15D core** (registrar + renovar + gestionar dominios end-to-end, ~70-80 % del valor) y **15D.II** (transfer-in + avanzado). La **doctrina (Fase 15D.A) congela ambos**; la implementación se fasea. Origen: [dossier de pre-sprint](./sprint-15d-resellerclub-dossier.md) + cotejo de planificación 2026-05-21.
+
+### 1. Objetivo en una frase
+
+> Permitir a los clientes **buscar, registrar, renovar y gestionar dominios** (con hosting o solos) desde el dashboard, sobre un sistema de comercio de dominios robusto y **agnóstico al registrar**, siendo ResellerClub la primera implementación.
+
+### 2. Depende de
+
+| # | Dependencia | Estado | Bloquea |
+|---|-------------|--------|---------|
+| 1 | Sprint 15C.II (Enhance como autoridad DNS + `dns-authority-resolver` + default NS) | ✅ (cerrado 2026-05-21) | Zona post-register (F5), DNS de dominios |
+| 2 | [ADR-077 A10](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) (contrato registrar) + [ADR-082 A2](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md) + [ADR-084](../10-decisions/adr-084-comercio-dominios-registrar.md) + [ADR-081](../10-decisions/adr-081-plugin-resellerclub-specifics.md) | ✅ (Fase 15D.A) | Todo el código de 15D |
+| 3 | Credenciales ResellerClub OT&E (sandbox) + IP pública whitelisteada en panel RC | ⬜ (Yasmin) | **Fase 15D.B0** (research/verificación) + E2E real (Fase G) |
+
+### 3. Produce (contratos nuevos)
+
+**3.1 Tablas / campos Prisma** — `domain_tld_pricing` (TLD×operación×años, coste+markup→precio, [ADR-084 §1](../10-decisions/adr-084-comercio-dominios-registrar.md)) · `resellerclub_customers` (PK `user_id`) · `resellerclub_contact_handles` (`@@unique [user_id, contact_type]`) · `services.expires_at` ([ADR-082 A2.3](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md)) · enums `DomainPriceOperation`/`DomainPriceSource`/`ResellerclubContactType`.
+
+**3.2 Eventos** (`domain.*` vía Outbox, [ADR-084 §5](../10-decisions/adr-084-comercio-dominios-registrar.md)) — `domain.registered`, `domain.renewed`, `domain.expiring_soon`, `domain.expired`, `domain.entered_redemption`, `domain.nameservers_changed`/`contacts_changed`/`privacy_changed`/`lock_changed` (+ `domain.transfer_*` en 15D.II). Registrar en `_events.md` antes de emitir.
+
+**3.3 Endpoints REST** — `POST /api/v1/domains/check-availability` · buscador `/dashboard/domains/search` (+ backend) · checkout multi-ítem (extensión de `BillingCheckoutService`) · acciones curadas vía `executeAction` (NS/contactos/privacy/lock/auth-code) · admin suspend/unsuspend.
+
+**3.4 Settings** — `plugin.resellerclub.{markup_percent (25), tlds_offered[] (.com/.net/.org/.es/.eu), environment (sandbox|production), default_currency (EUR)}`.
+
+**3.5 Contrato** — capability `is_domain_registrar` + métodos `checkDomainAvailability?()`/`getTldPricing?()` + `ProvisionContext.operation` + 7 `ProvisionerErrorCode` de dominio + test de contrato ampliado ([ADR-077 A10](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md)).
+
+**3.6 Crons** — `sync-resellerclub-pricing` (diario → puebla `domain_tld_pricing`) · `sync-resellerclub-orders` (6h → reconcilia `expires_at`/estado) · cron de avisos de expiración (lee `expires_at`).
+
+### 4. Modifica (contratos existentes)
+
+- `ProvisionerPlugin` / `PluginCapabilities` / `ProvisionContext` / `ProvisionerErrorCode` — additivos ([ADR-077 A10](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md), no bumpea `contractVersion`).
+- `BillingCheckoutService.checkout()` — de 1 ítem a N ítems ([ADR-084 §2](../10-decisions/adr-084-comercio-dominios-registrar.md)).
+- Plugins existentes (`internal`, `manual`, `enhance_cp`) — añaden `is_domain_registrar: false`.
+- **BREAKING:** ninguno (todo additivo / compatible).
+
+### 5. Pasos atómicos
+
+| # | Fase | Contenido | Estado |
+|---|------|-----------|--------|
+| 15D.A | Doctrina (doc-only) | 4 ADRs (077 A10 + 082 A2 + 084 + 081) + plan + backlog + índice/glossary | ✅ |
+| **15D.B0** | **Research + verificación OT&E** (antes del código) | Script `backend/scripts/research-resellerclub-ote.ts` recorre los ~30 endpoints del scope v1 contra **OT&E real** (saliente desde localhost) + captura request/response/errores reales → `docs/_research/sprint-15d/resellerclub-ote-findings.md`; **valida el catálogo ~95 %** del [dossier §4](./sprint-15d-resellerclub-dossier.md); ajusta ADR-081/dossier si hay divergencias (L18). Material fiel para el mock (15D.C). **Requiere credenciales OT&E + IP whitelisteada.** | ⬜ |
+| 15D.B | Fundación + contrato | Migraciones (tablas + `expires_at`) · `is_domain_registrar` + métodos + error codes + test contract · checkout multi-ítem · **DOM-INV-1/2** (exactly-once + lock) en orquestador · eventos `domain.*` + outbox | ⬜ |
+| 15D.C | Cliente HTTP RC + mock | `EnhanceApiClient`-equivalente para RC + `MockResellerClubServer` (alta fidelidad, fresco por corrida, `POST /__test__/seed`) + types | ⬜ |
+| 15D.D | Plugin core RC | `provision(register)` + customer/contact lazy (advisory lock + cross-search) + mapeo de errores RC→canónicos + DI + manifest → **smoke vertical: registrar un dominio end-to-end contra el mock** (red de seguridad L20) | ⬜ |
+| 15D.E | Renovación + lifecycle | `provision(renew)` + lifecycle de expiración + avisos + **DOM-INV-5** (elegibilidad TLD) + reconcile cron + pricing sync | ⬜ |
+| 15D.F | Gestión + buscador | Acciones curadas (NS/contactos/privacy/lock/auth-code) + admin suspend/unsuspend + buscador/availability + **zona post-register vía orquestador** + audit | ⬜ |
+| 15D.G | Cierre core | E2E (sandbox/mock) + `admin-plugins` doc RC + smoke real Yasmin + retrospectiva | ⬜ |
+| **15D.II** | **Avanzado (sprint aparte)** | Transfer-in FSM + EPP + buscador rico (suggest/bulk/IDN) + premium + child-NS + forwarding + **DOM-INV-3/4** (margin guard + renovación verificada) | ⬜ |
+
+### 6. Edge cases anticipados
+
+| ID | Caso | Plan |
+|----|------|------|
+| EC-15D-01 | Dominio ya registrado (por otro) | `DOMAIN_UNAVAILABLE` en availability + bloquear checkout |
+| EC-15D-02 | Crash entre `register` y persistir `provider_reference` | **DOM-INV-1**: pre-flight + adoptar registro existente (no re-registrar) |
+| EC-15D-03 | Dos checkouts simultáneos del mismo FQDN | **DOM-INV-2**: advisory lock por FQDN |
+| EC-15D-04 | `.es` sin NIF / `.eu` sin residencia UE | **DOM-INV-5**: elegibilidad pre-checkout (`REGISTRANT_INELIGIBLE`) |
+| EC-15D-05 | Dominio premium (precio dinámico) | `DOMAIN_PREMIUM` → bloquear v1 (venta 15D.II) |
+| EC-15D-06 | Dominio-solo sin hosting (F5) | Zona DNS post-register en Enhance ([ADR-082 A2.2](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md)) |
+| EC-15D-07 | Coste registrar > precio de venta | **DOM-INV-3** margin guard (doctrina; impl 15D.II) |
+| EC-15D-08 | `renew` que no extiende la fecha | **DOM-INV-4** renovación verificada (doctrina; impl 15D.II) |
+| EC-15D-09 | Customer/contact RC ya existe pero falta mapping local | cross-search defensivo por email antes de crear |
+
+### 7. Definition of Done (15D core)
+
+**Código:** fases B→G ✅ · build + typecheck + lint · CI verde · E2E del flujo (register/renew/gestión) verdes · test de contrato (`is_domain_registrar`) verde.
+**Documentación:** `docs/features/provisioning/admin-plugins-resellerclub.md` · `_events.md` con `domain.*` · `provisioning/contract.md` actualizado · 4 ADRs (✅ Fase A).
+**Proceso:** Conventional Commits · 1 rama por fase · edge cases pendientes (premium, transfers) movidos a 15D.II / backlog.
+**Smoke (Yasmin):** registrar un dominio (con y sin hosting) + renovar + gestionar NS/contactos/privacy/lock + verificar zona DNS creada + sin errores en consola.
+
+### 8. Riesgos
+
+| Riesgo | Impacto | Mitigación |
+|--------|---------|------------|
+| Registro irreversible (cuesta dinero real) | Pérdida / doble cobro ante fallo | DOM-INV-1/2 (exactly-once + lock); register fail-soft con reconcile |
+| OT&E (sandbox) diverge de producción | Verde en CI, fallo en prod | Mock de alta fidelidad (L20) + smoke real contra OT&E en Fase G |
+| Catálogo RC ~95 % (endpoints recientes podrían faltar) | Descubrir gaps al implementar | Implementar contra OT&E real temprano (Fase C/D) |
+| Checkout multi-ítem toca billing (módulo central) | Regresión en compras existentes | El caso `items.length===1` preserva el comportamiento actual + E2E de billing |
+
+### 9. Decisiones registradas
+
+- [ADR-077 Amendment A10](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) — contrato de registrar.
+- [ADR-082 Amendment A2](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md) — F5 + zona post-register + lifecycle de expiración.
+- [ADR-084](../10-decisions/adr-084-comercio-dominios-registrar.md) — comercio de dominios (TLD pricing + checkout multi-ítem + DOM-INV + FSM transfer).
+- [ADR-081](../10-decisions/adr-081-plugin-resellerclub-specifics.md) — ResellerClub specifics.
+
+### 10. Cierre del sprint
+
+> Se rellena al cerrar 15D core. (Fase 15D.A cerrada doc-only el 2026-05-21 en rama `sprint15d-fase-a-doctrina`.)
 
 ---
 
