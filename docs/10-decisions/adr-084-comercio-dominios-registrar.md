@@ -134,8 +134,8 @@ Vinculantes para todo registrar. Verificadas por test de contrato donde aplique.
 |---|---|---|---|
 | **DOM-INV-1** | **Exactly-once por nombre.** Antes de `register`, pre-flight `checkDomainAvailability(fqdn)`; si el registrar lo reporta ya registrado **bajo nuestra cuenta** (reintento tras crash que no persistió `provider_reference`), se **adopta** el registro existente como éxito (recovery por FQDN), NO se re-registra. | Doble cobro al registrar / registro duplicado ante crash entre el `register` y la persistencia. | **v1 (15D core)** |
 | **DOM-INV-2** | **Lock de concurrencia por FQDN.** Advisory lock (`pg_advisory_xact_lock` sobre hash del FQDN normalizado) durante orden+provision del dominio. | Dos checkouts simultáneos del mismo nombre → doble intento de registro. | **v1 (15D core)** |
-| **DOM-INV-3** | **Guardia de margen.** Snapshot de `cost` y `price` en la orden; si `cost > price` (pricing dessincronizado) → bloquear el checkout + alertar superadmin (`system.error`). | Vender a pérdida por pricing cacheado obsoleto. | Doctrina ahora; **impl v1.1 (15D.II)** — DC.NEW |
-| **DOM-INV-4** | **Renovación verificada.** Tras `renew`, confirmar contra el registrar que `expires_at` avanzó al período esperado antes de marcar la renovación como exitosa. | `renew` "exitoso" que no extendió → cliente pierde el dominio creyéndolo renovado. | Doctrina ahora; **impl v1.1 (15D.II)** — DC.NEW |
+| **DOM-INV-3** | **Guardia de margen.** Snapshot de `cost` y `price` en la orden; si `cost > price` (pricing dessincronizado) → bloquear el checkout + alertar superadmin (`system.error`). | Vender a pérdida por pricing cacheado obsoleto. | ~~impl v1.1 (15D.II)~~ → **v1 (15D core) — Fase B** (superseded por [Amendment A1](#amendments)) |
+| **DOM-INV-4** | **Renovación verificada.** Tras `renew`, confirmar contra el registrar que `expires_at` avanzó al período esperado antes de marcar la renovación como exitosa. | `renew` "exitoso" que no extendió → cliente pierde el dominio creyéndolo renovado. | ~~impl v1.1 (15D.II)~~ → **v1 (15D core) — Fase E** (superseded por [Amendment A1](#amendments)) |
 | **DOM-INV-5** | **Elegibilidad pre-checkout.** Validar los requisitos del TLD (`.es`→NIF/NIE, `.eu`→residencia UE, ...) **antes de cobrar** (`REGISTRANT_INELIGIBLE` si falla). | Registro que falla o se suspende **después** del cobro. | **v1 (15D core)** para los TLDs regulados que se vendan (`.es`, `.eu`) |
 
 `provision()` con `operation='register'` es idempotente por `provider_reference` (reintento puro: no recrea) **y** por nombre (DOM-INV-1); `operation='renew'` es idempotente **por período** (no renueva dos veces el mismo año) y verificado (DOM-INV-4). El orquestador fija `operation` según el origen ([ADR-077 A10](./adr-077-contrato-provisioner-plugin-v2.md)).
@@ -185,7 +185,7 @@ Se registran en `docs/20-modules/provisioning/_events.md` (o el `_events.md` del
   - **Doctrina completa, implementación faseada**: el modelo nace preparado; lo no-crítico (margin guard, renovación verificada, transfers, premium) se implementa por madurez sin refactor.
 - ⚠️ **Aceptamos:**
   - **Migración nueva** (`domain_tld_pricing` + `services.expires_at` de [ADR-082 A2](./adr-082-modelo-domain-hosting-dns-doctrine.md)) y **refactor del checkout** — el grueso del trabajo de la Fase B del sprint.
-  - **DOM-INV-3/4 quedan como doctrina sin implementar en v1** — riesgo residual de margen negativo / renovación no verificada hasta v1.1. Mitigación: el pricing lo sincroniza un cron diario (margen raramente se invierte) y la renovación v1 es manual con factura visible.
+  - ~~**DOM-INV-3/4 quedan como doctrina sin implementar en v1**~~ → **superseded por [Amendment A1](#amendments)** (2026-05-22): DOM-INV-3/4 pasan a **v1 (15D core)** — coste trivial, protegen dinero/propiedad del dominio.
 - 🚪 **Cierra:**
   - **No "markup global" sobre un precio único de dominio** — el pricing es por TLD × operación × años (tabla).
   - **No registro sin pre-flight ni lock** — DOM-INV-1/2 son vinculantes.
@@ -228,5 +228,53 @@ Se registran en `docs/20-modules/provisioning/_events.md` (o el `_events.md` del
   - [ADR-033](./adr-033-outbox-pattern-pendiente.md) / [ADR-064](./adr-064-outbox-dispatcher-bullmq.md) — Outbox para `domain.*`.
   - [ADR-055](./adr-055-resiliencia-circuit-breaker.md) / [ADR-063](./adr-063-bullmq-canonico-dlq-retries.md) — resiliencia y cola con DLQ.
 - **Glosario:** *TLD pricing*, *DOM-INV*, *Registrar*, *Redemption / RGP*, *Checkout multi-ítem*, *Guardia de margen (margin guard)* (a añadir en `glossary.md`).
-- **Sprint:** 15D Fase 15D.A (este ADR) → 15D core Fase B (tabla + checkout + DOM-INV-1/2/5) → 15D.II (DOM-INV-3/4 + FSM transfer + premium).
+- **Sprint:** 15D Fase 15D.A (este ADR) → 15D core Fase B (tabla + checkout + DOM-INV-1/2/3/5) + Fase E (DOM-INV-4) → 15D.II (FSM transfer + premium). *(DOM-INV-3/4 promovidas a 15D core por Amendment A1.)*
 - **Inspiración industrial:** WHMCS Domain Pricing + registrar modules (desde 2007), Blesta domain pricing, HostBill registrar management — convergen en TLD pricing por operación/años + registrar module con set canónico de funciones.
+
+---
+
+## Amendments
+
+### Amendment A1 (2026-05-22) — DOM-INV-3 (guardia de margen) + DOM-INV-4 (renovación verificada) promovidas a v1 (15D core) + doctrina de moneda única en `domain_tld_pricing` (margin guard same-currency; FX diferido) (Sprint 15D, refinamiento doctrinal pre-Fase B)
+
+**Contexto.** Revaloración de esta doctrina contra el estándar profesional (WHMCS / Blesta / HostBill / OVH / Hostinger) **antes del primer commit de la Fase B** (sesión 2026-05-22, Yasmin ↔ Claude). Dos hallazgos sobre la decisión §3:
+
+1. **DOM-INV-3 y DOM-INV-4 estaban diferidas a 15D.II**, pese a ser las **dos únicas** invariantes que protegen **dinero real y propiedad del dominio**, y pese a tener un **coste de implementación trivial**:
+   - *DOM-INV-3 (guardia de margen):* el resolver de precio del checkout ya lee `cost_amount` y `price_amount` de la **misma fila** de `domain_tld_pricing` (§1) → la guardia es una comparación (`cost > price → bloquear`). Cero infraestructura nueva.
+   - *DOM-INV-4 (renovación verificada):* el plugin ya consulta `domains/details` (reconcile, [ADR-081 §8](./adr-081-plugin-resellerclub-specifics.md)). Verificar que `expires_at` avanzó tras `renew` es **una lectura adicional** en el camino de renovación. Sin ella, la "idempotencia por período" de la renovación queda **indefinida** y un `renew` que falla en silencio = el cliente **pierde el dominio creyéndolo renovado** (el peor fallo posible de un registrar).
+
+   La mitigación original ("el cron sincroniza a diario; el margen raramente se invierte; la renovación v1 es manual con factura visible") es real, pero el coste/beneficio favorece **implementarlas en v1**.
+
+2. **El margin guard (DOM-INV-3) no estaba bien definido respecto a la moneda.** `domain_tld_pricing` tiene `cost_currency` y `price_currency` **independientes** (§1) sin conversión, y `getTldPricing()` ([ADR-077 A10](./adr-077-contrato-provisioner-plugin-v2.md)) devuelve el coste en la **moneda de la cuenta reseller**. Si esa moneda ≠ moneda de venta, **tanto** la aplicación del `markup_percent` **como** la comparación `cost > price` operan sobre magnitudes incomparables → markup y guardia sin sentido.
+
+> **Justificado por:** revaloración de doctrina pre-Fase B (sesión 2026-05-22). **Sprint:** 15D refinamiento doctrinal (doc-only). **Compatibilidad:** additivo/aclaratorio; no cambia el schema de §1 (la moneda única es una **invariante de datos**, no una columna nueva). **Supersede** parcialmente §3 (columnas de implementación de DOM-INV-3/4) y la consecuencia ⚠️ "DOM-INV-3/4 quedan como doctrina sin implementar en v1".
+
+#### A1.1. DOM-INV-3 y DOM-INV-4 pasan a v1 (15D core)
+
+La columna "Implementación" de §3 se relee:
+
+| # | Invariante | Implementación (relectura A1) |
+|---|---|---|
+| **DOM-INV-3** | Guardia de margen | **v1 (15D core)** — Fase B (resolución de precio del checkout) |
+| **DOM-INV-4** | Renovación verificada | **v1 (15D core)** — Fase E (camino de `renew`) |
+
+- **DOM-INV-3 (Fase B).** Al resolver el precio de un ítem `domain` en el checkout, si `cost_amount > price_amount` (misma moneda — A1.2) → **bloquear el checkout** + emitir `system.error` (alerta superadmin). Nunca se crea una orden a pérdida. El snapshot `(cost, price)` se persiste en la orden para auditoría.
+- **DOM-INV-4 (Fase E).** Tras `provision(renew)` OK, el plugin confirma contra el registrar (`domains/details`) que `expires_at` **avanzó al período esperado** *antes* de marcar la renovación como exitosa y emitir `domain.renewed`. Si NO avanzó → retorna error **retriable** (`PROVIDER_INTERNAL_ERROR`) → DLQ + alerta (R13); **NO** se emite un `domain.renewed` falso. Esto **define** la idempotencia por período: un re-run lee el `expires_at` ya avanzado y retorna éxito **sin re-cobrar**.
+
+#### A1.2. Moneda única en v1 — `cost_currency === price_currency === default_currency`
+
+- En v1, cada fila de `domain_tld_pricing` mantiene `cost_currency` y `price_currency` **iguales** a la moneda de venta (`plugin.<registrar>.default_currency`, default `EUR`). El schema de §1 no cambia (ya soporta currencies independientes; A1 los **constriñe** a coincidir en v1).
+- **El cron de sync es fail-safe respecto a la moneda:** si `getTldPricing()` devuelve un `cost.currency` ≠ moneda de venta configurada, el cron **NO escribe** la fila mal-tarifada → la **omite** + emite `system.error` (alerta superadmin) (R13). Nunca un precio silenciosamente incorrecto.
+- **La conversión FX se difiere** (no se añade `fx_rate` a la tabla en v1 — sin schema especulativo). Materialización solo si un registrar real factura en moneda ≠ venta y no es configurable (ver "Cuándo revisar").
+- **Confirmación empírica pendiente (DC.NEW-62):** la moneda real de la cuenta RC OT&E/producción se confirma en la verificación OT&E (hoy diferida por CGNAT móvil). La doctrina es **defensiva**: correcta sea cual sea la moneda que devuelva RC — si no es EUR, el sync falla-seguro y alerta en vez de tarifar mal.
+
+#### A1.3. Consecuencias del Amendment
+
+- ✅ v1 cierra las dos ventanas de pérdida (venta a pérdida; renovación no verificada) con coste marginal.
+- ✅ El margin guard queda **bien definido** (comparación same-currency).
+- ⚠️ Sigue sin FX automático — aceptable mientras la cuenta del registrar venda en la moneda de Aelium (fail-safe si no).
+- 🚪 Queda **superseded**: la consecuencia ⚠️ original "DOM-INV-3/4 quedan como doctrina sin implementar en v1" y las marcas "impl v1.1 (15D.II)" de DOM-INV-3/4 en §3. DOM-INV-1/2/5 intactas.
+
+#### A1.4. Cuándo revisar (FX)
+
+Si un registrar factura en moneda ≠ venta y no es configurable a la de venta → añadir `fx_rate` + `fx_source` + `fx_synced_at` a `domain_tld_pricing` y normalizar coste→venta **antes** del markup y del margin guard. Sustituye entonces la invariante de moneda única (A1.2) por conversión explícita.

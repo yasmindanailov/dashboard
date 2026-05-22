@@ -9,7 +9,7 @@
 > - **"Cinco invariantes DH-INV-1..5" (§3.1) → SON SEIS** (DH-INV-6 "Enhance gana en conflicto", ADR-082) + nuevo flujo **F5** "solo dominio".
 > - **Mapping de estado (dec. 13) → `ServiceInfoStatus`** (no el enum `ServiceStatus`; valores `…|unknown`) — [ADR-081 §6](../10-decisions/adr-081-plugin-resellerclub-specifics.md).
 > - **Tablas `resellerclub_*` → PK natural `user_id`** + lazy create con advisory lock — [ADR-081 §3/§4](../10-decisions/adr-081-plugin-resellerclub-specifics.md).
-> - **Empaquetado → 2 sprints por madurez**: 15D core (register+renew+gestión) → 15D.II (transfer-in FSM + premium + DOM-INV-3/4); + robustez **DOM-INV-1..5** y contrato de registrar canónico `is_domain_registrar` ([ADR-077 A10](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md), [ADR-084](../10-decisions/adr-084-comercio-dominios-registrar.md)).
+> - **Empaquetado → 2 sprints por madurez**: 15D core (register+renew+gestión, **+ DOM-INV-1..5** incl. margin guard y renovación verificada tras [ADR-084 A1](../10-decisions/adr-084-comercio-dominios-registrar.md)) → 15D.II (transfer-in FSM + premium); robustez **DOM-INV-1..5** y contrato de registrar canónico `is_domain_registrar` ([ADR-077 A10](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md), [ADR-084](../10-decisions/adr-084-comercio-dominios-registrar.md)).
 > - **Hallazgo B0**: la API está tras **Cloudflare WAF** (IP whitelist obligatoria) — ver [`docs/_research/sprint-15d/`](../_research/sprint-15d/).
 >
 > **Para retomar:** lee los 4 ADRs de arriba + [`current.md` §Sprint 15D](./current.md) (plan de fases) + [`docs/_research/sprint-15d/`](../_research/sprint-15d/). El research empírico OT&E queda pendiente de IP estable (DC.NEW-62).

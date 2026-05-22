@@ -108,7 +108,7 @@ El plugin implementa `provision(ctx)` ramificando por `ctx.operation` ([ADR-077 
 | `operation` | Endpoint RC | Idempotencia |
 |---|---|---|
 | `register` | `domains/register` (NS = `provisioning.default_nameservers` = `ns1/ns2.aelium.net`) | DOM-INV-1: pre-flight `domains/available`; si ya registrado bajo nuestra cuenta → adoptar (no re-registrar). DOM-INV-2: advisory lock por FQDN. |
-| `renew` | `domains/renew` | Idempotente por período; DOM-INV-4 (verificar expiración avanzó) — v1.1. |
+| `renew` | `domains/renew` | Idempotente por período; **DOM-INV-4 — v1 ([ADR-084 A1](./adr-084-comercio-dominios-registrar.md)):** tras `renew`, verificar vía `domains/details` que `expires_at` avanzó al período esperado **antes** de marcar éxito y emitir `domain.renewed`; si no avanzó → `PROVIDER_INTERNAL_ERROR` retriable (DLQ + alerta, R13). |
 | `transfer_in` | `domains/transfer` (+ `validate-transfer`, `resend-rfa`, `cancel-transfer`) | FSM de transfer ([ADR-084 §4](./adr-084-comercio-dominios-registrar.md)) — **Sprint 15D.II**. |
 
 `provider_reference` = el `order-id`/`entityid` de RC. `deprovision()` → `domains/delete` (grace ≤5 días post-registro) o cancelación según estado. **NO se llama `dns/activate` ni ningún endpoint del bloque DNS de RC** (E1-E24) — la autoridad DNS es Enhance ([ADR-082](./adr-082-modelo-domain-hosting-dns-doctrine.md)).
@@ -132,6 +132,8 @@ Tras un `register` OK, la **zona DNS la crea el orquestador** en Enhance ([ADR-0
 
 `expires_at` real se persiste en `services.expires_at` ([ADR-082 A2.3](./adr-082-modelo-domain-hosting-dns-doctrine.md)) por el reconcile cron (`domains/search`, cada 6h).
 
+**Poblar `ServiceInfo.domain` ([ADR-077 A11](./adr-077-contrato-provisioner-plugin-v2.md)).** Además del `status`, `getServiceInfo()` mapea `domains/details` al shape `DomainInfo`: `nameservers` (campo `ns1..nsN`), `expiresAt` (`endtime`), `lifecycle` (de la sub-fase RGP/redemption — coherente con la tabla §6), `whoisPrivacy` (estado de privacy protection), `registrarLock` (theft/registrar lock), `authCodeAvailable` (false si `registrarLock` activo o dominio <60 días), `autoRenew`, y `contacts` como **resumen** (nombre del registrant + presencia de admin/tech/billing desde los handles de §4 — **sin PII completa**, R12/RGPD). Una sola llamada `domains/details` alimenta status + `DomainInfo`.
+
 ### 7. Mapping de errores RC → `ProvisionerErrorCode`
 
 El plugin traduce errores nativos de RC a los códigos canónicos ([ADR-077 §2.6 + A10](./adr-077-contrato-provisioner-plugin-v2.md)) — el cliente ve un mensaje accionable, no "error del proveedor":
@@ -153,6 +155,7 @@ El plugin traduce errores nativos de RC a los códigos canónicos ([ADR-077 §2.
 ### 8. Pricing y crons
 
 - `getTldPricing()` ([ADR-077 A10](./adr-077-contrato-provisioner-plugin-v2.md)) lee `products/customer-price` (coste mayorista por TLD/años). El cron diario `sync-resellerclub-pricing` aplica `markup_percent` (setting `plugin.resellerclub.markup_percent`, default **25 %**) y puebla `domain_tld_pricing` ([ADR-084 §1](./adr-084-comercio-dominios-registrar.md)).
+- **Moneda ([ADR-084 A1.2](./adr-084-comercio-dominios-registrar.md) — moneda única v1).** `products/customer-price` devuelve el coste en la **moneda de la cuenta reseller RC**. v1 exige que sea la de venta (`plugin.resellerclub.default_currency`, default **EUR**). El cron es **fail-safe**: si la respuesta viene en una moneda distinta, **no escribe** la fila → la omite + emite `system.error` (alerta superadmin), nunca un precio mal-tarifado. Sin esta paridad, ni el `markup_percent` ni el margin guard (DOM-INV-3) tienen sentido. **La moneda real de la cuenta OT&E/producción se confirma en la verificación OT&E** (hoy diferida — DC.NEW-62); la doctrina es defensiva e independiente de ese dato.
 - Cron 6h `sync-resellerclub-orders` (`domains/search`) reconcilia `services.expires_at`, estado y cambios externos (DH-INV-6).
 - `checkDomainAvailability()` ([ADR-077 A10](./adr-077-contrato-provisioner-plugin-v2.md)) → `domains/available` (+ `idn-available` para IDN en v1.1).
 
@@ -166,12 +169,12 @@ El plugin traduce errores nativos de RC a los códigos canónicos ([ADR-077 §2.
 | Suspend/unsuspend admin (G1/G2) | ✅ | |
 | Customer/contact lazy + advisory lock | ✅ | |
 | Pricing sync + buscador/availability básico | ✅ | |
-| DOM-INV-1/2/5 (exactly-once, lock, elegibilidad) | ✅ | |
+| DOM-INV-1/2/3/4/5 (exactly-once, lock, margin guard, renovación verificada, elegibilidad) | ✅ | |
 | **Transfer-in (FSM + EPP + validate/resend/cancel)** | | ✅ |
 | **Buscador rico (suggest-names, bulk, IDN)** | | ✅ |
 | **Premium domains (venta)** | | ✅ |
 | **Child nameservers (D1-D4) · domain forwarding (F1-F2)** | | ✅ |
-| **DOM-INV-3/4 (margin guard, renovación verificada)** | | ✅ |
+| ~~DOM-INV-3/4 (margin guard, renovación verificada)~~ → **movidas a 15D core** ([ADR-084 A1](./adr-084-comercio-dominios-registrar.md)) | ✅ | |
 
 Fuera de v1/v1.1 (diferido con razón, dossier §5.2): SSO al panel RC (H6/H7 — rompe ADR-070), delete customer (H8), coop sponsors (I9).
 
