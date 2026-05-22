@@ -127,13 +127,19 @@ Plugin de provisioning que registra y gestiona dominios contra un proveedor de r
 Modelo de precios de dominios por **TLD × operación (register/renew/transfer/restore) × años**, con coste mayorista + markup → precio de venta. Tabla `domain_tld_pricing`. Sustituye al precio único de `ProductPricing` para productos de tipo `domain`. Ver [ADR-084](../10-decisions/adr-084-comercio-dominios-registrar.md).
 
 ### DOM-INV (invariantes de robustez de dominio)
-Cinco invariantes vinculantes para operaciones de dominio (dinero real e irreversible): **DOM-INV-1** exactly-once por nombre · **DOM-INV-2** lock de concurrencia por FQDN · **DOM-INV-3** guardia de margen · **DOM-INV-4** renovación verificada · **DOM-INV-5** elegibilidad pre-checkout. Ver [ADR-084 §3](../10-decisions/adr-084-comercio-dominios-registrar.md).
+Cinco invariantes vinculantes para operaciones de dominio (dinero real e irreversible): **DOM-INV-1** exactly-once por nombre · **DOM-INV-2** lock de concurrencia por FQDN · **DOM-INV-3** guardia de margen · **DOM-INV-4** renovación verificada · **DOM-INV-5** elegibilidad pre-checkout. Las cinco se implementan en **15D core** (DOM-INV-3/4 promovidas desde 15D.II por [ADR-084 A1](../10-decisions/adr-084-comercio-dominios-registrar.md)). Ver [ADR-084 §3](../10-decisions/adr-084-comercio-dominios-registrar.md).
+
+### Guardia de margen (margin guard) · DOM-INV-3
+Comprobación en checkout que **bloquea la compra de un dominio si el coste mayorista supera el precio de venta** (`cost > price`) — evita vender a pérdida por pricing dessincronizado. Requiere **moneda única** (`cost_currency === price_currency`, v1 EUR; el sync es fail-safe si el registrar devuelve otra). Ver [ADR-084 A1](../10-decisions/adr-084-comercio-dominios-registrar.md).
 
 ### Redemption / RGP
 Fase del ciclo de vida ICANN de un dominio expirado (Redemption Grace Period, ~30-45 días) en la que el rescate requiere un fee alto (operación `restore`), antes de `pending_delete`. Se modela como estado **operacional** del dominio (`metadata.domain_lifecycle` + `ServiceInfoStatus='expired'`), no como `services.status`. Ver [ADR-082 A2.3](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md).
 
 ### Checkout multi-ítem
 Flujo de compra con N ítems en una misma factura (ej. dominio + hosting, flujo F1), que crea N services con ciclos de renovación independientes (DH-INV-5). Extiende el checkout de 1 ítem. Ver [ADR-084 §2](../10-decisions/adr-084-comercio-dominios-registrar.md), [ADR-082 §2](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md).
+
+### DomainInfo (`ServiceInfo.domain`)
+Shape del contrato que un registrar emite en `getServiceInfo()` para que la UI de gestión pinte el estado actual del dominio (nameservers, expiración, sub-fase ICANN, WHOIS privacy, registrar lock, disponibilidad de auth-code, resumen de contactos **sin PII completa**). Capability-driven por presencia (solo `is_domain_registrar=true` lo emite). Mismo molde que `ServiceInfo.ssl`/`apps`. Ver [ADR-077 A11](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md).
 
 ---
 

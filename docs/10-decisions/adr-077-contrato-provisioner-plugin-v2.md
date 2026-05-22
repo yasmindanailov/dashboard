@@ -1892,3 +1892,103 @@ Sprint 15D core Fase D añade `is_domain_registrar: false` a `internal`, `manual
 #### A10.8. Doctrina heredable (futuros registrars)
 
 Cualquier registrar futuro (Hexonet, OpenSRS, Namecheap, ...) declara `is_domain_registrar: true`, implementa `provision()` con los 3 modos de `operation`, declara las 5 inline actions canónicas de gestión y mapea sus errores nativos a los 7 códigos de dominio. **Cero cambios en el core, el frontend ni el contrato** — encaja en la abstracción. Esto es el objetivo explícito de definir el sub-contrato ahora (sesión 2026-05-21) en vez de extraerlo con el 2º registrar.
+
+---
+
+### Amendment A11 (2026-05-22) — campo opcional `ServiceInfo.domain?: DomainInfo` (estado de gestión del dominio) capability-driven por `is_domain_registrar` (Sprint 15D, refinamiento doctrinal pre-Fase B)
+
+**Contexto.** A10 definió el sub-contrato de registrar: las 5 inline actions de gestión (`modify_nameservers`, `modify_contacts`, `toggle_privacy`, `toggle_registrar_lock`, `get_auth_code`) + el ciclo de vida vía `provision(operation)`. Pero **no especificó qué datos del dominio devuelve `getServiceInfo()`** para que la UI de gestión pinte los **valores actuales** antes de un modify: NS actuales, lock ON/OFF, privacy ON/OFF, expiración real, sub-fase del ciclo ICANN, disponibilidad del auth-code y resumen de contactos. [ADR-081 §6](./adr-081-plugin-resellerclub-specifics.md) fija solo el mapeo de `status` (a `ServiceInfoStatus`). Sin estos campos, las 5 inline actions no tienen contra qué renderizar estado → cada registrar inventaría su propio shape → violación [ADR-070](./adr-070-service-info-sso-acciones-curadas.md). Es el **mismo problema que A9 resolvió para apps** con `AppPresence` — aquí se resuelve para dominios con `DomainInfo`.
+
+> **Justificado por:** revaloración de doctrina pre-Fase B (sesión 2026-05-22, Yasmin ↔ Claude) + [ADR-084](./adr-084-comercio-dominios-registrar.md) (comercio de dominios) + [ADR-081](./adr-081-plugin-resellerclub-specifics.md) (RC).
+> **Sprint:** 15D refinamiento doctrinal (doc-only, misma rama que ADR-084 A1). Implementación: Fase B (shape + tipos en `core/provisioning/types.ts`) → Fase D/F (RC lo emite desde `domains/details`).
+> **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` — sigue `'v2'`. Campo **opcional**, capability-driven por presencia (mismo molde A5/A6/A7/A8/A9). Plugins no-registrar OMITEN el campo.
+
+#### A11.1. Shape `DomainInfo` (en `backend/src/core/provisioning/types.ts`)
+
+```typescript
+/**
+ * Sprint 15D — ADR-077 Amendment A11.
+ * Estado de gestión de un dominio reportado por el registrar, para que la
+ * UI de gestión (cliente/admin) renderice valores actuales + las 5 inline
+ * actions de registrar (A10). Capability-driven por presencia: solo plugins
+ * con is_domain_registrar=true lo emiten; el resto OMITE ServiceInfo.domain.
+ *
+ * PII: `contacts` es un RESUMEN (presencia + nombre del registrant), NUNCA
+ * direcciones/teléfonos/emails completos — ServiceInfo se cachea en Redis
+ * (ADR-080) y NO debe contener PII completa (R12 + RGPD). Los detalles
+ * completos de contacto se leen on-demand para el form de `modify_contacts`,
+ * fuera del snapshot cacheado.
+ */
+export interface DomainInfo {
+  /** FQDN registrado (= services.domain). */
+  fqdn: string;
+  /** Nameservers actuales según el registrar. */
+  nameservers: readonly string[];
+  /** Expiración real del registrar (ISO-8601). Espejo de services.expires_at
+   *  (ADR-082 A2.3). Autoritativa para dominios; display.expiresAt la refleja. */
+  expiresAt?: string;
+  /** Sub-fase del ciclo ICANN (ADR-082 A2.3). 'active' si el dominio vigente;
+   *  el resto cuando ServiceInfo.status='expired'. */
+  lifecycle: 'active' | 'expired' | 'redemption' | 'pending_delete';
+  /** WHOIS privacy ON/OFF (default ON — ADR-081). Refleja toggle_privacy. */
+  whoisPrivacy: boolean;
+  /** Registrar lock / theft protection ON/OFF. Refleja toggle_registrar_lock. */
+  registrarLock: boolean;
+  /** Si el auth/EPP code puede obtenerse AHORA (get_auth_code). p.ej. false si
+   *  registrarLock activo o dominio <60 días desde el registro. */
+  authCodeAvailable: boolean;
+  /** Preferencia de auto-renovación (en v1 = factura + avisos, no cobro — ADR-084). */
+  autoRenew?: boolean;
+  /** Resumen de contactos (presencia + nombre del registrant). SIN PII completa. */
+  contacts?: {
+    registrantName?: string;
+    hasAdmin: boolean;
+    hasTech: boolean;
+    hasBilling: boolean;
+  };
+}
+```
+
+#### A11.2. `ServiceInfo` extendida
+
+```typescript
+export interface ServiceInfo {
+  // ...campos existentes A5/A6/A7/A8/A9...
+
+  /**
+   * Sprint 15D — Amendment A11. Estado de gestión del dominio.
+   * Capability-driven por presencia: plugins con is_domain_registrar=true
+   * lo emiten para services de product.type='domain'; el resto lo OMITE.
+   * El frontend renderiza el card de gestión de dominio solo si
+   * `info.domain !== undefined`. NUNCA ramifica por `provisioner_slug` (ADR-070).
+   */
+  domain?: DomainInfo;
+}
+```
+
+#### A11.3. Consistencia bidireccional (test contract §7, extiende A10.4)
+
+- Si `is_domain_registrar=true` → `getServiceInfo()` de un service de `product.type='domain'` (no terminal) DEBE emitir `info.domain` (con `fqdn` no-vacío + `lifecycle` válido + booleans definidos).
+- Si `is_domain_registrar=false` → DEBE omitir `info.domain` (no emitir objeto vacío misleading).
+- `DomainInfo.contacts`, si presente, NO contiene PII completa (solo resumen).
+
+```typescript
+it('si is_domain_registrar=true → getServiceInfo de un dominio activo emite info.domain', async () => {
+  if (plugin.capabilities.is_domain_registrar) {
+    const info = await plugin.getServiceInfo(domainServiceFixture);
+    expect(info.domain).toBeDefined();
+    expect(info.domain!.fqdn).toBeTruthy();
+    expect(['active', 'expired', 'redemption', 'pending_delete']).toContain(info.domain!.lifecycle);
+    expect(typeof info.domain!.whoisPrivacy).toBe('boolean');
+    expect(typeof info.domain!.registrarLock).toBe('boolean');
+  }
+});
+```
+
+#### A11.4. Frontend (capability-driven, ADR-070)
+
+El card de gestión de dominio (`<DomainManagementCard>` en `_shared/services/`, Fase F) se renderiza por `info.domain !== undefined`, y cada inline action por presencia en `availableActions` — cero `if (provisioner_slug === 'resellerclub')`. Cliente y admin comparten el card (L16); `isAdmin` solo ramifica acciones admin (suspend/unsuspend) y deep-links. Mismo patrón que `<SslStatusCard>` (A7/F.7) y `<AppShortcutsCard>` (A9/F.10).
+
+#### A11.5. Heredable
+
+Cualquier registrar futuro (Hexonet, OpenSRS, ...) emite `ServiceInfo.domain: DomainInfo` desde su `getServiceInfo()` mapeando su API nativa → la UI de gestión funciona sin tocar el frontend ni el contrato. Coherente con A9 (apps) y A10 (sub-contrato de registrar).

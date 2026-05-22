@@ -73,7 +73,7 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ## 🚀 Sprint 15D — Plugin ResellerClub + Fundación de comercio de dominios (P2.4)
 
-**Estado:** 🟡 en curso — **Fase 15D.A (doctrina) ✅** · **15D.B0 (research) ✅ documental** (params desde wrappers + hallazgo Cloudflare WAF en `docs/_research/sprint-15d/`; verificación empírica OT&E **diferida** por CGNAT móvil → Fase G / IP estable, DC.NEW-62) · siguiente **15D.B** (fundación + código) · luego C→G + Sprint 15D.II.
+**Estado:** 🟡 en curso — **Fase 15D.A (doctrina) ✅** *(+ refinamiento pre-B 2026-05-22: DOM-INV-3/4 → 15D core, `ServiceInfo.domain` A11, moneda única — [ADR-084 A1](../10-decisions/adr-084-comercio-dominios-registrar.md) / [ADR-077 A11](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md))* · **15D.B0 (research) ✅ documental** (params desde wrappers + hallazgo Cloudflare WAF en `docs/_research/sprint-15d/`; verificación empírica OT&E **diferida** por CGNAT móvil → Fase G / IP estable, DC.NEW-62) · siguiente **15D.B** (fundación + código) · luego C→G + Sprint 15D.II.
 **Inicio:** 2026-05-21. **Cierre estimado:** 15D core ~4-5 sesiones · 15D.II ~3-4 sesiones.
 **Rama Fase A:** `sprint15d-fase-a-doctrina` (doc-only).
 
@@ -93,7 +93,7 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ### 3. Produce (contratos nuevos)
 
-**3.1 Tablas / campos Prisma** — `domain_tld_pricing` (TLD×operación×años, coste+markup→precio, [ADR-084 §1](../10-decisions/adr-084-comercio-dominios-registrar.md)) · `resellerclub_customers` (PK `user_id`) · `resellerclub_contact_handles` (`@@unique [user_id, contact_type]`) · `services.expires_at` ([ADR-082 A2.3](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md)) · enums `DomainPriceOperation`/`DomainPriceSource`/`ResellerclubContactType`.
+**3.1 Tablas / campos Prisma** — `domain_tld_pricing` (TLD×operación×años, coste+markup→precio, [ADR-084 §1](../10-decisions/adr-084-comercio-dominios-registrar.md); **moneda única v1**: `cost_currency === price_currency === default_currency`, sync fail-safe si RC devuelve otra — [ADR-084 A1.2](../10-decisions/adr-084-comercio-dominios-registrar.md)) · `resellerclub_customers` (PK `user_id`) · `resellerclub_contact_handles` (`@@unique [user_id, contact_type]`) · `services.expires_at` ([ADR-082 A2.3](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md)) · enums `DomainPriceOperation`/`DomainPriceSource`/`ResellerclubContactType`.
 
 **3.2 Eventos** (`domain.*` vía Outbox, [ADR-084 §5](../10-decisions/adr-084-comercio-dominios-registrar.md)) — `domain.registered`, `domain.renewed`, `domain.expiring_soon`, `domain.expired`, `domain.entered_redemption`, `domain.nameservers_changed`/`contacts_changed`/`privacy_changed`/`lock_changed` (+ `domain.transfer_*` en 15D.II). Registrar en `_events.md` antes de emitir.
 
@@ -101,7 +101,7 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 **3.4 Settings** — `plugin.resellerclub.{markup_percent (25), tlds_offered[] (.com/.net/.org/.es/.eu), environment (sandbox|production), default_currency (EUR)}`.
 
-**3.5 Contrato** — capability `is_domain_registrar` + métodos `checkDomainAvailability?()`/`getTldPricing?()` + `ProvisionContext.operation` + 7 `ProvisionerErrorCode` de dominio + test de contrato ampliado ([ADR-077 A10](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md)).
+**3.5 Contrato** — capability `is_domain_registrar` + métodos `checkDomainAvailability?()`/`getTldPricing?()` + `ProvisionContext.operation` + 7 `ProvisionerErrorCode` de dominio + campo `ServiceInfo.domain?: DomainInfo` (estado de gestión, capability-driven — [ADR-077 A11](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md)) + test de contrato ampliado ([ADR-077 A10](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md)).
 
 **3.6 Crons** — `sync-resellerclub-pricing` (diario → puebla `domain_tld_pricing`) · `sync-resellerclub-orders` (6h → reconcilia `expires_at`/estado) · cron de avisos de expiración (lee `expires_at`).
 
@@ -118,13 +118,13 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 |---|------|-----------|--------|
 | 15D.A | Doctrina (doc-only) | 4 ADRs (077 A10 + 082 A2 + 084 + 081) + plan + backlog + índice/glossary | ✅ |
 | **15D.B0** | **Research + verificación OT&E** (antes del código) | Script `backend/scripts/research-resellerclub-ote.ts` recorre los ~30 endpoints del scope v1 contra **OT&E real** + captura request/response/errores reales → `docs/_research/sprint-15d/`. **Resultado:** documental ✅ (params/endpoints desde wrappers `phillipsdata/logicboxes` + hallazgo **Cloudflare WAF** bloquea IP no whitelisteada — `resellerclub-ote-findings.md`); empírico **diferido** (CGNAT móvil rota la IP más rápido que la propagación del whitelist; script `research-resellerclub-ote.ts` listo para IP estable — DC.NEW-62). | 🟡 |
-| 15D.B | Fundación + contrato | Migraciones (tablas + `expires_at`) · `is_domain_registrar` + métodos + error codes + test contract · checkout multi-ítem · **DOM-INV-1/2** (exactly-once + lock) en orquestador · eventos `domain.*` + outbox | ⬜ |
+| 15D.B | Fundación + contrato | Migraciones (tablas + `expires_at`) · `is_domain_registrar` + métodos + error codes + tipos `DomainInfo` (`ServiceInfo.domain?`, [A11](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md)) + test contract · checkout multi-ítem · **DOM-INV-1/2/3** (exactly-once + lock + **margin guard** same-currency, [ADR-084 A1](../10-decisions/adr-084-comercio-dominios-registrar.md)) en orquestador/checkout · eventos `domain.*` + outbox | ⬜ |
 | 15D.C | Cliente HTTP RC + mock | `EnhanceApiClient`-equivalente para RC + `MockResellerClubServer` (alta fidelidad, fresco por corrida, `POST /__test__/seed`) + types | ⬜ |
 | 15D.D | Plugin core RC | `provision(register)` + customer/contact lazy (advisory lock + cross-search) + mapeo de errores RC→canónicos + DI + manifest → **smoke vertical: registrar un dominio end-to-end contra el mock** (red de seguridad L20) | ⬜ |
-| 15D.E | Renovación + lifecycle | `provision(renew)` + lifecycle de expiración + avisos + **DOM-INV-5** (elegibilidad TLD) + reconcile cron + pricing sync | ⬜ |
+| 15D.E | Renovación + lifecycle | `provision(renew)` + **DOM-INV-4** (renovación verificada: `expires_at` avanzó, [ADR-084 A1](../10-decisions/adr-084-comercio-dominios-registrar.md)) + lifecycle de expiración + avisos + **DOM-INV-5** (elegibilidad TLD) + reconcile cron + pricing sync | ⬜ |
 | 15D.F | Gestión + buscador | Acciones curadas (NS/contactos/privacy/lock/auth-code) + admin suspend/unsuspend + buscador/availability + **zona post-register vía orquestador** + audit | ⬜ |
 | 15D.G | Cierre core | E2E (sandbox/mock) + `admin-plugins` doc RC + smoke real Yasmin + retrospectiva | ⬜ |
-| **15D.II** | **Avanzado (sprint aparte)** | Transfer-in FSM + EPP + buscador rico (suggest/bulk/IDN) + premium + child-NS + forwarding + **DOM-INV-3/4** (margin guard + renovación verificada) | ⬜ |
+| **15D.II** | **Avanzado (sprint aparte)** | Transfer-in FSM + EPP + buscador rico (suggest/bulk/IDN) + premium + child-NS + forwarding *(DOM-INV-3/4 movidas a 15D core — [ADR-084 A1](../10-decisions/adr-084-comercio-dominios-registrar.md))* | ⬜ |
 
 ### 6. Edge cases anticipados
 
@@ -136,13 +136,14 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 | EC-15D-04 | `.es` sin NIF / `.eu` sin residencia UE | **DOM-INV-5**: elegibilidad pre-checkout (`REGISTRANT_INELIGIBLE`) |
 | EC-15D-05 | Dominio premium (precio dinámico) | `DOMAIN_PREMIUM` → bloquear v1 (venta 15D.II) |
 | EC-15D-06 | Dominio-solo sin hosting (F5) | Zona DNS post-register en Enhance ([ADR-082 A2.2](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md)) |
-| EC-15D-07 | Coste registrar > precio de venta | **DOM-INV-3** margin guard (doctrina; impl 15D.II) |
-| EC-15D-08 | `renew` que no extiende la fecha | **DOM-INV-4** renovación verificada (doctrina; impl 15D.II) |
+| EC-15D-07 | Coste registrar > precio de venta | **DOM-INV-3** margin guard same-currency: bloquear checkout + `system.error` (**v1 15D core**, [ADR-084 A1](../10-decisions/adr-084-comercio-dominios-registrar.md)) |
+| EC-15D-08 | `renew` que no extiende la fecha | **DOM-INV-4** renovación verificada: `PROVIDER_INTERNAL_ERROR` retriable + DLQ (**v1 15D core**, [ADR-084 A1](../10-decisions/adr-084-comercio-dominios-registrar.md)) |
 | EC-15D-09 | Customer/contact RC ya existe pero falta mapping local | cross-search defensivo por email antes de crear |
+| EC-15D-10 | RC devuelve coste en moneda ≠ venta (EUR) | sync **fail-safe**: omitir fila + `system.error` (no tarifar mal) — [ADR-084 A1.2](../10-decisions/adr-084-comercio-dominios-registrar.md) |
 
 ### 7. Definition of Done (15D core)
 
-**Código:** fases B→G ✅ · build + typecheck + lint · CI verde · E2E del flujo (register/renew/gestión) verdes · test de contrato (`is_domain_registrar`) verde.
+**Código:** fases B→G ✅ · build + typecheck + lint · CI verde · E2E del flujo (register/renew/gestión) verdes · test de contrato (`is_domain_registrar` + `ServiceInfo.domain` A11) verde · **DOM-INV-1..5 cubiertas por tests** (margin guard same-currency + renovación verificada incluidas).
 **Documentación:** `docs/features/provisioning/admin-plugins-resellerclub.md` · `_events.md` con `domain.*` · `provisioning/contract.md` actualizado · 4 ADRs (✅ Fase A).
 **Proceso:** Conventional Commits · 1 rama por fase · edge cases pendientes (premium, transfers) movidos a 15D.II / backlog.
 **Smoke (Yasmin):** registrar un dominio (con y sin hosting) + renovar + gestionar NS/contactos/privacy/lock + verificar zona DNS creada + sin errores en consola.
