@@ -1695,3 +1695,200 @@ Generalización: cualquier action plugin-internal futura (DNS records, files, da
 Mismo patrón canónico que `ServiceInfo.recoveryHint?` (A5.7), `ServiceInfo.ssl?` (A7.7) y `ServiceAction.adminOnly?` (A3.6): ADR justificante → Amendment ADR-077 con shape mínimo contractual + impacto wrappers + invariante test contract + plugins existentes → compatible hacia atrás (NO bumpea `contractVersion`) → frontend ramifica por presencia (NUNCA por slug ni por display strings) → cálculo server-side (no aritmética en el frontend) → detalles per-kind fuera del contrato genérico (A9.5 doctrina) → documentar en `provisioning/contract.md` §"shapes" + `glossary.md`.
 
 Cuando un sub-recurso del service emerge como entidad contractual con identidad propia (`appId` aquí), las acciones del sub-recurso viven en su propio `actions[]` array, NO en `ServiceInfo.availableActions[]` del servicio entero (D4 frozen §A.11.10.7.2). Heredable a futuros sub-recursos (DNS records, files, databases, ...).
+
+---
+
+### Amendment A10 (2026-05-21) — capability `is_domain_registrar` + sub-contrato de registrar (8 operaciones canónicas) + 7 códigos de error de dominio + campo opcional `ProvisionContext.operation` (Sprint 15D Fase 15D.A)
+
+**Contexto.** Sprint 15D introduce el primer plugin de **registro de dominios** (ResellerClub, [ADR-081](./adr-081-plugin-resellerclub-specifics.md)) sobre la doctrina transversal de **comercio de dominios** ([ADR-084](./adr-084-comercio-dominios-registrar.md)) y el modelo Domain↔Hosting ([ADR-082](./adr-082-modelo-domain-hosting-dns-doctrine.md)). El §4 original del ADR mapeó `resellerclub` con slugs DNS (`view_dns_records`, `add_dns_record`, ...) — ese mapping queda **obsoleto para RC** tras la inversión de Sprint 15C ([ADR-082](./adr-082-modelo-domain-hosting-dns-doctrine.md): la autoridad DNS es Enhance, RC declara `has_dns_management=false`). Un registrar no es un "plugin genérico con N inline actions sueltas": es un rol con un **conjunto canónico de operaciones que la industria conoce desde hace 15 años** (WHMCS registrar module API, Blesta, HostBill). Sin un sub-contrato explícito, cada registrar futuro (Hexonet, OpenSRS, Namecheap) redescubriría qué operaciones exponer — el antipatrón "interface emerges from implementation" que este ADR evita. Además, los 9 `ProvisionerErrorCode` del §2.6 (10 con A8) son **todos de infraestructura** (timeout, rate-limit, auth, network) — ninguno captura la semántica de negocio de dominios, por lo que un "dominio ya registrado por otro" se reportaría como `PROVIDER_INTERNAL_ERROR` genérico y el cliente vería "error del proveedor" en vez de "ese dominio ya no está disponible".
+
+> **Justificado por:** [ADR-084](./adr-084-comercio-dominios-registrar.md) (comercio de dominios + DOM-INV) + [ADR-081](./adr-081-plugin-resellerclub-specifics.md) (RC specifics) + [ADR-082](./adr-082-modelo-domain-hosting-dns-doctrine.md) (Domain↔Hosting). Materializa a nivel de contrato TypeScript la decisión de sesión 2026-05-21 "definir la abstracción de registrar ahora, no con el 2º registrar".
+> **Sprint:** 15D Fase 15D.A (doc-only, junto a ADR-082 amendment + ADR-084 + ADR-081, misma rama `sprint15d-fase-a-doctrina`). Implementación del contrato en 15D core Fase D; `transfer_in` se difiere a Sprint 15D.II (la **doctrina** del slug se congela ahora; la **implementación** se fasea por madurez).
+> **Compatibilidad:** Hacia atrás. NO bumpea `contractVersion` — sigue `'v2'`. `is_domain_registrar` pasa a ser **required** en `PluginCapabilities` (mismo patrón A1 `has_dns_management`) — plugins existentes (`internal`, `manual`, `enhance_cp`) lo declaran `false`. Los códigos de error nuevos son additivos al union `ProvisionerErrorCode`. `ProvisionContext.operation` es **opcional** (default `'register'`) — los plugins no-registrar lo ignoran. El frontend ramifica por la capability + presencia de inline actions (NUNCA por `provisioner_slug` — ADR-070).
+
+#### A10.1. Capability flag `is_domain_registrar` (§3)
+
+```typescript
+export interface PluginCapabilities {
+  // ... flags existentes (has_sso_panel, ..., has_dns_management A1, supports_suspend A4) ...
+
+  /**
+   * Indica si el plugin registra/gestiona dominios contra un registrar
+   * (ResellerClub, Hexonet, OpenSRS, ...). Distinto de `has_dns_management`:
+   * un registrar puede NO ser autoridad DNS (RC: NS van a Aelium/Enhance).
+   *
+   * Plugins con `is_domain_registrar=true` cumplen el SUB-CONTRATO DE
+   * REGISTRAR (A10.2): provision() distingue register/renew/transfer_in vía
+   * `ProvisionContext.operation`, y declaran las 5 inline actions canónicas
+   * de gestión en `inlineActions` (modify_nameservers, modify_contacts,
+   * toggle_privacy, toggle_registrar_lock, get_auth_code).
+   *
+   * Las garantías transversales (exactly-once por nombre, lock de
+   * concurrencia, renovación verificada, guardia de margen) las gobierna
+   * ADR-084 (DOM-INV-1..5), NO este contrato — aquí solo se declara la forma.
+   */
+  is_domain_registrar: boolean;
+}
+```
+
+#### A10.2. Sub-contrato de registrar — tres planos
+
+Cuando `is_domain_registrar=true`, el plugin cumple el sub-contrato de registrar en tres planos. Los planos B y C reusan el contrato existente (`provision()` + `executeAction()`); el plano A añade dos métodos **opcionales** nuevos (mismo patrón que `testConnection?()` A6 y `reconcileOne?()` A8 — opcionales en la interface, **required** cuando `is_domain_registrar=true`, enforzado por el test contract A10.4).
+
+**Plano A — pre-venta (métodos nuevos del contrato, para que el buscador y el cron de pricing sean agnósticos al registrar — ADR-070):**
+
+```typescript
+export interface ProvisionerPlugin {
+  // ... métodos existentes (provision, deprovision, getStatus, getServiceInfo,
+  //     getSsoUrl, executeAction, testConnection? A6, reconcileOne? A8) ...
+
+  /**
+   * Sprint 15D — Amendment A10. Solo plugins con is_domain_registrar=true.
+   * Consulta disponibilidad de un FQDN contra el registrar. Usado por el
+   * buscador (/dashboard/domains/search) y como pre-flight de DOM-INV-1
+   * (exactly-once por nombre, ADR-084) antes de un register.
+   */
+  checkDomainAvailability?(domain: string): Promise<DomainAvailability>;
+
+  /**
+   * Sprint 15D — Amendment A10. Solo plugins con is_domain_registrar=true.
+   * Devuelve la matriz de COSTE mayorista por TLD/operación/años del
+   * registrar. El cron de sync (ADR-084) aplica markup y puebla
+   * `domain_tld_pricing`. Permite que el sync sea agnóstico al registrar.
+   */
+  getTldPricing?(): Promise<readonly TldCostEntry[]>;
+}
+
+export interface DomainAvailability {
+  domain: string;
+  available: boolean;
+  /** El registrar marca el dominio como premium (precio dinámico fuera de
+   * la tabla TLD pricing). v1 lo bloquea (`DOMAIN_PREMIUM`); venta v1.1. */
+  premium: boolean;
+  /** Precio premium si premium=true (informativo; no se vende en v1). */
+  premiumPrice?: { amount: string; currency: string };
+}
+
+export interface TldCostEntry {
+  tld: string;                                  // sin punto, lowercase ('com', 'es')
+  operation: 'register' | 'renew' | 'transfer' | 'restore';
+  years: number;                                // 1..10
+  cost: { amount: string; currency: string };   // coste mayorista del registrar
+}
+```
+
+`suggestDomainNames?()` (sugerencias del buscador rico) se difiere a Sprint 15D.II — su firma NO se congela aquí.
+
+**Plano B — ciclo de vida (vía `provision()` idempotente + reconcile, NO inline actions):**
+
+| # | Operación | Cómo | Sprint |
+|---|---|---|---|
+| 1 | `register_domain` | `provision(ctx)` con `ctx.operation='register'` (service nuevo, sin `provider_reference`). | 15D core |
+| 2 | `renew_domain` | `provision(ctx)` con `ctx.operation='renew'` (al pagar la factura de renovación; idempotente por período — DOM-INV-4 ADR-084). | 15D core |
+| 3 | `transfer_in` | `provision(ctx)` con `ctx.operation='transfer_in'` (lifecycle asíncrono con FSM — ADR-084). **Doctrina ahora, implementación 15D.II.** | 15D.II |
+
+**Plano C — gestión (vía `executeAction(slug, payload)`, declaradas en `inlineActions`):**
+
+| # | Slug | Descripción | `confirmRequired` |
+|---|---|---|---|
+| 4 | `modify_nameservers` | Cambiar NS del dominio. Peligrosa (rompe email/DNS si mal). | ✅ + texto de impacto |
+| 5 | `modify_contacts` | Cambiar contactos registrant/admin/tech/billing. | ❌ |
+| 6 | `toggle_privacy` | WHOIS privacy ON/OFF (default ON — ADR-081). | ❌ |
+| 7 | `toggle_registrar_lock` | Theft protection / registrar lock ON/OFF. | ✅ |
+| 8 | `get_auth_code` | Obtener/regenerar EPP auth code (para transfer-out). | ❌ |
+
+`toggle_auto_renew` (preferencia de renovación del cliente) es una inline action **recomendada** adicional, no parte del set mínimo de gestión (no toda integración de registrar la expone igual). `request_transfer_out` y la cancelación se cubren por `deprovision()` + el lifecycle de `services.status`.
+
+`ProvisionContext` extendido (additivo, §2.1):
+
+```typescript
+export interface ProvisionContext {
+  // ... campos existentes (service, client, productConfig, serverId, correlationId) ...
+
+  /**
+   * Sprint 15D — Amendment A10. Intención del provision para plugins de
+   * registrar (is_domain_registrar=true). El orquestador la fija según el
+   * origen: checkout inicial → 'register'; cron de renovación
+   * (generatePendingInvoices → invoice.paid) → 'renew'; checkout de
+   * transferencia → 'transfer_in'.
+   *
+   * Opcional, default 'register' si ausente — los plugins no-registrar lo
+   * ignoran. Es lo que permite distinguir un REINTENTO de register (crash
+   * recovery, idempotente: no recrea) de una RENOVACIÓN intencional del
+   * período siguiente (DOM-INV-1 + DOM-INV-4, ADR-084).
+   */
+  readonly operation?: 'register' | 'renew' | 'transfer_in';
+}
+```
+
+#### A10.3. Códigos de error de dominio (additivos a `ProvisionerErrorCode`, §2.6)
+
+Se añaden 7 códigos de **negocio de dominio** al union. Todos `retriable=false` (no son fallos transitorios — reintentar no cambia el resultado; el cliente o el admin deben actuar):
+
+```typescript
+export type ProvisionerErrorCode =
+  | /* ...los 10 existentes... */
+  | 'DOMAIN_UNAVAILABLE'      // el dominio ya está registrado (por otro o por nosotros en reintento) → UX "no disponible"
+  | 'DOMAIN_PREMIUM'          // precio dinámico fuera de la tabla TLD pricing → bloquear en v1 (venta v1.1, ADR-084)
+  | 'REGISTRANT_INELIGIBLE'   // el registrant no cumple requisitos del TLD (.es→NIF, .eu→residencia UE) → DOM-INV-5
+  | 'TRANSFER_REJECTED'       // el registrar de origen/destino rechazó el transfer (lock, <60d, NACK) → 15D.II
+  | 'INVALID_AUTH_CODE'       // EPP/auth code incorrecto en transfer_in → 15D.II
+  | 'DOMAIN_IN_REDEMPTION'    // dominio en RGP/redemption: no renovable normal, requiere restore (fee distinto) → ADR-084 lifecycle
+  | 'REGISTRAR_LOCKED';       // operación bloqueada por registrar lock activo (hay que desbloquear antes)
+```
+
+Cada plugin de registrar **mapea sus errores nativos** (códigos RC, códigos EPP 2xxx, ...) a estos códigos canónicos (RC: ADR-081). El `GlobalExceptionFilter` + el frontend traducen el código a un mensaje accionable i18n (R14). Los códigos retriable existentes (`PROVIDER_TIMEOUT`, `PROVIDER_RATE_LIMITED`, `NETWORK_ERROR`) siguen aplicando a las llamadas al registrar.
+
+#### A10.4. Test contract genérico (§7) — invariantes nuevas
+
+```typescript
+it('declara is_domain_registrar como boolean', () => {
+  expect(typeof plugin.capabilities.is_domain_registrar).toBe('boolean');
+});
+
+it('si is_domain_registrar=true → declara las 5 inline actions canónicas de gestión', () => {
+  if (plugin.capabilities.is_domain_registrar) {
+    const slugs = plugin.inlineActions.map((a) => a.slug);
+    for (const required of ['modify_nameservers', 'modify_contacts', 'toggle_privacy', 'toggle_registrar_lock', 'get_auth_code']) {
+      expect(slugs).toContain(required);
+    }
+  }
+});
+
+it('si is_domain_registrar=true → implementa los métodos de pre-venta (plano A)', () => {
+  if (plugin.capabilities.is_domain_registrar) {
+    expect(typeof plugin.checkDomainAvailability).toBe('function');
+    expect(typeof plugin.getTldPricing).toBe('function');
+  }
+});
+
+it('modify_nameservers (si presente) es confirmRequired=true (peligrosa)', () => {
+  const ns = plugin.inlineActions.find((a) => a.slug === 'modify_nameservers');
+  if (ns) expect(ns.confirmRequired).toBe(true);
+});
+```
+
+#### A10.5. Mapping canónico actualizado (§3 + §4)
+
+La tabla del §3 gana la columna `is_domain_registrar`; el mapping de `inlineActions` del §4 para `resellerclub` queda **redefinido** por este amendment (los slugs DNS salen — ADR-082 A1; entran los de registrar):
+
+| Plugin | `has_dns_management` (A1) | `is_domain_registrar` (A10) | `inlineActions` de registrar |
+|---|---|---|---|
+| `internal` | ❌ | **❌** | — |
+| `manual` | ❌ | **❌** | — |
+| `enhance_cp` (15C) | ✅ | **❌** (es hosting/DNS, no registrar) | — (declara las 4 DNS de A1) |
+| `resellerclub` (15D) | ❌ | **✅** | `modify_nameservers`, `modify_contacts`, `toggle_privacy`, `toggle_registrar_lock`, `get_auth_code` (+ `toggle_auto_renew` recomendada) — **supersede** el mapping DNS del §4 |
+| `docker_engine` (15E) | ❌ | **❌** | — |
+| `plesk_obsidian` (15G) | ⚠ por config | **❌** | — |
+
+#### A10.6. Plugins existentes — actualización requerida
+
+Sprint 15D core Fase D añade `is_domain_registrar: false` a `internal`, `manual` y `enhance_cp` (mismo cambio mecánico que A1 para `has_dns_management`). El test contract (§7) lo enforza. `resellerclub` nace con `true`.
+
+#### A10.7. Pipeline de wrappers (§5) — sin cambios
+
+`is_domain_registrar`, `ProvisionContext.operation` y los códigos de error nuevos se consumen en el **orquestador** (que fija `operation` según el origen y aplica las garantías DOM-INV de ADR-084) y en el **plugin** (que mapea errores). Los wrappers cross-cutting `getServiceInfoWithCache` / `executeActionWithCacheInvalidation` / `getSsoUrlWithAudit` funcionan sin modificación — las inline actions de registrar son `executeAction(slug, payload)` como cualquier otra.
+
+#### A10.8. Doctrina heredable (futuros registrars)
+
+Cualquier registrar futuro (Hexonet, OpenSRS, Namecheap, ...) declara `is_domain_registrar: true`, implementa `provision()` con los 3 modos de `operation`, declara las 5 inline actions canónicas de gestión y mapea sus errores nativos a los 7 códigos de dominio. **Cero cambios en el core, el frontend ni el contrato** — encaja en la abstracción. Esto es el objetivo explícito de definir el sub-contrato ahora (sesión 2026-05-21) en vez de extraerlo con el 2º registrar.

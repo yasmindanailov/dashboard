@@ -120,6 +120,21 @@ Datos fiscales del cliente para emitir facturas. Tabla `billing_profiles`.
 Un cliente puede tener varios (factura simplificada vs factura completa con NIF).
 Si no hay perfil → factura simplificada con nombre + email.
 
+### Registrar
+Plugin de provisioning que registra y gestiona dominios contra un proveedor de registro (ResellerClub, Hexonet, OpenSRS). Declara la capability `is_domain_registrar=true` y cumple el sub-contrato de registrar (pre-venta + ciclo de vida `register`/`renew`/`transfer_in` + gestión NS/contactos/privacy/lock/EPP). Distinto de la **autoridad DNS** (un registrar puede no serlo: en Aelium los NS por defecto van a Enhance). Ver [ADR-077 A10](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md), [ADR-081](../10-decisions/adr-081-plugin-resellerclub-specifics.md).
+
+### TLD pricing
+Modelo de precios de dominios por **TLD × operación (register/renew/transfer/restore) × años**, con coste mayorista + markup → precio de venta. Tabla `domain_tld_pricing`. Sustituye al precio único de `ProductPricing` para productos de tipo `domain`. Ver [ADR-084](../10-decisions/adr-084-comercio-dominios-registrar.md).
+
+### DOM-INV (invariantes de robustez de dominio)
+Cinco invariantes vinculantes para operaciones de dominio (dinero real e irreversible): **DOM-INV-1** exactly-once por nombre · **DOM-INV-2** lock de concurrencia por FQDN · **DOM-INV-3** guardia de margen · **DOM-INV-4** renovación verificada · **DOM-INV-5** elegibilidad pre-checkout. Ver [ADR-084 §3](../10-decisions/adr-084-comercio-dominios-registrar.md).
+
+### Redemption / RGP
+Fase del ciclo de vida ICANN de un dominio expirado (Redemption Grace Period, ~30-45 días) en la que el rescate requiere un fee alto (operación `restore`), antes de `pending_delete`. Se modela como estado **operacional** del dominio (`metadata.domain_lifecycle` + `ServiceInfoStatus='expired'`), no como `services.status`. Ver [ADR-082 A2.3](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md).
+
+### Checkout multi-ítem
+Flujo de compra con N ítems en una misma factura (ej. dominio + hosting, flujo F1), que crea N services con ciclos de renovación independientes (DH-INV-5). Extiende el checkout de 1 ítem. Ver [ADR-084 §2](../10-decisions/adr-084-comercio-dominios-registrar.md), [ADR-082 §2](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md).
+
 ---
 
 ## Auth, permisos y roles

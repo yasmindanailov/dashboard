@@ -354,3 +354,56 @@ Estas dos cosas no se contradicen: el reconcile cron sigue actualizando `service
 - Frontend: banner de suspensión cliente en `/dashboard/services/[id]` (motivo cliente-seguro del enum `SuspensionReason` — nunca la nota interna — + CTA: impago→`/dashboard/billing`, resto→`/dashboard/support`; oculta SSO + ActionsBar + DNS mientras suspendido) + `<AdminProviderStateDesyncBanner>` en `/admin/services/[id]` con el botón "Realinear estado del proveedor".
 
 **Cross-refs.** Complementa la tabla de §"Aplicación práctica de DH-INV-6" (esa tabla sigue vigente para la dirección proveedor→Aelium del reconcile cron). Ver también ADR-070 (gateway curado — el cliente nunca opera "como si nada" sobre un servicio suspendido) y el dossier Sprint 15C.II §A.11.10.1. No requiere bump de contrato (ADR-077 sin cambios — F.4 es capa orquestador + UI).
+
+---
+
+### Amendment A2 (2026-05-21) — flujo F5 "register domain only" + creación de zona DNS post-register vía orquestador + lifecycle de expiración del dominio con `expires_at` first-class (Sprint 15D Fase 15D.A)
+
+**Contexto.** Sprint 15D implementa el primer registrar (ResellerClub, [ADR-081](./adr-081-plugin-resellerclub-specifics.md)). Al cotejar el dossier 15D contra esta doctrina (sesión 2026-05-21) emergieron tres huecos del modelo original:
+
+1. **Los cuatro flujos canónicos F1–F4 (§2) TODOS incluyen "+ buy hosting".** No existe flujo para **"comprar solo un dominio"** (sin hosting) — pese a que DH-INV-3 lo permite explícitamente ("domain service puede vivir solo"). Es un caso real (defensa de marca, dominio aparcado, futuro proyecto) y frecuente.
+2. **La zona DNS de un dominio-solo no se crea.** El listener `reconcile-dns-defaults-on-service-activated` (§5) filtra `provisioner_slug='enhance_cp'` → se dispara solo para hosting Enhance. Un dominio registrado por RC con `NS=ns1/ns2.aelium.net` pero **sin hosting** queda apuntando a un PowerDNS sin zona → **SERVFAIL / dominio caído** (justo el problema que §2 del dossier 15D pretendía evitar). El dossier 15D pre-fijó un *handshake pre-register* (`domain.zone_pre_create`) que esta doctrina (§5) reemplazó por "default records + reconcile post-`service.activated`" — pero ese reemplazo solo cubre el caso hosting.
+3. **No hay lifecycle de expiración del dominio.** El enum `ServiceStatus` (Prisma) no tiene `expired`/`redemption`, y `services` no tiene columna de expiración real del proveedor (solo `next_due_date`, que es facturación). Un dominio expirado se trataría con el dunning genérico de impago (suspend→cancel en 30d), ignorando el ciclo ICANN (RGP/redemption ~30-45d donde el rescate cuesta un fee alto, luego pending-delete).
+
+> **Justificado por:** cotejo de planificación Sprint 15D (sesión 2026-05-21) + [ADR-084](./adr-084-comercio-dominios-registrar.md) (comercio de dominios) + [ADR-081](./adr-081-plugin-resellerclub-specifics.md) (RC). Decisión D1 de la sesión: "zona post-register vía orquestador (recomendada)".
+> **Sprint:** 15D Fase 15D.A (doctrina). Implementación: F5 + zona post-register en 15D core (Fase F); lifecycle de expiración + `expires_at` + avisos en 15D core (Fase B/C según [ADR-084](./adr-084-comercio-dominios-registrar.md)).
+> **Compatibilidad:** Hacia atrás. Additivo: F5 extiende §2 sin tocar F1–F4. La creación de zona reusa el `dns-authority-resolver` (§6) y los default records (§5) — cero contrato nuevo de plugin (ADR-077 sin cambios por esto). `services.expires_at` es columna **nullable** nueva (migración additiva). El lifecycle de expiración NO toca el enum `ServiceStatus` (se modela como estado **operacional** del proveedor — DH-INV-6 —, no administrativo).
+
+#### A2.1. Quinto flujo canónico — F5 "register domain only"
+
+Se añade a la tabla de §2:
+
+| Flujo | Caso | Línea(s) factura | Provisioning |
+|---|---|---|---|
+| **F5** Register domain only (sin hosting) | Cliente compra solo un dominio (defensa de marca, aparcado, futuro proyecto). DH-INV-3. | 1 line item (solo dominio). | Registrar el dominio (síncrono vía registrar — Sprint 15D) con `NS=provisioning.default_nameservers`. **El orquestador crea la zona DNS vacía en el DNS authority (A2.2)** para que el dominio resuelva desde el minuto uno. NO hay hosting asociado; `services.domain` apunta al propio FQDN registrado. Renewal cycle propio (DH-INV-5). |
+
+`transfer-in domain only` (sin hosting) es la variante asíncrona de F5 — mismo manejo de zona al completar el transfer (evento `domain.transfer_completed`, Sprint 15D.II).
+
+#### A2.2. Creación de zona DNS post-register vía orquestador (decisión D1)
+
+**Regla canónica.** Cuando un service de `product.type === 'domain'` se activa (`service.activated`) con `nameservers === provisioning.default_nameservers` (NS-sync C3, §4), el **orquestador** (`core/provisioning/`, NO el plugin registrar) garantiza que la zona existe en el DNS authority:
+
+1. Resuelve la autoridad vía `resolveDnsAuthority(service, productType, registry, settings)` (§6) → `authority='aelium'`, `plugin=enhance_cp`.
+2. Pide a ese plugin **crear la zona vacía idempotente** con los default records platform-level (§5): apex/www A + NS + MX si aplica. Idempotente: si la zona ya existe (caso F1, donde el hosting Enhance la creará/usará después), **no la recrea** — reusa la existente.
+3. **Fail-soft (DH-INV-6 + "Aelium dispara acción, reconcile actualiza"):** el `domains/register` en el registrar **es irreversible** (cuesta dinero). Si la creación de zona en Enhance falla, **NO se aborta ni revierte el registro** — se emite `system.error` (alerta superadmin) + se deja marca para que el reconcile/avisos reintenten. El dominio queda registrado y el operador/reconcile completa la zona. (Esto **descarta** explícitamente el *handshake pre-register* `domain.zone_pre_create` que pre-fijaba el dossier 15D §6.11/T10: añadía un paso bloqueante y podía dejar zona huérfana si el register fallaba después.)
+
+**R4 intacto:** el plugin registrar (RC) **NO importa** el plugin Enhance. El routing lo hace el orquestador por capability (`has_dns_management=true`), nunca por slug — coherente con §6 y ADR-070. Implementación canónica: listener nuevo `ensure-dns-zone-on-domain-activated` en `core/provisioning/` (paralelo a `reconcile-dns-defaults-on-service-activated` §5, pero filtrando `product.type='domain'` con NS=Aelium en lugar de `provisioner_slug='enhance_cp'`).
+
+Esto cierra el hueco: **un dominio nunca apunta a Enhance sin zona**, ni siquiera sin hosting (F5).
+
+#### A2.3. Lifecycle de expiración del dominio + `expires_at` first-class
+
+**Schema (migración additiva):** `services.expires_at: DateTime?` — fecha **real de expiración reportada por el proveedor** (registrar para dominios; distinta de `next_due_date`, que es la fecha de facturación de Aelium). Nullable; la puebla el reconcile cron para servicios de dominio. Permite que el cron de avisos haga query eficiente (`WHERE expires_at BETWEEN now AND now+Nd`) en lugar de parsear `metadata` JSON.
+
+**Estados del dominio (operacionales, NO administrativos).** El ciclo ICANN del dominio se modela como **estado operacional dictado por el registrar** (DH-INV-6), no como nuevo valor del enum `ServiceStatus` (que sigue gobernando el lifecycle administrativo de billing: `active/suspended/cancelled/terminated`):
+
+| Fase del dominio | Cómo se refleja | Quién la fija |
+|---|---|---|
+| `active` | `getServiceInfo().status='active'` + `expires_at` futura | reconcile (registrar) |
+| `expired` | `getServiceInfo().status='expired'` (`ServiceInfoStatus` ya lo soporta — ADR-077 §2.3) + `statusReason`/`recoveryHint='renew'` | reconcile (registrar) |
+| `redemption` (RGP) | `status='expired'` + `recoveryHint='restore'` + sub-fase en `metadata.domain_lifecycle` | reconcile; renovar normal lanza `DOMAIN_IN_REDEMPTION` (ADR-077 A10) → restore con fee distinto (ADR-084) |
+| `pending_delete` | `status='expired'` + `metadata.domain_lifecycle='pending_delete'` (no recuperable) | reconcile |
+
+El `services.status` administrativo permanece `active` mientras Aelium no lo suspenda/cancele por billing — la expiración del **dominio** es ortogonal y vive en el snapshot operacional (`getServiceInfo` + `metadata.domain_lifecycle`). Los **avisos** proactivos ("tu dominio vence en 30/14/7/1 días") los dispara un cron leyendo `expires_at` (eventos `domain.expiring_soon`/`domain.expired`/`domain.entered_redemption`, catálogo en ADR-084). Coherente con DH-INV-6: Aelium adopta lo que el registrar reporta, no al revés.
+
+**Cross-refs.** F5 (A2.1) consume el resolver §6 + default records §5. La zona post-register (A2.2) materializa la decisión D1 y descarta el handshake pre-register del dossier 15D. El lifecycle (A2.3) se apoya en `ServiceInfoStatus='expired'` (ADR-077 §2.3) + `DOMAIN_IN_REDEMPTION` (ADR-077 Amendment A10) + los fees de redemption/restore de la tabla TLD pricing (ADR-084). No requiere bump de contrato de plugin.
