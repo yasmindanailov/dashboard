@@ -77,6 +77,20 @@ export interface ProvisionContext {
 
   /** Correlation ID para audit + log + tracing distribuido. */
   readonly correlationId: string;
+
+  /**
+   * Sprint 15D — ADR-077 Amendment A10. Intención del provision para plugins
+   * de registrar (`is_domain_registrar=true`). El orquestador la fija según
+   * el origen: checkout inicial → `'register'`; cron de renovación
+   * (`invoice.paid` de la factura de renovación) → `'renew'`; checkout de
+   * transferencia → `'transfer_in'`.
+   *
+   * Opcional, default `'register'` si ausente — los plugins no-registrar lo
+   * ignoran. Es lo que permite distinguir un REINTENTO de register (crash
+   * recovery, idempotente: no recrea) de una RENOVACIÓN intencional del
+   * período siguiente (DOM-INV-1 + DOM-INV-4, ADR-084).
+   */
+  readonly operation?: 'register' | 'renew' | 'transfer_in';
 }
 
 export interface ProvisionResult {
@@ -371,6 +385,58 @@ export interface AppPresence {
   actions: readonly ServiceAction[];
 }
 
+/**
+ * Sprint 15D — ADR-077 Amendment A11 (2026-05-22).
+ *
+ * Estado de gestión de un dominio reportado por el registrar, para que la
+ * UI de gestión (cliente/admin) renderice valores actuales + las 5 inline
+ * actions de registrar (A10: modify_nameservers, modify_contacts,
+ * toggle_privacy, toggle_registrar_lock, get_auth_code). Capability-driven
+ * por presencia (mismo molde A5/A7/A9): solo plugins con
+ * `is_domain_registrar=true` lo emiten para services de `product.type='domain'`;
+ * el resto OMITE `ServiceInfo.domain`.
+ *
+ * PII: `contacts` es un RESUMEN (presencia + nombre del registrant), NUNCA
+ * direcciones/teléfonos/emails completos — `ServiceInfo` se cachea en Redis
+ * (ADR-080) y NO debe contener PII completa (R12 + RGPD). Los detalles
+ * completos de contacto se leen on-demand para el form de `modify_contacts`,
+ * fuera del snapshot cacheado.
+ */
+export interface DomainInfo {
+  /** FQDN registrado (= services.domain). */
+  fqdn: string;
+  /** Nameservers actuales según el registrar. */
+  nameservers: readonly string[];
+  /**
+   * Expiración real del registrar (ISO-8601). Espejo de `services.expires_at`
+   * (ADR-082 A2.3). Autoritativa para dominios; `display.expiresAt` la refleja.
+   */
+  expiresAt?: string;
+  /**
+   * Sub-fase del ciclo ICANN (ADR-082 A2.3). `'active'` si el dominio está
+   * vigente; el resto cuando `ServiceInfo.status='expired'`.
+   */
+  lifecycle: 'active' | 'expired' | 'redemption' | 'pending_delete';
+  /** WHOIS privacy ON/OFF (default ON — ADR-081). Refleja `toggle_privacy`. */
+  whoisPrivacy: boolean;
+  /** Registrar lock / theft protection ON/OFF. Refleja `toggle_registrar_lock`. */
+  registrarLock: boolean;
+  /**
+   * Si el auth/EPP code puede obtenerse AHORA (`get_auth_code`). p.ej. false
+   * si `registrarLock` activo o dominio <60 días desde el registro.
+   */
+  authCodeAvailable: boolean;
+  /** Preferencia de auto-renovación (en v1 = factura + avisos, no cobro — ADR-084). */
+  autoRenew?: boolean;
+  /** Resumen de contactos (presencia + nombre del registrant). SIN PII completa. */
+  contacts?: {
+    registrantName?: string;
+    hasAdmin: boolean;
+    hasTech: boolean;
+    hasBilling: boolean;
+  };
+}
+
 export interface ServiceInfo {
   /**
    * Estado real del servicio en el proveedor.
@@ -438,6 +504,17 @@ export interface ServiceInfo {
    * F.10.x stats UI lo requiera (DC.NEW-51).
    */
   apps?: readonly AppPresence[];
+
+  /**
+   * Sprint 15D — ADR-077 Amendment A11 (2026-05-22).
+   *
+   * Estado de gestión del dominio. Capability-driven por presencia: plugins
+   * con `is_domain_registrar=true` lo emiten para services de
+   * `product.type='domain'`; el resto lo OMITE. El frontend renderiza el card
+   * de gestión de dominio solo si `info.domain !== undefined`. NUNCA ramifica
+   * por `provisioner_slug` (ADR-070). Ver `DomainInfo`.
+   */
+  domain?: DomainInfo;
 
   /**
    * Capability flags por instancia de servicio. Override estáticos por
@@ -647,6 +724,36 @@ export interface PluginCapabilities {
    *   - `plesk` (15G): true (`--update-domain -status suspended/active`)
    */
   supports_suspend: boolean;
+
+  /**
+   * Sprint 15D — ADR-077 Amendment A10 (2026-05-21).
+   *
+   * Indica si el plugin registra/gestiona dominios contra un registrar
+   * (ResellerClub, Hexonet, OpenSRS, ...). Distinto de `has_dns_management`:
+   * un registrar puede NO ser autoridad DNS (RC: los NS van a Aelium/Enhance).
+   *
+   * Plugins con `is_domain_registrar=true` cumplen el SUB-CONTRATO DE
+   * REGISTRAR:
+   *   - Plano A (pre-venta): implementan `checkDomainAvailability?()` y
+   *     `getTldPricing?()` (required cuando la capability es true — enforzado
+   *     por el contract test).
+   *   - Plano B (ciclo de vida): `provision()` distingue
+   *     register/renew/transfer_in vía `ProvisionContext.operation`.
+   *   - Plano C (gestión): declaran las 5 inline actions canónicas
+   *     (`modify_nameservers`, `modify_contacts`, `toggle_privacy`,
+   *     `toggle_registrar_lock`, `get_auth_code`) y emiten `ServiceInfo.domain`
+   *     (A11) para sus services de dominio.
+   *
+   * Las garantías transversales (exactly-once por nombre, lock de
+   * concurrencia, guardia de margen, renovación verificada, elegibilidad) las
+   * gobierna ADR-084 (DOM-INV-1..5), NO este contrato — aquí solo se declara
+   * la forma.
+   *
+   * Mapping inicial (ADR-077 A10.5):
+   *   - `internal`, `manual`, `enhance_cp`, `docker_engine`, `plesk_obsidian`: false
+   *   - `resellerclub` (Sprint 15D): true
+   */
+  is_domain_registrar: boolean;
 }
 
 /**
@@ -675,7 +782,18 @@ export type ProvisionerErrorCode =
   | 'NOT_IMPLEMENTED' // retriable=false (capability declarada pero no soportada — bug)
   | 'PROVIDER_INTERNAL_ERROR' // retriable=true por defecto
   | 'NETWORK_ERROR' // retriable=true
-  | 'RECONCILE_ONE_NOT_SUPPORTED'; // retriable=false (F.9 — plugin no implementa reconcileOne?())
+  | 'RECONCILE_ONE_NOT_SUPPORTED' // retriable=false (F.9 — plugin no implementa reconcileOne?())
+  // ─── Sprint 15D — ADR-077 Amendment A10: códigos de negocio de dominio ───
+  // Todos retriable=false (no son fallos transitorios — reintentar no cambia
+  // el resultado; el cliente o el admin deben actuar). Cada registrar mapea
+  // sus errores nativos (códigos RC, EPP 2xxx, ...) a estos (RC: ADR-081 §7).
+  | 'DOMAIN_UNAVAILABLE' // el dominio ya está registrado (por otro o por nosotros en reintento)
+  | 'DOMAIN_PREMIUM' // precio dinámico fuera de la tabla TLD pricing → bloquear v1 (venta v1.1)
+  | 'REGISTRANT_INELIGIBLE' // el registrant no cumple requisitos del TLD (.es→NIF, .eu→residencia UE) → DOM-INV-5
+  | 'TRANSFER_REJECTED' // el registrar de origen/destino rechazó el transfer (lock, <60d, NACK) → 15D.II
+  | 'INVALID_AUTH_CODE' // EPP/auth code incorrecto en transfer_in → 15D.II
+  | 'DOMAIN_IN_REDEMPTION' // dominio en RGP/redemption: no renovable normal, requiere restore (fee distinto)
+  | 'REGISTRAR_LOCKED'; // operación bloqueada por registrar lock activo (hay que desbloquear antes)
 
 /**
  * Error semántico canónico — todos los plugins lanzan instancias de esta clase,
@@ -776,6 +894,47 @@ export interface ServiceReconcileResult {
   readonly driftsDetected: readonly ServiceDrift[];
   readonly driftsApplied: readonly ServiceDrift[];
   readonly reconciledAt: Date;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 9.7. Registrar shapes (plano A — pre-venta) — Sprint 15D, ADR-077 A10
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Salida de `checkDomainAvailability(domain)`. Usado por el buscador
+ * (`/dashboard/domains/search`) y como pre-flight de DOM-INV-1 (exactly-once
+ * por nombre, ADR-084) antes de un `register`.
+ */
+export interface DomainAvailability {
+  domain: string;
+  available: boolean;
+  /**
+   * El registrar marca el dominio como premium (precio dinámico fuera de la
+   * tabla TLD pricing). v1 lo bloquea (`DOMAIN_PREMIUM`); venta v1.1 (ADR-084).
+   */
+  premium: boolean;
+  /** Precio premium si `premium=true` (informativo; no se vende en v1). */
+  premiumPrice?: { amount: string; currency: string };
+}
+
+/**
+ * Entrada de la matriz de COSTE mayorista que `getTldPricing()` devuelve. El
+ * cron de sync (ADR-084 §1) aplica markup y puebla `domain_tld_pricing`,
+ * permitiendo que el sync sea agnóstico al registrar.
+ *
+ * Moneda (ADR-084 A1.2 — moneda única v1): `cost.currency` DEBE coincidir con
+ * la moneda de venta configurada (`plugin.<registrar>.default_currency`); el
+ * cron es fail-safe y omite + alerta (`system.error`) las filas con otra
+ * moneda en lugar de tarifar mal.
+ */
+export interface TldCostEntry {
+  /** Sin punto, lowercase ('com', 'es', 'eu'). */
+  tld: string;
+  operation: 'register' | 'renew' | 'transfer' | 'restore';
+  /** 1..10. */
+  years: number;
+  /** Coste mayorista del registrar. */
+  cost: { amount: string; currency: string };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -907,6 +1066,27 @@ export interface ProvisionerPlugin {
    * toca esos canales (R8 audit centralizado).
    */
   reconcileOne?(service: ServiceWithRelations): Promise<ServiceReconcileResult>;
+
+  // ─── Plano A registrar (Sprint 15D — ADR-077 Amendment A10) ────────────
+  // Opcionales en la interface, **required** cuando
+  // `capabilities.is_domain_registrar === true` (enforzado por el contract
+  // test A10.4). Permiten que el buscador y el cron de pricing sean agnósticos
+  // al registrar (ADR-070). `suggestDomainNames?()` (buscador rico) se difiere
+  // a Sprint 15D.II — su firma NO se congela aquí.
+
+  /**
+   * Consulta disponibilidad de un FQDN contra el registrar. Usado por el
+   * buscador (`/dashboard/domains/search`) y como pre-flight de DOM-INV-1
+   * (exactly-once por nombre, ADR-084) antes de un `register`.
+   */
+  checkDomainAvailability?(domain: string): Promise<DomainAvailability>;
+
+  /**
+   * Devuelve la matriz de COSTE mayorista por TLD/operación/años del
+   * registrar. El cron de sync (ADR-084 §1) aplica markup y puebla
+   * `domain_tld_pricing`. Permite que el sync sea agnóstico al registrar.
+   */
+  getTldPricing?(): Promise<readonly TldCostEntry[]>;
 
   /**
    * Manifest declarativo del plugin (Sprint 15A — ADR-080).

@@ -257,6 +257,8 @@ describe.each(
       expect(typeof c.has_dns_management).toBe('boolean');
       // ADR-077 Amendment A4 — supports_suspend required.
       expect(typeof c.supports_suspend).toBe('boolean');
+      // ADR-077 Amendment A10 — is_domain_registrar required.
+      expect(typeof c.is_domain_registrar).toBe('boolean');
     });
 
     // ─── ADR-077 Amendment A1 — DNS management invariants ────────────────
@@ -315,6 +317,37 @@ describe.each(
         expect(slugs).not.toContain('suspend_service');
         expect(slugs).not.toContain('unsuspend_service');
       }
+    });
+
+    // ─── ADR-077 Amendment A10 — registrar sub-contract invariants ───────
+
+    it('si is_domain_registrar=true → declara las 5 inline actions canónicas de gestión (ADR-077 A10.4)', () => {
+      if (plugin.capabilities.is_domain_registrar) {
+        const slugs = plugin.inlineActions.map((a) => a.slug);
+        for (const required of [
+          'modify_nameservers',
+          'modify_contacts',
+          'toggle_privacy',
+          'toggle_registrar_lock',
+          'get_auth_code',
+        ]) {
+          expect(slugs).toContain(required);
+        }
+      }
+    });
+
+    it('si is_domain_registrar=true → implementa los métodos de pre-venta plano A (ADR-077 A10.4)', () => {
+      if (plugin.capabilities.is_domain_registrar) {
+        expect(typeof plugin.checkDomainAvailability).toBe('function');
+        expect(typeof plugin.getTldPricing).toBe('function');
+      }
+    });
+
+    it('modify_nameservers (si presente) es confirmRequired=true — peligrosa (ADR-077 A10.4)', () => {
+      const ns = plugin.inlineActions.find(
+        (a) => a.slug === 'modify_nameservers',
+      );
+      if (ns) expect(ns.confirmRequired).toBe(true);
     });
 
     it('si has_sso_panel=true → declara panel_label (ADR-077 §3 coherence)', () => {

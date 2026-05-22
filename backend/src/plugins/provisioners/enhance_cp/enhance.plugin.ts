@@ -413,6 +413,9 @@ const ENHANCE_CAPABILITIES: PluginCapabilities = {
   // desde Sprint 15C Fase B). Declara las 2 inline actions `suspend_service` /
   // `unsuspend_service` (ambas adminOnly) abajo.
   supports_suspend: true,
+  // Sprint 15D — ADR-077 Amendment A10: Enhance es hosting/DNS authority, NO
+  // registrar de dominios (registrar de dominios = resellerclub).
+  is_domain_registrar: false,
 };
 
 const ENHANCE_MANIFEST: PluginManifest = {

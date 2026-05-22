@@ -2121,6 +2121,7 @@ export class ProvisioningService {
         supports_reconciliation: false,
         has_dns_management: false, // ADR-077 Amendment A1
         supports_suspend: false, // ADR-077 Amendment A4
+        is_domain_registrar: false, // ADR-077 Amendment A10
         hasSsoPanel: false,
         inlineActions: [],
       },
@@ -2171,6 +2172,7 @@ export class ProvisioningService {
         supports_reconciliation: false,
         has_dns_management: false,
         supports_suspend: false, // ADR-077 Amendment A4
+        is_domain_registrar: false, // ADR-077 Amendment A10
         hasSsoPanel: false,
         inlineActions: [],
       },
