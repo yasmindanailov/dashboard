@@ -67,25 +67,28 @@ model User {
   created_at         DateTime   @default(now()) @db.Timestamptz()
   updated_at         DateTime   @default(now()) @updatedAt @db.Timestamptz()
 
-  role                        Role                       @relation(fields: [role_id], references: [id])
+  role                        Role                        @relation(fields: [role_id], references: [id])
   sessions                    Session[]
   email_verifications         EmailVerification[]
   password_resets             PasswordReset[]
   client_profile              ClientProfile?
   billing_profiles            BillingProfile[]
   invoices                    Invoice[]
-  notifications_received      Notification[]             @relation("notification_recipient")
-  conversations               Conversation[]             @relation("UserConversations")
-  tasks_assigned              Task[]                     @relation("TaskAssignee")
-  tasks_as_client             Task[]                     @relation("TaskClient")
-  tasks_completed             Task[]                     @relation("TaskCompleter")
-  checklist_completions       TaskChecklistCompletion[]  @relation("ChecklistCompleter")
-  maintenance_logs_performed  MaintenanceLog[]           @relation("MaintenancePerformer")
-  maintenance_logs_as_client  MaintenanceLog[]           @relation("ClientMaintenanceLogs")
-  client_notes                ClientNote[]               @relation("ClientNoteUser")
-  client_notes_authored       ClientNote[]               @relation("ClientNoteAuthor")
-  support_inside_subscription SupportInsideSubscription? @relation("UserSupportInsideSubscription")
-  enhance_customer            EnhanceCustomer?           @relation("UserEnhanceCustomer")
+  notifications_received      Notification[]              @relation("notification_recipient")
+  conversations               Conversation[]              @relation("UserConversations")
+  tasks_assigned              Task[]                      @relation("TaskAssignee")
+  tasks_as_client             Task[]                      @relation("TaskClient")
+  tasks_completed             Task[]                      @relation("TaskCompleter")
+  checklist_completions       TaskChecklistCompletion[]   @relation("ChecklistCompleter")
+  maintenance_logs_performed  MaintenanceLog[]            @relation("MaintenancePerformer")
+  maintenance_logs_as_client  MaintenanceLog[]            @relation("ClientMaintenanceLogs")
+  client_notes                ClientNote[]                @relation("ClientNoteUser")
+  client_notes_authored       ClientNote[]                @relation("ClientNoteAuthor")
+  support_inside_subscription SupportInsideSubscription?  @relation("UserSupportInsideSubscription")
+  enhance_customer            EnhanceCustomer?            @relation("UserEnhanceCustomer")
+  // Sprint 15D (ADR-081 §3/§4) — mapping lazy a ResellerClub (customer + 4 contact handles).
+  resellerclub_customer       ResellerclubCustomer?       @relation("UserResellerclubCustomer")
+  resellerclub_contacts       ResellerclubContactHandle[] @relation("UserResellerclubContactHandles")
 
   @@index([email])
   @@index([role_id])
@@ -304,6 +307,84 @@ model EnhanceCustomer {
   @@map("enhance_customers")
 }
 
+// ─── Sprint 15D — COMERCIO DE DOMINIOS (ADR-084 + ADR-081) ───
+
+// TLD pricing por (registrar × TLD × operación × años) — ADR-084 §1.
+// Sustituye el precio único de ProductPricing para productos type='domain'.
+// El precio se calcula SIEMPRE en backend (R5), resuelto en runtime.
+enum DomainPriceOperation {
+  register
+  renew
+  transfer
+  restore // rescate desde RGP/redemption (fee alto)
+}
+
+enum DomainPriceSource {
+  sync // poblado por el cron desde el registrar (getTldPricing)
+  manual // override del admin (NO se sobreescribe en sync)
+}
+
+model DomainTldPricing {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  registrar_slug String               @db.VarChar(50) // qué plugin provee este TLD ('resellerclub')
+  tld            String               @db.VarChar(63) // lowercase, SIN punto ('com','es','eu')
+  operation      DomainPriceOperation
+  years          Int // 1..10
+  // Moneda única v1 (ADR-084 A1.2): cost_currency === price_currency === venta.
+  // El cron de sync es fail-safe (omite + alerta) si el registrar devuelve otra.
+  cost_amount    Decimal              @db.Decimal(12, 2) // coste mayorista (margin guard DOM-INV-3)
+  cost_currency  String               @db.VarChar(3)
+  price_amount   Decimal              @db.Decimal(12, 2) // precio de venta al cliente
+  price_currency String               @db.VarChar(3)
+  markup_percent Decimal?             @db.Decimal(5, 2) // null si price es override manual
+  source         DomainPriceSource    @default(sync)
+  active         Boolean              @default(true)
+  synced_at      DateTime?            @db.Timestamptz()
+  created_at     DateTime             @default(now()) @db.Timestamptz()
+  updated_at     DateTime             @default(now()) @updatedAt @db.Timestamptz()
+
+  @@unique([registrar_slug, tld, operation, years, price_currency])
+  @@index([tld, operation, active])
+  @@map("domain_tld_pricing")
+}
+
+// Mapping Client Aelium ↔ customer ResellerClub (lazy, advisory lock) — ADR-081 §3.
+// PK natural user_id (1 customer RC por usuario). Patrón heredado de enhance_customers.
+model ResellerclubCustomer {
+  user_id                  String   @id @db.Uuid
+  resellerclub_customer_id String   @unique @db.VarChar(50)
+  email                    String   @db.VarChar(320)
+  created_at               DateTime @default(now()) @db.Timestamptz()
+  updated_at               DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  user User @relation("UserResellerclubCustomer", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("resellerclub_customers")
+}
+
+enum ResellerclubContactType {
+  registrant
+  admin
+  tech
+  billing
+}
+
+// 4 contact handles (registrant/admin/tech/billing) por usuario, lazy — ADR-081 §4.
+// Reutilizados para todos los dominios del cliente.
+model ResellerclubContactHandle {
+  id                      String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                 String                  @db.Uuid
+  contact_type            ResellerclubContactType
+  resellerclub_contact_id String                  @db.VarChar(50)
+  created_at              DateTime                @default(now()) @db.Timestamptz()
+  updated_at              DateTime                @default(now()) @updatedAt @db.Timestamptz()
+
+  user User @relation("UserResellerclubContactHandles", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, contact_type])
+  @@map("resellerclub_contact_handles")
+}
+
 // ─── BLOQUE 4: PRODUCTOS Y CATÁLOGO ───
 
 enum BillingCycle {
@@ -508,6 +589,11 @@ model Service {
   currency            String        @default("EUR") @db.VarChar(3)
   next_due_date       DateTime?     @db.Timestamptz()
   next_invoice_date   DateTime?     @db.Timestamptz()
+  // Sprint 15D (ADR-082 A2.3): fecha REAL de expiración reportada por el
+  // proveedor (registrar para dominios) — distinta de `next_due_date` (fecha de
+  // facturación de Aelium). Nullable; la puebla el reconcile cron de dominios.
+  // Permite al cron de avisos consultar `WHERE expires_at BETWEEN now AND now+Nd`.
+  expires_at          DateTime?     @db.Timestamptz()
   cancelled_at        DateTime?     @db.Timestamptz()
   cancellation_reason String?
   suspended_at        DateTime?     @db.Timestamptz()
@@ -548,6 +634,9 @@ model Service {
   @@index([billing_profile_id])
   @@index([status])
   @@index([next_due_date])
+  // Sprint 15D (ADR-082 A2.3): expires_at indexado para el cron de avisos de
+  // expiración de dominios (`WHERE expires_at BETWEEN now AND now+Nd`).
+  @@index([expires_at])
   // Sprint 11 Fase 11.B: provisioner_slug indexado para queries de
   // reconciliación cron y filtro admin (`/admin/services?provisioner=...`).
   @@index([provisioner_slug])
