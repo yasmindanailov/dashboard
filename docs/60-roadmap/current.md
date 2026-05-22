@@ -73,7 +73,7 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ## 🚀 Sprint 15D — Plugin ResellerClub + Fundación de comercio de dominios (P2.4)
 
-**Estado:** 🟡 en curso — **Fase 15D.A (doctrina) ✅** · siguiente **15D.B0 (research + verificación OT&E)** · luego 15D.B→G (15D core) + Sprint 15D.II.
+**Estado:** 🟡 en curso — **Fase 15D.A (doctrina) ✅** · **15D.B0 (research) ✅ documental** (params desde wrappers + hallazgo Cloudflare WAF en `docs/_research/sprint-15d/`; verificación empírica OT&E **diferida** por CGNAT móvil → Fase G / IP estable, DC.NEW-62) · siguiente **15D.B** (fundación + código) · luego C→G + Sprint 15D.II.
 **Inicio:** 2026-05-21. **Cierre estimado:** 15D core ~4-5 sesiones · 15D.II ~3-4 sesiones.
 **Rama Fase A:** `sprint15d-fase-a-doctrina` (doc-only).
 
@@ -89,7 +89,7 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 |---|-------------|--------|---------|
 | 1 | Sprint 15C.II (Enhance como autoridad DNS + `dns-authority-resolver` + default NS) | ✅ (cerrado 2026-05-21) | Zona post-register (F5), DNS de dominios |
 | 2 | [ADR-077 A10](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) (contrato registrar) + [ADR-082 A2](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md) + [ADR-084](../10-decisions/adr-084-comercio-dominios-registrar.md) + [ADR-081](../10-decisions/adr-081-plugin-resellerclub-specifics.md) | ✅ (Fase 15D.A) | Todo el código de 15D |
-| 3 | Credenciales ResellerClub OT&E (sandbox) + IP pública whitelisteada en panel RC | ⬜ (Yasmin) | **Fase 15D.B0** (research/verificación) + E2E real (Fase G) |
+| 3 | Credenciales OT&E ✅ + **IP estable** (CGNAT móvil rota la IP — pendiente conexión fija/VPN dedicada, DC.NEW-62) | 🟡 (Yasmin) | Verificación empírica OT&E (B0/Fase G) — el research documental ya está hecho sin ella |
 
 ### 3. Produce (contratos nuevos)
 
@@ -117,7 +117,7 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 | # | Fase | Contenido | Estado |
 |---|------|-----------|--------|
 | 15D.A | Doctrina (doc-only) | 4 ADRs (077 A10 + 082 A2 + 084 + 081) + plan + backlog + índice/glossary | ✅ |
-| **15D.B0** | **Research + verificación OT&E** (antes del código) | Script `backend/scripts/research-resellerclub-ote.ts` recorre los ~30 endpoints del scope v1 contra **OT&E real** (saliente desde localhost) + captura request/response/errores reales → `docs/_research/sprint-15d/resellerclub-ote-findings.md`; **valida el catálogo ~95 %** del [dossier §4](./sprint-15d-resellerclub-dossier.md); ajusta ADR-081/dossier si hay divergencias (L18). Material fiel para el mock (15D.C). **Requiere credenciales OT&E + IP whitelisteada.** | ⬜ |
+| **15D.B0** | **Research + verificación OT&E** (antes del código) | Script `backend/scripts/research-resellerclub-ote.ts` recorre los ~30 endpoints del scope v1 contra **OT&E real** + captura request/response/errores reales → `docs/_research/sprint-15d/`. **Resultado:** documental ✅ (params/endpoints desde wrappers `phillipsdata/logicboxes` + hallazgo **Cloudflare WAF** bloquea IP no whitelisteada — `resellerclub-ote-findings.md`); empírico **diferido** (CGNAT móvil rota la IP más rápido que la propagación del whitelist; script `research-resellerclub-ote.ts` listo para IP estable — DC.NEW-62). | 🟡 |
 | 15D.B | Fundación + contrato | Migraciones (tablas + `expires_at`) · `is_domain_registrar` + métodos + error codes + test contract · checkout multi-ítem · **DOM-INV-1/2** (exactly-once + lock) en orquestador · eventos `domain.*` + outbox | ⬜ |
 | 15D.C | Cliente HTTP RC + mock | `EnhanceApiClient`-equivalente para RC + `MockResellerClubServer` (alta fidelidad, fresco por corrida, `POST /__test__/seed`) + types | ⬜ |
 | 15D.D | Plugin core RC | `provision(register)` + customer/contact lazy (advisory lock + cross-search) + mapeo de errores RC→canónicos + DI + manifest → **smoke vertical: registrar un dominio end-to-end contra el mock** (red de seguridad L20) | ⬜ |
