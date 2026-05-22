@@ -4,17 +4,92 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
+import { BillingCycle, Prisma, Service } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BillingCalculatorService } from './billing-calculator.service';
 import { BillingInvoiceService } from './billing-invoice.service';
 
 /* ═══════════════════════════════════════
-   BillingCheckoutService — Checkout flow
-   Creates Service + Invoice in one operation.
-   Ref: DECISIONS.md §12, §21, §32
-   Ref: ARCHITECTURE.md Regla 15
+   BillingCheckoutService — Checkout flow (multi-ítem)
+   Crea N services + 1 factura en una operación.
+   Ref: DECISIONS.md §12, §21, §32 · ARCHITECTURE.md Regla 15
+   Sprint 15D Fase B — ADR-084 §2 (checkout multi-ítem) + DOM-INV-2/3.
    ═══════════════════════════════════════ */
+
+/**
+ * Ítem de checkout discriminado por `kind` (ADR-084 §2).
+ *   - `product`: hosting/otros — precio desde `ProductPricing` (flujos F2/F3 + compra actual).
+ *   - `domain`:  dominio — precio desde `domain_tld_pricing` (flujos F1/F4/F5).
+ */
+export type CheckoutItem =
+  | {
+      kind: 'product';
+      productPricingId: string;
+      label?: string;
+      domain?: string;
+    }
+  | {
+      kind: 'domain';
+      productId: string;
+      domainName: string;
+      operation: 'register' | 'transfer_in';
+      years: number;
+      label?: string;
+    };
+
+export interface CheckoutInput {
+  items: CheckoutItem[];
+  billingProfileId?: string;
+}
+
+/**
+ * Forma legacy de 1 producto — preserva el contrato REST actual (`CheckoutDto`).
+ * El wrapper `checkout()` la adapta al core multi-ítem (`items.length === 1`).
+ */
+export interface SingleProductCheckoutDto {
+  product_pricing_id: string;
+  billing_profile_id?: string;
+  label?: string;
+  domain?: string;
+}
+
+/**
+ * Moneda de venta por defecto para dominios (ADR-084 A1.2 — moneda única v1:
+ * `cost_currency === price_currency === default_currency`). El setting
+ * `plugin.<registrar>.default_currency` se cablea en Fase E; hasta entonces, EUR.
+ */
+const DEFAULT_DOMAIN_CURRENCY = 'EUR';
+
+/**
+ * Resultado intermedio de resolver un `CheckoutItem` a (datos de service +
+ * línea de factura) ANTES de la transacción. La resolución (lecturas +
+ * validación + cálculo de precio) ocurre fuera de la tx; la tx solo crea los
+ * services (+ advisory lock para dominios). Espejo del patrón actual.
+ */
+interface ResolvedLine {
+  /** Datos para `prisma.service.create` (sin `user_id`, que se añade en la tx). */
+  service: Omit<Prisma.ServiceUncheckedCreateInput, 'user_id'>;
+  /** Línea de la factura (sin `service_id`, que se añade tras crear el service). */
+  invoiceLine: {
+    product_id: string;
+    description: string;
+    quantity: number;
+    unit_price: number;
+    setup_fee?: number;
+    discount_pct?: number;
+    period_start: string;
+    period_end: string;
+  };
+  productName: string;
+  productType: string;
+  /** Solo para ítems `product` — para el payload `service.provisioned`. */
+  productPricingId?: string;
+  /** Solo para ítems `domain` — FQDN normalizado (advisory lock + dup guard). */
+  fqdn?: string;
+  /** Etiqueta de descuento legacy (solo el primer ítem la expone en la respuesta). */
+  discountLabel: string | null;
+}
 
 @Injectable()
 export class BillingCheckoutService {
@@ -27,25 +102,209 @@ export class BillingCheckoutService {
     private readonly invoiceService: BillingInvoiceService,
   ) {}
 
+  /**
+   * Checkout de 1 producto — entrada legacy que preserva el contrato REST
+   * actual (`POST /billing/checkout`). Adapta el DTO al core multi-ítem y
+   * devuelve la MISMA forma de respuesta que antes (`service` singular).
+   *
+   * El contrato `items[]` público + el carrito (flujo F1 dominio+hosting)
+   * llegan con el buscador en Fase F.
+   */
   async checkout(
     userId: string,
-    dto: {
-      product_pricing_id: string;
-      billing_profile_id?: string;
-      label?: string;
-      domain?: string;
-    },
-  ) {
-    // 1. Validate target user
+    dto: SingleProductCheckoutDto,
+  ): Promise<{
+    service: Service;
+    invoice: Awaited<ReturnType<BillingInvoiceService['createInvoice']>>;
+    invoice_type: 'completa' | 'simplificada';
+    discount_applied: string | null;
+  }> {
+    const result = await this.checkoutItems(userId, {
+      items: [
+        {
+          kind: 'product',
+          productPricingId: dto.product_pricing_id,
+          label: dto.label,
+          domain: dto.domain,
+        },
+      ],
+      billingProfileId: dto.billing_profile_id,
+    });
+    return {
+      service: result.services[0],
+      invoice: result.invoice,
+      invoice_type: result.invoice_type,
+      discount_applied: result.discount_applied,
+    };
+  }
+
+  /**
+   * Core multi-ítem (ADR-084 §2): N ítems → N services (`pending`) + 1 factura
+   * con N líneas. Cada service con su `next_due_date` independiente (DH-INV-5).
+   * Al pagar (`invoice.paid`), el orquestador procesa cada service por separado.
+   */
+  async checkoutItems(
+    userId: string,
+    input: CheckoutInput,
+  ): Promise<{
+    services: Service[];
+    invoice: Awaited<ReturnType<BillingInvoiceService['createInvoice']>>;
+    invoice_type: 'completa' | 'simplificada';
+    discount_applied: string | null;
+  }> {
+    // 1. Validar usuario destino.
     const targetUser = await this.prisma.user.findUnique({
       where: { id: userId },
     });
     if (!targetUser)
       throw new NotFoundException('Usuario destino no encontrado.');
 
-    // 2. Validate pricing plan
+    // 2. Validar que hay ítems.
+    if (!input.items || input.items.length === 0) {
+      throw new BadRequestException('El checkout debe tener al menos un ítem.');
+    }
+
+    // 3. Validar perfil de facturación (pertenece al usuario destino — 7.0.3).
+    let billingProfile: Prisma.BillingProfileGetPayload<object> | null = null;
+    if (input.billingProfileId) {
+      billingProfile = await this.prisma.billingProfile.findFirst({
+        where: { id: input.billingProfileId, user_id: userId },
+      });
+      if (!billingProfile)
+        throw new BadRequestException(
+          'El perfil de facturación no pertenece al cliente seleccionado.',
+        );
+    }
+
+    // 4. Resolver cada ítem (lecturas + validación + precio) fuera de la tx.
+    //    `productCartCount` acumula cantidades del mismo producto DENTRO del
+    //    carrito para que `max_quantity_per_client` no se evada con duplicados.
+    const productCartCount = new Map<string, number>();
+    const resolvedLines: ResolvedLine[] = [];
+    for (const item of input.items) {
+      const line =
+        item.kind === 'product'
+          ? await this.resolveProductItem(
+              userId,
+              item,
+              input.billingProfileId,
+              productCartCount,
+            )
+          : await this.resolveDomainItem(item, input.billingProfileId);
+      resolvedLines.push(line);
+    }
+
+    // 5. Crear los N services en una transacción.
+    //    DOM-INV-2 (checkout side): advisory lock por FQDN + guard anti-duplicado
+    //    para serializar checkouts concurrentes del mismo dominio (EC-15D-03).
+    const services = await this.prisma.$transaction(async (tx) => {
+      for (const line of resolvedLines) {
+        if (line.fqdn) {
+          // Lock transaccional por hash del FQDN — dos checkouts simultáneos del
+          // mismo nombre se serializan; el segundo ve el service ya creado.
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${line.fqdn}))`;
+          const existing = await tx.service.findFirst({
+            where: {
+              domain: line.fqdn,
+              status: { notIn: ['cancelled', 'terminated'] },
+              product: { type: 'domain' },
+            },
+            select: { id: true },
+          });
+          if (existing) {
+            throw new BadRequestException(
+              `El dominio ${line.fqdn} ya está gestionado por Aelium.`,
+            );
+          }
+        }
+      }
+      const created: Service[] = [];
+      for (const line of resolvedLines) {
+        created.push(
+          await tx.service.create({
+            data: { user_id: userId, ...line.service },
+          }),
+        );
+      }
+      return created;
+    });
+
+    // 6. Crear la factura (fuera de la tx — usa SEQUENCE) con N líneas.
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+    const invoice = await this.invoiceService.createInvoice({
+      user_id: userId,
+      billing_profile_id: input.billingProfileId,
+      due_date: dueDate.toISOString(),
+      // Moneda de la factura = la del primer service (en v1 todos los ítems del
+      // carrito comparten moneda — productos en su `currency`, dominios en EUR).
+      currency: services[0].currency,
+      items: resolvedLines.map((line, i) => ({
+        service_id: services[i].id,
+        product_id: line.invoiceLine.product_id,
+        description: line.invoiceLine.description,
+        quantity: line.invoiceLine.quantity,
+        unit_price: line.invoiceLine.unit_price,
+        setup_fee: line.invoiceLine.setup_fee,
+        discount_pct: line.invoiceLine.discount_pct,
+        period_start: line.invoiceLine.period_start,
+        period_end: line.invoiceLine.period_end,
+      })),
+    });
+
+    this.logger.log(
+      `Checkout complete: ${services.length} service(s) + Invoice ${invoice.invoice_number} for user ${userId}.`,
+    );
+
+    // 7. Emitir eventos por cada service (preserva la forma del caso 1-ítem).
+    for (let i = 0; i < services.length; i++) {
+      const service = services[i];
+      const line = resolvedLines[i];
+      this.eventEmitter.emit('checkout.completed', {
+        user_id: userId,
+        service_id: service.id,
+        invoice_id: invoice.id,
+        product_name: line.productName,
+        total: invoice.total,
+      });
+
+      // ADR-076 + sub-fase 8.D.12.9 — `service.provisioned` canónico. El
+      // listener `support-inside-on-service-provisioned` filtra por
+      // `product_type='support_inside'`; el orquestador Sprint 11 provisiona
+      // vía `invoice.paid`. Heredado sin cambios para los ítems `domain`
+      // (product_type='domain' → futuro plugin registrar).
+      this.eventEmitter.emit('service.provisioned', {
+        service_id: service.id,
+        user_id: userId,
+        product_id: line.invoiceLine.product_id,
+        product_type: line.productType,
+        product_pricing_id: line.productPricingId,
+        invoice_id: invoice.id,
+        billing_profile_id: input.billingProfileId,
+      });
+    }
+
+    return {
+      services,
+      invoice,
+      invoice_type: billingProfile?.nif_cif ? 'completa' : 'simplificada',
+      discount_applied: resolvedLines[0].discountLabel,
+    };
+  }
+
+  /**
+   * Resuelve un ítem `product` — lógica idéntica al checkout 1-producto previo
+   * (validación de pricing + producto activo + `max_quantity_per_client` +
+   * descuento + fechas de ciclo). Preserva el comportamiento existente.
+   */
+  private async resolveProductItem(
+    userId: string,
+    item: Extract<CheckoutItem, { kind: 'product' }>,
+    billingProfileId: string | undefined,
+    productCartCount: Map<string, number>,
+  ): Promise<ResolvedLine> {
     const pricing = await this.prisma.productPricing.findUnique({
-      where: { id: dto.product_pricing_id },
+      where: { id: item.productPricingId },
       include: { product: true },
     });
     if (!pricing) throw new NotFoundException('Plan de precios no encontrado.');
@@ -54,19 +313,8 @@ export class BillingCheckoutService {
     if (pricing.product.status !== 'active')
       throw new BadRequestException('Este producto no está disponible.');
 
-    // 3. Validate billing profile belongs to TARGET user (7.0.3)
-    let billingProfile = null;
-    if (dto.billing_profile_id) {
-      billingProfile = await this.prisma.billingProfile.findFirst({
-        where: { id: dto.billing_profile_id, user_id: userId },
-      });
-      if (!billingProfile)
-        throw new BadRequestException(
-          'El perfil de facturación no pertenece al cliente seleccionado.',
-        );
-    }
-
-    // 4. Check max_quantity_per_client
+    // max_quantity_per_client — cuenta servicios existentes + los ya añadidos
+    // a ESTE carrito para el mismo producto (no se evade con duplicados).
     if (pricing.product.max_quantity_per_client) {
       const existingCount = await this.prisma.service.count({
         where: {
@@ -75,14 +323,15 @@ export class BillingCheckoutService {
           status: { notIn: ['cancelled', 'terminated'] },
         },
       });
-      if (existingCount >= pricing.product.max_quantity_per_client) {
+      const inCart = productCartCount.get(pricing.product_id) ?? 0;
+      if (existingCount + inCart >= pricing.product.max_quantity_per_client) {
         throw new BadRequestException(
           `El cliente ha alcanzado el límite de ${pricing.product.max_quantity_per_client} servicio(s) de este tipo.`,
         );
       }
+      productCartCount.set(pricing.product_id, inCart + 1);
     }
 
-    // 5. Calculate pricing with discount (7.0.5)
     const basePrice = Number(pricing.price);
     const discountPct = pricing.discount_percentage
       ? Number(pricing.discount_percentage)
@@ -92,89 +341,170 @@ export class BillingCheckoutService {
         ? Math.round(basePrice * (1 - discountPct / 100) * 100) / 100
         : basePrice;
 
-    // 6. Calculate due dates
     const cycleDays = this.calculator.getCycleDays(pricing.billing_cycle);
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 7);
     const nextDueDate = new Date();
     nextDueDate.setDate(nextDueDate.getDate() + cycleDays);
 
-    // 7. Create service in transaction
-    const result = await this.prisma.$transaction(async (tx) => {
-      const service = await tx.service.create({
-        data: {
-          user_id: userId,
-          product_id: pricing.product_id,
-          billing_profile_id: dto.billing_profile_id,
-          status: 'pending',
-          label: dto.label,
-          domain: dto.domain,
-          billing_cycle: pricing.billing_cycle,
-          amount: discountedPrice,
-          currency: pricing.currency,
-          next_due_date: nextDueDate,
-          next_invoice_date: nextDueDate,
+    return {
+      service: {
+        product_id: pricing.product_id,
+        billing_profile_id: billingProfileId,
+        status: 'pending',
+        label: item.label,
+        domain: item.domain,
+        billing_cycle: pricing.billing_cycle,
+        amount: discountedPrice,
+        currency: pricing.currency,
+        next_due_date: nextDueDate,
+        next_invoice_date: nextDueDate,
+      },
+      invoiceLine: {
+        product_id: pricing.product_id,
+        description: `${pricing.product.name} — ${item.label || item.domain || 'Nuevo servicio'}`,
+        quantity: 1,
+        unit_price: discountedPrice,
+        setup_fee: Number(pricing.setup_fee),
+        discount_pct: discountPct > 0 ? discountPct : undefined,
+        period_start: new Date().toISOString(),
+        period_end: new Date(Date.now() + cycleDays * 86400_000).toISOString(),
+      },
+      productName: pricing.product.name,
+      productType: pricing.product.type,
+      productPricingId: pricing.id,
+      discountLabel: discountPct > 0 ? `${discountPct}%` : null,
+    };
+  }
+
+  /**
+   * Resuelve un ítem `domain` (ADR-084 §2) — precio desde `domain_tld_pricing`
+   * (NO `ProductPricing`, R5: precio siempre en backend) + DOM-INV-3 (guardia
+   * de margen, moneda única). El service se crea con `domain=FQDN`,
+   * `provisioner_slug` del producto y `metadata` con la operación/años para que
+   * el orquestador fije `ProvisionContext.operation` (Fase sub-4).
+   */
+  private async resolveDomainItem(
+    item: Extract<CheckoutItem, { kind: 'domain' }>,
+    billingProfileId: string | undefined,
+  ): Promise<ResolvedLine> {
+    if (!Number.isInteger(item.years) || item.years < 1 || item.years > 10) {
+      throw new BadRequestException('Años de dominio inválidos (1..10).');
+    }
+    const fqdn = item.domainName.trim().toLowerCase();
+    const parts = fqdn.split('.');
+    if (parts.length < 2 || parts.some((p) => p.length === 0)) {
+      throw new BadRequestException(`Dominio inválido: ${item.domainName}.`);
+    }
+    // TLD = todo lo que sigue a la primera etiqueta. v1 ofrece TLDs de un solo
+    // nivel (.com/.net/.org/.es/.eu); el lookup en `domain_tld_pricing` es la
+    // fuente de verdad — TLDs multi-nivel/IDN se abordan en 15D.II.
+    const tld = parts.slice(1).join('.');
+
+    // Producto de dominio (define el registrar via `product.provisioner`).
+    const product = await this.prisma.product.findUnique({
+      where: { id: item.productId },
+    });
+    if (!product)
+      throw new NotFoundException('Producto de dominio no encontrado.');
+    if (product.type !== 'domain')
+      throw new BadRequestException(
+        'El producto indicado no es de tipo dominio.',
+      );
+    if (product.status !== 'active')
+      throw new BadRequestException('Este producto no está disponible.');
+
+    // Operación de pricing: el checkout solo vende register/transfer en v1.
+    const priceOperation =
+      item.operation === 'transfer_in' ? 'transfer' : 'register';
+    const pricing = await this.prisma.domainTldPricing.findUnique({
+      where: {
+        registrar_slug_tld_operation_years_price_currency: {
+          registrar_slug: product.provisioner,
+          tld,
+          operation: priceOperation,
+          years: item.years,
+          price_currency: DEFAULT_DOMAIN_CURRENCY,
         },
-      });
-      return { service, pricing };
+      },
     });
+    if (!pricing || !pricing.active) {
+      throw new BadRequestException(
+        `No hay precio disponible para .${tld} (${priceOperation}, ${item.years} año/s).`,
+      );
+    }
 
-    // 8. Create invoice (outside transaction — uses SEQUENCE)
-    const invoice = await this.invoiceService.createInvoice({
-      user_id: userId,
-      billing_profile_id: dto.billing_profile_id,
-      due_date: dueDate.toISOString(),
-      currency: result.pricing.currency,
-      items: [
-        {
-          service_id: result.service.id,
-          product_id: result.pricing.product_id,
-          description: `${result.pricing.product.name} — ${dto.label || dto.domain || 'Nuevo servicio'}`,
-          quantity: 1,
-          unit_price: discountedPrice,
-          setup_fee: Number(result.pricing.setup_fee),
-          discount_pct: discountPct > 0 ? discountPct : undefined,
-          period_start: new Date().toISOString(),
-          period_end: new Date(
-            Date.now() + cycleDays * 86400_000,
-          ).toISOString(),
-        },
-      ],
-    });
+    // DOM-INV-3 (margin guard, ADR-084 A1) — same-currency (A1.2). Bloquea la
+    // venta a pérdida por pricing dessincronizado + alerta superadmin.
+    if (pricing.cost_currency !== pricing.price_currency) {
+      this.emitMarginGuardAlert(fqdn, pricing, 'currency_mismatch');
+      throw new BadRequestException(
+        'Pricing de dominio incoherente (moneda). Operación bloqueada.',
+      );
+    }
+    if (Number(pricing.cost_amount) > Number(pricing.price_amount)) {
+      this.emitMarginGuardAlert(fqdn, pricing, 'cost_exceeds_price');
+      throw new BadRequestException(
+        'Precio de dominio temporalmente no disponible. Inténtalo más tarde.',
+      );
+    }
 
-    this.logger.log(
-      `Checkout complete: Service ${result.service.id} + Invoice ${invoice.invoice_number} for user ${userId}` +
-        (discountPct > 0 ? ` (${discountPct}% discount applied)` : ''),
-    );
-
-    this.eventEmitter.emit('checkout.completed', {
-      user_id: userId,
-      service_id: result.service.id,
-      invoice_id: invoice.id,
-      product_name: result.pricing.product.name,
-      total: invoice.total,
-    });
-
-    // ADR-076 + sub-fase 8.D.12.9 — emit canónico `service.provisioned`.
-    // Listener `support-inside-on-service-provisioned` filtra por
-    // `product_type='support_inside'` y crea/reactiva la subscription.
-    // Otros futuros listeners (Sprint 11 Provisioning para hosting,
-    // Docker, etc.) se enganchan al mismo evento sin tocar este service.
-    this.eventEmitter.emit('service.provisioned', {
-      service_id: result.service.id,
-      user_id: userId,
-      product_id: result.pricing.product_id,
-      product_type: result.pricing.product.type,
-      product_pricing_id: result.pricing.id,
-      invoice_id: invoice.id,
-      billing_profile_id: dto.billing_profile_id,
-    });
+    const price = Number(pricing.price_amount);
+    const now = new Date();
+    const nextDueDate = new Date(now);
+    nextDueDate.setFullYear(now.getFullYear() + item.years);
 
     return {
-      service: result.service,
-      invoice,
-      invoice_type: billingProfile?.nif_cif ? 'completa' : 'simplificada',
-      discount_applied: discountPct > 0 ? `${discountPct}%` : null,
+      service: {
+        product_id: product.id,
+        billing_profile_id: billingProfileId,
+        status: 'pending',
+        label: item.label ?? fqdn,
+        domain: fqdn,
+        provisioner_slug: product.provisioner,
+        billing_cycle: BillingCycle.annual,
+        amount: price,
+        currency: pricing.price_currency,
+        next_due_date: nextDueDate,
+        next_invoice_date: nextDueDate,
+        // El orquestador (sub-4) lee la operación para fijar
+        // `ProvisionContext.operation` (ADR-077 A10) y los años del registro.
+        metadata: {
+          domain_operation: item.operation,
+          domain_years: item.years,
+        } satisfies Prisma.InputJsonValue,
+      },
+      invoiceLine: {
+        product_id: product.id,
+        description: `${product.name} — ${fqdn} (${item.operation === 'transfer_in' ? 'transferencia' : 'registro'}, ${item.years} año/s)`,
+        quantity: 1,
+        unit_price: price,
+        period_start: now.toISOString(),
+        period_end: nextDueDate.toISOString(),
+      },
+      productName: product.name,
+      productType: product.type,
+      fqdn,
+      discountLabel: null,
     };
+  }
+
+  /** DOM-INV-3 — alerta al superadmin cuando el margen de un dominio es inválido. */
+  private emitMarginGuardAlert(
+    fqdn: string,
+    pricing: {
+      cost_amount: unknown;
+      price_amount: unknown;
+      cost_currency: string;
+      price_currency: string;
+    },
+    reason: 'cost_exceeds_price' | 'currency_mismatch',
+  ): void {
+    this.eventEmitter.emit('system.error', {
+      level: 'error',
+      module: 'billing.checkout',
+      message:
+        `DOM-INV-3 margin guard: checkout de dominio ${fqdn} bloqueado (${reason}). ` +
+        `cost=${String(pricing.cost_amount)} ${pricing.cost_currency} ` +
+        `price=${String(pricing.price_amount)} ${pricing.price_currency}.`,
+    });
   }
 }
