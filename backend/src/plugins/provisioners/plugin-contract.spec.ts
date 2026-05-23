@@ -73,6 +73,7 @@ function buildResellerclubPluginForStaticContract(): ResellerclubProvisionerPlug
     null as never, // prisma — NO se invoca en mode='static-only'
     null as never, // vault   — idem
     null as never, // customers — idem
+    null as never, // settings — idem
   );
 }
 

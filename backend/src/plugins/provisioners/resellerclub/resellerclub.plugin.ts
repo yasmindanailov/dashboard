@@ -57,9 +57,12 @@ import {
   TldCostEntry,
 } from '../../../core/provisioning/types';
 import { SecretVaultService } from '../../../core/security/secret-vault.service';
+import { SettingsService } from '../../../core/settings/settings.service';
 
 import {
+  RcDomainDetails,
   RcEnvironment,
+  RcOrderId,
   RcPriceOperation,
   ResellerClubApiClient,
   resolveResellerClubBaseUrl,
@@ -71,6 +74,9 @@ const RC_SLUG = 'resellerclub';
 
 /** TLDs ofertados por defecto (ADR-084 §3.4). Con punto (display/oferta). */
 const DEFAULT_TLDS_OFFERED = ['.com', '.net', '.org', '.es', '.eu'] as const;
+
+/** NS por defecto si el setting C3 no está poblado (fallback defensivo, ADR-082 §4). */
+const DEFAULT_NAMESERVERS = ['ns1.aelium.net', 'ns2.aelium.net'] as const;
 
 /**
  * Mapa `classkey` RC → TLD sin punto (ADR-081 A1.2 — clave de unión
@@ -284,6 +290,7 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
     private readonly prisma: PrismaService,
     private readonly vault: SecretVaultService,
     private readonly customers: ResellerclubCustomersService,
+    private readonly settings: SettingsService,
   ) {}
 
   // ─── 1. provision() — ramificado por operation (ADR-077 A10 / ADR-081 §5) ──
@@ -292,15 +299,7 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
     const operation = ctx.operation ?? 'register';
     switch (operation) {
       case 'register':
-        // Commit 4: pre-flight checkAvailability (DOM-INV-1) + ensureRegistrant
-        // (this.customers) + domains/register con NS=default_nameservers.
-        throw new ProvisionerPluginError(
-          `provision(register) pendiente — Commit 4 de la Fase 15D.D.`,
-          'NOT_IMPLEMENTED',
-          false,
-          undefined,
-          RC_SLUG,
-        );
+        return this.provisionRegister(ctx);
       case 'renew':
         throw new ProvisionerPluginError(
           `provision(renew) pendiente — Fase 15D.E (DOM-INV-4).`,
@@ -318,6 +317,151 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
           RC_SLUG,
         );
     }
+  }
+
+  /**
+   * `operation='register'` — registra el dominio (ADR-081 §5 + DOM-INV-1/ADR-084).
+   *
+   * Idempotencia en dos capas (registro = irreversible, cuesta dinero):
+   *   1. **Reintento puro:** si `provider_reference` ya está persistido → se
+   *      devuelve sin tocar RC (ADR-077 idempotencia).
+   *   2. **DOM-INV-1 (recovery tras crash):** pre-flight `domains/available`; si
+   *      RC reporta el FQDN `regthroughus` (registrado bajo NUESTRA cuenta pero
+   *      sin `provider_reference` local — crash entre register y persistencia) →
+   *      se **adopta** el order-id existente, NO se re-registra. `regthroughothers`
+   *      / cualquier estado ≠ `available` → `DOMAIN_UNAVAILABLE`.
+   *
+   * Tras un `available`: `ensureRegistrant` (customer + 4 contactos, Commit 2) →
+   * `domains/register` con NS = `provisioning.default_nameservers` (C3, ADR-082 §4),
+   * `invoice-option=NoInvoice` (Aelium controla el cobro) y WHOIS privacy ON
+   * (ADR-081 §10). [Shapes register/details CONSERVADORES hasta el smoke OT&E
+   * Fase G — A1.5; validado contra `MockResellerClubServer`.]
+   */
+  private async provisionRegister(
+    ctx: ProvisionContext,
+  ): Promise<ProvisionResult> {
+    // Capa 1 — reintento puro: ya registrado y persistido (no re-registrar).
+    if (ctx.service.provider_reference) {
+      this.logger.log(
+        `provision(register) service=${ctx.service.id}: provider_reference ` +
+          `${ctx.service.provider_reference} ya existe — reintento idempotente.`,
+      );
+      return {
+        providerReference: ctx.service.provider_reference,
+        metadata: toFlatMetadata(ctx.service.metadata),
+        followUp: ['mark_active'],
+      };
+    }
+
+    const domain = ctx.service.domain;
+    if (!isValidFqdn(domain)) {
+      throw new ProvisionerPluginError(
+        `El servicio ${ctx.service.id} requiere un FQDN válido en ` +
+          `services.domain (got ${domain ?? 'null'}) para registrar el dominio.`,
+        'INVALID_PAYLOAD',
+        false,
+        undefined,
+        RC_SLUG,
+      );
+    }
+    const fqdn = (domain as string).trim().toLowerCase();
+    const years = extractDomainYears(ctx.service.metadata);
+
+    const { client } = await this.getApiClient();
+
+    // Capa 2 — DOM-INV-1 pre-flight (exactly-once por nombre).
+    const { sld, tld } = splitFqdn(fqdn);
+    const availability = await client.checkAvailability(sld, [tld]);
+    const status = (availability[fqdn] ?? Object.values(availability)[0])?.status;
+
+    if (status === 'regthroughus') {
+      // Registrado bajo nuestra cuenta sin provider_reference local → adoptar.
+      const orderId = await this.adoptExistingRegistration(client, fqdn);
+      return {
+        providerReference: orderId,
+        metadata: { domain_operation: 'register', domain_years: years },
+        followUp: ['mark_active'],
+      };
+    }
+    if (status !== 'available') {
+      throw new ProvisionerPluginError(
+        `El dominio ${fqdn} no está disponible para registro ` +
+          `(estado RC: ${status ?? 'desconocido'}).`,
+        'DOMAIN_UNAVAILABLE',
+        false,
+        undefined,
+        RC_SLUG,
+      );
+    }
+
+    // Disponible → asegurar registrante (customer + 4 contactos) + registrar.
+    const refs = await this.customers.ensureRegistrant(ctx.client, client);
+    const nameservers = await this.settings.getJson<string[]>(
+      'provisioning',
+      'default_nameservers',
+      [...DEFAULT_NAMESERVERS],
+    );
+
+    const orderId = await client.registerDomain({
+      'domain-name': fqdn,
+      years,
+      ns: nameservers,
+      'customer-id': refs.customerId,
+      'reg-contact-id': refs.contacts.registrant,
+      'admin-contact-id': refs.contacts.admin,
+      'tech-contact-id': refs.contacts.tech,
+      'billing-contact-id': refs.contacts.billing,
+      'invoice-option': 'NoInvoice', // Aelium controla el cobro, no RC
+      'protect-privacy': true, // WHOIS privacy ON por defecto (ADR-081 §10)
+    });
+
+    this.logger.log(
+      `provision(register) service=${ctx.service.id}: dominio ${fqdn} ` +
+        `registrado (order=${orderId}, years=${years}, ns=[${nameservers.join(', ')}]).`,
+    );
+
+    return {
+      providerReference: orderId,
+      metadata: {
+        domain_operation: 'register',
+        domain_years: years,
+        rc_customer_id: refs.customerId,
+        rc_registrant_contact_id: refs.contacts.registrant,
+        rc_nameservers: nameservers.join(','),
+        whois_privacy: true,
+      },
+      followUp: ['mark_active'],
+    };
+  }
+
+  /**
+   * DOM-INV-1 (recovery): el dominio figura `regthroughus` pero no tenemos
+   * `provider_reference` local (crash). Recupera el order-id vía
+   * `domains/details-by-name` y lo adopta (no re-registra → no doble cobro).
+   * [details CONSERVADOR hasta Fase G — A1.5].
+   */
+  private async adoptExistingRegistration(
+    client: ResellerClubApiClient,
+    fqdn: string,
+  ): Promise<RcOrderId> {
+    const details = await client.getDomainDetailsByName(fqdn);
+    const orderId = normalizeOrderId(details);
+    if (!orderId) {
+      throw new ProvisionerPluginError(
+        `DOM-INV-1: ${fqdn} figura registrado bajo nuestra cuenta (regthroughus) ` +
+          `pero no se pudo extraer el order-id de details para adoptarlo. ` +
+          `Reintentar tras reconcile.`,
+        'PROVIDER_INTERNAL_ERROR',
+        true,
+        undefined,
+        RC_SLUG,
+      );
+    }
+    this.logger.warn(
+      `DOM-INV-1 adopción: ${fqdn} ya registrado bajo nuestra cuenta ` +
+        `(order=${orderId}) — recovery tras crash, NO se re-registra.`,
+    );
+    return orderId;
   }
 
   // ─── 2. deprovision() — domains/delete (grace) — Fase 15D.E ────────────────
@@ -564,6 +708,66 @@ function splitFqdn(fqdn: string): { sld: string; tld: string } {
     );
   }
   return { sld: normalized.slice(0, idx), tld: normalized.slice(idx + 1) };
+}
+
+/** Validación mínima de FQDN (estilo DH-INV-2): no null, con punto, ≤253. */
+function isValidFqdn(domain: string | null): boolean {
+  if (typeof domain !== 'string') return false;
+  const d = domain.trim();
+  return d.length > 0 && d.length <= 253 && d.includes('.');
+}
+
+/** Años del registro desde `services.metadata.domain_years` (lo fija el checkout, 15D.B). */
+function extractDomainYears(metadata: unknown): number {
+  const md =
+    metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>)
+      : {};
+  const raw = md.domain_years;
+  if (
+    typeof raw === 'number' &&
+    Number.isInteger(raw) &&
+    raw >= 1 &&
+    raw <= 10
+  ) {
+    return raw;
+  }
+  throw new ProvisionerPluginError(
+    `services.metadata.domain_years ausente o inválido (esperado entero 1..10, ` +
+      `got ${typeof raw}). Lo fija el checkout (Fase 15D.B).`,
+    'INVALID_PAYLOAD',
+    false,
+    undefined,
+    RC_SLUG,
+  );
+}
+
+/** Extrae el order-id de `domains/details` (orderid → entityid). Null si no hay. */
+function normalizeOrderId(details: RcDomainDetails): RcOrderId | null {
+  for (const raw of [details.orderid, details.entityid]) {
+    if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw);
+    if (typeof raw === 'string' && /^\d+$/.test(raw.trim())) return raw.trim();
+  }
+  return null;
+}
+
+/** Filtra una metadata Json a los valores planos admitidos por ProvisionResult. */
+function toFlatMetadata(
+  metadata: unknown,
+): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {};
+  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+    for (const [k, v] of Object.entries(metadata as Record<string, unknown>)) {
+      if (
+        typeof v === 'string' ||
+        typeof v === 'number' ||
+        typeof v === 'boolean'
+      ) {
+        out[k] = v;
+      }
+    }
+  }
+  return out;
 }
 
 function parseResellerclubConfig(raw: unknown): ResellerclubConfig {
