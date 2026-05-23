@@ -42,6 +42,7 @@ import {
   ClientPublicData,
   DeprovisionContext,
   DomainAvailability,
+  DomainInfo,
   PROVISIONER_PLUGIN_CONTRACT_VERSION,
   PluginCapabilities,
   PluginManifest,
@@ -51,11 +52,14 @@ import {
   ProvisionerPluginError,
   ServiceAction,
   ServiceInfo,
+  ServiceInfoStatus,
+  ServiceRecoveryHint,
   ServiceStatusReport,
   ServiceWithRelations,
   SsoUrl,
   TldCostEntry,
 } from '../../../core/provisioning/types';
+import { filterActionsByStatus } from '../../../core/provisioning/plugin-utils';
 import { SecretVaultService } from '../../../core/security/secret-vault.service';
 import { SettingsService } from '../../../core/settings/settings.service';
 
@@ -464,44 +468,114 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
     return orderId;
   }
 
-  // ─── 2. deprovision() — domains/delete (grace) — Fase 15D.E ────────────────
+  // ─── 2. deprovision() — no-op (el dominio persiste hasta expiración) ────────
 
   async deprovision(ctx: DeprovisionContext): Promise<void> {
-    if (!ctx.service.provider_reference) {
-      // Idempotente: sin order-id no hay nada que borrar en RC.
-      this.logger.warn(
-        `deprovision service=${ctx.service.id}: sin provider_reference — no-op.`,
-      );
-      return;
-    }
-    throw new ProvisionerPluginError(
-      `deprovision (domains/delete) pendiente — Fase 15D.E.`,
-      'NOT_IMPLEMENTED',
-      false,
-      undefined,
-      RC_SLUG,
+    // Doctrina v1 (refina ADR-081 §5): la deprovisión de lifecycle de un DOMINIO
+    // es **no-op**. Un dominio registrado está pagado por su período — cancelar
+    // el servicio NO lo borra del registrar (perder un dominio pagado del cliente
+    // sería el peor fallo posible); el dominio persiste hasta su expiración y RC
+    // gestiona el ciclo (sin auto-renew → expira → redemption → delete).
+    // El borrado en período de gracia (`domains/delete`, reembolso de registros
+    // accidentales/fraude) es una operación admin EXPLÍCITA y destructiva,
+    // diferida a Fase 15D.F — NO es el deprovision de lifecycle. Idempotente.
+    this.logger.log(
+      `deprovision service=${ctx.service.id} (reason=${ctx.reason}): no-op — el ` +
+        `dominio ${ctx.service.domain ?? '?'} persiste en RC hasta expiración ` +
+        `(no se borra un dominio pagado).`,
     );
   }
 
-  // ─── 3. getStatus() — reconcile read (domains/details) — Fase 15D.E ────────
+  // ─── 3. getStatus() — reconcile read (domains/details, ADR-081 §6) ─────────
 
   async getStatus(service: ServiceWithRelations): Promise<ServiceStatusReport> {
-    // Stub conservador (Commit 5/Fase E lo mapea desde domains/details, A1.5).
+    const orderId = service.provider_reference;
+    if (!orderId) {
+      return {
+        status: 'unknown',
+        statusReason: 'plugin.resellerclub.status_reason.not_yet_provisioned',
+        checkedAt: new Date().toISOString(),
+      };
+    }
+    const { client } = await this.getApiClient();
+    try {
+      const details = await client.getDomainDetailsByOrderId(orderId);
+      const mapped = mapRcDomainStatus(details, Date.now());
+      return {
+        status: mapped.status,
+        statusReason: mapped.statusReason,
+        checkedAt: new Date().toISOString(),
+      };
+    } catch {
+      // Best-effort: proveedor caído / details inaccesible → unknown (no afirmar
+      // estado). El reconcile cron (Fase 15D.E) reintenta. [CONSERVADOR — A1.5].
+      return {
+        status: 'unknown',
+        statusReason: 'plugin.resellerclub.status_reason.provider_unreachable',
+        checkedAt: new Date().toISOString(),
+      };
+    }
+  }
+
+  // ─── 4. getServiceInfo() — display + DomainInfo (ADR-077 A11) ──────────────
+
+  async getServiceInfo(service: ServiceWithRelations): Promise<ServiceInfo> {
+    const orderId = service.provider_reference;
+    const fqdn = service.domain;
+    if (!orderId || !isValidFqdn(fqdn)) {
+      // Aún no aprovisionado: sin order-id no hay dominio que describir → se
+      // OMITE `info.domain` (A11.3: no emitir objeto vacío misleading).
+      return this.buildBasicInfo(
+        service,
+        'plugin.resellerclub.status_reason.not_yet_provisioned',
+      );
+    }
+
+    const { client } = await this.getApiClient();
+    let details: RcDomainDetails;
+    try {
+      details = await client.getDomainDetailsByOrderId(orderId);
+    } catch {
+      return this.buildBasicInfo(
+        service,
+        'plugin.resellerclub.status_reason.provider_unreachable',
+      );
+    }
+
+    const mapped = mapRcDomainStatus(details, Date.now());
+    const domain = buildDomainInfo(details, fqdn as string, mapped.lifecycle);
+    const availableActions = filterActionsByStatus(
+      this.inlineActions,
+      mapped.status,
+    );
+
     return {
-      status: 'unknown',
-      statusReason: 'plugin.resellerclub.status_reason.pending_impl',
-      checkedAt: new Date().toISOString(),
+      status: mapped.status,
+      statusReason: mapped.statusReason,
+      recoveryHint: mapped.recoveryHint,
+      display: { primary: fqdn as string, secondary: 'plugin.resellerclub.label' },
+      domain,
+      capabilities: {
+        ...this.capabilities,
+        hasSsoPanel: false,
+        inlineActions: availableActions,
+      },
+      availableActions,
+      fetchedAt: new Date().toISOString(),
     };
   }
 
-  // ─── 4. getServiceInfo() — display + DomainInfo (A11) — Commit 5 ───────────
-
-  async getServiceInfo(service: ServiceWithRelations): Promise<ServiceInfo> {
-    // Stub conservador: Commit 5 mapea domains/details → status + DomainInfo
-    // (ADR-077 A11). Hoy devuelve un ServiceInfo válido sin gestión.
+  /**
+   * `ServiceInfo` mínimo válido para los casos sin dominio que describir
+   * (no aprovisionado / proveedor inaccesible). OMITE `info.domain` (A11.3).
+   */
+  private buildBasicInfo(
+    service: ServiceWithRelations,
+    statusReason: string,
+  ): ServiceInfo {
     return {
       status: 'unknown',
-      statusReason: 'plugin.resellerclub.status_reason.pending_impl',
+      statusReason,
       display: {
         primary: service.domain ?? service.label ?? 'plugin.resellerclub.label',
         secondary: 'plugin.resellerclub.label',
@@ -768,6 +842,168 @@ function toFlatMetadata(
     }
   }
   return out;
+}
+
+// ─── Mapeo domains/details → status + DomainInfo (ADR-081 §6 + ADR-077 A11) ──
+// [CONSERVADOR — los nombres/valores exactos de los ejes de estado de RC se
+//  confirman en el smoke OT&E (Fase G, A1.5); el mapeo es defensivo.]
+
+interface RcStatusMapping {
+  readonly status: ServiceInfoStatus;
+  readonly lifecycle: DomainInfo['lifecycle'];
+  readonly recoveryHint?: ServiceRecoveryHint;
+  readonly statusReason?: string;
+}
+
+/**
+ * Estado multi-eje de RC (`domains/details`) → `ServiceInfoStatus` + sub-fase
+ * del ciclo ICANN (ADR-081 §6 / ADR-082 A2.3). `recoveryHint` se limita a los
+ * valores del contrato (`contact_support` para redemption/pending_delete); los
+ * hints dedicados `renew`/`restore` + su extensión del tipo se difieren a Fase F
+ * — la sub-fase precisa ya viaja en `DomainInfo.lifecycle`.
+ */
+function mapRcDomainStatus(
+  details: RcDomainDetails,
+  nowMs: number,
+): RcStatusMapping {
+  const entity = lc(details.entitystatus);
+  const stateBlob = [
+    stringifyState(details.currentstatus),
+    ...(details.orderstatus ?? []),
+  ]
+    .map(lc)
+    .join(' ');
+
+  const endtime = toEpochSeconds(details.endtime);
+  const expired = endtime !== null && endtime * 1000 < nowMs;
+  const isRedemption = /redemption|rgp/.test(stateBlob);
+  const isPendingDelete = /pending[\s_]?delete/.test(stateBlob);
+
+  if (entity === 'deleted') {
+    return {
+      status: 'cancelled',
+      lifecycle: isPendingDelete ? 'pending_delete' : 'expired',
+    };
+  }
+  if (isPendingDelete) {
+    return {
+      status: 'expired',
+      lifecycle: 'pending_delete',
+      recoveryHint: 'contact_support',
+      statusReason: 'plugin.resellerclub.status_reason.pending_delete',
+    };
+  }
+  if (isRedemption) {
+    return {
+      status: 'expired',
+      lifecycle: 'redemption',
+      recoveryHint: 'contact_support',
+      statusReason: 'plugin.resellerclub.status_reason.redemption',
+    };
+  }
+  if (expired) {
+    return {
+      status: 'expired',
+      lifecycle: 'expired',
+      statusReason: 'plugin.resellerclub.status_reason.expired',
+    };
+  }
+  if (entity === 'suspended') {
+    return {
+      status: 'suspended',
+      lifecycle: 'active',
+      statusReason: 'plugin.resellerclub.status_reason.suspended',
+    };
+  }
+  if (/pending[\s_]?verification|pendingaction/.test(stateBlob)) {
+    return {
+      status: 'pending',
+      lifecycle: 'active',
+      statusReason: 'plugin.resellerclub.status_reason.pending_verification',
+    };
+  }
+  if (entity === 'active') {
+    return { status: 'active', lifecycle: 'active' };
+  }
+  return {
+    status: 'unknown',
+    lifecycle: 'active',
+    statusReason: 'plugin.resellerclub.status_reason.inconsistent',
+  };
+}
+
+/** `domains/details` → `DomainInfo` (ADR-077 A11). Sin PII completa (R12/RGPD). */
+function buildDomainInfo(
+  details: RcDomainDetails,
+  fqdn: string,
+  lifecycle: DomainInfo['lifecycle'],
+): DomainInfo {
+  const nameservers = [details.ns1, details.ns2, details.ns3, details.ns4].filter(
+    (n): n is string => typeof n === 'string' && n.trim().length > 0,
+  );
+  const endtime = toEpochSeconds(details.endtime);
+  const expiresAt =
+    endtime !== null ? new Date(endtime * 1000).toISOString() : undefined;
+  const registrarLock = detectRegistrarLock(details);
+
+  return {
+    fqdn,
+    nameservers,
+    expiresAt,
+    lifecycle,
+    whoisPrivacy: toRcBool(details.isprivacyprotected),
+    registrarLock,
+    // El auth/EPP code solo es obtenible si el dominio está vigente y sin lock
+    // (RC además exige >60 días desde el registro — refinar en Fase F/G).
+    authCodeAvailable: lifecycle === 'active' && !registrarLock,
+    // Resumen de contactos SIN PII completa (A11): presencia por rol. El
+    // `registrantName` se omite (no viaja en details; requeriría contacts/details).
+    contacts: {
+      hasAdmin: hasContactId(details.admincontactid),
+      hasTech: hasContactId(details.techcontactid),
+      hasBilling: hasContactId(details.billingcontactid),
+    },
+  };
+}
+
+/** Registrar/theft lock activo según los ejes de estado de RC. [CONSERVADOR]. */
+function detectRegistrarLock(details: RcDomainDetails): boolean {
+  const blob = [
+    stringifyState(details.currentstatus),
+    ...(details.orderstatus ?? []),
+  ]
+    .map(lc)
+    .join(' ');
+  return /transferlock|theftprotect|clienttransferprohibited/.test(blob);
+}
+
+function lc(value: unknown): string {
+  return typeof value === 'string' ? value.toLowerCase().trim() : '';
+}
+
+function stringifyState(value: string | undefined): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function toEpochSeconds(raw: string | number | undefined): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw === 'string' && /^\d+$/.test(raw.trim())) return Number(raw.trim());
+  return null;
+}
+
+function toRcBool(raw: boolean | string | undefined): boolean {
+  if (typeof raw === 'boolean') return raw;
+  if (typeof raw === 'string') {
+    const v = raw.trim().toLowerCase();
+    return v === 'true' || v === '1';
+  }
+  return false;
+}
+
+function hasContactId(raw: string | number | undefined): boolean {
+  if (typeof raw === 'number') return Number.isFinite(raw) && raw > 0;
+  if (typeof raw === 'string') return /^\d+$/.test(raw.trim()) && Number(raw) > 0;
+  return false;
 }
 
 function parseResellerclubConfig(raw: unknown): ResellerclubConfig {

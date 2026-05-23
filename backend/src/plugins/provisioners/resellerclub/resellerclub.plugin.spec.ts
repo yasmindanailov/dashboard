@@ -214,3 +214,139 @@ describe('ResellerclubProvisionerPlugin.provision(register) — Fase 15D.D', () 
     ).rejects.toMatchObject({ code: 'NOT_IMPLEMENTED' });
   });
 });
+
+describe('ResellerclubProvisionerPlugin getServiceInfo/getStatus/deprovision — Fase 15D.D', () => {
+  const FUTURE = Math.floor(Date.now() / 1000) + 365 * 86400;
+  const PAST = Math.floor(Date.now() / 1000) - 86400;
+
+  const ACTIVE_DETAILS = {
+    orderid: '700123',
+    domainname: 'example.com',
+    entitystatus: 'Active',
+    currentstatus: 'ok',
+    endtime: FUTURE,
+    ns1: 'ns1.aelium.net',
+    ns2: 'ns2.aelium.net',
+    isprivacyprotected: true,
+    admincontactid: '800001',
+    techcontactid: '800001',
+    billingcontactid: '800001',
+  };
+
+  function buildPlugin() {
+    const client = { getDomainDetailsByOrderId: jest.fn() };
+    const plugin = new ResellerclubProvisionerPlugin(
+      null as never,
+      null as never,
+      null as never,
+      null as never,
+    );
+    jest
+      .spyOn(plugin, 'getApiClient')
+      .mockResolvedValue({ client: client as never, config: {} as never });
+    return { plugin, client };
+  }
+
+  function svc(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'svc-1',
+      user_id: 'user-1',
+      domain: 'example.com',
+      label: 'example.com',
+      provider_reference: '700123',
+      metadata: {},
+      ...overrides,
+    } as never;
+  }
+
+  it('getServiceInfo activo → status active + DomainInfo poblado (A11)', async () => {
+    const { plugin, client } = buildPlugin();
+    client.getDomainDetailsByOrderId.mockResolvedValue(ACTIVE_DETAILS);
+
+    const info = await plugin.getServiceInfo(svc());
+
+    expect(info.status).toBe('active');
+    expect(info.domain).toBeDefined();
+    expect(info.domain!.fqdn).toBe('example.com');
+    expect(info.domain!.nameservers).toEqual([
+      'ns1.aelium.net',
+      'ns2.aelium.net',
+    ]);
+    expect(info.domain!.lifecycle).toBe('active');
+    expect(info.domain!.whoisPrivacy).toBe(true);
+    expect(info.domain!.registrarLock).toBe(false);
+    expect(info.domain!.authCodeAvailable).toBe(true);
+    expect(info.domain!.expiresAt).toBeDefined();
+    expect(info.domain!.contacts).toEqual({
+      hasAdmin: true,
+      hasTech: true,
+      hasBilling: true,
+    });
+    const slugs = info.availableActions.map((a) => a.slug);
+    expect(slugs).toContain('modify_nameservers');
+    expect(slugs).toContain('suspend_service');
+    expect(slugs).not.toContain('unsuspend_service');
+  });
+
+  it('getServiceInfo sin provider_reference → unknown, OMITE info.domain', async () => {
+    const { plugin, client } = buildPlugin();
+    const info = await plugin.getServiceInfo(svc({ provider_reference: null }));
+    expect(info.status).toBe('unknown');
+    expect(info.domain).toBeUndefined();
+    expect(client.getDomainDetailsByOrderId).not.toHaveBeenCalled();
+  });
+
+  it('getServiceInfo expirado → status/lifecycle expired', async () => {
+    const { plugin, client } = buildPlugin();
+    client.getDomainDetailsByOrderId.mockResolvedValue({
+      ...ACTIVE_DETAILS,
+      endtime: PAST,
+    });
+    const info = await plugin.getServiceInfo(svc());
+    expect(info.status).toBe('expired');
+    expect(info.domain!.lifecycle).toBe('expired');
+  });
+
+  it('getServiceInfo redemption → expired + lifecycle redemption + recoveryHint', async () => {
+    const { plugin, client } = buildPlugin();
+    client.getDomainDetailsByOrderId.mockResolvedValue({
+      ...ACTIVE_DETAILS,
+      endtime: PAST,
+      currentstatus: 'redemption',
+    });
+    const info = await plugin.getServiceInfo(svc());
+    expect(info.status).toBe('expired');
+    expect(info.domain!.lifecycle).toBe('redemption');
+    expect(info.recoveryHint).toBe('contact_support');
+  });
+
+  it('getStatus: activo → active; sin ref → unknown; error → unknown', async () => {
+    const { plugin, client } = buildPlugin();
+    client.getDomainDetailsByOrderId.mockResolvedValue(ACTIVE_DETAILS);
+    expect((await plugin.getStatus(svc())).status).toBe('active');
+
+    const noRef = await plugin.getStatus(svc({ provider_reference: null }));
+    expect(noRef.status).toBe('unknown');
+    expect(noRef.statusReason).toContain('not_yet_provisioned');
+
+    client.getDomainDetailsByOrderId.mockRejectedValueOnce(new Error('down'));
+    expect((await plugin.getStatus(svc())).status).toBe('unknown');
+  });
+
+  it('deprovision → no-op (no lanza, no toca RC)', async () => {
+    const { plugin, client } = buildPlugin();
+    await expect(
+      plugin.deprovision({
+        service: svc() as never,
+        reason: 'cancelled',
+        correlationId: 'c',
+      }),
+    ).resolves.toBeUndefined();
+    expect(client.getDomainDetailsByOrderId).not.toHaveBeenCalled();
+  });
+
+  it('getSsoUrl → null (sin panel RC, ADR-070)', async () => {
+    const { plugin } = buildPlugin();
+    expect(await plugin.getSsoUrl(svc())).toBeNull();
+  });
+});
