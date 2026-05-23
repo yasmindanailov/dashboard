@@ -383,7 +383,11 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
       const orderId = await this.adoptExistingRegistration(client, fqdn);
       return {
         providerReference: orderId,
-        metadata: { domain_operation: 'register', domain_years: years },
+        metadata: {
+          ...toFlatMetadata(ctx.service.metadata),
+          domain_operation: 'register',
+          domain_years: years,
+        },
         followUp: ['mark_active'],
       };
     }
@@ -426,7 +430,11 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
 
     return {
       providerReference: orderId,
+      // Preserva la metadata que puso el checkout (defensivo: si añade campos
+      // nuevos en el futuro, no se pierden — el orquestador SOBREESCRIBE metadata
+      // con este result, no la fusiona) + los refs RC para getServiceInfo/gestión.
       metadata: {
+        ...toFlatMetadata(ctx.service.metadata),
         domain_operation: 'register',
         domain_years: years,
         rc_customer_id: refs.customerId,
@@ -507,9 +515,14 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
         statusReason: mapped.statusReason,
         checkedAt: new Date().toISOString(),
       };
-    } catch {
+    } catch (err) {
       // Best-effort: proveedor caído / details inaccesible → unknown (no afirmar
       // estado). El reconcile cron (Fase 15D.E) reintenta. [CONSERVADOR — A1.5].
+      // Se loguea el detalle — NO se traga en silencio (registrar = dinero).
+      this.logger.warn(
+        `getStatus service=${service.id} (order=${orderId}): RC inaccesible → ` +
+          `unknown. ${err instanceof Error ? err.message : 'error desconocido'}`,
+      );
       return {
         status: 'unknown',
         statusReason: 'plugin.resellerclub.status_reason.provider_unreachable',
@@ -536,7 +549,11 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
     let details: RcDomainDetails;
     try {
       details = await client.getDomainDetailsByOrderId(orderId);
-    } catch {
+    } catch (err) {
+      this.logger.warn(
+        `getServiceInfo service=${service.id} (order=${orderId}): RC inaccesible ` +
+          `→ unknown. ${err instanceof Error ? err.message : 'error desconocido'}`,
+      );
       return this.buildBasicInfo(
         service,
         'plugin.resellerclub.status_reason.provider_unreachable',
