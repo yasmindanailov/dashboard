@@ -50,12 +50,15 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
     invoice: { findUnique: jest.Mock };
     supportInsideSubscription: { findUnique: jest.Mock };
     $queryRaw: jest.Mock;
+    $transaction: jest.Mock;
+    eventOutbox: { create: jest.Mock };
   };
   let registry: jest.Mocked<PluginRegistryService>;
   let tasks: { createFromTrigger: jest.Mock };
   let events: { emit: jest.Mock };
   let queue: { add: jest.Mock };
   let cache: { invalidate: jest.Mock };
+  let outbox: { enqueue: jest.Mock };
   let orchestrator: ProvisioningOrchestratorService;
 
   function buildPlugin(
@@ -126,6 +129,13 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
         findUnique: jest.fn().mockResolvedValue(null),
       },
       $queryRaw: jest.fn().mockResolvedValue([]),
+      // Sprint 15D — `$transaction(cb)` ejecuta cb con el propio `prisma` como
+      // `tx`: así `tx.service.update === prisma.service.update` (el conteo de
+      // updates se preserva) y `tx.eventOutbox.create` queda disponible.
+      $transaction: jest
+        .fn()
+        .mockImplementation((cb: (tx: unknown) => unknown) => cb(prisma)),
+      eventOutbox: { create: jest.fn() },
     };
     registry = {
       get: jest.fn(),
@@ -136,6 +146,7 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
     events = { emit: jest.fn() };
     queue = { add: jest.fn().mockResolvedValue(undefined) };
     cache = { invalidate: jest.fn().mockResolvedValue(undefined) };
+    outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
 
     orchestrator = new ProvisioningOrchestratorService(
       prisma as never,
@@ -144,6 +155,7 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
       events as unknown as EventEmitter2,
       queue as never,
       cache as never,
+      outbox as never,
     );
   });
 
@@ -213,6 +225,99 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
     // el wrapper getServiceInfoWithCache devolvía cached versión vieja
     // hasta TTL 60s aunque el plugin ya hubiera creado refs externas.
     expect(cache.invalidate).toHaveBeenCalledWith('svc-1');
+  });
+
+  // ─── Sprint 15D Fase 15D.D — operation + domain.registered (Outbox) ────────
+
+  const REGISTRAR_CAPS = {
+    has_sso_panel: false,
+    has_metrics: false,
+    has_metrics_history: false,
+    requires_server: false,
+    provision_mode: 'sync' as const,
+    completes_via_task: false,
+    supports_reconciliation: true,
+    has_dns_management: false,
+    supports_suspend: true,
+    is_domain_registrar: true,
+  };
+
+  const DOMAIN_PRODUCT = {
+    id: 'prod-dom',
+    slug: 'dominio-com',
+    name: 'Dominio .com',
+    type: 'domain',
+    provisioner: 'resellerclub',
+    provisioner_config: null,
+  };
+
+  it('registrar + register fresco â†’ deriva operation + emite domain.registered vía Outbox', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(
+      setupServiceRow({
+        domain: 'example.com',
+        provider_reference: null,
+        metadata: { domain_operation: 'register', domain_years: 2 },
+        product: DOMAIN_PRODUCT,
+      }),
+    );
+    const plugin = buildPlugin({
+      slug: 'resellerclub',
+      capabilities: { ...REGISTRAR_CAPS },
+      provision: jest.fn().mockResolvedValue({
+        providerReference: '700123',
+        metadata: {
+          domain_operation: 'register',
+          domain_years: 2,
+          rc_customer_id: '700001',
+        },
+        followUp: ['mark_active'],
+      }),
+    });
+    registry.get.mockReturnValue(plugin);
+
+    await orchestrator.provisionService('svc-1', 'cor-1');
+
+    // `operation` se derivó de metadata.domain_operation y llegó al plugin.
+    const ctxArg = (plugin.provision as jest.Mock).mock.calls[0][0] as {
+      operation?: string;
+    };
+    expect(ctxArg.operation).toBe('register');
+    // domain.registered emitido transaccionalmente (tx === prisma en el mock).
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      prisma,
+      'domain.registered',
+      expect.objectContaining({
+        service_id: 'svc-1',
+        user_id: 'user-1',
+        fqdn: 'example.com',
+        years: 2,
+      }),
+    );
+  });
+
+  it('registrar + register en reintento (provider_reference ya existe) â†’ NO re-emite', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(
+      setupServiceRow({
+        domain: 'example.com',
+        provider_reference: '700123',
+        metadata: { domain_operation: 'register', domain_years: 1 },
+        product: DOMAIN_PRODUCT,
+      }),
+    );
+    const plugin = buildPlugin({
+      slug: 'resellerclub',
+      capabilities: { ...REGISTRAR_CAPS },
+      provision: jest.fn().mockResolvedValue({
+        providerReference: '700123',
+        metadata: {},
+        followUp: ['mark_active'],
+      }),
+    });
+    registry.get.mockReturnValue(plugin);
+
+    await orchestrator.provisionService('svc-1', 'cor-1');
+
+    expect(outbox.enqueue).not.toHaveBeenCalled();
   });
 
   it('provision OK followUp=create_setup_task â†’ llama tasks.create', async () => {
