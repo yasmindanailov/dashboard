@@ -39,7 +39,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import {
   ActionResult,
-  ClientPublicData,
   DeprovisionContext,
   DomainAvailability,
   DomainInfo,
@@ -376,7 +375,8 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
     // Capa 2 — DOM-INV-1 pre-flight (exactly-once por nombre).
     const { sld, tld } = splitFqdn(fqdn);
     const availability = await client.checkAvailability(sld, [tld]);
-    const status = (availability[fqdn] ?? Object.values(availability)[0])?.status;
+    const status = (availability[fqdn] ?? Object.values(availability)[0])
+      ?.status;
 
     if (status === 'regthroughus') {
       // Registrado bajo nuestra cuenta sin provider_reference local → adoptar.
@@ -470,20 +470,21 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
 
   // ─── 2. deprovision() — no-op (el dominio persiste hasta expiración) ────────
 
-  async deprovision(ctx: DeprovisionContext): Promise<void> {
+  deprovision(ctx: DeprovisionContext): Promise<void> {
     // Doctrina v1 (refina ADR-081 §5): la deprovisión de lifecycle de un DOMINIO
-    // es **no-op**. Un dominio registrado está pagado por su período — cancelar
-    // el servicio NO lo borra del registrar (perder un dominio pagado del cliente
-    // sería el peor fallo posible); el dominio persiste hasta su expiración y RC
-    // gestiona el ciclo (sin auto-renew → expira → redemption → delete).
-    // El borrado en período de gracia (`domains/delete`, reembolso de registros
-    // accidentales/fraude) es una operación admin EXPLÍCITA y destructiva,
-    // diferida a Fase 15D.F — NO es el deprovision de lifecycle. Idempotente.
+    // es **no-op** (no-async permanente). Un dominio registrado está pagado por su
+    // período — cancelar el servicio NO lo borra del registrar (perder un dominio
+    // pagado del cliente sería el peor fallo posible); el dominio persiste hasta
+    // su expiración y RC gestiona el ciclo (sin auto-renew → expira → redemption
+    // → delete). El borrado en período de gracia (`domains/delete`, reembolso de
+    // registros accidentales/fraude) es una operación admin EXPLÍCITA y
+    // destructiva, diferida a Fase 15D.F — NO es el deprovision de lifecycle.
     this.logger.log(
       `deprovision service=${ctx.service.id} (reason=${ctx.reason}): no-op — el ` +
         `dominio ${ctx.service.domain ?? '?'} persiste en RC hasta expiración ` +
         `(no se borra un dominio pagado).`,
     );
+    return Promise.resolve();
   }
 
   // ─── 3. getStatus() — reconcile read (domains/details, ADR-081 §6) ─────────
@@ -553,7 +554,10 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
       status: mapped.status,
       statusReason: mapped.statusReason,
       recoveryHint: mapped.recoveryHint,
-      display: { primary: fqdn as string, secondary: 'plugin.resellerclub.label' },
+      display: {
+        primary: fqdn as string,
+        secondary: 'plugin.resellerclub.label',
+      },
       domain,
       capabilities: {
         ...this.capabilities,
@@ -592,17 +596,21 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
 
   // ─── 5. getSsoUrl() — sin panel RC (ADR-070) ───────────────────────────────
 
-  async getSsoUrl(_service: ServiceWithRelations): Promise<SsoUrl | null> {
+  getSsoUrl(_service: ServiceWithRelations): Promise<SsoUrl | null> {
     // has_sso_panel=false: el cliente NUNCA va al panel RC (puerta unificada).
-    return null;
+    // No-async permanente (RC nunca tiene SSO) → sin `require-await`.
+    return Promise.resolve(null);
   }
 
   // ─── 6. executeAction() — gestión + admin — Fase 15D.F ─────────────────────
 
+  // Los handlers (gestión + suspend/unsuspend) llegan en Fase 15D.F y SÍ harán
+  // `await`; hoy el stub solo valida el slug + lanza NOT_IMPLEMENTED.
+  // eslint-disable-next-line @typescript-eslint/require-await
   async executeAction(
     service: ServiceWithRelations,
     actionSlug: string,
-    payload: Record<string, unknown>,
+    _payload: Record<string, unknown>,
   ): Promise<ActionResult> {
     const declared = this.inlineActions.find((a) => a.slug === actionSlug);
     if (!declared) {
@@ -938,9 +946,12 @@ function buildDomainInfo(
   fqdn: string,
   lifecycle: DomainInfo['lifecycle'],
 ): DomainInfo {
-  const nameservers = [details.ns1, details.ns2, details.ns3, details.ns4].filter(
-    (n): n is string => typeof n === 'string' && n.trim().length > 0,
-  );
+  const nameservers = [
+    details.ns1,
+    details.ns2,
+    details.ns3,
+    details.ns4,
+  ].filter((n): n is string => typeof n === 'string' && n.trim().length > 0);
   const endtime = toEpochSeconds(details.endtime);
   const expiresAt =
     endtime !== null ? new Date(endtime * 1000).toISOString() : undefined;
@@ -987,7 +998,8 @@ function stringifyState(value: string | undefined): string {
 
 function toEpochSeconds(raw: string | number | undefined): number | null {
   if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
-  if (typeof raw === 'string' && /^\d+$/.test(raw.trim())) return Number(raw.trim());
+  if (typeof raw === 'string' && /^\d+$/.test(raw.trim()))
+    return Number(raw.trim());
   return null;
 }
 
@@ -1002,7 +1014,8 @@ function toRcBool(raw: boolean | string | undefined): boolean {
 
 function hasContactId(raw: string | number | undefined): boolean {
   if (typeof raw === 'number') return Number.isFinite(raw) && raw > 0;
-  if (typeof raw === 'string') return /^\d+$/.test(raw.trim()) && Number(raw) > 0;
+  if (typeof raw === 'string')
+    return /^\d+$/.test(raw.trim()) && Number(raw) > 0;
   return false;
 }
 
@@ -1027,7 +1040,8 @@ function parseResellerclubConfig(raw: unknown): ResellerclubConfig {
           .filter((t) => t.length > 0)
       : [...DEFAULT_TLDS_OFFERED];
   const defaultCurrency =
-    typeof obj.default_currency === 'string' && obj.default_currency.length === 3
+    typeof obj.default_currency === 'string' &&
+    obj.default_currency.length === 3
       ? obj.default_currency
       : 'EUR';
   return { environment, markupPercent, tldsOffered, defaultCurrency };

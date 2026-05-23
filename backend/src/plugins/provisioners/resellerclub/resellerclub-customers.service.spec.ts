@@ -188,7 +188,7 @@ describe('ResellerclubCustomersService — Sprint 15D Fase 15D.D', () => {
     });
 
     // 1 contacto reutilizado en los 4 roles (Amendment A2).
-    const createManyArg = handleCreateMany.mock.calls[0][0] as {
+    const createManyArg = (handleCreateMany.mock.calls[0] as unknown[])[0] as {
       data: Array<{ contact_type: string; resellerclub_contact_id: string }>;
       skipDuplicates?: boolean;
     };
@@ -250,7 +250,9 @@ describe('ResellerclubCustomersService — Sprint 15D Fase 15D.D', () => {
     await service.ensureRegistrant(SAMPLE_CLIENT, api as never);
 
     expect(executeRawSpy).toHaveBeenCalledTimes(1);
-    const sqlParts = executeRawSpy.mock.calls[0][0] as TemplateStringsArray;
+    const sqlParts = (
+      executeRawSpy.mock.calls[0] as unknown[]
+    )[0] as TemplateStringsArray;
     const sql = Array.isArray(sqlParts) ? sqlParts.join('?') : String(sqlParts);
     expect(sql).toContain('pg_advisory_xact_lock');
     expect(executeRawSpy.mock.calls[0]).toContain(1_500_401);
@@ -269,7 +271,10 @@ describe('ResellerclubCustomersService — Sprint 15D Fase 15D.D', () => {
         { ...SAMPLE_CLIENT, address_line1: null },
         api as never,
       ),
-    ).rejects.toMatchObject({ code: 'REGISTRANT_INELIGIBLE', retriable: false });
+    ).rejects.toMatchObject({
+      code: 'REGISTRANT_INELIGIBLE',
+      retriable: false,
+    });
     expect(api.signupCustomer).not.toHaveBeenCalled();
   });
 
@@ -280,10 +285,7 @@ describe('ResellerclubCustomersService — Sprint 15D Fase 15D.D', () => {
     api.searchCustomerByEmail.mockResolvedValueOnce(null);
 
     const err = await service
-      .ensureRegistrant(
-        { ...SAMPLE_CLIENT, country_code: 'ZZ' },
-        api as never,
-      )
+      .ensureRegistrant({ ...SAMPLE_CLIENT, country_code: 'ZZ' }, api as never)
       .catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(ProvisionerPluginError);

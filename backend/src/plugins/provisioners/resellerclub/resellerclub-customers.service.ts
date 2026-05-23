@@ -209,7 +209,7 @@ export class ResellerclubCustomersService {
         data: missing.map((contact_type) => ({
           user_id: client.id,
           contact_type,
-          resellerclub_contact_id: contactId as RcContactId,
+          resellerclub_contact_id: contactId,
         })),
         skipDuplicates: true,
       });
@@ -285,10 +285,7 @@ function nonEmptyCompany(client: ClientPublicData, fallback: string): string {
  * `REGISTRANT_INELIGIBLE` (familia DOM-INV-5): NUNCA se envían placeholders al
  * WHOIS. La validación rica pre-checkout ("completa tu perfil") es Fase F.
  */
-function requireField(
-  value: string | null | undefined,
-  field: string,
-): string {
+function requireField(value: string | null | undefined, field: string): string {
   const trimmed = value?.trim();
   if (!trimmed) {
     throw new ProvisionerPluginError(

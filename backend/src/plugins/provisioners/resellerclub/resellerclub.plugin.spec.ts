@@ -13,7 +13,10 @@
  * end-to-end contra `MockResellerClubServer` es el Commit 6.
  */
 
-import { ProvisionContext, ClientPublicData } from '../../../core/provisioning/types';
+import {
+  ProvisionContext,
+  ClientPublicData,
+} from '../../../core/provisioning/types';
 
 import { ResellerclubProvisionerPlugin } from './resellerclub.plugin';
 
@@ -337,7 +340,7 @@ describe('ResellerclubProvisionerPlugin getServiceInfo/getStatus/deprovision —
     const { plugin, client } = buildPlugin();
     await expect(
       plugin.deprovision({
-        service: svc() as never,
+        service: svc(),
         reason: 'cancelled',
         correlationId: 'c',
       }),

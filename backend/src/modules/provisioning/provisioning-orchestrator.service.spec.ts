@@ -278,7 +278,9 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
     await orchestrator.provisionService('svc-1', 'cor-1');
 
     // `operation` se derivó de metadata.domain_operation y llegó al plugin.
-    const ctxArg = (plugin.provision as jest.Mock).mock.calls[0][0] as {
+    const ctxArg = (
+      (plugin.provision as jest.Mock).mock.calls[0] as unknown[]
+    )[0] as {
       operation?: string;
     };
     expect(ctxArg.operation).toBe('register');
