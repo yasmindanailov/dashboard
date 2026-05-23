@@ -407,3 +407,68 @@ Esto cierra el hueco: **un dominio nunca apunta a Enhance sin zona**, ni siquier
 El `services.status` administrativo permanece `active` mientras Aelium no lo suspenda/cancele por billing — la expiración del **dominio** es ortogonal y vive en el snapshot operacional (`getServiceInfo` + `metadata.domain_lifecycle`). Los **avisos** proactivos ("tu dominio vence en 30/14/7/1 días") los dispara un cron leyendo `expires_at` (eventos `domain.expiring_soon`/`domain.expired`/`domain.entered_redemption`, catálogo en ADR-084). Coherente con DH-INV-6: Aelium adopta lo que el registrar reporta, no al revés.
 
 **Cross-refs.** F5 (A2.1) consume el resolver §6 + default records §5. La zona post-register (A2.2) materializa la decisión D1 y descarta el handshake pre-register del dossier 15D. El lifecycle (A2.3) se apoya en `ServiceInfoStatus='expired'` (ADR-077 §2.3) + `DOMAIN_IN_REDEMPTION` (ADR-077 Amendment A10) + los fees de redemption/restore de la tabla TLD pricing (ADR-084). No requiere bump de contrato de plugin.
+
+---
+
+### Amendment A3 (2026-05-23) — La autoridad DNS es un rol conmutable y configurable (DH-INV-7): sub-contrato DNS authority capability-routed + setting `provisioning.dns_authority_plugin` + runbook de transición (Sprint 15D, refinamiento doctrinal pre-Fase D)
+
+**Contexto.** §6 cerró el *lado lectura* del rol de autoridad DNS de forma plugin-agnóstica: el `dns-authority-resolver` enruta por capability (`PluginRegistryService.getByCapability('has_dns_management')`, `dns-authority-resolver.ts:157`) y el frontend nunca ramifica por slug (ADR-070). Pero el *lado escritura/plumbing* (bootstrap de default records C2, propagación C3→C2 §4, reconcile defensivo de zona §5 y la futura creación de zona post-register A2.2) está hoy **acoplado a Enhance por nombre**: los listeners centrales (`sync-default-nameservers-to-enhance.listener.ts`, `bootstrap-enhance-defaults-on-plugin-installed.listener.ts`, `reconcile-dns-defaults-on-service-activated.listener.ts`) **importan directamente** `EnhanceDnsDefaultsService` y/o filtran `provisioner_slug='enhance_cp'`. Consecuencia: cambiar la autoridad DNS (p. ej. `enhance_cp` → `plesk_cp`) hoy obligaría a reescribir ese plumbing, y los dominios ya registrados (apuntan a `ns1/ns2.aelium.net`, servidos por el PowerDNS de Enhance) dejarían de resolver hasta portarlo. El propio `getByCapability` ya **anticipa** esta carencia (`plugin-registry.ts:274-278`: *"si en el futuro hay varios … la resolución necesitará routing adicional vía settings"*).
+
+> **Requisito de negocio (Yasmin 2026-05-23):** cambiar el plugin de hosting/autoridad DNS (`enhance_cp` → `plesk_cp` u otro) debe **no afectar al sistema de dominios** y ser una **transición organizada y configurable**, a estándar profesional. El rol de **registrar** (ResellerClub, [ADR-081](./adr-081-plugin-resellerclub-specifics.md)) ya está desacoplado por R4; A3 cierra la misma garantía para el rol de **autoridad DNS**.
+> **Justificado por:** revaloración doctrinal pre-Fase 15D.D (sesión 2026-05-23) + el gap empírico verificado en el código (write-path Enhance-coupled).
+> **Sprint:** 15D refinamiento doctrinal (doc-only). Implementación faseada: la doctrina la **consume Fase 15D.F** (la zona post-register A2.2 nace capability-routed por construcción); el **refactor del plumbing 15C existente** se traza como deuda ([DC.NEW-65](../60-roadmap/backlog.md)) — abordable antes de instalar una 2ª autoridad DNS real (15G Plesk / cualquier swap).
+> **Compatibilidad:** Hacia atrás. Additivo. El setting nuevo es nullable (autoselección si ausente → comportamiento actual). La extensión del sub-contrato DNS authority al *plano de escritura* se materializará como **Amendment a [ADR-077](./adr-077-contrato-provisioner-plugin-v2.md)** cuando se implemente (métodos opcionales capability-driven, mismo molde A6/A8/A10 — NO bumpea `contractVersion`).
+
+#### A3.1. DH-INV-7 (nueva invariante — extiende la tabla de §1)
+
+| # | Invariante | Justificación |
+|---|---|---|
+| **DH-INV-7** ⭐ | **La autoridad DNS es un rol conmutable y configurable, NUNCA acoplado por slug.** Tanto el plano de *lectura* (resolver §6) como el de *escritura* (defaults C2 §4, reconcile de zona §5, ensure-zone A2.2) se enrutan por la capability `has_dns_management=true` + el setting `provisioning.dns_authority_plugin` (A3.2). Ningún código central importa un plugin de autoridad DNS concreto ni filtra por `provisioner_slug='enhance_cp'`. | Permite sustituir la autoridad DNS (`enhance_cp` → `plesk_cp` → futuro `cloudflare_dns`) como **transición de configuración**, no como reescritura. El sistema de dominios (registrar RC + zonas) sobrevive intacto al cambio de hosting: solo cambia *quién sirve* los nameservers, no *que el dominio tenga* nameservers. Cierra, para el rol DNS, la misma garantía que R4 da al rol registrar. |
+
+DH-INV-7 es a la **autoridad DNS** lo que el sub-contrato de registrar ([ADR-077 A10](./adr-077-contrato-provisioner-plugin-v2.md)) es al **registrar**: un rol abstracto que cualquier plugin cumple por capability, intercambiable sin tocar el core ni el frontend.
+
+#### A3.2. Setting canónico nuevo — `provisioning.dns_authority_plugin`
+
+```yaml
+category: provisioning
+key: dns_authority_plugin
+value: null                 # slug del plugin con el rol de autoridad DNS activo; null = autoselección
+description_i18n: setting.provisioning.dns_authority_plugin.description
+type: string (plugin slug) | null
+edit_role: superadmin
+```
+
+- **Resolución canónica:** si el setting está **set** → ese slug es la autoridad (debe tener `has_dns_management=true`, validado al guardar; si no, **422**). Si es **null** → autoselección del único plugin activo con `has_dns_management=true` (comportamiento actual — un solo proveedor). Si hay **varios** activos y el setting es null → `system.error` (alerta superadmin) y el resolver degrada a `'external'` (no adivina).
+- `PluginRegistryService.getByCapability` y el `dns-authority-resolver` (§6) **honran el setting** antes de la regla "primer plugin con la capability". El cambio del setting es el **interruptor de cut-over** (A3.4).
+
+#### A3.3. Sub-contrato DNS authority — plano de escritura capability-routed
+
+§3 (lectura) ya exige a todo plugin con `has_dns_management=true` las 4 inline actions DNS ([ADR-077 A1.3](./adr-077-contrato-provisioner-plugin-v2.md)). A3 cierra el **plano de escritura**: los tres servicios de zona que hoy viven Enhance-específicos en `EnhanceDnsDefaultsService` se elevan a **responsabilidades del rol** que cualquier autoridad DNS implementa, invocadas por el orquestador **por capability+setting**, nunca por import directo:
+
+| Responsabilidad | Hoy (Enhance-coupled) | Doctrina A3 (capability-routed) |
+|---|---|---|
+| Bootstrap de default records platform-level (NS C2) | `EnhanceDnsDefaultsService.applyClusterNameservers` | método del sub-contrato DNS authority |
+| Reconcile defensivo de zona (§5) | `EnhanceDnsDefaultsService.reconcileZoneDefaults` | método del sub-contrato DNS authority |
+| Ensure-zone post-register (A2.2, F5) | (no implementado aún) | método del sub-contrato DNS authority — **nace capability-routed en 15D.F** |
+
+Las firmas exactas se congelan en el Amendment a ADR-077 que acompañe la implementación (métodos opcionales en `ProvisionerPlugin`, **required cuando `has_dns_management=true`**, enforzados por el contract test genérico — mismo patrón que A10.4 para registrar). Los listeners centrales dejan de importar `EnhanceDnsDefaultsService` y resuelven el plugin vía `resolveDnsAuthority`/`getByCapability` honrando el setting A3.2.
+
+#### A3.4. Runbook de transición organizada (`enhance_cp` → `plesk_cp`)
+
+Cero downtime de resolución si se sigue el orden (capas C1/C2/C3 de §4):
+
+1. **Instalar** el nuevo plugin (`plesk_cp`, `has_dns_management=true`) con credenciales en vault — **sin** marcarlo autoridad (el setting sigue en `enhance_cp`/null).
+2. **Bootstrap** de default records (NS) en el nuevo proveedor vía el sub-contrato (idempotente).
+3. **Migrar/recrear** las zonas existentes en el nuevo proveedor + **verificar paridad** de records (comparación por API / `dig` contra ambos). C1 (glue de `ns1/ns2.aelium.net`) sigue apuntando al PowerDNS viejo durante este paso.
+4. **Cut-over:** poner `provisioning.dns_authority_plugin = 'plesk_cp'` (lectura y escritura pasan a enrutar al nuevo) **+** repuntar la infraestructura de nameservers al nuevo PowerDNS — preferentemente **manteniendo `ns1/ns2.aelium.net` como NS abstractos estables** y repuntando solo su IP (C1 manual), de modo que **los dominios ya registrados NO necesiten `modify_ns`** en el registrar. Si el nuevo proveedor impone hostnames de NS distintos, se actualiza C3 (`default_nameservers`) y se propaga a los dominios vía la acción curada `modify_nameservers` del registrar (RC).
+5. **Solape + verificación:** monitorizar SERVFAIL; ejecutar reconcile defensivo de zona; mantener el proveedor viejo como autoridad de respaldo hasta confirmar paridad.
+6. **Retirar** `enhance_cp` del rol de autoridad DNS (puede seguir como plugin de *hosting* si aplica — los dos roles son independientes, §3).
+
+El **registrar (RC) no se toca** en ningún paso salvo el `modify_nameservers` opcional del paso 4: el dominio siempre tiene nameservers; solo cambia quién los sirve.
+
+#### A3.5. Implicación para Fase 15D.F + deuda trazada
+
+- **15D.F (nace conforme):** el listener `ensure-dns-zone-on-domain-activated` (A2.2) se implementa **capability-routed desde el día uno** (resuelve la autoridad vía `resolveDnsAuthority` + setting; cero import de Enhance). No añade deuda.
+- **Refactor del plumbing 15C (deuda):** generalizar los tres listeners 15C + extraer el sub-contrato desde `EnhanceDnsDefaultsService` → **[DC.NEW-65](../60-roadmap/backlog.md)**. No urge mientras `enhance_cp` sea la única autoridad; **prerequisito antes de instalar una 2ª autoridad real** (15G Plesk / cualquier swap), ejecutando el runbook A3.4.
+
+**Cross-refs.** Extiende §1 (DH-INV-7), §3 (plano de escritura del sub-contrato), §4 (el setting es C3-adyacente), §6 (el resolver honra el setting), A2.2 (ensure-zone nace conforme). Cierra la entrada de §"Cuándo revisar" *"Si llega un plugin que es a la vez registrar + DNS authority"* en su vertiente de conmutabilidad. Materialización del contrato: futuro Amendment ADR-077 (sub-contrato DNS authority de escritura). Deuda: DC.NEW-65. Coherente con ADR-070 (cero `if (slug)`), R4 (core no importa plugins), ADR-081 (registrar desacoplado).
