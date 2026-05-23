@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 
+import { OutboxService } from '../../core/outbox/outbox.service';
 import { PrismaService } from '../../core/database/prisma.service';
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
 import { ProvisioningCacheService } from '../../core/provisioning/provisioning-cache.service';
@@ -72,6 +73,9 @@ export class ProvisioningOrchestratorService {
     // markActive). Análogo al patrón
     // `executeActionWithCacheInvalidation` (plugin-utils.ts:289).
     private readonly cache: ProvisioningCacheService,
+    // Sprint 15D Fase 15D.D — emisión transaccional de `domain.*` vía Outbox
+    // (R8 + ADR-084 §5). `OutboxModule` es @Global → no requiere import.
+    private readonly outbox: OutboxService,
   ) {}
 
   // ──────────────────────────────────────────────────────────────────────
@@ -201,17 +205,50 @@ export class ProvisioningOrchestratorService {
         (service.product.provisioner_config as Record<string, unknown>) ?? {},
       serverId: service.server_id ?? null,
       correlationId,
+      // Sprint 15D — ADR-077 A10: intención del provision para registrars,
+      // derivada de `metadata.domain_operation` (lo fija el checkout, 15D.B).
+      // Los plugins no-registrar la ignoran.
+      operation: this.deriveDomainOperation(service.metadata),
     };
 
     try {
       const result = await plugin.provision(ctx);
 
-      await this.prisma.service.update({
-        where: { id: serviceId },
-        data: {
-          provider_reference: result.providerReference,
-          metadata: result.metadata as Prisma.InputJsonValue,
-        },
+      // Sprint 15D Fase 15D.D — persistir `provider_reference` + `metadata` y, si
+      // es un registrar haciendo un `register` NUEVO (no un reintento sobre un
+      // `provider_reference` ya persistido), emitir `domain.registered` **en la
+      // misma transacción** vía Outbox (R8 + ADR-084 §5). `!service.provider_reference`
+      // (era fresco) evita re-emitir en reintentos puros / adopción DOM-INV-1.
+      const operation = ctx.operation ?? 'register';
+      const emitDomainRegistered =
+        plugin.capabilities.is_domain_registrar &&
+        operation === 'register' &&
+        !service.provider_reference &&
+        !!result.providerReference;
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.service.update({
+          where: { id: serviceId },
+          data: {
+            provider_reference: result.providerReference,
+            metadata: result.metadata as Prisma.InputJsonValue,
+          },
+        });
+        if (emitDomainRegistered) {
+          await this.outbox.enqueue(tx, 'domain.registered', {
+            service_id: serviceId,
+            user_id: service.user_id,
+            fqdn: service.domain,
+            years:
+              typeof result.metadata.domain_years === 'number'
+                ? result.metadata.domain_years
+                : null,
+            // `expires_at` no se conoce en register; lo puebla el reconcile
+            // (Fase 15D.E) en `services.expires_at` + los avisos de expiración.
+            expires_at: null,
+            correlation_id: correlationId,
+          });
+        }
       });
 
       // Sprint 15C.II Fase C round 3 — invalidar cache `service_info:${id}`
@@ -363,6 +400,24 @@ export class ProvisioningOrchestratorService {
   // 4. Helper: cargar service con relaciones canónicas
   // ──────────────────────────────────────────────────────────────────────
 
+  /**
+   * Sprint 15D — ADR-077 A10: deriva `ProvisionContext.operation` de
+   * `metadata.domain_operation` (lo fija el checkout, 15D.B). `undefined` para
+   * servicios no-dominio (el plugin lo trata como 'register' por defecto; los
+   * plugins no-registrar lo ignoran).
+   */
+  private deriveDomainOperation(
+    metadata: unknown,
+  ): ProvisionContext['operation'] {
+    const md =
+      metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+        ? (metadata as Record<string, unknown>)
+        : {};
+    const op = md.domain_operation;
+    if (op === 'register' || op === 'renew' || op === 'transfer_in') return op;
+    return undefined;
+  }
+
   private async loadServiceWithRelations(
     serviceId: string,
   ): Promise<ServiceWithRelations | null> {
@@ -392,14 +447,35 @@ export class ProvisioningOrchestratorService {
         first_name: true,
         last_name: true,
         language: true,
+        // Sprint 15D — ADR-077 Amendment A12: los datos de registrante WHOIS
+        // (dirección/teléfono/tax_id) viven en `client_profiles` (1:1 con
+        // `users`). El orquestador los carga aquí para poblar ClientPublicData.
+        client_profile: {
+          select: {
+            company_name: true,
+            phone: true,
+            tax_id: true,
+            address_line1: true,
+            address_line2: true,
+            city: true,
+            state: true,
+            postal_code: true,
+            country: true,
+          },
+        },
       },
     });
 
     if (!user) return null;
 
-    // Schema actual de `users` no tiene `phone`/`company_name`/`country_code`
-    // (esos viven en `billing_profiles` cuando aplica). Cumplimos el shape
-    // canónico de ClientPublicData con null donde no hay dato.
+    // Sprint 15D — ADR-077 Amendment A12: los plugins de registrar
+    // (`is_domain_registrar=true`) necesitan los datos de registrante para crear
+    // el customer/contact WHOIS (ADR-081 §3/§4). Viven en `client_profiles`
+    // (1:1 con `users`); `country_code` = `ClientProfile.country` (ISO-2, default
+    // 'ES'). `null` donde el cliente no completó el perfil → el registrar aplica
+    // la elegibilidad (`REGISTRANT_INELIGIBLE`). Los plugins no-registrar
+    // (enhance_cp/internal/manual) ignoran estos campos.
+    const profile = user.client_profile;
     return {
       ...row,
       client: {
@@ -407,10 +483,16 @@ export class ProvisioningOrchestratorService {
         email: user.email,
         first_name: user.first_name,
         last_name: user.last_name,
-        company_name: null,
-        phone: null,
+        company_name: profile?.company_name ?? null,
+        phone: profile?.phone ?? null,
         locale: user.language ?? null,
-        country_code: null,
+        country_code: profile?.country ?? null,
+        address_line1: profile?.address_line1 ?? null,
+        address_line2: profile?.address_line2 ?? null,
+        city: profile?.city ?? null,
+        state: profile?.state ?? null,
+        postal_code: profile?.postal_code ?? null,
+        tax_id: profile?.tax_id ?? null,
       },
       product: {
         id: row.product.id,

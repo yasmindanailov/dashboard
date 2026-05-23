@@ -51,7 +51,25 @@ export interface ClientPublicData {
   company_name: string | null;
   phone: string | null;
   locale: string | null;
+  /** País del cliente en ISO-3166 alpha-2 (de `ClientProfile.country`, default 'ES'). */
   country_code: string | null;
+
+  // ── Sprint 15D — ADR-077 Amendment A12 (datos de registrante) ──────────────
+  // Campos additivos OPCIONALES que el orquestador puebla desde `ClientProfile`
+  // (1:1 con `users`) para que los plugins de registrar (`is_domain_registrar=true`)
+  // creen el customer/contact WHOIS en el proveedor (ej. ResellerClub
+  // `customers/signup` + `contacts/add` — ADR-081 §3/§4). Capability-agnósticos:
+  // el resto de plugins los ignoran. NO bumpea `contractVersion` (additivo).
+  // Pueden venir `null`/`undefined` si el cliente no completó su perfil → el
+  // registrar aplica la doctrina de elegibilidad (`REGISTRANT_INELIGIBLE`,
+  // familia DOM-INV-5). El `phone-cc` (código de país telefónico) NO es un campo:
+  // el plugin lo deriva de `country_code` (ADR-081 §3).
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  tax_id?: string | null;
 }
 
 // ────────────────────────────────────────────────────────────────────────────

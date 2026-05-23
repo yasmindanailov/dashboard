@@ -9,6 +9,7 @@ import {
 import { EnhanceProvisionerPlugin } from './enhance_cp/enhance.plugin';
 import { InternalProvisionerPlugin } from './internal/internal.plugin';
 import { ManualProvisionerPlugin } from './manual/manual.plugin';
+import { ResellerclubProvisionerPlugin } from './resellerclub/resellerclub.plugin';
 
 /**
  * Test contract genérico canónico — Sprint 11 Fase 11.C (ADR-077 §7).
@@ -61,11 +62,28 @@ function buildEnhancePluginForStaticContract(): EnhanceProvisionerPlugin {
   );
 }
 
+/**
+ * Construye una instancia de `ResellerclubProvisionerPlugin` para validar
+ * invariantes estáticas SIN inyectar dependencies reales (mismo patrón que
+ * Enhance). El comportamiento se valida en `resellerclub.plugin.spec.ts`
+ * (Commit 4/5) + `resellerclub-customers.service.spec.ts`.
+ */
+function buildResellerclubPluginForStaticContract(): ResellerclubProvisionerPlugin {
+  return new ResellerclubProvisionerPlugin(
+    null as never, // prisma — NO se invoca en mode='static-only'
+    null as never, // vault   — idem
+    null as never, // customers — idem
+    null as never, // settings — idem
+  );
+}
+
 const REGISTERED_PROVISIONER_PLUGINS: readonly ContractTestPlugin[] = [
   { plugin: new InternalProvisionerPlugin(), mode: 'full' },
   { plugin: new ManualProvisionerPlugin(), mode: 'full' },
   // Sprint 15C — primer plugin SaaS real. Modo static-only por dependencias.
   { plugin: buildEnhancePluginForStaticContract(), mode: 'static-only' },
+  // Sprint 15D — primer plugin registrar de dominios. Static-only (deps DI).
+  { plugin: buildResellerclubPluginForStaticContract(), mode: 'static-only' },
 ];
 
 function buildSyntheticService(pluginSlug: string): ServiceWithRelations {
