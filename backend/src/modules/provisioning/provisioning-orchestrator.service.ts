@@ -392,14 +392,35 @@ export class ProvisioningOrchestratorService {
         first_name: true,
         last_name: true,
         language: true,
+        // Sprint 15D — ADR-077 Amendment A12: los datos de registrante WHOIS
+        // (dirección/teléfono/tax_id) viven en `client_profiles` (1:1 con
+        // `users`). El orquestador los carga aquí para poblar ClientPublicData.
+        client_profile: {
+          select: {
+            company_name: true,
+            phone: true,
+            tax_id: true,
+            address_line1: true,
+            address_line2: true,
+            city: true,
+            state: true,
+            postal_code: true,
+            country: true,
+          },
+        },
       },
     });
 
     if (!user) return null;
 
-    // Schema actual de `users` no tiene `phone`/`company_name`/`country_code`
-    // (esos viven en `billing_profiles` cuando aplica). Cumplimos el shape
-    // canónico de ClientPublicData con null donde no hay dato.
+    // Sprint 15D — ADR-077 Amendment A12: los plugins de registrar
+    // (`is_domain_registrar=true`) necesitan los datos de registrante para crear
+    // el customer/contact WHOIS (ADR-081 §3/§4). Viven en `client_profiles`
+    // (1:1 con `users`); `country_code` = `ClientProfile.country` (ISO-2, default
+    // 'ES'). `null` donde el cliente no completó el perfil → el registrar aplica
+    // la elegibilidad (`REGISTRANT_INELIGIBLE`). Los plugins no-registrar
+    // (enhance_cp/internal/manual) ignoran estos campos.
+    const profile = user.client_profile;
     return {
       ...row,
       client: {
@@ -407,10 +428,16 @@ export class ProvisioningOrchestratorService {
         email: user.email,
         first_name: user.first_name,
         last_name: user.last_name,
-        company_name: null,
-        phone: null,
+        company_name: profile?.company_name ?? null,
+        phone: profile?.phone ?? null,
         locale: user.language ?? null,
-        country_code: null,
+        country_code: profile?.country ?? null,
+        address_line1: profile?.address_line1 ?? null,
+        address_line2: profile?.address_line2 ?? null,
+        city: profile?.city ?? null,
+        state: profile?.state ?? null,
+        postal_code: profile?.postal_code ?? null,
+        tax_id: profile?.tax_id ?? null,
       },
       product: {
         id: row.product.id,

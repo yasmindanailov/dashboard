@@ -1992,3 +1992,41 @@ El card de gestión de dominio (`<DomainManagementCard>` en `_shared/services/`,
 #### A11.5. Heredable
 
 Cualquier registrar futuro (Hexonet, OpenSRS, ...) emite `ServiceInfo.domain: DomainInfo` desde su `getServiceInfo()` mapeando su API nativa → la UI de gestión funciona sin tocar el frontend ni el contrato. Coherente con A9 (apps) y A10 (sub-contrato de registrar).
+
+---
+
+### Amendment A12 (2026-05-23) — campos opcionales de registrante en `ClientPublicData` (dirección/teléfono/tax_id) poblados por el orquestador desde `ClientProfile` (Sprint 15D Fase 15D.D)
+
+**Contexto.** A10 definió el sub-contrato de registrar y A11 el `ServiceInfo.domain` de lectura. Pero al implementar el plugin RC (Fase 15D.D) emergió que `customers/signup` + `contacts/add` de ResellerClub ([ADR-081](./adr-081-plugin-resellerclub-specifics.md) §3/§4) exigen **dirección postal completa de registrante** (`address-line-1`, `city`, `state`, `country`, `zipcode`, `phone-cc`, `phone`) para el WHOIS — y el `ClientPublicData` que el orquestador pasa al plugin (§2.1) solo exponía `id/email/first_name/last_name/company_name/phone/locale/country_code`, con `company_name`/`phone`/`country_code` además **hardcodeados a `null`** en `loadServiceWithRelations` (el schema de `users` no los tiene). Sin estos datos, ningún plugin de registrar puede crear el customer/contact del dominio.
+
+> **Justificado por:** implementación Fase 15D.D (sesión 2026-05-23, decisión Yasmin: **Opción A — extender `ClientPublicData`**, frente a que el plugin consulte `client_profiles` directamente vía Prisma). Razón: mantiene R4 limpio (el plugin NO alcanza el schema de otro módulo — coherente con el patrón Enhance, que solo lee `ctx.client` + sus propias tablas) y es reutilizable por cualquier registrar futuro.
+> **Sprint:** 15D Fase 15D.D (Commit 1). Implementación: `core/provisioning/types.ts` (shape) + `provisioning-orchestrator.service.ts::loadServiceWithRelations` (poblado desde `ClientProfile`).
+> **Compatibilidad:** Hacia atrás. Campos **opcionales** (`?: string | null`) — mismo molde additivo A5/A7/A9/A11. NO bumpea `contractVersion` (sigue `'v2'`). Los plugins no-registrar (`internal`/`manual`/`enhance_cp`) los ignoran. De paso, `company_name`/`phone`/`country_code` (antes siempre `null`) pasan a poblarse desde `ClientProfile` — comportamiento más correcto (mejora incidentalmente el `displayName` de Enhance para clientes con `company_name`).
+
+#### A12.1. `ClientPublicData` extendida
+
+```typescript
+export interface ClientPublicData {
+  // ...campos existentes...
+  country_code: string | null;   // = ClientProfile.country (ISO-3166 alpha-2, default 'ES')
+
+  // Sprint 15D — Amendment A12 (datos de registrante WHOIS). Opcionales.
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  tax_id?: string | null;
+}
+```
+
+**Fuente canónica:** `ClientProfile` (1:1 con `User`, `@unique user_id`) — el único modelo con dirección + teléfono + state + tax_id. El orquestador (`loadServiceWithRelations`) hace el join y mapea `ClientProfile.country` → `country_code`. `BillingProfile` se descartó (sin `phone`/`state`, N por user, orientado a facturación).
+
+#### A12.2. Doctrina de datos incompletos + `phone-cc`
+
+- `ClientProfile` hace estos campos **nullable** (salvo `country`, default `'ES'`). Si faltan los requeridos por el registrar, el plugin **NO inventa placeholders** (datos WHOIS falsos = problema ICANN): aborta con `REGISTRANT_INELIGIBLE` (familia DOM-INV-5) + mensaje accionable. La validación rica **pre-checkout** ("completa tu perfil") es Fase 15D.F; en 15D.D el plugin **defiende** (R7/DH-INV-2).
+- El **`phone-cc`** (código de país telefónico) NO es un campo de `ClientPublicData`: el plugin lo **deriva de `country_code`** ([ADR-081](./adr-081-plugin-resellerclub-specifics.md) §3) y usa `phone` como número nacional.
+
+#### A12.3. Heredable
+
+Cualquier registrar futuro (Hexonet, OpenSRS, Namecheap) consume los mismos campos de `ClientPublicData` para su signup/contact WHOIS — cero cambios en el orquestador ni en el contrato. Coherente con A10 (sub-contrato registrar) + A11 (`ServiceInfo.domain`).
