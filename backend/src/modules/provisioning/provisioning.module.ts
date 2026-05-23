@@ -14,6 +14,8 @@ import { EnhanceCpModule } from '../../plugins/provisioners/enhance_cp/enhance.m
 import { EnhanceProvisionerPlugin } from '../../plugins/provisioners/enhance_cp/enhance.plugin';
 import { InternalProvisionerPlugin } from '../../plugins/provisioners/internal/internal.plugin';
 import { ManualProvisionerPlugin } from '../../plugins/provisioners/manual/manual.plugin';
+import { ResellerclubModule } from '../../plugins/provisioners/resellerclub/resellerclub.module';
+import { ResellerclubProvisionerPlugin } from '../../plugins/provisioners/resellerclub/resellerclub.plugin';
 import { AuditModule } from '../audit/audit.module';
 import { ClientsModule } from '../clients/clients.module';
 import { TasksModule } from '../tasks/tasks.module';
@@ -84,6 +86,8 @@ import { ProvisioningService } from './provisioning.service';
     // Sprints 15D/E/G seguirán el mismo patrón: importar `<Plugin>Module` aquí
     // + añadir su clase al factory `PROVISIONER_PLUGINS` abajo.
     EnhanceCpModule,
+    // Sprint 15D Fase 15D.D — plugin registrar de dominios (ResellerClub).
+    ResellerclubModule,
   ],
   controllers: [ProvisioningController, AdminProvisioningController],
   providers: [
@@ -114,18 +118,21 @@ import { ProvisioningService } from './provisioning.service';
     InternalProvisionerPlugin,
     ManualProvisionerPlugin,
     {
-      // Sprint 15C — el plugin Enhance se inyecta vía `EnhanceCpModule` (ya
-      // importado arriba — provee la instancia y sus deps internas).
+      // Sprint 15C — el plugin Enhance se inyecta vía `EnhanceCpModule`.
+      // Sprint 15D — el plugin ResellerClub vía `ResellerclubModule` (ambos
+      // importados arriba — proveen la instancia y sus deps internas).
       provide: PROVISIONER_PLUGINS,
       useFactory: (
         internal: InternalProvisionerPlugin,
         manual: ManualProvisionerPlugin,
         enhance: EnhanceProvisionerPlugin,
-      ) => [internal, manual, enhance],
+        resellerclub: ResellerclubProvisionerPlugin,
+      ) => [internal, manual, enhance, resellerclub],
       inject: [
         InternalProvisionerPlugin,
         ManualProvisionerPlugin,
         EnhanceProvisionerPlugin,
+        ResellerclubProvisionerPlugin,
       ],
     },
     // Sprint 15A Fase F (ADR-080 §5) — singleton CircuitBreakerRegistry.
