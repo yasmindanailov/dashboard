@@ -228,6 +228,20 @@ Heredada del patrón Enhance ([ADR-083](./adr-083-plugin-enhance-cp-specifics.md
 
 ---
 
+## Amendments
+
+### Amendment A1 (2026-05-22) — correcciones de la verificación empírica OT&E
+
+La verificación empírica contra OT&E (§11 capa 1) se ejecutó parcialmente el 2026-05-22 con **IP fija whitelisteada** (detalle y shapes en [`resellerclub-ote-findings.md` §4](../_research/sprint-15d/resellerclub-ote-findings.md)). Materializa estas correcciones sobre el cuerpo del ADR (**L18**: el hallazgo empírico se materializa como Amendment, no como edición silenciosa):
+
+- **A1.1 — `getTldPricing()` lee `products/reseller-price` (COSTE), no `customer-price` (supersede §8).** El empírico confirma que `reseller-price` es el **coste mayorista** (precios *string*, anidados bajo el slab `"0"`, con bloque `category`) y `customer-price` es el **precio sugerido al cliente por RC** (precios *number*, por años `1..10`). El margin guard **DOM-INV-3** y el `markup_percent` ([ADR-084 A1](./adr-084-comercio-dominios-registrar.md)) operan sobre el **coste** ⇒ la fuente canónica de `getTldPricing()` es `reseller-price`. `customer-price` no se usa en v1 (RC no fija nuestro precio de venta).
+- **A1.2 — la clave de producto RC es el `classkey` de `domains/available`.** El precio de cada TLD se localiza por el `classkey` (`.com`→`domcno`, `.net`→`dotnet`, `.org`→`domorg`, `.es`→`dotes`, `.eu`→`doteu`), no por el TLD literal. Es la clave de unión `available` ↔ pricing ↔ `domain_tld_pricing`.
+- **A1.3 — DOS envoltorios de error de negocio (refina §7).** RC responde con `{status:"ERROR", message}` (mayúscula, la mayoría de comandos) **y** `{status:"error", error}` (minúscula, p. ej. `domains/register`), y pueden llegar con HTTP 200 **o** 500. El http-client (15D.C) detecta ambos por `String(status).toLowerCase() === 'error'` y extrae el detalle de `message || error` **antes** del mapeo por status HTTP. "Customer not found" llega como **HTTP 500** (no 404) ⇒ el cross-search defensivo lo trata como "crear", no como fallo duro.
+- **A1.4 — ids escalares.** `customers/signup` y `contacts/add` devuelven el id como **número plano** en el body (no `{id}`); el cliente parsea escalar.
+- **A1.5 — `register` valida nameservers por resolución DNS — prerequisito de infra (refina §5 y §11).** OT&E rechaza el `register` si los nameservers no resuelven en DNS (`ns1/ns2.aelium.net` no tienen registro A en pre-producción — verificado con `Resolve-DnsName`; los públicos de IANA tampoco se aceptan). ⇒ los shapes de `register`/`details`/gestión/`renew`/suspend quedan **diferidos al smoke de Fase G** (tras levantar la infra de nameservers de Aelium; **prerequisito P-DEPLOY**) y el `MockResellerClubServer` los modela **conservadoramente** hasta entonces (coherente con §11). `domains/suggest-names` está **deprecado** (→ `/domains/v5/suggest-names`), lo que solo afecta al buscador rico de **15D.II**.
+
+---
+
 ## Referencias
 
 - **Módulos afectados:**

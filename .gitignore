@@ -58,3 +58,7 @@ minio-data/
 playwright-report/
 test-results/
 playwright/.cache/
+
+# ResellerClub OT&E research — capturas crudas (datos demo, refrescables; el
+# conocimiento curado vive en resellerclub-ote-findings.md, esto no se versiona)
+docs/_research/sprint-15d/ote-raw-capture*.json
