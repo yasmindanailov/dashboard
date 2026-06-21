@@ -3,18 +3,15 @@
 > **Mapa explícito de cómo se conectan los módulos.**
 > Resuelve el problema histórico de "los sistemas se conectan en algún punto y no es coherente".
 
-> **Última auditoría:** abril 2026 (commits ~`8c4d893`).
+> **Última auditoría:** 2026-06-21 (ver [`../90-meta/audit-2026-06-21.md`](../90-meta/audit-2026-06-21.md)).
 
 ---
 
 ## Estado general
 
-**Cumplimiento de Regla R1 (módulos no se llaman directamente entre sí, solo vía eventos):** ✅ **100%**
+**Regla R1 (los módulos no se acoplan saltándose eventos donde la matriz lo exige):** cumplida **salvo excepciones documentadas con ADR**.
 
-Auditoría exhaustiva confirmó:
-- **0 imports cross-módulo** entre `backend/src/modules/*/`
-- Todas las inyecciones cross-módulo aparentes son **sub-services del mismo dominio** (R15: división por tamaño, no acoplamiento entre dominios)
-- Comunicación entre dominios distintos: **100% por eventos** (`EventEmitter2`) o **lectura via Prisma** (data isolation por servicio)
+> ⚠️ Corrección auditoría 2026-06-21: el titular previo "R1 100% / 0 imports cross-módulo" era **falso**. SÍ existen imports cross-módulo de *services*: `tasks`→`SupportService`/`ClientNotesService`, `provisioning`→`AuditService`/`ClientNotesService`/`TasksService`, `billing`→`ProvisioningService`, `support_inside`→`BillingCheckoutService`, etc. — **todos legítimos y documentados** (ADR-074/076/077/079; ver celdas abajo). NO es "0 imports". La comunicación entre dominios sin dependencia directa sí va por eventos (`EventEmitter2` + Outbox) o lectura vía Prisma.
 
 ---
 

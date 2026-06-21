@@ -164,7 +164,7 @@ El panel muestra además el plan actual del cliente y un enlace sutil a "Ver pla
 
 #### P5. Voz Aelium en la interfaz
 
-> 📖 **Voz canónica:** [`aelium-documento-de-marca.md §VOZ DE MARCA`](./aelium-documento-de-marca.md#voz-de-marca) + regla [D11 en `rules.md`](./00-foundations/rules.md#d11--voz-de-marca-en-mensajes-de-sistema).
+> 📖 **Voz canónica:** [`aelium-documento-de-marca.md §VOZ DE MARCA`](./aelium-documento-de-marca.md#voz-de-marca) + regla [D11 en `rules.md`](../00-foundations/rules.md#d11--voz-de-marca-en-mensajes-de-sistema).
 > Aquí solo qué implica para anatomía de páginas. Si divergen, prevalece la doc de marca.
 
 **Patrones aplicados a páginas del dashboard:**
@@ -1177,7 +1177,7 @@ Próxima renovación ⓘ
 
 ### 4.13 Estados de detección externa (drift) — Patrón discriminado por rol
 
-> **Origen doctrinal:** Sprint 15C.II Hardening 2026-05-10 — [ADR-083 Amendment A4 §A4.3](./10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) congela este patrón como canónico para todos los plugins SaaS futuros (15D ResellerClub, 15E Docker, 15G Plesk).
+> **Origen doctrinal:** Sprint 15C.II Hardening 2026-05-10 — [ADR-083 Amendment A4 §A4.3](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) congela este patrón como canónico para todos los plugins SaaS futuros (15D ResellerClub, 15E Docker, 15G Plesk).
 
 **Principio:** información técnica = solo admin. El cliente recibe un mensaje útil pero no técnico (deriva de §1.2 P5 "voz Aelium" + §1.2 P6 "contenido adaptativo por rol").
 
@@ -1708,13 +1708,13 @@ app/
 
 ### 5.14 Servicio Detail (`/dashboard/services/[id]` + `/admin/services/[id]`) — Detail
 
-> **Origen doctrinal:** Sprint 15C.II Fase F.12 — layout canónico (2026-05-19) · [dossier §A.11.10.9 / §A.11.10.9.2 R1..R6 frozen](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md#a11109-fase-f12--layout-canónico-página-de-servicio--páginas-de-plugins). Refactoriza la composición de las fases F.4 (suspend/desync) · F.5 (billing-suspend-unify) · F.6 (notas) · F.7 (SSL) · F.8 (alertas de cuota) · F.9 (reconcile per-servicio) · F.10 (App Management) · F.11 (mini-badge salud + reenviar notif + cross-link billing). **Cero cambio funcional** — el contenido y comportamiento existente se preserva; solo cambia la **forma de orquestación** (registry declarativo + layout único).
+> **Origen doctrinal:** Sprint 15C.II Fase F.12 — layout canónico (2026-05-19) · [dossier §A.11.10.9 / §A.11.10.9.2 R1..R6 frozen](../60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md#a11109-fase-f12--layout-canónico-página-de-servicio--páginas-de-plugins). Refactoriza la composición de las fases F.4 (suspend/desync) · F.5 (billing-suspend-unify) · F.6 (notas) · F.7 (SSL) · F.8 (alertas de cuota) · F.9 (reconcile per-servicio) · F.10 (App Management) · F.11 (mini-badge salud + reenviar notif + cross-link billing). **Cero cambio funcional** — el contenido y comportamiento existente se preserva; solo cambia la **forma de orquestación** (registry declarativo + layout único).
 
 **Tipo:** Detail (§2.5)
 **Pregunta:** "¿En qué estado está mi servicio y qué puedo hacer con él?" (cliente) / "¿Cómo está operativamente y qué necesita?" (admin)
 **Roles:** Cliente (su propio servicio), Agente (sin acceso a `/admin/services/*` — el rol agente no contiene `Subject.Service` admin), Admin (todos los servicios + operaciones administrativas)
 **Capability-driven (ADR-077):** todo lo que cuelga del `info.capabilities.*` se decide por flags del plugin — cero `if (provisioner === 'X')` en el frontend.
-**Ref:** [ADR-070 dashboard puerta unificada](./10-decisions/adr-070-service-info-sso-acciones-curadas.md), [ADR-077 contrato ProvisionerPlugin v2 + Amendments A1-A9](./10-decisions/adr-077-contrato-provisioner-plugin-v2.md), [ADR-078 A1 Modelo A SC + cookies httpOnly](./10-decisions/adr-078-aelium-app-y-arquitectura-frontend.md), [ADR-082 Domain↔Hosting + DNS doctrine](./10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md), [ADR-083 Enhance specifics + Amendments A1-A9](./10-decisions/adr-083-plugin-enhance-cp-specifics.md), [§1.2 P6 contenido adaptativo](#p6-páginas-compartidas-entre-roles--contenido-adaptativo), [§4.13 drift por rol](#413-estados-de-detección-externa-drift--patrón-discriminado-por-rol).
+**Ref:** [ADR-070 dashboard puerta unificada](../10-decisions/adr-070-service-info-sso-acciones-curadas.md), [ADR-077 contrato ProvisionerPlugin v2 + Amendments A1-A9](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md), [ADR-078 A1 Modelo A SC + cookies httpOnly](../10-decisions/adr-078-auth-server-side-cookies-httponly.md), [ADR-082 Domain↔Hosting + DNS doctrine](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md), [ADR-083 Enhance specifics + Amendments A1-A9](../10-decisions/adr-083-plugin-enhance-cp-specifics.md), [§1.2 P6 contenido adaptativo](#p6-páginas-compartidas-entre-roles--contenido-adaptativo), [§4.13 drift por rol](#413-estados-de-detección-externa-drift--patrón-discriminado-por-rol).
 
 #### Arquitectura canónica (R2 + R3 frozen)
 
@@ -2143,12 +2143,12 @@ Componentes que el DS necesitaba para implementar S5. Todos los de prioridad alt
 
 ### 5.18 Plugins List (`/admin/settings/plugins`) — List (variante card grid)
 
-> **Origen doctrinal:** Sprint 15A Fase I.1 ([ADR-080 §7](./10-decisions/adr-080-plugin-framework.md#7-ui-de-administración) — Plugin Framework). Re-formalizada en Sprint 15C.II Fase F.12 — layout canónico (2026-05-19) · [dossier §A.11.10.9 + §A.11.10.9.2 R1..R6 frozen](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md#a11109-fase-f12--layout-canónico-página-de-servicio--páginas-de-plugins).
+> **Origen doctrinal:** Sprint 15A Fase I.1 ([ADR-080 §7](../10-decisions/adr-080-plugin-framework.md#7-ui-de-administración) — Plugin Framework). Re-formalizada en Sprint 15C.II Fase F.12 — layout canónico (2026-05-19) · [dossier §A.11.10.9 + §A.11.10.9.2 R1..R6 frozen](../60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md#a11109-fase-f12--layout-canónico-página-de-servicio--páginas-de-plugins).
 
 **Tipo:** List (§2.4), variante **card grid** (§3.3 — *"Card list cuando el dataset es pequeño + cada item tiene mucha info estructurada"*). NO tabla — el manifest del plugin (label + descripción + version + circuit state + enabled badge) es información estructurada compuesta que encaja mejor en card que en celda.
 **Pregunta:** "¿Qué plugins de provisioning están disponibles y cuál está sano?"
 **Roles:** Admin (superadmin) **exclusivamente**. `Subject.Plugin` es admin-puro (ADR-080 + patrón ADR-067 Subject por rol). El middleware admin redirige otros roles; backend rechaza con 403 defense-in-depth.
-**Ref:** [ADR-080 Plugin Framework](./10-decisions/adr-080-plugin-framework.md) (manifest JSON-Schema 7 + `plugin_installs` PK natural slug + `SecretVaultService` AES-256-GCM + CircuitBreaker), [ADR-077 v2 contrato `ProvisionerPlugin`](./10-decisions/adr-077-contrato-provisioner-plugin-v2.md), [ADR-083 Enhance specifics](./10-decisions/adr-083-plugin-enhance-cp-specifics.md), [§3.3 Table vs Card list](#33-table-o-card-list).
+**Ref:** [ADR-080 Plugin Framework](../10-decisions/adr-080-plugin-framework.md) (manifest JSON-Schema 7 + `plugin_installs` PK natural slug + `SecretVaultService` AES-256-GCM + CircuitBreaker), [ADR-077 v2 contrato `ProvisionerPlugin`](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md), [ADR-083 Enhance specifics](../10-decisions/adr-083-plugin-enhance-cp-specifics.md), [§3.3 Table vs Card list](#33-table-o-card-list).
 
 #### Anatomía
 
@@ -2230,12 +2230,12 @@ Página **admin-only** — sin contenido adaptativo por rol. Si un agente o clie
 
 ### 5.19 Plugin Detail (`/admin/settings/plugins/[slug]`) — Detail
 
-> **Origen doctrinal:** Sprint 15A Fase I.1 ([ADR-080 §7](./10-decisions/adr-080-plugin-framework.md#7-ui-de-administración)) + Sprint 15C.II Fase F.2 ([ADR-083 Amendment A4.4](./10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) — `<PluginOperationalOverview>` overview operativo). Re-formalizada en Sprint 15C.II Fase F.12 — layout canónico (2026-05-19) · [dossier §A.11.10.9 + §A.11.10.9.2 R1..R6 frozen](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md#a11109-fase-f12--layout-canónico-página-de-servicio--páginas-de-plugins).
+> **Origen doctrinal:** Sprint 15A Fase I.1 ([ADR-080 §7](../10-decisions/adr-080-plugin-framework.md#7-ui-de-administración)) + Sprint 15C.II Fase F.2 ([ADR-083 Amendment A4.4](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) — `<PluginOperationalOverview>` overview operativo). Re-formalizada en Sprint 15C.II Fase F.12 — layout canónico (2026-05-19) · [dossier §A.11.10.9 + §A.11.10.9.2 R1..R6 frozen](../60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md#a11109-fase-f12--layout-canónico-página-de-servicio--páginas-de-plugins).
 
 **Tipo:** Detail (§2.5) — variante con form en lugar de tabs (el contenido principal es el form dinámico `rjsf` de configuración, no contenido categorizado por tabs).
 **Pregunta:** "¿Está sano este plugin y cómo lo configuro?"
 **Roles:** Admin (superadmin) **exclusivamente** — mismo gating que §5.18 lista.
-**Ref:** [ADR-080 Plugin Framework](./10-decisions/adr-080-plugin-framework.md) (§4 manifest `configSchema` + `secretsSchema` separados + Amendments B `productConfigSchema?` + C `serviceInfoCacheTtlSeconds?`; §5 SecretVault AES-256-GCM; §6 catálogo 6 eventos `plugin.*`; §7 UI `@rjsf/core` tema DS custom), [ADR-083 Amendment A4.4 + A6 + A8](./10-decisions/adr-083-plugin-enhance-cp-specifics.md), [F.2 admin overview operativo](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md), [F.9 reconcile per-servicio](./60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md).
+**Ref:** [ADR-080 Plugin Framework](../10-decisions/adr-080-plugin-framework.md) (§4 manifest `configSchema` + `secretsSchema` separados + Amendments B `productConfigSchema?` + C `serviceInfoCacheTtlSeconds?`; §5 SecretVault AES-256-GCM; §6 catálogo 6 eventos `plugin.*`; §7 UI `@rjsf/core` tema DS custom), [ADR-083 Amendment A4.4 + A6 + A8](../10-decisions/adr-083-plugin-enhance-cp-specifics.md), [F.2 admin overview operativo](../60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md), [F.9 reconcile per-servicio](../60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md).
 
 #### Anatomía
 

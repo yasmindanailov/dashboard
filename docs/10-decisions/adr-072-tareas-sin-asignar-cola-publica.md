@@ -15,7 +15,7 @@
 
 > **No tareas sin `assigned_to`.** Toda tarea tiene dueño. Nunca "pool global" a coger por cualquiera.
 
-La intención de Sprint 8 P0.1 (2026-04-26) era proteger contra la deriva de tareas huérfanas que nadie mira (riesgo operativo real cuando hay >5 agentes y la asignación se hace ad-hoc). Sin embargo, en Sprint 8 Fase B.1.bis (2026-04-29) se introdujo en UI la **vista segmentada** del tablero `/admin/tasks` con tres scopes: **Mis tareas / Sin asignar / Todas** ([UI_SPEC §5.15](../UI_SPEC.md#L1652-L1738)). El segundo scope **es exactamente la cola pública** que ADR-041 prohibía.
+La intención de Sprint 8 P0.1 (2026-04-26) era proteger contra la deriva de tareas huérfanas que nadie mira (riesgo operativo real cuando hay >5 agentes y la asignación se hace ad-hoc). Sin embargo, en Sprint 8 Fase B.1.bis (2026-04-29) se introdujo en UI la **vista segmentada** del tablero `/admin/tasks` con tres scopes: **Mis tareas / Sin asignar / Todas** ([UI_SPEC §5.15](../40-reference/UI_SPEC.md#L1652-L1738)). El segundo scope **es exactamente la cola pública** que ADR-041 prohibía.
 
 Hay dos motivos prácticos por los que la prohibición original era demasiado estricta:
 

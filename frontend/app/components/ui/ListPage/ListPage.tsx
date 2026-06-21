@@ -22,7 +22,7 @@ import styles from './ListPage.module.css';
  *     <Table ... />
  *   </ListPage>
  *
- * Ref: docs/UI_SPEC.md §2.4, docs/DESIGN_SYSTEM.md Regla D10
+ * Ref: docs/40-reference/UI_SPEC.md §2.4, docs/40-reference/DESIGN_SYSTEM.md Regla D10
  */
 
 export interface ListPageProps extends Omit<PageHeaderProps, 'className'> {

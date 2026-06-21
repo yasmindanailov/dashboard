@@ -2,7 +2,7 @@
 
 > **Plan de ejecución vivo del proyecto.** Refactorizado en F6 desde el monolítico `docs/ROADMAP.md` (~1.000 líneas, 26 sprints + sub-sprints) sobre la base de la auditoría 2026-04-26 código vs documentación.
 
-> **Última actualización:** 2026-04-26 — F6 cierre. Estado de cada sprint **verificado contra código real** (no copiado del legacy sin contrastar).
+> **Última actualización:** 2026-04-26 — F6 cierre (**snapshot histórico**). ⚠️ El estado VIVO de sprints vive en [`current.md`](./current.md) + [`completed/`](./completed/) + la [auditoría 2026-06-21](../90-meta/audit-2026-06-21.md). El snapshot de más abajo refleja abril 2026 (F6) y **no se mantiene actualizado** — no lo uses como estado actual.
 
 ---
 
@@ -125,15 +125,15 @@ Ej: `sprint-6-billing-engine.md`, `sprint-7.5-design-system-foundation.md`. El n
 | **Por qué se decidió X arquitectónicamente** | `docs/10-decisions/adr-NNN-*.md` |
 | **Qué hace cada módulo hoy** | `docs/20-modules/<modulo>/contract.md` |
 | **Qué settings/plantillas/jobs/errores existen** | `docs/50-operations/` |
-| **Estado real vs declarado del proyecto** | [`docs/90-meta/audit-2026-04-26.md`](../90-meta/audit-2026-04-26.md) |
+| **Estado real vs declarado del proyecto** | [`docs/90-meta/audit-2026-06-21.md`](../90-meta/audit-2026-06-21.md) |
 | **Cómo trabajo con Claude profesionalmente** | [`docs/90-meta/development-playbook.md`](../90-meta/development-playbook.md) |
 
 ---
 
 ## Documentos relacionados
 
-- [`docs/ROADMAP.md`](../ROADMAP.md) — **Legacy.** Se conserva con headers actualizados (Sprint 7/7.5/8) por compatibilidad con referencias de commits y ADRs antiguos. **No es la fuente de verdad** — esta carpeta sí.
-- [`docs/90-meta/audit-2026-04-26.md`](../90-meta/audit-2026-04-26.md) — Auditoría que alimenta este roadmap.
+- [`docs/ROADMAP.md`](../99-archive/ROADMAP.md) — **Legacy.** Se conserva con headers actualizados (Sprint 7/7.5/8) por compatibilidad con referencias de commits y ADRs antiguos. **No es la fuente de verdad** — esta carpeta sí.
+- [`docs/90-meta/audit-2026-06-21.md`](../90-meta/audit-2026-06-21.md) — Auditoría que alimenta este roadmap.
 - [`docs/90-meta/development-playbook.md`](../90-meta/development-playbook.md) — Cómo trabajar profesionalmente.
 - [`docs/90-meta/definition-of-done.md`](../90-meta/definition-of-done.md) — Cuándo se cierra un sprint.
 - [`docs/00-foundations/rules.md`](../00-foundations/rules.md) — R1–R16 + D1–D11.

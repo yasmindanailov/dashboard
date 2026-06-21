@@ -12,7 +12,7 @@
 >
 > **Frase canónica de arranque (Fase C, próxima sesión post-merge PR #54):** *"Lee `docs/60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md` Apéndice A §A.7 (handoff completo Fase B → C). Vamos con Sprint 15C.II Fase C — Drift UX por rol + i18n completo + a11y Modal + PluginConfigForm useToast + ChangePackageModal toast. Crea rama `sprint15c-ii-fase-c-drift-ux-i18n` desde master post merge PR #54. Lee también UI_SPEC §4.13 (patrón canónico drift UX) + ADR-083 Amendment A4.3 (decisión congelada). Procede con rigor."*
 >
-> **Frase histórica (arranque Fase B, ya consumida):** *"Continúa Sprint 15C.II — Fase B (refresh metrics + reconcile dual). Lee Apéndice A del dossier (decisiones congeladas + plan refinado), [ADR-083 Amendment A4](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) y [UI_SPEC §4.13](../UI_SPEC.md#413-estados-de-detección-externa-drift--patrón-discriminado-por-rol). Implementa A4.1 (eliminar 2 actions + ↻ MetricsBar) + A4.2 (endpoint reconcile-all + rename + UI settings)."*
+> **Frase histórica (arranque Fase B, ya consumida):** *"Continúa Sprint 15C.II — Fase B (refresh metrics + reconcile dual). Lee Apéndice A del dossier (decisiones congeladas + plan refinado), [ADR-083 Amendment A4](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) y [UI_SPEC §4.13](../40-reference/UI_SPEC.md#413-estados-de-detección-externa-drift--patrón-discriminado-por-rol). Implementa A4.1 (eliminar 2 actions + ↻ MetricsBar) + A4.2 (endpoint reconcile-all + rename + UI settings)."*
 
 ---
 
@@ -48,7 +48,7 @@ Este dossier sirve a **tres propósitos canónicos** (mismo patrón que dossier 
 
 ### 2.B. UI_SPEC §4.3 — Toast vs inline (canon canónico violado)
 
-> [`UI_SPEC §4.3`](../UI_SPEC.md): "Toast = feedback efímero esquina superior derecha. AlertBanner = persistente inline. NO intercambiables."
+> [`UI_SPEC §4.3`](../40-reference/UI_SPEC.md): "Toast = feedback efímero esquina superior derecha. AlertBanner = persistente inline. NO intercambiables."
 
 | # | ID | Componente | Patrón actual | Patrón canónico | Estado |
 |---|---|---|---|---|---|
@@ -299,7 +299,7 @@ Cola P2 actualizada:
 
 - [`docs/60-roadmap/completed/sprint-15c-plugin-enhance-cp.md`](./completed/sprint-15c-plugin-enhance-cp.md) — Sprint 15C original cerrado al 90%, dossier preservado como anexo + retrospectiva con métricas + 8 lecciones + commit refs cronológicos.
 - [`docs/features/provisioning/admin-plugins-enhance.md`](../features/provisioning/admin-plugins-enhance.md) — Doc operativa diaria del plugin Enhance §8 inventario funcionalidades + deudas.
-- [`docs/UI_SPEC.md`](../UI_SPEC.md) — §1.2 principios UX (P1 densidad, P4 acción no contemplación, P5 voz Aelium, P6 contenido adaptativo por rol) + §4.3 Toast vs AlertBanner + §4.5 manejo errores.
+- [`docs/UI_SPEC.md`](../40-reference/UI_SPEC.md) — §1.2 principios UX (P1 densidad, P4 acción no contemplación, P5 voz Aelium, P6 contenido adaptativo por rol) + §4.3 Toast vs AlertBanner + §4.5 manejo errores.
 - [`docs/10-decisions/adr-070-service-info-sso-acciones-curadas.md`](../10-decisions/adr-070-service-info-sso-acciones-curadas.md) — patrón canónico service detail (header inline + métricas + acciones curadas + SSO + DNS).
 - [`docs/10-decisions/adr-077-contrato-provisioner-plugin-v2.md`](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) — contrato canónico ProvisionerPlugin v2 + 8 capability flags + Amendments A1/A2/A3/A3.5.
 - [`docs/10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md`](../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md) — modelo Domain↔Hosting + DNS doctrine + DH-INV-6 (Enhance gana en conflicto).
@@ -316,7 +316,7 @@ Cola P2 actualizada:
 
 ## A.1. Decisiones doctrinales A1-A4 — FROZEN 2026-05-10
 
-Yasmin seleccionó la opción **Recommended** de cada AskUserQuestion (referencia canónica industria). Las 4 decisiones quedan congeladas y materializadas en [ADR-083 Amendment A4](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) (§A4.1-A4.4) + [UI_SPEC §4.13](../UI_SPEC.md#413-estados-de-detección-externa-drift--patrón-discriminado-por-rol) + [ADR-077 Amendment A4](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md#amendment-a4-2026-05-10--capability-flag-supports_suspend) (capability flag nueva).
+Yasmin seleccionó la opción **Recommended** de cada AskUserQuestion (referencia canónica industria). Las 4 decisiones quedan congeladas y materializadas en [ADR-083 Amendment A4](../10-decisions/adr-083-plugin-enhance-cp-specifics.md#amendment-a4-2026-05-10--hardening-ux-post-smoke-real-yasmin-sprint-15cii) (§A4.1-A4.4) + [UI_SPEC §4.13](../40-reference/UI_SPEC.md#413-estados-de-detección-externa-drift--patrón-discriminado-por-rol) + [ADR-077 Amendment A4](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md#amendment-a4-2026-05-10--capability-flag-supports_suspend) (capability flag nueva).
 
 | ID | Decisión congelada | Materialización canónica |
 |---|---|---|
@@ -2894,7 +2894,7 @@ git checkout -b sprint15c-ii-fase-f11-service-conveniences
 **Propósito**: cerrar las 5 decisiones doctrinales pre-código antes de los commits feat. Patrón heredado de §A.11.10.7.2 (F.10 R1..R6 frozen) y §A.11.10.6.2 (F.9 R1..R6 frozen). Cada R* responde a una Q* del handoff §A.11.10.8.1 con la justificación rigurosa final.
 
 **R1 (resolución Q1) — Mini-badge de salud SOLO en `/admin/services/[id]`.**
-- El cliente NO ve un indicador de breaker en `/dashboard/services/[id]`. La capa cliente ya tiene los señalizadores funcionales canónicos: banner de drift discriminado por rol ([UI_SPEC §4.13](../../UI_SPEC.md) — ADR-077 Amendment A5 `recoveryHint`), banner de suspensión (F.4), banner desync provider state (F.4.1), y `info.statusReason` localizado en `ServiceHeader`. Un indicador técnico tipo "breaker open" filtraría detalles operacionales (estado in-process del wrapper de plugin) que el cliente no necesita ni puede accionar — el cliente espera que Aelium se las arregle internamente con el proveedor caído.
+- El cliente NO ve un indicador de breaker en `/dashboard/services/[id]`. La capa cliente ya tiene los señalizadores funcionales canónicos: banner de drift discriminado por rol ([UI_SPEC §4.13](../40-reference/UI_SPEC.md) — ADR-077 Amendment A5 `recoveryHint`), banner de suspensión (F.4), banner desync provider state (F.4.1), y `info.statusReason` localizado en `ServiceHeader`. Un indicador técnico tipo "breaker open" filtraría detalles operacionales (estado in-process del wrapper de plugin) que el cliente no necesita ni puede accionar — el cliente espera que Aelium se las arregle internamente con el proveedor caído.
 - Razón canónica: la doctrina ADR-070 (Dashboard como puerta unificada) define que el cliente ve **estado funcional curado** (active/suspended/drift con `recoveryHint`); el admin ve **estado operativo crudo** (drift técnico + `statusReason` literal + ahora breaker state). F.11.1 mantiene esa separación.
 - Consecuencia doctrinal R3 abajo: componente `<ProviderHealthBadge>` es **admin-puro** (sin prop `isAdmin`).
 

@@ -6,15 +6,15 @@
 
 ---
 
-## Regla cero: empezar siempre por el playbook
+## Regla cero: empezar por el índice maestro
 
 Independientemente de la tarea, **el primer archivo a leer es siempre el mismo:**
 
-📖 [`docs/90-meta/development-playbook.md`](./development-playbook.md)
+📖 [`docs/README.md`](../README.md) — **índice maestro / mapa de toda la doc** (qué es vivo / referencia / futuro / archivo + orden de arranque).
 
-Da el snapshot del estado del proyecto, deuda actual, prioridades P0–P3 y reglas de oro. Sin esto, cualquier tarea opera a ciegas.
+Arranque canónico desde ahí: índice maestro → [`audit-2026-06-21.md`](./audit-2026-06-21.md) (estado real **medido** hoy) → [`current.md`](../60-roadmap/current.md) (sprint activo) → [`development-playbook.md`](./development-playbook.md) (proceso — si solo lees uno de proceso, este). Sin esto, cualquier tarea opera a ciegas.
 
-Después del playbook, según la naturaleza de la tarea:
+Después, según la naturaleza de la tarea:
 
 ---
 
@@ -51,7 +51,7 @@ Después del playbook, según la naturaleza de la tarea:
 
 1. **Solo el código afectado.** Reproducir, identificar línea, arreglar.
 2. [`rules.md`](../00-foundations/rules.md) si tocas algo que pueda violar una regla (R5 lógica frontend, D1 emojis, R15 tamaño archivo).
-3. [`docs/DESIGN_SYSTEM.md`](../DESIGN_SYSTEM.md) si toca UI.
+3. [`docs/DESIGN_SYSTEM.md`](../40-reference/DESIGN_SYSTEM.md) si toca UI.
 
 **Lo que NO necesitas leer:** ADRs, contracts, matrix. Un fix puntual no debería tocar arquitectura.
 
@@ -102,7 +102,7 @@ Después del playbook, según la naturaleza de la tarea:
 **Mínimo viable:**
 
 1. [`current.md`](../60-roadmap/current.md) + [`backlog.md`](../60-roadmap/backlog.md) — confirmar prioridad y alcance del item P0/P1.
-2. [`audit-2026-04-26.md`](./audit-2026-04-26.md) — verdad verificada del estado de la deuda.
+2. [`audit-2026-06-21.md`](./audit-2026-06-21.md) — verdad verificada del estado de la deuda.
 3. **Solo el código afectado.** El saneamiento es trabajo mecánico.
 4. [`rules.md`](../00-foundations/rules.md) — para no introducir nuevas violaciones mientras saneas.
 5. [`ci-setup.md`](./ci-setup.md) — saber cómo activar lint bloqueante en CI cuando termines.
@@ -148,7 +148,7 @@ Después del playbook, según la naturaleza de la tarea:
 
 **Mínimo viable:**
 
-1. [`audit-2026-04-26.md`](./audit-2026-04-26.md) — leer la auditoría más reciente como referencia (si la haces nueva, este es el formato).
+1. [`audit-2026-06-21.md`](./audit-2026-06-21.md) — leer la auditoría más reciente como referencia (si la haces nueva, este es el formato).
 2. **Schema canónico:** `backend/prisma/schema.prisma` — la verdad sobre las tablas.
 3. **Doc objeto de auditoría:** lo que estés verificando.
 4. **Código de referencia** según el eje (controllers, services, listeners).

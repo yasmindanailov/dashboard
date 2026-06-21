@@ -9,7 +9,7 @@ import styles from './Pagination.module.css';
  * @example
  *   <Pagination page={2} totalPages={10} onPageChange={setPage} total={95} />
  *
- * Ref: docs/DESIGN_SYSTEM.md
+ * Ref: docs/40-reference/DESIGN_SYSTEM.md
  */
 
 export interface PaginationProps {

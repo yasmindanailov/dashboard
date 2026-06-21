@@ -158,7 +158,7 @@ Resultado: la historia queda íntegra.
 - [ADR-070](./adr-070-service-info-sso-acciones-curadas.md) — Dashboard como puerta unificada: `getServiceInfo()` + SSO al panel externo + acciones curadas inline (extiende ADR-021 con interfaz expresiva)
 - [ADR-071](./adr-071-vista-admin-federada-infraestructura.md) — Vista admin federada de infraestructura: `listRemoteServers()` + `getProviderHealthSummary()` (simétrico admin de ADR-070)
 - [ADR-072](./adr-072-tareas-sin-asignar-cola-publica.md) — Tareas sin `assigned_to`: cola pública con SLA (refina ADR-041 §"🚪 Cierra")
-- [ADR-073](./adr-073-tipos-flexibles-tasks-reason-tags.md) — Tipos de tarea + `reason` libre + `tags`: separa el QUÉ del POR QUÉ (rename `wow_call` → `contact_client`, refina ADR-041 §"Tipos canónicos")
+- [ADR-073](./adr-073-tipos-flexibles-tasks-reason-tags.md) — Tipos de tarea + `reason` libre + `tags`: separa el QUÉ del POR QUÉ (rename `wow_call` → `contact_client`, refina ADR-041 §"Tipos canónicos") **(Superseded by [ADR-079](./adr-079-tasks-bridge-unidireccional-y-notas-source-tracking.md))**
 - [ADR-074](./adr-074-ticket-task-bridge.md) — Ticket ↔ Task bridge: asignar ticket crea tarea automática (`type=support_ticket`); cierre canónico vive en la tarea con dual path resolver/cerrar; sin notificaciones duplicadas al cliente
 - [ADR-075](./adr-075-support-inside-ux-lista-y-aislamiento-productos.md) — Support Inside UX: lista vertical 3 filas (NO comparador) en `/admin/support-inside-plans` + aislamiento del CRUD genérico de productos (Sprint 8 Fase D)
 - [ADR-076](./adr-076-checkout-unico-support-inside-via-evento.md) — Checkout único por dominio billing: Support Inside como consumidor del evento `service.provisioned` emitido por `BillingCheckoutService` (Sprint 8 Fase D.12)
@@ -219,4 +219,4 @@ Pendiente para sprint dedicado.
 - [`docs/00-foundations/rules.md`](../00-foundations/rules.md) — Reglas R1–R16 + D1–D11
 - [`docs/00-foundations/glossary.md`](../00-foundations/glossary.md) — Términos canónicos
 - [`docs/20-modules/`](../20-modules/) — Contracts por módulo (referencian ADRs)
-- [`docs/DECISIONS.md`](../DECISIONS.md) — Documento legacy origen de los ADRs
+- [`docs/DECISIONS.md`](../99-archive/DECISIONS.md) — Documento legacy origen de los ADRs

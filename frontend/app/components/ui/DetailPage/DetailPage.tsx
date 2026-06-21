@@ -30,7 +30,7 @@ import styles from './DetailPage.module.css';
  *     {tab === 'resumen' && <ResumeContent />}
  *   </DetailPage>
  *
- * Ref: docs/UI_SPEC.md §2.5, §2.8
+ * Ref: docs/40-reference/UI_SPEC.md §2.5, §2.8
  */
 
 export interface DetailTab {

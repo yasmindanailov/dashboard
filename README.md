@@ -62,7 +62,7 @@ dashboard/
 
 ## Documentación
 
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- [DECISIONS.md](docs/DECISIONS.md)
-- [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)
-- [SESSION_RULES.md](docs/SESSION_RULES.md)
+- [ARCHITECTURE.md](docs/40-reference/ARCHITECTURE.md)
+- [DECISIONS.md](docs/99-archive/DECISIONS.md)
+- [DATABASE_SCHEMA.md](docs/99-archive/DATABASE_SCHEMA.md)
+- [SESSION_RULES.md](docs/90-meta/SESSION_RULES.md)

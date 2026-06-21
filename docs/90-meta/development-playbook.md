@@ -16,7 +16,7 @@
 - Glosario canónico en `docs/00-foundations/glossary.md`
 - Contracts de los 8 módulos en `docs/20-modules/`
 - Matriz de dependencias y catálogo de eventos
-- 60 ADRs individuales en `docs/10-decisions/` (F2 cerrado — `DECISIONS.md` legacy con mapping § → ADR)
+- 84 ADRs individuales en `docs/10-decisions/` (F2 cerrado — `DECISIONS.md` legacy con mapping § → ADR)
 - Schema partido por dominio en `docs/30-data/` (F3 cerrado — `DATABASE_SCHEMA.md` legacy con mapping tabla → archivo)
 - Referencias operativas en `docs/50-operations/` (F5 cerrado — settings, plantillas, jobs, errores)
 - Roadmap profesional en `docs/60-roadmap/` (F6 cerrado — current, backlog priorizado P0-P3, archive de sprints cerrados, plantilla activa)
@@ -33,14 +33,14 @@
 
 ### Lo que tiene DEUDA conocida
 
-⚠️ **Outbox Pattern (R8)**: **4/25 eventos lo usan** — `invoice.*` (created/paid/failed/overdue) cerrado P0.2 (2026-04-26) vía `OutboxService` + `OutboxWorker` en `backend/src/core/outbox/`. Pendiente extender a `service.*` (4) y `checkout.completed` cuando se implemente provisioning, y a `partner.*` (4 futuros). ADR-033 documenta el patrón canónico. **Bajo P-DEPLOY (no urgente — ADR-069).**
+⚠️ **Outbox Pattern (R8)**: **5 eventos lo usan** — `invoice.*` (created/paid/failed/overdue) + `domain.registered` (15D.D) vía `OutboxService` + `OutboxWorker` en `backend/src/core/outbox/`. Pendiente extender a `service.*` y `partner.*`. ADR-033 documenta el patrón canónico. **Bajo P-DEPLOY (no urgente — ADR-069)** — ver auditoría 2026-06-21 (MEDIUM-1: `service.*` ya accionable, precondición Sprint 11 cumplida).
 ✅ **Sprint 8 (Tasks + Support Inside)** — **cerrado 2026-05-01** (~6 sesiones, ~25 commits, 5 ADRs nuevos 072..076). Retrospectiva en [`completed/sprint-8-tasks-support-inside.md`](../60-roadmap/completed/sprint-8-tasks-support-inside.md). Documentación operativa en [`docs/features/tasks/`](../features/tasks/) y [`docs/features/support-inside/`](../features/support-inside/). Cobertura final: 157/157 unit + 117/117 E2E verde, 5 migraciones aplicadas. Eventos task aún huérfanos: `task.created`, `task.completed` (audit Sprint 9 Fase E pendiente — EC-T8-44).
 
 ✅ **Sprint 11 (Provisioning) — cerrado 2026-05-02** (~3 sesiones, 7 PRs, 2 ADRs nuevos 077 + 078). Retrospectiva en [`completed/sprint-11-provisioning.md`](../60-roadmap/completed/sprint-11-provisioning.md). Documentación operativa en [`docs/features/services/`](../features/services/) y [`docs/features/provisioning/admin.md`](../features/provisioning/admin.md). Cobertura final: **241/241 unit + 129/129 E2E verde**, 1 migración. Plugins triviales `internal` + `manual` operativos sobre el chasis canónico (3 wrappers cross-cutting + cache Redis DB 2 + plugin registry + cola BullMQ `provisioning-dispatch` con DLQ). Frontend: 3 páginas + 5 componentes shared. Decisión local registrada: el orquestador emite evento NUEVO `service.activated` (coexiste con `service.provisioned` legacy de `BillingCheckoutService` para preservar Sprint 8 D.12.9). 4 DCs nuevas en backlog (DC.27 Playwright image, DC.29 bloque Servicios admin/clients, DC.30 UI inline slot SI, DC.31 AuditLogFeed inline diferido).
-⚠️ **DC.6 — Frontend `set-state-in-effect`**: 27 warnings del patrón clásico `useEffect+fetch+setLoading` (regla nueva de eslint-plugin-react-hooks 7.x para React 19). Severidad bajada de `error` a `warn` en `frontend/eslint.config.mjs` con justificación. Plan: migrar fetching a Server Components + `use()`/Suspense en Sprint 7.5 Fase 2 o Sprint 13 Hardening — ver [`backlog.md` DC.6](../60-roadmap/backlog.md). El CI **no bloquea** por estos warnings (sólo por errors).
-⚠️ **15 eventos huérfanos** (todos clasificados en `_events.md` como hooks aspiracionales para módulos futuros).
+✅ **DC.6 — Frontend `set-state-in-effect`**: **CERRADA** (Sprint 13 §13.AUTH). La regla está en `error` global en `frontend/eslint.config.mjs`; el antipatrón se erradicó migrando a Server Components y los call-sites legítimos React 19 llevan supresión per-línea justificada. `pnpm --dir frontend lint:check --max-warnings=0` pasa con **0 warnings** (verificado auditoría 2026-06-21).
+⚠️ **~11 eventos huérfanos** (clasificados en `_events.md`; varios son hooks aspiracionales para módulos futuros, pero algunos `auth.*` YA los consume `audit` desde Sprint 13.5 → reconciliar `_events.md`, ver auditoría 2026-06-21).
 ⚠️ **Sentry preparado, sin DSN configurado** — decisión consciente. Activar al desplegar a producción.
-⚠️ **Crons en `@nestjs/schedule` (in-process)** — duplicarán trabajo si se escala a múltiples instancias. Migrar a BullMQ con leader election cuando aplique. El `OutboxWorker` actual usa `@Interval(5s)` por consistencia; migración a BullMQ planificada en P1.1 Sprint 9.
+⚠️ **Crons en `@nestjs/schedule` (in-process)** — ~10 crons que duplicarán trabajo al escalar a múltiples instancias (`billing-lifecycle`/`service-lifecycle` son los críticos). Migrar a BullMQ con leader election cuando aplique. (El dispatch de **Outbox YA** corre en BullMQ repeatable con leader election — ADR-064, no `@Interval`.) Ver auditoría 2026-06-21 (TDI-OUTBOX-CRONS-2).
 
 ### Lo que NO existe todavía
 
@@ -66,7 +66,7 @@
    - Riesgos
    - Decisiones a registrar
 3. Si el sprint introduce un módulo nuevo → crear `contract.md` siguiendo plantilla en `docs/20-modules/_template-contract.md` **antes** de codificar.
-4. Si introduce decisión de arquitectura → crea un ADR en [`docs/10-decisions/`](../10-decisions/) (F2 cerrado: 60 ADRs vivos). Sigue el formato de los existentes (`adr-NNN-titulo-kebab.md`) y enlázalo desde el contract afectado.
+4. Si introduce decisión de arquitectura → crea un ADR en [`docs/10-decisions/`](../10-decisions/) (F2 cerrado: 84 ADRs vivos). Sigue el formato de los existentes (`adr-NNN-titulo-kebab.md`) y enlázalo desde el contract afectado.
 
 ### Cuando cierras un sprint
 
@@ -162,7 +162,7 @@ Acompáñalo siempre con:
 
 - ✅ F0 (7 salvaguardas)
 - ✅ F1 (foundations: rules + glossary)
-- ✅ F2 (60 ADRs individuales en `docs/10-decisions/`, `DECISIONS.md` marcado legacy con mapping § → ADR)
+- ✅ F2 (84 ADRs individuales en `docs/10-decisions/`, `DECISIONS.md` marcado legacy con mapping § → ADR)
 - ✅ F3 (`docs/30-data/` con 14 archivos por dominio, `DATABASE_SCHEMA.md` marcado legacy con mapping tabla → archivo)
 - ✅ F4 (contracts + matrix + events) ⭐ la pieza más impactante
 - ✅ F5 (`docs/50-operations/` con settings-reference, email-templates, jobs-reference, api-errors)
@@ -203,7 +203,7 @@ Acompáñalo siempre con:
 
 - **P1.3 Sprint 7.5 Fase 2** — migración progresiva al Design System. Al tocar página, migrar en el mismo PR.
 - **DC.5 R15 restantes** — al tocar el archivo.
-- **DC.6 Migración fetch → Server Components + Suspense** — cierra los 27 warnings `set-state-in-effect`. Sprint 7.5 Fase 2 o Sprint 13.
+- ~~**DC.6 Migración fetch → Server Components + Suspense**~~ ✅ **cerrada** (Sprint 13 §13.AUTH; lint frontend a 0 warnings — auditoría 2026-06-21).
 - **DC.8 Listeners `auth.*`** → `AuditService.logAccess(...)` — al tocar `auth/*`.
 - **DC.11 Suite E2E env coherente** — documentar al preparar Sprint 14 o tocar tests.
 
@@ -288,7 +288,7 @@ Cuando vuelvas tras tiempo, lee en este orden:
 4. **`docs/00-foundations/glossary.md`** — términos
 5. **`docs/20-modules/_matrix.md`** — cómo se conectan los módulos
 6. **`docs/20-modules/<modulo>/contract.md`** del módulo que vayas a tocar
-7. **`docs/10-decisions/README.md`** — índice de los 60 ADRs (consultar cuando una decisión no esté clara)
+7. **`docs/10-decisions/README.md`** — índice de los 84 ADRs (consultar cuando una decisión no esté clara)
 8. **`docs/30-data/README.md`** — índice de tablas por dominio (consultar antes de tocar el schema)
 9. **`docs/50-operations/README.md`** — índice de settings, plantillas, jobs, errores (consultar antes de añadir cualquiera de los cuatro)
 10. **`docs/60-roadmap/README.md`** — qué está en curso, qué viene priorizado P0-P3, qué se ha cerrado

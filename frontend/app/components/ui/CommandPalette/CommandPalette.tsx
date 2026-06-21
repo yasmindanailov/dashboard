@@ -23,7 +23,7 @@ import styles from './CommandPalette.module.css';
    Usage:
      <CommandPalette open={open} onClose={() => setOpen(false)} />
 
-   Ref: docs/DESIGN_SYSTEM.md, UI_SPEC §4.10
+   Ref: docs/40-reference/DESIGN_SYSTEM.md, UI_SPEC §4.10
    ═══════════════════════════════════════ */
 
 /* ── Types ── */

@@ -23,7 +23,7 @@ import styles from './Toast.module.css';
      toast('success', 'Factura creada');
      toastUndo('info', 'Ticket cerrado', handleReopen);
 
-   Ref: docs/DESIGN_SYSTEM.md, UI_SPEC §4.9
+   Ref: docs/40-reference/DESIGN_SYSTEM.md, UI_SPEC §4.9
    ═══════════════════════════════════════ */
 
 /* ── Types ── */

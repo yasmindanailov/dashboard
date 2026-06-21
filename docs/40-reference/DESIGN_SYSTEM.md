@@ -39,7 +39,7 @@ El dashboard usaba `#635BFF` (Stripe purple) como color brand. El documento de m
 ## REGLAS QUE NUNCA SE ROMPEN
 
 > **🔄 Documento canónico unificado:** las reglas D1–D11 (junto con las R1–R16)
-> ahora viven en **[`docs/00-foundations/rules.md`](./00-foundations/rules.md)**.
+> ahora viven en **[`docs/00-foundations/rules.md`](../00-foundations/rules.md)**.
 > Esta sección se mantiene por compatibilidad. Modificar en el canónico, no aquí.
 
 ### Regla D1 — Sin emojis en la interfaz

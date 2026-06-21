@@ -270,6 +270,6 @@ Los 15/15 tests unit de `AdminPluginsService` mockean `audit.logChange` y nunca 
 - [ADR-080](../../10-decisions/adr-080-plugin-framework.md) — Plugin Framework canónico (manifest + vault + loader DB + circuit breaker + 5 eventos).
 - [ADR-077](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) — Contrato funcional `ProvisionerPlugin` v2 (Sprint 11).
 - [ADR-070](../../10-decisions/adr-070-service-info-sso-acciones-curadas.md) — Doctrina de orden P2.
-- [ADR-067](../../10-decisions/adr-067-roles-y-permisos-granulares.md) — Patrón Subject admin-puro replicado.
+- [ADR-067](../../10-decisions/adr-067-granularidad-casl-rol-staff.md) — Patrón Subject admin-puro replicado.
 - [Sprint 11 retrospectiva](./sprint-11-provisioning.md) — chasis canónico sobre el que Sprint 15A construyó.
 - PR #31 GitHub — historial completo de commits + revisión.

@@ -28,7 +28,7 @@ Pendiente: módulo backend (carpeta no existe en `backend/src/modules/partner/`)
 
 ## 3. Modelos Prisma propios (planificados)
 
-> Schema detallado en [`docs/PARTNER_SCHEMA.md`](../../PARTNER_SCHEMA.md).
+> Schema detallado en [`docs/PARTNER_SCHEMA.md`](../../70-future/PARTNER_SCHEMA.md).
 
 | Tabla | Descripción | Invariantes esperadas |
 |-------|-------------|------------------------|
@@ -234,9 +234,9 @@ Solo el rol `partner` (no `partner_pending`) tiene permisos sobre estos subjects
 
 > Migrar a ADRs en F2.
 
-- [`PARTNER_DECISIONS.md`](../../PARTNER_DECISIONS.md) — Documento maestro completo (15 secciones)
-- [`PARTNER_ARCHITECTURE.md`](../../PARTNER_ARCHITECTURE.md) — Arquitectura técnica del módulo
-- [`PARTNER_SCHEMA.md`](../../PARTNER_SCHEMA.md) — Schema completo de tablas
+- [`PARTNER_DECISIONS.md`](../../70-future/PARTNER_DECISIONS.md) — Documento maestro completo (15 secciones)
+- [`PARTNER_ARCHITECTURE.md`](../../70-future/PARTNER_ARCHITECTURE.md) — Arquitectura técnica del módulo
+- [`PARTNER_SCHEMA.md`](../../70-future/PARTNER_SCHEMA.md) — Schema completo de tablas
 - `DECISIONS.md` §5 — Roles del sistema (incluye `partner` y `partner_pending`)
 
 ---

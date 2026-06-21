@@ -19,12 +19,12 @@ docs/20-modules/
 ├── clients/contract.md        ✅ implementado — Sprint 4
 ├── support/contract.md        ✅ implementado — Sprint 7, hardening 7.H1-25
 ├── products/contract.md       ✅ implementado — Sprint 5, hardening EC-1..6
-├── tasks/contract.md          🟡 parcial — Sprint 8 WIP
+├── tasks/contract.md          ✅ implementado — Sprint 8 + refactor Sprint 16 (ADR-079)
 ├── dashboard/contract.md      ✅ implementado — Sprint 5, refactor 7.R15.1
 └── partner/contract.md        ⬜ stub — plan documentado para Fase 2
 ```
 
-**Estado actual: 8 contracts cubriendo todos los módulos del sistema.**
+**Estado actual: 14 contracts** (el árbol de arriba es ilustrativo — el directorio incluye también notifications, provisioning, support-inside, etc.). Conteo vivo = los `contract.md` del directorio.
 
 A migrar (en F-future): los `admin.md` de `docs/features/<modulo>/` se moverán a `docs/20-modules/<modulo>/admin.md`. Hoy siguen donde están para preservar referencias históricas.
 
@@ -112,4 +112,4 @@ Esto evita que la doc mienta a medida que el código evoluciona. Pendiente para 
 - [`docs/00-foundations/glossary.md`](../00-foundations/glossary.md) — Términos canónicos que se usan en los contracts
 - [`docs/10-decisions/`](../10-decisions/) — ADRs (cuando se ejecute F2)
 - [`docs/30-data/`](../30-data/) — Schema partido por dominio (cuando se ejecute F3)
-- [`docs/DECISIONS.md`](../DECISIONS.md) — Decisiones de producto actuales (a migrar a ADRs en F2)
+- [`docs/DECISIONS.md`](../99-archive/DECISIONS.md) — Decisiones de producto actuales (a migrar a ADRs en F2)

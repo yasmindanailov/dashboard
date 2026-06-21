@@ -2,7 +2,7 @@
 
 > Guía operativa para administrar partners en el dashboard.
 >
-> **Estado actual:** módulo no implementado todavía. Esta guía describe los flujos previstos según el [`contract.md`](./contract.md) + [`PARTNER_DECISIONS.md`](../../PARTNER_DECISIONS.md). Cuando el módulo se implemente (Sprint 19 / P3.10), este documento se valida y ajusta contra la realidad.
+> **Estado actual:** módulo no implementado todavía. Esta guía describe los flujos previstos según el [`contract.md`](./contract.md) + [`PARTNER_DECISIONS.md`](../../70-future/PARTNER_DECISIONS.md). Cuando el módulo se implemente (Sprint 19 / P3.10), este documento se valida y ajusta contra la realidad.
 
 ---
 
@@ -179,8 +179,8 @@ Cualquier incidencia que afecte dinero (comisiones, payouts) debe quedar en audi
 ## Documentos relacionados
 
 - [`contract.md`](./contract.md) — Especificación técnica del módulo (modelos, eventos, endpoints, invariantes).
-- [`docs/PARTNER_DECISIONS.md`](../../PARTNER_DECISIONS.md) — Decisiones de producto detalladas.
-- [`docs/PARTNER_ARCHITECTURE.md`](../../PARTNER_ARCHITECTURE.md) — Arquitectura técnica.
-- [`docs/PARTNER_SCHEMA.md`](../../PARTNER_SCHEMA.md) — Schema completo (8 tablas + campos en existentes).
+- [`docs/PARTNER_DECISIONS.md`](../../70-future/PARTNER_DECISIONS.md) — Decisiones de producto detalladas.
+- [`docs/PARTNER_ARCHITECTURE.md`](../../70-future/PARTNER_ARCHITECTURE.md) — Arquitectura técnica.
+- [`docs/PARTNER_SCHEMA.md`](../../70-future/PARTNER_SCHEMA.md) — Schema completo (8 tablas + campos en existentes).
 - [ADRs partner](../../10-decisions/) — ADR-048 a ADR-054 cubren modelo, onboarding, permisos, comisiones, desvinculación, vinculación cuenta cliente, referidos.
 - [`docs/00-foundations/glossary.md`](../../00-foundations/glossary.md) — Términos: [Partner], [Cliente del partner], [Comisión], [Liquidación / Payout], [Desvinculación].

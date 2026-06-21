@@ -13,7 +13,7 @@ import styles from './Breadcrumb.module.css';
  *     { label: 'INV-00042' },
  *   ]} />
  *
- * Ref: docs/DESIGN_SYSTEM.md
+ * Ref: docs/40-reference/DESIGN_SYSTEM.md
  */
 
 export interface BreadcrumbItem {

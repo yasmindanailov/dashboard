@@ -1,15 +1,14 @@
-# SESSION_RULES.md — Reglas para el agente IA
+# SESSION_RULES.md — Reglas operativas para el agente IA
 
-> Se lee al inicio de cada sesión. Contiene reglas operativas
-> que NO están en ARCHITECTURE.md ni DECISIONS.md.
-> Actualizado: Sprint 7.5 (Abril 2026)
+> **Entry point real de cada sesión: [`/CLAUDE.md`](../../CLAUDE.md)** (se auto-carga) → [`docs/README.md`](../README.md) (índice maestro). Este archivo **complementa** con reglas operativas que no están en `rules.md`/ADRs.
+> Actualizado: 2026-06-21 (reorg documental).
 
 ---
 
-## Regla 0 — No abrir el navegador sin permiso
+## Regla 0 — No abrir el navegador para exploración ad-hoc
 
-El agente NO abre el navegador por su cuenta.
-El usuario abrirá el navegador y dará feedback visual cuando sea necesario.
+El agente NO abre el navegador por su cuenta para "echar un vistazo"; el usuario da el feedback visual.
+**Excepción:** los skills `verify` / `run` SÍ pueden conducir un navegador **cuando se invocan explícitamente** para verificar un cambio en la app real. Eso es uso dirigido, no exploración.
 
 ---
 
@@ -29,10 +28,15 @@ Se escribe AL COMPLETAR el feature, no después.
 
 ## Regla 2 — Orden de lectura al iniciar sesión
 
-1. `docs/ROADMAP.md` — saber qué toca hacer
-2. `docs/DECISIONS.md` — lógica de negocio del módulo en curso
-3. Este archivo — reglas operativas
-4. Los archivos del módulo que se va a tocar
+Sigue el flujo de [`/CLAUDE.md`](../../CLAUDE.md) §1:
+
+1. [`docs/README.md`](../README.md) — índice maestro / mapa.
+2. [`docs/90-meta/audit-2026-06-21.md`](./audit-2026-06-21.md) — estado real medido.
+3. [`docs/60-roadmap/current.md`](../60-roadmap/current.md) — sprint activo.
+4. [`docs/00-foundations/rules.md`](../00-foundations/rules.md) + este archivo — reglas.
+5. El `contract.md` del módulo que vas a tocar.
+
+> Los monolitos legacy (`ROADMAP.md`, `DECISIONS.md`, `DATABASE_SCHEMA.md`) viven en `docs/99-archive/` — históricos, **NO fuente de verdad**. Las decisiones vivas están en `docs/10-decisions/` (ADRs).
 
 ---
 
@@ -47,10 +51,10 @@ No inventar lógica de negocio. No asumir flujos que no estén documentados.
 
 Al completar cada sprint, el agente DEBE:
 
-1. **Commit** con mensaje descriptivo del sprint.
-2. **Actualizar ROADMAP.md**: marcar pasos como ✅, añadir hash del commit.
-3. **Escribir admin.md** en `docs/features/[módulo]/`.
-4. **Verificar coherencia** entre ROADMAP.md, ARCHITECTURE.md y DECISIONS.md.
+1. **Commit** con Conventional Commits descriptivo del sprint.
+2. **Actualizar `current.md`**: marcar fases ✅; al cerrar el sprint, mover su dossier a `completed/` con retrospectiva.
+3. **Escribir/actualizar `admin.md`** en `docs/features/[módulo]/`.
+4. **Verificar coherencia** entre `current.md`, `40-reference/ARCHITECTURE.md` y los ADRs (`10-decisions/`).
 5. **Notificar al usuario** qué se completó y qué sigue.
 
 Si algún documento tiene información contradictoria con la implementación actual,
@@ -73,7 +77,7 @@ corregirlo ANTES de avanzar al siguiente sprint.
 
 ## Design system del dashboard
 
-> **Fuente de verdad:** `docs/DESIGN_SYSTEM.md` + `docs/UI_SPEC.md`.
+> **Fuente de verdad:** [`docs/40-reference/DESIGN_SYSTEM.md`](../40-reference/DESIGN_SYSTEM.md) + [`docs/40-reference/UI_SPEC.md`](../40-reference/UI_SPEC.md).
 > Todo módulo nuevo o modificado DEBE cumplir estas reglas.
 > El sistema de componentes está en `components/ui/` (30 componentes).
 > Sprint 7.5 finalizó la auditoría completa de compliance.
@@ -154,18 +158,4 @@ test:     tests
 
 ## Documentos del proyecto
 
-| Archivo | Contenido |
-|---------|-----------|
-| `ARCHITECTURE.md` | Stack, módulos, 16 reglas arquitectónicas |
-| `DECISIONS.md` | Lógica de negocio completa (fuente de verdad) |
-| `DATABASE_SCHEMA.md` | Schema de la base de datos |
-| `DESIGN_SYSTEM.md` | Tokens, componentes UI (30), anti-patrones de diseño |
-| `UI_SPEC.md` | Anatomía de páginas, reglas de contenido, especificación de 17 páginas |
-| `ROADMAP.md` | Plan de ejecución con pasos granulares |
-| `SESSION_RULES.md` | Este archivo — reglas operativas del agente |
-| `PARTNER_ARCHITECTURE.md` | Arquitectura del sistema de Partners |
-| `PARTNER_DECISIONS.md` | Reglas de negocio del sistema de Partners |
-| `PARTNER_SCHEMA.md` | Schema de base de datos del sistema de Partners |
-| `AI_WORKERS.md` | Especificación de workers IA y agentes autónomos |
-| `edge_cases.md` | Análisis exhaustivo de edge cases por sprint |
-| `features/` | Documentación por módulo y audiencia |
+Mapa completo y clasificado (LIVE / REFERENCE / FUTURE / ARCHIVE) en el **índice maestro [`docs/README.md`](../README.md)**. No se duplica aquí para evitar drift de rutas (los monolitos legacy y los docs de marca/arquitectura se reubicaron en la reorg 2026-06-21).

@@ -246,9 +246,9 @@ Sin cambios. `Subject.Task` y `Subject.Conversation` ya cubren las acciones. La 
 
 ## Referencias
 
-- [ADR-037](./adr-037-arquitectura-conversaciones.md) — chat → ticket escalation. Este ADR añade el flujo inverso ticket → task.
+- [ADR-037](./adr-037-arquitectura-dual-chat-tickets.md) — chat → ticket escalation. Este ADR añade el flujo inverso ticket → task.
 - [ADR-041](./adr-041-sistema-tareas.md) §"Tipos canónicos" — refinada por este ADR (nuevo valor `support_ticket`).
 - [ADR-072](./adr-072-tareas-sin-asignar-cola-publica.md) — cola pública aplica a tareas auto-creadas si la auto-asignación falla.
 - [ADR-073](./adr-073-tipos-flexibles-tasks-reason-tags.md) — el `reason` se hereda automáticamente del subject del ticket; los tags pueden añadirse manualmente.
 - [tasks/contract.md](../20-modules/tasks/contract.md) §3/§5/§7 — modelo, endpoints, eventos.
-- [conversations/contract.md](../20-modules/conversations/contract.md) — flujo de assignment + estado del ticket.
+- [conversations/contract.md](../20-modules/support/contract.md) — flujo de assignment + estado del ticket.

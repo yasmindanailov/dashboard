@@ -82,6 +82,6 @@ Convenciones aplicadas:
 
 - **Módulos afectados:** todos (las reglas son transversales).
 - **Documento canónico:** [`docs/00-foundations/rules.md`](../00-foundations/rules.md).
-- **Documento legacy con callout:** [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md), [`docs/DESIGN_SYSTEM.md`](../DESIGN_SYSTEM.md).
+- **Documento legacy con callout:** [`docs/ARCHITECTURE.md`](../40-reference/ARCHITECTURE.md), [`docs/DESIGN_SYSTEM.md`](../40-reference/DESIGN_SYSTEM.md).
 - **ADRs relacionados:** todos los siguientes ADRs referencian reglas concretas (R1, R8, R15, etc.) y ya apuntan al canónico.
 - **Glosario:** [`docs/00-foundations/glossary.md`](../00-foundations/glossary.md).

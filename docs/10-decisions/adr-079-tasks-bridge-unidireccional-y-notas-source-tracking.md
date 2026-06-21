@@ -768,7 +768,7 @@ ALTER TABLE maintenance_logs RENAME COLUMN notes TO client_facing_notes;
 - **ADRs relacionados (no superseded):**
   - [ADR-037](./adr-037-arquitectura-dual-chat-tickets.md) — arquitectura dual. Permanece intacto; el bridge solo aplica a tickets.
   - [ADR-061](./adr-061-support-inside-tier-cuenta-ux.md) — tiers SI. Consumido por helper `calculateTaskPriority`.
-  - [ADR-067](./adr-067-permisos-granulares-staff.md) — permisos granulares staff. Refina §3.10.
+  - [ADR-067](./adr-067-granularidad-casl-rol-staff.md) — permisos granulares staff. Refina §3.10.
   - [ADR-069](./adr-069-estrategia-deploy-diferido.md) — deploy diferido. Habilita migración Opción B.
   - [ADR-077](./adr-077-contrato-provisioner-plugin-v2.md) — contrato `ProvisionerPlugin` v2. El plugin manual sigue creando tasks `provisioning_manual` igual.
   - [ADR-078](./adr-078-auth-server-side-cookies-httponly.md) — auth server-side. Sprint 16 frontend respeta marker `TODO(ADR-078, Sprint 13)` en cualquier Client Component nuevo (Sprint 13 §13.AUTH cierra la migración bulk).

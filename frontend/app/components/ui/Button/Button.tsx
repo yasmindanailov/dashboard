@@ -18,7 +18,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
  * Tamaños: sm (28px), md (36px), lg (44px).
  * Loading: muestra spinner y desactiva interacción.
  *
- * Ref: docs/DESIGN_SYSTEM.md
+ * Ref: docs/40-reference/DESIGN_SYSTEM.md
  */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (

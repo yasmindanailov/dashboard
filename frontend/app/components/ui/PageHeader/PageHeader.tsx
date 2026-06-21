@@ -15,7 +15,7 @@ import styles from './PageHeader.module.css';
  *     action={<Button>+ Nuevo</Button>}
  *   />
  *
- * Ref: docs/UI_SPEC.md §3.5, docs/DESIGN_SYSTEM.md Regla D10
+ * Ref: docs/40-reference/UI_SPEC.md §3.5, docs/40-reference/DESIGN_SYSTEM.md Regla D10
  */
 
 export interface PageHeaderProps {

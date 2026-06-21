@@ -12,7 +12,7 @@ import styles from './AlertBanner.module.css';
  *     El servicio se activará cuando la factura esté pagada.
  *   </AlertBanner>
  *
- * Ref: docs/DESIGN_SYSTEM.md
+ * Ref: docs/40-reference/DESIGN_SYSTEM.md
  */
 
 export type AlertBannerVariant = 'info' | 'success' | 'warning' | 'danger';

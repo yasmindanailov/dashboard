@@ -153,8 +153,8 @@
 
 | Code | Mensaje base | Cuándo se lanza | Notas |
 |------|--------------|-----------------|-------|
-| `INTERNAL_ERROR` | "Algo no ha ido bien. Nuestro equipo ya está al tanto y lo resolverá en breve." | Cualquier excepción NO `HttpException` (bug, fallo Prisma, etc.) | Mensaje al usuario sigue [ADR-031 §31 original](../DECISIONS.md#§31) — **sin detalles técnicos**. Detalles van a Sentry + logs con `correlationId` |
-| `DB_ERROR` | (no expuesto al usuario — se loguea como `INTERNAL_ERROR`) | Prisma query rechaza (constraint, deadlock, conexión perdida) | Loggeado en `error_log` ([ADR-031 §31](../DECISIONS.md#§31)) |
+| `INTERNAL_ERROR` | "Algo no ha ido bien. Nuestro equipo ya está al tanto y lo resolverá en breve." | Cualquier excepción NO `HttpException` (bug, fallo Prisma, etc.) | Mensaje al usuario sigue [ADR-031 §31 original](../99-archive/DECISIONS.md#§31) — **sin detalles técnicos**. Detalles van a Sentry + logs con `correlationId` |
+| `DB_ERROR` | (no expuesto al usuario — se loguea como `INTERNAL_ERROR`) | Prisma query rechaza (constraint, deadlock, conexión perdida) | Loggeado en `error_log` ([ADR-031 §31](../99-archive/DECISIONS.md#§31)) |
 | `JWT_SECRET_MISSING` | "JWT_SECRET environment variable is not set" | Startup check — el proceso no arranca | Mata el contenedor → Traefik lo reinicia o reporta unhealthy |
 
 ### 503 SERVICE UNAVAILABLE — degradación temporal

@@ -42,7 +42,7 @@ Listener `tasks-email.listener` consume `task.assigned` → email + notificació
 
 ### 4. Fase C — Automatización vía crons BullMQ scheduled (`fe51931`, `5aa2449`, `8df107e`, `c632e19`, 2026-05-01)
 
-3 colas BullMQ scheduled con leader election natural via Redis ([ADR-063](../../10-decisions/adr-063-decision.md) + [ADR-064](../../10-decisions/adr-064-decision.md)) — patrón canónico **service testeable + processor delgado + DLQ + listener delegando en `NotificationsService`**:
+3 colas BullMQ scheduled con leader election natural via Redis ([ADR-063](../../10-decisions/adr-063-bullmq-canonico-dlq-retries.md) + [ADR-064](../../10-decisions/adr-064-outbox-dispatcher-bullmq.md)) — patrón canónico **service testeable + processor delgado + DLQ + listener delegando en `NotificationsService`**:
 
 | Cola | Schedule UTC | Service | Listener | Destinatario |
 |------|--------------|---------|----------|--------------|

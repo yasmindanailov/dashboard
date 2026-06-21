@@ -663,7 +663,7 @@ export interface PluginManifest {
   - [ADR-009](./adr-009-estrategia-plugins.md) — estrategia plugin pattern.
   - [ADR-017](./adr-017-audit-log-inmutable.md) — audit log inmutable.
   - [ADR-021](./adr-021-provisioners.md) — interface mínima provisioners.
-  - [ADR-067](./adr-067-roles-y-permisos-granulares.md) — CASL granularidad.
+  - [ADR-067](./adr-067-granularidad-casl-rol-staff.md) — CASL granularidad.
   - [ADR-070](./adr-070-service-info-sso-acciones-curadas.md) — `getServiceInfo` / `getSsoUrl` / `executeAction`.
   - [ADR-077](./adr-077-contrato-provisioner-plugin-v2.md) — contrato canónico congelado.
   - [ADR-078](./adr-078-auth-server-side-cookies-httponly.md) — Server Actions con cookies httpOnly Modelo A.

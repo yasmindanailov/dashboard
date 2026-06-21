@@ -338,7 +338,7 @@ Este ADR establece dos invariantes duros:
   - **R17 (futuro, redactado en Sprint 13)** — "JWT en cookies httpOnly, nunca en localStorage. Acceso server-side vía `getServerSession()` o header explícito en clientes API directos."
 - **ADRs relacionados:**
   - [ADR-066](./adr-066-tres-portales-raiz-portalbadge.md) — los 3 portales (`/admin`, `/dashboard`, `/partner`) heredan este patrón canónico de auth uniformemente.
-  - [ADR-067](./adr-067-permisos-granulares-staff.md) — duración tokens (access 15m, refresh 7d) inalterada.
+  - [ADR-067](./adr-067-granularidad-casl-rol-staff.md) — duración tokens (access 15m, refresh 7d) inalterada.
   - [ADR-070](./adr-070-service-info-sso-acciones-curadas.md) — la página `/dashboard/services/[id]` es el primer caso de uso del helper `serverFetch` post-Sprint 13.
   - [ADR-077](./adr-077-contrato-provisioner-plugin-v2.md) — patrón "ADR antes de código" replicado aquí.
 - **Backlog:**

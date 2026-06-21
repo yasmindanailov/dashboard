@@ -4,7 +4,7 @@
  * Usage:
  *   import { Button, Badge, Select, Pagination } from '@/components/ui';
  *
- * Ref: docs/DESIGN_SYSTEM.md
+ * Ref: docs/40-reference/DESIGN_SYSTEM.md
  */
 
 export { Button, type ButtonProps } from './Button';
