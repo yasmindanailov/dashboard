@@ -268,6 +268,15 @@ interface ResellerclubConfig {
   readonly markupPercent: number;
   readonly tldsOffered: readonly string[];
   readonly defaultCurrency: string;
+  /**
+   * DC.NEW-67 (Fase 15D.E) — override **test-only** de la URL base. Permite a los
+   * tests de integración apuntar `getApiClient` al `MockResellerClubServer` sin
+   * golpear OT&E. **No** está en el `configSchema` del manifest (que es
+   * `additionalProperties: false`) → el PATCH /admin/plugins validado por Ajv lo
+   * RECHAZA en producción; solo lo siembran los IT que escriben `plugin_installs`
+   * directo. `undefined` ⇒ se resuelve por `environment` (sandbox/production).
+   */
+  readonly baseUrlOverride?: string;
 }
 
 interface ApiClientCacheEntry {
@@ -756,7 +765,11 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
     }
 
     const config = parseResellerclubConfig(install.config);
-    const cacheKey = `${config.environment}|${install.updated_at.getTime()}|kv${install.key_version}`;
+    // DC.NEW-67: la URL base sale del override test-only si está presente, si no
+    // del environment. Va en el cacheKey para invalidar el cliente si cambia.
+    const baseUrl =
+      config.baseUrlOverride ?? resolveResellerClubBaseUrl(config.environment);
+    const cacheKey = `${baseUrl}|${install.updated_at.getTime()}|kv${install.key_version}`;
     if (this.apiClientCache?.cacheKey === cacheKey) {
       return { client: this.apiClientCache.client, config };
     }
@@ -776,7 +789,7 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
     }
 
     const client = new ResellerClubApiClient({
-      baseUrl: resolveResellerClubBaseUrl(config.environment),
+      baseUrl,
       authUserId: this.vault.decrypt(authUserIdBlob),
       apiKey: this.vault.decrypt(apiKeyBlob),
     });
@@ -1061,7 +1074,19 @@ function parseResellerclubConfig(raw: unknown): ResellerclubConfig {
     obj.default_currency.length === 3
       ? obj.default_currency
       : 'EUR';
-  return { environment, markupPercent, tldsOffered, defaultCurrency };
+  // DC.NEW-67: override test-only de baseUrl (campo no-schema __base_url_override).
+  const rawOverride = obj.__base_url_override;
+  const baseUrlOverride =
+    typeof rawOverride === 'string' && rawOverride.trim().length > 0
+      ? rawOverride.trim()
+      : undefined;
+  return {
+    environment,
+    markupPercent,
+    tldsOffered,
+    defaultCurrency,
+    baseUrlOverride,
+  };
 }
 
 /** Shape persistido en `plugin_installs.secrets[<field>]` (ADR-080). */
