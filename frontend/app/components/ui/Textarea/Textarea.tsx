@@ -10,7 +10,7 @@ import styles from './Textarea.module.css';
  * @example
  *   <Textarea label="Descripción" rows={4} maxLength={500} showCount />
  *
- * Ref: docs/DESIGN_SYSTEM.md
+ * Ref: docs/40-reference/DESIGN_SYSTEM.md
  */
 
 export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {

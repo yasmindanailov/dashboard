@@ -128,7 +128,7 @@ El seed canónico [`seedPluginInstalls`](../../backend/prisma/seeds/plugin-insta
 - [ADR-080 — Plugin Framework](../10-decisions/adr-080-plugin-framework.md) — fuente de verdad de las decisiones del modelo.
 - [ADR-077 — Contrato `ProvisionerPlugin` v2](../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) — congelación del slug como identidad inmutable.
 - [`docs/20-modules/_events.md` §🔌 plugin.*](../20-modules/_events.md) — 5 eventos canónicos del lifecycle.
-- [`docs/features/admin/plugins.md`](../features/admin/plugins.md) — operativa diaria del superadmin.
+- [`docs/features/admin/plugins.md`](../features/provisioning/admin-plugins.md) — operativa diaria del superadmin.
 - Backend:
   - [`backend/src/core/security/secret-vault.service.ts`](../../backend/src/core/security/secret-vault.service.ts) — vault AES-256-GCM.
   - [`backend/src/core/provisioning/plugin-registry.ts`](../../backend/src/core/provisioning/plugin-registry.ts) — loader desde DB + reload runtime.

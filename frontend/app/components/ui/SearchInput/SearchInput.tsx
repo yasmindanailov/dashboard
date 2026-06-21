@@ -17,7 +17,7 @@ import styles from './SearchInput.module.css';
  *     loading={isSearching}
  *   />
  *
- * Ref: docs/DESIGN_SYSTEM.md
+ * Ref: docs/40-reference/DESIGN_SYSTEM.md
  */
 
 export interface SearchInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> {

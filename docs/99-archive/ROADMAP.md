@@ -2,14 +2,14 @@
 
 > ## ⚠️ MIGRADO A `docs/60-roadmap/`
 >
-> **El roadmap de alto nivel (qué viene, qué está en curso, qué está cerrado)** vive ahora en [`docs/60-roadmap/`](./60-roadmap/README.md), refactorizado en F6 (2026-04-26) sobre la base de la auditoría 2026-04-26 código vs documentación.
+> **El roadmap de alto nivel (qué viene, qué está en curso, qué está cerrado)** vive ahora en [`docs/60-roadmap/`](../60-roadmap/README.md), refactorizado en F6 (2026-04-26) sobre la base de la auditoría 2026-04-26 código vs documentación.
 >
 > **Este archivo se conserva** porque mantiene el **detalle granular paso-a-paso** de cada sprint (con sub-pasos numerados, edge cases, decisiones inline). Esa información sigue siendo útil como referencia histórica y para entender por qué se hizo cada paso.
 >
 > **Cómo usar:**
-> - Para **planificar el siguiente sprint**: ir a [`60-roadmap/backlog.md`](./60-roadmap/README.md).
-> - Para **ver qué está en curso**: ir a [`60-roadmap/current.md`](./60-roadmap/current.md).
-> - Para **investigar qué entregó un sprint cerrado**: ir a [`60-roadmap/completed/`](./60-roadmap/completed/).
+> - Para **planificar el siguiente sprint**: ir a [`60-roadmap/backlog.md`](../60-roadmap/README.md).
+> - Para **ver qué está en curso**: ir a [`60-roadmap/current.md`](../60-roadmap/current.md).
+> - Para **investigar qué entregó un sprint cerrado**: ir a [`60-roadmap/completed/`](../60-roadmap/completed/).
 > - Para **detalle granular de un sprint** (sub-pasos, edge cases): seguir aquí.
 >
 > Los headers de Sprint 7 y 7.5 se actualizaron a 🔄 con leyenda de bloqueos para reflejar la realidad verificada en auditoría.
@@ -763,7 +763,7 @@
 
 ## Sprint 15 — Plugins (partido en sub-sprints independientes) ⬜
 
-> **Refactorizado en roadmap 2026-04-26.** Originalmente Sprint 15 agrupaba los 7 plugins en un solo sprint, pero **el propio [ADR-021](./10-decisions/adr-021-provisioners.md) y [ADR-009](./10-decisions/adr-009-estrategia-plugins.md) dicen que cada plugin es independiente y se trabaja en detalle.** Cada uno necesita: su propia investigación de la API externa, sus credenciales, sus tests con sandbox, su admin.md.
+> **Refactorizado en roadmap 2026-04-26.** Originalmente Sprint 15 agrupaba los 7 plugins en un solo sprint, pero **el propio [ADR-021](../10-decisions/adr-021-provisioners.md) y [ADR-009](../10-decisions/adr-009-estrategia-plugins.md) dicen que cada plugin es independiente y se trabaja en detalle.** Cada uno necesita: su propia investigación de la API externa, sus credenciales, sus tests con sandbox, su admin.md.
 >
 > **Se aborda según necesidad real**, no en cadena. Probable orden: 15A (framework) → 15B (Stripe, desbloquea cobros) → 15F (Claude AI, desbloquea filtro/copilot) → resto según vendas qué tipo de producto.
 
@@ -924,10 +924,10 @@
 - Cada plugin expone un `manifest.ts` con: nombre, versión, categoría, config schema, descripción
 - La UI de Settings → Plugins se genera dinámicamente desde los manifests
 - Los plugins se activan/desactivan desde Settings sin reiniciar el servidor
-- Las API keys y configuraciones se almacenan cifradas (AES-256-GCM, [ADR-015](./10-decisions/adr-015-encriptacion-credenciales.md))
+- Las API keys y configuraciones se almacenan cifradas (AES-256-GCM, [ADR-015](../10-decisions/adr-015-encriptacion-credenciales.md))
 - Solo un plugin activo por categoría (un payment provider activo, un AI provider activo, etc.)
 - Los provisioners sí pueden tener múltiples activos (uno por tipo de producto)
-- **Cada plugin es independiente — no se generaliza más allá de la interfaz mínima** ([ADR-009](./10-decisions/adr-009-estrategia-plugins.md), [ADR-021](./10-decisions/adr-021-provisioners.md))
+- **Cada plugin es independiente — no se generaliza más allá de la interfaz mínima** ([ADR-009](../10-decisions/adr-009-estrategia-plugins.md), [ADR-021](../10-decisions/adr-021-provisioners.md))
 
 ---
 
@@ -1244,7 +1244,7 @@ FASE 3 — MÓDULOS DE NEGOCIO (priorizado por valor)
 MinIO es un servicio local más (igual que Postgres/Redis). Bloquea adjuntos chat/tickets y PDFs persistidos — features que se trabajan en localhost. **Acoplarlo al deploy obligaba a desplegar antes de tiempo.** Ahora MinIO está en 11.5 standalone; el deploy de producción en Sprint 14 lo replica con misma configuración.
 
 **¿Por qué partir Sprint 15 en sub-sprints 15A-15H?**
-[ADR-009](./10-decisions/adr-009-estrategia-plugins.md) y [ADR-021](./10-decisions/adr-021-provisioners.md) explícitamente dicen que **cada plugin es independiente**. Cada uno necesita su API externa, credenciales, sandbox, tests, admin.md. Agruparlos en un sprint era inconsistente con esa decisión. Ahora cada plugin se aborda **cuando se necesita** (probablemente: 15A → 15B → 15F primero; los provisioners externos solo cuando vendas el producto correspondiente).
+[ADR-009](../10-decisions/adr-009-estrategia-plugins.md) y [ADR-021](../10-decisions/adr-021-provisioners.md) explícitamente dicen que **cada plugin es independiente**. Cada uno necesita su API externa, credenciales, sandbox, tests, admin.md. Agruparlos en un sprint era inconsistente con esa decisión. Ahora cada plugin se aborda **cuando se necesita** (probablemente: 15A → 15B → 15F primero; los provisioners externos solo cuando vendas el producto correspondiente).
 
 **¿Por qué Plugin Framework (15A) primero?**
 Sin él no se puede activar/desactivar plugins desde la UI ni gestionar credenciales encriptadas. Base común que todo plugin reutiliza.

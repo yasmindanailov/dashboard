@@ -50,7 +50,7 @@ En código y doc, usar exactamente el término canónico:
 ### Saltarse una regla
 Si una excepción es legítima:
 1. Documentarla en código con comentario explicativo
-2. Listarla en la sección "Excepciones" del módulo afectado (`docs/20-modules/<mod>/contract.md` cuando exista)
+2. Listarla en la sección "Excepciones" del `contract.md` del módulo afectado (`docs/20-modules/<mod>/contract.md`)
 3. **Nunca borrar la regla de `rules.md` por una excepción.** Las excepciones son locales; la regla sigue siendo el caso general.
 
 ### Modificar una regla
@@ -64,20 +64,15 @@ Sin ADR no se modifica una regla. La numeración no se reutiliza.
 
 ---
 
-## Próximas adiciones a esta carpeta
+## Alcance de esta carpeta
 
-A medida que el refactor de doc avance, vivirán aquí:
-
-- [ ] `architecture-overview.md` — Stack + diagrama global de módulos (extracto de ARCHITECTURE.md)
-- [ ] `conventions.md` — Naming, error codes, log format, nomenclatura de eventos
-
-Cada uno con su propio archivo para mantener la regla "un documento = una pregunta".
+Fundaciones = reglas canónicas ([`rules.md`](./rules.md)) + glosario ([`glossary.md`](./glossary.md)). Las referencias transversales de arquitectura/diseño/marca viven en [`../40-reference/`](../40-reference/).
 
 ---
 
 ## Documentos relacionados (fuera de esta carpeta)
 
-- [`docs/aelium-documento-de-marca.md`](../aelium-documento-de-marca.md) — Voz, identidad visual, BrandScripts. Referenciado por **D11**.
-- [`docs/DESIGN_SYSTEM.md`](../DESIGN_SYSTEM.md) — Componentes y layouts (a migrar a `docs/40-design-system/` en fase futura). Reglas extraídas a `rules.md`, contenido restante sigue válido.
-- [`docs/UI_SPEC.md`](../UI_SPEC.md) — Anatomía de páginas. Referenciado por **D10**.
+- [`docs/aelium-documento-de-marca.md`](../40-reference/aelium-documento-de-marca.md) — Voz, identidad visual, BrandScripts. Referenciado por **D11**.
+- [`DESIGN_SYSTEM.md`](../40-reference/DESIGN_SYSTEM.md) — Componentes y layouts (ahora en `40-reference/`). Reglas extraídas a `rules.md`, contenido restante sigue válido.
+- [`docs/UI_SPEC.md`](../40-reference/UI_SPEC.md) — Anatomía de páginas. Referenciado por **D10**.
 - [`docs/90-meta/`](../90-meta/) — Procesos: CI, hooks, commit conventions, DoD, sentry, e2e tests.

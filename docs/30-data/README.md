@@ -129,7 +129,7 @@ Cualquier campo desnormalizado va marcado con `⚠️ desnormalizado` en su desc
 
 Los **eventos críticos** (transición de estado, cambio de dinero, gestión de servicio) **deben** pasar por la tabla `event_outbox` (ver [system.md](./system.md)) en lugar de emitir directamente con `EventEmitter2`. Esto garantiza atomicidad transacción ↔ evento.
 
-**Hoy:** `event_outbox` existe pero **0/25 eventos** la usan. Ver [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md) y [docs/20-modules/_events.md](../20-modules/_events.md). **Crítico para `invoice.*`** antes de despliegue real.
+**Hoy:** `event_outbox` la usan `invoice.*` (created/paid/failed/overdue) + `domain.registered` (15D.D). Pendiente extender a `service.*`/`partner.*` (P-DEPLOY, ADR-069). Ver [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md) y [_events.md](../20-modules/_events.md).
 
 ### Implementación vs documentación
 
@@ -194,8 +194,8 @@ Cada `<dominio>.md` sigue esta estructura:
 
 - [`docs/00-foundations/rules.md`](../00-foundations/rules.md) — Reglas R1–R16 + D1–D11 (R3 audit, R8 outbox, R12 encryption).
 - [`docs/00-foundations/glossary.md`](../00-foundations/glossary.md) — Términos canónicos.
-- [`docs/10-decisions/`](../10-decisions/) — 60 ADRs (decisiones arquitectónicas).
+- [`docs/10-decisions/`](../10-decisions/) — 84 ADRs (decisiones arquitectónicas).
 - [`docs/20-modules/`](../20-modules/) — Contracts por módulo + matriz + catálogo de eventos.
 - [`docs/50-operations/`](../50-operations/) — Settings reference, email templates, jobs, errores API.
-- [`docs/DATABASE_SCHEMA.md`](../DATABASE_SCHEMA.md) — Documento legacy (origen del split). Mapping tabla → archivo en su header.
+- [`docs/DATABASE_SCHEMA.md`](../99-archive/DATABASE_SCHEMA.md) — Documento legacy (origen del split). Mapping tabla → archivo en su header.
 - `backend/prisma/schema.prisma` — **Fuente de verdad implementada.**

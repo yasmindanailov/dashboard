@@ -86,7 +86,7 @@ Cómo valida la conexión: JWT, guest token, header concreto, etc.
 
 ## 7. Eventos emitidos
 
-> **Cita el catálogo único:** ver detalles en [`_events.md`](../_events.md). Aquí solo lista de nombres + cuándo.
+> **Cita el catálogo único:** ver detalles en [`_events.md`](_events.md). Aquí solo lista de nombres + cuándo.
 
 | Evento | Cuándo se emite | Outbox? |
 |--------|-----------------|---------|

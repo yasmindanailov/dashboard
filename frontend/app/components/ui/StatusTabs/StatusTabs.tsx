@@ -17,7 +17,7 @@
  *     onChange={setStatusFilter}
  *   />
  *
- * Ref: docs/DESIGN_SYSTEM.md, docs/UI_SPEC.md §3.2, §3.7
+ * Ref: docs/40-reference/DESIGN_SYSTEM.md, docs/40-reference/UI_SPEC.md §3.2, §3.7
  */
 
 'use client';

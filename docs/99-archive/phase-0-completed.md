@@ -78,13 +78,13 @@ Reportes de lint en CI, no bloqueantes hoy:
 
 | Pieza | Doc |
 |-------|-----|
-| CI / GitHub Actions | [`docs/90-meta/ci-setup.md`](./ci-setup.md) |
-| Husky + lint-staged | [`docs/90-meta/git-hooks.md`](./git-hooks.md) |
-| Conventional Commits | [`docs/90-meta/commit-conventions.md`](./commit-conventions.md) |
-| Tests E2E | [`docs/90-meta/e2e-tests.md`](./e2e-tests.md) |
-| Sentry (preparado, sin DSN) | [`docs/90-meta/sentry-setup.md`](./sentry-setup.md) |
-| Definition of Done | [`docs/90-meta/definition-of-done.md`](./definition-of-done.md) |
-| Plantilla de sprint | [`docs/90-meta/sprint-template.md`](./sprint-template.md) |
+| CI / GitHub Actions | [`docs/90-meta/ci-setup.md`](../90-meta/ci-setup.md) |
+| Husky + lint-staged | [`docs/90-meta/git-hooks.md`](../90-meta/git-hooks.md) |
+| Conventional Commits | [`docs/90-meta/commit-conventions.md`](../90-meta/commit-conventions.md) |
+| Tests E2E | [`docs/90-meta/e2e-tests.md`](../90-meta/e2e-tests.md) |
+| Sentry (preparado, sin DSN) | [`docs/90-meta/sentry-setup.md`](../90-meta/sentry-setup.md) |
+| Definition of Done | [`docs/90-meta/definition-of-done.md`](../90-meta/definition-of-done.md) |
+| Plantilla de sprint | [`docs/90-meta/sprint-template.md`](../90-meta/sprint-template.md) |
 
 ---
 

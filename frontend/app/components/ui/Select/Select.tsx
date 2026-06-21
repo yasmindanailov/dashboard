@@ -13,7 +13,7 @@ import styles from './Select.module.css';
  *     <option value="inactive">Inactivo</option>
  *   </Select>
  *
- * Ref: docs/DESIGN_SYSTEM.md
+ * Ref: docs/40-reference/DESIGN_SYSTEM.md
  */
 
 export interface SelectOption {

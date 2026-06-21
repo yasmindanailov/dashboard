@@ -3,7 +3,7 @@
 > ## ⚠️ MIGRADO A ADRs
 >
 > **Este documento ya NO es la fuente de verdad de las decisiones.**
-> Las decisiones vigentes viven como **Architecture Decision Records** individuales en [`docs/10-decisions/`](./10-decisions/README.md).
+> Las decisiones vigentes viven como **Architecture Decision Records** individuales en [`docs/10-decisions/`](../10-decisions/README.md).
 >
 > Este archivo se conserva **íntegro** por trazabilidad histórica:
 > - Commits, contracts y código antiguos referencian `DECISIONS.md §N` — esos enlaces deben seguir funcionando.
@@ -22,87 +22,87 @@
 
 | § original | ADR(s) | Notas |
 |-----------|--------|-------|
-| §1 — Qué es este proyecto | [ADR-001](./10-decisions/adr-001-definicion-proyecto.md) | Definición y alcance |
-| §2 — Stack tecnológico | [ADR-002](./10-decisions/adr-002-stack-backend.md) + [ADR-005](./10-decisions/adr-005-stack-frontend.md) | Backend y frontend separados |
-| §3 — Reglas de arquitectura | [ADR-003](./10-decisions/adr-003-extraccion-reglas-canonicas.md) | Reglas extraídas a [`rules.md`](./00-foundations/rules.md) |
-| §4 — Arquitectura general | [ADR-004](./10-decisions/adr-004-arquitectura-monolito-modular.md) | Monolito modular orientado a eventos |
+| §1 — Qué es este proyecto | [ADR-001](../10-decisions/adr-001-definicion-proyecto.md) | Definición y alcance |
+| §2 — Stack tecnológico | [ADR-002](../10-decisions/adr-002-stack-backend.md) + [ADR-005](../10-decisions/adr-005-stack-frontend.md) | Backend y frontend separados |
+| §3 — Reglas de arquitectura | [ADR-003](../10-decisions/adr-003-extraccion-reglas-canonicas.md) | Reglas extraídas a [`rules.md`](../00-foundations/rules.md) |
+| §4 — Arquitectura general | [ADR-004](../10-decisions/adr-004-arquitectura-monolito-modular.md) | Monolito modular orientado a eventos |
 
 ### Auth y seguridad (§5, §13, §20, §31)
 
 | § original | ADR(s) | Notas |
 |-----------|--------|-------|
-| §5 — Roles y autenticación | [ADR-011](./10-decisions/adr-011-roles-sistema.md) + [ADR-012](./10-decisions/adr-012-pbac-casl.md) + [ADR-013](./10-decisions/adr-013-2fa-email.md) | Roles + PBAC + 2FA |
-| §13 — Audit log | [ADR-017](./10-decisions/adr-017-audit-log-inmutable.md) | Audit inmutable |
-| §20 — Registro, autenticación y seguridad | [ADR-014](./10-decisions/adr-014-bloqueo-intentos-fallidos.md) + [ADR-012](./10-decisions/adr-012-pbac-casl.md) (parcial) | Bloqueo intentos |
-| §31 — Seguridad, errores y actualizaciones | [ADR-007](./10-decisions/adr-007-observabilidad.md) + [ADR-015](./10-decisions/adr-015-encriptacion-credenciales.md) + [ADR-016](./10-decisions/adr-016-rate-limiting-redis.md) | Observabilidad + crypto + rate limit |
+| §5 — Roles y autenticación | [ADR-011](../10-decisions/adr-011-roles-sistema.md) + [ADR-012](../10-decisions/adr-012-pbac-casl.md) + [ADR-013](../10-decisions/adr-013-2fa-email.md) | Roles + PBAC + 2FA |
+| §13 — Audit log | [ADR-017](../10-decisions/adr-017-audit-log-inmutable.md) | Audit inmutable |
+| §20 — Registro, autenticación y seguridad | [ADR-014](../10-decisions/adr-014-bloqueo-intentos-fallidos.md) + [ADR-012](../10-decisions/adr-012-pbac-casl.md) (parcial) | Bloqueo intentos |
+| §31 — Seguridad, errores y actualizaciones | [ADR-007](../10-decisions/adr-007-observabilidad.md) + [ADR-015](../10-decisions/adr-015-encriptacion-credenciales.md) + [ADR-016](../10-decisions/adr-016-rate-limiting-redis.md) | Observabilidad + crypto + rate limit |
 
 ### Productos y catálogo (§6, §8, §19, §27, §28)
 
 | § original | ADR(s) | Notas |
 |-----------|--------|-------|
-| §6 — Catálogo de productos | [ADR-018](./10-decisions/adr-018-catalogo-dinamico-productos.md) | Catálogo dinámico |
-| §8 — We Do It For You | [ADR-022](./10-decisions/adr-022-wdify-deprecado-proyectos.md) (Superseded by ADR-046) | Deprecado |
-| §19 — Categorías y extras | [ADR-020](./10-decisions/adr-020-categorias-extras-producto.md) | Estructura |
-| §27 — Configuración por tipo | [ADR-019](./10-decisions/adr-019-configuracion-tipos-producto.md) | provisioner_type, audit_event_types |
-| §28 — Provisioners | [ADR-021](./10-decisions/adr-021-provisioners.md) | Plugin pattern aplicado |
+| §6 — Catálogo de productos | [ADR-018](../10-decisions/adr-018-catalogo-dinamico-productos.md) | Catálogo dinámico |
+| §8 — We Do It For You | [ADR-022](../10-decisions/adr-022-wdify-deprecado-proyectos.md) (Superseded by ADR-046) | Deprecado |
+| §19 — Categorías y extras | [ADR-020](../10-decisions/adr-020-categorias-extras-producto.md) | Estructura |
+| §27 — Configuración por tipo | [ADR-019](../10-decisions/adr-019-configuracion-tipos-producto.md) | provisioner_type, audit_event_types |
+| §28 — Provisioners | [ADR-021](../10-decisions/adr-021-provisioners.md) | Plugin pattern aplicado |
 
 ### Billing y servicios (§12, §21, §25, §30, §32, §34)
 
 | § original | ADR(s) | Notas |
 |-----------|--------|-------|
-| §12 — Facturación | [ADR-025](./10-decisions/adr-025-numeracion-secuencial-facturas.md) + [ADR-026](./10-decisions/adr-026-estados-factura.md) + [ADR-027](./10-decisions/adr-027-iva-por-pais.md) + [ADR-030](./10-decisions/adr-030-periodo-gracia-reintentos.md) | Numeración + estados + IVA + reintentos |
-| §21 — Suscripciones | [ADR-028](./10-decisions/adr-028-suscripciones-ciclo-vida.md) + [ADR-029](./10-decisions/adr-029-prorrateo-cambio-plan.md) | Ciclo de vida + prorrateo |
-| §25 — Promociones y extras | [ADR-023](./10-decisions/adr-023-promociones-codigos-descuento.md) | Promociones (fusión con §30) |
-| §30 — Códigos de descuento | [ADR-023](./10-decisions/adr-023-promociones-codigos-descuento.md) | Fusionado con §25 |
-| §32 — Flujo de compra | [ADR-027](./10-decisions/adr-027-iva-por-pais.md) (parcial) + [ADR-032](./10-decisions/adr-032-flujo-compra-checkout.md) | Dos procesos checkout |
-| §34 — Últimas decisiones pre-schema | [ADR-031](./10-decisions/adr-031-payment-providers.md) (parcial) + [ADR-060](./10-decisions/adr-060-decisiones-pre-schema.md) | Payment providers + perfiles fiscales / sesiones / notif retention |
+| §12 — Facturación | [ADR-025](../10-decisions/adr-025-numeracion-secuencial-facturas.md) + [ADR-026](../10-decisions/adr-026-estados-factura.md) + [ADR-027](../10-decisions/adr-027-iva-por-pais.md) + [ADR-030](../10-decisions/adr-030-periodo-gracia-reintentos.md) | Numeración + estados + IVA + reintentos |
+| §21 — Suscripciones | [ADR-028](../10-decisions/adr-028-suscripciones-ciclo-vida.md) + [ADR-029](../10-decisions/adr-029-prorrateo-cambio-plan.md) | Ciclo de vida + prorrateo |
+| §25 — Promociones y extras | [ADR-023](../10-decisions/adr-023-promociones-codigos-descuento.md) | Promociones (fusión con §30) |
+| §30 — Códigos de descuento | [ADR-023](../10-decisions/adr-023-promociones-codigos-descuento.md) | Fusionado con §25 |
+| §32 — Flujo de compra | [ADR-027](../10-decisions/adr-027-iva-por-pais.md) (parcial) + [ADR-032](../10-decisions/adr-032-flujo-compra-checkout.md) | Dos procesos checkout |
+| §34 — Últimas decisiones pre-schema | [ADR-031](../10-decisions/adr-031-payment-providers.md) (parcial) + [ADR-060](../10-decisions/adr-060-decisiones-pre-schema.md) | Payment providers + perfiles fiscales / sesiones / notif retention |
 
 ### Support (§7, §9, §22, §41, §42, §43, §46)
 
 | § original | ADR(s) | Notas |
 |-----------|--------|-------|
-| §7 — Support Inside | [ADR-034](./10-decisions/adr-034-support-inside-modelo.md) | Modelo support |
-| §9 — Sistema de comunicación | [ADR-035](./10-decisions/adr-035-sistema-comunicacion-legacy.md) (Superseded by ADR-037) | Versión legacy |
-| §22 — Configuración del chat | [ADR-036](./10-decisions/adr-036-configuracion-chat.md) | Settings chat |
-| §41 — Notas estructuradas | [ADR-038](./10-decisions/adr-038-notas-estructuradas-cliente.md) | Sprint 7.B |
-| §42 — Nota obligatoria en transiciones | [ADR-039](./10-decisions/adr-039-nota-obligatoria-transiciones.md) | Sprint 7.B |
-| §43 — Arquitectura dual chat + tickets | [ADR-037](./10-decisions/adr-037-arquitectura-dual-chat-tickets.md) (supersedes ADR-035) | Versión actualizada Sprint 7.B |
-| §46 — Rediseño de tickets | [ADR-040](./10-decisions/adr-040-rediseno-tickets.md) | Sprint 23 plan |
+| §7 — Support Inside | [ADR-034](../10-decisions/adr-034-support-inside-modelo.md) | Modelo support |
+| §9 — Sistema de comunicación | [ADR-035](../10-decisions/adr-035-sistema-comunicacion-legacy.md) (Superseded by ADR-037) | Versión legacy |
+| §22 — Configuración del chat | [ADR-036](../10-decisions/adr-036-configuracion-chat.md) | Settings chat |
+| §41 — Notas estructuradas | [ADR-038](../10-decisions/adr-038-notas-estructuradas-cliente.md) | Sprint 7.B |
+| §42 — Nota obligatoria en transiciones | [ADR-039](../10-decisions/adr-039-nota-obligatoria-transiciones.md) | Sprint 7.B |
+| §43 — Arquitectura dual chat + tickets | [ADR-037](../10-decisions/adr-037-arquitectura-dual-chat-tickets.md) (supersedes ADR-035) | Versión actualizada Sprint 7.B |
+| §46 — Rediseño de tickets | [ADR-040](../10-decisions/adr-040-rediseno-tickets.md) | Sprint 23 plan |
 
 ### Otros módulos (§10, §11, §14, §15, §16, §17, §24, §37, §44, §47)
 
 | § original | ADR(s) | Notas |
 |-----------|--------|-------|
-| §10 — Sistema de tareas | [ADR-041](./10-decisions/adr-041-sistema-tareas.md) | Tasks |
-| §11 — Sistema de notificaciones | [ADR-042](./10-decisions/adr-042-sistema-notificaciones.md) | Multicanal + campana |
-| §14 — Infraestructura y servidores | [ADR-043](./10-decisions/adr-043-infraestructura-self-hosted.md) | Fusionado con §24 + §37 |
-| §15 — Gestión de clientes (CRM) | [ADR-045](./10-decisions/adr-045-gestion-clientes-crm.md) | CRM ligero |
-| §16 — Integración con la landing | [ADR-058](./10-decisions/adr-058-integracion-landing.md) | Landing como cliente del backend |
-| §17 — Configuración extensa (settings) | [ADR-044](./10-decisions/adr-044-settings-extensos.md) | Settings por secciones |
-| §24 — Infraestructura adicional | [ADR-043](./10-decisions/adr-043-infraestructura-self-hosted.md) | Fusionado con §14 + §37 |
-| §37 — Infraestructura self-hosted | [ADR-043](./10-decisions/adr-043-infraestructura-self-hosted.md) | Fusionado con §14 + §24 |
-| §44 — Sistema de Proyectos | [ADR-046](./10-decisions/adr-046-sistema-proyectos.md) (supersedes ADR-022) | Sprint 22 |
-| §47 — Sistema de citas | [ADR-047](./10-decisions/adr-047-sistema-citas-comunicacion.md) | Sprint 24 |
+| §10 — Sistema de tareas | [ADR-041](../10-decisions/adr-041-sistema-tareas.md) | Tasks |
+| §11 — Sistema de notificaciones | [ADR-042](../10-decisions/adr-042-sistema-notificaciones.md) | Multicanal + campana |
+| §14 — Infraestructura y servidores | [ADR-043](../10-decisions/adr-043-infraestructura-self-hosted.md) | Fusionado con §24 + §37 |
+| §15 — Gestión de clientes (CRM) | [ADR-045](../10-decisions/adr-045-gestion-clientes-crm.md) | CRM ligero |
+| §16 — Integración con la landing | [ADR-058](../10-decisions/adr-058-integracion-landing.md) | Landing como cliente del backend |
+| §17 — Configuración extensa (settings) | [ADR-044](../10-decisions/adr-044-settings-extensos.md) | Settings por secciones |
+| §24 — Infraestructura adicional | [ADR-043](../10-decisions/adr-043-infraestructura-self-hosted.md) | Fusionado con §14 + §37 |
+| §37 — Infraestructura self-hosted | [ADR-043](../10-decisions/adr-043-infraestructura-self-hosted.md) | Fusionado con §14 + §24 |
+| §44 — Sistema de Proyectos | [ADR-046](../10-decisions/adr-046-sistema-proyectos.md) (supersedes ADR-022) | Sprint 22 |
+| §47 — Sistema de citas | [ADR-047](../10-decisions/adr-047-sistema-citas-comunicacion.md) | Sprint 24 |
 
 ### Partner y referidos (§35, §36)
 
 | § original | ADR(s) | Notas |
 |-----------|--------|-------|
-| §35 — Módulo Partner | [ADR-048](./10-decisions/adr-048-partner-modelo-negocio.md) + [ADR-049](./10-decisions/adr-049-partner-roles-onboarding.md) + [ADR-050](./10-decisions/adr-050-partner-permisos.md) + [ADR-051](./10-decisions/adr-051-partner-comisiones-liquidaciones.md) + [ADR-052](./10-decisions/adr-052-partner-desvinculacion-cliente.md) + [ADR-053](./10-decisions/adr-053-partner-vinculacion-cuenta-cliente.md) | Partido en 6 sub-decisiones |
-| §36 — Sistema de referidos | [ADR-054](./10-decisions/adr-054-sistema-referidos-clientes.md) | Para clientes normales (separado de partner) |
+| §35 — Módulo Partner | [ADR-048](../10-decisions/adr-048-partner-modelo-negocio.md) + [ADR-049](../10-decisions/adr-049-partner-roles-onboarding.md) + [ADR-050](../10-decisions/adr-050-partner-permisos.md) + [ADR-051](../10-decisions/adr-051-partner-comisiones-liquidaciones.md) + [ADR-052](../10-decisions/adr-052-partner-desvinculacion-cliente.md) + [ADR-053](../10-decisions/adr-053-partner-vinculacion-cuenta-cliente.md) | Partido en 6 sub-decisiones |
+| §36 — Sistema de referidos | [ADR-054](../10-decisions/adr-054-sistema-referidos-clientes.md) | Para clientes normales (separado de partner) |
 
 ### Cross-cutting (§18, §23, §26, §29, §38, §39, §45, §48)
 
 | § original | ADR(s) | Notas |
 |-----------|--------|-------|
-| §18 — Orden de construcción (sprints) | [ADR-008](./10-decisions/adr-008-orden-construccion-sprints.md) | ADR meta — migrará a roadmap en F6 |
-| §23 — RGPD, privacidad, retención | [ADR-010](./10-decisions/adr-010-rgpd-retencion-datos.md) | Fusionado con §26 |
-| §26 — Consentimiento de datos | [ADR-010](./10-decisions/adr-010-rgpd-retencion-datos.md) | Fusionado con §23 |
-| §29 — Agentes IA | [ADR-057](./10-decisions/adr-057-agentes-ia.md) | Filtro chat + copilot |
-| §38 — Resiliencia y seguridad | [ADR-055](./10-decisions/adr-055-resiliencia-circuit-breaker.md) + [ADR-006](./10-decisions/adr-006-estrategia-tests.md) (parcial) + [ADR-007](./10-decisions/adr-007-observabilidad.md) (parcial) + [ADR-033](./10-decisions/adr-033-outbox-pattern-pendiente.md) | Resiliencia + tests + observabilidad + Outbox |
-| §39 — Herramientas y librerías | [ADR-002](./10-decisions/adr-002-stack-backend.md) (parcial) + [ADR-005](./10-decisions/adr-005-stack-frontend.md) (parcial) + [ADR-054](./10-decisions/adr-054-sistema-referidos-clientes.md) (referral credits expired) | Distribuido por dominio |
-| §45 — Estrategia de escalabilidad | [ADR-056](./10-decisions/adr-056-estrategia-escalabilidad.md) | Sprint 13 ampliado |
-| §48 — Auth layout split-screen | [ADR-059](./10-decisions/adr-059-auth-layout-split-screen.md) | Sprint 7.5 D27 |
+| §18 — Orden de construcción (sprints) | [ADR-008](../10-decisions/adr-008-orden-construccion-sprints.md) | ADR meta — migrará a roadmap en F6 |
+| §23 — RGPD, privacidad, retención | [ADR-010](../10-decisions/adr-010-rgpd-retencion-datos.md) | Fusionado con §26 |
+| §26 — Consentimiento de datos | [ADR-010](../10-decisions/adr-010-rgpd-retencion-datos.md) | Fusionado con §23 |
+| §29 — Agentes IA | [ADR-057](../10-decisions/adr-057-agentes-ia.md) | Filtro chat + copilot |
+| §38 — Resiliencia y seguridad | [ADR-055](../10-decisions/adr-055-resiliencia-circuit-breaker.md) + [ADR-006](../10-decisions/adr-006-estrategia-tests.md) (parcial) + [ADR-007](../10-decisions/adr-007-observabilidad.md) (parcial) + [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md) | Resiliencia + tests + observabilidad + Outbox |
+| §39 — Herramientas y librerías | [ADR-002](../10-decisions/adr-002-stack-backend.md) (parcial) + [ADR-005](../10-decisions/adr-005-stack-frontend.md) (parcial) + [ADR-054](../10-decisions/adr-054-sistema-referidos-clientes.md) (referral credits expired) | Distribuido por dominio |
+| §45 — Estrategia de escalabilidad | [ADR-056](../10-decisions/adr-056-estrategia-escalabilidad.md) | Sprint 13 ampliado |
+| §48 — Auth layout split-screen | [ADR-059](../10-decisions/adr-059-auth-layout-split-screen.md) | Sprint 7.5 D27 |
 
 ### NO migradas
 
@@ -117,8 +117,8 @@
 
 Algunos ADRs nacieron durante la migración para registrar decisiones que ya existían en código/regla pero no estaban en DECISIONS.md:
 
-- [ADR-024](./10-decisions/adr-024-eliminacion-hosting-agency.md) — Eliminación de `hosting_agency` (decisión Sprint 5)
-- [ADR-033](./10-decisions/adr-033-outbox-pattern-pendiente.md) — Outbox Pattern (decisión + deuda actual, R8)
+- [ADR-024](../10-decisions/adr-024-eliminacion-hosting-agency.md) — Eliminación de `hosting_agency` (decisión Sprint 5)
+- [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md) — Outbox Pattern (decisión + deuda actual, R8)
 
 ---
 

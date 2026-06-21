@@ -1,9 +1,9 @@
 # ARCHITECTURE.md — Aelium Dashboard
 > Documento técnico de arquitectura.
 > Lo lee el agente IA al inicio de cada sesión de desarrollo.
-> Para el contexto completo de producto, ver DECISIONS.md.
-> Para las normas de diseño e interfaz, ver DESIGN_SYSTEM.md.
-> Versión 1.2 | Abril 2026
+> Para las decisiones de producto/negocio, ver [`../10-decisions/`](../10-decisions/) (ADRs).
+> Para las normas de diseño e interfaz, ver [`./DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md).
+> Versión 1.3 | actualizado 2026-06-21 (reubicado a `40-reference/`).
 
 ---
 
@@ -38,7 +38,7 @@ Logging:     pino (JSON estructurado)
 ## REGLAS QUE NUNCA SE ROMPEN
 
 > **Documento canónico unificado:** las reglas R1–R16 (técnicas) y D1–D11 (UI)
-> ahora viven en **[`docs/00-foundations/rules.md`](./00-foundations/rules.md)**.
+> ahora viven en **[`docs/00-foundations/rules.md`](../00-foundations/rules.md)**.
 > Esta sección se mantiene aquí por compatibilidad con referencias antiguas.
 > Modificar en el documento canónico, no aquí.
 

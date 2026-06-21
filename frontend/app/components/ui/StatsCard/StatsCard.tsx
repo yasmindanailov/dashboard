@@ -17,7 +17,7 @@ import styles from './StatsCard.module.css';
  *     subtext="vs. mes anterior"
  *   />
  *
- * Ref: docs/DESIGN_SYSTEM.md
+ * Ref: docs/40-reference/DESIGN_SYSTEM.md
  */
 
 export interface StatsCardTrend {

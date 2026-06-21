@@ -26,6 +26,8 @@ Esos cuatro catálogos viven aquí.
 | [`email-templates.md`](./email-templates.md) | Catálogo de plantillas de email/notificación con sus variables, eventos y canales | Antes de crear una plantilla nueva o disparar una notificación |
 | [`jobs-reference.md`](./jobs-reference.md) | Catálogo de crons y jobs BullMQ con triggers, reintentos, idempotencia | Antes de programar un cron o job nuevo |
 | [`api-errors.md`](./api-errors.md) | Catálogo de errores canónicos (HTTP status, code interno, mensaje) + shape unificado | Al lanzar excepciones nuevas o manejarlas en frontend |
+| [`seed-reference.md`](./seed-reference.md) | Estructura del seed idempotente + cuentas/datos demo canónicos | Antes de tocar el seed o asumir datos de prueba |
+| [`e2e-environment.md`](./e2e-environment.md) | Entorno y variables para la suite E2E (Playwright + mocks) | Antes de correr/escribir E2E |
 
 ---
 

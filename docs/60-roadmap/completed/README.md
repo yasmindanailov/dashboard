@@ -1,8 +1,8 @@
 # Sprints completados — Aelium Dashboard
 
-> Archive de sprints cerrados con resumen ejecutivo. Cada sprint en su propio archivo. Verificados contra código en auditoría 2026-04-26.
+> Archive de sprints cerrados con resumen ejecutivo. Cada sprint en su propio archivo. Verificados contra código (última auditoría de conformidad: 2026-06-21).
 
-> El detalle granular paso-a-paso de cada sprint vive en [`docs/ROADMAP.md`](../../ROADMAP.md) (legacy). Aquí: visión sintética + decisiones clave + verificación de cierre + deuda heredada.
+> El detalle granular paso-a-paso de cada sprint vive en [`docs/ROADMAP.md`](../../99-archive/ROADMAP.md) (legacy). Aquí: visión sintética + decisiones clave + verificación de cierre + deuda heredada.
 
 ---
 
@@ -27,8 +27,12 @@
 | **16** | Tasks refactor + Notes consolidation (P2.1.5 — bridge unidireccional canónico ADR-079 + Amendments A1/A2/A3) | [sprint-16-tasks-notes-refactor.md](./sprint-16-tasks-notes-refactor.md) | ✅ (cerrado 2026-05-02) |
 | **13.5** | Hardening + Saneamiento de Deuda Continua (8 DCs cerradas + 2 diferidas a Sprint 13.5.5 CI Infra) | [sprint-13-5-hardening-deuda-continua.md](./sprint-13-5-hardening-deuda-continua.md) | ✅ (cerrado 2026-05-03) |
 | **13.5.5** | CI Infra (DC.27 ✅ imagen oficial Playwright + DC.13 ✅ parcial-canónica sharding CI) | [sprint-13-5-5-ci-infra.md](./sprint-13-5-5-ci-infra.md) | ✅ (cerrado 2026-05-03) |
+| **13 §AUTH** | Auth server-side cookies httpOnly + Server Components nativos (ADR-078 A1) | [sprint-13-auth-cookies-httponly.md](./sprint-13-auth-cookies-httponly.md) | ✅ (cerrado 2026-05-03) |
+| **15A** | Plugin Framework (manifest + vault AES-256-GCM + loader + circuit breaker, ADR-080) | [sprint-15a-plugin-framework.md](./sprint-15a-plugin-framework.md) | ✅ (cerrado 2026-05-06) |
+| **15C** | Plugin Enhance CP (hosting SaaS) | [sprint-15c-plugin-enhance-cp.md](./sprint-15c-plugin-enhance-cp.md) | ✅ (cerrado 2026-05-21) |
+| **15C.II** | Hardening Enhance CP (F.1→G) | [sprint-15c-ii-hardening-enhance.md](./sprint-15c-ii-hardening-enhance.md) | ✅ (cerrado 2026-05-21) |
 
-**Total cerrados:** 17 sprints (Sprint 7/7.5 son sprints paraguas continuos, no se cierran formalmente hasta Sprint 14).
+**Total cerrados:** 21 sprints (Sprint 7/7.5 son paraguas continuos, no se cierran formalmente hasta Sprint 14).
 
 ---
 

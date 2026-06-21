@@ -106,4 +106,4 @@ Sistema de tareas internas para el equipo. **Estado actual:** WIP a cerrar.
 - **Módulos afectados:** todos (cada sprint construye un módulo).
 - **Reglas relacionadas:** ninguna directa; conecta con DoD y plantilla de sprint.
 - **ADRs relacionados:** todos los siguientes ADRs detallan decisiones de los sprints específicos.
-- **Documentos:** [`docs/ROADMAP.md`](../ROADMAP.md), [`docs/90-meta/sprint-template.md`](../90-meta/sprint-template.md), [`docs/90-meta/definition-of-done.md`](../90-meta/definition-of-done.md).
+- **Documentos:** [`docs/ROADMAP.md`](../99-archive/ROADMAP.md), [`docs/90-meta/sprint-template.md`](../90-meta/sprint-template.md), [`docs/90-meta/definition-of-done.md`](../90-meta/definition-of-done.md).
