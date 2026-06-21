@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { ReconcileRegistryModule } from '../../../core/provisioning/reconcile-registry.module';
 
+import { ResellerclubPricingSyncCron } from './crons/resellerclub-pricing-sync.cron';
 import { ResellerclubReconciliationCron } from './crons/resellerclub-reconciliation.cron';
 import { ResellerclubCustomersService } from './resellerclub-customers.service';
 import { ResellerclubProvisionerPlugin } from './resellerclub.plugin';
@@ -22,10 +23,13 @@ import { ResellerclubProvisionerPlugin } from './resellerclub.plugin';
  * `PROVISIONER_PLUGINS`. Cumple R4: ningún `core/provisioning/*` importa este
  * módulo — la única referencia inversa es el token DI `PROVISIONER_PLUGINS`.
  *
- * Fase 15D.E — añade el cron de reconcile (`ResellerclubReconciliationCron`)
- * importando `ReconcileRegistryModule` (leaf, mismo patrón que Enhance — evita el
- * ciclo con `ProvisioningModule`). El cron de pricing-sync y el de avisos de
- * expiración (que no dependen del registry) se añaden en commits siguientes.
+ * Fase 15D.E — añade los crons del registrar:
+ *   - `ResellerclubReconciliationCron` (reconcile + lifecycle) → importa
+ *     `ReconcileRegistryModule` (leaf, evita el ciclo con `ProvisioningModule`).
+ *   - `ResellerclubPricingSyncCron` (writer de `domain_tld_pricing`) → solo Prisma
+ *     (global) + el plugin + EventEmitter2 (global), sin import extra.
+ * El cron de avisos de expiración (transversal a dominios) vive fuera de este
+ * módulo (no es específico de RC).
  */
 @Module({
   imports: [ReconcileRegistryModule],
@@ -33,6 +37,7 @@ import { ResellerclubProvisionerPlugin } from './resellerclub.plugin';
     ResellerclubProvisionerPlugin,
     ResellerclubCustomersService,
     ResellerclubReconciliationCron,
+    ResellerclubPricingSyncCron,
   ],
   exports: [ResellerclubProvisionerPlugin, ResellerclubCustomersService],
 })
