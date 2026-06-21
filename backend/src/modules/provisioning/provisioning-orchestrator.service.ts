@@ -165,15 +165,30 @@ export class ProvisioningOrchestratorService {
       return;
     }
 
-    if (service.status === 'active') {
+    const pluginSlug = service.product.provisioner;
+    const plugin = this.registry.get(pluginSlug);
+
+    // Sprint 15D.E — detección de RENOVACIÓN (ADR-084 §5 + ADR-077 A10).
+    // `invoice.paid` sobre un servicio YA `active` solo ocurre por la factura de
+    // renovación (el alta inicial paga estando `pending`). Para un registrar de
+    // dominios con `provider_reference` ya persistido, eso es una renovación: se
+    // enruta a `provision(renew)` (DOM-INV-4 + idempotencia por período viven en
+    // el plugin). El resto de servicios activos se omiten (idempotente, como hasta
+    // ahora). NO se confía en `metadata.domain_operation` (diría 'register', stale).
+    const isDomainRenewal =
+      service.status === 'active' &&
+      !!plugin &&
+      plugin.capabilities.is_domain_registrar &&
+      !!service.provider_reference;
+
+    // Un servicio ya `active` que NO es una renovación → skip idempotente (incluye
+    // el caso de plugin no registrado: no se emite fallo, el servicio ya está vivo).
+    if (service.status === 'active' && !isDomainRenewal) {
       this.logger.debug(
         `Provisioning skipped for service ${serviceId}: already active (idempotent).`,
       );
       return;
     }
-
-    const pluginSlug = service.product.provisioner;
-    const plugin = this.registry.get(pluginSlug);
 
     if (!plugin) {
       this.logger.error(
@@ -189,14 +204,18 @@ export class ProvisioningOrchestratorService {
       return;
     }
 
-    // Marcar status='provisioning' para visibilidad UI mientras dura el plugin call.
-    await this.prisma.service.update({
-      where: { id: serviceId },
-      data: {
-        status: 'provisioning',
-        provisioner_slug: pluginSlug,
-      },
-    });
+    // status='provisioning' SOLO en el aprovisionamiento inicial (pending→active).
+    // Una renovación conserva el servicio `active`: un fallo de renovación NO debe
+    // mostrar el dominio "aprovisionando" ni tumbarlo (sigue registrado y vigente).
+    if (!isDomainRenewal) {
+      await this.prisma.service.update({
+        where: { id: serviceId },
+        data: {
+          status: 'provisioning',
+          provisioner_slug: pluginSlug,
+        },
+      });
+    }
 
     const ctx: ProvisionContext = {
       service,
@@ -205,10 +224,13 @@ export class ProvisioningOrchestratorService {
         (service.product.provisioner_config as Record<string, unknown>) ?? {},
       serverId: service.server_id ?? null,
       correlationId,
-      // Sprint 15D — ADR-077 A10: intención del provision para registrars,
-      // derivada de `metadata.domain_operation` (lo fija el checkout, 15D.B).
-      // Los plugins no-registrar la ignoran.
-      operation: this.deriveDomainOperation(service.metadata),
+      // Sprint 15D — ADR-077 A10: intención del provision para registrars. En una
+      // renovación se fuerza 'renew' (la metadata del servicio diría 'register' del
+      // alta — stale); en el resto se deriva de `metadata.domain_operation`
+      // (lo fija el checkout, 15D.B). Los plugins no-registrar la ignoran.
+      operation: isDomainRenewal
+        ? 'renew'
+        : this.deriveDomainOperation(service.metadata),
     };
 
     try {
@@ -226,12 +248,21 @@ export class ProvisioningOrchestratorService {
         !service.provider_reference &&
         !!result.providerReference;
 
+      // Sprint 15D.E — renovación verificada (DOM-INV-4): el plugin devuelve el
+      // nuevo `expires_at` (que ya confirmó que avanzó) + `domain_renew_performed`.
+      // Se persiste en `services.expires_at` y se emite `domain.renewed` SOLO si la
+      // renovación se ejecutó de verdad (no en idempotencia pura → no re-emite).
+      const newExpiresAt = parseIsoDate(result.metadata.domain_expires_at);
+      const emitDomainRenewed =
+        isDomainRenewal && result.metadata.domain_renew_performed === true;
+
       await this.prisma.$transaction(async (tx) => {
         await tx.service.update({
           where: { id: serviceId },
           data: {
             provider_reference: result.providerReference,
             metadata: result.metadata as Prisma.InputJsonValue,
+            ...(newExpiresAt ? { expires_at: newExpiresAt } : {}),
           },
         });
         if (emitDomainRegistered) {
@@ -246,6 +277,15 @@ export class ProvisioningOrchestratorService {
             // `expires_at` no se conoce en register; lo puebla el reconcile
             // (Fase 15D.E) en `services.expires_at` + los avisos de expiración.
             expires_at: null,
+            correlation_id: correlationId,
+          });
+        }
+        if (emitDomainRenewed) {
+          await this.outbox.enqueue(tx, 'domain.renewed', {
+            service_id: serviceId,
+            user_id: service.user_id,
+            fqdn: service.domain,
+            new_expires_at: newExpiresAt ? newExpiresAt.toISOString() : null,
             correlation_id: correlationId,
           });
         }
@@ -273,6 +313,25 @@ export class ProvisioningOrchestratorService {
           `Provisioning retriable error for service ${serviceId} (plugin=${pluginSlug}, code=${code}). Will retry.`,
         );
         throw err;
+      }
+
+      // Sprint 15D.E — un fallo NO-retriable de RENOVACIÓN (p.ej.
+      // DOMAIN_IN_REDEMPTION) NO debe cancelar un dominio activo y registrado: el
+      // dominio sigue vigente, solo falló renovarlo. Se conserva `active` + se
+      // alerta para acción manual (NO se toca status ni se desprovisiona).
+      if (isDomainRenewal) {
+        this.logger.error(
+          `Renewal permanent failure for active domain service ${serviceId} ` +
+            `(plugin=${pluginSlug}, code=${code}). Service stays active; manual action required.`,
+        );
+        this.events.emit('service.provisioning_failed', {
+          service_id: serviceId,
+          user_id: service.user_id,
+          provisioner_slug: pluginSlug,
+          reason: `renew_failed:${code}`,
+          correlation_id: correlationId,
+        });
+        return;
       }
 
       // No-retriable: marcar service como cancelled + alertar.
@@ -505,4 +564,16 @@ export class ProvisioningOrchestratorService {
       },
     } as ServiceWithRelations;
   }
+}
+
+/**
+ * Sprint 15D.E — parsea el `domain_expires_at` (ISO) que el plugin de registrar
+ * devuelve en `ProvisionResult.metadata` tras una renovación verificada (DOM-INV-4)
+ * para persistirlo en `services.expires_at`. Devuelve `null` si ausente/ilegible
+ * (el reconcile cron lo poblará de todas formas — defensivo).
+ */
+function parseIsoDate(raw: unknown): Date | null {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
