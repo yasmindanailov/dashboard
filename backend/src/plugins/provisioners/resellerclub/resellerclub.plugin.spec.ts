@@ -7,10 +7,14 @@
  *   - DOMAIN_UNAVAILABLE: regthroughothers.
  *   - reintento idempotente: provider_reference ya persistido → no toca RC.
  *   - INVALID_PAYLOAD: falta domain_years.
- *   - renew/transfer_in → NOT_IMPLEMENTED (Fase 15D.E / 15D.II).
+ *   - transfer_in → NOT_IMPLEMENTED (Fase 15D.II).
+ *
+ * Fase 15D.E — `provision(renew)` + DOM-INV-4 (segundo describe):
+ *   - happy path (+1a, verificado), idempotencia por período (crash-retry),
+ *     DOM-INV-4 (renew que no extiende → retriable), redemption, sin ref.
  *
  * El cliente RC se mockea (jest.spyOn de `getApiClient`); el smoke vertical
- * end-to-end contra `MockResellerClubServer` es el Commit 6.
+ * end-to-end contra `MockResellerClubServer` es el Commit 3 de 15D.E.
  */
 
 import {
@@ -205,16 +209,165 @@ describe('ResellerclubProvisionerPlugin.provision(register) — Fase 15D.D', () 
     expect(client.checkAvailability).not.toHaveBeenCalled();
   });
 
-  it('renew y transfer_in → NOT_IMPLEMENTED (Fase 15D.E / 15D.II)', async () => {
+  it('transfer_in → NOT_IMPLEMENTED (Fase 15D.II)', async () => {
     const client = buildMockClient();
     const { plugin } = buildPlugin(client);
 
     await expect(
-      plugin.provision(buildCtx({ operation: 'renew' })),
-    ).rejects.toMatchObject({ code: 'NOT_IMPLEMENTED' });
-    await expect(
       plugin.provision(buildCtx({ operation: 'transfer_in' })),
     ).rejects.toMatchObject({ code: 'NOT_IMPLEMENTED' });
+  });
+});
+
+describe('ResellerclubProvisionerPlugin.provision(renew) — Fase 15D.E (DOM-INV-4)', () => {
+  const YEAR_SECONDS = 365 * 24 * 3600;
+  const NOW = Math.floor(Date.now() / 1000);
+  const END = NOW + 30 * 24 * 3600; // expira en 30 días (renovación inminente)
+
+  function detailsWithEnd(
+    endEpoch: number,
+    extra: Record<string, unknown> = {},
+  ) {
+    return {
+      orderid: '700123',
+      domainname: 'example.com',
+      entitystatus: 'Active',
+      currentstatus: 'ok',
+      endtime: endEpoch,
+      ns1: 'ns1.aelium.net',
+      ns2: 'ns2.aelium.net',
+      ...extra,
+    };
+  }
+
+  function buildPlugin() {
+    const client = {
+      getDomainDetailsByOrderId: jest.fn(),
+      renewDomain: jest.fn().mockResolvedValue(undefined),
+    };
+    const plugin = new ResellerclubProvisionerPlugin(
+      null as never,
+      null as never,
+      null as never,
+      null as never,
+    );
+    jest
+      .spyOn(plugin, 'getApiClient')
+      .mockResolvedValue({ client: client as never, config: {} as never });
+    return { plugin, client };
+  }
+
+  function renewCtx(service: Record<string, unknown> = {}): ProvisionContext {
+    return {
+      service: {
+        id: 'svc-1',
+        user_id: 'user-1',
+        domain: 'example.com',
+        provider_reference: '700123',
+        billing_cycle: 'annual',
+        expires_at: new Date(END * 1000),
+        metadata: { domain_operation: 'renew', rc_customer_id: '700001' },
+        ...service,
+      } as never,
+      // provisionRenew no usa ctx.client (lee ctx.service) → cliente mínimo.
+      client: {} as never,
+      productConfig: {},
+      serverId: null,
+      correlationId: 'cor-renew',
+      operation: 'renew',
+    };
+  }
+
+  it('happy path: renueva +1a, verifica DOM-INV-4, performed=true', async () => {
+    const { plugin, client } = buildPlugin();
+    client.getDomainDetailsByOrderId
+      .mockResolvedValueOnce(detailsWithEnd(END)) // before
+      .mockResolvedValueOnce(detailsWithEnd(END + YEAR_SECONDS)); // after
+
+    const result = await plugin.provision(renewCtx());
+
+    expect(client.renewDomain).toHaveBeenCalledWith(
+      expect.objectContaining({
+        'order-id': '700123',
+        years: 1,
+        'exp-date': END,
+        'invoice-option': 'NoInvoice',
+      }),
+    );
+    expect(result.providerReference).toBe('700123');
+    expect(result.followUp).toEqual([]);
+    expect(result.metadata).toMatchObject({
+      domain_operation: 'renew',
+      domain_renew_performed: true,
+      rc_customer_id: '700001', // metadata previa preservada
+    });
+    expect(result.metadata.domain_expires_at).toBe(
+      new Date((END + YEAR_SECONDS) * 1000).toISOString(),
+    );
+  });
+
+  it('idempotente (crash-retry): endtime ya avanzó respecto al ancla → NO re-renueva', async () => {
+    const { plugin, client } = buildPlugin();
+    // expires_at (ancla) = END; el registrar ya está en END + 1 año (renovado).
+    client.getDomainDetailsByOrderId.mockResolvedValueOnce(
+      detailsWithEnd(END + YEAR_SECONDS),
+    );
+
+    const result = await plugin.provision(
+      renewCtx({ expires_at: new Date(END * 1000) }),
+    );
+
+    expect(client.renewDomain).not.toHaveBeenCalled();
+    expect(result.metadata.domain_renew_performed).toBe(false);
+    expect(result.metadata.domain_expires_at).toBe(
+      new Date((END + YEAR_SECONDS) * 1000).toISOString(),
+    );
+  });
+
+  it('DOM-INV-4: renew que no extiende → PROVIDER_INTERNAL_ERROR retriable, sin éxito falso', async () => {
+    const { plugin, client } = buildPlugin();
+    client.getDomainDetailsByOrderId
+      .mockResolvedValueOnce(detailsWithEnd(END)) // before
+      .mockResolvedValueOnce(detailsWithEnd(END)); // after: NO avanzó
+
+    await expect(plugin.provision(renewCtx())).rejects.toMatchObject({
+      code: 'PROVIDER_INTERNAL_ERROR',
+      retriable: true,
+    });
+    expect(client.renewDomain).toHaveBeenCalledTimes(1);
+  });
+
+  it('redemption → DOMAIN_IN_REDEMPTION (no retriable), no llama renew', async () => {
+    const { plugin, client } = buildPlugin();
+    client.getDomainDetailsByOrderId.mockResolvedValueOnce(
+      detailsWithEnd(NOW - 86400, { currentstatus: 'redemption' }),
+    );
+
+    await expect(plugin.provision(renewCtx())).rejects.toMatchObject({
+      code: 'DOMAIN_IN_REDEMPTION',
+      retriable: false,
+    });
+    expect(client.renewDomain).not.toHaveBeenCalled();
+  });
+
+  it('sin provider_reference → INVALID_STATE', async () => {
+    const { plugin, client } = buildPlugin();
+    await expect(
+      plugin.provision(renewCtx({ provider_reference: null })),
+    ).rejects.toMatchObject({ code: 'INVALID_STATE', retriable: false });
+    expect(client.getDomainDetailsByOrderId).not.toHaveBeenCalled();
+  });
+
+  it('sin ancla (expires_at null, best-effort): renueva y verifica', async () => {
+    const { plugin, client } = buildPlugin();
+    client.getDomainDetailsByOrderId
+      .mockResolvedValueOnce(detailsWithEnd(END))
+      .mockResolvedValueOnce(detailsWithEnd(END + YEAR_SECONDS));
+
+    const result = await plugin.provision(renewCtx({ expires_at: null }));
+
+    expect(client.renewDomain).toHaveBeenCalledTimes(1);
+    expect(result.metadata.domain_renew_performed).toBe(true);
   });
 });
 

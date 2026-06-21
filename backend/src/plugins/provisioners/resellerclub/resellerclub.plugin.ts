@@ -82,6 +82,15 @@ const DEFAULT_TLDS_OFFERED = ['.com', '.net', '.org', '.es', '.eu'] as const;
 const DEFAULT_NAMESERVERS = ['ns1.aelium.net', 'ns2.aelium.net'] as const;
 
 /**
+ * Avance mínimo de la expiración (segundos) que cuenta como "1 año renovado"
+ * (Fase 15D.E / DOM-INV-4). Cota inferior conservadora: 300 días/año — muy por
+ * encima de 0 (detecta un `renew` que no extendió) y muy por debajo de 365
+ * (absorbe el desfase calendario/bisiesto del registrar real). Usado tanto para
+ * la idempotencia por período como para la verificación post-renew.
+ */
+const MIN_RENEW_ADVANCE_SECONDS_PER_YEAR = 300 * 24 * 3600;
+
+/**
  * Mapa `classkey` RC → TLD sin punto (ADR-081 A1.2 — clave de unión
  * availability ↔ pricing ↔ `domain_tld_pricing`). Solo los TLDs del scope v1.
  */
@@ -313,13 +322,7 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
       case 'register':
         return this.provisionRegister(ctx);
       case 'renew':
-        throw new ProvisionerPluginError(
-          `provision(renew) pendiente — Fase 15D.E (DOM-INV-4).`,
-          'NOT_IMPLEMENTED',
-          false,
-          undefined,
-          RC_SLUG,
-        );
+        return this.provisionRenew(ctx);
       case 'transfer_in':
         throw new ProvisionerPluginError(
           `transfer-in es Sprint 15D.II (FSM de transfer, ADR-084 §4).`,
@@ -483,6 +486,145 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
         `(order=${orderId}) — recovery tras crash, NO se re-registra.`,
     );
     return orderId;
+  }
+
+  /**
+   * `operation='renew'` — renueva el dominio (ADR-081 §5 + DOM-INV-4/ADR-084 A1).
+   *
+   * **DOM-INV-4 (renovación verificada):** un `renew` que no extiende = el cliente
+   * pierde el dominio creyéndolo renovado (el peor fallo de un registrar). Tras
+   * `domains/renew` se RELEE `domains/details` y se confirma que `endtime` avanzó
+   * ~el período esperado **antes** de marcar éxito; si no avanzó →
+   * `PROVIDER_INTERNAL_ERROR` retriable (BullMQ reintenta → DLQ + alerta, R13).
+   *
+   * **Idempotencia por período (cierra el doble-renew ante crash-retry):** ancla
+   * en `services.expires_at` (última expiración registrada por el reconcile, que
+   * corre cada 6h y está poblada mucho antes de la 1ª renovación, ~1 año después
+   * del registro). Si el `endtime` actual del registrar **ya** está ~`renewYears`
+   * por delante del ancla → la renovación de este período YA ocurrió (re-run /
+   * recovery): se devuelve éxito **sin** re-llamar a RC (no re-cobra) y sin
+   * re-emitir `domain.renewed` (`domain_renew_performed=false`). Si no hay ancla
+   * (ventana de las primeras 6h post-registro, sin renovaciones reales): best-effort
+   * sobre el `endtime` leído. [Shapes details/renew CONSERVADORES hasta el smoke
+   * OT&E Fase G — A1.5; validado contra `MockResellerClubServer`.]
+   */
+  private async provisionRenew(
+    ctx: ProvisionContext,
+  ): Promise<ProvisionResult> {
+    const orderId = ctx.service.provider_reference;
+    if (!orderId) {
+      throw new ProvisionerPluginError(
+        `renew requiere provider_reference (order-id RC) en el servicio ` +
+          `${ctx.service.id} (el dominio debe estar registrado antes de renovar).`,
+        'INVALID_STATE',
+        false,
+        undefined,
+        RC_SLUG,
+      );
+    }
+    const renewYears = renewYearsForCycle(ctx.service.billing_cycle);
+    const minAdvance = renewYears * MIN_RENEW_ADVANCE_SECONDS_PER_YEAR;
+    const { client } = await this.getApiClient();
+
+    // 1. Estado actual en el registrar (fuente de verdad — DH-INV-6).
+    const before = await client.getDomainDetailsByOrderId(orderId);
+    const beforeEnd = toEpochSeconds(before.endtime);
+    if (beforeEnd === null) {
+      // Sin `endtime` no se puede verificar DOM-INV-4 → no afirmar éxito.
+      throw new ProvisionerPluginError(
+        `renew service=${ctx.service.id} (order=${orderId}): details sin endtime ` +
+          `legible — no se puede verificar la renovación (DOM-INV-4). Reintentar.`,
+        'PROVIDER_INTERNAL_ERROR',
+        true,
+        undefined,
+        RC_SLUG,
+      );
+    }
+
+    // Redemption/RGP/pending-delete → no es renovable normal (requiere restore,
+    // fee distinto). NO retriable — requiere acción admin/cliente.
+    const lifecycle = mapRcDomainStatus(before, Date.now()).lifecycle;
+    if (lifecycle === 'redemption' || lifecycle === 'pending_delete') {
+      throw new ProvisionerPluginError(
+        `renew service=${ctx.service.id} (order=${orderId}): el dominio está en ` +
+          `${lifecycle} — requiere restore (fee distinto), no renovación normal.`,
+        'DOMAIN_IN_REDEMPTION',
+        false,
+        undefined,
+        RC_SLUG,
+      );
+    }
+
+    // 2. Idempotencia por período: ¿el endtime ya avanzó respecto al último
+    //    expires_at registrado? (re-run / recovery tras crash) → no re-renovar.
+    const anchorEnd = ctx.service.expires_at
+      ? Math.floor(ctx.service.expires_at.getTime() / 1000)
+      : null;
+    if (anchorEnd !== null && beforeEnd - anchorEnd >= minAdvance) {
+      this.logger.warn(
+        `renew service=${ctx.service.id} (order=${orderId}): el período ya está ` +
+          `renovado (endtime ${beforeEnd} vs ancla ${anchorEnd}) — idempotente, ` +
+          `NO se re-renueva (sin doble cobro).`,
+      );
+      return this.buildRenewResult(ctx, orderId, beforeEnd, renewYears, false);
+    }
+
+    // 3. Renovar. `exp-date` = el endtime ACTUAL del registrar (guard de
+    //    concurrencia de RC: rechaza si su expiración real no coincide).
+    await client.renewDomain({
+      'order-id': orderId,
+      years: renewYears,
+      'exp-date': beforeEnd,
+      'invoice-option': 'NoInvoice', // Aelium controla el cobro, no RC
+    });
+
+    // 4. DOM-INV-4 — releer y confirmar que avanzó ~el período esperado.
+    const after = await client.getDomainDetailsByOrderId(orderId);
+    const afterEnd = toEpochSeconds(after.endtime);
+    if (afterEnd === null || afterEnd - beforeEnd < minAdvance) {
+      throw new ProvisionerPluginError(
+        `DOM-INV-4: renew service=${ctx.service.id} (order=${orderId}) NO extendió ` +
+          `la expiración (antes=${beforeEnd}, después=${afterEnd ?? 'null'}). NO se ` +
+          `marca éxito ni se emite domain.renewed — reintento (DLQ + alerta).`,
+        'PROVIDER_INTERNAL_ERROR',
+        true,
+        undefined,
+        RC_SLUG,
+      );
+    }
+
+    this.logger.log(
+      `renew service=${ctx.service.id} (order=${orderId}): renovado +${renewYears}a ` +
+        `(endtime ${beforeEnd}→${afterEnd}). DOM-INV-4 OK.`,
+    );
+    return this.buildRenewResult(ctx, orderId, afterEnd, renewYears, true);
+  }
+
+  /**
+   * `ProvisionResult` de una renovación. Preserva la metadata existente del
+   * servicio (defensivo: el orquestador SOBREESCRIBE metadata con este result) y
+   * añade el nuevo `domain_expires_at` (ISO) que el orquestador persiste en
+   * `services.expires_at` + `domain_renew_performed` (gate para emitir
+   * `domain.renewed` una sola vez). `followUp: []` — el servicio ya está `active`.
+   */
+  private buildRenewResult(
+    ctx: ProvisionContext,
+    orderId: RcOrderId,
+    newEndEpoch: number,
+    renewYears: number,
+    performed: boolean,
+  ): ProvisionResult {
+    return {
+      providerReference: orderId,
+      metadata: {
+        ...toFlatMetadata(ctx.service.metadata),
+        domain_operation: 'renew',
+        domain_years: renewYears,
+        domain_expires_at: new Date(newEndEpoch * 1000).toISOString(),
+        domain_renew_performed: performed,
+      },
+      followUp: [],
+    };
   }
 
   // ─── 2. deprovision() — no-op (el dominio persiste hasta expiración) ────────
@@ -852,6 +994,22 @@ function extractDomainYears(metadata: unknown): number {
     undefined,
     RC_SLUG,
   );
+}
+
+/**
+ * Años a renovar según el ciclo de facturación del servicio (Fase 15D.E). Los
+ * dominios se facturan `annual` (checkout 15D.B) y los registrars renuevan en
+ * años enteros ≥1, así que v1 renueva 1 año por período. Único punto de
+ * extensión si se añaden ciclos multi-año a `BillingCycle` (hoy: monthly/
+ * quarterly/semiannual/annual/one_time — ninguno multi-año).
+ */
+const RENEW_YEARS_BY_CYCLE: Readonly<Record<string, number>> = {
+  annual: 1,
+  // (biennial/triennial irían aquí si se añaden a BillingCycle.)
+};
+function renewYearsForCycle(cycle: string): number {
+  // Suelo 1: el registrar no renueva <1 año (sub-anual / one_time / desconocido).
+  return RENEW_YEARS_BY_CYCLE[cycle] ?? 1;
 }
 
 /** Extrae el order-id de `domains/details` (orderid → entityid). Null si no hay. */
