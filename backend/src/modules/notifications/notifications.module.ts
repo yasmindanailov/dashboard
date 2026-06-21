@@ -24,6 +24,7 @@ import { NotificationsOnServiceCancelledListener } from './listeners/notificatio
 import { NotificationsOnServiceQuotaThresholdCrossedListener } from './listeners/notifications-on-service-quota-threshold-crossed.listener';
 import { NotificationsOnServiceSuspendedListener } from './listeners/notifications-on-service-suspended.listener';
 import { NotificationsOnServiceUnsuspendedListener } from './listeners/notifications-on-service-unsuspended.listener';
+import { NotificationsOnDomainLifecycleListener } from './listeners/notifications-on-domain-lifecycle.listener';
 import { NotificationsRetentionCron } from './notifications-retention.cron';
 
 /**
@@ -103,6 +104,10 @@ import { NotificationsRetentionCron } from './notifications-retention.cron';
     // upstream — el listener NO aplica anti-spam adicional). Plantilla
     // genérica heredable a cualquier plugin con `has_metrics`.
     NotificationsOnServiceQuotaThresholdCrossedListener,
+    // Sprint 15D Fase 15D.E (ADR-084 §5): consume los 4 eventos de ciclo de vida
+    // del dominio (domain.renewed/expiring_soon/expired/entered_redemption) y
+    // despacha email + campana al cliente. Heredable a futuros registrars.
+    NotificationsOnDomainLifecycleListener,
     NotificationsRetentionCron,
     {
       provide: NOTIFICATION_CHANNELS,
