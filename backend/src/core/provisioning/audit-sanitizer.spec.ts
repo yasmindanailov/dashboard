@@ -38,6 +38,11 @@ describe('audit-sanitizer — Sprint 15C.II Fase D (ADR-083 Amendment A4.5)', ()
       'privateKey',
       'PrivateKey',
       'PRIVATEKEY',
+      // Sprint 15D.F (ADR-081 A5): el EPP/auth code de registrar.
+      'authCode',
+      'auth_code',
+      'authcode',
+      'domsecret', // matchea por "secret"
     ])('matches sensitive key "%s"', (key) => {
       expect(CANONICAL_SENSITIVE_KEY_REGEX.test(key)).toBe(true);
     });
@@ -53,6 +58,7 @@ describe('audit-sanitizer — Sprint 15C.II Fase D (ADR-083 Amendment A4.5)', ()
       'side_effects',
       'recordId',
       'note',
+      'author', // contiene "auth" pero NO matchea "auth.?code" (no over-match)
     ])('does NOT match neutral key "%s"', (key) => {
       expect(CANONICAL_SENSITIVE_KEY_REGEX.test(key)).toBe(false);
     });
@@ -108,6 +114,19 @@ describe('audit-sanitizer — Sprint 15C.II Fase D (ADR-083 Amendment A4.5)', ()
         Password: REDACTED_FIELD_PLACEHOLDER,
         PASSWORD: REDACTED_FIELD_PLACEHOLDER,
         apiKEY: REDACTED_FIELD_PLACEHOLDER,
+      });
+    });
+
+    it('redacta authCode / domsecret (get_auth_code 15D.F — ADR-081 A5)', () => {
+      const out = redactSensitiveFields({
+        authCode: 'Epp-Secret-123',
+        domsecret: 'xyz',
+        fqdn: 'example.com',
+      });
+      expect(out).toEqual({
+        authCode: REDACTED_FIELD_PLACEHOLDER,
+        domsecret: REDACTED_FIELD_PLACEHOLDER,
+        fqdn: 'example.com',
       });
     });
 

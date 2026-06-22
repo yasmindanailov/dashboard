@@ -185,17 +185,17 @@ describe('ResellerClubApiClient ↔ MockResellerClubServer — Sprint 15D Fase 1
 
   it('enable/disableTheftProtection se reflejan en currentstatus (read-after-write — 15D.F)', async () => {
     const orderId = await client.registerDomain(registerInput());
-    expect((await client.getDomainDetailsByOrderId(orderId)).currentstatus).toBe(
-      'ok',
-    );
+    expect(
+      (await client.getDomainDetailsByOrderId(orderId)).currentstatus,
+    ).toBe('ok');
     await client.enableTheftProtection(orderId);
-    expect((await client.getDomainDetailsByOrderId(orderId)).currentstatus).toBe(
-      'transferlock',
-    );
+    expect(
+      (await client.getDomainDetailsByOrderId(orderId)).currentstatus,
+    ).toBe('transferlock');
     await client.disableTheftProtection(orderId);
-    expect((await client.getDomainDetailsByOrderId(orderId)).currentstatus).toBe(
-      'ok',
-    );
+    expect(
+      (await client.getDomainDetailsByOrderId(orderId)).currentstatus,
+    ).toBe('ok');
   });
 
   it('modifyContacts refleja los 4 handles en details (read-after-write — 15D.F)', async () => {
