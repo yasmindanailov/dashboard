@@ -1,18 +1,13 @@
-'use client';
+import Link from 'next/link';
 
 import { Badge, Button, Card, EmptyState } from '../../../components/ui';
-import {
-  CYCLE_LABELS,
-  fmt,
-  type Product,
-  type ProductPricing,
-} from '../../../_shared/billing/checkout/types';
-import { useCart } from '../../../_shared/cart/useCart';
+import { fmt, type Product } from '../../../_shared/billing/checkout/types';
 
 /* ═══════════════════════════════════════
    StoreView — catálogo cliente (Sprint 15D Fase 15D.F.4).
-   Añade productos (plan elegido) al carrito unificado. El precio del carrito se
-   re-verifica server-side al pagar (R5).
+   Presentacional (sin estado): cada producto enlaza a su ficha de configuración
+   (`/store/[slug]`) donde se elige el ciclo (y, para hosting, el dominio). El
+   catálogo NO añade al carrito directamente — patrón WHMCS/Hostinger.
    ═══════════════════════════════════════ */
 
 interface Props {
@@ -20,9 +15,17 @@ interface Props {
   errorMessage: string | null;
 }
 
-export default function StoreView({ products, errorMessage }: Props) {
-  const cart = useCart();
+function lowestPrice(product: Product): { amount: number; currency: string } | null {
+  const active = product.pricing.filter((p) => p.active);
+  if (active.length === 0) return null;
+  const min = active.reduce(
+    (acc, p) => (Number(p.price) < acc.amount ? { amount: Number(p.price), currency: p.currency } : acc),
+    { amount: Number(active[0].price), currency: active[0].currency },
+  );
+  return min;
+}
 
+export default function StoreView({ products, errorMessage }: Props) {
   if (errorMessage) {
     return <EmptyState title="No se pudo cargar la tienda" description={errorMessage} />;
   }
@@ -43,97 +46,56 @@ export default function StoreView({ products, errorMessage }: Props) {
         gap: 16,
       }}
     >
-      {products.map((product) => (
-        <Card key={product.id}>
-          <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-                {product.name}
-              </h3>
-              {product.badge_text && (
-                <Badge variant="info">{product.badge_text}</Badge>
+      {products.map((product) => {
+        const from = lowestPrice(product);
+        return (
+          <Card key={product.id}>
+            <div
+              style={{
+                padding: 20,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+                height: '100%',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+                  {product.name}
+                </h3>
+                {product.badge_text && (
+                  <Badge variant="info">{product.badge_text}</Badge>
+                )}
+              </div>
+              {(product.short_description || product.description) && (
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: 'var(--text-tertiary)',
+                    margin: 0,
+                    flex: 1,
+                  }}
+                >
+                  {product.short_description ??
+                    product.description?.slice(0, 120) ??
+                    ''}
+                </p>
               )}
+              {from && (
+                <div style={{ fontSize: 14 }}>
+                  <span style={{ color: 'var(--text-tertiary)' }}>desde </span>
+                  <span style={{ fontWeight: 700 }}>
+                    {fmt(from.amount, from.currency)}
+                  </span>
+                </div>
+              )}
+              <Link href={`/dashboard/store/${product.slug}`}>
+                <Button fullWidth>Configurar</Button>
+              </Link>
             </div>
-            {(product.short_description || product.description) && (
-              <p style={{ fontSize: 13, color: 'var(--text-tertiary)', margin: 0 }}>
-                {product.short_description ??
-                  product.description?.slice(0, 120) ??
-                  ''}
-              </p>
-            )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {product.pricing
-                .filter((p) => p.active)
-                .map((pricing) => (
-                  <PricingRow
-                    key={pricing.id}
-                    productName={product.name}
-                    pricing={pricing}
-                    inCart={cart.hasKey(`product:${pricing.id}`)}
-                    onAdd={() =>
-                      cart.addItem({
-                        kind: 'product',
-                        productPricingId: pricing.id,
-                        productName: product.name,
-                        cycleLabel:
-                          CYCLE_LABELS[pricing.billing_cycle] ??
-                          pricing.billing_cycle,
-                        price: {
-                          amount: pricing.price,
-                          currency: pricing.currency,
-                        },
-                      })
-                    }
-                  />
-                ))}
-            </div>
-          </div>
-        </Card>
-      ))}
-    </div>
-  );
-}
-
-function PricingRow({
-  productName,
-  pricing,
-  inCart,
-  onAdd,
-}: {
-  productName: string;
-  pricing: ProductPricing;
-  inCart: boolean;
-  onAdd: () => void;
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-        padding: '8px 12px',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: 8,
-      }}
-    >
-      <div>
-        <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
-          {CYCLE_LABELS[pricing.billing_cycle] ?? pricing.billing_cycle}
-        </div>
-        <div style={{ fontWeight: 600 }}>
-          {fmt(pricing.price, pricing.currency)}
-        </div>
-      </div>
-      {inCart ? (
-        <Button variant="secondary" size="sm" disabled>
-          En el carrito ✓
-        </Button>
-      ) : (
-        <Button size="sm" onClick={onAdd} aria-label={`Añadir ${productName}`}>
-          Añadir
-        </Button>
-      )}
+          </Card>
+        );
+      })}
     </div>
   );
 }
