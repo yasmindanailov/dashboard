@@ -69,6 +69,13 @@ const ICON = {
       <line x1="12" y1="17" x2="12" y2="21" />
     </svg>
   ),
+  // Sprint 15D Fase 15D.F.4 — globo para el portal de dominios.
+  domains: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  ),
   commission: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
       <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
@@ -109,6 +116,10 @@ const ICON = {
 const ALL_NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', requiredModule: 'Dashboard', icon: ICON.dashboard, section: 'main' },
   { label: 'Mis servicios', href: '/dashboard/services', requiredModule: 'Service', icon: ICON.services, section: 'client' },
+  // Sprint 15D Fase 15D.F.4 — comercio de dominios. Gateado por `Service` (no
+  // existe Subject `Domain`: los dominios son services type='domain'). El
+  // buscador/carrito/detalle cuelgan de /dashboard/domains.
+  { label: 'Dominios', href: '/dashboard/domains', requiredModule: 'Service', icon: ICON.domains, section: 'client' },
   { label: 'Mis facturas', href: '/dashboard/billing', requiredModule: 'Invoice', icon: ICON.billing, section: 'client' },
   { label: 'Soporte', href: '/dashboard/support', requiredModule: 'Conversation', icon: ICON.support, section: 'client' },
   // ADR-061 + ADR-075 — entrada propia para que el cliente acceda al

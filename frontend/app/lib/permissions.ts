@@ -118,6 +118,12 @@ export const ROUTE_PERMISSIONS: Record<string, AppModule> = {
   '/dashboard/support': 'Conversation',
   // Client-specific
   '/dashboard/services': 'Service',
+  // Sprint 15D Fase 15D.F.4 — comercio de dominios (buscador + carrito + "Mis
+  // dominios" + gestión). Los dominios SON services (product.type='domain'): el
+  // CASL del backend NO tiene un Subject `Domain` separado — `Service` es el
+  // paraguas. Por eso reusamos `Service` aquí en vez de inventar un Subject que
+  // driftearía respecto a backend/permissions.ts. Cubre /search, /cart y /[id].
+  '/dashboard/domains': 'Service',
   '/dashboard/support-inside': 'SupportInside',
   '/dashboard/referrals': 'Referral',
   // Partner-specific (mantenido en /dashboard hasta Sprint 19; ese sprint
