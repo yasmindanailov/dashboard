@@ -109,6 +109,11 @@ export interface MockResellerClubSeed {
   >;
   /** SLDs (sin TLD) tratados como premium en `register` → DOMAIN_PREMIUM. */
   readonly premiumDomains?: readonly string[];
+  /**
+   * Fase 15D.E — order-ids cuyo `domains/renew` responde Success pero NO avanza
+   * `endtime` (modela el fallo silencioso que DOM-INV-4 debe atrapar).
+   */
+  readonly frozenRenewOrderIds?: readonly string[];
 }
 
 export interface MockResellerClubServerOptions {
@@ -194,6 +199,7 @@ export interface MockResellerClubState {
   customerPrice: RcCustomerPriceResponse;
   availabilityOverrides: Map<string, RcAvailabilityStatus>;
   premiumDomains: Set<string>;
+  frozenRenewOrderIds: Set<string>;
   customersByEmail: Map<string, MockRcCustomer>;
   customersById: Map<string, MockRcCustomer>;
   contactsById: Map<string, MockRcContact>;
@@ -215,6 +221,7 @@ function createInitialState(seed: MockResellerClubSeed): MockResellerClubState {
       Object.entries(seed.availabilityOverrides ?? {}),
     ),
     premiumDomains: new Set(seed.premiumDomains ?? []),
+    frozenRenewOrderIds: new Set(seed.frozenRenewOrderIds ?? []),
     customersByEmail: new Map(),
     customersById: new Map(),
     contactsById: new Map(),
@@ -415,7 +422,11 @@ function registerRoutes(
       return;
     }
     const years = num(p, 'years') ?? 1;
-    d.endtime += years * 365 * 24 * 3600; // DOM-INV-4: la fecha avanza
+    // Fase 15D.E: order-ids "congelados" responden Success sin extender el
+    // endtime → ejercita la verificación DOM-INV-4 del plugin.
+    if (!state.frozenRenewOrderIds.has(d.orderid)) {
+      d.endtime += years * 365 * 24 * 3600; // DOM-INV-4: la fecha avanza
+    }
     res.json({ entityid: Number(d.orderid), actionstatus: 'Success' });
   });
 
@@ -510,6 +521,11 @@ function registerTestSeedRoute(
     }
     if (body.premiumDomains) {
       for (const sld of body.premiumDomains) state.premiumDomains.add(sld);
+    }
+    if (body.frozenRenewOrderIds) {
+      for (const id of body.frozenRenewOrderIds) {
+        state.frozenRenewOrderIds.add(id);
+      }
     }
     if (body.resellerPrice) state.resellerPrice = body.resellerPrice;
     if (body.customerPrice) state.customerPrice = body.customerPrice;

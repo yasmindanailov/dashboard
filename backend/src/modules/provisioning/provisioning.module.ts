@@ -21,6 +21,7 @@ import { ClientsModule } from '../clients/clients.module';
 import { TasksModule } from '../tasks/tasks.module';
 
 import { AdminProvisioningController } from './admin-provisioning.controller';
+import { DomainExpiryWarningsCron } from './domain-expiry-warnings.cron';
 import { BootstrapEnhanceDefaultsOnPluginInstalledListener } from './listeners/bootstrap-enhance-defaults-on-plugin-installed.listener';
 import { ProvisioningOnTaskCompletedListener } from './listeners/provisioning-on-task-completed.listener';
 import { ReactivateServicesOnInvoicePaidListener } from './listeners/reactivate-services-on-invoice-paid.listener';
@@ -111,6 +112,9 @@ import { ProvisioningService } from './provisioning.service';
     // Sprint 15C.II Fase F.5.3 — auto-reactivación al pagar (`invoice.paid`
     // → reactivar los servicios suspendidos por impago de la factura).
     ReactivateServicesOnInvoicePaidListener,
+    // Sprint 15D Fase 15D.E — avisos de expiración de dominios (transversal,
+    // lee `services.expires_at`; emite `domain.expiring_soon` 30/14/7/1d).
+    DomainExpiryWarningsCron,
     // Plugins triviales (Sprint 11 Fase 11.C). Cada plugin se declara como
     // provider individual (NestJS DI gestiona su ciclo de vida) y se compone
     // un array vía `useFactory` que el `PluginRegistryService` recibe en

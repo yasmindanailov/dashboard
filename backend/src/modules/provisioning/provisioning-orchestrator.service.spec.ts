@@ -322,6 +322,131 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
     expect(outbox.enqueue).not.toHaveBeenCalled();
   });
 
+  // ─── Sprint 15D Fase 15D.E — enrutado de renovación + domain.renewed ───────
+
+  function setupActiveDomain(over: Record<string, unknown> = {}) {
+    return setupServiceRow({
+      status: 'active',
+      domain: 'example.com',
+      provider_reference: '700123',
+      expires_at: new Date('2026-07-01T00:00:00.000Z'),
+      metadata: { domain_operation: 'register', domain_years: 1 },
+      product: DOMAIN_PRODUCT,
+      ...over,
+    });
+  }
+
+  it('renovación: dominio activo + invoice.paid → provision(renew) + domain.renewed + persiste expires_at', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(setupActiveDomain());
+    const newExpiry = '2027-07-01T00:00:00.000Z';
+    const plugin = buildPlugin({
+      slug: 'resellerclub',
+      capabilities: { ...REGISTRAR_CAPS },
+      provision: jest.fn().mockResolvedValue({
+        providerReference: '700123',
+        metadata: {
+          domain_operation: 'renew',
+          domain_renew_performed: true,
+          domain_expires_at: newExpiry,
+        },
+        followUp: [],
+      }),
+    });
+    registry.get.mockReturnValue(plugin);
+
+    await orchestrator.provisionService('svc-1', 'cor-1');
+
+    // operation forzado a 'renew' (NO la metadata stale 'register').
+    const ctxArg = (
+      (plugin.provision as jest.Mock).mock.calls[0] as unknown[]
+    )[0] as { operation?: string };
+    expect(ctxArg.operation).toBe('renew');
+    // NO flipa a 'provisioning' (servicio sigue active); 1 sola update (persist).
+    const updateCalls = prisma.service.update.mock.calls as Array<
+      [{ data?: Record<string, unknown> }]
+    >;
+    expect(updateCalls.some((c) => c[0].data?.status === 'provisioning')).toBe(
+      false,
+    );
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0][0].data?.expires_at).toEqual(new Date(newExpiry));
+    // domain.renewed emitido vía Outbox; NO service.activated (followUp vacío).
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      prisma,
+      'domain.renewed',
+      expect.objectContaining({
+        service_id: 'svc-1',
+        fqdn: 'example.com',
+        new_expires_at: newExpiry,
+      }),
+    );
+    expect(events.emit).not.toHaveBeenCalledWith(
+      'service.activated',
+      expect.anything(),
+    );
+    expect(cache.invalidate).toHaveBeenCalledWith('svc-1');
+  });
+
+  it('renovación idempotente (performed=false) → persiste expires_at pero NO emite domain.renewed', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(setupActiveDomain());
+    const plugin = buildPlugin({
+      slug: 'resellerclub',
+      capabilities: { ...REGISTRAR_CAPS },
+      provision: jest.fn().mockResolvedValue({
+        providerReference: '700123',
+        metadata: {
+          domain_operation: 'renew',
+          domain_renew_performed: false,
+          domain_expires_at: '2027-07-01T00:00:00.000Z',
+        },
+        followUp: [],
+      }),
+    });
+    registry.get.mockReturnValue(plugin);
+
+    await orchestrator.provisionService('svc-1', 'cor-1');
+
+    expect(outbox.enqueue).not.toHaveBeenCalledWith(
+      prisma,
+      'domain.renewed',
+      expect.anything(),
+    );
+  });
+
+  it('renovación fallida no-retriable (redemption) → NO cancela el dominio activo, alerta', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(setupActiveDomain());
+    const plugin = buildPlugin({
+      slug: 'resellerclub',
+      capabilities: { ...REGISTRAR_CAPS },
+      provision: jest
+        .fn()
+        .mockRejectedValue(
+          new ProvisionerPluginError(
+            'en redemption',
+            'DOMAIN_IN_REDEMPTION',
+            false,
+          ),
+        ),
+    });
+    registry.get.mockReturnValue(plugin);
+
+    await orchestrator.provisionService('svc-1', 'cor-1');
+
+    const updateCalls = prisma.service.update.mock.calls as Array<
+      [{ data?: { status?: string } }]
+    >;
+    expect(updateCalls.some((c) => c[0].data?.status === 'cancelled')).toBe(
+      false,
+    );
+    expect(events.emit).toHaveBeenCalledWith(
+      'service.provisioning_failed',
+      expect.objectContaining({
+        service_id: 'svc-1',
+        reason: 'renew_failed:DOMAIN_IN_REDEMPTION',
+      }),
+    );
+  });
+
   it('provision OK followUp=create_setup_task â†’ llama tasks.create', async () => {
     prisma.service.findUnique.mockResolvedValueOnce(setupServiceRow());
     const plugin = buildPlugin({

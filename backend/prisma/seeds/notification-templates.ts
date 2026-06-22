@@ -239,7 +239,7 @@ export async function seedNotificationTemplates(
       `.trim(),
       variables: {
         task_id: 'string',
-        
+
         task_source_system_label: 'string',
         task_priority_label: 'string',
         task_url: 'string',
@@ -256,7 +256,6 @@ export async function seedNotificationTemplates(
       subject: 'Nueva tarea: Tarea {{task_source_system_label}}',
       body: 'Se te ha asignado una tarea de {{task_source_system_label}} con prioridad {{task_priority_label}}.',
       variables: {
-        
         task_source_system_label: 'string',
         task_priority_label: 'string',
       },
@@ -318,8 +317,7 @@ export async function seedNotificationTemplates(
       channel: 'internal' as const,
       locale: 'es',
       subject: 'Mantenimiento completado · {{month_label}}',
-      body:
-        'Hemos completado el mantenimiento mensual de tu servicio ({{month_label}}). Revisa el resumen desde tu panel.',
+      body: 'Hemos completado el mantenimiento mensual de tu servicio ({{month_label}}). Revisa el resumen desde tu panel.',
       variables: {
         month_year: 'string',
         month_label: 'string',
@@ -365,8 +363,7 @@ export async function seedNotificationTemplates(
       `.trim(),
       variables: {
         task_id: 'string',
-        
-        
+
         task_source_system_label: 'string',
         task_reason: 'string?',
         client_notes: 'string',
@@ -381,10 +378,8 @@ export async function seedNotificationTemplates(
       channel: 'internal' as const,
       locale: 'es',
       subject: 'Sobre tu solicitud: Tarea {{task_source_system_label}}',
-      body:
-        'Hemos completado tu solicitud{{#if task_reason}} ({{task_reason}}){{/if}}. Revisa los detalles desde tu panel.',
+      body: 'Hemos completado tu solicitud{{#if task_reason}} ({{task_reason}}){{/if}}. Revisa los detalles desde tu panel.',
       variables: {
-
         task_reason: 'string?',
       },
     },
@@ -432,8 +427,7 @@ export async function seedNotificationTemplates(
       channel: 'internal' as const,
       locale: 'es',
       subject: 'Tu ticket #{{ticket_sequence}} ha sido resuelto',
-      body:
-        'Hemos resuelto tu solicitud. Confirma o responde si necesitas seguir; en caso contrario se cerrará automáticamente en {{auto_close_days}} días.',
+      body: 'Hemos resuelto tu solicitud. Confirma o responde si necesitas seguir; en caso contrario se cerrará automáticamente en {{auto_close_days}} días.',
       variables: {
         ticket_sequence: 'string',
         auto_close_days: 'number',
@@ -478,8 +472,7 @@ export async function seedNotificationTemplates(
       channel: 'internal' as const,
       locale: 'es',
       subject: 'Ticket #{{ticket_sequence}} cerrado automáticamente',
-      body:
-        'El ticket que resolviste el {{resolved_at_label}} se ha cerrado automáticamente tras {{auto_close_days}} días sin respuesta del cliente.',
+      body: 'El ticket que resolviste el {{resolved_at_label}} se ha cerrado automáticamente tras {{auto_close_days}} días sin respuesta del cliente.',
       variables: {
         ticket_sequence: 'string',
         auto_close_days: 'number',
@@ -623,8 +616,7 @@ last_error: {{last_error}}</pre>
       `.trim(),
       variables: {
         task_id: 'string',
-        
-        
+
         task_source_system_label: 'string',
         task_priority_label: 'string',
         task_url: 'string',
@@ -642,7 +634,6 @@ last_error: {{last_error}}</pre>
       subject: 'Tarea vencida: Tarea {{task_source_system_label}}',
       body: 'La tarea Tarea {{task_source_system_label}} ({{task_source_system_label}}) superó su fecha límite por {{days_overdue}} días y pasó a estado no completada a tiempo.',
       variables: {
-        
         task_source_system_label: 'string',
         days_overdue: 'number',
       },
@@ -1299,8 +1290,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'service.quota_threshold_crossed',
       channel: 'email' as const,
       locale: 'es',
-      subject:
-        '⚠ Estás al {{used_pct}}% de almacenamiento en {{domain}}',
+      subject: '⚠ Estás al {{used_pct}}% de almacenamiento en {{domain}}',
       body: `
         <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
@@ -1357,6 +1347,191 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
         total_mb_label: 'string',
         service_url: 'string',
       },
+    },
+
+    // ═════════════ Sprint 15D Fase 15D.E — ciclo de vida del dominio (ADR-084 §5) ═════════════
+    // Emitidos por: domain.renewed (orquestador, Outbox), domain.expiring_soon
+    // (cron de avisos), domain.expired/entered_redemption (reconcile cron, Outbox).
+    // Consumidos por `NotificationsOnDomainLifecycleListener`. Variables: service_id,
+    // fqdn, panel_url + (renewed: new_expires_at) / (expiring_soon: days_left).
+
+    // ───────────── domain.renewed (email cliente) ─────────────
+    {
+      event_type: 'domain.renewed',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Dominio renovado — {{fqdn}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Dominio renovado</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hemos renovado tu dominio <strong>{{fqdn}}</strong>. Sigue activo sin interrupciones.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver mi dominio</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        fqdn: 'string',
+        panel_url: 'string',
+        new_expires_at: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+    // ───────────── domain.renewed (campana cliente) ─────────────
+    {
+      event_type: 'domain.renewed',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Dominio renovado — {{fqdn}}',
+      body: 'Tu dominio {{fqdn}} se ha renovado. Sigue activo sin interrupciones.',
+      variables: { service_id: 'string', fqdn: 'string', panel_url: 'string' },
+    },
+
+    // ───────────── domain.expiring_soon (email cliente) ─────────────
+    {
+      event_type: 'domain.expiring_soon',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Tu dominio {{fqdn}} caduca en {{days_left}} días',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Tu dominio caduca pronto</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Tu dominio <strong>{{fqdn}}</strong> caduca en <strong>{{days_left}} días</strong>.
+              Renuévalo a tiempo para no perderlo.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Renovar dominio</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        fqdn: 'string',
+        panel_url: 'string',
+        days_left: 'number',
+        'recipient.first_name': 'string?',
+      },
+    },
+    // ───────────── domain.expiring_soon (campana cliente) ─────────────
+    {
+      event_type: 'domain.expiring_soon',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Tu dominio {{fqdn}} caduca en {{days_left}} días',
+      body: 'Tu dominio {{fqdn}} caduca en {{days_left}} días. Renuévalo a tiempo para no perderlo.',
+      variables: {
+        service_id: 'string',
+        fqdn: 'string',
+        panel_url: 'string',
+        days_left: 'number',
+      },
+    },
+
+    // ───────────── domain.expired (email cliente) ─────────────
+    {
+      event_type: 'domain.expired',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Tu dominio {{fqdn}} ha caducado',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Tu dominio ha caducado</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Tu dominio <strong>{{fqdn}}</strong> ha caducado. Aún puedes recuperarlo durante un
+              breve periodo de gracia — renuévalo cuanto antes.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Recuperar dominio</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        fqdn: 'string',
+        panel_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+    // ───────────── domain.expired (campana cliente) ─────────────
+    {
+      event_type: 'domain.expired',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Tu dominio {{fqdn}} ha caducado',
+      body: 'Tu dominio {{fqdn}} ha caducado. Aún puedes recuperarlo durante un breve periodo de gracia.',
+      variables: { service_id: 'string', fqdn: 'string', panel_url: 'string' },
+    },
+
+    // ───────────── domain.entered_redemption (email cliente) ─────────────
+    {
+      event_type: 'domain.entered_redemption',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Tu dominio {{fqdn}} está en periodo de redención',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Dominio en redención</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Tu dominio <strong>{{fqdn}}</strong> ha entrado en periodo de redención. Todavía puede
+              rescatarse, pero con una tarifa de recuperación más alta y por tiempo limitado.
+              Contáctanos para recuperarlo.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver mi dominio</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        fqdn: 'string',
+        panel_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+    // ───────────── domain.entered_redemption (campana cliente) ─────────────
+    {
+      event_type: 'domain.entered_redemption',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Tu dominio {{fqdn}} está en redención',
+      body: 'Tu dominio {{fqdn}} está en periodo de redención. Aún puede rescatarse con una tarifa más alta por tiempo limitado. Contáctanos para recuperarlo.',
+      variables: { service_id: 'string', fqdn: 'string', panel_url: 'string' },
     },
   ];
 

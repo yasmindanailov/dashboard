@@ -1,7 +1,8 @@
 # Plugin ResellerClub — registrar de dominios (admin)
 
-> **Estado:** Fase 15D.D (plugin core). Documento operativo seminal — se completa
-> en la Fase 15D.G (cierre del sprint, con el smoke OT&E real). Doctrina:
+> **Estado:** Fase 15D.E (renovación + lifecycle + crons). Documento operativo
+> seminal — se completa en la Fase 15D.G (cierre del sprint, con el smoke OT&E
+> real). Doctrina:
 > [ADR-081](../../10-decisions/adr-081-plugin-resellerclub-specifics.md) (specifics RC) ·
 > [ADR-077 A10/A11/A12](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) (sub-contrato registrar) ·
 > [ADR-084](../../10-decisions/adr-084-comercio-dominios-registrar.md) (comercio de dominios) ·
@@ -58,12 +59,33 @@ registrar nada.
   de pricing (Fase E).
 - El orquestador emite **`domain.registered`** (Outbox) tras un registro nuevo.
 
+## Qué hace hoy (Fase 15D.E — renovación + lifecycle)
+
+- **Renovación** (`provision(renew)` + **DOM-INV-4**): el orquestador detecta la
+  factura de renovación pagada de un dominio activo y la enruta a `renew`. El
+  plugin relee `domains/details`, confirma que `expires_at` **avanzó** antes de
+  marcar éxito (si no → reintento + DLQ), y es **idempotente por período** (ancla
+  en `services.expires_at` → no doble-cobra ante crash-retry). Emite
+  **`domain.renewed`** (Outbox). Un fallo no-retriable (p.ej. redención) NO cancela
+  el dominio activo. Años renovados = ciclo de facturación (annual → 1).
+- **3 crons** (in-process, `@Cron`):
+  - **Reconcile** (6h): por dominio, relee el estado del registrar → puebla
+    `services.expires_at` + adopta `active`/`suspended` (DH-INV-6) + emite
+    `domain.expired`/`domain.entered_redemption` en la transición de lifecycle
+    (edge-triggered, Outbox). Registra el executor "reconciliar ahora" del admin.
+  - **Pricing-sync** (diario 04:00 UTC): **writer de `domain_tld_pricing`** —
+    `getTldPricing()` × `markup_percent` → precio (`source='sync'`, no pisa
+    `manual`); fail-safe de moneda (omite + alerta si ≠ `default_currency`).
+  - **Avisos** (diario 09:00 UTC): `domain.expiring_soon` a 30/14/7/1 días
+    (edge-trigger por ventana).
+- **Notificaciones:** `NotificationsOnDomainLifecycleListener` consume los 4
+  eventos → email + campana al cliente (plantillas seedeadas).
+
 ## Pendiente (fases siguientes)
 
-- **15D.E:** renovación (`provision(renew)` + DOM-INV-4) + lifecycle de expiración
-  + crons de reconcile/pricing/avisos.
 - **15D.F:** acciones de gestión (`executeAction`: NS/contactos/privacy/lock/
-  auth-code) + admin suspend/unsuspend + zona DNS post-register + frontend.
+  auth-code) + admin suspend/unsuspend + zona DNS post-register + buscador +
+  frontend + DOM-INV-5 rico pre-checkout (`.es` NIF / `.eu` residencia).
 - **15D.G:** smoke OT&E real (refina los shapes `register`/`details` conservadores
   — ADR-081 A1.5) + cierre.
 
