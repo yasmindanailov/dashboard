@@ -1,4 +1,8 @@
-import { ServiceUnavailableException, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ServiceUnavailableException,
+  Logger,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { DomainsService } from './domains.service';
@@ -38,7 +42,11 @@ describe('DomainsService.checkAvailability — Sprint 15D Fase 15D.F.2', () => {
       }),
     };
     prisma = { domainTldPricing: { findMany: jest.fn() } };
-    service = new DomainsService(registry as never, prisma as never);
+    service = new DomainsService(
+      registry as never,
+      prisma as never,
+      {} as never,
+    );
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -145,5 +153,217 @@ describe('DomainsService.checkAvailability — Sprint 15D Fase 15D.F.2', () => {
     const res = await service.checkAvailability({ sld: 'x' });
     expect(res.results).toEqual([]);
     expect(checkDomainAvailability).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Tests unit `DomainsService.listMine` — Sprint 15D Fase 15D.F.4.
+ */
+describe('DomainsService.listMine — Sprint 15D Fase 15D.F.4', () => {
+  const USER = 'user-1';
+  let prisma: {
+    service: { findMany: jest.Mock; count: jest.Mock };
+    $transaction: jest.Mock;
+  };
+  let service: DomainsService;
+
+  beforeEach(() => {
+    prisma = {
+      service: { findMany: jest.fn(), count: jest.fn() },
+      $transaction: jest.fn().mockImplementation((ops) => Promise.all(ops)),
+    };
+    service = new DomainsService({} as never, prisma as never, {} as never);
+  });
+
+  it('mapea filas a DomainListItem (fqdn/expires_at/created_at ISO) + meta paginada', async () => {
+    prisma.service.findMany.mockResolvedValue([
+      {
+        id: 'svc-1',
+        domain: 'aelium.com',
+        status: 'active',
+        expires_at: new Date('2027-01-01T00:00:00.000Z'),
+        next_due_date: new Date('2026-12-15T00:00:00.000Z'),
+        created_at: new Date('2026-06-01T00:00:00.000Z'),
+        product: { name: 'Dominios' },
+      },
+    ]);
+    prisma.service.count.mockResolvedValue(1);
+
+    const res = await service.listMine(USER, {});
+
+    expect(res.meta).toEqual({ total: 1, page: 1, limit: 20, totalPages: 1 });
+    expect(res.data[0]).toEqual({
+      id: 'svc-1',
+      fqdn: 'aelium.com',
+      status: 'active',
+      expires_at: '2027-01-01T00:00:00.000Z',
+      next_due_date: '2026-12-15T00:00:00.000Z',
+      created_at: '2026-06-01T00:00:00.000Z',
+      product_name: 'Dominios',
+    });
+    // Filtra siempre por product.type='domain' + el usuario autenticado.
+    const calls = prisma.service.findMany.mock.calls as Array<
+      [{ where: Record<string, unknown> }]
+    >;
+    expect(calls[0][0].where).toMatchObject({
+      user_id: USER,
+      product: { type: 'domain' },
+    });
+  });
+
+  it('expires_at null → null (no rompe el map)', async () => {
+    prisma.service.findMany.mockResolvedValue([
+      {
+        id: 'svc-2',
+        domain: 'pending.es',
+        status: 'pending',
+        expires_at: null,
+        next_due_date: null,
+        created_at: new Date('2026-06-02T00:00:00.000Z'),
+        product: { name: 'Dominios' },
+      },
+    ]);
+    prisma.service.count.mockResolvedValue(1);
+
+    const res = await service.listMine(USER, { page: 1, limit: 20 });
+    expect(res.data[0].expires_at).toBeNull();
+    expect(res.data[0].next_due_date).toBeNull();
+  });
+
+  it('status inválido se ignora (no se inyecta en el where)', async () => {
+    prisma.service.findMany.mockResolvedValue([]);
+    prisma.service.count.mockResolvedValue(0);
+
+    await service.listMine(USER, { status: 'no-such-status' });
+    const calls = prisma.service.findMany.mock.calls as Array<
+      [{ where: { status?: unknown } }]
+    >;
+    expect(calls[0][0].where.status).toBeUndefined();
+  });
+});
+
+/**
+ * Tests unit `DomainsService.checkoutCart` — Sprint 15D Fase 15D.F.4.
+ */
+describe('DomainsService.checkoutCart — Sprint 15D Fase 15D.F.4', () => {
+  const USER = 'user-1';
+  let registry: { getByCapability: jest.Mock };
+  let prisma: { product: { findFirst: jest.Mock } };
+  let billingCheckout: { checkoutItems: jest.Mock };
+  let service: DomainsService;
+
+  beforeEach(() => {
+    registry = {
+      getByCapability: jest.fn().mockReturnValue({ slug: 'resellerclub' }),
+    };
+    prisma = { product: { findFirst: jest.fn() } };
+    billingCheckout = { checkoutItems: jest.fn() };
+    service = new DomainsService(
+      registry as never,
+      prisma as never,
+      billingCheckout as never,
+    );
+  });
+
+  it('happy: resuelve producto + delega en checkoutItems con kind:domain (register)', async () => {
+    prisma.product.findFirst.mockResolvedValue({ id: 'prod-dom' });
+    billingCheckout.checkoutItems.mockResolvedValue({
+      services: [
+        { id: 'svc-1', domain: 'aelium.com' },
+        { id: 'svc-2', domain: 'aelium.es' },
+      ],
+      invoice: {
+        id: 'inv-1',
+        invoice_number: 'A-2026-0001',
+        total: new Prisma.Decimal('17.50'),
+        currency: 'EUR',
+      },
+      invoice_type: 'simplificada',
+      discount_applied: null,
+    });
+
+    const res = await service.checkoutCart(USER, {
+      items: [
+        { domainName: 'aelium.com', years: 1 },
+        { domainName: 'aelium.es', years: 1 },
+      ],
+      billingProfileId: undefined,
+    });
+
+    expect(res).toEqual({
+      invoice_id: 'inv-1',
+      invoice_number: 'A-2026-0001',
+      total: '17.5',
+      currency: 'EUR',
+      services: [
+        { id: 'svc-1', fqdn: 'aelium.com' },
+        { id: 'svc-2', fqdn: 'aelium.es' },
+      ],
+    });
+    expect(billingCheckout.checkoutItems).toHaveBeenCalledWith(USER, {
+      items: [
+        {
+          kind: 'domain',
+          productId: 'prod-dom',
+          domainName: 'aelium.com',
+          operation: 'register',
+          years: 1,
+        },
+        {
+          kind: 'domain',
+          productId: 'prod-dom',
+          domainName: 'aelium.es',
+          operation: 'register',
+          years: 1,
+        },
+      ],
+      billingProfileId: undefined,
+    });
+    // El producto se resuelve por capability (slug del registrar) + type=domain.
+    expect(prisma.product.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          type: 'domain',
+          provisioner: 'resellerclub',
+          status: 'active',
+        },
+      }),
+    );
+  });
+
+  it('sin registrar (capability) → ServiceUnavailableException (no toca billing)', async () => {
+    registry.getByCapability.mockReturnValue(null);
+    await expect(
+      service.checkoutCart(USER, {
+        items: [{ domainName: 'x.com', years: 1 }],
+      }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(billingCheckout.checkoutItems).not.toHaveBeenCalled();
+  });
+
+  it('sin producto de dominio → ServiceUnavailableException (no toca billing)', async () => {
+    prisma.product.findFirst.mockResolvedValue(null);
+    await expect(
+      service.checkoutCart(USER, {
+        items: [{ domainName: 'x.com', years: 1 }],
+      }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(billingCheckout.checkoutItems).not.toHaveBeenCalled();
+  });
+
+  it('propaga el error de elegibilidad (DOM-INV-5) desde checkoutItems', async () => {
+    prisma.product.findFirst.mockResolvedValue({ id: 'prod-dom' });
+    billingCheckout.checkoutItems.mockRejectedValue(
+      new BadRequestException({
+        code: 'REGISTRANT_INELIGIBLE',
+        message: 'Los dominios .es requieren un NIF/NIE.',
+        tld: 'es',
+      }),
+    );
+    await expect(
+      service.checkoutCart(USER, {
+        items: [{ domainName: 'aelium.es', years: 1 }],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
