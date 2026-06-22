@@ -45,7 +45,11 @@ export default function CartView() {
     setIneligible(false);
     const payload: CheckoutItemPayload[] = cart.items.map((i) =>
       i.kind === 'product'
-        ? { kind: 'product', product_pricing_id: i.productPricingId }
+        ? {
+            kind: 'product',
+            product_pricing_id: i.productPricingId,
+            ...(i.domain ? { domain: i.domain } : {}),
+          }
         : { kind: 'domain', domain_name: i.fqdn, years: i.years },
     );
     const res: CheckoutCartResult = await checkoutCartAction({ items: payload });
@@ -187,7 +191,9 @@ function CartRow({
   const title = item.kind === 'product' ? item.productName : item.fqdn;
   const subtitle =
     item.kind === 'product'
-      ? item.cycleLabel
+      ? item.domain
+        ? `${item.cycleLabel} · ${item.domain}`
+        : item.cycleLabel
       : `Registro · ${item.years} año${item.years === 1 ? '' : 's'}`;
   return (
     <div

@@ -4,7 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { AlertBanner, Badge, Button, Card } from '../../../../components/ui';
+import {
+  AlertBanner,
+  Badge,
+  Button,
+  Card,
+  Input,
+} from '../../../../components/ui';
 import {
   CYCLE_LABELS,
   CYCLE_SAVINGS,
@@ -47,14 +53,31 @@ export default function ProductConfig({
   const ownsGlobal = context?.reason === 'owns_global_addon';
   const atLimit = context?.reason === 'at_quantity_limit';
 
+  // Punto 4: el hosting lleva dominio. Paso de dominio en la compra.
+  const needsDomain = product.type === 'hosting_web';
+  const [domainChoice, setDomainChoice] = useState<'use' | 'later'>('later');
+  const [domainInput, setDomainInput] = useState('');
+  const [domainError, setDomainError] = useState<string | null>(null);
+
   function handleAdd() {
     if (!selected) return;
+    let domain: string | undefined;
+    if (needsDomain && domainChoice === 'use') {
+      const value = domainInput.trim().toLowerCase();
+      if (!/^[a-z0-9-]+\.[a-z0-9.-]+$/.test(value)) {
+        setDomainError('Escribe un dominio válido, p.ej. midominio.com.');
+        return;
+      }
+      domain = value;
+    }
+    setDomainError(null);
     cart.addItem({
       kind: 'product',
       productPricingId: selected.id,
       productName: product.name,
       cycleLabel: CYCLE_LABELS[selected.billing_cycle] ?? selected.billing_cycle,
       price: { amount: selected.price, currency: selected.currency },
+      ...(domain ? { domain } : {}),
     });
     router.push('/dashboard/store/cart');
   }
@@ -119,6 +142,85 @@ export default function ProductConfig({
                   ))}
                 </div>
               </div>
+
+              {/* Paso: dominio (solo hosting — punto 4) */}
+              {needsDomain && (
+                <div>
+                  <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 10px' }}>
+                    Dominio
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="domain-choice"
+                        checked={domainChoice === 'use'}
+                        onChange={() => setDomainChoice('use')}
+                      />
+                      <span>Usar un dominio que ya tengo</span>
+                    </label>
+                    {domainChoice === 'use' && (
+                      <div style={{ maxWidth: 360, marginLeft: 24 }}>
+                        <Input
+                          value={domainInput}
+                          onChange={(e) => setDomainInput(e.target.value)}
+                          placeholder="midominio.com"
+                        />
+                      </div>
+                    )}
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="domain-choice"
+                        checked={domainChoice === 'later'}
+                        onChange={() => setDomainChoice('later')}
+                      />
+                      <span>Decidir más tarde</span>
+                    </label>
+                  </div>
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--text-tertiary)',
+                      margin: '10px 0 0',
+                    }}
+                  >
+                    ¿Quieres registrar uno nuevo? Búscalo en la pestaña{' '}
+                    <Link
+                      href="/dashboard/store/domains"
+                      style={{ fontWeight: 600 }}
+                    >
+                      Dominios
+                    </Link>{' '}
+                    y se añade al mismo carrito.
+                  </p>
+                  {domainError && (
+                    <p
+                      style={{
+                        fontSize: 13,
+                        color: 'var(--danger-600, #c0392b)',
+                        margin: '6px 0 0',
+                      }}
+                    >
+                      {domainError}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {atLimit && context && (
                 <AlertBanner variant="warning">

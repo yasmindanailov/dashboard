@@ -13,7 +13,7 @@ import { serverFetch, ServerFetchError } from '../../lib/server-auth';
 
 /** Ítem en forma REST (snake_case) que entiende el endpoint unificado. */
 export type CheckoutItemPayload =
-  | { kind: 'product'; product_pricing_id: string }
+  | { kind: 'product'; product_pricing_id: string; domain?: string }
   | { kind: 'domain'; domain_name: string; years: number };
 
 export interface CartCheckoutData {

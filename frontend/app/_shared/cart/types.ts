@@ -19,6 +19,11 @@ export type CartItem =
       productName: string;
       cycleLabel: string;
       price: Money;
+      /**
+       * Dominio asociado (hosting). Sprint 15D F.4 punto 4: el hosting puede
+       * llevar dominio. Se pasa al checkout (`service.domain`). Opcional.
+       */
+      domain?: string;
     }
   | {
       kind: 'domain';
