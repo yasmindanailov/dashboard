@@ -81,6 +81,12 @@ export default function NewProductForm({ initialPlugins }: Props) {
   const isSupportInside = selectedType === 'support_inside';
   const isWeDoIt = selectedType === 'we_do_it';
   const isCustomService = selectedType === 'custom_service';
+  // Sprint 15D Fase 15D.F.4 — un producto "Dominio" NO lleva ProductPricing: el
+  // precio vive en `domain_tld_pricing` por TLD (lo rellena el cron del
+  // registrar, ADR-084 §1). Por eso ocultamos la card "Pricing" y saltamos el
+  // requisito de plan. El markup% + TLDs ofertados se configuran en los ajustes
+  // del plugin RC.
+  const isDomain = selectedType === 'domain';
   const showLifecycle = !isSupportInside && !isWeDoIt;
 
   // ADR-080 Amendment B — schema del provisioner seleccionado.
@@ -149,7 +155,7 @@ export default function NewProductForm({ initialPlugins }: Props) {
       setError('El nombre es obligatorio.');
       return;
     }
-    if (!isCustomService && !pricingRows.some((r) => r.price)) {
+    if (!isCustomService && !isDomain && !pricingRows.some((r) => r.price)) {
       setError('Debe haber al menos un plan de precio.');
       return;
     }
@@ -338,7 +344,9 @@ export default function NewProductForm({ initialPlugins }: Props) {
             </div>
           </Card>
 
-          {/* Card: Pricing */}
+          {/* Card: Pricing — oculta para dominios (precio por TLD en
+              domain_tld_pricing, no en ProductPricing). */}
+          {!isDomain && (
           <div className={styles.mt6}>
             <Card>
               <div className={styles.formSection}>
@@ -418,6 +426,7 @@ export default function NewProductForm({ initialPlugins }: Props) {
               </div>
             </Card>
           </div>
+          )}
 
           {/* Card: Provisioning (non-addons only) */}
           {!isAddonType && (
@@ -535,9 +544,17 @@ export default function NewProductForm({ initialPlugins }: Props) {
             </div>
           )}
 
-          {(isSupportInside || isWeDoIt || isCustomService) && (
+          {(isSupportInside || isWeDoIt || isCustomService || isDomain) && (
             <div className={styles.mt4}>
               <AlertBanner variant="info">
+                {isDomain && (
+                  <>
+                    <strong>Dominios</strong> — El precio se calcula por extensión
+                    (TLD) desde la tabla de pricing, que rellena el cron del
+                    registrar. El markup y los TLDs ofertados se configuran en los
+                    ajustes del plugin del registrar.
+                  </>
+                )}
                 {isSupportInside && (
                   <>
                     <strong>Support Inside</strong> — Los canales, SLA, y

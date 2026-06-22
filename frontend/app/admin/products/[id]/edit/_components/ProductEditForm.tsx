@@ -126,6 +126,10 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
   const [deletePricingId, setDeletePricingId] = useState<string | null>(null);
 
   const isAddon = initial.type === 'support_inside' || initial.type === 'we_do_it';
+  // Sprint 15D Fase 15D.F.4 — un producto "Dominio" no usa ProductPricing (el
+  // precio vive por TLD en `domain_tld_pricing`, ADR-084 §1) → ocultamos la card
+  // de planes de precio.
+  const isDomain = initial.type === 'domain';
   const showLifecycle = !isAddon;
 
   // ADR-080 Amendment B — schema declarativo del provisioner seleccionado.
@@ -423,6 +427,7 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
           </div>
         )}
 
+        {!isDomain && (
         <div className={styles.mt6}>
           <Card>
             <div className={styles.formSection}>
@@ -504,6 +509,7 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
             </div>
           </Card>
         </div>
+        )}
       </form>
 
       <Modal
