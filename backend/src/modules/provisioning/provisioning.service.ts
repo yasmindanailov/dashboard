@@ -105,6 +105,20 @@ export const RECONCILE_SINGLE_COOLDOWN_SECONDS = 30;
  * cambio detectado'` evita exponer el enum técnico aunque la traducción
  * falte.
  */
+/**
+ * Sprint 15D Fase 15D.F.1 — mapa estático inline action de registrar → evento
+ * `domain.*_changed` (ADR-084 §5, vía Outbox). El routing en el call-site es por
+ * `capabilities.is_domain_registrar` + ESTE mapa (R4: NUNCA por el slug del
+ * plugin). `modify_contacts` se incluye para cuando su handler aterrice en F.2
+ * (hoy lanza NOT_IMPLEMENTED → `result.success===false` → no se emite).
+ */
+const DOMAIN_MANAGEMENT_EVENT_BY_ACTION: Readonly<Record<string, string>> = {
+  modify_nameservers: 'domain.nameservers_changed',
+  modify_contacts: 'domain.contacts_changed',
+  toggle_privacy: 'domain.privacy_changed',
+  toggle_registrar_lock: 'domain.lock_changed',
+};
+
 function humanizeServiceDriftType(type: string): string {
   switch (type) {
     case 'status_divergence':
@@ -720,6 +734,27 @@ export class ProvisioningService {
           app_kind: appKind,
           url_kind: urlKind,
         },
+      });
+    }
+
+    // Sprint 15D Fase 15D.F.1 — eventos `domain.*_changed` vía Outbox (R8 +
+    // ADR-084 §5) tras una inline action de gestión de registrar exitosa. Gated
+    // por capability (`is_domain_registrar`) + mapa estático slug→evento (R4:
+    // nunca por el slug del plugin). El audit del cambio ya lo hace el wrapper
+    // (`service.action_executed:<slug>`); este evento lo consumen notifications
+    // (alerta de seguridad NS/lock) + futuros consumidores cross-módulo.
+    const domainEvent = DOMAIN_MANAGEMENT_EVENT_BY_ACTION[actionSlug];
+    if (
+      domainEvent !== undefined &&
+      result.success === true &&
+      plugin.capabilities.is_domain_registrar === true
+    ) {
+      await this.orchestrator.emitDomainManagementEvent(domainEvent, {
+        service_id: service.id,
+        user_id: service.user_id,
+        fqdn: service.domain,
+        actor_user_id: userId,
+        correlation_id: null,
       });
     }
 

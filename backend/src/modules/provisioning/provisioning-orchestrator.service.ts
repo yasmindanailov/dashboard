@@ -78,6 +78,28 @@ export class ProvisioningOrchestratorService {
     private readonly outbox: OutboxService,
   ) {}
 
+  /**
+   * Sprint 15D Fase 15D.F.1 — emite un evento de gestión `domain.*_changed` vía
+   * Outbox (R8 + ADR-084 §5) tras una inline action de registrar exitosa. A
+   * diferencia de register/renew, NO hay estado local que mutar (el cambio vive
+   * en el registrar, reflejado por `getServiceInfo` tras invalidar cache); la
+   * `$transaction` solo persiste el evento para dispatch exactly-once por el
+   * `OutboxWorker`. Lo invoca `ProvisioningService.executeActionForUser` (único
+   * call-site síncrono de inline actions).
+   */
+  async emitDomainManagementEvent(
+    eventName: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await this.outbox.enqueue(tx, eventName, payload);
+    });
+    this.logger.log(
+      `domain management event "${eventName}" emitido vía Outbox ` +
+        `(service=${String(payload.service_id)}).`,
+    );
+  }
+
   // ──────────────────────────────────────────────────────────────────────
   // 1. Trigger: invoice.paid → encolar provisioning de cada service
   // ──────────────────────────────────────────────────────────────────────
