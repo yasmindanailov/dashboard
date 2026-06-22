@@ -9,28 +9,31 @@ import {
   Card,
   EmptyState,
   Skeleton,
-} from '../../../../components/ui';
+} from '../../../components/ui';
 import {
-  checkoutDomainCartAction,
+  checkoutCartAction,
+  type CartCheckoutData,
   type CheckoutCartResult,
-} from '../../../../_shared/domains/_actions';
+  type CheckoutItemPayload,
+} from '../../../_shared/cart/_actions';
 import {
-  formatDomainPrice,
-  type CartCheckoutResult,
-} from '../../../../_shared/domains/types';
-import { useDomainCart } from '../../../../_shared/domains/useDomainCart';
+  cartItemKey,
+  formatMoney,
+  type CartItem,
+} from '../../../_shared/cart/types';
+import { useCart } from '../../../_shared/cart/useCart';
 
 /* ═══════════════════════════════════════
-   DomainCart — isla cliente del carrito (Sprint 15D Fase 15D.F.4).
-   Registra los dominios del carrito en un único checkout multi-ítem.
+   CartView — carrito unificado (producto + dominio) — Sprint 15D Fase 15D.F.4.
+   Un único checkout multi-ítem → /billing/checkout/items.
    ═══════════════════════════════════════ */
 
-export default function DomainCart() {
-  const cart = useDomainCart();
+export default function CartView() {
+  const cart = useCart();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ineligible, setIneligible] = useState(false);
-  const [done, setDone] = useState<CartCheckoutResult | null>(null);
+  const [done, setDone] = useState<CartCheckoutData | null>(null);
 
   const currency = cart.items[0]?.price.currency ?? 'EUR';
   const total = cart.items.reduce((sum, i) => sum + Number(i.price.amount), 0);
@@ -40,9 +43,12 @@ export default function DomainCart() {
     setSubmitting(true);
     setError(null);
     setIneligible(false);
-    const res: CheckoutCartResult = await checkoutDomainCartAction({
-      items: cart.items.map((i) => ({ domain_name: i.fqdn, years: i.years })),
-    });
+    const payload: CheckoutItemPayload[] = cart.items.map((i) =>
+      i.kind === 'product'
+        ? { kind: 'product', product_pricing_id: i.productPricingId }
+        : { kind: 'domain', domain_name: i.fqdn, years: i.years },
+    );
+    const res: CheckoutCartResult = await checkoutCartAction({ items: payload });
     setSubmitting(false);
     if (!res.ok) {
       setError(res.error);
@@ -61,15 +67,15 @@ export default function DomainCart() {
           <AlertBanner variant="success">
             Pedido creado. Se ha generado la factura{' '}
             <strong>{done.invoice_number}</strong> con {done.services.length}{' '}
-            dominio{done.services.length === 1 ? '' : 's'}. El registro se
-            completará al confirmarse el pago.
+            {done.services.length === 1 ? 'servicio' : 'servicios'}. Se activarán
+            al confirmarse el pago.
           </AlertBanner>
           <div style={{ display: 'flex', gap: 12 }}>
             <Link href="/dashboard/billing">
               <Button>Ver mis facturas</Button>
             </Link>
-            <Link href="/dashboard/domains">
-              <Button variant="secondary">Ir a mis dominios</Button>
+            <Link href="/dashboard/services">
+              <Button variant="secondary">Mis servicios</Button>
             </Link>
           </div>
         </div>
@@ -94,11 +100,16 @@ export default function DomainCart() {
     return (
       <EmptyState
         title="Tu carrito está vacío"
-        description="Busca un nombre de dominio y añade los que quieras registrar."
+        description="Añade productos desde la tienda o busca un dominio para registrar."
         action={
-          <Link href="/dashboard/domains/search">
-            <Button>Buscar dominios</Button>
-          </Link>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <Link href="/dashboard/store">
+              <Button>Ver tienda</Button>
+            </Link>
+            <Link href="/dashboard/domains/search">
+              <Button variant="secondary">Buscar dominio</Button>
+            </Link>
+          </div>
         }
       />
     );
@@ -110,40 +121,13 @@ export default function DomainCart() {
       <Card>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {cart.items.map((item, i) => (
-            <div
-              key={item.fqdn}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                padding: '14px 16px',
-                borderBottom:
-                  i === cart.items.length - 1
-                    ? 'none'
-                    : '1px solid var(--border-subtle)',
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 600 }}>{item.fqdn}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-                  Registro · {item.years} año{item.years === 1 ? '' : 's'}
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <span style={{ fontWeight: 600 }}>
-                  {formatDomainPrice(item.price)}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => cart.removeItem(item.fqdn)}
-                  disabled={submitting}
-                >
-                  Quitar
-                </Button>
-              </div>
-            </div>
+            <CartRow
+              key={cartItemKey(item)}
+              item={item}
+              isLast={i === cart.items.length - 1}
+              disabled={submitting}
+              onRemove={() => cart.removeKey(cartItemKey(item))}
+            />
           ))}
           <div
             style={{
@@ -155,7 +139,7 @@ export default function DomainCart() {
             }}
           >
             <span>Total</span>
-            <span>{formatDomainPrice({ amount: String(total), currency })}</span>
+            <span>{formatMoney({ amount: String(total), currency })}</span>
           </div>
         </div>
       </Card>
@@ -164,31 +148,70 @@ export default function DomainCart() {
         <AlertBanner variant={ineligible ? 'warning' : 'danger'}>
           {error}
           {ineligible && (
-            <>
-              {' '}
-              Completa tus datos de registrante en tu perfil y vuelve a
-              intentarlo.
-            </>
+            <> Completa tus datos de registrante en tu perfil y reinténtalo.</>
           )}
         </AlertBanner>
       )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-        <Link href="/dashboard/domains/search">
+        <Link href="/dashboard/store">
           <Button variant="ghost" disabled={submitting}>
-            ← Seguir buscando
+            ← Seguir comprando
           </Button>
         </Link>
         <Button onClick={handleCheckout} loading={submitting}>
-          Registrar {cart.items.length} dominio
-          {cart.items.length === 1 ? '' : 's'}
+          Pagar {cart.items.length}{' '}
+          {cart.items.length === 1 ? 'ítem' : 'ítems'}
         </Button>
       </div>
 
       <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: 0 }}>
-        Se emitirá una factura simplificada. El registro de cada dominio se
-        completa al confirmarse el pago.
+        Se emitirá una factura simplificada. Cada servicio se activa al
+        confirmarse el pago.
       </p>
+    </div>
+  );
+}
+
+function CartRow({
+  item,
+  isLast,
+  disabled,
+  onRemove,
+}: {
+  item: CartItem;
+  isLast: boolean;
+  disabled: boolean;
+  onRemove: () => void;
+}) {
+  const title = item.kind === 'product' ? item.productName : item.fqdn;
+  const subtitle =
+    item.kind === 'product'
+      ? item.cycleLabel
+      : `Registro · ${item.years} año${item.years === 1 ? '' : 's'}`;
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        padding: '14px 16px',
+        borderBottom: isLast ? 'none' : '1px solid var(--border-subtle)',
+      }}
+    >
+      <div>
+        <div style={{ fontWeight: 600 }}>{title}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+          {subtitle}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <span style={{ fontWeight: 600 }}>{formatMoney(item.price)}</span>
+        <Button variant="ghost" size="sm" onClick={onRemove} disabled={disabled}>
+          Quitar
+        </Button>
+      </div>
     </div>
   );
 }

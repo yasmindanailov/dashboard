@@ -76,6 +76,13 @@ const ICON = {
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
     </svg>
   ),
+  // Sprint 15D Fase 15D.F.4 — bolsa para la tienda (catálogo).
+  store: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+      <line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  ),
   commission: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
       <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
@@ -115,6 +122,9 @@ const ICON = {
  */
 const ALL_NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', requiredModule: 'Dashboard', icon: ICON.dashboard, section: 'main' },
+  // Sprint 15D Fase 15D.F.4 — tienda (catálogo) → carrito unificado. Gateada por
+  // `Invoice` (el cliente la tiene; el checkout requiere Create.Invoice).
+  { label: 'Tienda', href: '/dashboard/store', requiredModule: 'Invoice', icon: ICON.store, section: 'client' },
   { label: 'Mis servicios', href: '/dashboard/services', requiredModule: 'Service', icon: ICON.services, section: 'client' },
   // Sprint 15D Fase 15D.F.4 — comercio de dominios. Gateado por `Service` (no
   // existe Subject `Domain`: los dominios son services type='domain'). El

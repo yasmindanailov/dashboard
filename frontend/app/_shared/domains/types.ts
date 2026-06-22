@@ -51,32 +51,3 @@ export interface ListDomainsResponse {
   data: DomainListItem[];
   meta: { total: number; page: number; limit: number; totalPages: number };
 }
-
-/* ── Carrito (client-side, localStorage) ── */
-
-export interface DomainCartItem {
-  fqdn: string;
-  tld: string;
-  /** Años de registro (v1: 1). */
-  years: number;
-  /** Precio mostrado al añadir; el checkout lo re-verifica server-side (R5). */
-  price: DomainPrice;
-}
-
-/* ── Checkout del carrito (POST /domains/cart/checkout) ── */
-
-export interface CartCheckoutResult {
-  invoice_id: string;
-  invoice_number: string;
-  total: string;
-  currency: string;
-  services: { id: string; fqdn: string | null }[];
-}
-
-/** Formatea un precio de dominio (`{amount,currency}`) en es-ES. */
-export function formatDomainPrice(price: DomainPrice): string {
-  return new Intl.NumberFormat('es-ES', {
-    style: 'currency',
-    currency: price.currency,
-  }).format(Number(price.amount));
-}

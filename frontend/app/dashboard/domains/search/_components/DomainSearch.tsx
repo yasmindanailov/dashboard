@@ -15,12 +15,12 @@ import {
   checkDomainAvailabilityAction,
   type CheckAvailabilityResult,
 } from '../../../../_shared/domains/_actions';
-import {
-  formatDomainPrice,
-  type CheckDomainAvailabilityResponse,
-  type DomainAvailabilityResult,
+import type {
+  CheckDomainAvailabilityResponse,
+  DomainAvailabilityResult,
 } from '../../../../_shared/domains/types';
-import { useDomainCart } from '../../../../_shared/domains/useDomainCart';
+import { formatMoney } from '../../../../_shared/cart/types';
+import { useCart } from '../../../../_shared/cart/useCart';
 
 /* ═══════════════════════════════════════
    DomainSearch — isla cliente del buscador (Sprint 15D Fase 15D.F.4).
@@ -35,7 +35,7 @@ export default function DomainSearch() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<CheckDomainAvailabilityResponse | null>(null);
-  const cart = useDomainCart();
+  const cart = useCart();
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -65,8 +65,9 @@ export default function DomainSearch() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {cart.hydrated && cart.count > 0 && (
         <AlertBanner variant="info">
-          Tienes {cart.count} dominio{cart.count === 1 ? '' : 's'} en el carrito.{' '}
-          <Link href="/dashboard/domains/cart" style={{ fontWeight: 600 }}>
+          Tienes {cart.count} {cart.count === 1 ? 'ítem' : 'ítems'} en el
+          carrito.{' '}
+          <Link href="/dashboard/cart" style={{ fontWeight: 600 }}>
             Ir al carrito →
           </Link>
         </AlertBanner>
@@ -109,10 +110,11 @@ export default function DomainSearch() {
               <ResultRow
                 key={r.fqdn}
                 result={r}
-                inCart={cart.has(r.fqdn)}
+                inCart={cart.hasKey(`domain:${r.fqdn}`)}
                 onAdd={() =>
                   r.price &&
                   cart.addItem({
+                    kind: 'domain',
                     fqdn: r.fqdn,
                     tld: r.tld,
                     years: 1,
@@ -158,7 +160,7 @@ function ResultRow({
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {result.purchasable && result.price && (
           <span style={{ fontWeight: 600 }}>
-            {formatDomainPrice(result.price)}
+            {formatMoney(result.price)}
             <span
               style={{ color: 'var(--text-tertiary)', fontWeight: 400, fontSize: 12 }}
             >
