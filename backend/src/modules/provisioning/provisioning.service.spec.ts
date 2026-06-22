@@ -17,6 +17,7 @@
 import {
   ConflictException,
   ForbiddenException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -774,6 +775,45 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     );
 
     expect(orchestrator.emitDomainManagementEvent).not.toHaveBeenCalled();
+  });
+
+  it('executeActionForUser: fallo al emitir el evento NO hace fallar la acción exitosa (R7)', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        provisioner_slug: 'resellerclub',
+        provider_reference: '700123',
+        domain: 'example.com',
+      }),
+    );
+    registry.getOrThrow.mockReturnValue(
+      buildRegistrarPlugin({
+        success: true,
+        data: { nameservers: ['a', 'b'] },
+      }),
+    );
+    // La acción YA tuvo efecto en RC + audit; el Outbox cae al emitir el evento.
+    orchestrator.emitDomainManagementEvent.mockRejectedValueOnce(
+      new Error('outbox down'),
+    );
+    const errorSpy = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+
+    const res = await service.executeActionForUser(
+      'svc-1',
+      'modify_nameservers',
+      { nameservers: ['a', 'b'] },
+      'user-1',
+      false,
+      { ipAddress: '1.2.3.4' },
+    );
+
+    // La acción NO falla (refleja el efecto en el registrar, no la durabilidad
+    // de la notificación); el fallo de emisión se loguea.
+    expect(res.success).toBe(true);
+    expect(orchestrator.emitDomainManagementEvent).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
   // â”€â”€â”€ reprovisionAsAdmin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

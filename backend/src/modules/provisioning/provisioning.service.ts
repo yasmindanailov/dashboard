@@ -11,6 +11,7 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../core/database/prisma.service';
 import { SettingsService } from '../../core/settings/settings.service';
+import { getErrorMessage } from '../../core/common/utils/error.util';
 import {
   CircuitBreakerRegistry,
   derivePluginHealth,
@@ -749,13 +750,25 @@ export class ProvisioningService {
       result.success === true &&
       plugin.capabilities.is_domain_registrar === true
     ) {
-      await this.orchestrator.emitDomainManagementEvent(domainEvent, {
-        service_id: service.id,
-        user_id: service.user_id,
-        fqdn: service.domain,
-        actor_user_id: userId,
-        correlation_id: null,
-      });
+      // Best-effort: la acción YA tuvo efecto en el registrar + audit (wrapper) +
+      // cache invalidada. Un fallo al PERSISTIR el evento de notificación (Outbox)
+      // NO debe convertir una acción exitosa en un 500 engañoso (R7) — el rastro
+      // durable lo garantiza el `service.action_executed` del wrapper; este evento
+      // solo dispara la alerta de seguridad. Se loguea para visibilidad de ops.
+      try {
+        await this.orchestrator.emitDomainManagementEvent(domainEvent, {
+          service_id: service.id,
+          user_id: service.user_id,
+          fqdn: service.domain,
+          actor_user_id: userId,
+          correlation_id: null,
+        });
+      } catch (err) {
+        this.logger.error(
+          `domain event "${domainEvent}" falló al emitir (la acción "${actionSlug}" ` +
+            `sobre service=${service.id} SÍ tuvo efecto): ${getErrorMessage(err)}`,
+        );
+      }
     }
 
     return result;
