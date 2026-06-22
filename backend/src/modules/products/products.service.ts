@@ -21,12 +21,97 @@ import { ProductsCatalogService } from './products-catalog.service';
    Ref: ARCHITECTURE.md Regla 15
    ═══════════════════════════════════════ */
 
+/**
+ * Contexto de compra de un producto para un usuario concreto (Sprint 15D F.4,
+ * "Tienda consciente del estado"). Permite a la ficha de producto decidir el CTA
+ * correcto (Contratar / Cambiar de plan / Ya lo tienes / Límite alcanzado) en
+ * vez de dejar comprar y fallar en el checkout.
+ */
+export interface ProductPurchaseContext {
+  canBuy: boolean;
+  reason: 'ok' | 'owns_global_addon' | 'at_quantity_limit';
+  /** Addon global de cuenta (Support Inside): uno activo por cliente. */
+  isGlobalAddon: boolean;
+  maxQuantity: number | null;
+  currentQuantity: number;
+  /** Si ya tiene el addon global: id de su suscripción (para "cambiar de plan"). */
+  ownedSubscriptionId?: string;
+}
+
 @Injectable()
 export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly catalog: ProductsCatalogService,
   ) {}
+
+  /**
+   * Reglas de compra de un producto para `userId` (Sprint 15D Fase 15D.F.4).
+   * Espejo READ-ONLY de las que el checkout enforce (defense-in-depth): el
+   * checkout sigue siendo la autoridad; esto solo guía el CTA de la Tienda.
+   *   - Addon global (Support Inside / `is_global_addon`): 1 activo por cuenta.
+   *   - `max_quantity_per_client`: tope de servicios activos del mismo producto.
+   */
+  async getPurchaseContext(
+    userId: string,
+    productId: string,
+  ): Promise<ProductPurchaseContext> {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        id: true,
+        type: true,
+        is_global_addon: true,
+        max_quantity_per_client: true,
+      },
+    });
+    if (!product) throw new NotFoundException('Producto no encontrado.');
+
+    const isGlobalAddon =
+      product.is_global_addon || product.type === 'support_inside';
+
+    if (isGlobalAddon) {
+      const sub = await this.prisma.supportInsideSubscription.findUnique({
+        where: { client_id: userId },
+        select: { id: true, status: true },
+      });
+      const owns = sub != null && sub.status === 'active';
+      return {
+        canBuy: !owns,
+        reason: owns ? 'owns_global_addon' : 'ok',
+        isGlobalAddon: true,
+        maxQuantity: 1,
+        currentQuantity: owns ? 1 : 0,
+        ...(owns ? { ownedSubscriptionId: sub.id } : {}),
+      };
+    }
+
+    if (product.max_quantity_per_client) {
+      const currentQuantity = await this.prisma.service.count({
+        where: {
+          user_id: userId,
+          product_id: productId,
+          status: { notIn: ['cancelled', 'terminated'] },
+        },
+      });
+      const canBuy = currentQuantity < product.max_quantity_per_client;
+      return {
+        canBuy,
+        reason: canBuy ? 'ok' : 'at_quantity_limit',
+        isGlobalAddon: false,
+        maxQuantity: product.max_quantity_per_client,
+        currentQuantity,
+      };
+    }
+
+    return {
+      canBuy: true,
+      reason: 'ok',
+      isGlobalAddon: false,
+      maxQuantity: null,
+      currentQuantity: 0,
+    };
+  }
 
   /* ── Slug helpers ── */
 

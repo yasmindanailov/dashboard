@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { Badge, Button, Card } from '../../../../components/ui';
+import { AlertBanner, Badge, Button, Card } from '../../../../components/ui';
 import {
   CYCLE_LABELS,
   CYCLE_SAVINGS,
@@ -12,6 +12,7 @@ import {
   type Product,
   type ProductPricing,
 } from '../../../../_shared/billing/checkout/types';
+import type { ProductPurchaseContext } from '../../../../_shared/cart/types';
 import { useCart } from '../../../../_shared/cart/useCart';
 
 /* ═══════════════════════════════════════
@@ -26,7 +27,13 @@ function defaultPricing(pricings: ProductPricing[]): ProductPricing | null {
   return active.find((p) => p.billing_cycle === 'annual') ?? active[0];
 }
 
-export default function ProductConfig({ product }: { product: Product }) {
+export default function ProductConfig({
+  product,
+  context,
+}: {
+  product: Product;
+  context: ProductPurchaseContext | null;
+}) {
   const router = useRouter();
   const cart = useCart();
   const active = product.pricing.filter((p) => p.active);
@@ -36,6 +43,9 @@ export default function ProductConfig({ product }: { product: Product }) {
 
   const selected = active.find((p) => p.id === selectedId) ?? null;
   const inCart = selected ? cart.hasKey(`product:${selected.id}`) : false;
+
+  const ownsGlobal = context?.reason === 'owns_global_addon';
+  const atLimit = context?.reason === 'at_quantity_limit';
 
   function handleAdd() {
     if (!selected) return;
@@ -80,34 +90,59 @@ export default function ProductConfig({ product }: { product: Product }) {
             )}
           </div>
 
-          {/* Paso: ciclo de facturación */}
-          <div>
-            <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 10px' }}>
-              Elige el ciclo de facturación
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {active.map((pricing) => (
-                <CycleOption
-                  key={pricing.id}
-                  pricing={pricing}
-                  selected={pricing.id === selectedId}
-                  onSelect={() => setSelectedId(pricing.id)}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-            {inCart ? (
-              <Link href="/dashboard/store/cart">
-                <Button variant="secondary">En el carrito ✓ · Ir al carrito</Button>
+          {ownsGlobal ? (
+            <AlertBanner variant="info">
+              Ya tienes un plan de este servicio activo. Puedes cambiarlo o
+              cancelarlo desde tu panel.{' '}
+              <Link
+                href="/dashboard/support-inside"
+                style={{ fontWeight: 600 }}
+              >
+                Gestionar tu plan →
               </Link>
-            ) : (
-              <Button onClick={handleAdd} disabled={!selected}>
-                Añadir al carrito
-              </Button>
-            )}
-          </div>
+            </AlertBanner>
+          ) : (
+            <>
+              {/* Paso: ciclo de facturación */}
+              <div>
+                <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 10px' }}>
+                  Elige el ciclo de facturación
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {active.map((pricing) => (
+                    <CycleOption
+                      key={pricing.id}
+                      pricing={pricing}
+                      selected={pricing.id === selectedId}
+                      onSelect={() => setSelectedId(pricing.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {atLimit && context && (
+                <AlertBanner variant="warning">
+                  Has alcanzado el máximo de {context.maxQuantity} servicio
+                  {context.maxQuantity === 1 ? '' : 's'} de este tipo. Cancela uno
+                  para contratar otro.
+                </AlertBanner>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                {inCart ? (
+                  <Link href="/dashboard/store/cart">
+                    <Button variant="secondary">
+                      En el carrito ✓ · Ir al carrito
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button onClick={handleAdd} disabled={!selected || atLimit}>
+                    Añadir al carrito
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </Card>
     </div>

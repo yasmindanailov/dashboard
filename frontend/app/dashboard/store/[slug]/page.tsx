@@ -13,6 +13,7 @@ import { AlertBanner, Card } from '../../../components/ui';
 import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
 import type { Pagination } from '../../../lib/types';
 import type { Product } from '../../../_shared/billing/checkout/types';
+import type { ProductPurchaseContext } from '../../../_shared/cart/types';
 import ProductConfig from './_components/ProductConfig';
 
 interface PageProps {
@@ -63,5 +64,16 @@ export default async function ProductConfigPage({ params }: PageProps) {
     );
   }
 
-  return <ProductConfig product={product} />;
+  // Tienda consciente del estado: ¿puede comprarlo, ya lo tiene, o al límite?
+  // Si el contexto falla, degradamos a "comprable" (el checkout es la autoridad).
+  let context: ProductPurchaseContext | null = null;
+  try {
+    context = await serverFetch<ProductPurchaseContext>(
+      `/products/${product.id}/purchase-context`,
+    );
+  } catch {
+    context = null;
+  }
+
+  return <ProductConfig product={product} context={context} />;
 }

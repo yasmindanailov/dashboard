@@ -3,10 +3,12 @@ import {
   Get,
   Param,
   Query,
+  Req,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PoliciesGuard } from '../../core/casl/policies.guard';
 import { CheckPolicies } from '../../core/casl/check-policies.decorator';
@@ -46,6 +48,20 @@ export class ProductsController {
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Product))
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.findOne(id);
+  }
+
+  /**
+   * Sprint 15D Fase 15D.F.4 — contexto de compra del producto para el usuario
+   * autenticado (Tienda consciente del estado): ¿puede comprarlo, ya lo tiene
+   * (addon global), o alcanzó el límite? Read-only; el checkout es la autoridad.
+   */
+  @Get(':id/purchase-context')
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Product))
+  getPurchaseContext(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.productsService.getPurchaseContext(req.user.id, id);
   }
 
   @Get('categories/all')

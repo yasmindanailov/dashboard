@@ -47,3 +47,17 @@ export function formatMoney(money: Money): string {
     currency: money.currency,
   }).format(Number(money.amount));
 }
+
+/**
+ * Contexto de compra de un producto para el usuario (Tienda consciente del
+ * estado, 15D.F.4). Espejo de `GET /products/:id/purchase-context`. Guía el CTA;
+ * el checkout sigue siendo la autoridad.
+ */
+export interface ProductPurchaseContext {
+  canBuy: boolean;
+  reason: 'ok' | 'owns_global_addon' | 'at_quantity_limit';
+  isGlobalAddon: boolean;
+  maxQuantity: number | null;
+  currentQuantity: number;
+  ownedSubscriptionId?: string;
+}
