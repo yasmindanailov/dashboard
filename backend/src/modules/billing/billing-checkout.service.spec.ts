@@ -7,11 +7,16 @@
 //    `expect.objectContaining(...)` (devuelve `any`) o acceder a `mock.calls[0][0]`
 //    (Jest tipa los args como `any`). Aplica SOLO a este spec.
 
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { BillingCheckoutService } from './billing-checkout.service';
 import { BillingCalculatorService } from './billing-calculator.service';
 import { BillingInvoiceService } from './billing-invoice.service';
 import { PrismaService } from '../../core/database/prisma.service';
+import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 /**
@@ -28,7 +33,7 @@ describe('BillingCheckoutService', () => {
     user: { findUnique: jest.Mock };
     billingProfile: { findFirst: jest.Mock };
     productPricing: { findUnique: jest.Mock };
-    product: { findUnique: jest.Mock };
+    product: { findUnique: jest.Mock; findFirst: jest.Mock };
     domainTldPricing: { findUnique: jest.Mock };
     clientProfile: { findFirst: jest.Mock };
     service: { count: jest.Mock; findFirst: jest.Mock; create: jest.Mock };
@@ -38,6 +43,7 @@ describe('BillingCheckoutService', () => {
   let eventEmitter: { emit: jest.Mock };
   let calculator: { getCycleDays: jest.Mock };
   let invoiceService: { createInvoice: jest.Mock };
+  let registry: { getByCapability: jest.Mock };
   let svcCounter: number;
 
   const USER_ID = 'user-1';
@@ -110,7 +116,11 @@ describe('BillingCheckoutService', () => {
       user: { findUnique: jest.fn().mockResolvedValue({ id: USER_ID }) },
       billingProfile: { findFirst: jest.fn().mockResolvedValue(null) },
       productPricing: { findUnique: jest.fn() },
-      product: { findUnique: jest.fn() },
+      product: {
+        findUnique: jest.fn(),
+        // checkoutCart resuelve el producto-dominio por capability (15D.F.4).
+        findFirst: jest.fn().mockResolvedValue({ id: 'prod-domain' }),
+      },
       domainTldPricing: { findUnique: jest.fn() },
       // DOM-INV-5 (15D.F.2): el gate de elegibilidad carga el perfil solo para
       // TLDs regulados (.es/.eu). Default elegible (NIF + país UE); los tests del
@@ -156,11 +166,16 @@ describe('BillingCheckoutService', () => {
       ),
     };
 
+    registry = {
+      getByCapability: jest.fn().mockReturnValue({ slug: 'resellerclub' }),
+    };
+
     service = new BillingCheckoutService(
       prisma as unknown as PrismaService,
       eventEmitter as unknown as EventEmitter2,
       calculator as unknown as BillingCalculatorService,
       invoiceService as unknown as BillingInvoiceService,
+      registry as unknown as PluginRegistryService,
     );
   });
 
@@ -686,5 +701,80 @@ describe('BillingCheckoutService', () => {
     await expect(
       service.checkout(USER_ID, { product_pricing_id: 'pp-1' }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  /* ── Carrito unificado producto+dominio (Sprint 15D Fase 15D.F.4) ── */
+  describe('checkoutCart (carrito unificado — 15D.F.4)', () => {
+    function domainProductFixture(overrides: Overrides = {}) {
+      return {
+        id: 'prod-domain',
+        name: 'Dominios',
+        type: 'domain',
+        status: 'active',
+        provisioner: 'resellerclub',
+        ...overrides,
+      };
+    }
+
+    it('carrito mixto (producto + dominio) → resuelve el producto-dominio por capability + delega', async () => {
+      prisma.productPricing.findUnique.mockResolvedValue(
+        productPricingFixture(),
+      );
+      prisma.product.findUnique.mockResolvedValue(domainProductFixture());
+      prisma.domainTldPricing.findUnique.mockResolvedValue(
+        domainPricingFixture(),
+      );
+
+      const result = await service.checkoutCart(USER_ID, {
+        items: [
+          { kind: 'product', productPricingId: 'pp-1' },
+          { kind: 'domain', domainName: 'aelium.com', years: 1 },
+        ],
+      });
+
+      // 2 services (hosting + dominio) + 1 factura.
+      expect(result.services).toHaveLength(2);
+      // Resuelve el producto-dominio por capability (R4), nunca por slug.
+      expect(registry.getByCapability).toHaveBeenCalledWith(
+        'is_domain_registrar',
+      );
+      expect(prisma.product.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            type: 'domain',
+            provisioner: 'resellerclub',
+            status: 'active',
+          },
+        }),
+      );
+    });
+
+    it('carrito solo-producto → NO resuelve registrar de dominios', async () => {
+      prisma.productPricing.findUnique.mockResolvedValue(
+        productPricingFixture(),
+      );
+
+      await service.checkoutCart(USER_ID, {
+        items: [{ kind: 'product', productPricingId: 'pp-1' }],
+      });
+
+      expect(registry.getByCapability).not.toHaveBeenCalled();
+      expect(prisma.product.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('carrito con dominio pero sin registrar (capability) → ServiceUnavailableException', async () => {
+      registry.getByCapability.mockReturnValue(null);
+      await expect(
+        service.checkoutCart(USER_ID, {
+          items: [{ kind: 'domain', domainName: 'aelium.com', years: 1 }],
+        }),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    });
+
+    it('carrito vacío → BadRequestException', async () => {
+      await expect(
+        service.checkoutCart(USER_ID, { items: [] }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
   });
 });

@@ -8,10 +8,6 @@ import { Prisma, ServiceStatus } from '@prisma/client';
 import { getErrorMessage } from '../../core/common/utils/error.util';
 import { PrismaService } from '../../core/database/prisma.service';
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
-import {
-  BillingCheckoutService,
-  type CheckoutItem,
-} from '../billing/billing-checkout.service';
 
 /**
  * Moneda de venta v1 (ADR-084 A1.2 — moneda única). Misma constante que el
@@ -60,22 +56,6 @@ export interface ListDomainsResponse {
   meta: { total: number; page: number; limit: number; totalPages: number };
 }
 
-/** Resumen del checkout del carrito de dominios (`POST /domains/cart/checkout`). */
-export interface CartCheckoutResult {
-  invoice_id: string;
-  invoice_number: string;
-  total: string;
-  currency: string;
-  /** Services creados (uno por dominio), en estado `pending` hasta el pago. */
-  services: { id: string; fqdn: string | null }[];
-}
-
-/** Ítem del carrito tal como llega del controller (forma REST → camelCase interno). */
-export interface CartDomainInput {
-  domainName: string;
-  years: number;
-}
-
 /**
  * Sprint 15D Fase 15D.F.2 — buscador de dominios (pre-venta).
  *
@@ -95,7 +75,6 @@ export class DomainsService {
   constructor(
     private readonly registry: PluginRegistryService,
     private readonly prisma: PrismaService,
-    private readonly billingCheckout: BillingCheckoutService,
   ) {}
 
   async checkAvailability(input: {
@@ -241,62 +220,6 @@ export class DomainsService {
         limit,
         totalPages: Math.max(1, Math.ceil(total / limit)),
       },
-    };
-  }
-
-  /**
-   * Checkout del carrito de dominios: resuelve el registrar por capability (R4)
-   * y SU producto de dominio (`product.type='domain'`, server-side — el cliente
-   * nunca envía `product_id`), arma los ítems `kind:'domain'` y delega en el
-   * core multi-ítem (`BillingCheckoutService.checkoutItems`). Ahí se aplican
-   * DOM-INV-2 (advisory lock por FQDN), DOM-INV-3 (margin guard) y DOM-INV-5
-   * (elegibilidad `.es`/`.eu` ANTES de cobrar). Crea N services `pending` + 1
-   * factura `draft`; el orquestador registra cada dominio al pagar.
-   */
-  async checkoutCart(
-    userId: string,
-    input: { items: CartDomainInput[]; billingProfileId?: string },
-  ): Promise<CartCheckoutResult> {
-    const plugin = this.registry.getByCapability('is_domain_registrar');
-    if (!plugin) {
-      throw new ServiceUnavailableException({
-        code: 'NO_DOMAIN_REGISTRAR',
-        message: 'No hay un registrar de dominios disponible ahora mismo.',
-      });
-    }
-
-    // El producto de dominio del registrar activo (ADR-084 §1: uno por registrar).
-    const product = await this.prisma.product.findFirst({
-      where: { type: 'domain', provisioner: plugin.slug, status: 'active' },
-      select: { id: true },
-      orderBy: { created_at: 'asc' },
-    });
-    if (!product) {
-      throw new ServiceUnavailableException({
-        code: 'NO_DOMAIN_PRODUCT',
-        message: 'No hay un producto de dominio configurado.',
-      });
-    }
-
-    const items: CheckoutItem[] = input.items.map((it) => ({
-      kind: 'domain',
-      productId: product.id,
-      domainName: it.domainName,
-      operation: 'register',
-      years: it.years,
-    }));
-
-    const result = await this.billingCheckout.checkoutItems(userId, {
-      items,
-      billingProfileId: input.billingProfileId,
-    });
-
-    return {
-      invoice_id: result.invoice.id,
-      invoice_number: result.invoice.invoice_number,
-      total: result.invoice.total.toString(),
-      currency: result.invoice.currency,
-      services: result.services.map((s) => ({ id: s.id, fqdn: s.domain })),
     };
   }
 }

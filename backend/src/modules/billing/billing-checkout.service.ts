@@ -2,10 +2,12 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ServiceUnavailableException,
   Logger,
 } from '@nestjs/common';
 import { BillingCycle, Prisma, Service } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
+import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
 import {
   checkTldRegistrantEligibility,
   tldRegistrantRequirement,
@@ -46,6 +48,21 @@ export interface CheckoutInput {
   items: CheckoutItem[];
   billingProfileId?: string;
 }
+
+/**
+ * Ítem del carrito tal como llega del portal cliente (forma pública/REST) —
+ * Sprint 15D Fase 15D.F.4 (carrito único producto+dominio). El cliente NO envía
+ * el `productId` del dominio (se resuelve server-side por capability R4); para
+ * productos envía el `productPricingId` (el plan elegido).
+ */
+export type PublicCartItem =
+  | {
+      kind: 'product';
+      productPricingId: string;
+      label?: string;
+      domain?: string;
+    }
+  | { kind: 'domain'; domainName: string; years: number };
 
 /**
  * Forma legacy de 1 producto — preserva el contrato REST actual (`CheckoutDto`).
@@ -104,7 +121,77 @@ export class BillingCheckoutService {
     private readonly eventEmitter: EventEmitter2,
     private readonly calculator: BillingCalculatorService,
     private readonly invoiceService: BillingInvoiceService,
+    private readonly registry: PluginRegistryService,
   ) {}
+
+  /**
+   * Checkout del carrito unificado (Sprint 15D Fase 15D.F.4) — ítems mixtos de
+   * producto y/o dominio desde el portal cliente. Resuelve el producto-dominio
+   * server-side por capability (R4 — `is_domain_registrar`, el cliente nunca
+   * envía `productId`) y delega en el core multi-ítem `checkoutItems` (DOM-INV-2/3/5
+   * + cálculo de precio R5). Crea N services `pending` + 1 factura.
+   */
+  async checkoutCart(
+    userId: string,
+    input: { items: PublicCartItem[]; billingProfileId?: string },
+  ): Promise<{
+    services: Service[];
+    invoice: Awaited<ReturnType<BillingInvoiceService['createInvoice']>>;
+    invoice_type: 'completa' | 'simplificada';
+    discount_applied: string | null;
+  }> {
+    if (!input.items || input.items.length === 0) {
+      throw new BadRequestException('El carrito está vacío.');
+    }
+
+    // Resuelve el producto-dominio UNA vez (si hay ítems de dominio).
+    let domainProductId: string | null = null;
+    if (input.items.some((i) => i.kind === 'domain')) {
+      const plugin = this.registry.getByCapability('is_domain_registrar');
+      if (!plugin) {
+        throw new ServiceUnavailableException({
+          code: 'NO_DOMAIN_REGISTRAR',
+          message: 'No hay un registrar de dominios disponible ahora mismo.',
+        });
+      }
+      const product = await this.prisma.product.findFirst({
+        where: { type: 'domain', provisioner: plugin.slug, status: 'active' },
+        select: { id: true },
+        orderBy: { created_at: 'asc' },
+      });
+      if (!product) {
+        throw new ServiceUnavailableException({
+          code: 'NO_DOMAIN_PRODUCT',
+          message: 'No hay un producto de dominio configurado.',
+        });
+      }
+      domainProductId = product.id;
+    }
+
+    const items: CheckoutItem[] = input.items.map((it) =>
+      it.kind === 'product'
+        ? {
+            kind: 'product',
+            productPricingId: it.productPricingId,
+            label: it.label,
+            domain: it.domain,
+          }
+        : {
+            kind: 'domain',
+            // `domainProductId` está garantizado no-null aquí (se resolvió arriba
+            // porque hay al menos un ítem de dominio).
+            productId: domainProductId as string,
+            domainName: it.domainName,
+            operation: 'register',
+            years: it.years,
+          },
+    );
+
+    return this.checkoutItems(userId, {
+      items,
+      billingProfileId: input.billingProfileId,
+    });
+  }
 
   /**
    * Checkout de 1 producto — entrada legacy que preserva el contrato REST

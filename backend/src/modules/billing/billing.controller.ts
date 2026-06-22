@@ -30,6 +30,8 @@ import {
   InvoiceListQueryDto,
 } from './dto/billing.dto';
 import { CheckoutDto } from './dto/checkout.dto';
+import { CheckoutItemsDto } from './dto/checkout-items.dto';
+import type { PublicCartItem } from './billing-checkout.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PoliciesGuard } from '../../core/casl/policies.guard';
 import { CheckPolicies } from '../../core/casl/check-policies.decorator';
@@ -327,5 +329,63 @@ export class BillingController {
 
     // Client: always self-scoped, ignore any query param
     return this.billingService.checkout(user.id, dto);
+  }
+
+  /**
+   * Sprint 15D Fase 15D.F.4 — checkout del carrito unificado (producto + dominio).
+   * Crea N services + 1 factura. El precio se resuelve server-side (R5); el
+   * producto-dominio por capability (R4). Mismo modelo de targetUserId que el
+   * checkout legacy (admin DEBE indicar cliente destino; cliente self-scoped).
+   */
+  @Post('checkout/items')
+  @ApiOperation({
+    summary:
+      'Checkout del carrito unificado (N ítems producto/dominio → 1 factura)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Create, Subject.Invoice))
+  async checkoutItems(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CheckoutItemsDto,
+    @Query('targetUserId') targetUserId?: string,
+  ) {
+    const user = req.user;
+    const isAdmin = ADMIN_ROLES.includes(user.role.slug);
+
+    const items: PublicCartItem[] = dto.items.map((it) =>
+      it.kind === 'product'
+        ? {
+            kind: 'product',
+            productPricingId: it.product_pricing_id as string,
+            label: it.label,
+            domain: it.domain,
+          }
+        : {
+            kind: 'domain',
+            domainName: it.domain_name as string,
+            years: it.years as number,
+          },
+    );
+
+    let resolvedUserId = user.id;
+    if (isAdmin) {
+      if (!targetUserId) {
+        throw new BadRequestException(
+          'Como administrador, debes seleccionar un cliente destino (targetUserId).',
+        );
+      }
+      resolvedUserId = targetUserId;
+    }
+
+    const result = await this.billingService.checkoutCart(resolvedUserId, {
+      items,
+      billingProfileId: dto.billing_profile_id,
+    });
+    return {
+      invoice_id: result.invoice.id,
+      invoice_number: result.invoice.invoice_number,
+      total: result.invoice.total.toString(),
+      currency: result.invoice.currency,
+      services: result.services.map((s) => ({ id: s.id, domain: s.domain })),
+    };
   }
 }
