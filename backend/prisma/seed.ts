@@ -16,6 +16,7 @@ import { seedSampleClientNotes } from './seeds/sample-client-notes';
 import { seedSupportInsidePlans } from './seeds/support-inside-plans';
 import { seedSampleSupportInside } from './seeds/sample-support-inside';
 import { seedSampleEnhancePluginInstall } from './seeds/sample-enhance-plugin-install';
+import { seedSampleDomainCommerce } from './seeds/sample-domain-commerce';
 
 /**
  * Orquestador del seed de la base de datos — Sprint 9.6 Fase F.0
@@ -49,7 +50,9 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   console.log('🌱 Seeding database...');
-  console.log(`  Environment: NODE_ENV=${process.env.NODE_ENV || '(undefined)'}`);
+  console.log(
+    `  Environment: NODE_ENV=${process.env.NODE_ENV || '(undefined)'}`,
+  );
 
   try {
     await seedRoles(prisma);
@@ -77,6 +80,7 @@ async function main() {
     await seedTestAccounts(prisma);
     await seedSampleClients(prisma);
     await seedSampleProducts(prisma);
+    await seedSampleDomainCommerce(prisma);
     await seedSampleInvoices(prisma);
     await seedSampleSupport(prisma);
     // Sub-fase 8.D.12.10 — depende de support-inside-plans + sample-products
