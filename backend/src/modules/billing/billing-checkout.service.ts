@@ -6,6 +6,10 @@ import {
 } from '@nestjs/common';
 import { BillingCycle, Prisma, Service } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
+import {
+  checkTldRegistrantEligibility,
+  tldRegistrantRequirement,
+} from '../../core/provisioning/registrant-eligibility';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BillingCalculatorService } from './billing-calculator.service';
 import { BillingInvoiceService } from './billing-invoice.service';
@@ -190,7 +194,7 @@ export class BillingCheckoutService {
               input.billingProfileId,
               productCartCount,
             )
-          : await this.resolveDomainItem(item, input.billingProfileId);
+          : await this.resolveDomainItem(userId, item, input.billingProfileId);
       resolvedLines.push(line);
     }
 
@@ -383,6 +387,7 @@ export class BillingCheckoutService {
    * el orquestador fije `ProvisionContext.operation` (Fase sub-4).
    */
   private async resolveDomainItem(
+    userId: string,
     item: Extract<CheckoutItem, { kind: 'domain' }>,
     billingProfileId: string | undefined,
   ): Promise<ResolvedLine> {
@@ -445,6 +450,29 @@ export class BillingCheckoutService {
       throw new BadRequestException(
         'Precio de dominio temporalmente no disponible. Inténtalo más tarde.',
       );
+    }
+
+    // DOM-INV-5 (ADR-084 §3) — elegibilidad de registrante ANTES de cobrar para
+    // TLDs regulados (.es→NIF/NIE, .eu→residencia UE). Si el perfil no cumple, se
+    // bloquea el checkout con un mensaje accionable (nunca se cobra para que el
+    // registro falle después). Solo se carga el perfil si el TLD lo requiere. El
+    // plugin mantiene su defensa al register como backstop (REGISTRANT_INELIGIBLE).
+    if (tldRegistrantRequirement(tld)) {
+      const profile = await this.prisma.clientProfile.findFirst({
+        where: { user_id: userId },
+        select: { tax_id: true, country: true },
+      });
+      const eligibility = checkTldRegistrantEligibility(tld, {
+        taxId: profile?.tax_id,
+        countryCode: profile?.country,
+      });
+      if (!eligibility.eligible) {
+        throw new BadRequestException({
+          code: 'REGISTRANT_INELIGIBLE',
+          message: eligibility.reason,
+          tld,
+        });
+      }
     }
 
     const price = Number(pricing.price_amount);

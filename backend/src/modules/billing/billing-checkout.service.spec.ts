@@ -30,6 +30,7 @@ describe('BillingCheckoutService', () => {
     productPricing: { findUnique: jest.Mock };
     product: { findUnique: jest.Mock };
     domainTldPricing: { findUnique: jest.Mock };
+    clientProfile: { findFirst: jest.Mock };
     service: { count: jest.Mock; findFirst: jest.Mock; create: jest.Mock };
     $executeRaw: jest.Mock;
     $transaction: jest.Mock;
@@ -111,6 +112,14 @@ describe('BillingCheckoutService', () => {
       productPricing: { findUnique: jest.fn() },
       product: { findUnique: jest.fn() },
       domainTldPricing: { findUnique: jest.fn() },
+      // DOM-INV-5 (15D.F.2): el gate de elegibilidad carga el perfil solo para
+      // TLDs regulados (.es/.eu). Default elegible (NIF + país UE); los tests del
+      // gate lo overridean.
+      clientProfile: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ tax_id: '12345678Z', country: 'ES' }),
+      },
       service: {
         count: jest.fn().mockResolvedValue(0),
         findFirst: jest.fn().mockResolvedValue(null),
@@ -524,6 +533,105 @@ describe('BillingCheckoutService', () => {
             expect.objectContaining({ operation: 'transfer' }),
         },
       });
+    });
+
+    // ─── DOM-INV-5: elegibilidad pre-checkout (.es/.eu) ──────────────────
+    it('DOM-INV-5: .es sin NIF en el perfil → bloqueado antes de cobrar (no crea service)', async () => {
+      prisma.product.findUnique.mockResolvedValue(domainProductFixture());
+      prisma.domainTldPricing.findUnique.mockResolvedValue(
+        domainPricingFixture(),
+      );
+      prisma.clientProfile.findFirst.mockResolvedValue({
+        tax_id: null,
+        country: 'ES',
+      });
+
+      await expect(
+        service.checkoutItems(USER_ID, {
+          items: [
+            {
+              kind: 'domain',
+              productId: 'prod-domain',
+              domainName: 'example.es',
+              operation: 'register',
+              years: 1,
+            },
+          ],
+        }),
+      ).rejects.toMatchObject({
+        response: { code: 'REGISTRANT_INELIGIBLE' },
+      });
+      expect(prisma.service.create).not.toHaveBeenCalled();
+    });
+
+    it('DOM-INV-5: .es con NIF → procede y crea el service', async () => {
+      prisma.product.findUnique.mockResolvedValue(domainProductFixture());
+      prisma.domainTldPricing.findUnique.mockResolvedValue(
+        domainPricingFixture(),
+      );
+      prisma.clientProfile.findFirst.mockResolvedValue({
+        tax_id: '12345678Z',
+        country: 'ES',
+      });
+
+      const result = await service.checkoutItems(USER_ID, {
+        items: [
+          {
+            kind: 'domain',
+            productId: 'prod-domain',
+            domainName: 'example.es',
+            operation: 'register',
+            years: 1,
+          },
+        ],
+      });
+      expect(result.services).toHaveLength(1);
+    });
+
+    it('DOM-INV-5: .eu con país no-UE → bloqueado', async () => {
+      prisma.product.findUnique.mockResolvedValue(domainProductFixture());
+      prisma.domainTldPricing.findUnique.mockResolvedValue(
+        domainPricingFixture(),
+      );
+      prisma.clientProfile.findFirst.mockResolvedValue({
+        tax_id: null,
+        country: 'US',
+      });
+
+      await expect(
+        service.checkoutItems(USER_ID, {
+          items: [
+            {
+              kind: 'domain',
+              productId: 'prod-domain',
+              domainName: 'example.eu',
+              operation: 'register',
+              years: 1,
+            },
+          ],
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.service.create).not.toHaveBeenCalled();
+    });
+
+    it('DOM-INV-5: TLD no regulado (.com) NO carga el perfil', async () => {
+      prisma.product.findUnique.mockResolvedValue(domainProductFixture());
+      prisma.domainTldPricing.findUnique.mockResolvedValue(
+        domainPricingFixture(),
+      );
+
+      await service.checkoutItems(USER_ID, {
+        items: [
+          {
+            kind: 'domain',
+            productId: 'prod-domain',
+            domainName: 'example.com',
+            operation: 'register',
+            years: 1,
+          },
+        ],
+      });
+      expect(prisma.clientProfile.findFirst).not.toHaveBeenCalled();
     });
   });
 
