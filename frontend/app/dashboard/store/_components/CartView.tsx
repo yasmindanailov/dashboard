@@ -106,7 +106,7 @@ export default function CartView() {
             <Link href="/dashboard/store">
               <Button>Ver tienda</Button>
             </Link>
-            <Link href="/dashboard/domains/search">
+            <Link href="/dashboard/store/domains">
               <Button variant="secondary">Buscar dominio</Button>
             </Link>
           </div>

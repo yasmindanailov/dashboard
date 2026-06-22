@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 
 import {
   AlertBanner,
@@ -10,22 +9,22 @@ import {
   Card,
   EmptyState,
   SearchInput,
-} from '../../../../components/ui';
+} from '../../../components/ui';
 import {
   checkDomainAvailabilityAction,
   type CheckAvailabilityResult,
-} from '../../../../_shared/domains/_actions';
+} from '../../../_shared/domains/_actions';
 import type {
   CheckDomainAvailabilityResponse,
   DomainAvailabilityResult,
-} from '../../../../_shared/domains/types';
-import { formatMoney } from '../../../../_shared/cart/types';
-import { useCart } from '../../../../_shared/cart/useCart';
+} from '../../../_shared/domains/types';
+import { formatMoney } from '../../../_shared/cart/types';
+import { useCart } from '../../../_shared/cart/useCart';
 
 /* ═══════════════════════════════════════
-   DomainSearch — isla cliente del buscador (Sprint 15D Fase 15D.F.4).
-   Extrae el SLD (1ª etiqueta), consulta disponibilidad+precio server-side
-   y permite añadir los comprables al carrito (localStorage, dedup por FQDN).
+   DomainSearch — buscador de dominios DENTRO de la Tienda (Sprint 15D F.4).
+   Extrae el SLD (1ª etiqueta), consulta disponibilidad+precio server-side y
+   añade los comprables al carrito unificado (mismo `useCart` que el catálogo).
    ═══════════════════════════════════════ */
 
 const SLD_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -63,16 +62,6 @@ export default function DomainSearch() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {cart.hydrated && cart.count > 0 && (
-        <AlertBanner variant="info">
-          Tienes {cart.count} {cart.count === 1 ? 'ítem' : 'ítems'} en el
-          carrito.{' '}
-          <Link href="/dashboard/cart" style={{ fontWeight: 600 }}>
-            Ir al carrito →
-          </Link>
-        </AlertBanner>
-      )}
-
       <Card>
         <form
           onSubmit={handleSearch}

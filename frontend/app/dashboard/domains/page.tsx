@@ -56,8 +56,8 @@ export default async function MyDomainsPage({ searchParams }: PageProps) {
           : `${meta.total} dominio${meta.total === 1 ? '' : 's'}`
       }
       action={
-        <Link href="/dashboard/domains/search">
-          <Button>Buscar y registrar</Button>
+        <Link href="/dashboard/store/domains">
+          <Button>Registrar dominio</Button>
         </Link>
       }
     >

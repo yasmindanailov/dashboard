@@ -124,10 +124,10 @@ export const ROUTE_PERMISSIONS: Record<string, AppModule> = {
   // paraguas. Por eso reusamos `Service` aquí en vez de inventar un Subject que
   // driftearía respecto a backend/permissions.ts. Cubre /search, /cart y /[id].
   '/dashboard/domains': 'Service',
-  // Sprint 15D Fase 15D.F.4 — tienda + carrito unificado (gateados por Invoice,
-  // que el cliente tiene; el checkout requiere Create.Invoice).
+  // Sprint 15D Fase 15D.F.4 — Tienda autocontenida (catálogo + dominios +
+  // carrito), gateada por Invoice (que el cliente tiene; el checkout requiere
+  // Create.Invoice). El prefijo cubre /store/domains y /store/cart.
   '/dashboard/store': 'Invoice',
-  '/dashboard/cart': 'Invoice',
   '/dashboard/support-inside': 'SupportInside',
   '/dashboard/referrals': 'Referral',
   // Partner-specific (mantenido en /dashboard hasta Sprint 19; ese sprint

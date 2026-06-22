@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useAuth } from '../../lib/auth-context';
 import { canAccess } from '../../lib/permissions';
 import { Dropdown, type DropdownItem } from '../../components/ui';
-import { useCart } from '../cart/useCart';
 import NotificationBell from './NotificationBell';
 import styles from './Topbar.module.css';
 
@@ -75,13 +74,6 @@ const IconTicket = (
   </svg>
 );
 
-const IconCart = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
-    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-  </svg>
-);
-
 /* ── Component ── */
 
 interface TopbarProps {
@@ -137,10 +129,6 @@ export default function Topbar({ sidebarCollapsed, onMobileMenuOpen, onOpenSuppo
       {/* Right — Actions */}
       <div className={styles.right}>
 
-        {/* Carrito (cliente) — Sprint 15D Fase 15D.F.4: acceso persistente con
-            contador al carrito unificado producto+dominio. */}
-        {isClient && <CartButton />}
-
         {/* Support button (client only) — UI_SPEC §P3 */}
         {isClient && <SupportButton onOpenChat={onOpenSupportPanel} />}
 
@@ -169,28 +157,6 @@ export default function Topbar({ sidebarCollapsed, onMobileMenuOpen, onOpenSuppo
         />
       </div>
     </header>
-  );
-}
-
-/* ── Cart Button (Client Only) — Sprint 15D Fase 15D.F.4 ── */
-
-function CartButton() {
-  const cart = useCart();
-  return (
-    <Link
-      href="/dashboard/cart"
-      className={styles.iconBtn}
-      style={{ position: 'relative' }}
-      title="Carrito"
-      aria-label="Carrito"
-    >
-      {IconCart}
-      {cart.hydrated && cart.count > 0 && (
-        <span className={styles.countBadge}>
-          {cart.count > 9 ? '9+' : cart.count}
-        </span>
-      )}
-    </Link>
   );
 }
 

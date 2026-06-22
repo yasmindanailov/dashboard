@@ -14,7 +14,7 @@ export default function CartLink() {
   const cart = useCart();
   const suffix = cart.hydrated && cart.count > 0 ? ` (${cart.count})` : '';
   return (
-    <Link href="/dashboard/cart">
+    <Link href="/dashboard/store/cart">
       <Button variant="secondary">Carrito{suffix}</Button>
     </Link>
   );
