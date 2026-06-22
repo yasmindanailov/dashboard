@@ -183,9 +183,48 @@ describe('ResellerClubApiClient ↔ MockResellerClubServer — Sprint 15D Fase 1
     expect(d.isprivacyprotected).toBe(false);
   });
 
-  it('suspend/unsuspend cambian entitystatus; theft protection no rompe', async () => {
+  it('enable/disableTheftProtection se reflejan en currentstatus (read-after-write — 15D.F)', async () => {
     const orderId = await client.registerDomain(registerInput());
+    expect((await client.getDomainDetailsByOrderId(orderId)).currentstatus).toBe(
+      'ok',
+    );
     await client.enableTheftProtection(orderId);
+    expect((await client.getDomainDetailsByOrderId(orderId)).currentstatus).toBe(
+      'transferlock',
+    );
+    await client.disableTheftProtection(orderId);
+    expect((await client.getDomainDetailsByOrderId(orderId)).currentstatus).toBe(
+      'ok',
+    );
+  });
+
+  it('modifyContacts refleja los 4 handles en details (read-after-write — 15D.F)', async () => {
+    const orderId = await client.registerDomain(registerInput());
+    await client.modifyContacts(orderId, {
+      'reg-contact-id': '11',
+      'admin-contact-id': '22',
+      'tech-contact-id': '33',
+      'billing-contact-id': '44',
+    });
+    const d = await client.getDomainDetailsByOrderId(orderId);
+    expect(d.registrantcontactid).toBe('11');
+    expect(d.admincontactid).toBe('22');
+    expect(d.techcontactid).toBe('33');
+    expect(d.billingcontactid).toBe('44');
+  });
+
+  it('details expone domsecret (auth-code) y modifyAuthCode round-trip-ea (15D.F)', async () => {
+    const orderId = await client.registerDomain(registerInput());
+    const seeded = await client.getDomainDetailsByOrderId(orderId);
+    expect(seeded.domsecret).toBe(`Auth-${orderId}`);
+    await client.modifyAuthCode(orderId, 'NewEpp123!');
+    expect((await client.getDomainDetailsByOrderId(orderId)).domsecret).toBe(
+      'NewEpp123!',
+    );
+  });
+
+  it('suspend/unsuspend cambian entitystatus', async () => {
+    const orderId = await client.registerDomain(registerInput());
     await client.suspendOrder(orderId, 'impago');
     expect((await client.getDomainDetailsByOrderId(orderId)).entitystatus).toBe(
       'Suspended',

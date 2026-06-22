@@ -187,6 +187,8 @@ interface MockRcDomain {
   privacyprotected: boolean;
   theftprotection: boolean;
   suspended: boolean;
+  /** Auth/EPP code (transfer-out). Sembrado al registrar; `get_auth_code` lo lee. */
+  domsecret: string;
 }
 
 export interface MockResellerClubState {
@@ -404,6 +406,7 @@ function registerRoutes(
       privacyprotected: str(p, 'protect-privacy') === 'true',
       theftprotection: false,
       suspended: false,
+      domsecret: `Auth-${orderId}`,
     };
     state.domainsByName.set(fqdn, domain);
     state.domainsByOrderId.set(orderId, domain);
@@ -485,6 +488,9 @@ function registerManagementRoutes(
     mutateDomain(state, req, res, (d) => {
       const p = readParams(req);
       d.regcontactid = str(p, 'reg-contact-id') ?? d.regcontactid;
+      d.admincontactid = str(p, 'admin-contact-id') ?? d.admincontactid;
+      d.techcontactid = str(p, 'tech-contact-id') ?? d.techcontactid;
+      d.billingcontactid = str(p, 'billing-contact-id') ?? d.billingcontactid;
     }),
   );
   app.post('/domains/modify-privacy-protection.json', (req, res) =>
@@ -498,7 +504,10 @@ function registerManagementRoutes(
     ),
   );
   app.post('/domains/modify-auth-code.json', (req, res) =>
-    mutateDomain(state, req, res, () => undefined),
+    mutateDomain(state, req, res, (d) => {
+      // El setter de auth-code round-trip-ea con `domains/details.domsecret`.
+      d.domsecret = str(readParams(req), 'auth-code') ?? d.domsecret;
+    }),
   );
   app.post('/domains/enable-theft-protection.json', (req, res) =>
     mutateDomain(state, req, res, (d) => (d.theftprotection = true)),
@@ -560,16 +569,23 @@ function sendDomainDetails(res: Response, d: MockRcDomain | undefined): void {
     entityid: d.orderid,
     domainname: d.domainname,
     entitystatus: d.suspended ? 'Suspended' : 'Active',
-    currentstatus: 'ok',
+    // El registrar/theft lock viaja en los ejes de estado (lo lee
+    // `detectRegistrarLock` → `/transferlock/`). Fidelidad read-after-write
+    // de `toggle_registrar_lock` (15D.F).
+    currentstatus: d.theftprotection ? 'transferlock' : 'ok',
     creationtime: String(d.creationtime),
     endtime: String(d.endtime),
     ns1: d.ns[0],
     ns2: d.ns[1],
+    ns3: d.ns[2],
+    ns4: d.ns[3],
     registrantcontactid: d.regcontactid,
     admincontactid: d.admincontactid,
     techcontactid: d.techcontactid,
     billingcontactid: d.billingcontactid,
     isprivacyprotected: d.privacyprotected,
+    // Auth/EPP code para `get_auth_code` (no se expone en `DomainInfo`; R12).
+    domsecret: d.domsecret,
   });
 }
 
