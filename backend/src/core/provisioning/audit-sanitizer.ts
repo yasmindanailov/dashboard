@@ -6,8 +6,9 @@
  *
  * Doctrina:
  *   - Todo `ActionResult.data.<field>` cuyo nombre matchea el regex canónico
- *     `/(password|secret|token|apiKey|privateKey)/i` se sustituye por
- *     `'[REDACTED]'` antes de persistir audit.
+ *     `/(password|secret|token|apiKey|privateKey|auth.?code)/i` se sustituye por
+ *     `'[REDACTED]'` antes de persistir audit. (`auth.?code` cubre el EPP/auth
+ *     code de registrar — `get_auth_code` 15D.F, ADR-081 Amendment A5.)
  *   - El admin sigue viendo el campo en la UI (toast/modal) durante la sesión
  *     inmediata; solo el log persistido lo enmascara.
  *   - Plugins pueden declarar `ServiceAction.allowsSensitiveDataInAudit?:
@@ -19,13 +20,16 @@
  * retornen secretos one-time vía `ActionResult.data`.
  */
 
-const SENSITIVE_KEY_REGEX = /(password|secret|token|apiKey|privateKey)/i;
+// `auth.?code` añadido en Sprint 15D.F (ADR-081 Amendment A5): el EPP/auth code
+// de transferencia que retorna `get_auth_code` es un secreto → nunca a audit.
+const SENSITIVE_KEY_REGEX =
+  /(password|secret|token|apiKey|privateKey|auth.?code)/i;
 const REDACTED_PLACEHOLDER = '[REDACTED]' as const;
 
 /**
  * Redacta campos sensibles dentro de `data` (walk recursivo).
  *
- * - Keys que matchean el regex `password|secret|token|apiKey|privateKey`
+ * - Keys que matchean el regex `password|secret|token|apiKey|privateKey|auth.?code`
  *   (case-insensitive) se sustituyen por `'[REDACTED]'`.
  * - `allowList` opcional permite skip per-key (uncommon).
  * - Idempotente: aplicar dos veces produce el mismo resultado (los valores

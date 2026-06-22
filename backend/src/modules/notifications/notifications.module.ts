@@ -25,6 +25,7 @@ import { NotificationsOnServiceQuotaThresholdCrossedListener } from './listeners
 import { NotificationsOnServiceSuspendedListener } from './listeners/notifications-on-service-suspended.listener';
 import { NotificationsOnServiceUnsuspendedListener } from './listeners/notifications-on-service-unsuspended.listener';
 import { NotificationsOnDomainLifecycleListener } from './listeners/notifications-on-domain-lifecycle.listener';
+import { NotificationsOnDomainManagementListener } from './listeners/notifications-on-domain-management.listener';
 import { NotificationsRetentionCron } from './notifications-retention.cron';
 
 /**
@@ -108,6 +109,10 @@ import { NotificationsRetentionCron } from './notifications-retention.cron';
     // del dominio (domain.renewed/expiring_soon/expired/entered_redemption) y
     // despacha email + campana al cliente. Heredable a futuros registrars.
     NotificationsOnDomainLifecycleListener,
+    // Sprint 15D Fase 15D.F.1 (ADR-084 §5): alertas de seguridad de gestión
+    // (domain.nameservers_changed / domain.lock_changed) → email + campana
+    // "verifica que fuiste tú". Heredable a futuros registrars.
+    NotificationsOnDomainManagementListener,
     NotificationsRetentionCron,
     {
       provide: NOTIFICATION_CHANNELS,

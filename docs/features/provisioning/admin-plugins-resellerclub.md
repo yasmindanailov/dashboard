@@ -81,13 +81,38 @@ registrar nada.
 - **Notificaciones:** `NotificationsOnDomainLifecycleListener` consume los 4
   eventos → email + campana al cliente (plantillas seedeadas).
 
+## Qué hace hoy (Fase 15D.F.1 — gestión curada backend)
+
+Acciones curadas vía `executeAction` (el cliente/admin las invoca por el endpoint
+genérico `POST /services/:id/actions/:slug`; el wrapper canónico hace cache+audit+
+`adminOnly`+R12, el plugin solo ejecuta en RC):
+
+- **`modify_nameservers`** (peligrosa, `confirmRequired`): cambia la delegación de
+  NS del registro (NO la zona DNS, que es Enhance) + verify-after-write.
+- **`toggle_privacy`**: WHOIS privacy ON/OFF.
+- **`toggle_registrar_lock`**: theft/registrar lock ON/OFF.
+- **`get_auth_code`**: devuelve el EPP/auth code para transfer-OUT (cliente
+  self-service); gateado por activo+sin-lock; **secreto** → el audit lo redacta (R12).
+- **`suspend_service`/`unsuspend_service`** (adminOnly): vía el endpoint dedicado
+  `POST /admin/services/:id/suspend|unsuspend` → `orders/suspend|unsuspend` en RC;
+  el orquestador transiciona `services.status` + emite `service.suspended/unsuspended`.
+
+Tras una acción de gestión exitosa se emite el evento `domain.*_changed`
+correspondiente (Outbox, ADR-084 §5). **Alerta de seguridad:** un cambio de
+nameservers o de lock dispara email + campana al cliente ("verifica que fuiste tú").
+`modify_contacts` llega en 15D.F.2 (flujo de contactos enriquecido). Shapes RC de
+gestión CONSERVADORES hasta el smoke OT&E (Fase G, A1.5).
+
 ## Pendiente (fases siguientes)
 
-- **15D.F:** acciones de gestión (`executeAction`: NS/contactos/privacy/lock/
-  auth-code) + admin suspend/unsuspend + zona DNS post-register + buscador +
-  frontend + DOM-INV-5 rico pre-checkout (`.es` NIF / `.eu` residencia).
-- **15D.G:** smoke OT&E real (refina los shapes `register`/`details` conservadores
-  — ADR-081 A1.5) + cierre.
+- **15D.F.2:** buscador + `POST /domains/check-availability` (REST) + DOM-INV-5 rico
+  pre-checkout (`.es` NIF / `.eu` residencia, `contacts/set-details`) +
+  `modify_contacts` enriquecido + checkout de registro.
+- **15D.F.3:** zona DNS post-register capability-routed (ADR-082 A3/DH-INV-7).
+- **15D.F.4:** frontend de dominios (buscador + gestión + registro) + `deleteDomain`
+  admin en gracia (A3.1).
+- **15D.G:** smoke OT&E real (refina los shapes `register`/`details`/gestión
+  conservadores — ADR-081 A1.5) + cierre.
 
 ## Notas operativas
 

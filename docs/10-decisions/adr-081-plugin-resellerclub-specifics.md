@@ -274,6 +274,20 @@ Decisiones tomadas al implementar la renovación, el lifecycle de expiración y 
 
 - **A4.5 — DOM-INV-5 plugin-side en v1; validación rica pre-checkout a Fase F.** La elegibilidad de registrante (`.es`/`.eu`) la defiende el plugin al `register` (`REGISTRANT_INELIGIBLE`, A2.3). La validación rica **pre-checkout** + `contacts/set-details` (NIF `.es` / residencia `.eu`) se materializan en **15D.F** con el frontend de checkout. La fila de `current.md` que listaba DOM-INV-5 "completa" en 15D.E se corrige a este alcance.
 
+### Amendment A5 (2026-06-22) — gestión curada backend (Fase 15D.F.1: handlers `executeAction` + eventos)
+
+15D.F se **parte en sub-fases** (F.1 gestión backend → F.2 buscador/checkout/DOM-INV-5 rico → F.3 zona DNS post-register capability-routed → F.4 frontend). Decisiones de la **Fase 15D.F.1** (handlers de `executeAction`), registradas como Amendment (**L18**).
+
+- **A5.1 — handlers de gestión implementados; `modify_contacts` diferido a F.2.** `executeAction` deja de ser stub: dispatch por slug a `modify_nameservers` (verify-after-write: relee `details`), `toggle_privacy`, `toggle_registrar_lock` (enable/disable theft-protection), `get_auth_code`, y `suspend_service`/`unsuspend_service` (adminOnly). El plugin SOLO devuelve `ActionResult` — el wrapper `executeActionWithCacheInvalidation` centraliza cache/audit/evento/`adminOnly`/R12; el orquestador transiciona `services.status` en suspend (A4 de ADR-077). **`modify_contacts` se difiere a F.2**: requiere los datos de registrante enriquecidos (`ctx.client`/perfil + `.es`/`.eu`) que `executeAction` no recibe — pertenece al flujo de checkout/perfil. Los shapes RC de gestión siguen **CONSERVADORES hasta el smoke OT&E Fase G** (A1.5); validados contra `MockResellerClubServer` (read-after-write: `theftprotection`→`currentstatus:transferlock`, `domsecret`, 4 contact-handles).
+
+- **A5.2 — `get_auth_code` lee `domsecret` de `details` (no regenera) + R12 amplía el regex canónico.** El handler relee `domains/details`, gatea por `authCodeAvailable` (activo && sin lock → si no, `REGISTRAR_LOCKED`) y devuelve `details.domsecret` como `ActionResult.data.authCode`. El EPP/auth code es **secreto** → se amplía el regex canónico de `audit-sanitizer` (`core/provisioning/`) a `/(password|secret|token|apiKey|privateKey|auth.?code)/i` (heredable a futuros registrars): el wrapper redacta `data.authCode` del `audit_change_log`; el evento in-memory conserva el plaintext para entregarlo al titular legítimo (mismo patrón que `reset_account_password`).
+
+- **A5.3 — eventos `domain.*_changed` vía Outbox; seam en el orquestador (no en el wrapper ni el plugin).** Tras una inline action de gestión exitosa, `ProvisioningService.executeActionForUser` emite el evento (`domain.nameservers_changed`/`privacy_changed`/`lock_changed`; `contacts_changed` con F.2) vía Outbox (R8 + [ADR-084 §5](./adr-084-comercio-dominios-registrar.md)), gated por capability `is_domain_registrar` + un **mapa estático slug→evento** (R4: nunca por el slug del plugin). La emisión vive en `orchestrator.emitDomainManagementEvent` (que ya tiene `OutboxService`); no hay estado local que mutar (el cambio vive en el registrar) → la `$transaction` solo persiste el evento para dispatch exactly-once. **Corrige el drift de `_events.md`** (marcaba estos eventos "no (post-action)") contra ADR-084 §5 (todos los `domain.*` vía Outbox) — L18.
+
+- **A5.4 — alerta de seguridad NS/lock; privacy/contacts sin notif v1.** `NotificationsOnDomainManagementListener` consume `domain.nameservers_changed` + `domain.lock_changed` → email + campana "verifica que fuiste tú" (patrón estándar de registrar). `domain.privacy_changed` **no** se notifica (cambio benigno de WHOIS privacy); `domain.contacts_changed` llega con su handler en F.2.
+
+- **A5.5 — diferidos explícitos a F.2/F.4.** `modify_contacts` enriquecido + `contacts/set-details` `.es`/`.eu` → **F.2**. La extensión de `ServiceRecoveryHint` con `renew`/`restore` + su CTA (A3.2/A4.3) y `deleteDomain` admin en período de gracia (A3.1) → **F.4** (frontend de gestión) / sub-fase admin.
+
 ---
 
 ## Referencias

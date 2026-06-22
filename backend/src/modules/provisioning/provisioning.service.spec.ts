@@ -17,12 +17,14 @@
 import {
   ConflictException,
   ForbiddenException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
 import {
+  ActionResult,
   EMPTY_PLUGIN_SCHEMA,
   PluginManifest,
   PROVISIONER_PLUGIN_CONTRACT_VERSION,
@@ -93,7 +95,10 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     getServiceTimeline: jest.Mock;
   };
   let settings: { getNumber: jest.Mock; getJson: jest.Mock };
-  let orchestrator: { enqueueProvisioning: jest.Mock };
+  let orchestrator: {
+    enqueueProvisioning: jest.Mock;
+    emitDomainManagementEvent: jest.Mock;
+  };
   // Sprint 15C.II F.6: ClientNotesService mockeado a nivel de describe para
   // que los tests puedan verificar `clientNotes.createFromServiceLifecycleAction`.
   let clientNotes: { createFromServiceLifecycleAction: jest.Mock };
@@ -253,6 +258,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     } as unknown as typeof settings;
     orchestrator = {
       enqueueProvisioning: jest.fn().mockResolvedValue(undefined),
+      emitDomainManagementEvent: jest.fn().mockResolvedValue(undefined),
     };
     // Sprint 15A Fase F (ADR-080 Â§5) â€” el registry de breakers se mockea
     // como noop: getOrCreate devuelve un breaker que ejecuta el fn como
@@ -615,6 +621,199 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         { ipAddress: '1.2.3.4' },
       ),
     ).rejects.toThrow(ForbiddenException);
+  });
+
+  // Sprint 15D Fase 15D.F.1 — emisión `domain.*_changed` vía Outbox (R8, ADR-084 §5).
+
+  function buildRegistrarPlugin(
+    actionResult: ActionResult,
+    actionSlug = 'modify_nameservers',
+  ): ProvisionerPlugin {
+    return buildPlugin({
+      slug: 'resellerclub',
+      capabilities: {
+        has_sso_panel: false,
+        has_metrics: false,
+        has_metrics_history: false,
+        requires_server: false,
+        provision_mode: 'sync',
+        completes_via_task: false,
+        supports_reconciliation: true,
+        has_dns_management: false,
+        supports_suspend: true,
+        is_domain_registrar: true,
+      },
+      inlineActions: [
+        {
+          slug: actionSlug,
+          label: 'x',
+          confirmRequired: false,
+          destructive: false,
+        },
+      ],
+      executeAction: jest.fn().mockResolvedValue(actionResult),
+    });
+  }
+
+  it('executeActionForUser: registrar + action de gestión OK → emite domain.*_changed (Outbox)', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        provisioner_slug: 'resellerclub',
+        provider_reference: '700123',
+        domain: 'example.com',
+      }),
+    );
+    registry.getOrThrow.mockReturnValue(
+      buildRegistrarPlugin({
+        success: true,
+        data: { nameservers: ['a', 'b'] },
+      }),
+    );
+
+    const res = await service.executeActionForUser(
+      'svc-1',
+      'modify_nameservers',
+      { nameservers: ['a', 'b'] },
+      'user-1',
+      false,
+      { ipAddress: '1.2.3.4' },
+    );
+
+    expect(res.success).toBe(true);
+    expect(orchestrator.emitDomainManagementEvent).toHaveBeenCalledWith(
+      'domain.nameservers_changed',
+      {
+        service_id: 'svc-1',
+        user_id: 'user-1',
+        fqdn: 'example.com',
+        actor_user_id: 'user-1',
+        correlation_id: null,
+      },
+    );
+  });
+
+  it('executeActionForUser: toggle_privacy OK → emite domain.privacy_changed', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        provisioner_slug: 'resellerclub',
+        provider_reference: '700123',
+        domain: 'example.com',
+      }),
+    );
+    registry.getOrThrow.mockReturnValue(
+      buildRegistrarPlugin(
+        { success: true, data: { whoisPrivacy: false } },
+        'toggle_privacy',
+      ),
+    );
+
+    await service.executeActionForUser(
+      'svc-1',
+      'toggle_privacy',
+      { enabled: false },
+      'user-1',
+      false,
+      { ipAddress: '1.2.3.4' },
+    );
+
+    expect(orchestrator.emitDomainManagementEvent).toHaveBeenCalledWith(
+      'domain.privacy_changed',
+      expect.objectContaining({ service_id: 'svc-1', fqdn: 'example.com' }),
+    );
+  });
+
+  it('executeActionForUser: action de gestión que FALLA → NO emite evento', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        provisioner_slug: 'resellerclub',
+        provider_reference: '700123',
+        domain: 'example.com',
+      }),
+    );
+    registry.getOrThrow.mockReturnValue(
+      buildRegistrarPlugin({
+        success: false,
+        message: 'action.provider_error',
+      }),
+    );
+
+    await service.executeActionForUser(
+      'svc-1',
+      'modify_nameservers',
+      { nameservers: ['a', 'b'] },
+      'user-1',
+      false,
+      { ipAddress: '1.2.3.4' },
+    );
+
+    expect(orchestrator.emitDomainManagementEvent).not.toHaveBeenCalled();
+  });
+
+  it('executeActionForUser: plugin NO registrar → NO emite (gated por capability, R4)', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    registry.getOrThrow.mockReturnValue(
+      buildPlugin({
+        inlineActions: [
+          {
+            slug: 'modify_nameservers',
+            label: 'x',
+            confirmRequired: false,
+            destructive: false,
+          },
+        ],
+        executeAction: jest.fn().mockResolvedValue({ success: true }),
+      }),
+    );
+
+    await service.executeActionForUser(
+      'svc-1',
+      'modify_nameservers',
+      { nameservers: ['a', 'b'] },
+      'user-1',
+      false,
+      { ipAddress: '1.2.3.4' },
+    );
+
+    expect(orchestrator.emitDomainManagementEvent).not.toHaveBeenCalled();
+  });
+
+  it('executeActionForUser: fallo al emitir el evento NO hace fallar la acción exitosa (R7)', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        provisioner_slug: 'resellerclub',
+        provider_reference: '700123',
+        domain: 'example.com',
+      }),
+    );
+    registry.getOrThrow.mockReturnValue(
+      buildRegistrarPlugin({
+        success: true,
+        data: { nameservers: ['a', 'b'] },
+      }),
+    );
+    // La acción YA tuvo efecto en RC + audit; el Outbox cae al emitir el evento.
+    orchestrator.emitDomainManagementEvent.mockRejectedValueOnce(
+      new Error('outbox down'),
+    );
+    const errorSpy = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+
+    const res = await service.executeActionForUser(
+      'svc-1',
+      'modify_nameservers',
+      { nameservers: ['a', 'b'] },
+      'user-1',
+      false,
+      { ipAddress: '1.2.3.4' },
+    );
+
+    // La acción NO falla (refleja el efecto en el registrar, no la durabilidad
+    // de la notificación); el fallo de emisión se loguea.
+    expect(res.success).toBe(true);
+    expect(orchestrator.emitDomainManagementEvent).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
   // â”€â”€â”€ reprovisionAsAdmin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

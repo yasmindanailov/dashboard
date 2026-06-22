@@ -1533,6 +1533,100 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       body: 'Tu dominio {{fqdn}} está en periodo de redención. Aún puede rescatarse con una tarifa más alta por tiempo limitado. Contáctanos para recuperarlo.',
       variables: { service_id: 'string', fqdn: 'string', panel_url: 'string' },
     },
+
+    // Sprint 15D Fase 15D.F.1 — alertas de SEGURIDAD de gestión del dominio
+    // (cambio de nameservers / bloqueo de registrar). Emitidas por
+    // `executeActionForUser` tras la inline action exitosa (Outbox, ADR-084 §5),
+    // consumidas por `NotificationsOnDomainManagementListener`. Tono "verifica
+    // que fuiste tú" — patrón estándar de registrar.
+
+    // ───────────── domain.nameservers_changed (email cliente) ─────────────
+    {
+      event_type: 'domain.nameservers_changed',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Se han cambiado los nameservers de {{fqdn}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Nameservers actualizados</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Se han modificado los nameservers de tu dominio <strong>{{fqdn}}</strong>. Si has sido
+              tú, no necesitas hacer nada. Si no reconoces este cambio, revísalo cuanto antes desde
+              tu panel y contáctanos.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Revisar mi dominio</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        fqdn: 'string',
+        panel_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+    // ───────────── domain.nameservers_changed (campana cliente) ─────────────
+    {
+      event_type: 'domain.nameservers_changed',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Nameservers de {{fqdn}} actualizados',
+      body: 'Se han modificado los nameservers de tu dominio {{fqdn}}. Si no reconoces este cambio, revísalo cuanto antes y contáctanos.',
+      variables: { service_id: 'string', fqdn: 'string', panel_url: 'string' },
+    },
+
+    // ───────────── domain.lock_changed (email cliente) ─────────────
+    {
+      event_type: 'domain.lock_changed',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Se ha cambiado el bloqueo de transferencia de {{fqdn}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Bloqueo de registrar actualizado</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Se ha cambiado el bloqueo de transferencia (registrar lock) de tu dominio
+              <strong>{{fqdn}}</strong>. Este ajuste protege tu dominio frente a transferencias no
+              autorizadas. Si no reconoces este cambio, revísalo cuanto antes y contáctanos.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Revisar mi dominio</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        fqdn: 'string',
+        panel_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+    // ───────────── domain.lock_changed (campana cliente) ─────────────
+    {
+      event_type: 'domain.lock_changed',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Bloqueo de transferencia de {{fqdn}} actualizado',
+      body: 'Se ha cambiado el bloqueo de transferencia de tu dominio {{fqdn}}. Si no reconoces este cambio, revísalo cuanto antes y contáctanos.',
+      variables: { service_id: 'string', fqdn: 'string', panel_url: 'string' },
+    },
   ];
 
   for (const tpl of templates) {

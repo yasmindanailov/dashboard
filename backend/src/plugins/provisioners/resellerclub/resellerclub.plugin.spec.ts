@@ -506,3 +506,186 @@ describe('ResellerclubProvisionerPlugin getServiceInfo/getStatus/deprovision —
     expect(await plugin.getSsoUrl(svc())).toBeNull();
   });
 });
+
+describe('ResellerclubProvisionerPlugin.executeAction — Fase 15D.F.1 (gestión curada)', () => {
+  const FUTURE = Math.floor(Date.now() / 1000) + 365 * 86400;
+
+  function buildClient() {
+    return {
+      modifyNameservers: jest.fn().mockResolvedValue(undefined),
+      modifyPrivacyProtection: jest.fn().mockResolvedValue(undefined),
+      enableTheftProtection: jest.fn().mockResolvedValue(undefined),
+      disableTheftProtection: jest.fn().mockResolvedValue(undefined),
+      suspendOrder: jest.fn().mockResolvedValue(undefined),
+      unsuspendOrder: jest.fn().mockResolvedValue(undefined),
+      getDomainDetailsByOrderId: jest.fn(),
+    };
+  }
+
+  function buildPlugin(client: ReturnType<typeof buildClient>) {
+    const plugin = new ResellerclubProvisionerPlugin(
+      null as never,
+      null as never,
+      null as never,
+      null as never,
+    );
+    jest
+      .spyOn(plugin, 'getApiClient')
+      .mockResolvedValue({ client: client as never, config: {} as never });
+    return plugin;
+  }
+
+  function svc(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'svc-1',
+      user_id: 'user-1',
+      domain: 'example.com',
+      provider_reference: '700123',
+      metadata: {},
+      ...overrides,
+    } as never;
+  }
+
+  it('modify_nameservers: valida, llama RC y verify-after-write (NS aplicados)', async () => {
+    const client = buildClient();
+    client.getDomainDetailsByOrderId.mockResolvedValue({
+      ns1: 'ns3.aelium.net',
+      ns2: 'ns4.aelium.net',
+    });
+    const plugin = buildPlugin(client);
+
+    const res = await plugin.executeAction(svc(), 'modify_nameservers', {
+      nameservers: ['ns3.aelium.net', 'ns4.aelium.net'],
+    });
+
+    expect(client.modifyNameservers).toHaveBeenCalledWith('700123', [
+      'ns3.aelium.net',
+      'ns4.aelium.net',
+    ]);
+    expect(res.success).toBe(true);
+    expect(res.data).toEqual({
+      nameservers: ['ns3.aelium.net', 'ns4.aelium.net'],
+    });
+  });
+
+  it('modify_nameservers con <2 NS → INVALID_PAYLOAD (no llama RC)', async () => {
+    const client = buildClient();
+    const plugin = buildPlugin(client);
+    await expect(
+      plugin.executeAction(svc(), 'modify_nameservers', {
+        nameservers: ['ns1.aelium.net'],
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_PAYLOAD' });
+    expect(client.modifyNameservers).not.toHaveBeenCalled();
+  });
+
+  it('toggle_privacy enabled=false → modifyPrivacyProtection(false)', async () => {
+    const client = buildClient();
+    const plugin = buildPlugin(client);
+    const res = await plugin.executeAction(svc(), 'toggle_privacy', {
+      enabled: false,
+      reason: 'el cliente lo pidió',
+    });
+    expect(client.modifyPrivacyProtection).toHaveBeenCalledWith(
+      '700123',
+      false,
+      'el cliente lo pidió',
+    );
+    expect(res.data).toEqual({ whoisPrivacy: false });
+  });
+
+  it('toggle_privacy sin "enabled" → INVALID_PAYLOAD', async () => {
+    const client = buildClient();
+    const plugin = buildPlugin(client);
+    await expect(
+      plugin.executeAction(svc(), 'toggle_privacy', {}),
+    ).rejects.toMatchObject({ code: 'INVALID_PAYLOAD' });
+  });
+
+  it('toggle_registrar_lock locked=true → enableTheftProtection; false → disable', async () => {
+    const client = buildClient();
+    const plugin = buildPlugin(client);
+
+    const on = await plugin.executeAction(svc(), 'toggle_registrar_lock', {
+      locked: true,
+    });
+    expect(client.enableTheftProtection).toHaveBeenCalledWith('700123');
+    expect(on.data).toEqual({ registrarLock: true });
+
+    const off = await plugin.executeAction(svc(), 'toggle_registrar_lock', {
+      locked: false,
+    });
+    expect(client.disableTheftProtection).toHaveBeenCalledWith('700123');
+    expect(off.data).toEqual({ registrarLock: false });
+  });
+
+  it('get_auth_code activo+sin lock → devuelve authCode (domsecret)', async () => {
+    const client = buildClient();
+    client.getDomainDetailsByOrderId.mockResolvedValue({
+      entitystatus: 'Active',
+      currentstatus: 'ok',
+      endtime: FUTURE,
+      domsecret: 'Epp-Secret-123',
+    });
+    const plugin = buildPlugin(client);
+    const res = await plugin.executeAction(svc(), 'get_auth_code', {});
+    expect(res.success).toBe(true);
+    expect(res.data).toEqual({ authCode: 'Epp-Secret-123' });
+  });
+
+  it('get_auth_code con registrar lock → REGISTRAR_LOCKED', async () => {
+    const client = buildClient();
+    client.getDomainDetailsByOrderId.mockResolvedValue({
+      entitystatus: 'Active',
+      currentstatus: 'transferlock',
+      endtime: FUTURE,
+      domsecret: 'Epp-Secret-123',
+    });
+    const plugin = buildPlugin(client);
+    await expect(
+      plugin.executeAction(svc(), 'get_auth_code', {}),
+    ).rejects.toMatchObject({ code: 'REGISTRAR_LOCKED', retriable: false });
+  });
+
+  it('suspend_service → suspendOrder(reason); unsuspend_service → unsuspendOrder', async () => {
+    const client = buildClient();
+    const plugin = buildPlugin(client);
+
+    await plugin.executeAction(svc(), 'suspend_service', { reason: 'impago' });
+    expect(client.suspendOrder).toHaveBeenCalledWith('700123', 'impago');
+
+    await plugin.executeAction(svc(), 'unsuspend_service', {});
+    expect(client.unsuspendOrder).toHaveBeenCalledWith('700123');
+  });
+
+  it('sin provider_reference → INVALID_STATE (no toca RC)', async () => {
+    const client = buildClient();
+    const plugin = buildPlugin(client);
+    await expect(
+      plugin.executeAction(
+        svc({ provider_reference: null }),
+        'toggle_privacy',
+        {
+          enabled: true,
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'INVALID_STATE' });
+    expect(client.modifyPrivacyProtection).not.toHaveBeenCalled();
+  });
+
+  it('slug no declarado → INVALID_PAYLOAD', async () => {
+    const client = buildClient();
+    const plugin = buildPlugin(client);
+    await expect(plugin.executeAction(svc(), 'nope', {})).rejects.toMatchObject(
+      { code: 'INVALID_PAYLOAD' },
+    );
+  });
+
+  it('modify_contacts → NOT_IMPLEMENTED (diferido a Fase 15D.F.2)', async () => {
+    const client = buildClient();
+    const plugin = buildPlugin(client);
+    await expect(
+      plugin.executeAction(svc(), 'modify_contacts', {}),
+    ).rejects.toMatchObject({ code: 'NOT_IMPLEMENTED' });
+  });
+});

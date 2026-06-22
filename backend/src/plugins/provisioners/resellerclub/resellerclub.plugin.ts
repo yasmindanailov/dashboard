@@ -176,6 +176,56 @@ const RESELLERCLUB_SECRETS_SCHEMA = {
 } as const;
 
 // ────────────────────────────────────────────────────────────────────────────
+// payloadSchemas de las inline actions con input (JSON-Schema 7).
+// Son UX form-side (frontend @rjsf, Fase F.4) — el enforcement real es defensivo
+// en los handlers (types.ts:1304 — "el backend nunca confía en el frontend").
+// ────────────────────────────────────────────────────────────────────────────
+
+const MODIFY_NAMESERVERS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['nameservers'],
+  properties: {
+    nameservers: {
+      type: 'array',
+      minItems: 2,
+      maxItems: 13,
+      items: { type: 'string', format: 'hostname', minLength: 1 },
+      title: 'plugin.resellerclub.actions.modify_nameservers.field.nameservers',
+    },
+  },
+} as const;
+
+const TOGGLE_PRIVACY_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['enabled'],
+  properties: {
+    enabled: {
+      type: 'boolean',
+      title: 'plugin.resellerclub.actions.toggle_privacy.field.enabled',
+    },
+    reason: {
+      type: 'string',
+      maxLength: 200,
+      title: 'plugin.resellerclub.actions.toggle_privacy.field.reason',
+    },
+  },
+} as const;
+
+const TOGGLE_REGISTRAR_LOCK_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['locked'],
+  properties: {
+    locked: {
+      type: 'boolean',
+      title: 'plugin.resellerclub.actions.toggle_registrar_lock.field.locked',
+    },
+  },
+} as const;
+
+// ────────────────────────────────────────────────────────────────────────────
 // inlineActions — sub-contrato de registrar (ADR-077 A10) + suspend (A4)
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -189,6 +239,7 @@ const RESELLERCLUB_INLINE_ACTIONS: readonly ServiceAction[] = [
     confirmRequired: true, // peligrosa: cambiar NS puede tumbar el dominio (A10.4)
     confirmationText: 'plugin.resellerclub.actions.modify_nameservers.confirm',
     destructive: true,
+    payloadSchema: MODIFY_NAMESERVERS_SCHEMA as Record<string, unknown>,
   },
   {
     slug: 'modify_contacts',
@@ -201,12 +252,14 @@ const RESELLERCLUB_INLINE_ACTIONS: readonly ServiceAction[] = [
     label: 'plugin.resellerclub.actions.toggle_privacy',
     confirmRequired: false,
     destructive: false,
+    payloadSchema: TOGGLE_PRIVACY_SCHEMA as Record<string, unknown>,
   },
   {
     slug: 'toggle_registrar_lock',
     label: 'plugin.resellerclub.actions.toggle_registrar_lock',
     confirmRequired: false,
     destructive: false,
+    payloadSchema: TOGGLE_REGISTRAR_LOCK_SCHEMA as Record<string, unknown>,
   },
   {
     slug: 'get_auth_code',
@@ -770,15 +823,23 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
     return Promise.resolve(null);
   }
 
-  // ─── 6. executeAction() — gestión + admin — Fase 15D.F ─────────────────────
-
-  // Los handlers (gestión + suspend/unsuspend) llegan en Fase 15D.F y SÍ harán
-  // `await`; hoy el stub solo valida el slug + lanza NOT_IMPLEMENTED.
-  // eslint-disable-next-line @typescript-eslint/require-await
+  // ─── 6. executeAction() — gestión curada + admin (Fase 15D.F.1) ────────────
+  //
+  // Dispatch por slug a los handlers de gestión de registrar (ADR-077 A10) +
+  // suspend/unsuspend (A4). El plugin SOLO ejecuta la operación en RC y devuelve
+  // `ActionResult`: el wrapper `executeActionWithCacheInvalidation` (core) hace
+  // cache + audit + evento `service.action_executed` + enforcement `adminOnly` +
+  // redacción R12; los eventos `domain.*_changed` los emite el orquestador
+  // (`executeActionForUser`) vía Outbox (R8). [Shapes de gestión CONSERVADORES
+  // hasta el smoke OT&E Fase G — A1.5; validados contra MockResellerClubServer.]
+  //
+  // `modify_contacts` se difiere a Fase 15D.F.2: requiere los datos de contacto
+  // enriquecidos del registrante (`ctx.client`/perfil + .es NIF / .eu residencia)
+  // que `executeAction` no recibe — pertenece al flujo de checkout/perfil de F.2.
   async executeAction(
     service: ServiceWithRelations,
     actionSlug: string,
-    _payload: Record<string, unknown>,
+    payload: Record<string, unknown>,
   ): Promise<ActionResult> {
     const declared = this.inlineActions.find((a) => a.slug === actionSlug);
     if (!declared) {
@@ -790,15 +851,203 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
         RC_SLUG,
       );
     }
-    // Handlers (modify_ns/contacts/privacy/lock/auth-code + suspend/unsuspend)
-    // se implementan en la Fase 15D.F.
-    throw new ProvisionerPluginError(
-      `action "${actionSlug}" pendiente — Fase 15D.F.`,
-      'NOT_IMPLEMENTED',
-      false,
-      undefined,
-      RC_SLUG,
+
+    // Todas las acciones operan sobre un dominio YA registrado (order-id RC =
+    // provider_reference). Sin él no hay nada que gestionar (INVALID_STATE).
+    const orderId = service.provider_reference;
+    if (!orderId) {
+      throw new ProvisionerPluginError(
+        `action "${actionSlug}" requiere provider_reference (order-id RC) en el ` +
+          `servicio ${service.id} — el dominio debe estar registrado.`,
+        'INVALID_STATE',
+        false,
+        undefined,
+        RC_SLUG,
+      );
+    }
+
+    const { client } = await this.getApiClient();
+
+    switch (actionSlug) {
+      case 'modify_nameservers':
+        return this.actionModifyNameservers(client, orderId, payload);
+      case 'toggle_privacy':
+        return this.actionTogglePrivacy(client, orderId, payload);
+      case 'toggle_registrar_lock':
+        return this.actionToggleRegistrarLock(client, orderId, payload);
+      case 'get_auth_code':
+        return this.actionGetAuthCode(client, orderId);
+      case 'suspend_service':
+        return this.actionSuspendService(client, orderId, payload);
+      case 'unsuspend_service':
+        return this.actionUnsuspendService(client, orderId);
+      case 'modify_contacts':
+        throw new ProvisionerPluginError(
+          `action "modify_contacts" pendiente — Fase 15D.F.2 (flujo de contactos ` +
+            `enriquecido + .es/.eu).`,
+          'NOT_IMPLEMENTED',
+          false,
+          undefined,
+          RC_SLUG,
+        );
+      default:
+        // Defensivo: el check de `declared` arriba ya cubre slugs desconocidos.
+        throw new ProvisionerPluginError(
+          `action "${actionSlug}" declarada pero sin handler (bug).`,
+          'NOT_IMPLEMENTED',
+          false,
+          undefined,
+          RC_SLUG,
+        );
+    }
+  }
+
+  /**
+   * `modify_nameservers` — cambia la **delegación de NS del registro** (NO la
+   * zona DNS, que es Enhance; `has_dns_management=false`). Verify-after-write:
+   * relee details y devuelve los NS aplicados (DH-INV-6: el registrar manda).
+   */
+  private async actionModifyNameservers(
+    client: ResellerClubApiClient,
+    orderId: string,
+    payload: Record<string, unknown>,
+  ): Promise<ActionResult> {
+    const nameservers = parseNameservers(payload);
+    await client.modifyNameservers(orderId, nameservers);
+    const after = await client.getDomainDetailsByOrderId(orderId);
+    const applied = [after.ns1, after.ns2, after.ns3, after.ns4].filter(
+      (n): n is string => typeof n === 'string' && n.trim().length > 0,
     );
+    return {
+      success: true,
+      message: 'plugin.resellerclub.actions.modify_nameservers.success',
+      data: { nameservers: applied },
+    };
+  }
+
+  /**
+   * `toggle_privacy` — WHOIS privacy ON/OFF. Algunos TLDs no lo soportan → RC
+   * devuelve error de negocio que el http-client mapea (el wrapper lo refleja
+   * como `success:false`).
+   */
+  private async actionTogglePrivacy(
+    client: ResellerClubApiClient,
+    orderId: string,
+    payload: Record<string, unknown>,
+  ): Promise<ActionResult> {
+    const enabled = parseToggleFlag(payload, 'enabled');
+    const rawReason =
+      typeof payload.reason === 'string' ? payload.reason.trim() : '';
+    const reason =
+      rawReason.length > 0
+        ? rawReason.slice(0, 200)
+        : 'Cambio de privacidad solicitado por el titular';
+    await client.modifyPrivacyProtection(orderId, enabled, reason);
+    return {
+      success: true,
+      message: enabled
+        ? 'plugin.resellerclub.actions.toggle_privacy.enabled'
+        : 'plugin.resellerclub.actions.toggle_privacy.disabled',
+      data: { whoisPrivacy: enabled },
+    };
+  }
+
+  /** `toggle_registrar_lock` — theft/registrar lock ON/OFF. */
+  private async actionToggleRegistrarLock(
+    client: ResellerClubApiClient,
+    orderId: string,
+    payload: Record<string, unknown>,
+  ): Promise<ActionResult> {
+    const locked = parseToggleFlag(payload, 'locked');
+    if (locked) {
+      await client.enableTheftProtection(orderId);
+    } else {
+      await client.disableTheftProtection(orderId);
+    }
+    return {
+      success: true,
+      message: locked
+        ? 'plugin.resellerclub.actions.toggle_registrar_lock.enabled'
+        : 'plugin.resellerclub.actions.toggle_registrar_lock.disabled',
+      data: { registrarLock: locked },
+    };
+  }
+
+  /**
+   * `get_auth_code` — devuelve el EPP/auth code para transfer-OUT (cliente
+   * self-service). **SECRETO**: el wrapper redacta `data.authCode` del audit
+   * (R12 — `auth.?code` en el sanitizer canónico). RC solo lo emite si el
+   * dominio está activo y sin registrar lock (`authCodeAvailable`).
+   */
+  private async actionGetAuthCode(
+    client: ResellerClubApiClient,
+    orderId: string,
+  ): Promise<ActionResult> {
+    const details = await client.getDomainDetailsByOrderId(orderId);
+    const { lifecycle } = mapRcDomainStatus(details, Date.now());
+    if (lifecycle !== 'active' || detectRegistrarLock(details)) {
+      throw new ProvisionerPluginError(
+        `get_auth_code (order=${orderId}): el dominio debe estar activo y sin ` +
+          `registrar lock para obtener el auth-code.`,
+        'REGISTRAR_LOCKED',
+        false,
+        undefined,
+        RC_SLUG,
+      );
+    }
+    const authCode =
+      typeof details.domsecret === 'string' && details.domsecret.length > 0
+        ? details.domsecret
+        : undefined;
+    if (!authCode) {
+      throw new ProvisionerPluginError(
+        `get_auth_code (order=${orderId}): RC no devolvió el auth-code (domsecret).`,
+        'PROVIDER_INTERNAL_ERROR',
+        true,
+        undefined,
+        RC_SLUG,
+      );
+    }
+    return {
+      success: true,
+      message: 'plugin.resellerclub.actions.get_auth_code.success',
+      data: { authCode },
+    };
+  }
+
+  /**
+   * `suspend_service` (adminOnly) — suspende el dominio en RC. El orquestador
+   * (`ProvisioningService.suspendAsAdmin`) transiciona `services.status` + emite
+   * `service.suspended` (R8) — el plugin NO transiciona estado (A4).
+   */
+  private async actionSuspendService(
+    client: ResellerClubApiClient,
+    orderId: string,
+    payload: Record<string, unknown>,
+  ): Promise<ActionResult> {
+    const rawReason =
+      typeof payload.reason === 'string' ? payload.reason.trim() : '';
+    const reason =
+      rawReason.length > 0
+        ? rawReason.slice(0, 200)
+        : 'Suspensión administrativa';
+    await client.suspendOrder(orderId, reason);
+    return {
+      success: true,
+      message: 'plugin.resellerclub.actions.suspend_service.success',
+    };
+  }
+
+  /** `unsuspend_service` (adminOnly) — reactiva el dominio en RC. */
+  private async actionUnsuspendService(
+    client: ResellerClubApiClient,
+    orderId: string,
+  ): Promise<ActionResult> {
+    await client.unsuspendOrder(orderId);
+    return {
+      success: true,
+      message: 'plugin.resellerclub.actions.unsuspend_service.success',
+    };
   }
 
   // ─── testConnection() — probe de credenciales (ADR-077 A6) ─────────────────
@@ -947,6 +1196,70 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
 // ────────────────────────────────────────────────────────────────────────────
 // Helpers (file-private)
 // ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Valida + normaliza la lista de nameservers de `modify_nameservers`
+ * (enforcement defensivo: el `payloadSchema` es solo UX form-side). RC exige ≥2.
+ */
+function parseNameservers(payload: Record<string, unknown>): string[] {
+  const raw = payload.nameservers;
+  if (!Array.isArray(raw)) {
+    throw new ProvisionerPluginError(
+      'modify_nameservers: "nameservers" debe ser un array de hostnames.',
+      'INVALID_PAYLOAD',
+      false,
+      undefined,
+      RC_SLUG,
+    );
+  }
+  const ns = [
+    ...new Set(
+      raw
+        .filter((x): x is string => typeof x === 'string')
+        .map((s) => s.trim().toLowerCase())
+        .filter((s) => s.length > 0),
+    ),
+  ];
+  if (ns.length < 2) {
+    throw new ProvisionerPluginError(
+      'modify_nameservers: se requieren al menos 2 nameservers válidos.',
+      'INVALID_PAYLOAD',
+      false,
+      undefined,
+      RC_SLUG,
+    );
+  }
+  const hostname =
+    /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
+  if (ns.some((n) => !hostname.test(n))) {
+    throw new ProvisionerPluginError(
+      'modify_nameservers: hay un nameserver con formato de hostname inválido.',
+      'INVALID_PAYLOAD',
+      false,
+      undefined,
+      RC_SLUG,
+    );
+  }
+  return ns;
+}
+
+/** Lee un flag booleano del payload (acepta `boolean` o `'true'`/`'false'`). */
+function parseToggleFlag(
+  payload: Record<string, unknown>,
+  key: string,
+): boolean {
+  const v = payload[key];
+  if (typeof v === 'boolean') return v;
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  throw new ProvisionerPluginError(
+    `${key} debe ser un booleano (true/false).`,
+    'INVALID_PAYLOAD',
+    false,
+    undefined,
+    RC_SLUG,
+  );
+}
 
 /** Divide un FQDN en SLD + TLD (split en el primer punto — TLDs single-label v1). */
 function splitFqdn(fqdn: string): { sld: string; tld: string } {
