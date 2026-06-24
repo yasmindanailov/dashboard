@@ -193,9 +193,9 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 ---
 
-## 🆕 Sprint Cuenta — Página de usuario self-service (perfil + seguridad + facturación) — EN CURSO
+## 🆕 Sprint Cuenta — Página de usuario self-service (perfil + seguridad + facturación) — CÓDIGO-COMPLETO
 
-**Estado:** 🟡 en curso (rama `sprint-cuenta-perfil`, partida de `master` `497127f`). **Doctrina:** [ADR-085](../10-decisions/adr-085-cuenta-cliente-self-service.md) + **Amendment A1 de [ADR-013](../10-decisions/adr-013-2fa-email.md)** (2FA email opt-in para clientes).
+**Estado:** 🟢 código-completo (verde por fase; falta smoke visual + merge — Yasmin). Rama `sprint-cuenta-perfil`, sobre `master` `497127f`. **Doctrina:** [ADR-085](../10-decisions/adr-085-cuenta-cliente-self-service.md) + **Amendment A1 de [ADR-013](../10-decisions/adr-013-2fa-email.md)** (2FA email opt-in para clientes). **Dossier/trazabilidad commit-by-commit:** [`sprint-cuenta-perfil.md`](./sprint-cuenta-perfil.md).
 
 > **Origen:** Enfoque B ("faltan página de perfil + ajustes"). La `/dashboard/profile` actual es un MVP de **una sola tarjeta** (editor de titular WHOIS, 15D.G·2): no es alcanzable (Topbar `onClick: () => {}`), edita la identidad **acoplada al registrador**, expone `ClientProfile` (WHOIS) en vez de `BillingProfile` (lo que factura, admin-only), y no tiene self-service de cuenta/seguridad. **Decisión Yasmin (2026-06-24):** construir la página de cuenta profesional completa como sprint con doctrina. La arquitectura ya estaba **anticipada** (CASL `Subject.Profile`/`BillingProfile` con `Manage` para `client`; `ClientsBillingService` ownership-safe; sesiones por [ADR-060 §B](../10-decisions/adr-060-decisiones-pre-schema.md)).
 
