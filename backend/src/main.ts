@@ -3,6 +3,7 @@ import './instrument';
 
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -11,10 +12,14 @@ import { GlobalExceptionFilter } from './core/common/filters/global-exception.fi
 import { PrismaService } from './core/database/prisma.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const logger = new Logger('Bootstrap');
 
   // ── Security ──
+  // Trust proxy (ADR-016): detrás de Traefik el rate limiting debe keyear por la
+  // IP REAL del cliente (X-Forwarded-For), no por la del proxy. `1` = un salto de
+  // proxy de confianza. En dev (sin proxy) es inocuo.
+  app.set('trust proxy', 1);
   app.use(helmet());
   // Sprint 13 §13.AUTH Fase A (2026-05-03): cookie-parser activo. Cierra el
   // bug latente del flow `/auth/refresh` que ya leía `req.cookies` desde Sprint

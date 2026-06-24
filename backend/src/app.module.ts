@@ -1,8 +1,8 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
-import { ConfigModule } from '@nestjs/config';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SentryModule, SentryGlobalFilter } from '@sentry/nestjs/setup';
 
@@ -17,6 +17,7 @@ import { OutboxModule } from './core/outbox/outbox.module';
 import { StorageModule } from './core/storage/storage.module';
 import { JobsModule } from './core/jobs/jobs.module';
 import { SecurityModule } from './core/security/security.module';
+import { RedisThrottlerStorage } from './core/security/redis-throttler.storage';
 
 // Health
 import { HealthModule } from './health/health.module';
@@ -61,12 +62,23 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
       maxListeners: 20,
     }),
 
-    // ── Rate limiting ──
-    ThrottlerModule.forRoot({
-      throttlers: [
-        { name: 'short', ttl: 60000, limit: 100 }, // 100 req/min general
-        { name: 'login', ttl: 60000, limit: 5 }, // 5 login attempts/min
-      ],
+    // ── Rate limiting (ADR-016 + R10) ──
+    // UN throttler 'default' global (100 req/min/IP) aplicado a TODAS las rutas
+    // por el `ThrottlerGuard` global (APP_GUARD abajo). Los endpoints sensibles lo
+    // estrechan con `@Throttle({ default: { ttl, limit } })` (login 5/min, register
+    // y forgot 3/min — auth.controller; chat guest 3/h — support-guest). Storage
+    // Redis (R6 multi-instancia, ADR-016 §Decisión) inyectado desde SecurityModule.
+    // `skipIf` deshabilita el throttling en E2E (THROTTLER_DISABLED=true) para no
+    // colisionar con los tests que iteran logins desde una sola IP.
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService, RedisThrottlerStorage],
+      useFactory: (config: ConfigService, storage: RedisThrottlerStorage) => ({
+        throttlers: [{ name: 'default', ttl: 60000, limit: 100 }],
+        storage,
+        errorMessage:
+          'Demasiados intentos. Espera unos segundos e inténtalo de nuevo.',
+        skipIf: () => config.get<string>('THROTTLER_DISABLED') === 'true',
+      }),
     }),
 
     // ── Scheduled tasks (cron) ──
@@ -111,6 +123,12 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     {
       provide: APP_FILTER,
       useClass: SentryGlobalFilter,
+    },
+    // ADR-016 + R10: ThrottlerGuard global → rate limiting en TODAS las rutas
+    // (default 100/min/IP) sin tener que poner @UseGuards en cada controller.
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

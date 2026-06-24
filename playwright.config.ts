@@ -133,6 +133,10 @@ export default defineConfig({
       timeout: 120_000,
       stdout: 'pipe',
       stderr: 'pipe',
+      // ADR-016: el rate limiting (login 5/min/IP) colisiona con los specs de auth
+      // que iteran logins desde una sola IP (p.ej. el test de lockout hace 6).
+      // Se desactiva en E2E (el 429 se prueba en `rate-limiting.e2e-spec.ts`).
+      env: { THROTTLER_DISABLED: 'true' },
     },
     {
       // Frontend Next.js (requiere `pnpm --dir frontend build` previo)

@@ -11,6 +11,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import { AuthService } from './auth.service';
@@ -35,6 +36,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @Throttle({ default: { ttl: 60000, limit: 3 } }) // ADR-016: anti-spam de altas
   @ApiOperation({ summary: 'Register a new client account' })
   async register(@Body() dto: RegisterDto, @Req() req: Request) {
     return this.authService.register(
@@ -45,6 +47,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({ default: { ttl: 60000, limit: 5 } }) // ADR-016: anti fuerza-bruta IP
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login — returns tokens or 2FA challenge' })
   async login(@Body() dto: LoginDto, @Req() req: Request) {
@@ -56,6 +59,7 @@ export class AuthController {
   }
 
   @Post('verify-2fa')
+  @Throttle({ default: { ttl: 60000, limit: 5 } }) // ADR-016: anti fuerza-bruta 2FA
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify 2FA code (step 2 of login)' })
   async verify2fa(@Body() dto: Verify2faDto, @Req() req: Request) {
@@ -109,6 +113,7 @@ export class AuthController {
   }
 
   @Post('resend-verification')
+  @Throttle({ default: { ttl: 60000, limit: 3 } }) // ADR-016: anti-spam de emails
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resend email verification link' })
   async resendVerification(@Body() dto: ForgotPasswordDto) {
@@ -116,6 +121,7 @@ export class AuthController {
   }
 
   @Post('forgot-password')
+  @Throttle({ default: { ttl: 60000, limit: 3 } }) // ADR-016: anti-spam de emails
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset email' })
   async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {

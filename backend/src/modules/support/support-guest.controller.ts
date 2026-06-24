@@ -1,14 +1,6 @@
-import {
-  Controller,
-  Post,
-  Body,
-  Req,
-  Res,
-  UseGuards,
-  Logger,
-} from '@nestjs/common';
+import { Controller, Post, Body, Req, Res, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 
 import { SupportService } from './support.service';
@@ -42,7 +34,9 @@ import { ConfigService } from '@nestjs/config';
 
 @ApiTags('Support (Guest)')
 @Controller('support')
-@UseGuards(ThrottlerGuard)
+// El rate limiting lo aplica el `ThrottlerGuard` global (APP_GUARD, app.module);
+// el `@Throttle` de abajo lo estrecha a 3/h. (ADR-016 — antes este controller
+// montaba su propio guard, que con el global correría 2× y contaría doble.)
 export class SupportGuestController {
   private readonly logger = new Logger(SupportGuestController.name);
 
