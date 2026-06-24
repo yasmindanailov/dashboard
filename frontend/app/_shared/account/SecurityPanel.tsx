@@ -10,8 +10,8 @@ import {
   Modal,
   AlertBanner,
   useToast,
-} from '../../../components/ui';
-import { useAuth } from '../../../lib/auth-context';
+} from '../../components/ui';
+import { useAuth } from '../../lib/auth-context';
 import {
   changePasswordAction,
   set2faAction,
@@ -19,7 +19,7 @@ import {
   logoutAllAction,
   type AccountMe,
   type AccountSession,
-} from '../_actions';
+} from './_actions';
 import styles from './AccountView.module.css';
 
 /* ═══════════════════════════════════════════════════════════════════════════

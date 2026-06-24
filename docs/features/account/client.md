@@ -57,5 +57,7 @@ disparar verificación por email y un **bloqueo de transferencia de 60 días** (
   `userId` de la sesión, nunca de un parámetro.
 - Las acciones de seguridad (contraseña, 2FA, cierre de sesiones) se **auditan** en
   `audit_access_log` (R3).
-- Diferido v1: cambio de email; subida de avatar a MinIO; página de cuenta de staff en
-  `/admin/profile` (el backend ya es role-agnóstico).
+- El **staff** tiene su cuenta en `/admin/profile` (portal admin, ADR-066): mismas secciones
+  **Cuenta + Seguridad** (sin Facturación ni Dominios), reutilizando los componentes de
+  `_shared/account/`. El menú "Mi perfil" enruta por rol.
+- Diferido v1: cambio de email; subida de avatar a MinIO.

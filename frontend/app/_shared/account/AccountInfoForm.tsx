@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 
-import { Card, Input, Select, Button, useToast } from '../../../components/ui';
-import { updateAccountProfileAction, type AccountMe } from '../_actions';
+import { Card, Input, Select, Button, useToast } from '../../components/ui';
+import { updateAccountProfileAction, type AccountMe } from './_actions';
 import styles from './AccountView.module.css';
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -14,8 +14,12 @@
 import { ListPage, AlertBanner } from '../../components/ui';
 import { serverFetch, ServerFetchError } from '../../lib/server-auth';
 import type { RegistrantProfile } from '../../_shared/domains/_registrant-actions';
-import type { AccountMe, AccountSession, BillingProfile } from './_actions';
-import AccountView from './_components/AccountView';
+import type {
+  AccountMe,
+  AccountSession,
+  BillingProfile,
+} from '../../_shared/account/_actions';
+import AccountView from '../../_shared/account/AccountView';
 
 async function safe<T>(path: string): Promise<T | null> {
   try {

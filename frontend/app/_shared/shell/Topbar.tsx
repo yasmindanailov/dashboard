@@ -91,9 +91,16 @@ export default function Topbar({ sidebarCollapsed, onMobileMenuOpen, onOpenSuppo
   const isClient = roleSlug === 'client';
   const hasSetting = canAccess(roleSlug, 'Setting');
 
+  // ADR-066: el staff vive en /admin/* (el portal /dashboard lo rebota). Su
+  // perfil está en /admin/profile; cliente/partner en /dashboard/profile.
+  const STAFF_ROLES = ['superadmin', 'agent_full', 'agent_billing', 'agent_support'];
+  const profilePath = STAFF_ROLES.includes(roleSlug)
+    ? '/admin/profile'
+    : '/dashboard/profile';
+
   /* ── Profile dropdown items (P6.1: gate by permission) ── */
   const profileItems: DropdownItem[] = [
-    { label: 'Mi perfil', icon: IconUser, onClick: () => router.push('/dashboard/profile') },
+    { label: 'Mi perfil', icon: IconUser, onClick: () => router.push(profilePath) },
     ...(hasSetting ? [{ label: 'Configuración', icon: IconSettings, onClick: () => router.push('/admin/settings') }] : []),
     { label: '', onClick: () => {}, divider: true },
     { label: 'Cerrar sesión', icon: IconLogout, onClick: logout, danger: true },

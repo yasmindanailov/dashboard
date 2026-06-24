@@ -8,12 +8,12 @@ import {
   Card,
   Input,
   useToast,
-} from '../../../components/ui';
+} from '../../components/ui';
 import {
   updateRegistrantAction,
   type RegistrantProfile,
   type RegistrantSyncStatus,
-} from '../../../_shared/domains/_registrant-actions';
+} from '../domains/_registrant-actions';
 import styles from './AccountView.module.css';
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 
-import { Tabs } from '../../../components/ui';
-import type { RegistrantProfile } from '../../../_shared/domains/_registrant-actions';
-import type { AccountMe, AccountSession, BillingProfile } from '../_actions';
+import { Tabs } from '../../components/ui';
+import type { RegistrantProfile } from '../domains/_registrant-actions';
+import type { AccountMe, AccountSession, BillingProfile } from './_actions';
 
 import AccountInfoForm from './AccountInfoForm';
 import SecurityPanel from './SecurityPanel';
@@ -24,6 +24,8 @@ interface Props {
   sessions: AccountSession[];
   billingProfiles: BillingProfile[];
   registrant: RegistrantProfile | null;
+  /** 'staff' (portal admin) muestra solo Cuenta + Seguridad. Default: 'client'. */
+  audience?: 'client' | 'staff';
 }
 
 export default function AccountView({
@@ -31,18 +33,26 @@ export default function AccountView({
   sessions,
   billingProfiles,
   registrant,
+  audience = 'client',
 }: Props) {
   const [tab, setTab] = useState<TabId>('cuenta');
+  const isStaff = audience === 'staff';
 
   const tabs = [
     { id: 'cuenta', label: 'Cuenta' },
     { id: 'seguridad', label: 'Seguridad' },
-    {
-      id: 'facturacion',
-      label: 'Facturación',
-      count: billingProfiles.length || undefined,
-    },
-    ...(registrant ? [{ id: 'dominios', label: 'Dominios' }] : []),
+    ...(!isStaff
+      ? [
+          {
+            id: 'facturacion',
+            label: 'Facturación',
+            count: billingProfiles.length || undefined,
+          },
+        ]
+      : []),
+    ...(!isStaff && registrant
+      ? [{ id: 'dominios', label: 'Dominios' }]
+      : []),
   ];
 
   return (

@@ -9,7 +9,7 @@ import {
   Button,
   Modal,
   useToast,
-} from '../../../components/ui';
+} from '../../components/ui';
 import {
   createBillingProfileAction,
   updateBillingProfileAction,
@@ -18,7 +18,7 @@ import {
   type BillingProfile,
   type BillingProfileInput,
   type BillingProfileType,
-} from '../_actions';
+} from './_actions';
 import styles from './AccountView.module.css';
 
 /* ═══════════════════════════════════════════════════════════════════════════
