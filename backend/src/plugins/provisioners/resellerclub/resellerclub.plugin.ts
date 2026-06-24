@@ -39,6 +39,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import {
   ActionResult,
+  ClientPublicData,
   DeprovisionContext,
   DomainAvailability,
   DomainInfo,
@@ -49,6 +50,7 @@ import {
   ProvisionResult,
   ProvisionerPlugin,
   ProvisionerPluginError,
+  RegistrantUpdateResult,
   ServiceAction,
   ServiceInfo,
   ServiceInfoStatus,
@@ -727,6 +729,32 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
     return Promise.resolve();
   }
 
+  /**
+   * `deleteDomain` (ADR-077 A10 / ADR-081 A3.1, 15D.G·2) — borrado **destructivo**
+   * en período de gracia (con reembolso). A diferencia de `deprovision` (no-op),
+   * esto es una acción admin EXPLÍCITA: elimina el dominio del registrador. El
+   * orquestador cancela el `service` Aelium por separado.
+   */
+  async deleteDomain(service: ServiceWithRelations): Promise<void> {
+    const orderId = service.provider_reference;
+    if (!orderId) {
+      throw new ProvisionerPluginError(
+        `deleteDomain requiere provider_reference (order-id RC) en el servicio ` +
+          `${service.id} — el dominio debe estar registrado.`,
+        'INVALID_STATE',
+        false,
+        undefined,
+        RC_SLUG,
+      );
+    }
+    const { client } = await this.getApiClient();
+    await client.deleteDomain(orderId);
+    this.logger.warn(
+      `deleteDomain service=${service.id} (order=${orderId}): dominio ` +
+        `${service.domain ?? '?'} BORRADO del registrar (período de gracia).`,
+    );
+  }
+
   // ─── 3. getStatus() — reconcile read (domains/details, ADR-081 §6) ─────────
 
   async getStatus(service: ServiceWithRelations): Promise<ServiceStatusReport> {
@@ -1129,6 +1157,20 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
    * reconocidos (`CLASSKEY_TO_TLD`); la moneda es la de venta (`default_currency`,
    * validada same-currency por el cron — ADR-084 A1.2).
    */
+  /**
+   * `updateRegistrantContact` (ADR-077 A10 additivo, 15D.G·2) — propaga el perfil
+   * de titular (`ClientPublicData`) al contacto WHOIS compartido del cliente en RC
+   * → todos sus dominios. Delega en `ResellerclubCustomersService` (advisory-lock
+   * + verify-after-write + detección de cambio de nombre). El plugin solo resuelve
+   * el cliente HTTP desde el vault (R4/R12).
+   */
+  async updateRegistrantContact(
+    client: ClientPublicData,
+  ): Promise<RegistrantUpdateResult> {
+    const { client: api } = await this.getApiClient();
+    return this.customers.updateRegistrantContact(client, api);
+  }
+
   async getTldPricing(): Promise<readonly TldCostEntry[]> {
     const { client, config } = await this.getApiClient();
     const resp = await client.getResellerPrice();
@@ -1434,7 +1476,8 @@ function mapRcDomainStatus(
     return {
       status: 'expired',
       lifecycle: 'redemption',
-      recoveryHint: 'contact_support',
+      // 15D.G·2 (ADR-077 A5 ext): recuperable con tarifa de restore → CTA cliente.
+      recoveryHint: 'restore',
       statusReason: 'plugin.resellerclub.status_reason.redemption',
     };
   }
@@ -1442,6 +1485,8 @@ function mapRcDomainStatus(
     return {
       status: 'expired',
       lifecycle: 'expired',
+      // 15D.G·2: aún renovable (gracia) → CTA cliente "Renovar".
+      recoveryHint: 'renew',
       statusReason: 'plugin.resellerclub.status_reason.expired',
     };
   }

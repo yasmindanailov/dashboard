@@ -233,15 +233,22 @@ export interface ServiceMetrics {
  *   - `'contact_support'` → drift no auto-remediable por el admin (estado del
  *                            proveedor incoherente o proveedor caído). La UI
  *                            no ofrece CTA accionable.
+ *   - `'renew'`           → (15D.G·2, dominios) el recurso expiró pero aún es
+ *                            renovable (período de gracia). CTA cliente "Renovar"
+ *                            (la renovación es invoice-driven, ADR-081 §5).
+ *   - `'restore'`         → (15D.G·2, dominios) en redención: recuperable con
+ *                            tarifa especial (restore). CTA cliente "Restaurar".
  *
  * Extensible: futuras clases de remediación se añaden a esta unión + se
  * documentan en ADR-077 Amendment A5 + el frontend las ramifica
- * explícitamente (`AdminDriftBanner`).
+ * explícitamente (`AdminDriftBanner` admin · detalle de dominio cliente).
  */
 export type ServiceRecoveryHint =
   | 'reprovision'
   | 'reconcile'
-  | 'contact_support';
+  | 'contact_support'
+  | 'renew'
+  | 'restore';
 
 /**
  * Sprint 15C.II Fase F — ADR-077 Amendment A4 (capability `supports_suspend`,
@@ -974,6 +981,21 @@ export interface TldCostEntry {
   cost: { amount: string; currency: string };
 }
 
+/**
+ * Resultado de `updateRegistrantContact` (Sprint 15D Fase 15D.G·2).
+ */
+export interface RegistrantUpdateResult {
+  /** Se propagó al registrar (false si el cliente aún no tiene contacto/dominios). */
+  propagated: boolean;
+  /** Dominios del cliente que reflejan el cambio (comparten el contacto). */
+  domainsAffected: number;
+  /**
+   * El nombre del titular cambió → puede disparar verificación + lock de
+   * transferencia ICANN de 60 días (la UI avisa al cliente). [CONSERVADOR Fase G].
+   */
+  nameChanged: boolean;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // 10. ProvisionerPlugin (interfaz canónica v2)
 // ────────────────────────────────────────────────────────────────────────────
@@ -1124,6 +1146,29 @@ export interface ProvisionerPlugin {
    * `domain_tld_pricing`. Permite que el sync sea agnóstico al registrar.
    */
   getTldPricing?(): Promise<readonly TldCostEntry[]>;
+
+  /**
+   * Sprint 15D Fase 15D.G·2 (ADR-077 A10 additivo) — actualiza los datos del
+   * **contacto registrante (WHOIS)** del cliente en el registrar a partir de su
+   * perfil (`ClientPublicData`). Modelo "1 titular/cliente": el contacto es
+   * compartido por todos sus dominios → un solo `contacts/modify` los propaga.
+   * Capability-driven por presencia (opcional, como `checkDomainAvailability?`).
+   * Idempotente + verify-after-write. Si el cliente aún no tiene contacto (sin
+   * dominios) → `propagated:false` (no-op, no error).
+   */
+  updateRegistrantContact?(
+    client: ClientPublicData,
+  ): Promise<RegistrantUpdateResult>;
+
+  /**
+   * Sprint 15D Fase 15D.G·2 (ADR-077 A10 additivo / ADR-081 A3.1) — borrado
+   * **destructivo** de un dominio en el registrar dentro del período de gracia
+   * (con reembolso). Distinto de `deprovision` (no-op: el dominio persiste hasta
+   * expirar); esto es una acción admin EXPLÍCITA. Capability-driven por presencia.
+   * Fuera de la ventana de gracia el registrar rechaza (`PROVIDER_*`). El
+   * orquestador cancela el `service` Aelium por separado (lifecycle canónico).
+   */
+  deleteDomain?(service: ServiceWithRelations): Promise<void>;
 
   /**
    * Manifest declarativo del plugin (Sprint 15A — ADR-080).

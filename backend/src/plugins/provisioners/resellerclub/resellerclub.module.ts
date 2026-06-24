@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { DomainPricingSyncRegistryModule } from '../../../core/provisioning/domain-pricing-sync-registry.module';
 import { ReconcileRegistryModule } from '../../../core/provisioning/reconcile-registry.module';
 
 import { ResellerclubPricingSyncCron } from './crons/resellerclub-pricing-sync.cron';
@@ -32,7 +33,7 @@ import { ResellerclubProvisionerPlugin } from './resellerclub.plugin';
  * módulo (no es específico de RC).
  */
 @Module({
-  imports: [ReconcileRegistryModule],
+  imports: [ReconcileRegistryModule, DomainPricingSyncRegistryModule],
   providers: [
     ResellerclubProvisionerPlugin,
     ResellerclubCustomersService,

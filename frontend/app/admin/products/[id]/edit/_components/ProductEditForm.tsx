@@ -130,7 +130,9 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
   // precio vive por TLD en `domain_tld_pricing`, ADR-084 §1) → ocultamos la card
   // de planes de precio.
   const isDomain = initial.type === 'domain';
-  const showLifecycle = !isAddon;
+  // El ciclo de vida de un dominio lo gobierna el registrar (expires_at / ICANN),
+  // no las políticas de gracia/suspensión/cancelación en días → card oculta.
+  const showLifecycle = !isAddon && !isDomain;
 
   // ADR-080 Amendment B — schema declarativo del provisioner seleccionado.
   const selectedPlugin = initialPlugins.find((p) => p.slug === provisioner);

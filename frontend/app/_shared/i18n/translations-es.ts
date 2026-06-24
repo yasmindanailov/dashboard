@@ -719,4 +719,104 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.overview.narrative.admin.cancelled': 'El servicio está cancelado.',
   'service.overview.narrative.admin.unknown':
     'Estado del servicio sin confirmar por el proveedor.',
+
+  // ════════════════════════════════════════════════════════════════════════
+  // Plugin ResellerClub (registrar de dominios) — Sprint 15D Fase 15D.G.
+  // Bloque que faltaba: el plugin emite estas keys (manifest/config/secrets/
+  // actions/status_reason) y, sin traducir, se mostraban crudas en
+  // /admin/plugins + el form de producto (mismo patrón que enhance_cp arriba —
+  // ver cabecera, "futuros plugins SaaS añadirán su bloque plugin.<slug>.*").
+  // ════════════════════════════════════════════════════════════════════════
+
+  // ── Manifest (ADR-080 §1 + ADR-081 §2)
+  'plugin.resellerclub.label': 'Dominios ResellerClub',
+  'plugin.resellerclub.description':
+    'Plugin de registrar de dominios vía ResellerClub (API LogicBoxes). Registra, renueva y gestiona dominios (nameservers, privacidad WHOIS, bloqueo de transferencia, auth-code). No es autoridad DNS —esa es el plugin de hosting— y nunca expone el panel de ResellerClub al cliente (puerta unificada).',
+
+  // ── Config (ADR-084 §3.4)
+  'plugin.resellerclub.config.environment.label': 'Entorno de la API',
+  'plugin.resellerclub.config.environment':
+    'sandbox usa OT&E (test.httpapi.com) para pruebas sin coste real; production usa httpapi.com (registros reales que cuestan dinero). La IP del servidor debe estar whitelisteada en el panel de ResellerClub.',
+  'plugin.resellerclub.config.markup_percent.label': 'Margen sobre el coste (%)',
+  'plugin.resellerclub.config.markup_percent':
+    'Porcentaje que se añade al coste mayorista de cada TLD para calcular el precio de venta. Lo aplica el cron diario que rellena la tabla de precios por extensión. Default 25.',
+  'plugin.resellerclub.config.tlds_offered.label': 'TLDs ofertados',
+  'plugin.resellerclub.config.tlds_offered':
+    'Extensiones que se ofrecen al cliente, separadas por comas (ej. .com,.net,.org,.es,.eu). El cron de precios solo sincroniza estos TLDs.',
+  'plugin.resellerclub.config.default_currency.label': 'Moneda',
+  'plugin.resellerclub.config.default_currency':
+    'Moneda única de coste y venta (ISO 4217, 3 letras). El cron descarta cualquier TLD cuyo coste llegue en otra moneda para no tarifar mal. Default EUR.',
+
+  // ── Secrets (cifrados AES-256-GCM, ADR-080 §3)
+  'plugin.resellerclub.secrets.authUserId.label': 'Reseller ID (auth-userid)',
+  'plugin.resellerclub.secrets.authUserId':
+    'Identificador de revendedor de tu cuenta ResellerClub. Se cifra con AES-256-GCM antes de persistirse.',
+  'plugin.resellerclub.secrets.apiKey.label': 'API key',
+  'plugin.resellerclub.secrets.apiKey':
+    'Clave de API de ResellerClub (Settings → API). Principio de mínimo privilegio frente a la contraseña. Se cifra con AES-256-GCM antes de persistirse.',
+
+  // ── Acciones curadas (ADR-077 A10 + ADR-081 A5)
+  'plugin.resellerclub.actions.modify_nameservers': 'Cambiar nameservers',
+  'plugin.resellerclub.actions.modify_nameservers.description':
+    'Modifica la delegación de nameservers del dominio en el registrar (no la zona DNS, que gestiona el hosting). Verifica el cambio releyendo el registrar.',
+  'plugin.resellerclub.actions.modify_nameservers.confirm':
+    'Cambiar los nameservers puede dejar el dominio sin resolver si son incorrectos. ¿Confirmar?',
+  'plugin.resellerclub.actions.modify_nameservers.field.nameservers':
+    'Nameservers (mínimo 2)',
+  'plugin.resellerclub.actions.modify_nameservers.success':
+    'Nameservers actualizados en el registrar.',
+  'plugin.resellerclub.actions.modify_contacts': 'Editar contactos',
+  'plugin.resellerclub.actions.toggle_privacy': 'Privacidad WHOIS',
+  'plugin.resellerclub.actions.toggle_privacy.field.enabled':
+    'Activar privacidad WHOIS',
+  'plugin.resellerclub.actions.toggle_privacy.field.reason': 'Motivo (opcional)',
+  'plugin.resellerclub.actions.toggle_privacy.enabled':
+    'Privacidad WHOIS activada.',
+  'plugin.resellerclub.actions.toggle_privacy.disabled':
+    'Privacidad WHOIS desactivada.',
+  'plugin.resellerclub.actions.toggle_registrar_lock':
+    'Bloqueo de transferencia',
+  'plugin.resellerclub.actions.toggle_registrar_lock.field.locked':
+    'Bloquear transferencias (registrar lock)',
+  'plugin.resellerclub.actions.toggle_registrar_lock.enabled':
+    'Bloqueo de transferencia activado.',
+  'plugin.resellerclub.actions.toggle_registrar_lock.disabled':
+    'Bloqueo de transferencia desactivado.',
+  'plugin.resellerclub.actions.get_auth_code':
+    'Obtener código de autorización (EPP)',
+  'plugin.resellerclub.actions.get_auth_code.description':
+    'Devuelve el código de autorización (EPP/auth-code) para transferir el dominio a otro registrador. Requiere el dominio activo y sin bloqueo de transferencia.',
+  'plugin.resellerclub.actions.get_auth_code.success':
+    'Código de autorización obtenido.',
+  'plugin.resellerclub.actions.suspend_service': 'Suspender dominio',
+  'plugin.resellerclub.actions.suspend_service.description':
+    'Suspende el dominio en el registrar (uso administrativo: impago o fraude). El dominio deja de resolver hasta reactivarlo.',
+  'plugin.resellerclub.actions.suspend_service.confirm':
+    'El dominio se suspenderá en el registrar y dejará de resolver. ¿Confirmar?',
+  'plugin.resellerclub.actions.suspend_service.success':
+    'Dominio suspendido en el registrar.',
+  'plugin.resellerclub.actions.unsuspend_service': 'Reactivar dominio',
+  'plugin.resellerclub.actions.unsuspend_service.description':
+    'Reactiva un dominio previamente suspendido en el registrar.',
+  'plugin.resellerclub.actions.unsuspend_service.confirm':
+    'El dominio se reactivará en el registrar. ¿Confirmar?',
+  'plugin.resellerclub.actions.unsuspend_service.success':
+    'Dominio reactivado en el registrar.',
+
+  // ── Estados (mapeo domains/details, ADR-081 §6)
+  'plugin.resellerclub.status_reason.not_yet_provisioned':
+    'El dominio aún no se ha registrado.',
+  'plugin.resellerclub.status_reason.provider_unreachable':
+    'No se pudo contactar con el registrar. Se reintentará en la próxima reconciliación.',
+  'plugin.resellerclub.status_reason.pending_delete':
+    'El dominio está en periodo de borrado (pending delete). Contacta con soporte.',
+  'plugin.resellerclub.status_reason.redemption':
+    'El dominio expiró y está en periodo de redención. Recuperarlo requiere una tarifa especial — contacta con soporte.',
+  'plugin.resellerclub.status_reason.expired': 'El dominio ha expirado.',
+  'plugin.resellerclub.status_reason.suspended':
+    'El dominio está suspendido en el registrar.',
+  'plugin.resellerclub.status_reason.pending_verification':
+    'El dominio está pendiente de verificación (p. ej. validación del email del titular).',
+  'plugin.resellerclub.status_reason.inconsistent':
+    'El estado del dominio en el registrar es inconsistente. Se revisará en la próxima reconciliación.',
 });

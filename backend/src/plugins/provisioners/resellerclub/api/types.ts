@@ -185,6 +185,45 @@ export interface RcAddContactInput {
 }
 
 /**
+ * `contacts/modify` — actualiza los DATOS de una entidad contacto (15D.G·2).
+ * Propaga a todos los dominios que la referencian (modelo "1 titular/cliente").
+ * Mismos campos que `add` salvo que la entidad ya pertenece a su customer →
+ * `contact-id` en vez de `customer-id`.
+ */
+export interface RcModifyContactInput {
+  readonly 'contact-id': RcContactId;
+  readonly name: string;
+  readonly company: string;
+  readonly email: string;
+  readonly 'address-line-1': string;
+  readonly city: string;
+  readonly state: string;
+  readonly country: string;
+  readonly zipcode: string;
+  readonly 'phone-cc': string;
+  readonly phone: string;
+  readonly 'attr-name'?: readonly string[];
+  readonly 'attr-value'?: readonly string[];
+}
+
+/**
+ * `contacts/details` (subset usado, 15D.G·2 — verify-after-write + detección de
+ * cambio de nombre del titular). [CONSERVADOR — campos exactos confirmados Fase G].
+ */
+export interface RcContactDetails {
+  readonly contactid?: string | number;
+  readonly name?: string;
+  readonly company?: string;
+  readonly emailaddr?: string;
+  readonly telno?: string;
+  readonly address1?: string;
+  readonly city?: string;
+  readonly state?: string;
+  readonly country?: string;
+  readonly zip?: string;
+}
+
+/**
  * `customers/details` (subset usado). "No existe" llega como HTTP 500 +
  * RcErrorEnvelope (findings §4.6) → el cross-search lo trata como "crear".
  * [CONSERVADOR — refinar Fase G: campos exactos]

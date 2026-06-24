@@ -1,7 +1,12 @@
 import { Module } from '@nestjs/common';
 
+import { DomainPricingSyncRegistryModule } from '../../core/provisioning/domain-pricing-sync-registry.module';
 import { ProvisioningModule } from '../provisioning/provisioning.module';
 
+import { AdminDomainsController } from './admin-domains.controller';
+import { AdminDomainsService } from './admin-domains.service';
+import { DomainRegistrantController } from './domain-registrant.controller';
+import { DomainRegistrantService } from './domain-registrant.service';
 import { DomainsController } from './domains.controller';
 import { DomainsService } from './domains.service';
 
@@ -16,9 +21,13 @@ import { DomainsService } from './domains.service';
  * `PrismaService` es global.
  */
 @Module({
-  imports: [ProvisioningModule],
-  controllers: [DomainsController],
-  providers: [DomainsService],
+  imports: [ProvisioningModule, DomainPricingSyncRegistryModule],
+  controllers: [
+    DomainsController,
+    AdminDomainsController,
+    DomainRegistrantController,
+  ],
+  providers: [DomainsService, AdminDomainsService, DomainRegistrantService],
   exports: [DomainsService],
 })
 export class DomainsModule {}

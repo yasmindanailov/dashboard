@@ -1637,7 +1637,13 @@ export interface ServiceMetrics {
  *   - `reconcile`       → metadata local divergió → re-sync del cron L3 manual.
  *   - `contact_support` → drift no auto-remediable → sin CTA accionable.
  */
-export type ServiceRecoveryHint = 'reprovision' | 'reconcile' | 'contact_support';
+export type ServiceRecoveryHint =
+  | 'reprovision'
+  | 'reconcile'
+  | 'contact_support'
+  // 15D.G·2 (dominios): expirado renovable → 'renew'; en redención → 'restore'.
+  | 'renew'
+  | 'restore';
 
 /**
  * Sprint 15C.II Fase F.7 — ADR-077 Amendment A7. Estado canónico del

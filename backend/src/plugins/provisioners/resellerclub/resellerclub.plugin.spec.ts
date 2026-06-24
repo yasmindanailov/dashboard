@@ -489,7 +489,7 @@ describe('ResellerclubProvisionerPlugin getServiceInfo/getStatus/deprovision —
     expect(client.getDomainDetailsByOrderId).not.toHaveBeenCalled();
   });
 
-  it('getServiceInfo expirado → status/lifecycle expired', async () => {
+  it('getServiceInfo expirado → status/lifecycle expired + recoveryHint renew (15D.G·2)', async () => {
     const { plugin, client } = buildPlugin();
     client.getDomainDetailsByOrderId.mockResolvedValue({
       ...ACTIVE_DETAILS,
@@ -498,9 +498,10 @@ describe('ResellerclubProvisionerPlugin getServiceInfo/getStatus/deprovision —
     const info = await plugin.getServiceInfo(svc());
     expect(info.status).toBe('expired');
     expect(info.domain!.lifecycle).toBe('expired');
+    expect(info.recoveryHint).toBe('renew');
   });
 
-  it('getServiceInfo redemption → expired + lifecycle redemption + recoveryHint', async () => {
+  it('getServiceInfo redemption → expired + lifecycle redemption + recoveryHint restore (15D.G·2)', async () => {
     const { plugin, client } = buildPlugin();
     client.getDomainDetailsByOrderId.mockResolvedValue({
       ...ACTIVE_DETAILS,
@@ -510,7 +511,7 @@ describe('ResellerclubProvisionerPlugin getServiceInfo/getStatus/deprovision —
     const info = await plugin.getServiceInfo(svc());
     expect(info.status).toBe('expired');
     expect(info.domain!.lifecycle).toBe('redemption');
-    expect(info.recoveryHint).toBe('contact_support');
+    expect(info.recoveryHint).toBe('restore');
   });
 
   it('getStatus: activo → active; sin ref → unknown; error → unknown', async () => {

@@ -19,6 +19,7 @@ describe('ResellerclubPricingSyncCron — Fase 15D.E', () => {
   };
   let plugin: { getApiClient: jest.Mock; getTldPricing: jest.Mock };
   let events: { emit: jest.Mock };
+  let pricingRegistry: { register: jest.Mock };
   let cron: ResellerclubPricingSyncCron;
 
   const CONFIG = {
@@ -39,10 +40,20 @@ describe('ResellerclubPricingSyncCron — Fase 15D.E', () => {
       getTldPricing: jest.fn().mockResolvedValue([]),
     };
     events = { emit: jest.fn() };
+    pricingRegistry = { register: jest.fn() };
     cron = new ResellerclubPricingSyncCron(
       prisma as never,
       plugin as never,
       events as never,
+      pricingRegistry as never,
+    );
+  });
+
+  it('onModuleInit registra el executor de sync (capability-routed para el admin)', () => {
+    cron.onModuleInit();
+    expect(pricingRegistry.register).toHaveBeenCalledWith(
+      'resellerclub',
+      expect.any(Function),
     );
   });
 

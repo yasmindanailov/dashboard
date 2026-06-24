@@ -159,6 +159,7 @@ export default async function AdminServiceDetailPage({
         info.display.secondary ? t(info.display.secondary) : undefined
       }
       isTerminal={isTerminal}
+      isDomain={service.product_type === 'domain'}
     />
   );
 
