@@ -114,6 +114,17 @@ const SETTINGS: ReadonlyArray<SeedSetting> = [
   // canónico `provisioning.default_nameservers_changed` propagará a C2.
   { category: 'provisioning', key: 'default_nameservers', value: ['ns1.aelium.net', 'ns2.aelium.net'], description: 'NS-sync C3 (ADR-082 §4) — pareja de nameservers que Aelium ofrece a sus dominios. Fuente de verdad cluster-wide.' },
 
+  // ── provisioning · NS de parking del registrar (Sprint 15D Fase 15D.F.3 + ADR-082 Amendment "dominio-solo aparca en el registrar") ──
+  // Un dominio registrado SIN hosting (flujo F5) aparca en estos NS del
+  // registrar (que SÍ resuelven), no en los de Aelium — porque Enhance no
+  // puede crear una zona DNS sin un website (verificado: orchd OAS3 +
+  // mock) y RC rechaza NS que no resuelven (resellerclub-ote-findings §4.8).
+  // Cuando se le añade hosting, el listener switch-domain-ns-on-hosting-activated
+  // conmuta a `default_nameservers`. Consumidor: plugin RC en `provision(register)`.
+  // ⚠️ VALOR PROVISIONAL — confirmar contra la cuenta RC real en el smoke de
+  // Fase G (los NS del servicio DNS gratuito de ResellerClub/LogicBoxes).
+  { category: 'provisioning', key: 'registrar_parking_nameservers', value: ['dns1.resellerclub.com', 'dns2.resellerclub.com'], description: 'NS de parking del registrar para dominios-solo sin hosting (ADR-082 Amendment F.3). PROVISIONAL: confirmar en smoke Fase G.' },
+
   // ── provisioning · enhance_cp reconcile (Sprint 15C Fase 15C.H + ADR-083 §6 decisión 24) ──
   // Threshold de divergencias detectadas por el cron `reconcile-enhance-services`
   // por día antes de alertar al superadmin. Consumidor: cron L3 (Fase 15C.H).

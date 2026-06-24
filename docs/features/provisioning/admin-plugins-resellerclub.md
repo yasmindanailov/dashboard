@@ -50,8 +50,8 @@ registrar nada.
 - **Registro** (`provision(register)`): pre-flight de disponibilidad + **DOM-INV-1**
   (exactly-once por nombre; adopta el registro existente bajo nuestra cuenta tras
   un crash, no re-registra) + alta lazy de customer + 4 contact handles WHOIS
-  (1 contacto reutilizado en los 4 roles) + `domains/register` con
-  NS = `provisioning.default_nameservers` y WHOIS privacy ON.
+  (1 contacto reutilizado en los 4 roles) + `domains/register` con WHOIS privacy ON.
+  **NS según hosting (15D.F.3, [ADR-082 A4](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md#amendments)):** si el dominio se compra **con hosting** → NS = `provisioning.default_nameservers` (Aelium; la zona la acuña el website Enhance); si es **dominio-solo** (sin hosting) → NS = `provisioning.registrar_parking_nameservers` (parking del registrar — Enhance no puede crear zona sin website). Al añadir hosting después, los NS conmutan a Aelium automáticamente.
 - **Estado** (`getServiceInfo`/`getStatus`): mapea `domains/details` → estado +
   `DomainInfo` (nameservers, expiración, lifecycle ICANN, privacy, lock, resumen
   de contactos sin PII).
@@ -108,9 +108,10 @@ gestión CONSERVADORES hasta el smoke OT&E (Fase G, A1.5).
 - **15D.F.2:** buscador + `POST /domains/check-availability` (REST) + DOM-INV-5 rico
   pre-checkout (`.es` NIF / `.eu` residencia, `contacts/set-details`) +
   `modify_contacts` enriquecido + checkout de registro.
-- **15D.F.3:** zona DNS post-register capability-routed (ADR-082 A3/DH-INV-7).
-- **15D.F.4:** frontend de dominios (buscador + gestión + registro) + `deleteDomain`
-  admin en gracia (A3.1).
+- ~~**15D.F.3:** zona DNS post-register~~ ✅ — gate Enhance verificado (sin primitiva de
+  zona sin website) → **dominio-solo aparca en NS del registrar** ([ADR-082 A4](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md#amendments)); conmuta a Aelium al añadir hosting. Diferido: cancel→SERVFAIL (DC.NEW-71).
+- ~~**15D.F.4:** frontend de dominios~~ ✅ (PR #114) — buscador + gestión + Tienda + carrito único.
+  Diferido: `deleteDomain` admin en gracia (A3.1).
 - **15D.G:** smoke OT&E real (refina los shapes `register`/`details`/gestión
   conservadores — ADR-081 A1.5) + cierre.
 

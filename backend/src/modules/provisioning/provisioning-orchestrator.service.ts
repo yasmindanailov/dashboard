@@ -15,6 +15,7 @@ import {
   ProvisioningFollowUp,
   ServiceWithRelations,
 } from '../../core/provisioning/types';
+import { normalizeFqdn } from '../../core/provisioning/fqdn.util';
 import { TasksService } from '../tasks/tasks.service';
 import { calculateTaskPriority } from '../../core/tasks/priority-helper';
 import { calculateTaskDueDate } from '../../core/tasks/sla-helper';
@@ -239,6 +240,22 @@ export class ProvisioningOrchestratorService {
       });
     }
 
+    // Sprint 15D — ADR-077 A10: intención del provision para registrars. En una
+    // renovación se fuerza 'renew' (la metadata del servicio diría 'register' del
+    // alta — stale); en el resto se deriva de `metadata.domain_operation`
+    // (lo fija el checkout, 15D.B). Los plugins no-registrar la ignoran.
+    const operation: ProvisionContext['operation'] = isDomainRenewal
+      ? 'renew'
+      : this.deriveDomainOperation(service.metadata);
+
+    // F.3 (ADR-082 Amendment "dominio-solo aparca en el registrar"): solo para un
+    // `register` de registrar, el orquestador decide en el core (R4) si el dominio
+    // delega a Aelium (tiene hosting) o aparca en el registrar (dominio-solo).
+    const dnsTargetHint =
+      plugin.capabilities.is_domain_registrar && operation === 'register'
+        ? await this.resolveDnsTargetHint(service)
+        : undefined;
+
     const ctx: ProvisionContext = {
       service,
       client: service.client,
@@ -246,13 +263,8 @@ export class ProvisioningOrchestratorService {
         (service.product.provisioner_config as Record<string, unknown>) ?? {},
       serverId: service.server_id ?? null,
       correlationId,
-      // Sprint 15D — ADR-077 A10: intención del provision para registrars. En una
-      // renovación se fuerza 'renew' (la metadata del servicio diría 'register' del
-      // alta — stale); en el resto se deriva de `metadata.domain_operation`
-      // (lo fija el checkout, 15D.B). Los plugins no-registrar la ignoran.
-      operation: isDomainRenewal
-        ? 'renew'
-        : this.deriveDomainOperation(service.metadata),
+      operation,
+      dnsTargetHint,
     };
 
     try {
@@ -263,10 +275,10 @@ export class ProvisioningOrchestratorService {
       // `provider_reference` ya persistido), emitir `domain.registered` **en la
       // misma transacción** vía Outbox (R8 + ADR-084 §5). `!service.provider_reference`
       // (era fresco) evita re-emitir en reintentos puros / adopción DOM-INV-1.
-      const operation = ctx.operation ?? 'register';
+      const emitOperation = operation ?? 'register';
       const emitDomainRegistered =
         plugin.capabilities.is_domain_registrar &&
-        operation === 'register' &&
+        emitOperation === 'register' &&
         !service.provider_reference &&
         !!result.providerReference;
 
@@ -497,6 +509,37 @@ export class ProvisioningOrchestratorService {
     const op = md.domain_operation;
     if (op === 'register' || op === 'renew' || op === 'transfer_in') return op;
     return undefined;
+  }
+
+  /**
+   * Sprint 15D Fase 15D.F.3 — ADR-082 Amendment "dominio-solo aparca en el
+   * registrar". Decide el destino de la delegación de NS de un dominio que se va
+   * a registrar: `'aelium'` si el cliente tiene hosting para ese FQDN (la zona la
+   * acuña el website Enhance), o `'parking'` si es un dominio-solo (Enhance no
+   * puede crear una zona sin website → aparca en el registrar, que resuelve).
+   *
+   * La fila hermana ya existe: el checkout crea todos los services en una
+   * transacción antes de provisionar (flujo F1). R4: la decisión vive en el
+   * core; el plugin solo honra el `dnsTargetHint`.
+   */
+  private async resolveDnsTargetHint(
+    service: ServiceWithRelations,
+  ): Promise<'aelium' | 'parking'> {
+    if (!service.domain) return 'parking';
+    const fqdn = normalizeFqdn(service.domain);
+    const sibling = await this.prisma.service.findFirst({
+      where: {
+        user_id: service.user_id,
+        id: { not: service.id },
+        status: { notIn: ['cancelled', 'terminated'] },
+        // Tipos de producto que SIEMPRE tienen su propia zona DNS en Aelium
+        // (DH-INV-1, mismos que PRODUCT_TYPES_WITH_OWN_ZONE del resolver).
+        product: { type: { in: ['hosting_web', 'docker_service'] } },
+        domain: { equals: fqdn, mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+    return sibling ? 'aelium' : 'parking';
   }
 
   private async loadServiceWithRelations(

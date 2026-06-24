@@ -82,6 +82,17 @@ const DEFAULT_TLDS_OFFERED = ['.com', '.net', '.org', '.es', '.eu'] as const;
 const DEFAULT_NAMESERVERS = ['ns1.aelium.net', 'ns2.aelium.net'] as const;
 
 /**
+ * NS de parking del registrar si el setting no está poblado (fallback defensivo,
+ * ADR-082 Amendment F.3). Un dominio-solo (sin hosting) aparca aquí —resuelven
+ * en el registrar— porque Enhance no puede crear una zona DNS sin website.
+ * PROVISIONAL: confirmar en smoke Fase G.
+ */
+const DEFAULT_PARKING_NAMESERVERS = [
+  'dns1.resellerclub.com',
+  'dns2.resellerclub.com',
+] as const;
+
+/**
  * Avance mínimo de la expiración (segundos) que cuenta como "1 año renovado"
  * (Fase 15D.E / DOM-INV-4). Cota inferior conservadora: 300 días/año — muy por
  * encima de 0 (detecta un `renew` que no extendió) y muy por debajo de 365
@@ -469,11 +480,23 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
 
     // Disponible → asegurar registrante (customer + 4 contactos) + registrar.
     const refs = await this.customers.ensureRegistrant(ctx.client, client);
-    const nameservers = await this.settings.getJson<string[]>(
-      'provisioning',
-      'default_nameservers',
-      [...DEFAULT_NAMESERVERS],
-    );
+    // F.3 (ADR-082 Amendment "dominio-solo aparca en el registrar"): el destino de
+    // los NS lo decide el orquestador (R4) según haya o no hosting asociado. Un
+    // dominio-solo (`dnsTargetHint='parking'`) aparca en los NS del registrar
+    // (resuelven; Enhance no puede crear zona sin website). Sin hint → 'aelium'
+    // (comportamiento histórico, fallback defensivo).
+    const nameservers =
+      ctx.dnsTargetHint === 'parking'
+        ? await this.settings.getJson<string[]>(
+            'provisioning',
+            'registrar_parking_nameservers',
+            [...DEFAULT_PARKING_NAMESERVERS],
+          )
+        : await this.settings.getJson<string[]>(
+            'provisioning',
+            'default_nameservers',
+            [...DEFAULT_NAMESERVERS],
+          );
 
     const orderId = await client.registerDomain({
       'domain-name': fqdn,
@@ -504,7 +527,12 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
         domain_years: years,
         rc_customer_id: refs.customerId,
         rc_registrant_contact_id: refs.contacts.registrant,
-        rc_nameservers: nameservers.join(','),
+        // `nameservers` (array) es la clave canónica que lee el
+        // `dns-authority-resolver` (ADR-082 §6 + A3) para resolver la autoridad
+        // DNS del dominio. Antes de F.3 se escribía bajo `rc_nameservers` (clave
+        // que nadie leía → todo dominio RC resolvía `external`: bug latente).
+        // El cron de reconcile mantiene `nameservers` fresco (DH-INV-6).
+        nameservers,
         whois_privacy: true,
       },
       followUp: ['mark_active'],

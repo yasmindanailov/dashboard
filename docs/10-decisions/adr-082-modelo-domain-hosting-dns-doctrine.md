@@ -472,3 +472,42 @@ El **registrar (RC) no se toca** en ningún paso salvo el `modify_nameservers` o
 - **Refactor del plumbing 15C (deuda):** generalizar los tres listeners 15C + extraer el sub-contrato desde `EnhanceDnsDefaultsService` → **[DC.NEW-65](../60-roadmap/backlog.md)**. No urge mientras `enhance_cp` sea la única autoridad; **prerequisito antes de instalar una 2ª autoridad real** (15G Plesk / cualquier swap), ejecutando el runbook A3.4.
 
 **Cross-refs.** Extiende §1 (DH-INV-7), §3 (plano de escritura del sub-contrato), §4 (el setting es C3-adyacente), §6 (el resolver honra el setting), A2.2 (ensure-zone nace conforme). Cierra la entrada de §"Cuándo revisar" *"Si llega un plugin que es a la vez registrar + DNS authority"* en su vertiente de conmutabilidad. Materialización del contrato: futuro Amendment ADR-077 (sub-contrato DNS authority de escritura). Deuda: DC.NEW-65. Coherente con ADR-070 (cero `if (slug)`), R4 (core no importa plugins), ADR-081 (registrar desacoplado).
+
+---
+
+### Amendment A4 (2026-06-24) — Dominio-solo **aparca en el registrar** (revisa A2.1/A2.2 a la luz de la verificación empírica del gate Enhance) (Sprint 15D Fase 15D.F.3)
+
+**Contexto.** Al implementar F.3 ("zona DNS post-register") se ejecutó la verificación que el roadmap exigía *"⚠️ verificar la primitiva de zona standalone de Enhance antes de prometer"*. La verificación empírica (lectura de la OAS3 real de orchd + el cliente HTTP + el mock de alta fidelidad + ADR-083) devolvió **dos hechos** que invalidan la asunción implícita de A2.2:
+
+1. **Enhance NO tiene primitiva de zona DNS sin website.** Toda operación de zona va por `/orgs/{org}/websites/{ws}/domains/{dom}/dns-zone` (requiere `websiteId`); lo único que acuña una zona es `createWebsite`. El mock lo espeja (zona auto-creada solo dentro de `POST /orgs/{org}/websites`). ADR-083 no decide nada sobre zona standalone. → A2.2 ("el orquestador pide al DNS authority crear la zona vacía idempotente") **no es realizable** para un dominio-solo (F5) sin crear un website Enhance (artefacto de hosting con consumo de subscription → contradice el espíritu de DH-INV-3).
+2. **ResellerClub valida que los NS del `register` resuelvan** en DNS y rechaza `ns1/ns2.aelium.net` en pre-producción (sin registro A) con `"NameServer … is not a valid Nameserver"` (`docs/_research/sprint-15d/resellerclub-ote-findings.md` §4.8).
+
+> **Decisión del owner (Yasmin, 2026-06-24):** un dominio registrado **sin hosting** (F5) **aparca en los NS de parking del registrar** (que sí resuelven), no en los de Aelium. El dominio entra en la órbita de Aelium (NS Aelium + zona del website Enhance) **solo cuando se le añade hosting**.
+> **Compatibilidad:** Hacia atrás. Additivo. NO contradice la *letra* de A2.2 (que solo crea zona *cuando* `nameservers === default_nameservers`: un dominio en NS de parking nunca cumple la precondición). **Supersede** la cláusula NS de **A2.1** (que decía F5 registra con `NS=default_nameservers`) y el alcance dominio-solo de **A2.2** (ya no se promete zona Aelium para un dominio-solo). El `ensure-zone post-register` de A2.2/A3.3 queda **sin materializar** (innecesario bajo este modelo); su hueco lo cubre la zona del website en F1/F2.
+
+#### A4.1. Modelo de ciclo de NS (regla operativa)
+
+**Un dominio apunta a NS de Aelium (+ zona del website) ⟺ tiene hosting.** Sin hosting, aparca en el registrar.
+
+| Flujo | NS al registrar | Origen de la zona | Switch al activar hosting |
+|---|---|---|---|
+| F1 dominio + hosting | Aelium | website Enhance | no-op (ya Aelium) |
+| F2 dominio Aelium + hosting | ya Aelium | zona existente | no-op |
+| F3 BYOD externo + hosting | Aelium no lo registra | website Enhance | no-op (no hay service `type=domain`) |
+| F4 transfer-in + hosting | NS entrantes hasta fijar | website Enhance | switch (gated por `provider_reference`) |
+| **F5 dominio-solo** | **parking del registrar** | ninguna (resuelve en parking) | n/a; al añadir hosting → switch |
+
+#### A4.2. Materialización (15D.F.3)
+
+- **Selección de NS al registrar (Alternative A — decisión en el core, R4):** el orquestador, al construir el `ProvisionContext` de un `register` de registrar, consulta si existe un service hermano de hosting (`hosting_web`/`docker_service`, mismo cliente, FQDN normalizado, no cancelado) y fija `ProvisionContext.dnsTargetHint = 'aelium' | 'parking'` (default `parking` si no hay hermano). El plugin RC honra el hint: `aelium`→`provisioning.default_nameservers`, `parking`→`provisioning.registrar_parking_nameservers`. La fila hermana existe porque el checkout crea todos los services en una tx antes de provisionar (F1).
+- **Switch al añadir hosting:** listener `switch-domain-ns-on-hosting-activated` (`@OnEvent('service.activated')`) + `DomainNsLifecycleService.switchToAeliumIfParked` — capability-routed (registrar por `is_domain_registrar`, nunca por slug), idempotente, **no-clobber** (no toca NS custom del cliente), **fail-soft** (post-activación: no tumba el hosting; el reconcile 6h es red de seguridad). Ejecuta `modify_nameservers` vía el wrapper canónico (breaker + cache + audit `actor=system:provisioning-ns-switch`). **NO emite `domain.nameservers_changed`** (ese evento dispara la alerta de seguridad "verifica que fuiste tú" de F.1, engañosa para un cambio de sistema esperado).
+- **`metadata.nameservers` pasa a ser load-bearing (fix de bug latente):** el `dns-authority-resolver` (§6) lee `service.metadata.nameservers`, pero el `register` de RC lo persistía bajo `rc_nameservers` (clave que nadie leía) → **todo dominio RC resolvía `external`**. F.3 persiste `nameservers` (array) en el `register` y en el reconcile cron (DH-INV-6: adopta los NS reales). `ProvisionResult.metadata` se ensancha aditivamente para admitir `string[]`.
+- **Setting nuevo** `provisioning.registrar_parking_nameservers` (array, superadmin). **PROVISIONAL** (los NS de parking de RC son incertidumbre empírica — cuenta OT&E vacía): confirmar en el smoke de Fase G.
+
+#### A4.3. Diferido (riesgo trazado)
+
+- **⚠️ Hosting cancelado con dominio retenido → SERVFAIL** (al deprovisionar el hosting se borra el website Enhance y su zona; el dominio queda con NS Aelium apuntando a un PowerDNS sin zona). Manejo simétrico (revertir NS a parking al cancelar el último hosting del dominio) → follow-up con DC.
+- **Durabilidad:** el switch cuelga de `service.activated` (emit directo, no Outbox — mismo modelo que el reconcile DNS existente, MEDIUM-1/P-DEPLOY.4). Red de seguridad: el reconcile cron mantiene `metadata.nameservers` fresco. Refactor service.*→Outbox = P-DEPLOY.4.
+- **Setting `provisioning.dns_authority_plugin` (A3.2):** NO se implementa en F.3 — por A3.5 es parte del refactor de plumbing **DC.NEW-65**, prerequisito de una 2ª autoridad DNS, no de F.3. El código nuevo de F.3 ya es capability-routed (nace conforme).
+
+**Cross-refs.** Revisa A2.1 (NS de F5) + A2.2 (alcance dominio-solo del ensure-zone). Consume §4 (settings de NS) + §6 (resolver). Honra DH-INV-3 (dominio vive solo, ahora sin forzar artefacto de hosting), DH-INV-6 (registrar gana → reconcile adopta NS), DH-INV-7 (capability-routed), R4 (core no importa plugins). Materialización: `provisioning-orchestrator.service.ts` (dnsTargetHint), `domain-ns-lifecycle.service.ts` + `listeners/switch-domain-ns-on-hosting-activated.listener.ts`, `resellerclub.plugin.ts` (selección NS + fix `nameservers`), `resellerclub-reconciliation.cron.ts` (NS fresco), `core/provisioning/fqdn.util.ts`.

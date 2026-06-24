@@ -86,6 +86,7 @@ describe('ResellerclubProvisionerPlugin.provision(register) — Fase 15D.D', () 
     overrides: {
       service?: Record<string, unknown>;
       operation?: 'register' | 'renew' | 'transfer_in';
+      dnsTargetHint?: 'aelium' | 'parking';
     } = {},
   ): ProvisionContext {
     const service = {
@@ -103,6 +104,7 @@ describe('ResellerclubProvisionerPlugin.provision(register) — Fase 15D.D', () 
       serverId: null,
       correlationId: 'cor-1',
       operation: overrides.operation ?? 'register',
+      dnsTargetHint: overrides.dnsTargetHint,
     };
   }
 
@@ -123,7 +125,10 @@ describe('ResellerclubProvisionerPlugin.provision(register) — Fase 15D.D', () 
       domain_years: 1,
       rc_customer_id: '700001',
       rc_registrant_contact_id: '800001',
-      rc_nameservers: 'ns1.aelium.net,ns2.aelium.net',
+      // `nameservers` (array) es la clave que lee el dns-authority-resolver
+      // (ADR-082 §6 + A3 — F.3). Antes se escribía bajo `rc_nameservers` (clave
+      // que nadie leía → todo dominio RC resolvía `external`: bug latente).
+      nameservers: ['ns1.aelium.net', 'ns2.aelium.net'],
       whois_privacy: true,
     });
     expect(customers.ensureRegistrant).toHaveBeenCalledTimes(1);
@@ -141,6 +146,38 @@ describe('ResellerclubProvisionerPlugin.provision(register) — Fase 15D.D', () 
         'protect-privacy': true,
       }),
     );
+  });
+
+  it('dominio-solo (dnsTargetHint=parking) → registra con NS de parking del registrar (F.3)', async () => {
+    const client = buildMockClient();
+    client.checkAvailability.mockResolvedValue({
+      'example.com': { classkey: 'domcno', status: 'available' },
+    });
+    client.registerDomain.mockResolvedValue('700123');
+    const { plugin, settings } = buildPlugin(client);
+    // El setting de parking devuelve NS distintos a los de Aelium.
+    settings.getJson = jest
+      .fn()
+      .mockImplementation((_cat: string, key: string) =>
+        Promise.resolve(
+          key === 'registrar_parking_nameservers'
+            ? ['dns1.resellerclub.com', 'dns2.resellerclub.com']
+            : ['ns1.aelium.net', 'ns2.aelium.net'],
+        ),
+      );
+
+    const result = await plugin.provision(
+      buildCtx({ dnsTargetHint: 'parking' }),
+    );
+
+    expect(client.registerDomain).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ns: ['dns1.resellerclub.com', 'dns2.resellerclub.com'],
+      }),
+    );
+    expect(result.metadata).toMatchObject({
+      nameservers: ['dns1.resellerclub.com', 'dns2.resellerclub.com'],
+    });
   });
 
   it('DOM-INV-1 adopción: regthroughus → adopta order-id, NO re-registra', async () => {

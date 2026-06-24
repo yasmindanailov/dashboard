@@ -45,7 +45,7 @@ import { ProvisioningOrchestratorService } from './provisioning-orchestrator.ser
  */
 describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
   let prisma: {
-    service: { findUnique: jest.Mock; update: jest.Mock };
+    service: { findUnique: jest.Mock; update: jest.Mock; findFirst: jest.Mock };
     user: { findUnique: jest.Mock };
     invoice: { findUnique: jest.Mock };
     supportInsideSubscription: { findUnique: jest.Mock };
@@ -114,7 +114,13 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
 
   beforeEach(() => {
     prisma = {
-      service: { findUnique: jest.fn(), update: jest.fn() },
+      // Sprint 15D.F.3: findFirst lo usa `resolveDnsTargetHint` (busca hosting
+      // hermano). Default null = sin hosting → dnsTargetHint='parking'.
+      service: {
+        findUnique: jest.fn(),
+        update: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'user-1',
@@ -295,6 +301,64 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
         years: 2,
       }),
     );
+  });
+
+  it('F.3 dnsTargetHint: dominio-solo (sin hosting hermano) → parking', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(
+      setupServiceRow({
+        domain: 'solo.com',
+        provider_reference: null,
+        metadata: { domain_operation: 'register', domain_years: 1 },
+        product: DOMAIN_PRODUCT,
+      }),
+    );
+    prisma.service.findFirst.mockResolvedValueOnce(null); // sin hosting hermano
+    const plugin = buildPlugin({
+      slug: 'resellerclub',
+      capabilities: { ...REGISTRAR_CAPS },
+      provision: jest.fn().mockResolvedValue({
+        providerReference: '700123',
+        metadata: { domain_operation: 'register' },
+        followUp: ['mark_active'],
+      }),
+    });
+    registry.get.mockReturnValue(plugin);
+
+    await orchestrator.provisionService('svc-1', 'cor-1');
+
+    const ctxArg = (
+      (plugin.provision as jest.Mock).mock.calls[0] as unknown[]
+    )[0] as { dnsTargetHint?: string };
+    expect(ctxArg.dnsTargetHint).toBe('parking');
+  });
+
+  it('F.3 dnsTargetHint: dominio con hosting hermano (F1) → aelium', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(
+      setupServiceRow({
+        domain: 'conhosting.com',
+        provider_reference: null,
+        metadata: { domain_operation: 'register', domain_years: 1 },
+        product: DOMAIN_PRODUCT,
+      }),
+    );
+    prisma.service.findFirst.mockResolvedValueOnce({ id: 'host-sib' }); // hosting hermano
+    const plugin = buildPlugin({
+      slug: 'resellerclub',
+      capabilities: { ...REGISTRAR_CAPS },
+      provision: jest.fn().mockResolvedValue({
+        providerReference: '700124',
+        metadata: { domain_operation: 'register' },
+        followUp: ['mark_active'],
+      }),
+    });
+    registry.get.mockReturnValue(plugin);
+
+    await orchestrator.provisionService('svc-1', 'cor-1');
+
+    const ctxArg = (
+      (plugin.provision as jest.Mock).mock.calls[0] as unknown[]
+    )[0] as { dnsTargetHint?: string };
+    expect(ctxArg.dnsTargetHint).toBe('aelium');
   });
 
   it('registrar + register en reintento (provider_reference ya existe) â†’ NO re-emite', async () => {
