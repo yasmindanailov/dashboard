@@ -63,6 +63,20 @@ export class SubscriptionController {
      ═══════════════════════════════════════ */
 
   /**
+   * Planes (ciclos) a los que el servicio puede cambiar — para el picker (R5).
+   */
+  @Get(':id/change-plan/options')
+  @ApiOperation({ summary: 'List plans a service can switch to' })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Service))
+  planChangeOptions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const isAdmin = ADMIN_ROLES.includes(req.user.role.slug);
+    return this.planChangeService.listPlanOptions(id, req.user.id, isAdmin);
+  }
+
+  /**
    * Preview del prorrateo (R5: el cliente ve el desglose antes de confirmar).
    * El dueño se resuelve del JWT (`req.user.id`); staff puede previsualizar
    * cualquier servicio.

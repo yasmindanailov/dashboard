@@ -992,6 +992,35 @@ export interface ServiceBillingCrossLink {
   } | null;
 }
 
+/* ── Cambio de plan con prorrateo (ADR-029) ── */
+
+export interface PlanChangeOption {
+  id: string;
+  billing_cycle: string;
+  price: number;
+  currency: string;
+}
+
+export interface PlanChangeOptions {
+  product_name: string;
+  current: { billing_cycle: string; amount: number; currency: string };
+  options: PlanChangeOption[];
+}
+
+export interface PlanChangePreview {
+  current_plan: { billing_cycle: string; amount: number };
+  new_plan: { billing_cycle: string; amount: number };
+  currency: string;
+  days_consumed: number;
+  days_remaining: number;
+  daily_price_current: number;
+  credit_eur: number;
+  amount_to_pay: number;
+  credit_remaining_eur: number;
+  new_period_start: string;
+  new_period_end: string;
+}
+
 /**
  * Subset acotado de JSON-Schema 7 que el backend declara en
  * `core/provisioning/types.ts §12`. Mantener sincronizado al añadir

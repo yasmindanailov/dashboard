@@ -52,7 +52,9 @@ describe('SubscriptionPlanChangeService.confirmPlanChange (ADR-029)', () => {
   }
 
   beforeEach(() => {
-    txUpdate = jest.fn().mockResolvedValue({ id: 'svc-1', billing_cycle: 'annual' });
+    txUpdate = jest
+      .fn()
+      .mockResolvedValue({ id: 'svc-1', billing_cycle: 'annual' });
     prisma = {
       service: { findUnique: jest.fn() },
       productPricing: { findUnique: jest.fn() },
@@ -66,8 +68,9 @@ describe('SubscriptionPlanChangeService.confirmPlanChange (ADR-029)', () => {
     audit = { logChange: jest.fn().mockResolvedValue(undefined) };
     const billing = {
       getCycleDays: (c: string) => realCalc.getCycleDays(c),
-      calculateProration: (p: Parameters<typeof realCalc.calculateProration>[0]) =>
-        realCalc.calculateProration(p),
+      calculateProration: (
+        p: Parameters<typeof realCalc.calculateProration>[0],
+      ) => realCalc.calculateProration(p),
     };
     service = new SubscriptionPlanChangeService(
       prisma as never,
@@ -89,24 +92,21 @@ describe('SubscriptionPlanChangeService.confirmPlanChange (ADR-029)', () => {
     );
 
     // Service → nuevo plan + sobrante 0 (upgrade).
-    expect(txUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'svc-1' },
-        data: expect.objectContaining({
-          billing_cycle: 'annual',
-          amount: 300,
-          credit_balance_eur: { increment: 0 },
-        }),
-      }),
-    );
+    const updateCalls = txUpdate.mock.calls as Array<
+      [{ where: { id: string }; data: Record<string, unknown> }]
+    >;
+    const updateArg = updateCalls[0][0];
+    expect(updateArg.where).toEqual({ id: 'svc-1' });
+    expect(updateArg.data.billing_cycle).toBe('annual');
+    expect(updateArg.data.amount).toBe(300);
+    expect(updateArg.data.credit_balance_eur).toEqual({ increment: 0 });
 
     // Evento Outbox con el desglose recalculado server-side (crédito 15€ por 15 días).
     expect(outbox.enqueue).toHaveBeenCalledTimes(1);
-    const [, eventType, payload] = outbox.enqueue.mock.calls[0] as [
-      unknown,
-      string,
-      Record<string, number | string>,
-    ];
+    const enqueueCalls = outbox.enqueue.mock.calls as Array<
+      [unknown, string, Record<string, number | string>]
+    >;
+    const [, eventType, payload] = enqueueCalls[0];
     expect(eventType).toBe('service.plan_changed');
     expect(payload.old_billing_cycle).toBe('monthly');
     expect(payload.new_billing_cycle).toBe('annual');
@@ -133,16 +133,17 @@ describe('SubscriptionPlanChangeService.confirmPlanChange (ADR-029)', () => {
 
     await service.confirmPlanChange('svc-1', 'pr-monthly', 'user-1', false);
 
-    const data = (txUpdate.mock.calls[0][0] as { data: Record<string, unknown> })
-      .data;
+    const updateCalls = txUpdate.mock.calls as Array<
+      [{ data: Record<string, unknown> }]
+    >;
+    const data = updateCalls[0][0].data;
     const increment = (data.credit_balance_eur as { increment: number })
       .increment;
     expect(increment).toBeGreaterThan(0); // sobrante a cuenta (sin refund)
-    const [, , payload] = outbox.enqueue.mock.calls[0] as [
-      unknown,
-      string,
-      Record<string, number>,
-    ];
+    const downgradeCalls = outbox.enqueue.mock.calls as Array<
+      [unknown, string, Record<string, number>]
+    >;
+    const [, , payload] = downgradeCalls[0];
     expect(payload.amount_to_pay).toBe(0);
     expect(payload.credit_remaining).toBe(increment);
   });

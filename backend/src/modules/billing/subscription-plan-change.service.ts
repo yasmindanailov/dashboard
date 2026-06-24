@@ -4,13 +4,21 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { ProductPricing, Service } from '@prisma/client';
+import { Service } from '@prisma/client';
 
 import { PrismaService } from '../../core/database/prisma.service';
 import { OutboxService } from '../../core/outbox/outbox.service';
 import { AuditService } from '../audit/audit.service';
 import { BillingService } from './billing.service';
-import { ProrationResult } from './billing-calculator.service';
+import {
+  PlanChangeContext,
+  PlanChangeOptions,
+  PlanChangePreview,
+} from './plan-change.types';
+import {
+  applyPricingDiscount,
+  buildPlanChangePreview,
+} from './plan-change.mapper';
 
 /**
  * SubscriptionPlanChangeService — cambio de plan con prorrateo (ADR-029).
@@ -57,7 +65,7 @@ export class SubscriptionPlanChangeService {
       userId,
       isAdmin,
     );
-    return this.toPreview(ctx);
+    return buildPlanChangePreview(ctx);
   }
 
   /**
@@ -142,7 +150,7 @@ export class SubscriptionPlanChangeService {
         `surplus=${proration.creditRemaining} (actor ${userId})`,
     );
 
-    return { service: updated, proration: this.toPreview(ctx) };
+    return { service: updated, proration: buildPlanChangePreview(ctx) };
   }
 
   /* ── helpers ── */
@@ -202,7 +210,7 @@ export class SubscriptionPlanChangeService {
     const newCycleDays = this.billingService.getCycleDays(
       newPricing.billing_cycle,
     );
-    const newAmount = this.applyPricingDiscount(newPricing);
+    const newAmount = applyPricingDiscount(newPricing);
 
     const now = new Date();
     const currentPeriodStart = new Date(service.next_due_date ?? now);
@@ -235,60 +243,42 @@ export class SubscriptionPlanChangeService {
     };
   }
 
-  /** Precio efectivo del plan (aplica su `discount_percentage`, igual que el checkout). */
-  private applyPricingDiscount(pricing: ProductPricing): number {
-    const base = Number(pricing.price);
-    const pct = pricing.discount_percentage
-      ? Number(pricing.discount_percentage)
-      : 0;
-    return pct > 0 ? Math.round(base * (1 - pct / 100) * 100) / 100 : base;
-  }
-
-  /** Desglose para la UI (ADR-029 §"Preview obligatorio"). */
-  private toPreview(ctx: PlanChangeContext): PlanChangePreview {
-    const { service, newPricing, newAmount, daysUsed, proration } = ctx;
+  /**
+   * Planes a los que el servicio puede cambiar: los ciclos del MISMO producto y
+   * MISMA moneda distintos del actual (ADR-029). Para el picker de la UI (R5: la
+   * lista de planes la resuelve el backend, no el frontend).
+   */
+  async listPlanOptions(
+    serviceId: string,
+    userId: string,
+    isAdmin: boolean,
+  ): Promise<PlanChangeOptions> {
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      include: { product: { select: { name: true } } },
+    });
+    if (!service || (!isAdmin && service.user_id !== userId)) {
+      throw new NotFoundException('Servicio no encontrado.');
+    }
+    const pricings = await this.prisma.productPricing.findMany({
+      where: { product_id: service.product_id, currency: service.currency },
+    });
+    const options = pricings
+      .filter((p) => p.billing_cycle !== service.billing_cycle)
+      .map((p) => ({
+        id: p.id,
+        billing_cycle: p.billing_cycle,
+        price: applyPricingDiscount(p),
+        currency: p.currency,
+      }));
     return {
-      current_plan: {
+      product_name: service.product.name,
+      current: {
         billing_cycle: service.billing_cycle,
         amount: Number(service.amount),
+        currency: service.currency,
       },
-      new_plan: {
-        billing_cycle: newPricing.billing_cycle,
-        amount: newAmount,
-      },
-      currency: service.currency,
-      days_consumed: daysUsed,
-      days_remaining: proration.unusedDays,
-      daily_price_current: proration.dailyRate,
-      credit_eur: proration.credit,
-      amount_to_pay: proration.totalDue,
-      credit_remaining_eur: proration.creditRemaining,
-      new_period_start: ctx.periodStart.toISOString(),
-      new_period_end: ctx.periodEnd.toISOString(),
+      options,
     };
   }
-}
-
-interface PlanChangeContext {
-  service: Service;
-  newPricing: ProductPricing;
-  newAmount: number;
-  daysUsed: number;
-  proration: ProrationResult;
-  periodStart: Date;
-  periodEnd: Date;
-}
-
-export interface PlanChangePreview {
-  current_plan: { billing_cycle: string; amount: number };
-  new_plan: { billing_cycle: string; amount: number };
-  currency: string;
-  days_consumed: number;
-  days_remaining: number;
-  daily_price_current: number;
-  credit_eur: number;
-  amount_to_pay: number;
-  credit_remaining_eur: number;
-  new_period_start: string;
-  new_period_end: string;
 }

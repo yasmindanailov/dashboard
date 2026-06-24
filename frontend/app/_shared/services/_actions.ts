@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { serverFetch, ServerFetchError } from '../../lib/server-auth';
 import type {
   ActionResult,
+  PlanChangeOptions,
+  PlanChangePreview,
   ServiceDetailResponse,
   ServiceReconcileResult,
   SsoUrl,
@@ -588,6 +590,90 @@ export async function resendNotificationAction(
         err instanceof ServerFetchError
           ? err.message
           : 'No se pudo reenviar la notificación.',
+    };
+  }
+}
+
+/* ═══════════════════════════════════════
+   ADR-029 — cambio de plan con prorrateo (cliente + admin).
+
+   `options` (planes/ciclos a los que cambiar) + `preview` (desglose del
+   prorrateo, R5: transparencia obligatoria) son GET; `confirm` es la mutación
+   (POST) que recalcula server-side y dispara la factura del prorrateo vía
+   `service.plan_changed` (Outbox). El dueño se resuelve del JWT en el backend
+   (no @Query). Endpoints `/subscriptions/:id/change-plan/*`.
+   ═══════════════════════════════════════ */
+
+export type PlanChangeOptionsResult =
+  | { ok: true; data: PlanChangeOptions }
+  | { ok: false; error: string };
+
+export async function planChangeOptionsAction(
+  serviceId: string,
+): Promise<PlanChangeOptionsResult> {
+  try {
+    const data = await serverFetch<PlanChangeOptions>(
+      `/subscriptions/${serviceId}/change-plan/options`,
+    );
+    return { ok: true, data };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudieron cargar los planes disponibles.',
+    };
+  }
+}
+
+export type PlanChangePreviewResult =
+  | { ok: true; data: PlanChangePreview }
+  | { ok: false; error: string };
+
+export async function planChangePreviewAction(
+  serviceId: string,
+  newPricingId: string,
+): Promise<PlanChangePreviewResult> {
+  try {
+    const data = await serverFetch<PlanChangePreview>(
+      `/subscriptions/${serviceId}/change-plan/preview?newPricingId=${newPricingId}`,
+    );
+    return { ok: true, data };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo calcular el prorrateo.',
+    };
+  }
+}
+
+export type ConfirmPlanChangeActionResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function confirmPlanChangeAction(
+  serviceId: string,
+  newPricingId: string,
+): Promise<ConfirmPlanChangeActionResult> {
+  try {
+    await serverFetch<unknown>(`/subscriptions/${serviceId}/change-plan`, {
+      method: 'POST',
+      body: { newPricingId },
+    });
+    revalidatePath(`/dashboard/services/${serviceId}`);
+    revalidatePath(`/admin/services/${serviceId}`);
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo cambiar el plan.',
     };
   }
 }

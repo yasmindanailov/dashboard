@@ -29,6 +29,7 @@ import { MetricsBar } from '../MetricsBar';
 import { SslStatusCard } from '../SslStatusCard';
 import { AppShortcutsCard } from '../AppShortcutsCard';
 import { BillingCrossLinkCard } from '../BillingCrossLinkCard';
+import { ChangePlanCard } from './ChangePlanCard';
 import { SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE } from '../service-status';
 import { ServiceAuditTimeline } from './ServiceAuditTimeline';
 import styles from '../service-detail.module.css';
@@ -250,6 +251,11 @@ export function BillingCrossLinkCardSection({
       isTerminal={ctx.isTerminal}
     />
   );
+}
+
+/** Card del cambio de plan con prorrateo (ADR-029). CC: picker + preview + confirm. */
+export function PlanChangeCardSection({ ctx }: { ctx: ServiceDetailContext }) {
+  return <ChangePlanCard serviceId={ctx.service.id} />;
 }
 
 /**
