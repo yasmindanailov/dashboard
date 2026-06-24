@@ -1,41 +1,66 @@
 /**
- * /dashboard/profile — "Mi perfil" — Sprint 15D Fase 15D.G·2.
+ * /dashboard/profile — "Mi cuenta" (ADR-085).
  *
  * Server Component (Modelo A, ADR-078 A1): el `dashboard/layout.tsx` garantiza
- * sesión; aquí cargamos los datos de titular server-side (`GET /domains/registrant`,
- * self-scoped por JWT). Son los datos WHOIS de TODOS los dominios del cliente
- * (1 titular/cliente, ADR-081 A2): al editarlos se propagan al registrador.
+ * sesión. Cargamos server-side, self-scoped por el JWT:
+ *   - `/auth/me`               → identidad + estado de seguridad (2FA, email)
+ *   - `/auth/sessions`         → sesiones activas
+ *   - `/account/billing-profiles` → perfiles de facturación (los que facturan)
+ *   - `/domains/registrant`    → datos de titular WHOIS (sección Dominios)
+ *
+ * Sólo `/auth/me` es obligatorio; el resto degrada con gracia (null/[]).
  */
 
-import { AlertBanner, ListPage } from '../../components/ui';
+import { ListPage, AlertBanner } from '../../components/ui';
 import { serverFetch, ServerFetchError } from '../../lib/server-auth';
 import type { RegistrantProfile } from '../../_shared/domains/_registrant-actions';
-import RegistrantForm from './_components/RegistrantForm';
+import type { AccountMe, AccountSession, BillingProfile } from './_actions';
+import AccountView from './_components/AccountView';
+
+async function safe<T>(path: string): Promise<T | null> {
+  try {
+    return await serverFetch<T>(path);
+  } catch {
+    return null;
+  }
+}
 
 export default async function ProfilePage() {
-  let profile: RegistrantProfile | null = null;
-  let errorMessage: string | null = null;
+  let me: AccountMe | null = null;
+  let meError: string | null = null;
   try {
-    profile = await serverFetch<RegistrantProfile>('/domains/registrant');
+    me = await serverFetch<AccountMe>('/auth/me');
   } catch (err) {
-    errorMessage =
+    meError =
       err instanceof ServerFetchError
         ? err.message
-        : 'No se pudo cargar tu perfil.';
+        : 'No se pudo cargar tu cuenta.';
   }
 
-  return (
-    <ListPage
-      title="Mi perfil"
-      subtitle="Tus datos personales y de titular de dominios"
-    >
-      {profile ? (
-        <RegistrantForm initial={profile} />
-      ) : (
+  if (!me) {
+    return (
+      <ListPage title="Mi cuenta" subtitle="Perfil, seguridad y facturación">
         <AlertBanner variant="danger">
-          {errorMessage ?? 'No se pudo cargar tu perfil.'}
+          {meError ?? 'No se pudo cargar tu cuenta.'}
         </AlertBanner>
-      )}
+      </ListPage>
+    );
+  }
+
+  const [sessions, billingProfiles, registrant] = await Promise.all([
+    safe<AccountSession[]>('/auth/sessions'),
+    safe<BillingProfile[]>('/account/billing-profiles'),
+    safe<RegistrantProfile>('/domains/registrant'),
+  ]);
+
+  return (
+    <ListPage title="Mi cuenta" subtitle="Perfil, seguridad y facturación">
+      <AccountView
+        me={me}
+        sessions={sessions ?? []}
+        billingProfiles={billingProfiles ?? []}
+        registrant={registrant}
+      />
     </ListPage>
   );
 }

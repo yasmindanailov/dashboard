@@ -396,6 +396,7 @@ export class AuthTokenService {
         avatar_url: true,
         language: true,
         timezone: true,
+        two_factor_enabled: true,
         last_login_at: true,
         created_at: true,
         role: { select: { slug: true, name: true } },

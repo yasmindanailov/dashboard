@@ -14,13 +14,13 @@ import {
   type RegistrantProfile,
   type RegistrantSyncStatus,
 } from '../../../_shared/domains/_registrant-actions';
+import styles from './AccountView.module.css';
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   RegistrantForm — Sprint 15D Fase 15D.G·2.
-
-   Datos de titular (WHOIS) del cliente. Son 1 por cliente (ADR-081 A2): al
-   guardarlos se propagan al registrar → todos sus dominios. Avisa si el cambio
-   de nombre puede implicar verificación + lock ICANN de 60 días.
+   Sección Dominios — datos de titular (WHOIS) del cliente. Son 1 por cliente
+   (ADR-081 A2): al guardarlos se propagan al registrar → todos sus dominios.
+   A diferencia de la sección Cuenta, ESTA sí toca el registrador (R4).
+   DS-compliant: CSS Modules (ADR-085 corrige los inline styles del MVP).
    ═══════════════════════════════════════════════════════════════════════════ */
 
 interface Props {
@@ -77,16 +77,14 @@ export default function RegistrantForm({ initial }: Props) {
 
   return (
     <Card>
-      <h2 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 600 }}>
-        Datos de titular (WHOIS)
-      </h2>
-      <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 16px' }}>
-        Estos datos identifican al titular de <strong>todos tus dominios</strong>
-        ante el registrador. Al guardarlos se actualizan en todos ellos.
+      <h2 className={styles.sectionTitle}>Datos de titular (WHOIS)</h2>
+      <p className={styles.sectionHint}>
+        Identifican al titular de <strong>todos tus dominios</strong> ante el
+        registrador. Al guardarlos se actualizan en todos ellos.
       </p>
 
       {sync?.error && (
-        <div style={{ marginBottom: 12 }}>
+        <div className={styles.bannerWrap}>
           <AlertBanner variant="warning">
             Perfil guardado, pero no se pudo sincronizar con el registrador:{' '}
             {sync.error}
@@ -94,7 +92,7 @@ export default function RegistrantForm({ initial }: Props) {
         </div>
       )}
       {sync?.propagated && sync.nameChanged && (
-        <div style={{ marginBottom: 12 }}>
+        <div className={styles.bannerWrap}>
           <AlertBanner variant="warning">
             Has cambiado el <strong>nombre del titular</strong>. En algunos TLDs
             esto puede requerir verificación por email y bloquea la transferencia
@@ -103,7 +101,7 @@ export default function RegistrantForm({ initial }: Props) {
         </div>
       )}
       {sync?.propagated && !sync.nameChanged && sync.domainsAffected > 0 && (
-        <div style={{ marginBottom: 12 }}>
+        <div className={styles.bannerWrap}>
           <AlertBanner variant="success">
             Sincronizado con el registrador en {sync.domainsAffected}{' '}
             {sync.domainsAffected === 1 ? 'dominio' : 'dominios'}.
@@ -111,13 +109,7 @@ export default function RegistrantForm({ initial }: Props) {
         </div>
       )}
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-          gap: 16,
-        }}
-      >
+      <div className={styles.grid}>
         <Input
           label="Nombre"
           value={form.first_name ?? ''}
@@ -128,7 +120,6 @@ export default function RegistrantForm({ initial }: Props) {
           value={form.last_name ?? ''}
           onChange={(e) => set('last_name')(e.target.value)}
         />
-        <Input label="Email" value={initial.email} disabled />
         <Input
           label="Empresa (opcional)"
           value={form.company_name ?? ''}
@@ -146,14 +137,23 @@ export default function RegistrantForm({ initial }: Props) {
           onChange={(e) => set('phone')(e.target.value)}
         />
         <Input
+          label="País (ISO-2)"
+          value={form.country ?? ''}
+          onChange={(e) => set('country')(e.target.value)}
+          maxLength={2}
+          helperText="Código de 2 letras, ej. ES."
+        />
+        <Input
           label="Dirección"
           value={form.address_line1 ?? ''}
           onChange={(e) => set('address_line1')(e.target.value)}
+          className={styles.full}
         />
         <Input
           label="Dirección (línea 2)"
           value={form.address_line2 ?? ''}
           onChange={(e) => set('address_line2')(e.target.value)}
+          className={styles.full}
         />
         <Input
           label="Ciudad"
@@ -170,16 +170,9 @@ export default function RegistrantForm({ initial }: Props) {
           value={form.postal_code ?? ''}
           onChange={(e) => set('postal_code')(e.target.value)}
         />
-        <Input
-          label="País (ISO-2)"
-          value={form.country ?? ''}
-          onChange={(e) => set('country')(e.target.value)}
-          maxLength={2}
-          helperText="Código de 2 letras, ej. ES."
-        />
       </div>
 
-      <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
+      <div className={styles.actions}>
         <Button variant="primary" loading={saving} onClick={() => void save()}>
           Guardar datos de titular
         </Button>

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../lib/auth-context';
 import { canAccess } from '../../lib/permissions';
 import { Dropdown, type DropdownItem } from '../../components/ui';
@@ -85,14 +86,15 @@ interface TopbarProps {
 
 export default function Topbar({ sidebarCollapsed, onMobileMenuOpen, onOpenSupportPanel, onOpenCommandPalette }: TopbarProps) {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const roleSlug = user?.role?.slug || '';
   const isClient = roleSlug === 'client';
   const hasSetting = canAccess(roleSlug, 'Setting');
 
   /* ── Profile dropdown items (P6.1: gate by permission) ── */
   const profileItems: DropdownItem[] = [
-    { label: 'Mi perfil', icon: IconUser, onClick: () => {} },
-    ...(hasSetting ? [{ label: 'Configuración', icon: IconSettings, onClick: () => {} }] : []),
+    { label: 'Mi perfil', icon: IconUser, onClick: () => router.push('/dashboard/profile') },
+    ...(hasSetting ? [{ label: 'Configuración', icon: IconSettings, onClick: () => router.push('/admin/settings') }] : []),
     { label: '', onClick: () => {}, divider: true },
     { label: 'Cerrar sesión', icon: IconLogout, onClick: logout, danger: true },
   ];
