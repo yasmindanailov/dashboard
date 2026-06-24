@@ -739,6 +739,35 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
   }
 
   /**
+   * Estado de la FSM de un transfer-in leído del registrar (motor del reconcile,
+   * 15D.II.T2b — ADR-084 A2.2). DH-INV-6: el registrar manda. Lee `domains/details`
+   * e interpreta `actionstatus`: en curso → `submitted`; sin acción → `completed`
+   * (el dominio culminó a registro normal); rechazo → `failed`; cancelado →
+   * `cancelled`. `unknown` si RC está caído (el reconcile salta, fail-soft R7).
+   * [CONSERVADOR — el catálogo real de `actionstatus` se refina en el smoke Fase G.]
+   */
+  async getTransferStatus(
+    service: ServiceWithRelations,
+  ): Promise<'submitted' | 'completed' | 'failed' | 'cancelled' | 'unknown'> {
+    const orderId = service.provider_reference;
+    const fqdn = (service.domain ?? '').trim().toLowerCase();
+    if (!orderId && !isValidFqdn(fqdn)) return 'unknown';
+    try {
+      const { client } = await this.getApiClient();
+      const details = orderId
+        ? await client.getDomainDetailsByOrderId(orderId)
+        : await client.getDomainDetailsByName(fqdn);
+      const action = String(details.actionstatus ?? '').toLowerCase();
+      if (action.includes('progress')) return 'submitted';
+      if (action.includes('fail')) return 'failed';
+      if (action.includes('cancel')) return 'cancelled';
+      return 'completed'; // sin acción en curso → el transfer culminó
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  /**
    * `operation='renew'` — renueva el dominio (ADR-081 §5 + DOM-INV-4/ADR-084 A1).
    *
    * **DOM-INV-4 (renovación verificada):** un `renew` que no extiende = el cliente

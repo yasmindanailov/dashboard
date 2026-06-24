@@ -26,7 +26,7 @@
 
 import { ServiceWithRelations } from '../../../core/provisioning/types';
 
-import { ResellerClubApiClient, RcRegisterInput } from './api';
+import { ResellerClubApiClient, RcRegisterInput, RcTransferInput } from './api';
 import { ResellerclubProvisionerPlugin } from './resellerclub.plugin';
 import { startMockResellerClubServer } from '../../../../test/mocks/resellerclub-server';
 
@@ -185,5 +185,47 @@ describe('Integración 15D.G — gestión curada vertical (executeAction ↔ get
     // Reactivado → vuelve a active.
     await plugin.executeAction(service, 'unsuspend_service', {});
     expect((await plugin.getServiceInfo(service)).status).toBe('active');
+  });
+
+  // ─── 15D.II.T2b — getTransferStatus (motor del reconcile) ───────────────────
+
+  it('getTransferStatus: registrado → completed; transfer en curso → submitted → advance → completed', async () => {
+    // Un dominio registrado normal no tiene acción en curso → completed.
+    const regOrder = await registerFreshDomain('regstatus.com');
+    expect(await plugin.getTransferStatus(svc(regOrder, 'regstatus.com'))).toBe(
+      'completed',
+    );
+
+    // Un transfer en curso → submitted; tras avanzarlo en el mock → completed.
+    await fetch(`${mock.baseUrl}/__test__/seed`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ transferableDomains: ['movein.com'] }),
+    });
+    const transferInput: RcTransferInput = {
+      'domain-name': 'movein.com',
+      'auth-code': 'EPP-OK',
+      ns: AELIUM_NS,
+      'customer-id': '1',
+      'reg-contact-id': '1',
+      'admin-contact-id': '1',
+      'tech-contact-id': '1',
+      'billing-contact-id': '1',
+      'invoice-option': 'NoInvoice',
+      'protect-privacy': true,
+    };
+    const xferOrder = await apiClient.transferDomain(transferInput);
+    expect(await plugin.getTransferStatus(svc(xferOrder, 'movein.com'))).toBe(
+      'submitted',
+    );
+
+    await fetch(`${mock.baseUrl}/__test__/advance-transfer`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ orderId: xferOrder, to: 'completed' }),
+    });
+    expect(await plugin.getTransferStatus(svc(xferOrder, 'movein.com'))).toBe(
+      'completed',
+    );
   });
 });
