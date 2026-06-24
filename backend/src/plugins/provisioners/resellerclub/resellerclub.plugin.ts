@@ -390,13 +390,7 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
       case 'renew':
         return this.provisionRenew(ctx);
       case 'transfer_in':
-        throw new ProvisionerPluginError(
-          `transfer-in es Sprint 15D.II (FSM de transfer, ADR-084 §4).`,
-          'NOT_IMPLEMENTED',
-          false,
-          undefined,
-          RC_SLUG,
-        );
+        return this.provisionTransferIn(ctx);
     }
   }
 
@@ -569,6 +563,179 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
         `(order=${orderId}) — recovery tras crash, NO se re-registra.`,
     );
     return orderId;
+  }
+
+  /**
+   * `operation='transfer_in'` — inicia un transfer-in (ADR-084 §4 + A2, FSM).
+   *
+   * El transfer es **asíncrono**: este método solo lo INICIA (no activa el
+   * servicio — `followUp: []`, queda `pending`); el reconcile cron avanza la FSM
+   * `submitted → completed|failed` (motor, DH-INV-6) y entonces el orquestador lo
+   * activa + cobra (T2b/T3). El estado vive en `services.metadata.transfer_state`.
+   *
+   * **DOM-INV-6 (exactly-once de iniciación):** el transfer arranca un service
+   * SIN `provider_reference` (igual que register) → no idempotentizable por él.
+   * Dos capas (espejo de DOM-INV-1):
+   *   1. Reintento puro: si `provider_reference` ya existe → no re-enviar.
+   *   2. Recovery tras crash: si el dominio ya figura bajo nuestra cuenta con un
+   *      transfer en curso → adoptar el order-id, NO re-iniciar.
+   *
+   * El EPP `auth-code` llega en `ctx.transferAuthCode` (ADR-077 A14, secreto R12);
+   * si falta → `awaiting_auth` (el cliente lo aporta vía la acción curada).
+   * [Shapes transfer CONSERVADORES hasta el smoke OT&E Fase 15D.II.G — ADR-081 A7.4.]
+   */
+  private async provisionTransferIn(
+    ctx: ProvisionContext,
+  ): Promise<ProvisionResult> {
+    // Capa 1 — reintento puro: ya iniciado y persistido (no re-enviar).
+    if (ctx.service.provider_reference) {
+      this.logger.log(
+        `provision(transfer_in) service=${ctx.service.id}: provider_reference ` +
+          `${ctx.service.provider_reference} ya existe — transfer ya iniciado, idempotente.`,
+      );
+      return {
+        providerReference: ctx.service.provider_reference,
+        metadata: toFlatMetadata(ctx.service.metadata),
+        followUp: [], // asíncrono: el reconcile completa y activa
+      };
+    }
+
+    const domain = ctx.service.domain;
+    if (!isValidFqdn(domain)) {
+      throw new ProvisionerPluginError(
+        `El servicio ${ctx.service.id} requiere un FQDN válido en ` +
+          `services.domain (got ${domain ?? 'null'}) para transferir el dominio.`,
+        'INVALID_PAYLOAD',
+        false,
+        undefined,
+        RC_SLUG,
+      );
+    }
+    const fqdn = (domain as string).trim().toLowerCase();
+
+    // El EPP auth-code es requisito de `submitted`; sin él → `awaiting_auth`
+    // (el cliente lo aporta vía la acción curada `submit_transfer_auth_code`).
+    const authCode = (ctx.transferAuthCode ?? '').trim();
+    if (!authCode) {
+      this.logger.log(
+        `provision(transfer_in) service=${ctx.service.id}: falta el EPP ` +
+          `auth-code → awaiting_auth (${fqdn}).`,
+      );
+      return {
+        providerReference: null,
+        metadata: {
+          ...toFlatMetadata(ctx.service.metadata),
+          domain_operation: 'transfer_in',
+          transfer_state: 'awaiting_auth',
+        },
+        followUp: [],
+      };
+    }
+
+    const { client } = await this.getApiClient();
+
+    // Capa 2 — DOM-INV-6: ¿es transferible? si no, ¿ya hay un transfer nuestro
+    // en curso (recovery tras crash)? else → TRANSFER_REJECTED.
+    const validation = await client.validateTransfer(fqdn);
+    const transferable =
+      validation.transferable === true ||
+      String(validation.transferable).toLowerCase() === 'true';
+    if (!transferable) {
+      const adopted = await this.adoptInProgressTransfer(client, fqdn);
+      if (adopted) {
+        return {
+          providerReference: adopted.orderId,
+          metadata: {
+            ...toFlatMetadata(ctx.service.metadata),
+            domain_operation: 'transfer_in',
+            transfer_state: adopted.state,
+          },
+          followUp: [],
+        };
+      }
+      throw new ProvisionerPluginError(
+        `El dominio ${fqdn} no es transferible ` +
+          `(${validation.reason ?? 'no transferible'}).`,
+        'TRANSFER_REJECTED',
+        false,
+        undefined,
+        RC_SLUG,
+      );
+    }
+
+    // Transferible → asegurar registrante + iniciar el transfer.
+    const refs = await this.customers.ensureRegistrant(ctx.client, client);
+    const nameservers =
+      ctx.dnsTargetHint === 'parking'
+        ? await this.settings.getJson<string[]>(
+            'provisioning',
+            'registrar_parking_nameservers',
+            [...DEFAULT_PARKING_NAMESERVERS],
+          )
+        : await this.settings.getJson<string[]>(
+            'provisioning',
+            'default_nameservers',
+            [...DEFAULT_NAMESERVERS],
+          );
+
+    const orderId = await client.transferDomain({
+      'domain-name': fqdn,
+      'auth-code': authCode,
+      ns: nameservers,
+      'customer-id': refs.customerId,
+      'reg-contact-id': refs.contacts.registrant,
+      'admin-contact-id': refs.contacts.admin,
+      'tech-contact-id': refs.contacts.tech,
+      'billing-contact-id': refs.contacts.billing,
+      'invoice-option': 'NoInvoice', // Aelium controla el cobro (al completar, A2.3)
+      'protect-privacy': true,
+    });
+
+    this.logger.log(
+      `provision(transfer_in) service=${ctx.service.id}: transfer de ${fqdn} ` +
+        `iniciado (order=${orderId}) → submitted; el reconcile lo completará.`,
+    );
+
+    return {
+      providerReference: orderId,
+      metadata: {
+        ...toFlatMetadata(ctx.service.metadata),
+        domain_operation: 'transfer_in',
+        transfer_state: 'submitted',
+        rc_customer_id: refs.customerId,
+        rc_registrant_contact_id: refs.contacts.registrant,
+        nameservers,
+        whois_privacy: true,
+      },
+      followUp: [],
+    };
+  }
+
+  /**
+   * DOM-INV-6 (recovery): si el dominio ya figura bajo nuestra cuenta (un
+   * transfer iniciado antes de un crash que no persistió `provider_reference`),
+   * adopta su order-id en vez de re-iniciar el transfer. `domains/details` "no
+   * existe" → no es nuestro → no hay nada que adoptar (`null`).
+   */
+  private async adoptInProgressTransfer(
+    client: ResellerClubApiClient,
+    fqdn: string,
+  ): Promise<{ orderId: RcOrderId; state: string } | null> {
+    try {
+      const details = await client.getDomainDetailsByName(fqdn);
+      const orderId = normalizeOrderId(details);
+      if (!orderId) return null;
+      const action = String(details.actionstatus ?? '').toLowerCase();
+      const state = action.includes('fail') ? 'failed' : 'submitted';
+      this.logger.warn(
+        `DOM-INV-6 adopción: ${fqdn} ya está bajo nuestra cuenta ` +
+          `(order=${orderId}, action=${details.actionstatus ?? 'n/a'}) — recovery ` +
+          `tras crash, NO se re-inicia el transfer.`,
+      );
+      return { orderId, state };
+    } catch {
+      return null;
+    }
   }
 
   /**
