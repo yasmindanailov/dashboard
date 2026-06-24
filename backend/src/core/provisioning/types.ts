@@ -126,6 +126,20 @@ export interface ProvisionContext {
    * se añade hosting más tarde a un dominio aparcado.
    */
   readonly dnsTargetHint?: 'aelium' | 'parking';
+
+  /**
+   * Sprint 15D.II — ADR-077 Amendment A14. EPP auth-code del dominio a transferir
+   * (`operation='transfer_in'`). Lo recoge el checkout (el cliente lo aporta al
+   * pedir el transfer) y el orquestador lo pasa aquí; el plugin registrar lo
+   * consume en `provision(transfer_in)` (validate + initiate). Si falta o es
+   * inválido → la FSM cae a `awaiting_auth` (`INVALID_AUTH_CODE`) y el cliente lo
+   * reenvía vía la acción curada `submit_transfer_auth_code` (ADR-084 A2).
+   *
+   * **Secreto (R12):** se usa en memoria para la llamada al registrar y NUNCA se
+   * persiste en claro ni se loguea. Opcional; los plugins no-registrar y las
+   * operaciones `register`/`renew` lo ignoran.
+   */
+  readonly transferAuthCode?: string;
 }
 
 export interface ProvisionResult {

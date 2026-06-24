@@ -81,7 +81,9 @@ export class ResellerclubReconciliationCron implements OnModuleInit {
         `reconcileResellerclubDomains done: services=${summary.servicesChecked} ` +
           `expires_updated=${summary.expiresAtUpdated} ` +
           `lifecycle_transitions=${summary.lifecycleTransitions} ` +
-          `status_adopted=${summary.statusAdopted} errors=${summary.errors}`,
+          `status_adopted=${summary.statusAdopted} ` +
+          `transfers_completed=${summary.transfersCompleted} ` +
+          `transfers_failed=${summary.transfersFailed} errors=${summary.errors}`,
       );
     } catch (err) {
       this.logger.error(
@@ -96,12 +98,18 @@ export class ResellerclubReconciliationCron implements OnModuleInit {
     const summary = await this.runOnce();
     return {
       servicesProcessed: summary.servicesChecked,
-      driftsDetected: summary.lifecycleTransitions + summary.statusAdopted,
+      driftsDetected:
+        summary.lifecycleTransitions +
+        summary.statusAdopted +
+        summary.transfersCompleted +
+        summary.transfersFailed,
       durationMs: Date.now() - startedAt,
       details: {
         expires_at_updated: summary.expiresAtUpdated,
         lifecycle_transitions: summary.lifecycleTransitions,
         status_adopted: summary.statusAdopted,
+        transfers_completed: summary.transfersCompleted,
+        transfers_failed: summary.transfersFailed,
         errors: summary.errors,
       },
     };
@@ -115,7 +123,16 @@ export class ResellerclubReconciliationCron implements OnModuleInit {
     const services = await this.prisma.service.findMany({
       where: {
         provisioner_slug: ResellerclubReconciliationCron.SLUG,
-        status: { in: ['active', 'suspended'] },
+        OR: [
+          // Lifecycle: dominios activos/suspendidos (expires_at + estado).
+          { status: { in: ['active', 'suspended'] } },
+          // 15D.II.T2b — motor de la FSM de transfer: un transfer en curso vive en
+          // `provisioning` con `transfer_state='submitted'` → avanzarlo aquí.
+          {
+            status: 'provisioning',
+            metadata: { path: ['transfer_state'], equals: 'submitted' },
+          },
+        ],
       },
       select: {
         id: true,
@@ -134,6 +151,8 @@ export class ResellerclubReconciliationCron implements OnModuleInit {
       expiresAtUpdated: 0,
       lifecycleTransitions: 0,
       statusAdopted: 0,
+      transfersCompleted: 0,
+      transfersFailed: 0,
       errors: 0,
     };
 
@@ -155,6 +174,14 @@ export class ResellerclubReconciliationCron implements OnModuleInit {
     summary: ResellerclubReconciliationSummary,
   ): Promise<void> {
     if (!service.provider_reference) return; // aún no aprovisionado
+
+    // 15D.II.T2b — un transfer en curso se avanza por su FSM (motor), NO por el
+    // lifecycle de expiración (su `getServiceInfo` diría 'active' engañosamente
+    // mientras el registrar aún lo procesa).
+    if (readTransferState(service.metadata) === 'submitted') {
+      await this.advanceTransfer(service, summary);
+      return;
+    }
 
     // Una sola lectura `domains/details` vía el contrato (status + DomainInfo).
     const info = await this.plugin.getServiceInfo(toMinimalService(service));
@@ -235,6 +262,80 @@ export class ResellerclubReconciliationCron implements OnModuleInit {
       );
     }
   }
+
+  /**
+   * 15D.II.T2b — motor de la FSM de transfer-in. Lee el estado real en el registrar
+   * (`getTransferStatus`, DH-INV-6) y avanza un transfer `submitted`:
+   *   - `completed` → el dominio pasa a registro normal: status `active` +
+   *     `expires_at` poblado + NS adoptados + cierra la FSM (`transfer_state='completed'`).
+   *   - `failed`/`cancelled` → cierra la FSM (status se mantiene; la notificación
+   *     al cliente + la opción de reintento son T3).
+   *   - `submitted`/`unknown` → sin cambios (sigue en curso / RC caído, fail-soft R7).
+   *
+   * **Cobro al completar** (generar la factura del transfer en `completed`,
+   * [ADR-084 A2.3](docs/10-decisions/adr-084-comercio-dominios-registrar.md)) +
+   * el evento `domain.transfer_completed` (zona DNS) se materializan en **T2c/T3**.
+   */
+  private async advanceTransfer(
+    service: ReconcileDomainRow,
+    summary: ResellerclubReconciliationSummary,
+  ): Promise<void> {
+    const state = await this.plugin.getTransferStatus(
+      toMinimalService(service),
+    );
+    if (state === 'submitted' || state === 'unknown') return; // en curso / RC caído
+
+    if (state === 'completed') {
+      const info = await this.plugin.getServiceInfo(toMinimalService(service));
+      const newExpiresAt = parseIsoDate(info.domain?.expiresAt);
+      const newNameservers = info.domain ? [...info.domain.nameservers] : null;
+      await this.prisma.$transaction(async (tx) => {
+        await tx.service.update({
+          where: { id: service.id },
+          data: {
+            status: 'active',
+            ...(newExpiresAt ? { expires_at: newExpiresAt } : {}),
+            metadata: {
+              ...toObject(service.metadata),
+              transfer_state: 'completed',
+              ...(newNameservers ? { nameservers: newNameservers } : {}),
+            } as Prisma.InputJsonValue,
+          },
+        });
+        // Cobro al completar (factura) + zona DNS (T3): los consumen los
+        // listeners de `domain.transfer_completed` (Outbox, R8 + ADR-084 A2.3).
+        // El evento se persiste en la MISMA tx que la activación (exactly-once).
+        await this.outbox.enqueue(tx, 'domain.transfer_completed', {
+          service_id: service.id,
+          user_id: service.user_id,
+          fqdn: service.domain,
+          expires_at: newExpiresAt ? newExpiresAt.toISOString() : null,
+        });
+      });
+      summary.transfersCompleted++;
+      this.logger.log(
+        `advanceTransfer service=${service.id}: transfer COMPLETED → active ` +
+          `(expires_at=${newExpiresAt?.toISOString() ?? 'n/a'}) + domain.transfer_completed (Outbox).`,
+      );
+      return;
+    }
+
+    // failed / cancelled → cierra la FSM (status se mantiene; T3 notifica).
+    await this.prisma.service.update({
+      where: { id: service.id },
+      data: {
+        metadata: {
+          ...toObject(service.metadata),
+          transfer_state: state,
+        } as Prisma.InputJsonValue,
+      },
+    });
+    summary.transfersFailed++;
+    this.logger.warn(
+      `advanceTransfer service=${service.id}: transfer ${state.toUpperCase()} ` +
+        `(FSM cerrada; notificación + reintento = T3/cliente).`,
+    );
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -246,6 +347,10 @@ export interface ResellerclubReconciliationSummary {
   expiresAtUpdated: number;
   lifecycleTransitions: number;
   statusAdopted: number;
+  /** 15D.II.T2b — transfers avanzados a `completed` (→ active). */
+  transfersCompleted: number;
+  /** 15D.II.T2b — transfers avanzados a `failed`/`cancelled`. */
+  transfersFailed: number;
   errors: number;
 }
 
@@ -301,6 +406,12 @@ function safeAdoptStatus(
 
 function readLifecycle(metadata: unknown): string | null {
   const v = toObject(metadata).domain_lifecycle;
+  return typeof v === 'string' ? v : null;
+}
+
+/** Lee `metadata.transfer_state` (FSM de transfer-in, 15D.II.T2). */
+function readTransferState(metadata: unknown): string | null {
+  const v = toObject(metadata).transfer_state;
   return typeof v === 'string' ? v : null;
 }
 

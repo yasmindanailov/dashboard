@@ -23,7 +23,7 @@ describe('ResellerclubReconciliationCron — Fase 15D.E', () => {
     service: { findMany: jest.Mock; update: jest.Mock };
     $transaction: jest.Mock;
   };
-  let plugin: { getServiceInfo: jest.Mock };
+  let plugin: { getServiceInfo: jest.Mock; getTransferStatus: jest.Mock };
   let outbox: { enqueue: jest.Mock };
   let registry: { register: jest.Mock };
   let cron: ResellerclubReconciliationCron;
@@ -35,7 +35,7 @@ describe('ResellerclubReconciliationCron — Fase 15D.E', () => {
         .fn()
         .mockImplementation((cb: (tx: unknown) => unknown) => cb(prisma)),
     };
-    plugin = { getServiceInfo: jest.fn() };
+    plugin = { getServiceInfo: jest.fn(), getTransferStatus: jest.fn() };
     outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
     registry = { register: jest.fn() };
 
@@ -272,5 +272,100 @@ describe('ResellerclubReconciliationCron — Fase 15D.E', () => {
     expect(summary.errors).toBe(1);
     expect(summary.servicesChecked).toBe(2);
     expect(summary.expiresAtUpdated).toBe(1);
+  });
+
+  // ─── 15D.II.T2b — motor de la FSM de transfer-in ────────────────────────────
+
+  function transferRow(over: Record<string, unknown> = {}) {
+    return row({
+      status: 'provisioning',
+      metadata: {
+        domain_operation: 'transfer_in',
+        transfer_state: 'submitted',
+      },
+      ...over,
+    });
+  }
+
+  it('transfer submitted→completed → status=active + expires_at + transfer_state=completed', async () => {
+    prisma.service.findMany.mockResolvedValue([transferRow()]);
+    plugin.getTransferStatus.mockResolvedValue('completed');
+    plugin.getServiceInfo.mockResolvedValue({
+      status: 'active',
+      domain: {
+        fqdn: 'example.com',
+        lifecycle: 'active',
+        expiresAt: FUTURE_ISO,
+        nameservers: ['ns1.aelium.net', 'ns2.aelium.net'],
+      },
+    });
+
+    const summary = await cron.runOnce();
+
+    expect(summary.transfersCompleted).toBe(1);
+    const updateArg = (
+      prisma.service.update.mock.calls as Array<
+        [
+          {
+            data: {
+              status?: string;
+              expires_at?: Date;
+              metadata: Record<string, unknown>;
+            };
+          },
+        ]
+      >
+    )[0][0];
+    expect(updateArg.data.status).toBe('active');
+    expect(updateArg.data.expires_at).toEqual(new Date(FUTURE_ISO));
+    expect(updateArg.data.metadata.transfer_state).toBe('completed');
+    expect(updateArg.data.metadata.nameservers).toEqual([
+      'ns1.aelium.net',
+      'ns2.aelium.net',
+    ]);
+    // Cobro al completar + zona DNS: emite domain.transfer_completed en la tx (T2c.2).
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      prisma,
+      'domain.transfer_completed',
+      expect.objectContaining({ service_id: 'svc-1', fqdn: 'example.com' }),
+    );
+  });
+
+  it('transfer submitted→failed → cierra la FSM (transfer_state=failed), NO toca status', async () => {
+    prisma.service.findMany.mockResolvedValue([transferRow()]);
+    plugin.getTransferStatus.mockResolvedValue('failed');
+
+    const summary = await cron.runOnce();
+
+    expect(summary.transfersFailed).toBe(1);
+    const updateArg = (
+      prisma.service.update.mock.calls as Array<
+        [{ data: { status?: string; metadata: Record<string, unknown> } }]
+      >
+    )[0][0];
+    expect(updateArg.data.status).toBeUndefined();
+    expect(updateArg.data.metadata.transfer_state).toBe('failed');
+    // Un transfer en curso NO pasa por el lifecycle (getServiceInfo).
+    expect(plugin.getServiceInfo).not.toHaveBeenCalled();
+  });
+
+  it('transfer aún submitted → sin cambios (no escribe)', async () => {
+    prisma.service.findMany.mockResolvedValue([transferRow()]);
+    plugin.getTransferStatus.mockResolvedValue('submitted');
+
+    const summary = await cron.runOnce();
+
+    expect(prisma.service.update).not.toHaveBeenCalled();
+    expect(summary.transfersCompleted).toBe(0);
+    expect(summary.transfersFailed).toBe(0);
+  });
+
+  it('transfer con RC caído (unknown) → skip fail-soft', async () => {
+    prisma.service.findMany.mockResolvedValue([transferRow()]);
+    plugin.getTransferStatus.mockResolvedValue('unknown');
+
+    await cron.runOnce();
+
+    expect(prisma.service.update).not.toHaveBeenCalled();
   });
 });

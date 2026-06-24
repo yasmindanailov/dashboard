@@ -642,4 +642,95 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
 
     expect(queue.add).not.toHaveBeenCalled();
   });
+
+  // ─── Sprint 15D.II.T2c — initiateTransferIn (iniciación síncrona) ───────────
+
+  function setupTransferDomain(over: Record<string, unknown> = {}) {
+    return setupServiceRow({
+      status: 'pending',
+      domain: 'movein.com',
+      provider_reference: null,
+      metadata: { domain_operation: 'transfer_in', transfer_state: 'pending' },
+      product: DOMAIN_PRODUCT,
+      ...over,
+    });
+  }
+
+  it('initiateTransferIn: authCode EN el ctx + operation=transfer_in; persiste submitted sin activar', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(setupTransferDomain());
+    const plugin = buildPlugin({
+      slug: 'resellerclub',
+      capabilities: { ...REGISTRAR_CAPS },
+      provision: jest.fn().mockResolvedValue({
+        providerReference: '900123',
+        metadata: {
+          domain_operation: 'transfer_in',
+          transfer_state: 'submitted',
+        },
+        followUp: [],
+      }),
+    });
+    registry.get.mockReturnValue(plugin);
+
+    await orchestrator.initiateTransferIn('svc-1', 'EPP-OK', 'cor-x');
+
+    const ctxArg = (
+      (plugin.provision as jest.Mock).mock.calls[0] as unknown[]
+    )[0] as { operation?: string; transferAuthCode?: string };
+    expect(ctxArg.operation).toBe('transfer_in');
+    expect(ctxArg.transferAuthCode).toBe('EPP-OK');
+
+    const updateArg = (
+      prisma.service.update.mock.calls as Array<
+        [{ data: { provider_reference?: string; status?: string } }]
+      >
+    )[0][0];
+    expect(updateArg.data.provider_reference).toBe('900123');
+    expect(updateArg.data.status).toBe('provisioning');
+    // Asíncrono: NO activa el servicio (lo activa el reconcile al completar).
+    expect(events.emit).not.toHaveBeenCalledWith(
+      'service.activated',
+      expect.anything(),
+    );
+  });
+
+  it('initiateTransferIn: auth-code inválido → FSM a awaiting_auth + re-lanza', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(setupTransferDomain());
+    const plugin = buildPlugin({
+      slug: 'resellerclub',
+      capabilities: { ...REGISTRAR_CAPS },
+      provision: jest
+        .fn()
+        .mockRejectedValue(
+          new ProvisionerPluginError('bad code', 'INVALID_AUTH_CODE', false),
+        ),
+    });
+    registry.get.mockReturnValue(plugin);
+
+    await expect(
+      orchestrator.initiateTransferIn('svc-1', 'WRONG'),
+    ).rejects.toMatchObject({ code: 'INVALID_AUTH_CODE' });
+
+    const updateArg = (
+      prisma.service.update.mock.calls as Array<
+        [{ data: { metadata?: Record<string, unknown> } }]
+      >
+    )[0][0];
+    expect(updateArg.data.metadata?.transfer_state).toBe('awaiting_auth');
+  });
+
+  it('initiateTransferIn: plugin no-registrar → INVALID_STATE (no llama provision)', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(
+      setupServiceRow({
+        product: { ...DOMAIN_PRODUCT, provisioner: 'internal' },
+      }),
+    );
+    const plugin = buildPlugin(); // is_domain_registrar:false
+    registry.get.mockReturnValue(plugin);
+
+    await expect(
+      orchestrator.initiateTransferIn('svc-1', 'EPP-OK'),
+    ).rejects.toMatchObject({ code: 'INVALID_STATE' });
+    expect(plugin.provision).not.toHaveBeenCalled();
+  });
 });

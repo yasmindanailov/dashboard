@@ -278,3 +278,63 @@ La columna "Implementación" de §3 se relee:
 #### A1.4. Cuándo revisar (FX)
 
 Si un registrar factura en moneda ≠ venta y no es configurable a la de venta → añadir `fx_rate` + `fx_source` + `fx_synced_at` a `domain_tld_pricing` y normalizar coste→venta **antes** del markup y del margin guard. Sustituye entonces la invariante de moneda única (A1.2) por conversión explícita.
+
+---
+
+### Amendment A2 (2026-06-24) — Mecánica de la FSM de transfer-in (transiciones, timeout, auth-code), cobro **al completar**, DOM-INV-6 (exactly-once de iniciación), arista de reintento y alcance v1 de Sprint 15D.II (Sprint 15D.II Fase 15D.II.A)
+
+**Contexto.** §4 congeló la *forma* de la FSM de transfer-in (estados, transiciones, eventos, códigos de error) pero dejó explícitamente la **mecánica** a la implementación ("la doctrina se congela ahora; la implementación vive en Sprint 15D.II", §4 línea 159). Al abrir 15D.II (sesión 2026-06-24, Yasmin ↔ Claude) afloran cinco huecos de mecánica que hay que cerrar **antes de codear** una operación irreversible (un transfer cuesta dinero real al registrar): (1) qué dispara cada transición y de dónde sale el EPP auth code; (2) el timeout y la cadencia del motor; (3) la política de **cobro**; (4) la garantía de exactly-once (§3 no numeró una DOM-INV de transfer — "las garantías del transfer las da la FSM"); (5) la arista de **reintento** que el diagrama de §4 no dibuja ("opción de reintento", §4 línea 157, sin modelar). Se materializan como Amendment, no como desvío silencioso (L18).
+
+> **Justificado por:** apertura de Sprint 15D.II + 2 decisiones de negocio de Yasmin (alcance v1; cobro al completar), sesión 2026-06-24. **Sprint:** 15D.II Fase 15D.II.A (doc-only). **Compatibilidad:** additivo/aclaratorio sobre §4 — no cambia estados ni códigos de error congelados; añade mecánica, una invariante (DOM-INV-6) y una arista (retry). Consume `ProvisionContext.transferAuthCode?` ([ADR-077 A14](./adr-077-contrato-provisioner-plugin-v2.md#amendments)). La zona DNS al completar la rige [ADR-082 A5](./adr-082-modelo-domain-hosting-dns-doctrine.md#amendments) (supersede la cláusula "se crea/migra → A2.2" de §4 línea 156).
+
+#### A2.1. Mecánica de transiciones (qué dispara cada arista)
+
+| Transición | Disparador | Motor |
+|---|---|---|
+| ∅ → `pending` | Checkout `transfer_in` confirmado (orden creada; **sin cobro upfront** — A2.3). El orquestador inicializa `services.metadata.transfer_state='pending'` (espejo de cómo `register` crea el service). | orquestador (checkout) |
+| `pending` → `awaiting_auth` | Al procesar la orden, el plugin valida el EPP auth code (`ctx.transferAuthCode`, recogido en el checkout) vía `validateTransfer`. Si falta o es inválido (`INVALID_AUTH_CODE`) → `awaiting_auth`. | plugin (`provisionTransferIn`) |
+| `pending` → `submitted` | Camino feliz: auth code válido a la primera → el plugin llama `transferDomain` y el registrar acepta la orden, sin pasar por `awaiting_auth`. | plugin |
+| `awaiting_auth` → `submitted` | El cliente reenvía un auth code válido (acción curada `submit_transfer_auth_code`) → `transferDomain` aceptado. | cliente → plugin |
+| `submitted` → `completed` | El reconcile cron consulta el estado en el registrar (DH-INV-6) y observa `ack` (registrar de origen aprobó / venció a favor). | reconcile cron |
+| `submitted` → `failed` | El reconcile observa `nack`/rechazo (`TRANSFER_REJECTED`: lock, <60 días, NACK del registrar de origen). | reconcile cron |
+| `pending`/`awaiting_auth` → `cancelled` | Acción admin **o** timeout (A2.2). | admin / reconcile cron |
+| `failed`/`cancelled` → `pending` | **Reintento** (A2.5): cliente/admin reabre el mismo service. | cliente / admin |
+
+- **El EPP auth code se recoge en el checkout** (el ítem `transfer_in` lo lleva), viaja al plugin vía `ProvisionContext.transferAuthCode?` ([ADR-077 A14](./adr-077-contrato-provisioner-plugin-v2.md#amendments)) y es **secreto** (R12: redactado en logs/audit, nunca persistido en claro). Patrón estándar de la industria (WHMCS/OVH: el cliente aporta el código al pedir el transfer). Si resulta inválido, la FSM cae a `awaiting_auth` y el cliente lo reenvía vía la acción curada `submit_transfer_auth_code` (sin re-hacer el checkout).
+
+#### A2.2. Timeout + cadencia del motor (reconcile cron)
+
+- El **motor de la FSM es el reconcile cron** de ResellerClub (el de 15D.E, 6h): además de reconciliar `expires_at`/lifecycle, **avanza** los services con `transfer_state = submitted` leyendo el registrar (fuente de verdad, DH-INV-6) y los promueve a `completed`/`failed`.
+- **Timeout de `awaiting_auth`:** si el cliente no aporta un auth code válido en `provisioning.transfer_auth_timeout_days` (setting nuevo, default **7 días**) → `cancelled` (timeout) + notificación. Evita transfers colgados esperando al cliente indefinidamente.
+- **`submitted` no tiene timeout que lo cancele** (la ventana de aprobación es del registrar, 5-7 días, ajena a Aelium): el cron sigue puleando; si supera `provisioning.transfer_stuck_alert_days` (default **14 días**) sin `ack`/`nack` → **alerta** al superadmin (`system.error`), sin cambiar de estado (no se cancela una orden que el registrar aún podría completar).
+
+#### A2.3. Cobro **al completar** (decisión Yasmin)
+
+> **Decisión del owner (Yasmin, 2026-06-24):** un transfer-in se **cobra solo cuando llega a `completed`**, no al pedirlo.
+
+- El checkout `transfer_in` crea el service `pending` + arranca la FSM **sin emitir factura vencida** (diverge de `register`, que cobra en el checkout). El transfer procede sin pago previo.
+- Al `transfer_completed`, el **orquestador genera y emite la factura de transfer** (reutiliza el seam de facturación de renovación, [ADR-081 A4.3](./adr-081-plugin-resellerclub-specifics.md#amendments): factura generada sobre el evento de ciclo). El dominio ya está bajo nuestra cuenta; el impago posterior lo gobierna el dunning canónico ([ADR-030](./adr-030-periodo-gracia-reintentos.md)) — sin auto-renew, el dominio expira por su cuenta (no se "des-transfiere").
+- `failed`/`cancelled` **nunca cobran**. El **reintento** (A2.5) no re-cobra (no se cobró nada). Esto evita reembolsos por los rechazos comunes de transfer (lock, <60 días, NACK), que son frecuentes y no son culpa del cliente.
+- **Margen (DOM-INV-3).** El precio de transfer se resuelve igual que register (server-side desde `domain_tld_pricing`, operación `transfer`; el checkout ya lo hace, `billing-checkout.service.ts:509`). El snapshot `(cost, price)` y el margin guard same-currency (A1) se aplican al **generar la factura al completar** (re-resuelto, no cacheado del checkout).
+
+#### A2.4. DOM-INV-6 — Exactly-once de iniciación de transfer
+
+Se numera la garantía que §4 dejaba implícita. Se añade a la tabla de §3:
+
+| # | Invariante | Riesgo que cubre | Implementación |
+|---|---|---|---|
+| **DOM-INV-6** | **Exactly-once de iniciación.** El `transfer_in` arranca un service **sin** `provider_reference` (igual que register) → no se idempotentiza por él. Antes de llamar a `transferDomain`: (a) advisory lock por FQDN (reutiliza el de DOM-INV-2); (b) persistir la transición de `transfer_state` **antes** del side-effect; (c) si ya hay un transfer `submitted` para ese FQDN bajo nuestra cuenta (recovery tras crash), **adoptarlo** (no re-enviar). | Doble iniciación (= doble cargo potencial al completar / doble orden en el registrar) ante crash o concurrencia entre el `transferDomain` y la persistencia del estado. | **v1 (15D.II) — Fase T2** |
+
+Verificada por test (espejo de DOM-INV-1 para register).
+
+#### A2.5. Arista de reintento (cierra el hueco de §4)
+
+§4 menciona "opción de reintento" sin dibujar la arista. Se modela: desde `failed` o `cancelled`, el cliente (o admin) **reintenta** → el **mismo** service se reabre a `transfer_state='pending'` (se limpia el estado intermedio; se conservan service y orden). Como no hubo cobro (A2.3), el reintento es **gratis** y no genera factura nueva. Se aporta un nuevo auth code en el reintento (el anterior pudo ser la causa del fallo).
+
+#### A2.6. Alcance v1 de Sprint 15D.II (decisión Yasmin)
+
+> **Decisión del owner (Yasmin, 2026-06-24):** v1 de 15D.II = **transfer-in + restore (RGP) + buscador rico** (suggest/bulk). **Premium** (venta con precio dinámico) y **child-NS + forwarding** se difieren a **v1.1** como sub-sprints explícitos.
+
+- **Premium** sigue **bloqueado** en v1 (`DOMAIN_PREMIUM`); venderlo requiere el amendment a §1 que "Cuándo revisar" ya anticipa (precio dinámico confirmado en checkout + política de margen) — se materializa en v1.1 si hay demanda.
+- **Child-NS + forwarding** son operaciones del registrar pero **sin doctrina técnica** congelada y con una **frontera no resuelta** (el forwarding de un dominio-solo que aparca en parking, [ADR-082 A4](./adr-082-modelo-domain-hosting-dns-doctrine.md#amendments)); su diseño nace en v1.1 con ADR propio.
+- La referencia "Sprint" de las Referencias se relee: 15D.II **v1** = FSM transfer + restore + buscador rico; 15D.II **v1.1** = premium + child-NS + forwarding.

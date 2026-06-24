@@ -1,11 +1,13 @@
 # Plugin ResellerClub — registrar de dominios (admin)
 
-> **Estado:** Fase 15D.G (cierre core) — registro + renovación + lifecycle + crons
-> + gestión curada + switch de NS + **gestión de precios admin** + **perfil de
-> titular (WHOIS) self-service** + **recovery hints renew/restore** + **borrado en
-> gracia**, con **red E2E/integración completa contra el `MockResellerClubServer`**.
-> Pendiente del cierre: **smoke OT&E real** (Yasmin, refina los shapes conservadores)
-> · retrospectiva. Doctrina:
+> **Estado:** **15D core CERRADO** (Fase 15D.G mergeada) — registro + renovación +
+> lifecycle + crons + gestión curada + switch de NS + gestión de precios admin +
+> perfil de titular (WHOIS) self-service + recovery hints + borrado en gracia.
+> **Sprint 15D.II (transfer-in) — backend EN CURSO:** FSM + iniciación síncrona +
+> motor de reconcile + **cobro al completar** (ver §transfer-in abajo); pendiente la
+> capa de entrada (checkout/endpoint) + frontend + T3/R/S/G. Pendiente del cierre
+> de 15D core: **smoke OT&E real** (Yasmin, refina los shapes conservadores) ·
+> retrospectiva. Doctrina:
 > [ADR-081](../../10-decisions/adr-081-plugin-resellerclub-specifics.md) (specifics RC) ·
 > [ADR-077 A10/A11/A12](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) (sub-contrato registrar) ·
 > [ADR-084](../../10-decisions/adr-084-comercio-dominios-registrar.md) (comercio de dominios) ·
@@ -132,6 +134,28 @@ Shapes RC de gestión CONSERVADORES hasta el smoke OT&E (Fase G, A1.5).
   el lifecycle canónico (`deprovisionAsAdmin` → audit + `service.cancelled`). Fuera de
   la ventana de gracia el registrar rechaza y el servicio NO se cancela. En la UI: menú
   admin del servicio → "Eliminar dominio (gracia)…" con doble confirmación (typing + motivo).
+
+## Qué hace hoy (Sprint 15D.II — transfer-in, **backend en curso**)
+
+> Doctrina congelada en 15D.II.A: [ADR-084 A2](../../10-decisions/adr-084-comercio-dominios-registrar.md#amendments) (mecánica FSM + cobro al completar + DOM-INV-6) · [ADR-077 A14](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md#amendments) (`ProvisionContext.transferAuthCode`) · [ADR-081 A7](../../10-decisions/adr-081-plugin-resellerclub-specifics.md#amendments) (endpoints RC) · [ADR-082 A5](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md#amendments) (zona al completar).
+
+El **transfer-in** (traer un dominio de otro registrar) es **asíncrono** (5-7 días) y se modela como una FSM en `services.metadata.transfer_state`:
+
+```
+pending → awaiting_auth → submitted → {completed | failed} | cancelled
+```
+
+> **Cobro AL COMPLETAR (decisión Yasmin):** a diferencia de un registro (que se factura en el checkout), un transfer **no se cobra al pedirlo** — la factura se genera cuando el transfer **completa**. Un fallo/cancelación no cobra; el reintento no re-cobra.
+
+Construido en backend (verde + boot smoke 4/4 en cada fase):
+
+- **Transporte** (T1): cliente RC `validateTransfer`/`transferDomain`/`resendTransferRfa`/`cancelTransfer`; el `MockResellerClubServer` simula la FSM (endpoint test-only `/__test__/advance-transfer`).
+- **Plugin FSM-init** (T2a): `provision('transfer_in')` valida transferibilidad e inicia el transfer; sin auth-code → `awaiting_auth`. **DOM-INV-6** (exactly-once de iniciación, espejo de DOM-INV-1): reintento puro por `provider_reference` + adopción de un transfer ya en curso bajo nuestra cuenta (recovery tras crash). Arranca **asíncrono** (no activa el servicio).
+- **Motor de la FSM** (T2b): el reconcile cron avanza los transfers en curso — `getTransferStatus` (lee `domains/details`→`actionstatus`) + `advanceTransfer`: `completed` → activa el servicio + puebla `expires_at` + emite `domain.transfer_completed` (Outbox); `failed`/`cancelled` → cierra la FSM (fail-soft si RC caído).
+- **Iniciación síncrona** (T2c.1): `ProvisioningOrchestratorService.initiateTransferIn(serviceId, authCode)` — el **EPP auth-code** viaja **en memoria** (R12: NUNCA por la cola Redis ni por `metadata`); `INVALID_AUTH_CODE` → `awaiting_auth` (el cliente reenvía un código corregido).
+- **Cobro al completar** (T2c.2): `GenerateInvoiceOnDomainTransferCompletedListener` (billing) consume `domain.transfer_completed` → genera la factura del transfer con el precio snapshotado en `services.amount` (idempotente + best-effort; **R4**: billing consume el evento, el reconcile no conoce billing).
+
+**Pendiente de 15D.II** (próximas fases): **T2c.3** capa de entrada (**carrito único** — el checkout flagea `transfer_in` como `deferBilling`/excluido de la factura + endpoint `submit-auth` → `initiateTransferIn`; auth-code post-checkout) + **frontend** · **T3** eventos `domain.transfer_initiated/failed` + notifs + zona DNS al completar · **R** restore (RGP) · **S** buscador rico (suggest/bulk) · **G** smoke OT&E real + cierre. Shapes de transfer **CONSERVADORES** hasta el smoke (A7.4).
 
 ## Cobertura de tests (red de seguridad L20)
 

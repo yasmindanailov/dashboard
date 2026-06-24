@@ -164,6 +164,108 @@ export class ProvisioningOrchestratorService {
     );
   }
 
+  /**
+   * Sprint 15D.II.T2c — iniciación **SÍNCRONA** de un transfer-in (ADR-084 A2 +
+   * ADR-077 A14). El EPP `authCode` viaja **EN MEMORIA** (parámetro), NUNCA por
+   * la cola Redis (`enqueueProvisioning` no lo transporta) ni por
+   * `services.metadata` (R12 — es secreto). Construye el `ProvisionContext` con
+   * `operation='transfer_in'` + `transferAuthCode` + `dnsTargetHint`, llama a
+   * `provision`, y persiste el resultado (`provider_reference` + `transfer_state`).
+   *
+   * NO factura (**cobro al completar**: la factura la genera el listener de
+   * billing sobre `domain.transfer_completed` cuando el reconcile lo culmina,
+   * A2.3 — T2c.2). NO activa el servicio (el transfer es asíncrono: el reconcile
+   * lo activa al completar, T2b). Un `INVALID_AUTH_CODE` deja la FSM en
+   * `awaiting_auth` (el cliente reenvía un código corregido) y re-lanza para que
+   * el caller (endpoint REST) informe.
+   */
+  async initiateTransferIn(
+    serviceId: string,
+    authCode: string,
+    correlationId: string = randomUUID(),
+  ): Promise<void> {
+    const service = await this.loadServiceWithRelations(serviceId);
+    if (!service) {
+      this.logger.warn(
+        `initiateTransferIn skipped: service ${serviceId} not found.`,
+      );
+      return;
+    }
+
+    const pluginSlug = service.product.provisioner;
+    const plugin = this.registry.get(pluginSlug);
+    if (!plugin?.capabilities.is_domain_registrar) {
+      throw new ProvisionerPluginError(
+        `El servicio ${serviceId} (plugin=${pluginSlug}) no es un registrar de ` +
+          `dominios — transfer-in no aplica.`,
+        'INVALID_STATE',
+        false,
+        undefined,
+        pluginSlug,
+      );
+    }
+
+    const ctx: ProvisionContext = {
+      service,
+      client: service.client,
+      productConfig:
+        (service.product.provisioner_config as Record<string, unknown>) ?? {},
+      serverId: service.server_id ?? null,
+      correlationId,
+      operation: 'transfer_in',
+      transferAuthCode: authCode,
+      dnsTargetHint: await this.resolveDnsTargetHint(service),
+    };
+
+    try {
+      const result = await plugin.provision(ctx);
+      await this.prisma.service.update({
+        where: { id: serviceId },
+        data: {
+          ...(result.providerReference
+            ? { provider_reference: result.providerReference }
+            : {}),
+          metadata: result.metadata as Prisma.InputJsonValue,
+          // 'provisioning' mientras el transfer es asíncrono (submitted) o espera
+          // el auth-code (awaiting_auth). El reconcile lo activa al completar.
+          status: 'provisioning',
+        },
+      });
+      await this.cache.invalidate(serviceId);
+      this.logger.log(
+        `initiateTransferIn service=${serviceId}: provision(transfer_in) OK ` +
+          `(transfer_state=${String(result.metadata.transfer_state)}, ` +
+          `ref=${result.providerReference ?? 'none'}).`,
+      );
+    } catch (err) {
+      // Auth-code inválido → la FSM cae a `awaiting_auth` (el cliente reenvía).
+      if (
+        err instanceof ProvisionerPluginError &&
+        err.code === 'INVALID_AUTH_CODE'
+      ) {
+        const prevMeta =
+          service.metadata &&
+          typeof service.metadata === 'object' &&
+          !Array.isArray(service.metadata)
+            ? (service.metadata as Record<string, unknown>)
+            : {};
+        await this.prisma.service.update({
+          where: { id: serviceId },
+          data: {
+            metadata: {
+              ...prevMeta,
+              domain_operation: 'transfer_in',
+              transfer_state: 'awaiting_auth',
+            } as Prisma.InputJsonValue,
+            status: 'provisioning',
+          },
+        });
+        await this.cache.invalidate(serviceId);
+      }
+      throw err;
+    }
+  }
+
   // ──────────────────────────────────────────────────────────────────────
   // 2. Worker entry point: invocado por ProvisioningDispatchProcessor
   // ──────────────────────────────────────────────────────────────────────

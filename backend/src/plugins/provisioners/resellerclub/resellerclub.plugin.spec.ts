@@ -57,6 +57,8 @@ describe('ResellerclubProvisionerPlugin.provision(register) — Fase 15D.D', () 
       checkAvailability: jest.fn(),
       registerDomain: jest.fn(),
       getDomainDetailsByName: jest.fn(),
+      validateTransfer: jest.fn(),
+      transferDomain: jest.fn(),
     };
   }
 
@@ -87,6 +89,7 @@ describe('ResellerclubProvisionerPlugin.provision(register) — Fase 15D.D', () 
       service?: Record<string, unknown>;
       operation?: 'register' | 'renew' | 'transfer_in';
       dnsTargetHint?: 'aelium' | 'parking';
+      transferAuthCode?: string;
     } = {},
   ): ProvisionContext {
     const service = {
@@ -105,6 +108,7 @@ describe('ResellerclubProvisionerPlugin.provision(register) — Fase 15D.D', () 
       correlationId: 'cor-1',
       operation: overrides.operation ?? 'register',
       dnsTargetHint: overrides.dnsTargetHint,
+      transferAuthCode: overrides.transferAuthCode,
     };
   }
 
@@ -246,13 +250,114 @@ describe('ResellerclubProvisionerPlugin.provision(register) — Fase 15D.D', () 
     expect(client.checkAvailability).not.toHaveBeenCalled();
   });
 
-  it('transfer_in → NOT_IMPLEMENTED (Fase 15D.II)', async () => {
+  // ─── transfer_in (Fase 15D.II.T2a — FSM de transfer, ADR-084 A2 + DOM-INV-6) ──
+
+  it('transfer_in sin auth-code → awaiting_auth (no toca RC)', async () => {
+    const client = buildMockClient();
+    const { plugin, customers } = buildPlugin(client);
+
+    const result = await plugin.provision(
+      buildCtx({ operation: 'transfer_in' }),
+    );
+
+    expect(result.providerReference).toBeNull();
+    expect(result.metadata).toMatchObject({
+      domain_operation: 'transfer_in',
+      transfer_state: 'awaiting_auth',
+    });
+    expect(result.followUp).toEqual([]);
+    expect(client.validateTransfer).not.toHaveBeenCalled();
+    expect(customers.ensureRegistrant).not.toHaveBeenCalled();
+  });
+
+  it('transfer_in con auth-code válido → submitted (transferDomain + provider_reference, sin mark_active)', async () => {
+    const client = buildMockClient();
+    client.validateTransfer.mockResolvedValue({ transferable: true });
+    client.transferDomain.mockResolvedValue('900123');
+    const { plugin, customers } = buildPlugin(client);
+
+    const result = await plugin.provision(
+      buildCtx({ operation: 'transfer_in', transferAuthCode: 'EPP-OK' }),
+    );
+
+    expect(result.providerReference).toBe('900123');
+    expect(result.followUp).toEqual([]); // asíncrono: el reconcile activa
+    expect(result.metadata).toMatchObject({
+      domain_operation: 'transfer_in',
+      transfer_state: 'submitted',
+      rc_customer_id: '700001',
+      rc_registrant_contact_id: '800001',
+      nameservers: ['ns1.aelium.net', 'ns2.aelium.net'],
+      whois_privacy: true,
+    });
+    expect(customers.ensureRegistrant).toHaveBeenCalledTimes(1);
+    expect(client.transferDomain).toHaveBeenCalledWith(
+      expect.objectContaining({
+        'domain-name': 'example.com',
+        'auth-code': 'EPP-OK',
+        'invoice-option': 'NoInvoice',
+        'protect-privacy': true,
+      }),
+    );
+  });
+
+  it('transfer_in no transferible y sin transfer previo → TRANSFER_REJECTED', async () => {
+    const client = buildMockClient();
+    client.validateTransfer.mockResolvedValue({
+      transferable: false,
+      reason: 'registrar lock',
+    });
+    client.getDomainDetailsByName.mockRejectedValue(new Error("doesn't exist"));
+    const { plugin, customers } = buildPlugin(client);
+
+    await expect(
+      plugin.provision(
+        buildCtx({ operation: 'transfer_in', transferAuthCode: 'EPP-OK' }),
+      ),
+    ).rejects.toMatchObject({ code: 'TRANSFER_REJECTED', retriable: false });
+    expect(customers.ensureRegistrant).not.toHaveBeenCalled();
+  });
+
+  it('DOM-INV-6: transfer ya en curso bajo nuestra cuenta → adopta el order-id, NO re-inicia', async () => {
+    const client = buildMockClient();
+    client.validateTransfer.mockResolvedValue({ transferable: false });
+    client.getDomainDetailsByName.mockResolvedValue({
+      orderid: '900999',
+      actionstatus: 'InProgress',
+    });
+    const { plugin, customers } = buildPlugin(client);
+
+    const result = await plugin.provision(
+      buildCtx({ operation: 'transfer_in', transferAuthCode: 'EPP-OK' }),
+    );
+
+    expect(result.providerReference).toBe('900999');
+    expect(result.metadata).toMatchObject({ transfer_state: 'submitted' });
+    expect(client.transferDomain).not.toHaveBeenCalled();
+    expect(customers.ensureRegistrant).not.toHaveBeenCalled();
+  });
+
+  it('transfer_in reintento puro: provider_reference ya existe → no re-envía (idempotente)', async () => {
     const client = buildMockClient();
     const { plugin } = buildPlugin(client);
 
-    await expect(
-      plugin.provision(buildCtx({ operation: 'transfer_in' })),
-    ).rejects.toMatchObject({ code: 'NOT_IMPLEMENTED' });
+    const result = await plugin.provision(
+      buildCtx({
+        operation: 'transfer_in',
+        transferAuthCode: 'EPP-OK',
+        service: {
+          provider_reference: '900123',
+          metadata: {
+            domain_operation: 'transfer_in',
+            transfer_state: 'submitted',
+          },
+        },
+      }),
+    );
+
+    expect(result.providerReference).toBe('900123');
+    expect(client.validateTransfer).not.toHaveBeenCalled();
+    expect(client.transferDomain).not.toHaveBeenCalled();
   });
 });
 

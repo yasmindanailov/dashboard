@@ -11,7 +11,7 @@ import { ProvisionerPluginError } from '../../../../core/provisioning/types';
 import { startMockResellerClubServer } from '../../../../../test/mocks/resellerclub-server';
 
 import { ResellerClubApiClient } from './client';
-import { RcRegisterInput } from './types';
+import { RcRegisterInput, RcTransferInput } from './types';
 
 const AUTH = { authUserId: 'uid-fixture', apiKey: 'key-fixture' };
 
@@ -285,6 +285,116 @@ describe('ResellerClubApiClient ↔ MockResellerClubServer — Sprint 15D Fase 1
     expect((await client.searchDomains()).recsindb).toBe('0');
     await client.registerDomain(registerInput());
     expect((await client.searchDomains()).recsindb).toBe('1');
+  });
+
+  // ─── Transfer-in (Sprint 15D.II Fase T1) ────────────────────────────────────
+
+  async function seedTransfer(seed: Record<string, unknown>): Promise<void> {
+    await fetch(`${mock.baseUrl}/__test__/seed`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(seed),
+    });
+  }
+  async function advanceTransfer(body: Record<string, unknown>): Promise<void> {
+    await fetch(`${mock.baseUrl}/__test__/advance-transfer`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+  function transferInput(
+    overrides: Partial<RcTransferInput> = {},
+  ): RcTransferInput {
+    return {
+      'domain-name': 'movethis.com',
+      'auth-code': 'EPP-VALID-1',
+      ns: ['ns1.aelium.net', 'ns2.aelium.net'],
+      'customer-id': '1',
+      'reg-contact-id': '1',
+      'admin-contact-id': '1',
+      'tech-contact-id': '1',
+      'billing-contact-id': '1',
+      'invoice-option': 'NoInvoice',
+      'protect-privacy': true,
+      ...overrides,
+    };
+  }
+
+  it('validateTransfer: transferible (seed) vs no transferible (disponible)', async () => {
+    await seedTransfer({ transferableDomains: ['movethis.com'] });
+    const ok = await client.validateTransfer('movethis.com');
+    expect(ok.transferable).toBe(true);
+
+    const no = await client.validateTransfer('freebie.com');
+    expect(no.transferable).toBe(false);
+    expect(no.reason).toBeTruthy();
+  });
+
+  it('transferDomain → order-id + details InProgress; advance(completed) → activo con endtime', async () => {
+    await seedTransfer({ transferableDomains: ['movethis.com'] });
+    const orderId = await client.transferDomain(transferInput());
+    expect(orderId).toMatch(/^\d+$/);
+
+    const during = await client.getDomainDetailsByOrderId(orderId);
+    expect(during.actionstatus).toBe('InProgress');
+
+    await advanceTransfer({ orderId, to: 'completed' });
+    const after = await client.getDomainDetailsByOrderId(orderId);
+    expect(after.actionstatus).toBeUndefined();
+    expect(after.entitystatus).toBe('Active');
+    expect(Number(after.endtime)).toBeGreaterThan(0);
+  });
+
+  it('transferDomain con auth-code inválido → INVALID_AUTH_CODE', async () => {
+    await seedTransfer({ transferableDomains: ['movethis.com'] });
+    await expectError(
+      client.transferDomain(transferInput({ 'auth-code': 'INVALID' })),
+      'INVALID_AUTH_CODE',
+    );
+  });
+
+  it('transferDomain de un dominio con lock → TRANSFER_REJECTED', async () => {
+    await expectError(
+      client.transferDomain(
+        transferInput({ 'domain-name': 'lockeddomain.com' }),
+      ),
+      'TRANSFER_REJECTED',
+    );
+  });
+
+  it('transferDomain exige el auth-code exacto sembrado por FQDN', async () => {
+    await seedTransfer({
+      transferableDomains: ['movethis.com'],
+      transferAuthCodes: { 'movethis.com': 'SECRET-99' },
+    });
+    await expectError(
+      client.transferDomain(transferInput({ 'auth-code': 'nope' })),
+      'INVALID_AUTH_CODE',
+    );
+    const orderId = await client.transferDomain(
+      transferInput({ 'auth-code': 'SECRET-99' }),
+    );
+    expect(orderId).toMatch(/^\d+$/);
+  });
+
+  it('resendTransferRfa sobre transfer en curso → ok; cancelTransfer lo cancela', async () => {
+    await seedTransfer({ transferableDomains: ['movethis.com'] });
+    const orderId = await client.transferDomain(transferInput());
+    await expect(client.resendTransferRfa(orderId)).resolves.toBeUndefined();
+    await expect(client.cancelTransfer(orderId)).resolves.toBeUndefined();
+    expect((await client.getDomainDetailsByOrderId(orderId)).actionstatus).toBe(
+      'Cancelled',
+    );
+  });
+
+  it('advance(failed) marca el transfer como Failed en details', async () => {
+    await seedTransfer({ transferableDomains: ['movethis.com'] });
+    const orderId = await client.transferDomain(transferInput());
+    await advanceTransfer({ orderId, to: 'failed' });
+    expect((await client.getDomainDetailsByOrderId(orderId)).actionstatus).toBe(
+      'Failed',
+    );
   });
 
   // ─── Errores ────────────────────────────────────────────────────────────────
