@@ -28,15 +28,27 @@ import { useCart } from '../../../_shared/cart/useCart';
    Un único checkout multi-ítem → /billing/checkout/items.
    ═══════════════════════════════════════ */
 
+function isTransfer(i: CartItem): boolean {
+  return i.kind === 'domain' && i.operation === 'transfer_in';
+}
+
 export default function CartView() {
   const cart = useCart();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ineligible, setIneligible] = useState(false);
   const [done, setDone] = useState<CartCheckoutData | null>(null);
+  const [doneTransfers, setDoneTransfers] = useState(0);
 
   const currency = cart.items[0]?.price.currency ?? 'EUR';
-  const total = cart.items.reduce((sum, i) => sum + Number(i.price.amount), 0);
+  // El total a PAGAR ahora excluye las transferencias (cobro al completar, A2.3).
+  const billableItems = cart.items.filter((i) => !isTransfer(i));
+  const transferItems = cart.items.filter(isTransfer);
+  const total = billableItems.reduce((s, i) => s + Number(i.price.amount), 0);
+  const transfersTotal = transferItems.reduce(
+    (s, i) => s + Number(i.price.amount),
+    0,
+  );
 
   async function handleCheckout() {
     if (cart.items.length === 0) return;
@@ -50,7 +62,12 @@ export default function CartView() {
             product_pricing_id: i.productPricingId,
             ...(i.domain ? { domain: i.domain } : {}),
           }
-        : { kind: 'domain', domain_name: i.fqdn, years: i.years },
+        : {
+            kind: 'domain',
+            domain_name: i.fqdn,
+            years: i.years,
+            operation: i.operation ?? 'register',
+          },
     );
     const res: CheckoutCartResult = await checkoutCartAction({ items: payload });
     setSubmitting(false);
@@ -59,27 +76,54 @@ export default function CartView() {
       setIneligible(res.code === 'REGISTRANT_INELIGIBLE');
       return;
     }
+    setDoneTransfers(transferItems.length);
     cart.clear();
     setDone(res.data);
   }
 
   /* ── Éxito ── */
   if (done) {
+    const transferPlural = doneTransfers === 1 ? 'transferencia' : 'transferencias';
     return (
       <Card>
         <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <AlertBanner variant="success">
-            Pedido creado. Se ha generado la factura{' '}
-            <strong>{done.invoice_number}</strong> con {done.services.length}{' '}
-            {done.services.length === 1 ? 'servicio' : 'servicios'}. Se activarán
-            al confirmarse el pago.
-          </AlertBanner>
+          {done.invoice_id ? (
+            <AlertBanner variant="success">
+              Pedido creado. Se ha generado la factura{' '}
+              <strong>{done.invoice_number}</strong> con {done.services.length}{' '}
+              {done.services.length === 1 ? 'servicio' : 'servicios'}. Se activarán
+              al confirmarse el pago.
+            </AlertBanner>
+          ) : (
+            <AlertBanner variant="success">
+              Hemos registrado tus {transferPlural}. No se cobra nada hasta que se
+              completen.
+            </AlertBanner>
+          )}
+
+          {/* Transferencias: el cliente debe aportar el código EPP en cada dominio. */}
+          {doneTransfers > 0 && (
+            <AlertBanner variant="info">
+              Para iniciar {doneTransfers === 1 ? 'tu' : 'tus'} {transferPlural},
+              aporta el <strong>código de autorización (EPP)</strong> en cada
+              dominio desde{' '}
+              <Link href="/dashboard/domains" style={{ fontWeight: 600 }}>
+                Mis dominios
+              </Link>
+              .
+            </AlertBanner>
+          )}
+
           <div style={{ display: 'flex', gap: 12 }}>
-            <Link href="/dashboard/billing">
-              <Button>Ver mis facturas</Button>
-            </Link>
-            <Link href="/dashboard/services">
-              <Button variant="secondary">Mis servicios</Button>
+            {done.invoice_id && (
+              <Link href="/dashboard/billing">
+                <Button>Ver mis facturas</Button>
+              </Link>
+            )}
+            <Link href="/dashboard/domains">
+              <Button variant={done.invoice_id ? 'secondary' : 'primary'}>
+                Mis dominios
+              </Button>
             </Link>
           </div>
         </div>
@@ -136,14 +180,39 @@ export default function CartView() {
           <div
             style={{
               display: 'flex',
-              justifyContent: 'space-between',
+              flexDirection: 'column',
+              gap: 6,
               padding: '14px 16px',
               borderTop: '1px solid var(--border-default)',
-              fontWeight: 700,
             }}
           >
-            <span>Total</span>
-            <span>{formatMoney({ amount: String(total), currency })}</span>
+            {billableItems.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontWeight: 700,
+                }}
+              >
+                <span>Total a pagar ahora</span>
+                <span>{formatMoney({ amount: String(total), currency })}</span>
+              </div>
+            )}
+            {transferItems.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: 13,
+                  color: 'var(--text-tertiary)',
+                }}
+              >
+                <span>Transferencias (se cobran al completar)</span>
+                <span>
+                  {formatMoney({ amount: String(transfersTotal), currency })}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </Card>
@@ -164,14 +233,19 @@ export default function CartView() {
           </Button>
         </Link>
         <Button onClick={handleCheckout} loading={submitting}>
-          Pagar {cart.items.length}{' '}
-          {cart.items.length === 1 ? 'ítem' : 'ítems'}
+          {billableItems.length === 0
+            ? `Iniciar ${transferItems.length} ${transferItems.length === 1 ? 'transferencia' : 'transferencias'}`
+            : `Pagar ${cart.items.length} ${cart.items.length === 1 ? 'ítem' : 'ítems'}`}
         </Button>
       </div>
 
       <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: 0 }}>
-        Se emitirá una factura simplificada. Cada servicio se activa al
-        confirmarse el pago.
+        {billableItems.length === 0
+          ? 'No se cobra nada ahora. Cada transferencia se factura al completarse.'
+          : 'Se emitirá una factura simplificada. Cada servicio se activa al confirmarse el pago.'}
+        {transferItems.length > 0 &&
+          billableItems.length > 0 &&
+          ' Las transferencias se cobran al completarse.'}
       </p>
     </div>
   );
@@ -194,7 +268,9 @@ function CartRow({
       ? item.domain
         ? `${item.cycleLabel} · ${item.domain}`
         : item.cycleLabel
-      : `Registro · ${item.years} año${item.years === 1 ? '' : 's'}`;
+      : item.operation === 'transfer_in'
+        ? 'Transferencia · se cobra al completar'
+        : `Registro · ${item.years} año${item.years === 1 ? '' : 's'}`;
   return (
     <div
       style={{

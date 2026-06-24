@@ -65,6 +65,17 @@ export class CartItemDto {
   @Min(1)
   @Max(10)
   years?: number;
+
+  /**
+   * Operación del dominio (Sprint 15D.II.T2c.3). `register` (default) cobra en el
+   * checkout; `transfer_in` crea el service `pending` pero se **excluye de la
+   * factura** (cobro al completar, ADR-084 A2.3). El auth-code se aporta
+   * post-checkout (`POST /domains/:id/transfer/submit-auth`), nunca en el carrito.
+   */
+  @ValidateIf((o: CartItemDto) => o.kind === 'domain')
+  @IsOptional()
+  @IsIn(['register', 'transfer_in'])
+  operation?: 'register' | 'transfer_in';
 }
 
 export class CheckoutItemsDto {

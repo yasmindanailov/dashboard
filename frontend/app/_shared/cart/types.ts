@@ -29,9 +29,16 @@ export type CartItem =
       kind: 'domain';
       fqdn: string;
       tld: string;
-      /** Años de registro (v1: 1). */
+      /** Años de registro/renovación (v1: 1). */
       years: number;
       price: Money;
+      /**
+       * Operación del dominio (Sprint 15D.II.T2c.3). `register` (default) cobra en
+       * el checkout; `transfer_in` se crea pero NO se factura ahora — el cobro es
+       * al completar la transferencia (ADR-084 A2.3). El auth-code se aporta
+       * después, en el detalle del dominio (nunca en el carrito).
+       */
+      operation?: 'register' | 'transfer_in';
     };
 
 /** Clave estable para dedup/borrado: producto por plan, dominio por FQDN. */

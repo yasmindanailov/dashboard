@@ -1,6 +1,13 @@
-import { ServiceUnavailableException, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
+import { ProvisionerPluginError } from '../../core/provisioning/types';
 import { DomainsService } from './domains.service';
 
 /**
@@ -38,7 +45,11 @@ describe('DomainsService.checkAvailability — Sprint 15D Fase 15D.F.2', () => {
       }),
     };
     prisma = { domainTldPricing: { findMany: jest.fn() } };
-    service = new DomainsService(registry as never, prisma as never);
+    service = new DomainsService(
+      registry as never,
+      prisma as never,
+      {} as never, // orchestrator no usado por checkAvailability
+    );
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -164,7 +175,7 @@ describe('DomainsService.listMine — Sprint 15D Fase 15D.F.4', () => {
       service: { findMany: jest.fn(), count: jest.fn() },
       $transaction: jest.fn().mockImplementation((ops) => Promise.all(ops)),
     };
-    service = new DomainsService({} as never, prisma as never);
+    service = new DomainsService({} as never, prisma as never, {} as never);
   });
 
   it('mapea filas a DomainListItem (fqdn/expires_at/created_at ISO) + meta paginada', async () => {
@@ -231,5 +242,227 @@ describe('DomainsService.listMine — Sprint 15D Fase 15D.F.4', () => {
       [{ where: { status?: unknown } }]
     >;
     expect(calls[0][0].where.status).toBeUndefined();
+  });
+});
+
+/**
+ * Tests unit `DomainsService.transferQuote` — Sprint 15D.II.T2c.3.
+ * Precio de transfer server-side (R5) + DOM-INV-3 same-currency (offered:false).
+ */
+describe('DomainsService.transferQuote — Sprint 15D.II.T2c.3', () => {
+  let registry: { getByCapability: jest.Mock };
+  let prisma: { domainTldPricing: { findUnique: jest.Mock } };
+  let service: DomainsService;
+
+  function transferRow(overrides: Record<string, unknown> = {}) {
+    return {
+      active: true,
+      cost_amount: new Prisma.Decimal('7.00'),
+      cost_currency: 'EUR',
+      price_amount: new Prisma.Decimal('9.00'),
+      price_currency: 'EUR',
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    registry = {
+      getByCapability: jest.fn().mockReturnValue({ slug: 'resellerclub' }),
+    };
+    prisma = { domainTldPricing: { findUnique: jest.fn() } };
+    service = new DomainsService(
+      registry as never,
+      prisma as never,
+      {} as never,
+    );
+  });
+
+  it('happy: precio activo + margen válido → offered + precio server-side', async () => {
+    prisma.domainTldPricing.findUnique.mockResolvedValue(transferRow());
+    const res = await service.transferQuote('MiDominio.COM');
+    expect(res).toEqual({
+      fqdn: 'midominio.com',
+      tld: 'com',
+      offered: true,
+      price: { amount: '9.00', currency: 'EUR' },
+    });
+    // operación `transfer`, 1 año, EUR.
+    const calls = prisma.domainTldPricing.findUnique.mock.calls as Array<
+      [
+        {
+          where: {
+            registrar_slug_tld_operation_years_price_currency: {
+              tld: string;
+              operation: string;
+              years: number;
+            };
+          };
+        },
+      ]
+    >;
+    expect(
+      calls[0][0].where.registrar_slug_tld_operation_years_price_currency,
+    ).toMatchObject({ tld: 'com', operation: 'transfer', years: 1 });
+  });
+
+  it('sin fila de precio → offered:false sin precio', async () => {
+    prisma.domainTldPricing.findUnique.mockResolvedValue(null);
+    const res = await service.transferQuote('midominio.io');
+    expect(res).toMatchObject({
+      fqdn: 'midominio.io',
+      tld: 'io',
+      offered: false,
+    });
+    expect(res.price).toBeUndefined();
+  });
+
+  it('DOM-INV-3: cost > price → offered:false (no oferta a pérdida)', async () => {
+    prisma.domainTldPricing.findUnique.mockResolvedValue(
+      transferRow({ cost_amount: new Prisma.Decimal('12.00') }),
+    );
+    const res = await service.transferQuote('midominio.com');
+    expect(res.offered).toBe(false);
+    expect(res.price).toBeUndefined();
+  });
+
+  it('fqdn inválido (sin punto) → BadRequestException', async () => {
+    await expect(service.transferQuote('sinpunto')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('sin registrar → ServiceUnavailableException', async () => {
+    registry.getByCapability.mockReturnValue(null);
+    await expect(service.transferQuote('x.com')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+  });
+});
+
+/**
+ * Tests unit `DomainsService.submitTransferAuthCode` — Sprint 15D.II.T2c.3.
+ * Ownership + guarda de estado FSM + delega en `initiateTransferIn` (R12) +
+ * traducción de `INVALID_AUTH_CODE` a 400 accionable.
+ */
+describe('DomainsService.submitTransferAuthCode — Sprint 15D.II.T2c.3', () => {
+  const OWNER = 'user-1';
+  let prisma: { service: { findUnique: jest.Mock } };
+  let orchestrator: { initiateTransferIn: jest.Mock };
+  let service: DomainsService;
+
+  function transferService(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'svc-1',
+      user_id: OWNER,
+      status: 'pending',
+      metadata: { domain_operation: 'transfer_in', transfer_state: 'pending' },
+      product: { type: 'domain' },
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    prisma = { service: { findUnique: jest.fn() } };
+    orchestrator = {
+      initiateTransferIn: jest.fn().mockResolvedValue(undefined),
+    };
+    service = new DomainsService(
+      {} as never,
+      prisma as never,
+      orchestrator as never,
+    );
+  });
+
+  it('happy: pending + dueño → llama initiateTransferIn y devuelve submitted', async () => {
+    prisma.service.findUnique
+      .mockResolvedValueOnce(transferService())
+      .mockResolvedValueOnce({
+        status: 'provisioning',
+        metadata: {
+          domain_operation: 'transfer_in',
+          transfer_state: 'submitted',
+        },
+      });
+
+    const res = await service.submitTransferAuthCode(
+      'svc-1',
+      ' ABC-123 ',
+      OWNER,
+      false,
+    );
+
+    // R12: el auth-code se pasa trim-eado a initiateTransferIn (en memoria).
+    expect(orchestrator.initiateTransferIn).toHaveBeenCalledWith(
+      'svc-1',
+      'ABC-123',
+    );
+    expect(res).toEqual({
+      id: 'svc-1',
+      status: 'provisioning',
+      transfer_state: 'submitted',
+    });
+  });
+
+  it('no dueño y no admin → ForbiddenException', async () => {
+    prisma.service.findUnique.mockResolvedValue(transferService());
+    await expect(
+      service.submitTransferAuthCode('svc-1', 'x', 'otro-user', false),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(orchestrator.initiateTransferIn).not.toHaveBeenCalled();
+  });
+
+  it('admin puede actuar por cualquier cliente', async () => {
+    prisma.service.findUnique
+      .mockResolvedValueOnce(transferService())
+      .mockResolvedValueOnce({
+        status: 'provisioning',
+        metadata: { transfer_state: 'submitted' },
+      });
+    await service.submitTransferAuthCode('svc-1', 'x', 'admin-user', true);
+    expect(orchestrator.initiateTransferIn).toHaveBeenCalled();
+  });
+
+  it('no es transfer_in → BadRequestException', async () => {
+    prisma.service.findUnique.mockResolvedValue(
+      transferService({ metadata: { domain_operation: 'register' } }),
+    );
+    await expect(
+      service.submitTransferAuthCode('svc-1', 'x', OWNER, false),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(orchestrator.initiateTransferIn).not.toHaveBeenCalled();
+  });
+
+  it('estado submitted → BadRequestException (ya en curso)', async () => {
+    prisma.service.findUnique.mockResolvedValue(
+      transferService({
+        metadata: {
+          domain_operation: 'transfer_in',
+          transfer_state: 'submitted',
+        },
+      }),
+    );
+    await expect(
+      service.submitTransferAuthCode('svc-1', 'x', OWNER, false),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(orchestrator.initiateTransferIn).not.toHaveBeenCalled();
+  });
+
+  it('INVALID_AUTH_CODE del orquestador → 400 con code INVALID_AUTH_CODE', async () => {
+    prisma.service.findUnique.mockResolvedValue(transferService());
+    orchestrator.initiateTransferIn.mockRejectedValue(
+      new ProvisionerPluginError('bad', 'INVALID_AUTH_CODE', false),
+    );
+    await expect(
+      service.submitTransferAuthCode('svc-1', 'bad', OWNER, false),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_AUTH_CODE' },
+    });
+  });
+
+  it('service no encontrado → NotFoundException', async () => {
+    prisma.service.findUnique.mockResolvedValue(null);
+    await expect(
+      service.submitTransferAuthCode('nope', 'x', OWNER, false),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

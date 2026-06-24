@@ -62,7 +62,18 @@ export type PublicCartItem =
       label?: string;
       domain?: string;
     }
-  | { kind: 'domain'; domainName: string; years: number };
+  | {
+      kind: 'domain';
+      domainName: string;
+      years: number;
+      /**
+       * Operación del dominio (Sprint 15D.II.T2c.3). `register` (default) cobra
+       * en el checkout; `transfer_in` se crea `pending` pero **NO se factura aquí**
+       * (deferBilling — cobro al completar, ADR-084 A2.3). El auth-code se aporta
+       * post-checkout (`POST /domains/:id/transfer/submit-auth`), nunca en el carrito.
+       */
+      operation?: 'register' | 'transfer_in';
+    };
 
 /**
  * Forma legacy de 1 producto — preserva el contrato REST actual (`CheckoutDto`).
@@ -110,6 +121,13 @@ interface ResolvedLine {
   fqdn?: string;
   /** Etiqueta de descuento legacy (solo el primer ítem la expone en la respuesta). */
   discountLabel: string | null;
+  /**
+   * Sprint 15D.II.T2c.3 — `true` para un `transfer_in`: el service se crea
+   * `pending` pero se **excluye de la factura** (cobro al completar, ADR-084 A2.3).
+   * El listener de billing factura sobre `domain.transfer_completed` (T2c.2). El
+   * resto (register/product) factura en el checkout (`false`).
+   */
+  deferBilling: boolean;
 }
 
 @Injectable()
@@ -136,7 +154,9 @@ export class BillingCheckoutService {
     input: { items: PublicCartItem[]; billingProfileId?: string },
   ): Promise<{
     services: Service[];
-    invoice: Awaited<ReturnType<BillingInvoiceService['createInvoice']>>;
+    // Sprint 15D.II.T2c.3 — `null` cuando el carrito es SOLO transfers (deferBilling):
+    // no se emite factura en el checkout (cobro al completar, ADR-084 A2.3).
+    invoice: Awaited<ReturnType<BillingInvoiceService['createInvoice']>> | null;
     invoice_type: 'completa' | 'simplificada';
     discount_applied: string | null;
   }> {
@@ -182,7 +202,8 @@ export class BillingCheckoutService {
             // porque hay al menos un ítem de dominio).
             productId: domainProductId as string,
             domainName: it.domainName,
-            operation: 'register',
+            // 15D.II.T2c.3 — `register` por defecto; `transfer_in` activa deferBilling.
+            operation: it.operation ?? 'register',
             years: it.years,
           },
     );
@@ -221,6 +242,14 @@ export class BillingCheckoutService {
       ],
       billingProfileId: dto.billing_profile_id,
     });
+    // El checkout legacy es SIEMPRE 1 producto (facturable) → invoice nunca nula.
+    // (`null` solo ocurre en un carrito de solo-transfers, 15D.II.T2c.3, que no
+    // pasa por este wrapper.) Guard defensivo para narrowing del tipo.
+    if (!result.invoice) {
+      throw new BadRequestException(
+        'No se pudo generar la factura del checkout.',
+      );
+    }
     return {
       service: result.services[0],
       invoice: result.invoice,
@@ -239,7 +268,9 @@ export class BillingCheckoutService {
     input: CheckoutInput,
   ): Promise<{
     services: Service[];
-    invoice: Awaited<ReturnType<BillingInvoiceService['createInvoice']>>;
+    // Sprint 15D.II.T2c.3 — `null` cuando todos los ítems son `transfer_in`
+    // (deferBilling): el cobro lo hace el listener al completar (ADR-084 A2.3).
+    invoice: Awaited<ReturnType<BillingInvoiceService['createInvoice']>> | null;
     invoice_type: 'completa' | 'simplificada';
     discount_applied: string | null;
   }> {
@@ -320,59 +351,80 @@ export class BillingCheckoutService {
       return created;
     });
 
-    // 6. Crear la factura (fuera de la tx — usa SEQUENCE) con N líneas.
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 7);
-    const invoice = await this.invoiceService.createInvoice({
-      user_id: userId,
-      billing_profile_id: input.billingProfileId,
-      due_date: dueDate.toISOString(),
-      // Moneda de la factura = la del primer service (en v1 todos los ítems del
-      // carrito comparten moneda — productos en su `currency`, dominios en EUR).
-      currency: services[0].currency,
-      items: resolvedLines.map((line, i) => ({
-        service_id: services[i].id,
-        product_id: line.invoiceLine.product_id,
-        description: line.invoiceLine.description,
-        quantity: line.invoiceLine.quantity,
-        unit_price: line.invoiceLine.unit_price,
-        setup_fee: line.invoiceLine.setup_fee,
-        discount_pct: line.invoiceLine.discount_pct,
-        period_start: line.invoiceLine.period_start,
-        period_end: line.invoiceLine.period_end,
-      })),
-    });
+    // 6. Facturar SOLO los ítems facturables (15D.II.T2c.3): un `transfer_in` es
+    //    deferBilling — el service se crea `pending` pero NO entra en la factura
+    //    del checkout (cobro al completar, ADR-084 A2.3; lo factura el listener
+    //    sobre `domain.transfer_completed`, T2c.2). Si TODO el carrito es transfers,
+    //    no se emite factura (`invoice = null`) — el carrito puede ser solo-transfers.
+    const billable = resolvedLines
+      .map((line, i) => ({ line, service: services[i] }))
+      .filter((p) => !p.line.deferBilling);
 
+    let invoice: Awaited<
+      ReturnType<BillingInvoiceService['createInvoice']>
+    > | null = null;
+    if (billable.length > 0) {
+      // Crear la factura (fuera de la tx — usa SEQUENCE) con las líneas facturables.
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 7);
+      invoice = await this.invoiceService.createInvoice({
+        user_id: userId,
+        billing_profile_id: input.billingProfileId,
+        due_date: dueDate.toISOString(),
+        // Moneda de la factura = la del primer service facturable (en v1 todos los
+        // ítems comparten moneda — productos en su `currency`, dominios en EUR).
+        currency: billable[0].service.currency,
+        items: billable.map(({ line, service }) => ({
+          service_id: service.id,
+          product_id: line.invoiceLine.product_id,
+          description: line.invoiceLine.description,
+          quantity: line.invoiceLine.quantity,
+          unit_price: line.invoiceLine.unit_price,
+          setup_fee: line.invoiceLine.setup_fee,
+          discount_pct: line.invoiceLine.discount_pct,
+          period_start: line.invoiceLine.period_start,
+          period_end: line.invoiceLine.period_end,
+        })),
+      });
+    }
+
+    const deferredCount = services.length - billable.length;
     this.logger.log(
-      `Checkout complete: ${services.length} service(s) + Invoice ${invoice.invoice_number} for user ${userId}.`,
+      `Checkout complete: ${services.length} service(s) ` +
+        `(${billable.length} facturado/s, ${deferredCount} diferido/s) + ` +
+        `${invoice ? `Invoice ${invoice.invoice_number}` : 'sin factura (cobro al completar)'} ` +
+        `for user ${userId}.`,
     );
 
-    // 7. Emitir eventos por cada service (preserva la forma del caso 1-ítem).
-    for (let i = 0; i < services.length; i++) {
-      const service = services[i];
-      const line = resolvedLines[i];
-      this.eventEmitter.emit('checkout.completed', {
-        user_id: userId,
-        service_id: service.id,
-        invoice_id: invoice.id,
-        product_name: line.productName,
-        total: invoice.total,
-      });
+    // 7. Emitir eventos SOLO por los services facturados. Los `transfer_in`
+    //    diferidos NO se aprovisionan en el checkout (su FSM arranca cuando el
+    //    cliente aporta el auth-code vía `initiateTransferIn`, T2c.1) → no emiten
+    //    `checkout.completed`/`service.provisioned`.
+    if (invoice) {
+      for (const { line, service } of billable) {
+        this.eventEmitter.emit('checkout.completed', {
+          user_id: userId,
+          service_id: service.id,
+          invoice_id: invoice.id,
+          product_name: line.productName,
+          total: invoice.total,
+        });
 
-      // ADR-076 + sub-fase 8.D.12.9 — `service.provisioned` canónico. El
-      // listener `support-inside-on-service-provisioned` filtra por
-      // `product_type='support_inside'`; el orquestador Sprint 11 provisiona
-      // vía `invoice.paid`. Heredado sin cambios para los ítems `domain`
-      // (product_type='domain' → futuro plugin registrar).
-      this.eventEmitter.emit('service.provisioned', {
-        service_id: service.id,
-        user_id: userId,
-        product_id: line.invoiceLine.product_id,
-        product_type: line.productType,
-        product_pricing_id: line.productPricingId,
-        invoice_id: invoice.id,
-        billing_profile_id: input.billingProfileId,
-      });
+        // ADR-076 + sub-fase 8.D.12.9 — `service.provisioned` canónico. El
+        // listener `support-inside-on-service-provisioned` filtra por
+        // `product_type='support_inside'`; el orquestador Sprint 11 provisiona
+        // vía `invoice.paid`. Heredado sin cambios para los ítems `domain`
+        // de `register` (product_type='domain' → plugin registrar).
+        this.eventEmitter.emit('service.provisioned', {
+          service_id: service.id,
+          user_id: userId,
+          product_id: line.invoiceLine.product_id,
+          product_type: line.productType,
+          product_pricing_id: line.productPricingId,
+          invoice_id: invoice.id,
+          billing_profile_id: input.billingProfileId,
+        });
+      }
     }
 
     return {
@@ -463,6 +515,7 @@ export class BillingCheckoutService {
       productType: pricing.product.type,
       productPricingId: pricing.id,
       discountLabel: discountPct > 0 ? `${discountPct}%` : null,
+      deferBilling: false, // los productos se cobran en el checkout.
     };
   }
 
@@ -563,6 +616,7 @@ export class BillingCheckoutService {
     }
 
     const price = Number(pricing.price_amount);
+    const isTransfer = item.operation === 'transfer_in';
     const now = new Date();
     const nextDueDate = new Date(now);
     nextDueDate.setFullYear(now.getFullYear() + item.years);
@@ -576,20 +630,26 @@ export class BillingCheckoutService {
         domain: fqdn,
         provisioner_slug: product.provisioner,
         billing_cycle: BillingCycle.annual,
+        // Precio snapshotado en el service. Para un `transfer_in` (deferBilling) NO
+        // se factura ahora; el listener de billing lo usa al completar (`services.amount`,
+        // ADR-084 A2.3 / T2c.2).
         amount: price,
         currency: pricing.price_currency,
         next_due_date: nextDueDate,
         next_invoice_date: nextDueDate,
         // El orquestador (sub-4) lee la operación para fijar
-        // `ProvisionContext.operation` (ADR-077 A10) y los años del registro.
+        // `ProvisionContext.operation` (ADR-077 A10) y los años del registro. Para
+        // `transfer_in`, además inicializa la FSM en `transfer_state='pending'`
+        // (ADR-084 A2.1) — el transfer arranca cuando el cliente aporta el auth-code.
         metadata: {
           domain_operation: item.operation,
           domain_years: item.years,
+          ...(isTransfer ? { transfer_state: 'pending' } : {}),
         } satisfies Prisma.InputJsonValue,
       },
       invoiceLine: {
         product_id: product.id,
-        description: `${product.name} — ${fqdn} (${item.operation === 'transfer_in' ? 'transferencia' : 'registro'}, ${item.years} año/s)`,
+        description: `${product.name} — ${fqdn} (${isTransfer ? 'transferencia' : 'registro'}, ${item.years} año/s)`,
         quantity: 1,
         unit_price: price,
         period_start: now.toISOString(),
@@ -599,6 +659,9 @@ export class BillingCheckoutService {
       productType: product.type,
       fqdn,
       discountLabel: null,
+      // 15D.II.T2c.3 — un transfer-in se difiere (cobro al completar); el registro
+      // se factura en el checkout.
+      deferBilling: isTransfer,
     };
   }
 

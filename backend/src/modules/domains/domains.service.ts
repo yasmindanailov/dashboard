@@ -1,6 +1,9 @@
 import {
+  BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Prisma, ServiceStatus } from '@prisma/client';
@@ -8,6 +11,8 @@ import { Prisma, ServiceStatus } from '@prisma/client';
 import { getErrorMessage } from '../../core/common/utils/error.util';
 import { PrismaService } from '../../core/database/prisma.service';
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
+import { ProvisionerPluginError } from '../../core/provisioning/types';
+import { ProvisioningOrchestratorService } from '../provisioning/provisioning-orchestrator.service';
 
 /**
  * Moneda de venta v1 (ADR-084 A1.2 — moneda única). Misma constante que el
@@ -56,6 +61,24 @@ export interface ListDomainsResponse {
   meta: { total: number; page: number; limit: number; totalPages: number };
 }
 
+/** Cotización de transferencia de un FQDN (`POST /domains/transfer-quote`). */
+export interface DomainTransferQuote {
+  fqdn: string;
+  tld: string;
+  /** El TLD se transfiere (precio activo + margen válido) → añadible al carrito. */
+  offered: boolean;
+  /** Precio de venta del transfer (server-side). Solo si `offered`. */
+  price?: { amount: string; currency: string };
+}
+
+/** Estado de un transfer-in tras aportar el auth-code (`submit-auth`). */
+export interface DomainTransferStatus {
+  id: string;
+  status: string;
+  /** Estado de la FSM (`pending`/`awaiting_auth`/`submitted`/...). */
+  transfer_state: string;
+}
+
 /**
  * Sprint 15D Fase 15D.F.2 — buscador de dominios (pre-venta).
  *
@@ -75,6 +98,10 @@ export class DomainsService {
   constructor(
     private readonly registry: PluginRegistryService,
     private readonly prisma: PrismaService,
+    // 15D.II.T2c.3 — la submisión del auth-code arranca la FSM de transfer vía
+    // `initiateTransferIn` (síncrona, auth-code en memoria R12). `ProvisioningModule`
+    // ya está importado por `DomainsModule` y exporta el orquestador.
+    private readonly orchestrator: ProvisioningOrchestratorService,
   ) {}
 
   async checkAvailability(input: {
@@ -220,6 +247,159 @@ export class DomainsService {
         limit,
         totalPages: Math.max(1, Math.ceil(total / limit)),
       },
+    };
+  }
+
+  /**
+   * Cotización de transferencia (Sprint 15D.II.T2c.3) — precio de venta del
+   * transfer de un FQDN, resuelto server-side (R5) desde `domain_tld_pricing`
+   * (operación `transfer`, 1 año). Es PRE-carrito y solo-pricing: NO valida
+   * transferibilidad ni toca la API del registrar (eso ocurre POST-checkout, con
+   * el auth-code, en `initiateTransferIn`). `offered:false` si el TLD no se
+   * transfiere o el margen es inválido (DOM-INV-3 same-currency) — el checkout es
+   * la autoridad y bloquearía igualmente.
+   */
+  async transferQuote(rawFqdn: string): Promise<DomainTransferQuote> {
+    const plugin = this.registry.getByCapability('is_domain_registrar');
+    if (!plugin) {
+      throw new ServiceUnavailableException({
+        code: 'NO_DOMAIN_REGISTRAR',
+        message: 'No hay un registrar de dominios disponible ahora mismo.',
+      });
+    }
+    const fqdn = rawFqdn.trim().toLowerCase();
+    const parts = fqdn.split('.');
+    if (parts.length < 2 || parts.some((p) => p.length === 0)) {
+      throw new BadRequestException(`Dominio inválido: ${rawFqdn}.`);
+    }
+    const tld = parts.slice(1).join('.');
+
+    const pricing = await this.prisma.domainTldPricing.findUnique({
+      where: {
+        registrar_slug_tld_operation_years_price_currency: {
+          registrar_slug: plugin.slug,
+          tld,
+          operation: 'transfer',
+          years: 1,
+          price_currency: DEFAULT_DOMAIN_CURRENCY,
+        },
+      },
+    });
+
+    // DOM-INV-3 same-currency (ADR-084 A1.2): no ofertar sin precio activo o con
+    // margen inválido. El quote es informativo; el precio real se re-resuelve al
+    // completar (T2c.2) — nunca se cachea el del quote.
+    const offered =
+      !!pricing &&
+      pricing.active &&
+      pricing.cost_currency === pricing.price_currency &&
+      Number(pricing.cost_amount) <= Number(pricing.price_amount);
+
+    return {
+      fqdn,
+      tld,
+      offered,
+      ...(offered && pricing
+        ? {
+            price: {
+              amount: pricing.price_amount.toFixed(2),
+              currency: pricing.price_currency,
+            },
+          }
+        : {}),
+    };
+  }
+
+  /**
+   * Submisión del EPP auth-code de un transfer-in (Sprint 15D.II.T2c.3). El dueño
+   * del service (o un admin) lo aporta DESPUÉS del checkout; arranca la FSM vía
+   * `initiateTransferIn` (síncrono). **R12:** el `authCode` viaja en memoria — NUNCA
+   * se loguea ni se persiste en claro.
+   *
+   * Guardas: el service debe ser un dominio en `transfer_in` y en un estado donde
+   * aportar el código tenga sentido (`pending`/`awaiting_auth`). Un `INVALID_AUTH_CODE`
+   * deja la FSM en `awaiting_auth` y se traduce a un 400 accionable (reintentar con
+   * un código corregido); `TRANSFER_REJECTED` y otros, a un 400 con el código semántico.
+   */
+  async submitTransferAuthCode(
+    serviceId: string,
+    authCode: string,
+    userId: string,
+    isAdmin: boolean,
+  ): Promise<DomainTransferStatus> {
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: {
+        id: true,
+        user_id: true,
+        status: true,
+        metadata: true,
+        product: { select: { type: true } },
+      },
+    });
+    if (!service) throw new NotFoundException('Dominio no encontrado.');
+    if (!isAdmin && service.user_id !== userId) {
+      throw new ForbiddenException('No tienes acceso a este dominio.');
+    }
+    if (service.product.type !== 'domain') {
+      throw new BadRequestException('El servicio no es un dominio.');
+    }
+
+    const meta =
+      service.metadata &&
+      typeof service.metadata === 'object' &&
+      !Array.isArray(service.metadata)
+        ? (service.metadata as Record<string, unknown>)
+        : {};
+    if (meta.domain_operation !== 'transfer_in') {
+      throw new BadRequestException(
+        'Este dominio no es una transferencia entrante.',
+      );
+    }
+    const state =
+      typeof meta.transfer_state === 'string' ? meta.transfer_state : 'pending';
+    if (state !== 'pending' && state !== 'awaiting_auth') {
+      throw new BadRequestException(
+        `La transferencia ya está en estado "${state}"; no se puede reenviar el ` +
+          `código de autorización ahora.`,
+      );
+    }
+
+    try {
+      await this.orchestrator.initiateTransferIn(serviceId, authCode.trim());
+    } catch (err) {
+      if (err instanceof ProvisionerPluginError) {
+        if (err.code === 'INVALID_AUTH_CODE') {
+          throw new BadRequestException({
+            code: 'INVALID_AUTH_CODE',
+            message:
+              'El código de autorización (EPP) no es válido. Revísalo en tu ' +
+              'registrador actual y vuelve a intentarlo.',
+          });
+        }
+        throw new BadRequestException({ code: err.code, message: err.message });
+      }
+      throw err;
+    }
+
+    // Releer el estado tras la iniciación (submitted en el camino feliz).
+    const after = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: { status: true, metadata: true },
+    });
+    const afterMeta =
+      after?.metadata &&
+      typeof after.metadata === 'object' &&
+      !Array.isArray(after.metadata)
+        ? (after.metadata as Record<string, unknown>)
+        : {};
+    return {
+      id: serviceId,
+      status: after?.status ?? service.status,
+      transfer_state:
+        typeof afterMeta.transfer_state === 'string'
+          ? afterMeta.transfer_state
+          : 'submitted',
     };
   }
 }
