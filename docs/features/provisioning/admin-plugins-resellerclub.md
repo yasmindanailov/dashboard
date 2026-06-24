@@ -246,3 +246,29 @@ id del mock colisionan en paralelo. El resto corre en la suite unit (`pnpm --dir
   (`deleteDomain` — menú admin del servicio, doble confirmación; 15D.G).
 - Testing: CI usa siempre el `MockResellerClubServer`, nunca OT&E live
   (ADR-081 §11).
+
+## Probar en local sin OT&E (mock offline, dev)
+
+OT&E (`test.httpapi.com`) está tras Cloudflare y exige **IP whitelisteada** en el
+panel RC (DC.NEW-63). Si la IP de salida no está autorizada, toda llamada en vivo
+devuelve **WAF 403** y el buscador/transfer/restore no traen datos reales. Para
+probar el comercio de dominios **offline** (deterministas, sin OT&E) se arranca el
+`MockResellerClubServer` como backend del plugin:
+
+```
+pnpm --dir backend rc:mock        # arranca el mock en :3099 (déjalo corriendo)
+pnpm --dir backend rc:mock-on     # apunta el plugin al mock (config.__base_url_override; sin reiniciar el backend)
+#  …probar en el dashboard…
+pnpm --dir backend rc:mock-off    # revertir → vuelve a OT&E (environment)
+```
+
+El plugin recoge el cambio en la **siguiente llamada** (`getApiClient` relee el
+install; `updated_at` invalida el cache). Convenciones del mock para probar en la
+Tienda (`/dashboard/store/domains`): **registrar** = cualquier nombre (→ disponible);
+**transferir** = SLD que contenga `taken` (p.ej. `mitaken.com` → transferible;
+auth-code: cualquiera salvo `INVALID`/`WRONG`); `google`/`*taken*` = ocupado;
+**sugerencias/bulk** funcionan. El `restore` necesita además un dominio en redención
+(registrar uno → `POST /domains/restore.json`… vía el `/__test__/set-redemption` del
+mock + reconcile). El seed dev (`sample-domain-commerce`) ya tarifa register/renew/
+transfer/restore. **Solo dev** — el `__base_url_override` no pasa el `configSchema`
+(`additionalProperties:false`), así que en producción se ignora/rechaza.
