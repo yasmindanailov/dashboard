@@ -201,12 +201,12 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 | # | Fase | Contenido | Estado |
 |---|------|-----------|--------|
-| A | Doctrina (doc-only) | [ADR-085](../10-decisions/adr-085-cuenta-cliente-self-service.md) (superficie self-scoped, desacopla identidad de WHOIS, reutiliza servicios ownership-safe) + Amendment A1 de ADR-013 (2FA opt-in cliente) + índice ADR + esta sección. | 🟡 (en revisión) |
-| B | Backend self-service | `PATCH /auth/me` (nombre/idioma/zona/avatar, **sin** registrar) · `POST /auth/change-password` (verifica actual + revoca otras sesiones) · `POST /auth/2fa/enable\|disable` (opt-in email, confirma password; bloqueado para roles 2FA-obligatorio) · `POST /auth/logout-all` · controlador self-scoped `/account/billing-profiles` (CRUD reusa `ClientsBillingService`). DTOs + tests + boot smoke. | ⬜ |
-| C | Frontend | `/dashboard/profile` en secciones **Cuenta · Seguridad · Facturación · Dominios(WHOIS)** (DS-compliant, CSS Modules, **fin del `style={{}}` inline**) + Server Actions + componentes en `_shared/account/` + **cablear "Mi perfil" en el Topbar**. | ⬜ |
-| D | Cierre | `docs/features/account/client.md` + `_events.md` (audit-only) + DoD verde + retrospectiva + memoria. | ⬜ |
+| A | Doctrina (doc-only) | [ADR-085](../10-decisions/adr-085-cuenta-cliente-self-service.md) (superficie self-scoped, desacopla identidad de WHOIS, reutiliza servicios ownership-safe) + Amendment A1 de ADR-013 (2FA opt-in cliente) + índice ADR + esta sección. Commit `8287635`. | ✅ |
+| B | Backend self-service | `AccountController` (`/account/*`): `PATCH /profile` (nombre/idioma/zona, **sin** registrar) · `POST /change-password` (verifica actual + revoca otras sesiones) · `POST /2fa/enable\|disable` (opt-in email, confirma password; bloqueado para roles 2FA-obligatorio) · `POST /logout-all` · `AccountBillingController` (`/account/billing-profiles`, CRUD self-scoped reusa `ClientsBillingService`). `ROLES_REQUIRING_2FA`→`auth.constants.ts`; login honra `two_factor_enabled`. +10 unit (`auth-account.service.spec`), **1258 unit** + boot smoke (rutas `/account/*` 401, grafo DI sano). Commit `4d9e4c2`. | ✅ |
+| C | Frontend | `/dashboard/profile` en secciones **Cuenta · Seguridad · Facturación · Dominios(WHOIS)** (Tabs, DS-compliant, CSS Modules, **fin del `style={{}}` inline** del MVP) + Server Actions self-scoped (`_actions.ts`) + componentes en `_components/` + **cablear "Mi perfil"→`/dashboard/profile` y "Configuración"→`/admin/settings` en el Topbar** (antes `onClick` vacíos). `getMe` expone `two_factor_enabled`. Frontend typecheck+lint + backend typecheck+lint verdes. Commit `3b885b1`. | ✅ |
+| D | Cierre | [`docs/features/account/client.md`](../features/account/client.md) + roadmap + memoria + DoD verde. Retrospectiva breve. | ✅ |
 
-**Fuera de alcance v1 (diferido):** cambio de email (re-verificación); página de cuenta de staff `/admin/profile` (backend role-agnóstico → reuso de `_shared/account/` como fast-follow); avatar a MinIO si no entra (fallback iniciales).
+**Fuera de alcance v1 (diferido):** cambio de email (re-verificación); página de cuenta de staff `/admin/profile` (backend role-agnóstico → reuso de los componentes `_components/`→`_shared/account/` como fast-follow); subida de avatar a MinIO (fallback iniciales). **🎯 Sprint Cuenta CÓDIGO-COMPLETO** (A→D verdes). **Falta (Yasmin):** smoke visual del editor en el dashboard + merge.
 
 ---
 
