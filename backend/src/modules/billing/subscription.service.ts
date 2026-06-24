@@ -43,9 +43,12 @@ export class SubscriptionService {
       include: { product: true },
     });
 
-    if (!service) throw new NotFoundException('Servicio no encontrado.');
-    if (service.user_id !== userId)
-      throw new BadRequestException('No tienes acceso a este servicio.');
+    // HIGH-2: NotFound (no BadRequest) si no es suyo — no filtrar la existencia de
+    // servicios ajenos. El userId viene del JWT (subscription.controller), nunca de
+    // un query param.
+    if (!service || service.user_id !== userId) {
+      throw new NotFoundException('Servicio no encontrado.');
+    }
     if (service.status !== 'active') {
       throw new BadRequestException('Solo servicios activos pueden pausarse.');
     }
@@ -95,9 +98,10 @@ export class SubscriptionService {
       where: { id: serviceId },
     });
 
-    if (!service) throw new NotFoundException('Servicio no encontrado.');
-    if (service.user_id !== userId)
-      throw new BadRequestException('No tienes acceso a este servicio.');
+    // HIGH-2: NotFound si no es suyo (no filtrar existencia). userId del JWT.
+    if (!service || service.user_id !== userId) {
+      throw new NotFoundException('Servicio no encontrado.');
+    }
     if (service.status !== 'suspended' || !service.paused_at) {
       throw new BadRequestException(
         'Solo servicios pausados pueden reanudarse.',

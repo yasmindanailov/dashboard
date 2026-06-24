@@ -37,15 +37,18 @@ export class SubscriptionController {
      PAUSE / RESUME
      ═══════════════════════════════════════ */
 
+  // HIGH-2 (auditoría 2026-06-21): pause/resume son acciones del CLIENTE sobre SU
+  // propio servicio. El dueño se resuelve del JWT (`req.user.id`), NUNCA de un query
+  // param — antes `@Query('userId')` permitía a cualquier usuario autenticado pausar
+  // el servicio de otro pasando `?userId=<víctima>` (IDOR horizontal / DoS).
   @Patch(':id/pause')
   @ApiOperation({ summary: 'Pause subscription (client action)' })
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
   pause(
     @Param('id', ParseUUIDPipe) id: string,
-    @Query('userId') userId: string,
+    @Req() req: AuthenticatedRequest,
   ) {
-    // TODO (HIGH-2, auditoría 2026-06-21): resolver userId del JWT, no de @Query.
-    return this.subscriptionService.pauseService(id, userId);
+    return this.subscriptionService.pauseService(id, req.user.id);
   }
 
   @Patch(':id/resume')
@@ -53,9 +56,9 @@ export class SubscriptionController {
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
   resume(
     @Param('id', ParseUUIDPipe) id: string,
-    @Query('userId') userId: string,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.subscriptionService.resumeService(id, userId);
+    return this.subscriptionService.resumeService(id, req.user.id);
   }
 
   /* ═══════════════════════════════════════
