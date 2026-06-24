@@ -3,6 +3,7 @@ import { ClientsService } from './clients.service';
 import { ClientsBillingService } from './clients-billing.service';
 import { ClientNotesService } from './client-notes.service';
 import { ClientsController } from './clients.controller';
+import { AccountBillingController } from './account-billing.controller';
 import { ClientLifecycleTaskCreatorListener } from './listeners/client-lifecycle-task-creator.listener';
 import { TasksModule } from '../tasks/tasks.module';
 
@@ -16,7 +17,7 @@ import { TasksModule } from '../tasks/tasks.module';
    * helper canónico `clientsService.isFirstService`.
    */
   imports: [forwardRef(() => TasksModule)],
-  controllers: [ClientsController],
+  controllers: [ClientsController, AccountBillingController],
   providers: [
     ClientsBillingService,
     ClientNotesService,
