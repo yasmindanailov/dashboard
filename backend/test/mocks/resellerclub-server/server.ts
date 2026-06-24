@@ -114,6 +114,18 @@ export interface MockResellerClubSeed {
    * `endtime` (modela el fallo silencioso que DOM-INV-4 debe atrapar).
    */
   readonly frozenRenewOrderIds?: readonly string[];
+  /**
+   * Fase 15D.II.T1 — FQDNs forzados como transferibles (override de la convención
+   * "registrado en otro registrar"). Sin esto, transferible ⟺ availability ===
+   * `regthroughothers` (y el SLD no contiene `locked`/`recent`).
+   */
+  readonly transferableDomains?: readonly string[];
+  /**
+   * Fase 15D.II.T1 — auth-code EPP válido esperado por FQDN. Si se setea, el
+   * `domains/transfer` exige ese código exacto (else `INVALID_AUTH_CODE`); si no,
+   * acepta cualquier código no vacío salvo `INVALID`/`WRONG`.
+   */
+  readonly transferAuthCodes?: Readonly<Record<string, string>>;
 }
 
 export interface MockResellerClubServerOptions {
@@ -199,6 +211,8 @@ interface MockRcDomain {
   suspended: boolean;
   /** Auth/EPP code (transfer-out). Sembrado al registrar; `get_auth_code` lo lee. */
   domsecret: string;
+  /** Fase 15D.II.T1 — estado del transfer-in (undefined = dominio normal, no transferido). */
+  transferStatus?: 'submitted' | 'completed' | 'failed' | 'cancelled';
 }
 
 export interface MockResellerClubState {
@@ -212,6 +226,8 @@ export interface MockResellerClubState {
   availabilityOverrides: Map<string, RcAvailabilityStatus>;
   premiumDomains: Set<string>;
   frozenRenewOrderIds: Set<string>;
+  transferableDomains: Set<string>;
+  transferAuthCodes: Map<string, string>;
   customersByEmail: Map<string, MockRcCustomer>;
   customersById: Map<string, MockRcCustomer>;
   contactsById: Map<string, MockRcContact>;
@@ -234,6 +250,15 @@ function createInitialState(seed: MockResellerClubSeed): MockResellerClubState {
     ),
     premiumDomains: new Set(seed.premiumDomains ?? []),
     frozenRenewOrderIds: new Set(seed.frozenRenewOrderIds ?? []),
+    transferableDomains: new Set(
+      (seed.transferableDomains ?? []).map((d) => d.toLowerCase()),
+    ),
+    transferAuthCodes: new Map(
+      Object.entries(seed.transferAuthCodes ?? {}).map(([k, v]) => [
+        k.toLowerCase(),
+        v,
+      ]),
+    ),
     customersByEmail: new Map(),
     customersById: new Map(),
     contactsById: new Map(),
@@ -517,6 +542,9 @@ function registerRoutes(
     res.json(out);
   });
 
+  // ─── Transfer-in (Sprint 15D.II Fase T1) ────────────────────────────────────
+  registerTransferRoutes(app, state);
+
   // ─── Gestión curada ─────────────────────────────────────────────────────
   registerManagementRoutes(app, state);
 
@@ -583,6 +611,105 @@ function registerManagementRoutes(
   );
 }
 
+/**
+ * Transfer-in (15D.II.T1). Modela la asincronía con una FSM simulable: el
+ * `transfer` deja el dominio en `submitted`; el avance a `completed`/`failed` lo
+ * dispara el endpoint test-only `/__test__/advance-transfer` (determinista, sin
+ * timers). El estado viaja en `domains/details.actionstatus` (lo leerá el
+ * reconcile en T2). Errores de alta fidelidad: no transferible → TRANSFER_REJECTED,
+ * auth-code inválido → INVALID_AUTH_CODE (mapeados por errors.ts).
+ */
+function registerTransferRoutes(
+  app: express.Express,
+  state: MockResellerClubState,
+): void {
+  // Pre-flight: ¿es transferible? (no inicia nada)
+  app.get('/domains/validate-transfer.json', (req, res) => {
+    const p = readParams(req);
+    const fqdn = (str(p, 'domain-name') ?? '').toLowerCase();
+    const sld = fqdn.split('.')[0];
+    const transferable = isTransferable(state, fqdn, sld);
+    const body: { domainname: string; transferable: boolean; reason?: string } =
+      { domainname: fqdn, transferable };
+    if (!transferable) body.reason = transferReason(fqdn, sld);
+    res.json(body);
+  });
+
+  // Inicia el transfer-in (asíncrono → estado `submitted` en el mock).
+  app.post('/domains/transfer.json', (req, res) => {
+    const p = readParams(req);
+    const fqdn = (str(p, 'domain-name') ?? '').toLowerCase();
+    const sld = fqdn.split('.')[0];
+    if (state.domainsByName.has(fqdn)) {
+      rcError(res, `Domain ${fqdn} is already in this account`, {
+        lowercase: true,
+      });
+      return;
+    }
+    if (!isTransferable(state, fqdn, sld)) {
+      rcError(
+        res,
+        `transfer rejected for ${fqdn}: ${transferReason(fqdn, sld)}`,
+        {
+          lowercase: true,
+        },
+      );
+      return;
+    }
+    if (!isValidTransferAuthCode(state, fqdn, str(p, 'auth-code') ?? '')) {
+      rcError(res, 'invalid authorization code (EPP auth-code) for transfer', {
+        lowercase: true,
+      });
+      return;
+    }
+    const orderId = String(state.nextOrderId++);
+    const now = Math.floor(Date.now() / 1000);
+    const domain: MockRcDomain = {
+      orderid: orderId,
+      domainname: fqdn,
+      customerid: str(p, 'customer-id') ?? '',
+      creationtime: now,
+      endtime: now, // se fija al completar el transfer (advance)
+      ns: arr(p, 'ns'),
+      regcontactid: str(p, 'reg-contact-id') ?? '',
+      admincontactid: str(p, 'admin-contact-id') ?? '',
+      techcontactid: str(p, 'tech-contact-id') ?? '',
+      billingcontactid: str(p, 'billing-contact-id') ?? '',
+      privacyprotected: str(p, 'protect-privacy') === 'true',
+      theftprotection: false,
+      suspended: false,
+      domsecret: `Auth-${orderId}`,
+      transferStatus: 'submitted',
+    };
+    state.domainsByName.set(fqdn, domain);
+    state.domainsByOrderId.set(orderId, domain);
+    res.json({
+      entityid: Number(orderId),
+      actionstatus: 'InProgress',
+      actiontype: 'AddTransferDomain',
+      description: fqdn,
+    });
+  });
+
+  // Reenvía el correo de autorización (RFA) — éxito sobre un transfer en curso.
+  app.post('/domains/resend-rfa.json', (req, res) =>
+    mutateTransfer(state, req, res, () => {}, ['submitted']),
+  );
+
+  // Cancela un transfer-in en curso.
+  app.post('/domains/cancel-transfer.json', (req, res) =>
+    mutateTransfer(
+      state,
+      req,
+      res,
+      (d) => {
+        d.transferStatus = 'cancelled';
+      },
+      ['submitted'],
+    ),
+  );
+}
+
 function registerTestSeedRoute(
   app: express.Express,
   state: MockResellerClubState,
@@ -602,9 +729,47 @@ function registerTestSeedRoute(
         state.frozenRenewOrderIds.add(id);
       }
     }
+    if (body.transferableDomains) {
+      for (const d of body.transferableDomains) {
+        state.transferableDomains.add(d.toLowerCase());
+      }
+    }
+    if (body.transferAuthCodes) {
+      for (const [k, v] of Object.entries(body.transferAuthCodes)) {
+        state.transferAuthCodes.set(k.toLowerCase(), v);
+      }
+    }
     if (body.resellerPrice) state.resellerPrice = body.resellerPrice;
     if (body.customerPrice) state.customerPrice = body.customerPrice;
     res.json({ ok: true });
+  });
+
+  // Fase 15D.II.T1 — avanza la FSM de un transfer-in (test-only, determinista).
+  app.post('/__test__/advance-transfer', (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as {
+      orderId?: string | number;
+      domainName?: string;
+      to?: string;
+    };
+    const d =
+      body.orderId !== undefined
+        ? state.domainsByOrderId.get(String(body.orderId))
+        : state.domainsByName.get(String(body.domainName ?? '').toLowerCase());
+    if (!d || !d.transferStatus) {
+      res
+        .status(404)
+        .json({ status: 'ERROR', message: 'no transfer order to advance' });
+      return;
+    }
+    if (body.to === 'failed') {
+      d.transferStatus = 'failed';
+    } else {
+      d.transferStatus = 'completed';
+      const now = Math.floor(Date.now() / 1000);
+      d.creationtime = now;
+      d.endtime = now + 365 * 24 * 3600; // período del registro entrante
+    }
+    res.json({ ok: true, transferStatus: d.transferStatus });
   });
 }
 
@@ -630,7 +795,7 @@ function sendDomainDetails(res: Response, d: MockRcDomain | undefined): void {
     rcError(res, "Website doesn't exist", { httpStatus: 500 });
     return;
   }
-  res.json({
+  const body: Record<string, unknown> = {
     orderid: d.orderid,
     entityid: d.orderid,
     domainname: d.domainname,
@@ -652,7 +817,13 @@ function sendDomainDetails(res: Response, d: MockRcDomain | undefined): void {
     isprivacyprotected: d.privacyprotected,
     // Auth/EPP code para `get_auth_code` (no se expone en `DomainInfo`; R12).
     domsecret: d.domsecret,
-  });
+  };
+  // Transfer-in en curso: expone el estado de la acción (15D.II.T1) para el
+  // reconcile (T2). Un transfer completado/normal NO lleva actionstatus.
+  if (d.transferStatus === 'submitted') body.actionstatus = 'InProgress';
+  else if (d.transferStatus === 'failed') body.actionstatus = 'Failed';
+  else if (d.transferStatus === 'cancelled') body.actionstatus = 'Cancelled';
+  res.json(body);
 }
 
 function mutateDomain(
@@ -668,6 +839,64 @@ function mutateDomain(
   }
   apply(d);
   res.json({ entityid: Number(d.orderid), actionstatus: 'Success' });
+}
+
+/** Aplica una acción a un transfer-in en curso si su estado lo permite (15D.II.T1). */
+function mutateTransfer(
+  state: MockResellerClubState,
+  req: Request,
+  res: Response,
+  apply: (d: MockRcDomain) => void,
+  allowed: readonly NonNullable<MockRcDomain['transferStatus']>[],
+): void {
+  const d = state.domainsByOrderId.get(str(readParams(req), 'order-id') ?? '');
+  if (!d || !d.transferStatus) {
+    rcError(res, 'no transfer order found', { lowercase: true });
+    return;
+  }
+  if (!allowed.includes(d.transferStatus)) {
+    rcError(res, `transfer action not allowed in status ${d.transferStatus}`, {
+      lowercase: true,
+    });
+    return;
+  }
+  apply(d);
+  res.json({ entityid: Number(d.orderid), actionstatus: 'Success' });
+}
+
+/** ¿Es transferible? (registrado en otro registrar, sin lock, fuera de 60d). 15D.II.T1. */
+function isTransferable(
+  state: MockResellerClubState,
+  fqdn: string,
+  sld: string,
+): boolean {
+  if (state.domainsByName.has(fqdn)) return false; // ya en nuestra cuenta / en transfer
+  if (sld.includes('locked') || sld.includes('recent')) return false; // lock / <60d
+  if (state.transferableDomains.has(fqdn)) return true; // override seed
+  return availabilityFor(state, fqdn, sld) === 'regthroughothers';
+}
+
+/** Razón por la que NO es transferible (el texto mapea a TRANSFER_REJECTED en errors.ts). */
+function transferReason(fqdn: string, sld: string): string {
+  if (sld.includes('locked')) {
+    return 'registrar lock is enabled at the losing registrar';
+  }
+  if (sld.includes('recent')) {
+    return 'transfer not allowed within 60 days of registration';
+  }
+  return `domain ${fqdn} is not registered with another registrar (nothing to transfer)`;
+}
+
+/** Valida el auth-code EPP: con seed exige coincidencia exacta; si no, acepta no-vacío ≠ INVALID/WRONG. */
+function isValidTransferAuthCode(
+  state: MockResellerClubState,
+  fqdn: string,
+  code: string,
+): boolean {
+  const expected = state.transferAuthCodes.get(fqdn);
+  if (expected !== undefined) return code === expected;
+  const c = code.trim().toUpperCase();
+  return c.length > 0 && c !== 'INVALID' && c !== 'WRONG';
 }
 
 function hasEsIdentification(p: Record<string, unknown>): boolean {

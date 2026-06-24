@@ -64,4 +64,7 @@ export type {
   RcResellerPriceEntry,
   RcResellerPriceResponse,
   RcSignupCustomerInput,
+  RcTransferInput,
+  RcTransferResponse,
+  RcValidateTransferResponse,
 } from './types';

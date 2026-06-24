@@ -11,8 +11,9 @@
  *      pre-producción — findings §4.8). Marcados `[CONSERVADOR — refinar Fase G]`.
  *
  * Convenciones (heredadas de enhance_cp/api/types.ts):
- *   - Solo se modela el subset del **scope 15D core** (ADR-081 §9). Transfer-in,
- *     suggest-names rico, IDN y child-NS son 15D.II — fuera de este fichero.
+ *   - Se modela el subset del **scope 15D core** (ADR-081 §9) **+ transfer-in**
+ *     (Fase 15D.II.T1, ADR-081 A7). suggest-names rico, IDN y child-NS son 15D.II
+ *     posterior — fuera de este fichero.
  *   - Campos required del shape como obligatorios; opcionales como `?:`.
  *   - RC devuelve ids como **número plano** (`signup`/`contacts/add`) [OT&E ✓];
  *     se normalizan a `string` al persistir en `services.provider_reference`.
@@ -295,6 +296,8 @@ export interface RcDomainDetails {
   /** Estados del dominio ("ok"/"transferlock"/redemption…). LogicBoxes los da como array. */
   readonly currentstatus?: string;
   readonly orderstatus?: readonly string[];
+  /** Estado de una acción en curso ("InProgress"/"Failed"/"Cancelled"…). El transfer-in lo usa (15D.II). */
+  readonly actionstatus?: string;
   /** Epoch (s) de creación / vencimiento. */
   readonly creationtime?: string | number;
   readonly endtime?: string | number;
@@ -321,4 +324,56 @@ export interface RcDomainSearchResponse {
   readonly recsindb?: string;
   /** Registros indexados por posición ("1", "2", …) — shape conservador. */
   readonly [index: string]: unknown;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 7. Transfer-in (Sprint 15D.II — ADR-081 A7, ADR-084 §4 + A2)
+//    [CONSERVADOR — refinar Fase 15D.II.G: OT&E no capturó shapes de transfer]
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * `domains/validate-transfer` (subset). Pre-flight de la FSM: ¿es el dominio
+ * transferible (registrado en otro registrar, sin lock, fuera del bloqueo de
+ * 60 días)? `transferable` puede llegar como boolean o string según el wrapper.
+ */
+export interface RcValidateTransferResponse {
+  readonly domainname?: string;
+  readonly transferable?: boolean | string;
+  readonly reason?: string;
+}
+
+/**
+ * Input de `domains/transfer`. Como `register` pero con `auth-code` (EPP) en vez
+ * de `years` — el período lo aporta el registro de origen. El transfer es
+ * asíncrono: RC responde con un order-id en estado "InProgress" (la FSM avanza
+ * vía reconcile, [ADR-084 A2]). Los NS por defecto = `provisioning.default_nameservers`
+ * o los entrantes hasta fijar (ADR-082 A5, fila F4). El `auth-code` es secreto
+ * (R12 — ADR-077 A14).
+ */
+export interface RcTransferInput {
+  readonly 'domain-name': string;
+  readonly 'auth-code': string;
+  readonly ns: readonly string[];
+  readonly 'customer-id': RcCustomerId;
+  readonly 'reg-contact-id': RcContactId;
+  readonly 'admin-contact-id': RcContactId | -1;
+  readonly 'tech-contact-id': RcContactId | -1;
+  readonly 'billing-contact-id': RcContactId | -1;
+  readonly 'invoice-option': RcInvoiceOption;
+  readonly 'protect-privacy': boolean;
+  readonly 'attr-name'?: readonly string[];
+  readonly 'attr-value'?: readonly string[];
+}
+
+/**
+ * Respuesta de `domains/transfer` OK (order-id, conservador). El order-id viene
+ * en `entityid` (fallback `eaqid`); `actionstatus` suele ser "InProgress"
+ * (no "Success" — el transfer-in no es instantáneo). [CONSERVADOR — refinar Fase G]
+ */
+export interface RcTransferResponse {
+  readonly entityid?: string | number;
+  readonly eaqid?: string | number;
+  readonly actionstatus?: string;
+  readonly actiontype?: string;
+  readonly description?: string;
 }

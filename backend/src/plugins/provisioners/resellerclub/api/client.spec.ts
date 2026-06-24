@@ -192,6 +192,57 @@ describe('ResellerClubApiClient — Sprint 15D Fase 15D.C', () => {
     expect(lastBody().get('reason')).toBe('impago');
   });
 
+  // ─── Transfer-in (15D.II.T1) ────────────────────────────────────────────────
+
+  it('validateTransfer pega a domains/validate-transfer con domain-name', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { domainname: 'x.com', transferable: true }),
+    );
+    const res = await client.validateTransfer('x.com');
+    expect(lastUrl().pathname).toBe('/api/domains/validate-transfer.json');
+    expect(lastUrl().searchParams.get('domain-name')).toBe('x.com');
+    expect(res.transferable).toBe(true);
+  });
+
+  it('transferDomain postea a domains/transfer y extrae el order-id (InProgress)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { entityid: 55501, actionstatus: 'InProgress' }),
+    );
+    const orderId = await client.transferDomain(baseTransferInput());
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      'domains/transfer.json',
+    );
+    expect(fetchMock.mock.calls[0][1]?.method).toBe('POST');
+    expect(lastBody().get('auth-code')).toBe('EPP-CODE');
+    expect(orderId).toBe('55501');
+  });
+
+  it('cancelTransfer postea a domains/cancel-transfer con el order-id', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { actionstatus: 'Success' }),
+    );
+    await client.cancelTransfer('55501');
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      'domains/cancel-transfer.json',
+    );
+    expect(lastBody().get('order-id')).toBe('55501');
+  });
+
+  function baseTransferInput() {
+    return {
+      'domain-name': 'movethis.com',
+      'auth-code': 'EPP-CODE',
+      ns: ['ns1.aelium.net', 'ns2.aelium.net'],
+      'customer-id': '33566240',
+      'reg-contact-id': '134143114',
+      'admin-contact-id': '134143114',
+      'tech-contact-id': '134143114',
+      'billing-contact-id': '134143114',
+      'invoice-option': 'NoInvoice' as const,
+      'protect-privacy': true,
+    };
+  }
+
   function baseRegisterInput() {
     return {
       'domain-name': 'aelium.com',

@@ -10,8 +10,10 @@
  *   - Gestión curada (15D.F): modifyNameservers/Contacts/PrivacyProtection/AuthCode,
  *     enable/disableTheftProtection.
  *   - Admin (15D.F): suspendOrder/unsuspendOrder.
+ *   - Transfer-in (15D.II.T1, ADR-081 A7): validateTransfer, transferDomain,
+ *     resendTransferRfa, cancelTransfer.
  *
- * Fuera de scope (15D.II): transfer-in, suggest-names rico, IDN, child-NS.
+ * Fuera de scope (15D.II posterior): suggest-names rico, IDN, child-NS.
  *
  * Doctrina (R4 + ADR-077 §5):
  *   - El cliente NO toca Redis/EventEmitter/Audit/Prisma — solo HTTP tipado.
@@ -47,6 +49,9 @@ import {
   RcRenewInput,
   RcResellerPriceResponse,
   RcSignupCustomerInput,
+  RcTransferInput,
+  RcTransferResponse,
+  RcValidateTransferResponse,
 } from './types';
 
 /** Contactos de un dominio para `modify-contact`. */
@@ -200,6 +205,46 @@ export class ResellerClubApiClient {
       'page-no': 1,
       ...params,
     });
+  }
+
+  // ─── Transfer-in (Sprint 15D.II — ADR-081 A7) ───────────────────────────────
+
+  /**
+   * `domains/validate-transfer` — pre-flight de la FSM: ¿es el dominio
+   * transferible? (registrado en otro registrar, sin lock, fuera del bloqueo de
+   * 60 días). No inicia nada. [CONSERVADOR — refinar Fase 15D.II.G].
+   */
+  async validateTransfer(
+    domainName: string,
+  ): Promise<RcValidateTransferResponse> {
+    return this.http.get<RcValidateTransferResponse>(
+      'domains/validate-transfer',
+      { 'domain-name': domainName },
+    );
+  }
+
+  /**
+   * `domains/transfer` → order-id (provider_reference). Inicia el transfer-in
+   * (el registrar lo deja "InProgress"/`submitted`; la FSM avanza vía reconcile,
+   * [ADR-084 A2]). El `auth-code` EPP inválido → `INVALID_AUTH_CODE`; dominio no
+   * transferible (lock / <60d / no registrado fuera) → `TRANSFER_REJECTED` (el
+   * http-client mapea ambos). El `auth-code` es secreto (R12 — ADR-077 A14).
+   */
+  async transferDomain(input: RcTransferInput): Promise<RcOrderId> {
+    const raw = await this.http.post<RcTransferResponse>('domains/transfer', {
+      ...input,
+    });
+    return this.normalizeId(raw, 'domains/transfer');
+  }
+
+  /** `domains/resend-rfa` — reenvía el correo de autorización (RFA) al titular de origen. */
+  async resendTransferRfa(orderId: RcOrderId): Promise<void> {
+    await this.http.post('domains/resend-rfa', { 'order-id': orderId });
+  }
+
+  /** `domains/cancel-transfer` — cancela un transfer-in en curso. */
+  async cancelTransfer(orderId: RcOrderId): Promise<void> {
+    await this.http.post('domains/cancel-transfer', { 'order-id': orderId });
   }
 
   // ─── Gestión curada (15D.F) ─────────────────────────────────────────────────
