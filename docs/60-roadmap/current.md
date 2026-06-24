@@ -179,7 +179,7 @@ Algunas páginas migradas en Sprint 7 R15 (chats, support, checkout, layout, cli
 
 **Estado:** 🟡 en curso (rama `sprint12-settings`). **Alcance de esta ronda = Settings** ([ADR-044](../10-decisions/adr-044-settings-extensos.md) + Amendment A1). **Knowledge Base diferido** (decisión Yasmin 2026-06-24). Logo de marca = subida real a MinIO.
 
-> **Origen:** cola P2.7. Materializa ADR-044 (planificado para Sprint 12) y cierra el gap **MEDIUM-2** de la [auditoría 2026-06-21](../90-meta/audit-2026-06-21.md) (cambios de setting sin validar ni auditar). Contrato: [`docs/20-modules/settings/contract.md`](../20-modules/settings/contract.md).
+> **Origen:** cola P2.7. Materializa ADR-044 (planificado para Sprint 12) y cierra el gap **MEDIUM-2** de la [auditoría 2026-06-21](../90-meta/audit-2026-06-21.md) (cambios de setting sin validar ni auditar). Contrato: [`docs/20-modules/settings/contract.md`](../20-modules/settings/contract.md). Retrospectiva: [`sprint-12-settings.md`](./sprint-12-settings.md).
 
 | # | Fase | Contenido | Estado |
 |---|------|-----------|--------|
