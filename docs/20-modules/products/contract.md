@@ -55,6 +55,9 @@ JWT auth obligatorio. CASL `Read.Product`/`List.Product`.
 |--------|------|-------------|------|
 | `GET` | `/products` | Listar productos (filtros activos, type, etc.) | `List.Product` |
 | `GET` | `/products/:id` | Detalle producto con pricing, extras, checklist | `Read.Product` |
+| `GET` | `/products/:id/purchase-context` | **Contexto de compra para el usuario (15D.F.4)**: `canBuy` + `reason` | `Read.Product` |
+
+> **Tienda consciente del estado (Sprint 15D Fase 15D.F.4):** `GET /products/:id/purchase-context` (`ProductsService.getPurchaseContext`) devuelve, para el usuario autenticado, si puede comprar el producto: `{ canBuy, reason: 'ok'|'owns_global_addon'|'at_quantity_limit', isGlobalAddon, maxQuantity, currentQuantity, ownedSubscriptionId? }`. Read-only y **espejo de lo que el checkout enforce** (defense-in-depth, el checkout es la autoridad): addon global (`is_global_addon` / `support_inside`, 1 activo por cuenta vía `SupportInsideSubscription.client_id @unique`) + `max_quantity_per_client`. La ficha de producto (`/dashboard/store/[slug]`) lo usa para el CTA correcto (Contratar / Ya lo tienes · Gestionar plan / Límite alcanzado).
 
 ### Productos — Mutaciones (canónico admin `/admin/products`, alias legacy `/products`)
 
