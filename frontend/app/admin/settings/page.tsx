@@ -1,15 +1,43 @@
-import { redirect } from 'next/navigation';
+import {
+  requireRole,
+  serverFetch,
+  ServerFetchError,
+} from '../../lib/server-auth';
+import {
+  SettingsManager,
+  type AdminSettingsGroup,
+} from './_components/SettingsManager';
 
 /**
- * /admin/settings — Sprint 15A Fase I.2 (ADR-080).
+ * /admin/settings — hub de configuración (Sprint 12, ADR-044).
  *
- * Hub de settings admin. Sprint 15A solo entrega la categoría plugins
- * (ADR-080), por lo que la página redirige a `/admin/settings/plugins`
- * para no exponer una página vacía. Sprint 12 (P2.7 — Settings + KB)
- * reemplazará este redirect por un hub con todas las categorías
- * (`brand`, `numbering`, `kb`, `plugins`, ...) — el sidebar item ya
- * apunta canónicamente a `/admin/settings`.
+ * Reemplaza el redirect a `/plugins` (Sprint 15A Fase I.2) por el hub real:
+ * secciones de settings de negocio (General, Marca con logo, Facturación,
+ * Soporte, Notificaciones, DNS) + enlace a la gestión de plugins. Sólo
+ * superadmin (defense in depth con el CASL del backend, `Subject.Setting`).
  */
-export default function AdminSettingsHubPage(): never {
-  redirect('/admin/settings/plugins');
+export default async function AdminSettingsPage() {
+  await requireRole(['superadmin']);
+
+  let groups: AdminSettingsGroup[] = [];
+  let logoUrl: string | null = null;
+  let error: string | null = null;
+
+  try {
+    groups = await serverFetch<AdminSettingsGroup[]>('/admin/settings');
+    const logo = await serverFetch<{
+      logo_key: string | null;
+      url: string | null;
+    }>('/admin/settings/branding/logo');
+    logoUrl = logo.url;
+  } catch (err) {
+    error =
+      err instanceof ServerFetchError
+        ? err.message
+        : 'No se pudieron cargar los settings.';
+  }
+
+  return (
+    <SettingsManager groups={groups} initialLogoUrl={logoUrl} error={error} />
+  );
 }
