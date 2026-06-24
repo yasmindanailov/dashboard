@@ -189,6 +189,11 @@ export class ProvisioningService {
     const where: Prisma.ServiceWhereInput = {
       user_id: userId,
       ...(query.status ? { status: query.status as never } : {}),
+      // Sprint 15D Fase 15D.F.4 — "Mis servicios" pasa exclude_type=domain para
+      // que los dominios vivan solo en su vista (/dashboard/domains).
+      ...(query.exclude_type
+        ? { product: { type: { not: query.exclude_type as never } } }
+        : {}),
     };
 
     const [data, total] = await this.prisma.$transaction([

@@ -71,10 +71,13 @@ Pendiente conocido:
 
 | Método | Ruta | Descripción | CASL |
 |--------|------|-------------|------|
-| `POST` | `/billing/checkout` | Crear servicio + factura desde producto | `Create.Service` |
+| `POST` | `/billing/checkout` | Crear servicio + factura desde producto (1 ítem, legacy) | `Create.Invoice` |
+| `POST` | `/billing/checkout/items` | **Carrito unificado (15D.F.4)**: N ítems mixtos producto/dominio → N services + 1 factura | `Create.Invoice` |
 | `GET` | `/billing/proration/preview` | Preview de prorrateo para cambio de plan | `Read.Service` |
 
 > **Admin checkout (EC-BILL-01..03):** un admin puede crear servicios para un cliente concreto vía `targetUserId` en el body. Validado: el `billing_profile_id` debe pertenecer al `targetUserId`, no al admin.
+
+> **Carrito unificado (Sprint 15D Fase 15D.F.4 — ADR-084 §2):** `POST /billing/checkout/items` expone por REST el core multi-ítem `BillingCheckoutService.checkoutItems`. Acepta `items: ({kind:'product', product_pricing_id, domain?} | {kind:'domain', domain_name, years})[]` + `billing_profile_id?`. El **producto-dominio se resuelve server-side por capability** (R4, `is_domain_registrar` — el cliente nunca envía `product_id`); aplica DOM-INV-2 (advisory lock FQDN), DOM-INV-3 (margin guard) y DOM-INV-5 (elegibilidad `.es`/`.eu` antes de cobrar). Precio siempre server-side (R5). Mismo modelo `targetUserId` que el legacy. El `/domains/cart/checkout` específico de F.4 inicial se retiró en favor de éste (consolidación).
 
 ### Subscriptions
 

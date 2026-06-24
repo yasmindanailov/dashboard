@@ -1717,6 +1717,34 @@ export interface AppPresence {
   actions: readonly ServiceAction[];
 }
 
+/**
+ * Sprint 15D (ADR-077 Amendment A11). Estado de gestión de un dominio,
+ * capability-driven por presencia (`ServiceInfo.domain?`): solo los services de
+ * un registrar (`is_domain_registrar`) lo exponen. Read-only — el registrar es
+ * authoritative; la UI lo muestra y ofrece acciones curadas (`availableActions`:
+ * modify_nameservers / toggle_privacy / toggle_registrar_lock / get_auth_code).
+ * El `lifecycle` (expired/redemption/...) es estado OPERACIONAL, NO `status`.
+ */
+export interface DomainInfo {
+  fqdn: string;
+  nameservers: readonly string[];
+  /** ISO-8601. Caducidad reportada por el registrar. */
+  expiresAt?: string;
+  lifecycle: 'active' | 'expired' | 'redemption' | 'pending_delete';
+  whoisPrivacy: boolean;
+  registrarLock: boolean;
+  /** `true` si se puede obtener el código de autorización (EPP) ahora. */
+  authCodeAvailable: boolean;
+  autoRenew?: boolean;
+  /** Resumen de contactos (sin PII). */
+  contacts?: {
+    registrantName?: string;
+    hasAdmin: boolean;
+    hasTech: boolean;
+    hasBilling: boolean;
+  };
+}
+
 export interface ServiceInfo {
   status:
     | 'active'
@@ -1753,6 +1781,13 @@ export interface ServiceInfo {
    * etc.). Capability-driven por presencia (mismo molde A5/A6/A7/A8).
    */
   apps?: readonly AppPresence[];
+  /**
+   * Sprint 15D (ADR-077 Amendment A11). Presente solo para services de un
+   * registrar de dominios (`is_domain_registrar`). Capability-driven por
+   * presencia (mismo molde A5/A7/A9). Si ausente → no es un dominio (o el
+   * registro aún no se completó) y la UI no renderiza la gestión de dominio.
+   */
+  domain?: DomainInfo;
   capabilities: ServiceInfoCapabilities;
   availableActions: readonly ServiceAction[];
   fetchedAt: string;

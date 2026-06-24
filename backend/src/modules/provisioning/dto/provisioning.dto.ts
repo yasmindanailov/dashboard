@@ -32,6 +32,16 @@ export class ServiceListQueryDto {
   @MaxLength(50)
   status?: string;
 
+  /**
+   * Excluye un `product.type` del listado (Sprint 15D Fase 15D.F.4). "Mis
+   * servicios" pasa `exclude_type=domain` para no duplicar los dominios, que
+   * tienen su propia vista (`/dashboard/domains`).
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  exclude_type?: string;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

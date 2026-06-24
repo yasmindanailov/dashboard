@@ -7,7 +7,10 @@ import {
 } from './dto/billing.dto';
 import { PaymentProviderInterface } from './interfaces/payment-provider.interface';
 import { BillingInvoiceService } from './billing-invoice.service';
-import { BillingCheckoutService } from './billing-checkout.service';
+import {
+  BillingCheckoutService,
+  type PublicCartItem,
+} from './billing-checkout.service';
 import { BillingCalculatorService } from './billing-calculator.service';
 
 /* ═══════════════════════════════════════
@@ -103,6 +106,18 @@ export class BillingService {
     },
   ) {
     return this.checkoutService.checkout(userId, dto);
+  }
+
+  /**
+   * Sprint 15D Fase 15D.F.4 — carrito unificado (producto + dominio). Delega en
+   * `BillingCheckoutService.checkoutCart` (resuelve el producto-dominio por
+   * capability + DOM-INV-2/3/5 + multi-ítem).
+   */
+  checkoutCart(
+    userId: string,
+    input: { items: PublicCartItem[]; billingProfileId?: string },
+  ) {
+    return this.checkoutService.checkoutCart(userId, input);
   }
 
   /* ── Calculator delegates ── */

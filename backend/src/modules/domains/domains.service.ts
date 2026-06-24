@@ -3,6 +3,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { Prisma, ServiceStatus } from '@prisma/client';
 
 import { getErrorMessage } from '../../core/common/utils/error.util';
 import { PrismaService } from '../../core/database/prisma.service';
@@ -32,6 +33,27 @@ export interface DomainAvailabilityResult {
 export interface CheckDomainAvailabilityResponse {
   sld: string;
   results: DomainAvailabilityResult[];
+}
+
+/** Una fila de "Mis dominios" (`GET /domains`). */
+export interface DomainListItem {
+  /** `service.id` — id del recurso para el detalle/gestión. */
+  id: string;
+  /** FQDN registrado (`service.domain`). */
+  fqdn: string | null;
+  /** Estado del service (active/pending/suspended/...). */
+  status: string;
+  /** Caducidad REAL reportada por el registrar (`service.expires_at`), si se conoce. */
+  expires_at: string | null;
+  /** Próxima fecha de facturación de Aelium (`service.next_due_date`). */
+  next_due_date: string | null;
+  created_at: string;
+  product_name: string;
+}
+
+export interface ListDomainsResponse {
+  data: DomainListItem[];
+  meta: { total: number; page: number; limit: number; totalPages: number };
 }
 
 /**
@@ -136,5 +158,68 @@ export class DomainsService {
     );
 
     return { sld, results };
+  }
+
+  /**
+   * "Mis dominios" — lista paginada de los `services` de tipo dominio del
+   * usuario. Lee `services.expires_at` (poblado por el reconcile cron, 15D.E)
+   * directamente de la columna — NO llama al registrar por fila (barato). El
+   * estado de gestión rico (NS/lock/privacy) vive en el detalle (`getServiceInfo`).
+   */
+  async listMine(
+    userId: string,
+    query: { status?: string; page?: number; limit?: number },
+  ): Promise<ListDomainsResponse> {
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.min(100, Math.max(1, query.limit ?? 20));
+
+    const statusFilter =
+      query.status &&
+      (Object.values(ServiceStatus) as string[]).includes(query.status)
+        ? (query.status as ServiceStatus)
+        : undefined;
+
+    const where: Prisma.ServiceWhereInput = {
+      user_id: userId,
+      product: { type: 'domain' },
+      ...(statusFilter ? { status: statusFilter } : {}),
+    };
+
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.service.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          domain: true,
+          status: true,
+          expires_at: true,
+          next_due_date: true,
+          created_at: true,
+          product: { select: { name: true } },
+        },
+      }),
+      this.prisma.service.count({ where }),
+    ]);
+
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        fqdn: r.domain,
+        status: r.status,
+        expires_at: r.expires_at?.toISOString() ?? null,
+        next_due_date: r.next_due_date?.toISOString() ?? null,
+        created_at: r.created_at.toISOString(),
+        product_name: r.product.name,
+      })),
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
   }
 }

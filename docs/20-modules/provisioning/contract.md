@@ -153,8 +153,8 @@ Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras
 
 ### Cliente (`/api/v1/services/`)
 
-- `GET /api/v1/services` — lista servicios del cliente autenticado.
-- `GET /api/v1/services/:id` — detalle + `getServiceInfo()` (cached 60s Redis).
+- `GET /api/v1/services` — lista servicios del cliente autenticado. Query `exclude_type?` (Sprint 15D Fase 15D.F.4): "Mis servicios" pasa `exclude_type=domain` para no duplicar los dominios, que tienen su propia vista (`/dashboard/domains`).
+- `GET /api/v1/services/:id` — detalle + `getServiceInfo()` (cached 60s Redis). Incluye `info.domain?: DomainInfo` (ADR-077 A11) para services de un registrar.
 - `POST /api/v1/services/:id/sso` — devuelve `SsoUrl` del plugin si soporta SSO. Audit obligatorio.
 - `POST /api/v1/services/:id/actions/:actionSlug` — ejecuta acción inline. Validación de que `actionSlug` está en `capabilities.inline_actions`. Audit obligatorio. **Enforcement `adminOnly` (Sprint 15C Fase 15C.E — [ADR-077 Amendment A3](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md#amendments))**: si la action declara `adminOnly: true` y el actor no tiene rol staff, el wrapper `executeActionWithCacheInvalidation` lanza `HTTP 403 ForbiddenException + body { code: 'ACTION_ADMIN_ONLY', action_slug }` + audit `logAccess(action='service.action_admin_only_violation')` + emite evento `service.action_admin_only_violation`. Defensa profunda — el frontend ya filtra acciones por `adminOnly` para que el cliente NO las vea, pero el backend nunca confía en el frontend.
 - **DNS records (Sprint 15C Fase 15C.D — [ADR-082 §6](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md))**:
@@ -162,6 +162,10 @@ Cache Redis `service_info:<serviceId>` con TTL configurable + invalidación tras
   - `POST /api/v1/services/:id/dns/records` — crea record (kinds v1: `A | AAAA | CNAME | MX | TXT | SRV | CAA`). DTO validado class-validator + Ajv del plugin (`payloadSchema` de `add_dns_record`).
   - `PATCH /api/v1/services/:id/dns/records/:recordId` — actualiza record.
   - `DELETE /api/v1/services/:id/dns/records/:recordId` — elimina record (destructive — `confirmRequired` en UI).
+- **Comercio de dominios (Sprint 15D Fase 15D.F.2/F.4 — `DomainsModule`, [ADR-084](../../10-decisions/adr-084-comercio-dominios-registrar.md))**: los dominios son services `type=domain`; la gestión (NS/privacy/lock/auth-code) reusa `POST /services/:id/actions/:slug` (handlers 15D.F.1). Superficie específica:
+  - `POST /api/v1/domains/check-availability` — buscador: disponibilidad + precio de venta (server-side, R5) por TLD ofertable. Registrar resuelto por capability (R4). `JwtAuthGuard`.
+  - `GET /api/v1/domains` — "Mis dominios": services `type=domain` del usuario con `expires_at`/estado (self-scoped por JWT). Paginado, query `status?`.
+  - **Compra**: vía el carrito unificado `POST /billing/checkout/items` (ver [billing/contract.md](../billing/contract.md)) — NO hay endpoint de checkout específico de dominios.
 
 ### Admin (`/api/v1/admin/services/`)
 

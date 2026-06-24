@@ -32,8 +32,10 @@ export default async function ClientServicesPage({ searchParams }: PageProps) {
   let meta = { total: 0, page, limit: 20, totalPages: 1 };
   let errorMessage: string | null = null;
   try {
+    // Sprint 15D Fase 15D.F.4 — los dominios viven en su propia vista
+    // (/dashboard/domains); aquí se excluyen para no duplicarlos.
     const res = await serverFetch<ServiceListResponse>(
-      `/services?page=${page}&limit=20`,
+      `/services?page=${page}&limit=20&exclude_type=domain`,
     );
     services = res.data;
     meta = res.meta;

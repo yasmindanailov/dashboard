@@ -147,3 +147,89 @@ describe('DomainsService.checkAvailability — Sprint 15D Fase 15D.F.2', () => {
     expect(checkDomainAvailability).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Tests unit `DomainsService.listMine` — Sprint 15D Fase 15D.F.4.
+ */
+describe('DomainsService.listMine — Sprint 15D Fase 15D.F.4', () => {
+  const USER = 'user-1';
+  let prisma: {
+    service: { findMany: jest.Mock; count: jest.Mock };
+    $transaction: jest.Mock;
+  };
+  let service: DomainsService;
+
+  beforeEach(() => {
+    prisma = {
+      service: { findMany: jest.fn(), count: jest.fn() },
+      $transaction: jest.fn().mockImplementation((ops) => Promise.all(ops)),
+    };
+    service = new DomainsService({} as never, prisma as never);
+  });
+
+  it('mapea filas a DomainListItem (fqdn/expires_at/created_at ISO) + meta paginada', async () => {
+    prisma.service.findMany.mockResolvedValue([
+      {
+        id: 'svc-1',
+        domain: 'aelium.com',
+        status: 'active',
+        expires_at: new Date('2027-01-01T00:00:00.000Z'),
+        next_due_date: new Date('2026-12-15T00:00:00.000Z'),
+        created_at: new Date('2026-06-01T00:00:00.000Z'),
+        product: { name: 'Dominios' },
+      },
+    ]);
+    prisma.service.count.mockResolvedValue(1);
+
+    const res = await service.listMine(USER, {});
+
+    expect(res.meta).toEqual({ total: 1, page: 1, limit: 20, totalPages: 1 });
+    expect(res.data[0]).toEqual({
+      id: 'svc-1',
+      fqdn: 'aelium.com',
+      status: 'active',
+      expires_at: '2027-01-01T00:00:00.000Z',
+      next_due_date: '2026-12-15T00:00:00.000Z',
+      created_at: '2026-06-01T00:00:00.000Z',
+      product_name: 'Dominios',
+    });
+    // Filtra siempre por product.type='domain' + el usuario autenticado.
+    const calls = prisma.service.findMany.mock.calls as Array<
+      [{ where: Record<string, unknown> }]
+    >;
+    expect(calls[0][0].where).toMatchObject({
+      user_id: USER,
+      product: { type: 'domain' },
+    });
+  });
+
+  it('expires_at null → null (no rompe el map)', async () => {
+    prisma.service.findMany.mockResolvedValue([
+      {
+        id: 'svc-2',
+        domain: 'pending.es',
+        status: 'pending',
+        expires_at: null,
+        next_due_date: null,
+        created_at: new Date('2026-06-02T00:00:00.000Z'),
+        product: { name: 'Dominios' },
+      },
+    ]);
+    prisma.service.count.mockResolvedValue(1);
+
+    const res = await service.listMine(USER, { page: 1, limit: 20 });
+    expect(res.data[0].expires_at).toBeNull();
+    expect(res.data[0].next_due_date).toBeNull();
+  });
+
+  it('status inválido se ignora (no se inyecta en el where)', async () => {
+    prisma.service.findMany.mockResolvedValue([]);
+    prisma.service.count.mockResolvedValue(0);
+
+    await service.listMine(USER, { status: 'no-such-status' });
+    const calls = prisma.service.findMany.mock.calls as Array<
+      [{ where: { status?: unknown } }]
+    >;
+    expect(calls[0][0].where.status).toBeUndefined();
+  });
+});
