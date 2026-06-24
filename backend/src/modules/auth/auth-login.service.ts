@@ -15,7 +15,8 @@ import { twoFactorCodeTemplate } from '../../core/email/templates/auth.templates
 import { LoginDto, Verify2faDto } from './dto/auth.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { AuthTokenService } from './auth-token.service';
-import { Prisma, RoleSlug } from '@prisma/client';
+import { ROLES_REQUIRING_2FA } from './auth.constants';
+import { Prisma } from '@prisma/client';
 
 /** Usuario con su rol incluido — devuelto por findUnique({ include: { role } }). */
 type UserWithRole = Prisma.UserGetPayload<{ include: { role: true } }>;
@@ -24,14 +25,6 @@ type UserWithRole = Prisma.UserGetPayload<{ include: { role: true } }>;
    AuthLoginService — Login + 2FA
    Ref: ARCHITECTURE.md Regla 15
    ═══════════════════════════════════════ */
-
-// Roles that require 2FA
-const ROLES_REQUIRING_2FA: RoleSlug[] = [
-  RoleSlug.superadmin,
-  RoleSlug.agent_full,
-  RoleSlug.agent_billing,
-  RoleSlug.agent_support,
-];
 
 @Injectable()
 export class AuthLoginService {
@@ -97,8 +90,11 @@ export class AuthLoginService {
       data: { login_attempts: 0, blocked_until: null },
     });
 
-    // Check if 2FA is required
-    if (ROLES_REQUIRING_2FA.includes(user.role.slug)) {
+    // 2FA requerido por rol (ADR-013) o activado opt-in (ADR-013 Amendment A1).
+    if (
+      ROLES_REQUIRING_2FA.includes(user.role.slug) ||
+      user.two_factor_enabled
+    ) {
       return this.initiate2fa(user, ip);
     }
 

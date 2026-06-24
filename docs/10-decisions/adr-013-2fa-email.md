@@ -126,3 +126,22 @@ Si un agente pierde acceso al email:
 - **ADRs relacionados:** ADR-011 (roles), ADR-012 (CASL), ADR-014 (bloqueo intentos).
 - **Glosario:** [2FA](../00-foundations/glossary.md), [Sesión](../00-foundations/glossary.md).
 - **Implementación:** `backend/src/modules/auth/auth-login.service.ts:initiate2fa()`, `verify2fa()`, plantilla `twoFactorCodeTemplate`.
+
+---
+
+## Amendments
+
+### A1 — 2FA email opt-in para clientes (2026-06-24, Sprint Cuenta · [ADR-085](./adr-085-cuenta-cliente-self-service.md))
+
+La decisión original deja a **clientes/partners sin 2FA** (reduce fricción de onboarding). La página
+de cuenta self-service ([ADR-085](./adr-085-cuenta-cliente-self-service.md)) añade 2FA **opcional**.
+Es **additivo** — no supersede ADR-013, lo extiende:
+
+- Clientes/partners pueden **activar voluntariamente** 2FA por email desde `/dashboard/profile`
+  (sección Seguridad). Mecánica idéntica al **código-por-email** ya existente — **cero TOTP, cero
+  dependencias nuevas**.
+- **Trigger de login extendido:** el reto 2FA se dispara cuando `role ∈ ROLES_REQUIRING_2FA`
+  **O** `user.two_factor_enabled === true` (antes: sólo el rol).
+- **Activar/desactivar** requiere confirmar la contraseña (acción sensible). **Desactivar está
+  prohibido** para roles con 2FA obligatorio (no pueden bajar su seguridad).
+- Para privilegiados, la decisión original **no cambia**: 2FA sigue obligatorio e inmutable.

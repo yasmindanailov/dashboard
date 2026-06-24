@@ -4,11 +4,20 @@ import { AuthRegisterService } from './auth-register.service';
 import { AuthTokenService } from './auth-token.service';
 import { AuthRecoveryService } from './auth-recovery.service';
 import {
+  AuthAccountService,
+  SecurityActionContext,
+} from './auth-account.service';
+import {
   RegisterDto,
   LoginDto,
   Verify2faDto,
   ResetPasswordDto,
 } from './dto/auth.dto';
+import {
+  UpdateAccountDto,
+  ChangePasswordDto,
+  Confirm2faDto,
+} from './dto/account.dto';
 
 /* ═══════════════════════════════════════
    AuthService — Facade
@@ -29,6 +38,7 @@ export class AuthService {
     private readonly registerService: AuthRegisterService,
     private readonly tokenService: AuthTokenService,
     private readonly recoveryService: AuthRecoveryService,
+    private readonly accountService: AuthAccountService,
   ) {}
 
   /* ── Login ── */
@@ -72,6 +82,31 @@ export class AuthService {
 
   getMe(userId: string) {
     return this.tokenService.getMe(userId);
+  }
+
+  /* ── Account self-service (ADR-085) ── */
+  updateMe(userId: string, dto: UpdateAccountDto) {
+    return this.accountService.updateMe(userId, dto);
+  }
+
+  changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    ctx: SecurityActionContext & { currentAccessToken: string },
+  ) {
+    return this.accountService.changePassword(userId, dto, ctx);
+  }
+
+  enable2fa(userId: string, dto: Confirm2faDto, ctx: SecurityActionContext) {
+    return this.accountService.enable2fa(userId, dto, ctx);
+  }
+
+  disable2fa(userId: string, dto: Confirm2faDto, ctx: SecurityActionContext) {
+    return this.accountService.disable2fa(userId, dto, ctx);
+  }
+
+  logoutAll(userId: string, ctx: SecurityActionContext) {
+    return this.accountService.logoutAll(userId, ctx);
   }
 
   /* ── WebSocket short-lived token (Sprint 13 §13.AUTH Fase A) ── */

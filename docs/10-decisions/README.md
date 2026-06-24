@@ -170,6 +170,7 @@ Resultado: la historia queda íntegra.
 - [ADR-082](./adr-082-modelo-domain-hosting-dns-doctrine.md) — Modelo Domain↔Hosting + DNS doctrine: 6 invariantes DH-INV + flujos de checkout F1–F5 + capability `has_dns_management` + NS-sync 3 capas + cross-plugin DNS authority resolver + (A2) zona post-register vía orquestador + lifecycle de expiración (Sprint 15C + 15D)
 - [ADR-083](./adr-083-plugin-enhance-cp-specifics.md) — Plugin Enhance CP specifics: provisioning 6-step + customer lazy + reconcile defensivo + 35 decisiones frozen + amendments A1–A10 (Sprint 15C / 15C.II)
 - [ADR-084](./adr-084-comercio-dominios-registrar.md) — Comercio de dominios: tabla `domain_tld_pricing` (TLD×operación×años) + checkout multi-ítem + invariantes de robustez DOM-INV-1..5 + FSM de transfer + catálogo de eventos `domain.*` (Sprint 15D)
+- [ADR-085](./adr-085-cuenta-cliente-self-service.md) — Página de cuenta self-service del cliente (perfil + seguridad + facturación): superficie self-scoped por JWT (sin IDOR) que desacopla identidad de WHOIS, reutiliza `ClientsBillingService` + `Subject.Profile`/`BillingProfile` ya existentes, y añade el **Amendment A1 de [ADR-013](./adr-013-2fa-email.md)** (2FA email opt-in para clientes) (Sprint Cuenta)
 
 ---
 
