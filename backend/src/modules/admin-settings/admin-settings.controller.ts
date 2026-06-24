@@ -4,10 +4,19 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminOnlyGuard } from '../../core/common/guards/admin-only.guard';
@@ -16,6 +25,7 @@ import { CheckPolicies } from '../../core/casl/check-policies.decorator';
 import { Action, Subject } from '../../core/casl/permissions';
 import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import { AdminSettingsService } from './admin-settings.service';
+import type { UploadedImage } from './admin-settings.service';
 import { UpdateSettingDto } from './dto/update-setting.dto';
 
 /**
@@ -49,6 +59,30 @@ export class AdminSettingsController {
   })
   list() {
     return this.service.list();
+  }
+
+  @Get('branding/logo')
+  @CheckPolicies((ability) => ability.can(Action.Manage, Subject.Setting))
+  @ApiOperation({
+    summary: 'URL firmada del logo de marca actual (o null si no hay logo).',
+  })
+  getBrandingLogo() {
+    return this.service.getBrandingLogo();
+  }
+
+  @Post('branding/logo')
+  @CheckPolicies((ability) => ability.can(Action.Manage, Subject.Setting))
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary:
+      'Subir el logo de marca (PNG/JPG) a MinIO y persistir su key en branding.logo_key.',
+  })
+  uploadBrandingLogo(
+    @Req() req: AuthenticatedRequest,
+    @UploadedFile() file: UploadedImage,
+  ) {
+    return this.service.uploadBrandingLogo(file, req.user.id);
   }
 
   @Patch(':category/:key')

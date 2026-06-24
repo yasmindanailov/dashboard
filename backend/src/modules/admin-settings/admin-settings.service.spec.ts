@@ -32,7 +32,12 @@ describe('AdminSettingsService', () => {
       upsert: jest.Mock;
     };
   };
-  let settings: { invalidateCache: jest.Mock };
+  let settings: { invalidateCache: jest.Mock; getNumber: jest.Mock };
+  let storage: {
+    upload: jest.Mock;
+    delete: jest.Mock;
+    presignedDownloadUrl: jest.Mock;
+  };
   let audit: { logChange: jest.Mock };
   let service: AdminSettingsService;
 
@@ -54,11 +59,20 @@ describe('AdminSettingsService', () => {
         ),
       },
     };
-    settings = { invalidateCache: jest.fn() };
+    settings = {
+      invalidateCache: jest.fn(),
+      getNumber: jest.fn().mockResolvedValue(10),
+    };
+    storage = {
+      upload: jest.fn().mockResolvedValue(undefined),
+      delete: jest.fn().mockResolvedValue(undefined),
+      presignedDownloadUrl: jest.fn().mockResolvedValue('https://signed/url'),
+    };
     audit = { logChange: jest.fn().mockResolvedValue(undefined) };
     service = new AdminSettingsService(
       prisma as never,
       settings as never,
+      storage as never,
       audit as never,
     );
   });
@@ -156,6 +170,91 @@ describe('AdminSettingsService', () => {
         ACTOR,
       );
       expect(firstUpsertArg().update.value).toBe(false);
+    });
+
+    it('valida y normaliza un color de marca (#ABCDEF → #abcdef)', async () => {
+      await service.update('branding', 'primary_color', '#ABCDEF', ACTOR);
+      expect(firstUpsertArg().update.value).toBe('#abcdef');
+    });
+
+    it('rechaza un color inválido', async () => {
+      await expect(
+        service.update('branding', 'primary_color', 'rojo', ACTOR),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.setting.upsert).not.toHaveBeenCalled();
+    });
+
+    it('rechaza editar un setting gestionado (logo_key) por el PATCH genérico', async () => {
+      await expect(
+        service.update('branding', 'logo_key', 'branding/hack.png', ACTOR),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.setting.upsert).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('uploadBrandingLogo', () => {
+    const pngFile = {
+      buffer: Buffer.from('fake-png'),
+      mimetype: 'image/png',
+      size: 8,
+      originalname: 'logo.png',
+    };
+
+    it('sube el logo a MinIO + persiste branding.logo_key + devuelve URL firmada', async () => {
+      const result = await service.uploadBrandingLogo(pngFile, ACTOR);
+
+      const uploadArg = (
+        storage.upload.mock.calls as Array<
+          [{ key: string; contentType: string }]
+        >
+      )[0][0];
+      expect(uploadArg.key).toMatch(/^branding\/logo-.*\.png$/);
+      expect(uploadArg.contentType).toBe('image/png');
+      expect(firstUpsertArg().where.category_key).toEqual({
+        category: 'branding',
+        key: 'logo_key',
+      });
+      expect(firstUpsertArg().update.value).toBe(uploadArg.key);
+      expect(result.url).toBe('https://signed/url');
+    });
+
+    it('borra el logo anterior best-effort', async () => {
+      prisma.setting.findUnique.mockResolvedValue({
+        value: 'branding/old.png',
+      });
+      await service.uploadBrandingLogo(pngFile, ACTOR);
+      expect(storage.delete).toHaveBeenCalledWith('branding/old.png');
+    });
+
+    it('rechaza un archivo que no es imagen', async () => {
+      await expect(
+        service.uploadBrandingLogo(
+          {
+            buffer: Buffer.from('x'),
+            mimetype: 'application/pdf',
+            size: 1,
+            originalname: 'x.pdf',
+          },
+          ACTOR,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(storage.upload).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un logo que supera el tamaño máximo', async () => {
+      settings.getNumber.mockResolvedValue(1); // 1 MB
+      await expect(
+        service.uploadBrandingLogo(
+          {
+            buffer: Buffer.alloc(2 * 1024 * 1024),
+            mimetype: 'image/png',
+            size: 2 * 1024 * 1024,
+            originalname: 'big.png',
+          },
+          ACTOR,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(storage.upload).not.toHaveBeenCalled();
     });
   });
 

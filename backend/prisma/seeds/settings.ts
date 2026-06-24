@@ -25,10 +25,25 @@ interface SeedSetting {
 
 const SETTINGS: ReadonlyArray<SeedSetting> = [
   // ── general ──
-  { category: 'general', key: 'company_name', value: 'Aelium', description: 'Nombre de la empresa' },
-  { category: 'general', key: 'company_email', value: 'hola@aelium.net', description: 'Email de contacto' },
   { category: 'general', key: 'default_currency', value: 'EUR', description: 'Moneda por defecto' },
   { category: 'general', key: 'default_tax_rate', value: '21', description: 'IVA por defecto (%)' },
+
+  // ── branding (Sprint 12 — ADR-044 Amendment A1) ──
+  // Identidad de marca usada en las facturas (y, en follow-up, emails).
+  // Canónico para los datos de empresa: sustituye a los `general.company_*`
+  // (huérfanos, sin consumidor) y al `category:'company'` que `invoice-pdf`
+  // leía sin éxito (convención `{value}` muerta, corregida en 12.B). `logo_key`
+  // es la S3 key del logo en MinIO, gestionada por
+  // `POST /admin/settings/branding/logo` (no editable como texto libre).
+  { category: 'branding', key: 'company_name', value: 'Aelium', description: 'Nombre de la empresa (cabecera/pie de facturas)' },
+  { category: 'branding', key: 'company_email', value: 'hola@aelium.net', description: 'Email de contacto de la empresa (facturas)' },
+  { category: 'branding', key: 'company_nif', value: 'B12345678', description: 'NIF/CIF de la empresa (facturas)' },
+  { category: 'branding', key: 'company_address', value: 'Calle Ejemplo 1', description: 'Dirección fiscal de la empresa (facturas)' },
+  { category: 'branding', key: 'company_city', value: 'Madrid', description: 'Ciudad de la empresa (facturas)' },
+  { category: 'branding', key: 'company_postal_code', value: '28001', description: 'Código postal de la empresa (facturas)' },
+  { category: 'branding', key: 'company_country', value: 'España', description: 'País de la empresa (facturas)' },
+  { category: 'branding', key: 'primary_color', value: '#1a1a1a', description: 'Color primario de marca (cabecera de facturas)' },
+  { category: 'branding', key: 'logo_key', value: '', description: 'S3 key del logo en MinIO. Gestionado por POST /admin/settings/branding/logo (no editable como texto).' },
 
   // ── billing ──
   { category: 'billing', key: 'invoice_prefix', value: 'AEL', description: 'Prefijo de facturas' },
