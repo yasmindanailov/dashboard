@@ -331,6 +331,39 @@ function registerRoutes(
     res.json(out);
   });
 
+  // Buscador rico (15D.II.S): sugiere nombres a partir de una palabra clave. La v5
+  // está viva (la v4 devuelve 500, A1.5). Shape CONSERVADOR: `{ sld: { tld: status } }`
+  // — variaciones DETERMINISTAS de la keyword (sin azar) × TLDs pedidos.
+  app.get('/domains/v5/suggest-names.json', (req, res) => {
+    const p = readParams(req);
+    const keyword = (str(p, 'keyword') ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+    const tlds = arr(p, 'tld-only');
+    const max = num(p, 'max-result') ?? 10;
+    if (keyword.length === 0 || tlds.length === 0) {
+      res.json({});
+      return;
+    }
+    const variants = [
+      keyword,
+      `${keyword}app`,
+      `${keyword}hq`,
+      `my${keyword}`,
+      `get${keyword}`,
+      `${keyword}online`,
+    ].slice(0, Math.max(1, Math.min(max, 6)));
+    const out: Record<string, Record<string, RcAvailabilityStatus>> = {};
+    for (const sld of variants) {
+      const byTld: Record<string, RcAvailabilityStatus> = {};
+      for (const tld of tlds) {
+        byTld[tld] = availabilityFor(state, `${sld}.${tld}`, sld);
+      }
+      out[sld] = byTld;
+    }
+    res.json(out);
+  });
+
   app.get('/products/reseller-price.json', (_req, res) => {
     res.json(state.resellerPrice);
   });

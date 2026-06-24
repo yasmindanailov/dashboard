@@ -32,6 +32,25 @@ export interface CheckDomainAvailabilityResponse {
   results: DomainAvailabilityResult[];
 }
 
+/* ── Buscador rico (Sprint 15D.II.S) ── */
+
+/** Disponibilidad de varios SLDs (POST /domains/check-availability-bulk). */
+export interface BulkAvailabilityResponse {
+  results: Array<{ sld: string; results: DomainAvailabilityResult[] }>;
+}
+
+/** Una sugerencia comprable del buscador rico (POST /domains/suggest). */
+export interface DomainSuggestionResult {
+  fqdn: string;
+  tld: string;
+  price: DomainPrice;
+}
+
+export interface DomainSuggestionsResponse {
+  keyword: string;
+  results: DomainSuggestionResult[];
+}
+
 /* ── "Mis dominios" (GET /domains) ── */
 
 export interface DomainListItem {

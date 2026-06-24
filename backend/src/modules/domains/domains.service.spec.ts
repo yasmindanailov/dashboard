@@ -160,6 +160,133 @@ describe('DomainsService.checkAvailability — Sprint 15D Fase 15D.F.2', () => {
 });
 
 /**
+ * Tests unit del buscador RICO — Sprint 15D.II.S (ADR-081 A7.3).
+ * `checkAvailabilityBulk` (varios SLDs) + `suggestDomains` (sugerencias enriquecidas
+ * con precio server-side R5, solo comprables, fail-soft).
+ */
+describe('DomainsService — buscador rico (15D.II.S)', () => {
+  let registry: { getByCapability: jest.Mock };
+  let prisma: { domainTldPricing: { findMany: jest.Mock } };
+  let checkDomainAvailability: jest.Mock;
+  let suggestDomainNames: jest.Mock;
+  let service: DomainsService;
+
+  function pricingRow(tld: string, amount: string) {
+    return {
+      tld,
+      price_amount: new Prisma.Decimal(amount),
+      price_currency: 'EUR',
+    };
+  }
+
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    checkDomainAvailability = jest.fn();
+    suggestDomainNames = jest.fn();
+    registry = {
+      getByCapability: jest.fn().mockReturnValue({
+        slug: 'resellerclub',
+        checkDomainAvailability,
+        suggestDomainNames,
+      }),
+    };
+    prisma = {
+      domainTldPricing: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            pricingRow('com', '10.00'),
+            pricingRow('net', '12.00'),
+          ]),
+      },
+    };
+    service = new DomainsService(
+      registry as never,
+      prisma as never,
+      {} as never,
+    );
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('bulk: comprueba varios SLDs × TLDs tarifados (deduplica + capa el fan-out)', async () => {
+    checkDomainAvailability.mockImplementation((fqdn: string) =>
+      Promise.resolve({ domain: fqdn, available: true, premium: false }),
+    );
+
+    const res = await service.checkAvailabilityBulk({
+      slds: ['uno', 'dos', 'uno'],
+    });
+
+    expect(res.results.map((r) => r.sld)).toEqual(['uno', 'dos']); // dedup
+    expect(res.results[0].results.map((r) => r.tld).sort()).toEqual([
+      'com',
+      'net',
+    ]);
+    expect(res.results[0].results.every((r) => r.purchasable)).toBe(true);
+  });
+
+  it('bulk: descarta SLDs inválidos', async () => {
+    checkDomainAvailability.mockResolvedValue({
+      domain: 'x',
+      available: true,
+      premium: false,
+    });
+    const res = await service.checkAvailabilityBulk({
+      slds: ['valido', 'in valido!', ''],
+    });
+    expect(res.results.map((r) => r.sld)).toEqual(['valido']);
+  });
+
+  it('suggest: enriquece con precio + SOLO comprables (disponible + tarifado)', async () => {
+    suggestDomainNames.mockResolvedValue([
+      { fqdn: 'mynameapp.com', sld: 'mynameapp', tld: 'com', available: true },
+      { fqdn: 'mynamehq.net', sld: 'mynamehq', tld: 'net', available: true },
+      { fqdn: 'taken.com', sld: 'taken', tld: 'com', available: false }, // fuera
+      { fqdn: 'myname.io', sld: 'myname', tld: 'io', available: true }, // io no tarifado → fuera
+    ]);
+
+    const res = await service.suggestDomains({ keyword: 'myname' });
+
+    expect(res.results.map((r) => r.fqdn)).toEqual([
+      'mynameapp.com',
+      'mynamehq.net',
+    ]);
+    expect(res.results[0].price).toEqual({ amount: '10.00', currency: 'EUR' });
+    // Acota las extensiones sugeridas a las tarifadas.
+    const calls = suggestDomainNames.mock.calls as Array<
+      [string, { tlds: string[] }]
+    >;
+    expect([...calls[0][1].tlds].sort()).toEqual(['com', 'net']);
+  });
+
+  it('suggest: el registrar no soporta sugerencias → lista vacía (fail-soft)', async () => {
+    registry.getByCapability.mockReturnValue({
+      slug: 'resellerclub',
+      checkDomainAvailability,
+    }); // sin suggestDomainNames
+    const res = await service.suggestDomains({ keyword: 'myname' });
+    expect(res.results).toEqual([]);
+  });
+
+  it('suggest: fallo del registrar → lista vacía (fail-soft)', async () => {
+    suggestDomainNames.mockRejectedValue(new Error('rc down'));
+    const res = await service.suggestDomains({ keyword: 'myname' });
+    expect(res.results).toEqual([]);
+  });
+
+  it('sin registrar → ServiceUnavailable (bulk + suggest)', async () => {
+    registry.getByCapability.mockReturnValue(null);
+    await expect(
+      service.checkAvailabilityBulk({ slds: ['x'] }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(
+      service.suggestDomains({ keyword: 'x' }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+});
+
+/**
  * Tests unit `DomainsService.listMine` — Sprint 15D Fase 15D.F.4.
  */
 describe('DomainsService.listMine — Sprint 15D Fase 15D.F.4', () => {

@@ -295,6 +295,15 @@ describe('ResellerClubApiClient ↔ MockResellerClubServer — Sprint 15D Fase 1
     expect(JSON.stringify(after.orderstatus ?? [])).not.toMatch(/rgp/);
   });
 
+  it('suggestNames sugiere variaciones de la keyword × TLDs (15D.II.S)', async () => {
+    const res = await client.suggestNames('myname', { tlds: ['com', 'net'] });
+    // Shape conservador { sld: { tld: status } } (refinar smoke G).
+    expect(Object.keys(res).length).toBeGreaterThan(0);
+    expect(res).toHaveProperty('myname');
+    expect(res.myname).toHaveProperty('com');
+    expect(res.myname).toHaveProperty('net');
+  });
+
   it('searchDomains refleja los dominios registrados', async () => {
     expect((await client.searchDomains()).recsindb).toBe('0');
     await client.registerDomain(registerInput());

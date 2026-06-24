@@ -88,6 +88,17 @@ export interface RcAvailabilityEntry {
 /** `domains/available` → objeto keyed por FQDN. [OT&E ✓] */
 export type RcAvailabilityResponse = Record<string, RcAvailabilityEntry>;
 
+/**
+ * `domains/v5/suggest-names` → buscador rico (15D.II.S). Objeto keyed por SLD
+ * sugerido; cada SLD lleva su disponibilidad por TLD. **[CONSERVADOR — refinar
+ * smoke G, ADR-081 A7.4]**: la v5 está viva (la v4 devuelve HTTP 500, A1.5) pero
+ * su shape exacto no se capturó en OT&E. El plugin parsea defensivamente.
+ */
+export type RcSuggestNamesResponse = Record<
+  string,
+  Record<string, RcAvailabilityStatus>
+>;
+
 // ────────────────────────────────────────────────────────────────────────────
 // 4. Pre-venta: pricing [OT&E ✓ — findings §4.3/§4.4, ADR-081 A1.1]
 // ────────────────────────────────────────────────────────────────────────────

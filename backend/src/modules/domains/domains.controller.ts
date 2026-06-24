@@ -16,12 +16,18 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-import { CheckDomainAvailabilityDto } from './dto/check-availability.dto';
+import {
+  BulkCheckAvailabilityDto,
+  CheckDomainAvailabilityDto,
+  SuggestDomainsDto,
+} from './dto/check-availability.dto';
 import { ListDomainsQueryDto } from './dto/list-domains.dto';
 import { SubmitTransferAuthDto, TransferQuoteDto } from './dto/transfer.dto';
 import {
+  BulkAvailabilityResponse,
   CheckDomainAvailabilityResponse,
   DomainsService,
+  DomainSuggestionsResponse,
   DomainTransferQuote,
   DomainTransferStatus,
   ListDomainsResponse,
@@ -59,6 +65,36 @@ export class DomainsController {
     @Body() dto: CheckDomainAvailabilityDto,
   ): Promise<CheckDomainAvailabilityResponse> {
     return this.domains.checkAvailability({ sld: dto.sld, tlds: dto.tlds });
+  }
+
+  @Post('check-availability-bulk')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Disponibilidad + precio de varios SLDs en los TLDs ofertables (15D.II.S).',
+  })
+  async checkAvailabilityBulk(
+    @Body() dto: BulkCheckAvailabilityDto,
+  ): Promise<BulkAvailabilityResponse> {
+    return this.domains.checkAvailabilityBulk({
+      slds: dto.slds,
+      tlds: dto.tlds,
+    });
+  }
+
+  @Post('suggest')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Buscador rico: sugiere nombres comprables a partir de una palabra clave (15D.II.S).',
+  })
+  async suggest(
+    @Body() dto: SuggestDomainsDto,
+  ): Promise<DomainSuggestionsResponse> {
+    return this.domains.suggestDomains({
+      keyword: dto.keyword,
+      tlds: dto.tlds,
+    });
   }
 
   @Get()

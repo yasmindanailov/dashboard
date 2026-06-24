@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache';
 
 import { serverFetch, ServerFetchError } from '../../lib/server-auth';
 import type {
+  BulkAvailabilityResponse,
   CheckDomainAvailabilityResponse,
+  DomainSuggestionsResponse,
   DomainTransferQuote,
   DomainTransferStatus,
 } from './types';
@@ -40,6 +42,68 @@ export async function checkDomainAvailabilityAction(input: {
     if (err instanceof ServerFetchError) {
       const body = err.body as { code?: string; message?: string } | undefined;
       return { ok: false, error: body?.message ?? err.message, code: body?.code };
+    }
+    return { ok: false, error: 'No se pudo comprobar la disponibilidad.' };
+  }
+}
+
+/* ── Buscador rico (Sprint 15D.II.S) ── */
+
+export type SuggestResult =
+  | { ok: true; data: DomainSuggestionsResponse }
+  | { ok: false; error: string };
+
+/** Sugiere nombres comprables a partir de una palabra clave (server-side R5). */
+export async function suggestDomainsAction(input: {
+  keyword: string;
+  tlds?: string[];
+}): Promise<SuggestResult> {
+  try {
+    const data = await serverFetch<DomainSuggestionsResponse>(
+      '/domains/suggest',
+      {
+        method: 'POST',
+        body: {
+          keyword: input.keyword,
+          ...(input.tlds && input.tlds.length > 0 ? { tlds: input.tlds } : {}),
+        },
+      },
+    );
+    return { ok: true, data };
+  } catch (err) {
+    if (err instanceof ServerFetchError) {
+      const body = err.body as { message?: string } | undefined;
+      return { ok: false, error: body?.message ?? err.message };
+    }
+    return { ok: false, error: 'No se pudieron obtener sugerencias.' };
+  }
+}
+
+export type BulkAvailabilityResult =
+  | { ok: true; data: BulkAvailabilityResponse }
+  | { ok: false; error: string };
+
+/** Disponibilidad + precio de varios SLDs en una operación (server-side R5). */
+export async function checkAvailabilityBulkAction(input: {
+  slds: string[];
+  tlds?: string[];
+}): Promise<BulkAvailabilityResult> {
+  try {
+    const data = await serverFetch<BulkAvailabilityResponse>(
+      '/domains/check-availability-bulk',
+      {
+        method: 'POST',
+        body: {
+          slds: input.slds,
+          ...(input.tlds && input.tlds.length > 0 ? { tlds: input.tlds } : {}),
+        },
+      },
+    );
+    return { ok: true, data };
+  } catch (err) {
+    if (err instanceof ServerFetchError) {
+      const body = err.body as { message?: string } | undefined;
+      return { ok: false, error: body?.message ?? err.message };
     }
     return { ok: false, error: 'No se pudo comprobar la disponibilidad.' };
   }

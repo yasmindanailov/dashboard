@@ -6,9 +6,9 @@
 > **Sprint 15D.II (transfer-in) — flujo cliente COMPLETO (backend EN CURSO):** FSM +
 > iniciación síncrona + motor de reconcile + **cobro al completar** + **carrito único**
 > (T2c.3) + **cierre de la FSM** (T3: eventos `transfer_initiated/failed` + notifs +
-> zona DNS al completar + reintento A2.5) + **restore RGP admin** (R: `domains/restore`
-> + factura del fee + notif); pendiente **S** (buscador rico) / **G** (smoke OT&E) — ver
-> §transfer-in / §restore abajo. Pendiente del cierre de 15D core:
+> zona DNS al completar + reintento A2.5) + **restore RGP admin** (R) + **buscador rico**
+> (S: suggest-names + bulk multi-nombre); pendiente **G** (smoke OT&E real + E2E + cierre)
+> — ver §transfer-in / §restore / §buscador rico abajo. Pendiente del cierre de 15D core:
 > **smoke OT&E real** (Yasmin, refina los shapes conservadores) ·
 > retrospectiva. Doctrina:
 > [ADR-081](../../10-decisions/adr-081-plugin-resellerclub-specifics.md) (specifics RC) ·
@@ -185,7 +185,26 @@ el agente coordina/confirma el coste con el cliente.
   `recoveryHint='restore'`) con doble confirmación (typing + motivo) y aviso del fee. El CTA cliente del
   detalle sigue dirigiendo a soporte (A6.3); el restore lo ejecuta el agente.
 
-**Pendiente de 15D.II** (próximas fases): **S** buscador rico (suggest v5/bulk) · **G** smoke OT&E real + cierre. Shapes de transfer/restore **CONSERVADORES** hasta el smoke (A7.4). **Nota operativa:** las plantillas de notificación nuevas (transfer ×6 + restore ×2) requieren re-seedear (`prisma/seeds/notification-templates.ts`).
+## Buscador rico (Fase 15D.II.S)
+
+El buscador de dominios gana dos capacidades (ADR-081 A7.3), todo sobre el contrato
+additivo `suggestDomainNames?()` (capability-driven por presencia, R4) + el precio
+**siempre server-side** (R5, desde `domain_tld_pricing`):
+
+- **Sugerencias** (`POST /domains/suggest`, `DomainsService.suggestDomains`): a partir de
+  una palabra clave, el registrar propone nombres alternativos (RC `domains/v5/suggest-names`
+  — la **v5** está viva; la v4 devuelve HTTP 500, A1.5). `DomainsService` los **enriquece con
+  el precio de venta** y devuelve solo los **comprables** (disponibles + tarifados + no premium).
+  **Fail-soft:** si el registrar no soporta sugerencias o falla, devuelve lista vacía (el buscador
+  exacto sigue funcionando). Shapes del suggest **CONSERVADORES** hasta el smoke OT&E (A7.4).
+- **Búsqueda en bloque** (`POST /domains/check-availability-bulk`, `checkAvailabilityBulk`):
+  comprueba **varios SLDs** × las extensiones ofertadas en una operación (reusa la lógica
+  per-SLD; resuelve registrar + pricing una sola vez; deduplica + capa el fan-out al registrar).
+- **Frontend** (`/dashboard/store/domains`, isla `DomainSearch`): **un** nombre → resultados por
+  TLD + sección *Sugerencias disponibles*; **varios** nombres (separados por coma/espacio) →
+  búsqueda en bloque agrupada por nombre. Todo añade al mismo carrito único. IDN (punycode) → v1.1.
+
+**Pendiente de 15D.II** (próxima fase): **G** smoke OT&E real (transfer/restore/suggest) + E2E del flujo transfer + cierre + retrospectiva. Shapes de transfer/restore/suggest **CONSERVADORES** hasta el smoke (A7.4). **Nota operativa:** las plantillas de notificación nuevas (transfer ×6 + restore ×2) requieren re-seedear (`prisma/seeds/notification-templates.ts`).
 
 ## Cobertura de tests (red de seguridad L20)
 

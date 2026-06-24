@@ -11,7 +11,10 @@ import { Prisma, ServiceStatus } from '@prisma/client';
 import { getErrorMessage } from '../../core/common/utils/error.util';
 import { PrismaService } from '../../core/database/prisma.service';
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
-import { ProvisionerPluginError } from '../../core/provisioning/types';
+import {
+  DomainSuggestion,
+  ProvisionerPluginError,
+} from '../../core/provisioning/types';
 import { ProvisioningOrchestratorService } from '../provisioning/provisioning-orchestrator.service';
 
 /**
@@ -19,6 +22,17 @@ import { ProvisioningOrchestratorService } from '../provisioning/provisioning-or
  * checkout (`BillingCheckoutService`); el lookup de precio filtra por ella.
  */
 const DEFAULT_DOMAIN_CURRENCY = 'EUR';
+
+/** Buscador rico (15D.II.S): caps defensivos del fan-out al registrar. */
+const MAX_BULK_SLDS = 10;
+const SUGGEST_MAX_RESULTS = 12;
+/** Etiqueta DNS válida (SLD sin punto). */
+const SLD_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+
+/** El registrar resuelto por capability (`is_domain_registrar`). */
+type RegistrarPlugin = NonNullable<
+  ReturnType<PluginRegistryService['getByCapability']>
+>;
 
 /** Disponibilidad + precio de venta de un FQDN concreto (un TLD del SLD). */
 export interface DomainAvailabilityResult {
@@ -38,6 +52,23 @@ export interface DomainAvailabilityResult {
 export interface CheckDomainAvailabilityResponse {
   sld: string;
   results: DomainAvailabilityResult[];
+}
+
+/** Buscador BULK (15D.II.S): resultados agrupados por SLD. */
+export interface BulkAvailabilityResponse {
+  results: Array<{ sld: string; results: DomainAvailabilityResult[] }>;
+}
+
+/** Una sugerencia comprable del buscador rico (15D.II.S). */
+export interface DomainSuggestionResult {
+  fqdn: string;
+  tld: string;
+  price: { amount: string; currency: string };
+}
+
+export interface DomainSuggestionsResponse {
+  keyword: string;
+  results: DomainSuggestionResult[];
 }
 
 /** Una fila de "Mis dominios" (`GET /domains`). */
@@ -108,20 +139,108 @@ export class DomainsService {
     sld: string;
     tlds?: string[];
   }): Promise<CheckDomainAvailabilityResponse> {
+    const { plugin, priceByTld } = await this.resolveRegistrarPricing();
+    const sld = input.sld.trim().toLowerCase();
+    const results = await this.checkSld(plugin, priceByTld, sld, input.tlds);
+    return { sld, results };
+  }
+
+  /**
+   * Buscador BULK (15D.II.S, ADR-081 A7.3): comprueba **varios SLDs** × las
+   * extensiones ofertadas en una sola operación (reusa la lógica per-SLD; resuelve
+   * registrar + pricing UNA vez). Cap defensivo de SLDs para acotar el fan-out al
+   * registrar; deduplica + descarta SLDs inválidos.
+   */
+  async checkAvailabilityBulk(input: {
+    slds: string[];
+    tlds?: string[];
+  }): Promise<BulkAvailabilityResponse> {
+    const { plugin, priceByTld } = await this.resolveRegistrarPricing();
+    const slds = [
+      ...new Set(
+        input.slds
+          .map((s) => s.trim().toLowerCase())
+          .filter((s) => SLD_RE.test(s)),
+      ),
+    ].slice(0, MAX_BULK_SLDS);
+    const groups = await Promise.all(
+      slds.map(async (sld) => ({
+        sld,
+        results: await this.checkSld(plugin, priceByTld, sld, input.tlds),
+      })),
+    );
+    return { results: groups };
+  }
+
+  /**
+   * Buscador RICO (15D.II.S, ADR-081 A7.3): sugiere nombres a partir de una palabra
+   * clave (`suggestDomainNames` del registrar, capability-driven) y los enriquece
+   * con el precio de venta server-side (R5). Solo devuelve sugerencias **comprables**
+   * (disponibles, tarifadas, no premium). Fail-soft: si el registrar no soporta
+   * sugerencias o falla → lista vacía (el buscador exacto sigue funcionando).
+   */
+  async suggestDomains(input: {
+    keyword: string;
+    tlds?: string[];
+  }): Promise<DomainSuggestionsResponse> {
+    const keyword = input.keyword.trim().toLowerCase();
+    const { plugin, priceByTld } = await this.resolveRegistrarPricing();
+    if (typeof plugin.suggestDomainNames !== 'function') {
+      return { keyword, results: [] };
+    }
+
+    // Las extensiones sugeridas se acotan a las ofertadas/tarifadas (R5).
+    const requested = input.tlds
+      ?.map((t) => t.trim().toLowerCase().replace(/^\./, ''))
+      .filter((t) => priceByTld.has(t));
+    const tlds =
+      requested && requested.length > 0 ? requested : [...priceByTld.keys()];
+    if (keyword.length === 0 || tlds.length === 0) {
+      return { keyword, results: [] };
+    }
+
+    let raw: readonly DomainSuggestion[] = [];
+    try {
+      raw = await plugin.suggestDomainNames(keyword, {
+        tlds,
+        maxResults: SUGGEST_MAX_RESULTS,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `suggestDomains "${keyword}" falló en el registrar: ${getErrorMessage(err)}`,
+      );
+      return { keyword, results: [] };
+    }
+
+    const seen = new Set<string>();
+    const results: DomainSuggestionResult[] = [];
+    for (const s of raw) {
+      const price = priceByTld.get(s.tld);
+      // Solo comprables: disponible + tarifado (lo no-tarifado no se vende — R5).
+      if (!s.available || !price || seen.has(s.fqdn)) continue;
+      seen.add(s.fqdn);
+      results.push({ fqdn: s.fqdn, tld: s.tld, price });
+      if (results.length >= SUGGEST_MAX_RESULTS) break;
+    }
+    return { keyword, results };
+  }
+
+  /**
+   * Resuelve el registrar por capability (R4) + la matriz de precios de venta
+   * (filas activas de REGISTRO 1 año). Punto único compartido por los tres
+   * buscadores (exacto / bulk / sugerencias). Lanza si no hay registrar.
+   */
+  private async resolveRegistrarPricing(): Promise<{
+    plugin: RegistrarPlugin;
+    priceByTld: Map<string, { amount: string; currency: string }>;
+  }> {
     const plugin = this.registry.getByCapability('is_domain_registrar');
-    if (!plugin || typeof plugin.checkDomainAvailability !== 'function') {
+    if (!plugin) {
       throw new ServiceUnavailableException({
         code: 'NO_DOMAIN_REGISTRAR',
         message: 'No hay un registrar de dominios disponible ahora mismo.',
       });
     }
-    // Capturamos la función ya narrowed (el `typeof` la estrecha en este scope)
-    // preservando `this` del plugin (usa `this.getApiClient`).
-    const checkAvailability = plugin.checkDomainAvailability.bind(plugin);
-
-    const sld = input.sld.trim().toLowerCase();
-
-    // TLDs ofertables = filas activas de precio de REGISTRO (1 año) del registrar.
     const pricingRows = await this.prisma.domainTldPricing.findMany({
       where: {
         registrar_slug: plugin.slug,
@@ -138,8 +257,30 @@ export class DomainsService {
         { amount: r.price_amount.toFixed(2), currency: r.price_currency },
       ]),
     );
+    return { plugin, priceByTld };
+  }
 
-    const requested = input.tlds
+  /**
+   * Lógica de disponibilidad de UN SLD × las extensiones tarifadas. Robusto: un
+   * fallo del registrar para un TLD concreto NO tumba el lote (ese TLD → `error:true`);
+   * premium → bloqueado v1 (`purchasable:false`). Compartida por exacto + bulk.
+   */
+  private async checkSld(
+    plugin: RegistrarPlugin,
+    priceByTld: Map<string, { amount: string; currency: string }>,
+    sld: string,
+    requestedTlds?: string[],
+  ): Promise<DomainAvailabilityResult[]> {
+    if (typeof plugin.checkDomainAvailability !== 'function') {
+      throw new ServiceUnavailableException({
+        code: 'NO_DOMAIN_REGISTRAR',
+        message: 'No hay un registrar de dominios disponible ahora mismo.',
+      });
+    }
+    // `this` del plugin preservado (usa `this.getApiClient`).
+    const checkAvailability = plugin.checkDomainAvailability.bind(plugin);
+
+    const requested = requestedTlds
       ?.map((t) => t.trim().toLowerCase().replace(/^\./, ''))
       .filter((t) => t.length > 0);
     // Solo se consultan TLDs con precio (lo no-tarifado no es vendible — R5).
@@ -147,12 +288,9 @@ export class DomainsService {
       requested && requested.length > 0
         ? requested.filter((t) => priceByTld.has(t))
         : [...priceByTld.keys()];
+    if (tldsToCheck.length === 0) return [];
 
-    if (tldsToCheck.length === 0) {
-      return { sld, results: [] };
-    }
-
-    const results = await Promise.all(
+    return Promise.all(
       tldsToCheck.map(async (tld): Promise<DomainAvailabilityResult> => {
         const fqdn = `${sld}.${tld}`;
         const price = priceByTld.get(tld);
@@ -183,8 +321,6 @@ export class DomainsService {
         }
       }),
     );
-
-    return { sld, results };
   }
 
   /**

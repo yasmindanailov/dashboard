@@ -1,5 +1,6 @@
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsOptional,
   IsString,
@@ -30,6 +31,47 @@ export class CheckDomainAvailabilityDto {
    * ofertables (los que tienen precio activo de registro). Cap defensivo a 15
    * para acotar el fan-out de llamadas al registrar.
    */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(15)
+  @IsString({ each: true })
+  tlds?: string[];
+}
+
+/**
+ * Buscador BULK (15D.II.S, ADR-081 A7.3) — `POST /domains/check-availability-bulk`.
+ * Varios SLDs en una operación; el service deduplica + descarta inválidos + capa el
+ * fan-out. El precio se resuelve server-side (R5).
+ */
+export class BulkCheckAvailabilityDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(63, { each: true })
+  slds: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(15)
+  @IsString({ each: true })
+  tlds?: string[];
+}
+
+/**
+ * Buscador RICO (15D.II.S, ADR-081 A7.3) — `POST /domains/suggest`. Sugiere nombres
+ * a partir de una palabra clave; el precio se resuelve server-side (R5).
+ */
+export class SuggestDomainsDto {
+  /** Palabra clave (1-63 chars; letras/números/guiones). Se normaliza server-side. */
+  @IsString()
+  @MaxLength(63)
+  @Matches(/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/, {
+    message:
+      'keyword inválida: usa una etiqueta sin punto (a-z, 0-9, guiones internos).',
+  })
+  keyword: string;
+
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(15)
