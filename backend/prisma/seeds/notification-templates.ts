@@ -1534,6 +1534,50 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       variables: { service_id: 'string', fqdn: 'string', panel_url: 'string' },
     },
 
+    // ───────────── domain.restored (email cliente) — Sprint 15D.II.R ─────────────
+    {
+      event_type: 'domain.restored',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Dominio restaurado — {{fqdn}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Dominio restaurado</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hemos recuperado tu dominio <strong>{{fqdn}}</strong> desde el periodo de
+              redención. Vuelve a estar activo. Te enviamos por separado la factura de la
+              tarifa de restauración.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver mi dominio</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        fqdn: 'string',
+        panel_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+    // ───────────── domain.restored (campana cliente) ─────────────
+    {
+      event_type: 'domain.restored',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Dominio restaurado — {{fqdn}}',
+      body: 'Hemos recuperado tu dominio {{fqdn}} desde redención. Vuelve a estar activo; la tarifa de restauración se factura por separado.',
+      variables: { service_id: 'string', fqdn: 'string', panel_url: 'string' },
+    },
+
     // ═════════════ Sprint 15D.II.T3 — FSM de transfer-in (ADR-084 §5 + A2) ═════════════
     // Emitidos por: domain.transfer_initiated (orquestador, Outbox),
     // domain.transfer_completed (reconcile cron, Outbox),

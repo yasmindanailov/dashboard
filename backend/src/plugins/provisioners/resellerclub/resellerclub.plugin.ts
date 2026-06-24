@@ -951,6 +951,34 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
     );
   }
 
+  /**
+   * `restoreDomain` (ADR-077 A10 additivo / ADR-081 A7.2, 15D.II.R) — **restore
+   * RGP**: recupera un dominio en redención con la tarifa especial. El fee lo cobra
+   * el registrar de forma inmediata e irreversible → la decisión es admin/soporte
+   * (`AdminDomainsService.restoreDomain` resuelve precio + factura + audita). El
+   * plugin SOLO ejecuta el `domains/restore`. Shapes CONSERVADORES hasta el smoke
+   * OT&E (A7.4).
+   */
+  async restoreDomain(service: ServiceWithRelations): Promise<void> {
+    const orderId = service.provider_reference;
+    if (!orderId) {
+      throw new ProvisionerPluginError(
+        `restoreDomain requiere provider_reference (order-id RC) en el servicio ` +
+          `${service.id} — el dominio debe estar registrado.`,
+        'INVALID_STATE',
+        false,
+        undefined,
+        RC_SLUG,
+      );
+    }
+    const { client } = await this.getApiClient();
+    await client.restoreDomain(orderId);
+    this.logger.log(
+      `restoreDomain service=${service.id} (order=${orderId}): dominio ` +
+        `${service.domain ?? '?'} RESTAURADO desde redención (RGP).`,
+    );
+  }
+
   // ─── 3. getStatus() — reconcile read (domains/details, ADR-081 §6) ─────────
 
   async getStatus(service: ServiceWithRelations): Promise<ServiceStatusReport> {

@@ -1185,6 +1185,16 @@ export interface ProvisionerPlugin {
   deleteDomain?(service: ServiceWithRelations): Promise<void>;
 
   /**
+   * Sprint 15D.II.R (ADR-077 A10 additivo / ADR-081 A7.2) — **restore RGP**:
+   * recupera un dominio en redención (`recoveryHint='restore'`) con la tarifa
+   * especial del registrar. Operación admin/soporte (el fee se cobra de forma
+   * inmediata e irreversible al registrar). Capability-driven por presencia. El
+   * orquestador (`AdminDomainsService`) resuelve el precio + factura + audita por
+   * separado; el plugin SOLO ejecuta el `domains/restore`.
+   */
+  restoreDomain?(service: ServiceWithRelations): Promise<void>;
+
+  /**
    * Manifest declarativo del plugin (Sprint 15A — ADR-080).
    * Expone label/version/configSchema/secretsSchema para el loader
    * dinámico, la UI admin (`/admin/settings/plugins`) y el portal RGPD.

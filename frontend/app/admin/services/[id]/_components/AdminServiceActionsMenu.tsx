@@ -37,6 +37,7 @@ import { ChangePackageModal, type EnhancePlanOption } from './ChangePackageModal
 import { CancelServiceModal } from './CancelServiceModal';
 import { DeleteDomainModal } from './DeleteDomainModal';
 import { ResendNotificationModal } from './ResendNotificationModal';
+import { RestoreDomainModal } from './RestoreDomainModal';
 import { SuspendServiceModal } from './SuspendServiceModal';
 
 interface AdminServiceActionsMenuProps {
@@ -48,6 +49,8 @@ interface AdminServiceActionsMenuProps {
   isTerminal: boolean;
   /** Servicio de tipo dominio: habilita "Eliminar dominio (gracia)" (15D.G·2). */
   isDomain?: boolean;
+  /** Dominio en redención (RGP): habilita "Restaurar dominio" (15D.II.R). */
+  canRestore?: boolean;
 }
 
 export function AdminServiceActionsMenu({
@@ -57,6 +60,7 @@ export function AdminServiceActionsMenu({
   currentPlanLabel,
   isTerminal,
   isDomain = false,
+  canRestore = false,
 }: AdminServiceActionsMenuProps) {
   // ── change_package ────────────────────────────────────────────────────────
   const [changePlanOpen, setChangePlanOpen] = useState(false);
@@ -68,6 +72,7 @@ export function AdminServiceActionsMenu({
   const [resendOpen, setResendOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [deleteDomainOpen, setDeleteDomainOpen] = useState(false);
+  const [restoreDomainOpen, setRestoreDomainOpen] = useState(false);
   const [suspendMode, setSuspendMode] = useState<'suspend' | 'unsuspend' | null>(
     null,
   );
@@ -129,6 +134,16 @@ export function AdminServiceActionsMenu({
       'Reenvía al cliente el último aviso del servicio (suspensión, reactivación o cancelación).',
     onClick: () => setResendOpen(true),
   });
+  // 15D.II.R — restore RGP: recupera un dominio en redención (acción de soporte;
+  // cobra la tarifa especial al cliente). Solo dominios en redención, no terminal.
+  if (isDomain && canRestore && !isTerminal) {
+    safeItems.push({
+      label: 'Restaurar dominio (RGP)…',
+      description:
+        'Recupera el dominio desde redención con la tarifa especial del registrador (se factura el fee al cliente).',
+      onClick: () => setRestoreDomainOpen(true),
+    });
+  }
 
   // Operaciones consecuentes (destructivas / cambio de estado).
   const dangerItems: DropdownItem[] = [];
@@ -209,6 +224,14 @@ export function AdminServiceActionsMenu({
         <DeleteDomainModal
           open={deleteDomainOpen}
           onClose={() => setDeleteDomainOpen(false)}
+          serviceId={serviceId}
+          serviceDisplayName={serviceDisplayName}
+        />
+      )}
+      {isDomain && canRestore && (
+        <RestoreDomainModal
+          open={restoreDomainOpen}
+          onClose={() => setRestoreDomainOpen(false)}
           serviceId={serviceId}
           serviceDisplayName={serviceDisplayName}
         />

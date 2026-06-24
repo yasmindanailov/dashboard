@@ -281,6 +281,20 @@ describe('ResellerClubApiClient ↔ MockResellerClubServer — Sprint 15D Fase 1
     ).rejects.toBeInstanceOf(ProvisionerPluginError);
   });
 
+  it('restoreDomain recupera un dominio en redención (15D.II.R)', async () => {
+    const orderId = await client.registerDomain(registerInput());
+    await fetch(`${mock.baseUrl}/__test__/set-redemption?order-id=${orderId}`, {
+      method: 'POST',
+    });
+    const before = await client.getDomainDetailsByOrderId(orderId);
+    expect(JSON.stringify(before.orderstatus ?? [])).toMatch(/rgp/);
+
+    await client.restoreDomain(orderId);
+
+    const after = await client.getDomainDetailsByOrderId(orderId);
+    expect(JSON.stringify(after.orderstatus ?? [])).not.toMatch(/rgp/);
+  });
+
   it('searchDomains refleja los dominios registrados', async () => {
     expect((await client.searchDomains()).recsindb).toBe('0');
     await client.registerDomain(registerInput());

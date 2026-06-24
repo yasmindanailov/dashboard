@@ -325,6 +325,16 @@ export class ResellerClubApiClient {
     await this.http.post('domains/delete', { 'order-id': orderId });
   }
 
+  /**
+   * `domains/restore` — restore RGP (15D.II.R, ADR-081 A7.2): recupera un dominio
+   * en período de redención con la tarifa especial del registrar. RC lo devuelve a
+   * `active`. El fee se cobra de forma inmediata e irreversible — la decisión de
+   * restaurar es admin/soporte. Shapes CONSERVADORES hasta el smoke OT&E (A7.4).
+   */
+  async restoreDomain(orderId: RcOrderId): Promise<void> {
+    await this.http.post('domains/restore', { 'order-id': orderId });
+  }
+
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   /** Normaliza un id RC (número plano, string numérica, u objeto con `entityid`) a string. */

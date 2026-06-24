@@ -160,6 +160,9 @@ export default async function AdminServiceDetailPage({
       }
       isTerminal={isTerminal}
       isDomain={service.product_type === 'domain'}
+      // 15D.II.R — restore RGP: solo si el registrar reporta redención
+      // (recoveryHint='restore', señal canónica del ciclo, ADR-077 A5).
+      canRestore={info.recoveryHint === 'restore'}
     />
   );
 

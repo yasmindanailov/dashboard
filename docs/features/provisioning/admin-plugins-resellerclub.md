@@ -6,8 +6,9 @@
 > **Sprint 15D.II (transfer-in) — flujo cliente COMPLETO (backend EN CURSO):** FSM +
 > iniciación síncrona + motor de reconcile + **cobro al completar** + **carrito único**
 > (T2c.3) + **cierre de la FSM** (T3: eventos `transfer_initiated/failed` + notifs +
-> zona DNS al completar + reintento A2.5); pendiente **R** (restore) / **S** (buscador
-> rico) / **G** (smoke OT&E) — ver §transfer-in abajo. Pendiente del cierre de 15D core:
+> zona DNS al completar + reintento A2.5) + **restore RGP admin** (R: `domains/restore`
+> + factura del fee + notif); pendiente **S** (buscador rico) / **G** (smoke OT&E) — ver
+> §transfer-in / §restore abajo. Pendiente del cierre de 15D core:
 > **smoke OT&E real** (Yasmin, refina los shapes conservadores) ·
 > retrospectiva. Doctrina:
 > [ADR-081](../../10-decisions/adr-081-plugin-resellerclub-specifics.md) (specifics RC) ·
@@ -161,7 +162,30 @@ Construido (backend + entrada, verde + boot smoke 4/4 en cada fase):
 - **Entrada — carrito único** (T2c.3): el checkout (`POST /billing/checkout/items`) acepta ítems `domain` con `operation:'transfer_in'` y los crea como **`deferBilling`** (service `pending`, `transfer_state='pending'`, **fuera de la factura**; factura nullable si el carrito es solo-transfers). El cliente aporta el auth-code después vía **`POST /domains/:id/transfer/submit-auth`** (owner/admin + guarda de estado FSM; R12: el código viaja en memoria a `initiateTransferIn`). **`POST /domains/transfer-quote`** devuelve el precio de transfer (server-side R5) para el carrito. **Frontend:** pestaña *Transferir* en `/dashboard/store/domains` (misma cesta única que *Registrar*) + panel del código EPP en `/dashboard/domains/:id` (gated por `service.transfer_state`).
 - **Cierre de la FSM** (T3): **eventos** `domain.transfer_initiated` (orquestador, al llegar a `submitted`) + `domain.transfer_failed` (reconcile `advanceTransfer`, con `reason`) vía **Outbox** (R8). **Notificaciones** (`NotificationsOnDomainTransferListener` → email + campana al cliente en iniciada/completada/fallida; CTA al detalle del dominio). **Zona DNS al completar** ([ADR-082 A5](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md#amendments)): `ReconcileDomainNsOnTransferCompletedListener` sobre `domain.transfer_completed` → si hay **hosting hermano** activo, conmuta los NS a Aelium (`switchToAeliumIfParked`, capability-routed R4, idempotente, fail-soft); **sin hosting → aparca** (mismo modelo que register A4); **crea, no migra** (los records BYOD del registrar de origen no se importan en v1). **Reintento** (A2.5): `submit-auth` también acepta `failed`/`cancelled` → limpia `provider_reference` + reabre a `pending` + reinicia con un nuevo código (no re-cobra); el panel del detalle muestra el formulario de reintento.
 
-**Pendiente de 15D.II** (próximas fases): **R** restore (RGP) — `restoreDomain`→`domains/restore`, cierra el CTA `recoveryHint='restore'` · **S** buscador rico (suggest v5/bulk) · **G** smoke OT&E real + cierre. Shapes de transfer **CONSERVADORES** hasta el smoke (A7.4). **Nota operativa:** las 6 plantillas de notificación de transfer requieren re-seedear (`prisma/seeds/notification-templates.ts`).
+## Restore RGP (Fase 15D.II.R) — admin/soporte
+
+Un dominio en **redención** (`recoveryHint='restore'`, tras expirar más allá de la gracia)
+se recupera con la **tarifa especial de RGP** del registrar. **Decisión Yasmin (2026-06-24):
+es una acción admin/soporte** (espejo de `deleteDomain`), no self-service — el fee de RGP lo
+cobra el registrar de forma **inmediata e irreversible** al llamar a `domains/restore`, así que
+el agente coordina/confirma el coste con el cliente.
+
+- **Acción admin** (`POST /admin/domains/services/:id/restore`, `AdminDomainsService.restoreDomain`,
+  capability-routed R4): **(1)** resuelve el fee de restore **antes** de restaurar (server-side R5,
+  op `restore` de `domain_tld_pricing`, 1 año; bloquea si no está tarifado → `RESTORE_NOT_PRICED`, o
+  si el margen es inválido DOM-INV-3 → `RESTORE_MARGIN_INVALID` — no se restaura lo que no sabemos
+  cobrar); **(2)** `plugin.restoreDomain` (`domains/restore`); si falla, no se factura ni se emite nada;
+  **(3)** emite `domain.restored` (Outbox, R8) + audita el cambio (R3) + invalida la cache de `getServiceInfo`.
+- **Cobro del fee:** `GenerateInvoiceOnDomainRestoredListener` (billing) consume `domain.restored` →
+  factura el fee con el precio snapshotado en el evento (idempotente por marcador en la descripción;
+  **R4**: billing consume el evento, el admin service no conoce billing).
+- **Notificación:** `NotificationsOnDomainLifecycleListener` consume `domain.restored` → email + campana
+  "dominio restaurado" al cliente.
+- **Frontend admin:** menú del servicio → "Restaurar dominio (RGP)…" (gated `product_type='domain'` +
+  `recoveryHint='restore'`) con doble confirmación (typing + motivo) y aviso del fee. El CTA cliente del
+  detalle sigue dirigiendo a soporte (A6.3); el restore lo ejecuta el agente.
+
+**Pendiente de 15D.II** (próximas fases): **S** buscador rico (suggest v5/bulk) · **G** smoke OT&E real + cierre. Shapes de transfer/restore **CONSERVADORES** hasta el smoke (A7.4). **Nota operativa:** las plantillas de notificación nuevas (transfer ×6 + restore ×2) requieren re-seedear (`prisma/seeds/notification-templates.ts`).
 
 ## Cobertura de tests (red de seguridad L20)
 

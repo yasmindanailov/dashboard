@@ -13,6 +13,7 @@ import { InvoicePdfService } from './invoice-pdf.service';
 import { InvoicePdfStorageService } from './invoice-pdf-storage.service';
 import { BillingEmailListener } from './billing-email.listener';
 import { GenerateInvoiceOnDomainTransferCompletedListener } from './generate-invoice-on-domain-transfer-completed.listener';
+import { GenerateInvoiceOnDomainRestoredListener } from './generate-invoice-on-domain-restored.listener';
 import {
   PdfGenerationProcessor,
   PDF_GENERATION_QUEUE,
@@ -44,6 +45,8 @@ import { ProvisioningModule } from '../provisioning/provisioning.module';
     InvoicePdfStorageService,
     BillingEmailListener,
     GenerateInvoiceOnDomainTransferCompletedListener,
+    // 15D.II.R — cobro del restore RGP (consume domain.restored, R4).
+    GenerateInvoiceOnDomainRestoredListener,
     PdfGenerationProcessor,
   ],
   exports: [
