@@ -172,6 +172,16 @@ interface MockRcContact {
   contactid: string;
   customerid: string;
   type: string;
+  /** Datos WHOIS del contacto (15D.G·2 — contacts/modify + contacts/details). */
+  name: string;
+  company: string;
+  email: string;
+  address1: string;
+  city: string;
+  state: string;
+  country: string;
+  zip: string;
+  telno: string;
 }
 interface MockRcDomain {
   orderid: string;
@@ -367,8 +377,50 @@ function registerRoutes(
       contactid: id,
       customerid: str(p, 'customer-id') ?? '',
       type,
+      ...contactDetailsFromParams(p),
     });
     res.json(Number(id)); // id escalar
+  });
+
+  // ─── Modificar / leer la entidad contacto (15D.G·2) ─────────────────────────
+  app.post('/contacts/modify.json', (req, res) => {
+    const p = readParams(req);
+    const c = state.contactsById.get(str(p, 'contact-id') ?? '');
+    if (!c) {
+      rcError(res, 'Contact not found', { lowercase: true });
+      return;
+    }
+    // .es conserva la exigencia de NIF al modificar (DOM-INV-5).
+    if (c.type === 'EsContact' && !hasEsIdentification(p)) {
+      rcError(
+        res,
+        'es_tipo_identificacion (NIF) is required for .es registrant',
+      );
+      return;
+    }
+    Object.assign(c, contactDetailsFromParams(p));
+    res.json({ entityid: Number(c.contactid), actionstatus: 'Success' });
+  });
+
+  app.get('/contacts/details.json', (req, res) => {
+    const p = readParams(req);
+    const c = state.contactsById.get(str(p, 'contact-id') ?? '');
+    if (!c) {
+      rcError(res, 'Contact not found', { httpStatus: 500 });
+      return;
+    }
+    res.json({
+      contactid: c.contactid,
+      name: c.name,
+      company: c.company,
+      emailaddr: c.email,
+      telno: c.telno,
+      address1: c.address1,
+      city: c.city,
+      state: c.state,
+      country: c.country,
+      zip: c.zip,
+    });
   });
 
   // ─── Ciclo de vida ────────────────────────────────────────────────────────
@@ -475,6 +527,20 @@ function registerRoutes(
   app.post('/orders/unsuspend.json', (req, res) =>
     mutateDomain(state, req, res, (d) => (d.suspended = false)),
   );
+
+  // Borrado en gracia (15D.G·2): elimina el dominio del registrador.
+  app.post('/domains/delete.json', (req, res) => {
+    const d = state.domainsByOrderId.get(
+      str(readParams(req), 'order-id') ?? '',
+    );
+    if (!d) {
+      rcError(res, 'Order not found', { lowercase: true });
+      return;
+    }
+    state.domainsByOrderId.delete(d.orderid);
+    state.domainsByName.delete(d.domainname);
+    res.json({ entityid: Number(d.orderid), actionstatus: 'Success' });
+  });
 }
 
 function registerManagementRoutes(
@@ -607,6 +673,23 @@ function mutateDomain(
 function hasEsIdentification(p: Record<string, unknown>): boolean {
   const names = arr(p, 'attr-name');
   return names.includes('es_tipo_identificacion');
+}
+
+/** Datos WHOIS del contacto desde los params (add/modify). */
+function contactDetailsFromParams(
+  p: Record<string, unknown>,
+): Omit<MockRcContact, 'contactid' | 'customerid' | 'type'> {
+  return {
+    name: str(p, 'name') ?? '',
+    company: str(p, 'company') ?? '',
+    email: str(p, 'email') ?? '',
+    address1: str(p, 'address-line-1') ?? '',
+    city: str(p, 'city') ?? '',
+    state: str(p, 'state') ?? '',
+    country: str(p, 'country') ?? '',
+    zip: str(p, 'zipcode') ?? '',
+    telno: str(p, 'phone') ?? '',
+  };
 }
 
 /** Envoltorio de error de negocio RC (findings §4.7). Por defecto mayúscula/HTTP 200. */

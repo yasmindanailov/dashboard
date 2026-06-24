@@ -11,6 +11,8 @@ import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
 import { CYCLE_LABELS, STATUS_MAP, TYPE_LABELS } from './detail-types';
 import type { ProductDetailItem } from './detail-types';
 import ProductActions from './_components/ProductActions';
+import DomainPricingCard from './_components/DomainPricingCard';
+import type { DomainPricingRow } from '../../../_shared/domains/_admin-actions';
 import styles from './productDetail.module.css';
 
 interface PageProps {
@@ -41,6 +43,20 @@ export default async function ProductDetailPage({ params }: PageProps) {
    */
   if (product.type === 'support_inside') {
     redirect(`/admin/support-inside-plans/${product.slug}`);
+  }
+
+  // Producto de dominio: la matriz de precios vive en `domain_tld_pricing`
+  // (por TLD), no en ProductPricing → se carga server-side y se gestiona en la
+  // card dedicada (15D.G·1). Fail-soft: si el endpoint falla, card vacía.
+  let domainPricing: DomainPricingRow[] = [];
+  if (product.type === 'domain') {
+    try {
+      domainPricing = await serverFetch<DomainPricingRow[]>(
+        `/admin/domains/pricing?registrar=${encodeURIComponent(product.provisioner)}`,
+      );
+    } catch {
+      domainPricing = [];
+    }
   }
 
   const s = STATUS_MAP[product.status] || STATUS_MAP.inactive;
@@ -104,32 +120,41 @@ export default async function ProductDetailPage({ params }: PageProps) {
             )}
           </Card>
 
-          <Card>
-            <h2 className={styles.sectionTitle}>Planes de precio</h2>
-            {product.pricing.length === 0 ? (
-              <p className={styles.noPricing}>Sin planes de precio configurados.</p>
-            ) : (
-              <div className={styles.listStack}>
-                {product.pricing.map((p) => (
-                  <div key={p.id} className={styles.listRow}>
-                    <div>
-                      <span className={styles.pricingCycle}>
-                        {CYCLE_LABELS[p.billing_cycle]}
-                      </span>
-                      {Number(p.setup_fee) > 0 && (
-                        <span className={styles.pricingSetup}>
-                          + {Number(p.setup_fee).toFixed(2)} € setup
+          {product.type === 'domain' ? (
+            <DomainPricingCard
+              registrar={product.provisioner}
+              initialRows={domainPricing}
+            />
+          ) : (
+            <Card>
+              <h2 className={styles.sectionTitle}>Planes de precio</h2>
+              {product.pricing.length === 0 ? (
+                <p className={styles.noPricing}>
+                  Sin planes de precio configurados.
+                </p>
+              ) : (
+                <div className={styles.listStack}>
+                  {product.pricing.map((p) => (
+                    <div key={p.id} className={styles.listRow}>
+                      <div>
+                        <span className={styles.pricingCycle}>
+                          {CYCLE_LABELS[p.billing_cycle]}
                         </span>
-                      )}
+                        {Number(p.setup_fee) > 0 && (
+                          <span className={styles.pricingSetup}>
+                            + {Number(p.setup_fee).toFixed(2)} € setup
+                          </span>
+                        )}
+                      </div>
+                      <span className={styles.pricingAmount}>
+                        {Number(p.price).toFixed(2)} €
+                      </span>
                     </div>
-                    <span className={styles.pricingAmount}>
-                      {Number(p.price).toFixed(2)} €
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
 
           {product.extras.length > 0 && (
             <Card>

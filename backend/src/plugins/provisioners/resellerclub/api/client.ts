@@ -33,12 +33,14 @@ import {
 import {
   RcAddContactInput,
   RcAvailabilityResponse,
+  RcContactDetails,
   RcContactId,
   RcCustomerDetails,
   RcCustomerId,
   RcCustomerPriceResponse,
   RcDomainDetails,
   RcDomainSearchResponse,
+  RcModifyContactInput,
   RcOrderId,
   RcRegisterInput,
   RcRegisterResponse,
@@ -128,6 +130,28 @@ export class ResellerClubApiClient {
   async addContact(input: RcAddContactInput): Promise<RcContactId> {
     const raw = await this.http.post('contacts/add', { ...input });
     return this.normalizeId(raw, 'contacts/add');
+  }
+
+  /**
+   * `contacts/modify` — actualiza los DATOS de la entidad contacto (15D.G·2).
+   * Como el contacto es compartido por los dominios del cliente (1 titular),
+   * esto propaga el WHOIS a todos ellos. [CONSERVADOR Fase G].
+   */
+  async modifyContactDetails(
+    contactId: RcContactId,
+    input: RcModifyContactInput,
+  ): Promise<void> {
+    await this.http.post('contacts/modify', {
+      ...input,
+      'contact-id': contactId,
+    });
+  }
+
+  /** `contacts/details` — datos actuales del contacto (verify-after-write + cambio de nombre). */
+  async getContactDetails(contactId: RcContactId): Promise<RcContactDetails> {
+    return this.http.get<RcContactDetails>('contacts/details', {
+      'contact-id': contactId,
+    });
   }
 
   // ─── Ciclo de vida (15D.D/E) ────────────────────────────────────────────────
@@ -244,6 +268,16 @@ export class ResellerClubApiClient {
   /** `orders/unsuspend` — admin. */
   async unsuspendOrder(orderId: RcOrderId): Promise<void> {
     await this.http.post('orders/unsuspend', { 'order-id': orderId });
+  }
+
+  /**
+   * `domains/delete` — borrado admin en período de gracia (15D.G·2, ADR-081 A3.1).
+   * RC reembolsa el registro si está dentro de la ventana de gracia del TLD;
+   * fuera de ella devuelve error de negocio (el http-client lo mapea). Operación
+   * destructiva e irreversible: el dominio desaparece del registrador.
+   */
+  async deleteDomain(orderId: RcOrderId): Promise<void> {
+    await this.http.post('domains/delete', { 'order-id': orderId });
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────

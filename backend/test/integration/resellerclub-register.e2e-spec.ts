@@ -121,7 +121,12 @@ describe('Integración 15D.D — registro de dominio E2E (RC ↔ Postgres real +
       domain_operation: 'register',
       domain_years: 1,
       whois_privacy: true,
-      rc_nameservers: 'ns1.aelium.net,ns2.aelium.net',
+      // F.3 (PR #115) renombró la clave de metadata de `rc_nameservers` (CSV,
+      // que nadie leía → bug latente) a `nameservers` (array, lo lee el
+      // dns-authority-resolver). El plugin + spec unit se actualizaron; esta
+      // aserción del e2e quedó stale (estos *.e2e-spec.ts no corren en el CI de
+      // GitHub — solo manual con Postgres) y se corrige en el cierre 15D.G.
+      nameservers: ['ns1.aelium.net', 'ns2.aelium.net'],
     });
 
     // Persistencia REAL del mapping (FK user_id → users).

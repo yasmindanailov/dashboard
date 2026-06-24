@@ -87,7 +87,9 @@ export default function NewProductForm({ initialPlugins }: Props) {
   // requisito de plan. El markup% + TLDs ofertados se configuran en los ajustes
   // del plugin RC.
   const isDomain = selectedType === 'domain';
-  const showLifecycle = !isSupportInside && !isWeDoIt;
+  // El ciclo de vida de un dominio lo gobierna el registrar (expires_at / ICANN),
+  // no las políticas de gracia/suspensión/cancelación en días → card oculta.
+  const showLifecycle = !isSupportInside && !isWeDoIt && !isDomain;
 
   // ADR-080 Amendment B — schema del provisioner seleccionado.
   // Si el plugin no declara `productConfigSchema` o no tiene properties,

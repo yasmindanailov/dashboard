@@ -35,6 +35,7 @@ import { ServiceActionsMenu } from '../../../../_shared/services/ServiceActionsM
 
 import { ChangePackageModal, type EnhancePlanOption } from './ChangePackageModal';
 import { CancelServiceModal } from './CancelServiceModal';
+import { DeleteDomainModal } from './DeleteDomainModal';
 import { ResendNotificationModal } from './ResendNotificationModal';
 import { SuspendServiceModal } from './SuspendServiceModal';
 
@@ -45,6 +46,8 @@ interface AdminServiceActionsMenuProps {
   currentPlanLabel?: string;
   /** Estado terminal (cancelled/terminated): solo "Reenviar" queda disponible. */
   isTerminal: boolean;
+  /** Servicio de tipo dominio: habilita "Eliminar dominio (gracia)" (15D.G·2). */
+  isDomain?: boolean;
 }
 
 export function AdminServiceActionsMenu({
@@ -53,6 +56,7 @@ export function AdminServiceActionsMenu({
   actions,
   currentPlanLabel,
   isTerminal,
+  isDomain = false,
 }: AdminServiceActionsMenuProps) {
   // ── change_package ────────────────────────────────────────────────────────
   const [changePlanOpen, setChangePlanOpen] = useState(false);
@@ -63,6 +67,7 @@ export function AdminServiceActionsMenu({
   // ── resend / suspend / cancel ─────────────────────────────────────────────
   const [resendOpen, setResendOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [deleteDomainOpen, setDeleteDomainOpen] = useState(false);
   const [suspendMode, setSuspendMode] = useState<'suspend' | 'unsuspend' | null>(
     null,
   );
@@ -150,6 +155,17 @@ export function AdminServiceActionsMenu({
       onClick: () => setCancelOpen(true),
     });
   }
+  // 15D.G·2 — borrado destructivo del dominio en gracia (≠ cancelar: lo elimina
+  // del registrador con reembolso). Solo dominios, no terminal.
+  if (isDomain && !isTerminal) {
+    dangerItems.push({
+      label: 'Eliminar dominio (gracia)…',
+      description:
+        'Borra el dominio del registrador con reembolso (solo en período de gracia) y cancela el servicio.',
+      danger: true,
+      onClick: () => setDeleteDomainOpen(true),
+    });
+  }
 
   const extraItems: DropdownItem[] = [...safeItems];
   if (dangerItems.length > 0) {
@@ -189,6 +205,14 @@ export function AdminServiceActionsMenu({
         serviceId={serviceId}
         serviceDisplayName={serviceDisplayName}
       />
+      {isDomain && (
+        <DeleteDomainModal
+          open={deleteDomainOpen}
+          onClose={() => setDeleteDomainOpen(false)}
+          serviceId={serviceId}
+          serviceDisplayName={serviceDisplayName}
+        />
+      )}
     </>
   );
 

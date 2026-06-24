@@ -44,12 +44,14 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import {
   ClientPublicData,
   ProvisionerPluginError,
+  RegistrantUpdateResult,
 } from '../../../core/provisioning/types';
 
 import {
   RcAddContactInput,
   RcContactId,
   RcCustomerId,
+  RcModifyContactInput,
   RcSignupCustomerInput,
   ResellerClubApiClient,
 } from './api';
@@ -128,6 +130,64 @@ export class ResellerclubCustomersService {
         },
       };
     });
+  }
+
+  /**
+   * Actualiza el contacto WHOIS compartido del cliente en RC desde su perfil
+   * (15D.G·2). El contacto es uno solo (reutilizado en los 4 roles) y compartido
+   * por todos sus dominios → un único `contacts/modify` propaga el WHOIS a todos.
+   *
+   * DC.NEW-66: la llamada HTTP a RC NO se hace dentro de una transacción de BD
+   * (lee el contact-id con una query corta y modifica fuera de tx). Verify-after-write:
+   * relee `contacts/details` y confirma que el nombre se aplicó (si no →
+   * `PROVIDER_INTERNAL_ERROR` retriable). Detecta el cambio de nombre (aviso ICANN).
+   * Si el cliente no tiene contacto aún (sin dominios) → no-op (`propagated:false`).
+   */
+  async updateRegistrantContact(
+    client: ClientPublicData,
+    api: ResellerClubApiClient,
+  ): Promise<RegistrantUpdateResult> {
+    const handle = await this.prisma.resellerclubContactHandle.findFirst({
+      where: { user_id: client.id },
+      select: { resellerclub_contact_id: true },
+    });
+    if (!handle) {
+      return { propagated: false, domainsAffected: 0, nameChanged: false };
+    }
+    const contactId = handle.resellerclub_contact_id;
+    const newName = fullName(client);
+
+    const before = await api.getContactDetails(contactId);
+    await api.modifyContactDetails(
+      contactId,
+      buildModifyContactInput(client, contactId),
+    );
+    const after = await api.getContactDetails(contactId);
+
+    if ((after.name ?? '').trim() !== newName) {
+      throw new ProvisionerPluginError(
+        `contacts/modify (contact=${contactId}) no aplicó el nombre del titular ` +
+          `(esperado "${newName}", got "${after.name ?? ''}"). Reintentar.`,
+        'PROVIDER_INTERNAL_ERROR',
+        true,
+        undefined,
+        RC_PLUGIN_SLUG,
+      );
+    }
+
+    const domainsAffected = await this.prisma.service.count({
+      where: {
+        user_id: client.id,
+        product: { type: 'domain' },
+        provider_reference: { not: null },
+      },
+    });
+    const nameChanged = (before.name ?? '').trim() !== newName;
+    this.logger.log(
+      `updateRegistrantContact user=${client.id}: contacto ${contactId} ` +
+        `actualizado (dominios=${domainsAffected}, nameChanged=${nameChanged}).`,
+    );
+    return { propagated: true, domainsAffected, nameChanged };
   }
 
   /** Customer RC (cache local → cross-search → signup), persistiendo el mapping. */
@@ -263,6 +323,28 @@ function buildContactInput(
     phone: requireField(client.phone, 'phone'),
     'customer-id': customerId,
     type: 'Contact',
+  };
+}
+
+/** `contacts/modify` desde el perfil (15D.G·2). Mismos campos que add, con contact-id. */
+function buildModifyContactInput(
+  client: ClientPublicData,
+  contactId: RcContactId,
+): RcModifyContactInput {
+  const name = fullName(client);
+  const country = requireField(client.country_code, 'country');
+  return {
+    'contact-id': contactId,
+    name,
+    company: nonEmptyCompany(client, name),
+    email: client.email,
+    'address-line-1': requireField(client.address_line1, 'address_line1'),
+    city: requireField(client.city, 'city'),
+    state: requireField(client.state, 'state'),
+    country,
+    zipcode: requireField(client.postal_code, 'postal_code'),
+    'phone-cc': derivePhoneCc(country),
+    phone: requireField(client.phone, 'phone'),
   };
 }
 

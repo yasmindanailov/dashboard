@@ -1,10 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { getErrorMessage } from '../../../../core/common/utils/error.util';
+import {
+  DomainPricingSyncRegistryService,
+  DomainPricingSyncSummary,
+} from '../../../../core/provisioning/domain-pricing-sync-registry.service';
 
 import { ResellerclubProvisionerPlugin } from '../resellerclub.plugin';
 
@@ -31,7 +35,7 @@ import { ResellerclubProvisionerPlugin } from '../resellerclub.plugin';
  * cron sigue vivo. NO depende de `ReconcileRegistryModule`.
  */
 @Injectable()
-export class ResellerclubPricingSyncCron {
+export class ResellerclubPricingSyncCron implements OnModuleInit {
   private readonly logger = new Logger(ResellerclubPricingSyncCron.name);
 
   private static readonly SLUG = 'resellerclub';
@@ -40,7 +44,19 @@ export class ResellerclubPricingSyncCron {
     private readonly prisma: PrismaService,
     private readonly plugin: ResellerclubProvisionerPlugin,
     private readonly events: EventEmitter2,
+    private readonly pricingRegistry: DomainPricingSyncRegistryService,
   ) {}
+
+  /**
+   * Registra el executor de sync de pricing para el botón admin "sincronizar
+   * precios ahora" (Fase 15D.G·1), capability-routed (mismo patrón que el
+   * reconcile registry — el endpoint admin no acopla a este slug).
+   */
+  onModuleInit(): void {
+    this.pricingRegistry.register(ResellerclubPricingSyncCron.SLUG, () =>
+      this.runOnce(),
+    );
+  }
 
   @Cron('0 4 * * *', { name: 'syncResellerclubPricing', timeZone: 'UTC' })
   async handleScheduled(): Promise<void> {
@@ -61,7 +77,7 @@ export class ResellerclubPricingSyncCron {
   }
 
   /** Una pasada. Público para trigger manual (admin) + tests deterministas. */
-  async runOnce(): Promise<PricingSyncSummary> {
+  async runOnce(): Promise<DomainPricingSyncSummary> {
     const { config } = await this.plugin.getApiClient();
     const entries = await this.plugin.getTldPricing();
 
@@ -70,7 +86,7 @@ export class ResellerclubPricingSyncCron {
       config.tldsOffered.map((t) => t.replace(/^\./, '').toLowerCase()),
     );
 
-    const summary: PricingSyncSummary = {
+    const summary: DomainPricingSyncSummary = {
       total: entries.length,
       written: 0,
       skippedManual: 0,
@@ -96,7 +112,7 @@ export class ResellerclubPricingSyncCron {
     entry: PricingEntry,
     config: { markupPercent: number; defaultCurrency: string },
     offered: Set<string>,
-    summary: PricingSyncSummary,
+    summary: DomainPricingSyncSummary,
   ): Promise<void> {
     const tld = entry.tld.toLowerCase();
     if (!offered.has(tld)) {
@@ -199,15 +215,6 @@ interface PricingEntry {
   readonly operation: 'register' | 'renew' | 'transfer' | 'restore';
   readonly years: number;
   readonly cost: { readonly amount: string; readonly currency: string };
-}
-
-export interface PricingSyncSummary {
-  total: number;
-  written: number;
-  skippedManual: number;
-  skippedNotOffered: number;
-  skippedCurrency: number;
-  skippedInvalid: number;
 }
 
 function round2(n: number): number {

@@ -126,6 +126,44 @@ describe('ResellerClubApiClient ↔ MockResellerClubServer — Sprint 15D Fase 1
     expect(id).toMatch(/^\d+$/);
   });
 
+  it('contacts: add → details → modify → details refleja el cambio (15D.G·2)', async () => {
+    const contactId = await client.addContact({
+      name: 'Carla Pérez',
+      company: 'Aelium',
+      email: 'carla@aelium.test',
+      'address-line-1': 'Calle Mayor 1',
+      city: 'Madrid',
+      state: 'Madrid',
+      country: 'ES',
+      zipcode: '28013',
+      'phone-cc': '34',
+      phone: '600111222',
+      'customer-id': '1',
+      type: 'Contact',
+    });
+    expect((await client.getContactDetails(contactId)).name).toBe(
+      'Carla Pérez',
+    );
+
+    await client.modifyContactDetails(contactId, {
+      'contact-id': contactId,
+      name: 'Carla Gómez',
+      company: 'Aelium',
+      email: 'carla@aelium.test',
+      'address-line-1': 'Calle Nueva 2',
+      city: 'Madrid',
+      state: 'Madrid',
+      country: 'ES',
+      zipcode: '28001',
+      'phone-cc': '34',
+      phone: '600111222',
+    });
+    const after = await client.getContactDetails(contactId);
+    expect(after.name).toBe('Carla Gómez');
+    expect(after.address1).toBe('Calle Nueva 2');
+    expect(after.zip).toBe('28001');
+  });
+
   // ─── Ciclo de vida (happy path que OT&E no pudo dar) ────────────────────────
 
   it('register → details (status active, ns, endtime) → register dup = DOMAIN_UNAVAILABLE', async () => {
@@ -233,6 +271,14 @@ describe('ResellerClubApiClient ↔ MockResellerClubServer — Sprint 15D Fase 1
     expect((await client.getDomainDetailsByOrderId(orderId)).entitystatus).toBe(
       'Active',
     );
+  });
+
+  it('deleteDomain elimina el dominio del registrador (15D.G·2)', async () => {
+    const orderId = await client.registerDomain(registerInput());
+    await client.deleteDomain(orderId);
+    await expect(
+      client.getDomainDetailsByOrderId(orderId),
+    ).rejects.toBeInstanceOf(ProvisionerPluginError);
   });
 
   it('searchDomains refleja los dominios registrados', async () => {

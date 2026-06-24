@@ -131,6 +131,9 @@ const ALL_NAV_ITEMS: NavItem[] = [
   // buscador/carrito/detalle cuelgan de /dashboard/domains.
   { label: 'Dominios', href: '/dashboard/domains', requiredModule: 'Service', icon: ICON.domains, section: 'client' },
   { label: 'Mis facturas', href: '/dashboard/billing', requiredModule: 'Invoice', icon: ICON.billing, section: 'client' },
+  // Sprint 15D Fase 15D.G·2 — perfil de cliente + datos de titular (WHOIS).
+  // Módulo 'Dashboard' (todos pasan); editar el titular propaga a los dominios.
+  { label: 'Mi perfil', href: '/dashboard/profile', requiredModule: 'Dashboard', icon: ICON.settings, section: 'client' },
   { label: 'Soporte', href: '/dashboard/support', requiredModule: 'Conversation', icon: ICON.support, section: 'client' },
   // ADR-061 + ADR-075 — entrada propia para que el cliente acceda al
   // comparador (si no tiene plan) o a la gestión (slots/canales/cancelar).

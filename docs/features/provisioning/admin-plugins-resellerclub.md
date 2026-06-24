@@ -1,8 +1,11 @@
 # Plugin ResellerClub — registrar de dominios (admin)
 
-> **Estado:** Fase 15D.E (renovación + lifecycle + crons). Documento operativo
-> seminal — se completa en la Fase 15D.G (cierre del sprint, con el smoke OT&E
-> real). Doctrina:
+> **Estado:** Fase 15D.G (cierre core) — registro + renovación + lifecycle + crons
+> + gestión curada + switch de NS + **gestión de precios admin** + **perfil de
+> titular (WHOIS) self-service** + **recovery hints renew/restore** + **borrado en
+> gracia**, con **red E2E/integración completa contra el `MockResellerClubServer`**.
+> Pendiente del cierre: **smoke OT&E real** (Yasmin, refina los shapes conservadores)
+> · retrospectiva. Doctrina:
 > [ADR-081](../../10-decisions/adr-081-plugin-resellerclub-specifics.md) (specifics RC) ·
 > [ADR-077 A10/A11/A12](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) (sub-contrato registrar) ·
 > [ADR-084](../../10-decisions/adr-084-comercio-dominios-registrar.md) (comercio de dominios) ·
@@ -100,26 +103,73 @@ genérico `POST /services/:id/actions/:slug`; el wrapper canónico hace cache+au
 Tras una acción de gestión exitosa se emite el evento `domain.*_changed`
 correspondiente (Outbox, ADR-084 §5). **Alerta de seguridad:** un cambio de
 nameservers o de lock dispara email + campana al cliente ("verifica que fuiste tú").
-`modify_contacts` llega en 15D.F.2 (flujo de contactos enriquecido). Shapes RC de
-gestión CONSERVADORES hasta el smoke OT&E (Fase G, A1.5).
+Shapes RC de gestión CONSERVADORES hasta el smoke OT&E (Fase G, A1.5).
+
+## Qué hace hoy (Fase 15D.G — cierre core)
+
+- **Gestión de precios admin** (`/admin/domains/pricing`, en la ficha del producto
+  de tipo `domain`): el admin **ve** la matriz `domain_tld_pricing` (coste·markup·
+  precio·margen·fuente), **fuerza** una sincronización con el registrar (botón
+  "Sincronizar precios ahora", capability-routed vía `DomainPricingSyncRegistryService`
+  — NUNCA por slug, R4), y fija/revierte **overrides manuales** por TLD (`source='manual'`,
+  que el cron de sync nunca pisa; guard de margen DOM-INV-3: precio ≥ coste). La card
+  "Ciclo de vida" se oculta para productos de dominio (lo gobierna el registrar).
+- **Perfil de titular (WHOIS) self-service** (`/dashboard/profile` · `GET`/`PUT
+  /domains/registrant`): el cliente edita sus datos de titular (1 por cliente —
+  ADR-081 A2); al guardar se persisten en `User`+`ClientProfile` (tx corta) y se
+  **propagan al registrar** (`contacts/modify` → todos sus dominios, capability-routed)
+  fuera de tx (DC.NEW-66) + verify-after-write. **Aviso ICANN** si cambia el nombre
+  (verificación + lock de transferencia 60d). Si la propagación falla (perfil
+  incompleto → `REGISTRANT_INELIGIBLE`, o proveedor caído), el perfil se guarda
+  igualmente y el resultado lo refleja. *(La inline action per-dominio `modify_contacts`
+  queda como vestigio del contrato — editar el titular es por-cliente, vía el perfil.)*
+- **Recovery hints `renew`/`restore`** (`ServiceRecoveryHint` ext., ADR-077 A5): el
+  plugin mapea **expirado→`renew`** y **redención→`restore`**; el detalle de dominio
+  cliente muestra el CTA correspondiente (renovar = invoice-driven; restaurar = soporte).
+- **Borrado en gracia admin** (`deleteDomain`, ADR-081 A3.1; `POST /admin/domains/services/:id/delete`):
+  acción **destructiva** (≠ `deprovision` no-op) que borra el dominio en el registrar
+  (`domains/delete`, con reembolso si está en gracia) y luego cancela el `service` por
+  el lifecycle canónico (`deprovisionAsAdmin` → audit + `service.cancelled`). Fuera de
+  la ventana de gracia el registrar rechaza y el servicio NO se cancela. En la UI: menú
+  admin del servicio → "Eliminar dominio (gracia)…" con doble confirmación (typing + motivo).
+
+## Cobertura de tests (red de seguridad L20)
+
+CI usa **siempre** el `MockResellerClubServer` (Express, alta fidelidad — modela los
+shapes y errores reales de RC), nunca OT&E live (ADR-081 §11). El flujo de dominios
+está cubierto en cuatro niveles complementarios:
+
+| Suite | Nivel | Qué ejercita |
+|-------|-------|--------------|
+| `api/client.integration.spec.ts` | cliente ↔ mock (unit) | Cada método HTTP del cliente aislado: availability, pricing, register/renew/details, gestión, suspend + errores (auth inválida, premium, `.es` sin NIF). |
+| `resellerclub.plugin.spec.ts` | plugin (cliente mockeado) | Lógica de los handlers con el cliente mockeado: DOM-INV-1 (adopción), DOM-INV-4 (renovación verificada), mapeo de errores RC→canónicos, guardas de `executeAction`. |
+| `resellerclub.plugin.integration.spec.ts` | plugin ↔ mock (unit) | **Vertical de gestión:** `executeAction` (write) → `getServiceInfo` (read `DomainInfo`) contra shapes reales — NS verify-after-write, privacy round-trip, registrar-lock ⇒ auth-code bloqueado, suspend ⇒ `availableActions` reordenadas. |
+| `test/integration/resellerclub-{register,renew,ns-switch,registrant}.e2e-spec.ts` | wrapper + Postgres + mock (e2e) | End-to-end contra Postgres real: advisory lock + persistencia de customer/handles, `expires_at` que avanza (DOM-INV-4), el switch **parking→Aelium** (idempotente + no-clobber), y `updateRegistrantContact` (propaga el WHOIS + `nameChanged` + `domainsAffected`). |
+| `admin-domains.service.spec.ts` · `domain-registrant.service.spec.ts` · `domain-pricing-sync-registry.service.spec.ts` | servicios admin (unit) | Pricing (listar/sync/override con guard de margen) · perfil de titular (persistencia + auto-push best-effort) · `deleteDomain` (borra + cancela) · registry de sync de precios. |
+
+Los `*.e2e-spec.ts` requieren Postgres (`docker compose -f docker/docker-compose.dev.yml up -d postgres`)
+y corren con `pnpm --dir backend test:e2e` **en serie** (`maxWorkers:1` en `jest-e2e.json`):
+comparten el Postgres de dev (quirúrgicos por fila, no truncan tablas) y las secuencias de
+id del mock colisionan en paralelo. El resto corre en la suite unit (`pnpm --dir backend test`).
 
 ## Pendiente (fases siguientes)
 
-- **15D.F.2:** buscador + `POST /domains/check-availability` (REST) + DOM-INV-5 rico
-  pre-checkout (`.es` NIF / `.eu` residencia, `contacts/set-details`) +
-  `modify_contacts` enriquecido + checkout de registro.
+- ~~**15D.F.2:** buscador + `POST /domains/check-availability` (REST) + DOM-INV-5 rico
+  pre-checkout (`.es` NIF / `.eu` residencia)~~ ✅ (PR #113). El checkout de registro se
+  materializó en F.4; `modify_contacts` enriquecido se difirió a 15D.G.
 - ~~**15D.F.3:** zona DNS post-register~~ ✅ — gate Enhance verificado (sin primitiva de
   zona sin website) → **dominio-solo aparca en NS del registrar** ([ADR-082 A4](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md#amendments)); conmuta a Aelium al añadir hosting. Diferido: cancel→SERVFAIL (DC.NEW-71).
 - ~~**15D.F.4:** frontend de dominios~~ ✅ (PR #114) — buscador + gestión + Tienda + carrito único.
-  Diferido: `deleteDomain` admin en gracia (A3.1).
-- **15D.G:** smoke OT&E real (refina los shapes `register`/`details`/gestión
-  conservadores — ADR-081 A1.5) + cierre.
+- **15D.G (cierre):** ~~red E2E/integración (sandbox/mock)~~ ✅ · ~~gestión de precios admin~~ ✅ ·
+  ~~perfil de titular + propagación (`modify_contacts`)~~ ✅ · ~~recovery hints renew/restore~~ ✅ ·
+  ~~`deleteDomain` admin en gracia~~ ✅ · doc operativa ✅. **Falta: smoke OT&E real** (Yasmin
+  — refina los shapes `register`/`details`/gestión conservadores, ADR-081 A1.5) · retrospectiva.
 
 ## Notas operativas
 
 - **Cancelar un servicio de dominio NO borra el dominio en RC** (deprovision =
   no-op): el dominio está pagado y persiste hasta su expiración (ADR-081 A3.1).
-  El borrado en período de gracia (reembolso) será una acción admin explícita
-  (Fase F).
+  El borrado en período de gracia (reembolso) es una **acción admin explícita**
+  (`deleteDomain` — menú admin del servicio, doble confirmación; 15D.G).
 - Testing: CI usa siempre el `MockResellerClubServer`, nunca OT&E live
   (ADR-081 §11).

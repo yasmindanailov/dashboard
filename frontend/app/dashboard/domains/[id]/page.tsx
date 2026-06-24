@@ -100,6 +100,28 @@ export default async function DomainDetailPage({ params }: PageProps) {
           </AlertBanner>
         )}
 
+        {/* Recovery hints de dominio (15D.G·2): expirado → renovar; redención → restaurar. */}
+        {info.recoveryHint === 'renew' && (
+          <AlertBanner variant="warning">
+            Tu dominio ha <strong>expirado</strong> pero aún puedes renovarlo.
+            Renuévalo desde{' '}
+            <Link href="/dashboard/billing" style={{ fontWeight: 600 }}>
+              Mis facturas
+            </Link>{' '}
+            para no perderlo.
+          </AlertBanner>
+        )}
+        {info.recoveryHint === 'restore' && (
+          <AlertBanner variant="danger">
+            Tu dominio está <strong>en redención</strong>. Restaurarlo requiere
+            una tarifa especial —{' '}
+            <Link href="/dashboard/support" style={{ fontWeight: 600 }}>
+              contacta con soporte
+            </Link>
+            .
+          </AlertBanner>
+        )}
+
         {domain && (
           <Card>
             <div style={{ padding: 20 }}>

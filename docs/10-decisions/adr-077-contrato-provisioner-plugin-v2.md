@@ -2030,3 +2030,15 @@ export interface ClientPublicData {
 #### A12.3. Heredable
 
 Cualquier registrar futuro (Hexonet, OpenSRS, Namecheap) consume los mismos campos de `ClientPublicData` para su signup/contact WHOIS — cero cambios en el orquestador ni en el contrato. Coherente con A10 (sub-contrato registrar) + A11 (`ServiceInfo.domain`).
+
+### Amendment A13 (2026-06-24) — el sub-contrato de registrar gana `updateRegistrantContact?` + `deleteDomain?`; `ServiceRecoveryHint` gana `renew`/`restore` (Sprint 15D Fase 15D.G)
+
+**Contexto.** Al cerrar el plugin RC (Fase 15D.G) emergieron dos operaciones de registrar que A10 no había modelado y una extensión de la pista de recuperación A5:
+
+1. **`updateRegistrantContact?(client: ClientPublicData): Promise<RegistrantUpdateResult>`** — propaga el perfil de titular (WHOIS) del cliente al registrar. Modelo **"1 titular/cliente"** (ADR-081 A2): el contacto es compartido por todos sus dominios → una sola modificación los actualiza. `RegistrantUpdateResult = { propagated, domainsAffected, nameChanged }` — `nameChanged` permite a la UI avisar del lock ICANN de 60d. Si el cliente aún no tiene contacto (sin dominios) → `propagated:false` (no-op). Lo invoca el flujo self-service de perfil (`PUT /domains/registrant`), capability-routed.
+2. **`deleteDomain?(service: ServiceWithRelations): Promise<void>`** — borrado **destructivo** del dominio en el registrar dentro del período de gracia (con reembolso). Distinto de `deprovision` (no-op para dominios — el dominio pagado persiste); esto es una acción admin EXPLÍCITA (ADR-081 A3.1). El orquestador cancela el `service` Aelium por separado (lifecycle canónico).
+3. **`ServiceRecoveryHint`** (A5) gana `'renew'` y `'restore'`: para un dominio, `expired→'renew'` (renovable en gracia) y `redemption→'restore'` (recuperable con tarifa especial). El frontend ramifica el CTA explícitamente (detalle de dominio cliente), nunca por `statusReason`.
+
+> **Justificado por:** implementación Fase 15D.G (sesión 2026-06-24). **Compatibilidad:** hacia atrás — ambos métodos son **opcionales** (capability-driven por presencia, mismo molde que `checkDomainAvailability?`/`getTldPricing?` de A10); los dos nuevos valores de la unión `ServiceRecoveryHint` son additivos. NO bumpea `contractVersion` (sigue `'v2'`). Los plugins no-registrar los ignoran.
+
+**Heredable.** Cualquier registrar futuro implementa `updateRegistrantContact?`/`deleteDomain?` por presencia; el flujo de perfil de titular y el borrado en gracia los resuelven por capability, sin acoplar a slug (R4). Specifics RC en [ADR-081 Amendment A6](./adr-081-plugin-resellerclub-specifics.md#amendments).
