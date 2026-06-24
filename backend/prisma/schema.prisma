@@ -587,6 +587,13 @@ model Service {
   billing_cycle       BillingCycle  @default(monthly)
   amount              Decimal       @db.Decimal(10, 2)
   currency            String        @default("EUR") @db.VarChar(3)
+  // ADR-029 (prorrateo de cambio de plan): buffer técnico interno que almacena el
+  // crédito SOBRANTE cuando el crédito por días no consumidos supera el precio del
+  // nuevo plan (sin devolución de dinero — el sobrante se consume en la siguiente
+  // renovación, `BillingLifecycleWorker.generatePendingInvoices`). NO es un wallet
+  // transversal: ADR-029 §"Cuándo revisar" reserva eso a un ADR + tabla dedicada
+  // `credit_transactions`. Distinto de `ClientProfile.credit_balance` (no usado).
+  credit_balance_eur  Decimal       @default(0) @db.Decimal(10, 2)
   next_due_date       DateTime?     @db.Timestamptz()
   next_invoice_date   DateTime?     @db.Timestamptz()
   // Sprint 15D (ADR-082 A2.3): fecha REAL de expiración reportada por el

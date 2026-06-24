@@ -67,7 +67,7 @@
 
 | # | Item | Esfuerzo | Notas |
 |---|------|----------|-------|
-| **P-DEPLOY.1** | **Sprint 14 — Deploy real** (Docker Compose **prod** + Traefik + SSL + Grafana/Prometheus/Loki + pipeline + backups Cloudflare R2 + Sentry real + reglas WAF `/admin/*` + rate limiting diferenciado por portal) | 2-3 sesiones | Dry-run en staging desechable previo + checklist + runbook |
+| **P-DEPLOY.1** | **Sprint 14 — Deploy real** (Docker Compose **prod** + Traefik + SSL + Grafana/Prometheus/Loki + pipeline + backups Cloudflare R2 + Sentry real + reglas WAF `/admin/*` + rate limiting diferenciado por portal **a nivel WAF/Traefik**; el rate limiting de **aplicación** ya está hecho — ADR-016/HIGH-1 cerrado 2026-06-24: `ThrottlerGuard` global + storage Redis + límites en auth) | 2-3 sesiones | Dry-run en staging desechable previo + checklist + runbook |
 | **P-DEPLOY.2** | **Backup + recovery plan documentado** (RTO < 4h, RPO < 6h) | parte de P-DEPLOY.1 | — |
 | **P-DEPLOY.3** | **Cierre ventana aliases REST** ([ADR-068 §3](../10-decisions/adr-068-multi-path-deprecation-headers.md)) — eliminar paths legacy del array `@Controller([...])` antes del primer push productivo | parte de P-DEPLOY.1 | — |
 | **P-DEPLOY.4** | **Outbox extendido a `service.*` y `partner.*`** ([ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md), R8) | sólo si esos módulos están implementados | Hoy `invoice.*` cerrado; `service.*` requiere Sprint 11 Provisioning; `partner.*` requiere P3.17 Partner Module |

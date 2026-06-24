@@ -20,6 +20,7 @@ import {
   ClientSuspendedBannerSection,
   FetchedAtFooterSection,
   MetricsBarSection,
+  PlanChangeCardSection,
   ServiceAuditTabSection,
   ServiceOverviewCardSection,
   SslStatusCardSection,
@@ -115,6 +116,21 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     priority: 350,
     shouldRender: (ctx) => ctx.billingCrossLink !== null,
     component: BillingCrossLinkCardSection,
+  },
+  // Cambio de plan con prorrateo (ADR-029). Bajo facturación; solo servicios
+  // activos no-terminales y no-dominio (los dominios no hacen cambio de ciclo).
+  {
+    id: 'plan-change-card',
+    label: 'Cambiar de plan (prorrateo)',
+    scope: 'both',
+    group: 'summary',
+    column: 'aside',
+    priority: 340,
+    shouldRender: (ctx) =>
+      !ctx.isTerminal &&
+      !ctx.isSuspended &&
+      ctx.service.product_type !== 'domain',
+    component: PlanChangeCardSection,
   },
   {
     id: 'client-help-card',

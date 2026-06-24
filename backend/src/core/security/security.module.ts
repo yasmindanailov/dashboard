@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
 import { SecretVaultService } from './secret-vault.service';
+import { RedisThrottlerStorage } from './redis-throttler.storage';
 
 /**
  * Sprint 15A Fase C (2026-05-05) — SecurityModule canónico.
@@ -19,7 +20,9 @@ import { SecretVaultService } from './secret-vault.service';
 @Global()
 @Module({
   imports: [ConfigModule],
-  providers: [SecretVaultService],
-  exports: [SecretVaultService],
+  // ADR-016: storage Redis del rate limiting, inyectado en `ThrottlerModule`
+  // (app.module). Global → disponible para la factory async del throttler.
+  providers: [SecretVaultService, RedisThrottlerStorage],
+  exports: [SecretVaultService, RedisThrottlerStorage],
 })
 export class SecurityModule {}

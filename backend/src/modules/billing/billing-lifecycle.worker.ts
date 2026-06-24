@@ -103,11 +103,22 @@ export class BillingLifecycleWorker {
         const periodEnd = new Date(periodStart);
         periodEnd.setDate(periodEnd.getDate() + cycleDays);
 
+        // ADR-029: consumir el crédito sobrante de un cambio de plan antes de
+        // cobrar la renovación (sin devolución de dinero). Se aplica como descuento
+        // pre-IVA, acotado al importe de la renovación, y se decrementa el saldo en
+        // el mismo `update` que avanza `next_invoice_date` (cron de líder único).
+        const creditBalance = Number(service.credit_balance_eur);
+        const creditToApply =
+          creditBalance > 0
+            ? Math.min(creditBalance, Number(service.amount))
+            : 0;
+
         await this.billingService.createInvoice({
           user_id: service.user_id,
           billing_profile_id: service.billing_profile_id ?? undefined,
           due_date: service.next_due_date!.toISOString(),
           currency: service.currency,
+          discount_amount: creditToApply > 0 ? creditToApply : undefined,
           items: [
             {
               service_id: service.id,
@@ -128,8 +139,20 @@ export class BillingLifecycleWorker {
 
         await this.prisma.service.update({
           where: { id: service.id },
-          data: { next_invoice_date: nextInvoiceDate },
+          data: {
+            next_invoice_date: nextInvoiceDate,
+            ...(creditToApply > 0
+              ? { credit_balance_eur: { decrement: creditToApply } }
+              : {}),
+          },
         });
+
+        if (creditToApply > 0) {
+          this.logger.log(
+            `Service ${service.id}: ${creditToApply} ${service.currency} de ` +
+              `crédito (ADR-029) aplicados a la renovación.`,
+          );
+        }
 
         this.logger.log(
           `Invoice generated for service ${service.id} (${service.product.name})`,
