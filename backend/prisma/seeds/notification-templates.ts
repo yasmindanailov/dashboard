@@ -1534,6 +1534,193 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       variables: { service_id: 'string', fqdn: 'string', panel_url: 'string' },
     },
 
+    // ───────────── domain.restored (email cliente) — Sprint 15D.II.R ─────────────
+    {
+      event_type: 'domain.restored',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Dominio restaurado — {{fqdn}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Dominio restaurado</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hemos recuperado tu dominio <strong>{{fqdn}}</strong> desde el periodo de
+              redención. Vuelve a estar activo. Te enviamos por separado la factura de la
+              tarifa de restauración.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver mi dominio</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        fqdn: 'string',
+        panel_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+    // ───────────── domain.restored (campana cliente) ─────────────
+    {
+      event_type: 'domain.restored',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Dominio restaurado — {{fqdn}}',
+      body: 'Hemos recuperado tu dominio {{fqdn}} desde redención. Vuelve a estar activo; la tarifa de restauración se factura por separado.',
+      variables: { service_id: 'string', fqdn: 'string', panel_url: 'string' },
+    },
+
+    // ═════════════ Sprint 15D.II.T3 — FSM de transfer-in (ADR-084 §5 + A2) ═════════════
+    // Emitidos por: domain.transfer_initiated (orquestador, Outbox),
+    // domain.transfer_completed (reconcile cron, Outbox),
+    // domain.transfer_failed (reconcile cron, Outbox). Consumidos por
+    // `NotificationsOnDomainTransferListener`. Variables: service_id, fqdn, panel_url
+    // (detalle del dominio) + (failed: reason).
+
+    // ───────────── domain.transfer_initiated (email cliente) ─────────────
+    {
+      event_type: 'domain.transfer_initiated',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Transferencia iniciada — {{fqdn}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #635BFF 0%, #4F46E5 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Transferencia iniciada</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hemos enviado al registrador la transferencia de <strong>{{fqdn}}</strong>. El proceso
+              suele tardar 5–7 días; te avisaremos cuando se complete. No se te cobrará hasta entonces.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver el estado</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        fqdn: 'string',
+        panel_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+    // ───────────── domain.transfer_initiated (campana cliente) ─────────────
+    {
+      event_type: 'domain.transfer_initiated',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Transferencia iniciada — {{fqdn}}',
+      body: 'Hemos enviado al registrador la transferencia de {{fqdn}}. Suele tardar 5–7 días; te avisaremos al completarse.',
+      variables: { service_id: 'string', fqdn: 'string', panel_url: 'string' },
+    },
+
+    // ───────────── domain.transfer_completed (email cliente) ─────────────
+    {
+      event_type: 'domain.transfer_completed',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Dominio transferido — {{fqdn}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Transferencia completada</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              ¡Listo! <strong>{{fqdn}}</strong> ya está gestionado por Aelium. Puedes administrar sus
+              nameservers, privacidad y bloqueo desde tu panel.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Gestionar mi dominio</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        fqdn: 'string',
+        panel_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+    // ───────────── domain.transfer_completed (campana cliente) ─────────────
+    {
+      event_type: 'domain.transfer_completed',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Dominio transferido — {{fqdn}}',
+      body: '{{fqdn}} ya está gestionado por Aelium. Ya puedes administrarlo desde tu panel.',
+      variables: { service_id: 'string', fqdn: 'string', panel_url: 'string' },
+    },
+
+    // ───────────── domain.transfer_failed (email cliente) ─────────────
+    {
+      event_type: 'domain.transfer_failed',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'La transferencia de {{fqdn}} no se completó',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Transferencia no completada</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              La transferencia de <strong>{{fqdn}}</strong> no pudo completarse. Suele deberse al
+              bloqueo de transferencia o a un código de autorización incorrecto en tu registrador
+              actual. Revísalo y vuelve a intentarlo — no se te ha cobrado nada.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Reintentar transferencia</a>
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        fqdn: 'string',
+        panel_url: 'string',
+        reason: 'string?',
+        'recipient.first_name': 'string?',
+      },
+    },
+    // ───────────── domain.transfer_failed (campana cliente) ─────────────
+    {
+      event_type: 'domain.transfer_failed',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'La transferencia de {{fqdn}} no se completó',
+      body: 'La transferencia de {{fqdn}} no pudo completarse. Revisa el bloqueo y el código de autorización en tu registrador actual y reinténtalo — no se te ha cobrado nada.',
+      variables: {
+        service_id: 'string',
+        fqdn: 'string',
+        panel_url: 'string',
+        reason: 'string?',
+      },
+    },
+
     // Sprint 15D Fase 15D.F.1 — alertas de SEGURIDAD de gestión del dominio
     // (cambio de nameservers / bloqueo de registrar). Emitidas por
     // `executeActionForUser` tras la inline action exitosa (Outbox, ADR-084 §5),

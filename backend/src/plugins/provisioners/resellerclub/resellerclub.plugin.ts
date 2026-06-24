@@ -43,6 +43,7 @@ import {
   DeprovisionContext,
   DomainAvailability,
   DomainInfo,
+  DomainSuggestion,
   PROVISIONER_PLUGIN_CONTRACT_VERSION,
   PluginCapabilities,
   PluginManifest,
@@ -951,6 +952,34 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
     );
   }
 
+  /**
+   * `restoreDomain` (ADR-077 A10 additivo / ADR-081 A7.2, 15D.II.R) — **restore
+   * RGP**: recupera un dominio en redención con la tarifa especial. El fee lo cobra
+   * el registrar de forma inmediata e irreversible → la decisión es admin/soporte
+   * (`AdminDomainsService.restoreDomain` resuelve precio + factura + audita). El
+   * plugin SOLO ejecuta el `domains/restore`. Shapes CONSERVADORES hasta el smoke
+   * OT&E (A7.4).
+   */
+  async restoreDomain(service: ServiceWithRelations): Promise<void> {
+    const orderId = service.provider_reference;
+    if (!orderId) {
+      throw new ProvisionerPluginError(
+        `restoreDomain requiere provider_reference (order-id RC) en el servicio ` +
+          `${service.id} — el dominio debe estar registrado.`,
+        'INVALID_STATE',
+        false,
+        undefined,
+        RC_SLUG,
+      );
+    }
+    const { client } = await this.getApiClient();
+    await client.restoreDomain(orderId);
+    this.logger.log(
+      `restoreDomain service=${service.id} (order=${orderId}): dominio ` +
+        `${service.domain ?? '?'} RESTAURADO desde redención (RGP).`,
+    );
+  }
+
   // ─── 3. getStatus() — reconcile read (domains/details, ADR-081 §6) ─────────
 
   async getStatus(service: ServiceWithRelations): Promise<ServiceStatusReport> {
@@ -1344,6 +1373,40 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
     const entry = res[domain.toLowerCase()] ?? Object.values(res)[0];
     const available = entry?.status === 'available';
     return { domain, available, premium: false };
+  }
+
+  /**
+   * `suggestDomainNames` (ADR-077 A10 additivo / ADR-081 A7.3, 15D.II.S) — buscador
+   * rico: sugiere nombres a partir de una palabra clave vía `domains/v5/suggest-names`.
+   * Parseo **defensivo** del shape conservador `{ sld: { tld: status } }` (refinar
+   * smoke G, A7.4). Devuelve solo nombre + disponibilidad; el precio lo resuelve
+   * `DomainsService` server-side (R5). El plugin no decide qué se vende.
+   */
+  async suggestDomainNames(
+    keyword: string,
+    opts: { tlds?: readonly string[]; maxResults?: number } = {},
+  ): Promise<readonly DomainSuggestion[]> {
+    const kw = keyword.trim().toLowerCase();
+    if (kw.length === 0) return [];
+    const { client } = await this.getApiClient();
+    const res = await client.suggestNames(kw, {
+      tlds: opts.tlds,
+      maxResults: opts.maxResults,
+    });
+    const suggestions: DomainSuggestion[] = [];
+    for (const [sld, byTld] of Object.entries(res ?? {})) {
+      if (!sld || typeof byTld !== 'object' || byTld === null) continue;
+      for (const [tld, status] of Object.entries(byTld)) {
+        const cleanTld = tld.toLowerCase().replace(/^\./, '');
+        suggestions.push({
+          fqdn: `${sld.toLowerCase()}.${cleanTld}`,
+          sld: sld.toLowerCase(),
+          tld: cleanTld,
+          available: String(status).toLowerCase() === 'available',
+        });
+      }
+    }
+    return suggestions;
   }
 
   /**

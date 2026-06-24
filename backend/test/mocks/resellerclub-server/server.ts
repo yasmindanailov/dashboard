@@ -213,6 +213,8 @@ interface MockRcDomain {
   domsecret: string;
   /** Fase 15D.II.T1 — estado del transfer-in (undefined = dominio normal, no transferido). */
   transferStatus?: 'submitted' | 'completed' | 'failed' | 'cancelled';
+  /** Fase 15D.II.R — dominio en redención (RGP); `domains/restore` lo recupera. */
+  inRedemption?: boolean;
 }
 
 export interface MockResellerClubState {
@@ -325,6 +327,39 @@ function registerRoutes(
         classkey: TLD_CLASSKEY[tld] ?? `dot${tld}`,
         status: availabilityFor(state, fqdn, sld),
       };
+    }
+    res.json(out);
+  });
+
+  // Buscador rico (15D.II.S): sugiere nombres a partir de una palabra clave. La v5
+  // está viva (la v4 devuelve 500, A1.5). Shape CONSERVADOR: `{ sld: { tld: status } }`
+  // — variaciones DETERMINISTAS de la keyword (sin azar) × TLDs pedidos.
+  app.get('/domains/v5/suggest-names.json', (req, res) => {
+    const p = readParams(req);
+    const keyword = (str(p, 'keyword') ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+    const tlds = arr(p, 'tld-only');
+    const max = num(p, 'max-result') ?? 10;
+    if (keyword.length === 0 || tlds.length === 0) {
+      res.json({});
+      return;
+    }
+    const variants = [
+      keyword,
+      `${keyword}app`,
+      `${keyword}hq`,
+      `my${keyword}`,
+      `get${keyword}`,
+      `${keyword}online`,
+    ].slice(0, Math.max(1, Math.min(max, 6)));
+    const out: Record<string, Record<string, RcAvailabilityStatus>> = {};
+    for (const sld of variants) {
+      const byTld: Record<string, RcAvailabilityStatus> = {};
+      for (const tld of tlds) {
+        byTld[tld] = availabilityFor(state, `${sld}.${tld}`, sld);
+      }
+      out[sld] = byTld;
     }
     res.json(out);
   });
@@ -568,6 +603,37 @@ function registerRoutes(
     state.domainsByOrderId.delete(d.orderid);
     state.domainsByName.delete(d.domainname);
     res.json({ entityid: Number(d.orderid), actionstatus: 'Success' });
+  });
+
+  // Restore RGP (15D.II.R): recupera un dominio en redención → active + extiende
+  // endtime (RC renueva 1 año al restaurar). Fuera de redención RC también acepta
+  // (es idempotente para el mock); el fee lo controla Aelium.
+  app.post('/domains/restore.json', (req, res) => {
+    const d = state.domainsByOrderId.get(
+      str(readParams(req), 'order-id') ?? '',
+    );
+    if (!d) {
+      rcError(res, 'Order not found', { lowercase: true });
+      return;
+    }
+    d.inRedemption = false;
+    const now = Math.floor(Date.now() / 1000);
+    if (d.endtime < now) d.endtime = now + 365 * 24 * 3600;
+    res.json({ entityid: Number(d.orderid), actionstatus: 'Success' });
+  });
+
+  // Test-only (15D.II.R): marca un order-id como en redención (espejo de
+  // `/__test__/advance-transfer`) para ejercitar el flujo restore de extremo a extremo.
+  app.post('/__test__/set-redemption', (req, res) => {
+    const d = state.domainsByOrderId.get(
+      str(readParams(req), 'order-id') ?? '',
+    );
+    if (!d) {
+      res.status(404).json({ error: 'order not found' });
+      return;
+    }
+    d.inRedemption = true;
+    res.json({ ok: true });
   });
 }
 
@@ -823,6 +889,9 @@ function sendDomainDetails(res: Response, d: MockRcDomain | undefined): void {
   if (d.transferStatus === 'submitted') body.actionstatus = 'InProgress';
   else if (d.transferStatus === 'failed') body.actionstatus = 'Failed';
   else if (d.transferStatus === 'cancelled') body.actionstatus = 'Cancelled';
+  // Redención (15D.II.R): el eje de estado lleva el marcador RGP que
+  // `mapRcDomainStatus` detecta (/redemption|rgp/) → lifecycle='redemption'.
+  if (d.inRedemption) body.orderstatus = ['renewhold', 'rgp'];
   res.json(body);
 }
 

@@ -363,6 +363,8 @@ export class BillingController {
             kind: 'domain',
             domainName: it.domain_name as string,
             years: it.years as number,
+            // 15D.II.T2c.3 — `transfer_in` activa deferBilling (cobro al completar).
+            operation: it.operation ?? 'register',
           },
     );
 
@@ -380,11 +382,14 @@ export class BillingController {
       items,
       billingProfileId: dto.billing_profile_id,
     });
+    // 15D.II.T2c.3 — `invoice` es `null` cuando el carrito es solo `transfer_in`
+    // (deferBilling: cobro al completar, ADR-084 A2.3). El frontend trata el caso
+    // "sin factura" (no muestra factura, recuerda aportar el auth-code).
     return {
-      invoice_id: result.invoice.id,
-      invoice_number: result.invoice.invoice_number,
-      total: result.invoice.total.toString(),
-      currency: result.invoice.currency,
+      invoice_id: result.invoice?.id ?? null,
+      invoice_number: result.invoice?.invoice_number ?? null,
+      total: result.invoice?.total.toString() ?? null,
+      currency: result.invoice?.currency ?? null,
       services: result.services.map((s) => ({ id: s.id, domain: s.domain })),
     };
   }

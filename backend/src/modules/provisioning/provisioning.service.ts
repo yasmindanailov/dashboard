@@ -134,6 +134,19 @@ function humanizeServiceDriftType(type: string): string {
 }
 
 /**
+ * Sprint 15D.II.T2c.3 — lee `services.metadata.transfer_state` (FSM de transfer-in)
+ * de forma defensiva. `null` si el service no es un transfer-in. NUNCA toca el
+ * auth-code (que no se persiste — R12).
+ */
+function readTransferState(metadata: unknown): string | null {
+  const md =
+    metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>)
+      : {};
+  return typeof md.transfer_state === 'string' ? md.transfer_state : null;
+}
+
+/**
  * ProvisioningService â€” Sprint 11 Fase 11.D (ADR-077 Â§1+Â§2+Â§5 + ADR-070 Â§A/B/C).
  *
  * Capa REST que expone al frontend (cliente + admin) los servicios y las
@@ -349,6 +362,13 @@ export class ProvisioningService {
       // setting (frontend cae al comportamiento legacy sin coloreo —
       // capability-driven, heredable).
       quota_alert_threshold_pct: number | null;
+      // Sprint 15D.II.T2c.3 — estado de la FSM de transfer-in
+      // (`services.metadata.transfer_state`). `null` para services que no son un
+      // transfer-in (capability-driven por presencia, mismo molde que los campos
+      // de arriba). El detalle de dominio cliente lo usa para mostrar el formulario
+      // del auth-code (pending/awaiting_auth) o el aviso "transferencia en curso"
+      // (submitted). NO es secreto (el auth-code nunca se persiste, R12).
+      transfer_state: string | null;
     };
     info: ServiceInfo;
   }> {
@@ -391,6 +411,8 @@ export class ProvisioningService {
       // resolver el plugin, si declara `has_metrics`). En shortcircuits
       // terminales el `MetricsBar` no se renderiza — queda `null`.
       quota_alert_threshold_pct: null as number | null,
+      // Sprint 15D.II.T2c.3: estado de la FSM de transfer-in (null si no aplica).
+      transfer_state: readTransferState(service.metadata),
     };
 
     // Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10):

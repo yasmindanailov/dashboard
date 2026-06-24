@@ -3,10 +3,13 @@
 > **Estado:** **15D core CERRADO** (Fase 15D.G mergeada) — registro + renovación +
 > lifecycle + crons + gestión curada + switch de NS + gestión de precios admin +
 > perfil de titular (WHOIS) self-service + recovery hints + borrado en gracia.
-> **Sprint 15D.II (transfer-in) — backend EN CURSO:** FSM + iniciación síncrona +
-> motor de reconcile + **cobro al completar** (ver §transfer-in abajo); pendiente la
-> capa de entrada (checkout/endpoint) + frontend + T3/R/S/G. Pendiente del cierre
-> de 15D core: **smoke OT&E real** (Yasmin, refina los shapes conservadores) ·
+> **Sprint 15D.II (transfer-in) — flujo cliente COMPLETO (backend EN CURSO):** FSM +
+> iniciación síncrona + motor de reconcile + **cobro al completar** + **carrito único**
+> (T2c.3) + **cierre de la FSM** (T3: eventos `transfer_initiated/failed` + notifs +
+> zona DNS al completar + reintento A2.5) + **restore RGP admin** (R) + **buscador rico**
+> (S: suggest-names + bulk multi-nombre); pendiente **G** (smoke OT&E real + E2E + cierre)
+> — ver §transfer-in / §restore / §buscador rico abajo. Pendiente del cierre de 15D core:
+> **smoke OT&E real** (Yasmin, refina los shapes conservadores) ·
 > retrospectiva. Doctrina:
 > [ADR-081](../../10-decisions/adr-081-plugin-resellerclub-specifics.md) (specifics RC) ·
 > [ADR-077 A10/A11/A12](../../10-decisions/adr-077-contrato-provisioner-plugin-v2.md) (sub-contrato registrar) ·
@@ -147,15 +150,61 @@ pending → awaiting_auth → submitted → {completed | failed} | cancelled
 
 > **Cobro AL COMPLETAR (decisión Yasmin):** a diferencia de un registro (que se factura en el checkout), un transfer **no se cobra al pedirlo** — la factura se genera cuando el transfer **completa**. Un fallo/cancelación no cobra; el reintento no re-cobra.
 
-Construido en backend (verde + boot smoke 4/4 en cada fase):
+> **Entrada = CARRITO ÚNICO (T2c.3):** el transfer se pide como cualquier compra. El checkout flagea los ítems `transfer_in` como **`deferBilling`** → se crea el `service` `pending` (`transfer_state='pending'`) **excluido de la factura** (la factura es **nullable** si el carrito es solo-transfers). El **EPP auth-code** se aporta **después** del checkout (fuera del carrito: es secreto R12 y no debe bloquear el checkout en la API del registrar).
+
+Construido (backend + entrada, verde + boot smoke 4/4 en cada fase):
 
 - **Transporte** (T1): cliente RC `validateTransfer`/`transferDomain`/`resendTransferRfa`/`cancelTransfer`; el `MockResellerClubServer` simula la FSM (endpoint test-only `/__test__/advance-transfer`).
 - **Plugin FSM-init** (T2a): `provision('transfer_in')` valida transferibilidad e inicia el transfer; sin auth-code → `awaiting_auth`. **DOM-INV-6** (exactly-once de iniciación, espejo de DOM-INV-1): reintento puro por `provider_reference` + adopción de un transfer ya en curso bajo nuestra cuenta (recovery tras crash). Arranca **asíncrono** (no activa el servicio).
 - **Motor de la FSM** (T2b): el reconcile cron avanza los transfers en curso — `getTransferStatus` (lee `domains/details`→`actionstatus`) + `advanceTransfer`: `completed` → activa el servicio + puebla `expires_at` + emite `domain.transfer_completed` (Outbox); `failed`/`cancelled` → cierra la FSM (fail-soft si RC caído).
 - **Iniciación síncrona** (T2c.1): `ProvisioningOrchestratorService.initiateTransferIn(serviceId, authCode)` — el **EPP auth-code** viaja **en memoria** (R12: NUNCA por la cola Redis ni por `metadata`); `INVALID_AUTH_CODE` → `awaiting_auth` (el cliente reenvía un código corregido).
 - **Cobro al completar** (T2c.2): `GenerateInvoiceOnDomainTransferCompletedListener` (billing) consume `domain.transfer_completed` → genera la factura del transfer con el precio snapshotado en `services.amount` (idempotente + best-effort; **R4**: billing consume el evento, el reconcile no conoce billing).
+- **Entrada — carrito único** (T2c.3): el checkout (`POST /billing/checkout/items`) acepta ítems `domain` con `operation:'transfer_in'` y los crea como **`deferBilling`** (service `pending`, `transfer_state='pending'`, **fuera de la factura**; factura nullable si el carrito es solo-transfers). El cliente aporta el auth-code después vía **`POST /domains/:id/transfer/submit-auth`** (owner/admin + guarda de estado FSM; R12: el código viaja en memoria a `initiateTransferIn`). **`POST /domains/transfer-quote`** devuelve el precio de transfer (server-side R5) para el carrito. **Frontend:** pestaña *Transferir* en `/dashboard/store/domains` (misma cesta única que *Registrar*) + panel del código EPP en `/dashboard/domains/:id` (gated por `service.transfer_state`).
+- **Cierre de la FSM** (T3): **eventos** `domain.transfer_initiated` (orquestador, al llegar a `submitted`) + `domain.transfer_failed` (reconcile `advanceTransfer`, con `reason`) vía **Outbox** (R8). **Notificaciones** (`NotificationsOnDomainTransferListener` → email + campana al cliente en iniciada/completada/fallida; CTA al detalle del dominio). **Zona DNS al completar** ([ADR-082 A5](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md#amendments)): `ReconcileDomainNsOnTransferCompletedListener` sobre `domain.transfer_completed` → si hay **hosting hermano** activo, conmuta los NS a Aelium (`switchToAeliumIfParked`, capability-routed R4, idempotente, fail-soft); **sin hosting → aparca** (mismo modelo que register A4); **crea, no migra** (los records BYOD del registrar de origen no se importan en v1). **Reintento** (A2.5): `submit-auth` también acepta `failed`/`cancelled` → limpia `provider_reference` + reabre a `pending` + reinicia con un nuevo código (no re-cobra); el panel del detalle muestra el formulario de reintento.
 
-**Pendiente de 15D.II** (próximas fases): **T2c.3** capa de entrada (**carrito único** — el checkout flagea `transfer_in` como `deferBilling`/excluido de la factura + endpoint `submit-auth` → `initiateTransferIn`; auth-code post-checkout) + **frontend** · **T3** eventos `domain.transfer_initiated/failed` + notifs + zona DNS al completar · **R** restore (RGP) · **S** buscador rico (suggest/bulk) · **G** smoke OT&E real + cierre. Shapes de transfer **CONSERVADORES** hasta el smoke (A7.4).
+## Restore RGP (Fase 15D.II.R) — admin/soporte
+
+Un dominio en **redención** (`recoveryHint='restore'`, tras expirar más allá de la gracia)
+se recupera con la **tarifa especial de RGP** del registrar. **Decisión Yasmin (2026-06-24):
+es una acción admin/soporte** (espejo de `deleteDomain`), no self-service — el fee de RGP lo
+cobra el registrar de forma **inmediata e irreversible** al llamar a `domains/restore`, así que
+el agente coordina/confirma el coste con el cliente.
+
+- **Acción admin** (`POST /admin/domains/services/:id/restore`, `AdminDomainsService.restoreDomain`,
+  capability-routed R4): **(1)** resuelve el fee de restore **antes** de restaurar (server-side R5,
+  op `restore` de `domain_tld_pricing`, 1 año; bloquea si no está tarifado → `RESTORE_NOT_PRICED`, o
+  si el margen es inválido DOM-INV-3 → `RESTORE_MARGIN_INVALID` — no se restaura lo que no sabemos
+  cobrar); **(2)** `plugin.restoreDomain` (`domains/restore`); si falla, no se factura ni se emite nada;
+  **(3)** emite `domain.restored` (Outbox, R8) + audita el cambio (R3) + invalida la cache de `getServiceInfo`.
+- **Cobro del fee:** `GenerateInvoiceOnDomainRestoredListener` (billing) consume `domain.restored` →
+  factura el fee con el precio snapshotado en el evento (idempotente por marcador en la descripción;
+  **R4**: billing consume el evento, el admin service no conoce billing).
+- **Notificación:** `NotificationsOnDomainLifecycleListener` consume `domain.restored` → email + campana
+  "dominio restaurado" al cliente.
+- **Frontend admin:** menú del servicio → "Restaurar dominio (RGP)…" (gated `product_type='domain'` +
+  `recoveryHint='restore'`) con doble confirmación (typing + motivo) y aviso del fee. El CTA cliente del
+  detalle sigue dirigiendo a soporte (A6.3); el restore lo ejecuta el agente.
+
+## Buscador rico (Fase 15D.II.S)
+
+El buscador de dominios gana dos capacidades (ADR-081 A7.3), todo sobre el contrato
+additivo `suggestDomainNames?()` (capability-driven por presencia, R4) + el precio
+**siempre server-side** (R5, desde `domain_tld_pricing`):
+
+- **Sugerencias** (`POST /domains/suggest`, `DomainsService.suggestDomains`): a partir de
+  una palabra clave, el registrar propone nombres alternativos (RC `domains/v5/suggest-names`
+  — la **v5** está viva; la v4 devuelve HTTP 500, A1.5). `DomainsService` los **enriquece con
+  el precio de venta** y devuelve solo los **comprables** (disponibles + tarifados + no premium).
+  **Fail-soft:** si el registrar no soporta sugerencias o falla, devuelve lista vacía (el buscador
+  exacto sigue funcionando). Shapes del suggest **CONSERVADORES** hasta el smoke OT&E (A7.4).
+- **Búsqueda en bloque** (`POST /domains/check-availability-bulk`, `checkAvailabilityBulk`):
+  comprueba **varios SLDs** × las extensiones ofertadas en una operación (reusa la lógica
+  per-SLD; resuelve registrar + pricing una sola vez; deduplica + capa el fan-out al registrar).
+- **Frontend** (`/dashboard/store/domains`, isla `DomainSearch`): **un** nombre → resultados por
+  TLD + sección *Sugerencias disponibles*; **varios** nombres (separados por coma/espacio) →
+  búsqueda en bloque agrupada por nombre. Todo añade al mismo carrito único. IDN (punycode) → v1.1.
+
+**Pendiente de 15D.II** (próxima fase): **G** smoke OT&E real (transfer/restore/suggest) + E2E del flujo transfer + cierre + retrospectiva. Shapes de transfer/restore/suggest **CONSERVADORES** hasta el smoke (A7.4). **Nota operativa:** las plantillas de notificación nuevas (transfer ×6 + restore ×2) requieren re-seedear (`prisma/seeds/notification-templates.ts`).
 
 ## Cobertura de tests (red de seguridad L20)
 
@@ -197,3 +246,29 @@ id del mock colisionan en paralelo. El resto corre en la suite unit (`pnpm --dir
   (`deleteDomain` — menú admin del servicio, doble confirmación; 15D.G).
 - Testing: CI usa siempre el `MockResellerClubServer`, nunca OT&E live
   (ADR-081 §11).
+
+## Probar en local sin OT&E (mock offline, dev)
+
+OT&E (`test.httpapi.com`) está tras Cloudflare y exige **IP whitelisteada** en el
+panel RC (DC.NEW-63). Si la IP de salida no está autorizada, toda llamada en vivo
+devuelve **WAF 403** y el buscador/transfer/restore no traen datos reales. Para
+probar el comercio de dominios **offline** (deterministas, sin OT&E) se arranca el
+`MockResellerClubServer` como backend del plugin:
+
+```
+pnpm --dir backend rc:mock        # arranca el mock en :3099 (déjalo corriendo)
+pnpm --dir backend rc:mock-on     # apunta el plugin al mock (config.__base_url_override; sin reiniciar el backend)
+#  …probar en el dashboard…
+pnpm --dir backend rc:mock-off    # revertir → vuelve a OT&E (environment)
+```
+
+El plugin recoge el cambio en la **siguiente llamada** (`getApiClient` relee el
+install; `updated_at` invalida el cache). Convenciones del mock para probar en la
+Tienda (`/dashboard/store/domains`): **registrar** = cualquier nombre (→ disponible);
+**transferir** = SLD que contenga `taken` (p.ej. `mitaken.com` → transferible;
+auth-code: cualquiera salvo `INVALID`/`WRONG`); `google`/`*taken*` = ocupado;
+**sugerencias/bulk** funcionan. El `restore` necesita además un dominio en redención
+(registrar uno → `POST /domains/restore.json`… vía el `/__test__/set-redemption` del
+mock + reconcile). El seed dev (`sample-domain-commerce`) ya tarifa register/renew/
+transfer/restore. **Solo dev** — el `__base_url_override` no pasa el `configSchema`
+(`additionalProperties:false`), así que en producción se ignora/rechaza.

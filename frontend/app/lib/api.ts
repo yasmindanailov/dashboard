@@ -1883,6 +1883,14 @@ export interface ServiceDetailResponse {
      * (sin coloreo). Heredable a todo plugin con `has_metrics`.
      */
     quota_alert_threshold_pct: number | null;
+    /**
+     * Sprint 15D.II.T2c.3 — estado de la FSM de transfer-in
+     * (`services.metadata.transfer_state`). `null`/ausente si el service no es un
+     * transfer-in (capability-driven por presencia). El detalle de dominio cliente
+     * lo usa para mostrar el formulario del código EPP (`pending`/`awaiting_auth`)
+     * o el aviso "transferencia en curso" (`submitted`). NO es secreto.
+     */
+    transfer_state?: string | null;
   };
   info: ServiceInfo;
 }

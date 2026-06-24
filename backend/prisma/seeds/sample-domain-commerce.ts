@@ -20,8 +20,9 @@ import { SecretVaultService } from '../../src/core/security/secret-vault.service
  *      env vars `RESELLERCLUB_OTE_*` están completas (mismo patrón que enhance).
  *   2. Producto "Dominio" (`type='domain'`, provisioner=`resellerclub`) — un único
  *      producto por registrar (ADR-084 §1). NO lleva `ProductPricing`.
- *   3. Filas `domain_tld_pricing` (register + renew, 1 año, EUR) para los TLDs
- *      ofertados — lo que en producción rellena el cron `sync-resellerclub-pricing`.
+ *   3. Filas `domain_tld_pricing` (register + renew + transfer + restore, 1 año,
+ *      EUR) para los TLDs ofertados — lo que en producción rellena el cron
+ *      `sync-resellerclub-pricing`. Cubre buscador/checkout + transfer + restore.
  *
  * Guardas: skip si `NODE_ENV === 'production'`. Idempotente (upsert). Las filas
  * de precio se siembran SIEMPRE en dev (catálogo); el `plugin_installs` solo si
@@ -47,6 +48,12 @@ const TLD_COSTS: Readonly<Record<string, string>> = {
   es: '6.00',
   eu: '5.50',
 };
+
+/**
+ * Tarifa RGP de muestra (15D.II.R) — el restore es caro y ~plano por TLD. Permite
+ * probar el restore admin sin `RESTORE_NOT_PRICED`.
+ */
+const RESTORE_COST = '60.00';
 
 export async function seedSampleDomainCommerce(
   prisma: PrismaClient,
@@ -130,17 +137,25 @@ async function seedDomainProduct(prisma: PrismaClient): Promise<void> {
   );
 }
 
-/** Filas `domain_tld_pricing` de muestra (register + renew, 1 año, EUR). */
+/**
+ * Filas `domain_tld_pricing` de muestra (register + renew + transfer + restore, 1
+ * año, EUR). transfer ≈ coste de register; restore = tarifa RGP plana (alta). Cubre
+ * los buscadores (15D.F/15D.II.S), el cobro del transfer (15D.II.T) y el restore
+ * (15D.II.R) sin depender del cron de pricing.
+ */
 async function seedTldPricing(prisma: PrismaClient): Promise<void> {
-  const operations: DomainPriceOperation[] = [
-    DomainPriceOperation.register,
-    DomainPriceOperation.renew,
-  ];
   let count = 0;
-  for (const [tld, costStr] of Object.entries(TLD_COSTS)) {
-    const cost = new Prisma.Decimal(costStr);
-    const price = cost.mul(1 + MARKUP_PERCENT / 100).toDecimalPlaces(2);
-    for (const operation of operations) {
+  for (const [tld, registerCost] of Object.entries(TLD_COSTS)) {
+    // Coste mayorista por operación: transfer ≈ register; restore = RGP plano.
+    const costByOp: Array<[DomainPriceOperation, string]> = [
+      [DomainPriceOperation.register, registerCost],
+      [DomainPriceOperation.renew, registerCost],
+      [DomainPriceOperation.transfer, registerCost],
+      [DomainPriceOperation.restore, RESTORE_COST],
+    ];
+    for (const [operation, costStr] of costByOp) {
+      const cost = new Prisma.Decimal(costStr);
+      const price = cost.mul(1 + MARKUP_PERCENT / 100).toDecimalPlaces(2);
       await prisma.domainTldPricing.upsert({
         where: {
           registrar_slug_tld_operation_years_price_currency: {
@@ -171,7 +186,7 @@ async function seedTldPricing(prisma: PrismaClient): Promise<void> {
     }
   }
   console.log(
-    `  💶 domain_tld_pricing: ${count} filas (register+renew × 5 TLDs).`,
+    `  💶 domain_tld_pricing: ${count} filas (register+renew+transfer+restore × 5 TLDs).`,
   );
 }
 

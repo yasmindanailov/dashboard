@@ -32,6 +32,25 @@ export interface CheckDomainAvailabilityResponse {
   results: DomainAvailabilityResult[];
 }
 
+/* ── Buscador rico (Sprint 15D.II.S) ── */
+
+/** Disponibilidad de varios SLDs (POST /domains/check-availability-bulk). */
+export interface BulkAvailabilityResponse {
+  results: Array<{ sld: string; results: DomainAvailabilityResult[] }>;
+}
+
+/** Una sugerencia comprable del buscador rico (POST /domains/suggest). */
+export interface DomainSuggestionResult {
+  fqdn: string;
+  tld: string;
+  price: DomainPrice;
+}
+
+export interface DomainSuggestionsResponse {
+  keyword: string;
+  results: DomainSuggestionResult[];
+}
+
 /* ── "Mis dominios" (GET /domains) ── */
 
 export interface DomainListItem {
@@ -50,4 +69,24 @@ export interface DomainListItem {
 export interface ListDomainsResponse {
   data: DomainListItem[];
   meta: { total: number; page: number; limit: number; totalPages: number };
+}
+
+/* ── Transfer-in (Sprint 15D.II.T2c.3) ── */
+
+/** Cotización de transferencia de un FQDN (POST /domains/transfer-quote). */
+export interface DomainTransferQuote {
+  fqdn: string;
+  tld: string;
+  /** El TLD se transfiere (precio activo + margen válido) → añadible al carrito. */
+  offered: boolean;
+  /** Precio de venta del transfer (server-side). Solo si `offered`. */
+  price?: DomainPrice;
+}
+
+/** Estado de un transfer-in tras aportar el auth-code (submit-auth). */
+export interface DomainTransferStatus {
+  id: string;
+  status: string;
+  /** Estado de la FSM (`pending`/`awaiting_auth`/`submitted`/...). */
+  transfer_state: string;
 }

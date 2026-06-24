@@ -27,6 +27,7 @@ import { AdminDomainsService, DomainPricingRow } from './admin-domains.service';
 import {
   DeleteDomainDto,
   ListDomainPricingQueryDto,
+  RestoreDomainDto,
   SetManualPriceDto,
 } from './dto/domain-pricing.dto';
 
@@ -108,6 +109,29 @@ export class AdminDomainsController {
     @Body() dto: DeleteDomainDto,
   ): Promise<{ id: string; status: string }> {
     return this.admin.deleteDomain(id, dto.reason, {
+      userId: req.user.id,
+      ipAddress: req.ip ?? '0.0.0.0',
+      userAgent: req.headers['user-agent'] ?? null,
+    });
+  }
+
+  @Post('services/:id/restore')
+  @HttpCode(HttpStatus.OK)
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
+  @ApiOperation({
+    summary:
+      'Restaura un dominio en redención (RGP, fee especial) y factura el cobro.',
+  })
+  async restoreDomain(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RestoreDomainDto,
+  ): Promise<{
+    id: string;
+    status: string;
+    fee: { amount: string; currency: string };
+  }> {
+    return this.admin.restoreDomain(id, dto.reason, {
       userId: req.user.id,
       ipAddress: req.ip ?? '0.0.0.0',
       userAgent: req.headers['user-agent'] ?? null,

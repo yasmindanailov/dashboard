@@ -18,13 +18,18 @@ describe('AdminDomainsService', () => {
       update: jest.Mock;
     };
     service: { findUnique: jest.Mock };
+    $transaction: jest.Mock;
   };
   let registry: { getByCapability: jest.Mock; get: jest.Mock };
   let pricingSync: { hasExecutor: jest.Mock; runFor: jest.Mock };
   let provisioning: { deprovisionAsAdmin: jest.Mock };
+  let outbox: { enqueue: jest.Mock };
+  let audit: { logChange: jest.Mock };
+  let cache: { invalidate: jest.Mock };
   let plugin: {
     capabilities: { is_domain_registrar: boolean };
     deleteDomain: jest.Mock;
+    restoreDomain: jest.Mock;
   };
   let service: AdminDomainsService;
 
@@ -32,9 +37,12 @@ describe('AdminDomainsService', () => {
     return {
       id: 'svc-1',
       user_id: 'u1',
+      status: 'active',
       domain: 'example.com',
       provider_reference: '700123',
       provisioner_slug: 'resellerclub',
+      billing_profile_id: null,
+      next_due_date: null,
       product: {
         id: 'p',
         slug: 's',
@@ -71,6 +79,7 @@ describe('AdminDomainsService', () => {
     plugin = {
       capabilities: { is_domain_registrar: true },
       deleteDomain: jest.fn().mockResolvedValue(undefined),
+      restoreDomain: jest.fn().mockResolvedValue(undefined),
     };
     prisma = {
       domainTldPricing: {
@@ -85,6 +94,9 @@ describe('AdminDomainsService', () => {
       service: {
         findUnique: jest.fn().mockResolvedValue(domainServiceRow()),
       },
+      $transaction: jest
+        .fn()
+        .mockImplementation((cb: (tx: unknown) => unknown) => cb(prisma)),
     };
     registry = {
       getByCapability: jest.fn().mockReturnValue({ slug: 'resellerclub' }),
@@ -108,11 +120,17 @@ describe('AdminDomainsService', () => {
         cancellation_reason: 'admin_override',
       }),
     };
+    outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    audit = { logChange: jest.fn().mockResolvedValue(undefined) };
+    cache = { invalidate: jest.fn().mockResolvedValue(undefined) };
     service = new AdminDomainsService(
       prisma as never,
       registry as never,
       pricingSync as never,
       provisioning as never,
+      outbox as never,
+      audit as never,
+      cache as never,
     );
   });
 
@@ -223,6 +241,105 @@ describe('AdminDomainsService', () => {
     prisma.service.findUnique.mockResolvedValue(null);
     await expect(
       service.deleteDomain('svc-1', 'x', ACTOR),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  // ─── restoreDomain (RGP) — Sprint 15D.II.R ─────────────────────────────
+  function restoreRow(overrides: Record<string, unknown> = {}) {
+    return row({
+      operation: 'restore',
+      cost_amount: new Prisma.Decimal('60.00'),
+      price_amount: new Prisma.Decimal('90.00'),
+      ...overrides,
+    });
+  }
+
+  it('restoreDomain: restaura en el registrar + emite domain.restored + audita + invalida cache + factura fee', async () => {
+    prisma.domainTldPricing.findUnique.mockResolvedValue(restoreRow());
+
+    const res = await service.restoreDomain('svc-1', 'cliente lo pidió', ACTOR);
+
+    // Resuelve el precio de restore ANTES de restaurar (op=restore, 1 año).
+    const priceCalls = prisma.domainTldPricing.findUnique.mock.calls as Array<
+      [
+        {
+          where: {
+            registrar_slug_tld_operation_years_price_currency: {
+              operation: string;
+            };
+          };
+        },
+      ]
+    >;
+    expect(
+      priceCalls[0][0].where.registrar_slug_tld_operation_years_price_currency
+        .operation,
+    ).toBe('restore');
+
+    expect(plugin.restoreDomain).toHaveBeenCalledTimes(1);
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      prisma,
+      'domain.restored',
+      expect.objectContaining({
+        service_id: 'svc-1',
+        fqdn: 'example.com',
+        amount: 90,
+        currency: 'EUR',
+      }),
+    );
+    expect(audit.logChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'domain.restored',
+        user_id: 'admin-1',
+      }),
+    );
+    expect(cache.invalidate).toHaveBeenCalledWith('svc-1');
+    expect(res.fee).toEqual({ amount: '90.00', currency: 'EUR' });
+  });
+
+  it('restoreDomain sin tarifa de restore → ServiceUnavailable (no restaura)', async () => {
+    prisma.domainTldPricing.findUnique.mockResolvedValue(null);
+    await expect(
+      service.restoreDomain('svc-1', 'x', ACTOR),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(plugin.restoreDomain).not.toHaveBeenCalled();
+    expect(outbox.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('restoreDomain con margen inválido (cost>price) → BadRequest (no restaura)', async () => {
+    prisma.domainTldPricing.findUnique.mockResolvedValue(
+      restoreRow({ cost_amount: new Prisma.Decimal('100.00') }),
+    );
+    await expect(
+      service.restoreDomain('svc-1', 'x', ACTOR),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(plugin.restoreDomain).not.toHaveBeenCalled();
+  });
+
+  it('restoreDomain de un servicio que no es dominio → BadRequest', async () => {
+    prisma.service.findUnique.mockResolvedValue(
+      domainServiceRow({ product: { type: 'hosting_web', provisioner: 'x' } }),
+    );
+    await expect(
+      service.restoreDomain('svc-1', 'x', ACTOR),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(plugin.restoreDomain).not.toHaveBeenCalled();
+  });
+
+  it('restoreDomain si el registrar no lo soporta → ServiceUnavailable', async () => {
+    prisma.domainTldPricing.findUnique.mockResolvedValue(restoreRow());
+    registry.get.mockReturnValue({
+      capabilities: { is_domain_registrar: true },
+    }); // sin restoreDomain
+    await expect(
+      service.restoreDomain('svc-1', 'x', ACTOR),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('restoreDomain de servicio inexistente → NotFound', async () => {
+    prisma.service.findUnique.mockResolvedValue(null);
+    await expect(
+      service.restoreDomain('svc-1', 'x', ACTOR),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

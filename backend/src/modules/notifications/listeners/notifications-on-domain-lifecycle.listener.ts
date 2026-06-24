@@ -56,6 +56,12 @@ export class NotificationsOnDomainLifecycleListener {
     await this.dispatch('domain.entered_redemption', payload, {});
   }
 
+  // Sprint 15D.II.R — el admin/soporte restauró un dominio desde redención (RGP).
+  @OnEvent('domain.restored')
+  async handleRestored(payload: DomainEventPayload): Promise<void> {
+    await this.dispatch('domain.restored', payload, {});
+  }
+
   /**
    * Despacho común: añade `fqdn` + `panel_url` al payload de la plantilla y
    * delega en `dispatchToUser`. Traga errores (R7).

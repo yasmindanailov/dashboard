@@ -320,20 +320,30 @@ export class ResellerclubReconciliationCron implements OnModuleInit {
       return;
     }
 
-    // failed / cancelled → cierra la FSM (status se mantiene; T3 notifica).
-    await this.prisma.service.update({
-      where: { id: service.id },
-      data: {
-        metadata: {
-          ...toObject(service.metadata),
-          transfer_state: state,
-        } as Prisma.InputJsonValue,
-      },
+    // failed / cancelled → cierra la FSM + emite `domain.transfer_failed` (Outbox,
+    // R8 + ADR-084 §5) en la MISMA tx (exactly-once). El listener de notifs avisa al
+    // cliente (T3); el reintento (A2.5) lo dispara el cliente/admin.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.service.update({
+        where: { id: service.id },
+        data: {
+          metadata: {
+            ...toObject(service.metadata),
+            transfer_state: state,
+          } as Prisma.InputJsonValue,
+        },
+      });
+      await this.outbox.enqueue(tx, 'domain.transfer_failed', {
+        service_id: service.id,
+        user_id: service.user_id,
+        fqdn: service.domain,
+        reason: state,
+      });
     });
     summary.transfersFailed++;
     this.logger.warn(
       `advanceTransfer service=${service.id}: transfer ${state.toUpperCase()} ` +
-        `(FSM cerrada; notificación + reintento = T3/cliente).`,
+        `(FSM cerrada + domain.transfer_failed (Outbox); reintento = cliente/admin).`,
     );
   }
 }

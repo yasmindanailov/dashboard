@@ -976,6 +976,24 @@ export interface DomainAvailability {
 }
 
 /**
+ * Sprint 15D.II.S — una sugerencia de nombre del **buscador rico**
+ * (`suggestDomainNames`, [ADR-081 A7.3](../../../docs/10-decisions/adr-081-plugin-resellerclub-specifics.md#amendments)).
+ * El registrar propone nombres alternativos disponibles a partir de una palabra
+ * clave; `DomainsService` los enriquece con el precio de venta server-side (R5).
+ * El plugin solo devuelve nombre + disponibilidad (precio = responsabilidad de
+ * Aelium, desde `domain_tld_pricing`).
+ */
+export interface DomainSuggestion {
+  /** FQDN sugerido (`sld.tld`, lowercase). */
+  fqdn: string;
+  /** SLD sugerido (sin punto). */
+  sld: string;
+  /** TLD sugerido (sin punto, lowercase). */
+  tld: string;
+  available: boolean;
+}
+
+/**
  * Entrada de la matriz de COSTE mayorista que `getTldPricing()` devuelve. El
  * cron de sync (ADR-084 §1) aplica markup y puebla `domain_tld_pricing`,
  * permitiendo que el sync sea agnóstico al registrar.
@@ -1162,6 +1180,20 @@ export interface ProvisionerPlugin {
   getTldPricing?(): Promise<readonly TldCostEntry[]>;
 
   /**
+   * Sprint 15D.II.S (ADR-081 A7.3) — **buscador rico**: sugiere nombres de dominio
+   * disponibles a partir de una palabra clave (`/domains/v5/suggest-names` en RC).
+   * Capability-driven por presencia (opcional, como `checkDomainAvailability?`). El
+   * registrar devuelve nombre + disponibilidad; el precio de venta lo resuelve
+   * `DomainsService` server-side (R5, `domain_tld_pricing`). `opts.tlds` acota las
+   * extensiones (las ofertadas/tarifadas); `opts.maxResults` el tamaño del lote.
+   * IDN (punycode) se difiere a v1.1.
+   */
+  suggestDomainNames?(
+    keyword: string,
+    opts?: { tlds?: readonly string[]; maxResults?: number },
+  ): Promise<readonly DomainSuggestion[]>;
+
+  /**
    * Sprint 15D Fase 15D.G·2 (ADR-077 A10 additivo) — actualiza los datos del
    * **contacto registrante (WHOIS)** del cliente en el registrar a partir de su
    * perfil (`ClientPublicData`). Modelo "1 titular/cliente": el contacto es
@@ -1183,6 +1215,16 @@ export interface ProvisionerPlugin {
    * orquestador cancela el `service` Aelium por separado (lifecycle canónico).
    */
   deleteDomain?(service: ServiceWithRelations): Promise<void>;
+
+  /**
+   * Sprint 15D.II.R (ADR-077 A10 additivo / ADR-081 A7.2) — **restore RGP**:
+   * recupera un dominio en redención (`recoveryHint='restore'`) con la tarifa
+   * especial del registrar. Operación admin/soporte (el fee se cobra de forma
+   * inmediata e irreversible al registrar). Capability-driven por presencia. El
+   * orquestador (`AdminDomainsService`) resuelve el precio + factura + audita por
+   * separado; el plugin SOLO ejecuta el `domains/restore`.
+   */
+  restoreDomain?(service: ServiceWithRelations): Promise<void>;
 
   /**
    * Manifest declarativo del plugin (Sprint 15A — ADR-080).

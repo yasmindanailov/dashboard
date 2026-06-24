@@ -16,6 +16,7 @@ import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
 import type { ServiceDetailResponse } from '../../../lib/api';
 import { SERVICE_STATUS_LABEL } from '../../../_shared/services';
 import DomainManagement from './_components/DomainManagement';
+import DomainTransferPanel from './_components/DomainTransferPanel';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -87,17 +88,30 @@ export default async function DomainDetailPage({ params }: PageProps) {
   const statusKey = mapStatusKey(service.status);
   const domain = info.domain;
   const actionSlugs = info.availableActions.map((a) => a.slug);
+  // 15D.II.T2c.3 — FSM de transfer-in: si está en curso (≠ completed), la página
+  // muestra el panel de transferencia (código EPP / en curso) en vez del banner
+  // genérico "pendiente de registro".
+  const transferState = service.transfer_state ?? null;
 
   return (
     <ListPage title={fqdn} subtitle={SERVICE_STATUS_LABEL[statusKey]}>
       <div
         style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}
       >
-        {!domain && (
-          <AlertBanner variant="info">
-            Este dominio está pendiente de registro. La gestión (nameservers,
-            privacidad, bloqueo) estará disponible cuando el registro se complete.
-          </AlertBanner>
+        {transferState && transferState !== 'completed' ? (
+          <DomainTransferPanel
+            serviceId={service.id}
+            fqdn={fqdn}
+            transferState={transferState}
+          />
+        ) : (
+          !domain && (
+            <AlertBanner variant="info">
+              Este dominio está pendiente de registro. La gestión (nameservers,
+              privacidad, bloqueo) estará disponible cuando el registro se
+              complete.
+            </AlertBanner>
+          )
         )}
 
         {/* Recovery hints de dominio (15D.G·2): expirado → renovar; redención → restaurar. */}

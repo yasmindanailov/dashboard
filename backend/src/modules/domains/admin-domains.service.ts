@@ -6,16 +6,23 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { DomainPriceOperation, Prisma } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 
 import { PrismaService } from '../../core/database/prisma.service';
+import { OutboxService } from '../../core/outbox/outbox.service';
 import { PluginRegistryService } from '../../core/provisioning/plugin-registry';
+import { ProvisioningCacheService } from '../../core/provisioning/provisioning-cache.service';
 import {
   DomainPricingSyncRegistryService,
   DomainPricingSyncSummary,
 } from '../../core/provisioning/domain-pricing-sync-registry.service';
 import { ServiceWithRelations } from '../../core/provisioning/types';
+import { AuditService } from '../audit/audit.service';
 import { DeprovisionReasonDto } from '../provisioning/dto/provisioning.dto';
 import { ProvisioningService } from '../provisioning/provisioning.service';
+
+/** Moneda de venta v1 (ADR-084 A1.2 — moneda única). Misma que checkout/domains. */
+const DEFAULT_DOMAIN_CURRENCY = 'EUR';
 
 /** Una fila de la matriz de precios de dominios (vista admin). */
 export interface DomainPricingRow {
@@ -62,6 +69,11 @@ export class AdminDomainsService {
     private readonly registry: PluginRegistryService,
     private readonly pricingSync: DomainPricingSyncRegistryService,
     private readonly provisioning: ProvisioningService,
+    // 15D.II.R — restore: emite `domain.restored` (Outbox → billing factura el fee +
+    // notif), audita (R3) e invalida la cache de getServiceInfo tras recuperar.
+    private readonly outbox: OutboxService,
+    private readonly audit: AuditService,
+    private readonly cache: ProvisioningCacheService,
   ) {}
 
   /**
@@ -133,6 +145,142 @@ export class AdminDomainsService {
         `del registrar + servicio cancelado (actor=${actor.userId}).`,
     );
     return { id: result.id, status: result.status };
+  }
+
+  /**
+   * Restore RGP admin (15D.II.R, ADR-081 A7.2). Recupera un dominio en redención
+   * con la tarifa especial del registrar. **Admin/soporte** (el fee se cobra de
+   * forma inmediata e irreversible al registrar — Yasmin 2026-06-24). El registrar
+   * se resuelve por capability (R4). Flujo:
+   *   1. Resuelve el fee de restore **antes** de restaurar (server-side R5, op
+   *      `restore`; bloquea si no está tarifado o el margen es inválido DOM-INV-3 —
+   *      no se restaura algo que no sabemos cobrar).
+   *   2. `plugin.restoreDomain` (HTTP). Si falla → no se factura ni se emite nada.
+   *   3. Emite `domain.restored` (Outbox) → el listener de billing genera la factura
+   *      del fee + notifs; audita el cambio (R3); invalida la cache de getServiceInfo.
+   */
+  async restoreDomain(
+    serviceId: string,
+    reason: string,
+    actor: { userId: string; ipAddress: string; userAgent?: string | null },
+  ): Promise<{
+    id: string;
+    status: string;
+    fee: { amount: string; currency: string };
+  }> {
+    const row = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      include: {
+        product: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            type: true,
+            provisioner: true,
+            provisioner_config: true,
+          },
+        },
+      },
+    });
+    if (!row) {
+      throw new NotFoundException('Servicio no encontrado.');
+    }
+    if (String(row.product.type) !== 'domain') {
+      throw new BadRequestException('El servicio no es un dominio.');
+    }
+    if (!row.provider_reference || !row.domain) {
+      throw new BadRequestException(
+        'El dominio no está registrado (sin provider_reference/FQDN) — nada que restaurar.',
+      );
+    }
+
+    // 1. Fee de restore server-side (R5) ANTES de restaurar (op `restore`, 1 año).
+    const fqdn = row.domain.trim().toLowerCase();
+    const tld = fqdn.split('.').slice(1).join('.');
+    const pricing = await this.prisma.domainTldPricing.findUnique({
+      where: {
+        registrar_slug_tld_operation_years_price_currency: {
+          registrar_slug: row.product.provisioner,
+          tld,
+          operation: 'restore',
+          years: 1,
+          price_currency: DEFAULT_DOMAIN_CURRENCY,
+        },
+      },
+    });
+    if (!pricing || !pricing.active) {
+      throw new ServiceUnavailableException({
+        code: 'RESTORE_NOT_PRICED',
+        message: `No hay tarifa de restore configurada para .${tld}.`,
+      });
+    }
+    // DOM-INV-3 same-currency: no restaurar a pérdida (el fee de RGP es alto).
+    if (
+      pricing.cost_currency !== pricing.price_currency ||
+      Number(pricing.cost_amount) > Number(pricing.price_amount)
+    ) {
+      throw new BadRequestException({
+        code: 'RESTORE_MARGIN_INVALID',
+        message:
+          'La tarifa de restore es incoherente (margen). Operación bloqueada.',
+      });
+    }
+
+    const plugin = this.registry.get(
+      row.provisioner_slug ?? row.product.provisioner,
+    );
+    if (
+      !plugin ||
+      !plugin.capabilities.is_domain_registrar ||
+      typeof plugin.restoreDomain !== 'function'
+    ) {
+      throw new ServiceUnavailableException({
+        code: 'RESTORE_UNSUPPORTED',
+        message: 'El registrar no soporta el restore de dominios.',
+      });
+    }
+
+    // 2. Restore en el registrar (HTTP, fuera de tx). Si falla → no se factura.
+    await plugin.restoreDomain(this.toServiceWithRelations(row));
+
+    // 3. Cobro + notif (vía evento, R4) + audit (R3) + invalidación de cache.
+    const correlationId = randomUUID();
+    const amount = Number(pricing.price_amount);
+    const currency = pricing.price_currency;
+    await this.prisma.$transaction(async (tx) => {
+      await this.outbox.enqueue(tx, 'domain.restored', {
+        service_id: serviceId,
+        user_id: row.user_id,
+        fqdn,
+        amount,
+        currency,
+        correlation_id: correlationId,
+      });
+    });
+    await this.audit.logChange({
+      user_id: actor.userId,
+      entity_type: 'Service',
+      entity_id: serviceId,
+      action: 'domain.restored',
+      changes_after: {
+        fqdn,
+        fee: `${amount.toFixed(2)} ${currency}`,
+        reason,
+      },
+      correlation_id: correlationId,
+    });
+    await this.cache.invalidate(serviceId);
+
+    this.logger.warn(
+      `restoreDomain service=${serviceId}: ${fqdn} RESTAURADO desde redención ` +
+        `(fee ${amount.toFixed(2)} ${currency}, actor=${actor.userId}).`,
+    );
+    return {
+      id: serviceId,
+      status: String(row.status),
+      fee: { amount: amount.toFixed(2), currency },
+    };
   }
 
   /** Construye un `ServiceWithRelations` mínimo (el plugin.deleteDomain solo lee id/ref/domain). */

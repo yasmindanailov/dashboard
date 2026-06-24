@@ -777,4 +777,98 @@ describe('BillingCheckoutService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
+
+  /* ── Transfer-in deferBilling (Sprint 15D.II.T2c.3, ADR-084 A2.3) ── */
+  describe('checkoutItems — transfer_in deferBilling', () => {
+    const transferItem = {
+      kind: 'domain' as const,
+      productId: 'prod-domain',
+      domainName: 'midominio.com',
+      operation: 'transfer_in' as const,
+      years: 1,
+    };
+
+    beforeEach(() => {
+      prisma.product.findUnique.mockResolvedValue(domainProductFixture());
+      prisma.domainTldPricing.findUnique.mockResolvedValue(
+        domainPricingFixture(),
+      );
+    });
+
+    it('crea el service pending con transfer_state=pending y NO emite factura (carrito solo-transfers)', async () => {
+      const result = await service.checkoutItems(USER_ID, {
+        items: [transferItem],
+      });
+
+      expect(prisma.service.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          status: 'pending',
+          domain: 'midominio.com',
+          metadata: expect.objectContaining({
+            domain_operation: 'transfer_in',
+            transfer_state: 'pending',
+          }),
+        }),
+      });
+      // Carrito solo-transfers → SIN factura (cobro al completar).
+      expect(invoiceService.createInvoice).not.toHaveBeenCalled();
+      expect(result.invoice).toBeNull();
+      expect(result.services).toHaveLength(1);
+    });
+
+    it('NO emite checkout.completed/service.provisioned para un transfer diferido', async () => {
+      await service.checkoutItems(USER_ID, { items: [transferItem] });
+      const events = emittedEvents();
+      expect(events.filter((c) => c[0] === 'service.provisioned')).toHaveLength(
+        0,
+      );
+      expect(events.filter((c) => c[0] === 'checkout.completed')).toHaveLength(
+        0,
+      );
+    });
+
+    it('resuelve el precio con operación `transfer` (no `register`)', async () => {
+      await service.checkoutItems(USER_ID, { items: [transferItem] });
+      const arg = prisma.domainTldPricing.findUnique.mock.calls[0][0] as {
+        where: {
+          registrar_slug_tld_operation_years_price_currency: {
+            operation: string;
+          };
+        };
+      };
+      expect(
+        arg.where.registrar_slug_tld_operation_years_price_currency.operation,
+      ).toBe('transfer');
+    });
+
+    it('carrito mixto register+transfer → factura SOLO el register; el transfer queda pending sin facturar', async () => {
+      const result = await service.checkoutItems(USER_ID, {
+        items: [
+          {
+            kind: 'domain',
+            productId: 'prod-domain',
+            domainName: 'registro.com',
+            operation: 'register',
+            years: 1,
+          },
+          transferItem,
+        ],
+      });
+
+      // 2 services creados, pero la factura tiene 1 sola línea (el register).
+      expect(result.services).toHaveLength(2);
+      expect(invoiceService.createInvoice).toHaveBeenCalledTimes(1);
+      const invoiceArg = firstInvoiceArg();
+      expect(invoiceArg.items).toHaveLength(1);
+      expect(invoiceArg.items[0]).toMatchObject({
+        description: expect.stringContaining('registro.com'),
+      });
+      expect(result.invoice).not.toBeNull();
+      // Eventos solo por el service facturado (el register).
+      const events = emittedEvents();
+      expect(events.filter((c) => c[0] === 'service.provisioned')).toHaveLength(
+        1,
+      );
+    });
+  });
 });

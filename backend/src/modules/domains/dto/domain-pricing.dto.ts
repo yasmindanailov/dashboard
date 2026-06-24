@@ -42,3 +42,10 @@ export class DeleteDomainDto {
   @MaxLength(300)
   reason: string;
 }
+
+/** Motivo del restore RGP de un dominio (15D.II.R). */
+export class RestoreDomainDto {
+  @IsString()
+  @MaxLength(300)
+  reason: string;
+}

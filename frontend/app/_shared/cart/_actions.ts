@@ -14,13 +14,21 @@ import { serverFetch, ServerFetchError } from '../../lib/server-auth';
 /** Ítem en forma REST (snake_case) que entiende el endpoint unificado. */
 export type CheckoutItemPayload =
   | { kind: 'product'; product_pricing_id: string; domain?: string }
-  | { kind: 'domain'; domain_name: string; years: number };
+  | {
+      kind: 'domain';
+      domain_name: string;
+      years: number;
+      /** 15D.II.T2c.3 — `transfer_in` activa deferBilling (cobro al completar). */
+      operation?: 'register' | 'transfer_in';
+    };
 
 export interface CartCheckoutData {
-  invoice_id: string;
-  invoice_number: string;
-  total: string;
-  currency: string;
+  // 15D.II.T2c.3 — `null` cuando el carrito es SOLO transfers (deferBilling): no
+  // se emite factura en el checkout (cobro al completar, ADR-084 A2.3).
+  invoice_id: string | null;
+  invoice_number: string | null;
+  total: string | null;
+  currency: string | null;
   services: { id: string; domain: string | null }[];
 }
 

@@ -49,6 +49,7 @@ import {
   RcRenewInput,
   RcResellerPriceResponse,
   RcSignupCustomerInput,
+  RcSuggestNamesResponse,
   RcTransferInput,
   RcTransferResponse,
   RcValidateTransferResponse,
@@ -80,6 +81,24 @@ export class ResellerClubApiClient {
     return this.http.get<RcAvailabilityResponse>('domains/available', {
       'domain-name': domainName,
       tlds,
+    });
+  }
+
+  /**
+   * `domains/v5/suggest-names` — buscador rico (15D.II.S, ADR-081 A7.3). Sugiere
+   * nombres a partir de una palabra clave. La **v5** está viva (la v4 devuelve HTTP
+   * 500, A1.5). `tld-only` acota las extensiones; `exact-match=false` permite
+   * variaciones. Shapes CONSERVADORES hasta el smoke OT&E (A7.4).
+   */
+  async suggestNames(
+    keyword: string,
+    opts: { tlds?: readonly string[]; maxResults?: number } = {},
+  ): Promise<RcSuggestNamesResponse> {
+    return this.http.get<RcSuggestNamesResponse>('domains/v5/suggest-names', {
+      keyword,
+      ...(opts.tlds && opts.tlds.length > 0 ? { 'tld-only': opts.tlds } : {}),
+      'exact-match': false,
+      ...(opts.maxResults ? { 'max-result': opts.maxResults } : {}),
     });
   }
 
@@ -323,6 +342,16 @@ export class ResellerClubApiClient {
    */
   async deleteDomain(orderId: RcOrderId): Promise<void> {
     await this.http.post('domains/delete', { 'order-id': orderId });
+  }
+
+  /**
+   * `domains/restore` — restore RGP (15D.II.R, ADR-081 A7.2): recupera un dominio
+   * en período de redención con la tarifa especial del registrar. RC lo devuelve a
+   * `active`. El fee se cobra de forma inmediata e irreversible — la decisión de
+   * restaurar es admin/soporte. Shapes CONSERVADORES hasta el smoke OT&E (A7.4).
+   */
+  async restoreDomain(orderId: RcOrderId): Promise<void> {
+    await this.http.post('domains/restore', { 'order-id': orderId });
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────

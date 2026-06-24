@@ -126,3 +126,26 @@ export async function deleteDomainAction(
     return fail(err, 'No se pudo borrar el dominio.');
   }
 }
+
+/**
+ * Restore RGP de un dominio en redención (admin/soporte). Recupera el dominio con
+ * la tarifa especial del registrar y genera la factura del fee. Sprint 15D.II.R.
+ */
+export async function restoreDomainAction(
+  serviceId: string,
+  reason: string,
+): Promise<Result<{ id: string; status: string; fee: { amount: string; currency: string } }>> {
+  try {
+    const data = await serverFetch<{
+      id: string;
+      status: string;
+      fee: { amount: string; currency: string };
+    }>(`/admin/domains/services/${serviceId}/restore`, {
+      method: 'POST',
+      body: { reason },
+    });
+    return { ok: true, data };
+  } catch (err) {
+    return fail(err, 'No se pudo restaurar el dominio.');
+  }
+}
