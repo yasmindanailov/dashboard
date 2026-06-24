@@ -114,3 +114,57 @@ describe('BillingCalculatorService.getCycleDays', () => {
     expect(calc.getCycleDays('weekly')).toBe(30);
   });
 });
+
+/**
+ * Sprint 12 — fix de `getSettingValue`: lee el valor CRUDO (el shape del seed +
+ * CRUD admin), no el envoltorio `{value}` muerto que siempre caía al default.
+ * Esto es lo que hace que los settings del ciclo de vida de billing
+ * (`suspension_days`, `cancellation_days`, `max_payment_retries`, …) sean de
+ * verdad configurables desde `/admin/settings`.
+ */
+describe('BillingCalculatorService.getSettingValue (lectura cruda)', () => {
+  function make(value: unknown): BillingCalculatorService {
+    const prisma = {
+      setting: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue(value === undefined ? null : { value }),
+      },
+    };
+    return new BillingCalculatorService(prisma as never);
+  }
+
+  it('lee un número guardado como string crudo ("10" → 10)', async () => {
+    expect(
+      await make('10').getSettingValue('billing', 'suspension_days', 7),
+    ).toBe(10);
+  });
+
+  it('lee un número nativo (14 → 14)', async () => {
+    expect(
+      await make(14).getSettingValue('billing', 'payment_due_days', 7),
+    ).toBe(14);
+  });
+
+  it('cae al default si la fila no existe', async () => {
+    expect(
+      await make(undefined).getSettingValue('billing', 'suspension_days', 7),
+    ).toBe(7);
+  });
+
+  it('cae al default si el valor no es coercionable a número', async () => {
+    expect(
+      await make({ nested: true }).getSettingValue(
+        'billing',
+        'suspension_days',
+        7,
+      ),
+    ).toBe(7);
+  });
+
+  it('lee un string crudo (prefijo de factura)', async () => {
+    expect(
+      await make('AEL').getSettingValue('billing', 'invoice_prefix', 'XXX'),
+    ).toBe('AEL');
+  });
+});

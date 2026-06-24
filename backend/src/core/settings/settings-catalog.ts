@@ -74,18 +74,6 @@ export const SETTINGS_CATALOG: readonly SettingCatalogEntry[] = [
     group: 'General',
     editable: true,
   },
-  {
-    category: 'general',
-    key: 'default_tax_rate',
-    type: 'number',
-    min: 0,
-    max: 100,
-    label: 'IVA por defecto (%)',
-    description:
-      'Tipo impositivo por defecto aplicado en el cálculo de facturas.',
-    group: 'General',
-    editable: true,
-  },
 
   // ── Marca ── (Sprint 12 — ADR-044 Amendment A1)
   {
@@ -204,6 +192,83 @@ export const SETTINGS_CATALOG: readonly SettingCatalogEntry[] = [
     label: 'Días hasta vencimiento',
     description:
       'Días desde la emisión hasta la fecha de vencimiento de una factura nueva.',
+    group: 'Facturación',
+    editable: true,
+  },
+  {
+    category: 'billing',
+    key: 'default_tax_rate',
+    type: 'number',
+    min: 0,
+    max: 100,
+    label: 'IVA por defecto (%)',
+    description:
+      'Tipo impositivo por defecto aplicado al calcular las facturas (si el ítem no fija uno propio).',
+    group: 'Facturación',
+    editable: true,
+  },
+  {
+    category: 'billing',
+    key: 'invoice_generation_days',
+    type: 'number',
+    min: 0,
+    max: 60,
+    integer: true,
+    label: 'Antelación de generación de factura (días)',
+    description:
+      'Días de antelación con que se genera la factura de renovación antes del vencimiento del servicio.',
+    group: 'Facturación',
+    editable: true,
+  },
+  {
+    category: 'billing',
+    key: 'max_payment_retries',
+    type: 'number',
+    min: 0,
+    max: 10,
+    integer: true,
+    label: 'Reintentos máximos de cobro',
+    description:
+      'Cuántas veces se reintenta cobrar una factura vencida antes de suspender el servicio.',
+    group: 'Facturación',
+    editable: true,
+  },
+  {
+    category: 'billing',
+    key: 'retry_interval_days',
+    type: 'number',
+    min: 1,
+    max: 30,
+    integer: true,
+    label: 'Días entre reintentos de cobro',
+    description:
+      'Días que se esperan entre dos reintentos de cobro de una factura vencida.',
+    group: 'Facturación',
+    editable: true,
+  },
+  {
+    category: 'billing',
+    key: 'suspension_days',
+    type: 'number',
+    min: 1,
+    max: 90,
+    integer: true,
+    label: 'Margen antes de suspender (días)',
+    description:
+      'Días tras el vencimiento (con los reintentos agotados) antes de suspender el servicio por impago.',
+    group: 'Facturación',
+    editable: true,
+  },
+  {
+    category: 'billing',
+    key: 'cancellation_days',
+    type: 'number',
+    min: 1,
+    max: 365,
+    integer: true,
+    label: 'Días hasta cancelación tras suspensión',
+    description:
+      'Días que un servicio permanece suspendido por impago antes de cancelarse automáticamente.',
     group: 'Facturación',
     editable: true,
   },

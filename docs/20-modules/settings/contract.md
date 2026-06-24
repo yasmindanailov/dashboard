@@ -89,7 +89,7 @@ Sólo el superadmin gestiona settings (regla wildcard `Manage All`); el resto de
 
 ## 11. Settings consumidos
 
-Los **edita** (no sólo consume). El catálogo de qué es editable vive en `backend/src/core/settings/settings-catalog.ts`; el catálogo de qué está seedeado, en [`settings-reference.md`](../../50-operations/settings-reference.md). Editables v1: `general.*`, `branding.*`, `billing.invoice_prefix/payment_due_days`, `support.*`, `notifications.*`, `provisioning.{default,registrar_parking}_nameservers`.
+Los **edita** (no sólo consume). El catálogo de qué es editable vive en `backend/src/core/settings/settings-catalog.ts`; el catálogo de qué está seedeado, en [`settings-reference.md`](../../50-operations/settings-reference.md). Editables v1: `general.default_currency`, `branding.*`, **`billing.*`** (prefijo, IVA `default_tax_rate`, antelación `invoice_generation_days`, reintentos `max_payment_retries`/`retry_interval_days`, impago `suspension_days`/`cancellation_days`, vencimiento `payment_due_days`), `support.*`, `notifications.*`, `provisioning.{default,registrar_parking}_nameservers`. Sprint 12.E corrigió el bug `{value}` de `BillingCalculatorService.getSettingValue` que tenía todo el ciclo de vida de billing hardcodeado a sus defaults.
 
 ---
 

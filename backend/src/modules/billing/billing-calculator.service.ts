@@ -162,7 +162,14 @@ export class BillingCalculatorService {
   }
 
   /**
-   * Read a setting value from the settings table with a fallback default.
+   * Lee un setting de la tabla `settings` con un default de fallback.
+   *
+   * Sprint 12 (fix): lee el valor **CRUDO** — el shape canónico que escriben el
+   * seed y el CRUD admin (`/admin/settings`) y que lee `SettingsService`. El
+   * previo leía `(value as {value}).value` (envoltorio muerto) → siempre
+   * `undefined` → siempre el default, ignorando lo configurado en BD; por eso
+   * todo el ciclo de vida de billing estaba de facto hardcodeado a sus
+   * defaults. Coerciona según el tipo del default (number/boolean/string).
    */
   async getSettingValue<T>(
     category: string,
@@ -172,10 +179,28 @@ export class BillingCalculatorService {
     const setting = await this.prisma.setting.findUnique({
       where: { category_key: { category, key } },
     });
+    const raw = setting?.value;
+    if (raw === null || raw === undefined) return defaultValue;
 
-    if (!setting) return defaultValue;
-
-    const val = setting.value as { value?: T };
-    return val.value ?? defaultValue;
+    if (typeof defaultValue === 'number') {
+      const n =
+        typeof raw === 'number'
+          ? raw
+          : typeof raw === 'string'
+            ? Number(raw)
+            : NaN;
+      return (Number.isFinite(n) ? n : defaultValue) as T;
+    }
+    if (typeof defaultValue === 'boolean') {
+      return (raw === true || raw === 'true') as unknown as T;
+    }
+    if (typeof defaultValue === 'string') {
+      return (typeof raw === 'string' ||
+      typeof raw === 'number' ||
+      typeof raw === 'boolean'
+        ? String(raw)
+        : defaultValue) as unknown as T;
+    }
+    return raw as T;
   }
 }
