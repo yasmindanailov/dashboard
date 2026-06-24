@@ -93,29 +93,29 @@ export function SettingsManager({
       )}
 
       <Card>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            flexWrap: 'wrap',
-          }}
-        >
-          <div>
-            <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-              Plugins de provisioning
-            </h2>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-              Activar, configurar y probar los plugins (hosting, dominios…).
-            </p>
-          </div>
-          <Link href="/admin/settings/plugins">
-            <Button variant="secondary" size="sm">
-              Gestionar plugins
-            </Button>
-          </Link>
-        </div>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+            Más configuración
+          </h2>
+          <NavLinkRow
+            title="Plugins de provisioning"
+            description="Activar, configurar y probar los plugins (hosting, dominios…)."
+            href="/admin/settings/plugins"
+            cta="Gestionar plugins"
+          />
+          <NavLinkRow
+            title="Plantillas de notificaciones"
+            description="Editar el asunto y el cuerpo de los emails y avisos de la campana."
+            href="/admin/notifications/templates"
+            cta="Editar plantillas"
+          />
+          <NavLinkRow
+            title="Registro de errores"
+            description="Revisar los errores del sistema capturados (system.error)."
+            href="/admin/error-log"
+            cta="Ver registro"
+          />
+        </section>
       </Card>
 
       {groups.map((group) => (
@@ -125,6 +125,48 @@ export function SettingsManager({
           initialLogoUrl={initialLogoUrl}
         />
       ))}
+    </div>
+  );
+}
+
+function NavLinkRow({
+  title,
+  description,
+  href,
+  cta,
+}: {
+  title: string;
+  description: string;
+  href: string;
+  cta: string;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 16,
+        flexWrap: 'wrap',
+      }}
+    >
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
+        <p
+          style={{
+            fontSize: 13,
+            color: 'var(--text-secondary)',
+            margin: '4px 0 0',
+          }}
+        >
+          {description}
+        </p>
+      </div>
+      <Link href={href}>
+        <Button variant="secondary" size="sm">
+          {cta}
+        </Button>
+      </Link>
     </div>
   );
 }
