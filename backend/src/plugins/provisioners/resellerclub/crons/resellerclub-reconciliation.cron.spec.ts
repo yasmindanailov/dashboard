@@ -96,6 +96,62 @@ describe('ResellerclubReconciliationCron — Fase 15D.E', () => {
     expect(updateArg.data.expires_at).toEqual(new Date(FUTURE_ISO));
   });
 
+  it('persiste metadata.nameservers cuando el registrar reporta NS distintos (F.3)', async () => {
+    prisma.service.findMany.mockResolvedValue([
+      row({
+        metadata: {
+          domain_lifecycle: 'active',
+          nameservers: ['ns1.old.net', 'ns2.old.net'],
+        },
+      }),
+    ]);
+    plugin.getServiceInfo.mockResolvedValue({
+      status: 'active',
+      domain: {
+        fqdn: 'example.com',
+        lifecycle: 'active',
+        expiresAt: undefined,
+        nameservers: ['ns1.aelium.net', 'ns2.aelium.net'],
+      },
+    });
+
+    await cron.runOnce();
+
+    const updateArg = (
+      prisma.service.update.mock.calls as Array<
+        [{ data: { metadata: { nameservers: string[] } } }]
+      >
+    )[0][0];
+    expect(updateArg.data.metadata.nameservers).toEqual([
+      'ns1.aelium.net',
+      'ns2.aelium.net',
+    ]);
+  });
+
+  it('NO reescribe si los NS no cambian (ignora orden/case — evita churn)', async () => {
+    prisma.service.findMany.mockResolvedValue([
+      row({
+        metadata: {
+          domain_lifecycle: 'active',
+          nameservers: ['ns2.aelium.net', 'NS1.aelium.net'],
+        },
+      }),
+    ]);
+    plugin.getServiceInfo.mockResolvedValue({
+      status: 'active',
+      domain: {
+        fqdn: 'example.com',
+        lifecycle: 'active',
+        expiresAt: undefined,
+        nameservers: ['ns1.aelium.net', 'ns2.aelium.net'],
+      },
+    });
+
+    await cron.runOnce();
+
+    expect(prisma.service.update).not.toHaveBeenCalled();
+  });
+
   it('lifecycle active→expired → emite domain.expired (Outbox) y persiste lifecycle', async () => {
     prisma.service.findMany.mockResolvedValue([
       row({ metadata: { domain_lifecycle: 'active' } }),

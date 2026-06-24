@@ -22,10 +22,12 @@ import { TasksModule } from '../tasks/tasks.module';
 
 import { AdminProvisioningController } from './admin-provisioning.controller';
 import { DomainExpiryWarningsCron } from './domain-expiry-warnings.cron';
+import { DomainNsLifecycleService } from './domain-ns-lifecycle.service';
 import { BootstrapEnhanceDefaultsOnPluginInstalledListener } from './listeners/bootstrap-enhance-defaults-on-plugin-installed.listener';
 import { ProvisioningOnTaskCompletedListener } from './listeners/provisioning-on-task-completed.listener';
 import { ReactivateServicesOnInvoicePaidListener } from './listeners/reactivate-services-on-invoice-paid.listener';
 import { ReconcileDnsDefaultsOnServiceActivatedListener } from './listeners/reconcile-dns-defaults-on-service-activated.listener';
+import { SwitchDomainNsOnHostingActivatedListener } from './listeners/switch-domain-ns-on-hosting-activated.listener';
 import { SyncDefaultNameserversToEnhanceListener } from './listeners/sync-default-nameservers-to-enhance.listener';
 import {
   PROVISIONING_DISPATCH_QUEUE,
@@ -109,6 +111,11 @@ import { ProvisioningService } from './provisioning.service';
     BootstrapEnhanceDefaultsOnPluginInstalledListener,
     ReconcileDnsDefaultsOnServiceActivatedListener,
     SyncDefaultNameserversToEnhanceListener,
+    // Sprint 15D Fase 15D.F.3 — ADR-082 Amendment "dominio-solo aparca en el
+    // registrar": al activarse un hosting, conmutar a Aelium los NS de un
+    // dominio hermano que estaba aparcado en el registrar (capability-routed).
+    DomainNsLifecycleService,
+    SwitchDomainNsOnHostingActivatedListener,
     // Sprint 15C.II Fase F.5.3 — auto-reactivación al pagar (`invoice.paid`
     // → reactivar los servicios suspendidos por impago de la factura).
     ReactivateServicesOnInvoicePaidListener,

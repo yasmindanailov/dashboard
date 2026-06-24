@@ -169,17 +169,33 @@ export class ResellerclubReconciliationCron implements OnModuleInit {
     const newLifecycle = info.domain.lifecycle;
     const prevLifecycle = readLifecycle(service.metadata);
     const newExpiresAt = parseIsoDate(info.domain.expiresAt);
+    const newNameservers = [...info.domain.nameservers];
     const expiresChanged = !sameInstant(newExpiresAt, service.expires_at);
     const lifecycleChanged = newLifecycle !== prevLifecycle;
+    // DH-INV-6: el registrar gana — adoptamos los NS reales (un cambio manual o
+    // externo de delegación se refleja aquí). `metadata.nameservers` es la clave
+    // que lee el `dns-authority-resolver` (ADR-082 §6) y la que el listener
+    // `switch-domain-ns-on-hosting-activated` (A3) usa para saber si un dominio
+    // sigue "aparcado". Solo escribimos si cambia (evita churn cada 6h).
+    const nsChanged = !sameNameservers(
+      newNameservers,
+      readNameservers(service.metadata),
+    );
     const adoptStatus = safeAdoptStatus(service.status, info.status);
 
-    if (!expiresChanged && !lifecycleChanged && adoptStatus === null) {
+    if (
+      !expiresChanged &&
+      !lifecycleChanged &&
+      !nsChanged &&
+      adoptStatus === null
+    ) {
       return; // sin cambios → no escribir (evita churn cada 6h)
     }
 
     const nextMetadata = {
       ...toObject(service.metadata),
       domain_lifecycle: newLifecycle,
+      nameservers: newNameservers,
     };
 
     await this.prisma.$transaction(async (tx) => {
@@ -286,6 +302,23 @@ function safeAdoptStatus(
 function readLifecycle(metadata: unknown): string | null {
   const v = toObject(metadata).domain_lifecycle;
   return typeof v === 'string' ? v : null;
+}
+
+/** Lee `metadata.nameservers` (array de strings) defensivamente. */
+function readNameservers(metadata: unknown): string[] {
+  const v = toObject(metadata).nameservers;
+  return Array.isArray(v)
+    ? v.filter((x): x is string => typeof x === 'string')
+    : [];
+}
+
+/** Compara dos sets de NS ignorando case + orden + trailing dot. */
+function sameNameservers(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const norm = (s: string): string => s.replace(/\.$/, '').toLowerCase().trim();
+  const sa = [...a].map(norm).sort();
+  const sb = [...b].map(norm).sort();
+  return sa.every((x, i) => x === sb[i]);
 }
 
 function toObject(metadata: unknown): Record<string, unknown> {

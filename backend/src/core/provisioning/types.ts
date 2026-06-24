@@ -109,6 +109,23 @@ export interface ProvisionContext {
    * período siguiente (DOM-INV-1 + DOM-INV-4, ADR-084).
    */
   readonly operation?: 'register' | 'renew' | 'transfer_in';
+
+  /**
+   * Sprint 15D Fase 15D.F.3 — ADR-082 Amendment "dominio-solo aparca en el
+   * registrar". Destino de la delegación de nameservers que el orquestador
+   * resuelve para un `register` de registrar, según tenga o no hosting asociado:
+   *
+   *   - `'aelium'`  → el dominio tiene hosting (flujos F1/F2): NS = `provisioning.default_nameservers`.
+   *     La zona DNS la acuña el website del DNS authority (Enhance).
+   *   - `'parking'` → dominio-solo sin hosting (flujo F5): NS = `provisioning.registrar_parking_nameservers`
+   *     (resuelven en el registrar; Enhance no puede crear una zona sin website).
+   *
+   * Opcional; los plugins no-registrar lo ignoran. Si ausente, el plugin asume
+   * `'aelium'` (comportamiento histórico, fallback defensivo). El listener
+   * `switch-domain-ns-on-hosting-activated` conmuta `parking`→`aelium` cuando
+   * se añade hosting más tarde a un dominio aparcado.
+   */
+  readonly dnsTargetHint?: 'aelium' | 'parking';
 }
 
 export interface ProvisionResult {
@@ -121,9 +138,11 @@ export interface ProvisionResult {
 
   /**
    * Metadata adicional del proveedor para persistir en `services.metadata`.
-   * Plano, sin secretos.
+   * Plano, sin secretos. `string[]` admitido (additivo, Sprint 15D.F.3) para
+   * listas escalares como `nameservers` (lo lee el `dns-authority-resolver`,
+   * ADR-082 §6); compatible hacia atrás (los valores escalares siguen válidos).
    */
-  metadata: Record<string, string | number | boolean>;
+  metadata: Record<string, string | number | boolean | string[]>;
 
   /**
    * Acciones de seguimiento que el orquestador ejecuta tras éxito.
