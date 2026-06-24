@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../core/database/prisma.service';
 import { OutboxService } from '../../core/outbox/outbox.service';
+import { SettingsService } from '../../core/settings/settings.service';
 import { BillingCalculatorService } from './billing-calculator.service';
 import { BillingInvoiceService } from './billing-invoice.service';
 import { InvoicePdfStorageService } from './invoice-pdf-storage.service';
@@ -52,6 +53,7 @@ describe('BillingInvoiceService.getServiceBillingCrossLink — Sprint 15C.II Fas
         { provide: OutboxService, useValue: {} },
         { provide: BillingCalculatorService, useValue: {} },
         { provide: InvoicePdfStorageService, useValue: {} },
+        { provide: SettingsService, useValue: {} },
         {
           provide: getQueueToken(PDF_GENERATION_QUEUE),
           useValue: { add: jest.fn() } as unknown as Queue,

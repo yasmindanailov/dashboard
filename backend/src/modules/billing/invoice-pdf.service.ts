@@ -1,6 +1,9 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
+import { SettingsService } from '../../core/settings/settings.service';
+import { StorageService } from '../../core/storage/storage.service';
+import { getErrorMessage } from '../../core/common/utils/error.util';
 // pdfkit publica un CommonJS export sin default — `import = require()` es la
 // forma correcta. Lint excepción documentada (R8 conv: librerías legacy).
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -35,7 +38,11 @@ type InvoiceForPdf = Prisma.InvoiceGetPayload<{
 export class InvoicePdfService {
   private readonly logger = new Logger(InvoicePdfService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+    private readonly storage: StorageService,
+  ) {}
 
   /**
    * Generate a PDF buffer for an invoice.
@@ -59,8 +66,9 @@ export class InvoicePdfService {
 
     if (!invoice) throw new NotFoundException('Factura no encontrada.');
 
-    // Load company info from settings
+    // Load company info + logo from settings (branding.*)
     const companyInfo = await this.getCompanyInfo();
+    const logo = await this.loadLogo(companyInfo.logo_key);
 
     return new Promise<Buffer>((resolve, reject) => {
       const doc = new PDFDocument({
@@ -79,7 +87,7 @@ export class InvoicePdfService {
       doc.on('error', reject);
 
       // ── Header ──
-      this.drawHeader(doc, companyInfo, invoice);
+      this.drawHeader(doc, companyInfo, invoice, logo);
 
       // ── Client info ──
       this.drawClientInfo(doc, invoice);
@@ -105,21 +113,41 @@ export class InvoicePdfService {
     doc: PDFKit.PDFDocument,
     company: CompanyInfo,
     invoice: InvoiceForPdf,
+    logo: Buffer | null,
   ): void {
-    // Company name
-    doc.fontSize(20).font('Helvetica-Bold').text(company.name, 50, 50);
+    // Logo de marca (PNG/JPG). Si existe, se dibuja arriba-izquierda y el
+    // bloque de datos de empresa se desplaza a su derecha. Fail-soft: una
+    // imagen corrupta no debe romper la factura.
+    let textX = 50;
+    if (logo) {
+      try {
+        doc.image(logo, 50, 45, { fit: [44, 44] });
+        textX = 105;
+      } catch (err) {
+        this.logger.warn(
+          `Logo de marca no se pudo incrustar en el PDF: ${getErrorMessage(err)}`,
+        );
+      }
+    }
+
+    // Company name (en el color primario de marca)
+    doc
+      .fontSize(20)
+      .font('Helvetica-Bold')
+      .fillColor(company.primary_color)
+      .text(company.name, textX, 50);
     doc.fontSize(9).font('Helvetica').fillColor('#666666');
-    doc.text(company.address, 50, 75);
+    doc.text(company.address, textX, 75);
     doc.text(
       `${company.postal_code} ${company.city}, ${company.country}`,
-      50,
+      textX,
       87,
     );
-    doc.text(`NIF: ${company.nif}`, 50, 99);
-    doc.text(`Email: ${company.email}`, 50, 111);
+    doc.text(`NIF: ${company.nif}`, textX, 99);
+    doc.text(`Email: ${company.email}`, textX, 111);
 
     // Invoice title
-    doc.fontSize(24).font('Helvetica-Bold').fillColor('#1a1a1a');
+    doc.fontSize(24).font('Helvetica-Bold').fillColor(company.primary_color);
     doc.text('FACTURA', 400, 50, { align: 'right' });
 
     doc.fontSize(10).font('Helvetica').fillColor('#666666');
@@ -406,26 +434,61 @@ export class InvoicePdfService {
     }).format(new Date(date));
   }
 
+  /**
+   * Datos de empresa para la factura, desde `branding.*` (Sprint 12, ADR-044
+   * Amendment A1). Lee crudo vía `SettingsService` — corrige el bug previo que
+   * leía `category:'company'` con el envoltorio `{value}` y siempre caía al
+   * fallback.
+   */
   private async getCompanyInfo(): Promise<CompanyInfo> {
-    const settings = await this.prisma.setting.findMany({
-      where: { category: 'company' },
-    });
-
-    const get = (key: string, fallback: string) => {
-      const s = settings.find((s) => s.key === key);
-      return s ? (s.value as { value: string }).value || fallback : fallback;
-    };
+    const get = (key: string, fallback: string) =>
+      this.settings.get('branding', key, fallback);
+    const [
+      name,
+      nif,
+      address,
+      city,
+      postal_code,
+      country,
+      email,
+      logo_key,
+      primary_color,
+    ] = await Promise.all([
+      get('company_name', 'Aelium S.L.'),
+      get('company_nif', 'B12345678'),
+      get('company_address', 'Calle Ejemplo 1'),
+      get('company_city', 'Madrid'),
+      get('company_postal_code', '28001'),
+      get('company_country', 'España'),
+      get('company_email', 'billing@aelium.es'),
+      get('logo_key', ''),
+      get('primary_color', '#1a1a1a'),
+    ]);
 
     return {
-      name: get('name', 'Aelium S.L.'),
-      nif: get('nif', 'B12345678'),
-      address: get('address', 'Calle Ejemplo 1'),
-      city: get('city', 'Madrid'),
-      postal_code: get('postal_code', '28001'),
-      country: get('country', 'España'),
-      email: get('email', 'billing@aelium.es'),
-      logo_url: get('logo_url', ''),
+      name,
+      nif,
+      address,
+      city,
+      postal_code,
+      country,
+      email,
+      logo_key,
+      primary_color,
     };
+  }
+
+  /** Descarga el logo de MinIO. Fail-soft: `null` si no hay key o falla. */
+  private async loadLogo(logoKey: string): Promise<Buffer | null> {
+    if (!logoKey) return null;
+    try {
+      return await this.storage.download(logoKey);
+    } catch (err) {
+      this.logger.warn(
+        `No se pudo descargar el logo de marca (${logoKey}): ${getErrorMessage(err)}`,
+      );
+      return null;
+    }
   }
 }
 
@@ -437,5 +500,6 @@ interface CompanyInfo {
   postal_code: string;
   country: string;
   email: string;
-  logo_url: string;
+  logo_key: string;
+  primary_color: string;
 }

@@ -77,24 +77,43 @@ await settings.getBoolean('referrals', 'system_active');   // → true
 
 | Key | Tipo | Default | Estado | Consumidor | Origen |
 |-----|------|---------|--------|------------|--------|
-| `billing.invoice_prefix` | string | `"AEL"` | ✅ | `billing-invoice.service.ts:61` | [ADR-025](../10-decisions/adr-025-numeracion-secuencial-facturas.md) · seed.ts:63 |
-| `billing.payment_due_days` | number | 7 | 🟡 | (ROADMAP EC-BILL-08 — pendiente integrar) | seed.ts:64 |
-| `billing.default_tax_rate` | number | 21 | ✅ | `billing-calculator.service.ts:69` | [ADR-027](../10-decisions/adr-027-iva-por-pais.md) · seed.ts:62 |
-| `billing.max_payment_retries` | number | 3 | ✅ | `billing-invoice.service.ts:91` | [ADR-030](../10-decisions/adr-030-periodo-gracia-reintentos.md) · sin seed (default in-code) |
+| `billing.invoice_prefix` | string | `"AEL"` | ✅ | `billing-invoice.service.ts` `generateInvoiceNumber` (Sprint 12: leído vía `SettingsService`, canónico — el previo `getSettingValue` con envoltorio `{value}` caía a 'AELIUM') · **editable `/admin/settings`** | [ADR-025](../10-decisions/adr-025-numeracion-secuencial-facturas.md) · [ADR-044 A1](../10-decisions/adr-044-settings-extensos.md) |
+| `billing.payment_due_days` | number | 7 | ✅ | `billing-invoice.service.ts` `createInvoice` → `due_date` cuando el DTO no la fija (Sprint 12) · **editable `/admin/settings`** | [ADR-044 A1](../10-decisions/adr-044-settings-extensos.md) |
+| `billing.default_tax_rate` | number | 21 | ✅ | `billing-calculator.service.ts` `calculateInvoiceTotals` (IVA por defecto) · **editable** | [ADR-027](../10-decisions/adr-027-iva-por-pais.md) · [ADR-044 A1](../10-decisions/adr-044-settings-extensos.md) |
+| `billing.invoice_generation_days` | number | 7 | ✅ | `billing-lifecycle.worker.ts` `generatePendingInvoices` (antelación de la factura de renovación) · **editable** | [ADR-044 A1](../10-decisions/adr-044-settings-extensos.md) |
+| `billing.max_payment_retries` | number | 3 | ✅ | `billing-invoice.service.ts` `createInvoice` → `invoice.max_retries` · **editable** | [ADR-030](../10-decisions/adr-030-periodo-gracia-reintentos.md) · ADR-044 A1 |
+| `billing.retry_interval_days` | number | 3 | ✅ | `billing-lifecycle.worker.ts` `retryOverduePayments` + `markAsOverdue` (días entre reintentos) · **editable** | ADR-030 · ADR-044 A1 |
+| `billing.suspension_days` | number | 7 | ✅ | `service-lifecycle.worker.ts` `autoSuspendServices` (margen antes de suspender por impago) · **editable** | ADR-030 · ADR-044 A1 |
+| `billing.cancellation_days` | number | 30 | ✅ | `service-lifecycle.worker.ts` `autoCancelServices` (suspendido → cancelado) · **editable** | ADR-030 · ADR-044 A1 |
 | `billing.default_payment_provider` | string | (no seeded) | ❌ | (cuando exista plugin Stripe — [ADR-031](../10-decisions/adr-031-payment-providers.md)) | ADR-031 |
-| `billing.invoice_advance_days` | number | (sin seed) | ❌ | (pendiente — días para anticipar generación de factura de renovación) | [ADR-044](../10-decisions/adr-044-settings-extensos.md) |
-| `billing.payment_retry_interval_days` | number | (sin seed) | ❌ | (pendiente — días entre reintentos) | ADR-030 · ADR-044 |
-| `billing.grace_period_days` | number | (sin seed) | ❌ | (pendiente — días antes de suspender por impago) | ADR-030 · ADR-044 |
-| `billing.cancellation_after_suspension_days` | number | (sin seed) | ❌ | (pendiente — días hasta cancelar tras suspender) | ADR-030 · ADR-044 |
-| `billing.data_retention_after_suspension_days` | number | (sin seed) | ❌ | (pendiente — días de retención de datos del servicio tras suspensión) | ADR-044 |
 
-### 🏢 general.* (marca y empresa)
+> **Sprint 12 (fix):** los 6 settings de arriba (`default_tax_rate` + los 5 del ciclo de vida) estaban de facto **hardcodeados a su default** por el bug `{value}` de `BillingCalculatorService.getSettingValue` (leía un envoltorio inexistente). Corregido (lee crudo) + seedeados + **editables en `/admin/settings`** (grupo Facturación). Las **keys reales del código** son éstas; los nombres de ADR-044 (`invoice_advance_days`/`grace_period_days`/`cancellation_after_suspension_days`/`payment_retry_interval_days`) eran aspiracionales y no coincidían con el código. **Fuera de alcance (consciente):** `data_retention_after_suspension_days` (sin consumidor), formato de numeración más allá del prefijo (integridad legal ADR-025), `tax_config` rico (IRPF/autónomo-empresa → requiere cambiar el modelo de cálculo).
+
+### 🏢 general.* (generales)
 
 | Key | Tipo | Default | Estado | Consumidor | Origen |
 |-----|------|---------|--------|------------|--------|
-| `general.company_name` | string | `"Aelium"` | 🟡 | (pendiente — branding en facturas, emails) | seed.ts:59 |
-| `general.company_email` | string | `"hola@aelium.net"` | 🟡 | (pendiente uso en footer de email) | seed.ts:60 |
-| `general.default_currency` | string | `"EUR"` | 🟡 | Solo referencia en docs hoy ([ADR-027](../10-decisions/adr-027-iva-por-pais.md)) | seed.ts:61 |
+| `general.default_currency` | enum (EUR/USD/GBP) | `"EUR"` | 🟡 | Referencia ([ADR-027](../10-decisions/adr-027-iva-por-pais.md)) · **editable `/admin/settings`** | [ADR-044 A1](../10-decisions/adr-044-settings-extensos.md) |
+
+> Sprint 12: el IVA por defecto vive en **`billing.default_tax_rate`** (lo consume `billing-calculator`); el `general.default_tax_rate` previo era un huérfano sin consumidor → retirado del seed.
+
+> ⚠️ Sprint 12: `general.company_name` y `general.company_email` (huérfanos, sin consumidor) se **retiraron del seed** y se consolidaron en `branding.*` (canónico, abajo).
+
+### 🎨 branding.* (marca — Sprint 12, ADR-044 A1)
+
+Identidad de marca usada en las facturas. **Todos editables desde `/admin/settings`** (grupo «Marca»). Consumidor: `invoice-pdf.service.ts` `getCompanyInfo` + render del logo.
+
+| Key | Tipo | Default | Estado | Notas |
+|-----|------|---------|--------|-------|
+| `branding.company_name` | string | `"Aelium"` | ✅ | Cabecera/pie del PDF. |
+| `branding.company_email` | string | `"hola@aelium.net"` | ✅ | Email en el PDF. |
+| `branding.company_nif` | string | `"B12345678"` | ✅ | NIF/CIF en el PDF. |
+| `branding.company_address` | string | `"Calle Ejemplo 1"` | ✅ | Dirección fiscal. |
+| `branding.company_city` | string | `"Madrid"` | ✅ | — |
+| `branding.company_postal_code` | string | `"28001"` | ✅ | — |
+| `branding.company_country` | string | `"España"` | ✅ | — |
+| `branding.primary_color` | color (`#RRGGBB`) | `"#1a1a1a"` | ✅ | Color de la cabecera del PDF. |
+| `branding.logo_key` | string (managed) | `""` | ✅ | S3 key del logo en MinIO. **No editable como texto** — `POST /admin/settings/branding/logo` (PNG/JPG). |
 
 ### 💬 support.* (soporte y chat)
 

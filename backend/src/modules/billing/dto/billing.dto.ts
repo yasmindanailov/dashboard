@@ -90,8 +90,11 @@ export class CreateInvoiceDto {
   @MaxLength(3)
   currency?: string;
 
+  // Sprint 12: opcional. Si se omite, el service la calcula desde
+  // `billing.payment_due_days` (hoy + N días).
+  @IsOptional()
   @IsDateString()
-  due_date: string;
+  due_date?: string;
 
   @IsOptional()
   @IsString()

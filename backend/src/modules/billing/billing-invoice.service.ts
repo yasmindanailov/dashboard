@@ -10,6 +10,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../../core/database/prisma.service';
 import { OutboxService } from '../../core/outbox/outbox.service';
+import { SettingsService } from '../../core/settings/settings.service';
 import { paginate, PaginatedResult } from '../../common/dto/pagination.dto';
 import {
   CreateInvoiceDto,
@@ -67,6 +68,7 @@ export class BillingInvoiceService {
     private readonly outbox: OutboxService,
     private readonly calculator: BillingCalculatorService,
     private readonly pdfStorage: InvoicePdfStorageService,
+    private readonly settings: SettingsService,
     @InjectQueue(PDF_GENERATION_QUEUE) private readonly pdfQueue: Queue,
   ) {
     this.paymentProvider = new ManualPaymentProvider();
@@ -111,12 +113,28 @@ export class BillingInvoiceService {
       `SELECT nextval('"${seqName}"')`,
     );
     const seq = parseInt(result[0].nextval, 10);
-    const prefix = await this.calculator.getSettingValue<string>(
-      'billing',
-      'invoice_prefix',
-      'AELIUM',
-    );
+    // Sprint 12: lectura canónica vía SettingsService (crudo). El previo
+    // `calculator.getSettingValue` leía el envoltorio `{value}` → siempre
+    // caía al fallback ('AELIUM'), ignorando el `invoice_prefix` seedeado.
+    const prefix = await this.settings.get('billing', 'invoice_prefix', 'AEL');
     return `${prefix}-${year}-${String(seq).padStart(4, '0')}`;
+  }
+
+  /**
+   * Fecha de vencimiento de una factura nueva: la del DTO si viene; si no,
+   * hoy + `billing.payment_due_days` (Sprint 12 — consumidor de settings que
+   * antes estaba seedeado pero inerte).
+   */
+  private async resolveDueDate(explicit?: string): Promise<Date> {
+    if (explicit) return new Date(explicit);
+    const days = await this.settings.getNumber(
+      'billing',
+      'payment_due_days',
+      7,
+    );
+    const due = new Date();
+    due.setDate(due.getDate() + days);
+    return due;
   }
 
   /* ── Create ── */
@@ -152,6 +170,7 @@ export class BillingInvoiceService {
       dto.discount_amount,
     );
     const invoiceNumber = await this.generateInvoiceNumber();
+    const dueDate = await this.resolveDueDate(dto.due_date);
 
     const invoice = await this.prisma.$transaction(async (tx) => {
       const created = await tx.invoice.create({
@@ -166,7 +185,7 @@ export class BillingInvoiceService {
           discount_amount: dto.discount_amount ?? 0,
           total: totals.total,
           currency: dto.currency ?? 'EUR',
-          due_date: new Date(dto.due_date),
+          due_date: dueDate,
           is_manual: dto.is_manual ?? false,
           max_retries: maxRetries,
           notes: dto.notes,

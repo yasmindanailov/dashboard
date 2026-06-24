@@ -10,6 +10,7 @@ import { Prisma, type Invoice, type InvoiceStatus } from '@prisma/client';
 
 import { PrismaService } from '../../core/database/prisma.service';
 import { OutboxService } from '../../core/outbox/outbox.service';
+import { SettingsService } from '../../core/settings/settings.service';
 import { BillingCalculatorService } from './billing-calculator.service';
 import { BillingInvoiceService } from './billing-invoice.service';
 import { InvoicePdfStorageService } from './invoice-pdf-storage.service';
@@ -123,6 +124,13 @@ describe('BillingInvoiceService — transiciones financieras (auditoría HIGH-3)
           },
         },
         { provide: InvoicePdfStorageService, useValue: {} },
+        {
+          provide: SettingsService,
+          useValue: {
+            get: jest.fn().mockResolvedValue('AEL'),
+            getNumber: jest.fn().mockResolvedValue(7),
+          },
+        },
         {
           provide: getQueueToken(PDF_GENERATION_QUEUE),
           useValue: { add: pdfQueueAdd } as unknown as Queue,
