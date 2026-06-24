@@ -3,11 +3,11 @@
 > **Estado:** **15D core CERRADO** (Fase 15D.G mergeada) — registro + renovación +
 > lifecycle + crons + gestión curada + switch de NS + gestión de precios admin +
 > perfil de titular (WHOIS) self-service + recovery hints + borrado en gracia.
-> **Sprint 15D.II (transfer-in) — backend + entrada EN CURSO:** FSM + iniciación
-> síncrona + motor de reconcile + **cobro al completar** + **carrito único** (T2c.3:
-> checkout `deferBilling` + endpoint `submit-auth` + frontend — pestaña *Transferir*
-> en la Tienda + panel del código EPP en el detalle del dominio); pendiente
-> **T3/R/S/G** (ver §transfer-in abajo). Pendiente del cierre de 15D core:
+> **Sprint 15D.II (transfer-in) — flujo cliente COMPLETO (backend EN CURSO):** FSM +
+> iniciación síncrona + motor de reconcile + **cobro al completar** + **carrito único**
+> (T2c.3) + **cierre de la FSM** (T3: eventos `transfer_initiated/failed` + notifs +
+> zona DNS al completar + reintento A2.5); pendiente **R** (restore) / **S** (buscador
+> rico) / **G** (smoke OT&E) — ver §transfer-in abajo. Pendiente del cierre de 15D core:
 > **smoke OT&E real** (Yasmin, refina los shapes conservadores) ·
 > retrospectiva. Doctrina:
 > [ADR-081](../../10-decisions/adr-081-plugin-resellerclub-specifics.md) (specifics RC) ·
@@ -158,9 +158,10 @@ Construido (backend + entrada, verde + boot smoke 4/4 en cada fase):
 - **Motor de la FSM** (T2b): el reconcile cron avanza los transfers en curso — `getTransferStatus` (lee `domains/details`→`actionstatus`) + `advanceTransfer`: `completed` → activa el servicio + puebla `expires_at` + emite `domain.transfer_completed` (Outbox); `failed`/`cancelled` → cierra la FSM (fail-soft si RC caído).
 - **Iniciación síncrona** (T2c.1): `ProvisioningOrchestratorService.initiateTransferIn(serviceId, authCode)` — el **EPP auth-code** viaja **en memoria** (R12: NUNCA por la cola Redis ni por `metadata`); `INVALID_AUTH_CODE` → `awaiting_auth` (el cliente reenvía un código corregido).
 - **Cobro al completar** (T2c.2): `GenerateInvoiceOnDomainTransferCompletedListener` (billing) consume `domain.transfer_completed` → genera la factura del transfer con el precio snapshotado en `services.amount` (idempotente + best-effort; **R4**: billing consume el evento, el reconcile no conoce billing).
-- **Entrada — carrito único** (T2c.3): el checkout (`POST /billing/checkout/items`) acepta ítems `domain` con `operation:'transfer_in'` y los crea como **`deferBilling`** (service `pending`, `transfer_state='pending'`, **fuera de la factura**; factura nullable si el carrito es solo-transfers). El cliente aporta el auth-code después vía **`POST /domains/:id/transfer/submit-auth`** (owner/admin + guarda de estado FSM `pending`/`awaiting_auth`; R12: el código viaja en memoria a `initiateTransferIn`). **`POST /domains/transfer-quote`** devuelve el precio de transfer (server-side R5) para el carrito. **Frontend:** pestaña *Transferir* en `/dashboard/store/domains` (misma cesta única que *Registrar*) + panel del código EPP en `/dashboard/domains/:id` (gated por `service.transfer_state`).
+- **Entrada — carrito único** (T2c.3): el checkout (`POST /billing/checkout/items`) acepta ítems `domain` con `operation:'transfer_in'` y los crea como **`deferBilling`** (service `pending`, `transfer_state='pending'`, **fuera de la factura**; factura nullable si el carrito es solo-transfers). El cliente aporta el auth-code después vía **`POST /domains/:id/transfer/submit-auth`** (owner/admin + guarda de estado FSM; R12: el código viaja en memoria a `initiateTransferIn`). **`POST /domains/transfer-quote`** devuelve el precio de transfer (server-side R5) para el carrito. **Frontend:** pestaña *Transferir* en `/dashboard/store/domains` (misma cesta única que *Registrar*) + panel del código EPP en `/dashboard/domains/:id` (gated por `service.transfer_state`).
+- **Cierre de la FSM** (T3): **eventos** `domain.transfer_initiated` (orquestador, al llegar a `submitted`) + `domain.transfer_failed` (reconcile `advanceTransfer`, con `reason`) vía **Outbox** (R8). **Notificaciones** (`NotificationsOnDomainTransferListener` → email + campana al cliente en iniciada/completada/fallida; CTA al detalle del dominio). **Zona DNS al completar** ([ADR-082 A5](../../10-decisions/adr-082-modelo-domain-hosting-dns-doctrine.md#amendments)): `ReconcileDomainNsOnTransferCompletedListener` sobre `domain.transfer_completed` → si hay **hosting hermano** activo, conmuta los NS a Aelium (`switchToAeliumIfParked`, capability-routed R4, idempotente, fail-soft); **sin hosting → aparca** (mismo modelo que register A4); **crea, no migra** (los records BYOD del registrar de origen no se importan en v1). **Reintento** (A2.5): `submit-auth` también acepta `failed`/`cancelled` → limpia `provider_reference` + reabre a `pending` + reinicia con un nuevo código (no re-cobra); el panel del detalle muestra el formulario de reintento.
 
-**Pendiente de 15D.II** (próximas fases): **T3** eventos `domain.transfer_initiated/failed` + notifs + zona DNS al completar + **reintento** (A2.5: `failed`/`cancelled` → reabrir a `pending`) · **R** restore (RGP) · **S** buscador rico (suggest/bulk) · **G** smoke OT&E real + cierre. Shapes de transfer **CONSERVADORES** hasta el smoke (A7.4).
+**Pendiente de 15D.II** (próximas fases): **R** restore (RGP) — `restoreDomain`→`domains/restore`, cierra el CTA `recoveryHint='restore'` · **S** buscador rico (suggest v5/bulk) · **G** smoke OT&E real + cierre. Shapes de transfer **CONSERVADORES** hasta el smoke (A7.4). **Nota operativa:** las 6 plantillas de notificación de transfer requieren re-seedear (`prisma/seeds/notification-templates.ts`).
 
 ## Cobertura de tests (red de seguridad L20)
 

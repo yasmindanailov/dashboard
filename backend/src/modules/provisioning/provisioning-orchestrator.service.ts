@@ -219,22 +219,37 @@ export class ProvisioningOrchestratorService {
 
     try {
       const result = await plugin.provision(ctx);
-      await this.prisma.service.update({
-        where: { id: serviceId },
-        data: {
-          ...(result.providerReference
-            ? { provider_reference: result.providerReference }
-            : {}),
-          metadata: result.metadata as Prisma.InputJsonValue,
-          // 'provisioning' mientras el transfer es asíncrono (submitted) o espera
-          // el auth-code (awaiting_auth). El reconcile lo activa al completar.
-          status: 'provisioning',
-        },
+      const transferState = result.metadata.transfer_state;
+      await this.prisma.$transaction(async (tx) => {
+        await tx.service.update({
+          where: { id: serviceId },
+          data: {
+            ...(result.providerReference
+              ? { provider_reference: result.providerReference }
+              : {}),
+            metadata: result.metadata as Prisma.InputJsonValue,
+            // 'provisioning' mientras el transfer es asíncrono (submitted) o espera
+            // el auth-code (awaiting_auth). El reconcile lo activa al completar.
+            status: 'provisioning',
+          },
+        });
+        // Sprint 15D.II.T3 — el transfer se ENVIÓ al registrar (`submitted`) →
+        // emite `domain.transfer_initiated` (Outbox, R8 + ADR-084 §5) en la MISMA
+        // tx que la transición (exactly-once). `awaiting_auth` NO emite (el transfer
+        // aún no arrancó en el registrar — falta el auth-code).
+        if (transferState === 'submitted') {
+          await this.outbox.enqueue(tx, 'domain.transfer_initiated', {
+            service_id: serviceId,
+            user_id: service.user_id,
+            fqdn: service.domain,
+            correlation_id: correlationId,
+          });
+        }
       });
       await this.cache.invalidate(serviceId);
       this.logger.log(
         `initiateTransferIn service=${serviceId}: provision(transfer_in) OK ` +
-          `(transfer_state=${String(result.metadata.transfer_state)}, ` +
+          `(transfer_state=${String(transferState)}, ` +
           `ref=${result.providerReference ?? 'none'}).`,
       );
     } catch (err) {

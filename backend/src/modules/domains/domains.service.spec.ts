@@ -346,7 +346,7 @@ describe('DomainsService.transferQuote — Sprint 15D.II.T2c.3', () => {
  */
 describe('DomainsService.submitTransferAuthCode — Sprint 15D.II.T2c.3', () => {
   const OWNER = 'user-1';
-  let prisma: { service: { findUnique: jest.Mock } };
+  let prisma: { service: { findUnique: jest.Mock; update: jest.Mock } };
   let orchestrator: { initiateTransferIn: jest.Mock };
   let service: DomainsService;
 
@@ -362,7 +362,12 @@ describe('DomainsService.submitTransferAuthCode — Sprint 15D.II.T2c.3', () => 
   }
 
   beforeEach(() => {
-    prisma = { service: { findUnique: jest.fn() } };
+    prisma = {
+      service: {
+        findUnique: jest.fn(),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+    };
     orchestrator = {
       initiateTransferIn: jest.fn().mockResolvedValue(undefined),
     };
@@ -445,6 +450,58 @@ describe('DomainsService.submitTransferAuthCode — Sprint 15D.II.T2c.3', () => 
       service.submitTransferAuthCode('svc-1', 'x', OWNER, false),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(orchestrator.initiateTransferIn).not.toHaveBeenCalled();
+  });
+
+  it('reintento (A2.5): desde failed → limpia provider_reference + resetea a pending + reinicia', async () => {
+    prisma.service.findUnique
+      .mockResolvedValueOnce(
+        transferService({
+          metadata: {
+            domain_operation: 'transfer_in',
+            transfer_state: 'failed',
+          },
+        }),
+      )
+      .mockResolvedValueOnce({
+        status: 'provisioning',
+        metadata: { transfer_state: 'submitted' },
+      });
+
+    await service.submitTransferAuthCode('svc-1', 'NEW-CODE', OWNER, false);
+
+    // Reset ANTES de reiniciar: provider_reference=null + transfer_state=pending.
+    const resetArg = (
+      prisma.service.update.mock.calls as Array<
+        [
+          {
+            data: {
+              provider_reference: unknown;
+              metadata: Record<string, unknown>;
+            };
+          },
+        ]
+      >
+    )[0][0];
+    expect(resetArg.data.provider_reference).toBeNull();
+    expect(resetArg.data.metadata.transfer_state).toBe('pending');
+    expect(orchestrator.initiateTransferIn).toHaveBeenCalledWith(
+      'svc-1',
+      'NEW-CODE',
+    );
+  });
+
+  it('estado pending → NO resetea (no toca provider_reference)', async () => {
+    prisma.service.findUnique
+      .mockResolvedValueOnce(transferService())
+      .mockResolvedValueOnce({
+        status: 'provisioning',
+        metadata: { transfer_state: 'submitted' },
+      });
+
+    await service.submitTransferAuthCode('svc-1', 'CODE', OWNER, false);
+
+    expect(prisma.service.update).not.toHaveBeenCalled();
+    expect(orchestrator.initiateTransferIn).toHaveBeenCalled();
   });
 
   it('INVALID_AUTH_CODE del orquestador → 400 con code INVALID_AUTH_CODE', async () => {

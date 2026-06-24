@@ -27,6 +27,7 @@ import { BootstrapEnhanceDefaultsOnPluginInstalledListener } from './listeners/b
 import { ProvisioningOnTaskCompletedListener } from './listeners/provisioning-on-task-completed.listener';
 import { ReactivateServicesOnInvoicePaidListener } from './listeners/reactivate-services-on-invoice-paid.listener';
 import { ReconcileDnsDefaultsOnServiceActivatedListener } from './listeners/reconcile-dns-defaults-on-service-activated.listener';
+import { ReconcileDomainNsOnTransferCompletedListener } from './listeners/reconcile-domain-ns-on-transfer-completed.listener';
 import { SwitchDomainNsOnHostingActivatedListener } from './listeners/switch-domain-ns-on-hosting-activated.listener';
 import { SyncDefaultNameserversToEnhanceListener } from './listeners/sync-default-nameservers-to-enhance.listener';
 import {
@@ -116,6 +117,9 @@ import { ProvisioningService } from './provisioning.service';
     // dominio hermano que estaba aparcado en el registrar (capability-routed).
     DomainNsLifecycleService,
     SwitchDomainNsOnHostingActivatedListener,
+    // Sprint 15D.II.T3 — zona DNS al completar un transfer-in (ADR-082 A5):
+    // si hay hosting hermano, conmuta a Aelium (capability-routed, idempotente).
+    ReconcileDomainNsOnTransferCompletedListener,
     // Sprint 15C.II Fase F.5.3 — auto-reactivación al pagar (`invoice.paid`
     // → reactivar los servicios suspendidos por impago de la factura).
     ReactivateServicesOnInvoicePaidListener,

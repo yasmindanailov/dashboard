@@ -26,6 +26,7 @@ import { NotificationsOnServiceSuspendedListener } from './listeners/notificatio
 import { NotificationsOnServiceUnsuspendedListener } from './listeners/notifications-on-service-unsuspended.listener';
 import { NotificationsOnDomainLifecycleListener } from './listeners/notifications-on-domain-lifecycle.listener';
 import { NotificationsOnDomainManagementListener } from './listeners/notifications-on-domain-management.listener';
+import { NotificationsOnDomainTransferListener } from './listeners/notifications-on-domain-transfer.listener';
 import { NotificationsRetentionCron } from './notifications-retention.cron';
 
 /**
@@ -113,6 +114,9 @@ import { NotificationsRetentionCron } from './notifications-retention.cron';
     // (domain.nameservers_changed / domain.lock_changed) → email + campana
     // "verifica que fuiste tú". Heredable a futuros registrars.
     NotificationsOnDomainManagementListener,
+    // Sprint 15D.II.T3 (ADR-084 §5 + A2): consume la FSM de transfer-in
+    // (domain.transfer_initiated/completed/failed) → email + campana al cliente.
+    NotificationsOnDomainTransferListener,
     NotificationsRetentionCron,
     {
       provide: NOTIFICATION_CHANNELS,

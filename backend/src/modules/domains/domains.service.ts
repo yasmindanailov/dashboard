@@ -317,9 +317,10 @@ export class DomainsService {
    * se loguea ni se persiste en claro.
    *
    * Guardas: el service debe ser un dominio en `transfer_in` y en un estado donde
-   * aportar el código tenga sentido (`pending`/`awaiting_auth`). Un `INVALID_AUTH_CODE`
-   * deja la FSM en `awaiting_auth` y se traduce a un 400 accionable (reintentar con
-   * un código corregido); `TRANSFER_REJECTED` y otros, a un 400 con el código semántico.
+   * aportar el código tenga sentido (`pending`/`awaiting_auth`, o `failed`/`cancelled`
+   * como **reintento** A2.5 → reabre a `pending`). Un `INVALID_AUTH_CODE` deja la FSM
+   * en `awaiting_auth` y se traduce a un 400 accionable (reintentar con un código
+   * corregido); `TRANSFER_REJECTED` y otros, a un 400 con el código semántico.
    */
   async submitTransferAuthCode(
     serviceId: string,
@@ -358,11 +359,32 @@ export class DomainsService {
     }
     const state =
       typeof meta.transfer_state === 'string' ? meta.transfer_state : 'pending';
-    if (state !== 'pending' && state !== 'awaiting_auth') {
+    // Reintento (A2.5): desde `failed`/`cancelled` se reabre el MISMO service. El
+    // resto de estados terminales/en-curso (`submitted`/`completed`) no admiten código.
+    const isRetry = state === 'failed' || state === 'cancelled';
+    if (state !== 'pending' && state !== 'awaiting_auth' && !isRetry) {
       throw new BadRequestException(
-        `La transferencia ya está en estado "${state}"; no se puede reenviar el ` +
+        `La transferencia ya está en estado "${state}"; no se puede aportar el ` +
           `código de autorización ahora.`,
       );
+    }
+
+    // Reintento (A2.5): se limpia `provider_reference` (la orden anterior está
+    // cerrada en el registrar) y se reabre la FSM a `pending` → `initiateTransferIn`
+    // arranca un transfer FRESCO con el nuevo auth-code. No re-cobra (no se cobró
+    // nada, ADR-084 A2.3/A2.5).
+    if (isRetry) {
+      await this.prisma.service.update({
+        where: { id: serviceId },
+        data: {
+          provider_reference: null,
+          metadata: {
+            ...meta,
+            domain_operation: 'transfer_in',
+            transfer_state: 'pending',
+          } as Prisma.InputJsonValue,
+        },
+      });
     }
 
     try {

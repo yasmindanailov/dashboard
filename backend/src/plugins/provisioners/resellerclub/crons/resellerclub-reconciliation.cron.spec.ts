@@ -331,7 +331,7 @@ describe('ResellerclubReconciliationCron — Fase 15D.E', () => {
     );
   });
 
-  it('transfer submitted→failed → cierra la FSM (transfer_state=failed), NO toca status', async () => {
+  it('transfer submitted→failed → cierra la FSM (transfer_state=failed), NO toca status + emite domain.transfer_failed', async () => {
     prisma.service.findMany.mockResolvedValue([transferRow()]);
     plugin.getTransferStatus.mockResolvedValue('failed');
 
@@ -347,6 +347,12 @@ describe('ResellerclubReconciliationCron — Fase 15D.E', () => {
     expect(updateArg.data.metadata.transfer_state).toBe('failed');
     // Un transfer en curso NO pasa por el lifecycle (getServiceInfo).
     expect(plugin.getServiceInfo).not.toHaveBeenCalled();
+    // T3: emite domain.transfer_failed (Outbox, misma tx) con el motivo.
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      prisma,
+      'domain.transfer_failed',
+      expect.objectContaining({ service_id: 'svc-1', reason: 'failed' }),
+    );
   });
 
   it('transfer aún submitted → sin cambios (no escribe)', async () => {

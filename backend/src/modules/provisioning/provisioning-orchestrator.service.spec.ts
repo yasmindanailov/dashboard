@@ -692,6 +692,12 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
       'service.activated',
       expect.anything(),
     );
+    // T3: el transfer se envió (submitted) → domain.transfer_initiated (Outbox, misma tx).
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      prisma,
+      'domain.transfer_initiated',
+      expect.objectContaining({ service_id: 'svc-1', fqdn: 'movein.com' }),
+    );
   });
 
   it('initiateTransferIn: auth-code inválido → FSM a awaiting_auth + re-lanza', async () => {
@@ -717,6 +723,8 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
       >
     )[0][0];
     expect(updateArg.data.metadata?.transfer_state).toBe('awaiting_auth');
+    // T3: el transfer NO arrancó en el registrar → NO emite domain.transfer_initiated.
+    expect(outbox.enqueue).not.toHaveBeenCalled();
   });
 
   it('initiateTransferIn: plugin no-registrar → INVALID_STATE (no llama provision)', async () => {
