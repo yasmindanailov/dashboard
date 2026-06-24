@@ -39,6 +39,13 @@ export interface ProrationResult {
   credit: number;
   newCharge: number;
   totalDue: number;
+  /**
+   * ADR-029: crédito SOBRANTE cuando el crédito por días no consumidos supera el
+   * precio del nuevo plan (downgrade a un plan más barato a mitad de ciclo). Sin
+   * devolución de dinero: queda como `Service.credit_balance_eur` y se consume en
+   * la siguiente renovación. 0 en el caso normal (upgrade / `credit ≤ newCharge`).
+   */
+  creditRemaining: number;
 }
 
 @Injectable()
@@ -104,10 +111,12 @@ export class BillingCalculatorService {
    * Calculate proration credit when switching billing cycles.
    * Returns the credit amount for unused days.
    *
-   * DECISIONS.md §21:
-   * - Daily price = plan price / days in period
-   * - Credit = unused days × daily price
-   * - Credit is deducted from new plan — never refunded
+   * ADR-029 (prorrateo de cambio de plan / DECISIONS.md §21):
+   * - Precio diario = precio del plan actual / días del período
+   * - Crédito = días no consumidos × precio diario
+   * - El crédito se descuenta del nuevo plan — NUNCA se devuelve dinero.
+   * - Si el crédito supera el precio del nuevo plan, `totalDue=0` y el SOBRANTE
+   *   (`creditRemaining`) queda en cuenta para la siguiente renovación.
    */
   calculateProration(params: {
     currentAmount: number;
@@ -121,6 +130,12 @@ export class BillingCalculatorService {
     const unusedDays = Math.max(0, currentCycleDays - daysUsed);
     const credit = Math.round(unusedDays * dailyRate * 100) / 100;
     const totalDue = Math.max(0, Math.round((newAmount - credit) * 100) / 100);
+    // Sobrante: crédito que excede el nuevo plan. Mutuamente excluyente con
+    // `totalDue` (uno de los dos es siempre 0). Sin refund (ADR-029 línea 54-56).
+    const creditRemaining = Math.max(
+      0,
+      Math.round((credit - newAmount) * 100) / 100,
+    );
 
     return {
       dailyRate: Math.round(dailyRate * 100) / 100,
@@ -128,6 +143,7 @@ export class BillingCalculatorService {
       credit,
       newCharge: newAmount,
       totalDue,
+      creditRemaining,
     };
   }
 

@@ -8,12 +8,14 @@ import { BillingController } from './billing.controller';
 import { BillingLifecycleWorker } from './billing-lifecycle.worker';
 import { ServiceLifecycleWorker } from './service-lifecycle.worker';
 import { SubscriptionService } from './subscription.service';
+import { SubscriptionPlanChangeService } from './subscription-plan-change.service';
 import { SubscriptionController } from './subscription.controller';
 import { InvoicePdfService } from './invoice-pdf.service';
 import { InvoicePdfStorageService } from './invoice-pdf-storage.service';
 import { BillingEmailListener } from './billing-email.listener';
 import { GenerateInvoiceOnDomainTransferCompletedListener } from './generate-invoice-on-domain-transfer-completed.listener';
 import { GenerateInvoiceOnDomainRestoredListener } from './generate-invoice-on-domain-restored.listener';
+import { GenerateInvoiceOnPlanChangedListener } from './generate-invoice-on-plan-changed.listener';
 import {
   PdfGenerationProcessor,
   PDF_GENERATION_QUEUE,
@@ -39,6 +41,8 @@ import { ProvisioningModule } from '../provisioning/provisioning.module';
     BillingCheckoutService,
     BillingService,
     SubscriptionService,
+    // ADR-029 — cambio de plan con prorrateo (Regla 15: servicio dedicado).
+    SubscriptionPlanChangeService,
     BillingLifecycleWorker,
     ServiceLifecycleWorker,
     InvoicePdfService,
@@ -47,6 +51,8 @@ import { ProvisioningModule } from '../provisioning/provisioning.module';
     GenerateInvoiceOnDomainTransferCompletedListener,
     // 15D.II.R — cobro del restore RGP (consume domain.restored, R4).
     GenerateInvoiceOnDomainRestoredListener,
+    // ADR-029 — factura del prorrateo al cambiar de plan (consume service.plan_changed, R4/R8).
+    GenerateInvoiceOnPlanChangedListener,
     PdfGenerationProcessor,
   ],
   exports: [

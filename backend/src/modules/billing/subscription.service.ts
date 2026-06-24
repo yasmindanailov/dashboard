@@ -6,15 +6,16 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { BillingService } from './billing.service';
 
 /**
  * SubscriptionService — Manages service lifecycle actions.
  *
  * Handles:
  * - Pause/resume subscription (§21)
- * - Plan change with proration (§21)
  * - Grace period enforcement (§12)
+ *
+ * El cambio de plan con prorrateo (ADR-029) vive en
+ * `SubscriptionPlanChangeService` (Regla 15 — responsabilidad única).
  *
  * Refs: DECISIONS.md §12, §21
  */
@@ -25,7 +26,6 @@ export class SubscriptionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly billingService: BillingService,
   ) {}
 
   /* ═══════════════════════════════════════
@@ -124,64 +124,5 @@ export class SubscriptionService {
     this.logger.log(`Service ${serviceId} resumed by user ${userId}`);
 
     return updated;
-  }
-
-  /* ═══════════════════════════════════════
-     CHANGE PLAN (with proration)
-     ═══════════════════════════════════════ */
-
-  /**
-   * Preview plan change proration.
-   * Ref: DECISIONS.md §21
-   */
-  async previewPlanChange(serviceId: string, newPricingId: string) {
-    const service = await this.prisma.service.findUnique({
-      where: { id: serviceId },
-      include: { product: true },
-    });
-    if (!service) throw new NotFoundException('Servicio no encontrado.');
-    if (service.status !== 'active') {
-      throw new BadRequestException(
-        'Solo servicios activos pueden cambiar de plan.',
-      );
-    }
-
-    const newPricing = await this.prisma.productPricing.findUnique({
-      where: { id: newPricingId },
-    });
-    if (!newPricing)
-      throw new NotFoundException('Plan de precio no encontrado.');
-
-    // Calculate days used in current period
-    const now = new Date();
-    const currentCycleDays = this.billingService.getCycleDays(
-      service.billing_cycle,
-    );
-    const periodStart = new Date(service.next_due_date!);
-    periodStart.setDate(periodStart.getDate() - currentCycleDays);
-    const daysUsed = Math.floor(
-      (now.getTime() - periodStart.getTime()) / (24 * 60 * 60 * 1000),
-    );
-
-    const proration = this.billingService.calculateProration({
-      currentAmount: Number(service.amount),
-      currentCycleDays,
-      daysUsed: Math.max(0, daysUsed),
-      newAmount: Number(newPricing.price),
-    });
-
-    return {
-      current: {
-        billing_cycle: service.billing_cycle,
-        amount: Number(service.amount),
-        days_used: daysUsed,
-        days_total: currentCycleDays,
-      },
-      new: {
-        billing_cycle: newPricing.billing_cycle,
-        amount: Number(newPricing.price),
-      },
-      proration,
-    };
   }
 }

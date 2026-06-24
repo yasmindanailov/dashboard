@@ -118,5 +118,5 @@ nuevo_periodo = 365 días desde la fecha de cambio
 - **Módulos afectados:** billing.
 - **ADRs relacionados:** ADR-026 (estados factura — el prorrateo crea factura nueva), ADR-028 (ciclo de vida del servicio), ADR-030 (gracia + reintentos).
 - **Glosario:** [Prorrateo](../00-foundations/glossary.md), [Plan / Pricing](../00-foundations/glossary.md), [Servicio](../00-foundations/glossary.md).
-- **Implementación:** `backend/src/modules/billing/billing-calculator.service.ts:calculateProration()`, endpoint `GET /api/v1/billing/proration/preview`.
-- **Sprint:** Sprint 6.6.
+- **Implementación (2026-06-24):** cálculo en `billing-calculator.service.ts:calculateProration()` (devuelve además `creditRemaining` = sobrante); flujo en `subscription-plan-change.service.ts` (`previewPlanChange` + `confirmPlanChange`, restricciones mismo-producto/cambio-de-ciclo/misma-moneda/activo/ownership) sobre `SubscriptionController` (`GET /api/v1/subscriptions/:id/change-plan/preview` + `POST /api/v1/subscriptions/:id/change-plan`, dueño resuelto del JWT — no `@Query`); factura del prorrateo vía `GenerateInvoiceOnPlanChangedListener` (consume `service.plan_changed`, Outbox R8, **BILL-INV-3**); sobrante en `Service.credit_balance_eur`, consumido en la renovación (`BillingLifecycleWorker.generatePendingInvoices`, descuento pre-IVA). **Pendiente (consciente):** límite de N cambios por ciclo (anti-abuse, §Restricciones) + UI cliente del preview/confirm (R5/R16).
+- **Sprint:** Sprint 6.6 (doctrina) · backend materializado 2026-06-24.
