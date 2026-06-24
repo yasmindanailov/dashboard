@@ -323,6 +323,12 @@ describe('ResellerclubReconciliationCron — Fase 15D.E', () => {
       'ns1.aelium.net',
       'ns2.aelium.net',
     ]);
+    // Cobro al completar + zona DNS: emite domain.transfer_completed en la tx (T2c.2).
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      prisma,
+      'domain.transfer_completed',
+      expect.objectContaining({ service_id: 'svc-1', fqdn: 'example.com' }),
+    );
   });
 
   it('transfer submitted→failed → cierra la FSM (transfer_state=failed), NO toca status', async () => {

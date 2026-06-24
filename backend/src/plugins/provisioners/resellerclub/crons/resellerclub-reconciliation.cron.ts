@@ -289,22 +289,33 @@ export class ResellerclubReconciliationCron implements OnModuleInit {
       const info = await this.plugin.getServiceInfo(toMinimalService(service));
       const newExpiresAt = parseIsoDate(info.domain?.expiresAt);
       const newNameservers = info.domain ? [...info.domain.nameservers] : null;
-      await this.prisma.service.update({
-        where: { id: service.id },
-        data: {
-          status: 'active',
-          ...(newExpiresAt ? { expires_at: newExpiresAt } : {}),
-          metadata: {
-            ...toObject(service.metadata),
-            transfer_state: 'completed',
-            ...(newNameservers ? { nameservers: newNameservers } : {}),
-          } as Prisma.InputJsonValue,
-        },
+      await this.prisma.$transaction(async (tx) => {
+        await tx.service.update({
+          where: { id: service.id },
+          data: {
+            status: 'active',
+            ...(newExpiresAt ? { expires_at: newExpiresAt } : {}),
+            metadata: {
+              ...toObject(service.metadata),
+              transfer_state: 'completed',
+              ...(newNameservers ? { nameservers: newNameservers } : {}),
+            } as Prisma.InputJsonValue,
+          },
+        });
+        // Cobro al completar (factura) + zona DNS (T3): los consumen los
+        // listeners de `domain.transfer_completed` (Outbox, R8 + ADR-084 A2.3).
+        // El evento se persiste en la MISMA tx que la activación (exactly-once).
+        await this.outbox.enqueue(tx, 'domain.transfer_completed', {
+          service_id: service.id,
+          user_id: service.user_id,
+          fqdn: service.domain,
+          expires_at: newExpiresAt ? newExpiresAt.toISOString() : null,
+        });
       });
       summary.transfersCompleted++;
       this.logger.log(
         `advanceTransfer service=${service.id}: transfer COMPLETED → active ` +
-          `(expires_at=${newExpiresAt?.toISOString() ?? 'n/a'}). [cobro al completar: T2c]`,
+          `(expires_at=${newExpiresAt?.toISOString() ?? 'n/a'}) + domain.transfer_completed (Outbox).`,
       );
       return;
     }

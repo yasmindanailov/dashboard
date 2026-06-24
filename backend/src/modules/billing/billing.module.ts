@@ -12,6 +12,7 @@ import { SubscriptionController } from './subscription.controller';
 import { InvoicePdfService } from './invoice-pdf.service';
 import { InvoicePdfStorageService } from './invoice-pdf-storage.service';
 import { BillingEmailListener } from './billing-email.listener';
+import { GenerateInvoiceOnDomainTransferCompletedListener } from './generate-invoice-on-domain-transfer-completed.listener';
 import {
   PdfGenerationProcessor,
   PDF_GENERATION_QUEUE,
@@ -42,6 +43,7 @@ import { ProvisioningModule } from '../provisioning/provisioning.module';
     InvoicePdfService,
     InvoicePdfStorageService,
     BillingEmailListener,
+    GenerateInvoiceOnDomainTransferCompletedListener,
     PdfGenerationProcessor,
   ],
   exports: [
