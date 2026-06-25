@@ -272,6 +272,26 @@ export const SETTINGS_CATALOG: readonly SettingCatalogEntry[] = [
     group: 'Facturación',
     editable: true,
   },
+  {
+    // audit 2026-06-25 GL-2 / H2.3: días de antelación del aviso previo a la
+    // cancelación irreversible. El cron `notifyUpcomingCancellations` avisa al
+    // cliente cuando un servicio suspendido por impago lleva
+    // `cancellation_days - cancellation_notice_days` días suspendido (la
+    // cancelación destruye el recurso en el proveedor — `plugin.deprovision()`).
+    // Debe ser < `cancellation_days`; si no, el aviso degrada a "avisar al
+    // suspender" (el cron clampa el lead a `cancellation_days`).
+    category: 'billing',
+    key: 'cancellation_notice_days',
+    type: 'number',
+    min: 1,
+    max: 90,
+    integer: true,
+    label: 'Antelación del aviso de cancelación (días)',
+    description:
+      'Días de antelación con que se avisa al cliente antes de cancelar (y destruir) automáticamente un servicio suspendido por impago. Debe ser menor que los días hasta cancelación.',
+    group: 'Facturación',
+    editable: true,
+  },
 
   // ── Soporte ──
   {

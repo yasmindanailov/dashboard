@@ -156,6 +156,16 @@ const SETTINGS: ReadonlyArray<SeedSetting> = [
     description:
       'Días que un servicio permanece suspendido por impago antes de la cancelación automática.',
   },
+  {
+    // audit 2026-06-25 GL-2 / H2.3 — antelación del aviso previo a la
+    // cancelación irreversible (cron `notifyUpcomingCancellations`). Default 7
+    // (< `cancellation_days` 30). Consumidor: ServiceLifecycleWorker.
+    category: 'billing',
+    key: 'cancellation_notice_days',
+    value: '7',
+    description:
+      'Días de antelación con que se avisa al cliente antes de la cancelación automática de un servicio suspendido por impago.',
+  },
 
   // ── support ──
   {

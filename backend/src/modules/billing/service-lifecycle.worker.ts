@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { getErrorMessage } from '../../core/common/utils/error.util';
@@ -24,6 +25,9 @@ const BILLING_OVERDUE_CRON_ACTOR = 'system:billing-overdue-cron';
  * `deprovisionAsAdmin` la escribe en `audit_change_log.changes_after.actor`.
  */
 const BILLING_CANCELLATION_CRON_ACTOR = 'system:billing-cancellation-cron';
+
+/** Milisegundos en un día (ventanas del aviso previo de cancelación). */
+const DAY_MS = 86_400_000;
 
 /**
  * ServiceLifecycleWorker — Scheduled jobs for service status automation.
@@ -183,6 +187,147 @@ export class ServiceLifecycleWorker {
     }
   }
 
+  /* ── 6.5b — Aviso previo de cancelación (daily 02:30 UTC) — audit GL-2 / H2.3 ── */
+
+  /**
+   * Avisa al cliente ANTES de que `autoCancelServices` cancele (y DESTRUYA en el
+   * proveedor vía `plugin.deprovision()`) un servicio suspendido por impago.
+   * Completa la decisión GL-2 "destruir CON aviso previo": la destrucción es
+   * irreversible, así que el cliente recibe `cancellation_notice_days` (default
+   * 7) días de margen para regularizar el pago.
+   *
+   * Se programa a las 02:30 (antes del 04:00 de `autoCancelServices`), pero el
+   * orden intra-día es irrelevante: la ventana del aviso es DISJUNTA de la de
+   * cancelación (avisa mientras `suspended_at > cancelCutoff`, es decir, antes de
+   * ser elegible para cancelar), así que no hay carrera ni hueco.
+   */
+  @Cron('30 2 * * *', { name: 'notifyUpcomingCancellations', timeZone: 'UTC' })
+  async notifyUpcomingCancellations(): Promise<void> {
+    try {
+      const summary = await this.runCancellationNotices();
+      this.logger.log(
+        `notifyUpcomingCancellations done: checked=${summary.checked} ` +
+          `notified=${summary.notified} errors=${summary.errors}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `notifyUpcomingCancellations failed at top level: ${getErrorMessage(err)}`,
+      );
+    }
+  }
+
+  /** Una pasada. Pública para trigger manual + tests deterministas. */
+  async runCancellationNotices(
+    now: Date = new Date(),
+  ): Promise<CancellationNoticesSummary> {
+    const cancellationDays = await this.calculator.getSettingValue<number>(
+      'billing',
+      'cancellation_days',
+      30,
+    );
+    const rawNoticeDays = await this.calculator.getSettingValue<number>(
+      'billing',
+      'cancellation_notice_days',
+      7,
+    );
+    // El lead nunca puede exceder la propia ventana de cancelación: si el admin
+    // configura `notice_days >= cancellation_days`, degrada a "avisar al
+    // suspender" (lead = cancellationDays) en vez de producir una ventana vacía.
+    const noticeDays = Math.max(0, Math.min(rawNoticeDays, cancellationDays));
+
+    // Ventana DISJUNTA del aviso: el servicio ya es bastante viejo para avisar
+    // (`<= noticeCutoff`) pero AÚN no es elegible para la cancelación
+    // (`> cancelCutoff`). Es el subconjunto que `autoCancelServices` cancelará
+    // dentro de `noticeDays` días — avisado un escalón antes.
+    const noticeCutoff = new Date(
+      now.getTime() - (cancellationDays - noticeDays) * DAY_MS,
+    );
+    const cancelCutoff = new Date(now.getTime() - cancellationDays * DAY_MS);
+
+    const services = await this.prisma.service.findMany({
+      where: {
+        status: 'suspended',
+        // EXCLUYE pausas voluntarias: `subscription.service.pauseService` fija
+        // `suspended_at` igual que la suspensión por impago, pero `paused_at`
+        // SOLO lo fija la pausa voluntaria. El aviso es del track de IMPAGO —
+        // quien pausó por su cuenta no debe recibir "se cancelará por falta de
+        // pago" (verificado contra subscription.service.ts; el bug latente de
+        // que `autoCancelServices` SÍ puede cancelar una pausa larga está
+        // anotado en backlog para una fase aparte — no se toca un cron
+        // destructivo aquí).
+        paused_at: null,
+        suspended_at: { lte: noticeCutoff, gt: cancelCutoff },
+      },
+      select: { id: true, user_id: true, suspended_at: true, metadata: true },
+    });
+
+    const summary: CancellationNoticesSummary = {
+      checked: services.length,
+      notified: 0,
+      errors: 0,
+    };
+
+    for (const service of services) {
+      try {
+        if (await this.notifyIfNotYetNotified(service, cancellationDays, now)) {
+          summary.notified++;
+        }
+      } catch (err) {
+        summary.errors++;
+        this.logger.error(
+          `notifyUpcomingCancellations service=${service.id} failed: ${getErrorMessage(err)}`,
+        );
+      }
+    }
+    return summary;
+  }
+
+  private async notifyIfNotYetNotified(
+    service: CancellationNoticeRow,
+    cancellationDays: number,
+    now: Date,
+  ): Promise<boolean> {
+    if (!service.suspended_at) return false;
+
+    // Edge-trigger por ciclo de suspensión: se avisa UNA vez por suspensión.
+    // Guardamos el instante del aviso; si una re-suspensión posterior fija un
+    // `suspended_at` MÁS NUEVO que el último aviso, el flag queda obsoleto y se
+    // vuelve a avisar (auto-reset — mismo patrón que `domain_expiry_warned_window`).
+    const sentAt = readNoticeSentAt(service.metadata);
+    if (sentAt && sentAt >= service.suspended_at) return false;
+
+    // Fecha determinista en que `autoCancelServices` lo cancelará.
+    const scheduledCancellationDate = new Date(
+      service.suspended_at.getTime() + cancellationDays * DAY_MS,
+    );
+
+    // Persistir el flag (edge-trigger) ANTES de emitir, para que un fallo del
+    // listener no provoque re-avisos diarios (el evento se traga aguas abajo, R7).
+    await this.prisma.service.update({
+      where: { id: service.id },
+      data: {
+        metadata: {
+          ...toMetadataObject(service.metadata),
+          cancellation_notice_sent_at: now.toISOString(),
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    // Alerta (trigger de notificación), NO transición de estado → EventEmitter2
+    // directo, sin Outbox (las notifs ya tienen durabilidad BullMQ).
+    this.eventEmitter.emit('service.cancellation_scheduled', {
+      service_id: service.id,
+      user_id: service.user_id,
+      scheduled_cancellation_date: scheduledCancellationDate.toISOString(),
+    });
+
+    this.logger.log(
+      `service.cancellation_scheduled service=${service.id} ` +
+        `(cancelación prevista ${scheduledCancellationDate.toISOString()}).`,
+    );
+    return true;
+  }
+
   /* ── 6.7 — Pause expiration (daily 05:00) ── */
 
   @Cron(CronExpression.EVERY_DAY_AT_5AM)
@@ -228,4 +373,35 @@ export class ServiceLifecycleWorker {
       }
     }
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Helpers del aviso previo de cancelación (file-private) — audit GL-2 / H2.3
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface CancellationNoticesSummary {
+  checked: number;
+  notified: number;
+  errors: number;
+}
+
+interface CancellationNoticeRow {
+  id: string;
+  user_id: string;
+  suspended_at: Date | null;
+  metadata: unknown;
+}
+
+/** Lee `metadata.cancellation_notice_sent_at` como Date, o `null` si ausente/inválido. */
+function readNoticeSentAt(metadata: unknown): Date | null {
+  const v = toMetadataObject(metadata).cancellation_notice_sent_at;
+  if (typeof v !== 'string') return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toMetadataObject(metadata: unknown): Record<string, unknown> {
+  return metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+    ? (metadata as Record<string, unknown>)
+    : {};
 }

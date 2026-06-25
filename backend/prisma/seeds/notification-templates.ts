@@ -1112,6 +1112,89 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       },
     },
 
+    // ───────────── service.cancellation_scheduled (email cliente — audit GL-2 / H2.3) ─────────────
+    //
+    // Emitido por `NotificationsOnServiceCancellationScheduledListener` cuando el
+    // cron `ServiceLifecycleWorker.notifyUpcomingCancellations` detecta que un
+    // servicio suspendido por impago está a `cancellation_notice_days` (default 7)
+    // de la cancelación AUTOMÁTICA e IRREVERSIBLE (destruye el recurso en el
+    // proveedor). Es un aviso previo (decisión GL-2 "destruir CON aviso"): el
+    // cliente todavía puede evitarlo regularizando el pago. CTA principal a
+    // facturación; soporte como secundario. Siempre se despacha (sin toggle).
+    //
+    // Variables:
+    //   - service_id: UUID del servicio.
+    //   - domain: domain del servicio (fallback domain → label → service_id).
+    //   - cancellation_date: fecha humana (es-ES) en que se cancelará.
+    //   - billing_url: URL absoluta a /dashboard/billing (CTA principal).
+    //   - support_url: URL absoluta a /dashboard/support (CTA secundario).
+    //   - recipient.first_name: opcional, añadido por el dispatcher.
+    //
+    // EC-T8-17: SIEMPRE `{{var}}` con escape automático.
+    {
+      event_type: 'service.cancellation_scheduled',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Tu servicio se cancelará pronto — {{domain}}',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Cancelación inminente</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{domain}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              El servicio <strong>{{domain}}</strong> lleva un tiempo suspendido por un pago
+              pendiente. Si no se regulariza, se <strong>cancelará automáticamente el
+              {{cancellation_date}}</strong>.
+            </p>
+            <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 16px 20px; margin: 20px 0;">
+              <p style="color: #991B1B; font-size: 14px; margin: 0; line-height: 1.6;">
+                La cancelación es <strong>irreversible</strong>: el servicio y sus datos se
+                eliminarán de forma permanente y no podrán recuperarse.
+              </p>
+            </div>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Todavía estás a tiempo: regulariza el pago pendiente desde tu panel y el servicio
+              volverá a estar activo.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{billing_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Regularizar el pago</a>
+            </p>
+            <p style="color: #9ca3af; font-size: 12px; line-height: 1.6; margin-top: 24px;">
+              ¿Tienes dudas o crees que es un error? <a href="{{support_url}}" style="color: #635BFF;">Contacta con soporte</a> cuanto antes.
+            </p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        domain: 'string',
+        cancellation_date: 'string',
+        billing_url: 'string',
+        support_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+    // ───────────── service.cancellation_scheduled (campana cliente) ─────────────
+    {
+      event_type: 'service.cancellation_scheduled',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Tu servicio {{domain}} se cancelará el {{cancellation_date}}',
+      body: 'El servicio {{domain}} se cancelará de forma irreversible el {{cancellation_date}} por un pago pendiente. Regulariza el pago desde tu panel para evitarlo.',
+      variables: {
+        service_id: 'string',
+        domain: 'string',
+        cancellation_date: 'string',
+        billing_url: 'string',
+        support_url: 'string',
+      },
+    },
+
     // ───────────── service.suspended (email cliente — Sprint 15C.II Fase F) ─────────────
     //
     // ADR-077 Amendment A4. Emitido por `NotificationsOnServiceSuspendedListener`
