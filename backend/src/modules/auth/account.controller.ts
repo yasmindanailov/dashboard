@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Patch,
   Post,
   Body,
@@ -15,6 +16,7 @@ import type { Request } from 'express';
 import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 
 import { AuthService } from './auth.service';
+import { AccountTransparencyService } from './account-transparency.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import {
   UpdateAccountDto,
@@ -36,7 +38,29 @@ import {
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class AccountController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly transparency: AccountTransparencyService,
+  ) {}
+
+  /* ─── Transparencia RGPD (GL-5 / H3b.1) ─── */
+
+  @Get('transparency')
+  @ApiOperation({
+    summary: 'Subprocesadores (terceros que reciben datos) — portal RGPD',
+  })
+  async getTransparency() {
+    return { subprocessors: await this.transparency.getSubprocessors() };
+  }
+
+  @Get('data-export')
+  @Throttle({ default: { ttl: 60000, limit: 5 } }) // acción pesada: cap suave
+  @ApiOperation({
+    summary: 'Exporta TODOS mis datos personales en JSON (portabilidad RGPD)',
+  })
+  exportMyData(@Req() req: AuthenticatedRequest) {
+    return this.transparency.exportForUser(req.user.id, new Date());
+  }
 
   @Patch('profile')
   @ApiOperation({

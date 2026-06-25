@@ -299,6 +299,33 @@ const SETTINGS: ReadonlyArray<SeedSetting> = [
       'Días de retención de audit_access_log (mínimo legal AEPD: 2 años)',
   },
 
+  // ── legal (audit 2026-06-25 GL-5 / H3b.1 — portal de transparencia RGPD) ──
+  // Lista de subprocesadores (terceros que reciben datos personales del
+  // cliente), mostrada en `/dashboard/transparency` y consumida por
+  // `AccountTransparencyService.getSubprocessors` (ADR-010 §Subprocesadores).
+  // Solo los terceros que HOY procesan datos en pre-producción; Stripe/Sentry/
+  // Anthropic se añadirán al activarse. Editable por el superadmin (UI futura).
+  {
+    category: 'legal',
+    key: 'subprocessors',
+    value: [
+      {
+        name: 'ResellerClub (Endurance/Newfold)',
+        purpose: 'Registro y gestión de dominios',
+        location: 'India / EE. UU.',
+        dpa_url: 'https://www.resellerclub.com/legal/privacy-policy',
+      },
+      {
+        name: 'Enhance CP',
+        purpose: 'Aprovisionamiento y gestión del hosting',
+        location: 'UE',
+        dpa_url: 'https://enhance.com/privacy',
+      },
+    ],
+    description:
+      'Subprocesadores RGPD mostrados en el portal de transparencia (ADR-010 §Subprocesadores).',
+  },
+
   // ── notifications (Sprint 9.5 + ADR-042) ──
   {
     category: 'notifications',

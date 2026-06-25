@@ -1,5 +1,13 @@
 import { serverFetch, ServerFetchError } from '../../lib/server-auth';
 import type { AuditAccessListResponse, AuditAccessItem } from '../../lib/api';
+import ExportDataButton from './_components/ExportDataButton';
+
+interface SubprocessorEntry {
+  name: string;
+  purpose: string;
+  location: string;
+  dpa_url: string;
+}
 
 /* ═══════════════════════════════════════
    /dashboard/transparency — Sprint 13 §13.AUTH Fase E (Modelo A).
@@ -49,6 +57,17 @@ export default async function TransparencyPage() {
         : 'No se pudo cargar el portal';
   }
 
+  // Subprocesadores (fail-soft: si no cargan, no rompemos el resto del portal).
+  let subprocessors: SubprocessorEntry[] = [];
+  try {
+    const res = await serverFetch<{ subprocessors: SubprocessorEntry[] }>(
+      '/account/transparency',
+    );
+    subprocessors = res.subprocessors;
+  } catch {
+    subprocessors = [];
+  }
+
   return (
     <div>
       <header style={{ marginBottom: 24 }}>
@@ -56,10 +75,100 @@ export default async function TransparencyPage() {
           Transparencia
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 8 }}>
-          Aquí puedes ver quién, dentro de Aelium, ha accedido a tus datos.
-          Conservamos este registro durante 2 años conforme al RGPD.
+          Aquí puedes ver qué hacemos con tus datos, quién accede a ellos y
+          ejercer tus derechos. Conservamos los registros conforme al RGPD.
         </p>
       </header>
+
+      {/* ── Mis datos (portabilidad RGPD) — H3b.1 ── */}
+      <section
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          padding: 24,
+          marginBottom: 24,
+        }}
+      >
+        <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Mis datos</h2>
+        <p
+          style={{
+            color: 'var(--text-secondary)',
+            fontSize: 14,
+            margin: '8px 0 16px',
+          }}
+        >
+          Descarga una copia de todos los datos personales que Aelium tiene sobre
+          ti (perfil, facturación, servicios, soporte y registros de acceso) en
+          formato JSON.
+        </p>
+        <ExportDataButton />
+      </section>
+
+      {/* ── Subprocesadores ── */}
+      <section
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          padding: 24,
+          marginBottom: 24,
+        }}
+      >
+        <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+          ¿Con quién compartimos tus datos?
+        </h2>
+        <p
+          style={{
+            color: 'var(--text-secondary)',
+            fontSize: 14,
+            margin: '8px 0 16px',
+          }}
+        >
+          Estos son los proveedores externos (subprocesadores) que pueden tratar
+          tus datos para prestarte el servicio. No vendemos tus datos a terceros.
+        </p>
+        {subprocessors.length === 0 ? (
+          <p style={{ color: 'var(--text-tertiary)', fontSize: 13 }}>
+            No hay subprocesadores configurados.
+          </p>
+        ) : (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {subprocessors.map((sp) => (
+              <li
+                key={sp.name}
+                style={{
+                  padding: '12px 0',
+                  borderTop: '1px solid var(--border)',
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{sp.name}</div>
+                <div
+                  style={{
+                    color: 'var(--text-secondary)',
+                    fontSize: 13,
+                    marginTop: 2,
+                  }}
+                >
+                  {sp.purpose} · {sp.location} ·{' '}
+                  <a
+                    href={sp.dpa_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: 'var(--primary, #635BFF)' }}
+                  >
+                    Política de privacidad
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <h2 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 12px' }}>
+        Quién ha accedido a tus datos
+      </h2>
 
       {error && (
         <div
