@@ -291,6 +291,22 @@ export class AuditService {
     });
     return result.count;
   }
+
+  /**
+   * Cron de retención del log de CAMBIOS (R3 — única operación DELETE permitida,
+   * espejo de `cleanupOldAccessLogs`). audit 2026-06-25 GL-2/GL-5 (H3a): el
+   * cron de retención solo purgaba `audit_access_log` → `audit_change_log`
+   * acumulaba PII sin límite. ADR-010 §"Retención" manda 2 años → borrado para
+   * AMBAS tablas de auditoría. Borra rows con `created_at < now() - retentionDays`.
+   * Devuelve el count borrado para logging.
+   */
+  async cleanupOldChangeLogs(retentionDays: number): Promise<number> {
+    const cutoff = new Date(Date.now() - retentionDays * 86400_000);
+    const result = await this.prisma.auditChangeLog.deleteMany({
+      where: { created_at: { lt: cutoff } },
+    });
+    return result.count;
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────

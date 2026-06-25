@@ -21,7 +21,7 @@ describe('AuditService', () => {
       count: jest.Mock;
       deleteMany: jest.Mock;
     };
-    auditChangeLog: { create: jest.Mock };
+    auditChangeLog: { create: jest.Mock; deleteMany: jest.Mock };
     user: { findMany: jest.Mock };
     $queryRaw: jest.Mock;
   };
@@ -34,7 +34,10 @@ describe('AuditService', () => {
         count: jest.fn().mockResolvedValue(0),
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
-      auditChangeLog: { create: jest.fn().mockResolvedValue({}) },
+      auditChangeLog: {
+        create: jest.fn().mockResolvedValue({}),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       user: { findMany: jest.fn().mockResolvedValue([]) },
       $queryRaw: jest.fn().mockResolvedValue([]),
     };
@@ -121,6 +124,27 @@ describe('AuditService', () => {
       expect(deleted).toBe(42);
       type DeleteArg = { where: { created_at: { lt: Date } } };
       const calls = prisma.auditAccessLog.deleteMany.mock
+        .calls as DeleteArg[][];
+      const cutoff = calls[0][0].where.created_at.lt;
+      const expectedCutoff = before - 730 * 86400_000;
+      // Tolerancia 1s para no flakear por slowness del test runner.
+      expect(cutoff.getTime()).toBeGreaterThanOrEqual(expectedCutoff - 1000);
+      expect(cutoff.getTime()).toBeLessThanOrEqual(
+        Date.now() - 729 * 86400_000,
+      );
+    });
+  });
+
+  describe('cleanupOldChangeLogs', () => {
+    it('calcula cutoff = now - retention_days y llama deleteMany sobre audit_change_log (GL-5/H3a)', async () => {
+      prisma.auditChangeLog.deleteMany.mockResolvedValue({ count: 13 });
+
+      const before = Date.now();
+      const deleted = await service.cleanupOldChangeLogs(730);
+
+      expect(deleted).toBe(13);
+      type DeleteArg = { where: { created_at: { lt: Date } } };
+      const calls = prisma.auditChangeLog.deleteMany.mock
         .calls as DeleteArg[][];
       const cutoff = calls[0][0].where.created_at.lt;
       const expectedCutoff = before - 730 * 86400_000;

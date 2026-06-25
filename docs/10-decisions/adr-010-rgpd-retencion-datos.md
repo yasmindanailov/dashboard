@@ -52,7 +52,8 @@ Sin esto, el negocio incurre en sanciones (hasta 4% de facturación anual o 20 M
 | Datos de cuenta de cliente eliminado (User soft-deleted) | 5 años | Registro anonimizado (email hash, perfil null) | Sí |
 | **Facturas** (`invoices`, `invoice_items`) | **10 años** | **Nunca se borran** | **No** (obligación Hacienda RD 1619/2012) |
 
-> Implementación: cron jobs que evalúan retención y aplican la acción correspondiente. Hoy estos crons **no están implementados** (deuda técnica documentada para sprint dedicado de RGPD).
+> Implementación: cron jobs que evalúan retención y aplican la acción correspondiente.
+> **Estado (2026-06-25, audit GL-5 / H3a):** el cron de **audit log** (`AuditRetentionCron`, nightly 03:00 UTC) **sí está implementado** y desde H3a purga **ambas** tablas — `audit_access_log` (`audit.access_retention_days`) **y** `audit_change_log` (`audit.change_retention_days`), default 730 días = 2 años AEPD (antes solo purgaba `access_log` → `change_log` acumulaba PII sin límite). Los demás crons de retención (anonimización de conversaciones cerradas a 2 años, anonimización de cuentas de cliente eliminadas a 5 años) **siguen pendientes** (sprint dedicado de RGPD / portal de transparencia — GL-5 parte 2).
 
 ### Consentimiento granular
 

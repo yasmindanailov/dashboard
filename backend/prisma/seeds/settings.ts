@@ -308,6 +308,16 @@ const SETTINGS: ReadonlyArray<SeedSetting> = [
     description:
       'Días de retención de audit_access_log (mínimo legal AEPD: 2 años)',
   },
+  {
+    // audit 2026-06-25 GL-5 / H3a — retención de audit_change_log (el cron
+    // `AuditRetentionCron` ahora purga ambas tablas; ADR-010 §Retención: 2 años
+    // → borrado). Default 730 (2 años AEPD), espejo de access_retention_days.
+    category: 'audit',
+    key: 'change_retention_days',
+    value: '730',
+    description:
+      'Días de retención de audit_change_log (mínimo legal AEPD: 2 años)',
+  },
 
   // ── notifications (Sprint 9.5 + ADR-042) ──
   {
