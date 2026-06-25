@@ -20,8 +20,11 @@ export class ClientsBillingService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getBillingProfiles(userId: string) {
+    // GL-8: los perfiles archivados (vinculados a facturas pasadas) no se
+    // muestran en la lista activa del cliente — se conservan solo por
+    // integridad fiscal de sus facturas.
     return this.prisma.billingProfile.findMany({
-      where: { user_id: userId },
+      where: { user_id: userId, is_archived: false },
       orderBy: [{ is_default: 'desc' }, { created_at: 'desc' }],
     });
   }
@@ -87,7 +90,7 @@ export class ClientsBillingService {
     const profile = await this.prisma.billingProfile.findUnique({
       where: { id: profileId },
     });
-    if (!profile || profile.user_id !== userId)
+    if (!profile || profile.user_id !== userId || profile.is_archived)
       throw new NotFoundException('Perfil de facturación no encontrado');
 
     const newType = dto.type ?? profile.type;
@@ -122,13 +125,28 @@ export class ClientsBillingService {
     const profile = await this.prisma.billingProfile.findUnique({
       where: { id: profileId },
     });
-    if (!profile || profile.user_id !== userId)
+    if (!profile || profile.user_id !== userId || profile.is_archived)
       throw new NotFoundException('Perfil de facturación no encontrado');
 
     if (profile.is_default) {
       throw new BadRequestException(
         'No puedes eliminar el perfil de facturación por defecto. Asigna otro como predeterminado primero.',
       );
+    }
+
+    // GL-8 (integridad fiscal): una factura emitida debe conservar los datos
+    // fiscales con que se emitió. Si el perfil está vinculado a facturas, NO se
+    // borra (el FK lo impide a nivel BD con onDelete:Restrict y perdería el
+    // snapshot) → se ARCHIVA: desaparece de la lista activa del cliente pero
+    // las facturas mantienen su referencia. Si no hay facturas, borrado físico.
+    const linkedInvoices = await this.prisma.invoice.count({
+      where: { billing_profile_id: profileId },
+    });
+    if (linkedInvoices > 0) {
+      return this.prisma.billingProfile.update({
+        where: { id: profileId },
+        data: { is_archived: true, archived_at: new Date() },
+      });
     }
 
     return this.prisma.billingProfile.delete({ where: { id: profileId } });
@@ -138,7 +156,7 @@ export class ClientsBillingService {
     const profile = await this.prisma.billingProfile.findUnique({
       where: { id: profileId },
     });
-    if (!profile || profile.user_id !== userId)
+    if (!profile || profile.user_id !== userId || profile.is_archived)
       throw new NotFoundException('Perfil de facturación no encontrado');
 
     // EC-4.5: Use $transaction for default swap
