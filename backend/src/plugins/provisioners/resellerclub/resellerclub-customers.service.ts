@@ -46,10 +46,12 @@ import {
   ProvisionerPluginError,
   RegistrantUpdateResult,
 } from '../../../core/provisioning/types';
+import { tldRegistrantRequirement } from '../../../core/provisioning/registrant-eligibility';
 
 import {
   RcAddContactInput,
   RcContactId,
+  RcContactType,
   RcCustomerId,
   RcModifyContactInput,
   RcSignupCustomerInput,
@@ -76,15 +78,18 @@ const CONTACT_ROLES: readonly ResellerclubContactType[] = [
 
 /**
  * Identificadores de registrante RC que `provision(register)` necesita
- * (ADR-081 §5). En v1 los 4 contactos son el mismo id (Amendment A2).
+ * (ADR-081 §5). TLDs no regulados: los 4 contactos son el mismo contacto
+ * `Contact` (Amendment A2). TLDs regulados (audit GL-6 / H4): el registrante es
+ * un contacto `EsContact`/`EuContact` específico; para `.eu` los roles
+ * admin/tech/billing van como `-1` (RC exige no enviar contacto en esos roles).
  */
 export interface ResellerclubRegistrantRefs {
   readonly customerId: RcCustomerId;
   readonly contacts: {
     readonly registrant: RcContactId;
-    readonly admin: RcContactId;
-    readonly tech: RcContactId;
-    readonly billing: RcContactId;
+    readonly admin: RcContactId | -1;
+    readonly tech: RcContactId | -1;
+    readonly billing: RcContactId | -1;
   };
 }
 
@@ -103,7 +108,9 @@ export class ResellerclubCustomersService {
   async ensureRegistrant(
     client: ClientPublicData,
     api: ResellerClubApiClient,
+    tld: string,
   ): Promise<ResellerclubRegistrantRefs> {
+    const regime = contactRegimeForTld(tld);
     return this.prisma.$transaction(async (tx) => {
       // Step 0: advisory lock per-user (auto-released on tx commit/rollback).
       // `$executeRaw` (no `$queryRaw`): `pg_advisory_xact_lock` retorna VOID
@@ -112,23 +119,60 @@ export class ResellerclubCustomersService {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ADVISORY_LOCK_NAMESPACE_RESELLERCLUB_CUSTOMERS}::int4, ${lockKey}::int4)`;
 
       const customerId = await this.ensureCustomerId(tx, client, api);
-      const contactId = await this.ensureSharedContactId(
-        tx,
-        client,
-        api,
-        customerId,
-      );
 
-      // v1: 1 contacto reutilizado en los 4 roles (Amendment A2).
-      return {
-        customerId,
-        contacts: {
-          registrant: contactId,
-          admin: contactId,
-          tech: contactId,
-          billing: contactId,
-        },
-      };
+      // TLDs no regulados (.com/.net/.org): 1 contacto `Contact` reutilizado en
+      // los 4 roles, cacheado en `resellerclub_contact_handles` (Amendment A2).
+      if (regime === 'Contact') {
+        const contactId = await this.ensureSharedContactId(
+          tx,
+          client,
+          api,
+          customerId,
+        );
+        return {
+          customerId,
+          contacts: {
+            registrant: contactId,
+            admin: contactId,
+            tech: contactId,
+            billing: contactId,
+          },
+        };
+      }
+
+      // TLDs regulados (audit GL-6 / H4): el registrante DEBE ser un contacto
+      // del tipo regulado (`.es`→EsContact con NIF/NIE, `.eu`→EuContact con
+      // residencia UE), o el `domains/register` falla TRAS cobrar. Se crea un
+      // contacto regime-específico (no se cachea en los handles role-keyed —
+      // optimización de reuso diferida a [[DC.NEW-73]]; un orphan en reintento
+      // es inocuo, el cobro lo protege DOM-INV-1). Para `.eu`, RC exige `-1` en
+      // admin/tech/billing; para `.es`, el mismo EsContact en los 4 roles.
+      const contactId = await api.addContact(
+        buildContactInput(client, customerId, regime),
+      );
+      this.logger.log(
+        `resellerclub regulated contact ${contactId} (${regime}) creado para ` +
+          `user=${client.id} tld=.${tld}.`,
+      );
+      return regime === 'EuContact'
+        ? {
+            customerId,
+            contacts: {
+              registrant: contactId,
+              admin: -1,
+              tech: -1,
+              billing: -1,
+            },
+          }
+        : {
+            customerId,
+            contacts: {
+              registrant: contactId,
+              admin: contactId,
+              tech: contactId,
+              billing: contactId,
+            },
+          };
     });
   }
 
@@ -303,14 +347,50 @@ function buildSignupInput(client: ClientPublicData): RcSignupCustomerInput {
   };
 }
 
-/** `contacts/add` (type genérico v1). `.es`/`.eu` con NIF → DOM-INV-5 (Fase F). */
+/**
+ * Regime de contacto RC para un TLD (audit GL-6 / H4). Reusa el helper universal
+ * `tldRegistrantRequirement` (core, R4): `.es`→`EsContact`, `.eu`→`EuContact`,
+ * resto→`Contact` genérico. El mapeo requirement→tipo RC es específico del
+ * registrar (vive aquí, no en core).
+ */
+export function contactRegimeForTld(tld: string): RcContactType {
+  switch (tldRegistrantRequirement(tld)) {
+    case 'es_tax_id':
+      return 'EsContact';
+    case 'eu_residency':
+      return 'EuContact';
+    default:
+      return 'Contact';
+  }
+}
+
+/**
+ * `es_tipo_identificacion` de RC a partir del NIF/NIE: `3`=NIE (empieza por
+ * X/Y/Z), `1`=DNI/NIF/CIF (resto). CONSERVADOR — el set exacto de códigos se
+ * confirma en el smoke OT&E (ADR-081 A7.4); cubre los casos comunes ES.
+ */
+function esIdentificationType(taxId: string): string {
+  return /^[XYZ]/i.test(taxId.trim()) ? '3' : '1';
+}
+
+/**
+ * `contacts/add`. `regime` decide el tipo + los extension-specific details:
+ *   - `Contact` (genérico): .com/.net/.org.
+ *   - `EsContact`: `.es` → `es_tipo_identificacion` (1/3) + `es_identificacion`
+ *     (el NIF/NIE del cliente) en `attr-*` (DOM-INV-5, audit GL-6).
+ *   - `EuContact`: `.eu` → residencia UE (= `country` del contacto, validado por
+ *     elegibilidad). Sin `attr-*` adicionales en v1 (CONSERVADOR, confirm-at-smoke).
+ * Si falta el `tax_id` para `.es` → `REGISTRANT_INELIGIBLE` (backstop; la
+ * elegibilidad ya lo valida pre-cobro).
+ */
 function buildContactInput(
   client: ClientPublicData,
   customerId: RcCustomerId,
+  regime: RcContactType = 'Contact',
 ): RcAddContactInput {
   const name = fullName(client);
   const country = requireField(client.country_code, 'country');
-  return {
+  const base: RcAddContactInput = {
     name,
     company: nonEmptyCompany(client, name),
     email: client.email,
@@ -322,8 +402,28 @@ function buildContactInput(
     'phone-cc': derivePhoneCc(country),
     phone: requireField(client.phone, 'phone'),
     'customer-id': customerId,
-    type: 'Contact',
+    type: regime,
   };
+
+  if (regime === 'EsContact') {
+    const taxId = client.tax_id?.trim();
+    if (!taxId) {
+      throw new ProvisionerPluginError(
+        'Los dominios .es requieren NIF/NIE del titular.',
+        'REGISTRANT_INELIGIBLE',
+        false,
+        undefined,
+        RC_PLUGIN_SLUG,
+      );
+    }
+    return {
+      ...base,
+      'attr-name': ['es_tipo_identificacion', 'es_identificacion'],
+      'attr-value': [esIdentificationType(taxId), taxId],
+    };
+  }
+
+  return base;
 }
 
 /** `contacts/modify` desde el perfil (15D.G·2). Mismos campos que add, con contact-id. */

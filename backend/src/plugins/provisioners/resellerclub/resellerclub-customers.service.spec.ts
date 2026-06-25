@@ -17,6 +17,7 @@ import { ProvisionerPluginError } from '../../../core/provisioning/types';
 import {
   ResellerclubCustomersService,
   userAdvisoryLockKey,
+  contactRegimeForTld,
 } from './resellerclub-customers.service';
 import type { ResellerClubApiClient } from './api';
 
@@ -122,7 +123,11 @@ describe('ResellerclubCustomersService — Sprint 15D Fase 15D.D', () => {
     const service = buildService(tx);
     const api = buildApiMock();
 
-    const refs = await service.ensureRegistrant(SAMPLE_CLIENT, api as never);
+    const refs = await service.ensureRegistrant(
+      SAMPLE_CLIENT,
+      api as never,
+      'com',
+    );
 
     expect(refs.customerId).toBe(CUSTOMER_ID);
     expect(refs.contacts).toEqual({
@@ -149,7 +154,11 @@ describe('ResellerclubCustomersService — Sprint 15D Fase 15D.D', () => {
     api.searchCustomerByEmail.mockResolvedValueOnce(CUSTOMER_ID);
     api.addContact.mockResolvedValueOnce(CONTACT_ID);
 
-    const refs = await service.ensureRegistrant(SAMPLE_CLIENT, api as never);
+    const refs = await service.ensureRegistrant(
+      SAMPLE_CLIENT,
+      api as never,
+      'com',
+    );
 
     expect(refs.customerId).toBe(CUSTOMER_ID);
     expect(api.signupCustomer).not.toHaveBeenCalled();
@@ -175,7 +184,11 @@ describe('ResellerclubCustomersService — Sprint 15D Fase 15D.D', () => {
     api.signupCustomer.mockResolvedValueOnce(CUSTOMER_ID);
     api.addContact.mockResolvedValueOnce(CONTACT_ID);
 
-    const refs = await service.ensureRegistrant(SAMPLE_CLIENT, api as never);
+    const refs = await service.ensureRegistrant(
+      SAMPLE_CLIENT,
+      api as never,
+      'com',
+    );
 
     expect(api.signupCustomer).toHaveBeenCalledTimes(1);
     expect(api.addContact).toHaveBeenCalledTimes(1);
@@ -216,7 +229,7 @@ describe('ResellerclubCustomersService — Sprint 15D Fase 15D.D', () => {
     api.signupCustomer.mockResolvedValueOnce(CUSTOMER_ID);
     api.addContact.mockResolvedValueOnce(CONTACT_ID);
 
-    await service.ensureRegistrant(SAMPLE_CLIENT, api as never);
+    await service.ensureRegistrant(SAMPLE_CLIENT, api as never, 'com');
 
     const input = api.signupCustomer.mock.calls[0][0];
     expect(input).toEqual(
@@ -247,7 +260,7 @@ describe('ResellerclubCustomersService — Sprint 15D Fase 15D.D', () => {
     const service = buildService(tx);
     const api = buildApiMock();
 
-    await service.ensureRegistrant(SAMPLE_CLIENT, api as never);
+    await service.ensureRegistrant(SAMPLE_CLIENT, api as never, 'com');
 
     expect(executeRawSpy).toHaveBeenCalledTimes(1);
     const sqlParts = (
@@ -270,6 +283,7 @@ describe('ResellerclubCustomersService — Sprint 15D Fase 15D.D', () => {
       service.ensureRegistrant(
         { ...SAMPLE_CLIENT, address_line1: null },
         api as never,
+        'com',
       ),
     ).rejects.toMatchObject({
       code: 'REGISTRANT_INELIGIBLE',
@@ -285,11 +299,121 @@ describe('ResellerclubCustomersService — Sprint 15D Fase 15D.D', () => {
     api.searchCustomerByEmail.mockResolvedValueOnce(null);
 
     const err = await service
-      .ensureRegistrant({ ...SAMPLE_CLIENT, country_code: 'ZZ' }, api as never)
+      .ensureRegistrant(
+        { ...SAMPLE_CLIENT, country_code: 'ZZ' },
+        api as never,
+        'com',
+      )
       .catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(ProvisionerPluginError);
     expect((err as ProvisionerPluginError).code).toBe('REGISTRANT_INELIGIBLE');
+  });
+
+  // ─── TLDs regulados (audit GL-6 / H4) ──────────────────────────────────
+
+  it('contactRegimeForTld mapea .es→EsContact, .eu→EuContact, resto→Contact', () => {
+    expect(contactRegimeForTld('es')).toBe('EsContact');
+    expect(contactRegimeForTld('EU')).toBe('EuContact');
+    expect(contactRegimeForTld('com')).toBe('Contact');
+    expect(contactRegimeForTld('org')).toBe('Contact');
+  });
+
+  it('.es: crea un EsContact con NIF (es_tipo_identificacion + es_identificacion); 4 roles = ese contacto', async () => {
+    const { tx, handleCreateMany } = buildPrismaTxMock({
+      existingCustomer: { resellerclub_customer_id: CUSTOMER_ID },
+    });
+    const service = buildService(tx);
+    const api = buildApiMock();
+    api.addContact.mockResolvedValueOnce(CONTACT_ID);
+
+    const refs = await service.ensureRegistrant(
+      SAMPLE_CLIENT,
+      api as never,
+      'es',
+    );
+
+    const input = api.addContact.mock.calls[0][0] as {
+      type: string;
+      'attr-name'?: string[];
+      'attr-value'?: string[];
+    };
+    expect(input.type).toBe('EsContact');
+    expect(input['attr-name']).toEqual([
+      'es_tipo_identificacion',
+      'es_identificacion',
+    ]);
+    // '12345678Z' no empieza por X/Y/Z → tipo '1' (DNI/NIF).
+    expect(input['attr-value']).toEqual(['1', '12345678Z']);
+    expect(refs.contacts).toEqual({
+      registrant: CONTACT_ID,
+      admin: CONTACT_ID,
+      tech: CONTACT_ID,
+      billing: CONTACT_ID,
+    });
+    // No se cachea en los role-handles (contacto regime-específico).
+    expect(handleCreateMany).not.toHaveBeenCalled();
+  });
+
+  it('.es con NIE (empieza por X) → es_tipo_identificacion = 3', async () => {
+    const { tx } = buildPrismaTxMock({
+      existingCustomer: { resellerclub_customer_id: CUSTOMER_ID },
+    });
+    const service = buildService(tx);
+    const api = buildApiMock();
+    api.addContact.mockResolvedValueOnce(CONTACT_ID);
+
+    await service.ensureRegistrant(
+      { ...SAMPLE_CLIENT, tax_id: 'X1234567L' },
+      api as never,
+      'es',
+    );
+
+    const input = api.addContact.mock.calls[0][0] as {
+      'attr-value'?: string[];
+    };
+    expect(input['attr-value']).toEqual(['3', 'X1234567L']);
+  });
+
+  it('.es sin tax_id → REGISTRANT_INELIGIBLE (no llama addContact)', async () => {
+    const { tx } = buildPrismaTxMock({
+      existingCustomer: { resellerclub_customer_id: CUSTOMER_ID },
+    });
+    const service = buildService(tx);
+    const api = buildApiMock();
+
+    await expect(
+      service.ensureRegistrant(
+        { ...SAMPLE_CLIENT, tax_id: null },
+        api as never,
+        'es',
+      ),
+    ).rejects.toMatchObject({ code: 'REGISTRANT_INELIGIBLE' });
+    expect(api.addContact).not.toHaveBeenCalled();
+  });
+
+  it('.eu: crea un EuContact y pone admin/tech/billing = -1 (RC lo exige)', async () => {
+    const { tx } = buildPrismaTxMock({
+      existingCustomer: { resellerclub_customer_id: CUSTOMER_ID },
+    });
+    const service = buildService(tx);
+    const api = buildApiMock();
+    api.addContact.mockResolvedValueOnce(CONTACT_ID);
+
+    const refs = await service.ensureRegistrant(
+      SAMPLE_CLIENT,
+      api as never,
+      'eu',
+    );
+
+    const input = api.addContact.mock.calls[0][0] as { type: string };
+    expect(input.type).toBe('EuContact');
+    expect(refs.contacts).toEqual({
+      registrant: CONTACT_ID,
+      admin: -1,
+      tech: -1,
+      billing: -1,
+    });
   });
 });
 

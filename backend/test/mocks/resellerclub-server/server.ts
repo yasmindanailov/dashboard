@@ -432,6 +432,11 @@ function registerRoutes(
       );
       return;
     }
+    // audit GL-6 / H4: .eu exige residencia en la UE (country del contacto).
+    if (type === 'EuContact' && !hasEuResidency(p)) {
+      rcError(res, 'EU residency country is required for .eu registrant');
+      return;
+    }
     const id = String(state.nextContactId++);
     state.contactsById.set(id, {
       contactid: id,
@@ -499,6 +504,25 @@ function registerRoutes(
     }
     if (state.premiumDomains.has(sld)) {
       rcError(res, `${fqdn} is a premium domain`, { lowercase: true });
+      return;
+    }
+    // audit GL-6 / H4: TLDs regulados exigen que el registrante sea del tipo de
+    // contacto correcto (.es→EsContact, .eu→EuContact). Un Contact genérico aquí
+    // falla TRAS el cobro — esta guarda lo reproduce fielmente.
+    const regTld = fqdn.split('.').slice(1).join('.');
+    const regContact = state.contactsById.get(str(p, 'reg-contact-id') ?? '');
+    if (regTld === 'es' && regContact?.type !== 'EsContact') {
+      rcError(
+        res,
+        `.es registrant must be an EsContact (got ${regContact?.type ?? 'none'})`,
+      );
+      return;
+    }
+    if (regTld === 'eu' && regContact?.type !== 'EuContact') {
+      rcError(
+        res,
+        `.eu registrant must be an EuContact (got ${regContact?.type ?? 'none'})`,
+      );
       return;
     }
     const years = num(p, 'years') ?? 1;
@@ -971,6 +995,42 @@ function isValidTransferAuthCode(
 function hasEsIdentification(p: Record<string, unknown>): boolean {
   const names = arr(p, 'attr-name');
   return names.includes('es_tipo_identificacion');
+}
+
+/** Estados UE (alpha-2) — para validar la residencia de un EuContact (.eu). */
+const MOCK_EU_COUNTRIES = new Set([
+  'AT',
+  'BE',
+  'BG',
+  'HR',
+  'CY',
+  'CZ',
+  'DK',
+  'EE',
+  'FI',
+  'FR',
+  'DE',
+  'GR',
+  'HU',
+  'IE',
+  'IT',
+  'LV',
+  'LT',
+  'LU',
+  'MT',
+  'NL',
+  'PL',
+  'PT',
+  'RO',
+  'SK',
+  'SI',
+  'ES',
+  'SE',
+]);
+
+/** audit GL-6 / H4: un EuContact (.eu) debe residir en un país de la UE. */
+function hasEuResidency(p: Record<string, unknown>): boolean {
+  return MOCK_EU_COUNTRIES.has((str(p, 'country') ?? '').trim().toUpperCase());
 }
 
 /** Datos WHOIS del contacto desde los params (add/modify). */
