@@ -46,9 +46,12 @@ export class SupportWebsocketListener {
        widget en tiempo real. Ahora el listener es la ÚNICA fuente —
        el gateway eliminó su emisión directa para evitar duplicación. */
     if (payload.message) {
+      // SUPP-INV-3 (audit GL-3): propaga `is_internal` para que el gateway
+      // enrute las notas internas solo a staff (agent:inbox), nunca al cliente.
       this.gateway.broadcastNewMessage(
         payload.conversation_id,
         payload.message,
+        payload.is_internal,
       );
     }
 

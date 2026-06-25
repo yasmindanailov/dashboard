@@ -218,6 +218,11 @@ model BillingProfile {
   postal_code   String             @db.VarChar(20)
   country       String             @default("ES") @db.VarChar(2)
   is_default    Boolean            @default(false)
+  // audit 2026-06-25 GL-8: soft-archive en vez de borrado físico. Una factura
+  // emitida debe conservar el snapshot fiscal con que se emitió (integridad
+  // legal); por eso un perfil vinculado a facturas se ARCHIVA, no se borra.
+  is_archived   Boolean            @default(false)
+  archived_at   DateTime?          @db.Timestamptz()
   created_at    DateTime           @default(now()) @db.Timestamptz()
   updated_at    DateTime           @default(now()) @updatedAt @db.Timestamptz()
 
@@ -225,7 +230,7 @@ model BillingProfile {
   services Service[]
   invoices Invoice[]
 
-  @@index([user_id])
+  @@index([user_id, is_archived])
   @@map("billing_profiles")
 }
 
@@ -727,7 +732,10 @@ model Invoice {
   updated_at         DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
   items           InvoiceItem[]
-  billing_profile BillingProfile? @relation(fields: [billing_profile_id], references: [id])
+  // audit 2026-06-25 GL-8: Restrict (antes SetNull implícito) — la BD impide
+  // borrar un perfil de facturación referenciado por facturas, preservando el
+  // snapshot fiscal. Defensa en profundidad junto al soft-archive del service.
+  billing_profile BillingProfile? @relation(fields: [billing_profile_id], references: [id], onDelete: Restrict)
   user            User            @relation(fields: [user_id], references: [id])
 
   @@index([user_id])

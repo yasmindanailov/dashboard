@@ -4,6 +4,7 @@ import { Job, Queue } from 'bullmq';
 import { PrismaService } from '../../core/database/prisma.service';
 import { DlqService } from '../../core/jobs/dlq.service';
 import { RetryService } from '../../core/jobs/retry.service';
+import { SettingsService } from '../../core/settings/settings.service';
 import { getErrorMessage } from '../../core/common/utils/error.util';
 import { NotificationTemplateService } from './notification-template.service';
 import {
@@ -49,6 +50,7 @@ export class NotificationsDispatchProcessor
     private readonly templates: NotificationTemplateService,
     private readonly dlq: DlqService,
     private readonly retry: RetryService,
+    private readonly settings: SettingsService,
     @InjectQueue(NOTIFICATIONS_DISPATCH_QUEUE) private readonly queue: Queue,
     @Inject(NOTIFICATION_CHANNELS)
     private readonly channels: NotificationChannelInterface[],
@@ -82,6 +84,16 @@ export class NotificationsDispatchProcessor
       return;
     }
 
+    // audit 2026-06-25 GL-9: kill-switch global de email. Si el superadmin lo
+    // desactiva (`notifications.email_enabled_globally=false`), NINGÚN email
+    // sale del sistema; el canal in-app sigue activo. Lectura una vez por job
+    // (cacheada 60s en SettingsService) en lugar de por recipient×canal.
+    const emailEnabledGlobally = await this.settings.getBoolean(
+      'notifications',
+      'email_enabled_globally',
+      true,
+    );
+
     let totalAttempts = 0;
     let totalSuccess = 0;
     const errors: string[] = [];
@@ -110,6 +122,8 @@ export class NotificationsDispatchProcessor
       }
 
       for (const channel of this.channels) {
+        // audit GL-9: respeta el kill-switch global de email.
+        if (channel.name === 'email' && !emailEnabledGlobally) continue;
         const available = await channel.isAvailableFor(recipient);
         if (!available) continue;
 

@@ -381,7 +381,11 @@ const services = await serverFetch<ServiceList>('/services');
 
 **Verificación mecánica** (debe devolver `0` ocurrencias):
 ```bash
-grep -rln "localStorage\.\(get\|set\|remove\)Item('access_token'\|'refresh_token')" frontend/app
+# Cubre CUALQUIER clave de token/credencial ('token', 'access_token', 'jwt'…),
+# no solo access_token/refresh_token (audit 2026-06-25 GL-Topbar/MEDIUM-4: el
+# dead code del Topbar usaba la clave genérica 'token' y el grep antiguo no lo
+# detectaba).
+grep -rlnE "localStorage\.(get|set|remove)Item\(['\"][^'\"]*(token|jwt|secret|credential)" frontend/app
 ```
 
 **Regresión automatizada:** [`tests/e2e/auth-no-localStorage.spec.ts`](../../tests/e2e/auth-no-localStorage.spec.ts)

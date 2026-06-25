@@ -178,6 +178,21 @@ export async function seedTestAccounts(prisma: PrismaClient): Promise<void> {
   // producción. Superadmin sí se siembra en prod (boot inicial).
   const isProduction = process.env.NODE_ENV === 'production';
 
+  // Salvaguarda CRÍTICA (audit 2026-06-25 GL-4): en producción, NUNCA crear
+  // el superadmin con la contraseña por defecto pública ('AeliumDev2026!').
+  // Si SUPERADMIN_PASSWORD no está definida, abortamos ANTES de tocar la BD
+  // (fail-fast, R7) — mismo patrón que SecretVaultService al boot con
+  // ENCRYPTION_KEY. Sin esto, `pnpm seed` contra prod crearía un superadmin
+  // activo con credencial conocida (toma de control trivial).
+  if (isProduction && !process.env.SUPERADMIN_PASSWORD) {
+    throw new Error(
+      'SEED ABORTADO: NODE_ENV=production sin SUPERADMIN_PASSWORD definida. ' +
+        'Define SUPERADMIN_PASSWORD (y opcionalmente SUPERADMIN_EMAIL) antes ' +
+        'de sembrar en producción para no crear un superadmin con la ' +
+        'contraseña por defecto pública.',
+    );
+  }
+
   // Superadmin SIEMPRE.
   const superadminResult = await upsertAccount(prisma, SUPERADMIN);
   console.log(

@@ -26,6 +26,33 @@ export async function fetchUnreadNotificationsAction(): Promise<UnreadNotificati
   }
 }
 
+/* ── Soporte: contador de no-leídos (R17, audit GL-Topbar/MEDIUM-4) ──
+   El badge de soporte del Topbar leía un JWT de localStorage (dead code bajo
+   Modelo A → siempre null → badge roto, y anti-patrón prohibido por R17).
+   Esta Server Action obtiene el contador con la cookie httpOnly (serverFetch
+   adjunta el Bearer en el servidor); el cliente NUNCA toca tokens.
+   `GET /support/conversations/unread` devuelve un número (no `{ count }`). */
+export type UnreadSupportResult =
+  | { ok: true; count: number }
+  | { ok: false; error: string; status?: number };
+
+export async function fetchUnreadSupportAction(
+  type?: 'chat' | 'ticket',
+): Promise<UnreadSupportResult> {
+  try {
+    const qs = type ? `?type=${type}` : '';
+    const count = await serverFetch<number>(
+      `/support/conversations/unread${qs}`,
+    );
+    return { ok: true, count: typeof count === 'number' ? count : 0 };
+  } catch (err) {
+    if (err instanceof ServerFetchError) {
+      return { ok: false, error: err.message, status: err.status };
+    }
+    return { ok: false, error: 'No se pudo cargar el contador de soporte' };
+  }
+}
+
 export type NotificationMutationResult = { ok: true } | { ok: false; error: string };
 
 export async function markNotificationReadAction(
