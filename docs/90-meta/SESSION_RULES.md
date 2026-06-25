@@ -31,7 +31,7 @@ Se escribe AL COMPLETAR el feature, no después.
 Sigue el flujo de [`/CLAUDE.md`](../../CLAUDE.md) §1:
 
 1. [`docs/README.md`](../README.md) — índice maestro / mapa.
-2. [`docs/90-meta/audit-2026-06-21.md`](./audit-2026-06-21.md) — estado real medido.
+2. [`docs/90-meta/audit-2026-06-25.md`](./audit-2026-06-25.md) — estado real medido.
 3. [`docs/60-roadmap/current.md`](../60-roadmap/current.md) — sprint activo.
 4. [`docs/00-foundations/rules.md`](../00-foundations/rules.md) + este archivo — reglas.
 5. El `contract.md` del módulo que vas a tocar.

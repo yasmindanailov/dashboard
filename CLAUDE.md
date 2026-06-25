@@ -11,7 +11,7 @@
 Lee, **en este orden**, antes de tocar nada:
 
 1. [`docs/README.md`](docs/README.md) — índice maestro / mapa de toda la doc (qué es vivo / referencia / futuro / archivo).
-2. [`docs/90-meta/audit-2026-06-21.md`](docs/90-meta/audit-2026-06-21.md) — estado real **medido** del código (la auditoría de conformidad vigente).
+2. [`docs/90-meta/audit-2026-06-25.md`](docs/90-meta/audit-2026-06-25.md) — estado real **medido** del código (la auditoría de conformidad vigente; sustituye a `audit-2026-06-21`).
 3. [`docs/60-roadmap/current.md`](docs/60-roadmap/current.md) — qué se está construyendo **ahora** (sprint activo).
 4. [`docs/00-foundations/rules.md`](docs/00-foundations/rules.md) — reglas canónicas **R1–R17 / D1–D11** (inviolables).
 5. [`docs/90-meta/development-playbook.md`](docs/90-meta/development-playbook.md) + [`docs/90-meta/SESSION_RULES.md`](docs/90-meta/SESSION_RULES.md) — proceso + reglas operativas.

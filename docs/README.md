@@ -2,12 +2,12 @@
 
 > **Si solo lees UN documento al empezar, lee este.** Te dice qué existe, dónde vive y en qué orden leerlo.
 > **Estado:** pre-producción · Sprint **15D** (ResellerClub + comercio de dominios) **EN CURSO**.
-> **Auditoría de conformidad vigente:** [`90-meta/audit-2026-06-21.md`](90-meta/audit-2026-06-21.md).
+> **Auditoría de conformidad vigente:** [`90-meta/audit-2026-06-25.md`](90-meta/audit-2026-06-25.md) (gap go-live módulo-por-módulo; sustituye a `audit-2026-06-21`).
 
 ## 🚀 Arranque rápido (lee en este orden)
 
 1. **Este índice** — mapa global.
-2. [`90-meta/audit-2026-06-21.md`](90-meta/audit-2026-06-21.md) — estado real **medido** del código hoy (no lo que dice la doc).
+2. [`90-meta/audit-2026-06-25.md`](90-meta/audit-2026-06-25.md) — estado real **medido** del código hoy (no lo que dice la doc).
 3. [`60-roadmap/current.md`](60-roadmap/current.md) — qué se está construyendo **ahora**.
 4. [`90-meta/SESSION_RULES.md`](90-meta/SESSION_RULES.md) — reglas operativas de sesión.
 5. [`00-foundations/rules.md`](00-foundations/rules.md) — reglas canónicas **R1–R16 / D1–D11** (inviolables).
