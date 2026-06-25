@@ -194,6 +194,77 @@ describe('ResellerClubApiClient ↔ MockResellerClubServer — Sprint 15D Fase 1
     );
   });
 
+  it('register regulado (GL-6/H4): .es exige EsContact y .eu EuContact; un Contact genérico se rechaza', async () => {
+    const base = {
+      name: 'A',
+      company: 'C',
+      email: 'r@aelium.test',
+      'address-line-1': 'l1',
+      city: 'M',
+      state: 'M',
+      country: 'ES', // ES ∈ UE → válido para EuContact
+      zipcode: '28001',
+      'phone-cc': '34',
+      phone: '600000000',
+      'customer-id': '1',
+    } as const;
+    const esContact = await client.addContact({
+      ...base,
+      type: 'EsContact',
+      'attr-name': ['es_tipo_identificacion', 'es_identificacion'],
+      'attr-value': ['1', '12345678Z'],
+    });
+    const euContact = await client.addContact({ ...base, type: 'EuContact' });
+    const generic = await client.addContact({ ...base, type: 'Contact' });
+
+    // .es con EsContact → registra; con Contact genérico → RECHAZADO (el fallo
+    // que hoy ocurriría TRAS cobrar; el fix lo evita enviando EsContact).
+    const esOrder = await client.registerDomain(
+      registerInput({
+        'domain-name': 'midominio.es',
+        'reg-contact-id': esContact,
+        'admin-contact-id': esContact,
+        'tech-contact-id': esContact,
+        'billing-contact-id': esContact,
+      }),
+    );
+    expect(esOrder).toMatch(/^\d+$/);
+    await expect(
+      client.registerDomain(
+        registerInput({
+          'domain-name': 'otro.es',
+          'reg-contact-id': generic,
+          'admin-contact-id': generic,
+          'tech-contact-id': generic,
+          'billing-contact-id': generic,
+        }),
+      ),
+    ).rejects.toThrow();
+
+    // .eu con EuContact (+ admin/tech/billing = -1) → registra; genérico → rechazado.
+    const euOrder = await client.registerDomain(
+      registerInput({
+        'domain-name': 'midominio.eu',
+        'reg-contact-id': euContact,
+        'admin-contact-id': -1,
+        'tech-contact-id': -1,
+        'billing-contact-id': -1,
+      }),
+    );
+    expect(euOrder).toMatch(/^\d+$/);
+    await expect(
+      client.registerDomain(
+        registerInput({
+          'domain-name': 'otro.eu',
+          'reg-contact-id': generic,
+          'admin-contact-id': -1,
+          'tech-contact-id': -1,
+          'billing-contact-id': -1,
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
   it('renew avanza el endtime (DOM-INV-4 verificable)', async () => {
     const orderId = await client.registerDomain(registerInput());
     const before = await client.getDomainDetailsByOrderId(orderId);

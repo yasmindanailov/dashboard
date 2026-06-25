@@ -160,8 +160,8 @@ describe('Integración 15D.D — registro de dominio E2E (RC ↔ Postgres real +
     // resellerclub_customers (PK user_id) → unique violation. El lock serializa:
     // el 2º espera, lee el mapping cacheado (Step 1) y converge.
     const [r1, r2] = await Promise.all([
-      customers.ensureRegistrant(client, apiClient),
-      customers.ensureRegistrant(client, apiClient),
+      customers.ensureRegistrant(client, apiClient, 'com'),
+      customers.ensureRegistrant(client, apiClient, 'com'),
     ]);
 
     expect(r1.customerId).toBe(r2.customerId);

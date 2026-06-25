@@ -475,8 +475,10 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
       );
     }
 
-    // Disponible → asegurar registrante (customer + 4 contactos) + registrar.
-    const refs = await this.customers.ensureRegistrant(ctx.client, client);
+    // Disponible → asegurar registrante (customer + contactos) + registrar. El
+    // `tld` decide el regime de contacto (audit GL-6 / H4): `.es`→EsContact con
+    // NIF, `.eu`→EuContact + admin/tech/billing=-1; resto→Contact genérico.
+    const refs = await this.customers.ensureRegistrant(ctx.client, client, tld);
     // F.3 (ADR-082 Amendment "dominio-solo aparca en el registrar"): el destino de
     // los NS lo decide el orquestador (R4) según haya o no hosting asociado. Un
     // dominio-solo (`dnsTargetHint='parking'`) aparca en los NS del registrar
@@ -664,8 +666,14 @@ export class ResellerclubProvisionerPlugin implements ProvisionerPlugin {
       );
     }
 
-    // Transferible → asegurar registrante + iniciar el transfer.
-    const refs = await this.customers.ensureRegistrant(ctx.client, client);
+    // Transferible → asegurar registrante + iniciar el transfer. El regime de
+    // contacto depende del TLD (audit GL-6 / H4): un transfer-in `.es`/`.eu`
+    // también exige EsContact/EuContact.
+    const refs = await this.customers.ensureRegistrant(
+      ctx.client,
+      client,
+      splitFqdn(fqdn).tld,
+    );
     const nameservers =
       ctx.dnsTargetHint === 'parking'
         ? await this.settings.getJson<string[]>(
