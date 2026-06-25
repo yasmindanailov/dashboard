@@ -323,14 +323,22 @@ export class SupportGateway
      `SupportWebsocketListener.handleMessageCreated` para que CUALQUIER
      vía de envío (REST o WebSocket) llegue en tiempo real a los clientes
      conectados — antes solo el gateway WS lo emitía, dejando al cliente
-     widget sin mensajes en vivo cuando el agente respondía vía REST. */
+     widget sin mensajes en vivo cuando el agente respondía vía REST.
+
+     SUPP-INV-3 (R7, audit GL-3): las NOTAS INTERNAS (`is_internal`) son
+     solo para staff. La room `conversation:<id>` incluye al CLIENTE, así
+     que una nota interna emitida ahí se filtraría al cliente. Por eso las
+     notas internas se emiten SOLO a `agent:inbox` (room a la que el
+     cliente nunca se une); los agentes que tengan la conversación abierta
+     la reciben igual y el front filtra por `conversationId`. Defensa en
+     profundidad: el listener de email ya filtra `is_internal`. */
   broadcastNewMessage(
     conversationId: string,
     message: Record<string, unknown>,
+    isInternal = false,
   ) {
-    this.server
-      ?.to(`conversation:${conversationId}`)
-      .emit('message:new', { conversationId, message });
+    const room = isInternal ? 'agent:inbox' : `conversation:${conversationId}`;
+    this.server?.to(room).emit('message:new', { conversationId, message });
   }
 
   async broadcastUnreadCount(userId: string, role: 'client' | 'agent') {
