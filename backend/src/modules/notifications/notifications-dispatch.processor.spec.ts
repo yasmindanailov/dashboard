@@ -37,11 +37,17 @@ describe('NotificationsDispatchProcessor — kill-switch global de email (GL-9)'
 
   beforeEach(() => {
     getBoolean = jest.fn();
-    render = jest
+    render = jest.fn().mockResolvedValue({
+      subject: 'S',
+      body: '<p>B</p>',
+      event_type: 'invoice.paid',
+    });
+    emailSend = jest
       .fn()
-      .mockResolvedValue({ subject: 'S', body: '<p>B</p>', event_type: 'invoice.paid' });
-    emailSend = jest.fn().mockResolvedValue({ delivered: true, channel: 'email' });
-    inAppSend = jest.fn().mockResolvedValue({ delivered: true, channel: 'in_app' });
+      .mockResolvedValue({ delivered: true, channel: 'email' });
+    inAppSend = jest
+      .fn()
+      .mockResolvedValue({ delivered: true, channel: 'in_app' });
 
     const prisma = {
       user: {
@@ -58,8 +64,18 @@ describe('NotificationsDispatchProcessor — kill-switch global de email (GL-9)'
     } as unknown as PrismaService;
 
     const channels = [
-      { name: 'email', label: 'Email', isAvailableFor: () => true, send: emailSend },
-      { name: 'in_app', label: 'Campana', isAvailableFor: () => true, send: inAppSend },
+      {
+        name: 'email',
+        label: 'Email',
+        isAvailableFor: () => true,
+        send: emailSend,
+      },
+      {
+        name: 'in_app',
+        label: 'Campana',
+        isAvailableFor: () => true,
+        send: inAppSend,
+      },
     ] as unknown as NotificationChannelInterface[];
 
     processor = new NotificationsDispatchProcessor(
