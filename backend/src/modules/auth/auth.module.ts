@@ -9,8 +9,10 @@ import { AuthTokenService } from './auth-token.service';
 import { AuthRecoveryService } from './auth-recovery.service';
 import { AuthAccountService } from './auth-account.service';
 import { AccountTransparencyService } from './account-transparency.service';
+import { AccountDeletionService } from './account-deletion.service';
 import { AuthController } from './auth.controller';
 import { AccountController } from './account.controller';
+import { AccountDeletionAdminController } from './account-deletion-admin.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -26,7 +28,11 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
       }),
     }),
   ],
-  controllers: [AuthController, AccountController],
+  controllers: [
+    AuthController,
+    AccountController,
+    AccountDeletionAdminController,
+  ],
   providers: [
     AuthService,
     AuthLoginService,
@@ -35,6 +41,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     AuthRecoveryService,
     AuthAccountService,
     AccountTransparencyService,
+    AccountDeletionService,
     JwtStrategy,
     JwtAuthGuard,
   ],

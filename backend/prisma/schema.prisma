@@ -66,6 +66,10 @@ model User {
   partner_id         String?    @db.Uuid
   created_at         DateTime   @default(now()) @db.Timestamptz()
   updated_at         DateTime   @default(now()) @updatedAt @db.Timestamptz()
+  // audit 2026-06-25 GL-5 / H3b.2 — marca de anonimización RGPD (derecho al
+  // olvido, ADR-010 §52). Al ejecutar el borrado, el usuario pasa a
+  // status=inactive + PII anonimizada + esta marca; el login ya bloquea inactive.
+  anonymized_at      DateTime?  @db.Timestamptz()
 
   role                        Role                        @relation(fields: [role_id], references: [id])
   sessions                    Session[]
@@ -89,6 +93,10 @@ model User {
   // Sprint 15D (ADR-081 §3/§4) — mapping lazy a ResellerClub (customer + 4 contact handles).
   resellerclub_customer       ResellerclubCustomer?       @relation("UserResellerclubCustomer")
   resellerclub_contacts       ResellerclubContactHandle[] @relation("UserResellerclubContactHandles")
+  // audit 2026-06-25 GL-5 / H3b.2 — solicitudes de borrado (como titular) y
+  // revisiones (como admin que las ejecuta/rechaza).
+  account_deletion_requests   AccountDeletionRequest[]    @relation("DeletionRequester")
+  account_deletion_reviews    AccountDeletionRequest[]    @relation("DeletionReviewer")
 
   @@index([email])
   @@index([role_id])
@@ -162,6 +170,41 @@ model PasswordReset {
 
   @@index([user_id])
   @@map("password_resets")
+}
+
+// audit 2026-06-25 GL-5 / H3b.2 — derecho al olvido (RGPD Art. 17, ADR-010
+// §Portal). El titular SOLICITA el borrado; un admin lo REVISA y EJECUTA
+// (comprueba que no haya servicios activos/deuda → soft-delete + anonimización,
+// reteniendo facturas 10 años y audit 2 años por obligación legal). NUNCA
+// borrado físico.
+enum AccountDeletionStatus {
+  pending
+  rejected
+  completed
+  cancelled
+}
+
+model AccountDeletionRequest {
+  id             String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String                @db.Uuid
+  status         AccountDeletionStatus @default(pending)
+  /// Motivo opcional aportado por el titular al solicitar.
+  reason         String?
+  requested_at   DateTime              @default(now()) @db.Timestamptz()
+  /// Cuándo el admin revisó (rechazó o ejecutó).
+  reviewed_at    DateTime?             @db.Timestamptz()
+  /// Admin que revisó (SetNull si ese admin se borra a su vez).
+  reviewed_by_id String?               @db.Uuid
+  review_note    String?
+  /// Cuándo se completó la anonimización (status=completed).
+  completed_at   DateTime?             @db.Timestamptz()
+
+  user        User  @relation("DeletionRequester", fields: [user_id], references: [id], onDelete: Cascade)
+  reviewed_by User? @relation("DeletionReviewer", fields: [reviewed_by_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id])
+  @@index([status])
+  @@map("account_deletion_requests")
 }
 
 // ─── BLOQUE 2: PERFIL DE CLIENTE ───

@@ -3,6 +3,7 @@ import {
   Get,
   Patch,
   Post,
+  Delete,
   Body,
   Req,
   UseGuards,
@@ -17,12 +18,14 @@ import type { AuthenticatedRequest } from '../../core/common/types/authenticated
 
 import { AuthService } from './auth.service';
 import { AccountTransparencyService } from './account-transparency.service';
+import { AccountDeletionService } from './account-deletion.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import {
   UpdateAccountDto,
   ChangePasswordDto,
   Confirm2faDto,
 } from './dto/account.dto';
+import { RequestAccountDeletionDto } from './dto/account-deletion.dto';
 
 /**
  * AccountController — superficie self-service de la cuenta del usuario
@@ -41,6 +44,7 @@ export class AccountController {
   constructor(
     private readonly authService: AuthService,
     private readonly transparency: AccountTransparencyService,
+    private readonly deletion: AccountDeletionService,
   ) {}
 
   /* ─── Transparencia RGPD (GL-5 / H3b.1) ─── */
@@ -60,6 +64,34 @@ export class AccountController {
   })
   exportMyData(@Req() req: AuthenticatedRequest) {
     return this.transparency.exportForUser(req.user.id, new Date());
+  }
+
+  /* ─── Borrado de cuenta · derecho al olvido (GL-5 / H3b.2) ─── */
+
+  @Get('deletion-request')
+  @ApiOperation({ summary: 'Estado de mi solicitud de borrado de cuenta' })
+  getMyDeletionRequest(@Req() req: AuthenticatedRequest) {
+    return this.deletion.getMyRequest(req.user.id);
+  }
+
+  @Post('deletion-request')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Solicita el borrado de mi cuenta (lo revisa y ejecuta un admin)',
+  })
+  requestDeletion(
+    @Body() dto: RequestAccountDeletionDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.deletion.requestDeletion(req.user.id, dto.reason);
+  }
+
+  @Delete('deletion-request')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancela mi solicitud de borrado pendiente' })
+  cancelDeletionRequest(@Req() req: AuthenticatedRequest) {
+    return this.deletion.cancelMyRequest(req.user.id);
   }
 
   @Patch('profile')

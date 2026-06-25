@@ -1,5 +1,7 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
+
 import { serverFetch, ServerFetchError } from '../../lib/server-auth';
 
 /* ═══════════════════════════════════════
@@ -10,6 +12,33 @@ import { serverFetch, ServerFetchError } from '../../lib/server-auth';
 export type ExportMyDataResult =
   | { ok: true; data: unknown }
   | { ok: false; error: string };
+
+export type DeletionStatus =
+  | 'pending'
+  | 'rejected'
+  | 'completed'
+  | 'cancelled';
+
+export interface MyDeletionRequest {
+  id: string;
+  status: DeletionStatus;
+  reason: string | null;
+  requested_at: string;
+  reviewed_at: string | null;
+  review_note: string | null;
+  completed_at: string | null;
+}
+
+export type DeletionActionResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+function fail(err: unknown, fallback: string): { ok: false; error: string } {
+  return {
+    ok: false,
+    error: err instanceof ServerFetchError ? err.message : fallback,
+  };
+}
 
 /**
  * Pide al backend el export JSON de TODOS los datos del usuario (self-scoped
@@ -22,12 +51,33 @@ export async function exportMyDataAction(): Promise<ExportMyDataResult> {
     const data = await serverFetch<unknown>('/account/data-export');
     return { ok: true, data };
   } catch (err) {
-    return {
-      ok: false,
-      error:
-        err instanceof ServerFetchError
-          ? err.message
-          : 'No se pudo generar la exportación de datos',
-    };
+    return fail(err, 'No se pudo generar la exportación de datos');
+  }
+}
+
+/** Solicita el borrado de la cuenta (lo revisa y ejecuta un admin). */
+export async function requestAccountDeletionAction(
+  reason: string,
+): Promise<DeletionActionResult> {
+  try {
+    await serverFetch('/account/deletion-request', {
+      method: 'POST',
+      body: { reason: reason.trim() || undefined },
+    });
+    revalidatePath('/dashboard/transparency');
+    return { ok: true };
+  } catch (err) {
+    return fail(err, 'No se pudo registrar la solicitud de borrado');
+  }
+}
+
+/** Cancela la solicitud de borrado pendiente. */
+export async function cancelAccountDeletionAction(): Promise<DeletionActionResult> {
+  try {
+    await serverFetch('/account/deletion-request', { method: 'DELETE' });
+    revalidatePath('/dashboard/transparency');
+    return { ok: true };
+  } catch (err) {
+    return fail(err, 'No se pudo cancelar la solicitud');
   }
 }

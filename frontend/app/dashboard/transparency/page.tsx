@@ -1,6 +1,8 @@
 import { serverFetch, ServerFetchError } from '../../lib/server-auth';
 import type { AuditAccessListResponse, AuditAccessItem } from '../../lib/api';
 import ExportDataButton from './_components/ExportDataButton';
+import AccountDeletionSection from './_components/AccountDeletionSection';
+import type { MyDeletionRequest } from './_actions';
 
 interface SubprocessorEntry {
   name: string;
@@ -66,6 +68,16 @@ export default async function TransparencyPage() {
     subprocessors = res.subprocessors;
   } catch {
     subprocessors = [];
+  }
+
+  // Estado de la solicitud de borrado (fail-soft).
+  let deletionRequest: MyDeletionRequest | null = null;
+  try {
+    deletionRequest = await serverFetch<MyDeletionRequest | null>(
+      '/account/deletion-request',
+    );
+  } catch {
+    deletionRequest = null;
   }
 
   return (
@@ -267,6 +279,34 @@ export default async function TransparencyPage() {
           </table>
         </div>
       ) : null}
+
+      {/* ── Eliminar mi cuenta (derecho al olvido) — H3b.2 ── */}
+      <section
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid #FECACA',
+          borderRadius: 12,
+          padding: 24,
+          marginTop: 24,
+        }}
+      >
+        <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: '#991B1B' }}>
+          Eliminar mi cuenta
+        </h2>
+        <p
+          style={{
+            color: 'var(--text-secondary)',
+            fontSize: 14,
+            margin: '8px 0 16px',
+          }}
+        >
+          Puedes solicitar el borrado de tu cuenta. Un administrador lo revisará y,
+          si no tienes servicios activos ni pagos pendientes, anonimizará tus datos
+          personales. Tus <strong>facturas se conservan 10 años</strong> por
+          obligación legal (Hacienda).
+        </p>
+        <AccountDeletionSection request={deletionRequest} />
+      </section>
     </div>
   );
 }

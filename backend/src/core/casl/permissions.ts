@@ -87,6 +87,11 @@ export enum Subject {
   // Settings
   Setting = 'Setting',
   Agent = 'Agent', // Gestión de agentes (crear, editar)
+  // audit 2026-06-25 GL-5 / H3b.2 — revisión y ejecución de solicitudes de
+  // borrado de cuenta (derecho al olvido RGPD). Admin-puro y MUY sensible
+  // (anonimización irreversible): solo `superadmin` (vía `Manage All`); el
+  // resto de staff lo tiene denegado por defecto (sin grant explícito).
+  AccountDeletion = 'AccountDeletion',
   // Sprint 15A (ADR-080) — Plugin Framework. Habilitar/deshabilitar plugins
   // de provisioning + editar config + secretos cifrados. Admin-puro: el
   // patrón es idéntico a `NotificationTemplate` / `Job` (ADR-067) — solo
