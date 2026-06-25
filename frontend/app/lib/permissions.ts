@@ -38,6 +38,8 @@ export type AppModule =
   // ADR-067 — Subjects admin-puro plataforma (solo superadmin).
   | 'NotificationTemplate'
   | 'Job'
+  // audit 2026-06-25 GL-5 / H3b.2 — revisión de borrado de cuentas (RGPD).
+  | 'AccountDeletion'
   // ADR-080 — Plugin Framework admin-puro (manejan credenciales del proveedor).
   | 'Plugin'
   | 'Promotion'
@@ -65,6 +67,8 @@ export const SIDEBAR_PERMISSIONS: Record<string, AppModule[]> = {
     'Setting', 'Promotion', 'KnowledgeBase', 'ErrorLog',
     // ADR-067 — items admin-puro plataforma (solo superadmin).
     'NotificationTemplate', 'Job',
+    // GL-5 / H3b.2 — revisión de solicitudes de borrado de cuenta (RGPD).
+    'AccountDeletion',
     // ADR-080 — Plugin Framework admin-puro.
     'Plugin',
     'Partner', 'Referral',
@@ -152,6 +156,8 @@ export const ROUTE_PERMISSIONS: Record<string, AppModule> = {
   '/admin/error-log': 'ErrorLog',
   '/admin/jobs/failed': 'Job',
   '/admin/notifications/templates': 'NotificationTemplate',
+  // GL-5 / H3b.2 — revisión de solicitudes de borrado de cuenta (superadmin).
+  '/admin/account-deletion': 'AccountDeletion',
   // Sprint 11 Fase 11.D — vista admin federada (ADR-066 portal admin).
   '/admin/services': 'Service',
   // ADR-075 — Support Inside admin (sólo superadmin + agent_full por

@@ -126,6 +126,12 @@ const ICON = {
       <line x1="12" y1="17" x2="12" y2="21" />
     </svg>
   ),
+  accountDeletion: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+      <line x1="17" y1="8" x2="22" y2="13" /><line x1="22" y1="8" x2="17" y2="13" />
+    </svg>
+  ),
 };
 
 const ALL_ITEMS: NavItem[] = [
@@ -148,6 +154,8 @@ const ALL_ITEMS: NavItem[] = [
   { label: 'Error Log', href: '/admin/error-log', requiredModule: 'ErrorLog', icon: ICON.errorLog, section: 'plataforma' },
   { label: 'Jobs en DLQ', href: '/admin/jobs/failed', requiredModule: 'Job', icon: ICON.jobs, section: 'plataforma' },
   { label: 'Plantillas notificaciones', href: '/admin/notifications/templates', requiredModule: 'NotificationTemplate', icon: ICON.templates, section: 'plataforma' },
+  // GL-5 / H3b.2 — revisión de solicitudes de borrado de cuenta (RGPD, superadmin).
+  { label: 'Borrado de cuentas', href: '/admin/account-deletion', requiredModule: 'AccountDeletion', icon: ICON.accountDeletion, section: 'plataforma' },
 ];
 
 const STAFF_ROLES = new Set([
