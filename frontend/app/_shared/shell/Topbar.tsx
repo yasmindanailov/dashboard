@@ -7,6 +7,7 @@ import { useAuth } from '../../lib/auth-context';
 import { canAccess } from '../../lib/permissions';
 import { Dropdown, type DropdownItem } from '../../components/ui';
 import NotificationBell from './NotificationBell';
+import { fetchUnreadSupportAction } from './_actions';
 import styles from './Topbar.module.css';
 
 /* ═══════════════════════════════════════
@@ -177,30 +178,25 @@ function SupportButton({ onOpenChat }: { onOpenChat: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
-  // Fetch unread count on mount + poll every 30s
+  // Fetch unread count on mount + poll every 30s.
+  // R17 (audit GL-Topbar/MEDIUM-4): el contador se obtiene vía Server Action
+  // (la cookie httpOnly se traduce a Bearer en el servidor); el cliente NUNCA
+  // lee tokens de localStorage. Antes esto era dead code (token siempre null).
   useEffect(() => {
     if (!user) return;
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    let cancelled = false;
 
     const fetchUnread = async () => {
-      try {
-        const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-        const res = await fetch(`${API}/support/conversations/unread`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setUnreadCount(data.count ?? 0);
-        }
-      } catch (err) {
-        console.warn('[Topbar] fetchUnread failed:', err);
-      }
+      const res = await fetchUnreadSupportAction();
+      if (!cancelled && res.ok) setUnreadCount(res.count);
     };
 
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 30_000);
-    return () => clearInterval(interval);
+    void fetchUnread();
+    const interval = setInterval(() => void fetchUnread(), 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [user]);
 
   // Close on click outside
