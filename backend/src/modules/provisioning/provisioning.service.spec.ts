@@ -899,24 +899,29 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
 
   // â”€â”€â”€ deprovisionAsAdmin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  it('deprovisionAsAdmin: status=cancelled + emit service.cancelled + audit', async () => {
-    prisma.service.findUnique.mockResolvedValueOnce({
-      id: 'svc-1',
-      user_id: 'user-1',
-      status: 'active',
-      provisioner_slug: 'manual',
-    });
+  it('deprovisionAsAdmin: status=cancelled + emit service.cancelled + audit + plugin.deprovision (GL-2)', async () => {
+    const deprovisionSpy = jest.fn().mockResolvedValue(undefined);
+    registry.get.mockReturnValue(
+      buildPlugin({ slug: 'manual', deprovision: deprovisionSpy }),
+    );
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        id: 'svc-1',
+        status: 'active',
+        provisioner_slug: 'manual',
+      }),
+    );
     prisma.service.update.mockResolvedValueOnce({
       id: 'svc-1',
       status: 'cancelled',
-      cancellation_reason: 'admin_override: cliente lo solicitÃ³',
+      cancellation_reason: 'admin_override: cliente lo solicito',
     });
 
     const result = await service.deprovisionAsAdmin(
       'svc-1',
       {
         reason: DeprovisionReasonDto.admin_override,
-        notes: 'cliente lo solicitÃ³',
+        notes: 'cliente lo solicito',
       },
       'admin-id',
       { ipAddress: '1.2.3.4' },
@@ -924,6 +929,8 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
 
     expect(result.status).toBe('cancelled');
     expect(result.cancellation_reason).toContain('admin_override');
+    // audit GL-2: el recurso se destruye en el proveedor (cierra DC.46).
+    expect(deprovisionSpy).toHaveBeenCalledTimes(1);
     expect(events.emit).toHaveBeenCalledWith(
       'service.cancelled',
       expect.objectContaining({
@@ -942,12 +949,20 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
   });
 
   it('deprovisionAsAdmin: notify_client=false → evento lleva notify_client=false (Sprint 15C.II Fase E)', async () => {
-    prisma.service.findUnique.mockResolvedValueOnce({
-      id: 'svc-2',
-      user_id: 'user-2',
-      status: 'active',
-      provisioner_slug: 'enhance_cp',
-    });
+    registry.get.mockReturnValue(
+      buildPlugin({
+        slug: 'enhance_cp',
+        deprovision: jest.fn().mockResolvedValue(undefined),
+      }),
+    );
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        id: 'svc-2',
+        user_id: 'user-2',
+        status: 'active',
+        provisioner_slug: 'enhance_cp',
+      }),
+    );
     prisma.service.update.mockResolvedValueOnce({
       id: 'svc-2',
       status: 'cancelled',
@@ -969,6 +984,76 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     expect(events.emit).toHaveBeenCalledWith(
       'service.cancelled',
       expect.objectContaining({ notify_client: false }),
+    );
+  });
+
+  it('deprovisionAsAdmin: si plugin.deprovision falla, la cancelación NO se revierte (fail-soft, GL-2)', async () => {
+    registry.get.mockReturnValue(
+      buildPlugin({
+        slug: 'enhance_cp',
+        deprovision: jest.fn().mockRejectedValue(new Error('provider down')),
+      }),
+    );
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        id: 'svc-3',
+        status: 'active',
+        provisioner_slug: 'enhance_cp',
+      }),
+    );
+    prisma.service.update.mockResolvedValueOnce({
+      id: 'svc-3',
+      status: 'cancelled',
+      cancellation_reason: 'cancelled',
+    });
+
+    const result = await service.deprovisionAsAdmin(
+      'svc-3',
+      { reason: DeprovisionReasonDto.cancelled, notes: 'baja' },
+      'admin-id',
+      { ipAddress: '1.2.3.4' },
+    );
+
+    expect(result.status).toBe('cancelled');
+    expect(events.emit).toHaveBeenCalledWith(
+      'service.cancelled',
+      expect.objectContaining({ service_id: 'svc-3' }),
+    );
+  });
+
+  it('deprovisionAsAdmin: actor sistema (actorUserId=null) no exige nota y audita con actor label (GL-2 cron)', async () => {
+    const deprovisionSpy = jest.fn().mockResolvedValue(undefined);
+    registry.get.mockReturnValue(
+      buildPlugin({ slug: 'enhance_cp', deprovision: deprovisionSpy }),
+    );
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        id: 'svc-4',
+        status: 'active',
+        provisioner_slug: 'enhance_cp',
+      }),
+    );
+    prisma.service.update.mockResolvedValueOnce({
+      id: 'svc-4',
+      status: 'cancelled',
+      cancellation_reason: 'cancelled',
+    });
+
+    await service.deprovisionAsAdmin(
+      'svc-4',
+      { reason: DeprovisionReasonDto.cancelled, notes: 'auto' },
+      null,
+      undefined,
+      { actorLabel: 'system:billing-cancellation-cron' },
+    );
+
+    expect(deprovisionSpy).toHaveBeenCalledTimes(1);
+    expect(audit.logChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes_after: expect.objectContaining({
+          actor: 'system:billing-cancellation-cron',
+        }),
+      }),
     );
   });
 

@@ -5,7 +5,10 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { getErrorMessage } from '../../core/common/utils/error.util';
 import { ProvisioningService } from '../provisioning/provisioning.service';
 import { BillingCalculatorService } from './billing-calculator.service';
-import { SuspensionReasonDto } from '../provisioning/dto/provisioning.dto';
+import {
+  DeprovisionReasonDto,
+  SuspensionReasonDto,
+} from '../provisioning/dto/provisioning.dto';
 
 /**
  * Etiqueta canónica del actor sistema del cron de impago (Sprint 15C.II Fase
@@ -14,6 +17,13 @@ import { SuspensionReasonDto } from '../provisioning/dto/provisioning.dto';
  * sin un actor humano.
  */
 const BILLING_OVERDUE_CRON_ACTOR = 'system:billing-overdue-cron';
+
+/**
+ * Etiqueta canónica del actor sistema del cron de auto-CANCELACIÓN por impago
+ * (audit 2026-06-25 GL-2). Misma taxonomía `system:<dominio>-<cron>`;
+ * `deprovisionAsAdmin` la escribe en `audit_change_log.changes_after.actor`.
+ */
+const BILLING_CANCELLATION_CRON_ACTOR = 'system:billing-cancellation-cron';
 
 /**
  * ServiceLifecycleWorker — Scheduled jobs for service status automation.
@@ -143,23 +153,27 @@ export class ServiceLifecycleWorker {
 
     for (const service of suspendedServices) {
       try {
-        await this.prisma.service.update({
-          where: { id: service.id },
-          data: {
-            status: 'cancelled',
-            cancelled_at: new Date(),
-            cancellation_reason: `Cancelación automática — suspendido por impago > ${cancellationDays} días`,
+        // Sprint 15C.II Fase F.5 / audit 2026-06-25 GL-2: punto único de
+        // transición — `deprovisionAsAdmin` (actor sistema) transiciona el
+        // estado, DESTRUYE el recurso en el proveedor (`plugin.deprovision()`),
+        // emite `service.cancelled` con la forma completa y audita. Antes este
+        // cron hacía un `prisma.update` crudo + emit parcial, dejando el recurso
+        // vivo y facturable en el proveedor (resource/billing leak).
+        await this.provisioning.deprovisionAsAdmin(
+          service.id,
+          {
+            reason: DeprovisionReasonDto.cancelled,
+            notes: `Cancelación automática — suspendido por impago > ${cancellationDays} días`,
+            notify_client: true,
           },
-        });
-
-        this.eventEmitter.emit('service.cancelled', {
-          service_id: service.id,
-          user_id: service.user_id,
-          reason: 'auto_cancellation_unpaid',
-        });
+          null,
+          undefined,
+          { actorLabel: BILLING_CANCELLATION_CRON_ACTOR },
+        );
 
         this.logger.warn(
-          `Service ${service.id} auto-cancelled after ${cancellationDays} days suspended`,
+          `Service ${service.id} auto-cancelled after ${cancellationDays} days ` +
+            `suspended (recurso del proveedor destruido)`,
         );
       } catch (error) {
         this.logger.error(
