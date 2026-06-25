@@ -159,3 +159,223 @@ describe('ServiceLifecycleWorker — Fase F.5 (autoSuspendServices → suspendAs
     expect(provisioning.suspendAsAdmin).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Tests unit `notifyUpcomingCancellations` — audit 2026-06-25 GL-2 / H2.3
+ * (aviso previo de cancelación irreversible).
+ *
+ * Foco: el cron avisa UNA vez (edge-trigger por `metadata.cancellation_notice_sent_at`
+ * vs `suspended_at`) a los servicios suspendidos por impago en la ventana
+ * DISJUNTA `(now-cancellation_days, now-(cancellation_days-notice_days)]`,
+ * EXCLUYENDO pausas voluntarias (`paused_at: null`), y emite
+ * `service.cancellation_scheduled` con la fecha determinista de cancelación.
+ */
+describe('ServiceLifecycleWorker — H2.3 (notifyUpcomingCancellations → service.cancellation_scheduled)', () => {
+  const NOW = new Date('2026-06-25T00:00:00.000Z');
+  const DAY = 86_400_000;
+
+  let prisma: {
+    invoice: { findMany: jest.Mock };
+    service: { findMany: jest.Mock; update: jest.Mock };
+  };
+  let calculator: { getSettingValue: jest.Mock };
+  let provisioning: {
+    suspendAsAdmin: jest.Mock;
+    deprovisionAsAdmin: jest.Mock;
+  };
+  let emitter: EventEmitter2;
+  let emitSpy: jest.SpyInstance;
+  let worker: ServiceLifecycleWorker;
+
+  function setSettings(cancellationDays: number, noticeDays: number) {
+    calculator.getSettingValue.mockImplementation(
+      (_cat: string, key: string, def: number) =>
+        Promise.resolve(
+          key === 'cancellation_days'
+            ? cancellationDays
+            : key === 'cancellation_notice_days'
+              ? noticeDays
+              : def,
+        ),
+    );
+  }
+
+  beforeEach(() => {
+    prisma = {
+      invoice: { findMany: jest.fn() },
+      service: {
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    };
+    calculator = { getSettingValue: jest.fn() };
+    setSettings(30, 7);
+    provisioning = {
+      suspendAsAdmin: jest.fn(),
+      deprovisionAsAdmin: jest.fn(),
+    };
+    emitter = new EventEmitter2();
+    emitSpy = jest.spyOn(emitter, 'emit');
+    worker = new ServiceLifecycleWorker(
+      prisma as never,
+      emitter,
+      calculator as never,
+      provisioning as never,
+    );
+  });
+
+  /** Suspendido por impago hace 25 días → dentro de la ventana [23,30). */
+  function suspendedService(over: Record<string, unknown> = {}) {
+    return {
+      id: 'svc-1',
+      user_id: 'user-1',
+      suspended_at: new Date(NOW.getTime() - 25 * DAY),
+      metadata: null,
+      ...over,
+    };
+  }
+
+  it('consulta solo servicios suspendidos en la ventana de aviso, EXCLUYENDO pausas voluntarias (paused_at: null)', async () => {
+    await worker.runCancellationNotices(NOW);
+
+    expect(prisma.service.findMany).toHaveBeenCalledWith({
+      where: {
+        status: 'suspended',
+        paused_at: null,
+        suspended_at: {
+          lte: new Date(NOW.getTime() - (30 - 7) * DAY),
+          gt: new Date(NOW.getTime() - 30 * DAY),
+        },
+      },
+      select: { id: true, user_id: true, suspended_at: true, metadata: true },
+    });
+  });
+
+  it('emite service.cancellation_scheduled (fecha determinista = suspended_at + cancellation_days) y marca el edge-trigger', async () => {
+    const suspendedAt = new Date(NOW.getTime() - 25 * DAY);
+    prisma.service.findMany.mockResolvedValueOnce([
+      suspendedService({ suspended_at: suspendedAt }),
+    ]);
+
+    const summary = await worker.runCancellationNotices(NOW);
+
+    expect(summary).toEqual({ checked: 1, notified: 1, errors: 0 });
+    expect(prisma.service.update).toHaveBeenCalledWith({
+      where: { id: 'svc-1' },
+      data: { metadata: { cancellation_notice_sent_at: NOW.toISOString() } },
+    });
+    expect(emitSpy).toHaveBeenCalledWith('service.cancellation_scheduled', {
+      service_id: 'svc-1',
+      user_id: 'user-1',
+      scheduled_cancellation_date: new Date(
+        suspendedAt.getTime() + 30 * DAY,
+      ).toISOString(),
+    });
+  });
+
+  it('preserva otras claves de metadata al marcar el flag', async () => {
+    prisma.service.findMany.mockResolvedValueOnce([
+      suspendedService({ metadata: { foo: 'bar' } }),
+    ]);
+
+    await worker.runCancellationNotices(NOW);
+
+    expect(prisma.service.update).toHaveBeenCalledWith({
+      where: { id: 'svc-1' },
+      data: {
+        metadata: {
+          foo: 'bar',
+          cancellation_notice_sent_at: NOW.toISOString(),
+        },
+      },
+    });
+  });
+
+  it('NO re-avisa si ya se avisó en esta suspensión (sent_at >= suspended_at)', async () => {
+    const suspendedAt = new Date(NOW.getTime() - 25 * DAY);
+    prisma.service.findMany.mockResolvedValueOnce([
+      suspendedService({
+        suspended_at: suspendedAt,
+        metadata: {
+          cancellation_notice_sent_at: new Date(
+            suspendedAt.getTime() + DAY,
+          ).toISOString(),
+        },
+      }),
+    ]);
+
+    const summary = await worker.runCancellationNotices(NOW);
+
+    expect(summary.notified).toBe(0);
+    expect(prisma.service.update).not.toHaveBeenCalled();
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      'service.cancellation_scheduled',
+      expect.anything(),
+    );
+  });
+
+  it('RE-avisa tras una re-suspensión (flag obsoleto de un ciclo anterior: sent_at < suspended_at)', async () => {
+    const suspendedAt = new Date(NOW.getTime() - 25 * DAY);
+    prisma.service.findMany.mockResolvedValueOnce([
+      suspendedService({
+        suspended_at: suspendedAt,
+        metadata: {
+          cancellation_notice_sent_at: new Date(
+            suspendedAt.getTime() - 60 * DAY,
+          ).toISOString(),
+        },
+      }),
+    ]);
+
+    const summary = await worker.runCancellationNotices(NOW);
+
+    expect(summary.notified).toBe(1);
+    expect(emitSpy).toHaveBeenCalledWith(
+      'service.cancellation_scheduled',
+      expect.objectContaining({ service_id: 'svc-1' }),
+    );
+  });
+
+  it('clampa el lead si cancellation_notice_days >= cancellation_days (sin ventana vacía)', async () => {
+    setSettings(30, 40);
+
+    await worker.runCancellationNotices(NOW);
+
+    // noticeDays clamped a 30 → noticeCutoff = now (now - 0d).
+    expect(prisma.service.findMany).toHaveBeenCalledWith({
+      where: {
+        status: 'suspended',
+        paused_at: null,
+        suspended_at: { lte: NOW, gt: new Date(NOW.getTime() - 30 * DAY) },
+      },
+      select: { id: true, user_id: true, suspended_at: true, metadata: true },
+    });
+  });
+
+  it('tolera el fallo de un servicio (update lanza) y sigue con el resto', async () => {
+    prisma.service.findMany.mockResolvedValueOnce([
+      suspendedService({ id: 'svc-bad' }),
+      suspendedService({ id: 'svc-ok', user_id: 'user-2' }),
+    ]);
+    prisma.service.update
+      .mockRejectedValueOnce(new Error('db down'))
+      .mockResolvedValueOnce({});
+
+    const summary = await worker.runCancellationNotices(NOW);
+
+    expect(summary).toEqual({ checked: 2, notified: 1, errors: 1 });
+    expect(emitSpy).toHaveBeenCalledTimes(1);
+    expect(emitSpy).toHaveBeenCalledWith(
+      'service.cancellation_scheduled',
+      expect.objectContaining({ service_id: 'svc-ok' }),
+    );
+  });
+
+  it('sin servicios en la ventana → no emite nada', async () => {
+    const summary = await worker.runCancellationNotices(NOW);
+
+    expect(summary).toEqual({ checked: 0, notified: 0, errors: 0 });
+    expect(emitSpy).not.toHaveBeenCalled();
+    expect(prisma.service.update).not.toHaveBeenCalled();
+  });
+});

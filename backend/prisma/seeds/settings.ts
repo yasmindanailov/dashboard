@@ -156,6 +156,16 @@ const SETTINGS: ReadonlyArray<SeedSetting> = [
     description:
       'Días que un servicio permanece suspendido por impago antes de la cancelación automática.',
   },
+  {
+    // audit 2026-06-25 GL-2 / H2.3 — antelación del aviso previo a la
+    // cancelación irreversible (cron `notifyUpcomingCancellations`). Default 7
+    // (< `cancellation_days` 30). Consumidor: ServiceLifecycleWorker.
+    category: 'billing',
+    key: 'cancellation_notice_days',
+    value: '7',
+    description:
+      'Días de antelación con que se avisa al cliente antes de la cancelación automática de un servicio suspendido por impago.',
+  },
 
   // ── support ──
   {
@@ -297,6 +307,43 @@ const SETTINGS: ReadonlyArray<SeedSetting> = [
     value: '730',
     description:
       'Días de retención de audit_access_log (mínimo legal AEPD: 2 años)',
+  },
+  {
+    // audit 2026-06-25 GL-5 / H3a — retención de audit_change_log (el cron
+    // `AuditRetentionCron` ahora purga ambas tablas; ADR-010 §Retención: 2 años
+    // → borrado). Default 730 (2 años AEPD), espejo de access_retention_days.
+    category: 'audit',
+    key: 'change_retention_days',
+    value: '730',
+    description:
+      'Días de retención de audit_change_log (mínimo legal AEPD: 2 años)',
+  },
+
+  // ── legal (audit 2026-06-25 GL-5 / H3b.1 — portal de transparencia RGPD) ──
+  // Lista de subprocesadores (terceros que reciben datos personales del
+  // cliente), mostrada en `/dashboard/transparency` y consumida por
+  // `AccountTransparencyService.getSubprocessors` (ADR-010 §Subprocesadores).
+  // Solo los terceros que HOY procesan datos en pre-producción; Stripe/Sentry/
+  // Anthropic se añadirán al activarse. Editable por el superadmin (UI futura).
+  {
+    category: 'legal',
+    key: 'subprocessors',
+    value: [
+      {
+        name: 'ResellerClub (Endurance/Newfold)',
+        purpose: 'Registro y gestión de dominios',
+        location: 'India / EE. UU.',
+        dpa_url: 'https://www.resellerclub.com/legal/privacy-policy',
+      },
+      {
+        name: 'Enhance CP',
+        purpose: 'Aprovisionamiento y gestión del hosting',
+        location: 'UE',
+        dpa_url: 'https://enhance.com/privacy',
+      },
+    ],
+    description:
+      'Subprocesadores RGPD mostrados en el portal de transparencia (ADR-010 §Subprocesadores).',
   },
 
   // ── notifications (Sprint 9.5 + ADR-042) ──
