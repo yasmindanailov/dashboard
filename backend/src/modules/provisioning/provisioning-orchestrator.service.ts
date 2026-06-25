@@ -545,15 +545,23 @@ export class ProvisioningOrchestratorService {
     userId: string,
     correlationId: string,
   ): Promise<void> {
-    await this.prisma.service.update({
-      where: { id: serviceId },
-      data: { status: 'active' },
-    });
-
-    this.events.emit('service.activated', {
-      service_id: serviceId,
-      user_id: userId,
-      correlation_id: correlationId,
+    // R8 (audit 2026-06-25 GL-17): `service.activated` dispara side-effects
+    // cross-módulo (reconcile zona DNS, conmutación de NS de dominio hermano,
+    // task `client_lifecycle`). Persistimos el evento en `event_outbox` dentro
+    // de la MISMA transacción que la transición `status='active'` → si el
+    // proceso muere entre commit y dispatch, el `OutboxWorker` lo reintenta
+    // (at-least-once). Antes era un `emit()` directo fuera de tx (pérdida
+    // silenciosa). Mismo patrón que `domain.*` (15D.D) y `emitDomainManagementEvent`.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.service.update({
+        where: { id: serviceId },
+        data: { status: 'active' },
+      });
+      await this.outbox.enqueue(tx, 'service.activated', {
+        service_id: serviceId,
+        user_id: userId,
+        correlation_id: correlationId,
+      });
     });
   }
 

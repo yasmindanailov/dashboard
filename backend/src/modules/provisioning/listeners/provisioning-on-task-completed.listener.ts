@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent, EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PrismaService } from '../../../core/database/prisma.service';
+import { OutboxService } from '../../../core/outbox/outbox.service';
 import { PluginRegistryService } from '../../../core/provisioning/plugin-registry';
 import { getErrorMessage } from '../../../core/common/utils/error.util';
 
@@ -60,6 +61,10 @@ export class ProvisioningOnTaskCompletedListener {
     private readonly prisma: PrismaService,
     private readonly registry: PluginRegistryService,
     private readonly events: EventEmitter2,
+    // R8 (audit 2026-06-25 GL-17): `service.activated` se persiste vía Outbox
+    // dentro de la tx de la transición. `OutboxModule` es @Global → no requiere
+    // import explícito en `ProvisioningModule`.
+    private readonly outbox: OutboxService,
   ) {}
 
   @OnEvent('task.completed')
@@ -141,16 +146,21 @@ export class ProvisioningOnTaskCompletedListener {
         return;
       }
 
-      // 4. Activar service + emit canónico.
-      await this.prisma.service.update({
-        where: { id: service.id },
-        data: { status: 'active' },
-      });
-
-      this.events.emit('service.activated', {
-        service_id: service.id,
-        user_id: service.user_id,
-        correlation_id: `task-${task.id}`,
+      // 4. Activar service + evento canónico vía Outbox (R8 / GL-17): la
+      // transición `status='active'` y el `service.activated` se persisten en
+      // la MISMA transacción → el `OutboxWorker` lo despacha at-least-once
+      // (antes era un `emit()` fuera de tx → pérdida silenciosa del reconcile
+      // de zona DNS / task de lifecycle si el proceso moría mid-emit).
+      await this.prisma.$transaction(async (tx) => {
+        await tx.service.update({
+          where: { id: service.id },
+          data: { status: 'active' },
+        });
+        await this.outbox.enqueue(tx, 'service.activated', {
+          service_id: service.id,
+          user_id: service.user_id,
+          correlation_id: `task-${task.id}`,
+        });
       });
 
       this.logger.log(

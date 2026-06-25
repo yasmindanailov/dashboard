@@ -1,5 +1,4 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { SubscriptionService } from './subscription.service';
 
@@ -11,8 +10,12 @@ import { SubscriptionService } from './subscription.service';
  */
 describe('SubscriptionService — pause/resume (HIGH-2 IDOR)', () => {
   const OWNER = 'user-1';
-  let prisma: { service: { findUnique: jest.Mock; update: jest.Mock } };
-  let emitter: { emit: jest.Mock };
+  let prisma: {
+    service: { findUnique: jest.Mock; update: jest.Mock };
+    $transaction: jest.Mock;
+  };
+  // R8 (GL-17): pause/resume persisten su evento `service.*` vía Outbox.
+  let outbox: { enqueue: jest.Mock };
   let service: SubscriptionService;
 
   function activeService(over: Record<string, unknown> = {}) {
@@ -42,12 +45,15 @@ describe('SubscriptionService — pause/resume (HIGH-2 IDOR)', () => {
         findUnique: jest.fn(),
         update: jest.fn().mockResolvedValue({ id: 'svc-1' }),
       },
+      // R8 (GL-17): `$transaction(cb)` ejecuta cb con el propio `prisma` como
+      // `tx` → `tx.service.update === prisma.service.update` y `outbox.enqueue`
+      // se invoca con `(prisma, ...)`.
+      $transaction: jest
+        .fn()
+        .mockImplementation((cb: (tx: unknown) => unknown) => cb(prisma)),
     };
-    emitter = { emit: jest.fn() };
-    service = new SubscriptionService(
-      prisma as never,
-      emitter as unknown as EventEmitter2,
-    );
+    outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    service = new SubscriptionService(prisma as never, outbox as never);
   });
 
   describe('pauseService', () => {
@@ -61,11 +67,20 @@ describe('SubscriptionService — pause/resume (HIGH-2 IDOR)', () => {
       >;
       expect(updateCalls[0][0].where).toEqual({ id: 'svc-1' });
       expect(updateCalls[0][0].data.status).toBe('suspended');
-      const emitCalls = emitter.emit.mock.calls as Array<
-        [string, { service_id: string; user_id: string }]
+      // R8 (GL-17): el evento se persiste vía Outbox dentro de la tx (antes emit),
+      // con el payload canónico de `_events.md`. `pause_max_date` es un STRING ISO
+      // (no un Date), porque Outbox serializa el payload a JSON.
+      const enqueueCalls = outbox.enqueue.mock.calls as Array<
+        [
+          unknown,
+          string,
+          { service_id: string; user_id: string; pause_max_date: string },
+        ]
       >;
-      expect(emitCalls[0][0]).toBe('service.paused');
-      expect(emitCalls[0][1].user_id).toBe(OWNER);
+      expect(enqueueCalls[0][1]).toBe('service.paused');
+      expect(enqueueCalls[0][2].service_id).toBe('svc-1');
+      expect(enqueueCalls[0][2].user_id).toBe(OWNER);
+      expect(typeof enqueueCalls[0][2].pause_max_date).toBe('string');
     });
 
     it('IDOR: un no-dueño recibe NotFound y NO toca el servicio', async () => {
@@ -75,7 +90,7 @@ describe('SubscriptionService — pause/resume (HIGH-2 IDOR)', () => {
         NotFoundException,
       );
       expect(prisma.service.update).not.toHaveBeenCalled();
-      expect(emitter.emit).not.toHaveBeenCalled();
+      expect(outbox.enqueue).not.toHaveBeenCalled();
     });
 
     it('rechaza si el servicio no está activo', async () => {
@@ -109,10 +124,18 @@ describe('SubscriptionService — pause/resume (HIGH-2 IDOR)', () => {
         [{ where: { id: string }; data: Record<string, unknown> }]
       >;
       expect(updateCalls[0][0].data.status).toBe('active');
-      const emitCalls = emitter.emit.mock.calls as Array<
-        [string, { service_id: string }]
+      // R8 (GL-17): payload canónico completo vía Outbox.
+      const enqueueCalls = outbox.enqueue.mock.calls as Array<
+        [
+          unknown,
+          string,
+          { service_id: string; user_id: string; reason: string },
+        ]
       >;
-      expect(emitCalls[0][0]).toBe('service.resumed');
+      expect(enqueueCalls[0][1]).toBe('service.resumed');
+      expect(enqueueCalls[0][2].service_id).toBe('svc-1');
+      expect(enqueueCalls[0][2].user_id).toBe(OWNER);
+      expect(enqueueCalls[0][2].reason).toBe('manual_resume');
     });
 
     it('IDOR: un no-dueño recibe NotFound y NO toca el servicio', async () => {

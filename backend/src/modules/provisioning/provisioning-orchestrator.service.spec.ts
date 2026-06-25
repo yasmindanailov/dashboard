@@ -222,7 +222,10 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
     // 2Âª update: provider_reference + metadata
     // 3Âª update (mark_active): status=active
     expect(prisma.service.update).toHaveBeenCalledTimes(3);
-    expect(events.emit).toHaveBeenCalledWith(
+    // R8 (GL-17): `service.activated` ahora se persiste vía Outbox dentro de la
+    // misma tx que la transición status='active' (antes era `events.emit`).
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      prisma,
       'service.activated',
       expect.objectContaining({ service_id: 'svc-1', user_id: 'user-1' }),
     );
@@ -383,7 +386,16 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
 
     await orchestrator.provisionService('svc-1', 'cor-1');
 
-    expect(outbox.enqueue).not.toHaveBeenCalled();
+    // Idempotencia DOM-INV-1: en la adopción de un registro ya existente NO se
+    // re-emite `domain.registered`. (R8/GL-17: `service.activated` SÍ se emite
+    // vía Outbox porque `followUp:['mark_active']` activa el servicio — el guard
+    // que se prueba aquí es la NO-reemisión del evento de registro, no el de
+    // activación.)
+    expect(outbox.enqueue).not.toHaveBeenCalledWith(
+      prisma,
+      'domain.registered',
+      expect.anything(),
+    );
   });
 
   // ─── Sprint 15D Fase 15D.E — enrutado de renovación + domain.renewed ───────
@@ -444,7 +456,8 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
         new_expires_at: newExpiry,
       }),
     );
-    expect(events.emit).not.toHaveBeenCalledWith(
+    expect(outbox.enqueue).not.toHaveBeenCalledWith(
+      prisma,
       'service.activated',
       expect.anything(),
     );
@@ -688,7 +701,8 @@ describe('ProvisioningOrchestratorService â€” Sprint 11 Fase 11.B', () => {
     expect(updateArg.data.provider_reference).toBe('900123');
     expect(updateArg.data.status).toBe('provisioning');
     // Asíncrono: NO activa el servicio (lo activa el reconcile al completar).
-    expect(events.emit).not.toHaveBeenCalledWith(
+    expect(outbox.enqueue).not.toHaveBeenCalledWith(
+      prisma,
       'service.activated',
       expect.anything(),
     );
