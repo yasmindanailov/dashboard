@@ -21,6 +21,7 @@ import { NotificationsPluginCircuitListener } from './listeners/notifications-pl
 import { NotificationsOnReconciliationThresholdExceededListener } from './listeners/notifications-on-reconciliation-threshold-exceeded.listener';
 import { NotificationsOnPasswordResetListener } from './listeners/notifications-on-password-reset.listener';
 import { NotificationsOnServiceCancelledListener } from './listeners/notifications-on-service-cancelled.listener';
+import { NotificationsOnServiceCancellationScheduledListener } from './listeners/notifications-on-service-cancellation-scheduled.listener';
 import { NotificationsOnServiceQuotaThresholdCrossedListener } from './listeners/notifications-on-service-quota-threshold-crossed.listener';
 import { NotificationsOnServiceSuspendedListener } from './listeners/notifications-on-service-suspended.listener';
 import { NotificationsOnServiceUnsuspendedListener } from './listeners/notifications-on-service-unsuspended.listener';
@@ -89,6 +90,12 @@ import { NotificationsRetentionCron } from './notifications-retention.cron';
     // despacha email + campana `service.cancelled` al dueño del servicio.
     // Plantilla genérica heredable a 15D RC + 15E Docker + 15G Plesk.
     NotificationsOnServiceCancelledListener,
+    // audit 2026-06-25 GL-2 / H2.3: consume `service.cancellation_scheduled`
+    // (emitido por el cron `ServiceLifecycleWorker.notifyUpcomingCancellations`)
+    // y despacha email + campana avisando al cliente de la cancelación
+    // irreversible inminente (con CTA "regulariza el pago"). Completa "destruir
+    // CON aviso previo".
+    NotificationsOnServiceCancellationScheduledListener,
     // Sprint 15C.II Fase F (ADR-077 Amendment A4): consume `service.suspended`
     // (emitido por `ProvisioningService.suspendAsAdmin`) y, si
     // `notify_client !== false`, despacha email + campana `service.suspended`
