@@ -8,6 +8,7 @@
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 import { PrismaService } from '../../core/database/prisma.service';
 import { SettingsService } from '../../core/settings/settings.service';
@@ -32,6 +33,7 @@ import {
 import { ReconcileRegistryService } from '../../core/provisioning/reconcile-registry.service';
 import {
   ActionResult,
+  DeprovisionContext,
   ProvisionerPlugin,
   ServiceInfo,
   ServiceReconcileResult,
@@ -1068,23 +1070,19 @@ export class ProvisioningService {
   async deprovisionAsAdmin(
     serviceId: string,
     dto: DeprovisionDto,
-    actorUserId: string,
-    ctx: { ipAddress: string; userAgent?: string | null },
+    actorUserId: string | null,
+    ctx?: { ipAddress?: string; userAgent?: string | null },
+    opts?: { actorLabel?: string },
   ): Promise<{ id: string; status: string; cancellation_reason: string }> {
-    const service = await this.prisma.service.findUnique({
-      where: { id: serviceId },
-      select: { id: true, user_id: true, status: true, provisioner_slug: true },
-    });
-    if (!service) {
-      throw new NotFoundException('Servicio no encontrado.');
-    }
-    // Sprint 15C.II F.6 — R2 (dossier §A.11.10.3.2): el path admin/manual
-    // exige nota. Hoy `deprovisionAsAdmin` solo se invoca con `actorUserId`
-    // string (no hay path sistema — DC.46 auto-cancel lo introduciría en
-    // fase aparte). Naming `notes` vs `internal_note` viene heredado de
-    // `DeprovisionDto`; alinearlo con `Suspend` está en el backlog
-    // post-15C.II — fuera de scope F.6.
-    if (!dto.notes?.trim()) {
+    // audit 2026-06-25 GL-2: carga el service CON relaciones
+    // (`ServiceWithRelations`) — necesario para construir el `DeprovisionContext`
+    // del plugin. `loadServiceForView` lanza 404 si no existe.
+    const service = await this.loadServiceForView(serviceId);
+    // Sprint 15C.II F.6 — R2 (dossier §A.11.10.3.2): el path admin/manual exige
+    // nota. Para el actor SISTEMA (`actorUserId === null`, p.ej. el cron de
+    // auto-cancelación por impago — Fase F.5 espejo de `suspendAsAdmin`) la nota
+    // es opcional: el caller compone el body con contexto canónico (nº factura).
+    if (actorUserId !== null && !dto.notes?.trim()) {
       throw new BadRequestException({
         code: 'NOTE_REQUIRED',
         message:
@@ -1098,11 +1096,12 @@ export class ProvisioningService {
     // preserva ambas piezas (defense-in-depth de trazabilidad).
     const reasonText = dto.reason;
     const cancelledAt = new Date();
-    const noteBody = dto.notes.trim();
-    // R3 (dossier §A.11.10.3.2): `service.update` + `clientNote.create` en
-    // la misma transacción Prisma — el plugin call (si lo hubiera) NO está
-    // aún implementado para `deprovisionAsAdmin` (sigue siendo solo lado
-    // Aelium hoy; `DC.46`/`plugin.deprovision()` está deferido).
+    // Para actor humano la nota está garantizada por el guard de arriba; para
+    // el actor sistema el caller compone el body (fallback defensivo `<sin nota>`).
+    const noteBody = dto.notes?.trim() ?? '<sin nota>';
+    // R3 (dossier §A.11.10.3.2): `service.update` + `clientNote.create` viven en
+    // la misma transacción Prisma. El `plugin.deprovision()` (destrucción del
+    // recurso en el proveedor) va FUERA de la tx y es fail-soft — ver abajo.
     const updated = await this.prisma.$transaction(async (tx) => {
       const u = await tx.service.update({
         where: { id: serviceId },
@@ -1126,6 +1125,42 @@ export class ProvisioningService {
       return u;
     });
 
+    // audit 2026-06-25 GL-2 (cierra DC.46): DESTRUIR el recurso en el proveedor.
+    // `deprovision()` es un método OBLIGATORIO del contrato (ADR-077 §10): cada
+    // plugin codifica su política — `enhance_cp` borra la subscription
+    // (idempotente: 404 → no-op); `internal`/`manual`/`resellerclub` son no-op
+    // por diseño (R4: el orquestador no conoce la semántica, solo invoca el
+    // contrato). Va FUERA de la tx y es FAIL-SOFT (R7): si el proveedor falla, la
+    // cancelación de Aelium NO se revierte; el recurso huérfano lo detecta el
+    // reconcile (L3). Antes (DC.46) esto estaba deferido → resource/billing leak.
+    const pluginSlug = service.provisioner_slug ?? service.product.provisioner;
+    const plugin = this.registry.get(pluginSlug);
+    if (plugin) {
+      try {
+        await plugin.deprovision({
+          service,
+          reason: dto.reason as DeprovisionContext['reason'],
+          correlationId: randomUUID(),
+        });
+        this.logger.log(
+          `deprovisionAsAdmin: plugin.deprovision OK service=${serviceId} plugin=${pluginSlug}`,
+        );
+      } catch (err) {
+        // Fail-soft: la cancelación ya está committed. Logueamos el fallo del
+        // proveedor (el recurso queda huérfano hasta que el reconcile lo concilie)
+        // sin romper la operación ni revivir el servicio.
+        this.logger.error(
+          `deprovisionAsAdmin: plugin.deprovision FAILED service=${serviceId} ` +
+            `plugin=${pluginSlug}: ${getErrorMessage(err)}`,
+        );
+      }
+    } else {
+      this.logger.warn(
+        `deprovisionAsAdmin: plugin "${pluginSlug}" no registrado — ` +
+          `cancelación solo del lado de Aelium (service=${serviceId}).`,
+      );
+    }
+
     // Sprint 15C.II Fase E: `notify_client` (default true) controla si el
     // listener `notifications-on-service-cancelled` despacha el email +
     // campana al cliente. El listener consume este flag del payload.
@@ -1136,6 +1171,9 @@ export class ProvisioningService {
       provisioner_slug: service.provisioner_slug,
       reason: dto.reason,
       actor_user_id: actorUserId,
+      ...(actorUserId === null && opts?.actorLabel
+        ? { actor: opts.actorLabel }
+        : {}),
       notify_client: notifyClient,
     });
 
@@ -1151,20 +1189,27 @@ export class ProvisioningService {
         reason_code: dto.reason,
         internal_note: noteBody,
         notify_client: notifyClient,
+        ...(actorUserId === null && opts?.actorLabel
+          ? { actor: opts.actorLabel }
+          : {}),
       },
     });
-    await this.audit.logAccess({
-      user_id: actorUserId,
-      action: 'service_deprovision_admin',
-      ip_address: ctx.ipAddress,
-      user_agent: ctx.userAgent ?? null,
-      resource: 'Service',
-      metadata: {
-        resource_id: serviceId,
-        target_user_id: service.user_id,
-        reason_code: dto.reason,
-      },
-    });
+    // `audit_access_log` solo para actores humanos (es "lectura staff sobre
+    // datos del cliente"). El actor sistema (cron) deja solo el `audit_change_log`.
+    if (actorUserId !== null) {
+      await this.audit.logAccess({
+        user_id: actorUserId,
+        action: 'service_deprovision_admin',
+        ip_address: ctx?.ipAddress ?? '',
+        user_agent: ctx?.userAgent ?? null,
+        resource: 'Service',
+        metadata: {
+          resource_id: serviceId,
+          target_user_id: service.user_id,
+          reason_code: dto.reason,
+        },
+      });
+    }
 
     return {
       id: updated.id,

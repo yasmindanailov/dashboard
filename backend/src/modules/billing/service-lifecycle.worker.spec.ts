@@ -1,6 +1,9 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-import { SuspensionReasonDto } from '../provisioning/dto/provisioning.dto';
+import {
+  DeprovisionReasonDto,
+  SuspensionReasonDto,
+} from '../provisioning/dto/provisioning.dto';
 import { ServiceLifecycleWorker } from './service-lifecycle.worker';
 
 /**
@@ -21,7 +24,10 @@ describe('ServiceLifecycleWorker — Fase F.5 (autoSuspendServices → suspendAs
     service: { findMany: jest.Mock; update: jest.Mock };
   };
   let calculator: { getSettingValue: jest.Mock };
-  let provisioning: { suspendAsAdmin: jest.Mock };
+  let provisioning: {
+    suspendAsAdmin: jest.Mock;
+    deprovisionAsAdmin: jest.Mock;
+  };
   let worker: ServiceLifecycleWorker;
 
   beforeEach(() => {
@@ -30,7 +36,10 @@ describe('ServiceLifecycleWorker — Fase F.5 (autoSuspendServices → suspendAs
       service: { findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
     };
     calculator = { getSettingValue: jest.fn().mockResolvedValue(7) };
-    provisioning = { suspendAsAdmin: jest.fn().mockResolvedValue({}) };
+    provisioning = {
+      suspendAsAdmin: jest.fn().mockResolvedValue({}),
+      deprovisionAsAdmin: jest.fn().mockResolvedValue({}),
+    };
     worker = new ServiceLifecycleWorker(
       prisma as never,
       new EventEmitter2(),
@@ -91,6 +100,32 @@ describe('ServiceLifecycleWorker — Fase F.5 (autoSuspendServices → suspendAs
     await worker.autoSuspendServices();
 
     expect(provisioning.suspendAsAdmin).not.toHaveBeenCalled();
+  });
+
+  it('auto-cancela vía deprovisionAsAdmin (actor sistema → destruye el recurso); NO toca prisma.service.update (GL-2)', async () => {
+    prisma.service.findMany.mockResolvedValueOnce([
+      {
+        id: 'svc-9',
+        user_id: 'user-9',
+        status: 'suspended',
+        suspended_at: new Date(0),
+      },
+    ]);
+
+    await worker.autoCancelServices();
+
+    expect(provisioning.deprovisionAsAdmin).toHaveBeenCalledTimes(1);
+    expect(provisioning.deprovisionAsAdmin).toHaveBeenCalledWith(
+      'svc-9',
+      expect.objectContaining({
+        reason: DeprovisionReasonDto.cancelled,
+        notify_client: true,
+      }),
+      null,
+      undefined,
+      { actorLabel: 'system:billing-cancellation-cron' },
+    );
+    expect(prisma.service.update).not.toHaveBeenCalled();
   });
 
   it('si suspendAsAdmin lanza para un servicio (ej. ya cancelado → 409), lo registra y sigue con el resto', async () => {
