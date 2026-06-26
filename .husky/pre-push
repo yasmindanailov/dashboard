@@ -7,7 +7,7 @@
 # Doctrina:
 #   - Detecta archivos cambiados desde `origin/master` y filtra qué jobs ejecutar.
 #   - Si solo cambia backend → backend checks (typecheck + lint:check + test).
-#   - Si solo cambia frontend → frontend checks (typecheck + lint:check).
+#   - Si solo cambia frontend → frontend checks (typecheck + lint:check + test).
 #   - Si cambian docs/* / *.md / .github/* sin código → skip silencioso.
 #   - Si cambian ambos → ambos jobs.
 #
@@ -94,8 +94,8 @@ if [ "$HAS_BACKEND" -eq 1 ]; then
 fi
 
 if [ "$HAS_FRONTEND" -eq 1 ]; then
-  echo "[pre-push] Frontend: typecheck + lint:check..."
-  if ! (cd frontend && pnpm typecheck && pnpm lint:check); then
+  echo "[pre-push] Frontend: typecheck + lint:check + tests..."
+  if ! (cd frontend && pnpm typecheck && pnpm lint:check && pnpm test --silent); then
     echo "[pre-push] ❌ Frontend check falló — corrige antes de pushear o usa --no-verify si es emergencia documentada."
     exit 1
   fi

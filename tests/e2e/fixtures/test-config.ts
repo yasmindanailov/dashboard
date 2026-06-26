@@ -17,4 +17,12 @@ export const TEST_CONFIG = {
     email: process.env.SUPERADMIN_EMAIL || 'admin@aelium.net',
     password: process.env.SUPERADMIN_PASSWORD || 'AeliumDev2026!',
   },
+
+  // Cliente demo pre-seedeado (`backend/prisma/seeds/sample-users.ts`,
+  // playbook §11). Sin 2FA obligatorio → login directo (sin paso de código).
+  // `resetTestData()` lo preserva (está en SEED_EMAILS) y resetea su lockout.
+  client: {
+    email: process.env.E2E_CLIENT_EMAIL || 'cliente@aelium.test',
+    password: process.env.E2E_CLIENT_PASSWORD || 'Cliente2026!',
+  },
 };

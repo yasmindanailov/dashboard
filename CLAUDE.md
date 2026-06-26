@@ -38,7 +38,7 @@ Verde local **completo** antes de pushear/cerrar fase:
 
 ```
 pnpm --dir backend typecheck && pnpm --dir backend lint:check && pnpm --dir backend test
-pnpm --dir frontend typecheck && pnpm --dir frontend lint:check
+pnpm --dir frontend typecheck && pnpm --dir frontend lint:check && pnpm --dir frontend test
 ```
 
 - **Si tocaste algún `@Module`/imports/exports → BOOT SMOKE OBLIGATORIO.** `ci:check` NO atrapa errores del grafo DI de NestJS (`UnknownDependenciesException`); solo el arranque real lo hace (`pnpm --dir backend dev` → confirmar `Nest application successfully started` + `4/4 plugins`).

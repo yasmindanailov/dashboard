@@ -84,6 +84,12 @@ jobs:
       - name: Lint (bloqueante en errores; warnings DC.6 visibles)
         run: pnpm lint
 
+      # Red unit en-PR (GL-26, audit 2026-06-25): harness Jest + RTL sobre
+      # funciones puras (lib/*) y componentes sincrónicos del Design System.
+      # Antes el frontend no tenía red propia en PR (E2E solo post-merge).
+      - name: Tests (bloqueante)
+        run: pnpm test
+
       - name: Build (bloqueante)
         run: pnpm build
         env:
