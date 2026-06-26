@@ -16,7 +16,7 @@
 - Glosario canónico en `docs/00-foundations/glossary.md`
 - Contracts de los 8 módulos en `docs/20-modules/`
 - Matriz de dependencias y catálogo de eventos
-- 84 ADRs individuales en `docs/10-decisions/` (F2 cerrado — `DECISIONS.md` legacy con mapping § → ADR)
+- ADRs individuales en `docs/10-decisions/` (conteo vivo en su índice; F2 cerrado — `DECISIONS.md` legacy con mapping § → ADR)
 - Schema partido por dominio en `docs/30-data/` (F3 cerrado — `DATABASE_SCHEMA.md` legacy con mapping tabla → archivo)
 - Referencias operativas en `docs/50-operations/` (F5 cerrado — settings, plantillas, jobs, errores)
 - Roadmap profesional en `docs/60-roadmap/` (F6 cerrado — current, backlog priorizado P0-P3, archive de sprints cerrados, plantilla activa)
@@ -66,7 +66,7 @@
    - Riesgos
    - Decisiones a registrar
 3. Si el sprint introduce un módulo nuevo → crear `contract.md` siguiendo plantilla en `docs/20-modules/_template-contract.md` **antes** de codificar.
-4. Si introduce decisión de arquitectura → crea un ADR en [`docs/10-decisions/`](../10-decisions/) (F2 cerrado: 84 ADRs vivos). Sigue el formato de los existentes (`adr-NNN-titulo-kebab.md`) y enlázalo desde el contract afectado.
+4. Si introduce decisión de arquitectura → crea un ADR en [`docs/10-decisions/`](../10-decisions/) (F2 cerrado; conteo vivo en el índice del directorio). Sigue el formato de los existentes (`adr-NNN-titulo-kebab.md`) y enlázalo desde el contract afectado.
 
 ### Cuando cierras un sprint
 
@@ -162,7 +162,7 @@ Acompáñalo siempre con:
 
 - ✅ F0 (7 salvaguardas)
 - ✅ F1 (foundations: rules + glossary)
-- ✅ F2 (84 ADRs individuales en `docs/10-decisions/`, `DECISIONS.md` marcado legacy con mapping § → ADR)
+- ✅ F2 (ADRs individuales en `docs/10-decisions/`, `DECISIONS.md` marcado legacy con mapping § → ADR)
 - ✅ F3 (`docs/30-data/` con 14 archivos por dominio, `DATABASE_SCHEMA.md` marcado legacy con mapping tabla → archivo)
 - ✅ F4 (contracts + matrix + events) ⭐ la pieza más impactante
 - ✅ F5 (`docs/50-operations/` con settings-reference, email-templates, jobs-reference, api-errors)
@@ -288,7 +288,7 @@ Cuando vuelvas tras tiempo, lee en este orden:
 4. **`docs/00-foundations/glossary.md`** — términos
 5. **`docs/20-modules/_matrix.md`** — cómo se conectan los módulos
 6. **`docs/20-modules/<modulo>/contract.md`** del módulo que vayas a tocar
-7. **`docs/10-decisions/README.md`** — índice de los 84 ADRs (consultar cuando una decisión no esté clara)
+7. **`docs/10-decisions/README.md`** — índice de los ADRs (consultar cuando una decisión no esté clara)
 8. **`docs/30-data/README.md`** — índice de tablas por dominio (consultar antes de tocar el schema)
 9. **`docs/50-operations/README.md`** — índice de settings, plantillas, jobs, errores (consultar antes de añadir cualquiera de los cuatro)
 10. **`docs/60-roadmap/README.md`** — qué está en curso, qué viene priorizado P0-P3, qué se ha cerrado

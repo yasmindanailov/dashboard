@@ -12,9 +12,9 @@
 > **Sprint 15C (2026-05-07) cambios canónicos declarados (Fase 15C.A doc-only):** **2 eventos `service.*` nuevos aspiracionales** — `service.admin_sso_impersonation` (admin Aelium hace impersonation real al panel del proveedor; flag GDPR `gdpr_visible_to_data_subject=true` + portal RGPD lo expone al cliente) + `service.reconciled_external_change` (cron `reconcile-enhance-services` detecta divergencia subscription/status/plan en Enhance vs Aelium; DH-INV-6 doctrine ADR-082 §1 — Aelium adopta + alerta superadmin si threshold superado). Ver [ADR-083](../10-decisions/adr-083-plugin-enhance-cp-specifics.md) §4 decisión 14 + §6 decisión 24. Emisión + listeners: Sprint 15C Fases F + H.
 > **Sprint 15C Fase 15C.D (2026-05-08) cambios canónicos:** **1 evento `provisioning.*` nuevo aspiracional** — `provisioning.default_nameservers_changed` (NS-sync C3 → C2 cuando superadmin edita el setting `provisioning.default_nameservers`). Listener canónico `SyncDefaultNameserversToEnhanceListener` (ADR-082 §4) ya escrito + testeado; pendiente del emisor que llegará con la UI admin de settings (Sprint 12). El listener degrada elegante si Enhance API falla. Ver sección `provisioning.*` abajo.
 > **Sprint 16 (2026-05-02) cambios canónicos:** **3 eventos `conversation.*` nuevos** introducidos por Amendment A1 (`conversation.resolved` / `conversation.reactivated` / `conversation.auto_closed`); 5 listeners cross-sistema adaptados/nuevos en el dominio `tasks` (`ClientLifecycleTaskCreatorListener`, `TasksOnSlotReleasedListener`, `TasksOnServiceCancelledListener`, `SupportTicketTaskCreatorListener` consume `conversation.assigned` + `conversation.reactivated`, `ProvisioningOnTaskCompletedListener` filtra por `capabilities.completes_via_task`); ClientNote canónica `source_system='chat'` añade emisor en cierre/escalación de chats (Amendment A3); cron `support-resolved-auto-close` 02:30 UTC emite `conversation.auto_closed` (DC.33 cerrada).
-> **Total eventos identificados:** 38 (35 de negocio + 3 operativos activos + 1 aspiracional `notification.dispatched`).
+> **Total eventos (medido por grep 2026-06-26 — GL-28):** **~71 tipos distintos emitidos** (`.emit`/`.emitAsync` + `OutboxService.enqueue(tx, …)` en `backend/src`) **+ ~3 aspiracionales** declarados sin emisor (`notification.dispatched`, `plugin.uninstalled`, `provisioning.default_nameservers_changed`). El conteo se mantiene **por sección** abajo; recontar con los greps de §"Cómo se valida".
 >
-> ⚠️ **Corrección auditoría 2026-06-21:** los conteos de este catálogo están **desincronizados** — el propio doc se contradice (38 aquí vs 28 en el resumen ejecutivo; huérfanos 14 vs 15). El grep real da **~56 emisiones distintas** y **~11 huérfanos reales**, y varios `auth.*` marcados "huérfano esperando audit" **YA los consume** `audit-auth.listener.ts` desde Sprint 13.5. Pendiente reconciliar con el script de CI que este doc propone (§"Cómo se valida"). **No te fíes de los números absolutos** hasta esa reconciliación.
+> ✅ **Reconciliación 2026-06-26 (GL-28, audit 2026-06-25):** se re-midieron los contadores contra el código (`rg "\.emit(Async)?\("` + `rg "@OnEvent\("` + `rg "enqueue\(tx,"` en `backend/src`). Snapshot: **~71 tipos emitidos · ~14 huérfanos** (emitidos sin `@OnEvent`). Correcciones aplicadas: los `auth.*` de auditoría (`account_blocked`/`email_verified`/`password_reset`/`session_closed`) **ya NO son huérfanos** — los consume `audit-auth.listener.ts` desde Sprint 13.5; y se catalogaron 4 eventos antes ausentes (`auth.refresh_replay_detected`, `task.cancelled`, `support_inside.plan_changed`, `plugin.reconcile_completed`). La **automatización** del recuento (script de CI, §"Cómo se valida") sigue pendiente — hasta entonces, **al tocar un módulo, recontar su sección con el grep**.
 > **Convenio de naming:** `<dominio>.<acción>` en pasado. Verificado 100% conforme.
 > **Bus:** `EventEmitter2` global (NestJS `@nestjs/event-emitter`) — los emisores críticos producen vía `OutboxService.enqueue(tx, ...)` y el `OutboxWorker.dispatch()` (invocado por `OutboxDispatchProcessor`, cola BullMQ `outbox-dispatch` con `repeat: { every: 5000 }` + `FOR UPDATE SKIP LOCKED`) los despacha al bus. ADR-064 cierra el §7 de ADR-033.
 > **Outbox Pattern:** ✅ `invoice.created/paid/failed/overdue` + `domain.*` (registered/renewed/expired/entered_redemption + gestión nameservers/privacy/lock + restored + transfer_initiated/completed/failed) + **`service.*` lifecycle** (`activated`/`cancelled`/`suspended`/`unsuspended`/`resumed`/`paused`) — **migrados en H5/GL-17 (audit 2026-06-25): persistidos en `event_outbox` dentro de la misma `$transaction` que la transición de `services.status`** (antes `emit()` directo fuera de tx). Pendiente `partner.*` (módulo no implementado; nacerá con Outbox). Las **alertas** NO usan Outbox por diseño (no son transacciones de estado — su durabilidad la aporta BullMQ aguas abajo): `domain.expiring_soon`, `service.cancellation_scheduled`, `service.provisioning_failed`, `service.reconciled_external_change`, `service.quota_threshold_crossed`, y los wrappers de observabilidad `service.{metrics_fetched,action_executed,sso_opened,admin_sso_impersonation}`. `service.provisioned` (creación en checkout) y `service.plan_changed` (ya Outbox vía ADR-029) quedan fuera del alcance de GL-17. Ref: ADR-033 + ADR-064 + rules.md R8.
@@ -23,17 +23,17 @@
 
 ## Resumen ejecutivo
 
-| Métrica | Valor |
+| Métrica | Valor (medido 2026-06-26) |
 |---------|-------|
-| Eventos totales | 28 (de negocio) |
-| Dominios | 7 (auth, checkout, conversation, invoice, message, service, task/maintenance) |
-| Eventos con consumidor activo | 14 |
-| **Eventos huérfanos (sin listener)** | **14** |
-| Eventos con múltiples consumidores | 3 (`conversation.created`, `conversation.assigned`, `message.created`) |
-| Listeners únicos | 8 (`billing-email`, `support-email`, `support-websocket`, `support-guest-link`, `tasks-email`, `MaintenanceCompletedListener`, `TasksOverdueListener`, `TasksUnassignedOverdueListener`, `MaintenanceCriticalListener`) |
+| Eventos totales | **~71** tipos distintos emitidos (+ ~3 aspiracionales declarados) |
+| Dominios | **~12** (`auth`, `invoice`, `checkout`, `conversation`, `message`, `service`, `task`/`maintenance`, `support_inside`, `domain`, `plugin`, `provisioning`, operativos) |
+| Eventos con consumidor activo | **~57** |
+| **Eventos huérfanos (emitidos sin `@OnEvent`)** | **~14** (ver lista abajo) |
+| Eventos con múltiples consumidores | varios — p.ej. `service.activated` (×3), `domain.transfer_completed` (×3), `conversation.created`/`assigned`, `message.created`, `invoice.paid` |
+| Listeners únicos | **~45** ficheros `*.listener.ts` (un listener por evento o grupo cohesivo — R15) |
 | **Eventos críticos sin Outbox** | **pendientes:** `checkout.completed`, `partner.*` (4 futuros). Cerrados: `invoice.*` (4, P0.2) + `domain.*` (15D) + **`service.*` lifecycle (6, H5/GL-17 audit 2026-06-25)**. Los `task.*` operativos (overdue/unassigned_overdue/maintenance.critical) y las alertas `service.*`/`domain.expiring_soon` NO requieren Outbox (alertas, no transacciones de estado). |
 
-### Diagnóstico de los 15 eventos huérfanos
+### Diagnóstico de los ~14 eventos huérfanos
 
 No es necesariamente bug. Pueden ser:
 
@@ -65,16 +65,17 @@ Eventos sin dominio de negocio — emitidos por la infraestructura para alertas 
 | Evento | Emisor | Consumidores | Payload | Outbox | Estado |
 |--------|--------|--------------|---------|--------|--------|
 | `auth.2fa_required` | `auth-login.service.ts:initiate2fa()` | — | `{ userId }` | no | 🟡 huérfano (hook aspiracional para audit/notifications futuro) |
-| `auth.account_blocked` | `auth-login.service.ts:handleFailedLogin()` | — | `{ userId, attempts }` | no | 🟡 huérfano (debería notificar al superadmin → R7) |
-| `auth.email_verified` | `auth-register.service.ts:verifyEmail()` | — | `{ userId }` | no | 🟡 huérfano |
-| `auth.login_failed` | `auth-login.service.ts:handleFailedLogin()` | — | `{ userId, attempt }` | no | 🟡 huérfano (audit log) |
-| `auth.login_success` | `auth-token.service.ts:issueTokens()` | — | `{ userId }` | no | 🟡 huérfano (audit log) |
-| `auth.password_reset` | `auth-recovery.service.ts:resetPassword()` | — | `{ userId }` | no | 🟡 huérfano (audit log) |
+| `auth.account_blocked` | `auth-login.service.ts:handleFailedLogin()` | **`audit-auth.listener`** | `{ userId, attempts }` | no | ✅ consumido (audit `audit_access_log`; Sprint 13.5) |
+| `auth.email_verified` | `auth-register.service.ts:verifyEmail()` | **`audit-auth.listener`** | `{ userId }` | no | ✅ consumido (audit) |
+| `auth.login_failed` | `auth-login.service.ts:handleFailedLogin()` | — | `{ userId, attempt }` | no | 🟡 huérfano (candidato a audit) |
+| `auth.login_success` | `auth-token.service.ts:issueTokens()` | — | `{ userId }` | no | 🟡 huérfano (candidato a audit) |
+| `auth.password_reset` | `auth-recovery.service.ts:resetPassword()` | **`audit-auth.listener`** | `{ userId }` | no | ✅ consumido (audit) |
+| `auth.refresh_replay_detected` ⭐ | `auth-token.service.ts` (replay de refresh token — ADR-078) | **`notifications-auth-replay.listener`** → alerta superadmin | `{ userId, sessionId? }` | no | ✅ consumido (Sprint 13 §13.AUTH; **catalogado 2026-06-26, GL-28**) |
 | `auth.registered` | `auth-register.service.ts:register()` | `support-guest-link.listener` | `{ userId, email }` | no | ✅ con consumidor (vincula chats guest previos) |
-| `auth.session_closed` | `auth-token.service.ts:logout()`, `revokeSession()` | — | `{ userId, sessionId? }` | no | 🟡 huérfano (audit log) |
+| `auth.session_closed` | `auth-token.service.ts:logout()`, `revokeSession()`, `auth-account.service.ts` | **`audit-auth.listener`** | `{ userId, sessionId? }` | no | ✅ consumido (audit) |
 
-**Análisis del dominio auth:**
-La mayoría de eventos `auth.*` se emiten "por si acaso" pero ningún listener los consume. Esto es **deuda controlada**: cuando se implemente el módulo `audit` (stub hoy), estos serán sus consumidores naturales. NO eliminar.
+**Análisis del dominio auth (actualizado 2026-06-26 — GL-28):**
+El módulo `audit` **ya existe** y `audit-auth.listener` consume `account_blocked`/`email_verified`/`password_reset`/`session_closed`; `refresh_replay_detected` lo consume `notifications-auth-replay.listener` (alerta superadmin). Siguen **huérfanos** `login_failed`/`login_success` (candidatos naturales a audit) y `2fa_required` (hook aspiracional). NO eliminar los huérfanos: son hooks legítimos para listeners futuros.
 
 ---
 
@@ -166,6 +167,7 @@ La mayoría de eventos `auth.*` se emiten "por si acaso" pero ningún listener l
 | `task.overdue` | `TasksOverdueService.run()` (cron BullMQ `tasks-overdue` `0 2 * * *` UTC, Sprint 8 Fase C 2026-05-01) | `TasksOverdueListener` → `NotificationsService.dispatchToUser` | `{ task_id, task_title, task_type, task_type_label, task_priority, task_priority_label, task_url, action_url, due_date_label, days_overdue, assigned_to }` | no — operativo (no de negocio) | ✅ consumido (email + campana al agente con plantilla seedeada) |
 | `task.unassigned_overdue` | `TasksUnassignedOverdueService.run()` (cron BullMQ `tasks-unassigned-overdue` `0 9 * * *` UTC, [ADR-072](../10-decisions/adr-072-tareas-sin-asignar-cola-publica.md), Sprint 8 Fase C 2026-05-01) | `TasksUnassignedOverdueListener` → `NotificationsService.dispatchToSuperadmins` | `{ total, oldest_age_hours, by_type, task_ids, summary }` | no — operativo | ✅ consumido (email + campana al superadmin con resumen agregado pre-renderizado) |
 | `maintenance.critical` | `MaintenanceCriticalService.run()` (cron BullMQ `maintenance-critical` `0 8 * * *` UTC, Sprint 8 Fase C 2026-05-01) | `MaintenanceCriticalListener` → `NotificationsService.dispatchToSuperadmins` | `{ total, threshold_days, service_ids, summary }` | no — operativo | ✅ consumido (email + campana al superadmin; degradación elegante: total=0 mientras Fase D no introduzca service_checklist_items) |
+| `task.cancelled` ⭐ | `tasks.service.ts:cancel()` (cancelación de tarea; los listeners cross-sistema `tasks-on-service-cancelled`/`tasks-on-slot-released` cancelan tasks bridge huérfanas) | — | `{ task }` | no | 🟡 huérfano (**catalogado 2026-06-26, GL-28**) |
 
 **Análisis del dominio task / maintenance** (estado tras Sprint 8 Fase B cerrado 2026-04-29):
 
@@ -185,6 +187,7 @@ La mayoría de eventos `auth.*` se emiten "por si acaso" pero ningún listener l
 | `support_inside.cancelled` | `SupportInsideService.cancel()` tras transacción que libera slots + cancela Service estándar | `SupportInsideAuditListener` (D.12.3) | `{ subscription_id, client_id, reason, released_slots }` | no | ✅ consumido |
 | `support_inside.slot_assigned` | `SupportInsideService.addSlot()` tras crear `SupportInsideSlot` | `SupportInsideAuditListener` (D.12.3) | `{ slot_id, subscription_id, client_id, service_id, slot_type, is_extra }` | no | ✅ consumido |
 | `support_inside.slot_released` | `SupportInsideService.releaseSlot()` (manual) y `SupportInsideService.cancel()` (cascada) | `SupportInsideAuditListener` (D.12.3), **`tasks-on-slot-released.listener`** (Sprint 16) → cancela task `support_inside_slot` huérfana con `source_id=slot_id` | `{ slot_id, subscription_id, client_id, reason: 'manual'\|'subscription_cancelled' }` | no | ✅ con 2 consumidores (Sprint 16: tasks listener cierra cancelación cross-sistema) |
+| `support_inside.plan_changed` ⭐ | `SupportInsideService.upgrade()` (cambio de plan SI con prorrateo — GL-23 / ADR-029 A1) | — | (ver `SupportInsideService`) | no | 🟡 huérfano (**catalogado 2026-06-26, GL-28**) |
 
 **Nota canónica**: los 4 eventos están declarados como hooks aspiracionales y **cerrados con consumidor en Sprint 8 Fase D.12** (`SupportInsideAuditListener`). Cumple R1 (módulos por eventos) — `audit-support-inside` se enganchó vía `@OnEvent('support_inside.*')` sin tocar `SupportInsideService`. Listeners adicionales (`SupportInsidePriorityListener` consume `conversation.created`, `SupportInsideOnServiceProvisionedListener` consume `service.provisioned`) materializan la doctrina ADR-061 §"tier de cuenta visible" y ADR-076 (checkout único vía evento).
 
@@ -199,6 +202,7 @@ La mayoría de eventos `auth.*` se emiten "por si acaso" pero ningún listener l
 | `plugin.uninstalled` | (futuro — no emitido en Sprint 15A; reservado para cuando llegue desinstalación física de un plugin del DI) | (pendiente) | `{ slug, uninstalled_by, uninstalled_at }` | no | 🟡 reservado, no emitido todavía |
 | `plugin.circuit_opened` | `HouseCircuitBreaker.transitionTo('open')` (Sprint 15A Fase F.1) — tras N fallos en ventana en `getServiceInfoWithCache` o `executeActionWithCacheInvalidation` | **`NotificationsPluginCircuitListener.handleCircuitOpened`** → notif `internal` + `email` a superadmins | `{ breaker_name, opened_at, last_error_code, failure_count, reset_timeout_ms }` | no | ✅ consumido |
 | `plugin.circuit_closed` | `HouseCircuitBreaker.transitionTo('closed')` desde half-open OK o `breaker.reset()` manual | **`NotificationsPluginCircuitListener.handleCircuitClosed`** → notif `internal` informativa de resolución (sin email) | `{ breaker_name, closed_at, downtime_seconds }` | no | ✅ consumido |
+| `plugin.reconcile_completed` ⭐ | `EnhanceReconciliationCron` tras la pasada de reconciliación (`runOnce()`) | **`audit-on-plugin-reconcile-completed.listener`** → `audit_change_log` | (ver `EnhanceReconciliationCron`) | no | ✅ consumido (**catalogado 2026-06-26, GL-28**) |
 
 **Nota canónica**: el `breaker_name` codifica `<plugin_slug>:<operation>` (ej. `enhance_cp:getServiceInfo`). El listener parsea ambos componentes y los enriquece en el payload de la notificación. Plugins reales (Sprint 15C/D/E) no requieren tocar este pipeline — el breaker está cableado en los wrappers `core/provisioning/plugin-utils.ts` que consume `ProvisioningService` (ADR-080 §5).
 
