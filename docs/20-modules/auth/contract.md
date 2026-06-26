@@ -233,11 +233,16 @@ Ninguno. Auth no tiene tareas programadas. Los tokens caducan por TTL en BD, no 
   - Test 2: login con email no verificado muestra opción de reenvío
 
 ### Tests unitarios
-Pendiente: `backend/src/modules/auth/*.spec.ts` no existe todavía. Sprint dedicado de testing añadirá:
-- `auth-login.service.spec.ts` — login, 2FA, bloqueo
+Existentes (`backend/src/modules/auth/*.spec.ts`):
+- ✅ `auth-login.service.spec.ts` — login, lockout por intentos, gates de estado, reto 2FA (rol/opt-in) y verify-2fa (GL-26, audit 2026-06-25)
+- ✅ `auth-token.service.spec.ts` — issue, refresh, revoke
+- ✅ `auth-account.service.spec.ts` — self-service de cuenta (ADR-085)
+- ✅ `account-deletion.service.spec.ts` · `account-transparency.service.spec.ts` — RGPD (GL-5)
+- ✅ `seed-superadmin-failfast.spec.ts` — guard de seed en prod (GL-4)
+
+Pendiente:
 - `auth-register.service.spec.ts` — registro, verify-email
 - `auth-recovery.service.spec.ts` — forgot, reset
-- `auth-token.service.spec.ts` — issue, refresh, revoke
 
 ### Smoke test manual (parte del DoD)
 1. Registrar cuenta nueva → recibir email → verificar → login
