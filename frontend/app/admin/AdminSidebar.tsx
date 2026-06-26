@@ -132,6 +132,12 @@ const ICON = {
       <line x1="17" y1="8" x2="22" y2="13" /><line x1="22" y1="8" x2="17" y2="13" />
     </svg>
   ),
+  team: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  ),
 };
 
 const ALL_ITEMS: NavItem[] = [
@@ -151,6 +157,8 @@ const ALL_ITEMS: NavItem[] = [
 
   // ── Plataforma (sólo superadmin — ADR-067 Subjects nuevos + Setting) ──
   { label: 'Settings', href: '/admin/settings', requiredModule: 'Setting', icon: ICON.settings, section: 'plataforma' },
+  // GL-21 — gestión de cuentas de staff/agentes (alta/baja/rol, superadmin).
+  { label: 'Equipo', href: '/admin/users', requiredModule: 'Agent', icon: ICON.team, section: 'plataforma' },
   { label: 'Error Log', href: '/admin/error-log', requiredModule: 'ErrorLog', icon: ICON.errorLog, section: 'plataforma' },
   { label: 'Jobs en DLQ', href: '/admin/jobs/failed', requiredModule: 'Job', icon: ICON.jobs, section: 'plataforma' },
   { label: 'Plantillas notificaciones', href: '/admin/notifications/templates', requiredModule: 'NotificationTemplate', icon: ICON.templates, section: 'plataforma' },

@@ -60,6 +60,9 @@ import { ProvisioningModule } from '../provisioning/provisioning.module';
     BillingCalculatorService,
     BillingCheckoutService,
     SubscriptionService,
+    // ADR-029 A1 (GL-23): Support Inside reusa el motor de prorrateo para el
+    // cambio de plan cross-tier.
+    SubscriptionPlanChangeService,
     InvoicePdfService,
     InvoicePdfStorageService,
   ],

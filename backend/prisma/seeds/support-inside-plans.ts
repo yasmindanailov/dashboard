@@ -30,9 +30,15 @@ const DEFAULT_APPLICABLE_PRODUCT_TYPES: ProductType[] = [
  * exactos se ajustan con primeros clientes reales). Estos son
  * placeholders consistentes para entornos dev / CI / staging:
  *   - Básico:  19,00 €/mes — 0 slots incluidos, canales reactivos
- *   - Medium:  39,00 €/mes — 1 slot mantenimiento + WhatsApp
- *   - Pro:     79,00 €/mes — 1 slot mantenimiento+gestión + WhatsApp prioridad max
+ *   - Medium:  39,00 €/mes — 1 slot mantenimiento
+ *   - Pro:     79,00 €/mes — 1 slot mantenimiento+gestión, prioridad max
  * Anual con 15% de descuento (precio final = monthly × 12 × 0.85).
+ *
+ * GL-23 (audit 2026-06-25): `channels_active` se alinea a los canales
+ * **realmente entregables** hoy = webchat + email. `phone`/`whatsapp` se
+ * retiran de la oferta hasta que exista dispatcher (no se vende lo que no se
+ * entrega). Re-añadir un canal = 1 línea aquí + su entrega. Los precios y los
+ * slots por plan NO se tocan (decisión Yasmin 2026-06-26).
  *
  * Cada plan tiene `support_inside_config` poblada con los campos que el
  * editor admin (ADR-075 §B.2) muestra en sus 5 secciones card.
@@ -63,9 +69,10 @@ const PLANS: ReadonlyArray<PlanSeed> = [
   {
     slug: 'support-inside-basico',
     name: 'Support Inside Básico',
-    short_description: 'Soporte reactivo con agente real. Sin mantenimientos incluidos.',
+    short_description:
+      'Soporte reactivo con agente real. Sin mantenimientos incluidos.',
     description:
-      'Acceso a webchat, email, conversación asíncrona y teléfono. Agente real de primeras en cualquier canal. Tareas técnicas básicas (DNS, instalar WordPress, plugins recomendados, configuraciones del producto) bajo demanda. Sin slots de mantenimiento incluidos — pueden contratarse aparte.',
+      'Acceso a webchat y email, con agente real de primeras en cualquier canal. Tareas técnicas básicas (DNS, instalar WordPress, plugins recomendados, configuraciones del producto) bajo demanda. Sin slots de mantenimiento incluidos — pueden contratarse aparte.',
     order_index: 1,
     pricing_monthly: '19.00',
     pricing_yearly: '193.80', // 19 × 12 × 0.85
@@ -77,7 +84,6 @@ const PLANS: ReadonlyArray<PlanSeed> = [
       channels_active: [
         SupportInsideChannel.webchat,
         SupportInsideChannel.email,
-        SupportInsideChannel.phone,
       ],
       priority_tier: SupportInsidePriorityTier.standard,
       response_sla_hours: 24,
@@ -88,9 +94,9 @@ const PLANS: ReadonlyArray<PlanSeed> = [
     slug: 'support-inside-medium',
     name: 'Support Inside Medium',
     short_description:
-      '1 slot de mantenimiento mensual incluido + WhatsApp como canal extra.',
+      '1 slot de mantenimiento mensual incluido + SLA de respuesta 12h.',
     description:
-      'Todo Básico + 1 slot de mantenimiento mensual incluido (cubre actualizaciones, revisión backups, SSL, etc., según el checklist del servicio asignado al slot). Suma WhatsApp como canal de comunicación. Slots adicionales pueden contratarse aparte. SLA de respuesta 12h hábiles.',
+      'Todo Básico + 1 slot de mantenimiento mensual incluido (cubre actualizaciones, revisión backups, SSL, etc., según el checklist del servicio asignado al slot). Slots adicionales pueden contratarse aparte. SLA de respuesta 12h hábiles.',
     badge_text: 'Recomendado',
     order_index: 2,
     pricing_monthly: '39.00',
@@ -103,8 +109,6 @@ const PLANS: ReadonlyArray<PlanSeed> = [
       channels_active: [
         SupportInsideChannel.webchat,
         SupportInsideChannel.email,
-        SupportInsideChannel.phone,
-        SupportInsideChannel.whatsapp,
       ],
       priority_tier: SupportInsidePriorityTier.high,
       response_sla_hours: 12,
@@ -115,9 +119,9 @@ const PLANS: ReadonlyArray<PlanSeed> = [
     slug: 'support-inside-pro',
     name: 'Support Inside Pro',
     short_description:
-      '1 slot mantenimiento + gestión proactiva. WhatsApp con prioridad máxima.',
+      '1 slot mantenimiento + gestión proactiva. Prioridad máxima en cola.',
     description:
-      'Todo Medium + el slot incluido es de tipo mantenimiento + gestión proactiva (acompañamiento activo del servicio: optimizaciones de rendimiento, Cloudflare/CDN si crece tráfico, revisión de métricas, recomendaciones técnicas). WhatsApp con prioridad máxima en la cola del agente. SLA de respuesta 4h hábiles. Para negocios complejos que necesitan a alguien encima.',
+      'Todo Medium + el slot incluido es de tipo mantenimiento + gestión proactiva (acompañamiento activo del servicio: optimizaciones de rendimiento, Cloudflare/CDN si crece tráfico, revisión de métricas, recomendaciones técnicas). Prioridad máxima en la cola del agente. SLA de respuesta 4h hábiles. Para negocios complejos que necesitan a alguien encima.',
     order_index: 3,
     pricing_monthly: '79.00',
     pricing_yearly: '805.80', // 79 × 12 × 0.85
@@ -132,8 +136,6 @@ const PLANS: ReadonlyArray<PlanSeed> = [
       channels_active: [
         SupportInsideChannel.webchat,
         SupportInsideChannel.email,
-        SupportInsideChannel.phone,
-        SupportInsideChannel.whatsapp,
       ],
       priority_tier: SupportInsidePriorityTier.max,
       response_sla_hours: 4,

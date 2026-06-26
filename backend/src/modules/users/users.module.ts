@@ -3,11 +3,14 @@ import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 
 /**
- * UsersModule — gestión de cuentas staff (Sprint 8 Fase A).
+ * UsersModule — gestión de cuentas staff.
  *
- * Hoy expone únicamente `GET /admin/users` (listado de agentes asignables).
- * Futuras extensiones (Sprint 13 Hardening): `POST/PATCH/DELETE` para CRUD
- * completo de agentes (sólo superadmin, ADR-067 Subject `Agent`).
+ * - `GET /admin/users` — selector de agentes asignables (Sprint 8 Fase A).
+ * - `/admin/users/staff/*` — CRUD de cuentas staff (alta/baja/rol), solo
+ *   superadmin (CASL `Manage.Agent`, ADR-067). GL-21 (audit 2026-06-25 §6).
+ *
+ * `UsersService` inyecta `AuditService` (R3) — disponible vía `AuditModule`
+ * (`@Global`), sin necesidad de importarlo aquí.
  */
 @Module({
   controllers: [UsersController],

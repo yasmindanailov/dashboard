@@ -12,6 +12,15 @@ Es un módulo **aggregator de solo lectura**: NO posee tablas, NO emite eventos,
 
 ✅ **Producción.** Sprint 5 cerrado, refactor Regla 15 aplicado en Sprint 7.R15.1 (`overview/page.tsx`: 907→77 líneas, secciones y stats extraídos).
 
+> **GL-22 (audit 2026-06-25):** el overview role-aware del **staff** se renderiza
+> en el portal admin (`/admin`), no en `/dashboard` (de donde el `dashboard/layout`
+> rebota al staff por ADR-066). `frontend/app/admin/page.tsx` consume el mismo
+> `GET /dashboard/overview` (backend ya role-aware: superadmin/agent_full → `admin`,
+> agent_billing/agent_support → `agent`) y reutiliza `AdminStats`/`AgentStats` +
+> `buildAlerts`/`AlertList` (antes código muerto). El portal **cliente**
+> (`/dashboard`) renderiza el overview de `client`/`partner`. Accesos rápidos del
+> admin gateados por `canAccess` (ADR-067).
+
 ---
 
 ## 3. Modelos Prisma propios

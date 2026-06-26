@@ -28,6 +28,12 @@ export class SubscribeSupportInsideDto {
   billing_profile_id?: string;
 }
 
+/** GL-23 — cambio de plan Support Inside (upgrade/downgrade cross-tier, ADR-029 A1). */
+export class UpgradeSupportInsideDto {
+  @IsUUID()
+  new_product_pricing_id!: string;
+}
+
 export class CancelSupportInsideDto {
   @IsOptional()
   @IsString()

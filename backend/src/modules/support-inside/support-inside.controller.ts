@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -20,6 +21,7 @@ import {
   AddSlotDto,
   CancelSupportInsideDto,
   SubscribeSupportInsideDto,
+  UpgradeSupportInsideDto,
 } from './dto/support-inside.dto';
 
 /**
@@ -79,15 +81,30 @@ export class SupportInsideController {
     return this.service.subscribe(req.user.id, dto);
   }
 
+  @Get('upgrade/preview')
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.SupportInside))
+  @ApiOperation({
+    summary:
+      'Preview del prorrateo de un cambio de plan (R5 — antes de confirmar)',
+  })
+  previewUpgrade(
+    @Req() req: AuthenticatedRequest,
+    @Query('new_product_pricing_id', ParseUUIDPipe) newPricingId: string,
+  ) {
+    return this.service.previewUpgrade(req.user.id, {
+      new_product_pricing_id: newPricingId,
+    });
+  }
+
   @Post('upgrade')
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.SupportInside))
   @ApiOperation({
     summary:
-      'Cambiar de plan (MVP Sprint 8: rechaza con mensaje accionable — ADR-029 prorrateo pendiente)',
+      'Cambiar de plan Support Inside con prorrateo (ADR-029 A1 / GL-23)',
   })
   upgrade(
     @Req() req: AuthenticatedRequest,
-    @Body() dto: { new_product_pricing_id: string },
+    @Body() dto: UpgradeSupportInsideDto,
   ) {
     return this.service.upgrade(req.user.id, dto);
   }

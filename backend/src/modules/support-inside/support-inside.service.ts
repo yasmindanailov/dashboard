@@ -10,6 +10,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 import { BillingCheckoutService } from '../billing/billing-checkout.service';
+import { SubscriptionPlanChangeService } from '../billing/subscription-plan-change.service';
 
 /**
  * SupportInsideService — Sprint 8 Fase D (2026-05-01).
@@ -23,8 +24,8 @@ import { BillingCheckoutService } from '../billing/billing-checkout.service';
  *   - cancel() libera slots + cancela el Service estándar (BillingService
  *     se encarga del lifecycle de facturación) + marca subscription como
  *     cancelled.
- *   - upgrade() pendiente Sprint dedicado (ADR-029 prorrateo) — versión
- *     MVP rechaza con mensaje accionable.
+ *   - upgrade() cambia de plan (cross-tier) reusando el prorrateo ADR-029
+ *     (Amendment A1, GL-23): crédito sin devolución + guard de slots.
  *
  * Reglas canónicas:
  *   - 1 cliente máx 1 subscription activa (ADR-034 + UNIQUE BD client_id).
@@ -46,6 +47,7 @@ export class SupportInsideService {
     private readonly prisma: PrismaService,
     private readonly events: EventEmitter2,
     private readonly checkout: BillingCheckoutService,
+    private readonly planChange: SubscriptionPlanChangeService,
   ) {}
 
   // ─── Subscribe ───────────────────────────────────────────────
@@ -136,26 +138,142 @@ export class SupportInsideService {
     };
   }
 
-  // ─── Upgrade (MVP — Sprint 8 Fase D) ──────────────────────────
+  // ─── Cambio de plan (GL-23 / ADR-029 A1) ──────────────────────
 
   /**
-   * Cambia el plan de la subscription activa. MVP Sprint 8 Fase D rechaza
-   * con mensaje accionable — el flujo correcto exige prorrateo (ADR-029)
-   * y se aborda en sprint dedicado.
-   *
-   * Workaround temporal: el cliente cancela el plan actual y contrata el
-   * nuevo. La factura del plan nuevo lleva fecha del día. La del plan
-   * anterior NO se reembolsa (decisión consciente — Aelium no devuelve
-   * dinero por servicios consumidos parcialmente; se compensa con créditos
-   * en futuros sprints).
+   * Preview del prorrateo de un cambio de plan Support Inside (R5: el cliente lo
+   * ve ANTES de confirmar). Valida el plan destino + el guard de slots.
    */
-  upgrade(
-    _userId: string,
-    _dto: { new_product_pricing_id: string },
-  ): Promise<never> {
-    throw new BadRequestException(
-      'Cambio de plan automático pendiente (ADR-029 prorrateo). Por ahora: cancela el plan actual y contrata el nuevo.',
+  async previewUpgrade(
+    userId: string,
+    dto: { new_product_pricing_id: string },
+  ) {
+    const ctx = await this.loadPlanChangeContext(
+      userId,
+      dto.new_product_pricing_id,
     );
+    this.assertSlotsFit(ctx);
+    return this.planChange.previewPlanChange(
+      ctx.serviceId,
+      dto.new_product_pricing_id,
+      userId,
+      false,
+      { allowCrossProduct: true },
+    );
+  }
+
+  /**
+   * Cambia el plan de la subscription activa (upgrade/downgrade cross-tier).
+   * Reusa el motor de prorrateo ADR-029 (A1, GL-23): crédito sin devolución +
+   * factura del prorrateo idempotente. Actualiza la subscription al nuevo
+   * producto **dentro de la misma transacción** (txHook) que el cambio del
+   * service. Guard de slots: no se puede bajar a un plan con menos slots
+   * incluidos que los ya asignados (el cliente libera primero).
+   */
+  async upgrade(userId: string, dto: { new_product_pricing_id: string }) {
+    const ctx = await this.loadPlanChangeContext(
+      userId,
+      dto.new_product_pricing_id,
+    );
+    this.assertSlotsFit(ctx);
+
+    const result = await this.planChange.confirmPlanChange(
+      ctx.serviceId,
+      dto.new_product_pricing_id,
+      userId,
+      false,
+      {
+        allowCrossProduct: true,
+        txHook: async (tx) => {
+          await tx.supportInsideSubscription.update({
+            where: { service_id: ctx.serviceId },
+            data: { product_id: ctx.newProductId },
+          });
+        },
+      },
+    );
+
+    this.events.emit('support_inside.plan_changed', {
+      subscription_id: ctx.subscriptionId,
+      client_id: userId,
+      from_product_id: ctx.currentProductId,
+      to_product_id: ctx.newProductId,
+      service_id: ctx.serviceId,
+    });
+
+    this.logger.log(
+      `Support Inside plan changed: client=${userId} ` +
+        `${ctx.currentProductId}→${ctx.newProductId} service=${ctx.serviceId} ` +
+        `amount_to_pay=${result.proration.amount_to_pay}`,
+    );
+
+    return { ok: true, proration: result.proration };
+  }
+
+  /* ── helpers cambio de plan (ADR-029 A1) ── */
+
+  /**
+   * Carga + valida el contexto del cambio de plan: subscription activa del
+   * cliente + plan SI destino. El resto de invariantes (servicio activo,
+   * ownership, no-op mismo-plan, prorrateo) las aplica `SubscriptionPlanChangeService`.
+   */
+  private async loadPlanChangeContext(userId: string, newPricingId: string) {
+    const subscription = await this.prisma.supportInsideSubscription.findUnique(
+      {
+        where: { client_id: userId },
+        include: {
+          slots: {
+            where: { released_at: null },
+            select: { id: true, is_extra: true },
+          },
+        },
+      },
+    );
+    if (!subscription || subscription.status !== 'active') {
+      throw new ConflictException(
+        'No tienes una suscripción Support Inside activa que cambiar.',
+      );
+    }
+
+    const newPricing = await this.prisma.productPricing.findUnique({
+      where: { id: newPricingId },
+      include: { product: { include: { support_inside_config: true } } },
+    });
+    if (!newPricing) {
+      throw new NotFoundException('Plan de precios no encontrado.');
+    }
+    if (
+      newPricing.product.type !== 'support_inside' ||
+      !newPricing.product.support_inside_config
+    ) {
+      throw new BadRequestException(
+        'El plan destino no es un plan Support Inside válido.',
+      );
+    }
+
+    return {
+      subscriptionId: subscription.id,
+      serviceId: subscription.service_id,
+      currentProductId: subscription.product_id,
+      newProductId: newPricing.product_id,
+      newSlotsIncluded: newPricing.product.support_inside_config.slots_included,
+      activeIncludedSlots: subscription.slots.filter((sl) => !sl.is_extra)
+        .length,
+    };
+  }
+
+  /** Guard de downgrade: no dejar slots incluidos huérfanos (cliente libera primero). */
+  private assertSlotsFit(ctx: {
+    newSlotsIncluded: number;
+    activeIncludedSlots: number;
+  }): void {
+    if (ctx.newSlotsIncluded < ctx.activeIncludedSlots) {
+      const toRelease = ctx.activeIncludedSlots - ctx.newSlotsIncluded;
+      throw new BadRequestException(
+        `El plan destino incluye ${ctx.newSlotsIncluded} slot(s) y tienes ` +
+          `${ctx.activeIncludedSlots} asignado(s). Libera ${toRelease} antes de cambiar a ese plan.`,
+      );
+    }
   }
 
   // ─── Cancel ──────────────────────────────────────────────────

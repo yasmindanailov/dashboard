@@ -513,6 +513,9 @@ export const SIDEBAR_PERMISSIONS: Record<string, Subject[]> = {
     Subject.Job,
     // ADR-080 — Plugin Framework admin-puro (manejan credenciales del proveedor).
     Subject.Plugin,
+    // GL-21 (audit 2026-06-25) — gestión de cuentas staff (alta/baja/rol).
+    // Admin-puro: solo superadmin (CASL `Manage.Agent`, ADR-067).
+    Subject.Agent,
     Subject.Partner,
     Subject.Referral,
   ],

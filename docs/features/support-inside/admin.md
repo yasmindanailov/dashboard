@@ -14,8 +14,8 @@ Support Inside es un **tier de cuenta visible**, NO un producto técnico aislado
 El cliente paga una suscripción mensual o anual (`Básico`, `Medium`, `Pro`) que le otorga:
 
 - **Slots** de mantenimiento mensual asignables a sus servicios técnicos compatibles (hosting, Docker, etc.).
-- **SLA** de respuesta diferenciado por canal (24h Básico → 4h Pro).
-- **Canales activos** según el plan (email, in-app, WhatsApp futuro).
+- **SLA** de respuesta diferenciado (24h Básico → 4h Pro).
+- **Canales activos** de contacto con agente real (webchat + email; ver GL-23 §2).
 - **Prioridad automática** en tickets de soporte abiertos por el cliente (mapeo `priority_tier → ConversationPriority`).
 - **Visibilidad transversal**: badges en `/admin/clients/:id`, en `/admin/support` (ConversationHeader) y en su dashboard cliente.
 
@@ -29,11 +29,11 @@ Seedeados en `prisma/seeds/support-inside-plans.ts` (NO es demo data — son ope
 
 | Plan | Slug | Slots | SLA | Canales | Mensual | Anual (−15%) | priority_tier |
 |------|------|-------|-----|---------|---------|--------------|---------------|
-| Básico | `support-inside-basic-plan` | 1 | 24h | email + in-app | 19 € | 193,80 € | `standard` |
-| Medium | `support-inside-medium` | 3 | 12h | email + in-app | 49 € | 499,80 € | `high` |
-| Pro | `support-inside-pro` | 10 | 4h | email + in-app + WhatsApp* | 99 € | 1.009,80 € | `max` |
+| Básico | `support-inside-basico` | 0 | 24h | webchat + email | 19 € | 193,80 € | `standard` |
+| Medium | `support-inside-medium` | 1 | 12h | webchat + email | 39 € | 397,80 € | `high` |
+| Pro | `support-inside-pro` | 1 | 4h | webchat + email | 79 € | 805,80 € | `max` |
 
-*WhatsApp queda como hook aspiracional (DC.20 — pendiente sprint dedicado a `WhatsAppChannel`).
+> **GL-23 (audit 2026-06-25):** tabla alineada al **seed real** (`prisma/seeds/support-inside-plans.ts`). `channels_active` = canales **entregables hoy** (webchat + email); `phone`/`whatsapp` retirados de la oferta hasta que exista dispatcher (DC.20). **Precios y slots por plan NO modificados** (decisión Yasmin 2026-06-26). El slot de Pro es de tipo *mantenimiento + gestión proactiva* (Medium = *mantenimiento*).
 
 > **Por qué tres y no cinco**: la decisión deliberada es ofrecer un comparador limpio (3 cards lado a lado). Crear un cuarto plan exige migración + seed + ADR específico — cambiar la oferta comercial merece auditoría git, no clic en UI ([ADR-075](../../10-decisions/adr-075-support-inside-ux-lista-y-aislamiento-productos.md) §B.2).
 
@@ -184,6 +184,8 @@ Tres servicios ya existentes se enriquecieron en Fase D.12 con info SI **sin que
 | `GET` | `/plans` | Comparador público — los 3 planes activos con `support_inside_config` + pricing |
 | `GET` | `/status` | Subscription activa del cliente + slots + canales |
 | `POST` | `/subscribe` | API interna alternativa (NO usada por frontend — usa `/billing/checkout`) |
+| `GET` | `/upgrade/preview` | Preview del prorrateo de un cambio de plan (R5, antes de confirmar) — GL-23 |
+| `POST` | `/upgrade` | Cambia de plan (upgrade/downgrade) con prorrateo (GL-23 / ADR-029 A1) |
 | `POST` | `/cancel` | Cancela + libera slots cascada (operación destructiva con modal) |
 | `POST` | `/slots` | Asigna slot a servicio (filtro `applicable_product_types`) |
 | `DELETE` | `/slots/:id` | Libera slot |
@@ -244,7 +246,7 @@ Detalle canónico en [`docs/30-data/support.md`](../../30-data/support.md).
 | Acción | Efecto cascada |
 |--------|----------------|
 | Cancelar subscription del cliente | Libera todos los slots (cascada: 1 evento `slot_released` por slot) → marca subscription `cancelled` → tareas `maintenance_management` futuras NO se generan. **Servicios técnicos del cliente quedan intactos** (sólo se desactiva el slot SI). |
-| Cliente upgrade Básico → Pro mid-mes | Hoy: rechazo con mensaje accionable (workaround: cancelar + recontratar). Migración real prorrateada queda como **DC.18 / ADR-077 propuesto** — bloquea cierre comercial Pro. |
+| Cliente upgrade/downgrade Básico ↔ Pro mid-mes | **Cambio inmediato prorrateado** (GL-23 / ADR-029 A1): `POST /dashboard/support-inside/upgrade` reusa el motor de prorrateo (crédito sin devolución; factura nueva BILL-INV-3). Guard de slots: no se puede bajar a un plan con menos slots incluidos que los asignados (el cliente libera primero). Cierra DC.18. |
 | Admin edita pricing de un plan con suscriptores activos | Cambio se aplica a NUEVAS suscripciones. Las activas siguen el snapshot original (coherente con [ADR-029](../../10-decisions/adr-029-prorrateo-cambio-plan.md)). EC-T8-07 documentado. |
 | Cliente intenta `addSlot` cuando ya está al límite | 422 + "Tu plan permite N slots; sube de plan o libera uno". |
 | Servicio técnico del cliente se cancela con slot asignado | Listener `tasks-on-service-cancelled` (Sprint 11) cancelará tareas pendientes. El slot queda `released` automáticamente. |
@@ -257,7 +259,7 @@ Detalle canónico en [`docs/30-data/support.md`](../../30-data/support.md).
 
 - **DC.16** — `services.credit_balance_eur` (buffer técnico de prorrateo, **NO sistema de créditos** — clarificación post-pregunta Yasmin). Bloquea upgrade real. **P1 transversal**.
 - **DC.17** — `tasks.slot_id` FK pendiente (declarado en doc, no en schema). Sprint 11 + 8.D.12.8 cuando exista directorio `/dashboard/services`.
-- **DC.18 / ADR-077** — Upgrade entre planes distintos del mismo dominio. Hoy workaround "cancela y recontrata". **P1**, bloquea upselling SI + hosting.
+- **DC.18 / ADR-029 A1** — ✅ **CERRADO** (GL-23, 2026-06-26): upgrade/downgrade entre planes SI con prorrateo inmediato (`SupportInsideService.upgrade` reusa `SubscriptionPlanChangeService` con `allowCrossProduct`). UI: "Cambiar de plan" en `/dashboard/support-inside`.
 - **DC.19** — Slots adicionales facturables como `support_addon` (ADR-034 §sistema de slots). **P1 dependiente DC.16+DC.18**.
 - **DC.20** — Canales WhatsApp/SMS en `NotificationsService`. Hoy `channels_active` se guarda y se muestra pero solo `EmailChannel` + `InAppChannel` despachan. **P2 — Sprint 12 o sprint dedicado**.
 - **DC.21** — Historial de valor cliente SI (consultas resueltas, tiempo medio respuesta, mantenimientos realizados). **P2 — sprint propio dedicado a métricas**.

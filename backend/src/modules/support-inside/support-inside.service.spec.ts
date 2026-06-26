@@ -8,6 +8,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../core/database/prisma.service';
 import { BillingCheckoutService } from '../billing/billing-checkout.service';
+import { SubscriptionPlanChangeService } from '../billing/subscription-plan-change.service';
 import { SupportInsideService } from './support-inside.service';
 
 /**
@@ -21,7 +22,7 @@ import { SupportInsideService } from './support-inside.service';
  *   - addSlot valida ownership, plan, slot único activo por servicio.
  *   - addSlot agotada slots_included sin is_extra → 400 con mensaje.
  *   - releaseSlot rechaza si slot ajeno o ya liberado.
- *   - upgrade MVP rechaza con mensaje accionable (ADR-029 pendiente).
+ *   - upgrade prorratea (ADR-029 A1 cross-tier) + guard de slots en downgrade.
  */
 type CallArgs = Record<string, unknown>;
 const firstCallFirstArg = (spy: jest.Mock): CallArgs =>
@@ -50,6 +51,10 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
   };
   let events: { emit: jest.Mock };
   let checkout: { checkout: jest.Mock };
+  let planChange: {
+    confirmPlanChange: jest.Mock;
+    previewPlanChange: jest.Mock;
+  };
 
   const CLIENT_ID = '11111111-1111-1111-1111-111111111111';
   const SERVICE_ID = '22222222-2222-2222-2222-222222222222';
@@ -85,6 +90,13 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
     );
     events = { emit: jest.fn() };
     checkout = { checkout: jest.fn() };
+    planChange = {
+      confirmPlanChange: jest.fn().mockResolvedValue({
+        service: { id: SERVICE_ID },
+        proration: { amount_to_pay: 60 },
+      }),
+      previewPlanChange: jest.fn().mockResolvedValue({ amount_to_pay: 60 }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -92,6 +104,7 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: EventEmitter2, useValue: events },
         { provide: BillingCheckoutService, useValue: checkout },
+        { provide: SubscriptionPlanChangeService, useValue: planChange },
       ],
     }).compile();
 
@@ -529,12 +542,127 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
     );
   });
 
-  // ─── upgrade (MVP) ───────────────────────────────────────────
+  // ─── upgrade / cambio de plan (GL-23 / ADR-029 A1) ───────────
 
-  it('upgrade → rechaza con mensaje accionable (ADR-029 pendiente)', () => {
-    expect(() =>
+  const TARGET_PRODUCT_ID = '88888888-8888-8888-8888-888888888888';
+  const activeSub = (over: Record<string, unknown> = {}) => ({
+    id: SUBSCRIPTION_ID,
+    client_id: CLIENT_ID,
+    product_id: PRODUCT_ID,
+    service_id: SERVICE_ID,
+    status: 'active',
+    slots: [] as Array<{ id: string; is_extra: boolean }>,
+    ...over,
+  });
+  const targetPricing = (over: Record<string, unknown> = {}) => ({
+    id: PRICING_ID,
+    product_id: TARGET_PRODUCT_ID,
+    billing_cycle: 'monthly',
+    price: 79,
+    currency: 'EUR',
+    product: {
+      type: 'support_inside',
+      support_inside_config: { slots_included: 1 },
+    },
+    ...over,
+  });
+
+  it('upgrade → prorratea (allowCrossProduct + txHook) y emite plan_changed', async () => {
+    prisma.supportInsideSubscription.findUnique.mockResolvedValue(activeSub());
+    prisma.productPricing.findUnique.mockResolvedValue(targetPricing());
+
+    const res = await service.upgrade(CLIENT_ID, {
+      new_product_pricing_id: PRICING_ID,
+    });
+
+    expect(planChange.confirmPlanChange).toHaveBeenCalledTimes(1);
+    const [svcId, prId, uid, isAdmin, opts] = (
+      planChange.confirmPlanChange.mock.calls as Array<
+        [
+          string,
+          string,
+          string,
+          boolean,
+          {
+            allowCrossProduct?: boolean;
+            txHook: (tx: unknown) => Promise<void>;
+          },
+        ]
+      >
+    )[0];
+    expect(svcId).toBe(SERVICE_ID);
+    expect(prId).toBe(PRICING_ID);
+    expect(uid).toBe(CLIENT_ID);
+    expect(isAdmin).toBe(false);
+    expect(opts.allowCrossProduct).toBe(true);
+    // El txHook migra la subscription al nuevo producto (atómico).
+    const tx = {
+      supportInsideSubscription: { update: jest.fn().mockResolvedValue({}) },
+    };
+    await opts.txHook(tx);
+    expect(tx.supportInsideSubscription.update).toHaveBeenCalledWith({
+      where: { service_id: SERVICE_ID },
+      data: { product_id: TARGET_PRODUCT_ID },
+    });
+    expect(events.emit).toHaveBeenCalledWith(
+      'support_inside.plan_changed',
+      expect.objectContaining({ to_product_id: TARGET_PRODUCT_ID }),
+    );
+    expect((res as { ok: boolean }).ok).toBe(true);
+  });
+
+  it('upgrade → 409 si no hay suscripción activa', async () => {
+    prisma.supportInsideSubscription.findUnique.mockResolvedValue(null);
+    await expect(
       service.upgrade(CLIENT_ID, { new_product_pricing_id: PRICING_ID }),
-    ).toThrow(BadRequestException);
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(planChange.confirmPlanChange).not.toHaveBeenCalled();
+  });
+
+  it('upgrade → 400 si el plan destino no es Support Inside', async () => {
+    prisma.supportInsideSubscription.findUnique.mockResolvedValue(activeSub());
+    prisma.productPricing.findUnique.mockResolvedValue(
+      targetPricing({
+        product: { type: 'hosting_web', support_inside_config: null },
+      }),
+    );
+    await expect(
+      service.upgrade(CLIENT_ID, { new_product_pricing_id: PRICING_ID }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(planChange.confirmPlanChange).not.toHaveBeenCalled();
+  });
+
+  it('upgrade → bloquea downgrade si dejaría slots incluidos huérfanos', async () => {
+    prisma.supportInsideSubscription.findUnique.mockResolvedValue(
+      activeSub({ slots: [{ id: SLOT_ID, is_extra: false }] }),
+    );
+    prisma.productPricing.findUnique.mockResolvedValue(
+      targetPricing({
+        product: {
+          type: 'support_inside',
+          support_inside_config: { slots_included: 0 },
+        },
+      }),
+    );
+    await expect(
+      service.upgrade(CLIENT_ID, { new_product_pricing_id: PRICING_ID }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(planChange.confirmPlanChange).not.toHaveBeenCalled();
+  });
+
+  it('previewUpgrade → delega en previewPlanChange con allowCrossProduct', async () => {
+    prisma.supportInsideSubscription.findUnique.mockResolvedValue(activeSub());
+    prisma.productPricing.findUnique.mockResolvedValue(targetPricing());
+    await service.previewUpgrade(CLIENT_ID, {
+      new_product_pricing_id: PRICING_ID,
+    });
+    expect(planChange.previewPlanChange).toHaveBeenCalledWith(
+      SERVICE_ID,
+      PRICING_ID,
+      CLIENT_ID,
+      false,
+      { allowCrossProduct: true },
+    );
   });
 
   // ─── listPublicPlans ─────────────────────────────────────────
