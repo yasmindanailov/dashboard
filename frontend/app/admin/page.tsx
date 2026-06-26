@@ -1,72 +1,115 @@
 import Link from 'next/link';
+import {
+  requireServerSession,
+  serverFetch,
+  ServerFetchError,
+} from '../lib/server-auth';
+import { Card, EmptyState } from '../components/ui';
+import { canAccess, type AppModule } from '../lib/permissions';
+import { AdminStats, AgentStats } from '../dashboard/overview/StatsGrids';
+import { buildAlerts, AlertList } from '../dashboard/overview/Sections';
+import type { OverviewStats } from '../lib/api';
 import TasksWidget from '../_shared/widgets/TasksWidget';
+import s from './admin-home.module.css';
 
 /* ═══════════════════════════════════════
-   /admin — landing del árbol staff.
-   Sprint 13 §13.AUTH Fase E (Modelo A): Server Component nativo.
-   El widget "Tu trabajo de hoy" sigue siendo CC con localStorage
-   pendiente de Batch 5 (componentes _shared/* con interactividad).
+   /admin — landing del portal STAFF: overview operativo role-aware.
 
-   Sprint 16 / ADR-079 §3.11: el widget abre la página de tasks.
-   Top-5 ordenadas por la regla canónica §3.3 (la aplica el backend).
+   GL-22 (audit 2026-06-25 §6 Tier 3): antes esta página era estática y
+   `AdminStats`/`AgentStats` eran código muerto (solo se renderizaban en
+   `/dashboard`, de donde el layout rebota al staff a `/admin`). Ahora la
+   landing consume `/dashboard/overview` (backend YA role-aware: superadmin/
+   agent_full → admin · agent_billing/agent_support → agent) y reutiliza esos
+   mismos componentes de stats + las alertas (presentacionales compartidos).
+
+   Accesos rápidos gateados por `canAccess` (única fuente de verdad de permisos,
+   ADR-067) → cada rol staff ve solo las herramientas a las que puede entrar.
    ═══════════════════════════════════════ */
 
-export default function AdminHomePage() {
-  return (
-    <div>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
-        Panel de operaciones
-      </h1>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>
-        Herramientas internas para diagnóstico, monitoring y gestión.
-      </p>
+interface QuickTile {
+  href: string;
+  module: AppModule;
+  title: string;
+  desc: string;
+}
 
-      <div style={{ marginBottom: 32 }}>
-        <TasksWidget />
+const QUICK_TILES: QuickTile[] = [
+  { href: '/admin/clients', module: 'Client', title: 'Clientes', desc: 'Buscar y gestionar clientes' },
+  { href: '/admin/support', module: 'Conversation', title: 'Soporte', desc: 'Tickets y conversaciones' },
+  { href: '/admin/support/chats', module: 'Conversation', title: 'Chats en vivo', desc: 'Panel de agente' },
+  { href: '/admin/tasks', module: 'Task', title: 'Tareas', desc: 'Tu cola de trabajo' },
+  { href: '/admin/billing', module: 'Invoice', title: 'Facturación', desc: 'Facturas y cobros' },
+  { href: '/admin/products', module: 'Product', title: 'Productos', desc: 'Catálogo de servicios' },
+  { href: '/admin/services', module: 'Service', title: 'Servicios', desc: 'Servicios contratados' },
+  { href: '/admin/error-log', module: 'ErrorLog', title: 'Error Log', desc: 'Errores del sistema' },
+  { href: '/admin/jobs/failed', module: 'Job', title: 'Jobs en DLQ', desc: 'Reintentar jobs fallidos' },
+];
+
+function getGreeting(name: string): { title: string; subtitle: string } {
+  const hour = new Date().getHours();
+  let period = 'Buenos días';
+  if (hour >= 14 && hour < 21) period = 'Buenas tardes';
+  else if (hour >= 21 || hour < 6) period = 'Buenas noches';
+  return { title: `${period}, ${name}`, subtitle: '¿Qué tienes pendiente hoy?' };
+}
+
+export default async function AdminHomePage() {
+  const session = await requireServerSession();
+  const user = session.user;
+  const roleSlug = user.role?.slug || '';
+
+  let stats: OverviewStats | null = null;
+  try {
+    stats = await serverFetch<OverviewStats>('/dashboard/overview');
+  } catch (err) {
+    /* Errores de red no rompen la landing; las stats simplemente no aparecen. */
+    if (!(err instanceof ServerFetchError)) throw err;
+  }
+
+  const greeting = getGreeting(user.first_name);
+  const alerts = stats ? buildAlerts(stats) : [];
+  const tiles = QUICK_TILES.filter((t) => canAccess(roleSlug, t.module));
+
+  return (
+    <div className={s.container}>
+      <div>
+        <h1 className={s.greetingTitle}>{greeting.title}</h1>
+        <p className={s.greetingSubtitle}>{greeting.subtitle}</p>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: 16,
-        }}
-      >
-        <Link
-          href="/admin/error-log"
-          style={{
-            display: 'block',
-            padding: 20,
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            textDecoration: 'none',
-            color: 'inherit',
-          }}
-        >
-          <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Error Log</h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
-            Errores operativos del sistema. Filtrar, marcar como resueltos.
-          </p>
-        </Link>
+      {stats?.role === 'admin' && <AdminStats stats={stats} />}
+      {stats?.role === 'agent' && <AgentStats stats={stats} />}
 
-        <Link
-          href="/admin/jobs/failed"
-          style={{
-            display: 'block',
-            padding: 20,
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            textDecoration: 'none',
-            color: 'inherit',
-          }}
-        >
-          <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Jobs en DLQ</h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
-            Jobs BullMQ que agotaron retries. Reintentar manualmente.
-          </p>
-        </Link>
+      <TasksWidget />
+
+      <div className={s.sections}>
+        <Card>
+          <div className={s.sectionBody}>
+            <h2 className={s.sectionTitle}>Alertas</h2>
+            {alerts.length === 0 ? (
+              <EmptyState
+                title="Todo en orden"
+                description="Sin alertas activas. Buen trabajo."
+              />
+            ) : (
+              <AlertList alerts={alerts} />
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <div className={s.sectionBody}>
+            <h2 className={s.sectionTitle}>Accesos rápidos</h2>
+            <div className={s.tiles}>
+              {tiles.map((t) => (
+                <Link key={t.href} href={t.href} className={s.tile}>
+                  <div className={s.tileTitle}>{t.title}</div>
+                  <div className={s.tileDesc}>{t.desc}</div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );

@@ -29,6 +29,9 @@ interface Alert {
 export function buildAlerts(stats: OverviewStats): Alert[] {
   const alerts: Alert[] = [];
 
+  // GL-22: las ramas `admin`/`agent` alimentan el overview del portal STAFF
+  // (`/admin`), no el portal cliente (de `/dashboard` el layout rebota al staff
+  // a `/admin`). Por eso sus `href` apuntan a `/admin/*`, no a `/dashboard/*`.
   if (stats.role === 'admin') {
     if (stats.overdue_invoices > 0) {
       alerts.push({
@@ -36,7 +39,7 @@ export function buildAlerts(stats: OverviewStats): Alert[] {
         title: `${stats.overdue_invoices} factura${stats.overdue_invoices > 1 ? 's' : ''} vencida${stats.overdue_invoices > 1 ? 's' : ''}`,
         meta: 'Requiere atención inmediata',
         type: 'danger',
-        href: '/dashboard/billing?status=overdue',
+        href: '/admin/billing',
       });
     }
     if (stats.waiting_agent > 0) {
@@ -54,7 +57,7 @@ export function buildAlerts(stats: OverviewStats): Alert[] {
         title: `${stats.open_tickets} ticket${stats.open_tickets > 1 ? 's' : ''} abierto${stats.open_tickets > 1 ? 's' : ''}`,
         meta: 'Pendientes de resolución',
         type: 'info',
-        href: '/dashboard/support',
+        href: '/admin/support',
       });
     }
     if (stats.open_chats > 0) {
@@ -105,7 +108,7 @@ export function buildAlerts(stats: OverviewStats): Alert[] {
         title: `${stats.unanswered_tickets} ticket${stats.unanswered_tickets > 1 ? 's' : ''} sin primera respuesta`,
         meta: 'Afecta al SLA',
         type: 'warning',
-        href: '/dashboard/support',
+        href: '/admin/support',
       });
     }
   }
