@@ -99,6 +99,46 @@ con la columna "Qué debe mostrar".
 > que lo expanda a wireframe-por-modal con todos los campos, hago una pasada
 > profunda dedicada.
 
+### 3.0 — Triage: de los ~40, ¿qué es REALMENTE un encargo de diseño?
+
+Tu criterio (solo layouts y lo grande; los modales/estados no se diseñan uno a
+uno) reordena el catálogo en tres niveles. El inventario crudo de §3.1–§3.4 se
+mantiene como referencia, pero **solo el Nivel 1 va a claude design.**
+
+**Nivel 1 — Encargar a claude design (página/layout grande, SIN mockup): ~5-7.**
+
+| ID | Encargo | Por qué |
+|---|---|---|
+| DS-A1 | Página `/admin/account-deletion` (RGPD) | Página completa, cero mockup |
+| DS-A2 | Sección "Marca" / uploader de logo en Settings | Sin mockup; layout propio |
+| DS-C3 | Gestor DNS (CRUD) — si D-6 lo mantiene como superficie | Panel sustancial; el mockup solo lo insinúa |
+| DS-C7 | Panel de transferencia de dominio entrante (FSM) | Flujo multi-estado, sin mockup |
+| DS-C4 | Timeline/auditoría de servicio (página) | Sin mockup dedicado |
+| DS-A5 | Panel de notas con filtros (admin) | `ClienteDetalle` existe, pero las notas son más ricas |
+| DS-G7 | "Look" de formularios dinámicos (rjsf) — un patrón, no por página | Se reutiliza en plugins/producto/settings |
+
+**Nivel 2 — Ya diseñado en el mockup → solo PROGRAMAR (no diseñar).**
+Notificaciones cliente (`Notificaciones.dc.html`), bandeja admin
+(`NotificacionesAdmin.dc.html`), detalle de tarea + checklist
+(`TareaDetalleAdmin.dc.html`, 517 líneas), detalle de factura admin
+(`FacturaDetalle.dc.html`), SI admin detalle (`SupportInsideDetalleAdmin.dc.html`).
+**Estaban mal en mi lista de "diseños que faltan": el diseño ya existe, falta la
+ruta/código.**
+
+**Nivel 3 — Construir directo con el Design System (NO necesitan encargo): ~25-30.**
+2FA, lock-states, modal de resolución, banners de drift/terminal/suspendido,
+estados vacío/carga/error, ⌘K (ya existe), drawer móvil, change-plan, estados de
+carrito (vacío/error/EPP), modal de borrado, gating superadmin (`NoPermission`
+existe), tarjeta de notas en billing, badge Manual, modal de escalado, asignación
+de agente, filas expandibles de Ops, selector de slot SI, etc. **Son
+modales/estados/banners: se montan con `Modal`/`Card`/`Badge`/`AlertBanner`/
+`EmptyState` siguiendo el DS — los hace el dev, sin pasar por claude design.**
+
+> En resumen: **no son ~40 encargos de diseño, son ~5-7.** El resto o ya está
+> diseñado (Nivel 2 → programar) o se construye con el sistema (Nivel 3). Las
+> tablas §3.1–§3.4 quedan como inventario; cada fila pertenece a uno de los 3
+> niveles.
+
 ### 3.1 Compartidos / cross-página (diséñalos una vez, se reutilizan)
 
 | ID | Diseño que falta | Qué debe mostrar | De dónde sale (código real) |
@@ -197,6 +237,30 @@ El gap report enumera **435 ítems "solo-diseño"** por página. Aquí van los
   desglose IVA, agrupación por categorías en tienda/servicios, breadcrumbs en
   topbar, tarjeta de soporte en footer del sidebar, icon-wells, toggles de
   notificación, pricing cards, callouts informativos, etc.
+
+### 4.1 — Scope real de F3, verificado contra el código (corrección 26-jun)
+
+Sondeé cada vertical contra el backend. **Casi nada es "net-new total":** la
+mayoría es UI sobre datos/modelos que **ya existen**. Solo la **IA** y la
+**integración multicanal real** son genuinamente nuevas y caras.
+
+| Vertical | Ya existe (evidencia) | Net-new real | Talla corregida |
+|---|---|---|---|
+| Stripe / pagos | `PaymentProviderInterface` (ADR-031), `ManualPaymentProvider`, **dunning/reintentos completo** (`billing-lifecycle.worker`), `Invoice.payment_*`, `stripe_customer_id` | Plugin Stripe, modelo `PaymentMethod`, endpoints pay-now/SetupIntent/webhook, UI métodos+pago | L-XL (no "0 en código") |
+| Dashboard ejecutivo admin | 7 KPIs `AdminOverview` + grid `AdminStats` (hoy en `/dashboard`) | Deltas MoM, feeds decisión/carga-equipo, SLA, montar en `/admin` | L |
+| Support Inside gestionado | Slots, `MaintenanceLog` (client_facing_notes), cron mensual + auto-asignación, `MaintenanceLogModal`, canales/SLA en config | Técnico en slot + presencia (no existe), last/next_maintenance, historial visible al cliente, `maintenance_status` | L |
+| SLA soporte | `calculateTaskDueDate` (`sla-helper`), `first_response_at`, `response_sla_hours`, badge SLA admin | Barra/gauge visual, indicador por fila, countdown 1ª respuesta | **M (mayormente UI)** |
+| Buscador dominios | búsqueda exacta/bulk/sugerencias, disponibilidad+precio, **tabla `domain_tld_pricing` con enum `renew`** | Modo IA (LLM), cargar precio renovación (barato), TLD chips/presets, bundle, warnings/sort | M-L UI + IA aparte |
+| Notificaciones | modelo `Notification`, **endpoint paginado `list` ya existe**, bell, permisos CASL | Las **páginas** (UI); taxonomía categoría/tono **derivable del `event_type` sin tocar BD** | **M-L (casi todo UI)** |
+| Registro fiscal | **Modelo fiscal completo**: `ClientProfile` + `BillingProfile` (enum `personal\|autonomo\|empresa` == mockup), DTOs | Cablearlo en el registro + `terms_accepted_at` + IVA por país | **M (modelo ya existe)** |
+| IA (composer + buscador) | solo `is_ai_filtered` / `sender_type='ai'` (estructura) | Integración LLM real (Claude/Anthropic) + endpoints + UI | **L-XL — genuinamente nuevo** |
+| Macros / respuestas guardadas | nada | CRUD `ResponseTemplate` + panel | M (greenfield simple) |
+| Multicanal real (WhatsApp/llamada) | enum `SupportInsideChannel`, `channels_active`, metadata `channel` | Integración externa (WhatsApp API/SIP) + routing | **XL — diferible** |
+
+**Conclusión de scope:** lo verdaderamente caro y nuevo se reduce a **IA** y
+**multicanal real** (este último, candidato a diferir del MVP). El resto de F3 es
+sobre todo **UI + cableado de modelos que ya existen** — bastante más barato de lo
+que sugería la lista inicial.
 
 ---
 
