@@ -64,25 +64,26 @@ diseños resueltos.
 
 ---
 
-## 2. Decisiones requeridas (ADR / producto) — **necesito tu OK**
+## 2. Decisiones (ADR / producto) — **RESUELTAS (26-jun)**
 
-"Idéntico al mockup" choca con reglas frozen. Por cada una: lo que el mockup
-pide, la regla que rompe, y mi recomendación. **Marca las que apruebas;** las que
-rechaces, adapto el diseño a la regla en vez de amendar.
+Puntos donde "idéntico al mockup" choca con una regla del proyecto. Estado tras
+revisarlas una por una contigo:
 
-| # | Página(s) | El mockup pide… | Regla/ADR frozen | Recomendación |
-|---|---|---|---|---|
-| D-1 | Overview, Client-detail, Billing, Plugins, Support-Inside | StatsCards (métricas en tarjeta) fuera del Overview | **D10** — "StatsCards solo en Overview" (`rules.md:514-521`) | **Amendar D10** para permitir StatsCards en detalle/gestión, o sustituir por `Meter`/`DescriptionList`. Recomiendo amendar (es lo idéntico). |
-| D-2 | Soporte admin (ticket) | Composer con pestañas "Responder / Nota interna" | **ADR-079 §3.8** lo eliminó | **Amendar ADR-079** para reintroducir nota interna en el composer. |
-| D-3 | Tareas admin | Página de detalle `/admin/tasks/[id]` + crear tarea (`POST /tasks`) + edición libre de estado | **ADR-079 §1/§3.6** — tareas "listado, no detalle"; sin creación manual | **Amendar ADR-079** (detalle + creación) — es el cambio más profundo; confirmar. |
-| D-4 | Servicio detalle (cliente/admin) | Pestañas nuevas ("Cuidado por Aelium", "Plan y facturación") | **TAB_ORDER frozen** (contrato ADR-070/077) | **Amendar el contrato** para añadir pestañas, o materializar como secciones dentro del summary. |
-| D-5 | Factura cliente/admin | Detalle de factura como **expand inline** en la lista | Hoy es **página** `/billing/[id]` (más rica) | Decisión de producto: **mantener la página** y diseñarla (recomendado, no se pierde nada) **o** adoptar el inline del mockup y retirar la página. |
-| D-6 | Servicio / Dominio | DNS y auditoría **embebidos** en el detalle | Hoy son **páginas dedicadas** `/services/[id]/dns` y `/audit` | Recomiendo **conservar las páginas** y enlazarlas desde el detalle reskineado (no se pierde el CRUD completo). |
-| D-7 | Chat | Una sola superficie de chat (drawer) | Conviven `SupportPanel` (vivo) + `ChatWidget` (burbuja huérfana, 0 montajes) | **Consolidar en uno** antes de invertir en su reskin. |
-| D-8 | Todo | Logo del diseño en todas partes | SVG actuales `#4b77bb` + placeholder "A" | **Aprobado por ti** — se ejecuta en F1d. |
+| # | Tema | Decisión | Acción |
+|---|---|---|---|
+| D-1 | StatsCards fuera del Overview | **Idéntico al mockup**: se permiten métricas en detalle/gestión | **Amendar D10** (Amendment citando la regla) |
+| D-2 | Nota interna en el composer de tickets | **Se mantiene como ahora**: la nota se crea con el flujo actual (al cerrar el ticket o ejercer una acción), **no** en el chat | **No se amenda ADR-079.** La pestaña "Nota interna" del mockup **NO se implementa** |
+| D-3 | Detalle de tarea + crear tareas | **Se mantiene como ahora**: tareas solo-listado, sin detalle ni creación manual | **No se amenda ADR-079.** `TareaDetalleAdmin` + crear tarea **NO se implementan** |
+| D-4 | Pestañas nuevas en detalle de servicio | **A iterar al llegar (F4)**: "Cuidado por Aelium" posiblemente sí; "Plan y facturación" probablemente no (a lo sumo una referencia) | Decidir al reskinear el detalle; si entra "Cuidado por Aelium" → Amendment del contrato entonces |
+| D-5 | Factura: página vs inline | **Página** (se conserva, más rica) | **Encargo claude design** del detalle de factura → Nivel 1 (§3.0) |
+| D-6 | DNS y auditoría: página vs embebido | **Páginas** (se conservan, con su CRUD) | **Rediseñar con claude design** (gestor DNS + auditoría) → Nivel 1 |
+| D-7 | "Dos chats" | **No hay duplicación**: `ChatWidget` (burbuja con `GuestForm`, tokens `--cw-*` propios) es para **invitados de la landing web** (corre fuera del dashboard); `SupportPanel` es el soporte autenticado del dashboard | **Se conservan ambos.** Sin consolidación (corrige el gap report) |
+| D-8 | Logo | **El del mockup, con animación** (loader / distintos momentos) | F1d: isotipo bicolor + wordmark + variantes + **loader animado** (`LogotipoAnimado.dc.html`) |
 
-> Nota canónica: estas amendments deben materializarse como **Amendment del ADR**
-> correspondiente (no como excepción puntual), citando la regla en el commit.
+> **Amendments a materializar** (como Amendment del ADR, citando la regla): **solo
+> D-1 (D10).** D-4 queda condicionado a iterar en F4. D-2 y D-3 **no** amendan nada
+> (se respeta ADR-079 tal cual): el dashboard NO será idéntico al mockup en esas
+> dos pantallas, por decisión explícita.
 
 ---
 
@@ -116,14 +117,19 @@ mantiene como referencia, pero **solo el Nivel 1 va a claude design.**
 | DS-C4 | Timeline/auditoría de servicio (página) | Sin mockup dedicado |
 | DS-A5 | Panel de notas con filtros (admin) | `ClienteDetalle` existe, pero las notas son más ricas |
 | DS-G7 | "Look" de formularios dinámicos (rjsf) — un patrón, no por página | Se reutiliza en plugins/producto/settings |
+| DS-C15 | Detalle de factura (página) — **D-5** | Se conserva como página; el mockup la resuelve inline, así que la página necesita diseño |
 
 **Nivel 2 — Ya diseñado en el mockup → solo PROGRAMAR (no diseñar).**
 Notificaciones cliente (`Notificaciones.dc.html`), bandeja admin
-(`NotificacionesAdmin.dc.html`), detalle de tarea + checklist
-(`TareaDetalleAdmin.dc.html`, 517 líneas), detalle de factura admin
+(`NotificacionesAdmin.dc.html`), detalle de factura admin
 (`FacturaDetalle.dc.html`), SI admin detalle (`SupportInsideDetalleAdmin.dc.html`).
 **Estaban mal en mi lista de "diseños que faltan": el diseño ya existe, falta la
 ruta/código.**
+
+**Excluido por decisión (D-2, D-3):** la pestaña "Nota interna" del composer
+(`TicketConversacion`) y el detalle/creación de tareas (`TareaDetalleAdmin`) **no
+se implementan** — se respeta ADR-079. El dashboard se aparta del mockup en esas
+dos pantallas a propósito.
 
 **Nivel 3 — Construir directo con el Design System (NO necesitan encargo): ~25-30.**
 2FA, lock-states, modal de resolución, banners de drift/terminal/suspendido,
