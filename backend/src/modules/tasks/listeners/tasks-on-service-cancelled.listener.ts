@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { getErrorMessage } from '../../../core/common/utils/error.util';
 import { TasksService } from '../tasks.service';
 
 interface ServiceCancelledPayload {
@@ -28,17 +29,27 @@ export class TasksOnServiceCancelledListener {
 
   @OnEvent('service.cancelled')
   async handle(payload: ServiceCancelledPayload): Promise<void> {
-    const existing = await this.prisma.task.findFirst({
-      where: {
-        source_system: 'provisioning_manual',
-        source_id: payload.service_id,
-        status: { in: ['pending', 'in_progress'] },
-      },
-      select: { id: true },
-    });
-    if (!existing) return;
-
+    // R7 + R8/GL-17: desde la migración de `service.cancelled` a Outbox
+    // (audit 2026-06-25), este handler se invoca vía `OutboxWorker.emitAsync`
+    // con semántica at-least-once. El worker reintenta el EVENTO ENTERO si
+    // CUALQUIER `@OnEvent` lanza, re-disparando a los listeners hermanos —
+    // incluido `notifications-on-service-cancelled`, que NO deduplica
+    // (`dispatchToUser` encola sin `jobId`) → email/campana de cancelación
+    // DUPLICADO al cliente. Por eso TODO el cuerpo es fail-soft, incluida la
+    // lectura `findFirst`: un fallo transitorio se loguea y se traga; nunca
+    // propaga al worker, así que `service.cancelled` no se reintenta por
+    // nuestra culpa. (Antes el `findFirst` quedaba FUERA del try/catch.)
     try {
+      const existing = await this.prisma.task.findFirst({
+        where: {
+          source_system: 'provisioning_manual',
+          source_id: payload.service_id,
+          status: { in: ['pending', 'in_progress'] },
+        },
+        select: { id: true },
+      });
+      if (!existing) return;
+
       await this.tasks.cancel(
         existing.id,
         { reason: `Service cancelado (${payload.reason ?? 'manual'})` },
@@ -49,7 +60,7 @@ export class TasksOnServiceCancelledListener {
       );
     } catch (err) {
       this.logger.warn(
-        `Failed to cancel service-task ${existing.id}: ${err instanceof Error ? err.message : String(err)}`,
+        `Failed to cancel service-task for service ${payload.service_id}: ${getErrorMessage(err)}`,
       );
     }
   }

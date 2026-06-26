@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { OutboxService } from '../../core/outbox/outbox.service';
 
 /**
  * SubscriptionService — Manages service lifecycle actions.
@@ -25,7 +25,10 @@ export class SubscriptionService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly eventEmitter: EventEmitter2,
+    // R8 (audit 2026-06-25 GL-17): `service.paused`/`service.resumed` se
+    // persisten vía Outbox en la misma tx del cambio de status (antes `emit()`
+    // directo fuera de tx). `OutboxModule` es @Global → no requiere import.
+    private readonly outbox: OutboxService,
   ) {}
 
   /* ═══════════════════════════════════════
@@ -65,21 +68,25 @@ export class SubscriptionService {
     const pauseMaxDate = new Date();
     pauseMaxDate.setDate(pauseMaxDate.getDate() + pauseDays);
 
-    const updated = await this.prisma.service.update({
-      where: { id: serviceId },
-      data: {
-        status: 'suspended',
-        paused_at: new Date(),
-        pause_max_date: pauseMaxDate,
-        suspended_at: new Date(),
-        suspension_reason: 'Pausado voluntariamente por el cliente',
-      },
-    });
-
-    this.eventEmitter.emit('service.paused', {
-      service_id: serviceId,
-      user_id: userId,
-      pause_max_date: pauseMaxDate,
+    // R8 (GL-17): la transición de status y el evento `service.paused` se
+    // persisten en la misma tx → dispatch at-least-once vía OutboxWorker.
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.service.update({
+        where: { id: serviceId },
+        data: {
+          status: 'suspended',
+          paused_at: new Date(),
+          pause_max_date: pauseMaxDate,
+          suspended_at: new Date(),
+          suspension_reason: 'Pausado voluntariamente por el cliente',
+        },
+      });
+      await this.outbox.enqueue(tx, 'service.paused', {
+        service_id: serviceId,
+        user_id: userId,
+        pause_max_date: pauseMaxDate.toISOString(),
+      });
+      return u;
     });
 
     this.logger.log(
@@ -108,21 +115,24 @@ export class SubscriptionService {
       );
     }
 
-    const updated = await this.prisma.service.update({
-      where: { id: serviceId },
-      data: {
-        status: 'active',
-        paused_at: null,
-        pause_max_date: null,
-        suspended_at: null,
-        suspension_reason: null,
-      },
-    });
-
-    this.eventEmitter.emit('service.resumed', {
-      service_id: serviceId,
-      user_id: userId,
-      reason: 'manual_resume',
+    // R8 (GL-17): transición de status + evento `service.resumed` en la misma tx.
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.service.update({
+        where: { id: serviceId },
+        data: {
+          status: 'active',
+          paused_at: null,
+          pause_max_date: null,
+          suspended_at: null,
+          suspension_reason: null,
+        },
+      });
+      await this.outbox.enqueue(tx, 'service.resumed', {
+        service_id: serviceId,
+        user_id: userId,
+        reason: 'manual_resume',
+      });
+      return u;
     });
 
     this.logger.log(`Service ${serviceId} resumed by user ${userId}`);

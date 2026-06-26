@@ -22,29 +22,39 @@ describe('ServiceLifecycleWorker — Fase F.5 (autoSuspendServices → suspendAs
   let prisma: {
     invoice: { findMany: jest.Mock };
     service: { findMany: jest.Mock; update: jest.Mock };
+    $transaction: jest.Mock;
   };
   let calculator: { getSettingValue: jest.Mock };
   let provisioning: {
     suspendAsAdmin: jest.Mock;
     deprovisionAsAdmin: jest.Mock;
   };
+  // R8 (GL-17): `checkPauseExpiration` persiste `service.resumed` vía Outbox.
+  let outbox: { enqueue: jest.Mock };
   let worker: ServiceLifecycleWorker;
 
   beforeEach(() => {
     prisma = {
       invoice: { findMany: jest.fn() },
       service: { findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
+      // `tx === prisma` en el mock → `tx.service.update` sigue siendo el mismo
+      // jest.fn y `outbox.enqueue` se invoca con `(prisma, ...)`.
+      $transaction: jest
+        .fn()
+        .mockImplementation((cb: (tx: unknown) => unknown) => cb(prisma)),
     };
     calculator = { getSettingValue: jest.fn().mockResolvedValue(7) };
     provisioning = {
       suspendAsAdmin: jest.fn().mockResolvedValue({}),
       deprovisionAsAdmin: jest.fn().mockResolvedValue({}),
     };
+    outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
     worker = new ServiceLifecycleWorker(
       prisma as never,
       new EventEmitter2(),
       calculator as never,
       provisioning as never,
+      outbox as never,
     );
   });
 
@@ -158,6 +168,69 @@ describe('ServiceLifecycleWorker — Fase F.5 (autoSuspendServices → suspendAs
 
     expect(provisioning.suspendAsAdmin).not.toHaveBeenCalled();
   });
+
+  // ── 6.7 — checkPauseExpiration (R8 / GL-17: service.resumed vía Outbox) ──
+
+  it('checkPauseExpiration: reanuda pausas expiradas y persiste service.resumed vía Outbox en la MISMA tx que la transición a active', async () => {
+    prisma.service.findMany.mockResolvedValueOnce([
+      { id: 'svc-paused', user_id: 'user-7' },
+    ]);
+
+    await worker.checkPauseExpiration();
+
+    expect(prisma.service.update).toHaveBeenCalledWith({
+      where: { id: 'svc-paused' },
+      data: {
+        status: 'active',
+        paused_at: null,
+        pause_max_date: null,
+        suspended_at: null,
+        suspension_reason: null,
+      },
+    });
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      prisma,
+      'service.resumed',
+      expect.objectContaining({
+        service_id: 'svc-paused',
+        user_id: 'user-7',
+        reason: 'pause_expired',
+      }),
+    );
+  });
+
+  it('checkPauseExpiration: sin pausas expiradas → no toca BD ni Outbox', async () => {
+    prisma.service.findMany.mockResolvedValueOnce([]);
+
+    await worker.checkPauseExpiration();
+
+    expect(prisma.service.update).not.toHaveBeenCalled();
+    expect(outbox.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('checkPauseExpiration: aísla el fallo de un servicio (la tx/outbox lanza) y sigue con el resto', async () => {
+    prisma.service.findMany.mockResolvedValueOnce([
+      { id: 'svc-bad', user_id: 'user-1' },
+      { id: 'svc-ok', user_id: 'user-2' },
+    ]);
+    // El enqueue dentro de la $transaction del primer servicio rechaza; el
+    // try/catch por-servicio debe loguear y continuar con el segundo.
+    outbox.enqueue
+      .mockRejectedValueOnce(new Error('outbox down'))
+      .mockResolvedValueOnce(undefined);
+
+    await expect(worker.checkPauseExpiration()).resolves.toBeUndefined();
+
+    expect(outbox.enqueue).toHaveBeenCalledTimes(2);
+    expect(outbox.enqueue).toHaveBeenLastCalledWith(
+      prisma,
+      'service.resumed',
+      expect.objectContaining({
+        service_id: 'svc-ok',
+        reason: 'pause_expired',
+      }),
+    );
+  });
 });
 
 /**
@@ -185,6 +258,9 @@ describe('ServiceLifecycleWorker — H2.3 (notifyUpcomingCancellations → servi
   };
   let emitter: EventEmitter2;
   let emitSpy: jest.SpyInstance;
+  // `service.cancellation_scheduled` es una alerta (emit directo); `outbox` aquí
+  // es un stub no invocado — sólo satisface el 5º parámetro del constructor.
+  let outbox: { enqueue: jest.Mock };
   let worker: ServiceLifecycleWorker;
 
   function setSettings(cancellationDays: number, noticeDays: number) {
@@ -216,11 +292,13 @@ describe('ServiceLifecycleWorker — H2.3 (notifyUpcomingCancellations → servi
     };
     emitter = new EventEmitter2();
     emitSpy = jest.spyOn(emitter, 'emit');
+    outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
     worker = new ServiceLifecycleWorker(
       prisma as never,
       emitter,
       calculator as never,
       provisioning as never,
+      outbox as never,
     );
   });
 

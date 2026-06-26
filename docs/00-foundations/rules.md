@@ -179,7 +179,7 @@ Un worker los despacha y los marca como procesados. Si el proceso muere, el even
 
 > **Implementación canónica** (P0.2, 2026-04-26 · hardened Sprint 9 Fase C, 2026-04-27): `OutboxService.enqueue(tx, eventType, payload)` en `backend/src/core/outbox/outbox.service.ts`. El `OutboxWorker.dispatch()` se invoca desde el `OutboxDispatchProcessor` (cola BullMQ `outbox-dispatch`, repeat every 5s — [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md)) con `FOR UPDATE SKIP LOCKED` y crash recovery en `OnModuleInit`. Backoff exponencial 30s→480s al reintentar evento fallido (campo `next_retry_at` en `event_outbox`). Si un evento agota `max_retries` → estado `failed` + emit `outbox.event_failed` para alerta superadmin (cierra ADR-033 §7). Detalle completo en [ADR-033](../10-decisions/adr-033-outbox-pattern-pendiente.md) + [ADR-064](../10-decisions/adr-064-outbox-dispatcher-bullmq.md).
 >
-> **Cobertura actual:** 4/13 eventos críticos cubiertos (`invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue`). Pendientes: `service.*` (4) + `checkout.completed` cuando se implemente provisioning, `partner.*` (4) cuando se implemente el módulo partner. Cualquier evento crítico nuevo **debe nacer con Outbox**.
+> **Cobertura actual:** `invoice.*` (4, P0.2) + `domain.*` (registro/renovación/lifecycle/gestión/restore/transfer, Sprint 15D) + **`service.*` lifecycle** (`activated`/`cancelled`/`suspended`/`unsuspended`/`resumed`/`paused` — **H5/GL-17, audit 2026-06-25**: persistidos en `event_outbox` dentro de la `$transaction` de la transición de `services.status`). Pendiente: `partner.*` (4, cuando se implemente el módulo). Las **alertas** (`*.expiring_soon`, `service.cancellation_scheduled`/`provisioning_failed`/`reconciled_external_change`, wrappers de observabilidad `service.{metrics_fetched,action_executed,sso_opened}`) NO usan Outbox por diseño (no son transacciones de estado). Detalle por evento en [`docs/20-modules/_events.md`](../20-modules/_events.md). Cualquier evento crítico nuevo **debe nacer con Outbox**.
 
 ```typescript
 // ❌ INCORRECTO — emitir evento sin persistir
@@ -562,6 +562,8 @@ await this.notifications.dispatchToUser('invoice.paid', payload, userId);
 ```
 
 > **Implementación canónica:** `NotificationsService` + `NotificationsDispatchProcessor` (cola BullMQ `notifications-dispatch`) + `EmailChannel`/`InAppChannel` + `NotificationTemplateService` (Handlebars). Detalle completo en [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md). Plantillas en tabla `notification_templates`, seedeadas en `prisma/seeds/notification-templates.ts`.
+>
+> **⚠️ Escape en plantillas (GL-25, audit 2026-06-25):** el canal `email` se compila con `noEscape: true` (el HTML lo escribe el admin) → en plantillas de email `{{var}}` **NO escapa**. Para CUALQUIER variable de origen usuario/cliente/staff (asunto de conversación, cuerpo de mensaje, `notes`, `client_notes`, `recipient.first_name`, etc.) usa el helper **`{{e <var>}}`** (escape vía `SafeString`; seguro también en `internal` — no doble-escapa). Nunca `{{{var}}}`/`{{& var}}`. **Enforcement:** `notification-templates.security.spec.ts` falla el build ante triple-stash **o** ante una variable de la denylist de contenido de usuario sin `{{e}}` en el seed. _Todas las plantillas de email seedeadas escapan ya su contenido de usuario; sólo los valores system-generated (`invoice_number`, `*_url`, fechas, etc.) van sin `{{e}}`._
 
 ---
 

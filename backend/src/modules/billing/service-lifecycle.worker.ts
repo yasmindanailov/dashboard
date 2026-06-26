@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { OutboxService } from '../../core/outbox/outbox.service';
 import { getErrorMessage } from '../../core/common/utils/error.util';
 import { ProvisioningService } from '../provisioning/provisioning.service';
 import { BillingCalculatorService } from './billing-calculator.service';
@@ -54,6 +55,11 @@ export class ServiceLifecycleWorker {
     private readonly eventEmitter: EventEmitter2,
     private readonly calculator: BillingCalculatorService,
     private readonly provisioning: ProvisioningService,
+    // R8 (audit 2026-06-25 GL-17): `service.resumed` (auto-reanudación al
+    // expirar la pausa) se persiste vía Outbox en la tx del cambio de status.
+    // `service.cancellation_scheduled` permanece como `emit()` directo (alerta,
+    // no transacción — su durabilidad la aporta BullMQ aguas abajo).
+    private readonly outbox: OutboxService,
   ) {}
 
   /* ── 6.5 — Auto-suspension (daily 03:00) ── */
@@ -348,21 +354,24 @@ export class ServiceLifecycleWorker {
 
     for (const service of expiredPauses) {
       try {
-        await this.prisma.service.update({
-          where: { id: service.id },
-          data: {
-            status: 'active',
-            paused_at: null,
-            pause_max_date: null,
-            suspended_at: null,
-            suspension_reason: null,
-          },
-        });
-
-        this.eventEmitter.emit('service.resumed', {
-          service_id: service.id,
-          user_id: service.user_id,
-          reason: 'pause_expired',
+        // R8 (GL-17): transición de status + evento `service.resumed` en la
+        // misma tx → dispatch at-least-once vía OutboxWorker.
+        await this.prisma.$transaction(async (tx) => {
+          await tx.service.update({
+            where: { id: service.id },
+            data: {
+              status: 'active',
+              paused_at: null,
+              pause_max_date: null,
+              suspended_at: null,
+              suspension_reason: null,
+            },
+          });
+          await this.outbox.enqueue(tx, 'service.resumed', {
+            service_id: service.id,
+            user_id: service.user_id,
+            reason: 'pause_expired',
+          });
         });
 
         this.logger.log(`Service ${service.id} resumed after pause expiration`);

@@ -31,9 +31,11 @@ const HOSTING_PRODUCT_TYPES = new Set(['hosting_web', 'docker_service']);
  *   - F3 (BYOD externo: no existe un servicio `type=domain` para ese FQDN);
  *   - hosting sin dominio o sin FQDN normalizable.
  *
- * `service.activated` es un emit directo (no Outbox — deuda MEDIUM-1/P-DEPLOY.4,
- * heredada del reconcile DNS existente): el switch es best-effort + idempotente,
- * y el reconcile cron (6h) actúa de red de seguridad si el evento se pierde.
+ * `service.activated` se persiste vía Outbox (R8/GL-17, audit 2026-06-25) en la
+ * misma tx que la transición `status='active'` y lo despacha el `OutboxWorker`
+ * (at-least-once, ≤5s). Este handler es fail-soft + idempotente (todo el cuerpo
+ * en try/catch que loguea y traga, R7) → nunca propaga al worker; el reconcile
+ * cron (6h) actúa de red de seguridad adicional.
  */
 @Injectable()
 export class SwitchDomainNsOnHostingActivatedListener {

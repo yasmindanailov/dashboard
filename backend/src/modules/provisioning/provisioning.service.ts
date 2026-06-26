@@ -11,6 +11,7 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 
 import { PrismaService } from '../../core/database/prisma.service';
+import { OutboxService } from '../../core/outbox/outbox.service';
 import { SettingsService } from '../../core/settings/settings.service';
 import { getErrorMessage } from '../../core/common/utils/error.util';
 import {
@@ -189,6 +190,11 @@ export class ProvisioningService {
     // delegación al executor per-servicio del plugin (`reconcileOne?()`) +
     // guard 400 RECONCILE_ONE_NOT_SUPPORTED para plugins sin la capability.
     private readonly reconcileRegistry: ReconcileRegistryService,
+    // R8 (audit 2026-06-25 GL-17): las transiciones de lifecycle
+    // (cancelled/suspended/unsuspended) persisten su evento `service.*` en
+    // `event_outbox` dentro de la MISMA `$transaction` del cambio de status,
+    // en lugar de un `emit()` directo fuera de tx. `OutboxModule` es @Global.
+    private readonly outbox: OutboxService,
   ) {}
 
   // â”€â”€â”€ Listado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1099,9 +1105,17 @@ export class ProvisioningService {
     // Para actor humano la nota está garantizada por el guard de arriba; para
     // el actor sistema el caller compone el body (fallback defensivo `<sin nota>`).
     const noteBody = dto.notes?.trim() ?? '<sin nota>';
-    // R3 (dossier §A.11.10.3.2): `service.update` + `clientNote.create` viven en
-    // la misma transacción Prisma. El `plugin.deprovision()` (destrucción del
-    // recurso en el proveedor) va FUERA de la tx y es fail-soft — ver abajo.
+    // Sprint 15C.II Fase E: `notify_client` (default true) controla si el
+    // listener `notifications-on-service-cancelled` despacha el email +
+    // campana al cliente. El listener consume este flag del payload.
+    const notifyClient = dto.notify_client !== false;
+    // R3 (dossier §A.11.10.3.2) + R8 (GL-17): `service.update`, `clientNote.create`
+    // y la persistencia del evento `service.cancelled` viven en la misma
+    // transacción Prisma. El `OutboxWorker` despacha el evento at-least-once tras
+    // el commit (antes era `emit()` directo fuera de tx → pérdida silenciosa del
+    // release de slot support-inside / cancelación de task / email al cliente si
+    // el proceso moría entre commit y emit). El `plugin.deprovision()`
+    // (destrucción del recurso en el proveedor) va FUERA de la tx y es fail-soft.
     const updated = await this.prisma.$transaction(async (tx) => {
       const u = await tx.service.update({
         where: { id: serviceId },
@@ -1122,6 +1136,17 @@ export class ProvisioningService {
         },
         tx,
       );
+      await this.outbox.enqueue(tx, 'service.cancelled', {
+        service_id: serviceId,
+        user_id: service.user_id,
+        provisioner_slug: service.provisioner_slug,
+        reason: dto.reason,
+        actor_user_id: actorUserId,
+        ...(actorUserId === null && opts?.actorLabel
+          ? { actor: opts.actorLabel }
+          : {}),
+        notify_client: notifyClient,
+      });
       return u;
     });
 
@@ -1160,22 +1185,6 @@ export class ProvisioningService {
           `cancelación solo del lado de Aelium (service=${serviceId}).`,
       );
     }
-
-    // Sprint 15C.II Fase E: `notify_client` (default true) controla si el
-    // listener `notifications-on-service-cancelled` despacha el email +
-    // campana al cliente. El listener consume este flag del payload.
-    const notifyClient = dto.notify_client !== false;
-    this.events.emit('service.cancelled', {
-      service_id: serviceId,
-      user_id: service.user_id,
-      provisioner_slug: service.provisioner_slug,
-      reason: dto.reason,
-      actor_user_id: actorUserId,
-      ...(actorUserId === null && opts?.actorLabel
-        ? { actor: opts.actorLabel }
-        : {}),
-      notify_client: notifyClient,
-    });
 
     await this.audit.logChange({
       user_id: actorUserId,
@@ -1385,13 +1394,16 @@ export class ProvisioningService {
     // R2 garantiza que para admin `internal_note` no es vacío; el `??` cubre
     // el path sistema cuando el caller no compone body (defensivo).
     const noteBody = dto.internal_note?.trim() ?? '<sin nota>';
-    // R3 (dossier §A.11.10.3.2): `service.update` + `clientNote.create` viven
-    // en la misma transacción Prisma — si la nota falla, el status no transita
+    const notifyClient = dto.notify_client !== false;
+    // R3 (dossier §A.11.10.3.2) + R8 (GL-17): `service.update`, `clientNote.create`
+    // y la persistencia del evento `service.suspended` viven en la misma
+    // transacción Prisma — si la nota o el outbox fallan, el status no transita
     // (un retry del admin es seguro: `suspendAsAdmin` es idempotente por el
-    // guard `'suspended' → no-op`, A4.4 ADR-077). Plugin call + cache +
-    // eventos + audit quedan FUERA (asimétricos por naturaleza — provider call
-    // idempotente, listeners consumen estado committed, audit con su propia
-    // política).
+    // guard `'suspended' → no-op`, A4.4 ADR-077). El `OutboxWorker` despacha el
+    // evento at-least-once tras el commit (antes era `emit()` fuera de tx →
+    // pérdida silenciosa del email de suspensión al cliente). Plugin call + cache
+    // + audit quedan FUERA (asimétricos por naturaleza — provider call idempotente
+    // ya completado, listeners consumen estado committed, audit con su política).
     const updated = await this.prisma.$transaction(async (tx) => {
       const u = await tx.service.update({
         where: { id: serviceId },
@@ -1417,24 +1429,22 @@ export class ProvisioningService {
         },
         tx,
       );
+      await this.outbox.enqueue(tx, 'service.suspended', {
+        service_id: serviceId,
+        user_id: service.user_id,
+        provisioner_slug: service.provisioner_slug,
+        reason: dto.reason,
+        actor_user_id: actorUserId,
+        ...(actorUserId === null && opts?.actorLabel
+          ? { actor: opts.actorLabel }
+          : {}),
+        suspended_at: suspendedAt.toISOString(),
+        notify_client: notifyClient,
+      });
       return u;
     });
 
     await this.cache.invalidate(serviceId);
-
-    const notifyClient = dto.notify_client !== false;
-    this.events.emit('service.suspended', {
-      service_id: serviceId,
-      user_id: service.user_id,
-      provisioner_slug: service.provisioner_slug,
-      reason: dto.reason,
-      actor_user_id: actorUserId,
-      ...(actorUserId === null && opts?.actorLabel
-        ? { actor: opts.actorLabel }
-        : {}),
-      suspended_at: suspendedAt.toISOString(),
-      notify_client: notifyClient,
-    });
 
     await this.audit.logChange({
       user_id: actorUserId,
@@ -1589,8 +1599,11 @@ export class ProvisioningService {
         ? 'service.auto_unsuspended_overdue'
         : 'service.unsuspended';
     const noteBody = dto.internal_note?.trim() ?? '<sin nota>';
-    // R3 (dossier §A.11.10.3.2): cambio de status + `ClientNote` en una sola
-    // transacción Prisma. Plugin call (provider) ya completó arriba.
+    // R3 (dossier §A.11.10.3.2) + R8 (GL-17): cambio de status + `ClientNote` +
+    // persistencia del evento `service.unsuspended` en una sola transacción
+    // Prisma. El `OutboxWorker` lo despacha at-least-once tras el commit (antes
+    // era `emit()` fuera de tx → pérdida silenciosa del email "tu servicio
+    // vuelve a estar activo"). Plugin call (provider) ya completó arriba.
     const updated = await this.prisma.$transaction(async (tx) => {
       const u = await tx.service.update({
         where: { id: serviceId },
@@ -1607,21 +1620,20 @@ export class ProvisioningService {
         },
         tx,
       );
+      await this.outbox.enqueue(tx, 'service.unsuspended', {
+        service_id: serviceId,
+        user_id: service.user_id,
+        provisioner_slug: service.provisioner_slug,
+        actor_user_id: actorUserId,
+        ...(actorUserId === null && opts?.actorLabel
+          ? { actor: opts.actorLabel }
+          : {}),
+        previous_suspension_reason: previousReason,
+      });
       return u;
     });
 
     await this.cache.invalidate(serviceId);
-
-    this.events.emit('service.unsuspended', {
-      service_id: serviceId,
-      user_id: service.user_id,
-      provisioner_slug: service.provisioner_slug,
-      actor_user_id: actorUserId,
-      ...(actorUserId === null && opts?.actorLabel
-        ? { actor: opts.actorLabel }
-        : {}),
-      previous_suspension_reason: previousReason,
-    });
 
     await this.audit.logChange({
       user_id: actorUserId,

@@ -89,6 +89,8 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     getCachedServiceReconcileResult: jest.Mock;
   };
   let events: { emit: jest.Mock };
+  // R8 (GL-17): las transiciones de lifecycle persisten su evento vía Outbox.
+  let outbox: { enqueue: jest.Mock };
   let audit: {
     logAccess: jest.Mock;
     logChange: jest.Mock;
@@ -242,6 +244,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       getCachedServiceReconcileResult: jest.fn().mockResolvedValue(null),
     };
     events = { emit: jest.fn() };
+    outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
     audit = {
       logAccess: jest.fn().mockResolvedValue(undefined),
       logChange: jest.fn().mockResolvedValue(undefined),
@@ -311,6 +314,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       breakers as never,
       clientNotes as never,
       reconcileRegistry as never,
+      outbox as never,
     );
   });
 
@@ -931,7 +935,9 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     expect(result.cancellation_reason).toContain('admin_override');
     // audit GL-2: el recurso se destruye en el proveedor (cierra DC.46).
     expect(deprovisionSpy).toHaveBeenCalledTimes(1);
-    expect(events.emit).toHaveBeenCalledWith(
+    // R8 (GL-17): el evento se persiste vía Outbox dentro de la tx (antes emit).
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.anything(),
       'service.cancelled',
       expect.objectContaining({
         service_id: 'svc-1',
@@ -981,7 +987,8 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       { ipAddress: '1.2.3.4' },
     );
 
-    expect(events.emit).toHaveBeenCalledWith(
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.anything(),
       'service.cancelled',
       expect.objectContaining({ notify_client: false }),
     );
@@ -1015,7 +1022,8 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     );
 
     expect(result.status).toBe('cancelled');
-    expect(events.emit).toHaveBeenCalledWith(
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.anything(),
       'service.cancelled',
       expect.objectContaining({ service_id: 'svc-3' }),
     );
@@ -1053,6 +1061,17 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         changes_after: expect.objectContaining({
           actor: 'system:billing-cancellation-cron',
         }),
+      }),
+    );
+    // R8 (GL-17): el spread condicional del actor sistema también viaja en el
+    // payload Outbox de service.cancelled (simetría con suspend/unsuspend).
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.anything(),
+      'service.cancelled',
+      expect.objectContaining({
+        service_id: 'svc-4',
+        actor_user_id: null,
+        actor: 'system:billing-cancellation-cron',
       }),
     );
   });
@@ -1171,7 +1190,9 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         prisma, // tx === prisma en el mock $transaction
       );
       expect(cache.invalidate).toHaveBeenCalledWith('svc-1');
-      expect(events.emit).toHaveBeenCalledWith(
+      // R8 (GL-17): el evento se persiste vía Outbox dentro de la tx (antes emit).
+      expect(outbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
         'service.suspended',
         expect.objectContaining({
           service_id: 'svc-1',
@@ -1216,7 +1237,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       expect(result.status).toBe('suspended');
       expect(executeAction).not.toHaveBeenCalled();
       expect(prisma.service.update).not.toHaveBeenCalled();
-      expect(events.emit).not.toHaveBeenCalled();
+      expect(outbox.enqueue).not.toHaveBeenCalled();
     });
 
     it('suspendAsAdmin: estado no-active (pending) → ConflictException', async () => {
@@ -1301,7 +1322,9 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         }),
       );
       expect(cache.invalidate).toHaveBeenCalledWith('svc-1');
-      expect(events.emit).toHaveBeenCalledWith(
+      // R8 (GL-17): el evento se persiste vía Outbox dentro de la tx (antes emit).
+      expect(outbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
         'service.unsuspended',
         expect.objectContaining({
           service_id: 'svc-1',
@@ -1332,7 +1355,7 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       expect(result.alreadyActive).toBe(true);
       expect(executeAction).not.toHaveBeenCalled();
       expect(prisma.service.update).not.toHaveBeenCalled();
-      expect(events.emit).not.toHaveBeenCalled();
+      expect(outbox.enqueue).not.toHaveBeenCalled();
     });
   });
 
@@ -1841,11 +1864,16 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         { reason: 'abuse_investigation' },
       );
       expect(prisma.service.update).not.toHaveBeenCalled();
-      expect(events.emit).not.toHaveBeenCalledWith(
+      // R8 (GL-17): resync NO es una transición de lifecycle → no persiste
+      // `service.suspended`/`service.unsuspended` vía Outbox (sólo re-aplica la
+      // inline action en el proveedor para alinear su estado con la BD).
+      expect(outbox.enqueue).not.toHaveBeenCalledWith(
+        expect.anything(),
         'service.suspended',
         expect.anything(),
       );
-      expect(events.emit).not.toHaveBeenCalledWith(
+      expect(outbox.enqueue).not.toHaveBeenCalledWith(
+        expect.anything(),
         'service.unsuspended',
         expect.anything(),
       );
@@ -1990,7 +2018,8 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
         }),
       );
       expect(audit.logAccess).not.toHaveBeenCalled();
-      expect(events.emit).toHaveBeenCalledWith(
+      expect(outbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
         'service.suspended',
         expect.objectContaining({
           service_id: 'svc-1',
@@ -2032,7 +2061,8 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
           data: expect.objectContaining({ status: 'suspended' }),
         }),
       );
-      expect(events.emit).toHaveBeenCalledWith(
+      expect(outbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
         'service.suspended',
         expect.objectContaining({ actor_user_id: null }),
       );
@@ -2080,7 +2110,8 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
           },
         }),
       );
-      expect(events.emit).toHaveBeenCalledWith(
+      expect(outbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
         'service.unsuspended',
         expect.objectContaining({
           actor_user_id: null,
@@ -2123,7 +2154,8 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
           },
         }),
       );
-      expect(events.emit).toHaveBeenCalledWith(
+      expect(outbox.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
         'service.unsuspended',
         expect.objectContaining({
           actor_user_id: null,

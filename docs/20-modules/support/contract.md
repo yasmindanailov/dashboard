@@ -172,15 +172,26 @@ Categoría `support`:
 
 ---
 
-## 12. Emails enviados
+## 12. Notificaciones (email + campana)
 
-⚠️ **Plantillas inline en `support-email.listener`** — pendiente migrar a `core/email/templates/support.templates.ts`.
+✅ **GL-25 (audit 2026-06-25):** migrado de HTML inline en `support-email.listener`
+(interpolación CRUDA del contenido de usuario → inyección + violación D12) a
+`NotificationsService.dispatchToUser` con **plantillas de BD** (`notification_templates`,
+Handlebars). Todo contenido de usuario (asunto, cuerpo del mensaje) se escapa con el
+helper **`{{e}}`** — OBLIGATORIO en el canal `email` (`noEscape:true`, donde `{{var}}`
+no escaparía). Cada evento tiene plantilla `email` + `internal` (campana). Editable por
+superadmin en `/admin/notifications/templates`.
 
-| Trigger (evento) | Subject (template inline) | Destinatario |
-|------------------|---------------------------|--------------|
-| `conversation.created` | `Tu consulta ha sido recibida — '{subject}'` | Cliente |
-| `message.created` (agent → client) | `Nueva respuesta en '{subject}'` | Cliente |
-| `conversation.assigned` | `Conversación asignada — '{subject}'` | Agente asignado |
+| Trigger (evento) | Template key | Destinatario | Canales |
+|------------------|--------------|--------------|---------|
+| `conversation.created` | `conversation.created` | Cliente (registrado o guest) | email + campana (guest: email-only) |
+| `message.created` (agent → client) | `message.created` | Cliente registrado | email + campana |
+| `conversation.assigned` | `conversation.assigned` | Agente asignado | email + campana |
+
+> **Chats GUEST** (sin cuenta → `user_id=null`): `conversation.created` se envía
+> renderizando la misma plantilla de BD + `EmailService` (escapada, respetando el
+> kill-switch `notifications.email_enabled_globally`). Sin campana (no hay cuenta).
+> **Reseed requerido** tras pull (6 plantillas nuevas en `notification-templates.ts`).
 
 ---
 
@@ -220,14 +231,15 @@ Categoría `support`:
 
 - **R1 (módulos no se llaman):** ✅ cumplido. Lecturas legítimas a `users` y `services`. Excepción: escritura a `client_notes` (sync bidireccional documentada).
 - **R8 (Outbox):** ⚠️ No implementado. Eventos `conversation.*` y `message.created` consumidos por listeners. Riesgo: emails y notificaciones WS pueden perderse si el proceso muere post-commit. Deuda menor (refresh de UI compensa).
-- **D1 (sin emojis):** ⚠️ a verificar — los subjects de email pueden tener emojis residuales (auditar al migrar templates).
-- **R15:** ✅ post-refactor Sprint 7. SupportService = 90 líneas (era 1054).
+- **D12 (notificaciones vía dispatcher + plantilla BD):** ✅ **cumplido (GL-25, audit 2026-06-25)** — `support-email.listener` ya NO usa HTML inline; delega en `NotificationsService.dispatchToUser` con plantillas de BD (escape `{{e}}`). Antes era la única violación D12 del código.
+- **D1 (sin emojis):** ✅ las plantillas de support no usan emojis en subjects.
+- **R15:** ✅ post-refactor Sprint 7 (`SupportService` = 90 líneas, era 1054) + GL-25 (`support-email.listener` 217→~145 líneas, fin del HTML inline).
 
 ---
 
 ## 17. Pendiente / deuda técnica
 
-- [ ] Migrar emails inline en `support-email.listener` a `core/email/templates/support.templates.ts`
+- [x] ✅ **Migrar emails inline en `support-email.listener`** (GL-25, audit 2026-06-25) — hecho vía `NotificationsService` + plantillas de BD (no a `core/email/templates/`, que quedó superado por D12). Cierra inyección HTML + violación D12 + deuda R15.
 - [ ] Implementar Outbox para `conversation.created` y `message.created` (deuda menor pero correcta)
 - [ ] Considerar `ClientNoteService` con interfaz mínima para que support no escriba directo en `client_notes` (mejora de R1)
 - [ ] **Bloqueado en otros sprints:**

@@ -118,4 +118,30 @@ describe('NotificationTemplateService', () => {
     });
     expect(internal?.body).toBe('Hola &lt;script&gt;');
   });
+
+  // ─── GL-25 (audit 2026-06-25): helper `{{e}}` anti-inyección ───
+  it('helper `e` SÍ escapa contenido de usuario en el canal email (noEscape:true) — cierra GL-25', async () => {
+    prisma.notificationTemplate.findFirst.mockResolvedValueOnce({
+      subject: 'X',
+      body: '<p>{{e subject}}</p>',
+    });
+    const out = await service.render('conversation.created', 'email', 'es', {
+      subject: '<script>alert(1)</script>',
+    });
+    // Sin `{{e}}` el email rendería el <script> CRUDO (ver test anterior).
+    expect(out?.body).toBe('<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>');
+    expect(out?.body).not.toContain('<script>');
+  });
+
+  it('helper `e` NO doble-escapa en el canal internal (SafeString sobre noEscape:false)', async () => {
+    prisma.notificationTemplate.findFirst.mockResolvedValueOnce({
+      subject: 'X',
+      body: 'Asunto: {{e subject}}',
+    });
+    const out = await service.render('conversation.created', 'internal', 'es', {
+      subject: '<b>&hola</b>',
+    });
+    // Escapado UNA sola vez (no `&amp;lt;`): el SafeString evita el doble escape.
+    expect(out?.body).toBe('Asunto: &lt;b&gt;&amp;hola&lt;/b&gt;');
+  });
 });
