@@ -28,7 +28,7 @@ puntos de las 4 categorías están ✅.
 - [ ] Build verde: `pnpm build` pasa en backend y frontend
 - [ ] Typecheck verde: `pnpm typecheck` pasa en backend y frontend
 - [ ] Lint sin **nuevos** errores introducidos durante el sprint
-- [ ] Tests existentes pasan: `pnpm test` (cuando haya tests)
+- [ ] Tests pasan: `pnpm test` en backend (Jest) y frontend (Jest + RTL, harness GL-26)
 - [ ] CI verde en GitHub Actions tras el último push del sprint
 
 ### 2. Documentación (responsabilidad: Claude, validación: Yasmin)

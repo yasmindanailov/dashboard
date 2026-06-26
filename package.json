@@ -22,7 +22,7 @@
     "ci:install": "pnpm install --frozen-lockfile && pnpm --dir backend install --frozen-lockfile && pnpm --dir frontend install --frozen-lockfile",
     "ci:backend": "pnpm --dir backend exec prisma generate && pnpm --dir backend typecheck && pnpm --dir backend lint:check && pnpm --dir backend test",
     "ci:backend:full": "pnpm run ci:backend && pnpm --dir backend build",
-    "ci:frontend": "pnpm --dir frontend typecheck && pnpm --dir frontend lint:check",
+    "ci:frontend": "pnpm --dir frontend typecheck && pnpm --dir frontend lint:check && pnpm --dir frontend test",
     "ci:frontend:full": "pnpm run ci:frontend && pnpm --dir frontend build",
     "ci:check": "pnpm run ci:backend && pnpm run ci:frontend",
     "ci:check:full": "pnpm run ci:backend:full && pnpm run ci:frontend:full",

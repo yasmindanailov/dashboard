@@ -46,10 +46,10 @@ tu push tiene >95% de probabilidad de pasar CI también.
 
 | Comando | Qué hace | Tiempo | Cuándo usarlo |
 |---|---|---|---|
-| `pnpm ci:check` | Backend (typecheck + lint:check + tests) + Frontend (typecheck + lint:check) | ~3-5 min | **Antes de cada push** que vaya a PR |
+| `pnpm ci:check` | Backend (typecheck + lint:check + tests) + Frontend (typecheck + lint:check + tests) | ~3-5 min | **Antes de cada push** que vaya a PR |
 | `pnpm ci:check:full` | `ci:check` + build backend + build frontend | ~5-8 min | **Antes de marcar el PR como ready** o tras cambios grandes en config |
 | `pnpm ci:backend` | Solo backend (typecheck + lint:check + tests) | ~2-3 min | Cuando solo tocaste backend |
-| `pnpm ci:frontend` | Solo frontend (typecheck + lint:check) | ~30-60s | Cuando solo tocaste frontend |
+| `pnpm ci:frontend` | Solo frontend (typecheck + lint:check + tests) | ~30-60s | Cuando solo tocaste frontend |
 | `pnpm ci:install` | Re-sincroniza node_modules con lockfiles (root + backend + frontend) | ~30-90s | Tras `git pull` que cambió `pnpm-lock.yaml` o cambios de deps |
 | `pnpm ci:e2e` | Suite E2E completa (build + Playwright run) | ~10-15 min | Cuando tu cambio toca flujos E2E o antes de cerrar un sprint |
 
@@ -70,7 +70,7 @@ desde `origin/master`:
 | Archivos cambiados | Checks ejecutados | Tiempo |
 |---|---|---|
 | Solo `backend/**` | Backend typecheck + lint + tests | ~2-3 min |
-| Solo `frontend/**` | Frontend typecheck + lint | ~30-60s |
+| Solo `frontend/**` | Frontend typecheck + lint + tests | ~30-60s |
 | `backend/**` + `frontend/**` | Ambos | ~3-5 min |
 | `tests/e2e/**` o `playwright.config.ts` | Ambos (afectan E2E que toca todo) | ~3-5 min |
 | `package.json` / `pnpm-lock.yaml` / `.husky/*` / `.lintstagedrc.cjs` | Ambos (cambios transversales) | ~3-5 min |
