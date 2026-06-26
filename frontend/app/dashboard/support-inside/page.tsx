@@ -8,6 +8,7 @@ import type {
   SupportInsideChannel,
   SupportInsideEligibleService,
   SupportInsideSlotType,
+  PlanChangePreview,
 } from '../../lib/api';
 import { fmtCurrency } from '../../_shared/billing/invoice-status-map';
 import { Badge, Button, Modal, Select, Skeleton, useToast } from '../../components/ui';
@@ -16,7 +17,9 @@ import {
   cancelSupportInsideAction,
   listEligibleServicesAction,
   loadSupportInsideAction,
+  previewUpgradeAction,
   releaseSlotAction,
+  upgradeSupportInsideAction,
 } from './_actions';
 import s from './page.module.css';
 
@@ -106,6 +109,12 @@ export default function SupportInsidePage() {
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [selectedSlotType, setSelectedSlotType] =
     useState<SupportInsideSlotType>('maintenance');
+  // GL-23 — cambio de plan (upgrade/downgrade con prorrateo, ADR-029 A1).
+  const [changePlanOpen, setChangePlanOpen] = useState(false);
+  const [targetPricingId, setTargetPricingId] = useState('');
+  const [planPreview, setPlanPreview] = useState<PlanChangePreview | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [changing, setChanging] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -216,6 +225,60 @@ export default function SupportInsidePage() {
     await reload();
   }, [reload, selectedServiceId, selectedSlotType, toast]);
 
+  /* ── GL-23 — cambio de plan ── */
+  const openChangePlan = useCallback(() => {
+    setChangePlanOpen(true);
+    setTargetPricingId('');
+    setPlanPreview(null);
+  }, []);
+
+  const onSelectTargetPlan = useCallback(
+    async (pricingId: string) => {
+      setTargetPricingId(pricingId);
+      setPlanPreview(null);
+      if (!pricingId) return;
+      setPreviewing(true);
+      const r = await previewUpgradeAction(pricingId);
+      setPreviewing(false);
+      if (r.ok) setPlanPreview(r.preview);
+      else toast('error', r.error);
+    },
+    [toast],
+  );
+
+  const confirmChangePlan = useCallback(async () => {
+    if (!targetPricingId) return;
+    setChanging(true);
+    const r = await upgradeSupportInsideAction(targetPricingId);
+    setChanging(false);
+    if (!r.ok) {
+      toast('error', r.error);
+      return;
+    }
+    toast('success', 'Plan cambiado. Aplicamos el prorrateo como crédito.');
+    setChangePlanOpen(false);
+    await reload();
+  }, [targetPricingId, toast, reload]);
+
+  const planOptions = useMemo(
+    () =>
+      plans.flatMap((p) => {
+        const opts: { value: string; label: string }[] = [];
+        if (p.pricing.monthly)
+          opts.push({
+            value: p.pricing.monthly.product_pricing_id,
+            label: `${p.name} — mensual (${fmtCurrency(p.pricing.monthly.price, p.pricing.monthly.currency)})`,
+          });
+        if (p.pricing.yearly)
+          opts.push({
+            value: p.pricing.yearly.product_pricing_id,
+            label: `${p.name} — anual (${fmtCurrency(p.pricing.yearly.price, p.pricing.yearly.currency)})`,
+          });
+        return opts;
+      }),
+    [plans],
+  );
+
   /* ── Loading ── */
   if (loading) {
     return (
@@ -251,7 +314,8 @@ export default function SupportInsidePage() {
           onReleaseSlot={releaseSlot}
           onAssignSlot={openAssignSlot}
           onCancel={() => setConfirmCancel(true)}
-          onChangePlan={() => router.push('/dashboard/billing')}
+          onChangePlan={openChangePlan}
+          onGoBilling={() => router.push('/dashboard/billing')}
         />
 
         <Modal
@@ -312,6 +376,39 @@ export default function SupportInsidePage() {
             selectedSlotType={selectedSlotType}
             onSelectService={setSelectedServiceId}
             onSelectSlotType={setSelectedSlotType}
+          />
+        </Modal>
+
+        {/* GL-23 — cambiar de plan con prorrateo (ADR-029 A1) */}
+        <Modal
+          open={changePlanOpen}
+          onClose={() => (changing ? undefined : setChangePlanOpen(false))}
+          title="Cambiar de plan"
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setChangePlanOpen(false)}
+                disabled={changing}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={confirmChangePlan}
+                loading={changing}
+                disabled={!planPreview || previewing}
+              >
+                Confirmar cambio
+              </Button>
+            </>
+          }
+        >
+          <ChangePlanForm
+            options={planOptions}
+            targetPricingId={targetPricingId}
+            preview={planPreview}
+            previewing={previewing}
+            onSelect={onSelectTargetPlan}
           />
         </Modal>
       </div>
@@ -465,6 +562,7 @@ function ManagementView({
   onAssignSlot,
   onCancel,
   onChangePlan,
+  onGoBilling,
 }: {
   subscription: SupportInsideSubscriptionPayload;
   submitting: boolean;
@@ -472,6 +570,7 @@ function ManagementView({
   onAssignSlot: () => void;
   onCancel: () => void;
   onChangePlan: () => void;
+  onGoBilling: () => void;
 }) {
   const cfg = subscription.product.support_inside_config;
   const activeSlots = subscription.slots.filter((sl) => !sl.released_at);
@@ -599,11 +698,11 @@ function ManagementView({
           </div>
           <div className={s.dangerActions}>
             <p className={s.dangerHint}>
-              Para cambiar de plan, cancela el actual y contrata el nuevo (el
-              cambio automático con prorrateo está en preparación).
+              Cambia de plan cuando quieras: aplicamos el prorrateo de los días
+              no usados como crédito (sin devolución de dinero).
             </p>
-            <Button variant="ghost" size="sm" onClick={onChangePlan}>
-              Ver facturación
+            <Button variant="secondary" size="sm" onClick={onChangePlan}>
+              Cambiar de plan
             </Button>
             <Button
               variant="danger"
@@ -652,7 +751,7 @@ function ManagementView({
             Si tienes dudas sobre tu plan o quieres añadir un slot extra,
             contáctanos desde la sección de Soporte.
           </p>
-          <Button variant="secondary" size="sm" fullWidth onClick={onChangePlan}>
+          <Button variant="secondary" size="sm" fullWidth onClick={onGoBilling}>
             Ir a Mis facturas
           </Button>
         </section>
@@ -762,6 +861,92 @@ function AssignSlotForm({
             : 'Tu plan Pro permite ambos tipos. Mantenimiento + gestión incluye acompañamiento proactivo.'
         }
       />
+    </div>
+  );
+}
+
+/**
+ * ChangePlanForm — GL-23 / ADR-029 A1.
+ *
+ * Selector del nuevo plan/ciclo + desglose del prorrateo (R5: el cliente ve el
+ * importe a pagar y el crédito aplicado ANTES de confirmar). El backend
+ * recalcula server-side al confirmar (el importe nunca viene del cliente).
+ */
+function ChangePlanForm({
+  options,
+  targetPricingId,
+  preview,
+  previewing,
+  onSelect,
+}: {
+  options: { value: string; label: string }[];
+  targetPricingId: string;
+  preview: PlanChangePreview | null;
+  previewing: boolean;
+  onSelect: (pricingId: string) => void;
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Select
+        label="Nuevo plan / ciclo"
+        value={targetPricingId}
+        onChange={(e) => onSelect(e.target.value)}
+        options={options}
+        placeholder="Elige un plan"
+        helperText="Aplicamos el prorrateo de los días no usados como crédito (sin devolución de dinero)."
+      />
+
+      {previewing && (
+        <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+          Calculando el prorrateo…
+        </p>
+      )}
+
+      {preview && (
+        <>
+          <div className={s.statRow}>
+            <div className={s.stat}>
+              <span className={s.statLabel}>Pagas ahora</span>
+              <span className={s.statValue}>
+                {fmtCurrency(preview.amount_to_pay, preview.currency)}
+              </span>
+            </div>
+            {preview.credit_eur > 0 && (
+              <div className={s.stat}>
+                <span className={s.statLabel}>Crédito aplicado</span>
+                <span className={s.statValue}>
+                  {fmtCurrency(preview.credit_eur, preview.currency)}
+                </span>
+              </div>
+            )}
+            {preview.credit_remaining_eur > 0 && (
+              <div className={s.stat}>
+                <span className={s.statLabel}>Crédito sobrante</span>
+                <span className={s.statValue}>
+                  {fmtCurrency(preview.credit_remaining_eur, preview.currency)}
+                </span>
+              </div>
+            )}
+          </div>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 'var(--font-size-sm)',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            Nuevo plan: {preview.new_plan.billing_cycle} ·{' '}
+            {fmtCurrency(preview.new_plan.amount, preview.currency)}. El próximo
+            período va hasta el{' '}
+            {new Intl.DateTimeFormat('es-ES', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            }).format(new Date(preview.new_period_end))}
+            .
+          </p>
+        </>
+      )}
     </div>
   );
 }

@@ -72,7 +72,7 @@ Si ya no quieres cubrir ese servicio o quieres mover el slot a otro:
 
 ### ¿Qué pasa si tengo más servicios que slots?
 
-Eliges los más críticos. Cuando termines de usar uno, libéralo y asigna el slot a otro. Si quieres cubrir más, sube de plan (próximamente — hoy hay que cancelar y recontratar).
+Eliges los más críticos. Cuando termines de usar uno, libéralo y asigna el slot a otro. Si quieres cubrir más, sube de plan desde **"Cambiar de plan"** (inmediato y prorrateado).
 
 ---
 
@@ -107,8 +107,7 @@ Si no tienes plan, verás una card alternativa con CTA "Activa Support Inside".
 ## 7. Renovación y facturación
 
 - **Renovación automática**: tu plan se renueva al final del ciclo (mensual o anual). Recibirás aviso por email antes de la renovación.
-- **Cambiar de ciclo**: hoy se hace cancelando y recontratando con el ciclo nuevo. (Cambio prorrateado real llegará en una próxima actualización.)
-- **Cambiar de plan** (ej. Básico → Medium): mismo procedimiento — cancela y recontrata. Los slots actuales se liberan y deberás asignarlos de nuevo en el plan nuevo.
+- **Cambiar de plan o ciclo**: desde `/dashboard/support-inside` → **"Cambiar de plan"**. Verás el **prorrateo** (lo que pagas ahora y el crédito por los días no usados) **antes de confirmar**. El crédito se descuenta del nuevo plan; nunca se devuelve dinero (el sobrante queda a tu favor para la siguiente renovación). Tus slots asignados se conservan; si bajas a un plan con menos slots de los que tienes asignados, primero libera los que sobren.
 
 ---
 
@@ -167,7 +166,7 @@ Si estás haciendo pruebas sobre la cuenta `cliente@aelium.test` (Carla, seedead
 | El comparador muestra 0 planes | Los planes no están seedeados | Ejecutar `pnpm seed` desde el backend (estamos en entorno dev). En producción nunca pasaría — los 3 planes son canónicos. |
 | Al asignar slot no aparece mi servicio en la lista | Tu plan no permite ese tipo de servicio o el servicio no está `active` | Mira los tipos cubiertos por tu plan en la vista de gestión. Si tu servicio sí debería ser elegible y no lo es, abre un ticket. |
 | He pagado pero el plan no se activa | El listener `service.provisioned` no procesó el evento | Contacta soporte. El equipo verifica el DLQ y reactiva manualmente. |
-| Quiero subir de Básico a Pro sin cancelar | Hoy no se puede prorratear el cambio | Cancela y recontrata. (Próximamente: cambio prorrateado real.) |
+| Quiero subir de Básico a Pro sin cancelar | — | Usa **"Cambiar de plan"** en `/dashboard/support-inside`: el cambio es inmediato y prorrateado (ves el desglose antes de confirmar). |
 
 ---
 

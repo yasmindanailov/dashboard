@@ -184,6 +184,8 @@ Tres servicios ya existentes se enriquecieron en Fase D.12 con info SI **sin que
 | `GET` | `/plans` | Comparador público — los 3 planes activos con `support_inside_config` + pricing |
 | `GET` | `/status` | Subscription activa del cliente + slots + canales |
 | `POST` | `/subscribe` | API interna alternativa (NO usada por frontend — usa `/billing/checkout`) |
+| `GET` | `/upgrade/preview` | Preview del prorrateo de un cambio de plan (R5, antes de confirmar) — GL-23 |
+| `POST` | `/upgrade` | Cambia de plan (upgrade/downgrade) con prorrateo (GL-23 / ADR-029 A1) |
 | `POST` | `/cancel` | Cancela + libera slots cascada (operación destructiva con modal) |
 | `POST` | `/slots` | Asigna slot a servicio (filtro `applicable_product_types`) |
 | `DELETE` | `/slots/:id` | Libera slot |
@@ -244,7 +246,7 @@ Detalle canónico en [`docs/30-data/support.md`](../../30-data/support.md).
 | Acción | Efecto cascada |
 |--------|----------------|
 | Cancelar subscription del cliente | Libera todos los slots (cascada: 1 evento `slot_released` por slot) → marca subscription `cancelled` → tareas `maintenance_management` futuras NO se generan. **Servicios técnicos del cliente quedan intactos** (sólo se desactiva el slot SI). |
-| Cliente upgrade Básico → Pro mid-mes | Hoy: rechazo con mensaje accionable (workaround: cancelar + recontratar). Migración real prorrateada queda como **DC.18 / ADR-077 propuesto** — bloquea cierre comercial Pro. |
+| Cliente upgrade/downgrade Básico ↔ Pro mid-mes | **Cambio inmediato prorrateado** (GL-23 / ADR-029 A1): `POST /dashboard/support-inside/upgrade` reusa el motor de prorrateo (crédito sin devolución; factura nueva BILL-INV-3). Guard de slots: no se puede bajar a un plan con menos slots incluidos que los asignados (el cliente libera primero). Cierra DC.18. |
 | Admin edita pricing de un plan con suscriptores activos | Cambio se aplica a NUEVAS suscripciones. Las activas siguen el snapshot original (coherente con [ADR-029](../../10-decisions/adr-029-prorrateo-cambio-plan.md)). EC-T8-07 documentado. |
 | Cliente intenta `addSlot` cuando ya está al límite | 422 + "Tu plan permite N slots; sube de plan o libera uno". |
 | Servicio técnico del cliente se cancela con slot asignado | Listener `tasks-on-service-cancelled` (Sprint 11) cancelará tareas pendientes. El slot queda `released` automáticamente. |
@@ -257,7 +259,7 @@ Detalle canónico en [`docs/30-data/support.md`](../../30-data/support.md).
 
 - **DC.16** — `services.credit_balance_eur` (buffer técnico de prorrateo, **NO sistema de créditos** — clarificación post-pregunta Yasmin). Bloquea upgrade real. **P1 transversal**.
 - **DC.17** — `tasks.slot_id` FK pendiente (declarado en doc, no en schema). Sprint 11 + 8.D.12.8 cuando exista directorio `/dashboard/services`.
-- **DC.18 / ADR-077** — Upgrade entre planes distintos del mismo dominio. Hoy workaround "cancela y recontrata". **P1**, bloquea upselling SI + hosting.
+- **DC.18 / ADR-029 A1** — ✅ **CERRADO** (GL-23, 2026-06-26): upgrade/downgrade entre planes SI con prorrateo inmediato (`SupportInsideService.upgrade` reusa `SubscriptionPlanChangeService` con `allowCrossProduct`). UI: "Cambiar de plan" en `/dashboard/support-inside`.
 - **DC.19** — Slots adicionales facturables como `support_addon` (ADR-034 §sistema de slots). **P1 dependiente DC.16+DC.18**.
 - **DC.20** — Canales WhatsApp/SMS en `NotificationsService`. Hoy `channels_active` se guarda y se muestra pero solo `EmailChannel` + `InAppChannel` despachan. **P2 — Sprint 12 o sprint dedicado**.
 - **DC.21** — Historial de valor cliente SI (consultas resueltas, tiempo medio respuesta, mantenimientos realizados). **P2 — sprint propio dedicado a métricas**.

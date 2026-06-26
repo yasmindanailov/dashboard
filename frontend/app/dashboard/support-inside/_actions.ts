@@ -8,6 +8,7 @@ import type {
   SupportInsideEligibleService,
   SupportInsideSlotPayload,
   SupportInsideSlotType,
+  PlanChangePreview,
 } from '../../lib/api';
 
 /* ═══════════════════════════════════════
@@ -106,6 +107,55 @@ export async function releaseSlotAction(
         err instanceof ServerFetchError
           ? err.message
           : 'No se pudo liberar el slot',
+    };
+  }
+}
+
+/* ── Cambio de plan (GL-23 / ADR-029 A1) ── */
+
+export type PreviewUpgradeResult =
+  | { ok: true; preview: PlanChangePreview }
+  | { ok: false; error: string };
+
+/** Preview del prorrateo antes de confirmar (R5). */
+export async function previewUpgradeAction(
+  newPricingId: string,
+): Promise<PreviewUpgradeResult> {
+  try {
+    const preview = await serverFetch<PlanChangePreview>(
+      `/dashboard/support-inside/upgrade/preview?new_product_pricing_id=${encodeURIComponent(newPricingId)}`,
+    );
+    return { ok: true, preview };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo calcular el cambio de plan',
+    };
+  }
+}
+
+export type UpgradeResult = { ok: true } | { ok: false; error: string };
+
+export async function upgradeSupportInsideAction(
+  newPricingId: string,
+): Promise<UpgradeResult> {
+  try {
+    await serverFetch('/dashboard/support-inside/upgrade', {
+      method: 'POST',
+      body: { new_product_pricing_id: newPricingId },
+    });
+    revalidatePath('/dashboard/support-inside');
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo cambiar de plan',
     };
   }
 }
