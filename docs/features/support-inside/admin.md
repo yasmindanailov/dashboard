@@ -14,8 +14,8 @@ Support Inside es un **tier de cuenta visible**, NO un producto técnico aislado
 El cliente paga una suscripción mensual o anual (`Básico`, `Medium`, `Pro`) que le otorga:
 
 - **Slots** de mantenimiento mensual asignables a sus servicios técnicos compatibles (hosting, Docker, etc.).
-- **SLA** de respuesta diferenciado por canal (24h Básico → 4h Pro).
-- **Canales activos** según el plan (email, in-app, WhatsApp futuro).
+- **SLA** de respuesta diferenciado (24h Básico → 4h Pro).
+- **Canales activos** de contacto con agente real (webchat + email; ver GL-23 §2).
 - **Prioridad automática** en tickets de soporte abiertos por el cliente (mapeo `priority_tier → ConversationPriority`).
 - **Visibilidad transversal**: badges en `/admin/clients/:id`, en `/admin/support` (ConversationHeader) y en su dashboard cliente.
 
@@ -29,11 +29,11 @@ Seedeados en `prisma/seeds/support-inside-plans.ts` (NO es demo data — son ope
 
 | Plan | Slug | Slots | SLA | Canales | Mensual | Anual (−15%) | priority_tier |
 |------|------|-------|-----|---------|---------|--------------|---------------|
-| Básico | `support-inside-basic-plan` | 1 | 24h | email + in-app | 19 € | 193,80 € | `standard` |
-| Medium | `support-inside-medium` | 3 | 12h | email + in-app | 49 € | 499,80 € | `high` |
-| Pro | `support-inside-pro` | 10 | 4h | email + in-app + WhatsApp* | 99 € | 1.009,80 € | `max` |
+| Básico | `support-inside-basico` | 0 | 24h | webchat + email | 19 € | 193,80 € | `standard` |
+| Medium | `support-inside-medium` | 1 | 12h | webchat + email | 39 € | 397,80 € | `high` |
+| Pro | `support-inside-pro` | 1 | 4h | webchat + email | 79 € | 805,80 € | `max` |
 
-*WhatsApp queda como hook aspiracional (DC.20 — pendiente sprint dedicado a `WhatsAppChannel`).
+> **GL-23 (audit 2026-06-25):** tabla alineada al **seed real** (`prisma/seeds/support-inside-plans.ts`). `channels_active` = canales **entregables hoy** (webchat + email); `phone`/`whatsapp` retirados de la oferta hasta que exista dispatcher (DC.20). **Precios y slots por plan NO modificados** (decisión Yasmin 2026-06-26). El slot de Pro es de tipo *mantenimiento + gestión proactiva* (Medium = *mantenimiento*).
 
 > **Por qué tres y no cinco**: la decisión deliberada es ofrecer un comparador limpio (3 cards lado a lado). Crear un cuarto plan exige migración + seed + ADR específico — cambiar la oferta comercial merece auditoría git, no clic en UI ([ADR-075](../../10-decisions/adr-075-support-inside-ux-lista-y-aislamiento-productos.md) §B.2).
 

@@ -12,7 +12,7 @@ Support Inside es nuestro **plan de cuidado y soporte premium**. Te da:
 
 - **Mantenimiento mensual** de tus servicios técnicos (hosting, Docker, etc.) — sin que tengas que pedirlo cada vez.
 - **Respuesta más rápida** en tickets y chats — el SLA depende del plan que elijas.
-- **Canales adicionales** (email + panel + WhatsApp en planes superiores).
+- **Canales de contacto** con agente real: webchat y email.
 - **Prioridad automática** en cualquier ticket que abras.
 
 No es un producto técnico que se ejecuta en un servidor — es un **tier de cuenta**. Cuando lo activas, todo lo que ya contratabas con Aelium pasa a tener un cuidado distinto.
@@ -23,11 +23,11 @@ No es un producto técnico que se ejecuta en un servidor — es un **tier de cue
 
 | Plan | Slots de mantenimiento | SLA respuesta | Canales | Mensual | Anual (ahorras 15%) |
 |------|------------------------|---------------|---------|---------|---------------------|
-| **Básico** | 1 servicio cubierto | 24h | Email + Panel | 19 € | 193,80 € |
-| **Medium** | 3 servicios cubiertos | 12h | Email + Panel | 49 € | 499,80 € |
-| **Pro** | 10 servicios cubiertos | 4h | Email + Panel + WhatsApp* | 99 € | 1.009,80 € |
+| **Básico** | 0 (soporte reactivo) | 24h | Webchat + Email | 19 € | 193,80 € |
+| **Medium** | 1 servicio cubierto | 12h | Webchat + Email | 39 € | 397,80 € |
+| **Pro** | 1 servicio (mantenimiento + gestión proactiva) | 4h | Webchat + Email | 79 € | 805,80 € |
 
-*WhatsApp llegará en una próxima actualización; el plan Pro lo incluye sin coste adicional cuando esté disponible.
+> El plan **Básico** no incluye slots de mantenimiento (soporte reactivo a demanda; puedes contratar slots aparte). **Medium** y **Pro** incluyen 1 slot — la diferencia entre ellos es el SLA, la prioridad en cola y que el slot de **Pro** es de tipo *mantenimiento + gestión proactiva*.
 
 > **¿Por qué la versión anual es más barata?** Porque al pagar el año por adelantado nos ayudas con la planificación. Te devolvemos parte de ese valor con un 15% de descuento.
 
@@ -50,9 +50,9 @@ No es un producto técnico que se ejecuta en un servidor — es un **tier de cue
 
 Un **slot** es la cobertura de mantenimiento mensual sobre uno de tus servicios técnicos.
 
-- **Plan Básico** → 1 slot. Eliges qué servicio quieres que cuidemos cada mes.
-- **Plan Medium** → 3 slots. Hasta 3 servicios cubiertos simultáneamente.
-- **Plan Pro** → 10 slots.
+- **Plan Básico** → 0 slots (soporte reactivo; puedes contratar slots aparte).
+- **Plan Medium** → 1 slot. Eliges qué servicio cuidamos cada mes.
+- **Plan Pro** → 1 slot de mantenimiento + gestión proactiva.
 
 ### Asignar un slot a un servicio
 
@@ -88,7 +88,7 @@ Cuando abras un ticket o chat con Support Inside activo:
 
 - Tu conversación queda automáticamente con prioridad alta o urgente (según el plan).
 - El equipo ve un badge en su panel ("Medium · SLA 12h") para entender el contexto sin pedírtelo.
-- Si tu plan incluye WhatsApp, podrás contactar también por ese canal (próximamente).
+- Atendemos por **webchat y email**; tu SLA y prioridad aplican a ambos canales.
 
 ---
 
@@ -134,8 +134,8 @@ No. Hosting y Support Inside son independientes. Support Inside es una capa prem
 **¿El mantenimiento incluye qué exactamente?**
 Depende del tipo de servicio. En hosting web suele incluir: revisión de logs, actualizaciones menores de WordPress/CMS si aplica, comprobación de copias de seguridad, monitor de espacio y rendimiento, ajustes de configuración recomendados. Tu agente te detallará en el resumen mensual qué se hizo en concreto.
 
-**Si tengo Plan Medium con 3 slots y sólo asigno 1 ¿pago igual?**
-Sí — pagas por la **capacidad** + SLA + canales del plan, no por slot consumido. Los slots no asignados están a tu disposición.
+**Si tengo un slot incluido y no lo asigno ¿pago igual?**
+Sí — pagas por la **capacidad** + SLA + prioridad del plan, no por slot consumido. El slot no asignado está a tu disposición.
 
 **¿Y si abro un ticket que no es de un servicio cubierto por slot?**
 Se atiende igualmente con tu SLA y canales del plan. El "slot" es solo para mantenimiento programado mensual; tu prioridad y tiempos de respuesta aplican a **todo** lo que abras con nosotros.
@@ -152,9 +152,9 @@ No. Pero puedes contratar el plan mensual y cancelarlo en cualquier momento sin 
 
 Si estás haciendo pruebas sobre la cuenta `cliente@aelium.test` (Carla, seedeada en `pnpm seed`):
 
-1. Login Carla → `/dashboard` → debería verse card "Mi plan Support Inside" con plan **Medium** activo + "1 / 3 slots usados".
+1. Login Carla → `/dashboard` → debería verse card "Mi plan Support Inside" con plan **Medium** activo + "1 / 1 slot usado".
 2. Click "Ver mi plan" → `/dashboard/support-inside` → vista gestión con 1 slot asignado al servicio "Web demo Carla".
-3. Click "Asignar slot" → modal con select de servicios elegibles (sólo los de tipos compatibles con Medium, que es `['hosting_web', 'docker_service']` por defecto).
+3. Como Medium incluye 1 slot ya asignado, "Asignar slot" no ofrece capacidad libre (libera el actual o sube de plan). Los tipos elegibles son `['hosting_web', 'docker_service']` por defecto.
 4. **Cancelar plan** desde la vista de gestión → modal de confirmación → confirma → status pasa a `cancelled` y los slots se liberan en cascada.
 5. **Recontratar** desde el comparador (3 cards) → click "Suscribirme Pro" → redirige a `/dashboard/billing/checkout?product_pricing_id=...` → confirmar → factura pendiente + plan Pro activo.
 
