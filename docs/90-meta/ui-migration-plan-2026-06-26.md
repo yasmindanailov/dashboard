@@ -172,8 +172,15 @@ El gap report enumera **435 ítems "solo-diseño"** por página. Aquí van los
 **Con backend nuevo (entran en F3, lo más caro):**
 - **Stripe** end-to-end: pago de factura desde UI, métodos de pago guardados
   (SetupIntent), dunning, timeline de pagos. (Hoy 0 en código; marcado "futuro".)
-- **Dashboard ejecutivo admin**: ~8-10 agregaciones cross-módulo (KPIs con delta
-  MoM, "Requiere tu decisión", "Carga del equipo", SLA soporte).
+- **Dashboard ejecutivo admin** (`/admin`): **parcialmente existe.** Ya hay 7 KPIs
+  base (`AdminOverview` api.ts:644-653: clientes activos, ingresos, facturas
+  vencidas, importe pendiente, tickets/chats abiertos, esperando agente) y un grid
+  `AdminStats` que los pinta — pero se renderizan en `/dashboard` (home por rol),
+  **no** en `/admin`, que hoy es un toolbox (`admin/page.tsx`: TasksWidget + enlaces
+  a Error Log y Jobs DLQ, sin fetch). **Net-new (lo único a programar):** deltas MoM,
+  feed "Requiere tu decisión" (5xx/DLQ/drift/SI), "Carga del equipo" (tickets por
+  agente + presencia), SLA soporte, y montar todo como landing de `/admin`
+  reutilizando los 7 KPIs existentes.
 - **Support Inside gestionado**: técnico asignado, última/próxima revisión, log
   de mantenimientos al cliente, slots ricos.
 - **Buscador de dominios con IA** + config avanzada de TLDs + bundle de marca +
