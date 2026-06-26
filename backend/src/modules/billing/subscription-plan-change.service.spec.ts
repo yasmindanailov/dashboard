@@ -160,7 +160,7 @@ describe('SubscriptionPlanChangeService.confirmPlanChange (ADR-029)', () => {
     expect(outbox.enqueue).not.toHaveBeenCalled();
   });
 
-  it('rechaza si el ciclo destino es el actual (ADR-029: solo entre ciclos)', async () => {
+  it('rechaza el no-op: mismo producto y mismo ciclo (nada que cambiar)', async () => {
     prisma.service.findUnique.mockResolvedValue(monthlyService());
     prisma.productPricing.findUnique.mockResolvedValue(
       annualPricing({ billing_cycle: 'monthly' }),
@@ -168,7 +168,7 @@ describe('SubscriptionPlanChangeService.confirmPlanChange (ADR-029)', () => {
 
     await expect(
       service.confirmPlanChange('svc-1', 'pr', 'user-1', false),
-    ).rejects.toThrow(/ciclo actual/);
+    ).rejects.toThrow(/plan actual/);
   });
 
   it('rechaza cambio a otra moneda', async () => {
@@ -214,5 +214,47 @@ describe('SubscriptionPlanChangeService.confirmPlanChange (ADR-029)', () => {
 
     expect(txUpdate).toHaveBeenCalledTimes(1);
     expect(outbox.enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it('ADR-029 A1: con allowCrossProduct cambia entre productos (tier SI) + corre el txHook', async () => {
+    // Básico monthly → Pro monthly: producto distinto, mismo ciclo (válido cross-tier).
+    prisma.service.findUnique.mockResolvedValue(
+      monthlyService({ product_id: 'si-basico' }),
+    );
+    prisma.productPricing.findUnique.mockResolvedValue(
+      annualPricing({
+        id: 'pr-si-pro',
+        product_id: 'si-pro',
+        billing_cycle: 'monthly',
+        price: 79,
+      }),
+    );
+    const txHook = jest.fn().mockResolvedValue(undefined);
+
+    await service.confirmPlanChange('svc-1', 'pr-si-pro', 'user-1', false, {
+      allowCrossProduct: true,
+      txHook,
+    });
+
+    const data = (
+      txUpdate.mock.calls as Array<[{ data: Record<string, unknown> }]>
+    )[0][0].data;
+    expect(data.product_id).toBe('si-pro'); // el service migra al nuevo producto
+    expect(txHook).toHaveBeenCalledTimes(1); // hook atómico del llamador
+    expect(outbox.enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it('sin allowCrossProduct, el cross-producto sigue rechazado (doctrina congelada)', async () => {
+    prisma.service.findUnique.mockResolvedValue(
+      monthlyService({ product_id: 'si-basico' }),
+    );
+    prisma.productPricing.findUnique.mockResolvedValue(
+      annualPricing({ product_id: 'si-pro', billing_cycle: 'monthly' }),
+    );
+
+    await expect(
+      service.confirmPlanChange('svc-1', 'pr', 'user-1', false),
+    ).rejects.toThrow(/mismo producto/);
+    expect(outbox.enqueue).not.toHaveBeenCalled();
   });
 });

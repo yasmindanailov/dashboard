@@ -113,6 +113,40 @@ nuevo_periodo = 365 días desde la fecha de cambio
 
 ---
 
+## Amendments
+
+### A1 (2026-06-26) — Cambio de tier cross-producto para Support Inside (GL-23)
+
+**Contexto:** la doctrina original (§Restricciones + §Cuándo revisar) congeló el
+cambio a **mismo producto, distinto ciclo** y difirió el cambio entre productos
+distintos a "ADR adicional". Los 3 planes de Support Inside (Básico/Medium/Pro)
+son **productos distintos** (`type=support_inside`), así que un upgrade SI es
+exactamente un cambio cross-producto. GL-23 (audit 2026-06-25) lo requería
+("upgrade rechaza 400"; cierra DC.18).
+
+**Decisión (Yasmin 2026-06-26):** se habilita el cambio de plan **entre productos
+del dominio Support Inside**, con la **misma política** de este ADR (prorrateo
+inmediato en crédito, sin devolución; sobrante a `credit_balance_eur`; factura
+nueva BILL-INV-3 vía `GenerateInvoiceOnPlanChangedListener`). NO se generaliza a
+otros dominios (hosting, etc.) — esos siguen requiriendo su propio ADR. Precios y
+slots por plan no cambian.
+
+**Mecánica:**
+- `SubscriptionPlanChangeService.{preview,confirm}PlanChange` aceptan
+  `opts.allowCrossProduct` (default `false` → comportamiento congelado intacto
+  para el resto de productos). Con `true` se omite el guard mismo-producto; el
+  único cambio rechazado es el no-op (mismo producto **y** mismo ciclo).
+  `confirmPlanChange` fija además `service.product_id` al nuevo y expone un
+  `opts.txHook` que corre **dentro de la `$transaction`** para que el llamador
+  actualice atómicamente su propio estado.
+- `SupportInsideService.upgrade` es el único consumidor hoy: valida el plan SI
+  destino, aplica el **guard de slots** (no se puede bajar a un plan con menos
+  slots incluidos que los ya asignados — el cliente libera primero) y, vía
+  `txHook`, actualiza `support_inside_subscriptions.product_id` en la misma
+  transacción que el cambio del service.
+
+---
+
 ## Referencias
 
 - **Módulos afectados:** billing.

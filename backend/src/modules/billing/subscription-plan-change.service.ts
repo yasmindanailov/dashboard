@@ -4,7 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { Service } from '@prisma/client';
+import { Prisma, Service } from '@prisma/client';
 
 import { PrismaService } from '../../core/database/prisma.service';
 import { OutboxService } from '../../core/outbox/outbox.service';
@@ -19,6 +19,14 @@ import {
   applyPricingDiscount,
   buildPlanChangePreview,
 } from './plan-change.mapper';
+
+/** ADR-029 A1 (GL-23) — opciones del cambio de plan. */
+export interface PlanChangeOpts {
+  /** Permite cambiar entre productos distintos (solo Support Inside hoy, A1). */
+  allowCrossProduct?: boolean;
+  /** Trabajo extra del llamador DENTRO de la `$transaction` del confirm. */
+  txHook?: (tx: Prisma.TransactionClient) => Promise<void>;
+}
 
 /**
  * SubscriptionPlanChangeService — cambio de plan con prorrateo (ADR-029).
@@ -58,12 +66,14 @@ export class SubscriptionPlanChangeService {
     newPricingId: string,
     userId: string,
     isAdmin: boolean,
+    opts?: PlanChangeOpts,
   ): Promise<PlanChangePreview> {
     const ctx = await this.buildContext(
       serviceId,
       newPricingId,
       userId,
       isAdmin,
+      opts?.allowCrossProduct ?? false,
     );
     return buildPlanChangePreview(ctx);
   }
@@ -83,12 +93,14 @@ export class SubscriptionPlanChangeService {
     newPricingId: string,
     userId: string,
     isAdmin: boolean,
+    opts?: PlanChangeOpts,
   ): Promise<{ service: Service; proration: PlanChangePreview }> {
     const ctx = await this.buildContext(
       serviceId,
       newPricingId,
       userId,
       isAdmin,
+      opts?.allowCrossProduct ?? false,
     );
     const {
       service,
@@ -103,6 +115,9 @@ export class SubscriptionPlanChangeService {
       const u = await tx.service.update({
         where: { id: serviceId },
         data: {
+          // ADR-029 A1 (GL-23): cross-producto → el producto del service cambia
+          // al del nuevo plan. Para cambios mismo-producto es un no-op (idéntico).
+          product_id: newPricing.product_id,
           billing_cycle: newPricing.billing_cycle,
           amount: newAmount,
           // ADR-029: el nuevo período empieza HOY (mismo patrón que el checkout:
@@ -115,7 +130,7 @@ export class SubscriptionPlanChangeService {
       await this.outbox.enqueue(tx, 'service.plan_changed', {
         service_id: serviceId,
         user_id: service.user_id,
-        product_id: service.product_id,
+        product_id: newPricing.product_id,
         old_billing_cycle: service.billing_cycle,
         new_billing_cycle: newPricing.billing_cycle,
         amount_to_pay: proration.totalDue,
@@ -125,6 +140,9 @@ export class SubscriptionPlanChangeService {
         period_start: periodStart.toISOString(),
         period_end: periodEnd.toISOString(),
       });
+      // ADR-029 A1: hook transaccional — el llamador (p.ej. Support Inside)
+      // actualiza atómicamente su propio estado (subscription.product_id).
+      if (opts?.txHook) await opts.txHook(tx);
       return u;
     });
 
@@ -165,6 +183,7 @@ export class SubscriptionPlanChangeService {
     newPricingId: string,
     userId: string,
     isAdmin: boolean,
+    allowCrossProduct: boolean,
   ): Promise<PlanChangeContext> {
     const service = await this.prisma.service.findUnique({
       where: { id: serviceId },
@@ -185,16 +204,20 @@ export class SubscriptionPlanChangeService {
     if (!newPricing) {
       throw new NotFoundException('Plan de precio no encontrado.');
     }
-    // ADR-029: solo entre planes del MISMO producto.
-    if (newPricing.product_id !== service.product_id) {
+    // ADR-029: por defecto solo entre planes del MISMO producto. ADR-029 A1
+    // (GL-23) habilita cross-producto para Support Inside vía allowCrossProduct.
+    if (!allowCrossProduct && newPricing.product_id !== service.product_id) {
       throw new BadRequestException(
         'Solo puedes cambiar entre planes del mismo producto.',
       );
     }
-    // ADR-029: solo entre CICLOS (mensual ↔ anual…) — no el ciclo actual.
-    if (newPricing.billing_cycle === service.billing_cycle) {
+    // Rechaza el no-op: mismo producto Y mismo ciclo (no hay nada que cambiar).
+    if (
+      newPricing.product_id === service.product_id &&
+      newPricing.billing_cycle === service.billing_cycle
+    ) {
       throw new BadRequestException(
-        'Ese es el ciclo actual; elige un ciclo distinto.',
+        'Ese es tu plan actual; elige un plan o ciclo distinto.',
       );
     }
     // Moneda única (el prorrateo no convierte divisa).
