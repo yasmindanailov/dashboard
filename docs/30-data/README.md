@@ -194,7 +194,7 @@ Cada `<dominio>.md` sigue esta estructura:
 
 - [`docs/00-foundations/rules.md`](../00-foundations/rules.md) — Reglas R1–R16 + D1–D11 (R3 audit, R8 outbox, R12 encryption).
 - [`docs/00-foundations/glossary.md`](../00-foundations/glossary.md) — Términos canónicos.
-- [`docs/10-decisions/`](../10-decisions/) — 84 ADRs (decisiones arquitectónicas).
+- [`docs/10-decisions/`](../10-decisions/) — ADRs (decisiones arquitectónicas; conteo en su índice).
 - [`docs/20-modules/`](../20-modules/) — Contracts por módulo + matriz + catálogo de eventos.
 - [`docs/50-operations/`](../50-operations/) — Settings reference, email templates, jobs, errores API.
 - [`docs/DATABASE_SCHEMA.md`](../99-archive/DATABASE_SCHEMA.md) — Documento legacy (origen del split). Mapping tabla → archivo en su header.

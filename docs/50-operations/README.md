@@ -77,6 +77,6 @@ Indicadores:
 
 - [`docs/00-foundations/rules.md`](../00-foundations/rules.md) — Reglas R1–R16 + D1–D11
 - [`docs/00-foundations/glossary.md`](../00-foundations/glossary.md) — Términos canónicos
-- [`docs/10-decisions/`](../10-decisions/) — ADRs (60 decisiones arquitectónicas)
+- [`docs/10-decisions/`](../10-decisions/) — ADRs (conteo vivo en su [índice](../10-decisions/README.md); no hardcodeado)
 - [`docs/20-modules/`](../20-modules/) — Contracts por módulo + matriz + catálogo de eventos
 - [`docs/90-meta/development-playbook.md`](../90-meta/development-playbook.md) — Manual de operación profesional

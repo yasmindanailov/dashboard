@@ -305,12 +305,14 @@ Email del cliente ya tiene un customer Enhance bajo OTRO Master Org. El plugin `
 > ⚠ **Sprint 15C cerrado al 90%** — el smoke real Yasmin contra mock 2026-05-10 reveló 18 issues que requieren un sub-sprint de hardening dedicado antes de promote a producción. Ver dossier canónico [`sprint-15c-ii-hardening-enhance-dossier.md`](../../60-roadmap/sprint-15c-ii-hardening-enhance-dossier.md).
 >
 > **Compromiso doctrinal Yasmin (2026-05-10 literal)**: "no se da un paso más, hasta que el plugin esté al 100% operativo con los features básicos y necesarios perfectos para producción." → Sprint 15D ResellerClub bloqueado hasta cierre 15C.II.
+>
+> ⚠️ **Aclaración (GL-28, audit 2026-06-25):** "smoke real" / "verificado smoke real" en este documento significa **verificado contra `MockEnhanceServer`** (Express stub de alta fidelidad, `backend/test/mocks/enhance-server/`), **NO contra un cluster Enhance live**. El smoke contra orchd real (PowerDNS + `ns1/ns2.aelium.net`) **nunca se ha ejecutado** y sigue **pendiente** — es el gate de infra de Yasmin (**GL-7**). No asumir validación contra producción del proveedor.
 
 ### 8.1. Plenamente implementado y verificado
 
 | Capa | Componente | Estado |
 |---|---|---|
-| Backend plugin | `provision()` 6-step idempotente con lazy customer | ✅ verificado smoke real (post fix `$queryRaw`→`$executeRaw` Fase I) |
+| Backend plugin | `provision()` 6-step idempotente con lazy customer | ✅ verificado contra `MockEnhanceServer` (post fix `$queryRaw`→`$executeRaw` Fase I); live = gate GL-7 |
 | Backend plugin | `getStatus()` con métricas reales del cluster | ✅ |
 | Backend plugin | `getServiceInfo()` con `availableActions` filtradas + capabilities | ✅ |
 | Backend plugin | `getSsoUrl()` con audit GDPR `service.admin_sso_impersonation` | ✅ |
@@ -323,7 +325,7 @@ Email del cliente ya tiene un customer Enhance bajo OTRO Master Org. El plugin `
 | Backend audit | Listener `AuditAdminSsoImpersonation` + portal transparency | ✅ |
 | Backend notif | Listener `NotificationsOnReconciliationThresholdExceeded` (default 5 drifts/24h) | ✅ |
 | Frontend cliente | Service detail (`/dashboard/services/[id]`) header + métricas + SSO | ✅ |
-| Frontend cliente | DNS records UI completa (`/dashboard/services/[id]/dns`) — list/add/update/delete con 9 kinds | ✅ verificado smoke real |
+| Frontend cliente | DNS records UI completa (`/dashboard/services/[id]/dns`) — list/add/update/delete con 9 kinds | ✅ verificado contra `MockEnhanceServer` |
 | Frontend cliente | Portal transparency lista impersonations admin | ✅ |
 | Frontend admin | Service detail (`/admin/services/[id]`) con sección "Datos del servicio (admin)" + "Operaciones admin" | ✅ |
 | Frontend admin | `ChangePackageModal` + dropdown poblado con `list_available_plans` | ✅ |
