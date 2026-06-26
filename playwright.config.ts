@@ -49,6 +49,8 @@ const FRONTEND_URL = process.env.E2E_FRONTEND_URL || 'http://localhost:3002';
 const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:3001';
 const MOCK_ENHANCE_PORT = process.env.E2E_MOCK_ENHANCE_PORT || '3099';
 const MOCK_ENHANCE_URL = `http://127.0.0.1:${MOCK_ENHANCE_PORT}`;
+const MOCK_RC_PORT = process.env.E2E_MOCK_RC_PORT || '3098';
+const MOCK_RC_URL = `http://127.0.0.1:${MOCK_RC_PORT}`;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -159,6 +161,21 @@ export default defineConfig({
       command:
         'pnpm --dir backend exec ts-node --transpile-only --project ../tests/e2e/fixtures/tsconfig.mock-runner.json ../tests/e2e/fixtures/mock-enhance-runner.ts',
       url: `${MOCK_ENHANCE_URL}/version`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      // Sprint 15D / GL-26 — MockResellerClubServer standalone para el spec
+      // `sprint-15d-resellerclub-flow.spec.ts` (E2E del comercio de dominios).
+      // Mismo patrón que el mock-enhance (proceso separado gestionado por
+      // Playwright). El spec apunta el plugin `resellerclub` a este mock vía
+      // `plugin_installs.config.__base_url_override`. Health: el endpoint de
+      // pricing del mock responde 200 (no hay /version dedicado).
+      command:
+        'pnpm --dir backend exec ts-node --transpile-only --project ../tests/e2e/fixtures/tsconfig.mock-runner.json ../tests/e2e/fixtures/mock-resellerclub-runner.ts',
+      url: `${MOCK_RC_URL}/products/reseller-price.json`,
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
       stdout: 'pipe',
