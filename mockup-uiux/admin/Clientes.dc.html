@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  input[type=checkbox] { accent-color: #3B82F6; cursor: pointer; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap">
+    <div>
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 5px">Clientes</h1>
+      <p style="font-size:13.5px;color:#64748B;margin:0">{{ subtitle }}</p>
+    </div>
+    <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease,border-color .15s ease" style-hover="background:#F8FAFC;border-color:#CBD5E1">
+      <svg width="16" height="16" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      Exportar
+    </button>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:240px">
+      <svg width="17" height="17" viewBox="0 0 24 24" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" value="{{ search }}" onInput="{{ onSearch }}" placeholder="Buscar por nombre o email..." style="width:100%;height:40px;padding:0 14px 0 38px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13.5px;font-family:inherit;color:#0F172A;outline:none;transition:border-color .15s ease" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+    </div>
+    <div style="position:relative">
+      <select value="{{ status }}" onChange="{{ onStatus }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6">
+        <option value="">Todos los estados</option>
+        <option value="active">Activo</option>
+        <option value="pending_verification">Pendiente</option>
+        <option value="blocked">Bloqueado</option>
+        <option value="inactive">Inactivo</option>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+    <div style="position:relative">
+      <select value="{{ type }}" onChange="{{ onType }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6">
+        <option value="">Todos los tipos</option>
+        <option value="individual">Particular</option>
+        <option value="company">Empresa</option>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:#FBFCFD">
+          <th style="width:44px;padding:12px 0 12px 18px;text-align:left"><input type="checkbox" checked="{{ allSel }}" onChange="{{ toggleAll }}" style="width:15px;height:15px"></th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Cliente</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Email</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Tipo</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Estado</th>
+          <th style="padding:12px 18px 12px 16px;text-align:right;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Registro</th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+          <tr onClick="{{ r.go }}" style="{{ r.rowStyle }}" style-hover="background:#FBFCFF">
+            <td style="padding:0 0 0 18px" onClick="{{ r.stop }}"><input type="checkbox" checked="{{ r.selected }}" onChange="{{ r.toggle }}" style="width:15px;height:15px"></td>
+            <td style="padding:13px 16px">
+              <div style="display:flex;align-items:center;gap:12px;min-width:0">
+                <span style="{{ r.avatarStyle }}">{{ r.initials }}</span>
+                <div style="min-width:0">
+                  <div style="font-size:13.5px;font-weight:600;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div>
+                  <sc-if value="{{ r.showCompany }}" hint-placeholder-val="{{ false }}"><div style="font-size:11.5px;color:#94A3B8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.company }}</div></sc-if>
+                </div>
+              </div>
+            </td>
+            <td style="padding:13px 16px;font-size:13px;color:#64748B;white-space:nowrap">{{ r.email }}</td>
+            <td style="padding:13px 16px;font-size:13px;color:#64748B">{{ r.tipo }}</td>
+            <td style="padding:13px 16px"><span style="{{ r.statusStyle }}">{{ r.statusLabel }}</span></td>
+            <td style="padding:13px 18px 13px 16px;font-size:12.5px;color:#94A3B8;text-align:right;white-space:nowrap">{{ r.registro }}</td>
+          </tr>
+        </sc-for>
+      </tbody>
+    </table>
+
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:56px 24px;text-align:center">
+        <svg width="40" height="40" viewBox="0 0 24 24" style="color:#CBD5E1;margin:0 auto 14px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <div style="font-size:15px;font-weight:600;color:#0F172A;margin-bottom:5px">Sin resultados</div>
+        <div style="font-size:13px;color:#94A3B8">No se encontraron clientes con esos filtros.</div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showPagination }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;flex-wrap:wrap">
+      <span style="font-size:12.5px;color:#94A3B8">{{ rangeLabel }}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button type="button" onClick="{{ goPrev }}" style="{{ prevStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+        <sc-for list="{{ pages }}" as="p" hint-placeholder-count="2">
+          <button type="button" onClick="{{ p.go }}" style="{{ p.style }}">{{ p.n }}</button>
+        </sc-for>
+        <button type="button" onClick="{{ goNext }}" style="{{ nextStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;padding:10px 12px 10px 18px;background:#0F172A;border-radius:14px;box-shadow:0 12px 40px rgba(15,23,42,0.28)">
+      <span style="font-size:13px;font-weight:600;color:#fff">{{ selectedCount }} seleccionado{{ selPlural }}</span>
+      <div style="width:1px;height:20px;background:rgba(255,255,255,0.18)"></div>
+      <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;border:none;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">
+        <svg width="15" height="15" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Exportar
+      </button>
+      <button type="button" onClick="{{ clearSel }}" title="Quitar selección" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:none;background:transparent;color:#94A3B8;cursor:pointer;font-family:inherit" style-hover="background:rgba(255,255,255,0.08);color:#fff">
+        <svg width="16" height="16" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 860 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = { search: '', status: '', type: '', page: 1, selected: [] };
+
+  data() {
+    return [
+      { id: 'c1', name: 'Carla Ruiz', initials: 'CR', email: 'carla@carla-estudio.com', type: 'company', company: 'Carla Estudio', status: 'active', registro: '12 mar 2026' },
+      { id: 'c2', name: 'Diego Sanz', initials: 'DS', email: 'diego.sanz@gmail.com', type: 'individual', company: '', status: 'active', registro: '3 abr 2026' },
+      { id: 'c3', name: 'Núria Pons', initials: 'NP', email: 'nuria@panaderiapons.es', type: 'company', company: 'Panadería Pons', status: 'active', registro: '28 ene 2026' },
+      { id: 'c4', name: 'Tomás Gil', initials: 'TG', email: 'tomas@gildevelop.com', type: 'company', company: 'Gil Develop', status: 'pending_verification', registro: '22 jun 2026' },
+      { id: 'c5', name: 'Estudio Marfil', initials: 'EM', email: 'hola@estudiomarfil.com', type: 'company', company: 'Estudio Marfil', status: 'active', registro: '24 jun 2026' },
+      { id: 'c6', name: 'Laura Méndez', initials: 'LM', email: 'laura.mendez@outlook.com', type: 'individual', company: '', status: 'active', registro: '15 may 2026' },
+      { id: 'c7', name: 'Hugo Serra', initials: 'HS', email: 'hugo@serralegal.es', type: 'company', company: 'Serra Legal', status: 'inactive', registro: '9 nov 2025' },
+      { id: 'c8', name: 'Pau Bonet', initials: 'PB', email: 'pau@bonetfoto.com', type: 'individual', company: '', status: 'active', registro: '2 feb 2026' },
+      { id: 'c9', name: 'Inmobiliaria Vela', initials: 'IV', email: 'admin@inmovela.es', type: 'company', company: 'Inmobiliaria Vela', status: 'blocked', registro: '18 dic 2025' },
+      { id: 'c10', name: 'Sara Gómez', initials: 'SG', email: 'sara@sara-estudio.com', type: 'company', company: 'Sara Estudio', status: 'active', registro: '30 abr 2026' },
+      { id: 'c11', name: 'Óscar Ramos', initials: 'OR', email: 'oscar.ramos@gmail.com', type: 'individual', company: '', status: 'pending_verification', registro: '21 jun 2026' },
+      { id: 'c12', name: 'Clínica Dental Sur', initials: 'CD', email: 'info@dentalsur.es', type: 'company', company: 'Clínica Dental Sur', status: 'active', registro: '11 mar 2026' },
+      { id: 'c13', name: 'Elena Track', initials: 'ET', email: 'elena@trackmedia.es', type: 'company', company: 'Track Media', status: 'active', registro: '7 abr 2026' },
+      { id: 'c14', name: 'Javier Lillo', initials: 'JL', email: 'jlillo@protonmail.com', type: 'individual', company: '', status: 'inactive', registro: '25 oct 2025' },
+    ];
+  }
+
+  renderVals() {
+    const nav = (id) => { if (this.props.navigate) this.props.navigate(id); };
+    const PAL = [['#EFF4FF', '#3B82F6'], ['#E8F7F1', '#0E8C5F'], ['#F1ECFB', '#7C5CCB'], ['#FCF3E1', '#B27A12'], ['#E9F0FB', '#475569'], ['#FCECEC', '#D14343']];
+    const STATUS = {
+      active: { label: 'Activo', bg: '#E8F7F1', fg: '#0E8C5F' },
+      pending_verification: { label: 'Pendiente', bg: '#FCF3E1', fg: '#B27A12' },
+      blocked: { label: 'Bloqueado', bg: '#FCECEC', fg: '#D14343' },
+      inactive: { label: 'Inactivo', bg: '#F1F5F9', fg: '#64748B' },
+    };
+    const all = this.data();
+    const q = (this.state.search || '').toLowerCase().trim();
+    const status = this.state.status || '';
+    const type = this.state.type || '';
+    const filtered = all.filter((c) =>
+      (!q || c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)) &&
+      (!status || c.status === status) &&
+      (!type || c.type === type)
+    );
+    const limit = 10;
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const page = Math.min(this.state.page || 1, totalPages);
+    const start = (page - 1) * limit;
+    const pageItems = filtered.slice(start, start + limit);
+    const selected = this.state.selected || [];
+
+    const badge = (st) => 'display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11.5px;font-weight:600;background:' + st.bg + ';color:' + st.fg + ';';
+    const avatar = (pal) => 'width:36px;height:36px;border-radius:9999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;background:' + pal[0] + ';color:' + pal[1] + ';';
+
+    const rows = pageItems.map((c) => {
+      const pal = PAL[c.name.charCodeAt(0) % PAL.length];
+      const st = STATUS[c.status] || STATUS.inactive;
+      const isSel = selected.includes(c.id);
+      return {
+        id: c.id, name: c.name, initials: c.initials, email: c.email,
+        tipo: c.type === 'company' ? 'Empresa' : 'Particular',
+        company: c.company, showCompany: !!c.company,
+        registro: c.registro,
+        statusLabel: st.label, statusStyle: badge(st),
+        avatarStyle: avatar(pal),
+        selected: isSel,
+        rowStyle: 'border-top:1px solid #F4F6F9;cursor:pointer;transition:background .12s ease;' + (isSel ? 'background:#F6F9FF;' : ''),
+        toggle: () => this.setState((s) => {
+          const set = new Set(s.selected || []);
+          if (set.has(c.id)) set.delete(c.id); else set.add(c.id);
+          return { selected: [...set] };
+        }),
+        stop: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+        go: () => nav('client-detail'),
+      };
+    });
+
+    const pageIds = pageItems.map((c) => c.id);
+    const allSel = pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
+
+    const from = total === 0 ? 0 : start + 1;
+    const to = Math.min(start + limit, total);
+    const pageBtn = (active) => 'min-width:34px;height:34px;padding:0 8px;border-radius:9px;border:1px solid ' + (active ? '#3B82F6' : '#E2E8F0') + ';background:' + (active ? '#3B82F6' : '#fff') + ';color:' + (active ? '#fff' : '#475569') + ';font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;';
+    const arrowBtn = (disabled) => 'display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:' + (disabled ? '#CBD5E1' : '#475569') + ';cursor:' + (disabled ? 'default' : 'pointer') + ';font-family:inherit;';
+    const pages = Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => ({
+      n: String(n), style: pageBtn(n === page), go: () => this.setState({ page: n }),
+    }));
+
+    return {
+      subtitle: (q || status || type) ? (total + (total === 1 ? ' resultado' : ' resultados')) : (all.length + ' clientes registrados'),
+      search: this.state.search || '',
+      status, type,
+      onSearch: (e) => this.setState({ search: e.target.value, page: 1 }),
+      onStatus: (e) => this.setState({ status: e.target.value, page: 1 }),
+      onType: (e) => this.setState({ type: e.target.value, page: 1 }),
+      rows,
+      isEmpty: rows.length === 0,
+      allSel,
+      toggleAll: () => this.setState((s) => {
+        const set = new Set(s.selected || []);
+        if (allSel) pageIds.forEach((id) => set.delete(id));
+        else pageIds.forEach((id) => set.add(id));
+        return { selected: [...set] };
+      }),
+      showPagination: totalPages > 1,
+      rangeLabel: from + '–' + to + ' de ' + total,
+      pages,
+      goPrev: () => this.setState({ page: Math.max(1, page - 1) }),
+      goNext: () => this.setState({ page: Math.min(totalPages, page + 1) }),
+      prevStyle: arrowBtn(page <= 1),
+      nextStyle: arrowBtn(page >= totalPages),
+      hasSelection: selected.length > 0,
+      selectedCount: selected.length,
+      selPlural: selected.length === 1 ? '' : 's',
+      clearSel: () => this.setState({ selected: [] }),
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

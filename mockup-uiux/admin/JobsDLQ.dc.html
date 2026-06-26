@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  input[type=checkbox] { accent-color: #3B82F6; cursor: pointer; }
+  @keyframes jbPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+  @keyframes jbSpin { to { transform: rotate(360deg); } }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap">
+    <div>
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 5px">Jobs en DLQ</h1>
+      <p style="font-size:13.5px;color:#64748B;margin:0">{{ subtitle }}</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px;height:36px;padding:0 13px;border-radius:9px;border:1px solid #E2E8F0;background:#fff">
+        <span style="width:7px;height:7px;border-radius:9999px;background:#10B981;animation:jbPulse 1.8s ease-in-out infinite"></span>
+        <span style="font-size:12px;font-weight:600;color:#475569">En vivo</span>
+        <span style="font-size:12px;color:#94A3B8">· {{ refreshedLabel }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:flex-start;gap:11px;padding:12px 15px;border-radius:11px;border:1px solid #E6E1F6;background:#F7F5FD;margin-bottom:18px">
+    <svg width="17" height="17" viewBox="0 0 24 24" style="color:#7C5CCB;flex-shrink:0;margin-top:1px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+    <div style="font-size:12.5px;color:#5B4A8A;line-height:1.5"><strong style="font-weight:600;color:#4A3B78">Acción restringida a Superadmin.</strong> Reintentar un job re-ejecuta sus efectos (emails, PDFs, integraciones). Solo el rol con visión global puede reencolar (CASL <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;background:#EDE8F8;padding:1px 6px;border-radius:5px">Manage&nbsp;Job</span>).</div>
+  </div>
+
+  <div style="display:flex;align-items:flex-end;gap:2px;border-bottom:1px solid #E8EDF4;margin-bottom:18px;overflow-x:auto">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+      <button type="button" onClick="{{ t.go }}" style="{{ t.style }}" style-hover="{{ t.hover }}">
+        <span>{{ t.label }}</span>
+        <span style="{{ t.countStyle }}">{{ t.count }}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:240px">
+      <svg width="17" height="17" viewBox="0 0 24 24" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" value="{{ search }}" onInput="{{ onSearch }}" placeholder="Buscar por nombre de job, error o job id..." style="width:100%;height:40px;padding:0 14px 0 38px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13.5px;font-family:inherit;color:#0F172A;outline:none;transition:border-color .15s ease" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+    </div>
+    <div style="position:relative">
+      <select value="{{ queue }}" onChange="{{ onQueue }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;max-width:230px" style-focus="border-color:#3B82F6">
+        <option value="">Todas las colas</option>
+        <sc-for list="{{ queueOpts }}" as="q" hint-placeholder-count="5">
+          <option value="{{ q.value }}">{{ q.label }}</option>
+        </sc-for>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+      <thead>
+        <tr style="background:#FBFCFD">
+          <th style="width:42px;padding:12px 0 12px 18px;text-align:left"><input type="checkbox" checked="{{ allSel }}" onChange="{{ toggleAll }}" style="width:15px;height:15px"></th>
+          <th style="width:188px;padding:12px 14px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Cola · Job</th>
+          <th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Último error</th>
+          <th style="width:88px;padding:12px 14px;text-align:center;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Intentos</th>
+          <th style="width:124px;padding:12px 14px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Estado</th>
+          <th style="width:116px;padding:12px 14px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Cuándo</th>
+          <th style="width:46px;padding:12px 16px 12px 0"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+          <tr onClick="{{ r.toggleExpand }}" style="{{ r.rowStyle }}" style-hover="background:#FBFCFF">
+            <td style="padding:0 0 0 18px;vertical-align:top;padding-top:16px" onClick="{{ r.stop }}"><input type="checkbox" checked="{{ r.selected }}" onChange="{{ r.toggleSel }}" style="width:15px;height:15px"></td>
+            <td style="padding:14px;vertical-align:top">
+              <div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;font-weight:600;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div>
+              <div style="display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:2px 8px;border-radius:6px;background:#F1F5F9;max-width:100%">
+                <svg width="11" height="11" viewBox="0 0 24 24" style="color:#94A3B8;flex-shrink:0"><line x1="22" y1="12" x2="2" y2="12"></line><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
+                <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.queue }}</span>
+              </div>
+            </td>
+            <td style="padding:14px;vertical-align:top;min-width:0">
+              <div style="{{ r.errStyle }}">{{ r.lastError }}</div>
+            </td>
+            <td style="padding:14px;vertical-align:top;text-align:center">
+              <span style="{{ r.attemptStyle }}">{{ r.attemptsLabel }}</span>
+            </td>
+            <td style="padding:14px;vertical-align:top">
+              <span style="{{ r.statusStyle }}"><span style="{{ r.statusIconWrap }}">{{ r.statusGlyph }}</span>{{ r.statusLabel }}</span>
+            </td>
+            <td style="padding:14px;vertical-align:top"><span style="font-size:12.5px;color:#64748B;white-space:nowrap" title="{{ r.when }}">{{ r.ago }}</span></td>
+            <td style="padding:14px 16px 14px 0;text-align:right;vertical-align:top">
+              <svg width="17" height="17" viewBox="0 0 24 24" style="color:#CBD5E1;transition:transform .18s ease;{{ r.chevTransform }}"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </td>
+          </tr>
+          <sc-if value="{{ r.expanded }}" hint-placeholder-val="{{ false }}">
+            <tr>
+              <td colspan="7" style="padding:0;border-top:1px solid #F4F6F9;background:#FAFBFD">
+                <div style="padding:18px 24px 22px 60px">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 32px;margin-bottom:18px">
+                    <div>
+                      <div style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#94A3B8;margin-bottom:7px">Error completo</div>
+                      <div style="font-size:13px;color:#B42318;line-height:1.55;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">{{ r.lastError }}</div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:auto 1fr;gap:9px 16px;align-content:start;font-size:12.5px">
+                      <span style="color:#94A3B8">Cola</span>
+                      <span style="color:#334155;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px">{{ r.queue }}</span>
+                      <span style="color:#94A3B8">Bull job id</span>
+                      <span style="color:#334155;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px">{{ r.bullId }}</span>
+                      <span style="color:#94A3B8">Intentos</span>
+                      <span style="color:#334155">{{ r.attemptsFull }}</span>
+                      <span style="color:#94A3B8">En DLQ desde</span>
+                      <span style="color:#334155">{{ r.when }}</span>
+                    </div>
+                  </div>
+
+                  <div style="margin-bottom:16px">
+                    <div style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#94A3B8;margin-bottom:7px">Payload del job</div>
+                    <pre style="margin:0;padding:13px 16px;background:#fff;border:1px solid #E8EDF4;border-radius:10px;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.6;color:#334155;white-space:pre">{{ r.payload }}</pre>
+                  </div>
+
+                  <div style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#94A3B8;margin-bottom:7px">Stack trace</div>
+                  <pre style="margin:0;padding:14px 16px;background:#0F172A;border-radius:10px;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.65;color:#CBD5E1;white-space:pre">{{ r.stack }}</pre>
+
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;flex-wrap:wrap">
+                    <sc-if value="{{ r.hasAudit }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;align-items:center;gap:9px;font-size:12.5px;color:#475569">
+                        <span style="{{ r.auditIconWrap }}">{{ r.auditGlyph }}</span>
+                        <span>{{ r.auditText }} <strong style="color:#0F172A;font-weight:600">{{ r.retriedBy }}</strong> · {{ r.retriedAt }}</span>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ r.canRetryHint }}" hint-placeholder-val="{{ true }}">
+                      <span style="font-size:12px;color:#94A3B8">Al reintentar, el job se reencola con <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px">attempts=5</span> reseteado. Si vuelve a fallar, se crea una entrada nueva en DLQ.</span>
+                    </sc-if>
+                    <div style="display:flex;align-items:center;gap:9px;flex-shrink:0">
+                      <button type="button" onClick="{{ r.copyId }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 13px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFC;border-color:#CBD5E1">
+                        <svg width="14" height="14" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        Copiar job id
+                      </button>
+                      <sc-if value="{{ r.canRetry }}" hint-placeholder-val="{{ true }}">
+                        <button type="button" onClick="{{ r.retry }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 15px;border-radius:9px;border:none;background:#1D4ED8;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#1A44BD">
+                          <svg width="15" height="15" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                          Reintentar job
+                        </button>
+                      </sc-if>
+                      <sc-if value="{{ r.isRetrying }}" hint-placeholder-val="{{ false }}">
+                        <span style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:9px;background:#EEF4FF;color:#1D4ED8;font-size:12.5px;font-weight:600">
+                          <svg width="14" height="14" viewBox="0 0 24 24" style="animation:jbSpin 1s linear infinite"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                          Reencolado
+                        </span>
+                      </sc-if>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </sc-if>
+        </sc-for>
+      </tbody>
+    </table>
+
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:60px 24px;text-align:center">
+        <svg width="42" height="42" viewBox="0 0 24 24" style="color:#CBD5E1;margin:0 auto 14px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        <div style="font-size:15px;font-weight:600;color:#0F172A;margin-bottom:5px">{{ emptyTitle }}</div>
+        <div style="font-size:13px;color:#94A3B8">{{ emptyBody }}</div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showPagination }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;flex-wrap:wrap">
+      <span style="font-size:12.5px;color:#94A3B8">{{ rangeLabel }}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button type="button" onClick="{{ goPrev }}" style="{{ prevStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+        <sc-for list="{{ pages }}" as="p" hint-placeholder-count="2">
+          <button type="button" onClick="{{ p.go }}" style="{{ p.style }}">{{ p.n }}</button>
+        </sc-for>
+        <button type="button" onClick="{{ goNext }}" style="{{ nextStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;padding:10px 12px 10px 18px;background:#0F172A;border-radius:14px;box-shadow:0 12px 40px rgba(15,23,42,0.28)">
+      <span style="font-size:13px;font-weight:600;color:#fff">{{ selectedCount }} seleccionado{{ selPlural }}</span>
+      <span style="font-size:11.5px;color:#94A3B8">{{ retryableNote }}</span>
+      <div style="width:1px;height:20px;background:rgba(255,255,255,0.18)"></div>
+      <button type="button" onClick="{{ retrySelected }}" style="{{ bulkRetryStyle }}">
+        <svg width="15" height="15" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+        Reintentar {{ retryableCount }}
+      </button>
+      <button type="button" onClick="{{ clearSel }}" title="Quitar selección" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:none;background:transparent;color:#94A3B8;cursor:pointer;font-family:inherit" style-hover="background:rgba(255,255,255,0.08);color:#fff">
+        <svg width="16" height="16" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:70;display:flex;align-items:center;gap:9px;padding:11px 16px;background:#0F172A;border-radius:11px;box-shadow:0 10px 30px rgba(15,23,42,0.26);font-size:13px;font-weight:500;color:#fff">
+      <svg width="16" height="16" viewBox="0 0 24 24" style="color:#60A5FA"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+      {{ toast }}
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 940 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = { search: '', tab: 'failed', queue: '', page: 1, selected: [], expanded: null, retried: {}, toast: null };
+
+  componentWillUnmount() { if (this._t) clearTimeout(this._t); }
+
+  flash(msg) {
+    if (this._t) clearTimeout(this._t);
+    this.setState({ toast: msg });
+    this._t = setTimeout(() => this.setState({ toast: null }), 2600);
+  }
+
+  queues() {
+    return ['notifications-dispatch', 'provisioning-reconcile', 'domains-pricing-sync', 'billing-pdf', 'support-inside-sync'];
+  }
+
+  data() {
+    return [
+      { id: 'j0', bullId: '48211', queue: 'notifications-dispatch', name: 'dispatch-email', lastError: 'SMTP connection refused (ECONNREFUSED 10.0.0.4:587)', attempts: 5, status: 'failed', when: '24 jun 2026, 14:41:09', ago: 'hace 4 min',
+        payload: '{\n  "event_type": "invoice.payment_failed",\n  "recipient": "usr_2210",\n  "channel": "email",\n  "template": "invoice.payment_failed",\n  "vars": { "invoice": "INV-00151", "amount": "49.00" }\n}',
+        stack: "Error: SMTP connection refused (ECONNREFUSED 10.0.0.4:587)\n    at SmtpTransport.send (modules/notifications/channels/email.channel.ts:61:13)\n    at NotificationsDispatchProcessor.process (modules/notifications/notifications-dispatch.processor.ts:118:9)\n    at Worker.processJob (node_modules/bullmq/dist/cjs/classes/worker.js:402:28)" },
+      { id: 'j1', bullId: '47980', queue: 'provisioning-reconcile', name: 'reconcile-service', lastError: 'Enhance API timeout after 30000ms while reconciling svc_8821', attempts: 5, status: 'failed', when: '24 jun 2026, 14:18:52', ago: 'hace 26 min',
+        payload: '{\n  "service_id": "svc_8821",\n  "provisioner": "enhance_cp",\n  "reason": "drift_detected",\n  "subscription_id": null\n}',
+        stack: "TimeoutError: Request timed out after 30000ms\n    at EnhanceClient.request (plugins/enhance-cp/client.ts:142:13)\n    at async ReconcileJob.sync (modules/provisioning/jobs/reconcile.job.ts:91:13)\n    at Worker.processJob (node_modules/bullmq/dist/cjs/classes/worker.js:402:28)" },
+      { id: 'j2', bullId: '47604', queue: 'billing-pdf', name: 'render-invoice-pdf', lastError: 'Navigation timeout of 15000 ms exceeded', attempts: 5, status: 'failed', when: '24 jun 2026, 13:09:31', ago: 'hace 1 h',
+        payload: '{\n  "invoice_id": "INV-00142",\n  "renderer": "puppeteer",\n  "locale": "es"\n}',
+        stack: "TimeoutError: Navigation timeout of 15000 ms exceeded\n    at PdfRenderer.render (modules/billing/pdf/pdf-renderer.ts:58:19)\n    at BillingPdfProcessor.process (modules/billing/pdf/billing-pdf.processor.ts:44:22)" },
+      { id: 'j3', bullId: '47588', queue: 'domains-pricing-sync', name: 'sync-tld-pricing', lastError: 'ResellerClub responded 502 Bad Gateway', attempts: 5, status: 'failed', when: '24 jun 2026, 12:30:04', ago: 'hace 2 h',
+        payload: '{\n  "provider": "resellerclub",\n  "tlds": [".com", ".es", ".io"],\n  "trigger": "cron:pricing-daily"\n}',
+        stack: "UpstreamError: ResellerClub responded 502 Bad Gateway\n    at ResellerClubClient.get (plugins/resellerclub/client.ts:96:15)\n    at PricingSyncJob.run (modules/domains/jobs/pricing-sync.job.ts:73:11)" },
+      { id: 'j4', bullId: '47120', queue: 'notifications-dispatch', name: 'dispatch-in-app', lastError: "Cannot read properties of undefined (reading 'userId')", attempts: 5, status: 'retrying', when: '24 jun 2026, 11:02:47', ago: 'hace 3 h', retriedBy: 'Marc Oliver', retriedAt: '24 jun 2026, 14:30',
+        payload: '{\n  "event_type": "task.assigned",\n  "recipient": null,\n  "channel": "internal",\n  "template": "task.assigned"\n}',
+        stack: "TypeError: Cannot read properties of undefined (reading 'userId')\n    at InAppChannel.send (modules/notifications/channels/in-app.channel.ts:38:42)\n    at NotificationsDispatchProcessor.process (modules/notifications/notifications-dispatch.processor.ts:118:9)" },
+      { id: 'j5', bullId: '46903', queue: 'support-inside-sync', name: 'provision-slot', lastError: 'Support Inside rejected API key (code INVALID_KEY)', attempts: 5, status: 'retrying', when: '24 jun 2026, 09:48:12', ago: 'hace 5 h', retriedBy: 'Lucía Fernández', retriedAt: '24 jun 2026, 12:10',
+        payload: '{\n  "account": "aelium-main",\n  "service_id": "svc_7732",\n  "plan": "pro"\n}',
+        stack: "AuthError: Support Inside rejected API key (code INVALID_KEY)\n    at SupportInsideClient.provisionSlot (plugins/support-inside/client.ts:120:17)\n    at SupportInsideSyncProcessor.process (modules/support-inside/sync.processor.ts:52:20)" },
+      { id: 'j6', bullId: '46550', queue: 'provisioning-reconcile', name: 'reconcile-service', lastError: 'Enhance returned 503 Service Unavailable', attempts: 5, status: 'resolved', when: '23 jun 2026, 18:22:40', ago: 'ayer, 18:22', retriedBy: 'Marc Oliver', retriedAt: '23 jun 2026, 18:25',
+        payload: '{\n  "service_id": "svc_7401",\n  "provisioner": "enhance_cp",\n  "reason": "scheduled_reconcile"\n}',
+        stack: "RetryableError: Enhance returned 503, retrying\n    at ReconcileJob.sync (modules/provisioning/jobs/reconcile.job.ts:91:13)" },
+      { id: 'j7', bullId: '46201', queue: 'notifications-dispatch', name: 'dispatch-email', lastError: 'Template render failed: missing variable {{amount}}', attempts: 5, status: 'resolved', when: '23 jun 2026, 14:05:18', ago: 'ayer, 14:05', retriedBy: 'Sistema', retriedAt: '23 jun 2026, 14:40',
+        payload: '{\n  "event_type": "invoice.created",\n  "recipient": "usr_1102",\n  "channel": "email",\n  "template": "invoice.created"\n}',
+        stack: "TemplateError: missing variable {{amount}}\n    at NotificationTemplateService.render (modules/notifications/notification-template.service.ts:204:13)" },
+      { id: 'j8', bullId: '45980', queue: 'billing-pdf', name: 'render-invoice-pdf', lastError: 'Out of memory: renderer process killed', attempts: 5, status: 'resolved', when: '22 jun 2026, 23:11:02', ago: 'hace 2 d', retriedBy: 'Marc Oliver', retriedAt: '23 jun 2026, 08:30',
+        payload: '{\n  "invoice_id": "INV-00120",\n  "renderer": "puppeteer",\n  "locale": "es"\n}',
+        stack: "Error: Out of memory: renderer process killed\n    at PdfRenderer.render (modules/billing/pdf/pdf-renderer.ts:58:19)" },
+    ];
+  }
+
+  renderVals() {
+    const s = this.state;
+
+    const ST = {
+      failed: { label: 'Fallido', bg: '#FCECEC', fg: '#D14343', glyph: '!', iconBg: '#F7C8C8' },
+      retrying: { label: 'Reencolado', bg: '#EEF4FF', fg: '#1D4ED8', glyph: '↻', iconBg: '#CFE0FF' },
+      resolved: { label: 'Resuelto', bg: '#E8F7F1', fg: '#0E8C5F', glyph: '✓', iconBg: '#BFE9D6' },
+    };
+
+    const all = this.data().map((j) => {
+      const ov = s.retried[j.id];
+      if (ov) return Object.assign({}, j, { status: 'retrying', retriedBy: 'Marc Oliver', retriedAt: '24 jun 2026, 14:46' });
+      return j;
+    });
+
+    const counts = { failed: 0, retrying: 0, resolved: 0 };
+    all.forEach((j) => { counts[j.status] = (counts[j.status] || 0) + 1; });
+
+    const tabDefs = [
+      { value: 'failed', label: 'Fallidos', tone: 'danger' },
+      { value: 'retrying', label: 'Reencolados', tone: 'info' },
+      { value: 'resolved', label: 'Resueltos', tone: 'success' },
+      { value: 'all', label: 'Todos', tone: 'neutral' },
+    ];
+    const TONE = { neutral: { bg: '#EEF1F5', fg: '#64748B' }, success: { bg: '#E8F7F1', fg: '#0E8C5F' }, danger: { bg: '#FCECEC', fg: '#D14343' }, info: { bg: '#EEF4FF', fg: '#1D4ED8' } };
+    const tabCounts = { failed: counts.failed, retrying: counts.retrying, resolved: counts.resolved, all: all.length };
+    const activeTab = s.tab || 'failed';
+
+    const tabs = tabDefs.map((t) => {
+      const isA = t.value === activeTab;
+      const tn = TONE[t.tone];
+      return {
+        label: t.label,
+        count: String(tabCounts[t.value] || 0),
+        style: 'display:flex;align-items:center;gap:8px;padding:11px 14px 12px;border:none;background:transparent;font-family:inherit;font-size:13.5px;cursor:pointer;white-space:nowrap;position:relative;color:' + (isA ? '#0F172A' : '#64748B') + ';font-weight:' + (isA ? '600' : '500') + ';box-shadow:' + (isA ? 'inset 0 -2px 0 #3B82F6' : 'none') + ';transition:color .15s ease;',
+        hover: isA ? '' : 'color:#0F172A;',
+        countStyle: 'min-width:20px;height:20px;padding:0 6px;border-radius:9999px;background:' + (isA ? tn.bg : '#F1F5F9') + ';color:' + (isA ? tn.fg : '#94A3B8') + ';font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;',
+        go: () => this.setState({ tab: t.value, page: 1, expanded: null }),
+      };
+    });
+
+    const queueOpts = this.queues().map((qn) => ({ value: qn, label: qn }));
+
+    const q = (s.search || '').toLowerCase().trim();
+    const filtered = all.filter((j) =>
+      (activeTab === 'all' || j.status === activeTab) &&
+      (!s.queue || j.queue === s.queue) &&
+      (!q || j.name.toLowerCase().includes(q) || j.lastError.toLowerCase().includes(q) || j.bullId.includes(q))
+    );
+
+    const limit = 6;
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const page = Math.min(s.page || 1, totalPages);
+    const start = (page - 1) * limit;
+    const pageItems = filtered.slice(start, start + limit);
+    const selected = s.selected || [];
+
+    const rows = pageItems.map((j) => {
+      const st = ST[j.status] || ST.failed;
+      const isSel = selected.includes(j.id);
+      const isExp = s.expanded === j.id;
+      const canRetry = j.status === 'failed';
+      const hasAudit = j.status === 'retrying' || j.status === 'resolved';
+      const auditIsResolved = j.status === 'resolved';
+      const auditTone = auditIsResolved ? ST.resolved : ST.retrying;
+      return {
+        id: j.id,
+        name: j.name,
+        queue: j.queue,
+        bullId: j.bullId,
+        lastError: j.lastError,
+        errStyle: 'font-size:13px;font-weight:500;color:' + (j.status === 'failed' ? '#B42318' : '#64748B') + ';line-height:1.45;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:' + (isExp ? '99' : '2') + ';-webkit-box-orient:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;',
+        attemptsLabel: j.attempts + '/5',
+        attemptStyle: 'display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:24px;padding:0 9px;border-radius:7px;font-size:12px;font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:' + (j.attempts >= 5 ? '#FCECEC' : '#F1F5F9') + ';color:' + (j.attempts >= 5 ? '#D14343' : '#64748B') + ';',
+        attemptsFull: j.attempts + ' de 5 (retries agotados)',
+        statusLabel: st.label,
+        statusGlyph: st.glyph,
+        statusStyle: 'display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 5px;border-radius:8px;font-size:12px;font-weight:600;background:' + st.bg + ';color:' + st.fg + ';',
+        statusIconWrap: 'display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:9999px;font-size:11px;font-weight:700;background:' + st.iconBg + ';color:' + st.fg + ';',
+        ago: j.ago,
+        when: j.when,
+        chevTransform: isExp ? 'transform:rotate(180deg)' : '',
+        rowStyle: 'border-top:1px solid #F4F6F9;cursor:pointer;transition:background .12s ease;' + (isExp ? 'background:#FAFBFD;' : (isSel ? 'background:#F6F9FF;' : '')),
+        selected: isSel,
+        expanded: isExp,
+        payload: j.payload,
+        stack: j.stack,
+        canRetry,
+        canRetryHint: canRetry,
+        isRetrying: j.status === 'retrying',
+        hasAudit,
+        auditText: auditIsResolved ? 'Resuelto tras reintento de' : 'Reencolado por',
+        auditGlyph: auditTone.glyph,
+        auditIconWrap: 'display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:9999px;flex-shrink:0;font-size:13px;font-weight:700;background:' + auditTone.iconBg + ';color:' + auditTone.fg + ';',
+        retriedBy: j.retriedBy || '—',
+        retriedAt: j.retriedAt || '',
+        toggleExpand: () => this.setState((stt) => ({ expanded: stt.expanded === j.id ? null : j.id })),
+        stop: (ev) => { if (ev && ev.stopPropagation) ev.stopPropagation(); },
+        toggleSel: () => this.setState((stt) => {
+          const set = new Set(stt.selected || []);
+          if (set.has(j.id)) set.delete(j.id); else set.add(j.id);
+          return { selected: [...set] };
+        }),
+        retry: (ev) => { if (ev && ev.stopPropagation) ev.stopPropagation(); this.setState((stt) => ({ retried: Object.assign({}, stt.retried, { [j.id]: true }) })); this.flash('Job reencolado en ' + j.queue); },
+        copyId: (ev) => { if (ev && ev.stopPropagation) ev.stopPropagation(); this.flash('Job id copiado: ' + j.bullId); },
+      };
+    });
+
+    const pageIds = pageItems.map((j) => j.id);
+    const allSel = pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
+    const from = total === 0 ? 0 : start + 1;
+    const to = Math.min(start + limit, total);
+    const pageBtn = (active) => 'min-width:34px;height:34px;padding:0 8px;border-radius:9px;border:1px solid ' + (active ? '#3B82F6' : '#E2E8F0') + ';background:' + (active ? '#3B82F6' : '#fff') + ';color:' + (active ? '#fff' : '#475569') + ';font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;';
+    const arrowBtn = (dis) => 'display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:' + (dis ? '#CBD5E1' : '#475569') + ';cursor:' + (dis ? 'default' : 'pointer') + ';font-family:inherit;';
+    const pages = Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => ({ n: String(n), style: pageBtn(n === page), go: () => this.setState({ page: n, expanded: null }) }));
+
+    const hasFilter = q || s.queue;
+    const retryableIds = selected.filter((id) => { const j = all.find((x) => x.id === id); return j && j.status === 'failed'; });
+    const canBulk = retryableIds.length > 0;
+
+    return {
+      subtitle: counts.failed === 0
+        ? 'Sin jobs fallidos — todas las colas al día'
+        : (counts.failed + (counts.failed === 1 ? ' job fallido espera revisión' : ' jobs fallidos esperan revisión')),
+      refreshedLabel: 'actualizado hace 8 s',
+      tabs,
+      queueOpts,
+      search: s.search || '',
+      queue: s.queue || '',
+      onSearch: (e) => this.setState({ search: e.target.value, page: 1 }),
+      onQueue: (e) => this.setState({ queue: e.target.value, page: 1, expanded: null }),
+      rows,
+      isEmpty: rows.length === 0,
+      emptyTitle: activeTab === 'failed' && !hasFilter ? 'Sin jobs fallidos' : 'Sin resultados',
+      emptyBody: activeTab === 'failed' && !hasFilter ? 'Ninguna cola tiene jobs en estado fallido. Todo procesado correctamente.' : 'Ningún job coincide con estos filtros.',
+      allSel,
+      toggleAll: () => this.setState((stt) => {
+        const set = new Set(stt.selected || []);
+        if (allSel) pageIds.forEach((id) => set.delete(id)); else pageIds.forEach((id) => set.add(id));
+        return { selected: [...set] };
+      }),
+      showPagination: totalPages > 1,
+      rangeLabel: from + '–' + to + ' de ' + total,
+      pages,
+      goPrev: () => this.setState({ page: Math.max(1, page - 1), expanded: null }),
+      goNext: () => this.setState({ page: Math.min(totalPages, page + 1), expanded: null }),
+      prevStyle: arrowBtn(page <= 1),
+      nextStyle: arrowBtn(page >= totalPages),
+      hasSelection: selected.length > 0,
+      selectedCount: selected.length,
+      selPlural: selected.length === 1 ? '' : 's',
+      retryableNote: canBulk ? '' : '· ninguno reintentable',
+      retryableCount: String(retryableIds.length),
+      bulkRetryStyle: 'display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;border:none;font-size:12.5px;font-weight:600;font-family:inherit;background:' + (canBulk ? '#3B82F6' : '#334155') + ';color:' + (canBulk ? '#fff' : '#64748B') + ';cursor:' + (canBulk ? 'pointer' : 'default') + ';',
+      retrySelected: () => { if (!canBulk) return; this.setState((stt) => { const re = Object.assign({}, stt.retried); retryableIds.forEach((id) => { re[id] = true; }); return { retried: re, selected: [] }; }); this.flash(retryableIds.length + (retryableIds.length === 1 ? ' job reencolado' : ' jobs reencolados')); },
+      clearSel: () => this.setState({ selected: [] }),
+      toast: s.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>

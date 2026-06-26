@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  textarea, select, input { font-family: inherit; }
+  input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  @keyframes plRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <!-- ===================== LIST ===================== -->
+  <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+    <div style="margin-bottom:24px">
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.015em;margin:0;color:#0F172A">Plugins de provisioning</h1>
+      <p style="font-size:13.5px;color:#64748B;margin:7px 0 0;max-width:600px;line-height:1.55;text-wrap:pretty">{{ listSubtitle }}</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
+      <sc-for list="{{ cards }}" as="c" hint-placeholder-count="5">
+        <button type="button" onClick="{{ c.open }}" style="display:flex;flex-direction:column;text-align:left;background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:20px;cursor:pointer;font-family:inherit;min-height:188px" style-hover="border-color:#CBD5E1;box-shadow:0 6px 20px rgba(15,23,42,0.08)">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:13px">
+            <span style="{{ c.logoStyle }}">{{ c.logo }}</span>
+            <span style="{{ c.badgeStyle }}"><span style="{{ c.badgeDot }}"></span>{{ c.badge }}</span>
+          </div>
+          <div style="font-size:15.5px;font-weight:700;color:#0F172A">{{ c.label }}</div>
+          <p style="font-size:12.5px;color:#64748B;line-height:1.5;margin:6px 0 0;flex:1;text-wrap:pretty">{{ c.desc }}</p>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:15px;padding-top:13px;border-top:1px solid #F1F5F9">
+            <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#7A8290;background:#F4F6F9;padding:2px 7px;border-radius:6px">{{ c.slug }}</code>
+            <span style="font-size:11.5px;color:#A8B0BC">v{{ c.version }}</span>
+            <div style="flex:1"></div>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:#3B82F6">Ver detalle<svg width="14" height="14" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></span>
+          </div>
+        </button>
+      </sc-for>
+    </div>
+
+    <p style="font-size:11.5px;color:#A8B0BC;margin:22px 0 0;line-height:1.55;max-width:640px">Los plugins se descubren del filesystem en el arranque; no se crean desde la interfaz. Un plugin que no pase la validación de contrato no aparece aquí. Los secretos se cifran con AES-256-GCM antes de persistirse.</p>
+  </sc-if>
+
+  <!-- ===================== DETAIL ===================== -->
+  <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+
+    <button type="button" onClick="{{ goList }}" style="display:inline-flex;align-items:center;gap:7px;border:none;background:none;color:#94A3B8;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:0;margin-bottom:18px" style-hover="color:#3B82F6">
+      <svg width="15" height="15" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>Volver a Plugins
+    </button>
+
+    <!-- header -->
+    <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:20px">
+      <span style="{{ d.logoStyle }}">{{ d.logo }}</span>
+      <div style="flex:1;min-width:0">
+        <h1 style="font-size:22px;font-weight:700;letter-spacing:-0.01em;color:#0F172A;margin:0">{{ d.label }}</h1>
+        <p style="font-size:13px;color:#64748B;margin:6px 0 0;max-width:680px;line-height:1.55;text-wrap:pretty">{{ d.desc }}</p>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:11px;font-size:12px;color:#94A3B8">
+          <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:#7A8290;background:#F4F6F9;padding:2px 8px;border-radius:6px">{{ d.slug }}</code>
+          <span style="color:#E2E8F0">·</span>
+          <span>{{ d.category }}</span>
+          <span style="color:#E2E8F0">·</span>
+          <span>v{{ d.version }}</span>
+          <span style="color:#E2E8F0">·</span>
+          <span>Actualizado {{ d.updated }}</span>
+        </div>
+      </div>
+      <span style="{{ d.statusStyle }}"><span style="{{ d.statusDot }}"></span>{{ d.status }}</span>
+    </div>
+
+    <!-- operational overview -->
+    <sc-if value="{{ d.showOverview }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:22px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px">
+          <h2 style="font-size:14px;font-weight:700;color:#0F172A;margin:0">Estado operativo</h2>
+          <span style="{{ d.healthStyle }}"><span style="{{ d.healthDot }}"></span>{{ d.healthLabel }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <sc-for list="{{ d.stats }}" as="st" hint-placeholder-count="4">
+            <div style="background:#F8FAFC;border-radius:12px;padding:14px 15px">
+              <div style="font-size:22px;font-weight:700;color:{{ st.color }};font-variant-numeric:tabular-nums;letter-spacing:-0.01em">{{ st.value }}</div>
+              <div style="font-size:11.5px;color:#94A3B8;margin-top:3px">{{ st.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:12px 15px;background:#F8FAFC;border-radius:11px;margin-bottom:18px;font-size:12.5px">
+          <span style="display:inline-flex;align-items:center;gap:7px;color:#64748B"><svg width="14" height="14" viewBox="0 0 24 24" style="color:#94A3B8"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>Última reconciliación <span style="color:#0F172A;font-weight:600">{{ d.lastRecon }}</span></span>
+          <span style="color:#E2E8F0">·</span>
+          <span style="color:#64748B">Próxima <span style="color:#0F172A;font-weight:600">{{ d.nextRecon }}</span></span>
+        </div>
+
+        <div style="font-size:12px;font-weight:700;color:#64748B;letter-spacing:0.02em;text-transform:uppercase;margin-bottom:10px">Drifts · últimas 24 h</div>
+        <sc-if value="{{ d.hasDrifts }}" hint-placeholder-val="{{ false }}">
+          <div style="border:1px solid #EEF1F5;border-radius:12px;overflow:hidden">
+            <sc-for list="{{ d.drifts }}" as="dr" hint-placeholder-count="2">
+              <div style="{{ dr.rowStyle }}">
+                <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:#475569;flex-shrink:0">{{ dr.svc }}</code>
+                <span style="{{ dr.kindStyle }}">{{ dr.kind }}</span>
+                <span style="font-size:11.5px;color:#94A3B8">{{ dr.ago }}</span>
+                <div style="flex:1"></div>
+                <sc-if value="{{ dr.canReconcile }}" hint-placeholder-val="{{ true }}">
+                  <button type="button" onClick="{{ dr.reconcile }}" style="height:30px;padding:0 12px;border-radius:8px;border:1px solid #E2E8F0;background:#fff;color:#3B82F6;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0" style-hover="background:#F8FBFF;border-color:#BFD8FF">Reconciliar</button>
+                </sc-if>
+                <sc-if value="{{ dr.applied }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#0E8C5F;flex-shrink:0"><svg width="13" height="13" viewBox="0 0 24 24" style="stroke-width:2.4"><polyline points="20 6 9 17 4 12"></polyline></svg>Corregido</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ d.noDrifts }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:center;gap:9px;padding:14px 16px;background:#F1FAF6;border:1px solid #D6EFE3;border-radius:12px;font-size:12.5px;color:#2F8A66"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E8C5F;stroke-width:2.2"><polyline points="20 6 9 17 4 12"></polyline></svg>Sin drifts en las últimas 24 horas.</div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- reconcile section -->
+    <sc-if value="{{ d.showReconcile }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:18px 22px;margin-bottom:16px">
+        <div style="min-width:0">
+          <div style="font-size:14px;font-weight:700;color:#0F172A">Reconciliar todos los servicios</div>
+          <p style="font-size:12.5px;color:#64748B;margin:4px 0 0;line-height:1.5;max-width:520px">Compara cada servicio contra {{ d.label }} y corrige las divergencias detectables. Se ejecuta en segundo plano.</p>
+        </div>
+        <button type="button" onClick="{{ d.reconcileAll }}" style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 17px;border-radius:10px;border:1px solid #BFD8FF;background:#fff;color:#2563EB;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0" style-hover="background:#F4F8FF"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>Reconciliar todos</button>
+      </div>
+    </sc-if>
+
+    <!-- CONFIG FORM -->
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:22px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px">
+        <h2 style="font-size:14px;font-weight:700;color:#0F172A;margin:0">Configuración general</h2>
+        <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#7A8290;background:#F4F6F9;padding:2px 7px;border-radius:6px">configSchema</code>
+      </div>
+      <p style="font-size:12px;color:#94A3B8;margin:0 0 18px">Definido por el manifest del plugin. Estos campos cambian según el proveedor.</p>
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <sc-for list="{{ d.configFields }}" as="f" hint-placeholder-count="3">
+          <div style="{{ f.wrapStyle }}">
+            <div style="{{ f.labelWrapStyle }}">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span style="font-size:13px;font-weight:600;color:#0F172A">{{ f.title }}</span>
+                <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#94A3B8;background:#F6F8FB;padding:1px 6px;border-radius:5px">{{ f.key }}</code>
+                <sc-if value="{{ f.required }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:700;color:#C0453F">obligatorio</span></sc-if>
+              </div>
+              <sc-if value="{{ f.hasDesc }}" hint-placeholder-val="{{ true }}"><p style="font-size:11.5px;color:#94A3B8;margin:5px 0 0;line-height:1.45;max-width:440px">{{ f.desc }}</p></sc-if>
+            </div>
+            <div style="{{ f.ctrlWrapStyle }}">
+              <sc-if value="{{ f.isText }}" hint-placeholder-val="{{ true }}">
+                <input type="text" value="{{ f.value }}" onInput="{{ f.onInput }}" placeholder="{{ f.placeholder }}" style="{{ f.inputStyle }}" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+              </sc-if>
+              <sc-if value="{{ f.isNumber }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:9px;justify-content:flex-end">
+                  <input type="number" value="{{ f.value }}" onInput="{{ f.onInput }}" style="width:130px;height:38px;border:1px solid #E2E8F0;border-radius:10px;padding:0 12px;font-size:13.5px;font-weight:600;color:#0F172A;outline:none;font-variant-numeric:tabular-nums;text-align:right" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+                  <span style="font-size:12.5px;color:#94A3B8;width:34px">{{ f.unit }}</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ f.isEnum }}" hint-placeholder-val="{{ false }}">
+                <select value="{{ f.value }}" onChange="{{ f.onInput }}" style="{{ f.selectStyle }}" style-focus="border-color:#3B82F6">
+                  <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="2"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+                </select>
+              </sc-if>
+              <sc-if value="{{ f.isBool }}" hint-placeholder-val="{{ false }}">
+                <button type="button" onClick="{{ f.onToggle }}" style="{{ f.switchTrack }}"><span style="{{ f.switchKnob }}"></span></button>
+              </sc-if>
+              <sc-if value="{{ f.isTextarea }}" hint-placeholder-val="{{ false }}">
+                <textarea value="{{ f.value }}" onInput="{{ f.onInput }}" rows="3" placeholder="{{ f.placeholder }}" style="width:100%;border:1px solid #E2E8F0;border-radius:11px;padding:11px 13px;font-size:13px;color:#0F172A;outline:none;resize:vertical;line-height:1.55;font-family:ui-monospace,SFMono-Regular,Menlo,monospace" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></textarea>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- SECRETS -->
+    <sc-if value="{{ d.hasSecrets }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:22px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px">
+          <h2 style="font-size:14px;font-weight:700;color:#0F172A;margin:0">Secretos</h2>
+          <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#7A8290;background:#F4F6F9;padding:2px 7px;border-radius:6px">secretsSchema</code>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#6D4FBF;background:#F1ECFB;padding:3px 8px;border-radius:9999px;margin-left:auto"><svg width="12" height="12" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>AES-256-GCM</span>
+        </div>
+        <p style="font-size:12px;color:#94A3B8;margin:0 0 18px">Cifrados en el SecretVault. Una vez guardados no se vuelven a mostrar; para cambiarlos hay que reintroducirlos.</p>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <sc-for list="{{ d.secretFields }}" as="s" hint-placeholder-count="1">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap">
+              <div style="flex:1;min-width:200px">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600;color:#0F172A">{{ s.title }}</span><code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#94A3B8;background:#F6F8FB;padding:1px 6px;border-radius:5px">{{ s.key }}</code></div>
+                <p style="font-size:11.5px;color:#94A3B8;margin:5px 0 0;line-height:1.45;max-width:440px">{{ s.desc }}</p>
+              </div>
+              <div style="flex-shrink:0;min-width:280px;display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+                <sc-if value="{{ s.editing }}" hint-placeholder-val="{{ false }}">
+                  <input type="password" value="{{ s.draft }}" onInput="{{ s.onInput }}" placeholder="{{ s.placeholder }}" autoComplete="new-password" style="width:280px;height:38px;border:1px solid #7C5CCB;border-radius:10px;padding:0 12px;font-size:13.5px;color:#0F172A;outline:none;letter-spacing:0.06em" style-focus="box-shadow:0 0 0 3px rgba(124,92,203,0.12)">
+                  <button type="button" onClick="{{ s.cancel }}" style="border:none;background:none;color:#94A3B8;font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;padding:0" style-hover="color:#64748B">Cancelar</button>
+                </sc-if>
+                <sc-if value="{{ s.masked }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <span style="{{ s.maskStyle }}">{{ s.maskText }}</span>
+                    <button type="button" onClick="{{ s.edit }}" style="height:34px;padding:0 14px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFC;border-color:#CBD5E1">{{ s.editLabel }}</button>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- STATE / ACTIONS -->
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:18px 22px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:14px;min-width:0">
+          <button type="button" onClick="{{ d.toggleEnabled }}" style="{{ d.enSwitchTrack }}"><span style="{{ d.enSwitchKnob }}"></span></button>
+          <div>
+            <div style="font-size:13.5px;font-weight:600;color:#0F172A">{{ d.enabledLabel }}</div>
+            <div style="font-size:11.5px;color:#94A3B8;margin-top:1px">{{ d.enabledHint }}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;flex-shrink:0">
+          <button type="button" onClick="{{ d.testConnection }}" disabled="{{ d.testDisabled }}" style="{{ d.testStyle }}" style-hover="{{ d.testHover }}"><svg width="15" height="15" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>Probar conexión</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- sticky save -->
+    <sc-if value="{{ d.dirty }}" hint-placeholder-val="{{ false }}">
+      <div style="position:sticky;bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:#0F172A;border-radius:14px;box-shadow:0 16px 40px rgba(15,23,42,0.28);padding:13px 16px 13px 20px;animation:plRise .2s ease">
+        <div style="display:flex;align-items:center;gap:11px;min-width:0">
+          <span style="width:30px;height:30px;border-radius:9px;background:rgba(224,164,34,0.18);color:#F0B83E;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></span>
+          <span style="font-size:13px;font-weight:600;color:#fff">Cambios sin guardar en la configuración</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;flex-shrink:0">
+          <button type="button" onClick="{{ d.discard }}" style="height:38px;padding:0 15px;border-radius:9px;border:1px solid rgba(255,255,255,0.18);background:transparent;color:#CBD5E1;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:rgba(255,255,255,0.08);color:#fff">Descartar</button>
+          <button type="button" onClick="{{ d.save }}" style="height:38px;padding:0 18px;border-radius:9px;border:none;background:#fff;color:#0F172A;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer" style-hover="background:#F1F5F9">Guardar cambios</button>
+        </div>
+      </div>
+    </sc-if>
+
+  </sc-if>
+
+  <!-- TOAST -->
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:10px;border-radius:11px;padding:12px 18px;font-size:13px;font-weight:600;color:#fff;animation:plRise .2s ease;background:{{ toastBg }};box-shadow:0 14px 36px {{ toastShadow }}">
+      <svg width="17" height="17" viewBox="0 0 24 24" style="stroke-width:2.4"><use href="{{ toastIcon }}"></use></svg>{{ toast }}
+    </div>
+  </sc-if>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="pl-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></symbol>
+    <symbol id="pl-refresh" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></symbol>
+    <symbol id="pl-alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></symbol>
+  </defs></svg>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 1040 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.PLUGINS = this.buildPlugins();
+    this.state = {
+      slug: null,
+      saved: {},     // slug -> { config, enabled, secrets:{field:configured} }
+      work: null,    // working copy for open plugin
+      toast: null, toastKind: 'ok',
+    };
+    this._t = null;
+  }
+
+  componentWillUnmount() { if (this._t) clearTimeout(this._t); }
+
+  buildPlugins() {
+    return [
+      {
+        slug: 'enhance_cp', label: 'Enhance Control Panel', logo: 'En', color: '#0F172A',
+        category: 'Hosting', version: '2.1.3', updated: 'el 18 jun 2026',
+        desc: 'Aprovisionamiento de hosting compartido y WordPress gestionado sobre Enhance. Crea, suspende y reactiva subscripciones, y expone SSO al panel del cliente.',
+        enabled: true, circuit: 'closed', caps: { reconciliation: true },
+        overview: {
+          stats: [
+            { label: 'Servicios activos', value: '47' },
+            { label: 'Errores 24 h', value: '3', warn: true },
+            { label: 'Latencia p50', value: '180ms' },
+            { label: 'Latencia p99', value: '640ms' },
+          ],
+          lastRecon: 'hace 12 min', nextRecon: 'en 48 min',
+          drifts: [
+            { svc: 'svc-001', kind: 'subscription_missing', ago: 'hace 2 h', applied: false },
+            { svc: 'svc-073', kind: 'plan_divergence', ago: 'hace 8 h', applied: true },
+          ],
+        },
+        config: [
+          { field: 'apiUrl', type: 'url', title: 'URL del Control Panel', desc: 'Endpoint base de la API de Enhance.', def: 'https://cp.aelium.host', required: true, placeholder: 'https://…' },
+          { field: 'orgId', type: 'string', title: 'Organization ID', desc: 'Identificador de la organización en Enhance.', def: 'org_8K2p', required: true },
+          { field: 'defaultServerGroup', type: 'enum', title: 'Grupo de servidores por defecto', desc: 'Dónde se aprovisionan los nuevos servicios.', def: 'eu-west-1', options: [{ value: 'eu-west-1', label: 'EU West (Ámsterdam)' }, { value: 'eu-central-1', label: 'EU Central (Fráncfort)' }] },
+          { field: 'provisioningTimeoutMs', type: 'number', title: 'Timeout de aprovisionamiento', desc: 'Tiempo máximo de espera por operación.', def: 30000, unit: 'ms' },
+          { field: 'serviceInfoCacheTtlSeconds', type: 'number', title: 'TTL de caché de service info', desc: 'Segundos que se cachea el estado del servicio (Amendment C).', def: 60, unit: 's' },
+        ],
+        secrets: [
+          { field: 'apiToken', title: 'Token de API', desc: 'Bearer token de servicio de Enhance.', configured: true },
+        ],
+      },
+      {
+        slug: 'resellerclub', label: 'ResellerClub', logo: 'Rc', color: '#2A7DE1',
+        category: 'Dominios / DNS', version: '0.9.2', updated: 'el 2 jun 2026',
+        desc: 'Registro y renovación de dominios y gestión de zonas DNS a través de la API HTTP de ResellerClub.',
+        enabled: true, circuit: 'closed', caps: { reconciliation: true },
+        overview: {
+          stats: [
+            { label: 'Dominios activos', value: '128' },
+            { label: 'Errores 24 h', value: '0' },
+            { label: 'Latencia p50', value: '310ms' },
+            { label: 'Latencia p99', value: '1.2s' },
+          ],
+          lastRecon: 'hace 41 min', nextRecon: 'en 19 min',
+          drifts: [],
+        },
+        config: [
+          { field: 'apiBaseUrl', type: 'url', title: 'URL base de la API', def: 'https://httpapi.com/api', required: true, placeholder: 'https://…' },
+          { field: 'resellerId', type: 'string', title: 'Reseller ID', desc: 'auth-userid de la cuenta de reseller.', def: '8472193', required: true },
+          { field: 'defaultNameservers', type: 'textarea', title: 'Nameservers por defecto', desc: 'Uno por línea. Se asignan a los dominios nuevos.', def: 'ns1.aelium.host\nns2.aelium.host' },
+          { field: 'testMode', type: 'boolean', title: 'Modo test (OT&E)', desc: 'Usa el entorno sandbox de ResellerClub en vez de producción.', def: false },
+          { field: 'timeoutMs', type: 'number', title: 'Timeout de petición', def: 20000, unit: 'ms' },
+        ],
+        secrets: [
+          { field: 'apiKey', title: 'API Key', desc: 'Clave de la API HTTP de ResellerClub.', configured: true },
+        ],
+      },
+      {
+        slug: 'internal', label: 'Support Inside', logo: 'Si', color: '#0E8C5F',
+        category: 'Soporte interno', version: '1.0.0', updated: 'el 28 abr 2026',
+        desc: 'Provisioner interno para los planes de Support Inside. No habla con ningún proveedor externo: gestiona los slots de soporte y genera las tareas de mantenimiento.',
+        enabled: true, circuit: 'closed', caps: { reconciliation: false },
+        overview: null,
+        config: [
+          { field: 'autoAssignRoundRobin', type: 'boolean', title: 'Auto-asignar agente', desc: 'Reparte las tareas generadas entre los agentes por turno rotatorio.', def: true },
+          { field: 'defaultMaintenanceDay', type: 'number', title: 'Día de mantenimiento por defecto', desc: 'Día del mes en que se genera el mantenimiento si el servicio no define aniversario.', def: 1, unit: '' },
+        ],
+        secrets: [],
+      },
+      {
+        slug: 'manual', label: 'Provisioning manual', logo: 'Mn', color: '#64748B',
+        category: 'Manual', version: '1.0.0', updated: 'el 28 abr 2026',
+        desc: 'Para servicios que el equipo aprovisiona a mano. No automatiza nada: al contratar, avisa al equipo y deja el servicio en espera de activación manual.',
+        enabled: true, circuit: 'na', caps: { reconciliation: false },
+        overview: null,
+        config: [
+          { field: 'notifyEmail', type: 'string', title: 'Email de aviso al equipo', desc: 'Dirección que recibe el aviso de cada nuevo servicio manual.', def: 'ops@aelium.host', required: true },
+          { field: 'instructionsTemplate', type: 'textarea', title: 'Plantilla de instrucciones', desc: 'Pasos que ve el equipo al recibir un servicio manual.', def: '1. Verificar el pago\n2. Crear la cuenta en el panel\n3. Marcar el servicio como activo' },
+        ],
+        secrets: [],
+      },
+      {
+        slug: 'plesk', label: 'Plesk', logo: 'Pl', color: '#53A93F',
+        category: 'Hosting (legacy)', version: '0.4.0', updated: 'el 11 jun 2026',
+        desc: 'Aprovisionamiento sobre paneles Plesk heredados. Disponible pero deshabilitado: configura las credenciales y prueba la conexión antes de activarlo.',
+        enabled: false, circuit: 'closed', caps: { reconciliation: true },
+        overview: null,
+        config: [
+          { field: 'panelUrl', type: 'url', title: 'URL del panel', def: '', required: true, placeholder: 'https://plesk.tu-servidor.com:8443' },
+          { field: 'defaultPlan', type: 'enum', title: 'Plan por defecto', def: 'webpro', options: [{ value: 'webpro', label: 'Web Pro' }, { value: 'business', label: 'Business' }, { value: 'unlimited', label: 'Unlimited' }] },
+          { field: 'timeoutMs', type: 'number', title: 'Timeout de petición', def: 30000, unit: 'ms' },
+        ],
+        secrets: [
+          { field: 'apiKey', title: 'API key de Plesk', desc: 'Clave de acceso a la API REST de Plesk.', configured: false },
+        ],
+      },
+    ];
+  }
+
+  pluginBySlug(slug) { return this.PLUGINS.find((p) => p.slug === slug); }
+
+  baseline(p) {
+    const config = {};
+    p.config.forEach((f) => { config[f.field] = f.def; });
+    const secrets = {};
+    p.secrets.forEach((s) => { secrets[s.field] = s.configured; });
+    return { config, enabled: p.enabled, secrets };
+  }
+
+  open(slug) {
+    const p = this.pluginBySlug(slug);
+    const saved = this.state.saved[slug] || this.baseline(p);
+    const work = {
+      config: Object.assign({}, saved.config),
+      enabled: saved.enabled,
+      secretConfigured: Object.assign({}, saved.secrets),
+      secretEditing: {}, secretDraft: {},
+    };
+    this.setState((s) => ({ slug, work, saved: Object.assign({}, s.saved, { [slug]: saved }) }));
+  }
+
+  flash(msg, kind) {
+    if (this._t) clearTimeout(this._t);
+    this.setState({ toast: msg, toastKind: kind || 'ok' });
+    this._t = setTimeout(() => this.setState({ toast: null }), 2800);
+  }
+
+  patchWork(patch) { this.setState((s) => ({ work: Object.assign({}, s.work, patch) })); }
+  setConfig(field, val) { this.setState((s) => ({ work: Object.assign({}, s.work, { config: Object.assign({}, s.work.config, { [field]: val }) }) })); }
+
+  renderVals() {
+    const s = this.state;
+    const slug = s.slug;
+
+    if (!slug) {
+      // ---------- LIST ----------
+      const STATUS = {
+        on_closed: { label: 'Operativo', bg: '#E8F7F1', fg: '#0E8C5F', dot: '#10B981' },
+        on_half: { label: 'Degradado', bg: '#FCF3E1', fg: '#B27A12', dot: '#E0A422' },
+        on_open: { label: 'Caído', bg: '#FCECEC', fg: '#C0453F', dot: '#E0524B' },
+        off: { label: 'Deshabilitado', bg: '#F1F5F9', fg: '#94A3B8', dot: '#CBD5E1' },
+        na: { label: 'Manual', bg: '#F1F5F9', fg: '#64748B', dot: '#94A3B8' },
+      };
+      const statusKey = (p) => {
+        const saved = s.saved[p.slug];
+        const enabled = saved ? saved.enabled : p.enabled;
+        if (!enabled) return 'off';
+        if (p.circuit === 'na') return 'na';
+        return p.circuit === 'closed' ? 'on_closed' : (p.circuit === 'half_open' ? 'on_half' : 'on_open');
+      };
+      const cards = this.PLUGINS.map((p) => {
+        const st = STATUS[statusKey(p)];
+        return {
+          label: p.label, desc: p.desc, slug: p.slug, version: p.version, logo: p.logo,
+          logoStyle: 'width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;font-weight:700;color:#fff;background:' + p.color + ';',
+          badge: st.label,
+          badgeStyle: 'display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:9999px;font-size:11.5px;font-weight:600;flex-shrink:0;background:' + st.bg + ';color:' + st.fg + ';',
+          badgeDot: 'width:6px;height:6px;border-radius:9999px;background:' + st.dot + ';',
+          open: () => this.open(p.slug),
+        };
+      });
+      const enabledCount = this.PLUGINS.filter((p) => { const sv = s.saved[p.slug]; return sv ? sv.enabled : p.enabled; }).length;
+      return {
+        isList: true, isDetail: false,
+        listSubtitle: this.PLUGINS.length + ' plugins disponibles · ' + enabledCount + ' habilitados. Habilita, configura o prueba la conexión de cada uno desde su detalle.',
+        cards,
+        toast: s.toast, toastBg: s.toastKind === 'err' ? '#C0453F' : '#0E8C5F',
+        toastShadow: s.toastKind === 'err' ? 'rgba(192,69,63,0.34)' : 'rgba(14,140,95,0.34)',
+        toastIcon: s.toastKind === 'err' ? '#pl-alert' : '#pl-check',
+        goList: () => {}, d: {},
+      };
+    }
+
+    // ---------- DETAIL ----------
+    const p = this.pluginBySlug(slug);
+    const w = s.work;
+    const saved = s.saved[slug];
+
+    const HEALTH = {
+      closed: { label: 'Operativo · circuito cerrado', bg: '#E8F7F1', fg: '#0E8C5F', dot: '#10B981' },
+      half_open: { label: 'Degradado · circuito medio abierto', bg: '#FCF3E1', fg: '#B27A12', dot: '#E0A422' },
+      open: { label: 'Caído · circuito abierto', bg: '#FCECEC', fg: '#C0453F', dot: '#E0524B' },
+    };
+    const h = HEALTH[p.circuit] || HEALTH.closed;
+
+    // status badge (enabled + circuit)
+    let st;
+    if (!w.enabled) st = { label: 'Deshabilitado', bg: '#F1F5F9', fg: '#94A3B8', dot: '#CBD5E1' };
+    else if (p.circuit === 'na') st = { label: 'Activo · manual', bg: '#EFF4FF', fg: '#2563EB', dot: '#3B82F6' };
+    else if (p.circuit === 'closed') st = { label: 'Activo · operativo', bg: '#E8F7F1', fg: '#0E8C5F', dot: '#10B981' };
+    else if (p.circuit === 'half_open') st = { label: 'Activo · degradado', bg: '#FCF3E1', fg: '#B27A12', dot: '#E0A422' };
+    else st = { label: 'Activo · caído', bg: '#FCECEC', fg: '#C0453F', dot: '#E0524B' };
+
+    const switchTrack = (on, accent) => 'position:relative;width:42px;height:24px;border-radius:9999px;border:none;cursor:pointer;flex-shrink:0;padding:0;transition:background .15s ease;background:' + (on ? (accent || '#10B981') : '#CBD5E1') + ';';
+    const switchKnob = (on) => 'position:absolute;top:3px;left:' + (on ? '21px' : '3px') + ';width:18px;height:18px;border-radius:9999px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.2);transition:left .15s ease;';
+    const SELECT_STYLE = 'width:260px;height:38px;padding:0 34px 0 12px;border-radius:10px;border:1px solid #E2E8F0;background:#fff url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2394A3B8\' stroke-width=\'2.4\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><polyline points=\'6 9 12 15 18 9\'/></svg>") no-repeat right 11px center;color:#0F172A;font-size:13.5px;font-weight:500;font-family:inherit;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;';
+
+    const configFields = p.config.map((f) => {
+      const val = w.config[f.field];
+      const stacked = f.type === 'textarea';
+      const base = {
+        title: f.title, key: f.field, desc: f.desc || '', hasDesc: !!f.desc, required: !!f.required,
+        placeholder: f.placeholder || '', unit: f.unit || '',
+        isText: false, isNumber: false, isEnum: false, isBool: false, isTextarea: false,
+        wrapStyle: stacked ? 'display:flex;flex-direction:column;gap:10px;' : 'display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;',
+        labelWrapStyle: stacked ? '' : 'flex:1;min-width:200px;',
+        ctrlWrapStyle: stacked ? 'width:100%;' : 'flex-shrink:0;',
+        inputStyle: 'width:280px;max-width:100%;height:38px;border:1px solid #E2E8F0;border-radius:10px;padding:0 12px;font-size:13.5px;color:#0F172A;outline:none;',
+        selectStyle: SELECT_STYLE,
+      };
+      if (f.type === 'number') {
+        base.isNumber = true; base.value = String(val);
+        base.onInput = (e) => this.setConfig(f.field, e.target.value);
+      } else if (f.type === 'enum') {
+        base.isEnum = true; base.value = val; base.options = f.options;
+        base.onInput = (e) => this.setConfig(f.field, e.target.value);
+      } else if (f.type === 'boolean') {
+        base.isBool = true;
+        base.switchTrack = switchTrack(!!val, '#3B82F6');
+        base.switchKnob = switchKnob(!!val);
+        base.onToggle = () => this.setConfig(f.field, !val);
+      } else if (f.type === 'textarea') {
+        base.isTextarea = true; base.value = val;
+        base.onInput = (e) => this.setConfig(f.field, e.target.value);
+      } else {
+        base.isText = true; base.value = val;
+        base.onInput = (e) => this.setConfig(f.field, e.target.value);
+      }
+      return base;
+    });
+
+    const secretFields = p.secrets.map((sec) => {
+      const configured = w.secretConfigured[sec.field];
+      const editing = !!w.secretEditing[sec.field];
+      return {
+        title: sec.title, key: sec.field, desc: sec.desc || '',
+        editing, masked: !editing,
+        draft: w.secretDraft[sec.field] || '',
+        placeholder: configured ? 'Introduce un valor nuevo' : 'Pega el valor del secreto',
+        maskText: configured ? '••••••••••••' : 'Sin configurar',
+        maskStyle: 'font-size:13.5px;font-weight:600;letter-spacing:0.08em;' + (configured ? 'color:#475569;' : 'color:#C0453F;letter-spacing:0;'),
+        editLabel: configured ? 'Editar' : 'Configurar',
+        edit: () => this.patchWork({ secretEditing: Object.assign({}, w.secretEditing, { [sec.field]: true }), secretDraft: Object.assign({}, w.secretDraft, { [sec.field]: '' }) }),
+        cancel: () => this.patchWork({ secretEditing: Object.assign({}, w.secretEditing, { [sec.field]: false }), secretDraft: Object.assign({}, w.secretDraft, { [sec.field]: '' }) }),
+        onInput: (e) => this.patchWork({ secretDraft: Object.assign({}, w.secretDraft, { [sec.field]: e.target.value }) }),
+      };
+    });
+
+    // dirty: config diff, enabled diff, any secret edited with content
+    const configDirty = p.config.some((f) => w.config[f.field] !== saved.config[f.field]);
+    const enabledDirty = w.enabled !== saved.enabled;
+    const secretDirty = p.secrets.some((sec) => w.secretEditing[sec.field] && (w.secretDraft[sec.field] || '').length > 0);
+    const dirty = configDirty || enabledDirty || secretDirty;
+
+    const save = () => {
+      const newSecrets = Object.assign({}, w.secretConfigured);
+      const clearedEditing = {}; const clearedDraft = {};
+      p.secrets.forEach((sec) => {
+        if (w.secretEditing[sec.field] && (w.secretDraft[sec.field] || '').length > 0) newSecrets[sec.field] = true;
+        clearedEditing[sec.field] = false; clearedDraft[sec.field] = '';
+      });
+      const newSaved = { config: Object.assign({}, w.config), enabled: w.enabled, secrets: newSecrets };
+      this.setState((stt) => ({
+        saved: Object.assign({}, stt.saved, { [slug]: newSaved }),
+        work: Object.assign({}, stt.work, { secretConfigured: newSecrets, secretEditing: clearedEditing, secretDraft: clearedDraft }),
+      }));
+      this.flash('Configuración guardada', 'ok');
+    };
+    const discard = () => {
+      const reset = {};
+      p.secrets.forEach((sec) => { reset[sec.field] = false; });
+      this.setState((stt) => ({ work: { config: Object.assign({}, saved.config), enabled: saved.enabled, secretConfigured: Object.assign({}, saved.secrets), secretEditing: Object.assign({}, reset), secretDraft: Object.assign({}, reset) } }));
+    };
+
+    const ov = p.overview;
+    const showOverview = w.enabled && !!ov;
+    const drifts = ov ? ov.drifts.map((dr, i, arr) => {
+      const driftColor = dr.kind === 'subscription_missing' ? '#C0453F' : '#B27A12';
+      const driftBg = dr.kind === 'subscription_missing' ? '#FCECEC' : '#FCF3E1';
+      return {
+        svc: dr.svc, kind: dr.kind, ago: dr.ago, applied: dr.applied, canReconcile: !dr.applied,
+        kindStyle: 'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;background:' + driftBg + ';color:' + driftColor + ';',
+        rowStyle: 'display:flex;align-items:center;gap:11px;padding:12px 15px;' + (i < arr.length - 1 ? 'border-bottom:1px solid #F4F6F9;' : ''),
+        reconcile: () => this.flash('Reconciliación de ' + dr.svc + ' iniciada', 'ok'),
+      };
+    }) : [];
+
+    const stats = ov ? ov.stats.map((x) => ({ label: x.label, value: x.value, color: x.warn ? '#B27A12' : '#0F172A' })) : [];
+
+    const testDisabled = !w.enabled && p.slug !== 'plesk' ? false : false;
+
+    const d = {
+      label: p.label, desc: p.desc, slug: p.slug, category: p.category, version: p.version, updated: p.updated, logo: p.logo,
+      logoStyle: 'width:54px;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;font-weight:700;color:#fff;background:' + p.color + ';',
+      status: st.label,
+      statusStyle: 'display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:9999px;font-size:12.5px;font-weight:600;flex-shrink:0;background:' + st.bg + ';color:' + st.fg + ';',
+      statusDot: 'width:7px;height:7px;border-radius:9999px;background:' + st.dot + ';',
+
+      showOverview,
+      healthLabel: h.label,
+      healthStyle: 'display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:9999px;font-size:12px;font-weight:600;background:' + h.bg + ';color:' + h.fg + ';',
+      healthDot: 'width:7px;height:7px;border-radius:9999px;background:' + h.dot + ';',
+      stats,
+      lastRecon: ov ? ov.lastRecon : '', nextRecon: ov ? ov.nextRecon : '',
+      hasDrifts: drifts.length > 0, noDrifts: !!ov && drifts.length === 0, drifts,
+
+      showReconcile: w.enabled && p.caps.reconciliation,
+      reconcileAll: () => this.flash('Reconciliación iniciada · revisa el estado en unos segundos', 'ok'),
+
+      configFields,
+      hasSecrets: p.secrets.length > 0, secretFields,
+
+      enabledLabel: w.enabled ? 'Plugin habilitado' : 'Plugin deshabilitado',
+      enabledHint: w.enabled ? 'Disponible para aprovisionar servicios nuevos.' : 'No se asignará a servicios nuevos hasta que lo habilites.',
+      toggleEnabled: () => this.patchWork({ enabled: !w.enabled }),
+      enSwitchTrack: switchTrack(w.enabled, '#10B981'),
+      enSwitchKnob: switchKnob(w.enabled),
+
+      testConnection: () => this.flash('Conexión correcta · el proveedor respondió en 240 ms', 'ok'),
+      testDisabled,
+      testStyle: 'display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;',
+      testHover: 'background:#F8FAFC;border-color:#CBD5E1;',
+
+      dirty, save, discard,
+    };
+
+    return {
+      isList: false, isDetail: true,
+      d,
+      goList: () => this.setState({ slug: null, work: null }),
+      toast: s.toast, toastBg: s.toastKind === 'err' ? '#C0453F' : '#0E8C5F',
+      toastShadow: s.toastKind === 'err' ? 'rgba(192,69,63,0.34)' : 'rgba(14,140,95,0.34)',
+      toastIcon: s.toastKind === 'err' ? '#pl-alert' : '#pl-check',
+      cards: [], listSubtitle: '',
+    };
+  }
+}
+</script>
+</body>
+</html>

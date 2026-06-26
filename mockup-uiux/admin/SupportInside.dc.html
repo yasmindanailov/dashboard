@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  input[type=checkbox] { accent-color: #3B82F6; cursor: pointer; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <sc-if value="{{ isIndex }}" hint-placeholder-val="{{ true }}">
+    <div style="margin-bottom:8px">
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 5px">Support Inside</h1>
+      <p style="font-size:13.5px;color:#64748B;margin:0">Los 3 planes de tier de cuenta — slots, SLA y canales por plan.</p>
+    </div>
+
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:13px 16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;margin:18px 0">
+      <svg width="17" height="17" viewBox="0 0 24 24" style="color:#94A3B8;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      <span style="font-size:12.5px;color:#64748B;line-height:1.5"><strong style="color:#475569;font-weight:600">Catálogo cerrado.</strong> No se crea un 4º plan desde aquí — cambiar la oferta comercial exige migración + ADR (ADR-075). Support Inside está aislado del CRUD de productos.</span>
+    </div>
+
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:#FBFCFD">
+            <th style="padding:12px 20px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Plan</th>
+            <th style="padding:12px 16px;text-align:right;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Mensual</th>
+            <th style="padding:12px 16px;text-align:right;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Anual</th>
+            <th style="padding:12px 16px;text-align:center;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Slots</th>
+            <th style="padding:12px 16px;text-align:center;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">SLA</th>
+            <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Estado</th>
+            <th style="padding:12px 16px;text-align:right;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Última edición</th>
+            <th style="padding:12px 20px 12px 16px;text-align:right;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3">
+            <tr onClick="{{ r.go }}" style="{{ r.rowStyle }}" style-hover="background:#FBFCFF">
+              <td style="padding:15px 20px">
+                <div style="display:flex;align-items:center;gap:11px;min-width:0">
+                  <span style="width:36px;height:36px;border-radius:10px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24"><path d="M12 2l9 4v6c0 5-3.6 9.3-9 10-5.4-.7-9-5-9-10V6l9-4z"></path><path d="M9 12l2 2 4-4"></path></svg></span>
+                  <div>
+                    <div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;font-weight:600;color:#0F172A">{{ r.name }}</span><sc-if value="{{ r.showBadge }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;background:#EFF4FF;color:#3B82F6">{{ r.badge }}</span></sc-if></div>
+                    <div style="font-size:11.5px;color:#94A3B8;margin-top:2px">Prioridad {{ r.tier }}</div>
+                  </div>
+                </div>
+              </td>
+              <td style="padding:15px 16px;text-align:right;font-size:13.5px;font-weight:600;color:#0F172A;white-space:nowrap">{{ r.monthly }}</td>
+              <td style="padding:15px 16px;text-align:right;white-space:nowrap"><div style="font-size:13px;color:#475569">{{ r.annual }}</div><div style="font-size:11px;color:#0E8C5F;font-weight:600">−15%</div></td>
+              <td style="padding:15px 16px;text-align:center;font-size:13px;color:#64748B">{{ r.slots }}</td>
+              <td style="padding:15px 16px;text-align:center;font-size:13px;color:#64748B">{{ r.sla }}</td>
+              <td style="padding:15px 16px"><span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11.5px;font-weight:600;background:#E8F7F1;color:#0E8C5F">Activo</span></td>
+              <td style="padding:15px 16px;text-align:right;font-size:12.5px;color:#94A3B8;white-space:nowrap">{{ r.lastEdit }}</td>
+              <td style="padding:15px 20px 15px 16px;text-align:right"><span style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:#3B82F6">Gestionar<svg width="15" height="15" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></span></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isEditor }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:16px;font-size:13px">
+      <button type="button" onClick="{{ back }}" style="background:none;border:none;padding:0;font-family:inherit;font-size:13px;color:#94A3B8;cursor:pointer;font-weight:500" style-hover="color:#3B82F6">Support Inside</button>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="color:#CBD5E1"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      <span style="color:#475569;font-weight:600">{{ e.name }}</span>
+    </div>
+
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px 24px;box-shadow:0 1px 2px rgba(15,23,42,0.04);margin-bottom:18px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:14px;min-width:0">
+          <div style="width:46px;height:46px;border-radius:12px;background:#3B82F6;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2l9 4v6c0 5-3.6 9.3-9 10-5.4-.7-9-5-9-10V6l9-4z"></path><path d="M9 12l2 2 4-4"></path></svg></div>
+          <div style="min-width:0">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <h1 style="font-size:21px;font-weight:700;letter-spacing:-0.01em;color:#0F172A;margin:0">{{ e.name }}</h1>
+              <span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11.5px;font-weight:600;background:#E8F7F1;color:#0E8C5F">Activo</span>
+              <span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11.5px;font-weight:600;background:#EFF4FF;color:#3B82F6;white-space:nowrap">Prioridad {{ e.tier }}</span>
+            </div>
+            <div style="font-size:12px;color:#94A3B8;margin-top:4px;font-family:ui-monospace,monospace">{{ e.slug }}</div>
+          </div>
+        </div>
+        <button type="button" onClick="{{ back }}" style="height:38px;padding:0 15px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease;flex-shrink:0" style-hover="background:#F8FAFC;border-color:#CBD5E1">Cambiar plan</button>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;max-width:820px">
+
+      <div style="{{ cardStyle }}">
+        <div style="{{ secHead }}"><div><h2 style="{{ secTitle }}">1 · Identidad</h2><p style="{{ secSub }}">Nombre, descripción y aspecto en el comparador</p></div><button type="button" onClick="{{ noop }}" style="{{ saveBtn }}" style-hover="background:#F8FAFC">Guardar cambios</button></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <label style="{{ fl }}"><span style="{{ lbl }}">Nombre</span><input type="text" defaultValue="{{ e.name }}" style="{{ inp }}" style-focus="{{ inpFocus }}"></label>
+          <label style="{{ fl }}"><span style="{{ lbl }}">Slug (no editable)</span><input type="text" defaultValue="{{ e.slug }}" readonly style="{{ inp }}background:#F8FAFC;color:#94A3B8;font-family:ui-monospace,monospace;"></label>
+        </div>
+        <label style="{{ fl }}margin-top:16px"><span style="{{ lbl }}">Descripción</span><textarea rows="2" style="{{ inp }}height:auto;padding:10px 13px;resize:vertical;line-height:1.5" style-focus="{{ inpFocus }}">Soporte de tu negocio digital, no solo del servidor. Con un técnico a tu lado.</textarea></label>
+        <label style="{{ fl }}margin-top:16px"><span style="{{ lbl }}">Badge destacado</span><input type="text" defaultValue="{{ e.badge }}" placeholder="Recomendado" style="{{ inp }}" style-focus="{{ inpFocus }}"></label>
+        <div style="margin-top:16px"><span style="{{ lbl }}">Color del plan</span><div style="display:flex;gap:8px"><span style="width:28px;height:28px;border-radius:8px;background:#3B82F6;box-shadow:0 0 0 2px #fff,0 0 0 4px #3B82F6"></span><span style="width:28px;height:28px;border-radius:8px;background:#0E8C5F;cursor:pointer"></span><span style="width:28px;height:28px;border-radius:8px;background:#7C5CCB;cursor:pointer"></span><span style="width:28px;height:28px;border-radius:8px;background:#0F172A;cursor:pointer"></span></div></div>
+      </div>
+
+      <div style="{{ cardStyle }}">
+        <div style="{{ secHead }}"><div><h2 style="{{ secTitle }}">2 · Precios</h2><p style="{{ secSub }}">Cobro mensual y anual con descuento</p></div><button type="button" onClick="{{ noop }}" style="{{ saveBtn }}" style-hover="background:#F8FAFC">Guardar cambios</button></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+          <label style="{{ fl }}"><span style="{{ lbl }}">Precio mensual (€)</span><input type="text" defaultValue="{{ e.monthlyNum }}" style="{{ inp }}" style-focus="{{ inpFocus }}"></label>
+          <label style="{{ fl }}"><span style="{{ lbl }}">Precio anual (€)</span><input type="text" defaultValue="{{ e.annualNum }}" style="{{ inp }}" style-focus="{{ inpFocus }}"></label>
+          <label style="{{ fl }}"><span style="{{ lbl }}">Descuento anual (%)</span><input type="text" defaultValue="15" style="{{ inp }}" style-focus="{{ inpFocus }}"></label>
+        </div>
+      </div>
+
+      <div style="{{ cardStyle }}">
+        <div style="{{ secHead }}"><div><h2 style="{{ secTitle }}">3 · Slots y capacidades</h2><p style="{{ secSub }}">Mantenimientos incluidos y a qué productos aplican</p></div><button type="button" onClick="{{ noop }}" style="{{ saveBtn }}" style-hover="background:#F8FAFC">Guardar cambios</button></div>
+        <label style="{{ fl }}max-width:200px"><span style="{{ lbl }}">Slots incluidos / mes</span><input type="text" defaultValue="{{ e.slots }}" style="{{ inp }}" style-focus="{{ inpFocus }}"></label>
+        <div style="margin-top:18px"><span style="{{ lbl }}">Tipos de slot permitidos</span><div style="display:flex;flex-wrap:wrap;gap:8px"><span style="{{ chipOn }}">Mantenimiento</span><span style="{{ chipOn }}">Gestión de mantenimiento</span></div></div>
+        <div style="margin-top:18px"><span style="{{ lbl }}">Tipos de producto aplicables</span><div style="display:flex;flex-wrap:wrap;gap:8px"><span style="{{ chipOn }}">Hosting Web</span><span style="{{ chipOn }}">Docker Service</span><span style="{{ chipOff }}">+ Dominio</span><span style="{{ chipOff }}">+ Proyecto Custom</span></div></div>
+      </div>
+
+      <div style="{{ cardStyle }}">
+        <div style="{{ secHead }}"><div><h2 style="{{ secTitle }}">4 · Soporte y canales</h2><p style="{{ secSub }}">Prioridad de tickets, SLA y canales activos</p></div><button type="button" onClick="{{ noop }}" style="{{ saveBtn }}" style-hover="background:#F8FAFC">Guardar cambios</button></div>
+        <div style="margin-bottom:18px"><span style="{{ lbl }}">Prioridad (priority_tier)</span>
+          <div style="display:inline-flex;background:#F1F5F9;border-radius:10px;padding:3px;gap:2px">
+            <sc-for list="{{ tierOpts }}" as="t" hint-placeholder-count="3"><span style="{{ t.style }}">{{ t.label }}</span></sc-for>
+          </div>
+        </div>
+        <label style="{{ fl }}max-width:220px;margin-bottom:18px"><span style="{{ lbl }}">SLA de respuesta (horas)</span><input type="text" defaultValue="{{ e.slaNum }}" style="{{ inp }}" style-focus="{{ inpFocus }}"></label>
+        <div><span style="{{ lbl }}">Canales activos</span><div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ channels }}" as="c" hint-placeholder-count="4"><span style="{{ c.style }}">{{ c.label }}</span></sc-for></div></div>
+      </div>
+
+      <div style="{{ cardStyle }}">
+        <div style="{{ secHead }}"><div><h2 style="{{ secTitle }}">5 · Configuración avanzada</h2><p style="{{ secSub }}">Renovación y cancelación</p></div><button type="button" onClick="{{ noop }}" style="{{ saveBtn }}" style-hover="background:#F8FAFC">Guardar cambios</button></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #F4F6F9"><div><div style="font-size:13.5px;font-weight:500;color:#0F172A">Renovación automática por defecto</div><div style="font-size:12px;color:#94A3B8;margin-top:2px">Las nuevas suscripciones se renuevan solas</div></div><span style="display:inline-flex;align-items:center;width:42px;height:24px;border-radius:9999px;background:#3B82F6;padding:3px;justify-content:flex-end"><span style="width:18px;height:18px;border-radius:9999px;background:#fff"></span></span></div>
+        <label style="{{ fl }}max-width:240px;margin-top:16px"><span style="{{ lbl }}">Días de gracia tras cancelar</span><input type="text" defaultValue="7" style="{{ inp }}" style-focus="{{ inpFocus }}"></label>
+      </div>
+
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 900 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = { editing: null };
+
+  plans() {
+    return [
+      { slug: 'support-inside-basic-plan', name: 'Básico', tier: 'estándar', tierKey: 'standard', badge: '', slots: '1', sla: '24 h', slaNum: '24', monthly: '19,00 €', monthlyNum: '19,00', annual: '193,80 €', annualNum: '193,80', subs: '41', lastEdit: '14 mar 2026', channels: ['email', 'inapp'] },
+      { slug: 'support-inside-medium', name: 'Medium', tier: 'alta', tierKey: 'high', badge: '', slots: '3', sla: '12 h', slaNum: '12', monthly: '49,00 €', monthlyNum: '49,00', annual: '499,80 €', annualNum: '499,80', subs: '23', lastEdit: '2 may 2026', channels: ['email', 'inapp'] },
+      { slug: 'support-inside-pro', name: 'Pro', tier: 'máxima', tierKey: 'max', badge: 'Recomendado', slots: '10', sla: '4 h', slaNum: '4', monthly: '99,00 €', monthlyNum: '99,00', annual: '1.009,80 €', annualNum: '1.009,80', subs: '10', lastEdit: '20 jun 2026', channels: ['email', 'inapp', 'whatsapp'] },
+    ];
+  }
+
+  renderVals() {
+    const nav = (id) => { if (this.props.navigate) this.props.navigate(id); };
+    const editing = this.state.editing;
+    const plans = this.plans();
+
+    const rows = plans.map((p, i) => ({
+      name: p.name, badge: p.badge, showBadge: !!p.badge, tier: p.tier,
+      monthly: p.monthly, annual: p.annual, slots: p.slots, sla: p.sla, lastEdit: p.lastEdit,
+      rowStyle: 'cursor:pointer;transition:background .12s ease;' + (i === 0 ? '' : 'border-top:1px solid #F4F6F9;'),
+      go: () => this.setState({ editing: p.slug }),
+    }));
+
+    const e = plans.find((p) => p.slug === editing) || plans[0];
+
+    const cardStyle = 'background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px 22px;box-shadow:0 1px 2px rgba(15,23,42,0.04);';
+    const secHead = 'display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px;';
+    const secTitle = 'font-size:14px;font-weight:600;color:#0F172A;margin:0;';
+    const secSub = 'font-size:12px;color:#94A3B8;margin:3px 0 0;';
+    const saveBtn = 'height:32px;padding:0 12px;border-radius:8px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0;transition:background .15s ease;';
+    const fl = 'display:block;';
+    const lbl = 'display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px;';
+    const inp = 'width:100%;height:40px;padding:0 13px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;font-size:13.5px;font-family:inherit;color:#0F172A;outline:none;transition:border-color .15s ease;';
+    const inpFocus = 'border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10);';
+    const chipOn = 'display:inline-flex;align-items:center;padding:6px 12px;border-radius:9999px;font-size:12px;font-weight:600;background:#EFF4FF;color:#3B82F6;border:1px solid #CFE0FF;';
+    const chipOff = 'display:inline-flex;align-items:center;padding:6px 12px;border-radius:9999px;font-size:12px;font-weight:500;background:#fff;color:#94A3B8;border:1px dashed #CBD5E1;cursor:pointer;';
+
+    const tierLabels = [['standard', 'Estándar'], ['high', 'Alta'], ['max', 'Máxima']];
+    const tierOpts = tierLabels.map((t) => ({
+      label: t[1],
+      style: 'padding:6px 14px;border-radius:8px;font-size:12.5px;font-weight:600;' + (t[0] === e.tierKey ? 'background:#fff;color:#0F172A;box-shadow:0 1px 2px rgba(15,23,42,0.10);' : 'background:transparent;color:#94A3B8;'),
+    }));
+
+    const chanAll = [['email', 'Email'], ['inapp', 'In-app'], ['phone', 'Teléfono'], ['whatsapp', 'WhatsApp']];
+    const channels = chanAll.map((c) => {
+      const on = e.channels.includes(c[0]);
+      return { label: c[1], style: on ? chipOn : chipOff };
+    });
+
+    return {
+      isIndex: !editing,
+      isEditor: !!editing,
+      rows,
+      e,
+      back: () => this.setState({ editing: null }),
+      cardStyle, secHead, secTitle, secSub, saveBtn, fl, lbl, inp, inpFocus, chipOn, chipOff,
+      tierOpts, channels,
+      goProducts: () => nav('products'),
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

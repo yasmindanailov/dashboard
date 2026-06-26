@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  textarea, input { font-family: inherit; }
+  .plScroll::-webkit-scrollbar { width: 10px; height: 10px; }
+  .plScroll::-webkit-scrollbar-thumb { background: #D5DCE6; border-radius: 8px; border: 3px solid #fff; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;margin-bottom:16px">
+    <button type="button" onClick="{{ goBack }}" style="border:none;background:none;color:#94A3B8;font-size:12.5px;font-family:inherit;cursor:pointer;padding:0" style-hover="color:#3B82F6">Plantillas de notificaciones</button>
+    <svg width="14" height="14" viewBox="0 0 24 24" style="color:#CBD5E1"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    <span style="color:#64748B;font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">{{ event }}</span>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:18px 22px;margin-bottom:16px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div style="min-width:0">
+        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:9px">
+          <span style="{{ channelStyle }}">{{ channelIcon }}<span>{{ channelLabel }}</span></span>
+          <span style="{{ audStyle }}">{{ audLabel }}</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:7px;font-size:11.5px;font-weight:600;background:#F1F5F9;color:#64748B">locale: es</span>
+        </div>
+        <h1 style="font-size:20px;font-weight:700;letter-spacing:-0.01em;color:#0F172A;margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">{{ event }}</h1>
+        <p style="font-size:12.5px;color:#94A3B8;margin:7px 0 0">{{ renderNote }} · última edición: {{ updatedBy }} · {{ updatedAt }}</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-shrink:0">
+        <label style="display:flex;align-items:center;gap:9px;cursor:pointer">
+          <button type="button" onClick="{{ toggleActive }}" style="{{ switchStyle }}"><span style="{{ knobStyle }}"></span></button>
+          <span style="font-size:12.5px;font-weight:600;color:{{ activeColor }}">{{ activeLabel }}</span>
+        </label>
+        <div style="width:1px;height:24px;background:#E8EDF4"></div>
+        <button type="button" onClick="{{ reset }}" style="height:38px;padding:0 14px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer" style-hover="background:#F8FAFC">Descartar</button>
+        <button type="button" onClick="{{ save }}" style="{{ saveStyle }}">
+          <sc-if value="{{ canSave }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg></sc-if>
+          {{ saveLabel }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:20px 22px;display:flex;flex-direction:column;gap:20px">
+
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+          <label style="font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Asunto</label>
+          <span style="font-size:11px;color:#CBD5E1">Handlebars</span>
+        </div>
+        <textarea value="{{ subject }}" onInput="{{ onSubject }}" onFocus="{{ focusSubject }}" rows="2" style="{{ subjectStyle }}"></textarea>
+      </div>
+
+      <div style="display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+          <label style="font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">{{ bodyLabel }}</label>
+          <span style="font-size:11px;color:#CBD5E1">{{ bodyHint }}</span>
+        </div>
+        <textarea value="{{ body }}" onInput="{{ onBody }}" onFocus="{{ focusBody }}" rows="17" class="plScroll" style="{{ bodyStyle }}"></textarea>
+      </div>
+
+      <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:11px 13px;border-radius:10px;background:#FCECEC;border:1px solid #F5C9C9">
+          <svg width="16" height="16" viewBox="0 0 24 24" style="color:#D14343;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <div style="font-size:12.5px;color:#9F2D2D;line-height:1.45">{{ errorMsg }}</div>
+        </div>
+      </sc-if>
+
+      <div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8;margin-bottom:9px">Variables disponibles · clic para insertar</div>
+        <div style="display:flex;flex-wrap:wrap;gap:7px">
+          <sc-for list="{{ vars }}" as="v" hint-placeholder-count="5">
+            <button type="button" onClick="{{ v.insert }}" title="{{ v.title }}" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;border:1px solid #E2E8F0;background:#fff;cursor:pointer;transition:border-color .12s ease,background .12s ease" style-hover="border-color:#7C5CCB;background:#F7F5FD">
+              <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:#5B4A8A;font-weight:600">{{ v.token }}</span>
+              <span style="font-size:10.5px;color:#94A3B8">{{ v.type }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="background:#F6F8FB;border:1px solid #E8EDF4;border-radius:16px;padding:16px 18px 20px;min-width:0">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <svg width="15" height="15" viewBox="0 0 24 24" style="color:#94A3B8"><circle cx="12" cy="12" r="3"></circle><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path></svg>
+        <span style="font-size:12px;font-weight:600;color:#64748B">Vista previa</span>
+        <span style="font-size:11.5px;color:#94A3B8">· datos de muestra (sin persistir)</span>
+      </div>
+      <div class="plScroll" style="max-height:560px;overflow:auto;min-width:0">
+        {{ previewNode }}
+      </div>
+    </div>
+
+  </div>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:9px;padding:11px 16px;background:#0F172A;border-radius:11px;box-shadow:0 10px 30px rgba(15,23,42,0.26);font-size:13px;font-weight:500;color:#fff">
+      <svg width="16" height="16" viewBox="0 0 24 24" style="color:#34D399"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      {{ toast }}
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 900 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = { id: null, subject: '', body: '', active: true, focusField: 'body', toast: null };
+
+  componentDidMount() {
+    let id = null;
+    try { id = window.localStorage.getItem('aelium.tpl.selected'); } catch (e) {}
+    const all = this.data();
+    const tpl = all.find((t) => t.id === id) || all[0];
+    this.setState({ id: tpl.id, subject: tpl.subject, body: tpl.body, active: tpl.active !== false });
+  }
+
+  componentWillUnmount() { if (this._t) clearTimeout(this._t); }
+
+  flash(msg) {
+    if (this._t) clearTimeout(this._t);
+    this.setState({ toast: msg });
+    this._t = setTimeout(() => this.setState({ toast: null }), 2600);
+  }
+
+  data() {
+    return [
+      { id: 't_inv_created', event: 'invoice.created', channel: 'email', audience: 'cliente', active: true, updatedBy: 'Seed inicial', updatedAt: 'Sistema · 27 abr',
+        subject: 'Nueva factura {{invoice_number}}',
+        body: '<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto">\n  <div style="background:linear-gradient(135deg,#635BFF,#8B5CF6);padding:32px;border-radius:16px 16px 0 0">\n    <h1 style="color:#fff;margin:0;font-size:24px">Nueva factura</h1>\n    <p style="color:rgba(255,255,255,.8);margin:8px 0 0;font-size:14px">{{invoice_number}}</p>\n  </div>\n  <div style="background:#fff;padding:32px;border:1px solid #f0f0f0;border-top:none;border-radius:0 0 16px 16px">\n    <p style="color:#374151;font-size:15px">Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},</p>\n    <p style="color:#374151;font-size:15px">Se ha generado una nueva factura por <strong>{{total}} {{currency}}</strong>.</p>\n  </div>\n</div>',
+        vars: [['invoice_number', 'string'], ['total', 'number'], ['currency', 'string'], ['recipient.first_name', 'string?']] },
+      { id: 't_inv_paid_email', event: 'invoice.paid', channel: 'email', audience: 'cliente', active: true, updatedBy: 'Marc Oliver', updatedAt: '12 jun, 09:14',
+        subject: '✓ Pago confirmado — {{invoice_number}}',
+        body: '<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto">\n  <div style="background:linear-gradient(135deg,#10B981,#059669);padding:32px;border-radius:16px 16px 0 0">\n    <h1 style="color:#fff;margin:0;font-size:24px">✓ Pago confirmado</h1>\n    <p style="color:rgba(255,255,255,.8);margin:8px 0 0;font-size:14px">{{invoice_number}}</p>\n  </div>\n  <div style="background:#fff;padding:32px;border:1px solid #f0f0f0;border-top:none;border-radius:0 0 16px 16px">\n    <p style="color:#374151;font-size:15px">Hemos recibido tu pago de <strong>{{total}} {{currency}}</strong>. Tu servicio está activo.</p>\n  </div>\n</div>',
+        vars: [['invoice_number', 'string'], ['total', 'number'], ['currency', 'string'], ['payment_provider', 'string']] },
+      { id: 't_inv_paid_bell', event: 'invoice.paid', channel: 'internal', audience: 'cliente', active: true, updatedBy: 'Seed inicial', updatedAt: 'Sistema · 27 abr',
+        subject: 'Pago confirmado',
+        body: 'Tu factura {{invoice_number}} de {{total}} {{currency}} se ha pagado correctamente.',
+        vars: [['invoice_number', 'string'], ['total', 'number'], ['currency', 'string']] },
+      { id: 't_inv_failed', event: 'invoice.failed', channel: 'email', audience: 'cliente', active: true, updatedBy: 'Seed inicial', updatedAt: 'Sistema · 27 abr',
+        subject: '⚠ Cobro fallido — {{invoice_number}} (intento {{retry_count}}/{{max_retries}})',
+        body: '<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto">\n  <div style="background:linear-gradient(135deg,#F59E0B,#D97706);padding:32px;border-radius:16px 16px 0 0">\n    <h1 style="color:#fff;margin:0;font-size:24px">⚠ Cobro fallido</h1>\n    <p style="color:rgba(255,255,255,.8);margin:8px 0 0;font-size:14px">Intento {{retry_count}} de {{max_retries}}</p>\n  </div>\n  <div style="background:#fff;padding:32px;border:1px solid #f0f0f0;border-top:none;border-radius:0 0 16px 16px">\n    <p style="color:#374151;font-size:15px">No hemos podido procesar el cobro de la factura <strong>{{invoice_number}}</strong>. {{#if (lt retry_count max_retries)}}Volveremos a intentarlo automáticamente.{{else}}Este ha sido el último intento.{{/if}}</p>\n  </div>\n</div>',
+        vars: [['invoice_number', 'string'], ['retry_count', 'number'], ['max_retries', 'number'], ['recipient.first_name', 'string?']] },
+      { id: 't_inv_overdue', event: 'invoice.overdue', channel: 'email', audience: 'cliente', active: true, updatedBy: 'Seed inicial', updatedAt: 'Sistema · 27 abr',
+        subject: '🔴 Factura vencida — {{invoice_number}}',
+        body: '<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto">\n  <div style="background:linear-gradient(135deg,#EF4444,#DC2626);padding:32px;border-radius:16px 16px 0 0">\n    <h1 style="color:#fff;margin:0;font-size:24px">🔴 Factura vencida</h1>\n    <p style="color:rgba(255,255,255,.8);margin:8px 0 0;font-size:14px">{{invoice_number}}</p>\n  </div>\n  <div style="background:#fff;padding:32px;border:1px solid #f0f0f0;border-top:none;border-radius:0 0 16px 16px">\n    <p style="color:#374151;font-size:15px">La factura <strong>{{invoice_number}}</strong> por <strong>{{total}} EUR</strong> está vencida. Si no se regulariza el pago, tu servicio será suspendido.</p>\n  </div>\n</div>',
+        vars: [['invoice_number', 'string'], ['total', 'number'], ['retry_count', 'number'], ['max_retries', 'number']] },
+      { id: 't_task_assigned_email', event: 'task.assigned', channel: 'email', audience: 'agente', active: true, updatedBy: 'Lucía Fernández', updatedAt: '3 jun, 17:40',
+        subject: 'Nueva tarea asignada: Tarea {{task_source_system_label}}',
+        body: '<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto">\n  <div style="background:linear-gradient(135deg,#635BFF,#8B5CF6);padding:32px;border-radius:16px 16px 0 0">\n    <h1 style="color:#fff;margin:0;font-size:24px">Tarea asignada</h1>\n    <p style="color:rgba(255,255,255,.85);margin:8px 0 0;font-size:14px">{{task_source_system_label}} · Prioridad {{task_priority_label}}</p>\n  </div>\n  <div style="background:#fff;padding:32px;border:1px solid #f0f0f0;border-top:none;border-radius:0 0 16px 16px">\n    <p style="color:#374151;font-size:15px">Hola {{#if recipient.first_name}}{{recipient.first_name}}{{else}}agente{{/if}}, se te ha asignado una nueva tarea.</p>\n    <p style="text-align:center;margin:24px 0"><a href="{{task_url}}" style="display:inline-block;background:#635BFF;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Ver tarea</a></p>\n  </div>\n</div>',
+        vars: [['task_source_system_label', 'string'], ['task_priority_label', 'string'], ['task_url', 'string'], ['due_label', 'string'], ['recipient.first_name', 'string?']] },
+      { id: 't_task_assigned_bell', event: 'task.assigned', channel: 'internal', audience: 'agente', active: true, updatedBy: 'Seed inicial', updatedAt: 'Sistema · 27 abr',
+        subject: 'Nueva tarea: Tarea {{task_source_system_label}}',
+        body: 'Se te ha asignado una tarea de {{task_source_system_label}} con prioridad {{task_priority_label}}.',
+        vars: [['task_source_system_label', 'string'], ['task_priority_label', 'string']] },
+      { id: 't_maint_completed', event: 'maintenance.completed', channel: 'email', audience: 'cliente', active: true, updatedBy: 'Marc Oliver', updatedAt: '20 jun, 11:02',
+        subject: 'Mantenimiento completado · {{month_label}}',
+        body: '<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto">\n  <div style="background:linear-gradient(135deg,#635BFF,#8B5CF6);padding:32px;border-radius:16px 16px 0 0">\n    <h1 style="color:#fff;margin:0;font-size:24px">Mantenimiento completado</h1>\n    <p style="color:rgba(255,255,255,.85);margin:8px 0 0;font-size:14px">{{month_label}}</p>\n  </div>\n  <div style="background:#fff;padding:32px;border:1px solid #f0f0f0;border-top:none;border-radius:0 0 16px 16px">\n    <p style="color:#374151;font-size:15px">Hemos completado el mantenimiento mensual de tu servicio. Resumen:</p>\n    <div style="background:#f9fafb;border-left:4px solid #635BFF;border-radius:8px;padding:16px 20px;margin:20px 0"><p style="color:#374151;font-size:14px;white-space:pre-wrap;margin:0">{{notes}}</p></div>\n  </div>\n</div>',
+        vars: [['month_label', 'string'], ['notes', 'string'], ['service_url', 'string'], ['recipient.first_name', 'string?']] },
+      { id: 't_conv_resolved_email', event: 'conversation.resolved', channel: 'email', audience: 'cliente', active: true, updatedBy: 'Seed inicial', updatedAt: 'Sistema · 27 abr',
+        subject: 'Aelium — Tu ticket #{{ticket_sequence}} ha sido resuelto',
+        body: '<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto">\n  <div style="background:linear-gradient(135deg,#10B981,#059669);padding:24px;border-radius:12px 12px 0 0">\n    <h1 style="color:#fff;margin:0;font-size:20px">Ticket resuelto</h1>\n    <p style="color:rgba(255,255,255,.85);margin:6px 0 0;font-size:13px">#{{ticket_sequence}}</p>\n  </div>\n  <div style="background:#fff;padding:24px;border:1px solid #f0f0f0;border-top:none;border-radius:0 0 12px 12px">\n    <p style="color:#374151;font-size:14px">Hemos resuelto tu solicitud. Si no haces nada, el ticket se cerrará automáticamente en {{auto_close_days}} días.</p>\n  </div>\n</div>',
+        vars: [['ticket_sequence', 'string'], ['ticket_url', 'string'], ['auto_close_days', 'number'], ['recipient.first_name', 'string?']] },
+      { id: 't_conv_resolved_bell', event: 'conversation.resolved', channel: 'internal', audience: 'cliente', active: true, updatedBy: 'Seed inicial', updatedAt: 'Sistema · 27 abr',
+        subject: 'Tu ticket #{{ticket_sequence}} ha sido resuelto',
+        body: 'Hemos resuelto tu solicitud. Confirma o responde si necesitas seguir; en caso contrario se cerrará automáticamente en {{auto_close_days}} días.',
+        vars: [['ticket_sequence', 'string'], ['auto_close_days', 'number']] },
+      { id: 't_dlq_bell', event: 'dlq.job_failed', channel: 'internal', audience: 'superadmin', active: true, updatedBy: 'Seed inicial', updatedAt: 'Sistema · 27 abr',
+        subject: '⚠ Job en DLQ: {{queue}}/{{name}}',
+        body: 'El job {{name}} en la cola {{queue}} falló tras {{attempts_made}} intentos. Último error: {{last_error}}',
+        vars: [['failed_job_id', 'string'], ['queue', 'string'], ['name', 'string'], ['last_error', 'string'], ['attempts_made', 'number']] },
+      { id: 't_dlq_email', event: 'dlq.job_failed', channel: 'email', audience: 'superadmin', active: true, updatedBy: 'Seed inicial', updatedAt: 'Sistema · 27 abr',
+        subject: '⚠ Aelium — Job en DLQ: {{queue}}/{{name}}',
+        body: '<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto">\n  <div style="background:linear-gradient(135deg,#F59E0B,#D97706);padding:24px;border-radius:12px 12px 0 0">\n    <h1 style="color:#fff;margin:0;font-size:20px">⚠ Job en DLQ</h1>\n    <p style="color:rgba(255,255,255,.85);margin:6px 0 0;font-size:13px">{{queue}} / {{name}}</p>\n  </div>\n  <div style="background:#fff;padding:24px;border:1px solid #f0f0f0;border-top:none;border-radius:0 0 12px 12px">\n    <p style="color:#374151;font-size:14px">El job ha agotado {{attempts_made}} reintentos y entró en DLQ.</p>\n    <pre style="background:#f9fafb;border-radius:8px;padding:12px;font-size:12px;overflow-x:auto">queue: {{queue}}\nname: {{name}}\nlast_error: {{last_error}}</pre>\n  </div>\n</div>',
+        vars: [['failed_job_id', 'string'], ['queue', 'string'], ['name', 'string'], ['last_error', 'string'], ['attempts_made', 'number']] },
+      { id: 't_system_error_bell', event: 'system.error', channel: 'internal', audience: 'superadmin', active: true, updatedBy: 'Seed inicial', updatedAt: 'Sistema · 27 abr',
+        subject: '⚠ Error operativo: {{module}}',
+        body: '[{{level}}] {{module}} — {{message}}',
+        vars: [['error_log_id', 'string'], ['level', 'string'], ['module', 'string'], ['message', 'string'], ['correlation_id', 'string?']] },
+      { id: 't_circuit_email', event: 'plugin.circuit_opened', channel: 'email', audience: 'superadmin', active: true, updatedBy: 'Seed inicial', updatedAt: 'Sistema · 27 abr',
+        subject: 'Aelium — Plugin {{plugin_slug}} caído ({{operation}})',
+        body: '<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto">\n  <div style="background:linear-gradient(135deg,#EA580C,#C2410C);padding:24px;border-radius:12px 12px 0 0">\n    <h1 style="color:#fff;margin:0;font-size:20px">Plugin caído</h1>\n    <p style="color:rgba(255,255,255,.85);margin:6px 0 0;font-size:13px">{{plugin_slug}} · circuito abierto</p>\n  </div>\n  <div style="background:#fff;padding:24px;border:1px solid #f0f0f0;border-top:none;border-radius:0 0 12px 12px">\n    <p style="color:#374151;font-size:14px">El proveedor del plugin <strong>{{plugin_slug}}</strong> ha fallado repetidamente. El circuit breaker abrió la operación <code>{{operation}}</code>.</p>\n  </div>\n</div>',
+        vars: [['plugin_slug', 'string'], ['operation', 'string'], ['failure_count', 'number'], ['last_error_code', 'string?'], ['reset_timeout_ms', 'number']] },
+      { id: 't_auth_replay', event: 'auth.refresh_replay_detected', channel: 'internal', audience: 'superadmin', active: true, updatedBy: 'Seed inicial', updatedAt: 'Sistema · 27 abr',
+        subject: 'Sesión comprometida: {{attacked_user_email}}',
+        body: 'Refresh token reutilizado desde IP {{ip}}. {{revoked_sessions_count}} sesión(es) revocada(s).',
+        vars: [['attacked_user_email', 'string'], ['ip', 'string'], ['revoked_sessions_count', 'number'], ['attempted_at', 'string']] },
+    ];
+  }
+
+  samples() {
+    return {
+      'invoice.created': { invoice_number: 'AEL-2026-0001', total: '99.99', currency: 'EUR' },
+      'invoice.paid': { invoice_number: 'AEL-2026-0001', total: '99.99', currency: 'EUR', payment_provider: 'Stripe' },
+      'invoice.failed': { invoice_number: 'AEL-2026-0001', retry_count: 2, max_retries: 5 },
+      'invoice.overdue': { invoice_number: 'AEL-2026-0001', total: '99.99', retry_count: 5, max_retries: 5 },
+      'task.assigned': { task_source_system_label: 'Mantenimiento mensual', task_priority_label: 'Alta', task_url: '#', due_label: '15 jul 2026' },
+      'maintenance.completed': { month_label: 'junio 2026', notes: '· Actualizado WordPress y plugins\n· Backup verificado\n· Certificado SSL renovado', service_url: '#' },
+      'conversation.resolved': { ticket_sequence: '1042', ticket_url: '#', auto_close_days: 7 },
+      'dlq.job_failed': { queue: 'notifications-dispatch', name: 'dispatch-email', last_error: 'SMTP connection refused', attempts_made: 5, failed_job_id: '48211' },
+      'system.error': { level: 'error', module: 'BillingService', message: 'Excepción no controlada al generar factura', correlation_id: 'c_3f9a2b1e' },
+      'plugin.circuit_opened': { plugin_slug: 'enhance_cp', operation: 'getServiceInfo', failure_count: 5, last_error_code: 'UPSTREAM_TIMEOUT', reset_timeout_ms: 30000 },
+      'auth.refresh_replay_detected': { attacked_user_email: 'sara@estudio-marfil.com', ip: '54.187.x.x', revoked_sessions_count: 3, attempted_at: '24 jun 14:38' },
+    };
+  }
+
+  renderHbs(src, data) {
+    const get = (path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), data);
+    let out = src;
+    out = out.replace(/\{\{#if \((lt|gt|eq) ([\w.]+) ([\w.]+)\)\}\}([\s\S]*?)(?:\{\{else\}\}([\s\S]*?))?\{\{\/if\}\}/g, (m, op, a, b, t, f) => {
+      const av = Number(get(a)), bv = Number(get(b));
+      const cond = op === 'lt' ? av < bv : op === 'gt' ? av > bv : get(a) === get(b);
+      return cond ? t : (f || '');
+    });
+    out = out.replace(/\{\{#if ([\w.]+)\}\}([\s\S]*?)(?:\{\{else\}\}([\s\S]*?))?\{\{\/if\}\}/g, (m, p, t, f) => {
+      const v = get(p);
+      return (v !== undefined && v !== null && v !== '' && v !== false) ? t : (f || '');
+    });
+    out = out.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (m, p) => {
+      const v = get(p);
+      return v === undefined || v === null ? '' : String(v);
+    });
+    return out;
+  }
+
+  validate(subject, body) {
+    const both = subject + '\n' + body;
+    if (/\{\{\{|\{\{&/.test(both)) return 'Triple-stash detectado ({{{ }}} o {{& }}). Está prohibido por seguridad (XSS, regla EC-T8-17): usa siempre {{variable}} con escape.';
+    const opens = (both.match(/\{\{#if\b/g) || []).length;
+    const closes = (both.match(/\{\{\/if\}\}/g) || []).length;
+    if (opens !== closes) return 'Bloques Handlebars sin cerrar: ' + opens + ' {{#if}} frente a ' + closes + ' {{/if}}. El guardado se bloquea hasta que compile (R14).';
+    const lone = both.replace(/\{\{[^{}]*\}\}/g, '');
+    if (lone.includes('{{') || lone.includes('}}')) return 'Llaves desbalanceadas en la plantilla. Revisa que cada {{ tenga su }}.';
+    return null;
+  }
+
+  insertVar(token) {
+    const field = this.state.focusField;
+    const sel = field === 'subject' ? this._subjEl : this._bodyEl;
+    const key = field === 'subject' ? 'subject' : 'body';
+    const cur = this.state[key] || '';
+    const snippet = '{{' + token + '}}';
+    if (sel && typeof sel.selectionStart === 'number') {
+      const a = sel.selectionStart, b = sel.selectionEnd;
+      const next = cur.slice(0, a) + snippet + cur.slice(b);
+      this.setState({ [key]: next });
+      requestAnimationFrame(() => { try { sel.focus(); sel.selectionStart = sel.selectionEnd = a + snippet.length; } catch (e) {} });
+    } else {
+      this.setState({ [key]: cur + snippet });
+    }
+  }
+
+  renderVals() {
+    const s = this.state;
+    const all = this.data();
+    const tpl = all.find((t) => t.id === s.id) || all[0];
+
+    const CH = { email: { label: 'Email', bg: '#EEF4FF', fg: '#1D4ED8' }, internal: { label: 'Campana', bg: '#F3EEFB', fg: '#7C3AED' } };
+    const AUD = { cliente: { label: 'Cliente', bg: '#E8F7F1', fg: '#0E8C5F' }, agente: { label: 'Agente', bg: '#EEF1F5', fg: '#475569' }, superadmin: { label: 'Superadmin', bg: '#FCF3E1', fg: '#B27A12' } };
+    const mailIcon = React.createElement('svg', { width: 13, height: 13, viewBox: '0 0 24 24', style: { flexShrink: 0 } }, React.createElement('rect', { x: 2, y: 4, width: 20, height: 16, rx: 2 }), React.createElement('path', { d: 'm22 7-10 5L2 7' }));
+    const bellIcon = React.createElement('svg', { width: 13, height: 13, viewBox: '0 0 24 24', style: { flexShrink: 0 } }, React.createElement('path', { d: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9' }), React.createElement('path', { d: 'M13.73 21a2 2 0 0 1-3.46 0' }));
+    const bellIcon2 = React.createElement('svg', { width: 16, height: 16, viewBox: '0 0 24 24' }, React.createElement('path', { d: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9' }), React.createElement('path', { d: 'M13.73 21a2 2 0 0 1-3.46 0' }));
+    const chChip = (ch) => 'display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:7px;font-size:11.5px;font-weight:600;background:' + CH[ch].bg + ';color:' + CH[ch].fg + ';';
+
+    const err = this.validate(s.subject, s.body);
+    const canSave = !err;
+    const sample = Object.assign({}, this.samples()[tpl.event] || {}, { recipient: { first_name: 'Ana' } });
+    const rSubject = this.renderHbs(s.subject, sample);
+    const rBody = this.renderHbs(s.body, sample);
+
+    let previewNode;
+    if (tpl.channel === 'email') {
+      previewNode = React.createElement('div', { style: { background: '#EDF1F6', borderRadius: '12px', padding: '18px', border: '1px solid #E2E8F0' } },
+        React.createElement('div', { style: { fontSize: '11px', color: '#94A3B8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 } }, 'Asunto'),
+        React.createElement('div', { style: { fontSize: '14px', fontWeight: 600, color: '#0F172A', marginBottom: '14px', wordBreak: 'break-word' } }, rSubject || '(vacío)'),
+        React.createElement('div', { style: { background: '#fff', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(15,23,42,0.10)' }, dangerouslySetInnerHTML: { __html: rBody } })
+      );
+    } else {
+      previewNode = React.createElement('div', { style: { padding: '4px' } },
+        React.createElement('div', { style: { fontSize: '11px', color: '#94A3B8', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 } }, 'Campana (in-app)'),
+        React.createElement('div', { style: { display: 'flex', gap: '12px', padding: '14px', background: '#fff', borderRadius: '12px', border: '1px solid #E8EDF4', boxShadow: '0 1px 3px rgba(15,23,42,0.06)', maxWidth: '380px' } },
+          React.createElement('div', { style: { width: '36px', height: '36px', borderRadius: '9999px', background: '#F3EEFB', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 } }, bellIcon2),
+          React.createElement('div', { style: { minWidth: 0 } },
+            React.createElement('div', { style: { fontSize: '13.5px', fontWeight: 600, color: '#0F172A', marginBottom: '3px' } }, rSubject || '(vacío)'),
+            React.createElement('div', { style: { fontSize: '12.5px', color: '#64748B', lineHeight: 1.5 } }, rBody),
+            React.createElement('div', { style: { fontSize: '11px', color: '#94A3B8', marginTop: '6px' } }, 'hace un momento')
+          )
+        )
+      );
+    }
+
+    const switchStyle = (on) => 'position:relative;width:38px;height:22px;border-radius:9999px;border:none;cursor:pointer;padding:0;transition:background .18s ease;background:' + (on ? '#10B981' : '#CBD5E1') + ';';
+    const knobStyle = (on) => 'position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:9999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .18s ease;transform:translateX(' + (on ? '16px' : '0') + ');';
+
+    return {
+      event: tpl.event,
+      channelStyle: chChip(tpl.channel),
+      channelIcon: tpl.channel === 'email' ? mailIcon : bellIcon,
+      channelLabel: CH[tpl.channel].label,
+      audStyle: 'display:inline-block;padding:3px 10px;border-radius:7px;font-size:11.5px;font-weight:600;background:' + AUD[tpl.audience].bg + ';color:' + AUD[tpl.audience].fg + ';',
+      audLabel: AUD[tpl.audience].label,
+      renderNote: tpl.channel === 'email' ? 'Render Handlebars · HTML sin escape (noEscape)' : 'Render Handlebars · texto con escape estricto',
+      updatedBy: tpl.updatedBy,
+      updatedAt: tpl.updatedAt,
+      toggleActive: () => this.setState((st) => ({ active: !st.active })),
+      switchStyle: switchStyle(s.active),
+      knobStyle: knobStyle(s.active),
+      activeLabel: s.active ? 'Activa' : 'Inactiva',
+      activeColor: s.active ? '#0E8C5F' : '#94A3B8',
+      subject: s.subject,
+      onSubject: (e) => this.setState({ subject: e.target.value }),
+      focusSubject: (e) => { this._subjEl = e.target; this.setState({ focusField: 'subject' }); },
+      subjectStyle: 'width:100%;padding:11px 13px;border-radius:10px;border:1px solid #E2E8F0;background:#FBFCFD;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#0F172A;line-height:1.5;outline:none;resize:vertical;',
+      bodyLabel: tpl.channel === 'email' ? 'Cuerpo (HTML)' : 'Cuerpo (texto)',
+      bodyHint: tpl.channel === 'email' ? 'HTML + Handlebars' : 'Texto + Handlebars',
+      body: s.body,
+      onBody: (e) => this.setState({ body: e.target.value }),
+      focusBody: (e) => { this._bodyEl = e.target; this.setState({ focusField: 'body' }); },
+      bodyStyle: 'width:100%;min-height:300px;padding:13px;border-radius:10px;border:1px solid #E2E8F0;background:#FBFCFD;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#334155;line-height:1.6;outline:none;resize:vertical;',
+      hasError: !!err,
+      errorMsg: err || '',
+      vars: tpl.vars.map((v) => ({ token: '{{' + v[0] + '}}', type: v[1], title: 'Insertar {{' + v[0] + '}}', insert: () => this.insertVar(v[0]) })),
+      canSave,
+      saveLabel: canSave ? 'Guardar cambios' : 'No compila',
+      saveStyle: 'display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 16px;border-radius:9px;border:none;font-size:13px;font-weight:600;font-family:inherit;background:' + (canSave ? '#1D4ED8' : '#FCECEC') + ';color:' + (canSave ? '#fff' : '#D14343') + ';cursor:' + (canSave ? 'pointer' : 'not-allowed') + ';',
+      reset: () => this.setState({ subject: tpl.subject, body: tpl.body, active: tpl.active !== false }),
+      save: () => {
+        const e2 = this.validate(this.state.subject, this.state.body);
+        if (e2) { this.flash('No se puede guardar: la plantilla no compila'); return; }
+        this.flash('Plantilla guardada · validada con Handlebars');
+      },
+      previewNode,
+      goBack: () => { if (this.props.navigate) this.props.navigate('templates'); },
+      toast: s.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>

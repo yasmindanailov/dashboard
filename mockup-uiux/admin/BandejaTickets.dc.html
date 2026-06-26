@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  input[type=checkbox] { accent-color: #3B82F6; cursor: pointer; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+    <div>
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 5px">Soporte</h1>
+      <p style="font-size:13.5px;color:#64748B;margin:0">{{ subtitle }}</p>
+    </div>
+    <button type="button" onClick="{{ openNew }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">
+      <svg width="16" height="16" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      Nuevo ticket
+    </button>
+  </div>
+
+  <div style="display:flex;align-items:flex-end;gap:2px;border-bottom:1px solid #E8EDF4;margin-bottom:18px;overflow-x:auto">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+      <button type="button" onClick="{{ t.go }}" style="{{ t.style }}" style-hover="{{ t.hover }}">
+        <span>{{ t.label }}</span>
+        <span style="{{ t.countStyle }}">{{ t.count }}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:240px">
+      <svg width="17" height="17" viewBox="0 0 24 24" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" value="{{ search }}" onInput="{{ onSearch }}" placeholder="Buscar por asunto o cliente..." style="width:100%;height:40px;padding:0 14px 0 38px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13.5px;font-family:inherit;color:#0F172A;outline:none;transition:border-color .15s ease" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+    </div>
+    <div style="position:relative">
+      <select value="{{ priority }}" onChange="{{ onPriority }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6">
+        <option value="">Toda prioridad</option>
+        <option value="urgent">Urgente</option>
+        <option value="high">Alta</option>
+        <option value="normal">Normal</option>
+        <option value="low">Baja</option>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+    <div style="position:relative">
+      <select value="{{ agent }}" onChange="{{ onAgent }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6">
+        <option value="">Todos los agentes</option>
+        <option value="Luis Ferrer">Luis Ferrer</option>
+        <option value="Marc Oliver">Marc Oliver</option>
+        <option value="unassigned">Sin asignar</option>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+      <div onClick="{{ r.go }}" style="{{ r.cardStyle }}" style-hover="border-color:#CBD5E1;box-shadow:0 2px 10px rgba(15,23,42,0.07)">
+        <div onClick="{{ r.stop }}" style="display:flex;align-items:center;padding-left:16px"><input type="checkbox" checked="{{ r.selected }}" onChange="{{ r.toggle }}" style="width:15px;height:15px"></div>
+        <span style="{{ r.barStyle }}"></span>
+        <div style="flex:1;min-width:0;padding:14px 16px 14px 13px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">
+            <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#94A3B8;flex-shrink:0">{{ r.id }}</span>
+            <span style="font-size:14px;font-weight:600;color:{{ r.subjectColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">{{ r.subject }}</span>
+            <sc-if value="{{ r.firstPending }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;letter-spacing:0.02em;color:#D14343;background:#FCECEC;padding:2px 8px;border-radius:9999px;flex-shrink:0"><span style="width:5px;height:5px;border-radius:9999px;background:#EF4444"></span>SIN 1ª RESPUESTA</span></sc-if>
+            <span style="{{ r.statusStyle }}">{{ r.statusLabel }}</span>
+          </div>
+          <div style="font-size:12.5px;color:#94A3B8;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:9px">{{ r.preview }}</div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="display:inline-flex;align-items:center;gap:7px;min-width:0"><span style="{{ r.avatarStyle }}">{{ r.initials }}</span><span style="font-size:12.5px;font-weight:500;color:#475569">{{ r.client }}</span></span>
+            <sc-if value="{{ r.hasSi }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:600;color:#7C5CCB;background:#F1ECFB;padding:2px 8px;border-radius:9999px;white-space:nowrap">{{ r.siLabel }}</span></sc-if>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:#94A3B8"><svg width="13" height="13" viewBox="0 0 24 24"><use href="{{ r.chanIcon }}"></use></svg>{{ r.channel }}</span>
+            <span style="font-size:11.5px;color:#CBD5E1">·</span>
+            <sc-if value="{{ r.assigned }}" hint-placeholder-val="{{ true }}"><span style="font-size:11.5px;color:#94A3B8;white-space:nowrap">{{ r.agentLabel }}</span></sc-if>
+            <sc-if value="{{ r.unassigned }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ r.assignMe }}" style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#3B82F6;background:#EFF4FF;border:none;border-radius:7px;padding:3px 9px;font-family:inherit;cursor:pointer" style-hover="background:#E0EBFF"><svg width="12" height="12" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Asignarme</button></sc-if>
+            <span style="font-size:11.5px;color:#CBD5E1">·</span>
+            <span style="font-size:11.5px;color:#94A3B8;white-space:nowrap">{{ r.time }}</span>
+            <sc-if value="{{ r.hasSla }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:{{ r.slaColor }};white-space:nowrap"><svg width="13" height="13" viewBox="0 0 24 24"><use href="{{ r.slaIcon }}"></use></svg>{{ r.slaText }}</span></sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:56px 24px;text-align:center;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+      <svg width="40" height="40" viewBox="0 0 24 24" style="color:#CBD5E1;margin:0 auto 14px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      <div style="font-size:15px;font-weight:600;color:#0F172A;margin-bottom:5px">{{ emptyTitle }}</div>
+      <div style="font-size:13px;color:#94A3B8">{{ emptyBody }}</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showPagination }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;flex-wrap:wrap">
+      <span style="font-size:12.5px;color:#94A3B8">{{ rangeLabel }}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button type="button" onClick="{{ goPrev }}" style="{{ prevStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+        <sc-for list="{{ pages }}" as="p" hint-placeholder-count="2">
+          <button type="button" onClick="{{ p.go }}" style="{{ p.style }}">{{ p.n }}</button>
+        </sc-for>
+        <button type="button" onClick="{{ goNext }}" style="{{ nextStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;padding:10px 12px 10px 18px;background:#0F172A;border-radius:14px;box-shadow:0 12px 40px rgba(15,23,42,0.28)">
+      <span style="font-size:13px;font-weight:600;color:#fff">{{ selectedCount }} seleccionado{{ selPlural }}</span>
+      <div style="width:1px;height:20px;background:rgba(255,255,255,0.18)"></div>
+      <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:9px;border:none;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#2563EB"><svg width="15" height="15" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>Reasignar</button>
+      <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:9px;border:none;background:rgba(255,255,255,0.10);color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:rgba(255,255,255,0.18)"><svg width="15" height="15" viewBox="0 0 24 24"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>Cambiar prioridad</button>
+      <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:9px;border:none;background:rgba(255,255,255,0.10);color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:rgba(255,255,255,0.18)"><svg width="15" height="15" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>Cerrar</button>
+      <button type="button" onClick="{{ clearSel }}" title="Quitar selección" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:none;background:transparent;color:#94A3B8;cursor:pointer;font-family:inherit" style-hover="background:rgba(255,255,255,0.08);color:#fff"><svg width="16" height="16" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ newOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeNew }}" style="position:fixed;inset:0;z-index:90;background:rgba(15,23,42,0.32);display:flex;align-items:center;justify-content:center;padding:20px">
+      <div onClick="{{ stopModal }}" style="width:480px;max-width:100%;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(15,23,42,0.30);overflow:hidden">
+        <div style="padding:18px 20px 14px;border-bottom:1px solid #F1F5F9"><h2 style="font-size:15px;font-weight:700;color:#0F172A;margin:0">Nuevo ticket</h2><p style="font-size:12.5px;color:#94A3B8;margin:5px 0 0">Abre un ticket en nombre de un cliente — p. ej. tras una llamada.</p></div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px">Cliente</label>
+            <div style="position:relative">
+              <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" placeholder="Buscar cliente por nombre o email..." style="width:100%;height:40px;padding:0 12px 0 33px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#0F172A;outline:none" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px">Asunto</label>
+            <input type="text" placeholder="Resumen breve del problema" style="width:100%;height:40px;padding:0 12px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#0F172A;outline:none" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px">Mensaje</label>
+            <textarea rows="3" placeholder="Describe lo que necesita el cliente…" style="width:100%;border:1px solid #E2E8F0;border-radius:10px;padding:11px 12px;font-size:13px;color:#0F172A;outline:none;resize:vertical;line-height:1.5" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></textarea>
+          </div>
+          <div style="display:flex;gap:12px">
+            <div style="flex:1">
+              <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px">Categoría</label>
+              <div style="position:relative">
+                <select style="width:100%;height:40px;padding:0 34px 0 12px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6"><option>Técnico</option><option>Facturación</option><option>Comercial</option><option>General</option></select>
+                <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+            </div>
+            <div style="flex:1">
+              <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px">Prioridad</label>
+              <div style="position:relative">
+                <select style="width:100%;height:40px;padding:0 34px 0 12px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6"><option>Normal</option><option>Alta</option><option>Urgente</option><option>Baja</option></select>
+                <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid #F1F5F9;background:#FBFCFD">
+          <button type="button" onClick="{{ closeNew }}" style="height:38px;padding:0 16px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F1F5F9">Cancelar</button>
+          <button type="button" onClick="{{ closeNew }}" style="height:38px;padding:0 16px;border-radius:9px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#2563EB">Crear ticket</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="ch-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"></rect><polyline points="22,6 12,13 2,6"></polyline></symbol>
+    <symbol id="ch-app" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></symbol>
+    <symbol id="sla-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></symbol>
+    <symbol id="sla-alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></symbol>
+    <symbol id="sla-pause" viewBox="0 0 24 24"><line x1="10" y1="15" x2="10" y2="9"></line><line x1="14" y1="15" x2="14" y2="9"></line><circle cx="12" cy="12" r="10"></circle></symbol>
+  </defs></svg>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 880 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = { search: '', tab: '', priority: '', agent: '', page: 1, selected: [], assignments: {}, newOpen: false };
+
+  data() {
+    return [
+      { id: '#1042', subject: 'Problema con el certificado SSL', preview: 'En el portátil ya va bien, pero en el móvil sigo viendo el aviso.', client: 'Carla Ruiz', initials: 'CR', status: 'waiting_agent', priority: 'high', channel: 'email', agent: 'Luis Ferrer', si: 'Medium', first: false, time: 'hace 12 min', sla: 'on' },
+      { id: '#1041', subject: 'No me llega el correo de contacto', preview: 'He probado a enviar desde el formulario y no llega nada a mi bandeja.', client: 'Diego Sanz', initials: 'DS', status: 'waiting_agent', priority: 'urgent', channel: 'in-app', agent: '', si: '', first: true, time: 'hace 40 min', sla: 'over' },
+      { id: '#1039', subject: 'Error 500 en la tienda', preview: 'La tienda devuelve error 500 al añadir productos al carrito. Es urgente.', client: 'Sara Gómez', initials: 'SG', status: 'open', priority: 'urgent', channel: 'email', agent: '', si: 'Pro', first: true, time: 'hace 8 min', sla: 'on' },
+      { id: '#1040', subject: 'Quiero cambiar a facturación anual', preview: 'Tú: Te paso el preview del prorrateo. Dime si lo confirmas.', client: 'Núria Pons', initials: 'NP', status: 'waiting_client', priority: 'normal', channel: 'email', agent: 'Luis Ferrer', si: '', first: false, time: 'hace 2 h', sla: 'paused' },
+      { id: '#1038', subject: 'Duda en la factura INV-00140', preview: '¿Por qué aparece un cargo de setup si ya tenía el servicio?', client: 'Tomás Gil', initials: 'TG', status: 'waiting_agent', priority: 'normal', channel: 'email', agent: 'Marc Oliver', si: '', first: false, time: 'hace 1 h', sla: 'on' },
+      { id: '#1035', subject: 'La web va muy lenta últimamente', preview: 'Desde el lunes tarda mucho en cargar, sobre todo la home.', client: 'Track Media', initials: 'ET', status: 'open', priority: 'high', channel: 'in-app', agent: '', si: 'Medium', first: true, time: 'hace 30 min', sla: 'on' },
+      { id: '#1036', subject: 'Configurar DNS para Google Workspace', preview: 'Tú: He añadido los registros MX, revisa en unos minutos.', client: 'Clínica Dental Sur', initials: 'CD', status: 'waiting_client', priority: 'normal', channel: 'email', agent: 'Luis Ferrer', si: '', first: false, time: 'hace 5 h', sla: 'paused' },
+      { id: '#1033', subject: 'Cambio de titular del dominio', preview: 'Necesito poner el dominio a nombre de la nueva sociedad.', client: 'Inmobiliaria Vela', initials: 'IV', status: 'waiting_agent', priority: 'normal', channel: 'email', agent: 'Marc Oliver', si: '', first: false, time: 'hace 3 h', sla: 'on' },
+      { id: '#1037', subject: 'Renovación de dominio', preview: 'Tú: Renovado por 1 año. ¡Gracias!', client: 'Hugo Serra', initials: 'HS', status: 'resolved', priority: 'low', channel: 'email', agent: 'Luis Ferrer', si: '', first: false, time: 'ayer', sla: 'done' },
+      { id: '#1034', subject: 'Solicito una copia de seguridad', preview: 'Tú: Te he dejado el backup en tu panel, sección Copias.', client: 'Pau Bonet', initials: 'PB', status: 'resolved', priority: 'normal', channel: 'in-app', agent: 'Luis Ferrer', si: '', first: false, time: 'hace 2 días', sla: 'done' },
+      { id: '#1032', subject: 'Activar Support Inside', preview: 'Tú: Plan Básico activado, ya tienes tu primer slot.', client: 'Laura Méndez', initials: 'LM', status: 'resolved', priority: 'low', channel: 'email', agent: 'Marc Oliver', si: '', first: false, time: 'hace 3 días', sla: 'done' },
+    ];
+  }
+
+  renderVals() {
+    const PAL = [['#EFF4FF', '#3B82F6'], ['#E8F7F1', '#0E8C5F'], ['#F1ECFB', '#7C5CCB'], ['#FCF3E1', '#B27A12'], ['#E9F0FB', '#475569'], ['#FCECEC', '#D14343']];
+    const STATUS = {
+      open: { label: 'Abierto', bg: '#EFF4FF', fg: '#3B82F6' },
+      waiting_agent: { label: 'Esperando agente', bg: '#FCF3E1', fg: '#B27A12' },
+      waiting_client: { label: 'Esperando cliente', bg: '#EEF2F7', fg: '#64748B' },
+      resolved: { label: 'Resuelto', bg: '#E8F7F1', fg: '#0E8C5F' },
+    };
+    const PRIO = { urgent: '#EF4444', high: '#F59E0B', normal: '#CBD5E1', low: '#E2E8F0' };
+    const slaHours = { '#1042': 'en 3 h', '#1039': 'en 50 min', '#1038': 'en 6 h', '#1035': 'en 2 h', '#1033': 'en 4 h' };
+
+    const all = this.data();
+    const cnt = (st) => all.filter((t) => t.status === st).length;
+    const counts = { '': all.length, open: cnt('open'), waiting_agent: cnt('waiting_agent'), waiting_client: cnt('waiting_client'), resolved: cnt('resolved') };
+    const tabDefs = [
+      { value: '', label: 'Todos', tone: 'neutral' },
+      { value: 'open', label: 'Abiertos', tone: 'info' },
+      { value: 'waiting_agent', label: 'Esperando agente', tone: 'danger' },
+      { value: 'waiting_client', label: 'Esperando cliente', tone: 'neutral' },
+      { value: 'resolved', label: 'Resueltos', tone: 'success' },
+    ];
+    const TONE = { neutral: { bg: '#EEF1F5', fg: '#64748B' }, info: { bg: '#EFF4FF', fg: '#3B82F6' }, success: { bg: '#E8F7F1', fg: '#0E8C5F' }, danger: { bg: '#FCECEC', fg: '#D14343' } };
+    const activeTab = this.state.tab || '';
+    const tabs = tabDefs.map((t) => {
+      const isA = t.value === activeTab;
+      const tn = TONE[t.tone];
+      return {
+        label: t.label, count: String(counts[t.value] || 0),
+        style: 'display:flex;align-items:center;gap:8px;padding:11px 14px 12px;border:none;background:transparent;font-family:inherit;font-size:13.5px;cursor:pointer;white-space:nowrap;color:' + (isA ? '#0F172A' : '#64748B') + ';font-weight:' + (isA ? '600' : '500') + ';box-shadow:' + (isA ? 'inset 0 -2px 0 #3B82F6' : 'none') + ';transition:color .15s ease;',
+        hover: isA ? '' : 'color:#0F172A;',
+        countStyle: 'min-width:20px;height:20px;padding:0 6px;border-radius:9999px;background:' + (isA ? tn.bg : '#F1F5F9') + ';color:' + (isA ? tn.fg : '#94A3B8') + ';font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;',
+        go: () => this.setState({ tab: t.value, page: 1 }),
+      };
+    });
+
+    const q = (this.state.search || '').toLowerCase().trim();
+    const pf = this.state.priority || '';
+    const af = this.state.agent || '';
+    const filtered = all.filter((t) => {
+      const tabOk = !activeTab || t.status === activeTab;
+      const qOk = !q || t.subject.toLowerCase().includes(q) || t.client.toLowerCase().includes(q);
+      const pOk = !pf || t.priority === pf;
+      const aOk = !af || (af === 'unassigned' ? !t.agent : t.agent === af);
+      return tabOk && qOk && pOk && aOk;
+    });
+
+    // Cola de trabajo: lo que el equipo debe atender primero arriba, resueltos al final
+    const prW = { urgent: 0, high: 1, normal: 2, low: 3 };
+    const orderOf = (t) => {
+      if (t.status === 'resolved') return 900;
+      if (t.status === 'waiting_client') return 700;
+      let s; if (t.sla === 'over') s = 0; else if (t.first) s = 100; else if (t.status === 'waiting_agent') s = 200; else s = 300;
+      return s + (prW[t.priority] != null ? prW[t.priority] : 2);
+    };
+    filtered.sort((a, b) => orderOf(a) - orderOf(b));
+
+    const limit = 8;
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const page = Math.min(this.state.page || 1, totalPages);
+    const start = (page - 1) * limit;
+    const pageItems = filtered.slice(start, start + limit);
+    const selected = this.state.selected || [];
+
+    const slaMap = {
+      on: { text: 'SLA en 3 h', color: '#B27A12', icon: '#sla-clock', has: true },
+      over: { text: 'SLA vencido', color: '#D14343', icon: '#sla-alert', has: true },
+      paused: { text: 'Esperando cliente', color: '#94A3B8', icon: '#sla-pause', has: false },
+      done: { text: '', color: '', icon: '', has: false },
+    };
+
+    const rows = pageItems.map((t) => {
+      const pal = PAL[t.client.charCodeAt(0) % PAL.length];
+      const st = STATUS[t.status] || STATUS.open;
+      const sla = slaMap[t.sla] || slaMap.done;
+      const isSel = selected.includes(t.id);
+      const ov = (this.state.assignments || {})[t.id];
+      const agentName = ov || t.agent;
+      const unassigned = !agentName;
+      const isResolved = t.status === 'resolved';
+      let slaText = sla.text;
+      if (t.sla === 'on') slaText = 'SLA ' + (slaHours[t.id] || 'pendiente');
+      return {
+        id: t.id, subject: t.subject, preview: t.preview, client: t.client, initials: t.initials,
+        cardStyle: 'display:flex;align-items:stretch;width:100%;text-align:left;background:#fff;border:1px solid #E2E8F0;border-radius:14px;cursor:pointer;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,0.04);transition:border-color .15s ease,box-shadow .15s ease;' + (isSel ? 'border-color:#BFD8FF;background:#FBFCFF;' : (isResolved ? 'background:#FCFCFD;' : '')),
+        subjectColor: isResolved ? '#64748B' : '#0F172A',
+        barStyle: 'width:4px;flex-shrink:0;align-self:stretch;background:' + (PRIO[t.priority] || '#E2E8F0') + ';',
+        statusLabel: st.label,
+        statusStyle: 'display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;flex-shrink:0;background:' + st.bg + ';color:' + st.fg + ';',
+        firstPending: t.first,
+        avatarStyle: 'width:22px;height:22px;border-radius:9999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;background:' + pal[0] + ';color:' + pal[1] + ';',
+        hasSi: !!t.si, siLabel: 'Support Inside ' + t.si,
+        chanIcon: t.channel === 'email' ? '#ch-mail' : '#ch-app',
+        channel: t.channel === 'email' ? 'Email' : 'In-app',
+        agentLabel: agentName || 'Sin asignar',
+        unassigned, assigned: !unassigned,
+        assignMe: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.setState((s) => ({ assignments: Object.assign({}, s.assignments, { [t.id]: 'Marc Oliver' }) })); },
+        time: t.time,
+        hasSla: sla.has, slaText: slaText, slaColor: sla.color, slaIcon: sla.icon,
+        selected: isSel,
+        toggle: () => this.setState((s) => {
+          const set = new Set(s.selected || []);
+          if (set.has(t.id)) set.delete(t.id); else set.add(t.id);
+          return { selected: [...set] };
+        }),
+        stop: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+        go: () => { if (this.props.navigate) this.props.navigate('ticket-detail'); },
+      };
+    });
+
+    const from = total === 0 ? 0 : start + 1;
+    const to = Math.min(start + limit, total);
+    const pageBtn = (active) => 'min-width:34px;height:34px;padding:0 8px;border-radius:9px;border:1px solid ' + (active ? '#3B82F6' : '#E2E8F0') + ';background:' + (active ? '#3B82F6' : '#fff') + ';color:' + (active ? '#fff' : '#475569') + ';font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;';
+    const arrowBtn = (disabled) => 'display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:' + (disabled ? '#CBD5E1' : '#475569') + ';cursor:' + (disabled ? 'default' : 'pointer') + ';font-family:inherit;';
+    const pages = Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => ({ n: String(n), style: pageBtn(n === page), go: () => this.setState({ page: n }) }));
+
+    const waitingAgent = counts.waiting_agent;
+    const baseSub = (q || activeTab || pf || af)
+      ? (total + (total === 1 ? ' ticket' : ' tickets'))
+      : ('Gestión de tickets · ' + (waitingAgent > 0 ? waitingAgent + (waitingAgent === 1 ? ' esperando respuesta del equipo' : ' esperando respuesta del equipo') : 'sin tickets pendientes del equipo'));
+
+    return {
+      subtitle: baseSub,
+      tabs,
+      search: this.state.search || '', priority: this.state.priority || '', agent: this.state.agent || '',
+      onSearch: (e) => this.setState({ search: e.target.value, page: 1 }),
+      onPriority: (e) => this.setState({ priority: e.target.value, page: 1 }),
+      onAgent: (e) => this.setState({ agent: e.target.value, page: 1 }),
+      rows,
+      isEmpty: rows.length === 0,
+      emptyTitle: q ? 'Sin resultados' : 'Sin tickets',
+      emptyBody: q ? 'Prueba con otros filtros o términos de búsqueda.' : 'Cuando un cliente abra una conversación, aparecerá aquí.',
+      showPagination: totalPages > 1,
+      rangeLabel: from + '–' + to + ' de ' + total,
+      pages,
+      goPrev: () => this.setState({ page: Math.max(1, page - 1) }),
+      goNext: () => this.setState({ page: Math.min(totalPages, page + 1) }),
+      prevStyle: arrowBtn(page <= 1), nextStyle: arrowBtn(page >= totalPages),
+      hasSelection: selected.length > 0,
+      selectedCount: selected.length, selPlural: selected.length === 1 ? '' : 's',
+      clearSel: () => this.setState({ selected: [] }),
+      newOpen: this.state.newOpen,
+      openNew: () => this.setState({ newOpen: true }),
+      closeNew: () => this.setState({ newOpen: false }),
+      stopModal: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

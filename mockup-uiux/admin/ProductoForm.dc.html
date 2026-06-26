@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  input[type=checkbox] { accent-color: #3B82F6; cursor: pointer; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:center;gap:7px;margin-bottom:16px;font-size:13px">
+    <button type="button" onClick="{{ goProducts }}" style="background:none;border:none;padding:0;font-family:inherit;font-size:13px;color:#94A3B8;cursor:pointer;font-weight:500" style-hover="color:#3B82F6">Productos</button>
+    <svg width="15" height="15" viewBox="0 0 24 24" style="color:#CBD5E1"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    <span style="color:#475569;font-weight:600">{{ crumbLast }}</span>
+  </div>
+
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap">
+    <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0">{{ title }}</h1>
+    <sc-if value="{{ step2 }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button type="button" onClick="{{ changeType }}" style="height:40px;padding:0 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#F8FAFC;border-color:#CBD5E1">Cambiar tipo</button>
+        <button type="button" onClick="{{ noop }}" style="height:40px;padding:0 18px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">{{ submitLabel }}</button>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ step1 }}" hint-placeholder-val="{{ true }}">
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:24px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+      <p style="font-size:14px;color:#475569;margin:0 0 18px;font-weight:500">¿Qué tipo de producto quieres crear?</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+        <sc-for list="{{ types }}" as="t" hint-placeholder-count="5">
+          <button type="button" onClick="{{ t.go }}" style="text-align:left;background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:18px;cursor:pointer;font-family:inherit;transition:border-color .15s ease,box-shadow .15s ease" style-hover="border-color:#3B82F6;box-shadow:0 4px 14px rgba(59,130,246,0.10)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <span style="width:34px;height:34px;border-radius:9px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24"><use href="#pf-{{ t.icon }}"></use></svg></span>
+              <span style="font-size:14.5px;font-weight:600;color:#0F172A">{{ t.label }}</span>
+              <sc-if value="{{ t.isAddon }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;background:#EAF3FF;color:#2563EB">Addon</span></sc-if>
+            </div>
+            <p style="font-size:12.5px;color:#94A3B8;margin:0;line-height:1.45">{{ t.desc }}</p>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ step2 }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:18px;max-width:880px">
+
+      <sc-if value="{{ showAddonBanner }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:13px 16px;background:#EFF4FF;border:1px solid #CFE0FF;border-radius:12px">
+          <span style="display:inline-flex;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:700;background:#3B82F6;color:#fff;flex-shrink:0;margin-top:1px">Addon</span>
+          <span style="font-size:13px;color:#2C5AA8;line-height:1.45">{{ addonBannerText }}</span>
+        </div>
+      </sc-if>
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px 24px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+        <h3 style="font-size:14px;font-weight:600;color:#0F172A;margin:0 0 18px">Identidad</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <label style="display:block"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">Nombre *</span><input type="text" value="{{ name }}" onInput="{{ onName }}" placeholder="{{ namePlaceholder }}" style="{{ inputStyle }}" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></label>
+          <label style="display:block"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">Slug</span><input type="text" value="{{ slug }}" onInput="{{ onSlug }}" style="{{ inputStyle }}font-family:ui-monospace,monospace;" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></label>
+          <label style="display:block"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">Badge</span><input type="text" placeholder="Más popular" style="{{ inputStyle }}" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></label>
+          <label style="display:block"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">Comisión partner (%)</span><input type="number" placeholder="20" style="{{ inputStyle }}" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></label>
+        </div>
+        <label style="display:block;margin-top:16px"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">Descripción corta</span><input type="text" placeholder="Una línea de resumen" style="{{ inputStyle }}" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></label>
+        <label style="display:block;margin-top:16px"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">Descripción completa</span><textarea rows="3" placeholder="Detalle del producto…" style="{{ inputStyle }}height:auto;padding:11px 14px;resize:vertical;line-height:1.5" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></textarea></label>
+      </div>
+
+      <sc-if value="{{ showPricing }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px 24px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <h3 style="font-size:14px;font-weight:600;color:#0F172A;margin:0 0 16px">Pricing</h3>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="1">
+              <div style="display:grid;grid-template-columns:1.1fr 1fr 1fr 38px;gap:12px;align-items:end">
+                <label style="display:block"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">Ciclo</span>
+                  <div style="position:relative">
+                    <select value="{{ r.cycle }}" onChange="{{ r.onCycle }}" style="{{ inputStyle }}padding-right:34px;appearance:none;-webkit-appearance:none;cursor:pointer">
+                      <option value="monthly">Mensual</option>
+                      <option value="quarterly">Trimestral</option>
+                      <option value="semiannual">Semestral</option>
+                      <option value="annual">Anual</option>
+                      <option value="one_time">Único</option>
+                    </select>
+                    <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+                </label>
+                <label style="display:block"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">Precio (€) *</span><input type="number" placeholder="9.99" style="{{ inputStyle }}" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></label>
+                <label style="display:block"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">Setup fee (€)</span><input type="number" placeholder="0" style="{{ inputStyle }}" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></label>
+                <button type="button" onClick="{{ r.remove }}" style="{{ r.removeStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+              </div>
+            </sc-for>
+          </div>
+          <button type="button" onClick="{{ addRow }}" style="display:flex;align-items:center;gap:6px;margin-top:14px;padding:8px 12px;border-radius:9px;border:1px dashed #CBD5E1;background:#fff;color:#3B82F6;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFF;border-color:#3B82F6"><svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Añadir plan</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showProvisioning }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px 24px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <h3 style="font-size:14px;font-weight:600;color:#0F172A;margin:0 0 16px">Provisioning</h3>
+          <label style="display:block;max-width:380px"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">Provisioner</span>
+            <div style="position:relative">
+              <select value="{{ provisioner }}" onChange="{{ onProvisioner }}" style="{{ inputStyle }}padding-right:34px;appearance:none;-webkit-appearance:none;cursor:pointer">
+                <option value="enhance_cp">EnhanceCP (enhance_cp)</option>
+                <option value="resellerclub">ResellerClub (resellerclub)</option>
+                <option value="docker_engine">Docker Engine (docker_engine)</option>
+                <option value="manual">Manual (manual)</option>
+              </select>
+              <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </div>
+            <span style="display:block;font-size:11.5px;color:#94A3B8;margin-top:6px">Plugins registrados en /admin/settings/plugins</span>
+          </label>
+
+          <sc-if value="{{ showConfig }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:18px;padding-top:18px;border-top:1px solid #F1F5F9">
+              <h4 style="font-size:13px;font-weight:600;color:#0F172A;margin:0 0 4px">Configuración del provisioner</h4>
+              <p style="font-size:11.5px;color:#94A3B8;margin:0 0 14px">Campos del manifest de <span style="font-family:ui-monospace,monospace;color:#64748B">{{ provisioner }}</span> · se guardan en <span style="font-family:ui-monospace,monospace;color:#64748B">products.provisioner_config</span></p>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <sc-for list="{{ configFields }}" as="f" hint-placeholder-count="2">
+                  <label style="display:block"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">{{ f.label }}</span>
+                    <sc-if value="{{ f.isSelect }}" hint-placeholder-val="{{ true }}">
+                      <div style="position:relative">
+                        <select style="{{ inputStyle }}padding-right:34px;appearance:none;-webkit-appearance:none;cursor:pointer"><sc-for list="{{ f.options }}" as="o" hint-placeholder-count="2"><option>{{ o }}</option></sc-for></select>
+                        <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ f.isInput }}" hint-placeholder-val="{{ false }}"><input type="text" placeholder="{{ f.placeholder }}" style="{{ inputStyle }}" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></sc-if>
+                  </label>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showLifecycle }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px 24px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <h3 style="font-size:14px;font-weight:600;color:#0F172A;margin:0 0 4px">Ciclo de vida</h3>
+          <p style="font-size:11.5px;color:#94A3B8;margin:0 0 16px">Política de impago: gracia → suspensión → cancelación</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:16px;align-items:end">
+            <label style="display:block"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">Gracia (días)</span><input type="number" value="0" style="{{ inputStyle }}" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></label>
+            <label style="display:block"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">Suspensión (días)</span><input type="number" value="7" style="{{ inputStyle }}" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></label>
+            <label style="display:block"><span style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:6px">Cancelación (días)</span><input type="number" value="30" style="{{ inputStyle }}" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></label>
+            <label style="display:flex;align-items:center;gap:8px;height:42px;font-size:13px;color:#475569;cursor:pointer;white-space:nowrap"><input type="checkbox" style="width:15px;height:15px">El cliente puede pausar</label>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showInfoBanner }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:13px 16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px">
+          <svg width="17" height="17" viewBox="0 0 24 24" style="color:#94A3B8;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          <span style="font-size:12.5px;color:#64748B;line-height:1.5"><strong style="color:#475569;font-weight:600">{{ infoTitle }}</strong> — {{ infoText }}</span>
+        </div>
+      </sc-if>
+
+    </div>
+  </sc-if>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="pf-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></symbol>
+    <symbol id="pf-server" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></symbol>
+    <symbol id="pf-box" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></symbol>
+    <symbol id="pf-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></symbol>
+    <symbol id="pf-layers" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></symbol>
+  </defs></svg>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 900 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = { type: null, name: '', slug: '', slugEdited: false, provisioner: 'manual', rows: [{ cycle: 'monthly' }] };
+
+  meta() {
+    return {
+      hosting_web: { label: 'Hosting Web', icon: 'globe', addon: false, prov: 'enhance_cp', namePh: 'Web Pro' },
+      domain: { label: 'Dominio', icon: 'globe', addon: false, prov: 'resellerclub', namePh: 'Dominios' },
+      docker_service: { label: 'Docker Service', icon: 'server', addon: false, prov: 'docker_engine', namePh: 'Nextcloud' },
+      we_do_it: { label: 'We Do It For You', icon: 'wrench', addon: true, prov: 'manual', namePh: 'We Do It' },
+      custom_service: { label: 'Proyecto Custom', icon: 'layers', addon: false, prov: 'manual', namePh: 'Proyecto ERP' },
+    };
+  }
+
+  slugify(v) { return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+
+  renderVals() {
+    const nav = (id) => { if (this.props.navigate) this.props.navigate(id); };
+    const types = [
+      ['hosting_web', 'Hosting Web', 'globe', false, 'Planes de hosting web (Web Inicio, Web Pro, Web Business).'],
+      ['domain', 'Dominio', 'globe', false, 'Registro y transferencia de dominios.'],
+      ['docker_service', 'Docker Service', 'server', false, 'Contenedores Docker (Nextcloud, OpenProject, etc.).'],
+      ['we_do_it', 'We Do It For You', 'wrench', true, 'Addon por producto — desarrollo y configuración a medida.'],
+      ['custom_service', 'Proyecto Custom', 'layers', false, 'Proyectos manuales a escala (ERP, CRM). Creación manual.'],
+    ].map((t) => ({ label: t[1], icon: t[2], isAddon: t[3], desc: t[4], go: () => this.selectType(t[0]) }));
+
+    const type = this.state.type;
+    const M = this.meta();
+    const tm = type ? M[type] : null;
+
+    const isAddon = type === 'we_do_it';
+    const isDomain = type === 'domain';
+    const isWeDoIt = type === 'we_do_it';
+    const isCustom = type === 'custom_service';
+    const isHosting = type === 'hosting_web';
+    const showPricing = type && !isDomain;
+    const showProvisioning = type && !isAddon;
+    const showLifecycle = isHosting || type === 'docker_service' || isCustom;
+    const showInfoBanner = isDomain || isWeDoIt || isCustom;
+
+    const inputStyle = 'width:100%;height:42px;padding:0 14px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13.5px;font-family:inherit;color:#0F172A;outline:none;transition:border-color .15s ease;';
+
+    const prov = this.state.provisioner;
+    let configFields = [];
+    if (prov === 'enhance_cp') configFields = [{ label: 'Plan de Enhance (enhance_plan_id)', isSelect: true, isInput: false, options: ['plan_web_inicio', 'plan_web_pro', 'plan_web_business'] }, { label: 'Región del servidor', isSelect: true, isInput: false, options: ['eu-west (Madrid)', 'eu-central (Frankfurt)'] }];
+    else if (prov === 'docker_engine') configFields = [{ label: 'Imagen Docker', isSelect: false, isInput: true, placeholder: 'nextcloud:latest' }, { label: 'Recursos (CPU / RAM)', isSelect: true, isInput: false, options: ['1 vCPU · 2 GB', '2 vCPU · 4 GB', '4 vCPU · 8 GB'] }];
+    else if (prov === 'resellerclub') configFields = [{ label: 'Markup por defecto (%)', isSelect: false, isInput: true, placeholder: '40' }];
+    const showConfig = showProvisioning && configFields.length > 0;
+
+    const rows = (this.state.rows || []).map((r, idx, arr) => ({
+      cycle: r.cycle,
+      onCycle: (e) => this.setState((s) => { const rs = [...s.rows]; rs[idx] = { ...rs[idx], cycle: e.target.value }; return { rows: rs }; }),
+      remove: () => this.setState((s) => ({ rows: s.rows.length > 1 ? s.rows.filter((_, i) => i !== idx) : s.rows })),
+      removeStyle: 'display:flex;align-items:center;justify-content:center;height:42px;width:38px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:' + (arr.length <= 1 ? '#CBD5E1' : '#94A3B8') + ';cursor:' + (arr.length <= 1 ? 'default' : 'pointer') + ';font-family:inherit;',
+    }));
+
+    const addonBannerText = isWeDoIt ? 'Por producto · Solo aplica a hosting_web y docker_service. No lleva provisioner propio.' : '';
+    const INFO = {
+      domain: ['Dominios', 'El precio se calcula por extensión (TLD) desde la tabla de pricing del registrar. El markup y los TLDs ofertados se configuran en los ajustes del plugin.'],
+      we_do_it: ['We Do It For You', 'La vinculación a productos específicos se gestiona en el módulo de provisioning.'],
+      custom_service: ['Proyecto Custom', 'Se crea manualmente para cada proyecto. El agente recibe una tarea al activarse.'],
+    };
+    const info = INFO[type] || ['', ''];
+
+    return {
+      step1: !type,
+      step2: !!type,
+      title: type ? ('Nuevo ' + tm.label) : 'Nuevo producto',
+      crumbLast: type ? ('Nuevo ' + tm.label) : 'Nuevo producto',
+      submitLabel: type ? ('Crear ' + tm.label) : 'Crear',
+      types,
+      name: this.state.name, slug: this.state.slug,
+      namePlaceholder: tm ? tm.namePh : '',
+      onName: (e) => this.setState((s) => ({ name: e.target.value, slug: s.slugEdited ? s.slug : this.slugify(e.target.value) })),
+      onSlug: (e) => this.setState({ slug: e.target.value, slugEdited: true }),
+      inputStyle,
+      showPricing, showProvisioning, showLifecycle, showInfoBanner,
+      showAddonBanner: isAddon, addonBannerText,
+      provisioner: prov,
+      onProvisioner: (e) => this.setState({ provisioner: e.target.value }),
+      showConfig, configFields,
+      rows,
+      addRow: () => this.setState((s) => ({ rows: [...s.rows, { cycle: 'annual' }] })),
+      infoTitle: info[0], infoText: info[1],
+      changeType: () => this.setState({ type: null }),
+      goProducts: () => nav('products'),
+      noop: () => {},
+    };
+  }
+
+  selectType(t) {
+    const M = this.meta();
+    this.setState({ type: t, provisioner: M[t].prov, rows: [{ cycle: t === 'custom_service' ? 'one_time' : 'monthly' }] });
+  }
+}
+</script>
+</body>
+</html>

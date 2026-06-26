@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  input[type=checkbox] { accent-color: #3B82F6; cursor: pointer; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap">
+    <div>
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 5px">Productos</h1>
+      <p style="font-size:13.5px;color:#64748B;margin:0">{{ subtitle }}</p>
+    </div>
+    <button type="button" onClick="{{ goNew }}" style="display:flex;align-items:center;gap:7px;height:40px;padding:0 16px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">
+      <svg width="16" height="16" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      Nuevo producto
+    </button>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:240px">
+      <svg width="17" height="17" viewBox="0 0 24 24" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" value="{{ search }}" onInput="{{ onSearch }}" placeholder="Buscar por nombre o slug..." style="width:100%;height:40px;padding:0 14px 0 38px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13.5px;font-family:inherit;color:#0F172A;outline:none;transition:border-color .15s ease" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+    </div>
+    <div style="position:relative">
+      <select value="{{ status }}" onChange="{{ onStatus }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none">
+        <option value="">Todos los estados</option>
+        <option value="active">Activo</option>
+        <option value="inactive">Inactivo</option>
+        <option value="deprecated">Obsoleto</option>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+    <div style="position:relative">
+      <select value="{{ type }}" onChange="{{ onType }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none">
+        <option value="">Todos los tipos</option>
+        <option value="hosting_web">Hosting Web</option>
+        <option value="domain">Dominio</option>
+        <option value="docker_service">Docker Service</option>
+        <option value="support_inside">Support Inside</option>
+        <option value="we_do_it">We Do It</option>
+        <option value="custom_service">Proyecto Custom</option>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:#FBFCFD">
+          <th style="width:44px;padding:12px 0 12px 18px;text-align:left"><input type="checkbox" checked="{{ allSel }}" onChange="{{ toggleAll }}" style="width:15px;height:15px"></th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Producto</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Tipo</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Precio</th>
+          <th style="padding:12px 16px;text-align:right;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Servicios</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Estado</th>
+          <th style="padding:12px 18px 12px 16px;text-align:right;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+          <tr onClick="{{ r.go }}" style="{{ r.rowStyle }}" style-hover="background:#FBFCFF">
+            <td style="padding:0 0 0 18px" onClick="{{ r.stop }}"><input type="checkbox" checked="{{ r.selected }}" onChange="{{ r.toggle }}" style="width:15px;height:15px"></td>
+            <td style="padding:13px 16px">
+              <div style="{{ r.nameWrap }}">
+                <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                  <span style="font-size:13.5px;font-weight:600;color:#0F172A">{{ r.name }}</span>
+                  <sc-if value="{{ r.showBadge }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;background:#EFF4FF;color:#3B82F6">{{ r.badgeText }}</span></sc-if>
+                  <sc-if value="{{ r.showTier }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;background:#F1F5F9;color:#64748B">Tier de cuenta</span></sc-if>
+                  <sc-if value="{{ r.showAddon }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;background:#EAF3FF;color:#2563EB">Addon</span></sc-if>
+                </div>
+                <div style="font-size:11.5px;color:#94A3B8;margin-top:2px;font-family:ui-monospace,monospace">{{ r.slugLine }}</div>
+              </div>
+            </td>
+            <td style="padding:13px 16px;font-size:13px;color:#64748B;white-space:nowrap">{{ r.typeLabel }}</td>
+            <td style="padding:13px 16px;font-size:13px;font-weight:600;color:#0F172A;white-space:nowrap">{{ r.price }}</td>
+            <td style="padding:13px 16px;font-size:13px;color:#64748B;text-align:right">{{ r.services }}</td>
+            <td style="padding:13px 16px"><span style="{{ r.statusStyle }}">{{ r.statusLabel }}</span></td>
+            <td style="padding:13px 18px 13px 16px;text-align:right" onClick="{{ r.stop }}">
+              <sc-if value="{{ r.isSI }}" hint-placeholder-val="{{ false }}">
+                <button type="button" onClick="{{ r.goManage }}" style="font-size:11.5px;font-weight:600;color:#64748B;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:7px;padding:6px 10px;font-family:inherit;cursor:pointer;white-space:nowrap" style-hover="background:#fff;border-color:#CBD5E1">Gestionar →</button>
+              </sc-if>
+              <sc-if value="{{ r.isEditable }}" hint-placeholder-val="{{ true }}">
+                <div style="display:inline-flex;align-items:center;gap:2px;justify-content:flex-end">
+                  <button type="button" onClick="{{ r.toggleStatus }}" title="{{ r.eyeTitle }}" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;border:none;background:transparent;color:#94A3B8;cursor:pointer" style-hover="background:#F1F5F9;color:#475569">
+                    <svg width="17" height="17" viewBox="0 0 24 24"><use href="#pr-{{ r.eyeIcon }}"></use></svg>
+                  </button>
+                  <button type="button" onClick="{{ r.go }}" title="Editar" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;border:none;background:transparent;color:#94A3B8;cursor:pointer" style-hover="background:#F1F5F9;color:#475569">
+                    <svg width="16" height="16" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"></path></svg>
+                  </button>
+                </div>
+              </sc-if>
+            </td>
+          </tr>
+        </sc-for>
+      </tbody>
+    </table>
+
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:56px 24px;text-align:center">
+        <svg width="40" height="40" viewBox="0 0 24 24" style="color:#CBD5E1;margin:0 auto 14px"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+        <div style="font-size:15px;font-weight:600;color:#0F172A;margin-bottom:5px">Sin productos</div>
+        <div style="font-size:13px;color:#94A3B8">No hay productos que coincidan con esos filtros.</div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showPagination }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;flex-wrap:wrap">
+      <span style="font-size:12.5px;color:#94A3B8">{{ rangeLabel }}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button type="button" onClick="{{ goPrev }}" style="{{ prevStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+        <sc-for list="{{ pages }}" as="p" hint-placeholder-count="2">
+          <button type="button" onClick="{{ p.go }}" style="{{ p.style }}">{{ p.n }}</button>
+        </sc-for>
+        <button type="button" onClick="{{ goNext }}" style="{{ nextStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;padding:10px 12px 10px 18px;background:#0F172A;border-radius:14px;box-shadow:0 12px 40px rgba(15,23,42,0.28)">
+      <span style="font-size:13px;font-weight:600;color:#fff">{{ selectedCount }} seleccionado{{ selPlural }}</span>
+      <div style="width:1px;height:20px;background:rgba(255,255,255,0.18)"></div>
+      <button type="button" onClick="{{ clearSel }}" style="display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;border:none;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">
+        <svg width="15" height="15" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        Activar / Desactivar
+      </button>
+      <button type="button" onClick="{{ clearSel }}" title="Quitar selección" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:none;background:transparent;color:#94A3B8;cursor:pointer;font-family:inherit" style-hover="background:rgba(255,255,255,0.08);color:#fff">
+        <svg width="16" height="16" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  </sc-if>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="pr-eye" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"></path><circle cx="12" cy="12" r="3"></circle></symbol>
+    <symbol id="pr-eyeoff" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></symbol>
+  </defs></svg>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 860 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = { search: '', status: '', type: '', page: 1, selected: [], over: {} };
+
+  data() {
+    return [
+      { id: 'p1', name: 'Web Inicio', slug: 'web-inicio', type: 'hosting_web', cat: 'Hosting', price: '7,99 €/mes', services: 34, status: 'active', badge: '', addon: false },
+      { id: 'p2', name: 'Web Pro', slug: 'web-pro', type: 'hosting_web', cat: 'Hosting', price: '14,99 €/mes', services: 52, status: 'active', badge: 'Popular', addon: false },
+      { id: 'p3', name: 'Web Business', slug: 'web-business', type: 'hosting_web', cat: 'Hosting', price: '29,99 €/mes', services: 18, status: 'active', badge: '', addon: false },
+      { id: 'p4', name: 'Dominios', slug: 'dominio', type: 'domain', cat: 'Dominios', price: 'desde 8,99 €/año', services: 137, status: 'active', badge: '', addon: false },
+      { id: 'p6', name: 'Nextcloud', slug: 'nextcloud', type: 'docker_service', cat: 'Cloud Office', price: '9,99 €/mes', services: 12, status: 'active', badge: '', addon: false },
+      { id: 'p7', name: 'OpenProject', slug: 'openproject', type: 'docker_service', cat: 'Cloud Office', price: '14,99 €/mes', services: 5, status: 'inactive', badge: '', addon: false },
+      { id: 'p8', name: 'Support Inside Pro', slug: 'support-inside-pro', type: 'support_inside', cat: '', price: '99 €/mes', services: 10, status: 'active', badge: '', addon: false },
+      { id: 'p9', name: 'Support Inside Medium', slug: 'support-inside-medium', type: 'support_inside', cat: '', price: '49 €/mes', services: 23, status: 'active', badge: '', addon: false },
+      { id: 'p10', name: 'Support Inside Básico', slug: 'support-inside-basic', type: 'support_inside', cat: '', price: '19 €/mes', services: 41, status: 'active', badge: '', addon: false },
+      { id: 'p11', name: 'We Do It For You', slug: 'we-do-it', type: 'we_do_it', cat: 'Servicios', price: '49 €/mes', services: 8, status: 'active', badge: '', addon: true },
+      { id: 'p12', name: 'Proyecto ERP', slug: 'proyecto-erp', type: 'custom_service', cat: 'Proyectos', price: 'desde 1.500 €', services: 3, status: 'active', badge: '', addon: false },
+    ];
+  }
+
+  renderVals() {
+    const nav = (id) => { if (this.props.navigate) this.props.navigate(id); };
+    const TYPE = { hosting_web: 'Hosting Web', domain: 'Dominio', docker_service: 'Docker Service', support_inside: 'Support Inside', we_do_it: 'We Do It', custom_service: 'Proyecto Custom' };
+    const STATUS = {
+      active: { label: 'Activo', bg: '#E8F7F1', fg: '#0E8C5F' },
+      inactive: { label: 'Inactivo', bg: '#F1F5F9', fg: '#64748B' },
+      deprecated: { label: 'Obsoleto', bg: '#FCECEC', fg: '#D14343' },
+    };
+    const over = this.state.over || {};
+    const eff = (p) => over[p.id] || p.status;
+
+    const all = this.data();
+    const q = (this.state.search || '').toLowerCase().trim();
+    const status = this.state.status || '';
+    const type = this.state.type || '';
+    const filtered = all.filter((p) =>
+      (!q || p.name.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q)) &&
+      (!status || eff(p) === status) &&
+      (!type || p.type === type)
+    );
+    const limit = 10;
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const page = Math.min(this.state.page || 1, totalPages);
+    const start = (page - 1) * limit;
+    const pageItems = filtered.slice(start, start + limit);
+    const selected = this.state.selected || [];
+
+    const badgePill = (st) => 'display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11.5px;font-weight:600;background:' + st.bg + ';color:' + st.fg + ';';
+
+    const rows = pageItems.map((p) => {
+      const st = STATUS[eff(p)] || STATUS.inactive;
+      const isSI = p.type === 'support_inside';
+      const slugLine = p.slug + (p.cat ? '  ·  ' + p.cat : '');
+      return {
+        name: p.name, slug: p.slug, slugLine,
+        typeLabel: TYPE[p.type] || p.type, price: p.price, services: String(p.services),
+        statusLabel: st.label, statusStyle: badgePill(st),
+        nameWrap: 'min-width:0;' + (isSI ? 'opacity:0.62;' : ''),
+        showBadge: !!p.badge, badgeText: p.badge,
+        showTier: isSI, showAddon: p.addon,
+        isSI, isEditable: !isSI,
+        eyeIcon: eff(p) === 'active' ? 'eye' : 'eyeoff',
+        eyeTitle: eff(p) === 'active' ? 'Desactivar' : 'Activar',
+        selected: selected.includes(p.id),
+        rowStyle: 'border-top:1px solid #F4F6F9;cursor:pointer;transition:background .12s ease;' + (selected.includes(p.id) ? 'background:#F6F9FF;' : ''),
+        toggle: () => this.setState((s) => { const set = new Set(s.selected || []); if (set.has(p.id)) set.delete(p.id); else set.add(p.id); return { selected: [...set] }; }),
+        toggleStatus: () => this.setState((s) => ({ over: { ...(s.over || {}), [p.id]: (eff(p) === 'active' ? 'inactive' : 'active') } })),
+        stop: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+        go: () => nav(isSI ? 'supportInside' : 'product-detail'),
+        goManage: () => nav('supportInside'),
+      };
+    });
+
+    const pageIds = pageItems.map((p) => p.id);
+    const allSel = pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
+    const from = total === 0 ? 0 : start + 1;
+    const to = Math.min(start + limit, total);
+    const pageBtn = (active) => 'min-width:34px;height:34px;padding:0 8px;border-radius:9px;border:1px solid ' + (active ? '#3B82F6' : '#E2E8F0') + ';background:' + (active ? '#3B82F6' : '#fff') + ';color:' + (active ? '#fff' : '#475569') + ';font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;';
+    const arrowBtn = (disabled) => 'display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:' + (disabled ? '#CBD5E1' : '#475569') + ';cursor:' + (disabled ? 'default' : 'pointer') + ';font-family:inherit;';
+    const pages = Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => ({ n: String(n), style: pageBtn(n === page), go: () => this.setState({ page: n }) }));
+
+    return {
+      subtitle: (q || status || type) ? (total + (total === 1 ? ' resultado' : ' resultados')) : ('Catálogo · ' + all.length + ' productos'),
+      search: this.state.search || '', status, type,
+      onSearch: (e) => this.setState({ search: e.target.value, page: 1 }),
+      onStatus: (e) => this.setState({ status: e.target.value, page: 1 }),
+      onType: (e) => this.setState({ type: e.target.value, page: 1 }),
+      rows, isEmpty: rows.length === 0,
+      allSel,
+      toggleAll: () => this.setState((s) => { const set = new Set(s.selected || []); if (allSel) pageIds.forEach((id) => set.delete(id)); else pageIds.forEach((id) => set.add(id)); return { selected: [...set] }; }),
+      showPagination: totalPages > 1, rangeLabel: from + '–' + to + ' de ' + total, pages,
+      goPrev: () => this.setState({ page: Math.max(1, page - 1) }), goNext: () => this.setState({ page: Math.min(totalPages, page + 1) }),
+      prevStyle: arrowBtn(page <= 1), nextStyle: arrowBtn(page >= totalPages),
+      hasSelection: selected.length > 0, selectedCount: selected.length, selPlural: selected.length === 1 ? '' : 's',
+      clearSel: () => this.setState({ selected: [] }),
+      goNew: () => nav('product-new'),
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

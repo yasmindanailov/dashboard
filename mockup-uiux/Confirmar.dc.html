@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  @keyframes cf-spin { to { transform: rotate(360deg); } }
+  @keyframes cf-pop { 0% { transform: scale(.7); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+</style>
+</helmet>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <symbol id="ic-card" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="3"></rect><line x1="1" y1="10" x2="23" y2="10"></line></symbol>
+  <symbol id="ic-bank" viewBox="0 0 24 24"><line x1="3" y1="22" x2="21" y2="22"></line><line x1="4" y1="10" x2="4" y2="18"></line><line x1="10" y1="10" x2="10" y2="18"></line><line x1="14" y1="10" x2="14" y2="18"></line><line x1="20" y1="10" x2="20" y2="18"></line><polygon points="12 2 20 7 4 7"></polygon></symbol>
+  <symbol id="ic-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></symbol>
+  <symbol id="ic-refresh" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></symbol>
+  <symbol id="ic-briefcase" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></symbol>
+  <symbol id="ic-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></symbol>
+  <symbol id="ic-services" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></symbol>
+  <symbol id="ic-domains" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></symbol>
+  <symbol id="ic-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></symbol>
+  <symbol id="ic-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></symbol>
+  <symbol id="ic-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></symbol>
+  <symbol id="ic-arrow" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></symbol>
+  <symbol id="ic-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"></rect><polyline points="22 6 12 13 2 6"></polyline></symbol>
+  <symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 7 12 12 15 14"></polyline></symbol>
+</defs></svg>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <sc-if value="{{ isReview }}" hint-placeholder-val="{{ true }}">
+  <div>
+    <button type="button" onClick="{{ go.checkout }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 0;margin-bottom:16px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:#64748B;cursor:pointer" style-hover="color:#0F172A"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>Volver a facturación</button>
+
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:26px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px"><span style="width:26px;height:26px;border-radius:9999px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.4"><use href="#ic-check"></use></svg></span><span style="font-size:13px;font-weight:600;color:#64748B">Configurar</span></div>
+      <span style="width:24px;height:1.5px;background:#BFD8FF"></span>
+      <div style="display:flex;align-items:center;gap:8px"><span style="width:26px;height:26px;border-radius:9999px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.4"><use href="#ic-check"></use></svg></span><span style="font-size:13px;font-weight:600;color:#64748B">Carrito</span></div>
+      <span style="width:24px;height:1.5px;background:#BFD8FF"></span>
+      <div style="display:flex;align-items:center;gap:8px"><span style="width:26px;height:26px;border-radius:9999px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.4"><use href="#ic-check"></use></svg></span><span style="font-size:13px;font-weight:600;color:#64748B">Facturación</span></div>
+      <span style="width:24px;height:1.5px;background:#BFD8FF"></span>
+      <div style="display:flex;align-items:center;gap:8px"><span style="width:26px;height:26px;border-radius:9999px;background:#3B82F6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">4</span><span style="font-size:13px;font-weight:600;color:#0F172A">Confirmar</span></div>
+    </div>
+
+    <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 6px">Revisa y confirma tu pedido</h1>
+    <p style="font-size:14px;color:#64748B;margin:0 0 22px;max-width:560px">Esto es exactamente lo que vas a contratar. Sin sorpresas: lo que ves es lo que pagas, y puedes cancelar cuando quieras.</p>
+
+    <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:24px;align-items:start">
+
+      <div style="display:flex;flex-direction:column;gap:18px">
+
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px 24px">
+          <h2 style="font-size:15px;font-weight:700;color:#0F172A;margin:0 0 14px">Lo que contratas</h2>
+          <div style="display:flex;flex-direction:column;gap:13px">
+            <div style="display:flex;align-items:flex-start;gap:13px">
+              <span style="width:40px;height:40px;border-radius:10px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24"><use href="#ic-services"></use></svg></span>
+              <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:600;color:#0F172A">Web Pro</span><span style="display:block;font-size:12.5px;color:#64748B;margin-top:2px">Hosting gestionado · facturación anual · se asocia a <strong style="font-weight:600;color:#475569">minegocio.com</strong></span></span>
+              <span style="font-size:14px;font-weight:600;color:#0F172A;flex-shrink:0">115,20 €</span>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:13px;padding-top:13px;border-top:1px solid #F1F5F9">
+              <span style="width:40px;height:40px;border-radius:10px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24"><use href="#ic-domains"></use></svg></span>
+              <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:600;color:#0F172A">minegocio.com</span><span style="display:block;font-size:12.5px;color:#64748B;margin-top:2px">Dominio .com · 1er año incluido, después 12,90 €/año</span></span>
+              <span style="font-size:13px;font-weight:600;color:#0E8C5F;flex-shrink:0">Gratis</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px 24px">
+          <h2 style="font-size:15px;font-weight:700;color:#0F172A;margin:0 0 14px">Facturación y pago</h2>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid #EEF2F6;border-radius:12px;background:#FBFCFE">
+              <span style="width:36px;height:36px;border-radius:9px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24"><use href="#ic-briefcase"></use></svg></span>
+              <span style="min-width:0"><span style="display:block;font-size:11px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:.04em">Perfil</span><span style="display:block;font-size:13.5px;font-weight:600;color:#0F172A;margin-top:3px">Sara Gómez Ruiz</span><span style="display:block;font-size:12px;color:#64748B;margin-top:1px">Autónoma · NIF 12345678Z</span></span>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid #EEF2F6;border-radius:12px;background:#FBFCFE">
+              <span style="width:36px;height:36px;border-radius:9px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24"><use href="#ic-card"></use></svg></span>
+              <span style="min-width:0"><span style="display:block;font-size:11px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:.04em">Pago</span><span style="display:block;font-size:13.5px;font-weight:600;color:#0F172A;margin-top:3px">Visa •••• 4242</span><span style="display:block;font-size:12px;color:#64748B;margin-top:1px">vía Stripe · caduca 06/27</span></span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:9px;margin-top:13px;padding:11px 14px;background:#F0F8F4;border:1px solid #D6EDDF;border-radius:11px"><svg width="16" height="16" viewBox="0 0 24 24" style="color:#0E8C5F;flex-shrink:0;margin-top:1px"><use href="#ic-file"></use></svg><span style="font-size:11.5px;color:#475569;line-height:1.45">Con tu NIF emitiremos una <strong style="font-weight:600;color:#0F172A">factura completa</strong>, válida para deducir el IVA. La tendrás en <strong style="font-weight:600;color:#0F172A">Mis facturas</strong> al instante.</span></div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:13px;padding:15px 18px;background:linear-gradient(180deg,#F5F9FF,#FBFCFE);border:1px solid #E1ECFB;border-radius:14px">
+          <span style="width:40px;height:40px;border-radius:11px;background:#EAF1FE;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="21" height="21" viewBox="0 0 24 24"><use href="#ic-shield"></use></svg></span>
+          <span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:700;color:#0F172A">Cuidado por Aelium desde el primer día</span><span style="display:block;font-size:12.5px;color:#475569;margin-top:2px;line-height:1.45">En cuanto confirmes, tu Web Pro queda activa y tu técnico asignado vela por ella. Soporte real, sin tickets que se pierden.</span></span>
+        </div>
+
+      </div>
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px;position:sticky;top:80px">
+        <h3 style="font-size:15px;font-weight:600;color:#0F172A;margin:0 0 14px">Resumen</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0"><span style="font-size:13px;color:#64748B">Web Pro · anual</span><span style="font-size:13px;font-weight:600;color:#0F172A">115,20 €</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 0 7px"><span style="font-size:13px;color:#64748B">minegocio.com</span><span style="font-size:13px;font-weight:600;color:#0E8C5F">Gratis</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid #EEF2F6"><span style="font-size:13px;color:#64748B">Base imponible</span><span style="font-size:13px;font-weight:600;color:#0F172A">95,21 €</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 0 8px"><span style="font-size:13px;color:#64748B">IVA (21%)</span><span style="font-size:13px;font-weight:600;color:#0F172A">19,99 €</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0 0;border-top:1px solid #E2E8F0"><span style="font-size:15px;font-weight:700;color:#0F172A">Total hoy</span><span style="font-size:21px;font-weight:700;color:#0F172A">115,20 €</span></div>
+
+        <button type="button" onClick="{{ pay }}" style="width:100%;margin-top:18px;padding:14px;border-radius:11px;border:none;background:#3B82F6;color:#fff;font-size:14.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease;display:flex;align-items:center;justify-content:center;gap:9px" style-hover="background:#2563EB"><svg width="17" height="17" viewBox="0 0 24 24" style="stroke-width:2"><use href="#ic-lock"></use></svg>Pagar 115,20 € con Stripe</button>
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:11px"><svg width="13" height="13" viewBox="0 0 24 24" style="color:#94A3B8;stroke-width:2"><use href="#ic-lock"></use></svg><span style="font-size:11.5px;color:#94A3B8">Pago cifrado · procesado por <span style="font-weight:700;color:#635BFF">Stripe</span></span></div>
+        <p style="font-size:11px;color:#94A3B8;text-align:center;margin:12px 0 0;line-height:1.5">Sin permanencia. Se renueva el <strong style="font-weight:600;color:#64748B">14 jun 2027</strong>; te avisamos antes.</p>
+      </div>
+
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isProcessing }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:520px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 0">
+    <span style="width:58px;height:58px;border-radius:9999px;border:4px solid #E3ECFB;border-top-color:#3B82F6;display:block;animation:cf-spin .8s linear infinite"></span>
+    <h2 style="font-size:19px;font-weight:700;color:#0F172A;margin:24px 0 6px">Procesando tu pago…</h2>
+    <p style="font-size:13.5px;color:#64748B;margin:0">Stripe está confirmando el cobro de forma segura. No cierres esta ventana.</p>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+  <div style="max-width:720px;margin:0 auto;padding:8px 0 20px">
+
+    <div style="text-align:center;padding:8px 0 4px">
+      <span style="width:68px;height:68px;border-radius:9999px;background:#E7F6EE;color:#0E8C5F;display:inline-flex;align-items:center;justify-content:center;animation:cf-pop .5s cubic-bezier(.34,1.56,.64,1) both"><svg width="34" height="34" viewBox="0 0 24 24" style="stroke-width:2.6"><use href="#ic-check"></use></svg></span>
+      <h1 style="font-size:25px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:18px 0 7px">¡Listo, Sara! Tu Web Pro ya es tuya</h1>
+      <p style="font-size:14.5px;color:#475569;margin:0;line-height:1.5">Hemos cobrado <strong style="font-weight:600;color:#0F172A">115,20 €</strong> con Stripe y emitido tu factura. Tu servicio se está activando ahora mismo.</p>
+    </div>
+
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px 22px;margin-top:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:13px;min-width:0">
+          <span style="width:42px;height:42px;border-radius:10px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="21" height="21" viewBox="0 0 24 24"><use href="#ic-file"></use></svg></span>
+          <span style="min-width:0"><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:700;color:#0F172A">Factura {{ invoiceNo }}</span><span style="padding:2px 9px;border-radius:9999px;background:#E7F6EE;font-size:11px;font-weight:700;color:#0E8C5F">Pagada</span></span><span style="display:block;font-size:12.5px;color:#64748B;margin-top:3px">Emitida hoy · 115,20 € · IVA incluido · factura completa</span></span>
+        </div>
+        <div style="display:flex;gap:9px;flex-shrink:0">
+          <button type="button" onClick="{{ go.invoices }}" style="display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#0F172A;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFC;border-color:#CBD5E1"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-download"></use></svg>PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px;margin-top:16px">
+      <h2 style="font-size:15px;font-weight:700;color:#0F172A;margin:0 0 16px">Qué pasa ahora</h2>
+      <div style="display:flex;flex-direction:column;gap:0">
+        <div style="display:flex;gap:14px">
+          <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0"><span style="width:32px;height:32px;border-radius:9999px;background:#3B82F6;color:#fff;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" style="stroke-width:2.4"><use href="#ic-check"></use></svg></span><span style="width:2px;flex:1;background:#E2E8F0;margin:3px 0"></span></div>
+          <div style="padding-bottom:18px"><span style="display:block;font-size:13.5px;font-weight:600;color:#0F172A">Pago confirmado y factura emitida</span><span style="display:block;font-size:12.5px;color:#64748B;margin-top:2px">Hecho. Ya tienes tu factura completa con número fiscal en Mis facturas.</span></div>
+        </div>
+        <div style="display:flex;gap:14px">
+          <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0"><span style="width:32px;height:32px;border-radius:9999px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-clock"></use></svg></span><span style="width:2px;flex:1;background:#E2E8F0;margin:3px 0"></span></div>
+          <div style="padding-bottom:18px"><span style="display:block;font-size:13.5px;font-weight:600;color:#0F172A">Activando tu Web Pro <span style="font-weight:500;color:#94A3B8">· unos minutos</span></span><span style="display:block;font-size:12.5px;color:#64748B;margin-top:2px">Estamos preparando tu hosting y asociando minegocio.com. Te avisamos en cuanto esté listo.</span></div>
+        </div>
+        <div style="display:flex;gap:14px">
+          <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0"><span style="width:32px;height:32px;border-radius:9999px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-mail"></use></svg></span></div>
+          <div><span style="display:block;font-size:13.5px;font-weight:600;color:#0F172A">Tu técnico te escribe</span><span style="display:block;font-size:12.5px;color:#64748B;margin-top:2px">Luis, tu técnico asignado, te dará la bienvenida y te ayudará a poner tu web en marcha.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-top:20px">
+      <button type="button" onClick="{{ go.service }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:9px;padding:14px;border-radius:11px;border:none;background:#3B82F6;color:#fff;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">Ir a mi servicio<svg width="16" height="16" viewBox="0 0 24 24" style="stroke-width:2"><use href="#ic-arrow"></use></svg></button>
+      <button type="button" onClick="{{ go.home }}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;border-radius:11px;border:1px solid #E2E8F0;background:#fff;color:#0F172A;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFC;border-color:#CBD5E1">Volver al inicio</button>
+    </div>
+
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 940 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = { phase: 'review' };
+
+  componentWillUnmount() { if (this._t) clearTimeout(this._t); }
+
+  renderVals() {
+    const nav = (id) => { if (this.props.navigate) this.props.navigate(id); };
+    const pay = () => {
+      this.setState({ phase: 'processing' });
+      this._t = setTimeout(() => this.setState({ phase: 'done' }), 2100);
+    };
+    return {
+      isReview: this.state.phase === 'review',
+      isProcessing: this.state.phase === 'processing',
+      isDone: this.state.phase === 'done',
+      pay,
+      invoiceNo: 'AEL-2026-00412',
+      go: {
+        checkout: () => nav('checkout'),
+        invoices: () => nav('invoices'),
+        service: () => nav('service-detail'),
+        home: () => nav('home'),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

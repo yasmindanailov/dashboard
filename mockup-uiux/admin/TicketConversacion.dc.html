@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  textarea { font-family: inherit; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;margin-bottom:16px">
+    <button type="button" onClick="{{ goBack }}" style="border:none;background:none;color:#94A3B8;font-size:12.5px;font-family:inherit;cursor:pointer;padding:0" style-hover="color:#3B82F6">Soporte</button>
+    <svg width="14" height="14" viewBox="0 0 24 24" style="color:#CBD5E1"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    <span style="font-family:ui-monospace,Menlo,monospace;color:#64748B;font-weight:600">#1042</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start">
+
+    <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);overflow:hidden;flex-shrink:0">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px 20px;flex-wrap:wrap">
+          <div style="min-width:0">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <h1 style="font-size:18px;font-weight:700;letter-spacing:-0.01em;color:#0F172A;margin:0">Problema con el certificado SSL</h1>
+              <span style="{{ statusStyle }}"><span style="{{ statusDot }}"></span>{{ statusLabel }}</span>
+              <span style="{{ prioStyle }}">{{ prioLabel }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:9px;font-size:12.5px;color:#64748B">
+              <span style="display:inline-flex;align-items:center;gap:6px"><span style="color:#94A3B8">Agente</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:18px;height:18px;border-radius:9999px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:600">LF</span><span style="font-weight:600;color:#0F172A">Luis Ferrer</span></span></span>
+              <span style="color:#E2E8F0">·</span>
+              <span style="display:inline-flex;align-items:center;gap:6px;font-weight:600;color:#7C5CCB;background:#F1ECFB;padding:2px 9px;border-radius:9999px;font-size:11.5px">Support Inside Medium · SLA 12 h</span>
+              <span style="color:#E2E8F0">·</span>
+              <span><span style="color:#94A3B8">Canal</span> email</span>
+            </div>
+          </div>
+          <button type="button" onClick="{{ noop }}" title="Más acciones" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#64748B;cursor:pointer;flex-shrink:0" style-hover="background:#F8FAFC;border-color:#CBD5E1"><svg width="17" height="17" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg></button>
+        </div>
+        <div style="{{ slaBarStyle }}">
+          <svg width="15" height="15" viewBox="0 0 24 24" style="flex-shrink:0"><use href="{{ slaIcon }}"></use></svg>
+          <span style="font-size:12.5px;font-weight:600">{{ slaText }}</span>
+        </div>
+      </div>
+
+      <div ref="{{ threadRef }}" style="display:flex;flex-direction:column;gap:14px;max-height:42vh;min-height:240px;overflow-y:auto;padding:2px 6px 2px 2px">
+        <sc-for list="{{ messages }}" as="m" hint-placeholder-count="5">
+
+          <sc-if value="{{ m.isBubble }}" hint-placeholder-val="{{ true }}">
+            <div style="{{ m.rowStyle }}">
+              <div style="max-width:80%;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;{{ m.metaJustify }}">
+                  <span style="{{ m.avatarStyle }}">{{ m.initials }}</span>
+                  <span style="font-size:12px;font-weight:600;color:#0F172A">{{ m.author }}</span>
+                  <span style="font-size:11px;color:#94A3B8">{{ m.time }}</span>
+                </div>
+                <div style="{{ m.bubbleStyle }}">{{ m.text }}</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ m.isSystem }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:12px;padding:0 8px">
+              <div style="flex:1;height:1px;background:#EEF1F5"></div>
+              <div style="display:flex;align-items:center;gap:9px;max-width:78%">
+                <span style="width:24px;height:24px;border-radius:9999px;background:#F1F5F9;color:#94A3B8;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="13" height="13" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span>
+                <div style="min-width:0"><span style="font-size:12px;color:#64748B">{{ m.text }}</span><span style="font-size:11px;color:#94A3B8;margin-left:7px">{{ m.time }}</span><div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#A2AEC0;margin-top:2px">{{ m.tech }}</div></div>
+              </div>
+              <div style="flex:1;height:1px;background:#EEF1F5"></div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ m.isNote }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#FCF8EE;border:1px solid #F2E6C8;border-radius:13px;padding:13px 15px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <svg width="13" height="13" viewBox="0 0 24 24" style="color:#B27A12;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                <span style="font-size:10.5px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#B27A12">Nota interna · solo equipo</span>
+                <span style="font-size:11px;color:#C5A463;margin-left:auto">{{ m.author }} · {{ m.time }}</span>
+              </div>
+              <div style="font-size:13px;color:#8A6512;line-height:1.5">{{ m.text }}</div>
+            </div>
+          </sc-if>
+
+        </sc-for>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);overflow:hidden;flex-shrink:0;{{ composerAccent }}">
+        <div style="display:flex;align-items:center;gap:4px;padding:8px 8px 0">
+          <button type="button" onClick="{{ tabReply }}" style="{{ replyTabStyle }}">Responder al cliente</button>
+          <button type="button" onClick="{{ tabNote }}" style="{{ noteTabStyle }}">Nota interna</button>
+        </div>
+
+        <sc-if value="{{ showAi }}" hint-placeholder-val="{{ true }}">
+          <div style="margin:10px 14px 0;border:1px solid #E4DBF6;background:#F7F4FD;border-radius:11px;padding:11px 13px">
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+              <svg width="14" height="14" viewBox="0 0 24 24" style="color:#7C5CCB;flex-shrink:0"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"></path></svg>
+              <span style="font-size:11.5px;font-weight:700;color:#6B4FB0;letter-spacing:0.01em">Sugerencia de Aelium IA</span>
+              <span style="font-size:10.5px;color:#A99BCB;margin-left:auto">Basada en el historial y la base de conocimiento</span>
+            </div>
+            <div style="font-size:12.5px;color:#5B4A86;line-height:1.5">{{ aiText }}</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+              <button type="button" onClick="{{ useAi }}" style="height:30px;padding:0 12px;border-radius:8px;border:none;background:#7C5CCB;color:#fff;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#6B4FB0">Usar y editar</button>
+              <button type="button" onClick="{{ dismissAi }}" style="height:30px;padding:0 10px;border-radius:8px;border:none;background:transparent;color:#8A7BB3;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="color:#6B4FB0">Descartar</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <div style="padding:12px 14px 14px">
+          <textarea value="{{ draft }}" onInput="{{ onDraft }}" placeholder="{{ composerPlaceholder }}" rows="3" style="width:100%;border:1px solid #E2E8F0;border-radius:11px;padding:12px 13px;font-size:13.5px;color:#0F172A;outline:none;resize:none;line-height:1.55" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></textarea>
+          <div style="font-size:11px;color:#94A3B8;margin-top:7px">Pulsa ⌘ + Enter para enviar · usa <strong style="font-weight:600;color:#B27A12">Nota interna</strong> para comentarios solo del equipo.</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:11px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:8px">
+              <button type="button" onClick="{{ noop }}" style="{{ sendStyle }}">{{ sendLabel }}<svg width="14" height="14" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+              <button type="button" onClick="{{ noop }}" style="height:38px;padding:0 14px;border-radius:9px;border:1px solid #C7EFDF;background:#fff;color:#0E8C5F;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F0FBF6">Resolver</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <button type="button" onClick="{{ noop }}" style="height:38px;padding:0 13px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFC">Reasignar</button>
+              <button type="button" onClick="{{ noop }}" style="height:38px;padding:0 13px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFC">Escalar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:18px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <span style="width:42px;height:42px;border-radius:9999px;background:#E8F7F1;color:#0E8C5F;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0">CR</span>
+          <div style="min-width:0">
+            <button type="button" onClick="{{ goClient }}" style="border:none;background:none;padding:0;font-family:inherit;font-size:14.5px;font-weight:700;color:#0F172A;cursor:pointer;display:block;text-align:left" style-hover="color:#3B82F6">Carla Ruiz</button>
+            <div style="font-size:11.5px;color:#94A3B8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">carla@carla-estudio.com</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <div style="display:flex;align-items:center;gap:9px;padding:10px 12px;background:#F7F4FD;border:1px solid #ECE4FB;border-radius:11px">
+            <svg width="16" height="16" viewBox="0 0 24 24" style="color:#7C5CCB;flex-shrink:0"><path d="M12 2l9 4v6c0 5-3.6 9.3-9 10-5.4-.7-9-5-9-10V6l9-4z"></path></svg>
+            <div style="min-width:0"><div style="font-size:12.5px;font-weight:700;color:#6B4FB0">Support Inside · Medium</div><div style="font-size:11px;color:#9784BE">SLA 12 h · email + in-app</div></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:7px 2px;border-top:1px solid #F4F6F9"><span style="font-size:12px;color:#94A3B8">Plan</span><span style="font-size:12px;font-weight:600;color:#0F172A">Web Pro · Hosting</span></div>
+          <div style="display:flex;justify-content:space-between;padding:7px 2px;border-top:1px solid #F4F6F9"><span style="font-size:12px;color:#94A3B8">Cliente desde</span><span style="font-size:12px;font-weight:500;color:#0F172A">mar 2026</span></div>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:18px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8;margin-bottom:11px">Servicios del cliente</div>
+        <button type="button" onClick="{{ goService }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px;border:none;background:transparent;border-radius:9px;cursor:pointer;font-family:inherit;text-align:left" style-hover="background:#F8FAFC">
+          <span style="width:30px;height:30px;border-radius:8px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="15" height="15" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></span>
+          <span style="flex:1;min-width:0"><span style="display:block;font-size:12.5px;font-weight:600;color:#0F172A">carla-estudio.com</span><span style="display:block;font-size:11px;color:#94A3B8">Web Pro · Activo</span></span>
+          <svg width="14" height="14" viewBox="0 0 24 24" style="color:#CBD5E1"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:18px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px"><span style="font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Tickets previos</span><span style="font-size:11px;font-weight:600;color:#94A3B8;background:#F1F5F9;padding:1px 8px;border-radius:9999px">3</span></div>
+        <sc-for list="{{ prevTickets }}" as="p" hint-placeholder-count="3">
+          <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px;border:none;background:transparent;border-radius:9px;cursor:pointer;font-family:inherit;text-align:left" style-hover="background:#F8FAFC">
+            <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#94A3B8;flex-shrink:0">{{ p.id }}</span>
+            <span style="flex:1;min-width:0;font-size:12.5px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.subject }}</span>
+            <span style="font-size:10.5px;font-weight:600;color:#0E8C5F;background:#E8F7F1;padding:2px 8px;border-radius:9999px;flex-shrink:0">Resuelto</span>
+          </button>
+        </sc-for>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:18px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8;margin-bottom:11px">Nota fijada</div>
+        <div style="display:flex;gap:9px;padding:11px 12px;background:#FBFCFD;border:1px solid #EEF2F7;border-left:3px solid #3B82F6;border-radius:9px">
+          <div style="min-width:0"><div style="font-size:12.5px;color:#475569;line-height:1.5">Cliente VIP — atender con prioridad. Negocio con campañas activas.</div><div style="font-size:11px;color:#94A3B8;margin-top:5px">Luis Ferrer · 14 mar 2026</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="sla-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></symbol>
+    <symbol id="sla-alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></symbol>
+    <symbol id="sla-pause" viewBox="0 0 24 24"><line x1="10" y1="15" x2="10" y2="9"></line><line x1="14" y1="15" x2="14" y2="9"></line><circle cx="12" cy="12" r="10"></circle></symbol>
+    <symbol id="sla-check" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></symbol>
+  </defs></svg>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 1040 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; },
+  &quot;estado&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Esperando agente&quot;, &quot;options&quot;: [&quot;Esperando agente&quot;, &quot;SLA vencido&quot;, &quot;Esperando cliente&quot;, &quot;Resuelto&quot;], &quot;tsType&quot;: &quot;string&quot; }
+}">
+class Component extends DCLogic {
+  state = { tab: 'reply', draft: '', aiDismissed: false };
+
+  scrollBottom() { if (this._thread) this._thread.scrollTop = this._thread.scrollHeight; }
+  componentDidMount() { this.scrollBottom(); setTimeout(() => this.scrollBottom(), 80); setTimeout(() => this.scrollBottom(), 300); }
+
+  renderVals() {
+    const MAP = { 'Esperando agente': 'wagent', 'SLA vencido': 'overdue', 'Esperando cliente': 'wclient', 'Resuelto': 'resolved' };
+    const estado = MAP[this.props.estado] || 'wagent';
+    const isWAgent = estado === 'wagent';
+    const isOverdue = estado === 'overdue';
+    const isWClient = estado === 'wclient';
+    const isResolved = estado === 'resolved';
+
+    let statusLabel, sBg, sFg, sDot;
+    if (isResolved) { statusLabel = 'Resuelto'; sBg = '#E8F7F1'; sFg = '#0E8C5F'; sDot = '#10B981'; }
+    else if (isWClient) { statusLabel = 'Esperando cliente'; sBg = '#EFF4FF'; sFg = '#3B82F6'; sDot = '#3B82F6'; }
+    else if (isOverdue) { statusLabel = 'Esperando agente'; sBg = '#FCECEC'; sFg = '#D14343'; sDot = '#EF4444'; }
+    else { statusLabel = 'Esperando agente'; sBg = '#FCF3E1'; sFg = '#B27A12'; sDot = '#E0A422'; }
+
+    // SLA bar
+    let slaIcon, slaText, slaColor, slaBg;
+    if (isResolved) { slaIcon = '#sla-check'; slaText = 'Resuelto hoy a las 12:40 por Luis Ferrer'; slaColor = '#0E8C5F'; slaBg = '#F0FBF6'; }
+    else if (isWClient) { slaIcon = '#sla-pause'; slaText = 'Esperando respuesta del cliente · SLA en pausa'; slaColor = '#64748B'; slaBg = '#F8FAFC'; }
+    else if (isOverdue) { slaIcon = '#sla-alert'; slaText = 'SLA vencido hace 1 h 20 m · responde cuanto antes'; slaColor = '#D14343'; slaBg = '#FCECEC'; }
+    else { slaIcon = '#sla-clock'; slaText = 'Responder antes de hoy 14:30 · quedan 3 h 12 m'; slaColor = '#B27A12'; slaBg = '#FCF8EE'; }
+
+    const bubble = (kind) => kind === 'agent' ? 'background:#EAF1FE;border:1px solid #DBE8FD;color:#0F172A;' : 'background:#F4F6F9;border:1px solid #EEF1F5;color:#0F172A;';
+    const mk = (kind, author, initials, time, text, tech) => {
+      const isAgent = kind === 'agent';
+      return {
+        isBubble: kind === 'client' || kind === 'agent',
+        isSystem: kind === 'system',
+        isNote: kind === 'note',
+        author, initials, time, text, tech: tech || '',
+        rowStyle: 'display:flex;' + (isAgent ? 'justify-content:flex-end;' : 'justify-content:flex-start;'),
+        metaJustify: isAgent ? 'justify-content:flex-end;flex-direction:row-reverse;' : '',
+        avatarStyle: 'width:20px;height:20px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;flex-shrink:0;background:' + (isAgent ? '#EFF4FF' : '#E8F7F1') + ';color:' + (isAgent ? '#3B82F6' : '#0E8C5F') + ';',
+        bubbleStyle: 'padding:11px 14px;border-radius:13px;font-size:13.5px;line-height:1.55;' + bubble(kind),
+      };
+    };
+    const messages = [
+      mk('client', 'Carla Ruiz', 'CR', '10:00', 'Hola, desde esta mañana mi web carla-estudio.com da error de certificado SSL y los visitantes ven la alerta de "no seguro". ¿Podéis revisarlo? Tengo una campaña activa, es urgente.'),
+      mk('system', 'Sistema', '', '10:16', 'SSL renovado automáticamente · Let\u2019s Encrypt, válido hasta 10 ago 2026', null, 'ACME challenge OK · cert reinstalado en vhost · provisioner=enhance_cp'),
+      mk('agent', 'Luis Ferrer', 'LF', '10:22', 'Hola Carla, lo he revisado: el certificado se renovó bien, pero el servidor servía el antiguo desde caché. Acabo de purgarla. ¿Puedes recargar con Ctrl+F5 y decirme si ya aparece como segura?'),
+      mk('note', 'Marc Oliver', 'MO', '10:25', 'Cliente VIP con campaña en marcha. Si no se resuelve en 30 min, escalar a infraestructura.'),
+      mk('client', 'Carla Ruiz', 'CR', '11:00', 'En el portátil ya va bien, pero en el móvil sigo viendo el aviso.'),
+    ];
+
+    const isNote = this.state.tab === 'note';
+    const tabStyle = (active) => 'height:34px;padding:0 14px;border:none;background:transparent;border-radius:9px 9px 0 0;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;color:' + (active ? '#0F172A' : '#94A3B8') + ';box-shadow:' + (active ? 'inset 0 -2px 0 ' + (isNote ? '#B27A12' : '#3B82F6') : 'none') + ';';
+
+    return {
+      statusLabel,
+      statusStyle: 'display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:9999px;font-size:11.5px;font-weight:600;background:' + sBg + ';color:' + sFg + ';',
+      statusDot: 'width:6px;height:6px;border-radius:9999px;flex-shrink:0;background:' + sDot + ';',
+      prioLabel: 'Prioridad alta',
+      prioStyle: 'display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11.5px;font-weight:600;background:#FBEBDD;color:#C2630F;',
+      slaIcon, slaText,
+      slaBarStyle: 'display:flex;align-items:center;gap:9px;padding:11px 20px;border-top:1px solid #F1F5F9;color:' + slaColor + ';background:' + slaBg + ';',
+      messages,
+      threadRef: (el) => { this._thread = el; if (el) el.scrollTop = el.scrollHeight; },
+      tabReply: () => this.setState({ tab: 'reply' }),
+      tabNote: () => this.setState({ tab: 'note' }),
+      replyTabStyle: tabStyle(!isNote),
+      noteTabStyle: tabStyle(isNote),
+      composerAccent: isNote ? 'box-shadow:0 0 0 1px #F2E6C8;border-color:#F2E6C8;' : '',
+      composerPlaceholder: isNote ? 'Escribe una nota interna — solo la ve el equipo…' : 'Escribe tu respuesta a Carla…',
+      showAi: !isNote && !this.state.aiDismissed && !isResolved,
+      aiText: 'El aviso solo en móvil suele ser caché del navegador o HSTS cacheado. Confirma que el certificado nuevo está correctamente instalado y guía al cliente a probar en una pestaña de incógnito.',
+      useAi: () => this.setState({ draft: 'En el móvil suele ser la caché del navegador. Prueba a abrir la web en una pestaña de incógnito; si ahí ya aparece como segura, es solo caché y se actualizará en unos minutos. Mientras, verifico el HSTS por si conviene ajustarlo. Te confirmo enseguida.', aiDismissed: true }),
+      dismissAi: () => this.setState({ aiDismissed: true }),
+      draft: this.state.draft,
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      sendLabel: isNote ? 'Guardar nota' : (isResolved ? 'Reabrir y responder' : 'Enviar respuesta'),
+      sendStyle: 'display:flex;align-items:center;gap:8px;height:38px;padding:0 16px;border-radius:9px;border:none;background:' + (isNote ? '#B27A12' : '#3B82F6') + ';color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;',
+      prevTickets: [
+        { id: '#1012', subject: 'Migración de correo' },
+        { id: '#0984', subject: 'Cambio de DNS' },
+        { id: '#0951', subject: 'Duda en factura' },
+      ],
+      goBack: () => { if (this.props.navigate) this.props.navigate('tickets'); },
+      goClient: () => { if (this.props.navigate) this.props.navigate('client-detail'); },
+      goService: () => { if (this.props.navigate) this.props.navigate('service-detail'); },
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

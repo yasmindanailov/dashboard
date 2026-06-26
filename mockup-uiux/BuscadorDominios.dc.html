@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0}
+  .dom-in::placeholder{color:#A8B2C0}
+  .dom-in:focus{outline:none}
+  .dom-ta::placeholder{color:#A8B2C0}
+  .dom-ta:focus{outline:none;border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.12)}
+  @keyframes domSpin{to{transform:rotate(360deg)}}
+  @keyframes domPulse{0%,100%{opacity:.45}50%{opacity:1}}
+</style>
+</helmet>
+<div style="font-family:'DM Sans',system-ui,sans-serif;color:#0F172A;-webkit-font-smoothing:antialiased">
+
+  <button type="button" onClick="{{ goBack }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 0;border:none;background:none;color:#64748B;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:14px">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    Tienda
+  </button>
+
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px">
+    <div>
+      <h1 style="font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 6px">Encuentra tu dominio ideal</h1>
+      <p style="font-size:14px;color:#64748B;margin:0;max-width:560px">{{ subtitle }}</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
+    <sc-if value="{{ hasCart }}" hint-placeholder-val="{{ false }}">
+      <button type="button" onClick="{{ goCart }}" style="display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>Carrito<span style="min-width:19px;height:19px;padding:0 5px;border-radius:9999px;background:#fff;color:#2563EB;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ cartCount }}</span></button>
+    </sc-if>
+    <div style="display:flex;align-items:center;gap:4px;padding:4px;background:#F1F5F9;border-radius:11px">
+      <button type="button" onClick="{{ setModeName }}" style="{{ tabNameStyle }}">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        Por nombre
+      </button>
+      <button type="button" onClick="{{ setModeAi }}" style="{{ tabAiStyle }}">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"></path><path d="M19 14l.7 1.8L21.5 16.5 19.7 17.2 19 19l-.7-1.8L16.5 16.5l1.8-.7L19 14z"></path></svg>
+        Con IA
+      </button>
+    </div>
+    </div>
+  </div>
+
+  <!-- ░ NAME MODE SEARCH ░ -->
+  <sc-if value="{{ isNameMode }}" hint-placeholder-val="{{ true }}">
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:240px;display:flex;align-items:center;gap:11px;padding:14px 16px;border:1.5px solid {{ inputBorder }};border-radius:12px;background:#F8FAFF;transition:border-color .15s ease">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input class="dom-in" value="{{ q }}" onInput="{{ onQuery }}" onFocus="{{ onFocus }}" onBlur="{{ onBlur }}" placeholder="tunegocio" spellcheck="false" autocomplete="off" style="flex:1;min-width:0;border:none;background:transparent;font-family:inherit;font-size:18px;font-weight:600;color:#0F172A;letter-spacing:-0.01em">
+        <span style="font-size:13px;color:#94A3B8;font-weight:500;flex-shrink:0">{{ selectedCount }} ext.</span>
+      </div>
+      <button type="button" onClick="{{ toggleAdvanced }}" style="display:inline-flex;align-items:center;gap:8px;padding:15px 18px;border-radius:12px;border:1px solid {{ advBorder }};background:{{ advBg }};color:{{ advColor }};font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0;transition:all .15s ease">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+        Configuración avanzada
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate({{ advChevron }});transition:transform .2s ease"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+    </div>
+
+    <sc-if value="{{ advancedOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #F1F5F9">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:11px">
+          <div style="font-size:13px;font-weight:700;color:#0F172A">¿Qué extensiones comprobamos?</div>
+          <div style="display:flex;gap:6px">
+            <button type="button" onClick="{{ presetPop }}" style="padding:6px 11px;border-radius:8px;border:1px solid #E2E8F0;background:#fff;color:#64748B;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFF">Populares</button>
+            <button type="button" onClick="{{ presetAll }}" style="padding:6px 11px;border-radius:8px;border:1px solid #E2E8F0;background:#fff;color:#64748B;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFF">Todas</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
+          <sc-for list="{{ tldChips }}" as="c" hint-placeholder-count="12">
+            <button type="button" onClick="{{ c.onClick }}" style="{{ c.style }}">
+              <sc-if value="{{ c.selected }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if>
+              {{ c.ext }}
+            </button>
+          </sc-for>
+        </div>
+        <button type="button" onClick="{{ toggleBundle }}" style="display:flex;align-items:flex-start;gap:11px;width:100%;text-align:left;padding:14px 16px;border-radius:12px;border:1px solid {{ bundleBorder }};background:{{ bundleBg }};font-family:inherit;cursor:pointer;transition:all .15s ease">
+          <span style="width:38px;height:23px;border-radius:9999px;padding:3px;display:flex;align-items:center;background:{{ bundleTrack }};justify-content:{{ bundleJustify }};transition:background .2s ease;flex-shrink:0;margin-top:1px"><span style="width:17px;height:17px;border-radius:9999px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,0.25);display:block"></span></span>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-size:13.5px;font-weight:700;color:#0F172A">Bundle de marca</span>
+            <span style="display:block;font-size:12.5px;color:#64748B;margin-top:2px;line-height:1.5">Registra tu nombre en <b style="color:#334155">.com, .es y .eu</b> juntos y protege tu marca. Te aplicamos un <b style="color:#0E8C5F">15% de descuento</b> en el pack.</span>
+          </span>
+        </button>
+      </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ░ AI MODE SEARCH ░ -->
+  <sc-if value="{{ isAiMode }}" hint-placeholder-val="{{ false }}">
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px;margin-bottom:14px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+    <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+      <span style="width:30px;height:30px;border-radius:9px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"></path></svg></span>
+      <div><div style="font-size:14px;font-weight:700;color:#0F172A">Cuéntanos de tu negocio</div><div style="font-size:12.5px;color:#94A3B8">Te proponemos nombres con gancho que además están libres.</div></div>
+    </div>
+    <textarea class="dom-ta" value="{{ desc }}" onInput="{{ onDesc }}" placeholder="Ej: Tienda de cerámica artesanal en Valencia, piezas hechas a mano para el hogar." style="width:100%;min-height:88px;resize:vertical;padding:13px 15px;border:1.5px solid #DDE3EA;border-radius:12px;background:#F8FAFF;font-family:inherit;font-size:14px;color:#0F172A;line-height:1.55;transition:all .15s ease">{{ desc }}</textarea>
+    <div style="display:flex;align-items:center;justify-content:flex-end;margin-top:12px">
+      <button type="button" onClick="{{ runAi }}" style="display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:11px;border:none;background:#3B82F6;color:#fff;font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"></path></svg>
+        {{ aiButtonLabel }}
+      </button>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ░ FREE FIRST YEAR STRIP ░ -->
+  <div style="display:flex;align-items:center;gap:12px;padding:13px 18px;background:#F5F9FF;border:1px solid #BFD8FF;border-radius:12px;margin-bottom:22px;flex-wrap:wrap">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E9B6C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    <div style="flex:1;min-width:220px;font-size:13px;color:#334155;line-height:1.5"><b style="color:#0F172A;font-weight:600">Con cualquier plan de hosting anual, el dominio es gratis el primer año.</b> Sin letra pequeña — el precio de renovación lo ves aquí desde el principio.</div>
+    <button type="button" onClick="{{ goPlans }}" style="padding:8px 15px;border-radius:9px;border:1px solid #BFD8FF;background:#fff;color:#2563EB;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0;transition:background .15s ease" style-hover="background:#EFF4FF">Ver planes</button>
+  </div>
+
+  <!-- ░ RESULTS HEADER ░ -->
+  <sc-if value="{{ showResultsHeader }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:13px">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div style="font-size:14px;font-weight:700;color:#0F172A">{{ resultsTitle }}</div>
+      <sc-if value="{{ isNameMode }}" hint-placeholder-val="{{ true }}">
+        <button type="button" onClick="{{ toggleAvail }}" style="display:inline-flex;align-items:center;gap:8px;border:none;background:none;font-family:inherit;cursor:pointer;padding:0">
+          <span style="width:36px;height:21px;border-radius:9999px;padding:3px;display:flex;align-items:center;background:{{ availTrack }};justify-content:{{ availJustify }};transition:background .2s ease;flex-shrink:0"><span style="width:15px;height:15px;border-radius:9999px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,0.25);display:block"></span></span>
+          <span style="font-size:12.5px;font-weight:600;color:#475569">Solo disponibles</span>
+        </button>
+      </sc-if>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <sc-if value="{{ isAiMode }}" hint-placeholder-val="{{ false }}">
+        <button type="button" onClick="{{ regenAi }}" style="display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>Otra tanda</button>
+      </sc-if>
+      <sc-if value="{{ isNameMode }}" hint-placeholder-val="{{ true }}">
+        <div style="position:relative">
+          <button type="button" onClick="{{ toggleSort }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFF"><span style="color:#94A3B8;font-weight:500">Ordenar:</span>{{ sortLabel }}<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#94A3B8"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+          <sc-if value="{{ sortOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:40px;right:0;width:185px;background:#fff;border:1px solid #E2E8F0;border-radius:11px;box-shadow:0 12px 32px rgba(15,23,42,0.14);z-index:30;padding:5px">
+              <sc-for list="{{ sortItems }}" as="s" hint-placeholder-count="4">
+                <button type="button" onClick="{{ s.onClick }}" style="{{ s.style }}"><span>{{ s.label }}</span><sc-if value="{{ s.active }}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if></button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+      <button type="button" onClick="{{ openLuis }}" style="display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#2563EB;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>Hablar con Luis</button>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ░ AI THINKING ░ -->
+  <sc-if value="{{ aiLoading }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:13px;padding:22px;background:#fff;border:1px solid #E2E8F0;border-radius:14px">
+      <span style="width:22px;height:22px;border-radius:9999px;border:2.5px solid #DBEAFE;border-top-color:#3B82F6;display:block;animation:domSpin .7s linear infinite;flex-shrink:0"></span>
+      <div style="font-size:13.5px;font-weight:600;color:#475569;animation:domPulse 1.2s ease-in-out infinite">Pensando en nombres para ti…</div>
+    </div>
+  </sc-if>
+
+  <!-- ░ BUNDLE ROW ░ -->
+  <sc-if value="{{ showBundle }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:16px 18px;border-radius:13px;background:#F5F9FF;border:1px solid #BFD8FF;margin-bottom:10px">
+      <span style="width:42px;height:42px;border-radius:11px;background:#3B82F6;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V5z"></path></svg></span>
+      <div style="flex:1;min-width:200px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:15px;font-weight:700;color:#0F172A">Bundle de marca · {{ q }}</span><span style="padding:3px 9px;border-radius:9999px;background:#E8F7F1;color:#0E8C5F;font-size:11px;font-weight:700">Ahorras {{ bundleSaving }}</span></div>
+        <div style="font-size:12.5px;color:#64748B;margin-top:3px">Protege tu nombre en {{ bundleExtsLabel }} — un solo pack, una sola renovación que controlas.</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="display:flex;align-items:baseline;gap:7px;justify-content:flex-end"><span style="font-size:13px;color:#94A3B8;text-decoration:line-through">{{ bundleFull }}</span><span style="font-size:22px;font-weight:700;color:#0F172A">{{ bundlePrice }}</span><span style="font-size:12px;color:#64748B">/año</span></div>
+      </div>
+      <button type="button" onClick="{{ addBundle }}" style="{{ bundleBtnStyle }}" style-hover="{{ bundleBtnHover }}">
+        <sc-if value="{{ bundleAdded }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if>
+        {{ bundleBtnLabel }}
+      </button>
+    </div>
+  </sc-if>
+
+  <!-- ░ RESULTS LIST ░ -->
+  <sc-if value="{{ hasResults }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <sc-for list="{{ results }}" as="d" hint-placeholder-count="6">
+      <div style="{{ d.rowStyle }}">
+        <div style="flex:1;min-width:200px">
+          <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+            <span style="font-size:17px;font-weight:700;letter-spacing:-0.01em;color:{{ d.nameColor }}">{{ d.name }}</span>
+            <sc-if value="{{ d.showPill }}" hint-placeholder-val="{{ false }}"><span style="{{ d.pillStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"></path></svg>{{ d.pillText }}</span></sc-if>
+            <span style="{{ d.badgeStyle }}"><span style="width:6px;height:6px;border-radius:9999px;background:{{ d.dotColor }};flex-shrink:0"></span>{{ d.badgeText }}</span>
+          </div>
+          <div style="font-size:12.5px;color:#94A3B8;margin-top:4px">{{ d.tag }}</div>
+        </div>
+
+        <sc-if value="{{ d.available }}" hint-placeholder-val="{{ true }}">
+          <div style="text-align:right;flex-shrink:0;min-width:128px">
+            <div style="display:flex;align-items:baseline;gap:4px;justify-content:flex-end"><span style="font-size:20px;font-weight:700;color:#0F172A">{{ d.priceText }}</span><span style="font-size:12px;color:#64748B">/año</span></div>
+            <div style="font-size:11.5px;color:#94A3B8;margin-top:1px">Renueva {{ d.renewText }}/año</div>
+            <sc-if value="{{ d.showWarn }}" hint-placeholder-val="{{ false }}">
+              <div style="display:inline-flex;align-items:center;gap:5px;margin-top:5px;color:#B27A12;font-size:11px;font-weight:600"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>Sube al renovar</div>
+            </sc-if>
+          </div>
+          <button type="button" onClick="{{ d.onAdd }}" style="{{ d.addStyle }}" style-hover="{{ d.addHover }}">
+            <sc-if value="{{ d.added }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if>
+            {{ d.addLabel }}
+          </button>
+        </sc-if>
+        <sc-if value="{{ d.taken }}" hint-placeholder-val="{{ false }}">
+          <span style="font-size:12.5px;color:#94A3B8;flex-shrink:0">Ya está cogido</span>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+  </sc-if>
+
+  <!-- ░ EMPTY ░ -->
+  <sc-if value="{{ isEmptyResults }}" hint-placeholder-val="{{ false }}">
+    <div style="text-align:center;padding:54px 20px;background:#fff;border:1px solid #E2E8F0;border-radius:16px">
+      <div style="width:52px;height:52px;border-radius:14px;background:#F1F5F9;color:#94A3B8;display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></div>
+      <div style="font-size:15px;font-weight:700;color:#0F172A;margin-bottom:5px">{{ emptyTitle }}</div>
+      <div style="font-size:13px;color:#64748B;max-width:380px;margin:0 auto">{{ emptySub }}</div>
+    </div>
+  </sc-if>
+
+  <!-- carrito compartido: el botón vive en la cabecera (mismo del catálogo) -->
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 1040 },
+  &quot;avisoRenovacion&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot; },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; },
+  &quot;openChat&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(kind?: string) =&gt; void&quot; },
+  &quot;cart&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;any[]&quot; },
+  &quot;cartCount&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;number&quot; },
+  &quot;addToCart&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(item: any) =&gt; void&quot; },
+  &quot;removeFromCart&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(uid: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = {
+    mode: 'name',
+    q: 'saraestudio',
+    desc: 'Tienda de cerámica artesanal en Valencia, piezas hechas a mano para el hogar.',
+    aiSearched: false,
+    aiLoading: false,
+    aiSeed: 0,
+    advancedOpen: false,
+    bundleOn: true,
+    selected: ['.com', '.es', '.eu', '.net', '.org'],
+    onlyAvail: false,
+    sort: 'rec',
+    sortOpen: false,
+    focused: false,
+  };
+
+  TLDS = [
+    { ext: '.com',    first: 12, renew: 14, tag: 'La más conocida del mundo' },
+    { ext: '.es',     first: 9,  renew: 11, tag: 'Tu negocio, en España' },
+    { ext: '.eu',     first: 8,  renew: 10, tag: 'Presencia europea' },
+    { ext: '.net',    first: 14, renew: 16, tag: 'Alternativa clásica a .com' },
+    { ext: '.org',    first: 13, renew: 15, tag: 'Proyectos y asociaciones' },
+    { ext: '.shop',   first: 6,  renew: 34, tag: 'Para tu tienda online' },
+    { ext: '.store',  first: 5,  renew: 38, tag: 'Comercio y ecommerce' },
+    { ext: '.online', first: 4,  renew: 32, tag: 'Versátil y moderna' },
+    { ext: '.tech',   first: 7,  renew: 44, tag: 'Tecnología y startups' },
+    { ext: '.io',     first: 39, renew: 42, tag: 'Favorita del mundo tech' },
+    { ext: '.cat',    first: 18, renew: 20, tag: 'En catalán' },
+    { ext: '.info',   first: 4,  renew: 22, tag: 'Información y servicios' },
+  ];
+  POPULAR = ['.com', '.es', '.eu', '.net', '.org'];
+  BUNDLE_CORE = ['.com', '.es', '.eu'];
+  SEED = 'saraestudio';
+  SEED_TAKEN = { '.com': true, '.info': true, '.io': true };
+
+  AI_SETS = [
+    [
+      { b: 'almaceramica',    e: '.es',  tag: 'Cercano, con raíz local' },
+      { b: 'tallerbarro',     e: '.com', tag: 'Evoca el oficio artesano' },
+      { b: 'terracotastudio', e: '.com', tag: 'Internacional y memorable' },
+      { b: 'barroyfuego',     e: '.es',  tag: 'Con storytelling y carácter' },
+      { b: 'ceramicaviva',    e: '.com', tag: 'Transmite producto vivo y único' },
+      { b: 'hechoenbarro',    e: '.es',  tag: 'Resalta el hecho a mano' },
+    ],
+    [
+      { b: 'craftbarro',      e: '.com', tag: 'Mezcla artesanía y modernidad' },
+      { b: 'piezaunica',      e: '.es',  tag: 'Cada producto, irrepetible' },
+      { b: 'hornoabierto',    e: '.com', tag: 'Invita a conocer el taller' },
+      { b: 'arcillaestudio',  e: '.es',  tag: 'Sobrio y profesional' },
+      { b: 'somosceramica',   e: '.com', tag: 'Identidad de marca clara' },
+      { b: 'lamanozurda',     e: '.es',  tag: 'Personal, con guiño artesano' },
+    ],
+  ];
+
+  SORTS = [
+    { id: 'rec',        label: 'Recomendado' },
+    { id: 'price-asc',  label: 'Precio (menor)' },
+    { id: 'price-desc', label: 'Precio (mayor)' },
+    { id: 'az',         label: 'A · Z' },
+  ];
+
+  hashCode(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
+  weight(ext) { const w = { '.com': 55, '.es': 30, '.net': 25, '.org': 22, '.eu': 18 }; return w[ext] != null ? w[ext] : 14; }
+  isTaken(q, ext) {
+    if (q === this.SEED) return !!this.SEED_TAKEN[ext];
+    let wt = this.weight(ext); if (q.length >= 12) wt -= 10;
+    return (this.hashCode(q + '|' + ext) % 100) < wt;
+  }
+  warns(t) { return t.renew >= t.first * 2.2; }
+  tld(ext) { return this.TLDS.find((t) => t.ext === ext) || { ext, first: 12, renew: 14, tag: '' }; }
+  recommendedExt(q, exts) {
+    const order = ['.es', '.com', '.eu', '.net', '.org'];
+    for (const e of order) { if (exts.includes(e) && !this.isTaken(q, e)) return e; }
+    const any = exts.find((e) => !this.isTaken(q, e));
+    return any || null;
+  }
+
+  toggleTld(ext) {
+    this.setState((s) => {
+      const has = s.selected.includes(ext);
+      const next = has ? s.selected.filter((x) => x !== ext) : [...s.selected, ext];
+      return { selected: next.length ? next : s.selected };
+    });
+  }
+  runAi() {
+    this.setState({ aiLoading: true });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ aiLoading: false, aiSearched: true }), 750);
+  }
+  componentWillUnmount() { clearTimeout(this._t); }
+
+  // Mismo botón "Añadir al carrito" del catálogo (TiendaConfigurar): azul sólido, radius 11, 14px/600.
+  addStyleFor(added) {
+    const s = 'flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 18px;border-radius:11px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease;white-space:nowrap;';
+    if (added) return s + 'background:#E8F7F1;color:#0E8C5F;border:1px solid #BBE7D4;';
+    return s + 'background:#3B82F6;color:#fff;border:none;';
+  }
+  addHoverFor(added) { return added ? 'background:#E8F7F1' : 'background:#2563EB'; }
+
+  buildRow(base, ext, tag, opts) {
+    const t = this.tld(ext);
+    const taken = opts && opts.forceAvailable ? false : this.isTaken(base, ext);
+    const recommended = opts && opts.recommended;
+    const aiPick = opts && opts.ai;
+    const domain = base + ext;
+    const uid = 'dom:' + domain;
+    const cart = Array.isArray(this.props.cart) ? this.props.cart : [];
+    const added = cart.some((i) => i.uid === uid);
+    const showWarnTweak = this.props.avisoRenovacion !== false;
+
+    let rowStyle = 'display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-radius:12px;transition:box-shadow .15s ease,border-color .15s ease;';
+    if (taken) rowStyle += 'padding:15px 18px;background:#F8FAFC;border:1px solid #EEF1F5;';
+    else if (recommended || aiPick) rowStyle += 'padding:15px 18px 15px 16px;background:#fff;border:1px solid #E2E8F0;border-left:3px solid #3B82F6;box-shadow:0 1px 2px rgba(15,23,42,0.04);';
+    else rowStyle += 'padding:15px 18px;background:#fff;border:1px solid #E2E8F0;box-shadow:0 1px 2px rgba(15,23,42,0.04);';
+
+    let pillStyle = 'display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:9999px;font-size:11px;font-weight:700;';
+    pillStyle += aiPick ? 'background:#F1ECFB;color:#7C5CCB;' : 'background:#EFF4FF;color:#2563EB;';
+
+    return {
+      name: domain,
+      tag,
+      available: !taken,
+      taken,
+      nameColor: taken ? '#94A3B8' : '#0F172A',
+      showPill: !taken && (recommended || aiPick),
+      pillText: aiPick ? 'Sugerido por IA' : 'Recomendado',
+      pillStyle,
+      badgeText: taken ? 'No disponible' : 'Disponible',
+      dotColor: taken ? '#CBD5E1' : '#10B981',
+      badgeStyle: 'display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:9999px;font-size:11px;font-weight:600;white-space:nowrap;' + (taken ? 'background:#F1F5F9;color:#94A3B8;' : 'background:#E8F7F1;color:#0E8C5F;'),
+      priceText: t.first + ' €',
+      renewText: t.renew + ' €',
+      showWarn: showWarnTweak && this.warns(t),
+      added,
+      addLabel: added ? 'Añadido' : 'Añadir al carrito',
+      addStyle: this.addStyleFor(added),
+      addHover: this.addHoverFor(added),
+      onAdd: () => {
+        if (added) { if (this.props.removeFromCart) this.props.removeFromCart(uid); }
+        else if (this.props.addToCart) this.props.addToCart({ uid, kind: 'domain', name: domain, sub: 'Dominio · registro 1 año', icon: 'domains', price: t.first, renew: t.renew, term: 'al año', renewNote: 'Se renueva a ' + t.renew + ' €/año' });
+      },
+      rowStyle,
+    };
+  }
+
+  renderVals() {
+    const nav = this.props.navigate || (() => {});
+    const isNameMode = this.state.mode === 'name';
+    const isAiMode = this.state.mode === 'ai';
+    const q = this.state.q.trim();
+
+    const tab = (active) => 'display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:9px;border:none;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s ease;' + (active ? 'background:#fff;color:#0F172A;box-shadow:0 1px 2px rgba(15,23,42,0.10);' : 'background:transparent;color:#64748B;');
+
+    // ── NAME MODE results ──
+    let results = [];
+    let showBundle = false, bundleExts = [], bundleFull = 0, bundlePrice = 0;
+    const recExt = isNameMode && q ? this.recommendedExt(q, this.state.selected) : null;
+
+    if (isNameMode && q) {
+      const selectedTlds = this.TLDS.filter((t) => this.state.selected.includes(t.ext));
+      let rows = selectedTlds.map((t) => ({ t, taken: this.isTaken(q, t.ext), recommended: t.ext === recExt }));
+      if (this.state.onlyAvail) rows = rows.filter((r) => !r.taken);
+      const sort = this.state.sort;
+      rows.sort((a, b) => {
+        if (sort === 'az') return a.t.ext.localeCompare(b.t.ext);
+        if (sort === 'price-asc' || sort === 'price-desc') { if (a.taken !== b.taken) return a.taken ? 1 : -1; return sort === 'price-asc' ? a.t.first - b.t.first : b.t.first - a.t.first; }
+        if (a.recommended !== b.recommended) return a.recommended ? -1 : 1;
+        if (a.taken !== b.taken) return a.taken ? 1 : -1;
+        return a.t.first - b.t.first;
+      });
+      results = rows.map((r) => this.buildRow(q, r.t.ext, r.t.tag, { recommended: r.recommended && !r.taken }));
+
+      // bundle
+      bundleExts = this.BUNDLE_CORE.filter((e) => this.state.selected.includes(e) && !this.isTaken(q, e));
+      if (this.state.bundleOn && bundleExts.length >= 2) {
+        showBundle = true;
+        bundleFull = bundleExts.reduce((s, e) => s + this.tld(e).first, 0);
+        bundlePrice = Math.round(bundleFull * 0.85);
+      }
+    }
+
+    // ── AI MODE results ──
+    if (isAiMode && this.state.aiSearched && !this.state.aiLoading) {
+      const set = this.AI_SETS[this.state.aiSeed % this.AI_SETS.length];
+      results = set.map((it, i) => this.buildRow(it.b, it.e, it.tag, { forceAvailable: true, ai: true, recommended: i === 0 }));
+    }
+
+    // cart (compartido vía Shell)
+    const cart = Array.isArray(this.props.cart) ? this.props.cart : [];
+    const cartCount = this.props.cartCount != null ? this.props.cartCount : cart.length;
+
+    const bundleDomains = bundleExts.map((e) => q + e);
+    const bundleAdded = showBundle && bundleDomains.length > 0 && bundleDomains.every((d) => cart.some((i) => i.uid === 'dom:' + d));
+
+    const sortLabelObj = this.SORTS.find((s) => s.id === this.state.sort);
+
+    const showResultsHeader = (isNameMode && q.length > 0) || (isAiMode && this.state.aiSearched && !this.state.aiLoading);
+    const hasResults = results.length > 0 && !(isAiMode && this.state.aiLoading);
+    const aiNotStarted = isAiMode && !this.state.aiSearched && !this.state.aiLoading;
+    const isEmptyResults = !this.state.aiLoading && !hasResults && (isAiMode ? this.state.aiSearched : true) && !aiNotStarted;
+
+    return {
+      subtitle: isAiMode
+        ? 'Descríbenos tu negocio y te proponemos nombres con gancho que además están libres.'
+        : 'Escribe tu nombre, elige qué extensiones comprobar y míralo todo — disponibilidad, precio de hoy y de renovación.',
+      isNameMode, isAiMode,
+      setModeName: () => this.setState({ mode: 'name', sortOpen: false }),
+      setModeAi: () => this.setState({ mode: 'ai', sortOpen: false }),
+      tabNameStyle: tab(isNameMode),
+      tabAiStyle: tab(isAiMode),
+
+      // name search
+      q: this.state.q,
+      onQuery: (e) => this.setState({ q: (e.target.value || '').toLowerCase().replace(/[^a-z0-9-]/g, '') }),
+      onFocus: () => this.setState({ focused: true }),
+      onBlur: () => this.setState({ focused: false }),
+      inputBorder: this.state.focused ? '#3B82F6' : '#DDE3EA',
+      selectedCount: this.state.selected.length,
+
+      // advanced
+      advancedOpen: this.state.advancedOpen,
+      toggleAdvanced: () => this.setState((s) => ({ advancedOpen: !s.advancedOpen })),
+      advChevron: this.state.advancedOpen ? '180deg' : '0deg',
+      advBorder: this.state.advancedOpen ? '#BFD8FF' : '#E2E8F0',
+      advBg: this.state.advancedOpen ? '#EFF4FF' : '#fff',
+      advColor: this.state.advancedOpen ? '#2563EB' : '#475569',
+      tldChips: this.TLDS.map((t) => {
+        const sel = this.state.selected.includes(t.ext);
+        return {
+          ext: t.ext,
+          selected: sel,
+          onClick: () => this.toggleTld(t.ext),
+          style: 'display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:600;font-family:\'DM Mono\',monospace;cursor:pointer;transition:all .12s ease;' + (sel ? 'background:#3B82F6;color:#fff;border:1px solid #3B82F6;' : 'background:#fff;color:#64748B;border:1px solid #E2E8F0;'),
+        };
+      }),
+      presetPop: () => this.setState({ selected: [...this.POPULAR] }),
+      presetAll: () => this.setState({ selected: this.TLDS.map((t) => t.ext) }),
+      toggleBundle: () => this.setState((s) => ({ bundleOn: !s.bundleOn })),
+      bundleTrack: this.state.bundleOn ? '#3B82F6' : '#CBD5E1',
+      bundleJustify: this.state.bundleOn ? 'flex-end' : 'flex-start',
+      bundleBorder: this.state.bundleOn ? '#BFD8FF' : '#E2E8F0',
+      bundleBg: this.state.bundleOn ? '#F5F9FF' : '#fff',
+
+      // ai search
+      desc: this.state.desc,
+      onDesc: (e) => this.setState({ desc: e.target.value }),
+      runAi: () => this.runAi(),
+      regenAi: () => { this.setState((s) => ({ aiSeed: s.aiSeed + 1 })); this.runAi(); },
+      aiLoading: this.state.aiLoading,
+      aiButtonLabel: this.state.aiSearched ? 'Generar de nuevo' : 'Sugerir nombres con IA',
+
+      // results
+      showResultsHeader,
+      resultsTitle: isAiMode ? 'Ideas para ti' : (this.state.selected.length + ' extensiones para «' + q + '»'),
+      toggleAvail: () => this.setState((s) => ({ onlyAvail: !s.onlyAvail })),
+      availTrack: this.state.onlyAvail ? '#3B82F6' : '#CBD5E1',
+      availJustify: this.state.onlyAvail ? 'flex-end' : 'flex-start',
+      sortOpen: this.state.sortOpen,
+      toggleSort: () => this.setState((s) => ({ sortOpen: !s.sortOpen })),
+      sortLabel: sortLabelObj ? sortLabelObj.label : 'Recomendado',
+      sortItems: this.SORTS.map((s) => ({
+        label: s.label, active: s.id === this.state.sort,
+        onClick: () => this.setState({ sort: s.id, sortOpen: false }),
+        style: 'width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;border-radius:8px;border:none;background:transparent;color:' + (s.id === this.state.sort ? '#0F172A' : '#475569') + ';font-size:13px;font-weight:' + (s.id === this.state.sort ? '600' : '500') + ';font-family:inherit;cursor:pointer;text-align:left;',
+      })),
+      openLuis: () => this.props.openChat && this.props.openChat('chat'),
+
+      results,
+      hasResults,
+      isEmptyResults,
+      emptyTitle: isAiMode ? 'Cuéntanos algo de tu negocio' : (q ? 'Nada con estos filtros' : 'Escribe un nombre para empezar'),
+      emptySub: isAiMode ? 'Escribe a qué te dedicas y pulsa «Sugerir nombres con IA».' : (q ? 'Activa más extensiones en configuración avanzada o desactiva «Solo disponibles».' : 'Prueba con el nombre de tu negocio o tu marca.'),
+
+      // bundle
+      showBundle,
+      bundleExtsLabel: bundleExts.join(', '),
+      bundleFull: bundleFull + ' €',
+      bundlePrice: bundlePrice + ' €',
+      bundleSaving: (bundleFull - bundlePrice) + ' €',
+      bundleAdded,
+      bundleBtnLabel: bundleAdded ? 'Añadido' : 'Añadir bundle al carrito',
+      bundleBtnStyle: this.addStyleFor(bundleAdded),
+      bundleBtnHover: this.addHoverFor(bundleAdded),
+      addBundle: () => {
+        if (bundleAdded) { bundleDomains.forEach((d) => this.props.removeFromCart && this.props.removeFromCart('dom:' + d)); }
+        else { bundleExts.forEach((e) => { const t = this.tld(e); this.props.addToCart && this.props.addToCart({ uid: 'dom:' + q + e, kind: 'domain', name: q + e, sub: 'Dominio · registro 1 año', icon: 'domains', price: t.first, renew: t.renew, term: 'al año', renewNote: 'Se renueva a ' + t.renew + ' €/año' }); }); }
+      },
+
+      // cart (botón reutilizado del catálogo)
+      hasCart: cartCount > 0,
+      cartCount: cartCount,
+      goCart: () => nav('cart'),
+      goBack: () => nav('store'),
+      goPlans: () => nav('store'),
+    };
+  }
+}
+</script>
+</body>
+</html>

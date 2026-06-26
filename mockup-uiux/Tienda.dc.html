@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</helmet>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <symbol id="ic-domains" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></symbol>
+</defs></svg>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap">
+    <div>
+      <h1 style="font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 6px">Tienda</h1>
+      <p style="font-size:14px;color:#64748B;margin:0">Todo lo que tu negocio digital necesita, con alguien que te acompaña.</p>
+    </div>
+    <sc-if value="{{ hasCart }}" hint-placeholder-val="{{ false }}">
+      <button type="button" onClick="{{ go.cart }}" style="display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB"><svg width="17" height="17" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>Carrito<span style="min-width:19px;height:19px;padding:0 5px;border-radius:9999px;background:#fff;color:#2563EB;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ cartCount }}</span></button>
+    </sc-if>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:#F5F9FF;border:1px solid #BFD8FF;border-radius:14px;margin-bottom:28px;flex-wrap:wrap">
+    <div style="position:relative;flex-shrink:0"><div style="width:40px;height:40px;border-radius:9999px;background:#3B82F6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">LF</div><span style="position:absolute;right:0;bottom:0;width:11px;height:11px;border-radius:9999px;background:#10B981;border:2px solid #F5F9FF"></span></div>
+    <div style="flex:1;min-width:200px"><div style="font-size:13.5px;font-weight:600;color:#0F172A">¿No sabes cuál elegir?</div><div style="font-size:12.5px;color:#64748B;margin-top:1px">Luis te asesora sin compromiso — te recomendamos lo que de verdad necesitas, ni más ni menos.</div></div>
+    <button type="button" onClick="{{ go.support }}" style="padding:9px 16px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">Hablar con Luis</button>
+  </div>
+
+  <div style="margin-bottom:30px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px;flex-wrap:wrap"><h2 style="font-size:17px;font-weight:700;color:#0F172A;margin:0">Hosting web</h2></div>
+    <p style="font-size:13px;color:#64748B;margin:0 0 16px;display:flex;align-items:center;gap:7px"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>Dominio incluido gratis el primer año en todos los planes anuales.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;align-items:start">
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px">
+        <div style="font-size:15px;font-weight:700;color:#0F172A">Web Inicio</div>
+        <div style="font-size:12px;color:#94A3B8;margin:2px 0 14px">Tu primera web, sin complicarte.</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><span style="font-size:12px;color:#94A3B8">desde</span><span style="font-size:28px;font-weight:700;color:#0F172A">6 €</span><span style="font-size:13px;color:#64748B">/mes</span></div>
+        <div style="font-size:11.5px;color:#94A3B8;margin-bottom:18px">facturado anual · IVA incl.</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:20px;padding-top:16px;border-top:1px solid #F4F6F9">
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>5 GB SSD</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>1 web · 5 cuentas de correo</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>SSL y copias de seguridad</div>
+        </div>
+        <button type="button" onClick="{{ go.storeProduct }}" style="width:100%;padding:10px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#2563EB;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#F5F9FF">Configurar</button>
+      </div>
+
+      <div style="background:#fff;border:1.5px solid #3B82F6;border-radius:16px;padding:22px;position:relative;box-shadow:0 6px 24px rgba(59,130,246,0.10)">
+        <span style="position:absolute;top:-11px;left:22px;padding:3px 11px;border-radius:9999px;background:#3B82F6;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.02em">Recomendado</span>
+        <div style="font-size:15px;font-weight:700;color:#0F172A">Web Pro</div>
+        <div style="font-size:12px;color:#94A3B8;margin:2px 0 14px">Para webs que crecen y venden.</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><span style="font-size:12px;color:#94A3B8">desde</span><span style="font-size:28px;font-weight:700;color:#0F172A">12 €</span><span style="font-size:13px;color:#64748B">/mes</span></div>
+        <div style="font-size:11.5px;color:#94A3B8;margin-bottom:18px">facturado anual · IVA incl.</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:20px;padding-top:16px;border-top:1px solid #F4F6F9">
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>10 GB SSD</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>3 webs · 10 cuentas · Staging</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>SSL, copias y optimización</div>
+        </div>
+        <button type="button" onClick="{{ go.storeProduct }}" style="width:100%;padding:10px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">Configurar</button>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px">
+        <div style="font-size:15px;font-weight:700;color:#0F172A">Web Business</div>
+        <div style="font-size:12px;color:#94A3B8;margin:2px 0 14px">Varias webs, mismo socio.</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><span style="font-size:12px;color:#94A3B8">desde</span><span style="font-size:28px;font-weight:700;color:#0F172A">24 €</span><span style="font-size:13px;color:#64748B">/mes</span></div>
+        <div style="font-size:11.5px;color:#94A3B8;margin-bottom:18px">facturado anual · IVA incl.</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:20px;padding-top:16px;border-top:1px solid #F4F6F9">
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>50 GB SSD</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>Webs ilimitadas · 30 cuentas</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>Staging y soporte prioritario</div>
+        </div>
+        <button type="button" onClick="{{ go.storeProduct }}" style="width:100%;padding:10px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#2563EB;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#F5F9FF">Configurar</button>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="margin-bottom:30px">
+    <h2 style="font-size:17px;font-weight:700;color:#0F172A;margin:0 0 16px">Dominios</h2>
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+      <div style="width:48px;height:48px;border-radius:12px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="24" height="24" viewBox="0 0 24 24"><use href="#ic-domains"></use></svg></div>
+      <div style="flex:1;min-width:220px"><div style="font-size:15px;font-weight:700;color:#0F172A">Encuentra el dominio de tu negocio</div><div style="font-size:13px;color:#64748B;margin-top:2px">.com, .es, .eu y más — precio de renovación visible desde el primer momento, sin sorpresas.</div></div>
+      <div style="display:flex;align-items:center;gap:8px;min-width:260px;flex:1;max-width:420px">
+        <button type="button" onClick="{{ go.domainSearch }}" style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid #E2E8F0;background:#F8FAFF;color:#94A3B8;font-size:13px;font-family:inherit;cursor:pointer;text-align:left;transition:border-color .15s ease" style-hover="border-color:#BFD8FF"><svg width="16" height="16" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><span>minegocio.com</span></button>
+        <button type="button" onClick="{{ go.domainSearch }}" style="padding:10px 18px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0;transition:background .15s ease" style-hover="background:#2563EB">Buscar</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:8px">
+    <div style="margin-bottom:16px"><h2 style="font-size:17px;font-weight:700;color:#0F172A;margin:0">Support Inside</h2><p style="font-size:13px;color:#64748B;margin:4px 0 0">El cuidado de tu negocio digital, no solo del servidor. Una persona real, a tu lado.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;align-items:start">
+
+      <div style="background:#F8FAFF;border:1.5px solid #BFD8FF;border-radius:16px;padding:22px;position:relative">
+        <span style="position:absolute;top:-11px;left:22px;padding:3px 11px;border-radius:9999px;background:#0E8C5F;color:#fff;font-size:11px;font-weight:700">Tu plan actual</span>
+        <div style="font-size:15px;font-weight:700;color:#0F172A">Básico</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin:10px 0 2px"><span style="font-size:28px;font-weight:700;color:#0F172A">19 €</span><span style="font-size:13px;color:#64748B">/mes</span></div>
+        <div style="font-size:11.5px;color:#94A3B8;margin-bottom:18px">1 servicio cuidado · respuesta &lt; 24 h</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:20px;padding-top:16px;border-top:1px solid #E6EEF8">
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>Mantenimiento mensual de 1 servicio</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>Prioridad en tickets y chats</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>Email + Panel</div>
+        </div>
+        <button type="button" onClick="{{ go.supportInside }}" style="width:100%;padding:10px;border-radius:10px;border:1px solid #BFD8FF;background:#fff;color:#2563EB;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#F5F9FF">Gestionar plan</button>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px">
+        <div style="font-size:15px;font-weight:700;color:#0F172A">Medium</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin:10px 0 2px"><span style="font-size:28px;font-weight:700;color:#0F172A">49 €</span><span style="font-size:13px;color:#64748B">/mes</span></div>
+        <div style="font-size:11.5px;color:#94A3B8;margin-bottom:18px">3 servicios cuidados · respuesta &lt; 12 h</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:20px;padding-top:16px;border-top:1px solid #F4F6F9">
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>Mantenimiento de hasta 3 servicios</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>Respuesta más rápida (12 h)</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>Email + Panel</div>
+        </div>
+        <button type="button" onClick="{{ noop }}" style="width:100%;padding:10px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">Mejorar a Medium</button>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px">
+        <div style="font-size:15px;font-weight:700;color:#0F172A">Pro</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin:10px 0 2px"><span style="font-size:28px;font-weight:700;color:#0F172A">99 €</span><span style="font-size:13px;color:#64748B">/mes</span></div>
+        <div style="font-size:11.5px;color:#94A3B8;margin-bottom:18px">10 servicios cuidados · respuesta &lt; 4 h</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:20px;padding-top:16px;border-top:1px solid #F4F6F9">
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>Mantenimiento de hasta 10 servicios</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>Máxima prioridad (4 h)</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#374151"><svg width="15" height="15" viewBox="0 0 24 24" style="color:#0E9B6C;flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>Email + Panel + WhatsApp <span style="font-size:11px;color:#94A3B8">(pronto)</span></div>
+        </div>
+        <button type="button" onClick="{{ noop }}" style="width:100%;padding:10px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">Mejorar a Pro</button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 900 },
+  &quot;cartCount&quot;: { &quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 0, &quot;min&quot;: 0, &quot;max&quot;: 9, &quot;tsType&quot;: &quot;number&quot; },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  renderVals() {
+    const nav = (id) => { if (this.props.navigate) this.props.navigate(id); };
+    const cart = this.props.cartCount ?? 0;
+    return {
+      cartCount: String(cart),
+      hasCart: cart > 0,
+      go: {
+        support: () => nav('support'),
+        storeProduct: () => nav('store-product'),
+        domainSearch: () => nav('domain-search'),
+        supportInside: () => nav('supportInside'),
+        cart: () => nav('cart'),
+      },
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

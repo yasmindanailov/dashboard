@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  svg{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  @keyframes siFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes siOverlay{from{opacity:0}to{opacity:1}}
+  @keyframes siPop{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A;-webkit-font-smoothing:antialiased">
+
+  <!-- ░░░ PAGE HEADER ░░░ -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px">
+    <div style="max-width:600px">
+      <h1 style="font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:0 0 7px">Support Inside</h1>
+      <p style="font-size:14px;color:#64748B;margin:0;line-height:1.55">No es soporte del servidor. Es el cuidado de todo tu negocio digital — entramos dentro de tus servicios para mantenerlos a punto, sin que tengas que pedirlo.</p>
+    </div>
+    <sc-if value="{{ hasPlan }}" hint-placeholder-val="{{ true }}">
+      <button type="button" onClick="{{ scrollUpgrade }}" style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;border:1px solid #BFD8FF;background:#fff;color:#2563EB;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0;transition:background .15s ease" style-hover="background:#F5F9FF">
+        <svg width="16" height="16" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"></polyline></svg>Mejorar mi plan
+      </button>
+    </sc-if>
+  </div>
+
+  <!-- ░░░ MANAGEMENT — PLAN HERO ░░░ -->
+  <sc-if value="{{ hasPlan }}" hint-placeholder-val="{{ true }}">
+  <div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:0;border-radius:18px;overflow:hidden;border:1px solid #BFD8FF;box-shadow:0 6px 26px rgba(59,130,246,0.10);margin-bottom:26px">
+      <div style="flex:1;min-width:300px;background:linear-gradient(135deg,#3B82F6 0%,#2563EB 100%);color:#fff;padding:26px 28px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#DBEAFE;margin-bottom:14px">
+          <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2.1"><path d="M12 2l9 4v6c0 5-3.6 9.3-9 10-5.4-.7-9-5-9-10V6l9-4z"></path><path d="M9 12l2 2 4-4"></path></svg>
+          Tu plan de cuidado
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-bottom:6px">
+          <span style="font-size:27px;font-weight:700;letter-spacing:-0.02em">Plan {{ planName }}</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:9999px;background:rgba(255,255,255,0.18);font-size:12px;font-weight:600"><span style="width:7px;height:7px;border-radius:9999px;background:#5EEAD4"></span>Activo</span>
+        </div>
+        <div style="font-size:13.5px;color:#DBEAFE;line-height:1.5;margin-bottom:20px">{{ planTagline }}</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="position:relative;flex-shrink:0">
+            <div style="width:42px;height:42px;border-radius:9999px;background:rgba(255,255,255,0.16);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">LF</div>
+            <span style="position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:9999px;background:#34D399;border:2px solid #3B82F6"></span>
+          </div>
+          <div style="line-height:1.35">
+            <div style="font-size:13.5px;font-weight:600">Luis Ferrer · tu técnico</div>
+            <div style="font-size:12px;color:#BFDBFE">Ya conoce tu negocio · responde en persona</div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:280px;background:#fff;padding:24px 26px;display:flex;flex-direction:column;justify-content:center">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 22px">
+          <div>
+            <div style="font-size:11px;color:#94A3B8;margin-bottom:3px">SLA de respuesta</div>
+            <div style="font-size:16px;font-weight:700;color:#0F172A">Menos de {{ planSla }}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:#94A3B8;margin-bottom:3px">Slots de mantenimiento</div>
+            <div style="font-size:16px;font-weight:700;color:#0F172A">{{ slotsUsed }} / {{ slotsIncluded }} usados</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:#94A3B8;margin-bottom:3px">Ciclo de facturación</div>
+            <div style="font-size:16px;font-weight:700;color:#0F172A">{{ planCycleLabel }}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:#94A3B8;margin-bottom:3px">Renueva el</div>
+            <div style="font-size:16px;font-weight:700;color:#0F172A">{{ planRenewDate }}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;margin-top:20px;padding-top:18px;border-top:1px solid #EEF1F5">
+          <button type="button" onClick="{{ goBilling }}" style="display:flex;align-items:center;gap:7px;padding:9px 14px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#F8FAFF">
+            <svg width="14" height="14" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2.5"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>Ver facturación
+          </button>
+          <span style="font-size:12px;color:#94A3B8">{{ planPriceLabel }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ░░░ SLOTS / MANTENIMIENTO ░░░ -->
+    <div style="margin-bottom:30px">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:6px">
+        <h2 style="font-size:16px;font-weight:700;color:#0F172A;margin:0">Mantenimiento de tus servicios</h2>
+        <span style="font-size:12.5px;font-weight:600;color:{{ slotsCounterColor }}">{{ slotsUsed }} de {{ slotsIncluded }} slots en uso</span>
+      </div>
+      <p style="font-size:13px;color:#64748B;margin:0 0 16px;max-width:680px;line-height:1.55">Cada slot cubre el mantenimiento mensual de un servicio técnico: actualizaciones, copias, SSL y revisión de rendimiento. Cada mes te enviamos un resumen de lo que hicimos.</p>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">
+        <sc-for list="{{ slotCards }}" as="slot" hint-placeholder-count="1">
+          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:13px;padding:17px 19px;border-bottom:1px solid #F4F6F9">
+              <div style="width:42px;height:42px;border-radius:11px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="21" height="21" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14.5px;font-weight:700;color:#0F172A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ slot.service }}</div>
+                <div style="font-size:12px;color:#64748B;margin-top:2px">{{ slot.sub }}</div>
+              </div>
+              <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:9999px;background:#E8F7F1;font-size:11px;font-weight:600;color:#0E8C5F;flex-shrink:0"><svg width="12" height="12" viewBox="0 0 24 24" stroke-width="2.4"><path d="M12 2l9 4v6c0 5-3.6 9.3-9 10-5.4-.7-9-5-9-10V6l9-4z"></path></svg>Mantenido</span>
+            </div>
+            <div style="display:flex;gap:24px;padding:15px 19px;flex-wrap:wrap">
+              <div><div style="font-size:11px;color:#94A3B8;margin-bottom:2px">Última revisión</div><div style="font-size:13px;font-weight:600;color:#0F172A">{{ slot.last }}</div></div>
+              <div><div style="font-size:11px;color:#94A3B8;margin-bottom:2px">Próxima revisión</div><div style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#0F172A"><svg width="13" height="13" viewBox="0 0 24 24" stroke="#3B82F6"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>{{ slot.next }}</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:13px 19px;border-top:1px solid #F4F6F9">
+              <button type="button" onClick="{{ slot.openDetail }}" style="padding:8px 13px;border-radius:9px;border:none;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">Ver mantenimientos</button>
+              <button type="button" onClick="{{ slot.release }}" style="margin-left:auto;padding:8px 11px;border:none;background:transparent;color:#94A3B8;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="color:#CE3F3F">Liberar slot</button>
+            </div>
+          </div>
+        </sc-for>
+
+        <!-- Empty slot CTA -->
+        <sc-if value="{{ hasFreeSlot }}" hint-placeholder-val="{{ false }}">
+          <button type="button" onClick="{{ openAssign }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;min-height:172px;padding:22px;border-radius:16px;border:1.5px dashed #BFD8FF;background:#F8FAFF;color:#2563EB;font-family:inherit;cursor:pointer;transition:background .15s ease,border-color .15s ease" style-hover="background:#EFF4FF;border-color:#93C5FD">
+            <span style="width:46px;height:46px;border-radius:9999px;background:#fff;border:1px solid #DCE8FF;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span>
+            <span style="text-align:center"><span style="display:block;font-size:14px;font-weight:700">Asignar un slot</span><span style="display:block;font-size:12px;color:#64748B;margin-top:3px;font-weight:500">{{ freeSlotLabel }}</span></span>
+          </button>
+        </sc-if>
+
+        <!-- Slots full upsell -->
+        <sc-if value="{{ slotsFull }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;justify-content:center;gap:9px;min-height:172px;padding:22px 24px;border-radius:16px;border:1px solid #F1E4C9;background:linear-gradient(135deg,#FEFAF0 0%,#FFFDF8 100%)">
+            <span style="width:40px;height:40px;border-radius:11px;background:#FBF0D6;color:#B27A12;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" stroke-width="1.9"><path d="M12 2l3 6.5 7 .9-5 4.8 1.3 7L12 18l-6.3 3.2 1.3-7-5-4.8 7-.9z"></path></svg></span>
+            <div style="font-size:13.5px;font-weight:700;color:#7A5410;line-height:1.4">Has usado todos tus slots</div>
+            <div style="font-size:12.5px;color:#8B6A33;line-height:1.5">El plan {{ planName }} incluye {{ slotsIncluded }} slot{{ slotsPlural }}. Sube de plan para cubrir más servicios cada mes.</div>
+            <button type="button" onClick="{{ scrollUpgrade }}" style="align-self:flex-start;margin-top:4px;padding:8px 14px;border-radius:9px;border:1px solid #E6D2A2;background:#fff;color:#B27A12;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer">Ver planes superiores →</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- ░░░ CANALES ░░░ -->
+    <div style="margin-bottom:30px">
+      <h2 style="font-size:16px;font-weight:700;color:#0F172A;margin:0 0 6px">Tus canales de contacto</h2>
+      <p style="font-size:13px;color:#64748B;margin:0 0 16px;max-width:680px;line-height:1.55">Elige el canal que prefieras. Siempre te responde una persona real que ya conoce tu negocio — nunca un bot.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px">
+        <sc-for list="{{ channelCards }}" as="ch" hint-placeholder-count="3">
+          <div style="{{ ch.wrapStyle }}">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="{{ ch.iconStyle }}"><svg width="19" height="19" viewBox="0 0 24 24" style="{{ ch.chat }}"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg><svg width="19" height="19" viewBox="0 0 24 24" style="{{ ch.mail }}"><rect x="2" y="4" width="20" height="16" rx="2.5"></rect><polyline points="3 6 12 13 21 6"></polyline></svg><svg width="19" height="19" viewBox="0 0 24 24" style="{{ ch.wa }}"><path d="M21 11.5a8.38 8.38 0 0 1-9 8.4 8.5 8.5 0 0 1-3.9-.9L3 20l1.1-3.1A8.38 8.38 0 0 1 3.5 11.5a8.5 8.5 0 0 1 17 0z"></path></svg></span>
+              <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0F172A">{{ ch.name }}</div><div style="font-size:11.5px;color:#94A3B8;margin-top:1px">{{ ch.sub }}</div></div>
+              <span style="{{ ch.tagStyle }}">{{ ch.tag }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- ░░░ HISTORIAL DE VALOR ░░░ -->
+    <div style="margin-bottom:30px">
+      <h2 style="font-size:16px;font-weight:700;color:#0F172A;margin:0 0 6px">El valor que te aporta</h2>
+      <p style="font-size:13px;color:#64748B;margin:0 0 16px;max-width:680px;line-height:1.55">Lo que hemos hecho por tu negocio desde que confías en nosotros. Cada interacción te deja mejor que antes.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:18px">
+        <sc-for list="{{ valueStats }}" as="st" hint-placeholder-count="3">
+          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+            <div style="width:38px;height:38px;border-radius:10px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;margin-bottom:14px"><svg width="19" height="19" viewBox="0 0 24 24"><use href="{{ st.icon }}"></use></svg></div>
+            <div style="font-size:25px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;line-height:1">{{ st.value }}</div>
+            <div style="font-size:12.5px;color:#64748B;margin-top:6px">{{ st.label }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:6px 22px">
+        <sc-for list="{{ maintLog }}" as="m" hint-placeholder-count="3">
+          <div style="{{ m.rowStyle }}">
+            <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">
+              <span style="width:30px;height:30px;border-radius:9999px;background:#E8F7F1;color:#0E8C5F;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2.4"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+              <span style="{{ m.lineStyle }}"></span>
+            </div>
+            <div style="flex:1;min-width:0;padding-bottom:18px">
+              <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap"><span style="font-size:13.5px;font-weight:700;color:#0F172A">{{ m.title }}</span><span style="font-size:11.5px;color:#94A3B8">{{ m.date }}</span></div>
+              <div style="font-size:12.5px;color:#64748B;line-height:1.55;margin-top:4px">{{ m.detail }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+  </div>
+  </sc-if>
+
+  <!-- ░░░ NO-PLAN — HERO INTRO ░░░ -->
+  <sc-if value="{{ noPlan }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;gap:26px;flex-wrap:wrap;align-items:center;padding:26px 28px;border-radius:18px;background:linear-gradient(120deg,#EFF4FF 0%,#F8FAFF 60%,#FFFFFF 100%);border:1px solid #DBEAFE;margin-bottom:30px">
+      <div style="flex:1;min-width:300px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#3B82F6;margin-bottom:12px">Tu socio digital, a tu lado</div>
+        <h2 style="font-size:22px;font-weight:700;letter-spacing:-0.02em;margin:0 0 10px;line-height:1.3">Que alguien real cuide tu negocio digital, no solo el servidor.</h2>
+        <p style="font-size:14px;color:#475569;margin:0;line-height:1.6;max-width:520px">Con Support Inside entramos dentro de tus servicios para mantenerlos a punto cada mes, con respuesta prioritaria y un técnico que ya conoce tu negocio. Tú te centras en crecer.</p>
+      </div>
+      <div style="flex-shrink:0;display:flex;flex-direction:column;gap:11px;min-width:230px">
+        <div style="display:flex;align-items:center;gap:11px;font-size:13.5px;color:#1E293B;font-weight:500"><span style="width:26px;height:26px;border-radius:9999px;background:#E8F7F1;color:#0E8C5F;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.4"><polyline points="20 6 9 17 4 12"></polyline></svg></span>Mantenimiento mensual incluido</div>
+        <div style="display:flex;align-items:center;gap:11px;font-size:13.5px;color:#1E293B;font-weight:500"><span style="width:26px;height:26px;border-radius:9999px;background:#E8F7F1;color:#0E8C5F;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.4"><polyline points="20 6 9 17 4 12"></polyline></svg></span>Respuesta prioritaria garantizada</div>
+        <div style="display:flex;align-items:center;gap:11px;font-size:13.5px;color:#1E293B;font-weight:500"><span style="width:26px;height:26px;border-radius:9999px;background:#E8F7F1;color:#0E8C5F;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.4"><polyline points="20 6 9 17 4 12"></polyline></svg></span>Siempre una persona real, nunca un bot</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ░░░ COMPARADOR (upgrade / acquisition) ░░░ -->
+  <div ref="{{ upgradeRef }}" style="scroll-margin-top:84px">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px">
+      <div>
+        <h2 style="font-size:18px;font-weight:700;letter-spacing:-0.01em;color:#0F172A;margin:0 0 5px">{{ comparatorTitle }}</h2>
+        <p style="font-size:13px;color:#64748B;margin:0">{{ comparatorIntro }}</p>
+      </div>
+      <div style="display:inline-flex;align-items:center;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:9999px;padding:3px">
+        <button type="button" onClick="{{ setMensual }}" style="{{ tabMensual }}">Mensual</button>
+        <button type="button" onClick="{{ setAnual }}" style="{{ tabAnual }}">Anual <span style="font-size:10.5px;opacity:.85">−15%</span></button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;align-items:start">
+      <sc-for list="{{ planCards }}" as="p" hint-placeholder-count="3">
+        <div style="{{ p.cardStyle }}">
+          <sc-if value="{{ p.showBadge }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);padding:4px 13px;border-radius:9999px;background:#3B82F6;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.02em;white-space:nowrap;box-shadow:0 4px 12px rgba(59,130,246,0.32)">{{ p.badge }}</div>
+          </sc-if>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px">
+            <span style="font-size:16px;font-weight:700;color:#0F172A">{{ p.name }}</span>
+            <sc-if value="{{ p.isCurrent }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:9999px;background:#E8F7F1;font-size:11px;font-weight:600;color:#0E8C5F"><span style="width:6px;height:6px;border-radius:9999px;background:#10B981"></span>Tu plan</span></sc-if>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin-top:10px">
+            <span style="font-size:30px;font-weight:700;letter-spacing:-0.02em;color:#0F172A">{{ p.price }}</span>
+            <span style="font-size:13px;color:#94A3B8">{{ p.priceUnit }}</span>
+          </div>
+          <div style="font-size:11.5px;color:{{ p.subPriceColor }};margin-top:4px;min-height:16px">{{ p.subPrice }}</div>
+
+          <div style="height:1px;background:#EEF1F5;margin:16px 0"></div>
+
+          <div style="display:flex;flex-direction:column;gap:11px;margin-bottom:20px">
+            <sc-for list="{{ p.features }}" as="f" hint-placeholder-count="4">
+              <div style="display:flex;align-items:flex-start;gap:9px">
+                <svg width="16" height="16" viewBox="0 0 24 24" stroke="{{ f.color }}" stroke-width="2.4" style="flex-shrink:0;margin-top:1px"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span style="font-size:13px;color:#334155;line-height:1.45">{{ f.text }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <button type="button" onClick="{{ p.action }}" style="{{ p.btnStyle }}">{{ p.btnLabel }}</button>
+          <sc-if value="{{ p.showSwitchNote }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:11px;color:#94A3B8;text-align:center;margin-top:9px;line-height:1.45">{{ p.switchNote }}</div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-top:18px;padding:14px 18px;background:#F8FAFC;border:1px solid #EEF2F7;border-radius:12px">
+      <svg width="16" height="16" viewBox="0 0 24 24" stroke="#94A3B8" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      <span style="font-size:12.5px;color:#64748B;line-height:1.55">Precio claro, sin letra pequeña. Support Inside es independiente de tu hosting — <strong style="font-weight:600;color:#475569">cancelarlo nunca afecta a tus servicios.</strong> WhatsApp llegará en una próxima actualización; los planes que lo incluyen lo tendrán sin coste adicional.</span>
+    </div>
+  </div>
+
+  <!-- ░░░ DANGER ZONE ░░░ -->
+  <sc-if value="{{ hasPlan }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:30px;padding:18px 22px;border:1px solid #EEF1F5;border-radius:14px">
+      <div><div style="font-size:13.5px;font-weight:600;color:#475569">¿Quieres cancelar Support Inside?</div><div style="font-size:12.5px;color:#94A3B8;margin-top:2px">Tus servicios técnicos seguirán funcionando con total normalidad.</div></div>
+      <button type="button" onClick="{{ openCancel }}" style="padding:9px 16px;border-radius:9px;border:1px solid #F1D5D5;background:#fff;color:#CE3F3F;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0;transition:background .15s ease" style-hover="background:#FEF2F2">Cancelar plan</button>
+    </div>
+  </sc-if>
+
+  <!-- ░░░ MODAL: ASIGNAR SLOT ░░░ -->
+  <sc-if value="{{ assignOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModals }}" style="position:fixed;inset:0;z-index:200;background:rgba(15,23,42,0.42);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:24px;animation:siOverlay .18s ease both">
+      <div onClick="{{ stop }}" style="width:100%;max-width:460px;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,0.3);overflow:hidden;animation:siPop .22s cubic-bezier(.2,.8,.2,1) both">
+        <div style="padding:22px 24px 16px">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:13px">
+            <span style="width:40px;height:40px;border-radius:11px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></span>
+            <div><div style="font-size:16px;font-weight:700;color:#0F172A">Asignar un slot</div><div style="font-size:12.5px;color:#94A3B8;margin-top:1px">{{ freeSlotLabel }}</div></div>
+          </div>
+          <p style="font-size:13px;color:#64748B;margin:0;line-height:1.55">Elige a qué servicio quieres dar mantenimiento mensual. Solo aparecen tus servicios técnicos compatibles.</p>
+        </div>
+        <div style="padding:0 24px;display:flex;flex-direction:column;gap:10px;max-height:300px;overflow-y:auto">
+          <sc-for list="{{ eligibleOptions }}" as="opt" hint-placeholder-count="2">
+            <button type="button" onClick="{{ opt.select }}" style="{{ opt.style }}">
+              <span style="width:38px;height:38px;border-radius:10px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line></svg></span>
+              <span style="flex:1;min-width:0;text-align:left"><span style="display:block;font-size:13.5px;font-weight:700;color:#0F172A">{{ opt.name }}</span><span style="display:block;font-size:11.5px;color:#94A3B8;margin-top:1px">{{ opt.sub }}</span></span>
+              <span style="{{ opt.radioStyle }}"><span style="{{ opt.radioDot }}"></span></span>
+            </button>
+          </sc-for>
+          <sc-if value="{{ noEligible }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:18px;text-align:center;font-size:13px;color:#94A3B8;line-height:1.55">No tienes más servicios técnicos compatibles sin cubrir. Los dominios y addons no necesitan mantenimiento.</div>
+          </sc-if>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:18px 24px 20px;margin-top:8px">
+          <button type="button" onClick="{{ closeModals }}" style="padding:10px 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">Cancelar</button>
+          <button type="button" onClick="{{ confirmAssign }}" style="{{ confirmAssignStyle }}">Asignar slot</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ░░░ MODAL: CANCELAR PLAN ░░░ -->
+  <sc-if value="{{ cancelOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModals }}" style="position:fixed;inset:0;z-index:200;background:rgba(15,23,42,0.42);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:24px;animation:siOverlay .18s ease both">
+      <div onClick="{{ stop }}" style="width:100%;max-width:440px;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,0.3);overflow:hidden;animation:siPop .22s cubic-bezier(.2,.8,.2,1) both">
+        <div style="padding:24px 24px 18px">
+          <span style="width:44px;height:44px;border-radius:12px;background:#FEF2F2;color:#CE3F3F;display:flex;align-items:center;justify-content:center;margin-bottom:15px"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></span>
+          <h3 style="font-size:18px;font-weight:700;color:#0F172A;margin:0 0 8px">Cancelar Support Inside</h3>
+          <p style="font-size:13.5px;color:#475569;margin:0;line-height:1.6">Al cancelar el plan {{ planName }}:</p>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+            <div style="display:flex;align-items:flex-start;gap:9px"><svg width="16" height="16" viewBox="0 0 24 24" stroke="#B27A12" stroke-width="2.2" style="flex-shrink:0;margin-top:1px"><line x1="5" y1="12" x2="19" y2="12"></line></svg><span style="font-size:13px;color:#334155;line-height:1.5">Liberarás tus <strong style="font-weight:700">{{ slotsUsed }} slot{{ slotsUsedPlural }}</strong> de mantenimiento — dejaremos de revisar esos servicios cada mes.</span></div>
+            <div style="display:flex;align-items:flex-start;gap:9px"><svg width="16" height="16" viewBox="0 0 24 24" stroke="#0E8C5F" stroke-width="2.4" style="flex-shrink:0;margin-top:1px"><polyline points="20 6 9 17 4 12"></polyline></svg><span style="font-size:13px;color:#334155;line-height:1.5">Tus servicios técnicos <strong style="font-weight:700">seguirán funcionando igual.</strong> Cancelar Support Inside no cancela tu hosting.</span></div>
+            <div style="display:flex;align-items:flex-start;gap:9px"><svg width="16" height="16" viewBox="0 0 24 24" stroke="#0E8C5F" stroke-width="2.4" style="flex-shrink:0;margin-top:1px"><polyline points="20 6 9 17 4 12"></polyline></svg><span style="font-size:13px;color:#334155;line-height:1.5">Puedes volver a activarlo cuando quieras desde el comparador.</span></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:16px 24px 20px;background:#FAFBFC;border-top:1px solid #F1F5F9">
+          <button type="button" onClick="{{ closeModals }}" style="padding:10px 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">Mantener mi plan</button>
+          <button type="button" onClick="{{ confirmCancel }}" style="padding:10px 17px;border-radius:10px;border:none;background:#CE3F3F;color:#fff;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">Sí, cancelar</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ░░░ MODAL: DETALLE MANTENIMIENTO ░░░ -->
+  <sc-if value="{{ detailOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModals }}" style="position:fixed;inset:0;z-index:200;background:rgba(15,23,42,0.42);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:24px;animation:siOverlay .18s ease both">
+      <div onClick="{{ stop }}" style="width:100%;max-width:500px;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,0.3);overflow:hidden;animation:siPop .22s cubic-bezier(.2,.8,.2,1) both">
+        <div style="display:flex;align-items:center;gap:13px;padding:22px 24px;border-bottom:1px solid #F1F5F9">
+          <span style="width:40px;height:40px;border-radius:11px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></span>
+          <div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:700;color:#0F172A">Mantenimientos · {{ detailService }}</div><div style="font-size:12.5px;color:#94A3B8;margin-top:1px">Resumen mensual de lo que hicimos</div></div>
+          <button type="button" onClick="{{ closeModals }}" style="width:32px;height:32px;border-radius:8px;border:none;background:#F1F5F9;color:#64748B;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        <div style="padding:8px 24px 18px;max-height:60vh;overflow-y:auto">
+          <sc-for list="{{ maintLog }}" as="m" hint-placeholder-count="3">
+            <div style="padding:16px 0;border-bottom:1px solid #F4F6F9">
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px"><span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:9999px;background:#E8F7F1;font-size:11px;font-weight:600;color:#0E8C5F"><svg width="11" height="11" viewBox="0 0 24 24" stroke-width="2.6"><polyline points="20 6 9 17 4 12"></polyline></svg>Completado</span><span style="font-size:12.5px;color:#94A3B8">{{ m.date }}</span></div>
+              <div style="font-size:13.5px;font-weight:700;color:#0F172A;margin-bottom:8px">{{ m.title }}</div>
+              <div style="display:flex;flex-direction:column;gap:7px">
+                <sc-for list="{{ m.tasks }}" as="t" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:flex-start;gap:9px"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#3B82F6" stroke-width="2.2" style="flex-shrink:0;margin-top:2px"><polyline points="20 6 9 17 4 12"></polyline></svg><span style="font-size:13px;color:#475569;line-height:1.5">{{ t }}</span></div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <div style="display:flex;align-items:center;gap:9px;padding:14px 0 6px"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#94A3B8" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V5z"></path></svg><span style="font-size:12px;color:#94A3B8;line-height:1.5">Recibes este resumen por email cada mes, en el día aniversario de tu slot.</span></div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- value-stat icon symbols -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="si-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></symbol>
+    <symbol id="si-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></symbol>
+    <symbol id="si-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-2.5z"></path></symbol>
+  </defs></svg>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:980},&quot;navigate&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(route: string) =&gt; void&quot;},&quot;planActivo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Sin plan&quot;,&quot;options&quot;:[&quot;Básico&quot;,&quot;Medium&quot;,&quot;Pro&quot;,&quot;Sin plan&quot;],&quot;tsType&quot;:&quot;string&quot;},&quot;cicloInicial&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Anual&quot;,&quot;options&quot;:[&quot;Anual&quot;,&quot;Mensual&quot;],&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = {
+    planOverride: null,   // null = use prop; 'none' after cancel; plan key after subscribe
+    cycle: null,          // null = use prop default
+    assignOpen: false,
+    cancelOpen: false,
+    detailOpen: false,
+    assignChoice: null,
+    slots: null,          // null = derive default from plan; else array of serviceIds
+  };
+
+  upgradeRef = (el) => { this._upgrade = el; };
+
+  PLANS = {
+    basic:  { key:'basic',  name:'Básico', slots:1,  sla:'24 h', monthly:19, annual:193.80, tagline:'Cuidamos un servicio cada mes y te respondemos antes de 24 h.', badge:null },
+    medium: { key:'medium', name:'Medium', slots:3,  sla:'12 h', monthly:49, annual:499.80, tagline:'Mantenimiento proactivo de hasta 3 servicios y respuesta más rápida.', badge:'Más elegido' },
+    pro:    { key:'pro',    name:'Pro',    slots:10, sla:'4 h',  monthly:99, annual:1009.80, tagline:'Gestión proactiva avanzada y la máxima prioridad para tu negocio.', badge:null },
+  };
+  ORDER = ['basic','medium','pro'];
+
+  ALL_SERVICES = [
+    { id:'sara-estudio.com', name:'sara-estudio.com', sub:'Web Pro · Hosting' },
+    { id:'tienda-sara.es',   name:'tienda-sara.es',   sub:'Web Inicio · Hosting' },
+  ];
+
+  MAINT = {
+    'sara-estudio.com': [
+      { date:'14 jun 2026', title:'Mantenimiento de junio', detail:'WordPress actualizado, copias verificadas y SSL renovado. Sin incidencias.',
+        tasks:['Actualización de WordPress a 6.5.2 y 4 plugins','Verificación de copias de seguridad (3 disponibles)','Renovación automática del certificado SSL','Revisión de espacio en disco: 62% usado'] },
+      { date:'14 may 2026', title:'Mantenimiento de mayo', detail:'Optimización de base de datos y limpieza de caché. Mejora de tiempos de carga.',
+        tasks:['Optimización de tablas de base de datos','Limpieza de caché y archivos temporales','Monitor de rendimiento: carga media 0,9 s','Ajuste de configuración de PHP recomendado'] },
+      { date:'14 abr 2026', title:'Puesta a punto inicial', detail:'Configuración del mantenimiento mensual e instalación de mejoras recomendadas.',
+        tasks:['Alta del servicio en el calendario de mantenimiento','Instalación de plugin de seguridad recomendado','Configuración de copias automáticas diarias'] },
+    ],
+    'tienda-sara.es': [
+      { date:'18 jun 2026', title:'Mantenimiento de junio', detail:'Actualizaciones de la tienda y revisión de la pasarela de pago.',
+        tasks:['Actualización del CMS y módulos de tienda','Comprobación de la pasarela de pago','Revisión de copias de seguridad'] },
+    ],
+  };
+
+  defaultSlots(planKey) {
+    if (planKey === 'none') return [];
+    return ['sara-estudio.com'];
+  }
+  effPlanKey() {
+    if (this.state.planOverride) return this.state.planOverride === 'none' ? 'none' : this.state.planOverride;
+    const map = { 'Básico':'basic', 'Medium':'medium', 'Pro':'pro', 'Sin plan':'none' };
+    return map[this.props.planActivo || 'Básico'] || 'basic';
+  }
+  effCycle() {
+    if (this.state.cycle) return this.state.cycle;
+    return (this.props.cicloInicial || 'Anual') === 'Mensual' ? 'mensual' : 'anual';
+  }
+  curSlots(planKey) {
+    if (this.state.slots !== null) return this.state.slots;
+    return this.defaultSlots(planKey);
+  }
+
+  fmtEur(n) {
+    const s = Number(n).toLocaleString('es-ES', { minimumFractionDigits: (n % 1 === 0 ? 0 : 2), maximumFractionDigits: 2 });
+    return s + ' €';
+  }
+
+  subscribe(planKey) {
+    // Brand-honest: real flow goes to unified checkout. Reflect navigation.
+    if (this.props.navigate) { this.props.navigate('checkout'); return; }
+    this.setState({ planOverride: planKey, slots: this.defaultSlots(planKey) });
+  }
+
+  renderVals() {
+    const nav = this.props.navigate || (() => {});
+    const planKey = this.effPlanKey();
+    const noPlan = planKey === 'none';
+    const hasPlan = !noPlan;
+    const cycle = this.effCycle();
+    const plan = noPlan ? null : this.PLANS[planKey];
+    const slots = this.curSlots(planKey);
+    const slotsIncluded = plan ? plan.slots : 0;
+    const slotsUsed = slots.length;
+    const hasFreeSlot = hasPlan && slotsUsed < slotsIncluded;
+    const slotsFull = hasPlan && slotsUsed >= slotsIncluded;
+
+    // ── plan hero
+    const cycleLabel = cycle === 'anual' ? 'Anual' : 'Mensual';
+    const priceLabel = plan ? (cycle === 'anual' ? this.fmtEur(plan.annual) + '/año' : this.fmtEur(plan.monthly) + '/mes') : '';
+
+    // ── slot cards
+    const slotCards = slots.map((sid) => {
+      const svc = this.ALL_SERVICES.find((s) => s.id === sid) || { id:sid, name:sid, sub:'Servicio' };
+      const log = this.MAINT[sid] || [];
+      return {
+        service: svc.name, sub: svc.sub,
+        last: log[0] ? log[0].date : '—',
+        next: sid === 'sara-estudio.com' ? '14 jul 2026' : '18 jul 2026',
+        openDetail: () => this.setState({ detailOpen: true, detailService: sid }),
+        release: () => this.setState((s) => ({ slots: (s.slots !== null ? s.slots : this.defaultSlots(planKey)).filter((x) => x !== sid) })),
+      };
+    });
+    const freeCount = slotsIncluded - slotsUsed;
+    const freeSlotLabel = freeCount === 1 ? 'Te queda 1 slot disponible' : 'Te quedan ' + freeCount + ' slots disponibles';
+
+    // ── channels
+    const tagSty = (kind) => {
+      if (kind === 'active') return 'display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:9999px;background:#E8F7F1;font-size:10.5px;font-weight:700;color:#0E8C5F;flex-shrink:0;white-space:nowrap';
+      if (kind === 'soon')   return 'display:inline-flex;align-items:center;padding:3px 9px;border-radius:9999px;background:#FCF3E1;font-size:10.5px;font-weight:700;color:#B27A12;flex-shrink:0;white-space:nowrap';
+      return 'display:inline-flex;align-items:center;padding:3px 9px;border-radius:9999px;background:#F1F5F9;font-size:10.5px;font-weight:700;color:#94A3B8;flex-shrink:0;white-space:nowrap';
+    };
+    const chBase = 'background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:16px 17px;';
+    const chOff  = 'background:#FBFCFE;border:1px solid #EEF1F5;border-radius:14px;padding:16px 17px;';
+    const iconOn  = 'width:38px;height:38px;border-radius:10px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0';
+    const iconOff = 'width:38px;height:38px;border-radius:10px;background:#F1F5F9;color:#B6BFCB;display:flex;align-items:center;justify-content:center;flex-shrink:0';
+    const waInPlan = planKey === 'medium' || planKey === 'pro';
+    const channelCards = [
+      { name:'Chat en la app', sub:'Escribe a Luis al instante', icon:'chat', state:'active', tag:'Activo' },
+      { name:'Email', sub:'soporte@aelium.com', icon:'mail', state:'active', tag:'Activo' },
+      { name:'WhatsApp', sub: waInPlan ? 'Al móvil, como siempre' : 'Incluido desde el plan Medium', icon:'wa', state: waInPlan ? 'soon' : 'off', tag: waInPlan ? 'Próximamente' : 'Medium+' },
+    ].map((c) => ({
+      name:c.name, sub:c.sub,
+      wrapStyle: c.state === 'off' ? chOff : chBase,
+      iconStyle: c.state === 'off' ? iconOff : iconOn,
+      chat: c.icon === 'chat' ? '' : 'display:none',
+      mail: c.icon === 'mail' ? '' : 'display:none',
+      wa:   c.icon === 'wa' ? '' : 'display:none',
+      tag:c.tag, tagStyle: tagSty(c.state),
+    }));
+
+    // ── value stats + maintenance log
+    const valueStats = [
+      { value:'12', label:'Consultas resueltas', icon:'#si-chat' },
+      { value:'1 h 20 m', label:'Tiempo medio de respuesta', icon:'#si-clock' },
+      { value:'3', label:'Mantenimientos realizados', icon:'#si-wrench' },
+    ];
+    const logSource = (slots[0] && this.MAINT[slots[0]]) ? this.MAINT[slots[0]] : (this.MAINT['sara-estudio.com']);
+    const maintLog = logSource.map((m, i, arr) => ({
+      title:m.title, date:m.date, detail:m.detail, tasks:m.tasks,
+      rowStyle: 'display:flex;gap:14px;padding-top:18px;' + (i === 0 ? '' : ''),
+      lineStyle: 'flex:1;width:2px;background:' + (i === arr.length - 1 ? 'transparent' : '#E8F0E9') + ';margin-top:6px;min-height:8px;border-radius:9999px',
+    }));
+    const detailLog = (this.state.detailService && this.MAINT[this.state.detailService]) ? this.MAINT[this.state.detailService] : logSource;
+    const detailService = this.state.detailService ? (this.ALL_SERVICES.find((s) => s.id === this.state.detailService) || {}).name : '';
+
+    // ── comparator
+    const featuresFor = (k) => {
+      if (k === 'basic') return [
+        { text:'1 slot de mantenimiento mensual' },
+        { text:'Respuesta en menos de 24 h' },
+        { text:'Chat en la app + email' },
+        { text:'Agente real desde el primer mensaje' },
+      ];
+      if (k === 'medium') return [
+        { text:'3 slots de mantenimiento mensual' },
+        { text:'Respuesta en menos de 12 h' },
+        { text:'Todo lo anterior + WhatsApp' },
+        { text:'Prioridad alta + mantenimiento proactivo' },
+      ];
+      return [
+        { text:'10 slots de mantenimiento mensual' },
+        { text:'Respuesta en menos de 4 h' },
+        { text:'WhatsApp con máxima prioridad' },
+        { text:'Gestión proactiva avanzada (CDN, métricas…)' },
+      ];
+    };
+    const planCards = this.ORDER.map((k) => {
+      const pl = this.PLANS[k];
+      const isCurrent = hasPlan && k === planKey;
+      const price = cycle === 'anual' ? this.fmtEur(pl.annual) : this.fmtEur(pl.monthly);
+      const unit = cycle === 'anual' ? '/año' : '/mes';
+      const monthlyEquiv = cycle === 'anual' ? Math.round((pl.annual / 12) * 100) / 100 : null;
+      const subPrice = cycle === 'anual' ? ('Equivale a ' + this.fmtEur(monthlyEquiv) + '/mes · ahorras 15%') : 'IVA no incluido';
+      const featured = k === 'medium' && !isCurrent;
+      let cardStyle = 'position:relative;background:#fff;border-radius:18px;padding:24px 22px;transition:box-shadow .2s ease,border-color .2s ease;';
+      if (isCurrent) cardStyle += 'border:1.5px solid #3B82F6;box-shadow:0 8px 28px rgba(59,130,246,0.14);';
+      else if (featured) cardStyle += 'border:1.5px solid #BFD8FF;box-shadow:0 8px 28px rgba(59,130,246,0.10);';
+      else cardStyle += 'border:1px solid #E2E8F0;box-shadow:0 1px 2px rgba(15,23,42,0.04);';
+
+      // action / button
+      let btnLabel, btnStyle, action, showSwitchNote = false, switchNote = '';
+      const btnPrimary = 'width:100%;padding:11px;border-radius:11px;border:none;background:#3B82F6;color:#fff;font-size:13.5px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .15s ease';
+      const btnGhost   = 'width:100%;padding:11px;border-radius:11px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13.5px;font-weight:700;font-family:inherit;cursor:default';
+      const btnOutline = 'width:100%;padding:11px;border-radius:11px;border:1px solid #BFD8FF;background:#fff;color:#2563EB;font-size:13.5px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .15s ease';
+      if (isCurrent) {
+        btnLabel = 'Tu plan actual'; btnStyle = btnGhost; action = () => {};
+      } else if (noPlan) {
+        btnLabel = 'Suscribirme'; btnStyle = featured ? btnPrimary : btnOutline; action = () => this.subscribe(k);
+      } else {
+        const order = this.ORDER;
+        const isUpgrade = order.indexOf(k) > order.indexOf(planKey);
+        btnLabel = isUpgrade ? ('Cambiar a ' + pl.name) : ('Cambiar a ' + pl.name);
+        btnStyle = featured ? btnPrimary : btnOutline;
+        action = () => this.subscribe(k);
+        showSwitchNote = true;
+        switchNote = 'Hoy el cambio se hace cancelando y recontratando. Te guiamos en el proceso.';
+      }
+
+      return {
+        name: pl.name, price, priceUnit: unit, subPrice,
+        subPriceColor: cycle === 'anual' ? '#0E8C5F' : '#94A3B8',
+        isCurrent, showBadge: !!pl.badge && !isCurrent, badge: pl.badge,
+        features: featuresFor(k),
+        cardStyle, btnLabel, btnStyle, action, showSwitchNote, switchNote,
+      };
+    });
+
+    // ── assign modal eligible options
+    const assignedIds = slots;
+    const eligible = this.ALL_SERVICES.filter((s) => !assignedIds.includes(s.id));
+    const eligibleOptions = eligible.map((s) => {
+      const sel = this.state.assignChoice === s.id;
+      return {
+        name: s.name, sub: s.sub,
+        select: () => this.setState({ assignChoice: s.id }),
+        style: 'display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;border-radius:12px;background:' + (sel ? '#F5F9FF' : '#fff') + ';border:1.5px solid ' + (sel ? '#3B82F6' : '#E2E8F0') + ';font-family:inherit;cursor:pointer;transition:border-color .15s ease,background .15s ease',
+        radioStyle: 'width:20px;height:20px;border-radius:9999px;border:2px solid ' + (sel ? '#3B82F6' : '#CBD5E1') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0',
+        radioDot: sel ? 'width:10px;height:10px;border-radius:9999px;background:#3B82F6' : 'width:0;height:0',
+      };
+    });
+    const confirmReady = !!this.state.assignChoice && eligible.some((s) => s.id === this.state.assignChoice);
+    const confirmAssignStyle = 'padding:10px 17px;border-radius:10px;border:none;font-size:13px;font-weight:700;font-family:inherit;' + (confirmReady ? 'background:#3B82F6;color:#fff;cursor:pointer' : 'background:#E2E8F0;color:#94A3B8;cursor:not-allowed');
+
+    // segmented toggle
+    const tabOn  = 'padding:7px 16px;border-radius:9999px;border:none;background:#0F172A;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:5px';
+    const tabOff = 'padding:7px 16px;border-radius:9999px;border:none;background:transparent;color:#64748B;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:5px';
+
+    return {
+      hasPlan, noPlan,
+      planName: plan ? plan.name : '',
+      planSla: plan ? plan.sla : '',
+      planTagline: plan ? plan.tagline : '',
+      slotsIncluded, slotsUsed,
+      slotsPlural: slotsIncluded === 1 ? '' : 's',
+      slotsUsedPlural: slotsUsed === 1 ? '' : 's',
+      planCycleLabel: cycleLabel,
+      planRenewDate: cycle === 'anual' ? '14 abr 2027' : '14 jul 2026',
+      planPriceLabel: priceLabel,
+      slotsCounterColor: slotsFull ? '#B27A12' : '#64748B',
+      slotCards, hasFreeSlot, slotsFull, freeSlotLabel,
+      channelCards,
+      valueStats, maintLog,
+      detailService, 
+      // comparator
+      comparatorTitle: noPlan ? 'Elige tu plan' : 'Mejora tu plan',
+      comparatorIntro: noPlan ? 'Tres niveles de cuidado. Empieza por donde encajes y sube cuando lo necesites.' : 'Más slots, respuesta más rápida y nuevos canales según creces.',
+      planCards,
+      tabMensual: cycle === 'mensual' ? tabOn : tabOff,
+      tabAnual: cycle === 'anual' ? tabOn : tabOff,
+      setMensual: () => this.setState({ cycle: 'mensual' }),
+      setAnual: () => this.setState({ cycle: 'anual' }),
+      // modals
+      assignOpen: this.state.assignOpen,
+      cancelOpen: this.state.cancelOpen,
+      detailOpen: this.state.detailOpen,
+      eligibleOptions,
+      noEligible: eligible.length === 0,
+      confirmAssignStyle,
+      openAssign: () => this.setState({ assignOpen: true, assignChoice: null }),
+      confirmAssign: () => { if (!confirmReady) return; const id = this.state.assignChoice; this.setState((s) => ({ slots: [...(s.slots !== null ? s.slots : this.defaultSlots(planKey)), id], assignOpen: false, assignChoice: null })); },
+      openCancel: () => this.setState({ cancelOpen: true }),
+      confirmCancel: () => this.setState({ cancelOpen: false, planOverride: 'none', slots: [] }),
+      closeModals: () => this.setState({ assignOpen: false, cancelOpen: false, detailOpen: false }),
+      stop: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+      goBilling: () => nav('billing'),
+      scrollUpgrade: () => { const el = this._upgrade; if (!el) return; const r = el.getBoundingClientRect(); const top = window.scrollY + r.top - 80; window.scrollTo({ top: top < 0 ? 0 : top, behavior: 'smooth' }); },
+      upgradeRef: this.upgradeRef,
+    };
+  }
+}
+</script>
+</body>
+</html>

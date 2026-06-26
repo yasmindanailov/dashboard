@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  svg{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  @keyframes ntPop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A;-webkit-font-smoothing:antialiased;max-width:900px">
+
+  <!-- ░░░ HEADER ░░░ -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+    <div>
+      <div style="display:flex;align-items:center;gap:11px">
+        <h1 style="font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:0">Notificaciones</h1>
+        <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 8px;border-radius:9999px;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:700">{{ unreadCount }}</span></sc-if>
+      </div>
+      <p style="font-size:14px;color:#64748B;margin:7px 0 0;line-height:1.55">Todo lo que pasa con tu cuenta, en un sitio. Es lo mismo que te llega por email.</p>
+    </div>
+    <button type="button" onClick="{{ markAll }}" style="{{ markAllStyle }}"><svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2.2"><polyline points="20 6 9 17 4 12"></polyline></svg>Marcar todas como leídas</button>
+  </div>
+
+  <!-- ░░░ FILTERS ░░░ -->
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px">
+    <div style="display:inline-flex;align-items:center;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:9999px;padding:3px">
+      <button type="button" onClick="{{ setAll }}" style="{{ tabAll }}">Todas</button>
+      <button type="button" onClick="{{ setUnread }}" style="{{ tabUnread }}">No leídas</button>
+    </div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap">
+      <sc-for list="{{ catChips }}" as="c" hint-placeholder-count="6">
+        <button type="button" onClick="{{ c.go }}" style="{{ c.style }}">{{ c.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- ░░░ LIST ░░░ -->
+  <sc-if value="{{ hasItems }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+      <div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8;margin:0 2px 9px">{{ g.label }}</div>
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden">
+          <sc-for list="{{ g.rows }}" as="n" hint-placeholder-count="3">
+            <button type="button" onClick="{{ n.open }}" style="{{ n.rowStyle }}">
+              <span style="{{ n.iconWrap }}"><svg width="19" height="19" viewBox="0 0 24 24"><use href="{{ n.icon }}"></use></svg></span>
+              <span style="flex:1;min-width:0;text-align:left">
+                <span style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+                  <span style="font-size:14px;font-weight:{{ n.titleWeight }};color:#0F172A">{{ n.title }}</span>
+                  <span style="{{ n.catTagStyle }}">{{ n.catLabel }}</span>
+                </span>
+                <span style="display:block;font-size:12.5px;color:#64748B;line-height:1.5;margin-top:3px;max-width:600px">{{ n.body }}</span>
+                <span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#3B82F6;font-weight:600;margin-top:8px">{{ n.actionLabel }}<svg width="13" height="13" viewBox="0 0 24 24" stroke-width="2.2"><polyline points="9 18 15 12 9 6"></polyline></svg></span>
+              </span>
+              <span style="display:flex;flex-direction:column;align-items:flex-end;gap:9px;flex-shrink:0">
+                <span style="font-size:11.5px;color:#94A3B8;white-space:nowrap">{{ n.time }}</span>
+                <sc-if value="{{ n.unread }}" hint-placeholder-val="{{ false }}"><span style="width:9px;height:9px;border-radius:9999px;background:#3B82F6"></span></sc-if>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:4px 0"><svg width="13" height="13" viewBox="0 0 24 24" stroke="#CBD5E1" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg><span style="font-size:11.5px;color:#94A3B8">Conservamos tus notificaciones durante 90 días.</span></div>
+  </div>
+  </sc-if>
+
+  <!-- ░░░ EMPTY ░░░ -->
+  <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:64px 24px;background:#fff;border:1px solid #E2E8F0;border-radius:18px">
+      <span style="width:64px;height:64px;border-radius:9999px;background:#E8F7F1;color:#0E8C5F;display:flex;align-items:center;justify-content:center;margin-bottom:18px"><svg width="30" height="30" viewBox="0 0 24 24" stroke-width="1.7"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path><polyline points="9 9 11 11 15 7" stroke="#0E8C5F"></polyline></svg></span>
+      <div style="font-size:17px;font-weight:700;color:#0F172A;margin-bottom:6px">{{ emptyTitle }}</div>
+      <div style="font-size:13.5px;color:#64748B;line-height:1.55;max-width:380px">{{ emptyBody }}</div>
+      <sc-if value="{{ emptyShowReset }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ resetFilters }}" style="margin-top:18px;padding:9px 16px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFF">Ver todas las notificaciones</button></sc-if>
+    </div>
+  </sc-if>
+
+  <!-- icon symbols -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="nt-card" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2.5"></rect><line x1="1" y1="10" x2="23" y2="10"></line></symbol>
+    <symbol id="nt-server" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></symbol>
+    <symbol id="nt-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></symbol>
+    <symbol id="nt-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></symbol>
+    <symbol id="nt-shield" viewBox="0 0 24 24"><path d="M12 2l9 4v6c0 5-3.6 9.3-9 10-5.4-.7-9-5-9-10V6l9-4z"></path></symbol>
+    <symbol id="nt-check" viewBox="0 0 24 24"><path d="M12 2l9 4v6c0 5-3.6 9.3-9 10-5.4-.7-9-5-9-10V6l9-4z"></path><polyline points="9 12 11 14 15 10"></polyline></symbol>
+    <symbol id="nt-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-2.5z"></path></symbol>
+    <symbol id="nt-alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></symbol>
+  </defs></svg>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 940, &quot;height&quot;: 880 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(route: string) =&gt; void&quot; },
+  &quot;vista&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Con actividad&quot;, &quot;options&quot;: [&quot;Con actividad&quot;, &quot;Bandeja vacía&quot;], &quot;tsType&quot;: &quot;string&quot; }
+}">
+class Component extends DCLogic {
+  state = { tab: 'all', cat: 'all', items: null };
+
+  CATS = {
+    facturacion: { label: 'Facturación', icon: '#nt-card' },
+    servicios:   { label: 'Servicios',   icon: '#nt-server' },
+    dominios:    { label: 'Dominios',    icon: '#nt-globe' },
+    soporte:     { label: 'Soporte',     icon: '#nt-chat' },
+    seguridad:   { label: 'Seguridad',   icon: '#nt-shield' },
+  };
+
+  TONES = {
+    info:     { bg: '#EFF4FF', fg: '#3B82F6' },
+    success:  { bg: '#E8F7F1', fg: '#0E8C5F' },
+    warning:  { bg: '#FCF3E1', fg: '#B27A12' },
+    danger:   { bg: '#FEF2F2', fg: '#CE3F3F' },
+    security: { bg: '#F1ECFB', fg: '#7C5CCB' },
+  };
+
+  seed() {
+    return [
+      { id: 'n1', cat: 'soporte', tone: 'success', icon: '#nt-check', group: 'hoy', read: false, route: 'support',
+        title: 'Tu ticket #1042 ha sido resuelto', time: 'hace 2 h', action: 'Ver ticket',
+        body: 'Hemos resuelto tu solicitud sobre la web lenta. Confírmalo o responde si necesitas seguir.' },
+      { id: 'n2', cat: 'servicios', tone: 'info', icon: '#nt-wrench', group: 'hoy', read: false, route: 'supportInside',
+        title: 'Mantenimiento completado · junio', time: 'hace 5 h', action: 'Ver resumen',
+        body: 'Hemos completado el mantenimiento mensual de sara-estudio.com: WordPress, copias y SSL revisados.' },
+      { id: 'n3', cat: 'facturacion', tone: 'info', icon: '#nt-card', group: 'semana', read: false, route: 'billing',
+        title: 'Nueva factura AEL-2026-00412', time: 'hace 2 días', action: 'Ver factura',
+        body: 'Se ha generado una factura de 19,00 € de tu plan Support Inside (Básico).' },
+      { id: 'n4', cat: 'facturacion', tone: 'success', icon: '#nt-card', group: 'semana', read: true, route: 'billing',
+        title: 'Pago confirmado', time: 'hace 5 días', action: 'Ver factura',
+        body: 'Tu factura AEL-2026-00411 de 19,00 € se ha pagado correctamente. Gracias.' },
+      { id: 'n5', cat: 'dominios', tone: 'warning', icon: '#nt-globe', group: 'semana', read: true, route: 'domain-detail',
+        title: 'Tu dominio sara-estudio.com caduca en 30 días', time: 'hace 6 días', action: 'Renovar dominio',
+        body: 'Renuévalo a tiempo para no perderlo. Con tu plan anual la renovación es automática.' },
+      { id: 'n6', cat: 'servicios', tone: 'warning', icon: '#nt-alert', group: 'antes', read: true, route: 'service-detail',
+        title: 'Almacenamiento al 80% en sara-estudio.com', time: 'hace 12 días', action: 'Ver servicio',
+        body: 'Tu servicio está al 80% de su cuota. Considera liberar espacio o ampliar el plan.' },
+      { id: 'n7', cat: 'seguridad', tone: 'security', icon: '#nt-shield', group: 'antes', read: true, route: 'service-detail',
+        title: 'Nameservers de sara-estudio.com actualizados', time: 'hace 18 días', action: 'Revisar dominio',
+        body: 'Si has sido tú, no necesitas hacer nada. Si no reconoces el cambio, revísalo y contáctanos.' },
+      { id: 'n8', cat: 'soporte', tone: 'info', icon: '#nt-chat', group: 'antes', read: true, route: 'support',
+        title: 'Sobre tu solicitud de migración de dominio', time: 'hace 24 días', action: 'Ver detalle',
+        body: 'Hemos terminado de trabajar en tu solicitud. Revisa los detalles desde tu panel.' },
+    ];
+  }
+
+  items() { return this.state.items !== null ? this.state.items : this.seed(); }
+
+  open(id, route) {
+    this.setState((s) => ({ items: (s.items !== null ? s.items : this.seed()).map((n) => n.id === id ? { ...n, read: true } : n) }));
+    if (this.props.navigate) this.props.navigate(route);
+  }
+
+  renderVals() {
+    const vacia = (this.props.vista || 'Con actividad') === 'Bandeja vacía';
+    const all = vacia ? [] : this.items();
+    const unreadCount = all.filter((n) => !n.read).length;
+
+    const tab = this.state.tab, cat = this.state.cat;
+    const filtered = all.filter((n) => (tab === 'unread' ? !n.read : true) && (cat === 'all' ? true : n.cat === cat));
+
+    // group
+    const groupDefs = [['hoy', 'Hoy'], ['semana', 'Esta semana'], ['antes', 'Anteriores']];
+    const groups = groupDefs.map(([key, label]) => {
+      const rows = filtered.filter((n) => n.group === key).map((n) => {
+        const tone = this.TONES[n.tone] || this.TONES.info;
+        const cm = this.CATS[n.cat];
+        return {
+          title: n.title, body: n.body, time: n.time, unread: !n.read,
+          titleWeight: n.read ? 600 : 700,
+          icon: n.icon,
+          iconWrap: 'width:42px;height:42px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:' + tone.bg + ';color:' + tone.fg + ';margin-top:1px',
+          catLabel: cm.label,
+          catTagStyle: 'display:inline-flex;align-items:center;padding:1px 8px;border-radius:9999px;background:#F1F5F9;font-size:10.5px;font-weight:700;color:#94A3B8',
+          actionLabel: n.action,
+          rowStyle: 'display:flex;align-items:flex-start;gap:14px;width:100%;padding:16px 20px;border:none;background:' + (n.read ? '#fff' : '#FBFCFF') + ';font-family:inherit;cursor:pointer;text-align:left;transition:background .15s ease',
+          open: () => this.open(n.id, n.route),
+        };
+      });
+      return { label, rows, has: rows.length > 0 };
+    }).filter((g) => g.has);
+
+    // category chips
+    const chipBase = 'padding:6px 13px;border-radius:9999px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s ease;white-space:nowrap;';
+    const mkChip = (key, label) => ({
+      label,
+      go: () => this.setState({ cat: key }),
+      style: chipBase + (cat === key ? 'background:#0F172A;color:#fff;border:1px solid #0F172A' : 'background:#fff;color:#64748B;border:1px solid #E2E8F0'),
+    });
+    const catChips = [mkChip('all', 'Todas'), mkChip('facturacion', 'Facturación'), mkChip('servicios', 'Servicios'), mkChip('dominios', 'Dominios'), mkChip('soporte', 'Soporte'), mkChip('seguridad', 'Seguridad')];
+
+    const tabOn = 'padding:7px 16px;border-radius:9999px;border:none;background:#fff;color:#0F172A;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,0.08)';
+    const tabOff = 'padding:7px 16px;border-radius:9999px;border:none;background:transparent;color:#64748B;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer';
+
+    const hasItems = groups.length > 0;
+    const filtersActive = tab !== 'all' || cat !== 'all';
+
+    return {
+      unreadCount, hasUnread: unreadCount > 0,
+      markAllStyle: 'display:flex;align-items:center;gap:7px;padding:9px 15px;border-radius:9px;font-size:12.5px;font-weight:600;font-family:inherit;flex-shrink:0;transition:background .15s ease;' + (unreadCount > 0 ? 'border:1px solid #BFD8FF;background:#fff;color:#2563EB;cursor:pointer' : 'border:1px solid #EEF1F5;background:#fff;color:#CBD5E1;cursor:default'),
+      markAll: () => { if (unreadCount > 0) this.setState((s) => ({ items: (s.items !== null ? s.items : this.seed()).map((n) => ({ ...n, read: true })) })); },
+      setAll: () => this.setState({ tab: 'all' }),
+      setUnread: () => this.setState({ tab: 'unread' }),
+      tabAll: tab === 'all' ? tabOn : tabOff,
+      tabUnread: tab === 'unread' ? tabOn : tabOff,
+      catChips,
+      groups, hasItems,
+      isEmpty: !hasItems,
+      emptyTitle: filtersActive ? 'Nada por aquí' : 'Estás al día',
+      emptyBody: filtersActive ? 'No hay notificaciones que coincidan con este filtro.' : 'No tienes notificaciones. Te avisaremos aquí —y por email— de cualquier novedad de tu cuenta.',
+      emptyShowReset: filtersActive,
+      resetFilters: () => this.setState({ tab: 'all', cat: 'all' }),
+    };
+  }
+}
+</script>
+</body>
+</html>
