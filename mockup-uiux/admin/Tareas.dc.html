@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  textarea { font-family: inherit; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+    <div>
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 5px">Tareas</h1>
+      <p style="font-size:13.5px;color:#64748B;margin:0">{{ subtitle }}</p>
+    </div>
+    <button type="button" onClick="{{ openNew }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">
+      <svg width="16" height="16" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      Nueva tarea
+    </button>
+  </div>
+
+  <div style="display:flex;align-items:flex-end;gap:2px;border-bottom:1px solid #E8EDF4;margin-bottom:18px;overflow-x:auto">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+      <button type="button" onClick="{{ t.go }}" style="{{ t.style }}" style-hover="{{ t.hover }}">
+        <span>{{ t.label }}</span>
+        <span style="{{ t.countStyle }}">{{ t.count }}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:220px">
+      <svg width="17" height="17" viewBox="0 0 24 24" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" value="{{ search }}" onInput="{{ onSearch }}" placeholder="Buscar por tarea o cliente..." style="width:100%;height:40px;padding:0 14px 0 38px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13.5px;font-family:inherit;color:#0F172A;outline:none;transition:border-color .15s ease" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+    </div>
+    <div style="position:relative">
+      <select value="{{ ftype }}" onChange="{{ onType }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6">
+        <option value="">Todos los tipos</option>
+        <option value="wow_call">WOW Call</option>
+        <option value="maintenance">Mantenimiento</option>
+        <option value="project_task">Proyecto</option>
+        <option value="custom_work">Custom</option>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+    <div style="position:relative">
+      <select value="{{ fpriority }}" onChange="{{ onPriority }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6">
+        <option value="">Toda prioridad</option>
+        <option value="critical">Crítica</option>
+        <option value="high">Alta</option>
+        <option value="medium">Media</option>
+        <option value="low">Baja</option>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+    <div style="position:relative">
+      <select value="{{ fagent }}" onChange="{{ onAgent }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6">
+        <option value="">Todos los agentes</option>
+        <option value="Luis Ferrer">Luis Ferrer</option>
+        <option value="Marc Oliver">Marc Oliver</option>
+        <option value="Ana Ruiz">Ana Ruiz</option>
+        <option value="__none">Sin asignar</option>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+  </div>
+
+  <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 16px;margin-bottom:14px;background:#EFF4FF;border:1px solid #D7E5FF;border-radius:11px">
+      <span style="font-size:13px;font-weight:600;color:#1E3A8A">{{ selCount }} seleccionadas</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;border:1px solid #C7D9F7;background:#fff;color:#2563EB;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F5F9FF"><svg width="14" height="14" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>Reasignar</button>
+        <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;border:1px solid #C7D9F7;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F5F9FF"><svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>Cancelar tareas</button>
+      </div>
+      <button type="button" onClick="{{ clearSel }}" style="margin-left:auto;border:none;background:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#64748B;cursor:pointer" style-hover="color:#0F172A">Limpiar</button>
+    </div>
+  </sc-if>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:#FBFCFD">
+          <th style="width:42px;padding:12px 8px 12px 18px"><button type="button" onClick="{{ toggleAll }}" style="{{ allChkStyle }}"><sc-if value="{{ allChecked }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" style="color:#fff;stroke-width:3"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if></button></th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Tarea</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Cliente</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Tipo</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Agente</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Vence</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Estado</th>
+          <th style="width:44px;padding:12px 18px 12px 0"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="9">
+          <tr onClick="{{ r.go }}" style="{{ r.rowStyle }}" style-hover="background:#FBFCFF">
+            <td style="padding:13px 8px 13px 18px" onClick="{{ r.stop }}"><button type="button" onClick="{{ r.toggle }}" style="{{ r.chkStyle }}"><sc-if value="{{ r.checked }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" style="color:#fff;stroke-width:3"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if></button></td>
+            <td style="padding:13px 16px">
+              <div style="min-width:0">
+                <div style="font-size:13.5px;font-weight:600;color:{{ r.titleColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title }}</div>
+                <div style="display:flex;align-items:center;gap:7px;min-width:0">
+                  <span style="font-size:11.5px;color:#94A3B8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ r.service }}</span>
+                  <span style="display:inline-flex;align-items:center;gap:3px;flex-shrink:0" title="{{ r.originTip }}"><svg width="11" height="11" viewBox="0 0 24 24" style="color:{{ r.originColor }}"><use href="{{ r.originIcon }}"></use></svg><span style="font-size:10.5px;font-weight:600;color:{{ r.originColor }};white-space:nowrap">{{ r.originLabel }}</span></span>
+                </div>
+              </div>
+            </td>
+            <td style="padding:13px 16px">
+              <div style="display:flex;align-items:center;gap:9px;min-width:0">
+                <span style="{{ r.avatarStyle }}">{{ r.initials }}</span>
+                <span style="font-size:13px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.client }}</span>
+              </div>
+            </td>
+            <td style="padding:13px 16px"><span style="{{ r.typeStyle }}">{{ r.typeLabel }}</span></td>
+            <td style="padding:13px 16px"><span style="{{ r.agentStyle }}">{{ r.agentLabel }}</span></td>
+            <td style="padding:13px 16px;font-size:12.5px;color:{{ r.dueColor }};white-space:nowrap;font-weight:{{ r.dueWeight }}">{{ r.due }}</td>
+            <td style="padding:13px 16px"><span style="{{ r.statusStyle }}"><span style="{{ r.dotStyle }}"></span>{{ r.statusLabel }}</span></td>
+            <td style="padding:13px 18px 13px 0;text-align:right" onClick="{{ r.stop }}">
+              <button type="button" onClick="{{ noop }}" title="Acciones" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:none;background:transparent;color:#94A3B8;cursor:pointer;font-family:inherit" style-hover="background:#F1F5F9;color:#475569">
+                <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+              </button>
+            </td>
+          </tr>
+        </sc-for>
+      </tbody>
+    </table>
+
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:56px 24px;text-align:center">
+        <span style="{{ emptyIconWrap }}"><svg width="24" height="24" viewBox="0 0 24 24"><use href="{{ emptyIcon }}"></use></svg></span>
+        <div style="font-size:15px;font-weight:600;color:#0F172A;margin:14px 0 5px">{{ emptyTitle }}</div>
+        <div style="font-size:13px;color:#94A3B8">{{ emptyBody }}</div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showPagination }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;flex-wrap:wrap">
+      <span style="font-size:12.5px;color:#94A3B8">{{ rangeLabel }}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button type="button" onClick="{{ goPrev }}" style="{{ prevStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+        <sc-for list="{{ pages }}" as="p" hint-placeholder-count="2">
+          <button type="button" onClick="{{ p.go }}" style="{{ p.style }}">{{ p.n }}</button>
+        </sc-for>
+        <button type="button" onClick="{{ goNext }}" style="{{ nextStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ newOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeNew }}" style="position:fixed;inset:0;z-index:90;background:rgba(15,23,42,0.32);display:flex;align-items:center;justify-content:center;padding:20px">
+      <div onClick="{{ stopModal }}" style="width:520px;max-width:100%;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(15,23,42,0.30);overflow:hidden;max-height:90vh;display:flex;flex-direction:column">
+        <div style="padding:18px 20px 14px;border-bottom:1px solid #F1F5F9;flex-shrink:0"><h2 style="font-size:15px;font-weight:700;color:#0F172A;margin:0">Nueva tarea</h2><p style="font-size:12.5px;color:#94A3B8;margin:5px 0 0">Crea una tarea y asígnala a un agente del equipo.</p></div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px">Título <span style="color:#D14343">*</span></label>
+            <input type="text" placeholder="p. ej. Mantenimiento mensual" style="width:100%;height:40px;padding:0 12px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#0F172A;outline:none" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px">Descripción</label>
+            <textarea rows="2" placeholder="Detalle de la tarea (opcional)" style="width:100%;border:1px solid #E2E8F0;border-radius:10px;padding:11px 12px;font-size:13px;color:#0F172A;outline:none;resize:vertical;line-height:1.5" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></textarea>
+          </div>
+          <div style="display:flex;gap:12px">
+            <div style="flex:1">
+              <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px">Tipo</label>
+              <div style="position:relative"><select style="width:100%;height:40px;padding:0 34px 0 12px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6"><option>WOW Call</option><option>Mantenimiento</option><option>Custom</option><option>Proyecto</option></select><svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+            </div>
+            <div style="flex:1">
+              <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px">Prioridad</label>
+              <div style="position:relative"><select style="width:100%;height:40px;padding:0 34px 0 12px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6"><option>Media</option><option>Baja</option><option>Alta</option><option>Crítica</option></select><svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px">Cliente <span style="color:#D14343">*</span></label>
+            <div style="position:relative"><svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input type="text" placeholder="Buscar cliente..." style="width:100%;height:40px;padding:0 12px 0 33px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#0F172A;outline:none" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></div>
+          </div>
+          <div style="display:flex;gap:12px">
+            <div style="flex:1">
+              <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px">Servicio vinculado</label>
+              <div style="position:relative"><select style="width:100%;height:40px;padding:0 34px 0 12px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#94A3B8;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6"><option>Selecciona un cliente primero</option></select><svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+            </div>
+            <div style="flex:1">
+              <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px">Vencimiento</label>
+              <input type="text" placeholder="dd/mm/aaaa" style="width:100%;height:40px;padding:0 12px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#0F172A;outline:none" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px">Agente asignado</label>
+            <div style="position:relative"><select style="width:100%;height:40px;padding:0 34px 0 12px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6"><option>Sin asignar</option><option>Luis Ferrer</option><option>Marc Oliver</option><option>Ana Ruiz</option></select><svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid #F1F5F9;background:#FBFCFD;flex-shrink:0">
+          <button type="button" onClick="{{ closeNew }}" style="height:38px;padding:0 16px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F1F5F9">Cancelar</button>
+          <button type="button" onClick="{{ closeNew }}" style="height:38px;padding:0 16px;border-radius:9px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#2563EB">Crear tarea</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="tk-check" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></symbol>
+    <symbol id="tk-clip" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1"></rect></symbol>
+    <symbol id="tk-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></symbol>
+    <symbol id="tk-cron" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></symbol>
+    <symbol id="tk-spark" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></symbol>
+    <symbol id="tk-pen" viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></symbol>
+  </defs></svg>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 880 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = { search: '', tab: 'today', ftype: '', fpriority: '', fagent: '', page: 1, selected: [], newOpen: false };
+
+  data() {
+    return [
+      { id: 't1', title: 'Mantenimiento mensual', service: 'carla-estudio.com', client: 'Carla Ruiz', initials: 'CR', type: 'maintenance', agent: 'Luis Ferrer', due: '24 jun 2026', status: 'in_progress', priority: 'high' },
+      { id: 't2', title: 'WOW Call de bienvenida', service: 'estudiomarfil.com', client: 'Estudio Marfil', initials: 'EM', type: 'wow_call', agent: 'Marc Oliver', due: '24 jun 2026', status: 'pending', priority: 'high' },
+      { id: 't3', title: 'Mantenimiento mensual', service: 'trackmedia.es', client: 'Track Media', initials: 'TM', type: 'maintenance', agent: 'Luis Ferrer', due: '23 jun 2026', status: 'pending', priority: 'critical' },
+      { id: 't4', title: 'Actualizar plugins y core', service: 'dentalsur.es', client: 'Clínica Dental Sur', initials: 'CD', type: 'custom_work', agent: 'Ana Ruiz', due: '24 jun 2026', status: 'pending', priority: 'medium' },
+      { id: 't5', title: 'WOW Call de bienvenida', service: 'diego-sanz.dev', client: 'Diego Sanz', initials: 'DS', type: 'wow_call', agent: null, due: '25 jun 2026', status: 'pending', priority: 'medium' },
+      { id: 't6', title: 'Mantenimiento mensual', service: 'panaderiapons.es', client: 'Núria Pons', initials: 'NP', type: 'maintenance', agent: 'Luis Ferrer', due: '26 jun 2026', status: 'pending', priority: 'medium' },
+      { id: 't7', title: 'Migración a nuevo servidor', service: 'gildevelop.com', client: 'Tomás Gil', initials: 'TG', type: 'project_task', agent: 'Marc Oliver', due: '28 jun 2026', status: 'in_progress', priority: 'high' },
+      { id: 't8', title: 'Formulario de contacto a medida', service: 'sara-estudio.com', client: 'Sara Gómez', initials: 'SG', type: 'custom_work', agent: null, due: '27 jun 2026', status: 'pending', priority: 'low' },
+      { id: 't9', title: 'WOW Call de bienvenida', service: 'inmovela.es', client: 'Inmobiliaria Vela', initials: 'IV', type: 'wow_call', agent: 'Ana Ruiz', due: '22 jun 2026', status: 'pending', priority: 'high' },
+      { id: 't10', title: 'Mantenimiento mensual', service: 'bonetfoto.com', client: 'Pau Bonet', initials: 'PB', type: 'maintenance', agent: 'Luis Ferrer', due: '20 jun 2026', status: 'completed', priority: 'low' },
+      { id: 't11', title: 'Revisar y renovar SSL', service: 'serralegal.es', client: 'Hugo Serra', initials: 'HS', type: 'custom_work', agent: 'Marc Oliver', due: '19 jun 2026', status: 'completed', priority: 'medium' },
+      { id: 't12', title: 'Mantenimiento mensual', service: 'diego-sanz.dev', client: 'Diego Sanz', initials: 'DS', type: 'maintenance', agent: null, due: '30 jun 2026', status: 'pending', priority: 'medium' },
+      { id: 't13', title: 'WOW Call de bienvenida', service: 'carla-estudio.com', client: 'Carla Ruiz', initials: 'CR', type: 'wow_call', agent: 'Luis Ferrer', due: '15 jun 2026', status: 'completed', priority: 'medium' },
+      { id: 't14', title: 'Rediseño de la home', service: 'estudiomarfil.com', client: 'Estudio Marfil', initials: 'EM', type: 'project_task', agent: 'Marc Oliver', due: '3 jul 2026', status: 'pending', priority: 'low' },
+    ];
+  }
+
+  renderVals() {
+    const MES = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
+    const MESN = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const TODAY = new Date(2026, 5, 24);
+    const dayDiff = (str) => { const m = String(str).match(/(\d+)\s+([a-zç]+)\s+(\d+)/i); if (!m || !(m[2].toLowerCase() in MES)) return null; const d = new Date(+m[3], MES[m[2].toLowerCase()], +m[1]); return Math.round((d - TODAY) / 86400000); };
+    const PAL = [['#EFF4FF', '#3B82F6'], ['#E8F7F1', '#0E8C5F'], ['#F1ECFB', '#7C5CCB'], ['#FCF3E1', '#B27A12'], ['#E9F0FB', '#475569'], ['#FCECEC', '#D14343']];
+    const TYPE = {
+      wow_call: { label: 'WOW Call', bg: '#F1ECFB', fg: '#7C5CCB' },
+      maintenance: { label: 'Mantenimiento', bg: '#EFF4FF', fg: '#3B82F6' },
+      project_task: { label: 'Proyecto', bg: '#E8F7F1', fg: '#0E8C5F' },
+      custom_work: { label: 'Custom', bg: '#F1F5F9', fg: '#64748B' },
+    };
+    const PRIO = { critical: '#EF4444', high: '#F59E0B', medium: '#CBD5E1', low: '#E2E8F0' };
+    const ORIGIN = {
+      cron: { label: 'Auto', icon: '#tk-cron', tip: 'Generada por el cron maintenance-monthly' },
+      checkout: { label: 'Auto', icon: '#tk-spark', tip: 'Generada al dar de alta el servicio' },
+      manual: { label: 'Manual', icon: '#tk-pen', tip: 'Creada manualmente por el equipo' },
+    };
+    const originOf = (t) => t.origin || (t.type === 'maintenance' ? 'cron' : t.type === 'wow_call' ? 'checkout' : 'manual');
+
+    const all = this.data();
+    const isOverdue = (t) => { const dd = dayDiff(t.due); return dd !== null && dd < 0 && t.status !== 'completed' && t.status !== 'cancelled'; };
+    const effStatus = (t) => isOverdue(t) ? 'overdue' : t.status;
+    const STATUS = {
+      pending: { label: 'Pendiente', bg: '#EEF1F5', fg: '#64748B', dot: '#94A3B8' },
+      in_progress: { label: 'En progreso', bg: '#EFF4FF', fg: '#3B82F6', dot: '#3B82F6' },
+      completed: { label: 'Completada', bg: '#E8F7F1', fg: '#0E8C5F', dot: '#10B981' },
+      overdue: { label: 'Vencida', bg: '#FCECEC', fg: '#D14343', dot: '#EF4444' },
+      cancelled: { label: 'Cancelada', bg: '#F1F5F9', fg: '#94A3B8', dot: '#CBD5E1' },
+    };
+
+    const inToday = (t) => { const dd = dayDiff(t.due); return dd !== null && dd <= 0 && t.status !== 'completed' && t.status !== 'cancelled'; };
+    const inWeek = (t) => { const dd = dayDiff(t.due); return dd !== null && dd <= 6 && t.status !== 'completed' && t.status !== 'cancelled'; };
+    const isPending = (t) => t.status === 'pending' || t.status === 'in_progress';
+    const isDone = (t) => t.status === 'completed';
+    const cnt = (fn) => all.filter(fn).length;
+
+    const tabDefs = [
+      { value: 'today', label: 'Hoy', tone: 'danger', fn: inToday },
+      { value: 'week', label: 'Esta semana', tone: 'warning', fn: inWeek },
+      { value: 'pending', label: 'Pendientes', tone: 'neutral', fn: isPending },
+      { value: 'completed', label: 'Completadas', tone: 'success', fn: isDone },
+    ];
+    const TONE = { neutral: { bg: '#EEF1F5', fg: '#64748B' }, success: { bg: '#E8F7F1', fg: '#0E8C5F' }, warning: { bg: '#FCF3E1', fg: '#B27A12' }, danger: { bg: '#FCECEC', fg: '#D14343' } };
+    const activeTab = this.state.tab || 'today';
+    const tabs = tabDefs.map((t) => {
+      const isA = t.value === activeTab;
+      const c = cnt(t.fn);
+      const showTone = (t.tone === 'danger' || t.tone === 'warning') ? c > 0 : true;
+      const tn = TONE[showTone ? t.tone : 'neutral'];
+      return {
+        label: t.label,
+        count: String(c),
+        style: 'display:flex;align-items:center;gap:8px;padding:11px 14px 12px;border:none;background:transparent;font-family:inherit;font-size:13.5px;cursor:pointer;white-space:nowrap;color:' + (isA ? '#0F172A' : '#64748B') + ';font-weight:' + (isA ? '600' : '500') + ';box-shadow:' + (isA ? 'inset 0 -2px 0 #3B82F6' : 'none') + ';transition:color .15s ease;',
+        hover: isA ? '' : 'color:#0F172A;',
+        countStyle: 'min-width:20px;height:20px;padding:0 6px;border-radius:9999px;background:' + (isA ? tn.bg : '#F1F5F9') + ';color:' + (isA ? tn.fg : '#94A3B8') + ';font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;',
+        go: () => this.setState({ tab: t.value, page: 1, selected: [] }),
+      };
+    });
+
+    const q = (this.state.search || '').toLowerCase().trim();
+    const ft = this.state.ftype || '';
+    const fp = this.state.fpriority || '';
+    const fa = this.state.fagent || '';
+    const tabFn = (tabDefs.find((t) => t.value === activeTab) || tabDefs[0]).fn;
+    const filtered = all.filter((t) => {
+      if (!tabFn(t)) return false;
+      if (ft && t.type !== ft) return false;
+      if (fp && t.priority !== fp) return false;
+      if (fa) { if (fa === '__none') { if (t.agent) return false; } else if (t.agent !== fa) return false; }
+      if (q && !(t.title.toLowerCase().includes(q) || t.client.toLowerCase().includes(q) || t.service.toLowerCase().includes(q))) return false;
+      return true;
+    });
+
+    const PRANK = { critical: 0, high: 1, medium: 2, low: 3 };
+    filtered.sort((a, b) => {
+      const oa = isOverdue(a) ? 0 : 1, ob = isOverdue(b) ? 0 : 1;
+      if (oa !== ob) return oa - ob;
+      const da = dayDiff(a.due), db = dayDiff(b.due);
+      if (da !== db) return (da == null ? 1e9 : da) - (db == null ? 1e9 : db);
+      return PRANK[a.priority] - PRANK[b.priority];
+    });
+
+    const limit = 10;
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const page = Math.min(this.state.page || 1, totalPages);
+    const start = (page - 1) * limit;
+    const pageItems = filtered.slice(start, start + limit);
+    const sel = this.state.selected || [];
+
+    const toggle = (id) => { const s = new Set(this.state.selected); s.has(id) ? s.delete(id) : s.add(id); this.setState({ selected: [...s] }); };
+
+    const rows = pageItems.map((t) => {
+      const pal = PAL[t.client.charCodeAt(0) % PAL.length];
+      const es = effStatus(t);
+      const st = STATUS[es];
+      const ty = TYPE[t.type];
+      const terminal = t.status === 'completed' || t.status === 'cancelled';
+      const dd = dayDiff(t.due);
+      const checked = sel.includes(t.id);
+      const og = ORIGIN[originOf(t)];
+      let dueTxt = t.due, dueColor = '#64748B', dueWeight = '500';
+      if (!terminal && dd !== null) {
+        if (dd < 0) { dueTxt = (dd === -1 ? 'Ayer' : (Math.abs(dd) + ' días tarde')); dueColor = '#D14343'; dueWeight = '600'; }
+        else if (dd === 0) { dueTxt = 'Hoy'; dueColor = '#B27A12'; dueWeight = '600'; }
+        else if (dd === 1) { dueTxt = 'Mañana'; dueColor = '#B27A12'; dueWeight = '600'; }
+        else { const m = String(t.due).match(/(\d+)\s+([a-z]+)/i); dueTxt = m ? (m[1] + ' ' + m[2]) : t.due; }
+      } else if (terminal) {
+        const m = String(t.due).match(/(\d+)\s+([a-z]+)/i); dueTxt = m ? (m[1] + ' ' + m[2]) : t.due; dueColor = '#CBD5E1';
+      }
+      return {
+        id: t.id, title: t.title, service: t.service, client: t.client, initials: t.initials,
+        titleColor: terminal ? '#94A3B8' : '#0F172A',
+        avatarStyle: 'width:26px;height:26px;border-radius:9999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;background:' + pal[0] + ';color:' + pal[1] + ';',
+        typeLabel: ty.label,
+        typeStyle: 'display:inline-flex;align-items:center;padding:3px 10px;border-radius:7px;font-size:11.5px;font-weight:600;background:' + ty.bg + ';color:' + ty.fg + ';',
+        agentLabel: t.agent || 'Sin asignar',
+        agentStyle: 'font-size:13px;font-weight:500;white-space:nowrap;color:' + (t.agent ? '#475569' : '#CBD5E1') + ';' + (t.agent ? '' : 'font-style:italic;'),
+        due: dueTxt, dueColor, dueWeight,
+        originLabel: og.label, originIcon: og.icon, originColor: '#94A3B8',
+        originTip: originOf(t) === 'manual' && t.createdBy ? ('Creada por ' + t.createdBy) : og.tip,
+        statusLabel: st.label,
+        statusStyle: 'display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:9999px;font-size:11.5px;font-weight:600;background:' + st.bg + ';color:' + st.fg + ';',
+        dotStyle: 'width:6px;height:6px;border-radius:9999px;flex-shrink:0;background:' + st.dot + ';',
+        checked,
+        chkStyle: 'display:flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;cursor:pointer;border:1.5px solid ' + (checked ? '#3B82F6' : '#CBD5E1') + ';background:' + (checked ? '#3B82F6' : '#fff') + ';padding:0;',
+        rowStyle: 'border-top:1px solid #F4F6F9;cursor:pointer;transition:background .12s ease;box-shadow:inset 4px 0 0 ' + PRIO[t.priority] + ';' + (terminal ? 'background:#FCFCFD;' : ''),
+        toggle: () => toggle(t.id),
+        stop: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+        go: () => { if (this.props.navigate) this.props.navigate('task-detail'); },
+      };
+    });
+
+    const pageIds = pageItems.map((t) => t.id);
+    const allChecked = pageIds.length > 0 && pageIds.every((id) => sel.includes(id));
+
+    const from = total === 0 ? 0 : start + 1;
+    const to = Math.min(start + limit, total);
+    const pageBtn = (active) => 'min-width:34px;height:34px;padding:0 8px;border-radius:9px;border:1px solid ' + (active ? '#3B82F6' : '#E2E8F0') + ';background:' + (active ? '#3B82F6' : '#fff') + ';color:' + (active ? '#fff' : '#475569') + ';font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;';
+    const arrowBtn = (disabled) => 'display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:' + (disabled ? '#CBD5E1' : '#475569') + ';cursor:' + (disabled ? 'default' : 'pointer') + ';font-family:inherit;';
+    const pages = Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => ({ n: String(n), style: pageBtn(n === page), go: () => this.setState({ page: n }) }));
+
+    const todayCount = cnt(inToday);
+    const subtitle = (q || ft || fp || fa)
+      ? (total + (total === 1 ? ' tarea' : ' tareas'))
+      : ('Gestión de tareas del equipo · ' + (todayCount > 0 ? (todayCount + (todayCount === 1 ? ' vence hoy' : ' vencen hoy')) : 'nada urgente hoy'));
+
+    const filtersOn = !!(q || ft || fp || fa);
+    return {
+      subtitle,
+      tabs,
+      search: this.state.search || '', ftype: ft, fpriority: fp, fagent: fa,
+      onSearch: (e) => this.setState({ search: e.target.value, page: 1 }),
+      onType: (e) => this.setState({ ftype: e.target.value, page: 1 }),
+      onPriority: (e) => this.setState({ fpriority: e.target.value, page: 1 }),
+      onAgent: (e) => this.setState({ fagent: e.target.value, page: 1 }),
+      rows,
+      allChecked,
+      allChkStyle: 'display:flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;cursor:pointer;border:1.5px solid ' + (allChecked ? '#3B82F6' : '#CBD5E1') + ';background:' + (allChecked ? '#3B82F6' : '#fff') + ';padding:0;',
+      toggleAll: () => { if (allChecked) { this.setState({ selected: sel.filter((id) => !pageIds.includes(id)) }); } else { this.setState({ selected: [...new Set([...sel, ...pageIds])] }); } },
+      hasSelection: sel.length > 0,
+      selCount: String(sel.length),
+      clearSel: () => this.setState({ selected: [] }),
+      isEmpty: rows.length === 0,
+      emptyIcon: activeTab === 'completed' || (!filtersOn && total === 0 && activeTab === 'today') ? '#tk-check' : (filtersOn ? '#tk-search' : '#tk-clip'),
+      emptyIconWrap: 'display:inline-flex;align-items:center;justify-content:center;width:54px;height:54px;border-radius:14px;background:#F1F5F9;color:#94A3B8;',
+      emptyTitle: filtersOn ? 'Sin resultados' : (activeTab === 'today' ? '¡Buen trabajo!' : 'Sin tareas activas'),
+      emptyBody: filtersOn ? 'Prueba con otros filtros o términos de búsqueda.' : (activeTab === 'today' ? 'No hay tareas que venzan hoy. Disfruta del momento.' : 'No hay tareas que coincidan con los filtros.'),
+      showPagination: totalPages > 1,
+      rangeLabel: from + '–' + to + ' de ' + total,
+      pages,
+      goPrev: () => this.setState({ page: Math.max(1, page - 1) }),
+      goNext: () => this.setState({ page: Math.min(totalPages, page + 1) }),
+      prevStyle: arrowBtn(page <= 1),
+      nextStyle: arrowBtn(page >= totalPages),
+      newOpen: this.state.newOpen,
+      openNew: () => this.setState({ newOpen: true }),
+      closeNew: () => this.setState({ newOpen: false }),
+      stopModal: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

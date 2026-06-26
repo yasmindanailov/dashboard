@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  textarea, select, input { font-family: inherit; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;margin-bottom:16px">
+    <button type="button" onClick="{{ goBack }}" style="border:none;background:none;color:#94A3B8;font-size:12.5px;font-family:inherit;cursor:pointer;padding:0" style-hover="color:#3B82F6">Tareas</button>
+    <svg width="14" height="14" viewBox="0 0 24 24" style="color:#CBD5E1"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    <span style="color:#64748B">{{ tipoLabel }}</span>
+    <span style="color:#CBD5E1">·</span>
+    <span style="color:#64748B;font-weight:600">{{ servicioNombre }}</span>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:22px 24px;margin-bottom:16px">
+    <div style="display:flex;align-items:flex-start;gap:15px">
+      <div style="{{ tipoIconWrap }}">
+        <svg width="23" height="23" viewBox="0 0 24 24"><use href="{{ tipoIcon }}"></use></svg>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:9px">
+          <span style="{{ tipoBadge }}">{{ tipoLabel }}</span>
+          <span style="{{ prioBadge }}"><span style="{{ prioDot }}"></span>{{ prioLabel }}</span>
+          <span style="{{ estadoBadge }}"><span style="{{ estadoDot }}"></span>{{ estadoLabel }}</span>
+        </div>
+        <h1 style="font-size:21px;font-weight:700;letter-spacing:-0.01em;color:#0F172A;margin:0;text-wrap:pretty">{{ titulo }}</h1>
+        <div style="display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin-top:9px;font-size:12.5px;color:#64748B">
+          <span style="display:inline-flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" style="color:#94A3B8"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>Vence {{ vence }}</span>
+          <span style="color:#E2E8F0">·</span>
+          <span><span style="color:#94A3B8">Asignada a</span> {{ agenteActual }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid #F1F5F9">
+      <label style="display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;color:#64748B">Estado
+        <select value="{{ estadoSel }}" onChange="{{ onEstado }}" style="{{ selStyle }}" style-focus="border-color:#3B82F6">
+          <option value="pending">Pendiente</option>
+          <option value="in_progress">En progreso</option>
+          <option value="completed">Completada</option>
+          <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}"><option value="cancelled">Cancelada</option></sc-if>
+        </select>
+      </label>
+
+      <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+        <label style="display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;color:#64748B">Agente
+          <select value="{{ agenteSel }}" onChange="{{ onAgente }}" style="{{ selStyle }}" style-focus="border-color:#3B82F6">
+            <option value="Carla Ruiz">Carla Ruiz</option>
+            <option value="Marc Oliver">Marc Oliver</option>
+            <option value="Luis Ferrer">Luis Ferrer</option>
+            <option value="unassigned">Sin asignar</option>
+          </select>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;color:#64748B">Prioridad
+          <select value="{{ prioSel }}" onChange="{{ onPrio }}" style="{{ selStyle }}" style-focus="border-color:#3B82F6">
+            <option value="low">Baja</option>
+            <option value="medium">Media</option>
+            <option value="high">Alta</option>
+            <option value="critical">Crítica</option>
+          </select>
+        </label>
+      </sc-if>
+
+      <div style="flex:1"></div>
+
+      <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ false }}">
+        <button type="button" onClick="{{ noop }}" style="height:36px;padding:0 14px;border-radius:9px;border:1px solid #F0D9D9;background:#fff;color:#C0453F;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#FEF5F5">Cancelar tarea</button>
+      </sc-if>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.7fr 1fr;gap:18px;align-items:start">
+
+    <!-- MAIN COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+
+      <sc-if value="{{ done }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:flex-start;gap:13px;background:#E8F7F1;border:1px solid #C9EEDF;border-radius:14px;padding:15px 17px">
+          <svg width="20" height="20" viewBox="0 0 24 24" style="color:#0E8C5F;flex-shrink:0;margin-top:1px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#0B7350">{{ doneTitle }}</div>
+            <div style="font-size:12.5px;color:#2F8A66;margin-top:3px;line-height:1.5">{{ doneDesc }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- Descripción -->
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+        <h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0 0 12px">Descripción</h2>
+        <p style="font-size:13.5px;color:#475569;line-height:1.6;margin:0;text-wrap:pretty">{{ descripcion }}</p>
+        <sc-if value="{{ isAuto }}" hint-placeholder-val="{{ false }}">
+          <div style="display:inline-flex;align-items:center;gap:7px;margin-top:14px;padding:6px 11px;border-radius:9px;background:#F6F8FB;font-size:11.5px;color:#64748B">
+            <svg width="13" height="13" viewBox="0 0 24 24" style="color:#94A3B8"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            Generada por el cron <span style="font-family:ui-monospace,Menlo,monospace;color:#475569">maintenance-monthly</span> · día de aniversario 12
+          </div>
+        </sc-if>
+      </div>
+
+      <!-- Checklist (maintenance) -->
+      <sc-if value="{{ showChecklist }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px">
+            <h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0">Checklist de mantenimiento</h2>
+            <span style="font-size:12px;font-weight:700;color:{{ progColor }};font-variant-numeric:tabular-nums">{{ progLabel }}</span>
+          </div>
+          <p style="font-size:11.5px;color:#94A3B8;margin:0 0 15px;line-height:1.45">Heredado del producto · los items <span style="color:#B27A12;font-weight:600">obligatorios</span> bloquean el cierre de la tarea.</p>
+          <div style="height:6px;border-radius:9999px;background:#EEF1F5;overflow:hidden;margin-bottom:16px"><div style="{{ progBarStyle }}"></div></div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ checklist }}" as="it" hint-placeholder-count="6">
+              <button type="button" onClick="{{ it.toggle }}" style="{{ it.rowStyle }}" style-hover="border-color:#CBD5E1">
+                <span style="{{ it.boxStyle }}">
+                  <sc-if value="{{ it.done }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" style="color:#fff;stroke-width:3"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if>
+                </span>
+                <span style="{{ it.labelStyle }}">{{ it.label }}</span>
+                <sc-if value="{{ it.required }}" hint-placeholder-val="{{ false }}"><span style="font-size:9.5px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#B27A12;background:#FCF3E1;padding:3px 8px;border-radius:9999px;flex-shrink:0">Obligatorio</span></sc-if>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- Datos del cliente (wow_call) -->
+      <sc-if value="{{ showClientData }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0 0 4px">Datos para la llamada</h2>
+          <p style="font-size:11.5px;color:#94A3B8;margin:0 0 14px">Capturados en el checkout · revísalos antes de llamar.</p>
+          <div style="display:flex;justify-content:space-between;padding:9px 0;border-top:1px solid #F4F6F9"><span style="font-size:12.5px;color:#94A3B8">Cliente</span><span style="font-size:12.5px;font-weight:600;color:#0F172A">Jordi Sala</span></div>
+          <div style="display:flex;justify-content:space-between;padding:9px 0;border-top:1px solid #F4F6F9"><span style="font-size:12.5px;color:#94A3B8">Email</span><span style="font-size:12.5px;font-weight:500;color:#0F172A">jordi@salaestudio.com</span></div>
+          <div style="display:flex;justify-content:space-between;padding:9px 0;border-top:1px solid #F4F6F9"><span style="font-size:12.5px;color:#94A3B8">Servicio contratado</span><span style="font-size:12.5px;font-weight:500;color:#0F172A">Web Pro · Hosting</span></div>
+          <div style="display:flex;justify-content:space-between;padding:9px 0;border-top:1px solid #F4F6F9"><span style="font-size:12.5px;color:#94A3B8">Plan</span><span style="font-size:12.5px;font-weight:500;color:#0F172A">Anual · €1.292,28</span></div>
+          <div style="padding:11px 0 2px;border-top:1px solid #F4F6F9">
+            <div style="font-size:12.5px;color:#94A3B8;margin-bottom:6px">Notas del checkout</div>
+            <div style="font-size:12.5px;color:#475569;line-height:1.55;background:#F8FAFC;border-radius:10px;padding:11px 13px">"Migra desde un WordPress en otro proveedor. Quiere ayuda con el traspaso del dominio y revisar el rendimiento. Mejor llamar por la tarde."</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- Link al proyecto (project_task) -->
+      <sc-if value="{{ showProject }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0 0 14px">Proyecto</h2>
+          <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:13px;width:100%;padding:13px 14px;border:1px solid #EEF1F5;border-radius:12px;background:#fff;cursor:pointer;font-family:inherit;text-align:left" style-hover="border-color:#CBD5E1;background:#F8FAFC">
+            <span style="width:38px;height:38px;border-radius:10px;background:#FCF3E1;color:#B27A12;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></span>
+            <span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:600;color:#0F172A">Rediseño web · Sala Estudio</span><span style="display:block;font-size:11.5px;color:#94A3B8;margin-top:2px">8 tareas · 3 completadas</span></span>
+            <svg width="16" height="16" viewBox="0 0 24 24" style="color:#CBD5E1;flex-shrink:0"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+        </div>
+      </sc-if>
+
+      <!-- Resumen de la llamada (wow_call) -->
+      <sc-if value="{{ showCallSummary }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0 0 12px">Resumen de la llamada</h2>
+          <textarea value="{{ callSummary }}" onInput="{{ onCallSummary }}" placeholder="¿Qué se habló? Próximos pasos, compromisos, incidencias detectadas…" rows="4" style="width:100%;border:1px solid #E2E8F0;border-radius:11px;padding:12px 13px;font-size:13px;color:#0F172A;outline:none;resize:vertical;line-height:1.5" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></textarea>
+        </div>
+      </sc-if>
+
+      <!-- Notas cliente (maintenance, custom_work) -->
+      <sc-if value="{{ showClientNotes }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0">Notas para el cliente</h2><span style="font-size:10px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#0E8C5F;background:#E8F7F1;padding:3px 8px;border-radius:9999px">Van en el email</span></div>
+          <p style="font-size:11.5px;color:#94A3B8;margin:0 0 12px">El cliente recibirá este texto al completar la tarea.</p>
+          <textarea value="{{ clientNotes }}" onInput="{{ onClientNotes }}" placeholder="Resumen visible para el cliente: qué se ha revisado y el estado de su servicio…" rows="3" style="width:100%;border:1px solid #E2E8F0;border-radius:11px;padding:12px 13px;font-size:13px;color:#0F172A;outline:none;resize:vertical;line-height:1.5" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></textarea>
+        </div>
+      </sc-if>
+
+      <!-- Notas internas (maintenance, custom_work, project_task) -->
+      <sc-if value="{{ showInternalNotes }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0">Notas internas</h2><span style="font-size:10px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#7C5CCB;background:#F1ECFB;padding:3px 8px;border-radius:9999px">Solo equipo</span></div>
+          <p style="font-size:11.5px;color:#94A3B8;margin:0 0 12px">Se guardan como ClientNote técnica. El cliente no las ve.</p>
+          <textarea value="{{ internalNotes }}" onInput="{{ onInternalNotes }}" placeholder="Detalle técnico, incidencias, recordatorios para el equipo…" rows="3" style="width:100%;border:1px solid #E2E8F0;border-radius:11px;padding:12px 13px;font-size:13px;color:#0F172A;outline:none;resize:vertical;line-height:1.5" style-focus="border-color:#7C5CCB;box-shadow:0 0 0 3px rgba(124,92,203,0.10)"></textarea>
+        </div>
+      </sc-if>
+
+      <!-- Footer action -->
+      <sc-if value="{{ showAction }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:16px 20px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <div style="display:flex;align-items:center;gap:9px;font-size:12.5px;min-width:0">
+            <svg width="16" height="16" viewBox="0 0 24 24" style="color:{{ blockColor }};flex-shrink:0"><use href="{{ blockIcon }}"></use></svg>
+            <span style="color:{{ blockColor }};line-height:1.4">{{ blockMsg }}</span>
+          </div>
+          <button type="button" onClick="{{ openModal }}" disabled="{{ actionDisabled }}" style="{{ completeBtnStyle }}" style-hover="{{ completeBtnHover }}">{{ completeLabel }}</button>
+        </div>
+      </sc-if>
+
+    </div>
+
+    <!-- SIDEBAR -->
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+        <h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0 0 14px">Cliente</h2>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="width:42px;height:42px;border-radius:9999px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0">{{ clienteIniciales }}</span>
+          <div style="min-width:0"><div style="font-size:14px;font-weight:600;color:#0F172A">{{ clienteNombre }}</div><div style="font-size:12px;color:#94A3B8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ clienteEmail }}</div></div>
+        </div>
+        <button type="button" onClick="{{ goClient }}" style="display:inline-flex;align-items:center;gap:6px;margin-top:14px;border:none;background:none;padding:0;font-family:inherit;font-size:12.5px;font-weight:600;color:#3B82F6;cursor:pointer" style-hover="text-decoration:underline">Ver perfil<svg width="13" height="13" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+      </div>
+
+      <sc-if value="{{ showServicio }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0 0 14px">Servicio</h2>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <div style="min-width:0"><div style="font-size:13.5px;font-weight:600;color:#0F172A">{{ servicioNombre }}</div><div style="font-size:11.5px;color:#94A3B8;margin-top:1px">Web Pro · Hosting</div></div>
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:9999px;background:#E8F7F1;color:#0E8C5F;font-size:11.5px;font-weight:600;flex-shrink:0"><span style="width:6px;height:6px;border-radius:9999px;background:#10B981"></span>Activo</span>
+          </div>
+          <button type="button" onClick="{{ goService }}" style="display:inline-flex;align-items:center;gap:6px;margin-top:14px;border:none;background:none;padding:0;font-family:inherit;font-size:12.5px;font-weight:600;color:#3B82F6;cursor:pointer" style-hover="text-decoration:underline">Abrir servicio<svg width="13" height="13" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+        </div>
+      </sc-if>
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+        <h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0 0 16px">Historial</h2>
+        <sc-for list="{{ historial }}" as="h" hint-placeholder-count="3">
+          <div style="display:flex;gap:13px">
+            <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">
+              <span style="{{ h.dotStyle }}"></span>
+              <sc-if value="{{ h.showLine }}" hint-placeholder-val="{{ true }}"><span style="width:2px;flex:1;background:#EEF1F5;margin:4px 0;min-height:14px"></span></sc-if>
+            </div>
+            <div style="padding-bottom:{{ h.pad }};min-width:0">
+              <div style="font-size:12.5px;font-weight:600;color:{{ h.titleColor }}">{{ h.title }}</div>
+              <div style="font-size:11.5px;color:#94A3B8;margin-top:1px">{{ h.time }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Modal completar -->
+  <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(15,23,42,0.34)">
+      <div onClick="{{ closeModal }}" style="position:absolute;inset:0"></div>
+      <div style="position:relative;width:430px;max-width:100%;background:#fff;border-radius:18px;box-shadow:0 24px 60px rgba(15,23,42,0.26);padding:24px 24px 20px">
+        <div style="display:flex;align-items:center;gap:13px;margin-bottom:14px">
+          <span style="width:42px;height:42px;border-radius:12px;background:{{ modalIconBg }};color:{{ modalIconFg }};display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="21" height="21" viewBox="0 0 24 24"><use href="{{ modalIcon }}"></use></svg></span>
+          <h3 style="font-size:16.5px;font-weight:700;color:#0F172A;margin:0">{{ modalTitle }}</h3>
+        </div>
+        <p style="font-size:13px;color:#475569;line-height:1.6;margin:0 0 8px;text-wrap:pretty">{{ modalBody }}</p>
+        <sc-if value="{{ showMaintEffects }}" hint-placeholder-val="{{ false }}">
+          <ul style="list-style:none;margin:6px 0 0;padding:12px 14px;background:#F8FAFC;border-radius:11px;display:flex;flex-direction:column;gap:8px">
+            <li style="display:flex;align-items:flex-start;gap:9px;font-size:12px;color:#475569"><svg width="14" height="14" viewBox="0 0 24 24" style="color:#0E8C5F;flex-shrink:0;margin-top:1px"><polyline points="20 6 9 17 4 12"></polyline></svg>Se registra un <span style="font-family:ui-monospace,Menlo,monospace;color:#334155">maintenance_log</span> en el servicio</li>
+            <li style="display:flex;align-items:flex-start;gap:9px;font-size:12px;color:#475569"><svg width="14" height="14" viewBox="0 0 24 24" style="color:#0E8C5F;flex-shrink:0;margin-top:1px"><polyline points="20 6 9 17 4 12"></polyline></svg>Tus notas internas se guardan como nota técnica del cliente</li>
+            <li style="display:flex;align-items:flex-start;gap:9px;font-size:12px;color:#475569"><svg width="14" height="14" viewBox="0 0 24 24" style="color:#0E8C5F;flex-shrink:0;margin-top:1px"><polyline points="20 6 9 17 4 12"></polyline></svg>El cliente recibe un email de mantenimiento completado</li>
+          </ul>
+        </sc-if>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:9px;margin-top:20px">
+          <button type="button" onClick="{{ closeModal }}" style="height:38px;padding:0 16px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFC">Cancelar</button>
+          <button type="button" onClick="{{ confirmComplete }}" style="height:38px;padding:0 18px;border-radius:9px;border:none;background:#0E8C5F;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#0B7350">{{ modalConfirm }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="t-cog" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></symbol>
+    <symbol id="t-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></symbol>
+    <symbol id="t-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></symbol>
+    <symbol id="t-layers" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></symbol>
+    <symbol id="t-check" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></symbol>
+    <symbol id="t-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></symbol>
+    <symbol id="t-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"></rect><polyline points="22 6 12 13 2 6"></polyline></symbol>
+  </defs></svg>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 1100 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; },
+  &quot;tipo&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Mantenimiento&quot;, &quot;options&quot;: [&quot;Mantenimiento&quot;, &quot;WOW Call&quot;, &quot;Trabajo a medida&quot;, &quot;Tarea de proyecto&quot;], &quot;tsType&quot;: &quot;string&quot; },
+  &quot;estado&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;En progreso&quot;, &quot;options&quot;: [&quot;Pendiente&quot;, &quot;En progreso&quot;, &quot;Completada&quot;, &quot;Cancelada&quot;], &quot;tsType&quot;: &quot;string&quot; },
+  &quot;prioridad&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Alta&quot;, &quot;options&quot;: [&quot;Baja&quot;, &quot;Media&quot;, &quot;Alta&quot;, &quot;Crítica&quot;], &quot;tsType&quot;: &quot;string&quot; },
+  &quot;rol&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Admin&quot;, &quot;options&quot;: [&quot;Admin&quot;, &quot;Agente&quot;], &quot;tsType&quot;: &quot;string&quot; }
+}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const TIPO = { 'Mantenimiento': 'maintenance', 'WOW Call': 'wow_call', 'Trabajo a medida': 'custom_work', 'Tarea de proyecto': 'project_task' };
+    const EST = { 'Pendiente': 'pending', 'En progreso': 'in_progress', 'Completada': 'completed', 'Cancelada': 'cancelled' };
+    const PRI = { 'Baja': 'low', 'Media': 'medium', 'Alta': 'high', 'Crítica': 'critical' };
+    this.state = {
+      tipo: TIPO[props.tipo] || 'maintenance',
+      estado: EST[props.estado] || 'in_progress',
+      prio: PRI[props.prioridad] || 'high',
+      agente: 'Carla Ruiz',
+      rol: props.rol === 'Agente' ? 'agent' : 'admin',
+      checks: { core: true, ssl: true, backup: false, logs: false, db: false, speed: false, disk: false },
+      clientNotes: '',
+      internalNotes: '',
+      callSummary: '',
+      modalOpen: false,
+    };
+  }
+
+  componentDidUpdate(prev) {
+    const upd = {};
+    if (prev.tipo !== this.props.tipo) { const M = { 'Mantenimiento': 'maintenance', 'WOW Call': 'wow_call', 'Trabajo a medida': 'custom_work', 'Tarea de proyecto': 'project_task' }; upd.tipo = M[this.props.tipo] || 'maintenance'; }
+    if (prev.estado !== this.props.estado) { const M = { 'Pendiente': 'pending', 'En progreso': 'in_progress', 'Completada': 'completed', 'Cancelada': 'cancelled' }; upd.estado = M[this.props.estado] || 'in_progress'; }
+    if (prev.prioridad !== this.props.prioridad) { const M = { 'Baja': 'low', 'Media': 'medium', 'Alta': 'high', 'Crítica': 'critical' }; upd.prio = M[this.props.prioridad] || 'high'; }
+    if (prev.rol !== this.props.rol) { upd.rol = this.props.rol === 'Agente' ? 'agent' : 'admin'; }
+    if (Object.keys(upd).length) this.setState(upd);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const tipo = s.tipo;
+    const estado = s.estado;
+    const isAdmin = s.rol === 'admin';
+    const done = estado === 'completed';
+
+    const TIPO_META = {
+      maintenance: { label: 'Mantenimiento', icon: '#t-cog', bg: '#EFF4FF', fg: '#3B82F6' },
+      wow_call: { label: 'WOW Call', icon: '#t-phone', bg: '#F1ECFB', fg: '#7C5CCB' },
+      custom_work: { label: 'Trabajo a medida', icon: '#t-wrench', bg: '#E8F7F1', fg: '#0E8C5F' },
+      project_task: { label: 'Tarea de proyecto', icon: '#t-layers', bg: '#FCF3E1', fg: '#B27A12' },
+    };
+    const tm = TIPO_META[tipo];
+
+    const TITULOS = {
+      maintenance: 'Mantenimiento mensual · carla-estudio.com',
+      wow_call: 'Llamada de bienvenida · Sala Estudio',
+      custom_work: 'Migración de dominio a ResellerClub',
+      project_task: 'Maquetar home y página de servicios',
+    };
+    const DESCS = {
+      maintenance: 'Revisión mensual del slot Support Inside: actualizaciones de core y plugins, verificación de backups, estado del certificado SSL y revisión general de salud del sitio.',
+      wow_call: 'Primera llamada tras la contratación. Presentarse, confirmar que el aprovisionamiento fue bien y resolver dudas del onboarding. Objetivo: que el cliente arranque con buena sensación.',
+      custom_work: 'El cliente solicita trasladar la gestión de su dominio a nuestra cuenta de ResellerClub. Verificar el código de autorización (EPP) y confirmar el traspaso con el registrador actual.',
+      project_task: 'Maquetar la home y la página de servicios según el diseño aprobado en Figma. Responsive y revisión de Core Web Vitals antes de pasar a revisión.',
+    };
+
+    const PRI_META = {
+      low: { label: 'Baja', bg: '#F1F5F9', fg: '#64748B', dot: '#94A3B8' },
+      medium: { label: 'Media', bg: '#EFF4FF', fg: '#2563EB', dot: '#3B82F6' },
+      high: { label: 'Alta', bg: '#FCF3E1', fg: '#B27A12', dot: '#E0A422' },
+      critical: { label: 'Crítica', bg: '#FCECEC', fg: '#C0453F', dot: '#E0524B' },
+    };
+    const pm = PRI_META[s.prio];
+
+    const EST_META = {
+      pending: { label: 'Pendiente', bg: '#F1F5F9', fg: '#64748B', dot: '#94A3B8' },
+      in_progress: { label: 'En progreso', bg: '#EFF4FF', fg: '#2563EB', dot: '#3B82F6' },
+      completed: { label: 'Completada', bg: '#E8F7F1', fg: '#0E8C5F', dot: '#10B981' },
+      cancelled: { label: 'Cancelada', bg: '#F1F5F9', fg: '#94A3B8', dot: '#CBD5E1' },
+    };
+    const em = EST_META[estado];
+
+    const badge = (m) => 'display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:9999px;font-size:11.5px;font-weight:600;background:' + m.bg + ';color:' + m.fg + ';';
+    const dot = (m) => 'width:6px;height:6px;border-radius:9999px;flex-shrink:0;background:' + m.dot + ';';
+
+    // Checklist
+    const CL_DEF = [
+      { id: 'core', label: 'Actualizar core y plugins', required: true },
+      { id: 'backup', label: 'Verificar copia de seguridad', required: true },
+      { id: 'ssl', label: 'Comprobar certificado SSL', required: true },
+      { id: 'logs', label: 'Revisar logs de errores', required: false },
+      { id: 'db', label: 'Optimizar base de datos', required: false },
+      { id: 'speed', label: 'Test de velocidad / Core Web Vitals', required: false },
+      { id: 'disk', label: 'Revisar uso de disco', required: false },
+    ];
+    const checklist = CL_DEF.map((it) => {
+      const ch = !!s.checks[it.id];
+      return {
+        label: it.label, required: it.required, done: ch,
+        rowStyle: 'display:flex;align-items:center;gap:13px;width:100%;padding:11px 13px;border:1px solid #EEF1F5;border-radius:11px;background:' + (ch ? '#F8FBFA' : '#fff') + ';cursor:pointer;font-family:inherit;transition:border-color .12s ease;',
+        boxStyle: 'width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1.5px solid ' + (ch ? '#10B981' : '#CBD5E1') + ';background:' + (ch ? '#10B981' : '#fff') + ';',
+        labelStyle: 'flex:1;min-width:0;font-size:13.5px;font-weight:500;text-align:left;color:' + (ch ? '#94A3B8' : '#0F172A') + (ch ? ';text-decoration:line-through' : '') + ';',
+        toggle: () => { if (done) return; this.setState((st) => ({ checks: Object.assign({}, st.checks, { [it.id]: !st.checks[it.id] }) })); },
+      };
+    });
+    const total = CL_DEF.length;
+    const doneCount = CL_DEF.filter((it) => s.checks[it.id]).length;
+    const reqDone = CL_DEF.filter((it) => it.required).every((it) => s.checks[it.id]);
+    const pct = Math.round((doneCount / total) * 100);
+
+    // Type flags
+    const isMaint = tipo === 'maintenance';
+    const isWow = tipo === 'wow_call';
+    const isCustom = tipo === 'custom_work';
+    const isProject = tipo === 'project_task';
+
+    // Action block
+    const blocked = isMaint && !reqDone && !done;
+    const completeLabel = isMaint ? 'Completar y notificar' : 'Completar tarea';
+    let blockMsg, blockColor, blockIcon;
+    if (done) {
+      blockMsg = 'Tarea completada.'; blockColor = '#0E8C5F'; blockIcon = '#t-check';
+    } else if (blocked) {
+      blockMsg = 'Marca los items obligatorios para poder completar.'; blockColor = '#B27A12'; blockIcon = '#t-lock';
+    } else if (isMaint) {
+      blockMsg = 'Al completar se notificará al cliente por email.'; blockColor = '#64748B'; blockIcon = '#t-mail';
+    } else {
+      blockMsg = 'Marca la tarea como terminada cuando acabes.'; blockColor = '#64748B'; blockIcon = '#t-check';
+    }
+    const actionDisabled = blocked;
+    const completeBtnStyle = 'height:40px;padding:0 18px;border-radius:10px;border:none;font-size:13px;font-weight:600;font-family:inherit;flex-shrink:0;' + (actionDisabled ? 'background:#E2E8F0;color:#94A3B8;cursor:not-allowed;' : 'background:#0E8C5F;color:#fff;cursor:pointer;');
+    const completeBtnHover = actionDisabled ? '' : 'background:#0B7350;';
+
+    // Historial
+    const HIST = [];
+    HIST.push({ key: 'creada', title: 'Tarea creada', time: '12 jun 2026 · 06:00', active: true });
+    HIST.push({ key: 'asignada', title: 'Asignada a ' + s.agente, time: '12 jun 2026 · 06:00', active: true });
+    if (estado === 'in_progress' || estado === 'completed') HIST.push({ key: 'prog', title: 'En progreso', time: '13 jun 2026 · 09:24', active: true });
+    if (estado === 'completed') HIST.push({ key: 'done', title: 'Completada · cliente notificado', time: '13 jun 2026 · 11:48', active: true });
+    if (estado === 'cancelled') HIST.push({ key: 'cancel', title: 'Cancelada', time: '13 jun 2026 · 10:10', active: true });
+    const historial = HIST.map((h, i) => ({
+      title: h.title, time: h.time,
+      titleColor: h.key === 'done' ? '#0E8C5F' : (h.key === 'cancel' ? '#94A3B8' : '#0F172A'),
+      dotStyle: 'width:11px;height:11px;border-radius:9999px;flex-shrink:0;margin-top:3px;border:2px solid #fff;box-shadow:0 0 0 1.5px ' + (h.key === 'done' ? '#10B981' : (h.key === 'cancel' ? '#CBD5E1' : '#3B82F6')) + ';background:' + (h.key === 'done' ? '#10B981' : (h.key === 'cancel' ? '#CBD5E1' : '#3B82F6')) + ';',
+      showLine: i < HIST.length - 1,
+      pad: i < HIST.length - 1 ? '18px' : '0',
+    }));
+
+    // Modal
+    const modalTitle = isMaint ? 'Completar y notificar' : 'Completar tarea';
+    const modalBody = isMaint
+      ? 'Vas a cerrar el mantenimiento de ' + 'carla-estudio.com' + '. Se notificará al cliente por email con tus notas. Esta acción no se puede deshacer.'
+      : 'Vas a marcar esta tarea como completada. Quedará registrada en el historial.';
+
+    return {
+      // header
+      tipoLabel: tm.label,
+      tipoIcon: tm.icon,
+      tipoIconWrap: 'width:50px;height:50px;border-radius:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:' + tm.bg + ';color:' + tm.fg + ';',
+      tipoBadge: 'display:inline-flex;align-items:center;padding:4px 11px;border-radius:9999px;font-size:11.5px;font-weight:600;background:' + tm.bg + ';color:' + tm.fg + ';',
+      prioBadge: badge(pm), prioDot: dot(pm), prioLabel: 'Prioridad ' + pm.label.toLowerCase(),
+      estadoBadge: badge(em), estadoDot: dot(em), estadoLabel: em.label,
+      titulo: TITULOS[tipo],
+      descripcion: DESCS[tipo],
+      vence: '15 jun 2026',
+      agenteActual: s.agente,
+      servicioNombre: isProject ? 'sala-estudio.com' : 'carla-estudio.com',
+      isAuto: isMaint,
+      isAdmin,
+
+      // selects
+      selStyle: 'height:34px;padding:0 30px 0 11px;border-radius:9px;border:1px solid #E2E8F0;background:#fff url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2394A3B8\' stroke-width=\'2.4\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><polyline points=\'6 9 12 15 18 9\'/></svg>") no-repeat right 9px center;color:#0F172A;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;',
+      estadoSel: estado,
+      agenteSel: s.agente,
+      prioSel: s.prio,
+      onEstado: (e) => this.setState({ estado: e.target.value }),
+      onAgente: (e) => this.setState({ agente: e.target.value === 'unassigned' ? 'Sin asignar' : e.target.value }),
+      onPrio: (e) => this.setState({ prio: e.target.value }),
+
+      // type blocks
+      showChecklist: isMaint,
+      showClientData: isWow,
+      showCallSummary: isWow,
+      showProject: isProject,
+      showClientNotes: isMaint || isCustom,
+      showInternalNotes: isMaint || isCustom || isProject,
+      showServicio: !isProject,
+
+      // checklist
+      checklist,
+      progLabel: doneCount + '/' + total + ' completados',
+      progColor: reqDone ? '#0E8C5F' : '#B27A12',
+      progBarStyle: 'width:' + pct + '%;height:100%;border-radius:9999px;background:' + (reqDone ? '#10B981' : '#3B82F6') + ';transition:width .2s ease;',
+
+      // textareas
+      clientNotes: s.clientNotes, onClientNotes: (e) => this.setState({ clientNotes: e.target.value }),
+      internalNotes: s.internalNotes, onInternalNotes: (e) => this.setState({ internalNotes: e.target.value }),
+      callSummary: s.callSummary, onCallSummary: (e) => this.setState({ callSummary: e.target.value }),
+
+      // action
+      showAction: estado !== 'cancelled',
+      done, doneTitle: isMaint ? 'Mantenimiento completado · cliente notificado' : 'Tarea completada',
+      doneDesc: isMaint ? 'Se registró el maintenance_log y se envió el email al cliente. Redirige a Tareas.' : 'Quedó registrada en el historial de la tarea.',
+      blockMsg, blockColor, blockIcon,
+      completeLabel, completeBtnStyle, completeBtnHover, actionDisabled,
+
+      // sidebar
+      clienteNombre: isProject ? 'Jordi Sala' : 'Carla Ruiz',
+      clienteEmail: isProject ? 'jordi@salaestudio.com' : 'carla@carla-estudio.com',
+      clienteIniciales: isProject ? 'JS' : 'CR',
+      historial,
+
+      // modal
+      modalOpen: s.modalOpen,
+      modalTitle, modalBody, modalConfirm: isMaint ? 'Completar y notificar' : 'Completar',
+      modalIcon: isMaint ? '#t-mail' : '#t-check',
+      modalIconBg: isMaint ? '#EFF4FF' : '#E8F7F1',
+      modalIconFg: isMaint ? '#3B82F6' : '#0E8C5F',
+      showMaintEffects: isMaint,
+      openModal: () => { if (!actionDisabled) this.setState({ modalOpen: true }); },
+      closeModal: () => this.setState({ modalOpen: false }),
+      confirmComplete: () => this.setState({ modalOpen: false, estado: 'completed' }),
+
+      // nav
+      goBack: () => { if (this.props.navigate) this.props.navigate('tasks'); },
+      goClient: () => { if (this.props.navigate) this.props.navigate('client-detail'); },
+      goService: () => { if (this.props.navigate) this.props.navigate('service-detail'); },
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

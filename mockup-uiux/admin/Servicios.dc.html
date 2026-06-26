@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+    <div>
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 5px">Servicios</h1>
+      <p style="font-size:13.5px;color:#64748B;margin:0">{{ subtitle }}</p>
+    </div>
+    <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 15px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease,border-color .15s ease" style-hover="background:#F8FAFC;border-color:#CBD5E1">
+      <svg width="16" height="16" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+      Reconciliar todo
+    </button>
+  </div>
+
+  <div style="display:flex;align-items:flex-end;gap:2px;border-bottom:1px solid #E8EDF4;margin-bottom:18px;overflow-x:auto">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="6">
+      <button type="button" onClick="{{ t.go }}" style="{{ t.style }}" style-hover="{{ t.hover }}">
+        <span>{{ t.label }}</span>
+        <span style="{{ t.countStyle }}">{{ t.count }}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:240px">
+      <svg width="17" height="17" viewBox="0 0 24 24" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" value="{{ search }}" onInput="{{ onSearch }}" placeholder="Buscar por dominio o cliente..." style="width:100%;height:40px;padding:0 14px 0 38px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13.5px;font-family:inherit;color:#0F172A;outline:none;transition:border-color .15s ease" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+    </div>
+    <div style="position:relative">
+      <select value="{{ provider }}" onChange="{{ onProvider }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6">
+        <option value="">Todos los proveedores</option>
+        <option value="enhance">Enhance</option>
+        <option value="resellerclub">ResellerClub</option>
+        <option value="manual">Manual</option>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:#FBFCFD">
+          <th style="padding:12px 16px 12px 22px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Servicio</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Cliente</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Proveedor</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Estado</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Uso</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Renueva</th>
+          <th style="width:44px;padding:12px 18px 12px 0"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+          <tr onClick="{{ r.go }}" style="{{ r.rowStyle }}" style-hover="background:#FBFCFF">
+            <td style="padding:13px 16px 13px 22px">
+              <div style="display:flex;align-items:center;gap:12px;min-width:0">
+                <span style="{{ r.iconStyle }}"><svg width="19" height="19" viewBox="0 0 24 24"><use href="{{ r.icon }}"></use></svg></span>
+                <div style="min-width:0">
+                  <div style="font-size:13.5px;font-weight:600;color:{{ r.nameColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div>
+                  <div style="font-size:11.5px;color:#94A3B8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.plan }}</div>
+                </div>
+              </div>
+            </td>
+            <td style="padding:13px 16px">
+              <div style="display:flex;align-items:center;gap:9px;min-width:0">
+                <span style="{{ r.avatarStyle }}">{{ r.initials }}</span>
+                <span style="font-size:13px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.client }}</span>
+              </div>
+            </td>
+            <td style="padding:13px 16px"><span style="{{ r.provStyle }}">{{ r.provLabel }}</span></td>
+            <td style="padding:13px 16px">
+              <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                <span style="{{ r.statusStyle }}"><span style="{{ r.dotStyle }}"></span>{{ r.statusLabel }}</span>
+                <sc-if value="{{ r.hasFlag }}" hint-placeholder-val="{{ false }}"><span style="{{ r.flagStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>{{ r.flagLabel }}</span></sc-if>
+              </div>
+            </td>
+            <td style="padding:13px 16px">
+              <sc-if value="{{ r.hasUso }}" hint-placeholder-val="{{ true }}">
+                <div style="min-width:104px">
+                  <div style="font-size:11px;color:{{ r.usoTextColor }};margin-bottom:5px;font-variant-numeric:tabular-nums">{{ r.usoLabel }}</div>
+                  <div style="height:6px;border-radius:9999px;background:#EEF1F5;overflow:hidden"><div style="{{ r.usoBarStyle }}"></div></div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ r.noUso }}" hint-placeholder-val="{{ false }}"><span style="font-size:12.5px;color:#CBD5E1">—</span></sc-if>
+            </td>
+            <td style="padding:13px 16px;font-size:12.5px;color:{{ r.renewColor }};white-space:nowrap">{{ r.renews }}</td>
+            <td style="padding:13px 18px 13px 0;text-align:right" onClick="{{ r.stop }}">
+              <button type="button" onClick="{{ noop }}" title="Acciones" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:none;background:transparent;color:#94A3B8;cursor:pointer;font-family:inherit" style-hover="background:#F1F5F9;color:#475569">
+                <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+              </button>
+            </td>
+          </tr>
+        </sc-for>
+      </tbody>
+    </table>
+
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:56px 24px;text-align:center">
+        <svg width="40" height="40" viewBox="0 0 24 24" style="color:#CBD5E1;margin:0 auto 14px"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+        <div style="font-size:15px;font-weight:600;color:#0F172A;margin-bottom:5px">{{ emptyTitle }}</div>
+        <div style="font-size:13px;color:#94A3B8">{{ emptyBody }}</div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showPagination }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;flex-wrap:wrap">
+      <span style="font-size:12.5px;color:#94A3B8">{{ rangeLabel }}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button type="button" onClick="{{ goPrev }}" style="{{ prevStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+        <sc-for list="{{ pages }}" as="p" hint-placeholder-count="2">
+          <button type="button" onClick="{{ p.go }}" style="{{ p.style }}">{{ p.n }}</button>
+        </sc-for>
+        <button type="button" onClick="{{ goNext }}" style="{{ nextStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="display:flex;align-items:center;gap:9px;margin-top:18px;font-size:12px;color:#94A3B8">
+    <svg width="14" height="14" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+    <span>Última lectura del proveedor: hace 4 min</span>
+    <span style="color:#CBD5E1">·</span>
+    <button type="button" onClick="{{ noop }}" style="border:none;background:none;padding:0;font-family:inherit;font-size:12px;font-weight:600;color:#3B82F6;cursor:pointer" style-hover="text-decoration:underline">Reconciliar ahora</button>
+  </div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="sv-server" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></symbol>
+    <symbol id="sv-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></symbol>
+    <symbol id="sv-shield" viewBox="0 0 24 24"><path d="M12 2l9 4v6c0 5-3.6 9.3-9 10-5.4-.7-9-5-9-10V6l9-4z"></path><path d="M12 11v4"></path><path d="M12 8h.01"></path></symbol>
+  </defs></svg>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 880 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = { search: '', tab: '', provider: '', page: 1 };
+
+  data() {
+    return [
+      { id: 's1', name: 'carla-estudio.com', plan: 'Web Pro · Hosting', type: 'hosting', prov: 'enhance', client: 'Carla Ruiz', initials: 'CR', status: 'active', renews: '12 ago 2026', disk: [6.2, 10] },
+      { id: 's2', name: 'estudiomarfil.com', plan: 'Web Pro · Hosting', type: 'hosting', prov: 'enhance', client: 'Estudio Marfil', initials: 'EM', status: 'active', renews: '20 jun 2027', disk: [4.8, 10] },
+      { id: 's3', name: 'sara-estudio.com', plan: 'Web Pro · Hosting', type: 'hosting', prov: 'enhance', client: 'Sara Gómez', initials: 'SG', status: 'active', renews: '30 abr 2027', disk: [1.8, 10] },
+      { id: 's4', name: 'tienda-sara.es', plan: 'Web Inicio · Hosting', type: 'hosting', prov: 'enhance', client: 'Sara Gómez', initials: 'SG', status: 'active', renews: '30 abr 2027', disk: [1.2, 5] },
+      { id: 's5', name: 'gildevelop.com', plan: 'Web Pro · Hosting', type: 'hosting', prov: 'enhance', client: 'Tomás Gil', initials: 'TG', status: 'active', flag: 'drift', renews: '15 jul 2026', disk: [7.1, 10] },
+      { id: 's6', name: 'dentalsur.es', plan: 'Web Pro · Hosting', type: 'hosting', prov: 'enhance', client: 'Clínica Dental Sur', initials: 'CD', status: 'active', flag: 'desync', renews: '11 mar 2027', disk: [5.0, 10] },
+      { id: 's7', name: 'panaderiapons.es', plan: 'Web Pro · Hosting', type: 'hosting', prov: 'enhance', client: 'Núria Pons', initials: 'NP', status: 'suspended', renews: '28 ene 2027', disk: [8.0, 10] },
+      { id: 's8', name: 'bonetfoto.com', plan: 'Web Inicio · Hosting', type: 'hosting', prov: 'enhance', client: 'Pau Bonet', initials: 'PB', status: 'paused', renews: '2 feb 2027', disk: [2.0, 5] },
+      { id: 's9', name: 'carla-estudio.com', plan: 'Dominio .com', type: 'domain', prov: 'resellerclub', client: 'Carla Ruiz', initials: 'CR', status: 'active', renews: '14 jun 2027' },
+      { id: 's10', name: 'serralegal.es', plan: 'Dominio .es', type: 'domain', prov: 'resellerclub', client: 'Hugo Serra', initials: 'HS', status: 'active', renews: '9 nov 2026' },
+      { id: 's11', name: 'Support Inside · Básico', plan: 'Plan de soporte', type: 'support', prov: 'manual', client: 'Sara Gómez', initials: 'SG', status: 'active', renews: '30 abr 2027' },
+      { id: 's12', name: 'trackmedia.es', plan: 'Web Pro · Hosting', type: 'hosting', prov: 'enhance', client: 'Track Media', initials: 'ET', status: 'active', renews: '7 abr 2027', disk: [9.6, 10] },
+      { id: 's13', name: 'inmovela.es', plan: 'Web Inicio · Hosting', type: 'hosting', prov: 'enhance', client: 'Inmobiliaria Vela', initials: 'IV', status: 'cancelled', renews: '—' },
+      { id: 's14', name: 'diego-sanz.dev', plan: 'Web Inicio · Hosting', type: 'hosting', prov: 'enhance', client: 'Diego Sanz', initials: 'DS', status: 'active', renews: '30 jun 2026', disk: [2.4, 5] },
+    ];
+  }
+
+  renderVals() {
+    const MES = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
+    const TODAY = new Date(2026, 5, 24);
+    const dayDiff = (str) => { const m = String(str).match(/(\d+)\s+([a-zç]+)\s+(\d+)/i); if (!m || !(m[2].toLowerCase() in MES)) return null; const d = new Date(+m[3], MES[m[2].toLowerCase()], +m[1]); return Math.round((d - TODAY) / 86400000); };
+    const PAL = [['#EFF4FF', '#3B82F6'], ['#E8F7F1', '#0E8C5F'], ['#F1ECFB', '#7C5CCB'], ['#FCF3E1', '#B27A12'], ['#E9F0FB', '#475569'], ['#FCECEC', '#D14343']];
+    const STATUS = {
+      active: { label: 'Activo', bg: '#E8F7F1', fg: '#0E8C5F', dot: '#10B981' },
+      suspended: { label: 'Suspendido', bg: '#FCF3E1', fg: '#B27A12', dot: '#E0A422' },
+      paused: { label: 'Pausado', bg: '#EEF2F7', fg: '#475569', dot: '#94A3B8' },
+      cancelled: { label: 'Cancelado', bg: '#F1F5F9', fg: '#94A3B8', dot: '#CBD5E1' },
+    };
+    const PROV = {
+      enhance: { label: 'Enhance', bg: '#EFF4FF', fg: '#3B82F6' },
+      resellerclub: { label: 'ResellerClub', bg: '#F1ECFB', fg: '#7C5CCB' },
+      manual: { label: 'Manual', bg: '#F1F5F9', fg: '#64748B' },
+    };
+    const ICON = { hosting: '#sv-server', domain: '#sv-globe', support: '#sv-shield' };
+    const FLAG = {
+      drift: { label: 'Drift', title: 'Detectado drift con el proveedor' },
+      desync: { label: 'Desync', title: 'Estado desincronizado con el proveedor' },
+    };
+
+    const all = this.data();
+    const isIncident = (s) => s.flag === 'drift' || s.flag === 'desync' || s.status === 'failed';
+    const cnt = (fn) => all.filter(fn).length;
+    const counts = {
+      '': all.length,
+      active: cnt((s) => s.status === 'active'),
+      suspended: cnt((s) => s.status === 'suspended'),
+      paused: cnt((s) => s.status === 'paused'),
+      cancelled: cnt((s) => s.status === 'cancelled'),
+      incidents: cnt(isIncident),
+    };
+    const tabDefs = [
+      { value: '', label: 'Todos', tone: 'neutral' },
+      { value: 'active', label: 'Activos', tone: 'success' },
+      { value: 'suspended', label: 'Suspendidos', tone: 'warning' },
+      { value: 'paused', label: 'Pausados', tone: 'neutral' },
+      { value: 'cancelled', label: 'Cancelados', tone: 'neutral' },
+      { value: 'incidents', label: 'Incidencias', tone: 'danger' },
+    ];
+    const TONE = { neutral: { bg: '#EEF1F5', fg: '#64748B' }, success: { bg: '#E8F7F1', fg: '#0E8C5F' }, warning: { bg: '#FCF3E1', fg: '#B27A12' }, danger: { bg: '#FCECEC', fg: '#D14343' } };
+    const activeTab = this.state.tab || '';
+    const tabs = tabDefs.map((t) => {
+      const isA = t.value === activeTab;
+      const tn = TONE[t.tone];
+      return {
+        label: t.label,
+        count: String(counts[t.value === '' ? '' : t.value] || 0),
+        style: 'display:flex;align-items:center;gap:8px;padding:11px 14px 12px;border:none;background:transparent;font-family:inherit;font-size:13.5px;cursor:pointer;white-space:nowrap;color:' + (isA ? '#0F172A' : '#64748B') + ';font-weight:' + (isA ? '600' : '500') + ';box-shadow:' + (isA ? 'inset 0 -2px 0 #3B82F6' : 'none') + ';transition:color .15s ease;',
+        hover: isA ? '' : 'color:#0F172A;',
+        countStyle: 'min-width:20px;height:20px;padding:0 6px;border-radius:9999px;background:' + (isA ? tn.bg : '#F1F5F9') + ';color:' + (isA ? tn.fg : '#94A3B8') + ';font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;',
+        go: () => this.setState({ tab: t.value, page: 1 }),
+      };
+    });
+
+    const q = (this.state.search || '').toLowerCase().trim();
+    const provFilter = this.state.provider || '';
+    const filtered = all.filter((s) => {
+      const tabOk = !activeTab || (activeTab === 'incidents' ? isIncident(s) : s.status === activeTab);
+      const provOk = !provFilter || s.prov === provFilter;
+      const qOk = !q || s.name.toLowerCase().includes(q) || s.client.toLowerCase().includes(q);
+      return tabOk && provOk && qOk;
+    });
+
+    // A — orden por "necesita atención": incidencias → suspendidos → pausados → activos → cancelados
+    const rank = (s) => isIncident(s) ? 0 : (s.status === 'suspended' ? 1 : (s.status === 'paused' ? 2 : (s.status === 'cancelled' ? 4 : 3)));
+    filtered.sort((a, b) => rank(a) - rank(b));
+
+    const limit = 10;
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const page = Math.min(this.state.page || 1, totalPages);
+    const start = (page - 1) * limit;
+    const pageItems = filtered.slice(start, start + limit);
+
+    const rows = pageItems.map((s) => {
+      const pal = PAL[s.client.charCodeAt(0) % PAL.length];
+      const st = STATUS[s.status] || STATUS.cancelled;
+      const pv = PROV[s.prov] || PROV.manual;
+      const fl = s.flag ? FLAG[s.flag] : null;
+      const terminal = s.status === 'cancelled';
+      const dk = s.disk || null;
+      const pct = dk ? Math.round(dk[0] / dk[1] * 100) : null;
+      const over = pct !== null && pct >= 90;
+      const fmtGb = (n) => Number.isInteger(n) ? String(n) : n.toFixed(1).replace('.', ',');
+      const dd = (!terminal && s.renews !== '—') ? dayDiff(s.renews) : null;
+      const soon = dd !== null && dd >= 0 && dd <= 14;
+      const renewsTxt = soon ? (dd === 0 ? 'Hoy' : ('En ' + dd + (dd === 1 ? ' día' : ' días'))) : s.renews;
+      return {
+        id: s.id, name: s.name, plan: s.plan, client: s.client, initials: s.initials,
+        nameColor: terminal ? '#94A3B8' : '#0F172A',
+        icon: ICON[s.type] || ICON.hosting,
+        iconStyle: 'width:38px;height:38px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:' + (terminal ? '#F1F5F9' : '#EFF4FF') + ';color:' + (terminal ? '#94A3B8' : '#3B82F6') + ';',
+        avatarStyle: 'width:26px;height:26px;border-radius:9999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;background:' + pal[0] + ';color:' + pal[1] + ';',
+        provLabel: pv.label,
+        provStyle: 'display:inline-flex;align-items:center;padding:3px 10px;border-radius:7px;font-size:11.5px;font-weight:600;background:' + pv.bg + ';color:' + pv.fg + ';',
+        statusLabel: st.label,
+        statusStyle: 'display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:9999px;font-size:11.5px;font-weight:600;background:' + st.bg + ';color:' + st.fg + ';',
+        dotStyle: 'width:6px;height:6px;border-radius:9999px;flex-shrink:0;background:' + st.dot + ';',
+        hasFlag: !!fl,
+        flagLabel: fl ? fl.label : '',
+        flagStyle: 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:9999px;font-size:11px;font-weight:600;background:#FCF3E1;color:#B27A12;',
+        hasUso: !!dk,
+        noUso: !dk,
+        usoLabel: dk ? (fmtGb(dk[0]) + ' / ' + dk[1] + ' GB') : '',
+        usoTextColor: over ? '#D14343' : '#64748B',
+        usoBarStyle: 'width:' + (pct || 0) + '%;height:100%;border-radius:9999px;background:' + (over ? '#EF4444' : '#3B82F6') + ';',
+        renews: renewsTxt,
+        renewColor: soon ? '#B27A12' : (terminal ? '#CBD5E1' : '#64748B'),
+        rowStyle: 'border-top:1px solid #F4F6F9;cursor:pointer;transition:background .12s ease;' + (terminal ? 'background:#FCFCFD;' : ''),
+        stop: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+        go: () => { if (this.props.navigate) this.props.navigate(s.type === 'domain' ? 'domain-detail' : (s.type === 'support' ? 'support-detail' : 'service-detail')); },
+      };
+    });
+
+    const from = total === 0 ? 0 : start + 1;
+    const to = Math.min(start + limit, total);
+    const pageBtn = (active) => 'min-width:34px;height:34px;padding:0 8px;border-radius:9px;border:1px solid ' + (active ? '#3B82F6' : '#E2E8F0') + ';background:' + (active ? '#3B82F6' : '#fff') + ';color:' + (active ? '#fff' : '#475569') + ';font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;';
+    const arrowBtn = (disabled) => 'display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:' + (disabled ? '#CBD5E1' : '#475569') + ';cursor:' + (disabled ? 'default' : 'pointer') + ';font-family:inherit;';
+    const pages = Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => ({
+      n: String(n), style: pageBtn(n === page), go: () => this.setState({ page: n }),
+    }));
+
+    const incidents = counts.incidents;
+    const baseSub = activeTab || q || provFilter
+      ? (total + (total === 1 ? ' servicio' : ' servicios'))
+      : (all.length + ' servicios activos en ' + (incidents > 0 ? incidents + (incidents === 1 ? ' incidencia requiere atención' : ' incidencias requieren atención') : 'todos los proveedores · sin incidencias'));
+
+    return {
+      subtitle: baseSub,
+      tabs,
+      search: this.state.search || '',
+      provider: this.state.provider || '',
+      onSearch: (e) => this.setState({ search: e.target.value, page: 1 }),
+      onProvider: (e) => this.setState({ provider: e.target.value, page: 1 }),
+      rows,
+      isEmpty: rows.length === 0,
+      emptyTitle: q ? 'Sin resultados' : 'Sin servicios',
+      emptyBody: q ? 'No se encontraron servicios con esos filtros.' : 'Los servicios aparecen aquí cuando un cliente contrata un producto.',
+      showPagination: totalPages > 1,
+      rangeLabel: from + '–' + to + ' de ' + total,
+      pages,
+      goPrev: () => this.setState({ page: Math.max(1, page - 1) }),
+      goNext: () => this.setState({ page: Math.min(totalPages, page + 1) }),
+      prevStyle: arrowBtn(page <= 1),
+      nextStyle: arrowBtn(page >= totalPages),
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

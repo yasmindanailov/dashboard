@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  textarea { font-family: inherit; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:7px;font-size:12.5px">
+      <button type="button" onClick="{{ goBack }}" style="border:none;background:none;color:#94A3B8;font-size:12.5px;font-family:inherit;cursor:pointer;padding:0" style-hover="color:#3B82F6">Servicios</button>
+      <svg width="14" height="14" viewBox="0 0 24 24" style="color:#CBD5E1"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      <span style="color:#64748B;font-weight:600">carla-estudio.com</span>
+    </div>
+    <span style="display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:9999px;background:#fff;border:1px solid #E2E8F0;font-size:11.5px;font-weight:600;color:#475569">
+      <span style="width:7px;height:7px;border-radius:9999px;background:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,0.15)"></span>ResellerClub · Healthy
+    </span>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:22px 24px;margin-bottom:14px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:15px;min-width:0">
+        <div style="width:50px;height:50px;border-radius:13px;background:#F1ECFB;color:#7C5CCB;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+        </div>
+        <div style="min-width:0">
+          <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap">
+            <h1 style="font-size:21px;font-weight:700;letter-spacing:-0.01em;color:#0F172A;margin:0">carla-estudio.com</h1>
+            <span style="{{ statusStyle }}"><span style="{{ statusDot }}"></span>{{ statusLabel }}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;color:#64748B">
+            <span><span style="color:#94A3B8">Dominio .com</span></span>
+            <span style="color:#E2E8F0">·</span>
+            <span><span style="color:#94A3B8">Cliente</span> <button type="button" onClick="{{ goClient }}" style="border:none;background:none;padding:0;font-family:inherit;font-size:12.5px;font-weight:600;color:#3B82F6;cursor:pointer" style-hover="text-decoration:underline">Carla Ruiz</button></span>
+            <span style="color:#E2E8F0">·</span>
+            <span><span style="color:#94A3B8">Registrado</span> 14 jun 2024</span>
+            <sc-if value="{{ showRenueva }}" hint-placeholder-val="{{ true }}"><span style="color:#E2E8F0">·</span><span><span style="color:#94A3B8">Expira</span> {{ expiraDate }}</span></sc-if>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:9px;flex-shrink:0">
+        <sc-if value="{{ showCluster }}" hint-placeholder-val="{{ true }}">
+          <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">
+            Gestionar DNS<svg width="15" height="15" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          </button>
+        </sc-if>
+        <div style="position:relative">
+          <button type="button" onClick="{{ toggleMenu }}" title="Más acciones" style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#64748B;cursor:pointer;font-family:inherit" style-hover="background:#F8FAFC;border-color:#CBD5E1">
+            <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+          </button>
+          <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ closeMenu }}" style="position:fixed;inset:0;z-index:40"></div>
+            <div style="position:absolute;top:46px;right:0;width:286px;background:#fff;border:1px solid #E2E8F0;border-radius:13px;box-shadow:0 12px 40px rgba(15,23,42,0.16);z-index:50;padding:6px">
+              <sc-for list="{{ menuItems }}" as="m" hint-placeholder-count="5">
+                <sc-if value="{{ m.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:#EEF1F5;margin:6px 8px"></div></sc-if>
+                <button type="button" onClick="{{ closeMenu }}" style="{{ m.style }}" style-hover="{{ m.hover }}">
+                  <span style="display:block;font-size:13px;font-weight:600;color:{{ m.color }}">{{ m.label }}</span>
+                  <span style="display:block;font-size:11.5px;color:#94A3B8;margin-top:2px;line-height:1.35">{{ m.desc }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ isExpiring }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#FCF3E1;border:1px solid #F4E6C4;border-radius:14px;padding:16px 18px;margin-bottom:14px">
+      <div style="display:flex;align-items:flex-start;gap:13px">
+        <svg width="20" height="20" viewBox="0 0 24 24" style="color:#B27A12;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700;color:#92600D">El dominio expira en 9 días</div>
+          <div style="font-size:12.5px;color:#A9803A;margin-top:4px;line-height:1.5">Expira el 3 jul 2026. La auto-renovación está activada y se intentará el cobro 5 días antes. Si falla, el dominio entra en periodo de gracia.</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:13px;flex-wrap:wrap">
+            <button type="button" onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:9px;border:none;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#2563EB">Renovar ahora</button>
+            <button type="button" onClick="{{ goBilling }}" style="height:34px;padding:0 13px;border-radius:9px;border:1px solid #E4CE96;background:#fff;color:#92600D;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#FFFCF5">Ver factura →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isRedemption }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#FCECEC;border:1px solid #F6D6D6;border-radius:14px;padding:16px 18px;margin-bottom:14px">
+      <div style="display:flex;align-items:flex-start;gap:13px">
+        <svg width="20" height="20" viewBox="0 0 24 24" style="color:#D14343;flex-shrink:0;margin-top:1px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700;color:#A53535">Dominio en periodo de redención</div>
+          <div style="font-size:12.5px;color:#B5564F;margin-top:4px;line-height:1.5">Caducó el 5 jun 2026 sin renovar. Recuperable hasta el 5 jul 2026 pagando la tasa de redención del registrador. Pasada esa fecha se libera para registro público.</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:13px;flex-wrap:wrap">
+            <button type="button" onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:9px;border:none;background:#D14343;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#BE3B3B">Recuperar dominio · €80</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isTerminal }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:flex-start;gap:13px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:14px;padding:16px 18px;margin-bottom:14px">
+      <svg width="20" height="20" viewBox="0 0 24 24" style="color:#94A3B8;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#475569">Dominio liberado</div>
+        <div style="font-size:12.5px;color:#64748B;margin-top:4px;line-height:1.5">Expiró el 5 jun 2026 y se liberó tras el periodo de redención. Ya no está bajo gestión de Aelium.</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="display:flex;align-items:flex-end;gap:2px;border-bottom:1px solid #E8EDF4;margin-bottom:20px">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+      <button type="button" onClick="{{ t.go }}" style="{{ t.style }}" style-hover="{{ t.hover }}">{{ t.label }}</button>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{ isResumen }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid;grid-template-columns:1.7fr 1fr;gap:18px;align-items:start">
+
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0 0 14px">Información del dominio</h2>
+          <sc-for list="{{ domainRows }}" as="d" hint-placeholder-count="5">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid #F4F6F9">
+              <span style="font-size:12.5px;color:#94A3B8">{{ d.k }}</span>
+              <span style="{{ d.vStyle }}">{{ d.v }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ showDns }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px">
+              <h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0">DNS y nameservers</h2>
+              <span style="font-size:11.5px;color:#94A3B8">8 registros · zona en Aelium</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid #F4F6F9"><span style="font-size:12.5px;color:#94A3B8">Nameserver primario</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#0F172A">ns1.aelium.io</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid #F4F6F9"><span style="font-size:12.5px;color:#94A3B8">Nameserver secundario</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#0F172A">ns2.aelium.io</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid #F4F6F9"><span style="font-size:12.5px;color:#94A3B8">Apunta a</span><span style="font-size:12.5px;font-weight:500;color:#0F172A">Hosting · carla-estudio.com</span></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:14px">
+              <button type="button" onClick="{{ noop }}" style="height:34px;padding:0 14px;border-radius:9px;border:none;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#2563EB">Gestionar DNS</button>
+              <button type="button" onClick="{{ noop }}" style="height:34px;padding:0 14px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFC">Editar nameservers</button>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0 0 14px">Facturación</h2>
+          <div style="display:flex;justify-content:space-between;padding:8px 0"><span style="font-size:12.5px;color:#94A3B8">{{ billLabel }}</span><span style="font-size:12.5px;font-weight:600;color:#0F172A">{{ billDate }}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #F4F6F9"><span style="font-size:12.5px;color:#94A3B8">Importe</span><span style="font-size:12.5px;font-weight:700;color:#0F172A;font-variant-numeric:tabular-nums">€12,00 / año</span></div>
+          <button type="button" onClick="{{ goBilling }}" style="display:inline-flex;align-items:center;gap:6px;margin-top:13px;border:none;background:none;padding:0;font-family:inherit;font-size:12.5px;font-weight:600;color:#3B82F6;cursor:pointer" style-hover="text-decoration:underline">Ver factura<svg width="13" height="13" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+        </div>
+
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <h2 style="font-size:13px;font-weight:700;color:#0F172A;margin:0 0 14px">Datos técnicos</h2>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0"><span style="font-size:12px;color:#94A3B8">Cliente</span><button type="button" onClick="{{ goClient }}" style="border:none;background:none;padding:0;font-family:inherit;font-size:12px;font-weight:600;color:#3B82F6;cursor:pointer" style-hover="text-decoration:underline">Carla Ruiz</button></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #F4F6F9"><span style="font-size:12px;color:#94A3B8">Registrador</span><span style="font-size:12px;font-weight:500;color:#0F172A">ResellerClub · resellerclub</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid #F4F6F9"><span style="font-size:12px;color:#94A3B8">Salud del plugin</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#0E8C5F"><span style="width:6px;height:6px;border-radius:9999px;background:#10B981"></span>Healthy</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #F4F6F9"><span style="font-size:12px;color:#94A3B8">Bloqueo de transferencia</span><span style="font-size:12px;font-weight:600;color:#0E8C5F">Activado</span></div>
+          <sc-for list="{{ techIds }}" as="t" hint-placeholder-count="3">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #F4F6F9">
+              <span style="font-size:12px;color:#94A3B8;flex-shrink:0">{{ t.label }}</span>
+              <button type="button" onClick="{{ noop }}" title="Copiar" style="display:inline-flex;align-items:center;gap:6px;border:none;background:none;padding:0;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#475569;cursor:pointer" style-hover="color:#3B82F6"><span style="overflow:hidden;text-overflow:ellipsis;max-width:130px;white-space:nowrap">{{ t.value }}</span><svg width="12" height="12" viewBox="0 0 24 24" style="flex-shrink:0;opacity:0.6"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isNotas }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:13px"><h2 style="font-size:14px;font-weight:700;color:#0F172A;margin:0">Notas internas</h2><span style="font-size:12px;font-weight:600;color:#94A3B8;background:#F1F5F9;padding:2px 9px;border-radius:9999px">1</span></div>
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:18px;box-shadow:0 1px 2px rgba(15,23,42,0.04);margin-bottom:16px">
+        <textarea value="{{ noteDraft }}" onInput="{{ onNote }}" placeholder="Escribe una nota interna sobre este dominio…" rows="3" style="width:100%;border:1px solid #E2E8F0;border-radius:11px;padding:12px 13px;font-size:13px;color:#0F172A;outline:none;resize:vertical;line-height:1.5" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></textarea>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px">
+          <span style="font-size:11.5px;color:#94A3B8">Solo el equipo de Aelium ve estas notas.</span>
+          <button type="button" onClick="{{ addNote }}" style="height:36px;padding:0 16px;border-radius:9px;border:none;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#2563EB">Añadir nota</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <sc-for list="{{ notes }}" as="n" hint-placeholder-count="1">
+          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:15px 17px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px">
+              <span style="display:flex;align-items:center;gap:8px"><span style="width:24px;height:24px;border-radius:9999px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600">{{ n.initials }}</span><span style="font-size:12.5px;font-weight:600;color:#0F172A">{{ n.author }}</span></span>
+              <span style="font-size:11.5px;color:#94A3B8">{{ n.date }}</span>
+            </div>
+            <div style="font-size:13px;color:#475569;line-height:1.5">{{ n.text }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isAuditoria }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:4px 22px 14px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 2px 12px;border-bottom:1px solid #F1F5F9"><span style="font-size:13px;font-weight:700;color:#0F172A">Actividad reciente</span><span style="font-size:11.5px;color:#94A3B8">Últimas 5 de 37</span></div>
+      <sc-for list="{{ audit }}" as="a" hint-placeholder-count="5">
+        <div style="display:flex;gap:14px;padding:14px 0;border-top:{{ a.borderTop }}">
+          <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">
+            <span style="{{ a.iconStyle }}"><svg width="14" height="14" viewBox="0 0 24 24"><use href="{{ a.icon }}"></use></svg></span>
+            <sc-if value="{{ a.showLine }}" hint-placeholder-val="{{ true }}"><span style="width:2px;flex:1;background:#EEF1F5;margin-top:6px;min-height:12px"></span></sc-if>
+          </div>
+          <div style="flex:1;min-width:0;padding-top:4px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="font-size:13px;font-weight:600;color:#0F172A">{{ a.title }}</span><span style="font-size:11.5px;color:#94A3B8;white-space:nowrap">{{ a.time }}</span></div>
+            <div style="font-size:12px;color:#94A3B8;margin-top:2px">{{ a.actor }}</div>
+          </div>
+        </div>
+      </sc-for>
+      <button type="button" onClick="{{ noop }}" style="margin-top:12px;border:none;background:none;padding:0;font-family:inherit;font-size:12.5px;font-weight:600;color:#3B82F6;cursor:pointer" style-hover="text-decoration:underline">Ver historial completo →</button>
+    </div>
+  </sc-if>
+
+  <div style="display:flex;align-items:center;gap:8px;margin-top:18px;font-size:12px;color:#94A3B8">
+    <svg width="14" height="14" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+    <span>Última lectura del registrador: 24 jun 2026, 09:48</span>
+  </div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="au-cog" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></symbol>
+    <symbol id="au-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></symbol>
+    <symbol id="au-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></symbol>
+    <symbol id="au-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></symbol>
+    <symbol id="au-refresh" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></symbol>
+  </defs></svg>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 940 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; },
+  &quot;estado&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Activo&quot;, &quot;options&quot;: [&quot;Activo&quot;, &quot;Por expirar&quot;, &quot;En redención&quot;, &quot;Cancelado&quot;], &quot;tsType&quot;: &quot;string&quot; }
+}">
+class Component extends DCLogic {
+  state = { tab: 'resumen', menuOpen: false, noteDraft: '' };
+
+  renderVals() {
+    const MAP = { 'Activo': 'active', 'Por expirar': 'expiring', 'En redención': 'redemption', 'Cancelado': 'cancelled' };
+    const estado = MAP[this.props.estado] || 'active';
+    const isActive = estado === 'active';
+    const isExpiring = estado === 'expiring';
+    const isRedemption = estado === 'redemption';
+    const isTerminal = estado === 'cancelled';
+
+    const STATUS = {
+      active: { label: 'Activo', bg: '#E8F7F1', fg: '#0E8C5F', dot: '#10B981' },
+      expiring: { label: 'Por expirar', bg: '#FCF3E1', fg: '#B27A12', dot: '#E0A422' },
+      redemption: { label: 'En redención', bg: '#FCECEC', fg: '#D14343', dot: '#EF4444' },
+      cancelled: { label: 'Liberado', bg: '#F1F5F9', fg: '#94A3B8', dot: '#CBD5E1' },
+    };
+    const st = STATUS[estado];
+
+    const tab = this.state.tab;
+    const tabsDef = [
+      { value: 'resumen', label: 'Resumen' },
+      { value: 'notas', label: 'Notas' },
+      { value: 'auditoria', label: 'Auditoría' },
+    ];
+    const tabs = tabsDef.map((t) => {
+      const isA = t.value === tab;
+      return {
+        label: t.label,
+        style: 'padding:11px 14px 12px;border:none;background:transparent;font-family:inherit;font-size:13.5px;cursor:pointer;white-space:nowrap;color:' + (isA ? '#0F172A' : '#64748B') + ';font-weight:' + (isA ? '600' : '500') + ';box-shadow:' + (isA ? 'inset 0 -2px 0 #3B82F6' : 'none') + ';transition:color .15s ease;',
+        hover: isA ? '' : 'color:#0F172A;',
+        go: () => this.setState({ tab: t.value }),
+      };
+    });
+
+    const vNorm = 'font-size:12.5px;font-weight:500;color:#0F172A;';
+    const vGreen = 'font-size:12.5px;font-weight:600;color:#0E8C5F;';
+    const vMuted = 'font-size:12.5px;font-weight:600;color:#94A3B8;';
+    let domainRows;
+    if (isTerminal) {
+      domainRows = [
+        { k: 'Estado', v: 'Liberado', vStyle: vMuted },
+        { k: 'Registrado', v: '14 jun 2024', vStyle: vNorm },
+        { k: 'Expiró', v: '5 jun 2026', vStyle: vNorm },
+        { k: 'Liberado', v: '5 jul 2026', vStyle: vNorm },
+      ];
+    } else if (isRedemption) {
+      domainRows = [
+        { k: 'Estado', v: 'En redención', vStyle: 'font-size:12.5px;font-weight:600;color:#D14343;' },
+        { k: 'Registrado', v: '14 jun 2024', vStyle: vNorm },
+        { k: 'Caducó', v: '5 jun 2026', vStyle: vNorm },
+        { k: 'Recuperable hasta', v: '5 jul 2026', vStyle: vNorm },
+        { k: 'Tasa de redención', v: '€80,00', vStyle: vNorm },
+      ];
+    } else {
+      domainRows = [
+        { k: 'Estado', v: st.label, vStyle: vGreen },
+        { k: 'Registrado', v: '14 jun 2024', vStyle: vNorm },
+        { k: 'Expira', v: isExpiring ? '3 jul 2026' : '14 jun 2027', vStyle: vNorm },
+        { k: 'Auto-renovación', v: 'Activada', vStyle: vGreen },
+        { k: 'Bloqueo de transferencia', v: 'Activado', vStyle: vGreen },
+      ];
+    }
+
+    const notes = [
+      { author: 'Marc Oliver', initials: 'MO', date: '14 jun 2024', text: 'Dominio principal del cliente. Mantener bloqueo de transferencia siempre activo.' },
+    ];
+
+    const AU = { sys: { bg: '#F1F5F9', fg: '#64748B', icon: '#au-cog' }, admin: { bg: '#EFF4FF', fg: '#3B82F6', icon: '#au-user' }, dns: { bg: '#F1ECFB', fg: '#7C5CCB', icon: '#au-globe' }, sec: { bg: '#FCF3E1', fg: '#B27A12', icon: '#au-lock' } };
+    const auditDef = [
+      { tone: 'dns', title: 'Nameservers actualizados a ns1/ns2.aelium.io', actor: 'Sistema', time: '12 mar · 12:05' },
+      { tone: 'sec', title: 'Bloqueo de transferencia activado', actor: 'Marc Oliver', time: '14 jun 2024 · 10:22' },
+      { tone: 'admin', title: 'Auto-renovación activada', actor: 'Marc Oliver', time: '14 jun 2024 · 10:21' },
+      { tone: 'sys', title: 'Dominio renovado · 1 año', actor: 'Sistema', time: '14 jun 2025 · 03:00' },
+      { tone: 'sys', title: 'Dominio registrado en ResellerClub', actor: 'Sistema', time: '14 jun 2024 · 10:20' },
+    ];
+    const audit = auditDef.map((a, i) => {
+      const t = AU[a.tone];
+      return {
+        title: a.title, actor: a.actor, time: a.time, icon: t.icon,
+        iconStyle: 'width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:' + t.bg + ';color:' + t.fg + ';',
+        borderTop: i === 0 ? 'none' : '1px solid #F4F6F9',
+        showLine: i < auditDef.length - 1,
+      };
+    });
+
+    const techIds = [
+      { label: 'Domain ID', value: 'dmn_7Kp2Qm9XbR' },
+      { label: 'Order ID', value: 'ord_RC_884213' },
+      { label: 'Código EPP', value: 'aE9!kQ2#mZ7p' },
+    ];
+
+    const dItem = (label, desc, opts) => {
+      opts = opts || {};
+      const color = opts.danger ? '#EF4444' : (opts.warn ? '#B27A12' : '#0F172A');
+      const hover = opts.danger ? 'background:#FEF2F2' : (opts.warn ? 'background:#FFFCF5' : 'background:#F6F8FB');
+      return { label, desc, color, divider: !!opts.divider, style: 'display:block;width:100%;text-align:left;padding:9px 11px;border-radius:9px;border:none;background:transparent;cursor:pointer;font-family:inherit;', hover };
+    };
+    let menuItems;
+    if (isRedemption) {
+      menuItems = [
+        dItem('Recuperar dominio…', 'Restaura desde redención · tasa €80'),
+        dItem('Reenviar notificación…', 'Reenvía el aviso de caducidad'),
+      ];
+    } else if (isTerminal) {
+      menuItems = [ dItem('Reenviar notificación…', 'Reenvía la última factura o aviso al cliente') ];
+    } else {
+      menuItems = [
+        dItem('Renovar ahora…', 'Renueva por el siguiente periodo anual'),
+        dItem('Auto-renovación', 'Activar o desactivar la renovación automática'),
+        dItem('Bloqueo de transferencia', 'Protege el dominio frente a transferencias'),
+        dItem('Editar contactos WHOIS…', 'Datos del titular y administrativos'),
+        dItem('Transferir dominio…', 'Genera el código de autorización (EPP)', { warn: true, divider: true }),
+        dItem('Cancelar dominio…', 'Irreversible · escribe para confirmar', { danger: true }),
+      ];
+    }
+
+    return {
+      statusLabel: st.label,
+      statusStyle: 'display:inline-flex;align-items:center;gap:6px;padding:4px 11px 4px 9px;border-radius:9999px;font-size:12px;font-weight:600;background:' + st.bg + ';color:' + st.fg + ';',
+      statusDot: 'width:6px;height:6px;border-radius:9999px;flex-shrink:0;background:' + st.dot + ';',
+      isExpiring, isRedemption, isTerminal,
+      showCluster: isActive || isExpiring,
+      showRenueva: isActive || isExpiring,
+      expiraDate: isExpiring ? '3 jul 2026' : '14 jun 2027',
+      showDns: isActive || isExpiring,
+      domainRows,
+      tabs,
+      isResumen: tab === 'resumen',
+      isNotas: tab === 'notas',
+      isAuditoria: tab === 'auditoria',
+      notes, audit, techIds,
+      billLabel: (isTerminal || isRedemption) ? 'Última factura' : 'Próxima renovación',
+      billDate: (isTerminal || isRedemption) ? '14 jun 2025' : (isExpiring ? '3 jul 2026' : '14 jun 2027'),
+      noteDraft: this.state.noteDraft,
+      onNote: (e) => this.setState({ noteDraft: e.target.value }),
+      addNote: () => this.setState({ noteDraft: '' }),
+      menuItems,
+      menuOpen: this.state.menuOpen,
+      toggleMenu: () => this.setState((s) => ({ menuOpen: !s.menuOpen })),
+      closeMenu: () => this.setState({ menuOpen: false }),
+      goClient: () => { if (this.props.navigate) this.props.navigate('client-detail'); },
+      goBilling: () => { if (this.props.navigate) this.props.navigate('invoice-detail'); },
+      goBack: () => { if (this.props.navigate) this.props.navigate('services'); },
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

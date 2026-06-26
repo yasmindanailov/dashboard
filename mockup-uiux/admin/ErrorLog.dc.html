@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  input[type=checkbox] { accent-color: #3B82F6; cursor: pointer; }
+  @keyframes elPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+    <div>
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 5px">Registro de errores</h1>
+      <p style="font-size:13.5px;color:#64748B;margin:0">{{ subtitle }}</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px;height:36px;padding:0 13px;border-radius:9px;border:1px solid #E2E8F0;background:#fff">
+        <span style="width:7px;height:7px;border-radius:9999px;background:#10B981;animation:elPulse 1.8s ease-in-out infinite"></span>
+        <span style="font-size:12px;font-weight:600;color:#475569">En vivo</span>
+        <span style="font-size:12px;color:#94A3B8">· {{ refreshedLabel }}</span>
+      </div>
+      <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease,border-color .15s ease" style-hover="background:#F8FAFC;border-color:#CBD5E1">
+        <svg width="16" height="16" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Exportar
+      </button>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:flex-end;gap:2px;border-bottom:1px solid #E8EDF4;margin-bottom:18px;overflow-x:auto">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+      <button type="button" onClick="{{ t.go }}" style="{{ t.style }}" style-hover="{{ t.hover }}">
+        <span>{{ t.label }}</span>
+        <span style="{{ t.countStyle }}">{{ t.count }}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:240px">
+      <svg width="17" height="17" viewBox="0 0 24 24" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" value="{{ search }}" onInput="{{ onSearch }}" placeholder="Buscar por mensaje o correlation id..." style="width:100%;height:40px;padding:0 14px 0 38px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13.5px;font-family:inherit;color:#0F172A;outline:none;transition:border-color .15s ease" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+    </div>
+    <div style="position:relative">
+      <select value="{{ level }}" onChange="{{ onLevel }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6">
+        <option value="">Todos los niveles</option>
+        <option value="fatal">Fatal</option>
+        <option value="error">Error</option>
+        <option value="warn">Warning</option>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+    <div style="position:relative">
+      <select value="{{ module }}" onChange="{{ onModule }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;max-width:200px" style-focus="border-color:#3B82F6">
+        <option value="">Todos los módulos</option>
+        <sc-for list="{{ moduleOpts }}" as="m" hint-placeholder-count="6">
+          <option value="{{ m.value }}">{{ m.label }}</option>
+        </sc-for>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+      <thead>
+        <tr style="background:#FBFCFD">
+          <th style="width:42px;padding:12px 0 12px 18px;text-align:left"><input type="checkbox" checked="{{ allSel }}" onChange="{{ toggleAll }}" style="width:15px;height:15px"></th>
+          <th style="width:104px;padding:12px 14px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Nivel</th>
+          <th style="width:140px;padding:12px 14px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Módulo</th>
+          <th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Mensaje</th>
+          <th style="width:132px;padding:12px 14px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Correlación</th>
+          <th style="width:118px;padding:12px 14px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Cuándo</th>
+          <th style="width:46px;padding:12px 16px 12px 0"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="9">
+          <tr onClick="{{ r.toggleExpand }}" style="{{ r.rowStyle }}" style-hover="background:#FBFCFF">
+            <td style="padding:0 0 0 18px;vertical-align:top;padding-top:15px" onClick="{{ r.stop }}"><input type="checkbox" checked="{{ r.selected }}" onChange="{{ r.toggleSel }}" style="width:15px;height:15px"></td>
+            <td style="padding:14px;vertical-align:top"><span style="{{ r.levelStyle }}"><span style="{{ r.levelDot }}"></span>{{ r.levelLabel }}</span></td>
+            <td style="padding:14px;vertical-align:top"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:600;color:#475569">{{ r.moduleLabel }}</span></td>
+            <td style="padding:14px;vertical-align:top;min-width:0">
+              <div style="{{ r.msgStyle }}">{{ r.message }}</div>
+              <sc-if value="{{ r.hasPath }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:6px;margin-top:4px;min-width:0">
+                  <span style="{{ r.methodStyle }}">{{ r.method }}</span>
+                  <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:#94A3B8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.path }}</span>
+                </div>
+              </sc-if>
+            </td>
+            <td style="padding:14px;vertical-align:top"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:#7C5CCB;background:#F6F3FC;padding:2px 7px;border-radius:6px;white-space:nowrap">{{ r.corr }}</span></td>
+            <td style="padding:14px;vertical-align:top"><span style="font-size:12.5px;color:#64748B;white-space:nowrap" title="{{ r.when }}">{{ r.ago }}</span></td>
+            <td style="padding:14px 16px 14px 0;text-align:right;vertical-align:top">
+              <svg width="17" height="17" viewBox="0 0 24 24" style="color:#CBD5E1;transition:transform .18s ease;{{ r.chevTransform }}"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </td>
+          </tr>
+          <sc-if value="{{ r.expanded }}" hint-placeholder-val="{{ false }}">
+            <tr>
+              <td colspan="7" style="padding:0;border-top:1px solid #F4F6F9;background:#FAFBFD">
+                <div style="padding:18px 24px 22px 60px">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 32px;margin-bottom:18px">
+                    <div>
+                      <div style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#94A3B8;margin-bottom:7px">Mensaje completo</div>
+                      <div style="font-size:13px;color:#0F172A;line-height:1.55">{{ r.message }}</div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:auto 1fr;gap:9px 16px;align-content:start;font-size:12.5px">
+                      <span style="color:#94A3B8">Petición</span>
+                      <span style="color:#334155;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px">{{ r.reqLine }}</span>
+                      <span style="color:#94A3B8">Usuario</span>
+                      <span style="color:#334155">{{ r.userLine }}</span>
+                      <span style="color:#94A3B8">Correlation</span>
+                      <span style="color:#7C5CCB;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px">{{ r.corr }}</span>
+                      <span style="color:#94A3B8">Registrado</span>
+                      <span style="color:#334155">{{ r.when }}</span>
+                    </div>
+                  </div>
+
+                  <sc-if value="{{ r.hasMeta }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-bottom:16px">
+                      <div style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#94A3B8;margin-bottom:7px">Metadata</div>
+                      <div style="display:flex;flex-wrap:wrap;gap:7px">
+                        <sc-for list="{{ r.meta }}" as="kv" hint-placeholder-count="2">
+                          <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:7px;background:#fff;border:1px solid #E8EDF4;font-size:11.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace"><span style="color:#94A3B8">{{ kv.k }}</span><span style="color:#334155">{{ kv.v }}</span></span>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <div style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#94A3B8;margin-bottom:7px">Stack trace</div>
+                  <pre style="margin:0;padding:14px 16px;background:#0F172A;border-radius:10px;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.65;color:#CBD5E1;white-space:pre">{{ r.stack }}</pre>
+
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;flex-wrap:wrap">
+                    <sc-if value="{{ r.isResolved }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;align-items:center;gap:9px;font-size:12.5px;color:#0E8C5F">
+                        <span style="width:24px;height:24px;border-radius:9999px;background:#E8F7F1;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" style="color:#0E8C5F"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+                        <span style="color:#475569">Resuelto por <strong style="color:#0F172A;font-weight:600">{{ r.resolvedBy }}</strong> · {{ r.resolvedAt }}</span>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ r.isOpen }}" hint-placeholder-val="{{ true }}">
+                      <span style="font-size:12px;color:#94A3B8">Marca la entrada como resuelta cuando hayas mitigado la causa. Queda registrado quién y cuándo.</span>
+                    </sc-if>
+                    <div style="display:flex;align-items:center;gap:9px;flex-shrink:0">
+                      <button type="button" onClick="{{ r.copyCorr }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 13px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFC;border-color:#CBD5E1">
+                        <svg width="14" height="14" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        Copiar correlation
+                      </button>
+                      <sc-if value="{{ r.isOpen }}" hint-placeholder-val="{{ true }}">
+                        <button type="button" onClick="{{ r.resolve }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 15px;border-radius:9px;border:none;background:#0E8C5F;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#0B7A52">
+                          <svg width="15" height="15" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          Marcar resuelto
+                        </button>
+                      </sc-if>
+                      <sc-if value="{{ r.isResolved }}" hint-placeholder-val="{{ false }}">
+                        <button type="button" onClick="{{ r.reopen }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 13px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFC;border-color:#CBD5E1">
+                          <svg width="14" height="14" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                          Reabrir
+                        </button>
+                      </sc-if>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </sc-if>
+        </sc-for>
+      </tbody>
+    </table>
+
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:60px 24px;text-align:center">
+        <svg width="42" height="42" viewBox="0 0 24 24" style="color:#CBD5E1;margin:0 auto 14px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        <div style="font-size:15px;font-weight:600;color:#0F172A;margin-bottom:5px">{{ emptyTitle }}</div>
+        <div style="font-size:13px;color:#94A3B8">{{ emptyBody }}</div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showPagination }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;flex-wrap:wrap">
+      <span style="font-size:12.5px;color:#94A3B8">{{ rangeLabel }}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button type="button" onClick="{{ goPrev }}" style="{{ prevStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+        <sc-for list="{{ pages }}" as="p" hint-placeholder-count="2">
+          <button type="button" onClick="{{ p.go }}" style="{{ p.style }}">{{ p.n }}</button>
+        </sc-for>
+        <button type="button" onClick="{{ goNext }}" style="{{ nextStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;padding:10px 12px 10px 18px;background:#0F172A;border-radius:14px;box-shadow:0 12px 40px rgba(15,23,42,0.28)">
+      <span style="font-size:13px;font-weight:600;color:#fff">{{ selectedCount }} seleccionada{{ selPlural }}</span>
+      <div style="width:1px;height:20px;background:rgba(255,255,255,0.18)"></div>
+      <button type="button" onClick="{{ resolveSelected }}" style="display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;border:none;background:#10B981;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#0EA371">
+        <svg width="15" height="15" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        Marcar resueltas
+      </button>
+      <button type="button" onClick="{{ clearSel }}" title="Quitar selección" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:none;background:transparent;color:#94A3B8;cursor:pointer;font-family:inherit" style-hover="background:rgba(255,255,255,0.08);color:#fff">
+        <svg width="16" height="16" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:70;display:flex;align-items:center;gap:9px;padding:11px 16px;background:#0F172A;border-radius:11px;box-shadow:0 10px 30px rgba(15,23,42,0.26);font-size:13px;font-weight:500;color:#fff">
+      <svg width="16" height="16" viewBox="0 0 24 24" style="color:#34D399"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      {{ toast }}
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 920 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = { search: '', tab: 'open', level: '', module: '', page: 1, selected: [], expanded: null, resolvedExtra: {}, reopened: {}, toast: null };
+
+  componentWillUnmount() { if (this._t) clearTimeout(this._t); }
+
+  flash(msg) {
+    if (this._t) clearTimeout(this._t);
+    this.setState({ toast: msg });
+    this._t = setTimeout(() => this.setState({ toast: null }), 2600);
+  }
+
+  modules() {
+    return {
+      provisioning: 'provisioning', billing: 'billing', domains: 'domains', notifications: 'notifications',
+      auth: 'auth', 'admin-plugins': 'admin-plugins', support: 'support', 'support-inside': 'support-inside',
+      tasks: 'tasks', users: 'users', products: 'products',
+    };
+  }
+
+  data() {
+    return [
+      { id: 'e0', level: 'fatal', module: 'provisioning', message: 'Enhance API timeout tras 30000 ms al aprovisionar el servicio svc_8821 (plan Hosting Pro)', corr: 'c_3f9a2b1e', method: 'POST', path: '/api/v1/admin/services/svc_8821/provision', user: null, when: '24 jun 2026, 14:38:11', ago: 'hace 6 min', meta: [['service_id', 'svc_8821'], ['plugin', 'enhance_cp'], ['attempt', '3/3']],
+        stack: "TimeoutError: Request timed out after 30000ms\n    at EnhanceClient.request (plugins/enhance-cp/client.ts:142:13)\n    at async EnhanceProvisioner.provision (plugins/enhance-cp/provisioner.ts:88:20)\n    at async ProvisioningService.run (modules/provisioning/provisioning.service.ts:204:7)" },
+      { id: 'e1', level: 'fatal', module: 'admin-plugins', message: 'CircuitBreaker abierto para el plugin enhance_cp tras 5 fallos consecutivos', corr: 'c_77ad1c90', method: null, path: null, user: null, when: '24 jun 2026, 14:36:02', ago: 'hace 8 min', meta: [['plugin', 'enhance_cp'], ['state', 'open'], ['failures', '5']],
+        stack: "CircuitOpenError: Breaker 'enhance_cp' moved to OPEN\n    at CircuitBreaker.recordFailure (core/resilience/circuit-breaker.ts:73:11)\n    at PluginInvoker.call (modules/admin-plugins/plugin-invoker.ts:51:9)" },
+      { id: 'e2', level: 'error', module: 'billing', message: 'Stripe webhook signature verification failed — cabecera stripe-signature no coincide', corr: 'c_91b4ef22', method: 'POST', path: '/api/v1/webhooks/stripe', user: null, when: '24 jun 2026, 14:21:47', ago: 'hace 23 min', meta: [['event', 'invoice.payment_failed'], ['ip', '54.187.x.x']],
+        stack: "StripeSignatureVerificationError: No signatures found matching the expected signature\n    at Webhook.constructEvent (node_modules/stripe/lib/Webhooks.js:42:13)\n    at BillingWebhookController.handle (modules/billing/billing-webhook.controller.ts:38:31)" },
+      { id: 'e3', level: 'error', module: 'domains', message: 'ResellerClub devolvió HTTP 502 al registrar el dominio estudio-marfil.com', corr: 'c_2d8c6a14', method: 'POST', path: '/api/v1/admin/domains/register', user: 'usr_4471', when: '24 jun 2026, 13:54:09', ago: 'hace 50 min', meta: [['domain', 'estudio-marfil.com'], ['provider', 'resellerclub'], ['http', '502']],
+        stack: "UpstreamError: ResellerClub responded 502 Bad Gateway\n    at ResellerClubClient.post (plugins/resellerclub/client.ts:96:15)\n    at DomainsService.register (modules/domains/domains.service.ts:171:22)" },
+      { id: 'e4', level: 'error', module: 'support', message: "Listener 'support.ticket.created' lanzó una excepción no capturada", corr: 'c_5e0f9b73', method: null, path: null, user: null, when: '24 jun 2026, 13:12:30', ago: 'hace 1 h', meta: [['ticket_id', 'tck_1058'], ['listener', 'AutoAssignListener']],
+        stack: "TypeError: Cannot read properties of undefined (reading 'agentId')\n    at AutoAssignListener.handle (modules/support/listeners/auto-assign.listener.ts:44:38)\n    at EventEmitter.emit (node_modules/eventemitter2/lib/eventemitter2.js:339:22)" },
+      { id: 'e5', level: 'warn', module: 'notifications', message: 'Job notifications-dispatch agotó sus reintentos y se movió a la DLQ', corr: 'c_a1c33d05', method: null, path: null, user: 'usr_2210', when: '24 jun 2026, 12:48:55', ago: 'hace 2 h', meta: [['queue', 'notifications-dispatch'], ['job_id', 'j_99214'], ['attempts', '5']],
+        stack: "Error: SMTP connection refused (ECONNREFUSED 10.0.0.4:587)\n    at SmtpTransport.send (modules/notifications/transports/smtp.transport.ts:61:13)\n    at DispatchProcessor.process (modules/notifications/dispatch.processor.ts:40:9)" },
+      { id: 'e6', level: 'warn', module: 'auth', message: 'Reutilización de refresh token detectada — sesión revocada por seguridad', corr: 'c_6b2e8f41', method: 'POST', path: '/api/v1/auth/refresh', user: 'usr_3390', when: '24 jun 2026, 12:30:18', ago: 'hace 2 h', meta: [['user_id', 'usr_3390'], ['action', 'revoke_all_sessions']],
+        stack: "SecurityWarning: Refresh token reuse detected for user usr_3390\n    at TokenRotationGuard.verify (modules/auth/guards/token-rotation.guard.ts:58:15)" },
+      { id: 'e7', level: 'error', module: 'tasks', message: 'El cron maintenance-monthly falló al generar tareas para 3 servicios', corr: 'c_0fd71a8b', method: null, path: null, user: null, when: '24 jun 2026, 03:00:12', ago: 'hoy, 03:00', meta: [['cron', 'maintenance-monthly'], ['failed', '3'], ['ok', '128']],
+        stack: "AggregateError: 3 of 131 maintenance tasks failed to generate\n    at MaintenanceCron.run (modules/tasks/crons/maintenance.cron.ts:77:11)" },
+      { id: 'e8', level: 'warn', module: 'users', message: 'Acceso bloqueado temporalmente: 5 intentos fallidos consecutivos', corr: 'c_8a44c2de', method: 'POST', path: '/api/v1/auth/login', user: null, when: '23 jun 2026, 22:14:51', ago: 'ayer, 22:14', meta: [['email', 'sara@estudio-marfil.com'], ['attempts', '5'], ['locked_min', '15']],
+        stack: "AccountLockoutWarning: Account temporarily locked\n    at LoginThrottleGuard.check (modules/auth/guards/login-throttle.guard.ts:33:13)" },
+      { id: 'e9', level: 'error', module: 'billing', message: 'Generación de PDF de la factura INV-00142 falló (timeout del renderer)', corr: 'c_4c19b6f7', method: null, path: null, user: null, when: '23 jun 2026, 19:42:08', ago: 'ayer, 19:42', meta: [['invoice', 'INV-00142'], ['renderer', 'puppeteer']], resolved: true, resolvedBy: 'Marc Oliver', resolvedAt: '23 jun 2026, 20:05',
+        stack: "TimeoutError: Navigation timeout of 15000 ms exceeded\n    at PdfRenderer.render (modules/billing/pdf/pdf-renderer.ts:58:19)" },
+      { id: 'e10', level: 'warn', module: 'provisioning', message: 'Reintento 2/3 al sincronizar el estado del servicio svc_7732 con Enhance', corr: 'c_b7e2104a', method: null, path: null, user: null, when: '23 jun 2026, 16:05:33', ago: 'ayer, 16:05', meta: [['service_id', 'svc_7732'], ['attempt', '2/3']], resolved: true, resolvedBy: 'Sistema', resolvedAt: '23 jun 2026, 16:06',
+        stack: "RetryableError: Enhance returned 503, retrying\n    at ReconcileJob.sync (modules/provisioning/jobs/reconcile.job.ts:91:13)" },
+      { id: 'e11', level: 'error', module: 'support-inside', message: 'El SDK de Support Inside rechazó la credencial al abrir la sesión SSO', corr: 'c_d3f0a1c6', method: 'POST', path: '/api/v1/admin/support-inside/sso', user: 'usr_4471', when: '23 jun 2026, 11:20:44', ago: 'ayer, 11:20', meta: [['account', 'aelium-main'], ['code', 'INVALID_KEY']], resolved: true, resolvedBy: 'Lucía Fernández', resolvedAt: '23 jun 2026, 11:48',
+        stack: "AuthError: Support Inside rejected API key (code INVALID_KEY)\n    at SupportInsideClient.openSso (plugins/support-inside/client.ts:120:17)" },
+      { id: 'e12', level: 'warn', module: 'products', message: 'Producto sin imagen de presentación al publicarse en el catálogo', corr: 'c_e91b7720', method: 'PATCH', path: '/api/v1/admin/products/prd_330', user: 'usr_1102', when: '22 jun 2026, 09:15:02', ago: 'hace 2 d', meta: [['product_id', 'prd_330']], resolved: true, resolvedBy: 'Marc Oliver', resolvedAt: '22 jun 2026, 10:01',
+        stack: "ValidationWarning: product.image_url is empty\n    at ProductPublishGuard.validate (modules/products/guards/publish.guard.ts:29:11)" },
+    ];
+  }
+
+  renderVals() {
+    const s = this.state;
+    const MODNAMES = this.modules();
+    const LV = {
+      fatal: { label: 'Fatal', bg: '#FBE3E3', fg: '#B42318', dot: '#DC2626' },
+      error: { label: 'Error', bg: '#FCECEC', fg: '#D14343', dot: '#EF4444' },
+      warn: { label: 'Warning', bg: '#FCF3E1', fg: '#B27A12', dot: '#E0A422' },
+    };
+
+    const all = this.data().map((e) => {
+      const reopened = !!s.reopened[e.id];
+      const extra = !!s.resolvedExtra[e.id];
+      const resolved = reopened ? false : (e.resolved || extra);
+      let rBy = e.resolvedBy, rAt = e.resolvedAt;
+      if (extra && !e.resolved) { rBy = 'Marc Oliver'; rAt = '24 jun 2026, 14:44'; }
+      return Object.assign({}, e, { resolved, resolvedBy: rBy, resolvedAt: rAt });
+    });
+
+    const openCount = all.filter((e) => !e.resolved).length;
+    const resolvedCount = all.filter((e) => e.resolved).length;
+
+    const tabDefs = [
+      { value: 'open', label: 'Sin resolver', tone: 'danger' },
+      { value: 'resolved', label: 'Resueltos', tone: 'success' },
+      { value: 'all', label: 'Todos', tone: 'neutral' },
+    ];
+    const TONE = { neutral: { bg: '#EEF1F5', fg: '#64748B' }, success: { bg: '#E8F7F1', fg: '#0E8C5F' }, danger: { bg: '#FCECEC', fg: '#D14343' } };
+    const counts = { open: openCount, resolved: resolvedCount, all: all.length };
+    const activeTab = s.tab || 'open';
+
+    const tabs = tabDefs.map((t) => {
+      const isA = t.value === activeTab;
+      const tn = TONE[t.tone];
+      return {
+        label: t.label,
+        count: String(counts[t.value] || 0),
+        style: 'display:flex;align-items:center;gap:8px;padding:11px 14px 12px;border:none;background:transparent;font-family:inherit;font-size:13.5px;cursor:pointer;white-space:nowrap;position:relative;color:' + (isA ? '#0F172A' : '#64748B') + ';font-weight:' + (isA ? '600' : '500') + ';box-shadow:' + (isA ? 'inset 0 -2px 0 #3B82F6' : 'none') + ';transition:color .15s ease;',
+        hover: isA ? '' : 'color:#0F172A;',
+        countStyle: 'min-width:20px;height:20px;padding:0 6px;border-radius:9999px;background:' + (isA ? tn.bg : '#F1F5F9') + ';color:' + (isA ? tn.fg : '#94A3B8') + ';font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;',
+        go: () => this.setState({ tab: t.value, page: 1, expanded: null }),
+      };
+    });
+
+    const moduleOpts = Object.keys(MODNAMES).map((k) => ({ value: k, label: MODNAMES[k] }));
+
+    const q = (s.search || '').toLowerCase().trim();
+    const filtered = all.filter((e) =>
+      (activeTab === 'all' || (activeTab === 'open' ? !e.resolved : e.resolved)) &&
+      (!s.level || e.level === s.level) &&
+      (!s.module || e.module === s.module) &&
+      (!q || e.message.toLowerCase().includes(q) || e.corr.toLowerCase().includes(q))
+    );
+
+    const limit = 8;
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const page = Math.min(s.page || 1, totalPages);
+    const start = (page - 1) * limit;
+    const pageItems = filtered.slice(start, start + limit);
+    const selected = s.selected || [];
+
+    const rows = pageItems.map((e) => {
+      const lv = LV[e.level] || LV.error;
+      const isSel = selected.includes(e.id);
+      const isExp = s.expanded === e.id;
+      return {
+        id: e.id,
+        levelLabel: lv.label,
+        levelStyle: 'display:inline-flex;align-items:center;gap:6px;padding:3px 9px 3px 8px;border-radius:7px;font-size:11px;font-weight:700;letter-spacing:0.02em;text-transform:uppercase;background:' + lv.bg + ';color:' + lv.fg + ';',
+        levelDot: 'width:6px;height:6px;border-radius:9999px;flex-shrink:0;background:' + lv.dot + ';',
+        moduleLabel: e.module,
+        message: e.message,
+        msgStyle: 'font-size:13px;font-weight:500;color:' + (e.resolved ? '#64748B' : '#0F172A') + ';line-height:1.45;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:' + (isExp ? '99' : '2') + ';-webkit-box-orient:vertical;',
+        hasPath: !!e.path,
+        method: e.method || '',
+        methodStyle: 'font-size:10px;font-weight:700;letter-spacing:0.03em;color:#64748B;background:#EEF1F5;padding:1px 5px;border-radius:4px;flex-shrink:0',
+        path: e.path || '',
+        corr: e.corr,
+        ago: e.ago,
+        when: e.when,
+        chevTransform: isExp ? 'transform:rotate(180deg)' : '',
+        rowStyle: 'border-top:1px solid #F4F6F9;cursor:pointer;transition:background .12s ease;' + (isExp ? 'background:#FAFBFD;' : (isSel ? 'background:#F6F9FF;' : '')),
+        selected: isSel,
+        expanded: isExp,
+        isResolved: e.resolved,
+        isOpen: !e.resolved,
+        resolvedBy: e.resolvedBy || '—',
+        resolvedAt: e.resolvedAt || '',
+        reqLine: e.path ? (e.method + ' ' + e.path) : '— (job interno)',
+        userLine: e.user ? e.user : 'Sistema (sin usuario)',
+        hasMeta: e.meta && e.meta.length > 0,
+        meta: (e.meta || []).map((kv) => ({ k: kv[0], v: kv[1] })),
+        stack: e.stack,
+        toggleExpand: () => this.setState((st) => ({ expanded: st.expanded === e.id ? null : e.id })),
+        stop: (ev) => { if (ev && ev.stopPropagation) ev.stopPropagation(); },
+        toggleSel: () => this.setState((st) => {
+          const set = new Set(st.selected || []);
+          if (set.has(e.id)) set.delete(e.id); else set.add(e.id);
+          return { selected: [...set] };
+        }),
+        resolve: (ev) => { if (ev && ev.stopPropagation) ev.stopPropagation(); this.setState((st) => ({ resolvedExtra: Object.assign({}, st.resolvedExtra, { [e.id]: true }), reopened: Object.assign({}, st.reopened, { [e.id]: false }) })); this.flash('Entrada marcada como resuelta'); },
+        reopen: (ev) => { if (ev && ev.stopPropagation) ev.stopPropagation(); this.setState((st) => ({ reopened: Object.assign({}, st.reopened, { [e.id]: true }), resolvedExtra: Object.assign({}, st.resolvedExtra, { [e.id]: false }) })); this.flash('Entrada reabierta'); },
+        copyCorr: (ev) => { if (ev && ev.stopPropagation) ev.stopPropagation(); this.flash('Correlation ID copiado: ' + e.corr); },
+      };
+    });
+
+    const pageIds = pageItems.map((e) => e.id);
+    const allSel = pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
+    const from = total === 0 ? 0 : start + 1;
+    const to = Math.min(start + limit, total);
+    const pageBtn = (active) => 'min-width:34px;height:34px;padding:0 8px;border-radius:9px;border:1px solid ' + (active ? '#3B82F6' : '#E2E8F0') + ';background:' + (active ? '#3B82F6' : '#fff') + ';color:' + (active ? '#fff' : '#475569') + ';font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;';
+    const arrowBtn = (dis) => 'display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:' + (dis ? '#CBD5E1' : '#475569') + ';cursor:' + (dis ? 'default' : 'pointer') + ';font-family:inherit;';
+    const pages = Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => ({ n: String(n), style: pageBtn(n === page), go: () => this.setState({ page: n, expanded: null }) }));
+
+    const hasFilter = q || s.level || s.module;
+
+    return {
+      subtitle: activeTab === 'open'
+        ? (openCount === 0 ? 'Todo en orden — sin errores pendientes' : (openCount + (openCount === 1 ? ' error sin resolver requiere atención' : ' errores sin resolver requieren atención')))
+        : (total + (total === 1 ? ' entrada' : ' entradas')),
+      refreshedLabel: 'actualizado hace 12 s',
+      tabs,
+      moduleOpts,
+      search: s.search || '',
+      level: s.level || '',
+      module: s.module || '',
+      onSearch: (e) => this.setState({ search: e.target.value, page: 1 }),
+      onLevel: (e) => this.setState({ level: e.target.value, page: 1, expanded: null }),
+      onModule: (e) => this.setState({ module: e.target.value, page: 1, expanded: null }),
+      rows,
+      isEmpty: rows.length === 0,
+      emptyTitle: activeTab === 'open' && !hasFilter ? 'Sin errores pendientes' : 'Sin resultados',
+      emptyBody: activeTab === 'open' && !hasFilter ? 'No hay errores sin resolver. El sistema está sano.' : 'Ninguna entrada coincide con estos filtros.',
+      allSel,
+      toggleAll: () => this.setState((st) => {
+        const set = new Set(st.selected || []);
+        if (allSel) pageIds.forEach((id) => set.delete(id)); else pageIds.forEach((id) => set.add(id));
+        return { selected: [...set] };
+      }),
+      showPagination: totalPages > 1,
+      rangeLabel: from + '–' + to + ' de ' + total,
+      pages,
+      goPrev: () => this.setState({ page: Math.max(1, page - 1), expanded: null }),
+      goNext: () => this.setState({ page: Math.min(totalPages, page + 1), expanded: null }),
+      prevStyle: arrowBtn(page <= 1),
+      nextStyle: arrowBtn(page >= totalPages),
+      hasSelection: selected.length > 0,
+      selectedCount: selected.length,
+      selPlural: selected.length === 1 ? '' : 's',
+      resolveSelected: () => { const ids = this.state.selected || []; this.setState((st) => { const re = Object.assign({}, st.resolvedExtra); const ro = Object.assign({}, st.reopened); ids.forEach((id) => { re[id] = true; ro[id] = false; }); return { resolvedExtra: re, reopened: ro, selected: [] }; }); this.flash(ids.length + (ids.length === 1 ? ' entrada resuelta' : ' entradas resueltas')); },
+      clearSel: () => this.setState({ selected: [] }),
+      toast: s.toast,
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

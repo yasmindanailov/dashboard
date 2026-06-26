@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  input[type=checkbox] { accent-color: #3B82F6; cursor: pointer; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+    <div>
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 5px">Facturación</h1>
+      <p style="font-size:13.5px;color:#64748B;margin:0">{{ subtitle }}</p>
+    </div>
+    <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease,border-color .15s ease" style-hover="background:#F8FAFC;border-color:#CBD5E1">
+      <svg width="16" height="16" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      Exportar
+    </button>
+  </div>
+
+  <div style="display:flex;align-items:flex-end;gap:2px;border-bottom:1px solid #E8EDF4;margin-bottom:18px;overflow-x:auto">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+      <button type="button" onClick="{{ t.go }}" style="{{ t.style }}" style-hover="{{ t.hover }}">
+        <span>{{ t.label }}</span>
+        <span style="{{ t.countStyle }}">{{ t.count }}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:240px">
+      <svg width="17" height="17" viewBox="0 0 24 24" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" value="{{ search }}" onInput="{{ onSearch }}" placeholder="Buscar por número o cliente..." style="width:100%;height:40px;padding:0 14px 0 38px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13.5px;font-family:inherit;color:#0F172A;outline:none;transition:border-color .15s ease" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)">
+    </div>
+    <div style="position:relative">
+      <select value="{{ period }}" onChange="{{ onPeriod }}" style="height:40px;padding:0 34px 0 13px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none" style-focus="border-color:#3B82F6">
+        <option value="">Todo el periodo</option>
+        <option value="month">Este mes</option>
+        <option value="quarter">Este trimestre</option>
+        <option value="year">Este año</option>
+      </select>
+      <svg width="15" height="15" viewBox="0 0 24 24" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:#FBFCFD">
+          <th style="width:44px;padding:12px 0 12px 18px;text-align:left"><input type="checkbox" checked="{{ allSel }}" onChange="{{ toggleAll }}" style="width:15px;height:15px"></th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Número</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Cliente</th>
+          <th style="padding:12px 16px;text-align:right;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Total</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Estado</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Emitida</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Vence</th>
+          <th style="width:44px;padding:12px 18px 12px 0"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+          <tr onClick="{{ r.go }}" style="{{ r.rowStyle }}" style-hover="background:#FBFCFF">
+            <td style="padding:0 0 0 18px" onClick="{{ r.stop }}"><input type="checkbox" checked="{{ r.selected }}" onChange="{{ r.toggle }}" style="width:15px;height:15px"></td>
+            <td style="padding:13px 16px"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;font-weight:600;color:#0F172A;letter-spacing:0.01em">{{ r.number }}</span></td>
+            <td style="padding:13px 16px">
+              <div style="display:flex;align-items:center;gap:11px;min-width:0">
+                <span style="{{ r.avatarStyle }}">{{ r.initials }}</span>
+                <span style="font-size:13.5px;font-weight:500;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.client }}</span>
+              </div>
+            </td>
+            <td style="padding:13px 16px;text-align:right;font-size:13.5px;font-weight:600;color:#0F172A;white-space:nowrap;font-variant-numeric:tabular-nums">{{ r.total }}</td>
+            <td style="padding:13px 16px"><span style="{{ r.statusStyle }}"><span style="{{ r.dotStyle }}"></span>{{ r.statusLabel }}</span></td>
+            <td style="padding:13px 16px;font-size:12.5px;color:#64748B;white-space:nowrap">{{ r.emitida }}</td>
+            <td style="padding:13px 16px;font-size:12.5px;color:{{ r.dueColor }};white-space:nowrap">{{ r.vence }}</td>
+            <td style="padding:13px 18px 13px 0;text-align:right" onClick="{{ r.stop }}">
+              <button type="button" onClick="{{ noop }}" title="Acciones" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:none;background:transparent;color:#94A3B8;cursor:pointer;font-family:inherit" style-hover="background:#F1F5F9;color:#475569">
+                <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+              </button>
+            </td>
+          </tr>
+        </sc-for>
+      </tbody>
+    </table>
+
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:56px 24px;text-align:center">
+        <svg width="40" height="40" viewBox="0 0 24 24" style="color:#CBD5E1;margin:0 auto 14px"><rect x="1" y="4" width="22" height="16" rx="2.5"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+        <div style="font-size:15px;font-weight:600;color:#0F172A;margin-bottom:5px">{{ emptyTitle }}</div>
+        <div style="font-size:13px;color:#94A3B8">{{ emptyBody }}</div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showPagination }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;flex-wrap:wrap">
+      <span style="font-size:12.5px;color:#94A3B8">{{ rangeLabel }}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button type="button" onClick="{{ goPrev }}" style="{{ prevStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+        <sc-for list="{{ pages }}" as="p" hint-placeholder-count="2">
+          <button type="button" onClick="{{ p.go }}" style="{{ p.style }}">{{ p.n }}</button>
+        </sc-for>
+        <button type="button" onClick="{{ goNext }}" style="{{ nextStyle }}"><svg width="16" height="16" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;padding:10px 12px 10px 18px;background:#0F172A;border-radius:14px;box-shadow:0 12px 40px rgba(15,23,42,0.28)">
+      <span style="font-size:13px;font-weight:600;color:#fff">{{ selectedCount }} seleccionada{{ selPlural }}</span>
+      <div style="width:1px;height:20px;background:rgba(255,255,255,0.18)"></div>
+      <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;border:none;background:#10B981;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#0EA371">
+        <svg width="15" height="15" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        Marcar pagadas
+      </button>
+      <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;border:none;background:rgba(255,255,255,0.10);color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:rgba(255,255,255,0.18)">
+        <svg width="15" height="15" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Exportar
+      </button>
+      <button type="button" onClick="{{ clearSel }}" title="Quitar selección" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:none;background:transparent;color:#94A3B8;cursor:pointer;font-family:inherit" style-hover="background:rgba(255,255,255,0.08);color:#fff">
+        <svg width="16" height="16" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 860 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = { search: '', tab: '', period: '', page: 1, selected: [] };
+
+  data() {
+    return [
+      { id: 'i0', number: 'INV-00143', client: 'Sara Gómez', initials: 'SG', total: 360.00, status: 'draft', emitida: '23 jun 2026', vence: '—' },
+      { id: 'i1', number: 'INV-00142', client: 'Estudio Marfil', initials: 'EM', total: 1290.00, status: 'pending', emitida: '20 jun 2026', vence: '4 jul 2026' },
+      { id: 'i2', number: 'INV-00141', client: 'Carla Ruiz', initials: 'CR', total: 49.90, status: 'paid', emitida: '18 jun 2026', vence: '2 jul 2026' },
+      { id: 'i3', number: 'INV-00140', client: 'Diego Sanz', initials: 'DS', total: 89.00, status: 'overdue', emitida: '1 jun 2026', vence: '15 jun 2026' },
+      { id: 'i4', number: 'INV-00139', client: 'Núria Pons', initials: 'NP', total: 320.00, status: 'paid', emitida: '14 jun 2026', vence: '28 jun 2026' },
+      { id: 'i5', number: 'INV-00138', client: 'Clínica Dental Sur', initials: 'CD', total: 540.00, status: 'pending', emitida: '12 jun 2026', vence: '26 jun 2026' },
+      { id: 'i6', number: 'INV-00137', client: 'Tomás Gil', initials: 'TG', total: 149.00, status: 'overdue', emitida: '28 may 2026', vence: '11 jun 2026' },
+      { id: 'i7', number: 'INV-00136', client: 'Sara Gómez', initials: 'SG', total: 79.00, status: 'paid', emitida: '10 jun 2026', vence: '24 jun 2026' },
+      { id: 'i8', number: 'INV-00135', client: 'Track Media', initials: 'ET', total: 980.00, status: 'paid', emitida: '7 jun 2026', vence: '21 jun 2026' },
+      { id: 'i9', number: 'INV-00134', client: 'Pau Bonet', initials: 'PB', total: 49.90, status: 'pending', emitida: '5 jun 2026', vence: '19 jun 2026' },
+      { id: 'i10', number: 'INV-00133', client: 'Inmobiliaria Vela', initials: 'IV', total: 1450.00, status: 'overdue', emitida: '20 may 2026', vence: '3 jun 2026' },
+      { id: 'i11', number: 'INV-00132', client: 'Laura Méndez', initials: 'LM', total: 49.90, status: 'paid', emitida: '3 jun 2026', vence: '17 jun 2026' },
+      { id: 'i12', number: 'INV-00131', client: 'Hugo Serra', initials: 'HS', total: 230.00, status: 'cancelled', emitida: '1 jun 2026', vence: '15 jun 2026' },
+      { id: 'i13', number: 'INV-00130', client: 'Carla Ruiz', initials: 'CR', total: 120.00, status: 'paid', emitida: '28 may 2026', vence: '11 jun 2026' },
+      { id: 'i14', number: 'INV-00129', client: 'Óscar Ramos', initials: 'OR', total: 89.00, status: 'refunded', emitida: '24 may 2026', vence: '7 jun 2026' },
+    ];
+  }
+
+  euro(n) {
+    const p = Number(n).toFixed(2).split('.');
+    p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return '€' + p[0] + ',' + p[1];
+  }
+
+  renderVals() {
+    const PAL = [['#EFF4FF', '#3B82F6'], ['#E8F7F1', '#0E8C5F'], ['#F1ECFB', '#7C5CCB'], ['#FCF3E1', '#B27A12'], ['#E9F0FB', '#475569'], ['#FCECEC', '#D14343']];
+    const STATUS = {
+      draft: { label: 'Borrador', bg: '#F1F5F9', fg: '#64748B', dot: '#CBD5E1' },
+      pending: { label: 'Pendiente', bg: '#FCF3E1', fg: '#B27A12', dot: '#E0A422' },
+      paid: { label: 'Pagada', bg: '#E8F7F1', fg: '#0E8C5F', dot: '#10B981' },
+      overdue: { label: 'Vencida', bg: '#FCECEC', fg: '#D14343', dot: '#EF4444' },
+      cancelled: { label: 'Cancelada', bg: '#F1F5F9', fg: '#64748B', dot: '#94A3B8' },
+      refunded: { label: 'Reembolsada', bg: '#F1ECFB', fg: '#7C5CCB', dot: '#9B7FD4' },
+    };
+    const all = this.data();
+    const cnt = (st) => all.filter((i) => i.status === st).length;
+    const counts = {
+      '': all.length,
+      draft: cnt('draft'),
+      pending: cnt('pending'),
+      paid: cnt('paid'),
+      overdue: cnt('overdue'),
+      cancelled: cnt('cancelled'),
+    };
+    const tabDefs = [
+      { value: '', label: 'Todas', tone: 'neutral' },
+      { value: 'draft', label: 'Borradores', tone: 'neutral' },
+      { value: 'pending', label: 'Pendientes', tone: 'warning' },
+      { value: 'paid', label: 'Pagadas', tone: 'success' },
+      { value: 'overdue', label: 'Vencidas', tone: 'danger' },
+      { value: 'cancelled', label: 'Canceladas', tone: 'neutral' },
+    ];
+    const TONE = { neutral: { bg: '#EEF1F5', fg: '#64748B' }, warning: { bg: '#FCF3E1', fg: '#B27A12' }, success: { bg: '#E8F7F1', fg: '#0E8C5F' }, danger: { bg: '#FCECEC', fg: '#D14343' } };
+    const activeTab = this.state.tab || '';
+
+    const tabs = tabDefs.map((t) => {
+      const isA = t.value === activeTab;
+      const tn = TONE[t.tone];
+      const chipBg = isA ? tn.bg : '#F1F5F9';
+      const chipFg = isA ? tn.fg : '#94A3B8';
+      return {
+        label: t.label,
+        count: String(counts[t.value] || 0),
+        style: 'display:flex;align-items:center;gap:8px;padding:11px 14px 12px;border:none;background:transparent;font-family:inherit;font-size:13.5px;cursor:pointer;white-space:nowrap;position:relative;color:' + (isA ? '#0F172A' : '#64748B') + ';font-weight:' + (isA ? '600' : '500') + ';box-shadow:' + (isA ? 'inset 0 -2px 0 #3B82F6' : 'none') + ';transition:color .15s ease;',
+        hover: isA ? '' : 'color:#0F172A;',
+        countStyle: 'min-width:20px;height:20px;padding:0 6px;border-radius:9999px;background:' + chipBg + ';color:' + chipFg + ';font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;',
+        go: () => this.setState({ tab: t.value, page: 1 }),
+      };
+    });
+
+    const q = (this.state.search || '').toLowerCase().trim();
+    const filtered = all.filter((i) =>
+      (!activeTab || i.status === activeTab) &&
+      (!q || i.number.toLowerCase().includes(q) || i.client.toLowerCase().includes(q))
+    );
+    const limit = 10;
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const page = Math.min(this.state.page || 1, totalPages);
+    const start = (page - 1) * limit;
+    const pageItems = filtered.slice(start, start + limit);
+    const selected = this.state.selected || [];
+
+    const avatar = (pal) => 'width:30px;height:30px;border-radius:9999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;background:' + pal[0] + ';color:' + pal[1] + ';';
+
+    const rows = pageItems.map((i) => {
+      const pal = PAL[i.client.charCodeAt(0) % PAL.length];
+      const st = STATUS[i.status] || STATUS.cancelled;
+      const isSel = selected.includes(i.id);
+      return {
+        id: i.id, number: i.number, client: i.client, initials: i.initials,
+        total: this.euro(i.total),
+        statusLabel: st.label,
+        statusStyle: 'display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:9999px;font-size:11.5px;font-weight:600;background:' + st.bg + ';color:' + st.fg + ';',
+        dotStyle: 'width:6px;height:6px;border-radius:9999px;flex-shrink:0;background:' + st.dot + ';',
+        emitida: i.emitida, vence: i.vence,
+        dueColor: i.status === 'overdue' ? '#D14343' : '#94A3B8',
+        avatarStyle: avatar(pal),
+        selected: isSel,
+        rowStyle: 'border-top:1px solid #F4F6F9;cursor:pointer;transition:background .12s ease;' + (isSel ? 'background:#F6F9FF;' : ''),
+        toggle: () => this.setState((s) => {
+          const set = new Set(s.selected || []);
+          if (set.has(i.id)) set.delete(i.id); else set.add(i.id);
+          return { selected: [...set] };
+        }),
+        stop: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+        go: () => { if (this.props.navigate) this.props.navigate('invoice-detail'); },
+      };
+    });
+
+    const pageIds = pageItems.map((i) => i.id);
+    const allSel = pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
+    const from = total === 0 ? 0 : start + 1;
+    const to = Math.min(start + limit, total);
+    const pageBtn = (active) => 'min-width:34px;height:34px;padding:0 8px;border-radius:9px;border:1px solid ' + (active ? '#3B82F6' : '#E2E8F0') + ';background:' + (active ? '#3B82F6' : '#fff') + ';color:' + (active ? '#fff' : '#475569') + ';font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;';
+    const arrowBtn = (disabled) => 'display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:' + (disabled ? '#CBD5E1' : '#475569') + ';cursor:' + (disabled ? 'default' : 'pointer') + ';font-family:inherit;';
+    const pages = Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => ({
+      n: String(n), style: pageBtn(n === page), go: () => this.setState({ page: n }),
+    }));
+
+    const outstanding = all.filter((i) => i.status === 'pending' || i.status === 'overdue').reduce((s, i) => s + i.total, 0);
+
+    return {
+      subtitle: (q || activeTab) ? (total + (total === 1 ? ' factura' : ' facturas')) : ('Gestión de facturas y cobros · ' + this.euro(outstanding) + ' pendiente de cobro'),
+      tabs,
+      search: this.state.search || '',
+      period: this.state.period || '',
+      onSearch: (e) => this.setState({ search: e.target.value, page: 1 }),
+      onPeriod: (e) => this.setState({ period: e.target.value, page: 1 }),
+      rows,
+      isEmpty: rows.length === 0,
+      emptyTitle: q ? 'Sin resultados' : 'Sin facturas',
+      emptyBody: q ? 'No se encontraron facturas con esos filtros.' : 'Las facturas se generan al crear servicios.',
+      allSel,
+      toggleAll: () => this.setState((s) => {
+        const set = new Set(s.selected || []);
+        if (allSel) pageIds.forEach((id) => set.delete(id));
+        else pageIds.forEach((id) => set.add(id));
+        return { selected: [...set] };
+      }),
+      showPagination: totalPages > 1,
+      rangeLabel: from + '–' + to + ' de ' + total,
+      pages,
+      goPrev: () => this.setState({ page: Math.max(1, page - 1) }),
+      goNext: () => this.setState({ page: Math.min(totalPages, page + 1) }),
+      prevStyle: arrowBtn(page <= 1),
+      nextStyle: arrowBtn(page >= totalPages),
+      hasSelection: selected.length > 0,
+      selectedCount: selected.length,
+      selPlural: selected.length === 1 ? '' : 's',
+      clearSel: () => this.setState({ selected: [] }),
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

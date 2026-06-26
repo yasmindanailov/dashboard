@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  textarea, select, input { font-family: inherit; }
+  input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  @keyframes cfgRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <!-- PAGE HEADER -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:26px">
+    <div>
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.015em;margin:0;color:#0F172A">Configuración del sistema</h1>
+      <p style="font-size:13.5px;color:#64748B;margin:7px 0 0;max-width:560px;line-height:1.55;text-wrap:pretty">Ajustes globales de la plataforma. Se guardan en base de datos y aplican sin necesidad de redeploy.</p>
+    </div>
+    <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:9999px;background:#F1ECFB;color:#6D4FBF;font-size:11.5px;font-weight:600;flex-shrink:0;margin-top:4px">
+      <svg width="13" height="13" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+      Solo superadmin · permiso Setting
+    </span>
+  </div>
+
+  <!-- RAIL + PANEL -->
+  <div style="display:grid;grid-template-columns:228px 1fr;gap:30px;align-items:start">
+
+    <!-- RAIL -->
+    <nav style="position:sticky;top:24px;display:flex;flex-direction:column;gap:3px">
+      <sc-for list="{{ cats }}" as="c" hint-placeholder-count="5">
+        <button type="button" onClick="{{ c.go }}" style="{{ c.style }}" style-hover="{{ c.hover }}">
+          <span style="{{ c.iconWrap }}"><svg width="16" height="16" viewBox="0 0 24 24"><use href="{{ c.icon }}"></use></svg></span>
+          <span style="flex:1;min-width:0;text-align:left">{{ c.label }}</span>
+          <sc-if value="{{ c.dirty }}" hint-placeholder-val="{{ false }}"><span style="width:7px;height:7px;border-radius:9999px;background:#E0A422;flex-shrink:0"></span></sc-if>
+        </button>
+      </sc-for>
+      <div style="height:1px;background:#EEF1F5;margin:10px 8px"></div>
+      <div style="padding:0 10px;font-size:11px;color:#B6BBC4;line-height:1.5">aelium · v15C.II<br>Entorno producción</div>
+    </nav>
+
+    <!-- PANEL -->
+    <div style="min-width:0;display:flex;flex-direction:column;gap:16px">
+
+      <!-- SECTION HEADER -->
+      <div style="display:flex;align-items:center;gap:13px;padding-bottom:2px">
+        <span style="{{ secIconWrap }}"><svg width="20" height="20" viewBox="0 0 24 24"><use href="{{ secIcon }}"></use></svg></span>
+        <div>
+          <h2 style="font-size:17px;font-weight:700;color:#0F172A;margin:0">{{ secTitle }}</h2>
+          <p style="font-size:12.5px;color:#94A3B8;margin:3px 0 0;line-height:1.45">{{ secDesc }}</p>
+        </div>
+      </div>
+
+      <!-- NUMERIC SETTINGS (security / notifications / operativa) -->
+      <sc-if value="{{ showRows }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);overflow:hidden">
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="2">
+            <div style="{{ r.rowStyle }}">
+              <div style="flex:1;min-width:0;padding-right:18px">
+                <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+                  <span style="font-size:14px;font-weight:600;color:#0F172A">{{ r.label }}</span>
+                  <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#7A8290;background:#F4F6F9;padding:2px 7px;border-radius:6px">{{ r.key }}</code>
+                  <sc-if value="{{ r.dirty }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#B27A12"><span style="width:6px;height:6px;border-radius:9999px;background:#E0A422"></span>Modificado</span></sc-if>
+                </div>
+                <p style="font-size:12.5px;color:#64748B;margin:7px 0 0;line-height:1.55;max-width:520px;text-wrap:pretty">{{ r.desc }}</p>
+                <div style="font-size:11.5px;color:#A8B0BC;margin-top:8px">{{ r.defLabel }}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+                <div style="display:flex;align-items:center;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;background:#fff">
+                  <button type="button" onClick="{{ r.dec }}" disabled="{{ r.decDisabled }}" style="{{ r.decStyle }}" style-hover="{{ r.stepHover }}"><svg width="15" height="15" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                  <input type="number" value="{{ r.value }}" onInput="{{ r.onInput }}" style="width:58px;height:38px;border:none;border-left:1px solid #EEF1F5;border-right:1px solid #EEF1F5;text-align:center;font-size:14.5px;font-weight:700;color:#0F172A;outline:none;font-variant-numeric:tabular-nums;-moz-appearance:textfield" style-focus="background:#F8FBFF">
+                  <button type="button" onClick="{{ r.inc }}" disabled="{{ r.incDisabled }}" style="{{ r.incStyle }}" style-hover="{{ r.stepHover }}"><svg width="15" height="15" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                </div>
+                <span style="font-size:12.5px;color:#94A3B8;width:52px">{{ r.unit }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- NOTIFICATIONS: templates link -->
+      <sc-if value="{{ isNotif }}" hint-placeholder-val="{{ false }}">
+        <button type="button" onClick="{{ goTemplates }}" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:18px 20px;cursor:pointer;font-family:inherit" style-hover="border-color:#CBD5E1;background:#FBFCFE">
+          <span style="width:42px;height:42px;border-radius:11px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"></rect><polyline points="22 6 12 13 2 6"></polyline></svg></span>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-size:14px;font-weight:600;color:#0F172A">Plantillas de notificación</span>
+            <span style="display:block;font-size:12.5px;color:#64748B;margin-top:3px;line-height:1.45">13 plantillas activas para email y campana. Edita el asunto y el cuerpo con previsualización en línea.</span>
+          </span>
+          <svg width="18" height="18" viewBox="0 0 24 24" style="color:#CBD5E1;flex-shrink:0"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </sc-if>
+
+      <!-- LEGAL -->
+      <sc-if value="{{ isLegal }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:22px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px">
+            <h3 style="font-size:14px;font-weight:700;color:#0F172A;margin:0">Subprocesadores</h3>
+            <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#7A8290;background:#F4F6F9;padding:2px 7px;border-radius:6px">settings.legal.subprocessors</code>
+          </div>
+          <p style="font-size:12.5px;color:#64748B;margin:0 0 16px;line-height:1.55;max-width:560px">Terceros con acceso a datos personales. Se publican al cliente en el portal de transparencia (RGPD). Todos cuentan con contrato DPA.</p>
+          <div style="border:1px solid #EEF1F5;border-radius:12px;overflow:hidden">
+            <sc-for list="{{ subprocessors }}" as="s" hint-placeholder-count="4">
+              <div style="{{ s.rowStyle }}">
+                <span style="width:34px;height:34px;border-radius:9px;background:#F4F6F9;color:#64748B;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700">{{ s.initials }}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;font-weight:600;color:#0F172A">{{ s.name }}</div>
+                  <div style="font-size:12px;color:#94A3B8;margin-top:1px">{{ s.purpose }}</div>
+                </div>
+                <span style="font-size:11px;color:#A8B0BC">{{ s.region }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <button type="button" onClick="{{ noop }}" style="display:inline-flex;align-items:center;gap:7px;margin-top:14px;padding:8px 13px;border-radius:9px;border:1px dashed #CBD5E1;background:#fff;color:#64748B;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="border-color:#94A3B8;color:#475569"><svg width="14" height="14" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Añadir subprocesador</button>
+        </div>
+
+        <sc-for list="{{ legalDocs }}" as="d" hint-placeholder-count="2">
+          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:20px 22px">
+            <div style="display:flex;align-items:center;gap:14px">
+              <span style="width:42px;height:42px;border-radius:11px;background:#F4F6F9;color:#64748B;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></span>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap"><span style="font-size:14px;font-weight:600;color:#0F172A">{{ d.title }}</span><code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#7A8290;background:#F4F6F9;padding:2px 7px;border-radius:6px">{{ d.key }}</code></div>
+                <div style="font-size:12px;color:#94A3B8;margin-top:4px">Última edición {{ d.edited }}</div>
+              </div>
+              <button type="button" onClick="{{ d.edit }}" style="padding:8px 15px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0" style-hover="background:#F8FAFC;border-color:#CBD5E1">{{ d.btnLabel }}</button>
+            </div>
+            <sc-if value="{{ d.open }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:16px;animation:cfgRise .18s ease">
+                <textarea value="{{ d.body }}" onInput="{{ d.onInput }}" rows="6" style="width:100%;border:1px solid #E2E8F0;border-radius:11px;padding:13px 14px;font-size:13px;color:#0F172A;outline:none;resize:vertical;line-height:1.6" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.10)"></textarea>
+                <div style="display:flex;align-items:center;justify-content:flex-end;gap:9px;margin-top:11px">
+                  <button type="button" onClick="{{ d.cancel }}" style="padding:8px 15px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFC">Cancelar</button>
+                  <button type="button" onClick="{{ d.save }}" style="padding:8px 16px;border-radius:9px;border:none;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#2563EB">Guardar documento</button>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </sc-if>
+
+      <!-- INTEGRACIONES -->
+      <sc-if value="{{ isIntegr }}" hint-placeholder-val="{{ false }}">
+        <button type="button" onClick="{{ goPlugins }}" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:18px 20px;cursor:pointer;font-family:inherit" style-hover="border-color:#CBD5E1;background:#FBFCFE">
+          <span style="width:42px;height:42px;border-radius:11px;background:#E8F7F1;color:#0E8C5F;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M22 2 L12 12"></path><path d="M16 2h6v6"></path><path d="M9 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"></path></svg></span>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-size:14px;font-weight:600;color:#0F172A">Gestionar plugins</span>
+            <span style="display:block;font-size:12.5px;color:#64748B;margin-top:3px;line-height:1.45">La configuración de cada integración (claves, endpoints, regiones) vive en el detalle de su plugin.</span>
+          </span>
+          <svg width="18" height="18" viewBox="0 0 24 24" style="color:#CBD5E1;flex-shrink:0"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 20px;border-bottom:1px solid #F1F5F9">
+            <span style="font-size:13px;font-weight:700;color:#0F172A">Estado de las integraciones</span>
+            <span style="font-size:11.5px;color:#94A3B8">Circuit breaker en vivo</span>
+          </div>
+          <sc-for list="{{ plugins }}" as="p" hint-placeholder-count="5">
+            <div style="{{ p.rowStyle }}">
+              <span style="width:36px;height:36px;border-radius:9px;background:#F4F6F9;color:#475569;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700">{{ p.initials }}</span>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap"><span style="font-size:13.5px;font-weight:600;color:#0F172A">{{ p.name }}</span><code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#7A8290;background:#F4F6F9;padding:2px 7px;border-radius:6px">{{ p.slug }}</code></div>
+                <div style="font-size:12px;color:#94A3B8;margin-top:2px">{{ p.role }}</div>
+              </div>
+              <span style="{{ p.healthStyle }}"><span style="{{ p.healthDot }}"></span>{{ p.health }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+
+  <!-- STICKY SAVE BAR -->
+  <sc-if value="{{ dirty }}" hint-placeholder-val="{{ false }}">
+    <div style="position:sticky;bottom:18px;margin-top:22px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:#0F172A;border-radius:14px;box-shadow:0 16px 40px rgba(15,23,42,0.28);padding:13px 16px 13px 20px;animation:cfgRise .2s ease">
+      <div style="display:flex;align-items:center;gap:11px;min-width:0">
+        <span style="width:30px;height:30px;border-radius:9px;background:rgba(224,164,34,0.18);color:#F0B83E;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></span>
+        <span style="font-size:13px;font-weight:600;color:#fff">{{ dirtyLabel }}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;flex-shrink:0">
+        <button type="button" onClick="{{ discard }}" style="height:38px;padding:0 15px;border-radius:9px;border:1px solid rgba(255,255,255,0.18);background:transparent;color:#CBD5E1;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:rgba(255,255,255,0.08);color:#fff">Descartar</button>
+        <button type="button" onClick="{{ save }}" style="height:38px;padding:0 18px;border-radius:9px;border:none;background:#fff;color:#0F172A;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer" style-hover="background:#F1F5F9">Guardar cambios</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- TOAST -->
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:10px;background:#0E8C5F;color:#fff;border-radius:11px;box-shadow:0 14px 36px rgba(14,140,95,0.34);padding:12px 18px;font-size:13px;font-weight:600;animation:cfgRise .2s ease">
+      <svg width="17" height="17" viewBox="0 0 24 24" style="stroke-width:2.4"><polyline points="20 6 9 17 4 12"></polyline></svg>{{ toast }}
+    </div>
+  </sc-if>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="cf-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></symbol>
+    <symbol id="cf-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></symbol>
+    <symbol id="cf-sliders" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></symbol>
+    <symbol id="cf-scale" viewBox="0 0 24 24"><path d="M12 3v18"></path><path d="M5 7h14"></path><path d="M5 7l-3 6a3 3 0 0 0 6 0z"></path><path d="M19 7l-3 6a3 3 0 0 0 6 0z"></path><path d="M7 21h10"></path></symbol>
+    <symbol id="cf-plug" viewBox="0 0 24 24"><path d="M22 2 L12 12"></path><path d="M16 2h6v6"></path><path d="M9 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"></path></symbol>
+  </defs></svg>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 1040 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; },
+  &quot;seccionInicial&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Seguridad&quot;, &quot;options&quot;: [&quot;Seguridad&quot;, &quot;Notificaciones&quot;, &quot;Operativa&quot;, &quot;Legal y RGPD&quot;, &quot;Integraciones&quot;], &quot;tsType&quot;: &quot;string&quot; }
+}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const SEC = { 'Seguridad': 'security', 'Notificaciones': 'notifications', 'Operativa': 'operativa', 'Legal y RGPD': 'legal', 'Integraciones': 'integraciones' };
+    this.SETTINGS = [
+      { sec: 'security', key: 'max_login_attempts', label: 'Intentos de acceso fallidos', desc: 'Intentos consecutivos fallidos antes de bloquear temporalmente la cuenta. Lo aplica el guard de login; el contador se reinicia con un acceso correcto.', unit: 'intentos', def: 5, min: 3, max: 10, step: 1 },
+      { sec: 'security', key: 'block_duration_minutes', label: 'Duración del bloqueo', desc: 'Minutos que la cuenta queda bloqueada tras agotar los intentos. Bloqueo temporal, no permanente: el usuario legítimo recupera el acceso sin intervención.', unit: 'min', def: 15, min: 5, max: 120, step: 5 },
+      { sec: 'notifications', key: 'notifications.unread_max_in_dropdown', label: 'No leídas en la campana', desc: 'Cuántas notificaciones sin leer devuelve el desplegable de la campana del topbar. El histórico completo no se ve afectado.', unit: 'items', def: 10, min: 5, max: 30, step: 1 },
+      { sec: 'notifications', key: 'notifications.retention_days', label: 'Retención de notificaciones leídas', desc: 'Días que se conservan las notificaciones internas ya leídas antes de que el cron de limpieza (2:00 AM) las elimine. Solo afecta al canal interno.', unit: 'días', def: 90, min: 30, max: 365, step: 30 },
+      { sec: 'operativa', key: 'support.maintenance_critical_threshold_days', label: 'Umbral de mantenimiento crítico', desc: 'Si un servicio cubierto por Support Inside lleva más de N días sin registro de mantenimiento, el cron diario alerta al superadmin.', unit: 'días', def: 60, min: 30, max: 180, step: 15 },
+    ];
+    const vals = {};
+    this.SETTINGS.forEach((s) => { vals[s.key] = s.def; });
+    this.state = {
+      section: SEC[props.seccionInicial] || 'security',
+      vals,
+      saved: Object.assign({}, vals),
+      editDoc: null,
+      docBodies: {
+        privacy: 'En Aelium tratamos tus datos personales conforme al RGPD y a la LOPDGDD. Esta política describe qué datos recogemos, con qué finalidad, durante cuánto tiempo los conservamos y cómo puedes ejercer tus derechos…',
+        tos: 'Las presentes condiciones regulan el acceso y uso de los servicios de hosting, dominios y soporte ofrecidos por Aelium. Al contratar cualquier servicio aceptas estas condiciones en su totalidad…',
+      },
+      toast: null,
+    };
+    this._toastT = null;
+  }
+
+  componentWillUnmount() { if (this._toastT) clearTimeout(this._toastT); }
+
+  setVal(key, raw) {
+    const cfg = this.SETTINGS.find((s) => s.key === key);
+    let v = parseInt(raw, 10);
+    if (isNaN(v)) v = cfg.min;
+    v = Math.max(cfg.min, Math.min(cfg.max, v));
+    this.setState((s) => ({ vals: Object.assign({}, s.vals, { [key]: v }) }));
+  }
+
+  flashToast(msg) {
+    if (this._toastT) clearTimeout(this._toastT);
+    this.setState({ toast: msg });
+    this._toastT = setTimeout(() => this.setState({ toast: null }), 2600);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const section = s.section;
+
+    const CATS = [
+      { id: 'security', label: 'Seguridad', icon: '#cf-shield' },
+      { id: 'notifications', label: 'Notificaciones', icon: '#cf-bell' },
+      { id: 'operativa', label: 'Operativa', icon: '#cf-sliders' },
+      { id: 'legal', label: 'Legal y RGPD', icon: '#cf-scale' },
+      { id: 'integraciones', label: 'Integraciones', icon: '#cf-plug' },
+    ];
+    const sectionDirty = (id) => this.SETTINGS.some((cfg) => cfg.sec === id && s.vals[cfg.key] !== s.saved[cfg.key]);
+    const cats = CATS.map((c) => {
+      const active = c.id === section;
+      return {
+        label: c.label, icon: c.icon, dirty: sectionDirty(c.id),
+        style: 'display:flex;align-items:center;gap:11px;width:100%;padding:9px 11px;border-radius:10px;border:none;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:background .12s ease;' + (active ? 'background:#EFF4FF;color:#2563EB;' : 'background:transparent;color:#475569;'),
+        hover: active ? '' : 'background:#F6F8FB;',
+        iconWrap: 'width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;' + (active ? 'background:#fff;color:#2563EB;' : 'background:#F1F5F9;color:#94A3B8;'),
+        go: () => this.setState({ section: c.id, editDoc: null }),
+      };
+    });
+
+    const SEC_META = {
+      security: { icon: '#cf-shield', bg: '#F1ECFB', fg: '#6D4FBF', title: 'Seguridad y acceso', desc: 'Protección de las cuentas frente a fuerza bruta (ADR-014).' },
+      notifications: { icon: '#cf-bell', bg: '#EFF4FF', fg: '#3B82F6', title: 'Notificaciones', desc: 'Comportamiento de la campana, retención y plantillas.' },
+      operativa: { icon: '#cf-sliders', bg: '#FCF3E1', fg: '#B27A12', title: 'Operativa', desc: 'Umbrales del mantenimiento y la operativa de Support Inside.' },
+      legal: { icon: '#cf-scale', bg: '#F4F6F9', fg: '#64748B', title: 'Legal y RGPD', desc: 'Subprocesadores y documentos legales publicados al cliente.' },
+      integraciones: { icon: '#cf-plug', bg: '#E8F7F1', fg: '#0E8C5F', title: 'Integraciones', desc: 'Estado de los plugins y enlace a su configuración.' },
+    };
+    const sm = SEC_META[section];
+
+    const rows = this.SETTINGS.filter((cfg) => cfg.sec === section).map((cfg, i, arr) => {
+      const val = s.vals[cfg.key];
+      const dirty = val !== s.saved[cfg.key];
+      const stepBtn = 'width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:none;background:#fff;color:#64748B;font-family:inherit;cursor:pointer;';
+      const decDisabled = val <= cfg.min;
+      const incDisabled = val >= cfg.max;
+      return {
+        label: cfg.label, key: cfg.key, desc: cfg.desc, unit: cfg.unit,
+        defLabel: 'Por defecto: ' + cfg.def + ' ' + cfg.unit,
+        value: String(val), dirty,
+        rowStyle: 'display:flex;align-items:center;padding:20px 22px;' + (i < arr.length - 1 ? 'border-bottom:1px solid #F1F5F9;' : ''),
+        dec: () => this.setVal(cfg.key, val - cfg.step),
+        inc: () => this.setVal(cfg.key, val + cfg.step),
+        onInput: (e) => this.setVal(cfg.key, e.target.value),
+        decDisabled, incDisabled,
+        decStyle: stepBtn + (decDisabled ? 'opacity:0.4;cursor:not-allowed;' : ''),
+        incStyle: stepBtn + (incDisabled ? 'opacity:0.4;cursor:not-allowed;' : ''),
+        stepHover: 'background:#F6F8FB;color:#0F172A;',
+      };
+    });
+
+    // Legal
+    const SUBP = [
+      { name: 'Stripe', purpose: 'Pagos y suscripciones', region: 'UE · EE. UU.', initials: 'St' },
+      { name: 'ResellerClub', purpose: 'Registro de dominios', region: 'India', initials: 'Rc' },
+      { name: 'Enhance', purpose: 'Hosting y panel de control', region: 'UE', initials: 'En' },
+      { name: 'Sentry', purpose: 'Monitorización de errores (opcional)', region: 'EE. UU.', initials: 'Se' },
+    ];
+    const subprocessors = SUBP.map((p, i, arr) => Object.assign({}, p, {
+      rowStyle: 'display:flex;align-items:center;gap:13px;padding:13px 15px;' + (i < arr.length - 1 ? 'border-bottom:1px solid #F4F6F9;' : ''),
+    }));
+
+    const DOCS = [
+      { id: 'privacy', title: 'Política de privacidad', key: 'settings.legal.privacy', edited: 'el 14 may 2026' },
+      { id: 'tos', title: 'Términos y condiciones', key: 'settings.legal.tos', edited: 'el 2 abr 2026' },
+    ];
+    const legalDocs = DOCS.map((d) => {
+      const open = s.editDoc === d.id;
+      return {
+        title: d.title, key: d.key, edited: d.edited, open,
+        btnLabel: open ? 'Editando…' : 'Editar',
+        body: s.docBodies[d.id],
+        edit: () => this.setState({ editDoc: open ? null : d.id }),
+        cancel: () => this.setState({ editDoc: null }),
+        save: () => { this.setState({ editDoc: null }); this.flashToast('Documento guardado'); },
+        onInput: (e) => { const v = e.target.value; this.setState((st) => ({ docBodies: Object.assign({}, st.docBodies, { [d.id]: v }) })); },
+      };
+    });
+
+    // Integraciones
+    const HEALTH = {
+      closed: { label: 'Operativo', bg: '#E8F7F1', fg: '#0E8C5F', dot: '#10B981' },
+      half_open: { label: 'Degradado', bg: '#FCF3E1', fg: '#B27A12', dot: '#E0A422' },
+      open: { label: 'Caído', bg: '#FCECEC', fg: '#C0453F', dot: '#E0524B' },
+    };
+    const PLUGS = [
+      { name: 'Stripe', slug: 'stripe', role: 'Pasarela de pagos', state: 'closed' },
+      { name: 'ResellerClub', slug: 'resellerclub', role: 'Registro de dominios', state: 'closed' },
+      { name: 'Enhance', slug: 'enhance', role: 'Aprovisionamiento de hosting', state: 'closed' },
+      { name: 'Plesk', slug: 'plesk', role: 'Hosting (legacy)', state: 'half_open' },
+      { name: 'Sentry', slug: 'sentry', role: 'Monitorización de errores', state: 'closed' },
+    ];
+    const plugins = PLUGS.map((p, i, arr) => {
+      const h = HEALTH[p.state];
+      return {
+        name: p.name, slug: p.slug, role: p.role,
+        initials: p.name.slice(0, 2),
+        health: h.label,
+        healthStyle: 'display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:9999px;font-size:11.5px;font-weight:600;flex-shrink:0;background:' + h.bg + ';color:' + h.fg + ';',
+        healthDot: 'width:6px;height:6px;border-radius:9999px;background:' + h.dot + ';',
+        rowStyle: 'display:flex;align-items:center;gap:13px;padding:14px 20px;' + (i < arr.length - 1 ? 'border-bottom:1px solid #F4F6F9;' : ''),
+      };
+    });
+
+    const changed = this.SETTINGS.filter((cfg) => s.vals[cfg.key] !== s.saved[cfg.key]).length;
+    const dirty = changed > 0;
+
+    return {
+      cats,
+      secIcon: sm.icon, secTitle: sm.title, secDesc: sm.desc,
+      secIconWrap: 'width:42px;height:42px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:' + sm.bg + ';color:' + sm.fg + ';',
+      showRows: rows.length > 0,
+      rows,
+      isNotif: section === 'notifications',
+      isLegal: section === 'legal',
+      isIntegr: section === 'integraciones',
+      subprocessors, legalDocs, plugins,
+      dirty,
+      dirtyLabel: changed === 1 ? '1 ajuste sin guardar' : changed + ' ajustes sin guardar',
+      save: () => { this.setState((st) => ({ saved: Object.assign({}, st.vals) })); this.flashToast('Configuración guardada'); },
+      discard: () => this.setState((st) => ({ vals: Object.assign({}, st.saved) })),
+      toast: s.toast,
+      goTemplates: () => { if (this.props.navigate) this.props.navigate('templates'); },
+      goPlugins: () => { if (this.props.navigate) this.props.navigate('plugins'); },
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

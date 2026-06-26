@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>@keyframes aelBlink{0%,60%,100%{opacity:.3}30%{opacity:1}}</style>
+</helmet>
+<div style="font-family:'DM Sans',system-ui,sans-serif;position:fixed;inset:0;z-index:120;overflow:hidden;pointer-events:none">
+
+  <!-- Scrim -->
+  <div onClick="{{ close }}" style="position:absolute;inset:0;background:rgba(15,23,42,0.18);transition:opacity .28s ease;opacity:{{ scrimOpacity }};pointer-events:{{ scrimPointer }}"></div>
+
+  <!-- Drawer -->
+  <aside style="position:absolute;top:0;right:0;height:100%;width:396px;max-width:92vw;display:flex;flex-direction:column;background:#FFFFFF;border-left:1px solid #E2E8F0;box-shadow:-12px 0 40px rgba(15,23,42,0.12);pointer-events:auto;transform:translateX({{ panelX }});transition:transform .3s cubic-bezier(0.32,0.72,0,1)">
+
+    <!-- ░ HEADER ░ -->
+    <div style="flex-shrink:0;padding:15px 16px;border-bottom:1px solid #EEF1F5;display:flex;align-items:center;gap:12px;background:linear-gradient(120deg,#F4F8FF 0%,#FFFFFF 72%)">
+      <sc-if value="{{ inConv }}" hint-placeholder-val="{{ false }}">
+        <button type="button" onClick="{{ back }}" title="Volver" style="flex-shrink:0;width:30px;height:30px;border-radius:9px;border:none;background:transparent;color:#64748B;cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:#EEF2F7">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+      </sc-if>
+      <div style="position:relative;flex-shrink:0">
+        <div style="width:42px;height:42px;border-radius:9999px;background:#3B82F6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;box-shadow:0 3px 10px rgba(59,130,246,0.26)">LF</div>
+        <span style="position:absolute;right:-1px;bottom:-1px;width:13px;height:13px;border-radius:9999px;background:#1AAE6F;border:3px solid #fff"></span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:14.5px;font-weight:700;color:#0F172A">Luis Ferrer</span>
+          <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#0E8C5F"><span style="width:6px;height:6px;border-radius:9999px;background:#1AAE6F;display:inline-block"></span>En línea</span>
+        </div>
+        <div style="font-size:11.5px;color:#64748B;margin-top:1px">{{ headerSub }}</div>
+      </div>
+      <button type="button" onClick="{{ close }}" title="Cerrar" style="flex-shrink:0;width:32px;height:32px;border-radius:9px;border:none;background:transparent;color:#94A3B8;cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:#F1F5F9;color:#64748B">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+
+    <!-- ░ HOME ░ -->
+    <sc-if value="{{ inHome }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;overflow-y:auto;background:#FBFCFE">
+
+        <!-- Welcome + start -->
+        <div style="padding:22px 18px 20px;background:linear-gradient(160deg,#EFF4FF 0%,#FBFCFE 88%);border-bottom:1px solid #EEF1F5">
+          <div style="font-size:18px;font-weight:700;letter-spacing:-0.01em;color:#0F172A;line-height:1.35">Hola Sara.<br>¿En qué te echamos una mano?</div>
+          <div style="font-size:13px;color:#475569;margin-top:8px;line-height:1.5">Tu web, tu correo o tus dominios. Te responde Luis, tu técnico — normalmente en menos de 30 min.</div>
+          <button type="button" onClick="{{ startNew }}" style="width:100%;margin-top:16px;padding:13px;border-radius:12px;border:none;background:#3B82F6;color:#fff;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;box-shadow:0 4px 14px rgba(59,130,246,0.28)" style-hover="background:#2563EB">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            Empezar conversación
+          </button>
+        </div>
+
+        <!-- Recent sessions -->
+        <div style="padding:18px 18px 12px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#94A3B8;margin-bottom:11px">Conversaciones recientes</div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="2">
+              <button type="button" onClick="{{ s.onOpen }}" style="display:flex;align-items:flex-start;gap:11px;width:100%;padding:13px 14px;border:1px solid #E7ECF2;border-radius:13px;background:#fff;cursor:pointer;text-align:left;font-family:inherit;transition:border-color .15s ease,box-shadow .15s ease" style-hover="border-color:#CFE0FA;box-shadow:0 3px 10px rgba(15,23,42,0.05)">
+                <span style="width:34px;height:34px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:{{ s.iconBg }};color:{{ s.iconColor }}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="{{ s.chatDisplay }}"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="{{ s.waDisplay }}"><path d="M21 11.5a8.38 8.38 0 0 1-9 8.4 8.5 8.5 0 0 1-3.9-.9L3 20l1.1-3.1A8.38 8.38 0 0 1 3.5 11.5a8.5 8.5 0 0 1 17 0z"></path></svg>
+                </span>
+                <span style="flex:1;min-width:0">
+                  <span style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span style="font-size:13.5px;font-weight:600;color:#0F172A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.title }}</span>
+                    <span style="font-size:11px;color:#A8B2C0;flex-shrink:0">{{ s.time }}</span>
+                  </span>
+                  <span style="display:block;font-size:12px;color:#94A3B8;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.preview }}</span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;margin-top:7px;font-size:11px;font-weight:600;color:{{ s.statusColor }}"><span style="width:6px;height:6px;border-radius:9999px;background:{{ s.statusDot }};display:inline-block"></span>{{ s.statusLabel }}</span>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex-shrink:0;padding:11px 16px;border-top:1px solid #EEF1F5;background:#fff;font-size:11px;color:#A8B2C0;text-align:center">Siempre una persona real. Nunca un bot.</div>
+    </sc-if>
+
+    <!-- ░ CONVERSATION ░ -->
+    <sc-if value="{{ inConv }}" hint-placeholder-val="{{ false }}">
+      <div style="flex-shrink:0;padding:8px 16px;background:#F8FAFF;border-bottom:1px solid #EEF1F5;display:flex;align-items:center;gap:7px">
+        <span style="width:6px;height:6px;border-radius:9999px;background:{{ channelDot }};display:inline-block;flex-shrink:0"></span>
+        <span style="font-size:11.5px;color:#475569;line-height:1.4">{{ convContext }}</span>
+      </div>
+
+      <div style="flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:11px;background:#FFFFFF">
+        <sc-for list="{{ rows }}" as="row" hint-placeholder-count="2">
+          <sc-if value="{{ row.isSystem }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ row.style }}">{{ row.body }}</div>
+          </sc-if>
+          <sc-if value="{{ row.isBubble }}" hint-placeholder-val="{{ true }}">
+            <div style="{{ row.wrap }}">
+              <div style="{{ row.style }}">{{ row.body }}</div>
+              <span style="{{ row.metaStyle }}">{{ row.meta }}</span>
+            </div>
+          </sc-if>
+        </sc-for>
+        <sc-if value="{{ typing }}" hint-placeholder-val="{{ false }}">
+          <div style="align-self:flex-start;display:flex;align-items:center;gap:5px;padding:11px 14px;border-radius:14px 14px 14px 4px;background:#F1F5F9">
+            <span style="width:6px;height:6px;border-radius:9999px;background:#94A3B8;display:inline-block;animation:aelBlink 1s ease-in-out infinite"></span>
+            <span style="width:6px;height:6px;border-radius:9999px;background:#94A3B8;display:inline-block;animation:aelBlink 1s ease-in-out .2s infinite"></span>
+            <span style="width:6px;height:6px;border-radius:9999px;background:#94A3B8;display:inline-block;animation:aelBlink 1s ease-in-out .4s infinite"></span>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="flex-shrink:0;padding:12px 14px;border-top:1px solid #EEF1F5;background:#FFFFFF">
+        <div style="display:flex;align-items:flex-end;gap:9px;padding:7px 7px 7px 14px;border:1px solid #DCE3EC;border-radius:14px;background:#FFFFFF">
+          <textarea rows="1" value="{{ input }}" onInput="{{ onInput }}" onKeyDown="{{ onKey }}" placeholder="Escribe a Luis…" style="flex:1;border:none;outline:none;resize:none;font-family:inherit;font-size:13.5px;color:#0F172A;background:transparent;line-height:1.5;max-height:96px;padding:4px 0"></textarea>
+          <button type="button" onClick="{{ onSend }}" title="Enviar" style="flex-shrink:0;width:38px;height:38px;border-radius:11px;border:none;background:{{ sendBg }};color:#fff;cursor:{{ sendCursor }};display:flex;align-items:center;justify-content:center;transition:background .15s ease">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          </button>
+        </div>
+      </div>
+    </sc-if>
+
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 396, &quot;height&quot;: 760 },
+  &quot;open&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot; },
+  &quot;channel&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;chat&quot;, &quot;options&quot;: [&quot;chat&quot;, &quot;whatsapp&quot;, &quot;call&quot;], &quot;tsType&quot;: &quot;string&quot; },
+  &quot;onClose&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;() =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = {
+    view: 'home',
+    activeId: null,
+    input: '',
+    typing: false,
+    sessions: this.seed(),
+  };
+
+  seed() {
+    return [
+      { id: 's1', channel: 'chat', title: 'Velocidad de la web', status: 'resolved', time: 'hace 1 h',
+        msgs: [
+          { kind: 'system', body: 'Ayer' },
+          { kind: 'client', body: 'Hola Luis, la web va lenta por las tardes.', meta: '17:58' },
+          { kind: 'agent', body: 'Lo miro ahora mismo, Sara.', meta: '18:01' },
+          { kind: 'agent', body: 'Era una copia mal programada que daba picos de CPU. La he movido a las 03:00. Ya va fina — cualquier cosa, aquí estoy.', meta: '18:14' },
+        ] },
+      { id: 's2', channel: 'whatsapp', title: 'Correos del formulario', status: 'resolved', time: 'ayer',
+        msgs: [
+          { kind: 'system', body: 'Por WhatsApp · al número de siempre' },
+          { kind: 'client', body: 'No me llegan los correos del formulario.', meta: '16:40' },
+          { kind: 'agent', body: 'Estaban cayendo en spam. Ya marqué el remitente como seguro desde el panel. No volverá a pasar.', meta: '16:47' },
+          { kind: 'client', body: '¡Gracias Luis!', meta: '16:49' },
+        ] },
+    ];
+  }
+
+  componentDidMount() {
+    if (this.props.open) this.handleOpen(this.props.channel);
+  }
+
+  componentDidUpdate(prev) {
+    if (this.props.open && !prev.open) this.handleOpen(this.props.channel);
+    else if (this.props.open && this.props.channel !== prev.channel && this.props.channel !== 'chat') {
+      this.startSession(this.props.channel);
+    }
+  }
+
+  handleOpen(channel) {
+    const ch = channel || 'chat';
+    if (ch === 'whatsapp' || ch === 'call') this.startSession(ch);
+    else this.setState({ view: 'home' });
+  }
+
+  startSession(channel) {
+    const id = 'live-' + Date.now();
+    const titles = { chat: 'Nueva conversación', whatsapp: 'Conversación por WhatsApp', call: 'Llamada con Luis' };
+    const intro = {
+      chat: [{ kind: 'agent', body: 'Hola Sara, soy Luis. Cuéntame, ¿qué necesitas?', meta: 'ahora' }],
+      whatsapp: [
+        { kind: 'system', body: 'Seguimos por WhatsApp · al número de siempre' },
+        { kind: 'agent', body: 'Hola Sara, te escribo también al móvil. ¿Qué necesitas?', meta: 'ahora' },
+      ],
+      call: [
+        { kind: 'system', body: 'Has pedido una llamada' },
+        { kind: 'agent', body: 'Te llamo en un momento, Sara. ¿Hay algún horario que te venga mejor?', meta: 'ahora' },
+      ],
+    };
+    const sess = { id, channel, title: titles[channel] || titles.chat, status: 'open', time: 'ahora', msgs: (intro[channel] || intro.chat).slice() };
+    this.setState((s) => ({ sessions: [sess, ...s.sessions], view: 'conv', activeId: id, input: '', typing: false }));
+  }
+
+  openSession(id) { this.setState({ view: 'conv', activeId: id, input: '', typing: false }); }
+
+  send() {
+    const text = this.state.input.trim();
+    if (!text) return;
+    const id = this.state.activeId;
+    this.setState((s) => ({
+      sessions: s.sessions.map((c) => c.id === id ? { ...c, status: 'open', msgs: [...c.msgs, { kind: 'client', body: text, meta: 'ahora' }] } : c),
+      input: '', typing: true,
+    }));
+    clearTimeout(this._t);
+    this._t = setTimeout(() => {
+      this.setState((s) => ({
+        typing: false,
+        sessions: s.sessions.map((c) => c.id === id ? { ...c, msgs: [...c.msgs, { kind: 'agent', body: 'Ya lo miro, Sara. Te digo algo enseguida.', meta: 'ahora' }] } : c),
+      }));
+    }, 1100);
+  }
+
+  renderVals() {
+    const open = this.props.open === true;
+    const view = this.state.view;
+    const inHome = view === 'home';
+    const inConv = view === 'conv';
+
+    const chMap = {
+      chat: { label: 'Chat', dot: '#3B82F6', iconBg: '#EFF4FF', iconColor: '#3B82F6', context: 'Chat en vivo · te responde Luis en minutos' },
+      whatsapp: { label: 'WhatsApp', dot: '#16A34A', iconBg: '#E7F6EC', iconColor: '#16A34A', context: 'Por WhatsApp · al mismo número de siempre' },
+      call: { label: 'Llamada', dot: '#3B82F6', iconBg: '#EFF4FF', iconColor: '#3B82F6', context: 'Llamada solicitada · Luis te llama enseguida' },
+    };
+    const statusMeta = {
+      open: { label: 'Abierta', color: '#2A66C9', dot: '#3B82F6' },
+      resolved: { label: 'Resuelta', color: '#0E8C5F', dot: '#1AAE6F' },
+    };
+
+    const sessions = this.state.sessions.map((c) => {
+      const ch = chMap[c.channel] || chMap.chat;
+      const sm = statusMeta[c.status] || statusMeta.open;
+      const last = c.msgs[c.msgs.length - 1];
+      const preview = last ? (last.kind === 'system' ? last.body : (last.kind === 'client' ? 'Tú: ' : 'Luis: ') + last.body) : '';
+      return {
+        title: c.title, time: c.time, preview,
+        iconBg: ch.iconBg, iconColor: ch.iconColor,
+        chatDisplay: c.channel === 'whatsapp' ? 'display:none' : '',
+        waDisplay: c.channel === 'whatsapp' ? '' : 'display:none',
+        statusLabel: sm.label, statusColor: sm.color, statusDot: sm.dot,
+        onOpen: () => this.openSession(c.id),
+      };
+    });
+
+    const active = this.state.sessions.find((c) => c.id === this.state.activeId);
+    const activeCh = active ? (chMap[active.channel] || chMap.chat) : chMap.chat;
+    const rows = (active ? active.msgs : []).map((m, i) => {
+      if (m.kind === 'system') {
+        return { key: i, isSystem: true, isBubble: false, body: m.body, meta: '', metaStyle: '', wrap: '',
+          style: 'align-self:center;max-width:84%;text-align:center;font-size:11px;color:#94A3B8;background:#F4F7FB;padding:5px 12px;border-radius:9999px;line-height:1.4' };
+      }
+      const isClient = m.kind === 'client';
+      return {
+        key: i, isSystem: false, isBubble: true, body: m.body, meta: m.meta || '',
+        wrap: 'display:flex;flex-direction:column;gap:3px;max-width:82%;' + (isClient ? 'align-self:flex-end;align-items:flex-end' : 'align-self:flex-start;align-items:flex-start'),
+        style: isClient
+          ? 'background:#3B82F6;color:#fff;padding:10px 13px;border-radius:15px 15px 5px 15px;font-size:13.5px;line-height:1.5;white-space:pre-wrap'
+          : 'background:#F1F5F9;color:#0F172A;padding:10px 13px;border-radius:15px 15px 15px 5px;font-size:13.5px;line-height:1.5;white-space:pre-wrap',
+        metaStyle: 'font-size:10px;color:#A8B2C0;padding:0 4px',
+      };
+    });
+
+    const has = this.state.input.trim().length > 0;
+    return {
+      inHome, inConv,
+      sessions, rows,
+      typing: this.state.typing,
+      input: this.state.input,
+      headerSub: inConv ? activeCh.label : 'Normalmente responde en menos de 30 min',
+      convContext: activeCh.context,
+      channelDot: activeCh.dot,
+      panelX: open ? '0%' : '108%',
+      scrimOpacity: open ? '1' : '0',
+      scrimPointer: open ? 'auto' : 'none',
+      sendBg: has ? '#3B82F6' : '#CBD5E1',
+      sendCursor: has ? 'pointer' : 'default',
+      startNew: () => this.startSession('chat'),
+      back: () => this.setState({ view: 'home', activeId: null }),
+      onInput: (e) => this.setState({ input: e.target.value }),
+      onKey: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); } },
+      onSend: () => this.send(),
+      close: () => this.props.onClose && this.props.onClose(),
+    };
+  }
+}
+</script>
+</body>
+</html>

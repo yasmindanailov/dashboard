@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0}
+  .ael-area::placeholder{color:#94A3B8}
+  .ael-area:focus{outline:none;border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.12)}
+</style>
+</helmet>
+<div style="font-family:'DM Sans',system-ui,sans-serif;color:#0F172A;-webkit-font-smoothing:antialiased">
+
+  <!-- ░░░ LIST VIEW ░░░ -->
+  <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+    <div style="margin-bottom:20px">
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px">Soporte</h1>
+      <p style="font-size:14px;color:#64748B;margin:0;max-width:580px;line-height:1.5">No es soporte del servidor. Es soporte de todo tu negocio digital — tu web, tu correo, tus dominios. Con una persona real que ya te conoce.</p>
+    </div>
+
+    <!-- Brand hero -->
+    <div style="display:flex;gap:26px;flex-wrap:wrap;padding:24px 26px;border-radius:18px;background:linear-gradient(120deg,#EFF4FF 0%,#F8FAFF 58%,#FFFFFF 100%);border:1px solid #DBEAFE;margin-bottom:26px">
+      <div style="flex:1;min-width:280px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#3B82F6;margin-bottom:13px">Tu socio digital, a tu lado</div>
+        <div style="display:flex;align-items:center;gap:13px">
+          <div style="position:relative;flex-shrink:0">
+            <div style="width:50px;height:50px;border-radius:9999px;background:#3B82F6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:0 4px 12px rgba(59,130,246,0.28)">LF</div>
+            <span style="position:absolute;right:-1px;bottom:-1px;width:14px;height:14px;border-radius:9999px;background:#1AAE6F;border:3px solid #F4F8FF"></span>
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+              <span style="font-size:15.5px;font-weight:700;color:#0F172A">Luis Ferrer</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#0E8C5F"><span style="width:7px;height:7px;border-radius:9999px;background:#1AAE6F;display:inline-block"></span>En línea</span>
+            </div>
+            <div style="font-size:12.5px;color:#64748B;margin-top:2px">Tu técnico asignado · ya conoce tu negocio</div>
+          </div>
+        </div>
+        <div style="font-size:15px;font-weight:600;color:#0F172A;margin-top:16px;line-height:1.45">Siempre una persona real. Nunca un bot.</div>
+        <div style="font-size:13px;color:#475569;margin-top:5px;line-height:1.5">Elige el canal que prefieras. Sin formularios, sin esperas. Y nunca empiezas de cero — recordamos todo tu historial.</div>
+        <div style="display:inline-flex;align-items:center;gap:7px;margin-top:14px;padding:5px 11px;border-radius:9999px;background:#fff;border:1px solid #CFE0FA">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V5z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+          <span style="font-size:11.5px;font-weight:600;color:#2A66C9">Support Inside · lo hacemos por ti, respuesta &lt; 2 h</span>
+        </div>
+      </div>
+      <div style="flex-shrink:0;display:grid;grid-template-columns:repeat(2,minmax(132px,1fr));gap:11px;align-content:start">
+        <button type="button" onClick="{{ openChat }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:14px 15px;border-radius:13px;border:none;background:#3B82F6;color:#fff;font-family:inherit;cursor:pointer;text-align:left">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <span><span style="display:block;font-size:13.5px;font-weight:700">Chat ahora</span><span style="display:block;font-size:11.5px;color:#DBEAFE;margin-top:1px">Escríbeme aquí</span></span>
+        </button>
+        <button type="button" onClick="{{ openWhatsapp }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:14px 15px;border-radius:13px;border:1px solid #DCE7FB;background:#fff;color:#0F172A;font-family:inherit;cursor:pointer;text-align:left">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-9 8.4 8.5 8.5 0 0 1-3.9-.9L3 20l1.1-3.1A8.38 8.38 0 0 1 3.5 11.5a8.5 8.5 0 0 1 17 0z"></path></svg>
+          <span><span style="display:block;font-size:13.5px;font-weight:700">WhatsApp</span><span style="display:block;font-size:11.5px;color:#94A3B8;margin-top:1px">Al móvil, como siempre</span></span>
+        </button>
+        <button type="button" onClick="{{ openCall }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:14px 15px;border-radius:13px;border:1px solid #DCE7FB;background:#fff;color:#0F172A;font-family:inherit;cursor:pointer;text-align:left">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+          <span><span style="display:block;font-size:13.5px;font-weight:700">Pedir llamada</span><span style="display:block;font-size:11.5px;color:#94A3B8;margin-top:1px">Cuando te venga bien</span></span>
+        </button>
+        <button type="button" onClick="{{ openCompose }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:14px 15px;border-radius:13px;border:1px solid #DCE7FB;background:#fff;color:#0F172A;font-family:inherit;cursor:pointer;text-align:left">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          <span><span style="display:block;font-size:13.5px;font-weight:700">Abrir ticket</span><span style="display:block;font-size:11.5px;color:#94A3B8;margin-top:1px">Para seguir por escrito</span></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Conversations -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px;flex-wrap:wrap">
+      <h2 style="font-size:15px;font-weight:700;color:#0F172A;margin:0">Mis conversaciones</h2>
+      <div style="display:flex;align-items:center;gap:8px">
+        <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="3">
+          <button type="button" onClick="{{ tab.onClick }}" style="{{ tab.style }}">{{ tab.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden">
+      <sc-for list="{{ rows }}" as="row" hint-placeholder-count="4">
+        <button type="button" onClick="{{ row.onOpen }}" style="{{ row.wrapStyle }}">
+          <span style="{{ row.iconStyle }}">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="{{ row.iconSvgDisplay }}"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="{{ row.ticketSvgDisplay }}"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>
+          </span>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-size:14.5px;font-weight:{{ row.subjectWeight }};color:#0F172A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.subject }}</span>
+            <span style="display:block;font-size:12.5px;color:#94A3B8;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:560px">{{ row.preview }}</span>
+          </span>
+          <span style="display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex-shrink:0">
+            <span style="{{ row.statusStyle }}"><span style="{{ row.statusDotStyle }}"></span>{{ row.statusLabel }}</span>
+            <span style="display:flex;align-items:center;gap:8px">
+              <sc-if value="{{ row.unread }}" hint-placeholder-val="{{ false }}"><span style="width:7px;height:7px;border-radius:9999px;background:#3B82F6;display:inline-block"></span></sc-if>
+              <span style="font-size:11.5px;color:#94A3B8">{{ row.time }}</span>
+            </span>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:9px;margin-top:16px;padding:13px 18px;background:#F8FAFC;border:1px solid #EEF2F7;border-radius:12px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      <span style="font-size:12.5px;color:#64748B;line-height:1.5">Te ayudamos con todo tu negocio digital — tu web, tu correo, tus dominios. <strong style="font-weight:600;color:#475569">Aunque no lo hayamos montado nosotros.</strong> Y guardamos cada conversación: nunca empiezas de cero.</span>
+    </div>
+  </sc-if>
+
+  <!-- ░░░ DETAIL VIEW ░░░ -->
+  <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+    <button type="button" onClick="{{ goList }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 0;border:none;background:none;color:#64748B;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:14px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      Volver a soporte
+    </button>
+
+    <div style="max-width:780px">
+      <!-- Conversation header -->
+      <div style="display:flex;align-items:flex-start;gap:14px;padding-bottom:18px;border-bottom:1px solid #EDF1F6;margin-bottom:20px">
+        <span style="{{ sel.headIconStyle }}">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="{{ sel.headChatDisplay }}"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="{{ sel.headTicketDisplay }}"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+        </span>
+        <div style="flex:1;min-width:0">
+          <h2 style="font-size:18px;font-weight:700;letter-spacing:-0.01em;margin:0 0 7px;line-height:1.3">{{ sel.subject }}</h2>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span style="{{ sel.statusStyle }}"><span style="{{ sel.statusDotStyle }}"></span>{{ sel.statusLabel }}</span>
+            <span style="font-size:12px;color:#94A3B8">{{ sel.catLabel }} · {{ sel.openedText }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ticket metadata strip -->
+      <sc-if value="{{ sel.isTicket }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px">
+          <sc-if value="{{ sel.hasSla }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:1;min-width:200px;display:flex;align-items:center;gap:11px;padding:13px 15px;background:#fff;border:1px solid #E7ECF2;border-radius:12px">
+              <span style="width:34px;height:34px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:{{ sel.slaBg }};color:{{ sel.slaColor }}">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>
+              </span>
+              <div style="min-width:0"><div style="font-size:11px;color:#94A3B8">SLA de respuesta · Support Inside</div><div style="font-size:13px;font-weight:600;color:{{ sel.slaColor }};margin-top:2px">{{ sel.slaLabel }}</div></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ sel.hasLinked }}" hint-placeholder-val="{{ false }}">
+            <button type="button" onClick="{{ sel.linkedOpen }}" style="flex:1;min-width:200px;display:flex;align-items:center;gap:11px;padding:13px 15px;background:#fff;border:1px solid #E7ECF2;border-radius:12px;cursor:pointer;text-align:left;font-family:inherit">
+              <span style="width:34px;height:34px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#EFF4FF;color:#3B82F6">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line></svg>
+              </span>
+              <div style="flex:1;min-width:0"><div style="font-size:11px;color:#94A3B8">Servicio vinculado</div><div style="font-size:13px;font-weight:600;color:#0F172A;margin-top:2px">{{ sel.linkedName }}</div></div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- Thread -->
+      <div style="{{ sel.threadStyle }}">
+        <sc-for list="{{ sel.messages }}" as="m" hint-placeholder-count="3">
+
+          <sc-if value="{{ m.isSystem }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:10px;margin:4px 0"><span style="flex:1;height:1px;background:#EDF1F6"></span><span style="font-size:11.5px;color:#94A3B8;white-space:nowrap">{{ m.body }}</span><span style="flex:1;height:1px;background:#EDF1F6"></span></div>
+          </sc-if>
+
+          <!-- Chat bubble -->
+          <sc-if value="{{ m.isBubble }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ m.bubbleRowStyle }}">
+              <div style="max-width:75%">
+                <div style="{{ m.bubbleStyle }}">{{ m.body }}</div>
+                <div style="{{ m.bubbleMetaStyle }}">{{ m.meta }}</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- Ticket block -->
+          <sc-if value="{{ m.isBlock }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ m.blockStyle }}">
+              <div style="display:flex;align-items:center;gap:10px;padding-bottom:11px;border-bottom:1px solid #F1F5F9;margin-bottom:12px">
+                <span style="{{ m.avatarStyle }}">{{ m.initials }}</span>
+                <div style="flex:1;min-width:0"><span style="font-size:13.5px;font-weight:600;color:#0F172A">{{ m.author }}</span><span style="{{ m.roleTagStyle }}">{{ m.roleTag }}</span></div>
+                <span style="font-size:11.5px;color:#94A3B8;flex-shrink:0">{{ m.date }}</span>
+              </div>
+              <div style="font-size:13.5px;color:#334155;line-height:1.65;white-space:pre-line">{{ m.body }}</div>
+              <sc-if value="{{ m.hasRefs }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:13px">
+                  <sc-for list="{{ m.refs }}" as="rf" hint-placeholder-count="1">
+                    <button type="button" onClick="{{ rf.onClick }}" style="display:flex;align-items:center;gap:11px;padding:10px 13px;border:1px solid #E2E8F0;border-radius:10px;background:#FBFCFE;cursor:pointer;text-align:left;font-family:inherit;width:100%">
+                      <span style="width:30px;height:30px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#EFF4FF;color:#3B82F6">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line></svg>
+                      </span>
+                      <span style="flex:1;min-width:0"><span style="display:block;font-size:12.5px;font-weight:600;color:#0F172A">{{ rf.name }}</span><span style="display:block;font-size:11px;color:#94A3B8;margin-top:1px">{{ rf.sub }}</span></span>
+                      <span style="{{ rf.statusStyle }}">{{ rf.status }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+        </sc-for>
+      </div>
+
+      <!-- Composer -->
+      <sc-if value="{{ sel.canReply }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:flex-end;gap:11px;margin-top:20px;padding:13px;background:#fff;border:1px solid #E2E8F0;border-radius:14px">
+          <textarea class="ael-area" ref="{{ draftRef }}" rows="1" placeholder="{{ sel.composerPlaceholder }}" style="flex:1;border:none;resize:none;font-family:inherit;font-size:13.5px;color:#0F172A;line-height:1.5;padding:7px 6px;background:none;max-height:120px"></textarea>
+          <button type="button" onClick="{{ sendReply }}" style="flex-shrink:0;width:40px;height:40px;border-radius:10px;border:none;background:#3B82F6;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          </button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ sel.isResolved }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:20px;padding:15px 18px;background:#F4FAF6;border:1px solid #D6EEDF;border-radius:14px">
+          <div style="display:flex;align-items:center;gap:10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E8C5F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg><span style="font-size:13px;color:#0E6B4A;font-weight:500">Resuelto. Si vuelve a pasar, escríbeme y lo retomamos — sin empezar de cero.</span></div>
+          <button type="button" onClick="{{ startChat }}" style="padding:9px 15px;border-radius:10px;border:1px solid #BFE2CD;background:#fff;color:#0E8C5F;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer">Abrir de nuevo</button>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <!-- ░░░ COMPOSE VIEW ░░░ -->
+  <sc-if value="{{ isCompose }}" hint-placeholder-val="{{ false }}">
+    <button type="button" onClick="{{ goList }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 0;border:none;background:none;color:#64748B;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:14px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      Volver a soporte
+    </button>
+
+    <div style="max-width:600px">
+      <h2 style="font-size:20px;font-weight:700;letter-spacing:-0.01em;margin:0 0 6px">Abrir un ticket</h2>
+      <p style="font-size:13.5px;color:#64748B;margin:0 0 22px;line-height:1.55">Cuéntamelo con detalle y lo seguimos por escrito, con todo el historial a la vista. ¿Es urgente? Mejor por <button type="button" onClick="{{ startChat }}" style="border:none;background:none;color:#3B82F6;font-weight:600;font-family:inherit;font-size:13.5px;cursor:pointer;padding:0">chat</button> o WhatsApp — te respondo al momento.</p>
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px">
+        <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin-bottom:7px">Asunto</label>
+        <input class="ael-area" ref="{{ subjectRef }}" placeholder="Ej. La web carga lenta por las tardes" style="width:100%;padding:11px 13px;border:1px solid #DDE3EA;border-radius:10px;font-family:inherit;font-size:13.5px;color:#0F172A;margin-bottom:18px">
+
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px">
+          <div style="flex:1;min-width:180px">
+            <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin-bottom:7px">Categoría</label>
+            <select class="ael-area" ref="{{ catRef }}" style="width:100%;padding:11px 13px;border:1px solid #DDE3EA;border-radius:10px;font-family:inherit;font-size:13.5px;color:#0F172A;background:#fff;cursor:pointer">
+              <option value="support_general">General</option>
+              <option value="support_technical">Técnico</option>
+              <option value="support_billing">Facturación</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:180px">
+            <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin-bottom:7px">Servicio relacionado <span style="font-weight:400;color:#94A3B8">(opcional)</span></label>
+            <select class="ael-area" ref="{{ svcRef }}" style="width:100%;padding:11px 13px;border:1px solid #DDE3EA;border-radius:10px;font-family:inherit;font-size:13.5px;color:#0F172A;background:#fff;cursor:pointer">
+              <option value="">Ninguno</option>
+              <option value="sara-estudio.com">sara-estudio.com · Web Pro</option>
+              <option value="minegocio.com">minegocio.com · Dominio</option>
+            </select>
+          </div>
+        </div>
+
+        <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin-bottom:7px">Cuéntanos qué ocurre</label>
+        <textarea class="ael-area" ref="{{ bodyRef }}" rows="5" placeholder="Describe el problema con el máximo detalle posible: cuándo empezó, qué has probado, capturas si las tienes..." style="width:100%;padding:11px 13px;border:1px solid #DDE3EA;border-radius:10px;font-family:inherit;font-size:13.5px;color:#0F172A;line-height:1.6;resize:vertical;margin-bottom:6px"></textarea>
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:20px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V5z"></path></svg><span style="font-size:11.5px;color:#94A3B8">Tu plan Support Inside da prioridad a este ticket — respuesta en menos de 2 h.</span></div>
+
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:11px">
+          <button type="button" onClick="{{ goList }}" style="padding:11px 18px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer">Cancelar</button>
+          <button type="button" onClick="{{ createTicket }}" style="padding:11px 20px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer">Crear ticket</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1000, &quot;height&quot;: 880 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(route: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  state = {
+    view: 'list',
+    tab: 'all',
+    selectedId: null,
+    convos: this.seed(),
+  };
+
+  draftRef = (el) => { this._draft = el; };
+  subjectRef = (el) => { this._subject = el; };
+  bodyRef = (el) => { this._body = el; };
+  catRef = (el) => { this._cat = el; };
+  svcRef = (el) => { this._svc = el; };
+
+  seed() {
+    return [
+      {
+        id: 't1', type: 'ticket', subject: 'La web carga lenta por las tardes',
+        category: 'support_technical', priority: 'high', status: 'waiting',
+        time: 'hace 2 h', openedText: 'Abierto hace 2 días', unread: true,
+        sla: { state: 'ok', label: 'Dentro de plazo · respondido en 1 h 12 m' },
+        linked: { name: 'sara-estudio.com · Web Pro', status: 'Operativo' },
+        messages: [
+          { kind: 'block', from: 'client', author: 'Sara Gómez', date: '12 jun, 09:14',
+            body: 'Hola, desde hace unos días la web se nota lenta a partir de las 18:00 más o menos. Por la mañana va perfecta. ¿Podéis echar un vistazo?' },
+          { kind: 'block', from: 'agent', author: 'Luis Ferrer', date: '12 jun, 10:26',
+            body: 'Hola Sara, ya lo he mirado. Te explico por qué iba lenta: había una tarea de copia mal programada que daba picos de CPU justo por la tarde.\n\nLa he movido a las 03:00, fuera de tus horas de visita. ¿Esta tarde la notas mejor? Si sigue lenta, lo escalo a infraestructura y no te despego hasta dejarlo fino.',
+            refs: [{ type: 'service', name: 'sara-estudio.com', sub: 'Web Pro · hosting', status: 'Operativo' }] },
+        ],
+      },
+      {
+        id: 'c1', type: 'chat', subject: 'No me llegan los correos del formulario',
+        category: 'support_technical', priority: 'normal', status: 'resolved',
+        time: 'ayer', openedText: 'Chat de ayer', unread: false,
+        messages: [
+          { kind: 'bubble', from: 'client', body: 'Hola, no me llegan los correos que envía el formulario de contacto de la web.', meta: '16:40' },
+          { kind: 'bubble', from: 'agent', body: 'Hola Sara. Lo primero, ¿has mirado en la carpeta de spam? A veces el primer aviso cae ahí.', meta: '16:42' },
+          { kind: 'bubble', from: 'client', body: 'Pues... estaban en spam. ¡Qué tonta!', meta: '16:45' },
+          { kind: 'bubble', from: 'agent', body: 'Para nada, pasa muchísimo. Ya te he marcado el remitente como seguro desde el panel para que no vuelva a ocurrir. Cualquier cosa, aquí estoy.', meta: '16:47' },
+          { kind: 'system', body: 'Conversación marcada como resuelta' },
+        ],
+      },
+      {
+        id: 't2', type: 'ticket', subject: 'Duda con el IVA de mi última factura',
+        category: 'support_billing', priority: 'normal', status: 'open',
+        time: 'hace 1 día', openedText: 'Abierto ayer', unread: false,
+        sla: { state: 'warn', label: 'Quedan 38 min para responder' },
+        linked: null,
+        messages: [
+          { kind: 'block', from: 'client', author: 'Sara Gómez', date: '11 jun, 18:02',
+            body: 'En la factura AEL-2026-00412 veo un 21% de IVA. Como soy autónoma, ¿puedo deducírmelo? Quería confirmarlo antes de pasársela a mi gestor.' },
+          { kind: 'system', body: 'Recibido · lo tenemos en menos de 2 h, te avisamos aquí y por WhatsApp' },
+        ],
+      },
+      {
+        id: 'c2', type: 'ticket', subject: 'Migrar mi dominio actual a Aelium',
+        category: 'escalated_chat', priority: 'normal', status: 'open',
+        time: 'hace 3 días', openedText: 'Abierto hace 3 días', unread: false,
+        sla: { state: 'ok', label: 'Dentro de plazo' },
+        linked: null,
+        messages: [
+          { kind: 'system', body: 'Conversación escalada desde un chat para un seguimiento más detallado' },
+          { kind: 'block', from: 'agent', author: 'Luis Ferrer', date: '09 jun, 12:30',
+            body: 'Hola Sara, retomo aquí lo que hablamos por chat sobre traer tu dominio a Aelium. Para empezar la transferencia necesito que me confirmes dos cosas:\n\n1. Que el dominio tenga más de 60 días de antigüedad.\n2. El código de autorización (EPP/Auth code) que te da tu registrador actual.\n\nEn cuanto me lo pases, yo me encargo del resto y no tendrás corte de servicio.' },
+        ],
+      },
+      {
+        id: 't3', type: 'ticket', subject: '¿Cómo añado un usuario a mi panel?',
+        category: 'support_general', priority: 'low', status: 'closed',
+        time: '02 jun', openedText: 'Cerrado el 03 jun', unread: false,
+        sla: null, linked: null,
+        messages: [
+          { kind: 'block', from: 'client', author: 'Sara Gómez', date: '02 jun, 11:10',
+            body: 'Quiero dar acceso a mi diseñadora para que pueda subir cambios. ¿Cómo lo hago?' },
+          { kind: 'block', from: 'agent', author: 'Luis Ferrer', date: '02 jun, 11:48',
+            body: 'Muy fácil: en el panel de tu hosting, sección "Usuarios", botón "Invitar". Le llega un email para poner su contraseña. Le puedes dar permisos solo de edición sin tocar la facturación. Te dejo el enlace directo en tu servicio.' },
+          { kind: 'system', body: 'Resuelta · cerrada por el cliente' },
+        ],
+      },
+    ];
+  }
+
+  open(id) { this.setState({ view: 'detail', selectedId: id }); }
+
+  sendReply() {
+    const txt = (this._draft && this._draft.value || '').trim();
+    if (!txt) return;
+    const id = this.state.selectedId;
+    this.setState((s) => ({
+      convos: s.convos.map((c) => {
+        if (c.id !== id) return c;
+        const isChat = c.type === 'chat';
+        const msg = isChat
+          ? { kind: 'bubble', from: 'client', body: txt, meta: 'ahora' }
+          : { kind: 'block', from: 'client', author: 'Sara Gómez', date: 'ahora', body: txt };
+        return { ...c, status: c.status === 'resolved' || c.status === 'closed' ? 'open' : c.status, messages: [...c.messages, msg] };
+      }),
+    }));
+    if (this._draft) this._draft.value = '';
+    const conv = this.state.convos.find((c) => c.id === id);
+    if (conv && conv.type === 'chat') {
+      setTimeout(() => {
+        this.setState((s) => ({
+          convos: s.convos.map((c) => c.id === id
+            ? { ...c, messages: [...c.messages, { kind: 'bubble', from: 'agent', body: 'Ya lo miro, Sara. Te digo algo enseguida.', meta: 'ahora' }] }
+            : c),
+        }));
+      }, 1300);
+    }
+  }
+
+  _openChat(kind) {
+    if (this.props.openChat) this.props.openChat(kind);
+  }
+
+  startChannel(kind) {
+    const id = 'live';
+    const exist = this.state.convos.find((c) => c.id === id);
+    if (exist) { this.setState({ view: 'detail', selectedId: id }); return; }
+    const byKind = {
+      chat: { subject: 'Chat con Luis', open: 'Chat en vivo', msgs: [
+        { kind: 'bubble', from: 'agent', body: 'Hola Sara, soy Luis. ¿Qué necesitas?', meta: 'ahora' },
+      ] },
+      whatsapp: { subject: 'Conversación por WhatsApp', open: 'Por WhatsApp', msgs: [
+        { kind: 'system', body: 'Seguimos por WhatsApp · al mismo número de siempre' },
+        { kind: 'bubble', from: 'agent', body: 'Hola Sara, soy Luis. Te escribo también al móvil. ¿Qué necesitas?', meta: 'ahora' },
+      ] },
+      call: { subject: 'Llamada solicitada', open: 'Llamada', msgs: [
+        { kind: 'system', body: 'Has pedido una llamada' },
+        { kind: 'bubble', from: 'agent', body: 'Hola Sara, soy Luis. Te llamo en un momento. ¿Hay algún horario que te venga mejor?', meta: 'ahora' },
+      ] },
+    };
+    const cfg = byKind[kind] || byKind.chat;
+    const live = {
+      id, type: 'chat', subject: cfg.subject,
+      category: 'support_general', priority: 'normal', status: 'open',
+      time: 'ahora', openedText: cfg.open, unread: false,
+      messages: cfg.msgs,
+    };
+    this.setState((s) => ({ convos: [live, ...s.convos], view: 'detail', selectedId: id }));
+  }
+
+  createTicket() {
+    const subject = (this._subject && this._subject.value || '').trim() || 'Nuevo ticket';
+    const category = (this._cat && this._cat.value) || 'support_general';
+    const svc = (this._svc && this._svc.value) || '';
+    const body = (this._body && this._body.value || '').trim() || 'Sin descripción.';
+    const id = 'n' + Date.now();
+    const ticket = {
+      id, type: 'ticket', subject, category, priority: 'normal', status: 'open',
+      time: 'ahora', openedText: 'Abierto ahora', unread: false,
+      sla: { state: 'ok', label: 'Dentro de plazo' },
+      linked: svc ? { name: svc, status: 'Operativo' } : null,
+      messages: [
+        { kind: 'block', from: 'client', author: 'Sara Gómez', date: 'ahora', body },
+        { kind: 'system', body: 'Hemos recibido tu ticket · responderemos pronto' },
+      ],
+    };
+    this.setState((s) => ({ convos: [ticket, ...s.convos], view: 'detail', selectedId: id }));
+  }
+
+  renderVals() {
+    const nav = this.props.navigate || (() => {});
+    const view = this.state.view;
+    const convos = this.state.convos.filter((c) => c.type !== 'chat');
+
+    const catMeta = {
+      support_general:   { label: 'General',     color: '#64748B', bg: '#F1F5F9' },
+      support_technical: { label: 'Técnico',     color: '#2A66C9', bg: '#EFF4FF' },
+      support_billing:   { label: 'Facturación', color: '#B27A12', bg: '#FCF3E1' },
+      escalated_chat:    { label: 'Escalado',    color: '#7C5CCB', bg: '#F1ECFB' },
+    };
+    const statusMeta = {
+      open:     { label: 'Abierta',                text: '#64748B', dot: '#3B82F6' },
+      waiting:  { label: 'Esperando tu respuesta', text: '#B27A12', dot: '#E3A53A' },
+      resolved: { label: 'Resuelta',               text: '#0E8C5F', dot: '#1AAE6F' },
+      closed:   { label: 'Cerrada',                text: '#94A3B8', dot: '#CBD5E1' },
+    };
+    const slaMeta = {
+      ok:   { color: '#0E8C5F', bg: '#E7F5EE' },
+      warn: { color: '#B27A12', bg: '#FCF3E1' },
+      late: { color: '#CE3F3F', bg: '#FBEAEA' },
+    };
+
+    const chip = 'display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:9999px;font-size:11px;font-weight:600;';
+    const dot = 'width:7px;height:7px;border-radius:9999px;display:inline-block;';
+    // quiet status: a colored dot + sober label, no filled pill
+    const statusQuiet = (st) => 'display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:' + statusMeta[st].text + ';';
+    const prioChipFor = (p) => p === 'high'
+      ? chip + 'background:#FBEAEA;color:#CE3F3F'
+      : chip + 'background:#FCE9D8;color:#C2410C';
+    const prioLabelFor = (p) => p === 'high' ? 'Prioritaria' : 'Urgente';
+
+    // ── list rows
+    const tabFilter = (st) => this.state.tab === 'all' ? true
+      : this.state.tab === 'open' ? (st === 'open' || st === 'waiting')
+      : (st === 'resolved' || st === 'closed');
+
+    const rows = convos.filter((c) => tabFilter(c.status)).map((c, i, arr) => {
+      const cm = catMeta[c.category];
+      const sm = statusMeta[c.status];
+      const isChat = c.type === 'chat';
+      const last = c.messages[c.messages.length - 1];
+      const preview = last ? (last.kind === 'system' ? last.body : (last.from === 'client' ? 'Tú: ' : 'Luis: ') + last.body) : '';
+      const hp = c.priority === 'high' || c.priority === 'urgent';
+      return {
+        onOpen: () => this.open(c.id),
+        wrapStyle: 'width:100%;display:flex;align-items:center;gap:15px;padding:16px 22px;border:none;background:none;font-family:inherit;text-align:left;cursor:pointer;' + (i === 0 ? '' : 'border-top:1px solid #F1F5F9;'),
+        iconStyle: 'width:40px;height:40px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;' + (isChat ? 'background:#EFF4FF;color:#3B82F6' : 'background:#F1F5F9;color:#64748B'),
+        iconSvgDisplay: isChat ? '' : 'display:none',
+        ticketSvgDisplay: isChat ? 'display:none' : '',
+        subject: c.subject,
+        subjectWeight: c.unread ? 700 : 600,
+        catLabel: cm.label,
+        catStyle: chip + 'background:' + cm.bg + ';color:' + cm.color,
+        hasPriority: hp,
+        prioLabel: prioLabelFor(c.priority),
+        prioStyle: prioChipFor(c.priority),
+        preview,
+        statusLabel: sm.label,
+        statusStyle: statusQuiet(c.status),
+        statusDotStyle: dot + 'background:' + sm.dot,
+        unread: c.unread,
+        time: c.time,
+      };
+    });
+
+    const counts = {
+      all: convos.length,
+      open: convos.filter((c) => c.status === 'open' || c.status === 'waiting').length,
+      resolved: convos.filter((c) => c.status === 'resolved' || c.status === 'closed').length,
+    };
+    const tabBase = 'padding:7px 14px;border-radius:9999px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s ease;';
+    const mkTab = (key, label) => ({
+      label: label + ' (' + counts[key] + ')',
+      onClick: () => this.setState({ tab: key }),
+      style: tabBase + (this.state.tab === key
+        ? 'background:#0F172A;color:#fff;border:1px solid #0F172A'
+        : 'background:#fff;color:#64748B;border:1px solid #E2E8F0'),
+    });
+
+    // ── detail
+    let sel = {};
+    const c = convos.find((x) => x.id === this.state.selectedId);
+    if (c) {
+      const cm = catMeta[c.category];
+      const sm = statusMeta[c.status];
+      const isChat = c.type === 'chat';
+      const hp = c.priority === 'high' || c.priority === 'urgent';
+      const resolved = c.status === 'resolved' || c.status === 'closed';
+      const messages = c.messages.map((m) => {
+        if (m.kind === 'system') return { isSystem: true, body: m.body };
+        if (m.kind === 'bubble') {
+          const mine = m.from === 'client';
+          return {
+            isBubble: true,
+            body: m.body,
+            meta: m.meta,
+            bubbleRowStyle: 'display:flex;margin:2px 0;' + (mine ? 'justify-content:flex-end' : 'justify-content:flex-start'),
+            bubbleStyle: 'padding:10px 14px;border-radius:16px;font-size:13.5px;line-height:1.5;' + (mine
+              ? 'background:#3B82F6;color:#fff;border-bottom-right-radius:5px'
+              : 'background:#F1F5F9;color:#1E293B;border-bottom-left-radius:5px'),
+            bubbleMetaStyle: 'font-size:10.5px;color:#B6BFCB;margin-top:3px;' + (mine ? 'text-align:right' : 'text-align:left'),
+          };
+        }
+        // block
+        const mine = m.from === 'client';
+        return {
+          isBlock: true,
+          author: m.author,
+          date: m.date,
+          body: m.body,
+          initials: mine ? 'SG' : 'LF',
+          avatarStyle: 'width:30px;height:30px;border-radius:9999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;' + (mine ? 'background:#E2E8F0;color:#475569' : 'background:#3B82F6;color:#fff'),
+          roleTag: mine ? 'Tú' : 'Soporte Aelium',
+          roleTagStyle: 'font-size:11px;color:#94A3B8;margin-left:7px',
+          blockStyle: 'border:1px solid ' + (mine ? '#E7ECF2' : '#DCE7FB') + ';border-radius:14px;padding:15px 17px;margin:0;background:' + (mine ? '#FBFCFE' : '#F6F9FF'),
+          hasRefs: !!(m.refs && m.refs.length),
+          refs: (m.refs || []).map((r) => ({
+            name: r.name,
+            sub: r.sub,
+            status: r.status,
+            statusStyle: chip + 'background:#E7F5EE;color:#0E8C5F;flex-shrink:0',
+            onClick: () => nav('service-detail'),
+          })),
+        };
+      });
+
+      sel = {
+        subject: c.subject,
+        isTicket: !isChat,
+        isResolved: resolved,
+        canReply: !resolved,
+        statusLabel: sm.label,
+        statusStyle: statusQuiet(c.status),
+        statusDotStyle: dot + 'background:' + sm.dot,
+        catLabel: cm.label,
+        catStyle: chip + 'background:' + cm.bg + ';color:' + cm.color,
+        hasPriority: hp,
+        prioLabel: prioLabelFor(c.priority),
+        prioStyle: prioChipFor(c.priority),
+        openedText: c.openedText,
+        headIconStyle: 'width:46px;height:46px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;' + (isChat ? 'background:#EFF4FF;color:#3B82F6' : 'background:#F1F5F9;color:#64748B'),
+        headChatDisplay: isChat ? '' : 'display:none',
+        headTicketDisplay: isChat ? 'display:none' : '',
+        hasSla: !isChat && !!c.sla,
+        slaLabel: c.sla ? c.sla.label : '',
+        slaColor: c.sla ? slaMeta[c.sla.state].color : '#0E8C5F',
+        slaBg: c.sla ? slaMeta[c.sla.state].bg : '#E7F5EE',
+        hasLinked: !isChat && !!c.linked,
+        linkedName: c.linked ? c.linked.name : '',
+        linkedOpen: () => nav('service-detail'),
+        threadStyle: isChat
+          ? 'display:flex;flex-direction:column;gap:6px;padding:18px;background:#fff;border:1px solid #E2E8F0;border-radius:16px'
+          : 'display:flex;flex-direction:column;gap:14px',
+        messages,
+        composerPlaceholder: isChat ? 'Escribe tu mensaje...' : 'Escribe una respuesta...',
+      };
+    }
+
+    return {
+      isList: view === 'list',
+      isDetail: view === 'detail',
+      isCompose: view === 'compose',
+      tabs: [mkTab('all', 'Todas'), mkTab('open', 'Abiertas'), mkTab('resolved', 'Resueltas')],
+      rows,
+      sel,
+      startChat: () => this._openChat('chat'),
+      openChat: () => this._openChat('chat'),
+      openWhatsapp: () => this._openChat('whatsapp'),
+      openCall: () => this._openChat('call'),
+      openCompose: () => this.setState({ view: 'compose' }),
+      createTicket: () => this.createTicket(),
+      sendReply: () => this.sendReply(),
+      goList: () => this.setState({ view: 'list', selectedId: null }),
+      draftRef: this.draftRef,
+      subjectRef: this.subjectRef,
+      bodyRef: this.bodyRef,
+      catRef: this.catRef,
+      svcRef: this.svcRef,
+    };
+  }
+}
+</script>
+</body>
+</html>

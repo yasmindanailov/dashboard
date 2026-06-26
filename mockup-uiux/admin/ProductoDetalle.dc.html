@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="display:flex;align-items:center;gap:7px;margin-bottom:16px;font-size:13px">
+    <button type="button" onClick="{{ goProducts }}" style="background:none;border:none;padding:0;font-family:inherit;font-size:13px;color:#94A3B8;cursor:pointer;font-weight:500" style-hover="color:#3B82F6">Productos</button>
+    <svg width="15" height="15" viewBox="0 0 24 24" style="color:#CBD5E1"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    <span style="color:#475569;font-weight:600">{{ name }}</span>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px 24px;box-shadow:0 1px 2px rgba(15,23,42,0.04);margin-bottom:18px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:14px;min-width:0">
+        <div style="width:46px;height:46px;border-radius:12px;background:#F1F5F9;color:#64748B;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="24" height="24" viewBox="0 0 24 24"><use href="#pd-{{ icon }}"></use></svg></div>
+        <div style="min-width:0">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <h1 style="font-size:21px;font-weight:700;letter-spacing:-0.01em;color:#0F172A;margin:0">{{ name }}</h1>
+            <span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11.5px;font-weight:600;background:#E8F7F1;color:#0E8C5F">Activo</span>
+            <sc-if value="{{ showBadge }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;background:#EFF4FF;color:#3B82F6">{{ badge }}</span></sc-if>
+            <sc-if value="{{ isAddon }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;background:#EAF3FF;color:#2563EB">Addon</span></sc-if>
+          </div>
+          <div style="font-size:12.5px;color:#94A3B8;margin-top:4px;font-family:ui-monospace,monospace">{{ slug }}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <button type="button" onClick="{{ goEdit }}" style="display:flex;align-items:center;gap:7px;height:38px;padding:0 15px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#F8FAFC;border-color:#CBD5E1"><svg width="15" height="15" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"></path></svg>Editar</button>
+        <div style="position:relative">
+          <button type="button" onClick="{{ toggleMenu }}" title="Más acciones" style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#64748B;cursor:pointer" style-hover="background:#F8FAFC;border-color:#CBD5E1"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg></button>
+          <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:44px;right:0;width:200px;background:#fff;border:1px solid #E2E8F0;border-radius:12px;box-shadow:0 12px 36px rgba(15,23,42,0.16);z-index:50;padding:6px">
+              <button type="button" onClick="{{ closeMenu }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:8px;border:none;background:transparent;color:#374151;font-size:13px;font-family:inherit;cursor:pointer;text-align:left" style-hover="background:#F1F5F9"><svg width="15" height="15" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>Desactivar</button>
+              <button type="button" onClick="{{ closeMenu }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:8px;border:none;background:transparent;color:#374151;font-size:13px;font-family:inherit;cursor:pointer;text-align:left" style-hover="background:#F1F5F9"><svg width="15" height="15" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>Duplicar</button>
+              <div style="height:1px;background:#EEF1F5;margin:6px 4px"></div>
+              <button type="button" onClick="{{ closeMenu }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:8px;border:none;background:transparent;color:#D14343;font-size:13px;font-family:inherit;cursor:pointer;text-align:left" style-hover="background:#FEF2F2"><svg width="15" height="15" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Eliminar producto</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.62fr 1fr;gap:18px;align-items:start">
+
+    <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px 22px">
+        <h2 style="font-size:12px;font-weight:600;color:#94A3B8;margin:0 0 16px;text-transform:uppercase;letter-spacing:0.04em">Detalles</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 24px">
+          <div><div style="font-size:11.5px;color:#94A3B8;margin-bottom:3px">Tipo</div><div style="font-size:13.5px;font-weight:500;color:#0F172A">{{ typeLabel }}</div></div>
+          <div><div style="font-size:11.5px;color:#94A3B8;margin-bottom:3px">Categoría</div><div style="font-size:13.5px;font-weight:500;color:#0F172A">{{ category }}</div></div>
+          <div><div style="font-size:11.5px;color:#94A3B8;margin-bottom:3px">Provisioner</div><div style="font-size:12.5px;font-weight:500;color:#0F172A;font-family:ui-monospace,monospace">{{ provisioner }}</div></div>
+          <div><div style="font-size:11.5px;color:#94A3B8;margin-bottom:3px">Servicios activos</div><div style="font-size:13.5px;font-weight:500;color:#0F172A">{{ services }}</div></div>
+        </div>
+        <p style="font-size:13px;color:#64748B;line-height:1.55;margin:16px 0 0;padding-top:16px;border-top:1px solid #F1F5F9">{{ description }}</p>
+      </div>
+
+      <sc-if value="{{ isDomain }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px 22px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+            <h2 style="font-size:15px;font-weight:600;color:#0F172A;margin:0">Precios por extensión (TLD)</h2>
+            <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#F8FAFC;border-color:#CBD5E1"><svg width="14" height="14" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>Sincronizar precios ahora</button>
+          </div>
+          <p style="font-size:12px;color:#94A3B8;line-height:1.5;margin:0 0 16px">El precio = coste mayorista × (1 + markup del plugin). Edita una fila para fijar un <strong style="color:#64748B;font-weight:600">override manual</strong>; revierte para volver al automático.</p>
+          <div style="overflow-x:auto;margin:0 -22px;padding:0 22px">
+            <table style="width:100%;border-collapse:collapse;min-width:560px">
+              <thead><tr>
+                <th style="padding:9px 10px 9px 0;text-align:left;font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8;border-bottom:1px solid #EEF1F5">TLD</th>
+                <th style="padding:9px 10px;text-align:left;font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8;border-bottom:1px solid #EEF1F5">Operación</th>
+                <th style="padding:9px 10px;text-align:center;font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8;border-bottom:1px solid #EEF1F5">Años</th>
+                <th style="padding:9px 10px;text-align:right;font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8;border-bottom:1px solid #EEF1F5">Coste</th>
+                <th style="padding:9px 10px;text-align:right;font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8;border-bottom:1px solid #EEF1F5">Precio venta</th>
+                <th style="padding:9px 10px;text-align:right;font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8;border-bottom:1px solid #EEF1F5">Margen</th>
+                <th style="padding:9px 0 9px 10px;text-align:center;font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8;border-bottom:1px solid #EEF1F5">Fuente</th>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ tlds }}" as="t" hint-placeholder-count="6">
+                  <tr style="{{ t.rowStyle }}">
+                    <td style="padding:11px 10px 11px 0;font-size:13px;font-weight:700;color:#0F172A;font-family:ui-monospace,monospace">.{{ t.tld }}</td>
+                    <td style="padding:11px 10px;font-size:12.5px;color:#64748B;white-space:nowrap">{{ t.op }}</td>
+                    <td style="padding:11px 10px;font-size:12.5px;color:#64748B;text-align:center">{{ t.years }}</td>
+                    <td style="padding:11px 10px;font-size:12.5px;color:#94A3B8;text-align:right;white-space:nowrap">{{ t.cost }}</td>
+                    <td style="padding:11px 10px;font-size:13px;font-weight:700;color:#0F172A;text-align:right;white-space:nowrap">{{ t.price }}</td>
+                    <td style="padding:11px 10px;font-size:12.5px;font-weight:600;color:#0E8C5F;text-align:right">{{ t.margin }}</td>
+                    <td style="padding:11px 0 11px 10px;text-align:center"><span style="{{ t.srcStyle }}">{{ t.srcLabel }}</span></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showPlans }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px 22px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><h2 style="font-size:12px;font-weight:600;color:#94A3B8;margin:0;text-transform:uppercase;letter-spacing:0.04em">Planes de precio</h2><button type="button" onClick="{{ goEdit }}" style="background:none;border:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#3B82F6;cursor:pointer" style-hover="color:#2563EB">Editar →</button></div>
+          <sc-for list="{{ plans }}" as="p" hint-placeholder-count="2">
+            <div style="{{ p.rowStyle }}">
+              <div><span style="font-size:13.5px;font-weight:600;color:#0F172A">{{ p.cycle }}</span><sc-if value="{{ p.showSetup }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#94A3B8;margin-left:8px">+ {{ p.setup }} setup</span></sc-if></div>
+              <span style="font-size:15px;font-weight:700;color:#0F172A">{{ p.price }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showExtras }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px 22px">
+          <h2 style="font-size:12px;font-weight:600;color:#94A3B8;margin:0 0 14px;text-transform:uppercase;letter-spacing:0.04em">Extras</h2>
+          <sc-for list="{{ extras }}" as="e" hint-placeholder-count="2">
+            <div style="{{ e.rowStyle }}">
+              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:13.5px;font-weight:500;color:#0F172A">{{ e.label }}</span><sc-if value="{{ e.mandatory }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;padding:2px 8px;border-radius:9999px;font-size:10.5px;font-weight:600;background:#FCECEC;color:#D14343">Obligatorio</span></sc-if></div>
+              <span style="{{ e.stStyle }}">{{ e.stLabel }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px 22px">
+        <h2 style="font-size:12px;font-weight:600;color:#94A3B8;margin:0 0 16px;text-transform:uppercase;letter-spacing:0.04em">Configuración</h2>
+        <div style="display:flex;flex-direction:column;gap:12px;font-size:13px">
+          <div style="display:flex;justify-content:space-between"><span style="color:#94A3B8">Gracia</span><span style="color:#0F172A;font-weight:500">{{ cfgGrace }}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:#94A3B8">Suspensión</span><span style="color:#0F172A;font-weight:500">{{ cfgSusp }}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:#94A3B8">Cancelación</span><span style="color:#0F172A;font-weight:500">{{ cfgCancel }}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:#94A3B8">Pausar</span><span style="color:#0F172A;font-weight:500">{{ cfgPause }}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:#94A3B8">Comisión partner</span><span style="color:#0F172A;font-weight:500">{{ cfgCommission }}</span></div>
+        </div>
+      </div>
+
+      <sc-if value="{{ showChecklist }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px 22px">
+          <h2 style="font-size:12px;font-weight:600;color:#94A3B8;margin:0 0 14px;text-transform:uppercase;letter-spacing:0.04em">Checklist de provisioning</h2>
+          <div style="display:flex;flex-direction:column;gap:11px">
+            <sc-for list="{{ checklist }}" as="c" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="width:18px;height:18px;border-radius:5px;border:1.5px solid {{ c.boxColor }};display:flex;align-items:center;justify-content:center;flex-shrink:0"><sc-if value="{{ c.required }}" hint-placeholder-val="{{ false }}"><svg width="11" height="11" viewBox="0 0 24 24" style="stroke:#3B82F6;stroke-width:3"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if></span>
+                <span style="font-size:13px;color:#475569">{{ c.label }}</span>
+                <sc-if value="{{ c.required }}" hint-placeholder-val="{{ false }}"><span style="font-size:10.5px;font-weight:600;color:#3B82F6;margin-left:auto">Obligatorio</span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px 22px">
+        <h2 style="font-size:12px;font-weight:600;color:#94A3B8;margin:0 0 16px;text-transform:uppercase;letter-spacing:0.04em">Metadatos</h2>
+        <div style="display:flex;flex-direction:column;gap:13px;font-size:13px">
+          <div><div style="font-size:11.5px;color:#94A3B8;margin-bottom:3px">ID</div><div style="font-family:ui-monospace,monospace;font-size:11.5px;color:#475569;word-break:break-all">{{ pid }}</div></div>
+          <div><div style="font-size:11.5px;color:#94A3B8;margin-bottom:3px">Creado</div><div style="font-size:13px;color:#0F172A">{{ created }}</div></div>
+          <div><div style="font-size:11.5px;color:#94A3B8;margin-bottom:3px">Actualizado</div><div style="font-size:13px;color:#0F172A">{{ updated }}</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeMenu }}" style="position:fixed;inset:0;z-index:40;background:transparent"></div>
+  </sc-if>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="pd-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></symbol>
+    <symbol id="pd-server" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></symbol>
+    <symbol id="pd-layers" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></symbol>
+  </defs></svg>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 900 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; },
+  &quot;tipo&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Hosting Web&quot;, &quot;options&quot;: [&quot;Hosting Web&quot;, &quot;Docker Service&quot;, &quot;Proyecto Custom&quot;, &quot;Dominio&quot;], &quot;tsType&quot;: &quot;string&quot; }
+}">
+class Component extends DCLogic {
+  state = { menuOpen: false };
+
+  renderVals() {
+    const nav = (id) => { if (this.props.navigate) this.props.navigate(id); };
+    const tipo = this.props.tipo || 'Hosting Web';
+    const isDomain = tipo === 'Dominio';
+
+    const P = {
+      'Hosting Web': {
+        name: 'Web Pro', slug: 'web-pro', icon: 'server', typeLabel: 'Hosting Web', category: 'Hosting', provisioner: 'enhance_cp', services: '52', badge: 'Popular', addon: false,
+        description: 'Hosting web para negocios que crecen: más capacidad, staging y correos. Aislamiento por contenedor con EnhanceCP.',
+        plans: [['Mensual', '14,99 €', ''], ['Trimestral', '41,97 €', ''], ['Anual', '149,90 €', '0,00 €']],
+        extras: [['Dominio .com gratis (1er año)', false, true], ['Migración asistida', false, true], ['IP dedicada', false, false]],
+        checklist: null,
+        cfg: ['0 días', '7 días', '30 días', 'Sí', '20%'],
+        pid: 'prd_2b9f10c4-a1e8-47d2', created: '8 ene 2026, 09:00', updated: '20 jun 2026, 14:20',
+      },
+      'Docker Service': {
+        name: 'Nextcloud', slug: 'nextcloud', icon: 'server', typeLabel: 'Docker Service', category: 'Cloud Office', provisioner: 'docker_engine', services: '12', badge: '', addon: false,
+        description: 'Nube privada Nextcloud en contenedor dedicado. Almacenamiento, calendario y oficina, con tus datos en Europa.',
+        plans: [['Mensual', '9,99 €', ''], ['Anual', '99,90 €', '15,00 €']],
+        extras: null,
+        checklist: null,
+        cfg: ['0 días', '7 días', '30 días', 'No', '15%'],
+        pid: 'prd_6c1a44e0-7b22-4f90', created: '2 feb 2026, 11:30', updated: '18 jun 2026, 10:05',
+      },
+      'Proyecto Custom': {
+        name: 'Proyecto ERP', slug: 'proyecto-erp', icon: 'layers', typeLabel: 'Proyecto Custom', category: 'Proyectos', provisioner: 'manual', services: '3', badge: '', addon: false,
+        description: 'Implantación de ERP a medida. Proyecto manual: el agente recibe una tarea de setup al activarse el servicio.',
+        plans: [['Único', '1.500,00 €', '300,00 €']],
+        extras: null,
+        checklist: [['Reunión de arranque', true], ['Análisis de requisitos', true], ['Configuración del entorno', false], ['Formación al cliente', false], ['Entrega y firma', true]],
+        cfg: ['0 días', '0 días', '60 días', 'No', '—'],
+        pid: 'prd_9d70e2b1-cc05-41aa', created: '5 mar 2026, 16:00', updated: '22 jun 2026, 09:40',
+      },
+      'Dominio': {
+        name: 'Dominios', slug: 'dominio', icon: 'globe', typeLabel: 'Dominio', category: 'Dominios', provisioner: 'resellerclub', services: '137', badge: '', addon: false,
+        description: 'Registro y transferencia de dominios. El precio de cada extensión se calcula desde el coste mayorista del registrar más el markup del plugin.',
+        plans: null, extras: null, checklist: null,
+        cfg: ['30 días', '15 días', '30 días', 'No', '10%'],
+        pid: 'prd_8f3a2c10-d4e1-4b9a', created: '12 ene 2026, 10:00', updated: '24 jun 2026, 08:30',
+      },
+    };
+    const d = P[tipo] || P['Hosting Web'];
+
+    const plans = (d.plans || []).map((p, i, arr) => ({
+      cycle: p[0], price: p[1], setup: p[2], showSetup: !!p[2],
+      rowStyle: 'display:flex;align-items:center;justify-content:space-between;padding:13px 0;' + (i === 0 ? '' : 'border-top:1px solid #F4F6F9;'),
+    }));
+    const extras = (d.extras || []).map((e, i) => ({
+      label: e[0], mandatory: e[1],
+      stLabel: e[2] ? 'Activo' : 'Inactivo',
+      stStyle: 'display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;' + (e[2] ? 'background:#E8F7F1;color:#0E8C5F;' : 'background:#F1F5F9;color:#64748B;'),
+      rowStyle: 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;' + (i === 0 ? '' : 'border-top:1px solid #F4F6F9;'),
+    }));
+    const checklist = (d.checklist || []).map((c) => ({ label: c[0], required: c[1], boxColor: c[1] ? '#3B82F6' : '#E2E8F0' }));
+
+    const tldSeed = [
+      ['com', 'Registro', '8,50 €', '12,99 €', '53%', 'auto'], ['com', 'Renovación', '9,20 €', '13,99 €', '52%', 'auto'], ['com', 'Transferencia', '8,50 €', '11,99 €', '41%', 'auto'],
+      ['es', 'Registro', '5,00 €', '9,99 €', '100%', 'manual'], ['es', 'Renovación', '5,50 €', '9,99 €', '82%', 'auto'],
+      ['org', 'Registro', '9,00 €', '13,99 €', '55%', 'auto'], ['net', 'Registro', '9,50 €', '14,99 €', '58%', 'auto'],
+      ['io', 'Registro', '28,00 €', '39,99 €', '43%', 'auto'], ['dev', 'Registro', '12,00 €', '17,99 €', '50%', 'auto'],
+      ['shop', 'Registro', '22,00 €', '29,99 €', '36%', 'auto'], ['eu', 'Registro', '4,50 €', '8,99 €', '100%', 'manual'],
+    ];
+    const tlds = tldSeed.map((t, i) => ({
+      tld: t[0], op: t[1], years: '1', cost: t[2], price: t[3], margin: t[4],
+      srcLabel: t[5] === 'manual' ? 'Manual' : 'Auto',
+      srcStyle: 'display:inline-flex;align-items:center;padding:2px 9px;border-radius:9999px;font-size:10.5px;font-weight:600;' + (t[5] === 'manual' ? 'background:#EFF4FF;color:#3B82F6;' : 'background:#F1F5F9;color:#94A3B8;'),
+      rowStyle: i === 0 ? '' : 'border-top:1px solid #F4F6F9;',
+    }));
+
+    return {
+      goProducts: () => nav('products'),
+      goEdit: () => nav('product-new'),
+      name: d.name, slug: d.slug, icon: d.icon, typeLabel: d.typeLabel, category: d.category,
+      provisioner: d.provisioner, services: d.services, description: d.description,
+      badge: d.badge, showBadge: !!d.badge, isAddon: d.addon,
+      isDomain, showPlans: !isDomain && plans.length > 0,
+      showExtras: extras.length > 0, showChecklist: checklist.length > 0,
+      plans, extras, checklist, tlds,
+      cfgGrace: d.cfg[0], cfgSusp: d.cfg[1], cfgCancel: d.cfg[2], cfgPause: d.cfg[3], cfgCommission: d.cfg[4],
+      pid: d.pid, created: d.created, updated: d.updated,
+      menuOpen: this.state.menuOpen,
+      toggleMenu: () => this.setState((s) => ({ menuOpen: !s.menuOpen })),
+      closeMenu: () => this.setState({ menuOpen: false }),
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

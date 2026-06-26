@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</helmet>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <symbol id="ai-euro" viewBox="0 0 24 24"><path d="M17 5.5a7 7 0 1 0 0 13"></path><line x1="3" y1="10" x2="13" y2="10"></line><line x1="3" y1="14" x2="13" y2="14"></line></symbol>
+  <symbol id="ai-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></symbol>
+  <symbol id="ai-billing" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2.5"></rect><line x1="1" y1="10" x2="23" y2="10"></line></symbol>
+  <symbol id="ai-shield" viewBox="0 0 24 24"><path d="M12 2l9 4v6c0 5-3.6 9.3-9 10-5.4-.7-9-5-9-10V6l9-4z"></path><path d="M9 12l2 2 4-4"></path></symbol>
+  <symbol id="ai-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></symbol>
+  <symbol id="ai-server" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></symbol>
+  <symbol id="ai-bug" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></symbol>
+  <symbol id="ai-up" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="6"></line><polyline points="6 12 12 6 18 12"></polyline></symbol>
+  <symbol id="ai-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></symbol>
+</defs></svg>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
+
+  <div style="margin-bottom:22px">
+    <div style="font-size:11px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:#A2AEC0;margin-bottom:7px">Martes · 24 junio</div>
+    <h1 style="font-size:27px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 6px">Buenas tardes, Marc</h1>
+    <p style="font-size:14px;color:#64748B;margin:0">El pulso de Aelium hoy — y lo que necesita tu decisión.</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:20px">
+
+    <button type="button" onClick="{{ go.billing }}" style="text-align:left;background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,0.04);cursor:pointer;font-family:inherit" style-hover="border-color:#CBD5E1;box-shadow:0 4px 14px rgba(15,23,42,0.06)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
+        <span style="font-size:12.5px;font-weight:500;color:#64748B">Ingresos del mes</span>
+        <span style="width:34px;height:34px;border-radius:10px;background:#E8F7F1;color:#0E8C5F;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24"><use href="#ai-euro"></use></svg></span>
+      </div>
+      <div style="font-size:28px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;line-height:1">8.420 €</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:10px;font-size:12px;font-weight:600;color:#0E8C5F"><svg width="13" height="13" viewBox="0 0 24 24" style="flex-shrink:0"><use href="#ai-up"></use></svg>+12% vs. mayo</div>
+    </button>
+
+    <button type="button" onClick="{{ go.clients }}" style="text-align:left;background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,0.04);cursor:pointer;font-family:inherit" style-hover="border-color:#CBD5E1;box-shadow:0 4px 14px rgba(15,23,42,0.06)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
+        <span style="font-size:12.5px;font-weight:500;color:#64748B">Clientes activos</span>
+        <span style="width:34px;height:34px;border-radius:10px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24"><use href="#ai-users"></use></svg></span>
+      </div>
+      <div style="font-size:28px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;line-height:1">142</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:10px;font-size:12px;font-weight:600;color:#0E8C5F"><svg width="13" height="13" viewBox="0 0 24 24" style="flex-shrink:0"><use href="#ai-up"></use></svg>+6 nuevos este mes</div>
+    </button>
+
+    <button type="button" onClick="{{ go.billing }}" style="text-align:left;background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,0.04);cursor:pointer;font-family:inherit" style-hover="border-color:#CBD5E1;box-shadow:0 4px 14px rgba(15,23,42,0.06)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
+        <span style="font-size:12.5px;font-weight:500;color:#64748B">Por cobrar vencido</span>
+        <span style="width:34px;height:34px;border-radius:10px;background:#FCECEC;color:#D14343;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24"><use href="#ai-billing"></use></svg></span>
+      </div>
+      <div style="font-size:28px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;line-height:1">1.240 €</div>
+      <div style="margin-top:10px;font-size:12px;font-weight:600;color:#D14343">5 facturas · la + antigua, 12 días</div>
+    </button>
+
+    <button type="button" onClick="{{ go.tickets }}" style="text-align:left;background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,0.04);cursor:pointer;font-family:inherit" style-hover="border-color:#CBD5E1;box-shadow:0 4px 14px rgba(15,23,42,0.06)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
+        <span style="font-size:12.5px;font-weight:500;color:#64748B">SLA de soporte</span>
+        <span style="width:34px;height:34px;border-radius:10px;background:#E8F7F1;color:#0E8C5F;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24"><use href="#ai-shield"></use></svg></span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:6px"><span style="font-size:28px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;line-height:1">96%</span><span style="font-size:12px;font-weight:500;color:#94A3B8">cumplido</span></div>
+      <div style="height:5px;border-radius:9999px;background:#EAF6F0;margin-top:11px;overflow:hidden"><div style="height:100%;width:96%;background:#0E8C5F;border-radius:9999px"></div></div>
+      <div style="margin-top:8px;font-size:12px;font-weight:600;color:#B27A12">2 respuestas fuera de plazo</div>
+    </button>
+
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.62fr 1fr;gap:20px;align-items:start">
+
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:6px 22px 14px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 0 4px">
+        <div>
+          <div style="display:flex;align-items:center;gap:9px">
+            <h2 style="font-size:16px;font-weight:600;color:#0F172A;margin:0">Requiere tu decisión</h2>
+            <span style="min-width:20px;height:20px;padding:0 7px;border-radius:9999px;background:#FCECEC;color:#D14343;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">5</span>
+          </div>
+          <p style="font-size:12.5px;color:#94A3B8;margin:4px 0 0">Señales del sistema que un agente no resuelve solo</p>
+        </div>
+      </div>
+
+      <button type="button" onClick="{{ go.billing }}" style="display:flex;align-items:center;gap:13px;width:100%;padding:14px 0;border:none;border-top:1px solid #F4F6F9;background:transparent;cursor:pointer;text-align:left;font-family:inherit" style-hover="opacity:0.78">
+        <span style="width:38px;height:38px;border-radius:10px;background:#FCECEC;color:#D14343;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24"><use href="#ai-billing"></use></svg></span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:600;color:#0F172A">5 facturas vencidas · 1.240 €</span><span style="display:block;font-size:12px;color:#94A3B8;margin-top:2px">Decide si reclamar, dar prórroga o cancelar el servicio</span></span>
+        <span style="display:flex;align-items:center;gap:4px;flex-shrink:0;color:#64748B"><span style="font-size:11.5px;font-weight:600">Revisar</span><svg width="17" height="17" viewBox="0 0 24 24" style="color:#CBD5E1"><use href="#ai-chevron"></use></svg></span>
+      </button>
+
+      <button type="button" onClick="{{ go.errorlog }}" style="display:flex;align-items:center;gap:13px;width:100%;padding:14px 0;border:none;border-top:1px solid #F4F6F9;background:transparent;cursor:pointer;text-align:left;font-family:inherit" style-hover="opacity:0.78">
+        <span style="width:38px;height:38px;border-radius:10px;background:#FCECEC;color:#D14343;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24"><use href="#ai-bug"></use></svg></span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:600;color:#0F172A">3 errores 5xx en la última hora</span><span style="display:block;font-size:12px;color:#94A3B8;margin-top:2px">Pico por encima de la media · revisa el Error Log</span></span>
+        <span style="display:flex;align-items:center;gap:4px;flex-shrink:0;color:#64748B"><span style="font-size:11.5px;font-weight:600">Ver log</span><svg width="17" height="17" viewBox="0 0 24 24" style="color:#CBD5E1"><use href="#ai-chevron"></use></svg></span>
+      </button>
+
+      <button type="button" onClick="{{ go.jobs }}" style="display:flex;align-items:center;gap:13px;width:100%;padding:14px 0;border:none;border-top:1px solid #F4F6F9;background:transparent;cursor:pointer;text-align:left;font-family:inherit" style-hover="opacity:0.78">
+        <span style="width:38px;height:38px;border-radius:10px;background:#FCF3E1;color:#B27A12;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24"><use href="#ai-server"></use></svg></span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:600;color:#0F172A">1 job en la cola muerta (DLQ)</span><span style="display:block;font-size:12px;color:#94A3B8;margin-top:2px">provision:create agotó sus reintentos · reintenta o descarta</span></span>
+        <span style="display:flex;align-items:center;gap:4px;flex-shrink:0;color:#64748B"><span style="font-size:11.5px;font-weight:600">Reintentar</span><svg width="17" height="17" viewBox="0 0 24 24" style="color:#CBD5E1"><use href="#ai-chevron"></use></svg></span>
+      </button>
+
+      <button type="button" onClick="{{ go.services }}" style="display:flex;align-items:center;gap:13px;width:100%;padding:14px 0;border:none;border-top:1px solid #F4F6F9;background:transparent;cursor:pointer;text-align:left;font-family:inherit" style-hover="opacity:0.78">
+        <span style="width:38px;height:38px;border-radius:10px;background:#FCF3E1;color:#B27A12;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24"><use href="#ai-monitor"></use></svg></span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:600;color:#0F172A">2 servicios con drift de configuración</span><span style="display:block;font-size:12px;color:#94A3B8;margin-top:2px">El estado real del servidor difiere del esperado</span></span>
+        <span style="display:flex;align-items:center;gap:4px;flex-shrink:0;color:#64748B"><span style="font-size:11.5px;font-weight:600">Reconciliar</span><svg width="17" height="17" viewBox="0 0 24 24" style="color:#CBD5E1"><use href="#ai-chevron"></use></svg></span>
+      </button>
+
+      <button type="button" onClick="{{ go.services }}" style="display:flex;align-items:center;gap:13px;width:100%;padding:14px 0;border:none;border-top:1px solid #F4F6F9;background:transparent;cursor:pointer;text-align:left;font-family:inherit" style-hover="opacity:0.78">
+        <span style="width:38px;height:38px;border-radius:10px;background:#FCF3E1;color:#B27A12;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24"><use href="#ai-shield"></use></svg></span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:600;color:#0F172A">2 servicios SI sin mantenimiento &gt;60 días</span><span style="display:block;font-size:12px;color:#94A3B8;margin-top:2px">La promesa de Support Inside en riesgo de incumplir</span></span>
+        <span style="display:flex;align-items:center;gap:4px;flex-shrink:0;color:#64748B"><span style="font-size:11.5px;font-weight:600">Asignar</span><svg width="17" height="17" viewBox="0 0 24 24" style="color:#CBD5E1"><use href="#ai-chevron"></use></svg></span>
+      </button>
+    </div>
+
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px 22px">
+      <h2 style="font-size:16px;font-weight:600;color:#0F172A;margin:0">Carga del equipo</h2>
+      <p style="font-size:12.5px;color:#94A3B8;margin:4px 0 6px">Reparto del trabajo de soporte</p>
+
+      <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid #F4F6F9">
+        <span style="position:relative;flex-shrink:0"><span style="width:36px;height:36px;border-radius:9999px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">MG</span><span style="position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;border-radius:9999px;background:#10B981;border:2px solid #fff"></span></span>
+        <span style="flex:1;min-width:0">
+          <span style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font-size:13px;font-weight:600;color:#0F172A">Marta Gil <span style="font-weight:500;color:#94A3B8;font-size:11.5px">· Soporte</span></span><span style="font-size:12px;font-weight:600;color:#B27A12;flex-shrink:0">9 abiertas</span></span>
+          <span style="display:block;height:5px;border-radius:9999px;background:#F1F5F9;margin-top:8px;overflow:hidden"><span style="display:block;height:100%;width:100%;background:#F59E0B;border-radius:9999px"></span></span>
+        </span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid #F4F6F9">
+        <span style="position:relative;flex-shrink:0"><span style="width:36px;height:36px;border-radius:9999px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">LF</span><span style="position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;border-radius:9999px;background:#10B981;border:2px solid #fff"></span></span>
+        <span style="flex:1;min-width:0">
+          <span style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font-size:13px;font-weight:600;color:#0F172A">Luis Ferrer <span style="font-weight:500;color:#94A3B8;font-size:11.5px">· Full</span></span><span style="font-size:12px;font-weight:600;color:#3B82F6;flex-shrink:0">6 abiertas</span></span>
+          <span style="display:block;height:5px;border-radius:9999px;background:#F1F5F9;margin-top:8px;overflow:hidden"><span style="display:block;height:100%;width:67%;background:#3B82F6;border-radius:9999px"></span></span>
+        </span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid #F4F6F9">
+        <span style="position:relative;flex-shrink:0"><span style="width:36px;height:36px;border-radius:9999px;background:#F1F5F9;color:#64748B;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">PV</span><span style="position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;border-radius:9999px;background:#CBD5E1;border:2px solid #fff"></span></span>
+        <span style="flex:1;min-width:0">
+          <span style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font-size:13px;font-weight:600;color:#0F172A">Pau Vidal <span style="font-weight:500;color:#94A3B8;font-size:11.5px">· Facturación</span></span><span style="font-size:12px;font-weight:600;color:#64748B;flex-shrink:0">3 abiertas</span></span>
+          <span style="display:block;height:5px;border-radius:9999px;background:#F1F5F9;margin-top:8px;overflow:hidden"><span style="display:block;height:100%;width:33%;background:#94A3B8;border-radius:9999px"></span></span>
+        </span>
+      </div>
+
+      <div style="display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding:11px 12px;background:#FEFAF0;border:1px solid #FBE7C2;border-radius:11px">
+        <svg width="16" height="16" viewBox="0 0 24 24" style="color:#B27A12;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        <span style="font-size:12px;color:#92702A;line-height:1.4">Marta está al límite. Reparte antes de que afecte al SLA.</span>
+      </div>
+
+      <button type="button" onClick="{{ go.tasks }}" style="display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:10px;padding:10px;border-radius:10px;border:1px solid #E2E8F0;background:#F8FAFC;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease,color .15s ease" style-hover="background:#fff;color:#0F172A">Reasignar tareas del equipo</button>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 900 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
+}">
+class Component extends DCLogic {
+  renderVals() {
+    const nav = (id) => { if (this.props.navigate) this.props.navigate(id); };
+    return {
+      go: {
+        billing: () => nav('billing'),
+        clients: () => nav('clients'),
+        services: () => nav('services'),
+        errorlog: () => nav('errorlog'),
+        jobs: () => nav('jobs'),
+        tickets: () => nav('tickets'),
+        tasks: () => nav('tasks'),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
