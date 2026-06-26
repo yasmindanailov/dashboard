@@ -244,7 +244,7 @@ El listener `BootstrapEnhanceDefaultsOnPluginInstalledListener` (`@OnEvent('plug
 | Listener | Eventos consumidos | Acciones |
 |----------|--------------------|----------|
 | `billing-email.listener` | `invoice.created`, `invoice.paid`, `invoice.failed`, `invoice.overdue` | Delega a `NotificationsService.dispatchToUser` — render plantilla + email + campana (Sprint 9 Fase D) |
-| `support-email.listener` | `conversation.created`, `conversation.assigned`, `message.created` | Email a cliente o agente según tipo |
+| `support-email.listener` | `conversation.created`, `conversation.assigned`, `message.created` | **GL-25 (audit 2026-06-25):** delega en `NotificationsService.dispatchToUser` con plantillas de BD Handlebars (email + campana) — antes era HTML inline con interpolación CRUDA de contenido de usuario (asunto/cuerpo → inyección + violación D12). Contenido de usuario escapado vía `{{e}}`. Chats GUEST (sin cuenta) → render de la misma plantilla + EmailService, respetando el kill-switch `email_enabled_globally`. SUPP-INV-3 (notas internas nunca al cliente) preservado. |
 | `support-websocket.listener` | `conversation.created`, `conversation.assigned`, `message.created` | Push por WebSocket a clients conectados |
 | `support-guest-link.listener` | `auth.registered` | Vincula chats guest previos al user nuevo (si email coincide) |
 | `tasks-email.listener` | `task.assigned` | Delega a `NotificationsService.dispatchToUser` — email + campana al agente, con `task_type_label`/`task_priority_label` (Sprint 8 Fase B.1.bis sin enums crudos) |

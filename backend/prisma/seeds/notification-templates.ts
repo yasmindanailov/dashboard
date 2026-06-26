@@ -7,14 +7,18 @@ import { PrismaClient } from '@prisma/client';
  * `BillingEmailListener` y `TasksEmailListener` para que los tests E2E
  * y la UX del cliente no detecten cambios en el copy.
  *
- * 🔒 EC-T8-17 (Sprint 8 Fase B 2026-04-29) — REGLA CANÓNICA DE PLANTILLAS:
+ * 🔒 EC-T8-17 (Sprint 8 Fase B) + GL-25 (audit 2026-06-25) — REGLA CANÓNICA:
  *
- * SIEMPRE usar `{{var}}` (escape automático Handlebars). NUNCA usar
- * `{{{var}}}` ni `{{& var}}` — ambos rinden el contenido sin escapar y
- * abren XSS si el payload incluye texto controlado por usuario (ej.
- * `task_url`, `assigned_by`, `task_title`, `description` cliente-side).
- * El test guard `notification-templates.security.spec.ts` falla el build
- * si alguna plantilla seedeada introduce un triple-stash.
+ * NUNCA usar `{{{var}}}` ni `{{& var}}` (render crudo → XSS). El guard
+ * `notification-templates.security.spec.ts` falla el build si aparecen.
+ *
+ * ⚠️ El canal `email` se compila con `noEscape: true` (el HTML lo escribe el
+ * admin), así que `{{var}}` **NO se escapa** en email. Para CUALQUIER variable
+ * de origen usuario (asunto de conversación, cuerpo del mensaje del cliente,
+ * nombre libre…) usa el helper **`{{e <var>}}`** (escape vía `SafeString`,
+ * GL-25), nunca `{{var}}` a secas. En el canal `internal` (campana,
+ * `noEscape:false`) `{{var}}` sí auto-escapa; `{{e}}` también es seguro ahí
+ * (devuelve `SafeString` → no doble-escapa).
  *
  * Variables disponibles por evento:
  *  - `invoice.*`: invoice_id, invoice_number, user_id, total, currency,
@@ -45,7 +49,7 @@ export async function seedNotificationTemplates(
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Se ha generado una nueva factura por <strong>{{total}} {{currency}}</strong>.
@@ -85,7 +89,7 @@ export async function seedNotificationTemplates(
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Hemos recibido tu pago de <strong>{{total}} {{currency}}</strong>. Tu servicio está activo.
@@ -128,7 +132,7 @@ export async function seedNotificationTemplates(
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               No hemos podido procesar el cobro de la factura <strong>{{invoice_number}}</strong>.
@@ -163,7 +167,7 @@ export async function seedNotificationTemplates(
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               La factura <strong>{{invoice_number}}</strong> por <strong>{{total}} EUR</strong> está vencida.
@@ -219,7 +223,7 @@ export async function seedNotificationTemplates(
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola {{#if recipient.first_name}}{{recipient.first_name}}{{else}}agente{{/if}},
+              Hola {{#if recipient.first_name}}{{e recipient.first_name}}{{else}}agente{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Se te ha asignado una nueva tarea: <strong>Tarea {{task_source_system_label}}</strong>.
@@ -279,14 +283,14 @@ export async function seedNotificationTemplates(
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola {{#if recipient.first_name}}{{recipient.first_name}}{{else}}cliente{{/if}},
+              Hola {{#if recipient.first_name}}{{e recipient.first_name}}{{else}}cliente{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Hemos completado el mantenimiento mensual de tu servicio.
               Aquí tienes el resumen del trabajo realizado:
             </p>
             <div style="background: #f9fafb; border-left: 4px solid #635BFF; border-radius: 8px; padding: 16px 20px; margin: 20px 0;">
-              <p style="color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin: 0;">{{notes}}</p>
+              <p style="color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin: 0;">{{e notes}}</p>
             </div>
             <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
               Si tienes cualquier duda sobre este mantenimiento o detectas
@@ -340,17 +344,17 @@ export async function seedNotificationTemplates(
         <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
             <h1 style="color: #fff; margin: 0; font-size: 24px;">Tarea completada</h1>
-            {{#if task_reason}}<p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_reason}}</p>{{/if}}
+            {{#if task_reason}}<p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{e task_reason}}</p>{{/if}}
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola {{#if recipient.first_name}}{{recipient.first_name}}{{else}}cliente{{/if}},
+              Hola {{#if recipient.first_name}}{{e recipient.first_name}}{{else}}cliente{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Hemos terminado de trabajar en tu solicitud "<strong>Tarea {{task_source_system_label}}</strong>". Aquí tienes el detalle:
             </p>
             <div style="background: #f9fafb; border-left: 4px solid #635BFF; border-radius: 8px; padding: 16px 20px; margin: 20px 0;">
-              <p style="color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin: 0;">{{client_notes}}</p>
+              <p style="color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin: 0;">{{e client_notes}}</p>
             </div>
             <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
               Si tienes cualquier duda, contáctanos respondiendo a este correo o desde tu panel de cliente.
@@ -378,7 +382,7 @@ export async function seedNotificationTemplates(
       channel: 'internal' as const,
       locale: 'es',
       subject: 'Sobre tu solicitud: Tarea {{task_source_system_label}}',
-      body: 'Hemos completado tu solicitud{{#if task_reason}} ({{task_reason}}){{/if}}. Revisa los detalles desde tu panel.',
+      body: 'Hemos completado tu solicitud{{#if task_reason}} ({{e task_reason}}){{/if}}. Revisa los detalles desde tu panel.',
       variables: {
         task_reason: 'string?',
       },
@@ -401,7 +405,7 @@ export async function seedNotificationTemplates(
             <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">#{{ticket_sequence}}</p>
           </div>
           <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
-            <p style="color: #374151; font-size: 14px;">Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},</p>
+            <p style="color: #374151; font-size: 14px;">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},</p>
             <p style="color: #374151; font-size: 14px;">Hemos resuelto tu solicitud. Revisa la respuesta del agente desde tu panel.</p>
             <p style="color: #374151; font-size: 14px; margin-top: 16px;"><strong>Tienes 3 caminos:</strong></p>
             <ul style="color: #374151; font-size: 14px; padding-left: 20px;">
@@ -451,7 +455,7 @@ export async function seedNotificationTemplates(
             <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">#{{ticket_sequence}}</p>
           </div>
           <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
-            <p style="color: #374151; font-size: 14px;">Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},</p>
+            <p style="color: #374151; font-size: 14px;">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},</p>
             <p style="color: #374151; font-size: 14px;">El ticket que resolviste el {{resolved_at_label}} se ha cerrado automáticamente tras {{auto_close_days}} días sin respuesta del cliente.</p>
             <a href="{{ticket_url}}" style="display: inline-block; background: #2563EB; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Ver ticket archivado</a>
           </div>
@@ -478,6 +482,141 @@ export async function seedNotificationTemplates(
         auto_close_days: 'number',
         resolved_at_label: 'string',
       },
+    },
+
+    // ═════════════ SUPPORT (GL-25 — audit 2026-06-25) ═════════════
+    // Migración de los emails inline de `SupportEmailListener` (HTML con
+    // interpolación cruda de contenido de usuario → inyección + violación D12)
+    // a plantillas de BD. Todo el contenido de origen usuario (asunto de la
+    // conversación, cuerpo del mensaje) usa el helper `{{e}}` — OBLIGATORIO en
+    // el canal email (`noEscape:true`), donde `{{var}}` NO escaparía.
+
+    // ───────────── conversation.created (email cliente) ─────────────
+    {
+      event_type: 'conversation.created',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Tu consulta ha sido recibida — "{{e subject}}"',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Consulta recibida</h1>
+            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">{{e subject}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},</p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hemos recibido tu consulta. Nuestro equipo la revisará lo antes posible y te responderemos desde tu panel de soporte.</p>
+            <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0;">
+              <table style="width: 100%; font-size: 14px; color: #374151;">
+                <tr><td style="padding: 4px 0; color: #9ca3af;">Asunto:</td><td style="text-align: right; font-weight: 600;">{{e subject}}</td></tr>
+                <tr><td style="padding: 4px 0; color: #9ca3af;">Canal:</td><td style="text-align: right;">{{e channel}}</td></tr>
+              </table>
+            </div>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{support_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver mi conversación</a>
+            </p>
+            <p style="color: #6b7280; font-size: 13px;">Te notificaremos por email cuando haya una respuesta.</p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        subject: 'string',
+        channel: 'string',
+        support_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── conversation.created (campana cliente) ─────────────
+    {
+      event_type: 'conversation.created',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Consulta recibida',
+      body: 'Hemos recibido tu consulta "{{e subject}}". Te avisaremos cuando haya respuesta.',
+      variables: { subject: 'string' },
+    },
+
+    // ───────────── message.created (email cliente — respuesta del agente) ─────────────
+    {
+      event_type: 'message.created',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Nueva respuesta en "{{e subject}}"',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Nueva respuesta</h1>
+            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">{{e subject}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},</p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">Has recibido una nueva respuesta en tu conversación de soporte:</p>
+            <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0; border-left: 3px solid #635BFF;">
+              <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-line;">{{e preview}}</p>
+            </div>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{support_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver conversación</a>
+            </p>
+            <p style="color: #6b7280; font-size: 13px;">Accede a tu panel de soporte para ver la conversación completa y responder.</p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        subject: 'string',
+        preview: 'string',
+        support_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── message.created (campana cliente) ─────────────
+    {
+      event_type: 'message.created',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Nueva respuesta en soporte',
+      body: 'Tienes una nueva respuesta en "{{e subject}}".',
+      variables: { subject: 'string' },
+    },
+
+    // ───────────── conversation.assigned (email agente) ─────────────
+    {
+      event_type: 'conversation.assigned',
+      channel: 'email' as const,
+      locale: 'es',
+      subject: 'Conversación asignada — "{{e subject}}"',
+      body: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">Conversación asignada</h1>
+            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">{{e subject}}</p>
+          </div>
+          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{else}} agente{{/if}},</p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">Se te ha asignado la conversación: <strong>"{{e subject}}"</strong>.</p>
+            <p style="text-align: center; margin: 24px 0;">
+              <a href="{{support_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Abrir en el panel</a>
+            </p>
+            <p style="color: #6b7280; font-size: 13px;">Accede al panel de soporte para revisarla y responder.</p>
+          </div>
+        </div>
+      `.trim(),
+      variables: {
+        subject: 'string',
+        support_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+
+    // ───────────── conversation.assigned (campana agente) ─────────────
+    {
+      event_type: 'conversation.assigned',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Conversación asignada',
+      body: 'Se te ha asignado la conversación "{{e subject}}".',
+      variables: { subject: 'string' },
     },
 
     // ───────────── outbox.event_failed (campana superadmin) ─────────────
@@ -592,7 +731,7 @@ last_error: {{last_error}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola {{#if recipient.first_name}}{{recipient.first_name}}{{else}}agente{{/if}},
+              Hola {{#if recipient.first_name}}{{e recipient.first_name}}{{else}}agente{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               La tarea <strong>Tarea {{task_source_system_label}}</strong> ha superado su fecha límite por más de {{days_overdue}} días y se ha marcado automáticamente como <strong>no completada a tiempo</strong>.
@@ -963,8 +1102,9 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
     //     panel_label específico.
     //   - recipient.first_name: opcional, añadido por el dispatcher.
     //
-    // EC-T8-17: SIEMPRE `{{var}}` con escape automático. NUNCA triple-stash
-    // ni ampersand-stash unescaped. El test guard
+    // EC-T8-17 + GL-25: en email `{{var}}` NO escapa (noEscape:true) → usa
+    // `{{e var}}` para contenido de usuario. NUNCA triple-stash ni
+    // ampersand-stash unescaped. El test guard
     // `notification-templates.security.spec.ts` falla el build si
     // introducimos un patrón unsafe.
     {
@@ -980,7 +1120,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Hemos restablecido la contraseña de tu cuenta para el servicio
@@ -1055,7 +1195,8 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
     //   - support_url: URL absoluta al portal de soporte del cliente.
     //   - recipient.first_name: opcional, añadido por el dispatcher.
     //
-    // EC-T8-17: SIEMPRE `{{var}}` con escape automático.
+    // EC-T8-17 + GL-25: en email `{{var}}` NO escapa (noEscape:true) → usa
+    // `{{e var}}` para contenido de usuario. NUNCA triple-stash. Ver cabecera.
     {
       event_type: 'service.cancelled',
       channel: 'email' as const,
@@ -1069,7 +1210,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Te confirmamos que el servicio <strong>{{domain}}</strong> ha sido
@@ -1130,7 +1271,8 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
     //   - support_url: URL absoluta a /dashboard/support (CTA secundario).
     //   - recipient.first_name: opcional, añadido por el dispatcher.
     //
-    // EC-T8-17: SIEMPRE `{{var}}` con escape automático.
+    // EC-T8-17 + GL-25: en email `{{var}}` NO escapa (noEscape:true) → usa
+    // `{{e var}}` para contenido de usuario. NUNCA triple-stash. Ver cabecera.
     {
       event_type: 'service.cancellation_scheduled',
       channel: 'email' as const,
@@ -1144,7 +1286,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               El servicio <strong>{{domain}}</strong> lleva un tiempo suspendido por un pago
@@ -1214,7 +1356,8 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
     //   - support_url: URL absoluta a /dashboard/support (CTA por defecto).
     //   - recipient.first_name: opcional, añadido por el dispatcher.
     //
-    // EC-T8-17: SIEMPRE `{{var}}` con escape automático.
+    // EC-T8-17 + GL-25: en email `{{var}}` NO escapa (noEscape:true) → usa
+    // `{{e var}}` para contenido de usuario. NUNCA triple-stash. Ver cabecera.
     {
       event_type: 'service.suspended',
       channel: 'email' as const,
@@ -1228,7 +1371,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               El servicio <strong>{{domain}}</strong> ha sido suspendido temporalmente.
@@ -1323,7 +1466,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               ¡Buenas noticias! El servicio <strong>{{domain}}</strong> vuelve a estar
@@ -1367,8 +1510,9 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
     // R1/R6). El listener `NotificationsOnServiceQuotaThresholdCrossedListener`
     // re-renderiza fresco con el contexto actual (display domain del service +
     // appUrl del ConfigService). Heredable a cualquier plugin con `has_metrics`.
-    // EC-T8-17: solo `{{var}}` (escape Handlebars) — `notification-templates
-    // .security.spec.ts` falla el build si introduce triple-stash.
+    // EC-T8-17 + GL-25: en email `{{var}}` NO escapa → usa `{{e var}}` para
+    // contenido de usuario. `notification-templates.security.spec.ts` falla el
+    // build si hay triple-stash o una var de usuario sin escapar.
     {
       event_type: 'service.quota_threshold_crossed',
       channel: 'email' as const,
@@ -1382,7 +1526,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Tu servicio <strong>{{domain}}</strong> está al <strong>{{used_pct}}%</strong> de su cuota de almacenamiento. Si llega al 100%, dejará de aceptar nuevos archivos (uploads, copias de seguridad, registros del sitio) hasta que liberes espacio o amplíes el plan.
@@ -1452,7 +1596,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Hemos renovado tu dominio <strong>{{fqdn}}</strong>. Sigue activo sin interrupciones.
@@ -1495,7 +1639,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Tu dominio <strong>{{fqdn}}</strong> caduca en <strong>{{days_left}} días</strong>.
@@ -1544,7 +1688,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Tu dominio <strong>{{fqdn}}</strong> ha caducado. Aún puedes recuperarlo durante un
@@ -1587,7 +1731,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Tu dominio <strong>{{fqdn}}</strong> ha entrado en periodo de redención. Todavía puede
@@ -1631,7 +1775,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Hemos recuperado tu dominio <strong>{{fqdn}}</strong> desde el periodo de
@@ -1682,7 +1826,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Hemos enviado al registrador la transferencia de <strong>{{fqdn}}</strong>. El proceso
@@ -1725,7 +1869,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               ¡Listo! <strong>{{fqdn}}</strong> ya está gestionado por Aelium. Puedes administrar sus
@@ -1768,7 +1912,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               La transferencia de <strong>{{fqdn}}</strong> no pudo completarse. Suele deberse al
@@ -1824,7 +1968,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Se han modificado los nameservers de tu dominio <strong>{{fqdn}}</strong>. Si has sido
@@ -1868,7 +2012,7 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
           </div>
           <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{recipient.first_name}}{{/if}},
+              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
             </p>
             <p style="color: #374151; font-size: 15px; line-height: 1.6;">
               Se ha cambiado el bloqueo de transferencia (registrar lock) de tu dominio

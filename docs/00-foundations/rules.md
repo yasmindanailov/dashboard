@@ -562,6 +562,8 @@ await this.notifications.dispatchToUser('invoice.paid', payload, userId);
 ```
 
 > **Implementación canónica:** `NotificationsService` + `NotificationsDispatchProcessor` (cola BullMQ `notifications-dispatch`) + `EmailChannel`/`InAppChannel` + `NotificationTemplateService` (Handlebars). Detalle completo en [ADR-065](../10-decisions/adr-065-notification-channel-plugin-pattern.md). Plantillas en tabla `notification_templates`, seedeadas en `prisma/seeds/notification-templates.ts`.
+>
+> **⚠️ Escape en plantillas (GL-25, audit 2026-06-25):** el canal `email` se compila con `noEscape: true` (el HTML lo escribe el admin) → en plantillas de email `{{var}}` **NO escapa**. Para CUALQUIER variable de origen usuario/cliente/staff (asunto de conversación, cuerpo de mensaje, `notes`, `client_notes`, `recipient.first_name`, etc.) usa el helper **`{{e <var>}}`** (escape vía `SafeString`; seguro también en `internal` — no doble-escapa). Nunca `{{{var}}}`/`{{& var}}`. **Enforcement:** `notification-templates.security.spec.ts` falla el build ante triple-stash **o** ante una variable de la denylist de contenido de usuario sin `{{e}}` en el seed. _Todas las plantillas de email seedeadas escapan ya su contenido de usuario; sólo los valores system-generated (`invoice_number`, `*_url`, fechas, etc.) van sin `{{e}}`._
 
 ---
 

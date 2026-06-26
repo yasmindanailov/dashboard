@@ -1,17 +1,32 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { OnEvent } from '@nestjs/event-emitter';
-import { PrismaService } from '../../core/database/prisma.service';
+
 import { EmailService } from '../../core/email/email.service';
+import { SettingsService } from '../../core/settings/settings.service';
+import { getErrorMessage } from '../../core/common/utils/error.util';
+import { PrismaService } from '../../core/database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationTemplateService } from '../notifications/notification-template.service';
 
 /**
- * SupportEmailListener — Handles support-related email notifications.
+ * SupportEmailListener — notificaciones de soporte (email + campana).
  *
- * Listens to:
- * - conversation.created → Notify agents of new conversation (+ client confirmation)
- * - message.created      → Notify the other party of a new message
- * - conversation.assigned → Notify agent of assignment
+ * GL-25 (audit 2026-06-25): migrado de HTML inline en `EmailService.send`
+ * (interpolación CRUDA del contenido del usuario — asunto, cuerpo del mensaje
+ * → inyección HTML + violación D12) a `NotificationsService.dispatchToUser`
+ * con plantillas de BD Handlebars (escape vía `{{e}}`). Cierra además el gap
+ * "sin campana" (ahora email + in-app) y la deuda R15 (217→~145 líneas).
  *
- * Ref: DECISIONS.md §9 (communication system)
+ * Recipientes:
+ *   - `conversation.created` → cliente (confirmación). Para chats GUEST (sin
+ *     cuenta → `user_id=null`) renderiza la MISMA plantilla y la envía por
+ *     EmailService (escapada, respetando el kill-switch `email_enabled_globally`).
+ *   - `message.created` (respuesta del agente) → cliente registrado.
+ *   - `conversation.assigned` → agente.
+ *
+ * SUPP-INV-3: las notas internas (`is_internal`) NUNCA se envían al cliente.
+ * R7: cada handler es fail-soft (loguea y traga) — perder un email no rompe el flujo.
  */
 @Injectable()
 export class SupportEmailListener {
@@ -19,69 +34,59 @@ export class SupportEmailListener {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+    private readonly templates: NotificationTemplateService,
     private readonly emailService: EmailService,
+    private readonly settings: SettingsService,
+    private readonly config: ConfigService,
   ) {}
 
-  /* ═══════════════════════════════════════
-     CONVERSATION CREATED
-     ═══════════════════════════════════════ */
+  private get appUrl(): string {
+    return this.config.get<string>(
+      'NEXT_PUBLIC_APP_URL',
+      'http://localhost:3002',
+    );
+  }
 
   @OnEvent('conversation.created')
   async handleConversationCreated(payload: {
     conversation_id: string;
-    user_id: string;
+    user_id: string | null;
     user_name: string;
-    user_email: string;
+    user_email: string | null;
     subject: string;
     channel: string;
-  }) {
-    // 1. Send confirmation to client
-    await this.emailService.send({
-      to: payload.user_email,
-      subject: `Tu consulta ha sido recibida — "${payload.subject}"`,
-      html: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Consulta recibida</h1>
-            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">${payload.subject}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola ${payload.user_name.split(' ')[0]},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hemos recibido tu consulta. Nuestro equipo la revisará lo antes posible
-              y te responderemos desde tu panel de soporte.
-            </p>
-            <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0;">
-              <table style="width: 100%; font-size: 14px; color: #374151;">
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Asunto:</td><td style="text-align: right; font-weight: 600;">${payload.subject}</td></tr>
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Canal:</td><td style="text-align: right;">${payload.channel}</td></tr>
-              </table>
-            </div>
-            <p style="color: #6b7280; font-size: 13px;">
-              Te notificaremos por email cuando haya una respuesta.
-            </p>
-          </div>
-        </div>
-      `,
-    });
-
-    this.logger.log(
-      `Email sent: conversation.created → client ${payload.user_email}`,
-    );
-
-    // 2. Notify all support agents via internal notification
-    // (Email to agents is optional — they'll see it in the dashboard inbox)
-    // For now we log it; in-app notifications are in Sprint 9
-    this.logger.log(
-      `New conversation from ${payload.user_name}: "${payload.subject}" (${payload.channel})`,
-    );
+    is_guest?: boolean;
+  }): Promise<void> {
+    const eventPayload = {
+      subject: payload.subject,
+      channel: payload.channel,
+      support_url: `${this.appUrl}/dashboard/support`,
+      action_url: '/dashboard/support',
+    };
+    try {
+      if (payload.user_id) {
+        // Cliente registrado → email + campana vía dispatcher (D12, escapado).
+        await this.notifications.dispatchToUser(
+          'conversation.created',
+          eventPayload,
+          payload.user_id,
+        );
+      } else if (payload.user_email) {
+        // Chat GUEST (sin cuenta) → email-only con la MISMA plantilla de BD,
+        // escapada, respetando el kill-switch global (GL-9). Sin campana (no hay
+        // cuenta donde persistir la notificación in-app).
+        await this.sendGuestEmail('conversation.created', payload.user_email, {
+          ...eventPayload,
+          recipient: { first_name: firstWord(payload.user_name) },
+        });
+      }
+    } catch (err) {
+      this.logger.error(
+        `conversation.created notify failed (conv=${payload.conversation_id}): ${getErrorMessage(err)}`,
+      );
+    }
   }
-
-  /* ═══════════════════════════════════════
-     NEW MESSAGE — Notify the other party
-     ═══════════════════════════════════════ */
 
   @OnEvent('message.created')
   async handleMessageCreated(payload: {
@@ -91,84 +96,37 @@ export class SupportEmailListener {
     sender_id: string | null;
     is_internal: boolean;
     user_id: string | null;
-  }) {
-    // Don't send email for internal notes
-    if (payload.is_internal) return;
-
-    // Don't send email for system messages
-    if (payload.sender_type === 'system') return;
-
-    const conversation = await this.prisma.conversation.findUnique({
-      where: { id: payload.conversation_id },
-      select: {
-        id: true,
-        subject: true,
-        user_id: true,
-        assigned_agent_id: true,
-      },
-    });
-    if (!conversation) return;
-
-    if (payload.sender_type === 'agent' && conversation.user_id) {
-      // Agent replied → notify client
-      const client = await this.prisma.user.findUnique({
-        where: { id: conversation.user_id },
-        select: { email: true, first_name: true },
+  }): Promise<void> {
+    if (payload.is_internal) return; // SUPP-INV-3: nunca al cliente
+    if (payload.sender_type !== 'agent') return; // solo respuesta del agente → cliente
+    try {
+      const conversation = await this.prisma.conversation.findUnique({
+        where: { id: payload.conversation_id },
+        select: { subject: true, user_id: true },
       });
-      if (!client) return;
+      if (!conversation?.user_id) return; // chat guest / sin cliente → sin email
 
       const message = await this.prisma.message.findUnique({
         where: { id: payload.message_id },
         select: { body: true },
       });
 
-      // Truncate message preview for email
-      const preview = message?.body
-        ? message.body.length > 200
-          ? message.body.substring(0, 200) + '...'
-          : message.body
-        : '';
-
-      await this.emailService.send({
-        to: client.email,
-        subject: `Nueva respuesta en "${conversation.subject}"`,
-        html: `
-          <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-              <h1 style="color: #fff; margin: 0; font-size: 24px;">Nueva respuesta</h1>
-              <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">${conversation.subject}</p>
-            </div>
-            <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-              <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-                Hola${client.first_name ? ` ${client.first_name}` : ''},
-              </p>
-              <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-                Has recibido una nueva respuesta en tu conversación de soporte:
-              </p>
-              <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0; border-left: 3px solid #635BFF;">
-                <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-line;">${preview}</p>
-              </div>
-              <p style="color: #6b7280; font-size: 13px;">
-                Accede a tu panel de soporte para ver la conversación completa y responder.
-              </p>
-            </div>
-          </div>
-        `,
-      });
-
-      this.logger.log(
-        `Email sent: message.created (agent→client) → ${client.email}`,
+      await this.notifications.dispatchToUser(
+        'message.created',
+        {
+          subject: conversation.subject,
+          preview: truncate(message?.body ?? '', 200),
+          support_url: `${this.appUrl}/dashboard/support`,
+          action_url: '/dashboard/support',
+        },
+        conversation.user_id,
+      );
+    } catch (err) {
+      this.logger.error(
+        `message.created notify failed (conv=${payload.conversation_id}): ${getErrorMessage(err)}`,
       );
     }
-
-    // Note: client→agent notifications are handled via the dashboard inbox
-    // Agents don't receive email for every client message (too noisy).
-    // They get in-app notifications (Sprint 9) and badge counts.
   }
-
-  /* ═══════════════════════════════════════
-     CONVERSATION ASSIGNED
-     ═══════════════════════════════════════ */
 
   @OnEvent('conversation.assigned')
   async handleConversationAssigned(payload: {
@@ -176,42 +134,65 @@ export class SupportEmailListener {
     agent_id: string;
     agent_name: string;
     assigned_by: string;
-  }) {
-    const agent = await this.prisma.user.findUnique({
-      where: { id: payload.agent_id },
-      select: { email: true, first_name: true },
-    });
-    if (!agent) return;
+  }): Promise<void> {
+    try {
+      const conversation = await this.prisma.conversation.findUnique({
+        where: { id: payload.conversation_id },
+        select: { subject: true },
+      });
+      if (!conversation) return;
 
-    const conversation = await this.prisma.conversation.findUnique({
-      where: { id: payload.conversation_id },
-      select: { subject: true },
-    });
-    if (!conversation) return;
-
-    await this.emailService.send({
-      to: agent.email,
-      subject: `Conversación asignada — "${conversation.subject}"`,
-      html: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Conversación asignada</h1>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola ${agent.first_name || 'agente'},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Se te ha asignado la conversación: <strong>"${conversation.subject}"</strong>.
-            </p>
-            <p style="color: #6b7280; font-size: 13px;">
-              Accede al panel de soporte para revisarla y responder.
-            </p>
-          </div>
-        </div>
-      `,
-    });
-
-    this.logger.log(`Email sent: conversation.assigned → ${agent.email}`);
+      await this.notifications.dispatchToUser(
+        'conversation.assigned',
+        {
+          subject: conversation.subject,
+          support_url: `${this.appUrl}/admin/support`,
+          action_url: '/admin/support',
+        },
+        payload.agent_id,
+      );
+    } catch (err) {
+      this.logger.error(
+        `conversation.assigned notify failed (conv=${payload.conversation_id}): ${getErrorMessage(err)}`,
+      );
+    }
   }
+
+  /**
+   * Email a un recipiente SIN cuenta (chat guest): renderiza la plantilla de BD
+   * canónica del evento (escape `{{e}}`) y respeta el kill-switch global de
+   * email (GL-9). No hay campana — el guest no tiene cuenta.
+   */
+  private async sendGuestEmail(
+    eventType: string,
+    to: string,
+    context: Record<string, unknown>,
+  ): Promise<void> {
+    const emailEnabled = await this.settings.getBoolean(
+      'notifications',
+      'email_enabled_globally',
+      true,
+    );
+    if (!emailEnabled) return;
+    const rendered = await this.templates.render(
+      eventType,
+      'email',
+      'es',
+      context,
+    );
+    if (!rendered) return;
+    await this.emailService.send({
+      to,
+      subject: rendered.subject,
+      html: rendered.body,
+    });
+  }
+}
+
+function firstWord(name: string): string {
+  return (name ?? '').trim().split(/\s+/)[0] ?? '';
+}
+
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.substring(0, max)}...` : text;
 }

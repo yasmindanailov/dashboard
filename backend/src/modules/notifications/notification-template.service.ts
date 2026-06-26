@@ -142,6 +142,24 @@ export class NotificationTemplateService {
     Handlebars.registerHelper('lt', (a: number, b: number) => a < b);
     Handlebars.registerHelper('gt', (a: number, b: number) => a > b);
     Handlebars.registerHelper('eq', (a: unknown, b: unknown) => a === b);
+    // GL-25 (audit 2026-06-25 — D12 + anti-inyección HTML): escapa contenido
+    // controlado por el usuario en plantillas. CRÍTICO para el canal `email`,
+    // que se compila con `noEscape: true` (el HTML lo escribe el admin) → un
+    // `{{var}}` normal NO se escaparía y el contenido del usuario (asunto de
+    // conversación, cuerpo del mensaje del cliente, etc.) se inyectaría CRUDO en
+    // el HTML del email. Devuelve `SafeString` para escapar EXACTAMENTE una vez
+    // en ambos canales (en `internal`/subject, `noEscape:false`, el SafeString
+    // ya no se re-escapa). Uso: `{{e <var>}}` para CUALQUIER variable de origen
+    // usuario en plantillas de email.
+    Handlebars.registerHelper('e', (value: unknown) => {
+      const text =
+        typeof value === 'string'
+          ? value
+          : value === null || value === undefined
+            ? ''
+            : JSON.stringify(value);
+      return new Handlebars.SafeString(Handlebars.escapeExpression(text));
+    });
   }
 
   // ─── Render (dispatcher) ───────────────────────────────────────
