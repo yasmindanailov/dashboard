@@ -1,0 +1,136 @@
+/* CartLineItem — fila de carrito (spec del mockup Carrito, tokens del DS). */
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 20px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.iconWell {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-light);
+  color: var(--brand);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.sub {
+  margin-top: 3px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.renew {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 9px;
+  padding: 8px 11px;
+  background: var(--warning-light);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  color: var(--warning-dark);
+}
+
+.warning svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--warning-hover);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.edit,
+.remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.edit {
+  color: var(--brand);
+}
+.edit:hover {
+  color: var(--brand-hover);
+}
+.remove {
+  color: var(--text-tertiary);
+}
+.remove:hover {
+  color: var(--danger);
+}
+
+.priceCol {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.original {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+
+.price {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+.free {
+  color: var(--success);
+}
+
+.term {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}

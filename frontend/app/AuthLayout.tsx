@@ -2,6 +2,7 @@
 
 import { type ReactNode } from 'react';
 import GradientMesh from './components/ui/GradientMesh';
+import { BrandMark } from './components/ui';
 import styles from './auth.module.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -30,12 +31,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
         <GradientMesh />
         <div className={styles.auroraBrand}>
           <div className={styles.brandCard}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/brand/logo-blue-black.svg"
-              alt="Aelium"
-              className={styles.brandLogo}
-            />
+            <BrandMark withWordmark size={34} aria-label="Aelium" />
           </div>
           <p className={styles.brandSlogan}>Tu socio digital, a tu lado</p>
         </div>
@@ -46,12 +42,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
         <div className={styles.formContainer}>
           {/* Mobile logo (only visible <1024px) */}
           <div className={styles.mobileLogo}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/brand/logo-blue-black.svg"
-              alt="Aelium"
-              className={styles.mobileLogoImg}
-            />
+            <BrandMark withWordmark size={28} aria-label="Aelium" />
           </div>
 
           {children}

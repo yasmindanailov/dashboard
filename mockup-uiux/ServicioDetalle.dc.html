@@ -35,7 +35,7 @@
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">Abrir panel<svg width="14" height="14" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></button>
-        <button type="button" onClick="{{ noop }}" style="padding:9px 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#F8FAFF">Gestionar DNS</button>
+        <button type="button" onClick="{{ go.dns }}" style="padding:9px 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#F8FAFF">Gestionar DNS</button>
         <button type="button" onClick="{{ noop }}" title="Más opciones" style="width:40px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#94A3B8;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0" style-hover="background:#F8FAFF;color:#64748B"><span style="display:flex;flex-direction:column;gap:3px"><span style="width:3.5px;height:3.5px;border-radius:9999px;background:currentColor"></span><span style="width:3.5px;height:3.5px;border-radius:9999px;background:currentColor"></span><span style="width:3.5px;height:3.5px;border-radius:9999px;background:currentColor"></span></span></button>
       </div>
     </div>
@@ -150,6 +150,7 @@ class Component extends DCLogic {
         services: () => nav('services'),
         billing: () => nav('billing'),
         transparency: () => nav('transparency'),
+        dns: () => nav('dns'),
       },
       noop: () => {},
     };

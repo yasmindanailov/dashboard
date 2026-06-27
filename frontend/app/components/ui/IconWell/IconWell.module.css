@@ -1,0 +1,47 @@
+/* IconWell — primitiva F1a (cuadrado tintado + icono por tono, tokens del DS). */
+
+.well {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+}
+
+/* Tamaños */
+.sm {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+}
+.md {
+  width: 40px;
+  height: 40px;
+}
+.lg {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+}
+
+/* Tonos — fondo tenue + icono saturado (currentColor) */
+.brand {
+  background: var(--brand-light);
+  color: var(--brand);
+}
+.success {
+  background: var(--success-light);
+  color: var(--success);
+}
+.warning {
+  background: var(--warning-light);
+  color: var(--warning-hover);
+}
+.danger {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+.neutral {
+  background: var(--surface-tertiary);
+  color: var(--text-secondary);
+}

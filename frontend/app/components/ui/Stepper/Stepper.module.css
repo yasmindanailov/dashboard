@@ -1,0 +1,101 @@
+/* Stepper — primitiva F1a (spec del mockup, tokens del DS). Horizontal + vertical. */
+
+/* ── Compartido ── */
+.circle {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+.done {
+  background: var(--brand-light);
+  color: var(--brand);
+}
+.current {
+  background: var(--brand);
+  color: var(--text-on-brand);
+}
+.pending {
+  background: var(--surface-tertiary);
+  color: var(--text-tertiary);
+}
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+}
+.labelCurrent {
+  color: var(--text-primary);
+}
+.connectorDone {
+  background: var(--brand-light);
+}
+
+/* ── Horizontal ── */
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.connector {
+  width: 24px;
+  height: 1.5px;
+  background: var(--border);
+}
+
+/* ── Vertical (FSM) ── */
+.vwrap {
+  display: flex;
+  flex-direction: column;
+}
+.vgroup {
+  display: flex;
+  gap: 14px;
+}
+.vlead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+.vconnector {
+  width: 2px;
+  flex: 1;
+  min-height: 26px;
+  margin: 3px 0;
+  border-radius: 2px;
+  background: var(--border);
+}
+.vbody {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 18px;
+}
+.vwrap .label {
+  font-size: var(--font-size-base);
+  margin-top: 3px;
+  display: block;
+}
+.vsub {
+  display: block;
+  margin-top: 3px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}

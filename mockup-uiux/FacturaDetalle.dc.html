@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A;-webkit-font-smoothing:antialiased;max-width:1000px">
+
+  <button type="button" onClick="{{ goBilling }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 0;margin-bottom:14px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:#64748B;cursor:pointer" style-hover="color:#0F172A"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>Mis facturas</button>
+
+  <!-- ░ HEADER CARD ░ -->
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:22px 24px;margin-bottom:18px">
+    <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
+      <div style="width:52px;height:52px;border-radius:13px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#94A3B8;margin-bottom:5px">Factura</div>
+        <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap">
+          <h1 style="font-size:23px;font-weight:700;letter-spacing:0.01em;color:#0F172A;margin:0;font-family:'DM Mono',ui-monospace,monospace">{{ no }}</h1>
+          <span style="{{ badgeStyle }}"><span style="{{ dotStyle }}"></span>{{ statusLabel }}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <sc-if value="{{ payable }}" hint-placeholder-val="{{ false }}">
+          <button type="button" onClick="{{ onPay }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 17px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>{{ payLabel }}</button>
+          <button type="button" onClick="{{ onPdf }}" style="display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#F8FAFF"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>PDF</button>
+        </sc-if>
+        <sc-if value="{{ notPayable }}" hint-placeholder-val="{{ true }}">
+          <button type="button" onClick="{{ onPdf }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 17px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Descargar PDF</button>
+        </sc-if>
+        <button type="button" onClick="{{ noop }}" title="Más opciones" style="width:40px;height:40px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#94A3B8;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0" style-hover="background:#F8FAFF;color:#64748B"><span style="display:flex;flex-direction:column;gap:3px"><span style="width:3.5px;height:3.5px;border-radius:9999px;background:currentColor"></span><span style="width:3.5px;height:3.5px;border-radius:9999px;background:currentColor"></span><span style="width:3.5px;height:3.5px;border-radius:9999px;background:currentColor"></span></span></button>
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:30px;margin-top:20px;padding-top:18px;border-top:1px solid #F4F6F9">
+      <div><div style="font-size:11px;color:#94A3B8;margin-bottom:3px">Total</div><div style="font-size:17px;font-weight:700;color:#0F172A;font-variant-numeric:tabular-nums">{{ total }} <span style="font-size:11px;font-weight:500;color:#94A3B8">IVA incl.</span></div></div>
+      <div><div style="font-size:11px;color:#94A3B8;margin-bottom:3px">Emitida</div><div style="font-size:13px;font-weight:600;color:#0F172A">{{ issued }}</div></div>
+      <div><div style="font-size:11px;color:#94A3B8;margin-bottom:3px">{{ stateDateLabel }}</div><div style="font-size:13px;font-weight:600;color:{{ stateDateColor }}">{{ stateDateValue }}</div></div>
+      <div style="display:inline-flex;align-items:center;gap:7px;margin-left:auto;padding:7px 13px;border-radius:9999px;background:#EFF4FF;border:1px solid #DCE8FF"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V5z"></path></svg><span style="font-size:12px;font-weight:600;color:#2563EB">Conservada 10 años</span></div>
+    </div>
+  </div>
+
+  <!-- ░ DOCUMENT (protagonist) ░ -->
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;margin-bottom:14px">
+    <!-- emisor / receptor -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#F1F5F9">
+      <div style="background:#FBFCFE;padding:20px 24px">
+        <div style="display:flex;align-items:center;gap:11px;margin-bottom:13px">
+          <div style="position:relative;width:30px;height:30px;flex-shrink:0">
+            <div style="position:absolute;left:0;top:6px;width:18px;height:18px"><div style="width:100%;height:100%;border-radius:5px;background:#BFDBFE;transform:rotate(45deg)"></div></div>
+            <div style="position:absolute;left:11px;top:6px;width:18px;height:18px"><div style="width:100%;height:100%;border-radius:5px;background:#3B82F6;transform:rotate(45deg)"></div></div>
+          </div>
+          <span style="font-size:18px;font-weight:600;letter-spacing:-0.02em;color:#0F172A;line-height:1">aelium</span>
+        </div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Emisor</div>
+        <div style="font-size:13.5px;font-weight:600;color:#0F172A;margin-bottom:5px">Aelium Tecnología S.L.</div>
+        <div style="font-size:12.5px;color:#64748B;line-height:1.7">CIF&nbsp;<span style="font-family:'DM Mono',monospace">B-12345678</span><br>Gran Vía 00, 28013 Madrid · España<br>hola@aelium.net</div>
+      </div>
+      <div style="background:#fff;padding:20px 24px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px">
+          <span style="font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#94A3B8">Facturado a</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:7px;background:#EFF4FF;color:#2A66C9;font-size:11px;font-weight:600">Factura completa</span>
+        </div>
+        <div style="font-size:13.5px;font-weight:600;color:#0F172A;margin-bottom:5px">Sara Gómez · Autónoma</div>
+        <div style="font-size:12.5px;color:#64748B;line-height:1.7">NIF&nbsp;<span style="font-family:'DM Mono',monospace">12345678Z</span><br>Calle del Estudio 12, 41001 Sevilla · España<br>sara@sara-estudio.com</div>
+      </div>
+    </div>
+
+    <!-- doc meta strip -->
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:28px;padding:13px 24px;border-top:1px solid #F1F5F9;border-bottom:1px solid #F1F5F9;background:#FCFDFE">
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:#94A3B8">Nº de factura</span><span style="font-size:12.5px;font-weight:600;color:#0F172A;font-family:'DM Mono',monospace">{{ no }}</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:#94A3B8">Fecha de emisión</span><span style="font-size:12.5px;font-weight:600;color:#0F172A">{{ issued }}</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:#94A3B8">Periodo de servicio</span><span style="font-size:12.5px;font-weight:600;color:#0F172A">{{ period }}</span></div>
+    </div>
+
+    <!-- line items header -->
+    <div style="display:grid;grid-template-columns:1fr 220px 120px;gap:0;padding:11px 24px;background:#fff;border-bottom:1px solid #F1F5F9">
+      <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Concepto</span>
+      <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8">Periodo</span>
+      <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#94A3B8;text-align:right">Base</span>
+    </div>
+    <sc-for list="{{ lines }}" as="ln" hint-placeholder-count="2">
+      <div style="display:grid;grid-template-columns:1fr 220px 120px;gap:0;align-items:center;padding:15px 24px;border-bottom:1px solid #F4F6F9">
+        <span style="min-width:0;padding-right:16px">
+          <span style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+            <span style="font-size:14px;font-weight:600;color:#0F172A">{{ ln.concept }}</span>
+            <sc-if value="{{ ln.gift }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:9999px;background:#E7F5EE;color:#0E8C5F;font-size:11px;font-weight:600"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>{{ ln.giftLabel }}</span></sc-if>
+          </span>
+          <span style="display:block;font-size:12.5px;color:#94A3B8;margin-top:3px">{{ ln.detail }}</span>
+        </span>
+        <span style="font-size:12.5px;color:#64748B;font-family:'DM Mono',monospace">{{ ln.period }}</span>
+        <span style="font-size:14px;font-weight:600;color:{{ ln.baseColor }};text-align:right;font-variant-numeric:tabular-nums">{{ ln.base }}</span>
+      </div>
+    </sc-for>
+
+    <!-- totals -->
+    <div style="display:flex;justify-content:flex-end;padding:18px 24px 22px">
+      <div style="width:320px;max-width:100%">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:10px">
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#64748B">Base imponible <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor:help"><title>Suma de los conceptos antes de impuestos.</title><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span>
+          <span style="font-size:13.5px;font-weight:600;color:#0F172A;font-variant-numeric:tabular-nums">{{ subtotal }}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #F1F5F9">
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#64748B">IVA (21%) <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor:help"><title>Impuesto sobre el Valor Añadido. Lo calculamos y añadimos automáticamente.</title><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span>
+          <span style="font-size:13.5px;font-weight:600;color:#0F172A;font-variant-numeric:tabular-nums">{{ iva }}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;border-top:2px solid #E2E8F0">
+          <span style="font-size:15px;font-weight:700;color:#0F172A">Total</span>
+          <span style="font-size:18px;font-weight:700;color:#0F172A;font-variant-numeric:tabular-nums">{{ total }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ░ PAYMENT STATUS ░ -->
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:20px 24px;margin-bottom:14px">
+    <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap">
+      <span style="width:42px;height:42px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:{{ payIconBg }};color:{{ payIconColor }}">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="{{ payIconStyle }}"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="{{ payClockStyle }}"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>
+      </span>
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:14.5px;font-weight:700;color:#0F172A">{{ payTitle }}</div>
+        <div style="font-size:13px;color:#475569;margin-top:3px;line-height:1.5">{{ payText }}</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 14px;border:1px solid #EEF2F6;border-radius:11px;background:#FBFCFE;width:fit-content;max-width:100%">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+          <span style="font-size:12.5px;color:#475569"><strong style="font-weight:600;color:#0F172A">Visa ···· 4242</strong> · vía Stripe</span>
+        </div>
+      </div>
+      <sc-if value="{{ payable }}" hint-placeholder-val="{{ false }}">
+        <button type="button" onClick="{{ onPay }}" style="flex-shrink:0;display:inline-flex;align-items:center;gap:8px;padding:10px 17px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>{{ payLabel }}</button>
+      </sc-if>
+    </div>
+  </div>
+
+  <!-- ░ CANCELLED legal note ░ -->
+  <sc-if value="{{ isCancelled }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:flex-start;gap:11px;margin-bottom:14px;padding:14px 18px;background:#F4F6F9;border:1px solid #E5EAF0;border-radius:14px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+      <span style="font-size:13px;color:#64748B;line-height:1.55">Factura <strong style="font-weight:600;color:#475569">anulada</strong> — no es válida fiscalmente. Se emitió una nueva en su lugar. La conservamos 10 años por obligación legal (RD 1619/2012); no se borra.</span>
+    </div>
+  </sc-if>
+
+  <!-- ░ INTEGRITY note ░ -->
+  <div style="display:flex;align-items:center;gap:11px;margin-bottom:18px;padding:13px 18px;background:#F8FAFF;border:1px solid #E8EEF7;border-radius:14px">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+    <span style="font-size:12.5px;color:#64748B;line-height:1.5">Documento inalterable. Lo guardamos <strong style="font-weight:600;color:#475569">10 años</strong> por ti, como exige Hacienda (RD 1619/2012). Cualquier acceso queda registrado en tu <button type="button" onClick="{{ goTransparency }}" style="border:none;background:none;color:#3B82F6;font-weight:600;font-family:inherit;font-size:12.5px;cursor:pointer;padding:0">portal de transparencia</button>.</span>
+  </div>
+
+  <!-- ░ SUPPORT ░ -->
+  <div style="display:flex;align-items:center;gap:13px;padding:15px 20px;background:#F5F9FF;border:1px solid #E1ECFB;border-radius:14px">
+    <span style="width:38px;height:38px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#EAF1FE;color:#3B82F6">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    </span>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13.5px;font-weight:600;color:#0F172A">¿Esta factura no te cuadra?</div>
+      <div style="font-size:12.5px;color:#64748B;margin-top:1px">Luis, tu técnico asignado, o el equipo de Aelium la revisan contigo. Nada de tickets perdidos.</div>
+    </div>
+    <button type="button" onClick="{{ goSupport }}" style="flex-shrink:0;padding:9px 15px;border-radius:10px;border:1px solid #BFD8FF;background:#fff;color:#3B82F6;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#fff">Hablar con soporte</button>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1040, &quot;height&quot;: 1120 },
+  &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; },
+  &quot;estado&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Pagada&quot;, &quot;Pendiente&quot;, &quot;Vencida&quot;, &quot;Anulada&quot;], &quot;default&quot;: &quot;Pagada&quot;, &quot;tsType&quot;: &quot;string&quot; }
+}">
+class Component extends DCLogic {
+  renderVals() {
+    const nav = (id) => { if (this.props.navigate) this.props.navigate(id); };
+    const estado = this.props.estado ?? 'Pagada';
+    const status = estado === 'Pendiente' ? 'pending'
+      : estado === 'Vencida' ? 'overdue'
+      : estado === 'Anulada' ? 'cancelled'
+      : 'paid';
+
+    const inv = {
+      no: 'AEL-2026-00412',
+      issued: '14 jun 2026',
+      period: '14 jun 2026 – 14 jun 2027',
+      due: '14 jun 2026',
+      paid: '14 jun 2026',
+      subtotal: '95,21 €',
+      iva: '19,99 €',
+      total: '115,20 €',
+      lines: [
+        { concept: 'Web Pro', detail: 'Plan anual de hosting · facturación anual', period: '14 jun 2026 – 14 jun 2027', base: '95,21 €' },
+        { concept: 'Dominio sara-estudio.com', detail: 'Registro · 1 año', period: '14 jun 2026 – 14 jun 2027', base: '0,00 €', gift: true, giftLabel: 'Incluido' },
+      ],
+    };
+
+    const meta = {
+      paid:      { label: 'Pagada',   bg: '#E7F5EE', color: '#0E8C5F', dot: '#1AAE6F' },
+      pending:   { label: 'Pendiente', bg: '#FCF3E1', color: '#B27A12', dot: '#E3A53A' },
+      overdue:   { label: 'Vencida',  bg: '#FBEAEA', color: '#CE3F3F', dot: '#E25555' },
+      cancelled: { label: 'Anulada',  bg: '#F1F5F9', color: '#94A3B8', dot: '#CBD5E1' },
+    };
+    const m = meta[status];
+
+    const payable = status === 'pending' || status === 'overdue';
+    const badge = 'display:inline-flex;align-items:center;gap:6px;padding:4px 11px 4px 9px;border-radius:9999px;font-size:12px;font-weight:600;';
+    const dot = 'width:6px;height:6px;border-radius:9999px;display:inline-block;';
+
+    const stateDate = {
+      paid:      { label: 'Pagada el',  value: inv.paid, color: '#0F172A' },
+      pending:   { label: 'Vence el',   value: inv.due,  color: '#0F172A' },
+      overdue:   { label: 'Venció el',  value: inv.due,  color: '#CE3F3F' },
+      cancelled: { label: 'Estado',     value: 'Anulada', color: '#94A3B8' },
+    }[status];
+
+    const payIcon = {
+      paid:      { bg: '#E7F5EE', color: '#0E8C5F' },
+      pending:   { bg: '#FCF3E1', color: '#B27A12' },
+      overdue:   { bg: '#FBE0E0', color: '#CE3F3F' },
+      cancelled: { bg: '#F1F5F9', color: '#94A3B8' },
+    }[status];
+
+    const payCopy = {
+      paid:      { title: 'Pago confirmado', text: 'Cobrada automáticamente el ' + inv.paid + '. Tu servicio quedó activo al instante — sin que tuvieras que hacer nada.' },
+      pending:   { title: 'Pendiente de pago', text: inv.total + ' · vence el ' + inv.due + '. Págala cuando quieras, sin recargos antes del vencimiento.' },
+      overdue:   { title: 'Pago vencido', text: 'Venció el ' + inv.due + '. Seguimos reintentando el cobro automáticamente; págala ahora para mantener tu servicio activo.' },
+      cancelled: { title: 'Factura anulada', text: 'Esta factura se anuló y no se ha cobrado. Se emitió una nueva en su lugar.' },
+    }[status];
+
+    const showCheck = status === 'paid';
+
+    return {
+      no: inv.no,
+      issued: inv.issued,
+      period: inv.period,
+      subtotal: inv.subtotal,
+      iva: inv.iva,
+      total: inv.total,
+      lines: inv.lines.map((l) => ({
+        concept: l.concept,
+        detail: l.detail,
+        period: l.period,
+        base: l.gift ? 'Incluido' : l.base,
+        baseColor: l.gift ? '#0E8C5F' : '#0F172A',
+        gift: !!l.gift,
+        giftLabel: l.giftLabel || '',
+      })),
+
+      statusLabel: m.label,
+      badgeStyle: badge + 'background:' + m.bg + ';color:' + m.color,
+      dotStyle: dot + 'background:' + m.dot,
+
+      stateDateLabel: stateDate.label,
+      stateDateValue: stateDate.value,
+      stateDateColor: stateDate.color,
+
+      payable,
+      notPayable: !payable,
+      payLabel: 'Pagar ' + inv.total,
+      onPay: () => nav('confirm'),
+      onPdf: () => {},
+
+      payIconBg: payIcon.bg,
+      payIconColor: payIcon.color,
+      payIconStyle: showCheck ? '' : 'display:none',
+      payClockStyle: showCheck ? 'display:none' : '',
+      payTitle: payCopy.title,
+      payText: payCopy.text,
+
+      isCancelled: status === 'cancelled',
+
+      goBilling: () => nav('billing'),
+      goSupport: () => nav('support'),
+      goTransparency: () => nav('transparency'),
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -57,7 +57,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid #F4F6F9;flex-wrap:wrap">
           <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;border:none;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">Abrir panel<svg width="13" height="13" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></button>
-          <button type="button" onClick="{{ noop }}" style="padding:8px 14px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#F8FAFF">Gestionar DNS</button>
+          <button type="button" onClick="{{ go.dns }}" style="padding:8px 14px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#F8FAFF">Gestionar DNS</button>
           <button type="button" onClick="{{ go.serviceDetail }}" style="margin-left:auto;padding:8px 6px;border:none;background:transparent;color:#3B82F6;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="color:#2563EB">Ver detalle →</button>
         </div>
       </div>
@@ -77,7 +77,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid #F4F6F9;flex-wrap:wrap">
           <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;border:none;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">Abrir panel<svg width="13" height="13" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></button>
-          <button type="button" onClick="{{ noop }}" style="padding:8px 14px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#F8FAFF">Gestionar DNS</button>
+          <button type="button" onClick="{{ go.dns }}" style="padding:8px 14px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#F8FAFF">Gestionar DNS</button>
           <button type="button" onClick="{{ go.serviceDetail }}" style="margin-left:auto;padding:8px 6px;border:none;background:transparent;color:#3B82F6;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="color:#2563EB">Ver detalle →</button>
         </div>
       </div>
@@ -86,7 +86,7 @@
   </div>
 
   <div style="margin-bottom:26px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><h2 style="font-size:15px;font-weight:600;color:#0F172A;margin:0">Dominios</h2><span style="font-size:12px;font-weight:600;color:#94A3B8;background:#F1F5F9;padding:2px 9px;border-radius:9999px">1</span></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><h2 style="font-size:15px;font-weight:600;color:#0F172A;margin:0">Dominios</h2><span style="font-size:12px;font-weight:600;color:#94A3B8;background:#F1F5F9;padding:2px 9px;border-radius:9999px">2</span></div>
     <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden">
       <div style="display:flex;align-items:center;gap:14px;padding:18px 20px;border-bottom:1px solid #F4F6F9">
         <div style="width:44px;height:44px;border-radius:11px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="22" height="22" viewBox="0 0 24 24"><use href="#ic-domains"></use></svg></div>
@@ -106,6 +106,25 @@
         <button type="button" onClick="{{ go.domainDetail }}" style="margin-left:auto;padding:8px 6px;border:none;background:transparent;color:#3B82F6;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="color:#2563EB">Ver detalle →</button>
       </div>
     </div>
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;margin-top:12px">
+        <div style="display:flex;align-items:center;gap:14px;padding:18px 20px;border-bottom:1px solid #F4F6F9">
+          <div style="width:44px;height:44px;border-radius:11px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="22" height="22" viewBox="0 0 24 24"><use href="#ic-domains"></use></svg></div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:15px;font-weight:700;color:#0F172A">estudio-marfil.com</span><span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:9999px;background:#EFF4FF;font-size:11px;font-weight:600;color:#2563EB"><span style="width:6px;height:6px;border-radius:9999px;background:#3B82F6"></span>Transferencia en curso</span></div>
+            <div style="font-size:12px;color:#64748B;margin-top:3px">Dominio · transferencia entrante desde otro registrador</div>
+          </div>
+          <button type="button" onClick="{{ noop }}" title="Más opciones" style="width:34px;height:34px;border-radius:8px;border:none;background:transparent;color:#94A3B8;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0" style-hover="background:#F1F5F9;color:#64748B"><span style="display:flex;flex-direction:column;gap:3px"><span style="width:3.5px;height:3.5px;border-radius:9999px;background:currentColor"></span><span style="width:3.5px;height:3.5px;border-radius:9999px;background:currentColor"></span><span style="width:3.5px;height:3.5px;border-radius:9999px;background:currentColor"></span></span></button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:24px;padding:16px 20px">
+          <div><div style="font-size:11px;color:#94A3B8;margin-bottom:2px">Estado</div><div style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:#2563EB"><span style="width:7px;height:7px;border-radius:9999px;background:#3B82F6"></span>Esperando al registrador</div></div>
+          <div><div style="font-size:11px;color:#94A3B8;margin-bottom:2px">Plazo estimado</div><div style="font-size:13px;font-weight:600;color:#0F172A">5–7 días</div></div>
+          <div><div style="font-size:11px;color:#94A3B8;margin-bottom:2px">Código EPP</div><div style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:#0E8C5F"><svg width="14" height="14" viewBox="0 0 24 24" style="flex-shrink:0"><polyline points="20 6 9 17 4 12"></polyline></svg>Aportado</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid #F4F6F9;flex-wrap:wrap">
+          <button type="button" onClick="{{ go.domainTransfer }}" style="padding:8px 14px;border-radius:9px;border:none;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">Ver transferencia</button>
+          <button type="button" onClick="{{ go.domainTransfer }}" style="margin-left:auto;padding:8px 6px;border:none;background:transparent;color:#3B82F6;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="color:#2563EB">Ver detalle →</button>
+        </div>
+      </div>
   </div>
 
   <div style="margin-bottom:8px">
@@ -144,6 +163,8 @@ class Component extends DCLogic {
         store: () => nav('store'),
         serviceDetail: () => nav('service-detail'),
         domainDetail: () => nav('domain-detail'),
+        domainTransfer: () => nav('domain-transfer'),
+        dns: () => nav('dns'),
         supportInside: () => nav('supportInside'),
       },
       noop: () => {},

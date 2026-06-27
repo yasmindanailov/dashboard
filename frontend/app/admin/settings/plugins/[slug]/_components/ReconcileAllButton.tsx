@@ -1,6 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
+import { RefreshCw, Hourglass } from 'lucide-react';
 
 import { Button, useToast } from '../../../../../components/ui';
 import { t } from '../../../../../_shared/i18n';
@@ -73,9 +74,17 @@ export function ReconcileAllButton({ slug }: ReconcileAllButtonProps) {
       disabled={isPending}
       title={t('admin.plugins.reconcile_all.tooltip')}
     >
-      {isPending
-        ? `⏳ ${t('admin.plugins.reconcile_all.loading')}`
-        : `↻ ${t('admin.plugins.reconcile_all.button')}`}
+      {isPending ? (
+        <>
+          <Hourglass size={14} aria-hidden="true" />
+          {t('admin.plugins.reconcile_all.loading')}
+        </>
+      ) : (
+        <>
+          <RefreshCw size={14} aria-hidden="true" />
+          {t('admin.plugins.reconcile_all.button')}
+        </>
+      )}
     </Button>
   );
 }

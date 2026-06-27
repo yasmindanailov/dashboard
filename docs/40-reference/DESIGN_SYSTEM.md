@@ -130,6 +130,8 @@ Resumen rápido:
 
 **Regla: StatsCards solo en Overview.** En list pages, las métricas van como contadores en StatusTabs.
 
+> **Amendment A1 de D10 (rediseño UI, 2026-06-27).** Se permiten StatsCards también en páginas de **detalle/gestión** con KPIs accionables (máx. 1 fila, una jerarquía por vista, sin duplicar badges). List pages siguen sin StatsCards. Ver `rules.md §D10 → Amendment A1`.
+
 ### Regla D11 — Voz de marca en mensajes de sistema
 
 > 📖 **Voz canónica:** [`aelium-documento-de-marca.md §VOZ DE MARCA`](./aelium-documento-de-marca.md#voz-de-marca).

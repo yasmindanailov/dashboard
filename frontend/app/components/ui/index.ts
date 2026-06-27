@@ -66,3 +66,44 @@ export {
   EditorSectionCard,
   type EditorSectionCardProps,
 } from './EditorSectionCard';
+
+/* ── Primitivas del rediseño (F1a — derivadas del mockup) ── */
+export { Toggle, type ToggleProps } from './Toggle';
+export {
+  IconWell,
+  type IconWellProps,
+  type IconWellTone,
+  type IconWellSize,
+} from './IconWell';
+export {
+  SegmentedControl,
+  type SegmentedControlProps,
+  type SegmentedOption,
+} from './SegmentedControl';
+export {
+  PasswordStrengthMeter,
+  type PasswordStrengthMeterProps,
+} from './PasswordStrengthMeter';
+export { NotificationRow, type NotificationRowProps } from './NotificationRow';
+export { OTPInput, type OTPInputProps } from './OTPInput';
+export { Stepper, type StepperProps } from './Stepper';
+export { PricingCard, type PricingCardProps } from './PricingCard';
+export {
+  OrderSummary,
+  type OrderSummaryProps,
+  type OrderSummaryLine,
+} from './OrderSummary';
+export { PaymentMethodCard, type PaymentMethodCardProps } from './PaymentMethodCard';
+export { ActivityRow, type ActivityRowProps, type ActivityTone } from './ActivityRow';
+export { BrandMark, type BrandMarkProps } from './BrandMark';
+
+/* ── Componentes de las paginas nuevas (sync 2026-06-27) ── */
+export { CartLineItem, type CartLineItemProps } from './CartLineItem';
+export {
+  SidebarConversationList,
+  type SidebarConversationListProps,
+  type ConversationItem,
+  type ConversationChannel,
+  type ConversationTone,
+  type ConversationStatus,
+} from './SidebarConversationList';

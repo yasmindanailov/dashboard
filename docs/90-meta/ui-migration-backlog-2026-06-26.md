@@ -54,21 +54,48 @@ cuanto F2 esté, y va tirando; F3 alimenta a F4 por feature (no por pantalla).
 
 ---
 
-## 2. F0 — Cimientos de tokens · rama `redesign/f0-tokens`
+## 2. F0 — Cimientos de tokens + saneamiento de infra · rama `redesign/f0-tokens`
 
 Objetivo: que el sistema de tokens **sea el del mockup** y no haya tokens rotos.
 Es prerrequisito de todo: si no, cada página reimplementa color/espaciado con drift.
 
+> **GL-27 absorbido aquí — qué SÍ y qué NO hacer por separado (decisión 2026-06-26).**
+> El antiguo GL-27 del audit (enforcement DS: partir archivos R15 + quitar inline
+> CSS + lint R15/R16/D1) **no es un sprint suelto**; se disuelve en este rediseño:
+> - **SÍ en F0 (orthogonal al reskin):** partir `api.ts` (2197 LOC, 5.5× R15) y los
+>   archivos **no-presentación** (Server Actions / i18n). El reskin F4 **no los toca**
+>   y encima F3 les añade (tipos de Stripe…) → seguirían gigantes y creciendo. Es
+>   mecánico, lo verifica `typecheck`.
+> - **NO por separado:** quitar los ~705 inline styles. Viven casi todos en
+>   componentes de presentación que **F4 reescribe al reskinear** → borrarlos antes
+>   es **trabajo doble**. (Excepción: los inline styles que son *bug de token* se
+>   arreglan en F0.3 tocando el token, no el estilo.)
+> - **Lint R15/R16/D1:** ratchet **progresivo** (bloquear cada página ya migrada) o
+>   final, nunca error global ahora (forzaría silenciar 705 sitios = ruido).
+
 | # | Tarea | Detalle / evidencia | Talla |
 |---|---|---|---|
 | F0.1 | Paridad de paleta y tipografía en `globals.css` | Paleta slate del mockup (texto `#0F172A/#64748B/#94A3B8`, borde `#E2E8F0`), DM Sans + DM Mono (`tabular-nums`), H1 26-28px tracking `-0.02em`, radios card 16px, badge pill, pesos 600-700 | M |
-| F0.2 | **Arreglar `#635BFF`** (prohibido) | Sustituir por `var(--brand)` en `NotificationBell.module.css`, `admin-sidebar.module.css`, `transparency/page.tsx`, `TemplatesEditor.tsx` | S |
-| F0.3 | **Definir/migrar tokens inexistentes** | `--brand-600`, `--border-subtle`, `--border-default`, bare `--surface`, `--surface-2`, `--primary`, `--text-link` → alias a canónicos o reescritura. Sitios: `ServicesListView.tsx:103`, `StoreHeader.tsx:53`, `CartView.tsx:186,282`, `transparency/page.tsx:170`, `DeletionRequestsManager.tsx:75,89`, `LogoUploader.tsx:74-75` (+ grep completo) | M |
+| F0.2 | **Arreglar `#635BFF`** (prohibido) | Sustituir por `var(--brand)` en `_shared/shell/NotificationBell.module.css`, `admin/admin-sidebar.module.css`, `dashboard/transparency/page.tsx`, `admin/notifications/templates/_components/TemplatesEditor.tsx` (verificado por grep: exactamente 4) | S |
+| F0.3 | **Definir/migrar tokens inexistentes** | `--brand-600`, `--border-subtle`, `--border-default`, bare `--surface`, `--surface-2`, `--primary`, `--text-link` → alias a canónicos o reescritura (verificado: 0 definiciones en `globals.css`; solo existen `--surface-primary/-secondary/-tertiary/-dark`). Sitios: `ServicesListView.tsx:103`, `StoreHeader.tsx:53`, `CartView.tsx:186,282`, `transparency/page.tsx:170`, `DeletionRequestsManager.tsx:75,89`, `LogoUploader.tsx:74-75`, `admin/services/[id]/dns/page.tsx`, `dashboard/domains/[id]/_components/DomainManagement.tsx:204`, `DomainsListView.tsx:105` (+ grep completo) | M |
 | F0.4 | Sistema de iconos SVG centralizado | Sprite/símbolos del mockup (`<symbol>/<use>`, stroke 1.6); **retirar emojis** (D1) de tasks/plugins/ops/soporte | M |
 | F0.5 | Página de verificación visual | Ampliar `dashboard/ds-preview` con la nueva escala (tokens + iconos) para QA | S |
+| **F0.6** | **Partir `lib/api.ts` (2197 LOC → R15) por dominio** | Convertir `lib/api.ts` en directorio `lib/api/`: **`client.ts`** (base `api()` + `ApiOptions`, líneas 1-46) · **`<dominio>.ts` ×15** (cada `*Api` + sus interfaces: `auth`, `clients`, `products`, `billing`, `support`, `users`, `tasks`, `dashboard`, `errorLog`, `audit`, `notifications`, `notificationTemplates`, `supportInside`, `jobs`, `services`) · tipos cross-dominio → **`types.ts`** · **`index.ts`** barrel (`export *`) → **los 68 importadores de `@/app/lib/api` NO cambian** (cero churn). Verifica `typecheck` (caza imports rotos). Sin cambios de comportamiento. | M |
 
-**DoD F0:** `grep #635BFF frontend/app` = 0; grep de tokens inexistentes = 0;
-typecheck+lint verdes; `ds-preview` refleja la paleta del mockup.
+**DoD F0:** `grep #635BFF frontend/app` = 0; grep de tokens inexistentes = 0; **`lib/api.ts` eliminado, `lib/api/*` cada archivo < 400 LOC (R15), 68 importadores intactos**; typecheck+lint verdes; `ds-preview` refleja la paleta del mockup. **Boot/Next:** `api.ts` es cliente puro (no toca framework); aun así, antes de tocar `globals.css`/iconos leer `node_modules/next/dist/docs/` (`frontend/AGENTS.md`).
+
+> **Follow-up oportunista (no bloquea F0):** los otros archivos no-presentación > 400 LOC
+> (`_shared/services/_actions.ts` 679, `lib/auth-actions.ts` 407, `i18n/translations-es.ts`
+> 822) se parten al tocarlos o en una pasada menor; los grandes de **presentación**
+> (`support-inside/page.tsx` 952, `PlanEditor` 732, los forms de producto…) **se
+> reestructuran en su reskin F4**, no antes.
+>
+> **Residual de F0.4 → retirar en el reskin F4 de cada componente** (dingbats inline
+> `✓`/`✗`/`✓✓`/`▪` que necesitan alineación inline-flex propia, ya con Lucide
+> instalado): `PluginConfigForm` (✓/✗ test conexión), `ChatConversation` ·
+> `ChatThreadView` · `ConversationMessages` (✓✓ read-receipt → `CheckCheck`),
+> `ProductConfig` · `DomainSearch` · `DomainTransfer` ("en el carrito ✓" → `Check`),
+> `ConversationSidebar` (▪ pin → `Pin`). `●` NO se toca (D1 lo permite como StatusDot).
 
 ---
 
@@ -222,6 +249,30 @@ nuevos (F1b) y features (F3). **Orden por oleadas** (de menor a mayor riesgo):
 5. Excepciones por decisión respetadas (D-2/D-3: sin nota interna en composer ni
    detalle/creación de tareas; D-4: iterar "Cuidado por Aelium").
 6. Verde local + boot smoke si toca módulos; `ci:check` antes de pushear.
+
+---
+
+## 9.1 Componentes de las páginas NUEVAS (gap analizado 2026-06-27)
+
+Las 6 páginas nuevas de la sync de mockups + el cambio del widget del shell,
+contrastadas contra la librería actual (DS base + 11 primitivas F1a). La mayoría
+**reutiliza**; lo genuinamente nuevo es poco.
+
+| Superficie nueva | Reutiliza | Pieza NUEVA a crear |
+|---|---|---|
+| **Carrito** | Stepper · OrderSummary · Card · IconWell · AlertBanner · Button | **`CartLineItem`** (fila: icon-well + nombre/badge/sub/nota + Editar/Quitar + precio tachado) |
+| **GestionDNS** | Modal · Input · Badge · StatusDot · Button | tabla DNS = reskin de `DnsRecordsManager` (ya en código) + chip-select de tipo (reusa idea de SegmentedControl) |
+| **TransferenciaDominio** | Input · Button · AlertBanner · Badge · StatusDot | **`Stepper` variante `orientation="vertical"`** (conector vertical + pulse en el activo) — panel = reskin de `DomainTransferPanel` |
+| **FacturaDetalle** | BrandMark · Button · Badge · OrderSummary (totales) · DM Mono tabular-nums | **`InvoiceDocument`** (layout de factura: emisor/cliente + líneas + totales) — página = reskin de `billing/[id]` |
+| **ChatBubble** | IconWell · Avatar · StatusDot | **`FloatingChat`** (lanzador fixed + panel chat: typing dots, mensajes) — reskin/montaje del `ChatWidget` huérfano |
+| **admin/SolicitudesBorrado** | Table · StatusTabs · Badge · Modal · DangerZone · Button | (ninguna nueva — reskin de `DeletionRequestsManager`) |
+| **Widget shell "Tus conversaciones"** (cliente+admin, F2) | IconWell · StatusDot · Badge | **`SidebarConversationList`** (filas conversación: icon + título + preview + contador de abiertas, scroll) |
+
+**Net-new reusable a construir (≈4):** `CartLineItem` · `Stepper` vertical ·
+`SidebarConversationList` · `FloatingChat` (reskin del ChatWidget existente). El
+resto son **reskins F4 de componentes que ya existen en código** (DnsRecordsManager,
+DomainTransferPanel, billing/[id], DeletionRequestsManager), no primitivas nuevas.
+`SidebarConversationList` entra en **F2** (shells); el resto en **F4** con su página.
 
 ---
 

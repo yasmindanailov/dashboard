@@ -99,7 +99,7 @@ export default function TasksWidget() {
                   aria-label={`${labels.label} · ${task.client.first_name} ${task.client.last_name}`}
                 >
                   <span className={s.icon} aria-hidden="true">
-                    {labels.icon}
+                    <labels.icon size={16} strokeWidth={1.6} />
                   </span>
                   <span className={s.body}>
                     <span className={s.bodyTop}>

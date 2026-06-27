@@ -1,0 +1,67 @@
+/* OrderSummary — primitiva F1a (spec del mockup Confirmar, tokens del DS). */
+
+.box {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+}
+
+.sticky {
+  position: sticky;
+  top: 80px;
+}
+
+.title {
+  margin: 0 0 14px;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.free {
+  color: var(--success);
+}
+
+.divider {
+  border-top: 1px solid var(--border);
+  margin-top: 1px;
+  padding-top: 8px;
+}
+
+.totalRow {
+  border-top: 1px solid var(--border);
+  margin-top: 1px;
+  padding: 14px 0 0;
+}
+
+.totalLabel {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.totalValue {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}

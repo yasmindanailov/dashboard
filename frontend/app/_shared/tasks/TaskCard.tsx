@@ -163,7 +163,7 @@ export default function TaskCard({
       <div className={s.row1}>
         <span className={s.iconLabel} aria-label={labels.label}>
           <span className={s.icon} aria-hidden="true">
-            {labels.icon}
+            <labels.icon size={16} strokeWidth={1.6} />
           </span>
           <span className={s.label}>{labels.label}</span>
         </span>

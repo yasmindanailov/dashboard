@@ -44,17 +44,30 @@
   --surface-tertiary:  #F1F5F9;
   --surface-dark:      #0A0A0B;
 
-  /* ── Texto ── */
-  --text-primary:    #0A0A0B;
-  --text-secondary:  #6B7280;
-  --text-tertiary:   #9CA3AF;
+  /* ── Texto (F0.1: paleta slate del mockup; antes near-black/gray) ── */
+  --text-primary:    #0F172A;   /* slate-900 (mockup 389×) */
+  --text-secondary:  #64748B;   /* slate-500 (mockup 246×) */
+  --text-tertiary:   #94A3B8;   /* slate-400 (mockup 254×) */
   --text-on-brand:   #FFFFFF;
   --text-on-dark:    rgba(255, 255, 255, 0.92);
 
-  /* ── Bordes ── */
-  --border:          rgba(0, 0, 0, 0.06);
-  --border-hover:    rgba(0, 0, 0, 0.10);
-  --border-active:   rgba(0, 0, 0, 0.15);
+  /* ── Bordes (F0.1: slate opaco del mockup; antes alfa negro) ── */
+  --border:          #E2E8F0;   /* slate-200 (mockup 194×) */
+  --border-hover:    #CBD5E1;   /* slate-300 */
+  --border-active:   #94A3B8;   /* slate-400 */
+
+  /* ── Alias de compatibilidad (F0.3 / GL-27) ──
+     Tokens referenciados por código existente pero NO definidos → resolvían
+     a valor inválido (bordes/colores rotos en runtime; audit 2026-06-25 §4.3).
+     Se mapean al canónico evidente. Provisionales: se retiran al migrar cada
+     uso al token canónico durante el reskin F4. */
+  --brand-600:       var(--brand-hover);   /* ambos #2563EB (blue-600) */
+  --text-link:       var(--brand);
+  --primary:         var(--brand);
+  --border-subtle:   var(--border);
+  --border-default:  var(--border);
+  --surface:         var(--surface-primary);
+  --surface-2:       var(--surface-secondary);
 
   /* ── Radios ── */
   --radius-xs:   4px;
@@ -96,13 +109,16 @@
   --font-size-md:   16px;
   --font-size-lg:   20px;
   --font-size-xl:   24px;
+  --font-size-h1:   28px;   /* F0.1: título de página del mockup (26-28px) */
   --font-size-2xl:  32px;
   --font-weight-regular:  400;
   --font-weight-medium:   500;
   --font-weight-semibold: 600;
+  --font-weight-bold:     700;   /* F0.1: headings/celdas del mockup (600-700) */
   --line-height-tight:    1.25;
   --line-height-normal:   1.5;
   --line-height-relaxed:  1.625;
+  --tracking-tight:       -0.02em;   /* F0.1: tracking de títulos del mockup */
 
   /* ── Transitions ── */
   --transition-fast:   150ms ease;

@@ -233,58 +233,91 @@
 
   <sc-if value="{{ isNotas }}" hint-placeholder-val="{{ false }}">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px">
-      <div style="max-width:540px">
-        <h2 style="font-size:15px;font-weight:600;color:#0F172A;margin:0">Notas del cliente</h2>
-        <p style="font-size:12.5px;color:#94A3B8;margin:5px 0 0;line-height:1.5">Se crean solas al cerrar tickets, mantenimientos o tareas. Las excepcionales son entradas libres del agente.</p>
+      <div style="max-width:560px">
+        <h2 style="font-size:15px;font-weight:600;color:#0F172A;margin:0">Historial del cliente</h2>
+        <p style="font-size:12.5px;color:#94A3B8;margin:5px 0 0;line-height:1.5">{{ notesSummary }} Se crean solas al cerrar tickets, mantenimientos o tareas; las excepcionales las añade el agente.</p>
       </div>
-      <button type="button" onClick="{{ noop }}" style="display:flex;align-items:center;gap:6px;height:38px;padding:0 15px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0;transition:background .15s ease" style-hover="background:#2563EB"><svg width="15" height="15" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Nota excepcional</button>
+      <button type="button" onClick="{{ openNoteModal }}" style="display:flex;align-items:center;gap:6px;height:38px;padding:0 15px;border-radius:10px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0;transition:background .15s ease" style-hover="background:#2563EB"><svg width="15" height="15" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Nota excepcional</button>
     </div>
 
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5">
+        <button type="button" onClick="{{ c.onClick }}" style="{{ c.style }}"><sc-if value="{{ c.hasDot }}" hint-placeholder-val="{{ false }}"><span style="{{ c.dotStyle }}"></span></sc-if>{{ c.label }}<span style="{{ c.countStyle }}">{{ c.count }}</span></button>
+      </sc-for>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
       <div style="position:relative">
-        <select value="{{ noteCat }}" onChange="{{ onNoteCat }}" style="height:36px;padding:0 32px 0 12px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;font-size:12.5px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none">
-          <option value="">Todas las categorías</option>
-          <option value="support">Soporte</option>
-          <option value="maintenance">Mantenimiento</option>
-          <option value="onboarding">Onboarding</option>
-          <option value="exceptional">Excepcional</option>
-        </select>
-        <svg width="14" height="14" viewBox="0 0 24 24" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </div>
-      <div style="position:relative">
-        <select value="{{ noteSrc }}" onChange="{{ onNoteSrc }}" style="height:36px;padding:0 32px 0 12px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;font-size:12.5px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none">
-          <option value="">Todos los sistemas</option>
+        <select value="{{ noteSrc }}" onChange="{{ onNoteSrc }}" style="height:34px;padding:0 32px 0 12px;border-radius:9px;border:1px solid #E2E8F0;background:#fff;font-size:12.5px;font-family:inherit;color:#475569;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none">
+          <option value="">Todos los orígenes</option>
           <option value="ticket">Ticket de soporte</option>
           <option value="maintenance_log">Mantenimiento</option>
           <option value="task_completion">Cierre de tarea</option>
+          <option value="service">Servicio (lifecycle)</option>
           <option value="exceptional">Nota excepcional</option>
+          <option value="chat">Chat</option>
         </select>
         <svg width="14" height="14" viewBox="0 0 24 24" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#94A3B8;pointer-events:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </div>
       <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#475569;cursor:pointer;user-select:none"><input type="checkbox" checked="{{ pinnedOnly }}" onChange="{{ onPinned }}" style="width:15px;height:15px">Solo fijadas</label>
-      <span style="margin-left:auto;font-size:12px;color:#94A3B8">{{ notesCountLabel }}</span>
+      <button type="button" onClick="{{ clearFilters }}" style="{{ clearStyle }}">Limpiar filtros</button>
     </div>
 
-    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
-      <sc-for list="{{ notes }}" as="n" hint-placeholder-count="4">
-        <div style="{{ n.itemStyle }}">
-          <sc-if value="{{ n.pinned }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#3B82F6;margin-bottom:8px"><svg width="12" height="12" viewBox="0 0 24 24"><use href="#cd-pin"></use></svg>Fijada</div></sc-if>
-          <p style="font-size:14px;color:#1E293B;line-height:1.55;margin:0 0 12px">{{ n.body }}</p>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11.5px;color:#94A3B8">
-              <span style="font-weight:600;color:#475569">{{ n.author }}</span>
-              <span style="{{ n.catStyle }}">{{ n.cat }}</span>
-              <span style="{{ n.srcStyle }}">{{ n.src }}</span>
-              <span style="color:#CBD5E1">·</span>
-              <span>{{ n.date }}</span>
+    <sc-if value="{{ hasPinned }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#fff;border:1px solid #DCE8FF;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,0.04);margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:7px;padding:11px 18px;background:#F5F9FF;border-bottom:1px solid #E1ECFB;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#2563EB"><svg width="13" height="13" viewBox="0 0 24 24"><use href="#cd-pin"></use></svg>Fijadas · {{ pinnedCount }}</div>
+        <sc-for list="{{ pinnedGroup }}" as="n" hint-placeholder-count="2">
+          <div style="{{ n.rowStyle }}">
+            <span style="{{ n.dotStyle }}"></span>
+            <div style="flex:1;min-width:0">
+              <p style="font-size:13.5px;color:#1E293B;line-height:1.55;margin:0 0 8px">{{ n.body }}</p>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11.5px;color:#94A3B8"><span style="font-weight:600;color:#475569">{{ n.author }}</span><span style="{{ n.srcStyle }}">{{ n.src }}</span><sc-if value="{{ n.hasAction }}" hint-placeholder-val="{{ false }}"><span style="color:#CBD5E1">·</span><span>{{ n.action }}</span></sc-if><span style="color:#CBD5E1">·</span><span>{{ n.when }}</span></div>
             </div>
             <button type="button" onClick="{{ n.togglePin }}" style="{{ n.pinBtnStyle }}">{{ n.pinLabel }}</button>
           </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-for list="{{ timelineGroups }}" as="g" hint-placeholder-count="2">
+      <div style="margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><span style="font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#94A3B8">{{ g.label }}</span><span style="flex:1;height:1px;background:#EEF1F5"></span></div>
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+          <sc-for list="{{ g.notes }}" as="n" hint-placeholder-count="2">
+            <div style="{{ n.rowStyle }}">
+              <span style="{{ n.dotStyle }}"></span>
+              <div style="flex:1;min-width:0">
+                <p style="font-size:13.5px;color:#1E293B;line-height:1.55;margin:0 0 8px">{{ n.body }}</p>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11.5px;color:#94A3B8"><span style="font-weight:600;color:#475569">{{ n.author }}</span><span style="{{ n.srcStyle }}">{{ n.src }}</span><sc-if value="{{ n.hasAction }}" hint-placeholder-val="{{ false }}"><span style="color:#CBD5E1">·</span><span>{{ n.action }}</span></sc-if><span style="color:#CBD5E1">·</span><span>{{ n.when }}</span></div>
+              </div>
+              <button type="button" onClick="{{ n.togglePin }}" style="{{ n.pinBtnStyle }}">{{ n.pinLabel }}</button>
+            </div>
+          </sc-for>
         </div>
-      </sc-for>
-      <sc-if value="{{ notesEmpty }}" hint-placeholder-val="{{ false }}">
-        <div style="padding:44px 24px;text-align:center;font-size:13px;color:#94A3B8">No hay notas con esos filtros.</div>
-      </sc-if>
+      </div>
+    </sc-for>
+
+    <sc-if value="{{ notesEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:44px 24px;text-align:center;font-size:13px;color:#94A3B8">No hay notas con esos filtros.</div>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ noteModalOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeNoteModal }}" style="position:fixed;inset:0;z-index:60;background:rgba(15,23,42,0.42);display:flex;align-items:center;justify-content:center;padding:24px">
+      <div onClick="{{ stop }}" style="width:100%;max-width:480px;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,0.3);overflow:hidden">
+        <div style="padding:22px 24px 0"><h3 style="font-size:17px;font-weight:700;letter-spacing:-0.01em;margin:0 0 8px">Añadir nota excepcional</h3><p style="font-size:13px;color:#64748B;margin:0;line-height:1.55">Entradas libres del agente sobre el cliente. Para notas de un ticket, mantenimiento o tarea, usa el sistema correspondiente — se generan solas al cerrar el flujo.</p></div>
+        <div style="padding:16px 24px 0">
+          <textarea value="{{ noteDraft }}" onInput="{{ onNoteDraft }}" rows="5" placeholder="Apunte libre: contexto del cliente, detalle no encajable en otro flujo, recordatorio interno…" style="width:100%;border:1px solid #DDE3EA;border-radius:11px;padding:12px 14px;font-family:inherit;font-size:13.5px;color:#0F172A;resize:vertical;line-height:1.55;outline:none" style-focus="border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.12)"></textarea>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:11px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#475569;cursor:pointer;user-select:none"><input type="checkbox" checked="{{ notePinDraft }}" onChange="{{ onNotePin }}" style="width:15px;height:15px">Fijar al inicio del listado</label>
+            <span style="font-size:11.5px;color:#A8B0BC;font-variant-numeric:tabular-nums">{{ noteCount }}/5000</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:18px 24px 20px">
+          <button type="button" onClick="{{ closeNoteModal }}" style="padding:10px 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">Cancelar</button>
+          <button type="button" onClick="{{ submitNote }}" disabled="{{ noteSubmitDisabled }}" style="{{ noteSubmitStyle }}">Guardar nota</button>
+        </div>
+      </div>
     </div>
   </sc-if>
 
@@ -299,14 +332,17 @@
   &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; }
 }">
 class Component extends DCLogic {
-  state = { tab: 'resumen', menuOpen: false, noteCat: '', noteSrc: '', pinnedOnly: false, pins: {} };
+  state = { tab: 'resumen', menuOpen: false, noteCat: '', noteSrc: '', pinnedOnly: false, pins: {}, noteModalOpen: false, noteDraft: '', notePinDraft: false, created: [] };
 
   notesSeed() {
     return [
-      { id: 'n1', pinned: true, category: 'support', source: 'ticket', author: 'Luis Ferrer', date: 'mar, 24 jun 2026 · 10:42', body: 'SSL reinstalado y verificado. El certificado había caducado en el panel; renovado y forzado HTTPS en todo el sitio. Cliente avisada por chat.' },
-      { id: 'n2', pinned: false, category: 'maintenance', source: 'maintenance_log', author: 'Marta Gil', date: 'vie, 1 jun 2026 · 09:10', body: 'Mantenimiento mensual de junio: actualizaciones aplicadas, backups verificados, sin incidencias. Tiempo de carga estable.' },
-      { id: 'n3', pinned: false, category: 'onboarding', source: 'task_completion', author: 'Luis Ferrer', date: 'lun, 16 mar 2026 · 12:30', body: 'Llamada de bienvenida. Estudio de diseño, 4 personas. Prioridad: web rápida y correo fiable. Prefiere contacto por WhatsApp.' },
-      { id: 'n4', pinned: true, category: 'exceptional', source: 'exceptional', author: 'Marc Oliver', date: 'mié, 12 mar 2026 · 16:05', body: 'Cliente VIP — referida por Sara Gómez. Trato prioritario; cualquier incidencia se escala directa.' },
+      { id: 'n1', pinned: true, category: 'support', source: 'ticket', action: 'ticket.resolved', author: 'Luis Ferrer', ts: 202606241042, monthKey: '2026-06', when: '24 jun · 10:42', body: 'SSL reinstalado y verificado. El certificado había caducado en el panel; renovado y forzado HTTPS en todo el sitio. Cliente avisada por chat.' },
+      { id: 'n2', pinned: false, category: 'maintenance', source: 'maintenance_log', action: 'maintenance.completed', author: 'Marta Gil', ts: 202606010910, monthKey: '2026-06', when: '1 jun · 09:10', body: 'Mantenimiento mensual de junio: actualizaciones aplicadas, backups verificados, sin incidencias. Tiempo de carga estable.' },
+      { id: 'n5', pinned: false, category: 'lifecycle', source: 'service', action: 'service.auto_suspended_overdue', author: 'Sistema', ts: 202606020600, monthKey: '2026-06', when: '2 jun · 06:00', body: 'tienda-carla.es suspendida automáticamente por impago de la factura AEL-2026-00391. Se reactivará en cuanto se regularice el pago.' },
+      { id: 'n6', pinned: false, category: 'technical_incident', source: 'ticket', action: 'ticket.resolved', author: 'Luis Ferrer', ts: 202605221720, monthKey: '2026-05', when: '22 may · 17:20', body: 'Error 500 intermitente al guardar entradas del blog. Era un límite de memoria PHP; subido a 256 MB y monitorizado 48 h sin recurrencia.' },
+      { id: 'n7', pinned: false, category: 'billing', source: 'ticket', action: 'ticket.closed', author: 'Pau Vidal', ts: 202606031205, monthKey: '2026-06', when: '3 jun · 12:05', body: 'Duda sobre la factura de mayo: el prorrateo del cambio de plan estaba bien aplicado. Explicado y la clienta queda conforme.' },
+      { id: 'n3', pinned: false, category: 'onboarding', source: 'task_completion', action: 'task.completed', author: 'Luis Ferrer', ts: 202603161230, monthKey: '2026-03', when: '16 mar · 12:30', body: 'Llamada de bienvenida. Estudio de diseño, 4 personas. Prioridad: web rápida y correo fiable. Prefiere contacto por WhatsApp.' },
+      { id: 'n4', pinned: true, category: 'exceptional', source: 'exceptional', action: 'manual_entry', author: 'Marc Oliver', ts: 202603121605, monthKey: '2026-03', when: '12 mar · 16:05', body: 'Cliente VIP — referida por Sara Gómez. Trato prioritario; cualquier incidencia se escala directa.' },
     ];
   }
 
@@ -365,10 +401,15 @@ class Component extends DCLogic {
       support: { label: 'Soporte', bg: '#EFF4FF', fg: '#3B82F6' },
       maintenance: { label: 'Mantenimiento', bg: '#E8F7F1', fg: '#0E8C5F' },
       onboarding: { label: 'Onboarding', bg: '#F1ECFB', fg: '#7C5CCB' },
+      billing: { label: 'Facturación', bg: '#FCF3E1', fg: '#B27A12' },
+      project: { label: 'Proyecto', bg: '#EAF6FB', fg: '#0E7490' },
+      technical_incident: { label: 'Incidente técnico', bg: '#FCECEC', fg: '#D14343' },
       exceptional: { label: 'Excepcional', bg: '#F1F5F9', fg: '#64748B' },
+      lifecycle: { label: 'Lifecycle', bg: '#EEF2F7', fg: '#475569' },
     };
-    const SRC = { ticket: 'Ticket', maintenance_log: 'Mantenimiento', task_completion: 'Cierre de tarea', exceptional: 'Excepcional' };
-    const SRC_LINK = { ticket: true };
+    const SRC = { ticket: 'Ticket', maintenance_log: 'Mantenimiento', task_completion: 'Cierre de tarea', exceptional: 'Excepcional', service: 'Servicio', chat: 'Chat' };
+    const SRC_LINK = { ticket: true, chat: true, service: true };
+    const ACTION = { 'ticket.resolved': 'Ticket resuelto', 'ticket.closed': 'Ticket cerrado', 'task.completed': 'Tarea completada', 'maintenance.completed': 'Mantenimiento registrado', 'manual_entry': 'Entrada manual', 'service.cancelled': 'Servicio cancelado', 'service.suspended': 'Servicio suspendido', 'service.unsuspended': 'Servicio reactivado', 'service.auto_suspended_overdue': 'Suspendido por impago', 'service.auto_unsuspended_overdue': 'Reactivado al pagar' };
 
     const tabDefs = [
       ['resumen', 'Resumen', 0],
@@ -393,26 +434,56 @@ class Component extends DCLogic {
     const cat = this.state.noteCat || '';
     const src = this.state.noteSrc || '';
     const pinnedOnly = !!this.state.pinnedOnly;
-    let notesList = this.notesSeed().map((n) => ({ ...n, pinned: isPinned(n) }));
-    notesList = notesList.filter((n) => (!cat || n.category === cat) && (!src || n.source === src) && (!pinnedOnly || n.pinned));
-    notesList.sort((a, b) => (a.pinned === b.pinned ? 0 : a.pinned ? -1 : 1));
+    const all = [...(this.state.created || []), ...this.notesSeed()].map((n) => ({ ...n, pinned: isPinned(n) }));
+    const filtered = all.filter((n) => (!cat || n.category === cat) && (!src || n.source === src) && (!pinnedOnly || n.pinned));
+    filtered.sort((a, b) => b.ts - a.ts);
 
-    const notes = notesList.map((n, i) => {
+    const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    const monthLabel = (key) => { const p = key.split('-'); const nm = MONTHS[parseInt(p[1], 10) - 1] || ''; return nm.charAt(0).toUpperCase() + nm.slice(1) + ' ' + p[0]; };
+
+    const entry = (n, i) => {
       const c = CAT[n.category] || CAT.exceptional;
-      const pillCat = 'display:inline-flex;padding:2px 8px;border-radius:9999px;font-size:10.5px;font-weight:600;background:' + c.bg + ';color:' + c.fg + ';';
       const srcLink = SRC_LINK[n.source];
-      const pillSrc = 'display:inline-flex;padding:2px 8px;border-radius:9999px;font-size:10.5px;font-weight:600;background:#F1F5F9;color:' + (srcLink ? '#3B82F6' : '#64748B') + ';';
       return {
-        body: n.body, author: n.author, date: n.date, pinned: n.pinned,
-        cat: c.label, catStyle: pillCat,
-        src: srcLink ? SRC[n.source] + ' →' : SRC[n.source], srcStyle: pillSrc,
-        itemStyle: 'padding:18px 20px;' + (i === 0 ? '' : 'border-top:1px solid #F1F5F9;') + (n.pinned ? 'border-left:3px solid #3B82F6;background:#FBFCFF;' : ''),
+        body: n.body, author: n.author, when: n.when, pinned: n.pinned,
+        cat: c.label, catStyle: 'display:inline-flex;padding:2px 8px;border-radius:9999px;font-size:10.5px;font-weight:600;background:' + c.bg + ';color:' + c.fg + ';',
+        src: srcLink ? SRC[n.source] + ' →' : SRC[n.source],
+        srcStyle: 'display:inline-flex;padding:2px 8px;border-radius:9999px;font-size:10.5px;font-weight:600;background:#F1F5F9;color:' + (srcLink ? '#3B82F6' : '#64748B') + ';',
+        hasAction: !!(n.action && ACTION[n.action]),
+        action: ACTION[n.action] || '',
+        dotStyle: 'width:9px;height:9px;border-radius:9999px;flex-shrink:0;margin-top:5px;background:' + c.fg + ';',
+        rowStyle: 'display:flex;align-items:flex-start;gap:12px;padding:15px 18px;' + (i === 0 ? '' : 'border-top:1px solid #F1F5F9;'),
         pinLabel: n.pinned ? 'Desfijar' : 'Fijar',
-        pinBtnStyle: 'background:none;border:none;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer;color:' + (n.pinned ? '#3B82F6' : '#94A3B8') + ';flex-shrink:0;',
+        pinBtnStyle: 'background:none;border:none;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer;flex-shrink:0;color:' + (n.pinned ? '#3B82F6' : '#94A3B8') + ';',
         togglePin: () => this.setState((s) => ({ pins: { ...(s.pins || {}), [n.id]: !isPinned(n) } })),
       };
+    };
+
+    const pinnedGroup = filtered.filter((n) => n.pinned).map((n, i) => entry(n, i));
+    const flowNotes = pinnedOnly ? [] : filtered.filter((n) => !n.pinned);
+    const order = []; const byMonth = {};
+    flowNotes.forEach((n) => { if (!byMonth[n.monthKey]) { byMonth[n.monthKey] = []; order.push(n.monthKey); } byMonth[n.monthKey].push(n); });
+    const timelineGroups = order.map((k) => ({ key: k, label: monthLabel(k), notes: byMonth[k].map((n, i) => entry(n, i)) }));
+
+    const catCounts = {}; all.forEach((n) => { catCounts[n.category] = (catCounts[n.category] || 0) + 1; });
+    const chipDefs = [['', 'Todas', '']].concat(Object.keys(CAT).filter((k) => catCounts[k]).map((k) => [k, CAT[k].label, k]));
+    const chips = chipDefs.map((d) => {
+      const key = d[0], label = d[1], catKey = d[2];
+      const active = cat === key;
+      const cc = catKey ? CAT[catKey] : null;
+      return {
+        label, count: String(key === '' ? all.length : (catCounts[key] || 0)),
+        hasDot: !!cc,
+        dotStyle: cc ? 'width:7px;height:7px;border-radius:9999px;display:inline-block;background:' + cc.fg + ';' : '',
+        onClick: () => this.setState({ noteCat: key }),
+        style: 'display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:9999px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .12s ease;border:1px solid ' + (active ? '#3B82F6' : '#E2E8F0') + ';background:' + (active ? '#EFF4FF' : '#fff') + ';color:' + (active ? '#2563EB' : '#64748B') + ';',
+        countStyle: 'font-size:11px;font-weight:700;color:' + (active ? '#3B82F6' : '#A8B0BC') + ';',
+      };
     });
-    const nTotal = notesList.length;
+
+    const pinnedTotal = all.filter((n) => n.pinned).length;
+    const lastWhen = filtered.length ? filtered[0].when : '—';
+    const anyFilter = !!(cat || src || pinnedOnly);
 
     return {
       go: { clients: () => nav('clients'), billing: () => nav('billing'), tickets: () => nav('tickets'), chats: () => nav('chats') },
@@ -430,14 +501,39 @@ class Component extends DCLogic {
       isNotas: tab === 'notas',
       services,
       convos,
-      notes,
-      notesEmpty: notes.length === 0,
-      notesCountLabel: nTotal + (nTotal === 1 ? ' nota' : ' notas'),
-      noteCat: cat, noteSrc: src, pinnedOnly,
-      onNoteCat: (e) => this.setState({ noteCat: e.target.value }),
+      chips,
+      hasPinned: pinnedGroup.length > 0,
+      pinnedCount: String(pinnedGroup.length),
+      pinnedGroup,
+      timelineGroups,
+      notesEmpty: filtered.length === 0,
+      notesSummary: filtered.length + (filtered.length === 1 ? ' nota' : ' notas') + (pinnedTotal ? ' · ' + pinnedTotal + ' fijadas' : '') + ' · última actividad ' + lastWhen + '.',
+      noteSrc: src, pinnedOnly,
+      clearFilters: () => this.setState({ noteCat: '', noteSrc: '', pinnedOnly: false }),
+      clearStyle: anyFilter ? 'background:none;border:none;font-family:inherit;font-size:12px;font-weight:600;color:#3B82F6;cursor:pointer;padding:6px 4px' : 'display:none',
       onNoteSrc: (e) => this.setState({ noteSrc: e.target.value }),
       onPinned: (e) => this.setState({ pinnedOnly: e.target.checked }),
       menuOpen: this.state.menuOpen,
+      noteModalOpen: this.state.noteModalOpen,
+      noteDraft: this.state.noteDraft,
+      notePinDraft: this.state.notePinDraft,
+      noteCount: this.state.noteDraft.length,
+      noteSubmitDisabled: this.state.noteDraft.trim().length === 0,
+      noteSubmitStyle: 'padding:10px 16px;border-radius:10px;border:none;font-size:13px;font-weight:600;font-family:inherit;' + (this.state.noteDraft.trim().length === 0 ? 'background:#CBD5E1;color:#fff;cursor:not-allowed' : 'background:#3B82F6;color:#fff;cursor:pointer'),
+      openNoteModal: () => this.setState({ noteModalOpen: true, noteDraft: '', notePinDraft: false }),
+      closeNoteModal: () => this.setState({ noteModalOpen: false }),
+      onNoteDraft: (e) => this.setState({ noteDraft: (e.target.value || '').slice(0, 5000) }),
+      onNotePin: (e) => this.setState({ notePinDraft: e.target.checked }),
+      submitNote: () => {
+        const body = this.state.noteDraft.trim();
+        if (!body) return;
+        const d = new Date();
+        const when = 'Hoy · ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        const monthKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        const note = { id: 'c' + Date.now(), pinned: this.state.notePinDraft, category: 'exceptional', source: 'exceptional', action: 'manual_entry', author: 'Marc Oliver', ts: d.getTime(), monthKey, when, body };
+        this.setState((s) => ({ created: [note, ...(s.created || [])], noteModalOpen: false, noteDraft: '', notePinDraft: false }));
+      },
+      stop: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
       toggleMenu: () => this.setState((s) => ({ menuOpen: !s.menuOpen })),
       closeMenu: () => this.setState({ menuOpen: false }),
       noop: () => {},

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, type ReactNode } from 'react';
+import { RefreshCw, Hourglass } from 'lucide-react';
 
 import { Button, useToast } from '../../components/ui';
 import { t } from '../i18n';
@@ -77,13 +78,17 @@ export function MetricsRefreshButton({
 
   const disabled = isPending || cooldownRemaining > 0;
 
+  let icon: ReactNode;
   let label: string;
   if (isPending) {
-    label = `⏳ ${t('metrics.refreshing')}`;
+    icon = <Hourglass size={14} aria-hidden="true" />;
+    label = t('metrics.refreshing');
   } else if (cooldownRemaining > 0) {
-    label = `↻ ${cooldownRemaining}s`;
+    icon = <RefreshCw size={14} aria-hidden="true" />;
+    label = `${cooldownRemaining}s`;
   } else {
-    label = `↻ ${t('metrics.refresh')}`;
+    icon = <RefreshCw size={14} aria-hidden="true" />;
+    label = t('metrics.refresh');
   }
 
   return (
@@ -100,6 +105,7 @@ export function MetricsRefreshButton({
       }
       aria-label={t('metrics.refresh.aria_label')}
     >
+      {icon}
       {label}
     </Button>
   );

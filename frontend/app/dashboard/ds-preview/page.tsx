@@ -19,9 +19,36 @@ import {
   useToast,
   AlertBanner,
   HelpTip,
+  Toggle,
+  IconWell,
+  SegmentedControl,
+  PasswordStrengthMeter,
+  NotificationRow,
+  OTPInput,
+  Stepper,
+  PricingCard,
+  OrderSummary,
+  PaymentMethodCard,
+  ActivityRow,
+  BrandMark,
+  CartLineItem,
+  SidebarConversationList,
   type TableColumn,
   type TableSort,
 } from '../../components/ui';
+import {
+  Shield,
+  Bell,
+  AlertTriangle,
+  CheckCircle2,
+  Wrench,
+  Search,
+  Sparkles,
+  CreditCard,
+  Briefcase,
+  Globe,
+  Server,
+} from 'lucide-react';
 
 /* ── Mock data for Table demo ── */
 interface DemoClient {
@@ -64,6 +91,9 @@ export default function DesignSystemPreview() {
   const [loading, setLoading] = useState(false);
   const [tableSort, setTableSort] = useState<TableSort>({ key: 'name', direction: 'asc' });
   const [_tableLoading, _setTableLoading] = useState(false);
+  const [toggleOn, setToggleOn] = useState(true);
+  const [segMode, setSegMode] = useState('name');
+  const [otp, setOtp] = useState('');
   const { toast, toastUndo } = useToast();
 
   const handleLoadingDemo = () => {
@@ -133,6 +163,263 @@ export default function DesignSystemPreview() {
             <StatusDot color="neutral" /> Inactivo
           </span>
         </Row>
+      </Section>
+
+      {/* ── Toggle (F1a) ── */}
+      <Section title="Toggle / Switch">
+        <Row>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <Toggle checked={toggleOn} onChange={setToggleOn} aria-label="Demo toggle" />
+            {toggleOn ? 'Activado' : 'Desactivado'}
+          </span>
+          <Toggle checked={false} onChange={() => {}} aria-label="Toggle off" />
+          <Toggle checked disabled onChange={() => {}} aria-label="Toggle deshabilitado" />
+        </Row>
+      </Section>
+
+      {/* ── IconWell (F1a) ── */}
+      <Section title="IconWell">
+        <Row label="Tonos">
+          <IconWell icon={Shield} tone="brand" />
+          <IconWell icon={CheckCircle2} tone="success" />
+          <IconWell icon={AlertTriangle} tone="warning" />
+          <IconWell icon={Bell} tone="danger" />
+          <IconWell icon={Wrench} tone="neutral" />
+        </Row>
+        <Row label="Tamaños">
+          <IconWell icon={Shield} size="sm" />
+          <IconWell icon={Shield} size="md" />
+          <IconWell icon={Shield} size="lg" />
+        </Row>
+      </Section>
+
+      {/* ── SegmentedControl (F1a) ── */}
+      <Section title="SegmentedControl">
+        <Row>
+          <SegmentedControl
+            options={[
+              { value: 'name', label: 'Por nombre', icon: Search },
+              { value: 'ai', label: 'Con IA', icon: Sparkles },
+            ]}
+            value={segMode}
+            onChange={setSegMode}
+            aria-label="Modo de búsqueda"
+          />
+        </Row>
+      </Section>
+
+      {/* ── PasswordStrengthMeter (F1a) ── */}
+      <Section title="PasswordStrengthMeter">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-6)', maxWidth: 520 }}>
+          <PasswordStrengthMeter score={1} />
+          <PasswordStrengthMeter score={2} />
+          <PasswordStrengthMeter score={3} />
+          <PasswordStrengthMeter score={4} />
+        </div>
+      </Section>
+
+      {/* ── NotificationRow (F1a) ── */}
+      <Section title="NotificationRow">
+        <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', maxWidth: 640 }}>
+          <NotificationRow
+            icon={CreditCard}
+            tone="brand"
+            title="Factura disponible"
+            category="Facturación"
+            body="Tu factura de junio (24,20 €) ya está lista para descargar."
+            time="hace 2 h"
+            unread
+            actionLabel="Ver factura"
+          />
+          <NotificationRow
+            icon={CheckCircle2}
+            tone="success"
+            title="Servicio activado"
+            category="Servicios"
+            body="Tu hosting Web Pro se ha aprovisionado correctamente."
+            time="ayer"
+            actionLabel="Abrir servicio"
+          />
+          <NotificationRow
+            icon={Bell}
+            tone="warning"
+            title="Tu dominio expira pronto"
+            category="Dominios"
+            body="aelium.net se renueva el 12 de julio. Revisa la auto-renovación."
+            time="hace 3 d"
+          />
+        </div>
+      </Section>
+
+      {/* ── Stepper (F1a) ── */}
+      <Section title="Stepper">
+        <Row>
+          <Stepper steps={['Configurar', 'Carrito', 'Facturación', 'Confirmar']} current={3} />
+        </Row>
+        <Row label="A mitad">
+          <Stepper steps={['Configurar', 'Carrito', 'Facturación', 'Confirmar']} current={1} />
+        </Row>
+        <Row label="Vertical (FSM)">
+          <div style={{ maxWidth: 420 }}>
+            <Stepper
+              orientation="vertical"
+              current={1}
+              steps={[
+                { label: 'Código recibido', sub: 'Recibimos tu código de autorización (EPP).' },
+                { label: 'Transferencia en curso', sub: 'El registrador actual tiene 5-7 días para aprobarla.' },
+                { label: 'Completada', sub: 'El dominio queda en Aelium.' },
+              ]}
+            />
+          </div>
+        </Row>
+      </Section>
+
+      {/* ── OTPInput (F1a) ── */}
+      <Section title="OTPInput">
+        <div style={{ maxWidth: 320 }}>
+          <OTPInput value={otp} onChange={setOtp} aria-label="Código de verificación" />
+          <p style={{ marginTop: 'var(--space-3)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+            Valor: {otp || '—'}
+          </p>
+        </div>
+      </Section>
+
+      {/* ── PricingCard (F1a) ── */}
+      <Section title="PricingCard">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-6)', maxWidth: 620, paddingTop: 'var(--space-3)' }}>
+          <PricingCard
+            name="Web Inicio"
+            description="Para empezar con buen pie."
+            showFrom
+            price="6 €"
+            period="/mes"
+            priceNote="facturado anual · IVA incl."
+            features={['2 GB SSD', '1 web · 3 cuentas', 'SSL y copias de seguridad']}
+            ctaLabel="Configurar"
+          />
+          <PricingCard
+            name="Web Pro"
+            description="Para webs que crecen y venden."
+            showFrom
+            price="12 €"
+            period="/mes"
+            priceNote="facturado anual · IVA incl."
+            features={['10 GB SSD', '3 webs · 10 cuentas · Staging', 'SSL, copias y optimización']}
+            highlighted
+            badge={{ label: 'Recomendado', tone: 'brand' }}
+            ctaLabel="Configurar"
+          />
+        </div>
+      </Section>
+
+      {/* ── OrderSummary (F1a) ── */}
+      <Section title="OrderSummary">
+        <div style={{ maxWidth: 320 }}>
+          <OrderSummary
+            lines={[
+              { label: 'Web Pro · anual', value: '115,20 €' },
+              { label: 'minegocio.com', value: 'Gratis', free: true },
+              { label: 'Base imponible', value: '95,21 €', divider: true },
+              { label: 'IVA (21%)', value: '19,99 €' },
+            ]}
+            totalValue="115,20 €"
+          />
+        </div>
+      </Section>
+
+      {/* ── PaymentMethodCard (F1a) ── */}
+      <Section title="PaymentMethodCard">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', maxWidth: 560 }}>
+          <PaymentMethodCard
+            icon={Briefcase}
+            label="Perfil"
+            title="Sara Gómez Ruiz"
+            subtitle="Autónoma · NIF 12345678Z"
+          />
+          <PaymentMethodCard
+            icon={CreditCard}
+            label="Pago"
+            title="Visa •••• 4242"
+            subtitle="vía Stripe · caduca 06/27"
+          />
+        </div>
+      </Section>
+
+      {/* ── ActivityRow (F1a) ── */}
+      <Section title="ActivityRow">
+        <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '4px 20px', maxWidth: 560 }}>
+          <ActivityRow initials="LF" meta="hoy, 09:14">
+            <strong>Luis Ferrer</strong> revisó tu web
+          </ActivityRow>
+          <ActivityRow icon={CheckCircle2} tone="success" meta="12 jun, 11:20">
+            <strong>Mantenimiento</strong> completado
+          </ActivityRow>
+          <ActivityRow icon={Shield} tone="brand" meta="12 jun, 14:32">
+            <strong>Luis Ferrer</strong> accedió al panel de tu hosting
+          </ActivityRow>
+          <ActivityRow icon={Bell} tone="warning" meta="10 jun, 11:05">
+            Registro DNS actualizado
+          </ActivityRow>
+        </div>
+      </Section>
+
+      {/* ── BrandMark (F1d) ── */}
+      <Section title="BrandMark">
+        <Row label="Isotipo">
+          <BrandMark size={28} />
+          <BrandMark size={40} />
+          <BrandMark size={56} />
+        </Row>
+        <Row label="Con wordmark">
+          <BrandMark size={32} withWordmark />
+        </Row>
+        <Row label="Mono (currentColor)">
+          <span style={{ color: 'var(--text-primary)' }}><BrandMark size={32} mono /></span>
+          <span style={{ color: 'var(--brand)' }}><BrandMark size={32} mono withWordmark /></span>
+        </Row>
+      </Section>
+
+      {/* ── CartLineItem (componente nuevo) ── */}
+      <Section title="CartLineItem">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', maxWidth: 560 }}>
+          <CartLineItem
+            icon={Server}
+            name="Web Pro"
+            badge={{ label: 'Anual', variant: 'brand' }}
+            sub="Hosting gestionado · 10 GB SSD"
+            renewNote="Se renueva el 14 jun 2027"
+            price="115,20 €"
+            term="/año"
+            onEdit={() => {}}
+            onRemove={() => {}}
+          />
+          <CartLineItem
+            icon={Globe}
+            name="minegocio.com"
+            sub="Dominio · registro 1 año"
+            warning=".es requiere NIF español — completa tus datos fiscales antes de pagar."
+            originalPrice="12,00 €"
+            price="Gratis"
+            priceFree
+            term="primer año"
+            onRemove={() => {}}
+          />
+        </div>
+      </Section>
+
+      {/* ── SidebarConversationList (componente nuevo) ── */}
+      <Section title="SidebarConversationList">
+        <div style={{ width: 260, padding: 'var(--space-3)', background: 'var(--surface-secondary)', borderRadius: 'var(--radius-lg)' }}>
+          <SidebarConversationList
+            openCount={2}
+            cta={{ label: 'Escribir a Luis' }}
+            items={[
+              { id: '1', title: 'Migración de mi web', preview: 'Luis: ya está casi listo…', time: '9:14', tone: 'brand', status: 'open', unread: true, onClick: () => {} },
+              { id: '2', title: 'Factura de junio', preview: 'Tú: ¿incluye el dominio?', time: 'ayer', tone: 'success', status: 'open', onClick: () => {} },
+              { id: '3', title: 'Cambio de plan', preview: 'Resuelta · gracias', time: '3 jun', channel: 'whatsapp', tone: 'neutral', status: 'resolved', onClick: () => {} },
+            ]}
+          />
+        </div>
       </Section>
 
       {/* ── Card ── */}

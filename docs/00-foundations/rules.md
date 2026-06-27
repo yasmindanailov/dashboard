@@ -520,6 +520,14 @@ El dashboard tiene **6 tipos de página** definidos en `UI_SPEC.md §2`:
 
 **Regla derivada:** StatsCards solo en Overview. En list pages, las métricas van como contadores en StatusTabs.
 
+> **Amendment A1 (rediseño UI, 2026-06-27 · decisión D-1).** Las *StatsCards*
+> dejan de estar restringidas al Overview: se permiten en páginas de **detalle y
+> gestión** cuando representan **KPIs accionables** del recurso mostrado (cliente,
+> factura, plugin, Support Inside…), respetando — (1) una sola jerarquía visual
+> por vista, (2) **máximo una fila** de StatsCards, (3) **sin duplicar** la métrica
+> ya visible en su badge/estado. **List pages se mantienen sin StatsCards** (siguen
+> con StatusTabs). Motivo: paridad 1:1 con los mockups. El resto de D10 se conserva.
+
 > **Ver:** `UI_SPEC.md §2.1–§2.7` para anatomía completa de cada tipo.
 
 ---
