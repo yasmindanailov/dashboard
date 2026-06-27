@@ -252,6 +252,30 @@ nuevos (F1b) y features (F3). **Orden por oleadas** (de menor a mayor riesgo):
 
 ---
 
+## 9.1 Componentes de las páginas NUEVAS (gap analizado 2026-06-27)
+
+Las 6 páginas nuevas de la sync de mockups + el cambio del widget del shell,
+contrastadas contra la librería actual (DS base + 11 primitivas F1a). La mayoría
+**reutiliza**; lo genuinamente nuevo es poco.
+
+| Superficie nueva | Reutiliza | Pieza NUEVA a crear |
+|---|---|---|
+| **Carrito** | Stepper · OrderSummary · Card · IconWell · AlertBanner · Button | **`CartLineItem`** (fila: icon-well + nombre/badge/sub/nota + Editar/Quitar + precio tachado) |
+| **GestionDNS** | Modal · Input · Badge · StatusDot · Button | tabla DNS = reskin de `DnsRecordsManager` (ya en código) + chip-select de tipo (reusa idea de SegmentedControl) |
+| **TransferenciaDominio** | Input · Button · AlertBanner · Badge · StatusDot | **`Stepper` variante `orientation="vertical"`** (conector vertical + pulse en el activo) — panel = reskin de `DomainTransferPanel` |
+| **FacturaDetalle** | BrandMark · Button · Badge · OrderSummary (totales) · DM Mono tabular-nums | **`InvoiceDocument`** (layout de factura: emisor/cliente + líneas + totales) — página = reskin de `billing/[id]` |
+| **ChatBubble** | IconWell · Avatar · StatusDot | **`FloatingChat`** (lanzador fixed + panel chat: typing dots, mensajes) — reskin/montaje del `ChatWidget` huérfano |
+| **admin/SolicitudesBorrado** | Table · StatusTabs · Badge · Modal · DangerZone · Button | (ninguna nueva — reskin de `DeletionRequestsManager`) |
+| **Widget shell "Tus conversaciones"** (cliente+admin, F2) | IconWell · StatusDot · Badge | **`SidebarConversationList`** (filas conversación: icon + título + preview + contador de abiertas, scroll) |
+
+**Net-new reusable a construir (≈4):** `CartLineItem` · `Stepper` vertical ·
+`SidebarConversationList` · `FloatingChat` (reskin del ChatWidget existente). El
+resto son **reskins F4 de componentes que ya existen en código** (DnsRecordsManager,
+DomainTransferPanel, billing/[id], DeletionRequestsManager), no primitivas nuevas.
+`SidebarConversationList` entra en **F2** (shells); el resto en **F4** con su página.
+
+---
+
 ## 10. Tabla maestra de épicas
 
 | Épica | Fase | Talla | Tipo | Depende de | Rama |
