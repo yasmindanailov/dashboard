@@ -39,11 +39,11 @@ describe('portalForRole', () => {
 });
 
 describe('portalLabelForRole', () => {
-  it('devuelve la etiqueta del portal de cada audiencia', () => {
-    expect(portalLabelForRole('superadmin')).toBe('Portal de Administración');
-    expect(portalLabelForRole('client')).toBe('Portal de Cliente');
-    expect(portalLabelForRole('partner')).toBe('Portal de Partner');
-    expect(portalLabelForRole(undefined)).toBe('Portal de Cliente');
+  it('devuelve la etiqueta del portal de cada audiencia (F2: alineada al mockup)', () => {
+    expect(portalLabelForRole('superadmin')).toBe('Panel de administración');
+    expect(portalLabelForRole('client')).toBe('Portal de cliente');
+    expect(portalLabelForRole('partner')).toBe('Portal de partner');
+    expect(portalLabelForRole(undefined)).toBe('Portal de cliente');
   });
 });
 
