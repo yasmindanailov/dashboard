@@ -64,11 +64,10 @@
   color: var(--text-secondary);
 }
 
-/* ── FAB (sidebar contraído) ── */
+/* ── FAB (sidebar contraído) ── el espaciado externo lo aporta el .footer del sidebar ── */
 .miniWrap {
   display: flex;
   justify-content: center;
-  padding: 0 12px 10px;
 }
 
 .fab {

@@ -1,10 +1,9 @@
 /* ═══════════════════════════════════════
-   Sidebar — Dashboard Shell Navigation
+   Sidebar cliente — F2: skin "Tarjeta" 1:1 con el mockup Shell.dc.html.
    Ref: UI_SPEC.md §2.0, DESIGN_SYSTEM.md
    ═══════════════════════════════════════ */
 
-/* ── Desktop sidebar ── */
-
+/* ── Desktop ── */
 .desktop {
   position: fixed;
   top: 0;
@@ -13,16 +12,17 @@
   z-index: 40;
   display: none;
   flex-direction: column;
-  transition: width var(--transition-normal);
   border-right: 1px solid var(--border);
+  transition: width var(--transition-normal);
 }
 
 @media (min-width: 768px) {
-  .desktop { display: flex; }
+  .desktop {
+    display: flex;
+  }
 }
 
 /* ── Mobile overlay ── */
-
 .mobileOverlay {
   position: fixed;
   inset: 0;
@@ -31,13 +31,15 @@
 }
 
 @media (min-width: 768px) {
-  .mobileOverlay { display: none !important; }
+  .mobileOverlay {
+    display: none !important;
+  }
 }
 
 .mobileBackdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(15, 23, 42, 0.4);
   transition: opacity var(--transition-normal);
 }
 
@@ -51,26 +53,28 @@
   transition: transform var(--transition-normal);
 }
 
-/* ── Sidebar content ── */
-
+/* ── Aside ── */
 .sidebar {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--surface-primary);
+  background: var(--shell-sidebar-bg);
 }
 
-/* ── Logo area ── */
-
+/* ── Logo ── */
 .logoArea {
-  /* 80px para acomodar el cuadrado A + <PortalBadge> en stack vertical
-     (logo "aelium" + subtítulo del portal). Cumple D6 (escala 4px). */
-  min-height: 80px;
+  height: var(--topbar-height);
   display: flex;
   align-items: center;
-  padding: var(--space-3) var(--space-5);
   flex-shrink: 0;
+  padding: 0 var(--space-5);
   border-bottom: 1px solid var(--border);
+}
+
+.collapsed .logoArea {
+  padding: 0;
+  justify-content: center;
 }
 
 .logoLink {
@@ -81,36 +85,19 @@
   text-decoration: none;
 }
 
-.logoIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--text-on-brand);
-  background: var(--brand);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-
-/* `.logoText` eliminado en Sprint 9.6 — el logo + subtítulo viven en el
-   componente <PortalBadge> (ADR-066). El cuadrado .logoIcon se conserva
-   como logo gráfico al lado del badge tipográfico. */
-
-/* ── Navigation ── */
-
+/* ── Nav ── */
 .nav {
   flex: 1;
-  padding: var(--space-4) var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: var(--space-0_5);
+  gap: 3px;
+  padding: var(--space-4) var(--space-3);
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .navItem {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -118,75 +105,61 @@
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  text-decoration: none;
-  transition: color var(--transition-fast), background var(--transition-fast);
-  white-space: nowrap;
-}
-
-.navItem:hover {
-  background: var(--surface-secondary);
-}
-
-.navItemDefault {
   color: var(--text-secondary);
   background: transparent;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--transition-fast), background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.collapsed .navItem {
+  justify-content: center;
+  gap: 0;
+  padding: var(--space-2_5) 0;
+}
+
+.navItem:not(.navItemActive):hover {
+  color: var(--text-primary);
+  background: var(--nav-active-bg);
+  box-shadow: var(--shadow-xs);
 }
 
 .navItemActive {
-  color: var(--brand);
-  background: var(--brand-light);
-}
-
-.navItemActive:hover {
-  background: var(--brand-light);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  background: var(--nav-active-bg);
+  box-shadow: var(--nav-active-shadow), var(--nav-active-ring);
 }
 
 .navIcon {
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
+  color: var(--nav-icon-idle);
+}
+
+.navItemActive .navIcon {
+  color: var(--nav-icon-active);
 }
 
 .navLabel {
-  white-space: nowrap;
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* ── Collapse toggle ── */
-
-.collapseArea {
-  padding: var(--space-3);
+/* Rombo del item activo (mockup: cuadrado 7px rotado 45° a la derecha). */
+.navMarker {
   flex-shrink: 0;
-  border-top: 1px solid var(--border);
-  display: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: var(--brand);
 }
 
-@media (min-width: 768px) {
-  .collapseArea { display: block; }
-}
-
-.collapseBtn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-2);
-  border-radius: var(--radius-sm);
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast);
-}
-
-.collapseBtn:hover {
-  color: var(--text-secondary);
-  background: var(--surface-secondary);
-}
-
-.collapseIcon {
-  transition: transform var(--transition-normal);
-}
-
-.collapseIconRotated {
-  transform: rotate(180deg);
+/* ── Footer (tarjeta de soporte) ── */
+.footer {
+  flex-shrink: 0;
+  padding: 0 var(--space-3) var(--space-2);
 }

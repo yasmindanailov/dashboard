@@ -68,6 +68,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
           mobileOpen={mobileMenuOpen}
           onMobileClose={() => setMobileMenuOpen(false)}
+          onOpenSupport={() => setSupportPanelOpen(true)}
         />
         <Topbar
           sidebarCollapsed={sidebarCollapsed}
