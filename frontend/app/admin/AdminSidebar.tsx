@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
@@ -18,7 +18,7 @@ import { canAccess, type AppModule } from '../lib/permissions';
 import { PortalBadge, BrandMark } from '../components/ui';
 import { CollapseToggle } from '../_shared/shell/CollapseToggle';
 
-import { AdminLiveChatCard, AdminLiveChatMini } from './_components/AdminLiveChatCard';
+import { AdminLiveChatSlot } from './_components/AdminLiveChatSlot';
 import styles from './admin-sidebar.module.css';
 
 /* ═══════════════════════════════════════
@@ -72,15 +72,9 @@ export default function AdminSidebar({
   onMobileClose,
 }: AdminSidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const { user } = useAuth();
   const roleSlug = user?.role?.slug || '';
   const items = getItemsForRole(roleSlug);
-
-  const openChats = () => {
-    onMobileClose();
-    router.push('/admin/support/chats');
-  };
 
   const renderAside = (withToggle: boolean) => (
     <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
@@ -139,11 +133,7 @@ export default function AdminSidebar({
       </nav>
 
       <div className={styles.footer}>
-        {collapsed ? (
-          <AdminLiveChatMini waitingCount={0} onOpenChats={openChats} />
-        ) : (
-          <AdminLiveChatCard waitingCount={0} chats={[]} onOpenChats={openChats} />
-        )}
+        <AdminLiveChatSlot collapsed={collapsed} onMobileClose={onMobileClose} />
       </div>
 
       {withToggle && <CollapseToggle collapsed={collapsed} onToggle={onToggle} />}
