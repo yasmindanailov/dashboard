@@ -1,21 +1,27 @@
-/* BrandMark — isotipo + wordmark de Aelium (F1d). */
+/* BrandMark — isotipo + wordmark de Aelium (F1d).
+   Copia del logo del mockup vivo: dos rombos CSS (rotate 45deg) horizontales. */
 
 .lockup {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .mark {
-  display: block;
+  position: relative;
   flex-shrink: 0;
-  overflow: visible;
+  display: inline-block;
+}
+
+.diamond {
+  position: absolute;
+  transform: rotate(45deg);
 }
 
 .wordmark {
   font-family: var(--font-family);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: -0.01em;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.02em;
   color: var(--text-primary);
   line-height: 1;
 }
