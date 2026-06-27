@@ -110,10 +110,45 @@ shells sobre build limpio** (cliente y admin, login real con 2FA). Todo verde.
 > sí tiene el token** (verificado) y renderiza correcto. **Acción:** reiniciar el
 > `pnpm --dir frontend dev` para ver F2 bien en `:3002`.
 
+## 4.1 Ajustes tras el smoke (feedback Yasmin, mismo chat)
+
+Tras reiniciar el `dev` y hacer el smoke, Yasmin reportó detalles → corregidos y
+verificados por screenshot Playwright en `:3002`/`:3003`:
+
+- **Header del logo 1:1 con el mockup** (`8b517ce`): el `PortalBadge` no casaba —
+  wordmark 20px→**18px/600/-0.02em**, subtítulo 11px/400/azul→**10px/500/0.04em/
+  #94A3B8** (mismo gris en cliente y admin), y **pegado** (`line-height 1.1` +
+  `margin-top 2px`, antes `gap 4px` = demasiado padding). El isotipo sobresalía al
+  rotar 45° y `overflow:hidden` del `logoLink`/`brandLink` **recortaba el rombo
+  izquierdo** → quitado (+`min-width:0`). Isotipo a **30px** (tamaño del mockup).
+- **Badge de la campana centrado** (`70cda51`): usaba `line-height`; con
+  `box-sizing:border-box` + borde 2px el contenido queda en 11px y el número
+  descuadra → **flex centering**. Verificado: el "3" centrado en el círculo rojo.
+- **Tarjeta "Chat en vivo" admin con chats reales** (`44fcb37`): `AdminLiveChatSlot`
+  trae los chats reales (`listChatsAction`), muestra los **no resueltos**, marca los
+  `waiting_agent` como **"en espera"** (sin contestar → tiempo en ámbar + contador)
+  y los ordena primero; cada fila **deep-linkea** a la conversación
+  (`/admin/support/chats?open=<id>`). Sustituye el card vacío (`chats=[]`) que F2
+  había dejado diferido. Verificado: el card muestra el chat abierto del seed con
+  preview + tiempo. _(Las iniciales del avatar se sacan del `subject` ignorando
+  no-letras; para subjects que no son un nombre limpio salen aproximadas.)_
+- **Abrir la conversación concreta al clicar** (`c4e2b57`): cliente — `SupportPanel`
+  acepta `initialConversationId` y al montar llama a `openConversation(id)` (API
+  existente de `useChatWidget`); el CTA "Escribir a Soporte" abre el listado.
+  Admin — vía el deep-link `?open=<id>` que el workspace ya resuelve.
+
+> **Lección de entorno (Turbopack):** `next dev` **no recarga por HMR los cambios
+> de `globals.css` (tokens `:root`)** — hay que **reiniciar el dev**. Los CSS
+> Modules y el TSX sí se recargan. El primer glitch del shell admin en `:3002` fue
+> exactamente esto (token `--sidebar-width-admin` ausente en la CSS servida); el
+> build de prod siempre lo tuvo.
+
 ## 5. Estado y siguiente paso
 
-- **F2 CÓDIGO-COMPLETO y verde** (12 commits en `redesign/f2-shells`). Falta el
-  **merge** (cuando Yasmin valide) y su smoke visual en `:3002` tras reiniciar dev.
+- **F2 CÓDIGO-COMPLETO y verde** — **15 commits** en `redesign/f2-shells`
+  (rebasada sobre `origin/master` tras el merge de F0+F1 #136, para un PR limpio
+  solo-F2). typecheck + lint + 48 tests + build verdes. **PR contra master**
+  (Yasmin mergea).
 - **Pendiente del rediseño:** **F3** (verticales con backend: Stripe E6, dashboard
   ejecutivo E7, SI gestionado E8, SLA E9, notificaciones E10, registro fiscal E11,
   macros E12, IA E13) y **F4** (reskin página a página, incluyendo el **hub de
