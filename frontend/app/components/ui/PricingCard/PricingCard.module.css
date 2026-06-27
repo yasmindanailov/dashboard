@@ -1,0 +1,122 @@
+/* PricingCard — primitiva F1a (spec del mockup Tienda, tokens del DS). */
+
+.card {
+  position: relative;
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+}
+
+.highlighted {
+  border: 1.5px solid var(--brand);
+  box-shadow: 0 6px 24px rgba(59, 130, 246, 0.1);
+}
+
+.badge {
+  position: absolute;
+  top: -11px;
+  left: 22px;
+  padding: 3px 11px;
+  border-radius: var(--radius-full);
+  background: var(--brand);
+  color: var(--text-on-brand);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
+}
+
+.badgeSuccess {
+  background: var(--success);
+}
+
+.name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.description {
+  margin: 2px 0 14px;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.from {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.price {
+  font-size: 28px;
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.period {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.priceNote {
+  margin-bottom: 18px;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-bottom: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--surface-tertiary);
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.check {
+  flex-shrink: 0;
+  color: var(--success);
+}
+
+.cta {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-primary);
+  color: var(--brand-hover);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.cta:hover {
+  background: var(--surface-secondary);
+}
+
+.ctaPrimary {
+  border: none;
+  background: var(--brand);
+  color: var(--text-on-brand);
+}
+
+.ctaPrimary:hover {
+  background: var(--brand-hover);
+}

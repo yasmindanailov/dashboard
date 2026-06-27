@@ -26,6 +26,9 @@ import {
   NotificationRow,
   OTPInput,
   Stepper,
+  PricingCard,
+  OrderSummary,
+  PaymentMethodCard,
   type TableColumn,
   type TableSort,
 } from '../../components/ui';
@@ -38,6 +41,7 @@ import {
   Search,
   Sparkles,
   CreditCard,
+  Briefcase,
 } from 'lucide-react';
 
 /* ── Mock data for Table demo ── */
@@ -258,6 +262,67 @@ export default function DesignSystemPreview() {
           <p style={{ marginTop: 'var(--space-3)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
             Valor: {otp || '—'}
           </p>
+        </div>
+      </Section>
+
+      {/* ── PricingCard (F1a) ── */}
+      <Section title="PricingCard">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-6)', maxWidth: 620, paddingTop: 'var(--space-3)' }}>
+          <PricingCard
+            name="Web Inicio"
+            description="Para empezar con buen pie."
+            showFrom
+            price="6 €"
+            period="/mes"
+            priceNote="facturado anual · IVA incl."
+            features={['2 GB SSD', '1 web · 3 cuentas', 'SSL y copias de seguridad']}
+            ctaLabel="Configurar"
+          />
+          <PricingCard
+            name="Web Pro"
+            description="Para webs que crecen y venden."
+            showFrom
+            price="12 €"
+            period="/mes"
+            priceNote="facturado anual · IVA incl."
+            features={['10 GB SSD', '3 webs · 10 cuentas · Staging', 'SSL, copias y optimización']}
+            highlighted
+            badge={{ label: 'Recomendado', tone: 'brand' }}
+            ctaLabel="Configurar"
+          />
+        </div>
+      </Section>
+
+      {/* ── OrderSummary (F1a) ── */}
+      <Section title="OrderSummary">
+        <div style={{ maxWidth: 320 }}>
+          <OrderSummary
+            lines={[
+              { label: 'Web Pro · anual', value: '115,20 €' },
+              { label: 'minegocio.com', value: 'Gratis', free: true },
+              { label: 'Base imponible', value: '95,21 €', divider: true },
+              { label: 'IVA (21%)', value: '19,99 €' },
+            ]}
+            totalValue="115,20 €"
+          />
+        </div>
+      </Section>
+
+      {/* ── PaymentMethodCard (F1a) ── */}
+      <Section title="PaymentMethodCard">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', maxWidth: 560 }}>
+          <PaymentMethodCard
+            icon={Briefcase}
+            label="Perfil"
+            title="Sara Gómez Ruiz"
+            subtitle="Autónoma · NIF 12345678Z"
+          />
+          <PaymentMethodCard
+            icon={CreditCard}
+            label="Pago"
+            title="Visa •••• 4242"
+            subtitle="vía Stripe · caduca 06/27"
+          />
         </div>
       </Section>
 
