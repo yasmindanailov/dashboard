@@ -61,7 +61,7 @@ export function PortalBadge({
 
   return (
     <div
-      className={`${styles.portalBadge} ${styles[variant]} ${className}`.trim()}
+      className={`${styles.portalBadge} ${className}`.trim()}
       data-portal={variant}
     >
       {renderLogo !== null && (

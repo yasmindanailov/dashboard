@@ -1,51 +1,33 @@
 /* PortalBadge — ADR-066. Header del Sidebar con identidad del portal.
-   Tokens del Design System (D6 spacing 4px, D11 voz cercana). */
+   F2: tipografía/espaciado 1:1 con el mockup (Shell.dc.html / admin/Shell.dc.html):
+   wordmark 18px/600/-0.02em + subtítulo 10px/500/0.04em/#94A3B8, pegados
+   (line-height 1.1 + margin-top 2px), mismo gris en ambos portales. */
 
 .portalBadge {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1); /* 4px */
-  /* Sin padding propio: el shell que embeba el badge controla el espaciado
-     (sidebar header, modal header, etc.). Esto lo hace componible sin
-     fricciones de cajas anidadas. */
+  line-height: 1.1;
   user-select: none;
 }
 
 .logo {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.01em;
+  font-size: 18px;
+  font-weight: var(--font-weight-semibold); /* 600 */
+  letter-spacing: -0.02em;
   color: var(--text-primary);
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 .subtitle {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-regular);
-  color: var(--text-secondary);
-  line-height: 1.4;
-  letter-spacing: 0;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: var(--font-weight-medium); /* 500 */
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary); /* #94A3B8 — mismo en cliente y admin (mockup) */
+  line-height: 1.1;
   /* Truncado con ellipsis si el Sidebar es estrecho. */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
-}
-
-/* Acentos por portal — sutiles, no llamativos. La diferenciación es por texto,
-   no por color de fondo (la marca es coherente entre portales). */
-
-.admin .subtitle {
-  color: var(--brand);
-}
-
-.client .subtitle {
-  color: var(--text-secondary);
-}
-
-.partner .subtitle {
-  /* Sprint 19 puede ajustarlo cuando el Partner Module exista. Por defecto
-     usa el mismo gris que client para no introducir un color que después
-     haya que rediseñar. */
-  color: var(--text-secondary);
 }

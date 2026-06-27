@@ -91,7 +91,7 @@ export default function AdminSidebar({
           aria-label="Inicio del Panel de administración"
           onClick={onMobileClose}
         >
-          <BrandMark size={28} />
+          <BrandMark size={30} />
           {!collapsed && <PortalBadge variant="admin" logo="aelium" />}
         </Link>
       </div>
