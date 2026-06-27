@@ -85,3 +85,5 @@ export {
   type PasswordStrengthMeterProps,
 } from './PasswordStrengthMeter';
 export { NotificationRow, type NotificationRowProps } from './NotificationRow';
+export { OTPInput, type OTPInputProps } from './OTPInput';
+export { Stepper, type StepperProps } from './Stepper';

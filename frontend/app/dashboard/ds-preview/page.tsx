@@ -24,6 +24,8 @@ import {
   SegmentedControl,
   PasswordStrengthMeter,
   NotificationRow,
+  OTPInput,
+  Stepper,
   type TableColumn,
   type TableSort,
 } from '../../components/ui';
@@ -81,6 +83,7 @@ export default function DesignSystemPreview() {
   const [_tableLoading, _setTableLoading] = useState(false);
   const [toggleOn, setToggleOn] = useState(true);
   const [segMode, setSegMode] = useState('name');
+  const [otp, setOtp] = useState('');
   const { toast, toastUndo } = useToast();
 
   const handleLoadingDemo = () => {
@@ -235,6 +238,26 @@ export default function DesignSystemPreview() {
             body="aelium.net se renueva el 12 de julio. Revisa la auto-renovación."
             time="hace 3 d"
           />
+        </div>
+      </Section>
+
+      {/* ── Stepper (F1a) ── */}
+      <Section title="Stepper">
+        <Row>
+          <Stepper steps={['Configurar', 'Carrito', 'Facturación', 'Confirmar']} current={3} />
+        </Row>
+        <Row label="A mitad">
+          <Stepper steps={['Configurar', 'Carrito', 'Facturación', 'Confirmar']} current={1} />
+        </Row>
+      </Section>
+
+      {/* ── OTPInput (F1a) ── */}
+      <Section title="OTPInput">
+        <div style={{ maxWidth: 320 }}>
+          <OTPInput value={otp} onChange={setOtp} aria-label="Código de verificación" />
+          <p style={{ marginTop: 'var(--space-3)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+            Valor: {otp || '—'}
+          </p>
         </div>
       </Section>
 
