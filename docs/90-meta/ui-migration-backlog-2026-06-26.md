@@ -89,6 +89,13 @@ Es prerrequisito de todo: si no, cada página reimplementa color/espaciado con d
 > 822) se parten al tocarlos o en una pasada menor; los grandes de **presentación**
 > (`support-inside/page.tsx` 952, `PlanEditor` 732, los forms de producto…) **se
 > reestructuran en su reskin F4**, no antes.
+>
+> **Residual de F0.4 → retirar en el reskin F4 de cada componente** (dingbats inline
+> `✓`/`✗`/`✓✓`/`▪` que necesitan alineación inline-flex propia, ya con Lucide
+> instalado): `PluginConfigForm` (✓/✗ test conexión), `ChatConversation` ·
+> `ChatThreadView` · `ConversationMessages` (✓✓ read-receipt → `CheckCheck`),
+> `ProductConfig` · `DomainSearch` · `DomainTransfer` ("en el carrito ✓" → `Check`),
+> `ConversationSidebar` (▪ pin → `Pin`). `●` NO se toca (D1 lo permite como StatusDot).
 
 ---
 
