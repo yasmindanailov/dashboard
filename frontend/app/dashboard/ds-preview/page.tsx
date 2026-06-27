@@ -94,6 +94,7 @@ export default function DesignSystemPreview() {
   const [toggleOn, setToggleOn] = useState(true);
   const [segMode, setSegMode] = useState('name');
   const [otp, setOtp] = useState('');
+  const [introKey, setIntroKey] = useState(0);
   const { toast, toastUndo } = useToast();
 
   const handleLoadingDemo = () => {
@@ -376,6 +377,13 @@ export default function DesignSystemPreview() {
         <Row label="Mono (currentColor)">
           <span style={{ color: 'var(--text-primary)' }}><BrandMark size={32} mono /></span>
           <span style={{ color: 'var(--brand)' }}><BrandMark size={32} mono withWordmark /></span>
+        </Row>
+        <Row label="Animación de entrada «01 · Ensamblaje» (intro · al montar)">
+          <BrandMark key={`i-${introKey}`} size={48} intro />
+          <BrandMark key={`iw-${introKey}`} size={32} withWordmark intro />
+          <Button size="sm" variant="secondary" onClick={() => setIntroKey((n) => n + 1)}>
+            Reproducir
+          </Button>
         </Row>
       </Section>
 

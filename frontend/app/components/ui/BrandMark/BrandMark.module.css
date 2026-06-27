@@ -25,3 +25,45 @@
   color: var(--text-primary);
   line-height: 1;
 }
+
+/* Animación de entrada «01 · Ensamblaje» (F1d, prop `intro`): los rombos
+   convergen desde los lados una sola vez al montar. La distancia de slide la
+   fija el componente por instancia en --bm-assemble-shift (escala con el
+   tamaño). El estado final coincide con el reposo (rotate 45deg), sin salto. */
+.introBack {
+  animation: aelBrandAssembleBack 820ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.introFront {
+  animation: aelBrandAssembleFront 820ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes aelBrandAssembleBack {
+  from {
+    opacity: 0;
+    transform: translateX(calc(-1 * var(--bm-assemble-shift, 24px))) rotate(45deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) rotate(45deg);
+  }
+}
+
+@keyframes aelBrandAssembleFront {
+  from {
+    opacity: 0;
+    transform: translateX(var(--bm-assemble-shift, 24px)) rotate(45deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) rotate(45deg);
+  }
+}
+
+/* Accesibilidad: sin desplazamiento vestibular → el isotipo aparece en reposo. */
+@media (prefers-reduced-motion: reduce) {
+  .introBack,
+  .introFront {
+    animation: none;
+  }
+}
