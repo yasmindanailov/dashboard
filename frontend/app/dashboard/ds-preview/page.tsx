@@ -19,9 +19,12 @@ import {
   useToast,
   AlertBanner,
   HelpTip,
+  Toggle,
+  IconWell,
   type TableColumn,
   type TableSort,
 } from '../../components/ui';
+import { Shield, Bell, AlertTriangle, CheckCircle2, Wrench } from 'lucide-react';
 
 /* ── Mock data for Table demo ── */
 interface DemoClient {
@@ -64,6 +67,7 @@ export default function DesignSystemPreview() {
   const [loading, setLoading] = useState(false);
   const [tableSort, setTableSort] = useState<TableSort>({ key: 'name', direction: 'asc' });
   const [_tableLoading, _setTableLoading] = useState(false);
+  const [toggleOn, setToggleOn] = useState(true);
   const { toast, toastUndo } = useToast();
 
   const handleLoadingDemo = () => {
@@ -132,6 +136,34 @@ export default function DesignSystemPreview() {
           <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <StatusDot color="neutral" /> Inactivo
           </span>
+        </Row>
+      </Section>
+
+      {/* ── Toggle (F1a) ── */}
+      <Section title="Toggle / Switch">
+        <Row>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <Toggle checked={toggleOn} onChange={setToggleOn} aria-label="Demo toggle" />
+            {toggleOn ? 'Activado' : 'Desactivado'}
+          </span>
+          <Toggle checked={false} onChange={() => {}} aria-label="Toggle off" />
+          <Toggle checked disabled onChange={() => {}} aria-label="Toggle deshabilitado" />
+        </Row>
+      </Section>
+
+      {/* ── IconWell (F1a) ── */}
+      <Section title="IconWell">
+        <Row label="Tonos">
+          <IconWell icon={Shield} tone="brand" />
+          <IconWell icon={CheckCircle2} tone="success" />
+          <IconWell icon={AlertTriangle} tone="warning" />
+          <IconWell icon={Bell} tone="danger" />
+          <IconWell icon={Wrench} tone="neutral" />
+        </Row>
+        <Row label="Tamaños">
+          <IconWell icon={Shield} size="sm" />
+          <IconWell icon={Shield} size="md" />
+          <IconWell icon={Shield} size="lg" />
         </Row>
       </Section>
 

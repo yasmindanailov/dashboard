@@ -66,3 +66,12 @@ export {
   EditorSectionCard,
   type EditorSectionCardProps,
 } from './EditorSectionCard';
+
+/* ── Primitivas del rediseño (F1a — derivadas del mockup) ── */
+export { Toggle, type ToggleProps } from './Toggle';
+export {
+  IconWell,
+  type IconWellProps,
+  type IconWellTone,
+  type IconWellSize,
+} from './IconWell';

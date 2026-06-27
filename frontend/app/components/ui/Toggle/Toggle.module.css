@@ -1,0 +1,44 @@
+/* Toggle / Switch — primitiva F1a (spec del mockup, tokens del DS). */
+
+.track {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--border-hover); /* slate-300 (off) */
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.track.on {
+  background: var(--brand);
+}
+
+.track:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.track:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--surface-primary);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+  transition: transform var(--transition-fast);
+}
+
+.track.on .knob {
+  transform: translateX(18px);
+}
