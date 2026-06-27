@@ -129,6 +129,8 @@
   &quot;$preview&quot;: { &quot;width&quot;: 396, &quot;height&quot;: 760 },
   &quot;open&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot; },
   &quot;channel&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;chat&quot;, &quot;options&quot;: [&quot;chat&quot;, &quot;whatsapp&quot;, &quot;call&quot;], &quot;tsType&quot;: &quot;string&quot; },
+  &quot;sessionId&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;string&quot; },
+  &quot;sessions&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;Array&lt;object&gt;&quot; },
   &quot;onClose&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;() =&gt; void&quot; }
 }">
 class Component extends DCLogic {
@@ -141,7 +143,17 @@ class Component extends DCLogic {
   };
 
   seed() {
+    const fromProps = this.props.sessions;
+    if (Array.isArray(fromProps) && fromProps.length) {
+      return fromProps.map((c) => ({ ...c, msgs: (c.msgs || []).map((m) => ({ ...m })) }));
+    }
     return [
+      { id: 's0', channel: 'chat', title: 'Migración de tu web', status: 'open', time: 'hace 6 min',
+        msgs: [
+          { kind: 'system', body: 'Hoy' },
+          { kind: 'client', body: 'Hola Luis, ¿podemos pasar la web al plan nuevo?', meta: '12:05' },
+          { kind: 'agent', body: 'Claro, Sara. Preparo el entorno y te aviso en cuanto esté listo — normalmente hoy mismo.', meta: '12:09' },
+        ] },
       { id: 's1', channel: 'chat', title: 'Velocidad de la web', status: 'resolved', time: 'hace 1 h',
         msgs: [
           { kind: 'system', body: 'Ayer' },
@@ -171,6 +183,8 @@ class Component extends DCLogic {
   }
 
   handleOpen(channel) {
+    const sid = this.props.sessionId;
+    if (sid && this.state.sessions.some((c) => c.id === sid)) { this.openSession(sid); return; }
     const ch = channel || 'chat';
     if (ch === 'whatsapp' || ch === 'call') this.startSession(ch);
     else this.setState({ view: 'home' });

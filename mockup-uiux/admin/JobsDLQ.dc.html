@@ -22,6 +22,8 @@
 
 <div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
 
+  <button type="button" onClick="{{ goBack }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 0;margin-bottom:14px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:#64748B;cursor:pointer" style-hover="color:#0F172A"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>Configuración</button>
+
   <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap">
     <div>
       <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 5px">Jobs en DLQ</h1>
@@ -424,6 +426,7 @@ class Component extends DCLogic {
       bulkRetryStyle: 'display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;border:none;font-size:12.5px;font-weight:600;font-family:inherit;background:' + (canBulk ? '#3B82F6' : '#334155') + ';color:' + (canBulk ? '#fff' : '#64748B') + ';cursor:' + (canBulk ? 'pointer' : 'default') + ';',
       retrySelected: () => { if (!canBulk) return; this.setState((stt) => { const re = Object.assign({}, stt.retried); retryableIds.forEach((id) => { re[id] = true; }); return { retried: re, selected: [] }; }); this.flash(retryableIds.length + (retryableIds.length === 1 ? ' job reencolado' : ' jobs reencolados')); },
       clearSel: () => this.setState({ selected: [] }),
+      goBack: () => { if (this.props.navigate) this.props.navigate('settings'); },
       toast: s.toast,
     };
   }

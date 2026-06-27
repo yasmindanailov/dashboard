@@ -24,6 +24,7 @@
 
   <!-- ===================== LIST ===================== -->
   <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+    <button type="button" onClick="{{ goBack }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 0;margin-bottom:14px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:#64748B;cursor:pointer" style-hover="color:#0F172A"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>Configuración</button>
     <div style="margin-bottom:24px">
       <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.015em;margin:0;color:#0F172A">Plugins de provisioning</h1>
       <p style="font-size:13.5px;color:#64748B;margin:7px 0 0;max-width:600px;line-height:1.55;text-wrap:pretty">{{ listSubtitle }}</p>
@@ -448,6 +449,7 @@ class Component extends DCLogic {
         toast: s.toast, toastBg: s.toastKind === 'err' ? '#C0453F' : '#0E8C5F',
         toastShadow: s.toastKind === 'err' ? 'rgba(192,69,63,0.34)' : 'rgba(14,140,95,0.34)',
         toastIcon: s.toastKind === 'err' ? '#pl-alert' : '#pl-check',
+        goBack: () => { if (this.props.navigate) this.props.navigate('settings'); },
         goList: () => {}, d: {},
       };
     }

@@ -103,16 +103,20 @@
           </span>
           <span style="font-size:10.5px;font-weight:600;color:#B27A12;background:#FCF3E1;border-radius:9999px;padding:2px 8px;white-space:nowrap">{{ liveWaiting }} en espera</span>
         </button>
-        <sc-for list="{{ liveChats }}" as="c" hint-placeholder-count="2">
+        <div style="max-height:184px;overflow-y:auto;margin:0 -4px;padding:0 4px">
+        <sc-for list="{{ liveChats }}" as="c" hint-placeholder-count="4">
           <button type="button" onClick="{{ c.go }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 6px;border:none;background:transparent;border-radius:9px;cursor:pointer;font-family:inherit;text-align:left" style-hover="background:#F4F7FB">
             <span style="width:28px;height:28px;border-radius:9999px;background:#EFF4FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">{{ c.initials }}</span>
             <span style="flex:1;min-width:0;line-height:1.3">
-              <span style="display:block;font-size:12.5px;font-weight:500;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span>
-              <span style="display:block;font-size:11px;color:#94A3B8">{{ c.wait }}</span>
+              <span style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span>
+                <span style="font-size:10px;font-weight:600;color:{{ c.waitColor }};white-space:nowrap;flex-shrink:0">{{ c.wait }}</span>
+              </span>
+              <span style="display:block;font-size:11px;color:#94A3B8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px">{{ c.msg }}</span>
             </span>
-            <span style="{{ c.dotStyle }}"></span>
           </button>
         </sc-for>
+        </div>
         <button type="button" onClick="{{ goChats }}" style="margin-top:8px;width:100%;padding:8px;border-radius:9px;border:1px solid #E2E8F0;background:#F8FAFC;color:#475569;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease,color .15s ease" style-hover="background:#FFFFFF;color:#0F172A">Abrir panel de chats</button>
       </div>
     </sc-if>
@@ -143,8 +147,14 @@
         <sc-if value="{{ showSearchLabel }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:#94A3B8;white-space:nowrap">Buscar</span><span style="font-size:10.5px;font-weight:600;color:#94A3B8;background:#fff;border:1px solid #E2E8F0;border-radius:6px;padding:2px 6px;letter-spacing:0.02em">⌘K</span></sc-if>
       </button>
 
-      <button type="button" onClick="{{ toggleTasks }}" title="Tareas pendientes" style="position:relative;display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;border:none;background:transparent;color:#94A3B8;cursor:pointer" style-hover="background:#F1F5F9;color:#64748B">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+      <button type="button" onClick="{{ toggleTasks }}" title="{{ tasksPillTitle }}" style="{{ tasksPillStyle }}" style-hover="background:#F1F5F9">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:{{ tasksIconColor }}"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+        <sc-if value="{{ showPillText }}" hint-placeholder-val="{{ true }}">
+          <span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.18;min-width:0">
+            <span style="font-size:12px;font-weight:700;color:{{ pillTitleColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:172px">{{ pillTitle }}</span>
+            <span style="font-size:10.5px;color:#94A3B8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:172px">{{ pillSub }}</span>
+          </span>
+        </sc-if>
         <sc-if value="{{ tasksHasOpen }}" hint-placeholder-val="{{ true }}"><span style="{{ tasksBadgeStyle }}">{{ tasksCount }}</span></sc-if>
       </button>
 
@@ -224,6 +234,9 @@
       </sc-if>
       <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
         <dc-import name="Configuracion" navigate="{{ navigate }}" hint-size="100%,100%"></dc-import>
+      </sc-if>
+      <sc-if value="{{ isDeletion }}" hint-placeholder-val="{{ false }}">
+        <dc-import name="SolicitudesBorrado" navigate="{{ navigate }}" hint-size="100%,100%"></dc-import>
       </sc-if>
       <sc-if value="{{ isPlugins }}" hint-placeholder-val="{{ false }}">
         <dc-import name="Plugins" navigate="{{ navigate }}" hint-size="100%,100%"></dc-import>
@@ -338,27 +351,29 @@
   </sc-if>
 
   <sc-if value="{{ tasksOpen }}" hint-placeholder-val="{{ false }}">
-    <div style="position:fixed;top:64px;right:24px;width:384px;background:#fff;border:1px solid #E2E8F0;border-radius:14px;box-shadow:0 12px 40px rgba(15,23,42,0.14);z-index:100;overflow:hidden">
-      <div style="padding:14px 16px;border-bottom:1px solid #EEF1F5;display:flex;justify-content:space-between;align-items:center;gap:10px"><span style="font-size:13px;font-weight:700;color:#0F172A">Tareas</span><span style="font-size:11.5px;color:#94A3B8">{{ tasksCount }} pendientes</span></div>
+    <div style="position:fixed;top:64px;right:24px;width:392px;background:#fff;border:1px solid #E2E8F0;border-radius:14px;box-shadow:0 12px 40px rgba(15,23,42,0.14);z-index:100;overflow:hidden">
+      <div style="padding:14px 16px;border-bottom:1px solid #EEF1F5;display:flex;justify-content:space-between;align-items:center;gap:10px"><span style="font-size:14px;font-weight:700;color:#0F172A">Mis tareas</span><span style="font-size:11.5px;color:#94A3B8">{{ tasksCount }} pendientes</span></div>
       <sc-if value="{{ tasksHasOverdue }}" hint-placeholder-val="{{ false }}">
-        <div style="display:flex;align-items:center;gap:8px;padding:9px 16px;background:#FCECEC;border-bottom:1px solid #F6DADA">
-          <span style="width:6px;height:6px;border-radius:9999px;background:#D14343;flex-shrink:0"></span>
-          <span style="font-size:11.5px;font-weight:600;color:#B83232">{{ tasksOverdueLabel }}</span>
-        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 16px;background:#FCECEC;border-bottom:1px solid #F6DADA"><span style="width:6px;height:6px;border-radius:9999px;background:#D14343;flex-shrink:0"></span><span style="font-size:11.5px;font-weight:600;color:#B83232">{{ tasksOverdueLabel }}</span></div>
       </sc-if>
-      <div style="max-height:380px;overflow-y:auto">
-        <sc-for list="{{ tasksRows }}" as="t" hint-placeholder-count="5">
-          <button type="button" onClick="{{ t.go }}" style="{{ t.rowStyle }}" style-hover="background:#FBFCFF">
-            <span style="display:flex;align-items:center;gap:8px;min-width:0">
-              <span style="{{ t.typeStyle }}">{{ t.typeLabel }}</span>
-              <span style="font-size:13px;font-weight:600;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">{{ t.title }}</span>
-            </span>
-            <span style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-              <span style="font-size:11.5px;color:{{ t.contextColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.context }}</span>
-              <span title="{{ t.originTip }}" style="display:inline-flex;align-items:center;color:#B4BCC8;flex-shrink:0"><svg width="13" height="13" viewBox="0 0 24 24"><use href="{{ t.originIcon }}"></use></svg></span>
-            </span>
-          </button>
+      <div style="max-height:400px;overflow-y:auto">
+        <sc-for list="{{ taskGroups }}" as="g" hint-placeholder-count="2">
+          <div>
+            <div style="{{ g.headStyle }}"><span style="{{ g.dotStyle }}"></span><span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#64748B">{{ g.label }}</span><span style="{{ g.countStyle }}">{{ g.count }}</span></div>
+            <sc-for list="{{ g.rows }}" as="t" hint-placeholder-count="2">
+              <div style="{{ t.rowStyle }}">
+                <button type="button" onClick="{{ t.complete }}" title="Marcar como hecha" style="{{ t.checkStyle }}" style-hover="border-color:#3B82F6;color:#3B82F6"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
+                <button type="button" onClick="{{ t.go }}" style="flex:1;min-width:0;border:none;background:none;padding:0;font-family:inherit;text-align:left;cursor:pointer">
+                  <span style="display:flex;align-items:center;gap:8px;min-width:0;margin-bottom:4px"><span style="{{ t.typeStyle }}">{{ t.typeLabel }}</span><span style="font-size:13px;font-weight:600;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">{{ t.title }}</span></span>
+                  <span style="display:flex;align-items:center;gap:6px"><span style="font-size:11.5px;color:{{ t.contextColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">{{ t.context }}</span><span title="{{ t.originTip }}" style="display:inline-flex;align-items:center;color:#B4BCC8;flex-shrink:0"><svg width="13" height="13" viewBox="0 0 24 24"><use href="{{ t.originIcon }}"></use></svg></span></span>
+                </button>
+              </div>
+            </sc-for>
+          </div>
         </sc-for>
+        <sc-if value="{{ tasksEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:40px 24px;text-align:center"><div style="width:42px;height:42px;border-radius:11px;background:#E7F5EE;color:#0E8C5F;display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div><div style="font-size:13.5px;font-weight:700;color:#0F172A">Todo al día</div><div style="font-size:12px;color:#94A3B8;margin-top:3px">No tienes tareas pendientes. Buen trabajo.</div></div>
+        </sc-if>
       </div>
       <div style="padding:12px 16px;text-align:center;border-top:1px solid #EEF1F5"><button type="button" onClick="{{ goTasks }}" style="border:none;background:none;color:#3B82F6;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">Ver todas las tareas</button></div>
     </div>
@@ -390,7 +405,7 @@
   &quot;density&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Cómoda&quot;, &quot;options&quot;: [&quot;Cómoda&quot;, &quot;Compacta&quot;], &quot;tsType&quot;: &quot;string&quot; }
 }">
 class Component extends DCLogic {
-  state = { collapsed: false, active: 'dashboard', profileOpen: false, notifOpen: false, tasksOpen: false, notifs: null, paletteOpen: false, paletteQuery: '', paletteIndex: 0, recent: null };
+  state = { collapsed: false, active: 'dashboard', profileOpen: false, notifOpen: false, tasksOpen: false, notifs: null, paletteOpen: false, paletteQuery: '', paletteIndex: 0, recent: null, taskDone: {} };
 
   componentDidMount() {
     this._keyHandler = (e) => {
@@ -542,22 +557,16 @@ class Component extends DCLogic {
         ['billing', 'Facturación', 'billing', 0],
         ['tickets', 'Soporte', 'tickets', 5],
       ] },
-      { label: 'Plataforma', items: [
-        ['settings', 'Settings', 'settings', 0],
-        ['errorlog', 'Error Log', 'errorlog', 0],
-        ['jobs', 'Jobs en DLQ', 'jobs', 0],
-        ['templates', 'Plantillas notif.', 'templates', 0],
-      ] },
     ];
     const labels = {
       dashboard: 'Inicio', clients: 'Clientes', products: 'Productos', supportInside: 'Support Inside', services: 'Servicios', billing: 'Facturación',
       tickets: 'Soporte', chats: 'Chat en vivo', tasks: 'Tareas', 'task-detail': 'Detalle de tarea',
       settings: 'Settings', errorlog: 'Error Log', jobs: 'Jobs en DLQ', templates: 'Plantillas de notificaciones',
       plugins: 'Plugins',
-      notifications: 'Notificaciones', profile: 'Mi perfil', 'client-detail': 'Ficha de cliente', 'product-detail': 'Ficha de producto', 'product-new': 'Nuevo producto', 'invoice-detail': 'Detalle de factura', 'service-detail': 'Detalle de servicio', 'domain-detail': 'Detalle de dominio', 'support-detail': 'Detalle de Support Inside', 'ticket-detail': 'Ticket', 'template-detail': 'Editar plantilla',
+      notifications: 'Notificaciones', profile: 'Mi perfil', 'client-detail': 'Ficha de cliente', 'product-detail': 'Ficha de producto', 'product-new': 'Nuevo producto', 'invoice-detail': 'Detalle de factura', 'service-detail': 'Detalle de servicio', 'domain-detail': 'Detalle de dominio', 'support-detail': 'Detalle de Support Inside', 'ticket-detail': 'Ticket', 'template-detail': 'Editar plantilla', 'account-deletion': 'Solicitudes de borrado',
     };
     const allIds = groups.flatMap((g) => g.items.map((i) => i[0]));
-    const active = [...allIds, 'chats', 'tasks', 'notifications', 'profile', 'client-detail', 'product-detail', 'product-new', 'invoice-detail', 'service-detail', 'domain-detail', 'support-detail', 'ticket-detail', 'task-detail', 'plugins', 'template-detail'].includes(this.state.active) ? this.state.active : 'dashboard';
+    const active = [...allIds, 'chats', 'tasks', 'notifications', 'profile', 'client-detail', 'product-detail', 'product-new', 'invoice-detail', 'service-detail', 'domain-detail', 'support-detail', 'ticket-detail', 'task-detail', 'plugins', 'template-detail', 'account-deletion', 'errorlog', 'jobs', 'templates', 'settings'].includes(this.state.active) ? this.state.active : 'dashboard';
 
     const mk = (it) => {
       const [id, label, icon, count] = it;
@@ -621,9 +630,18 @@ class Component extends DCLogic {
     });
 
     const liveChats = [
-      { name: 'Carla Ruiz', initials: 'CR', wait: 'Espera 4 min' },
-      { name: 'Diego Sanz', initials: 'DS', wait: 'Espera 1 min' },
-    ].map((c) => ({ ...c, dotStyle: 'width:8px;height:8px;border-radius:9999px;flex-shrink:0;background:#F59E0B;', go: () => this.setState({ active: 'chats' }) }));
+      { name: 'Carla Ruiz', initials: 'CR', wait: 'hace 4 min', waiting: true, msg: '…y entonces me sale un error al pagar' },
+      { name: 'Diego Sanz', initials: 'DS', wait: 'hace 2 min', waiting: true, msg: '¿el dominio ya está activo?' },
+      { name: 'Nuria Prats', initials: 'NP', wait: 'hace 1 min', waiting: true, msg: 'necesito cambiar el correo de la factura' },
+      { name: 'Track Media', initials: 'TM', wait: 'hace 1 min', waiting: true, msg: '¿me ayudáis a migrar el WordPress?' },
+      { name: 'Iván Costa', initials: 'IC', wait: 'ahora', waiting: true, msg: 'no recibo los emails del formulario de contacto' },
+      { name: 'Bodega Luna', initials: 'BL', wait: 'ahora', waiting: false, msg: 'perfecto, ¡muchas gracias por la ayuda!' },
+      { name: 'Lucía Marín', initials: 'LM', wait: 'hace 3 min', waiting: false, msg: 'vale, lo reviso y os comento' },
+      { name: 'Estudio Marfil', initials: 'EM', wait: 'hace 6 min', waiting: false, msg: 'genial, entonces espero la transferencia' },
+      { name: 'Pablo Vidal', initials: 'PV', wait: 'hace 8 min', waiting: false, msg: 'ah vale, ya lo veo en el panel' },
+      { name: 'Clínica Sela', initials: 'CS', wait: 'hace 12 min', waiting: false, msg: 'gracias, cerramos por hoy' },
+    ].map((c) => ({ ...c, waitColor: c.waiting ? '#B27A12' : '#94A3B8', go: () => this.setState({ active: 'chats' }) }));
+    const liveWaitingN = liveChats.filter((c) => c.waiting).length;
 
     const TYPEW = {
       maintenance: { label: 'Mantenimiento', bg: '#EFF4FF', fg: '#3B82F6' },
@@ -638,14 +656,23 @@ class Component extends DCLogic {
       manual: { icon: '#tk-pen', tip: 'Creada manualmente por el equipo' },
     };
     const taskSeed = [
-      { type: 'maintenance', origin: 'cron', title: 'Mantenimiento mensual', client: 'Track Media', due: 'Vencida ayer', overdue: true, priority: 'critical' },
-      { type: 'wow_call', origin: 'checkout', title: 'WOW Call de bienvenida', client: 'Inmobiliaria Vela', due: '2 días tarde', overdue: true, priority: 'high' },
-      { type: 'maintenance', origin: 'cron', title: 'Mantenimiento mensual', client: 'Carla Ruiz', due: 'Vence hoy', overdue: false, priority: 'high' },
-      { type: 'wow_call', origin: 'checkout', title: 'WOW Call de bienvenida', client: 'Estudio Marfil', due: 'Vence hoy', overdue: false, priority: 'high' },
-      { type: 'custom_work', origin: 'manual', title: 'Actualizar plugins y core', client: 'Clínica Dental Sur', due: 'Vence hoy', overdue: false, priority: 'medium' },
+      { id: 't1', type: 'maintenance', origin: 'cron', title: 'Mantenimiento mensual', client: 'Track Media', due: 'Venció ayer', group: 'overdue', priority: 'critical' },
+      { id: 't2', type: 'wow_call', origin: 'checkout', title: 'WOW Call de bienvenida', client: 'Inmobiliaria Vela', due: '2 días tarde', group: 'overdue', priority: 'high' },
+      { id: 't3', type: 'maintenance', origin: 'cron', title: 'Mantenimiento mensual', client: 'Carla Ruiz', due: 'Hoy · 14:00', group: 'today', priority: 'high' },
+      { id: 't4', type: 'wow_call', origin: 'checkout', title: 'WOW Call de bienvenida', client: 'Estudio Marfil', due: 'Hoy', group: 'today', priority: 'high' },
+      { id: 't5', type: 'custom_work', origin: 'manual', title: 'Actualizar plugins y core', client: 'Clínica Dental Sur', due: 'Hoy', group: 'today', priority: 'medium' },
+      { id: 't6', type: 'project_task', origin: 'manual', title: 'Migración a nuevo servidor', client: 'Track Media', due: 'jue 26 jun', group: 'week', priority: 'medium' },
+      { id: 't7', type: 'maintenance', origin: 'cron', title: 'Mantenimiento mensual', client: 'Bodega Luna', due: 'vie 27 jun', group: 'week', priority: 'low' },
     ];
-    const tasksOverdueN = taskSeed.filter((t) => t.overdue).length;
-    const tasksRows = taskSeed.map((t, i) => {
+    const taskDone = this.state.taskDone || {};
+    const live = taskSeed.filter((t) => !taskDone[t.id]);
+    const tasksOverdueN = live.filter((t) => t.group === 'overdue').length;
+    const GROUPDEF = [
+      { key: 'overdue', label: 'Vencidas', tone: '#D14343' },
+      { key: 'today', label: 'Hoy', tone: '#B27A12' },
+      { key: 'week', label: 'Esta semana', tone: '#64748B' },
+    ];
+    const mkTaskRow = (t, i) => {
       const ty = TYPEW[t.type];
       const og = ORIGINW[t.origin];
       return {
@@ -653,13 +680,30 @@ class Component extends DCLogic {
         typeLabel: ty.label,
         typeStyle: 'display:inline-flex;align-items:center;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;flex-shrink:0;background:' + ty.bg + ';color:' + ty.fg + ';',
         context: t.client + ' · ' + t.due,
-        contextColor: t.overdue ? '#D14343' : '#94A3B8',
+        contextColor: t.group === 'overdue' ? '#D14343' : '#94A3B8',
         originIcon: og.icon,
         originTip: og.tip,
-        rowStyle: 'display:flex;flex-direction:column;gap:6px;width:100%;padding:12px 16px 12px 14px;border:none;background:#fff;font-family:inherit;cursor:pointer;text-align:left;box-shadow:inset 3px 0 0 ' + PRIOW[t.priority] + ';' + (i === 0 ? '' : 'border-top:1px solid #F4F6F9;'),
+        rowStyle: 'display:flex;align-items:flex-start;gap:11px;width:100%;padding:12px 16px 12px 14px;background:#fff;box-shadow:inset 3px 0 0 ' + PRIOW[t.priority] + ';' + (i === 0 ? '' : 'border-top:1px solid #F4F6F9;'),
+        checkStyle: 'width:18px;height:18px;border-radius:6px;border:1.6px solid #CBD5E1;background:#fff;flex-shrink:0;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:transparent;transition:all .12s ease',
+        complete: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.setState((s) => ({ taskDone: Object.assign({}, s.taskDone || {}, { [t.id]: true }) })); },
         go: () => this.setState({ active: 'task-detail', tasksOpen: false }),
       };
-    });
+    };
+    const taskGroups = GROUPDEF.map((g) => {
+      const rows = live.filter((t) => t.group === g.key);
+      return {
+        label: g.label, count: String(rows.length),
+        headStyle: 'display:flex;align-items:center;gap:8px;padding:8px 16px;background:#FBFCFE;border-bottom:1px solid #F1F5F9',
+        dotStyle: 'width:6px;height:6px;border-radius:9999px;flex-shrink:0;background:' + g.tone + ';',
+        countStyle: 'margin-left:auto;font-size:11px;font-weight:700;color:#94A3B8',
+        rows: rows.map((t, i) => mkTaskRow(t, i)),
+        _n: rows.length,
+      };
+    }).filter((g) => g._n > 0);
+    const urgent = live.filter((t) => t.group === 'overdue').concat(live.filter((t) => t.group === 'today'));
+    const mostUrgent = urgent[0] || null;
+    const urgentExists = !!mostUrgent;
+    const mostOverdue = mostUrgent && mostUrgent.group === 'overdue';
     const tasksBadgeColor = tasksOverdueN > 0 ? '#EF4444' : '#3B82F6';
 
     return {
@@ -668,15 +712,22 @@ class Component extends DCLogic {
       expanded,
       collapsed,
       liveChats,
-      liveWaiting: '3',
+      liveWaiting: String(liveWaitingN),
       goChats: () => this.setState({ active: 'chats' }),
-      tasksRows,
-      tasksCount: String(taskSeed.length),
-      tasksHasOpen: taskSeed.length > 0,
-      tasksOverdue: String(tasksOverdueN),
-      tasksOverdueLabel: tasksOverdueN + (tasksOverdueN === 1 ? ' tarea vencida — requiere atención' : ' tareas vencidas — requieren atención'),
+      taskGroups,
+      tasksEmpty: live.length === 0,
+      tasksCount: String(live.length),
+      tasksHasOpen: live.length > 0,
       tasksHasOverdue: tasksOverdueN > 0,
+      tasksOverdueLabel: tasksOverdueN + (tasksOverdueN === 1 ? ' tarea vencida — requiere atención' : ' tareas vencidas — requieren atención'),
       tasksBadgeStyle: 'position:absolute;top:3px;right:3px;min-width:15px;height:15px;padding:0 3px;border-radius:9999px;background:' + tasksBadgeColor + ';color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;',
+      showPillText: urgentExists,
+      pillTitle: mostUrgent ? mostUrgent.title : '',
+      pillSub: mostUrgent ? (mostUrgent.client + ' · ' + mostUrgent.due) : '',
+      pillTitleColor: mostOverdue ? '#B83232' : '#0F172A',
+      tasksIconColor: mostOverdue ? '#D14343' : (urgentExists ? '#B27A12' : '#94A3B8'),
+      tasksPillTitle: urgentExists ? (mostUrgent.title + ' · ' + mostUrgent.client) : (live.length + ' tareas pendientes'),
+      tasksPillStyle: 'position:relative;display:flex;align-items:center;gap:9px;height:38px;border-radius:10px;cursor:pointer;font-family:inherit;transition:background .15s ease;' + (urgentExists ? ('padding:0 12px 0 10px;border:1px solid ' + (mostOverdue ? '#F3D2D2' : '#E2E8F0') + ';background:' + (mostOverdue ? '#FEF4F4' : '#F8FAFF') + ';') : 'width:38px;justify-content:center;border:none;background:transparent;'),
       tasksOpen: this.state.tasksOpen,
       toggleTasks: () => this.setState((s) => ({ tasksOpen: !s.tasksOpen, notifOpen: false, profileOpen: false })),
       goTasks: () => this.setState({ active: 'tasks', tasksOpen: false }),
@@ -700,6 +751,7 @@ class Component extends DCLogic {
       isTasks: active === 'tasks',
       isTaskDetail: active === 'task-detail',
       isSettings: active === 'settings',
+      isDeletion: active === 'account-deletion',
       isPlugins: active === 'plugins',
       isErrorLog: active === 'errorlog',
       isJobs: active === 'jobs',
@@ -707,7 +759,7 @@ class Component extends DCLogic {
       isTemplateDetail: active === 'template-detail',
       isProfile: active === 'profile',
       isNotifications: active === 'notifications',
-      isPlaceholder: active !== 'dashboard' && active !== 'clients' && active !== 'client-detail' && active !== 'products' && active !== 'product-detail' && active !== 'product-new' && active !== 'supportInside' && active !== 'billing' && active !== 'invoice-detail' && active !== 'services' && active !== 'service-detail' && active !== 'domain-detail' && active !== 'support-detail' && active !== 'tickets' && active !== 'ticket-detail' && active !== 'chats' && active !== 'tasks' && active !== 'task-detail' && active !== 'settings' && active !== 'plugins' && active !== 'errorlog' && active !== 'jobs' && active !== 'templates' && active !== 'template-detail' && active !== 'profile' && active !== 'notifications',
+      isPlaceholder: active !== 'dashboard' && active !== 'clients' && active !== 'client-detail' && active !== 'products' && active !== 'product-detail' && active !== 'product-new' && active !== 'supportInside' && active !== 'billing' && active !== 'invoice-detail' && active !== 'services' && active !== 'service-detail' && active !== 'domain-detail' && active !== 'support-detail' && active !== 'tickets' && active !== 'ticket-detail' && active !== 'chats' && active !== 'tasks' && active !== 'task-detail' && active !== 'settings' && active !== 'plugins' && active !== 'errorlog' && active !== 'jobs' && active !== 'templates' && active !== 'template-detail' && active !== 'profile' && active !== 'notifications' && active !== 'account-deletion',
       showSearchLabel: expanded,
       skelCards: [{}, {}, {}, {}],
       skelRows: [{}, {}, {}, {}],

@@ -72,24 +72,49 @@
     </nav>
 
     <sc-if value="{{ showSupportCard }}" hint-placeholder-val="{{ false }}">
-      <div style="margin:0 12px 8px;padding:14px;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="margin:0 12px 8px;padding:12px;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;box-shadow:0 1px 2px rgba(15,23,42,0.04)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
           <div style="position:relative;flex-shrink:0">
-            <div style="width:38px;height:38px;border-radius:9999px;background:#3B82F6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">LF</div>
+            <div style="width:36px;height:36px;border-radius:9999px;background:#3B82F6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">LF</div>
             <span style="position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:9999px;background:#10B981;border:2px solid #fff"></span>
           </div>
-          <div style="line-height:1.3;min-width:0">
+          <div style="line-height:1.25;min-width:0;flex:1">
             <div style="font-size:13px;font-weight:600;color:#0F172A">Luis Ferrer</div>
-            <div style="font-size:11px;color:#64748B">Tu técnico · a tu lado</div>
+            <div style="font-size:11px;color:#64748B">Tu técnico · responde en min.</div>
           </div>
         </div>
-        <button type="button" onClick="{{ openChat }}" style="width:100%;padding:9px;border-radius:9999px;border:none;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s ease" style-hover="background:#2563EB">Escribir a Luis</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#94A3B8">Tus conversaciones</span>
+          <sc-if value="{{ hasOpenConv }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:600;color:#2A66C9;background:#EFF4FF;border-radius:9999px;padding:1px 7px">{{ openConvCount }} abierta</span></sc-if>
+        </div>
+        <div style="max-height:190px;overflow-y:auto;overflow-x:hidden;margin:0 -4px;padding:0 4px;display:flex;flex-direction:column;gap:2px">
+          <sc-for list="{{ convRows }}" as="c" hint-placeholder-count="3">
+            <button type="button" onClick="{{ c.go }}" style="display:flex;align-items:flex-start;gap:9px;width:100%;padding:8px 7px;border:none;background:transparent;border-radius:9px;cursor:pointer;font-family:inherit;text-align:left" style-hover="background:#F4F7FB">
+              <span style="width:28px;height:28px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:{{ c.iconBg }};color:{{ c.iconColor }}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="{{ c.chatDisplay }}"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="{{ c.waDisplay }}"><path d="M21 11.5a8.38 8.38 0 0 1-9 8.4 8.5 8.5 0 0 1-3.9-.9L3 20l1.1-3.1A8.38 8.38 0 0 1 3.5 11.5a8.5 8.5 0 0 1 17 0z"></path></svg>
+              </span>
+              <span style="flex:1;min-width:0;line-height:1.3">
+                <span style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+                  <span style="font-size:12.5px;font-weight:600;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.title }}</span>
+                  <span style="font-size:10px;color:#A8B2C0;white-space:nowrap;flex-shrink:0">{{ c.time }}</span>
+                </span>
+                <span style="display:flex;align-items:center;gap:5px;margin-top:2px">
+                  <span style="width:6px;height:6px;border-radius:9999px;background:{{ c.statusDot }};flex-shrink:0"></span>
+                  <span style="font-size:11px;color:#94A3B8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.preview }}</span>
+                </span>
+              </span>
+              <sc-if value="{{ c.unread }}" hint-placeholder-val="{{ false }}"><span style="width:7px;height:7px;border-radius:9999px;background:#3B82F6;margin-top:4px;flex-shrink:0"></span></sc-if>
+            </button>
+          </sc-for>
+        </div>
+        <button type="button" onClick="{{ openChat }}" style="margin-top:9px;width:100%;padding:9px;border-radius:9999px;border:none;background:#3B82F6;color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:background .15s ease" style-hover="background:#2563EB"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>Escribir a Luis</button>
       </div>
     </sc-if>
 
     <sc-if value="{{ showSupportMini }}" hint-placeholder-val="{{ false }}">
       <div style="padding:0 12px 10px;display:flex;justify-content:center">
-        <button type="button" onClick="{{ openChat }}" title="Escribir a Luis, tu técnico" style="position:relative;width:46px;height:46px;border-radius:9999px;border:none;background:#3B82F6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(59,130,246,0.28);transition:background .15s ease" style-hover="background:#2563EB">LF<span style="position:absolute;right:1px;bottom:1px;width:12px;height:12px;border-radius:9999px;background:#10B981;border:2px solid #F8FAFF"></span></button>
+        <button type="button" onClick="{{ openChat }}" title="Escribir a Luis, tu técnico" style="position:relative;width:46px;height:46px;border-radius:9999px;border:none;background:#3B82F6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(59,130,246,0.28);transition:background .15s ease" style-hover="background:#2563EB">LF<sc-if value="{{ hasOpenConv }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:9999px;background:#EF4444;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #F8FAFF">{{ openConvCount }}</span></sc-if><span style="position:absolute;right:1px;bottom:1px;width:12px;height:12px;border-radius:9999px;background:#10B981;border:2px solid #F8FAFF"></span></button>
       </div>
     </sc-if>
 
@@ -138,6 +163,12 @@
       <sc-if value="{{ isDomainDetail }}" hint-placeholder-val="{{ false }}">
         <dc-import name="DominioDetalle" navigate="{{ navigate }}" open-chat="{{ openChat }}" hint-size="100%,100%"></dc-import>
       </sc-if>
+      <sc-if value="{{ isDomainTransfer }}" hint-placeholder-val="{{ false }}">
+        <dc-import name="TransferenciaDominio" navigate="{{ navigate }}" open-chat="{{ openChat }}" hint-size="100%,100%"></dc-import>
+      </sc-if>
+      <sc-if value="{{ isDns }}" hint-placeholder-val="{{ false }}">
+        <dc-import name="GestionDNS" navigate="{{ navigate }}" open-chat="{{ openChat }}" hint-size="100%,100%"></dc-import>
+      </sc-if>
       <sc-if value="{{ isStore }}" hint-placeholder-val="{{ false }}">
         <dc-import name="Tienda" cart-count="{{ cartCount }}" navigate="{{ navigate }}" hint-size="100%,100%"></dc-import>
       </sc-if>
@@ -158,6 +189,9 @@
       </sc-if>
       <sc-if value="{{ isBilling }}" hint-placeholder-val="{{ false }}">
         <dc-import name="Facturas" navigate="{{ navigate }}" estado-cobro="{{ billingScenario }}" hint-size="100%,100%"></dc-import>
+      </sc-if>
+      <sc-if value="{{ isInvoiceDetail }}" hint-placeholder-val="{{ false }}">
+        <dc-import name="FacturaDetalle" navigate="{{ navigate }}" hint-size="100%,100%"></dc-import>
       </sc-if>
       <sc-if value="{{ isSupport }}" hint-placeholder-val="{{ false }}">
         <dc-import name="Soporte" navigate="{{ navigate }}" open-chat="{{ openChat }}" hint-size="100%,100%"></dc-import>
@@ -231,7 +265,7 @@
     </div>
   </sc-if>
 
-  <dc-import name="ChatWidget" open="{{ chatOpen }}" channel="{{ chatChannel }}" on-close="{{ closeChat }}" hint-size="392px,100%"></dc-import>
+  <dc-import name="ChatWidget" open="{{ chatOpen }}" channel="{{ chatChannel }}" session-id="{{ chatSessionId }}" sessions="{{ convData }}" on-close="{{ closeChat }}" hint-size="392px,100%"></dc-import>
 
 </div>
 </x-dc>
@@ -245,7 +279,7 @@
   &quot;soporteCard&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot; }
 }">
 class Component extends DCLogic {
-  state = { collapsed: false, active: 'dashboard', profileOpen: false, notifOpen: false, chatOpen: false, chatChannel: 'chat', notifs: null, cart: null };
+  state = { collapsed: false, active: 'dashboard', profileOpen: false, notifOpen: false, chatOpen: false, chatChannel: 'chat', chatSessionId: null, notifs: null, cart: null };
 
   notifSeed() {
     return [
@@ -271,6 +305,33 @@ class Component extends DCLogic {
   addToCart(item) { this.setState((s) => { const cur = s.cart !== null ? s.cart : this.cartSeed(); if (cur.some((i) => i.uid === item.uid)) return {}; return { cart: [...cur, item] }; }); }
   removeFromCart(uid) { this.setState((s) => { const cur = s.cart !== null ? s.cart : this.cartSeed(); return { cart: cur.filter((i) => i.uid !== uid) }; }); }
 
+  // ── Conversaciones del cliente (fuente de verdad compartida con ChatWidget) ──
+  convSeed() {
+    if (!this._conv) this._conv = [
+      { id: 's0', channel: 'chat', title: 'Migración de tu web', status: 'open', time: 'hace 6 min', unread: true,
+        msgs: [
+          { kind: 'system', body: 'Hoy' },
+          { kind: 'client', body: 'Hola Luis, ¿podemos pasar la web al plan nuevo?', meta: '12:05' },
+          { kind: 'agent', body: 'Claro, Sara. Preparo el entorno y te aviso en cuanto esté listo — normalmente hoy mismo.', meta: '12:09' },
+        ] },
+      { id: 's1', channel: 'chat', title: 'Velocidad de la web', status: 'resolved', time: 'hace 1 h',
+        msgs: [
+          { kind: 'system', body: 'Ayer' },
+          { kind: 'client', body: 'Hola Luis, la web va lenta por las tardes.', meta: '17:58' },
+          { kind: 'agent', body: 'Lo miro ahora mismo, Sara.', meta: '18:01' },
+          { kind: 'agent', body: 'Era una copia mal programada que daba picos de CPU. La he movido a las 03:00. Ya va fina — cualquier cosa, aquí estoy.', meta: '18:14' },
+        ] },
+      { id: 's2', channel: 'whatsapp', title: 'Correos del formulario', status: 'resolved', time: 'ayer',
+        msgs: [
+          { kind: 'system', body: 'Por WhatsApp · al número de siempre' },
+          { kind: 'client', body: 'No me llegan los correos del formulario.', meta: '16:40' },
+          { kind: 'agent', body: 'Estaban cayendo en spam. Ya marqué el remitente como seguro desde el panel. No volverá a pasar.', meta: '16:47' },
+          { kind: 'client', body: '¡Gracias Luis!', meta: '16:49' },
+        ] },
+    ];
+    return this._conv;
+  }
+
   renderVals() {
     const selector = this.props.navSelector || 'Tarjeta';
     const density = this.props.density || 'Cómoda';
@@ -289,7 +350,7 @@ class Component extends DCLogic {
       ['supportInside', 'Support Inside', 'supportInside', 0],
     ];
     const allIds = clientItems.map((i) => i[0]);
-    const active = [...allIds, 'transparency', 'profile', 'notifications', 'service-detail', 'domain-detail', 'store-product', 'domain-search', 'cart', 'checkout', 'confirm'].includes(this.state.active) ? this.state.active : allIds[0];
+    const active = [...allIds, 'transparency', 'profile', 'notifications', 'service-detail', 'domain-detail', 'domain-transfer', 'invoice-detail', 'dns', 'store-product', 'domain-search', 'cart', 'checkout', 'confirm'].includes(this.state.active) ? this.state.active : allIds[0];
 
     const mk = (it) => {
       const [id, label, icon, count] = it;
@@ -325,7 +386,7 @@ class Component extends DCLogic {
 
     const items = clientItems.map(mk);
     const activeItem = clientItems.find((i) => i[0] === active);
-    const routeLabel = activeItem ? activeItem[1] : (active === 'transparency' ? 'Transparencia' : active === 'profile' ? 'Mi perfil' : active === 'notifications' ? 'Notificaciones' : active === 'service-detail' ? 'sara-estudio.com' : active === 'domain-detail' ? 'sara-estudio.com' : active === 'store-product' ? 'Web Pro' : active === 'domain-search' ? 'Buscar dominio' : active === 'cart' ? 'Carrito' : active === 'checkout' ? 'Facturación' : active === 'confirm' ? 'Confirmar' : 'Inicio');
+    const routeLabel = activeItem ? activeItem[1] : (active === 'transparency' ? 'Transparencia' : active === 'profile' ? 'Mi perfil' : active === 'notifications' ? 'Notificaciones' : active === 'service-detail' ? 'sara-estudio.com' : active === 'domain-detail' ? 'sara-estudio.com' : active === 'store-product' ? 'Web Pro' : active === 'domain-search' ? 'Buscar dominio' : active === 'cart' ? 'Carrito' : active === 'checkout' ? 'Facturación' : active === 'confirm' ? 'Confirmar' : active === 'invoice-detail' ? 'AEL-2026-00412' : active === 'dns' ? 'DNS · sara-estudio.com' : active === 'domain-transfer' ? 'estudio-marfil.com' : 'Inicio');
     const sidebarWidth = collapsed ? '72px' : '260px';
 
     const crumbCurrent = 'font-size:17px;font-weight:600;color:#0F172A;background:none;border:none;padding:0;font-family:inherit;cursor:default;letter-spacing:-0.01em';
@@ -334,7 +395,7 @@ class Component extends DCLogic {
     if (active === 'dashboard') {
       crumbs.push({ label: 'Inicio', showSep: false, style: crumbCurrent, hover: 'color:#0F172A', go: () => {} });
     } else {
-      const roots = { 'service-detail': ['Mis servicios', 'services'], 'domain-detail': ['Mis servicios', 'services'], 'store-product': ['Tienda', 'store'], 'domain-search': ['Tienda', 'store'], 'cart': ['Tienda', 'store'], 'checkout': ['Tienda', 'store'], 'confirm': ['Tienda', 'store'] };
+      const roots = { 'service-detail': ['Mis servicios', 'services'], 'domain-detail': ['Mis servicios', 'services'], 'domain-transfer': ['Mis servicios', 'services'], 'invoice-detail': ['Mis facturas', 'billing'], 'dns': ['Mis servicios', 'services'], 'store-product': ['Tienda', 'store'], 'domain-search': ['Tienda', 'store'], 'cart': ['Tienda', 'store'], 'checkout': ['Tienda', 'store'], 'confirm': ['Tienda', 'store'] };
       const r = roots[active] || ['Inicio', 'dashboard'];
       crumbs.push({ label: r[0], showSep: false, style: crumbLink, hover: 'color:#64748B', go: () => this.setState({ active: r[1] }) });
       crumbs.push({ label: routeLabel, showSep: true, style: crumbCurrent, hover: 'color:#0F172A', go: () => {} });
@@ -342,7 +403,20 @@ class Component extends DCLogic {
 
     const routeAlias = { invoices: 'billing' };
     const navigate = (id) => this.setState({ active: routeAlias[id] || id });
-    const openChat = (kind) => this.setState({ chatOpen: true, chatChannel: typeof kind === 'string' ? kind : 'chat', profileOpen: false, notifOpen: false });
+    const openChat = (kind) => this.setState({ chatOpen: true, chatChannel: typeof kind === 'string' ? kind : 'chat', chatSessionId: null, profileOpen: false, notifOpen: false });
+    const openChatSession = (id) => this.setState({ chatOpen: true, chatSessionId: id, profileOpen: false, notifOpen: false });
+
+    const chConv = { chat: { iconBg: '#EFF4FF', iconColor: '#3B82F6', wa: false }, whatsapp: { iconBg: '#E7F6EC', iconColor: '#16A34A', wa: true }, call: { iconBg: '#EFF4FF', iconColor: '#3B82F6', wa: false } };
+    const stConv = { open: { label: 'Abierta', color: '#2A66C9', dot: '#3B82F6' }, resolved: { label: 'Resuelta', color: '#0E8C5F', dot: '#1AAE6F' } };
+    const convData = this.convSeed();
+    const convRows = convData.filter((c) => c.status === 'open').map((c) => {
+      const ch = chConv[c.channel] || chConv.chat;
+      const st = stConv[c.status] || stConv.open;
+      const last = c.msgs[c.msgs.length - 1];
+      const preview = last ? (last.kind === 'system' ? last.body : (last.kind === 'client' ? 'Tú: ' : 'Luis: ') + last.body) : '';
+      return { title: c.title, time: c.time, preview, unread: !!c.unread, iconBg: ch.iconBg, iconColor: ch.iconColor, chatDisplay: ch.wa ? 'display:none' : '', waDisplay: ch.wa ? '' : 'display:none', statusDot: st.dot, statusLabel: st.label, statusColor: st.color, go: () => openChatSession(c.id) };
+    });
+    const openConvCount = convData.filter((c) => c.status === 'open').length;
 
     const NTONE = { info: { bg: '#EFF4FF', fg: '#3B82F6' }, success: { bg: '#E8F7F1', fg: '#0E8C5F' }, warning: { bg: '#FCF3E1', fg: '#B27A12' }, security: { bg: '#F1ECFB', fg: '#7C5CCB' } };
     const notifAll = this.notifList();
@@ -376,7 +450,9 @@ class Component extends DCLogic {
       isOverview: active === 'dashboard',
       isServices: active === 'services',
       isServiceDetail: active === 'service-detail',
+      isDns: active === 'dns',
       isDomainDetail: active === 'domain-detail',
+      isDomainTransfer: active === 'domain-transfer',
       isStore: active === 'store',
       isDomainSearch: active === 'domain-search',
       isStoreProduct: active === 'store-product',
@@ -384,13 +460,14 @@ class Component extends DCLogic {
       isCheckout: active === 'checkout',
       isConfirm: active === 'confirm',
       isBilling: active === 'billing',
+      isInvoiceDetail: active === 'invoice-detail',
       isSupport: active === 'support',
       isSupportInside: active === 'supportInside',
       isProfile: active === 'profile',
       isTransparency: active === 'transparency',
       isNotifications: active === 'notifications',
       billingScenario: this.props.estadoCobro ?? 'Factura pendiente',
-      isOtherPage: active !== 'dashboard' && active !== 'services' && active !== 'service-detail' && active !== 'domain-detail' && active !== 'store' && active !== 'store-product' && active !== 'domain-search' && active !== 'cart' && active !== 'checkout' && active !== 'confirm' && active !== 'billing' && active !== 'support' && active !== 'supportInside' && active !== 'profile' && active !== 'transparency' && active !== 'notifications',
+      isOtherPage: active !== 'dashboard' && active !== 'services' && active !== 'service-detail' && active !== 'domain-detail' && active !== 'store' && active !== 'store-product' && active !== 'domain-search' && active !== 'cart' && active !== 'checkout' && active !== 'confirm' && active !== 'billing' && active !== 'invoice-detail' && active !== 'dns' && active !== 'domain-transfer' && active !== 'support' && active !== 'supportInside' && active !== 'profile' && active !== 'transparency' && active !== 'notifications',
       routeLabel,
       expanded,
       showSupportCard: showSupportCard && expanded,
@@ -410,9 +487,11 @@ class Component extends DCLogic {
       toggleNotif: () => this.setState((s) => ({ notifOpen: !s.notifOpen, profileOpen: false })),
       closeAll: () => this.setState({ profileOpen: false, notifOpen: false }),
       openChat,
+      convRows, convData, openConvCount, hasOpenConv: openConvCount > 0,
       chatOpen: this.state.chatOpen,
       chatChannel: this.state.chatChannel,
-      closeChat: () => this.setState({ chatOpen: false }),
+      chatSessionId: this.state.chatSessionId,
+      closeChat: () => this.setState({ chatOpen: false, chatSessionId: null }),
       noop: () => {},
     };
   }

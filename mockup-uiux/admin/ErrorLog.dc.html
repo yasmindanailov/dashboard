@@ -21,6 +21,8 @@
 
 <div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A">
 
+  <button type="button" onClick="{{ goBack }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 0;margin-bottom:14px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:#64748B;cursor:pointer" style-hover="color:#0F172A"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>Configuración</button>
+
   <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap">
     <div>
       <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#0F172A;margin:0 0 5px">Registro de errores</h1>
@@ -430,6 +432,7 @@ class Component extends DCLogic {
       resolveSelected: () => { const ids = this.state.selected || []; this.setState((st) => { const re = Object.assign({}, st.resolvedExtra); const ro = Object.assign({}, st.reopened); ids.forEach((id) => { re[id] = true; ro[id] = false; }); return { resolvedExtra: re, reopened: ro, selected: [] }; }); this.flash(ids.length + (ids.length === 1 ? ' entrada resuelta' : ' entradas resueltas')); },
       clearSel: () => this.setState({ selected: [] }),
       toast: s.toast,
+      goBack: () => { if (this.props.navigate) this.props.navigate('settings'); },
       noop: () => {},
     };
   }

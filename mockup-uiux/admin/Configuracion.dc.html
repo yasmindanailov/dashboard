@@ -103,6 +103,17 @@
 
       <!-- LEGAL -->
       <sc-if value="{{ isLegal }}" hint-placeholder-val="{{ false }}">
+        <button type="button" onClick="{{ goDeletion }}" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:#fff;border:1px solid #F1D5D5;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:18px 20px;cursor:pointer;font-family:inherit" style-hover="border-color:#E9B8B8;background:#FFFBFB">
+          <span style="width:42px;height:42px;border-radius:11px;background:#FEF2F2;color:#CE3F3F;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg></span>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-size:14px;font-weight:600;color:#0F172A">Solicitudes de borrado de cuenta</span>
+            <span style="display:block;font-size:12.5px;color:#64748B;margin-top:3px;line-height:1.45">Derecho al olvido (RGPD). Revisa, rechaza o ejecuta las solicitudes de borrado de tus clientes.</span>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:9px;flex-shrink:0">
+            <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;border-radius:9999px;background:#FBEAEA;color:#CE3F3F;font-size:11.5px;font-weight:700">4</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" style="color:#CBD5E1;flex-shrink:0"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </span>
+        </button>
         <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:22px">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px">
             <h3 style="font-size:14px;font-weight:700;color:#0F172A;margin:0">Subprocesadores</h3>
@@ -176,6 +187,27 @@
         </div>
       </sc-if>
 
+      <!-- SISTEMA -->
+      <sc-if value="{{ isSistema }}" hint-placeholder-val="{{ false }}">
+        <button type="button" onClick="{{ goErrorLog }}" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:18px 20px;cursor:pointer;font-family:inherit" style-hover="border-color:#CBD5E1;background:#FBFCFE">
+          <span style="width:42px;height:42px;border-radius:11px;background:#FCECEC;color:#C0453F;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></span>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-size:14px;font-weight:600;color:#0F172A">Error Log</span>
+            <span style="display:block;font-size:12.5px;color:#64748B;margin-top:3px;line-height:1.45">Errores capturados de la plataforma (Sentry + backend). Inspecciona traza, frecuencia y contexto.</span>
+          </span>
+          <svg width="18" height="18" viewBox="0 0 24 24" style="color:#CBD5E1;flex-shrink:0"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+
+        <button type="button" onClick="{{ goJobs }}" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,0.04);padding:18px 20px;cursor:pointer;font-family:inherit" style-hover="border-color:#CBD5E1;background:#FBFCFE">
+          <span style="width:42px;height:42px;border-radius:11px;background:#FCF3E1;color:#B27A12;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path><polyline points="21 3 21 9 15 9"></polyline></svg></span>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-size:14px;font-weight:600;color:#0F172A">Jobs en DLQ</span>
+            <span style="display:block;font-size:12.5px;color:#64748B;margin-top:3px;line-height:1.45">Trabajos en cola de fallidos (dead-letter). Revisa el motivo del fallo y reintenta o descarta.</span>
+          </span>
+          <svg width="18" height="18" viewBox="0 0 24 24" style="color:#CBD5E1;flex-shrink:0"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </sc-if>
+
     </div>
   </div>
 
@@ -206,6 +238,7 @@
     <symbol id="cf-sliders" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></symbol>
     <symbol id="cf-scale" viewBox="0 0 24 24"><path d="M12 3v18"></path><path d="M5 7h14"></path><path d="M5 7l-3 6a3 3 0 0 0 6 0z"></path><path d="M19 7l-3 6a3 3 0 0 0 6 0z"></path><path d="M7 21h10"></path></symbol>
     <symbol id="cf-plug" viewBox="0 0 24 24"><path d="M22 2 L12 12"></path><path d="M16 2h6v6"></path><path d="M9 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"></path></symbol>
+    <symbol id="cf-activity" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></symbol>
   </defs></svg>
 
 </div>
@@ -213,12 +246,12 @@
 <script type="text/x-dc" data-dc-script data-props="{
   &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 1040 },
   &quot;navigate&quot;: { &quot;editor&quot;: null, &quot;tsType&quot;: &quot;(id: string) =&gt; void&quot; },
-  &quot;seccionInicial&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Seguridad&quot;, &quot;options&quot;: [&quot;Seguridad&quot;, &quot;Notificaciones&quot;, &quot;Operativa&quot;, &quot;Legal y RGPD&quot;, &quot;Integraciones&quot;], &quot;tsType&quot;: &quot;string&quot; }
+  &quot;seccionInicial&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Seguridad&quot;, &quot;options&quot;: [&quot;Seguridad&quot;, &quot;Notificaciones&quot;, &quot;Operativa&quot;, &quot;Legal y RGPD&quot;, &quot;Integraciones&quot;, &quot;Sistema&quot;], &quot;tsType&quot;: &quot;string&quot; }
 }">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    const SEC = { 'Seguridad': 'security', 'Notificaciones': 'notifications', 'Operativa': 'operativa', 'Legal y RGPD': 'legal', 'Integraciones': 'integraciones' };
+    const SEC = { 'Seguridad': 'security', 'Notificaciones': 'notifications', 'Operativa': 'operativa', 'Legal y RGPD': 'legal', 'Integraciones': 'integraciones', 'Sistema': 'sistema' };
     this.SETTINGS = [
       { sec: 'security', key: 'max_login_attempts', label: 'Intentos de acceso fallidos', desc: 'Intentos consecutivos fallidos antes de bloquear temporalmente la cuenta. Lo aplica el guard de login; el contador se reinicia con un acceso correcto.', unit: 'intentos', def: 5, min: 3, max: 10, step: 1 },
       { sec: 'security', key: 'block_duration_minutes', label: 'Duración del bloqueo', desc: 'Minutos que la cuenta queda bloqueada tras agotar los intentos. Bloqueo temporal, no permanente: el usuario legítimo recupera el acceso sin intervención.', unit: 'min', def: 15, min: 5, max: 120, step: 5 },
@@ -268,6 +301,7 @@ class Component extends DCLogic {
       { id: 'operativa', label: 'Operativa', icon: '#cf-sliders' },
       { id: 'legal', label: 'Legal y RGPD', icon: '#cf-scale' },
       { id: 'integraciones', label: 'Integraciones', icon: '#cf-plug' },
+      { id: 'sistema', label: 'Sistema', icon: '#cf-activity' },
     ];
     const sectionDirty = (id) => this.SETTINGS.some((cfg) => cfg.sec === id && s.vals[cfg.key] !== s.saved[cfg.key]);
     const cats = CATS.map((c) => {
@@ -287,6 +321,7 @@ class Component extends DCLogic {
       operativa: { icon: '#cf-sliders', bg: '#FCF3E1', fg: '#B27A12', title: 'Operativa', desc: 'Umbrales del mantenimiento y la operativa de Support Inside.' },
       legal: { icon: '#cf-scale', bg: '#F4F6F9', fg: '#64748B', title: 'Legal y RGPD', desc: 'Subprocesadores y documentos legales publicados al cliente.' },
       integraciones: { icon: '#cf-plug', bg: '#E8F7F1', fg: '#0E8C5F', title: 'Integraciones', desc: 'Estado de los plugins y enlace a su configuración.' },
+      sistema: { icon: '#cf-activity', bg: '#EEF2F7', fg: '#475569', title: 'Sistema y diagnóstico', desc: 'Registro de errores y trabajos en cola fallida. Herramientas de solo lectura para diagnosticar la plataforma.' },
     };
     const sm = SEC_META[section];
 
@@ -376,6 +411,7 @@ class Component extends DCLogic {
       isNotif: section === 'notifications',
       isLegal: section === 'legal',
       isIntegr: section === 'integraciones',
+      isSistema: section === 'sistema',
       subprocessors, legalDocs, plugins,
       dirty,
       dirtyLabel: changed === 1 ? '1 ajuste sin guardar' : changed + ' ajustes sin guardar',
@@ -384,6 +420,9 @@ class Component extends DCLogic {
       toast: s.toast,
       goTemplates: () => { if (this.props.navigate) this.props.navigate('templates'); },
       goPlugins: () => { if (this.props.navigate) this.props.navigate('plugins'); },
+      goDeletion: () => { if (this.props.navigate) this.props.navigate('account-deletion'); },
+      goErrorLog: () => { if (this.props.navigate) this.props.navigate('errorlog'); },
+      goJobs: () => { if (this.props.navigate) this.props.navigate('jobs'); },
       noop: () => {},
     };
   }
