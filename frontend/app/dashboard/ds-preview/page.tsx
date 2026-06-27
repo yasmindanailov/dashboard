@@ -21,10 +21,22 @@ import {
   HelpTip,
   Toggle,
   IconWell,
+  SegmentedControl,
+  PasswordStrengthMeter,
+  NotificationRow,
   type TableColumn,
   type TableSort,
 } from '../../components/ui';
-import { Shield, Bell, AlertTriangle, CheckCircle2, Wrench } from 'lucide-react';
+import {
+  Shield,
+  Bell,
+  AlertTriangle,
+  CheckCircle2,
+  Wrench,
+  Search,
+  Sparkles,
+  CreditCard,
+} from 'lucide-react';
 
 /* ── Mock data for Table demo ── */
 interface DemoClient {
@@ -68,6 +80,7 @@ export default function DesignSystemPreview() {
   const [tableSort, setTableSort] = useState<TableSort>({ key: 'name', direction: 'asc' });
   const [_tableLoading, _setTableLoading] = useState(false);
   const [toggleOn, setToggleOn] = useState(true);
+  const [segMode, setSegMode] = useState('name');
   const { toast, toastUndo } = useToast();
 
   const handleLoadingDemo = () => {
@@ -165,6 +178,64 @@ export default function DesignSystemPreview() {
           <IconWell icon={Shield} size="md" />
           <IconWell icon={Shield} size="lg" />
         </Row>
+      </Section>
+
+      {/* ── SegmentedControl (F1a) ── */}
+      <Section title="SegmentedControl">
+        <Row>
+          <SegmentedControl
+            options={[
+              { value: 'name', label: 'Por nombre', icon: Search },
+              { value: 'ai', label: 'Con IA', icon: Sparkles },
+            ]}
+            value={segMode}
+            onChange={setSegMode}
+            aria-label="Modo de búsqueda"
+          />
+        </Row>
+      </Section>
+
+      {/* ── PasswordStrengthMeter (F1a) ── */}
+      <Section title="PasswordStrengthMeter">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-6)', maxWidth: 520 }}>
+          <PasswordStrengthMeter score={1} />
+          <PasswordStrengthMeter score={2} />
+          <PasswordStrengthMeter score={3} />
+          <PasswordStrengthMeter score={4} />
+        </div>
+      </Section>
+
+      {/* ── NotificationRow (F1a) ── */}
+      <Section title="NotificationRow">
+        <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', maxWidth: 640 }}>
+          <NotificationRow
+            icon={CreditCard}
+            tone="brand"
+            title="Factura disponible"
+            category="Facturación"
+            body="Tu factura de junio (24,20 €) ya está lista para descargar."
+            time="hace 2 h"
+            unread
+            actionLabel="Ver factura"
+          />
+          <NotificationRow
+            icon={CheckCircle2}
+            tone="success"
+            title="Servicio activado"
+            category="Servicios"
+            body="Tu hosting Web Pro se ha aprovisionado correctamente."
+            time="ayer"
+            actionLabel="Abrir servicio"
+          />
+          <NotificationRow
+            icon={Bell}
+            tone="warning"
+            title="Tu dominio expira pronto"
+            category="Dominios"
+            body="aelium.net se renueva el 12 de julio. Revisa la auto-renovación."
+            time="hace 3 d"
+          />
+        </div>
       </Section>
 
       {/* ── Card ── */}

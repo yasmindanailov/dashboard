@@ -75,3 +75,13 @@ export {
   type IconWellTone,
   type IconWellSize,
 } from './IconWell';
+export {
+  SegmentedControl,
+  type SegmentedControlProps,
+  type SegmentedOption,
+} from './SegmentedControl';
+export {
+  PasswordStrengthMeter,
+  type PasswordStrengthMeterProps,
+} from './PasswordStrengthMeter';
+export { NotificationRow, type NotificationRowProps } from './NotificationRow';
