@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════
-   Topbar — Dashboard Shell
+   Topbar — F2: reskin 1:1 con los mockups (Shell.dc.html / admin/Shell.dc.html).
    Ref: UI_SPEC.md §2.0, DESIGN_SYSTEM.md
    ═══════════════════════════════════════ */
 
@@ -8,38 +8,33 @@
   top: 0 !important;
   left: var(--topbar-left, 0) !important;
   width: var(--topbar-width, 100%) !important;
-  height: 64px !important;
+  height: var(--topbar-height) !important;
   display: flex !important;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-6);
   background: var(--surface-primary);
   border-bottom: 1px solid var(--border);
   z-index: 30;
-  transition: left var(--transition-normal), width var(--transition-normal);
   box-sizing: border-box;
+  transition: left var(--transition-normal), width var(--transition-normal);
 }
 
 @media (max-width: 767px) {
   .topbar {
     left: 0 !important;
     width: 100% !important;
+    padding: 0 var(--space-4);
   }
 }
 
-@media (min-width: 768px) {
-  .topbar { padding: 0 var(--space-6); }
-}
-
-/* ── Left side ── */
-
+/* ── Lados ── */
 .left {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  min-width: 0;
 }
-
-/* ── Right side ── */
 
 .right {
   display: flex;
@@ -48,15 +43,14 @@
   margin-left: auto;
 }
 
-/* ── Icon buttons (hamburger, search, bell, support) ── */
-
+/* ── Botones de icono (hamburguesa, campana) ── */
 .iconBtn {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
@@ -67,153 +61,61 @@
 
 .iconBtn:hover {
   color: var(--text-secondary);
-  background: var(--surface-secondary);
+  background: var(--surface-tertiary);
 }
 
-/* ── Cmd+K search trigger ── */
-
+/* ── Trigger ⌘K (solo admin, solo desktop) ── */
 .searchTrigger {
   display: none;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1_5) var(--space-3);
+  gap: 9px;
+  height: 38px;
+  padding: 0 var(--space-3) 0 11px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface-secondary);
   color: var(--text-tertiary);
-  font-size: var(--font-size-sm);
+  font-family: inherit;
   cursor: pointer;
-  transition: border-color var(--transition-fast), color var(--transition-fast);
-  min-width: 200px;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
 @media (min-width: 768px) {
-  .searchTrigger { display: flex; }
+  .searchTrigger {
+    display: flex;
+  }
 }
 
 .searchTrigger:hover {
   border-color: var(--border-hover);
-  color: var(--text-secondary);
+  background: var(--surface-primary);
+}
+
+.searchLabel {
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
 }
 
 .searchKbd {
-  font-size: var(--font-size-xs);
-  font-family: inherit;
-  background: var(--surface-primary);
+  padding: 2px var(--space-1_5);
   border: 1px solid var(--border);
   border-radius: var(--radius-xs);
-  padding: 1px var(--space-1);
-  color: var(--text-tertiary);
-  margin-left: auto;
-}
-
-/* ── Notification badge ── */
-
-.notifBadge {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-full);
-  background: var(--danger);
-  border: 2px solid var(--surface-primary);
-}
-
-/* ── Numeric counter badge (support icon) ── */
-.countBadge {
-  position: absolute;
-  top: 0;
-  right: 0;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: var(--radius-full);
-  background: var(--danger);
-  color: #fff;
-  font-size: 10px;
-  font-weight: var(--font-weight-bold);
-  line-height: 16px;
-  text-align: center;
-  border: 2px solid var(--surface-primary);
-  pointer-events: none;
-}
-
-/* ── Support panel (client only) ── */
-
-.supportPanel {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  right: 0;
-  width: 280px;
   background: var(--surface-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  padding: var(--space-4);
-  z-index: 50;
-}
-
-.supportTitle {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  margin-bottom: var(--space-3);
-}
-
-.supportItem {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  padding: var(--space-2_5) var(--space-3);
-  border-radius: var(--radius-sm);
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-  text-align: left;
-}
-
-.supportItem:hover {
-  background: var(--surface-secondary);
-  color: var(--text-primary);
-}
-
-.supportDivider {
-  height: 1px;
-  background: var(--border);
-  margin: var(--space-2) 0;
-}
-
-.supportPlan {
-  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
-  padding: var(--space-1) var(--space-3);
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: var(--font-weight-semibold);
 }
 
-.supportPlanLink {
-  color: var(--brand);
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.supportPlanLink:hover {
-  text-decoration: underline;
-}
-
-/* ── User profile area ── */
-
+/* ── Menú de perfil ── */
 .profileTrigger {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-1_5);
-  border-radius: var(--radius-sm);
-  border: none;
-  background: transparent;
+  gap: var(--space-2_5);
+  padding: 5px var(--space-2) 5px var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-primary);
   cursor: pointer;
   transition: background var(--transition-fast);
 }
@@ -223,12 +125,15 @@
 }
 
 .profileInfo {
-  text-align: right;
   display: none;
+  text-align: right;
+  line-height: 1.2;
 }
 
 @media (min-width: 640px) {
-  .profileInfo { display: block; }
+  .profileInfo {
+    display: block;
+  }
 }
 
 .profileName {
@@ -245,25 +150,31 @@
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--brand);
+  color: var(--text-on-brand);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-on-brand);
-  background: var(--brand);
-  flex-shrink: 0;
 }
 
-/* ── Mobile only ── */
+.profileChevron {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
 
+/* ── Solo móvil (hamburguesa) ── */
 .mobileOnly {
   display: flex;
 }
 
 @media (min-width: 768px) {
-  .mobileOnly { display: none; }
+  .mobileOnly {
+    display: none;
+  }
 }

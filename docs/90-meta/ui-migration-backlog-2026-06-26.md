@@ -161,7 +161,18 @@ añadir entrada en el índice de ADRs/decisiones, citar en commits que lo usen.
 
 ---
 
-## 7. F2 — Shells cliente + admin · ramas `redesign/f2-shell-cli`, `redesign/f2-shell-adm`
+## 7. F2 — Shells cliente + admin · ✅ HECHO (rama `redesign/f2-shells`)
+
+> **✅ F2 CÓDIGO-COMPLETO (2026-06-27)** — ambos shells reconstruidos 1:1, 12
+> commits, verde (typecheck + lint + 48 tests + build + screenshots Playwright de
+> los dos shells). **Una sola rama** `redesign/f2-shells` (más coherente que
+> partir cli/adm: comparten Topbar + tarjetas de footer). Decisiones Yasmin: admin
+> = 7 Operaciones (plataforma + Equipo → cards en Settings F4); cliente = 6 items;
+> ⌘K solo admin. Diferido a F3: técnico+presencia (E8), cola "Chat en vivo" rica,
+> inline-complete con nota (ADR-079), taxonomía de iconos notif (E10). Detalle:
+> [`ui-redesign-bitacora-f2-2026-06-27.md`](./ui-redesign-bitacora-f2-2026-06-27.md).
+> **Falta (Yasmin):** merge + smoke en `:3002` tras reiniciar `dev` (Turbopack no
+> aplica por HMR el token nuevo de `globals.css`; el build de prod sí).
 
 Reconstruir `DashboardShell` y `AdminShell` **idénticos** a `Shell.dc.html` /
 `admin/Shell.dc.html`: breadcrumbs/título en topbar, reubicar el toggle de

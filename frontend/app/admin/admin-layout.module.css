@@ -13,9 +13,9 @@
 }
 
 .main {
-  /* margin-left dinámico (260px) lo aplica el inline-style de
-     layout.tsx para poder colapsar en futuro Sprint 13. */
-  padding-top: 64px;  /* deja sitio al Topbar fijo */
+  /* F2: margin-left dinámico (256px expandido / 72px colapsado) lo aplica el
+     inline-style de AdminShell con tokens. */
+  padding-top: var(--topbar-height);
   transition: margin-left var(--transition-normal);
 }
 
@@ -25,7 +25,10 @@
   }
 }
 
+/* F2: contenedor centrado del mockup (max-width 1200, margin auto). */
 .content {
+  max-width: 1200px;
+  margin: 0 auto;
   padding: var(--space-6);
 }
 
@@ -33,6 +36,15 @@
   .content {
     padding: var(--space-8);
   }
+}
+
+/* F2: título de página del topbar admin (mockup admin/Shell.dc.html). */
+.pageTitle {
+  font-size: 17px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .loading {

@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { Bell } from 'lucide-react';
 import type { NotificationItem } from '../../lib/api';
 import {
   fetchUnreadNotificationsAction,
@@ -24,19 +25,13 @@ import styles from './NotificationBell.module.css';
 
 const POLL_INTERVAL_MS = 30_000;
 
-const IconBell = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-  </svg>
-);
-
 interface NotificationBellProps {
   triggerClassName?: string;
 }
 
 export default function NotificationBell({ triggerClassName }: NotificationBellProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const containerRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -115,6 +110,13 @@ export default function NotificationBell({ triggerClassName }: NotificationBellP
     );
   }
 
+  /** Destino de "Ver todas" según el portal. La página full-page es E10 (F3). */
+  function goAllNotifications(): void {
+    setOpen(false);
+    // TODO(F3/E10): /admin/notifications y /dashboard/notifications (bandeja full-page).
+    router.push(pathname?.startsWith('/admin') ? '/admin/notifications' : '/dashboard/notifications');
+  }
+
   function toggleOpen(): void {
     /*
      * El updater function de setState debe ser puro — disparar el Server Action
@@ -138,7 +140,7 @@ export default function NotificationBell({ triggerClassName }: NotificationBellP
         aria-expanded={open}
         data-testid="notification-bell"
       >
-        {IconBell}
+        <Bell size={20} strokeWidth={1.6} aria-hidden="true" />
         {unreadCount > 0 && (
           <span className={styles.badge} data-testid="notification-badge">
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -156,7 +158,7 @@ export default function NotificationBell({ triggerClassName }: NotificationBellP
               onClick={() => void handleMarkAll()}
               disabled={loading || unreadCount === 0}
             >
-              Marcar todas
+              Marcar leídas
             </button>
           </header>
 
@@ -177,18 +179,27 @@ export default function NotificationBell({ triggerClassName }: NotificationBellP
                       onClick={() => void handleItemClick(item)}
                       data-testid={`notification-item-${item.id}`}
                     >
-                      <div className={styles.itemTitle}>{item.title}</div>
-                      <div className={styles.itemBody}>{item.body}</div>
-                      <div className={styles.itemMeta}>
-                        <span>{ts}</span>
-                        {unread && <span className={styles.dot} aria-hidden="true" />}
-                      </div>
+                      {/* TODO(F3/E10): icon-well por categoría/tono (mockup) cuando exista
+                          la taxonomía derivada del event_type. */}
+                      <span className={styles.itemContent}>
+                        <span className={`${styles.itemTitle} ${unread ? styles.itemTitleUnread : ''}`}>
+                          {item.title}
+                        </span>
+                        <span className={styles.itemTime}>{ts}</span>
+                      </span>
+                      {unread && <span className={styles.dot} aria-hidden="true" />}
                     </button>
                   </li>
                 );
               })}
             </ul>
           )}
+
+          <footer className={styles.footer}>
+            <button type="button" className={styles.linkBtn} onClick={goAllNotifications}>
+              Ver todas
+            </button>
+          </footer>
         </div>
       )}
     </div>

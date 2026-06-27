@@ -1,0 +1,44 @@
+/* Migas del topbar cliente (mockup Shell.dc.html). */
+
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sep {
+  flex-shrink: 0;
+  color: var(--border-hover);
+}
+
+.link {
+  font-size: 17px;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--transition-fast);
+}
+
+.link:hover {
+  color: var(--text-secondary);
+}
+
+.current {
+  font-size: 17px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

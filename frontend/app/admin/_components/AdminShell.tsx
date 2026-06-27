@@ -8,6 +8,9 @@ import NoPermission from '../../components/ui/NoPermission';
 import { ToastProvider, CommandPalette } from '../../components/ui';
 import Topbar from '../../_shared/shell/Topbar';
 import AdminSidebar from '../AdminSidebar';
+
+import { TasksPill } from './TasksPill';
+import { getAdminTitle } from './page-title';
 import styles from '../admin-layout.module.css';
 
 /* ═══════════════════════════════════════
@@ -90,6 +93,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
    */
   const roleSlug = user?.role?.slug || '';
   const hasRouteAccess = pathname === '/admin' || canAccessRoute(roleSlug, pathname);
+  const sidebarWidth = sidebarCollapsed ? 'var(--sidebar-collapsed)' : 'var(--sidebar-width-admin)';
 
   return (
     <ToastProvider>
@@ -101,16 +105,14 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           onMobileClose={() => setMobileMenuOpen(false)}
         />
         <Topbar
-          sidebarCollapsed={sidebarCollapsed}
+          sidebarWidth={sidebarWidth}
           onMobileMenuOpen={() => setMobileMenuOpen(true)}
-          onOpenSupportPanel={() => {}}
+          left={<span className={styles.pageTitle}>{getAdminTitle(pathname)}</span>}
           onOpenCommandPalette={openCmdPalette}
+          actions={<TasksPill />}
         />
 
-        <main
-          className={styles.main}
-          style={{ marginLeft: sidebarCollapsed ? '72px' : '260px' }}
-        >
+        <main className={styles.main} style={{ marginLeft: sidebarWidth }}>
           <div className={styles.content}>
             {hasRouteAccess ? children : <NoPermission />}
           </div>

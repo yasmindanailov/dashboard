@@ -40,10 +40,12 @@ export function portalForRole(roleSlug?: string): PortalVariant {
   return 'client';
 }
 
+/* F2: textos alineados 1:1 con los mockups (Shell.dc.html "Portal de cliente",
+   admin/Shell.dc.html "Panel de administración"). */
 const PORTAL_LABELS: Record<PortalVariant, string> = {
-  admin: 'Portal de Administración',
-  client: 'Portal de Cliente',
-  partner: 'Portal de Partner',
+  admin: 'Panel de administración',
+  client: 'Portal de cliente',
+  partner: 'Portal de partner',
 };
 
 /**

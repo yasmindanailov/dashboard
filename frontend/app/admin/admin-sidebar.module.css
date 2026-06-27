@@ -1,9 +1,9 @@
-/* ── Desktop sidebar ──
-   Sprint 13.5 DC.14: paridad con Sidebar cliente — `.desktop` envuelve
-   el contenido del aside y se controla con `style.width` desde el TSX
-   (260px expandido / 72px colapsado). El aside interno ya no es fixed
-   (lo es el wrapper). */
+/* ═══════════════════════════════════════
+   AdminSidebar — F2: skin "Tarjeta" 1:1 con admin/Shell.dc.html.
+   Espejo del Sidebar cliente. Ref: ADR-066/067, UI_SPEC §2.0.
+   ═══════════════════════════════════════ */
 
+/* ── Desktop ── */
 .desktop {
   position: fixed;
   top: 0;
@@ -12,10 +12,8 @@
   z-index: 40;
   display: none;
   flex-direction: column;
-  transition: width var(--transition-normal);
   border-right: 1px solid var(--border);
-  background: var(--surface);
-  overflow: hidden;
+  transition: width var(--transition-normal);
 }
 
 @media (min-width: 768px) {
@@ -24,8 +22,7 @@
   }
 }
 
-/* ── Mobile overlay (drawer + backdrop) ── */
-
+/* ── Mobile overlay ── */
 .mobileOverlay {
   position: fixed;
   inset: 0;
@@ -42,7 +39,7 @@
 .mobileBackdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(15, 23, 42, 0.4);
   transition: opacity var(--transition-normal);
 }
 
@@ -52,215 +49,137 @@
   left: 0;
   height: 100%;
   width: 280px;
-  background: var(--surface);
   box-shadow: var(--shadow-xl);
   transition: transform var(--transition-normal);
 }
 
+/* ── Aside ── */
 .sidebar {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
-  width: 100%;
-  padding: var(--space-6) var(--space-4);
-  gap: var(--space-6);
+  background: var(--shell-sidebar-bg);
 }
 
+/* ── Logo ── */
 .brand {
-  padding: 0 var(--space-2);
-  /* 80px asegura que el cuadrado A + <PortalBadge> (logo "Aelium" +
-     subtítulo "Portal de Administración") quepan cómodamente en stack
-     horizontal con el badge en flex-column. Cumple D6 (escala 4px). */
-  min-height: 80px;
+  height: var(--topbar-height);
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+  padding: 0 var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.collapsed .brand {
+  padding: 0;
+  justify-content: center;
 }
 
 .brandLink {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  min-width: 0;
   text-decoration: none;
-  color: var(--text-primary);
 }
 
-.brandMark {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-hover) 100%);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-}
-
-/* `.brandLabel` eliminado en Sprint 9.6 — el texto + subtítulo ahora vive en
-   el componente <PortalBadge> (ADR-066). El cuadrado .brandMark se conserva
-   como logo gráfico al lado del badge tipográfico. */
-
+/* ── Nav ── */
 .nav {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
+  flex: 1;
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 3px;
 }
 
 .sectionTitle {
-  display: block;
+  padding: var(--space-3) var(--space-3) var(--space-1_5);
+  font-size: 10.5px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
   color: var(--text-tertiary);
-  padding: 0 var(--space-3);
-  margin-bottom: var(--space-2);
 }
 
 .list {
-  list-style: none;
   margin: 0;
   padding: 0;
+  list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-3);
-  border-radius: 8px;
-  text-decoration: none;
+  padding: var(--space-2_5) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   color: var(--text-secondary);
-  font-size: 14px;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  background: transparent;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--transition-fast), background var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
-.link:hover {
-  background: var(--surface-secondary);
+.collapsed .link {
+  justify-content: center;
+  gap: 0;
+  padding: var(--space-2_5) 0;
+}
+
+.link:not(.linkActive):hover {
   color: var(--text-primary);
+  background: var(--nav-active-bg);
+  box-shadow: var(--shadow-xs);
 }
 
 .linkActive {
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
-  color: var(--brand);
-  font-weight: 600;
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  background: var(--nav-active-bg);
+  box-shadow: var(--nav-active-shadow), var(--nav-active-ring);
 }
 
 .icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  flex-shrink: 0;
+  color: var(--nav-icon-idle);
+}
+
+.linkActive .icon {
+  color: var(--nav-icon-active);
 }
 
 .label {
   flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Badge numérico junto al item — Sprint 16 / ADR-079 §3.11. */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
+.marker {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: var(--brand);
 }
 
-.badge_neutral {
-  background: var(--surface-secondary, #f4f5f7);
-  color: var(--text-secondary);
-}
-
-.badge_warn {
-  background: color-mix(in srgb, var(--warning, #c2410c) 16%, transparent);
-  color: var(--warning, #c2410c);
-}
-
-.badge_danger {
-  background: color-mix(in srgb, var(--danger, #b91c1c) 16%, transparent);
-  color: var(--danger, #b91c1c);
-}
-
-.backLink {
-  display: inline-block;
-  padding: var(--space-3);
-  font-size: 13px;
-  color: var(--text-tertiary);
-  text-decoration: none;
-}
-
-.backLink:hover {
-  color: var(--text-secondary);
-}
-
-/* ── Collapse toggle area (footer del sidebar) ── */
-
-.collapseArea {
-  margin-top: auto;
-  padding: var(--space-3) 0 0 0;
-  border-top: 1px solid var(--border);
-}
-
-.collapseBtn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-2) var(--space-3);
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-
-.collapseBtn:hover {
-  background: var(--surface-secondary);
-  color: var(--text-primary);
-}
-
-.collapseIcon {
-  transition: transform var(--transition-normal);
-}
-
-.collapseIconRotated {
-  transform: rotate(180deg);
-}
-
-/* Badge en modo colapsado se posiciona como dot rojo en la esquina del icono. */
-.badgeCollapsed {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  font-size: 10px;
-}
-
-/* En modo colapsado el link es centrado (sin label). */
-.desktop[style*="72px"] .link {
-  justify-content: center;
-  position: relative;
-}
-
-@media (max-width: 767px) {
-  .sidebar {
-    width: 100%;
-  }
+/* ── Footer (tarjeta "Chat en vivo") ── */
+.footer {
+  flex-shrink: 0;
+  padding: 0 var(--space-3) var(--space-2);
 }

@@ -39,7 +39,7 @@
 }
 
 .main {
-  padding-top: 64px;
+  padding-top: var(--topbar-height);
   transition: margin-left var(--transition-normal);
 }
 
@@ -47,7 +47,10 @@
   .main { margin-left: 0 !important; }
 }
 
+/* F2: contenedor centrado del mockup (padding 32/36, max-width 1320, margin auto). */
 .content {
+  max-width: 1320px;
+  margin: 0 auto;
   padding: var(--space-6);
 }
 
