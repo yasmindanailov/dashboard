@@ -167,7 +167,7 @@ export default async function TransparencyPage() {
                     href={sp.dpa_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: 'var(--primary, #635BFF)' }}
+                    style={{ color: 'var(--brand)' }}
                   >
                     Política de privacidad
                   </a>

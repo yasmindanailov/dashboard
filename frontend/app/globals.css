@@ -56,6 +56,19 @@
   --border-hover:    rgba(0, 0, 0, 0.10);
   --border-active:   rgba(0, 0, 0, 0.15);
 
+  /* ── Alias de compatibilidad (F0.3 / GL-27) ──
+     Tokens referenciados por código existente pero NO definidos → resolvían
+     a valor inválido (bordes/colores rotos en runtime; audit 2026-06-25 §4.3).
+     Se mapean al canónico evidente. Provisionales: se retiran al migrar cada
+     uso al token canónico durante el reskin F4. */
+  --brand-600:       var(--brand-hover);   /* ambos #2563EB (blue-600) */
+  --text-link:       var(--brand);
+  --primary:         var(--brand);
+  --border-subtle:   var(--border);
+  --border-default:  var(--border);
+  --surface:         var(--surface-primary);
+  --surface-2:       var(--surface-secondary);
+
   /* ── Radios ── */
   --radius-xs:   4px;
   --radius-sm:   8px;

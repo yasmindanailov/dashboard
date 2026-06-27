@@ -460,7 +460,7 @@ const primaryBtn: React.CSSProperties = {
   fontWeight: 600,
   border: 'none',
   borderRadius: 8,
-  background: '#635BFF',
+  background: 'var(--brand)',
   color: '#fff',
   cursor: 'pointer',
 };

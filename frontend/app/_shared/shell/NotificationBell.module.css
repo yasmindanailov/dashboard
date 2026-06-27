@@ -72,7 +72,7 @@
 .linkBtn {
   border: none;
   background: transparent;
-  color: var(--text-link, #635BFF);
+  color: var(--text-link);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -160,5 +160,5 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #635BFF;
+  background: var(--brand);
 }
