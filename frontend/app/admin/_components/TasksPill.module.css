@@ -1,0 +1,308 @@
+/* Pill de tareas del topbar admin + su popover (mockup admin/Shell.dc.html). */
+
+.wrapper {
+  position: relative;
+}
+
+/* ── Pill (trigger) ── */
+.pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.pillIdle {
+  width: 38px;
+  justify-content: center;
+  border: none;
+  background: transparent;
+}
+
+.pillIdle:hover {
+  background: var(--surface-tertiary);
+}
+
+.pillUrgent {
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--border);
+  background: var(--shell-sidebar-bg);
+}
+
+.pillOverdue {
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--task-overdue-border);
+  background: var(--task-overdue-bg);
+}
+
+.pillText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.18;
+}
+
+.pillTitle {
+  max-width: 172px;
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pillTitleOverdue {
+  color: var(--task-overdue-fg);
+}
+
+.pillSub {
+  max-width: 172px;
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pillBadge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: var(--radius-full);
+  background: var(--brand);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: var(--font-weight-bold);
+  border: 2px solid var(--surface-primary);
+}
+
+.pillBadgeOverdue {
+  background: var(--danger);
+}
+
+/* ── Popover ── */
+.panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 392px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  z-index: var(--z-dropdown);
+  overflow: hidden;
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panelTitle {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.panelMeta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.overdueBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  background: var(--task-overdue-bg);
+  border-bottom: 1px solid var(--task-overdue-border);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--task-overdue-fg);
+}
+
+.overdueDot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--task-overdue-fg);
+}
+
+.groups {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--surface-tertiary);
+}
+
+.groupDot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+}
+
+.groupLabel {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.groupCount {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  color: var(--text-tertiary);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 12px 16px 12px 14px;
+  border: none;
+  border-top: 1px solid var(--surface-tertiary);
+  background: var(--surface-primary);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.row:hover {
+  background: var(--surface-secondary);
+}
+
+.rowTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 4px;
+}
+
+.typeBadge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  font-size: 10.5px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.tone_brand {
+  background: var(--brand-wash);
+  color: var(--brand);
+}
+
+.tone_success {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.tone_neutral {
+  background: var(--surface-tertiary);
+  color: var(--text-secondary);
+}
+
+.rowTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowBottom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.context {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contextOverdue {
+  color: var(--task-overdue-fg);
+}
+
+.originIcon {
+  flex-shrink: 0;
+  color: var(--border-active);
+}
+
+.panelFoot {
+  padding: 12px 16px;
+  text-align: center;
+  border-top: 1px solid var(--surface-tertiary);
+}
+
+.footLink {
+  border: none;
+  background: none;
+  color: var(--brand);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+/* ── Empty ── */
+.empty {
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.emptyTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.emptySub {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
