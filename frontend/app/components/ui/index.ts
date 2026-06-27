@@ -96,3 +96,14 @@ export {
 export { PaymentMethodCard, type PaymentMethodCardProps } from './PaymentMethodCard';
 export { ActivityRow, type ActivityRowProps, type ActivityTone } from './ActivityRow';
 export { BrandMark, type BrandMarkProps } from './BrandMark';
+
+/* ── Componentes de las paginas nuevas (sync 2026-06-27) ── */
+export { CartLineItem, type CartLineItemProps } from './CartLineItem';
+export {
+  SidebarConversationList,
+  type SidebarConversationListProps,
+  type ConversationItem,
+  type ConversationChannel,
+  type ConversationTone,
+  type ConversationStatus,
+} from './SidebarConversationList';

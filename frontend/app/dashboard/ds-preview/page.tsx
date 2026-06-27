@@ -31,6 +31,8 @@ import {
   PaymentMethodCard,
   ActivityRow,
   BrandMark,
+  CartLineItem,
+  SidebarConversationList,
   type TableColumn,
   type TableSort,
 } from '../../components/ui';
@@ -44,6 +46,8 @@ import {
   Sparkles,
   CreditCard,
   Briefcase,
+  Globe,
+  Server,
 } from 'lucide-react';
 
 /* ── Mock data for Table demo ── */
@@ -255,6 +259,19 @@ export default function DesignSystemPreview() {
         <Row label="A mitad">
           <Stepper steps={['Configurar', 'Carrito', 'Facturación', 'Confirmar']} current={1} />
         </Row>
+        <Row label="Vertical (FSM)">
+          <div style={{ maxWidth: 420 }}>
+            <Stepper
+              orientation="vertical"
+              current={1}
+              steps={[
+                { label: 'Código recibido', sub: 'Recibimos tu código de autorización (EPP).' },
+                { label: 'Transferencia en curso', sub: 'El registrador actual tiene 5-7 días para aprobarla.' },
+                { label: 'Completada', sub: 'El dominio queda en Aelium.' },
+              ]}
+            />
+          </div>
+        </Row>
       </Section>
 
       {/* ── OTPInput (F1a) ── */}
@@ -360,6 +377,49 @@ export default function DesignSystemPreview() {
           <span style={{ color: 'var(--text-primary)' }}><BrandMark size={32} mono /></span>
           <span style={{ color: 'var(--brand)' }}><BrandMark size={32} mono withWordmark /></span>
         </Row>
+      </Section>
+
+      {/* ── CartLineItem (componente nuevo) ── */}
+      <Section title="CartLineItem">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', maxWidth: 560 }}>
+          <CartLineItem
+            icon={Server}
+            name="Web Pro"
+            badge={{ label: 'Anual', variant: 'brand' }}
+            sub="Hosting gestionado · 10 GB SSD"
+            renewNote="Se renueva el 14 jun 2027"
+            price="115,20 €"
+            term="/año"
+            onEdit={() => {}}
+            onRemove={() => {}}
+          />
+          <CartLineItem
+            icon={Globe}
+            name="minegocio.com"
+            sub="Dominio · registro 1 año"
+            warning=".es requiere NIF español — completa tus datos fiscales antes de pagar."
+            originalPrice="12,00 €"
+            price="Gratis"
+            priceFree
+            term="primer año"
+            onRemove={() => {}}
+          />
+        </div>
+      </Section>
+
+      {/* ── SidebarConversationList (componente nuevo) ── */}
+      <Section title="SidebarConversationList">
+        <div style={{ width: 260, padding: 'var(--space-3)', background: 'var(--surface-secondary)', borderRadius: 'var(--radius-lg)' }}>
+          <SidebarConversationList
+            openCount={2}
+            cta={{ label: 'Escribir a Luis' }}
+            items={[
+              { id: '1', title: 'Migración de mi web', preview: 'Luis: ya está casi listo…', time: '9:14', tone: 'brand', status: 'open', unread: true, onClick: () => {} },
+              { id: '2', title: 'Factura de junio', preview: 'Tú: ¿incluye el dominio?', time: 'ayer', tone: 'success', status: 'open', onClick: () => {} },
+              { id: '3', title: 'Cambio de plan', preview: 'Resuelta · gracias', time: '3 jun', channel: 'whatsapp', tone: 'neutral', status: 'resolved', onClick: () => {} },
+            ]}
+          />
+        </div>
       </Section>
 
       {/* ── Card ── */}
