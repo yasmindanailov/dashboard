@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../lib/auth-context';
 import { canAccess, type AppModule } from '../lib/permissions';
-import { PortalBadge } from '../components/ui';
+import { PortalBadge, BrandMark } from '../components/ui';
 import { listTasksAction } from '../_shared/tasks/_actions';
 import type { Task } from '../_shared/tasks/types';
 import styles from './admin-sidebar.module.css';
@@ -299,7 +299,7 @@ export default function AdminSidebar({
           aria-label="Inicio Portal de Administración"
           onClick={onMobileClose}
         >
-          <span className={styles.brandMark} aria-hidden="true">A</span>
+          <BrandMark size={28} />
           {!collapsed && <PortalBadge variant="admin" logo="Aelium" />}
         </Link>
       </div>

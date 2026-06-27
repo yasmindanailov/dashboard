@@ -30,6 +30,7 @@ import {
   OrderSummary,
   PaymentMethodCard,
   ActivityRow,
+  BrandMark,
   type TableColumn,
   type TableSort,
 } from '../../components/ui';
@@ -343,6 +344,22 @@ export default function DesignSystemPreview() {
             Registro DNS actualizado
           </ActivityRow>
         </div>
+      </Section>
+
+      {/* ── BrandMark (F1d) ── */}
+      <Section title="BrandMark">
+        <Row label="Isotipo">
+          <BrandMark size={28} />
+          <BrandMark size={40} />
+          <BrandMark size={56} />
+        </Row>
+        <Row label="Con wordmark">
+          <BrandMark size={32} withWordmark />
+        </Row>
+        <Row label="Mono (currentColor)">
+          <span style={{ color: 'var(--text-primary)' }}><BrandMark size={32} mono /></span>
+          <span style={{ color: 'var(--brand)' }}><BrandMark size={32} mono withWordmark /></span>
+        </Row>
       </Section>
 
       {/* ── Card ── */}

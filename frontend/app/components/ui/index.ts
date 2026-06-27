@@ -95,3 +95,4 @@ export {
 } from './OrderSummary';
 export { PaymentMethodCard, type PaymentMethodCardProps } from './PaymentMethodCard';
 export { ActivityRow, type ActivityRowProps, type ActivityTone } from './ActivityRow';
+export { BrandMark, type BrandMarkProps } from './BrandMark';
