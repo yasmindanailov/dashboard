@@ -94,3 +94,4 @@ export {
   type OrderSummaryLine,
 } from './OrderSummary';
 export { PaymentMethodCard, type PaymentMethodCardProps } from './PaymentMethodCard';
+export { ActivityRow, type ActivityRowProps, type ActivityTone } from './ActivityRow';

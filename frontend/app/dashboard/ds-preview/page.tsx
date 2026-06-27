@@ -29,6 +29,7 @@ import {
   PricingCard,
   OrderSummary,
   PaymentMethodCard,
+  ActivityRow,
   type TableColumn,
   type TableSort,
 } from '../../components/ui';
@@ -323,6 +324,24 @@ export default function DesignSystemPreview() {
             title="Visa •••• 4242"
             subtitle="vía Stripe · caduca 06/27"
           />
+        </div>
+      </Section>
+
+      {/* ── ActivityRow (F1a) ── */}
+      <Section title="ActivityRow">
+        <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '4px 20px', maxWidth: 560 }}>
+          <ActivityRow initials="LF" meta="hoy, 09:14">
+            <strong>Luis Ferrer</strong> revisó tu web
+          </ActivityRow>
+          <ActivityRow icon={CheckCircle2} tone="success" meta="12 jun, 11:20">
+            <strong>Mantenimiento</strong> completado
+          </ActivityRow>
+          <ActivityRow icon={Shield} tone="brand" meta="12 jun, 14:32">
+            <strong>Luis Ferrer</strong> accedió al panel de tu hosting
+          </ActivityRow>
+          <ActivityRow icon={Bell} tone="warning" meta="10 jun, 11:05">
+            Registro DNS actualizado
+          </ActivityRow>
         </div>
       </Section>
 
