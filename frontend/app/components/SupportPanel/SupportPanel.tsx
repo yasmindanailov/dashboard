@@ -33,16 +33,30 @@ interface SupportPanelProps {
   isOpen: boolean;
   onClose: () => void;
   sidebarCollapsed?: boolean;
+  /** Si se abre desde una conversación del sidebar, su id → se muestra directamente. */
+  initialConversationId?: string | null;
 }
 
-export default function SupportPanel({ isOpen, onClose, sidebarCollapsed }: SupportPanelProps) {
+export default function SupportPanel({
+  isOpen,
+  onClose,
+  sidebarCollapsed,
+  initialConversationId,
+}: SupportPanelProps) {
   const w = useChatWidget();
 
   /* Don't render for admin/agent roles */
   const isAdmin = w.user?.role?.slug ? ADMIN_ROLES.includes(w.user.role.slug) : false;
   if (isAdmin || !isOpen) return null;
 
-  return <SupportPanelInner w={w} onClose={onClose} sidebarCollapsed={sidebarCollapsed} />;
+  return (
+    <SupportPanelInner
+      w={w}
+      onClose={onClose}
+      sidebarCollapsed={sidebarCollapsed}
+      initialConversationId={initialConversationId}
+    />
+  );
 }
 
 /* ── Inner component (avoids hook rules with early return) ── */
@@ -51,10 +65,12 @@ function SupportPanelInner({
   w,
   onClose,
   sidebarCollapsed: _sidebarCollapsed,
+  initialConversationId,
 }: {
   w: ReturnType<typeof useChatWidget>;
   onClose: () => void;
   sidebarCollapsed?: boolean;
+  initialConversationId?: string | null;
 }) {
   /* Close on ESC key */
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -78,6 +94,14 @@ function SupportPanelInner({
     return () => { w.setIsOpen(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* Si el sidebar abrió el panel desde una conversación concreta, mostrarla
+     directamente (en vez del listado). El panel se monta fresco en cada
+     apertura, así que basta con dispararlo al cambiar el id. */
+  useEffect(() => {
+    if (initialConversationId) void w.openConversation(initialConversationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialConversationId]);
 
   /* Subtitle text */
   const subtitle =

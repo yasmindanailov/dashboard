@@ -24,8 +24,8 @@ interface SidebarProps {
   onToggle: () => void;
   mobileOpen: boolean;
   onMobileClose: () => void;
-  /** Abre el panel de soporte (CTA de la tarjeta del footer). */
-  onOpenSupport: () => void;
+  /** Abre el panel de soporte; con id → muestra esa conversación, sin id → el listado. */
+  onOpenSupport: (conversationId?: string) => void;
 }
 
 export default function Sidebar({

@@ -39,8 +39,8 @@ function relTime(iso: string): string {
 
 export interface SidebarSupportSlotProps {
   collapsed: boolean;
-  /** Abre el panel de soporte (SupportPanel) — wired desde el shell. */
-  onOpenSupport: () => void;
+  /** Abre el panel de soporte; con id → muestra esa conversación, sin id → el listado. */
+  onOpenSupport: (conversationId?: string) => void;
 }
 
 /**
@@ -61,18 +61,15 @@ export function SidebarSupportSlot({ collapsed, onOpenSupport }: SidebarSupportS
       .filter((x) => x.status !== 'resolved');
     setOpenCount(open.length);
     setConversations(
-      open.slice(0, 6).map(({ chat, status }) => {
-        const last = chat.messages?.[chat.messages.length - 1];
-        return {
-          id: chat.id,
-          title: chat.subject,
-          preview: last?.body ?? '',
-          time: relTime(chat.updated_at || chat.created_at),
-          channel: 'chat' as const,
-          status,
-          onClick: onOpenSupport,
-        };
-      }),
+      open.slice(0, 6).map(({ chat, status }) => ({
+        id: chat.id,
+        title: chat.subject,
+        preview: chat.messages?.[0]?.body ?? '',
+        time: relTime(chat.updated_at || chat.created_at),
+        channel: 'chat' as const,
+        status,
+        onClick: () => onOpenSupport(chat.id),
+      })),
     );
   }, [onOpenSupport]);
 

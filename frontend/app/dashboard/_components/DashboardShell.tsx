@@ -32,6 +32,13 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [supportPanelOpen, setSupportPanelOpen] = useState(false);
+  const [supportInitialConvId, setSupportInitialConvId] = useState<string | null>(null);
+
+  /* Abre el panel de soporte; con id → muestra esa conversación, sin id → el listado. */
+  const openSupport = (conversationId?: string) => {
+    setSupportInitialConvId(conversationId ?? null);
+    setSupportPanelOpen(true);
+  };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mobile drawer sync con route change (sistema externo: Next.js router).
@@ -58,7 +65,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
           mobileOpen={mobileMenuOpen}
           onMobileClose={() => setMobileMenuOpen(false)}
-          onOpenSupport={() => setSupportPanelOpen(true)}
+          onOpenSupport={openSupport}
         />
         <Topbar
           sidebarWidth={sidebarWidth}
@@ -74,6 +81,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           isOpen={supportPanelOpen}
           onClose={() => setSupportPanelOpen(false)}
           sidebarCollapsed={sidebarCollapsed}
+          initialConversationId={supportInitialConvId}
         />
       </div>
     </ToastProvider>
