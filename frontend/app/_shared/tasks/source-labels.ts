@@ -4,14 +4,16 @@
    `TaskSourceSystem`. Cada accionador inline canónico también vive aquí.
    ═══════════════════════════════════════ */
 
+import type { LucideIcon } from 'lucide-react';
+import { Ticket, Wrench, Settings, Phone, FolderKanban } from 'lucide-react';
+
 import type { Task, TaskSourceSystem } from './types';
 
 export interface SourceLabel {
-  /** Icono visual para la card. Glifo emoji, mantenido en línea por D1
-      ("la cercanía viene de las palabras y el ritmo, no de los emojis").
-      Aquí los iconos sí son funcionales: distinguen el sistema de un
-      vistazo y son los únicos emojis del sistema (ADR-079 §3.6). */
-  icon: string;
+  /** Icono del sistema vinculado (SVG, Lucide React — D1: nada de emojis).
+      Distingue el sistema de un vistazo. F0.4/GL-27: antes era un glifo emoji
+      por sistema (violación de D1 racionalizada en el código). */
+  icon: LucideIcon;
   /** Etiqueta humana del sistema vinculado en español. */
   label: string;
   /** Etiqueta corta del sistema (footer "Abrir [sistema] completo →"). */
@@ -22,31 +24,31 @@ export interface SourceLabel {
 
 export const SOURCE_LABELS: Record<TaskSourceSystem, SourceLabel> = {
   support_ticket: {
-    icon: '🎫',
+    icon: Ticket,
     label: 'Ticket Support',
     shortLabel: 'ticket',
     ctaHref: (t) => `/admin/support/${t.source_id}`,
   },
   support_inside_slot: {
-    icon: '🔧',
+    icon: Wrench,
     label: 'Mantenimiento mensual',
     shortLabel: 'servicio',
     ctaHref: (t) => `/admin/clients/${t.client_id}`,
   },
   provisioning_manual: {
-    icon: '⚙️',
+    icon: Settings,
     label: 'Setup servicio',
     shortLabel: 'servicio',
     ctaHref: (t) => `/admin/services/${t.source_id}`,
   },
   client_lifecycle: {
-    icon: '📞',
+    icon: Phone,
     label: 'Llamada bienvenida',
     shortLabel: 'cliente',
     ctaHref: (t) => `/admin/clients/${t.client_id}`,
   },
   project: {
-    icon: '📁',
+    icon: FolderKanban,
     label: 'Proyecto',
     shortLabel: 'proyecto',
     ctaHref: (t) => `/admin/projects/${t.source_id}`,
