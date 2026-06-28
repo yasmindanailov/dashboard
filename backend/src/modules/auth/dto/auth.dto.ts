@@ -1,5 +1,16 @@
-import { IsEmail, IsString, MinLength, Matches } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  Matches,
+  IsOptional,
+  IsEnum,
+  IsBoolean,
+  ValidateIf,
+  MaxLength,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { BillingProfileType } from '@prisma/client';
 
 export class RegisterDto {
   @ApiProperty({ example: 'Juan' })
@@ -29,6 +40,75 @@ export class RegisterDto {
     message: 'La contraseña debe contener al menos un número',
   })
   password: string;
+
+  // ── E11 (registro fiscal) — todos opcionales (backward-compatible). El
+  //    perfil de facturación (BillingProfile) se crea solo para autonomo/empresa
+  //    [personal no aporta dirección, requerida por el modelo]. Validación
+  //    condicional vía @ValidateIf: cuando aplica, el campo es obligatorio. ──
+
+  @ApiPropertyOptional({ example: '+34 600 00 00 00' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  phone?: string;
+
+  @ApiPropertyOptional({ enum: BillingProfileType, default: 'personal' })
+  @IsOptional()
+  @IsEnum(BillingProfileType)
+  account_type?: BillingProfileType;
+
+  @ApiPropertyOptional({ description: 'Obligatorio para empresa' })
+  @ValidateIf((o: RegisterDto) => o.account_type === 'empresa')
+  @IsString({ message: 'La razón social es obligatoria para empresas.' })
+  @MaxLength(200)
+  company_name?: string;
+
+  @ApiPropertyOptional({ description: 'Obligatorio para autónomo/empresa' })
+  @ValidateIf(
+    (o: RegisterDto) =>
+      o.account_type === 'autonomo' || o.account_type === 'empresa',
+  )
+  @IsString({ message: 'El NIF/CIF es obligatorio para autónomos y empresas.' })
+  @MaxLength(20)
+  nif_cif?: string;
+
+  @ApiPropertyOptional({ description: 'Dirección fiscal (autónomo/empresa)' })
+  @ValidateIf(
+    (o: RegisterDto) =>
+      o.account_type === 'autonomo' || o.account_type === 'empresa',
+  )
+  @IsString({ message: 'La dirección fiscal es obligatoria.' })
+  @MaxLength(255)
+  address_line1?: string;
+
+  @ApiPropertyOptional()
+  @ValidateIf(
+    (o: RegisterDto) =>
+      o.account_type === 'autonomo' || o.account_type === 'empresa',
+  )
+  @IsString({ message: 'La ciudad es obligatoria.' })
+  @MaxLength(100)
+  city?: string;
+
+  @ApiPropertyOptional()
+  @ValidateIf(
+    (o: RegisterDto) =>
+      o.account_type === 'autonomo' || o.account_type === 'empresa',
+  )
+  @IsString({ message: 'El código postal es obligatorio.' })
+  @MaxLength(20)
+  postal_code?: string;
+
+  @ApiPropertyOptional({ example: 'ES', default: 'ES' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2)
+  country?: string;
+
+  @ApiPropertyOptional({ description: 'Aceptación de términos + privacidad' })
+  @IsOptional()
+  @IsBoolean()
+  terms_accepted?: boolean;
 }
 
 export class LoginDto {
