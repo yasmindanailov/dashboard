@@ -1,0 +1,105 @@
+/* ═══════════════════════════════════════
+   MaintenanceSlotCard — Rediseño UI F3·E8. Tokens only.
+   ═══════════════════════════════════════ */
+
+.card {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+}
+
+.headBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.service {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sub {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* ── Badge de estado de mantenimiento ── */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.tone_success {
+  background: var(--success-light);
+  color: var(--success);
+}
+.tone_info {
+  background: var(--brand-wash);
+  color: var(--brand);
+}
+.tone_neutral {
+  background: var(--surface-tertiary);
+  color: var(--text-secondary);
+}
+.tone_warning {
+  background: var(--warning-light);
+  color: var(--warning-hover);
+}
+
+/* ── Fechas ── */
+.dates {
+  display: flex;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-5);
+  flex-wrap: wrap;
+}
+.dateLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-bottom: 2px;
+}
+.dateValue {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.dateNext {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
+}
+.dateNext svg {
+  color: var(--brand);
+}
+
+/* ── Acciones ── */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border-subtle, var(--border));
+}
+.release {
+  margin-left: auto;
+}

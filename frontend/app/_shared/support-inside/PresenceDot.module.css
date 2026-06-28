@@ -1,0 +1,29 @@
+/* ═══════════════════════════════════════
+   PresenceDot — Rediseño UI F3·E8. Tokens only.
+   ═══════════════════════════════════════ */
+
+.dot {
+  display: inline-block;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  border: 2px solid transparent;
+}
+
+.size_sm {
+  width: 10px;
+  height: 10px;
+}
+.size_md {
+  width: 12px;
+  height: 12px;
+}
+
+.tone_online {
+  background: var(--success);
+}
+.tone_away {
+  background: var(--warning);
+}
+.tone_offline {
+  background: var(--text-tertiary);
+}
