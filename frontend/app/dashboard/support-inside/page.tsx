@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Check } from 'lucide-react';
 import type {
   SupportInsidePublicPlan,
   SupportInsideSubscriptionPayload,
-  SupportInsideChannel,
   SupportInsideEligibleService,
   SupportInsideSlotType,
   PlanChangePreview,
@@ -22,6 +22,7 @@ import {
   upgradeSupportInsideAction,
 } from './_actions';
 import { ManagedView } from './_components/ManagedView';
+import { PlanComparator } from './_components/PlanComparator';
 import MaintenanceHistoryModal from './_components/MaintenanceHistoryModal';
 import s from './page.module.css';
 
@@ -32,65 +33,10 @@ import s from './page.module.css';
    Refs: ADR-061, ADR-075 §B.1, ADR-034
    ═══════════════════════════════════════ */
 
-const CHANNEL_LABELS: Record<SupportInsideChannel, string> = {
-  webchat: 'Chat web',
-  email: 'Email',
-  phone: 'Teléfono',
-  whatsapp: 'WhatsApp',
-};
-
-const PRIORITY_LABELS: Record<string, string> = {
-  standard: 'Estándar',
-  high: 'Alta',
-  max: 'Máxima',
-};
-
 const SLOT_TYPE_LABELS: Record<string, string> = {
   maintenance: 'Mantenimiento',
   maintenance_management: 'Mantenimiento + gestión',
 };
-
-const CheckIcon = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="3"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={s.featureCheck}
-    aria-hidden="true"
-  >
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
-);
-
-function buildPlanFeatures(plan: SupportInsidePublicPlan): string[] {
-  const cfg = plan.config;
-  if (!cfg) return [];
-  const slots =
-    cfg.slots_included === 0
-      ? 'Sin slots de mantenimiento incluidos'
-      : `${cfg.slots_included} slot${cfg.slots_included > 1 ? 's' : ''} de mantenimiento incluido${cfg.slots_included > 1 ? 's' : ''}`;
-  const slotTypes = cfg.slot_types_allowed
-    .map((t) => SLOT_TYPE_LABELS[t] ?? t)
-    .join(' / ');
-  const channels = cfg.channels_active
-    .map((c) => CHANNEL_LABELS[c])
-    .join(', ');
-  return [
-    slots,
-    `Tipos disponibles: ${slotTypes}`,
-    `Canales: ${channels}`,
-    `Prioridad: ${PRIORITY_LABELS[cfg.priority_tier] ?? cfg.priority_tier}`,
-    `Respuesta SLA: ${cfg.response_sla_hours}h`,
-    cfg.slots_included > 0 || cfg.extra_slot_price !== '0.00'
-      ? `Slot adicional: ${fmtCurrency(cfg.extra_slot_price)}/mes`
-      : null,
-  ].filter(Boolean) as string[];
-}
 
 export default function SupportInsidePage() {
   const router = useRouter();
@@ -233,12 +179,6 @@ export default function SupportInsidePage() {
   }, [reload, selectedServiceId, selectedSlotType, toast]);
 
   /* ── GL-23 — cambio de plan ── */
-  const openChangePlan = useCallback(() => {
-    setChangePlanOpen(true);
-    setTargetPricingId('');
-    setPlanPreview(null);
-  }, []);
-
   const onSelectTargetPlan = useCallback(
     async (pricingId: string) => {
       setTargetPricingId(pricingId);
@@ -251,6 +191,23 @@ export default function SupportInsidePage() {
       else toast('error', r.error);
     },
     [toast],
+  );
+
+  /* F3·E8 C2c — cambio desde el comparador: resuelve el pricing del plan
+     elegido en el ciclo actual y abre el modal de confirmación (con el
+     prorrateo R5 precargado). */
+  const requestChangePlan = useCallback(
+    (plan: SupportInsidePublicPlan) => {
+      const target =
+        cycle === 'yearly' ? plan.pricing.yearly : plan.pricing.monthly;
+      if (!target) {
+        toast('error', 'Ese plan no tiene precio en este ciclo.');
+        return;
+      }
+      setChangePlanOpen(true);
+      void onSelectTargetPlan(target.product_pricing_id);
+    },
+    [cycle, onSelectTargetPlan, toast],
   );
 
   const confirmChangePlan = useCallback(async () => {
@@ -324,12 +281,29 @@ export default function SupportInsidePage() {
           onGoBilling={() => router.push('/dashboard/billing')}
         />
 
-        {/* Acciones de plan — C2c lo reskineará al comparador siempre-visible
-            + danger zone del mockup. De momento preserva la funcionalidad. */}
-        <div className={s.planActions}>
-          <Button variant="secondary" size="sm" onClick={openChangePlan}>
-            Cambiar de plan
-          </Button>
+        {/* Comparador siempre-visible (upgrade) — 1:1 con el mockup */}
+        <PlanComparator
+          plans={plans}
+          cycle={cycle}
+          onCycleChange={setCycle}
+          currentProductId={subscription.product_id}
+          hasPlan
+          submitting={submitting}
+          onSelectPlan={requestChangePlan}
+          title="Cambia o mejora tu plan"
+          intro="Aplicamos el prorrateo de los días no usados como crédito, sin devolución de dinero."
+        />
+
+        {/* Danger zone — cancelar */}
+        <div className={s.dangerZone}>
+          <div>
+            <div className={s.dangerZoneTitle}>
+              ¿Quieres cancelar Support Inside?
+            </div>
+            <div className={s.dangerZoneSub}>
+              Tus servicios técnicos seguirán funcionando con total normalidad.
+            </div>
+          </div>
           <Button
             variant="danger"
             size="sm"
@@ -458,130 +432,60 @@ export default function SupportInsidePage() {
     );
   }
 
-  const featuredSlug = plans.length >= 3 ? plans[1].slug : plans[0].slug;
-
   return (
     <div className={s.page}>
       <header className={s.header}>
         <h1 className={s.title}>Support Inside</h1>
         <p className={s.subtitle}>
-          Tier de cuenta para cliente con soporte humano, mantenimiento mensual
-          y canales prioritarios. Elige el plan que mejor encaja contigo.
+          Que alguien real cuide tu negocio digital, no solo el servidor.
         </p>
       </header>
 
-      <div
-        className={s.cycleToggle}
-        role="tablist"
-        aria-label="Ciclo de facturación"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={cycle === 'monthly'}
-          className={`${s.cycleBtn} ${cycle === 'monthly' ? s.cycleBtnActive : ''}`}
-          onClick={() => setCycle('monthly')}
-        >
-          Mensual
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={cycle === 'yearly'}
-          className={`${s.cycleBtn} ${cycle === 'yearly' ? s.cycleBtnActive : ''}`}
-          onClick={() => setCycle('yearly')}
-        >
-          Anual <span className={s.savingsBadge}>−15%</span>
-        </button>
+      {/* Hero intro sin-plan — 1:1 con el mockup */}
+      <div className={s.noPlanHero}>
+        <div className={s.noPlanHeroBody}>
+          <div className={s.noPlanLabel}>Tu socio digital, a tu lado</div>
+          <h2 className={s.noPlanTitle}>
+            Que alguien real cuide tu negocio digital, no solo el servidor.
+          </h2>
+          <p className={s.noPlanText}>
+            Con Support Inside entramos dentro de tus servicios para mantenerlos
+            a punto cada mes, con respuesta prioritaria y un técnico que ya
+            conoce tu negocio. Tú te centras en crecer.
+          </p>
+        </div>
+        <ul className={s.noPlanBullets}>
+          {[
+            'Mantenimiento mensual incluido',
+            'Respuesta prioritaria garantizada',
+            'Siempre una persona real, nunca un bot',
+          ].map((b) => (
+            <li key={b} className={s.noPlanBullet}>
+              <span className={s.noPlanBulletIcon}>
+                <Check size={14} strokeWidth={2.4} aria-hidden />
+              </span>
+              {b}
+            </li>
+          ))}
+        </ul>
       </div>
 
-      <div className={s.compare}>
-        {plans.map((plan) => (
-          <PlanCard
-            key={plan.id}
-            plan={plan}
-            cycle={cycle}
-            featured={plan.slug === featuredSlug}
-            disabled={submitting}
-            onSelect={() => goToCheckout(plan)}
-          />
-        ))}
-      </div>
+      <PlanComparator
+        plans={plans}
+        cycle={cycle}
+        onCycleChange={setCycle}
+        currentProductId={null}
+        hasPlan={false}
+        submitting={submitting}
+        onSelectPlan={goToCheckout}
+        title="Elige tu plan de cuidado"
+        intro="Soporte humano, mantenimiento mensual y canales prioritarios. Elige el que mejor encaja contigo."
+      />
     </div>
   );
 }
 
 /* ── Subcomponentes ── */
-
-function PlanCard({
-  plan,
-  cycle,
-  featured,
-  disabled,
-  onSelect,
-}: {
-  plan: SupportInsidePublicPlan;
-  cycle: 'monthly' | 'yearly';
-  featured: boolean;
-  disabled: boolean;
-  onSelect: () => void;
-}) {
-  const features = useMemo(() => buildPlanFeatures(plan), [plan]);
-  const target = cycle === 'yearly' ? plan.pricing.yearly : plan.pricing.monthly;
-
-  return (
-    <div className={`${s.planCard} ${featured ? s.planCardFeatured : ''}`}>
-      {plan.badge_text && (
-        <span className={s.planBadge}>{plan.badge_text}</span>
-      )}
-      <h2 className={s.planName}>{plan.name}</h2>
-      <p className={s.planTagline}>{plan.short_description}</p>
-
-      {target ? (
-        <>
-          <div className={s.priceBlock}>
-            <span className={s.priceAmount}>
-              {fmtCurrency(target.price, target.currency)}
-            </span>
-            <span className={s.priceCycle}>
-              /{cycle === 'monthly' ? 'mes' : 'año'}
-            </span>
-          </div>
-          {cycle === 'yearly' && (
-            <p className={s.yearlyHint}>
-              Equivalente a {fmtCurrency(Number(target.price) / 12, target.currency)}/mes
-            </p>
-          )}
-          {cycle === 'monthly' && (
-            <p className={s.yearlyHint}>Sin permanencia. Cancela cuando quieras.</p>
-          )}
-        </>
-      ) : (
-        <p className={s.yearlyHint}>Precio no disponible en este ciclo.</p>
-      )}
-
-      <ul className={s.featureList}>
-        {features.map((f) => (
-          <li key={f} className={s.featureItem}>
-            <CheckIcon />
-            <span>{f}</span>
-          </li>
-        ))}
-      </ul>
-
-      <div className={s.planFooter}>
-        <Button
-          fullWidth
-          variant={featured ? 'primary' : 'secondary'}
-          disabled={!target || disabled}
-          onClick={onSelect}
-        >
-          Suscribirme
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 /**
  * AssignSlotForm — Sub-fase 8.D.12.8
