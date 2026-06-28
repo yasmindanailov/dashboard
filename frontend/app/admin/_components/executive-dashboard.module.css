@@ -1,0 +1,403 @@
+/* ExecutiveDashboard — landing /admin (F3·E7), 1:1 con admin/Inicio.dc.html.
+   Tokens del DS (R16); las primitivas (IconWell/Avatar/StatusDot) traen su color. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Cabecera ── */
+.header {
+  margin-bottom: 2px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 7px;
+}
+
+.title {
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ── Fila de KPIs ── */
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+
+.kpiCard {
+  display: block;
+  text-align: left;
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl, 16px);
+  padding: 20px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.kpiCard:hover {
+  border-color: var(--border-strong, #cbd5e1);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.kpiHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.kpiLabel {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.kpiValue {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.kpiValueUnit {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.kpiDelta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.deltaUp {
+  color: var(--success);
+}
+
+.deltaDown {
+  color: var(--danger);
+}
+
+.kpiSubMuted,
+.kpiSubDanger,
+.kpiSubWarn {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.kpiSubMuted {
+  color: var(--text-tertiary);
+}
+
+.kpiSubDanger {
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.kpiSubWarn {
+  margin-top: 8px;
+  font-weight: 600;
+  color: var(--warning-hover);
+}
+
+/* ── Grid de las dos columnas ── */
+.grid {
+  display: grid;
+  grid-template-columns: 1.62fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.card {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl, 16px);
+  padding: 20px 22px;
+}
+
+.cardHead {
+  margin-bottom: 4px;
+}
+
+.cardHeadTitle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.cardSub {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  margin: 4px 0 6px;
+}
+
+.countBadge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--radius-full);
+  background: var(--danger-light);
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Feed "Requiere tu decisión" ── */
+.feed {
+  display: flex;
+  flex-direction: column;
+}
+
+.decisionRow {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 0;
+  border-top: 1px solid var(--surface-tertiary);
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.15s ease;
+}
+
+.decisionRow:hover {
+  opacity: 0.78;
+}
+
+.decisionBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.decisionTitle {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.decisionDetail {
+  display: block;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.decisionAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.chevron {
+  color: var(--border-strong, #cbd5e1);
+}
+
+/* ── Carga del equipo ── */
+.team {
+  display: flex;
+  flex-direction: column;
+  margin-top: 2px;
+}
+
+.teamRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 0;
+  border-top: 1px solid var(--surface-tertiary);
+}
+
+.teamAvatar {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.presence {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: inline-flex;
+  padding: 2px;
+  background: var(--surface-primary);
+  border-radius: var(--radius-full);
+}
+
+.teamBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.teamLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.teamName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.teamRole {
+  font-weight: 500;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.teamCount {
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.count_high {
+  color: var(--warning-hover);
+}
+
+.count_mid {
+  color: var(--brand);
+}
+
+.count_low {
+  color: var(--text-secondary);
+}
+
+/* ── Barra minimalista (SLA + saturación) ── */
+.barTrack {
+  display: block;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--surface-tertiary);
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  width: var(--bar-w, 0%);
+  border-radius: var(--radius-full);
+}
+
+.bar_sla {
+  background: var(--success);
+}
+
+.bar_high {
+  background: var(--warning);
+}
+
+.bar_mid {
+  background: var(--brand);
+}
+
+.bar_low {
+  background: var(--text-tertiary);
+}
+
+/* ── Aviso de sobrecarga + botón reasignar ── */
+.warnCallout {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  background: var(--warning-light);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-lg);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--warning-dark);
+}
+
+.warnIcon {
+  color: var(--warning-hover);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.reassignBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.reassignBtn:hover {
+  background: var(--surface-primary);
+  color: var(--text-primary);
+}
+
+/* ── Responsive ── */
+@media (max-width: 1100px) {
+  .kpiRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .kpiRow {
+    grid-template-columns: 1fr;
+  }
+}
