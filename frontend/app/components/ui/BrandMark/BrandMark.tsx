@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 import styles from './BrandMark.module.css';
 
 export interface BrandMarkProps {
@@ -7,6 +9,14 @@ export interface BrandMarkProps {
   withWordmark?: boolean;
   /** Versión monocroma (hereda `currentColor`) en vez de la bicolor de marca. */
   mono?: boolean;
+  /**
+   * Reproduce la animación de entrada **«01 · Ensamblaje»** del mockup vivo
+   * (`LogotipoAnimado.dc.html`): los dos rombos convergen desde los lados, una
+   * sola vez al montar (CSS puro, sin JS). Pensado para el logo del shell y del
+   * login «al entrar a la página». Respeta `prefers-reduced-motion` (aparece sin
+   * desplazamiento). Úsalo con la versión bicolor de marca (no con `mono`).
+   */
+  intro?: boolean;
   className?: string;
   'aria-label'?: string;
 }
@@ -22,6 +32,7 @@ export function BrandMark({
   size = 28,
   withWordmark = false,
   mono = false,
+  intro = false,
   className = '',
   ...aria
 }: BrandMarkProps) {
@@ -33,15 +44,24 @@ export function BrandMark({
   const back = mono ? 'currentColor' : '#BFDBFE';
   const front = mono ? 'currentColor' : '#3B82F6';
 
+  // Distancia de deslizamiento del Ensamblaje, proporcional al tamaño.
+  const markStyle = {
+    width: size,
+    height: size,
+    ...(intro ? { '--bm-assemble-shift': `${Math.round(size * 0.85)}px` } : {}),
+  } as CSSProperties;
+  const backCls = intro ? `${styles.diamond} ${styles.introBack}` : styles.diamond;
+  const frontCls = intro ? `${styles.diamond} ${styles.introFront}` : styles.diamond;
+
   return (
     <span className={`${styles.lockup} ${className}`} aria-label={aria['aria-label'] ?? 'aelium'}>
-      <span className={styles.mark} style={{ width: size, height: size }} aria-hidden="true">
+      <span className={styles.mark} style={markStyle} aria-hidden="true">
         <span
-          className={styles.diamond}
+          className={backCls}
           style={{ left: 0, top, width: d, height: d, borderRadius: radius, background: back, opacity: mono ? 0.45 : 1 }}
         />
         <span
-          className={styles.diamond}
+          className={frontCls}
           style={{ left: off, top, width: d, height: d, borderRadius: radius, background: front }}
         />
       </span>

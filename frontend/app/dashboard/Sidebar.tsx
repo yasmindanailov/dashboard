@@ -44,7 +44,7 @@ export default function Sidebar({
     <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
       <div className={styles.logoArea}>
         <Link href="/dashboard" className={styles.logoLink} onClick={onMobileClose} aria-label="Inicio del portal">
-          <BrandMark size={30} />
+          <BrandMark size={30} intro />
           {!collapsed && <PortalBadge variant={portalForRole(roleSlug)} logo="aelium" />}
         </Link>
       </div>

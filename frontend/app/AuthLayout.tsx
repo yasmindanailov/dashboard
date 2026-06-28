@@ -31,7 +31,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
         <GradientMesh />
         <div className={styles.auroraBrand}>
           <div className={styles.brandCard}>
-            <BrandMark withWordmark size={34} aria-label="Aelium" />
+            <BrandMark withWordmark size={34} intro aria-label="Aelium" />
           </div>
           <p className={styles.brandSlogan}>Tu socio digital, a tu lado</p>
         </div>
@@ -42,7 +42,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
         <div className={styles.formContainer}>
           {/* Mobile logo (only visible <1024px) */}
           <div className={styles.mobileLogo}>
-            <BrandMark withWordmark size={28} aria-label="Aelium" />
+            <BrandMark withWordmark size={28} intro aria-label="Aelium" />
           </div>
 
           {children}

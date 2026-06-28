@@ -151,13 +151,27 @@ añadir entrada en el índice de ADRs/decisiones, citar en commits que lo usen.
 
 ---
 
-## 6. F1d — Marca · rama `redesign/f1d-marca`
+## 6. F1d — Marca · ✅ HECHO (ramas `redesign/f1cd-marca` + `redesign/f1d-favicon-loader`)
 
-| # | Tarea | Detalle |
-|---|---|---|
-| F1d.1 | Exportar SVGs de marca | Isotipo bicolor (dos rombos), lockup horizontal, reverso, app-icon, **favicon** — de `Logotipo.dc.html`. Reemplaza `public/brand/*.svg` (`#4b77bb`) |
-| F1d.2 | `BrandMark` en shells | Sustituir el placeholder "A" de `Sidebar.tsx:189` y `AdminSidebar.tsx:294` |
-| F1d.3 | **Loader animado** (D-8) | Implementar la animación de `LogotipoAnimado.dc.html` como componente reutilizable (splash/loader, transiciones, estados de carga) |
+> **✅ F1d CÓDIGO-COMPLETO.** `BrandMark` + variantes + Amendment D10 se cerraron en
+> `redesign/f1cd-marca` (merge #136). El cabo suelto (favicon + logo animado) se
+> cierra en `redesign/f1d-favicon-loader` (2026-06-27). Detalle:
+> [`ui-redesign-bitacora-f1d-2026-06-27.md`](./ui-redesign-bitacora-f1d-2026-06-27.md).
+> **Redefinición Yasmin (2026-06-27):** el «loader animado» **no** es un spinner —
+> es la **animación de entrada del logo** (modelo «01 · Ensamblaje») al cargar la
+> página, en logo de dashboard + login. El loading se queda con el **skeleton**
+> existente.
+
+| # | Tarea | Detalle | Estado |
+|---|---|---|---|
+| F1d.1 | Favicon de marca | `app/icon.svg` (isotipo, trazado de `BrandMark`, viewBox 32 centrado) + `app/apple-icon.tsx` (ImageResponse PNG 180 iOS) + `git rm` del `favicon.ico` default de Next. Verificado Playwright (16-96px claro/oscuro; `<head>` correcto) | ✅ |
+| F1d.2 | `BrandMark` en shells | Placeholder "A" → `BrandMark` en `Sidebar.tsx` / `AdminSidebar.tsx` | ✅ (#136) |
+| F1d.3 | **Animación de entrada del logo** «01 · Ensamblaje» | Prop opt-in `intro` en `BrandMark` (one-shot al montar, CSS puro, `prefers-reduced-motion`, slide ∝ size). Cableado: login (`AuthLayout` desktop+móvil) + shells (`Sidebar`/`AdminSidebar`) + demo en `ds-preview`. **Reconciliación F2:** re-aplicar `intro` a los 2 logos de shell al mergear F2 (conflicto trivial) | ✅ |
+
+> **Cabo suelto menor (no bloquea F1d):** `frontend/public/brand/*.svg` (3 ficheros
+> `#4b77bb` del logo viejo) están **huérfanos** (cero referencias; `BrandMark` los
+> sustituyó). Borrarlos o exportar los SVG de marca nuevos (lockup/reverso) es una
+> limpieza aparte — fuera del scope favicon+animación.
 
 ---
 
