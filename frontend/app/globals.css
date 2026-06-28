@@ -37,6 +37,11 @@
   --info:            #3B82F6;
   --info-light:      rgba(59, 130, 246, 0.08);
   --info-border:     rgba(59, 130, 246, 0.15);
+  /* Seguridad (F3·E10): violeta del mockup para notificaciones de seguridad
+     (nameservers/lock/sesión comprometida). Tono `security` del IconWell. */
+  --security:        #7C5CCB;
+  --security-light:  #F1ECFB;
+  --security-border: rgba(124, 92, 203, 0.15);
 
   /* ── Superficies ── */
   --surface-primary:   #FFFFFF;

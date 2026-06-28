@@ -22,6 +22,7 @@ import {
   Toggle,
   IconWell,
   SegmentedControl,
+  ChipGroup,
   PasswordStrengthMeter,
   NotificationRow,
   OTPInput,
@@ -93,6 +94,7 @@ export default function DesignSystemPreview() {
   const [_tableLoading, _setTableLoading] = useState(false);
   const [toggleOn, setToggleOn] = useState(true);
   const [segMode, setSegMode] = useState('name');
+  const [chipCat, setChipCat] = useState('');
   const [otp, setOtp] = useState('');
   const [introKey, setIntroKey] = useState(0);
   const { toast, toastUndo } = useToast();
@@ -185,6 +187,7 @@ export default function DesignSystemPreview() {
           <IconWell icon={CheckCircle2} tone="success" />
           <IconWell icon={AlertTriangle} tone="warning" />
           <IconWell icon={Bell} tone="danger" />
+          <IconWell icon={Shield} tone="security" />
           <IconWell icon={Wrench} tone="neutral" />
         </Row>
         <Row label="Tamaños">
@@ -205,6 +208,24 @@ export default function DesignSystemPreview() {
             value={segMode}
             onChange={setSegMode}
             aria-label="Modo de búsqueda"
+          />
+        </Row>
+      </Section>
+
+      {/* ── ChipGroup (F3·E10) ── */}
+      <Section title="ChipGroup">
+        <Row>
+          <ChipGroup
+            options={[
+              { value: '', label: 'Todas' },
+              { value: 'facturacion', label: 'Facturación' },
+              { value: 'servicios', label: 'Servicios' },
+              { value: 'dominios', label: 'Dominios' },
+              { value: 'seguridad', label: 'Seguridad' },
+            ]}
+            value={chipCat}
+            onChange={setChipCat}
+            aria-label="Filtro por categoría"
           />
         </Row>
       </Section>
