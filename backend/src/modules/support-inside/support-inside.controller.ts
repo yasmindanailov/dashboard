@@ -61,6 +61,19 @@ export class SupportInsideController {
     return this.service.getStatus(req.user.id);
   }
 
+  @Get('slots/:id/maintenance-history')
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.SupportInside))
+  @ApiOperation({
+    summary:
+      'Histórico de mantenimientos de un slot (resumen + técnico + tareas hechas) — F3·E8',
+  })
+  getMaintenanceHistory(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.getMaintenanceHistory(req.user.id, id);
+  }
+
   @Get('eligible-services')
   @CheckPolicies((ability) => ability.can(Action.Update, Subject.SupportInside))
   @ApiOperation({

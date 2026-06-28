@@ -35,7 +35,7 @@ function clampAnniversary(day: number): number {
 }
 
 /** ¿Caen ambas fechas en el mismo mes/año UTC? */
-function sameUtcMonth(a: Date, b: Date): boolean {
+export function sameUtcMonth(a: Date, b: Date): boolean {
   return (
     a.getUTCFullYear() === b.getUTCFullYear() &&
     a.getUTCMonth() === b.getUTCMonth()
