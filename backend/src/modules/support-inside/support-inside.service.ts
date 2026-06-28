@@ -746,7 +746,13 @@ export class SupportInsideService {
       : null;
     const slots = await this.enrichSlotsMaintenance(subscription.slots, now);
 
-    return { ...subscription, technician, slots };
+    // F3·E8 — total de mantenimientos hechos (value-stat "El valor que te
+    // aporta"). Count barato sobre el índice (client_id).
+    const maintenance_count = await this.prisma.maintenanceLog.count({
+      where: { client_id: userId },
+    });
+
+    return { ...subscription, technician, slots, maintenance_count };
   }
 
   /**

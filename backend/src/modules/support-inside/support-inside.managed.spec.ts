@@ -55,12 +55,14 @@ describe('SupportInsideService — gestionado F3·E8', () => {
               performed_at: new Date('2026-05-14T06:30:00.000Z'),
             },
           ]),
+          count: jest.fn().mockResolvedValue(3),
         },
         task: { findMany: jest.fn().mockResolvedValue([]) },
       });
 
       const result = (await service.getStatus('client-1')) as unknown as {
         technician: { id: string; presence: string } | null;
+        maintenance_count: number;
         slots: Array<{
           last_maintenance_at: string | null;
           next_maintenance_at: string;
@@ -71,6 +73,7 @@ describe('SupportInsideService — gestionado F3·E8', () => {
       expect(result.technician).toEqual(
         expect.objectContaining({ id: 'tech-1', presence: 'online' }),
       );
+      expect(result.maintenance_count).toBe(3);
       const slot = result.slots[0];
       expect(slot.last_maintenance_at).toBe('2026-05-14T06:30:00.000Z');
       expect(slot.next_maintenance_at).toMatch(/T06:00:00\.000Z$/);
@@ -100,6 +103,7 @@ describe('SupportInsideService — gestionado F3·E8', () => {
             slots: [],
           }),
         },
+        maintenanceLog: { count: jest.fn().mockResolvedValue(0) },
       });
       const result = (await service.getStatus('client-1')) as unknown as {
         technician: unknown;
