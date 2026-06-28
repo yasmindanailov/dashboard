@@ -139,10 +139,18 @@ export interface SupportInsideSubscriptionPayload {
     next_due_date: string | null;
   };
   slots: SupportInsideSlotPayload[];
-  // F3·E8 — "tu técnico" (con presencia) + total de mantenimientos hechos.
+  // F3·E8 — "tu técnico" (con presencia) + value-stats "El valor que te aporta".
   assigned_technician_id?: string | null;
   technician?: SupportInsideTechnician | null;
   maintenance_count?: number;
+  avg_first_response_minutes?: number | null;
+  recent_maintenances?: Array<{
+    id: string;
+    month_year: string;
+    summary: string;
+    performed_at: string;
+    service_name: string;
+  }>;
 }
 
 export interface SupportInsideAdminPlanRow {

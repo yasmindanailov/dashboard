@@ -746,13 +746,65 @@ export class SupportInsideService {
       : null;
     const slots = await this.enrichSlotsMaintenance(subscription.slots, now);
 
-    // F3·E8 — total de mantenimientos hechos (value-stat "El valor que te
-    // aporta"). Count barato sobre el índice (client_id).
-    const maintenance_count = await this.prisma.maintenanceLog.count({
-      where: { client_id: userId },
-    });
+    // F3·E8 — sección "El valor que te aporta": total de mantenimientos,
+    // tiempo medio real de 1ª respuesta del cliente, y los últimos
+    // mantenimientos (timeline). Lecturas display-only (datos del cliente).
+    const [maintenance_count, recentLogs, respondedConvos] = await Promise.all([
+      this.prisma.maintenanceLog.count({ where: { client_id: userId } }),
+      this.prisma.maintenanceLog.findMany({
+        where: { client_id: userId },
+        orderBy: { performed_at: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          month_year: true,
+          client_facing_notes: true,
+          performed_at: true,
+          service: {
+            select: {
+              label: true,
+              domain: true,
+              product: { select: { name: true } },
+            },
+          },
+        },
+      }),
+      // Lectura cross-módulo legítima (conversaciones del propio cliente,
+      // solo para el agregado "tiempo medio de respuesta").
+      this.prisma.conversation.findMany({
+        where: { user_id: userId, first_response_at: { not: null } },
+        select: { created_at: true, first_response_at: true },
+      }),
+    ]);
 
-    return { ...subscription, technician, slots, maintenance_count };
+    let avg_first_response_minutes: number | null = null;
+    if (respondedConvos.length > 0) {
+      const totalMin = respondedConvos.reduce(
+        (sum, c) =>
+          sum +
+          (c.first_response_at!.getTime() - c.created_at.getTime()) / 60000,
+        0,
+      );
+      avg_first_response_minutes = Math.round(totalMin / respondedConvos.length);
+    }
+
+    const recent_maintenances = recentLogs.map((log) => ({
+      id: log.id,
+      month_year: log.month_year,
+      summary: log.client_facing_notes,
+      performed_at: log.performed_at.toISOString(),
+      service_name:
+        log.service.label || log.service.domain || log.service.product.name,
+    }));
+
+    return {
+      ...subscription,
+      technician,
+      slots,
+      maintenance_count,
+      avg_first_response_minutes,
+      recent_maintenances,
+    };
   }
 
   /**

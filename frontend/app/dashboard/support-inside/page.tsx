@@ -11,7 +11,7 @@ import type {
   PlanChangePreview,
 } from '../../lib/api';
 import { fmtCurrency } from '../../_shared/billing/invoice-status-map';
-import { Badge, Button, Modal, Select, Skeleton, useToast } from '../../components/ui';
+import { Button, Modal, Select, Skeleton, useToast } from '../../components/ui';
 import {
   addSlotAction,
   cancelSupportInsideAction,
@@ -21,6 +21,8 @@ import {
   releaseSlotAction,
   upgradeSupportInsideAction,
 } from './_actions';
+import { ManagedView } from './_components/ManagedView';
+import MaintenanceHistoryModal from './_components/MaintenanceHistoryModal';
 import s from './page.module.css';
 
 /* ═══════════════════════════════════════
@@ -115,6 +117,11 @@ export default function SupportInsidePage() {
   const [planPreview, setPlanPreview] = useState<PlanChangePreview | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [changing, setChanging] = useState(false);
+  // F3·E8 — modal "Ver mantenimientos" (histórico por slot).
+  const [historySlot, setHistorySlot] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -308,14 +315,35 @@ export default function SupportInsidePage() {
           </p>
         </header>
 
-        <ManagementView
+        <ManagedView
           subscription={subscription}
           submitting={submitting}
           onReleaseSlot={releaseSlot}
           onAssignSlot={openAssignSlot}
-          onCancel={() => setConfirmCancel(true)}
-          onChangePlan={openChangePlan}
+          onViewHistory={(id, name) => setHistorySlot({ id, name })}
           onGoBilling={() => router.push('/dashboard/billing')}
+        />
+
+        {/* Acciones de plan — C2c lo reskineará al comparador siempre-visible
+            + danger zone del mockup. De momento preserva la funcionalidad. */}
+        <div className={s.planActions}>
+          <Button variant="secondary" size="sm" onClick={openChangePlan}>
+            Cambiar de plan
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setConfirmCancel(true)}
+            disabled={submitting}
+          >
+            Cancelar plan
+          </Button>
+        </div>
+
+        <MaintenanceHistoryModal
+          slotId={historySlot?.id ?? null}
+          serviceName={historySlot?.name}
+          onClose={() => setHistorySlot(null)}
         />
 
         <Modal
@@ -551,211 +579,6 @@ function PlanCard({
           Suscribirme
         </Button>
       </div>
-    </div>
-  );
-}
-
-function ManagementView({
-  subscription,
-  submitting,
-  onReleaseSlot,
-  onAssignSlot,
-  onCancel,
-  onChangePlan,
-  onGoBilling,
-}: {
-  subscription: SupportInsideSubscriptionPayload;
-  submitting: boolean;
-  onReleaseSlot: (slotId: string) => void;
-  onAssignSlot: () => void;
-  onCancel: () => void;
-  onChangePlan: () => void;
-  onGoBilling: () => void;
-}) {
-  const cfg = subscription.product.support_inside_config;
-  const activeSlots = subscription.slots.filter((sl) => !sl.released_at);
-  const includedActive = activeSlots.filter((sl) => !sl.is_extra).length;
-  const includedTotal = cfg?.slots_included ?? 0;
-  const channels = cfg?.channels_active ?? [];
-
-  return (
-    <div className={s.layout}>
-      <div>
-        <section className={s.cardSection}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: 'var(--space-3)',
-              marginBottom: 'var(--space-2)',
-            }}
-          >
-            <div style={{ flex: 1 }}>
-              <h2 className={s.sectionTitle}>Slots activos</h2>
-              <p className={s.sectionDescription}>
-                Cada slot cubre el mantenimiento mensual de un servicio. Puedes
-                asignar nuevos a tus servicios activos o liberar los actuales.
-              </p>
-            </div>
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={submitting}
-              onClick={onAssignSlot}
-            >
-              Asignar slot
-            </Button>
-          </div>
-          <div className={s.statRow}>
-            <div className={s.stat}>
-              <span className={s.statLabel}>Incluidos</span>
-              <span className={s.statValue}>
-                {includedActive} / {includedTotal}
-              </span>
-            </div>
-            <div className={s.stat}>
-              <span className={s.statLabel}>Total activos</span>
-              <span className={s.statValue}>{activeSlots.length}</span>
-            </div>
-            {cfg && Number(cfg.extra_slot_price) > 0 && (
-              <div className={s.stat}>
-                <span className={s.statLabel}>Slot extra</span>
-                <span className={s.statValue}>
-                  {fmtCurrency(cfg.extra_slot_price)}/mes
-                </span>
-              </div>
-            )}
-          </div>
-          <div className={s.slotList} style={{ marginTop: 'var(--space-4)' }}>
-            {activeSlots.length === 0 ? (
-              <p className={s.slotEmpty}>
-                Aún no tienes slots asignados. Ve a &laquo;Mis servicios&raquo; para activar
-                el mantenimiento Support Inside en uno de ellos.
-              </p>
-            ) : (
-              activeSlots.map((sl) => (
-                <div key={sl.id} className={s.slotItem}>
-                  <div className={s.slotMain}>
-                    <span className={s.slotTitle}>
-                      {sl.service?.label ||
-                        sl.service?.domain ||
-                        sl.service?.product.name ||
-                        'Servicio'}
-                    </span>
-                    <span className={s.slotMeta}>
-                      {SLOT_TYPE_LABELS[sl.slot_type] ?? sl.slot_type}
-                      {sl.is_extra ? ' · Extra' : ''}
-                    </span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={submitting}
-                    onClick={() => onReleaseSlot(sl.id)}
-                  >
-                    Liberar
-                  </Button>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className={s.cardSection}>
-          <h2 className={s.sectionTitle}>Tu plan</h2>
-          <p className={s.sectionDescription}>
-            {subscription.product.short_description}
-          </p>
-          <div className={s.statRow}>
-            <div className={s.stat}>
-              <span className={s.statLabel}>Plan</span>
-              <span className={s.statValue}>{subscription.product.name}</span>
-            </div>
-            {cfg && (
-              <>
-                <div className={s.stat}>
-                  <span className={s.statLabel}>Prioridad</span>
-                  <span className={s.statValue}>
-                    {PRIORITY_LABELS[cfg.priority_tier] ?? cfg.priority_tier}
-                  </span>
-                </div>
-                <div className={s.stat}>
-                  <span className={s.statLabel}>SLA</span>
-                  <span className={s.statValue}>
-                    {cfg.response_sla_hours}h
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-          <div className={s.channelList}>
-            {channels.map((c) => (
-              <span key={c} className={s.channelChip}>
-                {CHANNEL_LABELS[c]}
-              </span>
-            ))}
-          </div>
-          <div className={s.dangerActions}>
-            <p className={s.dangerHint}>
-              Cambia de plan cuando quieras: aplicamos el prorrateo de los días
-              no usados como crédito (sin devolución de dinero).
-            </p>
-            <Button variant="secondary" size="sm" onClick={onChangePlan}>
-              Cambiar de plan
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={onCancel}
-              disabled={submitting}
-            >
-              Cancelar plan
-            </Button>
-          </div>
-        </section>
-      </div>
-
-      <aside>
-        <section className={s.cardSection}>
-          <h2 className={s.sectionTitle}>Estado</h2>
-          <p className={s.sectionDescription}>
-            Tu suscripción Support Inside está activa.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <Badge variant="success">Activa</Badge>
-            <span className={s.slotMeta}>
-              Inicio:{' '}
-              {new Intl.DateTimeFormat('es-ES', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-              }).format(new Date(subscription.started_at))}
-            </span>
-            {subscription.service.next_due_date && (
-              <span className={s.slotMeta}>
-                Próximo cargo:{' '}
-                {new Intl.DateTimeFormat('es-ES', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                }).format(new Date(subscription.service.next_due_date))}
-              </span>
-            )}
-          </div>
-        </section>
-
-        <section className={s.cardSection}>
-          <h2 className={s.sectionTitle}>¿Necesitas ayuda?</h2>
-          <p className={s.sectionDescription}>
-            Si tienes dudas sobre tu plan o quieres añadir un slot extra,
-            contáctanos desde la sección de Soporte.
-          </p>
-          <Button variant="secondary" size="sm" fullWidth onClick={onGoBilling}>
-            Ir a Mis facturas
-          </Button>
-        </section>
-      </aside>
     </div>
   );
 }

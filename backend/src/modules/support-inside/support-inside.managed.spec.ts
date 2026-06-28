@@ -49,20 +49,40 @@ describe('SupportInsideService — gestionado F3·E8', () => {
           findUnique: jest.fn().mockResolvedValue(subscription),
         },
         maintenanceLog: {
+          // Objeto combinado: satisface enrichSlots (service_id+performed_at)
+          // y el bloque "recent" (id+month_year+notes+service).
           findMany: jest.fn().mockResolvedValue([
             {
+              id: 'log-1',
               service_id: 'svc-1',
+              month_year: '2026-05',
+              client_facing_notes: 'WordPress actualizado.',
               performed_at: new Date('2026-05-14T06:30:00.000Z'),
+              service: {
+                label: 'Mi web',
+                domain: null,
+                product: { name: 'Web Pro' },
+              },
             },
           ]),
           count: jest.fn().mockResolvedValue(3),
         },
         task: { findMany: jest.fn().mockResolvedValue([]) },
+        conversation: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              created_at: new Date('2026-06-14T10:00:00.000Z'),
+              first_response_at: new Date('2026-06-14T11:00:00.000Z'),
+            },
+          ]),
+        },
       });
 
       const result = (await service.getStatus('client-1')) as unknown as {
         technician: { id: string; presence: string } | null;
         maintenance_count: number;
+        avg_first_response_minutes: number | null;
+        recent_maintenances: Array<{ service_name: string }>;
         slots: Array<{
           last_maintenance_at: string | null;
           next_maintenance_at: string;
@@ -74,6 +94,9 @@ describe('SupportInsideService — gestionado F3·E8', () => {
         expect.objectContaining({ id: 'tech-1', presence: 'online' }),
       );
       expect(result.maintenance_count).toBe(3);
+      // 1 conversación: 10:00 → 11:00 = 60 min.
+      expect(result.avg_first_response_minutes).toBe(60);
+      expect(result.recent_maintenances[0].service_name).toBe('Mi web');
       const slot = result.slots[0];
       expect(slot.last_maintenance_at).toBe('2026-05-14T06:30:00.000Z');
       expect(slot.next_maintenance_at).toMatch(/T06:00:00\.000Z$/);
@@ -103,7 +126,11 @@ describe('SupportInsideService — gestionado F3·E8', () => {
             slots: [],
           }),
         },
-        maintenanceLog: { count: jest.fn().mockResolvedValue(0) },
+        maintenanceLog: {
+          count: jest.fn().mockResolvedValue(0),
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+        conversation: { findMany: jest.fn().mockResolvedValue([]) },
       });
       const result = (await service.getStatus('client-1')) as unknown as {
         technician: unknown;
