@@ -221,11 +221,22 @@
   color: var(--warning-dark);
   line-height: var(--line-height-relaxed);
 }
+/* Plan máximo: cobertura completa (tono success, no upsell). */
+.slotsFullOk {
+  border-color: var(--success-border);
+  background: var(--success-light);
+}
+.slotsFullOk .slotsFullTitle {
+  color: var(--success);
+}
+.slotsFullOk .slotsFullText {
+  color: var(--text-secondary);
+}
 
 /* ── Canales ── */
 .channelsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: var(--space-3);
 }
 .channelCard {
@@ -237,10 +248,47 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
 }
+.channelCardOff {
+  background: var(--surface-secondary);
+  border-color: var(--border-subtle, var(--border));
+}
+.channelBody {
+  flex: 1;
+  min-width: 0;
+}
 .channelName {
+  display: block;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
+}
+.channelSub {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
+.channelTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.channelTag_active {
+  background: var(--success-light);
+  color: var(--success);
+}
+.channelTag_soon {
+  background: var(--warning-light);
+  color: var(--warning-hover);
+}
+.channelTag_off {
+  background: var(--surface-tertiary);
+  color: var(--text-tertiary);
 }
 
 /* ── Value-stats ── */

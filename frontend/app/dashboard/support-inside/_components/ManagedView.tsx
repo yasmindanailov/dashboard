@@ -1,11 +1,23 @@
 'use client';
 
-import { Plus, Wrench, Clock, MessageSquare, Mail, Phone, ShieldCheck, CreditCard, type LucideIcon } from 'lucide-react';
+import {
+  Plus,
+  Wrench,
+  Clock,
+  MessageSquare,
+  MessageCircle,
+  Mail,
+  Phone,
+  ShieldCheck,
+  CreditCard,
+  type LucideIcon,
+} from 'lucide-react';
 import { Button, IconWell } from '../../../components/ui';
 import { TechnicianCard } from '../../../_shared/support-inside/TechnicianCard';
 import { MaintenanceSlotCard } from '../../../_shared/support-inside/MaintenanceSlotCard';
 import type {
   SupportInsideSubscriptionPayload,
+  SupportInsidePublicPlan,
   SupportInsideChannel,
 } from '../../../lib/api';
 import s from './ManagedView.module.css';
@@ -22,15 +34,32 @@ const SLOT_TYPE_LABELS: Record<string, string> = {
   maintenance_management: 'Mantenimiento + gestión',
 };
 
+const CHANNEL_ORDER: SupportInsideChannel[] = [
+  'webchat',
+  'email',
+  'phone',
+  'whatsapp',
+];
 const CHANNEL_META: Record<
   SupportInsideChannel,
-  { label: string; icon: LucideIcon }
+  { label: string; sub: string; icon: LucideIcon }
 > = {
-  webchat: { label: 'Chat web', icon: MessageSquare },
-  email: { label: 'Email', icon: Mail },
-  phone: { label: 'Teléfono', icon: Phone },
-  whatsapp: { label: 'WhatsApp', icon: MessageSquare },
+  webchat: { label: 'Chat en la app', sub: 'Escribe al instante', icon: MessageSquare },
+  email: { label: 'Email', sub: 'Por correo', icon: Mail },
+  phone: { label: 'Teléfono', sub: 'Llamada directa', icon: Phone },
+  whatsapp: { label: 'WhatsApp', sub: 'Al móvil', icon: MessageCircle },
 };
+
+/** Plan más bajo (por order_index) cuyo config incluye el canal `c`. */
+function lowestPlanWithChannel(
+  plans: SupportInsidePublicPlan[],
+  c: SupportInsideChannel,
+): string | null {
+  const found = [...plans]
+    .sort((a, b) => a.order_index - b.order_index)
+    .find((p) => p.config?.channels_active.includes(c));
+  return found?.name ?? null;
+}
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -62,6 +91,8 @@ function formatMinutes(min: number | null | undefined): string {
 
 export interface ManagedViewProps {
   subscription: SupportInsideSubscriptionPayload;
+  /** Catálogo de planes — para estado de canales + upsell coherente. */
+  plans: SupportInsidePublicPlan[];
   submitting: boolean;
   onReleaseSlot: (slotId: string) => void;
   onAssignSlot: () => void;
@@ -71,6 +102,7 @@ export interface ManagedViewProps {
 
 export function ManagedView({
   subscription,
+  plans,
   submitting,
   onReleaseSlot,
   onAssignSlot,
@@ -84,6 +116,34 @@ export function ManagedView({
   const hasFreeSlot = slotsUsed < includedTotal;
   const channels = cfg?.channels_active ?? [];
   const recent = subscription.recent_maintenances ?? [];
+  const extraSlotPrice = cfg ? Number(cfg.extra_slot_price) : 0;
+
+  // ¿Existe un plan superior (más slots de los incluidos en el actual)?
+  const hasHigherPlan = plans.some(
+    (p) => (p.config?.slots_included ?? 0) > includedTotal,
+  );
+
+  // Canales: TODOS los que ofrece algún plan, con su estado (Activo /
+  // Próximamente para WhatsApp / "desde el plan X" si no entra en el tuyo).
+  const channelRows = CHANNEL_ORDER.filter((c) =>
+    plans.some((p) => p.config?.channels_active.includes(c)),
+  ).map((c) => {
+    const inPlan = channels.includes(c);
+    const meta = CHANNEL_META[c];
+    const isWhatsapp = c === 'whatsapp';
+    let tag: string;
+    let state: 'active' | 'soon' | 'off';
+    if (inPlan) {
+      // WhatsApp aún no está operativo (E14 diferido) → "Próximamente".
+      state = isWhatsapp ? 'soon' : 'active';
+      tag = isWhatsapp ? 'Próximamente' : 'Activo';
+    } else {
+      state = 'off';
+      const plan = lowestPlanWithChannel(plans, c);
+      tag = plan ? `Plan ${plan}` : 'No disponible';
+    }
+    return { key: c, meta, tag, state, inPlan };
+  });
 
   return (
     <div className={s.root}>
@@ -168,7 +228,7 @@ export function ManagedView({
             );
           })}
 
-          {hasFreeSlot ? (
+          {hasFreeSlot && (
             <button
               type="button"
               className={s.emptySlot}
@@ -186,8 +246,11 @@ export function ManagedView({
                 </span>
               </span>
             </button>
-          ) : (
-            includedTotal > 0 && (
+          )}
+
+          {!hasFreeSlot &&
+            includedTotal > 0 &&
+            (hasHigherPlan ? (
               <div className={s.slotsFull}>
                 <IconWell icon={Wrench} tone="warning" size="md" />
                 <div className={s.slotsFullTitle}>Has usado todos tus slots</div>
@@ -197,13 +260,25 @@ export function ManagedView({
                   más servicios cada mes.
                 </div>
               </div>
-            )
-          )}
+            ) : (
+              <div className={`${s.slotsFull} ${s.slotsFullOk}`}>
+                <IconWell icon={ShieldCheck} tone="success" size="md" />
+                <div className={s.slotsFullTitle}>Cobertura completa</div>
+                <div className={s.slotsFullText}>
+                  Estás en el plan máximo ({subscription.product.name}) y
+                  cubrimos tus {includedTotal} servicio
+                  {includedTotal !== 1 ? 's' : ''} cada mes.
+                  {extraSlotPrice > 0
+                    ? ' ¿Necesitas cubrir más? Puedes añadir slots extra desde Soporte.'
+                    : ''}
+                </div>
+              </div>
+            ))}
         </div>
       </section>
 
-      {/* ── Canales ── */}
-      {channels.length > 0 && (
+      {/* ── Canales (todos, con estado coherente con tu plan) ── */}
+      {channelRows.length > 0 && (
         <section className={s.section}>
           <h2 className={s.sectionTitle}>Tus canales de contacto</h2>
           <p className={s.sectionDesc}>
@@ -211,15 +286,25 @@ export function ManagedView({
             que ya conoce tu negocio — nunca un bot.
           </p>
           <div className={s.channelsGrid}>
-            {channels.map((ch) => {
-              const meta = CHANNEL_META[ch];
-              return (
-                <div key={ch} className={s.channelCard}>
-                  <IconWell icon={meta.icon} tone="brand" size="md" />
-                  <span className={s.channelName}>{meta.label}</span>
+            {channelRows.map((row) => (
+              <div
+                key={row.key}
+                className={`${s.channelCard} ${row.inPlan ? '' : s.channelCardOff}`}
+              >
+                <IconWell
+                  icon={row.meta.icon}
+                  tone={row.inPlan ? 'brand' : 'neutral'}
+                  size="md"
+                />
+                <div className={s.channelBody}>
+                  <span className={s.channelName}>{row.meta.label}</span>
+                  <span className={s.channelSub}>{row.meta.sub}</span>
                 </div>
-              );
-            })}
+                <span className={`${s.channelTag} ${s[`channelTag_${row.state}`]}`}>
+                  {row.tag}
+                </span>
+              </div>
+            ))}
           </div>
         </section>
       )}

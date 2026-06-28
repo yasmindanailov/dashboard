@@ -198,6 +198,15 @@ export default function SupportInsidePage() {
      prorrateo R5 precargado). */
   const requestChangePlan = useCallback(
     (plan: SupportInsidePublicPlan) => {
+      // El cambio de plan exige el servicio SI `active` (backend). Si está
+      // `pending` (factura por pagar) explicamos en vez de dejar fallar.
+      if (subscription && subscription.service.status !== 'active') {
+        toast(
+          'error',
+          'Tu Support Inside está pendiente de activación (factura por pagar). Podrás cambiar de plan cuando esté activo.',
+        );
+        return;
+      }
       const target =
         cycle === 'yearly' ? plan.pricing.yearly : plan.pricing.monthly;
       if (!target) {
@@ -207,7 +216,7 @@ export default function SupportInsidePage() {
       setChangePlanOpen(true);
       void onSelectTargetPlan(target.product_pricing_id);
     },
-    [cycle, onSelectTargetPlan, toast],
+    [cycle, onSelectTargetPlan, toast, subscription],
   );
 
   const confirmChangePlan = useCallback(async () => {
@@ -274,6 +283,7 @@ export default function SupportInsidePage() {
 
         <ManagedView
           subscription={subscription}
+          plans={plans}
           submitting={submitting}
           onReleaseSlot={releaseSlot}
           onAssignSlot={openAssignSlot}
