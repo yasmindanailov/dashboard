@@ -128,6 +128,7 @@ ver plan §3.0). Usar la **plantilla de prompt** del plan §6.
 | DS-C15 | Detalle de factura (página) — cliente | `dashboard/billing/[id]` | **D-5**: el mockup lo hace inline |
 | DS-A5 | Panel de notas con filtros (admin) | `_shared/notes` | `ClienteDetalle` más rico |
 | DS-G7 | "Look" de formularios dinámicos (rjsf) — patrón | `rjsf-theme` | Un encargo, se reutiliza |
+| **DS-A18** | **Selector "Reasignar técnico" (Support Inside, admin)** | `SupportInsideAdminController` (F3·E8) | **Decisión Yasmin 2026-06-28:** el `SupportInsideDetalleAdmin.dc.html` muestra el ítem de menú "Reasignar técnico…" pero **no** el modal/selector. Encargo Nivel 1. **Bloquea** la UI admin del picker (el backend del reasign ya está hecho — `PATCH /admin/support-inside/subscriptions/:id/technician`). **Brief:** modal/popover para reasignar el "técnico asignado" de un cliente SI. Lista de **agentes de soporte elegibles** (`agent_support`/`agent_full`, activos) con avatar + nombre + rol + **indicador de presencia** (online/away/offline, `StatusDot`) + carga actual (nº tareas activas, opcional). Buscador por nombre. El técnico actual aparece marcado. Acción primaria "Reasignar". Callout: *"Al reasignar, la tarea de mantenimiento del mes en curso pasa al nuevo técnico solo si está pendiente; las futuras las hereda automáticamente."* Estados: normal / vacío (sin agentes) / carga. Entrega `.dc.html` en `mockup-uiux/admin/`. |
 
 **Salida:** un `.dc.html` por encargo en `mockup-uiux/` (o `admin/`), mismo formato.
 
