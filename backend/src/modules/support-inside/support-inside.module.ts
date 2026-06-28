@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from '../../core/database/prisma.module';
 import { BillingModule } from '../billing/billing.module';
 import { TasksModule } from '../tasks/tasks.module';
+import { PresenceModule } from '../presence/presence.module';
 import { SupportInsideService } from './support-inside.service';
 import { SupportInsideController } from './support-inside.controller';
 import { SupportInsidePlansAdminService } from './support-inside-plans-admin.service';
@@ -38,6 +39,7 @@ import { SupportInsideOnServiceProvisionedListener } from './listeners/support-i
     PrismaModule,
     BillingModule,
     TasksModule,
+    PresenceModule,
     BullModule.registerQueue({ name: MAINTENANCE_MONTHLY_QUEUE }),
   ],
   controllers: [
