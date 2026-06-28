@@ -229,7 +229,25 @@ Reutiliza: slots, `MaintenanceLog`, cron mensual + auto-asignación, `Maintenanc
 - `GET /support-inside/slots/:id/maintenance-history` (client-facing).
 - Presencia del técnico: tabla/campo `user_presence` (o **diferir** a "online genérico").
 
-### E9 · SLA (visualización) — `redesign/f3-sla-ui` · talla M (mayormente UI)
+### E9 · SLA (visualización) — ✅ **CÓDIGO-COMPLETO** (`redesign/f3-sla-ui`, 2026-06-28) · talla M (mayormente UI)
+> **Hecho:** SLA de **1ª respuesta** por conversación, calculado **server-side**
+> (autoridad de tiempo única; el front solo presenta el snapshot). Helper puro
+> `support-sla.helper.ts` (`computeConversationSla`, 12 tests) — reutiliza
+> `first_response_at` + `response_sla_hours` del tier SI del cliente (sin plan →
+> 24 h, alineado con `core/tasks/sla-helper.ts`). Payload `sla` en lista
+> (`include` anidado del owner, **sin N+1**) y detalle. Net-new front:
+> componente **`SlaIndicator`** (variante `inline` = pill de bandeja /
+> `detail` = tira del header; audiencia `admin` literal vs `client`
+> tranquilizador que **nunca** muestra "vencido"), 12 tests. Cableado:
+> **pill por fila en la bandeja del staff** (`TicketList`, solo running/breached)
+> + **tira por estado en el detalle** (`ConversationHeader`, admin todos los
+> estados / cliente solo tickets con plan SI). 1:1 con `BandejaTickets` /
+> `TicketConversacion` / `Soporte` (tira de estado, sin gauge —los mockups no lo
+> dibujan). Verde: typecheck+lint+test back (109 suites/1431) y front (11/80).
+> Bitácora: [`ui-redesign-bitacora-f3-e9-2026-06-28.md`](./ui-redesign-bitacora-f3-e9-2026-06-28.md).
+> **Falta (Yasmin):** smoke visual. **Diferido a F4:** SLA en el ChatsWorkspace
+> (panel en vivo, otra superficie) + placement fino de la tira al reskinear Soporte.
+
 Reutiliza: `calculateTaskDueDate`, `first_response_at`, `response_sla_hours`.
 - Exponer en el payload de conversación: `sla_due_at`, `sla_remaining_pct`, `first_response_pending`.
 - UI: barra/gauge en detalle + indicador por fila en bandeja.
