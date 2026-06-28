@@ -7,6 +7,7 @@ import {
   RenderedNotification,
   DeliveryResult,
 } from '../interfaces/notification-channel.interface';
+import { categoryForEvent } from '../notification-taxonomy';
 
 /**
  * InAppChannel — campana del dashboard (ADR-065 + ADR-042).
@@ -37,11 +38,16 @@ export class InAppChannel implements NotificationChannelInterface {
     const meta = rendered.metadata;
     const actionUrl =
       meta && typeof meta.action_url === 'string' ? meta.action_url : null;
+    // F3·E10: la categoría se deriva del `event` (puesto por el dispatcher en
+    // `metadata.event`) y se persiste para filtrar/agrupar en las bandejas.
+    const event = meta && typeof meta.event === 'string' ? meta.event : null;
+    const category = categoryForEvent(event);
 
     const row = await this.prisma.notification.create({
       data: {
         user_id: recipient.user_id,
         channel: 'internal',
+        category,
         title: rendered.subject,
         body: rendered.body,
         ...(actionUrl ? { action_url: actionUrl } : {}),

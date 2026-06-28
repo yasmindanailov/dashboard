@@ -234,10 +234,12 @@ Reutiliza: `calculateTaskDueDate`, `first_response_at`, `response_sla_hours`.
 - Exponer en el payload de conversación: `sla_due_at`, `sla_remaining_pct`, `first_response_pending`.
 - UI: barra/gauge en detalle + indicador por fila en bandeja.
 
-### E10 · Páginas de notificaciones — `redesign/f3-notificaciones` · talla M-L (casi todo UI)
+### E10 · Páginas de notificaciones — ✅ **CÓDIGO-COMPLETO** (`redesign/f3-notificaciones`, 2026-06-28 · PR #142) · talla M-L
+> **Hecho:** bandejas full-page `/dashboard/notifications` (cliente) y `/admin/notifications` (admin, convive con `/templates`), 1:1 con los mockups. **Decisión Yasmin (filtro por categoría = backend real, no client-side):** enum `NotificationCategory` + columna `category` **persistida** (migración `20260628133123` + backfill por `metadata.event`) + filtro server-side correcto con paginación. Taxonomía `event→categoría` = **fuente única en backend** (`notification-taxonomy.ts`); el front solo presenta (categoría→icono/tono). Net-new DS: primitiva **`ChipGroup`** + tono **`security`** en `IconWell` (+ tokens `--security`). Marcar leída **implícito al click** (decisión Yasmin). Cierra los 2 TODOs de `NotificationBell`. Verde: typecheck+lint+test back (108 suites/1419) y front (10 suites/68). Bitácora: [`ui-redesign-bitacora-f3-e10-2026-06-28.md`](./ui-redesign-bitacora-f3-e10-2026-06-28.md). **Falta (Yasmin):** smoke visual 1:1 en navegador (reiniciar backend dev para cargar el cliente Prisma nuevo).
+
 Reutiliza: **endpoint paginado `GET /notifications` ya existe**.
 - `/dashboard/notifications` y `/admin/notifications` (mockup Nivel 2: diseño existe).
-- Taxonomía categoría/tono **derivada del `event_type` en el front** (mapping canónico, sin migración). Opcional: derivarla en backend.
+- ~~Taxonomía derivada en el front, sin migración~~ → **decisión Yasmin: categoría persistida en backend** (columna `category` + migración; filtro server-side; el front solo mapea categoría→icono/tono).
 
 ### E11 · Registro fiscal — ✅ **MERGED (#140, 2026-06-28)** · `redesign/f3-registro` · talla M (modelo ya existe)
 > **Hecho:** `RegisterDto` con validación condicional (`@ValidateIf`) + `register()`

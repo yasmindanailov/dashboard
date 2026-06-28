@@ -14,6 +14,7 @@ import {
 const NOTIFICATION_SELECT = {
   id: true,
   channel: true,
+  category: true,
   title: true,
   body: true,
   action_url: true,
@@ -133,13 +134,19 @@ export class NotificationsService {
    */
   async findAllForUser(
     userId: string,
-    query: { page?: number; limit?: number; unread_only?: boolean },
+    query: {
+      page?: number;
+      limit?: number;
+      unread_only?: boolean;
+      category?: Prisma.NotificationWhereInput['category'];
+    },
   ) {
     const page = query.page ?? 1;
     const limit = Math.min(query.limit ?? 20, 100);
     const where: Prisma.NotificationWhereInput = {
       user_id: userId,
       channel: 'internal',
+      ...(query.category ? { category: query.category } : {}),
       ...(query.unread_only ? { read_at: null } : {}),
     };
     const [items, total] = await Promise.all([
