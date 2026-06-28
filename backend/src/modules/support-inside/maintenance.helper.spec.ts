@@ -33,7 +33,10 @@ describe('maintenance.helper — Rediseño UI F3·E8', () => {
   });
 
   describe('computeMaintenanceStatus', () => {
-    const base = { now: new Date('2026-06-20T09:00:00.000Z'), anniversaryDay: 14 };
+    const base = {
+      now: new Date('2026-06-20T09:00:00.000Z'),
+      anniversaryDay: 14,
+    };
 
     it('log de este mes → up_to_date', () => {
       expect(

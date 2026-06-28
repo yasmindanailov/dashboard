@@ -785,7 +785,9 @@ export class SupportInsideService {
           (c.first_response_at!.getTime() - c.created_at.getTime()) / 60000,
         0,
       );
-      avg_first_response_minutes = Math.round(totalMin / respondedConvos.length);
+      avg_first_response_minutes = Math.round(
+        totalMin / respondedConvos.length,
+      );
     }
 
     const recent_maintenances = recentLogs.map((log) => ({
