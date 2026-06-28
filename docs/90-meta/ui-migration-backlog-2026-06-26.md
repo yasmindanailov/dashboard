@@ -208,7 +208,15 @@ Reutiliza: `PaymentProviderInterface` (ADR-031), dunning (`billing-lifecycle.wor
 - `POST /billing/payment-methods` (SetupIntent) · `GET /billing/payment-methods` · `DELETE /billing/payment-methods/:id` · `POST /billing/invoices/:id/pay-now` · `POST /webhooks/stripe`.
 - UI: gestor de métodos + modal "Pagar ahora" + guardar tarjeta en checkout.
 
-### E7 · Dashboard ejecutivo admin — `redesign/f3-admin-overview` · talla L
+### E7 · Dashboard ejecutivo admin — ✅ **MERGED (#139, 2026-06-28)** · `redesign/f3-admin-overview` · talla L
+> **Hecho:** módulo nuevo `admin-overview` (solo Prisma) con `GET /admin/overview`
+> (4 KPIs + MoM%), `/decisions` (vencidas, 5xx última hora, DLQ, SI sin mant. >60d),
+> `/team-load` (conversaciones por agente + saturación + presencia vía
+> `Session.last_used_at`) + reskin de `/admin` (`ExecutiveDashboard`). **Diferido
+> (decisión Yasmin):** la señal de **drift** del feed — no hay estado de drift
+> persistente; follow-up = `Service.has_drift` escrito por el cron de reconcile.
+> Bitácora: `ui-redesign-bitacora-f3-e7-2026-06-28.md`.
+
 Reutiliza: 7 KPIs `AdminOverview` + `AdminStats`. Montar en `/admin` (hoy toolbox).
 - Extender `AdminOverview` con **deltas MoM** por KPI.
 - `GET /admin/overview/decisions` → feed "Requiere tu decisión" (5xx, DLQ, drift, SI sin mantenimiento).
@@ -231,7 +239,15 @@ Reutiliza: **endpoint paginado `GET /notifications` ya existe**.
 - `/dashboard/notifications` y `/admin/notifications` (mockup Nivel 2: diseño existe).
 - Taxonomía categoría/tono **derivada del `event_type` en el front** (mapping canónico, sin migración). Opcional: derivarla en backend.
 
-### E11 · Registro fiscal — `redesign/f3-registro` · talla M (modelo ya existe)
+### E11 · Registro fiscal — ✅ **MERGED (#140, 2026-06-28)** · `redesign/f3-registro` · talla M (modelo ya existe)
+> **Hecho:** `RegisterDto` con validación condicional (`@ValidateIf`) + `register()`
+> crea `ClientProfile` fiscal + `BillingProfile` (autónomo/empresa) en `$transaction`
+> + migración `User.terms_accepted_at` · reskin de `/register` (tarjetas de tipo +
+> campos condicionales + hint de IVA por país + términos). Backward-compatible.
+> Smoke backend en vivo ✅ (register 201/400). **Diferido:** **IVA real por país**
+> (se captura país + hint; cálculo sigue 21% default → tabla `country_tax_rates`
+> aparte). Bitácora: `ui-redesign-bitacora-f3-e11-2026-06-28.md`.
+
 Reutiliza: **`ClientProfile` + `BillingProfile`** (enum `personal|autonomo|empresa` == mockup).
 - Extender `RegisterDto` + formulario (tipo de cuenta, NIF/CIF, razón social, dirección, país, teléfono, términos).
 - Crear `BillingProfile` en el registro; `User.terms_accepted_at`.

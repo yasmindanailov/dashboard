@@ -59,15 +59,30 @@ prod, puerto aislado):
   dinámico** ("IVA aplicable: 23% (Portugal)" al seleccionar Portugal). La lógica
   condicional conmuta 1:1 con el mockup.
 
+## 3.1 Smoke backend EN VIVO (2026-06-28) — contra la BD real
+
+Tras aplicar la migración (`prisma migrate status` → "up to date") y **reiniciar el
+backend** (`:3001`, fresco con el cliente Prisma regenerado · `Nest application
+successfully started` · 4/4 plugins), se ejercitó el endpoint público
+`POST /auth/register`:
+- **Empresa fiscal completa → HTTP 201** (`{ message, user_id }`). Prueba que el
+  `$transaction` (user + ClientProfile fiscal + **BillingProfile**) commitea contra
+  Postgres real — un fallo del BillingProfile haría rollback→500.
+- **Empresa SIN `nif_cif` → HTTP 400**. Prueba que la validación condicional
+  `@ValidateIf` rechaza datos fiscales incompletos.
+
+Cierra el hueco de "ejecución de queries en vivo" que la unit (mockeada) no cubría.
+_(Artefacto: queda un usuario de smoke `smoke-e11-…@aelium.test` en
+`pending_verification` en la BD dev; inerte.)_
+
 ## 4. Estado y siguiente paso
 
-- **E11 CÓDIGO-COMPLETO y verde** (back + front) en `redesign/f3-registro`. PR
-  contra master.
+- **E11 ✅ MERGED en master** (#140, `f25a43f`). **Smoke backend en vivo ✅** (§3.1).
 - **Diferido (consciente):** **IVA real por país** — se captura el país y se muestra
   el hint, pero el cálculo sigue a 21% default; aplicar el IVA por país requiere una
   tabla `country_tax_rates` + cableado en el cálculo de facturas (vertical aparte).
-- **Falta (Yasmin):** smoke del flujo completo (registrar empresa → verificar email
-  en MailPit → comprobar el BillingProfile creado). **⚠️** El backend `:3001` corre
-  código viejo — reiniciar para que el endpoint acepte los campos fiscales.
+- **Falta (Yasmin):** smoke **visual** del flujo completo en el navegador (registrar
+  empresa en `/register` → verificar email en MailPit → comprobar el BillingProfile).
+  El backend ya está reiniciado con el código E11.
 - Resto de F3: Stripe E6 (cobro), SI gestionado E8, SLA E9, notificaciones E10,
   macros E12, IA E13. F4 reskin página a página.
