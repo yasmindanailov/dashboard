@@ -224,7 +224,7 @@ Reutiliza: 7 KPIs `AdminOverview` + `AdminStats`. Montar en `/admin` (hoy toolbo
 - `GET /admin/overview/team-load` → tickets por agente + saturación + presencia.
 - SLA agregado de soporte (reusar `sla-helper`).
 
-### E8 · Support Inside gestionado — 🟡 **backend + cliente HECHO · admin PENDIENTE** (`redesign/f3-support-inside`, 2026-06-28) · talla L→XL
+### E8 · Support Inside gestionado — 🟡 **backend + cliente HECHO · admin PENDIENTE** (`redesign/f3-support-inside`, 2026-06-28 · [PR #144](https://github.com/yasmindanailov/dashboard/pull/144)) · talla L→XL
 > **Hecho (Fase A+B+C, verde ci:check):** **técnico = por subscription** (`assigned_technician_id`, decisión Yasmin, NO por slot) + **presencia** (`UserPresence` + `PresenceModule` + heartbeat). Mantenimiento por slot **derivado** (`next`/`last`/`status` sin columnas, helpers puros). Cron hereda al técnico (fallback menor-carga, gate `isAssigneeEligible`). Asignar/reasignar técnico admin (endpoint+audit+evento; reasigna tareas **pending**). `getStatus` enriquecido + **`GET /dashboard/support-inside/slots/:id/maintenance-history`** + value-data real. **Cliente reskin 1:1** (`ManagedView` + `PlanComparator` + componentes `_shared/support-inside/` + modal histórico). ~55 tests, boot 4/4. Bitácora: [`ui-redesign-bitacora-f3-e8-2026-06-28.md`](./ui-redesign-bitacora-f3-e8-2026-06-28.md).
 > **PENDIENTE (otro chat):** **Fase D admin** per-cliente (lista + página `SupportInsideDetalleAdmin` net-new + picker técnico [DS-A18] + endpoints) · **Fase E cierre** (heartbeat front + cablear presencia + smoke). **Diferido (D-3):** "Programar mantenimiento" (creación manual de tareas). **Anotado:** incoherencia billing suscripción-active/servicio-pending (pre-existente).
 

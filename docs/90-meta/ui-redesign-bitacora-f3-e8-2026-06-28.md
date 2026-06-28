@@ -1,6 +1,6 @@
 # Bitácora — Rediseño UI · F3·E8: Support Inside gestionado
 
-> **Rama:** `redesign/f3-support-inside` (desde `origin/master`) · **Fecha:** 2026-06-28 · **Estado:** 🟡 **backend + cliente CÓDIGO-COMPLETO** (Fase A+B+C), **admin (Fase D) + cierre (Fase E) PENDIENTES** (se siguen en otro chat).
+> **Rama:** `redesign/f3-support-inside` (desde `origin/master`) · **Fecha:** 2026-06-28 · **Estado:** 🟡 **backend + cliente CÓDIGO-COMPLETO** (Fase A+B+C), **admin (Fase D) + cierre (Fase E) PENDIENTES** (se siguen en otro chat). · **[PR #144](https://github.com/yasmindanailov/dashboard/pull/144)**.
 > **Mapa:** [`ui-migration-backlog-2026-06-26.md` §8 E8](./ui-migration-backlog-2026-06-26.md) · mockups [`SupportInside.dc.html`](../../../mockup-uiux/SupportInside.dc.html) (cliente) · [`admin/SupportInside.dc.html`](../../../mockup-uiux/admin/SupportInside.dc.html) + [`admin/SupportInsideDetalleAdmin.dc.html`](../../../mockup-uiux/admin/SupportInsideDetalleAdmin.dc.html) (admin).
 
 ## Objetivo
