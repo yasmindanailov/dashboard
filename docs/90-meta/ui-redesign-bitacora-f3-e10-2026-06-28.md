@@ -1,6 +1,6 @@
 # Bitácora — Rediseño UI · F3·E10: Páginas de notificaciones
 
-> **Rama:** `redesign/f3-notificaciones` · **Fecha:** 2026-06-28 · **Estado:** código-completo, verde (PR pendiente).
+> **Rama:** `redesign/f3-notificaciones` · **Fecha:** 2026-06-28 · **Estado:** código-completo, verde ([PR #142](https://github.com/yasmindanailov/dashboard/pull/142)).
 > **Mapa:** [`ui-migration-backlog-2026-06-26.md` §8 E10](./ui-migration-backlog-2026-06-26.md) · mockups [`Notificaciones.dc.html`](../../../mockup-uiux/Notificaciones.dc.html) (cliente) + [`admin/NotificacionesAdmin.dc.html`](../../../mockup-uiux/admin/NotificacionesAdmin.dc.html).
 
 ## Objetivo
