@@ -46,6 +46,49 @@ export interface PartnerOverview {
 
 export type OverviewStats = AdminOverview | ClientOverview | AgentOverview | PartnerOverview;
 
+// ── Dashboard ejecutivo admin (F3·E7) — espejo de AdminOverviewService ──
+
+export interface AdminOverviewKpis {
+  revenue_this_month: number;
+  revenue_prev_month: number;
+  revenue_mom_pct: number | null;
+  active_clients: number;
+  new_clients_this_month: number;
+  overdue_amount: number;
+  overdue_count: number;
+  oldest_overdue_days: number | null;
+  sla_compliance_pct: number | null;
+  sla_breaches: number;
+  sla_sample: number;
+}
+
+export type DecisionKind =
+  | 'overdue_invoices'
+  | 'errors_5xx'
+  | 'dlq_jobs'
+  | 'si_maintenance';
+
+export interface DecisionSignal {
+  kind: DecisionKind;
+  count: number;
+  amount?: number;
+  oldest_days?: number;
+  sample?: string;
+}
+
+export interface TeamMemberLoad {
+  user_id: string;
+  name: string;
+  role_slug: string;
+  open_count: number;
+  online: boolean;
+}
+
+export interface TeamLoad {
+  members: TeamMemberLoad[];
+  max_open: number;
+}
+
 export const dashboardApi = {
   getOverview: (token: string) =>
     api<OverviewStats>('/dashboard/overview', { token }),

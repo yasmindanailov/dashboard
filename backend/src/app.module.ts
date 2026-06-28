@@ -42,6 +42,7 @@ import { PromotionsModule } from './modules/promotions/promotions.module';
 import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.module';
 import { ErrorLogModule } from './modules/error-log/error-log.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { AdminOverviewModule } from './modules/admin-overview/admin-overview.module';
 
 @Module({
   imports: [
@@ -116,6 +117,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     KnowledgeBaseModule,
     ErrorLogModule,
     DashboardModule,
+    AdminOverviewModule,
   ],
   providers: [
     // SentryGlobalFilter captura excepciones no manejadas y las reporta a
