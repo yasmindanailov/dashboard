@@ -51,18 +51,68 @@ export class AuthRegisterService {
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        password_hash: passwordHash,
-        first_name: dto.first_name,
-        last_name: dto.last_name,
-        status: 'pending_verification',
-        role_id: clientRole.id,
-      },
+    // E11 — perfil fiscal opcional. `personal` no aporta dirección (no tiene
+    // BillingProfile); `autonomo`/`empresa` sí. Los datos fiscales se guardan en
+    // ClientProfile (identidad / fuente del registrante de dominios, ADR-077 A12)
+    // y, para autonomo/empresa, también como BillingProfile (lo que factura).
+    const accountType = dto.account_type ?? 'personal';
+    const isFiscal = accountType === 'autonomo' || accountType === 'empresa';
+    const country = (dto.country ?? 'ES').toUpperCase();
+    const fullName = `${dto.first_name} ${dto.last_name}`.trim();
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email: dto.email,
+          password_hash: passwordHash,
+          first_name: dto.first_name,
+          last_name: dto.last_name,
+          status: 'pending_verification',
+          role_id: clientRole.id,
+          terms_accepted_at: dto.terms_accepted ? new Date() : null,
+        },
+      });
+
+      await tx.clientProfile.create({
+        data: {
+          user_id: created.id,
+          client_type: accountType === 'empresa' ? 'company' : 'individual',
+          phone: dto.phone ?? null,
+          company_name: accountType === 'empresa' ? dto.company_name : null,
+          tax_id: isFiscal ? dto.nif_cif : null,
+          address_line1: isFiscal ? dto.address_line1 : null,
+          city: isFiscal ? dto.city : null,
+          postal_code: isFiscal ? dto.postal_code : null,
+          country,
+        },
+      });
+
+      // Primer perfil de facturación del cliente ⇒ is_default.
+      if (isFiscal) {
+        await tx.billingProfile.create({
+          data: {
+            user_id: created.id,
+            type: accountType,
+            label:
+              accountType === 'empresa' && dto.company_name
+                ? dto.company_name
+                : fullName,
+            first_name: dto.first_name,
+            last_name: dto.last_name,
+            company_name: accountType === 'empresa' ? dto.company_name : null,
+            nif_cif: dto.nif_cif,
+            address_line1: dto.address_line1!,
+            city: dto.city!,
+            postal_code: dto.postal_code!,
+            country,
+            is_default: true,
+          },
+        });
+      }
+
+      return created;
     });
 
-    await this.prisma.clientProfile.create({ data: { user_id: user.id } });
     await this.createEmailVerification(user.id);
 
     await this.prisma.auditAccessLog.create({

@@ -1,0 +1,143 @@
+/* Piezas del registro fiscal (E11) — 1:1 con Registro.dc.html. Reutiliza
+   auth.module.css para los campos estándar; aquí solo lo específico de E11. */
+
+.fieldHint {
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+/* ── Selector de tipo de cuenta (3 tarjetas) ── */
+.typeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.typeCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 11px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.typeCard:hover {
+  border-color: var(--border-strong, #cbd5e1);
+}
+
+.typeCardActive {
+  border: 1.5px solid var(--brand);
+  background: var(--brand-wash);
+  color: var(--brand-hover);
+}
+
+.typeHint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 13px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.typeHintIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--text-tertiary);
+}
+
+/* ── Sección fiscal (país + dirección) ── */
+.fiscalRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fiscalRow > * {
+  flex: 1;
+  min-width: 140px;
+}
+
+.select {
+  cursor: pointer;
+}
+
+.ivaHint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  background: var(--brand-wash);
+  border-radius: var(--radius-md, 10px);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand-hover);
+}
+
+.ivaHintIcon {
+  flex-shrink: 0;
+  color: var(--brand);
+}
+
+/* ── Aceptación de términos ── */
+.termsRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.termsBox {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  border: 1.5px solid var(--border-strong, #cbd5e1);
+  background: var(--surface-primary);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.termsBoxChecked {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.termsText {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.termsLink {
+  color: var(--brand);
+  font-weight: 600;
+}

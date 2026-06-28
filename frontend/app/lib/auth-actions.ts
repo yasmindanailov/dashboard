@@ -295,10 +295,22 @@ export async function getWsTokenAction(): Promise<{ token: string; expiresIn: nu
 // Public flows (no auth required) — register, forgot, reset, verifyEmail
 // ─────────────────────────────────────────────────────────────────────────
 
+export type RegisterFieldError =
+  | 'first_name'
+  | 'last_name'
+  | 'email'
+  | 'password'
+  | 'company_name'
+  | 'nif_cif'
+  | 'address_line1'
+  | 'city'
+  | 'postal_code'
+  | 'terms';
+
 export interface RegisterActionState {
   ok?: false;
   error?: string;
-  fieldErrors?: Partial<Record<'first_name' | 'last_name' | 'email' | 'password', string>>;
+  fieldErrors?: Partial<Record<RegisterFieldError, string>>;
   success?: { user_id: string; message: string };
 }
 
@@ -310,12 +322,21 @@ export async function registerAction(
   const last_name = String(formData.get('last_name') ?? '').trim();
   const email = String(formData.get('email') ?? '').trim().toLowerCase();
   const password = String(formData.get('password') ?? '');
+  const phone = String(formData.get('phone') ?? '').trim();
+  const account_type = String(formData.get('account_type') ?? 'personal');
+  const company_name = String(formData.get('company_name') ?? '').trim();
+  const nif_cif = String(formData.get('nif_cif') ?? '').trim();
+  const address_line1 = String(formData.get('address_line1') ?? '').trim();
+  const city = String(formData.get('city') ?? '').trim();
+  const postal_code = String(formData.get('postal_code') ?? '').trim();
+  const country = String(formData.get('country') ?? 'ES');
+  const terms_accepted = formData.get('terms_accepted') === 'true';
+
+  const isFiscal = account_type === 'autonomo' || account_type === 'empresa';
 
   const fieldErrors: RegisterActionState['fieldErrors'] = {};
-  if (first_name.length < 2)
-    fieldErrors.first_name = 'Mínimo 2 caracteres.';
-  if (last_name.length < 2)
-    fieldErrors.last_name = 'Mínimo 2 caracteres.';
+  if (first_name.length < 2) fieldErrors.first_name = 'Mínimo 2 caracteres.';
+  if (last_name.length < 2) fieldErrors.last_name = 'Mínimo 2 caracteres.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     fieldErrors.email = 'Email inválido.';
   if (
@@ -327,13 +348,41 @@ export async function registerAction(
     fieldErrors.password =
       'Mínimo 8 caracteres con mayúscula, minúscula y número.';
   }
+  // Validación fiscal condicional (espejo del RegisterDto del backend).
+  if (account_type === 'empresa' && !company_name)
+    fieldErrors.company_name = 'La razón social es obligatoria para empresas.';
+  if (isFiscal && !nif_cif)
+    fieldErrors.nif_cif = 'El NIF/CIF es obligatorio.';
+  if (isFiscal && !address_line1)
+    fieldErrors.address_line1 = 'La dirección fiscal es obligatoria.';
+  if (isFiscal && !city) fieldErrors.city = 'La ciudad es obligatoria.';
+  if (isFiscal && !postal_code)
+    fieldErrors.postal_code = 'El código postal es obligatorio.';
+  if (!terms_accepted)
+    fieldErrors.terms =
+      'Acepta los términos del servicio y la política de privacidad.';
+
   if (Object.keys(fieldErrors).length > 0) {
     return { ok: false, fieldErrors };
   }
 
   const result = await backendCall<{ user_id: string; message: string }>(
     '/auth/register',
-    { first_name, last_name, email, password },
+    {
+      first_name,
+      last_name,
+      email,
+      password,
+      phone: phone || undefined,
+      account_type,
+      company_name: company_name || undefined,
+      nif_cif: nif_cif || undefined,
+      address_line1: address_line1 || undefined,
+      city: city || undefined,
+      postal_code: postal_code || undefined,
+      country,
+      terms_accepted,
+    },
   );
   if (!result.ok) {
     return { ok: false, error: result.error };
