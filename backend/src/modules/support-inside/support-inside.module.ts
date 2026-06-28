@@ -7,6 +7,8 @@ import { SupportInsideService } from './support-inside.service';
 import { SupportInsideController } from './support-inside.controller';
 import { SupportInsidePlansAdminService } from './support-inside-plans-admin.service';
 import { SupportInsidePlansAdminController } from './support-inside-plans-admin.controller';
+import { SupportInsideAdminService } from './support-inside-admin.service';
+import { SupportInsideAdminController } from './support-inside-admin.controller';
 import { MaintenanceMonthlyService } from './crons/maintenance-monthly.service';
 import {
   MaintenanceMonthlyProcessor,
@@ -41,11 +43,13 @@ import { SupportInsideOnServiceProvisionedListener } from './listeners/support-i
   controllers: [
     SupportInsideController,
     SupportInsidePlansAdminController,
+    SupportInsideAdminController,
     MaintenanceMonthlyAdminController,
   ],
   providers: [
     SupportInsideService,
     SupportInsidePlansAdminService,
+    SupportInsideAdminService,
     MaintenanceMonthlyService,
     MaintenanceMonthlyProcessor,
     // Listeners transversales (sub-fase 8.D.12).
