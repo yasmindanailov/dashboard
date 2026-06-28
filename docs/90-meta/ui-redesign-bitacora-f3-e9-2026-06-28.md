@@ -1,6 +1,6 @@
 # Bitácora — Rediseño UI · F3·E9: SLA (visualización)
 
-> **Rama:** `redesign/f3-sla-ui` · **Fecha:** 2026-06-28 · **Estado:** código-completo, verde (PR pendiente).
+> **Rama:** `redesign/f3-sla-ui` · **Fecha:** 2026-06-28 · **Estado:** código-completo, verde ([PR #143](https://github.com/yasmindanailov/dashboard/pull/143)).
 > **Mapa:** [`ui-migration-backlog-2026-06-26.md` §8 E9](./ui-migration-backlog-2026-06-26.md) · mockups [`admin/BandejaTickets.dc.html`](../../../mockup-uiux/admin/BandejaTickets.dc.html) · [`admin/TicketConversacion.dc.html`](../../../mockup-uiux/admin/TicketConversacion.dc.html) · [`Soporte.dc.html`](../../../mockup-uiux/Soporte.dc.html).
 
 ## Objetivo

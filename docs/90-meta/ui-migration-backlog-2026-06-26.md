@@ -229,7 +229,7 @@ Reutiliza: slots, `MaintenanceLog`, cron mensual + auto-asignación, `Maintenanc
 - `GET /support-inside/slots/:id/maintenance-history` (client-facing).
 - Presencia del técnico: tabla/campo `user_presence` (o **diferir** a "online genérico").
 
-### E9 · SLA (visualización) — ✅ **CÓDIGO-COMPLETO** (`redesign/f3-sla-ui`, 2026-06-28) · talla M (mayormente UI)
+### E9 · SLA (visualización) — ✅ **CÓDIGO-COMPLETO** (`redesign/f3-sla-ui`, 2026-06-28 · [PR #143](https://github.com/yasmindanailov/dashboard/pull/143)) · talla M (mayormente UI)
 > **Hecho:** SLA de **1ª respuesta** por conversación, calculado **server-side**
 > (autoridad de tiempo única; el front solo presenta el snapshot). Helper puro
 > `support-sla.helper.ts` (`computeConversationSla`, 12 tests) — reutiliza
