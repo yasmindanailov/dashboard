@@ -66,6 +66,33 @@ Pendiente:
 
 > **Data isolation:** clientes solo ven sus conversaciones (filtro por `user_id` del JWT). Agentes ven todas según rol. Validado en service (no solo CASL).
 
+### SLA de 1ª respuesta en el payload (Rediseño UI F3·E9)
+
+`GET /tickets`·`/chats` (lista) y `GET /conversations/:id` (detalle) enriquecen
+cada conversación con un objeto **`sla`** calculado **server-side** (autoridad de
+tiempo única; el front solo presenta el snapshot). Reutiliza
+`conversations.first_response_at` + el `response_sla_hours` del tier Support
+Inside activo del cliente (sin plan → 24 h, alineado con `core/tasks/sla-helper.ts`).
+Helper puro: `support-sla.helper.ts` (`computeConversationSla`, testeado).
+
+```ts
+sla: {
+  state: 'running'|'breached'|'paused'|'met'|'none', // derivado del status + first_response_at
+  due_at: string|null,            // created_at + response_sla_hours (ISO) — scope: sla_due_at
+  response_sla_hours: number,     // tier SI o 24h default
+  first_response_pending: boolean,// scope E9
+  remaining_ms: number|null,      // running/breached (negativo = vencido)
+  remaining_pct: number|null,     // running/breached, 0..100 — scope: sla_remaining_pct
+  responded_in_ms: number|null,   // met
+  responded_within_sla: boolean|null, // met
+}
+```
+
+> En la lista, el `response_sla_hours` por fila se resuelve con un `include`
+> anidado del owner (`user.support_inside_subscription.product.support_inside_config`)
+> en la **misma** query — sin N+1. La pill por fila solo se pinta en la bandeja
+> del staff (`running`/`breached`); el detalle muestra una tira por estado.
+
 ---
 
 ## 6. WebSocket gateway
