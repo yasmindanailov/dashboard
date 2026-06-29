@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { Ticket } from './types';
 import { STATUS_CONFIG, PRIORITY_CONFIG, timeAgo, getDisplayTitle } from './types';
 import { Badge, Card, EmptyState, Skeleton, Pagination } from '../../components/ui';
+import SlaIndicator from './SlaIndicator';
 import styles from './TicketList.module.css';
 
 /* ═══════════════════════════════════════
@@ -103,6 +104,14 @@ export default function TicketList({
                   <div className={styles.meta}>
                     <div className={styles.metaLine}>{timeAgo(conv.updated_at)}</div>
                     <div className={styles.metaLine}>{conv.channel}</div>
+                    {/* Rediseño UI F3·E9 — SLA de 1ª respuesta: pill solo en la
+                        bandeja del staff (running/breached); el componente se
+                        oculta solo en el resto de estados. */}
+                    {isAdmin && conv.sla && (
+                      <div className={styles.slaLine}>
+                        <SlaIndicator sla={conv.sla} variant="inline" audience="admin" />
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>

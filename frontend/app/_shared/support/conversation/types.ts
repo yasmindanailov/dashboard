@@ -3,6 +3,10 @@
    Ref: DECISIONS.md §43, §46
    ═══════════════════════════════════════ */
 
+import type { ConversationSla } from '../types';
+
+export type { ConversationSla, ConversationSlaState } from '../types';
+
 export interface DetailMessage {
   id: string;
   sender_type: string;
@@ -48,6 +52,8 @@ export interface ConversationDetail {
     sequence_number: number | null;
     subject: string;
   } | null;
+  // Rediseño UI F3·E9 — SLA de 1ª respuesta (server-side).
+  sla?: ConversationSla | null;
 }
 
 export interface ConversationSupportInside {
