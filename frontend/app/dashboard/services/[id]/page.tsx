@@ -114,6 +114,8 @@ export default async function ClientServiceDetailPage({
     suspensionReasonCode,
     pluginHealth: null,
     supportsReconcileOne: false,
+    // F3·E8 — la gestión SI ("Plan de soporte" + reasignar técnico) es admin-only.
+    supportInside: null,
   };
 
   return <ServiceDetailLayout ctx={ctx} activeTab={tab ?? 'summary'} />;

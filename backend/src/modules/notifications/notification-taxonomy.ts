@@ -54,6 +54,8 @@ const EVENT_CATEGORY: Readonly<Record<string, NotificationCategory>> = {
   'conversation.auto_closed': 'soporte',
   'message.created': 'soporte',
   'task.completed': 'soporte',
+  // F3·E8 — info (no acción) al agente: ahora es el técnico de un cliente SI.
+  'support_inside.technician_assigned': 'soporte',
 
   // ─── Tareas (admin/agente) ───
   'task.assigned': 'tareas',

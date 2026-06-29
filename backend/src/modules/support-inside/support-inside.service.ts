@@ -12,13 +12,7 @@ import { PrismaService } from '../../core/database/prisma.service';
 import { BillingCheckoutService } from '../billing/billing-checkout.service';
 import { SubscriptionPlanChangeService } from '../billing/subscription-plan-change.service';
 import { PresenceService } from '../presence/presence.service';
-import {
-  nextMaintenanceDate,
-  computeMaintenanceStatus,
-  sameUtcMonth,
-  type MaintenanceTaskStatus,
-  type SlotMaintenanceStatus,
-} from './maintenance.helper';
+import { enrichSlotsMaintenance } from './maintenance.helper';
 
 /**
  * SupportInsideService — Sprint 8 Fase D (2026-05-01).
@@ -744,7 +738,11 @@ export class SupportInsideService {
           ),
         }
       : null;
-    const slots = await this.enrichSlotsMaintenance(subscription.slots, now);
+    const slots = await enrichSlotsMaintenance(
+      this.prisma,
+      subscription.slots,
+      now,
+    );
 
     // F3·E8 — sección "El valor que te aporta": total de mantenimientos,
     // tiempo medio real de 1ª respuesta del cliente, y los últimos
@@ -910,91 +908,6 @@ export class SupportInsideService {
           .filter((label): label is string => Boolean(label)),
       })),
     };
-  }
-
-  /**
-   * F3·E8 — añade a cada slot `last_maintenance_at` (último `MaintenanceLog`
-   * del servicio), `next_maintenance_at` y `maintenance_status` (derivados de
-   * `anniversary_day` + la tarea del periodo). 3 queries acotadas (logs +
-   * tareas), sin N+1.
-   */
-  private async enrichSlotsMaintenance<
-    S extends { id: string; service_id: string; anniversary_day: number },
-  >(
-    slots: S[],
-    now: Date,
-  ): Promise<
-    Array<
-      S & {
-        last_maintenance_at: string | null;
-        next_maintenance_at: string;
-        maintenance_status: SlotMaintenanceStatus;
-      }
-    >
-  > {
-    if (slots.length === 0) return [];
-    const slotIds = slots.map((s) => s.id);
-    const serviceIds = [...new Set(slots.map((s) => s.service_id))];
-
-    const logs = await this.prisma.maintenanceLog.findMany({
-      where: { service_id: { in: serviceIds } },
-      orderBy: { performed_at: 'desc' },
-      select: { service_id: true, performed_at: true },
-    });
-    const lastByService = new Map<string, Date>();
-    for (const log of logs) {
-      if (!lastByService.has(log.service_id)) {
-        lastByService.set(log.service_id, log.performed_at);
-      }
-    }
-
-    const tasks = await this.prisma.task.findMany({
-      where: {
-        source_system: 'support_inside_slot',
-        source_id: { in: slotIds },
-      },
-      orderBy: { created_at: 'desc' },
-      select: { source_id: true, status: true, created_at: true },
-    });
-    const latestTaskBySlot = new Map<
-      string,
-      { status: MaintenanceTaskStatus; created_at: Date }
-    >();
-    for (const task of tasks) {
-      if (!latestTaskBySlot.has(task.source_id)) {
-        latestTaskBySlot.set(task.source_id, {
-          status: task.status,
-          created_at: task.created_at,
-        });
-      }
-    }
-
-    return slots.map((slot) => {
-      const lastMaintenanceAt = lastByService.get(slot.service_id) ?? null;
-      const latestTask = latestTaskBySlot.get(slot.id);
-      // La tarea cuenta como "del periodo actual" solo si se creó este mes.
-      const currentTaskStatus =
-        latestTask && sameUtcMonth(latestTask.created_at, now)
-          ? latestTask.status
-          : null;
-      return {
-        ...slot,
-        last_maintenance_at: lastMaintenanceAt
-          ? lastMaintenanceAt.toISOString()
-          : null,
-        next_maintenance_at: nextMaintenanceDate(
-          slot.anniversary_day,
-          now,
-          lastMaintenanceAt,
-        ).toISOString(),
-        maintenance_status: computeMaintenanceStatus({
-          now,
-          anniversaryDay: slot.anniversary_day,
-          lastMaintenanceAt,
-          currentTaskStatus,
-        }),
-      };
-    });
   }
 
   // ─── Helpers internos ────────────────────────────────────────

@@ -28,6 +28,7 @@ import { AdminProviderStateDesyncBanner } from './_components/AdminProviderState
 import { AdminServiceDataCard } from './_components/AdminServiceDataCard';
 import { AdminSuspendedBanner } from './_components/AdminSuspendedBanner';
 import { ServiceNotesCard } from './_components/ServiceNotesCard';
+import { SupportInsidePlanCard } from './_components/SupportInsidePlanCard';
 
 function AdminProviderStateDesyncBannerSection({
   ctx,
@@ -72,6 +73,11 @@ function ServiceNotesCardSection({ ctx }: { ctx: ServiceDetailContext }) {
   );
 }
 
+function SupportInsidePlanCardSection({ ctx }: { ctx: ServiceDetailContext }) {
+  // `shouldRender` garantiza `supportInside != null`; el `!` documenta el contrato.
+  return <SupportInsidePlanCard managed={ctx.supportInside!} />;
+}
+
 export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
   // ── Zona banner ──
   {
@@ -108,6 +114,19 @@ export const ADMIN_SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
     component: AdminDriftBannerSection,
   },
   // ── Tab "Resumen" ──
+  {
+    id: 'support-inside-plan-card',
+    label: 'Plan de soporte (Support Inside, admin)',
+    scope: 'admin',
+    group: 'summary',
+    column: 'main',
+    // Sobre "Apps" (400): es la card primaria del servicio SI gestionado.
+    priority: 450,
+    // F3·E8 — capability-driven por presencia del bloque; oculta en terminal
+    // (1:1 con el mockup: la card "Plan de soporte" desaparece si cancelado).
+    shouldRender: (ctx) => ctx.supportInside !== null && !ctx.isTerminal,
+    component: SupportInsidePlanCardSection,
+  },
   {
     id: 'apps-card-admin',
     label: 'Apps instaladas (admin)',

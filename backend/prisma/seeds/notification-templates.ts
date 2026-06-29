@@ -619,6 +619,19 @@ export async function seedNotificationTemplates(
       variables: { subject: 'string' },
     },
 
+    // ───────────── support_inside.technician_assigned (campana técnico) ─────────────
+    // F3·E8 — notificación informativa (sin acción): el agente pasa a ser el
+    // "técnico asignado" (cuidador estable) de un cliente Support Inside. La
+    // tarea de mantenimiento mensual (lo accionable) la crea el cron aparte.
+    {
+      event_type: 'support_inside.technician_assigned',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Nuevo cliente asignado',
+      body: 'Ahora eres el técnico de mantenimiento de {{e client_name}}.',
+      variables: { client_name: 'string' },
+    },
+
     // ───────────── outbox.event_failed (campana superadmin) ─────────────
     {
       event_type: 'outbox.event_failed',

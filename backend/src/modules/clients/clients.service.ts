@@ -33,7 +33,7 @@ export class ClientsService {
   /* ── List ── */
 
   async findAll(query: ClientListQueryDto): Promise<PaginatedResult<any>> {
-    const { page = 1, limit = 20, search, status } = query;
+    const { page = 1, limit = 20, search, status, assigned_technician } = query;
     const skip = (page - 1) * limit;
 
     const clientRole = await this.prisma.role.findUnique({
@@ -49,6 +49,13 @@ export class ClientsService {
         { last_name: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
       ];
+    }
+    // F3·E8 — "Mis clientes" / por técnico: clientes cuya suscripción SI ACTIVA
+    // tiene a este técnico asignado. `'me'` ya viene resuelto desde el controller.
+    if (assigned_technician) {
+      where.support_inside_subscription = {
+        is: { status: 'active', assigned_technician_id: assigned_technician },
+      };
     }
 
     const [data, total] = await Promise.all([
@@ -67,6 +74,14 @@ export class ClientsService {
           created_at: true,
           client_profile: {
             select: { client_type: true, phone: true, company_name: true },
+          },
+          // F3·E8 — técnico asignado (si tiene SI activo) para mostrarlo en la
+          // lista cuando se filtra por técnico. null si no tiene plan SI.
+          support_inside_subscription: {
+            select: {
+              status: true,
+              technician: { select: { first_name: true, last_name: true } },
+            },
           },
         },
       }),

@@ -28,6 +28,7 @@ import { NotificationsOnServiceUnsuspendedListener } from './listeners/notificat
 import { NotificationsOnDomainLifecycleListener } from './listeners/notifications-on-domain-lifecycle.listener';
 import { NotificationsOnDomainManagementListener } from './listeners/notifications-on-domain-management.listener';
 import { NotificationsOnDomainTransferListener } from './listeners/notifications-on-domain-transfer.listener';
+import { NotificationsOnTechnicianAssignedListener } from './listeners/notifications-on-technician-assigned.listener';
 import { NotificationsRetentionCron } from './notifications-retention.cron';
 
 /**
@@ -124,6 +125,9 @@ import { NotificationsRetentionCron } from './notifications-retention.cron';
     // Sprint 15D.II.T3 (ADR-084 §5 + A2): consume la FSM de transfer-in
     // (domain.transfer_initiated/completed/failed) → email + campana al cliente.
     NotificationsOnDomainTransferListener,
+    // F3·E8 (admin): info de campana al agente cuando pasa a ser el técnico
+    // asignado de un cliente Support Inside (notificación ≠ tarea).
+    NotificationsOnTechnicianAssignedListener,
     NotificationsRetentionCron,
     {
       provide: NOTIFICATION_CHANNELS,
