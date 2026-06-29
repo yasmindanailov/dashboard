@@ -23,6 +23,39 @@ export type SupportInsideCtaVisibility =
 export type SupportInsideStatus = 'active' | 'cancelled' | 'past_due';
 export type ProductStatus = 'active' | 'inactive' | 'deprecated';
 
+// F3·E8 — presencia del staff + estado de mantenimiento del slot (derivados
+// server-side; el front solo presenta).
+export type PresenceStatus = 'online' | 'away' | 'offline';
+export type SlotMaintenanceStatus =
+  | 'up_to_date'
+  | 'in_progress'
+  | 'due_soon'
+  | 'overdue';
+
+export interface SupportInsideTechnician {
+  id: string;
+  first_name: string;
+  last_name: string;
+  presence: PresenceStatus;
+}
+
+/** Histórico de mantenimientos de un slot (modal "Ver mantenimientos"). */
+export interface SupportInsideMaintenanceHistory {
+  service: {
+    label: string | null;
+    domain: string | null;
+    product_name: string;
+  };
+  history: Array<{
+    id: string;
+    month_year: string;
+    summary: string;
+    performed_at: string;
+    performed_by: string | null;
+    tasks_done: string[];
+  }>;
+}
+
 export interface SupportInsidePublicPlan {
   id: string;
   slug: string;
@@ -70,6 +103,10 @@ export interface SupportInsideSlotPayload {
     status: string;
     product: { name: string };
   };
+  // F3·E8 — mantenimiento derivado (presente en getStatus enriquecido).
+  last_maintenance_at?: string | null;
+  next_maintenance_at?: string;
+  maintenance_status?: SlotMaintenanceStatus;
 }
 
 export interface SupportInsideSubscriptionPayload {
@@ -102,6 +139,18 @@ export interface SupportInsideSubscriptionPayload {
     next_due_date: string | null;
   };
   slots: SupportInsideSlotPayload[];
+  // F3·E8 — "tu técnico" (con presencia) + value-stats "El valor que te aporta".
+  assigned_technician_id?: string | null;
+  technician?: SupportInsideTechnician | null;
+  maintenance_count?: number;
+  avg_first_response_minutes?: number | null;
+  recent_maintenances?: Array<{
+    id: string;
+    month_year: string;
+    summary: string;
+    performed_at: string;
+    service_name: string;
+  }>;
 }
 
 export interface SupportInsideAdminPlanRow {
@@ -253,6 +302,13 @@ export const supportInsideApi = {
       method: 'DELETE',
       token,
     }),
+
+  // F3·E8 — histórico de mantenimientos de un slot (modal del cliente).
+  getMaintenanceHistory: (token: string, slotId: string) =>
+    api<SupportInsideMaintenanceHistory>(
+      `/dashboard/support-inside/slots/${slotId}/maintenance-history`,
+      { token },
+    ),
 
   // ─── Admin ──
   adminList: (token: string) =>
