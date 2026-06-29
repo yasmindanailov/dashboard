@@ -61,6 +61,11 @@ export enum Subject {
   // Support
   Conversation = 'Conversation',
   Message = 'Message',
+  // Rediseño UI F3·E12 — Respuestas guardadas (macros de soporte). Biblioteca
+  // de EQUIPO: gestionable (Manage) por el staff de soporte
+  // (superadmin/agent_full/agent_support), nunca por cliente/partner/agent_billing.
+  // Recurso staff-puro bajo `/api/v1/admin/response-templates` (AdminOnlyGuard + CASL).
+  ResponseTemplate = 'ResponseTemplate',
 
   // Tasks — Sprint 16 Fase 16.B (ADR-079).
   // El sistema de tags se eliminó: el `source_system` da la categoría implícita.
@@ -183,6 +188,8 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     { action: Action.Manage, subject: Subject.Payment },
     { action: Action.Manage, subject: Subject.Conversation },
     { action: Action.Manage, subject: Subject.Message },
+    // F3·E12 — macros de soporte (biblioteca de equipo, CRUD colaborativo).
+    { action: Action.Manage, subject: Subject.ResponseTemplate },
     { action: Action.Manage, subject: Subject.Task },
     { action: Action.Manage, subject: Subject.Maintenance },
     { action: Action.Manage, subject: Subject.Service },
@@ -269,6 +276,8 @@ export const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     { action: [Action.Create, Action.Read], subject: Subject.ClientNote },
     { action: Action.Manage, subject: Subject.Conversation },
     { action: Action.Manage, subject: Subject.Message },
+    // F3·E12 — macros de soporte (biblioteca de equipo, CRUD colaborativo).
+    { action: Action.Manage, subject: Subject.ResponseTemplate },
     { action: Action.Manage, subject: Subject.Task },
     { action: Action.Manage, subject: Subject.Maintenance },
     { action: [Action.Read, Action.List], subject: Subject.Service },

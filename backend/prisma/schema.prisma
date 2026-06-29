@@ -100,6 +100,8 @@ model User {
   // revisiones (como admin que las ejecuta/rechaza).
   account_deletion_requests   AccountDeletionRequest[]    @relation("DeletionRequester")
   account_deletion_reviews    AccountDeletionRequest[]    @relation("DeletionReviewer")
+  // Rediseño UI F3·E12 — respuestas guardadas (macros) creadas por este staff.
+  response_templates_created  ResponseTemplate[]          @relation("ResponseTemplateCreator")
 
   @@index([email])
   @@index([role_id])
@@ -976,6 +978,28 @@ model Message {
 
   @@index([conversation_id])
   @@map("messages")
+}
+
+// ─── Respuestas guardadas (macros de soporte) — Rediseño UI F3·E12 ───
+// Biblioteca de EQUIPO (decisión Yasmin 2026-06-29): set ÚNICO compartido por
+// todo el staff de soporte (superadmin/agent_full/agent_support). Cualquier
+// agente las inserta en el composer del workspace de chats y las gestiona
+// (CRUD colaborativo). `created_by` = trazabilidad (quién la creó), NO
+// aislamiento; `onDelete: SetNull` preserva la macro compartida si el autor
+// se da de baja. Sin eventos cross-módulo (recurso CRUD hoja).
+model ResponseTemplate {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title      String   @db.VarChar(120)
+  body       String   @db.VarChar(10000)
+  category   String?  @db.VarChar(60)
+  created_by String?  @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz()
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  creator User? @relation("ResponseTemplateCreator", fields: [created_by], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@map("response_templates")
 }
 
 // ─── BLOQUE 8: TAREAS ───
