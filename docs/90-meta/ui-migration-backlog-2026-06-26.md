@@ -224,9 +224,9 @@ Reutiliza: 7 KPIs `AdminOverview` + `AdminStats`. Montar en `/admin` (hoy toolbo
 - `GET /admin/overview/team-load` → tickets por agente + saturación + presencia.
 - SLA agregado de soporte (reusar `sla-helper`).
 
-### E8 · Support Inside gestionado — 🟡 **backend + cliente HECHO · admin PENDIENTE** (`redesign/f3-support-inside`, 2026-06-28 · [PR #144](https://github.com/yasmindanailov/dashboard/pull/144)) · talla L→XL
+### E8 · Support Inside gestionado — ✅ **CÓDIGO-COMPLETO** (`redesign/f3-support-inside` [PR #144, A+B+C] + `redesign/f3-support-inside-admin` [D+E, 2026-06-29]) · talla L→XL
 > **Hecho (Fase A+B+C, verde ci:check):** **técnico = por subscription** (`assigned_technician_id`, decisión Yasmin, NO por slot) + **presencia** (`UserPresence` + `PresenceModule` + heartbeat). Mantenimiento por slot **derivado** (`next`/`last`/`status` sin columnas, helpers puros). Cron hereda al técnico (fallback menor-carga, gate `isAssigneeEligible`). Asignar/reasignar técnico admin (endpoint+audit+evento; reasigna tareas **pending**). `getStatus` enriquecido + **`GET /dashboard/support-inside/slots/:id/maintenance-history`** + value-data real. **Cliente reskin 1:1** (`ManagedView` + `PlanComparator` + componentes `_shared/support-inside/` + modal histórico). ~55 tests, boot 4/4. Bitácora: [`ui-redesign-bitacora-f3-e8-2026-06-28.md`](./ui-redesign-bitacora-f3-e8-2026-06-28.md).
-> **PENDIENTE (otro chat):** **Fase D admin** per-cliente (lista + página `SupportInsideDetalleAdmin` net-new + picker técnico [DS-A18] + endpoints) · **Fase E cierre** (heartbeat front + cablear presencia + smoke). **Diferido (D-3):** "Programar mantenimiento" (creación manual de tareas). **Anotado:** incoherencia billing suscripción-active/servicio-pending (pre-existente).
+> **Hecho (Fase D admin + Fase E cierre, 2026-06-29 · verde ci:check + builds + boot 4/4):** ⚠️ **drift corregido** — `admin/SupportInside.dc.html` resultó ser la **lista de PLANES** (ya = `admin/support-inside-plans/`), y `admin/SupportInsideDetalleAdmin.dc.html` es el **detalle de servicio admin** (`/admin/services/[id]`, plantilla única frozen F.12). **Decisión Yasmin: extender ese detalle, NO página/lista nuevas** (evita duplicar notas/auditoría/ciclo de vida; respeta ADR-070/R4/L18). Backend: `getManagedByService` + `listEligibleTechnicians` (presencia+carga) + 2 GET admin (`subscriptions/by-service/:serviceId`, `technicians/eligible`); `enrichSlotsMaintenance` extraído a helper compartido. Frontend: sección **"Plan de soporte"** (`SupportInsidePlanCard`) en el registry + **"Reasignar técnico…"** (`ReassignTechnicianModal`, **DS-A18** funcional) en el kebab + `ServiceDetailContext.supportInside`. **Cierre:** heartbeat de presencia (`PresenceHeartbeat` en `AdminShell`) + técnico real en `SidebarSupportSlot`. **Diferido (D-3):** "Programar mantenimiento". **Anotado:** incoherencia billing suscripción-active/servicio-pending (pre-existente). **Falta (Yasmin):** smoke visual admin + cliente.
 
 Reutiliza: slots, `MaintenanceLog`, cron mensual + auto-asignación, `MaintenanceLogModal`.
 - `SupportInsideSlot`: `assigned_technician_id` (FK User), `last_maintenance_at`, `next_maintenance_at` (derivable de `anniversary_day`), `maintenance_status`.
@@ -305,6 +305,18 @@ nuevos (F1b) y features (F3). **Orden por oleadas** (de menor a mayor riesgo):
 | **W2** (M) | `U24` Servicio-detalle admin, `U27` Producto-form, `U22` Cliente-detalle | Cercanas, sin backend pesado |
 | **W3** (shells-dependientes, L) | Auth, listas y detalles de servicio/dominio/billing cliente y admin | Tras F2 |
 | **W4** (XL, con F3) | Overview cliente/admin, Billing+Stripe, Soporte, Support-Inside, Buscador, Notificaciones, Ops, Tareas, Perfiles | Necesitan F3 |
+
+> **F4 · Servicios (W2/W3) — features Support Inside ya especificadas** (documentadas
+> 2026-06-29, pendientes de implementar al reskinear `/admin/services` + `/admin/services/[id]`):
+> (A) toggle "Support Inside" en la lista · (B) filtro "cubiertos por SI: mantenimiento/gestión/ambos" ·
+> (C) badge inteligente "Mantenimiento" / "Mantenimiento + gestión" en el detalle, según el
+> `slot_type` del slot activo del servicio. Spec completa con el modelo de slots empírico en
+> [`docs/features/support-inside/admin.md` §11.3](../features/support-inside/admin.md).
+>
+> **F4 · Tareas (W4) — `TareaDetalleAdmin`:** revivir `/admin/tasks/[id]` 1:1 con el mockup
+> (decisión Yasmin 2026-06-29) requiere **Amendment a ADR-079 §3.6** ("tasks es lista, no
+> detalle"). Hoy el checklist + completar mantenimiento ya viven en el `MaintenanceLogModal`
+> inline de `/admin/tasks` — el detalle sería sobre todo paridad visual con el mockup.
 
 **DoD por página (F4):**
 1. Paridad visual con el mockup (layout/tipografía/color/spacing/iconos).
