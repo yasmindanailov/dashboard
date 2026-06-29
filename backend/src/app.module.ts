@@ -35,6 +35,7 @@ import { AdminSettingsModule } from './modules/admin-settings/admin-settings.mod
 import { SupportModule } from './modules/support/support.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { SupportInsideModule } from './modules/support-inside/support-inside.module';
+import { PresenceModule } from './modules/presence/presence.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { InfrastructureModule } from './modules/infrastructure/infrastructure.module';
@@ -110,6 +111,7 @@ import { AdminOverviewModule } from './modules/admin-overview/admin-overview.mod
     SupportModule,
     TasksModule,
     SupportInsideModule,
+    PresenceModule,
     NotificationsModule,
     AuditModule,
     InfrastructureModule,

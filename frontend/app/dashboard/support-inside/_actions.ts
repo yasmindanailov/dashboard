@@ -8,6 +8,7 @@ import type {
   SupportInsideEligibleService,
   SupportInsideSlotPayload,
   SupportInsideSlotType,
+  SupportInsideMaintenanceHistory,
   PlanChangePreview,
 } from '../../lib/api';
 
@@ -107,6 +108,31 @@ export async function releaseSlotAction(
         err instanceof ServerFetchError
           ? err.message
           : 'No se pudo liberar el slot',
+    };
+  }
+}
+
+/* ── Histórico de mantenimientos del slot (F3·E8) ── */
+
+export type MaintenanceHistoryResult =
+  | { ok: true; data: SupportInsideMaintenanceHistory }
+  | { ok: false; error: string };
+
+export async function loadMaintenanceHistoryAction(
+  slotId: string,
+): Promise<MaintenanceHistoryResult> {
+  try {
+    const data = await serverFetch<SupportInsideMaintenanceHistory>(
+      `/dashboard/support-inside/slots/${slotId}/maintenance-history`,
+    );
+    return { ok: true, data };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo cargar el histórico de mantenimientos',
     };
   }
 }

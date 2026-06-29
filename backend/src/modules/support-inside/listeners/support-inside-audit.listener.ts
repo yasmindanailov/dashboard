@@ -128,4 +128,29 @@ export class SupportInsideAuditListener {
       `audit logged: support_inside.slot_released slot=${payload.slot_id}`,
     );
   }
+
+  // Rediseño UI F3·E8 — asignación/reasignación del "técnico asignado".
+  @OnEvent('support_inside.technician_assigned')
+  async onTechnicianAssigned(payload: {
+    subscription_id: string;
+    client_id: string;
+    technician_id: string | null;
+    previous_technician_id: string | null;
+    reassigned_pending_tasks: number;
+  }): Promise<void> {
+    await this.audit.logChange({
+      user_id: payload.client_id,
+      entity_type: 'SupportInsideSubscription',
+      entity_id: payload.subscription_id,
+      action: 'assign_technician',
+      changes_after: {
+        technician_id: payload.technician_id,
+        previous_technician_id: payload.previous_technician_id,
+        reassigned_pending_tasks: payload.reassigned_pending_tasks,
+      },
+    });
+    this.logger.debug(
+      `audit logged: support_inside.technician_assigned subscription=${payload.subscription_id}`,
+    );
+  }
 }

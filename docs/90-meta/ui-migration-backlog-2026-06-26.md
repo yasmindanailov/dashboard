@@ -128,6 +128,7 @@ ver plan §3.0). Usar la **plantilla de prompt** del plan §6.
 | DS-C15 | Detalle de factura (página) — cliente | `dashboard/billing/[id]` | **D-5**: el mockup lo hace inline |
 | DS-A5 | Panel de notas con filtros (admin) | `_shared/notes` | `ClienteDetalle` más rico |
 | DS-G7 | "Look" de formularios dinámicos (rjsf) — patrón | `rjsf-theme` | Un encargo, se reutiliza |
+| **DS-A18** | **Selector "Reasignar técnico" (Support Inside, admin)** | `SupportInsideAdminController` (F3·E8) | **Decisión Yasmin 2026-06-28:** el `SupportInsideDetalleAdmin.dc.html` muestra el ítem de menú "Reasignar técnico…" pero **no** el modal/selector. Encargo Nivel 1. **Bloquea** la UI admin del picker (el backend del reasign ya está hecho — `PATCH /admin/support-inside/subscriptions/:id/technician`). **Brief:** modal/popover para reasignar el "técnico asignado" de un cliente SI. Lista de **agentes de soporte elegibles** (`agent_support`/`agent_full`, activos) con avatar + nombre + rol + **indicador de presencia** (online/away/offline, `StatusDot`) + carga actual (nº tareas activas, opcional). Buscador por nombre. El técnico actual aparece marcado. Acción primaria "Reasignar". Callout: *"Al reasignar, la tarea de mantenimiento del mes en curso pasa al nuevo técnico solo si está pendiente; las futuras las hereda automáticamente."* Estados: normal / vacío (sin agentes) / carga. Entrega `.dc.html` en `mockup-uiux/admin/`. |
 
 **Salida:** un `.dc.html` por encargo en `mockup-uiux/` (o `admin/`), mismo formato.
 
@@ -223,7 +224,10 @@ Reutiliza: 7 KPIs `AdminOverview` + `AdminStats`. Montar en `/admin` (hoy toolbo
 - `GET /admin/overview/team-load` → tickets por agente + saturación + presencia.
 - SLA agregado de soporte (reusar `sla-helper`).
 
-### E8 · Support Inside gestionado — `redesign/f3-support-inside` · talla L
+### E8 · Support Inside gestionado — 🟡 **backend + cliente HECHO · admin PENDIENTE** (`redesign/f3-support-inside`, 2026-06-28 · [PR #144](https://github.com/yasmindanailov/dashboard/pull/144)) · talla L→XL
+> **Hecho (Fase A+B+C, verde ci:check):** **técnico = por subscription** (`assigned_technician_id`, decisión Yasmin, NO por slot) + **presencia** (`UserPresence` + `PresenceModule` + heartbeat). Mantenimiento por slot **derivado** (`next`/`last`/`status` sin columnas, helpers puros). Cron hereda al técnico (fallback menor-carga, gate `isAssigneeEligible`). Asignar/reasignar técnico admin (endpoint+audit+evento; reasigna tareas **pending**). `getStatus` enriquecido + **`GET /dashboard/support-inside/slots/:id/maintenance-history`** + value-data real. **Cliente reskin 1:1** (`ManagedView` + `PlanComparator` + componentes `_shared/support-inside/` + modal histórico). ~55 tests, boot 4/4. Bitácora: [`ui-redesign-bitacora-f3-e8-2026-06-28.md`](./ui-redesign-bitacora-f3-e8-2026-06-28.md).
+> **PENDIENTE (otro chat):** **Fase D admin** per-cliente (lista + página `SupportInsideDetalleAdmin` net-new + picker técnico [DS-A18] + endpoints) · **Fase E cierre** (heartbeat front + cablear presencia + smoke). **Diferido (D-3):** "Programar mantenimiento" (creación manual de tareas). **Anotado:** incoherencia billing suscripción-active/servicio-pending (pre-existente).
+
 Reutiliza: slots, `MaintenanceLog`, cron mensual + auto-asignación, `MaintenanceLogModal`.
 - `SupportInsideSlot`: `assigned_technician_id` (FK User), `last_maintenance_at`, `next_maintenance_at` (derivable de `anniversary_day`), `maintenance_status`.
 - `GET /support-inside/slots/:id/maintenance-history` (client-facing).
