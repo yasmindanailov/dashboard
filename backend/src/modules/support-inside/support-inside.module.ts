@@ -19,6 +19,8 @@ import { MaintenanceMonthlyAdminController } from './crons/maintenance-monthly-a
 import { SupportInsidePriorityListener } from './listeners/support-inside-priority.listener';
 import { SupportInsideAuditListener } from './listeners/support-inside-audit.listener';
 import { SupportInsideOnServiceProvisionedListener } from './listeners/support-inside-on-service-provisioned.listener';
+import { SupportInsideAutoAssignTechnicianListener } from './listeners/support-inside-auto-assign-technician.listener';
+import { SupportInsideTechnicianRoutingListener } from './listeners/support-inside-technician-routing.listener';
 
 /**
  * SupportInsideModule — Sprint 8 Fase D (ADR-034 + ADR-061 + ADR-075).
@@ -58,6 +60,10 @@ import { SupportInsideOnServiceProvisionedListener } from './listeners/support-i
     SupportInsidePriorityListener,
     SupportInsideAuditListener,
     SupportInsideOnServiceProvisionedListener,
+    // F3·E8 (iteración 2026-06-29): auto-asignar técnico al contratar +
+    // dirigir tickets/chats al técnico del cliente.
+    SupportInsideAutoAssignTechnicianListener,
+    SupportInsideTechnicianRoutingListener,
   ],
   exports: [SupportInsideService, SupportInsidePlansAdminService],
 })

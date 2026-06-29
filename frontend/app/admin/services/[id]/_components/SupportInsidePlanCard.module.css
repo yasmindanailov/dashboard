@@ -1,0 +1,65 @@
+/* ═══════════════════════════════════════
+   SupportInsidePlanCard — "Plan de soporte" (Rediseño UI F3·E8)
+   Tokens only. 1:1 con la card del mockup SupportInsideDetalleAdmin
+   (progreso de mantenimiento + SLA + técnico asignado).
+   ═══════════════════════════════════════ */
+
+.metaRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 560px) {
+  .metaRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.metaLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.metaValue {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tech {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.techBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.techName {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.techPresence {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}

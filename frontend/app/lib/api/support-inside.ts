@@ -246,6 +246,66 @@ export interface SupportInsideEligibleService {
   product_type: string;
 }
 
+/* ── Admin per-cliente (F3·E8 Fase D) — gestión SI en el detalle de servicio ──
+ *
+ * No es una página nueva: alimenta la sección "Plan de soporte" + el picker
+ * "Reasignar técnico" del detalle de servicio admin unificado
+ * (`/admin/services/[id]`). Capability-driven: el bloque solo existe cuando el
+ * servicio ES una suscripción Support Inside (`product_type === 'support_inside'`).
+ */
+
+/** Técnico asignado (cuidador) con presencia, en la vista admin gestionada. */
+export interface AdminManagedTechnician {
+  id: string;
+  first_name: string;
+  last_name: string;
+  avatar_url: string | null;
+  presence: PresenceStatus;
+}
+
+export interface AdminManagedSlot {
+  id: string;
+  slot_type: SupportInsideSlotType;
+  service_label: string;
+  last_maintenance_at: string | null;
+  next_maintenance_at: string;
+  maintenance_status: SlotMaintenanceStatus;
+}
+
+/** Bloque "Plan de soporte" del detalle admin (técnico + progreso + SLA). */
+export interface SupportInsideManagedBlock {
+  subscription_id: string;
+  service_id: string;
+  status: string;
+  started_at: string;
+  plan: {
+    slug: string;
+    name: string;
+    priority_tier: SupportInsidePriorityTier;
+    response_sla_hours: number;
+  };
+  technician: AdminManagedTechnician | null;
+  maintenance: {
+    period_done: number;
+    period_total: number;
+    overdue_count: number;
+    slots: AdminManagedSlot[];
+  };
+}
+
+/** Candidato del picker "Reasignar técnico" (DS-A18). */
+export interface SupportInsideEligibleTechnician {
+  id: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  email: string;
+  role: string;
+  avatar_url: string | null;
+  presence: PresenceStatus;
+  active_maintenance_tasks: number;
+}
+
 export const supportInsideApi = {
   // ─── Cliente ──
   listPlans: (token: string) =>

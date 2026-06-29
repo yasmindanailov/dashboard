@@ -3,14 +3,15 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { listChatsAction } from '../../_shared/support/_actions';
+import { getSupportInsideTechnicianAction } from '../support-inside/_actions';
+import type { SupportInsideTechnician } from '../../lib/api';
 import type { ConversationItem, ConversationStatus } from '../../components/ui/SidebarConversationList/SidebarConversationList';
 
 import { SidebarSupportCard, SidebarSupportMini, type SupportTechnician } from './SidebarSupportCard';
 
 /**
- * Técnico de fallback. TODO(F3/E8): cuando exista el técnico asignado + presencia
- * (Support Inside gestionado) se sustituye por el real. En F2 mostramos un
- * remitente genérico honesto (no inventamos una persona).
+ * Remitente genérico cuando el cliente no tiene técnico asignado (sin plan SI,
+ * o plan sin técnico todavía). No inventamos una persona.
  */
 const FALLBACK_TECH: SupportTechnician = {
   initials: 'SA',
@@ -18,6 +19,20 @@ const FALLBACK_TECH: SupportTechnician = {
   subtitle: 'Estamos para ayudarte',
   present: true,
 };
+
+/**
+ * F3·E8 — mapea el técnico asignado (Support Inside gestionado) al modelo de la
+ * tarjeta. La presencia real proviene del heartbeat del staff: `online` → punto
+ * verde; `away`/`offline` → sin punto (honesto, no "siempre disponible").
+ */
+function toSupportTechnician(t: SupportInsideTechnician): SupportTechnician {
+  return {
+    initials: `${t.first_name[0] ?? ''}${t.last_name[0] ?? ''}`.toUpperCase(),
+    name: `${t.first_name} ${t.last_name}`.trim(),
+    subtitle: 'Tu técnico · te conoce',
+    present: t.presence === 'online',
+  };
+}
 
 function mapStatus(s: string): ConversationStatus {
   if (s === 'resolved' || s === 'closed') return 'resolved';
@@ -52,8 +67,13 @@ export interface SidebarSupportSlotProps {
 export function SidebarSupportSlot({ collapsed, onOpenSupport }: SidebarSupportSlotProps) {
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [openCount, setOpenCount] = useState(0);
+  const [technician, setTechnician] = useState<SupportTechnician | null>(null);
 
   const load = useCallback(async () => {
+    // F3·E8 — técnico asignado real (con presencia) en paralelo a los chats.
+    void getSupportInsideTechnicianAction().then((res) => {
+      setTechnician(res.technician ? toSupportTechnician(res.technician) : null);
+    });
     const res = await listChatsAction({ limit: 20 });
     if (!res.ok) return;
     const open = res.chats
@@ -78,13 +98,22 @@ export function SidebarSupportSlot({ collapsed, onOpenSupport }: SidebarSupportS
     void load();
   }, [load]);
 
+  const tech = technician ?? FALLBACK_TECH;
+
   if (collapsed) {
-    return <SidebarSupportMini initials={FALLBACK_TECH.initials} openCount={openCount} present onClick={onOpenSupport} />;
+    return (
+      <SidebarSupportMini
+        initials={tech.initials}
+        openCount={openCount}
+        present={tech.present}
+        onClick={onOpenSupport}
+      />
+    );
   }
 
   return (
     <SidebarSupportCard
-      technician={FALLBACK_TECH}
+      technician={tech}
       conversations={conversations}
       openCount={openCount}
       onWrite={onOpenSupport}

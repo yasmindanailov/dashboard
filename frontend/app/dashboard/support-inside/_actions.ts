@@ -9,6 +9,7 @@ import type {
   SupportInsideSlotPayload,
   SupportInsideSlotType,
   SupportInsideMaintenanceHistory,
+  SupportInsideTechnician,
   PlanChangePreview,
 } from '../../lib/api';
 
@@ -43,6 +44,25 @@ export async function loadSupportInsideAction(): Promise<LoadSupportInsideResult
           ? err.message
           : 'No se pudo cargar Support Inside',
     };
+  }
+}
+
+/**
+ * F3·E8 — técnico asignado (con presencia) para la tarjeta de soporte del
+ * sidebar cliente (`SidebarSupportSlot`). Ligero: solo el técnico del status.
+ * Fail-soft: si no hay plan/técnico o falla, devuelve `null` (el slot cae al
+ * remitente genérico "Soporte Aelium").
+ */
+export async function getSupportInsideTechnicianAction(): Promise<{
+  technician: SupportInsideTechnician | null;
+}> {
+  try {
+    const status = await serverFetch<SupportInsideSubscriptionPayload | null>(
+      '/dashboard/support-inside/status',
+    );
+    return { technician: status?.technician ?? null };
+  } catch {
+    return { technician: null };
   }
 }
 

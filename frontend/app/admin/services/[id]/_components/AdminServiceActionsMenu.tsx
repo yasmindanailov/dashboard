@@ -39,6 +39,7 @@ import { DeleteDomainModal } from './DeleteDomainModal';
 import { ResendNotificationModal } from './ResendNotificationModal';
 import { RestoreDomainModal } from './RestoreDomainModal';
 import { SuspendServiceModal } from './SuspendServiceModal';
+import { ReassignTechnicianModal } from './ReassignTechnicianModal';
 
 interface AdminServiceActionsMenuProps {
   serviceId: string;
@@ -51,6 +52,14 @@ interface AdminServiceActionsMenuProps {
   isDomain?: boolean;
   /** Dominio en redención (RGP): habilita "Restaurar dominio" (15D.II.R). */
   canRestore?: boolean;
+  /**
+   * F3·E8 — gestión Support Inside. Presente solo si el servicio es una
+   * suscripción SI (capability-driven): habilita "Reasignar técnico…".
+   */
+  supportInside?: {
+    subscriptionId: string;
+    technicianId: string | null;
+  } | null;
 }
 
 export function AdminServiceActionsMenu({
@@ -61,6 +70,7 @@ export function AdminServiceActionsMenu({
   isTerminal,
   isDomain = false,
   canRestore = false,
+  supportInside = null,
 }: AdminServiceActionsMenuProps) {
   // ── change_package ────────────────────────────────────────────────────────
   const [changePlanOpen, setChangePlanOpen] = useState(false);
@@ -73,6 +83,7 @@ export function AdminServiceActionsMenu({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [deleteDomainOpen, setDeleteDomainOpen] = useState(false);
   const [restoreDomainOpen, setRestoreDomainOpen] = useState(false);
+  const [reassignTechOpen, setReassignTechOpen] = useState(false);
   const [suspendMode, setSuspendMode] = useState<'suspend' | 'unsuspend' | null>(
     null,
   );
@@ -125,6 +136,16 @@ export function AdminServiceActionsMenu({
       label: 'Cambiar plan…',
       description: 'Sube o baja el plan del servicio en el proveedor.',
       onClick: () => void handleOpenChangePlan(),
+    });
+  }
+  // F3·E8 — Reasignar técnico (Support Inside gestionado). Solo si el servicio
+  // es una suscripción SI y no está terminal (1:1 con el kebab del mockup
+  // SupportInsideDetalleAdmin: el ítem solo aparece en estado Activo).
+  if (supportInside && !isTerminal) {
+    safeItems.push({
+      label: 'Reasignar técnico…',
+      description: 'Cambia el técnico asignado al cliente.',
+      onClick: () => setReassignTechOpen(true),
     });
   }
   // Reenviar: disponible siempre (incl. terminal — reenviar el aviso de baja).
@@ -234,6 +255,15 @@ export function AdminServiceActionsMenu({
           onClose={() => setRestoreDomainOpen(false)}
           serviceId={serviceId}
           serviceDisplayName={serviceDisplayName}
+        />
+      )}
+      {supportInside && (
+        <ReassignTechnicianModal
+          open={reassignTechOpen}
+          onClose={() => setReassignTechOpen(false)}
+          serviceId={serviceId}
+          subscriptionId={supportInside.subscriptionId}
+          currentTechnicianId={supportInside.technicianId}
         />
       )}
     </>

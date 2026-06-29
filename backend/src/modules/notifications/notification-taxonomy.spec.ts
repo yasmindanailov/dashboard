@@ -59,6 +59,7 @@ describe('notification-taxonomy', () => {
       'conversation.created',
       'message.created',
       'conversation.assigned',
+      'support_inside.technician_assigned',
       'outbox.event_failed',
       'dlq.job_failed',
       'task.overdue',

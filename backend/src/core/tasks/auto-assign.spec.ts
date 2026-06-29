@@ -1,4 +1,8 @@
-import { autoAssignTask, isAssigneeEligible } from './auto-assign';
+import {
+  autoAssignTask,
+  eligibleAssigneeRoles,
+  isAssigneeEligible,
+} from './auto-assign';
 import { PrismaService } from '../database/prisma.service';
 
 /**
@@ -119,5 +123,35 @@ describe('isAssigneeEligible — F3·E8', () => {
       false,
     );
     expect(findFirst).not.toHaveBeenCalled();
+  });
+
+  it('incluye superadmin en la elegibilidad manual (no en project)', async () => {
+    const findFirst = jest.fn().mockResolvedValue({ id: 'sa' });
+    const prisma = { user: { findFirst } } as unknown as PrismaService;
+    await isAssigneeEligible(prisma, 'sa', 'support_inside_slot');
+    const arg = (
+      findFirst.mock.calls as Array<
+        [{ where: { role: { slug: { in: string[] } } } }]
+      >
+    )[0][0];
+    expect(arg.where.role.slug.in).toContain('superadmin');
+  });
+});
+
+/**
+ * eligibleAssigneeRoles — F3·E8 admin (decisión Yasmin 2026-06-29). El
+ * superadmin es asignable a mano (picker + isAssigneeEligible) pero NO entra
+ * en la auto-rotación (`autoAssignTask` usa el pool sin superadmin).
+ */
+describe('eligibleAssigneeRoles — F3·E8', () => {
+  it('support_inside_slot = pool + superadmin (asignable a mano)', () => {
+    const roles = eligibleAssigneeRoles('support_inside_slot');
+    expect(roles).toEqual(
+      expect.arrayContaining(['agent_support', 'agent_full', 'superadmin']),
+    );
+  });
+
+  it('project (pool vacío) = vacío (no se inventa superadmin)', () => {
+    expect(eligibleAssigneeRoles('project')).toEqual([]);
   });
 });
