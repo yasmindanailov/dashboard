@@ -1,0 +1,80 @@
+/* ═══════════════════════════════════════
+   TechnicianCard — Rediseño UI F3·E8. Tokens only.
+   ═══════════════════════════════════════ */
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.avatarWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.avatarEmpty {
+  color: var(--text-tertiary);
+}
+
+.presence {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  display: inline-flex;
+}
+
+.name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+}
+
+.tagline {
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+  margin-top: 1px;
+}
+
+/* ── Variante onBrand (sobre el hero azul del cliente) ── */
+.onBrand .avatar {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.onBrand .name {
+  color: #fff;
+}
+.onBrand .role {
+  font-weight: var(--font-weight-medium);
+  color: var(--brand-light);
+}
+.onBrand .tagline {
+  color: var(--brand-light);
+}
+
+/* ── Variante default (sobre superficie blanca) ── */
+.default .avatar {
+  background: var(--brand-wash);
+  color: var(--brand);
+}
+.default .name {
+  color: var(--text-primary);
+}
+.default .role {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+}
+.default .tagline {
+  color: var(--text-tertiary);
+}

@@ -41,6 +41,10 @@
   background: var(--danger-light);
   color: var(--danger);
 }
+.security {
+  background: var(--security-light);
+  color: var(--security);
+}
 .neutral {
   background: var(--surface-tertiary);
   color: var(--text-secondary);

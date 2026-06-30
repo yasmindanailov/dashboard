@@ -4,7 +4,10 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import { TasksService } from '../../tasks/tasks.service';
 import { calculateTaskPriority } from '../../../core/tasks/priority-helper';
 import { calculateTaskDueDate } from '../../../core/tasks/sla-helper';
-import { autoAssignTask } from '../../../core/tasks/auto-assign';
+import {
+  autoAssignTask,
+  isAssigneeEligible,
+} from '../../../core/tasks/auto-assign';
 
 export interface MaintenanceMonthlyRunResult {
   billing_month: string;
@@ -45,7 +48,15 @@ export class MaintenanceMonthlyService {
         subscription: { status: 'active' },
       },
       include: {
-        subscription: { select: { client_id: true, id: true } },
+        subscription: {
+          select: {
+            client_id: true,
+            id: true,
+            // F3·E8 — "tu técnico" estable del cliente (cuidador por
+            // suscripción). Si está y sigue siendo elegible, hereda la tarea.
+            assigned_technician_id: true,
+          },
+        },
         service: { select: { id: true, status: true } },
       },
     });
@@ -59,11 +70,21 @@ export class MaintenanceMonthlyService {
       const priority = calculateTaskPriority('support_inside_slot', tier);
       const due_date = calculateTaskDueDate('support_inside_slot', tier, now);
 
-      // Auto-asignación canónica V1 — agente con menor carga entre soporte.
-      const assigned_to = await autoAssignTask(
-        this.prisma,
-        'support_inside_slot',
-      );
+      // F3·E8 — preferimos el "técnico asignado" del cliente (cuidador
+      // estable por suscripción) si sigue siendo elegible; si no hay técnico
+      // o dejó de ser elegible (rol cambiado / inactivo), caemos a la
+      // auto-asignación V1 (menor carga). Mismo patrón que `support_ticket`,
+      // que hereda el `assigned_to` del ticket en vez de auto-asignar.
+      const technicianId = slot.subscription.assigned_technician_id;
+      const assigned_to =
+        technicianId &&
+        (await isAssigneeEligible(
+          this.prisma,
+          technicianId,
+          'support_inside_slot',
+        ))
+          ? technicianId
+          : await autoAssignTask(this.prisma, 'support_inside_slot');
 
       try {
         const task = (await this.tasks.createFromTrigger({

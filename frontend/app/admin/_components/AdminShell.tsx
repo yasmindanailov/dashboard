@@ -8,6 +8,7 @@ import NoPermission from '../../components/ui/NoPermission';
 import { ToastProvider, CommandPalette } from '../../components/ui';
 import Topbar from '../../_shared/shell/Topbar';
 import AdminSidebar from '../AdminSidebar';
+import { PresenceHeartbeat } from '../../_shared/presence/PresenceHeartbeat';
 
 import { TasksPill } from './TasksPill';
 import { getAdminTitle } from './page-title';
@@ -97,6 +98,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   return (
     <ToastProvider>
+      {/* F3·E8 — heartbeat de presencia del staff (técnicos Support Inside). */}
+      <PresenceHeartbeat />
       <div className={styles.shell}>
         <AdminSidebar
           collapsed={sidebarCollapsed}

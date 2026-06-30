@@ -10,6 +10,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -204,4 +205,19 @@ export class UpdateSupportInsidePlanDto {
   @IsOptional()
   @IsEnum(SupportInsideCtaVisibilityDto)
   cta_visibility?: SupportInsideCtaVisibilityDto;
+}
+
+/* ═══════════════════════════════════════
+   Admin per-cliente — Rediseño UI F3·E8
+   ═══════════════════════════════════════ */
+
+/**
+ * Asignar/reasignar el "técnico asignado" (cuidador estable) de una
+ * suscripción Support Inside. `null` desasigna; un UUID asigna/reasigna.
+ * El campo debe estar presente (la acción es explícita).
+ */
+export class AssignTechnicianDto {
+  @ValidateIf((o: AssignTechnicianDto) => o.technician_id !== null)
+  @IsUUID()
+  technician_id!: string | null;
 }

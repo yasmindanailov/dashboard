@@ -92,6 +92,10 @@ model User {
   client_notes                ClientNote[]                @relation("ClientNoteUser")
   client_notes_authored       ClientNote[]                @relation("ClientNoteAuthor")
   support_inside_subscription SupportInsideSubscription?  @relation("UserSupportInsideSubscription")
+  // Rediseño UI F3·E8 — el staff puede ser el "técnico asignado" (cuidador
+  // estable) de N suscripciones SI; y su presencia (online/away/offline).
+  support_inside_as_technician SupportInsideSubscription[] @relation("SupportInsideTechnician")
+  presence                    UserPresence?               @relation("UserPresence")
   enhance_customer            EnhanceCustomer?            @relation("UserEnhanceCustomer")
   // Sprint 15D (ADR-081 §3/§4) — mapping lazy a ResellerClub (customer + 4 contact handles).
   resellerclub_customer       ResellerclubCustomer?       @relation("UserResellerclubCustomer")
@@ -1241,6 +1245,11 @@ model SupportInsideSubscription {
   product_id          String                          @db.Uuid
   service_id          String                          @unique @db.Uuid
   status              SupportInsideSubscriptionStatus @default(active)
+  // Rediseño UI F3·E8 — "tu técnico" (cuidador estable por cliente, no por
+  // slot: decisión 2026-06-28). Lo asigna/reasigna admin; el cron mensual
+  // prefiere este técnico al crear la tarea de mantenimiento. SetNull si el
+  // staff se elimina (la suscripción sobrevive sin técnico).
+  assigned_technician_id String?                      @db.Uuid
   started_at          DateTime                        @default(now()) @db.Timestamptz()
   cancelled_at        DateTime?                       @db.Timestamptz()
   cancellation_reason String?
@@ -1248,15 +1257,33 @@ model SupportInsideSubscription {
   created_at          DateTime                        @default(now()) @db.Timestamptz()
   updated_at          DateTime                        @default(now()) @updatedAt @db.Timestamptz()
 
-  client  User                @relation("UserSupportInsideSubscription", fields: [client_id], references: [id], onDelete: Restrict)
-  product Product             @relation("ProductSupportInsideSubscriptions", fields: [product_id], references: [id])
-  service Service             @relation("ServiceSupportInsideSubscription", fields: [service_id], references: [id], onDelete: Restrict)
-  slots   SupportInsideSlot[] @relation("SubscriptionSlots")
+  client     User                @relation("UserSupportInsideSubscription", fields: [client_id], references: [id], onDelete: Restrict)
+  technician User?               @relation("SupportInsideTechnician", fields: [assigned_technician_id], references: [id], onDelete: SetNull)
+  product    Product             @relation("ProductSupportInsideSubscriptions", fields: [product_id], references: [id])
+  service    Service             @relation("ServiceSupportInsideSubscription", fields: [service_id], references: [id], onDelete: Restrict)
+  slots      SupportInsideSlot[] @relation("SubscriptionSlots")
 
   @@index([client_id])
   @@index([product_id])
   @@index([status])
+  @@index([assigned_technician_id])
   @@map("support_inside_subscriptions")
+}
+
+/// Rediseño UI F3·E8 — presencia de staff (online/away/offline) para mostrar
+/// el estado del "técnico asignado" en Support Inside (y reutilizable por el
+/// dashboard ejecutivo E7 "carga del equipo"). Heartbeat actualiza
+/// `last_seen_at`; el estado se DERIVA de su frescura al leer (sin cron):
+/// online <5min · away <15min · offline en otro caso. Ver `presence.helper.ts`.
+model UserPresence {
+  user_id      String   @id @db.Uuid
+  last_seen_at DateTime @default(now()) @db.Timestamptz()
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  user User @relation("UserPresence", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([last_seen_at])
+  @@map("user_presence")
 }
 
 model SupportInsideSlot {
@@ -1294,22 +1321,41 @@ enum NotificationChannel {
   push
 }
 
+/// Categoría canónica de notificación (F3·E10). Derivada del event_type vía
+/// `notification-taxonomy.ts` y persistida por el InAppChannel al crear la fila.
+/// Cliente y admin comparten el enum: el destinatario (no la categoría) decide
+/// en qué bandeja aparece. `general` = fallback; `negocio` reservado (sin evento hoy).
+enum NotificationCategory {
+  facturacion
+  servicios
+  dominios
+  soporte
+  seguridad
+  tareas
+  sistema
+  plugins
+  negocio
+  general
+}
+
 model Notification {
-  id         String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id    String              @db.Uuid
-  channel    NotificationChannel @default(internal)
-  title      String              @db.VarChar(300)
+  id         String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String               @db.Uuid
+  channel    NotificationChannel  @default(internal)
+  category   NotificationCategory @default(general)
+  title      String               @db.VarChar(300)
   body       String
-  action_url String?             @db.VarChar(1000)
-  read_at    DateTime?           @db.Timestamptz()
-  sent_at    DateTime?           @db.Timestamptz()
+  action_url String?              @db.VarChar(1000)
+  read_at    DateTime?            @db.Timestamptz()
+  sent_at    DateTime?            @db.Timestamptz()
   metadata   Json?
-  created_at DateTime            @default(now()) @db.Timestamptz()
+  created_at DateTime             @default(now()) @db.Timestamptz()
 
   user User @relation("notification_recipient", fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
   @@index([read_at])
+  @@index([user_id, category])
   @@map("notifications")
 }
 

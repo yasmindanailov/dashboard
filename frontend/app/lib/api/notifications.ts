@@ -4,9 +4,24 @@ import { api } from './client';
 
 export type NotificationChannel = 'internal' | 'email' | 'whatsapp' | 'push';
 
+/** Categorías canónicas (enum `NotificationCategory` del backend, F3·E10). */
+export type NotificationCategory =
+  | 'facturacion'
+  | 'servicios'
+  | 'dominios'
+  | 'soporte'
+  | 'seguridad'
+  | 'tareas'
+  | 'sistema'
+  | 'plugins'
+  | 'negocio'
+  | 'general';
+
 export interface NotificationItem {
   id: string;
   channel: NotificationChannel;
+  /** Categoría canónica derivada del event_type (F3·E10). */
+  category: NotificationCategory;
   title: string;
   body: string;
   action_url: string | null;
@@ -32,12 +47,18 @@ export const notificationsApi = {
 
   list: (
     token: string,
-    params?: { page?: number; limit?: number; unread_only?: boolean },
+    params?: {
+      page?: number;
+      limit?: number;
+      unread_only?: boolean;
+      category?: NotificationCategory;
+    },
   ) => {
     const query = new URLSearchParams();
     if (params?.page) query.set('page', String(params.page));
     if (params?.limit) query.set('limit', String(params.limit));
     if (params?.unread_only) query.set('unread_only', 'true');
+    if (params?.category) query.set('category', params.category);
     const qs = query.toString();
     return api<NotificationsListResponse>(
       `/notifications${qs ? `?${qs}` : ''}`,

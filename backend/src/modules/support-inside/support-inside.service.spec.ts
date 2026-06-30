@@ -9,6 +9,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../core/database/prisma.service';
 import { BillingCheckoutService } from '../billing/billing-checkout.service';
 import { SubscriptionPlanChangeService } from '../billing/subscription-plan-change.service';
+import { PresenceService } from '../presence/presence.service';
 import { SupportInsideService } from './support-inside.service';
 
 /**
@@ -105,6 +106,13 @@ describe('SupportInsideService — Sprint 8 Fase D', () => {
         { provide: EventEmitter2, useValue: events },
         { provide: BillingCheckoutService, useValue: checkout },
         { provide: SubscriptionPlanChangeService, useValue: planChange },
+        {
+          provide: PresenceService,
+          useValue: {
+            getPresence: jest.fn().mockResolvedValue('offline'),
+            getPresenceMap: jest.fn().mockResolvedValue({}),
+          },
+        },
       ],
     }).compile();
 

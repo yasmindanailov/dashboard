@@ -22,6 +22,7 @@ import type {
   PluginHealthSummary,
   ServiceBillingCrossLink,
   ServiceDetailResponse,
+  SupportInsideManagedBlock,
 } from '../../../lib/api';
 import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
 import { t } from '../../../_shared/i18n';
@@ -114,6 +115,21 @@ export default async function AdminServiceDetailPage({
 
   const { service, info } = data;
 
+  // F3·E8 — bloque gestionado de Support Inside (técnico + presencia +
+  // progreso de mantenimiento + SLA) para la sección "Plan de soporte" + el
+  // picker "Reasignar técnico". Capability-driven: solo si el servicio ES una
+  // suscripción SI (`product_type === 'support_inside'`). Fetch fail-soft.
+  let supportInside: SupportInsideManagedBlock | null = null;
+  if (service.product_type === 'support_inside') {
+    try {
+      supportInside = await serverFetch<SupportInsideManagedBlock>(
+        `/admin/support-inside/subscriptions/by-service/${id}`,
+      );
+    } catch {
+      supportInside = null;
+    }
+  }
+
   // Estados derivados — replican EXACTAMENTE la lógica del page admin previo
   // (cero cambio funcional). isTerminal antes que suspended/drift (Fase C r4).
   const isTerminal =
@@ -145,6 +161,7 @@ export default async function AdminServiceDetailPage({
     suspensionReasonCode,
     pluginHealth,
     supportsReconcileOne,
+    supportInside,
   };
 
   // F.12.5 (Amendment VII): todas las operaciones admin viven en el menú "Más
@@ -163,6 +180,16 @@ export default async function AdminServiceDetailPage({
       // 15D.II.R — restore RGP: solo si el registrar reporta redención
       // (recoveryHint='restore', señal canónica del ciclo, ADR-077 A5).
       canRestore={info.recoveryHint === 'restore'}
+      // F3·E8 — "Reasignar técnico" (SI gestionado). Solo cuando el servicio es
+      // una suscripción Support Inside (bloque presente, capability-driven).
+      supportInside={
+        supportInside
+          ? {
+              subscriptionId: supportInside.subscription_id,
+              technicianId: supportInside.technician?.id ?? null,
+            }
+          : null
+      }
     />
   );
 

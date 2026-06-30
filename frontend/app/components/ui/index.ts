@@ -80,6 +80,7 @@ export {
   type SegmentedControlProps,
   type SegmentedOption,
 } from './SegmentedControl';
+export { ChipGroup, type ChipGroupProps, type ChipOption } from './ChipGroup';
 export {
   PasswordStrengthMeter,
   type PasswordStrengthMeterProps,

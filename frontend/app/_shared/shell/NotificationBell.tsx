@@ -4,6 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Bell } from 'lucide-react';
 import type { NotificationItem } from '../../lib/api';
+import { IconWell } from '../../components/ui';
+import {
+  eventOf,
+  presentNotification,
+} from '../notifications/notification-presentation';
+import { relativeTime } from '../notifications/notification-groups';
 import {
   fetchUnreadNotificationsAction,
   markAllNotificationsReadAction,
@@ -113,7 +119,7 @@ export default function NotificationBell({ triggerClassName }: NotificationBellP
   /** Destino de "Ver todas" según el portal. La página full-page es E10 (F3). */
   function goAllNotifications(): void {
     setOpen(false);
-    // TODO(F3/E10): /admin/notifications y /dashboard/notifications (bandeja full-page).
+    // Bandeja full-page (F3·E10): admin vs cliente según el portal activo.
     router.push(pathname?.startsWith('/admin') ? '/admin/notifications' : '/dashboard/notifications');
   }
 
@@ -169,8 +175,12 @@ export default function NotificationBell({ triggerClassName }: NotificationBellP
           ) : (
             <ul className={styles.list}>
               {items.map((item) => {
-                const ts = formatRelative(item.created_at);
+                const ts = relativeTime(item.created_at);
                 const unread = !item.read_at;
+                const visual = presentNotification(
+                  item.category,
+                  eventOf(item.metadata),
+                );
                 return (
                   <li key={item.id}>
                     <button
@@ -179,8 +189,7 @@ export default function NotificationBell({ triggerClassName }: NotificationBellP
                       onClick={() => void handleItemClick(item)}
                       data-testid={`notification-item-${item.id}`}
                     >
-                      {/* TODO(F3/E10): icon-well por categoría/tono (mockup) cuando exista
-                          la taxonomía derivada del event_type. */}
+                      <IconWell icon={visual.icon} tone={visual.tone} size="sm" />
                       <span className={styles.itemContent}>
                         <span className={`${styles.itemTitle} ${unread ? styles.itemTitleUnread : ''}`}>
                           {item.title}
@@ -204,22 +213,4 @@ export default function NotificationBell({ triggerClassName }: NotificationBellP
       )}
     </div>
   );
-}
-
-/**
- * Devuelve un timestamp relativo legible. Mantenemos una implementación
- * mínima para no añadir una dep como `date-fns` solo por la campana.
- */
-function formatRelative(iso: string): string {
-  const now = Date.now();
-  const t = new Date(iso).getTime();
-  const diffMs = now - t;
-  if (diffMs < 60_000) return 'ahora';
-  const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 60) return `hace ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `hace ${hours} h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `hace ${days} d`;
-  return new Date(iso).toLocaleDateString('es-ES');
 }

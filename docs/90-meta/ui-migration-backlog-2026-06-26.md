@@ -128,6 +128,7 @@ ver plan §3.0). Usar la **plantilla de prompt** del plan §6.
 | DS-C15 | Detalle de factura (página) — cliente | `dashboard/billing/[id]` | **D-5**: el mockup lo hace inline |
 | DS-A5 | Panel de notas con filtros (admin) | `_shared/notes` | `ClienteDetalle` más rico |
 | DS-G7 | "Look" de formularios dinámicos (rjsf) — patrón | `rjsf-theme` | Un encargo, se reutiliza |
+| **DS-A18** | **Selector "Reasignar técnico" (Support Inside, admin)** | `SupportInsideAdminController` (F3·E8) | **Decisión Yasmin 2026-06-28:** el `SupportInsideDetalleAdmin.dc.html` muestra el ítem de menú "Reasignar técnico…" pero **no** el modal/selector. Encargo Nivel 1. **Bloquea** la UI admin del picker (el backend del reasign ya está hecho — `PATCH /admin/support-inside/subscriptions/:id/technician`). **Brief:** modal/popover para reasignar el "técnico asignado" de un cliente SI. Lista de **agentes de soporte elegibles** (`agent_support`/`agent_full`, activos) con avatar + nombre + rol + **indicador de presencia** (online/away/offline, `StatusDot`) + carga actual (nº tareas activas, opcional). Buscador por nombre. El técnico actual aparece marcado. Acción primaria "Reasignar". Callout: *"Al reasignar, la tarea de mantenimiento del mes en curso pasa al nuevo técnico solo si está pendiente; las futuras las hereda automáticamente."* Estados: normal / vacío (sin agentes) / carga. Entrega `.dc.html` en `mockup-uiux/admin/`. |
 
 **Salida:** un `.dc.html` por encargo en `mockup-uiux/` (o `admin/`), mismo formato.
 
@@ -208,30 +209,69 @@ Reutiliza: `PaymentProviderInterface` (ADR-031), dunning (`billing-lifecycle.wor
 - `POST /billing/payment-methods` (SetupIntent) · `GET /billing/payment-methods` · `DELETE /billing/payment-methods/:id` · `POST /billing/invoices/:id/pay-now` · `POST /webhooks/stripe`.
 - UI: gestor de métodos + modal "Pagar ahora" + guardar tarjeta en checkout.
 
-### E7 · Dashboard ejecutivo admin — `redesign/f3-admin-overview` · talla L
+### E7 · Dashboard ejecutivo admin — ✅ **MERGED (#139, 2026-06-28)** · `redesign/f3-admin-overview` · talla L
+> **Hecho:** módulo nuevo `admin-overview` (solo Prisma) con `GET /admin/overview`
+> (4 KPIs + MoM%), `/decisions` (vencidas, 5xx última hora, DLQ, SI sin mant. >60d),
+> `/team-load` (conversaciones por agente + saturación + presencia vía
+> `Session.last_used_at`) + reskin de `/admin` (`ExecutiveDashboard`). **Diferido
+> (decisión Yasmin):** la señal de **drift** del feed — no hay estado de drift
+> persistente; follow-up = `Service.has_drift` escrito por el cron de reconcile.
+> Bitácora: `ui-redesign-bitacora-f3-e7-2026-06-28.md`.
+
 Reutiliza: 7 KPIs `AdminOverview` + `AdminStats`. Montar en `/admin` (hoy toolbox).
 - Extender `AdminOverview` con **deltas MoM** por KPI.
 - `GET /admin/overview/decisions` → feed "Requiere tu decisión" (5xx, DLQ, drift, SI sin mantenimiento).
 - `GET /admin/overview/team-load` → tickets por agente + saturación + presencia.
 - SLA agregado de soporte (reusar `sla-helper`).
 
-### E8 · Support Inside gestionado — `redesign/f3-support-inside` · talla L
+### E8 · Support Inside gestionado — ✅ **CÓDIGO-COMPLETO** (`redesign/f3-support-inside` [PR #144, A+B+C] + `redesign/f3-support-inside-admin` [D+E, 2026-06-29]) · talla L→XL
+> **Hecho (Fase A+B+C, verde ci:check):** **técnico = por subscription** (`assigned_technician_id`, decisión Yasmin, NO por slot) + **presencia** (`UserPresence` + `PresenceModule` + heartbeat). Mantenimiento por slot **derivado** (`next`/`last`/`status` sin columnas, helpers puros). Cron hereda al técnico (fallback menor-carga, gate `isAssigneeEligible`). Asignar/reasignar técnico admin (endpoint+audit+evento; reasigna tareas **pending**). `getStatus` enriquecido + **`GET /dashboard/support-inside/slots/:id/maintenance-history`** + value-data real. **Cliente reskin 1:1** (`ManagedView` + `PlanComparator` + componentes `_shared/support-inside/` + modal histórico). ~55 tests, boot 4/4. Bitácora: [`ui-redesign-bitacora-f3-e8-2026-06-28.md`](./ui-redesign-bitacora-f3-e8-2026-06-28.md).
+> **Hecho (Fase D admin + Fase E cierre, 2026-06-29 · verde ci:check + builds + boot 4/4):** ⚠️ **drift corregido** — `admin/SupportInside.dc.html` resultó ser la **lista de PLANES** (ya = `admin/support-inside-plans/`), y `admin/SupportInsideDetalleAdmin.dc.html` es el **detalle de servicio admin** (`/admin/services/[id]`, plantilla única frozen F.12). **Decisión Yasmin: extender ese detalle, NO página/lista nuevas** (evita duplicar notas/auditoría/ciclo de vida; respeta ADR-070/R4/L18). Backend: `getManagedByService` + `listEligibleTechnicians` (presencia+carga) + 2 GET admin (`subscriptions/by-service/:serviceId`, `technicians/eligible`); `enrichSlotsMaintenance` extraído a helper compartido. Frontend: sección **"Plan de soporte"** (`SupportInsidePlanCard`) en el registry + **"Reasignar técnico…"** (`ReassignTechnicianModal`, **DS-A18** funcional) en el kebab + `ServiceDetailContext.supportInside`. **Cierre:** heartbeat de presencia (`PresenceHeartbeat` en `AdminShell`) + técnico real en `SidebarSupportSlot`. **Diferido (D-3):** "Programar mantenimiento". **Anotado:** incoherencia billing suscripción-active/servicio-pending (pre-existente). **Falta (Yasmin):** smoke visual admin + cliente.
+
 Reutiliza: slots, `MaintenanceLog`, cron mensual + auto-asignación, `MaintenanceLogModal`.
 - `SupportInsideSlot`: `assigned_technician_id` (FK User), `last_maintenance_at`, `next_maintenance_at` (derivable de `anniversary_day`), `maintenance_status`.
 - `GET /support-inside/slots/:id/maintenance-history` (client-facing).
 - Presencia del técnico: tabla/campo `user_presence` (o **diferir** a "online genérico").
 
-### E9 · SLA (visualización) — `redesign/f3-sla-ui` · talla M (mayormente UI)
+### E9 · SLA (visualización) — ✅ **CÓDIGO-COMPLETO** (`redesign/f3-sla-ui`, 2026-06-28 · [PR #143](https://github.com/yasmindanailov/dashboard/pull/143)) · talla M (mayormente UI)
+> **Hecho:** SLA de **1ª respuesta** por conversación, calculado **server-side**
+> (autoridad de tiempo única; el front solo presenta el snapshot). Helper puro
+> `support-sla.helper.ts` (`computeConversationSla`, 12 tests) — reutiliza
+> `first_response_at` + `response_sla_hours` del tier SI del cliente (sin plan →
+> 24 h, alineado con `core/tasks/sla-helper.ts`). Payload `sla` en lista
+> (`include` anidado del owner, **sin N+1**) y detalle. Net-new front:
+> componente **`SlaIndicator`** (variante `inline` = pill de bandeja /
+> `detail` = tira del header; audiencia `admin` literal vs `client`
+> tranquilizador que **nunca** muestra "vencido"), 12 tests. Cableado:
+> **pill por fila en la bandeja del staff** (`TicketList`, solo running/breached)
+> + **tira por estado en el detalle** (`ConversationHeader`, admin todos los
+> estados / cliente solo tickets con plan SI). 1:1 con `BandejaTickets` /
+> `TicketConversacion` / `Soporte` (tira de estado, sin gauge —los mockups no lo
+> dibujan). Verde: typecheck+lint+test back (109 suites/1431) y front (11/80).
+> Bitácora: [`ui-redesign-bitacora-f3-e9-2026-06-28.md`](./ui-redesign-bitacora-f3-e9-2026-06-28.md).
+> **Falta (Yasmin):** smoke visual. **Diferido a F4:** SLA en el ChatsWorkspace
+> (panel en vivo, otra superficie) + placement fino de la tira al reskinear Soporte.
+
 Reutiliza: `calculateTaskDueDate`, `first_response_at`, `response_sla_hours`.
 - Exponer en el payload de conversación: `sla_due_at`, `sla_remaining_pct`, `first_response_pending`.
 - UI: barra/gauge en detalle + indicador por fila en bandeja.
 
-### E10 · Páginas de notificaciones — `redesign/f3-notificaciones` · talla M-L (casi todo UI)
+### E10 · Páginas de notificaciones — ✅ **CÓDIGO-COMPLETO** (`redesign/f3-notificaciones`, 2026-06-28 · PR #142) · talla M-L
+> **Hecho:** bandejas full-page `/dashboard/notifications` (cliente) y `/admin/notifications` (admin, convive con `/templates`), 1:1 con los mockups. **Decisión Yasmin (filtro por categoría = backend real, no client-side):** enum `NotificationCategory` + columna `category` **persistida** (migración `20260628133123` + backfill por `metadata.event`) + filtro server-side correcto con paginación. Taxonomía `event→categoría` = **fuente única en backend** (`notification-taxonomy.ts`); el front solo presenta (categoría→icono/tono). Net-new DS: primitiva **`ChipGroup`** + tono **`security`** en `IconWell` (+ tokens `--security`). Marcar leída **implícito al click** (decisión Yasmin). Cierra los 2 TODOs de `NotificationBell`. Verde: typecheck+lint+test back (108 suites/1419) y front (10 suites/68). Bitácora: [`ui-redesign-bitacora-f3-e10-2026-06-28.md`](./ui-redesign-bitacora-f3-e10-2026-06-28.md). **Falta (Yasmin):** smoke visual 1:1 en navegador (reiniciar backend dev para cargar el cliente Prisma nuevo).
+
 Reutiliza: **endpoint paginado `GET /notifications` ya existe**.
 - `/dashboard/notifications` y `/admin/notifications` (mockup Nivel 2: diseño existe).
-- Taxonomía categoría/tono **derivada del `event_type` en el front** (mapping canónico, sin migración). Opcional: derivarla en backend.
+- ~~Taxonomía derivada en el front, sin migración~~ → **decisión Yasmin: categoría persistida en backend** (columna `category` + migración; filtro server-side; el front solo mapea categoría→icono/tono).
 
-### E11 · Registro fiscal — `redesign/f3-registro` · talla M (modelo ya existe)
+### E11 · Registro fiscal — ✅ **MERGED (#140, 2026-06-28)** · `redesign/f3-registro` · talla M (modelo ya existe)
+> **Hecho:** `RegisterDto` con validación condicional (`@ValidateIf`) + `register()`
+> crea `ClientProfile` fiscal + `BillingProfile` (autónomo/empresa) en `$transaction`
+> + migración `User.terms_accepted_at` · reskin de `/register` (tarjetas de tipo +
+> campos condicionales + hint de IVA por país + términos). Backward-compatible.
+> Smoke backend en vivo ✅ (register 201/400). **Diferido:** **IVA real por país**
+> (se captura país + hint; cálculo sigue 21% default → tabla `country_tax_rates`
+> aparte). Bitácora: `ui-redesign-bitacora-f3-e11-2026-06-28.md`.
+
 Reutiliza: **`ClientProfile` + `BillingProfile`** (enum `personal|autonomo|empresa` == mockup).
 - Extender `RegisterDto` + formulario (tipo de cuenta, NIF/CIF, razón social, dirección, país, teléfono, términos).
 - Crear `BillingProfile` en el registro; `User.terms_accepted_at`.
@@ -283,6 +323,18 @@ nuevos (F1b) y features (F3). **Orden por oleadas** (de menor a mayor riesgo):
 | **W2** (M) | `U24` Servicio-detalle admin, `U27` Producto-form, `U22` Cliente-detalle | Cercanas, sin backend pesado |
 | **W3** (shells-dependientes, L) | Auth, listas y detalles de servicio/dominio/billing cliente y admin | Tras F2 |
 | **W4** (XL, con F3) | Overview cliente/admin, Billing+Stripe, Soporte, Support-Inside, Buscador, Notificaciones, Ops, Tareas, Perfiles | Necesitan F3 |
+
+> **F4 · Servicios (W2/W3) — features Support Inside ya especificadas** (documentadas
+> 2026-06-29, pendientes de implementar al reskinear `/admin/services` + `/admin/services/[id]`):
+> (A) toggle "Support Inside" en la lista · (B) filtro "cubiertos por SI: mantenimiento/gestión/ambos" ·
+> (C) badge inteligente "Mantenimiento" / "Mantenimiento + gestión" en el detalle, según el
+> `slot_type` del slot activo del servicio. Spec completa con el modelo de slots empírico en
+> [`docs/features/support-inside/admin.md` §11.3](../features/support-inside/admin.md).
+>
+> **F4 · Tareas (W4) — `TareaDetalleAdmin`:** revivir `/admin/tasks/[id]` 1:1 con el mockup
+> (decisión Yasmin 2026-06-29) requiere **Amendment a ADR-079 §3.6** ("tasks es lista, no
+> detalle"). Hoy el checklist + completar mantenimiento ya viven en el `MaintenanceLogModal`
+> inline de `/admin/tasks` — el detalle sería sobre todo paridad visual con el mockup.
 
 **DoD por página (F4):**
 1. Paridad visual con el mockup (layout/tipografía/color/spacing/iconos).

@@ -8,6 +8,8 @@ import type {
   SupportInsideEligibleService,
   SupportInsideSlotPayload,
   SupportInsideSlotType,
+  SupportInsideMaintenanceHistory,
+  SupportInsideTechnician,
   PlanChangePreview,
 } from '../../lib/api';
 
@@ -42,6 +44,25 @@ export async function loadSupportInsideAction(): Promise<LoadSupportInsideResult
           ? err.message
           : 'No se pudo cargar Support Inside',
     };
+  }
+}
+
+/**
+ * F3·E8 — técnico asignado (con presencia) para la tarjeta de soporte del
+ * sidebar cliente (`SidebarSupportSlot`). Ligero: solo el técnico del status.
+ * Fail-soft: si no hay plan/técnico o falla, devuelve `null` (el slot cae al
+ * remitente genérico "Soporte Aelium").
+ */
+export async function getSupportInsideTechnicianAction(): Promise<{
+  technician: SupportInsideTechnician | null;
+}> {
+  try {
+    const status = await serverFetch<SupportInsideSubscriptionPayload | null>(
+      '/dashboard/support-inside/status',
+    );
+    return { technician: status?.technician ?? null };
+  } catch {
+    return { technician: null };
   }
 }
 
@@ -107,6 +128,31 @@ export async function releaseSlotAction(
         err instanceof ServerFetchError
           ? err.message
           : 'No se pudo liberar el slot',
+    };
+  }
+}
+
+/* ── Histórico de mantenimientos del slot (F3·E8) ── */
+
+export type MaintenanceHistoryResult =
+  | { ok: true; data: SupportInsideMaintenanceHistory }
+  | { ok: false; error: string };
+
+export async function loadMaintenanceHistoryAction(
+  slotId: string,
+): Promise<MaintenanceHistoryResult> {
+  try {
+    const data = await serverFetch<SupportInsideMaintenanceHistory>(
+      `/dashboard/support-inside/slots/${slotId}/maintenance-history`,
+    );
+    return { ok: true, data };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo cargar el histórico de mantenimientos',
     };
   }
 }

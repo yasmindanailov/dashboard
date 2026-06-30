@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { ConversationDetail } from './types';
 import { STATUS_CONFIG, PRIORITY_OPTIONS, CATEGORY_LABELS, formatDate } from './types';
 import { Badge, Select, Button, Tooltip } from '../../../components/ui';
+import SlaIndicator from '../SlaIndicator';
 import styles from './conversationDetail.module.css';
 
 /* ═══════════════════════════════════════
@@ -40,7 +41,22 @@ export default function ConversationHeader({
   const isChat = conversation.type === 'chat';
   const isTicket = conversation.type === 'ticket';
 
+  /* Rediseño UI F3·E9 — tira de SLA bajo el header.
+     - Admin: cualquier estado vivo (running/breached/paused/met).
+     - Cliente: solo tickets con plan SI activo, en tono tranquilizador
+       (el propio componente nunca muestra "vencido" al cliente).
+     - Terminal (resuelta/cerrada) → oculta: la resolución se comunica en
+       el banner / sidebar, no duplicamos. */
+  const isTerminal =
+    conversation.status === 'resolved' || conversation.status === 'closed';
+  const showSla =
+    !!conversation.sla &&
+    !isTerminal &&
+    conversation.sla.state !== 'none' &&
+    (isAdmin || (isTicket && !!conversation.client_support_inside));
+
   return (
+    <div className={styles.headerWithSla}>
     <div className={styles.headerRow}>
       <div>
         <h1 className={styles.headerTitle}>{conversation.subject}</h1>
@@ -176,6 +192,14 @@ export default function ConversationHeader({
           )}
         </div>
       )}
+    </div>
+    {showSla && conversation.sla && (
+      <SlaIndicator
+        sla={conversation.sla}
+        variant="detail"
+        audience={isAdmin ? 'admin' : 'client'}
+      />
+    )}
     </div>
   );
 }

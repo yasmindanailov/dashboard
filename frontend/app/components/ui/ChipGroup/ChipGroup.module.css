@@ -1,0 +1,38 @@
+/* ChipGroup — primitiva F3·E10 (chips-toggle de filtro, spec del mockup). */
+
+.group {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 6px 13px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.chip:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.chip.active {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--text-on-brand);
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}

@@ -61,8 +61,18 @@ export class ClientsController {
 
   @Get()
   @CheckPolicies((ability) => ability.can(Action.List, Subject.Client))
-  findAll(@Query() query: ClientListQueryDto) {
-    return this.clientsService.findAll(query);
+  findAll(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: ClientListQueryDto,
+  ) {
+    // F3·E8 — "Mis clientes": `assigned_technician='me'` se resuelve al actor
+    // del JWT (el agente logueado); cualquier otro valor (UUID de técnico) pasa
+    // tal cual para el filtro "por técnico" del admin.
+    const assigned_technician =
+      query.assigned_technician === 'me'
+        ? req.user.id
+        : query.assigned_technician;
+    return this.clientsService.findAll({ ...query, assigned_technician });
   }
 
   @Get(':id')

@@ -29,6 +29,10 @@ interface Client {
     phone: string | null;
     company_name: string | null;
   } | null;
+  support_inside_subscription: {
+    status: string;
+    technician: { first_name: string; last_name: string } | null;
+  } | null;
 }
 
 const STATUS_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
@@ -55,13 +59,16 @@ const UsersIcon = (
 interface Props {
   clients: Client[];
   meta: { total: number; page: number; limit: number; totalPages: number };
-  initialFilters: { search: string; status: string };
+  initialFilters: { search: string; status: string; assignedTechnician: string };
+  /** Técnicos elegibles para el filtro "por técnico" (vacío si sin permiso). */
+  technicians: { value: string; label: string }[];
 }
 
 export default function ClientsListView({
   clients,
   meta,
   initialFilters,
+  technicians,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -70,7 +77,11 @@ export default function ClientsListView({
   const [search, setSearch] = useState(initialFilters.search);
   const [selected, setSelected] = useState<Set<string | number>>(new Set());
 
-  function pushFilters(next: { search?: string; status?: string }) {
+  function pushFilters(next: {
+    search?: string;
+    status?: string;
+    assigned_technician?: string;
+  }) {
     const params = new URLSearchParams(searchParams.toString());
     const writeOrDelete = (k: string, v: string | undefined) => {
       if (v && v.length > 0) params.set(k, v);
@@ -78,9 +89,17 @@ export default function ClientsListView({
     };
     if (next.search !== undefined) writeOrDelete('search', next.search);
     if (next.status !== undefined) writeOrDelete('status', next.status);
+    if (next.assigned_technician !== undefined)
+      writeOrDelete('assigned_technician', next.assigned_technician);
     params.delete('page');
     startTransition(() => router.push(`/admin/clients?${params.toString()}`));
   }
+
+  const technicianOptions = [
+    { value: '', label: 'Técnico: todos' },
+    { value: 'me', label: 'Mis clientes' },
+    ...technicians,
+  ];
 
   function handlePageChange(page: number) {
     const params = new URLSearchParams(searchParams.toString());
@@ -102,6 +121,12 @@ export default function ClientsListView({
             {c.client_profile?.company_name && (
               <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
                 {c.client_profile.company_name}
+              </div>
+            )}
+            {c.support_inside_subscription?.technician && (
+              <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                Técnico: {c.support_inside_subscription.technician.first_name}{' '}
+                {c.support_inside_subscription.technician.last_name}
               </div>
             )}
           </div>
@@ -160,11 +185,21 @@ export default function ClientsListView({
           />
         }
         filters={
-          <Select
-            value={initialFilters.status}
-            onChange={(e) => pushFilters({ status: e.target.value })}
-            options={STATUS_OPTIONS}
-          />
+          <>
+            <Select
+              value={initialFilters.status}
+              onChange={(e) => pushFilters({ status: e.target.value })}
+              options={STATUS_OPTIONS}
+            />
+            <Select
+              value={initialFilters.assignedTechnician}
+              onChange={(e) =>
+                pushFilters({ assigned_technician: e.target.value })
+              }
+              options={technicianOptions}
+              aria-label="Filtrar por técnico asignado"
+            />
+          </>
         }
       />
       <Table<Client>
