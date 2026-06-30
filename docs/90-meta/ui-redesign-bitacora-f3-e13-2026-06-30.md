@@ -3,8 +3,8 @@
 > Registro riguroso de la **vertical F3·E13**: copiloto de IA (Claude/Anthropic)
 > que sugiere un **borrador de respuesta** al agente en el composer de soporte.
 > Es la vertical F3 "genuinamente nueva" (L-XL). **Rama:** `redesign/f3-ia`
-> (desde `origin/master`, independiente). **Estado: A + B + C + D + E + F ✅;
-> G pendiente** (otro chat).
+> (desde `origin/master`, independiente). **Estado: A + B + C + D + E + F + G ✅
+> — vertical CÓDIGO-COMPLETA** (pendiente solo del smoke visual + merge de Yasmin).
 
 ## 0. Resumen ejecutivo
 
@@ -14,7 +14,8 @@ revisa e inserta. Por su tamaño se ejecuta por fases con checkpoints verdes y
 commits independientes. Hechas: **A** (doctrina), **B** (framework IA), **C**
 (plugin Anthropic + mock), **D** (endpoint + grounding v1), **E** (UI admin del
 plugin IA en `/admin/settings/plugins`), **F** (botón "Sugerencia IA" en el
-composer de chat + ticket). Pendiente: **G** docs/DoD + retrospectiva.
+composer de chat + ticket), **G** (voz del borrador + E2E + docs/DoD +
+retrospectiva). **Vertical CÓDIGO-COMPLETA.**
 
 ## 1. Decisiones (Yasmin, 2026-06-30)
 
@@ -269,13 +270,85 @@ durante la espera, al insertar se **perdía lo escrito**. **Fix:** *functional u
 `useState`). Verde tras el fix (typecheck+lint+**96**). **Sin** hallazgos de gating
 (el cliente nunca ve el botón) ni de auto-envío (solo inserta en el borrador).
 
-## 8. Pendiente (G) — para el próximo chat
+## 8. Fase G — voz del borrador + E2E + cierre (✅)
 
-| Fase | Contenido |
-|---|---|
-| **G** | Tests E2E (endpoint con plugin real mockeado + browser del botón) + docs (`features/support` sección "Sugerencia IA", roadmap `current.md`) + retrospectiva + cierre de la vertical. |
+### 8.1 Voz del borrador — "más humana, menos robótica, rigurosa" (commit `66fa694`)
 
-**Estado git:** rama `redesign/f3-ia` = … + **Fase D `55294e8`** + 2 merges de master
-(`abb37d2`,`678c33d`) + **Fase E `d2c4fdb`** + **Fase F (esta sesión)**. **Falta
-(Yasmin):** smoke visual del botón (chat/ticket → "Sugerencia IA" → borrador insertado);
-Fase G + cierre; merge de la vertical cuando esté código-completa.
+Petición Yasmin (2026-06-30): la respuesta IA debía ser **más humana, menos
+robótica y rigurosa con el contexto real del cliente; cercana, simple y amena**.
+Se reescribió el `SYSTEM_PROMPT` del plugin Anthropic anclándolo en la [voz de
+marca canónica](../40-reference/aelium-documento-de-marca.md) (§Voz + §Personalidad):
+voz del mejor especialista — cercano, competente, honesto; tutea; frases cortas;
+humaniza en los márgenes; **lista explícita de frases-robot prohibidas**
+("Estimado cliente", "Lamentamos los inconvenientes", "Procederemos a gestionar"…).
+
+**Rigor (lo más crítico para un SaaS de cobro):** se endureció el uso del
+grounding v1 con tres reglas que nacieron de fallos reales detectados en la
+validación: **(1) fuente-por-dato** — cada cifra (importe/precio/fecha) sale de SU
+campo del contexto; el importe de una factura pendiente NO es el precio de la
+renovación (que dos cifras coincidan no autoriza a deducir una de la otra);
+**(2) no inventar causas** — una hipótesis técnica se marca como tal, nunca como
+hecho; **(3) SLA como plazo humano** ("te escribo hoy mismo"), no como cifra
+cruda ni cláusula contractual.
+
+**Validación empírica (panel de jueces multi-lente, 4 rondas).** En vez de pelear
+con el live-test (2FA/Mailpit frágil), se validó el prompt con un **workflow**:
+agentes Claude (mismo modelo `opus-4-8` que el plugin) siguen el system-prompt
+sobre 6 escenarios con grounding sintético (incl. **dato ausente** y **cliente
+enfadado**) → borradores → **panel de 3 lentes** (calidez-humana / rigor-datos /
+marca-simplicidad) los puntúa y propone mejoras. Trayectoria:
+
+| Ronda | Cambio | overall | rigor | humano/cercanía | frases-robot | datos inventados |
+|---|---|---|---|---|---|---|
+| v1 | reescritura voz de marca | 4.5 | 4.33 | 4.92 | 0 | **2** (factura→renovación, GRAVE) |
+| v2 | + regla fuente-por-dato | 4.75 | **4.83** | 4.92 | 0 | 0 |
+| v3 | + anti-redundancia/1-pregunta/SLA + 2 escenarios límite | 4.61 | 4.39 | 4.78 | 0 | 1 (especula causa) |
+| **v4** | + no-inventar-causas + SLA humano | 4.56 | 4.39 | **5.0** | **0** | residual (gusto) |
+
+**Convergencia confirmada en v4:** los jueces ya **oscilan 180°** entre rondas en
+cuestiones de gusto (v3 "el SLA en horas es frío" ↔ v4 "usa el SLA, 'hoy mismo'
+es vago") — firma del régimen de ruido. Seguir iterando sería sobreajustar a
+paneles estocásticos. Los **dos fallos de correctitud reales** (transponer cifras;
+especular causas) quedaron cerrados; voz humana/cercanía a tope. **Lección
+heredable (L-IA-1):** un panel de jueces LLM sirve para detectar fallos de
+correctitud (alta señal) pero converge en ruido para el gusto fino — parar cuando
+los jueces empiezan a contradecirse entre rondas, no perseguir el último 0.1.
+
+### 8.2 E2E — cadena real con el SDK mockeado (Fase G)
+
+`backend/test/integration/ai-suggestion.e2e-spec.ts` (4 tests, **sin infra**:
+Prisma+SecretVault `useValue`, SDK Anthropic `jest.mock`). Ejercita la **cadena
+real** end-to-end que los unit specs no cubren (mockean el colaborador
+`AiSuggestionService`): `SupportAiSuggestionService → AiSuggestionService →
+AiProviderRegistry → AnthropicAiPlugin → SDK`. Verifica:
+1. **Ruta API real (SDK mockeado):** el grounding ensamblado (nombre/servicio/
+   dominio/facturación) **llega al prompt** + el system-prompt es la voz de marca;
+   y la **PII del cliente (email/teléfono/NIF) NO sale a Anthropic** (la minimiza
+   el código real, no el mock) — aserción RGPD end-to-end sobre el argumento real
+   de `messages.create`.
+2. **Mock-first:** proveedor activo sin `api_key` → stub determinista, **cero**
+   llamadas de red.
+3. **Sin proveedor activo** (install disabled) → `isEnabled()` false + `503
+   AI_UNAVAILABLE`, sin tocar el SDK.
+4. **Modelo configurable** + `truncated` mapeado desde `stop_reason=max_tokens`.
+
+### 8.3 Docs + DoD
+
+- **Docs:** `support/contract.md` §Sugerencia IA (estado D→G + endpoint
+  `GET /ai-suggestion/enabled` + voz del borrador) · `current.md` ▶TRACK ACTIVO
+  (F3·E13 ✅ código-completo) · esta bitácora (§8 cierre + retrospectiva).
+- **DoD verde:** back typecheck + lint:check (completo, incl. `test/`) + **1521**
+  unit + **E2E 4/4** · front typecheck + lint + **96** unit. Sin cambios de
+  `@Module`/firmas en G (solo string del prompt + test nuevo) → boot smoke ya
+  cubierto en D/E/F (`Active AI provider(s): [anthropic]`, provisioners 4/4).
+
+### 8.4 Estado git + lo que falta (Yasmin)
+
+**Rama `redesign/f3-ia`** = … + **Fase D `55294e8`** + 2 merges de master
+(`abb37d2`,`678c33d`) + **Fase E `d2c4fdb`** + **Fase F `0cb515b`** + **doctrina
+Amendment D `1077461`** + **B+C `6f1b30d`** + **bitácora/grounding `954d892`** +
+**voz del prompt `66fa694`** + **Fase G E2E/docs (este commit)**.
+
+**Falta (Yasmin):** smoke **visual** del botón (chat/ticket → "Sugerencia IA" →
+borrador insertado, con la `api_key` real ya configurada y verificada) + **merge**
+de la vertical (PR #147). El núcleo está código-completo y verde.
