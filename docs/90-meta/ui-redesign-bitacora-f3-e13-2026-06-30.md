@@ -4,7 +4,7 @@
 > que sugiere un **borrador de respuesta** al agente en el composer de soporte.
 > Es la vertical F3 "genuinamente nueva" (L-XL). **Rama:** `redesign/f3-ia`
 > (desde `origin/master`, independiente). **Estado: A + B + C + D + E + F + G ✅
-> — vertical CÓDIGO-COMPLETA** (pendiente solo del smoke visual + merge de Yasmin).
+> — vertical CÓDIGO-COMPLETA**; smoke visual ✅ (Yasmin, 2026-06-30); pendiente solo el merge del PR #147.
 
 ## 0. Resumen ejecutivo
 
@@ -349,6 +349,6 @@ AiProviderRegistry → AnthropicAiPlugin → SDK`. Verifica:
 Amendment D `1077461`** + **B+C `6f1b30d`** + **bitácora/grounding `954d892`** +
 **voz del prompt `66fa694`** + **Fase G E2E/docs (este commit)**.
 
-**Falta (Yasmin):** smoke **visual** del botón (chat/ticket → "Sugerencia IA" →
-borrador insertado, con la `api_key` real ya configurada y verificada) + **merge**
-de la vertical (PR #147). El núcleo está código-completo y verde.
+**Smoke visual ✅ (Yasmin, 2026-06-30):** botón "Sugerencia IA" en chat/ticket →
+borrador insertado, con la `api_key` real configurada y verificada. **Falta solo
+el merge** del PR #147 (lo hace Yasmin). El núcleo está código-completo y verde.
