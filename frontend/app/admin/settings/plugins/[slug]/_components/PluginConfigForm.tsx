@@ -100,6 +100,9 @@ export function PluginConfigForm({ detail }: Props) {
     detail.manifest.secretsSchema.properties ?? {},
   ).length > 0;
   const supportsTestConnection = detail.manifest.testConnectionMethod !== null;
+  // F3·E13 Fase E — el copy del toggle difiere para proveedores IA (no
+  // aprovisionan servicios; alimentan el copiloto de soporte).
+  const isAiPlugin = detail.manifest.settingsCategory === 'ai';
 
   function handleToggleEnabled(): void {
     const next = !enabled;
@@ -222,8 +225,12 @@ export function PluginConfigForm({ detail }: Props) {
             }}
           >
             {enabled
-              ? 'El plugin está activo. Servicios cuyo provisioner_slug coincida con este se procesarán automáticamente.'
-              : 'El plugin está deshabilitado. Servicios afectados quedarán en pending hasta que se habilite.'}
+              ? isAiPlugin
+                ? 'El proveedor de IA está activo. El copiloto de soporte usará este proveedor para generar borradores de respuesta.'
+                : 'El plugin está activo. Servicios cuyo provisioner_slug coincida con este se procesarán automáticamente.'
+              : isAiPlugin
+                ? 'El proveedor de IA está deshabilitado. La sugerencia de IA no estará disponible en el composer de soporte.'
+                : 'El plugin está deshabilitado. Servicios afectados quedarán en pending hasta que se habilite.'}
           </p>
         </div>
         <Button

@@ -30,6 +30,12 @@ interface BootstrapPlugin {
 const BOOTSTRAP_PLUGINS: ReadonlyArray<BootstrapPlugin> = [
   { slug: 'internal', enabled: true },
   { slug: 'manual', enabled: true },
+  // Rediseño UI F3·E13 (ADR-080 Amendment D.3) — proveedor IA `anthropic`
+  // seedeado DESHABILITADO. A diferencia de los provisioners reales (que se
+  // instalan en runtime), el subsistema IA crea la fila para que el admin solo
+  // tenga que activarla y pegar la `api_key` desde `/admin/settings/plugins`.
+  // Sin api_key + enabled → el plugin usa el stub mock-first (sin coste).
+  { slug: 'anthropic', enabled: false },
 ];
 
 export async function seedPluginInstalls(prisma: PrismaClient): Promise<void> {

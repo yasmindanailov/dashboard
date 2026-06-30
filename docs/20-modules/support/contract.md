@@ -32,8 +32,9 @@ Pendiente:
 
 | Tabla | Módulo dueño | Tipo | Razón | Estado |
 |-------|--------------|------|-------|--------|
-| `users` | auth | lectura | Resolver nombre/email del sender o assignee. Vincular guest chats. | ✅ Lectura legítima |
-| `services` | billing | lectura | Mostrar al agente qué servicios tiene contratado el cliente que reporta | ✅ Lectura legítima (contexto opcional) |
+| `users` | auth | lectura | Resolver nombre/email del sender o assignee. Vincular guest chats. **F3·E13:** idioma + antigüedad + tier Support Inside para el grounding IA. | ✅ Lectura legítima |
+| `services` | billing | lectura | Mostrar al agente qué servicios tiene contratado el cliente que reporta. **F3·E13:** estado/dominio/expiración/renovación para el grounding IA. | ✅ Lectura legítima (contexto opcional) |
+| `invoices` | billing | lectura | **F3·E13 (Fase D):** resumen de facturación pendiente (count/importe/próxima renovación) para el grounding de la sugerencia IA (`SupportAiSuggestionService`, minimizado server-side). | ✅ Lectura legítima (contexto IA) |
 | `client_notes` | clients | lectura/escritura | Mostrar notas del cliente en panel de chat. Sync bidireccional con notas internas (Sprint 7.H22). | ⚠️ **Escritura cross-módulo.** Documentado como excepción legítima por la sincronización requerida. |
 
 > **Sobre `client_notes`:** la decisión arquitectónica fue que las notas internas de soporte se reflejan automáticamente en `client_notes` del cliente (categoría `conversation`). Para evitar el patrón "support pide a clients que cree la nota vía servicio", se acepta escritura directa. **Riesgo:** si la lógica de cliente (validaciones de notas) cambia, support podría introducir notas inválidas. Plan: añadir validador en `prisma.middleware` o crear `ClientNoteService` con interfaz mínima invocada desde support.
@@ -65,6 +66,26 @@ Pendiente:
 | `GET` | `/conversations/stats` | Stats por status/type | `Read.Conversation` |
 
 > **Data isolation:** clientes solo ven sus conversaciones (filtro por `user_id` del JWT). Agentes ven todas según rol. Validado en service (no solo CASL).
+
+### Sugerencia IA para agentes (Rediseño UI F3·E13)
+
+Materializa el "IA copilot para agentes" (antes Sprint 7.9). **Solo staff**; nunca
+auto-envía: produce un **borrador** que el agente revisa e inserta en el composer.
+
+| Método | Ruta | Descripción | CASL |
+|--------|------|-------------|------|
+| `POST` | `/conversations/:id/ai-suggestion` | Genera un borrador de respuesta para la conversación (staff only, rate-limited) | `Update.Conversation` |
+| `GET` | `/ai-suggestion/enabled` | `{ enabled }` — ¿hay proveedor IA activo? Gatea el botón del composer (staff only) | `Read.Conversation` |
+
+**Estado: ✅ código-completo (Fases D→G).** Backend: `SupportAiSuggestionService` (sub-service R15) → `SupportService.generateAiSuggestion` → endpoint. Staff-only reforzado (`ADMIN_ROLES`, igual que `updateConversation`: el cliente también tiene `Update.Conversation` sobre su propia conversación). **UI admin** del plugin IA en `/admin/settings/plugins` (Fase E, reusa la infra ADR-080). **Botón "Sugerencia IA"** en el composer de chat **y** ticket (Fase F, inserción no-destructiva como las macros E12; gateado por `GET /ai-suggestion/enabled` + endpoint staff-only = doble defensa). **E2E** de la cadena real con el SDK de Anthropic mockeado (Fase G).
+
+- **Provider** = plugin IA del subsistema paralelo ([ADR-080 Amendment D](../../10-decisions/adr-080-plugin-framework.md#amendment-d-2026-06-30--tipo-de-plugin-ai-como-subsistema-paralelo-rediseño-ui-f3e13)). El endpoint llama a `AiSuggestionService` (core/ai), que resuelve el proveedor IA **activo** (`anthropic`), descifra su `api_key` (SecretVault) y envuelve la llamada en circuit breaker (R11).
+- **Contexto server-side (R5):** el backend arma el transcript (`messages` cliente/agente, sin notas internas — SUPP-INV-3) + idioma del cliente; el front **no** construye el prompt. Respuesta: `{ suggestion, model, truncated? }`.
+- **Grounding v1 (decisión Yasmin 2026-06-30, Fase D):** además del transcript, el endpoint puebla un bloque `context` desde el `user_id` de la conversación — **servicios contratados** (estado/dominio/expiración, **resumen persistido** de `services`, sin llamada live al proveedor), **facturación** (`invoices` pendientes/renovación) y **datos básicos del cliente** (idioma, antigüedad, tier SI/SLA) — para que la IA afirme hechos en vez de adivinar. Datos **minimizados** (RGPD: salen a un tercero — sin email/teléfono/NIF). _Diferido a v1.1: `ServiceInfo` live (NS/métricas), RAG sobre Knowledge Base + macros (E12) con `citations`, structured outputs, tool use, kill-switch/consentimiento._ Detalle: [`bitácora E13`](../../90-meta/ui-redesign-bitacora-f3-e13-2026-06-30.md) §4.
+- **Voz del borrador (Fase G):** el system-prompt del plugin Anthropic está anclado en la [voz de marca canónica](../../40-reference/aelium-documento-de-marca.md) (cercano, competente, honesto; tutea; frases cortas; humaniza en los márgenes; lista de frases-robot prohibidas) **+ rigor** (cada cifra sale de SU dato del contexto — el importe de una factura pendiente no es el precio de renovación; no inventar causas/diagnósticos; SLA como plazo humano). Validado empíricamente con un panel de jueces multi-lente sobre 6 escenarios (incl. dato ausente / cliente enfadado): voz humana/cercanía 5/5, 0 frases-robot, 0 datos de cliente inventados.
+- **Mock-first:** sin `api_key` configurada, un stub determinista responde (la feature es demostrable sin clave; la llamada real a Claude se activa al configurar el plugin en `/admin/settings/plugins`).
+- **Rate limit (R10):** `@Throttle({ ttl: 60s, limit: 10 })` por IP (estrecha el `ThrottlerGuard` global; precisión per-agente requiere tracker per-user en el guard global → v1.1).
+- **Errores (R7/R14):** sin proveedor activo → `503 AI_UNAVAILABLE`; breaker abierto → `503 AI_CIRCUIT_OPEN` (`retryAfterMs`). Ver [`api-errors.md` §503](../../50-operations/api-errors.md).
 
 ### Respuestas guardadas / macros (Rediseño UI F3·E12)
 

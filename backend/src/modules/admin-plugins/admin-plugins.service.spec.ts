@@ -21,6 +21,11 @@ import {
   PluginManifest,
   ProvisionerPlugin,
 } from '../../core/provisioning/types';
+import { AiProviderRegistry } from '../../core/ai/ai-provider-registry.service';
+import {
+  AI_PROVIDER_CONTRACT_VERSION,
+  AiProviderPlugin,
+} from '../../core/ai/types';
 
 import { AdminPluginsService } from './admin-plugins.service';
 
@@ -94,6 +99,43 @@ function buildPlugin(
   };
 }
 
+/** F3·E13 Fase E — plugin IA (subsistema paralelo, contrato distinto). */
+function buildAiPlugin(slug: string): AiProviderPlugin {
+  const manifest: PluginManifest = {
+    slug,
+    version: '1.0.0',
+    manifestVersion: 'v1',
+    label: `plugin.${slug}.label`,
+    description: `plugin.${slug}.description`,
+    docsUrl: `docs/test/${slug}.md`,
+    settingsCategory: 'ai',
+    configSchema: {
+      type: 'object',
+      properties: {
+        model: { type: 'string', minLength: 1 },
+      },
+      required: [],
+      additionalProperties: false,
+    },
+    secretsSchema: {
+      type: 'object',
+      properties: {
+        api_key: { type: 'string', minLength: 5, format: 'password' },
+      },
+      required: ['api_key'],
+      additionalProperties: false,
+    },
+    testConnectionMethod: 'custom',
+  };
+  return {
+    slug,
+    aiContractVersion: AI_PROVIDER_CONTRACT_VERSION,
+    manifest,
+    generateReplySuggestion: jest.fn(),
+    testConnection: jest.fn(),
+  };
+}
+
 describe('AdminPluginsService â€” Sprint 15A Fase G (ADR-080)', () => {
   let prisma: {
     pluginInstall: {
@@ -108,9 +150,11 @@ describe('AdminPluginsService â€” Sprint 15A Fase G (ADR-080)', () => {
   let events: { emit: jest.Mock };
   let breakers: jest.Mocked<CircuitBreakerRegistry>;
   let reconcileRegistry: ReconcileRegistryService;
+  let aiRegistry: jest.Mocked<AiProviderRegistry>;
   let service: AdminPluginsService;
 
   const enhancePlugin = buildPlugin('enhance-cp');
+  const anthropicPlugin = buildAiPlugin('anthropic');
 
   beforeEach(() => {
     prisma = {
@@ -143,6 +187,13 @@ describe('AdminPluginsService â€” Sprint 15A Fase G (ADR-080)', () => {
     // registra/desregistra ad-hoc.
     reconcileRegistry = new ReconcileRegistryService();
 
+    // F3·E13 Fase E — registry IA mockeado. Por defecto vacío; los tests de
+    // IA lo cablean para devolver `anthropicPlugin`.
+    aiRegistry = {
+      getAvailable: jest.fn().mockReturnValue(null),
+      listAvailableSlugs: jest.fn().mockReturnValue([]),
+    } as unknown as jest.Mocked<AiProviderRegistry>;
+
     service = new AdminPluginsService(
       prisma as never,
       registry,
@@ -151,6 +202,7 @@ describe('AdminPluginsService â€” Sprint 15A Fase G (ADR-080)', () => {
       events as unknown as EventEmitter2,
       breakers,
       reconcileRegistry,
+      aiRegistry,
     );
     service.onModuleInit();
   });
@@ -181,6 +233,123 @@ describe('AdminPluginsService â€” Sprint 15A Fase G (ADR-080)', () => {
       prisma.pluginInstall.findMany.mockResolvedValueOnce([]);
       const result = await service.list();
       expect(result[0].enabled).toBe(false);
+    });
+  });
+
+  // ── F3·E13 Fase E — plugin IA (subsistema paralelo, ADR-080 Amendment D) ──
+  describe('AI provider plugin', () => {
+    beforeEach(() => {
+      aiRegistry.listAvailableSlugs.mockReturnValue(['anthropic']);
+      aiRegistry.getAvailable.mockImplementation((slug: string) =>
+        slug === 'anthropic' ? anthropicPlugin : null,
+      );
+      (anthropicPlugin.testConnection as jest.Mock).mockReset();
+    });
+
+    it('list() incluye el proveedor IA tras los provisioners', async () => {
+      prisma.pluginInstall.findMany.mockResolvedValueOnce([]);
+      const result = await service.list();
+      expect(result.map((r) => r.slug)).toEqual(['enhance-cp', 'anthropic']);
+      const ai = result.find((r) => r.slug === 'anthropic');
+      expect(ai?.manifest?.settingsCategory).toBe('ai');
+      expect(ai?.circuit_state).toEqual({
+        getServiceInfo: null,
+        executeAction: null,
+      });
+    });
+
+    it('findOne() devuelve el manifest IA + secrets enmascarados', async () => {
+      const blob = vault.encrypt('sk-ant-secret');
+      prisma.pluginInstall.findUnique.mockResolvedValueOnce({
+        slug: 'anthropic',
+        enabled: true,
+        config: { model: 'claude-opus-4-8' },
+        secrets: { api_key: blob },
+        installed_at: new Date('2026-06-30T10:00:00Z'),
+        updated_at: new Date('2026-06-30T10:00:00Z'),
+      });
+      const detail = await service.findOne('anthropic');
+      expect(detail.manifest.settingsCategory).toBe('ai');
+      expect(detail.secrets).toEqual({ api_key: '***' });
+      expect(detail.config).toEqual({ model: 'claude-opus-4-8' });
+    });
+
+    it('update() habilita + cifra api_key, emite eventos y NO resetea breakers de provisioning', async () => {
+      prisma.pluginInstall.findUnique.mockResolvedValueOnce(null);
+      prisma.pluginInstall.upsert.mockResolvedValueOnce({
+        slug: 'anthropic',
+        enabled: true,
+        installed_at: new Date('2026-06-30T10:00:00Z'),
+        updated_at: new Date('2026-06-30T10:00:00Z'),
+      });
+
+      const res = await service.update('anthropic', 'user-1', {
+        enabled: true,
+        secrets: { api_key: 'sk-ant-realkey' },
+      });
+
+      expect(res.enabled).toBe(true);
+      expect(events.emit).toHaveBeenCalledWith(
+        'plugin.config_changed',
+        expect.objectContaining({ slug: 'anthropic' }),
+      );
+      expect(events.emit).toHaveBeenCalledWith(
+        'plugin.installed',
+        expect.objectContaining({ slug: 'anthropic' }),
+      );
+      expect(audit.logChange).toHaveBeenCalled();
+      // El secret cifrado no entra al audit en claro.
+      const auditArg = audit.logChange.mock.calls[0][0];
+      expect(JSON.stringify(auditArg)).not.toContain('sk-ant-realkey');
+      // AI no tiene breakers por-operación de provisioning → no se consultan.
+      expect(breakers.get).not.toHaveBeenCalledWith('anthropic:getServiceInfo');
+    });
+
+    it('update() rechaza api_key inválida contra el secretsSchema (Ajv)', async () => {
+      prisma.pluginInstall.findUnique.mockResolvedValueOnce(null);
+      await expect(
+        service.update('anthropic', 'user-1', {
+          enabled: true,
+          secrets: { api_key: 'x' }, // minLength 5
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('testConnection() arma el ctx (config + secret descifrado) y mapea {ok}', async () => {
+      const blob = vault.encrypt('sk-ant-key');
+      prisma.pluginInstall.findUnique.mockResolvedValueOnce({
+        slug: 'anthropic',
+        enabled: true,
+        config: { model: 'claude-opus-4-8' },
+        secrets: { api_key: blob },
+      });
+      (anthropicPlugin.testConnection as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+      });
+
+      const res = await service.testConnection('anthropic');
+      expect(res.success).toBe(true);
+      expect(anthropicPlugin.testConnection).toHaveBeenCalledWith({
+        config: { model: 'claude-opus-4-8' },
+        secrets: { api_key: 'sk-ant-key' },
+      });
+    });
+
+    it('testConnection() sin api_key → success=false con el detalle del plugin', async () => {
+      prisma.pluginInstall.findUnique.mockResolvedValueOnce({
+        slug: 'anthropic',
+        enabled: false,
+        config: {},
+        secrets: {},
+      });
+      (anthropicPlugin.testConnection as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        detail: 'Falta la API key de Anthropic.',
+      });
+
+      const res = await service.testConnection('anthropic');
+      expect(res.success).toBe(false);
+      expect(res.message).toContain('API key');
     });
   });
 

@@ -25,14 +25,12 @@ export function AdminPluginsListLayout({
   return (
     <div>
       <header style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>
-          Plugins de provisioning
-        </h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Plugins</h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>
           {items.length} plugin{items.length === 1 ? '' : 's'} disponible
-          {items.length === 1 ? '' : 's'}. Habilita, configura o prueba la
-          conexión de cada plugin desde su detalle. Los secretos se cifran con
-          AES-256-GCM antes de persistirse (ADR-080 §3).
+          {items.length === 1 ? '' : 's'} (provisioning + IA). Habilita,
+          configura o prueba la conexión de cada plugin desde su detalle. Los
+          secretos se cifran con AES-256-GCM antes de persistirse (ADR-080 §3).
         </p>
       </header>
 

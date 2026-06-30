@@ -4,6 +4,7 @@ import { SupportChatService } from './support-chat.service';
 import { SupportTicketService } from './support-ticket.service';
 import { SupportMessageService } from './support-message.service';
 import { SupportQueryService } from './support-query.service';
+import { SupportAiSuggestionService } from './support-ai-suggestion.service';
 
 import {
   CreateChatDto,
@@ -39,6 +40,7 @@ export class SupportService {
     private readonly ticket: SupportTicketService,
     private readonly message: SupportMessageService,
     private readonly query: SupportQueryService,
+    private readonly aiSuggestion: SupportAiSuggestionService,
   ) {}
 
   // ── Chat ──
@@ -125,5 +127,19 @@ export class SupportService {
 
   getStats(type?: 'chat' | 'ticket') {
     return this.query.getStats(type);
+  }
+
+  // ── IA copilot (F3·E13 Fase D) ──
+  /**
+   * Genera un borrador de respuesta de IA para la conversación. Staff-only
+   * (lo enforza el controller). Nunca auto-envía: el agente revisa e inserta.
+   */
+  generateAiSuggestion(conversationId: string, instructions?: string) {
+    return this.aiSuggestion.generate(conversationId, instructions);
+  }
+
+  /** ¿Hay un proveedor IA activo? Gatea el botón del composer (Fase F). */
+  aiSuggestionEnabled(): boolean {
+    return this.aiSuggestion.isEnabled();
   }
 }

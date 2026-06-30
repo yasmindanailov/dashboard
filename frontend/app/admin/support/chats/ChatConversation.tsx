@@ -1,11 +1,12 @@
 'use client';
 
-import { RefObject } from 'react';
+import { Dispatch, RefObject, SetStateAction } from 'react';
 import Link from 'next/link';
 import type { Chat, Message } from './types';
 import { STATUS_BADGE, formatTime } from './types';
 import { Button, EmptyState } from '../../../components/ui';
 import { SavedRepliesPicker } from '../../../_shared/response-templates/SavedRepliesPicker';
+import { AiSuggestionButton } from '../../../_shared/support/AiSuggestionButton';
 import styles from './chats.module.css';
 
 /* ═══════════════════════════════════════
@@ -25,18 +26,20 @@ interface ChatConversationProps {
   message: string;
   sending: boolean;
   messagesEndRef: RefObject<HTMLDivElement | null>;
-  onMessageChange: (value: string) => void;
+  onMessageChange: Dispatch<SetStateAction<string>>;
   onSend: () => void;
   onTyping: () => void;
   onResolve: () => void;
   onEscalate: () => void;
+  /** F3·E13 Fase F — hay un proveedor IA activo → muestra "Sugerencia IA". */
+  aiEnabled?: boolean;
 }
 
 export default function ChatConversation({
   activeChat, currentUserId, typingIndicator,
   message, sending, messagesEndRef,
   onMessageChange, onSend, onTyping,
-  onResolve, onEscalate,
+  onResolve, onEscalate, aiEnabled,
 }: ChatConversationProps) {
   if (!activeChat) {
     return (
@@ -56,11 +59,15 @@ export default function ChatConversation({
     );
   }
 
-  // F3·E12 — inserta una respuesta guardada en el borrador sin destruir el
-  // texto en curso (append con separador; set directo si está vacío).
+  // F3·E12/E13 — inserta (macro o borrador IA) en el composer sin destruir el
+  // texto en curso. Functional updater: lee el borrador MÁS RECIENTE, no el
+  // snapshot del closure — clave para la IA, cuya llamada es asíncrona (segundos):
+  // si el agente teclea durante la generación, no se pierde lo escrito.
   const handleInsertReply = (body: string) => {
-    const current = message.replace(/\s+$/, '');
-    onMessageChange(current.length > 0 ? `${current} ${body}` : body);
+    onMessageChange((current) => {
+      const trimmed = current.replace(/\s+$/, '');
+      return trimmed.length > 0 ? `${trimmed} ${body}` : body;
+    });
   };
 
   return (
@@ -131,9 +138,17 @@ export default function ChatConversation({
         </div>
       ) : (
         <div className={styles.inputArea}>
-          {/* F3·E12 — respuestas guardadas (macros) de la biblioteca de equipo. */}
+          {/* F3·E12 — respuestas guardadas (macros) + F3·E13 — sugerencia IA.
+              Ambas insertan en el borrador de forma no-destructiva (`handleInsertReply`). */}
           <div className={styles.composerTools}>
             <SavedRepliesPicker onInsert={handleInsertReply} />
+            {aiEnabled && activeChat && (
+              <AiSuggestionButton
+                conversationId={activeChat.id}
+                onInsert={handleInsertReply}
+                disabled={sending}
+              />
+            )}
           </div>
           <div className={styles.inputRow}>
             <input

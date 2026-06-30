@@ -1279,6 +1279,12 @@ export interface JsonSchema7 {
 
 export interface JsonSchema7Property {
   type: 'string' | 'number' | 'boolean' | 'integer';
+  /**
+   * Etiqueta del campo (i18n key) — `@rjsf/core` la usa como label del campo y
+   * `SecretsFields` (frontend) la lee para los secretos; `translateSchema` la
+   * resuelve por locale. Opcional: sin `title`, la UI cae al nombre del campo.
+   */
+  title?: string;
   /** i18n key (no texto literal) — la UI lo resuelve por locale del admin. */
   description?: string;
   /** Hints de UI para `@rjsf/core` (también usados por validación Ajv `format`). */

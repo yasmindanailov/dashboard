@@ -10,9 +10,12 @@ import {
   ParseUUIDPipe,
   UseGuards,
   ForbiddenException,
+  HttpCode,
+  HttpStatus,
   Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { ConversationType } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../core/common/types/authenticated-request';
 
@@ -24,6 +27,7 @@ import {
   UpdateConversationDto,
   ConversationListQueryDto,
   EscalateToTicketDto,
+  AiSuggestionRequestDto,
 } from './dto/support.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PoliciesGuard } from '../../core/casl/policies.guard';
@@ -281,6 +285,58 @@ export class SupportController {
     }
 
     return this.supportService.addMessage(id, senderType, user.id, dto);
+  }
+
+  /* ═══════════════════════════════════════
+     IA COPILOT — Reply-draft suggestion (F3·E13 Fase D/F)
+     ═══════════════════════════════════════ */
+
+  /**
+   * ¿Hay un proveedor IA activo? Gatea el botón "Sugerencia IA" del composer
+   * (F3·E13 Fase F). Staff-only (es UI de agente). No revela config ni secrets.
+   */
+  @Get('ai-suggestion/enabled')
+  @ApiOperation({
+    summary: 'Whether an AI provider is active (staff — gates the composer)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Conversation))
+  aiSuggestionEnabled(@Req() req: AuthenticatedRequest) {
+    const user = req.user;
+    if (!ADMIN_ROLES.includes(user.role.slug)) {
+      throw new ForbiddenException(
+        'Solo los agentes pueden consultar el estado de la IA.',
+      );
+    }
+    return { enabled: this.supportService.aiSuggestionEnabled() };
+  }
+
+  /**
+   * Genera un BORRADOR de respuesta de IA para la conversación. **Staff-only**:
+   * `Update.Conversation` también lo tiene el cliente sobre su propia conversación
+   * (ver CASL), así que reforzamos con `ADMIN_ROLES` igual que `updateConversation`.
+   * El backend arma transcript + grounding server-side (R5); nunca auto-envía.
+   * Rate-limit R10 por IP (estrecha el `ThrottlerGuard` global; per-agente → v1.1).
+   * `AiUnavailableError`/`CircuitOpenError` → 503 (los mapea el sub-service).
+   */
+  @Post('conversations/:id/ai-suggestion')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @ApiOperation({
+    summary: 'Generate an AI reply-draft suggestion for a conversation (staff)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Conversation))
+  async aiSuggestion(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AiSuggestionRequestDto,
+  ) {
+    const user = req.user;
+    if (!ADMIN_ROLES.includes(user.role.slug)) {
+      throw new ForbiddenException(
+        'Solo los agentes pueden pedir sugerencias de IA.',
+      );
+    }
+    return this.supportService.generateAiSuggestion(id, dto.instructions);
   }
 
   @Patch('conversations/:id/messages/read')

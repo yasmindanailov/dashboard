@@ -1,4 +1,5 @@
-﻿import { Test, TestingModule } from '@nestjs/testing';
+﻿import { Logger } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../database/prisma.service';
 
@@ -225,14 +226,39 @@ describe('PluginRegistryService â€” Sprint 15A Fase E (ADR-080 Â§4)', () 
       expect(registry.listAvailableSlugs()).toEqual(['internal']);
     });
 
-    it('plugin enabled=true en DB pero ausente de DI â†’ log error sin romper boot', async () => {
-      const plugin = buildValidPlugin({ slug: 'internal' });
-      // DB tiene `internal` (vÃ¡lido) y `ghost` (ausente de DI).
-      const { registry } = await buildRegistry([plugin], ['internal', 'ghost']);
-      // El plugin vÃ¡lido entra; el fantasma queda fuera sin tirar el boot.
-      expect(registry.get('internal')).toBe(plugin);
-      expect(registry.get('ghost')).toBeNull();
-      expect(registry.listSlugs()).toEqual(['internal']);
+    it('plugin enabled=true en DB pero ausente de DI â†’ WARN (no ERROR) sin romper boot', async () => {
+      // F3·E13 Fase E: `plugin_installs` pasa a ser compartida con el
+      // subsistema IA (ADR-080 Amendment D). Un slug enabled ausente del
+      // registry de provisioners puede ser un plugin IA legítimo → no es un
+      // ERROR del path crítico. Se degradó a WARN informativo (AI-INV-1: el
+      // registry de provisioners NO se acopla a los slugs de IA).
+      const warnSpy = jest
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => undefined);
+      const errorSpy = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
+      try {
+        const plugin = buildValidPlugin({ slug: 'internal' });
+        // DB tiene `internal` (válido) y `ghost` (ausente de DI — p.ej. un
+        // plugin de otro subsistema como `anthropic`).
+        const { registry } = await buildRegistry(
+          [plugin],
+          ['internal', 'ghost'],
+        );
+        // El plugin válido entra; el fantasma queda fuera sin tirar el boot.
+        expect(registry.get('internal')).toBe(plugin);
+        expect(registry.get('ghost')).toBeNull();
+        expect(registry.listSlugs()).toEqual(['internal']);
+        // El fantasma se reporta como WARN, NO como ERROR (sin "pending").
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('ghost'));
+        expect(errorSpy).not.toHaveBeenCalledWith(
+          expect.stringContaining('ghost'),
+        );
+      } finally {
+        warnSpy.mockRestore();
+        errorSpy.mockRestore();
+      }
     });
 
     it('handleConfigChanged() recarga activePlugins sin re-validar contrato', async () => {

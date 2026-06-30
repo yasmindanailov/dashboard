@@ -1,9 +1,10 @@
 'use client';
 
-import type { RefObject } from 'react';
+import type { Dispatch, RefObject, SetStateAction } from 'react';
 import type { DetailMessage } from './types';
 import { formatDate } from './types';
 import { Button } from '../../../components/ui';
+import { AiSuggestionButton } from '../AiSuggestionButton';
 import styles from './conversationDetail.module.css';
 
 /* ═══════════════════════════════════════
@@ -47,8 +48,11 @@ interface ConversationMessagesProps {
   newMessage: string;
   sending: boolean;
   messagesEndRef: RefObject<HTMLDivElement | null>;
-  onMessageChange: (v: string) => void;
+  onMessageChange: Dispatch<SetStateAction<string>>;
   onSend: () => void;
+  /** F3·E13 Fase F — staff con proveedor IA activo → muestra "Sugerencia IA". */
+  aiEnabled?: boolean;
+  conversationId?: string;
 }
 
 const LOCK_NOTICES: Record<Exclude<ConversationLockReason, null>, string> = {
@@ -63,7 +67,18 @@ export default function ConversationMessages({
   messages, lockReason, currentUserId,
   newMessage, sending, messagesEndRef,
   onMessageChange, onSend,
+  aiEnabled, conversationId,
 }: ConversationMessagesProps) {
+  // F3·E13 — inserta el borrador de IA sin destruir el texto en curso.
+  // Functional updater: lee el borrador MÁS RECIENTE (no el snapshot del
+  // closure) — clave porque la generación IA es asíncrona (segundos): si el
+  // agente teclea durante la espera, no se pierde lo escrito.
+  const handleInsertReply = (body: string) => {
+    onMessageChange((current) => {
+      const trimmed = current.replace(/\s+$/, '');
+      return trimmed.length > 0 ? `${trimmed} ${body}` : body;
+    });
+  };
   return (
     <div className={styles.messagesContainer}>
       {/* Message list */}
@@ -128,6 +143,16 @@ export default function ConversationMessages({
       {/* Input público al cliente — visible solo si no hay lockReason. */}
       {!lockReason && (
         <div className={styles.inputArea}>
+          {/* F3·E13 Fase F — botón Sugerencia IA (solo staff con IA activa). */}
+          {aiEnabled && conversationId && (
+            <div className={styles.composerTools}>
+              <AiSuggestionButton
+                conversationId={conversationId}
+                onInsert={handleInsertReply}
+                disabled={sending}
+              />
+            </div>
+          )}
           <div className={styles.inputRow}>
             <textarea
               value={newMessage}
