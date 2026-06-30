@@ -3,6 +3,20 @@
   overflow-x: auto;
 }
 
+/* ── Card chrome (F4 reskin — tabla envuelta en card, 1:1 con el mockup) ──
+   Opt-in vía prop `card`. La cabecera se tinta y el radio recorta las esquinas
+   (la última fila no pinta borde inferior, así el borde de la card queda limpio). */
+.wrapperCard {
+  overflow: hidden;
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.wrapperCard thead {
+  background: var(--surface-secondary);
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;

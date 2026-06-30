@@ -50,10 +50,17 @@ export default async function ProductsPage({ searchParams }: PageProps) {
     }
   }
 
+  // F4·U25 — subtítulo dinámico 1:1 con el mockup: "N resultados" al filtrar,
+  // "Catálogo · N productos" por defecto.
+  const isFiltered = Boolean(search || status || type);
+  const subtitle = isFiltered
+    ? `${meta.total} resultado${meta.total !== 1 ? 's' : ''}`
+    : `Catálogo · ${meta.total} producto${meta.total !== 1 ? 's' : ''}`;
+
   return (
     <ListPage
       title="Productos"
-      subtitle={`${meta.total} producto${meta.total !== 1 ? 's' : ''} en el catálogo`}
+      subtitle={subtitle}
       action={
         <Link href="/admin/products/new">
           <Button>

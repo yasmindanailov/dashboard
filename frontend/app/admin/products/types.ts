@@ -11,12 +11,6 @@ export const TYPE_LABELS: Record<string, string> = {
   custom_service: 'Proyecto Custom',
 };
 
-export const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  active: { bg: 'rgba(34, 197, 94, 0.1)', color: '#16a34a', label: 'Activo' },
-  inactive: { bg: 'rgba(234, 179, 8, 0.1)', color: '#ca8a04', label: 'Inactivo' },
-  deprecated: { bg: 'rgba(239, 68, 68, 0.1)', color: '#dc2626', label: 'Obsoleto' },
-};
-
 export interface ProductPricing {
   billing_cycle: string;
   price: string;

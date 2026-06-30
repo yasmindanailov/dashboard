@@ -69,6 +69,12 @@ export interface TableProps<T> {
   emptyDescription?: string;
   emptyAction?: ReactNode;
   className?: string;
+  /**
+   * Envuelve la tabla en "card chrome" (fondo + borde + radio 16px + sombra
+   * sutil + cabecera tintada), 1:1 con los mockups del rediseño (F4). Additivo:
+   * por defecto `false` → las páginas aún sin reskinear no cambian.
+   */
+  card?: boolean;
 
   /* ── Bulk selection (§4.11) ── */
   /** Enable checkbox column for row selection */
@@ -95,6 +101,7 @@ export function Table<T>({
   emptyDescription,
   emptyAction,
   className = '',
+  card = false,
   selectable = false,
   selectedIds,
   onSelectionChange,
@@ -144,7 +151,7 @@ export function Table<T>({
   };
 
   return (
-    <div className={`${styles.wrapper} ${className}`}>
+    <div className={`${styles.wrapper} ${card ? styles.wrapperCard : ''} ${className}`}>
       <table className={styles.table}>
         <thead>
           <tr>

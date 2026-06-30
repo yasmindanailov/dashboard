@@ -3,16 +3,32 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button, Modal, useToast } from '../../../../components/ui';
+import {
+  Button,
+  Dropdown,
+  Modal,
+  useToast,
+  type DropdownItem,
+} from '../../../../components/ui';
+import {
+  CopyIcon,
+  EditIcon,
+  EyeIcon,
+  EyeOffIcon,
+  MoreVerticalIcon,
+  TrashIcon,
+} from '../../icons';
 import {
   deleteProductAction,
+  duplicateProductAction,
   toggleProductStatusAction,
 } from '../../_actions';
 
 /* ═══════════════════════════════════════
-   Cliente island con las acciones del detalle de producto admin.
-   - Toggle status: Server Action + revalidatePath.
-   - Eliminar: Modal de confirmación + Server Action + redirect a lista.
+   Cliente island con las acciones del detalle de producto admin (F4·U26).
+   1:1 con el mockup: "Editar" (secundario) + kebab (Desactivar/Duplicar/
+   Eliminar). Conserva el guard "no eliminar con servicios" y el modal de
+   confirmación de borrado.
    ═══════════════════════════════════════ */
 
 interface Props {
@@ -48,6 +64,21 @@ export default function ProductActions({
     });
   }
 
+  function handleDuplicate() {
+    startTransition(async () => {
+      const result = await duplicateProductAction(productId);
+      if (result.ok) {
+        toast(
+          'success',
+          `"${productName}" duplicado. Revisa la copia (nace inactiva).`,
+        );
+        router.push(`/admin/products/${result.id}/edit`);
+      } else {
+        toast('error', result.error);
+      }
+    });
+  }
+
   async function handleDelete() {
     setDeleting(true);
     const result = await deleteProductAction(productId);
@@ -63,26 +94,50 @@ export default function ProductActions({
 
   const cantDelete = servicesCount > 0;
 
+  const menuItems: DropdownItem[] = [
+    {
+      label: status === 'active' ? 'Desactivar' : 'Activar',
+      icon: status === 'active' ? <EyeOffIcon /> : <EyeIcon />,
+      onClick: handleToggle,
+    },
+    {
+      label: 'Duplicar',
+      icon: <CopyIcon />,
+      onClick: handleDuplicate,
+    },
+    { divider: true },
+    {
+      label: 'Eliminar producto',
+      icon: <TrashIcon />,
+      danger: true,
+      disabled: cantDelete,
+      description: cantDelete ? 'Tiene servicios asociados' : undefined,
+      onClick: () => setDeleteModalOpen(true),
+    },
+  ];
+
   return (
     <>
       <Link href={`/admin/products/${productId}/edit`}>
-        <Button>Editar</Button>
+        <Button variant="secondary" leftIcon={<EditIcon />}>
+          Editar
+        </Button>
       </Link>
-      <Button variant="secondary" onClick={handleToggle} disabled={pending}>
-        {status === 'active' ? 'Desactivar' : 'Activar'}
-      </Button>
-      <Button
-        variant="danger"
-        onClick={() => setDeleteModalOpen(true)}
-        disabled={deleting || cantDelete}
-        title={
-          cantDelete
-            ? 'No se puede eliminar: tiene servicios asociados'
-            : 'Eliminar producto'
+      <Dropdown
+        align="right"
+        triggerAsChild
+        trigger={
+          <Button
+            variant="secondary"
+            iconOnly
+            disabled={pending}
+            aria-label="Más acciones"
+          >
+            <MoreVerticalIcon />
+          </Button>
         }
-      >
-        Eliminar
-      </Button>
+        items={menuItems}
+      />
 
       <Modal
         open={deleteModalOpen}

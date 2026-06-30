@@ -47,6 +47,13 @@ const STATUS_OPTIONS = [
   ...Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label })),
 ];
 
+// F4·U21 — filtro "Tipo" del mockup (enum ClientType: individual/company).
+const TYPE_OPTIONS = [
+  { value: '', label: 'Todos los tipos' },
+  { value: 'individual', label: 'Particular' },
+  { value: 'company', label: 'Empresa' },
+];
+
 const UsersIcon = (
   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -56,10 +63,32 @@ const UsersIcon = (
   </svg>
 );
 
+const DownloadIcon = (
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+
 interface Props {
   clients: Client[];
   meta: { total: number; page: number; limit: number; totalPages: number };
-  initialFilters: { search: string; status: string; assignedTechnician: string };
+  initialFilters: {
+    search: string;
+    status: string;
+    type: string;
+    assignedTechnician: string;
+  };
   /** Técnicos elegibles para el filtro "por técnico" (vacío si sin permiso). */
   technicians: { value: string; label: string }[];
 }
@@ -80,6 +109,7 @@ export default function ClientsListView({
   function pushFilters(next: {
     search?: string;
     status?: string;
+    client_type?: string;
     assigned_technician?: string;
   }) {
     const params = new URLSearchParams(searchParams.toString());
@@ -89,6 +119,8 @@ export default function ClientsListView({
     };
     if (next.search !== undefined) writeOrDelete('search', next.search);
     if (next.status !== undefined) writeOrDelete('status', next.status);
+    if (next.client_type !== undefined)
+      writeOrDelete('client_type', next.client_type);
     if (next.assigned_technician !== undefined)
       writeOrDelete('assigned_technician', next.assigned_technician);
     params.delete('page');
@@ -113,7 +145,7 @@ export default function ClientsListView({
       header: 'Cliente',
       render: (c) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <Avatar name={`${c.first_name} ${c.last_name}`} size="md" />
+          <Avatar name={`${c.first_name} ${c.last_name}`} size="md" tone="soft" />
           <div>
             <div style={{ fontWeight: 'var(--font-weight-medium)', color: 'var(--text-primary)' }}>
               {c.first_name} {c.last_name}
@@ -158,6 +190,7 @@ export default function ClientsListView({
     {
       key: 'created_at',
       header: 'Registro',
+      align: 'right',
       render: (c) => (
         <span style={{ color: 'var(--text-tertiary)' }}>
           {new Date(c.created_at).toLocaleDateString('es-ES')}
@@ -165,6 +198,13 @@ export default function ClientsListView({
       ),
     },
   ];
+
+  const hasFilter = Boolean(
+    initialFilters.search ||
+      initialFilters.status ||
+      initialFilters.type ||
+      initialFilters.assignedTechnician,
+  );
 
   return (
     <>
@@ -190,6 +230,13 @@ export default function ClientsListView({
               value={initialFilters.status}
               onChange={(e) => pushFilters({ status: e.target.value })}
               options={STATUS_OPTIONS}
+              aria-label="Filtrar por estado"
+            />
+            <Select
+              value={initialFilters.type}
+              onChange={(e) => pushFilters({ client_type: e.target.value })}
+              options={TYPE_OPTIONS}
+              aria-label="Filtrar por tipo de cliente"
             />
             <Select
               value={initialFilters.assignedTechnician}
@@ -203,15 +250,16 @@ export default function ClientsListView({
         }
       />
       <Table<Client>
+        card
         columns={columns}
         data={clients}
         rowKey={(c) => c.id}
         onRowClick={(c) => router.push(`/admin/clients/${c.id}`)}
         emptyIcon={UsersIcon}
-        emptyTitle={initialFilters.search ? 'Sin resultados' : 'No hay clientes'}
+        emptyTitle={hasFilter ? 'Sin resultados' : 'No hay clientes'}
         emptyDescription={
-          initialFilters.search
-            ? 'No se encontraron clientes con esa búsqueda'
+          hasFilter
+            ? 'No se encontraron clientes con esos filtros.'
             : 'No hay clientes registrados'
         }
         selectable
@@ -231,7 +279,8 @@ export default function ClientsListView({
         <BulkActionBar count={selected.size} onClear={() => setSelected(new Set())}>
           <Button
             size="sm"
-            variant="secondary"
+            variant="primary"
+            leftIcon={DownloadIcon}
             onClick={() => {
               toast(
                 'info',

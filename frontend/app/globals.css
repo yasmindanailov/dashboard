@@ -22,6 +22,7 @@
 
   /* ── Semánticos ── */
   --success:         #10B981;
+  --success-dark:    #0E8C5F;   /* texto verde saturado del mockup (chips/márgenes) */
   --success-light:   rgba(16, 185, 129, 0.08);
   --success-border:  rgba(16, 185, 129, 0.15);
   --warning:         #F59E0B;

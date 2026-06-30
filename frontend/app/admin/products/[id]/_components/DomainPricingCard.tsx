@@ -145,7 +145,15 @@ export default function DomainPricingCard({ registrar, initialRows }: Props) {
       header: 'Margen',
       align: 'right',
       render: (r) =>
-        r.effective_margin_pct !== null ? `${r.effective_margin_pct}%` : '—',
+        r.effective_margin_pct !== null ? (
+          <span
+            style={{ color: 'var(--success-dark)', fontWeight: 'var(--font-weight-semibold)' }}
+          >
+            {r.effective_margin_pct}%
+          </span>
+        ) : (
+          '—'
+        ),
     },
     {
       key: 'source',

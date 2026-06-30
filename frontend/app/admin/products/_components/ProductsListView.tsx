@@ -117,8 +117,8 @@ export default function ProductsListView({
           ? `/admin/support-inside-plans/${p.slug}`
           : `/admin/products/${p.id}`;
         return (
-          <div style={{ opacity: si ? 0.7 : 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <div style={{ opacity: si ? 0.62 : 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
               <Link
                 href={linkHref}
                 style={{
@@ -137,7 +137,14 @@ export default function ProductsListView({
                 p.is_addon && <Badge variant="info">Addon</Badge>
               )}
             </div>
-            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+            <p
+              style={{
+                fontSize: 'var(--font-size-xs)',
+                color: 'var(--text-tertiary)',
+                marginTop: '2px',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
               {p.slug}
               {p.category && ` · ${p.category.name}`}
             </p>
@@ -166,6 +173,7 @@ export default function ProductsListView({
     {
       key: 'services',
       header: 'Servicios',
+      align: 'right',
       render: (p) => (
         <span style={{ color: 'var(--text-secondary)' }}>{p._count.services}</span>
       ),
@@ -254,6 +262,10 @@ export default function ProductsListView({
     },
   ];
 
+  const hasFilter = Boolean(
+    initialFilters.search || initialFilters.status || initialFilters.type,
+  );
+
   return (
     <>
       <FilterBar
@@ -289,6 +301,7 @@ export default function ProductsListView({
       />
 
       <Table<ProductItem>
+        card
         columns={columns}
         data={products}
         rowKey={(p) => p.id}
@@ -299,7 +312,11 @@ export default function ProductsListView({
         }
         emptyIcon={PackageIcon}
         emptyTitle="Sin productos"
-        emptyDescription="No hay productos en el catálogo"
+        emptyDescription={
+          hasFilter
+            ? 'No hay productos que coincidan con esos filtros.'
+            : 'No hay productos en el catálogo'
+        }
         selectable
         selectedIds={selected}
         onSelectionChange={setSelected}
@@ -317,8 +334,13 @@ export default function ProductsListView({
 
       {selected.size > 0 && (
         <BulkActionBar count={selected.size} onClear={() => setSelected(new Set())}>
-          <Button size="sm" variant="secondary" onClick={() => void handleBulkToggle()}>
-            Activar/Desactivar
+          <Button
+            size="sm"
+            variant="primary"
+            leftIcon={<EyeIcon />}
+            onClick={() => void handleBulkToggle()}
+          >
+            Activar / Desactivar
           </Button>
         </BulkActionBar>
       )}

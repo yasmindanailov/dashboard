@@ -5,8 +5,17 @@
  * editar) en Client island via Server Actions. ADR-078 Amendment A1.
  */
 
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Badge, Card, DetailPage } from '../../../components/ui';
+import {
+  Globe,
+  Layers,
+  type LucideIcon,
+  Package,
+  Server,
+  Wrench,
+} from 'lucide-react';
+import { Badge, Card, DetailPage, IconWell } from '../../../components/ui';
 import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
 import { CYCLE_LABELS, STATUS_MAP, TYPE_LABELS } from './detail-types';
 import type { ProductDetailItem } from './detail-types';
@@ -14,6 +23,15 @@ import ProductActions from './_components/ProductActions';
 import DomainPricingCard from './_components/DomainPricingCard';
 import type { DomainPricingRow } from '../../../_shared/domains/_admin-actions';
 import styles from './productDetail.module.css';
+
+/** Icono del icon-well del header por tipo de producto (1:1 con el mockup). */
+const TYPE_ICON: Record<string, LucideIcon> = {
+  hosting_web: Server,
+  docker_service: Server,
+  domain: Globe,
+  custom_service: Layers,
+  we_do_it: Wrench,
+};
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -70,14 +88,21 @@ export default async function ProductDetailPage({ params }: PageProps) {
       wide
       header={
         <div className={styles.headerRow}>
-          <div>
-            <div className={styles.headerTitleRow}>
-              <h1 className={styles.headerTitle}>{product.name}</h1>
-              <Badge variant={s.variant}>{s.label}</Badge>
-              {product.is_addon && <Badge variant="info">Addon</Badge>}
-              {product.badge_text && <Badge variant="brand">{product.badge_text}</Badge>}
+          <div className={styles.headerMain}>
+            <IconWell
+              icon={TYPE_ICON[product.type] ?? Package}
+              tone="neutral"
+              size="lg"
+            />
+            <div>
+              <div className={styles.headerTitleRow}>
+                <h1 className={styles.headerTitle}>{product.name}</h1>
+                <Badge variant={s.variant}>{s.label}</Badge>
+                {product.is_addon && <Badge variant="info">Addon</Badge>}
+                {product.badge_text && <Badge variant="brand">{product.badge_text}</Badge>}
+              </div>
+              <p className={styles.headerSlug}>{product.slug}</p>
             </div>
-            <p className={styles.headerSlug}>{product.slug}</p>
           </div>
           <div className={styles.headerActions}>
             <ProductActions
@@ -127,7 +152,15 @@ export default async function ProductDetailPage({ params }: PageProps) {
             />
           ) : (
             <Card>
-              <h2 className={styles.sectionTitle}>Planes de precio</h2>
+              <div className={styles.cardHeaderRow}>
+                <h2 className={styles.sectionTitle}>Planes de precio</h2>
+                <Link
+                  href={`/admin/products/${product.id}/edit`}
+                  className={styles.editLink}
+                >
+                  Editar →
+                </Link>
+              </div>
               {product.pricing.length === 0 ? (
                 <p className={styles.noPricing}>
                   Sin planes de precio configurados.
@@ -210,6 +243,37 @@ export default async function ProductDetailPage({ params }: PageProps) {
               )}
             </div>
           </Card>
+          {product.checklist_items.length > 0 && (
+            <Card>
+              <h2 className={styles.sectionTitle}>Checklist de provisioning</h2>
+              <div className={styles.checklistStack}>
+                {product.checklist_items.map((c) => (
+                  <div key={c.id} className={styles.checklistItem}>
+                    <span
+                      className={`${styles.checkboxIcon} ${c.is_required ? styles.checkboxIconRequired : ''}`}
+                    >
+                      {c.is_required && (
+                        <svg
+                          width="11"
+                          height="11"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="var(--brand)"
+                          strokeWidth="3"
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className={styles.checklistLabel}>{c.label}</span>
+                    {c.is_required && (
+                      <span className={styles.checklistRequired}>Obligatorio</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
           <Card>
             <h2 className={styles.sectionTitle}>Metadatos</h2>
             <div className={styles.configStack}>
@@ -231,32 +295,6 @@ export default async function ProductDetailPage({ params }: PageProps) {
               </div>
             </div>
           </Card>
-          {product.checklist_items.length > 0 && (
-            <Card>
-              <h2 className={styles.sectionTitle}>Checklist</h2>
-              <div className={styles.listStack}>
-                {product.checklist_items.map((c) => (
-                  <div key={c.id} className={styles.checklistItem}>
-                    <span className={styles.checkboxIcon}>
-                      {c.is_required && (
-                        <svg
-                          width="10"
-                          height="10"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="var(--brand)"
-                          strokeWidth="3"
-                        >
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      )}
-                    </span>
-                    <span className={styles.checklistLabel}>{c.label}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
         </div>
       </div>
     </DetailPage>
