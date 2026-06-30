@@ -65,6 +65,23 @@ export default function ClientServicesTab({ client, services }: Props) {
   const slotsPct =
     slotsTotal > 0 ? Math.min(100, Math.round((slotsUsed / slotsTotal) * 100)) : 0;
 
+  // El servicio Support Inside se muestra como hero (abajo), no como fila de la
+  // tabla. El CTA del hero apunta a ese servicio si existe; si no, al plan.
+  const siService = services.find(
+    (s) =>
+      s.product?.type === 'support_inside' &&
+      s.status !== 'cancelled' &&
+      s.status !== 'terminated',
+  );
+  const tableServices = services.filter(
+    (s) => s.product?.type !== 'support_inside',
+  );
+  const siHref = siService
+    ? `/admin/services/${siService.id}`
+    : si
+      ? `/admin/support-inside-plans/${si.product.slug}`
+      : '#';
+
   const columns: TableColumn<ClientServiceItem>[] = [
     {
       key: 'service',
@@ -109,16 +126,6 @@ export default function ClientServicesTab({ client, services }: Props) {
 
   return (
     <div className={styles.stack}>
-      <Table<ClientServiceItem>
-        card
-        columns={columns}
-        data={services}
-        rowKey={(s) => s.id}
-        onRowClick={(s) => router.push(`/admin/services/${s.id}`)}
-        emptyTitle="Sin servicios"
-        emptyDescription="Este cliente todavía no tiene servicios contratados."
-      />
-
       {siActive && cfg && (
         <div className={styles.siHero}>
           <div className={styles.siHeroMain}>
@@ -150,14 +157,21 @@ export default function ClientServicesTab({ client, services }: Props) {
               </div>
             </div>
           </div>
-          <a
-            href={`/admin/support-inside-plans/${si.product.slug}`}
-            className={styles.siHeroBtn}
-          >
-            Gestionar slots →
+          <a href={siHref} className={styles.siHeroBtn}>
+            Ver servicio →
           </a>
         </div>
       )}
+
+      <Table<ClientServiceItem>
+        card
+        columns={columns}
+        data={tableServices}
+        rowKey={(s) => s.id}
+        onRowClick={(s) => router.push(`/admin/services/${s.id}`)}
+        emptyTitle="Sin servicios"
+        emptyDescription="Este cliente todavía no tiene servicios contratados."
+      />
     </div>
   );
 }

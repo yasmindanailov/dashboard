@@ -3,12 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { DetailPage, useToast } from '../../../../components/ui';
 import type { DetailTab } from '../../../../components/ui';
-import type {
-  ClientNote,
-  Conversation,
-  NoteCategory,
-  NoteSourceSystem,
-} from '../../../../lib/types';
+import type { ClientNote, Conversation } from '../../../../lib/types';
 import type {
   ClientBillingStats,
   ClientDetail,
@@ -55,22 +50,17 @@ export default function ClientDetailView({
 
   const [structuredNotes, setStructuredNotes] = useState<ClientNote[]>([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
-  const [noteCategory, setNoteCategory] = useState<NoteCategory | ''>('');
-  const [noteSourceSystem, setNoteSourceSystem] = useState<NoteSourceSystem | ''>('');
-  const [notePinnedOnly, setNotePinnedOnly] = useState(false);
 
   const supportTotal = supportChats.length + supportTickets.length;
   const supportOpen = [...supportChats, ...supportTickets].filter((c) =>
     OPEN_STATUSES.has(c.status),
   ).length;
 
+  // F4·U22 — cargamos TODAS las notas una vez; el filtrado (categoría/origen/
+  // fijadas) es client-side en ClientNotesTab (chips con contador, 1:1 mockup).
   const loadStructuredNotes = useCallback(async () => {
     setLoadingNotes(true);
-    const result = await listClientNotesAction(client.id, {
-      category: noteCategory,
-      sourceSystem: noteSourceSystem,
-      pinnedOnly: notePinnedOnly,
-    });
+    const result = await listClientNotesAction(client.id, {});
     if (result.ok) {
       setStructuredNotes(result.notes);
     } else {
@@ -78,7 +68,7 @@ export default function ClientDetailView({
       toast('error', result.error);
     }
     setLoadingNotes(false);
-  }, [client.id, noteCategory, noteSourceSystem, notePinnedOnly, toast]);
+  }, [client.id, toast]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy load on tab change: notas estructuradas se cargan al cambiar a la tab "Notas".
@@ -127,12 +117,6 @@ export default function ClientDetailView({
           clientId={client.id}
           notes={structuredNotes}
           loading={loadingNotes}
-          category={noteCategory}
-          sourceSystem={noteSourceSystem}
-          pinnedOnly={notePinnedOnly}
-          onCategoryChange={setNoteCategory}
-          onSourceChange={setNoteSourceSystem}
-          onPinnedToggle={setNotePinnedOnly}
           onRefresh={loadStructuredNotes}
         />
       )}
