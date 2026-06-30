@@ -3,8 +3,8 @@
 > Registro riguroso de la **vertical F3·E13**: copiloto de IA (Claude/Anthropic)
 > que sugiere un **borrador de respuesta** al agente en el composer de soporte.
 > Es la vertical F3 "genuinamente nueva" (L-XL). **Rama:** `redesign/f3-ia`
-> (desde `origin/master`, independiente). **Estado: A + B + C ✅ (backend);
-> D-G pendientes** (otro chat).
+> (desde `origin/master`, independiente). **Estado: A + B + C + D ✅ (backend);
+> E-G pendientes** (otro chat).
 
 ## 0. Resumen ejecutivo
 
@@ -12,8 +12,8 @@ E13 materializa el "IA copilot para agentes" (antes Sprint 7.9). El agente pide
 a Claude un borrador para el chat/ticket; **nunca se auto-envía** — el agente lo
 revisa e inserta. Por su tamaño se ejecuta por fases con checkpoints verdes y
 commits independientes. Hechas: **A** (doctrina), **B** (framework IA), **C**
-(plugin Anthropic + mock). Pendientes: **D** endpoint, **E** UI admin, **F**
-frontend, **G** docs/DoD.
+(plugin Anthropic + mock), **D** (endpoint + grounding v1). Pendientes: **E** UI
+admin, **F** frontend, **G** docs/DoD.
 
 ## 1. Decisiones (Yasmin, 2026-06-30)
 
@@ -106,15 +106,80 @@ puebla desde el `user_id`; el plugin lo inyecta en el user-prompt.
 - **RGPD/PII a un tercero**: todo lo enviado sale a Anthropic → **minimización
   de datos** + kill-switch/consentimiento (setting). Es rigor *y* cumplimiento.
 
-## 5. Pendiente (D-G) — para el próximo chat
+## 5. Fase D — Endpoint + grounding v1 (✅ backend, verde)
+
+Materializa [ADR-080 D.5](../10-decisions/adr-080-plugin-framework.md#d5-endpoint-de-consumo-módulo-support)
+y el grounding §4. **Sin push hasta cierre de sesión.**
+
+**Contrato IA (additivo):**
+- `core/ai/types.ts` — `AiSuggestionInput` gana `context?: AiClientContext`
+  (bloque fáctico minimizado: `client` / `services` / `billing`). Opcional →
+  chat guest (sin `user_id`) llega sin contexto. No bumpea el contrato v1.
+
+**Plugin Anthropic:**
+- `renderContext()` antepone el bloque "DATOS DE CONTEXTO" al transcript en el
+  user-prompt; el system-prompt ahora manda apoyarse en esos datos (y no
+  inventar fuera de conversación + contexto). Stub mock-first inalterado en
+  comportamiento (no necesita contexto).
+
+**Módulo support (R5 server-side):**
+- `SupportAiSuggestionService` (sub-service R15) — arma:
+  1. **transcript** = mensajes `client`/`agent` **no internos** (SUPP-INV-3,
+     filtrado en la propia query) → roles `customer`/`agent`, cap 40 msgs.
+  2. **locale** = `users.language`.
+  3. **grounding v1** = lecturas Prisma directas y **minimizadas** (R1, mismo
+     patrón de lectura legítima que el resto de support; RGPD — sin email/NIF):
+     servicios persistidos (estado/dominio/expiración, sin `cancelled`/
+     `terminated`), facturas pendientes (`pending`+`overdue` → count/importe),
+     próxima renovación (`min next_due_date` futura), datos básicos del cliente
+     (nombre/idioma/año de alta/tier SI+SLA).
+  - Mapea `AiUnavailableError`→`503 AI_UNAVAILABLE` y `CircuitOpenError`→
+    `503 AI_CIRCUIT_OPEN` (R7/R14). _(503 para ambos: HTTP-correcto para
+    "no disponible/transitorio"; el "/409" del apunte original no encaja con
+    semántica de breaker.)_
+- `SupportService.generateAiSuggestion()` (fachada) → delega.
+- Endpoint **`POST /support/conversations/:id/ai-suggestion`** (controller):
+  `Update.Conversation` + **staff-only reforzado** (`ADMIN_ROLES`, igual que
+  `updateConversation`: el cliente también tiene `Update.Conversation` sobre lo
+  propio) + `@Throttle({ ttl:60s, limit:10 })` por IP + `@HttpCode(200)` +
+  `AiSuggestionRequestDto { instructions? }`. Respuesta `{ suggestion, model, truncated? }`.
+- `SupportModule` importa `AiModule` (exporta `AiSuggestionService`) + provee el
+  sub-service. **Sin ciclo** (`AiModule` no depende de support).
+
+**Decisiones de la Fase D (interpretación fiel a la doc):**
+- Grounding = **resumen persistido** (lo que el panel del agente ya reúne vía
+  `getConversationClientContextAction` → `GET /services` summary, sin
+  `getServiceInfo` live). NS/métricas live → v1.1.
+- Rate-limit por **IP** (única opción limpia con el `ThrottlerGuard` global;
+  per-agente exige tracker per-user en el guard global → v1.1).
+
+**Verificación (DoD):** typecheck + lint:check verdes · **+7 unit**
+(`support-ai-suggestion.service.spec`: transcript sin notas internas / roles /
+grounding minimizado + whitelist anti-PII / fallback `product.name` + suscripción
+no-activa / multi-moneda omite importe / 503 AI_UNAVAILABLE / 503 AI_CIRCUIT_OPEN)
+→ suite **1402** verde · **boot smoke**: `Nest application successfully started`,
+ruta `POST /support/conversations/:id/ai-suggestion` mapeada, `Validated 1/1 AI
+provider(s): [anthropic]`, provisioners **4/4** intactos, sin
+`UnknownDependenciesException`.
+
+**Revisión adversarial (9 agentes, 3 dimensiones):** 6 hallazgos → 3 confirmados,
+todos LOW, los 3 corregidos: (1) suma de importe pendiente **multi-moneda** ahora
+solo se afirma si todas comparten moneda (si no, solo `pendingCount`) — protege el
+rigor del grounding; (2)+(3) tests reforzados (whitelist anti-PII agnóstica a la
+forma + casos fallback/no-activa/multi-moneda). Sin hallazgos de correctitud
+graves, RGPD, IDOR ni DI.
+
+**Docs:** `support/contract.md` §4 (+lectura `invoices`) + §5 (estado
+implementado + errores) · `api-errors.md` §503 (`AI_UNAVAILABLE`/`AI_CIRCUIT_OPEN`).
+
+## 6. Pendiente (E-G) — para el próximo chat
 
 | Fase | Contenido |
 |---|---|
-| **D** | Endpoint `POST /support/conversations/:id/ai-suggestion` + **ensamblado de contexto v1** (§4) + CASL `Update.Conversation` + rate-limit R10 + mapear `AiUnavailableError`/`CircuitOpenError` → 503/409 (R7/R14) |
 | **E** | UI admin: surface del plugin IA en `/admin/settings/plugins` (extender `AdminPluginsService` para listar/instalar/test-connection del registry IA; el admin activa + pega la `api_key`) |
 | **F** | Frontend: panel "Sugerencia" en el composer (gated por `isEnabled`; reusa el patrón de inserción no-destructivo de E12) |
-| **G** | Tests (endpoint/plugin real mockeado) + docs (`features/support`, `_events` si aplica, roadmap) + DoD final + boot smoke + retrospectiva |
+| **G** | Tests E2E (endpoint con plugin real mockeado) + docs (`features/support` sección "Sugerencia IA", `_events` si aplica, roadmap) + DoD final + retrospectiva |
 
-**Estado git:** rama `redesign/f3-ia` = doctrina `1077461` + B+C `6f1b30d` (+
-esta bitácora). Sin push hasta el cierre de esta sesión. **Falta (Yasmin):**
-continuar D-G en otro chat; smoke + merge.
+**Estado git:** rama `redesign/f3-ia` = doctrina `1077461` + B+C `6f1b30d` +
+bitácora `954d892` + **Fase D (esta sesión, sin commitear aún)**. **Falta
+(Yasmin):** revisar/commitear D; continuar E-G en otro chat; smoke + merge.

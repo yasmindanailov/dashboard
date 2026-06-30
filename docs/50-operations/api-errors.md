@@ -42,7 +42,7 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Códigos de error catalogados | 33 |
+| Códigos de error catalogados | 35 |
 | Familias HTTP usadas | 7 (400, 401, 403, 404, 409, 429, 500) |
 | 422 Unprocessable Entity | No usado — validaciones DTO devuelven 400 |
 | WebSocket error events | 1 (`MESSAGE_SEND_FAILED` — genérico) |
@@ -162,6 +162,8 @@
 | Code | Mensaje base | Cuándo se lanza | Notas |
 |------|--------------|-----------------|-------|
 | `CIRCUIT_BREAKER_OPEN` | "El servicio temporalmente no está disponible. Intenta en breve." | Circuit breaker abierto en API externa (Stripe, ResellerClub, Docker) — [ADR-055](../10-decisions/adr-055-resiliencia-circuit-breaker.md) | Notificación `system.error` al superadmin |
+| `AI_UNAVAILABLE` | (el del subsistema IA, ej. "La sugerencia de IA no está activa…") | `POST /support/conversations/:id/ai-suggestion` sin proveedor IA activo/habilitado ([ADR-080 Amendment D](../10-decisions/adr-080-plugin-framework.md), F3·E13) | `AiUnavailableError` → 503. El front gatea la pestaña "Sugerencia" con `isEnabled` (no debería verlo en flujo normal) |
+| `AI_CIRCUIT_OPEN` | "El proveedor de IA está temporalmente no disponible. Inténtalo en unos segundos." | Circuit breaker del subsistema IA (R11) abierto tras fallos repetidos del proveedor | `CircuitOpenError` → 503; incluye `retryAfterMs` |
 | `HEALTH_CHECK_FAILED` | (no es respuesta a request usuario — Traefik) | `/health` devuelve 503 si DB / Redis / workers no responden | Traefik desvía / reinicia |
 
 ---

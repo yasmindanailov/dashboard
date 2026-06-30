@@ -7,7 +7,9 @@ import { SupportChatService } from './support-chat.service';
 import { SupportTicketService } from './support-ticket.service';
 import { SupportMessageService } from './support-message.service';
 import { SupportQueryService } from './support-query.service';
+import { SupportAiSuggestionService } from './support-ai-suggestion.service';
 import { SupportController } from './support.controller';
+import { AiModule } from '../ai/ai.module';
 import { SupportGuestController } from './support-guest.controller';
 import { SupportGateway } from './support.gateway';
 import { SupportEmailListener } from './support-email.listener';
@@ -48,6 +50,9 @@ import {
       inject: [ConfigService],
     }),
     BullModule.registerQueue({ name: SUPPORT_RESOLVED_AUTO_CLOSE_QUEUE }),
+    // F3·E13 Fase D — subsistema IA paralelo (ADR-080 Amendment D). Provee
+    // `AiSuggestionService` (proveedor activo + SecretVault + breaker R11).
+    AiModule,
   ],
   controllers: [SupportController, SupportGuestController],
   providers: [
@@ -56,6 +61,7 @@ import {
     SupportTicketService,
     SupportMessageService,
     SupportQueryService,
+    SupportAiSuggestionService,
     // Facade (public API)
     SupportService,
     // Infrastructure

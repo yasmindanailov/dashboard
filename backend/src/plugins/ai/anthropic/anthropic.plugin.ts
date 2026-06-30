@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import {
   AI_PROVIDER_CONTRACT_VERSION,
+  AiClientContext,
   AiProviderPlugin,
   AiProviderRuntimeContext,
   AiSuggestionInput,
@@ -22,8 +23,10 @@ const SYSTEM_PROMPT = [
   'Eres un agente de soporte de Aelium, un SaaS de hosting y dominios.',
   'Redactas un BORRADOR de respuesta que un agente humano revisará antes de enviar.',
   'Voz Aelium: cercana pero competente, frases cortas, sin jerga ni relleno.',
-  'No inventes datos (precios, plazos, estados) que no estén en la conversación;',
-  'si falta información, pide el dato que necesitas. Responde en el idioma del cliente.',
+  'No inventes datos (precios, plazos, estados) que no estén en la conversación',
+  'NI en los DATOS DE CONTEXTO; si el dato no está, pide el que necesitas.',
+  'Apóyate en los DATOS DE CONTEXTO (servicios, estado, facturación) para afirmar hechos.',
+  'Responde en el idioma del cliente.',
   'Devuelve solo el texto del mensaje, sin preámbulo, sin comillas, sin firma de sistema.',
 ].join(' ');
 
@@ -133,13 +136,66 @@ export class AnthropicAiPlugin implements AiProviderPlugin {
         (m) => `[${m.role === 'customer' ? 'Cliente' : 'Agente'}]: ${m.text}`,
       )
       .join('\n');
+    const context = this.renderContext(input.context);
     const extra = input.instructions
       ? `\n\nInstrucción adicional del agente: ${input.instructions}`
       : '';
     return (
-      `Conversación de soporte (idioma del cliente: ${locale}):\n${transcript}${extra}\n\n` +
+      `${context}Conversación de soporte (idioma del cliente: ${locale}):\n${transcript}${extra}\n\n` +
       'Redacta el SIGUIENTE mensaje del agente como borrador.'
     );
+  }
+
+  /**
+   * Renderiza el grounding v1 (Fase D) como un bloque textual compacto que
+   * precede al transcript. Devuelve '' si no hay contexto (chat guest) — el
+   * prompt queda igual que antes. Datos ya minimizados server-side (R5/RGPD).
+   */
+  private renderContext(ctx?: AiClientContext): string {
+    if (!ctx) return '';
+    const lines: string[] = [];
+
+    if (ctx.client) {
+      const c = ctx.client;
+      const bits = [
+        c.firstName ? `nombre ${c.firstName}` : null,
+        c.locale ? `idioma ${c.locale}` : null,
+        c.clientSinceYear ? `cliente desde ${c.clientSinceYear}` : null,
+        c.supportTier ? `plan soporte ${c.supportTier}` : null,
+        c.slaHours ? `SLA ${c.slaHours}h` : null,
+      ].filter((b): b is string => b !== null);
+      if (bits.length > 0) lines.push(`Cliente: ${bits.join(', ')}.`);
+    }
+
+    if (ctx.services && ctx.services.length > 0) {
+      lines.push('Servicios contratados:');
+      for (const s of ctx.services) {
+        const parts = [
+          s.product ? `(${s.product})` : null,
+          `estado ${s.status}`,
+          s.domain ? `dominio ${s.domain}` : null,
+          s.expiresAt ? `expira ${s.expiresAt}` : null,
+        ].filter((p): p is string => p !== null);
+        lines.push(`- ${s.label}: ${parts.join(' · ')}`);
+      }
+    }
+
+    if (ctx.billing && ctx.billing.pendingCount > 0) {
+      const b = ctx.billing;
+      const amount =
+        b.pendingTotal && b.currency
+          ? ` por ${b.pendingTotal} ${b.currency}`
+          : '';
+      const renewal = b.nextRenewalAt
+        ? ` Próxima renovación: ${b.nextRenewalAt}.`
+        : '';
+      lines.push(
+        `Facturación: ${b.pendingCount} factura(s) pendiente(s)${amount}.${renewal}`,
+      );
+    }
+
+    if (lines.length === 0) return '';
+    return `DATOS DE CONTEXTO (úsalos para afirmar hechos; no inventes lo que no esté aquí):\n${lines.join('\n')}\n\n`;
   }
 
   private resolveModel(config: Record<string, unknown>): string {

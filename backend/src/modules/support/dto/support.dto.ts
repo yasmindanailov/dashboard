@@ -257,6 +257,23 @@ export class ConversationListQueryDto {
 }
 
 /* ═══════════════════════════════════════
+   AI Suggestion Request DTO (F3·E13 Fase D)
+   ═══════════════════════════════════════ */
+
+/**
+ * Petición de un BORRADOR de respuesta a la IA para una conversación.
+ * Staff-only. El backend arma el transcript + grounding server-side (R5); el
+ * front solo puede pasar `instructions` (steering opcional del agente, ej.
+ * "responde más formal" / "ofrece migrar a un plan superior"). Nunca auto-envía.
+ */
+export class AiSuggestionRequestDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  instructions?: string;
+}
+
+/* ═══════════════════════════════════════
    Escalate Chat to Ticket DTO
    ═══════════════════════════════════════ */
 

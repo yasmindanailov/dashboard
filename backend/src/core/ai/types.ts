@@ -31,6 +31,53 @@ export interface AiMessage {
   text: string;
 }
 
+/**
+ * Grounding v1 (F3·E13 Fase D): contexto fáctico que el backend ensambla
+ * server-side (R5) desde el `user_id` de la conversación para que la IA AFIRME
+ * hechos (servicios, estado, facturación) en vez de adivinar. **Minimizado**
+ * (RGPD: todo sale a un tercero) — sin email/teléfono/NIF/dirección. Todos los
+ * bloques son opcionales: un chat guest (sin `user_id`) llega sin `context`.
+ * Diferido a v1.1: RAG sobre KB + macros (E12) con `citations`, structured
+ * outputs, tool use, NS/métricas live del proveedor. Ver bitácora E13 §4.
+ */
+export interface AiClientContext {
+  /** Datos básicos del cliente (minimizados). */
+  client?: {
+    firstName?: string;
+    /** Idioma del cliente (ej. 'es'). */
+    locale?: string;
+    /** Año de alta (antigüedad, dato mínimo — no la fecha exacta). */
+    clientSinceYear?: number;
+    /** Tier Support Inside (E8): 'standard' | 'high' | 'max'. */
+    supportTier?: string;
+    /** SLA de respuesta en horas (E9), si tiene plan con SLA. */
+    slaHours?: number;
+  };
+  /**
+   * Servicios contratados (resumen PERSISTIDO de `services`, sin llamada live
+   * al proveedor). Plan, estado, dominio y expiración — lo que el panel del
+   * agente ya muestra.
+   */
+  services?: {
+    label: string;
+    product?: string;
+    /** Estado del servicio (`active` | `suspended` | `pending` | …). */
+    status: string;
+    domain?: string;
+    /** Expiración real reportada por el proveedor, `YYYY-MM-DD`. */
+    expiresAt?: string;
+  }[];
+  /** Resumen de facturación pendiente (`pending` + `overdue`). */
+  billing?: {
+    pendingCount: number;
+    /** Importe total pendiente, formateado (ej. `'12.00'`). */
+    pendingTotal?: string;
+    currency?: string;
+    /** Próxima renovación (mín. `next_due_date` de los servicios), `YYYY-MM-DD`. */
+    nextRenewalAt?: string;
+  };
+}
+
 /** Entrada para generar una sugerencia de respuesta. El backend la arma (R5). */
 export interface AiSuggestionInput {
   /** Transcript en orden cronológico (sin notas internas — SUPP-INV-3). */
@@ -39,6 +86,8 @@ export interface AiSuggestionInput {
   locale?: string;
   /** Steering opcional adicional del agente. */
   instructions?: string;
+  /** Grounding v1 (Fase D): contexto fáctico minimizado del cliente. */
+  context?: AiClientContext;
 }
 
 export interface AiSuggestionResult {
