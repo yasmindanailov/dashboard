@@ -9,6 +9,7 @@ import { ListPage } from '../../components/ui';
 import { serverFetch, ServerFetchError } from '../../lib/server-auth';
 import type { SupportInsideEligibleTechnician } from '../../lib/api';
 import ClientsListView from './_components/ClientsListView';
+import ClientsHeaderActions from './_components/ClientsHeaderActions';
 
 interface Client {
   id: string;
@@ -48,6 +49,8 @@ export default async function ClientsPage({ searchParams }: PageProps) {
   const page = Math.max(1, parseInt(singleParam(params.page), 10) || 1);
   const search = singleParam(params.search);
   const status = singleParam(params.status);
+  // F4·U21 — filtro "Tipo" (individual/company del perfil fiscal).
+  const type = singleParam(params.client_type);
   // F3·E8 — filtro "Mis clientes" / por técnico ('me' o un UUID de agente).
   const assignedTechnician = singleParam(params.assigned_technician);
 
@@ -56,6 +59,7 @@ export default async function ClientsPage({ searchParams }: PageProps) {
   query.set('limit', '20');
   if (search) query.set('search', search);
   if (status) query.set('status', status);
+  if (type) query.set('client_type', type);
   if (assignedTechnician) query.set('assigned_technician', assignedTechnician);
 
   let clients: Client[] = [];
@@ -89,11 +93,12 @@ export default async function ClientsPage({ searchParams }: PageProps) {
     <ListPage
       title="Clientes"
       subtitle={`${meta.total} cliente${meta.total !== 1 ? 's' : ''} registrado${meta.total !== 1 ? 's' : ''}`}
+      action={<ClientsHeaderActions />}
     >
       <ClientsListView
         clients={clients}
         meta={meta}
-        initialFilters={{ search, status, assignedTechnician }}
+        initialFilters={{ search, status, type, assignedTechnician }}
         technicians={technicians}
       />
     </ListPage>

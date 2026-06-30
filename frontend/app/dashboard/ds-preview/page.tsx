@@ -511,12 +511,19 @@ export default function DesignSystemPreview() {
 
       {/* ── Avatar ── */}
       <Section title="Avatar">
-        <Row>
+        <Row label="Tono solid (def.)">
           <Avatar name="Juan García" size="sm" />
           <Avatar name="María López" size="md" />
           <Avatar name="Carlos Ruiz" size="lg" />
           <Avatar name="Ana Martín" size="lg" />
           <Avatar name="Pedro Sánchez" size="lg" />
+        </Row>
+        <Row label="Tono soft — pastel (F4, listas)">
+          <Avatar name="Carla Ruiz" size="md" tone="soft" />
+          <Avatar name="Diego Sanz" size="md" tone="soft" />
+          <Avatar name="Núria Pons" size="md" tone="soft" />
+          <Avatar name="Tomás Gil" size="md" tone="soft" />
+          <Avatar name="Estudio Marfil" size="md" tone="soft" />
         </Row>
       </Section>
 
@@ -607,6 +614,17 @@ export default function DesignSystemPreview() {
 
       {/* ── Table ── */}
       <Section title="Table">
+        <Row label="Card chrome (prop card, F4 — listas)">
+          <div style={{ width: '100%' }}>
+            <Table<DemoClient>
+              card
+              columns={DEMO_COLUMNS}
+              data={DEMO_CLIENTS}
+              rowKey={(c) => c.id}
+              onRowClick={(c) => toast('info', `Seleccionado: ${c.name}`)}
+            />
+          </div>
+        </Row>
         <Row label="Con datos">
           <div style={{ width: '100%' }}>
             <Card padding="none">

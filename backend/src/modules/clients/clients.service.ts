@@ -33,7 +33,14 @@ export class ClientsService {
   /* ── List ── */
 
   async findAll(query: ClientListQueryDto): Promise<PaginatedResult<any>> {
-    const { page = 1, limit = 20, search, status, assigned_technician } = query;
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      status,
+      assigned_technician,
+      client_type,
+    } = query;
     const skip = (page - 1) * limit;
 
     const clientRole = await this.prisma.role.findUnique({
@@ -56,6 +63,10 @@ export class ClientsService {
       where.support_inside_subscription = {
         is: { status: 'active', assigned_technician_id: assigned_technician },
       };
+    }
+    // F4·U21 — filtro por tipo de cliente (perfil fiscal: individual/company).
+    if (client_type) {
+      where.client_profile = { is: { client_type } };
     }
 
     const [data, total] = await Promise.all([

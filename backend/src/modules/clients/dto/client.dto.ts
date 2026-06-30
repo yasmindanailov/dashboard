@@ -30,6 +30,15 @@ export class ClientListQueryDto extends PaginationDto {
   @IsString()
   @MaxLength(40)
   assigned_technician?: string;
+
+  /**
+   * F4·U21 (reskin Clientes) — filtra por tipo de cliente del perfil fiscal
+   * (`individual` = Particular / `company` = Empresa). Additivo: sin él, no
+   * filtra. Mapea 1:1 con el selector "Tipo" del mockup `admin/Clientes.dc.html`.
+   */
+  @IsOptional()
+  @IsEnum(ClientType)
+  client_type?: ClientType;
 }
 
 /* ═══════════════════════════════════════
