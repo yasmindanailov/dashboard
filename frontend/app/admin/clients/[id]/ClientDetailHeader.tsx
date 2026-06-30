@@ -3,7 +3,15 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Ban, MoreVertical, Pencil, Play, Plus, Trash2 } from 'lucide-react';
+import {
+  CircleAlert,
+  MoreVertical,
+  Pencil,
+  Play,
+  Plus,
+  Shield,
+  Trash2,
+} from 'lucide-react';
 import {
   Avatar,
   Badge,
@@ -57,6 +65,7 @@ export default function ClientDetailHeader({ client }: Props) {
   const [editOpen, setEditOpen] = useState(false);
   const [contratarOpen, setContratarOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [suspendOpen, setSuspendOpen] = useState(false);
 
   const s = STATUS_MAP[client.status] || STATUS_MAP.inactive;
   const isSuspended = client.status === 'blocked';
@@ -73,6 +82,7 @@ export default function ClientDetailHeader({ client }: Props) {
     startTransition(async () => {
       const result = await setClientSuspendedAction(client.id, !isSuspended);
       if (result.ok) {
+        setSuspendOpen(false);
         toast(
           'success',
           isSuspended ? 'Cuenta reactivada.' : 'Cuenta suspendida (login bloqueado).',
@@ -94,9 +104,9 @@ export default function ClientDetailHeader({ client }: Props) {
       icon: isSuspended ? (
         <Play size={15} strokeWidth={1.7} />
       ) : (
-        <Ban size={15} strokeWidth={1.7} />
+        <CircleAlert size={15} strokeWidth={1.7} />
       ),
-      onClick: handleToggleSuspend,
+      onClick: () => setSuspendOpen(true),
     },
     { divider: true },
     {
@@ -122,7 +132,10 @@ export default function ClientDetailHeader({ client }: Props) {
                   style={{ textDecoration: 'none' }}
                   aria-label={`Plan Support Inside del cliente: ${si.product.name}`}
                 >
-                  <Badge variant="brand">{si.product.name}</Badge>
+                  <Badge variant="brand">
+                  <Shield size={13} strokeWidth={1.7} />
+                  {si.product.name}
+                </Badge>
                 </Link>
               </Tooltip>
             )}
@@ -212,6 +225,38 @@ export default function ClientDetailHeader({ client }: Props) {
           revisa (sin servicios vivos ni facturas impagadas) y lo ejecuta —
           anonimización irreversible, conservando facturas y auditoría por
           obligación legal. No es un borrado inmediato desde aquí.
+        </p>
+      </Modal>
+
+      <Modal
+        open={suspendOpen}
+        onClose={() => (pending ? undefined : setSuspendOpen(false))}
+        title={isSuspended ? 'Reactivar cuenta' : 'Suspender cuenta'}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setSuspendOpen(false)}
+              disabled={pending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant={isSuspended ? 'primary' : 'danger'}
+              loading={pending}
+              onClick={handleToggleSuspend}
+            >
+              {isSuspended ? 'Reactivar' : 'Suspender'}
+            </Button>
+          </>
+        }
+      >
+        <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          {isSuspended ? (
+            <>¿Reactivar la cuenta de <strong>{fullName}</strong>? Volverá a poder iniciar sesión.</>
+          ) : (
+            <>¿Suspender la cuenta de <strong>{fullName}</strong>? No podrá iniciar sesión hasta que la reactives. Sus servicios siguen activos (se gestionan por separado en /admin/services).</>
+          )}
         </p>
       </Modal>
     </>

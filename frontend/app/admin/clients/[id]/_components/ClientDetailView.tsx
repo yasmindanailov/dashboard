@@ -25,7 +25,6 @@ import { listClientNotesAction } from '../_actions';
    stat-cards del Resumen y el tab Servicios). Las notas siguen lazy (filtros).
    ═══════════════════════════════════════ */
 
-const detailTabs: DetailTab[] = TABS.map((t) => ({ key: t.key, label: t.label }));
 const OPEN_STATUSES = new Set(['open', 'waiting_agent']);
 
 interface Props {
@@ -55,6 +54,21 @@ export default function ClientDetailView({
   const supportOpen = [...supportChats, ...supportTickets].filter((c) =>
     OPEN_STATUSES.has(c.status),
   ).length;
+
+  // F4·U22 — contadores en los tabs (1:1 mockup): Servicios (no-SI) y Soporte.
+  const servicesCount = services.filter(
+    (s) => s.product?.type !== 'support_inside',
+  ).length;
+  const detailTabs: DetailTab[] = TABS.map((t) => ({
+    key: t.key,
+    label: t.label,
+    count:
+      t.key === 'servicios'
+        ? servicesCount
+        : t.key === 'soporte'
+          ? supportTotal
+          : undefined,
+  }));
 
   // F4·U22 — cargamos TODAS las notas una vez; el filtrado (categoría/origen/
   // fijadas) es client-side en ClientNotesTab (chips con contador, 1:1 mockup).

@@ -1,19 +1,20 @@
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: 2px var(--space-2);
+  gap: var(--space-1_5);
+  padding: 3px var(--space-2_5);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   line-height: 1.4;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   white-space: nowrap;
   user-select: none;
 }
 
-.neutral   { background: var(--surface-secondary); color: var(--text-secondary); }
-.success   { background: var(--success-light);     color: #047857; }
-.warning   { background: var(--warning-light);     color: #B45309; }
-.danger    { background: var(--danger-light);      color: #B91C1C; }
-.info      { background: var(--info-light);        color: #1D4ED8; }
+/* F4: tonos del mockup (texto saturado oscuro sobre fondo tenue, píldora). */
+.neutral   { background: var(--surface-tertiary);  color: var(--text-secondary); }
+.success   { background: var(--success-light);     color: var(--success-dark); }
+.warning   { background: var(--warning-light);     color: #B27A12; }
+.danger    { background: var(--danger-light);      color: #D14343; }
+.info      { background: var(--info-light);        color: var(--brand); }
 .brand     { background: var(--brand-subtle);      color: var(--brand); }
