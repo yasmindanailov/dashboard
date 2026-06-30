@@ -43,6 +43,7 @@ import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.mod
 import { ErrorLogModule } from './modules/error-log/error-log.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { AdminOverviewModule } from './modules/admin-overview/admin-overview.module';
+import { AiModule } from './modules/ai/ai.module';
 
 @Module({
   imports: [
@@ -118,6 +119,7 @@ import { AdminOverviewModule } from './modules/admin-overview/admin-overview.mod
     ErrorLogModule,
     DashboardModule,
     AdminOverviewModule,
+    AiModule,
   ],
   providers: [
     // SentryGlobalFilter captura excepciones no manejadas y las reporta a
