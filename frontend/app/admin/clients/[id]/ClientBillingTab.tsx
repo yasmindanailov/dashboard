@@ -2,14 +2,17 @@
 
 import Link from 'next/link';
 import { Card, Badge } from '../../../components/ui';
-import type { ClientDetail, BillingProfile } from './types';
+import type { BillingProfile, ClientBillingStats, ClientDetail } from './types';
 
 /* ═══════════════════════════════════════
    Client Billing Tab — §2.5 tab content
-   Shows billing profiles + link to invoices.
+   Shows billing profiles + invoices summary (F4·U22).
    ═══════════════════════════════════════ */
 
-interface Props { client: ClientDetail; }
+interface Props {
+  client: ClientDetail;
+  billingStats: ClientBillingStats | null;
+}
 
 function ProfileCard({ bp, highlight }: { bp?: BillingProfile; highlight: boolean }) {
   return (
@@ -34,7 +37,10 @@ function ProfileCard({ bp, highlight }: { bp?: BillingProfile; highlight: boolea
   );
 }
 
-export default function ClientBillingTab({ client }: Props) {
+export default function ClientBillingTab({ client, billingStats }: Props) {
+  const total = billingStats?.total_invoices ?? 0;
+  const pending = billingStats?.pending_count ?? 0;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       <Card>
@@ -46,12 +52,22 @@ export default function ClientBillingTab({ client }: Props) {
         ))}
       </Card>
       <Card>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
           <div>
             <h2 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--text-primary)' }}>Facturas</h2>
-            <p style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-1)', color: 'var(--text-tertiary)' }}>Ver todas las facturas de este cliente</p>
+            <p style={{ fontSize: 'var(--font-size-sm)', marginTop: 'var(--space-1_5)', color: 'var(--text-secondary)' }}>
+              {total} factura{total === 1 ? '' : 's'}
+              {pending > 0 && (
+                <>
+                  {' · '}
+                  <span style={{ color: 'var(--warning-dark)', fontWeight: 'var(--font-weight-semibold)' }}>
+                    {pending} pendiente{pending === 1 ? '' : 's'} de pago
+                  </span>
+                </>
+              )}
+            </p>
           </div>
-          <Link href={`/dashboard/billing?userId=${client.id}`} style={{ padding: 'var(--space-2) var(--space-4)', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)', borderRadius: 'var(--radius-md)', background: 'var(--brand-subtle)', color: 'var(--brand)', textDecoration: 'none' }}>
+          <Link href={`/dashboard/billing?userId=${client.id}`} style={{ padding: 'var(--space-2_5) var(--space-4)', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-semibold)', borderRadius: 'var(--radius-md)', background: 'var(--brand-subtle)', color: 'var(--brand)', textDecoration: 'none' }}>
             Ver facturas →
           </Link>
         </div>

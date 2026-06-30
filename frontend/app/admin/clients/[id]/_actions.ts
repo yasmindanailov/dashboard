@@ -80,6 +80,114 @@ export async function listClientNotesAction(
   }
 }
 
+/* ── F4·U22 — acciones del header (kebab + Editar) ── */
+
+export type ClientMutationResult = { ok: true } | { ok: false; error: string };
+
+/** Suspende (`suspend=true`) o reactiva la CUENTA del cliente (bloquea login). */
+export async function setClientSuspendedAction(
+  clientId: string,
+  suspend: boolean,
+): Promise<ClientMutationResult> {
+  try {
+    await serverFetch(
+      `/admin/clients/${clientId}/${suspend ? 'suspend' : 'unsuspend'}`,
+      { method: 'POST' },
+    );
+    revalidatePath(`/admin/clients/${clientId}`);
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo cambiar el estado de la cuenta',
+    };
+  }
+}
+
+/** Edita el perfil de cliente (`PATCH /admin/clients/:id`). */
+export async function updateClientProfileAction(
+  clientId: string,
+  data: Record<string, string>,
+): Promise<ClientMutationResult> {
+  try {
+    await serverFetch(`/admin/clients/${clientId}`, {
+      method: 'PATCH',
+      body: data,
+    });
+    revalidatePath(`/admin/clients/${clientId}`);
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo guardar el perfil',
+    };
+  }
+}
+
+export interface CheckoutProductOption {
+  id: string;
+  name: string;
+  type: string;
+  pricing: {
+    id: string;
+    billing_cycle: string;
+    price: string;
+    currency: string;
+  }[];
+}
+
+export type ListCheckoutProductsResult =
+  | { ok: true; products: CheckoutProductOption[] }
+  | { ok: false; error: string };
+
+/** Productos contratables (activos, con pricing) para el modal "Contratar". */
+export async function listCheckoutProductsAction(): Promise<ListCheckoutProductsResult> {
+  try {
+    const res = await serverFetch<{ data: CheckoutProductOption[] }>(
+      '/admin/products?status=active&limit=100',
+    );
+    const products = (res.data || []).filter((p) => p.pricing?.length > 0);
+    return { ok: true, products };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudieron cargar los productos',
+    };
+  }
+}
+
+/** Contrata un producto para el cliente (admin checkout `?targetUserId=`). */
+export async function checkoutForClientAction(
+  clientId: string,
+  productPricingId: string,
+): Promise<{ ok: true; invoiceId: string | null } | { ok: false; error: string }> {
+  try {
+    const res = await serverFetch<{ invoice_id?: string }>(
+      `/billing/checkout?targetUserId=${clientId}`,
+      { method: 'POST', body: { product_pricing_id: productPricingId } },
+    );
+    revalidatePath(`/admin/clients/${clientId}`);
+    return { ok: true, invoiceId: res.invoice_id ?? null };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo contratar el servicio',
+    };
+  }
+}
+
 export type NoteMutationResult = { ok: true } | { ok: false; error: string };
 
 export async function toggleNotePinAction(

@@ -4,7 +4,7 @@ import styles from './Avatar.module.css';
 export interface AvatarProps {
   name: string;
   src?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   /**
    * `solid` (def.) = fondo saturado + iniciales blancas.
    * `soft` = fondo pastel + iniciales de color, 1:1 con los avatares de las
@@ -19,6 +19,7 @@ const SIZE_PX: Record<NonNullable<AvatarProps['size']>, number> = {
   sm: 28,
   md: 40,
   lg: 56,
+  xl: 56,
 };
 
 /** Hash determinista del nombre → índice de paleta (estable por cliente). */
