@@ -50,6 +50,20 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'action.provider_error':
     'El proveedor devolvió un error inesperado. Si persiste, contacta a soporte.',
 
+  // ── Plugin Anthropic (Claude) — subsistema IA paralelo (ADR-080 Amendment D, F3·E13)
+  'plugin.anthropic.label': 'Sugerencia IA (Claude)',
+  'plugin.anthropic.description':
+    'Proveedor de IA del copiloto de soporte. Genera un borrador de respuesta para el agente desde el chat o ticket — nunca se auto-envía: el agente lo revisa e inserta. Usa modelos Claude de Anthropic; la API key se cifra con AES-256-GCM antes de persistirse.',
+  'plugin.anthropic.config.model.label': 'Modelo de Claude',
+  'plugin.anthropic.config.model':
+    'Modelo usado para las sugerencias. Por defecto el más capaz (claude-opus-4-8).',
+  'plugin.anthropic.config.max_tokens.label': 'Máximo de tokens',
+  'plugin.anthropic.config.max_tokens':
+    'Longitud máxima del borrador generado (entre 256 y 4096).',
+  'plugin.anthropic.secrets.api_key.label': 'API key de Anthropic',
+  'plugin.anthropic.secrets.api_key':
+    'Clave de la API de Anthropic (formato sk-ant-…). Sin clave configurada, el sistema responde con un borrador de demostración (stub) sin red ni coste.',
+
   // ── Plugin Enhance CP — Manifest (ADR-080 §1 + ADR-083 §1)
   'plugin.enhance_cp.label': 'Hosting Enhance',
   'plugin.enhance_cp.description':

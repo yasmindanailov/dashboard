@@ -3,8 +3,8 @@
 > Registro riguroso de la **vertical F3·E13**: copiloto de IA (Claude/Anthropic)
 > que sugiere un **borrador de respuesta** al agente en el composer de soporte.
 > Es la vertical F3 "genuinamente nueva" (L-XL). **Rama:** `redesign/f3-ia`
-> (desde `origin/master`, independiente). **Estado: A + B + C + D ✅ (backend);
-> E-G pendientes** (otro chat).
+> (desde `origin/master`, independiente). **Estado: A + B + C + D + E ✅;
+> F-G pendientes** (otro chat).
 
 ## 0. Resumen ejecutivo
 
@@ -12,8 +12,9 @@ E13 materializa el "IA copilot para agentes" (antes Sprint 7.9). El agente pide
 a Claude un borrador para el chat/ticket; **nunca se auto-envía** — el agente lo
 revisa e inserta. Por su tamaño se ejecuta por fases con checkpoints verdes y
 commits independientes. Hechas: **A** (doctrina), **B** (framework IA), **C**
-(plugin Anthropic + mock), **D** (endpoint + grounding v1). Pendientes: **E** UI
-admin, **F** frontend, **G** docs/DoD.
+(plugin Anthropic + mock), **D** (endpoint + grounding v1), **E** (UI admin del
+plugin IA en `/admin/settings/plugins`). Pendientes: **F** frontend (panel en el
+composer), **G** docs/DoD.
 
 ## 1. Decisiones (Yasmin, 2026-06-30)
 
@@ -172,14 +173,72 @@ graves, RGPD, IDOR ni DI.
 **Docs:** `support/contract.md` §4 (+lectura `invoices`) + §5 (estado
 implementado + errores) · `api-errors.md` §503 (`AI_UNAVAILABLE`/`AI_CIRCUIT_OPEN`).
 
-## 6. Pendiente (E-G) — para el próximo chat
+## 6. Fase E — UI admin del plugin IA (✅ back + front, verde)
+
+El admin activa el proveedor IA, pega la `api_key` y prueba la conexión desde
+**`/admin/settings/plugins`** — el mismo panel que los provisioners, reutilizando
+toda la infra ADR-080 (Amendment D: `plugin_installs` + SecretVault + `PluginManifest`).
+
+**Backend — `AdminPluginsService` gana un resolver unificado provisioner+IA:**
+- `resolvePlugin(slug)` → unión etiquetada `{kind:'provisioner'|'ai', slug, manifest, …}`
+  (provisioner primero, luego `AiProviderRegistry`). `requirePlugin` lanza 404.
+- **Métodos type-agnósticos** (operan sobre `{slug, manifest}`): `list()` (añade los
+  slugs IA tras los provisioners), `findOne()`, `update()` (Ajv + cifrado + audit R3 +
+  emit `plugin.config_changed`), `onModuleInit` (precompila también los manifests IA).
+  El **emit recarga ambos registries** (`PluginRegistryService` ignora el slug IA;
+  `AiProviderRegistry` lo activa) → encender `anthropic` no toca los 4/4 provisioners.
+- **Ramas por `kind`:** `update()` resetea breakers de provisioning **solo** para
+  provisioners; `testConnection()` para IA arma el `AiProviderRuntimeContext`
+  (config + secrets descifrados, R12) y llama `ai.testConnection(ctx)` → `{ok,detail}`
+  mapeado a `{success,message}`. `getOperationalOverview`/`reconcileAll` quedan
+  provisioner-only (la UI los omite para IA; 404 defensivo si se invocan).
+- `AdminPluginsModule` importa `AiModule`. `JsonSchema7Property` gana `title?` (i18n,
+  additivo) para etiquetas del form. Manifest Anthropic gana `title` en config + secret.
+
+**Frontend — el panel manifest-driven ya renderiza el plugin IA sin tocar el form:**
+- `PluginConfigForm` (rjsf desde el manifest) muestra config (modelo/max_tokens) +
+  credenciales (`api_key`) + toggle + "Probar conexión" **out-of-the-box**.
+- Gateado lo provisioner-céntrico para IA: `AdminPluginDetailLayout` omite el
+  `<PluginOperationalOverview>` (servicios/reconciliación/drifts) y la página omite el
+  `reconcileSlot` cuando `settingsCategory==='ai'`. Copy del toggle adaptado a IA.
+  i18n `plugin.anthropic.*` (label/description/config/secret). Header de la lista
+  generalizado ("Plugins", provisioning + IA).
+
+**Verificación (DoD):** typecheck + lint:check (back+front) verdes · **+6 unit**
+(`admin-plugins.service.spec`: list incluye IA / findOne / update enable+cifra api_key
+sin reset de breakers / rechazo Ajv / testConnection arma ctx / sin api_key) → suite
+back **1520** + front **94** verdes · **boot smoke**: `AdminPluginsController` mapeado,
+`Validated 1/1 AI provider(s): [anthropic]`, provisioners **4/4** intactos,
+`successfully started`, sin `UnknownDependenciesException`; probe `GET /admin/plugins`
+→ **401** (ruta viva + guard activo).
+
+**Revisión adversarial (3 dimensiones, foco regresión provisioner):** 1 hallazgo
+confirmado (**medium**, lo destaparon 2 dimensiones independientes), corregido:
+al habilitar el plugin IA, `PluginRegistryService.reloadActivation()` logueaba un
+**ERROR espurio** ("enabled in DB but not registered via DI … services will hang in
+'pending'") porque consultaba `plugin_installs WHERE enabled` sin filtrar y veía
+`anthropic` (que es IA). **Fix:** degradado a **WARN** informativo, sin afirmar
+"pending" y reconociendo que el slug puede ser de otro subsistema — **sin acoplar el
+registry de provisioners a los slugs de IA** (respeta AI-INV-1: la IA nunca pasa por
+ese registry). +test guard (`plugin-registry.spec`: slug foráneo habilitado → WARN, no
+ERROR). Suite back **1520** verde. _(Las gates lo perdieron porque el seed deja
+`anthropic` enabled=false; solo aparece al habilitarlo — el flujo central de E.)_
+
+**Smoke en vivo (end-to-end, esta sesión):** login superadmin (2FA vía Mailpit) →
+`GET /admin/plugins` muestra `anthropic cat=ai enabled=false` → `PATCH enabled=true` →
+`test-connection` (sin api_key) → "Falta la API key de Anthropic" → cliente crea chat →
+`POST /support/conversations/:id/ai-suggestion` (staff) → borrador **stub** correcto
+referenciando el último mensaje del cliente. Fase D + E verificadas funcionando.
+
+## 7. Pendiente (F-G) — para el próximo chat
 
 | Fase | Contenido |
 |---|---|
-| **E** | UI admin: surface del plugin IA en `/admin/settings/plugins` (extender `AdminPluginsService` para listar/instalar/test-connection del registry IA; el admin activa + pega la `api_key`) |
-| **F** | Frontend: panel "Sugerencia" en el composer (gated por `isEnabled`; reusa el patrón de inserción no-destructivo de E12) |
+| **F** | Frontend: panel "Sugerencia" en el composer de soporte (gated por `isEnabled`; reusa el patrón de inserción no-destructivo de E12) |
 | **G** | Tests E2E (endpoint con plugin real mockeado) + docs (`features/support` sección "Sugerencia IA", `_events` si aplica, roadmap) + DoD final + retrospectiva |
 
 **Estado git:** rama `redesign/f3-ia` = doctrina `1077461` + B+C `6f1b30d` +
-bitácora `954d892` + **Fase D (esta sesión, sin commitear aún)**. **Falta
-(Yasmin):** revisar/commitear D; continuar E-G en otro chat; smoke + merge.
+bitácora `954d892` + **Fase D `55294e8`** + 2 merges de master (`abb37d2`,`678c33d`) +
+**Fase E (esta sesión, sin commitear aún)**. **Falta (Yasmin):** revisar/commitear E;
+smoke visual del panel admin (activar `anthropic` + pegar `api_key` + "Probar conexión");
+continuar F-G en otro chat.

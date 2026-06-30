@@ -38,7 +38,9 @@ export default async function AdminPluginDetailPage({ params }: PageProps) {
     <AdminPluginDetailLayout
       detail={detail}
       reconcileSlot={
-        detail.enabled && detail.manifest ? (
+        detail.enabled &&
+        detail.manifest &&
+        detail.manifest.settingsCategory !== 'ai' ? (
           <PluginReconcileSection slug={detail.slug} />
         ) : null
       }

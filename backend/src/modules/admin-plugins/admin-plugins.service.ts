@@ -21,7 +21,12 @@ import {
   ReconcileResult,
 } from '../../core/provisioning/reconcile-registry.service';
 import { SecretVaultService } from '../../core/security/secret-vault.service';
-import { ProvisionerPlugin } from '../../core/provisioning/types';
+import {
+  PluginManifest,
+  ProvisionerPlugin,
+} from '../../core/provisioning/types';
+import { AiProviderRegistry } from '../../core/ai/ai-provider-registry.service';
+import { AiProviderPlugin } from '../../core/ai/types';
 import { AuditService } from '../audit/audit.service';
 
 import { AdminPluginUpdateDto } from './dto/admin-plugin-update.dto';
@@ -46,6 +51,33 @@ export interface ReconcileAllResponse {
   readonly duration_ms: number;
   readonly details: Readonly<Record<string, unknown>> | null;
 }
+
+/**
+ * F3·E13 Fase E (ADR-080 Amendment D) — el panel `/admin/settings/plugins`
+ * gestiona DOS tipos de plugin que comparten infraestructura (`plugin_installs`
+ * + SecretVault + `PluginManifest`) pero tienen registries/contratos distintos:
+ *   - `provisioner` (hosting/dominios) → `PluginRegistryService`.
+ *   - `ai` (subsistema IA paralelo) → `AiProviderRegistry`.
+ * El service resuelve por slug a esta unión etiquetada; la lógica compartida
+ * (config/secrets/audit/emit) opera sobre `{ slug, manifest }`, y solo lo
+ * type-específico (test-connection, overview, reconcile) ramifica por `kind`.
+ */
+type ResolvedPlugin =
+  | {
+      kind: 'provisioner';
+      slug: string;
+      manifest: PluginManifest;
+      provisioner: ProvisionerPlugin;
+    }
+  | {
+      kind: 'ai';
+      slug: string;
+      manifest: PluginManifest;
+      ai: AiProviderPlugin;
+    };
+
+/** Subset que las rutinas compartidas necesitan (cualquiera de los 2 tipos). */
+type ManifestCarrier = { slug: string; manifest: PluginManifest };
 
 /**
  * AdminPluginsService — Sprint 15A Fase G (ADR-080 §7).
@@ -104,6 +136,10 @@ export class AdminPluginsService implements OnModuleInit {
     // capabilities.supports_reconciliation registra su executor en
     // onModuleInit del cron correspondiente.
     private readonly reconcileRegistry: ReconcileRegistryService,
+    // F3·E13 Fase E (ADR-080 Amendment D) — registry del subsistema IA
+    // paralelo. El panel admin gestiona sus plugins (ej. `anthropic`) con el
+    // mismo flujo de config/secrets/test-connection que los provisioners.
+    private readonly aiRegistry: AiProviderRegistry,
   ) {
     this.ajv = new Ajv({
       strict: false,
@@ -115,15 +151,18 @@ export class AdminPluginsService implements OnModuleInit {
   }
 
   onModuleInit(): void {
-    // Pre-compilamos los schemas de los plugins disponibles para detectar
-    // schemas inválidos al boot (fail-fast). En runtime, el cache evita
-    // recompilación.
-    for (const slug of this.registry.listAvailableSlugs()) {
-      const plugin =
-        this.registry.get(slug) ?? this.findPluginInValidated(slug);
-      if (plugin) {
+    // Pre-compilamos los schemas de TODOS los plugins disponibles (provisioner
+    // + IA) para detectar schemas inválidos al boot (fail-fast). En runtime, el
+    // cache evita recompilación.
+    const allSlugs = [
+      ...this.registry.listAvailableSlugs(),
+      ...this.aiRegistry.listAvailableSlugs(),
+    ];
+    for (const slug of allSlugs) {
+      const resolved = this.resolvePlugin(slug);
+      if (resolved) {
         try {
-          this.compileForPlugin(plugin);
+          this.compileForPlugin(resolved);
         } catch (err) {
           // No tirar el boot — el plugin queda fuera del set "instalable"
           // pero el resto del sistema sigue (R7).
@@ -133,6 +172,43 @@ export class AdminPluginsService implements OnModuleInit {
         }
       }
     }
+  }
+
+  /**
+   * Resuelve un slug a su plugin (provisioner primero, IA después). Devuelve
+   * una unión etiquetada con el `manifest` común + la referencia al plugin
+   * concreto. `null` si ningún registry lo conoce.
+   */
+  private resolvePlugin(slug: string): ResolvedPlugin | null {
+    const provisioner = this.registry.getAvailable(slug);
+    if (provisioner) {
+      return {
+        kind: 'provisioner',
+        slug,
+        manifest: provisioner.manifest,
+        provisioner,
+      };
+    }
+    const ai = this.aiRegistry.getAvailable(slug);
+    if (ai) {
+      return { kind: 'ai', slug, manifest: ai.manifest, ai };
+    }
+    return null;
+  }
+
+  /** Como `resolvePlugin` pero lanza 404 si ningún registry conoce el slug. */
+  private requirePlugin(slug: string): ResolvedPlugin {
+    const resolved = this.resolvePlugin(slug);
+    if (!resolved) {
+      const known = [
+        ...this.registry.listAvailableSlugs(),
+        ...this.aiRegistry.listAvailableSlugs(),
+      ].join(', ');
+      throw new NotFoundException(
+        `Plugin "${slug}" not registered. Available: [${known}].`,
+      );
+    }
+    return resolved;
   }
 
   /**
@@ -147,25 +223,29 @@ export class AdminPluginsService implements OnModuleInit {
     });
     const installsBySlug = new Map(installs.map((i) => [i.slug, i]));
 
-    const availableSlugs = this.registry.listAvailableSlugs();
+    // Provisioners primero, luego proveedores IA (ADR-080 Amendment D).
+    const availableSlugs = [
+      ...this.registry.listAvailableSlugs(),
+      ...this.aiRegistry.listAvailableSlugs(),
+    ];
     return availableSlugs.map((slug) => this.summarize(slug, installsBySlug));
   }
 
   /** Detalle por slug. Secrets devueltos como `'***'` si seteados, `null` si no. */
   async findOne(slug: string) {
-    const plugin = this.requireValidatedPlugin(slug);
+    const resolved = this.requirePlugin(slug);
     const install = await this.prisma.pluginInstall.findUnique({
       where: { slug },
     });
 
     return {
       slug,
-      manifest: plugin.manifest,
+      manifest: resolved.manifest,
       enabled: install?.enabled ?? false,
       installed_at: install?.installed_at?.toISOString() ?? null,
       updated_at: install?.updated_at?.toISOString() ?? null,
       config: this.loadConfig(install?.config),
-      secrets: this.maskSecrets(plugin, install?.secrets),
+      secrets: this.maskSecrets(resolved, install?.secrets),
       circuit_state: this.collectCircuitState(slug),
     };
   }
@@ -179,16 +259,16 @@ export class AdminPluginsService implements OnModuleInit {
     actorUserId: string,
     dto: AdminPluginUpdateDto,
   ): Promise<{ slug: string; enabled: boolean; updated_at: string }> {
-    const plugin = this.requireValidatedPlugin(slug);
+    const resolved = this.requirePlugin(slug);
 
     // 1. Validar config contra manifest.configSchema con Ajv.
     if (dto.config !== undefined) {
-      this.validateConfigOrThrow(plugin, dto.config);
+      this.validateConfigOrThrow(resolved, dto.config);
     }
 
     // 2. Validar secrets contra manifest.secretsSchema con Ajv.
     if (dto.secrets !== undefined) {
-      this.validateSecretsOrThrow(plugin, dto.secrets);
+      this.validateSecretsOrThrow(resolved, dto.secrets);
     }
 
     // 3. Cargar estado anterior para audit + parcial-update de secrets.
@@ -199,7 +279,7 @@ export class AdminPluginsService implements OnModuleInit {
     // 4. Construir nuevos valores (preservar secrets omitidos).
     const previousSecrets = this.parseSecretsRecord(before?.secrets);
     const nextSecretsPlain = {
-      ...this.decryptKnownSecrets(plugin, previousSecrets),
+      ...this.decryptKnownSecrets(resolved, previousSecrets),
     };
     if (dto.secrets) {
       for (const [field, value] of Object.entries(dto.secrets)) {
@@ -252,13 +332,13 @@ export class AdminPluginsService implements OnModuleInit {
         slug,
         enabled: wasEnabled,
         config: this.loadConfig(before?.config),
-        secrets: this.maskSecretsForAudit(plugin, previousSecrets),
+        secrets: this.maskSecretsForAudit(resolved, previousSecrets),
       },
       changes_after: {
         slug,
         enabled: nextEnabled,
         config: nextConfig,
-        secrets: this.maskSecretsForAudit(plugin, nextSecretsEncrypted),
+        secrets: this.maskSecretsForAudit(resolved, nextSecretsEncrypted),
       },
     });
 
@@ -284,8 +364,13 @@ export class AdminPluginsService implements OnModuleInit {
 
     // 9. Reset circuit breakers asociados al plugin (config nueva =
     //    cambios pueden resolver una caída). Mejor UX: el siguiente
-    //    intento entra en closed sin esperar el reset_timeout.
-    if (secretsModified || dto.config !== undefined) {
+    //    intento entra en closed sin esperar el reset_timeout. Solo aplica a
+    //    provisioners (los plugins IA no tienen breakers por-operación aquí;
+    //    el del subsistema IA vive en `AiSuggestionService`).
+    if (
+      resolved.kind === 'provisioner' &&
+      (secretsModified || dto.config !== undefined)
+    ) {
       for (const op of ['getServiceInfo', 'executeAction']) {
         const breaker = this.breakers.get(`${slug}:${op}`);
         if (breaker && breaker.getState() !== 'closed') {
@@ -322,7 +407,16 @@ export class AdminPluginsService implements OnModuleInit {
     message: string;
     checked_at: string;
   }> {
-    const plugin = this.requireValidatedPlugin(slug);
+    const resolved = this.requirePlugin(slug);
+
+    // F3·E13 Fase E — proveedor IA: su `testConnection(ctx)` necesita el
+    // contexto (config + secrets descifrados), distinto de la firma sin args
+    // del provisioner. Construimos el ctx aquí (R12: secrets nunca salen).
+    if (resolved.kind === 'ai') {
+      return this.testAiConnection(resolved.ai, slug);
+    }
+
+    const plugin = resolved.provisioner;
     const method = plugin.manifest.testConnectionMethod;
 
     if (method === 'custom') {
@@ -628,6 +722,48 @@ export class AdminPluginsService implements OnModuleInit {
   // ─── Helpers privados ───────────────────────────────────────────────
 
   /**
+   * F3·E13 Fase E — test-connection del proveedor IA. Descifra los secrets
+   * (R12: nunca salen del backend) + carga la config, arma el
+   * `AiProviderRuntimeContext` y llama `plugin.testConnection(ctx)` (probe
+   * ligero contra el proveedor; sin api_key → `{ ok:false }` con detalle).
+   */
+  private async testAiConnection(
+    ai: AiProviderPlugin,
+    slug: string,
+  ): Promise<{ success: boolean; message: string; checked_at: string }> {
+    const install = await this.prisma.pluginInstall.findUnique({
+      where: { slug },
+    });
+    const config = this.loadConfig(install?.config);
+    const secrets = this.decryptKnownSecrets(
+      { slug, manifest: ai.manifest },
+      this.parseSecretsRecord(install?.secrets),
+    );
+    try {
+      const result = await ai.testConnection({ config, secrets });
+      if (!result.ok) {
+        this.logger.warn(
+          `test-connection failed for AI plugin "${slug}": ${result.detail ?? 'sin detalle'}`,
+        );
+      }
+      return {
+        success: result.ok,
+        message:
+          result.detail ??
+          (result.ok ? 'Conexión verificada.' : 'Error de conexión.'),
+        checked_at: new Date().toISOString(),
+      };
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'unexpected error from AI plugin';
+      this.logger.warn(
+        `test-connection threw for AI plugin "${slug}": ${message}`,
+      );
+      return { success: false, message, checked_at: new Date().toISOString() };
+    }
+  }
+
+  /**
    * Estado de cobertura de los secrets **requeridos** por el manifest:
    * cuántos pide, cuántos están seteados (cifrados en BD), y los nombres de
    * los que faltan. NO devuelve valores — solo presencia (R12).
@@ -676,13 +812,15 @@ export class AdminPluginsService implements OnModuleInit {
     slug: string,
     installsBySlug: Map<string, { enabled: boolean; updated_at: Date }>,
   ) {
-    const plugin = this.findPluginInValidated(slug);
+    const resolved = this.resolvePlugin(slug);
     const install = installsBySlug.get(slug);
     return {
       slug,
-      manifest: plugin?.manifest ?? null,
+      manifest: resolved?.manifest ?? null,
       enabled: install?.enabled ?? false,
       updated_at: install?.updated_at?.toISOString() ?? null,
+      // Los plugins IA no tienen circuit breakers por-operación de provisioning;
+      // `collectCircuitState` devuelve `{null, null}` (no existe la clave).
       circuit_state: this.collectCircuitState(slug),
     };
   }
@@ -699,7 +837,7 @@ export class AdminPluginsService implements OnModuleInit {
     };
   }
 
-  private compileForPlugin(plugin: ProvisionerPlugin): void {
+  private compileForPlugin(plugin: ManifestCarrier): void {
     if (!this.validateConfigCache.has(plugin.slug)) {
       this.validateConfigCache.set(
         plugin.slug,
@@ -715,7 +853,7 @@ export class AdminPluginsService implements OnModuleInit {
   }
 
   private validateConfigOrThrow(
-    plugin: ProvisionerPlugin,
+    plugin: ManifestCarrier,
     payload: Record<string, unknown>,
   ): void {
     this.compileForPlugin(plugin);
@@ -734,7 +872,7 @@ export class AdminPluginsService implements OnModuleInit {
   }
 
   private validateSecretsOrThrow(
-    plugin: ProvisionerPlugin,
+    plugin: ManifestCarrier,
     payload: Record<string, unknown>,
   ): void {
     this.compileForPlugin(plugin);
@@ -805,7 +943,7 @@ export class AdminPluginsService implements OnModuleInit {
   }
 
   private decryptKnownSecrets(
-    plugin: ProvisionerPlugin,
+    plugin: ManifestCarrier,
     encrypted: ReturnType<AdminPluginsService['parseSecretsRecord']>,
   ): Record<string, string> {
     const allowedFields = new Set(
@@ -826,7 +964,7 @@ export class AdminPluginsService implements OnModuleInit {
   }
 
   private maskSecrets(
-    plugin: ProvisionerPlugin,
+    plugin: ManifestCarrier,
     encryptedRaw: unknown,
   ): Record<string, '***' | null> {
     const encrypted = this.parseSecretsRecord(encryptedRaw);
@@ -840,7 +978,7 @@ export class AdminPluginsService implements OnModuleInit {
   }
 
   private maskSecretsForAudit(
-    plugin: ProvisionerPlugin,
+    plugin: ManifestCarrier,
     encryptedRaw: unknown,
   ): Record<string, '<set>' | '<cleared>'> {
     const encrypted = this.parseSecretsRecord(encryptedRaw);

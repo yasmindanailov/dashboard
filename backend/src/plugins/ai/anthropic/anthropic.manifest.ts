@@ -22,6 +22,7 @@ const CONFIG_SCHEMA: JsonSchema7 = {
       type: 'string',
       enum: [...ANTHROPIC_MODELS],
       default: ANTHROPIC_DEFAULT_MODEL,
+      title: 'plugin.anthropic.config.model.label',
       description: 'plugin.anthropic.config.model',
     },
     max_tokens: {
@@ -29,6 +30,7 @@ const CONFIG_SCHEMA: JsonSchema7 = {
       minimum: 256,
       maximum: 4096,
       default: ANTHROPIC_DEFAULT_MAX_TOKENS,
+      title: 'plugin.anthropic.config.max_tokens.label',
       description: 'plugin.anthropic.config.max_tokens',
     },
   },
@@ -42,6 +44,7 @@ const SECRETS_SCHEMA: JsonSchema7 = {
     api_key: {
       type: 'string',
       format: 'password',
+      title: 'plugin.anthropic.secrets.api_key.label',
       description: 'plugin.anthropic.secrets.api_key',
     },
   },

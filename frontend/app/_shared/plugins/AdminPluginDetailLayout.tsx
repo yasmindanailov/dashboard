@@ -102,7 +102,12 @@ export function AdminPluginDetailLayout({
         />
       </header>
 
-      <PluginOperationalOverview slug={detail.slug} />
+      {/* El resumen operativo (servicios/reconciliación/drifts/circuit) es
+          provisioner-céntrico. Los proveedores IA (ADR-080 Amendment D) no
+          aprovisionan servicios → se omite; su detalle es config + credenciales. */}
+      {detail.manifest.settingsCategory !== 'ai' && (
+        <PluginOperationalOverview slug={detail.slug} />
+      )}
 
       {reconcileSlot}
 

@@ -129,10 +129,22 @@ export class PluginRegistryService implements OnModuleInit {
       if (plugin) {
         this.activePlugins.set(slug, plugin);
       } else {
-        this.logger.error(
-          `Plugin "${slug}" enabled in DB but not registered via DI ` +
-            `(or failed contract validation). Services using this plugin ` +
-            `will hang in 'pending' — investigate boot logs for rejection cause.`,
+        // El slug está enabled en `plugin_installs` pero NO es un provisioner
+        // validado. Dos causas indistinguibles desde aquí:
+        //  (a) pertenece a OTRO subsistema que comparte `plugin_installs` (ej.
+        //      el subsistema IA, ADR-080 Amendment D) → esperado; AI-INV-1 dice
+        //      que la IA NUNCA pasa por este registry, así que no acoplamos el
+        //      registry a sus slugs — solo dejamos de tratarlo como provisioner.
+        //  (b) un provisioner que falló contract validation → su rechazo ya se
+        //      logueó (ERROR) en `tryValidate` al boot.
+        // Por eso WARN (no ERROR) y SIN afirmar "services will hang in pending":
+        // no es un fallo del path crítico de hosting/dominios. (Antes de F3·E13
+        // esto era ERROR porque `plugin_installs` solo tenía provisioners.)
+        this.logger.warn(
+          `Slug "${slug}" enabled en plugin_installs pero no es un provisioner ` +
+            `validado. Si pertenece a otro subsistema (p.ej. IA, ADR-080 ` +
+            `Amendment D) es lo esperado; si debía ser un provisioner, revisa el ` +
+            `rechazo de contract validation en los logs de boot.`,
         );
       }
     }
