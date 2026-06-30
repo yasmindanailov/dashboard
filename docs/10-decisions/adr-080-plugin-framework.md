@@ -640,6 +640,81 @@ export interface PluginManifest {
 
 ---
 
+### Amendment D (2026-06-30) — tipo de plugin `ai` como subsistema paralelo (Rediseño UI F3·E13)
+
+> **Justificado por:** Rediseño UI F3·E13 (sugerencia IA en el composer de soporte). El framework de Sprint 15A está **acoplado a `ProvisionerPlugin`**: `PluginRegistryService` tipa `Map<string, ProvisionerPlugin>`, inyecta `PROVISIONER_PLUGINS` y valida el contrato de provisioner (contractVersion v2, `inlineActions`, `capabilities`, `has_sso_panel`…). Un proveedor de IA (Claude/Anthropic) **NO es un provisioner** — no aprovisiona servicios, no tiene `getServiceInfo`/`provision`/`deprovision`. Forzarlo al contrato de provisioner stub-earía 6 métodos sin sentido. Pero el manifest (§1) **ya anticipó** `settingsCategory: 'ai'`, y `plugin_installs` + `SecretVaultService` + el shape `PluginManifest` + la UI `/admin/settings/plugins` son **type-agnósticos**. **Decisión Yasmin (2026-06-30): subsistema IA paralelo** (vs. generalizar el registry de provisioners — descartado por riesgo de regresión en el path vivo de hosting/dominios).
+> **Sprint:** Rediseño UI F3·E13.
+> **Compatibilidad:** Aditivo. NO bumpea `manifestVersion` (sigue `'v1'`) ni toca el contrato `ProvisionerPlugin` (ADR-077). NO modifica `PluginRegistryService` ni el path de provisioners. Reutiliza la tabla `plugin_installs` existente (sin migración de schema; solo una fila seed nueva).
+
+#### D.1. Doctrina del subsistema paralelo
+
+El framework gana un **segundo tipo de plugin** que comparte la *infraestructura* de ADR-080 pero NO su *contrato funcional*:
+
+| Pieza ADR-080 | ¿Reutilizada por el plugin IA? |
+|---|---|
+| Tabla `plugin_installs` (slug PK + enabled + config + secrets cifrados + key_version) | **Sí** — una fila por proveedor IA (ej. `anthropic`). |
+| `SecretVaultService` (AES-256-GCM, §3) | **Sí** — cifra la `api_key` igual que Enhance/RC. |
+| `PluginManifest` (§1, `settingsCategory: 'ai'`) | **Sí** — config (modelo, max_tokens, temperature) + secrets (`api_key`). |
+| Eventos `plugin.installed`/`config_changed`/`uninstalled` | **Sí** — el registry IA escucha `plugin.config_changed` para recargar. |
+| CASL `Subject.Plugin` (superadmin) + UI `/admin/settings/plugins` | **Sí** — el proveedor IA se configura ahí, junto a los provisioners. |
+| `PluginRegistryService` / `PROVISIONER_PLUGINS` / contrato `ProvisionerPlugin` | **NO** — el plugin IA tiene su **propio** contrato + token + registry. |
+| Circuit breaker de provisioning (`getServiceInfoWithCache`…) | **NO** — el subsistema IA tiene su propio breaker (R11) en su wrapper. |
+
+**Invariante AI-INV-1:** el plugin IA NUNCA pasa por el orquestador de provisioning ni por `PluginRegistryService`. Un servicio (`core/ai`) resuelve el proveedor IA activo desde el `AiProviderRegistry`, descifra sus secrets vía `SecretVaultService`, y envuelve la llamada en su circuit breaker. R4 intacto (el core llama a la interfaz `AiProviderPlugin`, nunca al plugin concreto).
+
+#### D.2. Contrato `AiProviderPlugin` (nuevo, vive en `core/ai/types.ts`)
+
+```typescript
+export const AI_PROVIDER_CONTRACT_VERSION = 'v1' as const;
+
+/** Token DI: cada plugin IA se registra `{ provide: AI_PROVIDER_PLUGINS, useExisting: <Plugin>, multi: true }`. */
+export const AI_PROVIDER_PLUGINS = Symbol('AI_PROVIDER_PLUGINS');
+
+export interface AiProviderPlugin {
+  readonly slug: string;                       // 'anthropic'
+  readonly aiContractVersion: typeof AI_PROVIDER_CONTRACT_VERSION;
+  readonly manifest: PluginManifest;           // settingsCategory: 'ai'
+  /** Genera un borrador de respuesta a partir del transcript + config + secrets descifrados. */
+  generateReplySuggestion(
+    input: AiSuggestionInput,
+    ctx: AiProviderRuntimeContext,
+  ): Promise<AiSuggestionResult>;
+  /** Health check para el botón "Probar conexión" del admin. */
+  testConnection(ctx: AiProviderRuntimeContext): Promise<{ ok: boolean; detail?: string }>;
+}
+
+export interface AiSuggestionInput {
+  messages: { role: 'customer' | 'agent'; text: string }[];
+  locale?: string;          // idioma del cliente para la respuesta
+  instructions?: string;    // steering opcional
+}
+export interface AiSuggestionResult { suggestion: string; model: string; truncated?: boolean }
+export interface AiProviderRuntimeContext {
+  config: Record<string, unknown>;   // plugin_installs.config validado
+  secrets: Record<string, string>;   // descifrados por SecretVaultService
+}
+```
+
+Validación en `AiProviderRegistry` (espejo mínimo de `PluginRegistryService.tryValidate`): `aiContractVersion === 'v1'` ∧ slug regex `[a-z][a-z0-9_-]*` ∧ `manifest.slug === slug` ∧ `manifest.settingsCategory === 'ai'` ∧ sin duplicados. Activación desde `plugin_installs.enabled` + reload en `plugin.config_changed`. **AI-INV-2:** a lo sumo **un** proveedor IA activo a la vez (v1); si hay varios `enabled`, el registry loguea warning y toma el primero (routing por setting → diferido).
+
+#### D.3. Seed + config/secrets schema del proveedor
+
+`plugin_installs` seed idempotente: fila `anthropic` con `enabled=false` (el superadmin la habilita y pega la `api_key`). configSchema: `model` (enum de modelos Claude soportados), `max_tokens` (int), `temperature` (number). secretsSchema: `api_key` (format password). El plugin valida en runtime (R7) — nunca confía en el form.
+
+#### D.4. Mock-first (dev/tests sin coste ni red)
+
+El proveedor real (`@anthropic-ai/sdk`) y un **stub determinista** implementan la MISMA interfaz `AiProviderPlugin`. En dev/tests sin `api_key` válida, el subsistema usa el stub (sugerencia plantillada del último mensaje del cliente) → la feature es demostrable y testeable sin clave; la llamada real a Claude se activa cuando hay `api_key` configurada. Mismo patrón que `MockResellerClubServer` (15D, DC.NEW-67).
+
+#### D.5. Endpoint de consumo (módulo `support`)
+
+`POST /api/v1/support/conversations/:id/ai-suggestion` (staff-only, `Update.Conversation` + rate-limit R10) → construye el transcript server-side (R5: el front NO arma el prompt) → `AiSuggestionService` resuelve el proveedor activo + breaker → devuelve `{ suggestion, model }`. **NUNCA** auto-envía: es un borrador que el agente revisa e inserta. Detalle en `docs/20-modules/support/contract.md §Sugerencia IA`.
+
+#### D.6. Política
+
+Cualquier tipo de plugin **adicional** futuro (payment ADR-031, notification channel) sigue este patrón: subsistema paralelo que reutiliza `plugin_installs` + SecretVault + manifest + UI admin, con su propio contrato + token + registry, salvo que un ADR específico decida generalizar el registry. La generalización del framework (un único registry agnóstico al `kind`) queda como **revisión condicionada** (ver "Cuándo revisar") cuando haya ≥3 tipos de plugin.
+
+---
+
 ## Cuándo revisar
 
 - **Si llega un plugin que necesita config dinámica per-cliente** (ej. cada cliente tiene su propia api_key de Stripe Connect). El framework actual asume **config global por plugin**. Revisión: añadir tabla `plugin_install_overrides` con `(slug, scope, scope_id, secrets)` o ADR específico.

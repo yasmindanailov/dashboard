@@ -66,6 +66,20 @@ Pendiente:
 
 > **Data isolation:** clientes solo ven sus conversaciones (filtro por `user_id` del JWT). Agentes ven todas según rol. Validado en service (no solo CASL).
 
+### Sugerencia IA para agentes (Rediseño UI F3·E13)
+
+Materializa el "IA copilot para agentes" (antes Sprint 7.9). **Solo staff**; nunca
+auto-envía: produce un **borrador** que el agente revisa e inserta en el composer.
+
+| Método | Ruta | Descripción | CASL |
+|--------|------|-------------|------|
+| `POST` | `/conversations/:id/ai-suggestion` | Genera un borrador de respuesta para la conversación (staff only, rate-limited) | `Update.Conversation` |
+
+- **Provider** = plugin IA del subsistema paralelo ([ADR-080 Amendment D](../../10-decisions/adr-080-plugin-framework.md#amendment-d-2026-06-30--tipo-de-plugin-ai-como-subsistema-paralelo-rediseño-ui-f3e13)). El endpoint llama a `AiSuggestionService` (core/ai), que resuelve el proveedor IA **activo** (`anthropic`), descifra su `api_key` (SecretVault) y envuelve la llamada en circuit breaker (R11).
+- **Contexto server-side (R5):** el backend arma el transcript (`messages` cliente/agente, sin notas internas — SUPP-INV-3) + idioma del cliente; el front **no** construye el prompt. Respuesta: `{ suggestion, model }`.
+- **Mock-first:** sin `api_key` configurada, un stub determinista responde (la feature es demostrable sin clave; la llamada real a Claude se activa al configurar el plugin en `/admin/settings/plugins`).
+- **Rate limit (R10):** restrictivo por agente (evita coste/abuso del LLM).
+
 ---
 
 ## 6. WebSocket gateway
