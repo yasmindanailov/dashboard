@@ -277,8 +277,26 @@ Reutiliza: **`ClientProfile` + `BillingProfile`** (enum `personal|autonomo|empre
 - Crear `BillingProfile` en el registro; `User.terms_accepted_at`.
 - IVA por país: tabla `country_tax_rates` (o **diferir**; hoy 21% default).
 
-### E12 · Macros / respuestas guardadas — `redesign/f3-macros` · talla M (greenfield simple)
-- `ResponseTemplate(id, user_id, title, body, category)` + CRUD + panel en workspace de chats.
+### E12 · Macros / respuestas guardadas — ✅ **CÓDIGO-COMPLETO** (`redesign/f3-macros`, 2026-06-29 · desde master) · talla M (greenfield simple)
+> **Hecho:** biblioteca de **respuestas guardadas** (macros) compartida por el
+> equipo de soporte. **Decisión Yasmin: biblioteca de EQUIPO** (no personal por
+> agente) — resuelve el conflicto spec (`user_id`) ↔ mockup (lista global);
+> `user_id`→`created_by` (trazabilidad, no aislamiento). **Backend:** módulo
+> propio `response-templates` (`ResponseTemplate` + migración + CRUD service +
+> controller `/api/v1/admin/response-templates` triple guard + **nuevo
+> `Subject.ResponseTemplate`** Manage para `superadmin`/`agent_full`/`agent_support`;
+> 13 unit). **Frontend (`_shared/response-templates/`):** picker **"Respuestas
+> guardadas"** en el composer del workspace de chats (1:1 mockup
+> `admin/ChatsWorkspace.dc.html`; inserta el cuerpo en el borrador, append
+> no-destructivo) + **gestor CRUD** con DS (Modal lista↔form, borrado con
+> confirmación inline D5); 3 unit RTL. Verde: back (typecheck+lint+**1403**+boot
+> **4/4**) y front (typecheck+lint+**51**). Bitácora:
+> [`ui-redesign-bitacora-f3-e12-2026-06-29.md`](./ui-redesign-bitacora-f3-e12-2026-06-29.md).
+> **Falta (Yasmin):** smoke visual + merge. **Diferido:** seed de macros de
+> ejemplo (la biblioteca arranca vacía con empty state); picker en el composer de
+> tickets (al reskinear la bandeja en F4 — `_shared` ya lo permite).
+
+- `ResponseTemplate(id, created_by, title, body, category?)` + CRUD + picker/gestor en el workspace de chats.
 
 ### E13 · IA (sugerencia composer + buscador dominios) — `redesign/f3-ia` · talla L-XL · **genuinamente nuevo**
 - `POST /support/:id/ai-suggestion` y `POST /domains/suggest-ai` con **Claude (Anthropic)** detrás de servicio propio (capability/credenciales como plugin).
@@ -370,7 +388,7 @@ DomainTransferPanel, billing/[id], DeletionRequestsManager), no primitivas nueva
 | SLA viz | F3 | M | FE+BE | — | `redesign/f3-sla-ui` |
 | Notificaciones | F3 | M-L | FE | — | `redesign/f3-notificaciones` |
 | Registro fiscal | F3 | M | FE+BE | — | `redesign/f3-registro` |
-| Macros | F3 | M | FE+BE | — | `redesign/f3-macros` |
+| Macros ✅ | F3 | M | FE+BE | — | `redesign/f3-macros` |
 | IA | F3 | L-XL | FE+BE | — | `redesign/f3-ia` |
 | Multicanal | F3 | XL | FE+BE | — | **diferido** |
 | Reskin W1–W4 | F4 | XL | FE | F0–F2 (+F1b/F3 por pág.) | `redesign/f4-<área>` |

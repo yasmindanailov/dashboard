@@ -233,6 +233,28 @@ Ver `docs/edge_cases.md`:
 - **7.8-7.9**: IA (filtro + copilot del agente) — bloqueado por Sprint 15
 - **Sprint 8+**: Resolver edge cases P1-P2 documentados en `edge_cases.md`
 
+## Respuestas guardadas (macros) — Rediseño UI F3·E12
+
+Biblioteca de **respuestas reutilizables** compartida por todo el equipo de
+soporte (`superadmin` / `agent_full` / `agent_support`). Acelera la respuesta a
+preguntas frecuentes sin reescribirlas.
+
+**Usarlas (en el workspace de chats `/admin/support/chats`):**
+1. En el composer del chat, pulsa **"Respuestas guardadas"**.
+2. Elige una de la lista → su texto se **añade** a lo que ya estés escribiendo
+   (no borra el borrador; si está vacío, lo escribe directamente).
+3. Edítalo si hace falta y envía.
+
+**Gestionarlas (mismo botón → "Gestionar respuestas"):**
+- **Nueva**: título + mensaje (categoría opcional para organizarlas).
+- **Editar** / **Borrar** (con confirmación) cualquier respuesta del equipo.
+- Es una **biblioteca de equipo**: lo que crea un agente lo usan y editan todos;
+  junto a cada una se ve quién la creó (trazabilidad).
+
+> No es lógica de negocio: el backend solo guarda título/cuerpo/categoría
+> (`/api/v1/admin/response-templates`). Sin plantillas Handlebars ni variables —
+> para emails al cliente sigue usándose `notification_templates` (D12).
+
 ## Ref
 
 - DECISIONS.md §7 (Support Inside)

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { Chat, Message } from './types';
 import { STATUS_BADGE, formatTime } from './types';
 import { Button, EmptyState } from '../../../components/ui';
+import { SavedRepliesPicker } from '../../../_shared/response-templates/SavedRepliesPicker';
 import styles from './chats.module.css';
 
 /* ═══════════════════════════════════════
@@ -54,6 +55,13 @@ export default function ChatConversation({
       </div>
     );
   }
+
+  // F3·E12 — inserta una respuesta guardada en el borrador sin destruir el
+  // texto en curso (append con separador; set directo si está vacío).
+  const handleInsertReply = (body: string) => {
+    const current = message.replace(/\s+$/, '');
+    onMessageChange(current.length > 0 ? `${current} ${body}` : body);
+  };
 
   return (
     <div className={styles.conversationColumn}>
@@ -123,6 +131,10 @@ export default function ChatConversation({
         </div>
       ) : (
         <div className={styles.inputArea}>
+          {/* F3·E12 — respuestas guardadas (macros) de la biblioteca de equipo. */}
+          <div className={styles.composerTools}>
+            <SavedRepliesPicker onInsert={handleInsertReply} />
+          </div>
           <div className={styles.inputRow}>
             <input
               value={message}
