@@ -74,13 +74,20 @@ export class BillingController {
 
   @Get('invoices/stats')
   @ApiOperation({
-    summary: 'Invoice statistics — admin sees global, client sees own',
+    summary:
+      'Invoice statistics — admin sees global o de un cliente (?user_id=), client sees own',
   })
   @CheckPolicies((ability) => ability.can(Action.Read, Subject.Invoice))
-  getStats(@Req() req: AuthenticatedRequest) {
+  getStats(
+    @Req() req: AuthenticatedRequest,
+    @Query('user_id') userId?: string,
+  ) {
     const user = req.user;
     const isAdmin = ADMIN_ROLES.includes(user.role.slug);
-    return this.billingService.getStats(isAdmin ? undefined : user.id);
+    // F4·U22 — el admin puede pedir los stats de un cliente concreto
+    // (?user_id=) para la stat-card "Por cobrar" del detalle; sin él, global.
+    // El cliente/partner SIEMPRE ve los suyos (nunca confía el query param).
+    return this.billingService.getStats(isAdmin ? userId : user.id);
   }
 
   /**

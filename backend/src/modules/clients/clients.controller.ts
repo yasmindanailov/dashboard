@@ -91,6 +91,26 @@ export class ClientsController {
     return this.clientsService.updateProfile(id, dto);
   }
 
+  /* F4·U22 — suspender / reactivar la CUENTA del cliente (bloquea login;
+     no cascada a servicios). Auditado R3. */
+  @Post(':id/suspend')
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Client))
+  suspend(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.clientsService.setAccountSuspended(id, true, req.user.id);
+  }
+
+  @Post(':id/unsuspend')
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Client))
+  unsuspend(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.clientsService.setAccountSuspended(id, false, req.user.id);
+  }
+
   // Legacy note endpoint (backward compat) — also creates structured note
   @Post(':id/notes')
   @CheckPolicies((ability) => ability.can(Action.Create, Subject.ClientNote))
