@@ -199,8 +199,116 @@ Tres servicios ya existentes se enriquecieron en Fase D.12 con info SI **sin que
 | `GET` | `/plans/:slug` | Detalle full editor (5 secciones) |
 | `PATCH` | `/plans/:slug` | Update transaccional (products + support_inside_config + product_pricing) |
 | `POST` | `/cron/maintenance-monthly` | Trigger manual cron (smoke + E2E + recovery) — `Manage.Job` |
+| `PATCH` | `/subscriptions/:id/technician` | Asignar/reasignar el técnico de la suscripción (`null` desasigna). Reasigna las tareas de mantenimiento **pending** del periodo · evento `support_inside.technician_assigned` (F3·E8) |
+| `GET` | `/subscriptions/by-service/:serviceId` | Bloque gestionado (técnico + presencia + progreso de mantenimiento + SLA) de la suscripción dueña del servicio. 404 si el servicio no es SI (F3·E8) |
+| `GET` | `/technicians/eligible` | Técnicos elegibles (staff de soporte activo) con presencia + carga de mantenimiento, para el picker "Reasignar técnico" (F3·E8) |
 
 > **NO hay POST ni DELETE de planes** — cambiar la oferta comercial exige migración + seed + ADR.
+
+### 11.1 Gestión per-cliente — en el detalle de servicio (F3·E8 Fase D)
+
+La gestión admin de una suscripción SI **NO es una página nueva**: vive en el
+**detalle de servicio unificado** `/admin/services/[id]` (plantilla única
+cliente+admin, Sprint 15C.II F.12). Cuando el servicio es SI
+(`product_type === 'support_inside'`):
+
+- **Sección "Plan de soporte"** (registry `ADMIN_SERVICE_DETAIL_SECTIONS`,
+  capability-driven por `ctx.supportInside`): progreso de mantenimiento del
+  periodo, SLA y técnico asignado con presencia. Oculta si el servicio está en
+  estado terminal (1:1 con el mockup `SupportInsideDetalleAdmin`).
+- **"Reasignar técnico…"** en el menú "Más acciones" (kebab) → modal picker
+  ([DS-A18]): agentes de soporte elegibles con avatar + presencia + carga,
+  buscador, y opción de desasignar. Usa `PATCH /subscriptions/:id/technician`.
+- La **presencia** del staff la mantiene `PresenceHeartbeat` (montado en
+  `AdminShell`) → `POST /presence/heartbeat`.
+
+Decisión Yasmin (2026-06-29): **extender** el detalle (no duplicar página/lista
+de suscripciones) — los mockups confirman que `admin/SupportInside.dc.html` es la
+**lista de planes** (= `/admin/support-inside-plans`, ya existente) y el detalle
+admin es esta extensión. "Programar mantenimiento" queda **omitido** (D-3).
+
+### 11.2 Qué implica asignar un técnico + extras (F3·E8, 2026-06-29)
+
+- **Responsabilidad del técnico (qué hereda al ser asignado):**
+  1. **Mantenimiento mensual** — el cron `maintenance-monthly` asigna al técnico la
+     tarea de mantenimiento de los servicios del cliente (si sigue elegible; si no,
+     auto-asignación por carga).
+  2. **Tickets y chats del cliente** (F3·E8, 2026-06-29) — `SupportInsideTechnicianRoutingListener`
+     escucha `conversation.created`: si el cliente SI tiene técnico elegible, le
+     **asigna** el ticket/chat (compare-and-swap, no pisa asignación manual) y emite
+     `conversation.assigned` (→ campana al técnico + task bridge si es ticket). Sin
+     técnico elegible → cola actual (fallback). *(El tier SI además sube la
+     prioridad vía `SupportInsidePriorityListener`.)*
+  El técnico es el **cuidador estable** y la cara "tu técnico" del cliente.
+- **Auto-asignación al contratar** (F3·E8, 2026-06-29): al alta de la suscripción
+  (`support_inside.subscribed`), `SupportInsideAutoAssignTechnicianListener` asigna
+  el técnico de **menor carga** (pool sin superadmin) si la suscripción no tiene
+  → todo cliente SI tiene técnico desde el día 1. El admin puede reasignar.
+- **Pendiente / fuera de esta iteración** (decisión Yasmin: el superadmin observa y
+  se pule después): horario laboral del técnico + mensaje informativo off-hours en
+  el chat del cliente (con canal 24h para SI PRO, externo al dashboard) · flag de
+  disponibilidad (vacaciones) · tope de carga · reasignación automática por SLA
+  vencido. El admin/superadmin **ve** todas las conversaciones en el panel (no es
+  notificado de cada una salvo asignación).
+- **Superadmin asignable a mano:** el `superadmin` aparece en el picker y puede
+  asignarse como técnico (`eligibleAssigneeRoles` lo incluye), pero **NO entra en
+  la auto-rotación** del cron (`autoAssignTask` usa el pool sin superadmin) — no
+  se le auto-carga trabajo. Decisión Yasmin 2026-06-29.
+- **Notificación (info) al técnico:** al asignar, se emite
+  `support_inside.technician_assigned` → `NotificationsOnTechnicianAssignedListener`
+  despacha una **campana informativa** ("ahora eres el técnico de [cliente]") al
+  nuevo técnico. Es info (sin acción) — distinta de la tarea de mantenimiento.
+- **Filtro "Mis clientes" / por técnico** en `/admin/clients`:
+  `GET /admin/clients?assigned_technician=<uuid|me>` filtra a los clientes cuya
+  suscripción SI **activa** tiene a ese técnico (`'me'` = el actor del JWT). La
+  lista muestra el técnico por fila. El selector "por técnico" se puebla desde
+  `GET /admin/support-inside/technicians/eligible` (requiere `Manage.SupportInside`;
+  roles sin permiso ven solo "Todos" + "Mis clientes").
+
+### 11.3 Pendiente (F4 · reskin de Servicios) — superficies Support Inside
+
+> **Documentado 2026-06-29 (Yasmin) para implementar al reskinear `/admin/services`
+> (lista) y `/admin/services/[id]` (detalle) en F4.** NO implementado aún. Especificado
+> aquí con el modelo de slots verificado empíricamente para no re-investigar al codear.
+
+**Modelo de slots (empírico — base de A/B/C):**
+- Enum `SupportInsideSlotType`: **`maintenance`** → "Mantenimiento" · **`maintenance_management`**
+  → "Mantenimiento + gestión" (**incluye AMBOS**, no es "solo gestión").
+- ⚠️ **No existe un tipo "solo gestión".** Si el negocio quisiera vender gestión sin
+  mantenimiento, sería un **tipo nuevo** (cambio de modelo + migración + seed). Hoy el
+  badge solo puede ser "Mantenimiento" o "Mantenimiento + gestión".
+- Cada **servicio técnico** (hosting/docker…) tiene **como mucho 1 slot SI activo**
+  (`released_at IS NULL`) — garantizado por el `support_inside_slots: { none: { released_at: null } }`
+  de `listEligibleServices`. El slot (`support_inside_slots`, FK `service_id`) pertenece a
+  la suscripción SI del cliente; su `slot_type` lo acota el `slot_types_allowed` del plan
+  (seed: Básico/Medium `[maintenance]`, Pro `[maintenance, maintenance_management]`; el admin lo edita).
+- El servicio del **propio addon** tiene `product.type='support_inside'`; los slots se
+  asignan a los OTROS servicios del cliente, NO al servicio SI.
+
+**(A) Toggle "Support Inside" en la lista `/admin/services`** — filtra los servicios cuyo
+`product.type='support_inside'` (el servicio del addon/plan). Backend: extender
+`ProvisioningService.listForAdmin` + `AdminServiceListQueryDto` con `product_type` (o
+booleano `support_inside`). Frontend: toggle/chip en el `FilterBar` de `AdminServicesView`.
+
+**(B) Filtro "cubiertos por SI: mantenimiento / gestión / ambos"** en `/admin/services` —
+filtra los servicios técnicos **cubiertos por un slot SI activo**, por tipo. Backend:
+`where.support_inside_slots = { some: { released_at: null, slot_type?: <maintenance|maintenance_management> } }`
+(sin `slot_type` = cualquiera). Opciones: Cualquiera / Mantenimiento / Mantenimiento+gestión.
+Frontend: Select en el `FilterBar`. **Distinto de (A):** A = el servicio del addon; B = los
+servicios técnicos que el addon cubre.
+
+**(C) Badge inteligente en `/admin/services/[id]`** — para un servicio técnico cubierto por
+SI, badge derivado del `slot_type` de su slot activo:
+- `maintenance` → **"Mantenimiento"**
+- `maintenance_management` → **"Mantenimiento + gestión"**
+- sin slot SI activo → sin badge.
+Es "inteligente" porque sale del slot real (cuyo tipo lo acota el `slot_types_allowed` del
+plan SI del cliente). Backend: incluir el slot activo + su `slot_type` en `GET /admin/services/:id`
+(o fetch fail-soft capability-driven como el bloque "Plan de soporte"). Frontend: badge en el
+header del detalle (vía el registro de secciones); reutiliza el tono del `MaintenanceSlotCard`.
+
+**Doctrina:** SI-INV-8 (single-query, sin N+1) — extender el `include` del servicio dueño,
+no consultar slots por fila. Capability-driven por presencia del slot, nunca por slug (R4).
 
 ---
 

@@ -100,3 +100,11 @@
 .metaLine:last-child {
   margin-bottom: 0;
 }
+
+/* Rediseño UI F3·E9 — fila del indicador de SLA (alineado a la derecha
+   con el resto de la columna meta). */
+.slaLine {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-1);
+}

@@ -3,6 +3,7 @@ import { PrismaService } from '../../core/database/prisma.service';
 import { Prisma } from '@prisma/client';
 import { ConversationListQueryDto } from './dto/support.dto';
 import { paginate, PaginatedResult } from '../../common/dto/pagination.dto';
+import { computeConversationSla } from './support-sla.helper';
 
 /**
  * SupportQueryService — Read operations and statistics.
@@ -58,7 +59,25 @@ export class SupportQueryService {
             take: 1,
           },
           user: {
-            select: { first_name: true, last_name: true },
+            select: {
+              first_name: true,
+              last_name: true,
+              // Rediseño UI F3·E9 — SLA por fila: necesitamos el
+              // `response_sla_hours` del tier SI activo del owner. Nested
+              // include → misma query, sin N+1.
+              support_inside_subscription: {
+                select: {
+                  status: true,
+                  product: {
+                    select: {
+                      support_inside_config: {
+                        select: { response_sla_hours: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
         orderBy: [{ priority: 'desc' }, { updated_at: 'desc' }],
@@ -67,6 +86,26 @@ export class SupportQueryService {
       }),
       this.prisma.conversation.count({ where }),
     ]);
+
+    /* Rediseño UI F3·E9 — adjuntamos el SLA de 1ª respuesta a cada fila.
+       Server-side (autoridad de tiempo única). `response_sla_hours` del
+       plan SI activo del owner, o default (sin plan) dentro del helper. */
+    const dataWithSla = data.map((c) => {
+      const sub = c.user?.support_inside_subscription;
+      const slaHours =
+        sub && sub.status === 'active' && sub.product.support_inside_config
+          ? sub.product.support_inside_config.response_sla_hours
+          : null;
+      return {
+        ...c,
+        sla: computeConversationSla({
+          created_at: c.created_at,
+          first_response_at: c.first_response_at,
+          status: c.status,
+          response_sla_hours: slaHours,
+        }),
+      };
+    });
 
     // 7.H7: For chats, re-sort to prioritize actionable statuses
     if (query.type === 'chat') {
@@ -77,7 +116,7 @@ export class SupportQueryService {
         resolved: 3,
         closed: 4,
       };
-      data.sort((a, b) => {
+      dataWithSla.sort((a, b) => {
         const wa = statusWeight[a.status] ?? 5;
         const wb = statusWeight[b.status] ?? 5;
         if (wa !== wb) return wa - wb;
@@ -96,7 +135,7 @@ export class SupportQueryService {
       });
     }
 
-    return paginate(data, total, page, limit);
+    return paginate(dataWithSla, total, page, limit);
   }
 
   /**
@@ -262,6 +301,16 @@ export class SupportQueryService {
       }
     }
 
+    /* Rediseño UI F3·E9 — SLA de 1ª respuesta calculado server-side
+       (autoridad de tiempo única; el front solo presenta el snapshot).
+       Reutiliza `response_sla_hours` del tier SI ya resuelto arriba. */
+    const sla = computeConversationSla({
+      created_at: conversation.created_at,
+      first_response_at: conversation.first_response_at,
+      status: conversation.status,
+      response_sla_hours: client_support_inside?.response_sla_hours ?? null,
+    });
+
     return {
       ...conversation,
       messages: enrichedMessages,
@@ -272,6 +321,7 @@ export class SupportQueryService {
       client_support_inside,
       assigned_agent_name,
       escalated_to,
+      sla,
     };
   }
 

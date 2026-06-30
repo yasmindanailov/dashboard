@@ -10,6 +10,29 @@ export interface TicketMessage {
   created_at: string;
 }
 
+/* ── SLA de 1ª respuesta (Rediseño UI F3·E9) ──
+   Calculado server-side por `SupportQueryService` (autoridad de tiempo
+   única). El front solo presenta el snapshot. Mapea los campos del scope
+   E9: `sla_due_at`→`due_at`, `sla_remaining_pct`→`remaining_pct`,
+   `first_response_pending`. */
+export type ConversationSlaState =
+  | 'running'
+  | 'breached'
+  | 'paused'
+  | 'met'
+  | 'none';
+
+export interface ConversationSla {
+  state: ConversationSlaState;
+  due_at: string | null;
+  response_sla_hours: number;
+  first_response_pending: boolean;
+  remaining_ms: number | null;
+  remaining_pct: number | null;
+  responded_in_ms: number | null;
+  responded_within_sla: boolean | null;
+}
+
 export interface Ticket {
   id: string;
   sequence_number: number | null;
@@ -27,6 +50,8 @@ export interface Ticket {
   updated_at: string;
   messages: TicketMessage[];
   user?: { first_name: string; last_name: string } | null;
+  // Rediseño UI F3·E9 — SLA de 1ª respuesta (solo bandeja admin lo pinta).
+  sla?: ConversationSla | null;
 }
 
 export interface TicketStats {

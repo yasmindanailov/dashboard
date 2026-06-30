@@ -3,7 +3,7 @@
    Auto-asignación V1 de tasks por carga del agente + rol elegible.
    ═══════════════════════════════════════ */
 
-import { TaskSourceSystem } from '@prisma/client';
+import { TaskSourceSystem, RoleSlug } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 
 /**
@@ -23,13 +23,37 @@ import { PrismaService } from '../database/prisma.service';
  * **Migración V2 (Sprint 12):** este mapping se mueve a setting
  * `tasks.auto_assign_rules` jsonb. Misma firma → cero refactor.
  */
-const ROLES_BY_SOURCE: Record<TaskSourceSystem, readonly string[]> = {
+const ROLES_BY_SOURCE: Record<TaskSourceSystem, readonly RoleSlug[]> = {
   support_ticket: ['agent_support', 'agent_full'],
   support_inside_slot: ['agent_support', 'agent_full'],
   provisioning_manual: ['agent_support', 'agent_full'],
   client_lifecycle: ['agent_support', 'agent_full', 'agent_billing'],
   project: [],
 };
+
+/**
+ * Roles asignables MANUALMENTE además del pool de auto-asignación. El
+ * `superadmin` es asignable a mano (es staff con plenos permisos y puede
+ * actuar como técnico) PERO no entra en la rotación automática por carga
+ * (`autoAssignTask` sigue usando `ROLES_BY_SOURCE`) — no se le auto-carga
+ * trabajo operativo. Decisión Yasmin 2026-06-29 (F3·E8 admin). Solo aplica
+ * donde hay un pool de staff (no en colas vacías como `project`).
+ */
+const MANUALLY_ASSIGNABLE_EXTRA: readonly RoleSlug[] = ['superadmin'];
+
+/**
+ * Roles staff elegibles como asignatario MANUAL de un `source_system`. Es el
+ * pool de auto-asignación + `superadmin` (cuando hay pool). La usan el picker
+ * admin de "Reasignar técnico" (F3·E8) y `isAssigneeEligible` (validación de
+ * asignación manual + honor del técnico asignado por el cron). Distinto del
+ * pool de `autoAssignTask`, que NO incluye al superadmin (no se auto-rota).
+ */
+export function eligibleAssigneeRoles(
+  sourceSystem: TaskSourceSystem,
+): readonly RoleSlug[] {
+  const pool = ROLES_BY_SOURCE[sourceSystem];
+  return pool.length > 0 ? [...pool, ...MANUALLY_ASSIGNABLE_EXTRA] : pool;
+}
 
 /**
  * Selecciona el agente con MENOR carga activa entre los roles elegibles
@@ -74,4 +98,32 @@ export async function autoAssignTask(
   `;
 
   return rows[0]?.id ?? null;
+}
+
+/**
+ * ¿Es `userId` un asignatario elegible para `sourceSystem`? (staff activo con
+ * un rol del mapping canónico). Rediseño UI F3·E8: el cron de mantenimiento
+ * usa esto para validar que el "técnico asignado" del cliente sigue siendo
+ * elegible antes de heredarle la tarea; si no, cae a `autoAssignTask`. Misma
+ * doctrina de roles que la auto-asignación → cero divergencia.
+ */
+export async function isAssigneeEligible(
+  prisma: PrismaService,
+  userId: string,
+  sourceSystem: TaskSourceSystem,
+): Promise<boolean> {
+  // Elegibilidad MANUAL (incluye superadmin) — así el cron honra un técnico
+  // superadmin asignado a mano sin meterlo en la auto-rotación (`autoAssignTask`).
+  const eligibleRoles = eligibleAssigneeRoles(sourceSystem);
+  if (eligibleRoles.length === 0) return false;
+
+  const user = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      status: 'active',
+      role: { slug: { in: [...eligibleRoles] } },
+    },
+    select: { id: true },
+  });
+  return user != null;
 }

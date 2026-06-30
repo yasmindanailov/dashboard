@@ -20,6 +20,7 @@ import type {
   PluginHealthSummary,
   ServiceBillingCrossLink,
   ServiceDetailResponse,
+  SupportInsideManagedBlock,
   SuspensionReason,
 } from '../../lib/api';
 
@@ -88,6 +89,14 @@ export interface ServiceDetailContext {
    */
   pluginHealth: PluginHealthSummary | null;
   supportsReconcileOne: boolean;
+  /**
+   * F3·E8 — bloque gestionado de Support Inside (técnico + presencia +
+   * progreso de mantenimiento + SLA). Solo lo puebla el wrapper admin cuando
+   * el servicio es una suscripción SI (`product_type === 'support_inside'`);
+   * `null` en cualquier otro caso (incl. la ruta cliente). Capability-driven
+   * por presencia: la sección "Plan de soporte" se renderiza sii no es null.
+   */
+  supportInside: SupportInsideManagedBlock | null;
 }
 
 export interface SectionDescriptor {

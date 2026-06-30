@@ -2,7 +2,13 @@ import type { LucideIcon } from 'lucide-react';
 
 import styles from './IconWell.module.css';
 
-export type IconWellTone = 'brand' | 'success' | 'warning' | 'danger' | 'neutral';
+export type IconWellTone =
+  | 'brand'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'security'
+  | 'neutral';
 export type IconWellSize = 'sm' | 'md' | 'lg';
 
 export interface IconWellProps {

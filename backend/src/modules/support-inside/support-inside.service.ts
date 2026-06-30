@@ -11,6 +11,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 import { BillingCheckoutService } from '../billing/billing-checkout.service';
 import { SubscriptionPlanChangeService } from '../billing/subscription-plan-change.service';
+import { PresenceService } from '../presence/presence.service';
+import { enrichSlotsMaintenance } from './maintenance.helper';
 
 /**
  * SupportInsideService — Sprint 8 Fase D (2026-05-01).
@@ -48,6 +50,7 @@ export class SupportInsideService {
     private readonly events: EventEmitter2,
     private readonly checkout: BillingCheckoutService,
     private readonly planChange: SubscriptionPlanChangeService,
+    private readonly presence: PresenceService,
   ) {}
 
   // ─── Subscribe ───────────────────────────────────────────────
@@ -693,6 +696,11 @@ export class SupportInsideService {
           service: {
             select: { id: true, status: true, next_due_date: true },
           },
+          // F3·E8 — "tu técnico" (cuidador estable). La presencia se añade
+          // abajo (derivada del heartbeat) — no es columna de User.
+          technician: {
+            select: { id: true, first_name: true, last_name: true },
+          },
           slots: {
             where: { released_at: null },
             include: {
@@ -716,7 +724,190 @@ export class SupportInsideService {
       return null;
     }
 
-    return subscription;
+    // F3·E8 — enriquecemos la vista gestionada: técnico + presencia, y por
+    // slot la última/próxima revisión + estado (todo DERIVADO, sin columnas).
+    const now = new Date();
+    const technician = subscription.technician
+      ? {
+          id: subscription.technician.id,
+          first_name: subscription.technician.first_name,
+          last_name: subscription.technician.last_name,
+          presence: await this.presence.getPresence(
+            subscription.technician.id,
+            now,
+          ),
+        }
+      : null;
+    const slots = await enrichSlotsMaintenance(
+      this.prisma,
+      subscription.slots,
+      now,
+    );
+
+    // F3·E8 — sección "El valor que te aporta": total de mantenimientos,
+    // tiempo medio real de 1ª respuesta del cliente, y los últimos
+    // mantenimientos (timeline). Lecturas display-only (datos del cliente).
+    const [maintenance_count, recentLogs, respondedConvos] = await Promise.all([
+      this.prisma.maintenanceLog.count({ where: { client_id: userId } }),
+      this.prisma.maintenanceLog.findMany({
+        where: { client_id: userId },
+        orderBy: { performed_at: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          month_year: true,
+          client_facing_notes: true,
+          performed_at: true,
+          service: {
+            select: {
+              label: true,
+              domain: true,
+              product: { select: { name: true } },
+            },
+          },
+        },
+      }),
+      // Lectura cross-módulo legítima (conversaciones del propio cliente,
+      // solo para el agregado "tiempo medio de respuesta").
+      this.prisma.conversation.findMany({
+        where: { user_id: userId, first_response_at: { not: null } },
+        select: { created_at: true, first_response_at: true },
+      }),
+    ]);
+
+    let avg_first_response_minutes: number | null = null;
+    if (respondedConvos.length > 0) {
+      const totalMin = respondedConvos.reduce(
+        (sum, c) =>
+          sum +
+          (c.first_response_at!.getTime() - c.created_at.getTime()) / 60000,
+        0,
+      );
+      avg_first_response_minutes = Math.round(
+        totalMin / respondedConvos.length,
+      );
+    }
+
+    const recent_maintenances = recentLogs.map((log) => ({
+      id: log.id,
+      month_year: log.month_year,
+      summary: log.client_facing_notes,
+      performed_at: log.performed_at.toISOString(),
+      service_name:
+        log.service.label || log.service.domain || log.service.product.name,
+    }));
+
+    return {
+      ...subscription,
+      technician,
+      slots,
+      maintenance_count,
+      avg_first_response_minutes,
+      recent_maintenances,
+    };
+  }
+
+  /**
+   * F3·E8 — histórico de mantenimientos visible al cliente para un slot.
+   * Devuelve los `MaintenanceLog` del servicio del slot (resumen público
+   * `client_facing_notes` + fecha + técnico que lo hizo + los ítems de
+   * checklist completados). Ownership: el slot debe ser del `userId`.
+   */
+  async getMaintenanceHistory(userId: string, slotId: string) {
+    const slot = await this.prisma.supportInsideSlot.findUnique({
+      where: { id: slotId },
+      select: {
+        id: true,
+        service_id: true,
+        subscription: { select: { client_id: true } },
+        service: {
+          select: {
+            label: true,
+            domain: true,
+            product: { select: { name: true } },
+          },
+        },
+      },
+    });
+    if (!slot || slot.subscription.client_id !== userId) {
+      throw new NotFoundException('Slot Support Inside no encontrado.');
+    }
+
+    const logs = await this.prisma.maintenanceLog.findMany({
+      where: { service_id: slot.service_id, client_id: userId },
+      orderBy: { performed_at: 'desc' },
+      select: {
+        id: true,
+        month_year: true,
+        client_facing_notes: true,
+        performed_at: true,
+        performer: { select: { first_name: true, last_name: true } },
+        task: {
+          select: {
+            checklist_completions: {
+              select: { item_id: true, item_kind: true },
+            },
+          },
+        },
+      },
+    });
+
+    // Resolver los labels de los ítems de checklist (service vs product) en
+    // batch — son los "tareas hechas" que el mockup lista por mantenimiento.
+    const completions = logs.flatMap(
+      (l) => l.task?.checklist_completions ?? [],
+    );
+    const serviceItemIds = [
+      ...new Set(
+        completions
+          .filter((c) => c.item_kind === 'service')
+          .map((c) => c.item_id),
+      ),
+    ];
+    const productItemIds = [
+      ...new Set(
+        completions
+          .filter((c) => c.item_kind === 'product')
+          .map((c) => c.item_id),
+      ),
+    ];
+    const [serviceItems, productItems] = await Promise.all([
+      serviceItemIds.length
+        ? this.prisma.serviceChecklistItem.findMany({
+            where: { id: { in: serviceItemIds } },
+            select: { id: true, label: true },
+          })
+        : Promise.resolve([]),
+      productItemIds.length
+        ? this.prisma.productChecklistItem.findMany({
+            where: { id: { in: productItemIds } },
+            select: { id: true, label: true },
+          })
+        : Promise.resolve([]),
+    ]);
+    const labelByKey = new Map<string, string>();
+    for (const i of serviceItems) labelByKey.set(`service:${i.id}`, i.label);
+    for (const i of productItems) labelByKey.set(`product:${i.id}`, i.label);
+
+    return {
+      service: {
+        label: slot.service.label,
+        domain: slot.service.domain,
+        product_name: slot.service.product.name,
+      },
+      history: logs.map((log) => ({
+        id: log.id,
+        month_year: log.month_year,
+        summary: log.client_facing_notes,
+        performed_at: log.performed_at.toISOString(),
+        performed_by: log.performer
+          ? `${log.performer.first_name} ${log.performer.last_name}`
+          : null,
+        tasks_done: (log.task?.checklist_completions ?? [])
+          .map((c) => labelByKey.get(`${c.item_kind}:${c.item_id}`))
+          .filter((label): label is string => Boolean(label)),
+      })),
+    };
   }
 
   // ─── Helpers internos ────────────────────────────────────────

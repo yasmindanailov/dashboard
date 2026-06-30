@@ -20,6 +20,16 @@ export class ClientListQueryDto extends PaginationDto {
   @IsOptional()
   @IsEnum(UserStatus)
   status?: UserStatus;
+
+  /**
+   * F3·E8 — filtra a los clientes cuya suscripción Support Inside ACTIVA tiene
+   * a este técnico asignado. Acepta un UUID de agente o el literal `'me'` (el
+   * controller lo resuelve al actor del JWT → "Mis clientes asignados").
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  assigned_technician?: string;
 }
 
 /* ═══════════════════════════════════════
