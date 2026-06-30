@@ -277,8 +277,26 @@ Reutiliza: **`ClientProfile` + `BillingProfile`** (enum `personal|autonomo|empre
 - Crear `BillingProfile` en el registro; `User.terms_accepted_at`.
 - IVA por país: tabla `country_tax_rates` (o **diferir**; hoy 21% default).
 
-### E12 · Macros / respuestas guardadas — `redesign/f3-macros` · talla M (greenfield simple)
-- `ResponseTemplate(id, user_id, title, body, category)` + CRUD + panel en workspace de chats.
+### E12 · Macros / respuestas guardadas — ✅ **CÓDIGO-COMPLETO** (`redesign/f3-macros`, 2026-06-29 · desde master) · talla M (greenfield simple)
+> **Hecho:** biblioteca de **respuestas guardadas** (macros) compartida por el
+> equipo de soporte. **Decisión Yasmin: biblioteca de EQUIPO** (no personal por
+> agente) — resuelve el conflicto spec (`user_id`) ↔ mockup (lista global);
+> `user_id`→`created_by` (trazabilidad, no aislamiento). **Backend:** módulo
+> propio `response-templates` (`ResponseTemplate` + migración + CRUD service +
+> controller `/api/v1/admin/response-templates` triple guard + **nuevo
+> `Subject.ResponseTemplate`** Manage para `superadmin`/`agent_full`/`agent_support`;
+> 13 unit). **Frontend (`_shared/response-templates/`):** picker **"Respuestas
+> guardadas"** en el composer del workspace de chats (1:1 mockup
+> `admin/ChatsWorkspace.dc.html`; inserta el cuerpo en el borrador, append
+> no-destructivo) + **gestor CRUD** con DS (Modal lista↔form, borrado con
+> confirmación inline D5); 3 unit RTL. Verde: back (typecheck+lint+**1403**+boot
+> **4/4**) y front (typecheck+lint+**51**). Bitácora:
+> [`ui-redesign-bitacora-f3-e12-2026-06-29.md`](./ui-redesign-bitacora-f3-e12-2026-06-29.md).
+> **Falta (Yasmin):** smoke visual + merge. **Diferido:** seed de macros de
+> ejemplo (la biblioteca arranca vacía con empty state); picker en el composer de
+> tickets (al reskinear la bandeja en F4 — `_shared` ya lo permite).
+
+- `ResponseTemplate(id, created_by, title, body, category?)` + CRUD + picker/gestor en el workspace de chats.
 
 ### E13 · IA (sugerencia composer) — 🟡 **EN CURSO** (`redesign/f3-ia`, 2026-06-30 · desde master) · talla L-XL · **genuinamente nuevo**
 > **Alcance v1 (decisión Yasmin):** solo **sugerencia IA en el composer de soporte** (el "modo IA" del buscador de dominios → vertical/v1.1 aparte). **Hecho A+B+C (backend, verde):** **subsistema IA paralelo** ([ADR-080 Amendment D](../10-decisions/adr-080-plugin-framework.md)) — reusa `plugin_installs`+SecretVault+manifest+UI con contrato/registry propios (NO ProvisionerPlugin, cero riesgo a provisioners). `core/ai` (`AiProviderPlugin v1` + `AiProviderRegistry` + `AiSuggestionService` con breaker R11) + **plugin Anthropic** (`@anthropic-ai/sdk`, `claude-opus-4-8` por defecto, **mock-first** stub sin api_key) + composición `modules/ai` + seed `anthropic` enabled=false. Verde: typecheck+lint+5 unit+suite 1395+boot 4/4 (`Validated 1/1 [anthropic]`). Commits `1077461` (A) + `6f1b30d` (B+C). Bitácora: [`ui-redesign-bitacora-f3-e13-2026-06-30.md`](./ui-redesign-bitacora-f3-e13-2026-06-30.md). **Pendiente (otro chat): D** endpoint + **grounding v1** (transcript + servicios + facturación + cliente, server-side R5) · **E** UI admin (activar plugin + api_key) · **F** frontend panel "Sugerencia" · **G** docs/DoD.
@@ -372,7 +390,7 @@ DomainTransferPanel, billing/[id], DeletionRequestsManager), no primitivas nueva
 | SLA viz | F3 | M | FE+BE | — | `redesign/f3-sla-ui` |
 | Notificaciones | F3 | M-L | FE | — | `redesign/f3-notificaciones` |
 | Registro fiscal | F3 | M | FE+BE | — | `redesign/f3-registro` |
-| Macros | F3 | M | FE+BE | — | `redesign/f3-macros` |
+| Macros ✅ | F3 | M | FE+BE | — | `redesign/f3-macros` |
 | IA | F3 | L-XL | FE+BE | — | `redesign/f3-ia` |
 | Multicanal | F3 | XL | FE+BE | — | **diferido** |
 | Reskin W1–W4 | F4 | XL | FE | F0–F2 (+F1b/F3 por pág.) | `redesign/f4-<área>` |

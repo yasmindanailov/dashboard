@@ -85,6 +85,31 @@ auto-envía: produce un **borrador** que el agente revisa e inserta en el compos
 - **Rate limit (R10):** `@Throttle({ ttl: 60s, limit: 10 })` por IP (estrecha el `ThrottlerGuard` global; precisión per-agente requiere tracker per-user en el guard global → v1.1).
 - **Errores (R7/R14):** sin proveedor activo → `503 AI_UNAVAILABLE`; breaker abierto → `503 AI_CIRCUIT_OPEN` (`retryAfterMs`). Ver [`api-errors.md` §503](../../50-operations/api-errors.md).
 
+### Respuestas guardadas / macros (Rediseño UI F3·E12)
+
+Biblioteca de **macros** que el staff de soporte inserta en el composer del
+workspace de chats (1:1 con `admin/ChatsWorkspace.dc.html`). **Vive en su propio
+módulo NestJS `response-templates`** (recurso CRUD hoja, sin eventos
+cross-módulo), documentada aquí por ser una feature del flujo de soporte.
+
+- **Modelo `ResponseTemplate`** (`response_templates`): `id`, `title`, `body`,
+  `category?`, `created_by?` (FK `users` `onDelete: SetNull`), `created_at`,
+  `updated_at`.
+- **Propiedad = biblioteca de EQUIPO** (decisión Yasmin 2026-06-29): un único set
+  compartido; cualquier staff de soporte lo usa **y** lo gestiona (CRUD
+  colaborativo). `created_by` es trazabilidad, **no** aislamiento.
+- **Endpoints** `/api/v1/admin/response-templates` (`GET` con `?category&search`,
+  `POST`, `PATCH /:id`, `DELETE /:id`) con triple guard `JwtAuthGuard +
+  AdminOnlyGuard + PoliciesGuard`.
+
+| Subject CASL | superadmin | agent_full | agent_support | agent_billing | client | partner |
+|---|---|---|---|---|---|---|
+| `ResponseTemplate` | manage | manage | manage | — | — | — |
+
+> El mirror frontend (`lib/permissions.ts`) **no** lista `ResponseTemplate`: no es
+> item de sidebar ni ruta propia (el picker vive en `/admin/support/chats`, ya
+> gateado por `Conversation`). La autorización real la impone el CASL backend.
+
 ### SLA de 1ª respuesta en el payload (Rediseño UI F3·E9)
 
 `GET /tickets`·`/chats` (lista) y `GET /conversations/:id` (detalle) enriquecen
