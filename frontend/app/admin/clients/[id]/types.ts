@@ -78,11 +78,39 @@ export interface BillingProfile {
   created_at: string;
 }
 
-export type Tab = 'resumen' | 'facturacion' | 'notas' | 'soporte';
+export type Tab =
+  | 'resumen'
+  | 'servicios'
+  | 'facturacion'
+  | 'notas'
+  | 'soporte';
 
 export const TABS: { key: Tab; label: string }[] = [
   { key: 'resumen', label: 'Resumen' },
+  { key: 'servicios', label: 'Servicios' },
   { key: 'facturacion', label: 'Facturación' },
   { key: 'soporte', label: 'Soporte' },
   { key: 'notas', label: 'Notas internas' },
 ];
+
+/* ── F4·U22 — datos agregados/listas que el detalle carga eager (SC) ── */
+
+/** Servicio del cliente (resumen de `GET /admin/services?user_id=`). */
+export interface ClientServiceItem {
+  id: string;
+  status: string;
+  label: string | null;
+  domain: string | null;
+  expires_at: string | null;
+  product: { slug: string; name: string; type: string } | null;
+}
+
+/** Agregado de facturación del cliente (`GET /billing/invoices/stats?user_id=`). */
+export interface ClientBillingStats {
+  total_invoices: number;
+  total_revenue: number;
+  pending_amount: number;
+  pending_count: number;
+  overdue_count: number;
+  paid_count: number;
+}

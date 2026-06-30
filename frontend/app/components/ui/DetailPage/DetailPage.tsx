@@ -38,6 +38,8 @@ export interface DetailTab {
   key: string;
   /** Display label */
   label: string;
+  /** Contador opcional → píldora junto a la etiqueta (se muestra si > 0). */
+  count?: number;
 }
 
 export interface DetailPageProps {
@@ -102,6 +104,13 @@ export function DetailPage({
               onClick={() => onTabChange?.(tab.key)}
             >
               {tab.label}
+              {tab.count != null && tab.count > 0 && (
+                <span
+                  className={`${styles.tabCount} ${activeTab === tab.key ? styles.tabCountActive : ''}`}
+                >
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </div>

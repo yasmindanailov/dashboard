@@ -1,13 +1,19 @@
 /**
- * /admin/clients/[id] — Sprint 13 §13.AUTH Fase E (Modelo A).
- * Server Component. Carga el detalle del cliente server-side y delega
- * a `ClientDetailView` (CC) que orquesta los 4 tabs con lazy load via
- * Server Actions. ADR-078 Amendment A1.
+ * /admin/clients/[id] — Sprint 13 §13.AUTH Fase E (Modelo A) · reskin F4·U22.
+ * Server Component. Carga el detalle del cliente + (eager) servicios, stats de
+ * facturación y soporte — alimentan las stat-cards del Resumen y los tabs.
+ * Delega a `ClientDetailView` (CC). ADR-078 Amendment A1.
  */
 
 import Link from 'next/link';
 import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
-import type { ClientDetail, Tab } from './types';
+import type { Conversation, Pagination } from '../../../lib/types';
+import type {
+  ClientBillingStats,
+  ClientDetail,
+  ClientServiceItem,
+  Tab,
+} from './types';
 import ClientDetailView from './_components/ClientDetailView';
 
 interface PageProps {
@@ -15,11 +21,27 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-const VALID_TABS: Tab[] = ['resumen', 'facturacion', 'soporte', 'notas'];
+const VALID_TABS: Tab[] = [
+  'resumen',
+  'servicios',
+  'facturacion',
+  'soporte',
+  'notas',
+];
 
 function singleParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? '';
   return value ?? '';
+}
+
+/** serverFetch tolerante: ante un fallo de API devuelve el fallback (no rompe la página). */
+async function softFetch<T>(path: string, fallback: T): Promise<T> {
+  try {
+    return await serverFetch<T>(path);
+  } catch (err) {
+    if (!(err instanceof ServerFetchError)) throw err;
+    return fallback;
+  }
 }
 
 export default async function ClientDetailPage({
@@ -60,8 +82,37 @@ export default async function ClientDetailPage({
     );
   }
 
+  // Eager (paralelo): servicios + stats de facturación + soporte. Fail-soft.
+  const [servicesRes, billingStats, chatsRes, ticketsRes] = await Promise.all([
+    softFetch<Pagination<ClientServiceItem>>(
+      `/admin/services?user_id=${id}&limit=100`,
+      { data: [], meta: { total: 0, page: 1, limit: 100, total_pages: 0 } },
+    ),
+    softFetch<ClientBillingStats | null>(
+      `/billing/invoices/stats?user_id=${id}`,
+      null,
+    ),
+    softFetch<Pagination<Conversation>>(
+      `/support/chats?type=chat&user_id=${id}&limit=50`,
+      { data: [], meta: { total: 0, page: 1, limit: 50, total_pages: 0 } },
+    ),
+    softFetch<Pagination<Conversation>>(
+      `/support/tickets?type=ticket&user_id=${id}&limit=50`,
+      { data: [], meta: { total: 0, page: 1, limit: 50, total_pages: 0 } },
+    ),
+  ]);
+
   const tabParam = singleParam(qs.tab) as Tab;
   const initialTab: Tab = VALID_TABS.includes(tabParam) ? tabParam : 'resumen';
 
-  return <ClientDetailView client={client} initialTab={initialTab} />;
+  return (
+    <ClientDetailView
+      client={client}
+      initialTab={initialTab}
+      services={servicesRes.data}
+      billingStats={billingStats}
+      supportChats={chatsRes.data}
+      supportTickets={ticketsRes.data}
+    />
+  );
 }

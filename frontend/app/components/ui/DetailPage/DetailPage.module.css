@@ -39,10 +39,13 @@
 }
 
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
   padding: var(--space-2_5) var(--space-4);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -56,7 +59,26 @@
   color: var(--text-primary);
 }
 
+/* F4: pestaña activa con texto oscuro + subrayado de marca (1:1 con el mockup). */
 .tabActive {
-  color: var(--brand);
+  color: var(--text-primary);
   border-bottom-color: var(--brand);
+}
+
+.tabCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--space-1_5);
+  border-radius: var(--radius-full);
+  font-size: 10.5px;
+  font-weight: var(--font-weight-bold);
+  background: var(--surface-tertiary);
+  color: var(--text-tertiary);
+}
+.tabCountActive {
+  background: var(--brand-subtle);
+  color: var(--brand);
 }

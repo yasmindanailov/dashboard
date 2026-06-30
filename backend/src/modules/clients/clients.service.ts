@@ -15,6 +15,7 @@ import {
 } from './dto/billing-profile.dto';
 import { ClientsBillingService } from './clients-billing.service';
 import { ClientNotesService } from './client-notes.service';
+import { AuditService } from '../audit/audit.service';
 
 /* ═══════════════════════════════════════
    ClientsService — Client CRUD, notes,
@@ -28,6 +29,7 @@ export class ClientsService {
     private readonly prisma: PrismaService,
     private readonly billing: ClientsBillingService,
     private readonly notes: ClientNotesService,
+    private readonly audit: AuditService,
   ) {}
 
   /* ── List ── */
@@ -186,6 +188,51 @@ export class ClientsService {
       create: { user_id: userId, ...dto },
       update: dto,
     });
+  }
+
+  /* ── Estado de la cuenta (suspender / reactivar) ── */
+
+  /**
+   * F4·U22 — suspende (`status=blocked`) o reactiva (`status=active`) la CUENTA
+   * del cliente: bloquea/permite el login. **NO cascada a los servicios** (se
+   * suspenden por separado en `/admin/services`). Idempotente y auditado (R3:
+   * `audit_change_log`, `entity_type='User'`). Solo aplica a usuarios cliente.
+   */
+  async setAccountSuspended(
+    userId: string,
+    suspended: boolean,
+    adminId: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, status: true, role: { select: { slug: true } } },
+    });
+    if (!user || user.role.slug !== RoleSlug.client)
+      throw new NotFoundException('Cliente no encontrado');
+
+    const nextStatus: 'blocked' | 'active' = suspended ? 'blocked' : 'active';
+    if (user.status === nextStatus) {
+      return { id: user.id, status: user.status };
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { status: nextStatus },
+      select: { id: true, status: true },
+    });
+
+    await this.audit.logChange({
+      user_id: adminId,
+      entity_type: 'User',
+      entity_id: userId,
+      action: suspended
+        ? 'client.account_suspended'
+        : 'client.account_reactivated',
+      changes_before: { status: user.status },
+      changes_after: { status: nextStatus },
+    });
+
+    return updated;
   }
 
   /* ── Legacy text-blob note ──
