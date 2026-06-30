@@ -240,9 +240,11 @@ Reutiliza: **`ClientProfile` + `BillingProfile`** (enum `personal|autonomo|empre
 ### E12 · Macros / respuestas guardadas — `redesign/f3-macros` · talla M (greenfield simple)
 - `ResponseTemplate(id, user_id, title, body, category)` + CRUD + panel en workspace de chats.
 
-### E13 · IA (sugerencia composer + buscador dominios) — `redesign/f3-ia` · talla L-XL · **genuinamente nuevo**
-- `POST /support/:id/ai-suggestion` y `POST /domains/suggest-ai` con **Claude (Anthropic)** detrás de servicio propio (capability/credenciales como plugin).
-- UI: pestaña "Sugerencia" en composer; modo "Con IA" en buscador.
+### E13 · IA (sugerencia composer) — 🟡 **EN CURSO** (`redesign/f3-ia`, 2026-06-30 · desde master) · talla L-XL · **genuinamente nuevo**
+> **Alcance v1 (decisión Yasmin):** solo **sugerencia IA en el composer de soporte** (el "modo IA" del buscador de dominios → vertical/v1.1 aparte). **Hecho A+B+C (backend, verde):** **subsistema IA paralelo** ([ADR-080 Amendment D](../10-decisions/adr-080-plugin-framework.md)) — reusa `plugin_installs`+SecretVault+manifest+UI con contrato/registry propios (NO ProvisionerPlugin, cero riesgo a provisioners). `core/ai` (`AiProviderPlugin v1` + `AiProviderRegistry` + `AiSuggestionService` con breaker R11) + **plugin Anthropic** (`@anthropic-ai/sdk`, `claude-opus-4-8` por defecto, **mock-first** stub sin api_key) + composición `modules/ai` + seed `anthropic` enabled=false. Verde: typecheck+lint+5 unit+suite 1395+boot 4/4 (`Validated 1/1 [anthropic]`). Commits `1077461` (A) + `6f1b30d` (B+C). Bitácora: [`ui-redesign-bitacora-f3-e13-2026-06-30.md`](./ui-redesign-bitacora-f3-e13-2026-06-30.md). **Pendiente (otro chat): D** endpoint + **grounding v1** (transcript + servicios + facturación + cliente, server-side R5) · **E** UI admin (activar plugin + api_key) · **F** frontend panel "Sugerencia" · **G** docs/DoD.
+
+- `POST /support/conversations/:id/ai-suggestion` con **Claude (Anthropic)** detrás del subsistema IA paralelo (manifest + SecretVault, ADR-080 Amendment D).
+- UI: pestaña "Sugerencia" en composer (gated por `isEnabled`).
 
 ### E14 · Multicanal real (WhatsApp/llamada) — **DIFERIDO del MVP** · talla XL
 Integración externa (WhatsApp API/SIP) + routing. Fuera del rediseño inicial.
