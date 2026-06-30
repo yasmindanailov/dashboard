@@ -86,6 +86,12 @@ export class AdminProductsController {
     return this.productsService.delete(id);
   }
 
+  @Post(':id/duplicate')
+  @CheckPolicies((ability) => ability.can(Action.Create, Subject.Product))
+  duplicate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.productsService.duplicate(id);
+  }
+
   /* ═══════════════════════════════════════
      PRICING
      ═══════════════════════════════════════ */

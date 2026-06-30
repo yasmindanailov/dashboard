@@ -47,6 +47,27 @@ export async function deleteProductAction(
   }
 }
 
+export async function duplicateProductAction(
+  id: string,
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  try {
+    const res = await serverFetch<{ id: string }>(
+      `/admin/products/${id}/duplicate`,
+      { method: 'POST' },
+    );
+    revalidatePath('/admin/products');
+    return { ok: true, id: res.id };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo duplicar el producto',
+    };
+  }
+}
+
 export async function createProductAction(
   data: Record<string, unknown>,
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {

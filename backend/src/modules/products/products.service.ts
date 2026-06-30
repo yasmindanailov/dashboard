@@ -371,6 +371,127 @@ export class ProductsService {
     return { message: 'Producto eliminado correctamente.' };
   }
 
+  /* ── Duplicate ── */
+
+  /**
+   * Clona un producto y todas sus relaciones de catálogo (pricing + extras +
+   * checklist) en uno nuevo. La copia nace **inactiva** y con slug único
+   * (`<slug>-copia`, `-copia-1`, …) para que el admin la revise antes de
+   * publicarla. NO copia servicios ni suscripciones (son del original).
+   *
+   * F4·U26 (reskin detalle de producto): acción "Duplicar" del kebab.
+   * Los productos `support_inside` se gestionan en su sección dedicada
+   * (ADR-075) — el guard de aislamiento no cubre este POST, así que lo
+   * rechazamos explícitamente.
+   */
+  async duplicate(id: string) {
+    const source = await this.prisma.product.findUnique({
+      where: { id },
+      include: {
+        pricing: true,
+        extras: true,
+        checklist_items: { orderBy: { order_index: 'asc' } },
+      },
+    });
+    if (!source) throw new NotFoundException('Producto no encontrado.');
+    if (source.type === 'support_inside') {
+      throw new BadRequestException(
+        'Los productos Support Inside se gestionan en /admin/support-inside-plans (ADR-075); no se duplican desde aquí.',
+      );
+    }
+
+    const slug = await this.ensureUniqueSlug(`${source.slug}-copia`);
+
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.create({
+        data: {
+          name: `${source.name} (copia)`,
+          slug,
+          category_id: source.category_id,
+          description: source.description,
+          short_description: source.short_description,
+          type: source.type,
+          provisioner: source.provisioner,
+          image_url: source.image_url,
+          badge_text: source.badge_text,
+          order_index: source.order_index,
+          status: 'inactive',
+          is_addon: source.is_addon,
+          is_global_addon: source.is_global_addon,
+          requires_existing_product: source.requires_existing_product,
+          required_product_type: source.required_product_type,
+          max_quantity_per_client: source.max_quantity_per_client,
+          grace_period_days: source.grace_period_days,
+          suspension_days: source.suspension_days,
+          cancellation_days: source.cancellation_days,
+          data_retention_days: source.data_retention_days,
+          client_can_pause: source.client_can_pause,
+          pause_max_days: source.pause_max_days,
+          provisioner_config: source.provisioner_config ?? Prisma.JsonNull,
+          audit_event_types: source.audit_event_types ?? Prisma.JsonNull,
+          features: source.features ?? Prisma.JsonNull,
+          metadata: source.metadata ?? Prisma.JsonNull,
+          partner_commission_pct: source.partner_commission_pct,
+        },
+      });
+
+      if (source.pricing.length) {
+        await tx.productPricing.createMany({
+          data: source.pricing.map((p) => ({
+            product_id: product.id,
+            billing_cycle: p.billing_cycle,
+            price: p.price,
+            setup_fee: p.setup_fee,
+            currency: p.currency,
+            discount_percentage: p.discount_percentage,
+            active: p.active,
+          })),
+        });
+      }
+
+      if (source.extras.length) {
+        await tx.productExtra.createMany({
+          data: source.extras.map((e) => ({
+            product_id: product.id,
+            extra_product_id: e.extra_product_id,
+            type: e.type,
+            is_mandatory: e.is_mandatory,
+            label: e.label,
+            discount_percentage: e.discount_percentage,
+            free_months: e.free_months,
+            max_value_eur: e.max_value_eur,
+            applicable_cycles: e.applicable_cycles,
+            tld_restrictions: e.tld_restrictions ?? Prisma.JsonNull,
+            valid_until: e.valid_until,
+            max_uses: e.max_uses,
+            active: e.active,
+          })),
+        });
+      }
+
+      if (source.checklist_items.length) {
+        await tx.productChecklistItem.createMany({
+          data: source.checklist_items.map((c) => ({
+            product_id: product.id,
+            label: c.label,
+            order_index: c.order_index,
+            is_required: c.is_required,
+          })),
+        });
+      }
+
+      return tx.product.findUnique({
+        where: { id: product.id },
+        include: {
+          category: true,
+          pricing: true,
+          extras: true,
+          checklist_items: { orderBy: { order_index: 'asc' } },
+        },
+      });
+    });
+  }
+
   /* ── Catalog delegates (pricing + categories) ── */
 
   addPricing(productId: string, dto: ProductPricingDto) {

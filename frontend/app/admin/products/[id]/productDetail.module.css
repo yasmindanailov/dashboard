@@ -27,11 +27,20 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.headerMain {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
 }
 .headerTitleRow {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2_5);
+  flex-wrap: wrap;
 }
 .headerTitle {
   font-size: var(--font-size-xl);
@@ -50,11 +59,12 @@
   gap: var(--space-2);
 }
 
-/* ── Content grid (2-col + sidebar) ── */
+/* ── Content grid (2-col: main 1.62fr + sidebar 1fr, 1:1 con el mockup) ── */
 .contentGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: var(--space-6);
+  grid-template-columns: 1.62fr 1fr;
+  gap: var(--space-5);
+  align-items: start;
 }
 @media (max-width: 900px) {
   .contentGrid {
@@ -62,20 +72,16 @@
   }
 }
 .mainColumn {
-  grid-column: span 2;
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-}
-@media (max-width: 900px) {
-  .mainColumn {
-    grid-column: span 1;
-  }
+  gap: var(--space-5);
+  min-width: 0;
 }
 .sideColumn {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-5);
+  min-width: 0;
 }
 
 /* ── Section header ── */
@@ -86,6 +92,26 @@
   letter-spacing: 0.5px;
   color: var(--text-tertiary);
   margin-bottom: var(--space-4);
+}
+
+/* Cabecera de card con acción a la derecha (p. ej. Planes → "Editar →"). */
+.cardHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+.cardHeaderRow .sectionTitle {
+  margin-bottom: 0;
+}
+.editLink {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--brand);
+  text-decoration: none;
+}
+.editLink:hover {
+  color: var(--brand-hover);
 }
 
 /* ── Details grid (2-col key-value) ── */
@@ -121,19 +147,20 @@
   color: var(--text-secondary);
 }
 
-/* ── Pricing / Extras rows ── */
+/* ── Pricing / Extras rows (filas planas separadas por línea, 1:1 mockup) ── */
 .listStack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
 }
 .listRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--surface-secondary);
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+.listRow:not(:first-child) {
+  border-top: 1px solid var(--border);
 }
 .pricingCycle {
   font-size: var(--font-size-sm);
@@ -146,9 +173,9 @@
   color: var(--text-tertiary);
 }
 .pricingAmount {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--brand);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
 }
 .noPricing {
   font-size: var(--font-size-sm);
@@ -184,22 +211,38 @@
   color: var(--text-primary);
 }
 
-/* ── Checklist ── */
+/* ── Checklist de provisioning ── */
+.checklistStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
 .checklistItem {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-2_5);
   font-size: var(--font-size-sm);
 }
 .checkboxIcon {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+.checkboxIconRequired {
+  border-color: var(--brand);
 }
 .checklistLabel {
-  color: var(--text-primary);
+  color: var(--text-secondary);
+}
+.checklistRequired {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--brand);
+  white-space: nowrap;
 }
