@@ -388,3 +388,56 @@ export async function confirmResolutionAction(
     };
   }
 }
+
+/* ═══════════════════════════════════════
+   IA copilot — sugerencia de respuesta (F3·E13 Fase F).
+
+   Staff-only (el backend impone ADMIN_ROLES). Modelo A (ADR-078 A1): el token
+   viaja en la cookie httpOnly vía `serverFetch`. NUNCA auto-envía: el componente
+   inserta el borrador en el composer para que el agente lo revise antes de enviar.
+   ═══════════════════════════════════════ */
+
+export type AiSuggestionResult =
+  | { ok: true; suggestion: string; model: string }
+  | { ok: false; error: string };
+
+export async function generateAiSuggestionAction(
+  conversationId: string,
+  instructions?: string,
+): Promise<AiSuggestionResult> {
+  try {
+    const data = await serverFetch<{
+      suggestion: string;
+      model: string;
+      truncated?: boolean;
+    }>(`/support/conversations/${conversationId}/ai-suggestion`, {
+      method: 'POST',
+      body: instructions ? { instructions } : {},
+    });
+    return { ok: true, suggestion: data.suggestion, model: data.model };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo generar la sugerencia de IA.',
+    };
+  }
+}
+
+/**
+ * ¿Hay un proveedor IA activo? Gatea el botón del composer. Ante cualquier
+ * error (no-staff, red, IA desactivada) devuelve `false` — el botón no aparece
+ * (fail-safe; nunca rompe el composer).
+ */
+export async function getAiSuggestionEnabledAction(): Promise<boolean> {
+  try {
+    const data = await serverFetch<{ enabled: boolean }>(
+      '/support/ai-suggestion/enabled',
+    );
+    return data.enabled === true;
+  } catch {
+    return false;
+  }
+}

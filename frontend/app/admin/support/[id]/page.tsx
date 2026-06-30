@@ -225,6 +225,8 @@ export default function AdminConversationDetailPage() {
             messagesEndRef={d.messagesEndRef}
             onMessageChange={d.setNewMessage}
             onSend={d.handleSendMessage}
+            aiEnabled={d.aiEnabled}
+            conversationId={d.conversationId}
           />
         </div>
 

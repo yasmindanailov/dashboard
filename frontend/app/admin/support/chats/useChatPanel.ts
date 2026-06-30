@@ -7,6 +7,7 @@ import { getWsTokenAction } from '../../../lib/auth-actions';
 import {
   addMessageAction,
   escalateChatToTicketAction,
+  getAiSuggestionEnabledAction,
   getChatAction,
   getConversationClientContextAction,
   linkGuestToClientAction,
@@ -64,6 +65,10 @@ export function useChatPanel() {
   const [linkLoading, setLinkLoading] = useState(false);
   const [showLinkPanel, setShowLinkPanel] = useState(false);
 
+  // F3·E13 Fase F — ¿hay proveedor IA activo? Gatea el botón "Sugerencia IA"
+  // del composer (fail-safe: si la consulta falla, queda en false → sin botón).
+  const [aiEnabled, setAiEnabled] = useState(false);
+
   const loadChats = useCallback(async () => {
     const result = await listChatsAction({
       limit: 50,
@@ -77,6 +82,17 @@ export function useChatPanel() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- recarga chats al cambiar filtro de búsqueda (prop-driven sync con backend).
     void loadChats();
   }, [loadChats]);
+
+  // F3·E13 Fase F — resuelve el flag de IA una vez al montar.
+  useEffect(() => {
+    let cancelled = false;
+    void getAiSuggestionEnabledAction().then((enabled) => {
+      if (!cancelled) setAiEnabled(enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /*
    * WebSocket — Sprint 13 §13.AUTH (Modelo A): pide WS token efímero
@@ -293,6 +309,7 @@ export function useChatPanel() {
     messagesEndRef,
     handleSend,
     handleTyping,
+    aiEnabled,
     clientContext,
     clientServices,
     clientNotes,

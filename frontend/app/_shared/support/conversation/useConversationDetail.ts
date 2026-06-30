@@ -8,6 +8,7 @@ import { getWsTokenAction } from '../../../lib/auth-actions';
 import {
   addMessageAction,
   escalateChatToTicketAction,
+  getAiSuggestionEnabledAction,
   getConversationAction,
   getConversationClientContextAction,
   updateConversationAction,
@@ -58,6 +59,11 @@ export function useConversationDetail() {
 
   const [peerTyping, setPeerTyping] = useState(false);
 
+  // F3·E13 Fase F — botón "Sugerencia IA" del composer. Es feature de STAFF:
+  // solo consultamos el flag si el usuario es agente (el cliente nunca ve el
+  // botón; el endpoint además es staff-only). Fail-safe a false.
+  const [aiEnabled, setAiEnabled] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
 
@@ -72,6 +78,18 @@ export function useConversationDetail() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial + recarga on conversationId change (prop-driven sync con backend).
     void loadConversation();
   }, [loadConversation]);
+
+  // F3·E13 Fase F — resuelve el flag de IA una vez (solo staff).
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    void getAiSuggestionEnabledAction().then((enabled) => {
+      if (!cancelled) setAiEnabled(enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin]);
 
   /*
    * WebSocket — tiempo real (Sprint 13.5 DC.37 + Sprint 13 §13.AUTH).
@@ -300,5 +318,6 @@ export function useConversationDetail() {
     clientServices,
     contextLoading,
     peerTyping,
+    aiEnabled,
   };
 }

@@ -288,8 +288,27 @@ export class SupportController {
   }
 
   /* ═══════════════════════════════════════
-     IA COPILOT — Reply-draft suggestion (F3·E13 Fase D)
+     IA COPILOT — Reply-draft suggestion (F3·E13 Fase D/F)
      ═══════════════════════════════════════ */
+
+  /**
+   * ¿Hay un proveedor IA activo? Gatea el botón "Sugerencia IA" del composer
+   * (F3·E13 Fase F). Staff-only (es UI de agente). No revela config ni secrets.
+   */
+  @Get('ai-suggestion/enabled')
+  @ApiOperation({
+    summary: 'Whether an AI provider is active (staff — gates the composer)',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Read, Subject.Conversation))
+  aiSuggestionEnabled(@Req() req: AuthenticatedRequest) {
+    const user = req.user;
+    if (!ADMIN_ROLES.includes(user.role.slug)) {
+      throw new ForbiddenException(
+        'Solo los agentes pueden consultar el estado de la IA.',
+      );
+    }
+    return { enabled: this.supportService.aiSuggestionEnabled() };
+  }
 
   /**
    * Genera un BORRADOR de respuesta de IA para la conversación. **Staff-only**:

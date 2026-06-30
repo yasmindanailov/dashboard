@@ -137,4 +137,9 @@ export class SupportService {
   generateAiSuggestion(conversationId: string, instructions?: string) {
     return this.aiSuggestion.generate(conversationId, instructions);
   }
+
+  /** ¿Hay un proveedor IA activo? Gatea el botón del composer (Fase F). */
+  aiSuggestionEnabled(): boolean {
+    return this.aiSuggestion.isEnabled();
+  }
 }

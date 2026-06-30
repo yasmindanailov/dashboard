@@ -60,6 +60,7 @@ export default function AgentChatPanel() {
           onTyping={panel.handleTyping}
           onResolve={() => panel.openResolutionModal('resolve')}
           onEscalate={() => panel.openResolutionModal('escalate')}
+          aiEnabled={panel.aiEnabled}
         />
 
         {/* Right: Client context */}

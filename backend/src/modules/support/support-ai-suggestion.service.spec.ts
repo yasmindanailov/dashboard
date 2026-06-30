@@ -79,6 +79,16 @@ function buildService(opts: {
 }
 
 describe('SupportAiSuggestionService — F3·E13 Fase D', () => {
+  it('isEnabled() delega en AiSuggestionService (gatea el botón del composer, Fase F)', () => {
+    const ai = { isEnabled: jest.fn().mockReturnValue(true) };
+    const service = new SupportAiSuggestionService(
+      {} as unknown as PrismaService,
+      ai as unknown as AiSuggestionService,
+    );
+    expect(service.isEnabled()).toBe(true);
+    expect(ai.isEnabled).toHaveBeenCalledTimes(1);
+  });
+
   it('conversación inexistente → NotFoundException', async () => {
     const { service } = buildService({ conversation: null });
     await expect(service.generate('missing-id')).rejects.toBeInstanceOf(

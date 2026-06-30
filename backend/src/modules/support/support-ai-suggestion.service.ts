@@ -51,6 +51,15 @@ export class SupportAiSuggestionService {
     private readonly ai: AiSuggestionService,
   ) {}
 
+  /**
+   * ¿Hay un proveedor IA activo? El front lo usa para gatear el botón
+   * "Sugerencia IA" del composer (F3·E13 Fase F) — sin proveedor activo, no se
+   * muestra. Síncrono (consulta el registry en memoria).
+   */
+  isEnabled(): boolean {
+    return this.ai.isEnabled();
+  }
+
   async generate(
     conversationId: string,
     instructions?: string,

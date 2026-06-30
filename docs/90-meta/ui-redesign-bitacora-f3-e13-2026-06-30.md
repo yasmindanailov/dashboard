@@ -3,8 +3,8 @@
 > Registro riguroso de la **vertical F3·E13**: copiloto de IA (Claude/Anthropic)
 > que sugiere un **borrador de respuesta** al agente en el composer de soporte.
 > Es la vertical F3 "genuinamente nueva" (L-XL). **Rama:** `redesign/f3-ia`
-> (desde `origin/master`, independiente). **Estado: A + B + C + D + E ✅;
-> F-G pendientes** (otro chat).
+> (desde `origin/master`, independiente). **Estado: A + B + C + D + E + F ✅;
+> G pendiente** (otro chat).
 
 ## 0. Resumen ejecutivo
 
@@ -13,8 +13,8 @@ a Claude un borrador para el chat/ticket; **nunca se auto-envía** — el agente
 revisa e inserta. Por su tamaño se ejecuta por fases con checkpoints verdes y
 commits independientes. Hechas: **A** (doctrina), **B** (framework IA), **C**
 (plugin Anthropic + mock), **D** (endpoint + grounding v1), **E** (UI admin del
-plugin IA en `/admin/settings/plugins`). Pendientes: **F** frontend (panel en el
-composer), **G** docs/DoD.
+plugin IA en `/admin/settings/plugins`), **F** (botón "Sugerencia IA" en el
+composer de chat + ticket). Pendiente: **G** docs/DoD + retrospectiva.
 
 ## 1. Decisiones (Yasmin, 2026-06-30)
 
@@ -230,15 +230,52 @@ ERROR). Suite back **1520** verde. _(Las gates lo perdieron porque el seed deja
 `POST /support/conversations/:id/ai-suggestion` (staff) → borrador **stub** correcto
 referenciando el último mensaje del cliente. Fase D + E verificadas funcionando.
 
-## 7. Pendiente (F-G) — para el próximo chat
+## 7. Fase F — Botón "Sugerencia IA" en el composer (✅ back + front, verde)
+
+El agente pide un borrador desde el composer (chat **y** ticket); se inserta de
+forma **no-destructiva** (mismo patrón que las macros E12) para que lo revise y
+edite — **nunca se auto-envía**. Gateado por `isEnabled` (sin proveedor IA
+activo, el botón no aparece).
+
+**Backend (mínimo):** `SupportAiSuggestionService.isEnabled()` → `AiSuggestionService`
+· facade `aiSuggestionEnabled()` · **`GET /support/ai-suggestion/enabled`** (staff-only:
+`Read.Conversation` + `ADMIN_ROLES`) → `{ enabled }`.
+
+**Frontend:**
+- `_shared/support/_actions.ts`: `generateAiSuggestionAction(id, instructions?)`
+  (POST el endpoint Fase D) + `getAiSuggestionEnabledAction()` (fail-safe a `false`).
+- **`AiSuggestionButton`** (`_shared/support/`): botón DS "Sugerencia IA" → genera →
+  `onInsert(borrador)` + toast; loading "Generando…"; errores (503) como toast.
+- **Composer de chat** (`ChatConversation` + `useChatPanel` + page): botón junto a
+  las macros, `onInsert=handleInsertReply`, gated `aiEnabled`.
+- **Composer de ticket** (`ConversationMessages` + `useConversationDetail` + admin
+  page): `composerTools` nuevo con el botón. El hook resuelve `aiEnabled` **solo si
+  staff** (`isAdmin`) → el portal cliente (que comparte hook/componente) nunca lo ve;
+  el endpoint además es staff-only (doble defensa).
+
+**Verificación (DoD):** typecheck + lint:check (back+front) verdes · **+3 unit**
+(`support-ai-suggestion.spec`: isEnabled delega · `AiSuggestionButton.test`: genera+inserta
+/ error no inserta) → suite back **1521** + front **96** verdes · **boot smoke**: ruta
+`GET /support/ai-suggestion/enabled` mapeada · `Active AI provider(s): [anthropic]` ·
+provisioners **4/4** · `successfully started`; probe sin auth → **401** (ruta viva + guard).
+
+**Revisión adversarial (3 dimensiones: gating staff / correctitud-UX / consistencia):**
+1 hallazgo confirmado (**medium**, high-confidence), corregido: **race de closure** —
+`handleInsertReply` leía el borrador de un *snapshot* del closure; como la generación IA
+es asíncrona (segundos, a diferencia de las macros síncronas E12), si el agente tecleaba
+durante la espera, al insertar se **perdía lo escrito**. **Fix:** *functional updater*
+(`onMessageChange(prev => …)`) en ambos composers → lee el borrador más reciente
+(prop ampliado a `Dispatch<SetStateAction<string>>`; los callers ya pasan el setter de
+`useState`). Verde tras el fix (typecheck+lint+**96**). **Sin** hallazgos de gating
+(el cliente nunca ve el botón) ni de auto-envío (solo inserta en el borrador).
+
+## 8. Pendiente (G) — para el próximo chat
 
 | Fase | Contenido |
 |---|---|
-| **F** | Frontend: panel "Sugerencia" en el composer de soporte (gated por `isEnabled`; reusa el patrón de inserción no-destructivo de E12) |
-| **G** | Tests E2E (endpoint con plugin real mockeado) + docs (`features/support` sección "Sugerencia IA", `_events` si aplica, roadmap) + DoD final + retrospectiva |
+| **G** | Tests E2E (endpoint con plugin real mockeado + browser del botón) + docs (`features/support` sección "Sugerencia IA", roadmap `current.md`) + retrospectiva + cierre de la vertical. |
 
-**Estado git:** rama `redesign/f3-ia` = doctrina `1077461` + B+C `6f1b30d` +
-bitácora `954d892` + **Fase D `55294e8`** + 2 merges de master (`abb37d2`,`678c33d`) +
-**Fase E (esta sesión, sin commitear aún)**. **Falta (Yasmin):** revisar/commitear E;
-smoke visual del panel admin (activar `anthropic` + pegar `api_key` + "Probar conexión");
-continuar F-G en otro chat.
+**Estado git:** rama `redesign/f3-ia` = … + **Fase D `55294e8`** + 2 merges de master
+(`abb37d2`,`678c33d`) + **Fase E `d2c4fdb`** + **Fase F (esta sesión)**. **Falta
+(Yasmin):** smoke visual del botón (chat/ticket → "Sugerencia IA" → borrador insertado);
+Fase G + cierre; merge de la vertical cuando esté código-completa.
