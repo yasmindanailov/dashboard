@@ -43,6 +43,14 @@
 @media (min-width: 1024px) {
   .auroraPanel {
     display: flex;
+    /* Sticky: en formularios largos (registro) la fila del grid se hace muy
+       alta; fijamos el panel a la altura del viewport y lo pinneamos arriba
+       para que el eslogan/features queden siempre visibles mientras el form
+       hace scroll. `align-self:start` evita que el grid lo estire a la fila. */
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
   }
 }
 
