@@ -644,6 +644,10 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   //    aplica: misma info, solo el href ramifica). Capability-driven por
   //    presencia: si no hay nextDueDate ni lastInvoice → no se renderiza.
   'service.billing_cross_link.card_title': 'Facturación',
+  'service.billing_cross_link.next_bill_label': 'Próxima factura',
+  'service.billing_cross_link.last_bill_label': 'Última factura',
+  'service.billing_cross_link.amount_label': 'Importe',
+  'service.billing_cross_link.status_label': 'Estado',
   'service.billing_cross_link.next_renewal_prefix': 'Próxima renovación: ',
   'service.billing_cross_link.last_invoice_prefix': 'Última factura: ',
   'service.billing_cross_link.due_prefix': 'vence ',

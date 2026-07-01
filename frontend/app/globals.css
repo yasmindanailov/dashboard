@@ -32,9 +32,16 @@
   --warning-light:   rgba(245, 158, 11, 0.08);
   --warning-border:  rgba(245, 158, 11, 0.15);
   --warning-subtle:  #FDE68A;
+  /* Superficie de alerta sólida (banners del mockup: amber cálido). */
+  --warning-surface:        #FCF3E1;
+  --warning-surface-border: #F4E6C4;
   --danger:          #EF4444;
+  --danger-dark:     #A53535;   /* texto de banner danger (mockup) */
   --danger-light:    rgba(239, 68, 68, 0.08);
   --danger-border:   rgba(239, 68, 68, 0.15);
+  /* Superficie de alerta sólida (banners del mockup: rojo cálido). */
+  --danger-surface:        #FCECEC;
+  --danger-surface-border: #F6D6D6;
   --info:            #3B82F6;
   --info-light:      rgba(59, 130, 246, 0.08);
   --info-border:     rgba(59, 130, 246, 0.15);

@@ -24,9 +24,16 @@
  */
 
 import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { Badge, SectionCard, type BadgeVariant } from '../../components/ui';
+import {
+  Badge,
+  DescriptionList,
+  SectionCard,
+  type BadgeVariant,
+  type DescriptionItem,
+} from '../../components/ui';
 import { t } from '../../_shared/i18n';
 import type { InvoiceStatus, ServiceBillingCrossLink } from '../../lib/api';
 import styles from './service-detail.module.css';
@@ -122,51 +129,54 @@ export function BillingCrossLinkCard({
     ? formatDate(data.lastInvoice.due_date)
     : null;
 
+  // Filas divididas (1:1 mockup): "Próxima/Última factura" + "Importe" (+ estado
+  // si terminal). El desglose completo vive en el detalle de la factura.
+  const dateLabel = showNextRenewal ? nextDateLabel : invoiceDueLabel;
+  const amountLabel = showNextRenewal ? nextAmountLabel : invoiceTotal;
+  const items: DescriptionItem[] = [];
+  if (dateLabel) {
+    items.push({
+      key: 'when',
+      term: showNextRenewal
+        ? t('service.billing_cross_link.next_bill_label')
+        : t('service.billing_cross_link.last_bill_label'),
+      value: dateLabel,
+    });
+  }
+  if (amountLabel) {
+    items.push({
+      key: 'amount',
+      term: t('service.billing_cross_link.amount_label'),
+      value: <strong>{amountLabel}</strong>,
+    });
+  }
+  if (!showNextRenewal && invoiceStatus) {
+    items.push({
+      key: 'status',
+      term: t('service.billing_cross_link.status_label'),
+      value: (
+        <Badge variant={INVOICE_STATUS_TO_BADGE_VARIANT[invoiceStatus]}>
+          {t(INVOICE_STATUS_TO_LABEL_KEY[invoiceStatus])}
+        </Badge>
+      ),
+    });
+  }
+
   return (
     <SectionCard title={t('service.billing_cross_link.card_title')}>
-      {showNextRenewal && (
-        <p className={styles.cardText}>
-          {t('service.billing_cross_link.next_renewal_prefix')}
-          <strong>{nextDateLabel}</strong>
-          {' · '}
-          <strong>{nextAmountLabel}</strong>
-        </p>
-      )}
-
-      {data.lastInvoice && invoiceHref && invoiceTotal && (
-        <div className={styles.inlineRow}>
-          <span className={styles.cardTextMuted}>
-            {t('service.billing_cross_link.last_invoice_prefix')}
-            <strong className={styles.strongPrimary}>
-              {data.lastInvoice.invoice_number}
-            </strong>
-            {invoiceDueLabel && (
-              <span>
-                {' ('}
-                {t('service.billing_cross_link.due_prefix')}
-                {invoiceDueLabel})
-              </span>
-            )}
-          </span>
-          {invoiceStatus && (
-            <Badge variant={INVOICE_STATUS_TO_BADGE_VARIANT[invoiceStatus]}>
-              {t(INVOICE_STATUS_TO_LABEL_KEY[invoiceStatus])}
-            </Badge>
-          )}
-          <span className={styles.cardTextMuted}>{invoiceTotal}</span>
-          <Link
-            href={invoiceHref}
-            className={`${styles.ctaText} ${styles.pushEnd}`}
-          >
-            {t('service.billing_cross_link.view_invoice')} →
-          </Link>
-        </div>
-      )}
-
-      {!data.lastInvoice && (
+      {items.length > 0 ? (
+        <DescriptionList layout="divided" items={items} />
+      ) : (
         <p className={styles.cardTextSubtle}>
           {t('service.billing_cross_link.no_invoice_yet')}
         </p>
+      )}
+
+      {invoiceHref && (
+        <Link href={invoiceHref} className={styles.billingLink}>
+          {t('service.billing_cross_link.view_invoice')}
+          <ChevronRight size={13} strokeWidth={1.6} />
+        </Link>
       )}
     </SectionCard>
   );

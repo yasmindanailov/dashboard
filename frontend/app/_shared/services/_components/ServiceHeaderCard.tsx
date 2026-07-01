@@ -20,7 +20,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { Badge, DescriptionList, type DescriptionItem } from '../../../components/ui';
+import {
+  Badge,
+  DescriptionList,
+  IconWell,
+  type DescriptionItem,
+} from '../../../components/ui';
 import { t } from '../../i18n';
 import type { ServiceDetailContext } from '../service-detail-context';
 import { filterQuickActions } from '../quick-actions';
@@ -141,14 +146,7 @@ export function ServiceHeaderCard({ ctx, actionsMenu }: ServiceHeaderCardProps) 
   return (
     <div className={styles.headerCard}>
       <div className={styles.headerLead}>
-        <span
-          className={`${styles.serviceIcon} ${
-            isSupportInside ? styles.serviceIconSolid : ''
-          }`.trim()}
-          aria-hidden="true"
-        >
-          <Icon size={24} strokeWidth={1.6} />
-        </span>
+        <IconWell icon={Icon} tone="brand" size="xl" filled={isSupportInside} />
         <div className={styles.headerIdentity}>
           <div className={styles.headerTitleRow}>
             <h1 className={styles.headerTitle}>{info.display.primary}</h1>

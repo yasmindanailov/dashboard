@@ -23,10 +23,15 @@
   height: 48px;
   border-radius: var(--radius-lg);
 }
+.xl {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--radius-md);
+}
 
 /* Tonos — fondo tenue + icono saturado (currentColor) */
 .brand {
-  background: var(--brand-light);
+  background: var(--brand-wash);
   color: var(--brand);
 }
 .success {
@@ -48,4 +53,27 @@
 .neutral {
   background: var(--surface-tertiary);
   color: var(--text-secondary);
+}
+
+/* Variante sólida — fondo saturado del tono + icono blanco. */
+.filled {
+  color: var(--text-on-brand);
+}
+.filled.brand {
+  background: var(--brand);
+}
+.filled.success {
+  background: var(--success);
+}
+.filled.warning {
+  background: var(--warning);
+}
+.filled.danger {
+  background: var(--danger);
+}
+.filled.security {
+  background: var(--security);
+}
+.filled.neutral {
+  background: var(--text-secondary);
 }

@@ -31,28 +31,12 @@
   gap: var(--space-5);
   flex-wrap: wrap;
 }
-/* Bloque izquierdo: icon-well + identidad (mockup ServicioDetalleAdmin). */
+/* Bloque izquierdo: icon-well (primitiva DS) + identidad (mockup ServicioDetalleAdmin). */
 .headerLead {
   display: flex;
   align-items: center;
   gap: var(--space-4);
   min-width: 0;
-}
-/* Icon-well del servicio (50px, tintado por defecto / sólido en SI). */
-.serviceIcon {
-  width: 50px;
-  height: 50px;
-  border-radius: var(--radius-md);
-  background: var(--brand-wash);
-  color: var(--brand);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.serviceIconSolid {
-  background: var(--brand);
-  color: var(--text-on-brand);
 }
 .headerIdentity {
   min-width: 0;
@@ -178,6 +162,20 @@
   font-weight: var(--font-weight-semibold);
   text-decoration: none;
   white-space: nowrap;
+}
+/* CTA "Ver X" con chevron (billing/audit) — 1:1 con el mockup. */
+.billingLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  margin-top: var(--space-3);
+  color: var(--brand);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+.billingLink:hover {
+  text-decoration: underline;
 }
 .ctaPrimary {
   display: inline-block;

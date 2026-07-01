@@ -9,27 +9,41 @@ export type IconWellTone =
   | 'danger'
   | 'security'
   | 'neutral';
-export type IconWellSize = 'sm' | 'md' | 'lg';
+export type IconWellSize = 'sm' | 'md' | 'lg' | 'xl';
 
 export interface IconWellProps {
   /** Icono Lucide a renderizar (stroke 1.6, hereda el color del tono). */
   icon: LucideIcon;
   tone?: IconWellTone;
   size?: IconWellSize;
+  /** Sólido: fondo saturado del tono + icono blanco (cabecera de detalle SI). */
+  filled?: boolean;
   className?: string;
 }
 
-const ICON_PX: Record<IconWellSize, number> = { sm: 16, md: 18, lg: 22 };
+const ICON_PX: Record<IconWellSize, number> = { sm: 16, md: 18, lg: 22, xl: 24 };
 
 /**
  * IconWell — primitiva del DS (F1a). Cuadrado tintado con un icono semántico,
- * coloreado por tono (mapea a los tokens del DS). El mockup lo usa en cabeceras
+ * coloreado por tono (mapea a los tokens del DS). Variante `filled` = fondo
+ * saturado + icono blanco (cabecera de detalle). El mockup lo usa en cabeceras
  * de card, filas de notificación, decision rows y timelines (≥12 unidades).
  * Presentacional (server-component compatible).
  */
-export function IconWell({ icon: Icon, tone = 'brand', size = 'md', className = '' }: IconWellProps) {
+export function IconWell({
+  icon: Icon,
+  tone = 'brand',
+  size = 'md',
+  filled = false,
+  className = '',
+}: IconWellProps) {
   return (
-    <span className={`${styles.well} ${styles[tone]} ${styles[size]} ${className}`} aria-hidden="true">
+    <span
+      className={`${styles.well} ${styles[tone]} ${styles[size]} ${
+        filled ? styles.filled : ''
+      } ${className}`.trim()}
+      aria-hidden="true"
+    >
       <Icon size={ICON_PX[size]} strokeWidth={1.6} />
     </span>
   );
