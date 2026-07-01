@@ -71,3 +71,18 @@ Login (credenciales · sesión expirada · cuenta bloqueada · error · **2FA** 
 Registro (personal/autónomo/empresa · éxito) · Recuperar (forgot · enviado · reset+checklist ·
 actualizada · enlace inválido) · Verify-email (verificado · error). Verde de build/tests NO cubre
 regresión visual.
+
+## 5. Pulido post-smoke (Yasmin, 2026-07-01)
+
+1. **Bug — la bienvenida no aparecía → ruta `/welcome`** (commit `73b3b70`): al fijar las
+   cookies y **devolver** `success`, Next refresca la ruta `/` → `LoginPage` (SC) reejecuta
+   `getServerSession()`, encuentra la sesión y redirige al panel **antes** de pintar el saludo.
+   **Fix robusto:** login/verify-2fa fijan cookies + **`redirect('/welcome')`** (mismo mecanismo
+   probado, solo cambia el destino); ruta autenticada `/welcome` (SC lee el nombre de la sesión,
+   R17) + `WelcomeScreen` (saludo + spinner + auto-navegación + enlace de respaldo). `LoginForm`
+   queda con 2 pasos (credenciales/2FA).
+2. **Panel Aurora `sticky`** (commit `fceb79a`): en registro (form largo con campos fiscales) la
+   fila del grid crecía y el panel lateral quedaba centrado en una columna gigante (había que
+   hacer scroll). En **desktop** el panel pasa a `height:100vh` + `position:sticky; top:0` +
+   `align-self:start` → pinneado mientras el form hace scroll. Login/recuperar sin cambio; móvil
+   no afectado (panel oculto <1024px).
