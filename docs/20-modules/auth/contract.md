@@ -47,6 +47,7 @@ Prefix: `/api/v1/auth`. Todos los endpoints emiten `correlation-id` (R9).
 | `POST` | `/register` | Crear cuenta cliente nueva | Sin auth | 5/min |
 | `POST` | `/login` | Login con email + password | Sin auth | 5/min |
 | `POST` | `/verify-2fa` | Submit código 2FA tras login (roles con 2FA) | Token temporal `temp_2fa` | 10/min |
+| `POST` | `/resend-2fa` | Reenvía el código 2FA (regenera + email + `temp_token` fresco) — F4·W3 | Token temporal `temp_2fa` (en body) | 3/min |
 | `POST` | `/refresh` | Renovar access token vía refresh token | Sin auth (refresh token en body) | 30/min |
 | `POST` | `/logout` | Revocar sesión actual | JWT | — |
 | `POST` | `/verify-email` | Confirmar email vía token recibido por email | Sin auth | 30/min |
