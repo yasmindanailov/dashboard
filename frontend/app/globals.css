@@ -61,6 +61,7 @@
   --border:          #E2E8F0;   /* slate-200 (mockup 194×) */
   --border-hover:    #CBD5E1;   /* slate-300 */
   --border-active:   #94A3B8;   /* slate-400 */
+  --border-faint:    #F1F5F9;   /* slate-100: separadores intra-card (mockup ~#F4F6F9) */
 
   /* ── Alias de compatibilidad (F0.3 / GL-27) ──
      Tokens referenciados por código existente pero NO definidos → resolvían
