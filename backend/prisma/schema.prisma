@@ -1366,6 +1366,13 @@ model NotificationTemplate {
   locale     String              @default("es") @db.VarChar(10)
   subject    String              @db.VarChar(300)
   body       String
+  // F4·W3 (layout maestro de email): tono semántico
+  // ('info'|'success'|'warning'|'danger'). NULL = plantilla legacy con HTML
+  // completo en `body` (se envía tal cual). NOT NULL = `body` es el FRAGMENTO
+  // del cuerpo y el render lo envuelve en el layout maestro (`buildEmailLayout`).
+  // Solo aplica al canal `email`. Migración gradual: los templates legacy quedan
+  // NULL hasta su sweep.
+  semantic   String?             @db.VarChar(20)
   variables  Json
   active     Boolean             @default(true)
   updated_by String?             @db.Uuid

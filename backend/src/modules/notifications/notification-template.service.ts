@@ -9,6 +9,11 @@ import * as Handlebars from 'handlebars';
 import { PrismaService } from '../../core/database/prisma.service';
 import { paginate } from '../../common/dto/pagination.dto';
 import { RenderedNotification } from './interfaces/notification-channel.interface';
+import {
+  buildEmailLayout,
+  emailSemanticVars,
+  isEmailSemantic,
+} from '../../core/email/email-layout';
 
 const DEFAULT_LOCALE = 'es';
 
@@ -19,6 +24,7 @@ const TEMPLATE_SELECT = {
   locale: true,
   subject: true,
   body: true,
+  semantic: true,
   variables: true,
   active: true,
   updated_by: true,
@@ -30,6 +36,8 @@ export interface TemplateUpdateInput {
   subject?: string;
   body?: string;
   active?: boolean;
+  /** F4·W3 — tono del layout de email; `null` = plantilla legacy. */
+  semantic?: string | null;
 }
 
 export interface TemplatePreviewSample {
@@ -183,15 +191,11 @@ export class NotificationTemplateService {
     }
 
     try {
-      const subjectFn = Handlebars.compile(tpl.subject, { noEscape: false });
-      const bodyFn = Handlebars.compile(tpl.body, {
-        noEscape: channel === 'email',
-      });
-      return {
-        event_type: eventType,
-        subject: subjectFn(payload),
-        body: bodyFn(payload),
-      };
+      const { subject, body } = this.compileAndWrap(
+        { ...tpl, channel },
+        payload,
+      );
+      return { event_type: eventType, subject, body };
     } catch (err) {
       // Plantilla mal formada (Handlebars compile error). NO debe romper
       // el dispatcher — log y omite el canal.
@@ -200,6 +204,47 @@ export class NotificationTemplateService {
       );
       return null;
     }
+  }
+
+  /**
+   * Compila subject + body y, para el canal `email` con `semantic` no-nulo,
+   * envuelve el fragmento del cuerpo en el layout maestro (`buildEmailLayout`).
+   * Inyecta `email` (colores del tono) en el payload para que el fragmento
+   * (fila de estado, total) los use vía `{{email.*}}`. `semantic` NULL o canal
+   * ≠ email → se devuelve el `body` compilado tal cual (plantilla legacy).
+   */
+  private compileAndWrap(
+    tpl: {
+      subject: string;
+      body: string;
+      semantic: string | null;
+      channel: ChannelType;
+    },
+    payload: Record<string, unknown>,
+  ): { subject: string; body: string } {
+    const isEmail = tpl.channel === 'email';
+    const semantic =
+      isEmail && isEmailSemantic(tpl.semantic) ? tpl.semantic : null;
+    // Inyecciones para el canal email: `app_url` (URLs absolutas de los CTA) +
+    // `email` (colores del tono, para el fragmento que use `{{email.*}}`).
+    const renderPayload: Record<string, unknown> = isEmail
+      ? {
+          ...payload,
+          app_url: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3002',
+          ...(semantic ? { email: emailSemanticVars(semantic) } : {}),
+        }
+      : payload;
+
+    const subject = Handlebars.compile(tpl.subject, { noEscape: false })(
+      renderPayload,
+    );
+    const compiledBody = Handlebars.compile(tpl.body, { noEscape: isEmail })(
+      renderPayload,
+    );
+    const body = semantic
+      ? buildEmailLayout({ semantic, bodyHtml: compiledBody })
+      : compiledBody;
+    return { subject, body };
   }
 
   // ─── Administración (Sprint 9.5 — endpoints staff) ─────────────
@@ -271,6 +316,7 @@ export class NotificationTemplateService {
     if (input.subject !== undefined) data.subject = input.subject;
     if (input.body !== undefined) data.body = input.body;
     if (input.active !== undefined) data.active = input.active;
+    if (input.semantic !== undefined) data.semantic = input.semantic;
 
     const updated = await this.prisma.notificationTemplate.update({
       where: { id },
@@ -297,15 +343,8 @@ export class NotificationTemplateService {
       recipient: DEFAULT_RECIPIENT,
     };
     try {
-      const subjectFn = Handlebars.compile(tpl.subject, { noEscape: false });
-      const bodyFn = Handlebars.compile(tpl.body, {
-        noEscape: tpl.channel === 'email',
-      });
-      return {
-        event_type: tpl.event_type,
-        subject: subjectFn(payload),
-        body: bodyFn(payload),
-      };
+      const { subject, body } = this.compileAndWrap(tpl, payload);
+      return { event_type: tpl.event_type, subject, body };
     } catch (err) {
       throw new BadRequestException(
         `Plantilla no renderiza: ${(err as Error).message}`,
@@ -319,10 +358,15 @@ export class NotificationTemplateService {
     eventType: string,
     channel: ChannelType,
     locale: string,
-  ): Promise<{ subject: string; body: string } | null> {
+  ): Promise<{
+    subject: string;
+    body: string;
+    semantic: string | null;
+  } | null> {
+    const select = { subject: true, body: true, semantic: true };
     const exact = await this.prisma.notificationTemplate.findFirst({
       where: { event_type: eventType, channel, locale, active: true },
-      select: { subject: true, body: true },
+      select,
     });
     if (exact) return exact;
     if (locale !== DEFAULT_LOCALE) {
@@ -333,7 +377,7 @@ export class NotificationTemplateService {
           locale: DEFAULT_LOCALE,
           active: true,
         },
-        select: { subject: true, body: true },
+        select,
       });
       if (fallback) return fallback;
     }

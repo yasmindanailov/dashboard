@@ -144,4 +144,47 @@ describe('NotificationTemplateService', () => {
     // Escapado UNA sola vez (no `&amp;lt;`): el SafeString evita el doble escape.
     expect(out?.body).toBe('Asunto: &lt;b&gt;&amp;hola&lt;/b&gt;');
   });
+
+  // ─── F4·W3: layout maestro (pipeline-wrap por `semantic`) ───
+  it('email con semantic → envuelve el fragmento en el layout maestro (+ inyecta email.* y app_url)', async () => {
+    prisma.notificationTemplate.findFirst.mockResolvedValueOnce({
+      subject: 'Pago — {{invoice_number}}',
+      body: '<div style="color:{{email.fg}}">Pago de {{e invoice_number}}</div><a href="{{app_url}}/dashboard/billing/{{invoice_id}}">Ver</a>',
+      semantic: 'success',
+    });
+    const out = await service.render('invoice.paid', 'email', 'es', {
+      invoice_number: 'AEL-2026-0042',
+      invoice_id: 'inv-1',
+    });
+    expect(out?.body).toContain('<!DOCTYPE'); // layout aplicado
+    expect(out?.body).toContain('#10B981'); // banda de acento (success)
+    expect(out?.body).toContain('aelium'); // cabecera
+    expect(out?.body).toContain('Responde a este correo'); // footer
+    expect(out?.body).toContain('#059669'); // email.fg (success) inyectado
+    expect(out?.body).toContain('AEL-2026-0042'); // contenido
+    expect(out?.body).toContain('/dashboard/billing/inv-1'); // app_url inyectado
+    expect(out?.subject).toBe('Pago — AEL-2026-0042');
+  });
+
+  it('email sin semantic (null) → NO envuelve (plantilla legacy con HTML completo)', async () => {
+    prisma.notificationTemplate.findFirst.mockResolvedValueOnce({
+      subject: 'X',
+      body: '<html>legacy</html>',
+      semantic: null,
+    });
+    const out = await service.render('legacy.event', 'email', 'es', {});
+    expect(out?.body).toBe('<html>legacy</html>');
+    expect(out?.body).not.toContain('Responde a este correo');
+  });
+
+  it('canal internal con semantic → NO aplica el layout (es email-only)', async () => {
+    prisma.notificationTemplate.findFirst.mockResolvedValueOnce({
+      subject: 'X',
+      body: 'campana {{name}}',
+      semantic: 'success',
+    });
+    const out = await service.render('x', 'internal', 'es', { name: 'Yasmin' });
+    expect(out?.body).toBe('campana Yasmin');
+    expect(out?.body).not.toContain('<!DOCTYPE');
+  });
 });
