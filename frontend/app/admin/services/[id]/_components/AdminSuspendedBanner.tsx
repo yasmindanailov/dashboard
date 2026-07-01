@@ -34,13 +34,13 @@ export function AdminSuspendedBanner({ ctx }: { ctx: ServiceDetailContext }) {
         <p className={styles.bannerText}>
           <strong>{t('service.detail.suspended_admin.reason_label')}:</strong>{' '}
           {suspension.label}
-          {suspension.note ? (
-            <span className={styles.bannerReasonNote}>
-              {' — '}
-              {suspension.note}
-            </span>
-          ) : null}
         </p>
+        {suspension.note && (
+          <div className={styles.bannerNote}>
+            <span className={styles.bannerNoteTag}>Nota interna</span>
+            <span className={styles.bannerNoteText}>{suspension.note}</span>
+          </div>
+        )}
         {service.suspended_at && (
           <p className={styles.bannerMetaTertiary}>
             {t('service.detail.suspended_at')}{' '}

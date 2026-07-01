@@ -20,10 +20,10 @@
 .metaItem {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--surface-secondary);
-  border: 1px solid var(--border);
+  gap: var(--space-1_5);
+  padding: var(--space-3) var(--space-3);
+  background: var(--surface-primary);
+  border: 1px solid var(--border-faint);
   border-radius: var(--radius-md);
 }
 
@@ -33,8 +33,8 @@
 }
 
 .metaValue {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
 }
 

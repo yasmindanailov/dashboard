@@ -35,6 +35,7 @@
   /* Superficie de alerta sólida (banners del mockup: amber cálido). */
   --warning-surface:        #FCF3E1;
   --warning-surface-border: #F4E6C4;
+  --warning-surface-strong: #FBEFD3;   /* caja anidada (nota interna del banner) */
   --danger:          #EF4444;
   --danger-dark:     #A53535;   /* texto de banner danger (mockup) */
   --danger-light:    rgba(239, 68, 68, 0.08);
