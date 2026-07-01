@@ -8,7 +8,6 @@ import {
   COOKIE_REFRESH,
   readAccessToken,
 } from './server-auth';
-import { landingForRole } from './auth-routing';
 
 /**
  * Server Actions de autenticación — Sprint 13 §13.AUTH Fase D (2026-05-03).
@@ -61,6 +60,7 @@ interface AuthCompleteResponse {
   user: {
     id: string;
     email: string;
+    first_name: string;
     role: { slug: string };
   };
 }
@@ -174,8 +174,12 @@ export async function loginAction(
     return { requires2fa: { temp_token: result.data.temp_token } };
   }
 
+  // Modelo A: fijamos las cookies httpOnly server-side y redirigimos a `/welcome`
+  // (pantalla de bienvenida autenticada que saluda por nombre y auto-navega al
+  // panel). NO redirigimos directo al landing para que el saludo del mockup se
+  // vea; `/welcome` lee el nombre de la sesión (sin exponer tokens al cliente).
   await setAuthCookies(result.data);
-  redirect(landingForRole(result.data.user.role.slug));
+  redirect('/welcome');
 }
 
 export interface Verify2faActionState {
@@ -208,7 +212,36 @@ export async function verify2faAction(
   }
 
   await setAuthCookies(result.data);
-  redirect(landingForRole(result.data.user.role.slug));
+  redirect('/welcome');
+}
+
+export interface Resend2faActionState {
+  ok?: boolean;
+  error?: string;
+  /** Nuevo `temp_token` (ventana 2FA renovada) para usar en el verify siguiente. */
+  tempToken?: string;
+}
+
+/**
+ * resend2faAction — reenvía el código 2FA. El backend regenera el código, lo
+ * reenvía por email y devuelve un `temp_token` fresco. El form debe adoptar ese
+ * token nuevo para el verify posterior.
+ */
+export async function resend2faAction(
+  _prevState: Resend2faActionState | null,
+  formData: FormData,
+): Promise<Resend2faActionState> {
+  const tempToken = String(formData.get('temp_token') ?? '');
+  if (!tempToken) {
+    return { ok: false, error: 'Falta el token temporal. Inicia sesión de nuevo.' };
+  }
+  const result = await backendCall<Login2faPendingResponse>('/auth/resend-2fa', {
+    temp_token: tempToken,
+  });
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+  return { ok: true, tempToken: result.data.temp_token };
 }
 
 /**

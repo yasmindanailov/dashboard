@@ -20,6 +20,7 @@ import {
   RegisterDto,
   LoginDto,
   Verify2faDto,
+  Resend2faDto,
   VerifyEmailDto,
   ForgotPasswordDto,
   ResetPasswordDto,
@@ -68,6 +69,14 @@ export class AuthController {
       this.getIp(req),
       req.headers['user-agent'],
     );
+  }
+
+  @Post('resend-2fa')
+  @Throttle({ default: { ttl: 60000, limit: 3 } }) // R10: anti-spam de emails 2FA
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reenvía el código 2FA (paso 2 del login)' })
+  async resend2fa(@Body() dto: Resend2faDto, @Req() req: Request) {
+    return this.authService.resend2fa(dto.temp_token, this.getIp(req));
   }
 
   @Post('refresh')

@@ -50,6 +50,10 @@ export class AuthService {
     return this.loginService.verify2fa(dto, ip, userAgent);
   }
 
+  resend2fa(tempToken: string, ip: string) {
+    return this.loginService.resend2fa(tempToken, ip);
+  }
+
   /* ── Register ── */
   register(dto: RegisterDto, ip: string, userAgent?: string) {
     return this.registerService.register(dto, ip, userAgent);
