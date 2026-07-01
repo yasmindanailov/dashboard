@@ -1,0 +1,128 @@
+/* ═══════════════════════════════════════
+   NotesExplorer — cromo compartido de la tab "Notas" (F4·U24).
+   Cabecera + chips de categoría + filtros + timeline. Lo usan el detalle de
+   cliente (`ClientNotesTab`, interactivo) y el detalle de servicio
+   (`ServiceNotesCard`, read-only). Movido 1:1 desde `clientDetail.module.css`
+   (iteración U22) para que ambos compartan el MISMO diseño (decisión Yasmin:
+   "notas del servicio = mismo diseño que la tab Notas del cliente").
+   ═══════════════════════════════════════ */
+
+.topRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+.topText {
+  max-width: 560px;
+}
+.title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+.summary {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin: var(--space-1_5) 0 0;
+  line-height: 1.5;
+}
+
+.chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  padding: var(--space-1_5) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+.chip:hover {
+  border-color: var(--border-hover);
+}
+.chipActive {
+  border-color: var(--brand);
+  background: var(--brand-subtle);
+  color: var(--brand-hover);
+}
+.chipDot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  display: inline-block;
+}
+.chipCount {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  color: var(--text-tertiary);
+}
+.chipActive .chipCount {
+  color: var(--brand);
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+.select {
+  height: 34px;
+  padding: 0 var(--space-4) 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-primary);
+  font-size: var(--font-size-xs);
+  font-family: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.pinnedToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.clearBtn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--brand);
+  cursor: pointer;
+}
+
+.emptyCard {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+.loadingText {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}

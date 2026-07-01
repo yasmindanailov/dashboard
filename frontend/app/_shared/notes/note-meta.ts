@@ -38,6 +38,20 @@ export const SOURCE_LABELS: Record<NoteSourceSystem, string> = {
   service: 'Servicio',
 };
 
+/** Opciones del filtro de origen del `<NotesExplorer>` (cliente + servicio). */
+export const NOTE_SOURCE_FILTER_OPTIONS: {
+  value: NoteSourceSystem | '';
+  label: string;
+}[] = [
+  { value: '', label: 'Todos los orígenes' },
+  { value: 'ticket', label: 'Ticket de soporte' },
+  { value: 'maintenance_log', label: 'Mantenimiento' },
+  { value: 'task_completion', label: 'Cierre de tarea' },
+  { value: 'service', label: 'Servicio (lifecycle)' },
+  { value: 'exceptional', label: 'Nota excepcional' },
+  { value: 'chat', label: 'Chat' },
+];
+
 export const ACTION_LABELS: Record<string, string> = {
   'ticket.resolved': 'Ticket resuelto',
   'ticket.closed': 'Ticket cerrado',

@@ -261,6 +261,9 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
 
   // ── Timeline de auditoría per-servicio — Sprint 15C.II Fase F.3 (GAP-15CII-M).
   'service.audit.title': 'Historial de auditoría',
+  // F4·U24 — cabecera de la tab "Auditoría" 1:1 con el mockup.
+  'service.audit.recent_title': 'Actividad reciente',
+  'service.audit.recent_prefix': 'Últimas',
   'service.audit.subtitle_admin':
     'Todos los eventos registrados sobre este servicio: cambios de estado, acciones ejecutadas, accesos del equipo y reconciliaciones contra el proveedor.',
   'service.audit.subtitle_client':
@@ -381,6 +384,9 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.detail.meta.contracted': 'Contratado',
   'service.detail.meta.renews': 'Renueva',
   'service.detail.meta.client': 'Cliente',
+  // F4·U24 (feature C) — badge de cobertura Support Inside en el header admin.
+  'service.si_coverage.maintenance': 'Mantenimiento',
+  'service.si_coverage.maintenance_management': 'Mantenimiento + gestión',
   'service.detail.actions.more': 'Más acciones',
   'service.detail.fetched_at': 'Última lectura del proveedor:',
   'service.detail.cancelled_at': 'Cancelado el',

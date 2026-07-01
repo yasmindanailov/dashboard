@@ -163,6 +163,27 @@
   text-decoration: none;
   white-space: nowrap;
 }
+
+/* Tab "Auditoría" (F4·U24) — contador "Últimas N" a la derecha del título +
+   enlace "Ver historial completo →" al pie (1:1 con el mockup). */
+.auditCount {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.auditFooter {
+  margin-top: var(--space-3);
+}
+.auditFullLink {
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--brand);
+  text-decoration: none;
+}
+.auditFullLink:hover {
+  text-decoration: underline;
+}
+
 /* CTA "Ver X" con chevron (billing/audit) — 1:1 con el mockup. */
 .billingLink {
   display: inline-flex;

@@ -1,21 +1,9 @@
 /* ═══════════════════════════════════════
-   ServiceNotesCard — F4·U24. Cabecera "Notas internas" + contador; las filas
-   las renderiza la primitiva compartida <NotesTimeline> (mismo diseño que la
-   tab "Notas" del cliente-detalle). Tokens only.
+   ServiceNotesCard — F4·U24. El cromo (cabecera + chips + filtros + timeline)
+   lo aporta el compartido <NotesExplorer> (mismo diseño que la tab "Notas" del
+   cliente-detalle). Aquí solo el enlace de la cabecera + el mensaje de error.
+   Tokens only.
    ═══════════════════════════════════════ */
-
-.header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2_5);
-  margin-bottom: var(--space-4);
-}
-.title {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-  color: var(--text-primary);
-  margin: 0;
-}
 
 /* Mismo CSS que el CTA "Ver historial completo" del tab Auditoría, a la derecha. */
 .link {
