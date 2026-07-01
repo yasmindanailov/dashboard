@@ -1,9 +1,9 @@
-.wrapper { display: flex; flex-direction: column; gap: var(--space-1); }
+.wrapper { display: flex; flex-direction: column; gap: var(--space-1_5); }
 
 .label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--text-primary);
+  color: var(--text-secondary);
 }
 
 .textareaContainer {
@@ -17,8 +17,8 @@
   font-family: var(--font-family);
   color: var(--text-primary);
   background: var(--surface-primary);
-  border: 1px solid var(--border-hover);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-field);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   outline: none;
   resize: vertical;
