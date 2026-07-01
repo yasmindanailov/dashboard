@@ -3,9 +3,9 @@
 > Documentación **empírica** del reskin 1:1 de **U24 Servicio-detalle admin**
 > (`/admin/services/[id]`) hacia `mockup-uiux/admin/ServicioDetalleAdmin.dc.html`
 > + `SupportInsideDetalleAdmin.dc.html`. Rama `redesign/f4-servicio-detalle`
-> **apilada sobre** `redesign/f4-producto-form` (U27). **🟡 EN CURSO** — parte 1
-> + gran parte de la parte 2 hechas y verdes; quedan 2 items (timeline de
-> auditoría + feature C backend). Mapa: `ui-migration-{plan,backlog,gap}-2026-06-26.md`
+> **apilada sobre** `redesign/f4-producto-form` (U27). **🟢 CÓDIGO-COMPLETO** — parte 1
+> + parte 2 (incl. los 2 items finales: **timeline de auditoría reskineado** +
+> **feature C backend**) hechas y verdes. Mapa: `ui-migration-{plan,backlog,gap}-2026-06-26.md`
 > (gap U24 = `ui-migration-gap-2026-06-26.md:441-448`).
 
 ---
@@ -51,20 +51,30 @@ Los bloques `scope:both` son **compartidos con el detalle de cliente**
 **Tokens nuevos:** `--border-faint`, `--warning-surface`/`-border`/`-strong`,
 `--danger-surface`/`-border`, `--danger-dark`.
 
-## 4. Pendiente (otra sesión)
+## 4. Cierre — los 2 items finales ✅ (2026-07-01)
 
-1. **Auditoría — timeline**: reskin de `ServiceAuditTimeline` con la primitiva DS
-   `IconWell` (icon-well por tono/tipo de evento + línea conectora). Se **compone
-   IconWell** (no `ActivityRow`) porque el timeline admin conserva **detalle rico**
-   (SSO/impersonation, `changes` JSON, IP) que `ActivityRow` no soporta → cero
-   features perdidas + primitiva DS coherente.
-2. **Feature C — badge cobertura SI**: **backend** — `GET /admin/services/:id`
-   debe incluir el `slot_type` del slot SI activo que cubre el servicio (SI-INV-8
-   single-query, capability-driven, NUNCA por slug) + poblar
-   `ctx.siCoverageBadge` (ya cableado en `ServiceHeaderCard`, campo opcional) →
-   **boot smoke** (toca módulo/DI backend).
-3. **Diferidos** (decisión Yasmin): composer de nota manual (sin endpoint POST) ·
-   controles de dominio admin (NS/lock/WHOIS/EPP, no en el mockup).
+1. **Auditoría — timeline ✅**: `ServiceAuditTimeline` reskineado al DS — cada
+   evento es fila con **`IconWell`** (tono/icono por tipo de acción: acceso→neutral,
+   SSO/impersonación→security, activado/reanudado→success, suspendido/reconciliado→
+   warning, cancelado→danger, reprovisión→brand) + **línea conectora** vertical
+   (oculta en la última fila, 1:1 mockup) + **CSS Module** (`ServiceAuditTimeline.module.css`,
+   cero inline, tokens del DS). Se **compone `IconWell`** (no `ActivityRow`) porque
+   conserva el **detalle rico** admin (actor+rol, IP, `<details>` con `changes_*` JSON)
+   que `ActivityRow` no soporta → cero features perdidas. Es `_shared` ⇒ el reskin
+   alcanza también el **timeline cliente** (preview + `/dashboard/services/[id]/audit`),
+   coherente con "todo sistémico" (W3 lo hereda).
+2. **Feature C — badge cobertura SI ✅**: **backend** — `ProvisioningService.getInfoForUser`
+   expone `service.si_coverage_slot_type` (`GET /admin/services/:id`) con **una** query
+   indexada `supportInsideSlot.findFirst({ where: { service_id, released_at: null },
+   select: { slot_type } })`, **gateada a `isAdmin`** y a servicios técnicos (excluye
+   `product.type='support_inside'`). Presencia del slot, **nunca por slug** (R4, SI-INV-8).
+   **Frontend** — el wrapper admin mapea `slot_type`→i18n (`service.si_coverage.*`) y
+   puebla `ctx.siCoverageBadge` (ya cableado en `ServiceHeaderCard`). **+4 tests unit**
+   (cobertura, sin slot, gating cliente, gating SI-product). **Boot smoke: DI graph OK +
+   `4/4 plugins`** (`[internal, manual, enhance_cp, resellerclub]`). Doc: `admin.md §11.3 (C)`.
+3. **Diferidos** (decisión Yasmin, siguen fuera de U24): composer de nota manual
+   (sin endpoint POST) · controles de dominio admin (NS/lock/WHOIS/EPP, no en el mockup)
+   · filtros (A)/(B) de la lista `/admin/services` (`admin.md §11.3`).
 
 ## 5. ⚠️ Re-smoke sistémico (esta sesión)
 
@@ -74,8 +84,58 @@ cálidos) · `IconWell` (type-cards U27 + notificaciones + header ahora `#EFF4FF
 del cliente** (`/admin/clients/[id]` tab Notas — mismo diseño, ahora vía
 `NotesTimeline`). Verde de build/tests NO cubre regresión visual.
 
-## 6. DoD (parcial)
+## 6. DoD (completo · 2026-07-01)
 
-`frontend`: typecheck + lint + **96** test + build ✅ (en cada commit). **No toca
-backend todavía** → boot smoke pendiente para feature C. `ci:check` completo +
-boot smoke al cerrar la parte 2.
+- **frontend**: typecheck + lint (0 warnings) + **96** test + build ✅.
+- **backend**: typecheck + lint + **1533** test (12 skip · **+4** de feature C) ✅.
+- **boot smoke**: DI graph completo sin `UnknownDependenciesException` +
+  `Validated 4/4 provisioner plugin(s): [internal, manual, enhance_cp, resellerclub]`
+  + `Nest application successfully started` ✅. *(El `EADDRINUSE :::3001` del smoke fue
+  colisión con el backend de dev ya levantado — el grafo se inicializó entero antes del
+  bind, que es justo lo que valida el smoke.)*
+- Docs al día: esta bitácora · `admin.md §11.3 (C)` · `current.md`.
+
+**⚠️ RE-SMOKE visual (Yasmin)** — además del re-smoke sistémico de la parte 1
+(AlertBanner/IconWell/SectionCard/Meter/DescriptionList + notas del cliente), el reskin del
+timeline es `_shared` ⇒ revisar **ambos** timelines de auditoría: admin
+(`/admin/services/[id]` tab Auditoría + `…/audit`) y **cliente**
+(`/dashboard/services/[id]` tab Auditoría + `…/audit`). Y el **badge de cobertura SI** en el
+header de un servicio técnico cubierto por un slot activo.
+
+## 7. Ronda de ajustes de fidelidad (review Yasmin · 2026-07-01)
+
+5 puntos de la revisión visual del detalle admin — todo **frontend**, `frontend`
+typecheck + lint (0 warn) + **96** test + build ✅ (sin tocar backend → sin boot smoke):
+
+1. **P1 · "Cambiar plan" al kebab.** Se retiró la card `plan-change-card` del Resumen
+   admin (ahora `scope: 'client'`; el cliente la conserva para W3) y la acción vive en
+   "Más acciones" (1:1 mockup). Extraído **`ChangePlanModal`** (`_shared/services/_components/`,
+   prorrateo ADR-029) de `ChangePlanCard` → lo lanzan **la card cliente** y **el kebab admin**.
+   Kebab admin: un solo **"Cambiar plan…"** = prorrateo (no-terminal/no-dominio/no-suspendido).
+   ⚠️ El `change_package` de Enhance (capability distinta) se **renombró** a "Cambiar paquete
+   de hosting…" para no colisionar (solo aparece si el plugin lo expone; ausente en dev).
+2. **P2 · Redundancia de "Activo".** `ServiceOverviewCard` ya no repite el estado: se quitó
+   el **Badge de estado** (duplicaba el badge del header, D4) y la **narrativa** "El servicio
+   está activo y operativo." La card se queda con los hechos (plan/alta/renovación) + el motivo
+   técnico si lo hay. El estado vive **solo** en el badge del header.
+3. **P3 · Tab Auditoría 1:1.** `ServiceAuditTabSection` → título **"Actividad reciente"** +
+   contador **"Últimas N"** a la derecha + enlace **"Ver historial completo →" al pie** (antes
+   arriba). Preview a **5** filas (mockup). Timeline: iconos alineados al mockup (SSO→candado
+   morado `security`, aprovisionado→caja verde `success`). *(No hay total en el API → "Últimas
+   N", sin "de M".)*
+4. **P4 · Tab Notas = diseño del cliente.** Extraído **`NotesExplorer`** (`_shared/notes/`,
+   cabecera + resumen + chips de categoría + filtro de origen + `NotesTimeline`) desde
+   `ClientNotesTab`. Lo usan **cliente** (interactivo: fijar/desfijar + "Nota excepcional") y
+   **servicio** (`ServiceNotesCard`, **read-only**, composer sigue diferido). Opciones de
+   origen compartidas en `note-meta` (`NOTE_SOURCE_FILTER_OPTIONS`). ⚠️ Re-smoke: el tab Notas
+   del **cliente** (`/admin/clients/[id]`) también cambió de wrapper (mismo diseño).
+5. **P5 · Header/botones.** Verificado 1:1 al nivel DS (icon-well 50px · h1 `--font-size-lg`
+   20px ≈ 21px mockup · badge de estado · metadata inline · clúster Abrir panel/Gestionar DNS/⋯).
+   **Decisión Yasmin:** la píldora superior "Proveedor · Healthy" NO se añade — la salud sigue
+   solo en "Datos técnicos" (Amendment VII).
+
+**Nota P1 (pendiente de confirmación):** la opción elegida decía "si el proveedor expone
+change_package, se ofrece dentro del mismo flujo". Por ahora se dejaron como **dos ítems
+distintos** ("Cambiar plan…" prorrateo + "Cambiar paquete de hosting…" proveedor) para no
+fusionar dos backends distintos ni perder la capability de Enhance. Si se quiere un único
+flujo que englobe ambos, es trabajo adicional (a decidir).
