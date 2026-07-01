@@ -1,56 +1,37 @@
 /* ═══════════════════════════════════════
-   ServiceNotesCard — Sprint 15C.II F.6 → F.12.5 (Amendment VIII)
-   Migrado a <SectionCard> + tokens. `.link` replica EXACTA del
-   `ctaText` del tab Auditoría (mismo color y css, mismo slot de
-   acciones). Corrige tokens inexistentes (--brand-600 /
-   --border-default / --surface-elevated).
+   ServiceNotesCard — F4·U24. Cabecera "Notas internas" + contador; las filas
+   las renderiza la primitiva compartida <NotesTimeline> (mismo diseño que la
+   tab "Notas" del cliente-detalle). Tokens only.
    ═══════════════════════════════════════ */
 
-/* Mismo CSS que el CTA "Ver historial completo" del tab Auditoría. */
-.link {
-  color: var(--brand);
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2_5);
+  margin-bottom: var(--space-4);
+}
+.title {
   font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* Mismo CSS que el CTA "Ver historial completo" del tab Auditoría, a la derecha. */
+.link {
+  margin-left: auto;
+  color: var(--brand);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-decoration: none;
   white-space: nowrap;
+}
+.link:hover {
+  text-decoration: underline;
 }
 
 .muted {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--text-tertiary);
-}
-
-.notesList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.note {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-3);
-  background: transparent;
-}
-.notePinned {
-  background: var(--surface-secondary);
-}
-
-.noteBody {
-  margin: 0 0 var(--space-1_5);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-normal);
-  white-space: pre-wrap;
-}
-
-.noteMeta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-}
-.noteAuthor {
-  font-weight: var(--font-weight-semibold);
 }
