@@ -546,7 +546,15 @@ Toda página del dashboard es UNO de estos 6 tipos. Sin excepciones.
 | Breadcrumb | ✅ | Siempre. |
 | Form header | ✅ | Solo título. Sin subtitle ni CTA. |
 | Form sections | ✅ | Agrupadas en Cards con título de sección. Máximo 4-5 campos por sección. |
-| Form actions | ✅ | Siempre al final. Cancelar (secondary) + Guardar (primary). **Sin background, sin border, sin sticky.** Los botones flotan en el espacio natural del form. Solo se añade sticky cuando el form excede 2× viewport height. El layout `FormPage` gestiona esto — la página individual NUNCA define estilos de actions. |
+| Form actions | ✅ | Al final **por defecto**. Cancelar (secondary) + Guardar (primary). **Sin background, sin border, sin sticky.** Los botones flotan en el espacio natural del form. Solo se añade sticky cuando el form excede 2× viewport height. El layout `FormPage` gestiona esto — la página individual NUNCA define estilos de actions. Ver **Amendment A1** para la variante en cabecera. |
+
+> **Amendment A1 (rediseño UI, F4·U27 · decisión Yasmin 2026-07-01).** Algunos
+> mockups sitúan las acciones del form **en la cabecera** (junto al título,
+> alineadas a la derecha) en lugar del pie — p. ej. `admin/ProductoForm.dc.html`
+> ("Cambiar tipo" + "Crear X"). `FormPage` lo soporta de forma **additiva** con la
+> prop **`headerActions`** (por defecto, las acciones siguen al pie vía `actions`;
+> nunca se usan ambas a la vez). La página sigue **sin** definir estilos de actions
+> (los gestiona `FormPage`). El resto de §2.6 se conserva.
 
 ---
 

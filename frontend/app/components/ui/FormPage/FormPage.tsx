@@ -9,7 +9,10 @@ import styles from './FormPage.module.css';
  *   1. Breadcrumb (always)
  *   2. Form header (h1 only, no subtitle or CTA)
  *   3. Form sections (children — use Card with section titles)
- *   4. Form actions (sticky bottom: Cancel + Submit)
+ *   4. Form actions (footer by default; `headerActions` para acciones en la
+ *      cabecera junto al título — UI_SPEC §2.6 Amendment A1, F4·U27: algunos
+ *      mockups sitúan las acciones en la cabecera del form. Additivo: por
+ *      defecto las acciones siguen al pie vía `actions`.)
  *
  * @example
  *   <FormPage
@@ -38,18 +41,39 @@ export interface FormPageProps {
   title: string;
   /** Form sections — should be Card components */
   children: ReactNode;
-  /** Sticky action bar content — typically Cancel + Submit buttons */
+  /** Footer action bar content — typically Cancel + Submit buttons */
   actions?: ReactNode;
+  /**
+   * Acciones en la CABECERA (junto al título, alineadas a la derecha). Additivo
+   * (UI_SPEC §2.6 Amendment A1): para mockups que colocan las acciones arriba
+   * (p. ej. ProductoForm — "Cambiar tipo" + "Crear X"). Si se usa, no repetir en
+   * `actions`.
+   */
+  headerActions?: ReactNode;
   /** Optional className override */
   className?: string;
 }
 
-export function FormPage({ breadcrumb, title, children, actions, className = '' }: FormPageProps) {
+export function FormPage({
+  breadcrumb,
+  title,
+  children,
+  actions,
+  headerActions,
+  className = '',
+}: FormPageProps) {
   return (
     <div className={`${styles.container} ${className}`}>
       <div className={styles.header}>
         <Breadcrumb items={breadcrumb} />
-        <h1 className={styles.title}>{title}</h1>
+        {headerActions ? (
+          <div className={styles.titleRow}>
+            <h1 className={styles.title}>{title}</h1>
+            <div className={styles.headerActions}>{headerActions}</div>
+          </div>
+        ) : (
+          <h1 className={styles.title}>{title}</h1>
+        )}
       </div>
 
       {children}
