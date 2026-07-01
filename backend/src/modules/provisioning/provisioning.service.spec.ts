@@ -75,6 +75,8 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       update: jest.Mock;
     };
     user: { findUnique: jest.Mock };
+    // F4·U24 (feature C): lookup de cobertura Support Inside en getInfoForUser.
+    supportInsideSlot: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
   let registry: jest.Mocked<PluginRegistryService>;
@@ -207,6 +209,9 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
           language: 'es',
         }),
       },
+      // F4·U24 (feature C): por defecto sin cobertura SI (findFirst → null).
+      // Los tests de cobertura lo sobreescriben con un slot activo.
+      supportInsideSlot: { findFirst: jest.fn().mockResolvedValue(null) },
       // Sprint 15C.II F.6 — `$transaction` soporta ambas formas: array
       // (`[$promise1, $promise2]`) y callback (`(tx) => ...`). El refactor
       // F.6 R3 de `suspend/unsuspend/deprovisionAsAdmin` usa la callback
@@ -413,6 +418,91 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
     // del producto al frontend admin para mostrar el "effective slug"
     // cuando service.provisioner_slug es null (caso not_yet_provisioned).
     expect(result.service.product_provisioner).toBe('internal');
+  });
+
+  // ─── F4·U24 (feature C): badge de cobertura Support Inside ───────────────
+
+  it('getInfoForUser (admin): servicio técnico cubierto → expone si_coverage_slot_type con UNA query indexada (SI-INV-8)', async () => {
+    // Servicio técnico (hosting), no la propia suscripción SI.
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        product: {
+          id: 'prod-hosting',
+          slug: 'hosting-pro',
+          name: 'Hosting Pro',
+          type: 'hosting_web',
+          provisioner: 'internal',
+          provisioner_config: null,
+        },
+      }),
+    );
+    registry.get.mockReturnValue(null); // fallback: el summary igual se construye
+    prisma.supportInsideSlot.findFirst.mockResolvedValueOnce({
+      slot_type: 'maintenance_management',
+    });
+
+    const result = await service.getInfoForUser('svc-1', 'admin-1', true);
+
+    expect(result.service.si_coverage_slot_type).toBe('maintenance_management');
+    // PRESENCIA del slot activo, NUNCA por slug (R4) — una sola query indexada.
+    expect(prisma.supportInsideSlot.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.supportInsideSlot.findFirst).toHaveBeenCalledWith({
+      where: { service_id: 'svc-1', released_at: null },
+      select: { slot_type: true },
+    });
+  });
+
+  it('getInfoForUser (admin): servicio técnico sin slot activo → si_coverage_slot_type null', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        product: {
+          id: 'prod-hosting',
+          slug: 'hosting-pro',
+          name: 'Hosting Pro',
+          type: 'hosting_web',
+          provisioner: 'internal',
+          provisioner_config: null,
+        },
+      }),
+    );
+    registry.get.mockReturnValue(null);
+    // findFirst → null por defecto (sin slot).
+
+    const result = await service.getInfoForUser('svc-1', 'admin-1', true);
+
+    expect(result.service.si_coverage_slot_type).toBeNull();
+  });
+
+  it('getInfoForUser (cliente): NO consulta cobertura SI (gating isAdmin) → null', async () => {
+    prisma.service.findUnique.mockResolvedValueOnce(
+      buildServiceRow({
+        product: {
+          id: 'prod-hosting',
+          slug: 'hosting-pro',
+          name: 'Hosting Pro',
+          type: 'hosting_web',
+          provisioner: 'internal',
+          provisioner_config: null,
+        },
+      }),
+    );
+    registry.get.mockReturnValue(null);
+
+    const result = await service.getInfoForUser('svc-1', 'user-1', false);
+
+    expect(result.service.si_coverage_slot_type).toBeNull();
+    expect(prisma.supportInsideSlot.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('getInfoForUser (admin): la propia suscripción SI no se cubre a sí misma → sin query, null', async () => {
+    // buildServiceRow por defecto es un producto `support_inside`.
+    prisma.service.findUnique.mockResolvedValueOnce(buildServiceRow());
+    registry.get.mockReturnValue(null);
+
+    const result = await service.getInfoForUser('svc-1', 'admin-1', true);
+
+    expect(result.service.si_coverage_slot_type).toBeNull();
+    expect(prisma.supportInsideSlot.findFirst).not.toHaveBeenCalled();
   });
 
   // Sprint 15C.II Fase F.3 (GAP-15CII-G4) — TTL del cache service_info.

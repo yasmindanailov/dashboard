@@ -268,8 +268,9 @@ admin es esta extensión. "Programar mantenimiento" queda **omitido** (D-3).
 ### 11.3 Pendiente (F4 · reskin de Servicios) — superficies Support Inside
 
 > **Documentado 2026-06-29 (Yasmin) para implementar al reskinear `/admin/services`
-> (lista) y `/admin/services/[id]` (detalle) en F4.** NO implementado aún. Especificado
-> aquí con el modelo de slots verificado empíricamente para no re-investigar al codear.
+> (lista) y `/admin/services/[id]` (detalle) en F4.** Especificado aquí con el modelo de
+> slots verificado empíricamente para no re-investigar al codear.
+> **Estado:** **(C) ✅ IMPLEMENTADO (F4·U24, 2026-07-01)** · (A)/(B) (filtros de la lista) pendientes.
 
 **Modelo de slots (empírico — base de A/B/C):**
 - Enum `SupportInsideSlotType`: **`maintenance`** → "Mantenimiento" · **`maintenance_management`**
@@ -297,18 +298,25 @@ filtra los servicios técnicos **cubiertos por un slot SI activo**, por tipo. Ba
 Frontend: Select en el `FilterBar`. **Distinto de (A):** A = el servicio del addon; B = los
 servicios técnicos que el addon cubre.
 
-**(C) Badge inteligente en `/admin/services/[id]`** — para un servicio técnico cubierto por
-SI, badge derivado del `slot_type` de su slot activo:
+**(C) Badge inteligente en `/admin/services/[id]`** — ✅ **IMPLEMENTADO (F4·U24, 2026-07-01).**
+Para un servicio técnico cubierto por SI, badge en el header derivado del `slot_type` de su
+slot activo:
 - `maintenance` → **"Mantenimiento"**
 - `maintenance_management` → **"Mantenimiento + gestión"**
 - sin slot SI activo → sin badge.
-Es "inteligente" porque sale del slot real (cuyo tipo lo acota el `slot_types_allowed` del
-plan SI del cliente). Backend: incluir el slot activo + su `slot_type` en `GET /admin/services/:id`
-(o fetch fail-soft capability-driven como el bloque "Plan de soporte"). Frontend: badge en el
-header del detalle (vía el registro de secciones); reutiliza el tono del `MaintenanceSlotCard`.
+**Backend:** `ProvisioningService.getInfoForUser` expone `service.si_coverage_slot_type` en
+`GET /admin/services/:id`, computado con **una** query indexada
+`prisma.supportInsideSlot.findFirst({ where: { service_id, released_at: null }, select: { slot_type } })`
+— **gateada a la vista admin** (`isAdmin`) y a servicios técnicos (excluye
+`product.type='support_inside'`, que nunca se cubre a sí mismo). **Frontend:** el wrapper admin
+mapea `slot_type`→etiqueta i18n (`service.si_coverage.*`) y puebla `ctx.siCoverageBadge`, que
+`ServiceHeaderCard` renderiza como `<Badge variant="brand">` junto al estado.
 
-**Doctrina:** SI-INV-8 (single-query, sin N+1) — extender el `include` del servicio dueño,
-no consultar slots por fila. Capability-driven por presencia del slot, nunca por slug (R4).
+**Doctrina:** SI-INV-8 (single-query, sin N+1) — 1 servicio ≤ 1 slot activo ⇒ `findFirst`
+indexado (`@@index([service_id])`+`@@index([released_at])`), no consulta por fila.
+Capability-driven por **presencia** del slot, nunca por slug (R4). *(Se optó por un `findFirst`
+gateado a `isAdmin` en vez de extender el `include` del servicio dueño, para no gravar la ruta
+cliente `/dashboard/services/[id]` con una query que solo consume el header admin.)*
 
 ---
 

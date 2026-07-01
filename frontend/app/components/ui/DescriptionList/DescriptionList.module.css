@@ -27,6 +27,37 @@
   overflow-wrap: anywhere;
 }
 
+/* ── divided (filas space-between con separador faint) ── */
+.divided {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+.dividedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2_5) 0;
+  border-top: 1px solid var(--border-faint);
+  font-size: var(--font-size-sm);
+}
+.dividedRow:first-child {
+  border-top: none;
+}
+.dividedTerm {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.dividedValue {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* ── inline ── */
 .inline {
   display: flex;

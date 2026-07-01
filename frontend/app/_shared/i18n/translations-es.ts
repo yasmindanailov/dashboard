@@ -261,6 +261,9 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
 
   // ── Timeline de auditoría per-servicio — Sprint 15C.II Fase F.3 (GAP-15CII-M).
   'service.audit.title': 'Historial de auditoría',
+  // F4·U24 — cabecera de la tab "Auditoría" 1:1 con el mockup.
+  'service.audit.recent_title': 'Actividad reciente',
+  'service.audit.recent_prefix': 'Últimas',
   'service.audit.subtitle_admin':
     'Todos los eventos registrados sobre este servicio: cambios de estado, acciones ejecutadas, accesos del equipo y reconciliaciones contra el proveedor.',
   'service.audit.subtitle_client':
@@ -380,6 +383,10 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
     'Próximamente podrás solicitar un desarrollo personalizado vinculado a este servicio. (Función disponible cuando Sprint 22 Projects esté activo.)',
   'service.detail.meta.contracted': 'Contratado',
   'service.detail.meta.renews': 'Renueva',
+  'service.detail.meta.client': 'Cliente',
+  // F4·U24 (feature C) — badge de cobertura Support Inside en el header admin.
+  'service.si_coverage.maintenance': 'Mantenimiento',
+  'service.si_coverage.maintenance_management': 'Mantenimiento + gestión',
   'service.detail.actions.more': 'Más acciones',
   'service.detail.fetched_at': 'Última lectura del proveedor:',
   'service.detail.cancelled_at': 'Cancelado el',
@@ -539,7 +546,10 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   //    admin gana tooltip con fecha ISO + CTA al panel del proveedor.
   //    R3 (refinamiento pre-código): `none` muestra card visible — NO
   //    AlertBanner aparte (es estado del recurso, no aviso ortogonal).
-  'service.ssl.card_title': 'SSL',
+  'service.ssl.card_title': 'Certificado SSL',
+  'service.ssl.status_label': 'Estado',
+  'service.ssl.issuer_label': 'Emisor',
+  'service.ssl.renewal_label': 'Renovación automática',
   'service.ssl.status.valid': 'SSL activo',
   'service.ssl.status.expiring_soon': 'SSL caduca pronto',
   'service.ssl.status.expired': 'SSL caducado',
@@ -640,6 +650,10 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   //    aplica: misma info, solo el href ramifica). Capability-driven por
   //    presencia: si no hay nextDueDate ni lastInvoice → no se renderiza.
   'service.billing_cross_link.card_title': 'Facturación',
+  'service.billing_cross_link.next_bill_label': 'Próxima factura',
+  'service.billing_cross_link.last_bill_label': 'Última factura',
+  'service.billing_cross_link.amount_label': 'Importe',
+  'service.billing_cross_link.status_label': 'Estado',
   'service.billing_cross_link.next_renewal_prefix': 'Próxima renovación: ',
   'service.billing_cross_link.last_invoice_prefix': 'Última factura: ',
   'service.billing_cross_link.due_prefix': 'vence ',

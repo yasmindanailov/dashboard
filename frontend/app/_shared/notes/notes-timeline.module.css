@@ -1,0 +1,126 @@
+/* ═══════════════════════════════════════
+   NotesTimeline — diseño compartido de notas (F4·U24).
+   Movido 1:1 desde clientDetail.module.css: filas de nota (punto de categoría
+   + cuerpo + meta) agrupadas en card de fijadas + timeline por mes. Reutilizado
+   por ClientNotesTab (cliente-detalle) y ServiceNotesCard (detalle de servicio).
+   ═══════════════════════════════════════ */
+
+.notesPinnedCard {
+  background: var(--surface-primary);
+  border: 1px solid var(--brand-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-5);
+}
+.notesPinnedHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--brand-subtle);
+  border-bottom: 1px solid var(--brand-light);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--brand-hover);
+}
+
+.notesMonthGroup {
+  margin-bottom: var(--space-5);
+}
+.notesMonthLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2_5);
+}
+.notesMonthLabel > span:first-child {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.notesMonthLine {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.notesMonthCard {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.noteRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+.noteRowDivider {
+  border-top: 1px solid var(--border);
+}
+.noteDotMark {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+.noteRowBody {
+  flex: 1;
+  min-width: 0;
+}
+.noteRowText {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  line-height: 1.55;
+  margin: 0 0 var(--space-2);
+  white-space: pre-wrap;
+}
+.noteRowMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.noteRowAuthor {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+}
+.noteSrcChip {
+  display: inline-flex;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: 10.5px;
+  font-weight: var(--font-weight-semibold);
+  background: var(--surface-tertiary);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.noteSrcChipLink {
+  color: var(--brand);
+}
+.metaDot {
+  color: var(--border-hover);
+}
+.notePinBtn {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.notePinBtnActive {
+  color: var(--brand);
+}
+.notePinBtnInactive {
+  color: var(--text-tertiary);
+}

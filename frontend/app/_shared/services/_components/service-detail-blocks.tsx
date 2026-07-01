@@ -13,10 +13,10 @@
  * Presentacional puro — Server-component compatible (sin `'use client'`).
  */
 import Link from 'next/link';
+import { Clock } from 'lucide-react';
 
 import {
   AlertBanner,
-  Badge,
   DescriptionList,
   SectionCard,
   type DescriptionItem,
@@ -30,7 +30,6 @@ import { SslStatusCard } from '../SslStatusCard';
 import { AppShortcutsCard } from '../AppShortcutsCard';
 import { BillingCrossLinkCard } from '../BillingCrossLinkCard';
 import { ChangePlanCard } from './ChangePlanCard';
-import { SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE } from '../service-status';
 import { ServiceAuditTimeline } from './ServiceAuditTimeline';
 import styles from '../service-detail.module.css';
 
@@ -54,7 +53,7 @@ export function ServiceOverviewCardSection({
 }: {
   ctx: ServiceDetailContext;
 }) {
-  const { info, service, billingCrossLink, forceAdminRoute, isTerminal } = ctx;
+  const { info, service, billingCrossLink, isTerminal } = ctx;
   const items: DescriptionItem[] = [];
   if (info.display.secondary) {
     items.push({
@@ -85,27 +84,16 @@ export function ServiceOverviewCardSection({
       value: formatLongDate(service.cancelled_at),
     });
   }
-  const role = forceAdminRoute ? 'admin' : 'client';
   return (
-    <SectionCard
-      title={t('service.overview.card_title')}
-      actions={
-        <Badge variant={SERVICE_STATUS_TONE[info.status]}>
-          {SERVICE_STATUS_LABEL[info.status]}
-        </Badge>
-      }
-    >
-      {/* En terminal, el banner ya da el estado + motivo: la card se queda con
-          los hechos (plan/alta/cancelado) para no duplicar. */}
-      {!isTerminal && (
-        <p className={styles.cardText}>
-          {t(`service.overview.narrative.${role}.${info.status}`)}
-        </p>
-      )}
+    <SectionCard title={t('service.overview.card_title')}>
+      {/* Sin badge de estado ni narrativa de estado: el estado ya vive en el
+          badge del header (fuente única — D4). Aquí solo los hechos
+          (plan/alta/renovación/cancelado) + el motivo técnico si lo hay
+          (diagnóstico, no duplica el estado). */}
       {!isTerminal && info.statusReason && (
         <p className={styles.cardTextMuted}>{t(info.statusReason)}</p>
       )}
-      <DescriptionList items={items} />
+      <DescriptionList layout="divided" items={items} />
     </SectionCard>
   );
 }
@@ -259,13 +247,15 @@ export function PlanChangeCardSection({ ctx }: { ctx: ServiceDetailContext }) {
 }
 
 /**
- * Tab "Auditoría" (F.12.5 punto 5, Amendment VII). Async Server Component:
- * fetcha la primera página del timeline y muestra un **preview** (últimas ~15
- * entradas, reusa `<ServiceAuditTimeline>`) + enlace "Ver historial completo →"
- * a la página dedicada (filtros + paginación profunda). Fail-soft: si el fetch
- * falla, degrada a solo el enlace. scope both (cliente ve su scope GDPR).
+ * Tab "Auditoría" (F.12.5 punto 5 · reskin 1:1 F4·U24). Async Server Component:
+ * fetcha la primera página del timeline y muestra un **preview** (últimas N
+ * entradas, reusa `<ServiceAuditTimeline>` con `IconWell`) + enlace "Ver
+ * historial completo →" al pie. 1:1 con el mockup (`admin/ServicioDetalleAdmin
+ * .dc.html` §Auditoría): título "Actividad reciente" + contador "Últimas N" a la
+ * derecha + link al fondo. Fail-soft: si el fetch falla, degrada al link. scope
+ * both (cliente ve su scope GDPR).
  */
-const AUDIT_PREVIEW_LIMIT = 15;
+const AUDIT_PREVIEW_LIMIT = 5;
 
 export async function ServiceAuditTabSection({
   ctx,
@@ -285,11 +275,8 @@ export async function ServiceAuditTabSection({
   const fullHref = forceAdminRoute
     ? `/admin/services/${service.id}/audit`
     : `/dashboard/services/${service.id}/audit`;
-  const subtitle = forceAdminRoute
-    ? t('service.audit.subtitle_admin')
-    : t('service.audit.subtitle_client');
   const fullLink = (
-    <Link href={fullHref} className={styles.ctaText}>
+    <Link href={fullHref} className={styles.auditFullLink}>
       {t('service.audit.view_full')} →
     </Link>
   );
@@ -303,27 +290,36 @@ export async function ServiceAuditTabSection({
 
   if (!page || page.items.length === 0) {
     return (
-      <SectionCard title={t('service.audit.title')} subtitle={subtitle} actions={fullLink}>
+      <SectionCard title={t('service.audit.recent_title')}>
         <p className={styles.cardTextMuted}>{t('service.audit.empty')}</p>
       </SectionCard>
     );
   }
 
   // Preview: primeras N entradas, sin "Cargar más" propio del timeline (lo
-  // sustituye el enlace "Ver historial completo" del header de la card).
+  // sustituye el enlace "Ver historial completo" al pie de la card).
+  const previewItems = page.items.slice(0, AUDIT_PREVIEW_LIMIT);
   const previewPage: ServiceTimelinePage = {
     ...page,
-    items: page.items.slice(0, AUDIT_PREVIEW_LIMIT),
+    items: previewItems,
     next_cursor: null,
   };
 
   return (
-    <SectionCard title={t('service.audit.title')} subtitle={subtitle} actions={fullLink}>
+    <SectionCard
+      title={t('service.audit.recent_title')}
+      actions={
+        <span className={styles.auditCount}>
+          {t('service.audit.recent_prefix')} {previewItems.length}
+        </span>
+      }
+    >
       <ServiceAuditTimeline
         page={previewPage}
         isAdmin={forceAdminRoute}
         loadMoreHref={() => fullHref}
       />
+      <div className={styles.auditFooter}>{fullLink}</div>
     </SectionCard>
   );
 }
@@ -355,10 +351,11 @@ export function ClientDevCustomPlaceholderSection() {
 
 /* ── Zona footer ── */
 
-/** Footer "Última lectura del proveedor". scope both. */
+/** Footer "Última lectura del proveedor" (con icono de reloj, 1:1). scope both. */
 export function FetchedAtFooterSection({ ctx }: { ctx: ServiceDetailContext }) {
   return (
     <p className={styles.footer}>
+      <Clock size={14} strokeWidth={1.6} className={styles.footerIcon} />
       {t('service.detail.fetched_at')}{' '}
       {new Date(ctx.info.fetchedAt).toLocaleString('es-ES')}
     </p>

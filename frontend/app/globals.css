@@ -32,9 +32,17 @@
   --warning-light:   rgba(245, 158, 11, 0.08);
   --warning-border:  rgba(245, 158, 11, 0.15);
   --warning-subtle:  #FDE68A;
+  /* Superficie de alerta sólida (banners del mockup: amber cálido). */
+  --warning-surface:        #FCF3E1;
+  --warning-surface-border: #F4E6C4;
+  --warning-surface-strong: #FBEFD3;   /* caja anidada (nota interna del banner) */
   --danger:          #EF4444;
+  --danger-dark:     #A53535;   /* texto de banner danger (mockup) */
   --danger-light:    rgba(239, 68, 68, 0.08);
   --danger-border:   rgba(239, 68, 68, 0.15);
+  /* Superficie de alerta sólida (banners del mockup: rojo cálido). */
+  --danger-surface:        #FCECEC;
+  --danger-surface-border: #F6D6D6;
   --info:            #3B82F6;
   --info-light:      rgba(59, 130, 246, 0.08);
   --info-border:     rgba(59, 130, 246, 0.15);
@@ -61,6 +69,7 @@
   --border:          #E2E8F0;   /* slate-200 (mockup 194×) */
   --border-hover:    #CBD5E1;   /* slate-300 */
   --border-active:   #94A3B8;   /* slate-400 */
+  --border-faint:    #F1F5F9;   /* slate-100: separadores intra-card (mockup ~#F4F6F9) */
 
   /* ── Alias de compatibilidad (F0.3 / GL-27) ──
      Tokens referenciados por código existente pero NO definidos → resolvían

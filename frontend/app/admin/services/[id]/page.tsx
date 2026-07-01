@@ -148,6 +148,14 @@ export default async function AdminServiceDetailPage({
     ? parseSuspensionReasonCode(service.suspension_reason)
     : null;
 
+  // F4·U24 (feature C) — badge de cobertura Support Inside en el header. El
+  // backend solo puebla `si_coverage_slot_type` en la vista admin (presencia de
+  // un slot SI activo, SI-INV-8 single-query, nunca por slug). Mapeo de display
+  // (R5): slot_type → etiqueta localizada. `null` si el servicio no está cubierto.
+  const siCoverageBadge = service.si_coverage_slot_type
+    ? t(`service.si_coverage.${service.si_coverage_slot_type}`)
+    : null;
+
   const ctx: ServiceDetailContext = {
     data,
     service,
@@ -162,6 +170,7 @@ export default async function AdminServiceDetailPage({
     pluginHealth,
     supportsReconcileOne,
     supportInside,
+    siCoverageBadge,
   };
 
   // F.12.5 (Amendment VII): todas las operaciones admin viven en el menú "Más
@@ -176,6 +185,7 @@ export default async function AdminServiceDetailPage({
         info.display.secondary ? t(info.display.secondary) : undefined
       }
       isTerminal={isTerminal}
+      isSuspended={isSuspended}
       isDomain={service.product_type === 'domain'}
       // 15D.II.R — restore RGP: solo si el registrar reporta redención
       // (recoveryHint='restore', señal canónica del ciclo, ADR-077 A5).

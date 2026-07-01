@@ -23,13 +23,20 @@
   gap: var(--space-4);
 }
 
-/* ── F.12.4: Header card (identidad + metadata inline + clúster de acciones) ── */
+/* ── F.12.4 · F4·U24: Header card (icon-well + identidad + metadata inline + clúster) ── */
 .headerCard {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-5);
   flex-wrap: wrap;
+}
+/* Bloque izquierdo: icon-well (primitiva DS) + identidad (mockup ServicioDetalleAdmin). */
+.headerLead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
 }
 .headerIdentity {
   min-width: 0;
@@ -44,10 +51,21 @@
   flex-wrap: wrap;
 }
 .headerTitle {
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
   margin: 0;
   word-break: break-word;
+}
+/* Enlace del cliente en la metadata del header (admin). */
+.metaLink {
+  color: var(--brand);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+.metaLink:hover {
+  text-decoration: underline;
 }
 /* (headerMeta/headerMetaSep retirados en F.12.5 — la metadata usa la primitiva
    DS <DescriptionList layout="inline">.) */
@@ -145,6 +163,41 @@
   text-decoration: none;
   white-space: nowrap;
 }
+
+/* Tab "Auditoría" (F4·U24) — contador "Últimas N" a la derecha del título +
+   enlace "Ver historial completo →" al pie (1:1 con el mockup). */
+.auditCount {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.auditFooter {
+  margin-top: var(--space-3);
+}
+.auditFullLink {
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--brand);
+  text-decoration: none;
+}
+.auditFullLink:hover {
+  text-decoration: underline;
+}
+
+/* CTA "Ver X" con chevron (billing/audit) — 1:1 con el mockup. */
+.billingLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  margin-top: var(--space-3);
+  color: var(--brand);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+.billingLink:hover {
+  text-decoration: underline;
+}
 .ctaPrimary {
   display: inline-block;
   padding: var(--space-2) var(--space-4);
@@ -225,6 +278,31 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }
+
+/* Caja "Nota interna" anidada en el banner de suspensión (1:1 mockup). */
+.bannerNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--warning-surface-strong);
+  border-radius: var(--radius-sm);
+}
+.bannerNoteTag {
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--wait-amber-fg);
+}
+.bannerNoteText {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--warning-dark);
+  line-height: 1.45;
+}
 .terminalReason {
   margin: 0;
   font-size: var(--font-size-sm);
@@ -245,8 +323,15 @@
   margin-top: var(--space-2);
 }
 .footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
+  margin: 0;
+}
+.footerIcon {
+  flex-shrink: 0;
 }
 
 /* ── F.12.5: Recursos (card MetricsBar con medidores <Meter>) ── */

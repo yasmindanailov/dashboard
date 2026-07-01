@@ -119,10 +119,12 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
   },
   // Cambio de plan con prorrateo (ADR-029). Bajo facturación; solo servicios
   // activos no-terminales y no-dominio (los dominios no hacen cambio de ciclo).
+  // scope CLIENTE: en el detalle ADMIN esta acción vive en el menú "Más
+  // acciones" (decisión Yasmin F4·U24 — sin card, 1:1 con el mockup del kebab).
   {
     id: 'plan-change-card',
     label: 'Cambiar de plan (prorrateo)',
-    scope: 'both',
+    scope: 'client',
     group: 'summary',
     column: 'aside',
     priority: 340,

@@ -11,6 +11,9 @@ import styles from './DescriptionList.module.css';
  *   - **`inline`**: pares fluyendo en horizontal, separados por `·`. Para la
  *     metadata del header (Plan · Dominio · Contratado · Renueva — §3.1). El
  *     `term` es opcional; sin él, solo se muestra el valor.
+ *   - **`divided`**: filas `término … valor` (space-between) con separador faint
+ *     entre ellas. Para las cards de datos del detalle (Info del servicio /
+ *     Datos técnicos), 1:1 con los mockups (F4·U24).
  *
  * Server-component compatible: sin hooks, sin estado. Tokens only. Las filas se
  * envuelven en `<div display:contents>` para conservar key sin romper la
@@ -37,33 +40,44 @@ export interface DescriptionItem {
 
 export interface DescriptionListProps {
   items: DescriptionItem[];
-  layout?: 'stacked' | 'inline';
+  layout?: 'stacked' | 'inline' | 'divided';
   className?: string;
 }
+
+const LIST_CLASS = {
+  stacked: styles.stacked,
+  inline: styles.inline,
+  divided: styles.divided,
+} as const;
+const ROW_CLASS = {
+  stacked: styles.row,
+  inline: styles.inlineItem,
+  divided: styles.dividedRow,
+} as const;
+const TERM_CLASS = {
+  stacked: styles.term,
+  inline: styles.inlineTerm,
+  divided: styles.dividedTerm,
+} as const;
+const VALUE_CLASS = {
+  stacked: styles.value,
+  inline: styles.inlineValue,
+  divided: styles.dividedValue,
+} as const;
 
 export function DescriptionList({
   items,
   layout = 'stacked',
   className = '',
 }: DescriptionListProps) {
-  const isInline = layout === 'inline';
   return (
-    <dl
-      className={`${isInline ? styles.inline : styles.stacked} ${className}`.trim()}
-    >
+    <dl className={`${LIST_CLASS[layout]} ${className}`.trim()}>
       {items.map((item, i) => (
-        <div
-          key={item.key ?? i}
-          className={isInline ? styles.inlineItem : styles.row}
-        >
+        <div key={item.key ?? i} className={ROW_CLASS[layout]}>
           {item.term != null && (
-            <dt className={isInline ? styles.inlineTerm : styles.term}>
-              {item.term}
-            </dt>
+            <dt className={TERM_CLASS[layout]}>{item.term}</dt>
           )}
-          <dd className={isInline ? styles.inlineValue : styles.value}>
-            {item.value}
-          </dd>
+          <dd className={VALUE_CLASS[layout]}>{item.value}</dd>
         </div>
       ))}
     </dl>

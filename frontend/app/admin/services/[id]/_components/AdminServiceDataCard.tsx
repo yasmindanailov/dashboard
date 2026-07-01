@@ -168,7 +168,7 @@ export function AdminServiceDataCard({
 
   return (
     <SectionCard title="Datos técnicos">
-      <DescriptionList items={items} />
+      <DescriptionList layout="divided" items={items} />
     </SectionCard>
   );
 }

@@ -55,15 +55,15 @@
 .success .icon { color: var(--success); }
 
 .warning {
-  background: var(--warning-light);
-  border-color: rgba(245, 158, 11, 0.15);
-  color: #92400E;
+  background: var(--warning-surface);
+  border-color: var(--warning-surface-border);
+  color: var(--warning-dark);
 }
-.warning .icon { color: var(--warning); }
+.warning .icon { color: var(--wait-amber-fg); }
 
 .danger {
-  background: var(--danger-light);
-  border-color: rgba(239, 68, 68, 0.15);
-  color: #991B1B;
+  background: var(--danger-surface);
+  border-color: var(--danger-surface-border);
+  color: var(--danger-dark);
 }
 .danger .icon { color: var(--danger); }

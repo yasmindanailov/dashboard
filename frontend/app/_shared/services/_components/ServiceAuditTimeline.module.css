@@ -1,0 +1,105 @@
+/* ServiceAuditTimeline — timeline de auditoría del servicio (F4·U24).
+ * Reskin al DS: `IconWell` por tono/tipo de evento + línea conectora vertical
+ * + tokens del DS (cero hex, cero inline). Preserva el detalle rico admin
+ * (actor+rol, IP, `changes_*` crudos) que `ActivityRow` no soporta.
+ * Ref: mockup `admin/ServicioDetalleAdmin.dc.html` §Auditoría (líneas 249-266). */
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Fila = riel (icon-well + conector) + cuerpo. Separador entre filas. */
+.row {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+.row + .row {
+  border-top: 1px solid var(--border-faint);
+}
+
+/* Riel izquierdo: icon-well arriba, línea conectora hacia la fila siguiente. */
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+.connector {
+  width: 2px;
+  flex: 1;
+  min-height: 12px;
+  margin-top: var(--space-1_5);
+  background: var(--border-faint);
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  padding-top: var(--space-1);
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.time {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.actor {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: var(--space-0_5);
+}
+
+/* Detalle extra: bits (panel / tipo de cambio / IP admin) + changes JSON. */
+.detail {
+  margin-top: var(--space-1);
+}
+.bits {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.changes {
+  margin-top: var(--space-1);
+  font-size: 12px;
+}
+.changesSummary {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.pre {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+}
+
+.empty {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.loadMore {
+  margin-top: var(--space-4);
+}
+.loadMoreLink {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand);
+}

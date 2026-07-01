@@ -1,21 +1,42 @@
-import type { CSSProperties } from 'react';
-
 import Link from 'next/link';
+import {
+  Activity,
+  Box,
+  CheckCircle2,
+  Eye,
+  GitCompareArrows,
+  Lock,
+  PauseCircle,
+  PlayCircle,
+  RefreshCw,
+  XCircle,
+  type LucideIcon,
+} from 'lucide-react';
 
+import { IconWell, type IconWellTone } from '../../../components/ui';
 import type {
   ServiceTimelineEntry,
   ServiceTimelinePage,
 } from '../../../lib/api';
 import { t } from '../../i18n';
+import styles from './ServiceAuditTimeline.module.css';
 
 /**
- * ServiceAuditTimeline — Sprint 15C.II Fase F.3 (GAP-15CII-M).
+ * ServiceAuditTimeline — Sprint 15C.II Fase F.3 (GAP-15CII-M) · reskin DS
+ * F4·U24.
  *
  * Server Component **reusable** que renderiza el timeline de auditoría de un
  * servicio (`GET /admin/services/:id/audit` admin · `GET /services/:id/audit`
  * cliente). Sin estado: la paginación es por URL (`?cursor=…`) — cada
  * "Cargar más" es una navegación; SSR-friendly, sin client bundle, OK para
  * un log de auditoría/transparencia.
+ *
+ * F4·U24 — reskin 1:1 con el mockup (`admin/ServicioDetalleAdmin.dc.html`
+ * §Auditoría): cada evento es una fila con `IconWell` (tono/icono por tipo de
+ * acción) + una línea conectora vertical hacia la fila siguiente. Se compone
+ * `IconWell` (primitiva DS) en vez de `ActivityRow` porque el timeline admin
+ * conserva **detalle rico** — actor+rol, IP del staff, `changes_*` crudos en
+ * un `<details>` — que `ActivityRow` no soporta.
  *
  * Discrimina por `isAdmin`:
  *   - admin: muestra el actor (nombre+rol o "Sistema"), la IP del staff en
@@ -36,26 +57,59 @@ interface Props {
   loadMoreHref: (cursor: string) => string;
 }
 
+/** Icono + tono del `IconWell` por tipo de acción (semántico, no por slug). */
+interface ActionVisual {
+  icon: LucideIcon;
+  tone: IconWellTone;
+}
+
+const ACTION_VISUALS: Record<string, ActionVisual> = {
+  read: { icon: Eye, tone: 'neutral' },
+  // 1:1 con el mockup: SSO/impersonación → candado morado (security);
+  // aprovisionado → caja verde (success).
+  admin_sso_impersonation: { icon: Lock, tone: 'security' },
+  'service.provisioned': { icon: Box, tone: 'success' },
+  'service.activated': { icon: CheckCircle2, tone: 'success' },
+  'service.suspended': { icon: PauseCircle, tone: 'warning' },
+  'service.unsuspended': { icon: PlayCircle, tone: 'success' },
+  'service.deprovisioned_admin': { icon: XCircle, tone: 'danger' },
+  'service.reprovision_requested': { icon: RefreshCw, tone: 'brand' },
+  reconciled_external_change: { icon: GitCompareArrows, tone: 'warning' },
+};
+
+const DEFAULT_VISUAL: ActionVisual = { icon: Activity, tone: 'neutral' };
+
+function visualForAction(action: string): ActionVisual {
+  if (ACTION_VISUALS[action]) return ACTION_VISUALS[action];
+  // Acciones curadas del plugin (`service.action_executed:<x>`) → tono brand.
+  if (action.startsWith('service.action_executed')) {
+    return { icon: Activity, tone: 'brand' };
+  }
+  return DEFAULT_VISUAL;
+}
+
 export function ServiceAuditTimeline({ page, isAdmin, loadMoreHref }: Props) {
   if (page.items.length === 0) {
-    return (
-      <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-        {t('service.audit.empty')}
-      </p>
-    );
+    return <p className={styles.empty}>{t('service.audit.empty')}</p>;
   }
+  const lastIndex = page.items.length - 1;
   return (
     <div>
-      <ol style={listStyle}>
-        {page.items.map((entry) => (
-          <TimelineRow key={`${entry.source}-${entry.id}`} entry={entry} isAdmin={isAdmin} />
+      <ol className={styles.list}>
+        {page.items.map((entry, index) => (
+          <TimelineRow
+            key={`${entry.source}-${entry.id}`}
+            entry={entry}
+            isAdmin={isAdmin}
+            isLast={index === lastIndex}
+          />
         ))}
       </ol>
       {page.next_cursor && (
-        <div style={{ marginTop: 16 }}>
+        <div className={styles.loadMore}>
           <Link
             href={loadMoreHref(page.next_cursor)}
-            style={{ fontSize: 13, color: 'var(--brand, #2563eb)' }}
+            className={styles.loadMoreLink}
           >
             {t('service.audit.load_more')}
           </Link>
@@ -68,9 +122,12 @@ export function ServiceAuditTimeline({ page, isAdmin, loadMoreHref }: Props) {
 function TimelineRow({
   entry,
   isAdmin,
+  isLast,
 }: {
   entry: ServiceTimelineEntry;
   isAdmin: boolean;
+  /** Última fila del set actual → sin línea conectora (1:1 mockup). */
+  isLast: boolean;
 }) {
   const actionLabel = t(`service.audit.action.${entry.action}`, entry.action);
   const actorLabel = entry.actor
@@ -79,24 +136,27 @@ function TimelineRow({
       : (entry.actor.name ?? entry.actor.user_id ?? '—')
     : t('service.audit.system');
   const when = new Date(entry.created_at);
+  const { icon, tone } = visualForAction(entry.action);
 
   return (
-    <li style={rowStyle}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 600, fontSize: 13 }}>{actionLabel}</span>
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-          · {actorLabel}
-        </span>
-        <span
-          style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 'auto' }}
-          title={when.toISOString()}
-        >
-          {when.toLocaleString('es-ES')}
-        </span>
+    <li className={styles.row}>
+      <div className={styles.rail}>
+        <IconWell icon={icon} tone={tone} size="sm" />
+        {!isLast && <span className={styles.connector} aria-hidden="true" />}
       </div>
 
-      {/* Detalle cliente-seguro / admin extra */}
-      <TimelineRowDetail entry={entry} isAdmin={isAdmin} />
+      <div className={styles.body}>
+        <div className={styles.titleRow}>
+          <span className={styles.title}>{actionLabel}</span>
+          <span className={styles.time} title={when.toISOString()}>
+            {when.toLocaleString('es-ES')}
+          </span>
+        </div>
+        <div className={styles.actor}>{actorLabel}</div>
+
+        {/* Detalle cliente-seguro / admin extra */}
+        <TimelineRowDetail entry={entry} isAdmin={isAdmin} />
+      </div>
     </li>
   );
 }
@@ -135,18 +195,14 @@ function TimelineRowDetail({
   if (bits.length === 0 && !hasChanges) return null;
 
   return (
-    <div style={{ marginTop: 4 }}>
-      {bits.length > 0 && (
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-          {bits.join(' · ')}
-        </div>
-      )}
+    <div className={styles.detail}>
+      {bits.length > 0 && <div className={styles.bits}>{bits.join(' · ')}</div>}
       {hasChanges && (
-        <details style={{ marginTop: 4, fontSize: 12 }}>
-          <summary style={{ cursor: 'pointer', color: 'var(--text-secondary)' }}>
+        <details className={styles.changes}>
+          <summary className={styles.changesSummary}>
             {t('service.audit.detail.changes')}
           </summary>
-          <pre style={preStyle}>
+          <pre className={styles.pre}>
             {JSON.stringify(
               {
                 before: entry.changes_before ?? null,
@@ -164,28 +220,3 @@ function TimelineRowDetail({
     </div>
   );
 }
-
-const listStyle: CSSProperties = {
-  listStyle: 'none',
-  margin: 0,
-  padding: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 0,
-};
-
-const rowStyle: CSSProperties = {
-  borderTop: '1px solid var(--border)',
-  padding: '10px 0',
-};
-
-const preStyle: CSSProperties = {
-  margin: '4px 0 0',
-  padding: 8,
-  background: 'var(--surface-2, var(--surface))',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  overflowX: 'auto',
-  fontFamily: 'var(--font-mono, monospace)',
-  fontSize: 11,
-};

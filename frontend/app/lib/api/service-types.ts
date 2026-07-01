@@ -380,6 +380,14 @@ export interface ServiceDetailResponse {
      * o el aviso "transferencia en curso" (`submitted`). NO es secreto.
      */
     transfer_state?: string | null;
+    /**
+     * F4·U24 (feature C) — cobertura Support Inside de ESTE servicio técnico:
+     * `slot_type` del slot SI activo que lo cubre, o `null`/ausente si no hay
+     * cobertura. El backend solo lo computa en la vista admin (capability-driven
+     * por PRESENCIA del slot, SI-INV-8 single-query, nunca por slug). El wrapper
+     * admin lo mapea al badge del header ("Mantenimiento"/"Mantenimiento + gestión").
+     */
+    si_coverage_slot_type?: 'maintenance' | 'maintenance_management' | null;
   };
   info: ServiceInfo;
 }

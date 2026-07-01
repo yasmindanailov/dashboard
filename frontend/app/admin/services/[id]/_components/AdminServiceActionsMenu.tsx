@@ -32,6 +32,7 @@ import type { ServiceAction } from '../../../../lib/api';
 import { executeServiceActionAction } from '../../../../_shared/services/_actions';
 import { filterQuickActions } from '../../../../_shared/services/quick-actions';
 import { ServiceActionsMenu } from '../../../../_shared/services/ServiceActionsMenu';
+import { ChangePlanModal } from '../../../../_shared/services/_components/ChangePlanModal';
 
 import { ChangePackageModal, type EnhancePlanOption } from './ChangePackageModal';
 import { CancelServiceModal } from './CancelServiceModal';
@@ -48,6 +49,8 @@ interface AdminServiceActionsMenuProps {
   currentPlanLabel?: string;
   /** Estado terminal (cancelled/terminated): solo "Reenviar" queda disponible. */
   isTerminal: boolean;
+  /** Suspendido: el kebab no ofrece "Cambiar plan…" (1:1 con el mockup). */
+  isSuspended?: boolean;
   /** Servicio de tipo dominio: habilita "Eliminar dominio (gracia)" (15D.G·2). */
   isDomain?: boolean;
   /** Dominio en redención (RGP): habilita "Restaurar dominio" (15D.II.R). */
@@ -68,11 +71,15 @@ export function AdminServiceActionsMenu({
   actions,
   currentPlanLabel,
   isTerminal,
+  isSuspended = false,
   isDomain = false,
   canRestore = false,
   supportInside = null,
 }: AdminServiceActionsMenuProps) {
-  // ── change_package ────────────────────────────────────────────────────────
+  // ── cambiar plan (prorrateo, ADR-029) ─────────────────────────────────────
+  const [changeCycleOpen, setChangeCycleOpen] = useState(false);
+
+  // ── change_package (paquete del proveedor, Enhance) ───────────────────────
   const [changePlanOpen, setChangePlanOpen] = useState(false);
   const [plans, setPlans] = useState<readonly EnhancePlanOption[] | null>(null);
   const [loadingPlans, setLoadingPlans] = useState(false);
@@ -131,10 +138,24 @@ export function AdminServiceActionsMenu({
 
   // Operaciones seguras.
   const safeItems: DropdownItem[] = [];
-  if (hasChangePackage && !isTerminal) {
+  // Cambiar plan (prorrateo, ADR-029) — 1:1 con el mockup: un solo "Cambiar
+  // plan…" en el kebab (la card se retiró del Resumen admin, decisión Yasmin
+  // F4·U24). No-terminal, no-dominio, no-suspendido (el mockup no lo ofrece en
+  // suspendido).
+  if (!isTerminal && !isDomain && !isSuspended) {
     safeItems.push({
       label: 'Cambiar plan…',
-      description: 'Sube o baja el plan del servicio en el proveedor.',
+      description: 'Sube o baja de plan, con prorrateo.',
+      onClick: () => setChangeCycleOpen(true),
+    });
+  }
+  // Cambiar paquete del proveedor (Enhance `change_package`) — capability
+  // distinta del cambio de ciclo; solo si el plugin la expone. Etiqueta propia
+  // para no colisionar con "Cambiar plan…" (prorrateo).
+  if (hasChangePackage && !isTerminal) {
+    safeItems.push({
+      label: 'Cambiar paquete de hosting…',
+      description: 'Sube o baja el paquete del servicio en el proveedor.',
       onClick: () => void handleOpenChangePlan(),
     });
   }
@@ -211,6 +232,11 @@ export function AdminServiceActionsMenu({
 
   const extraModals = (
     <>
+      <ChangePlanModal
+        serviceId={serviceId}
+        open={changeCycleOpen}
+        onClose={() => setChangeCycleOpen(false)}
+      />
       {hasChangePackage && (
         <ChangePackageModal
           open={changePlanOpen}

@@ -97,6 +97,15 @@ export interface ServiceDetailContext {
    * por presencia: la sección "Plan de soporte" se renderiza sii no es null.
    */
   supportInside: SupportInsideManagedBlock | null;
+  /**
+   * F4·U24 (feature C, §11.3 admin.md) — etiqueta del badge de cobertura Support
+   * Inside en el header cuando ESTE servicio técnico (hosting/docker) está
+   * cubierto por un slot SI activo: "Mantenimiento" o "Mantenimiento + gestión"
+   * según `slot_type`. `null`/undefined si no hay cobertura (o ruta cliente).
+   * Capability-driven por presencia del slot (SI-INV-8 single-query), NUNCA por
+   * slug (R4). Opcional: solo lo puebla el wrapper admin.
+   */
+  siCoverageBadge?: string | null;
 }
 
 export interface SectionDescriptor {
