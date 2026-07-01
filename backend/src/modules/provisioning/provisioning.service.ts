@@ -377,6 +377,15 @@ export class ProvisioningService {
       // del auth-code (pending/awaiting_auth) o el aviso "transferencia en curso"
       // (submitted). NO es secreto (el auth-code nunca se persiste, R12).
       transfer_state: string | null;
+      // F4·U24 (feature C) — cobertura Support Inside de ESTE servicio técnico:
+      // `slot_type` del slot SI activo (`released_at IS NULL`) que lo cubre, o
+      // `null` si no hay cobertura. Capability-driven por PRESENCIA del slot
+      // (SI-INV-8: 1 servicio ≤ 1 slot activo → single-query), NUNCA por slug
+      // (R4). Solo se computa en la vista admin (`isAdmin`) y para servicios
+      // técnicos (no la propia suscripción SI, que jamás se cubre a sí misma);
+      // en cualquier otro caso queda `null`. El frontend admin lo mapea a la
+      // etiqueta del badge del header ("Mantenimiento" / "Mantenimiento + gestión").
+      si_coverage_slot_type: 'maintenance' | 'maintenance_management' | null;
     };
     info: ServiceInfo;
   }> {
@@ -384,6 +393,24 @@ export class ProvisioningService {
     if (!isAdmin && service.user_id !== userId) {
       throw new ForbiddenException('No tienes acceso a este servicio.');
     }
+
+    // F4·U24 (feature C) — cobertura Support Inside del servicio (badge del
+    // header admin). Una sola query indexada (`@@index([service_id])` +
+    // `@@index([released_at])`); SI-INV-8 garantiza ≤ 1 slot activo por
+    // servicio → `findFirst` es suficiente. Gateada a la vista admin y a
+    // servicios técnicos: la propia suscripción SI nunca se cubre a sí misma
+    // (validado en `SupportInsideService.addSlot`), así que la excluimos para
+    // no gastar la query. Capability-driven por PRESENCIA del slot, NUNCA por
+    // slug (R4). Fail-soft implícito: si no hay slot activo → `null`.
+    const siCoverageSlotType =
+      isAdmin && service.product.type !== 'support_inside'
+        ? ((
+            await this.prisma.supportInsideSlot.findFirst({
+              where: { service_id: serviceId, released_at: null },
+              select: { slot_type: true },
+            })
+          )?.slot_type ?? null)
+        : null;
 
     const summary = {
       id: service.id,
@@ -421,6 +448,9 @@ export class ProvisioningService {
       quota_alert_threshold_pct: null as number | null,
       // Sprint 15D.II.T2c.3: estado de la FSM de transfer-in (null si no aplica).
       transfer_state: readTransferState(service.metadata),
+      // F4·U24 (feature C): cobertura Support Inside (null salvo vista admin de
+      // un servicio técnico cubierto por un slot activo). Ver cómputo arriba.
+      si_coverage_slot_type: siCoverageSlotType,
     };
 
     // Sprint 15C.II Fase C round 4 (smoke real Yasmin 2026-05-10):
