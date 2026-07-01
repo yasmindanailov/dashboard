@@ -23,11 +23,16 @@
 - **2FA reenviar** → nuevo `POST /auth/resend-2fa` (regenera el código + reenvía email
   + devuelve un `temp_token` fresco; rate-limit 3/min R10). No revalida password: el
   `temp_token` ya prueba el paso de credenciales.
-- **Pantalla de bienvenida robusta + fiel**: la Server Action **fija las cookies
-  httpOnly server-side** (Modelo A / R17 intacto) pero **devuelve** `{ success,
-  firstName, redirectTo }` en vez de redirigir; el cliente muestra "¡Hola de nuevo,
-  {nombre}!" + spinner y **auto-navega** en cliente (con **enlace de respaldo**
-  "Ir a tu panel →" por si el JS tarda). `firstName` no es secreto (ya autenticado).
+- **Pantalla de bienvenida robusta + fiel** vía **ruta `/welcome`**: login/verify-2fa
+  fijan las cookies httpOnly server-side (Modelo A / R17 intacto) y hacen
+  `redirect('/welcome')` (mismo mecanismo probado, solo cambia el destino). `/welcome`
+  (SC autenticada) lee el nombre de la sesión (sin exponer tokens) y delega en
+  `WelcomeScreen` (saludo "¡Hola de nuevo, {nombre}!" + spinner + auto-navegación al
+  panel del rol + enlace de respaldo). **Por qué una ruta y no devolver `success`:**
+  al devolver éxito con las cookies puestas, Next refresca la ruta `/` → `LoginPage`
+  (SC) reejecuta `getServerSession()`, encuentra la sesión y redirige al panel **antes**
+  de que el cliente pinte el saludo → la bienvenida no llegaba a verse (bug detectado
+  por Yasmin, corregido con `/welcome`).
 - **Registro** conserva **2 campos** Nombre + Apellidos (el mockup usa uno) porque el
   backend exige `first_name` + `last_name` por separado → más robusto y fiel a la realidad.
 
@@ -38,8 +43,8 @@
 token inválido · tipo != temp_2fa · reenvío OK regenera+email+token fresco, sin emitir tokens).
 
 **Frontend** (Modelo A):
-- `auth-actions`: login/verify-2fa **devuelven `success`** (cookies fijadas server-side) en vez de
-  `redirect()`; nueva `resend2faAction`; `AuthCompleteResponse.user.first_name`.
+- `auth-actions`: login/verify-2fa fijan cookies + **`redirect('/welcome')`**; nueva `resend2faAction`.
+  Nueva ruta **`/welcome`** (`page.tsx` SC + `WelcomeScreen` CC) = saludo autenticado + auto-navegación.
 - **`AuthLayout`** reskineado 1:1: Aurora (degradado + 3 blobs animados) + eyebrow + **titular
   y value-props por página** (`auth-panels.tsx`: LOGIN/REGISTER/RECOVER) + footer; logo del form
   siempre visible.
