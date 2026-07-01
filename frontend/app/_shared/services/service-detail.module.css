@@ -23,13 +23,36 @@
   gap: var(--space-4);
 }
 
-/* ── F.12.4: Header card (identidad + metadata inline + clúster de acciones) ── */
+/* ── F.12.4 · F4·U24: Header card (icon-well + identidad + metadata inline + clúster) ── */
 .headerCard {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-5);
   flex-wrap: wrap;
+}
+/* Bloque izquierdo: icon-well + identidad (mockup ServicioDetalleAdmin). */
+.headerLead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+/* Icon-well del servicio (50px, tintado por defecto / sólido en SI). */
+.serviceIcon {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--radius-md);
+  background: var(--brand-wash);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.serviceIconSolid {
+  background: var(--brand);
+  color: var(--text-on-brand);
 }
 .headerIdentity {
   min-width: 0;
@@ -44,10 +67,21 @@
   flex-wrap: wrap;
 }
 .headerTitle {
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
   margin: 0;
   word-break: break-word;
+}
+/* Enlace del cliente en la metadata del header (admin). */
+.metaLink {
+  color: var(--brand);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+.metaLink:hover {
+  text-decoration: underline;
 }
 /* (headerMeta/headerMetaSep retirados en F.12.5 — la metadata usa la primitiva
    DS <DescriptionList layout="inline">.) */
@@ -245,8 +279,15 @@
   margin-top: var(--space-2);
 }
 .footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
+  margin: 0;
+}
+.footerIcon {
+  flex-shrink: 0;
 }
 
 /* ── F.12.5: Recursos (card MetricsBar con medidores <Meter>) ── */

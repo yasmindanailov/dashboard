@@ -380,6 +380,7 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
     'Próximamente podrás solicitar un desarrollo personalizado vinculado a este servicio. (Función disponible cuando Sprint 22 Projects esté activo.)',
   'service.detail.meta.contracted': 'Contratado',
   'service.detail.meta.renews': 'Renueva',
+  'service.detail.meta.client': 'Cliente',
   'service.detail.actions.more': 'Más acciones',
   'service.detail.fetched_at': 'Última lectura del proveedor:',
   'service.detail.cancelled_at': 'Cancelado el',
@@ -539,7 +540,10 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   //    admin gana tooltip con fecha ISO + CTA al panel del proveedor.
   //    R3 (refinamiento pre-código): `none` muestra card visible — NO
   //    AlertBanner aparte (es estado del recurso, no aviso ortogonal).
-  'service.ssl.card_title': 'SSL',
+  'service.ssl.card_title': 'Certificado SSL',
+  'service.ssl.status_label': 'Estado',
+  'service.ssl.issuer_label': 'Emisor',
+  'service.ssl.renewal_label': 'Renovación automática',
   'service.ssl.status.valid': 'SSL activo',
   'service.ssl.status.expiring_soon': 'SSL caduca pronto',
   'service.ssl.status.expired': 'SSL caducado',

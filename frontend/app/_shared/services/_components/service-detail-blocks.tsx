@@ -13,6 +13,7 @@
  * Presentacional puro — Server-component compatible (sin `'use client'`).
  */
 import Link from 'next/link';
+import { Clock } from 'lucide-react';
 
 import {
   AlertBanner,
@@ -105,7 +106,7 @@ export function ServiceOverviewCardSection({
       {!isTerminal && info.statusReason && (
         <p className={styles.cardTextMuted}>{t(info.statusReason)}</p>
       )}
-      <DescriptionList items={items} />
+      <DescriptionList layout="divided" items={items} />
     </SectionCard>
   );
 }
@@ -355,10 +356,11 @@ export function ClientDevCustomPlaceholderSection() {
 
 /* ── Zona footer ── */
 
-/** Footer "Última lectura del proveedor". scope both. */
+/** Footer "Última lectura del proveedor" (con icono de reloj, 1:1). scope both. */
 export function FetchedAtFooterSection({ ctx }: { ctx: ServiceDetailContext }) {
   return (
     <p className={styles.footer}>
+      <Clock size={14} strokeWidth={1.6} className={styles.footerIcon} />
       {t('service.detail.fetched_at')}{' '}
       {new Date(ctx.info.fetchedAt).toLocaleString('es-ES')}
     </p>

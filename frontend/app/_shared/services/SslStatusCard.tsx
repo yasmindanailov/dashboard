@@ -29,7 +29,13 @@
  */
 import type { ReactNode } from 'react';
 
-import { Badge, SectionCard, type BadgeVariant } from '../../components/ui';
+import {
+  Badge,
+  DescriptionList,
+  SectionCard,
+  type BadgeVariant,
+  type DescriptionItem,
+} from '../../components/ui';
 import { t } from '../../_shared/i18n';
 import type { ServiceSslStatus, ServiceSslSummary } from '../../lib/api';
 import styles from './service-detail.module.css';
@@ -127,30 +133,37 @@ export function SslStatusCard({
         ).toLocaleString('es-ES')}`
       : undefined;
 
-  return (
-    <SectionCard
-      title={t('service.ssl.card_title')}
-      actions={
+  // Filas divididas (1:1 con el mockup): Estado (badge) · [Emisor] · Renovación.
+  const items: DescriptionItem[] = [
+    {
+      key: 'status',
+      term: t('service.ssl.status_label'),
+      value: (
         <span title={badgeTitle}>
           <Badge variant={badgeVariant}>{statusLabel}</Badge>
         </span>
-      }
-    >
-      <p className={styles.cardText}>{primary}</p>
+      ),
+    },
+  ];
+  if (ssl.issuer) {
+    items.push({
+      key: 'issuer',
+      term: t('service.ssl.issuer_label'),
+      value: ssl.issuer,
+    });
+  }
+  items.push({
+    key: 'renewal',
+    term: t('service.ssl.renewal_label'),
+    value:
+      ssl.autoRenew === false
+        ? t('service.ssl.auto_renew_off')
+        : primary.replace(/\.$/, ''),
+  });
 
-      {ssl.autoRenew === true && (
-        <p className={styles.cardTextMuted}>{t('service.ssl.auto_renew_on')}</p>
-      )}
-      {ssl.autoRenew === false && (
-        <p className={styles.cardTextMuted}>{t('service.ssl.auto_renew_off')}</p>
-      )}
-
-      {ssl.issuer && (
-        <p className={styles.cardTextSubtle}>
-          {t('service.ssl.issuer_prefix')}
-          {ssl.issuer}
-        </p>
-      )}
+  return (
+    <SectionCard title={t('service.ssl.card_title')}>
+      <DescriptionList layout="divided" items={items} />
 
       {isAdmin && ssoPanelHref && (
         <p className={styles.cardText}>

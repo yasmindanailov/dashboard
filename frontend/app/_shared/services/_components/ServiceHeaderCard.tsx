@@ -10,6 +10,15 @@
  * Server-component compatible (el clúster es un CC island).
  */
 import type { ReactNode } from 'react';
+import Link from 'next/link';
+import {
+  Box,
+  Globe,
+  Monitor,
+  Server,
+  ShieldCheck,
+  type LucideIcon,
+} from 'lucide-react';
 
 import { Badge, DescriptionList, type DescriptionItem } from '../../../components/ui';
 import { t } from '../../i18n';
@@ -19,6 +28,14 @@ import { SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE } from '../service-status';
 import { ServiceActionsMenu } from '../ServiceActionsMenu';
 import { ServiceActionCluster } from './ServiceActionCluster';
 import styles from '../service-detail.module.css';
+
+/** Icono del icon-well del header por tipo de producto (1:1 con el mockup). */
+const TYPE_ICON: Record<string, LucideIcon> = {
+  hosting_web: Monitor,
+  domain: Globe,
+  docker_service: Server,
+  support_inside: ShieldCheck,
+};
 
 function formatLongDate(iso: string): string {
   return new Date(iso).toLocaleDateString('es-ES', {
@@ -77,12 +94,30 @@ export function ServiceHeaderCard({ ctx, actionsMenu }: ServiceHeaderCardProps) 
     : [];
 
   // Metadata inline (§3.1) sobre la primitiva DS `<DescriptionList>`:
-  // "Plan · Dominio · Contratado <fecha> · Renueva <fecha>".
+  // admin "Plan · Cliente · Contratado · Renueva"; cliente "Plan · Dominio · …".
   const metaItems: DescriptionItem[] = [];
   if (service.product_name) {
-    metaItems.push({ key: 'plan', value: service.product_name });
+    metaItems.push({
+      key: 'plan',
+      term: t('service.overview.plan'),
+      value: service.product_name,
+    });
   }
-  if (service.domain) {
+  if (forceAdminRoute) {
+    // El nombre del cliente es la info primaria admin (link al detalle).
+    metaItems.push({
+      key: 'client',
+      term: t('service.detail.meta.client'),
+      value: (
+        <Link
+          href={`/admin/clients/${service.user_id}`}
+          className={styles.metaLink}
+        >
+          {service.client_name}
+        </Link>
+      ),
+    });
+  } else if (service.domain) {
     metaItems.push({ key: 'domain', value: service.domain });
   }
   metaItems.push({
@@ -100,21 +135,39 @@ export function ServiceHeaderCard({ ctx, actionsMenu }: ServiceHeaderCardProps) 
     });
   }
 
+  const Icon = TYPE_ICON[service.product_type] ?? Box;
+  const isSupportInside = service.product_type === 'support_inside';
+
   return (
     <div className={styles.headerCard}>
-      <div className={styles.headerIdentity}>
-        <div className={styles.headerTitleRow}>
-          <h1 className={styles.headerTitle}>{info.display.primary}</h1>
-          <Badge variant={SERVICE_STATUS_TONE[info.status]}>
-            {SERVICE_STATUS_LABEL[info.status]}
-          </Badge>
+      <div className={styles.headerLead}>
+        <span
+          className={`${styles.serviceIcon} ${
+            isSupportInside ? styles.serviceIconSolid : ''
+          }`.trim()}
+          aria-hidden="true"
+        >
+          <Icon size={24} strokeWidth={1.6} />
+        </span>
+        <div className={styles.headerIdentity}>
+          <div className={styles.headerTitleRow}>
+            <h1 className={styles.headerTitle}>{info.display.primary}</h1>
+            <Badge variant={SERVICE_STATUS_TONE[info.status]}>
+              {SERVICE_STATUS_LABEL[info.status]}
+            </Badge>
+            {ctx.siCoverageBadge && (
+              <Badge variant="brand">{ctx.siCoverageBadge}</Badge>
+            )}
+          </div>
+          <DescriptionList layout="inline" items={metaItems} />
+          {/* Cliente con drift: mensaje empático (UI_SPEC §4.13 — el cliente no
+              ve jerga técnica; el admin tiene el AdminDriftBanner). */}
+          {!forceAdminRoute && isDrift && (
+            <p className={styles.sectionDesc}>
+              {t('service.drift.client_generic')}
+            </p>
+          )}
         </div>
-        <DescriptionList layout="inline" items={metaItems} />
-        {/* Cliente con drift: mensaje empático (UI_SPEC §4.13 — el cliente no
-            ve jerga técnica; el admin tiene el AdminDriftBanner). */}
-        {!forceAdminRoute && isDrift && (
-          <p className={styles.sectionDesc}>{t('service.drift.client_generic')}</p>
-        )}
       </div>
 
       <ServiceActionCluster
