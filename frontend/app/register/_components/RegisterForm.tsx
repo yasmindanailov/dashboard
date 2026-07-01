@@ -1,24 +1,38 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { User, Briefcase, Building2, Check, Info, ShieldCheck, type LucideIcon } from 'lucide-react';
 import {
-  registerAction,
-  type RegisterActionState,
-} from '../../lib/auth-actions';
+  AlertCircle,
+  Briefcase,
+  Building2,
+  Check,
+  Info,
+  Mail,
+  ShieldCheck,
+  User,
+  type LucideIcon,
+} from 'lucide-react';
+import { registerAction, type RegisterActionState } from '../../lib/auth-actions';
 import AuthLayout from '../../AuthLayout';
-import { EyeIcon, PasswordCheck } from '../../auth-components';
+import { REGISTER_PANEL } from '../../auth-panels';
+import { EyeIcon, SubmitSpinner } from '../../auth-components';
+import {
+  PasswordChecklist,
+  computePasswordChecks,
+} from '../../_components/PasswordChecklist';
 import styles from '../../auth.module.css';
 import f from './register-fiscal.module.css';
 
 /* ═══════════════════════════════════════════════════════════
-   Register Form — F3·E11 (registro fiscal). Captura el perfil de facturación
-   al alta (Personal / Autónomo / Empresa) con campos condicionales, 1:1 con
-   `Registro.dc.html`. El servidor valida el shape (RegisterDto + registerAction);
-   aquí la UX (fuerza de contraseña, condicionales, hint de IVA por país).
-   Doctrina Modelo A (ADR-078 A1).
+   Register Form — F3·E11 (registro fiscal) · reskin 1:1 F4·W3 con
+   `Registro.dc.html`. Captura el perfil de facturación al alta (Personal /
+   Autónomo / Empresa) con campos condicionales. El servidor valida el shape
+   (RegisterDto + registerAction); aquí la UX (fuerza de contraseña, hint IVA).
+
+   Nota 1:1: el mockup muestra un único "Nombre y apellidos"; se mantienen DOS
+   campos (Nombre + Apellidos) porque el backend exige `first_name` + `last_name`
+   por separado (más robusto y fiel a la realidad). Doctrina Modelo A (ADR-078 A1).
    ═══════════════════════════════════════════════════════════ */
 
 type AccountType = 'personal' | 'autonomo' | 'empresa';
@@ -69,20 +83,7 @@ export default function RegisterForm() {
   const [country, setCountry] = useState('ES');
   const [terms, setTerms] = useState(false);
 
-  const passwordChecks = {
-    length: password.length >= 8,
-    upper: /[A-Z]/.test(password),
-    lower: /[a-z]/.test(password),
-    number: /[0-9]/.test(password),
-    match: password.length > 0 && password === confirmPassword,
-  };
-  const passwordValid =
-    passwordChecks.length &&
-    passwordChecks.upper &&
-    passwordChecks.lower &&
-    passwordChecks.number &&
-    passwordChecks.match;
-
+  const checks = computePasswordChecks(password, confirmPassword);
   const isFiscal = accountType === 'autonomo' || accountType === 'empresa';
   const isCompany = accountType === 'empresa';
   const ivaPct = COUNTRIES.find((c) => c.code === country)?.iva ?? 21;
@@ -90,23 +91,19 @@ export default function RegisterForm() {
 
   if (state?.success) {
     return (
-      <AuthLayout>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4 }}
-          className={styles.successContainer}
-        >
-          <svg className={styles.successIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-          <h1 className={styles.successTitle}>Revisa tu correo</h1>
-          <p className={styles.successText}>
-            Hemos enviado un enlace de verificación a <strong>{email}</strong>. En
-            cuanto entres, te llamamos en 24 h para dejarlo todo a punto.
+      <AuthLayout headline={REGISTER_PANEL.headline} valueProps={REGISTER_PANEL.valueProps} formWidth={420}>
+        <div className={styles.authResult}>
+          <div className={`${styles.authResultIcon} ${styles.authResultBrand}`}>
+            <Mail size={30} strokeWidth={1.8} />
+          </div>
+          <h1 className={styles.authResultTitle}>Revisa tu correo</h1>
+          <p className={styles.authResultText}>
+            Te hemos enviado un enlace a <strong>{email}</strong> para confirmar tu
+            cuenta. En cuanto entres, te llamamos en 24 h para conocer tu negocio y
+            dejarlo todo a punto.
           </p>
-          <Link href="/" className={styles.footerLink}>← Volver al login</Link>
-        </motion.div>
+          <Link href="/" className={styles.authResultLink}>Ir a iniciar sesión</Link>
+        </div>
       </AuthLayout>
     );
   }
@@ -117,8 +114,8 @@ export default function RegisterForm() {
   const nifPlaceholder = isCompany ? 'B-12345678' : '12345678Z';
 
   return (
-    <AuthLayout>
-      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
+    <AuthLayout headline={REGISTER_PANEL.headline} valueProps={REGISTER_PANEL.valueProps} formWidth={420}>
+      <div>
         <div className={styles.heading}>
           <h1 className={styles.headingTitle}>Crear cuenta</h1>
           <p className={styles.headingSubtitle}>
@@ -127,11 +124,13 @@ export default function RegisterForm() {
         </div>
 
         {generalError && (
-          <div className={`${styles.alert} ${styles.alertDanger}`}>{generalError}</div>
+          <div className={`${styles.authBanner} ${styles.authBannerDanger}`}>
+            <AlertCircle size={17} strokeWidth={2.2} className={styles.authBannerIcon} />
+            <span>{generalError}</span>
+          </div>
         )}
 
         <form action={formAction} className={styles.formStack}>
-          {/* Estado no-textual → hidden inputs para el FormData */}
           <input type="hidden" name="account_type" value={accountType} />
           <input type="hidden" name="terms_accepted" value={terms ? 'true' : 'false'} />
 
@@ -165,7 +164,7 @@ export default function RegisterForm() {
           <div className={styles.fieldGroup}>
             <label htmlFor="reg-password" className={styles.fieldLabel}>Contraseña</label>
             <div className={styles.passwordWrapper}>
-              <input id="reg-password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Crea una contraseña" className={styles.authInput} />
+              <input id="reg-password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Crea una contraseña" className={styles.authInput} style={{ paddingRight: 'var(--space-12)' }} />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className={styles.passwordToggle} aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
                 <EyeIcon open={showPassword} />
               </button>
@@ -178,14 +177,7 @@ export default function RegisterForm() {
             <input id="reg-confirm" type={showPassword ? 'text' : 'password'} autoComplete="new-password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repite la contraseña" className={styles.authInput} />
           </div>
 
-          {password.length > 0 && (
-            <div className={styles.passwordChecks}>
-              <PasswordCheck passed={passwordChecks.length} text="Al menos 8 caracteres" />
-              <PasswordCheck passed={passwordChecks.upper && passwordChecks.lower} text="Mayúsculas y minúsculas" />
-              <PasswordCheck passed={passwordChecks.number} text="Al menos un número" />
-              <PasswordCheck passed={passwordChecks.match} text="Las contraseñas coinciden" />
-            </div>
-          )}
+          <PasswordChecklist checks={checks} />
 
           {/* ── Tipo de cuenta / perfil de facturación ── */}
           <div className={styles.fieldGroup}>
@@ -273,23 +265,15 @@ export default function RegisterForm() {
           </button>
           {fieldErrors?.terms && <p className={styles.fieldError}>{fieldErrors.terms}</p>}
 
-          <button type="submit" disabled={pending || !passwordValid || !terms} className={styles.submitButton}>
-            {pending ? (
-              <span className={styles.submitSpinner}>
-                <svg className={styles.spinnerIcon} viewBox="0 0 24 24">
-                  <circle opacity="0.25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path opacity="0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Creando cuenta...
-              </span>
-            ) : 'Crear cuenta'}
+          <button type="submit" disabled={pending || !checks.all || !terms} className={styles.submitButton}>
+            {pending ? <SubmitSpinner label="Creando cuenta…" /> : 'Crear cuenta'}
           </button>
         </form>
 
         <p className={styles.footerText}>
           ¿Ya tienes cuenta? <Link href="/" className={styles.footerLink}>Inicia sesión</Link>
         </p>
-      </motion.div>
+      </div>
     </AuthLayout>
   );
 }

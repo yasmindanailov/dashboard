@@ -28,6 +28,19 @@ export function EyeIcon({ open }: { open: boolean }) {
   );
 }
 
+/** Spinner + etiqueta para el botón de submit en pending (compartido). */
+export function SubmitSpinner({ label }: { label: string }) {
+  return (
+    <span className={styles.submitSpinner}>
+      <svg className={styles.spinnerIcon} viewBox="0 0 24 24">
+        <circle opacity="0.25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+        <path opacity="0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      </svg>
+      {label}
+    </span>
+  );
+}
+
 /** Inline password requirement check indicator */
 export function PasswordCheck({ passed, text }: { passed: boolean; text: string }) {
   return (

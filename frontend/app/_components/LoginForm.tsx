@@ -1,36 +1,43 @@
 'use client';
 
-import { useState, useActionState, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import {
+  useState,
+  useRef,
+  useEffect,
+  useActionState,
+  Suspense,
+  type KeyboardEvent,
+  type ClipboardEvent,
+} from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { AlertCircle, Info, Lock } from 'lucide-react';
 import {
   loginAction,
   verify2faAction,
   resendVerificationAction,
+  resend2faAction,
   type LoginActionState,
   type Verify2faActionState,
+  type Resend2faActionState,
   type SimpleAuthActionState,
 } from '../lib/auth-actions';
 import AuthLayout from '../AuthLayout';
-import { EyeIcon } from '../auth-components';
+import { LOGIN_PANEL } from '../auth-panels';
+import { EyeIcon, SubmitSpinner } from '../auth-components';
 import styles from '../auth.module.css';
 
 /* ═══════════════════════════════════════════════════════════
-   Login Form — Sprint 13 §13.AUTH Fase E (Modelo A)
+   Login Form — F4·W3 (reskin 1:1 con Login.dc.html).
 
-   Doctrina: ADR-078 Amendment A1 (cookies httpOnly Next.js).
-   Flow:
-     1. credentials → loginAction (Server Action)
-        - éxito sin 2FA → action invoca redirect() server-side
-        - éxito con 2FA → state.requires2fa.temp_token → step '2fa'
+   Doctrina: ADR-078 Amendment A1 (Modelo A, cookies httpOnly). Flow:
+     1. credenciales → loginAction (Server Action, fija cookies server-side)
+        - éxito sin 2FA → state.success → pantalla bienvenida + navega en cliente
+        - éxito con 2FA → state.requires2fa.temp_token → paso '2fa'
         - error → state.error
-     2. 2fa → verify2faAction (Server Action)
-        - éxito → action invoca redirect() server-side
-        - error → state.error
-   Cero localStorage, cero token cliente, cero useEffect+fetch.
-
-   Ref: UI_SPEC §5.13, §4.4, §4.5, §4.6 (visual preservado).
+     2. 2fa → verify2faAction → state.success → bienvenida + navega
+        - reenviar código → resend2faAction (nuevo temp_token)
+   Cero localStorage, cero token cliente (R17).
    ═══════════════════════════════════════════════════════════ */
 
 const VERIFICATION_HINTS = ['verificar tu email', 'pending_verification'] as const;
@@ -39,251 +46,291 @@ function isVerificationError(message: string | undefined): boolean {
   if (!message) return false;
   return VERIFICATION_HINTS.some((hint) => message.includes(hint));
 }
+function isBlockedError(message: string | undefined): boolean {
+  return !!message && /bloquead/i.test(message);
+}
 
 export default function LoginForm() {
   return (
-    <Suspense fallback={<AuthLayout><div /></AuthLayout>}>
+    <Suspense
+      fallback={
+        <AuthLayout headline={LOGIN_PANEL.headline} valueProps={LOGIN_PANEL.valueProps}>
+          <div />
+        </AuthLayout>
+      }
+    >
       <LoginContent />
     </Suspense>
   );
 }
 
 function LoginContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const sessionExpired = searchParams.get('expired') === 'true';
 
-  // Hook 1: credenciales → loginAction.
-  const [credState, credAction, credPending] = useActionState<
-    LoginActionState | null,
+  const [credState, credAction, credPending] = useActionState<LoginActionState | null, FormData>(
+    loginAction,
+    null,
+  );
+  const [twofaState, twofaAction, twofaPending] = useActionState<Verify2faActionState | null, FormData>(
+    verify2faAction,
+    null,
+  );
+  const [resendState, resendAction, resendPending] = useActionState<SimpleAuthActionState | null, FormData>(
+    resendVerificationAction,
+    null,
+  );
+  const [resend2faState, resend2faDispatch, resend2faPending] = useActionState<
+    Resend2faActionState | null,
     FormData
-  >(loginAction, null);
+  >(resend2faAction, null);
 
-  // Hook 2: 2FA → verify2faAction.
-  const [twofaState, twofaAction, twofaPending] = useActionState<
-    Verify2faActionState | null,
-    FormData
-  >(verify2faAction, null);
-
-  // Hook 3: resend verification (sin redirect, solo confirmación).
-  const [resendState, resendAction, resendPending] = useActionState<
-    SimpleAuthActionState | null,
-    FormData
-  >(resendVerificationAction, null);
-
-  // Email local — necesario para resendVerification (formData reuse) + UX.
   const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [code, setCode] = useState<string[]>(['', '', '', '', '', '']);
+  const codeRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  /*
-   * Step se deriva del state: si loginAction devolvió temp_token, paso 2.
-   * `backClicked` permite al usuario volver del paso 2FA al paso credenciales
-   * sin resetear todo el componente (re-submit cred limpia el flag).
-   */
-  const tempToken = credState?.requires2fa?.temp_token;
+  // temp_token: el del login, o el fresco que devuelve un reenvío.
+  const credToken = credState?.requires2fa?.temp_token;
+  const activeToken = resend2faState?.tempToken ?? credToken;
   const [backClicked, setBackClicked] = useState(false);
-  const showTwoFa = !!tempToken && !backClicked;
-  const step: 'credentials' | '2fa' = showTwoFa ? '2fa' : 'credentials';
+
+  const successState = twofaState?.success ?? credState?.success;
+  const showTwoFa = !!activeToken && !backClicked && !successState;
+  const step: 'credentials' | '2fa' | 'success' = successState
+    ? 'success'
+    : showTwoFa
+      ? '2fa'
+      : 'credentials';
+
+  // Navegación en cliente tras el éxito (cookies ya fijadas server-side).
+  useEffect(() => {
+    if (!successState) return;
+    const t = setTimeout(() => router.replace(successState.redirectTo), 1100);
+    return () => clearTimeout(t);
+  }, [successState, router]);
 
   const handleCredSubmit = (formData: FormData) => {
     setBackClicked(false);
     credAction(formData);
   };
 
+  const setDigit = (i: number, value: string) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    setCode((prev) => {
+      const next = [...prev];
+      next[i] = digit;
+      return next;
+    });
+    if (digit && i < 5) codeRefs.current[i + 1]?.focus();
+  };
+  const handleCodeKeyDown = (i: number, e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !code[i] && i > 0) codeRefs.current[i - 1]?.focus();
+  };
+  const handleCodePaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (!digits) return;
+    e.preventDefault();
+    const next = ['', '', '', '', '', ''];
+    for (let i = 0; i < digits.length; i++) next[i] = digits[i];
+    setCode(next);
+    codeRefs.current[Math.min(digits.length, 5)]?.focus();
+  };
+
   const credError = credState?.error;
   const twofaError = twofaState?.error;
   const showResend = isVerificationError(credError);
+  const codeValue = code.join('');
 
   return (
-    <AuthLayout>
-      <AnimatePresence mode="wait">
-        {step === 'credentials' && (
-          <motion.div
-            key="credentials"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className={styles.heading}>
-              <h1 className={styles.headingTitle}>Bienvenido de vuelta</h1>
-              <p className={styles.headingSubtitle}>Inicia sesión en tu panel de gestión</p>
+    <AuthLayout headline={LOGIN_PANEL.headline} valueProps={LOGIN_PANEL.valueProps}>
+      {/* ═══ CREDENCIALES ═══ */}
+      {step === 'credentials' && (
+        <div>
+          <div className={styles.heading}>
+            <h1 className={styles.headingTitle}>Bienvenido de vuelta</h1>
+            <p className={styles.headingSubtitle}>Entra a tu panel y sigue con lo tuyo.</p>
+          </div>
+
+          {sessionExpired && !credError && (
+            <div className={`${styles.authBanner} ${styles.authBannerInfo}`}>
+              <Info size={17} strokeWidth={2} className={styles.authBannerIcon} />
+              <span>Tu sesión ha expirado. Inicia sesión de nuevo.</span>
             </div>
+          )}
 
-            {sessionExpired && !credError && (
-              <div
-                className={`${styles.alert} ${styles.alertInfo}`}
-                style={{ marginBottom: 'var(--space-4)' }}
-              >
-                Tu sesión ha expirado. Inicia sesión de nuevo.
-              </div>
-            )}
-
-            {credError && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`${styles.alert} ${styles.alertDanger}`}
-                style={{ marginBottom: 'var(--space-4)' }}
-              >
+          {credError && (
+            <div className={`${styles.authBanner} ${styles.authBannerDanger}`}>
+              {isBlockedError(credError) ? (
+                <Lock size={17} strokeWidth={2} className={styles.authBannerIcon} />
+              ) : (
+                <AlertCircle size={17} strokeWidth={2.2} className={styles.authBannerIcon} />
+              )}
+              <span>
                 {credError}
                 {showResend && email && (
                   <form action={resendAction} style={{ display: 'inline' }}>
                     <input type="hidden" name="email" value={email} />
-                    <button
-                      type="submit"
-                      disabled={resendPending}
-                      className={styles.alertAction}
-                    >
+                    <button type="submit" disabled={resendPending} className={styles.alertAction}>
                       {resendPending ? 'Reenviando…' : 'Reenviar email de verificación'}
                     </button>
                   </form>
                 )}
-              </motion.div>
-            )}
+              </span>
+            </div>
+          )}
 
-            {resendState?.success && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`${styles.alert} ${styles.alertSuccess}`}
-                style={{ marginBottom: 'var(--space-4)' }}
-              >
-                Si el email existe, recibirás un nuevo enlace de verificación.
-              </motion.div>
-            )}
+          {resendState?.success && (
+            <div className={`${styles.authBanner} ${styles.authBannerInfo}`}>
+              <Info size={17} strokeWidth={2} className={styles.authBannerIcon} />
+              <span>Si el email existe, recibirás un nuevo enlace de verificación.</span>
+            </div>
+          )}
 
-            <form action={handleCredSubmit} className={styles.formStack}>
-              <div className={styles.fieldGroup}>
-                <label htmlFor="login-email" className={styles.fieldLabel}>Email</label>
-                <input
-                  id="login-email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tu@email.com"
-                  className={styles.authInput}
-                />
-              </div>
-
-              <div className={styles.fieldGroup}>
-                <div className={styles.fieldLabelRow}>
-                  <label htmlFor="login-password" className={styles.fieldLabel}>Contraseña</label>
-                  <Link href="/forgot-password" className={styles.inlineLink}>
-                    ¿Olvidaste tu contraseña?
-                  </Link>
-                </div>
-                <div className={styles.passwordWrapper}>
-                  <input
-                    id="login-password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    required
-                    placeholder="••••••••"
-                    className={styles.authInput}
-                    style={{ paddingRight: 'var(--space-12)' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className={styles.passwordToggle}
-                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                  >
-                    <EyeIcon open={showPassword} />
-                  </button>
-                </div>
-              </div>
-
-              <button type="submit" disabled={credPending} className={styles.submitButton}>
-                {credPending ? (
-                  <span className={styles.submitSpinner}>
-                    <svg className={styles.spinnerIcon} viewBox="0 0 24 24">
-                      <circle opacity="0.25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path opacity="0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Iniciando sesión...
-                  </span>
-                ) : 'Iniciar sesión'}
-              </button>
-            </form>
-
-            <p className={styles.footerText}>
-              ¿No tienes cuenta?{' '}
-              <Link href="/register" className={styles.footerLink}>Crear cuenta</Link>
-            </p>
-          </motion.div>
-        )}
-
-        {step === '2fa' && tempToken && (
-          <motion.div
-            key="2fa"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className={styles.heading}>
-              <h1 className={styles.headingTitle}>Verificación de seguridad</h1>
-              <p className={styles.headingSubtitle}>
-                Hemos enviado un código de 6 dígitos a tu email
-              </p>
+          <form action={handleCredSubmit} className={styles.formStack}>
+            <div className={styles.fieldGroup}>
+              <label htmlFor="login-email" className={styles.fieldLabel}>Email</label>
+              <input
+                id="login-email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@correo.com"
+                className={styles.authInput}
+              />
             </div>
 
-            {twofaError && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`${styles.alert} ${styles.alertDanger}`}
-                style={{ marginBottom: 'var(--space-4)' }}
-              >
-                {twofaError}
-              </motion.div>
-            )}
-
-            <form action={twofaAction} className={styles.formStack}>
-              <input type="hidden" name="temp_token" value={tempToken} />
-              <div className={styles.fieldGroup}>
-                <label htmlFor="login-2fa" className={styles.fieldLabel}>Código de verificación</label>
-                <input
-                  id="login-2fa"
-                  name="code"
-                  type="text"
-                  autoComplete="one-time-code"
-                  required
-                  placeholder="000000"
-                  maxLength={6}
-                  pattern="[0-9]{6}"
-                  inputMode="numeric"
-                  className={styles.authInput}
-                />
+            <div className={styles.fieldGroup}>
+              <div className={styles.fieldLabelRow}>
+                <label htmlFor="login-password" className={styles.fieldLabel}>Contraseña</label>
+                <Link href="/forgot-password" className={styles.inlineLink}>¿La olvidaste?</Link>
               </div>
+              <div className={styles.passwordWrapper}>
+                <input
+                  id="login-password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  placeholder="Tu contraseña"
+                  className={styles.authInput}
+                  style={{ paddingRight: 'var(--space-12)' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className={styles.passwordToggle}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  <EyeIcon open={showPassword} />
+                </button>
+              </div>
+            </div>
 
-              <button type="submit" disabled={twofaPending} className={styles.submitButton}>
-                {twofaPending ? (
-                  <span className={styles.submitSpinner}>
-                    <svg className={styles.spinnerIcon} viewBox="0 0 24 24">
-                      <circle opacity="0.25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path opacity="0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Verificando...
-                  </span>
-                ) : 'Verificar'}
-              </button>
+            <button type="submit" disabled={credPending} className={styles.submitButton}>
+              {credPending ? <SubmitSpinner label="Iniciando sesión…" /> : 'Entrar'}
+            </button>
+          </form>
 
-              <button
-                type="button"
-                onClick={() => setBackClicked(true)}
-                className={styles.backButton}
-              >
-                ← Volver al login
+          <p className={styles.footerText}>
+            ¿Aún no tienes cuenta?{' '}
+            <Link href="/register" className={styles.footerLink}>Crear cuenta</Link>
+          </p>
+        </div>
+      )}
+
+      {/* ═══ 2FA ═══ */}
+      {step === '2fa' && activeToken && (
+        <div>
+          <button type="button" onClick={() => setBackClicked(true)} className={styles.authBack}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Volver
+          </button>
+
+          <span className={styles.authIconWell}>
+            <Lock size={24} strokeWidth={1.7} />
+          </span>
+          <div className={styles.heading}>
+            <h1 className={styles.headingTitle}>Verificación en dos pasos</h1>
+            <p className={styles.headingSubtitle}>
+              Te hemos enviado un código de 6 dígitos a tu correo. Introdúcelo para continuar.
+            </p>
+          </div>
+
+          {twofaError && (
+            <div className={`${styles.authBanner} ${styles.authBannerDanger}`}>
+              <AlertCircle size={17} strokeWidth={2.2} className={styles.authBannerIcon} />
+              <span>{twofaError}</span>
+            </div>
+          )}
+          {resend2faState?.tempToken && (
+            <div className={`${styles.authBanner} ${styles.authBannerInfo}`}>
+              <Info size={17} strokeWidth={2} className={styles.authBannerIcon} />
+              <span>Te hemos enviado un código nuevo.</span>
+            </div>
+          )}
+
+          <form action={twofaAction} className={styles.formStack}>
+            <input type="hidden" name="temp_token" value={activeToken} />
+            <input type="hidden" name="code" value={codeValue} />
+            <div className={styles.codeBoxes}>
+              {code.map((digit, i) => (
+                <input
+                  key={i}
+                  ref={(el) => {
+                    codeRefs.current[i] = el;
+                  }}
+                  inputMode="numeric"
+                  maxLength={1}
+                  autoComplete={i === 0 ? 'one-time-code' : 'off'}
+                  aria-label={`Dígito ${i + 1}`}
+                  value={digit}
+                  onChange={(e) => setDigit(i, e.target.value)}
+                  onKeyDown={(e) => handleCodeKeyDown(i, e)}
+                  onPaste={i === 0 ? handleCodePaste : undefined}
+                  className={styles.codeBox}
+                />
+              ))}
+            </div>
+
+            <button
+              type="submit"
+              disabled={twofaPending || codeValue.length < 6}
+              className={styles.submitButton}
+            >
+              {twofaPending ? <SubmitSpinner label="Verificando…" /> : 'Verificar y entrar'}
+            </button>
+          </form>
+
+          <div className={styles.resendRow}>
+            ¿No te llega?{' '}
+            <form action={resend2faDispatch} style={{ display: 'inline' }}>
+              <input type="hidden" name="temp_token" value={activeToken} />
+              <button type="submit" disabled={resend2faPending} className={styles.resendBtn}>
+                {resend2faPending ? 'Reenviando…' : 'Reenviar código'}
               </button>
             </form>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ BIENVENIDA (cookies ya fijadas · navega en cliente) ═══ */}
+      {step === 'success' && successState && (
+        <div className={styles.authResult}>
+          <div className={styles.authSpinner} aria-hidden="true" />
+          <h1 className={styles.authResultTitle}>¡Hola de nuevo, {successState.firstName}!</h1>
+          <p className={styles.authResultText}>Entrando a tu panel…</p>
+          <Link href={successState.redirectTo} className={styles.authResultLink}>
+            Ir a tu panel →
+          </Link>
+        </div>
+      )}
     </AuthLayout>
   );
 }

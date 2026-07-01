@@ -61,6 +61,7 @@ interface AuthCompleteResponse {
   user: {
     id: string;
     email: string;
+    first_name: string;
     role: { slug: string };
   };
 }
@@ -78,6 +79,13 @@ export interface LoginActionState {
   error?: string;
   /** Si el login devolvió temp_token (2FA), lo expone para que la UI navegue al paso 2. */
   requires2fa?: { temp_token: string };
+  /**
+   * Login completado (sin 2FA). Las cookies httpOnly YA están fijadas server-side
+   * (Modelo A / R17); la UI muestra la pantalla de bienvenida y navega a
+   * `redirectTo` en cliente. `firstName` es el nombre propio del usuario (no es
+   * secreto — ya autenticado).
+   */
+  success?: { firstName: string; redirectTo: string };
 }
 
 interface BackendErrorBody {
@@ -174,13 +182,23 @@ export async function loginAction(
     return { requires2fa: { temp_token: result.data.temp_token } };
   }
 
+  // Modelo A: fijamos las cookies httpOnly server-side y devolvemos éxito (en vez
+  // de redirect server-side) para que la UI muestre la pantalla de bienvenida y
+  // navegue en cliente (robusto: cookies ya presentes + enlace de respaldo).
   await setAuthCookies(result.data);
-  redirect(landingForRole(result.data.user.role.slug));
+  return {
+    success: {
+      firstName: result.data.user.first_name,
+      redirectTo: landingForRole(result.data.user.role.slug),
+    },
+  };
 }
 
 export interface Verify2faActionState {
   ok?: false;
   error?: string;
+  /** 2FA verificado: cookies fijadas server-side; la UI da la bienvenida + navega. */
+  success?: { firstName: string; redirectTo: string };
 }
 
 /**
@@ -208,7 +226,41 @@ export async function verify2faAction(
   }
 
   await setAuthCookies(result.data);
-  redirect(landingForRole(result.data.user.role.slug));
+  return {
+    success: {
+      firstName: result.data.user.first_name,
+      redirectTo: landingForRole(result.data.user.role.slug),
+    },
+  };
+}
+
+export interface Resend2faActionState {
+  ok?: boolean;
+  error?: string;
+  /** Nuevo `temp_token` (ventana 2FA renovada) para usar en el verify siguiente. */
+  tempToken?: string;
+}
+
+/**
+ * resend2faAction — reenvía el código 2FA. El backend regenera el código, lo
+ * reenvía por email y devuelve un `temp_token` fresco. El form debe adoptar ese
+ * token nuevo para el verify posterior.
+ */
+export async function resend2faAction(
+  _prevState: Resend2faActionState | null,
+  formData: FormData,
+): Promise<Resend2faActionState> {
+  const tempToken = String(formData.get('temp_token') ?? '');
+  if (!tempToken) {
+    return { ok: false, error: 'Falta el token temporal. Inicia sesión de nuevo.' };
+  }
+  const result = await backendCall<Login2faPendingResponse>('/auth/resend-2fa', {
+    temp_token: tempToken,
+  });
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+  return { ok: true, tempToken: result.data.temp_token };
 }
 
 /**

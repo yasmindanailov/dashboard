@@ -1,20 +1,22 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { AlertCircle, Mail } from 'lucide-react';
 import {
   forgotPasswordAction,
   type SimpleAuthActionState,
 } from '../../lib/auth-actions';
 import AuthLayout from '../../AuthLayout';
+import { RECOVER_PANEL } from '../../auth-panels';
+import { SubmitSpinner } from '../../auth-components';
 import styles from '../../auth.module.css';
 
 /* ═══════════════════════════════════════════════════════════
-   Forgot Password Form — Sprint 13 §13.AUTH Fase E (Modelo A).
+   Forgot Password Form — F4·W3 (reskin 1:1 con RecuperarContrasena.dc.html).
 
-   El backend siempre responde 200 (anti email-enumeration); aquí
-   tratamos cualquier resultado no-error como "success" visual.
+   El backend siempre responde 200 (anti email-enumeration); cualquier
+   resultado no-error = "Revisa tu email" visual. Modelo A (Server Action).
    ═══════════════════════════════════════════════════════════ */
 
 export default function ForgotPasswordForm() {
@@ -24,33 +26,25 @@ export default function ForgotPasswordForm() {
   >(forgotPasswordAction, null);
 
   const [email, setEmail] = useState('');
-
   const showSuccess = !!state?.success;
 
   return (
-    <AuthLayout>
+    <AuthLayout headline={RECOVER_PANEL.headline} valueProps={RECOVER_PANEL.valueProps}>
       {!showSuccess ? (
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+        <div>
           <div className={styles.heading}>
             <h1 className={styles.headingTitle}>Recuperar contraseña</h1>
             <p className={styles.headingSubtitle}>
-              Introduce tu email y te enviaremos un enlace para restablecer tu contraseña
+              Introduce tu email y te enviaremos un enlace para restablecer tu
+              contraseña.
             </p>
           </div>
 
           {state?.error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`${styles.alert} ${styles.alertDanger}`}
-              style={{ marginBottom: 'var(--space-4)' }}
-            >
-              {state.error}
-            </motion.div>
+            <div className={`${styles.authBanner} ${styles.authBannerDanger}`}>
+              <AlertCircle size={17} strokeWidth={2.2} className={styles.authBannerIcon} />
+              <span>{state.error}</span>
+            </div>
           )}
 
           <form action={formAction} className={styles.formStack}>
@@ -64,50 +58,44 @@ export default function ForgotPasswordForm() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com"
+                placeholder="tu@correo.com"
                 className={styles.authInput}
               />
             </div>
 
             <button type="submit" disabled={pending} className={styles.submitButton}>
-              {pending ? (
-                <span className={styles.submitSpinner}>
-                  <svg className={styles.spinnerIcon} viewBox="0 0 24 24">
-                    <circle opacity="0.25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path opacity="0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Enviando...
-                </span>
-              ) : 'Enviar enlace de recuperación'}
+              {pending ? <SubmitSpinner label="Enviando…" /> : 'Enviar enlace de recuperación'}
             </button>
           </form>
 
           <p className={styles.footerText}>
             <Link href="/" className={styles.footerLink}>← Volver al login</Link>
           </p>
-        </motion.div>
+        </div>
       ) : (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4 }}
-          className={styles.successContainer}
-        >
-          <svg
-            className={styles.successIcon}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-          <h1 className={styles.successTitle}>Revisa tu email</h1>
-          <p className={styles.successText}>
-            Si existe una cuenta con <strong>{email}</strong>, recibirás un enlace para restablecer tu contraseña.
+        <div className={styles.authResult}>
+          <div className={`${styles.authResultIcon} ${styles.authResultBrand}`}>
+            <Mail size={30} strokeWidth={1.8} />
+          </div>
+          <h1 className={styles.authResultTitle}>Revisa tu email</h1>
+          <p className={styles.authResultText}>
+            Si existe una cuenta con <strong>{email}</strong>, recibirás un enlace
+            para restablecer tu contraseña.
           </p>
-          <Link href="/" className={styles.footerLink}>← Volver al login</Link>
-        </motion.div>
+          <p className={styles.authResultHint}>
+            El enlace caduca en 1 hora. Revisa también tu carpeta de spam.
+          </p>
+          <div className={styles.resendRow}>
+            ¿No te llega?{' '}
+            <form action={formAction} style={{ display: 'inline' }}>
+              <input type="hidden" name="email" value={email} />
+              <button type="submit" disabled={pending} className={styles.resendBtn}>
+                {pending ? 'Reenviando…' : 'Reenviar enlace'}
+              </button>
+            </form>
+          </div>
+          <Link href="/" className={styles.authResultLinkMuted}>← Volver al login</Link>
+        </div>
       )}
     </AuthLayout>
   );

@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { XCircle } from 'lucide-react';
 
 import { getServerSession } from '../lib/server-auth';
 import { landingForRole } from '../lib/auth-routing';
 import AuthLayout from '../AuthLayout';
+import { RECOVER_PANEL } from '../auth-panels';
 import ResetPasswordForm from './_components/ResetPasswordForm';
 import styles from '../auth.module.css';
 
@@ -33,27 +35,19 @@ export default async function ResetPasswordPage({ searchParams }: PageProps) {
 
   if (!token) {
     return (
-      <AuthLayout>
-        <div className={styles.successContainer}>
-          <svg
-            className={styles.successIcon}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            style={{ color: 'var(--danger)' }}
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="15" y1="9" x2="9" y2="15" />
-            <line x1="9" y1="9" x2="15" y2="15" />
-          </svg>
-          <h1 className={styles.successTitle}>Enlace inválido</h1>
-          <p className={styles.successText}>
+      <AuthLayout headline={RECOVER_PANEL.headline} valueProps={RECOVER_PANEL.valueProps}>
+        <div className={styles.authResult}>
+          <div className={`${styles.authResultIcon} ${styles.authResultDanger}`}>
+            <XCircle size={30} strokeWidth={2} />
+          </div>
+          <h1 className={styles.authResultTitle}>Enlace inválido</h1>
+          <p className={styles.authResultText}>
             Este enlace de recuperación no es válido o ha expirado.
           </p>
-          <Link href="/forgot-password" className={styles.footerLink}>
+          <Link href="/forgot-password" className={styles.authResultCta}>
             Solicitar nuevo enlace
           </Link>
+          <Link href="/" className={styles.authResultLinkMuted}>← Volver al login</Link>
         </div>
       </AuthLayout>
     );
