@@ -137,6 +137,36 @@ export class AuthLoginService {
     return this.tokenService.issueTokens(user, ip, userAgent);
   }
 
+  /**
+   * Reenvía el código 2FA (F4·W3 Auth). Verifica el `temp_token` emitido por
+   * `initiate2fa` (paso credenciales OK), y regenera + reenvía un código nuevo,
+   * devolviendo un `temp_token` fresco (ventana renovada). NO revalida la
+   * contraseña: el temp_token ya prueba que el paso de credenciales se superó
+   * (firmado por nosotros, expira). El rate-limit (R10) lo aplica el controller.
+   */
+  async resend2fa(tempToken: string, ip: string) {
+    let payload: JwtPayload;
+    try {
+      payload = this.jwt.verify<JwtPayload>(tempToken);
+    } catch {
+      throw new UnauthorizedException(
+        'Token expirado. Inicia sesión de nuevo.',
+      );
+    }
+    if (payload.type !== 'temp_2fa') {
+      throw new UnauthorizedException('Token inválido');
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      include: { role: true },
+    });
+    if (!user) {
+      throw new UnauthorizedException('Token inválido');
+    }
+    // Reusa la maquinaria de generación+envío del código (mismo molde que login).
+    return this.initiate2fa(user, ip);
+  }
+
   /* ─── Private ─── */
 
   // ip recibido pero no usado todavía — pendiente registrar IP del intento

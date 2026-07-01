@@ -260,4 +260,48 @@ describe('AuthLoginService — GL-26 login/lockout/2FA', () => {
       expect(result).toEqual({ access_token: 'AT', refresh_token: 'RT' });
     });
   });
+
+  // F4·W3 Auth — reenvío del código 2FA (no revalida password: el temp_token
+  // ya prueba el paso de credenciales). Regenera + reenvía + devuelve token fresco.
+  describe('resend2fa', () => {
+    it('token inválido (jwt.verify lanza) → 401', async () => {
+      jwt.verify.mockImplementation(() => {
+        throw new Error('jwt expired');
+      });
+      await expect(service.resend2fa('tok', IP)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      expect(email.send).not.toHaveBeenCalled();
+    });
+
+    it('tipo de token != temp_2fa → 401', async () => {
+      jwt.verify.mockReturnValue({ type: 'access', sub: USER });
+      await expect(service.resend2fa('tok', IP)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    });
+
+    it('válido → regenera el código, reenvía email y devuelve un temp_token fresco', async () => {
+      jwt.verify.mockReturnValue({ type: 'temp_2fa', sub: USER });
+      prisma.user.findUnique.mockResolvedValueOnce(
+        userRow({ role: { slug: 'client' }, two_factor_enabled: true }),
+      );
+      const result = (await service.resend2fa('tok', IP)) as {
+        requires_2fa?: boolean;
+        temp_token?: string;
+      };
+      expect(result.requires_2fa).toBe(true);
+      expect(result.temp_token).toBe('temp-jwt');
+      expect(email.send).toHaveBeenCalled();
+      const updateCalls = prisma.user.update.mock.calls as Array<
+        [{ data: Over }]
+      >;
+      const secretCall = updateCalls.find(
+        (c) => c[0].data.two_factor_secret !== undefined,
+      );
+      expect(secretCall?.[0].data.two_factor_secret).toBe('hash:123456');
+      // NO emite tokens (sigue en el reto 2FA).
+      expect(tokenService.issueTokens).not.toHaveBeenCalled();
+    });
+  });
 });

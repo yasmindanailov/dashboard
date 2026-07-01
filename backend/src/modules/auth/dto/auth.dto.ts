@@ -132,6 +132,13 @@ export class Verify2faDto {
   temp_token: string;
 }
 
+/** POST /auth/resend-2fa — reenvía el código 2FA (F4·W3 Auth). */
+export class Resend2faDto {
+  @ApiProperty({ description: 'Temporary token from login step 1' })
+  @IsString()
+  temp_token: string;
+}
+
 export class VerifyEmailDto {
   @ApiProperty()
   @IsString()
