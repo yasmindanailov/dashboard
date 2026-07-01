@@ -8,7 +8,6 @@ import {
   COOKIE_REFRESH,
   readAccessToken,
 } from './server-auth';
-import { landingForRole } from './auth-routing';
 
 /**
  * Server Actions de autenticación — Sprint 13 §13.AUTH Fase D (2026-05-03).
@@ -79,13 +78,6 @@ export interface LoginActionState {
   error?: string;
   /** Si el login devolvió temp_token (2FA), lo expone para que la UI navegue al paso 2. */
   requires2fa?: { temp_token: string };
-  /**
-   * Login completado (sin 2FA). Las cookies httpOnly YA están fijadas server-side
-   * (Modelo A / R17); la UI muestra la pantalla de bienvenida y navega a
-   * `redirectTo` en cliente. `firstName` es el nombre propio del usuario (no es
-   * secreto — ya autenticado).
-   */
-  success?: { firstName: string; redirectTo: string };
 }
 
 interface BackendErrorBody {
@@ -182,23 +174,17 @@ export async function loginAction(
     return { requires2fa: { temp_token: result.data.temp_token } };
   }
 
-  // Modelo A: fijamos las cookies httpOnly server-side y devolvemos éxito (en vez
-  // de redirect server-side) para que la UI muestre la pantalla de bienvenida y
-  // navegue en cliente (robusto: cookies ya presentes + enlace de respaldo).
+  // Modelo A: fijamos las cookies httpOnly server-side y redirigimos a `/welcome`
+  // (pantalla de bienvenida autenticada que saluda por nombre y auto-navega al
+  // panel). NO redirigimos directo al landing para que el saludo del mockup se
+  // vea; `/welcome` lee el nombre de la sesión (sin exponer tokens al cliente).
   await setAuthCookies(result.data);
-  return {
-    success: {
-      firstName: result.data.user.first_name,
-      redirectTo: landingForRole(result.data.user.role.slug),
-    },
-  };
+  redirect('/welcome');
 }
 
 export interface Verify2faActionState {
   ok?: false;
   error?: string;
-  /** 2FA verificado: cookies fijadas server-side; la UI da la bienvenida + navega. */
-  success?: { firstName: string; redirectTo: string };
 }
 
 /**
@@ -226,12 +212,7 @@ export async function verify2faAction(
   }
 
   await setAuthCookies(result.data);
-  return {
-    success: {
-      firstName: result.data.user.first_name,
-      redirectTo: landingForRole(result.data.user.role.slug),
-    },
-  };
+  redirect('/welcome');
 }
 
 export interface Resend2faActionState {

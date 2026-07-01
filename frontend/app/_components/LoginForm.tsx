@@ -3,14 +3,13 @@
 import {
   useState,
   useRef,
-  useEffect,
   useActionState,
   Suspense,
   type KeyboardEvent,
   type ClipboardEvent,
 } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { AlertCircle, Info, Lock } from 'lucide-react';
 import {
   loginAction,
@@ -65,7 +64,6 @@ export default function LoginForm() {
 }
 
 function LoginContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const sessionExpired = searchParams.get('expired') === 'true';
 
@@ -91,25 +89,15 @@ function LoginContent() {
   const [code, setCode] = useState<string[]>(['', '', '', '', '', '']);
   const codeRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // temp_token: el del login, o el fresco que devuelve un reenvío.
+  // temp_token: el del login, o el fresco que devuelve un reenvío. Al completar
+  // (login sin 2FA o verify-2fa OK) la Server Action redirige a `/welcome`
+  // server-side (fija cookies + saludo por nombre), así que aquí solo hay 2 pasos.
   const credToken = credState?.requires2fa?.temp_token;
   const activeToken = resend2faState?.tempToken ?? credToken;
   const [backClicked, setBackClicked] = useState(false);
 
-  const successState = twofaState?.success ?? credState?.success;
-  const showTwoFa = !!activeToken && !backClicked && !successState;
-  const step: 'credentials' | '2fa' | 'success' = successState
-    ? 'success'
-    : showTwoFa
-      ? '2fa'
-      : 'credentials';
-
-  // Navegación en cliente tras el éxito (cookies ya fijadas server-side).
-  useEffect(() => {
-    if (!successState) return;
-    const t = setTimeout(() => router.replace(successState.redirectTo), 1100);
-    return () => clearTimeout(t);
-  }, [successState, router]);
+  const showTwoFa = !!activeToken && !backClicked;
+  const step: 'credentials' | '2fa' = showTwoFa ? '2fa' : 'credentials';
 
   const handleCredSubmit = (formData: FormData) => {
     setBackClicked(false);
@@ -317,18 +305,6 @@ function LoginContent() {
               </button>
             </form>
           </div>
-        </div>
-      )}
-
-      {/* ═══ BIENVENIDA (cookies ya fijadas · navega en cliente) ═══ */}
-      {step === 'success' && successState && (
-        <div className={styles.authResult}>
-          <div className={styles.authSpinner} aria-hidden="true" />
-          <h1 className={styles.authResultTitle}>¡Hola de nuevo, {successState.firstName}!</h1>
-          <p className={styles.authResultText}>Entrando a tu panel…</p>
-          <Link href={successState.redirectTo} className={styles.authResultLink}>
-            Ir a tu panel →
-          </Link>
         </div>
       )}
     </AuthLayout>
