@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Form from '@rjsf/core';
+import { X } from 'lucide-react';
 import validator from '@rjsf/validator-ajv8';
-import type { IChangeEvent } from '@rjsf/core';
 import type { RJSFSchema } from '@rjsf/utils';
 
 import {
@@ -15,15 +14,14 @@ import {
   Input,
   Modal,
   Select,
-  Textarea,
   useToast,
 } from '../../../../../components/ui';
 import type { AdminPluginListItem } from '../../../../../lib/api';
-import { t, translateSchema } from '../../../../../_shared/i18n';
-import {
-  aeliumDsTemplates,
-  aeliumDsWidgets,
-} from '../../../../../_shared/plugins/rjsf-theme';
+import { CYCLE_OPTIONS } from '../../../new/constants';
+import { IdentitySection } from '../../../_components/form/IdentitySection';
+import { ProvisioningSection } from '../../../_components/form/ProvisioningSection';
+import { LifecycleSection } from '../../../_components/form/LifecycleSection';
+import { buildProvisionerOptions } from '../../../_components/form/provisioner-options';
 import {
   addPricingAction,
   deletePricingAction,
@@ -33,18 +31,12 @@ import {
 import styles from '../../../productForm.module.css';
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ProductEditForm — Sprint 13 §13.AUTH Fase E (Modelo A) + Sprint 15C
-   Fase 15C.E.2 (ADR-080 Amendment B).
-
-   Recibe producto + lista plugins prehidratados por SC. Save →
-   updateProductAction + revalidatePath. Pricing CRUD via
-   add/deletePricingAction. Cero localStorage, cero useEffect+fetch.
-
-   Provisioner es un Select alimentado por `initialPlugins` (manifest
-   serializado del backend). Si el plugin seleccionado declara
-   `manifest.productConfigSchema`, se renderiza sub-form dinámico
-   via `@rjsf/core` y el JSON resultante se envía como
-   `provisioner_config` al backend.
+   ProductEditForm — edición de producto (F4·U27 reskin 1:1). Reusa las secciones
+   compartidas con el alta (`_components/form/`). Orden alineado con el alta
+   (decisión Yasmin): Identidad → Pricing → Provisioning → Ciclo de vida. `type`
+   es inmutable (PROD-INV-2) → subtítulo, no editable. Pricing = planes
+   persistidos (CRUD atómico via add/deletePricingAction), no filas inline.
+   Mutación canónica via Server Actions + revalidatePath (ADR-078 A1).
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const TYPE_LABELS: Record<string, string> = {
@@ -56,14 +48,6 @@ const TYPE_LABELS: Record<string, string> = {
   custom_service: 'Proyecto Custom',
 };
 
-const CYCLE_OPTIONS = [
-  { value: 'monthly', label: 'Mensual' },
-  { value: 'quarterly', label: 'Trimestral' },
-  { value: 'semiannual', label: 'Semestral' },
-  { value: 'annual', label: 'Anual' },
-  { value: 'one_time', label: 'Único' },
-];
-
 export interface InitialProduct {
   id: string;
   type: string;
@@ -74,9 +58,8 @@ export interface InitialProduct {
   badge_text: string | null;
   provisioner: string | null;
   /**
-   * Sprint 15C Fase 15C.E.2 — ADR-080 Amendment B.
-   * Persistido en `Product.provisioner_config` (jsonb). Inyectado en
-   * `ProvisionContext.productConfig` durante `provision()`.
+   * ADR-080 Amendment B. Persistido en `Product.provisioner_config` (jsonb).
+   * Inyectado en `ProvisionContext.productConfig` durante `provision()`.
    */
   provisioner_config: Record<string, unknown> | null;
   grace_period_days: number;
@@ -125,13 +108,11 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
   const [addingPrice, setAddingPrice] = useState(false);
   const [deletePricingId, setDeletePricingId] = useState<string | null>(null);
 
-  const isAddon = initial.type === 'support_inside' || initial.type === 'we_do_it';
-  // Sprint 15D Fase 15D.F.4 — un producto "Dominio" no usa ProductPricing (el
-  // precio vive por TLD en `domain_tld_pricing`, ADR-084 §1) → ocultamos la card
-  // de planes de precio.
+  const isAddon =
+    initial.type === 'support_inside' || initial.type === 'we_do_it';
+  // Sprint 15D.F.4 — "Dominio" no usa ProductPricing (precio por TLD en
+  // `domain_tld_pricing`, ADR-084 §1); su ciclo de vida lo gobierna el registrar.
   const isDomain = initial.type === 'domain';
-  // El ciclo de vida de un dominio lo gobierna el registrar (expires_at / ICANN),
-  // no las políticas de gracia/suspensión/cancelación en días → card oculta.
   const showLifecycle = !isAddon && !isDomain;
 
   // ADR-080 Amendment B — schema declarativo del provisioner seleccionado.
@@ -143,12 +124,6 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
 
   const provisionerOptions = buildProvisionerOptions(initialPlugins, provisioner);
 
-  const handleProvisionerChange = (val: string) => {
-    setProvisioner(val);
-    // Reset config al cambiar de plugin: el schema nuevo puede ser distinto.
-    setProvisionerConfig({});
-  };
-
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -157,9 +132,8 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
       return;
     }
 
-    // ADR-080 Amendment B — validación form-side (UX) del sub-form
-    // dinámico. Defense-in-depth canónica vive en plugin runtime
-    // (`provision()` lanza `INVALID_PAYLOAD` si el shape no coincide).
+    // ADR-080 Amendment B — validación form-side (UX). Defense-in-depth canónica
+    // vive en el plugin runtime (`provision()` lanza `INVALID_PAYLOAD`).
     if (hasProductConfigSchema) {
       const result = validator.validateFormData(
         provisionerConfig,
@@ -182,9 +156,7 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
       short_description: shortDescription || undefined,
       badge_text: badgeText || undefined,
       provisioner: provisioner || undefined,
-      // Si el plugin no declara schema enviamos `null` para limpiar config
-      // residual de un provisioner anterior. Si declara schema enviamos el
-      // JSON validado.
+      // Sin schema → `null` limpia config residual de un provisioner anterior.
       provisioner_config: hasProductConfigSchema ? provisionerConfig : null,
       grace_period_days: parseInt(gracePeriod) || 0,
       suspension_days: parseInt(suspensionDays) || 7,
@@ -243,7 +215,7 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
         { label: 'Editar' },
       ]}
       title="Editar producto"
-      actions={
+      headerActions={
         <>
           <Button
             variant="secondary"
@@ -263,179 +235,33 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
         </AlertBanner>
       )}
 
-      <form id="edit-product-form" onSubmit={handleSave}>
-        <Card>
-          <div className={styles.formSection}>
-            <h3 className={styles.sectionTitle}>Identidad</h3>
-            <p className={styles.subtitle}>
-              {TYPE_LABELS[initial.type]} · {slug}
-            </p>
-            <div className={styles.formGrid}>
-              <Input
-                label="Nombre *"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <Input
-                label="Slug"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                className={styles.monoInput}
-              />
-              <Input
-                label="Badge"
-                value={badgeText}
-                onChange={(e) => setBadgeText(e.target.value)}
-              />
-              <Input
-                label="Comisión partner (%)"
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                value={partnerCommission}
-                onChange={(e) => setPartnerCommission(e.target.value)}
-                placeholder="20"
-              />
-            </div>
-            <div className={styles.mt4}>
-              <Input
-                label="Descripción corta"
-                value={shortDescription}
-                onChange={(e) => setShortDescription(e.target.value)}
-                maxLength={500}
-              />
-            </div>
-            <div className={styles.mt4}>
-              <Textarea
-                label="Descripción completa"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-              />
-            </div>
-          </div>
-        </Card>
-
-        {!isAddon && (
-          <div className={styles.mt6}>
-            <Card>
-              <div className={styles.formSection}>
-                <h3 className={styles.sectionTitle}>Provisioning</h3>
-                <div className={styles.formGrid}>
-                  <Select
-                    label="Provisioner"
-                    value={provisioner}
-                    onChange={(e) => handleProvisionerChange(e.target.value)}
-                    options={provisionerOptions}
-                    helperText="Plugins disponibles registrados en /admin/settings/plugins"
-                  />
-                </div>
-
-                {hasProductConfigSchema && (
-                  <div className={styles.mt4}>
-                    <h4
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        margin: '12px 0 8px',
-                        color: 'var(--text-primary)',
-                      }}
-                    >
-                      Configuración del provisioner
-                    </h4>
-                    <p
-                      style={{
-                        fontSize: 12,
-                        color: 'var(--text-tertiary)',
-                        margin: '0 0 12px',
-                      }}
-                    >
-                      Campos definidos por el manifest del plugin{' '}
-                      <code>{provisioner}</code>. Se persisten en{' '}
-                      <code>products.provisioner_config</code>.
-                    </p>
-                    <Form
-                      // tagName="div" evita que @rjsf/core renderice un
-                      // <form> interno — anidado dentro del <form
-                      // id="edit-product-form"> wrapper rompería la
-                      // hidratación. El submit unitario del wrapper invoca
-                      // a `validator.validateFormData(provisionerConfig,
-                      // schema)` antes del PATCH para enforcement form-side.
-                      tagName="div"
-                      schema={translateSchema(productConfigSchema as RJSFSchema)}
-                      formData={provisionerConfig}
-                      widgets={aeliumDsWidgets}
-                      templates={aeliumDsTemplates}
-                      validator={validator}
-                      onChange={(e: IChangeEvent) =>
-                        setProvisionerConfig(
-                          (e.formData ?? {}) as Record<string, unknown>,
-                        )
-                      }
-                      uiSchema={{
-                        'ui:submitButtonOptions': { norender: true },
-                      }}
-                      showErrorList={false}
-                    />
-                  </div>
-                )}
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {showLifecycle && (
-          <div className={styles.mt6}>
-            <Card>
-              <div className={styles.formSection}>
-                <h3 className={styles.sectionTitle}>Ciclo de vida</h3>
-                <div className={styles.pricingGrid}>
-                  <Input
-                    label="Gracia (días)"
-                    type="number"
-                    min="0"
-                    value={gracePeriod}
-                    onChange={(e) => setGracePeriod(e.target.value)}
-                  />
-                  <Input
-                    label="Suspensión (días)"
-                    type="number"
-                    min="0"
-                    value={suspensionDays}
-                    onChange={(e) => setSuspensionDays(e.target.value)}
-                  />
-                  <Input
-                    label="Cancelación (días)"
-                    type="number"
-                    min="0"
-                    value={cancellationDays}
-                    onChange={(e) => setCancellationDays(e.target.value)}
-                  />
-                  <div className={styles.pricingActions}>
-                    <label className={styles.checkboxLabel}>
-                      <input
-                        type="checkbox"
-                        checked={clientCanPause}
-                        onChange={(e) => setClientCanPause(e.target.checked)}
-                        className={styles.checkboxInput}
-                      />
-                      Pausar
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
+      <form
+        id="edit-product-form"
+        onSubmit={handleSave}
+        className={styles.formSections}
+      >
+        <IdentitySection
+          name={name}
+          onNameChange={setName}
+          slug={slug}
+          onSlugChange={setSlug}
+          badgeText={badgeText}
+          onBadgeChange={setBadgeText}
+          partnerCommission={partnerCommission}
+          onPartnerCommissionChange={setPartnerCommission}
+          shortDescription={shortDescription}
+          onShortDescriptionChange={setShortDescription}
+          description={description}
+          onDescriptionChange={setDescription}
+          subtitle={`${TYPE_LABELS[initial.type] ?? initial.type} · ${slug}`}
+        />
 
         {!isDomain && (
-        <div className={styles.mt6}>
           <Card>
             <div className={styles.formSection}>
               <h3 className={styles.sectionTitle}>Planes de precio</h3>
               {existingPricing.length > 0 && (
-                <div className={styles.spaceY2}>
+                <div className={styles.pricingList}>
                   {existingPricing.map((p) => (
                     <div key={p.id} className={styles.pricingItem}>
                       <div>
@@ -448,7 +274,7 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
                           </span>
                         )}
                       </div>
-                      <div className={styles.pricingRow}>
+                      <div className={styles.pricingItemRight}>
                         <span className={styles.pricingItemPrice}>
                           {Number(p.price).toFixed(2)} €
                         </span>
@@ -456,26 +282,16 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
                           type="button"
                           onClick={() => setDeletePricingId(p.id)}
                           className={styles.removeBtn}
-                          title="Eliminar"
+                          aria-label="Eliminar plan"
                         >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                          >
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                          </svg>
+                          <X size={14} strokeWidth={1.6} />
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-              <div className={`${styles.pricingRow} ${styles.mt4}`}>
+              <div className={styles.pricingAddRow}>
                 <Select
                   label="Ciclo"
                   value={newCycle}
@@ -510,7 +326,34 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
               </div>
             </div>
           </Card>
-        </div>
+        )}
+
+        {!isAddon && (
+          <ProvisioningSection
+            provisioner={provisioner}
+            onProvisionerChange={(v) => {
+              setProvisioner(v);
+              setProvisionerConfig({});
+            }}
+            options={provisionerOptions}
+            hasProductConfigSchema={hasProductConfigSchema}
+            productConfigSchema={productConfigSchema as RJSFSchema | undefined}
+            provisionerConfig={provisionerConfig}
+            onConfigChange={setProvisionerConfig}
+          />
+        )}
+
+        {showLifecycle && (
+          <LifecycleSection
+            gracePeriod={gracePeriod}
+            onGraceChange={setGracePeriod}
+            suspensionDays={suspensionDays}
+            onSuspensionChange={setSuspensionDays}
+            cancellationDays={cancellationDays}
+            onCancellationChange={setCancellationDays}
+            clientCanPause={clientCanPause}
+            onClientCanPauseChange={setClientCanPause}
+          />
         )}
       </form>
 
@@ -538,42 +381,4 @@ export default function ProductEditForm({ initial, initialPlugins }: Props) {
       </Modal>
     </FormPage>
   );
-}
-
-/**
- * Construye las opciones del Select de provisioner desde la lista del
- * backend. Etiqueta humana del manifest si existe; si no, fallback al slug.
- *
- * Si el `currentSlug` no coincide con ningún plugin (ej. plugin removido o
- * registry caído), se añade igualmente como opción con sufijo "(no
- * registrado)" para no perder el valor del producto.
- *
- * Mantenemos `manual` siempre disponible aunque no llegue del backend
- * (plugin trivial bootstrap). Defensivo por si la lista llegase vacía.
- */
-function buildProvisionerOptions(
-  plugins: readonly AdminPluginListItem[],
-  currentSlug: string,
-): { value: string; label: string }[] {
-  const seen = new Set<string>();
-  const options: { value: string; label: string }[] = [];
-  for (const p of plugins) {
-    if (seen.has(p.slug)) continue;
-    seen.add(p.slug);
-    options.push({
-      value: p.slug,
-      label: p.manifest?.label ? `${t(p.manifest.label)} (${p.slug})` : p.slug,
-    });
-  }
-  if (!seen.has('manual')) {
-    options.push({ value: 'manual', label: 'manual' });
-    seen.add('manual');
-  }
-  if (currentSlug && !seen.has(currentSlug)) {
-    options.push({
-      value: currentSlug,
-      label: `${currentSlug} (no registrado)`,
-    });
-  }
-  return options;
 }

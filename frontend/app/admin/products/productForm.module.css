@@ -1,40 +1,49 @@
 /* ═══════════════════════════════════════
    Product Form — CSS Module
-   Shared between new + edit product pages.
-   Ref: DESIGN_SYSTEM.md, UI_SPEC §5.3
+   Compartido entre new + edit. 1:1 con `admin/ProductoForm.dc.html`.
+   Ref: DESIGN_SYSTEM.md, UI_SPEC §2.6 (+ Amendment A1: acciones en cabecera).
    ═══════════════════════════════════════ */
 
-/* ── Section layout ── */
-
-.formSection {
-  padding: var(--space-6);
-}
-.formSectionSpaced {
-  padding: var(--space-6);
+/* ── Contenedor de secciones (paso 2) ── */
+.formSections {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5); /* mockup 18px → 20px (D6: escala de 4px) */
+  max-width: 880px;
+}
+
+/* ── Secciones (dentro de <Card>) ── */
+.formSection {
+  padding: var(--space-6);
 }
 
 .sectionTitle {
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
+  margin: 0 0 var(--space-4);
+}
+/* Título con hint debajo (provisioning / ciclo de vida) → menos margen. */
+.sectionTitleTight {
   margin-bottom: var(--space-1);
+}
+.sectionHint {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-4);
+  line-height: 1.5;
 }
 .subtitle {
   font-size: var(--font-size-sm);
   color: var(--text-tertiary);
-  margin-bottom: var(--space-2);
+  margin: 0 0 var(--space-4);
 }
 
-/* ── Grid layouts ── */
-
+/* ── Grid de campos (Identidad / config provisioner) ── */
 .formGrid {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-4);
-  margin-top: var(--space-4);
 }
 @media (min-width: 768px) {
   .formGrid {
@@ -42,39 +51,26 @@
   }
 }
 
-.pricingGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+/* Campos a ancho completo apilados bajo el grid (descripciones). */
+.stackTop {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
-}
-@media (min-width: 768px) {
-  .pricingGrid {
-    grid-template-columns: repeat(4, 1fr);
-  }
+  margin-top: var(--space-4);
 }
 
-/* ── Step 1: Type selection ── */
-
+/* ── Paso 1: selección de tipo ── */
 .stepDesc {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
   color: var(--text-secondary);
-  margin-bottom: var(--space-5);
+  margin: 0 0 var(--space-4);
 }
 
 .typeGrid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--space-3);
-}
-@media (min-width: 640px) {
-  .typeGrid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-@media (min-width: 1024px) {
-  .typeGrid {
-    grid-template-columns: 1fr 1fr 1fr;
-  }
 }
 
 .typeCard {
@@ -83,65 +79,127 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-2);
-  padding: var(--space-5);
+  padding: var(--space-4);
   background: var(--surface-primary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
   text-align: left;
   font-family: inherit;
 }
 .typeCard:hover {
   border-color: var(--brand);
-  background: var(--brand-subtle);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-brand);
 }
 
 .typeCardHeader {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-2_5);
   width: 100%;
 }
 
 .typeLabel {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
 
-.addonBadge {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--brand);
-  background: var(--brand-subtle);
-  padding: 1px var(--space-2);
-  border-radius: var(--radius-full);
-  border: 1px solid var(--brand);
-}
-
 .typeDesc {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--text-tertiary);
-  line-height: 1.4;
+  line-height: 1.45;
+  margin: 0;
 }
 
-/* ── Pricing rows ── */
+/* Píldora "Addon" (tarjeta de tipo / banner) */
+.addonBadge {
+  display: inline-flex;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  background: var(--brand-wash);
+  color: var(--brand-hover);
+}
 
-.pricingRow {
+/* ── Pricing (crear) — filas editables inline ── */
+.pricingRows {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-3);
 }
+.pricingGridRow {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr auto;
+  gap: var(--space-3);
+  align-items: end;
+}
+.pricingRemoveBtn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-height);
+  width: 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-field);
+  background: var(--surface-primary);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.pricingRemoveBtn:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--border-hover);
+}
+.pricingRemoveBtn:disabled {
+  color: var(--border-hover);
+  cursor: default;
+}
 
+.addPricingBtn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--brand);
+  background: var(--surface-primary);
+  border: 1px dashed var(--border-hover);
+  border-radius: var(--radius-field);
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+.addPricingBtn:hover {
+  border-color: var(--brand);
+  background: var(--brand-subtle);
+}
+
+/* ── Pricing (editar) — lista de planes persistidos ── */
+.pricingList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
 .pricingItem {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) var(--space-4);
   background: var(--surface-secondary);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-field);
 }
 .pricingItemName {
   font-size: var(--font-size-sm);
@@ -153,12 +211,24 @@
   color: var(--text-tertiary);
   margin-left: var(--space-2);
 }
+.pricingItemRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
 .pricingItemPrice {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
-
+/* Fila "añadir plan" (editar) */
+.pricingAddRow {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr auto;
+  gap: var(--space-3);
+  align-items: end;
+  margin-top: var(--space-4);
+}
 .removeBtn {
   appearance: none;
   display: inline-flex;
@@ -170,68 +240,122 @@
   color: var(--text-tertiary);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
 }
 .removeBtn:hover {
   color: var(--danger);
   background: var(--surface-secondary);
 }
-.removeBtn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
+
+/* ── Provisioning ── */
+.provisionerField {
+  max-width: 380px;
+}
+.provConfig {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--surface-tertiary);
+}
+.provConfigTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-1);
+}
+.provConfigHint code {
+  font-family: ui-monospace, monospace;
+  color: var(--text-secondary);
 }
 
-.addPricingBtn {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--brand);
-  background: none;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-family: inherit;
-  transition: all var(--transition-fast);
+/* ── Ciclo de vida ── */
+.lifecycleGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: var(--space-4);
+  align-items: end;
 }
-.addPricingBtn:hover {
-  border-color: var(--brand);
-  background: var(--brand-subtle);
-}
-
-/* ── Checkbox / lifecycle ── */
-
-.pricingActions {
-  display: flex;
-  align-items: flex-end;
+@media (max-width: 640px) {
+  .lifecycleGrid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 .checkboxLabel {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  height: var(--control-height);
   font-size: var(--font-size-sm);
-  cursor: pointer;
-  padding-bottom: 10px;
   color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
 }
 .checkboxInput {
+  width: 15px;
+  height: 15px;
   border-radius: var(--radius-xs);
   cursor: pointer;
+  accent-color: var(--brand);
 }
 
-/* ── Spacing utilities ── */
+/* ── Banner informativo (gris) — dominio / we_do_it / custom ── */
+.infoBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2_5);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.infoBannerIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--text-tertiary);
+}
+.infoBannerText {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.infoBannerText strong {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
 
-.mt4 { margin-top: var(--space-4); }
-.mt6 { margin-top: var(--space-6); }
-.mb4 { margin-bottom: var(--space-4); }
-.spaceY2 { display: flex; flex-direction: column; gap: var(--space-2); }
-.spaceY4 { display: flex; flex-direction: column; gap: var(--space-4); }
+/* ── Banner Addon (azul) — cabecera del paso 2 en we_do_it ── */
+.addonBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2_5);
+  padding: var(--space-3) var(--space-4);
+  background: var(--brand-wash);
+  border: 1px solid var(--brand-light);
+  border-radius: var(--radius-md);
+}
+.addonBannerPill {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 1px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  background: var(--brand);
+  color: var(--text-on-brand);
+}
+.addonBannerText {
+  font-size: var(--font-size-sm);
+  color: var(--brand-hover);
+  line-height: 1.45;
+}
 
-/* ── Inline style replacements ── */
-.addonBadgeLabel { font-weight: var(--font-weight-semibold); }
-.monoInput { font-family: monospace; }
-.modalText { font-size: var(--font-size-sm); color: var(--text-secondary); }
+/* ── Utilidades ── */
+.monoInput input {
+  font-family: ui-monospace, monospace; /* slug (mockup) — no hay token DM Mono */
+}
+.modalText {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
