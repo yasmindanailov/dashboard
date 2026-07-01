@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</helmet>
+
+<div style="font-family:'DM Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0F172A;background:#F4F6F9;-webkit-font-smoothing:antialiased;padding:44px 28px 90px">
+<div style="max-width:1080px;margin:0 auto">
+
+  <!-- ░░░░░░ PAGE HEADER ░░░░░░ -->
+  <div style="margin-bottom:26px">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#3B82F6;margin-bottom:13px">Aelium · Sistema de correo</div>
+    <h1 style="font-size:31px;font-weight:700;letter-spacing:-0.025em;margin:0 0 11px;line-height:1.1">Layout maestro del correo</h1>
+    <p style="font-size:15px;line-height:1.62;color:#64748B;margin:0;max-width:640px">El esqueleto común a todos los emails transaccionales: cabecera, cuerpo y footer fijos; el contenido entra en los huecos marcados. Construido sobre el documento de marca y el design system — DM Sans, azul Aelium, sin gradientes ni emojis.</p>
+  </div>
+
+  <!-- ░░░░░░ RATIONALE ░░░░░░ -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:34px">
+    <div style="background:#fff;border:1px solid #E8EDF4;border-radius:13px;padding:15px 16px">
+      <div style="font-size:12.5px;font-weight:600;color:#0F172A;margin-bottom:5px">Cabecera blanca</div>
+      <div style="font-size:12px;line-height:1.5;color:#7A899C">Light-first del DS. El color vive en el acento, no en una banda.</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E8EDF4;border-radius:13px;padding:15px 16px">
+      <div style="font-size:12.5px;font-weight:600;color:#0F172A;margin-bottom:5px">Estado sin emojis</div>
+      <div style="font-size:12px;line-height:1.5;color:#7A899C">Color semántico + icono de línea (Regla D1 · UI_SPEC).</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E8EDF4;border-radius:13px;padding:15px 16px">
+      <div style="font-size:12.5px;font-weight:600;color:#0F172A;margin-bottom:5px">Azul Aelium</div>
+      <div style="font-size:12px;line-height:1.5;color:#7A899C">#3B82F6 y DM Sans. Cero gradientes, cero morado #635BFF.</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E8EDF4;border-radius:13px;padding:15px 16px">
+      <div style="font-size:12.5px;font-weight:600;color:#0F172A;margin-bottom:5px">Footer con persona</div>
+      <div style="font-size:12px;line-height:1.5;color:#7A899C">Responde al correo, transparencia/RGPD y preferencias (ADR-042).</div>
+    </div>
+  </div>
+
+  <!-- ░░░░░░ 01 · MASTER LAYOUT ░░░░░░ -->
+  <div style="background:#fff;border:1px solid #E8EDF4;border-radius:18px;box-shadow:0 1px 3px rgba(15,23,42,0.04);overflow:hidden;margin-bottom:22px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 22px;border-bottom:1px solid #EEF1F5">
+      <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#94A3B8">01 · Layout maestro</div>
+      <div style="font-family:'DM Mono',monospace;font-size:11px;color:#B6C2D2">huecos = contenido por evento</div>
+    </div>
+
+    <div style="display:flex;gap:32px;padding:36px;background:#E9EEF4;flex-wrap:wrap;align-items:flex-start;justify-content:center">
+
+      <!-- ███ THE EMAIL ███ -->
+      <div style="width:600px;max-width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 14px 44px rgba(15,23,42,0.12),0 2px 8px rgba(15,23,42,0.04)">
+
+        <!-- top accent (semantic) -->
+        <div style="height:4px;background:{{ accentColor }}"></div>
+
+        <!-- header -->
+        <div style="padding:30px 44px 24px;border-bottom:1px solid #EFF1F5">
+          <div style="display:flex;align-items:center;justify-content:{{ headerJustify }};gap:11px">
+            <div style="position:relative;width:31px;height:31px;flex-shrink:0">
+              <div style="position:absolute;left:0;top:6px;width:19px;height:19px;border-radius:6px;background:#BFDBFE;transform:rotate(45deg)"></div>
+              <div style="position:absolute;left:12px;top:6px;width:19px;height:19px;border-radius:6px;background:#3B82F6;transform:rotate(45deg)"></div>
+            </div>
+            <span style="font-size:21px;font-weight:600;letter-spacing:-0.02em;color:#0F172A">aelium</span>
+          </div>
+        </div>
+
+        <!-- body -->
+        <div style="padding:32px 44px 6px">
+
+          <!-- status row -->
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:26px">
+            <span style="width:42px;height:42px;border-radius:12px;background:{{ statusTint }};display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ statusIcon }}</span>
+            <span style="min-width:0">
+              <span style="display:block;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#B6C2D2;margin-bottom:3px">estado · según evento</span>
+              <span style="display:block;font-size:14.5px;font-weight:600;color:{{ statusFg }}">{{ statusLabel }}</span>
+            </span>
+          </div>
+
+          <!-- greeting -->
+          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#AEB9C8;margin-bottom:9px">// saludo · Hola {nombre}</div>
+          <div style="height:11px;width:30%;border-radius:6px;background:#E3E9F1;margin-bottom:22px"></div>
+
+          <!-- headline -->
+          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#AEB9C8;margin-bottom:9px">// mensaje principal</div>
+          <div style="height:17px;width:72%;border-radius:7px;background:#CBD7E6;margin-bottom:22px"></div>
+
+          <!-- body copy -->
+          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#AEB9C8;margin-bottom:11px">// cuerpo del mensaje</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:26px">
+            <div style="height:10px;width:100%;border-radius:6px;background:#E9EDF3"></div>
+            <div style="height:10px;width:97%;border-radius:6px;background:#E9EDF3"></div>
+            <div style="height:10px;width:58%;border-radius:6px;background:#E9EDF3"></div>
+          </div>
+
+          <!-- data box -->
+          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#AEB9C8;margin-bottom:10px">// caja de datos · factura · servicio · dominio</div>
+          <div style="border:1px solid #E6ECF3;background:#F8FAFF;border-radius:12px;padding:18px 20px;margin-bottom:30px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+              <div style="height:9px;width:92px;border-radius:5px;background:#DCE4EE"></div>
+              <div style="height:9px;width:64px;border-radius:5px;background:#C7D3E2"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+              <div style="height:9px;width:74px;border-radius:5px;background:#DCE4EE"></div>
+              <div style="height:9px;width:80px;border-radius:5px;background:#C7D3E2"></div>
+            </div>
+            <div style="height:1px;background:#E6ECF3;margin:4px 0 14px"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="height:10px;width:68px;border-radius:5px;background:#B9C8DC"></div>
+              <div style="height:13px;width:92px;border-radius:6px;background:#BFD3F0"></div>
+            </div>
+          </div>
+
+          <!-- CTA -->
+          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#AEB9C8;text-align:center;margin-bottom:12px">// acción principal</div>
+          <div style="text-align:center;margin-bottom:14px">
+            <span style="display:inline-block;background:#3B82F6;color:#fff;font-size:15px;font-weight:600;padding:13px 30px;border-radius:11px;box-shadow:0 2px 10px rgba(59,130,246,0.30)">Botón de acción</span>
+          </div>
+
+          <!-- secondary note -->
+          <div style="display:flex;justify-content:center;margin-bottom:30px">
+            <div style="height:9px;width:42%;border-radius:5px;background:#EAEEF4"></div>
+          </div>
+        </div>
+
+        <!-- footer -->
+        <div style="background:#F8FAFF;border-top:1px solid #EFF1F5;padding:28px 44px 30px;text-align:center">
+          <p style="font-size:13.5px;line-height:1.6;color:#475569;margin:0 auto 20px;max-width:380px">¿Tienes una duda? Responde a este correo — te contesta una persona real, no un bot.</p>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px">
+            <div style="position:relative;width:21px;height:21px;flex-shrink:0">
+              <div style="position:absolute;left:0;top:4px;width:13px;height:13px;border-radius:4px;background:#BFDBFE;transform:rotate(45deg)"></div>
+              <div style="position:absolute;left:8px;top:4px;width:13px;height:13px;border-radius:4px;background:#3B82F6;transform:rotate(45deg)"></div>
+            </div>
+            <span style="font-size:15px;font-weight:600;letter-spacing:-0.02em;color:#475569">aelium</span>
+          </div>
+          <div style="font-size:12px;color:#94A3B8;margin-bottom:18px">Tu socio digital, a tu lado.</div>
+          <div style="font-size:12px;color:#3B82F6;font-weight:500;margin-bottom:16px;line-height:1.9">
+            <span>Ir a tu panel</span>
+            <span style="color:#CBD5E1;margin:0 8px">·</span>
+            <span>Centro de transparencia</span>
+            <span style="color:#CBD5E1;margin:0 8px">·</span>
+            <span>Preferencias de notificación</span>
+          </div>
+          <div style="font-size:11.5px;color:#A6B2C2;line-height:1.75;border-top:1px solid #EAEFF5;padding-top:15px;max-width:440px;margin:0 auto">
+            © 2026 Aelium · Razón social S.L. · Dirección fiscal<br>
+            Recibes este correo porque tienes una cuenta en Aelium. · Tus datos, en Europa.
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ███ ANATOMY ███ -->
+      <div style="width:286px;max-width:100%">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:#94A3B8;margin-bottom:10px">Anatomía</div>
+        <p style="font-size:13px;line-height:1.6;color:#64748B;margin:0 0 20px">Cinco zonas. El equipo solo rellena los huecos del cuerpo — cabecera, banda de estado, botón y footer son fijos.</p>
+        <div style="display:flex;flex-direction:column;gap:15px">
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <span style="width:24px;height:24px;border-radius:7px;background:#EFF4FF;color:#2563EB;font-family:'DM Mono',monospace;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</span>
+            <div><div style="font-size:13px;font-weight:600;color:#0F172A;margin-bottom:2px">Banda de estado</div><div style="font-size:12px;line-height:1.5;color:#7A899C">Color semántico de 4px. Sin emoji.</div></div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <span style="width:24px;height:24px;border-radius:7px;background:#EFF4FF;color:#2563EB;font-family:'DM Mono',monospace;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</span>
+            <div><div style="font-size:13px;font-weight:600;color:#0F172A;margin-bottom:2px">Cabecera</div><div style="font-size:12px;line-height:1.5;color:#7A899C">Logo Aelium sobre fondo blanco.</div></div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <span style="width:24px;height:24px;border-radius:7px;background:#EFF4FF;color:#2563EB;font-family:'DM Mono',monospace;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</span>
+            <div><div style="font-size:13px;font-weight:600;color:#0F172A;margin-bottom:2px">Cuerpo</div><div style="font-size:12px;line-height:1.5;color:#7A899C">Saludo, mensaje, texto y CTA. Huecos.</div></div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <span style="width:24px;height:24px;border-radius:7px;background:#EFF4FF;color:#2563EB;font-family:'DM Mono',monospace;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</span>
+            <div><div style="font-size:13px;font-weight:600;color:#0F172A;margin-bottom:2px">Caja de datos</div><div style="font-size:12px;line-height:1.5;color:#7A899C">Resumen de factura o servicio. Opcional.</div></div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <span style="width:24px;height:24px;border-radius:7px;background:#EFF4FF;color:#2563EB;font-family:'DM Mono',monospace;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</span>
+            <div><div style="font-size:13px;font-weight:600;color:#0F172A;margin-bottom:2px">Footer</div><div style="font-size:12px;line-height:1.5;color:#7A899C">Ayuda, marca, enlaces y legal/RGPD. Fijo.</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ░░░░░░ 02 · STATUS SYSTEM ░░░░░░ -->
+  <div style="background:#fff;border:1px solid #E8EDF4;border-radius:18px;box-shadow:0 1px 3px rgba(15,23,42,0.04);padding:24px 26px 28px;margin-bottom:22px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px">
+      <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#94A3B8">02 · Sistema de estado</div>
+    </div>
+    <p style="font-size:13.5px;line-height:1.6;color:#64748B;margin:0 0 22px;max-width:640px">El mismo evento marca el tono. Sin emojis: la banda de color y un icono de línea comunican el estado (color semántico del design system).</p>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+
+      <!-- info -->
+      <div style="border:1px solid #E8EDF4;border-radius:13px;overflow:hidden">
+        <div style="height:4px;background:#3B82F6"></div>
+        <div style="padding:16px 17px">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:15px">
+            <span style="width:36px;height:36px;border-radius:10px;background:#EFF4FF;color:#2563EB;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="11" x2="12" y2="16"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span>
+            <div><div style="font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:0.12em;text-transform:uppercase;color:#B6C2D2;margin-bottom:2px">info</div><div style="font-size:13px;font-weight:600;color:#2563EB">Información</div></div>
+          </div>
+          <div style="height:8px;width:100%;border-radius:5px;background:#EEF2F7;margin-bottom:8px"></div>
+          <div style="height:8px;width:62%;border-radius:5px;background:#EEF2F7"></div>
+        </div>
+      </div>
+
+      <!-- success -->
+      <div style="border:1px solid #E8EDF4;border-radius:13px;overflow:hidden">
+        <div style="height:4px;background:#10B981"></div>
+        <div style="padding:16px 17px">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:15px">
+            <span style="width:36px;height:36px;border-radius:10px;background:#ECFDF5;color:#059669;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><polyline points="8.4 12.3 11 14.8 15.8 9.4"></polyline></svg></span>
+            <div><div style="font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:0.12em;text-transform:uppercase;color:#B6C2D2;margin-bottom:2px">success</div><div style="font-size:13px;font-weight:600;color:#059669">Confirmación</div></div>
+          </div>
+          <div style="height:8px;width:100%;border-radius:5px;background:#EEF2F7;margin-bottom:8px"></div>
+          <div style="height:8px;width:62%;border-radius:5px;background:#EEF2F7"></div>
+        </div>
+      </div>
+
+      <!-- warning -->
+      <div style="border:1px solid #E8EDF4;border-radius:13px;overflow:hidden">
+        <div style="height:4px;background:#F59E0B"></div>
+        <div style="padding:16px 17px">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:15px">
+            <span style="width:36px;height:36px;border-radius:10px;background:#FFFBEB;color:#B45309;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M10.3 4.4 2.5 18a1.5 1.5 0 0 0 1.3 2.2h16.4A1.5 1.5 0 0 0 21.5 18L13.7 4.4a1.5 1.5 0 0 0-2.6 0z"></path><line x1="12" y1="10" x2="12" y2="14"></line><line x1="12" y1="17.4" x2="12.01" y2="17.4"></line></svg></span>
+            <div><div style="font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:0.12em;text-transform:uppercase;color:#B6C2D2;margin-bottom:2px">warning</div><div style="font-size:13px;font-weight:600;color:#B45309">Aviso</div></div>
+          </div>
+          <div style="height:8px;width:100%;border-radius:5px;background:#EEF2F7;margin-bottom:8px"></div>
+          <div style="height:8px;width:62%;border-radius:5px;background:#EEF2F7"></div>
+        </div>
+      </div>
+
+      <!-- danger -->
+      <div style="border:1px solid #E8EDF4;border-radius:13px;overflow:hidden">
+        <div style="height:4px;background:#EF4444"></div>
+        <div style="padding:16px 17px">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:15px">
+            <span style="width:36px;height:36px;border-radius:10px;background:#FEF2F2;color:#DC2626;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24"><polygon points="8 3 16 3 21 8 21 16 16 21 8 21 3 16 3 8"></polygon><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16.4" x2="12.01" y2="16.4"></line></svg></span>
+            <div><div style="font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:0.12em;text-transform:uppercase;color:#B6C2D2;margin-bottom:2px">danger</div><div style="font-size:13px;font-weight:600;color:#DC2626">Crítico</div></div>
+          </div>
+          <div style="height:8px;width:100%;border-radius:5px;background:#EEF2F7;margin-bottom:8px"></div>
+          <div style="height:8px;width:62%;border-radius:5px;background:#EEF2F7"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ░░░░░░ 03 · BODY BLOCKS ░░░░░░ -->
+  <div style="background:#fff;border:1px solid #E8EDF4;border-radius:18px;box-shadow:0 1px 3px rgba(15,23,42,0.04);padding:24px 26px 28px;margin-bottom:22px">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#94A3B8;margin-bottom:6px">03 · Bloques del cuerpo</div>
+    <p style="font-size:13.5px;line-height:1.6;color:#64748B;margin:0 0 24px;max-width:640px">Las piezas reutilizables que componen cualquier email. Se combinan según el evento; el estilo no cambia.</p>
+
+    <div style="display:flex;flex-direction:column;gap:18px">
+
+      <!-- block: heading -->
+      <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid #F1F4F8">
+        <div style="width:190px;flex-shrink:0">
+          <div style="font-size:13.5px;font-weight:600;color:#0F172A;margin-bottom:4px">Encabezado</div>
+          <div style="font-size:12px;line-height:1.5;color:#7A899C">Saludo con el nombre + el titular del mensaje.</div>
+        </div>
+        <div style="flex:1;min-width:280px;background:#FBFCFE;border:1px solid #EEF2F7;border-radius:12px;padding:22px 24px">
+          <div style="height:11px;width:34%;border-radius:6px;background:#E3E9F1;margin-bottom:16px"></div>
+          <div style="height:16px;width:74%;border-radius:7px;background:#CBD7E6"></div>
+        </div>
+      </div>
+
+      <!-- block: paragraph -->
+      <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid #F1F4F8">
+        <div style="width:190px;flex-shrink:0">
+          <div style="font-size:13.5px;font-weight:600;color:#0F172A;margin-bottom:4px">Párrafo</div>
+          <div style="font-size:12px;line-height:1.5;color:#7A899C">Texto del mensaje. Frases cortas, voz Aelium.</div>
+        </div>
+        <div style="flex:1;min-width:280px;background:#FBFCFE;border:1px solid #EEF2F7;border-radius:12px;padding:22px 24px;display:flex;flex-direction:column;gap:11px">
+          <div style="height:10px;width:100%;border-radius:6px;background:#E9EDF3"></div>
+          <div style="height:10px;width:94%;border-radius:6px;background:#E9EDF3"></div>
+          <div style="height:10px;width:50%;border-radius:6px;background:#E9EDF3"></div>
+        </div>
+      </div>
+
+      <!-- block: data box -->
+      <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid #F1F4F8">
+        <div style="width:190px;flex-shrink:0">
+          <div style="font-size:13.5px;font-weight:600;color:#0F172A;margin-bottom:4px">Caja de datos</div>
+          <div style="font-size:12px;line-height:1.5;color:#7A899C">Resumen etiqueta-valor. Total destacado abajo.</div>
+        </div>
+        <div style="flex:1;min-width:280px;border:1px solid #E6ECF3;background:#F8FAFF;border-radius:12px;padding:18px 20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div style="height:9px;width:92px;border-radius:5px;background:#DCE4EE"></div>
+            <div style="height:9px;width:64px;border-radius:5px;background:#C7D3E2"></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div style="height:9px;width:74px;border-radius:5px;background:#DCE4EE"></div>
+            <div style="height:9px;width:80px;border-radius:5px;background:#C7D3E2"></div>
+          </div>
+          <div style="height:1px;background:#E6ECF3;margin:4px 0 14px"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="height:10px;width:68px;border-radius:5px;background:#B9C8DC"></div>
+            <div style="height:13px;width:92px;border-radius:6px;background:#BFD3F0"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- block: callout -->
+      <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid #F1F4F8">
+        <div style="width:190px;flex-shrink:0">
+          <div style="font-size:13.5px;font-weight:600;color:#0F172A;margin-bottom:4px">Aviso / callout</div>
+          <div style="font-size:12px;line-height:1.5;color:#7A899C">Nota destacada. Toma el color semántico del evento.</div>
+        </div>
+        <div style="flex:1;min-width:280px">
+          <div style="display:flex;gap:12px;align-items:flex-start;background:#EFF4FF;border:1px solid #DBEAFE;border-radius:12px;padding:15px 17px">
+            <span style="color:#2563EB;flex-shrink:0;margin-top:1px"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="11" x2="12" y2="16"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span>
+            <div style="flex:1;display:flex;flex-direction:column;gap:9px;padding-top:3px">
+              <div style="height:9px;width:82%;border-radius:5px;background:#CFE0FB"></div>
+              <div style="height:9px;width:55%;border-radius:5px;background:#CFE0FB"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- block: buttons -->
+      <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+        <div style="width:190px;flex-shrink:0">
+          <div style="font-size:13.5px;font-weight:600;color:#0F172A;margin-bottom:4px">Acciones</div>
+          <div style="font-size:12px;line-height:1.5;color:#7A899C">Una primaria por correo. Secundaria o enlace si hace falta.</div>
+        </div>
+        <div style="flex:1;min-width:280px;background:#FBFCFE;border:1px solid #EEF2F7;border-radius:12px;padding:22px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <span style="display:inline-block;background:#3B82F6;color:#fff;font-size:14px;font-weight:600;padding:12px 26px;border-radius:11px;box-shadow:0 2px 10px rgba(59,130,246,0.30)">Primaria</span>
+          <span style="display:inline-block;background:#fff;color:#1D4ED8;border:1px solid #C9DDFB;font-size:14px;font-weight:600;padding:11px 24px;border-radius:11px">Secundaria</span>
+          <span style="color:#3B82F6;font-weight:600;font-size:14px">Enlace de texto →</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ░░░░░░ 04 · FOOTER RATIONALE ░░░░░░ -->
+  <div style="background:#fff;border:1px solid #E8EDF4;border-radius:18px;box-shadow:0 1px 3px rgba(15,23,42,0.04);padding:24px 26px 28px;margin-bottom:22px">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#94A3B8;margin-bottom:6px">04 · El footer, por qué así</div>
+    <p style="font-size:13.5px;line-height:1.6;color:#64748B;margin:0 0 22px;max-width:640px">Fijo en todos los correos. Cada línea responde a la marca o al sistema de notificaciones.</p>
+    <div style="display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start">
+
+      <div style="flex:1;min-width:300px;background:#F8FAFF;border:1px solid #EEF1F5;border-radius:14px;padding:26px 30px;text-align:center">
+        <p style="font-size:13.5px;line-height:1.6;color:#475569;margin:0 auto 20px;max-width:360px">¿Tienes una duda? Responde a este correo — te contesta una persona real, no un bot.</p>
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px">
+          <div style="position:relative;width:21px;height:21px;flex-shrink:0">
+            <div style="position:absolute;left:0;top:4px;width:13px;height:13px;border-radius:4px;background:#BFDBFE;transform:rotate(45deg)"></div>
+            <div style="position:absolute;left:8px;top:4px;width:13px;height:13px;border-radius:4px;background:#3B82F6;transform:rotate(45deg)"></div>
+          </div>
+          <span style="font-size:15px;font-weight:600;letter-spacing:-0.02em;color:#475569">aelium</span>
+        </div>
+        <div style="font-size:12px;color:#94A3B8;margin-bottom:18px">Tu socio digital, a tu lado.</div>
+        <div style="font-size:12px;color:#3B82F6;font-weight:500;margin-bottom:16px;line-height:1.9">
+          <span>Ir a tu panel</span><span style="color:#CBD5E1;margin:0 8px">·</span><span>Centro de transparencia</span><span style="color:#CBD5E1;margin:0 8px">·</span><span>Preferencias de notificación</span>
+        </div>
+        <div style="font-size:11.5px;color:#A6B2C2;line-height:1.75;border-top:1px solid #EAEFF5;padding-top:15px;max-width:400px;margin:0 auto">© 2026 Aelium · Razón social S.L. · Dirección fiscal<br>Recibes este correo porque tienes una cuenta en Aelium. · Tus datos, en Europa.</div>
+      </div>
+
+      <div style="width:300px;max-width:100%;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <span style="width:7px;height:7px;border-radius:9999px;background:#3B82F6;flex-shrink:0;margin-top:6px"></span>
+          <div><div style="font-size:13px;font-weight:600;color:#0F172A;margin-bottom:2px">Persona real</div><div style="font-size:12px;line-height:1.5;color:#7A899C">«Responde a este correo» — accesibilidad real, nunca un bot.</div></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <span style="width:7px;height:7px;border-radius:9999px;background:#3B82F6;flex-shrink:0;margin-top:6px"></span>
+          <div><div style="font-size:13px;font-weight:600;color:#0F172A;margin-bottom:2px">Transparencia / RGPD</div><div style="font-size:12px;line-height:1.5;color:#7A899C">Enlace al centro de transparencia + «Tus datos, en Europa».</div></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <span style="width:7px;height:7px;border-radius:9999px;background:#3B82F6;flex-shrink:0;margin-top:6px"></span>
+          <div><div style="font-size:13px;font-weight:600;color:#0F172A;margin-bottom:2px">Preferencias</div><div style="font-size:12px;line-height:1.5;color:#7A899C">El cliente decide qué recibe (ADR-042: canales por evento).</div></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <span style="width:7px;height:7px;border-radius:9999px;background:#3B82F6;flex-shrink:0;margin-top:6px"></span>
+          <div><div style="font-size:13px;font-weight:600;color:#0F172A;margin-bottom:2px">Marca presente, discreta</div><div style="font-size:12px;line-height:1.5;color:#7A899C">Logo + eslogan, sin saturar. El cuerpo manda.</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ░░░░░░ 05 · FOUNDATIONS ░░░░░░ -->
+  <div style="background:#fff;border:1px solid #E8EDF4;border-radius:18px;box-shadow:0 1px 3px rgba(15,23,42,0.04);padding:24px 26px 28px">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#94A3B8;margin-bottom:22px">05 · Fundamentos</div>
+    <div style="display:grid;grid-template-columns:1.1fr 1.3fr 0.9fr;gap:26px">
+
+      <!-- type -->
+      <div>
+        <div style="font-size:12.5px;font-weight:600;color:#0F172A;margin-bottom:16px">Tipografía · DM Sans</div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div><div style="font-size:24px;font-weight:600;letter-spacing:-0.02em;color:#0F172A;line-height:1">Título</div><div style="font-family:'DM Mono',monospace;font-size:10.5px;color:#A6B2C2;margin-top:4px">24 / 600</div></div>
+          <div><div style="font-size:17px;font-weight:500;color:#0F172A;line-height:1">Subtítulo</div><div style="font-family:'DM Mono',monospace;font-size:10.5px;color:#A6B2C2;margin-top:4px">17 / 500</div></div>
+          <div><div style="font-size:16px;font-weight:400;color:#334155;line-height:1">Cuerpo del mensaje</div><div style="font-family:'DM Mono',monospace;font-size:10.5px;color:#A6B2C2;margin-top:4px">16 / 400</div></div>
+          <div><div style="font-size:13px;font-weight:400;color:#64748B;line-height:1">Texto secundario</div><div style="font-family:'DM Mono',monospace;font-size:10.5px;color:#A6B2C2;margin-top:4px">13 / 400</div></div>
+          <div><div style="font-family:'DM Mono',monospace;font-size:11px;color:#94A3B8;line-height:1">caption · DM Mono</div><div style="font-family:'DM Mono',monospace;font-size:10.5px;color:#A6B2C2;margin-top:4px">11 / mono</div></div>
+        </div>
+      </div>
+
+      <!-- color -->
+      <div>
+        <div style="font-size:12.5px;font-weight:600;color:#0F172A;margin-bottom:16px">Color</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:26px;height:26px;border-radius:7px;background:#3B82F6;flex-shrink:0"></span><div><div style="font-size:12px;font-weight:500;color:#0F172A">Principal</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#A6B2C2">#3B82F6</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:26px;height:26px;border-radius:7px;background:#2563EB;flex-shrink:0"></span><div><div style="font-size:12px;font-weight:500;color:#0F172A">Hover</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#A6B2C2">#2563EB</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:26px;height:26px;border-radius:7px;background:#BFDBFE;flex-shrink:0"></span><div><div style="font-size:12px;font-weight:500;color:#0F172A">Rombo claro</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#A6B2C2">#BFDBFE</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:26px;height:26px;border-radius:7px;background:#0F172A;flex-shrink:0"></span><div><div style="font-size:12px;font-weight:500;color:#0F172A">Texto</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#A6B2C2">#0F172A</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:26px;height:26px;border-radius:7px;background:#64748B;flex-shrink:0"></span><div><div style="font-size:12px;font-weight:500;color:#0F172A">Secundario</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#A6B2C2">#64748B</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:26px;height:26px;border-radius:7px;background:#F8FAFF;border:1px solid #E2E8F0;flex-shrink:0"></span><div><div style="font-size:12px;font-weight:500;color:#0F172A">Superficie</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#A6B2C2">#F8FAFF</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:26px;height:26px;border-radius:7px;background:#10B981;flex-shrink:0"></span><div><div style="font-size:12px;font-weight:500;color:#0F172A">Éxito</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#A6B2C2">#10B981</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:26px;height:26px;border-radius:7px;background:#F59E0B;flex-shrink:0"></span><div><div style="font-size:12px;font-weight:500;color:#0F172A">Aviso</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#A6B2C2">#F59E0B</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:26px;height:26px;border-radius:7px;background:#EF4444;flex-shrink:0"></span><div><div style="font-size:12px;font-weight:500;color:#0F172A">Error</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#A6B2C2">#EF4444</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:26px;height:26px;border-radius:7px;background:#E2E8F0;flex-shrink:0"></span><div><div style="font-size:12px;font-weight:500;color:#0F172A">Borde</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#A6B2C2">#E2E8F0</div></div></div>
+        </div>
+      </div>
+
+      <!-- measures -->
+      <div>
+        <div style="font-size:12.5px;font-weight:600;color:#0F172A;margin-bottom:16px">Medidas</div>
+        <div style="display:flex;flex-direction:column;gap:11px">
+          <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F1F4F8;padding-bottom:9px"><span style="font-size:12.5px;color:#64748B">Ancho del correo</span><span style="font-family:'DM Mono',monospace;font-size:11.5px;color:#0F172A">600 px</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F1F4F8;padding-bottom:9px"><span style="font-size:12.5px;color:#64748B">Padding cuerpo</span><span style="font-family:'DM Mono',monospace;font-size:11.5px;color:#0F172A">44 px</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F1F4F8;padding-bottom:9px"><span style="font-size:12.5px;color:#64748B">Radio tarjeta</span><span style="font-family:'DM Mono',monospace;font-size:11.5px;color:#0F172A">16 px</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F1F4F8;padding-bottom:9px"><span style="font-size:12.5px;color:#64748B">Radio caja</span><span style="font-family:'DM Mono',monospace;font-size:11.5px;color:#0F172A">12 px</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F1F4F8;padding-bottom:9px"><span style="font-size:12.5px;color:#64748B">Botón</span><span style="font-family:'DM Mono',monospace;font-size:11.5px;color:#0F172A">radio 11 px</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:12.5px;color:#64748B">Spacing</span><span style="font-family:'DM Mono',monospace;font-size:11.5px;color:#0F172A">escala 4 px</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;semantic&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;info&quot;, &quot;success&quot;, &quot;warning&quot;, &quot;danger&quot;], &quot;default&quot;: &quot;info&quot;, &quot;tsType&quot;: &quot;'info'|'success'|'warning'|'danger'&quot;, &quot;section&quot;: &quot;Correo · Estado&quot; },
+  &quot;logoAlign&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;center&quot;, &quot;left&quot;], &quot;default&quot;: &quot;center&quot;, &quot;tsType&quot;: &quot;'center'|'left'&quot;, &quot;section&quot;: &quot;Correo · Cabecera&quot; }
+}">
+class Component extends DCLogic {
+  renderVals() {
+    const sem = this.props.semantic || 'info';
+    const MAP = {
+      info:    { accent: '#3B82F6', tint: '#EFF4FF', fg: '#2563EB', label: 'Información', icon: 'info' },
+      success: { accent: '#10B981', tint: '#ECFDF5', fg: '#059669', label: 'Confirmado', icon: 'check' },
+      warning: { accent: '#F59E0B', tint: '#FFFBEB', fg: '#B45309', label: 'Requiere tu atención', icon: 'warning' },
+      danger:  { accent: '#EF4444', tint: '#FEF2F2', fg: '#DC2626', label: 'Acción urgente', icon: 'danger' },
+    };
+    const s = MAP[sem] || MAP.info;
+    const svg = (children) => React.createElement('svg', { width: 19, height: 19, viewBox: '0 0 24 24', fill: 'none', stroke: s.fg, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }, children);
+    const ICONS = {
+      info: svg([
+        React.createElement('circle', { key: 'c', cx: 12, cy: 12, r: 9 }),
+        React.createElement('line', { key: 'l1', x1: 12, y1: 11, x2: 12, y2: 16 }),
+        React.createElement('line', { key: 'l2', x1: 12, y1: 8, x2: 12.01, y2: 8 }),
+      ]),
+      check: svg([
+        React.createElement('circle', { key: 'c', cx: 12, cy: 12, r: 9 }),
+        React.createElement('polyline', { key: 'p', points: '8.4 12.3 11 14.8 15.8 9.4' }),
+      ]),
+      warning: svg([
+        React.createElement('path', { key: 'p', d: 'M10.3 4.4 2.5 18a1.5 1.5 0 0 0 1.3 2.2h16.4A1.5 1.5 0 0 0 21.5 18L13.7 4.4a1.5 1.5 0 0 0-2.6 0z' }),
+        React.createElement('line', { key: 'l1', x1: 12, y1: 10, x2: 12, y2: 14 }),
+        React.createElement('line', { key: 'l2', x1: 12, y1: 17.4, x2: 12.01, y2: 17.4 }),
+      ]),
+      danger: svg([
+        React.createElement('polygon', { key: 'g', points: '8 3 16 3 21 8 21 16 16 21 8 21 3 16 3 8' }),
+        React.createElement('line', { key: 'l1', x1: 12, y1: 8, x2: 12, y2: 13 }),
+        React.createElement('line', { key: 'l2', x1: 12, y1: 16.4, x2: 12.01, y2: 16.4 }),
+      ]),
+    };
+    return {
+      accentColor: s.accent,
+      statusTint: s.tint,
+      statusFg: s.fg,
+      statusLabel: s.label,
+      statusIcon: ICONS[s.icon],
+      headerJustify: (this.props.logoAlign || 'center') === 'left' ? 'flex-start' : 'center',
+    };
+  }
+}
+</script>
+</body>
+</html>
