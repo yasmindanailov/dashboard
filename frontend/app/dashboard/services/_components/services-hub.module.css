@@ -1,0 +1,191 @@
+/* ═══════════════════════════════════════
+   Mis servicios — hub unificado (F4·W3·U04)
+
+   Reskin 1:1 de la lista cliente hacia el `Servicios Cards Spec` (Variante A ·
+   ficha), que supersede a `MisServicios.dc.html` (gauges + botones azules,
+   repudiado). Doctrina: identidad primero · estado en lenguaje claro · sin
+   gauges en la lista (viven en el detalle) · 1 sola primaria por vista
+   ("Contratar servicio") · quick-actions en el menú ⋯ · card navegable entera.
+
+   Tokens only — zero hardcoded (UI_SPEC §2.8). Ref: UI_SPEC §2.4 (List) / §5.14
+   (headerCard) / §1.2 P5 (voz Aelium) / §4.3 (estado con tono).
+   ═══════════════════════════════════════ */
+
+/* ── Banner de salud global (slim, sobre los grupos) ── */
+.health {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2_5);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-6);
+}
+.health[data-tone='success'] {
+  background: var(--success-light);
+  border-color: var(--success-border);
+  color: var(--success-dark);
+}
+.health[data-tone='warning'] {
+  background: var(--warning-light);
+  border-color: var(--warning-border);
+  color: var(--warning-dark);
+}
+.healthStrong {
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Grupos (Webs y hosting · Dominios · Support Inside) ── */
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.groupTitle {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+.groupCount {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
+  background: var(--surface-tertiary);
+  padding: var(--space-0_5) var(--space-2);
+  border-radius: var(--radius-full);
+}
+
+/* ── Grid de cards ficha (responsive; colapsa a 1 col) ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: var(--space-4);
+}
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Card ficha (Variante A) ──
+   Navega entera al detalle (onClick); el menú ⋯ para clic con stopPropagation.
+   Sin `transform`/`z-index` en la card → no crea stacking context → el popover
+   del ⋯ (z-index alto) nunca queda tapado por cards vecinas del grid. */
+.card {
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition:
+    box-shadow var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.card:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-hover);
+}
+.card:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Fila superior: icon-well + identidad + ⋯ */
+.body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+.identity {
+  flex: 1;
+  min-width: 0;
+}
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  word-break: break-word;
+}
+.meta {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+}
+/* Zona del ⋯ — stopPropagation para no navegar al abrir/usar el menú. */
+.menu {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+/* Tira de estado (footer): estado en lenguaje claro + "Ver detalle ›" */
+.strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2_5);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border-faint);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  font-size: var(--font-size-sm);
+}
+.stripStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-secondary);
+}
+.strip[data-tone='success'] {
+  background: var(--success-light);
+}
+.strip[data-tone='success'] .stripStatus {
+  color: var(--success-dark);
+}
+.strip[data-tone='warning'] {
+  background: var(--warning-light);
+}
+.strip[data-tone='warning'] .stripStatus {
+  color: var(--warning-dark);
+}
+.strip[data-tone='danger'] {
+  background: var(--danger-light);
+}
+.strip[data-tone='danger'] .stripStatus {
+  color: var(--danger-dark);
+}
+.strip[data-tone='info'] {
+  background: var(--info-light);
+}
+.strip[data-tone='info'] .stripStatus {
+  color: var(--brand-hover);
+}
+.strip[data-tone='neutral'] {
+  background: var(--surface-secondary);
+}
+.stripLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  font-weight: var(--font-weight-semibold);
+  color: var(--brand);
+  white-space: nowrap;
+}

@@ -17,10 +17,9 @@
  * Botón cliente que pide al backend la URL SSO del panel del proveedor
  * y abre la URL en nueva pestaña (canónico ADR-077 §2.4 `opensIn: 'new_tab'`).
  */
-import { useState } from 'react';
-import { Button, useToast } from '../../components/ui';
+import { Button } from '../../components/ui';
 import { t } from '../i18n';
-import { requestSsoUrlAction } from './_actions';
+import { useServiceSso } from './useServiceSso';
 
 interface SsoButtonProps {
   serviceId: string;
@@ -34,47 +33,17 @@ interface SsoButtonProps {
   isAdmin?: boolean;
 }
 
-/**
- * Mapea errorCode canónico (backend wrapper GetSsoUrlResult) +
- * isAdmin a la i18n key discriminada por rol. Heredable a todos los
- * plugins SaaS (15D RC, 15E Docker, 15G Plesk).
- */
-function selectSsoErrorKey(
-  errorCode: string | null,
-  isAdmin: boolean,
-): string {
-  const role = isAdmin ? 'admin' : 'client';
-  if (errorCode === 'INVALID_STATE') return `sso.error.invalid_state.${role}`;
-  if (errorCode === 'CIRCUIT_OPEN') return `sso.error.circuit_open.${role}`;
-  return `sso.error.provider_internal.${role}`;
-}
-
 export function SsoButton({
   serviceId,
   panelLabel,
   isAdmin = false,
 }: SsoButtonProps) {
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-
-  const onClick = async () => {
-    setLoading(true);
-    const result = await requestSsoUrlAction(serviceId);
-    setLoading(false);
-    if (!result.ok) {
-      toast('error', result.error);
-      return;
-    }
-    if (!result.sso) {
-      toast('error', t(selectSsoErrorKey(result.errorCode, isAdmin)));
-      return;
-    }
-    /* ADR-077 §2.4 — opensIn === 'new_tab' canónico. */
-    window.open(result.sso.url, '_blank', 'noopener,noreferrer');
-  };
+  // F4·W3·U04 — la lógica SSO (action + toast + error-key por rol) vive en el
+  // hook compartido `useServiceSso` (misma que consume la card ficha del hub).
+  const { launch, loading } = useServiceSso(serviceId, isAdmin);
 
   return (
-    <Button onClick={onClick} disabled={loading} variant="primary">
+    <Button onClick={launch} disabled={loading} variant="primary">
       {loading ? 'Abriendo…' : `Abrir ${t(panelLabel)}`}
     </Button>
   );

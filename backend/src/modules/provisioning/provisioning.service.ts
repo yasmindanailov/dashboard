@@ -228,8 +228,31 @@ export class ProvisioningService {
       this.prisma.service.count({ where }),
     ]);
 
+    // F4·W3·U04 — enriquece cada item con las capabilities ESTÁTICAS del plugin
+    // (Map en memoria O(1), sin llamada al proveedor) para que el hub cliente
+    // "Mis servicios" gatee las quick-actions del menú ⋯ (Abrir panel / DNS) por
+    // capability y NUNCA por slug (R4 / ADR-070). Slug efectivo =
+    // `provisioner_slug ?? product.provisioner` (el service puede no tener slug
+    // propio si el pipeline no llegó a marcarlo). Plugin inactivo → `null` →
+    // la card degrada elegantemente (sin quick-actions).
+    const enriched = data.map((svc) => {
+      const caps = this.registry.get(
+        svc.provisioner_slug ?? svc.product.provisioner,
+      )?.capabilities;
+      return {
+        ...svc,
+        capabilities: caps
+          ? {
+              has_sso_panel: caps.has_sso_panel,
+              has_dns_management: caps.has_dns_management,
+            }
+          : null,
+        panel_label: caps?.panel_label ?? null,
+      };
+    });
+
     return {
-      data,
+      data: enriched,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -2139,6 +2162,9 @@ export class ProvisioningService {
       provisioner_slug: true,
       provider_reference: true,
       created_at: true,
+      // F4·W3·U04 — fecha de renovación (facturación Aelium) para la metadata
+      // inline de la card ficha de "Mis servicios" (Servicios Cards Spec §A).
+      next_due_date: true,
       product: {
         select: {
           id: true,
