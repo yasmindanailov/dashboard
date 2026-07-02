@@ -1,0 +1,197 @@
+/* ═══════════════════════════════════════
+   Mis servicios — hub unificado (F4·W3·U04)
+
+   Cards 1:1 con `MisServicios.dc.html`: header (icon-well + nombre + badge +
+   subtítulo) + cuerpo de key-values + footer de acciones. Hosting = grid 2-col;
+   dominios y Support Inside = 1 columna. Sin gauges (getInfo), sin ⋯ ni tira de
+   estado (redundantes). Support Inside = card destacada.
+
+   Tokens only — zero hardcoded (UI_SPEC §2.8).
+   ═══════════════════════════════════════ */
+
+/* ── Banner de salud global (slim, sobre los grupos) ── */
+.health {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2_5);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-6);
+}
+.health[data-tone='success'] {
+  background: var(--success-light);
+  border-color: var(--success-border);
+  color: var(--success-dark);
+}
+.health[data-tone='warning'] {
+  background: var(--warning-light);
+  border-color: var(--warning-border);
+  color: var(--warning-dark);
+}
+.healthStrong {
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Filtro por tipo (ChipGroup multi-selección) ── */
+.filter {
+  margin-bottom: var(--space-6);
+}
+
+/* ── Grupos (Webs y hosting · Dominios · Support Inside) ── */
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.groupTitle {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+.groupCount {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
+  background: var(--surface-tertiary);
+  padding: var(--space-0_5) var(--space-2);
+  border-radius: var(--radius-full);
+}
+
+/* ── Rejillas: hosting 2-col (responsive) · dominios/SI 1 columna ── */
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: var(--space-4);
+}
+.grid1 {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+@media (max-width: 640px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Card ── */
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition:
+    box-shadow var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.card:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-hover);
+}
+/* Support Inside — destacada. */
+.cardHighlight {
+  border-color: var(--brand-light);
+  box-shadow: var(--shadow-brand);
+}
+.cardHighlight:hover {
+  border-color: var(--brand-light);
+}
+
+/* Header: icon-well + identidad. */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-faint);
+}
+.headerTinted {
+  background: var(--brand-wash);
+  border-bottom-color: var(--brand-light);
+}
+.identity {
+  flex: 1;
+  min-width: 0;
+}
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  word-break: break-word;
+}
+.subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+}
+
+/* Cuerpo: key-values (label arriba, valor abajo) en fila. */
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-5);
+}
+.factLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-0_5);
+}
+.factValue {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.factCheck {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+/* Footer: botones de acción + "Ver detalle →" a la derecha. */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border-faint);
+  margin-top: auto;
+}
+.detailLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--brand);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.detailLink:hover {
+  color: var(--brand-hover);
+}

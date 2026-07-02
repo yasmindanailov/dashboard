@@ -30,4 +30,57 @@ describe('<ChipGroup>', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Dominios' }));
     expect(onChange).toHaveBeenCalledWith('dominios');
   });
+
+  describe('multi-selección (F4·W3·U04)', () => {
+    it('marca los chips activos con aria-pressed (varios a la vez)', () => {
+      render(
+        <ChipGroup
+          multiple
+          options={options}
+          value={['facturacion', 'dominios']}
+          onChange={() => {}}
+        />,
+      );
+      expect(screen.getByRole('button', { name: 'Facturación' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      expect(screen.getByRole('button', { name: 'Dominios' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      expect(screen.getByRole('button', { name: 'Todas' })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      );
+    });
+
+    it('añade el value al pulsar un chip inactivo', () => {
+      const onChange = jest.fn();
+      render(
+        <ChipGroup
+          multiple
+          options={options}
+          value={['facturacion']}
+          onChange={onChange}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Dominios' }));
+      expect(onChange).toHaveBeenCalledWith(['facturacion', 'dominios']);
+    });
+
+    it('quita el value al pulsar un chip ya activo', () => {
+      const onChange = jest.fn();
+      render(
+        <ChipGroup
+          multiple
+          options={options}
+          value={['facturacion', 'dominios']}
+          onChange={onChange}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Facturación' }));
+      expect(onChange).toHaveBeenCalledWith(['dominios']);
+    });
+  });
 });

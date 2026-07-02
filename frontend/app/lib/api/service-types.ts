@@ -16,6 +16,8 @@ export interface ServiceListItem {
   provisioner_slug: string | null;
   provider_reference: string | null;
   created_at: string;
+  /** F4·W3·U04 — próxima renovación (facturación Aelium, `service.next_due_date`). */
+  next_due_date: string | null;
   product: {
     id: string;
     slug: string;
@@ -23,6 +25,16 @@ export interface ServiceListItem {
     type: string;
     provisioner: string;
   };
+  /**
+   * F4·W3·U04 — capabilities ESTÁTICAS del plugin, resueltas server-side por el
+   * registry (barato, sin `getInfo`). Solo presente en el listado CLIENTE
+   * (`GET /services`); el hub "Mis servicios" las usa para gatear las
+   * quick-actions del menú ⋯ (Abrir panel / DNS) por capability, NUNCA por slug
+   * (R4 / ADR-070). `null` si el plugin no está activo.
+   */
+  capabilities?: { has_sso_panel: boolean; has_dns_management: boolean } | null;
+  /** i18n key del panel SSO (presente si `capabilities.has_sso_panel`). */
+  panel_label?: string | null;
   cancelled_at?: string | null;
   cancellation_reason?: string | null;
 }

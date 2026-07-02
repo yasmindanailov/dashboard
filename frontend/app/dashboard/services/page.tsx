@@ -1,67 +1,116 @@
 /**
- * /dashboard/services — Sprint 13 §13.AUTH Fase E (Modelo A).
+ * /dashboard/services — "Mis servicios" (hub unificado) — F4·W3·U04.
  *
- * Server Component nativo: el `dashboard/layout.tsx` (SC) garantiza
- * sesión; aquí cargamos el listado server-side via `serverFetch`.
- * Cero useEffect+fetch+setState. ADR-078 Amendment A1.
+ * Server Component nativo (Modelo A, ADR-078 A1): el `dashboard/layout.tsx`
+ * garantiza sesión; aquí cargamos server-side, en paralelo, las tres familias
+ * que el cliente tiene con Aelium y las presentamos agrupadas con cards ficha
+ * (`Servicios Cards Spec` Variante A, que supersede a `MisServicios.dc.html`):
+ *   · Webs y hosting  → `GET /services` (exclude_type=domain)
+ *   · Dominios        → `GET /domains`  (viven aquí; "Dominios" salió del nav F2)
+ *   · Soporte y planes→ `GET /dashboard/support-inside/status`
  *
- * Sprint 11 Fase 11.D (ADR-070 + ADR-077): los clientes ven aquí los
- * servicios contratados. Cada fila enlaza al detalle resuelto por el
- * orquestador con el plugin del producto.
+ * Cards 1:1 con `MisServicios.dc.html` por tipo (header + key-values + footer de
+ * acciones), agrupadas por categoría con contadores + filtro por tipo
+ * (multi-selección, `ServicesHubView`). Cada fetch degrada de forma independiente
+ * (`allSettled`): si Support Inside falla, hosting/dominios se siguen mostrando.
  */
+import Link from 'next/link';
+import { Plus } from 'lucide-react';
 
-import { ListPage } from '../../components/ui';
-import { serverFetch, ServerFetchError } from '../../lib/server-auth';
-import type { ServiceListItem, ServiceListResponse } from '../../lib/api';
-import ServicesListView from './_components/ServicesListView';
+import { Button, EmptyState, ListPage, StatusDot } from '../../components/ui';
+import { serverFetch } from '../../lib/server-auth';
+import type {
+  ServiceListResponse,
+  SupportInsideSubscriptionPayload,
+} from '../../lib/api';
+import type { ListDomainsResponse } from '../../_shared/domains/types';
+import ServicesHubView from './_components/ServicesHubView';
+import {
+  aggregateHealth,
+  domainCardData,
+  serviceCardData,
+  supportInsideCardData,
+} from './_components/service-hub-vm';
+import styles from './_components/services-hub.module.css';
 
-interface PageProps {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}
+export default async function ClientServicesPage() {
+  // Los tres orígenes en paralelo; cada uno degrada por separado (allSettled).
+  // `limit=100` = tope del DTO; un cliente real tiene pocos servicios → el hub
+  // no pagina (presentación agrupada). Truncado >100 = borde no esperado.
+  const [servicesRes, domainsRes, siRes] = await Promise.allSettled([
+    serverFetch<ServiceListResponse>('/services?limit=100&exclude_type=domain'),
+    serverFetch<ListDomainsResponse>('/domains?limit=100'),
+    serverFetch<SupportInsideSubscriptionPayload | null>(
+      '/dashboard/support-inside/status',
+    ),
+  ]);
 
-function singleParam(value: string | string[] | undefined): string {
-  if (Array.isArray(value)) return value[0] ?? '';
-  return value ?? '';
-}
+  const services = servicesRes.status === 'fulfilled' ? servicesRes.value.data : [];
+  const domains = domainsRes.status === 'fulfilled' ? domainsRes.value.data : [];
+  const si = siRes.status === 'fulfilled' ? siRes.value : null;
+  const loadFailed =
+    servicesRes.status === 'rejected' && domainsRes.status === 'rejected';
 
-export default async function ClientServicesPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const page = Math.max(1, parseInt(singleParam(params.page), 10) || 1);
-
-  let services: ServiceListItem[] = [];
-  let meta = { total: 0, page, limit: 20, totalPages: 1 };
-  let errorMessage: string | null = null;
-  try {
-    // Sprint 15D Fase 15D.F.4 — los dominios viven en su propia vista
-    // (/dashboard/domains); aquí se excluyen para no duplicarlos.
-    const res = await serverFetch<ServiceListResponse>(
-      `/services?page=${page}&limit=20&exclude_type=domain`,
-    );
-    services = res.data;
-    meta = res.meta;
-  } catch (err) {
-    errorMessage =
-      err instanceof ServerFetchError
-        ? err.message
-        : 'No se pudieron cargar tus servicios';
-  }
+  const serviceCards = services.map(serviceCardData);
+  const domainCards = domains.map(domainCardData);
+  const siCards =
+    si && si.status !== 'cancelled' ? [supportInsideCardData(si)] : [];
+  const allCards = [...serviceCards, ...domainCards, ...siCards];
+  const totalCount = allCards.length;
+  const health = aggregateHealth(allCards);
 
   return (
     <ListPage
       title="Mis servicios"
-      subtitle={
-        meta.total === 0
-          ? 'Aquí aparecerán los servicios que contrates'
-          : `${meta.total} servicio${meta.total === 1 ? '' : 's'} contratado${
-              meta.total === 1 ? '' : 's'
-            }`
+      subtitle="Todo lo que tienes con Aelium, en un sitio."
+      action={
+        <Link href="/dashboard/store">
+          <Button leftIcon={<Plus size={16} />}>Contratar servicio</Button>
+        </Link>
+      }
+      banner={
+        totalCount > 0 ? (
+          <div
+            className={styles.health}
+            data-tone={health === 'ok' ? 'success' : 'warning'}
+          >
+            <StatusDot color={health === 'ok' ? 'success' : 'warning'} pulse />
+            <span>
+              <strong className={styles.healthStrong}>
+                {health === 'ok'
+                  ? 'Todo funciona'
+                  : 'Hay algo que requiere tu atención'}
+              </strong>
+              {health === 'ok'
+                ? ' — sin incidencias en tus servicios.'
+                : ' — revisa los avisos de abajo.'}
+            </span>
+          </div>
+        ) : undefined
       }
     >
-      <ServicesListView
-        services={services}
-        meta={meta}
-        errorMessage={errorMessage}
-      />
+      {loadFailed ? (
+        <EmptyState
+          title="No se pudieron cargar tus servicios"
+          description="Inténtalo de nuevo en unos segundos."
+        />
+      ) : totalCount === 0 ? (
+        <EmptyState
+          title="Aún no tienes servicios"
+          description="Cuando contrates un servicio o registres un dominio aparecerá aquí, con su estado y opciones de gestión."
+          action={
+            <Link href="/dashboard/store">
+              <Button variant="secondary">Ir a la Tienda</Button>
+            </Link>
+          }
+        />
+      ) : (
+        <ServicesHubView
+          serviceCards={serviceCards}
+          domainCards={domainCards}
+          siCards={siCards}
+        />
+      )}
     </ListPage>
   );
 }
