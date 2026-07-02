@@ -14,6 +14,7 @@ import {
   verifyEmailTemplate,
   welcomeTemplate,
 } from '../../core/email/templates/auth.templates';
+import { resolveEmailFooterLegal } from '../../core/email/email-branding';
 import { RegisterDto } from './dto/auth.dto';
 import { AuthTokenService } from './auth-token.service';
 import { RoleSlug } from '@prisma/client';
@@ -168,7 +169,8 @@ export class AuthRegisterService {
         'NEXT_PUBLIC_APP_URL',
         'http://localhost:3002',
       );
-      const tpl = welcomeTemplate(user.first_name, appUrl);
+      const legal = await resolveEmailFooterLegal(this.settings);
+      const tpl = welcomeTemplate(user.first_name, appUrl, legal);
       await this.email.send({
         to: user.email,
         subject: tpl.subject,
@@ -229,7 +231,8 @@ export class AuthRegisterService {
         'http://localhost:3002',
       );
       const verifyUrl = `${appUrl}/verify-email?token=${token}`;
-      const tpl = verifyEmailTemplate(user.first_name, verifyUrl);
+      const legal = await resolveEmailFooterLegal(this.settings);
+      const tpl = verifyEmailTemplate(user.first_name, verifyUrl, legal);
       await this.email.send({
         to: user.email,
         subject: tpl.subject,

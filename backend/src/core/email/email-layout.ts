@@ -103,18 +103,20 @@ export function emailButton(label: string, url: string): string {
 
 /** Botón secundario (contorno azul). */
 export function emailButtonSecondary(label: string, url: string): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" style="border:1px solid #C9DDFB;border-radius:11px"><a href="${esc(url)}" target="_blank" style="display:inline-block;padding:12px 24px;font-family:${FONT_STACK};font-size:14px;font-weight:600;color:#1D4ED8;text-decoration:none">${esc(label)}</a></td></tr></table>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px;border-collapse:separate;border-spacing:0"><tr><td align="center" style="border:1px solid #C9DDFB;border-radius:11px"><a href="${esc(url)}" target="_blank" style="display:inline-block;padding:12px 24px;font-family:${FONT_STACK};font-size:14px;font-weight:600;color:#1D4ED8;text-decoration:none">${esc(label)}</a></td></tr></table>`;
 }
 
 /** Código de un solo uso (2FA) — dígitos espaciados sobre caja tintada. */
 export function emailCodeBox(code: string): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 22px"><tr><td align="center" bgcolor="#EFF4FF" style="border-radius:12px;background:#EFF4FF;border:1px solid #DBEAFE;padding:16px 34px"><span style="font-family:${MONO_STACK};font-size:30px;font-weight:600;letter-spacing:9px;color:${TEXT}">${esc(code)}</span></td></tr></table>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 22px;border-collapse:separate;border-spacing:0"><tr><td align="center" bgcolor="#EFF4FF" style="border-radius:12px;background:#EFF4FF;border:1px solid #DBEAFE;padding:16px 34px"><span style="font-family:${MONO_STACK};font-size:30px;font-weight:600;letter-spacing:9px;color:${TEXT}">${esc(code)}</span></td></tr></table>`;
 }
 
 /** Aviso / callout con el color semántico del evento. `html` crudo. */
 export function emailCallout(semantic: EmailSemantic, html: string): string {
   const s = SEMANTIC[semantic];
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px"><tr><td bgcolor="${s.tint}" style="background:${s.tint};border:1px solid ${s.accent}33;border-radius:12px;padding:15px 17px;font-family:${FONT_STACK};font-size:14px;line-height:1.55;color:${s.fg}">${html}</td></tr></table>`;
+  // border-collapse:separate → el radio del borde del <td> se respeta (con el
+  // `collapse` global el borde saldría cuadrado). 1:1 mockup (radius 12 + borde).
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border-collapse:separate;border-spacing:0"><tr><td bgcolor="${s.tint}" style="background:${s.tint};border:1px solid ${s.accent}33;border-radius:12px;padding:15px 17px;font-family:${FONT_STACK};font-size:14px;line-height:1.55;color:${s.fg}">${html}</td></tr></table>`;
 }
 
 export interface DataRow {
@@ -140,7 +142,12 @@ export function emailDataBox(
     ? `<tr><td colspan="2" style="padding:12px 0 0"><div style="height:1px;background:#E6ECF3;margin-bottom:12px;font-size:0;line-height:0">&nbsp;</div></td></tr>` +
       `<tr><td style="font-family:${FONT_STACK};font-size:14px;font-weight:600;color:${TEXT}">${esc(total.label)}</td><td align="right" style="font-family:${FONT_STACK};font-size:18px;font-weight:700;letter-spacing:-0.01em;color:${SEMANTIC[total.semantic ?? 'info'].fg}">${esc(total.value)}</td></tr>`
     : '';
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;border:1px solid #E6ECF3;border-radius:12px;background:#F8FAFF"><tr><td style="padding:18px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rowsHtml}${totalHtml}</table></td></tr></table>`;
+  // Caja redondeada CON borde: el `<style>` global pone `border-collapse:collapse`
+  // y con collapse el navegador ignora el `border-radius` de una <table>. Para una
+  // tabla *bordeada* la forma correcta es forzar `border-collapse:separate` inline
+  // (el radio se aplica al borde). `overflow:hidden` NO sirve aquí: recortaría el
+  // borde de 1px. 1:1 con la caja del mockup (border #E6ECF3 + radius 12).
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:18px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rowsHtml}${totalHtml}</table></td></tr></table>`;
 }
 
 /* ── Fila de estado + layout maestro ─────────────────────────── */
@@ -160,22 +167,22 @@ function statusRow(
     ? `<div style="font-family:${MONO_STACK};font-size:12.5px;color:${FAINT};margin-top:2px">${esc(sublabel)}</div>`
     : '';
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
-    <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="${s.tint}" style="width:44px;height:44px;background:${s.tint};border-radius:12px"><div style="width:12px;height:12px;border-radius:12px;background:${s.accent};font-size:0;line-height:0">&nbsp;</div></td></tr></table></td>
+    <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="${s.tint}" style="width:44px;height:44px;background:${s.tint};border-radius:12px"><img src="${appUrl()}/brand/email/status-${semantic}.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
     <td valign="middle"><div style="font-family:${FONT_STACK};font-size:15px;font-weight:600;line-height:1.3;color:${s.fg}">${esc(label)}</div>${sub}</td>
   </tr></table>`;
 }
 
-function footer(): string {
+function footer(legalLine?: string): string {
   const url = appUrl();
   const year = new Date().getFullYear();
   const link = (text: string, href: string): string =>
     `<a href="${esc(href)}" target="_blank" style="color:${BRAND};text-decoration:none">${esc(text)}</a>`;
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F8FAFF" style="background:#F8FAFF;border-top:1px solid #EFF1F5"><tr><td align="center" style="padding:28px 44px 30px;text-align:center">
-    <p style="margin:0 auto 20px;max-width:380px;font-family:${FONT_STACK};font-size:13.5px;line-height:1.6;color:#475569">¿Tienes una duda? Responde a este correo — te contesta una persona real, no un bot.</p>
-    <div style="font-family:${FONT_STACK};font-size:15px;font-weight:600;letter-spacing:-0.02em;color:#475569;margin-bottom:6px">aelium</div>
+    <p style="margin:0 auto 20px;max-width:380px;font-family:${FONT_STACK};font-size:13.5px;line-height:1.6;color:#475569">Responde a este correo — te contesta una persona real, no un bot.</p>
+    <div style="margin-bottom:6px"><img src="${url}/brand/email/logo.png" width="31" height="20" alt="" style="display:inline-block;vertical-align:middle;margin-right:8px;border:0"><span style="font-family:${FONT_STACK};font-size:15px;font-weight:600;letter-spacing:-0.02em;color:#475569;vertical-align:middle">aelium</span></div>
     <div style="font-family:${FONT_STACK};font-size:12px;color:${FAINT};margin-bottom:18px">Tu socio digital, a tu lado.</div>
     <div style="font-family:${FONT_STACK};font-size:12px;color:${BRAND};font-weight:500;margin-bottom:16px;line-height:1.9">${link('Ir a tu panel', `${url}/dashboard`)}<span style="color:#CBD5E1;margin:0 8px">·</span>${link('Centro de transparencia', `${url}/dashboard/transparency`)}<span style="color:#CBD5E1;margin:0 8px">·</span>${link('Preferencias de notificación', `${url}/dashboard/settings`)}</div>
-    <div style="font-family:${FONT_STACK};font-size:11.5px;color:#A6B2C2;line-height:1.75;border-top:1px solid #EAEFF5;padding-top:15px;max-width:440px;margin:0 auto">© ${year} Aelium · Tu socio digital, a tu lado.<br>Recibes este correo porque tienes una cuenta en Aelium. · Tus datos, en Europa.</div>
+    <div style="font-family:${FONT_STACK};font-size:11.5px;color:#A6B2C2;line-height:1.75;border-top:1px solid #EAEFF5;padding-top:15px;max-width:440px;margin:0 auto">${legalLine ?? `© ${year} Aelium`}<br>Recibes este correo porque tienes una cuenta en Aelium. · Tus datos, en Europa.</div>
   </td></tr></table>`;
 }
 
@@ -187,6 +194,12 @@ export interface EmailLayoutOptions {
   status?: { label: string; sublabel?: string };
   /** Cuerpo (los "huecos"): heading + párrafos + caja de datos + CTA + nota. */
   bodyHtml: string;
+  /**
+   * Línea legal del footer (razón social + dirección fiscal), ya formateada.
+   * La inyecta el render pipeline desde los settings `branding.*`. Si se omite
+   * (p. ej. correos de auth en código), el footer usa `© {año} Aelium`.
+   */
+  legal?: string;
 }
 
 /**
@@ -229,13 +242,13 @@ ${pre}
   <table role="presentation" class="email-card" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 14px 44px rgba(15,23,42,0.10),0 2px 8px rgba(15,23,42,0.04)">
     <tr><td height="4" style="height:4px;line-height:4px;font-size:0;background:${s.accent}">&nbsp;</td></tr>
     <tr><td class="email-pad" align="center" style="padding:30px 44px 24px;border-bottom:1px solid #EFF1F5">
-      <span style="font-family:${FONT_STACK};font-size:21px;font-weight:600;letter-spacing:-0.02em;color:${TEXT}">aelium</span>
+      <img src="${appUrl()}/brand/email/logo.png" width="48" height="31" alt="" style="display:inline-block;vertical-align:middle;margin-right:10px;border:0"><span style="font-family:${FONT_STACK};font-size:21px;font-weight:600;letter-spacing:-0.02em;color:${TEXT};vertical-align:middle">aelium</span>
     </td></tr>
     <tr><td class="email-pad" style="padding:32px 44px 8px">
       ${status}
       ${opts.bodyHtml}
     </td></tr>
-    <tr><td class="email-pad">${footer()}</td></tr>
+    <tr><td class="email-pad">${footer(opts.legal)}</td></tr>
   </table>
 </td></tr>
 </table>

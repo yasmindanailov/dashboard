@@ -7,6 +7,7 @@ import { PrismaService } from '../../core/database/prisma.service';
 import { SettingsService } from '../../core/settings/settings.service';
 import { EmailService } from '../../core/email/email.service';
 import { passwordResetTemplate } from '../../core/email/templates/auth.templates';
+import { resolveEmailFooterLegal } from '../../core/email/email-branding';
 import { ResetPasswordDto } from './dto/auth.dto';
 import { AuthTokenService } from './auth-token.service';
 
@@ -65,7 +66,8 @@ export class AuthRecoveryService {
       'http://localhost:3002',
     );
     const resetUrl = `${appUrl}/reset-password?token=${token}`;
-    const tpl = passwordResetTemplate(user.first_name, resetUrl);
+    const legal = await resolveEmailFooterLegal(this.settings);
+    const tpl = passwordResetTemplate(user.first_name, resetUrl, legal);
     await this.email.send({
       to: user.email,
       subject: tpl.subject,

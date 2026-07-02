@@ -14,6 +14,8 @@ import {
   emailSemanticVars,
   isEmailSemantic,
 } from '../../core/email/email-layout';
+import { resolveEmailFooterLegal } from '../../core/email/email-branding';
+import { SettingsService } from '../../core/settings/settings.service';
 
 const DEFAULT_LOCALE = 'es';
 
@@ -138,7 +140,10 @@ const DEFAULT_RECIPIENT = {
 export class NotificationTemplateService {
   private readonly logger = new Logger(NotificationTemplateService.name);
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {
     NotificationTemplateService.registerHelpers();
   }
 
@@ -191,7 +196,7 @@ export class NotificationTemplateService {
     }
 
     try {
-      const { subject, body } = this.compileAndWrap(
+      const { subject, body } = await this.compileAndWrap(
         { ...tpl, channel },
         payload,
       );
@@ -213,7 +218,7 @@ export class NotificationTemplateService {
    * (fila de estado, total) los use vía `{{email.*}}`. `semantic` NULL o canal
    * ≠ email → se devuelve el `body` compilado tal cual (plantilla legacy).
    */
-  private compileAndWrap(
+  private async compileAndWrap(
     tpl: {
       subject: string;
       body: string;
@@ -221,7 +226,7 @@ export class NotificationTemplateService {
       channel: ChannelType;
     },
     payload: Record<string, unknown>,
-  ): { subject: string; body: string } {
+  ): Promise<{ subject: string; body: string }> {
     const isEmail = tpl.channel === 'email';
     const semantic =
       isEmail && isEmailSemantic(tpl.semantic) ? tpl.semantic : null;
@@ -242,7 +247,11 @@ export class NotificationTemplateService {
       renderPayload,
     );
     const body = semantic
-      ? buildEmailLayout({ semantic, bodyHtml: compiledBody })
+      ? buildEmailLayout({
+          semantic,
+          bodyHtml: compiledBody,
+          legal: await resolveEmailFooterLegal(this.settings),
+        })
       : compiledBody;
     return { subject, body };
   }
@@ -343,7 +352,7 @@ export class NotificationTemplateService {
       recipient: DEFAULT_RECIPIENT,
     };
     try {
-      const { subject, body } = this.compileAndWrap(tpl, payload);
+      const { subject, body } = await this.compileAndWrap(tpl, payload);
       return { event_type: tpl.event_type, subject, body };
     } catch (err) {
       throw new BadRequestException(

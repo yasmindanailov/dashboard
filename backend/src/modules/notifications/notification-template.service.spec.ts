@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../core/database/prisma.service';
+import { SettingsService } from '../../core/settings/settings.service';
 import { NotificationTemplateService } from './notification-template.service';
 
 /**
@@ -23,6 +24,14 @@ describe('NotificationTemplateService', () => {
       providers: [
         NotificationTemplateService,
         { provide: PrismaService, useValue: prisma },
+        {
+          provide: SettingsService,
+          useValue: {
+            get: jest.fn((_c: string, _k: string, fb?: string) =>
+              Promise.resolve(fb ?? ''),
+            ),
+          },
+        },
       ],
     }).compile();
     service = module.get(NotificationTemplateService);

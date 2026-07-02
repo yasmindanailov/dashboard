@@ -53,7 +53,12 @@ function makeService() {
   });
 
   const config = { get: jest.fn().mockReturnValue('http://localhost:3002') };
-  const settings = { getNumber: jest.fn().mockResolvedValue(24) };
+  const settings = {
+    getNumber: jest.fn().mockResolvedValue(24),
+    get: jest.fn((_c: string, _k: string, fb?: string) =>
+      Promise.resolve(fb ?? ''),
+    ),
+  };
   const events = { emit: jest.fn() };
   const email = { send: jest.fn().mockResolvedValue(undefined) };
   const tokenService = { hashToken: jest.fn().mockReturnValue('hash') };

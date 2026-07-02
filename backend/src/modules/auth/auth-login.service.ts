@@ -12,6 +12,7 @@ import { PrismaService } from '../../core/database/prisma.service';
 import { SettingsService } from '../../core/settings/settings.service';
 import { EmailService } from '../../core/email/email.service';
 import { twoFactorCodeTemplate } from '../../core/email/templates/auth.templates';
+import { resolveEmailFooterLegal } from '../../core/email/email-branding';
 import { LoginDto, Verify2faDto } from './dto/auth.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { AuthTokenService } from './auth-token.service';
@@ -185,7 +186,8 @@ export class AuthLoginService {
       data: { two_factor_secret: codeHash, two_factor_enabled: true },
     });
 
-    const tpl = twoFactorCodeTemplate(user.first_name, code);
+    const legal = await resolveEmailFooterLegal(this.settings);
+    const tpl = twoFactorCodeTemplate(user.first_name, code, legal);
     await this.email.send({
       to: user.email,
       subject: tpl.subject,
