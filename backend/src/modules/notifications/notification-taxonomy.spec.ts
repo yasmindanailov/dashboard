@@ -75,6 +75,7 @@ describe('notification-taxonomy', () => {
       'service.suspended',
       'service.unsuspended',
       'service.quota_threshold_crossed',
+      'service.expiring_soon',
       'domain.renewed',
       'domain.expiring_soon',
       'domain.expired',

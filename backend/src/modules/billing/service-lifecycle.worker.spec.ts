@@ -320,6 +320,7 @@ describe('ServiceLifecycleWorker — H2.3 (notifyUpcomingCancellations → servi
       where: {
         status: 'suspended',
         paused_at: null,
+        NOT: { suspension_reason: { startsWith: 'not_renewed' } },
         suspended_at: {
           lte: new Date(NOW.getTime() - (30 - 7) * DAY),
           gt: new Date(NOW.getTime() - 30 * DAY),
@@ -424,6 +425,7 @@ describe('ServiceLifecycleWorker — H2.3 (notifyUpcomingCancellations → servi
       where: {
         status: 'suspended',
         paused_at: null,
+        NOT: { suspension_reason: { startsWith: 'not_renewed' } },
         suspended_at: { lte: NOW, gt: new Date(NOW.getTime() - 30 * DAY) },
       },
       select: { id: true, user_id: true, suspended_at: true, metadata: true },
@@ -455,5 +457,213 @@ describe('ServiceLifecycleWorker — H2.3 (notifyUpcomingCancellations → servi
     expect(summary).toEqual({ checked: 0, notified: 0, errors: 0 });
     expect(emitSpy).not.toHaveBeenCalled();
     expect(prisma.service.update).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Tests unit F4·W3 — `runNonRenewedSuspension`: suspende los servicios de
+ * HOSTING con auto-renovación OFF y periodo vencido (reason `not_renewed`,
+ * actor sistema), excluye dominios (expiran en el registrador) y respeta una
+ * factura abierta (deja el dunning por impago). Punto único de transición
+ * (`suspendAsAdmin`), tolerante a fallos por servicio.
+ */
+describe('ServiceLifecycleWorker — F4·W3 (runNonRenewedSuspension)', () => {
+  const NOW = new Date('2026-07-02T00:00:00Z');
+  let prisma: {
+    service: { findMany: jest.Mock };
+    invoice: { findFirst: jest.Mock };
+  };
+  let provisioning: {
+    suspendAsAdmin: jest.Mock;
+    deprovisionAsAdmin: jest.Mock;
+  };
+  let worker: ServiceLifecycleWorker;
+
+  beforeEach(() => {
+    prisma = {
+      service: { findMany: jest.fn().mockResolvedValue([]) },
+      invoice: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    provisioning = {
+      suspendAsAdmin: jest.fn().mockResolvedValue({ alreadySuspended: false }),
+      deprovisionAsAdmin: jest.fn(),
+    };
+    worker = new ServiceLifecycleWorker(
+      prisma as never,
+      new EventEmitter2(),
+      { getSettingValue: jest.fn() } as never,
+      provisioning as never,
+      { enqueue: jest.fn() } as never,
+    );
+  });
+
+  it('suspende hosting activo con auto_renew=false y periodo vencido (excluye dominios en la query; reason not_renewed + actor sistema)', async () => {
+    prisma.service.findMany.mockResolvedValueOnce([
+      { id: 'svc-h', user_id: 'u1' },
+    ]);
+
+    const summary = await worker.runNonRenewedSuspension(NOW);
+
+    expect(prisma.service.findMany).toHaveBeenCalledWith({
+      where: {
+        status: 'active',
+        auto_renew: false,
+        next_due_date: { lte: NOW },
+        product: { type: { not: 'domain' } },
+      },
+      select: { id: true, user_id: true },
+    });
+    expect(provisioning.suspendAsAdmin).toHaveBeenCalledWith(
+      'svc-h',
+      expect.objectContaining({
+        reason: SuspensionReasonDto.not_renewed,
+        notify_client: true,
+      }),
+      null,
+      undefined,
+      { actorLabel: 'system:auto-renew-off-cron', allowUnsupported: true },
+    );
+    expect(summary).toEqual({ checked: 1, suspended: 1, errors: 0 });
+  });
+
+  it('NO suspende si hay una factura abierta (deja el dunning por impago)', async () => {
+    prisma.service.findMany.mockResolvedValueOnce([
+      { id: 'svc-h', user_id: 'u1' },
+    ]);
+    prisma.invoice.findFirst.mockResolvedValueOnce({ id: 'inv-open' });
+
+    const summary = await worker.runNonRenewedSuspension(NOW);
+
+    expect(provisioning.suspendAsAdmin).not.toHaveBeenCalled();
+    expect(summary).toEqual({ checked: 1, suspended: 0, errors: 0 });
+  });
+
+  it('no cuenta como suspendido si el servicio ya estaba suspendido (idempotente)', async () => {
+    prisma.service.findMany.mockResolvedValueOnce([
+      { id: 'svc-h', user_id: 'u1' },
+    ]);
+    provisioning.suspendAsAdmin.mockResolvedValueOnce({
+      alreadySuspended: true,
+    });
+
+    const summary = await worker.runNonRenewedSuspension(NOW);
+
+    expect(summary).toEqual({ checked: 1, suspended: 0, errors: 0 });
+  });
+
+  it('tolera el fallo de un servicio y sigue con el resto', async () => {
+    prisma.service.findMany.mockResolvedValueOnce([
+      { id: 'a', user_id: 'u1' },
+      { id: 'b', user_id: 'u2' },
+    ]);
+    provisioning.suspendAsAdmin
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce({ alreadySuspended: false });
+
+    const summary = await worker.runNonRenewedSuspension(NOW);
+
+    expect(summary).toEqual({ checked: 2, suspended: 1, errors: 1 });
+  });
+});
+
+/**
+ * Tests unit F4·W3 — `runExpiringNonRenewedWarnings`: aviso pre-vencimiento para
+ * hosting con auto-renovación OFF (emite `service.expiring_soon`, edge-trigger por
+ * ventana en `metadata`, excluye dominios en la query).
+ */
+describe('ServiceLifecycleWorker — F4·W3 (runExpiringNonRenewedWarnings)', () => {
+  const NOW = new Date('2026-07-02T00:00:00Z');
+  const DAY = 86_400_000;
+  let prisma: { service: { findMany: jest.Mock; update: jest.Mock } };
+  let emitter: EventEmitter2;
+  let emitSpy: jest.SpyInstance;
+  let worker: ServiceLifecycleWorker;
+
+  beforeEach(() => {
+    prisma = {
+      service: {
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    };
+    emitter = new EventEmitter2();
+    emitSpy = jest.spyOn(emitter, 'emit');
+    worker = new ServiceLifecycleWorker(
+      prisma as never,
+      emitter,
+      { getSettingValue: jest.fn() } as never,
+      { suspendAsAdmin: jest.fn() } as never,
+      { enqueue: jest.fn() } as never,
+    );
+  });
+
+  function svc(over: Record<string, unknown> = {}) {
+    return {
+      id: 'svc-h',
+      user_id: 'u1',
+      domain: 'mi-web.com',
+      label: null,
+      next_due_date: new Date(NOW.getTime() + 5 * DAY),
+      metadata: null,
+      product: { name: 'Web Pro' },
+      ...over,
+    };
+  }
+
+  it('emite service.expiring_soon + persiste la ventana (edge-trigger); excluye dominios en la query', async () => {
+    prisma.service.findMany.mockResolvedValueOnce([svc()]);
+
+    const summary = await worker.runExpiringNonRenewedWarnings(NOW);
+
+    expect(prisma.service.findMany).toHaveBeenCalledWith({
+      where: {
+        status: 'active',
+        auto_renew: false,
+        product: { type: { not: 'domain' } },
+        next_due_date: { gt: NOW, lte: new Date(NOW.getTime() + 30 * DAY) },
+      },
+      select: {
+        id: true,
+        user_id: true,
+        domain: true,
+        label: true,
+        next_due_date: true,
+        metadata: true,
+        product: { select: { name: true } },
+      },
+    });
+    // 5 días restantes → ventana 7 (la menor ≥ daysLeft). metadata parte de
+    // `null` → toMetadataObject({})=∅ → queda exactamente el flag de la ventana.
+    expect(prisma.service.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'svc-h' },
+        data: { metadata: { auto_renew_expiry_warned_window: 7 } },
+      }),
+    );
+    expect(emitSpy).toHaveBeenCalledWith(
+      'service.expiring_soon',
+      expect.objectContaining({
+        service_id: 'svc-h',
+        user_id: 'u1',
+        service_name: 'mi-web.com',
+        days_left: 5,
+      }),
+    );
+    expect(summary).toEqual({ checked: 1, warned: 1, errors: 0 });
+  });
+
+  it('no re-avisa si ya se avisó en la misma ventana (edge-trigger)', async () => {
+    prisma.service.findMany.mockResolvedValueOnce([
+      svc({ metadata: { auto_renew_expiry_warned_window: 7 } }),
+    ]);
+
+    const summary = await worker.runExpiringNonRenewedWarnings(NOW);
+
+    expect(prisma.service.update).not.toHaveBeenCalled();
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      'service.expiring_soon',
+      expect.anything(),
+    );
+    expect(summary).toEqual({ checked: 1, warned: 0, errors: 0 });
   });
 });

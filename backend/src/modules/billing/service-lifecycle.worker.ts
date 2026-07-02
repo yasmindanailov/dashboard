@@ -27,8 +27,22 @@ const BILLING_OVERDUE_CRON_ACTOR = 'system:billing-overdue-cron';
  */
 const BILLING_CANCELLATION_CRON_ACTOR = 'system:billing-cancellation-cron';
 
+/**
+ * Etiqueta canónica del actor sistema del cron de suspensión por
+ * auto-renovación desactivada (F4·W3). Misma taxonomía `system:<dominio>-<cron>`.
+ */
+const AUTO_RENEW_OFF_CRON_ACTOR = 'system:auto-renew-off-cron';
+
 /** Milisegundos en un día (ventanas del aviso previo de cancelación). */
 const DAY_MS = 86_400_000;
+
+/**
+ * F4·W3 — ventanas del aviso pre-vencimiento (auto-renovación desactivada), en
+ * días (descendente). La mayor acota la query. Edge-trigger por ventana (mismo
+ * patrón que `DomainExpiryWarningsCron`): un aviso por ventana, sin spam diario.
+ */
+const AUTO_RENEW_WARN_WINDOWS = [30, 14, 7, 1] as const;
+const AUTO_RENEW_WARN_MAX_WINDOW = 30;
 
 /**
  * ServiceLifecycleWorker — Scheduled jobs for service status automation.
@@ -138,6 +152,227 @@ export class ServiceLifecycleWorker {
         }
       }
     }
+  }
+
+  /* ── F4·W3 — Aviso pre-vencimiento (auto-renovación desactivada, 09:00 UTC) ── */
+
+  /**
+   * Avisa al cliente ANTES de que su servicio de HOSTING finalice por tener la
+   * auto-renovación desactivada (30/14/7/1 días antes de `next_due_date`), para
+   * que pueda reactivarla a tiempo. Sin este aviso, la suspensión al vencer
+   * (`suspendNonRenewedServices`) sería una sorpresa. Excluye dominios (tienen su
+   * propio `DomainExpiryWarningsCron`). Emite `service.expiring_soon` (alerta →
+   * EventEmitter directo, sin Outbox; lo consume el listener de notificaciones).
+   */
+  @Cron('0 9 * * *', {
+    name: 'warnExpiringNonRenewedServices',
+    timeZone: 'UTC',
+  })
+  async warnExpiringNonRenewedServices(): Promise<void> {
+    try {
+      const summary = await this.runExpiringNonRenewedWarnings();
+      this.logger.log(
+        `warnExpiringNonRenewedServices done: checked=${summary.checked} ` +
+          `warned=${summary.warned} errors=${summary.errors}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `warnExpiringNonRenewedServices failed at top level: ${getErrorMessage(err)}`,
+      );
+    }
+  }
+
+  /** Una pasada. Pública para trigger manual + tests deterministas. */
+  async runExpiringNonRenewedWarnings(
+    now: Date = new Date(),
+  ): Promise<NonRenewedWarningSummary> {
+    const horizon = new Date(
+      now.getTime() + AUTO_RENEW_WARN_MAX_WINDOW * DAY_MS,
+    );
+    const services = await this.prisma.service.findMany({
+      where: {
+        status: 'active',
+        auto_renew: false,
+        product: { type: { not: 'domain' } },
+        next_due_date: { gt: now, lte: horizon },
+      },
+      select: {
+        id: true,
+        user_id: true,
+        domain: true,
+        label: true,
+        next_due_date: true,
+        metadata: true,
+        product: { select: { name: true } },
+      },
+    });
+
+    const summary: NonRenewedWarningSummary = {
+      checked: services.length,
+      warned: 0,
+      errors: 0,
+    };
+
+    for (const service of services) {
+      try {
+        if (await this.warnNonRenewedIfWindowChanged(service, now)) {
+          summary.warned++;
+        }
+      } catch (err) {
+        summary.errors++;
+        this.logger.error(
+          `warnExpiringNonRenewedServices service=${service.id} failed: ${getErrorMessage(err)}`,
+        );
+      }
+    }
+    return summary;
+  }
+
+  private async warnNonRenewedIfWindowChanged(
+    service: NonRenewedWarningRow,
+    now: Date,
+  ): Promise<boolean> {
+    if (!service.next_due_date) return false;
+    const daysLeft = Math.ceil(
+      (service.next_due_date.getTime() - now.getTime()) / DAY_MS,
+    );
+    const window = activeAutoRenewWarnWindow(daysLeft);
+    if (window === null) return false; // fuera de toda ventana (>30d)
+
+    const lastWarned = readAutoRenewWarnedWindow(service.metadata);
+    if (lastWarned === window) return false; // ya avisado en esta ventana
+
+    // Persistir la ventana avisada (edge-trigger) ANTES de emitir. Si el cliente
+    // reactiva la auto-renovación, sale de la query (`auto_renew=false`) y no se
+    // avisa más; si la vuelve a desactivar en otra ventana, el flag difiere → re-avisa.
+    await this.prisma.service.update({
+      where: { id: service.id },
+      data: {
+        metadata: {
+          ...toMetadataObject(service.metadata),
+          auto_renew_expiry_warned_window: window,
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    const serviceName = service.label ?? service.domain ?? service.product.name;
+    // Alerta (trigger de notificación), NO transición de estado → EventEmitter2
+    // directo, sin Outbox (las notifs ya tienen durabilidad BullMQ).
+    this.eventEmitter.emit('service.expiring_soon', {
+      service_id: service.id,
+      user_id: service.user_id,
+      service_name: serviceName,
+      days_left: daysLeft,
+      end_date: service.next_due_date.toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }),
+    });
+    this.logger.log(
+      `service.expiring_soon service=${service.id} (${serviceName}): ` +
+        `${daysLeft}d (ventana ${window}).`,
+    );
+    return true;
+  }
+
+  /* ── F4·W3 — Suspensión por auto-renovación desactivada (daily 03:15 UTC) ── */
+
+  /**
+   * Suspende los servicios de HOSTING (no dominios) cuya auto-renovación está
+   * OFF y cuyo periodo pagado ya venció (`next_due_date <= now`). Sin factura de
+   * renovación (el `BillingLifecycleWorker` la omite por el gate `auto_renew`),
+   * Enhance no apaga el servicio por sí solo → Aelium lo suspende aquí (reason
+   * `not_renewed`), y el `autoCancelServices` existente lo cancela tras la
+   * ventana de gracia. Los DOMINIOS se excluyen: expiran solos en el registrador
+   * (redención → delete), gestionado por el reconcile de dominios.
+   *
+   * Se programa a las 03:15 (tras `autoSuspendServices` 03:00). El orden
+   * intra-día es irrelevante (la cancelación mira una ventana de 30 días).
+   */
+  @Cron('15 3 * * *', { name: 'suspendNonRenewedServices', timeZone: 'UTC' })
+  async suspendNonRenewedServices(): Promise<void> {
+    try {
+      const summary = await this.runNonRenewedSuspension();
+      this.logger.log(
+        `suspendNonRenewedServices done: checked=${summary.checked} ` +
+          `suspended=${summary.suspended} errors=${summary.errors}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `suspendNonRenewedServices failed at top level: ${getErrorMessage(err)}`,
+      );
+    }
+  }
+
+  /** Una pasada. Pública para trigger manual + tests deterministas. */
+  async runNonRenewedSuspension(
+    now: Date = new Date(),
+  ): Promise<NonRenewedSuspensionSummary> {
+    const candidates = await this.prisma.service.findMany({
+      where: {
+        status: 'active',
+        auto_renew: false,
+        next_due_date: { lte: now },
+        // Solo hosting (y demás servicios Aelium-billed): los dominios expiran
+        // en el registrador por sí solos, no se suspenden aquí.
+        product: { type: { not: 'domain' } },
+      },
+      select: { id: true, user_id: true },
+    });
+
+    const summary: NonRenewedSuspensionSummary = {
+      checked: candidates.length,
+      suspended: 0,
+      errors: 0,
+    };
+
+    for (const service of candidates) {
+      try {
+        // Guard: si el cliente desactivó la auto-renovación DESPUÉS de que se
+        // generara la factura de renovación, hay una factura abierta → deja que
+        // el dunning normal (impago) la gestione, no dupliques la transición.
+        const openInvoice = await this.prisma.invoice.findFirst({
+          where: {
+            user_id: service.user_id,
+            status: { in: ['draft', 'pending', 'overdue'] },
+            items: { some: { service_id: service.id } },
+          },
+          select: { id: true },
+        });
+        if (openInvoice) continue;
+
+        // Punto único de transición (mismo camino que la suspensión por impago):
+        // `suspendAsAdmin` transiciona el estado, invoca la inline action del
+        // plugin si la soporta, emite `service.suspended` (email al cliente) y
+        // audita. `allowUnsupported` para plugins sin `supports_suspend`.
+        const result = await this.provisioning.suspendAsAdmin(
+          service.id,
+          {
+            reason: SuspensionReasonDto.not_renewed,
+            internal_note:
+              'Suspendido automáticamente — auto-renovación desactivada, periodo pagado vencido',
+            notify_client: true,
+          },
+          null,
+          undefined,
+          { actorLabel: AUTO_RENEW_OFF_CRON_ACTOR, allowUnsupported: true },
+        );
+
+        if (!result.alreadySuspended) {
+          summary.suspended++;
+          this.logger.warn(
+            `Service ${service.id} suspended — auto-renovación off, periodo vencido`,
+          );
+        }
+      } catch (error) {
+        summary.errors++;
+        this.logger.error(
+          `Failed to suspend non-renewed service ${service.id}: ${getErrorMessage(error)}`,
+        );
+      }
+    }
+    return summary;
   }
 
   /* ── 6.5 — Auto-cancellation (daily 04:00) ── */
@@ -262,6 +497,10 @@ export class ServiceLifecycleWorker {
         // anotado en backlog para una fase aparte — no se toca un cron
         // destructivo aquí).
         paused_at: null,
+        // F4·W3: excluye las suspensiones por auto-renovación desactivada
+        // (`not_renewed`) — su aviso es distinto ("no renovado", no "por
+        // impago"); el cliente ya recibió el email de suspensión al vencer.
+        NOT: { suspension_reason: { startsWith: 'not_renewed' } },
         suspended_at: { lte: noticeCutoff, gt: cancelCutoff },
       },
       select: { id: true, user_id: true, suspended_at: true, metadata: true },
@@ -392,6 +631,48 @@ export interface CancellationNoticesSummary {
   checked: number;
   notified: number;
   errors: number;
+}
+
+/** Resumen de una pasada de `runNonRenewedSuspension` (F4·W3). */
+export interface NonRenewedSuspensionSummary {
+  checked: number;
+  suspended: number;
+  errors: number;
+}
+
+/** Resumen de una pasada de `runExpiringNonRenewedWarnings` (F4·W3). */
+export interface NonRenewedWarningSummary {
+  checked: number;
+  warned: number;
+  errors: number;
+}
+
+interface NonRenewedWarningRow {
+  id: string;
+  user_id: string;
+  domain: string | null;
+  label: string | null;
+  next_due_date: Date | null;
+  metadata: unknown;
+  product: { name: string };
+}
+
+/**
+ * Ventana de aviso activa para `daysLeft`: la MENOR ventana ≥ daysLeft. `null` si
+ * daysLeft > 30 (fuera de toda ventana). Garantiza un aviso por ventana (mismo
+ * algoritmo que `DomainExpiryWarningsCron.activeWindow`).
+ */
+function activeAutoRenewWarnWindow(daysLeft: number): number | null {
+  let chosen: number | null = null;
+  for (const w of AUTO_RENEW_WARN_WINDOWS) {
+    if (w >= daysLeft) chosen = w;
+  }
+  return chosen;
+}
+
+function readAutoRenewWarnedWindow(metadata: unknown): number | null {
+  const v = toMetadataObject(metadata).auto_renew_expiry_warned_window;
+  return typeof v === 'number' ? v : null;
 }
 
 interface CancellationNoticeRow {

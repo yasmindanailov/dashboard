@@ -15,6 +15,7 @@
 // reglas siguen activas con severidad `warn`/`error`.
 
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Logger,
@@ -1178,6 +1179,102 @@ describe('ProvisioningService â€” Sprint 11 Fase 11.D', () => {
       ),
     ).rejects.toThrow(NotFoundException);
     expect(prisma.service.update).not.toHaveBeenCalled();
+  });
+
+  // ─── setAutoRenewForUser — F4·W3 (auto-renovación invoice-driven) ───
+
+  describe('setAutoRenewForUser (F4·W3)', () => {
+    it('desactiva la auto-renovación de un servicio activo propio (update + audit R3)', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce({
+        id: 'svc-1',
+        user_id: 'user-1',
+        status: 'active',
+        auto_renew: true,
+      });
+      prisma.service.update.mockResolvedValueOnce({
+        id: 'svc-1',
+        auto_renew: false,
+      });
+
+      const res = await service.setAutoRenewForUser(
+        'svc-1',
+        false,
+        'user-1',
+        false,
+      );
+
+      expect(prisma.service.update).toHaveBeenCalledWith({
+        where: { id: 'svc-1' },
+        data: { auto_renew: false },
+        select: { id: true, auto_renew: true },
+      });
+      expect(audit.logChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entity_type: 'Service',
+          entity_id: 'svc-1',
+          action: 'service.auto_renew_changed',
+          changes_before: { auto_renew: true },
+          changes_after: { auto_renew: false },
+        }),
+      );
+      expect(res).toEqual({ id: 'svc-1', auto_renew: false });
+    });
+
+    it('403 si un no-admin intenta cambiar un servicio ajeno', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce({
+        id: 'svc-1',
+        user_id: 'otro-user',
+        status: 'active',
+        auto_renew: true,
+      });
+
+      await expect(
+        service.setAutoRenewForUser('svc-1', false, 'user-1', false),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.service.update).not.toHaveBeenCalled();
+    });
+
+    it('400 si el servicio no está activo (suspendido/terminal se recontrata por otra vía)', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce({
+        id: 'svc-1',
+        user_id: 'user-1',
+        status: 'suspended',
+        auto_renew: true,
+      });
+
+      await expect(
+        service.setAutoRenewForUser('svc-1', false, 'user-1', false),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.service.update).not.toHaveBeenCalled();
+    });
+
+    it('idempotente: sin cambio real no reescribe ni audita', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce({
+        id: 'svc-1',
+        user_id: 'user-1',
+        status: 'active',
+        auto_renew: true,
+      });
+
+      const res = await service.setAutoRenewForUser(
+        'svc-1',
+        true,
+        'user-1',
+        false,
+      );
+
+      expect(prisma.service.update).not.toHaveBeenCalled();
+      expect(audit.logChange).not.toHaveBeenCalled();
+      expect(res).toEqual({ id: 'svc-1', auto_renew: true });
+    });
+
+    it('404 si el servicio no existe', async () => {
+      prisma.service.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.setAutoRenewForUser('nope', false, 'user-1', false),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 
   // ─── suspendAsAdmin / unsuspendAsAdmin — Sprint 15C.II Fase F (ADR-077 A4) ───

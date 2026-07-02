@@ -29,6 +29,7 @@ import { MetricsBar } from '../MetricsBar';
 import { SslStatusCard } from '../SslStatusCard';
 import { AppShortcutsCard } from '../AppShortcutsCard';
 import { BillingCrossLinkCard } from '../BillingCrossLinkCard';
+import { AutoRenewToggle } from '../AutoRenewToggle';
 import { ChangePlanCard } from './ChangePlanCard';
 import { ServiceAuditTimeline } from './ServiceAuditTimeline';
 import styles from '../service-detail.module.css';
@@ -166,6 +167,15 @@ export function ClientSuspendedBannerSection({
             <Link href="/dashboard/billing" className={styles.ctaPrimary}>
               {t('service.suspended.client.cta_pay')}
             </Link>
+          ) : suspensionReasonCode === 'not_renewed' ? (
+            // F4·W3 — no renovado: la recuperación es recontratar (no hay flujo de
+            // reactivación de hosting) → ficha de tienda del producto.
+            <Link
+              href={`/dashboard/store/${service.product_slug}`}
+              className={styles.ctaPrimary}
+            >
+              {t('service.suspended.client.cta_recontract')}
+            </Link>
           ) : (
             <Link href="/dashboard/support" className={styles.ctaSecondary}>
               {t('service.suspended.client.cta_support')}
@@ -244,6 +254,19 @@ export function BillingCrossLinkCardSection({
 /** Card del cambio de plan con prorrateo (ADR-029). CC: picker + preview + confirm. */
 export function PlanChangeCardSection({ ctx }: { ctx: ServiceDetailContext }) {
   return <ChangePlanCard serviceId={ctx.service.id} />;
+}
+
+/** Card "Renovación" (aside, cliente) — toggle de auto-renovación (F4·W3). */
+export function AutoRenewCardSection({ ctx }: { ctx: ServiceDetailContext }) {
+  return (
+    <SectionCard title={t('service.autorenew.card_title')}>
+      <AutoRenewToggle
+        serviceId={ctx.service.id}
+        enabled={ctx.service.auto_renew}
+        kind="service"
+      />
+    </SectionCard>
+  );
 }
 
 /**

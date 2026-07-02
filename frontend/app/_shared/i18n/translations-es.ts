@@ -339,7 +339,10 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.suspension_reason.scheduled_maintenance': 'Mantenimiento programado',
   'service.suspension_reason.gdpr_restriction':
     'Restricción del tratamiento (RGPD art. 18)',
+  'service.suspension_reason.not_renewed': 'Auto-renovación desactivada',
   'service.suspension_reason.other': 'Otros motivos',
+  // F4·W3 — card "Renovación" (toggle de auto-renovación) del detalle de servicio.
+  'service.autorenew.card_title': 'Renovación',
 
   // ── Banner de suspensión del cliente (Sprint 15C.II Fase F.4.2). El cliente
   //    ve el motivo cliente-seguro (etiqueta `service.suspension_reason.*` —
@@ -352,6 +355,7 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.suspended.client.reason_label': 'Motivo',
   'service.suspended.client.cta_pay': 'Regularizar el pago',
   'service.suspended.client.cta_support': 'Contactar con soporte',
+  'service.suspended.client.cta_recontract': 'Volver a contratar',
 
   // ── Layout canónico del detalle de servicio (Sprint 15C.II Fase F.12.3).
   //    Copys del frame (tabs + cabecera + secciones genéricas) — voz de marca

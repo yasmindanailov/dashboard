@@ -62,6 +62,8 @@ export interface DomainListItem {
   expires_at: string | null;
   /** Próxima facturación de Aelium (`service.next_due_date`). */
   next_due_date: string | null;
+  /** F4·W3 — preferencia de auto-renovación (invoice-driven, Aelium-side). */
+  auto_renew: boolean;
   created_at: string;
   product_name: string;
 }

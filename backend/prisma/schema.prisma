@@ -653,6 +653,12 @@ model Service {
   credit_balance_eur  Decimal       @default(0) @db.Decimal(10, 2)
   next_due_date       DateTime?     @db.Timestamptz()
   next_invoice_date   DateTime?     @db.Timestamptz()
+  // F4·W3 auto-renovación: preferencia de renovación automática (invoice-driven,
+  // Aelium-side). `true` = el `BillingLifecycleWorker` genera la factura de
+  // renovación al acercarse `next_due_date`; `false` = no se genera → dominios
+  // expiran en el registrar por sí solos y hosting se suspende al vencer (cron
+  // `suspendNonRenewedServices`, reason `not_renewed`) → auto-cancel a los N días.
+  auto_renew          Boolean       @default(true)
   // Sprint 15D (ADR-082 A2.3): fecha REAL de expiración reportada por el
   // proveedor (registrar para dominios) — distinta de `next_due_date` (fecha de
   // facturación de Aelium). Nullable; la puebla el reconcile cron de dominios.

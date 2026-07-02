@@ -56,6 +56,15 @@ export class ServiceListQueryDto {
   limit?: number;
 }
 
+/**
+ * F4·W3 — `PATCH /services/:id/auto-renew`. Preferencia de renovación
+ * automática (invoice-driven, Aelium-side). Aplica a hosting y dominios.
+ */
+export class SetAutoRenewDto {
+  @IsBoolean()
+  enabled: boolean;
+}
+
 export class ExecuteActionDto {
   /**
    * Payload del action. Cada plugin define el shape vía `payloadSchema`
@@ -156,6 +165,9 @@ export enum SuspensionReasonDto {
   abuse_investigation = 'abuse_investigation',
   scheduled_maintenance = 'scheduled_maintenance',
   gdpr_restriction = 'gdpr_restriction',
+  // F4·W3 auto-renovación: el cliente desactivó la renovación → al vencer el
+  // periodo pagado el servicio de hosting se suspende con este motivo.
+  not_renewed = 'not_renewed',
   other = 'other',
 }
 

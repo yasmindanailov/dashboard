@@ -295,6 +295,8 @@ export type SuspensionReason =
   | 'abuse_investigation'
   | 'scheduled_maintenance'
   | 'gdpr_restriction'
+  // F4·W3 auto-renovación: suspensión al vencer el periodo con auto-renovación off.
+  | 'not_renewed'
   | 'other';
 
 /**

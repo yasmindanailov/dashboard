@@ -149,6 +149,44 @@ export async function executeServiceActionAction(
   }
 }
 
+/* ═══════════════════════════════════════
+   F4·W3 — auto-renovación (invoice-driven, cliente + admin).
+
+   `PATCH /services/:id/auto-renew {enabled}` fija `Service.auto_renew` (columna
+   local Aelium-side). Aplica igual a hosting y dominios: Aelium controla la
+   renovación con la factura, no el registrador. Ownership + audit R3 en backend.
+   ═══════════════════════════════════════ */
+
+export type SetAutoRenewResult =
+  | { ok: true; auto_renew: boolean }
+  | { ok: false; error: string };
+
+export async function setAutoRenewAction(
+  serviceId: string,
+  enabled: boolean,
+): Promise<SetAutoRenewResult> {
+  try {
+    const res = await serverFetch<{ id: string; auto_renew: boolean }>(
+      `/services/${serviceId}/auto-renew`,
+      { method: 'PATCH', body: { enabled } },
+    );
+    // El servicio puede verse desde el hub, el detalle de servicio y el de dominio.
+    revalidatePath('/dashboard/services');
+    revalidatePath(`/dashboard/services/${serviceId}`);
+    revalidatePath(`/dashboard/domains/${serviceId}`);
+    revalidatePath(`/admin/services/${serviceId}`);
+    return { ok: true, auto_renew: res.auto_renew };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof ServerFetchError
+          ? err.message
+          : 'No se pudo cambiar la auto-renovación.',
+    };
+  }
+}
+
 export type ServiceDetailResult =
   | { ok: true; detail: ServiceDetailResponse }
   | { ok: false; error: string };

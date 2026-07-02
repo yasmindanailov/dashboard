@@ -289,6 +289,7 @@ const CANONICAL_REASONS = new Set<SuspensionReason>([
   'abuse_investigation',
   'scheduled_maintenance',
   'gdpr_restriction',
+  'not_renewed',
   'other',
 ]);
 
@@ -307,5 +308,6 @@ const SUSPENSION_REASON_LABEL_ES: Record<SuspensionReason, string | undefined> =
     abuse_investigation: 'Revisión de seguridad en curso',
     scheduled_maintenance: 'Mantenimiento programado',
     gdpr_restriction: 'Restricción del tratamiento (RGPD)',
+    not_renewed: 'Auto-renovación desactivada',
     other: undefined,
   };

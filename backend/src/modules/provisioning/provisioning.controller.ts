@@ -23,7 +23,11 @@ import type { AuthenticatedRequest } from '../../core/common/types/authenticated
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 import { CreateDnsRecordDto, UpdateDnsRecordDto } from './dto/dns-records.dto';
-import { ExecuteActionDto, ServiceListQueryDto } from './dto/provisioning.dto';
+import {
+  ExecuteActionDto,
+  ServiceListQueryDto,
+  SetAutoRenewDto,
+} from './dto/provisioning.dto';
 import {
   DnsExternallyManagedError,
   ProvisioningService,
@@ -191,6 +195,27 @@ export class ProvisioningController {
         ipAddress: req.ip ?? '0.0.0.0',
         userAgent: req.headers['user-agent'] ?? null,
       },
+    );
+  }
+
+  @Patch(':id/auto-renew')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Cambiar la auto-renovación de un servicio (hosting/dominio) — F4·W3',
+  })
+  @CheckPolicies((ability) => ability.can(Action.Update, Subject.Service))
+  setAutoRenew(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetAutoRenewDto,
+  ) {
+    const isAdmin = ADMIN_ROLES.includes(req.user.role.slug);
+    return this.provisioning.setAutoRenewForUser(
+      id,
+      dto.enabled,
+      req.user.id,
+      isAdmin,
     );
   }
 

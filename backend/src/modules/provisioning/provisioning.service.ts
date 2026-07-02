@@ -409,6 +409,9 @@ export class ProvisioningService {
       // en cualquier otro caso queda `null`. El frontend admin lo mapea a la
       // etiqueta del badge del header ("Mantenimiento" / "Mantenimiento + gestión").
       si_coverage_slot_type: 'maintenance' | 'maintenance_management' | null;
+      // F4·W3 auto-renovación (invoice-driven): estado real para el toggle del
+      // detalle (hosting) y la card del detalle de dominio.
+      auto_renew: boolean;
     };
     info: ServiceInfo;
   }> {
@@ -445,6 +448,8 @@ export class ProvisioningService {
       product_name: service.product.name,
       product_type: service.product.type,
       created_at: service.created_at,
+      // F4·W3 auto-renovación (invoice-driven, Aelium-side).
+      auto_renew: service.auto_renew,
       cancellation_reason: service.cancellation_reason,
       cancelled_at: service.cancelled_at,
       // Sprint 15C.II Fase F (ADR-077 Amendment A4): suspensión canónica.
@@ -715,6 +720,57 @@ export class ProvisioningService {
   }
 
   // â”€â”€â”€ Acciones inline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  /**
+   * F4·W3 — Cambia la preferencia de auto-renovación (invoice-driven) de un
+   * servicio. Aplica igual a hosting y dominios: Aelium controla la renovación
+   * con la factura (el registrador NO auto-renueva), así que `auto_renew` es una
+   * columna local que el `BillingLifecycleWorker` respeta en la generación de
+   * facturas. Ownership server-side (el cliente solo el suyo). Solo servicios
+   * ACTIVOS — uno suspendido/terminal se recontrata por otras vías. Audit R3.
+   */
+  async setAutoRenewForUser(
+    serviceId: string,
+    enabled: boolean,
+    userId: string,
+    isAdmin: boolean,
+  ): Promise<{ id: string; auto_renew: boolean }> {
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: { id: true, user_id: true, status: true, auto_renew: true },
+    });
+    if (!service) {
+      throw new NotFoundException('Servicio no encontrado.');
+    }
+    if (!isAdmin && service.user_id !== userId) {
+      throw new ForbiddenException('No tienes acceso a este servicio.');
+    }
+    if (service.status !== 'active') {
+      throw new BadRequestException({
+        code: 'SERVICE_NOT_ACTIVE',
+        message:
+          'Solo puedes cambiar la auto-renovación de un servicio activo.',
+      });
+    }
+    // Idempotente: sin cambio real, no reescribe ni audita.
+    if (service.auto_renew === enabled) {
+      return { id: service.id, auto_renew: enabled };
+    }
+    const updated = await this.prisma.service.update({
+      where: { id: serviceId },
+      data: { auto_renew: enabled },
+      select: { id: true, auto_renew: true },
+    });
+    await this.audit.logChange({
+      user_id: userId,
+      entity_type: 'Service',
+      entity_id: serviceId,
+      action: 'service.auto_renew_changed',
+      changes_before: { auto_renew: service.auto_renew },
+      changes_after: { auto_renew: enabled },
+    });
+    return updated;
+  }
 
   async executeActionForUser(
     serviceId: string,
@@ -2165,6 +2221,8 @@ export class ProvisioningService {
       // F4·W3·U04 — fecha de renovación (facturación Aelium) para la metadata
       // inline de la card ficha de "Mis servicios" (Servicios Cards Spec §A).
       next_due_date: true,
+      // F4·W3 auto-renovación — estado real para la card del hub + detalles.
+      auto_renew: true,
       product: {
         select: {
           id: true,
