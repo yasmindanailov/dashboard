@@ -103,11 +103,13 @@ export function serviceCardData(svc: ServiceListItem): ServiceCardData {
 
   const facts: CardFact[] = [];
   if (renew) facts.push({ label: 'Renueva', value: renew });
-  // "Auto-renovación activada" es un hecho derivado para el hosting activo: Aelium
-  // factura de forma recurrente y no hay opt-out hoy. (El toggle real llega en su
-  // PR; entonces se leerá el valor real.)
-  if (key === 'active' && svc.next_due_date) {
-    facts.push({ label: 'Auto-renovación', value: 'Activada', check: true });
+  // F4·W3 — estado real de auto-renovación (columna `Service.auto_renew`).
+  if (key === 'active') {
+    facts.push({
+      label: 'Auto-renovación',
+      value: svc.auto_renew ? 'Activada' : 'Desactivada',
+      check: svc.auto_renew,
+    });
   }
 
   const caps = svc.capabilities ?? null;
@@ -154,11 +156,17 @@ export function domainCardData(d: DomainListItem): ServiceCardData {
     : { label: SERVICE_STATUS_LABEL[key], variant: SERVICE_STATUS_TONE[key] };
   const tone: StatusDotColor = soon ? 'warning' : SERVICE_STATUS_TONE[key];
 
-  // Sin "Auto-renovación" aquí: hoy los dominios (ResellerClub) EXPIRAN, no
-  // auto-renuevan. Mostrar "Activada" sería falso (riesgo real de perder el
-  // dominio). Se añadirá cuando el toggle de auto-renovación (registrar) sea real.
+  // F4·W3 — auto-renovación invoice-driven (Aelium genera la factura de
+  // renovación; el registrador no auto-renueva). Estado real de la columna.
   const facts: CardFact[] = [];
   if (renew) facts.push({ label: 'Renueva', value: renew });
+  if (key === 'active') {
+    facts.push({
+      label: 'Auto-renovación',
+      value: d.auto_renew ? 'Activada' : 'Desactivada',
+      check: d.auto_renew,
+    });
+  }
 
   return {
     id: d.id,

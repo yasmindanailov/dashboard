@@ -27,6 +27,12 @@ const BILLING_OVERDUE_CRON_ACTOR = 'system:billing-overdue-cron';
  */
 const BILLING_CANCELLATION_CRON_ACTOR = 'system:billing-cancellation-cron';
 
+/**
+ * Etiqueta canónica del actor sistema del cron de suspensión por
+ * auto-renovación desactivada (F4·W3). Misma taxonomía `system:<dominio>-<cron>`.
+ */
+const AUTO_RENEW_OFF_CRON_ACTOR = 'system:auto-renew-off-cron';
+
 /** Milisegundos en un día (ventanas del aviso previo de cancelación). */
 const DAY_MS = 86_400_000;
 
@@ -138,6 +144,105 @@ export class ServiceLifecycleWorker {
         }
       }
     }
+  }
+
+  /* ── F4·W3 — Suspensión por auto-renovación desactivada (daily 03:15 UTC) ── */
+
+  /**
+   * Suspende los servicios de HOSTING (no dominios) cuya auto-renovación está
+   * OFF y cuyo periodo pagado ya venció (`next_due_date <= now`). Sin factura de
+   * renovación (el `BillingLifecycleWorker` la omite por el gate `auto_renew`),
+   * Enhance no apaga el servicio por sí solo → Aelium lo suspende aquí (reason
+   * `not_renewed`), y el `autoCancelServices` existente lo cancela tras la
+   * ventana de gracia. Los DOMINIOS se excluyen: expiran solos en el registrador
+   * (redención → delete), gestionado por el reconcile de dominios.
+   *
+   * Se programa a las 03:15 (tras `autoSuspendServices` 03:00). El orden
+   * intra-día es irrelevante (la cancelación mira una ventana de 30 días).
+   */
+  @Cron('15 3 * * *', { name: 'suspendNonRenewedServices', timeZone: 'UTC' })
+  async suspendNonRenewedServices(): Promise<void> {
+    try {
+      const summary = await this.runNonRenewedSuspension();
+      this.logger.log(
+        `suspendNonRenewedServices done: checked=${summary.checked} ` +
+          `suspended=${summary.suspended} errors=${summary.errors}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `suspendNonRenewedServices failed at top level: ${getErrorMessage(err)}`,
+      );
+    }
+  }
+
+  /** Una pasada. Pública para trigger manual + tests deterministas. */
+  async runNonRenewedSuspension(
+    now: Date = new Date(),
+  ): Promise<NonRenewedSuspensionSummary> {
+    const candidates = await this.prisma.service.findMany({
+      where: {
+        status: 'active',
+        auto_renew: false,
+        next_due_date: { lte: now },
+        // Solo hosting (y demás servicios Aelium-billed): los dominios expiran
+        // en el registrador por sí solos, no se suspenden aquí.
+        product: { type: { not: 'domain' } },
+      },
+      select: { id: true, user_id: true },
+    });
+
+    const summary: NonRenewedSuspensionSummary = {
+      checked: candidates.length,
+      suspended: 0,
+      errors: 0,
+    };
+
+    for (const service of candidates) {
+      try {
+        // Guard: si el cliente desactivó la auto-renovación DESPUÉS de que se
+        // generara la factura de renovación, hay una factura abierta → deja que
+        // el dunning normal (impago) la gestione, no dupliques la transición.
+        const openInvoice = await this.prisma.invoice.findFirst({
+          where: {
+            user_id: service.user_id,
+            status: { in: ['draft', 'pending', 'overdue'] },
+            items: { some: { service_id: service.id } },
+          },
+          select: { id: true },
+        });
+        if (openInvoice) continue;
+
+        // Punto único de transición (mismo camino que la suspensión por impago):
+        // `suspendAsAdmin` transiciona el estado, invoca la inline action del
+        // plugin si la soporta, emite `service.suspended` (email al cliente) y
+        // audita. `allowUnsupported` para plugins sin `supports_suspend`.
+        const result = await this.provisioning.suspendAsAdmin(
+          service.id,
+          {
+            reason: SuspensionReasonDto.not_renewed,
+            internal_note:
+              'Suspendido automáticamente — auto-renovación desactivada, periodo pagado vencido',
+            notify_client: true,
+          },
+          null,
+          undefined,
+          { actorLabel: AUTO_RENEW_OFF_CRON_ACTOR, allowUnsupported: true },
+        );
+
+        if (!result.alreadySuspended) {
+          summary.suspended++;
+          this.logger.warn(
+            `Service ${service.id} suspended — auto-renovación off, periodo vencido`,
+          );
+        }
+      } catch (error) {
+        summary.errors++;
+        this.logger.error(
+          `Failed to suspend non-renewed service ${service.id}: ${getErrorMessage(error)}`,
+        );
+      }
+    }
+    return summary;
   }
 
   /* ── 6.5 — Auto-cancellation (daily 04:00) ── */
@@ -262,6 +367,10 @@ export class ServiceLifecycleWorker {
         // anotado en backlog para una fase aparte — no se toca un cron
         // destructivo aquí).
         paused_at: null,
+        // F4·W3: excluye las suspensiones por auto-renovación desactivada
+        // (`not_renewed`) — su aviso es distinto ("no renovado", no "por
+        // impago"); el cliente ya recibió el email de suspensión al vencer.
+        NOT: { suspension_reason: { startsWith: 'not_renewed' } },
         suspended_at: { lte: noticeCutoff, gt: cancelCutoff },
       },
       select: { id: true, user_id: true, suspended_at: true, metadata: true },
@@ -391,6 +500,13 @@ export class ServiceLifecycleWorker {
 export interface CancellationNoticesSummary {
   checked: number;
   notified: number;
+  errors: number;
+}
+
+/** Resumen de una pasada de `runNonRenewedSuspension` (F4·W3). */
+export interface NonRenewedSuspensionSummary {
+  checked: number;
+  suspended: number;
   errors: number;
 }
 

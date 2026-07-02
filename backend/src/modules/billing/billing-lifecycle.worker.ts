@@ -70,6 +70,11 @@ export class BillingLifecycleWorker {
         billing_cycle: { not: 'one_time' },
         next_due_date: { lte: cutoffDate },
         next_invoice_date: { lte: new Date() },
+        // F4·W3 auto-renovación: si el cliente la desactivó, NO se genera la
+        // factura de renovación. Dominios → expiran solos en el registrar;
+        // hosting → lo suspende `ServiceLifecycleWorker.suspendNonRenewedServices`
+        // al llegar `next_due_date` (reason `not_renewed`).
+        auto_renew: true,
       },
       include: { product: true, billing_profile: true },
     });

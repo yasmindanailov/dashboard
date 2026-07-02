@@ -14,6 +14,7 @@
 import type { SectionDescriptor } from './service-detail-context';
 import {
   AppShortcutsCardSection,
+  AutoRenewCardSection,
   BillingCrossLinkCardSection,
   ClientDevCustomPlaceholderSection,
   ClientHelpCardSection,
@@ -133,6 +134,22 @@ export const SERVICE_DETAIL_SECTIONS: readonly SectionDescriptor[] = [
       !ctx.isSuspended &&
       ctx.service.product_type !== 'domain',
     component: PlanChangeCardSection,
+  },
+  // F4·W3 — toggle de auto-renovación (hosting). scope CLIENTE (en el detalle
+  // admin la renovación no se toca desde aquí). Dominios lo tienen en su propio
+  // detalle. Solo servicios activos (uno suspendido/terminal se recontrata).
+  {
+    id: 'auto-renew-card',
+    label: 'Auto-renovación',
+    scope: 'client',
+    group: 'summary',
+    column: 'aside',
+    priority: 335,
+    shouldRender: (ctx) =>
+      !ctx.isTerminal &&
+      !ctx.isSuspended &&
+      ctx.service.product_type !== 'domain',
+    component: AutoRenewCardSection,
   },
   {
     id: 'client-help-card',

@@ -21,6 +21,7 @@ const KNOWN_SUSPENSION_REASON_CODES = new Set<SuspensionReason>([
   'abuse_investigation',
   'scheduled_maintenance',
   'gdpr_restriction',
+  'not_renewed',
   'other',
 ]);
 

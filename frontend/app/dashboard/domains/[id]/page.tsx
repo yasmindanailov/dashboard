@@ -15,6 +15,7 @@ import { AlertBanner, Card, ListPage } from '../../../components/ui';
 import { serverFetch, ServerFetchError } from '../../../lib/server-auth';
 import type { ServiceDetailResponse } from '../../../lib/api';
 import { SERVICE_STATUS_LABEL } from '../../../_shared/services';
+import { AutoRenewToggle } from '../../../_shared/services/AutoRenewToggle';
 import DomainManagement from './_components/DomainManagement';
 import DomainTransferPanel from './_components/DomainTransferPanel';
 
@@ -168,6 +169,18 @@ export default async function DomainDetailPage({ params }: PageProps) {
                   {domain.registrarLock ? 'Bloqueado' : 'Desbloqueado'}
                 </Row>
               </dl>
+            </div>
+          </Card>
+        )}
+
+        {service.status === 'active' && (
+          <Card>
+            <div style={{ padding: 20 }}>
+              <AutoRenewToggle
+                serviceId={service.id}
+                enabled={service.auto_renew}
+                kind="domain"
+              />
             </div>
           </Card>
         )}

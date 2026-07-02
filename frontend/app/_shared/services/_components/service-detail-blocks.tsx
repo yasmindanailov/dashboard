@@ -29,6 +29,7 @@ import { MetricsBar } from '../MetricsBar';
 import { SslStatusCard } from '../SslStatusCard';
 import { AppShortcutsCard } from '../AppShortcutsCard';
 import { BillingCrossLinkCard } from '../BillingCrossLinkCard';
+import { AutoRenewToggle } from '../AutoRenewToggle';
 import { ChangePlanCard } from './ChangePlanCard';
 import { ServiceAuditTimeline } from './ServiceAuditTimeline';
 import styles from '../service-detail.module.css';
@@ -244,6 +245,19 @@ export function BillingCrossLinkCardSection({
 /** Card del cambio de plan con prorrateo (ADR-029). CC: picker + preview + confirm. */
 export function PlanChangeCardSection({ ctx }: { ctx: ServiceDetailContext }) {
   return <ChangePlanCard serviceId={ctx.service.id} />;
+}
+
+/** Card "Renovación" (aside, cliente) — toggle de auto-renovación (F4·W3). */
+export function AutoRenewCardSection({ ctx }: { ctx: ServiceDetailContext }) {
+  return (
+    <SectionCard title={t('service.autorenew.card_title')}>
+      <AutoRenewToggle
+        serviceId={ctx.service.id}
+        enabled={ctx.service.auto_renew}
+        kind="service"
+      />
+    </SectionCard>
+  );
 }
 
 /**

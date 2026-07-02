@@ -18,6 +18,8 @@ export interface ServiceListItem {
   created_at: string;
   /** F4·W3·U04 — próxima renovación (facturación Aelium, `service.next_due_date`). */
   next_due_date: string | null;
+  /** F4·W3 — preferencia de auto-renovación (invoice-driven, Aelium-side). */
+  auto_renew: boolean;
   product: {
     id: string;
     slug: string;
@@ -86,6 +88,8 @@ export type SuspensionReason =
   | 'abuse_investigation'
   | 'scheduled_maintenance'
   | 'gdpr_restriction'
+  // F4·W3 auto-renovación: suspensión al vencer el periodo con auto-renov. off.
+  | 'not_renewed'
   | 'other';
 
 export interface ServiceAction {
@@ -400,6 +404,11 @@ export interface ServiceDetailResponse {
      * admin lo mapea al badge del header ("Mantenimiento"/"Mantenimiento + gestión").
      */
     si_coverage_slot_type?: 'maintenance' | 'maintenance_management' | null;
+    /**
+     * F4·W3 — preferencia de auto-renovación (invoice-driven, Aelium-side).
+     * El toggle del detalle (hosting) y la card del detalle de dominio la usan.
+     */
+    auto_renew: boolean;
   };
   info: ServiceInfo;
 }
