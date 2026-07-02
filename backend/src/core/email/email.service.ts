@@ -14,6 +14,10 @@ export interface EmailPayload {
   subject: string;
   html: string;
   text?: string;
+  /** Buzón monitorizado al que llegan las respuestas ("responde a este correo"). */
+  replyTo?: string;
+  /** Cabeceras extra (p. ej. `X-Aelium-Event`). Se fusionan con los defaults. */
+  headers?: Record<string, string>;
 }
 
 @Injectable()
@@ -56,14 +60,27 @@ export class EmailService {
       'MAIL_FROM',
       'Aelium <noreply@aelium.net>',
     );
+    // Reply-To a un buzón monitorizado (el footer invita a "responde a este
+    // correo"). Las notificaciones lo fijan por evento desde branding.company_email
+    // (EmailChannel); aquí queda el fallback de config para auth/envíos directos.
+    const replyTo = payload.replyTo ?? this.config.get<string>('MAIL_REPLY_TO');
 
     try {
       const info = (await this.transporter.sendMail({
         from,
+        ...(replyTo ? { replyTo } : {}),
         to: payload.to,
         subject: payload.subject,
         html: payload.html,
         text: payload.text || this.stripHtml(payload.html),
+        headers: {
+          // Correo transaccional automático: anuncia que es generado y evita
+          // bucles de autorrespuesta (vacaciones/"fuera de oficina").
+          // RFC 3834 + supresión de auto-reply de Outlook.
+          'Auto-Submitted': 'auto-generated',
+          'X-Auto-Response-Suppress': 'OOF, AutoReply',
+          ...payload.headers,
+        },
       })) as SendMailResult;
 
       if (this.config.get('MAIL_TRANSPORT') === 'console') {

@@ -36,7 +36,7 @@ describe('AuthLoginService — GL-26 login/lockout/2FA', () => {
     auditAccessLog: { create: jest.Mock };
   };
   let jwt: { verify: jest.Mock; sign: jest.Mock };
-  let settings: { getNumber: jest.Mock };
+  let settings: { getNumber: jest.Mock; get: jest.Mock };
   let events: { emit: jest.Mock };
   let email: { send: jest.Mock };
   let tokenService: {
@@ -59,6 +59,9 @@ describe('AuthLoginService — GL-26 login/lockout/2FA', () => {
     // getNumber(category, key, default) → devuelve el default (5 intentos, 15 min, 5 min).
     settings = {
       getNumber: jest.fn((_c: string, _k: string, def: number) => def),
+      get: jest.fn((_c: string, _k: string, fb?: string) =>
+        Promise.resolve(fb ?? ''),
+      ),
     };
     events = { emit: jest.fn() };
     email = { send: jest.fn().mockResolvedValue(undefined) };

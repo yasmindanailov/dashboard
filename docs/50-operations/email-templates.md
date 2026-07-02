@@ -36,10 +36,13 @@ de texto. DM Sans + DM Mono. **Sin emojis** (D1).
 | **Auth** (`core/email/templates/auth.templates.ts`: verificar · 2FA · reset · bienvenida) | Llaman a `buildEmailLayout` + bloques directamente (código). Migrados F4·W3 (sin emojis). |
 | **Notificación** (`notification_templates`, BD) | **Columna `semantic`**: `NULL` = plantilla **legacy** (HTML completo en `body`, se envía tal cual) · **NOT NULL** = `body` es el **FRAGMENTO** del cuerpo y el render (`NotificationTemplateService`) lo envuelve en el layout. Inyecta `{{email.accent/tint/fg}}` (colores del tono) + `{{app_url}}` (URLs absolutas). |
 
-**Migración gradual (fundación + referencia):** piloto **`invoice.paid`** ✅ migrado
-(semantic=`success`, 1:1 con `Correo Ejemplo Pago`). Los **~36 templates restantes**
-siguen legacy (`semantic=NULL`) hasta su **sweep** (follow-up): por cada uno,
-reescribir `body` a fragmento + fijar `semantic` (columna o `PATCH /admin/.../templates/:id`).
+**Sweep COMPLETO (2026-07-02):** **las 36 plantillas de canal `email` están migradas**
+al layout maestro (`semantic` no-nulo → `body` es fragmento). Las de canal `internal`
+(campana) siguen como texto plano (el layout no las envuelve). Detalle + decisiones
+sistémicas (logo/iconos PNG hospedados, footer legal desde `branding.*`, cabeceras
+`Auto-Submitted`/`X-Auto-Response-Suppress`/`X-Aelium-Event` + `Reply-To`) en
+[`ui-redesign-bitacora-f4-w3-email-layout-2026-07-01.md §6`](../90-meta/ui-redesign-bitacora-f4-w3-email-layout-2026-07-01.md).
+Revisión reproducible: `pnpm --dir backend exec ts-node --transpile-only scripts/send-email-preview.ts all`.
 
 ---
 

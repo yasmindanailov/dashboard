@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EmailService } from '../../../core/email/email.service';
+import { SettingsService } from '../../../core/settings/settings.service';
 import { getErrorMessage } from '../../../core/common/utils/error.util';
 import {
   NotificationChannelInterface,
@@ -21,7 +22,10 @@ export class EmailChannel implements NotificationChannelInterface {
   readonly label = 'Email';
   private readonly logger = new Logger(EmailChannel.name);
 
-  constructor(private readonly emailService: EmailService) {}
+  constructor(
+    private readonly emailService: EmailService,
+    private readonly settings: SettingsService,
+  ) {}
 
   isAvailableFor(recipient: NotificationRecipient): boolean {
     return Boolean(recipient.email);
@@ -32,10 +36,19 @@ export class EmailChannel implements NotificationChannelInterface {
     recipient: NotificationRecipient,
   ): Promise<DeliveryResult> {
     try {
+      const replyTo = await this.settings.get(
+        'branding',
+        'company_email',
+        'hola@aelium.net',
+      );
       const ok = await this.emailService.send({
         to: recipient.email,
         subject: rendered.subject,
         html: rendered.body,
+        // Respuestas del cliente → buzón monitorizado (footer "responde a este correo").
+        replyTo,
+        // "Tag" server-side de categoría (analítica/filtrado; invisible al cliente).
+        headers: { 'X-Aelium-Event': rendered.event_type },
       });
       if (!ok) {
         return {

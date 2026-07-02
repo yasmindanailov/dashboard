@@ -40,31 +40,22 @@ export async function seedNotificationTemplates(
       event_type: 'invoice.created',
       channel: 'email' as const,
       locale: 'es',
-      subject: 'Nueva factura {{invoice_number}}',
+      semantic: 'info',
+      subject: 'Tu factura {{invoice_number}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Nueva factura</h1>
-            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">{{invoice_number}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Se ha generado una nueva factura por <strong>{{total}} {{currency}}</strong>.
-            </p>
-            <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0;">
-              <table style="width: 100%; font-size: 14px; color: #374151;">
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Factura:</td><td style="text-align: right; font-weight: 600;">{{invoice_number}}</td></tr>
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Importe:</td><td style="text-align: right; font-weight: 600;">{{total}} {{currency}}</td></tr>
-              </table>
-            </div>
-            <p style="color: #6b7280; font-size: 13px;">
-              Puedes consultar los detalles y descargar el PDF desde tu panel de cliente.
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-info.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Nueva factura</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e invoice_number}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Aquí tienes tu factura</h1>
+        <p style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, hemos emitido tu factura <strong style="font-weight:600;color:#0F172A">{{e invoice_number}}</strong>. La tienes lista para ver y descargar el PDF cuando quieras.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:18px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Factura</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{e invoice_number}}</td></tr>
+          <tr><td colspan="2" style="padding:12px 0 0"><div style="height:1px;background:#E6ECF3;margin-bottom:12px;font-size:0;line-height:0">&nbsp;</div></td></tr>
+          <tr><td style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">Importe</td><td align="right" style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:18px;font-weight:700;letter-spacing:-0.01em;color:{{email.fg}}">{{total}} {{currency}}</td></tr>
+        </table></td></tr></table>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{app_url}}/dashboard/billing/{{invoice_id}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver factura</a></td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:13.5px;line-height:1.6;color:#94A3B8;text-align:center">También la tienes en tu panel → Facturas.</p>
       `.trim(),
       variables: {
         invoice_id: 'string',
@@ -88,13 +79,13 @@ export async function seedNotificationTemplates(
       subject: 'Pago confirmado — {{invoice_number}}',
       body: `
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
-          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><div style="width:12px;height:12px;border-radius:12px;background:{{email.accent}};font-size:0;line-height:0">&nbsp;</div></td></tr></table></td>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-success.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
           <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Pago confirmado</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e invoice_number}}</div></td>
         </tr></table>
         <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Gracias{{#if recipient.first_name}}, {{e recipient.first_name}}{{/if}}.</h1>
         <p style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hemos recibido tu pago de la factura <strong style="font-weight:600;color:#0F172A">{{e invoice_number}}</strong>. Tu servicio sigue activo — no tienes que hacer nada.</p>
         <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Te dejo el resumen por si lo necesitas:</p>
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;border:1px solid #E6ECF3;border-radius:12px;background:#F8FAFF"><tr><td style="padding:18px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:18px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Factura</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{e invoice_number}}</td></tr>
           <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Vía</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{e payment_provider}}</td></tr>
           <tr><td colspan="2" style="padding:12px 0 0"><div style="height:1px;background:#E6ECF3;margin-bottom:12px;font-size:0;line-height:0">&nbsp;</div></td></tr>
@@ -118,27 +109,18 @@ export async function seedNotificationTemplates(
       event_type: 'invoice.failed',
       channel: 'email' as const,
       locale: 'es',
-      subject:
-        '⚠ Cobro fallido — {{invoice_number}} (intento {{retry_count}}/{{max_retries}})',
+      semantic: 'warning',
+      subject: 'No pudimos procesar tu pago — {{invoice_number}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">⚠ Cobro fallido</h1>
-            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">Intento {{retry_count}} de {{max_retries}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              No hemos podido procesar el cobro de la factura <strong>{{invoice_number}}</strong>.
-              {{#if (lt retry_count max_retries)}}Volveremos a intentarlo automáticamente.{{else}}Este ha sido el último intento. Tu servicio será suspendido si no regularizas el pago.{{/if}}
-            </p>
-            <p style="color: #6b7280; font-size: 13px;">
-              Puedes actualizar tu método de pago desde tu panel de cliente.
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-warning.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Cobro no procesado</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e invoice_number}} · intento {{retry_count}}/{{max_retries}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">No pudimos procesar tu pago</h1>
+        <p style="margin:0 0 22px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, no hemos podido cobrar la factura <strong style="font-weight:600;color:#0F172A">{{e invoice_number}}</strong>. {{#if (lt retry_count max_retries)}}Lo intentaremos de nuevo automáticamente — no tienes que hacer nada por ahora.{{else}}Ha sido el último intento: si no regularizas el pago, tu servicio se suspenderá.{{/if}}</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border-collapse:separate;border-spacing:0"><tr><td bgcolor="{{email.tint}}" style="background:{{email.tint}};border:1px solid {{email.accent}}33;border-radius:12px;padding:15px 17px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.55;color:{{email.fg}}">Intento {{retry_count}} de {{max_retries}}. Revisar tu método de pago ahora evita que se acumulen más intentos.</td></tr></table>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{app_url}}/dashboard/billing" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Actualizar método de pago</a></td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:13.5px;line-height:1.6;color:#94A3B8;text-align:center">¿Ya lo actualizaste? Ignora este aviso.</p>
       `.trim(),
       variables: {
         invoice_id: 'string',
@@ -154,28 +136,18 @@ export async function seedNotificationTemplates(
       event_type: 'invoice.overdue',
       channel: 'email' as const,
       locale: 'es',
-      subject: '🔴 Factura vencida — {{invoice_number}}',
+      semantic: 'danger',
+      subject: 'Factura vencida — {{invoice_number}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">🔴 Factura vencida</h1>
-            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">{{invoice_number}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              La factura <strong>{{invoice_number}}</strong> por <strong>{{total}} EUR</strong> está vencida.
-              Si no se regulariza el pago, tu servicio será suspendido automáticamente.
-            </p>
-            <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 16px; margin: 20px 0;">
-              <p style="color: #991B1B; font-size: 14px; margin: 0; font-weight: 500;">
-                ⚠ Acción requerida: actualiza tu método de pago o contacta con soporte para resolver esta situación.
-              </p>
-            </div>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-danger.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Factura vencida</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e invoice_number}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Tu factura está vencida</h1>
+        <p style="margin:0 0 22px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, la factura <strong style="font-weight:600;color:#0F172A">{{e invoice_number}}</strong> de <strong style="font-weight:600;color:#0F172A">{{total}} EUR</strong> sigue pendiente. Si no se regulariza, tu servicio se suspenderá automáticamente.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border-collapse:separate;border-spacing:0"><tr><td bgcolor="{{email.tint}}" style="background:{{email.tint}};border:1px solid {{email.accent}}33;border-radius:12px;padding:15px 17px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.55;color:{{email.fg}}">Acción requerida: actualiza tu método de pago o contáctanos para resolverlo cuanto antes.</td></tr></table>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{app_url}}/dashboard/billing" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Regularizar el pago</a></td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:13.5px;line-height:1.6;color:#94A3B8;text-align:center">¿Ya has pagado? Puede tardar unos minutos en reflejarse.</p>
       `.trim(),
       variables: {
         invoice_id: 'string',
@@ -210,32 +182,21 @@ export async function seedNotificationTemplates(
       event_type: 'task.assigned',
       channel: 'email' as const,
       locale: 'es',
-      subject: 'Nueva tarea asignada: Tarea {{task_source_system_label}}',
+      semantic: 'info',
+      subject: 'Nueva tarea asignada: {{task_source_system_label}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Tarea asignada</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_source_system_label}} · Prioridad {{task_priority_label}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola {{#if recipient.first_name}}{{e recipient.first_name}}{{else}}agente{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Se te ha asignado una nueva tarea: <strong>Tarea {{task_source_system_label}}</strong>.
-            </p>
-            <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0;">
-              <table style="width: 100%; font-size: 14px; color: #374151;">
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Tipo:</td><td style="text-align: right; font-weight: 600;">{{task_source_system_label}}</td></tr>
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Prioridad:</td><td style="text-align: right;">{{task_priority_label}}</td></tr>
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Vence:</td><td style="text-align: right;">{{due_label}}</td></tr>
-              </table>
-            </div>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{task_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver tarea</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-info.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Tarea asignada</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{task_source_system_label}} · Prioridad {{task_priority_label}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Se te ha asignado una tarea</h1>
+        <p style="margin:0 0 22px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola {{#if recipient.first_name}}{{e recipient.first_name}}{{else}}agente{{/if}}, tienes una nueva tarea: <strong style="font-weight:600;color:#0F172A">{{task_source_system_label}}</strong>.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:18px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Tipo</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{task_source_system_label}}</td></tr>
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Prioridad</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{task_priority_label}}</td></tr>
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Vence</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{due_label}}</td></tr>
+        </table></td></tr></table>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{task_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver tarea</a></td></tr></table>
       `.trim(),
       variables: {
         task_id: 'string',
@@ -270,34 +231,18 @@ export async function seedNotificationTemplates(
       event_type: 'maintenance.completed',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'success',
       subject: 'Mantenimiento completado · {{month_label}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Mantenimiento completado</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{month_label}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola {{#if recipient.first_name}}{{e recipient.first_name}}{{else}}cliente{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hemos completado el mantenimiento mensual de tu servicio.
-              Aquí tienes el resumen del trabajo realizado:
-            </p>
-            <div style="background: #f9fafb; border-left: 4px solid #635BFF; border-radius: 8px; padding: 16px 20px; margin: 20px 0;">
-              <p style="color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin: 0;">{{e notes}}</p>
-            </div>
-            <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-              Si tienes cualquier duda sobre este mantenimiento o detectas
-              algo que revisar, contáctanos respondiendo a este correo o
-              desde tu panel de cliente.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{service_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver mi servicio</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-success.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Mantenimiento completado</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{month_label}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Mantenimiento completado</h1>
+        <p style="margin:0 0 18px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola {{#if recipient.first_name}}{{e recipient.first_name}}{{else}}cliente{{/if}}, hemos completado el mantenimiento mensual de tu servicio. Aquí tienes el resumen del trabajo:</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:16px 20px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;line-height:1.6;color:#334155;white-space:pre-wrap">{{e notes}}</td></tr></table>
+        <p style="margin:0 0 22px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Si ves algo que revisar, escríbenos desde tu panel — estamos a tu lado.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{service_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver mi servicio</a></td></tr></table>
       `.trim(),
       variables: {
         task_id: 'string',
@@ -335,31 +280,17 @@ export async function seedNotificationTemplates(
       event_type: 'task.completed',
       channel: 'email' as const,
       locale: 'es',
-      subject: 'Sobre tu solicitud: Tarea {{task_source_system_label}}',
+      semantic: 'success',
+      subject: 'Tu solicitud está resuelta',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Tarea completada</h1>
-            {{#if task_reason}}<p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{e task_reason}}</p>{{/if}}
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola {{#if recipient.first_name}}{{e recipient.first_name}}{{else}}cliente{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hemos terminado de trabajar en tu solicitud "<strong>Tarea {{task_source_system_label}}</strong>". Aquí tienes el detalle:
-            </p>
-            <div style="background: #f9fafb; border-left: 4px solid #635BFF; border-radius: 8px; padding: 16px 20px; margin: 20px 0;">
-              <p style="color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin: 0;">{{e client_notes}}</p>
-            </div>
-            <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-              Si tienes cualquier duda, contáctanos respondiendo a este correo o desde tu panel de cliente.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{service_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ir a mi panel</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-success.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Solicitud resuelta</div>{{#if task_reason}}<div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e task_reason}}</div>{{/if}}</td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Hemos resuelto tu solicitud</h1>
+        <p style="margin:0 0 18px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola {{#if recipient.first_name}}{{e recipient.first_name}}{{else}}cliente{{/if}}, hemos terminado de trabajar en tu solicitud. Aquí tienes el detalle:</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:16px 20px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;line-height:1.6;color:#334155;white-space:pre-wrap">{{e client_notes}}</td></tr></table>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{service_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ir a mi panel</a></td></tr></table>
       `.trim(),
       variables: {
         task_id: 'string',
@@ -393,26 +324,18 @@ export async function seedNotificationTemplates(
       event_type: 'conversation.resolved',
       channel: 'email' as const,
       locale: 'es',
-      subject: 'Aelium — Tu ticket #{{ticket_sequence}} ha sido resuelto',
+      semantic: 'success',
+      subject: 'Tu ticket #{{ticket_sequence}} está resuelto',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 24px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 20px;">Ticket resuelto</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">#{{ticket_sequence}}</p>
-          </div>
-          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
-            <p style="color: #374151; font-size: 14px;">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},</p>
-            <p style="color: #374151; font-size: 14px;">Hemos resuelto tu solicitud. Revisa la respuesta del agente desde tu panel.</p>
-            <p style="color: #374151; font-size: 14px; margin-top: 16px;"><strong>Tienes 3 caminos:</strong></p>
-            <ul style="color: #374151; font-size: 14px; padding-left: 20px;">
-              <li>Si la solución te sirve, confirma desde el panel.</li>
-              <li>Si necesitas seguir, responde al ticket y volveremos a abrirlo.</li>
-              <li>Si no haces nada, el ticket se cerrará automáticamente en {{auto_close_days}} días.</li>
-            </ul>
-            <a href="{{ticket_url}}" style="display: inline-block; background: #2563EB; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Ver ticket</a>
-          </div>
-        </div>
-      `,
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-success.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Ticket resuelto</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">#{{ticket_sequence}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Hemos resuelto tu solicitud</h1>
+        <p style="margin:0 0 22px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, hemos resuelto tu solicitud. Revisa la respuesta del agente desde tu panel.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border-collapse:separate;border-spacing:0"><tr><td bgcolor="{{email.tint}}" style="background:{{email.tint}};border:1px solid {{email.accent}}33;border-radius:12px;padding:15px 17px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.7;color:{{email.fg}}">Tienes tres opciones:<br>· Si la solución te sirve, confírmala desde el panel.<br>· Si necesitas seguir, responde y volvemos a abrirlo.<br>· Si no haces nada, se cerrará solo en {{auto_close_days}} días.</td></tr></table>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{ticket_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver ticket</a></td></tr></table>
+      `.trim(),
       variables: {
         ticket_sequence: 'string',
         ticket_url: 'string',
@@ -443,20 +366,17 @@ export async function seedNotificationTemplates(
       event_type: 'conversation.auto_closed',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'info',
       subject: 'Ticket #{{ticket_sequence}} cerrado automáticamente',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #6B7280 0%, #4B5563 100%); padding: 24px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 20px;">Auto-cierre de ticket</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">#{{ticket_sequence}}</p>
-          </div>
-          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
-            <p style="color: #374151; font-size: 14px;">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},</p>
-            <p style="color: #374151; font-size: 14px;">El ticket que resolviste el {{resolved_at_label}} se ha cerrado automáticamente tras {{auto_close_days}} días sin respuesta del cliente.</p>
-            <a href="{{ticket_url}}" style="display: inline-block; background: #2563EB; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Ver ticket archivado</a>
-          </div>
-        </div>
-      `,
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-info.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Ticket cerrado</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">#{{ticket_sequence}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Ticket cerrado automáticamente</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, el ticket que resolviste el {{resolved_at_label}} se ha cerrado automáticamente tras {{auto_close_days}} días sin respuesta del cliente.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{ticket_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver ticket archivado</a></td></tr></table>
+      `.trim(),
       variables: {
         ticket_sequence: 'string',
         ticket_url: 'string',
@@ -492,28 +412,21 @@ export async function seedNotificationTemplates(
       event_type: 'conversation.created',
       channel: 'email' as const,
       locale: 'es',
-      subject: 'Tu consulta ha sido recibida — "{{e subject}}"',
+      semantic: 'info',
+      subject: 'Hemos recibido tu consulta — "{{e subject}}"',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Consulta recibida</h1>
-            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">{{e subject}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},</p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hemos recibido tu consulta. Nuestro equipo la revisará lo antes posible y te responderemos desde tu panel de soporte.</p>
-            <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0;">
-              <table style="width: 100%; font-size: 14px; color: #374151;">
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Asunto:</td><td style="text-align: right; font-weight: 600;">{{e subject}}</td></tr>
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Canal:</td><td style="text-align: right;">{{e channel}}</td></tr>
-              </table>
-            </div>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{support_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver mi conversación</a>
-            </p>
-            <p style="color: #6b7280; font-size: 13px;">Te notificaremos por email cuando haya una respuesta.</p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-info.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Consulta recibida</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e channel}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Hemos recibido tu consulta</h1>
+        <p style="margin:0 0 22px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, tu consulta ya está con nuestro equipo. La revisaremos lo antes posible y te responderemos desde tu panel de soporte.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:18px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Asunto</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{e subject}}</td></tr>
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Canal</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{e channel}}</td></tr>
+        </table></td></tr></table>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{support_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver mi conversación</a></td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:13.5px;line-height:1.6;color:#94A3B8;text-align:center">Te avisamos por correo en cuanto haya respuesta.</p>
       `.trim(),
       variables: {
         subject: 'string',
@@ -538,25 +451,18 @@ export async function seedNotificationTemplates(
       event_type: 'message.created',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'info',
       subject: 'Nueva respuesta en "{{e subject}}"',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Nueva respuesta</h1>
-            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">{{e subject}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},</p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">Has recibido una nueva respuesta en tu conversación de soporte:</p>
-            <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0; border-left: 3px solid #635BFF;">
-              <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-line;">{{e preview}}</p>
-            </div>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{support_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver conversación</a>
-            </p>
-            <p style="color: #6b7280; font-size: 13px;">Accede a tu panel de soporte para ver la conversación completa y responder.</p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-info.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Nueva respuesta</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Tienes una nueva respuesta</h1>
+        <p style="margin:0 0 18px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, has recibido una respuesta en tu conversación "<strong style="font-weight:600;color:#0F172A">{{e subject}}</strong>":</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:16px 20px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;line-height:1.6;color:#334155;white-space:pre-line">{{e preview}}</td></tr></table>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{support_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver conversación</a></td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:13.5px;line-height:1.6;color:#94A3B8;text-align:center">Entra a tu panel para ver la conversación completa y responder.</p>
       `.trim(),
       variables: {
         subject: 'string',
@@ -581,22 +487,17 @@ export async function seedNotificationTemplates(
       event_type: 'conversation.assigned',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'info',
       subject: 'Conversación asignada — "{{e subject}}"',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Conversación asignada</h1>
-            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">{{e subject}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{else}} agente{{/if}},</p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">Se te ha asignado la conversación: <strong>"{{e subject}}"</strong>.</p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{support_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Abrir en el panel</a>
-            </p>
-            <p style="color: #6b7280; font-size: 13px;">Accede al panel de soporte para revisarla y responder.</p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-info.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Conversación asignada</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Se te ha asignado una conversación</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{else}} agente{{/if}}, tienes una nueva conversación asignada: "<strong style="font-weight:600;color:#0F172A">{{e subject}}</strong>".</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{support_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Abrir en el panel</a></td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:13.5px;line-height:1.6;color:#94A3B8;text-align:center">Entra al panel de soporte para revisarla y responder.</p>
       `.trim(),
       variables: {
         subject: 'string',
@@ -648,22 +549,20 @@ export async function seedNotificationTemplates(
       event_type: 'outbox.event_failed',
       channel: 'email' as const,
       locale: 'es',
-      subject: '⚠ Aelium — Outbox event failed: {{event_type}}',
+      semantic: 'danger',
+      subject: 'Outbox event failed: {{event_type}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 24px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 20px;">⚠ Outbox event failed</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">{{event_type}}</p>
-          </div>
-          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
-            <p style="color: #374151; font-size: 14px;">El evento ha agotado {{retry_count}} reintentos y requiere revisión manual.</p>
-            <pre style="background: #f9fafb; border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto;">id: {{event_outbox_id}}
-event_type: {{event_type}}
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-danger.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Outbox event failed</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e event_type}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Evento de Outbox fallido</h1>
+        <p style="margin:0 0 18px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">El evento ha agotado {{retry_count}} reintentos y requiere revisión manual.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:14px 16px;font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.7;color:#334155;white-space:pre-wrap">id: {{event_outbox_id}}
+event_type: {{e event_type}}
 retry_count: {{retry_count}}
-last_error: {{last_error}}</pre>
-            <p style="color: #6b7280; font-size: 12px;">Revisa la fila en <code>event_outbox</code> y, si procede, vuelve a marcarla como <code>pending</code> tras corregir el listener fallido.</p>
-          </div>
-        </div>
+last_error: {{e last_error}}</td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.6;color:#64748B">Revisa la fila en <code style="font-family:'DM Mono',ui-monospace,Menlo,monospace">event_outbox</code> y, si procede, vuelve a marcarla como <code style="font-family:'DM Mono',ui-monospace,Menlo,monospace">pending</code> tras corregir el listener fallido.</p>
       `.trim(),
       variables: {
         event_outbox_id: 'string',
@@ -694,23 +593,21 @@ last_error: {{last_error}}</pre>
       event_type: 'dlq.job_failed',
       channel: 'email' as const,
       locale: 'es',
-      subject: '⚠ Aelium — Job en DLQ: {{queue}}/{{name}}',
+      semantic: 'warning',
+      subject: 'Job en DLQ: {{queue}}/{{name}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 24px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 20px;">⚠ Job en DLQ</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">{{queue}} / {{name}}</p>
-          </div>
-          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
-            <p style="color: #374151; font-size: 14px;">El job ha agotado {{attempts_made}} reintentos y entró en DLQ.</p>
-            <pre style="background: #f9fafb; border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto;">failed_job_id: {{failed_job_id}}
-queue: {{queue}}
-name: {{name}}
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-warning.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Job en DLQ</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e queue}} / {{e name}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Job en la cola de fallos (DLQ)</h1>
+        <p style="margin:0 0 18px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">El job ha agotado {{attempts_made}} reintentos y entró en la cola de fallos.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:14px 16px;font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.7;color:#334155;white-space:pre-wrap">failed_job_id: {{failed_job_id}}
+queue: {{e queue}}
+name: {{e name}}
 attempts_made: {{attempts_made}}
-last_error: {{last_error}}</pre>
-            <p style="color: #6b7280; font-size: 12px;">Revisa la fila en <code>failed_jobs</code> y reintenta manualmente desde el panel admin (Sprint 9 Fase F).</p>
-          </div>
-        </div>
+last_error: {{e last_error}}</td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.6;color:#64748B">Revisa la fila en <code style="font-family:'DM Mono',ui-monospace,Menlo,monospace">failed_jobs</code> y reintenta manualmente desde el panel admin.</p>
       `.trim(),
       variables: {
         failed_job_id: 'string',
@@ -731,36 +628,23 @@ last_error: {{last_error}}</pre>
       event_type: 'task.overdue',
       channel: 'email' as const,
       locale: 'es',
-      subject: '⚠ Tarea vencida: Tarea {{task_source_system_label}}',
+      semantic: 'danger',
+      subject: 'Tarea vencida — {{task_source_system_label}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">⚠ Tarea vencida</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{task_source_system_label}} · Prioridad {{task_priority_label}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola {{#if recipient.first_name}}{{e recipient.first_name}}{{else}}agente{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              La tarea <strong>Tarea {{task_source_system_label}}</strong> ha superado su fecha límite por más de {{days_overdue}} días y se ha marcado automáticamente como <strong>no completada a tiempo</strong>.
-            </p>
-            <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 16px; margin: 20px 0;">
-              <table style="width: 100%; font-size: 14px; color: #374151;">
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Tipo:</td><td style="text-align: right; font-weight: 600;">{{task_source_system_label}}</td></tr>
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Prioridad:</td><td style="text-align: right;">{{task_priority_label}}</td></tr>
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Vencía:</td><td style="text-align: right;">{{due_date_label}}</td></tr>
-                <tr><td style="padding: 4px 0; color: #9ca3af;">Días vencida:</td><td style="text-align: right; color: #991B1B; font-weight: 600;">{{days_overdue}}</td></tr>
-              </table>
-            </div>
-            <p style="color: #6b7280; font-size: 13px; line-height: 1.6;">
-              Esta tarea ya está en estado terminal y no admite cambios. Si necesitas retomar el trabajo, crea una tarea nueva (auditabilidad ADR-041).
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{task_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver tarea</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-danger.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Tarea vencida</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{task_source_system_label}} · Prioridad {{task_priority_label}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Tarea vencida</h1>
+        <p style="margin:0 0 22px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola {{#if recipient.first_name}}{{e recipient.first_name}}{{else}}agente{{/if}}, la tarea <strong style="font-weight:600;color:#0F172A">{{task_source_system_label}}</strong> superó su fecha límite por más de {{days_overdue}} días y se marcó automáticamente como <strong style="font-weight:600;color:#0F172A">no completada a tiempo</strong>.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:18px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Tipo</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{task_source_system_label}}</td></tr>
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Prioridad</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{task_priority_label}}</td></tr>
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Vencía</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{due_date_label}}</td></tr>
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Días vencida</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:700;color:{{email.fg}}">{{days_overdue}}</td></tr>
+        </table></td></tr></table>
+        <p style="margin:0 0 22px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.6;color:#64748B">Está en estado terminal y no admite cambios. Para retomar el trabajo, crea una tarea nueva (auditabilidad, ADR-041).</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{task_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver tarea</a></td></tr></table>
       `.trim(),
       variables: {
         task_id: 'string',
@@ -811,19 +695,17 @@ last_error: {{last_error}}</pre>
       event_type: 'task.unassigned_overdue',
       channel: 'email' as const,
       locale: 'es',
-      subject: '⚠ Aelium — {{total}} tarea(s) sin asignar fuera de SLA',
+      semantic: 'warning',
+      subject: '{{total}} tarea(s) sin asignar fuera de SLA',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 24px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 20px;">⚠ Cola pública fuera de SLA</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">{{total}} tarea(s) sin asignar</p>
-          </div>
-          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
-            <p style="color: #374151; font-size: 14px;">Las siguientes tareas llevan demasiado tiempo en la cola pública sin tomarse. La más antigua espera desde hace {{oldest_age_hours}} h.</p>
-            <pre style="background: #f9fafb; border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto; white-space: pre-wrap;">{{summary}}</pre>
-            <p style="color: #6b7280; font-size: 12px;">Reasigna desde <code>/admin/tasks?scope=unassigned</code> o investiga si la cola crece sistemáticamente (capacidad de equipo, ADR-072 §"Doctrina permanente").</p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-warning.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Cola pública fuera de SLA</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{total}} sin asignar</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">{{total}} tarea(s) sin asignar fuera de SLA</h1>
+        <p style="margin:0 0 18px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Las siguientes tareas llevan demasiado tiempo en la cola pública sin tomarse. La más antigua espera desde hace {{oldest_age_hours}} h.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:14px 16px;font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.7;color:#334155;white-space:pre-wrap">{{e summary}}</td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.6;color:#64748B">Reasigna desde /admin/tasks?scope=unassigned o revisa si la cola crece de forma sistemática (capacidad de equipo, ADR-072).</p>
       `.trim(),
       variables: {
         total: 'number',
@@ -857,19 +739,17 @@ last_error: {{last_error}}</pre>
       event_type: 'maintenance.critical',
       channel: 'email' as const,
       locale: 'es',
-      subject: '⚠ Aelium — {{total}} servicio(s) sin mantenimiento crítico',
+      semantic: 'danger',
+      subject: '{{total}} servicio(s) sin mantenimiento crítico',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 24px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 20px;">⚠ Mantenimiento crítico</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">{{total}} servicio(s) sin maintenance_log >{{threshold_days}}d</p>
-          </div>
-          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
-            <p style="color: #374151; font-size: 14px;">Los siguientes servicios activos con checklist contratado llevan más de {{threshold_days}} días sin un mantenimiento registrado.</p>
-            <pre style="background: #f9fafb; border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto; white-space: pre-wrap;">{{summary}}</pre>
-            <p style="color: #6b7280; font-size: 12px;">Acción recomendada: programar maintenance_management urgente para los servicios listados o revisar si el servicio sigue activo en producción.</p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-danger.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Mantenimiento crítico</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{total}} servicio(s) · >{{threshold_days}}d</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">{{total}} servicio(s) sin mantenimiento</h1>
+        <p style="margin:0 0 18px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Los siguientes servicios activos con checklist contratado llevan más de {{threshold_days}} días sin un mantenimiento registrado.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:14px 16px;font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.7;color:#334155;white-space:pre-wrap">{{e summary}}</td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.6;color:#64748B">Programa un mantenimiento urgente para los servicios listados o revisa si siguen activos en producción.</p>
       `.trim(),
       variables: {
         total: 'number',
@@ -927,29 +807,23 @@ last_error: {{last_error}}</pre>
       event_type: 'auth.refresh_replay_detected',
       channel: 'email' as const,
       locale: 'es',
-      subject: 'Aelium — Sesión comprometida ({{attacked_user_email}})',
+      semantic: 'danger',
+      subject: 'Sesión comprometida ({{attacked_user_email}})',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #B91C1C 0%, #991B1B 100%); padding: 24px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 20px;">Sesión comprometida</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">Auth · Replay de refresh token</p>
-          </div>
-          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
-            <p style="color: #374151; font-size: 14px;">
-              Se ha detectado el reuso de un refresh token ya canjeado. Por seguridad, todas las sesiones del usuario afectado han sido revocadas y se le pedirá iniciar sesión de nuevo.
-            </p>
-            <pre style="background: #f9fafb; border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto;">usuario_email: {{attacked_user_email}}
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-danger.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Sesión comprometida</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">Auth · replay de refresh token</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Sesión comprometida</h1>
+        <p style="margin:0 0 18px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Se ha detectado el reuso de un refresh token ya canjeado. Por seguridad, todas las sesiones del usuario afectado se han revocado y se le pedirá iniciar sesión de nuevo.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:14px 16px;font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.7;color:#334155;white-space:pre-wrap">usuario_email: {{e attacked_user_email}}
 user_id: {{user_id}}
 session_id: {{session_id}}
-ip_atacante: {{ip}}
+ip_atacante: {{e ip}}
 intento_replay: {{attempted_at}}
 canje_legitimo_original: {{original_used_at}}
-sesiones_revocadas: {{revoked_sessions_count}}</pre>
-            <p style="color: #6b7280; font-size: 12px;">
-              Acción recomendada: contactar al usuario por canal externo para confirmar si reconoce la actividad. Si no la reconoce, resetear su password (forgot-password) y revisar los logs de acceso en /admin/error-log.
-            </p>
-          </div>
-        </div>
+sesiones_revocadas: {{revoked_sessions_count}}</td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.6;color:#64748B">Acción: contacta al usuario por un canal externo para confirmar si reconoce la actividad. Si no la reconoce, resetea su contraseña (forgot-password) y revisa los accesos en <code style="font-family:'DM Mono',ui-monospace,Menlo,monospace">/admin/error-log</code>.</p>
       `.trim(),
       variables: {
         user_id: 'string',
@@ -994,29 +868,23 @@ sesiones_revocadas: {{revoked_sessions_count}}</pre>
       event_type: 'plugin.circuit_opened',
       channel: 'email' as const,
       locale: 'es',
-      subject: 'Aelium — Plugin {{plugin_slug}} caído ({{operation}})',
+      semantic: 'warning',
+      subject: 'Plugin {{plugin_slug}} caído ({{operation}})',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #EA580C 0%, #C2410C 100%); padding: 24px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 20px;">Plugin caído</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">{{plugin_slug}} · circuito abierto</p>
-          </div>
-          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
-            <p style="color: #374151; font-size: 14px;">
-              El proveedor del plugin <strong>{{plugin_slug}}</strong> ha fallado repetidamente. El circuit breaker abrió la operación <code>{{operation}}</code> para no martillar al proveedor mientras se recupera. Las lecturas servirán fallback "unknown" desde cache; las acciones inline fallarán con <code>action.circuit_open</code> hasta que el circuito vuelva a cerrarse.
-            </p>
-            <pre style="background: #f9fafb; border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto;">plugin_slug: {{plugin_slug}}
-operation: {{operation}}
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-warning.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Plugin caído</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e plugin_slug}} · circuito abierto</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Plugin caído — circuito abierto</h1>
+        <p style="margin:0 0 18px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">El proveedor del plugin <strong style="font-weight:600;color:#0F172A">{{e plugin_slug}}</strong> ha fallado repetidamente. El circuit breaker abrió la operación <strong style="font-weight:600;color:#0F172A">{{e operation}}</strong> para no saturar al proveedor mientras se recupera. Las lecturas servirán un fallback "unknown" desde cache; las acciones inline fallarán hasta que el circuito vuelva a cerrarse.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:14px 16px;font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.7;color:#334155;white-space:pre-wrap">plugin_slug: {{e plugin_slug}}
+operation: {{e operation}}
 breaker_name: {{breaker_name}}
 opened_at: {{opened_at}}
 failure_count: {{failure_count}}
 last_error_code: {{last_error_code}}
-reset_timeout_ms: {{reset_timeout_ms}}</pre>
-            <p style="color: #6b7280; font-size: 12px;">
-              Acción recomendada: revisar la API del proveedor + logs en <code>/admin/error-log</code>. Si la caída persiste, deshabilitar el plugin desde <code>/admin/settings/plugins</code> (los servicios afectados quedarán en pending hasta restauración).
-            </p>
-          </div>
-        </div>
+reset_timeout_ms: {{reset_timeout_ms}}</td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.6;color:#64748B">Acción: revisa la API del proveedor y los logs en <code style="font-family:'DM Mono',ui-monospace,Menlo,monospace">/admin/error-log</code>. Si la caída persiste, deshabilita el plugin desde <code style="font-family:'DM Mono',ui-monospace,Menlo,monospace">/admin/settings/plugins</code>.</p>
       `.trim(),
       variables: {
         breaker_name: 'string',
@@ -1057,22 +925,20 @@ reset_timeout_ms: {{reset_timeout_ms}}</pre>
       event_type: 'system.error',
       channel: 'email' as const,
       locale: 'es',
-      subject: '⚠ Aelium — Error operativo en {{module}}',
+      semantic: 'danger',
+      subject: 'Error operativo en {{module}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 24px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 20px;">⚠ Error operativo</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">{{module}} · {{level}}</p>
-          </div>
-          <div style="background: #fff; padding: 24px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 12px 12px;">
-            <p style="color: #374151; font-size: 14px;">{{message}}</p>
-            <pre style="background: #f9fafb; border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto;">error_log_id: {{error_log_id}}
-module: {{module}}
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-danger.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Error operativo</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e module}} · {{level}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Error operativo en {{e module}}</h1>
+        <p style="margin:0 0 18px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">{{e message}}</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:14px 16px;font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.7;color:#334155;white-space:pre-wrap">error_log_id: {{error_log_id}}
+module: {{e module}}
 level: {{level}}{{#if correlation_id}}
-correlation_id: {{correlation_id}}{{/if}}</pre>
-            <p style="color: #6b7280; font-size: 12px;">Revisa el detalle completo (incluyendo stack trace si aplica) en el panel <code>/admin/error-log</code> y márcalo como resuelto cuando proceda.</p>
-          </div>
-        </div>
+correlation_id: {{e correlation_id}}{{/if}}</td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.6;color:#64748B">Revisa el detalle completo (incluido el stack trace si aplica) en <code style="font-family:'DM Mono',ui-monospace,Menlo,monospace">/admin/error-log</code> y márcalo como resuelto cuando proceda.</p>
       `.trim(),
       variables: {
         error_log_id: 'string',
@@ -1120,43 +986,19 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'service.password_reset',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'info',
       subject: 'Tu contraseña ha sido restablecida — {{domain}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #635BFF 0%, #8B5CF6 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Contraseña restablecida</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{domain}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hemos restablecido la contraseña de tu cuenta para el servicio
-              <strong>{{domain}}</strong>. Esta es la nueva contraseña temporal:
-            </p>
-            <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: center;">
-              <code style="font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 18px; color: #111827; letter-spacing: 1px; word-break: break-all;">{{new_password}}</code>
-            </div>
-            <div style="background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 12px; padding: 16px 20px; margin: 20px 0;">
-              <p style="color: #92400E; font-size: 14px; margin: 0; line-height: 1.6;">
-                <strong>Cambia esta contraseña al iniciar sesión por primera vez.</strong>
-                Es temporal y no debes reutilizarla en otros servicios.
-              </p>
-            </div>
-            <p style="color: #6b7280; font-size: 13px; line-height: 1.6;">
-              Puedes acceder al panel del proveedor desde tu portal de cliente
-              en Aelium pulsando el botón "Abrir panel".
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ir a mi servicio</a>
-            </p>
-            <p style="color: #9ca3af; font-size: 12px; line-height: 1.6; margin-top: 24px;">
-              Si no solicitaste este cambio, contacta inmediatamente con soporte
-              respondiendo a este correo.
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-info.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Contraseña restablecida</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e domain}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Contraseña restablecida</h1>
+        <p style="margin:0 0 18px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, hemos restablecido la contraseña de tu cuenta para el servicio <strong style="font-weight:600;color:#0F172A">{{e domain}}</strong>. Esta es tu nueva contraseña temporal:</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td align="center" style="padding:18px 20px;font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:18px;font-weight:600;letter-spacing:1px;color:#0F172A;word-break:break-all">{{e new_password}}</td></tr></table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border-collapse:separate;border-spacing:0"><tr><td bgcolor="#FFFBEB" style="background:#FFFBEB;border:1px solid #F59E0B33;border-radius:12px;padding:15px 17px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.55;color:#B45309"><strong style="font-weight:600">Cámbiala al iniciar sesión por primera vez.</strong> Es temporal — no la reutilices en otros servicios.</td></tr></table>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{panel_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ir a mi servicio</a></td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:13.5px;line-height:1.6;color:#94A3B8;text-align:center">Si no solicitaste este cambio, contáctanos cuanto antes.</p>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1210,35 +1052,18 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'service.cancelled',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'info',
       subject: 'Tu servicio ha sido cancelado — {{domain}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #6B7280 0%, #4B5563 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Servicio cancelado</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{domain}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Te confirmamos que el servicio <strong>{{domain}}</strong> ha sido
-              cancelado y ya no está activo.
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Si crees que se trata de un error, o si quieres volver a contratar
-              este u otro servicio, escríbenos — estaremos encantados de ayudarte.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{support_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Contactar con soporte</a>
-            </p>
-            <p style="color: #9ca3af; font-size: 12px; line-height: 1.6; margin-top: 24px;">
-              Si tenías datos en este servicio que necesitas recuperar, contacta
-              con soporte cuanto antes — algunos datos pueden no estar disponibles
-              tras la cancelación.
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-info.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Servicio cancelado</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e domain}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Servicio cancelado</h1>
+        <p style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, te confirmamos que el servicio <strong style="font-weight:600;color:#0F172A">{{e domain}}</strong> ha sido cancelado y ya no está activo.</p>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Si crees que es un error, o quieres volver a contratar este u otro servicio, escríbenos — estamos para ayudarte.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{support_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Contactar con soporte</a></td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:13.5px;line-height:1.6;color:#94A3B8;text-align:center">Si necesitas recuperar datos de este servicio, contáctanos cuanto antes — algunos pueden no estar disponibles tras la cancelación.</p>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1286,40 +1111,19 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'service.cancellation_scheduled',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'danger',
       subject: 'Tu servicio se cancelará pronto — {{domain}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Cancelación inminente</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{domain}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              El servicio <strong>{{domain}}</strong> lleva un tiempo suspendido por un pago
-              pendiente. Si no se regulariza, se <strong>cancelará automáticamente el
-              {{cancellation_date}}</strong>.
-            </p>
-            <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 16px 20px; margin: 20px 0;">
-              <p style="color: #991B1B; font-size: 14px; margin: 0; line-height: 1.6;">
-                La cancelación es <strong>irreversible</strong>: el servicio y sus datos se
-                eliminarán de forma permanente y no podrán recuperarse.
-              </p>
-            </div>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Todavía estás a tiempo: regulariza el pago pendiente desde tu panel y el servicio
-              volverá a estar activo.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{billing_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Regularizar el pago</a>
-            </p>
-            <p style="color: #9ca3af; font-size: 12px; line-height: 1.6; margin-top: 24px;">
-              ¿Tienes dudas o crees que es un error? <a href="{{support_url}}" style="color: #635BFF;">Contacta con soporte</a> cuanto antes.
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-danger.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Cancelación inminente</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e domain}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Tu servicio se cancelará pronto</h1>
+        <p style="margin:0 0 18px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, el servicio <strong style="font-weight:600;color:#0F172A">{{e domain}}</strong> lleva un tiempo suspendido por un pago pendiente. Si no se regulariza, se cancelará automáticamente el <strong style="font-weight:600;color:#0F172A">{{cancellation_date}}</strong>.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border-collapse:separate;border-spacing:0"><tr><td bgcolor="{{email.tint}}" style="background:{{email.tint}};border:1px solid {{email.accent}}33;border-radius:12px;padding:15px 17px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.55;color:{{email.fg}}">La cancelación es <strong style="font-weight:600">irreversible</strong>: el servicio y sus datos se eliminarán de forma permanente.</td></tr></table>
+        <p style="margin:0 0 22px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Todavía estás a tiempo: regulariza el pago desde tu panel y el servicio volverá a estar activo.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{billing_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Regularizar el pago</a></td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:13.5px;line-height:1.6;color:#94A3B8;text-align:center">¿Dudas o crees que es un error? <a href="{{support_url}}" target="_blank" style="color:#3B82F6;text-decoration:none">Contáctanos</a> cuanto antes.</p>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1371,54 +1175,29 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'service.suspended',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'warning',
       subject: 'Tu servicio ha sido suspendido — {{domain}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Servicio suspendido</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{domain}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              El servicio <strong>{{domain}}</strong> ha sido suspendido temporalmente.
-              Tus datos se conservan — la suspensión solo desactiva el acceso al servicio.
-            </p>
-            {{#if reason_label}}
-            <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 16px 20px; margin: 20px 0;">
-              <p style="color: #92400E; font-size: 14px; margin: 0; line-height: 1.6;">
-                <strong>Motivo:</strong> {{reason_label}}
-              </p>
-            </div>
-            {{/if}}
-            {{#if is_overdue_payment}}
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Para reactivar el servicio, regulariza el pago pendiente desde tu panel.
-              En cuanto registremos el pago, el servicio volverá a estar activo.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{billing_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ir a facturación</a>
-            </p>
-            {{else}}
-            {{#if is_maintenance}}
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              El servicio volverá a estar disponible automáticamente cuando finalice
-              el mantenimiento programado. No necesitas hacer nada.
-            </p>
-            {{else}}
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Para más información sobre esta suspensión, contacta con nuestro
-              equipo de soporte — estaremos encantados de ayudarte.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{support_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Contactar con soporte</a>
-            </p>
-            {{/if}}
-            {{/if}}
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-warning.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Servicio suspendido</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e domain}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Servicio suspendido</h1>
+        <p style="margin:0 0 18px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, el servicio <strong style="font-weight:600;color:#0F172A">{{e domain}}</strong> ha sido suspendido temporalmente. Tus datos se conservan — la suspensión solo desactiva el acceso al servicio.</p>
+        {{#if reason_label}}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;border-collapse:separate;border-spacing:0"><tr><td bgcolor="{{email.tint}}" style="background:{{email.tint}};border:1px solid {{email.accent}}33;border-radius:12px;padding:15px 17px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.55;color:{{email.fg}}"><strong style="font-weight:600">Motivo:</strong> {{reason_label}}</td></tr></table>
+        {{/if}}
+        {{#if is_overdue_payment}}
+        <p style="margin:0 0 22px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Para reactivarlo, regulariza el pago pendiente desde tu panel. En cuanto lo registremos, volverá a estar activo.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{billing_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ir a facturación</a></td></tr></table>
+        {{else}}
+        {{#if is_maintenance}}
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Volverá a estar disponible automáticamente cuando finalice el mantenimiento programado. No necesitas hacer nada.</p>
+        {{else}}
+        <p style="margin:0 0 22px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Para más información sobre esta suspensión, contacta con nuestro equipo — estamos para ayudarte.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{support_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Contactar con soporte</a></td></tr></table>
+        {{/if}}
+        {{/if}}
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1466,30 +1245,17 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'service.unsuspended',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'success',
       subject: 'Tu servicio vuelve a estar activo — {{domain}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Servicio reactivado</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{domain}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              ¡Buenas noticias! El servicio <strong>{{domain}}</strong> vuelve a estar
-              activo. Ya puedes usarlo con normalidad — tus datos se mantuvieron intactos
-              durante la suspensión.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ir a mi servicio</a>
-            </p>
-            <p style="color: #9ca3af; font-size: 12px; line-height: 1.6; margin-top: 24px;">
-              Si tienes cualquier duda, responde a este correo y te ayudamos.
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-success.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Servicio reactivado</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e domain}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Tu servicio vuelve a estar activo</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, ¡buenas noticias! El servicio <strong style="font-weight:600;color:#0F172A">{{e domain}}</strong> vuelve a estar activo. Ya puedes usarlo con normalidad — tus datos se mantuvieron intactos durante la suspensión.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{panel_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ir a mi servicio</a></td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:13.5px;line-height:1.6;color:#94A3B8;text-align:center">Gracias por tu paciencia.</p>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1526,35 +1292,23 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'service.quota_threshold_crossed',
       channel: 'email' as const,
       locale: 'es',
-      subject: '⚠ Estás al {{used_pct}}% de almacenamiento en {{domain}}',
+      semantic: 'warning',
+      subject: 'Estás al {{used_pct}}% de almacenamiento en {{domain}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">⚠ Almacenamiento próximo al límite</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">{{domain}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Tu servicio <strong>{{domain}}</strong> está al <strong>{{used_pct}}%</strong> de su cuota de almacenamiento. Si llega al 100%, dejará de aceptar nuevos archivos (uploads, copias de seguridad, registros del sitio) hasta que liberes espacio o amplíes el plan.
-            </p>
-            <div style="background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 12px; padding: 20px; margin: 20px 0;">
-              <table style="width: 100%; font-size: 14px; color: #374151;">
-                <tr><td style="padding: 4px 0; color: #92400E;">Uso actual:</td><td style="text-align: right; font-weight: 600;">{{used_mb_label}}</td></tr>
-                <tr><td style="padding: 4px 0; color: #92400E;">Cuota total:</td><td style="text-align: right; font-weight: 600;">{{total_mb_label}}</td></tr>
-                <tr><td style="padding: 4px 0; color: #92400E;">Porcentaje:</td><td style="text-align: right; font-weight: 600;">{{used_pct}}%</td></tr>
-              </table>
-            </div>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{service_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver detalles del servicio</a>
-            </p>
-            <p style="color: #6b7280; font-size: 13px;">
-              Si necesitas ayuda para liberar espacio o ampliar tu plan, contacta con <a href="{{support_url}}" style="color: #635BFF;">soporte</a>.
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-warning.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Almacenamiento casi al límite</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e domain}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Estás cerca del límite de almacenamiento</h1>
+        <p style="margin:0 0 22px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, tu servicio <strong style="font-weight:600;color:#0F172A">{{e domain}}</strong> está al <strong style="font-weight:600;color:#0F172A">{{used_pct}}%</strong> de su cuota de almacenamiento. Si llega al 100%, dejará de aceptar nuevos archivos (subidas, copias, registros) hasta que liberes espacio o amplíes el plan.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;border:1px solid #E6ECF3;border-radius:12px;border-collapse:separate;border-spacing:0;background:#F8FAFF"><tr><td style="padding:18px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Uso actual</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{used_mb_label}}</td></tr>
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Cuota total</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{total_mb_label}}</td></tr>
+          <tr><td colspan="2" style="padding:12px 0 0"><div style="height:1px;background:#E6ECF3;margin-bottom:12px;font-size:0;line-height:0">&nbsp;</div></td></tr>
+          <tr><td style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">Porcentaje</td><td align="right" style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:18px;font-weight:700;letter-spacing:-0.01em;color:{{email.fg}}">{{used_pct}}%</td></tr>
+        </table></td></tr></table>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{service_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver detalles del servicio</a></td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:13.5px;line-height:1.6;color:#94A3B8;text-align:center">¿Necesitas ayuda para liberar espacio o ampliar el plan? <a href="{{support_url}}" target="_blank" style="color:#3B82F6;text-decoration:none">Contáctanos</a>.</p>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1596,25 +1350,16 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'domain.renewed',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'success',
       subject: 'Dominio renovado — {{fqdn}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Dominio renovado</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hemos renovado tu dominio <strong>{{fqdn}}</strong>. Sigue activo sin interrupciones.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver mi dominio</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-success.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Dominio renovado</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e fqdn}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Dominio renovado</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, hemos renovado tu dominio <strong style="font-weight:600;color:#0F172A">{{e fqdn}}</strong>. Sigue activo sin interrupciones.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{panel_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver mi dominio</a></td></tr></table>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1639,26 +1384,16 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'domain.expiring_soon',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'warning',
       subject: 'Tu dominio {{fqdn}} caduca en {{days_left}} días',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Tu dominio caduca pronto</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Tu dominio <strong>{{fqdn}}</strong> caduca en <strong>{{days_left}} días</strong>.
-              Renuévalo a tiempo para no perderlo.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Renovar dominio</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-warning.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Caduca pronto</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e fqdn}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Tu dominio caduca pronto</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, tu dominio <strong style="font-weight:600;color:#0F172A">{{e fqdn}}</strong> caduca en <strong style="font-weight:600;color:#0F172A">{{days_left}} días</strong>. Renuévalo a tiempo para no perderlo.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{panel_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Renovar dominio</a></td></tr></table>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1688,26 +1423,16 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'domain.expired',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'danger',
       subject: 'Tu dominio {{fqdn}} ha caducado',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Tu dominio ha caducado</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Tu dominio <strong>{{fqdn}}</strong> ha caducado. Aún puedes recuperarlo durante un
-              breve periodo de gracia — renuévalo cuanto antes.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Recuperar dominio</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-danger.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Dominio caducado</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e fqdn}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Tu dominio ha caducado</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, tu dominio <strong style="font-weight:600;color:#0F172A">{{e fqdn}}</strong> ha caducado. Aún puedes recuperarlo durante un breve periodo de gracia — renuévalo cuanto antes.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{panel_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Recuperar dominio</a></td></tr></table>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1731,27 +1456,16 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'domain.entered_redemption',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'danger',
       subject: 'Tu dominio {{fqdn}} está en periodo de redención',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Dominio en redención</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Tu dominio <strong>{{fqdn}}</strong> ha entrado en periodo de redención. Todavía puede
-              rescatarse, pero con una tarifa de recuperación más alta y por tiempo limitado.
-              Contáctanos para recuperarlo.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver mi dominio</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-danger.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">En redención</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e fqdn}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Dominio en redención</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, tu dominio <strong style="font-weight:600;color:#0F172A">{{e fqdn}}</strong> ha entrado en periodo de redención. Todavía puede rescatarse, pero con una tarifa de recuperación más alta y por tiempo limitado. Contáctanos para recuperarlo.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{panel_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver mi dominio</a></td></tr></table>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1775,27 +1489,16 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'domain.restored',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'success',
       subject: 'Dominio restaurado — {{fqdn}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Dominio restaurado</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hemos recuperado tu dominio <strong>{{fqdn}}</strong> desde el periodo de
-              redención. Vuelve a estar activo. Te enviamos por separado la factura de la
-              tarifa de restauración.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver mi dominio</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-success.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Dominio restaurado</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e fqdn}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Dominio restaurado</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, hemos recuperado tu dominio <strong style="font-weight:600;color:#0F172A">{{e fqdn}}</strong> desde el periodo de redención. Vuelve a estar activo. Te enviamos por separado la factura de la tarifa de restauración.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{panel_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver mi dominio</a></td></tr></table>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1826,26 +1529,16 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'domain.transfer_initiated',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'info',
       subject: 'Transferencia iniciada — {{fqdn}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #635BFF 0%, #4F46E5 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Transferencia iniciada</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hemos enviado al registrador la transferencia de <strong>{{fqdn}}</strong>. El proceso
-              suele tardar 5–7 días; te avisaremos cuando se complete. No se te cobrará hasta entonces.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Ver el estado</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-info.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Transferencia iniciada</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e fqdn}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Transferencia iniciada</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, hemos enviado al registrador la transferencia de <strong style="font-weight:600;color:#0F172A">{{e fqdn}}</strong>. Suele tardar 5–7 días; te avisaremos cuando se complete. No se te cobrará hasta entonces.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{panel_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver el estado</a></td></tr></table>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1869,26 +1562,16 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'domain.transfer_completed',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'success',
       subject: 'Dominio transferido — {{fqdn}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Transferencia completada</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              ¡Listo! <strong>{{fqdn}}</strong> ya está gestionado por Aelium. Puedes administrar sus
-              nameservers, privacidad y bloqueo desde tu panel.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Gestionar mi dominio</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-success.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Transferencia completada</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e fqdn}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Transferencia completada</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, ¡listo! <strong style="font-weight:600;color:#0F172A">{{e fqdn}}</strong> ya está gestionado por Aelium. Puedes administrar sus nameservers, privacidad y bloqueo desde tu panel.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{panel_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Gestionar mi dominio</a></td></tr></table>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1912,27 +1595,16 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'domain.transfer_failed',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'warning',
       subject: 'La transferencia de {{fqdn}} no se completó',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Transferencia no completada</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              La transferencia de <strong>{{fqdn}}</strong> no pudo completarse. Suele deberse al
-              bloqueo de transferencia o a un código de autorización incorrecto en tu registrador
-              actual. Revísalo y vuelve a intentarlo — no se te ha cobrado nada.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Reintentar transferencia</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-warning.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Transferencia no completada</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e fqdn}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Transferencia no completada</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, la transferencia de <strong style="font-weight:600;color:#0F172A">{{e fqdn}}</strong> no pudo completarse. Suele deberse al bloqueo de transferencia o a un código de autorización incorrecto en tu registrador actual. Revísalo y vuelve a intentarlo — no se te ha cobrado nada.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{panel_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Reintentar transferencia</a></td></tr></table>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -1968,27 +1640,16 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'domain.nameservers_changed',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'warning',
       subject: 'Se han cambiado los nameservers de {{fqdn}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Nameservers actualizados</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Se han modificado los nameservers de tu dominio <strong>{{fqdn}}</strong>. Si has sido
-              tú, no necesitas hacer nada. Si no reconoces este cambio, revísalo cuanto antes desde
-              tu panel y contáctanos.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Revisar mi dominio</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-warning.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Nameservers actualizados</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e fqdn}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Nameservers actualizados</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, se han modificado los nameservers de tu dominio <strong style="font-weight:600;color:#0F172A">{{e fqdn}}</strong>. Si has sido tú, no necesitas hacer nada. Si no reconoces este cambio, revísalo cuanto antes y contáctanos.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{panel_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Revisar mi dominio</a></td></tr></table>
       `.trim(),
       variables: {
         service_id: 'string',
@@ -2012,27 +1673,16 @@ correlation_id: {{correlation_id}}{{/if}}</pre>
       event_type: 'domain.lock_changed',
       channel: 'email' as const,
       locale: 'es',
+      semantic: 'warning',
       subject: 'Se ha cambiado el bloqueo de transferencia de {{fqdn}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">Bloqueo de registrar actualizado</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">{{fqdn}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Se ha cambiado el bloqueo de transferencia (registrar lock) de tu dominio
-              <strong>{{fqdn}}</strong>. Este ajuste protege tu dominio frente a transferencias no
-              autorizadas. Si no reconoces este cambio, revísalo cuanto antes y contáctanos.
-            </p>
-            <p style="text-align: center; margin: 24px 0;">
-              <a href="{{panel_url}}" style="display: inline-block; background: #635BFF; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Revisar mi dominio</a>
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-warning.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Bloqueo actualizado</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e fqdn}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Bloqueo de transferencia actualizado</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, se ha cambiado el bloqueo de transferencia (registrar lock) de tu dominio <strong style="font-weight:600;color:#0F172A">{{e fqdn}}</strong>. Este ajuste protege tu dominio frente a transferencias no autorizadas. Si no reconoces este cambio, revísalo cuanto antes y contáctanos.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{panel_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Revisar mi dominio</a></td></tr></table>
       `.trim(),
       variables: {
         service_id: 'string',

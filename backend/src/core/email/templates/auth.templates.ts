@@ -22,10 +22,12 @@ import {
 export function verifyEmailTemplate(
   name: string,
   url: string,
+  legal?: string,
 ): { subject: string; html: string } {
   return {
     subject: 'Verifica tu email — Aelium',
     html: buildEmailLayout({
+      legal,
       semantic: 'info',
       preheader: 'Confirma tu dirección de email para activar tu cuenta.',
       status: { label: 'Verifica tu email' },
@@ -47,10 +49,12 @@ export function verifyEmailTemplate(
 export function twoFactorCodeTemplate(
   name: string,
   code: string,
+  legal?: string,
 ): { subject: string; html: string } {
   return {
     subject: `${code} — Código de verificación Aelium`,
     html: buildEmailLayout({
+      legal,
       semantic: 'info',
       preheader: 'Tu código de verificación en dos pasos.',
       status: { label: 'Verificación en dos pasos' },
@@ -72,10 +76,12 @@ export function twoFactorCodeTemplate(
 export function passwordResetTemplate(
   name: string,
   url: string,
+  legal?: string,
 ): { subject: string; html: string } {
   return {
     subject: 'Restablecer contraseña — Aelium',
     html: buildEmailLayout({
+      legal,
       semantic: 'info',
       preheader: 'Crea una nueva contraseña para tu cuenta.',
       status: { label: 'Restablecer contraseña' },
@@ -97,10 +103,12 @@ export function passwordResetTemplate(
 export function welcomeTemplate(
   name: string,
   dashboardUrl: string,
+  legal?: string,
 ): { subject: string; html: string } {
   return {
     subject: 'Bienvenido a Aelium',
     html: buildEmailLayout({
+      legal,
       semantic: 'success',
       preheader: 'Tu cuenta está lista. Entra a tu panel.',
       status: { label: 'Cuenta lista' },
