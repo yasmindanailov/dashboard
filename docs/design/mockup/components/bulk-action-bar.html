@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · BulkActionBar</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>.demo { display: flex; justify-content: center; padding: var(--space-8); background: var(--surface-secondary); border-radius: var(--radius-md); margin-bottom: var(--space-4); }</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.C · Data</div>
+      <h1 class="page-title">BulkActionBar</h1>
+      <p class="page-lede">
+        Bar flotante con acciones para items seleccionados. <strong>Light</strong> con shadow-xl — destaca sin invadir, coherente con minimalismo funcional. Count en brand color con tabular nums.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Estándar · listado de clientes</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">Mostrado en posición estática para visualización. En producto: floating bottom-center.</p>
+
+      <div class="demo">
+        <div class="bulk-bar static">
+          <span class="bulk-bar-count">3 seleccionados</span>
+          <span class="bulk-bar-divider"></span>
+          <div class="bulk-bar-actions">
+            <button class="btn btn-ghost btn-sm">Cambiar plan</button>
+            <button class="btn btn-ghost btn-sm">Añadir nota</button>
+            <button class="btn btn-ghost btn-sm">Exportar</button>
+            <button class="btn btn-ghost btn-sm" style="color: var(--danger);">Suspender</button>
+          </div>
+          <span class="bulk-bar-divider"></span>
+          <button class="bulk-bar-clear">Deseleccionar</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variantes por listado</h2>
+        <span class="section-num">02</span>
+      </div>
+
+      <p class="legend">Listado de facturas</p>
+      <div class="demo">
+        <div class="bulk-bar static">
+          <span class="bulk-bar-count">12 seleccionadas</span>
+          <span class="bulk-bar-divider"></span>
+          <div class="bulk-bar-actions">
+            <button class="btn btn-ghost btn-sm">Marcar pagadas</button>
+            <button class="btn btn-ghost btn-sm">Reenviar al cliente</button>
+            <button class="btn btn-ghost btn-sm" style="color: var(--danger);">Anular</button>
+          </div>
+          <span class="bulk-bar-divider"></span>
+          <button class="bulk-bar-clear">Deseleccionar</button>
+        </div>
+      </div>
+
+      <p class="legend">Listado de tickets</p>
+      <div class="demo">
+        <div class="bulk-bar static">
+          <span class="bulk-bar-count">5 seleccionados</span>
+          <span class="bulk-bar-divider"></span>
+          <div class="bulk-bar-actions">
+            <button class="btn btn-ghost btn-sm">Reasignar</button>
+            <button class="btn btn-ghost btn-sm">Cerrar</button>
+            <button class="btn btn-ghost btn-sm">Marcar urgentes</button>
+          </div>
+          <span class="bulk-bar-divider"></span>
+          <button class="bulk-bar-clear">Deseleccionar</button>
+        </div>
+      </div>
+
+      <p class="legend">Singular</p>
+      <div class="demo">
+        <div class="bulk-bar static">
+          <span class="bulk-bar-count">1 seleccionado</span>
+          <span class="bulk-bar-divider"></span>
+          <div class="bulk-bar-actions">
+            <button class="btn btn-ghost btn-sm">Editar</button>
+            <button class="btn btn-ghost btn-sm" style="color: var(--danger);">Eliminar</button>
+          </div>
+          <span class="bulk-bar-divider"></span>
+          <button class="bulk-bar-clear">Deseleccionar</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Reglas</h2>
+        <span class="section-num">03</span>
+      </div>
+      <div class="kv">
+        <div><strong>≥ 1 selección</strong></div>
+        <div>Aparece solo cuando hay items seleccionados.</div>
+        <div><strong>Floating fixed</strong></div>
+        <div>Bottom-center, no se mueve con scroll.</div>
+        <div><strong>Max 3-4 acciones</strong></div>
+        <div>Más → agrupar en Dropdown "Más acciones".</div>
+        <div><strong>Acción destructiva al final</strong></div>
+        <div>Separada por divider, color <span class="tok">--danger</span>.</div>
+        <div><strong>No duplicar acciones individuales</strong></div>
+        <div>Si una row tiene Dropdown con "Editar/Eliminar", no las repitas en BulkActionBar — no aplican a múltiples.</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs actual</h2>
+        <span class="section-num">04</span>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Light vs dark mapping <span class="meta">D2C-1/G</span></div>
+        <div><strong>Light.</strong> Documentado: shadow-xl + brand color suficientes para destacar.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Animación <span class="meta">D2C-H</span></div>
+        <div>Migrar a <span class="tok">--motion-modal-in</span> (240ms ease-out).</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Tabular nums en count</div>
+        <div>Aplicar para que "1 → 10 → 100" no salte visualmente.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

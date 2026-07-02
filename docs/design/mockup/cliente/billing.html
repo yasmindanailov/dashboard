@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Cliente · Tus facturas</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { background: var(--surface-secondary); }
+  .demo-page-banner { background: var(--surface-primary); border-bottom: 1px solid var(--border); padding: var(--space-3) var(--space-5); font-size: var(--font-size-xs); color: var(--text-tertiary); display: flex; align-items: center; gap: var(--space-3); }
+  .demo-page-banner strong { color: var(--text-primary); }
+  .demo-page-banner .tag { background: var(--brand-subtle); color: var(--brand-active); padding: 2px 8px; border-radius: 999px; font-weight: var(--font-weight-medium); }
+  .b { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); }
+  .b.active { background: var(--success-subtle); color: var(--success-strong); }
+  .b.pending { background: var(--pending-subtle); color: var(--pending); }
+  .b.warning { background: var(--warning-subtle); color: var(--warning); }
+  .b .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .stub-tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--border); overflow-x: auto;
+  }
+  .stub-tabs .tab {
+    padding: var(--space-2_5) var(--space-3); font-size: var(--font-size-sm);
+    color: var(--text-secondary); border-bottom: 2px solid transparent;
+    margin-bottom: -1px; white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-2);
+  }
+  .stub-tabs .tab.is-active { color: var(--brand); border-bottom-color: var(--brand); font-weight: var(--font-weight-medium); }
+  .stub-tabs .tab .count { font-size: var(--font-size-xs); color: var(--text-tertiary); font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+  .stub-tabs .tab.is-active .count { color: var(--brand); }
+
+  .filterbar-stub { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+  .filterbar-stub .search-stub { flex: 1; min-width: 240px; background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); font-size: var(--font-size-sm); color: var(--text-tertiary); display: flex; align-items: center; gap: var(--space-2); }
+  .filterbar-stub .filter-stub { background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); font-size: var(--font-size-sm); color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
+
+  .inv-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .inv-table th, .inv-table td { padding: var(--space-3); text-align: left; border-bottom: 1px solid var(--border); }
+  .inv-table th { background: var(--surface-secondary); color: var(--text-secondary); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em; font-weight: var(--font-weight-medium); }
+  .inv-table tr:last-child td { border-bottom: none; }
+  .inv-table tr:hover td { background: var(--surface-secondary); }
+  .inv-table .num { font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+  .inv-table .id-link { color: var(--brand); text-decoration: none; font-weight: var(--font-weight-medium); }
+  .inv-table .row-actions { display: flex; gap: var(--space-2); justify-content: flex-end; }
+  .inv-table .row-actions a { font-size: var(--font-size-xs); color: var(--text-secondary); text-decoration: none; padding: 2px 6px; border-radius: var(--radius-sm); }
+  .inv-table .row-actions a:hover { background: var(--brand-subtle); color: var(--brand); }
+
+  .stub-pag { display: flex; align-items: center; justify-content: space-between; padding-top: var(--space-3); font-size: var(--font-size-xs); color: var(--text-tertiary); }
+  .stub-pag .pag-meta { font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+  .stub-pag .pag-controls { display: flex; gap: var(--space-1); }
+  .stub-pag .pag-btn { width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--surface-primary); border: 1px solid var(--border); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); }
+  .stub-pag .pag-btn.is-active { background: var(--brand); border-color: var(--brand); color: var(--text-on-brand); }
+</style>
+</head>
+<body>
+
+<div class="demo-page-banner">
+  <span class="tag">Fase 5</span>
+  <strong>Cliente · Tus facturas</strong>
+  <span>· compone <code>ClientShell</code> + <code>ListPage variant="standard"</code> + StatusTabs + FilterBar</span>
+  <span style="margin-left: auto;">URL · <code>/dashboard/billing</code></span>
+</div>
+
+<div class="shell" data-density="comfortable">
+  <a class="shell-skip" href="#main">Saltar al contenido</a>
+
+  <aside class="shell-sidebar" aria-label="Navegación principal">
+    <a href="overview.html" class="shell-brand">
+      <span class="shell-brand-logo"><svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect x="6" y="2" width="11" height="11" rx="2" transform="rotate(45 11.5 7.5)" fill="var(--brand)"/><rect x="11" y="15" width="8" height="8" rx="1.5" transform="rotate(45 15 19)" fill="var(--brand)" opacity="0.55"/></svg></span>
+      <span class="shell-brand-text"><span class="shell-brand-name">aelium</span><span class="shell-brand-portal">Portal cliente</span></span>
+    </a>
+    <nav class="shell-nav">
+      <div class="shell-nav-section">
+        <a class="shell-nav-link" href="overview.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span class="nav-label">Inicio</span></a>
+        <a class="shell-nav-link" href="services.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><span class="nav-label">Tus servicios</span></a>
+        <a class="shell-nav-link is-active" href="billing.html" aria-current="page"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span><span class="nav-label">Tus facturas</span></a>
+        <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="nav-label">Soporte</span></a>
+        <a class="shell-nav-link" href="transparency.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span><span class="nav-label">Transparencia</span></a>
+      </div>
+    </nav>
+    <button class="shell-collapse-btn" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 18l-6-6 6-6"/></svg>Colapsar</button>
+  </aside>
+
+  <header class="shell-topbar">
+    <div class="shell-topbar-left"></div>
+    <div class="shell-topbar-right">
+      <button class="shell-icon-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+      <button class="shell-icon-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="badge-count">2</span></button>
+      <button class="shell-profile"><span class="shell-profile-info"><span class="shell-profile-name">María Pérez</span><span class="shell-profile-role">Cliente</span></span><span class="shell-profile-avatar">MP</span></button>
+    </div>
+  </header>
+
+  <main class="shell-main" id="main">
+    <div class="list-page">
+      <div class="page-header">
+        <div class="ph-titleblock">
+          <h1 class="ph-title">Tus facturas</h1>
+          <p class="ph-subtitle">12 facturas · cobramos automáticamente · ordena por fecha</p>
+        </div>
+        <div class="ph-actions">
+          <button class="btn btn-secondary btn-md">Descargar todas (ZIP)</button>
+        </div>
+      </div>
+
+      <div class="stub-tabs" role="tablist">
+        <span class="tab is-active">Todas <span class="count">12</span></span>
+        <span class="tab">Pagadas <span class="count">11</span></span>
+        <span class="tab">Pendientes <span class="count">1</span></span>
+      </div>
+
+      <div class="filterbar-stub">
+        <span class="search-stub">🔍 Buscar por número o servicio…</span>
+        <span class="filter-stub">Año · 2025 ▾</span>
+        <span class="filter-stub">Servicio · todos ▾</span>
+      </div>
+
+      <div class="lp-content">
+        <table class="inv-table">
+          <thead>
+            <tr>
+              <th>Número</th>
+              <th>Concepto</th>
+              <th>Emitida</th>
+              <th class="num">Total</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a class="id-link" href="invoice-detail.html">INV-00042</a></td>
+              <td>Hosting Pro · oct 2025</td>
+              <td>1 oct 2025</td>
+              <td class="num">49,90 €</td>
+              <td><span class="b active"><span class="dot"></span>pagada</span></td>
+              <td><div class="row-actions"><a href="invoice-detail.html">Ver</a><a href="#">PDF</a></div></td>
+            </tr>
+            <tr>
+              <td><a class="id-link" href="#">INV-00041</a></td>
+              <td>Hosting Pro · sep 2025</td>
+              <td>1 sep 2025</td>
+              <td class="num">49,90 €</td>
+              <td><span class="b active"><span class="dot"></span>pagada</span></td>
+              <td><div class="row-actions"><a href="#">Ver</a><a href="#">PDF</a></div></td>
+            </tr>
+            <tr>
+              <td><a class="id-link" href="#">INV-00040</a></td>
+              <td>Hosting Pro · ago 2025</td>
+              <td>1 ago 2025</td>
+              <td class="num">49,90 €</td>
+              <td><span class="b active"><span class="dot"></span>pagada</span></td>
+              <td><div class="row-actions"><a href="#">Ver</a><a href="#">PDF</a></div></td>
+            </tr>
+            <tr>
+              <td><a class="id-link" href="#">INV-00039</a></td>
+              <td>Hosting Pro · jul 2025 + buzón pro</td>
+              <td>1 jul 2025</td>
+              <td class="num">64,90 €</td>
+              <td><span class="b active"><span class="dot"></span>pagada</span></td>
+              <td><div class="row-actions"><a href="#">Ver</a><a href="#">PDF</a></div></td>
+            </tr>
+            <tr>
+              <td><a class="id-link" href="#">INV-00038</a></td>
+              <td>Hosting Pro · jun 2025</td>
+              <td>1 jun 2025</td>
+              <td class="num">49,90 €</td>
+              <td><span class="b active"><span class="dot"></span>pagada</span></td>
+              <td><div class="row-actions"><a href="#">Ver</a><a href="#">PDF</a></div></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="stub-pag">
+          <span class="pag-meta">Mostrando 1–5 de 12</span>
+          <span class="pag-controls">
+            <span class="pag-btn">‹</span>
+            <span class="pag-btn is-active">1</span>
+            <span class="pag-btn">2</span>
+            <span class="pag-btn">3</span>
+            <span class="pag-btn">›</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

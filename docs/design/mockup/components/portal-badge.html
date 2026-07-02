@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · PortalBadge</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .pb-demo { background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5); margin-bottom: var(--space-3); display: inline-block; min-width: 240px; }
+  .pb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+  @media (max-width: 700px) { .pb-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.D · Navegación</div>
+      <h1 class="page-title">PortalBadge</h1>
+      <p class="page-lede">
+        Identificador del portal en el header del sidebar. Logo + subtitle. Diferenciación por <strong>texto</strong> (no color dramático) — coherente con marca: un solo Aelium, dialectos sutiles.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variantes por portal</h2>
+        <span class="section-num">01</span>
+      </div>
+
+      <div class="pb-grid">
+        <div class="pb-demo">
+          <div class="portal-badge" data-portal="admin">
+            <div class="pb-mark"><div class="nav-brand-mark"></div></div>
+            <div class="pb-text">
+              <span class="pb-logo">Aelium</span>
+              <span class="pb-subtitle">Portal de Administración</span>
+            </div>
+          </div>
+          <p class="legend" style="margin-top: var(--space-3);">admin · superadmin</p>
+        </div>
+
+        <div class="pb-demo">
+          <div class="portal-badge" data-portal="agent">
+            <div class="pb-mark"><div class="nav-brand-mark"></div></div>
+            <div class="pb-text">
+              <span class="pb-logo">Aelium</span>
+              <span class="pb-subtitle">Portal de Administración</span>
+            </div>
+          </div>
+          <p class="legend" style="margin-top: var(--space-3);">agent · agent_full / agent_billing / agent_support · reusa shell admin</p>
+        </div>
+
+        <div class="pb-demo">
+          <div class="portal-badge" data-portal="client">
+            <div class="pb-mark"><div class="nav-brand-mark"></div></div>
+            <div class="pb-text">
+              <span class="pb-logo">Aelium</span>
+              <span class="pb-subtitle">Portal de Cliente</span>
+            </div>
+          </div>
+          <p class="legend" style="margin-top: var(--space-3);">client</p>
+        </div>
+
+        <div class="pb-demo">
+          <div class="portal-badge" data-portal="partner">
+            <div class="pb-mark"><div class="nav-brand-mark"></div></div>
+            <div class="pb-text">
+              <span class="pb-logo">Aelium</span>
+              <span class="pb-subtitle">Portal de Partner</span>
+            </div>
+          </div>
+          <p class="legend" style="margin-top: var(--space-3);">partner · partner_pending</p>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Diferenciación textual.</strong> Subtitle admin/agent en <span class="tok">--brand</span>, cliente y partner en <span class="tok">--text-secondary</span>. Sin paletas distintas por portal — la marca es coherente en todos.
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Modo compact · sidebar colapsado</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Solo logo, subtitle oculto. Para sidebar reducido a iconos.</p>
+
+      <div class="pb-demo" style="min-width: auto; padding: var(--space-3);">
+        <div class="portal-badge" data-portal="admin">
+          <div class="pb-mark"><div class="nav-brand-mark"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Validación con marca</h2>
+        <span class="section-num">03</span>
+      </div>
+      <div class="kv">
+        <div><strong>Trato individualizado</strong></div>
+        <div>Cada portal tiene su contexto claro. Usuario sabe en qué espacio está.</div>
+        <div><strong>"Construido para durar"</strong></div>
+        <div>Una marca coherente — un usuario que es cliente y partner no siente que "saltó a otra app" al cambiar.</div>
+        <div><strong>Voz</strong></div>
+        <div>"Portal de Administración / Cliente / Partner" en castellano, no anglicismos.</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs actual</h2>
+        <span class="section-num">04</span>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Variant agent <span class="meta">D2D-4</span></div>
+        <div>Documentado: agent reusa shell admin. Mismo subtitle.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Diferenciación sutil <span class="meta">D2D-5</span></div>
+        <div>Mantener (decisión de marca). Sin colores dramáticos por portal.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Logo SVG override</div>
+        <div>Cuando exista <span class="mono">aelium_logo_blue.svg</span>, usar SVG. Texto "Aelium" como fallback.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

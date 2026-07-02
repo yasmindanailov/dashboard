@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Admin · Floristería Pérez</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  /* Topbar simulado */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface-primary);
+    border-bottom: 1px solid var(--border);
+    padding: var(--space-3) var(--space-6);
+    margin: calc(var(--space-12) * -1) calc(var(--space-12) * -1) var(--space-6);
+  }
+  .topbar-left { display: flex; align-items: center; gap: var(--space-4); }
+  .topbar-right { display: flex; align-items: center; gap: var(--space-2); position: relative; }
+  .topbar-search {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--surface-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-tertiary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    min-width: 320px;
+    transition: border-color var(--transition-fast) var(--ease-out),
+                background var(--transition-fast) var(--ease-out);
+  }
+  .topbar-search:hover {
+    border-color: var(--border-hover);
+    background: var(--surface-primary);
+  }
+  /* Header de cliente */
+  .client-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+  .client-name {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin: var(--space-3) 0 var(--space-2);
+  }
+  .client-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+  }
+  .client-meta .sep { color: var(--text-tertiary); }
+  .client-actions { display: flex; gap: var(--space-2); align-items: center; }
+  /* Stats inline en compact */
+  .compact-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); margin-bottom: var(--space-6); }
+  @media (max-width: 1100px) { .compact-stats { grid-template-columns: 1fr 1fr; } }
+  /* Section */
+  .panel { background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main" data-density="compact">
+
+    <!-- Topbar simulado -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Buscar página, acción o entidad…
+        </button>
+      </div>
+      <div class="topbar-right">
+        <button class="bell" aria-label="Notificaciones">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="bell-badge pulse">3</span>
+        </button>
+        <button class="dropdown-trigger" style="padding: var(--space-1_5) var(--space-2); border: none; background: transparent;">
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius-full); background: var(--brand-light); color: var(--brand-active); font-size: var(--font-size-xs); font-weight: var(--font-weight-medium);">YA</span>
+          <span style="margin-left: var(--space-2); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">Yasmin</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-left: var(--space-1); color: var(--text-tertiary);"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb" aria-label="Ruta de navegación" style="margin-bottom: var(--space-3);">
+      <a href="#">Admin</a>
+      <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+      <a href="#">Clientes</a>
+      <span class="crumb-separator" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></span>
+      <span class="crumb-current" aria-current="page">Floristería Pérez</span>
+    </nav>
+
+    <!-- Client header -->
+    <div class="client-head">
+      <div>
+        <div class="eyebrow">Cliente · Activo</div>
+        <h1 class="client-name">Floristería Pérez</h1>
+        <div class="client-meta">
+          <span>florpez.com</span>
+          <span class="sep">·</span>
+          <span>NIF B12345678</span>
+          <span class="sep">·</span>
+          <span>Cliente desde marzo 2024</span>
+          <span class="sep">·</span>
+          <span class="badge badge-success"><span class="status-dot status-dot-success"></span>Web Pro</span>
+        </div>
+      </div>
+      <div class="client-actions">
+        <button class="dropdown-trigger icon-only" aria-label="Más acciones">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <button class="btn btn-secondary btn-md">Añadir nota</button>
+        <button class="btn btn-primary btn-md">Crear ticket</button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" role="tablist" style="margin-bottom: var(--space-6);">
+      <button class="tab" role="tab">Resumen</button>
+      <button class="tab" role="tab">Servicios <span class="tab-count">5</span></button>
+      <button class="tab" role="tab">Facturación <span class="tab-count">12</span></button>
+      <button class="tab active" role="tab" aria-selected="true">Notas <span class="tab-count">3</span></button>
+      <button class="tab" role="tab">Soporte <span class="tab-count warning">2</span></button>
+    </div>
+
+    <!-- Compact stats inline -->
+    <div class="compact-stats">
+      <div class="stats-card compact">
+        <div class="stats-card-eyebrow">Última actividad</div>
+        <p class="stats-card-value">hace 2&nbsp;h</p>
+        <p class="stats-card-closing">Marina escribió en su ticket.</p>
+      </div>
+      <div class="stats-card compact health" data-health="ok">
+        <div class="stats-card-eyebrow">
+          <span class="stats-card-health-marker"><span class="r"></span><span class="r"></span></span>
+          Servicios
+        </div>
+        <p class="stats-card-value">5/5</p>
+        <p class="stats-card-closing">todos activos</p>
+      </div>
+      <div class="stats-card compact">
+        <div class="stats-card-eyebrow">Próximo pago</div>
+        <p class="stats-card-value">49,90&nbsp;€</p>
+        <p class="stats-card-closing">en 12 días</p>
+      </div>
+      <div class="stats-card compact">
+        <div class="stats-card-eyebrow">Tickets abiertos</div>
+        <p class="stats-card-value">2</p>
+        <p class="stats-card-closing">último hace 2&nbsp;h</p>
+      </div>
+    </div>
+
+    <!-- Tab content: Notas como timeline (DD-027) -->
+    <div class="panel">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--space-5);">
+        <div>
+          <h2 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); margin: 0 0 var(--space-1); letter-spacing: -0.01em;">Notas internas</h2>
+          <p style="color: var(--text-secondary); font-size: var(--font-size-sm); margin: 0;">Para el equipo. El cliente no las ve.</p>
+        </div>
+        <button class="btn btn-secondary btn-sm">
+          <span class="icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+          Añadir nota
+        </button>
+      </div>
+
+      <ul class="timeline">
+        <li class="timeline-item">
+          <span class="timeline-marker"></span>
+          <div class="timeline-meta">
+            <span class="timeline-author">Yasmin</span>
+            <span class="timeline-time">hace 2 h</span>
+            <span class="timeline-tag">Llamada</span>
+          </div>
+          <p class="timeline-body">
+            Marina llamó preocupada por el correo. Le expliqué que estamos revisando el <strong>SPF</strong> — vuelve a llamar mañana si no se resuelve.
+          </p>
+        </li>
+        <li class="timeline-item muted">
+          <span class="timeline-marker"></span>
+          <div class="timeline-meta">
+            <span class="timeline-author">Marcos</span>
+            <span class="timeline-time">hace 1 d</span>
+            <span class="timeline-tag">Comercial</span>
+          </div>
+          <p class="timeline-body">
+            Cliente prepara expansión a <strong>3 webs nuevas</strong>. Recordar ofrecer Web Business antes de junio.
+          </p>
+        </li>
+        <li class="timeline-item muted">
+          <span class="timeline-marker"></span>
+          <div class="timeline-meta">
+            <span class="timeline-author">Yasmin</span>
+            <span class="timeline-time">hace 5 d</span>
+            <span class="timeline-tag">Pago</span>
+          </div>
+          <p class="timeline-body">
+            Pago confirmado de la factura de marzo. Le mandé email de gracias.
+          </p>
+        </li>
+        <li class="timeline-item muted">
+          <span class="timeline-marker"></span>
+          <div class="timeline-meta">
+            <span class="timeline-author">Sara</span>
+            <span class="timeline-time">hace 2 sem</span>
+            <span class="timeline-tag">Onboarding</span>
+          </div>
+          <p class="timeline-body">
+            Llamada de bienvenida completada. Cliente entendió bien el panel; no pidió Support Inside todavía.
+          </p>
+        </li>
+      </ul>
+    </div>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

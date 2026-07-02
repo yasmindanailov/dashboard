@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · FormPage</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .demo-frame {
+    background: var(--surface-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    overflow: hidden;
+  }
+  .demo-label {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-3);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .demo-label .ctx-tag {
+    background: var(--surface-tertiary);
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+  }
+  /* Breadcrumb stub */
+  .stub-bc {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--text-tertiary);
+  }
+  .stub-bc a { color: var(--text-secondary); text-decoration: none; }
+  .stub-bc .sep { color: var(--text-tertiary); }
+  .stub-bc .current { color: var(--text-primary); font-weight: var(--font-weight-medium); }
+  /* Form section card */
+  .form-section {
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5) var(--space-6);
+    box-shadow: var(--shadow-sm);
+  }
+  .form-section .fs-title {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin: 0 0 var(--space-1);
+  }
+  .form-section .fs-lede {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-4);
+    line-height: var(--line-height-normal);
+  }
+  .fs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3) var(--space-4);
+  }
+  .fs-grid .full { grid-column: 1 / -1; }
+  /* Reuse field component from styles.css */
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 3 · Patrones</div>
+      <h1 class="page-title">FormPage</h1>
+      <p class="page-lede">
+        El patrón que enmarca cualquier formulario del dashboard. Tres variantes nativas (DD-029): <strong>standard</strong> (lineal), <strong>wizard</strong> (multi-paso ramificado), <strong>long-form</strong> (con TOC para &gt;5 secciones). Header solo título, sin subtitle ni CTA arriba (UI_SPEC §2.6). Acciones al final, sticky opcional cuando supera 2× viewport.
+      </p>
+      <div class="row" style="margin-top: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-2);">
+        <span class="tok">--space-6 · gap</span>
+        <span class="tok">stepper card neutra</span>
+        <span class="tok">TOC sticky 220px</span>
+        <span class="tok">DD-022 voz</span>
+        <span class="tok">DD-030 sin rombo en stepper</span>
+      </div>
+    </header>
+
+    <!-- ─── 01 · variante standard ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante · standard</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">
+        El default. 1-5 secciones lineales, el usuario rellena top-to-bottom y envía. Sin ramificación.
+        <strong>Caso producto:</strong> <code>/admin/products/new</code> — alta de producto.
+      </p>
+
+      <div class="demo-label">
+        <span>FormPage · variant="standard"</span>
+        <span class="ctx-tag">Admin · Nuevo producto</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="form-page">
+          <nav class="stub-bc" aria-label="Migas de pan">
+            <a href="#">Catálogo</a>
+            <span class="sep">›</span>
+            <span class="current">Nuevo producto</span>
+          </nav>
+
+          <div class="fp-header">
+            <h1 class="fp-title">Nuevo producto</h1>
+          </div>
+
+          <div class="fp-sections">
+            <div class="form-section">
+              <h2 class="fs-title">Identidad del producto</h2>
+              <p class="fs-lede">Cómo lo verá el cliente en su portal y en las facturas.</p>
+              <div class="fs-grid">
+                <div class="field field-md full">
+                  <label class="field-label">Nombre</label>
+                  <div class="field-control"><input class="input" type="text" placeholder="Hosting Pro" /></div>
+                </div>
+                <div class="field field-md">
+                  <label class="field-label">Código interno</label>
+                  <div class="field-control"><input class="input" type="text" placeholder="HOST-PRO" /></div>
+                </div>
+                <div class="field field-md">
+                  <label class="field-label">Categoría</label>
+                  <div class="field-control"><input class="input" type="text" placeholder="Hosting · plan mensual" readonly /></div>
+                </div>
+                <div class="field field-md full">
+                  <label class="field-label">Cómo se lo explicas al cliente</label>
+                  <div class="field-control"><textarea class="input" rows="2" placeholder="Tu web siempre disponible, con backup diario incluido."></textarea></div>
+                  <span class="field-helper">Aparece en el catálogo del cliente. Una frase, sin tecnicismos.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h2 class="fs-title">Lo que cuesta</h2>
+              <p class="fs-lede">El cliente lo verá así en su factura.</p>
+              <div class="fs-grid">
+                <div class="field field-md field-suffix-text">
+                  <label class="field-label">Importe mensual</label>
+                  <div class="field-control"><input class="input" type="text" placeholder="29,90" /><span class="field-text-affix">€</span></div>
+                </div>
+                <div class="field field-md">
+                  <label class="field-label">IVA</label>
+                  <div class="field-control"><input class="input" type="text" placeholder="21%" /></div>
+                </div>
+                <div class="field field-md full">
+                  <label class="field-label">Notas internas <span style="color: var(--text-tertiary); font-weight: 400;">(opcional)</span></label>
+                  <div class="field-control"><textarea class="input" rows="2" placeholder="Cualquier detalle para el equipo."></textarea></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="fp-actions">
+            <span class="fp-actions-secondary">Te avisamos por email cuando el producto esté disponible para el cliente.</span>
+            <button class="btn btn-secondary btn-md">Cancelar</button>
+            <button class="btn btn-primary btn-md">Crear producto</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: secciones <strong>"Identidad del producto"</strong> + <strong>"Lo que cuesta"</strong> (no "Información básica" / "Pricing") · labels como <strong>"Cómo se lo explicas al cliente"</strong> · helper acompaña sin burocracia · CTA <strong>"Crear producto"</strong> verbo concreto.
+      </p>
+    </section>
+
+    <!-- ─── 02 · variante wizard ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante · wizard (multi-paso)</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">
+        Form ramificado · paso 3 depende de paso 1. El usuario necesita ver cuánto le queda. Stepper en card neutra (sin rombo, DD-030).
+        <strong>Caso producto:</strong> <code>/cliente/onboarding</code> — alta del cliente guiada.
+      </p>
+
+      <div class="demo-label">
+        <span>FormPage · variant="wizard" · paso 2 de 4</span>
+        <span class="ctx-tag">Cliente · Onboarding</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="form-page fp-wizard">
+          <nav class="stub-bc" aria-label="Migas de pan">
+            <a href="#">Empezar con Aelium</a>
+            <span class="sep">›</span>
+            <span class="current">Tu primer servicio</span>
+          </nav>
+
+          <div class="fp-stepper">
+            <span class="fp-step is-done">
+              <span class="step-num">✓</span> Datos de empresa
+            </span>
+            <span class="fp-step-sep"></span>
+            <span class="fp-step is-current">
+              <span class="step-num">2</span> Tu primer servicio
+            </span>
+            <span class="fp-step-sep"></span>
+            <span class="fp-step">
+              <span class="step-num">3</span> Cómo te facturamos
+            </span>
+            <span class="fp-step-sep"></span>
+            <span class="fp-step">
+              <span class="step-num">4</span> Confirmar y empezar
+            </span>
+          </div>
+
+          <div class="fp-header">
+            <h1 class="fp-title">¿Por dónde empezamos?</h1>
+          </div>
+
+          <div class="fp-sections">
+            <div class="form-section">
+              <h2 class="fs-title">Elige tu primer servicio</h2>
+              <p class="fs-lede">Puedes añadir más después. No hay prisa.</p>
+              <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                <label style="display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--brand-subtle); border: 1px solid var(--brand); border-radius: var(--radius-md); cursor: default;">
+                  <input type="radio" checked style="margin-top: 4px;" />
+                  <div>
+                    <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--text-primary);">Hosting Pro</div>
+                    <div style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-top: 2px;">Tu web al aire 24/7, con copia diaria. <strong>29,90 €/mes</strong>.</div>
+                  </div>
+                </label>
+                <label style="display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: default;">
+                  <input type="radio" style="margin-top: 4px;" />
+                  <div>
+                    <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--text-primary);">Buzón profesional</div>
+                    <div style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-top: 2px;">Emails con tu dominio, sincronizados en todos los dispositivos. <strong>desde 3 €/buzón</strong>.</div>
+                  </div>
+                </label>
+                <label style="display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: default;">
+                  <input type="radio" style="margin-top: 4px;" />
+                  <div>
+                    <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--text-primary);">Tienda online</div>
+                    <div style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-top: 2px;">Vende online, con pasarela de pagos integrada. <strong>49 €/mes</strong>.</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h2 class="fs-title">Tu dominio</h2>
+              <p class="fs-lede">Si ya tienes uno, lo conectamos. Si no, te ayudamos a comprarlo.</p>
+              <div class="fs-grid">
+                <div class="field field-md field-prefix-text full">
+                  <label class="field-label">Tu dominio</label>
+                  <div class="field-control"><span class="field-text-affix">https://</span><input class="input" type="text" placeholder="mitienda.com" /></div>
+                  <span class="field-helper">Te enviamos las credenciales aquí en cuanto el hosting esté listo.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="fp-actions">
+            <span class="fp-actions-secondary">Paso 2 de 4 · te queda 1 minuto</span>
+            <button class="btn btn-secondary btn-md">Atrás</button>
+            <button class="btn btn-primary btn-md">Siguiente</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: stepper con pasos como sustantivos (<strong>"Datos de empresa"</strong>, <strong>"Tu primer servicio"</strong>, <strong>"Cómo te facturamos"</strong>, <strong>"Confirmar y empezar"</strong>) · h1 conversacional <strong>"¿Por dónde empezamos?"</strong> · helper bajo botones <strong>"te queda 1 minuto"</strong> · sin rombo decorativo en step numbers.
+      </p>
+    </section>
+
+    <!-- ─── 03 · variante long-form ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante · long-form (con TOC)</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">
+        &gt;5 secciones independientes, el usuario llega "a una sección concreta". TOC a la izquierda sticky 220px. Actions sticky bottom (la página supera 2vh por naturaleza).
+        <strong>Caso producto:</strong> <code>/cliente/settings</code> — perfil + notificaciones + facturación + seguridad + privacidad + integraciones.
+      </p>
+
+      <div class="demo-label">
+        <span>FormPage · variant="long-form" · actionsSticky</span>
+        <span class="ctx-tag">Cliente · Configuración</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="form-page fp-long-form">
+          <nav class="stub-bc" aria-label="Migas de pan">
+            <a href="#">Tu cuenta</a>
+            <span class="sep">›</span>
+            <span class="current">Configuración</span>
+          </nav>
+
+          <div class="fp-header">
+            <h1 class="fp-title">Configuración</h1>
+          </div>
+
+          <div class="fp-body">
+            <nav class="fp-toc" aria-label="Secciones del formulario">
+              <span class="fp-toc-title">Secciones</span>
+              <a class="fp-toc-link is-active" href="#perfil">Perfil</a>
+              <a class="fp-toc-link" href="#notificaciones">Notificaciones</a>
+              <a class="fp-toc-link" href="#facturacion">Facturación</a>
+              <a class="fp-toc-link" href="#seguridad">Seguridad</a>
+              <a class="fp-toc-link" href="#privacidad">Privacidad</a>
+              <a class="fp-toc-link" href="#integraciones">Integraciones</a>
+            </nav>
+
+            <div class="fp-sections" style="min-height: 600px;">
+              <section class="form-section" id="perfil">
+                <h2 class="fs-title">Perfil</h2>
+                <p class="fs-lede">Cómo te conoce el equipo de Aelium cuando hablamos contigo.</p>
+                <div class="fs-grid">
+                  <div class="field field-md">
+                    <label class="field-label">Cómo te llamamos</label>
+                    <div class="field-control"><input class="input" type="text" value="María" /></div>
+                  </div>
+                  <div class="field field-md">
+                    <label class="field-label">Apellidos</label>
+                    <div class="field-control"><input class="input" type="text" value="Pérez García" /></div>
+                  </div>
+                  <div class="field field-md full">
+                    <label class="field-label">Empresa</label>
+                    <div class="field-control"><input class="input" type="text" value="Floristería Pérez" /></div>
+                    <span class="field-helper">Aparece en tus facturas y en el portal del cliente.</span>
+                  </div>
+                </div>
+              </section>
+
+              <section class="form-section" id="notificaciones">
+                <h2 class="fs-title">Notificaciones</h2>
+                <p class="fs-lede">Te enviamos solo lo importante. Sin newsletter, sin promociones.</p>
+                <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                  <label style="display: flex; gap: var(--space-3); align-items: flex-start;">
+                    <input type="checkbox" checked style="margin-top: 3px;" />
+                    <div>
+                      <div style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--text-primary);">Avisos de tu servicio</div>
+                      <div style="font-size: var(--font-size-xs); color: var(--text-tertiary);">Caídas, mantenimiento, copias. Lo imprescindible.</div>
+                    </div>
+                  </label>
+                  <label style="display: flex; gap: var(--space-3); align-items: flex-start;">
+                    <input type="checkbox" checked style="margin-top: 3px;" />
+                    <div>
+                      <div style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--text-primary);">Facturas y avisos de cobro</div>
+                      <div style="font-size: var(--font-size-xs); color: var(--text-tertiary);">Cuando emitamos una factura nueva o cobremos un pago.</div>
+                    </div>
+                  </label>
+                  <label style="display: flex; gap: var(--space-3); align-items: flex-start;">
+                    <input type="checkbox" style="margin-top: 3px;" />
+                    <div>
+                      <div style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--text-primary);">Resumen mensual</div>
+                      <div style="font-size: var(--font-size-xs); color: var(--text-tertiary);">Lo que hizo Aelium por ti este mes. El primer día de cada mes.</div>
+                    </div>
+                  </label>
+                </div>
+              </section>
+
+              <section class="form-section" id="facturacion">
+                <h2 class="fs-title">Dónde te enviamos las facturas</h2>
+                <p class="fs-lede">Datos fiscales y método de pago.</p>
+                <div class="fs-grid">
+                  <div class="field field-md">
+                    <label class="field-label">NIF / CIF</label>
+                    <div class="field-control"><input class="input" type="text" value="B-12345678" /></div>
+                  </div>
+                  <div class="field field-md">
+                    <label class="field-label">Email de facturación</label>
+                    <div class="field-control"><input class="input" type="email" value="facturas@floristeriaperez.com" /></div>
+                  </div>
+                  <div class="field field-md full">
+                    <label class="field-label">Dirección fiscal</label>
+                    <div class="field-control"><input class="input" type="text" value="Calle Mayor 12, 28001 Madrid" /></div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <div class="fp-actions sticky">
+            <span class="fp-actions-secondary">Tienes cambios sin guardar.</span>
+            <button class="btn btn-secondary btn-md">Cancelar</button>
+            <button class="btn btn-primary btn-md">Guardar cambios</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: secciones como hojas de servicio (<strong>"Cómo te llamamos"</strong>, <strong>"Dónde te enviamos las facturas"</strong>) · checkbox descriptivos (<strong>"Avisos de tu servicio"</strong> + qué lleva dentro) · helper sticky <strong>"Tienes cambios sin guardar"</strong> sustituye al modal genérico.
+      </p>
+    </section>
+
+    <!-- ─── 04 · cuándo usar / cuándo no ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Cuándo usar cada variante</h2>
+        <span class="section-num">04</span>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden;">
+        <thead>
+          <tr>
+            <th style="text-align: left; padding: var(--space-2_5) var(--space-3); background: var(--surface-secondary); font-size: var(--font-size-xs); text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.04em; border-bottom: 1px solid var(--border);">Variante</th>
+            <th style="text-align: left; padding: var(--space-2_5) var(--space-3); background: var(--surface-secondary); font-size: var(--font-size-xs); text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.04em; border-bottom: 1px solid var(--border);">Cuándo</th>
+            <th style="text-align: left; padding: var(--space-2_5) var(--space-3); background: var(--surface-secondary); font-size: var(--font-size-xs); text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.04em; border-bottom: 1px solid var(--border);">Cuándo NO</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);"><strong>standard</strong></td>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">1-5 secciones lineales · orden no importa · top-to-bottom</td>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">Form ramificado o &gt;5 secciones independientes</td>
+          </tr>
+          <tr>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);"><strong>wizard</strong></td>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">Pasos ramificados · usuario quiere ver cuánto queda · "Confirmar y crear" al final</td>
+            <td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">Form lineal corto (3-4 campos) · cuestionario interminable</td>
+          </tr>
+          <tr>
+            <td style="padding: var(--space-3);"><strong>long-form</strong></td>
+            <td style="padding: var(--space-3);">&gt;5 secciones independientes · navegación es necesaria · settings, perfil</td>
+            <td style="padding: var(--space-3);">3-5 secciones (standard ya basta) · orden importa (usar wizard)</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ─── 05 · anti-patrones ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Anti-patrones</h2>
+        <span class="section-num">05</span>
+      </div>
+
+      <ul style="font-size: var(--font-size-sm); line-height: var(--line-height-relaxed); color: var(--text-secondary); padding-left: var(--space-5);">
+        <li>❌ Subtitle bajo h1 ("Crea un nuevo producto rellenando los campos abajo"). Sobrante. UI_SPEC §2.6 prohíbe subtitle en FormPage.</li>
+        <li>❌ CTA primario en el header derecha. El CTA va abajo, donde el usuario termina.</li>
+        <li>❌ Sticky actions siempre. Default off — solo si form excede 2× viewport.</li>
+        <li>❌ Wizard cuando standard ya funciona. Stepper genera fricción si los pasos no son ramificados.</li>
+        <li>❌ Long-form sin TOC ("ya scrollea el usuario"). El TOC es la diferencia.</li>
+        <li>❌ Step number con rombo decorativo. <strong>DD-030</strong>: el step usa círculo brand fill, sin marker.</li>
+        <li>❌ Validar en cada keystroke. La marca es paciente — validación al perder focus.</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

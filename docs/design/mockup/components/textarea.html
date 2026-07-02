@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Textarea</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
+  .form-stack { display: flex; flex-direction: column; gap: var(--space-5); }
+  @media (max-width: 800px) { .form-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="page-eyebrow">Fase 2.A · Formularios</div>
+      <h1 class="page-title">Textarea</h1>
+      <p class="page-lede">
+        Texto multi-línea. Char counter con umbrales de aviso. Aelium acompaña en el placeholder — no instruye.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Tamaños</h2>
+        <span class="section-num">01</span>
+      </div>
+
+      <div class="form-stack" style="max-width: 640px;">
+        <div class="field field-sm">
+          <label class="field-label" for="t-sm">Nota interna (sm)</label>
+          <textarea id="t-sm" class="textarea" rows="2" placeholder="Para el equipo. El cliente no lo ve."></textarea>
+          <p class="field-helper">Cards densas, filas de tabla expandibles.</p>
+        </div>
+        <div class="field field-md">
+          <label class="field-label" for="t-md">Cuéntanos qué pasa (md)</label>
+          <textarea id="t-md" class="textarea" rows="4" placeholder="Lo que veas, lo que necesites. Sin filtro."></textarea>
+          <p class="field-helper">Default · formularios estándar.</p>
+        </div>
+        <div class="field field-lg">
+          <label class="field-label" for="t-lg">¿Qué hace tu negocio? (lg)</label>
+          <textarea id="t-lg" class="textarea" rows="5" placeholder="Una frase. La que le dirías a un amigo."></textarea>
+          <p class="field-helper">Onboarding cliente · landing.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Char counter</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Aparece cuando hay <span class="mono">maxLength</span>. Cambia color al 90% y al 100%.</p>
+
+      <div class="form-stack" style="max-width: 640px;">
+        <div class="field field-md">
+          <label class="field-label" for="t-c-default">Default</label>
+          <textarea id="t-c-default" class="textarea" rows="3" maxlength="500" placeholder="Lo que veas, lo que necesites. Sin filtro." oninput="updateCount(this, 'cc-default')"></textarea>
+          <div class="textarea-footer">
+            <p class="field-helper">Te respondemos en menos de 24h.</p>
+            <p class="char-count" id="cc-default">0/500</p>
+          </div>
+        </div>
+
+        <div class="field field-md">
+          <label class="field-label" for="t-c-warn">A 90% (zona warn)</label>
+          <textarea id="t-c-warn" class="textarea" rows="3" maxlength="200">Esto es un mensaje que está rozando el límite porque tiene una longitud calculada para entrar en la zona warn. La marca avisa con calma — sin alarmismo, sin acusar al usuario. Solo informa.</textarea>
+          <div class="textarea-footer">
+            <p class="field-helper">Te quedan pocos caracteres.</p>
+            <p class="char-count warn">182/200</p>
+          </div>
+        </div>
+
+        <div class="field field-md">
+          <label class="field-label" for="t-c-error">A 100% (bloqueado)</label>
+          <textarea id="t-c-error" class="textarea" rows="3" maxlength="100">Esto es un texto exacto cien caracteres lleno hasta el tope. Más no entra. Aelium honesto.</textarea>
+          <div class="textarea-footer">
+            <p class="field-helper">Has llegado al límite.</p>
+            <p class="char-count error">100/100</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Estados</h2>
+        <span class="section-num">03</span>
+      </div>
+
+      <div class="form-grid">
+        <div class="field field-md">
+          <label class="field-label" for="ts-default">Default</label>
+          <textarea id="ts-default" class="textarea" rows="3" placeholder="Empieza a escribir…"></textarea>
+        </div>
+        <div class="field field-md">
+          <label class="field-label" for="ts-focus">Focus visible (simulado)</label>
+          <textarea id="ts-focus" class="textarea" rows="3" style="border-color: var(--brand); box-shadow: var(--focus-ring);">Escribiendo aquí…</textarea>
+        </div>
+        <div class="field field-md">
+          <label class="field-label" for="ts-disabled">Disabled</label>
+          <textarea id="ts-disabled" class="textarea" rows="3" disabled>No editable.</textarea>
+        </div>
+        <div class="field field-md has-error">
+          <label class="field-label" for="ts-error">Error</label>
+          <textarea id="ts-error" class="textarea" rows="3" aria-invalid="true">No es suficiente.</textarea>
+          <p class="field-error">Cuéntanos un poco más para poder ayudarte.</p>
+        </div>
+        <div class="field field-md">
+          <label class="field-label" for="ts-noresize">Sin resize</label>
+          <textarea id="ts-noresize" class="textarea no-resize" rows="3" placeholder="Altura fija."></textarea>
+          <p class="field-helper">Para cards densas o filas expandibles.</p>
+        </div>
+        <div class="field field-md">
+          <label class="field-label" for="ts-readonly">Readonly</label>
+          <textarea id="ts-readonly" class="textarea" rows="3" readonly>Esto es lo que se va a enviar al cliente. Confírmalo.</textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Voz · ejemplos producto</h2>
+        <span class="section-num">04</span>
+      </div>
+
+      <div class="form-stack" style="max-width: 640px;">
+        <div class="field field-md">
+          <label class="field-label" for="v-ticket">Cuéntanos qué pasa</label>
+          <textarea id="v-ticket" class="textarea" rows="4" maxlength="2000" placeholder="Lo que veas, lo que necesites. Sin filtro."></textarea>
+          <div class="textarea-footer">
+            <p class="field-helper">Yasmin lo verá y te llama si hace falta.</p>
+            <p class="char-count">0/2000</p>
+          </div>
+        </div>
+
+        <div class="field field-md">
+          <label class="field-label" for="v-cancel">¿Por qué cancelas? <span style="color: var(--text-tertiary); font-weight: var(--font-weight-regular);">(opcional)</span></label>
+          <textarea id="v-cancel" class="textarea" rows="3" placeholder="Nos ayuda a mejorar."></textarea>
+          <p class="field-helper">No se usa para retenerte. Solo para entender.</p>
+        </div>
+
+        <div class="field field-md">
+          <label class="field-label" for="v-nota">Nota interna</label>
+          <textarea id="v-nota" class="textarea" rows="3" placeholder="Para el equipo. El cliente no lo ve."></textarea>
+          <p class="field-helper">Aparece en el historial del cliente.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs implementación actual</h2>
+        <span class="section-num">05</span>
+      </div>
+      <p class="section-lede">Detalle en <a href="../../fase-2-componentes/grupo-a-formularios/Textarea.md" style="color: var(--brand);">Textarea.md</a>.</p>
+
+      <div class="spec-grid">
+        <div class="label">Focus ring <span class="meta">D2A-2</span></div>
+        <div>Migrar a <span class="tok">--focus-ring</span>.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Border default <span class="meta">D2A-3</span></div>
+        <div>Corregir de <span class="tok">--border-hover</span> a <span class="tok">--border</span>.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Tamaños <span class="meta">D2A-4</span></div>
+        <div><strong>Añadir</strong> sm/md/lg coherentes con Input/Select/Button.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Voz <span class="meta">DD-022</span></div>
+        <div>Refactor de copy a vocabulario Aelium.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+<script>
+  function updateCount(el, counterId) {
+    const counter = document.getElementById(counterId);
+    if (!counter) return;
+    const len = el.value.length;
+    const max = el.maxLength;
+    counter.textContent = len + '/' + max;
+    counter.classList.remove('warn', 'error');
+    if (len >= max) counter.classList.add('error');
+    else if (len / max >= 0.9) counter.classList.add('warn');
+  }
+</script>
+</body>
+</html>

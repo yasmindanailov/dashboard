@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Cliente · INV-00042</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { background: var(--surface-secondary); }
+  .demo-page-banner { background: var(--surface-primary); border-bottom: 1px solid var(--border); padding: var(--space-3) var(--space-5); font-size: var(--font-size-xs); color: var(--text-tertiary); display: flex; align-items: center; gap: var(--space-3); }
+  .demo-page-banner strong { color: var(--text-primary); }
+  .demo-page-banner .tag { background: var(--brand-subtle); color: var(--brand-active); padding: 2px 8px; border-radius: 999px; font-weight: var(--font-weight-medium); }
+  .stub-bc { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-sm); color: var(--text-tertiary); }
+  .stub-bc a { color: var(--text-secondary); text-decoration: none; }
+  .stub-bc .current { color: var(--text-primary); font-weight: var(--font-weight-medium); }
+  .b { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); }
+  .b.active { background: var(--success-subtle); color: var(--success-strong); }
+  .b .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .panel { background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5) var(--space-6); box-shadow: var(--shadow-sm); }
+  .panel + .panel { margin-top: var(--space-4); }
+  .panel-title { font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); color: var(--text-primary); margin: 0 0 var(--space-3); letter-spacing: -0.01em; }
+  .items-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); }
+  .items-table th, .items-table td { padding: var(--space-2_5) 0; text-align: left; border-bottom: 1px solid var(--border); }
+  .items-table th { color: var(--text-tertiary); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em; font-weight: var(--font-weight-medium); }
+  .items-table .num { text-align: right; font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+  .items-table tr.total td { padding-top: var(--space-3); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); color: var(--text-primary); border-bottom: none; }
+  .items-table tr.subtotal td { color: var(--text-secondary); border-bottom: none; padding-top: var(--space-2); padding-bottom: 0; }
+</style>
+</head>
+<body>
+
+<div class="demo-page-banner">
+  <span class="tag">Fase 5</span>
+  <strong>Cliente · Detalle de factura</strong>
+  <span>· compone <code>ClientShell</code> + <code>DetailPage variant="standard"</code></span>
+  <span style="margin-left: auto;">URL · <code>/dashboard/billing/[id]</code></span>
+</div>
+
+<div class="shell" data-density="comfortable">
+  <a class="shell-skip" href="#main">Saltar al contenido</a>
+
+  <aside class="shell-sidebar" aria-label="Navegación principal">
+    <a href="overview.html" class="shell-brand">
+      <span class="shell-brand-logo"><svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect x="6" y="2" width="11" height="11" rx="2" transform="rotate(45 11.5 7.5)" fill="var(--brand)"/><rect x="11" y="15" width="8" height="8" rx="1.5" transform="rotate(45 15 19)" fill="var(--brand)" opacity="0.55"/></svg></span>
+      <span class="shell-brand-text"><span class="shell-brand-name">aelium</span><span class="shell-brand-portal">Portal cliente</span></span>
+    </a>
+    <nav class="shell-nav">
+      <div class="shell-nav-section">
+        <a class="shell-nav-link" href="overview.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span class="nav-label">Inicio</span></a>
+        <a class="shell-nav-link" href="services.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><span class="nav-label">Tus servicios</span></a>
+        <a class="shell-nav-link is-active" href="billing.html" aria-current="page"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span><span class="nav-label">Tus facturas</span></a>
+        <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="nav-label">Soporte</span></a>
+        <a class="shell-nav-link" href="transparency.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span><span class="nav-label">Transparencia</span></a>
+      </div>
+    </nav>
+    <button class="shell-collapse-btn" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 18l-6-6 6-6"/></svg>Colapsar</button>
+  </aside>
+
+  <header class="shell-topbar">
+    <div class="shell-topbar-left"></div>
+    <div class="shell-topbar-right">
+      <button class="shell-icon-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+      <button class="shell-icon-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="badge-count">2</span></button>
+      <button class="shell-profile"><span class="shell-profile-info"><span class="shell-profile-name">María Pérez</span><span class="shell-profile-role">Cliente</span></span><span class="shell-profile-avatar">MP</span></button>
+    </div>
+  </header>
+
+  <main class="shell-main" id="main">
+    <div class="detail-page">
+      <nav class="stub-bc" aria-label="Migas de pan">
+        <a href="billing.html">Tus facturas</a>
+        <span>›</span>
+        <span class="current">INV-00042</span>
+      </nav>
+
+      <div class="dp-header">
+        <div class="dp-header-row">
+          <div class="dp-header-identity">
+            <div class="dp-header-titleblock">
+              <div class="dp-header-eyebrow">Factura · octubre 2025</div>
+              <h1 class="dp-header-title">INV-00042 <span class="b active"><span class="dot"></span>pagada</span></h1>
+            </div>
+          </div>
+          <div class="dp-header-actions">
+            <button class="btn btn-secondary btn-md">Descargar PDF</button>
+            <button class="btn btn-secondary btn-md">Enviar por email</button>
+          </div>
+        </div>
+        <dl class="dp-header-meta">
+          <div class="dp-meta-item"><dt>Total</dt><dd>49,90 €</dd></div>
+          <div class="dp-meta-item"><dt>Emitida</dt><dd>1 oct 2025</dd></div>
+          <div class="dp-meta-item"><dt>Pagada</dt><dd>3 oct 2025</dd></div>
+          <div class="dp-meta-item"><dt>Cobrada en</dt><dd>Tarjeta · ····4242</dd></div>
+        </dl>
+      </div>
+
+      <div class="dp-body">
+        <div class="panel">
+          <h2 class="panel-title">Lo que has pagado</h2>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Concepto</th>
+                <th class="num">Importe</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Hosting Pro · 1-31 oct 2025<br><span style="color: var(--text-tertiary); font-size: var(--font-size-xs);">Tu web al aire 24/7 con copia diaria.</span></td>
+                <td class="num">29,90 €</td>
+              </tr>
+              <tr>
+                <td>5 buzones profesionales<br><span style="color: var(--text-tertiary); font-size: var(--font-size-xs);">Emails con tu dominio sincronizados en todos los dispositivos.</span></td>
+                <td class="num">15,00 €</td>
+              </tr>
+              <tr>
+                <td>Backup diario<br><span style="color: var(--text-tertiary); font-size: var(--font-size-xs);">Copia automática cada noche.</span></td>
+                <td class="num">5,00 €</td>
+              </tr>
+              <tr class="subtotal">
+                <td>Subtotal</td>
+                <td class="num">49,90 €</td>
+              </tr>
+              <tr class="subtotal">
+                <td>IVA (incluido en el precio)</td>
+                <td class="num">8,66 €</td>
+              </tr>
+              <tr class="total">
+                <td>Total</td>
+                <td class="num">49,90 €</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <h2 class="panel-title">Datos de facturación</h2>
+          <div style="display: grid; grid-template-columns: 200px 1fr; gap: var(--space-3) var(--space-4); font-size: var(--font-size-sm);">
+            <span style="color: var(--text-tertiary); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em;">A nombre de</span>
+            <span style="color: var(--text-primary);">Floristería Pérez</span>
+            <span style="color: var(--text-tertiary); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em;">NIF / CIF</span>
+            <span style="color: var(--text-primary); font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums;">B-12345678</span>
+            <span style="color: var(--text-tertiary); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em;">Dirección</span>
+            <span style="color: var(--text-primary);">Calle Mayor 12, 28001 Madrid</span>
+            <span style="color: var(--text-tertiary); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em;">Email</span>
+            <span style="color: var(--text-primary);">facturas@floristeriaperez.com</span>
+          </div>
+          <div style="margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--border); font-size: var(--font-size-sm); color: var(--text-secondary);">
+            ¿Hay algo que no cuadra? <a href="#" style="color: var(--brand); text-decoration: none; font-weight: var(--font-weight-medium);">Avísanos.</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

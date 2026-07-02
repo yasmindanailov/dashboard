@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · HelpTip</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .stack { display: flex; flex-direction: column; gap: var(--space-5); }
+  .field-with-help { font-size: var(--font-size-sm); color: var(--text-secondary); }
+  .field-with-help strong { color: var(--text-primary); font-weight: var(--font-weight-medium); }
+  .force-show .tooltip { display: block; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.B · Feedback</div>
+      <h1 class="page-title">HelpTip</h1>
+      <p class="page-lede">
+        Icono ⓘ inline + tooltip multilínea. Para acompañar al cliente no técnico cuando aparece un concepto que podría no entender. <strong>Voz Aelium estricta</strong>: una frase, sin jerga, en términos de negocio.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">En contexto</h2>
+        <span class="section-num">01</span>
+      </div>
+
+      <div class="stack">
+        <div class="field-with-help">
+          Próxima renovación
+          <span class="tooltip-wrapper">
+            <span class="help-tip" tabindex="0">
+              <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </span>
+          </span>
+          <strong>· 12 de noviembre de 2026</strong>
+        </div>
+
+        <div class="field-with-help force-show" style="position: relative;">
+          Soporte Inside
+          <span class="tooltip-wrapper">
+            <span class="help-tip" tabindex="0">
+              <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </span>
+            <span class="tooltip tooltip-top multiline">Asesoría humana incluida. Si necesitas algo, llamamos nosotros.</span>
+          </span>
+          <strong>· activo</strong>
+          <p style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin: var(--space-1) 0 0;">↑ tooltip forzado para visualización</p>
+        </div>
+
+        <div class="field-with-help">
+          Aislamiento por contenedor
+          <span class="tooltip-wrapper">
+            <span class="help-tip" tabindex="0">
+              <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </span>
+          </span>
+          <strong>· habilitado</strong>
+          <p style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin: var(--space-1) 0 0;">Hover sobre el icono ⓘ para ver: "Tu web vive en su propio espacio, separada de las demás. Más seguro y rápido."</p>
+        </div>
+
+        <div class="field-with-help">
+          Uptime
+          <span class="tooltip-wrapper">
+            <span class="help-tip" tabindex="0">
+              <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </span>
+          </span>
+          <strong class="num">· 99,99%</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Voz aplicada · ejemplos</h2>
+        <span class="section-num">02</span>
+      </div>
+
+      <div class="kv">
+        <div><strong>"Próxima renovación"</strong></div>
+        <div>Te cobramos automáticamente el día de aniversario de tu servicio.</div>
+        <div><strong>"Soporte Inside"</strong></div>
+        <div>Asesoría humana incluida. Si necesitas algo, llamamos nosotros.</div>
+        <div><strong>"Aislamiento por contenedor"</strong></div>
+        <div>Tu web vive en su propio espacio, separada de las demás. Más seguro y rápido.</div>
+        <div><strong>"Uptime 99,99%"</strong></div>
+        <div>Tu web ha estado caída unos 4 minutos en el último mes. Te avisamos siempre que pasa algo.</div>
+        <div><strong>"Backups internos y externos"</strong></div>
+        <div>Tenemos copia diaria de tu web, dentro y fuera. Si algo falla, restauramos en minutos.</div>
+      </div>
+
+      <div class="note">
+        <strong>Una frase, en términos de negocio.</strong> No "Renovación auto-debit cíclico", sino "Te cobramos automáticamente". Aelium "experto que empodera" = traducir lo técnico al lenguaje del cliente.
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Reglas</h2>
+        <span class="section-num">03</span>
+      </div>
+      <div class="kv">
+        <div><strong>Solo cliente / partner</strong></div>
+        <div>Admin y agente saben lo que es un container. No necesitan ⓘ.</div>
+        <div><strong>Máximo 2-3 por página</strong></div>
+        <div>Si tienes más conceptos a explicar, replantear: o no son tan complejos, o necesitas página dedicada.</div>
+        <div><strong>Inline al lado del término</strong></div>
+        <div>No flotando aparte. Va pegado al concepto que explica.</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs actual</h2>
+        <span class="section-num">04</span>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Icon hardcoded 14px <span class="meta">D2B-10</span></div>
+        <div>Migrar a <span class="tok">--icon-size-sm</span>.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Reglas en JSDoc</div>
+        <div>Llevadas a spec. Sin cambio de código.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

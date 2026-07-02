@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · StatsCard</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  @media (max-width: 1100px) { .grid-4 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 700px)  { .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.C · Data</div>
+      <h1 class="page-title">StatsCard</h1>
+      <p class="page-lede">
+        Card de métrica con voz Aelium. Eyebrow con marker rombo, valor en display-sm/lg con tabular nums, frase humana de cierre. Variantes <strong>action</strong> (navegable), <strong>health</strong> (dual-rombo de salud), <strong>compact</strong> y <strong>large</strong>. Decisión <strong>DD-024</strong>.
+      </p>
+    </header>
+
+    <!-- Default -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Default · Overview admin</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">Eyebrow contextual + valor display-sm + frase de cierre con voz humana. Sin CTA: la métrica es informativa.</p>
+
+      <div class="grid-4">
+        <div class="stats-card">
+          <div class="stats-card-eyebrow">Este mes</div>
+          <p class="stats-card-value">12.450&nbsp;€</p>
+          <p class="stats-card-closing">Cobraste <strong>1.380&nbsp;€ más</strong> que en abril.</p>
+        </div>
+        <div class="stats-card">
+          <div class="stats-card-eyebrow">En tu cartera</div>
+          <p class="stats-card-value">147</p>
+          <p class="stats-card-closing">Clientes activos. <strong>8 nuevos</strong> este mes.</p>
+        </div>
+        <div class="stats-card">
+          <div class="stats-card-eyebrow">Trimestre</div>
+          <p class="stats-card-value">1,8%</p>
+          <p class="stats-card-closing">Churn — <strong>baja</strong> desde el 2,3% del trimestre anterior.</p>
+        </div>
+        <div class="stats-card">
+          <div class="stats-card-eyebrow">MRR</div>
+          <p class="stats-card-value">8.230&nbsp;€</p>
+          <p class="stats-card-closing"><strong>+5%</strong> este mes.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Action -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante action · navegable</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Card clickable. Hover brand-tinted, focus ring, flecha que avanza. Para métricas que llevan a una acción concreta (ver lista filtrada, atender pendiente). <strong>Pasa el cursor</strong> para verlo.</p>
+
+      <div class="grid-3">
+        <div class="stats-card action" tabindex="0" role="button">
+          <div class="stats-card-eyebrow">Hoy</div>
+          <p class="stats-card-value">12</p>
+          <p class="stats-card-closing">Tickets abiertos. <strong>3 sin asignar.</strong></p>
+          <div class="stats-card-cta">
+            <span>Atender ahora</span>
+            <span class="arrow">→</span>
+          </div>
+        </div>
+        <div class="stats-card action" tabindex="0" role="button">
+          <div class="stats-card-eyebrow">Pendientes</div>
+          <p class="stats-card-value">4 · 1.230&nbsp;€</p>
+          <p class="stats-card-closing"><strong>12 días</strong> el más antiguo. Conviene revisar hoy.</p>
+          <div class="stats-card-cta">
+            <span>Ver vencidas</span>
+            <span class="arrow">→</span>
+          </div>
+        </div>
+        <div class="stats-card action" tabindex="0" role="button">
+          <div class="stats-card-eyebrow">Próximos 30 días</div>
+          <p class="stats-card-value">23</p>
+          <p class="stats-card-closing">Renuevan. <strong>8 sin contacto</strong> previo — toca llamar.</p>
+          <div class="stats-card-cta">
+            <span>Ver lista</span>
+            <span class="arrow">→</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Health -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante health · dual-rombo de salud</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">Para métricas con estado de salud (uptime, servicios, alertas). Los dos rombos de la marca <strong>cambian de color</strong> según el estado: <strong>ok</strong> (ambos verdes), <strong>warn</strong> (uno apagado), <strong>alert</strong> (uno rojo pulsando). El símbolo de marca trabaja como indicador, no es decoración.</p>
+
+      <div class="grid-4">
+        <div class="stats-card health" data-health="ok">
+          <div class="stats-card-eyebrow">
+            <span class="stats-card-health-marker"><span class="r"></span><span class="r"></span></span>
+            Tu uptime mes
+          </div>
+          <p class="stats-card-value">99,98%</p>
+          <p class="stats-card-closing">Tu web ha estado caída <strong>4 minutos</strong>. Te avisamos cada vez.</p>
+        </div>
+        <div class="stats-card health" data-health="ok">
+          <div class="stats-card-eyebrow">
+            <span class="stats-card-health-marker"><span class="r"></span><span class="r"></span></span>
+            Servicios
+          </div>
+          <p class="stats-card-value">147 / 147</p>
+          <p class="stats-card-closing">Todos funcionando.</p>
+        </div>
+        <div class="stats-card health" data-health="warn">
+          <div class="stats-card-eyebrow">
+            <span class="stats-card-health-marker"><span class="r"></span><span class="r"></span></span>
+            Backups
+          </div>
+          <p class="stats-card-value">2 fallidos</p>
+          <p class="stats-card-closing"><strong>marina-store</strong> y <strong>baresquina</strong>. Reintentamos en 15 min.</p>
+        </div>
+        <div class="stats-card health" data-health="alert">
+          <div class="stats-card-eyebrow">
+            <span class="stats-card-health-marker"><span class="r"></span><span class="r"></span></span>
+            Caídas detectadas
+          </div>
+          <p class="stats-card-value">1</p>
+          <p class="stats-card-closing"><strong>marina-store</strong> caído desde hace 12 min. Yasmin lo está mirando.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Compact -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante compact · sidebar / dashboards densos</h2>
+        <span class="section-num">04</span>
+      </div>
+      <p class="section-lede">Padding reducido, value en xl (24px). Para barras laterales del cliente o listados densos del admin donde StatsCard convive con tablas.</p>
+
+      <div class="grid-3">
+        <div class="stats-card compact">
+          <div class="stats-card-eyebrow">Próxima factura</div>
+          <p class="stats-card-value">49,90&nbsp;€</p>
+          <p class="stats-card-closing">en 12 días</p>
+        </div>
+        <div class="stats-card compact">
+          <div class="stats-card-eyebrow">Tickets abiertos</div>
+          <p class="stats-card-value">2</p>
+          <p class="stats-card-closing">último hace 3h</p>
+        </div>
+        <div class="stats-card compact">
+          <div class="stats-card-eyebrow">Servicios</div>
+          <p class="stats-card-value">5</p>
+          <p class="stats-card-closing">todos activos</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Large -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variante large · hero del cliente</h2>
+        <span class="section-num">05</span>
+      </div>
+      <p class="section-lede">Value en display-lg (56px). Para el momento de bienvenida del cliente — la métrica que abre su Overview. Una sola por pantalla.</p>
+
+      <div class="grid-2">
+        <div class="stats-card large health" data-health="ok">
+          <div class="stats-card-eyebrow">
+            <span class="stats-card-health-marker"><span class="r"></span><span class="r"></span></span>
+            Tu negocio digital
+          </div>
+          <p class="stats-card-value">Funcionando</p>
+          <p class="stats-card-closing">Todos tus servicios activos. <strong>Uptime del mes: 99,98%.</strong> Si algo cambia, te avisamos antes de que te enteres.</p>
+        </div>
+        <div class="stats-card large action" tabindex="0" role="button">
+          <div class="stats-card-eyebrow">Tu próxima factura</div>
+          <p class="stats-card-value">49,90&nbsp;€</p>
+          <p class="stats-card-closing">Vence el <strong>15 de mayo</strong>. La cargamos automáticamente — sin sorpresas.</p>
+          <div class="stats-card-cta">
+            <span>Ver detalle</span>
+            <span class="arrow">→</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Loading -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Loading state</h2>
+        <span class="section-num">06</span>
+      </div>
+      <p class="section-lede">Skeleton interno mientras carga el dato. Mantiene altura para evitar layout shift.</p>
+
+      <div class="grid-3">
+        <div class="stats-card loading"></div>
+        <div class="stats-card loading"></div>
+        <div class="stats-card loading"></div>
+      </div>
+    </section>
+
+    <!-- Reglas -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Reglas de uso</h2>
+        <span class="section-num">07</span>
+      </div>
+      <div class="kv">
+        <div><strong>Voz en closing siempre</strong></div>
+        <div>El closing es lo que diferencia a Aelium de un dashboard genérico. Frase corta, contextual, con strong en el dato relevante. NO "vs. mes anterior" — sí "1.380&nbsp;€ más que en abril".</div>
+        <div><strong>Eyebrow contextual</strong></div>
+        <div>Marca el alcance temporal o conceptual: "Este mes", "Hoy", "En tu cartera", "Trimestre". NO repite el label de la métrica.</div>
+        <div><strong>Action solo cuando lleva a algo</strong></div>
+        <div>Si la métrica no tiene "siguiente acción" obvia, no usar variante action. La flecha promete navegación — no la pongas si no cumple.</div>
+        <div><strong>Health solo con estado real</strong></div>
+        <div>Variante health solo en métricas que pueden estar ok / atención / alerta (uptime, backups, servicios). NO en MRR o churn.</div>
+        <div><strong>Mismo grid = mismo tamaño</strong></div>
+        <div>No mezclar default y compact en la misma fila. Large nunca al lado de default.</div>
+        <div><strong>Una large por pantalla</strong></div>
+        <div>Si todo es hero, nada es hero.</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Decisión de diseño</h2>
+        <span class="section-num">08</span>
+      </div>
+      <div class="note">
+        <strong>DD-024</strong> · Refactor de StatsCard tras iteración. Versión inicial (label + número + trend + icon + accent border-left) era SaaS-genérica. Esta versión combina <strong>D + B + C</strong>: layout aireado con eyebrow rombo + número grande + frase humana, opcional CTA navegable, variante salud con dual-rombo. Ver iteración completa en <a href="stats-card-iteraciones.html" style="color: var(--brand);">StatsCard · iteraciones</a>.
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

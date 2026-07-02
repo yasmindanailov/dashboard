@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Avatar</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>.row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); }</style>
+</head>
+<body>
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.E · Contenedores</div>
+      <h1 class="page-title">Avatar</h1>
+      <p class="page-lede">
+        Refactor crítico (D2E-1). Paleta de 5 colores brand-coherent — eliminados pink/orange/cyan saturados. Variantes single + with-status + group. Tamaños xs/sm/md/lg/xl reconciliados.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">Paleta brand-coherent</h2><span class="section-num">01</span></div>
+      <p class="section-lede">5 colores derivados de tokens semánticos. Hash determinístico: mismo nombre → mismo color siempre.</p>
+      <div class="row" style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5);">
+        <div class="avatar size-md color-1"><span>YA</span></div>
+        <div class="avatar size-md color-2"><span>MA</span></div>
+        <div class="avatar size-md color-3"><span>SA</span></div>
+        <div class="avatar size-md color-4"><span>JC</span></div>
+        <div class="avatar size-md color-5"><span>NV</span></div>
+      </div>
+      <div class="note">
+        <strong>Excluidos a propósito:</strong> warning (ámbar = alerta) y danger (rojo = problema). Avatar nunca debe sugerir "este usuario es un alerta". Coherente con marca.
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">Tamaños</h2><span class="section-num">02</span></div>
+      <div class="row" style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5);">
+        <div style="text-align: center;"><div class="avatar size-xs color-1"><span>YA</span></div><p class="legend" style="margin-top: var(--space-2);">xs · 20px</p></div>
+        <div style="text-align: center;"><div class="avatar size-sm color-1"><span>YA</span></div><p class="legend" style="margin-top: var(--space-2);">sm · 28px</p></div>
+        <div style="text-align: center;"><div class="avatar size-md color-1"><span>YA</span></div><p class="legend" style="margin-top: var(--space-2);">md · 36px (default)</p></div>
+        <div style="text-align: center;"><div class="avatar size-lg color-1"><span>YA</span></div><p class="legend" style="margin-top: var(--space-2);">lg · 44px</p></div>
+        <div style="text-align: center;"><div class="avatar size-xl color-1"><span>YA</span></div><p class="legend" style="margin-top: var(--space-2);">xl · 64px</p></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">With status</h2><span class="section-num">03</span></div>
+      <p class="section-lede">5 estados de presencia. <strong>Active</strong> con pulse para "haciendo algo ahora mismo".</p>
+      <div class="row" style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5);">
+        <div style="text-align: center;"><div class="avatar size-lg color-1 with-status" data-status="online"><span>YA</span></div><p class="legend" style="margin-top: var(--space-2);">online</p></div>
+        <div style="text-align: center;"><div class="avatar size-lg color-3 with-status" data-status="active"><span>MA</span></div><p class="legend" style="margin-top: var(--space-2);">active (pulse)</p></div>
+        <div style="text-align: center;"><div class="avatar size-lg color-2 with-status" data-status="busy"><span>SA</span></div><p class="legend" style="margin-top: var(--space-2);">busy</p></div>
+        <div style="text-align: center;"><div class="avatar size-lg color-5 with-status" data-status="away"><span>JC</span></div><p class="legend" style="margin-top: var(--space-2);">away</p></div>
+        <div style="text-align: center;"><div class="avatar size-lg color-4 with-status" data-status="offline"><span>NV</span></div><p class="legend" style="margin-top: var(--space-2);">offline</p></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">Group · equipos</h2><span class="section-num">04</span></div>
+      <p class="section-lede">Overlapping + "+N" rest. Para mostrar agentes asignados, equipo del partner, etc.</p>
+
+      <div class="row" style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5);">
+        <div style="text-align: center;">
+          <div class="avatar-group size-md">
+            <div class="avatar size-md color-1"><span>YA</span></div>
+            <div class="avatar size-md color-3"><span>MA</span></div>
+            <div class="avatar size-md color-5"><span>SA</span></div>
+          </div>
+          <p class="legend" style="margin-top: var(--space-2);">3 agentes</p>
+        </div>
+        <div style="text-align: center;">
+          <div class="avatar-group size-md">
+            <div class="avatar size-md color-1"><span>YA</span></div>
+            <div class="avatar size-md color-3"><span>MA</span></div>
+            <div class="avatar size-md color-5"><span>SA</span></div>
+            <div class="avatar size-md color-2"><span>JC</span></div>
+            <div class="avatar-rest">+3</div>
+          </div>
+          <p class="legend" style="margin-top: var(--space-2);">7 personas (+3 rest)</p>
+        </div>
+        <div style="text-align: center;">
+          <div class="avatar-group size-sm">
+            <div class="avatar size-sm color-1"><span>Y</span></div>
+            <div class="avatar size-sm color-3"><span>M</span></div>
+            <div class="avatar-rest">+12</div>
+          </div>
+          <p class="legend" style="margin-top: var(--space-2);">14 (sm + rest)</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">En contexto</h2><span class="section-num">05</span></div>
+
+      <div class="card-base">
+        <div class="eyebrow">Equipo asignado</div>
+        <div style="display: flex; align-items: center; gap: var(--space-3);">
+          <div class="avatar-group size-md">
+            <div class="avatar size-md color-1 with-status" data-status="online"><span>YA</span></div>
+            <div class="avatar size-md color-3"><span>MA</span></div>
+            <div class="avatar size-md color-5"><span>SA</span></div>
+          </div>
+          <div>
+            <p style="margin: 0; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">Yasmin · Marcos · Sara</p>
+            <p style="margin: 0; font-size: var(--font-size-xs); color: var(--text-tertiary);">Yasmin disponible ahora.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">Drift vs actual</h2><span class="section-num">06</span></div>
+      <div class="spec-grid">
+        <div class="label">Paleta <span class="meta">D2E-1</span></div>
+        <div>8 colores random → 5 brand-coherent. Pink/orange/cyan eliminados.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Tamaños <span class="meta">D2E-Avatar-px</span></div>
+        <div>Reconciliado a 20/28/36/44/64 (xs/sm/md/lg/xl). Antes había drift TS vs CSS.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Variantes nuevas</div>
+        <div>with-status (5 estados) y group (overlapping + rest).</div>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="../scripts.js"></script>
+</body>
+</html>

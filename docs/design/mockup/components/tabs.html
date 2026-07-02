@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Tabs + StatusTabs</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>.demo { background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5); margin-bottom: var(--space-4); }</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.D · Navegación</div>
+      <h1 class="page-title">Tabs &amp; StatusTabs</h1>
+      <p class="page-lede">
+        Navegación horizontal entre vistas (<strong>Tabs</strong>) o filtros de estado en listings (<strong>StatusTabs</strong>). Activo con border-bottom brand. Count semántico por estado.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Tabs · navegación dentro de detalle</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">Sin counts. Para separar contenido en página de detalle (cliente, factura, ticket).</p>
+
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab" aria-selected="true">Resumen</button>
+          <button class="tab" role="tab">Servicios</button>
+          <button class="tab" role="tab">Facturación</button>
+          <button class="tab" role="tab">Notas</button>
+          <button class="tab" role="tab">Soporte</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Tabs con count · navegación + indicación</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Para vistas donde cada tab tiene una cantidad informativa.</p>
+
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab">Servicios <span class="tab-count">5</span></button>
+          <button class="tab" role="tab">Facturas <span class="tab-count">12</span></button>
+          <button class="tab" role="tab">Tickets <span class="tab-count">2</span></button>
+          <button class="tab" role="tab">Notas <span class="tab-count">3</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">StatusTabs · filtros con StatusDot prefix (DD-026)</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">
+        Iteración tras feedback. Reemplaza el patrón pill-genérico por <strong>StatusDot prefix</strong> en color semántico (visible siempre, no solo al activar) + count plano con tabular-nums. Más Aelium, reusa pattern de marca, comunica estado de cada filtro de un vistazo.
+      </p>
+
+      <p class="legend">Listado de facturas</p>
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab"><span class="tab-dot"></span>Todas <span class="tab-num">142</span></button>
+          <button class="tab" role="tab"><span class="tab-dot warning"></span>Pendientes <span class="tab-num">5</span></button>
+          <button class="tab" role="tab"><span class="tab-dot success"></span>Pagadas <span class="tab-num">130</span></button>
+          <button class="tab" role="tab"><span class="tab-dot danger"></span>Vencidas <span class="tab-num">7</span></button>
+        </div>
+      </div>
+
+      <p class="legend">Listado de tickets</p>
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab"><span class="tab-dot"></span>Todos <span class="tab-num">87</span></button>
+          <button class="tab active" role="tab"><span class="tab-dot warning"></span>Abiertos <span class="tab-num">12</span></button>
+          <button class="tab" role="tab"><span class="tab-dot danger"></span>Sin asignar <span class="tab-num">3</span></button>
+          <button class="tab" role="tab"><span class="tab-dot pending"></span>En revisión <span class="tab-num">5</span></button>
+          <button class="tab" role="tab"><span class="tab-dot"></span>Cerrados <span class="tab-num">67</span></button>
+        </div>
+      </div>
+
+      <p class="legend">Listado de clientes</p>
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab"><span class="tab-dot"></span>Todos <span class="tab-num">147</span></button>
+          <button class="tab" role="tab"><span class="tab-dot success"></span>Activos <span class="tab-num">139</span></button>
+          <button class="tab" role="tab"><span class="tab-dot warning"></span>Suspendidos <span class="tab-num">5</span></button>
+          <button class="tab" role="tab"><span class="tab-dot"></span>Cancelados <span class="tab-num">3</span></button>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Por qué este patrón es más Aelium.</strong> El dot semántico está <em>siempre</em> visible — el usuario ve que "Vencidas" es danger antes de hacer click. La pill clásica solo coloreaba al activar, lo cual es decorativo, no informativo. Aquí el componente <em>habla</em>: rojo = atención, verde = OK, ámbar = revisar.
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Estados</h2>
+        <span class="section-num">04</span>
+      </div>
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab">Default</button>
+          <button class="tab" role="tab" style="color: var(--text-primary);">Hover (simulado)</button>
+          <button class="tab" role="tab" style="box-shadow: var(--focus-ring); border-radius: var(--radius-xs);">Focus (simulado)</button>
+          <button class="tab active" role="tab">Active</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs actual</h2>
+        <span class="section-num">05</span>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Patrón <span class="meta">D2D-6</span></div>
+        <div>Mantener border-bottom (horizontal). Accent stripe es para verticales.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Keyboard nav <span class="meta">D2D-7</span></div>
+        <div>Falta. Añadir Arrow keys, Home/End.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Tabular nums en count</div>
+        <div>Aplicar para que counts no salten al cambiar.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

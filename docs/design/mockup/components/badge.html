@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Badge</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+  .label { font-size: 11px; text-transform: uppercase; color: var(--text-tertiary); letter-spacing: 0.06em; margin-bottom: var(--space-2); }
+  .demo-stack { display: flex; flex-direction: column; gap: var(--space-5); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.B · Feedback</div>
+      <h1 class="page-title">Badge</h1>
+      <p class="page-lede">
+        Pill informativa de estado o categoría. 7 variantes (incluye <strong>pending</strong> nuevo). Texto en participio: "Pagado", "Activo", "Suspendido".
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Variantes</h2>
+        <span class="section-num">01</span>
+      </div>
+      <div class="demo-stack">
+        <div>
+          <p class="label">Semánticos</p>
+          <div class="row">
+            <span class="badge badge-success">Pagado</span>
+            <span class="badge badge-warning">Pendiente</span>
+            <span class="badge badge-danger">Vencido</span>
+            <span class="badge badge-info">Aviso</span>
+            <span class="badge badge-pending">En revisión</span>
+          </div>
+        </div>
+        <div>
+          <p class="label">Neutral · marca</p>
+          <div class="row">
+            <span class="badge badge-neutral">Hosting</span>
+            <span class="badge badge-neutral">Cloud</span>
+            <span class="badge badge-brand">Premium</span>
+            <span class="badge badge-brand">Nuevo</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Tamaños</h2>
+        <span class="section-num">02</span>
+      </div>
+      <div class="row">
+        <span class="badge badge-success badge-sm">Pagado</span>
+        <span class="badge badge-success">Pagado</span>
+      </div>
+      <p class="field-helper" style="margin-top: var(--space-3);"><span class="tok">badge-sm</span> en filas densas, <span class="tok">badge-md</span> default.</p>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Con StatusDot</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">Para refuerzo visual cuando el badge representa un estado en tiempo real.</p>
+      <div class="row">
+        <span class="badge badge-success">
+          <span class="status-dot status-dot-success"></span>
+          Activo
+        </span>
+        <span class="badge badge-pending">
+          <span class="status-dot status-dot-pending status-dot-pulse"></span>
+          En revisión
+        </span>
+        <span class="badge badge-danger">
+          <span class="status-dot status-dot-danger"></span>
+          Suspendido
+        </span>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">En contexto</h2>
+        <span class="section-num">04</span>
+      </div>
+
+      <div style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4);">
+        <table class="num-table" style="width: 100%; border-collapse: collapse;">
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: var(--space-3);">Floristería Pérez</td>
+            <td style="padding: var(--space-3);"><span class="badge badge-success">Pagado</span></td>
+            <td style="padding: var(--space-3); text-align: right;" class="num">49,90 €</td>
+          </tr>
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: var(--space-3);">Bar La Esquina</td>
+            <td style="padding: var(--space-3);"><span class="badge badge-warning">Pendiente</span></td>
+            <td style="padding: var(--space-3); text-align: right;" class="num">29,90 €</td>
+          </tr>
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: var(--space-3);">Tienda Marina</td>
+            <td style="padding: var(--space-3);"><span class="badge badge-danger">Vencido</span></td>
+            <td style="padding: var(--space-3); text-align: right;" class="num">99,90 €</td>
+          </tr>
+          <tr>
+            <td style="padding: var(--space-3);">Estudio Sara</td>
+            <td style="padding: var(--space-3);"><span class="badge badge-pending">En revisión</span></td>
+            <td style="padding: var(--space-3); text-align: right;" class="num">19,90 €</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="note" style="margin-top: var(--space-4);">
+        <strong>Regla D5</strong>: máximo 2 badges por fila. Si necesitas 3+, replantear jerarquía de estado.
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs actual</h2>
+        <span class="section-num">05</span>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Text colors hardcoded <span class="meta">D2B-A</span></div>
+        <div>Migrar a <span class="tok">--{state}-strong</span>.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Variant pending <span class="meta">D2B-1</span></div>
+        <div>Añadir.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Tamaños <span class="meta">D2B-2</span></div>
+        <div>Añadir <span class="tok">sm</span>/<span class="tok">md</span>.</div>
+      </div>
+    </section>
+
+    <!-- Variantes adicionales · DD-029 -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">Variantes adicionales · DD-029 (refresh fase 2.F)</h2><span class="section-num">06</span></div>
+      <p class="section-lede">2 variantes nuevas: removable (filter chip con ✕) y dot-only (ultra-compacto, sin pill).</p>
+
+      <p class="legend">Removable · filter chips aplicados</p>
+      <div class="row" style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4);">
+        <span class="badge badge-neutral removable">
+          Activo
+          <button class="badge-remove" aria-label="Quitar filtro Activo"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </span>
+        <span class="badge badge-neutral removable">
+          Plan Pro
+          <button class="badge-remove" aria-label="Quitar filtro Plan Pro"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </span>
+        <span class="badge badge-neutral removable">
+          Últimos 30 días
+          <button class="badge-remove" aria-label="Quitar filtro Últimos 30 días"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </span>
+      </div>
+
+      <p class="legend" style="margin-top: var(--space-4);">Dot-only · ultra-compacto, sin pill</p>
+      <div class="row" style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4);">
+        <span class="badge-dot success">Activo</span>
+        <span class="badge-dot warning">Pendiente</span>
+        <span class="badge-dot danger">Vencido</span>
+        <span class="badge-dot pending">En revisión</span>
+        <span class="badge-dot brand">Premium</span>
+      </div>
+
+      <p class="legend" style="margin-top: var(--space-4);">En contexto · tabla densa con dot-only</p>
+      <div style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2);">
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border); font-size: var(--font-size-sm);">
+          <span>Floristería Pérez</span>
+          <span class="badge-dot success">Activo</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border); font-size: var(--font-size-sm);">
+          <span>Bar La Esquina</span>
+          <span class="badge-dot warning">Pendiente</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: var(--font-size-sm);">
+          <span>Tienda Marina</span>
+          <span class="badge-dot danger">Caída</span>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Cuándo cada una.</strong> Badge estándar: estado en row de tabla normal. Removable: chips de filtros aplicados. Dot-only: tabla densa o sidebar item donde la pill ocupa demasiado.
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

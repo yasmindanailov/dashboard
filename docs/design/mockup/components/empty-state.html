@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · EmptyState · 4 variantes</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.E · Contenedores</div>
+      <h1 class="page-title">EmptyState · 4 variantes</h1>
+      <p class="page-lede">
+        El momento más Aelium del producto. La voz de marca brilla cuando no hay datos. 4 variantes (inline · page · search · first-time) — cada una con copy pattern documentado.
+      </p>
+    </header>
+
+    <!-- 1. Inline -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">1 · Inline · tabla / lista vacía</h2><span class="section-num">01</span></div>
+      <p class="section-lede">Compacto, dentro de tabla, dropdown o lista. Tres rombos pequeños tertiary como decoración mínima.</p>
+
+      <div class="table-wrapper">
+        <table class="table">
+          <thead><tr><th>Cliente</th><th>Estado</th><th class="numeric">Importe</th></tr></thead>
+        </table>
+        <div class="empty-base inline">
+          <h3 class="empty-title">No hay clientes con esos filtros</h3>
+          <p class="empty-desc">Quita algún filtro o cambia el término de búsqueda.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Page -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">2 · Page · overview vacío con mesh</h2><span class="section-num">02</span></div>
+      <p class="section-lede">Página completa sin datos. Mesh sutil + 3 rombos brand con opacity progresiva. Title display-md + desc body-md + dos CTAs lg.</p>
+
+      <div style="background: var(--surface-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4);">
+        <div class="empty-base page">
+          <div class="empty-rombos"><span class="rb"></span><span class="rb"></span><span class="rb"></span></div>
+          <h3 class="empty-title">Aún no tienes facturas</h3>
+          <p class="empty-desc">Cuando contrates tu primer servicio, aquí verás todas tus facturas. Te avisamos cuando llegan y se cargan automáticamente — sin sorpresas.</p>
+          <div class="empty-action">
+            <button class="btn btn-primary btn-lg">Ver planes</button>
+            <button class="btn btn-secondary btn-lg">Habla con nosotros</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Search -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">3 · Search · sin resultados</h2><span class="section-num">03</span></div>
+      <p class="section-lede">Voz Aelium clave: <strong>sugerencia constructiva</strong>, nunca "0 results found". El usuario sale con una pista de qué probar.</p>
+
+      <div style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md);">
+        <div class="empty-base search">
+          <div class="empty-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <h3 class="empty-title">No encontramos nada para «marina»</h3>
+          <p class="empty-desc">Prueba con el NIF, el dominio, o quita acentos. Si no aparece, dinos qué buscas y lo encontramos contigo.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. First-time -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">4 · First-time · onboarding</h2><span class="section-num">04</span></div>
+      <p class="section-lede">Para el primer cliente, primera factura, primer ticket. Eyebrow brand + invitación + dos CTAs (acción directa + cercanía Aelium).</p>
+
+      <div class="empty-base first-time">
+        <span class="empty-eyebrow">Tu primera vez aquí</span>
+        <h3 class="empty-title">No tienes clientes aún</h3>
+        <p class="empty-desc">Crea el primero ahora o cuéntanos cómo te ayudamos a importar tu cartera. Si vienes de otro proveedor, lo movemos contigo — <strong>sin cortar el servicio</strong>.</p>
+        <div class="empty-action">
+          <button class="btn btn-primary btn-md">Crear cliente</button>
+          <button class="btn btn-secondary btn-md">Cuéntanos cómo te ayudamos</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Voz comparada -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">Voz Aelium · matriz</h2><span class="section-num">05</span></div>
+
+      <table class="industry-table" style="width: 100%; border-collapse: collapse; font-size: var(--font-size-sm);">
+        <tr style="background: var(--surface-secondary);">
+          <th style="text-align: left; padding: var(--space-2) var(--space-3); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary);">Variante</th>
+          <th style="text-align: left; padding: var(--space-2) var(--space-3); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary);">Title pattern</th>
+          <th style="text-align: left; padding: var(--space-2) var(--space-3); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary);">Desc pattern</th>
+          <th style="text-align: left; padding: var(--space-2) var(--space-3); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary);">CTA</th>
+        </tr>
+        <tr><td style="padding: var(--space-3); border-bottom: 1px solid var(--border);"><strong>inline</strong></td><td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">"Sin resultados" / "No hay X con esos filtros"</td><td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">Sugerencia mínima</td><td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">link "Limpiar"</td></tr>
+        <tr><td style="padding: var(--space-3); border-bottom: 1px solid var(--border);"><strong>page</strong></td><td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">"Aún no tienes X"</td><td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">Explica qué pasará + tono cercano</td><td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">Primary + "Habla con nosotros"</td></tr>
+        <tr><td style="padding: var(--space-3); border-bottom: 1px solid var(--border);"><strong>search</strong></td><td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">"No encontramos nada para «query»"</td><td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">Sugerencias constructivas</td><td style="padding: var(--space-3); border-bottom: 1px solid var(--border);">(sin CTA)</td></tr>
+        <tr><td style="padding: var(--space-3);"><strong>first-time</strong></td><td style="padding: var(--space-3);">"No tienes X aún" + eyebrow "Tu primera vez aquí"</td><td style="padding: var(--space-3);">Invita + ofrece ayuda Aelium</td><td style="padding: var(--space-3);">Acción directa + "Cuéntanos cómo te ayudamos"</td></tr>
+      </table>
+
+      <div class="note">
+        <strong>Anti-patrones universales:</strong> "0 results", "Empty state", "Nothing here yet", "Get started" sin verbo concreto, title sin contexto. Aelium siempre con voz humana.
+      </div>
+    </section>
+  </main>
+</div>
+<script src="../scripts.js"></script>
+</body>
+</html>

@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Tabs — variantes</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .demo { background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5); margin-bottom: var(--space-3); }
+  .industry-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); margin-top: var(--space-3); }
+  .industry-table th, .industry-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  .industry-table th { background: var(--surface-secondary); color: var(--text-secondary); font-weight: var(--font-weight-medium); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; }
+  .verdict { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-3); }
+  .verdict .pros, .verdict .cons {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
+  }
+  .verdict .pros { background: var(--success-light); color: var(--success-strong); }
+  .verdict .cons { background: var(--danger-light); color: var(--danger-strong); }
+  .verdict strong { display: block; margin-bottom: var(--space-1); }
+  @media (max-width: 700px) { .verdict { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Iteración · Tabs</div>
+      <h1 class="page-title">¿Qué tipos de Tabs usamos?</h1>
+      <p class="page-lede">
+        5 patrones que cubren los casos reales del producto. <strong>No uno solo</strong> — los design systems profesionales tienen 3-4 variantes para distintos contextos. Aquí están con su uso recomendado, ejemplos producto y comparación contra la industria.
+      </p>
+    </header>
+
+    <!-- Industria -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Qué hacen los referentes</h2>
+        <span class="section-num">00</span>
+      </div>
+
+      <table class="industry-table">
+        <tr><th>Producto</th><th>Patrones que usa</th></tr>
+        <tr><td><strong>Linear</strong></td><td>Underline (detail) · Underline+StatusDot (filters) · Pill segmented (toggles) · Vertical (settings) · <strong>4 patrones</strong></td></tr>
+        <tr><td><strong>Stripe Dashboard</strong></td><td>Underline (mayoría) · Pill (period selectors) · Vertical (settings) · <strong>3 patrones</strong></td></tr>
+        <tr><td><strong>Notion</strong></td><td>Underline · Pill toggles · <strong>2 patrones</strong></td></tr>
+        <tr><td><strong>GitHub</strong></td><td>Underline · Vertical (settings) · <strong>2 patrones</strong></td></tr>
+        <tr><td><strong>Pylon, Attio</strong></td><td>Underline+StatusDot (heavy en filters) · Vertical · <strong>2-3 patrones</strong></td></tr>
+      </table>
+
+      <div class="note">
+        <strong>Conclusión:</strong> 3-4 patrones es lo profesional. Aelium tiene hoy 2 (Underline + StatusDot con dot prefix). Las 3 variantes que faltan son: <strong>Pill segmented</strong>, <strong>Filled compacta</strong> y <strong>Vertical</strong>. Cada una resuelve un contexto distinto.
+      </div>
+    </section>
+
+    <!-- 1. Underline -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">1 · Underline (Tabs default)</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">El que ya tenemos. Para navegación entre vistas en página de detalle. Estándar B2B SaaS.</p>
+
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab">Resumen</button>
+          <button class="tab" role="tab">Servicios <span class="tab-count">5</span></button>
+          <button class="tab" role="tab">Facturación <span class="tab-count">12</span></button>
+          <button class="tab" role="tab">Notas <span class="tab-count">3</span></button>
+          <button class="tab" role="tab">Soporte <span class="tab-count warning">2</span></button>
+        </div>
+      </div>
+
+      <div class="verdict">
+        <div class="pros"><strong>Cuándo usarlo</strong>Detalle de cliente, factura, ticket, producto, tarea. Hasta 5-6 tabs. Página completa con espacio.</div>
+        <div class="cons"><strong>Cuándo NO</strong>Toggles binarios (usa pill). Espacios estrechos (usa filled). Settings con 10+ opciones (usa vertical).</div>
+      </div>
+    </section>
+
+    <!-- 2. Underline + StatusDot -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">2 · Underline + StatusDot (StatusTabs · DD-026)</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Para filtros de estado en listings. Dot semántico siempre visible — más Aelium, más informativo que pill.</p>
+
+      <div class="demo">
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab"><span class="tab-dot"></span>Todas <span class="tab-num">142</span></button>
+          <button class="tab" role="tab"><span class="tab-dot warning"></span>Pendientes <span class="tab-num">5</span></button>
+          <button class="tab" role="tab"><span class="tab-dot success"></span>Pagadas <span class="tab-num">130</span></button>
+          <button class="tab" role="tab"><span class="tab-dot danger"></span>Vencidas <span class="tab-num">7</span></button>
+        </div>
+      </div>
+
+      <div class="verdict">
+        <div class="pros"><strong>Cuándo usarlo</strong>Listings con filtro de estado: facturas, tickets, clientes, tareas. El dot semántico comunica el estado del filtro de un vistazo.</div>
+        <div class="cons"><strong>Cuándo NO</strong>Detail pages sin estado. Tabs de navegación pura sin filtro semántico.</div>
+      </div>
+    </section>
+
+    <!-- 3. Pill / Segmented -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">3 · Pill / Segmented control (NUEVA)</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">Para toggles binarios o ternarios. Active con fondo elevado (surface-primary + shadow-xs). Estándar iOS/macOS y common en Stripe para period selectors.</p>
+
+      <p class="legend">Periodo de métricas (admin)</p>
+      <div class="demo">
+        <div class="tabs-pill" role="tablist">
+          <button class="tab-pill" role="tab">Hoy</button>
+          <button class="tab-pill active" role="tab">7 días</button>
+          <button class="tab-pill" role="tab">30 días</button>
+          <button class="tab-pill" role="tab">90 días</button>
+          <button class="tab-pill" role="tab">Año</button>
+        </div>
+      </div>
+
+      <p class="legend">Modo de visualización</p>
+      <div class="demo">
+        <div class="tabs-pill" role="tablist">
+          <button class="tab-pill active" role="tab">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            Lista
+          </button>
+          <button class="tab-pill" role="tab">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Tarjetas
+          </button>
+        </div>
+      </div>
+
+      <p class="legend">Estado de servicios (cliente)</p>
+      <div class="demo">
+        <div class="tabs-pill" role="tablist">
+          <button class="tab-pill active" role="tab">Activos</button>
+          <button class="tab-pill" role="tab">Archivados</button>
+        </div>
+      </div>
+
+      <div class="verdict">
+        <div class="pros"><strong>Cuándo usarlo</strong>Period selectors (Hoy/7d/30d), modos de vista (Lista/Tarjetas), toggles binarios (Activos/Archivados), opciones excluyentes compactas. Funciona en cualquier ancho. Sentido visual de "interruptor".</div>
+        <div class="cons"><strong>Cuándo NO</strong>≥ 6 opciones (apretado). Navegación entre vistas distintas (usa underline). Estados con color semántico (usa StatusTabs).</div>
+      </div>
+    </section>
+
+    <!-- 4. Filled compact -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">4 · Filled compacto (NUEVA)</h2>
+        <span class="section-num">04</span>
+      </div>
+      <p class="section-lede">Para espacios estrechos (modales, drawers, side panels) donde el underline se pierde por anchura. Active con bg brand-subtle + texto brand.</p>
+
+      <p class="legend">Dentro de un Modal de configuración</p>
+      <div class="demo" style="max-width: 480px;">
+        <div class="tabs-filled" role="tablist">
+          <button class="tab-filled active" role="tab">General</button>
+          <button class="tab-filled" role="tab">Pago</button>
+          <button class="tab-filled" role="tab">Notificaciones</button>
+        </div>
+      </div>
+
+      <p class="legend">En un drawer lateral</p>
+      <div class="demo" style="max-width: 360px;">
+        <div class="tabs-filled" role="tablist">
+          <button class="tab-filled" role="tab">Detalles</button>
+          <button class="tab-filled active" role="tab">Historial</button>
+          <button class="tab-filled" role="tab">Logs</button>
+        </div>
+      </div>
+
+      <div class="verdict">
+        <div class="pros"><strong>Cuándo usarlo</strong>Modales, drawers, side panels, formulares en columnas estrechas. El active es claramente diferenciable sin necesidad de underline horizontal.</div>
+        <div class="cons"><strong>Cuándo NO</strong>Páginas con anchura completa (usa underline). Filtros de estado (usa StatusTabs). Toggles binarios (usa pill).</div>
+      </div>
+    </section>
+
+    <!-- 5. Vertical -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">5 · Vertical / Sidebar style (NUEVA)</h2>
+        <span class="section-num">05</span>
+      </div>
+      <p class="section-lede">Para Settings y sub-navegación larga (8+ opciones). Reusa el accent-stripe-left (DD-023) — coherencia con sidebar principal de la app.</p>
+
+      <p class="legend">Settings del cliente</p>
+      <div class="demo" style="display: flex; gap: var(--space-6);">
+        <div class="tabs-vertical" role="tablist">
+          <button class="tab-vert" role="tab">Perfil</button>
+          <button class="tab-vert active" role="tab">Facturación</button>
+          <button class="tab-vert" role="tab">Notificaciones <span class="tab-num">3</span></button>
+          <button class="tab-vert" role="tab">Seguridad</button>
+          <button class="tab-vert" role="tab">Servicios</button>
+          <button class="tab-vert" role="tab">Equipo</button>
+          <button class="tab-vert" role="tab">Integraciones</button>
+          <button class="tab-vert" role="tab">Sesiones</button>
+        </div>
+        <div style="flex: 1; padding: var(--space-3); color: var(--text-secondary); font-size: var(--font-size-sm);">
+          <strong style="color: var(--text-primary); display: block; margin-bottom: var(--space-2);">Facturación</strong>
+          Aquí va el contenido de la sección activa. La columna vertical mantiene contexto sin perder espacio de scroll.
+        </div>
+      </div>
+
+      <p class="legend">Settings del admin</p>
+      <div class="demo" style="display: flex; gap: var(--space-6);">
+        <div class="tabs-vertical" role="tablist">
+          <button class="tab-vert active" role="tab">General</button>
+          <button class="tab-vert" role="tab">Equipo <span class="tab-num">12</span></button>
+          <button class="tab-vert" role="tab">Roles y permisos</button>
+          <button class="tab-vert" role="tab">Email templates</button>
+          <button class="tab-vert" role="tab">Webhooks</button>
+          <button class="tab-vert" role="tab">API keys</button>
+          <button class="tab-vert" role="tab">Audit log</button>
+          <button class="tab-vert" role="tab">Facturación de Aelium</button>
+        </div>
+      </div>
+
+      <div class="verdict">
+        <div class="pros"><strong>Cuándo usarlo</strong>Settings con muchas secciones (≥ 8). Sub-navegación larga. Donde la lista no cabe horizontalmente. Heredamos el patrón sidebar-active (accent-stripe brand) — coherencia visual con la nav principal.</div>
+        <div class="cons"><strong>Cuándo NO</strong>Páginas de detalle típicas (usa underline). ≤ 5 opciones (overkill, usa underline o pill).</div>
+      </div>
+    </section>
+
+    <!-- Sistema completo -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">El sistema completo de Aelium</h2>
+        <span class="section-num">06</span>
+      </div>
+
+      <table class="industry-table">
+        <tr><th>Variante</th><th>Caso de uso</th><th>Ejemplo producto</th></tr>
+        <tr>
+          <td><strong>Underline</strong></td>
+          <td>Navegación entre vistas en página de detalle</td>
+          <td><span class="mono">/admin/clients/[id]</span> · Resumen / Servicios / Notas</td>
+        </tr>
+        <tr>
+          <td><strong>Underline + StatusDot</strong></td>
+          <td>Filtros de estado en listings</td>
+          <td><span class="mono">/admin/billing</span> · Todas / Pendientes / Pagadas / Vencidas</td>
+        </tr>
+        <tr>
+          <td><strong>Pill / Segmented</strong></td>
+          <td>Toggles binarios o ternarios, period selectors</td>
+          <td><span class="mono">/admin</span> · Periodo (Hoy / 7d / 30d / 90d / Año)</td>
+        </tr>
+        <tr>
+          <td><strong>Filled compacto</strong></td>
+          <td>Espacios estrechos (modales, drawers)</td>
+          <td>Modal "Configurar servicio" · General / Pago / Notificaciones</td>
+        </tr>
+        <tr>
+          <td><strong>Vertical</strong></td>
+          <td>Settings y sub-navegación larga (≥ 8 secciones)</td>
+          <td><span class="mono">/admin/settings</span> · 8 secciones de configuración</td>
+        </tr>
+      </table>
+
+      <div class="note">
+        <strong>Disciplina:</strong> ningún componente Aelium debería tener "Tabs" sin saber cuál de estas 5 variantes le toca. La regla: <strong>contexto manda</strong>. Si dudas entre dos, elige la más simple.
+      </div>
+    </section>
+
+    <!-- Decisión -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">¿Adoptamos las 5?</h2>
+        <span class="section-num">07</span>
+      </div>
+      <div class="kv">
+        <div><strong>Opción A · Adoptar las 5</strong> (recomendada)</div>
+        <div>Cada patrón cubre un contexto real del dashboard. Coherente con industria. Lo registro como DD-028 y propago a Tabs.md spec.</div>
+        <div><strong>Opción B · Quedarte con las 2 actuales</strong></div>
+        <div>Riesgo: cuando llegue Settings o Modal con tabs, no tendremos patrón → improvisación → drift. Posibles pero no recomendado.</div>
+        <div><strong>Opción C · Variante distinta</strong></div>
+        <div>Si alguno de los 3 nuevos no te convence, dime cuál y lo iteramos. Sigue el mismo proceso que con StatsCard.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium Dashboard · Maqueta viva</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="tokens.css" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Aelium · Mockup vivo</div>
+      <h1 class="page-title">Tu socio digital, a tu lado.</h1>
+      <p class="page-lede">
+        Maqueta del dashboard del programa de diseño. Crece fase a fase. Hoy contiene los primeros componentes (fase 2.A) y la <a href="firma-visual.html" style="color: var(--brand); font-weight: var(--font-weight-medium);">firma visual</a> que los hace reconocibles como Aelium — no como otro dashboard genérico. Todo alineado con el documento de marca v1.6.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Cómo navegar</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">
+        Usa la barra lateral. Los enlaces marcados como pendientes (<span class="tok">·</span>) llevan a una página placeholder amable hasta que la fase correspondiente los entregue. Las páginas activas se actualizan a medida que el programa avanza.
+      </p>
+
+      <div class="spec-grid">
+        <div class="label">Fase 2 · Componentes base
+          <span class="meta">Button, Input, Select, …</span>
+        </div>
+        <div>
+          Cada componente tiene su propia página con <strong>todas las variantes, tamaños y estados</strong>. Anotaciones a la derecha. Tokens consumidos referenciados explícitamente.
+        </div>
+      </div>
+
+      <div class="spec-grid">
+        <div class="label">Fase 3 · Patrones
+          <span class="meta">ListPage 4v · DetailPage 3v · FormPage 3v</span>
+        </div>
+        <div>
+          Wrappers responsables del 95% de las páginas. Variantes nativas (DD-029) por contexto: tabla / grid / timeline / split en listings; standard / with-aside / workspace-lite en detalles; standard / wizard / long-form en formularios. Ancho único 1200/1400, sin accent-stripe en recuadros (DD-030).
+        </div>
+      </div>
+
+      <div class="spec-grid">
+        <div class="label">Fase 4 · Shells
+          <span class="meta">AuthShell 2v · ClientShell · AdminShell · PartnerShell</span>
+        </div>
+        <div>
+          Caparazón por portal. Densidad materializada (DD-032 · cierre DD-016): cliente <code>comfortable</code>, partner <code>standard</code>, admin <code>compact</code>. Topbar variantes (cliente / partner / admin) con search palette solo en admin. Eyebrow del portal diferencial sin trocear la marca. Brand wins.
+        </div>
+      </div>
+
+      <div class="spec-grid">
+        <div class="label">Fase 5 · Cliente
+          <span class="meta">7 páginas: inicio · servicios · facturas · transparencia · configuración + 2 detalles</span>
+        </div>
+        <div>
+          Mockups reales del Portal Cliente componiendo ClientShell <code>comfortable</code> + patterns de fase 3. Voz "Tus" sustituye "Mis", overview con tiles humanos en lugar de StatsCards, transparency con marker rombo brand (DD-027 + DD-030 funcional permitido) — activo de marca diferenciador. Cada copy revisado contra el manual.
+        </div>
+      </div>
+
+      <div class="spec-grid">
+        <div class="label">Fases 6–9 · Páginas
+          <span class="meta">Mockups completos por rol</span>
+        </div>
+        <div>
+          Cada pantalla del producto en su contexto real (overview, detalle, formulario, auth flow).
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Estado actual</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">
+        <strong>Fase 2.A · formularios — listos para revisión.</strong> Los 6 componentes están en la nav (Button, Input, Select, Textarea, SearchInput, Dropdown). Una página de muestra los compone en un caso real: <a href="pages/sample-form.html" style="color:var(--brand); font-weight: var(--font-weight-medium);">Abrir un ticket de soporte</a>.
+      </p>
+      <p class="section-lede">
+        <strong>Empieza por <a href="firma-visual.html" style="color:var(--brand); font-weight: var(--font-weight-medium);">Firma visual</a></strong> para entender qué hace que un componente Aelium se sienta diferente de otros dashboards: símbolo de marca, loader con rombos, mesh sutil, numerales tabulares, accent stripe, card como acción.
+      </p>
+
+      <div class="note">
+        <strong>Convenciones de la maqueta.</strong> Sin librerías externas. Cero hex hardcoded. Todo via tokens (<a href="tokens.css" style="color:var(--brand);">tokens.css</a>). Estilos compartidos en <a href="styles.css" style="color:var(--brand);">styles.css</a>. Comportamiento compartido en <a href="scripts.js" style="color:var(--brand);">scripts.js</a>.
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="scripts.js"></script>
+</body>
+</html>

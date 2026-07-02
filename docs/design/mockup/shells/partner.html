@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · PartnerShell</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .demo-frame {
+    background: var(--surface-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 0;
+    overflow: hidden;
+    margin-top: var(--space-4);
+  }
+  .demo-frame .embed { min-height: 620px; position: relative; isolation: isolate; }
+  .demo-frame .embed .shell { min-height: 620px; }
+  .demo-label {
+    font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-tertiary); margin-bottom: var(--space-2);
+    display: flex; align-items: center; gap: var(--space-2);
+  }
+  .demo-label .ctx-tag {
+    background: var(--surface-tertiary); color: var(--text-secondary);
+    padding: 2px 6px; border-radius: var(--radius-sm);
+    text-transform: none; letter-spacing: 0; font-size: 11px;
+  }
+  .density-table {
+    width: 100%; border-collapse: collapse; font-size: var(--font-size-sm);
+    background: var(--surface-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+  }
+  .density-table th, .density-table td {
+    padding: var(--space-2_5) var(--space-3);
+    text-align: left; border-bottom: 1px solid var(--border);
+  }
+  .density-table th {
+    background: var(--surface-secondary); color: var(--text-secondary);
+    font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em;
+    font-weight: var(--font-weight-medium);
+  }
+  .density-table tr:last-child td { border-bottom: none; }
+  .density-table .num { font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+  .stub-stat-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+  .stub-stat {
+    background: var(--surface-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: var(--space-4);
+  }
+  .stub-stat .label {
+    font-size: var(--font-size-xs); color: var(--text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .stub-stat .value {
+    font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold);
+    color: var(--text-primary); margin-top: var(--space-1);
+    font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums;
+    letter-spacing: -0.015em;
+  }
+  .stub-stat .delta {
+    font-size: var(--font-size-xs); color: var(--success-strong);
+    margin-top: 4px; font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 4 · Shells</div>
+      <h1 class="page-title">PartnerShell · densidad <strong>standard</strong> · NUEVO</h1>
+      <p class="page-lede">
+        El caparazón del Portal Partner — <strong>nuevo</strong>. Hoy los partners viven en <code>dashboard/Sidebar.tsx</code> con items filtrados (drift D4-5); fase 4 establece su shell propio en <code>/partner/*</code> (Sprint 19 ya planificado en código). Sidebar 240px con dos secciones (<strong>Tu cartera</strong> + <strong>Herramientas</strong>), eyebrow del portal en color <code>--info</code> para diferenciar de cliente y admin. Densidad <strong>standard</strong>: intermedia entre cliente (consulta) y admin (operativo).
+      </p>
+      <div class="row" style="margin-top: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-2);">
+        <span class="tok">data-density="standard"</span>
+        <span class="tok">sidebar 240/64</span>
+        <span class="tok">topbar 56</span>
+        <span class="tok">eyebrow --info</span>
+        <span class="tok">Sprint 19 implementación</span>
+      </div>
+    </header>
+
+    <!-- ─── 01 · shell preview ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Shell · preview</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">
+        Shell montado con <code>/partner</code> dentro · partner Luis Romero · tier "Partner Pro".
+      </p>
+
+      <div class="demo-label">
+        <span>PartnerShell · /partner</span>
+        <span class="ctx-tag">Partner · Luis Romero</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="embed">
+          <div class="shell" data-density="standard">
+            <a class="shell-skip" href="#main">Saltar al contenido</a>
+
+            <aside class="shell-sidebar" aria-label="Navegación de partner">
+              <a href="#" class="shell-brand">
+                <span class="shell-brand-logo">
+                  <svg viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                    <rect x="6" y="2" width="11" height="11" rx="2" transform="rotate(45 11.5 7.5)" fill="var(--brand)"/>
+                    <rect x="11" y="15" width="8" height="8" rx="1.5" transform="rotate(45 15 19)" fill="var(--brand)" opacity="0.55"/>
+                  </svg>
+                </span>
+                <span class="shell-brand-text">
+                  <span class="shell-brand-name">aelium</span>
+                  <span class="shell-brand-portal is-partner">Portal partner</span>
+                </span>
+              </a>
+
+              <nav class="shell-nav">
+                <div class="shell-nav-section">
+                  <span class="shell-nav-section-title">Tu cartera</span>
+                  <a class="shell-nav-link is-active" href="#" aria-current="page"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span><span class="nav-label">Inicio</span></a>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="nav-label">Mis clientes</span><span class="nav-count">12</span></a>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><span class="nav-label">Comisiones</span></a>
+                </div>
+
+                <div class="shell-nav-section">
+                  <span class="shell-nav-section-title">Herramientas</span>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span class="nav-label">Mi enlace</span></a>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><span class="nav-label">Recursos</span></a>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="nav-label">Soporte partner</span></a>
+                </div>
+              </nav>
+
+              <button class="shell-collapse-btn" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 18l-6-6 6-6"/></svg>
+                Colapsar
+              </button>
+            </aside>
+
+            <header class="shell-topbar">
+              <div class="shell-topbar-left"></div>
+              <div class="shell-topbar-right">
+                <button class="shell-icon-btn" title="Notificaciones" aria-label="Notificaciones">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                  <span class="badge-count">2</span>
+                </button>
+                <button class="shell-profile" type="button">
+                  <span class="shell-profile-info">
+                    <span class="shell-profile-name">Luis Romero</span>
+                    <span class="shell-profile-role">Partner Pro</span>
+                  </span>
+                  <span class="shell-profile-avatar">LR</span>
+                </button>
+              </div>
+            </header>
+
+            <main class="shell-main" id="main">
+              <div style="margin-bottom: var(--space-4);">
+                <h1 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); color: var(--text-primary); letter-spacing: -0.015em; margin: 0;">Hola, Luis</h1>
+                <p style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-top: 4px;">Tu cartera crece · este mes 3 clientes nuevos · resumen de comisiones más abajo.</p>
+              </div>
+
+              <div class="stub-stat-row">
+                <div class="stub-stat">
+                  <div class="label">Clientes activos</div>
+                  <div class="value">12</div>
+                  <div class="delta">+3 este mes</div>
+                </div>
+                <div class="stub-stat">
+                  <div class="label">Comisión pendiente</div>
+                  <div class="value">847,30 €</div>
+                  <div class="delta">Se paga el 5 nov</div>
+                </div>
+                <div class="stub-stat">
+                  <div class="label">MRR generado</div>
+                  <div class="value">2.140 €</div>
+                  <div class="delta">+18% vs mes anterior</div>
+                </div>
+              </div>
+
+              <div style="background: var(--surface-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4) var(--space-5);">
+                <div style="font-size: var(--font-size-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-2);">Tu enlace de referido</div>
+                <div style="display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--surface-secondary); border-radius: var(--radius-sm); font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--font-size-sm); color: var(--text-primary);">
+                  <span style="flex: 1;">aelium.io/r/luis-romero</span>
+                  <button class="btn btn-secondary btn-sm">Copiar</button>
+                </div>
+                <p style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: var(--space-2);">
+                  Compártelo en tu web, email o donde prefieras. Cuando un cliente se registra desde aquí, lo verás en <strong>Mis clientes</strong>.
+                </p>
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: secciones <strong>"Tu cartera"</strong> + <strong>"Herramientas"</strong> con voz posesiva del partner · h1 conversacional <strong>"Hola, Luis"</strong> · subtitle con buena noticia (<strong>"Tu cartera crece"</strong>) · KPIs en tabular-nums · enlace en mono con copy <strong>"Compártelo en tu web, email o donde prefieras"</strong>.
+      </p>
+    </section>
+
+    <!-- ─── 02 · densidad ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Densidad · standard</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">
+        Intermedia entre cliente y admin. El partner usa el portal regularmente pero no de forma operativa todo el día.
+      </p>
+
+      <table class="density-table">
+        <thead>
+          <tr><th>Variable</th><th>Cliente · comfortable</th><th>Partner · standard</th><th>Admin · compact</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>--shell-pad-y</code></td><td class="num">32px</td><td class="num">20px</td><td class="num">16px</td></tr>
+          <tr><td><code>--shell-pad-x</code></td><td class="num">32px</td><td class="num">20px</td><td class="num">20px</td></tr>
+          <tr><td><code>--shell-gap</code></td><td class="num">24px</td><td class="num">16px</td><td class="num">12px</td></tr>
+          <tr><td><code>--shell-sidebar-width</code></td><td class="num">260px</td><td class="num">240px</td><td class="num">232px</td></tr>
+          <tr><td><code>--shell-sidebar-collapsed</code></td><td class="num">72px</td><td class="num">64px</td><td class="num">56px</td></tr>
+          <tr><td><code>--shell-topbar-height</code></td><td class="num">60px</td><td class="num">56px</td><td class="num">52px</td></tr>
+          <tr><td><code>--shell-nav-item-pad-y</code></td><td class="num">10px</td><td class="num">8px</td><td class="num">6px</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ─── 03 · diferencial visual entre los 3 portales ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Diferencial entre portales</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">
+        Los tres portales (cliente, admin, partner) comparten anatomía pero se distinguen visualmente sin recurrir a esquemas de color distintos. <strong>Brand wins</strong> — el azul Aelium es el mismo para todos. La diferencia la dan el eyebrow del portal y la densidad.
+      </p>
+
+      <table class="density-table">
+        <thead>
+          <tr><th>Portal</th><th>Eyebrow color</th><th>Densidad</th><th>Search palette</th><th>SupportButton</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Cliente</td>
+            <td><span style="color: var(--text-tertiary);">--text-tertiary</span></td>
+            <td>comfortable</td>
+            <td>—</td>
+            <td>✅</td>
+          </tr>
+          <tr>
+            <td>Partner</td>
+            <td><span style="color: var(--info);">--info</span></td>
+            <td>standard</td>
+            <td>—</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>Admin / Agente</td>
+            <td><span style="color: var(--brand);">--brand</span></td>
+            <td>compact</td>
+            <td>✅ (sin <code>⌘K</code>)</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ─── 04 · anti-patrones ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Anti-patrones</h2>
+        <span class="section-num">04</span>
+      </div>
+      <ul style="font-size: var(--font-size-sm); line-height: var(--line-height-relaxed); color: var(--text-secondary); padding-left: var(--space-5);">
+        <li>❌ Mezclar items de partner con items de cliente. Drift D4-5 — el partner tiene su shell.</li>
+        <li>❌ Densidad <code>compact</code> en partner. No es operativo de jornada completa.</li>
+        <li>❌ Search palette ⌘K. El partner no necesita comandos rápidos.</li>
+        <li>❌ Topbar con SupportButton de cliente. El partner tiene "Soporte partner" en sidebar.</li>
+        <li>❌ Eyebrow "Portal partner" con rombo decorativo. Tipográfico color <code>--info</code> (DD-030).</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

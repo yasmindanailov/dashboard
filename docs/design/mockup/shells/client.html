@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · ClientShell</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .demo-frame {
+    background: var(--surface-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 0;
+    overflow: hidden;
+    margin-top: var(--space-4);
+  }
+  .demo-frame .embed { min-height: 620px; position: relative; isolation: isolate; }
+  .demo-frame .embed .shell { min-height: 620px; }
+  .demo-label {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-2);
+    display: flex; align-items: center; gap: var(--space-2);
+  }
+  .demo-label .ctx-tag {
+    background: var(--surface-tertiary);
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+  }
+  .density-table {
+    width: 100%; border-collapse: collapse; font-size: var(--font-size-sm);
+    background: var(--surface-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+  }
+  .density-table th, .density-table td {
+    padding: var(--space-2_5) var(--space-3);
+    text-align: left; border-bottom: 1px solid var(--border);
+  }
+  .density-table th {
+    background: var(--surface-secondary); color: var(--text-secondary);
+    font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em;
+    font-weight: var(--font-weight-medium);
+  }
+  .density-table tr:last-child td { border-bottom: none; }
+  .density-table .num {
+    font-feature-settings: var(--font-feature-numeric);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Stub content inside main */
+  .stub-page-head {
+    margin-bottom: var(--space-5);
+  }
+  .stub-page-head h1 {
+    font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold);
+    color: var(--text-primary); letter-spacing: -0.015em; margin: 0;
+  }
+  .stub-page-head .subtitle {
+    font-size: var(--font-size-sm); color: var(--text-secondary);
+    margin-top: var(--space-1);
+  }
+  .stub-card {
+    background: var(--surface-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: var(--space-5);
+    box-shadow: var(--shadow-sm);
+  }
+  .stub-card + .stub-card { margin-top: var(--space-4); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 4 · Shells</div>
+      <h1 class="page-title">ClientShell · densidad <strong>comfortable</strong></h1>
+      <p class="page-lede">
+        El caparazón del Portal Cliente. Sidebar 260px con rombo Aelium real (no "A" cuadrada · drift D4-4). Topbar variante <strong>cliente</strong>: sin search palette (DD-025), con SupportButton, NotificationBell y profile. Densidad <strong>comfortable</strong> (DD-016 + DD-032 materializada): pads <code>--space-6</code>, ritmo de respiro porque el cliente no es operativo de jornada — abre el portal para confirmar que todo va bien o pedir ayuda.
+      </p>
+      <div class="row" style="margin-top: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-2);">
+        <span class="tok">data-density="comfortable"</span>
+        <span class="tok">sidebar 260/72</span>
+        <span class="tok">topbar 60</span>
+        <span class="tok">DD-016 + DD-032</span>
+      </div>
+    </header>
+
+    <!-- ─── 01 · shell preview ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Shell · preview en composición</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">
+        Shell montado con una página real dentro: <code>/dashboard</code> · "Tu portal".
+      </p>
+
+      <div class="demo-label">
+        <span>ClientShell · /dashboard</span>
+        <span class="ctx-tag">Cliente · María Pérez</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="embed">
+          <div class="shell" data-density="comfortable">
+            <a class="shell-skip" href="#main">Saltar al contenido</a>
+
+            <aside class="shell-sidebar" aria-label="Navegación principal">
+              <a href="#" class="shell-brand">
+                <span class="shell-brand-logo">
+                  <svg viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                    <rect x="6" y="2" width="11" height="11" rx="2" transform="rotate(45 11.5 7.5)" fill="var(--brand)"/>
+                    <rect x="11" y="15" width="8" height="8" rx="1.5" transform="rotate(45 15 19)" fill="var(--brand)" opacity="0.55"/>
+                  </svg>
+                </span>
+                <span class="shell-brand-text">
+                  <span class="shell-brand-name">aelium</span>
+                  <span class="shell-brand-portal">Portal cliente</span>
+                </span>
+              </a>
+
+              <nav class="shell-nav">
+                <div class="shell-nav-section">
+                  <a class="shell-nav-link is-active" href="#" aria-current="page">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+                    <span class="nav-label">Inicio</span>
+                  </a>
+                  <a class="shell-nav-link" href="#">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                    <span class="nav-label">Tus servicios</span>
+                  </a>
+                  <a class="shell-nav-link" href="#">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>
+                    <span class="nav-label">Tus facturas</span>
+                  </a>
+                  <a class="shell-nav-link" href="#">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+                    <span class="nav-label">Soporte</span>
+                  </a>
+                  <a class="shell-nav-link" href="#">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                    <span class="nav-label">Transparencia</span>
+                  </a>
+                </div>
+              </nav>
+
+              <button class="shell-collapse-btn" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 18l-6-6 6-6"/></svg>
+                Colapsar
+              </button>
+            </aside>
+
+            <header class="shell-topbar">
+              <div class="shell-topbar-left"><span style="font-size: var(--font-size-sm); color: var(--text-tertiary);"></span></div>
+              <div class="shell-topbar-right">
+                <button class="shell-icon-btn" title="Soporte" aria-label="Soporte">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </button>
+                <button class="shell-icon-btn" title="Notificaciones" aria-label="Notificaciones">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                  <span class="badge-count">3</span>
+                </button>
+                <button class="shell-profile" type="button">
+                  <span class="shell-profile-info">
+                    <span class="shell-profile-name">María Pérez</span>
+                    <span class="shell-profile-role">Cliente</span>
+                  </span>
+                  <span class="shell-profile-avatar">MP</span>
+                </button>
+              </div>
+            </header>
+
+            <main class="shell-main" id="main">
+              <div class="stub-page-head">
+                <h1>Hola, María</h1>
+                <p class="subtitle">Todo en orden con tus servicios. Te resumimos cómo van las cosas.</p>
+              </div>
+
+              <div class="stub-card">
+                <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3);">
+                  <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--success-subtle); color: var(--success); display: flex; align-items: center; justify-content: center;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <div>
+                    <div style="font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); color: var(--text-primary);">Tu hosting está al aire</div>
+                    <div style="font-size: var(--font-size-sm); color: var(--text-tertiary);">Última copia hace 12 horas · sin incidencias.</div>
+                  </div>
+                </div>
+                <div style="font-size: var(--font-size-sm); color: var(--text-secondary); line-height: var(--line-height-relaxed); padding-top: var(--space-3); border-top: 1px solid var(--border);">
+                  Renovamos el certificado SSL de <code>mitienda.com</code> esta mañana. Todo automático, sin tocar nada.
+                </div>
+              </div>
+
+              <div class="stub-card" style="margin-top: var(--space-4);">
+                <div style="font-size: var(--font-size-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-2);">Tu próxima factura</div>
+                <div style="display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-2);">
+                  <span style="font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); color: var(--text-primary); font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums;">49,90 €</span>
+                  <span style="font-size: var(--font-size-sm); color: var(--text-tertiary);">· se carga el 12 nov</span>
+                </div>
+                <div style="font-size: var(--font-size-sm); color: var(--text-secondary);">Lo verás en tu factura. Sin sorpresas.</div>
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: h1 conversacional <strong>"Hola, María"</strong> · subtitle <strong>"Todo en orden con tus servicios"</strong> tranquiliza · cards con voz socio (<strong>"Tu hosting está al aire"</strong>, <strong>"Lo verás en tu factura. Sin sorpresas."</strong>) · profile rol <strong>"Cliente"</strong> sin tecnicismos.
+      </p>
+    </section>
+
+    <!-- ─── 02 · densidad ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Densidad · comfortable</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">
+        DD-016 (asignación por portal) + DD-032 (materialización en CSS vars). Justifica respiro estructural — el cliente no opera, consulta.
+      </p>
+
+      <table class="density-table">
+        <thead>
+          <tr>
+            <th>Variable</th>
+            <th>Valor</th>
+            <th>Uso</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>--shell-pad-y</code></td><td class="num">32px</td><td>Padding vertical de <code>.shell-main</code></td></tr>
+          <tr><td><code>--shell-pad-x</code></td><td class="num">32px</td><td>Padding horizontal de <code>.shell-main</code></td></tr>
+          <tr><td><code>--shell-gap</code></td><td class="num">24px</td><td>Gap entre bloques mayores</td></tr>
+          <tr><td><code>--shell-sidebar-width</code></td><td class="num">260px</td><td>Sidebar expandido</td></tr>
+          <tr><td><code>--shell-sidebar-collapsed</code></td><td class="num">72px</td><td>Sidebar colapsado</td></tr>
+          <tr><td><code>--shell-topbar-height</code></td><td class="num">60px</td><td>Altura del topbar</td></tr>
+          <tr><td><code>--shell-nav-item-pad-y</code></td><td class="num">10px</td><td>Padding vertical de cada nav-link</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ─── 03 · voz aplicada ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Voz aplicada · cliente (DD-022)</h2>
+        <span class="section-num">03</span>
+      </div>
+
+      <table class="density-table">
+        <thead>
+          <tr><th>Genérico</th><th>Aelium · cliente</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Dashboard</td><td>Inicio</td></tr>
+          <tr><td>Services</td><td>Tus servicios</td></tr>
+          <tr><td>Invoices / Billing</td><td>Tus facturas</td></tr>
+          <tr><td>Help / Support</td><td>Soporte</td></tr>
+          <tr><td>Activity log</td><td>Transparencia</td></tr>
+          <tr><td>Welcome, User</td><td>Hola, María</td></tr>
+          <tr><td>Sign out</td><td>Cerrar sesión</td></tr>
+          <tr><td>Account settings</td><td>Configuración</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ─── 04 · anti-patrones ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Anti-patrones</h2>
+        <span class="section-num">04</span>
+      </div>
+      <ul style="font-size: var(--font-size-sm); line-height: var(--line-height-relaxed); color: var(--text-secondary); padding-left: var(--space-5);">
+        <li>❌ Search palette ⌘K visible en topbar cliente. El cliente no navega así.</li>
+        <li>❌ Sidebar con 12+ items. Si hace falta, hay un módulo mal pensado para cliente.</li>
+        <li>❌ Densidad <code>compact</code> en cliente — abrumador para usuario no operativo.</li>
+        <li>❌ Eyebrow "Portal cliente" con rombo decorativo. <strong>DD-030</strong>: tipográfico.</li>
+        <li>❌ <code>&lt;kbd&gt;⌘K&lt;/kbd&gt;</code> en cualquier botón visible — DD-025 reafirmado.</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

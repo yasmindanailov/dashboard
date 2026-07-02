@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · AdminShell</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .demo-frame {
+    background: var(--surface-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 0;
+    overflow: hidden;
+    margin-top: var(--space-4);
+  }
+  .demo-frame .embed { min-height: 660px; position: relative; isolation: isolate; }
+  .demo-frame .embed .shell { min-height: 660px; }
+  .demo-label {
+    font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-tertiary); margin-bottom: var(--space-2);
+    display: flex; align-items: center; gap: var(--space-2);
+  }
+  .demo-label .ctx-tag {
+    background: var(--surface-tertiary); color: var(--text-secondary);
+    padding: 2px 6px; border-radius: var(--radius-sm);
+    text-transform: none; letter-spacing: 0; font-size: 11px;
+  }
+  .density-table {
+    width: 100%; border-collapse: collapse; font-size: var(--font-size-sm);
+    background: var(--surface-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+  }
+  .density-table th, .density-table td {
+    padding: var(--space-2_5) var(--space-3);
+    text-align: left; border-bottom: 1px solid var(--border);
+  }
+  .density-table th {
+    background: var(--surface-secondary); color: var(--text-secondary);
+    font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em;
+    font-weight: var(--font-weight-medium);
+  }
+  .density-table tr:last-child td { border-bottom: none; }
+  .density-table .num {
+    font-feature-settings: var(--font-feature-numeric);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Stub table inside main */
+  .stub-table-mini {
+    width: 100%; border-collapse: collapse; font-size: var(--font-size-sm);
+    background: var(--surface-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+  }
+  .stub-table-mini th, .stub-table-mini td {
+    padding: var(--space-2) var(--space-3); text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .stub-table-mini th {
+    background: var(--surface-secondary); color: var(--text-secondary);
+    font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .stub-table-mini tr:last-child td { border-bottom: none; }
+  .stub-table-mini .num { font-feature-settings: var(--font-feature-numeric); font-variant-numeric: tabular-nums; }
+  .b {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: var(--font-size-xs); font-weight: var(--font-weight-medium);
+  }
+  .b.active { background: var(--success-subtle); color: var(--success-strong); }
+  .b.pending { background: var(--pending-subtle); color: var(--pending); }
+  .b .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 4 · Shells</div>
+      <h1 class="page-title">AdminShell · densidad <strong>compact</strong></h1>
+      <p class="page-lede">
+        El caparazón del Portal Admin/Agente. Sidebar 232px con dos secciones (<strong>Operaciones</strong> + <strong>Plataforma</strong>) filtradas por CASL. Topbar variante <strong>admin</strong>: con search palette <strong>sin <code>&lt;kbd&gt;⌘K&lt;/kbd&gt;</code></strong> visible (DD-025), sin SupportButton. Densidad <strong>compact</strong>: pads <code>--space-4</code>, cada píxel ahorrado son más filas. El admin/agente vive aquí — productividad antes que respiro.
+      </p>
+      <div class="row" style="margin-top: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-2);">
+        <span class="tok">data-density="compact"</span>
+        <span class="tok">sidebar 232/56</span>
+        <span class="tok">topbar 52</span>
+        <span class="tok">DD-025 sin kbd</span>
+        <span class="tok">CASL filtering</span>
+      </div>
+    </header>
+
+    <!-- ─── 01 · shell preview ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Shell · preview con listing real</h2>
+        <span class="section-num">01</span>
+      </div>
+      <p class="section-lede">
+        Shell montado con <code>/admin/clients</code> dentro · agente Julia M. con rol <strong>agent_full</strong>.
+      </p>
+
+      <div class="demo-label">
+        <span>AdminShell · /admin/clients</span>
+        <span class="ctx-tag">Staff · agent_full</span>
+      </div>
+
+      <div class="demo-frame">
+        <div class="embed">
+          <div class="shell" data-density="compact">
+            <a class="shell-skip" href="#main">Saltar al contenido</a>
+
+            <aside class="shell-sidebar" aria-label="Navegación de administración">
+              <a href="#" class="shell-brand">
+                <span class="shell-brand-logo">
+                  <svg viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                    <rect x="6" y="2" width="11" height="11" rx="2" transform="rotate(45 11.5 7.5)" fill="var(--brand)"/>
+                    <rect x="11" y="15" width="8" height="8" rx="1.5" transform="rotate(45 15 19)" fill="var(--brand)" opacity="0.55"/>
+                  </svg>
+                </span>
+                <span class="shell-brand-text">
+                  <span class="shell-brand-name">aelium</span>
+                  <span class="shell-brand-portal is-admin">Portal admin</span>
+                </span>
+              </a>
+
+              <nav class="shell-nav">
+                <div class="shell-nav-section">
+                  <span class="shell-nav-section-title">Operaciones</span>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span><span class="nav-label">Inicio</span></a>
+                  <a class="shell-nav-link is-active" href="#" aria-current="page"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="nav-label">Clientes</span><span class="nav-count">142</span></a>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span><span class="nav-label">Productos</span></a>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><span class="nav-label">Servicios</span></a>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span><span class="nav-label">Facturación</span></a>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="nav-label">Soporte</span><span class="nav-count">14</span></a>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span class="nav-label">Tareas</span><span class="nav-count">8</span></a>
+                </div>
+
+                <div class="shell-nav-section">
+                  <span class="shell-nav-section-title">Plataforma</span>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82M4.6 9a1.65 1.65 0 0 0-.33-1.82"/></svg></span><span class="nav-label">Settings</span></a>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span><span class="nav-label">Error log</span><span class="nav-count" style="background: var(--danger-subtle); color: var(--danger);">3</span></a>
+                  <a class="shell-nav-link" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><span class="nav-label">Jobs en DLQ</span></a>
+                </div>
+              </nav>
+
+              <button class="shell-collapse-btn" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 18l-6-6 6-6"/></svg>
+                Colapsar
+              </button>
+            </aside>
+
+            <header class="shell-topbar">
+              <div class="shell-topbar-left">
+                <div class="shell-search-trigger" aria-haspopup="dialog">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <span>Buscar clientes, facturas, tickets…</span>
+                </div>
+              </div>
+              <div class="shell-topbar-right">
+                <button class="shell-icon-btn" title="Notificaciones" aria-label="Notificaciones">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                  <span class="badge-count">7</span>
+                </button>
+                <button class="shell-profile" type="button">
+                  <span class="shell-profile-info">
+                    <span class="shell-profile-name">Julia Martín</span>
+                    <span class="shell-profile-role">Agente</span>
+                  </span>
+                  <span class="shell-profile-avatar">JM</span>
+                </button>
+              </div>
+            </header>
+
+            <main class="shell-main" id="main">
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4);">
+                <div>
+                  <h1 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); color: var(--text-primary); letter-spacing: -0.015em; margin: 0;">Clientes</h1>
+                  <p style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-top: 4px;">142 clientes activos · ordena por última actividad</p>
+                </div>
+                <div style="display: flex; gap: var(--space-2);">
+                  <button class="btn btn-secondary btn-md">Exportar</button>
+                  <button class="btn btn-primary btn-md">Nuevo cliente</button>
+                </div>
+              </div>
+
+              <table class="stub-table-mini">
+                <thead>
+                  <tr><th>Cliente</th><th>Plan</th><th>Asignado</th><th>Última act.</th><th class="num">MRR</th><th>Estado</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Floristería Pérez</td><td>Pro</td><td>Julia M.</td><td style="color: var(--text-tertiary);">hace 2 días</td><td class="num">49,90 €</td><td><span class="b active"><span class="dot"></span>activo</span></td></tr>
+                  <tr><td>Carpintería Baeza</td><td>Esencial</td><td style="color: var(--text-tertiary);">—</td><td style="color: var(--text-tertiary);">hace 5 días</td><td class="num">19,90 €</td><td><span class="b active"><span class="dot"></span>activo</span></td></tr>
+                  <tr><td>Asesoría Martín</td><td>Pro</td><td>Luis R.</td><td style="color: var(--text-tertiary);">hoy</td><td class="num">49,90 €</td><td><span class="b pending"><span class="dot"></span>pendiente</span></td></tr>
+                  <tr><td>Estudio Bellas Letras</td><td>Pro</td><td>Julia M.</td><td style="color: var(--text-tertiary);">hace 1 día</td><td class="num">49,90 €</td><td><span class="b active"><span class="dot"></span>activo</span></td></tr>
+                </tbody>
+              </table>
+            </main>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-foot" style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-secondary);">
+        Voz aplicada: search trigger <strong>"Buscar clientes, facturas, tickets…"</strong> directo (sin <code>⌘K</code> visible) · sidebar con counts <strong>tabular-nums</strong> en items operativos · profile <strong>"Julia Martín · Agente"</strong> · Error log con count en <code>--danger-subtle</code>.
+      </p>
+    </section>
+
+    <!-- ─── 02 · densidad ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Densidad · compact</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">
+        El admin/agente trabaja todo el día aquí. Cada píxel ahorrado son más filas visibles. Densidad alta sin perder respiro estructural — el espaciado interno de cada componente sigue su escala (Card, Modal, Form mantienen ritmo).
+      </p>
+
+      <table class="density-table">
+        <thead>
+          <tr><th>Variable</th><th>Valor</th><th>Cliente (comfortable)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>--shell-pad-y</code></td><td class="num">16px</td><td class="num">32px</td></tr>
+          <tr><td><code>--shell-pad-x</code></td><td class="num">20px</td><td class="num">32px</td></tr>
+          <tr><td><code>--shell-gap</code></td><td class="num">12px</td><td class="num">24px</td></tr>
+          <tr><td><code>--shell-sidebar-width</code></td><td class="num">232px</td><td class="num">260px</td></tr>
+          <tr><td><code>--shell-sidebar-collapsed</code></td><td class="num">56px</td><td class="num">72px</td></tr>
+          <tr><td><code>--shell-topbar-height</code></td><td class="num">52px</td><td class="num">60px</td></tr>
+          <tr><td><code>--shell-nav-item-pad-y</code></td><td class="num">6px</td><td class="num">10px</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ─── 03 · matriz CASL ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Visibilidad por rol · CASL</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">
+        El sidebar admin filtra items por <code>canAccess(roleSlug, requiredModule)</code>. Items invisibles para el rol simplemente no se renderizan (no se muestran disabled).
+      </p>
+
+      <table class="density-table">
+        <thead>
+          <tr><th>Item</th><th>superadmin</th><th>agent_full</th><th>agent_billing</th><th>agent_support</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Inicio</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+          <tr><td>Clientes</td><td>✅</td><td>✅</td><td>✅</td><td>✅ (read)</td></tr>
+          <tr><td>Productos</td><td>✅</td><td>✅</td><td>—</td><td>—</td></tr>
+          <tr><td>Servicios</td><td>✅</td><td>✅</td><td>—</td><td>—</td></tr>
+          <tr><td>Facturación</td><td>✅</td><td>✅</td><td>✅</td><td>—</td></tr>
+          <tr><td>Soporte</td><td>✅</td><td>✅</td><td>—</td><td>✅</td></tr>
+          <tr><td>Tareas</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+          <tr><td>Settings</td><td>✅</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td>Error log</td><td>✅</td><td>✅</td><td>—</td><td>—</td></tr>
+          <tr><td>Jobs en DLQ</td><td>✅</td><td>—</td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ─── 04 · anti-patrones ─── -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Anti-patrones</h2>
+        <span class="section-num">04</span>
+      </div>
+      <ul style="font-size: var(--font-size-sm); line-height: var(--line-height-relaxed); color: var(--text-secondary); padding-left: var(--space-5);">
+        <li>❌ Densidad <code>comfortable</code> en admin — desperdicia el área de trabajo.</li>
+        <li>❌ <code>&lt;kbd&gt;⌘K&lt;/kbd&gt;</code> visible en el search trigger. <strong>DD-025</strong>.</li>
+        <li>❌ Sidebar mezclado sin secciones. Operaciones / Plataforma siempre visibles (aunque la segunda esté vacía).</li>
+        <li>❌ Mostrar items que el rol no puede usar (visibles + disabled). Filtrado por CASL = ocultos.</li>
+        <li>❌ Eyebrow "Portal admin" con rombo decorativo. Tipográfico (DD-030).</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

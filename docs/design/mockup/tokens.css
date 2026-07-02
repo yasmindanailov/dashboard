@@ -1,0 +1,223 @@
+/* ═══════════════════════════════════════════════════════════════
+   AELIUM DASHBOARD — Design Tokens · Fase 1 (propuesta)
+
+   Migración aditiva sobre frontend/app/globals.css. 42 tokens nuevos,
+   0 valores existentes modificados. Nombres preparados para dark mode
+   (fase 11). Override por portal diferido a fase 4.
+
+   Para promocionar a globals.css: ver audit.md (plan de migración).
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ──────── BRAND (marca v1.6) ──────── */
+  --brand:             #3B82F6;
+  --brand-hover:       #2563EB;
+  --brand-active:      #1D4ED8;
+  --brand-light:       #DBEAFE;
+  --brand-subtle:      rgba(59, 130, 246, 0.06);
+  --accent-secondary:  #1F8EFA;   /* + marca: azul vivo · uso por definir (DD-021) */
+
+  /* ──────── SEMÁNTICOS · success ──────── */
+  --success:         #10B981;
+  --success-hover:   #059669;            /* + */
+  --success-light:   rgba(16, 185, 129, 0.08);
+  --success-border:  rgba(16, 185, 129, 0.18);
+  --success-strong:  #047857;            /* + texto sobre -light · AA 5.9:1 */
+
+  /* ──────── SEMÁNTICOS · warning ──────── */
+  --warning:         #F59E0B;
+  --warning-hover:   #D97706;
+  --warning-light:   rgba(245, 158, 11, 0.08);
+  --warning-border:  rgba(245, 158, 11, 0.18);
+  --warning-strong:  #92400E;            /* + texto sobre -light · AA 7.1:1 */
+
+  /* ──────── SEMÁNTICOS · danger ──────── */
+  --danger:          #EF4444;
+  --danger-hover:    #DC2626;            /* + */
+  --danger-light:    rgba(239, 68, 68, 0.08);
+  --danger-border:   rgba(239, 68, 68, 0.18);
+  --danger-strong:   #B91C1C;            /* + texto sobre -light · AA 6.4:1 */
+
+  /* ──────── SEMÁNTICOS · info ──────── */
+  --info:            #3B82F6;
+  --info-hover:      #2563EB;            /* + */
+  --info-light:      rgba(59, 130, 246, 0.08);
+  --info-border:     rgba(59, 130, 246, 0.18);
+  --info-strong:     #1E40AF;            /* + texto sobre -light · AA 8.6:1 */
+
+  /* ──────── SEMÁNTICOS · pending (púrpura, formaliza StatusDot) ──────── */
+  --pending:         #8B5CF6;            /* + */
+  --pending-hover:   #7C3AED;            /* + */
+  --pending-active:  #6D28D9;            /* + */
+  --pending-light:   rgba(139, 92, 246, 0.08);  /* + */
+  --pending-border:  rgba(139, 92, 246, 0.18);  /* + */
+  --pending-strong:  #6D28D9;            /* + */
+
+  /* ──────── SUPERFICIES (DD-021 · marca v1.6) ──────── */
+  --surface-primary:   #FFFFFF;
+  --surface-secondary: #F8FAFF;   /* + marca: azul muy claro · antes #F7F7F8 */
+  --surface-tertiary:  #F1F5F9;   /* slate-100 — alineado a la familia azul-gris */
+  --surface-dark:      #0F172A;   /* + marca: azul muy oscuro · antes #0A0A0B */
+
+  /* ──────── TEXTO (DD-021 · marca v1.6) ──────── */
+  --text-primary:    #0F172A;             /* + marca · antes #0A0A0B */
+  --text-secondary:  #64748B;             /* + marca: slate-500 · antes #6B7280 */
+  --text-tertiary:   #94A3B8;             /* alineado: slate-400 · antes #9CA3AF */
+  --text-on-brand:   #FFFFFF;
+  --text-on-dark:    rgba(255, 255, 255, 0.92);
+
+  /* ──────── BORDES (DD-021 · marca v1.6 — slate-200/300/400) ──────── */
+  --border:          #E2E8F0;             /* + marca · antes rgba(0,0,0,0.06) */
+  --border-hover:    #CBD5E1;             /* slate-300 · antes rgba(0,0,0,0.10) */
+  --border-active:   #94A3B8;             /* slate-400 · antes rgba(0,0,0,0.15) */
+
+  /* ──────── RADIOS ──────── */
+  --radius-xs:   4px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-full: 9999px;
+
+  /* ──────── SOMBRAS ──────── */
+  --shadow-xs:    0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md:    0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg:    0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-xl:    0 12px 40px rgba(0, 0, 0, 0.12);
+  --shadow-brand: 0 4px 24px rgba(59, 130, 246, 0.12);
+
+  /* ──────── SPACING (escala 4px) ──────── */
+  --space-0:   0px;
+  --space-0_5: 2px;
+  --space-1:   4px;
+  --space-1_5: 6px;
+  --space-2:   8px;
+  --space-2_5: 10px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+
+  /* ──────── TIPOGRAFÍA · familias ──────── */
+  --font-family: var(--font-dm-sans, 'DM Sans'), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono:   'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;  /* + */
+
+  /* ──────── TIPOGRAFÍA · tamaños ──────── */
+  --font-size-xs:   11px;
+  --font-size-sm:   13px;
+  --font-size-base: 14px;
+  --font-size-md:   16px;
+  --font-size-lg:   20px;
+  --font-size-xl:   24px;
+  --font-size-2xl:  32px;
+  --font-size-3xl:  40px;     /* + display-sm */
+  --font-size-4xl:  56px;     /* + display-lg */
+
+  /* ──────── TIPOGRAFÍA · pesos ──────── */
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+
+  /* ──────── TIPOGRAFÍA · line-heights ──────── */
+  --line-height-tight:    1.2;
+  --line-height-snug:     1.35;     /* + */
+  --line-height-normal:   1.5;
+  --line-height-relaxed:  1.625;
+
+  /* ──────── TRANSITIONS · durations ──────── */
+  --transition-fast:   150ms;
+  --transition-normal: 200ms;
+  --transition-slow:   300ms;
+
+  /* ──────── TRANSITIONS · easings ──────── + */
+  --ease-out:        cubic-bezier(0.16, 1, 0.3, 1);     /* entradas */
+  --ease-in:         cubic-bezier(0.7, 0, 0.84, 0);     /* salidas */
+  --ease-in-out:     cubic-bezier(0.65, 0, 0.35, 1);    /* default */
+  --ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1); /* énfasis */
+
+  /* ──────── LAYOUT · chrome ──────── */
+  --sidebar-width:      260px;
+  --sidebar-collapsed:  72px;
+  --topbar-height:      56px;
+
+  /* ──────── LAYOUT · containers ──────── + */
+  --container-form:     720px;
+  --container-detail:   1040px;
+  --container-list:     1280px;
+
+  /* ──────── Z-INDEX ──────── */
+  --z-dropdown:  100;
+  --z-sticky:    200;
+  --z-overlay:   300;
+  --z-modal:     400;
+  --z-toast:     500;
+  --z-tooltip:   600;
+
+  /* ──────── ICONOGRAFÍA ──────── + */
+  --icon-size-sm:      14px;
+  --icon-size-md:      16px;
+  --icon-size-lg:      20px;
+  --icon-stroke-width: 1.5;
+
+  /* ──────── FIRMA · accent (override por portal en fase 4) ──────── + */
+  --accent:        var(--brand);
+  --accent-hover:  var(--brand-hover);
+  --accent-light:  var(--brand-light);
+  --accent-subtle: var(--brand-subtle);
+
+  /* ──────── FIRMA · mesh ──────── + */
+  --mesh-opacity-auth:    1;
+  --mesh-opacity-product: 0.04;
+
+  /* ──────── FIRMA · densidad raw ──────── + */
+  --row-height-compact:        36px;
+  --row-height-comfortable:    56px;
+  --cell-padding-compact:      10px 12px;
+  --cell-padding-comfortable:  16px 20px;
+  --card-padding-compact:      16px;
+  --card-padding-comfortable:  24px;
+  --body-size-compact:         14px;
+  --body-size-comfortable:     16px;
+
+  /* ──────── FIRMA · densidad resuelta (default compact) ──────── + */
+  --row-height:   var(--row-height-compact);
+  --cell-padding: var(--cell-padding-compact);
+  --card-padding: var(--card-padding-compact);
+  --body-size:    var(--body-size-compact);
+
+  /* ──────── FIRMA · focus ring ──────── + */
+  --focus-ring:         0 0 0 2px var(--surface-primary), 0 0 0 4px var(--brand);
+  --focus-ring-on-dark: 0 0 0 2px var(--surface-dark), 0 0 0 4px var(--brand-light);
+
+  /* ──────── FIRMA · numerals ──────── + */
+  --font-feature-numeric: "tnum" 1, "lnum" 1;
+
+  /* ──────── FIRMA · motion choreography (Framer Motion) ──────── + */
+  --motion-stagger-fast:  30ms;
+  --motion-stagger-base:  60ms;
+  --motion-route:         220ms cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-stack-in:      180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-stack-out:     140ms cubic-bezier(0.7, 0, 0.84, 0);
+  --motion-modal-in:      240ms cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-modal-out:     180ms cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DENSITY RESOLUTION
+   Default compact (en :root). Comfortable se activa con [data-density].
+   Asignación por portal en fase 4 (shells).
+   ═══════════════════════════════════════════════════════════════ */
+[data-density="comfortable"] {
+  --row-height:   var(--row-height-comfortable);
+  --cell-padding: var(--cell-padding-comfortable);
+  --card-padding: var(--card-padding-comfortable);
+  --body-size:    var(--body-size-comfortable);
+}
+
+/* Portal accent overrides — DIFERIDO a fase 4.
+   --accent === --brand en toda la aplicación por ahora. */

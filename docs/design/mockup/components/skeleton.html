@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Skeleton</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .demo-stack { display: flex; flex-direction: column; gap: var(--space-4); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); }
+  .skel-card {
+    background: var(--surface-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-5);
+  }
+  .label { font-size: 11px; text-transform: uppercase; color: var(--text-tertiary); letter-spacing: 0.06em; margin-bottom: var(--space-3); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="eyebrow">Fase 2.B · Feedback</div>
+      <h1 class="page-title">Skeleton</h1>
+      <p class="page-lede">
+        Placeholder mientras carga el contenido. Variantes <strong>morfológicas</strong> que mimetizan el contenido real (line, paragraph, avatar, row). Plus variante <strong>rombo</strong> con identidad de marca para empty states.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Primitivas</h2>
+        <span class="section-num">01</span>
+      </div>
+      <div class="demo-stack">
+        <div>
+          <p class="label">block · default</p>
+          <div class="skeleton" style="width: 200px; height: 16px;"></div>
+        </div>
+        <div>
+          <p class="label">circle</p>
+          <div class="skeleton circle" style="width: 32px; height: 32px;"></div>
+        </div>
+        <div>
+          <p class="label">line</p>
+          <div class="skeleton line" style="width: 80%;"></div>
+        </div>
+        <div>
+          <p class="label">title</p>
+          <div class="skeleton title"></div>
+        </div>
+        <div>
+          <p class="label">avatar</p>
+          <div class="skeleton avatar"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Composiciones morfológicas</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">Espejan la forma del contenido real. Reduce salto cognitivo cuando llega el contenido.</p>
+
+      <div class="demo-stack">
+        <div>
+          <p class="label">paragraph · 3 líneas</p>
+          <div class="skel-card">
+            <div class="skeleton-paragraph">
+              <div class="skeleton line"></div>
+              <div class="skeleton line"></div>
+              <div class="skeleton line"></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p class="label">row · avatar + 2 líneas (skeleton de fila de tabla)</p>
+          <div class="skel-card">
+            <div class="skeleton-row">
+              <div class="skeleton avatar"></div>
+              <div class="lines">
+                <div class="skeleton line" style="width: 60%;"></div>
+                <div class="skeleton line" style="width: 40%; height: 12px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p class="label">card-skeleton · espejando una Card real</p>
+          <div class="skel-card">
+            <div style="display: flex; gap: var(--space-3); align-items: center; margin-bottom: var(--space-4);">
+              <div class="skeleton circle" style="width: 24px; height: 24px;"></div>
+              <div class="skeleton line" style="width: 100px; height: 12px;"></div>
+            </div>
+            <div class="skeleton title" style="width: 70%; margin-bottom: var(--space-3);"></div>
+            <div class="skeleton-paragraph">
+              <div class="skeleton line"></div>
+              <div class="skeleton line"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: var(--space-4);">
+              <div class="skeleton line" style="width: 80px; height: 24px;"></div>
+              <div class="skeleton line" style="width: 60px; height: 14px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Skeleton rombo · firma de marca</h2>
+        <span class="section-num">03</span>
+      </div>
+      <p class="section-lede">
+        Variante con identidad. Para empty states con loading, momentos donde queremos transmitir "Aelium está cargando" y no solo "algo carga".
+      </p>
+
+      <div class="skel-card" style="text-align: center; padding: var(--space-10);">
+        <div style="display: inline-flex; gap: var(--space-3); margin-bottom: var(--space-4);">
+          <div class="skeleton-rombo"></div>
+          <div class="skeleton-rombo" style="animation-delay: 0.3s;"></div>
+          <div class="skeleton-rombo" style="animation-delay: 0.6s;"></div>
+        </div>
+        <p style="margin: 0; color: var(--text-secondary);">Cargando tus servicios…</p>
+      </div>
+
+      <div class="note">
+        <strong>O usar el .aelium-loader</strong> si la carga es de página. Skeleton-rombo es para composiciones donde el rombo encaja como elemento decorativo (empty states, headers vacíos).
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Reglas de uso</h2>
+        <span class="section-num">04</span>
+      </div>
+      <div class="kv">
+        <div><strong>≥ 200ms</strong></div>
+        <div>No mostrar skeleton si la respuesta llega antes — feedback visual ruidoso.</div>
+        <div><strong>Espejar</strong></div>
+        <div>Skeleton de Card → mismo tamaño y proporciones. Skeleton de tabla → filas con avatar+lines.</div>
+        <div><strong>Cantidad coherente</strong></div>
+        <div>Si normalmente hay ~10 filas, mostrar 5-7 skeletons. No 1 ni 50.</div>
+        <div><strong>Reduced motion</strong></div>
+        <div>Implementación debe respetar <span class="mono">prefers-reduced-motion</span> y desactivar shimmer.</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs actual</h2>
+        <span class="section-num">05</span>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Variantes <span class="meta">D2B-3</span></div>
+        <div><strong>Añadir:</strong> line, line-lg, title, avatar, paragraph, row, rombo.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Reduced motion</div>
+        <div>Añadir media query.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>

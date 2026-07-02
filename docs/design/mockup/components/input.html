@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aelium · Input</title>
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
+  .form-stack { display: flex; flex-direction: column; gap: var(--space-5); }
+  @media (max-width: 800px) { .form-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside id="nav" class="nav"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div class="page-eyebrow">Fase 2.A · Formularios</div>
+      <h1 class="page-title">Input</h1>
+      <p class="page-lede">
+        Campo de texto de una línea. Tres tamaños, prefijo/sufijo de icono, estados completos. Labels y placeholders en voz de marca — Aelium acompaña, no instruye.
+      </p>
+    </header>
+
+    <!-- Tamaños -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Tamaños</h2>
+        <span class="section-num">01</span>
+      </div>
+
+      <div class="subsection">
+        <div class="preview-canvas column" style="max-width: 480px;">
+          <div class="field field-sm">
+            <label class="field-label" for="i-sm">Buscar cliente</label>
+            <div class="field-control">
+              <input id="i-sm" class="input" type="text" placeholder="nombre o NIF">
+            </div>
+            <p class="field-helper">Tamaño <span class="tok">sm</span> · 32px · usado en filtros densos</p>
+          </div>
+          <div class="field field-md">
+            <label class="field-label" for="i-md">Tu correo</label>
+            <div class="field-control">
+              <input id="i-md" class="input" type="email" placeholder="hola@mitienda.com">
+            </div>
+            <p class="field-helper">Tamaño <span class="tok">md</span> · 36px · default · te enviamos las credenciales aquí</p>
+          </div>
+          <div class="field field-lg">
+            <label class="field-label" for="i-lg">Dominio</label>
+            <div class="field-control">
+              <input id="i-lg" class="input" type="text" placeholder="mitienda.com">
+            </div>
+            <p class="field-helper">Tamaño <span class="tok">lg</span> · 44px · auth y hero cliente</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Iconos prefijo y sufijo -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Con icono · prefijo y sufijo</h2>
+        <span class="section-num">02</span>
+      </div>
+      <p class="section-lede">El icono es decorativo (no clickable). Solo si añade información — no por estética.</p>
+
+      <div class="form-grid">
+        <div class="field field-md field-icon-left">
+          <label class="field-label" for="i-mail">Tu correo</label>
+          <div class="field-control">
+            <span class="field-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </span>
+            <input id="i-mail" class="input" type="email" placeholder="hola@mitienda.com">
+          </div>
+          <p class="field-helper">Te llamamos en 24h al correo que nos dejes.</p>
+        </div>
+
+        <div class="field field-md field-icon-left">
+          <label class="field-label" for="i-tel">Tu teléfono</label>
+          <div class="field-control">
+            <span class="field-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            </span>
+            <input id="i-tel" class="input" type="tel" placeholder="600 00 00 00">
+          </div>
+          <p class="field-helper">Solo lo usamos para llamarte. Nunca para promociones.</p>
+        </div>
+
+        <div class="field field-md field-icon-left">
+          <label class="field-label" for="i-domain">Dominio</label>
+          <div class="field-control">
+            <span class="field-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </span>
+            <input id="i-domain" class="input" type="text" placeholder="mitienda.com">
+          </div>
+          <p class="field-helper">Sin <span class="mono">https://</span> · solo el dominio.</p>
+        </div>
+
+        <div class="field field-md field-icon-right">
+          <label class="field-label" for="i-amount">Importe a facturar</label>
+          <div class="field-control">
+            <input id="i-amount" class="input" type="text" placeholder="0,00" value="49,90">
+            <span class="field-icon" style="font-family: var(--font-mono); font-size: var(--font-size-sm); width: auto; height: auto;">€</span>
+          </div>
+          <p class="field-helper">Sin IVA. El IVA se calcula automáticamente.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Estados -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Estados</h2>
+        <span class="section-num">03</span>
+      </div>
+
+      <div class="form-grid">
+        <div class="field field-md">
+          <label class="field-label" for="s-default">Default · vacío</label>
+          <div class="field-control">
+            <input id="s-default" class="input" type="text" placeholder="hola@mitienda.com">
+          </div>
+          <p class="field-helper">Estado por defecto.</p>
+        </div>
+
+        <div class="field field-md">
+          <label class="field-label" for="s-value">Con valor</label>
+          <div class="field-control">
+            <input id="s-value" class="input" type="text" value="hola@aelium.com">
+          </div>
+          <p class="field-helper">Texto en <span class="tok">--text-primary</span>.</p>
+        </div>
+
+        <div class="field field-md">
+          <label class="field-label" for="s-focus">Focus visible (simulado)</label>
+          <div class="field-control">
+            <input id="s-focus" class="input" type="text" value="hola@aelium.com" style="border-color: var(--brand); box-shadow: var(--focus-ring);">
+          </div>
+          <p class="field-helper">Anillo doble + borde brand. Click para ver real.</p>
+        </div>
+
+        <div class="field field-md">
+          <label class="field-label" for="s-disabled">Disabled</label>
+          <div class="field-control">
+            <input id="s-disabled" class="input" type="text" value="No editable" disabled>
+          </div>
+          <p class="field-helper">Fondo <span class="tok">--surface-secondary</span> · cursor not-allowed.</p>
+        </div>
+
+        <div class="field field-md">
+          <label class="field-label" for="s-readonly">Readonly</label>
+          <div class="field-control">
+            <input id="s-readonly" class="input" type="text" value="Aelium Tech, S.L." readonly>
+          </div>
+          <p class="field-helper">Visualmente igual a default. Sin focus ring.</p>
+        </div>
+
+        <div class="field field-md has-error">
+          <label class="field-label" for="s-error">Error</label>
+          <div class="field-control">
+            <input id="s-error" class="input" type="email" value="no-es-correo" aria-invalid="true">
+          </div>
+          <p class="field-error">Esto no parece un correo. Revísalo.</p>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Voz en errores.</strong> Aelium no acusa al usuario. <span class="mono">"Esto no parece un correo. Revísalo."</span> es lectura amable; <span class="mono">"Email inválido"</span> es robot. La marca dice "te explico por qué" — el error es exactamente ese momento.
+      </div>
+    </section>
+
+    <!-- Voz en helpers -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Voz de marca en helpers</h2>
+        <span class="section-num">04</span>
+      </div>
+      <p class="section-lede">El helper es donde Aelium acompaña. No es texto burocrático — es el socio aclarando algo.</p>
+
+      <div class="form-stack" style="max-width: 480px;">
+        <div class="field field-md">
+          <label class="field-label" for="h1">Tu correo</label>
+          <div class="field-control">
+            <input id="h1" class="input" type="email" placeholder="hola@mitienda.com">
+          </div>
+          <p class="field-helper">Te enviamos las credenciales aquí en cuanto el hosting esté listo.</p>
+        </div>
+
+        <div class="field field-md">
+          <label class="field-label" for="h2">Importe</label>
+          <div class="field-control">
+            <input id="h2" class="input" type="text" placeholder="0,00" value="49,90">
+          </div>
+          <p class="field-helper">Lo verás en tu factura. Sin sorpresas.</p>
+        </div>
+
+        <div class="field field-md">
+          <label class="field-label" for="h3">Tu negocio <span style="color: var(--text-tertiary); font-weight: var(--font-weight-regular);">(opcional)</span></label>
+          <div class="field-control">
+            <input id="h3" class="input" type="text" placeholder="ej. Floristería Pérez">
+          </div>
+          <p class="field-helper">Nos ayuda a entenderte cuando te llamemos.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Drift -->
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Drift vs implementación actual</h2>
+        <span class="section-num">05</span>
+      </div>
+      <p class="section-lede">Detalle en <a href="../../fase-2-componentes/grupo-a-formularios/Input.md" style="color: var(--brand);">Input.md</a>.</p>
+
+      <div class="spec-grid">
+        <div class="label">Focus ring <span class="meta">D2A-2</span></div>
+        <div>Hoy <span class="mono">box-shadow: 0 0 0 3px brand-subtle</span>. Migrar a <span class="tok">--focus-ring</span> doble.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Border default <span class="meta">D2A-3</span></div>
+        <div>Hoy arranca con <span class="tok">--border-hover</span> (intenso). Corregir a <span class="tok">--border</span> default.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Tamaños <span class="meta">D2A-4</span></div>
+        <div><strong>Añadir</strong> sm/md/lg para alinear con Button y Select. Hoy solo hay un tamaño implícito.</div>
+      </div>
+      <div class="spec-grid">
+        <div class="label">Labels y helpers <span class="meta">DD-022</span></div>
+        <div>Refactor de copy genérico a voz Aelium en cada uso del componente.</div>
+      </div>
+    </section>
+
+    <!-- Variantes adicionales · DD-029 -->
+    <section class="section">
+      <div class="section-head"><h2 class="section-title">Variantes adicionales · DD-029 (refresh fase 2.F)</h2><span class="section-num">06</span></div>
+      <p class="section-lede">3 variantes nuevas: password toggle, inline edit, prefix/suffix text.</p>
+
+      <p class="legend">Password toggle · login y settings</p>
+      <div class="form-stack" style="max-width: 480px;">
+        <div class="field field-md field-password">
+          <label class="field-label" for="pw1">Contraseña</label>
+          <div class="field-control">
+            <input id="pw1" class="input" type="password" value="••••••••••">
+            <button class="password-toggle" type="button" aria-label="Mostrar contraseña">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field field-md field-password">
+          <label class="field-label" for="pw2">Contraseña (visible)</label>
+          <div class="field-control">
+            <input id="pw2" class="input" type="text" value="MiContraseña2026">
+            <button class="password-toggle" type="button" aria-label="Ocultar contraseña" style="color: var(--brand);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <p class="legend" style="margin-top: var(--space-5);">Inline edit · click to edit</p>
+      <div class="form-stack" style="max-width: 480px;">
+        <div>
+          <p style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin: 0 0 var(--space-2);">View mode (hover muestra hint)</p>
+          <span class="inline-edit">
+            <span class="inline-edit-text">Floristería Pérez</span>
+            <span class="inline-edit-hint">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </span>
+          </span>
+        </div>
+        <div>
+          <p style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin: 0 0 var(--space-2);">Edit mode (tras click)</p>
+          <span class="inline-edit editing" style="display: inline-flex; align-items: center;">
+            <input class="input" value="Floristería Pérez" style="width: 240px;">
+            <span class="inline-edit-actions">
+              <button class="inline-edit-btn confirm" type="button" aria-label="Confirmar"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></button>
+              <button class="inline-edit-btn cancel" type="button" aria-label="Cancelar"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </span>
+          </span>
+        </div>
+      </div>
+
+      <p class="legend" style="margin-top: var(--space-5);">Prefix / suffix text · unidades, monedas, dominios</p>
+      <div class="form-grid">
+        <div class="field field-md field-suffix-text">
+          <label class="field-label">Importe a facturar</label>
+          <div class="field-control">
+            <input class="input" type="text" value="49,90">
+            <span class="field-text-affix">€</span>
+          </div>
+          <p class="field-helper">Sin IVA. Se calcula automáticamente.</p>
+        </div>
+        <div class="field field-md field-suffix-text">
+          <label class="field-label">Descuento</label>
+          <div class="field-control">
+            <input class="input" type="text" value="15">
+            <span class="field-text-affix">%</span>
+          </div>
+        </div>
+        <div class="field field-md field-prefix-text">
+          <label class="field-label">URL del sitio</label>
+          <div class="field-control">
+            <span class="field-text-affix">https://</span>
+            <input class="input" type="text" placeholder="mitienda.com">
+          </div>
+        </div>
+        <div class="field field-md field-prefix-text">
+          <label class="field-label">Tu teléfono</label>
+          <div class="field-control">
+            <span class="field-text-affix">+34</span>
+            <input class="input" type="tel" placeholder="600 00 00 00">
+          </div>
+        </div>
+      </div>
+
+      <div class="note" style="margin-top: var(--space-5);">
+        <strong>Cuándo cada una.</strong> Password toggle: cualquier campo de contraseña. Inline edit: editar valores en detail header sin abrir modal. Prefix/suffix text: importes (€), porcentajes (%), URLs, prefijos telefónicos. <strong>Voz Aelium</strong>: aria-labels descriptivos ("Mostrar contraseña" / "Ocultar contraseña"), no genéricos como "Toggle visibility".
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="../scripts.js"></script>
+</body>
+</html>
