@@ -167,6 +167,15 @@ export function ClientSuspendedBannerSection({
             <Link href="/dashboard/billing" className={styles.ctaPrimary}>
               {t('service.suspended.client.cta_pay')}
             </Link>
+          ) : suspensionReasonCode === 'not_renewed' ? (
+            // F4·W3 — no renovado: la recuperación es recontratar (no hay flujo de
+            // reactivación de hosting) → ficha de tienda del producto.
+            <Link
+              href={`/dashboard/store/${service.product_slug}`}
+              className={styles.ctaPrimary}
+            >
+              {t('service.suspended.client.cta_recontract')}
+            </Link>
           ) : (
             <Link href="/dashboard/support" className={styles.ctaSecondary}>
               {t('service.suspended.client.cta_support')}

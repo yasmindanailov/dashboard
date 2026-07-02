@@ -355,6 +355,7 @@ export const TRANSLATIONS_ES: Readonly<Record<string, string>> = Object.freeze({
   'service.suspended.client.reason_label': 'Motivo',
   'service.suspended.client.cta_pay': 'Regularizar el pago',
   'service.suspended.client.cta_support': 'Contactar con soporte',
+  'service.suspended.client.cta_recontract': 'Volver a contratar',
 
   // ── Layout canónico del detalle de servicio (Sprint 15C.II Fase F.12.3).
   //    Copys del frame (tabs + cabecera + secciones genéricas) — voz de marca

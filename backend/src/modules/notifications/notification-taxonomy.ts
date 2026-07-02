@@ -29,6 +29,8 @@ const EVENT_CATEGORY: Readonly<Record<string, NotificationCategory>> = {
   'service.quota_threshold_crossed': 'servicios',
   'service.cancellation_scheduled': 'servicios',
   'service.cancelled': 'servicios',
+  // F4·W3 — aviso pre-vencimiento (auto-renovación desactivada).
+  'service.expiring_soon': 'servicios',
   'service.password_reset': 'servicios',
   'maintenance.completed': 'servicios',
 

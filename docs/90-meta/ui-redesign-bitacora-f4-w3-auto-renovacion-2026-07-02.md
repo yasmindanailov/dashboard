@@ -68,14 +68,38 @@ tras el mapa del backend).
   ✅ (`[internal, manual, enhance_cp, resellerclub]`) · migración aplicada al dev DB.
 - Frontend: `typecheck` ✅ · `lint:check` ✅ · `test` **99** ✅ · `build` ✅.
 
-## 5. Pendiente (Yasmin) / follow-ups
+## 5. Pendiente (Yasmin)
 
 - **Smoke funcional/visual:** togglear en el detalle de servicio + de dominio + ver
-  el estado en el hub.
-- **Follow-up (documentado, no en v1):** aviso **pre-vencimiento** específico para
-  hosting OFF ("tu servicio finaliza el X") — hoy el cliente recibe el email de
-  `service.suspended` al vencer (existente) + el de cancelación a los 30d. Un
-  `service.expiring_soon` propio (evento + plantilla) es una mejora aparte.
-- **Re-enable tras suspensión:** el toggle solo aplica a servicios `active`; un
-  hosting ya suspendido por `not_renewed` se recontrata por otra vía (no se
-  reactiva solo al re-activar el flag) — v1 deliberado.
+  el estado en el hub; ver el aviso pre-vencimiento (MailPit) y el CTA "Volver a
+  contratar" en un servicio suspendido por `not_renewed`.
+
+## 6. Follow-ups implementados (2026-07-02 noche, misma rama/PR)
+
+Ambos pedidos por Yasmin tras la v1:
+
+### 6.1 — Aviso pre-vencimiento para hosting OFF (`service.expiring_soon`)
+- **Cron** `ServiceLifecycleWorker.warnExpiringNonRenewedServices` (09:00 UTC +
+  `runExpiringNonRenewedWarnings` testeable): hosting `active` + `auto_renew=false`
+  + `next_due_date` en ventana **30/14/7/1d** → emite `service.expiring_soon`
+  (EventEmitter, sin Outbox — alerta). **Edge-trigger** por
+  `metadata.auto_renew_expiry_warned_window` (un aviso por ventana; si reactiva la
+  auto-renovación sale de la query). **Excluye dominios** (tienen
+  `domain.expiring_soon`). Mismo patrón que `DomainExpiryWarningsCron`.
+- **Listener** `NotificationsOnServiceExpiringListener` → `dispatchToUser` (email +
+  campana). `panel_url` = detalle del servicio (donde vive el toggle → reactivar).
+- **Plantillas** email+campana (`semantic: warning`, `{{e service_name}}` GL-25) +
+  **taxonomía** `service.expiring_soon → servicios` + **`_events.md`** + test del
+  seed (`INTERNAL_EVENTS`).
+- **Tests:** +2 (`runExpiringNonRenewedWarnings`: emite+persiste ventana / no
+  re-avisa en la misma ventana).
+
+### 6.2 — Recontratar tras suspensión (ítem 2, decisión Yasmin "= recontratar")
+Verificado empíricamente: no existe flujo de reactivación de hosting; la vía
+natural es la tienda. → El banner de servicio suspendido por **`not_renewed`**
+ofrece un CTA **"Volver a contratar"** → `/dashboard/store/{product_slug}` (slug ya
+en el detalle), en vez del genérico "contactar soporte". Sin backend nuevo.
+i18n `service.suspended.client.cta_recontract`.
+
+**DoD (follow-ups):** back typecheck+lint+**1561** test + **boot smoke 4/4** (nuevo
+listener) · front typecheck+lint+**99** test + build.

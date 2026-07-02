@@ -1229,6 +1229,49 @@ correlation_id: {{e correlation_id}}{{/if}}</td></tr></table>
       },
     },
 
+    // ───────────── service.expiring_soon (email cliente) — F4·W3 ─────────────
+    // Aviso pre-vencimiento para hosting con auto-renovación DESACTIVADA: el
+    // servicio finaliza al vencer el periodo si no se reactiva la renovación.
+    {
+      event_type: 'service.expiring_soon',
+      channel: 'email' as const,
+      locale: 'es',
+      semantic: 'warning',
+      subject: 'Tu servicio {{service_name}} finaliza el {{end_date}}',
+      body: `
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><img src="{{app_url}}/brand/email/status-warning.png" width="21" height="21" alt="" style="display:block;border:0"></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Finaliza pronto</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e service_name}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Tu servicio finaliza pronto</h1>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}}, tu servicio <strong style="font-weight:600;color:#0F172A">{{e service_name}}</strong> finaliza el <strong style="font-weight:600;color:#0F172A">{{end_date}}</strong> ({{days_left}} días) porque la auto-renovación está desactivada. Reactívala para mantenerlo — si no, el servicio se suspenderá al vencer.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{panel_url}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Reactivar auto-renovación</a></td></tr></table>
+      `.trim(),
+      variables: {
+        service_id: 'string',
+        service_name: 'string',
+        end_date: 'string',
+        days_left: 'number',
+        panel_url: 'string',
+        'recipient.first_name': 'string?',
+      },
+    },
+    // ───────────── service.expiring_soon (campana cliente) — F4·W3 ─────────────
+    {
+      event_type: 'service.expiring_soon',
+      channel: 'internal' as const,
+      locale: 'es',
+      subject: 'Tu servicio {{service_name}} finaliza el {{end_date}}',
+      body: 'Tu servicio {{service_name}} finaliza el {{end_date}} ({{days_left}} días) porque la auto-renovación está desactivada. Reactívala para mantenerlo.',
+      variables: {
+        service_id: 'string',
+        service_name: 'string',
+        end_date: 'string',
+        days_left: 'number',
+        panel_url: 'string',
+      },
+    },
+
     // ───────────── service.unsuspended (email cliente — Sprint 15C.II Fase F) ─────────────
     //
     // ADR-077 Amendment A4. Emitido por `NotificationsOnServiceUnsuspendedListener`
