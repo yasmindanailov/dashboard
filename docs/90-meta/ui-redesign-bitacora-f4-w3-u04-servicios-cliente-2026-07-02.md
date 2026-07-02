@@ -103,3 +103,23 @@ la plantilla frozen `ServiceDetailLayout` + strip de metadata + tabs del mockup
 (Resumen · Cuidado · Plan y facturación · Actividad). ⚠️ **Decisión pendiente:**
 el `TAB_ORDER (summary/notes/audit)` está **frozen** → las tabs nuevas (Cuidado,
 Plan y facturación) requieren **ADR/Amendment** vs plegar en Resumen.
+
+## 8. Actualización 2026-07-02 (tarde) — review Yasmin
+
+- **Confirmado 1:1 = Variante A ficha** (no MisServicios literal). **Refinada a
+  exacto:** título `--font-size-md` (16 ≈ 15.5 del spec), metadata inline incluye
+  el **tipo** ("Web Pro · **Hosting** · Renueva… · Auto-renovación…"), y la tira de
+  estado pasa a fondo **casi neutro** (`--surface-secondary`) con el tono en el
+  punto + el texto (el spec la dibuja casi blanca, no con tinte saturado).
+- **Auto-renovación:** decisión Yasmin = **toggle REAL, hosting + dominios**
+  ("permitir eso es parte de Aelium"). Verificado empíricamente que hoy **no
+  existe**: ni columna `Service.auto_renew`, ni acción de toggle; `autoRenew` es
+  solo display-only del plugin (`getInfo`), y en RC un dominio **expira** sin
+  auto-renew (`resellerclub.plugin.ts:925`). ⇒ Es una **feature nueva** que va en
+  **PR dedicado** (no se mezcla con el reskin de la lista): columna
+  `Service.auto_renew` + el **worker de facturación** la respeta (OFF → deja
+  expirar en `next_due_date` con avisos) + **endpoint** de toggle (owner/admin) +
+  **acción del plugin RC** para propagar al registrar (ADR-077 amendment additivo,
+  capability-driven) + **control toggle** en el detalle (dominio + servicio). La
+  lista entonces leerá el valor real (hoy muestra "Auto-renovación activada"
+  derivado para activos, honesto pero no toggleable aún).

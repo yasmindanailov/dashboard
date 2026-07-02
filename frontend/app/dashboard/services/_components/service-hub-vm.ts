@@ -53,6 +53,16 @@ function isWithinDays(iso: string | null | undefined, days: number): boolean {
   return t >= now && t - now <= days * 24 * 60 * 60 * 1000;
 }
 
+/** Etiqueta legible del tipo de producto (para la metadata inline de la ficha). */
+const PRODUCT_TYPE_LABEL: Record<string, string> = {
+  hosting_web: 'Hosting',
+  docker_service: 'Servicio',
+  support_inside: 'Support Inside',
+  we_do_it: 'Servicio gestionado',
+  custom_service: 'Servicio a medida',
+  domain: 'Dominio',
+};
+
 /** Normaliza el `status` crudo del backend al set canónico de labels/tonos. */
 function serviceStatusKey(status: string): keyof typeof SERVICE_STATUS_LABEL {
   switch (status) {
@@ -99,6 +109,8 @@ export function serviceCardData(svc: ServiceListItem): ServiceCardData {
   const key = serviceStatusKey(svc.status);
   const renew = fmtDate(svc.next_due_date);
   const metaParts = [svc.product.name];
+  const typeLabel = PRODUCT_TYPE_LABEL[svc.product.type];
+  if (typeLabel) metaParts.push(typeLabel);
   if (renew) metaParts.push(`Renueva ${renew}`);
   // "Auto-renovación activada" es un hecho del sistema para servicios activos
   // con ciclo de facturación (Aelium renueva automáticamente; no hay opt-out):

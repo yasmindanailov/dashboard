@@ -119,7 +119,7 @@
   flex-wrap: wrap;
 }
 .title {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   word-break: break-word;
@@ -145,6 +145,9 @@
   border-top: 1px solid var(--border-faint);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   font-size: var(--font-size-sm);
+  /* Spec Variante A: la tira es casi blanca; el TONO lo llevan el punto + el
+     texto, no un fondo saturado (§4.3 estado con tono, sutil). */
+  background: var(--surface-secondary);
 }
 .stripStatus {
   display: inline-flex;
@@ -153,32 +156,17 @@
   min-width: 0;
   color: var(--text-secondary);
 }
-.strip[data-tone='success'] {
-  background: var(--success-light);
-}
 .strip[data-tone='success'] .stripStatus {
   color: var(--success-dark);
-}
-.strip[data-tone='warning'] {
-  background: var(--warning-light);
 }
 .strip[data-tone='warning'] .stripStatus {
   color: var(--warning-dark);
 }
-.strip[data-tone='danger'] {
-  background: var(--danger-light);
-}
 .strip[data-tone='danger'] .stripStatus {
   color: var(--danger-dark);
 }
-.strip[data-tone='info'] {
-  background: var(--info-light);
-}
 .strip[data-tone='info'] .stripStatus {
   color: var(--brand-hover);
-}
-.strip[data-tone='neutral'] {
-  background: var(--surface-secondary);
 }
 .stripLink {
   display: inline-flex;
