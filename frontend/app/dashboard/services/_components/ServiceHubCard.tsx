@@ -3,36 +3,27 @@
 /**
  * ServiceHubCard — Sprint F4·W3·U04.
  *
- * Card ficha del hub "Mis servicios" (`Servicios Cards Spec` Variante A). Toda
- * la card navega al detalle (onClick); las quick-actions (Abrir panel / DNS /
- * Ver detalle) viven en el menú ⋯ con `stopPropagation` para no navegar al
- * usarlo. Sin gauges ni botones azules (repudiados por el spec). El popover del
- * ⋯ usa `z-index` alto del DS y la card no crea stacking context → nunca queda
- * tapado por cards vecinas del grid.
+ * Card del hub "Mis servicios" 1:1 con `MisServicios.dc.html`: header (icon-well
+ * + nombre + badge + subtítulo) + cuerpo de key-values + footer de acciones. Sin
+ * ⋯ ni tira de estado (redundantes, decisión Yasmin). Support Inside = card
+ * destacada (borde/sombra + header tintado). "Abrir panel" (SSO) es la única
+ * acción con estado cliente (hook `useServiceSso`); el resto navegan.
  */
-import type { KeyboardEvent, MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
-  ArrowRight,
+  Check,
   ChevronRight,
   ExternalLink,
   Globe,
   Monitor,
-  Network,
   ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 
-import {
-  Badge,
-  Dropdown,
-  IconWell,
-  StatusDot,
-  type DropdownItem,
-} from '../../../components/ui';
-import { t } from '../../../_shared/i18n';
+import { Badge, Button, IconWell } from '../../../components/ui';
 import { useServiceSso } from '../../../_shared/services/useServiceSso';
-import type { ServiceCardData, ServiceHubKind } from './service-hub-vm';
+import type { CardAction, ServiceCardData, ServiceHubKind } from './service-hub-vm';
 import styles from './services-hub.module.css';
 
 const KIND_ICON: Record<ServiceHubKind, LucideIcon> = {
@@ -43,84 +34,85 @@ const KIND_ICON: Record<ServiceHubKind, LucideIcon> = {
 
 export default function ServiceHubCard({
   kind,
-  href,
+  highlight,
   title,
   badge,
-  meta,
-  strip,
-  dnsHref,
-  sso,
+  subtitle,
+  facts,
+  actions,
 }: ServiceCardData) {
   const router = useRouter();
-  // Hook llamado incondicionalmente (regla de hooks); si no hay SSO, el ítem no
-  // se añade y `launch` no se invoca.
-  const { launch, loading } = useServiceSso(sso?.serviceId ?? '', false);
+  const ssoAction = actions.find((a) => a.type === 'sso');
+  // Hook incondicional (regla de hooks); si no hay SSO, `launch` no se usa.
+  const { launch, loading } = useServiceSso(ssoAction?.serviceId ?? '', false);
 
   const Icon = KIND_ICON[kind];
+  const detail = actions.find((a) => a.variant === 'detail');
+  const buttons = actions.filter((a) => a.variant !== 'detail');
 
-  const items: DropdownItem[] = [];
-  if (sso) {
-    const label = sso.panelLabel ? `Abrir ${t(sso.panelLabel)}` : 'Abrir panel';
-    items.push({
-      label: loading ? 'Abriendo…' : label,
-      onClick: launch,
-      disabled: loading,
-      icon: <ExternalLink size={15} />,
-    });
-  }
-  if (dnsHref) {
-    items.push({
-      label: 'Gestionar DNS',
-      onClick: () => router.push(dnsHref),
-      icon: <Network size={15} />,
-    });
-  }
-  items.push({
-    label: 'Ver detalle',
-    onClick: () => router.push(href),
-    icon: <ArrowRight size={15} />,
-  });
-
-  const stop = (e: MouseEvent | KeyboardEvent) => e.stopPropagation();
+  const renderButton = (a: CardAction) => {
+    if (a.type === 'sso') {
+      return (
+        <Button
+          key={a.label}
+          size="sm"
+          variant="primary"
+          rightIcon={<ExternalLink size={13} />}
+          onClick={launch}
+          disabled={loading}
+        >
+          {loading ? 'Abriendo…' : a.label}
+        </Button>
+      );
+    }
+    return (
+      <Button
+        key={a.label}
+        size="sm"
+        variant={a.variant === 'primary' ? 'primary' : 'secondary'}
+        onClick={() => a.href && router.push(a.href)}
+      >
+        {a.label}
+      </Button>
+    );
+  };
 
   return (
-    <div
-      className={styles.card}
-      role="link"
-      tabIndex={0}
-      onClick={() => router.push(href)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') router.push(href);
-      }}
-    >
-      <div className={styles.body}>
-        <IconWell
-          icon={Icon}
-          tone="brand"
-          size="lg"
-          filled={kind === 'support_inside'}
-        />
+    <article className={`${styles.card} ${highlight ? styles.cardHighlight : ''}`}>
+      <header className={`${styles.header} ${highlight ? styles.headerTinted : ''}`}>
+        <IconWell icon={Icon} tone="brand" size="lg" filled={highlight} />
         <div className={styles.identity}>
           <div className={styles.titleRow}>
             <span className={styles.title}>{title}</span>
             <Badge variant={badge.variant}>{badge.label}</Badge>
           </div>
-          <div className={styles.meta}>{meta}</div>
+          <div className={styles.subtitle}>{subtitle}</div>
         </div>
-        <div className={styles.menu} onClick={stop} onKeyDown={stop}>
-          <Dropdown items={items} align="right" />
+      </header>
+
+      {facts.length > 0 && (
+        <div className={styles.facts}>
+          {facts.map((f) => (
+            <div key={f.label} className={styles.fact}>
+              <div className={styles.factLabel}>{f.label}</div>
+              <div className={styles.factValue}>
+                {f.check && <Check size={14} className={styles.factCheck} />}
+                {f.value}
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
-      <div className={styles.strip} data-tone={strip.tone}>
-        <span className={styles.stripStatus}>
-          <StatusDot color={strip.tone} pulse={strip.tone === 'success'} />
-          {strip.text}
-        </span>
-        <span className={styles.stripLink}>
-          Ver detalle
-          <ChevronRight size={14} />
-        </span>
-      </div>
-    </div>
+      )}
+
+      <footer className={styles.footer}>
+        {buttons.map(renderButton)}
+        {detail?.href && (
+          <Link href={detail.href} className={styles.detailLink}>
+            {detail.label}
+            <ChevronRight size={15} />
+          </Link>
+        )}
+      </footer>
+    </article>
   );
 }

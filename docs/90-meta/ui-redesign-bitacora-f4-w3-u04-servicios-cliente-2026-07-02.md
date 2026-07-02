@@ -123,3 +123,35 @@ Plan y facturación) requieren **ADR/Amendment** vs plegar en Resumen.
   capability-driven) + **control toggle** en el detalle (dominio + servicio). La
   lista entonces leerá el valor real (hoy muestra "Auto-renovación activada"
   derivado para activos, honesto pero no toggleable aún).
+
+## 9. Actualización 2026-07-02 (2ª review Yasmin) — cards 1:1 con `MisServicios.dc.html`
+
+Yasmin pidió que las cards sean **idénticas al mockup real**, por tipo, con estas
+reglas. Rediseño (mismos archivos, verde front typecheck+lint+**96**+build):
+
+- **Layout:** hosting **2 columnas** (grid responsive), dominios **1 columna**,
+  Support Inside **1 columna**.
+- **Anatomía por tipo** (header icon-well + nombre + badge + subtítulo · cuerpo de
+  **key-values** · footer de acciones):
+  - **Hosting:** subtítulo "Producto · Hosting" · key-values Renueva /
+    Auto-renovación (derivada) · footer **Abrir panel** (SSO, si capability) +
+    **Gestionar DNS** (si capability) + **Ver detalle →**.
+  - **Dominio:** key-value **Renueva** · footer **Gestionar DNS** + **Ver detalle →**.
+  - **Support Inside:** card **destacada** (borde/sombra de marca + header
+    tintado + icon filled) · key-values Mantenimientos (`slots_included`/mes) /
+    Respuesta (SLA) / Tu técnico · footer **Gestionar mi plan** + **Ver planes
+    superiores**.
+- **Quitado (decisión Yasmin):** el **⋯** (redundante con "Ver detalle") y la
+  **tira "Todo en orden"** (redundante con el estado del header/banner). La card ya
+  **no** navega entera (usa las CTAs explícitas del mockup).
+- **Fuera (coste/no disponible):** gauges de hosting + nameservers de dominio
+  (`getInfo`, caro) · detalles de "transferencia en curso" (`transfer_state` no
+  viene en la lista).
+- **⚠️ Honestidad (dominios):** NO se muestra "Auto-renovación" en la card de
+  dominio — hoy los dominios (ResellerClub) **expiran** (no auto-renuevan);
+  afirmar "Activada" sería falso y con **riesgo real** de perder el dominio. Se
+  añadirá cuando el toggle de auto-renovación (vía registrar) sea real.
+- **Auto-renovación (toggle real):** decisión Yasmin = **hosting + dominios**,
+  **PR dedicado** tras el merge de U04. Toggle en **ambos detalles** (dominio +
+  servicio). Plan: Amendment ADR-077 additivo + columna `Service.auto_renew` +
+  worker respeta el OFF + acción del plugin RC hacia el registrar + UI.

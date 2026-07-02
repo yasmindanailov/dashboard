@@ -108,7 +108,11 @@ export default async function ClientServicesPage() {
       ) : (
         <div className={styles.groups}>
           {serviceCards.length > 0 && (
-            <ServiceHubGroup title="Webs y hosting" count={serviceCards.length}>
+            <ServiceHubGroup
+              title="Webs y hosting"
+              count={serviceCards.length}
+              columns={2}
+            >
               {serviceCards.map((c) => (
                 <ServiceHubCard key={c.id} {...c} />
               ))}
