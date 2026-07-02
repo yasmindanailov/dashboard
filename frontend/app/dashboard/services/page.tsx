@@ -9,9 +9,9 @@
  *   · Dominios        → `GET /domains`  (viven aquí; "Dominios" salió del nav F2)
  *   · Soporte y planes→ `GET /dashboard/support-inside/status`
  *
- * Doctrina de la lista (UI_SPEC §2.4): identidad + estado en lenguaje claro, sin
- * gauges (viven en el detalle), 1 sola primaria ("Contratar servicio"),
- * quick-actions en el menú ⋯. Cada fetch degrada de forma independiente
+ * Cards 1:1 con `MisServicios.dc.html` por tipo (header + key-values + footer de
+ * acciones), agrupadas por categoría con contadores + filtro por tipo
+ * (multi-selección, `ServicesHubView`). Cada fetch degrada de forma independiente
  * (`allSettled`): si Support Inside falla, hosting/dominios se siguen mostrando.
  */
 import Link from 'next/link';
@@ -24,8 +24,7 @@ import type {
   SupportInsideSubscriptionPayload,
 } from '../../lib/api';
 import type { ListDomainsResponse } from '../../_shared/domains/types';
-import ServiceHubCard from './_components/ServiceHubCard';
-import ServiceHubGroup from './_components/ServiceHubGroup';
+import ServicesHubView from './_components/ServicesHubView';
 import {
   aggregateHealth,
   domainCardData,
@@ -106,33 +105,11 @@ export default async function ClientServicesPage() {
           }
         />
       ) : (
-        <div className={styles.groups}>
-          {serviceCards.length > 0 && (
-            <ServiceHubGroup
-              title="Webs y hosting"
-              count={serviceCards.length}
-              columns={2}
-            >
-              {serviceCards.map((c) => (
-                <ServiceHubCard key={c.id} {...c} />
-              ))}
-            </ServiceHubGroup>
-          )}
-          {domainCards.length > 0 && (
-            <ServiceHubGroup title="Dominios" count={domainCards.length}>
-              {domainCards.map((c) => (
-                <ServiceHubCard key={c.id} {...c} />
-              ))}
-            </ServiceHubGroup>
-          )}
-          {siCards.length > 0 && (
-            <ServiceHubGroup title="Soporte y planes" count={siCards.length}>
-              {siCards.map((c) => (
-                <ServiceHubCard key={c.id} {...c} />
-              ))}
-            </ServiceHubGroup>
-          )}
-        </div>
+        <ServicesHubView
+          serviceCards={serviceCards}
+          domainCards={domainCards}
+          siCards={siCards}
+        />
       )}
     </ListPage>
   );

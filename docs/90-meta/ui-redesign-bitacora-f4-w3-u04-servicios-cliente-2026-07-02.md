@@ -155,3 +155,21 @@ reglas. Rediseño (mismos archivos, verde front typecheck+lint+**96**+build):
   **PR dedicado** tras el merge de U04. Toggle en **ambos detalles** (dominio +
   servicio). Plan: Amendment ADR-077 additivo + columna `Service.auto_renew` +
   worker respeta el OFF + acción del plugin RC hacia el registrar + UI.
+
+## 10. Actualización 2026-07-02 (3ª review Yasmin) — filtro por tipo (multi-selección)
+
+Feature nueva (**no está en el mockup**): filtrar los servicios del hub por tipo.
+Decisiones Yasmin: **por tipo/categoría** + **multi-selección**.
+
+- **DS (additivo, sistémico):** `ChipGroup` ampliado a **multi-selección** vía unión
+  discriminada de props (`multiple: true` → `value: string[]` / `onChange:
+  (string[]) => void`; a11y `role=group` + `aria-pressed`). El modo único (default)
+  queda **intacto** (`role=tab` + `aria-selected`) → los usos previos
+  (Notificaciones E10, ds-preview) no cambian. +3 tests. **⚠️ Re-smoke:** filtros
+  de Notificaciones (misma primitiva).
+- **Hub:** nueva isla cliente `ServicesHubView` — chips "Webs y hosting (n) /
+  Dominios (n) / Support Inside (n)", multi-select, por defecto todos activos; cada
+  chip muestra/oculta su grupo; sin ninguno → empty state. El filtro solo aparece
+  si hay **>1 tipo** presente. `page.tsx` (SC) calcula los datos y delega la
+  interacción en la isla.
+- **DoD verde:** front typecheck+lint+**99** test+build.
