@@ -76,36 +76,32 @@ export async function seedNotificationTemplates(
     },
 
     // ───────────── invoice.paid ─────────────
+    // PILOTO F4·W3 del layout maestro: `semantic` no-nulo → `body` es el
+    // FRAGMENTO del cuerpo (el render lo envuelve en `buildEmailLayout`). Usa
+    // `{{email.*}}` (colores del tono, inyectados) y `{{app_url}}` (URL absoluta).
+    // 1:1 con `mockup-uiux/Correo Ejemplo Pago.dc.html`.
     {
       event_type: 'invoice.paid',
       channel: 'email' as const,
       locale: 'es',
-      subject: '✓ Pago confirmado — {{invoice_number}}',
+      semantic: 'success',
+      subject: 'Pago confirmado — {{invoice_number}}',
       body: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 32px; border-radius: 16px 16px 0 0;">
-            <h1 style="color: #fff; margin: 0; font-size: 24px;">✓ Pago confirmado</h1>
-            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">{{invoice_number}}</p>
-          </div>
-          <div style="background: #fff; padding: 32px; border: 1px solid #f0f0f0; border-top: none; border-radius: 0 0 16px 16px;">
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hola{{#if recipient.first_name}} {{e recipient.first_name}}{{/if}},
-            </p>
-            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-              Hemos recibido tu pago de <strong>{{total}} {{currency}}</strong>. Tu servicio está activo.
-            </p>
-            <div style="background: #f0fdf4; border-radius: 12px; padding: 20px; margin: 20px 0; border: 1px solid #bbf7d0;">
-              <table style="width: 100%; font-size: 14px; color: #374151;">
-                <tr><td style="padding: 4px 0; color: #6b7280;">Factura:</td><td style="text-align: right; font-weight: 600;">{{invoice_number}}</td></tr>
-                <tr><td style="padding: 4px 0; color: #6b7280;">Importe:</td><td style="text-align: right; font-weight: 600;">{{total}} {{currency}}</td></tr>
-                <tr><td style="padding: 4px 0; color: #6b7280;">Vía:</td><td style="text-align: right;">{{payment_provider}}</td></tr>
-              </table>
-            </div>
-            <p style="color: #6b7280; font-size: 13px;">
-              Puedes descargar el PDF de tu factura desde tu panel de cliente.
-            </p>
-          </div>
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px"><tr>
+          <td valign="middle" style="padding-right:13px"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" valign="middle" width="44" height="44" bgcolor="{{email.tint}}" style="width:44px;height:44px;background:{{email.tint}};border-radius:12px"><div style="width:12px;height:12px;border-radius:12px;background:{{email.accent}};font-size:0;line-height:0">&nbsp;</div></td></tr></table></td>
+          <td valign="middle"><div style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.3;color:{{email.fg}}">Pago confirmado</div><div style="font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12.5px;color:#94A3B8;margin-top:2px">{{e invoice_number}}</div></td>
+        </tr></table>
+        <h1 style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:23px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#0F172A">Gracias{{#if recipient.first_name}}, {{e recipient.first_name}}{{/if}}.</h1>
+        <p style="margin:0 0 14px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Hemos recibido tu pago de la factura <strong style="font-weight:600;color:#0F172A">{{e invoice_number}}</strong>. Tu servicio sigue activo — no tienes que hacer nada.</p>
+        <p style="margin:0 0 26px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.62;color:#334155">Te dejo el resumen por si lo necesitas:</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;border:1px solid #E6ECF3;border-radius:12px;background:#F8FAFF"><tr><td style="padding:18px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Factura</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{e invoice_number}}</td></tr>
+          <tr><td style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#64748B">Vía</td><td align="right" style="padding:7px 0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">{{e payment_provider}}</td></tr>
+          <tr><td colspan="2" style="padding:12px 0 0"><div style="height:1px;background:#E6ECF3;margin-bottom:12px;font-size:0;line-height:0">&nbsp;</div></td></tr>
+          <tr><td style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;font-weight:600;color:#0F172A">Total pagado</td><td align="right" style="font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:18px;font-weight:700;letter-spacing:-0.01em;color:{{email.fg}}">{{total}} {{currency}}</td></tr>
+        </table></td></tr></table>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 6px"><tr><td align="center" bgcolor="#3B82F6" style="border-radius:11px;background:#3B82F6"><a href="{{app_url}}/dashboard/billing/{{invoice_id}}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:11px">Ver factura</a></td></tr></table>
+        <p style="margin:0 0 4px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:13.5px;line-height:1.6;color:#94A3B8;text-align:center">También la tienes en tu panel → Facturas.</p>
       `.trim(),
       variables: {
         invoice_id: 'string',

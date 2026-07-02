@@ -11,6 +11,38 @@
 
 ---
 
+## Layout maestro (F4·W3 — oficial)
+
+> Fuente de verdad del diseño: `mockup-uiux/Layout de Correo.dc.html` +
+> `Correo Ejemplo Pago.dc.html`. Builder: **`backend/src/core/email/email-layout.ts`**.
+
+Esqueleto común a todos los correos (banda de acento semántica · cabecera con
+logo · cuerpo con los "huecos" · footer fijo con "responde a este correo" + RGPD
++ preferencias). **HTML de email robusto**: tablas + estilos inline (no
+flexbox/grid — Outlook), **sin SVG** (Gmail lo elimina) → el estado se comunica
+con la banda de acento + **StatusDot** (D1) + etiqueta de color; logo = wordmark
+de texto. DM Sans + DM Mono. **Sin emojis** (D1).
+
+- **`buildEmailLayout({ semantic, status?, preheader?, bodyHtml })`** envuelve el
+  cuerpo en el layout. Bloques: `emailHeading` · `emailParagraph` · `emailDataBox`
+  · `emailButton`/`emailButtonSecondary` · `emailCallout` · `emailCodeBox` · `emailNote`.
+- **Tono** `semantic`: `info` (#3B82F6) · `success` (#10B981) · `warning` (#F59E0B)
+  · `danger` (#EF4444) → banda + fila de estado + total.
+
+### Cómo lo usan los correos
+
+| Origen | Layout |
+|--------|--------|
+| **Auth** (`core/email/templates/auth.templates.ts`: verificar · 2FA · reset · bienvenida) | Llaman a `buildEmailLayout` + bloques directamente (código). Migrados F4·W3 (sin emojis). |
+| **Notificación** (`notification_templates`, BD) | **Columna `semantic`**: `NULL` = plantilla **legacy** (HTML completo en `body`, se envía tal cual) · **NOT NULL** = `body` es el **FRAGMENTO** del cuerpo y el render (`NotificationTemplateService`) lo envuelve en el layout. Inyecta `{{email.accent/tint/fg}}` (colores del tono) + `{{app_url}}` (URLs absolutas). |
+
+**Migración gradual (fundación + referencia):** piloto **`invoice.paid`** ✅ migrado
+(semantic=`success`, 1:1 con `Correo Ejemplo Pago`). Los **~36 templates restantes**
+siguen legacy (`semantic=NULL`) hasta su **sweep** (follow-up): por cada uno,
+reescribir `body` a fragmento + fijar `semantic` (columna o `PATCH /admin/.../templates/:id`).
+
+---
+
 ## Resumen ejecutivo
 
 | Métrica | Valor |
